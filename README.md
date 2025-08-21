@@ -1,7 +1,6 @@
 # FlowTime
 
-[![Build](https://github.com/23min/FlowTime/actions/workflows/build.yml/badge.svg)](https://github.com/23min/FlowTime/actions/workflows/build.yml)
-[![CodeQL](https://github.com/23min/FlowTime/actions/workflows/codeql.yml/badge.svg)](https://github.com/23min/FlowTime/actions/workflows/codeql.yml)
+ [![Build](https://github.com/23min/FlowTime/actions/workflows/build.yml/badge.svg)](https://github.com/23min/FlowTime/actions/workflows/build.yml)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
 > **FlowTime** is a deterministic, discrete-time, graph-based engine that models flows (entities) across services and queues, producing explainable time-series for backlog, latency, and throughput—useful for **what-if** (simulation) and **what-is/what-was** (time-travel observability). It feels **spreadsheet-like**, with a lightweight **SPA UI** for interactive analysis.
