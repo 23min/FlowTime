@@ -1,0 +1,23 @@
+{
+  // VS Code debug config to run the FlowTime CLI
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": ".NET Launch FlowTime.Cli (hello)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/src/FlowTime.Cli/bin/Debug/net9.0/FlowTime.Cli.dll",
+      "args": [
+        "run",
+        "examples/hello/model.yaml",
+        "--out",
+        "out/hello",
+        "--verbose"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "stopAtEntry": false
+    }
+  ]
+}

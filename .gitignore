@@ -1,0 +1,46 @@
+# Build outputs
+bin/
+obj/
+
+# VS Code
+.vscode/.history/
+
+# User-specific
+*.user
+*.suo
+*.userprefs
+
+# Rider/JetBrains
+.idea/
+*.sln.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Packaging
+*.zip
+*.tar
+*.tar.gz
+
+# Logs
+*.log
+
+# Test results
+TestResult*/
+*.trx
+
+# Coverage
+coverage/
+*.coverage
+*.coveragexml
+
+# NuGet
+*.nupkg
+*.snupkg
+**/packages/*
+!**/packages/build/
+!**/packages/repositories.config
+
+# Azure Functions local
+local.settings.json

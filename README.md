@@ -1,0 +1,293 @@
+# FlowTime
+
+![Build](https://github.com/<OWNER>/<REPO>/actions/workflows/build.yml/badge.svg)
+![CodeQL](https://github.com/<OWNER>/<REPO>/actions/workflows/codeql.yml/badge.svg)
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+
+> **FlowTime** is a deterministic, discrete-time, graph-based engine that models flows (entities) across services and queues, producing explainable time-series for backlog, latency, and throughput—useful for **what-if** (simulation) and **what-is/what-was** (time-travel observability). It feels **spreadsheet-like**, with a lightweight **SPA UI** for interactive analysis.
+
+---
+
+## Highlights
+
+* **What-if**: model scenarios like outages, surges, reroutes, retry storms.
+* **What-is / what-was**: visualize the actual system state and history for incident forensics, SLA monitoring, and business flow impact.
+* **Unification**: provide a *single source of truth* that maps technical telemetry into business-relevant flows.
+* **Scalability**: run in seconds on 100+ nodes × months of telemetry, suitable for interactive analysis.
+* **Ownership**: lightweight codebase, no costly DES licenses, extensible by your team.
+
+---
+
+## Table of contents
+
+* [Who is this for?](#who-is-this-for)
+* [Design principles](#design-principles)
+* [Architecture](#architecture)
+* [Repository layout](#repository-layout)
+* [Quickstart](#quickstart)
+
+  * [Local development](#local-development)
+  * [Configuration & secrets](#configuration--secrets)
+  * [Storage](#storage)
+  * [Real‑time](#real-time)
+  * [CLI reference (M0)](#cli-reference-m0)
+* [Milestone M0 scope](#milestone-m0-scope)
+* [What’s next (milestone ladder)](#whats-next-milestone-ladder)
+* [CI/CD & deployment](#cicd--deployment)
+* [Data & formats](#data--formats)
+* [Concepts](docs/concepts/nodes-and-expressions.md)
+* [CLI Guide](docs/CLI.md)
+* [Docs & roadmap](#docs--roadmap)
+* [Contributing](#contributing)
+* [License](#license)
+* [Trademark](#trademark)
+
+---
+
+## Who is this for?
+
+Teams who need **explainable flow modeling** and **time-travel observability**—without heavyweight simulation tooling. SREs, platform eng, data/ops analysts, and product owners who want “spreadsheet-like” clarity with reproducible runs and CSV outputs.
+
+## Design principles
+
+### API‑First
+
+* All features are callable via the **HTTP API** first.
+* CLI, UI, and automation layers consume the same API surface.
+* Ensures end‑to‑end validation from day one. *(Initial hosting may use **Azure Functions**, but the API is host‑agnostic and swappable.)*
+
+### Spreadsheet Metaphor
+
+* Deterministic, **grid‑aligned** evaluation.
+* Cells ≈ time‑bins; formulas = **expressions**, **PMFs**, and built‑ins.
+* Graph nodes reference each other like spreadsheet cells.
+
+### Visualization Early
+
+* UI is introduced early, not deferred.
+* Basic charts validate the model, aid debugging, and improve adoption.
+
+### Expressions as Core
+
+* `expr:` fields make FlowTime “spreadsheet‑y”.
+* Roles: **modeling** dependencies & math; **lineage** across nodes; **teaching/demo** for non‑experts.
+
+### Probabilistic Mass Functions (PMFs)
+
+* Optional approximation for arrivals/attempts.
+* Replaceable by real telemetry; telemetry can also be reduced to PMFs.
+* Scope: start with **expected‑value series**; later add **convolution/propagation**.
+
+---
+
+## Architecture
+
+**Monorepo** with these components:
+
+* **FlowTime.Core** — the engine: canonical time grid, series math, DAG, nodes/evaluation. *(present in M0)*
+* **FlowTime.Cli** — a CLI that evaluates YAML models and writes CSV. *(present in M0)*
+* **FlowTime.UI** — SPA (Blazor WASM) to visualize runs. *(planned)*
+* **FlowTime.API** — backend for graph/run/state (also hosts negotiate for real-time). *(planned)*
+
+**API‑first**: All features are exposed via the HTTP API; CLI and UI consume the same surface. The API will be hosted behind a neutral "FlowTime.API" service (initially Azure Functions is a likely host, but the implementation is swappable). Endpoints: negotiate, `/graph`, `/run`, `/state_window`.
+
+### Hosting options (FlowTime.API)
+
+FlowTime.API is host‑agnostic. Pick the option that fits your platform; the engine stays the same and only a thin adapter changes.
+
+- Azure Functions (HTTP triggers): quick local dev, scale‑to‑zero, serverless ergonomics.
+- ASP.NET Core minimal APIs (Kestrel or container): portable, simple, no platform dependency.
+- Containers/orchestrators: package either host in a container for Kubernetes/App Service/etc.
+
+Swappability contract: HTTP surface and DTOs remain identical regardless of host; only wiring and deployment differ.
+
+**Real‑time** (planned) is provider‑agnostic: the UI calls a **negotiate** endpoint to obtain a temporary WebSocket pub/sub URL; implementations can swap behind an abstraction (Web PubSub, SignalR, SSE).
+
+**Data** starts with **CSV**; artifacts can optionally persist in **blob storage**. Cloud data layers (**ADLS Gen2**, **S3**) are planned via a storage provider abstraction.
+
+**Auth**: **KISS (anonymous)** for dev/demo; enterprises can enable **Entra ID** later without changing the core.
+
+---
+
+## Repository layout
+
+```
+flowtime/
+├─ src/
+│  ├─ FlowTime.Core/
+│  └─ FlowTime.Cli/
+├─ tests/
+│  └─ FlowTime.Tests/
+├─ examples/
+│  └─ hello/
+├─ docs/
+│  ├─ ROADMAP.md
+│  └─ releases/
+│     └─ M0.md
+├─ FlowTime.sln
+└─ README.md (this file)
+```
+
+Optional folders (to be added in later milestones):
+
+```
+infra/                    # IaC templates (Bicep/ARM/Template Spec)
+.github/workflows/        # build.yml, codeql.yml
+ui/FlowTime.UI/           # SPA (planned)
+apis/FlowTime.API/        # backend (planned)
+```
+
+---
+
+## Quickstart
+
+### Local development
+
+**Prereqs**: .NET **9** SDK, Git.
+
+```powershell
+# restore & build
+dotnet restore
+dotnet build
+
+# run unit tests
+dotnet test
+
+# run the example model (writes out/hello/served.csv)
+dotnet run --project src/FlowTime.Cli -- run examples/hello/model.yaml --out out/hello
+
+# peek at the CSV (first lines)
+Get-Content out/hello/served.csv | Select-Object -First 5
+```
+
+Bash equivalent:
+
+```bash
+head -n 5 out/hello/served.csv
+```
+
+> API/UI are not part of M0. They’ll arrive as Functions (+ SPA) in later milestones.
+
+Tip (VS Code): use the preconfigured tasks
+
+```text
+Terminal > Run Task...
+  - build         # runs dotnet build
+  - test          # runs dotnet test
+  - run: hello    # runs the CLI against examples/hello/model.yaml (writes out/hello)
+```
+
+### Configuration & secrets
+
+Not applicable for M0 CLI runs. Future backend + SPA will use environment configuration and optional secret stores (e.g., Key Vault) as needed.
+
+### Storage
+
+* **CSV** is first-class (models + outputs).
+* **Blob storage** is optional and opt‑in for persisting runs/artifacts.
+* **Later**: plug in **ADLS Gen2** or **S3** via the storage abstraction.
+
+### Real‑time
+
+Planned: **WebSocket pub/sub** with a **negotiate** step; alternatives like **SignalR** or **SSE** can fit behind an interface.
+
+### CLI reference (M0)
+
+```bash
+# Evaluate a YAML model and write CSV outputs
+dotnet run --project src/FlowTime.Cli -- run <path/to/model.yaml> --out out/<name> --verbose
+
+# Options (examples)
+# --out out/run1             # output directory
+# --verbose                  # print evaluation summary to stdout
+# --via-api http://localhost:7071  # optional: route the run via the API for parity; falls back to local eval until SVC-M0 ships
+```
+
+---
+
+## Milestone M0 scope
+
+Implement the minimal useful slice:
+
+* Canonical grid and numeric Series types.
+* DAG execution with **topological ordering** and **cycle detection**.
+* Minimal node set: **constant series** and **binary Add/Mul** (supports scalar RHS).
+* YAML → **evaluate** → **CSV export** via CLI.
+* Tiny sample model (`examples/hello`) and unit tests.
+
+Deferred to next milestones: backlog/queues, routing, autoscale; backend; SPA viewer; extended nodes (shift/resample/delay).
+
+---
+
+## What’s next (milestone ladder)
+
+A high‑level view of upcoming work (details live in `docs/ROADMAP.md`):
+
+* **M1 — Foundation hygiene**: richer validation & errors; run metadata; culture‑invariant CSV.
+* **M2 — Backlog v1 + latency**: single‑queue backlog with capacity clamp; Little’s Law latency; KPIs.
+* **M3 — Routing & caps**: split/merge flows; capacity clamps; overflow reporting.
+* **M4 — Expressions**: parser + built‑ins (`SHIFT/DELAY/RESAMPLE`) and node references.
+* **M5 — UI + backend**: FlowTime.API (`/graph`, `/run`, `/state_window`, `/negotiate`) and SPA viewer.
+* **M6 — Storage providers**: Blob first; ADLS/S3 providers.
+* **M7 — Real‑time**: notifier abstraction; WebSocket pub/sub default; SignalR/SSE adapters.
+
+> Track progress and comment on prioritization in **`docs/ROADMAP.md`**.
+
+---
+
+## CI/CD & deployment
+
+**Local-first**: use the CLI. CI workflows and code scanning can be added under `.github/workflows/`.
+
+**Cloud (optional, later)**
+
+* Any static host for the SPA + any app host/serverless for the backend.
+* Secret/config management via your platform’s secret store (e.g., Key Vault + App Config if you deploy on Azure).
+
+---
+
+## Data & formats
+
+**CSV outputs** use a simple, culture‑invariant, human‑readable schema per series (example):
+
+```
+t,value
+0,12.5
+1,13.1
+2,15.0
+```
+
+Where `t` is the **bin index** (aligned to the model’s canonical grid). Additional metadata (grid size, bin minutes, model hash) will be emitted alongside results in future milestones.
+
+---
+
+## Docs & roadmap
+
+* **Roadmap**: see [`docs/ROADMAP.md`](docs/ROADMAP.md).
+* **Release notes**: see `docs/releases/` (e.g., [`docs/releases/M0.md`](docs/releases/M0.md)). Consider tagging GitHub Releases that link to these notes.
+* **Concepts**: see [Nodes, expressions, and execution](docs/concepts/nodes-and-expressions.md) for how models compile to node graphs and run deterministically.
+
+---
+
+## Contributing
+
+We welcome issues and PRs.
+
+1. Create a topic branch from `main`.
+2. `dotnet test` must pass; keep analyzers/formatting clean.
+3. Follow Conventional Commits (`feat:`, `fix:`, `docs:`, ...).
+4. For larger changes, open an issue first to align on direction.
+
+> Be kind and constructive. A `CODE_OF_CONDUCT.md` may be added; until then, treat others with respect.
+
+---
+
+## License
+
+**MIT** — permissive and simple. See [`LICENSE`](LICENSE).
+
+---
+
+## Trademark
+
+**FlowTime** and the associated word mark are claimed by the project owner. You may reference FlowTime factually, but please avoid implying endorsement. For brand questions, contact the owner.
