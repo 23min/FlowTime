@@ -780,6 +780,22 @@ Shade percentile bands on charts.
 
 ---
 
+## M16 — WASM engine (browser-run) — Future
+
+Goal: Run the engine in the browser for interactive what‑if modeling and offline demos; keep outputs identical to server runs.
+
+Scope (brief):
+- WASM binding exposing the same run API as the server engine; no HTTP.
+- UI toggle for Run Mode: Server (API) vs Browser (WASM).
+- Target: ~150 nodes × 7–14 days × 5m bins with AOT; parity via shared golden vectors.
+
+Deliverables:
+- src/FlowTime.Core.Wasm (binding) and UI wiring.
+- Tests for parity and basic perf budgets.
+- docs/wasm.md with build flags (SIMD, optional AOT).
+
+---
+
 # Repository Layout
 
 ```
