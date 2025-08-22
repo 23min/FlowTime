@@ -12,9 +12,5 @@
     "github.copilot.advanced": {
         "debug.useNodeFetcher": true,
         "debug.useNodeFetchFetcher": false
-    },
-    "remote.extensionKind": {
-        "github.copilot": "ui",
-        "github.copilot-chat": "ui"
-    },
+    }
 }
