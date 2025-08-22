@@ -32,6 +32,11 @@ Purpose: give AI agents the minimum context to be productive and safe in this re
 - Maintain parity between CLI CSV and API JSON for the same model.
 - Add/keep contract tests (future: dedicated parity suite). Update tests/docs on intentional changes.
 
+## API contracts and errors (M0)
+- Content type: `text/plain` with YAML body for `/run` and `/graph`.
+- Error model: return `400 Bad Request` with `{ error: "..." }` for invalid input; avoid `500` by validating early.
+- `/graph` semantics: POST in M0 (graph is compiled from request body; no server-side model). Add a GET variant when models become server resources (e.g., `GET /models/{id}/graph`).
+
 ## Coding patterns and style
 - .NET 9, C# nullable + implicit usings enabled.
 - Avoid private field names starting with `_` (analyzers may flag them in tests).
