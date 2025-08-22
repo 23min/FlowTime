@@ -28,9 +28,20 @@
         "eamodio.gitlens",
         "github.vscode-github-actions",
         "mhutchie.git-graph",
-        "redhat.vscode-yaml"
+        "redhat.vscode-yaml",
+        "GitHub.copilot",
+        "github.copilot-chat"
       ]
     }
   },
-  "remoteUser": "vscode"
+  "remoteUser": "vscode",
+  "runArgs": [
+    "--sysctl",
+    "net.ipv6.conf.all.disable_ipv6=1",
+    "--sysctl",
+    "net.ipv6.conf.default.disable_ipv6=1"
+  ],
+  "remoteEnv": {
+    "NODE_OPTIONS": "--dns-result-order=ipv4first"
+  }
 }

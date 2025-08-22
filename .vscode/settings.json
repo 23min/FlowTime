@@ -1,0 +1,20 @@
+{
+    "github.authentication.scopes": [
+        "read:user",
+        "repo",
+        "workflow",
+        "user:email"
+    ],
+    "github.useLocalServer": false,
+    "http.proxy": "",
+    "http.proxySupport": "off",
+    "http.systemCertificates": true,
+    "github.copilot.advanced": {
+        "debug.useNodeFetcher": true,
+        "debug.useNodeFetchFetcher": false
+    },
+    "remote.extensionKind": {
+        "github.copilot": "ui",
+        "github.copilot-chat": "ui"
+    },
+}
