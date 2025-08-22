@@ -85,6 +85,7 @@ app.MapPost("/run", async (HttpRequest req) =>
 });
 
 // POST /graph — returns nodes and edges (inputs)
+// TODO: Add GET /models/{id}/graph when models become server resources; keep POST for body-supplied YAML in M0.
 app.MapPost("/graph", async (HttpRequest req) =>
 {
     try

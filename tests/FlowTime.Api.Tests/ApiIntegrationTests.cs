@@ -12,6 +12,28 @@ public class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
     }
 
     [Fact]
+    public async Task Run_InvalidExpr_ReturnsBadRequestWithError()
+    {
+        var client = factory.CreateClient();
+    var yaml = @"grid:
+  bins: 3
+  binMinutes: 60
+nodes:
+  - id: demand
+    kind: const
+    values: [10,10,10]
+  - id: bad
+    kind: expr
+  expr: ""demand ** 0.8"""; // unsupported operator
+        var content = new StringContent(yaml, Encoding.UTF8, "text/plain");
+        var resp = await client.PostAsync("/run", content);
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, resp.StatusCode);
+        var error = await resp.Content.ReadFromJsonAsync<Dictionary<string, string>>();
+        Assert.NotNull(error);
+        Assert.True(error!.ContainsKey("error"), "Expected error payload with 'error' field");
+    }
+
+    [Fact]
     public async Task Healthz_ReturnsOk()
     {
   var client = factory.CreateClient();
