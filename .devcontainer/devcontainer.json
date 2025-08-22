@@ -30,7 +30,8 @@
         "mhutchie.git-graph",
         "redhat.vscode-yaml",
         "GitHub.copilot",
-        "github.copilot-chat"
+  "github.copilot-chat",
+  "humao.rest-client"
       ]
     }
   },
