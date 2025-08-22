@@ -1,0 +1,38 @@
+@host = http://localhost:5091
+
+### Health
+GET {{host}}/healthz
+Accept: application/json
+
+### Run a model (YAML body)
+POST {{host}}/run
+Content-Type: text/plain
+
+grid:
+	bins: 3
+	binMinutes: 60
+nodes:
+	- id: demand
+		kind: const
+		values: [10,10,10]
+	- id: served
+		kind: expr
+		expr: "demand * 0.8"
+outputs:
+	- series: served
+		as: served.csv
+
+### Graph of a model (YAML body)
+POST {{host}}/graph
+Content-Type: text/plain
+
+grid:
+	bins: 3
+	binMinutes: 60
+nodes:
+	- id: demand
+		kind: const
+		values: [10,10,10]
+	- id: served
+		kind: expr
+		expr: "demand * 0.8"
