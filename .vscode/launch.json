@@ -18,6 +18,21 @@
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",
       "stopAtEntry": false
+    },
+    {
+      "name": ".NET Launch FlowTime.API",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/apis/FlowTime.API/bin/Debug/net9.0/FlowTime.API.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/apis/FlowTime.API",
+      "console": "integratedTerminal",
+      "env": {
+        "ASPNETCORE_URLS": "http://localhost:5091",
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "stopAtEntry": false
     }
   ]
 }
