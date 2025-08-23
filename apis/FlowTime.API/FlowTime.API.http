@@ -8,31 +8,35 @@ Accept: application/json
 POST {{host}}/run
 Content-Type: text/plain
 
+# API note (M0): The API returns JSON arrays for series and ignores `outputs`/`as`.
+# `outputs: { as: served.csv }` is a CLI concern for CSV file naming.
 grid:
-	bins: 3
-	binMinutes: 60
+  bins: 3
+  binMinutes: 60
 nodes:
-	- id: demand
-		kind: const
-		values: [10,10,10]
-	- id: served
-		kind: expr
-		expr: "demand * 0.8"
+  - id: demand
+    kind: const
+    values: [10,10,10]
+  - id: served
+    kind: expr
+    expr: "demand * 0.8"
 outputs:
-	- series: served
-		as: served.csv
+  # API ignores `outputs` in M0; kept here to mirror CLI model shape.
+  - series: served
+    as: served.csv
 
 ### Graph of a model (YAML body)
 POST {{host}}/graph
 Content-Type: text/plain
 
+# API note (M0): `/graph` compiles from the request body; it does not produce artifacts.
 grid:
-	bins: 3
-	binMinutes: 60
+  bins: 3
+  binMinutes: 60
 nodes:
-	- id: demand
-		kind: const
-		values: [10,10,10]
-	- id: served
-		kind: expr
-		expr: "demand * 0.8"
+  - id: demand
+    kind: const
+    values: [10,10,10]
+  - id: served
+    kind: expr
+    expr: "demand * 0.8"

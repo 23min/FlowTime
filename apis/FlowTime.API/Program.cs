@@ -146,6 +146,7 @@ public sealed class ModelDto
 {
     public GridDto Grid { get; set; } = new();
     public List<NodeDto> Nodes { get; set; } = new();
+    // M0 note: Outputs are a CLI concern for CSV emission and are ignored by the API.
     public List<OutputDto> Outputs { get; set; } = new();
 }
 
