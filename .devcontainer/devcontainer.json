@@ -30,13 +30,16 @@
         "mhutchie.git-graph",
         "redhat.vscode-yaml",
         "GitHub.copilot",
-  "github.copilot-chat",
-  "humao.rest-client"
+        "github.copilot-chat",
+        "humao.rest-client"
       ]
     }
   },
   "remoteUser": "vscode",
   "runArgs": [
+    "--cap-add=SYS_PTRACE",
+    "--security-opt",
+    "seccomp=unconfined",
     "--sysctl",
     "net.ipv6.conf.all.disable_ipv6=1",
     "--sysctl",
@@ -45,7 +48,9 @@
     "--name",
     "flowtime-api"
   ],
-  "forwardPorts": [8080],
+  "forwardPorts": [
+    8080
+  ],
   "remoteEnv": {
     "NODE_OPTIONS": "--dns-result-order=ipv4first"
   }

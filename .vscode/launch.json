@@ -20,19 +20,48 @@
       "stopAtEntry": false
     },
     {
-      "name": ".NET Launch FlowTime.API",
+      "name": ".NET Launch FlowTime.API (dotnet run)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "dotnet",
+      "args": [
+        "run",
+        "--project",
+        "apis/FlowTime.API",
+        "--no-build",
+        "--",
+        "--urls",
+        "http://0.0.0.0:8080"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "env": {
+        "ASPNETCORE_URLS": "http://0.0.0.0:8080",
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "stopAtEntry": false
+    },
+    {
+      "name": ".NET Launch FlowTime.API (dll, internal console)",
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build",
       "program": "${workspaceFolder}/apis/FlowTime.API/bin/Debug/net9.0/FlowTime.API.dll",
       "args": [],
       "cwd": "${workspaceFolder}/apis/FlowTime.API",
-      "console": "integratedTerminal",
+      "console": "internalConsole",
       "env": {
-        "ASPNETCORE_URLS": "http://localhost:5091",
+        "ASPNETCORE_URLS": "http://0.0.0.0:8080",
         "ASPNETCORE_ENVIRONMENT": "Development"
       },
       "stopAtEntry": false
+    },
+    {
+      "name": ".NET Attach to FlowTime.API",
+      "type": "coreclr",
+      "request": "attach",
+      "processId": "${command:pickProcess}"
     }
   ]
 }
