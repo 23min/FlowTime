@@ -44,3 +44,6 @@ coverage/
 
 # Azure Functions local
 local.settings.json
+
+# Generated outputs
+out/
