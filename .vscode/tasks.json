@@ -13,6 +13,34 @@
       "type": "shell",
       "command": "dotnet test --nologo",
       "group": "test"
+    },
+    {
+      "label": ".NET Build (sim)",
+      "type": "shell",
+      "command": "dotnet build src/FlowTime.Sim.Cli && dotnet build tests/FlowTime.Sim.Tests",
+      "options": { "cwd": "${workspaceFolder}/flowtime-sim-vnext" },
+      "group": "build",
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": ".NET Test (sim)",
+      "type": "shell",
+      "command": "dotnet test tests/FlowTime.Sim.Tests",
+      "options": { "cwd": "${workspaceFolder}/flowtime-sim-vnext" },
+      "group": "test",
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "Run SIM-M0 example",
+      "type": "shell",
+  "command": "dotnet run --project src/FlowTime.Sim.Cli -- --model examples/m0.const.yaml --flowtime http://localhost:8080 --out out/m0.csv --format csv",
+      "options": { "cwd": "${workspaceFolder}/flowtime-sim-vnext" }
+    },
+    {
+      "label": "Run SIM-M0 example (container API)",
+      "type": "shell",
+      "command": "dotnet run --project src/FlowTime.Sim.Cli -- --model examples/m0.const.yaml --flowtime http://flowtime-api:8080 --out out/m0.csv --format csv",
+      "options": { "cwd": "${workspaceFolder}/flowtime-sim-vnext" }
     }
   ]
 }

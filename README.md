@@ -1,4 +1,22 @@
-# FlowTime-Sim
+# FlowTime-Sim (M0)
+
+Model-driven first iteration: read a FlowTime YAML model, call FlowTime `/run`, and write CSV or JSON.
+
+Usage
+- Start FlowTime API (in a separate terminal):
+  - cd ../flowtime-vnext
+  - dotnet run
+- Run sim:
+  - dotnet run --project src/FlowTime.Sim.Cli -- --model examples/m0.const.yaml --flowtime http://flowtime-api:8080 --out out/m0.csv --format csv
+
+Notes
+- Requests use Content-Type: text/plain (YAML) and expect JSON responses.
+- Invariant culture; exact numeric formatting in CSV.
+- Errors from FlowTime are surfaced as `InvalidOperationException` with the `{ error }` message.
+
+Next
+- Scenario templates and a YAML model generator.
+- True ingestion (NDJSON “Gold”) will be added in a later milestone.# FlowTime-Sim
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
