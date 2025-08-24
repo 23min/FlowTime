@@ -1,0 +1,18 @@
+{
+  "folders": [
+    {
+      "name": "flowtime-sim-vnext",
+      "path": "."
+    },
+    {
+      "name": "flowtime-vnext",
+      "path": "../flowtime-vnext"
+    }
+  ],
+  "settings": {
+    "files.exclude": {
+      "**/bin": true,
+      "**/obj": true
+    }
+  }
+}

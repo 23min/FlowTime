@@ -11,4 +11,6 @@ if ($PostCreate) {
   Write-Host "✅ Ready. Try:"
   Write-Host "  dotnet build"
   Write-Host "  dotnet test"
+  Write-Host "\nTip: Open the multi-root workspace for full context:"
+  Write-Host "  code flowtime-sim.code-workspace"
 }
