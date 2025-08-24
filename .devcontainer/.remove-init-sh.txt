@@ -1,1 +1,0 @@
-This placeholder exists to ensure the assistant can request file deletion; please manually remove init.sh if it still exists.
