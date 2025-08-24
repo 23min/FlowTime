@@ -2,11 +2,29 @@ using System.Text;
 using FlowTime.Core;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
+using Microsoft.AspNetCore.HttpLogging;
+using System.Diagnostics;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Services
 builder.Services.AddOpenApi();
+builder.Services.AddHttpLogging(o =>
+{
+    o.LoggingFields =
+        HttpLoggingFields.RequestPropertiesAndHeaders |
+        HttpLoggingFields.ResponsePropertiesAndHeaders |
+        HttpLoggingFields.RequestBody;
+    o.RequestBodyLogLimit = 4 * 1024; // 4KB
+    o.MediaTypeOptions.AddText("text/plain"); // YAML comes as text/plain in M0
+});
+
+// Console logging with timestamps (visible in both terminals and internal console)
+builder.Logging.AddSimpleConsole(options =>
+{
+    options.SingleLine = true;
+    options.TimestampFormat = "HH:mm:ss.fff ";
+});
 
 var app = builder.Build();
 
@@ -15,17 +33,51 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+// HTTP logging (development-friendly)
+app.UseHttpLogging();
+
+// Explicit startup log so you can confirm the app is running
+app.Lifetime.ApplicationStarted.Register(() =>
+{
+    var urls = string.Join(", ", app.Urls);
+    app.Logger.LogInformation("FlowTime.API started. Env={Env}; Urls={Urls}", app.Environment.EnvironmentName, urls);
+});
+
+// Access log (one-liner per request)
+app.Use(async (ctx, next) =>
+{
+    var sw = Stopwatch.StartNew();
+    try
+    {
+        await next();
+    }
+    finally
+    {
+        sw.Stop();
+        var method = ctx.Request.Method;
+        var path = ctx.Request.Path.HasValue ? ctx.Request.Path.Value : "/";
+        var status = ctx.Response?.StatusCode;
+        app.Logger.LogInformation("HTTP {Method} {Path} -> {Status} in {ElapsedMs} ms",
+            method, path, status, sw.ElapsedMilliseconds);
+    }
+});
+
 // Health
 app.MapGet("/healthz", () => Results.Ok(new { status = "ok" }));
 
 // POST /run — body: YAML model
-app.MapPost("/run", async (HttpRequest req) =>
+app.MapPost("/run", async (HttpRequest req, ILogger<Program> logger) =>
 {
     try
     {
         using var reader = new StreamReader(req.Body, Encoding.UTF8);
         var yaml = await reader.ReadToEndAsync();
         if (string.IsNullOrWhiteSpace(yaml)) return Results.BadRequest(new { error = "Empty request body" });
+
+        // Minimal debug logging of accepted payload (length + preview)
+        var previewLen = Math.Min(200, yaml.Length);
+        var preview = yaml.Substring(0, previewLen);
+        logger.LogDebug("/run accepted YAML: {Length} chars; preview: {Preview}", yaml.Length, preview);
 
         var deserializer = new DeserializerBuilder()
             .WithNamingConvention(CamelCaseNamingConvention.Instance)
@@ -86,13 +138,18 @@ app.MapPost("/run", async (HttpRequest req) =>
 
 // POST /graph — returns nodes and edges (inputs)
 // TODO: Add GET /models/{id}/graph when models become server resources; keep POST for body-supplied YAML in M0.
-app.MapPost("/graph", async (HttpRequest req) =>
+app.MapPost("/graph", async (HttpRequest req, ILogger<Program> logger) =>
 {
     try
     {
         using var reader = new StreamReader(req.Body, Encoding.UTF8);
         var yaml = await reader.ReadToEndAsync();
         if (string.IsNullOrWhiteSpace(yaml)) return Results.BadRequest(new { error = "Empty request body" });
+
+        // Minimal debug logging of accepted payload (length + preview)
+        var previewLen = Math.Min(200, yaml.Length);
+        var preview = yaml.Substring(0, previewLen);
+        logger.LogDebug("/graph accepted YAML: {Length} chars; preview: {Preview}", yaml.Length, preview);
 
         var deserializer = new DeserializerBuilder()
             .WithNamingConvention(CamelCaseNamingConvention.Instance)

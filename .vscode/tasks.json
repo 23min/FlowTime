@@ -2,6 +2,24 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "kill:8080",
+      "type": "shell",
+      "command": "bash -lc 'lsof -ti:8080 | xargs -r kill -9; true'",
+      "group": "none",
+      "problemMatcher": []
+    },
+    {
+      "label": "prelaunch: api",
+      "type": "shell",
+      "command": "bash -lc 'echo prelaunch api'",
+      "dependsOn": [
+        "kill:8080",
+        "build"
+      ],
+      "group": "none",
+      "problemMatcher": []
+    },
+    {
       "label": "build",
       "type": "shell",
       "command": "dotnet build",
