@@ -1,0 +1,42 @@
+{
+  "name": "FlowTime-Sim Dev",
+  "image": "mcr.microsoft.com/dotnet/sdk:9.0",
+  "features": {
+    "ghcr.io/devcontainers/features/powershell:1": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+  "updateContentCommand": "pwsh .devcontainer/init.ps1",
+  "postCreateCommand": "pwsh .devcontainer/init.ps1 --PostCreate",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "pwsh",
+        "github.useLocalServer": false,
+        "dotnet.server.useOmnisharp": false,
+        "editor.formatOnSave": true,
+        "yaml.validate": true,
+        "yaml.format.enable": true,
+        "yaml.schemas": {
+          "https://json.schemastore.org/github-workflow.json": ".github/workflows/*.yml",
+          "https://json.schemastore.org/github-action.json": ".github/actions/**/action.yml"
+        }
+      },
+      "extensions": [
+        "ms-dotnettools.csdevkit",
+        "ms-dotnettools.csharp",
+        "EditorConfig.EditorConfig",
+        "eamodio.gitlens",
+        "github.vscode-github-actions",
+        "mhutchie.git-graph",
+        "redhat.vscode-yaml",
+        "GitHub.copilot",
+        "github.copilot-chat",
+        "humao.rest-client"
+      ]
+    }
+  },
+  "remoteUser": "vscode",
+  "remoteEnv": {
+    "NODE_OPTIONS": "--dns-result-order=ipv4first"
+  }
+}
