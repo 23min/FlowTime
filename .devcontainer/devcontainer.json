@@ -1,5 +1,5 @@
 {
-  "name": "FlowTime Dev (Base)",
+  "name": "FlowTime Dev",
   "image": "mcr.microsoft.com/devcontainers/dotnet:1-9.0",
   "features": {
     "ghcr.io/devcontainers/features/powershell:1": {},
