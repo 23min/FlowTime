@@ -4,6 +4,7 @@ Purpose: give AI agents the minimum context to be productive and safe in this re
 
 ## Guardrails
 - Don’t push (no `git push`) or make network calls unless explicitly requested.
+- Don’t commit or stage changes without explicit user approval. Propose edits first; commit only after the user says to.
 - Prefer editor-based edits; avoid cross-project refactors without context.
 - Always build and run tests before finishing; keep solution compiling.
 

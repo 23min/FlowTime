@@ -204,7 +204,17 @@ ui/FlowTime.UI/
 - Can run `dotnet run` for API + UI.
     
 - Chart shows demand/served.
-    
+
+---
+
+## SYN-M0 — Synthetic Adapter
+
+### Acceptance criteria:
+
+- Reads NDJSON/Parquet in the normalized “Gold event” schema.
+- Runs end‑to‑end with sample datasets via CLI.
+- CI uses samples to validate stitching + metrics.
+
 
 ---
 

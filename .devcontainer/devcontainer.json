@@ -46,7 +46,6 @@
     "flowtime-api"
   ],
   "forwardPorts": [8080],
-  "postStartCommand": "dotnet run --project apis/FlowTime.API --urls http://0.0.0.0:8080",
   "remoteEnv": {
     "NODE_OPTIONS": "--dns-result-order=ipv4first"
   }

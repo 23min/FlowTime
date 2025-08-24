@@ -21,16 +21,15 @@ docker network create flowtime-dev
 
 - Joins the `flowtime-dev` network and gets a stable name `flowtime-api`.
 - Forwards port 8080 to the host (optional but convenient).
-- Starts the API bound to `http://0.0.0.0:8080` inside the container.
+- Does not auto-start the API; start it manually via F5, `dotnet run`, or `dotnet watch run`.
 
 This is wired via `.devcontainer/devcontainer.json` using:
 - `runArgs: ["--network=flowtime-dev", "--name", "flowtime-api"]`
 - `forwardPorts: [8080]`
-- `postStartCommand: dotnet run --project apis/FlowTime.API --urls http://0.0.0.0:8080`
 
 ### How to call the API from another container (e.g., flowtime-sim)
 
-From inside the other container joined to the same network, use the service name:
+From inside the other container joined to the same network, use the service name after starting the API:
 
 ```bash
 curl -s http://flowtime-api:8080/healthz

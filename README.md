@@ -28,9 +28,6 @@
   * [Local development](#local-development)
   * [Configuration & secrets](#configuration--secrets)
   * [Storage](#storage)
-### Calling the API from another container
-
-If you want to call FlowTime.API from a sibling container (e.g., flowtime-sim), join both to a shared Docker network and use `http://flowtime-api:8080`. Details and curl examples in `docs/devcontainer.md`.
   * [Real‑time](#real-time)
   * [CLI reference (M0)](#cli-reference-m0)
 * [Milestone M0 scope](#milestone-m0-scope)
@@ -170,6 +167,39 @@ head -n 5 out/hello/served.csv
 
 > API/UI are not part of M0. They’ll arrive as Functions (+ SPA) in later milestones.
 
+## Running and calling the API
+
+You can run the minimal API locally from this repo and call it over HTTP.
+
+- VS Code: Run and Debug → "FlowTime.API" (F5). It binds to `http://0.0.0.0:8080` inside the container or `http://localhost:5091` per launch settings when run on the host.
+- CLI: from the repo root:
+  - `dotnet run --project apis/FlowTime.API --urls http://0.0.0.0:8080`
+  - or hot reload: `dotnet watch --project apis/FlowTime.API run --urls http://0.0.0.0:8080`
+
+Call the API (examples use the shared network name `flowtime-api`; use `localhost:8080` from host):
+
+```bash
+curl -s http://flowtime-api:8080/healthz
+
+cat > /tmp/model.yaml << 'YAML'
+grid: { bins: 4, binMinutes: 60 }
+nodes:
+  - id: demand
+    kind: const
+    values: [10,20,30,40]
+  - id: served
+    kind: expr
+    expr: "demand * 0.8"
+outputs:
+  - series: served
+    as: served.csv
+YAML
+
+curl -s -X POST http://flowtime-api:8080/run \
+  -H "Content-Type: application/yaml" \
+  --data-binary @/tmp/model.yaml | jq .
+```
+
 Tip (VS Code): use the preconfigured tasks
 
 ```text
@@ -182,6 +212,10 @@ Terminal > Run Task...
 ### Configuration & secrets
 
 Not applicable for M0 CLI runs. Future backend + SPA will use environment configuration and optional secret stores (e.g., Key Vault) as needed.
+
+### Calling the API from another container
+
+If you want to call FlowTime.API from a sibling container (e.g., flowtime-sim), join both to a shared Docker network and use `http://flowtime-api:8080`. Details and curl examples in `docs/devcontainer.md`.
 
 ### Storage
 
