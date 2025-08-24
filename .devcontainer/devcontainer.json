@@ -1,6 +1,6 @@
 {
   "name": "FlowTime-Sim Dev",
-  "image": "mcr.microsoft.com/dotnet/sdk:9.0",
+  "image": "mcr.microsoft.com/devcontainers/dotnet:9.0",
   "features": {
     "ghcr.io/devcontainers/features/powershell:1": {},
     "ghcr.io/devcontainers/features/github-cli:1": {}
@@ -36,6 +36,12 @@
     }
   },
   "remoteUser": "vscode",
+    "runArgs": [
+    "--network=flowtime-dev"
+  ],
+  "containerEnv": {
+    "FLOWTIME_API_BASEURL": "http://flowtime-api:8080"
+  },
   "remoteEnv": {
     "NODE_OPTIONS": "--dns-result-order=ipv4first"
   }
