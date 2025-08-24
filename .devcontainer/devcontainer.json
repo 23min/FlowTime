@@ -36,7 +36,7 @@
     }
   },
   "remoteUser": "vscode",
-    "runArgs": [
+  "runArgs": [
     "--network=flowtime-dev"
   ],
   "containerEnv": {

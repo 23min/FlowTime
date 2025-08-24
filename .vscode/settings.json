@@ -1,0 +1,16 @@
+{
+    "github.useLocalServer": false,
+    "github.authentication.scopes": [
+        "read:user",
+        "repo",
+        "workflow",
+        "user:email"
+    ],
+    "http.proxy": "",
+    "http.proxySupport": "off",
+    "http.systemCertificates": true,
+    "github.copilot.advanced": {
+        "debug.useNodeFetcher": true,
+        "debug.useNodeFetchFetcher": false
+    }
+}
