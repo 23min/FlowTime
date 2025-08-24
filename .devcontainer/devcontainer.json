@@ -40,8 +40,13 @@
     "--sysctl",
     "net.ipv6.conf.all.disable_ipv6=1",
     "--sysctl",
-    "net.ipv6.conf.default.disable_ipv6=1"
+    "net.ipv6.conf.default.disable_ipv6=1",
+    "--network=flowtime-dev",
+    "--name",
+    "flowtime-api"
   ],
+  "forwardPorts": [8080],
+  "postStartCommand": "dotnet run --project apis/FlowTime.API --urls http://0.0.0.0:8080",
   "remoteEnv": {
     "NODE_OPTIONS": "--dns-result-order=ipv4first"
   }

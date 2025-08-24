@@ -28,6 +28,9 @@
   * [Local development](#local-development)
   * [Configuration & secrets](#configuration--secrets)
   * [Storage](#storage)
+### Calling the API from another container
+
+If you want to call FlowTime.API from a sibling container (e.g., flowtime-sim), join both to a shared Docker network and use `http://flowtime-api:8080`. Details and curl examples in `docs/devcontainer.md`.
   * [Real‑time](#real-time)
   * [CLI reference (M0)](#cli-reference-m0)
 * [Milestone M0 scope](#milestone-m0-scope)
@@ -200,6 +203,15 @@ dotnet run --project src/FlowTime.Cli -- run <path/to/model.yaml> --out out/<nam
 # --out out/run1             # output directory
 # --verbose                  # print evaluation summary to stdout
 # --via-api http://localhost:7071  # optional: route the run via the API for parity; falls back to local eval until SVC-M0 ships
+```
+
+```bash
+# Run FlowTime with local synthetic data
+dotnet run --project src/FlowTime.Cli -- ingest \
+  --format parquet \
+  --events-path ./data/samples/weekday-10k/events.parquet \
+  --metrics-out ./out/metrics.json
+# falls back to local eval until SVC-M0 ships
 ```
 
 ---
