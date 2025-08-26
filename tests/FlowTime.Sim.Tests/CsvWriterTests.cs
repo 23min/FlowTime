@@ -13,7 +13,8 @@ public class CsvWriterTests
         {
             grid = new FlowTimeGrid { bins = 3, binMinutes = 60 },
             order = new[] { "a", "b" },
-            series = new Dictionary<string, double[]> {
+            series = new Dictionary<string, double[]>
+            {
                 ["a"] = new double[] { 1, 2, 3 },
                 ["b"] = new double[] { 10, 20, 30 }
             }

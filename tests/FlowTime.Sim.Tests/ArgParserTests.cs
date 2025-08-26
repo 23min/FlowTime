@@ -18,7 +18,7 @@ public class ArgParserTests
     [Fact]
     public void Parses_Verbose_Flag()
     {
-    var opts = ArgParser.ParseArgs(new[] { "--verbose" });
+        var opts = ArgParser.ParseArgs(new[] { "--verbose" });
         Assert.True(opts.Verbose);
     }
 }

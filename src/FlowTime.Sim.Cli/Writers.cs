@@ -12,7 +12,7 @@ public static class Writers
 
         // Header
         sb.Append("bin,index");
-    foreach (var name in res.order) sb.Append(',').Append(CsvEscape(name));
+        foreach (var name in res.order) sb.Append(',').Append(CsvEscape(name));
         sb.AppendLine();
 
         // Rows: assume series[j][i] aligns with order[j] at bin i

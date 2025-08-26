@@ -85,7 +85,7 @@ internal static class Program
 
     static void PrintHelp()
     {
-    Console.WriteLine("Usage: flow-sim --model <file.yaml> [--flowtime http://localhost:8080] [--out out.csv] [--format csv|json] [--verbose]");
+        Console.WriteLine("Usage: flow-sim --model <file.yaml> [--flowtime http://localhost:8080] [--out out.csv] [--format csv|json] [--verbose]");
     }
 }
 
@@ -119,6 +119,6 @@ public static class ArgParser
 
     private static void PrintHelp()
     {
-    Console.WriteLine("Usage: flow-sim --model <file.yaml> [--flowtime http://localhost:8080] [--out out.csv] [--format csv|json] [--verbose]");
+        Console.WriteLine("Usage: flow-sim --model <file.yaml> [--flowtime http://localhost:8080] [--out out.csv] [--format csv|json] [--verbose]");
     }
 }
