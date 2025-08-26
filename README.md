@@ -115,6 +115,7 @@ Notes
 - Testing: `docs/testing.md` (stub).
 - Branching strategy: `docs/branching-strategy.md` (stub).
  - Milestone M0 details: `docs/milestones/M0.md`.
+ - Release notes: `docs/releases/M0.md`.
 
 ## License
 
