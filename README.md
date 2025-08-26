@@ -1,22 +1,4 @@
-# FlowTime-Sim (M0)
-
-Model-driven first iteration: read a FlowTime YAML model, call FlowTime `/run`, and write CSV or JSON.
-
-Usage
-- Start FlowTime API (in a separate terminal):
-  - cd ../flowtime-vnext
-  - dotnet run
-- Run sim:
-  - dotnet run --project src/FlowTime.Sim.Cli -- --model examples/m0.const.yaml --flowtime http://flowtime-api:8080 --out out/m0.csv --format csv
-
-Notes
-- Requests use Content-Type: text/plain (YAML) and expect JSON responses.
-- Invariant culture; exact numeric formatting in CSV.
-- Errors from FlowTime are surfaced as `InvalidOperationException` with the `{ error }` message.
-
-Next
-- Scenario templates and a YAML model generator.
-- True ingestion (NDJSON “Gold”) will be added in a later milestone.# FlowTime-Sim
+# FlowTime-Sim
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
@@ -40,6 +22,16 @@ Next
 FlowTime-Sim generates arrivals, routing, retries, and timing distributions consistent with domains like logistics, transport, manufacturing, and cloud systems. It can emit NDJSON events, Gold series (Parquet/CSV), or PMFs for shape-first modeling.
 
 See the high-level plan in `docs/ROADMAP.md`.
+
+### Current status (Milestone M0)
+
+The initial model-driven slice is available:
+
+- Read a FlowTime YAML model.
+- Call FlowTime API `/run`.
+- Write results as CSV or JSON.
+
+Details live in `docs/milestones/M0.md`.
 
 ## Repository layout
 
@@ -70,7 +62,15 @@ dotnet build
 dotnet test
 ```
 
-Note: No CLI/API yet; SIM-M0 will add a basic runner and sample specs.
+Run the SIM-M0 CLI against the example model (ensure FlowTime API is running; see Usage):
+
+```bash
+dotnet run --project src/FlowTime.Sim.Cli -- \
+	--model examples/m0.const.yaml \
+	--flowtime http://flowtime-api:8080 \
+	--out out/m0.csv \
+	--format csv
+```
 
 ## Devcontainer
 
@@ -82,12 +82,39 @@ This repo includes a devcontainer with the .NET 9 SDK and GitHub CLI. Open in a 
 - VS Code tasks:
 	- build: `dotnet build`
 	- test: `dotnet test`
+	- Run SIM-M0 example (localhost or container API)
+
+---
+
+## Usage (SIM-M0 CLI)
+
+Start FlowTime API (from the sibling repo) and run the example:
+
+- From container-to-container:
+	- API URL: `http://flowtime-api:8080`
+- From host to devcontainer: `http://localhost:8080`
+
+Example run:
+
+```bash
+dotnet run --project src/FlowTime.Sim.Cli -- \
+	--model examples/m0.const.yaml \
+	--flowtime http://flowtime-api:8080 \
+	--out out/m0.csv \
+	--format csv
+```
+
+Notes
+- Requests use `Content-Type: text/plain` (YAML) and expect JSON.
+- Culture-invariant CSV formatting.
+- API errors are surfaced as `InvalidOperationException` with the `{ error }` message.
 
 ## Docs & roadmap
 
 - Roadmap: `docs/ROADMAP.md`.
 - Testing: `docs/testing.md` (stub).
 - Branching strategy: `docs/branching-strategy.md` (stub).
+ - Milestone M0 details: `docs/milestones/M0.md`.
 
 ## License
 
