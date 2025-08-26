@@ -1,15 +1,23 @@
 using System.Net.Http.Json;
 using System.Text;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.AspNetCore.Hosting;
 
 public class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
 {
   private readonly WebApplicationFactory<Program> factory;
 
-    public ApiIntegrationTests(WebApplicationFactory<Program> factory)
+  public ApiIntegrationTests(WebApplicationFactory<Program> factory)
+  {
+    // Force TestServer to avoid binding real ports (e.g., 8080) during tests
+    this.factory = factory.WithWebHostBuilder(builder =>
     {
-    this.factory = factory.WithWebHostBuilder(_ => { });
-    }
+      builder.UseEnvironment("Development");
+      builder.UseTestServer();
+      builder.UseSetting(Microsoft.AspNetCore.Hosting.WebHostDefaults.ServerUrlsKey, "http://127.0.0.1:0");
+    });
+  }
 
     [Fact]
     public async Task Run_InvalidExpr_ReturnsBadRequestWithError()

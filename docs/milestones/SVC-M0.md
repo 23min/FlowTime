@@ -48,9 +48,13 @@ Keep domain logic in Core/App/Handlers; hosts are thin adapters.
 ## Endpoints (SVC‑M0)
 
 - GET `/healthz` — health check
-- POST `/graph` — compiled node graph (nodes, edges) from request YAML; GET will be added when models become server resources
-- POST `/run` — accepts model YAML/JSON; returns results (JSON, optional CSV)
+- POST `/graph` — compiled node graph (nodes, edges) from request YAML; GET may be added later when models become server resources
+- POST `/run` — accepts model YAML (Content-Type: text/plain in M0) and returns results as JSON
 - Optional: POST `/negotiate` — placeholder for future real‑time
+
+Error contract (M0):
+- On invalid input or parse errors, return `400 Bad Request` with JSON payload `{ "error": "..." }`.
+- Use invariant-culture numbers; do not return stack traces.
 
 ## Acceptance criteria (additions)
 

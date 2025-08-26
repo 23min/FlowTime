@@ -1,20 +1,27 @@
 using System.Net.Http.Json;
 using System.Text;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.AspNetCore.Hosting;
 
 public class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
 {
-    private readonly WebApplicationFactory<Program> _factory;
+  private readonly WebApplicationFactory<Program> factory;
 
-    public ApiIntegrationTests(WebApplicationFactory<Program> factory)
+  public ApiIntegrationTests(WebApplicationFactory<Program> factory)
+  {
+    this.factory = factory.WithWebHostBuilder(builder =>
     {
-        _factory = factory.WithWebHostBuilder(_ => { });
-    }
+      builder.UseEnvironment("Development");
+      builder.UseTestServer();
+      builder.UseSetting(Microsoft.AspNetCore.Hosting.WebHostDefaults.ServerUrlsKey, "http://127.0.0.1:0");
+    });
+  }
 
     [Fact]
     public async Task Healthz_ReturnsOk()
     {
-        var client = _factory.CreateClient();
+  var client = factory.CreateClient();
         var resp = await client.GetAsync("/healthz");
         resp.EnsureSuccessStatusCode();
         var json = await resp.Content.ReadFromJsonAsync<Dictionary<string, string>>();
@@ -25,7 +32,7 @@ public class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
     [Fact]
     public async Task Run_ReturnsExpectedSeries()
     {
-        var client = _factory.CreateClient();
+  var client = factory.CreateClient();
         var yaml = @"grid:
   bins: 3
   binMinutes: 60
@@ -52,7 +59,7 @@ outputs:
     [Fact]
     public async Task Graph_ReturnsNodesAndOrder()
     {
-        var client = _factory.CreateClient();
+  var client = factory.CreateClient();
         var yaml = @"grid:
   bins: 3
   binMinutes: 60

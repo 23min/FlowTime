@@ -19,5 +19,7 @@
     "github.copilot.advanced": {
         "debug.useNodeFetcher": true,
         "debug.useNodeFetchFetcher": false
-    }
+    },
+    "github.copilot.chat.codesearch.enabled": true,
+    "github.copilot.chat.agent.thinkingTool": true
 }
