@@ -1,6 +1,6 @@
 # Milestone SIM-M1 — Service Times, Schema Version & RNG Hardening
 
-Status: IN PLANNING (branch `feature/sim-m1/*`).
+Status: ACTIVE (branch `feature/sim-m1/*`).
 
 SIM-M0 established the deterministic arrivals + Gold/event contracts. SIM-M1 extends the simulator with groundwork for richer performance modeling while freezing and versioning the public contract for adapter consumption.
 
@@ -63,8 +63,8 @@ Hash computation: normalize line endings to `\n` before hashing.
 | Phase | Focus | Deliverables | Tests | Status |
 |-------|-------|-------------|-------|--------|
 | 0 | Planning & branch | SIM-M1 doc, branch scaffold | n/a | ⏳ |
-| 1 | schemaVersion & validation | Spec & validator updates; docs & samples bump | VersionValidationTests | 🚧 In Progress |
-| 2 | RNG hardening | PCG implementation + opt-out flag | RngDeterminismTests, SnapshotTests | ⏳ |
+| 1 | schemaVersion & validation | Spec & validator updates; docs & samples bump | VersionValidationTests | ✅ Done |
+| 2 | RNG hardening | PCG implementation + opt-out flag | RngDeterminismTests, SnapshotTests | 🚧 In Progress |
 | 3 | Metadata manifest | `metadata.json` write + CLI verbose print | MetadataHashTests | ⏳ |
 | 4 | Service spec parsing | DTO + validation; no runtime effect | ServiceSpecTests | ⏳ |
 | 5 | Adapter parity harness (SYN-M0 tie‑in) | Test harness script/integration test | ParityRoundtripTests | ⏳ |

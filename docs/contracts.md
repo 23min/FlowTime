@@ -4,10 +4,11 @@ Status: SIM-M0 frozen; SIM-M1 introducing `schemaVersion`. This document defines
 
 ## 1. Simulation Spec (YAML)
 
-Root keys (SIM-M0 baseline; SIM-M1 adds `schemaVersion`):
+Root keys (SIM-M0 baseline; SIM-M1 adds `schemaVersion` & `rng`):
 
 ```yaml
 schemaVersion: 1            # SIM-M1+ (optional in transition; if omitted treated as 0 with warning)
+rng: pcg                    # SIM-M1 Phase 2 (default pcg; 'legacy' allowed temporarily)
 grid:
   bins: 24                # required > 0
   binMinutes: 60          # required > 0
@@ -37,7 +38,7 @@ Validation summary:
 - `route.id` non-empty.
 - No mixing `rate` and `rates`.
 
-Determinism: Given identical YAML (including seed) output events and Gold CSV must be byte-identical (except trailing newline tolerance). A test suite enforces this (hash comparisons). CLI verbose mode prints SHA256 hashes of generated files to aid reproducibility. SIM-M1 maintains determinism while adding version metadata.
+Determinism: Given identical YAML (including seed & rng) output events and Gold CSV must be byte-identical (except trailing newline tolerance). A test suite enforces this (hash comparisons). CLI verbose mode prints SHA256 hashes of generated files to aid reproducibility. SIM-M1 maintains determinism while adding version metadata and swapping the default RNG to PCG (portable 32-bit core) while allowing `rng: legacy` opt-out for one milestone.
 
 Poisson performance note: For λ > 1000 a warning is emitted (Knuth sampler may degrade). Future milestone will introduce an O(1) or transformed-rejection sampler.
 
@@ -108,7 +109,7 @@ Validation failures (spec) must produce a clear aggregated error message listing
 
 ## 6. Deterministic Randomness & Hashing
 
-RNG seeded by `seed` (default 12345). All Poisson samples derive solely from this RNG. Switching to a fixed algorithm (e.g., PCG) is a future hardening task; for SIM-M0 we accept the .NET implementation but encapsulate it.
+RNG seeded by `seed` (default 12345). All Poisson samples derive solely from this RNG. SIM-M1: default algorithm is PCG32 (portable, stable). `rng: legacy` selects the prior .NET `Random`-based generator (kept temporarily for comparison/testing). The sequence for a (seed,rng) pair is stable across OS/architectures by design.
 
 Hashing: Verbose mode prints SHA256 hashes so downstream processes (e.g., SYN-M0 adapter tests) can assert scenario reproducibility without shipping large fixtures.
 
@@ -147,6 +148,7 @@ Copy (or truncate) the outputs into the docs examples if the contract changes; u
 | 2025-08-27 | Initial draft extracted from milestone SIM-M0 Phases 1–2 |
 | 2025-08-27 | Added sim CLI mode details, hashing, large-λ warning, sample outputs section |
 | 2025-08-27 | Added schemaVersion field (SIM-M1 planning) |
+| 2025-08-27 | Added rng field & PCG default (SIM-M1 Phase 2 in progress) |
 
 ---
 
