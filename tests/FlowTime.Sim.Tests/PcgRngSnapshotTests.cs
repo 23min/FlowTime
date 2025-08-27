@@ -22,8 +22,8 @@ public class PcgRngSnapshotTests
         // Fixed formatting to ensure culture invariance and stable string prior to hashing.
         var payload = string.Join(",", samples.Select(v => v.ToString("R", System.Globalization.CultureInfo.InvariantCulture)));
         var hash = Hash(payload);
-    // Snapshot locked for PCG implementation (seed=123, first 16 samples). Update only with intentional RNG change + release note.
-    const string Expected = "6D6D830EAB34805864FB8AB2C38AE4E95395864B9960FF99B5C96F8E54E6F4E9";
-    Assert.Equal(Expected, hash);
+        // Snapshot locked for PCG implementation (seed=123, first 16 samples). Update only with intentional RNG change + release note.
+        const string Expected = "6D6D830EAB34805864FB8AB2C38AE4E95395864B9960FF99B5C96F8E54E6F4E9";
+        Assert.Equal(Expected, hash);
     }
 }

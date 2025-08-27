@@ -55,7 +55,7 @@ public static class SimulationSpecLoader
     public static SimulationSpec LoadFromString(string yaml)
     {
         if (string.IsNullOrWhiteSpace(yaml)) throw new ArgumentException("YAML is empty", nameof(yaml));
-    var spec = deserializer.Deserialize<SimulationSpec>(yaml) ?? new SimulationSpec();
+        var spec = deserializer.Deserialize<SimulationSpec>(yaml) ?? new SimulationSpec();
         return spec;
     }
 
