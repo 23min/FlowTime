@@ -36,6 +36,10 @@ if (app.Environment.IsDevelopment())
 // HTTP logging (development-friendly)
 app.UseHttpLogging();
 
+// Static UI (minimal SPA placeholder). Serves /index.html and assets from wwwroot.
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
 // Explicit startup log so you can confirm the app is running
 app.Lifetime.ApplicationStarted.Register(() =>
 {
