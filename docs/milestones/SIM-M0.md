@@ -1,5 +1,7 @@
 # Milestone SIM-M0 — Simulator Skeleton & Contracts
 
+(renamed from M0.md on 2025-08-27 for clarity)
+
 Status: IN PROGRESS (branch `milestone/m0`).
 
 This document supersedes the earlier lightweight "M0" description and clarifies the true scope for the first simulator milestone (SIM-M0) distinct from the FlowTime engine M0. The current code base only implements an API relay CLI; the actual simulation engine (arrivals → events → Gold aggregation) is not yet present. This doc is the authoritative checklist to complete SIM-M0.
@@ -40,11 +42,20 @@ Primary (Mermaid):
 
 ```mermaid
 flowchart LR
-  A[YAML Spec] --> B[Spec Parser / DTOs]
-  B --> C[Simulation Engine]
-  C -->|events| D[NDJSON Writer]
-  C -->|Gold| E[CSV Writer]
-  C --> F[(Deterministic RNG)]
+    A[YAML Spec] --> B[Spec Parser / DTOs]
+    B --> C[Simulation Engine]
+    C -->|events| D[NDJSON Writer]
+    C -->|Gold| E[CSV Writer]
+    C --> F[(Deterministic RNG)]
+```
+
+Fallback (pure ASCII) for environments without Mermaid support:
+
+```text
+           +--------------------+          +--------------------+
+YAML Spec -> Spec Parser (DTOs) +--IR----->+  Simulation Engine |--events--> NDJSON Writer
+           +--------------------+          +--------------------+--Gold----> CSV Writer
+                                                |  (Deterministic RNG)
 ```
 
 Key concepts:
@@ -212,20 +223,19 @@ Already present:
 - API relay CLI (engine mode).
 - CSV writer for engine response.
 - Basic tests (ArgParser, FlowTimeClient error surfacing, CSV writer).
+- Spec parser + validation (Phase 2 complete).
+- Contracts doc (`docs/contracts.md`).
 
 Missing (to build):
-- Simulation spec + parser.
 - Arrivals generation logic.
 - Event + Gold writers (separate from current series writer).
 - CLI `--mode sim` path.
-- Determinism tests & seed handling.
-- Contracts documentation.
+- Determinism tests & seed handling (beyond parser).
+- Sample simulation specs.
 
 ---
 
 ## How to Run (Engine Relay Mode — Existing)
-
-Ensure FlowTime.API is running (from sibling repo flowtime-vnext):
 
 ```bash
 dotnet run --project apis/FlowTime.API --urls http://0.0.0.0:8080
@@ -294,83 +304,4 @@ All tests must avoid time-dependent asserts (fixed start timestamps).
 | Date | Change | Author |
 |------|--------|--------|
 | 2025-08-27 | Expanded milestone to SIM-M0 with detailed phases and contracts | AI Assistant |
-
-
-## How to run
-
-Ensure FlowTime.API is running (from sibling repo flowtime-vnext):
-
-```bash
-# in ../flowtime-vnext
-# run API on 0.0.0.0:8080 inside the devcontainer
-dotnet run --project apis/FlowTime.API --urls http://0.0.0.0:8080
-```
-
-Test the FlowTime.API is responding
-
-```bash
-curl -sS -X POST http://flowtime-api:8080/run -H 'Content-Type: text/plain' --data-binary @examples/m0.const.yaml | jq . 
-```
-
-Output:
-```json
-{                                                                                           
-  "grid": {
-    "bins": 8,
-    "binMinutes": 60
-  },
-  "order": [
-    "demand",
-    "served"
-  ],
-  "series": {
-    "demand": [
-      10,
-      10,
-      10,
-      10,
-      10,
-      10,
-      10,
-      10
-    ],
-    "served": [
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8
-    ]
-  }
-}
-```
-
-From this repo, run the SIM CLI:
-
-```bash
-# in flowtime-sim-vnext
-dotnet run --project src/FlowTime.Sim.Cli -- \
-  --model examples/m0.const.yaml \
-  --flowtime http://flowtime-api:8080 \
-  --out out/m0.csv \
-  --format csv
-```
-
-Outputs:
-- CSV header: `bin,index,<node1>,<node2>,...` ordered by `response.order`.
-- Values are aligned to `response.grid.bins`.
-
-## Notes
-
-- Default FlowTime URL (when omitted) is `http://localhost:8080`.
-- Errors from FlowTime API bubble up with the server message.
-- See `.vscode/tasks.json` for build/test/run tasks.
-
-## Next
-
-- Async run pattern (submit/poll/result endpoint trio) in SIM-M1.
-- Scenario templates and a YAML model generator.
-- True ingestion (NDJSON/"Gold") in later milestone.
+| 2025-08-27 | Renamed file to SIM-M0.md and added Phase 2 completion delta | AI Assistant |

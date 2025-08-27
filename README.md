@@ -23,7 +23,7 @@ FlowTime-Sim generates arrivals, routing, retries, and timing distributions cons
 
 See the high-level plan in `docs/ROADMAP.md`.
 
-### Current status (Milestone M0)
+### Current status (Milestone SIM-M0)
 
 The initial model-driven slice is available:
 
@@ -31,7 +31,7 @@ The initial model-driven slice is available:
 - Call FlowTime API `/run`.
 - Write results as CSV or JSON.
 
-Details live in `docs/milestones/M0.md`.
+Details live in `docs/milestones/SIM-M0.md`.
 
 ## Repository layout
 
@@ -114,7 +114,7 @@ Notes
 - Roadmap: `docs/ROADMAP.md`.
 - Testing: `docs/testing.md` (stub).
 - Branching strategy: `docs/branching-strategy.md` (stub).
- - Milestone M0 details: `docs/milestones/M0.md`.
+ - Milestone SIM-M0 details: `docs/milestones/SIM-M0.md`.
  - Release notes: `docs/releases/M0.md`.
 
 ## License
