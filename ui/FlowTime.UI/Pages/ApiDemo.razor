@@ -1,0 +1,172 @@
+@page "/api-demo"
+@using FlowTime.UI.Services
+@using MudBlazor
+@inject IFlowTimeApiClient Api
+@inject ISnackbar Snackbar
+
+<PageTitle>API Demo</PageTitle>
+
+<MudText Typo="Typo.h4" GutterBottom="true">API Demo</MudText>
+<MudText Class="mb-1">Interact with FlowTime API using the typed client.</MudText>
+<MudText Typo="Typo.caption" Class="mb-4" Style="font-family:monospace">API Base: @(Api.BaseAddress ?? "(null)")
+</MudText>
+
+<MudPaper Class="pa-4 mb-4" Elevation="1">
+    <MudStack Row="true" Spacing="2">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CheckHealth" Disabled="@healthLoading">
+            @(healthLoading ? "Checking..." : "Check Health")</MudButton>
+        @if (health is not null)
+        {
+            <MudChip T="string" Color="@(health.Status == "ok" ? Color.Success : Color.Error)" Variant="Variant.Filled">
+                @health.Status</MudChip>
+        }
+    </MudStack>
+</MudPaper>
+
+<MudPaper Class="pa-4 mb-4" Elevation="1">
+    <MudText Typo="Typo.h6" Class="mb-2">Sample YAML</MudText>
+    <MudPaper Class="pa-2" Elevation="0"
+        Style="background:#263238; color:#ECEFF1; white-space:pre; font-family:monospace; font-size:0.85rem; overflow:auto; max-height:240px;">
+        @sampleYaml</MudPaper>
+    <MudStack Row="true" Spacing="2" Class="mt-3">
+        <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="RunModel" Disabled="@runLoading">
+            @(runLoading ? "Running..." : "Run /run")</MudButton>
+        <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="GraphModel" Disabled="@graphLoading">
+            @(graphLoading ? "Loading graph..." : "Graph /graph")</MudButton>
+    </MudStack>
+</MudPaper>
+
+<MudExpansionPanels MultiExpansion="true">
+    @if (runResult is not null)
+    {
+        <MudExpansionPanel Text="Run Result (series)" Expanded="true">
+            <MudText Typo="Typo.subtitle2" Class="mb-2">Order: @string.Join(", ", runResult.Order)</MudText>
+            <MudTable T="KeyValuePair<string, double[]>" Items="runResult.Series" Dense="true" Hover="true" Bordered="true"
+                Striped="true" Elevation="0">
+                <HeaderContent>
+                    <MudTh>Series</MudTh>
+                    <MudTh>Values</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Series">@context.Key</MudTd>
+                    <MudTd DataLabel="Values">@string.Join(", ", context.Value)</MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudExpansionPanel>
+    }
+    @if (graphResult is not null)
+    {
+        <MudExpansionPanel Text="Graph Result (edges)" Expanded="@(!(runResult is null))">
+            <MudTable Dense="true" Hover="true" Items="graphResult.Edges">
+                <HeaderContent>
+                    <MudTh>Node</MudTh>
+                    <MudTh>Inputs</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Node">@context.Id</MudTd>
+                    <MudTd DataLabel="Inputs">@string.Join(", ", context.Inputs)</MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudExpansionPanel>
+    }
+</MudExpansionPanels>
+
+@code {
+    private bool healthLoading, runLoading, graphLoading;
+    private HealthResponse? health;
+    private RunResponse? runResult;
+    private GraphResponse? graphResult;
+    private string? lastError;
+
+    // Working sample YAML (two-space indentation, matches examples/hello/model.yaml)
+    private const string sampleYaml =
+        "grid:\n" +
+        "  bins: 8\n" +
+        "  binMinutes: 60\n" +
+        "nodes:\n" +
+        "  - id: demand\n" +
+        "    kind: const\n" +
+        "    values: [10,10,10,10,10,10,10,10]\n" +
+        "  - id: served\n" +
+        "    kind: expr\n" +
+        "    expr: \"demand * 0.8\"\n" +
+        "outputs:\n" +
+        "  - series: served\n" +
+        "    as: served.csv\n";
+
+    private async Task CheckHealth()
+    {
+        healthLoading = true;
+        lastError = null;
+        try
+        {
+            var res = await Api.HealthAsync();
+            if (res.Success)
+            {
+                health = res.Value;
+            }
+            else
+            {
+                health = null;
+                lastError = $"Health failed ({res.StatusCode}): {res.Error}";
+                Snackbar.Add(lastError, Severity.Error);
+            }
+        }
+        finally { healthLoading = false; }
+    }
+
+    private async Task RunModel()
+    {
+        runLoading = true;
+        lastError = null;
+        try
+        {
+            var yaml = NormalizeYaml(sampleYaml);
+            var res = await Api.RunAsync(yaml);
+            if (res.Success)
+            {
+                runResult = res.Value;
+            }
+            else
+            {
+                runResult = null;
+                lastError = $"Run failed ({res.StatusCode}): {res.Error}";
+                Snackbar.Add(lastError, Severity.Error);
+            }
+        }
+        finally { runLoading = false; }
+    }
+
+    private async Task GraphModel()
+    {
+        graphLoading = true;
+        lastError = null;
+        try
+        {
+            var yaml = NormalizeYaml(sampleYaml);
+            var res = await Api.GraphAsync(yaml);
+            if (res.Success)
+            {
+                graphResult = res.Value;
+            }
+            else
+            {
+                graphResult = null;
+                lastError = $"Graph failed ({res.StatusCode}): {res.Error}";
+                Snackbar.Add(lastError, Severity.Error);
+            }
+        }
+        finally { graphLoading = false; }
+    }
+
+    private static string NormalizeYaml(string s)
+    {
+        var lines = s.Replace("\r", "").Split('\n');
+        var contentLines = lines.Where(l => l.Trim().Length > 0).ToList();
+        if (contentLines.Count == 0) return string.Empty;
+        var minIndent = contentLines.Select(l => l.TakeWhile(char.IsWhiteSpace).Count()).DefaultIfEmpty(0).Min();
+        var trimmed = lines.Select(l => l.Length >= minIndent ? l[minIndent..] : l).ToArray();
+        var normalized = string.Join('\n', trimmed).Trim() + "\n"; // final newline for readability
+        return normalized;
+    }
+}

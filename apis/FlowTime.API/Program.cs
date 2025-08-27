@@ -73,10 +73,11 @@ app.MapGet("/healthz", () => Results.Ok(new { status = "ok" }));
 // POST /run — body: YAML model
 app.MapPost("/run", async (HttpRequest req, ILogger<Program> logger) =>
 {
+    string yaml = string.Empty;
     try
     {
         using var reader = new StreamReader(req.Body, Encoding.UTF8);
-        var yaml = await reader.ReadToEndAsync();
+        yaml = await reader.ReadToEndAsync();
         if (string.IsNullOrWhiteSpace(yaml)) return Results.BadRequest(new { error = "Empty request body" });
 
         // Minimal debug logging of accepted payload (length + preview)
@@ -137,6 +138,7 @@ app.MapPost("/run", async (HttpRequest req, ILogger<Program> logger) =>
     }
     catch (Exception ex)
     {
+        logger.LogError(ex, "/run parse/eval failed. Raw YAML length={Length}. First 120 chars: {Preview}", yaml?.Length, yaml is null ? "" : yaml.Substring(0, Math.Min(120, yaml.Length)));
         return Results.BadRequest(new { error = ex.Message });
     }
 });
@@ -145,10 +147,11 @@ app.MapPost("/run", async (HttpRequest req, ILogger<Program> logger) =>
 // TODO: Add GET /models/{id}/graph when models become server resources; keep POST for body-supplied YAML in M0.
 app.MapPost("/graph", async (HttpRequest req, ILogger<Program> logger) =>
 {
+    string yaml = string.Empty;
     try
     {
         using var reader = new StreamReader(req.Body, Encoding.UTF8);
-        var yaml = await reader.ReadToEndAsync();
+        yaml = await reader.ReadToEndAsync();
         if (string.IsNullOrWhiteSpace(yaml)) return Results.BadRequest(new { error = "Empty request body" });
 
         // Minimal debug logging of accepted payload (length + preview)
@@ -197,6 +200,7 @@ app.MapPost("/graph", async (HttpRequest req, ILogger<Program> logger) =>
     }
     catch (Exception ex)
     {
+        logger.LogError(ex, "/graph parse failed. Raw YAML length={Length}. First 120 chars: {Preview}", yaml?.Length, yaml is null ? "" : yaml.Substring(0, Math.Min(120, yaml.Length)));
         return Results.BadRequest(new { error = ex.Message });
     }
 });

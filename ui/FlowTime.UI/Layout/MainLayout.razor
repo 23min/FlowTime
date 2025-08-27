@@ -1,0 +1,45 @@
+﻿@inherits LayoutComponentBase
+@using MudBlazor
+@inject FlowTime.UI.Services.ThemeService Theme
+
+<MudThemeProvider Theme="@Theme.CurrentTheme" />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudLayout>
+    <MudAppBar Elevation="0" Color="Color.Primary">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
+            OnClick="ToggleDrawer" />
+        <MudText Typo="Typo.h6">FlowTime</MudText>
+        <MudSpacer />
+        <MudIconButton Icon="@(Theme.IsDarkMode? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
+            Color="Color.Inherit" OnClick="ToggleDark" />
+        <MudButton Variant="Variant.Outlined" Color="Color.Inherit" Href="https://github.com/23min/flowtime"
+            Target="_blank">GitHub</MudButton>
+    </MudAppBar>
+
+    <MudDrawer @bind-Open="_drawerOpen" Elevation="1" ClipMode="DrawerClipMode.Always"
+        Variant="DrawerVariant.Responsive">
+        <MudDrawerHeader>
+            <MudText Typo="Typo.h6">Navigation</MudText>
+        </MudDrawerHeader>
+        <MudNavMenu>
+            <MudNavLink Href="/" Icon="@Icons.Material.Filled.Home" Match="NavLinkMatch.All">Home</MudNavLink>
+            <MudNavLink Href="/counter" Icon="@Icons.Material.Filled.AddCircle">Counter</MudNavLink>
+            <MudNavLink Href="/weather" Icon="@Icons.Material.Filled.CloudQueue">Weather</MudNavLink>
+            <MudNavLink Href="/api-demo" Icon="@Icons.Material.Filled.Api">API Demo</MudNavLink>
+        </MudNavMenu>
+    </MudDrawer>
+
+    <MudMainContent>
+        <MudContainer MaxWidth="MaxWidth.False" Class="pa-4">
+            @Body
+        </MudContainer>
+    </MudMainContent>
+</MudLayout>
+
+@code {
+    private bool _drawerOpen = true;
+    void ToggleDrawer() => _drawerOpen = !_drawerOpen;
+    void ToggleDark() { Theme.Toggle(); StateHasChanged(); }
+}
