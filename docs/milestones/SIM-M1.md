@@ -62,10 +62,10 @@ Hash computation: normalize line endings to `\n` before hashing.
 
 | Phase | Focus | Deliverables | Tests | Status |
 |-------|-------|-------------|-------|--------|
-| 0 | Planning & branch | SIM-M1 doc, branch scaffold | n/a | ⏳ |
+| 0 | Planning & branch | SIM-M1 doc, branch scaffold | n/a | ✅ Done |
 | 1 | schemaVersion & validation | Spec & validator updates; docs & samples bump | VersionValidationTests | ✅ Done |
-| 2 | RNG hardening | PCG implementation + opt-out flag | RngDeterminismTests, SnapshotTests | 🚧 In Progress |
-| 3 | Metadata manifest | `metadata.json` write + CLI verbose print (`docs/metadata-manifest.md`) | MetadataHashTests | ⏳ |
+| 2 | RNG hardening | PCG implementation + opt-out flag | RngDeterminismTests, PcgRngSnapshotTests | ✅ Done |
+| 3 | Metadata manifest | `metadata.json` write + CLI verbose print (`docs/metadata-manifest.md`) | MetadataHashTests | ✅ Done |
 | 4 | Service spec parsing | DTO + validation; no runtime effect | ServiceSpecTests | ⏳ |
 | 5 | Adapter parity harness (SYN-M0 tie‑in) | Test harness script/integration test | ParityRoundtripTests | ⏳ |
 | 6 | Docs & release prep | Updated contracts + new release notes | DocLint | ⏳ |
@@ -76,8 +76,8 @@ Hash computation: normalize line endings to `\n` before hashing.
 
 - [ ] Specs without `schemaVersion` accepted with warning; outputs include `schemaVersion: 1`.
 - [ ] Specs with unsupported version rejected.
-- [ ] RNG kind selectable; PCG default yields stable snapshot (first 10 samples hash) across runs & OS.
-- [ ] Metadata manifest emitted with correct hashes (validated by tests).
+- [x] RNG kind selectable; PCG default yields stable snapshot (first N samples direct RNG hash) across runs & OS.
+- [x] Metadata manifest emitted with correct hashes (validated by tests).
 - [ ] Determinism tests updated to include metadata hash comparison.
 - [ ] Service time block parsed & validated (no change to events/gold yet).
 - [ ] Parity harness demonstrates adapter roundtrip with unchanged arrival counts.

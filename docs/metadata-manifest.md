@@ -1,6 +1,6 @@
 # Simulation Metadata Manifest
 
-Status: Draft (SIM-M1 Phase 3). Subject to refinement before SIM-M1 release freeze.
+Status: Implemented (SIM-M1 Phase 3 complete). Further extensions may add optional fields.
 
 ## 1. Purpose
 The metadata manifest (`metadata.json`) is a compact, machine-readable summary of a completed simulation run. It enables:
