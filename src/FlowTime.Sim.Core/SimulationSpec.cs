@@ -56,7 +56,11 @@ public sealed class OutputsSpec
 
 public static class SimulationSpecLoader
 {
-    private static readonly IDeserializer deserializer = new DeserializerBuilder()
+    // NOTE: Prior version kept a static shared IDeserializer. Under xUnit's default parallelization
+    // this triggered rare IndexOutOfRangeException deep inside YamlDotNet's DefaultObjectFactory / Dictionary
+    // when multiple threads deserialized concurrently. Creating a fresh deserializer per call is cheap for our scale
+    // (SIM-M0/M1) and avoids the thread-safety issue.
+    private static IDeserializer CreateDeserializer() => new DeserializerBuilder()
         .WithNamingConvention(CamelCaseNamingConvention.Instance)
         .IgnoreUnmatchedProperties()
         .Build();
@@ -64,6 +68,7 @@ public static class SimulationSpecLoader
     public static SimulationSpec LoadFromString(string yaml)
     {
         if (string.IsNullOrWhiteSpace(yaml)) throw new ArgumentException("YAML is empty", nameof(yaml));
+        var deserializer = CreateDeserializer();
         var spec = deserializer.Deserialize<SimulationSpec>(yaml) ?? new SimulationSpec();
         return spec;
     }

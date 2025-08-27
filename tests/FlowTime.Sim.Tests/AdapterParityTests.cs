@@ -16,7 +16,9 @@ public class AdapterParityTests
         var exit = await FlowTime.Sim.Cli.ProgramWrapper.InvokeMain(new[] { "--mode", "sim", "--model", specPath, "--out", outDir });
         Assert.Equal(0, exit);
         var goldPath = Path.Combine(outDir, "gold.csv");
+        var eventsPath = Path.Combine(outDir, "events.ndjson");
         Assert.True(File.Exists(goldPath));
+        Assert.True(File.Exists(eventsPath));
         var lines = await File.ReadAllLinesAsync(goldPath, Encoding.UTF8);
         Assert.True(lines.Length > 1);
         var rows = new List<(DateTimeOffset, int, int, int)>();
@@ -36,6 +38,20 @@ public class AdapterParityTests
             binMinutes = (int)delta.TotalMinutes;
         }
         return (rows, hash, binMinutes ?? 60);
+    }
+
+    private static Dictionary<DateTimeOffset, int> AggregateEventsByTimestamp(string eventsPath)
+    {
+        var counts = new Dictionary<DateTimeOffset, int>();
+        foreach (var line in File.ReadLines(eventsPath))
+        {
+            if (string.IsNullOrWhiteSpace(line)) continue;
+            using var doc = System.Text.Json.JsonDocument.Parse(line);
+            var ts = doc.RootElement.GetProperty("ts").GetDateTimeOffset();
+            if (!counts.ContainsKey(ts)) counts[ts] = 0;
+            counts[ts]++;
+        }
+        return counts;
     }
 
     [Fact]
@@ -96,5 +112,75 @@ public class AdapterParityTests
         var graph = new FlowTime.Core.Graph(new[] { demandNode });
         var series = graph.Evaluate(grid)[demandNode.Id].ToArray();
         Assert.Equal(r1.Select(r => (double)r.arrivals), series);
+    }
+
+    [Fact]
+    public async Task EventsAggregation_EqualsGoldCounts_Const()
+    {
+        var spec = """
+ schemaVersion: 1
+ grid:
+     bins: 3
+     binMinutes: 60
+     start: 2025-01-01T00:00:00Z
+ seed: 321
+ arrivals:
+     kind: const
+     values: [2,3,4]
+ route:
+     id: nodeC
+ """;
+        var specPath = Path.GetTempFileName();
+        await File.WriteAllTextAsync(specPath, spec, Encoding.UTF8);
+        var outDir = Path.Combine(Path.GetTempPath(), "flow-sim-parity-evt-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(outDir);
+        var exit = await FlowTime.Sim.Cli.ProgramWrapper.InvokeMain(new[] { "--mode", "sim", "--model", specPath, "--out", outDir });
+        Assert.Equal(0, exit);
+        var goldPath = Path.Combine(outDir, "gold.csv");
+        var eventsPath = Path.Combine(outDir, "events.ndjson");
+        Assert.True(File.Exists(goldPath));
+        Assert.True(File.Exists(eventsPath));
+        var goldLines = File.ReadAllLines(goldPath); // header + rows
+        var goldRows = goldLines.Skip(1).Select(l => l.Split(',')).ToArray();
+        var goldCounts = goldRows.Select(p => int.Parse(p[3])).ToArray();
+        var goldTimestamps = goldRows.Select(p => DateTimeOffset.Parse(p[0])).ToArray();
+        var eventMap = AggregateEventsByTimestamp(eventsPath);
+        var eventsAggAligned = goldTimestamps.Select(ts => eventMap.TryGetValue(ts, out var c) ? c : 0).ToArray();
+        Assert.Equal(goldCounts, eventsAggAligned);
+    }
+
+    [Fact]
+    public async Task EventsAggregation_EqualsGoldCounts_Poisson()
+    {
+        var spec = """
+ schemaVersion: 1
+ grid:
+     bins: 5
+     binMinutes: 60
+     start: 2025-01-01T00:00:00Z
+ seed: 999
+ arrivals:
+     kind: poisson
+     rate: 2.7
+ route:
+     id: nodeD
+ """;
+        var specPath = Path.GetTempFileName();
+        await File.WriteAllTextAsync(specPath, spec, Encoding.UTF8);
+        var outDir = Path.Combine(Path.GetTempPath(), "flow-sim-parity-evt-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(outDir);
+        var exit = await FlowTime.Sim.Cli.ProgramWrapper.InvokeMain(new[] { "--mode", "sim", "--model", specPath, "--out", outDir });
+        Assert.Equal(0, exit);
+        var goldPath = Path.Combine(outDir, "gold.csv");
+        var eventsPath = Path.Combine(outDir, "events.ndjson");
+        Assert.True(File.Exists(goldPath));
+        Assert.True(File.Exists(eventsPath));
+        var goldLines = File.ReadAllLines(goldPath);
+        var goldRows = goldLines.Skip(1).Select(l => l.Split(',')).ToArray();
+        var goldCounts = goldRows.Select(p => int.Parse(p[3])).ToArray();
+        var goldTimestamps = goldRows.Select(p => DateTimeOffset.Parse(p[0])).ToArray();
+        var eventMap = AggregateEventsByTimestamp(eventsPath);
+        var eventsAggAligned = goldTimestamps.Select(ts => eventMap.TryGetValue(ts, out var c) ? c : 0).ToArray();
+        Assert.Equal(goldCounts, eventsAggAligned);
     }
 }
