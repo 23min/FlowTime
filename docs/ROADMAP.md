@@ -1,7 +1,3 @@
-Here’s a structured **FlowTime-Sim Roadmap** you can use as a guide. I followed the format of your FlowTime roadmapand your engineering ground doc, while also weaving in the ideas around PMFs, time windows, and synthetic load generation.
-
----
-
 # FlowTime-Sim Roadmap (Draft v1.0)
 
 > **Audience**: Engineers, architects, domain experts building simulations.  

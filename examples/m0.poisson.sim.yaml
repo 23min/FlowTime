@@ -1,3 +1,4 @@
+schemaVersion: 1
 grid:
   bins: 4
   binMinutes: 60

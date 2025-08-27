@@ -1,12 +1,13 @@
 # FlowTime-Sim Contracts (SIM-M0)
 
-Status: Near-complete (Phases 1–6 implemented). This document defines the simulation spec, event, and Gold output contracts for SIM-M0. Optional enhancements (hash logging, large-λ warning) are implemented; future evolution will version via `schemaVersion`.
+Status: SIM-M0 frozen; SIM-M1 introducing `schemaVersion`. This document defines the SIM-M0 contracts and notes SIM-M1 additive versioning (`schemaVersion: 1`). Optional enhancements (hash logging, large-λ warning) implemented; versioned evolution now active.
 
 ## 1. Simulation Spec (YAML)
 
-Root keys:
+Root keys (SIM-M0 baseline; SIM-M1 adds `schemaVersion`):
 
 ```yaml
+schemaVersion: 1            # SIM-M1+ (optional in transition; if omitted treated as 0 with warning)
 grid:
   bins: 24                # required > 0
   binMinutes: 60          # required > 0
@@ -36,7 +37,7 @@ Validation summary:
 - `route.id` non-empty.
 - No mixing `rate` and `rates`.
 
-Determinism: Given identical YAML (including seed) output events and Gold CSV must be byte-identical (except trailing newline tolerance) in SIM-M0. A test suite enforces this (hash comparisons). CLI verbose mode prints SHA256 hashes of generated files to aid reproducibility.
+Determinism: Given identical YAML (including seed) output events and Gold CSV must be byte-identical (except trailing newline tolerance). A test suite enforces this (hash comparisons). CLI verbose mode prints SHA256 hashes of generated files to aid reproducibility. SIM-M1 maintains determinism while adding version metadata.
 
 Poisson performance note: For λ > 1000 a warning is emitted (Knuth sampler may degrade). Future milestone will introduce an O(1) or transformed-rejection sampler.
 
@@ -113,7 +114,7 @@ Hashing: Verbose mode prints SHA256 hashes so downstream processes (e.g., SYN-M0
 
 ## 7. Contract Evolution Strategy
 
-Introduce an eventual `schemaVersion` field at root once first breaking change is contemplated (post SIM-M0). Prior to that, additive changes only. The Synthetic Adapter (SYN-M0) will pin to the SIM-M0 contract hash.
+`schemaVersion` introduced in SIM-M1 (value = 1). During the transition period specs without the field are assumed version 0 (legacy) with a warning; future milestones may deprecate version 0 acceptance. Adapters should require >=1 once SIM-M1 ships. Breaking changes will increment this number; additive changes keep it stable.
 
 ## 8. Open Questions (Track Before Finalizing SIM-M0)
 
@@ -145,6 +146,7 @@ Copy (or truncate) the outputs into the docs examples if the contract changes; u
 |------|--------|
 | 2025-08-27 | Initial draft extracted from milestone SIM-M0 Phases 1–2 |
 | 2025-08-27 | Added sim CLI mode details, hashing, large-λ warning, sample outputs section |
+| 2025-08-27 | Added schemaVersion field (SIM-M1 planning) |
 
 ---
 

@@ -1,5 +1,6 @@
 # FlowTime-Sim
 
+![Build](https://github.com/23min/FlowTime-Sim/actions/workflows/build.yml/badge.svg?branch=main)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
 > FlowTime-Sim is a spec-driven synthetic data generator for FlowTime. It produces realistic event streams and "Gold" series to power demos, CI, and what-if experiments when real telemetry is unavailable.
