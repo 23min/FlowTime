@@ -67,7 +67,7 @@ Hash computation: normalize line endings to `\n` before hashing.
 | 2 | RNG hardening | PCG implementation + opt-out flag | RngDeterminismTests, PcgRngSnapshotTests | ✅ Done |
 | 3 | Metadata manifest | `metadata.json` write + CLI verbose print (`docs/metadata-manifest.md`) | MetadataHashTests | ✅ Done |
 | 4 | Service spec parsing | DTO + validation; no runtime effect | ServiceSpecTests | ✅ Done |
-| 5 | Adapter parity harness (SYN-M0 tie‑in) | Test harness script/integration test | ParityRoundtripTests | 🟡 In Progress |
+| 5 | Adapter parity harness (SYN-M0 tie‑in) | Test harness integration (engine parity, events aggregation, manifest parity, negative guard) | ParityRoundtripTests, EventsAggregationTests, ManifestParityTests | 🟡 In Progress |
 | 6 | Docs & release prep | Updated contracts + new release notes | DocLint | ⏳ |
 
 ---
@@ -80,7 +80,7 @@ Hash computation: normalize line endings to `\n` before hashing.
 - [x] Metadata manifest emitted with correct hashes (validated by tests).
 - [x] Determinism tests updated to include metadata hash comparison.
 - [x] Service time block parsed & validated (no change to events/gold yet).
-- [ ] Parity harness demonstrates adapter roundtrip with unchanged arrival counts.
+- [x] Parity harness demonstrates adapter roundtrip with unchanged arrival counts (engine demand == gold arrivals; events aggregated == gold counts; manifest validated).
 - [ ] Documentation updated (contracts, README, milestone) reflecting versioning & RNG change.
 
 Stretch (optional):
@@ -118,3 +118,4 @@ Stretch (optional):
 | Date | Change | Author |
 |------|--------|--------|
 | 2025-08-27 | Initial SIM-M1 planning draft | AI Assistant |
+| 2025-08-27 | Parity harness tests (engine, events, manifest, negative) added | AI Assistant |
