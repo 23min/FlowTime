@@ -66,7 +66,7 @@ Hash computation: normalize line endings to `\n` before hashing.
 | 1 | schemaVersion & validation | Spec & validator updates; docs & samples bump | VersionValidationTests | ✅ Done |
 | 2 | RNG hardening | PCG implementation + opt-out flag | RngDeterminismTests, PcgRngSnapshotTests | ✅ Done |
 | 3 | Metadata manifest | `metadata.json` write + CLI verbose print (`docs/metadata-manifest.md`) | MetadataHashTests | ✅ Done |
-| 4 | Service spec parsing | DTO + validation; no runtime effect | ServiceSpecTests | ⏳ |
+| 4 | Service spec parsing | DTO + validation; no runtime effect | ServiceSpecTests | 🟡 In Progress |
 | 5 | Adapter parity harness (SYN-M0 tie‑in) | Test harness script/integration test | ParityRoundtripTests | ⏳ |
 | 6 | Docs & release prep | Updated contracts + new release notes | DocLint | ⏳ |
 
@@ -79,7 +79,7 @@ Hash computation: normalize line endings to `\n` before hashing.
 - [x] RNG kind selectable; PCG default yields stable snapshot (first N samples direct RNG hash) across runs & OS.
 - [x] Metadata manifest emitted with correct hashes (validated by tests).
 - [ ] Determinism tests updated to include metadata hash comparison.
-- [ ] Service time block parsed & validated (no change to events/gold yet).
+- [x] Service time block parsed & validated (no change to events/gold yet).
 - [ ] Parity harness demonstrates adapter roundtrip with unchanged arrival counts.
 - [ ] Documentation updated (contracts, README, milestone) reflecting versioning & RNG change.
 
