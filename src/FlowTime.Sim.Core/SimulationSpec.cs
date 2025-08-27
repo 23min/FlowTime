@@ -8,6 +8,8 @@ namespace FlowTime.Sim.Core;
 
 public sealed class SimulationSpec
 {
+    // SIM-M1+: explicit contract version. If null treat as 0 (legacy) and warn; only 1 supported going forward.
+    public int? schemaVersion { get; set; }
     public GridSpec? grid { get; set; }
     public int? seed { get; set; }
     public ArrivalsSpec? arrivals { get; set; }
@@ -43,7 +45,7 @@ public sealed class OutputsSpec
 
 public static class SimulationSpecLoader
 {
-    private static readonly IDeserializer Deserializer = new DeserializerBuilder()
+    private static readonly IDeserializer deserializer = new DeserializerBuilder()
         .WithNamingConvention(CamelCaseNamingConvention.Instance)
         .IgnoreUnmatchedProperties()
         .Build();
@@ -51,7 +53,7 @@ public static class SimulationSpecLoader
     public static SimulationSpec LoadFromString(string yaml)
     {
         if (string.IsNullOrWhiteSpace(yaml)) throw new ArgumentException("YAML is empty", nameof(yaml));
-        var spec = Deserializer.Deserialize<SimulationSpec>(yaml) ?? new SimulationSpec();
+    var spec = deserializer.Deserialize<SimulationSpec>(yaml) ?? new SimulationSpec();
         return spec;
     }
 
@@ -76,6 +78,18 @@ public static class SimulationSpecValidator
     public static SimulationSpecValidationResult Validate(SimulationSpec spec)
     {
         var errors = new List<string>();
+        // Versioning
+        var ver = spec.schemaVersion;
+        if (ver is null)
+        {
+            // legacy spec (SIM-M0) – tolerated but will be escalated in later milestone
+            // Emit a one-time warning (stdout suppressed in tests typically). Not an error for backward compatibility.
+            Console.Error.WriteLine("[warn] schemaVersion missing; assuming 0 (pre-versioned spec). Consider adding 'schemaVersion: 1'.");
+        }
+        else if (ver != 1)
+        {
+            errors.Add($"schemaVersion: unsupported value {ver} (only 1 is supported)");
+        }
 
         // grid
         if (spec.grid is null) errors.Add("grid: section is required");
@@ -172,9 +186,9 @@ public interface IDeterministicRng
 
 public sealed class DeterministicRng : IDeterministicRng
 {
-    private readonly Random _random;
-    public DeterministicRng(int seed) => _random = new Random(seed);
-    public double NextDouble() => _random.NextDouble();
+    private readonly Random randomField;
+    public DeterministicRng(int seed) => randomField = new Random(seed);
+    public double NextDouble() => randomField.NextDouble();
 }
 
 public sealed class ArrivalGenerationResult

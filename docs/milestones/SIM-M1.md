@@ -63,7 +63,7 @@ Hash computation: normalize line endings to `\n` before hashing.
 | Phase | Focus | Deliverables | Tests | Status |
 |-------|-------|-------------|-------|--------|
 | 0 | Planning & branch | SIM-M1 doc, branch scaffold | n/a | ⏳ |
-| 1 | schemaVersion & validation | Spec & validator updates; docs & samples bump | VersionValidationTests | ⏳ |
+| 1 | schemaVersion & validation | Spec & validator updates; docs & samples bump | VersionValidationTests | 🚧 In Progress |
 | 2 | RNG hardening | PCG implementation + opt-out flag | RngDeterminismTests, SnapshotTests | ⏳ |
 | 3 | Metadata manifest | `metadata.json` write + CLI verbose print | MetadataHashTests | ⏳ |
 | 4 | Service spec parsing | DTO + validation; no runtime effect | ServiceSpecTests | ⏳ |
