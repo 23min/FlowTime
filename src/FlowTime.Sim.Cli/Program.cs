@@ -132,28 +132,29 @@ namespace FlowTime.Sim.Cli
                         await GoldWriter.WriteAsync(spec, arrivals, gold, cts.Token);
                     }
 
+                    // Write metadata manifest (metadata.json in same output dir by default)
+                    string manifestPath = Path.Combine(outDir, "metadata.json");
+                    MetadataManifest? manifest = null;
+                    try
+                    {
+                        manifest = await MetadataWriter.WriteAsync(spec, eventsPath, goldPath, manifestPath, cts.Token);
+                    }
+                    catch (Exception mex)
+                    {
+                        Console.Error.WriteLine($"[warn] Failed to write metadata manifest: {mex.Message}");
+                    }
+
                     if (opts.Verbose)
                     {
                         Console.WriteLine("Mode: sim");
                         Console.WriteLine($"Bins={spec.grid!.bins} binMinutes={spec.grid.binMinutes} totalEvents={arrivals.Total}");
                         Console.WriteLine($"Events -> {eventsPath}");
                         Console.WriteLine($"Gold   -> {goldPath}");
-                        // Compute and print hashes for reproducibility
-                        try
+                        if (manifest is not null)
                         {
-                            string Hash(string path)
-                            {
-                                using var sha = System.Security.Cryptography.SHA256.Create();
-                                using var fs = File.OpenRead(path);
-                                var h = sha.ComputeHash(fs);
-                                return Convert.ToHexString(h).ToLowerInvariant();
-                            }
-                            Console.WriteLine($"Events SHA256: {Hash(eventsPath)}");
-                            Console.WriteLine($"Gold   SHA256: {Hash(goldPath)}");
-                        }
-                        catch (Exception hex)
-                        {
-                            Console.Error.WriteLine($"[warn] Failed to compute hashes: {hex.Message}");
+                            Console.WriteLine($"Manifest -> {manifestPath}");
+                            Console.WriteLine($"Events SHA256: {manifest.events.sha256}");
+                            Console.WriteLine($"Gold   SHA256: {manifest.gold.sha256}");
                         }
                     }
                 }

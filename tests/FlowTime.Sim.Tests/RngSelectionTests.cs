@@ -49,4 +49,5 @@ public class RngSelectionTests
         }
         Assert.False(aPcg.BinCounts.SequenceEqual(aLegacy.BinCounts), "Expected differing sequences between pcg and legacy RNG");
     }
+
 }

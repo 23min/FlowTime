@@ -103,6 +103,8 @@ If CLI `--out` points to a directory, outputs are written under that root (using
 
 Verbose (`--verbose`) additionally logs SHA256 hashes of both files.
 
+Metadata manifest: A `metadata.json` file (SIM-M1 Phase 3) will accompany these outputs containing version, seed, rng, and hashes. See `metadata-manifest.md`.
+
 ## 5. Error Handling & Exit Codes
 
 Validation failures (spec) must produce a clear aggregated error message listing all issues; exit code 2 for usage/spec errors (align with existing pattern). Runtime generation errors (unexpected exceptions) exit code 1.

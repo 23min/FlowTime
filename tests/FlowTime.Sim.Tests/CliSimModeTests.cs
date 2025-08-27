@@ -41,6 +41,23 @@ outputs:
         Assert.Equal(4 * 5, lines.Length); // 4 bins * 5 arrivals
         var goldLines = await File.ReadAllLinesAsync(goldPath, Encoding.UTF8);
         Assert.Equal(1 + 4, goldLines.Length); // header + 4 rows
+
+        // Metadata manifest
+        var manifestPath = Path.Combine(outDir, "metadata.json");
+        Assert.True(File.Exists(manifestPath));
+        var json = await File.ReadAllTextAsync(manifestPath, Encoding.UTF8);
+        using var doc = System.Text.Json.JsonDocument.Parse(json);
+        var root = doc.RootElement;
+        Assert.Equal(1, root.GetProperty("schemaVersion").GetInt32());
+        Assert.Equal(12345, root.GetProperty("seed").GetInt32());
+        Assert.Equal("pcg", root.GetProperty("rng").GetString());
+        var ev = root.GetProperty("events");
+        var gd = root.GetProperty("gold");
+        Assert.EndsWith("events.ndjson", ev.GetProperty("path").GetString());
+        Assert.EndsWith("gold.csv", gd.GetProperty("path").GetString());
+        bool Hex64(string s) => System.Text.RegularExpressions.Regex.IsMatch(s, "^[0-9a-f]{64}$");
+        Assert.True(Hex64(ev.GetProperty("sha256").GetString()!.ToLowerInvariant()));
+        Assert.True(Hex64(gd.GetProperty("sha256").GetString()!.ToLowerInvariant()));
     }
 
     [Fact]
