@@ -78,19 +78,19 @@ public class AdapterParityTests
  route:
      id: nodeA
  """;
-    var run1 = await RunSimAsync(spec);
-    var run2 = await RunSimAsync(spec);
-    Assert.Equal(run1.GoldHash, run2.GoldHash);
-    Assert.Equal(run1.Rows.Select(r => r.arrivals), run2.Rows.Select(r => r.arrivals));
-    Assert.Equal(run1.Rows.Select(r => r.served), run2.Rows.Select(r => r.served));
+        var run1 = await RunSimAsync(spec);
+        var run2 = await RunSimAsync(spec);
+        Assert.Equal(run1.GoldHash, run2.GoldHash);
+        Assert.Equal(run1.Rows.Select(r => r.arrivals), run2.Rows.Select(r => r.arrivals));
+        Assert.Equal(run1.Rows.Select(r => r.served), run2.Rows.Select(r => r.served));
 
         // Build engine graph from arrivals -> demand node
-    var grid = new FlowTime.Core.TimeGrid(run1.Rows.Count, run1.BinMinutes);
-    var demandNode = new FlowTime.Core.ConstSeriesNode("demand", run1.Rows.Select(r => (double)r.arrivals).ToArray());
+        var grid = new FlowTime.Core.TimeGrid(run1.Rows.Count, run1.BinMinutes);
+        var demandNode = new FlowTime.Core.ConstSeriesNode("demand", run1.Rows.Select(r => (double)r.arrivals).ToArray());
         var graph = new FlowTime.Core.Graph(new[] { demandNode });
         var evaluated = graph.Evaluate(grid);
         var demandSeries = evaluated[demandNode.Id].ToArray();
-    Assert.Equal(run1.Rows.Select(r => (double)r.arrivals), demandSeries);
+        Assert.Equal(run1.Rows.Select(r => (double)r.arrivals), demandSeries);
     }
 
     [Fact]
@@ -109,17 +109,17 @@ public class AdapterParityTests
  route:
      id: nodeB
  """;
-    var run1 = await RunSimAsync(spec);
-    var run2 = await RunSimAsync(spec);
-    Assert.Equal(run1.Rows.Select(r => r.arrivals), run2.Rows.Select(r => r.arrivals));
-    Assert.Equal(run1.Rows.Select(r => r.served), run2.Rows.Select(r => r.served));
+        var run1 = await RunSimAsync(spec);
+        var run2 = await RunSimAsync(spec);
+        Assert.Equal(run1.Rows.Select(r => r.arrivals), run2.Rows.Select(r => r.arrivals));
+        Assert.Equal(run1.Rows.Select(r => r.served), run2.Rows.Select(r => r.served));
 
         // Engine parity
-    var grid = new FlowTime.Core.TimeGrid(run1.Rows.Count, run1.BinMinutes);
-    var demandNode = new FlowTime.Core.ConstSeriesNode("demand", run1.Rows.Select(r => (double)r.arrivals).ToArray());
+        var grid = new FlowTime.Core.TimeGrid(run1.Rows.Count, run1.BinMinutes);
+        var demandNode = new FlowTime.Core.ConstSeriesNode("demand", run1.Rows.Select(r => (double)r.arrivals).ToArray());
         var graph = new FlowTime.Core.Graph(new[] { demandNode });
         var series = graph.Evaluate(grid)[demandNode.Id].ToArray();
-    Assert.Equal(run1.Rows.Select(r => (double)r.arrivals), series);
+        Assert.Equal(run1.Rows.Select(r => (double)r.arrivals), series);
     }
 
     [Fact]
@@ -138,10 +138,10 @@ public class AdapterParityTests
  route:
      id: nodeC
  """;
-    var run = await RunSimAsync(spec);
-    var goldCounts = run.Rows.Select(r => r.arrivals).ToArray();
-    var goldTimestamps = run.Rows.Select(r => r.ts).ToArray();
-    var eventMap = AggregateEventsByTimestamp(run.EventsPath);
+        var run = await RunSimAsync(spec);
+        var goldCounts = run.Rows.Select(r => r.arrivals).ToArray();
+        var goldTimestamps = run.Rows.Select(r => r.ts).ToArray();
+        var eventMap = AggregateEventsByTimestamp(run.EventsPath);
         var eventsAggAligned = goldTimestamps.Select(ts => eventMap.TryGetValue(ts, out var c) ? c : 0).ToArray();
         Assert.Equal(goldCounts, eventsAggAligned);
     }
@@ -194,8 +194,8 @@ public class AdapterParityTests
         Assert.Equal("pcg", root.GetProperty("rng").GetString());
         var eventsObj = root.GetProperty("events");
         var goldObj = root.GetProperty("gold");
-    Assert.EndsWith("events.ndjson", eventsObj.GetProperty("path").GetString());
-    Assert.EndsWith("gold.csv", goldObj.GetProperty("path").GetString());
+        Assert.EndsWith("events.ndjson", eventsObj.GetProperty("path").GetString());
+        Assert.EndsWith("gold.csv", goldObj.GetProperty("path").GetString());
         // Basic hash sanity: hex length 64
         Assert.Equal(64, eventsObj.GetProperty("sha256").GetString()!.Length);
         Assert.Equal(64, goldObj.GetProperty("sha256").GetString()!.Length);
