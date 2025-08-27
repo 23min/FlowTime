@@ -10,6 +10,8 @@ public sealed class SimulationSpec
 {
     // SIM-M1+: explicit contract version. If null treat as 0 (legacy) and warn; only 1 supported going forward.
     public int? schemaVersion { get; set; }
+    // SIM-M1 Phase 2: RNG selection (default pcg). Supported: pcg | legacy
+    public string? rng { get; set; }
     public GridSpec? grid { get; set; }
     public int? seed { get; set; }
     public ArrivalsSpec? arrivals { get; set; }
@@ -89,6 +91,17 @@ public static class SimulationSpecValidator
         else if (ver != 1)
         {
             errors.Add($"schemaVersion: unsupported value {ver} (only 1 is supported)");
+        }
+
+        // rng (Phase 2)
+        if (!string.IsNullOrWhiteSpace(spec.rng))
+        {
+            var r = spec.rng.Trim().ToLowerInvariant();
+            if (r is not ("pcg" or "legacy")) errors.Add("rng: unsupported (expected pcg|legacy)");
+            else if (r == "legacy")
+            {
+                Console.Error.WriteLine("[warn] rng=legacy selected; behavior will remain deterministic but pcg is the default going forward.");
+            }
         }
 
         // grid
@@ -184,6 +197,35 @@ public interface IDeterministicRng
     double NextDouble(); // [0,1)
 }
 
+public sealed class Pcg32Rng : IDeterministicRng
+{
+    // PCG-XSH-RR 32
+    private ulong state;
+    private readonly ulong inc;
+
+    public Pcg32Rng(int seed)
+    {
+        // Derive stream increment from seed (ensure odd)
+        inc = ((ulong)(seed ^ 0xDA3E39CB)) << 1 | 1UL;
+        // Initialize state (could use a fixed value mixed with seed for diffusion)
+        state = 0UL;
+        NextUInt();
+        state += (ulong)(uint)seed + 0x853C49E6748FEA9BUL;
+        NextUInt();
+    }
+
+    private uint NextUInt()
+    {
+        var old = state;
+        state = unchecked(old * 6364136223846793005UL + inc);
+        var xorshifted = (uint)(((old >> 18) ^ old) >> 27);
+        var rot = (int)(old >> 59);
+        return (xorshifted >> rot) | (xorshifted << ((-rot) & 31));
+    }
+
+    public double NextDouble() => NextUInt() / 4294967296.0; // 2^32
+}
+
 public sealed class DeterministicRng : IDeterministicRng
 {
     private readonly Random randomField;
@@ -215,8 +257,20 @@ public static class ArrivalGenerators
         return kind switch
         {
             "const" => GenerateConst(spec, bins),
-            "poisson" => GeneratePoisson(spec, bins, rng ?? new DeterministicRng(spec.seed ?? 12345)),
+            "poisson" => GeneratePoisson(spec, bins, rng ?? CreateRng(spec)),
             _ => throw new NotSupportedException($"arrivals.kind '{spec.arrivals.kind}' not supported")
+        };
+    }
+
+    private static IDeterministicRng CreateRng(SimulationSpec spec)
+    {
+        var seed = spec.seed ?? 12345;
+        var kind = spec.rng?.Trim().ToLowerInvariant();
+        return kind switch
+        {
+            null or "" or "pcg" => new Pcg32Rng(seed),
+            "legacy" => new DeterministicRng(seed),
+            _ => new Pcg32Rng(seed) // fallback (should have been validated)
         };
     }
 
