@@ -3,7 +3,10 @@
   "image": "mcr.microsoft.com/devcontainers/dotnet:1-9.0",
   "features": {
     "ghcr.io/devcontainers/features/powershell:1": {},
-    "ghcr.io/devcontainers/features/github-cli:1": {}
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "20"
+    }
   },
   "updateContentCommand": "pwsh .devcontainer/init.ps1",
   "postCreateCommand": "pwsh .devcontainer/init.ps1 --PostCreate",
@@ -31,7 +34,8 @@
         "redhat.vscode-yaml",
         "GitHub.copilot",
         "github.copilot-chat",
-        "humao.rest-client"
+        "humao.rest-client",
+        "shd101wyy.markdown-preview-enhanced"
       ]
     }
   },
