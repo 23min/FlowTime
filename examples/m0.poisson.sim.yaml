@@ -1,0 +1,13 @@
+grid:
+  bins: 4
+  binMinutes: 60
+  start: 2025-01-01T00:00:00Z
+seed: 999
+arrivals:
+  kind: poisson
+  rate: 3.5
+route:
+  id: nodeA
+outputs:
+  events: out/poisson.events.ndjson
+  gold: out/poisson.gold.csv

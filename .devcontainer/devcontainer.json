@@ -31,7 +31,8 @@
         "redhat.vscode-yaml",
         "GitHub.copilot",
         "github.copilot-chat",
-        "humao.rest-client"
+        "humao.rest-client",
+        "shd101wyy.markdown-preview-enhanced"
       ]
     }
   },

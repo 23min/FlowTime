@@ -6,4 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
+    <ItemGroup>
+      <ProjectReference Include="../FlowTime.Sim.Core/FlowTime.Sim.Core.csproj" />
+    </ItemGroup>
 </Project>

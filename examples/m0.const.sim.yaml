@@ -1,0 +1,13 @@
+grid:
+  bins: 4
+  binMinutes: 60
+  start: 2025-01-01T00:00:00Z
+seed: 12345
+arrivals:
+  kind: const
+  values: [5, 5, 5, 5]
+route:
+  id: nodeA
+outputs:
+  events: out/events.ndjson
+  gold: out/gold.csv
