@@ -67,7 +67,7 @@ Hash computation: normalize line endings to `\n` before hashing.
 | 2 | RNG hardening | PCG implementation + opt-out flag | RngDeterminismTests, PcgRngSnapshotTests | ✅ Done |
 | 3 | Metadata manifest | `metadata.json` write + CLI verbose print (`docs/metadata-manifest.md`) | MetadataHashTests | ✅ Done |
 | 4 | Service spec parsing | DTO + validation; no runtime effect | ServiceSpecTests | ✅ Done |
-| 5 | Adapter parity harness (SYN-M0 tie‑in) | Test harness script/integration test | ParityRoundtripTests | ⏳ |
+| 5 | Adapter parity harness (SYN-M0 tie‑in) | Test harness script/integration test | ParityRoundtripTests | 🟡 In Progress |
 | 6 | Docs & release prep | Updated contracts + new release notes | DocLint | ⏳ |
 
 ---
