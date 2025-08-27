@@ -131,12 +131,112 @@ public static class SimulationSpecValidator
         if (bins is > 0 && spec.arrivals is not null)
         {
             var kind = spec.arrivals.kind?.Trim().ToLowerInvariant();
-            if (kind == "const" && spec.arrivals.values is not null && spec.arrivals.values.Count != bins)
-                errors.Add($"arrivals.values: length {spec.arrivals.values.Count} must match grid.bins {bins}");
-            if (kind == "poisson" && spec.arrivals.rates is not null && spec.arrivals.rates.Count != bins)
-                errors.Add($"arrivals.rates: length {spec.arrivals.rates.Count} must match grid.bins {bins}");
+            if (kind == "const" && spec.arrivals.values is not null)
+            {
+                if (spec.arrivals.values.Count != bins)
+                    errors.Add($"arrivals.values: length {spec.arrivals.values.Count} must match grid.bins {bins}");
+                // Ensure non-negative integral counts
+                for (int i = 0; i < spec.arrivals.values.Count; i++)
+                {
+                    var v = spec.arrivals.values[i];
+                    if (v < 0) errors.Add($"arrivals.values[{i}]: must be >= 0");
+                    else if (Math.Abs(v - Math.Round(v)) > 1e-9) errors.Add($"arrivals.values[{i}]: must be an integer");
+                }
+            }
+            if (kind == "poisson" && spec.arrivals.rates is not null)
+            {
+                if (spec.arrivals.rates.Count != bins)
+                    errors.Add($"arrivals.rates: length {spec.arrivals.rates.Count} must match grid.bins {bins}");
+                for (int i = 0; i < spec.arrivals.rates.Count; i++)
+                {
+                    var r = spec.arrivals.rates[i];
+                    if (r < 0) errors.Add($"arrivals.rates[{i}]: must be >= 0");
+                }
+            }
+            if (kind == "poisson" && spec.arrivals.rate is not null && spec.arrivals.rate < 0)
+            {
+                errors.Add("arrivals.rate: must be >= 0");
+            }
         }
 
         return new SimulationSpecValidationResult(errors.Count == 0, errors);
+    }
+}
+
+// Phase 3: RNG & Arrival Generators
+
+public interface IDeterministicRng
+{
+    double NextDouble(); // [0,1)
+}
+
+public sealed class DeterministicRng : IDeterministicRng
+{
+    private readonly Random _random;
+    public DeterministicRng(int seed) => _random = new Random(seed);
+    public double NextDouble() => _random.NextDouble();
+}
+
+public sealed class ArrivalGenerationResult
+{
+    public int[] BinCounts { get; }
+    public int Total { get; }
+    public ArrivalGenerationResult(int[] counts)
+    {
+        BinCounts = counts;
+        Total = counts.Sum();
+    }
+}
+
+public static class ArrivalGenerators
+{
+    public static ArrivalGenerationResult Generate(SimulationSpec spec, IDeterministicRng? rng = null)
+    {
+        // Assumes spec already validated.
+        if (spec.grid?.bins is null) throw new InvalidOperationException("spec.grid.bins missing");
+        var bins = spec.grid.bins.Value;
+        if (spec.arrivals?.kind is null) throw new InvalidOperationException("arrivals.kind missing");
+        var kind = spec.arrivals.kind.Trim().ToLowerInvariant();
+
+        return kind switch
+        {
+            "const" => GenerateConst(spec, bins),
+            "poisson" => GeneratePoisson(spec, bins, rng ?? new DeterministicRng(spec.seed ?? 12345)),
+            _ => throw new NotSupportedException($"arrivals.kind '{spec.arrivals.kind}' not supported")
+        };
+    }
+
+    private static ArrivalGenerationResult GenerateConst(SimulationSpec spec, int bins)
+    {
+        if (spec.arrivals?.values is null) throw new InvalidOperationException("arrivals.values required for const");
+        var counts = spec.arrivals.values.Select(v => (int)Math.Round(v)).ToArray();
+        return new ArrivalGenerationResult(counts);
+    }
+
+    private static ArrivalGenerationResult GeneratePoisson(SimulationSpec spec, int bins, IDeterministicRng rng)
+    {
+        double[] perBinRates;
+        if (spec.arrivals?.rates is not null) perBinRates = spec.arrivals.rates.Select(r => r).ToArray();
+        else if (spec.arrivals?.rate is not null) perBinRates = Enumerable.Repeat(spec.arrivals.rate.Value, bins).ToArray();
+        else throw new InvalidOperationException("arrivals.rate(s) required for poisson");
+
+        var counts = new int[bins];
+        for (int i = 0; i < bins; i++) counts[i] = SamplePoisson(perBinRates[i], rng);
+        return new ArrivalGenerationResult(counts);
+    }
+
+    // Knuth algorithm (sufficient for SIM-M0 scale)
+    private static int SamplePoisson(double lambda, IDeterministicRng rng)
+    {
+        if (lambda <= 0) return 0;
+        var L = Math.Exp(-lambda);
+        int k = 0;
+        double p = 1.0;
+        do
+        {
+            k++;
+            p *= rng.NextDouble();
+        } while (p > L);
+        return k - 1;
     }
 }
