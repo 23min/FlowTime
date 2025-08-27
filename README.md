@@ -115,7 +115,7 @@ Notes
 - Testing: `docs/testing.md` (stub).
 - Branching strategy: `docs/branching-strategy.md` (stub).
  - Milestone SIM-M0 details: `docs/milestones/SIM-M0.md`.
- - Release notes: `docs/releases/M0.md`.
+ - Release notes: `docs/releases/SIM-M0.md`.
 
 ## License
 

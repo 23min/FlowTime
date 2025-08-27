@@ -5,10 +5,10 @@ namespace FlowTime.Sim.Tests;
 
 public class SimulationSpecParserTests
 {
-        [Fact]
-        public void Valid_Const_Spec_Parses_And_Validates()
-        {
-                var yaml = """
+    [Fact]
+    public void Valid_Const_Spec_Parses_And_Validates()
+    {
+        var yaml = """
                 grid:
                     bins: 3
                     binMinutes: 60
@@ -30,7 +30,7 @@ public class SimulationSpecParserTests
     [Fact]
     public void Valid_Poisson_Single_Rate()
     {
-                var yaml = """
+        var yaml = """
                 grid:
                     bins: 2
                     binMinutes: 15
@@ -48,7 +48,7 @@ public class SimulationSpecParserTests
     [Fact]
     public void Valid_Poisson_PerBin_Rates()
     {
-                var yaml = """
+        var yaml = """
                 grid:
                     bins: 2
                     binMinutes: 15
@@ -66,7 +66,7 @@ public class SimulationSpecParserTests
     [Fact]
     public void Invalid_Missing_Arrivals()
     {
-                var yaml = """
+        var yaml = """
                 grid:
                     bins: 2
                     binMinutes: 60
@@ -82,7 +82,7 @@ public class SimulationSpecParserTests
     [Fact]
     public void Invalid_Rate_And_Rates()
     {
-                var yaml = """
+        var yaml = """
                 grid:
                     bins: 2
                     binMinutes: 60
@@ -102,7 +102,7 @@ public class SimulationSpecParserTests
     [Fact]
     public void Invalid_Length_Mismatch()
     {
-                var yaml = """
+        var yaml = """
                 grid:
                     bins: 3
                     binMinutes: 60
@@ -121,7 +121,7 @@ public class SimulationSpecParserTests
     [Fact]
     public void Invalid_NonUtc_Start()
     {
-                var yaml = """
+        var yaml = """
                 grid:
                     bins: 2
                     binMinutes: 60
