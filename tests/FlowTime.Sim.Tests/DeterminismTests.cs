@@ -72,4 +72,42 @@ route:
         var bytes = Encoding.UTF8.GetBytes(s);
         return Convert.ToHexString(sha.ComputeHash(bytes));
     }
+
+    [Fact]
+    public async Task SimMode_MetadataManifest_HashesStable()
+    {
+        var specYaml = """
+schemaVersion: 1
+grid:
+    bins: 2
+    binMinutes: 60
+    start: 2025-01-01T00:00:00Z
+seed: 999
+arrivals:
+    kind: const
+    values: [3,4]
+route:
+    id: nodeA
+""";
+        async Task<string> WriteRunAndGetManifestHashAsync()
+        {
+            var specPath = Path.GetTempFileName();
+            File.WriteAllText(specPath, specYaml, Encoding.UTF8);
+            var outDir = Path.Combine(Path.GetTempPath(), "flow-sim-meta-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(outDir);
+            var exit = await FlowTime.Sim.Cli.ProgramWrapper.InvokeMain(new[] { "--mode", "sim", "--model", specPath, "--out", outDir });
+            Assert.Equal(0, exit);
+            var manifestPath = Path.Combine(outDir, "metadata.json");
+            Assert.True(File.Exists(manifestPath));
+            var json = File.ReadAllText(manifestPath, Encoding.UTF8);
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            var evHash = doc.RootElement.GetProperty("events").GetProperty("sha256").GetString()!;
+            var goldHash = doc.RootElement.GetProperty("gold").GetProperty("sha256").GetString()!;
+            return evHash + "|" + goldHash;
+        }
+
+        var h1 = await WriteRunAndGetManifestHashAsync();
+        var h2 = await WriteRunAndGetManifestHashAsync();
+        Assert.Equal(h1, h2);
+    }
 }
