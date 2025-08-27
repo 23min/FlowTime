@@ -1,6 +1,6 @@
-# FlowTime-Sim Contracts (SIM-M0 Draft)
+# FlowTime-Sim Contracts (SIM-M0)
 
-Status: DRAFT (Phases 1–2). This document defines the simulation spec, event, and Gold output contracts targeted in SIM-M0. It will be versioned when stabilized.
+Status: Near-complete (Phases 1–6 implemented). This document defines the simulation spec, event, and Gold output contracts for SIM-M0. Optional enhancements (hash logging, large-λ warning) are implemented; future evolution will version via `schemaVersion`.
 
 ## 1. Simulation Spec (YAML)
 
@@ -36,7 +36,9 @@ Validation summary:
 - `route.id` non-empty.
 - No mixing `rate` and `rates`.
 
-Determinism: Given identical YAML (including seed) output events and Gold CSV must be byte-identical (except trailing newline tolerance) in SIM-M0.
+Determinism: Given identical YAML (including seed) output events and Gold CSV must be byte-identical (except trailing newline tolerance) in SIM-M0. A test suite enforces this (hash comparisons). CLI verbose mode prints SHA256 hashes of generated files to aid reproducibility.
+
+Poisson performance note: For λ > 1000 a warning is emitted (Knuth sampler may degrade). Future milestone will introduce an O(1) or transformed-rejection sampler.
 
 Future reserved fields (not active yet):
 - `flows:` (multiple flow classes)
@@ -84,21 +86,30 @@ Rules:
 - `errors`: 0 (future: count of failed / dropped events).
 - `flow`: "*".
 
-## 4. Output Paths
+## 4. Output Paths & CLI Modes
 
 Default (when not overridden by `outputs` or CLI `--out` directory):
 - `events.ndjson`
 - `gold.csv`
 
-If CLI `--out` points to a directory, outputs written under that root unless spec overrides. If CLI `--out` sets an explicit file (future decision), we will treat it as root directory (SIM-M0 simplest rule: if it has no extension treat as dir; else still treat as dir unless spec overrides). Exact CLI semantics to be finalized in Phase 5.
+If CLI `--out` points to a directory, outputs are written under that root (using spec `outputs` overrides if present). Current rule: treat provided path without extension as directory root; with an extension we still derive its directory as root (SIM-M0 simplicity). Two CLI modes:
+
+| Mode | Purpose | Outputs |
+|------|---------|---------|
+| engine | Relay spec to FlowTime engine `/run` | Series CSV/JSON (legacy path) |
+| sim | Local simulation described here | NDJSON events + Gold CSV |
+
+Verbose (`--verbose`) additionally logs SHA256 hashes of both files.
 
 ## 5. Error Handling & Exit Codes
 
 Validation failures (spec) must produce a clear aggregated error message listing all issues; exit code 2 for usage/spec errors (align with existing pattern). Runtime generation errors (unexpected exceptions) exit code 1.
 
-## 6. Deterministic Randomness
+## 6. Deterministic Randomness & Hashing
 
 RNG seeded by `seed` (default 12345). All Poisson samples derive solely from this RNG. Switching to a fixed algorithm (e.g., PCG) is a future hardening task; for SIM-M0 we accept the .NET implementation but encapsulate it.
+
+Hashing: Verbose mode prints SHA256 hashes so downstream processes (e.g., SYN-M0 adapter tests) can assert scenario reproducibility without shipping large fixtures.
 
 ## 7. Contract Evolution Strategy
 
@@ -112,11 +123,28 @@ Introduce an eventual `schemaVersion` field at root once first breaking change i
 | Q2 | Include per-event random offset within bin (jitter)? | Not in SIM-M0; keep deterministic counts only. | SIM-M1 scope review |
 | Q3 | Support fractional expected counts for const arrivals? | No; const are integer counts. Use Poisson for stochastic. | SIM-M0 freeze |
 
-## 9. Change Log
+## 9. Sample Outputs
+
+Curated (truncated) sample outputs for quick reference live under `docs/examples/sim/`:
+
+| Scenario | Events Sample | Gold CSV | Notes |
+|----------|---------------|----------|-------|
+| Const (5 each bin, 4 bins) | `docs/examples/sim/const.events.ndjson.sample` | `docs/examples/sim/const.gold.csv` | 20 total events |
+| Poisson (λ=3.5 seed=999) | `docs/examples/sim/poisson.events.ndjson.sample` | `docs/examples/sim/poisson.gold.csv` | 3,4,3,4 counts |
+
+Regenerate locally:
+```
+dotnet run --project src/FlowTime.Sim.Cli -- --mode sim --model examples/m0.const.sim.yaml --out out/const --verbose
+dotnet run --project src/FlowTime.Sim.Cli -- --mode sim --model examples/m0.poisson.sim.yaml --out out/poisson --verbose
+```
+Copy (or truncate) the outputs into the docs examples if the contract changes; update hashes in milestone notes.
+
+## 10. Change Log
 
 | Date | Change |
 |------|--------|
 | 2025-08-27 | Initial draft extracted from milestone SIM-M0 Phases 1–2 |
+| 2025-08-27 | Added sim CLI mode details, hashing, large-λ warning, sample outputs section |
 
 ---
 

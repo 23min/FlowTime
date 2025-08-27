@@ -220,6 +220,12 @@ public static class ArrivalGenerators
         else if (spec.arrivals?.rate is not null) perBinRates = Enumerable.Repeat(spec.arrivals.rate.Value, bins).ToArray();
         else throw new InvalidOperationException("arrivals.rate(s) required for poisson");
 
+        // Warning (not error) for large lambda values that may degrade Knuth performance.
+        if (perBinRates.Any(r => r > 1000))
+        {
+            Console.Error.WriteLine("[warn] Poisson λ > 1000 detected; Knuth sampler may be slow. Consider future optimized sampler milestone.");
+        }
+
         var counts = new int[bins];
         for (int i = 0; i < bins; i++) counts[i] = SamplePoisson(perBinRates[i], rng);
         return new ArrivalGenerationResult(counts);
