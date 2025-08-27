@@ -27,6 +27,11 @@ public static class FlowTimeClient
     {
         using var req = new HttpRequestMessage(HttpMethod.Post, $"{baseUrl.TrimEnd('/')}/run");
         req.Content = new StringContent(yaml, Encoding.UTF8, "text/plain");
+        // Defensive: ensure Accept header present (tests set it, but callers might forget)
+        if (!http.DefaultRequestHeaders.Accept.Any(a => a.MediaType == "application/json"))
+        {
+            http.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+        }
 
         using var resp = await http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
         var stream = await resp.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);

@@ -35,6 +35,14 @@ internal static class Program
             using var http = new HttpClient();
             http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
+            // Validate format early (csv|json) – keeps behavior explicit if a typo occurs
+            if (!opts.Format.Equals("csv", StringComparison.OrdinalIgnoreCase) &&
+                !opts.Format.Equals("json", StringComparison.OrdinalIgnoreCase))
+            {
+                Console.Error.WriteLine($"Unsupported --format '{opts.Format}'. Expected 'csv' or 'json'.");
+                return 2;
+            }
+
             var cts = new CancellationTokenSource();
             Console.CancelKeyPress += (s, e) => { e.Cancel = true; cts.Cancel(); };
 
