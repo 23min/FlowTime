@@ -49,15 +49,6 @@ flowchart LR
     C --> F[(Deterministic RNG)]
 ```
 
-Fallback (pure ASCII) for environments without Mermaid support:
-
-```text
-           +--------------------+          +--------------------+
-YAML Spec -> Spec Parser (DTOs) +--IR----->+  Simulation Engine |--events--> NDJSON Writer
-           +--------------------+          +--------------------+--Gold----> CSV Writer
-                                                |  (Deterministic RNG)
-```
-
 Key concepts:
 - Spec: Declares grid, arrivals, route (single node), seed, and output file overrides.
 - Engine: For each bin, sample arrivals → create events with timestamps → aggregate per bin into Gold rows.
