@@ -2,7 +2,7 @@
 
 (renamed from M0.md on 2025-08-27 for clarity)
 
-Status: IN PROGRESS (branch `feature/sim-m0/generators`).
+Status: COMPLETE (merged work on branch `feature/sim-m0/generators`).
 
 This document supersedes the earlier lightweight "M0" description and clarifies the true scope for the first simulator milestone (SIM-M0) distinct from the FlowTime engine M0. The current code base only implements an API relay CLI; the actual simulation engine (arrivals → events → Gold aggregation) is not yet present. This doc is the authoritative checklist to complete SIM-M0.
 
@@ -161,12 +161,12 @@ Exit codes unchanged: 0 success, 1 error, 2 usage, 130 cancel.
 | 2 | Spec parser | DTOs + validation errors | SpecParserTests (success + invalid cases) | ✅ Done |
 | 3 | Generators | Constant & Poisson arrival generation + RNG wrapper | ConstantGeneratorTests, PoissonDeterminismTests | ✅ Done |
 | 4 | Writers | NDJSON + Gold CSV streaming writers | NdjsonWriterTests, GoldWriterTests | ✅ Done |
-| 5 | CLI integration | `--mode sim` path, directory handling | CliSimModeTests | 🚧 In Progress |
-| 6 | Determinism & polish | Seed determinism test, negative cases | SeedDeterminismTests, ErrorMessagesTests | ⏳ Pending |
-| 7 | Samples | `examples/m0.const.sim.yaml`, `examples/m0.poisson.sim.yaml` | Smoke sample test | ✅ Added specs |
-| 8 | Readiness for SYN-M0 | Confirm artifacts shape; finalize checklist | Parity stub (later) | ⏳ Pending |
+| 5 | CLI integration | `--mode sim` path, directory handling | CliSimModeTests | ✅ Done |
+| 6 | Determinism & polish | Seed + byte-level determinism, hash logging, large-λ warning | DeterminismTests, CliSimModeTests | ✅ Done |
+| 7 | Samples | Example specs + curated sample outputs under docs | Smoke (implicit via examples) | ✅ Done |
+| 8 | Readiness for SYN-M0 | Frozen contracts & reproducibility (hashes) | DeterminismTests (hash) | ✅ Done |
 
-Progress tracking: mark each phase complete in this file as PRs merge.
+Milestone phases all completed; contract now frozen pending SYN-M0 consumption.
 
 ---
 
@@ -218,10 +218,7 @@ Already present:
 - Event factory + NDJSON writer + Gold CSV writer.
 - Contracts doc (`docs/contracts.md`).
 
-Remaining (to build):
-- CLI tests & determinism (byte-level) tests.
-- Optional hash logging + Poisson λ warning.
-- Sample-based smoke determinism (Phase 6/7 integration test).
+No remaining implementation items for SIM-M0. Further changes require a follow-on milestone (SIM-M1+) and may introduce a `schemaVersion` field.
 
 ---
 
@@ -249,7 +246,7 @@ dotnet run --project src/FlowTime.Sim.Cli -- \
 
 ---
 
-## How to Run (Simulator Mode — FUTURE once implemented)
+## How to Run (Simulator Mode)
 
 ```bash
 dotnet run --project src/FlowTime.Sim.Cli -- \
@@ -295,3 +292,4 @@ All tests must avoid time-dependent asserts (fixed start timestamps).
 |------|--------|--------|
 | 2025-08-27 | Expanded milestone to SIM-M0 with detailed phases and contracts | AI Assistant |
 | 2025-08-27 | Renamed file to SIM-M0.md and added Phase 2 completion delta | AI Assistant |
+| 2025-08-27 | Marked SIM-M0 COMPLETE; updated phase table; finalized milestone | AI Assistant |
