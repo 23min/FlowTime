@@ -26,6 +26,10 @@ builder.Logging.AddSimpleConsole(options =>
     options.TimestampFormat = "HH:mm:ss.fff ";
 });
 
+// Permissive CORS for local dev (UI runs on separate origin). Tighten in later milestones.
+builder.Services.AddCors(p => p.AddDefaultPolicy(policy =>
+    policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
+
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
@@ -35,10 +39,7 @@ if (app.Environment.IsDevelopment())
 
 // HTTP logging (development-friendly)
 app.UseHttpLogging();
-
-// Static UI (minimal SPA placeholder). Serves /index.html and assets from wwwroot.
-app.UseDefaultFiles();
-app.UseStaticFiles();
+app.UseCors();
 
 // Explicit startup log so you can confirm the app is running
 app.Lifetime.ApplicationStarted.Register(() =>
