@@ -7,7 +7,7 @@ namespace FlowTime.Sim.Tests;
 // Strategy: run simulator -> parse gold.csv -> build engine ConstSeriesNode graph -> evaluate -> compare.
 public class AdapterParityTests
 {
-    private static async Task<(List<(DateTimeOffset ts,int arrivals,int served,int errors)> rows, string goldHash, int binMinutes)> RunSimAsync(string specYaml)
+    private static async Task<(List<(DateTimeOffset ts, int arrivals, int served, int errors)> rows, string goldHash, int binMinutes)> RunSimAsync(string specYaml)
     {
         var specPath = Path.GetTempFileName();
         await File.WriteAllTextAsync(specPath, specYaml, Encoding.UTF8);
@@ -17,10 +17,10 @@ public class AdapterParityTests
         Assert.Equal(0, exit);
         var goldPath = Path.Combine(outDir, "gold.csv");
         Assert.True(File.Exists(goldPath));
-    var lines = await File.ReadAllLinesAsync(goldPath, Encoding.UTF8);
+        var lines = await File.ReadAllLinesAsync(goldPath, Encoding.UTF8);
         Assert.True(lines.Length > 1);
-        var rows = new List<(DateTimeOffset,int,int,int)>();
-    int? binMinutes = null;
+        var rows = new List<(DateTimeOffset, int, int, int)>();
+        int? binMinutes = null;
         for (int i = 1; i < lines.Length; i++)
         {
             var parts = lines[i].Split(',');
@@ -54,19 +54,19 @@ public class AdapterParityTests
  route:
      id: nodeA
  """;
-    var (r1, h1, binMinutes) = await RunSimAsync(spec);
-    var (r2, h2, _) = await RunSimAsync(spec);
+        var (r1, h1, binMinutes) = await RunSimAsync(spec);
+        var (r2, h2, _) = await RunSimAsync(spec);
         Assert.Equal(h1, h2);
         Assert.Equal(r1.Select(r => r.arrivals), r2.Select(r => r.arrivals));
         Assert.Equal(r1.Select(r => r.served), r2.Select(r => r.served));
 
-    // Build engine graph from arrivals -> demand node
-    var grid = new FlowTime.Core.TimeGrid(r1.Count, binMinutes);
-    var demandNode = new FlowTime.Core.ConstSeriesNode("demand", r1.Select(r => (double)r.arrivals).ToArray());
-    var graph = new FlowTime.Core.Graph(new[] { demandNode });
-    var evaluated = graph.Evaluate(grid);
-    var demandSeries = evaluated[demandNode.Id].ToArray();
-    Assert.Equal(r1.Select(r => (double)r.arrivals), demandSeries);
+        // Build engine graph from arrivals -> demand node
+        var grid = new FlowTime.Core.TimeGrid(r1.Count, binMinutes);
+        var demandNode = new FlowTime.Core.ConstSeriesNode("demand", r1.Select(r => (double)r.arrivals).ToArray());
+        var graph = new FlowTime.Core.Graph(new[] { demandNode });
+        var evaluated = graph.Evaluate(grid);
+        var demandSeries = evaluated[demandNode.Id].ToArray();
+        Assert.Equal(r1.Select(r => (double)r.arrivals), demandSeries);
     }
 
     [Fact]
@@ -85,16 +85,16 @@ public class AdapterParityTests
  route:
      id: nodeB
  """;
-    var (r1, _, binMinutes) = await RunSimAsync(spec);
-    var (r2, _, _) = await RunSimAsync(spec);
+        var (r1, _, binMinutes) = await RunSimAsync(spec);
+        var (r2, _, _) = await RunSimAsync(spec);
         Assert.Equal(r1.Select(r => r.arrivals), r2.Select(r => r.arrivals));
         Assert.Equal(r1.Select(r => r.served), r2.Select(r => r.served));
 
-    // Engine parity
-    var grid = new FlowTime.Core.TimeGrid(r1.Count, binMinutes);
-    var demandNode = new FlowTime.Core.ConstSeriesNode("demand", r1.Select(r => (double)r.arrivals).ToArray());
-    var graph = new FlowTime.Core.Graph(new[] { demandNode });
-    var series = graph.Evaluate(grid)[demandNode.Id].ToArray();
-    Assert.Equal(r1.Select(r => (double)r.arrivals), series);
+        // Engine parity
+        var grid = new FlowTime.Core.TimeGrid(r1.Count, binMinutes);
+        var demandNode = new FlowTime.Core.ConstSeriesNode("demand", r1.Select(r => (double)r.arrivals).ToArray());
+        var graph = new FlowTime.Core.Graph(new[] { demandNode });
+        var series = graph.Evaluate(grid)[demandNode.Id].ToArray();
+        Assert.Equal(r1.Select(r => (double)r.arrivals), series);
     }
 }
