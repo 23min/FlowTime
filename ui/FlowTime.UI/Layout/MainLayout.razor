@@ -2,17 +2,17 @@
 @using MudBlazor
 @inject FlowTime.UI.Services.ThemeService Theme
 
-<MudThemeProvider Theme="@Theme.CurrentTheme" />
+<MudThemeProvider Theme="@Theme.CurrentTheme">
 <MudDialogProvider />
 <MudSnackbarProvider />
 
 <MudLayout>
-    <MudAppBar Elevation="0" Color="Color.Primary">
+    <MudAppBar Elevation="1" Color="Color.Primary">
         <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
             OnClick="ToggleDrawer" />
         <MudText Typo="Typo.h6">FlowTime</MudText>
         <MudSpacer />
-        <MudIconButton Icon="@(Theme.IsDarkMode? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
+        <MudIconButton Icon="@(Theme.IsDark ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
             Color="Color.Inherit" OnClick="ToggleDark" />
         <MudButton Variant="Variant.Outlined" Color="Color.Inherit" Href="https://github.com/23min/flowtime"
             Target="_blank">GitHub</MudButton>
@@ -36,7 +36,12 @@
             @Body
         </MudContainer>
     </MudMainContent>
+    <div class="pa-4 mud-text-caption" style="opacity:.7;">
+        FlowTime demo UI · Theme: @(Theme.IsDark ? "Dark" : "Light")
+    </div>
 </MudLayout>
+
+</MudThemeProvider>
 
 @code {
     private bool _drawerOpen = true;

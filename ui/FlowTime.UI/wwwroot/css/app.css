@@ -3,6 +3,26 @@ body {
     font-family: Roboto, system-ui, sans-serif;
 }
 
+/* Theme background + text sync (light/dark) */
+body, .mud-layout, .mud-main-content {
+    background-color: var(--mud-palette-background) !important;
+    color: var(--mud-palette-text-primary) !important;
+    transition: background-color .25s ease, color .25s ease;
+}
+
+.code-block {
+    white-space: pre;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 0.85rem;
+    background: var(--mud-palette-surface);
+    color: var(--mud-palette-text-primary);
+    border: 1px solid var(--mud-palette-divider);
+    overflow: auto;
+    max-height: 260px;
+    border-radius: 4px;
+    padding: .5rem .75rem;
+}
+
 h1:focus {
     outline: none;
 }

@@ -4,35 +4,57 @@ namespace FlowTime.UI.Services;
 
 public sealed class ThemeService
 {
-    public bool IsDarkMode { get; private set; } = false;
+    public bool IsDark { get; private set; }
 
-    public MudTheme CurrentTheme => IsDarkMode ? darkTheme : lightTheme;
+    public MudTheme CurrentTheme => IsDark ? DarkTheme : LightTheme;
 
     public event Action? Changed;
 
     public void Toggle()
     {
-        IsDarkMode = !IsDarkMode;
+        IsDark = !IsDark;
         Changed?.Invoke();
     }
 
-    private static readonly MudTheme lightTheme = new()
+    public readonly MudTheme LightTheme = new()
     {
         PaletteLight = new PaletteLight
         {
-            Primary = Colors.Blue.Darken2,
-            Secondary = Colors.Indigo.Accent3,
+            Primary = Colors.Indigo.Default,
+            Secondary = Colors.DeepPurple.Accent2,
+            Background = "#F5F7FA",
+            Surface = "#FFFFFF",
+            AppbarBackground = "#283593",
+            DrawerBackground = "#FFFFFF",
+            TextPrimary = "#1E1E1E",
+            TextSecondary = "#555555",
+            Divider = "#E0E0E0",
+        },
+        LayoutProperties = new LayoutProperties { DefaultBorderRadius = "6px" },
+        Typography = new Typography
+        {
+            Default = new Default { FontFamily = new[] { "Inter", "Segoe UI", "Arial", "sans-serif" } }
         }
     };
 
-    private static readonly MudTheme darkTheme = new()
+    public readonly MudTheme DarkTheme = new()
     {
         PaletteDark = new PaletteDark
         {
-            Primary = Colors.Blue.Lighten2,
-            Secondary = Colors.Indigo.Lighten3,
+            Primary = Colors.Indigo.Lighten2,
+            Secondary = Colors.DeepPurple.Accent2,
             Background = "#121212",
             Surface = "#1E1E1E",
+            AppbarBackground = "#1E1E1E",
+            DrawerBackground = "#1E1E1E",
+            TextPrimary = "#ECEFF1",
+            TextSecondary = "rgba(255,255,255,0.70)",
+            Divider = "#2C2C2C",
+        },
+        LayoutProperties = new LayoutProperties { DefaultBorderRadius = "6px" },
+        Typography = new Typography
+        {
+            Default = new Default { FontFamily = new[] { "Inter", "Segoe UI", "Arial", "sans-serif" } }
         }
     };
 }
