@@ -165,9 +165,16 @@ Run tests:
 dotnet test
 ```
 
-### Integration (Live API) testing (opt‑in)
+### Integration (Live API) testing (opportunistic local / opt-in CI)
 
-FlowTime-Sim can exercise a running FlowTime API (`/run`) via **live API tests** (`LiveApiTests`). These are **disabled by default** and only run when you explicitly enable them.
+FlowTime-Sim can exercise a running FlowTime API (`/run`) via **live API tests** (`LiveApiTests`).
+
+Behavior:
+- Local (not GitHub Actions): tests attempt to run by default if the API is reachable; otherwise they skip with a message.
+- CI (GitHub Actions): tests are skipped by default to keep PR runs fast/flaky-free.
+- Overrides:
+	- `RUN_LIVE_API_TESTS=1` (local or CI) → force attempt; fail loud if unreachable.
+	- `RUN_LIVE_API_TESTS=0` → force skip.
 
 Why:
 - Detect accidental contract drift (grid shape, ordering, series lengths).
@@ -178,16 +185,16 @@ How it works:
 - Tests attempt to resolve a base URL (env `FLOWTIME_API_BASE` first, else common candidates: `flowtime-api:8080`, `flowtime-api:5000`, `localhost:8080`, `localhost:5000`).
 - They probe `/healthz` before invoking `/run`.
 - A custom header `X-Live-Test: flowtime-sim` is added so you can confirm calls in API logs.
-- If `RUN_LIVE_API_TESTS=1` is set but no candidate becomes healthy after short retries, tests fail loudly. If the env var is not set, they print a skip notice and return.
+- If forced (`RUN_LIVE_API_TESTS=1`) and not reachable → fail. Otherwise (opportunistic local) they skip with a reason (`API not reachable`).
 
-Enable (bash):
+Force enable (bash):
 ```bash
 export RUN_LIVE_API_TESTS=1
 export FLOWTIME_API_BASE=http://flowtime-api:8080   # or http://localhost:8080
 dotnet test --filter LiveApiTests
 ```
 
-Enable (PowerShell):
+Force enable (PowerShell):
 ```powershell
 $Env:RUN_LIVE_API_TESTS = '1'
 $Env:FLOWTIME_API_BASE = 'http://localhost:8080'
@@ -203,10 +210,11 @@ Container networking tips:
 - If using separate devcontainers, attach both to the same Docker network (e.g. `flowtime-dev`).
 - Or use host mapping: add `--add-host=host.docker.internal:host-gateway` and set `FLOWTIME_API_BASE=http://host.docker.internal:8080`.
 
-When to run:
-- Before tagging a release.
+When to run / rely on:
+- Every local `dotnet test` (you get automatic coverage if API is up).
+- Force before tagging a release (`RUN_LIVE_API_TESTS=1`) to ensure a hard failure if misconfigured.
 - After API changes to `/run` or YAML parsing.
-- Periodically in a nightly job (optional) to catch regressions without slowing PR CI.
+- Periodically in a nightly job (set `RUN_LIVE_API_TESTS=1`) to catch regressions without slowing PR CI.
 
 Future hardening ideas:
 - Schema hash snapshot & diff.

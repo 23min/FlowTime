@@ -13,6 +13,5 @@
   <ItemGroup>
   <ProjectReference Include="../../src/FlowTime.Sim.Core/FlowTime.Sim.Core.csproj" />
   <ProjectReference Include="../../src/FlowTime.Sim.Cli/FlowTime.Sim.Cli.csproj" />
-  <ProjectReference Include="../../../flowtime-vnext/src/FlowTime.Core/FlowTime.Core.csproj" />
   </ItemGroup>
 </Project>

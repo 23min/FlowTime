@@ -5,18 +5,28 @@ using Xunit;
 
 namespace FlowTime.Sim.Tests;
 
-// Live API tests (opt-in) hitting a running FlowTime API instance.
-// To enable: set env FLOWTIME_API_BASE (e.g. http://localhost:8080) and RUN_LIVE_API_TESTS=1
-// These are skipped by default to avoid CI flakiness or cross-repo coupling.
+// Live API tests hitting a running FlowTime API instance.
+// Behavior matrix:
+//   Local (GITHUB_ACTIONS != true): default ON opportunistically (runs if API reachable). Override:
+//       RUN_LIVE_API_TESTS=0 -> force skip
+//       RUN_LIVE_API_TESTS=1 -> force attempt (fail loud if unreachable)
+//   CI (GITHUB_ACTIONS == true): default OFF (skip). Override:
+//       RUN_LIVE_API_TESTS=1 -> force attempt (fail loud if unreachable)
+//       RUN_LIVE_API_TESTS=0 (or unset) -> skip
+// In all non-forced attempts, if API not reachable after retries we skip with an explanatory message.
 public class LiveApiTests
 {
-  // Gating env var: RUN_LIVE_API_TESTS=1 (otherwise all tests noop).
-  private static bool GateEnabled => Environment.GetEnvironmentVariable("RUN_LIVE_API_TESTS") == "1";
+  private static bool IsCi => Environment.GetEnvironmentVariable("GITHUB_ACTIONS") == "true";
+  private static string? GateVar => Environment.GetEnvironmentVariable("RUN_LIVE_API_TESTS");
+  private static bool ForceEnabled => GateVar == "1";
+  private static bool ForceDisabled => GateVar == "0";
+  // Should we even attempt to discover an API endpoint?
+  private static bool ShouldAttempt => !ForceDisabled && (ForceEnabled || (!IsCi));
 
   // Resolve base URL: explicit env beats autodetect. Autodetect tries common container/host names.
   private static async Task<string?> AcquireBaseUrlAsync(CancellationToken ct)
   {
-    if (!GateEnabled) return null;
+  if (!ShouldAttempt) return null;
     var explicitBase = Environment.GetEnvironmentVariable("FLOWTIME_API_BASE");
     if (!string.IsNullOrWhiteSpace(explicitBase) && await Healthy(explicitBase, ct)) return explicitBase.TrimEnd('/');
 
@@ -82,16 +92,14 @@ public class LiveApiTests
       await Task.Delay(250, cts.Token);
     }
     // If explicitly enabled but unreachable, fail loudly for visibility.
-    if (GateEnabled)
+    if (ForceEnabled)
     {
-  Assert.Fail("RUN_LIVE_API_TESTS=1 but no reachable FlowTime API endpoint (tried flowtime-api:[8080,5000], localhost). Set FLOWTIME_API_BASE or start the API with --urls.");
+      Assert.Fail("RUN_LIVE_API_TESTS=1 but no reachable FlowTime API endpoint (tried flowtime-api:[8080,5000], localhost). Set FLOWTIME_API_BASE or start the API with --urls.");
     }
-    if (!GateEnabled)
-    {
-      // Emit a one-line notice so it is obvious tests were skipped intentionally.
-      Console.WriteLine("[LiveApiTests] Skipped (RUN_LIVE_API_TESTS not set to 1)");
-    }
-    return null; // silent skip when gate not enabled
+    // Opportunistic (local default) or CI default skip: emit context-specific skip reason
+    var reason = IsCi ? "(CI default skip)" : ForceDisabled ? "(forced off)" : "(API not reachable)";
+    Console.WriteLine($"[LiveApiTests] Skipped {reason}");
+    return null;
   }
 
   [Fact]

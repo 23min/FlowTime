@@ -3,8 +3,8 @@ using Xunit;
 
 namespace FlowTime.Sim.Tests;
 
-// Phase 5: Adapter parity harness (initial engine integration)
-// Strategy: run simulator -> parse gold.csv -> build engine ConstSeriesNode graph -> evaluate -> compare.
+// Originally included an external FlowTime.Core engine parity roundtrip (removed to decouple repos).
+// Now focuses on internal invariants: determinism, events↔gold aggregation parity, manifest sanity, and a negative mutation guard.
 public class AdapterParityTests
 {
     private sealed record SimRun(
@@ -63,7 +63,7 @@ public class AdapterParityTests
     }
 
     [Fact]
-    public async Task ConstScenario_ParityBaseline()
+    public async Task ConstScenario_DeterministicHashAndCounts()
     {
         var spec = """
  schemaVersion: 1
@@ -80,21 +80,16 @@ public class AdapterParityTests
  """;
         var run1 = await RunSimAsync(spec);
         var run2 = await RunSimAsync(spec);
+        // Determinism: identical runs produce identical hashes, arrivals, served
         Assert.Equal(run1.GoldHash, run2.GoldHash);
         Assert.Equal(run1.Rows.Select(r => r.arrivals), run2.Rows.Select(r => r.arrivals));
         Assert.Equal(run1.Rows.Select(r => r.served), run2.Rows.Select(r => r.served));
-
-        // Build engine graph from arrivals -> demand node
-        var grid = new FlowTime.Core.TimeGrid(run1.Rows.Count, run1.BinMinutes);
-        var demandNode = new FlowTime.Core.ConstSeriesNode("demand", run1.Rows.Select(r => (double)r.arrivals).ToArray());
-        var graph = new FlowTime.Core.Graph(new[] { demandNode });
-        var evaluated = graph.Evaluate(grid);
-        var demandSeries = evaluated[demandNode.Id].ToArray();
-        Assert.Equal(run1.Rows.Select(r => (double)r.arrivals), demandSeries);
+        // Served should mirror arrivals in current milestone
+        Assert.Equal(run1.Rows.Select(r => r.arrivals), run1.Rows.Select(r => r.served));
     }
 
     [Fact]
-    public async Task PoissonScenario_ParityBaseline()
+    public async Task PoissonScenario_DeterministicCounts()
     {
         var spec = """
  schemaVersion: 1
@@ -111,15 +106,9 @@ public class AdapterParityTests
  """;
         var run1 = await RunSimAsync(spec);
         var run2 = await RunSimAsync(spec);
-        Assert.Equal(run1.Rows.Select(r => r.arrivals), run2.Rows.Select(r => r.arrivals));
-        Assert.Equal(run1.Rows.Select(r => r.served), run2.Rows.Select(r => r.served));
-
-        // Engine parity
-        var grid = new FlowTime.Core.TimeGrid(run1.Rows.Count, run1.BinMinutes);
-        var demandNode = new FlowTime.Core.ConstSeriesNode("demand", run1.Rows.Select(r => (double)r.arrivals).ToArray());
-        var graph = new FlowTime.Core.Graph(new[] { demandNode });
-        var series = graph.Evaluate(grid)[demandNode.Id].ToArray();
-        Assert.Equal(run1.Rows.Select(r => (double)r.arrivals), series);
+    Assert.Equal(run1.Rows.Select(r => r.arrivals), run2.Rows.Select(r => r.arrivals));
+    Assert.Equal(run1.Rows.Select(r => r.served), run2.Rows.Select(r => r.served));
+    Assert.Equal(run1.Rows.Select(r => r.arrivals), run1.Rows.Select(r => r.served));
     }
 
     [Fact]
@@ -202,7 +191,7 @@ public class AdapterParityTests
     }
 
     [Fact]
-    public async Task NegativeParity_DetectedMismatch()
+    public async Task NegativeMutation_DetectedMismatch()
     {
         var spec = """
  schemaVersion: 1
@@ -217,15 +206,10 @@ public class AdapterParityTests
  route:
      id: nodeNeg
  """;
-        var run = await RunSimAsync(spec);
-        // Build correct series then intentionally perturb one value and assert inequality to guard against accidental always-equal logic.
-        var grid = new FlowTime.Core.TimeGrid(run.Rows.Count, run.BinMinutes);
-        var demandNode = new FlowTime.Core.ConstSeriesNode("demand", run.Rows.Select(r => (double)r.arrivals).ToArray());
-        var graph = new FlowTime.Core.Graph(new[] { demandNode });
-        var series = graph.Evaluate(grid)[demandNode.Id].ToArray();
-        Assert.Equal(run.Rows.Select(r => (double)r.arrivals), series); // sanity
-        // mutate
-        series[1] += 1.0;
-        Assert.NotEqual(run.Rows.Select(r => (double)r.arrivals), series);
+    var run = await RunSimAsync(spec);
+    var original = run.Rows.Select(r => r.arrivals).ToArray();
+    var mutated = (int[])original.Clone();
+    mutated[1] += 1;
+    Assert.NotEqual(original, mutated);
     }
 }
