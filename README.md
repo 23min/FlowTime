@@ -230,6 +230,7 @@ The early UI (Milestone M0 demo) lets you manually invoke the same `/healthz`, `
   * Sample YAML (constant demand + expression node)
   * Buttons for Health, Run, Graph
   * Results tables (series values and graph edges) with snackbar error messages if something fails
+  * Auto health probe on first load: if the API isn't reachable it pre-populates sample run/graph output from static JSON so the page isn't empty. A warning snackbar indicates fallback mode.
 
 Hot reload:
 ```powershell

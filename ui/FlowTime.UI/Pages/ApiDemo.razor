@@ -76,6 +76,7 @@
     private RunResponse? runResult;
     private GraphResponse? graphResult;
     private string? lastError;
+    private bool triedAutoHealth;
 
     // Working sample YAML (two-space indentation, matches examples/hello/model.yaml)
     private const string sampleYaml =
@@ -112,6 +113,34 @@
             }
         }
         finally { healthLoading = false; }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !triedAutoHealth)
+        {
+            triedAutoHealth = true;
+            // Background health probe; if it fails load samples so UI isn't empty
+            try
+            {
+                var res = await Api.HealthAsync();
+                if (res.Success)
+                {
+                    health = res.Value;
+                    StateHasChanged();
+                    return;
+                }
+            }
+            catch { }
+            // Pre-populate fallback samples
+            runResult = await TryLoadSampleRunAsync();
+            graphResult = await TryLoadSampleGraphAsync();
+            if (runResult is not null || graphResult is not null)
+            {
+                Snackbar.Add("API unavailable – showing sample data.", Severity.Warning);
+                StateHasChanged();
+            }
+        }
     }
 
     private async Task RunModel()
