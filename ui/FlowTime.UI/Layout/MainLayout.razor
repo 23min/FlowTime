@@ -45,5 +45,12 @@
 @code {
     private bool _drawerOpen = true;
     void ToggleDrawer() => _drawerOpen = !_drawerOpen;
-    void ToggleDark() { Theme.Toggle(); StateHasChanged(); }
+    [Inject] IJSRuntime JS { get; set; } = default!;
+    async void ToggleDark()
+    {
+        Theme.Toggle();
+        try { await JS.InvokeVoidAsync("ftTheme.set", Theme.IsDark ? "dark" : "light"); }
+        catch { }
+        StateHasChanged();
+    }
 }

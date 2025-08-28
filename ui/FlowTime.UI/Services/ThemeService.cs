@@ -4,7 +4,7 @@ namespace FlowTime.UI.Services;
 
 public sealed class ThemeService
 {
-    public bool IsDark { get; private set; } = false; // default; may be overridden by JS on startup
+    public bool IsDark { get; private set; } = true; // default dark; JS/localStorage may override
 
     public MudTheme CurrentTheme => IsDark ? DarkTheme : LightTheme;
 
@@ -66,7 +66,7 @@ public sealed class ThemeService
             Success = "#81C784",
             Warning = "#FFB74D",
             Error = "#EF9A9A",
-            Background = "#0B0D10",           // near-black
+            Background = "#161B21",           // match surface for uniform dark background
             Surface = "#161B21",              // elevated surfaces
             AppbarBackground = "#161B21",
             AppbarText = "#E6EAF0",
