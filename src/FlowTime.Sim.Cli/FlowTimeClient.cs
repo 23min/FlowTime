@@ -46,6 +46,7 @@ public static class FlowTimeClient
                 }, ct).ConfigureAwait(false);
 
                 var msg = err?.error ?? $"FlowTime returned {(int)resp.StatusCode} {resp.ReasonPhrase}";
+                msg = "FlowTime API error: " + msg;
                 throw new InvalidOperationException(msg);
             }
             catch (JsonException)

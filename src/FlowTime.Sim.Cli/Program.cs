@@ -50,6 +50,12 @@ namespace FlowTime.Sim.Cli
 
                 if (opts.Mode.Equals("engine", StringComparison.OrdinalIgnoreCase))
                 {
+                    // Heuristic: if YAML contains simulation-only keys, guide user.
+                    if (yaml.Contains("schemaVersion:") && yaml.Contains("arrivals:"))
+                    {
+                        Console.Error.WriteLine("Spec appears to be a simulation spec (contains schemaVersion & arrivals). Use --mode sim or supply an engine model (grid + nodes).");
+                        return 2;
+                    }
                     var res = await FlowTimeClient.RunAsync(http, opts.FlowTimeUrl, yaml, cts.Token);
                     if (opts.Verbose)
                     {
