@@ -26,7 +26,25 @@
         <a href="." class="reload">Reload</a>
         <span class="dismiss">🗙</span>
     </div>
+    <script>
+        // Simple mutation observer to add a dark-mode class when palette background is dark
+        // (Temporary hook until we persist preference or expose via JS interop)
+        const isDark = () => getComputedStyle(document.documentElement).getPropertyValue('--mud-palette-background').trim().startsWith('#0');
+        const apply = () => document.body.classList.toggle('dark-mode', isDark());
+        new MutationObserver(apply).observe(document.documentElement, { attributes: true, subtree: true });
+        window.addEventListener('load', apply);
+          // System preference -> localStorage override
+          (function(){
+              const key='ft-theme';
+              const stored=localStorage.getItem(key);
+              if(!stored){
+                  const prefers=window.matchMedia('(prefers-color-scheme: dark)').matches;
+                  localStorage.setItem(key, prefers? 'dark':'light');
+              }
+          })();
+    </script>
     <script src="_content/MudBlazor/MudBlazor.min.js"></script>
+    <script src="js/theme.js"></script>
     <script src="_framework/blazor.webassembly.js"></script>
 </body>
 

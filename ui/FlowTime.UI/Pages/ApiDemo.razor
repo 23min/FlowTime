@@ -25,9 +25,7 @@
 
 <MudPaper Class="pa-4 mb-4" Elevation="1">
     <MudText Typo="Typo.h6" Class="mb-2">Sample YAML</MudText>
-    <MudPaper Class="pa-2" Elevation="0"
-        Style="background:#263238; color:#ECEFF1; white-space:pre; font-family:monospace; font-size:0.85rem; overflow:auto; max-height:240px;">
-        @sampleYaml</MudPaper>
+    <MudPaper Class="pa-2 code-block" Elevation="0">@sampleYaml</MudPaper>
     <MudStack Row="true" Spacing="2" Class="mt-3">
         <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="RunModel" Disabled="@runLoading">
             @(runLoading ? "Running..." : "Run /run")</MudButton>

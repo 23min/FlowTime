@@ -1,0 +1,15 @@
+@inject FlowTime.UI.Services.ThemeService Theme
+@inject IJSRuntime JS
+
+@code {
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if(!firstRender) return;
+        try
+        {
+            var mode = await JS.InvokeAsync<string>("ftTheme.get");
+            Theme.Set(mode == "dark");
+        }
+        catch { }
+    }
+}
