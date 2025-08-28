@@ -85,8 +85,8 @@ Teams who need **explainable flow modeling** and **time-travel observability**�
 
 * **FlowTime.Core** — the engine: canonical time grid, series math, DAG, nodes/evaluation. *(present in M0)*
 * **FlowTime.Cli** — a CLI that evaluates YAML models and writes CSV. *(present in M0)*
-* **FlowTime.UI** — SPA (Blazor WASM) to visualize runs. *(planned)*
-* **FlowTime.API** — backend for graph/run/state (also hosts negotiate for real-time). *(planned)*
+* **FlowTime.UI** — SPA (Blazor WASM) to visualize runs. *(early demo present)*
+* **FlowTime.API** — backend for graph/run/state (also hosts negotiate for real-time). *(early minimal version present)*
 
 **API‑first**: All features are exposed via the HTTP API; CLI and UI consume the same surface. The API will be hosted behind a neutral "FlowTime.API" service (initially Azure Functions is a likely host, but the implementation is swappable). Endpoints: negotiate, `/graph`, `/run`, `/state_window`.
 
@@ -132,8 +132,8 @@ Optional folders (to be added in later milestones):
 ```
 infra/                    # IaC templates (Bicep/ARM/Template Spec)
 .github/workflows/        # build.yml, codeql.yml
-ui/FlowTime.UI/           # SPA (planned)
-apis/FlowTime.API/        # backend (planned)
+ui/FlowTime.UI/           # SPA (early)
+apis/FlowTime.API/        # backend (early minimal)
 ```
 
 ---
@@ -210,6 +210,38 @@ Terminal > Run Task...
 ```
 
 ### Configuration & secrets
+
+### Run the UI (Blazor WASM demo)
+
+The early UI (Milestone M0 demo) lets you manually invoke the same `/healthz`, `/run`, and `/graph` endpoints via a sample YAML model.
+
+1. Ensure the API is running locally on `http://localhost:8080` (see previous section). If you run it on a different port change `FlowTimeApiOptions.BaseUrl` or later (TODO) pass via config.
+2. From the repo root build once:
+  ```powershell
+  dotnet build
+  ```
+3. Run the UI project with the built‑in dev server:
+  ```powershell
+  dotnet run --project ui/FlowTime.UI
+  ```
+4. Open the served URL (typically `https://localhost:7xxx/` from the console) in your browser.
+5. Navigate to `/api-demo` (API Demo) – it displays:
+  * API base URL it’s using
+  * Sample YAML (constant demand + expression node)
+  * Buttons for Health, Run, Graph
+  * Results tables (series values and graph edges) with snackbar error messages if something fails
+
+Hot reload:
+```powershell
+dotnet watch --project ui/FlowTime.UI run
+```
+
+Troubleshooting:
+* 400 errors on Run/Graph often mean YAML indentation issues; the sample string is already normalized.
+* If the API base shows `(null)` the HttpClient base address was not set – confirm `FlowTimeApiOptions.BaseUrl` and that the API is reachable.
+* Browser console logs outgoing YAML previews (`[FlowTimeApiClient] POST /run ...`).
+
+Planned improvements (post‑M0): editable YAML textarea, persisted theme & model in localStorage, chart visualization.
 
 Not applicable for M0 CLI runs. Future backend + SPA will use environment configuration and optional secret stores (e.g., Key Vault) as needed.
 

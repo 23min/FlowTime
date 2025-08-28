@@ -121,8 +121,7 @@
         lastError = null;
         try
         {
-            var yaml = NormalizeYaml(sampleYaml);
-            var res = await Api.RunAsync(yaml);
+            var res = await Api.RunAsync(sampleYaml);
             if (res.Success)
             {
                 runResult = res.Value;
@@ -143,8 +142,7 @@
         lastError = null;
         try
         {
-            var yaml = NormalizeYaml(sampleYaml);
-            var res = await Api.GraphAsync(yaml);
+            var res = await Api.GraphAsync(sampleYaml);
             if (res.Success)
             {
                 graphResult = res.Value;
@@ -159,14 +157,4 @@
         finally { graphLoading = false; }
     }
 
-    private static string NormalizeYaml(string s)
-    {
-        var lines = s.Replace("\r", "").Split('\n');
-        var contentLines = lines.Where(l => l.Trim().Length > 0).ToList();
-        if (contentLines.Count == 0) return string.Empty;
-        var minIndent = contentLines.Select(l => l.TakeWhile(char.IsWhiteSpace).Count()).DefaultIfEmpty(0).Min();
-        var trimmed = lines.Select(l => l.Length >= minIndent ? l[minIndent..] : l).ToArray();
-        var normalized = string.Join('\n', trimmed).Trim() + "\n"; // final newline for readability
-        return normalized;
-    }
 }
