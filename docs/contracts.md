@@ -4,7 +4,7 @@ Status: SIM-M0 frozen; SIM-M1 introducing `schemaVersion`. This document defines
 
 ## 1. Simulation Spec (YAML)
 
-Root keys (SIM-M0 baseline; SIM-M1 adds `schemaVersion` & `rng`):
+Root keys (SIM-M0 baseline; SIM-M1 adds `schemaVersion`, `rng`, and `service` scaffold):
 
 ```yaml
 schemaVersion: 1            # SIM-M1+ (optional in transition; if omitted treated as 0 with warning)
@@ -26,6 +26,10 @@ route:                    # required (SIM-M0 single node)
 outputs:                  # optional; override default output paths
   events: out/events.ndjson
   gold: out/gold.csv
+service:                  # (SIM-M1 Phase 4 parsing only; no runtime effect yet)
+  kind: const | exp       # required when present
+  value: 5                # for kind=const (>= 0)
+  rate: 2.5               # for kind=exp (> 0; mean service time = 1/rate)
 ```
 
 Validation summary:
@@ -38,7 +42,7 @@ Validation summary:
 - `route.id` non-empty.
 - No mixing `rate` and `rates`.
 
-Determinism: Given identical YAML (including seed & rng) output events and Gold CSV must be byte-identical (except trailing newline tolerance). A test suite enforces this (hash comparisons). CLI verbose mode prints SHA256 hashes of generated files to aid reproducibility. SIM-M1 maintains determinism while adding version metadata and swapping the default RNG to PCG (portable 32-bit core) while allowing `rng: legacy` opt-out for one milestone.
+Determinism & parity: Given identical YAML (including seed & rng) outputs (events, Gold CSV, manifest hashes) must be stable. Parity harness tests reconstruct an engine demand series from Gold arrivals and assert equality plus event aggregation alignment.
 
 Poisson performance note: For λ > 1000 a warning is emitted (Knuth sampler may degrade). Future milestone will introduce an O(1) or transformed-rejection sampler.
 
@@ -103,7 +107,7 @@ If CLI `--out` points to a directory, outputs are written under that root (using
 
 Verbose (`--verbose`) additionally logs SHA256 hashes of both files.
 
-Metadata manifest: A `metadata.json` file (SIM-M1 Phase 3) will accompany these outputs containing version, seed, rng, and hashes. See `metadata-manifest.md`.
+Metadata manifest: A `metadata.json` file (SIM-M1 Phase 3) accompanies outputs containing version, seed, rng, and hashes (normalized line endings). Parity harness consumes it for quick integrity checks. See `metadata-manifest.md`.
 
 ## 5. Error Handling & Exit Codes
 
@@ -151,6 +155,7 @@ Copy (or truncate) the outputs into the docs examples if the contract changes; u
 | 2025-08-27 | Added sim CLI mode details, hashing, large-λ warning, sample outputs section |
 | 2025-08-27 | Added schemaVersion field (SIM-M1 planning) |
 | 2025-08-27 | Added rng field & PCG default (SIM-M1 Phase 2 in progress) |
+| 2025-08-27 | Added service block & parity harness reference (SIM-M1 Phases 4–5) |
 
 ---
 

@@ -127,7 +127,15 @@ queue_depth: double?  -- optional
 - Acceptance: FlowTime Synthetic Adapter can ingest outputs and stitch edges.
     
 
-### SIM-M1 — Domain Templates (Logistics, Transport)
+> Renumbering Note (2025-08-28): Originally this roadmap labeled “Domain Templates” as SIM-M1. The actual shipped milestone tagged `sim-m1` delivered foundational determinism hardening (schemaVersion, PCG RNG, metadata manifest, service spec placeholder, parity harness). We insert that as the new SIM-M1 below and shift subsequent roadmap milestones (+1).
+
+### SIM-M1 — Foundations & Determinism Hardening (Shipped)
+
+- Goal: Solidify baseline + adapter readiness.
+- Features: `schemaVersion: 1` validation & warnings; PCG RNG default with `rng: legacy` escape; metadata manifest (hashes, seed, rng, generatedAt); service time spec placeholder (`service.kind const|exp` no runtime effect yet); adapter parity harness (engine roundtrip, events aggregation, manifest parity, negative guard); structured validation rules.
+- Acceptance: Re-run determinism (identical Gold/events hashes); parity tests pass; manifest hashes stable; legacy RNG opt-out works.
+
+### SIM-M2 — Domain Templates (Logistics, Transport)
 
 - Goal: Ready-to-use scenario packs.
     
@@ -140,7 +148,7 @@ queue_depth: double?  -- optional
 - Acceptance: Two example scenarios produce plausible daily curves.
     
 
-### SIM-M2 — PMF Support
+### SIM-M3 — PMF Support
 
 - Goal: Output shape-first PMFs (daily/weekly) instead of absolute curves.
     
@@ -149,7 +157,7 @@ queue_depth: double?  -- optional
 - Acceptance: FlowTime consumes PMFs × scalar totals to recreate synthetic demand.
     
 
-### SIM-M3 — Streaming Mode
+### SIM-M4 — Streaming Mode
 
 - Goal: Optional live demo playback.
     
@@ -160,7 +168,7 @@ queue_depth: double?  -- optional
 - Acceptance: FlowTime Synthetic Adapter reads stream and updates incrementally.
     
 
-### SIM-M4 — Scenarios & Overlays
+### SIM-M5 — Scenarios & Overlays
 
 - Goal: Apply scenario YAML overlays (surge, outage, reroute).
     
@@ -169,28 +177,28 @@ queue_depth: double?  -- optional
 - Acceptance: “Black Friday surge” overlay produces expected load increase.
     
 
-### SIM-M5 — Exceptions, Retries, Fan-out
+### SIM-M6 — Exceptions, Retries, Fan-out
 
 - Goal: Model failures and retries via retry PMFs. Add fan-out (entity → multiple).
     
 - Acceptance: Retry loads appear with expected delay; fan-out increases flow volumes.
     
 
-### SIM-M6 — Multi-Class Flows
+### SIM-M7 — Multi-Class Flows
 
 - Goal: Multiple flows (EXPRESS vs STANDARD). Add priority/fairness knobs.
     
 - Acceptance: Scenarios can change flow mix; FlowTime reports SLA differences.
     
 
-### SIM-M7 — Calibration Mode
+### SIM-M8 — Calibration Mode
 
 - Goal: Fit parameters (PMFs, service times) from real telemetry.
     
 - Acceptance: Feeding telemetry CSV reproduces a parameter pack that matches observed distributions.
     
 
-### SIM-M8 — Library of Scenarios
+### SIM-M9 — Library of Scenarios
 
 - Goal: Publish a catalog of realistic scenarios (per domain).
     
@@ -224,16 +232,16 @@ flow-sim/
 
 ## Mapping FlowTime ↔ FlowTime-Sim Milestones
 
-|FlowTime milestone|Description|FlowTime-Sim support|
+|FlowTime milestone|Description|FlowTime-Sim support (renumbered)|
 |---|---|---|
 |**M0 (Engine skeleton)**|Canonical grid, CSV outputs|SIM-M0 (basic generator producing Gold schema)|
-|**M2 (PMF support)**|PMF nodes in FlowTime engine|SIM-M2 (emit PMFs and totals)|
-|**M4 (Scenarios & Compare)**|Overlay YAML (surge, outage)|SIM-M4 (generate scenario overlays)|
-|**M5 (Routing, Fan-out)**|Multi-path, capacity caps|SIM-M5 (generate fan-out, retries, failures)|
-|**M7 (Backlog + Latency)**|Real queues and latency metrics|SIM-M1/M5 (queue arrivals/served, retry loads)|
-|**M8 (Multi-Class)**|Priority/fairness across flows|SIM-M6 (generate EXPRESS/STD classes)|
-|**M9 (Data Import & Fitting)**|Fit model parameters from telemetry|SIM-M7 (calibration mode producing parameter packs)|
-|**M10 (Scenario Sweeps)**|Sensitivity analysis across ranges|SIM-M8 (library of scenarios, parameter variation)|
+|**M2 (PMF support)**|PMF nodes in FlowTime engine|SIM-M3 (emit PMFs and totals)|
+|**M4 (Scenarios & Compare)**|Overlay YAML (surge, outage)|SIM-M5 (generate scenario overlays)|
+|**M5 (Routing, Fan-out)**|Multi-path, capacity caps|SIM-M6 (generate fan-out, retries, failures)|
+|**M7 (Backlog + Latency)**|Real queues and latency metrics|SIM-M1/SIM-M6 (foundations + retries/fan-out)|
+|**M8 (Multi-Class)**|Priority/fairness across flows|SIM-M7 (generate EXPRESS/STD classes)|
+|**M9 (Data Import & Fitting)**|Fit model parameters from telemetry|SIM-M8 (calibration mode producing parameter packs)|
+|**M10 (Scenario Sweeps)**|Sensitivity analysis across ranges|SIM-M9 (library of scenarios, parameter variation)|
 
 ---
 

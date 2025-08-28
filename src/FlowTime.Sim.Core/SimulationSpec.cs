@@ -17,6 +17,8 @@ public sealed class SimulationSpec
     public ArrivalsSpec? arrivals { get; set; }
     public RouteSpec? route { get; set; }
     public OutputsSpec? outputs { get; set; }
+    // SIM-M1 Phase 4: service time distribution foundation (no runtime effect yet)
+    public ServiceSpec? service { get; set; }
 }
 
 public sealed class GridSpec
@@ -34,6 +36,13 @@ public sealed class ArrivalsSpec
     public List<double>? rates { get; set; } // per-bin lambda
 }
 
+public sealed class ServiceSpec
+{
+    public string? kind { get; set; } // const | exp
+    public double? value { get; set; } // for const (mean service time units)
+    public double? rate { get; set; } // for exp (mean = 1/rate)
+}
+
 public sealed class RouteSpec
 {
     public string? id { get; set; }
@@ -47,7 +56,11 @@ public sealed class OutputsSpec
 
 public static class SimulationSpecLoader
 {
-    private static readonly IDeserializer deserializer = new DeserializerBuilder()
+    // NOTE: Prior version kept a static shared IDeserializer. Under xUnit's default parallelization
+    // this triggered rare IndexOutOfRangeException deep inside YamlDotNet's DefaultObjectFactory / Dictionary
+    // when multiple threads deserialized concurrently. Creating a fresh deserializer per call is cheap for our scale
+    // (SIM-M0/M1) and avoids the thread-safety issue.
+    private static IDeserializer CreateDeserializer() => new DeserializerBuilder()
         .WithNamingConvention(CamelCaseNamingConvention.Instance)
         .IgnoreUnmatchedProperties()
         .Build();
@@ -55,6 +68,7 @@ public static class SimulationSpecLoader
     public static SimulationSpec LoadFromString(string yaml)
     {
         if (string.IsNullOrWhiteSpace(yaml)) throw new ArgumentException("YAML is empty", nameof(yaml));
+        var deserializer = CreateDeserializer();
         var spec = deserializer.Deserialize<SimulationSpec>(yaml) ?? new SimulationSpec();
         return spec;
     }
@@ -152,6 +166,27 @@ public static class SimulationSpecValidator
 
         // route
         if (spec.route is null || string.IsNullOrWhiteSpace(spec.route.id)) errors.Add("route.id: required");
+
+        // service (Phase 4 parsing only; no effect yet)
+        if (spec.service is not null)
+        {
+            var sk = spec.service.kind?.Trim().ToLowerInvariant();
+            if (string.IsNullOrEmpty(sk)) errors.Add("service.kind: required when service block present");
+            else if (sk is not ("const" or "exp")) errors.Add("service.kind: unsupported (expected const|exp)");
+
+            if (sk == "const")
+            {
+                if (spec.service.value is null) errors.Add("service.value: required for kind=const");
+                if (spec.service.rate is not null) errors.Add("service: rate must not be set for kind=const");
+                if (spec.service.value is not null && spec.service.value < 0) errors.Add("service.value: must be >= 0");
+            }
+            if (sk == "exp")
+            {
+                if (spec.service.rate is null) errors.Add("service.rate: required for kind=exp");
+                if (spec.service.value is not null) errors.Add("service: value must not be set for kind=exp");
+                if (spec.service.rate is not null && spec.service.rate <= 0) errors.Add("service.rate: must be > 0");
+            }
+        }
 
         // Cross-field length checks (only if we have bins value)
         var bins = spec.grid?.bins;
