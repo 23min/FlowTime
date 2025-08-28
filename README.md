@@ -165,6 +165,54 @@ Run tests:
 dotnet test
 ```
 
+### Integration (Live API) testing (opt‑in)
+
+FlowTime-Sim can exercise a running FlowTime API (`/run`) via **live API tests** (`LiveApiTests`). These are **disabled by default** and only run when you explicitly enable them.
+
+Why:
+- Detect accidental contract drift (grid shape, ordering, series lengths).
+- Validate deterministic responses from the API over multiple calls.
+- Surface parsing/validation differences early.
+
+How it works:
+- Tests attempt to resolve a base URL (env `FLOWTIME_API_BASE` first, else common candidates: `flowtime-api:8080`, `flowtime-api:5000`, `localhost:8080`, `localhost:5000`).
+- They probe `/healthz` before invoking `/run`.
+- A custom header `X-Live-Test: flowtime-sim` is added so you can confirm calls in API logs.
+- If `RUN_LIVE_API_TESTS=1` is set but no candidate becomes healthy after short retries, tests fail loudly. If the env var is not set, they print a skip notice and return.
+
+Enable (bash):
+```bash
+export RUN_LIVE_API_TESTS=1
+export FLOWTIME_API_BASE=http://flowtime-api:8080   # or http://localhost:8080
+dotnet test --filter LiveApiTests
+```
+
+Enable (PowerShell):
+```powershell
+$Env:RUN_LIVE_API_TESTS = '1'
+$Env:FLOWTIME_API_BASE = 'http://localhost:8080'
+dotnet test --filter LiveApiTests
+```
+
+Starting the API on a fixed port:
+```bash
+dotnet run --project ../flowtime-vnext/apis/FlowTime.API --urls http://0.0.0.0:8080
+```
+
+Container networking tips:
+- If using separate devcontainers, attach both to the same Docker network (e.g. `flowtime-dev`).
+- Or use host mapping: add `--add-host=host.docker.internal:host-gateway` and set `FLOWTIME_API_BASE=http://host.docker.internal:8080`.
+
+When to run:
+- Before tagging a release.
+- After API changes to `/run` or YAML parsing.
+- Periodically in a nightly job (optional) to catch regressions without slowing PR CI.
+
+Future hardening ideas:
+- Schema hash snapshot & diff.
+- Latency budget assertions.
+- Unified spec translation (simulation spec → engine YAML) prior to API call.
+
 ## Docs & roadmap
 
 - Roadmap: `docs/ROADMAP.md`.
