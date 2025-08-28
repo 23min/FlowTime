@@ -2,12 +2,13 @@
 @using MudBlazor
 @inject FlowTime.UI.Services.ThemeService Theme
 
-<MudThemeProvider Theme="@Theme.CurrentTheme">
+<MudThemeProvider Theme="@Theme.CurrentTheme" IsDarkMode="@Theme.IsDark" />
 <MudDialogProvider />
 <MudSnackbarProvider />
 
 <MudLayout>
-    <MudAppBar Elevation="1" Color="Color.Primary">
+    <ThemeInitializer />
+    <MudAppBar Elevation="1" Color="Color.Default" Class="appbar-surface" Dense="true">
         <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
             OnClick="ToggleDrawer" />
         <MudText Typo="Typo.h6">FlowTime</MudText>
@@ -19,7 +20,7 @@
     </MudAppBar>
 
     <MudDrawer @bind-Open="_drawerOpen" Elevation="1" ClipMode="DrawerClipMode.Always"
-        Variant="DrawerVariant.Responsive">
+        Variant="DrawerVariant.Responsive" Class="drawer-surface">
         <MudDrawerHeader>
             <MudText Typo="Typo.h6">Navigation</MudText>
         </MudDrawerHeader>
@@ -32,16 +33,14 @@
     </MudDrawer>
 
     <MudMainContent>
-        <MudContainer MaxWidth="MaxWidth.False" Class="pa-4">
+    <MudContainer MaxWidth="MaxWidth.False" Class="pa-4 main-container">
             @Body
         </MudContainer>
     </MudMainContent>
-    <div class="pa-4 mud-text-caption" style="opacity:.7;">
+    <div class="pa-4 mud-text-caption" style="opacity:.55;">
         FlowTime demo UI · Theme: @(Theme.IsDark ? "Dark" : "Light")
     </div>
-</MudLayout>
-
-</MudThemeProvider>
+    </MudLayout>
 
 @code {
     private bool _drawerOpen = true;

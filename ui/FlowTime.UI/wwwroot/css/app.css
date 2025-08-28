@@ -10,6 +10,28 @@ body, .mud-layout, .mud-main-content {
     transition: background-color .25s ease, color .25s ease;
 }
 
+/* Ensure full viewport coverage */
+html, body, .mud-layout { min-height: 100%; }
+
+.appbar-surface, .drawer-surface, .main-container {
+    background-color: var(--mud-palette-surface) !important;
+}
+
+/* High-contrast button styling tweaks */
+.mud-button-root.color-primary:not(.mud-button-outlined) {
+    color: var(--mud-palette-primary-contrast-text) !important;
+}
+.mud-button-root.color-secondary:not(.mud-button-outlined) {
+    color: var(--mud-palette-secondary-contrast-text) !important;
+}
+
+.mud-drawer, .mud-appbar { backdrop-filter: saturate(1.2) blur(4px); }
+
+/* Table & paper subtle borders in dark mode */
+body.dark-mode .mud-paper, body.dark-mode .mud-table {
+    border-color: var(--mud-palette-divider) !important;
+}
+
 .code-block {
     white-space: pre;
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
