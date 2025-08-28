@@ -1,0 +1,8 @@
+{
+  "nodes": ["demand", "served"],
+  "order": ["demand", "served"],
+  "edges": [
+    { "id": "demand", "inputs": []},
+    { "id": "served", "inputs": ["demand"]}
+  ]
+}

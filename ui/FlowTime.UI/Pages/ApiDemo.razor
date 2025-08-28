@@ -2,6 +2,7 @@
 @using FlowTime.UI.Services
 @using MudBlazor
 @inject IFlowTimeApiClient Api
+@inject HttpClient Http
 @inject ISnackbar Snackbar
 
 <PageTitle>API Demo</PageTitle>
@@ -126,9 +127,17 @@
             }
             else
             {
-                runResult = null;
-                lastError = $"Run failed ({res.StatusCode}): {res.Error}";
-                Snackbar.Add(lastError, Severity.Error);
+                // fallback to static sample if connectivity issue
+                runResult = await TryLoadSampleRunAsync();
+                if (runResult is null)
+                {
+                    lastError = $"Run failed ({res.StatusCode}): {res.Error}";
+                    Snackbar.Add(lastError, Severity.Error);
+                }
+                else
+                {
+                    Snackbar.Add("API unavailable – showing sample run.", Severity.Warning);
+                }
             }
         }
         finally { runLoading = false; }
@@ -147,12 +156,37 @@
             }
             else
             {
-                graphResult = null;
-                lastError = $"Graph failed ({res.StatusCode}): {res.Error}";
-                Snackbar.Add(lastError, Severity.Error);
+                graphResult = await TryLoadSampleGraphAsync();
+                if (graphResult is null)
+                {
+                    lastError = $"Graph failed ({res.StatusCode}): {res.Error}";
+                    Snackbar.Add(lastError, Severity.Error);
+                }
+                else
+                {
+                    Snackbar.Add("API unavailable – showing sample graph.", Severity.Warning);
+                }
             }
         }
         finally { graphLoading = false; }
+    }
+
+    private async Task<RunResponse?> TryLoadSampleRunAsync()
+    {
+        try
+        {
+            return await Http.GetFromJsonAsync<RunResponse>("sample/run-example.json");
+        }
+        catch { return null; }
+    }
+
+    private async Task<GraphResponse?> TryLoadSampleGraphAsync()
+    {
+        try
+        {
+            return await Http.GetFromJsonAsync<GraphResponse>("sample/graph-example.json");
+        }
+        catch { return null; }
     }
 
 }
