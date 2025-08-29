@@ -12,15 +12,27 @@
 <MudText Typo="Typo.caption" Class="mb-4" Style="font-family:monospace">API Base: @(Api.BaseAddress ?? "(null)")
 </MudText>
 
+@if (anyLoading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-3" />
+}
+
 <MudPaper Class="pa-4 mb-4" Elevation="1">
     <MudStack Row="true" Spacing="2">
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CheckHealth" Disabled="@healthLoading">
-            @(healthLoading ? "Checking..." : "Check Health")</MudButton>
-        @if (healthStatus is not null)
+        <MudButton Variant="Variant.Filled" Class="action-btn" Color="@HealthButtonColor" OnClick="CheckHealth" Disabled="@healthLoading">
+            @if (healthLoading)
+            {
+                <MudProgressCircular Class="mr-2" Size="Size.Small" Indeterminate="true" />
+            }
+            @HealthButtonLabel
+        </MudButton>
+    @if (healthOutcome == Outcome.Success && health is not null)
         {
-            <MudChip T="string" Color="@(healthStatus == "ok" ? Color.Success : healthStatus == "fail" ? Color.Error : Color.Warning)" Variant="Variant.Filled" Size="Size.Small">
-                @(healthStatus == "sample" ? "sample" : healthStatus)
-            </MudChip>
+            <MudChip T="string" Color="Color.Success" Variant="Variant.Filled">ok</MudChip>
+        }
+    else if (healthOutcome == Outcome.Failed)
+        {
+            <MudChip T="string" Color="Color.Error" Variant="Variant.Filled">failed</MudChip>
         }
     </MudStack>
 </MudPaper>
@@ -29,18 +41,14 @@
     <MudText Typo="Typo.h6" Class="mb-2">Sample YAML</MudText>
     <MudPaper Class="pa-2 code-block" Elevation="0">@sampleYaml</MudPaper>
     <MudStack Row="true" Spacing="2" Class="mt-3">
-        <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="RunModel" Disabled="@runLoading">
-            @(runLoading ? "Running..." : "Run /run")</MudButton>
-        <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="GraphModel" Disabled="@graphLoading">
-            @(graphLoading ? "Loading graph..." : "Graph /graph")</MudButton>
-        @if (runStatus is not null)
-        {
-            <MudChip T="string" Color="@(runStatus == "live" ? Color.Success : runStatus == "sample" ? Color.Warning : Color.Error)" Variant="Variant.Outlined" Size="Size.Small">run: @runStatus</MudChip>
-        }
-        @if (graphStatus is not null)
-        {
-            <MudChip T="string" Color="@(graphStatus == "live" ? Color.Success : graphStatus == "sample" ? Color.Warning : Color.Error)" Variant="Variant.Outlined" Size="Size.Small">graph: @graphStatus</MudChip>
-        }
+    <MudButton Variant="Variant.Filled" Class="action-btn" Color="@RunButtonColor" OnClick="RunModel" Disabled="@runLoading">
+    @if (runLoading) { <MudProgressCircular Class="mr-2" Size="Size.Small" Indeterminate="true" /> }
+        @RunButtonLabel
+    </MudButton>
+    <MudButton Variant="Variant.Outlined" Class="action-btn" Color="@GraphButtonColor" OnClick="GraphModel" Disabled="@graphLoading">
+    @if (graphLoading) { <MudProgressCircular Class="mr-2" Size="Size.Small" Indeterminate="true" /> }
+        @GraphButtonLabel
+    </MudButton>
     </MudStack>
 </MudPaper>
 
@@ -85,10 +93,14 @@
     private RunResponse? runResult;
     private GraphResponse? graphResult;
     private string? lastError;
-    private bool triedAutoHealth;
-    private string? healthStatus; // ok | fail | sample
-    private string? runStatus;    // live | fail | sample
-    private string? graphStatus;  // live | fail | sample
+    // No auto health probe; user initiated only per requirements.
+
+    private enum ReqState { Idle, Loading }
+    private enum Outcome { None, Success, Failed }
+    private ReqState healthState = ReqState.Idle;
+    private ReqState runState = ReqState.Idle;
+    private ReqState graphState = ReqState.Idle;
+    private Outcome healthOutcome = Outcome.None; // still used for health chip
 
     // Working sample YAML (two-space indentation, matches examples/hello/model.yaml)
     private const string sampleYaml =
@@ -109,137 +121,109 @@
     private async Task CheckHealth()
     {
         healthLoading = true;
+        healthState = ReqState.Loading;
         lastError = null;
         try
         {
-            var res = await Api.HealthAsync();
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+            var res = await Api.HealthAsync(cts.Token);
             if (res.Success)
             {
                 health = res.Value;
-                healthStatus = health!.Status;
+                healthOutcome = Outcome.Success;
             }
             else
             {
                 health = null;
                 lastError = $"Health failed ({res.StatusCode}): {res.Error}";
+                healthOutcome = Outcome.Failed;
                 Snackbar.Add(lastError, Severity.Error);
-                healthStatus = "fail";
             }
         }
-        finally { healthLoading = false; }
+        catch
+        {
+            healthOutcome = Outcome.Failed;
+            lastError = "Health request error (offline)";
+            Snackbar.Add(lastError, Severity.Error);
+        }
+        finally { healthLoading = false; healthState = ReqState.Idle; await InvokeAsync(StateHasChanged); }
     }
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender && !triedAutoHealth)
-        {
-            triedAutoHealth = true;
-            // Background health probe; if it fails load samples so UI isn't empty
-            try
-            {
-                var res = await Api.HealthAsync();
-                if (res.Success)
-                {
-                    health = res.Value;
-                    healthStatus = health!.Status;
-                    StateHasChanged();
-                    return;
-                }
-            }
-            catch { }
-            // Pre-populate fallback samples
-            runResult = await TryLoadSampleRunAsync();
-            graphResult = await TryLoadSampleGraphAsync();
-            if (runResult is not null || graphResult is not null)
-            {
-                Snackbar.Add("API unavailable – showing sample data.", Severity.Warning);
-                if (runResult is not null) runStatus = "sample";
-                if (graphResult is not null) graphStatus = "sample";
-                healthStatus = "fail";
-                StateHasChanged();
-            }
-        }
-    }
+    // Removed OnAfterRender auto health + sample pre-population.
 
     private async Task RunModel()
     {
         runLoading = true;
+        runState = ReqState.Loading;
         lastError = null;
         try
         {
-            var res = await Api.RunAsync(sampleYaml);
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
+            var res = await Api.RunAsync(sampleYaml, cts.Token);
             if (res.Success)
             {
                 runResult = res.Value;
-                runStatus = "live";
+                // success outcome only reflected via results presence; no chip for run
             }
             else
             {
-                // fallback to static sample if connectivity issue
-                runResult = await TryLoadSampleRunAsync();
-                if (runResult is null)
-                {
-                    lastError = $"Run failed ({res.StatusCode}): {res.Error}";
-                    Snackbar.Add(lastError, Severity.Error);
-                    runStatus = "fail";
-                }
-                else
-                {
-                    Snackbar.Add("API unavailable – showing sample run.", Severity.Warning);
-                    runStatus = "sample";
-                }
+                runResult = null;
+                lastError = $"Run failed ({res.StatusCode}): {res.Error}";
+                // failure; no chip, error via snackbar
+                Snackbar.Add(lastError, Severity.Error);
             }
         }
-        finally { runLoading = false; }
+        catch (Exception ex)
+        {
+            runResult = null;
+            // failure; no chip
+            lastError = $"Run error: {ex.Message}";
+            Snackbar.Add(lastError, Severity.Error);
+        }
+        finally { runLoading = false; runState = ReqState.Idle; await InvokeAsync(StateHasChanged); }
     }
 
     private async Task GraphModel()
     {
         graphLoading = true;
+        graphState = ReqState.Loading;
         lastError = null;
         try
         {
-            var res = await Api.GraphAsync(sampleYaml);
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
+            var res = await Api.GraphAsync(sampleYaml, cts.Token);
             if (res.Success)
             {
                 graphResult = res.Value;
-                graphStatus = "live";
+                // success outcome only reflected via results presence
             }
             else
             {
-                graphResult = await TryLoadSampleGraphAsync();
-                if (graphResult is null)
-                {
-                    lastError = $"Graph failed ({res.StatusCode}): {res.Error}";
-                    Snackbar.Add(lastError, Severity.Error);
-                    graphStatus = "fail";
-                }
-                else
-                {
-                    Snackbar.Add("API unavailable – showing sample graph.", Severity.Warning);
-                    graphStatus = "sample";
-                }
+                graphResult = null;
+                lastError = $"Graph failed ({res.StatusCode}): {res.Error}";
+                // failure outcome; no chip
+                Snackbar.Add(lastError, Severity.Error);
             }
         }
-        finally { graphLoading = false; }
+        catch (Exception ex)
+        {
+            graphResult = null;
+            // failure outcome
+            lastError = $"Graph error: {ex.Message}";
+            Snackbar.Add(lastError, Severity.Error);
+        }
+        finally { graphLoading = false; graphState = ReqState.Idle; await InvokeAsync(StateHasChanged); }
     }
 
-    private async Task<RunResponse?> TryLoadSampleRunAsync()
-    {
-        try
-        {
-            return await Http.GetFromJsonAsync<RunResponse>("sample/run-example.json");
-        }
-        catch { return null; }
-    }
+    // Removed sample JSON fallback loaders.
 
-    private async Task<GraphResponse?> TryLoadSampleGraphAsync()
-    {
-        try
-        {
-            return await Http.GetFromJsonAsync<GraphResponse>("sample/graph-example.json");
-        }
-        catch { return null; }
-    }
+    private string HealthButtonLabel => healthState == ReqState.Loading ? "Checking..." : "Check Health";
+    private Color HealthButtonColor => Color.Primary; // always neutral color
+    private string RunButtonLabel => runState == ReqState.Loading ? "Running..." : "Run /run";
+    private Color RunButtonColor => Color.Secondary; // always neutral
+    private string GraphButtonLabel => graphState == ReqState.Loading ? "Loading..." : "Graph /graph";
+    private Color GraphButtonColor => Color.Secondary; // always neutral
+
+    private bool anyLoading => healthState == ReqState.Loading || runState == ReqState.Loading || graphState == ReqState.Loading;
 
 }

@@ -1,0 +1,10 @@
+.action-btn {
+  min-height: 34px;
+}
+.action-btn:active {
+  transform: scale(0.97);
+}
+.mud-button-root.action-btn.mud-button-contained, 
+.mud-button-root.action-btn.mud-button-outlined {
+  box-shadow: none;
+}
