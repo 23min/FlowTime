@@ -13,5 +13,9 @@ builder.Services.AddMudServices();
 builder.Services.AddSingleton<ThemeService>();
 builder.Services.AddScoped<FlowTimeApiOptions>(_ => new FlowTimeApiOptions());
 builder.Services.AddScoped<IFlowTimeApiClient, FlowTimeApiClient>();
+builder.Services.AddScoped<FeatureFlagService>();
+builder.Services.AddScoped<ApiRunClient>();
+builder.Services.AddScoped<SimulationRunClient>();
+builder.Services.AddScoped<IRunClient, RunClientRouter>();
 
 await builder.Build().RunAsync();

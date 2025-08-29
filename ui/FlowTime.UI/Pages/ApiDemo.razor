@@ -1,7 +1,7 @@
 @page "/api-demo"
 @using FlowTime.UI.Services
 @using MudBlazor
-@inject IFlowTimeApiClient Api
+@inject IRunClient RunClient
 @inject HttpClient Http
 @inject ISnackbar Snackbar
 
@@ -9,7 +9,7 @@
 
 <MudText Typo="Typo.h4" GutterBottom="true">API Demo</MudText>
 <MudText Class="mb-1">Interact with FlowTime API using the typed client.</MudText>
-<MudText Typo="Typo.caption" Class="mb-4" Style="font-family:monospace">API Base: @(Api.BaseAddress ?? "(null)")
+<MudText Typo="Typo.caption" Class="mb-4" Style="font-family:monospace">Client Mode: @(clientModeLabel)
 </MudText>
 
 @if (anyLoading)
@@ -72,26 +72,19 @@
     }
     @if (graphResult is not null)
     {
-        <MudExpansionPanel Text="Graph Result (edges)" Expanded="@(!(runResult is null))">
-            <MudTable Dense="true" Hover="true" Items="graphResult.Edges">
-                <HeaderContent>
-                    <MudTh>Node</MudTh>
-                    <MudTh>Inputs</MudTh>
-                </HeaderContent>
-                <RowTemplate>
-                    <MudTd DataLabel="Node">@context.Id</MudTd>
-                    <MudTd DataLabel="Inputs">@string.Join(", ", context.Inputs)</MudTd>
-                </RowTemplate>
-            </MudTable>
+        <MudExpansionPanel Text="Graph Result (order)" Expanded="@(!(runResult is null))">
+            <MudText Typo="Typo.subtitle2" Class="mb-2">Order: @string.Join(", ", graphResult.Order)</MudText>
+            <MudAlert Severity="Severity.Info">Graph endpoint currently returns order only in unified contract.</MudAlert>
         </MudExpansionPanel>
     }
 </MudExpansionPanels>
 
 @code {
     private bool healthLoading, runLoading, graphLoading;
-    private HealthResponse? health;
-    private RunResponse? runResult;
-    private GraphResponse? graphResult;
+    private bool? health;
+    private GraphRunResult? runResult;
+    private GraphRunResult? graphResult;
+    private string clientModeLabel = "api";
     private string? lastError;
     // No auto health probe; user initiated only per requirements.
 
@@ -126,10 +119,10 @@
         try
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
-            var res = await Api.HealthAsync(cts.Token);
+            var res = await RunClient.HealthAsync(cts.Token);
             if (res.Success)
             {
-                health = res.Value;
+                health = true;
                 healthOutcome = Outcome.Success;
             }
             else
@@ -159,8 +152,8 @@
         try
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
-            var res = await Api.RunAsync(sampleYaml, cts.Token);
-            if (res.Success)
+            var res = await RunClient.RunAsync(sampleYaml, cts.Token);
+            if (res.Success && res.Value is not null)
             {
                 runResult = res.Value;
                 // success outcome only reflected via results presence; no chip for run
@@ -191,8 +184,8 @@
         try
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
-            var res = await Api.GraphAsync(sampleYaml, cts.Token);
-            if (res.Success)
+            var res = await RunClient.GraphAsync(sampleYaml, cts.Token);
+            if (res.Success && res.Value is not null)
             {
                 graphResult = res.Value;
                 // success outcome only reflected via results presence
@@ -225,5 +218,14 @@
     private Color GraphButtonColor => Color.Secondary; // always neutral
 
     private bool anyLoading => healthState == ReqState.Loading || runState == ReqState.Loading || graphState == ReqState.Loading;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (RunClient is RunClientRouter router)
+        {
+            clientModeLabel = router.GetType().Name.Contains("Simulation") ? "sim" : "api"; // simplistic; replaced when flag surfaced
+        }
+        await Task.CompletedTask;
+    }
 
 }
