@@ -7,9 +7,11 @@ namespace FlowTime.UI.Components;
 public static class DagLayout
 {
     public const double NodeWidth = 70;
-    public const double NodeHeight = 28;
-    private const double HSpacing = 40; // horizontal spacing between columns
-    private const double VSpacing = 16; // vertical spacing
+    // Reduced constant node height per request (compact micro-DAG)
+    public const double NodeHeight = 20;
+    private const double hSpacing = 32; // horizontal spacing between columns (slightly tighter for compactness)
+    private const double vSpacing = 14; // vertical spacing between rows
+    private const double maxRowWidth = 520; // wrap threshold (px) before moving to next row
 
     public sealed record LNode(string Id, double X, double Y, bool IsSource, bool IsSink);
     public sealed record LEdge(string From, string To);
@@ -17,20 +19,29 @@ public static class DagLayout
 
     public static LayoutResult Layout(GraphStructureResult structure)
     {
-        // Column index is topological order; group nodes by that order sequentially
-        var orderIndex = structure.Order.Select((id, idx) => (id, idx)).ToDictionary(t => t.id, t => t.idx);
-        // For now, single row layout with nodes in order; upgrade later to layered by depth
+        // Simple wrapping layout: place nodes in topological order left-to-right, wrap when row width exceeded.
         var nodes = new List<LNode>();
         double x = 0;
         double y = 0;
+        double currentRowWidth = 0;
+        double maxWidth = 0;
         foreach (var id in structure.Order)
         {
             var info = structure.Nodes.First(n => n.Id == id);
             var isSource = info.Inputs.Count == 0;
             var isSink = !structure.Nodes.Any(n => n.Inputs.Contains(id));
+            // Wrap if node would exceed threshold
+            if (x > 0 && (x + NodeWidth) > maxRowWidth)
+            {
+                y += NodeHeight + vSpacing;
+                x = 0;
+            }
             nodes.Add(new LNode(id, x, y, isSource, isSink));
-            x += NodeWidth + HSpacing;
+            x += NodeWidth + hSpacing;
+            currentRowWidth = x - hSpacing + NodeWidth; // approximate row width after adding node
+            if (currentRowWidth > maxWidth) maxWidth = currentRowWidth;
         }
+        if (nodes.Count == 0) maxWidth = 0;
         var edges = new List<LEdge>();
         foreach (var n in structure.Nodes)
         {
@@ -39,8 +50,8 @@ public static class DagLayout
                 edges.Add(new LEdge(inp, n.Id));
             }
         }
-        double width = nodes.Count == 0 ? 0 : nodes.Max(n => n.X) + NodeWidth;
-        double height = NodeHeight;
+        double width = nodes.Count == 0 ? 0 : maxWidth;
+        double height = nodes.Count == 0 ? 0 : nodes.Max(n => n.Y) + NodeHeight;
         return new LayoutResult(nodes, edges, width, height);
     }
 }
