@@ -1,6 +1,6 @@
 namespace FlowTime.UI.Services;
 
-internal sealed class SimulationRunClient : IRunClient
+public sealed class SimulationRunClient : IRunClient
 {
     // Deterministic synthetic data for quick UI iter.
     public Task<Result<bool>> HealthAsync(CancellationToken ct = default)

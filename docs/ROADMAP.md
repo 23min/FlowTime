@@ -1,3 +1,4 @@
+> See also `docs/capability-matrix.md` for a current snapshot of implemented vs planned capabilities.
 # FlowTime OSS Roadmap (Full Master Reference)
 
 > **Version:** 1.0  

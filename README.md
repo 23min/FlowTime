@@ -231,7 +231,13 @@ Features:
 * Sample YAML model (const + expression node).
 * Health / Run / Graph buttons with spinners and timeouts (8s health, 12s run/graph).
 * Snackbar errors; no silent fallbacks.
-* Unified `GraphRunResult { bins, binMinutes, order, series }` for both real and simulated runs.
+* Unified run output: `GraphRunResult { bins, binMinutes, order, series }`.
+* NEW: Structural graph view (no series) via `GraphStructureResult { order, nodes[] }` showing:
+  * Topological order index (#)
+  * Each node's direct inputs (fan‑in)
+  * Computed in/out degree, role chips (Source, Sink, Internal)
+  * Aggregate stats (sources, sinks, max fan‑out)
+* Simulation toggle (API vs deterministic in‑browser model) persisted in `localStorage` (override with `?sim=1` / `?sim=0`).
 
 Hot reload:
 ```powershell
@@ -243,7 +249,14 @@ Troubleshooting:
 * API down? Switch to Sim mode to keep exploring.
 * Timeouts surface as snackbar errors; check network/devtools.
 
-Planned next: editable YAML textarea, persisting last model, charts.
+Planned next: editable YAML textarea + persistence, charts, visual DAG, richer node kinds.
+
+Structural graph vs run:
+
+* Use **Run** when you want numeric time‑series for output nodes (series data is returned).
+* Use **Graph** to validate model topology quickly (order, dependencies) before costly future features (visualization, large scenarios).
+
+See also: [Capability Matrix](docs/capability-matrix.md) and [Node Concepts](docs/concepts/nodes-and-expressions.md).
 
 Not applicable for M0 CLI runs. Future backend + SPA will use environment configuration and optional secret stores (e.g., Key Vault) as needed.
 

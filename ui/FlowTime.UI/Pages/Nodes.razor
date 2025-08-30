@@ -6,7 +6,12 @@
 <PageTitle>Nodes</PageTitle>
 
 <MudText Typo="Typo.h4" GutterBottom="true">Node Catalog</MudText>
-<MudText Class="mb-4">M0 available & planned node kinds.</MudText>
+<MudText Class="mb-2">M0 available & planned node kinds. See also <a href="/docs/capability-matrix" target="_blank">Capability Matrix</a>.</MudText>
+<MudStack Row="true" Spacing="2" Class="mb-4">
+    <MudChip T="string" Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Small">Total: @NodeCatalog.All.Count</MudChip>
+    <MudChip T="string" Color="Color.Success" Variant="Variant.Outlined" Size="Size.Small">Implemented: @ImplementedCount</MudChip>
+    <MudChip T="string" Color="Color.Warning" Variant="Variant.Outlined" Size="Size.Small">Planned: @PlannedCount</MudChip>
+</MudStack>
 
 <MudPaper Class="pa-4 mb-4" Elevation="1">
     <MudTextField @bind-Value="_search" Placeholder="Filter nodes..." Immediate="true" Variant="Variant.Outlined" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Class="mb-2" />
@@ -55,6 +60,8 @@
 
 @code {
     private string _search = string.Empty;
+    private int ImplementedCount => NodeCatalog.All.Count(n => n.Status == NodeStatus.Implemented);
+    private int PlannedCount => NodeCatalog.All.Count(n => n.Status == NodeStatus.Planned);
 
     private bool Filter(NodeMetadata node) => MatchesSearch(node);
     private bool MatchesSearch(NodeMetadata node)
