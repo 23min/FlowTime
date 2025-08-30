@@ -5,6 +5,7 @@
 @inject IRunClient RunClient
 @inject HttpClient Http
 @inject ISnackbar Snackbar
+@inject PreferencesService Prefs
 
 <PageTitle>API Demo</PageTitle>
 
@@ -198,7 +199,7 @@
             "    as: final.csv\n"
     };
 
-    private string selectedModelKey = "simple";
+    private string selectedModelKey = "simple"; // will be overridden by stored pref if present
     private string CurrentModelYaml => modelCatalog[selectedModelKey];
     private void OnModelChanged()
     {
@@ -208,12 +209,12 @@
         nodeViews.Clear();
         chartSeries?.Clear();
     }
-    private Task HandleModelChanged(string key)
+    private async Task HandleModelChanged(string key)
     {
         selectedModelKey = key;
         OnModelChanged();
+        await Prefs.SetModelKeyAsync(selectedModelKey);
         StateHasChanged();
-        return Task.CompletedTask;
     }
 
     private async Task CheckHealth()
@@ -389,6 +390,11 @@
         await Flags.EnsureLoadedAsync();
         clientModeLabel = Flags.UseSimulation ? "sim" : "api";
         Flags.Changed += OnFlagsChanged;
+        await Prefs.EnsureLoadedAsync();
+        if (!string.IsNullOrWhiteSpace(Prefs.ModelKey) && modelCatalog.ContainsKey(Prefs.ModelKey))
+        {
+            selectedModelKey = Prefs.ModelKey;
+        }
     }
 
     private async void OnFlagsChanged()

@@ -11,6 +11,7 @@ builder.RootComponents.Add<HeadOutlet>("head::after");
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
 builder.Services.AddMudServices();
 builder.Services.AddSingleton<ThemeService>();
+builder.Services.AddScoped<PreferencesService>();
 builder.Services.AddScoped<FlowTimeApiOptions>(_ => new FlowTimeApiOptions());
 builder.Services.AddScoped<IFlowTimeApiClient, FlowTimeApiClient>();
 builder.Services.AddScoped<FeatureFlagService>();

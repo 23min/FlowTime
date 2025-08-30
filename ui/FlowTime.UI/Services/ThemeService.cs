@@ -1,22 +1,57 @@
 using MudBlazor;
+using Microsoft.JSInterop;
 
 namespace FlowTime.UI.Services;
 
 public sealed class ThemeService
 {
-    public bool IsDark { get; private set; } = true; // default dark; JS/localStorage may override
+    private readonly IJSRuntime js;
+    private bool loaded;
+    private const string storageKey = "ft.theme"; // values: dark|light
+
+    public ThemeService(IJSRuntime js)
+    {
+        this.js = js;
+    }
+
+    public bool IsDark { get; private set; } = true; // default dark; EnsureLoadedAsync may override
 
     public MudTheme CurrentTheme => IsDark ? DarkTheme : LightTheme;
 
     public event Action? Changed;
 
-    public void Toggle() => Set(IsDark ? false : true);
-
-    public void Set(bool dark)
+    public async Task EnsureLoadedAsync()
     {
-        if (IsDark == dark) return;
+        if (loaded) return;
+        loaded = true;
+        try
+        {
+            var stored = await js.InvokeAsync<string?>("localStorage.getItem", storageKey);
+            if (stored == "light") SetInternal(false, persist:false);
+            else if (stored == "dark") SetInternal(true, persist:false);
+        }
+        catch { /* ignore */ }
+    }
+
+    public Task ToggleAsync() => SetAsync(!IsDark);
+
+    public Task SetAsync(bool dark)
+    {
+        if (IsDark == dark) return Task.CompletedTask;
+        SetInternal(dark, persist:true);
+        return PersistAsync();
+    }
+
+    private void SetInternal(bool dark, bool persist)
+    {
         IsDark = dark;
         Changed?.Invoke();
+    }
+
+    private async Task PersistAsync()
+    {
+        try { await js.InvokeVoidAsync("localStorage.setItem", storageKey, IsDark ? "dark" : "light"); }
+        catch { /* ignore */ }
     }
 
     public readonly MudTheme LightTheme = new()

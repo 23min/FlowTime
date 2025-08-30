@@ -1,6 +1,7 @@
 ﻿@inherits LayoutComponentBase
 @using MudBlazor
 @inject FlowTime.UI.Services.ThemeService Theme
+@inject FlowTime.UI.Services.PreferencesService Prefs
 @inject FlowTime.UI.Services.FeatureFlagService Flags
 
 <MudThemeProvider Theme="@Theme.CurrentTheme" IsDarkMode="@Theme.IsDark" />
@@ -14,9 +15,11 @@
             OnClick="ToggleDrawer" />
         <MudText Typo="Typo.h6">FlowTime</MudText>
         <MudSpacer />
-    <MudIconButton Icon="@(Theme.IsDark ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)" Color="Color.Inherit" OnClick="ToggleDark" />
-    <MudSwitch T="bool" Value="useSim" ValueChanged="OnUseSimChanged" Color="Color.Primary" Class="mr-2" />
-    <MudChip T="string" Color="@(useSim ? Color.Warning : Color.Success)" Variant="Variant.Outlined" Size="Size.Small">@(useSim ? "Sim" : "API")</MudChip>
+        <MudChip T="string" Color="@(useSim? Color.Warning: Color.Success)" Variant="Variant.Outlined"
+            Size="Size.Small">@(useSim ? "Sim" : "API")</MudChip>
+        <MudSwitch T="bool" Value="useSim" ValueChanged="OnUseSimChanged" Color="Color.Primary" Class="ml-2 mr-2" />
+        <MudIconButton Icon="@(Theme.IsDark? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
+            Color="Color.Inherit" OnClick="ToggleDarkAsync" />
         <MudButton Variant="Variant.Outlined" Color="Color.Inherit" Href="https://github.com/23min/flowtime"
             Target="_blank">GitHub</MudButton>
     </MudAppBar>
@@ -34,30 +37,29 @@
     </MudDrawer>
 
     <MudMainContent>
-    <MudContainer MaxWidth="MaxWidth.False" Class="pa-4 main-container">
+        <MudContainer MaxWidth="MaxWidth.False" Class="pa-4 main-container">
             @Body
         </MudContainer>
     </MudMainContent>
     <div class="pa-4 mud-text-caption" style="opacity:.55;">
         FlowTime demo UI · Theme: @(Theme.IsDark ? "Dark" : "Light")
     </div>
-    </MudLayout>
+</MudLayout>
 
 @code {
     private bool _drawerOpen = true;
     private bool useSim;
     void ToggleDrawer() => _drawerOpen = !_drawerOpen;
     [Inject] IJSRuntime JS { get; set; } = default!;
-    async void ToggleDark()
+    async Task ToggleDarkAsync()
     {
-        Theme.Toggle();
-        try { await JS.InvokeVoidAsync("ftTheme.set", Theme.IsDark ? "dark" : "light"); }
-        catch { }
+        await Theme.EnsureLoadedAsync();
+        await Theme.ToggleAsync();
         StateHasChanged();
     }
     protected override async Task OnInitializedAsync()
     {
-        await Flags.EnsureLoadedAsync();
+        await Task.WhenAll(Flags.EnsureLoadedAsync(), Theme.EnsureLoadedAsync(), Prefs.EnsureLoadedAsync());
         useSim = Flags.UseSimulation;
         Flags.Changed += OnFlagsChanged;
     }

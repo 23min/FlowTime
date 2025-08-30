@@ -7,15 +7,10 @@
         if(!firstRender) return;
         try
         {
-                var mode = await JS.InvokeAsync<string>("ftTheme.get");
-                Theme.Set(mode == "dark");
+            await Theme.EnsureLoadedAsync();
+            var mode = await JS.InvokeAsync<string>("ftTheme.get");
+            await Theme.SetAsync(mode == "dark");
         }
         catch { }
-    }
-    }
-
-    @code {
-        [JSInvokable]
-        public static Task OnThemeChanged() => Task.CompletedTask; // placeholder if needed later
     }
 }
