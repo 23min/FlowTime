@@ -20,13 +20,13 @@ internal sealed class ApiRunClient : IRunClient
         return Result<GraphRunResult>.Ok(gr, res.StatusCode);
     }
 
-    public async Task<Result<GraphRunResult>> GraphAsync(string yaml, CancellationToken ct = default)
+    public async Task<Result<GraphStructureResult>> GraphAsync(string yaml, CancellationToken ct = default)
     {
         var res = await api.GraphAsync(yaml, ct);
-        if (!res.Success || res.Value is null) return Result<GraphRunResult>.Fail(res.Error, res.StatusCode);
+        if (!res.Success || res.Value is null) return Result<GraphStructureResult>.Fail(res.Error, res.StatusCode);
         var g = res.Value;
-        // Graph lacks series in current API: return empty dictionary
-        var gr = new GraphRunResult(g.Order.Length, 0, g.Order, new Dictionary<string, double[]>());
-        return Result<GraphRunResult>.Ok(gr, res.StatusCode);
+        var nodes = g.Edges.Select(e => new NodeInfo(e.Id, e.Inputs)).ToList();
+        var gs = new GraphStructureResult(g.Order, nodes);
+        return Result<GraphStructureResult>.Ok(gs, res.StatusCode);
     }
 }

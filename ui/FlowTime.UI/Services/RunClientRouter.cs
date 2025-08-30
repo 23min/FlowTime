@@ -22,7 +22,7 @@ internal sealed class RunClientRouter : IRunClient, IDisposable
 
     public Task<Result<bool>> HealthAsync(CancellationToken ct = default) => Current.HealthAsync(ct);
     public Task<Result<GraphRunResult>> RunAsync(string yaml, CancellationToken ct = default) => Current.RunAsync(yaml, ct);
-    public Task<Result<GraphRunResult>> GraphAsync(string yaml, CancellationToken ct = default) => Current.GraphAsync(yaml, ct);
+    public Task<Result<GraphStructureResult>> GraphAsync(string yaml, CancellationToken ct = default) => Current.GraphAsync(yaml, ct);
 
     public void Dispose()
     {

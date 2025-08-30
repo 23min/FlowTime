@@ -19,10 +19,15 @@ internal sealed class SimulationRunClient : IRunClient
         return Task.FromResult(Result<GraphRunResult>.Ok(result));
     }
 
-    public Task<Result<GraphRunResult>> GraphAsync(string yaml, CancellationToken ct = default)
+    public Task<Result<GraphStructureResult>> GraphAsync(string yaml, CancellationToken ct = default)
     {
         var order = new[] { "demand", "served" };
-        var result = new GraphRunResult(order.Length, 0, order, new Dictionary<string, double[]>());
-        return Task.FromResult(Result<GraphRunResult>.Ok(result));
+        var nodes = new List<NodeInfo>
+        {
+            new NodeInfo("demand", Array.Empty<string>()),
+            new NodeInfo("served", new[]{"demand"})
+        };
+        var result = new GraphStructureResult(order, nodes);
+        return Task.FromResult(Result<GraphStructureResult>.Ok(result));
     }
 }
