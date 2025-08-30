@@ -6,9 +6,9 @@
 <MudThemeProvider Theme="@Theme.CurrentTheme" IsDarkMode="@Theme.IsDark" />
 <MudDialogProvider />
 <MudSnackbarProvider />
+<MudPopoverProvider />
 
 <MudLayout>
-    <ThemeInitializer />
     <MudAppBar Elevation="1" Color="Color.Default" Class="appbar-surface" Dense="true">
         <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
             OnClick="ToggleDrawer" />

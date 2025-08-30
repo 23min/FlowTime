@@ -11,6 +11,12 @@
 <MudText Class="mb-1">Interact with FlowTime API using the typed client.</MudText>
 <MudText Typo="Typo.caption" Class="mb-4" Style="font-family:monospace">Client Mode: @(clientModeLabel)
 </MudText>
+@if (Flags.UseSimulation)
+{
+    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Elevation="0" Class="mb-4">
+        <b>Simulation Mode:</b> Showing deterministic stub outputs (optimized for UI iteration). The <em>extended</em> model selection does not change simulated numeric results. Switch to <b>API</b> mode to evaluate the real model.
+    </MudAlert>
+}
 
 @if (anyLoading)
 {
@@ -38,8 +44,19 @@
 </MudPaper>
 
 <MudPaper Class="pa-4 mb-4" Elevation="1">
-    <MudText Typo="Typo.h6" Class="mb-2">Sample YAML</MudText>
-    <MudPaper Class="pa-2 code-block" Elevation="0">@sampleYaml</MudPaper>
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-2">
+        <MudText Typo="Typo.h6" Class="mb-0">Model</MudText>
+        <MudSelect T="string" Value="@selectedModelKey" ValueChanged="HandleModelChanged" Dense="true" Variant="Variant.Outlined" Style="min-width:220px"  AnchorOrigin="Origin.BottomCenter">
+            @foreach (var kv in modelCatalog)
+            {
+                <MudSelectItem Value="@kv.Key">@kv.Key</MudSelectItem>
+            }
+        </MudSelect>
+        <MudTooltip Text="Switch between predefined static models (no editing in this milestone).">
+            <MudIcon Color="Color.Info" Icon="@Icons.Material.Filled.Info" />
+        </MudTooltip>
+    </MudStack>
+    <MudPaper Class="pa-2 code-block" Elevation="0">@CurrentModelYaml</MudPaper>
     <MudStack Row="true" Spacing="2" Class="mt-3">
     <MudButton Variant="Variant.Filled" Class="action-btn" Color="@RunButtonColor" OnClick="RunModel" Disabled="@runLoading">
     @if (runLoading) { <MudProgressCircular Class="mr-2" Size="Size.Small" Indeterminate="true" /> }
@@ -55,8 +72,14 @@
 <MudExpansionPanels MultiExpansion="true">
     @if (runResult is not null)
     {
-        <MudExpansionPanel Text="Run Result (series)" Expanded="true">
+    <MudExpansionPanel Text="Run Result (series)" Expanded="@expandRun">
             <MudText Typo="Typo.subtitle2" Class="mb-2">Order: @string.Join(", ", runResult.Order)</MudText>
+            @if (Flags.UseSimulation && selectedModelKey != "simple")
+            {
+                <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Elevation="0" Dense="true" Class="mb-3">
+                    Extended model selected, but simulation client returns fixed simple model data.
+                </MudAlert>
+            }
             <MudTable T="KeyValuePair<string, double[]>" Items="runResult.Series" Dense="true" Hover="true" Bordered="true"
                 Striped="true" Elevation="0">
                 <HeaderContent>
@@ -68,14 +91,25 @@
                     <MudTd DataLabel="Values">@string.Join(", ", context.Value)</MudTd>
                 </RowTemplate>
             </MudTable>
+            @if (chartSeries?.Count > 0)
+            {
+                <MudText Typo="Typo.caption" Class="mt-4 mb-1" Style="opacity:.75;">Chart (first up to 4 series)</MudText>
+                <MudChart Class="mb-2" ChartType="ChartType.Line" labels="@chartLabels" datasets="@chartSeries" />
+            }
         </MudExpansionPanel>
     }
     @if (graphResult is not null)
     {
         var stats = ComputeGraphStats(graphResult);
-        <MudExpansionPanel Text="Graph Structure" Expanded="@(!(runResult is null))">
+    <MudExpansionPanel Text="Graph Structure" Expanded="@expandGraph">
             <MudText Typo="Typo.subtitle2" Class="mb-2">Order: @string.Join(", ", graphResult.Order)</MudText>
             <MudText Typo="Typo.caption" Class="mb-2">Nodes: @stats.Total · Sources: @stats.Sources · Sinks: @stats.Sinks · Max FanOut: @stats.MaxFanOut</MudText>
+            @if (Flags.UseSimulation && selectedModelKey != "simple")
+            {
+                <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Elevation="0" Dense="true" Class="mb-3">
+                    Structural graph reflects simulation stub, not the extended model.
+                </MudAlert>
+            }
         <MudTable T="NodeInfoView" Hover="true" Dense="true" Items="nodeViews" Elevation="0" Bordered="true" Striped="true">
                 <HeaderContent>
             <MudTh>#</MudTh>
@@ -118,22 +152,65 @@
     private ReqState runState = ReqState.Idle;
     private ReqState graphState = ReqState.Idle;
     private Outcome healthOutcome = Outcome.None; // still used for health chip
+    private bool expandRun = true;
+    private bool expandGraph = false;
 
-    // Working sample YAML (two-space indentation, matches examples/hello/model.yaml)
-    private const string sampleYaml =
-        "grid:\n" +
-        "  bins: 8\n" +
-        "  binMinutes: 60\n" +
-        "nodes:\n" +
-        "  - id: demand\n" +
-        "    kind: const\n" +
-        "    values: [10,10,10,10,10,10,10,10]\n" +
-        "  - id: served\n" +
-        "    kind: expr\n" +
-        "    expr: \"demand * 0.8\"\n" +
-        "outputs:\n" +
-        "  - series: served\n" +
-        "    as: served.csv\n";
+    // Static model catalog (no editing in this milestone)
+    private readonly Dictionary<string,string> modelCatalog = new()
+    {
+        ["simple"] =
+            "grid:\n" +
+            "  bins: 8\n" +
+            "  binMinutes: 60\n" +
+            "nodes:\n" +
+            "  - id: demand\n" +
+            "    kind: const\n" +
+            "    values: [10,10,10,10,10,10,10,10]\n" +
+            "  - id: served\n" +
+            "    kind: expr\n" +
+            "    expr: \"demand * 0.8\"\n" +
+            "outputs:\n" +
+            "  - series: served\n" +
+            "    as: served.csv\n",
+        ["extended"] =
+            "grid:\n" +
+            "  bins: 8\n" +
+            "  binMinutes: 60\n" +
+            "nodes:\n" +
+            "  - id: demand\n" +
+            "    kind: const\n" +
+            "    values: [12,14,16,18,20,18,16,14]\n" +
+            "  - id: adjusted\n" +
+            "    kind: expr\n" +
+            "    expr: \"demand * 0.75\"\n" +
+            "  - id: boosted\n" +
+            "    kind: expr\n" +
+            "    expr: \"adjusted + 5\"\n" +
+            "  - id: final\n" +
+            "    kind: expr\n" +
+            "    expr: \"boosted * 1.1\"\n" +
+            "outputs:\n" +
+            "  - series: final\n" +
+            "    as: final.csv\n"
+    };
+
+    private string selectedModelKey = "simple";
+    private string CurrentModelYaml => modelCatalog[selectedModelKey];
+    private void OnModelChanged()
+    {
+        // Reset previous results when switching models
+        runResult = null;
+        graphResult = null;
+        nodeViews.Clear();
+        chartSeries?.Clear();
+    }
+    private Task HandleModelChanged(string key)
+    {
+        selectedModelKey = key;
+        OnModelChanged();
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
 
     private async Task CheckHealth()
     {
@@ -176,10 +253,15 @@
         try
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
-            var res = await RunClient.RunAsync(sampleYaml, cts.Token);
+            Console.WriteLine($"[ApiDemo] Running model key='{selectedModelKey}' ({CurrentModelYaml.Length} chars)");
+            var yaml = CurrentModelYaml; // snapshot in case user switches mid-run
+            var res = await RunClient.RunAsync(yaml, cts.Token);
             if (res.Success && res.Value is not null)
             {
                 runResult = res.Value;
+                BuildChart();
+                expandRun = true;
+                expandGraph = false;
                 // success outcome only reflected via results presence; no chip for run
             }
             else
@@ -208,11 +290,15 @@
         try
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
-            var res = await RunClient.GraphAsync(sampleYaml, cts.Token);
+            Console.WriteLine($"[ApiDemo] Graph model key='{selectedModelKey}' ({CurrentModelYaml.Length} chars)");
+            var yaml = CurrentModelYaml;
+            var res = await RunClient.GraphAsync(yaml, cts.Token);
             if (res.Success && res.Value is not null)
             {
                 graphResult = res.Value;
                 nodeViews = BuildNodeViews(graphResult);
+                expandGraph = true;
+                expandRun = false;
             }
             else
             {
@@ -245,6 +331,21 @@
     private bool anyLoading => healthState == ReqState.Loading || runState == ReqState.Loading || graphState == ReqState.Loading;
 
     private record NodeInfoView(int Order, string Id, IReadOnlyList<string> Inputs, int InDegree, int OutDegree, bool IsSource, bool IsSink);
+
+    // Charting
+    private List<ChartSeries>? chartSeries;
+    private string[]? chartLabels;
+    private void BuildChart()
+    {
+        if (runResult is null) { chartSeries = null; chartLabels = null; return; }
+        chartLabels = Enumerable.Range(0, runResult.Bins).Select(i => i.ToString()).ToArray();
+        // Limit to first 4 series to avoid clutter
+        chartSeries = runResult.Series.Take(4).Select(kv => new ChartSeries
+        {
+            Name = kv.Key,
+            Data = kv.Value.Select(v => v).ToArray()
+        }).ToList();
+    }
 
     private List<NodeInfoView> BuildNodeViews(GraphStructureResult g)
     {
