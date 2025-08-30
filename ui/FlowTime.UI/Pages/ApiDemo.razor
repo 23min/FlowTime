@@ -1,5 +1,6 @@
 @page "/api-demo"
 @using FlowTime.UI.Services
+@using FlowTime.UI.Components
 @using MudBlazor
 @inject IRunClient RunClient
 @inject HttpClient Http
@@ -131,6 +132,9 @@
                     </MudTd>
                 </RowTemplate>
             </MudTable>
+            <MudDivider Class="my-3" />
+            <MudText Typo="Typo.caption" Class="mb-1" Style="opacity:.75;">Micro DAG</MudText>
+            <MicroDag Structure="graphResult" Height="140" />
         </MudExpansionPanel>
     }
 </MudExpansionPanels>
