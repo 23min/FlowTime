@@ -211,26 +211,27 @@ Terminal > Run Task...
 
 ### Configuration & secrets
 
-### Run the UI (Blazor WASM demo)
+### Run the UI (Blazor WASM demo + simulation mode)
 
-The early UI (Milestone M0 demo) lets you manually invoke the same `/healthz`, `/run`, and `/graph` endpoints via a sample YAML model.
+The UI lets you invoke `/healthz`, `/run`, and `/graph` using a unified `IRunClient` abstraction that can point at the real API or an in‑browser deterministic simulation.
 
-1. Ensure the API is running locally on `http://localhost:8080` (see previous section). If you run it on a different port change `FlowTimeApiOptions.BaseUrl` or later (TODO) pass via config.
-2. From the repo root build once:
+1. (Optional) Start the API locally (`http://localhost:8080`).
+2. Build once:
   ```powershell
   dotnet build
   ```
-3. Run the UI project with the built‑in dev server:
+3. Run the UI:
   ```powershell
   dotnet run --project ui/FlowTime.UI
   ```
-4. Open the served URL (typically `https://localhost:7xxx/` from the console) in your browser.
-5. Navigate to `/api-demo` (API Demo) – it displays:
-  * API base URL it’s using
-  * Sample YAML (constant demand + expression node)
-  * Buttons for Health, Run, Graph
-  * Results tables (series values and graph edges) with snackbar error messages if something fails
-  * Auto health probe on first load: if the API isn't reachable it pre-populates sample run/graph output from static JSON so the page isn't empty. A warning snackbar indicates fallback mode.
+4. Open the printed URL and go to the API Demo page.
+5. Toggle the Sim/API switch in the top bar to swap between real network calls and synthetic instant results. Persisted in `localStorage` (or force with `?sim=1`).
+
+Features:
+* Sample YAML model (const + expression node).
+* Health / Run / Graph buttons with spinners and timeouts (8s health, 12s run/graph).
+* Snackbar errors; no silent fallbacks.
+* Unified `GraphRunResult { bins, binMinutes, order, series }` for both real and simulated runs.
 
 Hot reload:
 ```powershell
@@ -238,11 +239,11 @@ dotnet watch --project ui/FlowTime.UI run
 ```
 
 Troubleshooting:
-* 400 errors on Run/Graph often mean YAML indentation issues; the sample string is already normalized.
-* If the API base shows `(null)` the HttpClient base address was not set – confirm `FlowTimeApiOptions.BaseUrl` and that the API is reachable.
-* Browser console logs outgoing YAML previews (`[FlowTimeApiClient] POST /run ...`).
+* 400 on Run: usually indentation—use provided sample YAML.
+* API down? Switch to Sim mode to keep exploring.
+* Timeouts surface as snackbar errors; check network/devtools.
 
-Planned improvements (post‑M0): editable YAML textarea, persisted theme & model in localStorage, chart visualization.
+Planned next: editable YAML textarea, persisting last model, charts.
 
 Not applicable for M0 CLI runs. Future backend + SPA will use environment configuration and optional secret stores (e.g., Key Vault) as needed.
 

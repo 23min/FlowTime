@@ -1,6 +1,7 @@
 ﻿@inherits LayoutComponentBase
 @using MudBlazor
 @inject FlowTime.UI.Services.ThemeService Theme
+@inject FlowTime.UI.Services.FeatureFlagService Flags
 
 <MudThemeProvider Theme="@Theme.CurrentTheme" IsDarkMode="@Theme.IsDark" />
 <MudDialogProvider />
@@ -13,8 +14,9 @@
             OnClick="ToggleDrawer" />
         <MudText Typo="Typo.h6">FlowTime</MudText>
         <MudSpacer />
-        <MudIconButton Icon="@(Theme.IsDark ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
-            Color="Color.Inherit" OnClick="ToggleDark" />
+    <MudIconButton Icon="@(Theme.IsDark ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)" Color="Color.Inherit" OnClick="ToggleDark" />
+    <MudSwitch T="bool" Value="useSim" ValueChanged="OnUseSimChanged" Color="Color.Primary" Class="mr-2" />
+    <MudChip T="string" Color="@(useSim ? Color.Warning : Color.Success)" Variant="Variant.Outlined" Size="Size.Small">@(useSim ? "Sim" : "API")</MudChip>
         <MudButton Variant="Variant.Outlined" Color="Color.Inherit" Href="https://github.com/23min/flowtime"
             Target="_blank">GitHub</MudButton>
     </MudAppBar>
@@ -43,6 +45,7 @@
 
 @code {
     private bool _drawerOpen = true;
+    private bool useSim;
     void ToggleDrawer() => _drawerOpen = !_drawerOpen;
     [Inject] IJSRuntime JS { get; set; } = default!;
     async void ToggleDark()
@@ -52,4 +55,20 @@
         catch { }
         StateHasChanged();
     }
+    protected override async Task OnInitializedAsync()
+    {
+        await Flags.EnsureLoadedAsync();
+        useSim = Flags.UseSimulation;
+        Flags.Changed += OnFlagsChanged;
+    }
+    private async void OnFlagsChanged()
+    {
+        useSim = Flags.UseSimulation;
+        await InvokeAsync(StateHasChanged);
+    }
+    private async Task OnUseSimChanged(bool value)
+    {
+        await Flags.SetUseSimulationAsync(value);
+    }
+    public void Dispose() => Flags.Changed -= OnFlagsChanged;
 }

@@ -85,6 +85,7 @@
     private GraphRunResult? runResult;
     private GraphRunResult? graphResult;
     private string clientModeLabel = "api";
+    [Inject] private FeatureFlagService Flags { get; set; } = default!;
     private string? lastError;
     // No auto health probe; user initiated only per requirements.
 
@@ -221,11 +222,17 @@
 
     protected override async Task OnInitializedAsync()
     {
-        if (RunClient is RunClientRouter router)
-        {
-            clientModeLabel = router.GetType().Name.Contains("Simulation") ? "sim" : "api"; // simplistic; replaced when flag surfaced
-        }
-        await Task.CompletedTask;
+        await Flags.EnsureLoadedAsync();
+        clientModeLabel = Flags.UseSimulation ? "sim" : "api";
+        Flags.Changed += OnFlagsChanged;
     }
+
+    private async void OnFlagsChanged()
+    {
+        clientModeLabel = Flags.UseSimulation ? "sim" : "api";
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose() => Flags.Changed -= OnFlagsChanged;
 
 }
