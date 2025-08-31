@@ -16,7 +16,8 @@
 @if (Flags.UseSimulation)
 {
     <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Elevation="0" Class="mb-4">
-        <b>Simulation Mode:</b> Showing deterministic stub outputs (optimized for UI iteration). The <em>extended</em> model selection does not change simulated numeric results. Switch to <b>API</b> mode to evaluate the real model.
+        <b>Simulation Mode:</b> Showing deterministic stub outputs (optimized for UI iteration). The <em>extended</em> model
+        selection does not change simulated numeric results. Switch to <b>API</b> mode to evaluate the real model.
     </MudAlert>
 }
 
@@ -27,28 +28,31 @@
 
 <MudPaper Class="pa-4 mb-4" Elevation="1">
     <MudStack Row="true" Spacing="2">
-        <MudButton Variant="Variant.Filled" Class="action-btn" Color="@HealthButtonColor" OnClick="CheckHealth" Disabled="@healthLoading">
+        <MudButton Variant="Variant.Filled" Class="action-btn" Color="@HealthButtonColor" OnClick="CheckHealth"
+            Disabled="@healthLoading">
             @if (healthLoading)
             {
                 <MudProgressCircular Class="mr-2" Size="Size.Small" Indeterminate="true" />
             }
             @HealthButtonLabel
         </MudButton>
-    @if (healthOutcome == Outcome.Success && health is not null)
+        @if (healthOutcome == Outcome.Success && health is not null)
         {
             <MudChip T="string" Color="Color.Success" Variant="Variant.Filled">ok</MudChip>
         }
-    else if (healthOutcome == Outcome.Failed)
+        else if (healthOutcome == Outcome.Failed)
         {
             <MudChip T="string" Color="Color.Error" Variant="Variant.Filled">failed</MudChip>
         }
     </MudStack>
 </MudPaper>
 
+
 <MudPaper Class="pa-4 mb-4" Elevation="1">
     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-2">
         <MudText Typo="Typo.h6" Class="mb-0">Model</MudText>
-        <MudSelect T="string" Value="@selectedModelKey" ValueChanged="HandleModelChanged" Dense="true" Variant="Variant.Outlined" Style="min-width:220px"  AnchorOrigin="Origin.BottomCenter">
+        <MudSelect T="string" Value="@selectedModelKey" ValueChanged="HandleModelChanged" Dense="true"
+            Variant="Variant.Outlined" Style="min-width:220px" AnchorOrigin="Origin.BottomCenter">
             @foreach (var kv in modelCatalog)
             {
                 <MudSelectItem Value="@kv.Key">@kv.Key</MudSelectItem>
@@ -60,21 +64,29 @@
     </MudStack>
     <MudPaper Class="pa-2 code-block" Elevation="0">@CurrentModelYaml</MudPaper>
     <MudStack Row="true" Spacing="2" Class="mt-3">
-    <MudButton Variant="Variant.Filled" Class="action-btn" Color="@RunButtonColor" OnClick="RunModel" Disabled="@runLoading">
-    @if (runLoading) { <MudProgressCircular Class="mr-2" Size="Size.Small" Indeterminate="true" /> }
-        @RunButtonLabel
-    </MudButton>
-    <MudButton Variant="Variant.Outlined" Class="action-btn" Color="@GraphButtonColor" OnClick="GraphModel" Disabled="@graphLoading">
-    @if (graphLoading) { <MudProgressCircular Class="mr-2" Size="Size.Small" Indeterminate="true" /> }
-        @GraphButtonLabel
-    </MudButton>
+        <MudButton Variant="Variant.Filled" Class="action-btn" Color="@RunButtonColor" OnClick="RunModel"
+            Disabled="@runLoading">
+            @if (runLoading)
+            {
+                <MudProgressCircular Class="mr-2" Size="Size.Small" Indeterminate="true" />
+            }
+            @RunButtonLabel
+        </MudButton>
+        <MudButton Variant="Variant.Outlined" Class="action-btn" Color="@GraphButtonColor" OnClick="GraphModel"
+            Disabled="@graphLoading">
+            @if (graphLoading)
+            {
+                <MudProgressCircular Class="mr-2" Size="Size.Small" Indeterminate="true" />
+            }
+            @GraphButtonLabel
+        </MudButton>
     </MudStack>
 </MudPaper>
 
 <MudExpansionPanels MultiExpansion="true">
     @if (runResult is not null)
     {
-    <MudExpansionPanel Text="Run Result (series)" Expanded="@expandRun">
+        <MudExpansionPanel Text="Run Result (series)" Expanded="@expandRun">
             <MudText Typo="Typo.subtitle2" Class="mb-2">Order: @string.Join(", ", runResult.Order)</MudText>
             @if (Flags.UseSimulation && selectedModelKey != "simple")
             {
@@ -95,26 +107,33 @@
             </MudTable>
             @if (chartSeries?.Count > 0)
             {
-                <MudText Typo="Typo.caption" Class="mt-4 mb-1" Style="opacity:.75;">Chart (first up to 4 series)</MudText>
-                <MudChart Class="mb-2" ChartType="ChartType.Line" labels="@chartLabels" datasets="@chartSeries" />
+                <MudText Typo="Typo.caption" Class="mt-4 mb-1" Style="opacity:.75;">Series</MudText>
+                <MudChart @key="chartRenderVersion" Class="mb-2" Style="height:220px;" ChartType="ChartType.Line"
+                    XAxisLabels="@chartLabels" ChartSeries="@chartSeries" />
+                @if (!string.IsNullOrEmpty(chartDiag))
+                {
+                    <MudText Typo="Typo.caption" Class="mb-2" Style="font-family:monospace; opacity:.55;">@chartDiag</MudText>
+                }
             }
         </MudExpansionPanel>
     }
     @if (graphResult is not null)
     {
         var stats = ComputeGraphStats(graphResult);
-    <MudExpansionPanel Text="Graph Structure" Expanded="@expandGraph">
+        <MudExpansionPanel Text="Graph Structure" Expanded="@expandGraph">
             <MudText Typo="Typo.subtitle2" Class="mb-2">Order: @string.Join(", ", graphResult.Order)</MudText>
-            <MudText Typo="Typo.caption" Class="mb-2">Nodes: @stats.Total · Sources: @stats.Sources · Sinks: @stats.Sinks · Max FanOut: @stats.MaxFanOut</MudText>
+            <MudText Typo="Typo.caption" Class="mb-2">Nodes: @stats.Total · Sources: @stats.Sources · Sinks: @stats.Sinks ·
+                Max FanOut: @stats.MaxFanOut</MudText>
             @if (Flags.UseSimulation && selectedModelKey != "simple")
             {
                 <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Elevation="0" Dense="true" Class="mb-3">
                     Structural graph reflects simulation stub, not the extended model.
                 </MudAlert>
             }
-        <MudTable T="NodeInfoView" Hover="true" Dense="true" Items="nodeViews" Elevation="0" Bordered="true" Striped="true">
+            <MudTable T="NodeInfoView" Hover="true" Dense="true" Items="nodeViews" Elevation="0" Bordered="true"
+                Striped="true">
                 <HeaderContent>
-            <MudTh>#</MudTh>
+                    <MudTh>#</MudTh>
                     <MudTh>Node</MudTh>
                     <MudTh>Inputs</MudTh>
                     <MudTh>In</MudTh>
@@ -122,14 +141,22 @@
                     <MudTh>Role</MudTh>
                 </HeaderContent>
                 <RowTemplate>
-            <MudTd DataLabel="#">@context.Order</MudTd>
+                    <MudTd DataLabel="#">@context.Order</MudTd>
                     <MudTd DataLabel="Node">@context.Id</MudTd>
                     <MudTd DataLabel="Inputs">@string.Join(", ", context.Inputs)</MudTd>
                     <MudTd DataLabel="In">@context.InDegree</MudTd>
                     <MudTd DataLabel="Out">@context.OutDegree</MudTd>
                     <MudTd DataLabel="Role">
-                        @if (context.IsSource) { <MudChip T="string" Color="Color.Info" Variant="Variant.Outlined" Size="Size.Small">source</MudChip> }
-                        @if (context.IsSink) { <MudChip T="string" Color="Color.Warning" Variant="Variant.Outlined" Size="Size.Small">sink</MudChip> }
+                        @if (context.IsSource)
+                        {
+                            <MudChip T="string" Color="Color.Info" Variant="Variant.Outlined"
+                                Size="Size.Small">source</MudChip>
+                        }
+                        @if (context.IsSink)
+                        {
+                            <MudChip T="string" Color="Color.Warning" Variant="Variant.Outlined"
+                                Size="Size.Small">sink</MudChip>
+                        }
                     </MudTd>
                 </RowTemplate>
             </MudTable>
@@ -161,42 +188,42 @@
     private bool expandGraph = false;
 
     // Static model catalog (no editing in this milestone)
-    private readonly Dictionary<string,string> modelCatalog = new()
+    private readonly Dictionary<string, string> modelCatalog = new()
     {
         ["simple"] =
-            "grid:\n" +
-            "  bins: 8\n" +
-            "  binMinutes: 60\n" +
-            "nodes:\n" +
-            "  - id: demand\n" +
-            "    kind: const\n" +
-            "    values: [10,10,10,10,10,10,10,10]\n" +
-            "  - id: served\n" +
-            "    kind: expr\n" +
-            "    expr: \"demand * 0.8\"\n" +
-            "outputs:\n" +
-            "  - series: served\n" +
-            "    as: served.csv\n",
+    "grid:\n" +
+    " bins: 8\n" +
+    " binMinutes: 60\n" +
+    "nodes:\n" +
+    " - id: demand\n" +
+    " kind: const\n" +
+    " values: [10,10,10,10,10,10,10,10]\n" +
+    " - id: served\n" +
+    " kind: expr\n" +
+    " expr: \"demand * 0.8\"\n" +
+    "outputs:\n" +
+    " - series: served\n" +
+    " as: served.csv\n",
         ["extended"] =
-            "grid:\n" +
-            "  bins: 8\n" +
-            "  binMinutes: 60\n" +
-            "nodes:\n" +
-            "  - id: demand\n" +
-            "    kind: const\n" +
-            "    values: [12,14,16,18,20,18,16,14]\n" +
-            "  - id: adjusted\n" +
-            "    kind: expr\n" +
-            "    expr: \"demand * 0.75\"\n" +
-            "  - id: boosted\n" +
-            "    kind: expr\n" +
-            "    expr: \"adjusted + 5\"\n" +
-            "  - id: final\n" +
-            "    kind: expr\n" +
-            "    expr: \"boosted * 1.1\"\n" +
-            "outputs:\n" +
-            "  - series: final\n" +
-            "    as: final.csv\n"
+    "grid:\n" +
+    " bins: 8\n" +
+    " binMinutes: 60\n" +
+    "nodes:\n" +
+    " - id: demand\n" +
+    " kind: const\n" +
+    " values: [12,14,16,18,20,18,16,14]\n" +
+    " - id: adjusted\n" +
+    " kind: expr\n" +
+    " expr: \"demand * 0.75\"\n" +
+    " - id: boosted\n" +
+    " kind: expr\n" +
+    " expr: \"adjusted + 5\"\n" +
+    " - id: final\n" +
+    " kind: expr\n" +
+    " expr: \"boosted * 1.1\"\n" +
+    "outputs:\n" +
+    " - series: final\n" +
+    " as: final.csv\n"
     };
 
     private string selectedModelKey = "simple"; // will be overridden by stored pref if present
@@ -333,56 +360,76 @@
     private string GraphButtonLabel => graphState == ReqState.Loading ? "Loading..." : "Graph /graph";
     private Color GraphButtonColor => Color.Secondary; // always neutral
 
-    private bool anyLoading => healthState == ReqState.Loading || runState == ReqState.Loading || graphState == ReqState.Loading;
+    private bool anyLoading => healthState == ReqState.Loading || runState == ReqState.Loading || graphState ==
+    ReqState.Loading;
 
-    private record NodeInfoView(int Order, string Id, IReadOnlyList<string> Inputs, int InDegree, int OutDegree, bool IsSource, bool IsSink);
+    private record NodeInfoView(int Order, string Id, IReadOnlyList<string> Inputs, int InDegree, int OutDegree, bool
+    IsSource, bool IsSink);
 
     // Charting
     private List<ChartSeries>? chartSeries;
     private string[]? chartLabels;
+    private string? chartDiag;
+    private int chartRenderVersion = 0;
     private void BuildChart()
     {
-        if (runResult is null) { chartSeries = null; chartLabels = null; return; }
+        if (runResult is null) { chartSeries = null; chartLabels = null; chartDiag = null; return; }
         chartLabels = Enumerable.Range(0, runResult.Bins).Select(i => i.ToString()).ToArray();
-        // Limit to first 4 series to avoid clutter
-        chartSeries = runResult.Series.Take(4).Select(kv => new ChartSeries
+        if (runResult.Series.Count == 0) { chartSeries = new List<ChartSeries>(); chartDiag = "(no series)"; return; }
+        // Respect declared evaluation order, but only include those with data, up to 4
+        chartSeries = new List<ChartSeries>();
+        int idx = 0;
+        var diagParts = new List<string>();
+        foreach (var name in runResult.Order)
         {
-            Name = kv.Key,
-            Data = kv.Value.Select(v => v).ToArray()
-        }).ToList();
+            if (!runResult.Series.TryGetValue(name, out var raw)) continue;
+            if (idx++ == 4) break;
+            var data = raw.Select(v => v).ToArray();
+            // (debug logging removed)
+            chartSeries.Add(new ChartSeries { Name = name, Data = data });
+            var (min, max) = (data.Min(), data.Max());
+            diagParts.Add(FormatSeriesRange(name, min, max));
+        }
+        chartDiag = string.Join(" | ", diagParts);
+        // Constant series now render correctly after MudBlazor upgrade.
+        chartRenderVersion++; // force re-render
     }
+
+    private static string FormatSeriesRange(string name, double min, double max)
+    => min == max ? $"{name}:{min:0.###}" : $"{name}:{min:0.###}-{max:0.###}";
+
 
     private List<NodeInfoView> BuildNodeViews(GraphStructureResult g)
     {
-        var inDeg = new Dictionary<string,int>();
-        var outDeg = new Dictionary<string,int>();
-        var orderIndex = new Dictionary<string,int>();
-        for (int i=0;i<g.Order.Count;i++) orderIndex[g.Order[i]] = i;
+        var inDeg = new Dictionary<string, int>();
+        var outDeg = new Dictionary<string, int>();
+        var orderIndex = new Dictionary<string, int>();
+        for (int i = 0; i < g.Order.Count; i++) orderIndex[g.Order[i]] = i;
         foreach (var n in g.Nodes)
         {
-            if (!outDeg.ContainsKey(n.Id)) outDeg[n.Id]=0;
+            if (!outDeg.ContainsKey(n.Id)) outDeg[n.Id] = 0;
             foreach (var inp in n.Inputs)
             {
-                inDeg[inp] = inDeg.TryGetValue(inp, out var v)? v+1 : 1;
+                inDeg[inp] = inDeg.TryGetValue(inp, out var v) ? v + 1 : 1;
                 outDeg[n.Id] = outDeg[n.Id] + 1;
             }
-            if (!inDeg.ContainsKey(n.Id)) inDeg[n.Id]=inDeg.GetValueOrDefault(n.Id,0);
+            if (!inDeg.ContainsKey(n.Id)) inDeg[n.Id] = inDeg.GetValueOrDefault(n.Id, 0);
         }
         return g.Nodes.Select(n => new NodeInfoView(
-            orderIndex.GetValueOrDefault(n.Id, int.MaxValue),
-            n.Id,
-            n.Inputs,
-            inDeg.GetValueOrDefault(n.Id,0),
-            outDeg.GetValueOrDefault(n.Id,0),
-            n.Inputs.Count==0,
-            !g.Nodes.Any(other => other.Inputs.Contains(n.Id))
-        )).OrderBy(v=>v.Order).ThenBy(v=>v.Id).ToList();
+        orderIndex.GetValueOrDefault(n.Id, int.MaxValue),
+        n.Id,
+        n.Inputs,
+        inDeg.GetValueOrDefault(n.Id, 0),
+        outDeg.GetValueOrDefault(n.Id, 0),
+        n.Inputs.Count == 0,
+        !g.Nodes.Any(other => other.Inputs.Contains(n.Id))
+        )).OrderBy(v => v.Order).ThenBy(v => v.Id).ToList();
     }
 
-    private (int Total,int Sources,int Sinks,int MaxFanOut) ComputeGraphStats(GraphStructureResult g)
+    private (int Total, int Sources, int Sinks, int MaxFanOut) ComputeGraphStats(GraphStructureResult g)
     {
-        var views = nodeViews.Count>0? nodeViews : BuildNodeViews(g);
-        return (views.Count, views.Count(v=>v.IsSource), views.Count(v=>v.IsSink), views.Count==0?0:views.Max(v=>v.OutDegree));
+        var views = nodeViews.Count > 0 ? nodeViews : BuildNodeViews(g);
+        return (views.Count, views.Count(v => v.IsSource), views.Count(v => v.IsSink), views.Count == 0 ? 0 : views.Max(v => v.OutDegree));
     }
 
     protected override async Task OnInitializedAsync()

@@ -82,10 +82,8 @@ public sealed class ThemeService
             TableLines = "#E2E6EA",
         },
         LayoutProperties = new LayoutProperties { DefaultBorderRadius = "6px" },
-        Typography = new Typography
-        {
-            Default = new Default { FontFamily = new[] { "Inter", "Segoe UI", "Arial", "sans-serif" } }
-        }
+    // Typography customization removed for MudBlazor 8 upgrade: 'Default' style type no longer present.
+    // TODO: Reintroduce with new style properties (e.g., Body1, Body2) if desired.
     };
 
     public readonly MudTheme DarkTheme = new()
@@ -116,9 +114,6 @@ public sealed class ThemeService
             TableLines = "#242A31",
         },
         LayoutProperties = new LayoutProperties { DefaultBorderRadius = "6px" },
-        Typography = new Typography
-        {
-            Default = new Default { FontFamily = new[] { "Inter", "Segoe UI", "Arial", "sans-serif" } }
-        }
+    // Typography customization removed for MudBlazor 8 upgrade.
     };
 }
