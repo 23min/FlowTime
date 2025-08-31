@@ -20,6 +20,17 @@
       "stopAtEntry": false
     },
     {
+      "name": ".NET Launch FlowTime.UI (Blazor WASM)",
+      "type": "blazorwasm",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/ui/FlowTime.UI",
+      "preLaunchTask": "build",
+      "browser": "chrome",
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    },
+    {
       "name": ".NET Launch FlowTime.API (dotnet run)",
       "type": "coreclr",
       "request": "launch",

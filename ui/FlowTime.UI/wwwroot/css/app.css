@@ -129,3 +129,14 @@ h1:focus {
 code {
     color: #c02d76;
 }
+
+/* Chart polish: keep line stroke width constant when SVG scales */
+.mud-charts-line-series path {
+    vector-effect: non-scaling-stroke; /* prevents stroke from scaling with transforms */
+    stroke-width: 1.4px; /* thinner consistent visual weight */
+}
+
+/* Optional: improve hit area without changing visual line thickness */
+.mud-charts-line-series path:hover {
+    filter: brightness(1.15);
+}

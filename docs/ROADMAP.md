@@ -1,3 +1,4 @@
+> See also `docs/capability-matrix.md` for a current snapshot of implemented vs planned capabilities.
 # FlowTime OSS Roadmap (Full Master Reference)
 
 > **Version:** 1.0  
@@ -14,11 +15,24 @@ FlowTime behaves like a **spreadsheet for flows**:
 - Cells = time-bins, formulas = expressions, PMFs, built-ins.
 - Graph nodes reference each other like spreadsheet cells.
 
+## UI-M0 — Minimal Observer UI (Completed / Expanded)
 ### Visualization Early
 - UI is not deferred — it’s introduced from the beginning.  
+- SPA (Blazor WASM). ✅
+- Load outputs from API runs (CLI fallback deferred). ✅ (API + Simulation stub toggle)
+- Display time-series in line chart. ✅
+- Structural graph view (table of nodes + degrees). ➕ (pulled early)
+- Micro-DAG visualization (compact SVG). ➕
+- Persistent preferences (theme, simulation mode, selected model). ➕
+- Simulation mode feature flag with deterministic stub. ➕
 - Early visualization validates the model, helps debugging, and makes FlowTime accessible.  
 - Even a basic charting UI pays dividends for adoption.
-
+### Acceptance Criteria (updated)
+- `dotnet run` for API + UI shows demand/served. ✅
+- Structural graph invariants test passes. ✅
+- Micro-DAG renders sources/sinks distinctly. ✅
+- Simulation vs API toggle switches data source. ✅
+- Theme + model selection persist across reloads. ✅
 ### API-First
 - All features must be callable via API first.  
 - CLI, UI, and automation layers build on the same API surface.  
@@ -65,6 +79,11 @@ This is the “Hello World” of FlowTime.
 - Deterministic eval, clear cycle detection.
 - Unit tests: core math, topo sort.
 - No allocations per bin inside Evaluate (basic perf hygiene).
+- Text editor with YAML schema validation.
+- Run button → calls API or simulation (respect flag) and refreshes chart.
+- Inline validation & evaluation errors (no stale results on failure).
+- Optional toggle between static model selector and editor mode.
+- Retain structural graph & micro-DAG panels for edited model.
 
 ### Inputs
 YAML model (camelCase keys):

@@ -19,8 +19,7 @@ internal sealed class FlowTimeApiClient : IFlowTimeApiClient
 
     public FlowTimeApiClient(HttpClient http, FlowTimeApiOptions opts)
     {
-        if (!string.IsNullOrWhiteSpace(opts.BaseUrl))
-            http.BaseAddress = new Uri(opts.BaseUrl.TrimEnd('/') + "/");
+        // HttpClient is pre-configured with BaseAddress in DI. Respect that to avoid clobbering static client base.
         this.http = http;
         json = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
     }

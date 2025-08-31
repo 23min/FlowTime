@@ -103,6 +103,54 @@ nodes:
     Assert.Equal(2, doc.order.Length);
   }
 
+  [Fact]
+  public async Task Graph_Structure_Invariants_Hold()
+  {
+    var client = factory.CreateClient();
+    var yaml = @"grid:
+  bins: 4
+  binMinutes: 60
+nodes:
+  - id: a
+    kind: const
+    values: [1,1,1,1]
+  - id: b
+    kind: expr
+    expr: ""a * 2""
+  - id: c
+    kind: expr
+    expr: ""b * 2"""; // no outputs section needed for /graph
+    var resp = await client.PostAsync("/graph", new StringContent(yaml, Encoding.UTF8, "text/plain"));
+    resp.EnsureSuccessStatusCode();
+    var g = await resp.Content.ReadFromJsonAsync<GraphResponse>();
+    Assert.NotNull(g);
+    var ids = g!.edges.Select(e => e.id).ToHashSet();
+    // 1. Every edge id must appear in order
+    foreach (var id in ids)
+      Assert.Contains(id, g.order);
+    // 2. Order contains no duplicates
+    Assert.Equal(g.order.Length, g.order.Distinct().Count());
+    // 3. All inputs exist as node ids
+    foreach (var inp in g.edges.SelectMany(e => e.inputs))
+      Assert.Contains(inp, ids);
+    // 4. In-degree / out-degree consistency
+    var inDeg = new Dictionary<string,int>();
+    var outDeg = new Dictionary<string,int>();
+    foreach (var e in g.edges)
+    {
+      if (!outDeg.ContainsKey(e.id)) outDeg[e.id]=0;
+      foreach (var inp in e.inputs)
+      {
+        inDeg[inp] = inDeg.TryGetValue(inp, out var v)? v+1:1;
+        outDeg[e.id] = outDeg[e.id] + 1;
+      }
+      if (!inDeg.ContainsKey(e.id)) inDeg[e.id]=inDeg.GetValueOrDefault(e.id,0);
+    }
+    // At least one source (in-degree 0) and one sink (out-degree 0)
+    Assert.Contains(inDeg, kv => kv.Value == 0);
+    Assert.Contains(outDeg, kv => kv.Value == 0);
+  }
+
   public sealed class RunResponse
   {
     public required Grid grid { get; init; }

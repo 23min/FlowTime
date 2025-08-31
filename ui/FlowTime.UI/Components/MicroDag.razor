@@ -1,0 +1,51 @@
+@using FlowTime.UI.Services
+@if (Structure is not null)
+{
+    var lay = DagLayout.Layout(Structure);
+    <div class="micro-dag-wrapper" style="overflow-x:auto;">
+        <svg role="img" width="@lay.Width" height="@lay.Height" viewBox="0 0 @lay.Width @lay.Height" style="max-width:100%;">
+            <defs>
+                <marker id="arrow" markerWidth="10" markerHeight="10" refX="10" refY="3" orient="auto" markerUnits="strokeWidth">
+                    <path d="M0,0 L10,3 L0,6 z" fill="currentColor" />
+                </marker>
+            </defs>
+            @foreach (var e in lay.Edges)
+            {
+                var from = lay.Nodes.First(n=>n.Id==e.From);
+                var to = lay.Nodes.First(n=>n.Id==e.To);
+                var x1 = from.X + DagLayout.NodeWidth;
+                var y1 = from.Y + DagLayout.NodeHeight/2.0;
+                var x2 = to.X;
+                var y2 = to.Y + DagLayout.NodeHeight/2.0;
+                // simple horizontal+vertical elbow if levels differ, else straight
+                if (Math.Abs(y1 - y2) < 0.1)
+                {
+                    <line x1="@x1" y1="@y1" x2="@x2" y2="@y2" stroke="currentColor" stroke-width="1.2" marker-end="url(#arrow)" />
+                }
+                else
+                {
+                    var midX = (x1 + x2) / 2.0;
+                    var path = $"M{x1},{y1} L{midX},{y1} L{midX},{y2} L{x2},{y2}"; 
+                    <path d="@path" fill="none" stroke="currentColor" stroke-width="1.1" marker-end="url(#arrow)" />
+                }
+            }
+            @foreach (var n in lay.Nodes)
+            {
+                var fill = n.IsSource ? "var(--mud-palette-info)" : n.IsSink ? "var(--mud-palette-warning)" : "var(--mud-palette-surface)";
+                var stroke = n.IsSource || n.IsSink ? "var(--mud-palette-text-primary)" : "var(--mud-palette-text-primary)";
+                <g class="dag-node">
+                    <rect x="@n.X" y="@n.Y" width="@DagLayout.NodeWidth" height="@DagLayout.NodeHeight" rx="4" ry="4" fill="@fill" stroke="@stroke" stroke-width="0.8" />
+                    <text x="@(n.X + DagLayout.NodeWidth/2.0)" y="@(n.Y + DagLayout.NodeHeight/2.0 + 4)" text-anchor="middle" font-size="11" fill="var(--mud-palette-text-primary)" style="font-family:monospace;">@n.Id</text>
+                </g>
+            }
+        </svg>
+    </div>
+}
+
+@code {
+    [Parameter] public GraphStructureResult? Structure { get; set; }
+    // Height derived from layout; parameter kept for backward compat but unused now.
+    [Parameter] public int Height { get; set; } = 0;
+}
+
+@* Minimal DAG visualization intentionally compact ("micro-DAG"). *@
