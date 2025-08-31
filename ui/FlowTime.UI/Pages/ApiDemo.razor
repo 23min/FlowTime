@@ -52,7 +52,7 @@
     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-2">
         <MudText Typo="Typo.h6" Class="mb-0">Model</MudText>
         <MudSelect T="string" Value="@selectedModelKey" ValueChanged="HandleModelChanged" Dense="true"
-            Variant="Variant.Outlined" Style="min-width:220px" AnchorOrigin="Origin.BottomCenter">
+            Variant="Variant.Outlined" Style="min-width:220px">
             @foreach (var kv in modelCatalog)
             {
                 <MudSelectItem Value="@kv.Key">@kv.Key</MudSelectItem>
@@ -149,13 +149,12 @@
                     <MudTd DataLabel="Role">
                         @if (context.IsSource)
                         {
-                            <MudChip T="string" Color="Color.Info" Variant="Variant.Outlined"
-                                Size="Size.Small">source</MudChip>
+                            <MudChip T="string" Color="Color.Info" Variant="Variant.Outlined" Size="Size.Small">source</MudChip>
                         }
                         @if (context.IsSink)
                         {
-                            <MudChip T="string" Color="Color.Warning" Variant="Variant.Outlined"
-                                Size="Size.Small">sink</MudChip>
+                            <MudChip T="string" Color="Color.Warning" Variant="Variant.Outlined" Size="Size.Small">sink
+                            </MudChip>
                         }
                     </MudTd>
                 </RowTemplate>
@@ -187,47 +186,12 @@
     private bool expandRun = true;
     private bool expandGraph = false;
 
-    // Static model catalog (no editing in this milestone)
-    private readonly Dictionary<string, string> modelCatalog = new()
-    {
-        ["simple"] =
-    "grid:\n" +
-    " bins: 8\n" +
-    " binMinutes: 60\n" +
-    "nodes:\n" +
-    " - id: demand\n" +
-    " kind: const\n" +
-    " values: [10,10,10,10,10,10,10,10]\n" +
-    " - id: served\n" +
-    " kind: expr\n" +
-    " expr: \"demand * 0.8\"\n" +
-    "outputs:\n" +
-    " - series: served\n" +
-    " as: served.csv\n",
-        ["extended"] =
-    "grid:\n" +
-    " bins: 8\n" +
-    " binMinutes: 60\n" +
-    "nodes:\n" +
-    " - id: demand\n" +
-    " kind: const\n" +
-    " values: [12,14,16,18,20,18,16,14]\n" +
-    " - id: adjusted\n" +
-    " kind: expr\n" +
-    " expr: \"demand * 0.75\"\n" +
-    " - id: boosted\n" +
-    " kind: expr\n" +
-    " expr: \"adjusted + 5\"\n" +
-    " - id: final\n" +
-    " kind: expr\n" +
-    " expr: \"boosted * 1.1\"\n" +
-    "outputs:\n" +
-    " - series: final\n" +
-    " as: final.csv\n"
-    };
+    // Model catalog loaded from static files in wwwroot/models (no editing in this milestone)
+    private readonly Dictionary<string, string> modelCatalog = new();
 
-    private string selectedModelKey = "simple"; // will be overridden by stored pref if present
-    private string CurrentModelYaml => modelCatalog[selectedModelKey];
+    private string selectedModelKey = "simple"; // overridden by stored pref if present
+    private string CurrentModelYaml => modelCatalog.TryGetValue(selectedModelKey, out var y) ? y : "(model not loaded)";
+
     private void OnModelChanged()
     {
         // Reset previous results when switching models
@@ -429,7 +393,8 @@
     private (int Total, int Sources, int Sinks, int MaxFanOut) ComputeGraphStats(GraphStructureResult g)
     {
         var views = nodeViews.Count > 0 ? nodeViews : BuildNodeViews(g);
-        return (views.Count, views.Count(v => v.IsSource), views.Count(v => v.IsSink), views.Count == 0 ? 0 : views.Max(v => v.OutDegree));
+        return (views.Count, views.Count(v => v.IsSource), views.Count(v => v.IsSink), views.Count == 0 ? 0 : views.Max(v =>
+        v.OutDegree));
     }
 
     protected override async Task OnInitializedAsync()
@@ -438,6 +403,7 @@
         clientModeLabel = Flags.UseSimulation ? "sim" : "api";
         Flags.Changed += OnFlagsChanged;
         await Prefs.EnsureLoadedAsync();
+        await LoadModelsAsync();
         if (!string.IsNullOrWhiteSpace(Prefs.ModelKey) && modelCatalog.ContainsKey(Prefs.ModelKey))
         {
             selectedModelKey = Prefs.ModelKey;
@@ -451,5 +417,28 @@
     }
 
     public void Dispose() => Flags.Changed -= OnFlagsChanged;
+
+    private async Task LoadModelsAsync()
+    {
+        try
+        {
+            // Load both models; ignore if already loaded
+            if (!modelCatalog.ContainsKey("simple"))
+            {
+                var simple = await Http.GetStringAsync("/models/simple.yaml");
+                modelCatalog["simple"] = simple;
+            }
+            if (!modelCatalog.ContainsKey("extended"))
+            {
+                var extended = await Http.GetStringAsync("/models/extended.yaml");
+                modelCatalog["extended"] = extended;
+            }
+        }
+        catch (Exception ex)
+        {
+            lastError = "Model load error: " + ex.Message;
+            Snackbar.Add(lastError, Severity.Error);
+        }
+    }
 
 }
