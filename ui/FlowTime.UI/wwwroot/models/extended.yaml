@@ -1,0 +1,20 @@
+grid:
+  bins: 8
+  binMinutes: 60
+nodes:
+  - id: demand
+    kind: const
+    values: [12,14,16,18,20,18,16,14]
+  - id: adjusted
+    kind: expr
+    expr: "demand * 0.75"
+  - id: boosted
+    kind: expr
+    expr: "adjusted + 5"
+  - id: final
+    kind: expr
+    expr: "boosted * 1.1"
+outputs:
+  - series: final
+    as: final.csv
+
