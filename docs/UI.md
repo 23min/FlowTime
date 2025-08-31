@@ -24,16 +24,30 @@ dotnet publish ui/FlowTime.UI -c Release
 ```
 You can deploy those static files to a CDN or static host (e.g. Azure Static Web Apps) under `/ui/` path.
 
-## Run Page
-`Pages/Run.razor` provides:
-- YAML model editor (pre-filled example)
-- Run button (POST /run)
-- Tabular preview of returned series
+## API Demo Page
+`Pages/ApiDemo.razor` (M0 scope) provides:
+- Model selector (static YAML models loaded from `wwwroot/models/*.yaml`)
+- YAML preview (read‑only this milestone)
+- Run button (POST `/run`) and result table
+- Graph button (POST `/graph`) with basic node list + stats (sources, sinks, max fan‑out)
+- Simple line chart (MudBlazor v8 chart API) for returned series
+
+### Model Loading
+Models are stored as plain YAML under `ui/FlowTime.UI/wwwroot/models/`. They are fetched at startup via the default `HttpClient` whose `BaseAddress` is the UI origin. This keeps them cacheable as static assets and avoids embedding large string literals in the component.
+
+### Dual HttpClients
+Blazor default scoped `HttpClient` (UI origin) is used for static `/models/*.yaml`. A dedicated API `HttpClient` is registered for `IFlowTimeApiClient` with `BaseAddress` from `FlowTimeApiOptions` (defaults to `http://localhost:8080/`). This separation prevents accidental mixing of API and static asset origins.
+
+### Preferences & State
+`PreferencesService` restores the last selected model key on load. Expansion state for panels may be persisted in a later milestone.
 
 ## Future Enhancements
+- Editable model editor + validation pass before run
 - CSV upload + charting
-- Graph visualization (using `/graph`)
-- Persisted model gallery
+- Rich graph visualization (edges, layout)
+- Persisted model gallery (user models)
+- Copy‑to‑clipboard and download buttons (YAML & results)
+- Basic metrics (latency, node counts) surfaced in UI
 
 ## Keeping Concerns Separate
 No build-time copy of UI into API. Integration for single-domain hosting can be added later via an opt-in MSBuild target or reverse proxy rules.
