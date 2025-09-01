@@ -99,7 +99,7 @@ nodes:
 outputs:
   - series: served
     as: served.csv
-````
+```
 
 ### Outputs
 
@@ -237,7 +237,123 @@ ui/FlowTime.UI/
 
 ---
 
-## M1 — Expressions & Built-ins
+## M1 — Contracts Parity (Artifacts Alignment)
+
+### Goal
+
+Lock the core run artifact contract in parity with the simulator (FlowTime-Sim) so future UI & adapter work can rely on stable shapes. Introduce dual-write structured artifacts (run + manifest + index) and schema validation without introducing expression features early. This is an interposed milestone; numbering of later milestones remains unchanged.
+
+### Functional Requirements
+
+- **FR-M1-1:** Dual-write run artifact directory: `out/<runId>/` containing:
+  - `run.json` (high-level summary + series listing)
+  - `manifest.json` (determinism + integrity metadata)
+  - `index.json` (series index for quick discovery)
+  - Per-series CSV: `<seriesId>.csv` (schema: `t,value`)
+- **FR-M1-2:** Deterministic `runId` (timestamp + hash slug or pure hash) and `scenarioHash` (normalized LF YAML of model; excludes whitespace/comments) included in both `run.json` and `manifest.json`.
+- **FR-M1-3:** Manifest fields (aligned with simulator current draft):
+  - `schemaVersion` (still `1` — no breaking changes)
+  - `modelHash` (SHA256 of normalized YAML)
+  - `scenarioHash` (same as above or alias; keep both if clarifying)
+  - `seed`, `rng`: deterministic seed and algorithm name
+  - `seriesHashes`: map of seriesId → SHA256(content) for CSV bytes (LF line endings)
+  - `eventCount` (placeholder 0 until event emission added in later milestone) 
+  - `generatedAtUtc`
+- **FR-M1-4:** `index.json` lists each exported series with: `id`, `path`, `hash`, `points`, optional `units` (null for now), and `kind` (e.g., `const`, `expr`, `pmf_expected` once available; current set minimal: `const`, `expr`).
+- **FR-M1-5:** Reserved event schema enrichment placeholders in `run.json` under `events` object (non-breaking, empty arrays/objects): `schemaVersion`, `fieldsReserved` (list containing: `entityType`, `routeId`, `stepId`, `componentId`, `correlationId`). Actual event emission deferred.
+- **FR-M1-6:** JSON Schema definitions committed under `docs/contracts/` (or `schemas/`): `run.schema.json`, `manifest.schema.json`, `index.schema.json`; CI test validates produced artifacts against schemas.
+- **FR-M1-7:** Parity tests: engine artifacts vs simulator artifacts for equivalent const model produce matching manifest/run structural fields (ignoring engine‑only fields or ordering); hash stability tests (modify model → hash changes; reorder YAML keys → hash unchanged).
+- **FR-M1-8:** CLI: still primary interface; expressions still limited to M0 subset (no new parser yet). Add `--emit-manifest` (default on) and `--no-manifest` flag to disable for debugging.
+- **FR-M1-9:** Backward compatibility: existing single CSV output path still works; when old `--out <dir>` specified, dual-write occurs inside `<dir>/<runId>/` and top-level CSV behavior remains (symlink or duplicate copy optional; defer if complexity > benefit).
+
+### Inputs
+
+- Existing M0 YAML models (no new schema fields required).
+- Optional flag toggles: `--no-manifest` (tests verify absence), `--deterministic-run-id <seed>` (optional explicit override for reproducible directory name; if omitted derives from modelHash+seed).
+
+### Outputs
+
+Directory layout example:
+
+```
+out/run_20250101T120000Z_ab12cd34/
+  run.json
+  manifest.json
+  index.json
+  demand.csv
+  served.csv
+```
+
+run.json (illustrative minimal fields):
+```json
+{
+  "schemaVersion": 1,
+  "runId": "run_20250101T120000Z_ab12cd34",
+  "scenarioHash": "sha256:...",
+  "grid": { "bins": 4, "binMinutes": 60 },
+  "series": [ { "id": "demand", "path": "demand.csv" }, { "id": "served", "path": "served.csv" } ],
+  "events": { "schemaVersion": 0, "fieldsReserved": ["entityType","routeId","stepId","componentId","correlationId"] }
+}
+```
+
+manifest.json (illustrative):
+```json
+{
+  "schemaVersion": 1,
+  "modelHash": "sha256:...",
+  "scenarioHash": "sha256:...",
+  "seed": 123456789,
+  "rng": "pcg32",
+  "seriesHashes": { "demand": "sha256:...", "served": "sha256:..." },
+  "eventCount": 0,
+  "generatedAtUtc": "2025-01-01T12:00:00Z"
+}
+```
+
+index.json (illustrative):
+```json
+{
+  "series": [
+    { "id": "demand", "path": "demand.csv", "hash": "sha256:...", "points": 4, "kind": "const", "units": null },
+    { "id": "served", "path": "served.csv", "hash": "sha256:...", "points": 4, "kind": "expr", "units": null }
+  ]
+}
+```
+
+### New Code/Files
+
+```
+src/FlowTime.Cli/Artifacts/
+  RunArtifactWriter.cs
+  ManifestWriter.cs
+  IndexBuilder.cs
+src/FlowTime.Core/Hashing/ModelHasher.cs
+tests/FlowTime.Tests/ArtifactContractsTests.cs
+tests/FlowTime.Tests/ArtifactDeterminismTests.cs
+docs/contracts/run.schema.json
+docs/contracts/manifest.schema.json
+docs/contracts/index.schema.json
+docs/contracts.md (updated with new artifact shapes and field glossary)
+```
+
+### Acceptance Criteria
+
+- Running the existing hello model produces the dual-write directory with all three JSON files and per-series CSVs.
+- JSON Schemas validate in CI (failing test if contract drift occurs without schema update).
+- simulator vs engine artifact parity test passes (structural & hash equivalence where expected).
+- Hash stability: reordering YAML keys does not change `modelHash`; changing a numeric literal does.
+- `--no-manifest` suppresses `manifest.json` only; other artifacts still emitted.
+- All prior tests remain green; no expression parser added ahead of original M1.
+
+### Notes
+
+- This milestone intentionally avoids adding new functional modeling features; it focuses purely on artifact/contract stability to unblock UI + cross-tooling.
+- Event emission & enriched event fields will activate in later milestones (backlog, routing) without breaking changes due to reserved placeholders.
+- schemaVersion remains `1`; future breaking schema evolution will bump to `2` (e.g., when backlog/latency structural changes occur).
+
+---
+
+## M1.5 — Expressions & Built-ins
 
 ### Goal
 

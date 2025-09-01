@@ -24,6 +24,28 @@ This repository separates tests by concern:
 - Keep API tests resilient by asserting on contract, not incidental formatting.
 - When public behavior changes intentionally, update tests and document why in the PR.
 
+### Upcoming (M1 / M1.5) Additions
+
+Artifact & contract tests (landing with "Contracts Parity" milestone M1):
+
+- JSON Schema validation for `run.json`, `manifest.json`, `index.json`.
+- Hash stability tests: reordering YAML keys must not change `modelHash` / `scenarioHash`.
+- Series integrity: recompute per-series hash from CSV bytes and match `manifest.json` values.
+- Determinism: identical model + seed ⇒ identical hashes & series bytes (excluding time-based runId components if present).
+- Negative: corrupt a CSV then run an integrity check expecting mismatch detection (future CLI command or test helper).
+
+Expression tests (M1.5):
+- Parser correctness (precedence, associativity, references).
+- Built-ins (e.g., SHIFT) with boundary cases (shift beyond range → zeros or clamp as specified).
+
+Backlog & latency tests (future M7):
+- Conservation: cumulative(inflow) - cumulative(served) == backlog[last].
+- Latency zero-division handling (served[t] == 0). Warning emission captured in manifest.
+
+Synthetic adapter tests (SYN-M0):
+- Round-trip: read artifacts → reconstruct series → byte-equal to originals.
+- Hash agreement when adapter regenerates manifest.
+
 ## Notes
 
 - The API project exposes `partial class Program` to enable `WebApplicationFactory` discovery.

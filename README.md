@@ -315,13 +315,14 @@ Deferred to next milestones: backlog/queues, routing, autoscale; backend; SPA vi
 
 A high‑level view of upcoming work (details live in `docs/ROADMAP.md`):
 
-* **M1 — Foundation hygiene**: richer validation & errors; run metadata; culture‑invariant CSV.
-* **M2 — Backlog v1 + latency**: single‑queue backlog with capacity clamp; Little’s Law latency; KPIs.
-* **M3 — Routing & caps**: split/merge flows; capacity clamps; overflow reporting.
-* **M4 — Expressions**: parser + built‑ins (`SHIFT/DELAY/RESAMPLE`) and node references.
-* **M5 — UI + backend**: FlowTime.API (`/graph`, `/run`, `/state_window`, `/negotiate`) and SPA viewer.
-* **M6 — Storage providers**: Blob first; ADLS/S3 providers.
-* **M7 — Real‑time**: notifier abstraction; WebSocket pub/sub default; SignalR/SSE adapters.
+* **M1 — Contracts Parity**: artifact freeze (`run.json`, `manifest.json`, `index.json`, per‑series hashes) + deterministic formatting & hashing.
+* **M1.5 — Expressions**: parser + references + basic built‑ins (unblocks richer nodes & PMF composition).
+* **M2 — PMF (expected value)**: basic PMF nodes with normalization warnings.
+* **M3 — (reserved / potential hygiene)**: may absorb overflow from earlier milestones.
+* **M7 — Backlog & latency**: queued later (single queue + Little's Law latency) per current roadmap.
+* Further milestones: routing/capacity, scenarios/compare, synthetic adapters, backlog extensions, uncertainty (see full `docs/ROADMAP.md`).
+
+> Note: Ordering locks artifact contracts (M1) before expanding modeling surface (Expressions at M1.5) to avoid churn across CLI/API/UI/adapters.
 
 > Track progress and comment on prioritization in **`docs/ROADMAP.md`**.
 
@@ -340,7 +341,7 @@ A high‑level view of upcoming work (details live in `docs/ROADMAP.md`):
 
 ## Data & formats
 
-**CSV outputs** use a simple, culture‑invariant, human‑readable schema per series (example):
+**CSV outputs** use a simple, culture‑invariant, human‑readable schema per series (example). Beginning with Contracts Parity (M1.5) each run also emits `run.json`, `manifest.json` (hashes & warnings), `index.json`, plus per-series CSV files under `runs/<runId>/`.
 
 ```
 t,value

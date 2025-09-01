@@ -42,12 +42,25 @@ Blazor default scoped `HttpClient` (UI origin) is used for static `/models/*.yam
 `PreferencesService` restores the last selected model key on load. Expansion state for panels may be persisted in a later milestone.
 
 ## Future Enhancements
-- Editable model editor + validation pass before run
-- CSV upload + charting
+- Editable model editor + validation pass before run (M1+)
+- CSV upload + charting (artifact replay)
 - Rich graph visualization (edges, layout)
 - Persisted model gallery (user models)
 - Copy‑to‑clipboard and download buttons (YAML & results)
-- Basic metrics (latency, node counts) surfaced in UI
+- Backlog & latency charts (after M7 — not early)
+- Basic metrics (latency, node counts) surfaced in UI (latency deferred to backlog milestone)
+- Series index consumption: fetch `index.json` (Contracts Parity M1) instead of inferring outputs from run response
+- Manifest viewer: render `run.json` & `manifest.json` (hashes, warnings)
 
 ## Keeping Concerns Separate
 No build-time copy of UI into API. Integration for single-domain hosting can be added later via an opt-in MSBuild target or reverse proxy rules.
+
+### Artifacts (Planned M1)
+
+Once the Contracts Parity milestone lands, the UI will:
+1. Request a run (`POST /run`) which writes artifacts under a run directory.
+2. Fetch `index.json` (future GET endpoint or embedded link) to enumerate available series.
+3. Lazily stream individual CSVs for selected series (enables large run scaling without bloating initial payload).
+4. Optionally display manifest & run metadata (hashes, seed, grid) for parity/debug.
+
+Until then, the UI consumes the inline series arrays returned directly from `/run`.
