@@ -1,261 +1,339 @@
-# FlowTime-Sim Roadmap (Draft v1.0)
+# FlowTime-Sim Roadmap (v1.1, domain-neutral, SIM-Mx, API-enabled)
 
-> **Audience**: Engineers, architects, domain experts building simulations.  
-> **Purpose**: Define the milestones and architecture of FlowTime-Sim, the synthetic data generator for FlowTime.  
-> **Scope**: FlowTime-Sim provides synthetic “Gold” datasets for FlowTime in supported domains, enabling experimentation, demos, and statistical calibration when real telemetry is unavailable or incomplete.
-
----
-
-## Introduction: What FlowTime-Sim is and why it exists
-
-**One-liner**  
-FlowTime-Sim is a spec-driven simulation engine that produces synthetic event streams and Gold telemetry for FlowTime, enabling a “lab environment” for experimentation, demos, and what-if analysis.
-
-**Why needed**  
-FlowTime itself is an engine and observability tool, but it is data-hungry. In many cases:
-
-- Real telemetry is unavailable, restricted, or incomplete.
-    
-- Early adoption and CI need **sample data**.
-    
-- Domain experts want to test scenarios (e.g., “Black Friday,” “Airport disruption”) before telemetry exists.
-    
-
-FlowTime-Sim solves this by **creating realistic inputs** at the edges of modeled systems. It generates arrivals, routing, retries, and timing distributions consistent with how entities move in domains like:
-
-- Logistics (packages through depots and hubs)
-    
-- Transportation (buses, trains, fleets)
-    
-- Factory/Manufacturing (work orders through stations)
-    
-- Cloud Systems (requests through services/queues)
-    
-
-**How used**
-
-- FlowTime-Sim runs standalone (`flow-sim run scenario.yaml`).
-    
-- It outputs **events** (NDJSON/Parquet) or **Gold series** (Parquet).
-    
-- FlowTime consumes these via the **Synthetic Adapter** (SYN-M0).
-    
-- Developers and analysts can test FlowTime without Azure/App Insights dependencies.
-    
-
-**Relation to PMFs**  
-FlowTime-Sim can output:
-
-- **Absolute series** (curve-first mode).
-    
-- **PMFs** (shape-first mode) that describe demand distributions (daily/weekly profiles, retry kernels).  
-    PMFs are optional, but they make synthetic data more portable and scenario-driven.
-    
-
-**Example (Logistics)**  
-A “parcel” is created with pickup time, goes to origin depot, linehaul, hub, destination depot, and last-mile delivery. FlowTime-Sim generates event sequences for thousands of parcels, including wave batching, retries, and failures. FlowTime ingests this to show throughput, backlog, and SLA attainment over time.
+> **Purpose:** Single source of truth with sequenced milestones (SIM-M0…SIM-M10+) spanning Core/Generators, **Service/API**, and artifacts. Each milestone states **Goal, Why, Inputs, Outputs, Code, CLI/API, Acceptance**.
+> **Scope:** FlowTime-Sim generates **synthetic events** and **Gold, bin-aligned series** compatible with FlowTime’s contracts (**run.json** + **series/index.json** + per-series CSV/Parquet). It remains **domain-neutral**.
 
 ---
 
-## Principles
+## Status Summary (✅ = Done)
 
-1. **Spec-driven**: Scenarios defined in YAML, versioned, deterministic with seeds.
-    
-2. **Gold contract**: Outputs must match FlowTime’s Gold schema (entity/time aligned).
-    
-3. **Lightweight**: No infra required. Local runs must work on a laptop.
-    
-4. **Reproducible**: Same scenario + seed → identical outputs.
-    
-5. **Multi-domain**: Start with logistics, extend to transport, manufacturing, IT.
-    
-6. **Modes**:
-    
-    - FileDrop mode (offline Parquet/NDJSON).
-        
-    - Streaming mode (optional, for live demos).
-        
+* **SIM-M0 — Skeleton & Contracts** — **✅ Done**
+* **SIM-M1 — Foundations & Determinism Hardening** — **✅ Done**
+
+> v1.1 adds **dual-write artifacts compatible with FlowTime**, a tiny **Catalog.v1** for structure/diagramming, and a **minimal Sim Service/API** so FlowTime UI can call Sim directly (or via FlowTime’s optional proxy).
 
 ---
 
-## Data Contracts
+## Vocabulary (domain-neutral)
 
-### Event schema (synthetic events)
+* **entity** — the thing that moves (job/request/item).
+* **component** — processing point (node).
+* **connection** — directed link between components.
+* **class** — segment/category of entities.
+* **measure (per bin)** — `arrivals`, `served`, `errors` (flows).
+* **state level (per bin)** — `queue_depth` (pending level at bin boundary).
+* **grid** — `{ binMinutes, bins }`, UTC, **left-aligned**.
 
-```
-entity_id: string
-event_type: string
-ts: timestamp (UTC)
-attrs: map<string, string|number|bool>
+> Avoid “route/step/stock”; use **component/connection**, **measure**, **state level**.
+
+---
+
+## Contracts (artifact-first; harmonized with FlowTime)
+
+### 1) Run manifest (dual-write) — `runs/<simRunId>/run.json` **and** `runs/<simRunId>/manifest.json`
+
+```json
+{
+  "schemaVersion": 1,
+  "runId": "sim-2025-09-01T10-20-30Z-5F2C",
+  "engineVersion": "sim-0.1.0",
+  "grid": { "bins": 288, "binMinutes": 5, "timezone": "UTC", "align": "left" },
+  "scenarioHash": "sha256:…",
+  "rng": { "kind": "pcg32", "seed": 42 },
+  "createdUtc": "2025-09-01T10:20:31Z",
+  "source": "sim",
+  "warnings": [],
+  "notes": []
+}
 ```
 
-### Gold schema (series)
+### 2) Series index — `runs/<simRunId>/series/index.json`
+
+```json
+{
+  "schemaVersion": 1,
+  "grid": { "bins": 288, "binMinutes": 5, "timezone": "UTC" },
+  "series": [
+    { "id": "arrivals", "kind": "flow",    "path": "series/arrivals.csv", "unit": "entities/bin" },
+    { "id": "served",   "kind": "flow",    "path": "series/served.csv",   "unit": "entities/bin" },
+    { "id": "errors",   "kind": "flow",    "path": "series/errors.csv",   "unit": "entities/bin" }
+  ]
+}
+```
+
+### 3) Series CSVs — `runs/<simRunId>/series/<seriesId>.csv`
 
 ```
-timestamp (UTC, aligned to grid e.g. 5m/hourly)
-node: string          -- e.g. “Depot.STO-A”, “Service.Auth”
-flow: string or "*"   -- class/flow (e.g. EXPRESS, STANDARD, VIP)
-arrivals: double
-served: double
-errors: double
-queue_depth: double?  -- optional
+t,value   # t = 0..(bins-1); InvariantCulture formatting
 ```
 
-### PMFs
+### 4) Events — `events.ndjson` (reserved keys present from v1)
 
-- Daily PMF (24 bins) or Weekly PMF (168 bins).
-    
-- Retry/delay kernels as short PMFs (lags).
-    
+```json
+{
+  "entityId":"E-10023",
+  "entityType":"entity",
+  "eventType":"enter|exit|error",
+  "componentId":"COMP-A",
+  "connectionId":"COMP-A->COMP-B",
+  "class":"DEFAULT",
+  "simTime":"2025-09-01T08:00:00Z",
+  "wallTime":"2025-09-01T08:00:00Z",
+  "correlationId":"E-10023",
+  "attrs":{"attempt":1}
+}
+```
+
+### 5) Gold table (dense, bin-aligned)
+
+```
+time_bin (UTC start), component_id, class, arrivals, served, errors
+```
+
+**Dense rows policy (v1):** write **dense** rows (every component × class × bin) for simplicity and parity with FlowTime readers. Sparsity/compression may be introduced later with a versioned flag.
+
+> **schemaVersion: 2** (later) adds `queue_depth` (unit: **entities**) and optional `latency_est_minutes` (unit: **minutes**) to Gold and series index.
 
 ---
 
-## Milestones
+# Milestones (SIM-Mx)
 
-### SIM-M0 — Skeleton & Contracts
+### SIM-M0 — Skeleton & Contracts — **✅ Done**
 
-- Goal: Minimum viable FlowTime-Sim.
-    
-- CLI `flow-sim run scenario.yaml --out ./out`.
-    
-- YAML specs: arrivals (constant or Poisson), one simple route.
-    
-- Emit NDJSON events + convert to Gold Parquet.
-    
-- Deterministic with seed.
-    
-- Acceptance: FlowTime Synthetic Adapter can ingest outputs and stitch edges.
-    
-
-> Renumbering Note (2025-08-28): Originally this roadmap labeled “Domain Templates” as SIM-M1. The actual shipped milestone tagged `sim-m1` delivered foundational determinism hardening (schemaVersion, PCG RNG, metadata manifest, service spec placeholder, parity harness). We insert that as the new SIM-M1 below and shift subsequent roadmap milestones (+1).
-
-### SIM-M1 — Foundations & Determinism Hardening (Shipped)
-
-- Goal: Solidify baseline + adapter readiness.
-- Features: `schemaVersion: 1` validation & warnings; PCG RNG default with `rng: legacy` escape; metadata manifest (hashes, seed, rng, generatedAt); service time spec placeholder (`service.kind const|exp` no runtime effect yet); adapter parity harness (engine roundtrip, events aggregation, manifest parity, negative guard); structured validation rules.
-- Acceptance: Re-run determinism (identical Gold/events hashes); parity tests pass; manifest hashes stable; legacy RNG opt-out works.
-
-### SIM-M2 — Domain Templates (Logistics, Transport)
-
-- Goal: Ready-to-use scenario packs.
-    
-- Logistics: depot → hub → depot → delivery (with batching).
-    
-- Transport: bus/train arrivals, station dwell, passenger flows.
-    
-- Adds distributions: lognormal service times, gamma travel times.
-    
-- Acceptance: Two example scenarios produce plausible daily curves.
-    
-
-### SIM-M3 — PMF Support
-
-- Goal: Output shape-first PMFs (daily/weekly) instead of absolute curves.
-    
-- Convert telemetry → empirical PMFs, or use synthetic PMFs.
-    
-- Acceptance: FlowTime consumes PMFs × scalar totals to recreate synthetic demand.
-    
-
-### SIM-M4 — Streaming Mode
-
-- Goal: Optional live demo playback.
-    
-- Scheduler replays event time at configurable speed (e.g. 10×).
-    
-- Publishes to local MQ or STDOUT.
-    
-- Acceptance: FlowTime Synthetic Adapter reads stream and updates incrementally.
-    
-
-### SIM-M5 — Scenarios & Overlays
-
-- Goal: Apply scenario YAML overlays (surge, outage, reroute).
-    
-- Implement demand multipliers, capacity outages, routing shifts.
-    
-- Acceptance: “Black Friday surge” overlay produces expected load increase.
-    
-
-### SIM-M6 — Exceptions, Retries, Fan-out
-
-- Goal: Model failures and retries via retry PMFs. Add fan-out (entity → multiple).
-    
-- Acceptance: Retry loads appear with expected delay; fan-out increases flow volumes.
-    
-
-### SIM-M7 — Multi-Class Flows
-
-- Goal: Multiple flows (EXPRESS vs STANDARD). Add priority/fairness knobs.
-    
-- Acceptance: Scenarios can change flow mix; FlowTime reports SLA differences.
-    
-
-### SIM-M8 — Calibration Mode
-
-- Goal: Fit parameters (PMFs, service times) from real telemetry.
-    
-- Acceptance: Feeding telemetry CSV reproduces a parameter pack that matches observed distributions.
-    
-
-### SIM-M9 — Library of Scenarios
-
-- Goal: Publish a catalog of realistic scenarios (per domain).
-    
-- Acceptance: Demos and CI can pick from named scenarios.
-    
+**Goal** Minimum CLI `run` from YAML; Poisson/constant arrivals; NDJSON + Gold; seeded determinism.
+**Acceptance** Hash-stable outputs; time alignment; basic schema validation.
 
 ---
 
-## Repository Layout (Proposed)
+### SIM-M1 — Foundations & Determinism Hardening — **✅ Done**
+
+**Goal** Lock v1 behavior for reproducibility.
+**Features** `schemaVersion:1`; PCG RNG default; manifest; validation; parity harness; service-time placeholder; negative tests.
+
+---
+
+### SIM-M2 — Contracts v1.1 (Event Enrichment + Series Index + Schema Guards + Dual-write)
+
+**Goal** Stabilize consumer surfaces and harmonize with FlowTime artifacts.
+**Why** UI/FlowTime need measure discovery & units; dual-write lets FlowTime consume Sim runs without special cases.
+
+**Inputs** Existing scenario YAML.
+**Outputs** `events.ndjson` (enriched), `runs/<id>/run.json` **and** `manifest.json` (identical), `series/index.json` (units in **entities/bin**).
+**Code** Event writer enrichments; `SeriesIndexBuilder`; JSON Schemas: `manifest.v1`, `events.v1`, `series-index.v1`.
+**CLI** `flow-sim run scenario.yaml --out runs/<id>`
+**Acceptance** Determinism (hash-stable); schema guard; time alignment; **unit parity** with FlowTime.
+
+---
+
+### **SIM-CAT-M2 — Catalog.v1 (structural source of truth)**
+
+**Goal** Provide a **domain-neutral catalog** that both the simulator and UI can consume to render the system diagram and to stamp component IDs into Gold.
+
+**Contract (JSON/YAML)**
+
+```yaml
+version: 1
+components:
+  - id: COMP_A
+    label: "A"
+  - id: COMP_B
+    label: "B"
+connections:
+  - from: COMP_A
+    to: COMP_B
+classes: [ "DEFAULT" ]
+layoutHints:
+  rankDir: LR
+```
+
+**API additions (extend SIM-SVC-M2 below)**
+
+* `GET /sim/catalogs` → list catalogs (id, title, hash)
+* `GET /sim/catalogs/{id}` → returns Catalog.v1
+* `POST /sim/catalogs/validate` → schema + referential integrity
+* `POST /sim/run` accepts `{ catalogId, scenario, params?, seed? }` **or** inline `{ catalog, … }`
+
+**Acceptance** Each `component.id` maps to Gold `component_id`; elk/react-flow can render structure; deterministic layout for same catalog + hints.
+
+---
+
+### **SIM-SVC-M2 — Minimal Sim Service/API (artifact-centric)**
+
+**Goal** Expose Sim as a **stateless HTTP service** so FlowTime UI can request scenarios/runs directly.
+
+**API (minimum viable)**
+
+* `POST /sim/run` → `{ simRunId }` (writes `runs/<simRunId>/…`)
+* `GET /sim/runs/{id}/index` → `series/index.json`
+* `GET /sim/runs/{id}/series/{seriesId}` → CSV (Parquet passthrough if negotiated)
+* `GET /sim/scenarios` → list presets + knobs (domain-neutral)
+* `POST /sim/overlay` → `{ baseRunId, overlaySpec }` → new `simRunId`
+* **Catalog endpoints** from **SIM-CAT-M2** (see above)
+
+**Service rules** Stateless after completion; seed + scenario hash in manifest; CORS/AAD ready; culture-invariant formatting.
+**Acceptance** CLI vs API parity; stable scenario listing; efficient artifact streaming.
+
+---
+
+### SIM-M3 — Curve-First Generators & Fuse (GEN)
+
+**Goal** Deterministic generators for arrivals & capacity and a **fuse** that computes served.
+**Why** Produce useful Gold packs quickly for UI/CI.
+
+**Inputs** `hourly.json`/`weekly.json` (arrivals profiles), `shifts.yaml` (capacity).
+**Outputs** Gold + index + manifest/run.json.
+**Code** `Generators/GenArrivals`, `Generators/GenCapacity`, `Generators/Fuse` (`served = min(arrivals, capacity)`), shared writers.
+**CLI**
+
+```
+flow-sim gen arrivals --hourly hourly.json --bin-minutes 5 --seed 42 --out runs/A
+flow-sim gen capacity --shifts shifts.yaml --bin-minutes 5 --out runs/A
+flow-sim fuse --in runs/A --out runs/A
+```
+
+**Acceptance** Seeded determinism; served ≤ min(arrivals, capacity); writer parity.
+
+---
+
+### SIM-M4 — Overlays Framework (windowed multipliers + selectors)
+
+**Goal** Apply time-windowed modifiers over generated arrays.
+
+**Selector grammar (shared with FlowTime)**
+
+* Match by `component_id` (glob/regex) and/or `class`.
+* Optional label groups via catalog `layoutHints.groups`.
+* Apply to measures (`arrivals`, `capacity`, …) within `{ start, end }`.
+
+**CLI** `flow-sim overlay --in runs/A --overlay overlays/peak.yaml --out runs/A`
+**Acceptance** Correct partial windows; non-matching is a no-op; idempotent overlays guarded.
+
+---
+
+### SIM-M5 — Streaming Mode (stdout NDJSON + watermarks)
+
+**Goal** Live playback without infra.
+
+**Spec additions**
+
+* Watermark includes **`binIndex`** **and** `simTime`.
+* Stream preface includes **`runId`**.
+* Optional **resume token** (`?resume=<binIndex>`).
+
+**CLI** `flow-sim stream --in runs/A --speed 10x --watermark-bins 6`
+**Acceptance** Ordered by `simTime`; watermarks on schedule; resume works.
+
+---
+
+### **SIM-SVC-M5 — Streaming Endpoint (SSE/NDJSON)**
+
+**Goal** Serve the same stream over HTTP for FlowTime UI.
+**API** `GET /sim/stream?runId=…&speed=10x&watermarkBins=6[&resume=…]` → SSE or chunked NDJSON.
+**Acceptance** Order-independent within a bin; watermark-based slices stable; final snapshot equals file outputs for same seed.
+
+---
+
+### SIM-M6 — Exceptions, Retries & Fan-out
+
+**Goal** Model failures (`errors`) and retry behavior via kernel PMFs; support fan-out.
+
+**Inputs** Retry kernels (bins), fan-out distributions.
+**Outputs** Events with correlation chains; Gold reflecting retries/fan-out.
+**CLI** `flow-sim run scenario.yaml --retries retry.yaml --fanout fanout.yaml --out runs/R`
+**Acceptance** Retry volumes match kernel; correlation traceability; bin-edge correctness.
+
+---
+
+### SIM-M7 — Multi-Class & Fairness Controls
+
+**Goal** Multiple classes with adjustable service share when capacity binds.
+**Inputs** Class mixes; fairness policy (`weighted` | `strictPriority`).
+**Outputs** Class-segmented Gold rows.
+**Acceptance** Priority maintains SLA; weighted shares respect capacity.
+
+---
+
+### SIM-M8 — Backlog Level v1 (+ latency estimate) — **schemaVersion: 2**
+
+**Goal** Add `queue_depth` and simple latency estimate.
+
+**Core**
+`Q[t] = max(0, Q[t-1] + arrivals[t] - capacity[t])`
+`latency_est_minutes = (Q[t] / max(eps, capacity[t])) * binMinutes`
+
+**Units** `queue_depth` → **entities**; `latency_est_minutes` → **minutes**.
+**Acceptance** Non-negative Q; version bump to 2; consumers detect via index.
+
+---
+
+### SIM-M9 — Calibration Mode (fit from telemetry)
+
+**Goal** Fit arrivals PMFs and service/transfer distributions; emit parameter packs.
+**Inputs** Telemetry in Gold shape.
+**Outputs** `params.yaml` and regenerated pack.
+**Acceptance** Error vs telemetry below tolerance.
+
+---
+
+### SIM-M10 — Scenario Library (domain-neutral presets)
+
+**Goal** Publish reusable presets (baseline weekday, peak day, capacity dip, drift).
+**Acceptance** CI regenerates identical hashes by name.
+
+---
+
+## Repository Layout
 
 ```
 flow-sim/
 ├─ src/
-│  ├─ Cli/            # CLI entrypoints
-│  ├─ Core/           # Planner, Sequencer, Distributions
-│  ├─ Emitters/       # NDJSON, Parquet, PMF
-│  └─ Domains/        # Logistics, Transport, Manufacturing templates
-├─ specs/
-│  ├─ logistics.weekday.yaml
-│  ├─ logistics.blackfriday.yaml
-│  ├─ transport.morningrush.yaml
-├─ samples/
-│  ├─ weekday-10k/
-│  └─ blackfriday-10k/
-└─ docs/
-   ├─ roadmap.md
-   └─ contracts.md
+│  ├─ Cli/                        # CLI entrypoints
+│  ├─ Core/                       # planner, sequencer, distributions
+│  ├─ Generators/                 # arrivals, capacity, fuse, backlog
+│  ├─ Writers/                    # events + Gold writers (shared)
+│  └─ Service/                    # Minimal Sim HTTP service (SIM-SVC-M2, M5)
+├─ catalogs/                      # Catalog.v1 files (optional, domain-neutral)
+│  ├─ tiny-demo.yaml
+│  └─ baseline.yaml
+├─ specs/                         # scenarios & overlays
+│  ├─ baseline.weekday.yaml
+│  ├─ peak_day.overlay.yaml
+│  └─ outage.overlay.yaml
+├─ params/                        # saved parameter packs
+├─ samples/                       # generated packs for CI/demos
+│  └─ weekday-5m/
+├─ docs/
+│  ├─ roadmap.md
+│  ├─ contracts.md
+│  └─ schemas/
+│     ├─ manifest.v1.json
+│     ├─ events.v1.json
+│     └─ series-index.v1.json
+└─ tests/
+   ├─ determinism/
+   ├─ schema/
+   ├─ generators/
+   ├─ catalog/
+   └─ service/
 ```
 
 ---
 
-## Mapping FlowTime ↔ FlowTime-Sim Milestones
+## FlowTime UI integration (at a glance)
 
-|FlowTime milestone|Description|FlowTime-Sim support (renumbered)|
-|---|---|---|
-|**M0 (Engine skeleton)**|Canonical grid, CSV outputs|SIM-M0 (basic generator producing Gold schema)|
-|**M2 (PMF support)**|PMF nodes in FlowTime engine|SIM-M3 (emit PMFs and totals)|
-|**M4 (Scenarios & Compare)**|Overlay YAML (surge, outage)|SIM-M5 (generate scenario overlays)|
-|**M5 (Routing, Fan-out)**|Multi-path, capacity caps|SIM-M6 (generate fan-out, retries, failures)|
-|**M7 (Backlog + Latency)**|Real queues and latency metrics|SIM-M1/SIM-M6 (foundations + retries/fan-out)|
-|**M8 (Multi-Class)**|Priority/fairness across flows|SIM-M7 (generate EXPRESS/STD classes)|
-|**M9 (Data Import & Fitting)**|Fit model parameters from telemetry|SIM-M8 (calibration mode producing parameter packs)|
-|**M10 (Scenario Sweeps)**|Sensitivity analysis across ranges|SIM-M9 (library of scenarios, parameter variation)|
+* **Direct:** UI calls **FlowTime-Sim Service** (`/sim/run`, `/sim/runs/{id}/index`, `/sim/stream`, `/sim/catalogs`) and FlowTime Service for analysis/compare.
+* **Via proxy (optional, in FlowTime):** FlowTime Service exposes `/sim/*` and stores artifacts under the same `runs/*` root → single origin/auth/catalog in UI.
+* **Adapters:** FlowTime’s **SYN-M0 (file)** and **SYN-M1 (stream)** already consume these artifacts/streams.
 
 ---
 
-## Conclusion
+## Always-on Acceptance Gates
 
-FlowTime-Sim is the **twin of FlowTime’s engine**:
-
-- FlowTime models & analyzes flows.
-    
-- FlowTime-Sim creates believable flows to feed FlowTime.
-    
-
-Together, they provide a **lab environment** for experimentation, demos, calibration, and teaching.
-
----
-
-Would you like me to also draft a **contracts.md** (event schema + Gold schema + PMF JSON example) so both FlowTime and FlowTime-Sim repos have the same clear data contract?
+* **Determinism:** same spec + seed ⇒ identical artifacts (hash-stable).
+* **Schema guard:** reject unknown top-level scenario keys unless `x-…`.
+* **Time alignment:** all timestamps divisible by `binMinutes`.
+* **Contracts parity:** CLI and Service write **identical artifacts** (dual-write `run.json` & `manifest.json`).
+* **Catalog join test:** bijection (or defined subset) between `Catalog.components[].id` and Gold `component_id`.
+* **Unit parity:** FlowTime’s SYN-M0 reader consumes a Sim pack with no overrides.
+* **Performance (warn-only):** print bins/sec, rows/sec, wall time.
+* **Optional CSV export:** document `--csv` writer flag for environments without Parquet (paths mirrored under `gold/*.csv`).
