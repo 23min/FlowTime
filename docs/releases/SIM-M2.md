@@ -1,6 +1,6 @@
 # Release: SIM-M2 — Artifact Parity & Series Index
 
-Status: DRAFT (pending tag `sim-m2`)
+Status: RELEASED (tag `sim-m2`)
 
 ## Summary
 SIM-M2 establishes a stable artifact layout for FlowTime-Sim runs: dual JSON (`run.json`, `manifest.json`), `series/index.json`, and per-series CSV files with deterministic hashing and integrity (tamper) tests. Legacy `metadata.json` and single-file `gold.csv` usage are deprecated in favor of per-series discovery. Parquet Gold table, event enrichment, and service/API endpoints are deferred.
@@ -11,6 +11,7 @@ SIM-M2 establishes a stable artifact layout for FlowTime-Sim runs: dual JSON (`r
 - SHA-256 hashing for each series (`sha256:<64hex>`), stored in `manifest.json`; tamper test ensures integrity.
 - Standardized `runId` format: `sim_YYYY-MM-DDTHH-mm-ssZ_<8slug>`.
 - Optional `events.ndjson` file (may be omitted without failing acceptance).
+- Environment-gated legacy spec warnings (`FLOWTIME_SIM_WARN_LEGACY=1`) added post-tag to keep default test output clean while still allowing visibility when desired.
 - Documentation updates: roadmap SIM-M2 scope narrowed; README & testing strategy aligned; `metadata-manifest.md` marked LEGACY.
 
 ## Breaking / Behavioral Changes
@@ -74,11 +75,11 @@ runs/sim_2025-09-01T18-30-12Z_a1b2c3d4/
 - Parquet Gold writer & formats disclosure.
 - Divergent `run.json` vs `manifest.json` semantics (summary vs integrity-only).
 
-## Tagging Checklist
-- [ ] Merge milestone branch into `main`.
-- [ ] Verify docs (README, ROADMAP, contracts, testing) reference new layout exclusively.
-- [ ] Tag `sim-m2`.
-- [ ] Announce deprecation timeline for removing legacy docs.
+## Tagging Checklist (Completed)
+- [x] Merge milestone branch into `main`.
+- [x] Verify docs (README, ROADMAP, contracts, testing) reference new layout exclusively.
+- [x] Tag `sim-m2`.
+- [x] Announce deprecation timeline for removing legacy docs.
 
 ---
 (End of SIM-M2 draft release notes)
