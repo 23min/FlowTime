@@ -20,9 +20,51 @@ CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
 // Health
 app.MapGet("/healthz", () => Results.Ok(new { status = "ok" }));
 
-// POST /sim/run  (bootstrap) -- accepts YAML simulation spec in body (text/plain) and returns { simRunId }
-// TODO: implement loading, validation, artifact writing (reuse RunArtifactsWriter) and return run id.
-app.MapPost("/sim/run", () => Results.StatusCode(501));
+// POST /sim/run  — accepts YAML simulation spec (text/plain or application/x-yaml) and returns { simRunId }
+app.MapPost("/sim/run", async (HttpRequest req, CancellationToken ct) =>
+{
+	try
+	{
+		using var reader = new StreamReader(req.Body, System.Text.Encoding.UTF8);
+		var yaml = await reader.ReadToEndAsync(ct);
+		if (string.IsNullOrWhiteSpace(yaml)) return Results.BadRequest(new { error = "Empty body" });
+
+		// Parse & validate
+		SimulationSpec spec;
+		try
+		{
+			spec = SimulationSpecLoader.LoadFromString(yaml);
+		}
+		catch (Exception ex)
+		{
+			return Results.BadRequest(new { error = "YAML parse failed", detail = ex.Message });
+		}
+		var validation = SimulationSpecValidator.Validate(spec);
+		if (!validation.IsValid)
+		{
+			return Results.BadRequest(new { error = "Spec validation failed", errors = validation.Errors });
+		}
+
+		// Generate arrivals (deterministic)
+		var arrivals = ArrivalGenerators.Generate(spec);
+
+		// Runs root (parent of /runs directory) — defaults to current dir
+		var runsRoot = Environment.GetEnvironmentVariable("FLOWTIME_SIM_RUNS_ROOT");
+		if (string.IsNullOrWhiteSpace(runsRoot)) runsRoot = Directory.GetCurrentDirectory();
+
+		var artifacts = await FlowTime.Sim.Cli.RunArtifactsWriter.WriteAsync(yaml, spec, arrivals, runsRoot, includeEvents: true, ct);
+
+		return Results.Ok(new { simRunId = artifacts.RunId });
+	}
+	catch (OperationCanceledException)
+	{
+		return Results.StatusCode(StatusCodes.Status499ClientClosedRequest);
+	}
+	catch (Exception ex)
+	{
+		return Results.Problem(ex.Message);
+	}
+});
 
 // GET /sim/runs/{id}/index  (series/index.json)
 app.MapGet("/sim/runs/{id}/index", (string id) => Results.StatusCode(501));
