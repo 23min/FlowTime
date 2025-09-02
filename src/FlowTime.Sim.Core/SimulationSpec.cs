@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Threading;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
@@ -91,16 +92,23 @@ public sealed record SimulationSpecValidationResult(bool IsValid, IReadOnlyList<
 
 public static class SimulationSpecValidator
 {
+    // One-time warning guards to avoid noisy repetitive stderr output in test runs.
+    private static int warnedSchemaVersionMissing;
+    private static int warnedLegacyRng;
     public static SimulationSpecValidationResult Validate(SimulationSpec spec)
     {
         var errors = new List<string>();
+    // Warnings are silent by default; set FLOWTIME_SIM_WARN_LEGACY=1 to re-enable legacy noise during focused migration work.
+    var warnLegacy = Environment.GetEnvironmentVariable("FLOWTIME_SIM_WARN_LEGACY") == "1";
         // Versioning
         var ver = spec.schemaVersion;
         if (ver is null)
         {
-            // legacy spec (SIM-M0) – tolerated but will be escalated in later milestone
-            // Emit a one-time warning (stdout suppressed in tests typically). Not an error for backward compatibility.
-            Console.Error.WriteLine("[warn] schemaVersion missing; assuming 0 (pre-versioned spec). Consider adding 'schemaVersion: 1'.");
+            // legacy spec (SIM-M0) – tolerated; silently assumed unless explicit warning opt-in.
+            if (warnLegacy && Interlocked.Exchange(ref warnedSchemaVersionMissing, 1) == 0)
+            {
+                Console.Error.WriteLine("[warn] schemaVersion missing; assuming 0 (pre-versioned spec). Consider adding 'schemaVersion: 1'.");
+            }
         }
         else if (ver != 1)
         {
@@ -114,7 +122,10 @@ public static class SimulationSpecValidator
             if (r is not ("pcg" or "legacy")) errors.Add("rng: unsupported (expected pcg|legacy)");
             else if (r == "legacy")
             {
-                Console.Error.WriteLine("[warn] rng=legacy selected; behavior will remain deterministic but pcg is the default going forward.");
+                if (warnLegacy && Interlocked.Exchange(ref warnedLegacyRng, 1) == 0)
+                {
+                    Console.Error.WriteLine("[warn] rng=legacy selected; behavior will remain deterministic but pcg is the default going forward.");
+                }
             }
         }
 
