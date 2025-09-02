@@ -1,7 +1,12 @@
 using System.Globalization;
 using FlowTime.Sim.Core;
 
-var builder = WebApplication.CreateBuilder(args);
+// Entry point wrapped in explicit class so we can define helper static class below without top-level ordering issues.
+public partial class Program
+{
+	public static void Main(string[] args)
+	{
+		var builder = WebApplication.CreateBuilder(args);
 
 // Basic services (CORS permissive for dev; tighten later)
 builder.Logging.AddSimpleConsole(o =>
@@ -67,10 +72,27 @@ app.MapPost("/sim/run", async (HttpRequest req, CancellationToken ct) =>
 });
 
 // GET /sim/runs/{id}/index  (series/index.json)
-app.MapGet("/sim/runs/{id}/index", (string id) => Results.StatusCode(501));
+app.MapGet("/sim/runs/{id}/index", (string id) =>
+{
+	if (!ServiceHelpers.IsSafeId(id)) return Results.BadRequest(new { error = "Invalid id" });
+	var root = ServiceHelpers.RunsRoot();
+	var path = Path.Combine(root, "runs", id, "series", "index.json");
+	if (!File.Exists(path)) return Results.NotFound(new { error = "Not found" });
+	// Return file contents (small JSON)
+	var json = File.ReadAllText(path);
+	return Results.Content(json, "application/json");
+});
 
 // GET /sim/runs/{id}/series/{seriesId}  (CSV stream)
-app.MapGet("/sim/runs/{id}/series/{seriesId}", (string id, string seriesId) => Results.StatusCode(501));
+app.MapGet("/sim/runs/{id}/series/{seriesId}", (string id, string seriesId) =>
+{
+	if (!ServiceHelpers.IsSafeId(id) || !ServiceHelpers.IsSafeSeriesId(seriesId)) return Results.BadRequest(new { error = "Invalid id" });
+	var root = ServiceHelpers.RunsRoot();
+	var path = Path.Combine(root, "runs", id, "series", seriesId + ".csv");
+	if (!File.Exists(path)) return Results.NotFound(new { error = "Not found" });
+	var stream = File.OpenRead(path);
+	return Results.File(stream, contentType: "text/csv", fileDownloadName: seriesId + ".csv");
+});
 
 // GET /sim/scenarios  (static list of scenario presets)
 app.MapGet("/sim/scenarios", () => Results.StatusCode(501));
@@ -78,12 +100,25 @@ app.MapGet("/sim/scenarios", () => Results.StatusCode(501));
 // POST /sim/overlay  (derive run from base + overlay)
 app.MapPost("/sim/overlay", () => Results.StatusCode(501));
 
-app.Lifetime.ApplicationStarted.Register(() =>
+		app.Lifetime.ApplicationStarted.Register(() =>
+		{
+			var urls = string.Join(", ", app.Urls);
+			app.Logger.LogInformation("FlowTime.Sim.Service started. Urls={Urls}", urls);
+		});
+
+		app.Run();
+	}
+}
+
+// Helper utilities
+static class ServiceHelpers
 {
-	var urls = string.Join(", ", app.Urls);
-	app.Logger.LogInformation("FlowTime.Sim.Service started. Urls={Urls}", urls);
-});
-
-app.Run();
-
-public partial class Program { }
+	public static string RunsRoot()
+	{
+		var runsRoot = Environment.GetEnvironmentVariable("FLOWTIME_SIM_RUNS_ROOT");
+		if (string.IsNullOrWhiteSpace(runsRoot)) runsRoot = Directory.GetCurrentDirectory();
+		return runsRoot;
+	}
+	public static bool IsSafeId(string id) => !string.IsNullOrWhiteSpace(id) && id.Length < 128 && id.All(ch => char.IsLetterOrDigit(ch) || ch is '_' or '-');
+	public static bool IsSafeSeriesId(string id) => !string.IsNullOrWhiteSpace(id) && id.Length < 128 && id.All(ch => char.IsLetterOrDigit(ch) || ch is '_' or '-' or '@');
+}
