@@ -128,15 +128,23 @@ time_bin (UTC start), component_id, class, arrivals, served, errors
 
 ---
 
-### SIM-M2 — Contracts v1.1 (Event Enrichment + Series Index + Schema Guards + Dual-write)
+### SIM-M2 — Artifact Parity & Series Index (current)
 
-- **Goal** Stabilize consumer surfaces and harmonize with FlowTime artifacts.
-- **Why** UI/FlowTime need measure discovery & units; dual-write lets FlowTime consume Sim runs without special cases.
-- **Inputs** Existing scenario YAML.
-- **Outputs** `events.ndjson` (enriched), `runs/<id>/run.json` **and** `manifest.json` (identical), `series/index.json` (units in **entities/bin**, per-component enumeration).
-- **Code** Event writer enrichments; `SeriesIndexBuilder`; JSON Schemas: `manifest.v1`, `events.v1`, `series-index.v1`.
-- **CLI** `flow-sim run scenario.yaml --out runs/<id>`
-- **Acceptance** Determinism (hash-stable); schema guard; time alignment; **unit parity** with FlowTime; index enumerates per-component series.
+- **Scope Update (2025-09-02)** Event enrichment, Parquet Gold table, and Service/API endpoints deferred (see SIM-SVC-M2). SIM-M2 now focuses solely on producing a stable artifact pack (dual JSON + per-series CSVs + index) with deterministic hashing & integrity tests.
+- **Goal** Provide a minimal, frozen artifact layout consumable by adapters/UI (no service dependency).
+- **Why** Unblock downstream tooling on a guaranteed-stable v1 artifact shape before layering APIs/streaming.
+- **Inputs** Simulation spec (unchanged semantics from SIM-M1; `metadata.json` deprecated).
+- **Outputs** `runs/<runId>/run.json`, `runs/<runId>/manifest.json` (currently identical content), `runs/<runId>/series/index.json`, `runs/<runId>/series/*.csv`; optional `runs/<runId>/events.ndjson` (may be omitted this milestone). No Parquet yet.
+- **Integrity** `manifest.json` lists per-series SHA-256 hashes (`sha256:<64hex>`). Tests enforce determinism and detect tampering.
+- **runId Format** Standardized: `sim_YYYY-MM-DDTHH-mm-ssZ_<8slug>` (underscore separators) supersedes earlier hyphenated draft.
+- **Deprecations** Single-file `gold.csv` & `metadata.json` removed; replaced by per-series CSVs and dual JSON documents.
+- **Acceptance**
+  - Determinism: identical spec+seed ⇒ identical per-series CSV bytes & hashes.
+  - Dual JSON present (`schemaVersion:1`), contents identical (divergence reserved for future roles).
+  - `series/index.json` enumerates all series with units + hash.
+  - Tamper test: altering a series CSV invalidates stored hash.
+  - runId matches documented regex; timestamps UTC.
+  - Absence of `events.ndjson` does not fail acceptance (optional).
 
 ---
 

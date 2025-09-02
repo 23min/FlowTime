@@ -1,3 +1,11 @@
+# Simulation Metadata Manifest (LEGACY)
+
+> Deprecated as of SIM-M2 (2025-09-02). Replaced by dual `run.json` + `manifest.json` + `series/index.json` under `runs/<runId>/`. This document is retained for historical reference only and will be removed after one additional milestone unless needed for backward compatibility tooling.
+
+Legacy content below (SIM-M1 reference):
+
+---
+
 # Simulation Metadata Manifest
 
 Status: Implemented (SIM-M1 Phase 3 complete). Further extensions may add optional fields.

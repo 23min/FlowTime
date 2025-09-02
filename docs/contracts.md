@@ -6,38 +6,38 @@
 
 ## Vocabulary (domain-neutral)
 
-* **entity** — the thing that moves (job/request/item)
-* **component** — processing point (node)
-* **connection** — directed link between components
-* **class** — segment/category of entities
-* **measure (per bin)** — flows like `arrivals`, `served`, `errors`
-* **state level (per bin)** — a level at bin boundary (e.g., `backlog`, `queue_depth`)
-* **grid** — `{ binMinutes, bins }`, time is UTC, alignment is **left** (bin index `t` maps to bin start)
+- **entity** — the thing that moves (job/request/item)
+- **component** — processing point (node)
+- **connection** — directed link between components
+- **class** — segment/category of entities
+- **measure (per bin)** — flows like `arrivals`, `served`, `errors`
+- **state level (per bin)** — a level at bin boundary (e.g., `backlog`, `queue_depth`)
+- **grid** — `{ binMinutes, bins }`, time is UTC, alignment is **left** (bin index `t` maps to bin start)
 
 ## Versioning & compatibility
 
-* **schemaVersion** governs artifact shapes. Current: **1** (REQUIRED in all artifact JSON: run.json, manifest.json, series/index.json).
-* Readers should accept `{ current, current-1 }` schema versions.
-* Breaking changes bump schemaVersion (e.g., adding `queue_depth` in Sim v2).
-* Keep **engine** vs **sim** differences explicit via the `source` field and series naming (see Units & semantics).
+- **schemaVersion** governs artifact shapes. Current: **1** (REQUIRED in all artifact JSON: run.json, manifest.json, series/index.json).
+- Readers should accept `{ current, current-1 }` schema versions.
+- Breaking changes bump schemaVersion (e.g., adding `queue_depth` in Sim v2).
+- Keep **engine** vs **sim** differences explicit via the `source` field and series naming (see Units & semantics).
 
 ## Determinism rules (for hashing, parity, CI)
 
-* Normalize model/spec text before hashing:
+- Normalize model/spec text before hashing:
 
-  * use LF `\n` line endings
-  * trim trailing whitespace per line
-  * collapse consecutive blank lines
-  * ignore YAML key ordering
-* CSV writers:
+  - use LF `\n` line endings
+  - trim trailing whitespace per line
+  - collapse consecutive blank lines
+  - ignore YAML key ordering
+- CSV writers:
 
-  * LF newlines
-  * culture-invariant floats (e.g., `G17` with `InvariantCulture`)
-  * no thousands separators
-* Re-running the same spec + seed must yield:
+  - LF newlines
+  - culture-invariant floats (e.g., `G17` with `InvariantCulture`)
+  - no thousands separators
+- Re-running the same spec + seed must yield:
 
-  * identical per-series CSV bytes and SHA-256 hashes
-  * identical `run.json`, `manifest.json`, `series/index.json` payloads, except `runId` and timestamps (unless deterministic run id is set)
+  - identical per-series CSV bytes and SHA-256 hashes
+  - identical `run.json`, `manifest.json`, `series/index.json` payloads, except `runId` and timestamps (unless deterministic run id is set)
 
 ---
 
@@ -45,12 +45,12 @@
 
 ### Run identifier (runId)
 
-* Opaque string; consumers MUST NOT parse for semantics.
-* Standard generation format (producer guidance): `<source>_<yyyy-MM-ddTHH-mm-ssZ>_<8-char slug>`
-  * Example: `sim_2025-09-01T18-30-12Z_a1b2c3d4`
-  * Regex (non-normative aid): `^(engine|sim)_\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}Z_[a-z0-9]{8}$`
-* Slug: lowercase hex/alphanumeric (collision-resistant enough for CI/local workflows).
-* Engine and Simulator MUST avoid introducing meaning into segments (remain opaque for future flexibility).
+- Opaque string; consumers MUST NOT parse for semantics.
+- Standard generation format (producer guidance): `<source>_<yyyy-MM-ddTHH-mm-ssZ>_<8-char slug>`
+  - Example: `sim_2025-09-01T18-30-12Z_a1b2c3d4`
+  - Regex (non-normative aid): `^(engine|sim)_\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}Z_[a-z0-9]{8}$`
+- Slug: lowercase hex/alphanumeric (collision-resistant enough for CI/local workflows).
+- Engine and Simulator MUST avoid introducing meaning into segments (remain opaque for future flexibility).
 
 ### Directory layout (per run)
 
@@ -94,8 +94,8 @@ runs/<runId>/
 }
 ```
 
-* `source` is `"engine"` for FlowTime and `"sim"` for FlowTime-Sim.
-* `warnings` records normalizations, coerced values (e.g., PMF renorm, divide-by-zero latency → 0), etc.
+- `source` is "engine" for FlowTime and "sim" for FlowTime-Sim.
+- `warnings` records normalizations, coerced values (e.g., PMF renorm, divide-by-zero latency → 0), etc.
 
 ### manifest.json (determinism & integrity)
 
@@ -113,7 +113,7 @@ runs/<runId>/
 }
 ```
 
-* Hash keys are **seriesId** and the value is the SHA-256 of the CSV **file bytes**.
+- Hash keys are **seriesId** and the value is the SHA-256 of the CSV **file bytes**.
 
 ### series/index.json (discovery, units, grid)
 
@@ -143,14 +143,14 @@ runs/<runId>/
 }
 ```
 
-* **seriesId format:** `measure@componentId[@class]`
-* Allowed chars in `seriesId`: `[A-Za-z0-9._\-@]`; if others are needed, URL-encode in the API path and use a filename-safe transformation for disk.
-* `kind` values: `"flow" | "state" | "derived"`.
-* Units:
+- **seriesId format:** `measure@componentId[@class]`
+- Allowed chars in `seriesId`: `[A-Za-z0-9._\-@]`; if others are needed, URL-encode in the API path and use a filename-safe transformation for disk.
+- `kind` values: `"flow" | "state" | "derived"`.
+- Units:
 
-  * flows: **`entities/bin`** (arrivals, served, errors, capacity-as-rate)
-  * levels: **`entities`** (backlog, queue\_depth)
-  * derived latency: **`minutes`** (see Semantics)
+  - flows: **`entities/bin`** (arrivals, served, errors, capacity-as-rate)
+  - levels: **`entities`** (backlog, queue_depth)
+  - derived latency: **`minutes`** (see Semantics)
 
 ### Per-series CSV (canonical UI input)
 
@@ -160,8 +160,8 @@ t,value    # t = 0..(bins-1), LF newlines, InvariantCulture floats
 
 ### Gold table (analytics, dense rows policy in v1)
 
-* Path: `gold/node_time_bin.parquet` (CSV optional via `--csv`).
-* Shape:
+- Path: `gold/node_time_bin.parquet` (CSV optional via `--csv`).
+- Shape:
 
   ```
   time_bin (UTC start), component_id, class, arrivals, served, errors
@@ -169,8 +169,8 @@ t,value    # t = 0..(bins-1), LF newlines, InvariantCulture floats
 
 ### Events (optional file, used by streaming & audits)
 
-* Path: `events.ndjson`
-* Each line is an object with reserved keys:
+- Path: `events.ndjson`
+- Each line is an object with reserved keys:
 
 ```json
 {
@@ -191,16 +191,17 @@ t,value    # t = 0..(bins-1), LF newlines, InvariantCulture floats
 
 ## Units & semantics (engine vs sim)
 
-* **Flows (`entities/bin`)** — `arrivals`, `served`, `errors`, `capacity` (rate)
-* **Levels (`entities`)**
+- **Flows (`entities/bin`)** — `arrivals`, `served`, `errors`, `capacity` (rate)
+- **Levels (`entities`)**
 
-  * engine: `backlog` (pending level)
-  * sim (schemaVersion 2): `queue_depth`
-* **Latency (`minutes`)**
+  - engine: `backlog` (pending level)
+  - sim (schemaVersion 2): `queue_depth`
+- **Latency (`minutes`)**
 
-  * engine: `latency = (backlog / max(1e-9, served)) * binMinutes` (flow-through)
-  * sim v2: `latency_est_minutes = (queue_depth / max(1e-9, capacity)) * binMinutes` (capacity-based estimate)
-* Name these differently in UI to avoid confusion (e.g., “Observed latency” vs “Capacity-based latency estimate”).
+  - engine: `latency = (backlog / max(1e-9, served)) * binMinutes` (flow-through)
+  - sim v2: `latency_est_minutes = (queue_depth / max(1e-9, capacity)) * binMinutes` (capacity-based estimate)
+- Name these differently in UI to avoid confusion (e.g., “Observed latency” vs “Capacity-based latency estimate”).
+
 
 ---
 
@@ -210,49 +211,64 @@ t,value    # t = 0..(bins-1), LF newlines, InvariantCulture floats
 
 ### FlowTime (engine)
 
-* `POST /run` → `{ runId }` and writes artifacts under `runs/<runId>/…`
-* `GET /graph` → compiled DAG (nodes, edges)
-* `GET /runs/{runId}/index` → `series/index.json`
-* `GET /runs/{runId}/series/{seriesId}` → stream CSV; `seriesId` is URL-decoded
-* `POST /compare` (optional/minimal) → deltas/KPIs on common series
+- `POST /run` → `{ runId }` and writes artifacts under `runs/<runId>/…`
+- `GET /graph` → compiled DAG (nodes, edges)
+- `GET /runs/{runId}/index` → `series/index.json`
+- `GET /runs/{runId}/series/{seriesId}` → stream CSV; `seriesId` is URL-decoded
+- `POST /compare` (optional/minimal) → deltas/KPIs on common series
 
 ### FlowTime-Sim (simulator)
 
-* `POST /sim/run` → `{ simRunId }` (writes under `runs/<simRunId>/…`)
-* `GET /sim/runs/{id}/index` → `series/index.json`
-* `GET /sim/runs/{id}/series/{seriesId}` → CSV/Parquet passthrough
-* `GET /sim/scenarios` → list presets + knobs (domain-neutral)
-* `POST /sim/overlay` → `{ baseRunId, overlaySpec }` → new `simRunId`
-* **Catalog endpoints:**
+- `POST /sim/run` → `{ simRunId }` (writes under `runs/<simRunId>/…`)
+- `GET /sim/runs/{id}/index` → `series/index.json`
+- `GET /sim/runs/{id}/series/{seriesId}` → CSV/Parquet passthrough
+- `GET /sim/scenarios` → list presets + knobs (domain-neutral)
+- `POST /sim/overlay` → `{ baseRunId, overlaySpec }` → new `simRunId`
+- **Catalog endpoints:**
 
-  * `GET /sim/catalogs`, `GET /sim/catalogs/{id}`, `POST /sim/catalogs/validate`
+  - `GET /sim/catalogs`, `GET /sim/catalogs/{id}`, `POST /sim/catalogs/validate`
 
 ### Optional proxy (single origin)
 
-* FlowTime may expose `/sim/*` as a transparent proxy to Sim and write artifacts under the same `runs/` root (or a namespaced root). Parity with direct Sim endpoints is required.
+- FlowTime may expose `/sim/*` as a transparent proxy to Sim and write artifacts under the same `runs/` root (or a namespaced root). Parity with direct Sim endpoints is required.
 
 ---
 
 ## Streaming contract (Sim → UI / adapters)
 
-* Transport: Server-Sent Events (SSE) or chunked NDJSON
-* Frames:
+- Transport: Server-Sent Events (SSE) or chunked NDJSON
+- Frames:
 
-  * event: same shape as `events.ndjson`
-  * watermark:
+  - event: same shape as `events.ndjson`
+  - watermark:
 
     ```json
     { "type":"watermark", "runId":"…", "binIndex":123, "simTime":"2025-09-01T08:00:00Z" }
     ```
-  * heartbeat (optional): `{ "type":"heartbeat", "ts":"…" }`
-  * end: `{ "type":"end" }`
-* Behavior:
+  - heartbeat (optional): `{ "type":"heartbeat", "ts":"…" }`
+  - end: `{ "type":"end" }`
+- Behavior:
 
-  * order-independent within a bin; snap to left-aligned grid
-  * optional `?resume=<binIndex>` for replay continuity
-  * **parity rule:** file snapshot at “end” must equal accumulated stream for the same `runId`/seed
+  - order-independent within a bin; snap to left-aligned grid
+  - optional `?resume=<binIndex>` for replay continuity
+  - **parity rule:** file snapshot at “end” must equal accumulated stream for the same `runId`/seed
 
 ---
+
+## Catalog.v1 (for diagramming & ID stability)
+  - event: same shape as `events.ndjson`
+  - watermark:
+
+    ```json
+    { "type":"watermark", "runId":"…", "binIndex":123, "simTime":"2025-09-01T08:00:00Z" }
+    ```
+  - heartbeat (optional): `{ "type":"heartbeat", "ts":"…" }`
+  - end: `{ "type":"end" }`
+
+  - order-independent within a bin; snap to left-aligned grid
+  - optional `?resume=<binIndex>` for replay continuity
+  - **parity rule:** file snapshot at “end” must equal accumulated stream for the same `runId`/seed
+
 
 ## Catalog.v1 (for diagramming & ID stability)
 
@@ -271,29 +287,30 @@ layoutHints:
   rankDir: LR
 ```
 
-* `components[].id` is the stable join key to `series[].componentId` and `gold.component_id`.
-* A catalog can be passed inline to `POST /sim/run` or referenced by `catalogId`.
+- `components[].id` is the stable join key to `series[].componentId` and `gold.component_id`.
+- A catalog can be passed inline to `POST /sim/run` or referenced by `catalogId`.
 
 ---
 
 ## Validation & CI gates
 
-* JSON Schema files (place in `docs/schemas/`):
+- JSON Schema files (place in `docs/schemas/`):
 
-  * `run.schema.json`, `manifest.schema.json`, `series-index.schema.json`
-  * optionally `streaming.schema.json`, `catalog.v1.schema.json`
-* Tests:
+  - `run.schema.json`, `manifest.schema.json`, `series-index.schema.json`
+  - optionally `streaming.schema.json`, `catalog.v1.schema.json`
+- Tests:
 
-  * schema validation of emitted JSON (fail on drift)
-  * determinism: same seed ⇒ identical file hashes (`seriesHashes`)
-  * mass balance checks where applicable (e.g., conservation with backlog enabled)
-* Doc hash guard (optional):
+  - schema validation of emitted JSON (fail on drift)
+  - determinism: same seed ⇒ identical file hashes (`seriesHashes`)
+  - mass balance checks where applicable (e.g., conservation with backlog enabled)
+- Doc hash guard (optional):
 
-  * compute SHA-256 of `docs/contracts.md` in CI; fail if it diverges from expected (or compare across repos in integration CI)
+  - compute SHA-256 of `docs/contracts.md` in CI; fail if it diverges from expected (or compare across repos in integration CI)
 
 ---
 
 ## Deprecations
 
-* Legacy single-file `gold.csv` is deprecated. Prefer **per-series CSVs** and the Parquet **gold** table.
-* Replace any domain-colored reserved keys (e.g., `routeId`, `stepId`) with **domain-neutral** ones (`connectionId`).
+- Legacy single-file `gold.csv` is deprecated. Prefer **per-series CSVs** and the Parquet **gold** table.
+- Replace any domain-colored reserved keys (e.g., `routeId`, `stepId`) with **domain-neutral** ones (`connectionId`).
+

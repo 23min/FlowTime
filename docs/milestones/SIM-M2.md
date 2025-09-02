@@ -1,40 +1,32 @@
 # SIM-M2 — Contracts Parity (Artifacts Alignment)
 
 ## Status
-Draft (in progress on branch `feature/contracts-m2/artifacts`).
+COMPLETED (branch `feature/docs-m2/roadmap-updates`) — pending tag.
 
 ## Goal
-Introduce dual-write structured run artifacts (run.json, manifest.json, index.json, per-series CSV) with deterministic hashing so FlowTime-Sim stays lock-stepped with FlowTime engine milestone M1.5 and unblocks UI + cross-tooling.
+Deliver a stable per-run artifact pack: dual JSON (`run.json`, `manifest.json`), `series/index.json`, and per-series CSVs with deterministic hashing & integrity (tamper) tests; defer Parquet Gold table, event enrichment, and service/API work to later milestones.
 
 ## Scope
-- Deterministic model normalization + hashing (modelHash, scenarioHash).
-- New run directory layout `out/<runId>/`.
-- Files:
-  - `run.json` — summary + series listing + reserved event placeholders.
-  - `manifest.json` — determinism & integrity metadata (seed, rng, seriesHashes, eventCount, generatedAtUtc).
-  - `index.json` — quick lookup of series (id, path, hash, points, kind, units?).
-  - `arrivals.csv` — arrivals counts per bin (t,value).
-  - `gold.csv` — existing aggregate served counts (retained).
-- Replace legacy `metadata.json` with `manifest.json` (graceful transition notes).
-- Hashing rules: LF endings, trim trailing whitespace, collapse blank lines, ignore YAML key ordering.
-- CLI flags: `--no-manifest` (skip new JSON artifacts), future `--deterministic-run-id` (optional).
-- Tests: hashing stability, manifest presence, structural field assertions, deterministic repeatability.
-- JSON Schemas (phase 2 of milestone; may land after initial writer code): `docs/contracts/*.schema.json`.
+- Run directory: `runs/<runId>/` (replaces earlier draft `out/<runId>/`).
+  - `run.json` — summary (schemaVersion, runId, grid, scenarioHash, rng) + (future) warnings; mirrors `manifest.json` for now.
+  - `manifest.json` — integrity: per-series hashes (`seriesHashes`), eventCount (0 if events omitted), createdUtc.
+  - `series/index.json` — enumeration (id, kind, unit, path, points, hash, optional formats.goldTable placeholder unused this milestone).
+  - `series/*.csv` — canonical per-series time series (`t,value`).
+- Removed legacy `metadata.json` and single `gold.csv` canonical role.
+- Hashing: raw file bytes SHA-256 with `sha256:` prefix; CSV LF newlines, invariant formatting.
 
 ## Non-Goals
-- No new simulation semantics (routing/backlog/service times still placeholders).
-- No event emission beyond current events.ndjson (event enrichment reserved only).
-- No streaming or API surface yet.
 
 ## Run Directory Example
 ```
-out/run_20250901T183012Z_a1b2c3d4/
+runs/sim_2025-09-01T18-30-12Z_a1b2c3d4/
   run.json
   manifest.json
-  index.json
-  arrivals.csv
-  gold.csv
-  events.ndjson
+  series/
+    arrivals@COMP_A.csv
+    served@COMP_A.csv
+  series/index.json
+  [events.ndjson]
 ```
 
 ## JSON Sketches (Illustrative)
@@ -73,16 +65,8 @@ out/run_20250901T183012Z_a1b2c3d4/
 ```
 
 ## Acceptance Criteria
-- Running existing sample specs produces new directory with all artifacts.
-- Hash stability tests pass (key reorder → same hash; value change → different hash).
-- Repeat runs with same seed produce identical seriesHashes & manifest.
-- Legacy `metadata.json` removed or soft-deprecated (decision documented here before merge).
-- All prior tests remain green.
 
 ## Open Questions
-- Should `scenarioHash` differ from `modelHash` early? (Decision: keep identical now; diverge later if scenario overlays are added.)
-- Keep or remove legacy `metadata.json`? (Leaning remove; add note in CHANGELOG.)
-- Include absolute durations or timezone info in run.json? (Defer until backlog/latency.)
 
 ## Plan (Slices)
 1. Hashing & normalization + tests.
@@ -92,8 +76,6 @@ out/run_20250901T183012Z_a1b2c3d4/
 5. Docs update & finalize deprecation note.
 
 ## Determinism Notes
-- Use `Utf8JsonWriter` with stable ordering; sort dictionary keys.
-- Force `\n` newline in CSV.
 
 ## Future Parity Hook
 Add cross-repo parity tests once engine M1.5 artifacts land.
