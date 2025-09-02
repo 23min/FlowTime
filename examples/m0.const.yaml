@@ -1,3 +1,4 @@
+schemaVersion: 1
 grid:
   bins: 8
   binMinutes: 60
@@ -8,6 +9,8 @@ nodes:
   - id: served
     kind: expr
     expr: "demand * 0.8"
+rng:
+  kind: pcg32
 outputs:
   - series: served
     as: served.csv
