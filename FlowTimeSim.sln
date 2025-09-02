@@ -4,6 +4,8 @@ VisualStudioVersion = 17.8.34330.116
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FlowTime.Sim.Core", "src/FlowTime.Sim.Core/FlowTime.Sim.Core.csproj", "{7B8F4CF0-1A23-4C8C-9E52-2A2D1A92D9D1}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FlowTime.Sim.Service", "src/FlowTime.Sim.Service/FlowTime.Sim.Service.csproj", "{E2B45F36-0000-4000-A111-000000SERVICE}"
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FlowTime.Sim.Tests", "tests/FlowTime.Sim.Tests/FlowTime.Sim.Tests.csproj", "{4E93E2B6-3CBA-4C69-9C5D-AB20ABF0E1E8}"
 EndProject
 Global
