@@ -16,6 +16,10 @@ public static class RunArtifactsWriter
         var seriesDir = Path.Combine(runDir, "series");
         Directory.CreateDirectory(seriesDir);
 
+    // Persist original spec for overlay derivations (SIM-SVC-M2 overlay bootstrap).
+    var specPath = Path.Combine(runDir, "spec.yaml");
+    await File.WriteAllTextAsync(specPath, originalYaml, Encoding.UTF8, ct);
+
         var scenarioHash = ModelHasher.ComputeModelHash(originalYaml); // model==scenario for now
         int bins = spec.grid!.bins!.Value;
         int binMinutes = spec.grid!.binMinutes!.Value;
