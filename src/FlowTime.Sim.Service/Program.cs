@@ -95,7 +95,7 @@ app.MapGet("/sim/runs/{id}/series/{seriesId}", (string id, string seriesId) =>
 });
 
 // GET /sim/scenarios  (static list of scenario presets)
-app.MapGet("/sim/scenarios", () => Results.StatusCode(501));
+app.MapGet("/sim/scenarios", () => Results.Ok(Service.ScenarioRegistry.List()));
 
 // POST /sim/overlay  (derive run from base + overlay)
 app.MapPost("/sim/overlay", () => Results.StatusCode(501));
