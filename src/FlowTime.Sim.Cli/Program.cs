@@ -122,47 +122,14 @@ namespace FlowTime.Sim.Cli
                         }
                     }
 
-                    var eventsRel = spec.outputs?.events ?? "events.ndjson";
-                    var goldRel = spec.outputs?.gold ?? "gold.csv";
-                    var eventsPath = Path.Combine(outDir, eventsRel);
-                    var goldPath = Path.Combine(outDir, goldRel);
-                    Directory.CreateDirectory(Path.GetDirectoryName(eventsPath)!);
-                    Directory.CreateDirectory(Path.GetDirectoryName(goldPath)!);
-
-                    await using (var ev = File.Create(eventsPath))
-                    {
-                        await NdjsonWriter.WriteAsync(events, ev, cts.Token);
-                    }
-                    await using (var gold = File.Create(goldPath))
-                    {
-                        await GoldWriter.WriteAsync(spec, arrivals, gold, cts.Token);
-                    }
-
-                    // Write manifest.json (SIM-M2 slice 2)
-                    string manifestPath = Path.Combine(outDir, "manifest.json");
-                    SimManifest? manifest = null;
-                    try
-                    {
-                        manifest = await ManifestWriter.WriteAsync(yaml, spec, eventsPath, goldPath, manifestPath, cts.Token);
-                    }
-                    catch (Exception mex)
-                    {
-                        Console.Error.WriteLine($"[warn] Failed to write manifest: {mex.Message}");
-                    }
-
+                    var runArtifacts = await RunArtifactsWriter.WriteAsync(yaml, spec, arrivals, outDir, includeEvents: true, cts.Token);
                     if (opts.Verbose)
                     {
                         Console.WriteLine("Mode: sim");
-                        Console.WriteLine($"Bins={spec.grid!.bins} binMinutes={spec.grid.binMinutes} totalEvents={arrivals.Total}");
-                        Console.WriteLine($"Events -> {eventsPath}");
-                        Console.WriteLine($"Gold   -> {goldPath}");
-                        if (manifest is not null)
-                        {
-                            Console.WriteLine($"Manifest -> {manifestPath}");
-                            Console.WriteLine($"ModelHash: {manifest.modelHash}");
-                            Console.WriteLine($"Events SHA256: {manifest.events.sha256}");
-                            Console.WriteLine($"Gold   SHA256: {manifest.gold.sha256}");
-                        }
+                        Console.WriteLine($"RunId={runArtifacts.RunId} Bins={spec.grid!.bins} binMinutes={spec.grid.binMinutes} totalEvents={arrivals.Total}");
+                        Console.WriteLine($"RunDir -> {runArtifacts.RunDirectory}");
+                        Console.WriteLine("series/index.json -> written");
+                        Console.WriteLine("run.json + manifest.json -> written (dual)");
                     }
                 }
                 else

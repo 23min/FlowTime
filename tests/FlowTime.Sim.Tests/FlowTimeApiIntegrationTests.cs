@@ -1,3 +1,2 @@
-// Placeholder (previous WebApplicationFactory-based tests removed to decouple repos).
-// Intentionally left blank.
+// Deprecated API integration test placeholder (API deferred for SIM-M2). Intentionally empty.
 namespace FlowTime.Sim.Tests { internal static class FlowTimeApiIntegrationTests { } }

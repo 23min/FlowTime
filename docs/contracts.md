@@ -16,7 +16,7 @@
 
 ## Versioning & compatibility
 
-* **schemaVersion** governs artifact shapes. Current: **1**.
+* **schemaVersion** governs artifact shapes. Current: **1** (REQUIRED in all artifact JSON: run.json, manifest.json, series/index.json).
 * Readers should accept `{ current, current-1 }` schema versions.
 * Breaking changes bump schemaVersion (e.g., adding `queue_depth` in Sim v2).
 * Keep **engine** vs **sim** differences explicit via the `source` field and series naming (see Units & semantics).
@@ -42,6 +42,15 @@
 ---
 
 ## Artifact contracts
+
+### Run identifier (runId)
+
+* Opaque string; consumers MUST NOT parse for semantics.
+* Standard generation format (producer guidance): `<source>_<yyyy-MM-ddTHH-mm-ssZ>_<8-char slug>`
+  * Example: `sim_2025-09-01T18-30-12Z_a1b2c3d4`
+  * Regex (non-normative aid): `^(engine|sim)_\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}Z_[a-z0-9]{8}$`
+* Slug: lowercase hex/alphanumeric (collision-resistant enough for CI/local workflows).
+* Engine and Simulator MUST avoid introducing meaning into segments (remain opaque for future flexibility).
 
 ### Directory layout (per run)
 
