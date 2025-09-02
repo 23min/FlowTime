@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "run.schema.json",
+  "type": "object",
+  "required": ["schemaVersion","runId","engineVersion","grid","scenarioHash","rng","createdUtc","source","warnings","notes"],
+  "properties": {
+    "schemaVersion": {"type":"integer","const":1},
+    "runId": {"type":"string"},
+    "engineVersion": {"type":"string"},
+    "grid": {
+      "type":"object",
+      "required":["bins","binMinutes","timezone","align"],
+      "properties": {
+        "bins": {"type":"integer","minimum":1},
+        "binMinutes": {"type":"integer","minimum":1},
+        "timezone": {"type":"string"},
+        "align": {"type":"string","enum":["left"]}
+      },
+      "additionalProperties": false
+    },
+    "scenarioHash": {"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},
+    "rng": {"type":"object","required":["kind","seed"],"properties":{"kind":{"type":"string","const":"pcg32"},"seed":{"type":"integer"}},"additionalProperties":false},
+    "createdUtc": {"type":"string"},
+    "source": {"type":"string","const":"sim"},
+    "warnings": {"type":"array","items":{"type":"string"}},
+    "notes": {"type":"array","items":{"type":"string"}},
+    "series": {"type":"array"}
+  },
+  "additionalProperties": true
+}
