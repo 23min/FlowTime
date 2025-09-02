@@ -138,16 +138,16 @@ namespace FlowTime.Sim.Cli
                         await GoldWriter.WriteAsync(spec, arrivals, gold, cts.Token);
                     }
 
-                    // Write metadata manifest (metadata.json in same output dir by default)
-                    string manifestPath = Path.Combine(outDir, "metadata.json");
-                    MetadataManifest? manifest = null;
+                    // Write manifest.json (SIM-M2 slice 2)
+                    string manifestPath = Path.Combine(outDir, "manifest.json");
+                    SimManifest? manifest = null;
                     try
                     {
-                        manifest = await MetadataWriter.WriteAsync(spec, eventsPath, goldPath, manifestPath, cts.Token);
+                        manifest = await ManifestWriter.WriteAsync(yaml, spec, eventsPath, goldPath, manifestPath, cts.Token);
                     }
                     catch (Exception mex)
                     {
-                        Console.Error.WriteLine($"[warn] Failed to write metadata manifest: {mex.Message}");
+                        Console.Error.WriteLine($"[warn] Failed to write manifest: {mex.Message}");
                     }
 
                     if (opts.Verbose)
@@ -159,6 +159,7 @@ namespace FlowTime.Sim.Cli
                         if (manifest is not null)
                         {
                             Console.WriteLine($"Manifest -> {manifestPath}");
+                            Console.WriteLine($"ModelHash: {manifest.modelHash}");
                             Console.WriteLine($"Events SHA256: {manifest.events.sha256}");
                             Console.WriteLine($"Gold   SHA256: {manifest.gold.sha256}");
                         }

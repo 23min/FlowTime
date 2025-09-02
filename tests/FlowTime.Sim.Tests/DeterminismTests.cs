@@ -10,6 +10,7 @@ public class DeterminismTests
     public void ConstSpec_GeneratesIdenticalOutputs()
     {
         var specYaml = """
+schemaVersion: 1
 grid:
     bins: 3
     binMinutes: 60
@@ -39,6 +40,7 @@ route:
     public void PoissonSpec_ReproducibleGivenSeed()
     {
         var specYaml = """
+schemaVersion: 1
 grid:
     bins: 5
     binMinutes: 60
@@ -97,7 +99,7 @@ route:
             Directory.CreateDirectory(outDir);
             var exit = await FlowTime.Sim.Cli.ProgramWrapper.InvokeMain(new[] { "--mode", "sim", "--model", specPath, "--out", outDir });
             Assert.Equal(0, exit);
-            var manifestPath = Path.Combine(outDir, "metadata.json");
+            var manifestPath = Path.Combine(outDir, "manifest.json");
             Assert.True(File.Exists(manifestPath));
             var json = File.ReadAllText(manifestPath, Encoding.UTF8);
             using var doc = System.Text.Json.JsonDocument.Parse(json);

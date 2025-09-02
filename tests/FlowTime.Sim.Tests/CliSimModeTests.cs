@@ -10,6 +10,7 @@ public class CliSimModeTests
     {
         // Create a temporary spec to avoid relying on repo-relative paths during test runs.
         var specYaml = """
+schemaVersion: 1
 grid:
     bins: 4
     binMinutes: 60
@@ -43,7 +44,7 @@ outputs:
         Assert.Equal(1 + 4, goldLines.Length); // header + 4 rows
 
         // Metadata manifest
-        var manifestPath = Path.Combine(outDir, "metadata.json");
+    var manifestPath = Path.Combine(outDir, "manifest.json");
         Assert.True(File.Exists(manifestPath));
         var json = await File.ReadAllTextAsync(manifestPath, Encoding.UTF8);
         using var doc = System.Text.Json.JsonDocument.Parse(json);
@@ -55,7 +56,11 @@ outputs:
         var gd = root.GetProperty("gold");
         Assert.EndsWith("events.ndjson", ev.GetProperty("path").GetString());
         Assert.EndsWith("gold.csv", gd.GetProperty("path").GetString());
-        bool Hex64(string s) => System.Text.RegularExpressions.Regex.IsMatch(s, "^[0-9a-f]{64}$");
+        bool Hex64(string s)
+        {
+            if (s.StartsWith("sha256:")) s = s.Substring(7);
+            return System.Text.RegularExpressions.Regex.IsMatch(s, "^[0-9a-f]{64}$");
+        }
         Assert.True(Hex64(ev.GetProperty("sha256").GetString()!.ToLowerInvariant()));
         Assert.True(Hex64(gd.GetProperty("sha256").GetString()!.ToLowerInvariant()));
     }
@@ -65,6 +70,7 @@ outputs:
     {
         var tmp = Path.GetTempFileName();
         await File.WriteAllTextAsync(tmp, "grid: { bins: 2, binMinutes: 60 }\narrivals: { kind: const, values: [1] }\nroute: { id: n }\n", Encoding.UTF8);
+    // Intentionally invalid (arrivals length mismatch). No schemaVersion added to test legacy warning path.
         var outDir = Path.Combine(Path.GetTempPath(), "flow-sim-test-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(outDir);
 

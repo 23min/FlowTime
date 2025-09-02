@@ -28,7 +28,7 @@ public class AdapterParityTests
         Assert.Equal(0, exit);
         var goldPath = Path.Combine(outDir, "gold.csv");
         var eventsPath = Path.Combine(outDir, "events.ndjson");
-        var manifestPath = Path.Combine(outDir, "metadata.json");
+    var manifestPath = Path.Combine(outDir, "manifest.json");
         Assert.True(File.Exists(goldPath));
         Assert.True(File.Exists(eventsPath));
         Assert.True(File.Exists(manifestPath));
@@ -186,8 +186,12 @@ public class AdapterParityTests
         Assert.EndsWith("events.ndjson", eventsObj.GetProperty("path").GetString());
         Assert.EndsWith("gold.csv", goldObj.GetProperty("path").GetString());
         // Basic hash sanity: hex length 64
-        Assert.Equal(64, eventsObj.GetProperty("sha256").GetString()!.Length);
-        Assert.Equal(64, goldObj.GetProperty("sha256").GetString()!.Length);
+    string evHash = eventsObj.GetProperty("sha256").GetString()!;
+    string gdHash = goldObj.GetProperty("sha256").GetString()!;
+    if (evHash.StartsWith("sha256:")) evHash = evHash.Substring(7);
+    if (gdHash.StartsWith("sha256:")) gdHash = gdHash.Substring(7);
+    Assert.Equal(64, evHash.Length);
+    Assert.Equal(64, gdHash.Length);
     }
 
     [Fact]

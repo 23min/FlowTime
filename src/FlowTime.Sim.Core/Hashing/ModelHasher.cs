@@ -13,7 +13,7 @@ using YamlDotNet.Serialization.NamingConventions;
 
 namespace FlowTime.Sim.Core;
 
-internal static class ModelHasher
+public static class ModelHasher
 {
     private static readonly IDeserializer deserializer = new DeserializerBuilder()
         .WithNamingConvention(CamelCaseNamingConvention.Instance)
