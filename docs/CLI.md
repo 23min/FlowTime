@@ -79,15 +79,6 @@ Notes:
 - `expr` supports simple forms like `name * <scalar>` or `name + <scalar>`.
 - Numbers use culture-invariant parsing/formatting.
 
-### Output Layout (Contracts Parity)
-Full artifact structure and field semantics: [docs/contracts.md](docs/contracts.md)
-
-CLI guarantees (M1):
-* Writes `spec.yaml` verbatim (no rewrite) plus deterministic hashes.
-* Emits `run.json`, `manifest.json` (unless `--no-manifest`), `series/index.json`, and per-series CSVs.
-* Writes JSON artifacts after all CSVs so `seriesHashes` reflect final bytes.
-* Deterministic run id when `--deterministic-run-id` supplied.
-
 ## VS Code tasks
 
 This repo includes basic tasks:
@@ -118,6 +109,12 @@ Milestone M1 (Contracts Parity):
 * Optional flags `--no-manifest`, `--deterministic-run-id`.
 
 API (SVC-M0): a minimal FlowTime.API HTTP surface (POST /run, GET /graph, GET /healthz), host-agnostic (Functions, ASP.NET Core, etc.). When available, you can run the CLI via API with `--via-api <url>` for parity checks.
+
+### Output Layout (Contracts Parity)
+Exact file/field definitions: [docs/contracts.md](docs/contracts.md). The CLI guarantees:
+* `spec.yaml` persisted verbatim.
+* JSON artifacts (`run.json`, `manifest.json`, `series/index.json`) written after CSVs to finalize hashes.
+* `--no-manifest` suppresses only `manifest.json`; other artifacts unaffected.
 
 See also:
 - Roadmap: docs/ROADMAP.md

@@ -371,14 +371,12 @@ Where `t` is the **bin index** (aligned to the model’s canonical grid). Run/se
 
 ## Artifacts (M1 Contracts Parity)
 
-The deterministic artifact set is defined centrally in `docs/contracts.md`.
+FlowTime emits a deterministic artifact set. Field-level definitions live in [docs/contracts.md](docs/contracts.md). Schemas:
+* [run.schema.json](docs/schemas/run.schema.json)
+* [manifest.schema.json](docs/schemas/manifest.schema.json)
+* [series-index.schema.json](docs/schemas/series-index.schema.json)
 
-Reference specs & schemas:
-* Authoritative field semantics: [docs/contracts.md](docs/contracts.md)
-* Schemas: [run](docs/schemas/run.schema.json), [manifest](docs/schemas/manifest.schema.json), [series index](docs/schemas/series-index.schema.json)
-* Roadmap status: Milestone M1 in [docs/ROADMAP.md](docs/ROADMAP.md)
-
-Stability policy (schemaVersion = 1): additive, non‑breaking fields may appear; existing fields retain meaning. Breaking changes require a version bump.
+See milestone status in [docs/ROADMAP.md](docs/ROADMAP.md). `schemaVersion=1` changes are additive-only; breaking changes will bump the version.
 
 ---
 

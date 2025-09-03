@@ -53,13 +53,11 @@ Blazor default scoped `HttpClient` (UI origin) is used for static `/models/*.yam
 - Manifest viewer: render `run.json` & `manifest.json` (hashes, warnings)
 
 ## Data Loading (Post-M1)
-After Contracts Parity, the UI should pivot to artifact-driven loading:
-1. Fetch `series/index.json` (shape in [contracts.md](contracts.md)) to enumerate series.
-2. Resolve per-series CSV lazily via each `path` entry.
-3. Display run / manifest metadata panels (hashes, seed, grid, warnings).
-4. Ignore optional placeholders (`gold/`, `events.ndjson`) when absent.
+After Contracts Parity (M1) the UI consumes `series/index.json` (see [contracts.md](contracts.md)) to:
+* Enumerate series (id, kind, unit, componentId, class)
+* Lazy load individual CSVs via `path`
 
-This indirection avoids large inline JSON payloads for runs with many series.
+Planned optional formats (gold table, events) are referenced but safely ignored if absent.
 
 ## Keeping Concerns Separate
 No build-time copy of UI into API. Integration for single-domain hosting can be added later via an opt-in MSBuild target or reverse proxy rules.

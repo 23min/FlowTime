@@ -54,12 +54,11 @@ Synthetic adapter tests (SYN-M0):
 - The `.http` file under `apis/FlowTime.API` contains example requests for manual checks.
 
 ### Artifact Contract References
-Authoritative spec: [contracts.md](contracts.md)  
-Schemas: [run](schemas/run.schema.json) · [manifest](schemas/manifest.schema.json) · [series index](schemas/series-index.schema.json)
 
-Test expectations summary:
-1. JSON validates against schemas.
-2. Recomputed per-series CSV hash (LF + invariant formatting) matches `manifest.json`.
-3. Canonicalized `spec.yaml` hash equals `scenarioHash` (and optional `modelHash` if emitted).
-4. Reordering semantically insignificant YAML keys leaves hashes unchanged.
-5. Changing any numeric literal changes `scenarioHash`.
+Authoritative spec: [contracts.md](contracts.md)  
+Schemas: [run](schemas/run.schema.json), [manifest](schemas/manifest.schema.json), [series index](schemas/series-index.schema.json)
+
+Test essentials:
+1. Validate JSON against schemas.
+2. Recompute per-series hash from CSV bytes (LF) and match `manifest.json` `seriesHashes`.
+3. Canonicalize `spec.yaml` and verify `scenarioHash`.

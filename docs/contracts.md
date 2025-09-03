@@ -3,6 +3,8 @@
 > **Status:** v1.0 (artifact-first, domain-neutral)
 > **Applies to:** FlowTime (engine) and FlowTime-Sim (simulator)
 > **Scope:** Canonical **artifacts**, **service/API** surfaces, **streaming**, and **catalog**. Readers and UIs must rely on these contracts. Services are stateless after a run completes—artifacts are the source of truth.
+>
+> Roadmap linkage: Authoritative for milestone **M1 (Contracts Parity)** referenced in [ROADMAP.md](ROADMAP.md). Future milestones MUST treat this document as the single source of truth for artifact fields.
 
 ## Vocabulary (domain-neutral)
 
@@ -41,8 +43,6 @@
 
 ---
 
-## Artifact contracts
-
 ### Schema Files
 
 | Artifact | Schema |
@@ -50,6 +50,10 @@
 | run.json | [schemas/run.schema.json](schemas/run.schema.json) |
 | manifest.json | [schemas/manifest.schema.json](schemas/manifest.schema.json) |
 | series/index.json | [schemas/series-index.schema.json](schemas/series-index.schema.json) |
+
+`modelHash` MAY appear in `run.json` / `manifest.json` (engine internal aid). Tools must rely on `scenarioHash` for identity.
+
+## Artifact contracts
 
 ### Run identifier (runId)
 
@@ -85,7 +89,7 @@ runs/<runId>/
   "engineVersion": "sim-0.1.0",
   "source": "sim",
   "grid": { "bins": 288, "binMinutes": 5, "timezone": "UTC", "align": "left" },
-  "modelHash": "sha256:…",            // OPTIONAL: engine MAY populate; readers must rely on scenarioHash
+  "modelHash": "sha256:…",            // engine may populate both modelHash and scenarioHash
   "scenarioHash": "sha256:…",
   "createdUtc": "2025-09-01T18:30:12Z",
   "warnings": [],
@@ -111,7 +115,7 @@ runs/<runId>/
 ```json
 {
   "schemaVersion": 1,
-  "scenarioHash": "sha256:…",  
+  "scenarioHash": "sha256:…",
   "rng": { "kind": "pcg32", "seed": 12345 },
   "seriesHashes": {
     "arrivals@COMP_A": "sha256:…",
