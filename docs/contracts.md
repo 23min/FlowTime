@@ -273,21 +273,6 @@ t,value    # t = 0..(bins-1), LF newlines, InvariantCulture floats
 ---
 
 ## Catalog.v1 (for diagramming & ID stability)
-  - event: same shape as `events.ndjson`
-  - watermark:
-
-    ```json
-    { "type":"watermark", "runId":"…", "binIndex":123, "simTime":"2025-09-01T08:00:00Z" }
-    ```
-  - heartbeat (optional): `{ "type":"heartbeat", "ts":"…" }`
-  - end: `{ "type":"end" }`
-
-  - order-independent within a bin; snap to left-aligned grid
-  - optional `?resume=<binIndex>` for replay continuity
-  - **parity rule:** file snapshot at “end” must equal accumulated stream for the same `runId`/seed
-
-
-## Catalog.v1 (for diagramming & ID stability)
 
 ```yaml
 version: 1
