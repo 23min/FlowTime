@@ -26,13 +26,15 @@ This repository separates tests by concern:
 
 ### Upcoming (M1 / M1.5) Additions
 
-Artifact & contract tests (landing with "Contracts Parity" milestone M1):
+Artifact & contract tests (Contracts Parity milestone M1):
 
-- JSON Schema validation for `run.json`, `manifest.json`, `index.json`.
-- Hash stability tests: reordering YAML keys must not change `modelHash` / `scenarioHash`.
-- Series integrity: recompute per-series hash from CSV bytes and match `manifest.json` values.
-- Determinism: identical model + seed ⇒ identical hashes & series bytes (excluding time-based runId components if present).
-- Negative: corrupt a CSV then run an integrity check expecting mismatch detection (future CLI command or test helper).
+* JSON Schema validation for `run.json`, `manifest.json`, `series/index.json`.
+* Canonical model hashing: verify `spec.yaml` canonicalization (strip comments, normalize LF, trim trailing whitespace, collapse blank lines, key-order insensitive) produces stable `scenarioHash` / `modelHash`.
+* Hash stability: reordering YAML keys or list of node definitions (where order is semantically irrelevant) must not change hashes.
+* Series integrity: recompute each per-series hash from raw CSV bytes (LF newlines, invariant formatting) and match `manifest.json` values.
+* Determinism: identical model + RNG seed ⇒ identical hashes & CSV byte sequences (excluding runId if non-deterministic timestamp segment is allowed; when `--deterministic-run-id` used runId must also match).
+* RNG object: validate `rng.kind` and `rng.seed` presence and that varying seed changes scenarioHash only when model content identical.
+* Negative: corrupt a CSV then run an integrity check expecting mismatch detection (future CLI command or test helper).
 
 Expression tests (M1.5):
 - Parser correctness (precedence, associativity, references).

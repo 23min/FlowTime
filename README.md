@@ -315,7 +315,7 @@ Deferred to next milestones: backlog/queues, routing, autoscale; backend; SPA vi
 
 A high‑level view of upcoming work (details live in `docs/ROADMAP.md`):
 
-* **M1 — Contracts Parity**: artifact freeze (`run.json`, `manifest.json`, `index.json`, per‑series hashes) + deterministic formatting & hashing.
+* **M1 — Contracts Parity**: artifact freeze (`spec.yaml`, `run.json` w/ `source` & expanded `grid`, `manifest.json` w/ `rng` object, `series/index.json` + per‑series hashes, placeholders `events.ndjson`, `gold/`) + deterministic formatting & hashing.
 * **M1.5 — Expressions**: parser + references + basic built‑ins (unblocks richer nodes & PMF composition).
 * **M2 — PMF (expected value)**: basic PMF nodes with normalization warnings.
 * **M3 — (reserved / potential hygiene)**: may absorb overflow from earlier milestones.
@@ -341,7 +341,24 @@ A high‑level view of upcoming work (details live in `docs/ROADMAP.md`):
 
 ## Data & formats
 
-**CSV outputs** use a simple, culture‑invariant, human‑readable schema per series (example). Beginning with Contracts Parity (M1.5) each run also emits `run.json`, `manifest.json` (hashes & warnings), `index.json`, plus per-series CSV files under `runs/<runId>/`.
+**CSV outputs** use a simple, culture‑invariant, human‑readable schema per series (example). Beginning with Contracts Parity (M1) each run also emits a set of deterministic artifacts under `runs/<runId>/`:
+
+```
+runs/<runId>/
+  spec.yaml              # canonicalized copy of the submitted model (for hashing)
+  run.json               # run metadata (schemaVersion, runId, engineVersion, source, grid{bins,binMinutes,timezone,align}, scenarioHash, modelHash?, warnings[], series[], events{schemaVersion,fieldsReserved[]})
+  manifest.json          # manifest (schemaVersion, scenarioHash, rng{kind,seed}, seriesHashes{}, eventCount, createdUtc, modelHash optional)
+  series/
+    index.json           # series metadata (ids, kind, unit, componentId, class, points, hash, formats.goldTable placeholder)
+    <series>.csv         # per-series time series (t,value)
+  events.ndjson          # (placeholder for future structured events)
+  gold/                  # (placeholder directory for normalized “gold table” view)
+```
+
+Determinism rules (enforced progressively through M1):
+* Canonical YAML hashing: strip comments, normalize line endings (LF), trim trailing whitespace, collapse blank line runs, key-order insensitive.
+* Hashes: SHA‑256 prefixed `sha256:` for model/scenario and per-series content (raw CSV bytes, LF newlines, invariant `G17` formatting for doubles).
+* Stable ordering: series entries listed in deterministic order (e.g., lexical by id) so `index.json` diff noise is avoided.
 
 ```
 t,value
@@ -350,7 +367,7 @@ t,value
 2,15.0
 ```
 
-Where `t` is the **bin index** (aligned to the model’s canonical grid). Additional metadata (grid size, bin minutes, model hash) will be emitted alongside results in future milestones.
+Where `t` is the **bin index** (aligned to the model’s canonical grid). Run/series metadata (grid, hashes, RNG, units, warnings) lives in the JSON companions above to keep CSV lean and diff‑friendly.
 
 ---
 

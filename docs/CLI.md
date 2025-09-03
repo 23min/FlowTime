@@ -1,4 +1,4 @@
-# FlowTime CLI Guide (M0)
+# FlowTime CLI Guide (M0 → M1)
 
 This guide shows how to build, test, and run the FlowTime CLI at milestone M0.
 Examples use PowerShell by default (Windows-first), with Bash equivalents where syntax differs.
@@ -38,19 +38,20 @@ dotnet run --project src/FlowTime.Cli -- run examples/hello/model.yaml --out out
 head -n 5 out/hello/served.csv
 ```
 
-Outputs are written to the directory passed via `--out` (e.g., `out/hello`).
+Outputs are written to the directory passed via `--out` (e.g., `out/hello`). Beginning in M1 (Contracts Parity) runs will emit a structured artifact set under `runs/<runId>/` (see README) including `spec.yaml`, `run.json`, `manifest.json`, `series/index.json`, and per‑series CSV files.
 
 ## Usage
 
 ```text
-flowtime run <model.yaml> [--out <dir>] [--verbose] [--via-api <url>]
+flowtime run <model.yaml> [--out <dir>] [--verbose] [--via-api <url>] [--no-manifest] [--deterministic-run-id]
 ```
 
 Options:
-- `--out <dir>`: Output directory (default `out/run`).
-- `--verbose`: Print a short run summary (grid, topo order, outputs).
-- `--via-api <url>`: Optional. Route the run through the API for parity testing.
-  - Note: Until the API milestone (SVC-M0) ships, this flag logs a notice and falls back to local execution.
+* `--out <dir>`: Output directory (default `out/run`).
+* `--verbose`: Print a short run summary (grid, topo order, outputs).
+* `--via-api <url>`: Optional. Route the run through the API for parity testing (falls back to local eval until API matures).
+* `--no-manifest`: (Planned M1) Suppress writing `manifest.json` (useful for performance / experiments).
+* `--deterministic-run-id`: (Planned M1) Force a stable runId derived from hashes instead of timestamp randomness (improves reproducibility in tests).
  - Help: `-h`, `--help`, `/?`, `/h` — print usage and exit 0.
 
 ## Model format (M0)
@@ -102,8 +103,12 @@ Tip: In Bash shells, the dotnet commands are identical; only shell utilities (li
 
 ## What’s next
 
-- API (SVC-M0): a minimal FlowTime.API HTTP surface (POST /run, GET /graph, GET /healthz), host-agnostic (Functions, ASP.NET Core, etc.).
-- When available, you can run the CLI via API with `--via-api <url>` for parity checks.
+Milestone M1 (Contracts Parity):
+* Deterministic artifact set (`spec.yaml`, `run.json`, `manifest.json`, `series/index.json`, per‑series CSVs, placeholders for `events.ndjson` and `gold/`).
+* Per-series and scenario hashing (SHA-256) with canonical YAML normalization.
+* Optional flags `--no-manifest`, `--deterministic-run-id`.
+
+API (SVC-M0): a minimal FlowTime.API HTTP surface (POST /run, GET /graph, GET /healthz), host-agnostic (Functions, ASP.NET Core, etc.). When available, you can run the CLI via API with `--via-api <url>` for parity checks.
 
 See also:
 - Roadmap: docs/ROADMAP.md
