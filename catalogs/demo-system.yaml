@@ -1,0 +1,21 @@
+version: 1
+metadata:
+  id: "demo-system"
+  title: "Demo Processing System"
+  description: "Simple two-component system for testing SIM-CAT-M2"
+components:
+  - id: COMP_A
+    label: "Component A"
+    description: "Entry point component"
+  - id: COMP_B
+    label: "Component B"
+    description: "Processing component"
+connections:
+  - from: COMP_A
+    to: COMP_B
+    label: "Primary flow"
+classes: 
+  - "DEFAULT"
+layoutHints:
+  rankDir: LR
+  spacing: 100

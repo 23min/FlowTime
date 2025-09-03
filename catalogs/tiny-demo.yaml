@@ -1,0 +1,14 @@
+version: 1
+metadata:
+  id: "tiny-demo"
+  title: "Minimal Single Node"
+  description: "Single component system for basic testing"
+components:
+  - id: nodeA
+    label: "Node A"
+    description: "Single processing node"
+connections: []
+classes: 
+  - "DEFAULT"
+layoutHints:
+  rankDir: LR

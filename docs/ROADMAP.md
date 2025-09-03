@@ -135,7 +135,7 @@ time_bin (UTC start), component_id, class, arrivals, served, errors
 
 ---
 
-### SIM-M2 — Artifact Parity & Series Index (current)
+### SIM-M2 — Artifact Parity & Series Index — **✅ Done**
 
 - **Scope Update (2025-09-02)** Event enrichment, Parquet Gold table, and Service/API endpoints deferred (see SIM-SVC-M2). SIM-M2 now focuses solely on producing a stable artifact pack (dual JSON + per-series CSVs + index) with deterministic hashing & integrity tests.
 - **Goal** Provide a minimal, frozen artifact layout consumable by adapters/UI (no service dependency).
@@ -185,7 +185,7 @@ layoutHints:
 
 ---
 
-### **SIM-SVC-M2 — Minimal Sim Service/API (artifact-centric)**
+### **SIM-SVC-M2 — Minimal Sim Service/API (artifact-centric)** — **✅ Done**
 
 - **Goal** Expose Sim as a **stateless HTTP service** so FlowTime UI can request scenarios/runs directly.
 - **API (minimum viable)**
