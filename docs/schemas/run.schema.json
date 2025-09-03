@@ -61,7 +61,7 @@
     },
     "$defs": {
         "hash": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
-    "seriesId": { "type": "string", "pattern": "^[A-Za-z0-9._@-]+$", "minLength": 1 },
+        "seriesId": { "type": "string", "pattern": "^[A-Za-z0-9._@-]+$", "minLength": 1 },
         "seriesEntry": {
             "type": "object",
             "additionalProperties": false,
