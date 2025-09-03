@@ -21,12 +21,18 @@ string modelPath = args.Length > 1 ? args[1] : throw new ArgumentException("Miss
 string outDir = "out/run";
 bool verbose = false;
 bool deterministicRunId = false;
+int? rngSeed = null;
 string? viaApi = null;
 for (int i = 2; i < args.Length; i++)
 {
 	if (args[i] == "--out" && i + 1 < args.Length) { outDir = args[++i]; }
 	else if (args[i] == "--verbose") { verbose = true; }
 	else if (args[i] == "--deterministic-run-id") { deterministicRunId = true; }
+	else if (args[i] == "--seed" && i + 1 < args.Length) 
+	{ 
+		if (int.TryParse(args[++i], out var seed)) rngSeed = seed;
+		else throw new ArgumentException($"Invalid seed value: {args[i]}");
+	}
 	else if (args[i] == "--via-api" && i + 1 < args.Length) { viaApi = args[++i]; }
 }
 Directory.CreateDirectory(outDir);
@@ -156,12 +162,13 @@ Directory.CreateDirectory(seriesDir);
 File.WriteAllText(Path.Combine(seriesDir, "index.json"), System.Text.Json.JsonSerializer.Serialize(index, JsonOpts.Value), System.Text.Encoding.UTF8);
 
 // Build manifest.json
+var finalSeed = rngSeed ?? Random.Shared.Next(0, int.MaxValue); // use provided seed or generate random
 var manifest = new ManifestJson
 {
 	SchemaVersion = 1,
 	ScenarioHash = runJson.ScenarioHash,
 	ModelHash = runJson.ModelHash,
-	Rng = new RngJson { Kind = "pcg32", Seed = 0 }, // seed placeholder
+	Rng = new RngJson { Kind = "pcg32", Seed = finalSeed },
 	SeriesHashes = seriesHashes,
 	EventCount = 0,
 	CreatedUtc = DateTime.UtcNow.ToString("o")
@@ -170,6 +177,8 @@ File.WriteAllText(Path.Combine(runDir, "manifest.json"), System.Text.Json.JsonSe
 
 // Validate generated artifacts against JSON Schema
 ValidateArtifacts(runDir, verbose);
+
+if (verbose) Console.WriteLine($"  RNG seed: {finalSeed} ({(rngSeed.HasValue ? "provided" : "generated")})");
 
 Console.WriteLine($"Wrote artifacts to {runDir}");
 return 0;
@@ -189,11 +198,12 @@ static void PrintUsage()
 {
 	Console.WriteLine("FlowTime CLI (M0)\n");
 	Console.WriteLine("Usage:");
-	Console.WriteLine("  flowtime run <model.yaml> [--out <dir>] [--verbose] [--deterministic-run-id] [--via-api <url>]\n");
+	Console.WriteLine("  flowtime run <model.yaml> [--out <dir>] [--verbose] [--deterministic-run-id] [--seed <n>] [--via-api <url>]\n");
 	Console.WriteLine("Options:");
 	Console.WriteLine("  --out <dir>             Output directory (default: out/run)");
 	Console.WriteLine("  --verbose               Print grid/topology/output summary");
 	Console.WriteLine("  --deterministic-run-id  Generate deterministic runId based on scenario hash (for testing/CI)");
+	Console.WriteLine("  --seed <n>              RNG seed for reproducible results (default: random)");
 	Console.WriteLine("  --via-api <url>         Route run via API for parity (falls back to local until SVC-M0)\n");
 	Console.WriteLine("Help:");
 	Console.WriteLine("  -h | --help | /?        Print this help and exit");
@@ -201,6 +211,7 @@ static void PrintUsage()
 	Console.WriteLine("Examples:");
 	Console.WriteLine("  flowtime run examples/hello/model.yaml --out out/hello --verbose");
 	Console.WriteLine("  flowtime run examples/hello/model.yaml --deterministic-run-id --out out/deterministic");
+	Console.WriteLine("  flowtime run examples/hello/model.yaml --seed 42 --verbose");
 }
 
 static void ValidateArtifacts(string runDir, bool verbose)
