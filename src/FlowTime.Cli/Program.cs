@@ -100,8 +100,6 @@ foreach (var output in model.Outputs)
 		w.NewLine = "\n";
 		w.WriteLine("t,value");
 		for (int t = 0; t < s.Length; t++)
-			w.Write(t);
-		for (int t = 0; t < s.Length; t++)
 		{
 			w.Write(t);
 			w.Write(',');
