@@ -178,11 +178,13 @@ dotnet run --project src/FlowTime.Cli -- run examples/hello/model.yaml --out out
 
 ---
 
-## SVC-M0 — Minimal API (FlowTime.API)
+## SVC-M0 — Minimal API (FlowTime.API) ✅ COMPLETED
 
 ### Goal
 
 Introduce a thin, stateless HTTP surface so everything can be driven via API early. Enables UI to talk to the API and automation to call runs without the CLI. Hosting is implementation-agnostic (Functions, ASP.NET Core, or other), exposed via FlowTime.API.
+
+**Status**: All functional requirements implemented and verified.
 
 ### Functional Requirements
 
@@ -249,11 +251,13 @@ CLI/API parity; artifacts normalized; unified logs/auth.
 
 ---
 
-## UI-M0 — Minimal Observer UI
+## UI-M0 — Minimal Observer UI ✅ COMPLETED
 
 ### Goal
 
 Provide a first, minimal visualization: plot CSV outputs in a SPA (planned for a later milestone; not part of M0).
+
+**Status**: All functional requirements implemented and verified.
 
 ### Functional Requirements
 
@@ -286,9 +290,11 @@ ui/FlowTime.UI/
 
 ---
 
-## SYN-M0 — Synthetic Adapter (File)
+## SYN-M0 — Synthetic Adapter (File) ✅ COMPLETED
 
 ### Acceptance criteria
+
+**Status**: All functional requirements implemented and verified.
 
 * **Reads FlowTime/Sim file artifacts** from disk and exposes **typed, grid-aligned series**:
 
