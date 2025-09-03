@@ -11,12 +11,13 @@ Legend: Done / Prototype / Partial / Planned.
 | CLI | Evaluate YAML -> CSV + structured artifacts | Done (M1) | Deterministic artifacts with hashing |
 | CLI Flags | --deterministic-run-id, --seed, determinism | Done (M1) | Full determinism support |
 | API | /healthz, /run, /graph | Done (SVC-M0) | Full API implementation with parity tests |
+| API Artifacts | /runs/{runId}/index, /runs/{runId}/series/{seriesId} | Done (SVC-M1) | Artifact serving via SYN-M0 adapters |
 | UI | Health/Run/Graph demo, dark theme, simulation toggle | Done (UI-M0) | Complete SPA with API integration |
 | UI Graph | Structural table (order, degrees, roles) | Done | Visual DAG planned for later |
 | Simulation Mode | Deterministic synthetic run + graph | Done | Toggle persisted (flag + query) |
 | Synthetic Adapter (SYN-M0) | Read artifacts & produce series | Done (SYN-M0) | FileSeriesReader, RunArtifactAdapter complete |
 | Backlog & Latency | Single-queue backlog + Little's Law latency | Planned (M7) | Not pulled forward in current roadmap |
-| Testing | Core unit tests & API slice + CLI parity | Done | 29/29 tests passing including artifact validation |
+| Testing | Core unit tests & API slice + CLI parity + artifact endpoints | Done | 33/33 tests passing including artifact validation |
 | Docs | README, roadmap, node concepts, releases | Done | Complete documentation for all milestones |
 
 This matrix will evolve; see `docs/ROADMAP.md` for full milestone detail.
