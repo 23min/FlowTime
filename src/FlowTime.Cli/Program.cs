@@ -1,6 +1,7 @@
 ﻿using FlowTime.Core;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
+using YamlDotNet.RepresentationModel; // for canonical hashing
 
 if (args.Length == 0 || IsHelp(args[0]))
 {
@@ -66,18 +67,101 @@ if (verbose)
 	Console.WriteLine("  Topological order: " + string.Join(" -> ", order.Select(o => o.Value)));
 }
 
+// M1 artifact layout: runs/<runId>/...
+var runId = $"engine_{DateTime.UtcNow:yyyyMMddTHHmmssZ}_{Guid.NewGuid().ToString("N")[..8]}"; // placeholder deterministic-run-id flag to come
+var runDir = Path.Combine(outDir, runId);
+var seriesDir = Path.Combine(runDir, "series");
+Directory.CreateDirectory(seriesDir);
+Directory.CreateDirectory(Path.Combine(runDir, "gold")); // placeholder
+
+// Persist spec.yaml verbatim (line ending normalized) and compute canonical scenario/model hash
+var specVerbatim = yaml.Replace("\r\n", "\n");
+File.WriteAllText(Path.Combine(runDir, "spec.yaml"), specVerbatim);
+var scenarioHash = ComputeScenarioHash(specVerbatim);
+
+var seriesMetas = new List<SeriesMeta>();
+var seriesHashes = new Dictionary<string,string>();
+
+// Write per-series CSVs based on requested outputs only (M0 behavior)
 foreach (var output in model.Outputs)
 {
-	var id = new NodeId(output.Series);
-	var s = ctx[id];
-	var path = Path.Combine(outDir, output.As);
-	using var w = new StreamWriter(path);
-	w.WriteLine("t,value");
-	for (int t = 0; t < s.Length; t++) w.WriteLine($"{t},{s[t].ToString(System.Globalization.CultureInfo.InvariantCulture)}");
-	if (verbose) Console.WriteLine($"  Wrote {output.As} ({s.Length} rows)");
+	var nodeId = new NodeId(output.Series);
+	var s = ctx[nodeId];
+	var seriesId = output.Series + "@" + (nodeId.Value.ToUpperInvariant()); // temporary component mapping = node id upper
+	var csvName = seriesId + ".csv";
+	var path = Path.Combine(seriesDir, csvName);
+	using (var w = new StreamWriter(path, false, System.Text.Encoding.UTF8, 4096))
+	{
+		w.NewLine = "\n";
+		w.WriteLine("t,value");
+		for (int t = 0; t < s.Length; t++)
+			w.Write(t);
+		for (int t = 0; t < s.Length; t++)
+		{
+			w.Write(t);
+			w.Write(',');
+			w.Write(s[t].ToString(System.Globalization.CultureInfo.InvariantCulture));
+			w.Write('\n');
+		}
+	}
+	var bytes = File.ReadAllBytes(path);
+	var hash = "sha256:" + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes)).ToLowerInvariant();
+	seriesHashes[seriesId] = hash;
+	seriesMetas.Add(new SeriesMeta
+	{
+		Id = seriesId,
+		Kind = "flow", // until more kinds
+		Path = $"series/{csvName}",
+		Unit = "entities/bin",
+		ComponentId = nodeId.Value.ToUpperInvariant(),
+		Class = "DEFAULT",
+		Points = s.Length,
+		Hash = hash
+	});
+	if (verbose) Console.WriteLine($"  Wrote {csvName} ({s.Length} rows)");
 }
 
-Console.WriteLine($"Wrote outputs to {outDir}");
+// Build run.json
+var runJson = new RunJson
+{
+	SchemaVersion = 1,
+	RunId = runId,
+	EngineVersion = "0.1.0", // TODO: derive from assembly
+	Source = "engine",
+	Grid = new GridJson { Bins = grid.Bins, BinMinutes = grid.BinMinutes, Timezone = "UTC", Align = "left" },
+	ScenarioHash = scenarioHash,
+	ModelHash = scenarioHash, // engine MAY emit modelHash; using same canonical hash for now
+	Warnings = Array.Empty<string>(),
+	Series = seriesMetas.Select(m => new RunSeriesEntry { Id = m.Id, Path = m.Path, Unit = m.Unit }).ToList(),
+	Events = new EventsJson { SchemaVersion = 0, FieldsReserved = new[]{"entityType","eventType","componentId","connectionId","class","simTime","wallTime","correlationId","attrs"} }
+};
+File.WriteAllText(Path.Combine(runDir, "run.json"), System.Text.Json.JsonSerializer.Serialize(runJson, JsonOpts.Value), System.Text.Encoding.UTF8);
+
+// Build series/index.json
+var index = new SeriesIndexJson
+{
+	SchemaVersion = 1,
+	Grid = new IndexGridJson { Bins = grid.Bins, BinMinutes = grid.BinMinutes, Timezone = "UTC" },
+	Series = seriesMetas,
+	Formats = new FormatsJson { GoldTable = new GoldTableJson { Path = "gold/node_time_bin.parquet", Dimensions = new[]{"time_bin","component_id","class"}, Measures = new[]{"arrivals","served","errors"} } }
+};
+Directory.CreateDirectory(seriesDir);
+File.WriteAllText(Path.Combine(seriesDir, "index.json"), System.Text.Json.JsonSerializer.Serialize(index, JsonOpts.Value), System.Text.Encoding.UTF8);
+
+// Build manifest.json
+var manifest = new ManifestJson
+{
+	SchemaVersion = 1,
+	ScenarioHash = runJson.ScenarioHash,
+	ModelHash = runJson.ModelHash,
+	Rng = new RngJson { Kind = "pcg32", Seed = 0 }, // seed placeholder
+	SeriesHashes = seriesHashes,
+	EventCount = 0,
+	CreatedUtc = DateTime.UtcNow.ToString("o")
+};
+File.WriteAllText(Path.Combine(runDir, "manifest.json"), System.Text.Json.JsonSerializer.Serialize(manifest, JsonOpts.Value), System.Text.Encoding.UTF8);
+
+Console.WriteLine($"Wrote artifacts to {runDir}");
 return 0;
 
 static bool IsHelp(string? s)
@@ -106,6 +190,114 @@ static void PrintUsage()
 	Console.WriteLine("Examples:");
 	Console.WriteLine("  flowtime run examples/hello/model.yaml --out out/hello --verbose");
 }
+
+	// Internal artifact DTOs (M1 minimal set)
+	static string ComputeScenarioHash(string yamlText)
+	{
+		// 1. Normalize line endings already done prior. Trim trailing whitespace lines & collapse blank runs.
+		var lines = yamlText.Split('\n');
+		var sbClean = new System.Text.StringBuilder();
+		bool lastBlank = false;
+		foreach (var raw in lines)
+		{
+			var trimmedEnd = raw.TrimEnd();
+			bool isBlank = trimmedEnd.Length == 0;
+			if (isBlank)
+			{
+				if (lastBlank) continue; // collapse multiple blanks
+				lastBlank = true;
+			}
+			else lastBlank = false;
+			sbClean.Append(trimmedEnd).Append('\n');
+		}
+		var normalized = sbClean.ToString();
+		// 2. Parse YAML and produce key-order-insensitive canonical string
+		var stream = new YamlStream();
+		using (var reader = new System.IO.StringReader(normalized)) stream.Load(reader);
+		if (stream.Documents.Count == 0) return "sha256:" + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(""))).ToLowerInvariant();
+		var root = stream.Documents[0].RootNode;
+		var sb = new System.Text.StringBuilder();
+		void WriteNode(YamlNode node)
+		{
+			switch (node)
+			{
+				case YamlMappingNode map:
+					// sort keys lexicographically (ordinal)
+					var children = map.Children
+						.OrderBy(k => (k.Key as YamlScalarNode)?.Value, StringComparer.Ordinal);
+					bool first = true;
+					sb.Append('{');
+					foreach (var kv in children)
+					{
+						if (!first) sb.Append(',');
+						first = false;
+						var key = (kv.Key as YamlScalarNode)?.Value ?? "";
+						sb.Append('"').Append(Escape(key.Trim())).Append('"').Append(':');
+						WriteNode(kv.Value);
+					}
+					sb.Append('}');
+					break;
+				case YamlSequenceNode seq:
+					sb.Append('[');
+					for (int i = 0; i < seq.Children.Count; i++)
+					{
+						if (i > 0) sb.Append(',');
+						WriteNode(seq.Children[i]);
+					}
+					sb.Append(']');
+					break;
+				case YamlScalarNode scalar:
+					var v = scalar.Value ?? string.Empty;
+					// normalize numeric formatting if parseable
+					if (double.TryParse(v, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var d))
+					{
+						sb.Append(d.ToString("G17", System.Globalization.CultureInfo.InvariantCulture));
+					}
+					else
+					{
+						sb.Append('"').Append(Escape(v.Trim())).Append('"');
+					}
+					break;
+			}
+		}
+		static string Escape(string s) => s.Replace("\\", "\\\\").Replace("\"", "\\\"");
+		WriteNode(root);
+		var canonical = sb.ToString();
+		var bytes = System.Text.Encoding.UTF8.GetBytes(canonical);
+		var hash = System.Security.Cryptography.SHA256.HashData(bytes);
+		return "sha256:" + Convert.ToHexString(hash).ToLowerInvariant();
+	}
+	file static class JsonOpts
+	{
+		public static readonly System.Text.Json.JsonSerializerOptions Value = new(System.Text.Json.JsonSerializerDefaults.Web)
+		{
+			WriteIndented = true
+		};
+	}
+	file sealed record RunJson
+	{
+		public int SchemaVersion { get; set; }
+		public string RunId { get; set; } = "";
+		public string EngineVersion { get; set; } = "";
+		public string Source { get; set; } = "engine";
+		public GridJson Grid { get; set; } = new();
+		public string? ModelHash { get; set; }
+		public string ScenarioHash { get; set; } = "";
+		public string CreatedUtc { get; set; } = DateTime.UtcNow.ToString("o");
+		public string[] Warnings { get; set; } = Array.Empty<string>();
+		public List<RunSeriesEntry> Series { get; set; } = new();
+		public EventsJson Events { get; set; } = new();
+	}
+	file sealed record GridJson { public int Bins { get; set; } public int BinMinutes { get; set; } public string Timezone { get; set; } = "UTC"; public string Align { get; set; } = "left"; }
+	file sealed record RunSeriesEntry { public string Id { get; set; } = ""; public string Path { get; set; } = ""; public string Unit { get; set; } = ""; }
+	file sealed record EventsJson { public int SchemaVersion { get; set; } public string[] FieldsReserved { get; set; } = Array.Empty<string>(); }
+	file sealed record ManifestJson { public int SchemaVersion { get; set; } public string ScenarioHash { get; set; } = ""; public RngJson Rng { get; set; } = new(); public Dictionary<string,string> SeriesHashes { get; set; } = new(); public int EventCount { get; set; } public string CreatedUtc { get; set; } = ""; public string? ModelHash { get; set; } }
+	file sealed record RngJson { public string Kind { get; set; } = "pcg32"; public int Seed { get; set; } }
+	file sealed record SeriesIndexJson { public int SchemaVersion { get; set; } public IndexGridJson Grid { get; set; } = new(); public List<SeriesMeta> Series { get; set; } = new(); public FormatsJson Formats { get; set; } = new(); }
+	file sealed record IndexGridJson { public int Bins { get; set; } public int BinMinutes { get; set; } public string Timezone { get; set; } = "UTC"; }
+	file sealed record SeriesMeta { public string Id { get; set; } = ""; public string Kind { get; set; } = "flow"; public string Path { get; set; } = ""; public string Unit { get; set; } = ""; public string ComponentId { get; set; } = ""; public string Class { get; set; } = "DEFAULT"; public int Points { get; set; } public string Hash { get; set; } = ""; }
+	file sealed record FormatsJson { public GoldTableJson GoldTable { get; set; } = new(); }
+	file sealed record GoldTableJson { public string Path { get; set; } = "gold/node_time_bin.parquet"; public string[] Dimensions { get; set; } = Array.Empty<string>(); public string[] Measures { get; set; } = Array.Empty<string>(); }
 
 // DTOs for YAML
 public sealed class ModelDto
