@@ -1,4 +1,11 @@
-# FlowTime-Sim Roadmap (v1.2, domain-neutral, SIM-Mx, API-enabled)
+# FlowT## Status Summary (✅ = Done)
+
+- **SIM-M0 — Skeleton & Contracts** — **✅ Done**
+- **SIM-M1 — Foundations & Determinism Hardening** — **✅ Done**
+- **SIM-M2 — Artifact Parity & Series Index** — **✅ Done**
+- **SIM-SVC-M2 — Minimal Sim Service/API** — **✅ Done**
+
+> v1.2 tightens **artifact parity** with FlowTime, adds a tiny **Catalog.v1** for structure/diagramming, and a **minimal Sim Service/API** so FlowTime UI can call Sim directly (or via FlowTime's optional proxy). It also clarifies **per-component series enumeration**, **latency semantics**, and **streaming details**.m Roadmap (v1.2, domain-neutral, SIM-Mx, API-enabled)
 
 > **Purpose:** Single source of truth with sequenced milestones (SIM-M0…SIM-M10+) spanning Core/Generators, **Service/API**, and artifacts. Each milestone states **Goal, Why, Inputs, Outputs, Code, CLI/API, Acceptance**.
 > **Scope:** FlowTime-Sim generates **synthetic events** and **Gold, bin-aligned series** compatible with FlowTime’s contracts (**run.json** + **series/index.json** + per-series CSV/Parquet). It remains **domain-neutral**.
