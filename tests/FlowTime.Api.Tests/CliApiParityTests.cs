@@ -51,8 +51,17 @@ public class CliApiParityTests : IClassFixture<WebApplicationFactory<Program>>
         proc.WaitForExit();
         Assert.Equal(0, proc.ExitCode);
 
-        var csvPath = Path.Combine(outDir, "served.csv");
-        Assert.True(File.Exists(csvPath), $"CLI did not produce served.csv. Stdout: {stdout}\nStderr: {stderr}");
+        // Find the engine artifact directory from CLI output
+        // CLI outputs: "Wrote artifacts to {path}"
+        var match = System.Text.RegularExpressions.Regex.Match(stdout, @"Wrote artifacts to (.+)");
+        Assert.True(match.Success, $"CLI stdout did not contain expected 'Wrote artifacts to' message. Stdout: {stdout}\nStderr: {stderr}");
+        var artifactDir = match.Groups[1].Value.Trim();
+        Assert.True(Directory.Exists(artifactDir), $"Artifact directory {artifactDir} does not exist");
+        
+        // Look for the served series CSV file
+        var seriesDir = Path.Combine(artifactDir, "series");
+        var csvPath = Path.Combine(seriesDir, "served@SERVED@DEFAULT.csv");
+        Assert.True(File.Exists(csvPath), $"CLI did not produce served CSV at {csvPath}. Stdout: {stdout}\nStderr: {stderr}");
         var cliValues = File.ReadAllLines(csvPath)
             .Skip(1) // header
             .Where(l => !string.IsNullOrWhiteSpace(l))
