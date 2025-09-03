@@ -8,6 +8,7 @@
   "properties": {
     "schemaVersion": { "type": "integer", "const": 1 },
     "scenarioHash": { "$ref": "#/$defs/hash" },
+    "modelHash": { "$ref": "#/$defs/hash" },
     "rng": {
       "type": "object",
       "additionalProperties": false,
