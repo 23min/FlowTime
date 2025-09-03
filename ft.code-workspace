@@ -1,0 +1,10 @@
+{
+  "folders": [
+    { "path": "." },
+    { "path": "../flowtime-sim-vnext" }
+  ],
+  "settings": {
+    "git.autoRepositoryDetection": "openEditors",
+    "files.exclude": { "**/bin": true, "**/obj": true }
+  }
+}
