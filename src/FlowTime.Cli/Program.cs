@@ -18,11 +18,13 @@ if (args[0] != "run")
 string modelPath = args.Length > 1 ? args[1] : throw new ArgumentException("Missing model.yaml path");
 string outDir = "out/run";
 bool verbose = false;
+bool deterministicRunId = false;
 string? viaApi = null;
 for (int i = 2; i < args.Length; i++)
 {
 	if (args[i] == "--out" && i + 1 < args.Length) { outDir = args[++i]; }
 	else if (args[i] == "--verbose") { verbose = true; }
+	else if (args[i] == "--deterministic-run-id") { deterministicRunId = true; }
 	else if (args[i] == "--via-api" && i + 1 < args.Length) { viaApi = args[++i]; }
 }
 Directory.CreateDirectory(outDir);
@@ -67,17 +69,20 @@ if (verbose)
 	Console.WriteLine("  Topological order: " + string.Join(" -> ", order.Select(o => o.Value)));
 }
 
+// Persist spec.yaml verbatim (line ending normalized) and compute canonical scenario/model hash
+var specVerbatim = yaml.Replace("\r\n", "\n");
+var scenarioHash = ComputeScenarioHash(specVerbatim);
+
 // M1 artifact layout: runs/<runId>/...
-var runId = $"engine_{DateTime.UtcNow:yyyyMMddTHHmmssZ}_{Guid.NewGuid().ToString("N")[..8]}"; // placeholder deterministic-run-id flag to come
+var runId = deterministicRunId ? 
+	$"engine_deterministic_{scenarioHash[7..15]}" : // use first 8 chars of hash for deterministic case
+	$"engine_{DateTime.UtcNow:yyyyMMddTHHmmssZ}_{Guid.NewGuid().ToString("N")[..8]}";
 var runDir = Path.Combine(outDir, runId);
 var seriesDir = Path.Combine(runDir, "series");
 Directory.CreateDirectory(seriesDir);
 Directory.CreateDirectory(Path.Combine(runDir, "gold")); // placeholder
 
-// Persist spec.yaml verbatim (line ending normalized) and compute canonical scenario/model hash
-var specVerbatim = yaml.Replace("\r\n", "\n");
 File.WriteAllText(Path.Combine(runDir, "spec.yaml"), specVerbatim);
-var scenarioHash = ComputeScenarioHash(specVerbatim);
 
 var seriesMetas = new List<SeriesMeta>();
 var seriesHashes = new Dictionary<string,string>();
@@ -179,16 +184,18 @@ static void PrintUsage()
 {
 	Console.WriteLine("FlowTime CLI (M0)\n");
 	Console.WriteLine("Usage:");
-	Console.WriteLine("  flowtime run <model.yaml> [--out <dir>] [--verbose] [--via-api <url>]\n");
+	Console.WriteLine("  flowtime run <model.yaml> [--out <dir>] [--verbose] [--deterministic-run-id] [--via-api <url>]\n");
 	Console.WriteLine("Options:");
-	Console.WriteLine("  --out <dir>         Output directory (default: out/run)");
-	Console.WriteLine("  --verbose           Print grid/topology/output summary");
-	Console.WriteLine("  --via-api <url>     Route run via API for parity (falls back to local until SVC-M0)\n");
+	Console.WriteLine("  --out <dir>             Output directory (default: out/run)");
+	Console.WriteLine("  --verbose               Print grid/topology/output summary");
+	Console.WriteLine("  --deterministic-run-id  Generate deterministic runId based on scenario hash (for testing/CI)");
+	Console.WriteLine("  --via-api <url>         Route run via API for parity (falls back to local until SVC-M0)\n");
 	Console.WriteLine("Help:");
-	Console.WriteLine("  -h | --help | /?    Print this help and exit");
+	Console.WriteLine("  -h | --help | /?        Print this help and exit");
 	Console.WriteLine();
 	Console.WriteLine("Examples:");
 	Console.WriteLine("  flowtime run examples/hello/model.yaml --out out/hello --verbose");
+	Console.WriteLine("  flowtime run examples/hello/model.yaml --deterministic-run-id --out out/deterministic");
 }
 
 	// Internal artifact DTOs (M1 minimal set)
