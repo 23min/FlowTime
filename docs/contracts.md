@@ -21,7 +21,7 @@
 - Breaking changes bump schemaVersion (e.g., adding `queue_depth` in Sim v2).
 - Keep **engine** vs **sim** differences explicit via the `source` field and series naming (see Units & semantics).
 
-## Determinism rules (for hashing, parity, CI)
+## Determinism rules (for hashing, parity, CI) {#hashing}
 
 - Normalize model/spec text before hashing:
 
@@ -42,6 +42,14 @@
 ---
 
 ## Artifact contracts
+
+### Schema Files
+
+| Artifact | Schema |
+|----------|--------|
+| run.json | [schemas/run.schema.json](schemas/run.schema.json) |
+| manifest.json | [schemas/manifest.schema.json](schemas/manifest.schema.json) |
+| series/index.json | [schemas/series-index.schema.json](schemas/series-index.schema.json) |
 
 ### Run identifier (runId)
 
@@ -77,7 +85,7 @@ runs/<runId>/
   "engineVersion": "sim-0.1.0",
   "source": "sim",
   "grid": { "bins": 288, "binMinutes": 5, "timezone": "UTC", "align": "left" },
-  "modelHash": "sha256:…",            // engine may populate both modelHash and scenarioHash
+  "modelHash": "sha256:…",            // OPTIONAL: engine MAY populate; readers must rely on scenarioHash
   "scenarioHash": "sha256:…",
   "createdUtc": "2025-09-01T18:30:12Z",
   "warnings": [],
@@ -103,7 +111,7 @@ runs/<runId>/
 ```json
 {
   "schemaVersion": 1,
-  "scenarioHash": "sha256:…",
+  "scenarioHash": "sha256:…",  
   "rng": { "kind": "pcg32", "seed": 12345 },
   "seriesHashes": {
     "arrivals@COMP_A": "sha256:…",
