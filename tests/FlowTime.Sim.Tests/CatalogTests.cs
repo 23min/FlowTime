@@ -18,16 +18,16 @@ public class CatalogTests
                 Title = "Test Catalog",
                 Description = "A test catalog"
             },
-            Components = new[]
+            Components = new List<CatalogComponent>
             {
                 new CatalogComponent { Id = "COMP_A", Label = "Component A" },
                 new CatalogComponent { Id = "COMP_B", Label = "Component B" }
             },
-            Connections = new[]
+            Connections = new List<CatalogConnection>
             {
                 new CatalogConnection { From = "COMP_A", To = "COMP_B", Label = "Primary flow" }
             },
-            Classes = new[] { "DEFAULT" },
+            Classes = new List<string> { "DEFAULT" },
             LayoutHints = new CatalogLayoutHints { RankDir = "LR", Spacing = 100 }
         };
 
@@ -47,12 +47,12 @@ public class CatalogTests
         {
             Version = 1,
             Metadata = new CatalogMetadata { Id = "test", Title = "Test" },
-            Components = new[]
+            Components = new List<CatalogComponent>
             {
                 new CatalogComponent { Id = "COMP_A", Label = "Component A1" },
                 new CatalogComponent { Id = "COMP_A", Label = "Component A2" }
             },
-            Classes = new[] { "DEFAULT" }
+            Classes = new List<string> { "DEFAULT" }
         };
 
         // Act
@@ -71,15 +71,15 @@ public class CatalogTests
         {
             Version = 1,
             Metadata = new CatalogMetadata { Id = "test", Title = "Test" },
-            Components = new[]
+            Components = new List<CatalogComponent>
             {
                 new CatalogComponent { Id = "COMP_A", Label = "Component A" }
             },
-            Connections = new[]
+            Connections = new List<CatalogConnection>
             {
                 new CatalogConnection { From = "COMP_A", To = "UNKNOWN", Label = "Bad connection" }
             },
-            Classes = new[] { "DEFAULT" }
+            Classes = new List<string> { "DEFAULT" }
         };
 
         // Act
@@ -98,11 +98,11 @@ public class CatalogTests
         {
             Version = 1,
             Metadata = new CatalogMetadata { Id = "test", Title = "Test" },
-            Components = new[]
+            Components = new List<CatalogComponent>
             {
                 new CatalogComponent { Id = "COMP@INVALID", Label = "Invalid Component" }
             },
-            Classes = new[] { "DEFAULT" }
+            Classes = new List<string> { "DEFAULT" }
         };
 
         // Act
@@ -125,11 +125,11 @@ public class CatalogTests
         {
             Version = 1,
             Metadata = new CatalogMetadata { Id = "test", Title = "Test" },
-            Components = new[]
+            Components = new List<CatalogComponent>
             {
                 new CatalogComponent { Id = componentId, Label = "Test Component" }
             },
-            Classes = new[] { "DEFAULT" }
+            Classes = new List<string> { "DEFAULT" }
         };
 
         // Act
@@ -152,11 +152,11 @@ public class CatalogTests
         {
             Version = 1,
             Metadata = new CatalogMetadata { Id = "test", Title = "Test" },
-            Components = new[]
+            Components = new List<CatalogComponent>
             {
                 new CatalogComponent { Id = componentId, Label = "Test Component" }
             },
-            Classes = new[] { "DEFAULT" }
+            Classes = new List<string> { "DEFAULT" }
         };
 
         // Act

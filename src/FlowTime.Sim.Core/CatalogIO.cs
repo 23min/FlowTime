@@ -1,6 +1,7 @@
 using System.Text;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
+using YamlDotNet.Serialization.TypeInspectors;
 
 namespace FlowTime.Sim.Core;
 
@@ -11,6 +12,8 @@ public static class CatalogIO
 {
     private static readonly ISerializer YamlSerializer = new SerializerBuilder()
         .WithNamingConvention(CamelCaseNamingConvention.Instance)
+        .ConfigureDefaultValuesHandling(DefaultValuesHandling.OmitDefaults)
+        .WithTypeInspector(inner => new ReadablePropertiesTypeInspector(inner))
         .Build();
 
     private static readonly IDeserializer YamlDeserializer = new DeserializerBuilder()
@@ -101,5 +104,26 @@ public static class CatalogIO
         using var sha256 = System.Security.Cryptography.SHA256.Create();
         var hash = sha256.ComputeHash(bytes);
         return $"sha256:{Convert.ToHexString(hash).ToLowerInvariant()}";
+    }
+}
+
+/// <summary>
+/// Custom type inspector that excludes read-only properties from serialization.
+/// </summary>
+internal sealed class ReadablePropertiesTypeInspector : TypeInspectorSkeleton
+{
+    private readonly ITypeInspector innerTypeInspector;
+
+    public ReadablePropertiesTypeInspector(ITypeInspector innerTypeInspector)
+    {
+        this.innerTypeInspector = innerTypeInspector;
+    }
+
+    public override IEnumerable<IPropertyDescriptor> GetProperties(Type type, object? container)
+    {
+        var properties = innerTypeInspector.GetProperties(type, container);
+        
+        // Filter out read-only properties that end with "ReadOnly"
+        return properties.Where(p => !p.Name.EndsWith("ReadOnly", StringComparison.OrdinalIgnoreCase));
     }
 }

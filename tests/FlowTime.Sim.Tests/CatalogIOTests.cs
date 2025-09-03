@@ -72,11 +72,11 @@ public class CatalogIOTests
                 Id = "test-catalog",
                 Title = "Test Catalog"
             },
-            Components = new[]
+            Components = new List<CatalogComponent>
             {
                 new CatalogComponent { Id = "nodeA", Label = "Node A" }
             },
-            Classes = new[] { "DEFAULT" },
+            Classes = new List<string> { "DEFAULT" },
             LayoutHints = new CatalogLayoutHints { RankDir = "LR" }
         };
 
@@ -124,16 +124,16 @@ public class CatalogIOTests
         {
             Version = 1,
             Metadata = new CatalogMetadata { Id = "test", Title = "Test" },
-            Components = new[] { new CatalogComponent { Id = "A", Label = "Component A" } },
-            Classes = new[] { "DEFAULT" }
+            Components = new List<CatalogComponent> { new CatalogComponent { Id = "A", Label = "Component A" } },
+            Classes = new List<string> { "DEFAULT" }
         };
 
         var catalog2 = new Catalog
         {
             Version = 1,
             Metadata = new CatalogMetadata { Id = "test", Title = "Test" },
-            Components = new[] { new CatalogComponent { Id = "A", Label = "Component A" } },
-            Classes = new[] { "DEFAULT" }
+            Components = new List<CatalogComponent> { new CatalogComponent { Id = "A", Label = "Component A" } },
+            Classes = new List<string> { "DEFAULT" }
         };
 
         // Act
@@ -153,16 +153,16 @@ public class CatalogIOTests
         {
             Version = 1,
             Metadata = new CatalogMetadata { Id = "test1", Title = "Test 1" },
-            Components = new[] { new CatalogComponent { Id = "A", Label = "Component A" } },
-            Classes = new[] { "DEFAULT" }
+            Components = new List<CatalogComponent> { new CatalogComponent { Id = "A", Label = "Component A" } },
+            Classes = new List<string> { "DEFAULT" }
         };
 
         var catalog2 = new Catalog
         {
             Version = 1,
             Metadata = new CatalogMetadata { Id = "test2", Title = "Test 2" },
-            Components = new[] { new CatalogComponent { Id = "A", Label = "Component A" } },
-            Classes = new[] { "DEFAULT" }
+            Components = new List<CatalogComponent> { new CatalogComponent { Id = "A", Label = "Component A" } },
+            Classes = new List<string> { "DEFAULT" }
         };
 
         // Act
@@ -186,16 +186,16 @@ public class CatalogIOTests
                 Title = "Round Trip Test",
                 Description = "Testing YAML round-trip serialization"
             },
-            Components = new[]
+            Components = new List<CatalogComponent>
             {
                 new CatalogComponent { Id = "COMP_A", Label = "Component A", Description = "First component" },
                 new CatalogComponent { Id = "COMP_B", Label = "Component B" }
             },
-            Connections = new[]
+            Connections = new List<CatalogConnection>
             {
                 new CatalogConnection { From = "COMP_A", To = "COMP_B" }
             },
-            Classes = new[] { "DEFAULT", "PRIORITY" },
+            Classes = new List<string> { "DEFAULT", "PRIORITY" },
             LayoutHints = new CatalogLayoutHints { RankDir = "TB", Spacing = 50 }
         };
 
