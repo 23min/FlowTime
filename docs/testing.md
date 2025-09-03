@@ -52,3 +52,14 @@ Synthetic adapter tests (SYN-M0):
 
 - The API project exposes `partial class Program` to enable `WebApplicationFactory` discovery.
 - The `.http` file under `apis/FlowTime.API` contains example requests for manual checks.
+
+### Artifact Contract References
+Authoritative spec: [contracts.md](contracts.md)  
+Schemas: [run](schemas/run.schema.json) · [manifest](schemas/manifest.schema.json) · [series index](schemas/series-index.schema.json)
+
+Test expectations summary:
+1. JSON validates against schemas.
+2. Recomputed per-series CSV hash (LF + invariant formatting) matches `manifest.json`.
+3. Canonicalized `spec.yaml` hash equals `scenarioHash` (and optional `modelHash` if emitted).
+4. Reordering semantically insignificant YAML keys leaves hashes unchanged.
+5. Changing any numeric literal changes `scenarioHash`.

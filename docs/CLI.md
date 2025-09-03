@@ -79,6 +79,15 @@ Notes:
 - `expr` supports simple forms like `name * <scalar>` or `name + <scalar>`.
 - Numbers use culture-invariant parsing/formatting.
 
+### Output Layout (Contracts Parity)
+Full artifact structure and field semantics: [docs/contracts.md](docs/contracts.md)
+
+CLI guarantees (M1):
+* Writes `spec.yaml` verbatim (no rewrite) plus deterministic hashes.
+* Emits `run.json`, `manifest.json` (unless `--no-manifest`), `series/index.json`, and per-series CSVs.
+* Writes JSON artifacts after all CSVs so `seriesHashes` reflect final bytes.
+* Deterministic run id when `--deterministic-run-id` supplied.
+
 ## VS Code tasks
 
 This repo includes basic tasks:

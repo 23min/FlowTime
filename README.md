@@ -369,6 +369,17 @@ t,value
 
 Where `t` is the **bin index** (aligned to the model’s canonical grid). Run/series metadata (grid, hashes, RNG, units, warnings) lives in the JSON companions above to keep CSV lean and diff‑friendly.
 
+## Artifacts (M1 Contracts Parity)
+
+The deterministic artifact set is defined centrally in `docs/contracts.md`.
+
+Reference specs & schemas:
+* Authoritative field semantics: [docs/contracts.md](docs/contracts.md)
+* Schemas: [run](docs/schemas/run.schema.json), [manifest](docs/schemas/manifest.schema.json), [series index](docs/schemas/series-index.schema.json)
+* Roadmap status: Milestone M1 in [docs/ROADMAP.md](docs/ROADMAP.md)
+
+Stability policy (schemaVersion = 1): additive, non‑breaking fields may appear; existing fields retain meaning. Breaking changes require a version bump.
+
 ---
 
 ## Docs & roadmap
