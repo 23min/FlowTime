@@ -672,11 +672,13 @@ Users ask “what’s pending and how long?” early; the cost is modest (single
   * derived latency: **minutes**
 * Per-series CSVs under `runs/<runId>/series/*.csv` (InvariantCulture formatting)
 
-### Functional Requirements (Service/API) — **SVC-M1**
+### Functional Requirements (Service/API) — **SVC-M1** ✅
 
-* `GET /runs/{runId}/index` → returns `runs/<runId>/series/index.json`
-* `GET /runs/{runId}/series/{seriesId}` → streams CSV
+* `GET /runs/{runId}/index` → returns `runs/<runId>/series/index.json` ✅
+* `GET /runs/{runId}/series/{seriesId}` → streams CSV ✅
 * (optional) `POST /compare` returns minimal deltas for common series
+
+**Status**: COMPLETED - Artifact endpoints implemented with SYN-M0 adapters, full test coverage.
 
 ### Inputs
 

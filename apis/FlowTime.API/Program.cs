@@ -1,5 +1,6 @@
 using System.Text;
 using FlowTime.Core;
+using FlowTime.Adapters.Synthetic;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 using Microsoft.AspNetCore.HttpLogging;
@@ -90,7 +91,7 @@ app.MapPost("/run", async (HttpRequest req, ILogger<Program> logger) =>
             .Build();
         var model = deserializer.Deserialize<ModelDto>(yaml);
 
-        var grid = new TimeGrid(model.Grid.Bins, model.Grid.BinMinutes);
+        var grid = new FlowTime.Core.TimeGrid(model.Grid.Bins, model.Grid.BinMinutes);
         var nodes = new List<INode>();
         foreach (var n in model.Nodes)
         {
@@ -202,6 +203,73 @@ app.MapPost("/graph", async (HttpRequest req, ILogger<Program> logger) =>
     {
         logger.LogError(ex, "/graph parse failed. Raw YAML length={Length}. First 120 chars: {Preview}", yaml?.Length, yaml is null ? "" : yaml.Substring(0, Math.Min(120, yaml.Length)));
         return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// SVC-M1: Artifact endpoints
+// Configure the artifacts directory (where CLI writes output)
+var artifactsDirectory = builder.Configuration.GetValue<string>("ArtifactsDirectory") ?? "out";
+
+// GET /runs/{runId}/index — returns series/index.json
+app.MapGet("/runs/{runId}/index", async (string runId, ILogger<Program> logger) =>
+{
+    try
+    {
+        var reader = new FileSeriesReader();
+        var runPath = Path.Combine(artifactsDirectory, runId);
+        
+        if (!Directory.Exists(runPath))
+        {
+            return Results.NotFound(new { error = $"Run {runId} not found" });
+        }
+
+        var adapter = new RunArtifactAdapter(reader, runPath);
+        var index = await adapter.GetIndexAsync();
+        
+        return Results.Ok(index);
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Failed to read index for run {RunId}", runId);
+        return Results.Problem($"Failed to read index: {ex.Message}");
+    }
+});
+
+// GET /runs/{runId}/series/{seriesId} — streams CSV content
+app.MapGet("/runs/{runId}/series/{seriesId}", async (string runId, string seriesId, ILogger<Program> logger) =>
+{
+    try
+    {
+        var reader = new FileSeriesReader();
+        var runPath = Path.Combine(artifactsDirectory, runId);
+        
+        if (!Directory.Exists(runPath))
+        {
+            return Results.NotFound(new { error = $"Run {runId} not found" });
+        }
+
+        if (!reader.SeriesExists(runPath, seriesId))
+        {
+            return Results.NotFound(new { error = $"Series {seriesId} not found in run {runId}" });
+        }
+
+        var series = await reader.ReadSeriesAsync(runPath, seriesId);
+        
+        // Convert Series to CSV string
+        var csv = new StringBuilder();
+        csv.AppendLine("t,value");
+        var values = series.ToArray();
+        for (int i = 0; i < values.Length; i++)
+        {
+            csv.AppendLine($"{i},{values[i].ToString(System.Globalization.CultureInfo.InvariantCulture)}");
+        }
+
+        return Results.Text(csv.ToString(), "text/csv");
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Failed to read series {SeriesId} for run {RunId}", seriesId, runId);
+        return Results.Problem($"Failed to read series: {ex.Message}");
     }
 });
 
