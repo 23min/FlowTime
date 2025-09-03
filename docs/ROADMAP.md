@@ -325,36 +325,38 @@ Lock the core run artifact contract in parity with the simulator (FlowTime-Sim) 
 
 ### Functional Requirements
 
-* **FR-M1-1:** Persist original spec YAML: save normalized (LF line endings) input model as `spec.yaml` alongside artifacts for overlay derivations.
-* **FR-M1-2:** Dual-write run artifact directory: `runs/<runId>/` containing:
+- **FR-M1-1:** Persist spec.yaml verbatim (normalized line endings, original content) alongside artifacts for reproducibility and overlay derivations.
+- **FR-M1-2:** Dual-write run artifact directory: `out/<runId>/` containing:
 
-  * `spec.yaml` (original model, normalized line endings)
-  * `run.json` (summary + series listing + source + warnings + events placeholder)
-  * `manifest.json` (determinism + integrity metadata with rng object)
-  * `series/index.json` (series index with componentId, class, formats.goldTable placeholder)
-  * Per-series CSV: `series/<seriesId>.csv` (schema: `t,value`)
-* **FR-M1-3:** run.json fields per authoritative contract:
+  - `spec.yaml` (original submitted/derived simulation spec)
+  - `run.json` (high-level summary + series listing)
+  - `manifest.json` (determinism + integrity metadata)
+  - `series/index.json` (series index for quick discovery)
+  - Per-series CSV: `series/<seriesId>.csv` (schema: `t,value`)
+  - Placeholder directories for `gold/` and `events.ndjson` (not yet implemented)
+- **FR-M1-3:** run.json per authoritative contracts.md schema:
 
-  * `schemaVersion` (1), `runId`, `engineVersion`, `source` ("engine")
-  * `grid` with `bins`, `binMinutes`, `timezone` ("UTC"), `align` ("left")
-  * `scenarioHash` (SHA256 of normalized YAML), optional `modelHash`
-  * `createdUtc`, `warnings` (array), `series` (array with id, path, unit)
-  * `events` object: `schemaVersion` (0), `fieldsReserved` (full contract list)
-* **FR-M1-4:** manifest.json fields per contract:
+  - Add `source` field = "engine"
+  - Add `engineVersion` (current version string)
+  - Expand `grid` with `timezone: "UTC"` and `align: "left"`
+  - Include `warnings` array for normalization notes
+  - Update `events` object with full `fieldsReserved` list: `["entityType","eventType","componentId","connectionId","class","simTime","wallTime","correlationId","attrs"]`
+  - Optional `modelHash` (engine may include)
+- **FR-M1-4:** manifest.json per authoritative schema:
 
-  * `schemaVersion` (1), `scenarioHash`, `rng` object with `kind`/`seed`
-  * `seriesHashes` (map of seriesId → SHA256 of CSV file bytes)
-  * `eventCount` (0), `createdUtc`
-* **FR-M1-5:** series/index.json per contract:
+  - Remove required `modelHash` (optional for engine)
+  - Use `rng` object: `{kind: "pcg32", seed: 12345}` instead of separate fields
+  - Include `scenarioHash`, `seriesHashes`, `eventCount`, `createdUtc`
+- **FR-M1-5:** series/index.json per authoritative schema:
 
-  * `schemaVersion` (1), `grid` (bins, binMinutes, timezone)
-  * `series` array with `id`, `kind`, `path`, `unit`, `componentId`, `class`, `points`, `hash`
-  * `formats.goldTable` placeholder (path, dimensions, measures) even if file not produced
-* **FR-M1-6:** SeriesId naming convention: `measure@componentId[@class]` format; temporary mapping strategy until components exist in modeling (e.g., map node IDs to implicit component namespace).
-* **FR-M1-7:** Enhanced deterministic normalization: trim trailing whitespace per line, collapse consecutive blank lines, ignore YAML key ordering recursively.
-* **FR-M1-8:** JSON Schema definitions in `docs/schemas/`: `run.schema.json`, `manifest.schema.json`, `series-index.schema.json`; CI validates artifacts.
-* **FR-M1-9:** CLI flags: `--no-manifest` (skip manifest only), `--deterministic-run-id`, future `--no-gold`, `--no-events`.
-* **FR-M1-10:** Backward compatibility: existing CSV output maintained; artifacts are authoritative for downstream tools.
+  - Include full series metadata: `componentId`, `class`, `kind`, `unit`, `points`, `hash`
+  - Add `formats.goldTable` placeholder (path, dimensions, measures) even if not producing Parquet yet
+  - Use canonical units: **entities/bin** for flows, **entities** for levels, **minutes** for latency
+- **FR-M1-6:** Adopt seriesId naming convention `measure@componentId[@class]`; for M1 temporary mapping: use node IDs as componentId namespace until component modeling exists.
+- **FR-M1-7:** Enhanced deterministic hashing with full normalization (trim trailing whitespace, collapse consecutive blank lines, ignore YAML key ordering recursively).
+- **FR-M1-8:** JSON Schema validation: schemas under `docs/schemas/` (run.schema.json, manifest.schema.json, series-index.schema.json); CI tests validate artifacts against schemas.
+- **FR-M1-9:** CLI flags: `--no-manifest` (skips manifest only), `--deterministic-run-id <id>`, optional placeholders for `--no-gold`, `--no-events`.
+- **FR-M1-10:** Backward compatibility: existing single CSV output behavior preserved; dual-write artifacts are authoritative for downstream tooling.
 
 ### Inputs
 
@@ -366,19 +368,21 @@ Lock the core run artifact contract in parity with the simulator (FlowTime-Sim) 
 Directory layout example:
 
 ```
-runs/engine_20250101T120000Z_ab12cd34/
+out/engine_20250101T120000Z_ab12cd34/
   spec.yaml
   run.json
   manifest.json
   series/
-    served@COMP_1.csv
+    index.json
     demand@COMP_1.csv
+    served@COMP_1.csv
   gold/
-    node_time_bin.parquet    # placeholder (path in index, file optional)
-  events.ndjson              # placeholder (optional)
+    (placeholder directory for future Parquet table)
+  events.ndjson
+    (placeholder file for future events)
 ```
 
-run.json (illustrative contract fields):
+run.json (illustrative minimal fields):
 
 ```json
 {
@@ -388,7 +392,6 @@ run.json (illustrative contract fields):
   "source": "engine",
   "grid": { "bins": 4, "binMinutes": 60, "timezone": "UTC", "align": "left" },
   "scenarioHash": "sha256:...",
-  "createdUtc": "2025-01-01T12:00:00Z",
   "warnings": [],
   "series": [
     { "id": "demand@COMP_1", "path": "series/demand@COMP_1.csv", "unit": "entities/bin" },
@@ -399,15 +402,19 @@ run.json (illustrative contract fields):
     "fieldsReserved": ["entityType","eventType","componentId","connectionId","class","simTime","wallTime","correlationId","attrs"] 
   }
 }
+    { "id": "served", "path": "series/served.csv" }
+  ],
+  "events": { "schemaVersion": 0, "fieldsReserved": ["entityType","routeId","stepId","componentId","correlationId"] }
+}
 ```
 
-manifest.json (illustrative contract fields):
+manifest.json (illustrative):
 
 ```json
 {
   "schemaVersion": 1,
   "scenarioHash": "sha256:...",
-  "rng": { "kind": "pcg32", "seed": 12345 },
+  "rng": { "kind": "pcg32", "seed": 123456789 },
   "seriesHashes": { 
     "demand@COMP_1": "sha256:...", 
     "served@COMP_1": "sha256:..." 
@@ -417,7 +424,7 @@ manifest.json (illustrative contract fields):
 }
 ```
 
-series/index.json (illustrative contract fields):
+series/index.json (illustrative):
 
 ```json
 {
@@ -465,9 +472,9 @@ src/FlowTime.Cli/Artifacts/
 src/FlowTime.Core/Hashing/ModelHasher.cs
 tests/FlowTime.Tests/ArtifactContractsTests.cs
 tests/FlowTime.Tests/ArtifactDeterminismTests.cs
-docs/schemas/run.schema.json
-docs/schemas/manifest.schema.json
-docs/schemas/series-index.schema.json
+docs/contracts/run.schema.json
+docs/contracts/manifest.schema.json
+docs/contracts/series-index.schema.json
 docs/contracts.md (updated with new artifact shapes and field glossary)
 ```
 
