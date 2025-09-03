@@ -317,13 +317,15 @@ public interface ISeriesReader {
 
 ---
 
-## M1 — Contracts Parity (Artifacts Alignment)
+## M1 — Contracts Parity (Artifacts Alignment) ✅ COMPLETED
 
 ### Goal
 
 Lock the core run artifact contract in parity with the simulator (FlowTime-Sim) so future UI & adapter work can rely on stable shapes. Introduce dual-write structured artifacts (run + manifest + index) and schema validation without introducing expression features early. This is an interposed milestone; numbering of later milestones remains unchanged.
 
 > Contract Source of Truth: Field-level semantics live in [contracts.md](contracts.md). This section enumerates required presence & ordering only; do not replicate or drift field definitions here.
+
+**Status**: All functional requirements implemented and verified.
 
 ### Functional Requirements
 

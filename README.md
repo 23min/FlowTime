@@ -279,38 +279,59 @@ If you want to call FlowTime.API from a sibling container (e.g., flowtime-sim), 
 
 Planned: **WebSocket pub/sub** with a **negotiate** step; alternatives like **SignalR** or **SSE** can fit behind an interface.
 
-### CLI reference (M0)
+### CLI reference (M1)
 
 ```bash
-# Evaluate a YAML model and write CSV outputs
+# Evaluate a YAML model and generate M1 artifact set (run.json, manifest.json, series CSVs, etc.)
 dotnet run --project src/FlowTime.Cli -- run <path/to/model.yaml> --out out/<name> --verbose
 
-# Options (examples)
-# --out out/run1             # output directory
-# --verbose                  # print evaluation summary to stdout
-# --via-api http://localhost:7071  # optional: route the run via the API for parity; falls back to local eval until SVC-M0 ships
+# M1 Options
+# --out out/run1                    # output directory
+# --verbose                         # print evaluation summary + schema validation results
+# --deterministic-run-id            # stable runId for testing/CI (based on scenario hash)
+# --seed 42                         # RNG seed for reproducible results
+# --via-api http://localhost:7071   # route via API for parity testing (when available)
 ```
 
-```bash
-# Run FlowTime with local synthetic data
-dotnet run --project src/FlowTime.Cli -- ingest \
-  --format parquet \
-  --events-path ./data/samples/weekday-10k/events.parquet \
-  --metrics-out ./out/metrics.json
-# falls back to local eval until SVC-M0 ships
+**M1 Output Structure:**
 ```
+out/<name>/<runId>/
+├── spec.yaml                           # original model (normalized)
+├── run.json                            # run summary with series listing
+├── manifest.json                       # hashes, RNG seed, integrity metadata  
+├── series/
+│   ├── index.json                      # series discovery & metadata
+│   └── served@SERVED@DEFAULT.csv       # per-series data files
+└── gold/                               # placeholder for analytics tables
+```
+
+Features:
+* **Canonical hashing**: SHA-256 for scenarios and per-series data
+* **Schema validation**: Automatic validation against JSON Schema files
+* **Determinism**: Reproducible artifacts for CI/testing with `--deterministic-run-id` + `--seed`
+* **SeriesId format**: `measure@componentId@class` per contracts specification
 
 ---
 
-## Milestone M0 scope
+## Milestone M0 scope ✅ COMPLETED
 
-Implement the minimal useful slice:
+Minimal useful slice implemented:
 
 * Canonical grid and numeric Series types.
 * DAG execution with **topological ordering** and **cycle detection**.
 * Minimal node set: **constant series** and **binary Add/Mul** (supports scalar RHS).
 * YAML → **evaluate** → **CSV export** via CLI.
 * Tiny sample model (`examples/hello`) and unit tests.
+
+## Milestone M1 scope ✅ COMPLETED  
+
+**Contracts Parity** - Complete artifact generation system:
+
+* **Structured artifacts**: `spec.yaml`, `run.json`, `manifest.json`, `series/index.json`, per-series CSVs
+* **Canonical hashing**: SHA-256 for scenario/model and per-series data with YAML normalization
+* **Schema validation**: JSON Schema validation for all artifact formats
+* **Determinism**: `--deterministic-run-id` and `--seed` flags for reproducible CI/testing
+* **SeriesId format**: `measure@componentId@class` specification compliance
 
 Deferred to next milestones: backlog/queues, routing, autoscale; backend; SPA viewer; extended nodes (shift/resample/delay).
 
