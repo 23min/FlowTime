@@ -110,30 +110,35 @@ Swappability contract: HTTP surface and DTOs remain identical regardless of host
 
 ## Repository layout
 
+Current top-level structure (trimmed to primary source + docs):
+
 ```
-flowtime/
+FlowTime/
+├─ apis/FlowTime.API/          # Minimal API surface (healthz, run, graph)
+├─ docs/                       # Roadmap, contracts, schemas, concepts, releases
+│  ├─ schemas/                 # JSON Schemas: run, manifest, series-index
+│  └─ concepts/
+├─ examples/hello/             # Sample model
 ├─ src/
-│  ├─ FlowTime.Core/
-│  └─ FlowTime.Cli/
+│  ├─ FlowTime.Core/           # Engine (grid, graph, nodes)
+│  └─ FlowTime.Cli/            # CLI driver
 ├─ tests/
-│  └─ FlowTime.Tests/
-├─ examples/
-│  └─ hello/
-├─ docs/
-│  ├─ ROADMAP.md
-│  └─ releases/
-│     └─ M0.md
+│  ├─ FlowTime.Tests/          # Core + contract tests
+│  └─ FlowTime.Api.Tests/      # API slice tests
+├─ ui/
+│  ├─ FlowTime.UI/             # Blazor WASM SPA
+│  └─ FlowTime.UI.Tests/       # UI tests (early)
 ├─ FlowTime.sln
-└─ README.md (this file)
+└─ README.md
 ```
 
-Optional folders (to be added in later milestones):
+Planned future roots (not yet or partially present):
 
 ```
-infra/                    # IaC templates (Bicep/ARM/Template Spec)
-.github/workflows/        # build.yml, codeql.yml
-ui/FlowTime.UI/           # SPA (early)
-apis/FlowTime.API/        # backend (early minimal)
+adapters/                     # Synthetic + telemetry adapters (SYN milestones)
+infra/                        # Deployment & IaC
+.github/workflows/            # CI/CD workflows
+storage/                      # Pluggable storage providers
 ```
 
 ---

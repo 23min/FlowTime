@@ -319,11 +319,11 @@ public interface ISeriesReader {
 
 ## M1 — Contracts Parity (Artifacts Alignment)
 
-> Contract Source of Truth: Field-level definitions (names, types, reserved fields) are centralized in [contracts.md](contracts.md). This section lists requirements and generation order only to avoid duplication drift.
-
 ### Goal
 
 Lock the core run artifact contract in parity with the simulator (FlowTime-Sim) so future UI & adapter work can rely on stable shapes. Introduce dual-write structured artifacts (run + manifest + index) and schema validation without introducing expression features early. This is an interposed milestone; numbering of later milestones remains unchanged.
+
+> Contract Source of Truth: Field-level semantics live in [contracts.md](contracts.md). This section enumerates required presence & ordering only; do not replicate or drift field definitions here.
 
 ### Functional Requirements
 
@@ -1129,36 +1129,36 @@ Deliverables:
 
 # Repository Layout
 
+## Repository Layout
+
 ```
-flowtime/
+FlowTime/
+├─ apis/FlowTime.API/          # Minimal API surface (healthz, run, graph)
+├─ docs/                       # Roadmap, contracts, schemas, concepts, releases
+│  ├─ schemas/                 # JSON Schemas: run, manifest, series-index
+│  └─ concepts/
+├─ examples/hello/             # Sample model
 ├─ src/
-│  ├─ FlowTime.Engine/
-│  ├─ FlowTime.Service/
-│  └─ FlowTime.Tests/
-├─ ui/FlowTime.UI/
-├─ examples/
-│  ├─ hello/
-│  ├─ expr/
-│  ├─ pmf/
-│  ├─ scenario/
-│  ├─ routing/
-│  ├─ batch/
-│  ├─ backlog/
-│  ├─ multiclass/
-│  ├─ gold/
-│  ├─ sweep/
-│  ├─ templating/
-│  ├─ dlq/
-│  └─ uncertainty/
-├─ docs/
-│  ├─ roadmap.md
-│  ├─ api.md
-│  ├─ quickstart.md
-│  ├─ concepts.md
-│  └─ scenarios.md
-└─ .github/workflows/
-   ├─ build.yml
-   └─ codeql.yml
+│  ├─ FlowTime.Core/           # Engine (grid, graph, nodes)
+│  └─ FlowTime.Cli/            # CLI driver
+├─ tests/
+│  ├─ FlowTime.Tests/          # Core + contract tests
+│  └─ FlowTime.Api.Tests/      # API slice tests
+├─ ui/
+│  ├─ FlowTime.UI/             # Blazor WASM SPA
+│  └─ FlowTime.UI.Tests/       # UI tests (early)
+├─ FlowTime.sln
+└─ README.md
 ```
+
+Planned future roots (not yet or partially present):
+
+```
+adapters/                     # Synthetic + telemetry adapters (SYN milestones)
+infra/                        # Deployment & IaC
+.github/workflows/            # CI/CD workflows
+storage/                      # Pluggable storage providers
+```
+
 
 ---
