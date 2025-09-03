@@ -35,6 +35,20 @@ public static class CatalogIO
     }
 
     /// <summary>
+    /// Reads a catalog from a YAML file (synchronous).
+    /// </summary>
+    public static Catalog ReadCatalogFromFile(string filePath)
+    {
+        if (!File.Exists(filePath))
+        {
+            throw new FileNotFoundException($"Catalog file not found: {filePath}");
+        }
+
+        var yaml = File.ReadAllText(filePath, Encoding.UTF8);
+        return ReadCatalogFromYaml(yaml);
+    }
+
+    /// <summary>
     /// Reads a catalog from YAML text.
     /// </summary>
     public static Catalog ReadCatalogFromYaml(string yaml)
@@ -54,6 +68,22 @@ public static class CatalogIO
             return catalog;
         }
         catch (Exception ex) when (!(ex is InvalidOperationException))
+        {
+            throw new InvalidOperationException($"Failed to parse catalog YAML: {ex.Message}", ex);
+        }
+    }
+
+    /// <summary>
+    /// Parses a catalog from YAML text without validation.
+    /// Use this when you want to validate separately.
+    /// </summary>
+    public static Catalog ParseCatalogFromYaml(string yaml)
+    {
+        try
+        {
+            return YamlDeserializer.Deserialize<Catalog>(yaml);
+        }
+        catch (Exception ex)
         {
             throw new InvalidOperationException($"Failed to parse catalog YAML: {ex.Message}", ex);
         }

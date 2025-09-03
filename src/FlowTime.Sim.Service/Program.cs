@@ -98,6 +98,128 @@ app.MapGet("/sim/runs/{id}/series/{seriesId}", (string id, string seriesId) =>
 // GET /sim/scenarios  (static list of scenario presets)
 app.MapGet("/sim/scenarios", () => Results.Ok(ScenarioRegistry.List()));
 
+// === CATALOG ENDPOINTS (SIM-CAT-M2 Phase 2) ===
+
+// GET /sim/catalogs  → list catalogs (id, title, hash)
+app.MapGet("/sim/catalogs", () =>
+{
+	try
+	{
+		var catalogsRoot = ServiceHelpers.CatalogsRoot();
+		if (!Directory.Exists(catalogsRoot))
+		{
+			return Results.Ok(new { catalogs = Array.Empty<object>() });
+		}
+
+		var catalogFiles = Directory.GetFiles(catalogsRoot, "*.yaml", SearchOption.TopDirectoryOnly);
+		var catalogs = new List<object>();
+
+		foreach (var filePath in catalogFiles)
+		{
+			try
+			{
+				var catalog = CatalogIO.ReadCatalogFromFile(filePath);
+				var hash = CatalogIO.ComputeCatalogHash(catalog);
+				var fileId = Path.GetFileNameWithoutExtension(filePath);
+				
+				catalogs.Add(new 
+				{
+					id = fileId,
+					title = catalog.Metadata.Title ?? fileId,
+					description = catalog.Metadata.Description,
+					hash = hash,
+					componentCount = catalog.Components.Count,
+					connectionCount = catalog.Connections.Count
+				});
+			}
+			catch (Exception ex)
+			{
+				// Log and skip invalid catalogs
+				Console.WriteLine($"Warning: Failed to read catalog {filePath}: {ex.Message}");
+			}
+		}
+
+		return Results.Ok(new { catalogs });
+	}
+	catch (Exception ex)
+	{
+		return Results.Problem(ex.Message);
+	}
+});
+
+// GET /sim/catalogs/{id}  → returns Catalog.v1
+app.MapGet("/sim/catalogs/{id}", (string id) =>
+{
+	try
+	{
+		if (!ServiceHelpers.IsSafeCatalogId(id)) 
+			return Results.BadRequest(new { error = "Invalid catalog id" });
+
+		var catalogsRoot = ServiceHelpers.CatalogsRoot();
+		var filePath = Path.Combine(catalogsRoot, id + ".yaml");
+		
+		if (!File.Exists(filePath))
+			return Results.NotFound(new { error = "Catalog not found" });
+
+		var catalog = CatalogIO.ReadCatalogFromFile(filePath);
+		return Results.Ok(catalog);
+	}
+	catch (Exception ex)
+	{
+		return Results.BadRequest(new { error = "Failed to read catalog", detail = ex.Message });
+	}
+});
+
+// POST /sim/catalogs/validate  → schema + referential integrity
+app.MapPost("/sim/catalogs/validate", async (HttpRequest req, CancellationToken ct) =>
+{
+	try
+	{
+		using var reader = new StreamReader(req.Body, System.Text.Encoding.UTF8);
+		var yaml = await reader.ReadToEndAsync(ct);
+		if (string.IsNullOrWhiteSpace(yaml)) 
+			return Results.BadRequest(new { error = "Empty body" });
+
+		// Parse the catalog
+		Catalog catalog;
+		try
+		{
+			catalog = CatalogIO.ParseCatalogFromYaml(yaml);
+		}
+		catch (Exception ex)
+		{
+			return Results.BadRequest(new { error = "YAML parse failed", detail = ex.Message });
+		}
+
+		// Validate the catalog
+		var validation = catalog.Validate();
+		
+		if (validation.IsValid)
+		{
+			var hash = CatalogIO.ComputeCatalogHash(catalog);
+			return Results.Ok(new 
+			{
+				valid = true, 
+				hash = hash,
+				componentCount = catalog.Components.Count,
+				connectionCount = catalog.Connections.Count
+			});
+		}
+		else
+		{
+			return Results.BadRequest(new 
+			{
+				valid = false, 
+				errors = validation.Errors
+			});
+		}
+	}
+	catch (Exception ex)
+	{
+		return Results.BadRequest(new { error = "Validation failed", detail = ex.Message });
+	}
+});
+
 // POST /sim/overlay  (derive run from base + overlay)
 // Body JSON: { baseRunId: string, overlay: { seed?, grid?, arrivals? } }
 app.MapPost("/sim/overlay", async (HttpRequest req, CancellationToken ct) =>
@@ -191,8 +313,22 @@ app.MapPost("/sim/overlay", async (HttpRequest req, CancellationToken ct) =>
 			if (string.IsNullOrWhiteSpace(runsRoot)) runsRoot = Directory.GetCurrentDirectory();
 			return runsRoot;
 		}
+
+		public static string CatalogsRoot()
+		{
+			var catalogsRoot = Environment.GetEnvironmentVariable("FLOWTIME_SIM_CATALOGS_ROOT");
+			if (string.IsNullOrWhiteSpace(catalogsRoot))
+			{
+				// Default to catalogs/ directory relative to the runs root
+				var runsRoot = RunsRoot();
+				catalogsRoot = Path.Combine(runsRoot, "catalogs");
+			}
+			return catalogsRoot;
+		}
+
 		public static bool IsSafeId(string id) => !string.IsNullOrWhiteSpace(id) && id.Length < 128 && id.All(ch => char.IsLetterOrDigit(ch) || ch is '_' or '-');
 		public static bool IsSafeSeriesId(string id) => !string.IsNullOrWhiteSpace(id) && id.Length < 128 && id.All(ch => char.IsLetterOrDigit(ch) || ch is '_' or '-' or '@');
+		public static bool IsSafeCatalogId(string id) => !string.IsNullOrWhiteSpace(id) && id.Length < 128 && id.All(ch => char.IsLetterOrDigit(ch) || ch is '_' or '-' or '.');
 	}
 
 	// Overlay DTOs

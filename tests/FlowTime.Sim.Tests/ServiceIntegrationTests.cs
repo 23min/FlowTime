@@ -100,6 +100,139 @@ public class ServiceIntegrationTests : IClassFixture<WebApplicationFactory<Progr
         Assert.Equal(cliHash, serviceHash);
     }
 
+    [Fact]
+    public async Task Catalogs_List_Returns_Available_Catalogs()
+    {
+        var client = appFactory.CreateClient();
+        
+        // Set up test catalogs directory
+        var testCatalogsRoot = Path.Combine(Path.GetTempPath(), "flow-sim-catalog-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testCatalogsRoot);
+        Environment.SetEnvironmentVariable("FLOWTIME_SIM_CATALOGS_ROOT", testCatalogsRoot);
+
+        // Create a test catalog
+        var testCatalogYaml = @"version: 1
+metadata:
+  id: test-catalog
+  title: Test Catalog
+  description: A test catalog for unit tests
+components:
+  - id: COMP_A
+    label: Component A
+  - id: COMP_B  
+    label: Component B
+connections:
+  - from: COMP_A
+    to: COMP_B
+classes: [""DEFAULT""]
+layoutHints:
+  rankDir: LR";
+
+        await File.WriteAllTextAsync(Path.Combine(testCatalogsRoot, "test-catalog.yaml"), testCatalogYaml);
+
+        var res = await client.GetAsync("/sim/catalogs");
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+        var json = await res.Content.ReadAsStringAsync();
+        
+        // Should contain our test catalog
+        Assert.Contains("test-catalog", json);
+        Assert.Contains("Test Catalog", json);
+        Assert.Contains("\"componentCount\":2", json);
+        Assert.Contains("\"connectionCount\":1", json);
+    }
+
+    [Fact]
+    public async Task Catalogs_Get_Returns_Specific_Catalog()
+    {
+        var client = appFactory.CreateClient();
+        
+        // Set up test catalogs directory 
+        var testCatalogsRoot = Path.Combine(Path.GetTempPath(), "flow-sim-catalog-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testCatalogsRoot);
+        Environment.SetEnvironmentVariable("FLOWTIME_SIM_CATALOGS_ROOT", testCatalogsRoot);
+
+        var testCatalogYaml = @"version: 1
+metadata:
+  id: specific-test
+  title: Specific Test Catalog
+components:
+  - id: NODE_X
+    label: Node X
+classes: [""DEFAULT""]";
+
+        await File.WriteAllTextAsync(Path.Combine(testCatalogsRoot, "specific-test.yaml"), testCatalogYaml);
+
+        var res = await client.GetAsync("/sim/catalogs/specific-test");
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+        var json = await res.Content.ReadAsStringAsync();
+        
+        Assert.Contains("NODE_X", json);
+        Assert.Contains("Specific Test Catalog", json);
+    }
+
+    [Fact] 
+    public async Task Catalogs_Get_Returns_NotFound_For_Missing_Catalog()
+    {
+        var client = appFactory.CreateClient();
+        var res = await client.GetAsync("/sim/catalogs/non-existent");
+        Assert.Equal(HttpStatusCode.NotFound, res.StatusCode);
+    }
+
+    [Fact]
+    public async Task Catalogs_Validate_Returns_Valid_For_Good_Catalog()
+    {
+        var client = appFactory.CreateClient();
+        
+        var validCatalogYaml = @"version: 1
+metadata:
+  id: valid-test
+  title: Valid Test Catalog
+components:
+  - id: COMP_A
+    label: Component A
+  - id: COMP_B
+    label: Component B
+connections:
+  - from: COMP_A
+    to: COMP_B
+classes: [""DEFAULT""]";
+
+        var content = new StringContent(validCatalogYaml, Encoding.UTF8, "text/plain");
+        var res = await client.PostAsync("/sim/catalogs/validate", content);
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+        
+        var json = await res.Content.ReadAsStringAsync();
+        Assert.Contains("\"valid\":true", json);
+        Assert.Contains("\"hash\":\"sha256:", json);
+        Assert.Contains("\"componentCount\":2", json);
+    }
+
+    [Fact]
+    public async Task Catalogs_Validate_Returns_Invalid_For_Bad_Catalog()
+    {
+        var client = appFactory.CreateClient();
+        
+        var invalidCatalogYaml = @"version: 1
+metadata:
+  id: invalid-test
+  title: Invalid Test Catalog
+components:
+  - id: COMP@INVALID
+    label: Bad Component
+connections:
+  - from: COMP@INVALID
+    to: NON_EXISTENT
+classes: [""DEFAULT""]";
+
+        var content = new StringContent(invalidCatalogYaml, Encoding.UTF8, "text/plain");
+        var res = await client.PostAsync("/sim/catalogs/validate", content);
+        Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
+        
+        var json = await res.Content.ReadAsStringAsync();
+        Assert.Contains("\"valid\":false", json);
+        Assert.Contains("errors", json);
+    }
+
     private static async Task<string> ExtractField(HttpResponseMessage res, string field)
     {
         var json = await res.Content.ReadAsStringAsync();
