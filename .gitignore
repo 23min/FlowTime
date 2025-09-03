@@ -2,6 +2,10 @@
 bin/
 obj/
 
+# Run/output artifacts
+out/
+runs/
+
 # VS Code
 .vscode/.history/
 
