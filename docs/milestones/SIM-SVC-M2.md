@@ -1,6 +1,6 @@
 # Milestone: SIM-SVC-M2 — Minimal Simulation Service/API (Artifact-Centric)
 
-Status: In Progress (tests green; polishing docs)
+Status: Complete (released as tag `sim-svc-m2` on commit 7fe761a)
 
 ## Goal
 Expose the simulation engine as a stateless HTTP service that produces the same on-disk artifact pack (run.json, manifest.json, series/index.json, per-series CSVs, optional events.ndjson) as the CLI, enabling UI / other services to request new simulation runs via simple HTTP calls.
@@ -100,4 +100,4 @@ Unchanged from SIM-M2: given identical spec + seed, per-series CSV content & has
 - [x] Release notes draft.
 
 ---
-(End of SIM-SVC-M2 draft milestone notes)
+(Milestone closed. Further work will track under next service milestone.)

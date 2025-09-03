@@ -1,10 +1,14 @@
 # Release Notes: SIM-SVC-M2 – Minimal Simulation Service/API
 
 Date: 2025-09-03
-Status: Draft (pending tag)
+Status: Released (tag: sim-svc-m2, commit: 7fe761a)
 
 ## Overview
 SIM-SVC-M2 introduces the first HTTP service layer for the FlowTime simulator. The service exposes the same deterministic artifact pack as the CLI (run.json, manifest.json, series/index.json, per-series CSV, optional events), enabling remote invocation by UI or other services.
+
+Release Tag Notes:
+- Annotated tag `sim-svc-m2` created on commit `7fe761a`.
+- No code changes after tagging; this document update is documentation-only.
 
 ## Highlights
 - New ASP.NET Core service (`FlowTime.Sim.Service`) with stateless endpoints.
