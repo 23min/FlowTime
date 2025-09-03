@@ -2,6 +2,8 @@
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 using YamlDotNet.RepresentationModel; // for canonical hashing
+using Json.Schema; // for JSON Schema validation
+using System.Text.Json;
 
 if (args.Length == 0 || IsHelp(args[0]))
 {
@@ -166,6 +168,9 @@ var manifest = new ManifestJson
 };
 File.WriteAllText(Path.Combine(runDir, "manifest.json"), System.Text.Json.JsonSerializer.Serialize(manifest, JsonOpts.Value), System.Text.Encoding.UTF8);
 
+// Validate generated artifacts against JSON Schema
+ValidateArtifacts(runDir, verbose);
+
 Console.WriteLine($"Wrote artifacts to {runDir}");
 return 0;
 
@@ -196,6 +201,65 @@ static void PrintUsage()
 	Console.WriteLine("Examples:");
 	Console.WriteLine("  flowtime run examples/hello/model.yaml --out out/hello --verbose");
 	Console.WriteLine("  flowtime run examples/hello/model.yaml --deterministic-run-id --out out/deterministic");
+}
+
+static void ValidateArtifacts(string runDir, bool verbose)
+{
+	try
+	{
+		var schemasDir = Path.Combine(Directory.GetCurrentDirectory(), "docs", "schemas");
+		if (!Directory.Exists(schemasDir))
+		{
+			if (verbose) Console.WriteLine("Schema validation skipped: docs/schemas/ not found");
+			return;
+		}
+
+		// Load schemas
+		var runSchema = JsonSchema.FromText(File.ReadAllText(Path.Combine(schemasDir, "run.schema.json")));
+		var manifestSchema = JsonSchema.FromText(File.ReadAllText(Path.Combine(schemasDir, "manifest.schema.json")));
+		var indexSchema = JsonSchema.FromText(File.ReadAllText(Path.Combine(schemasDir, "series-index.schema.json")));
+
+		// Validate run.json
+		var runJsonDoc = JsonDocument.Parse(File.ReadAllText(Path.Combine(runDir, "run.json")));
+		var runResult = runSchema.Evaluate(runJsonDoc.RootElement);
+		if (!runResult.IsValid)
+		{
+			Console.WriteLine("❌ run.json schema validation failed:");
+			foreach (var error in runResult.Details.Where(d => d.Errors != null && d.Errors.Count > 0))
+				Console.WriteLine($"  - {error.InstanceLocation}: {string.Join(", ", error.Errors!.Select(e => e.Value))}");
+		}
+		else if (verbose) Console.WriteLine("✅ run.json schema validation passed");
+
+		// Validate manifest.json
+		var manifestJsonDoc = JsonDocument.Parse(File.ReadAllText(Path.Combine(runDir, "manifest.json")));
+		var manifestResult = manifestSchema.Evaluate(manifestJsonDoc.RootElement);
+		if (!manifestResult.IsValid)
+		{
+			Console.WriteLine("❌ manifest.json schema validation failed:");
+			foreach (var error in manifestResult.Details.Where(d => d.Errors != null && d.Errors.Count > 0))
+				Console.WriteLine($"  - {error.InstanceLocation}: {string.Join(", ", error.Errors!.Select(e => e.Value))}");
+		}
+		else if (verbose) Console.WriteLine("✅ manifest.json schema validation passed");
+
+		// Validate series/index.json
+		var indexPath = Path.Combine(runDir, "series", "index.json");
+		if (File.Exists(indexPath))
+		{
+			var indexJsonDoc = JsonDocument.Parse(File.ReadAllText(indexPath));
+			var indexResult = indexSchema.Evaluate(indexJsonDoc.RootElement);
+			if (!indexResult.IsValid)
+			{
+				Console.WriteLine("❌ series/index.json schema validation failed:");
+				foreach (var error in indexResult.Details.Where(d => d.Errors != null && d.Errors.Count > 0))
+					Console.WriteLine($"  - {error.InstanceLocation}: {string.Join(", ", error.Errors!.Select(e => e.Value))}");
+			}
+			else if (verbose) Console.WriteLine("✅ series/index.json schema validation passed");
+		}
+	}
+	catch (Exception ex)
+	{
+		Console.WriteLine($"Schema validation error: {ex.Message}");
+	}
 }
 
 	// Internal artifact DTOs (M1 minimal set)

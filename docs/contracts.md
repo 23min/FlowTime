@@ -116,6 +116,7 @@ runs/<runId>/
 {
   "schemaVersion": 1,
   "scenarioHash": "sha256:…",
+  "modelHash": "sha256:…",              // optional, engine internal aid
   "rng": { "kind": "pcg32", "seed": 12345 },
   "seriesHashes": {
     "arrivals@COMP_A": "sha256:…",
