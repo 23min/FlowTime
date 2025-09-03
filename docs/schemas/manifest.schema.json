@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://flowtime.dev/schemas/manifest.schema.json",
+  "title": "FlowTime Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "scenarioHash", "rng", "seriesHashes", "eventCount", "createdUtc"],
+  "properties": {
+    "schemaVersion": { "type": "integer", "const": 1 },
+    "scenarioHash": { "$ref": "#/$defs/hash" },
+    "rng": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "seed"],
+      "properties": {
+        "kind": { "type": "string", "minLength": 1 },
+        "seed": { "type": "integer" }
+      }
+    },
+    "seriesHashes": {
+      "type": "object",
+      "minProperties": 0,
+      "additionalProperties": { "$ref": "#/$defs/hash" },
+      "propertyNames": { "$ref": "#/$defs/seriesId" }
+    },
+    "eventCount": { "type": "integer", "minimum": 0 },
+    "createdUtc": { "type": "string", "format": "date-time" }
+  },
+  "$defs": {
+    "hash": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+  "seriesId": { "type": "string", "pattern": "^[A-Za-z0-9._@-]+$", "minLength": 1 }
+  }
+}

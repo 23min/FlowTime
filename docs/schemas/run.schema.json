@@ -1,0 +1,76 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "https://flowtime.dev/schemas/run.schema.json",
+    "title": "FlowTime Run Summary",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schemaVersion",
+        "runId",
+        "engineVersion",
+        "source",
+        "grid",
+        "scenarioHash",
+        "createdUtc",
+        "series",
+        "warnings",
+        "events"
+    ],
+    "properties": {
+        "schemaVersion": { "type": "integer", "const": 1 },
+        "runId": { "type": "string", "minLength": 1 },
+        "engineVersion": { "type": "string" },
+        "source": { "type": "string", "enum": ["engine", "sim"] },
+        "grid": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["bins", "binMinutes", "timezone", "align"],
+            "properties": {
+                "bins": { "type": "integer", "minimum": 1 },
+                "binMinutes": { "type": "integer", "minimum": 1 },
+                "timezone": { "type": "string", "pattern": "^UTC$" },
+                "align": { "type": "string", "enum": ["left"] }
+            }
+        },
+        "modelHash": { "$ref": "#/$defs/hash" },
+        "scenarioHash": { "$ref": "#/$defs/hash" },
+        "createdUtc": { "type": "string", "format": "date-time" },
+        "warnings": {
+            "type": "array",
+            "items": { "type": "string" },
+            "uniqueItems": true
+        },
+        "series": {
+            "type": "array",
+            "items": { "$ref": "#/$defs/seriesEntry" },
+            "uniqueItems": true
+        },
+        "events": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["schemaVersion", "fieldsReserved"],
+            "properties": {
+                "schemaVersion": { "type": "integer" },
+                "fieldsReserved": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "uniqueItems": true
+                }
+            }
+        }
+    },
+    "$defs": {
+        "hash": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "seriesId": { "type": "string", "pattern": "^[A-Za-z0-9._@-]+$", "minLength": 1 },
+        "seriesEntry": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "path"],
+            "properties": {
+                "id": { "$ref": "#/$defs/seriesId" },
+                "path": { "type": "string", "pattern": "^series/[A-Za-z0-9._@-]+\\.csv$" },
+                "unit": { "type": "string" }
+            }
+        }
+    }
+}

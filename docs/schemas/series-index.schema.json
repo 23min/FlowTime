@@ -1,0 +1,62 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://flowtime.dev/schemas/series-index.schema.json",
+  "title": "FlowTime Series Index",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "grid", "series"],
+  "properties": {
+    "schemaVersion": { "type": "integer", "const": 1 },
+    "grid": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bins", "binMinutes", "timezone"],
+      "properties": {
+        "bins": { "type": "integer", "minimum": 1 },
+        "binMinutes": { "type": "integer", "minimum": 1 },
+        "timezone": { "type": "string", "pattern": "^UTC$" }
+      }
+    },
+    "series": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/seriesMeta" },
+      "uniqueItems": true
+    },
+    "formats": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["goldTable"],
+      "properties": {
+        "goldTable": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "dimensions", "measures"],
+          "properties": {
+            "path": { "type": "string" },
+            "dimensions": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+            "measures": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "hash": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+  "seriesId": { "type": "string", "pattern": "^[A-Za-z0-9._@-]+$", "minLength": 1 },
+    "seriesMeta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "path", "unit", "points", "hash"],
+      "properties": {
+        "id": { "$ref": "#/$defs/seriesId" },
+        "kind": { "type": "string", "enum": ["flow", "state", "derived"] },
+  "path": { "type": "string", "pattern": "^series/[A-Za-z0-9._@-]+\\.csv$" },
+        "unit": { "type": "string" },
+        "componentId": { "type": "string" },
+        "class": { "type": "string" },
+        "points": { "type": "integer", "minimum": 0 },
+        "hash": { "$ref": "#/$defs/hash" }
+      }
+    }
+  }
+}
