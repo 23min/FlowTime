@@ -9,9 +9,11 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
     <PackageReference Include="coverlet.collector" Version="6.0.2" />
+  <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="9.0.0" />
   </ItemGroup>
   <ItemGroup>
   <ProjectReference Include="../../src/FlowTime.Sim.Core/FlowTime.Sim.Core.csproj" />
   <ProjectReference Include="../../src/FlowTime.Sim.Cli/FlowTime.Sim.Cli.csproj" />
+  <ProjectReference Include="../../src/FlowTime.Sim.Service/FlowTime.Sim.Service.csproj" />
   </ItemGroup>
 </Project>

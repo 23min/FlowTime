@@ -56,6 +56,7 @@
 
 ```
 runs/<runId>/
+  spec.yaml                     # original submitted (or derived) simulation spec (persisted for overlay derivations)
   run.json
   manifest.json
   series/
@@ -223,7 +224,11 @@ t,value    # t = 0..(bins-1), LF newlines, InvariantCulture floats
 - `GET /sim/runs/{id}/index` → `series/index.json`
 - `GET /sim/runs/{id}/series/{seriesId}` → CSV/Parquet passthrough
 - `GET /sim/scenarios` → list presets + knobs (domain-neutral)
-- `POST /sim/overlay` → `{ baseRunId, overlaySpec }` → new `simRunId`
+- `POST /sim/overlay` → `{ simRunId }` (body: `{ baseRunId, overlay: { seed?, grid?{ bins?, binMinutes? }, arrivals?{ kind?, values?[], rate?, rates?[] } } }`) — performs a shallow patch against the persisted `spec.yaml` of the base run and produces a new derived run. Precedence rules: if `rate` is set `rates` is cleared; if `rates` provided `rate` cleared.
+  - Errors:
+    - 400 if JSON invalid or `baseRunId` missing / overlay fails validation.
+    - 404 if `baseRunId` not found or its `spec.yaml` missing.
+  - Security: same ID validation rules as other endpoints (IDs restricted to `[A-Za-z0-9_-]`).
 - **Catalog endpoints:**
 
   - `GET /sim/catalogs`, `GET /sim/catalogs/{id}`, `POST /sim/catalogs/validate`

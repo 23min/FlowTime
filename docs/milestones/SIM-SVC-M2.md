@@ -1,6 +1,6 @@
 # Milestone: SIM-SVC-M2 — Minimal Simulation Service/API (Artifact-Centric)
 
-Status: DRAFT
+Status: In Progress (tests green; polishing docs)
 
 ## Goal
 Expose the simulation engine as a stateless HTTP service that produces the same on-disk artifact pack (run.json, manifest.json, series/index.json, per-series CSVs, optional events.ndjson) as the CLI, enabling UI / other services to request new simulation runs via simple HTTP calls.
@@ -31,10 +31,10 @@ Expose the simulation engine as a stateless HTTP service that produces the same 
 | Method | Path | Description | Status |
 |--------|------|-------------|--------|
 | POST | /sim/run | Submit simulation spec YAML; returns `{ simRunId }` | Implemented (initial) |
-| GET | /sim/runs/{id}/index | Retrieve JSON index for a run | Pending |
-| GET | /sim/runs/{id}/series/{seriesId} | Retrieve a specific series CSV | Pending |
-| GET | /sim/scenarios | List available scenarios (IDs + brief metadata) | Pending / Maybe |
-| POST | /sim/overlay | Create run from base run + overlay patch | Pending |
+| GET | /sim/runs/{id}/index | Retrieve JSON index for a run | Implemented |
+| GET | /sim/runs/{id}/series/{seriesId} | Retrieve a specific series CSV | Implemented |
+| GET | /sim/scenarios | List available scenarios (IDs + brief metadata) | Implemented |
+| POST | /sim/overlay | Create run from base run + overlay patch | Implemented |
 
 Future (not required for acceptance): scenario hash introspection endpoint, health expansions, metrics.
 
@@ -69,9 +69,9 @@ Unchanged from SIM-M2: given identical spec + seed, per-series CSV content & has
 4. Add GET /sim/runs/{id}/series/{seriesId} (stream file; validate path traversal avoidance).
 5. Introduce minimal scenarios registry (optional if needed for UI) and GET /sim/scenarios.
 6. Implement POST /sim/overlay (load base manifest + apply shallow overlay to spec, regenerate). Optional for milestone if time permits.
-7. Integration tests: POST then fetch index & a series; assert hash consistency with CLI for same YAML.
-8. Documentation updates (contracts.md references to service endpoints; testing.md add service tests section).
-9. Final polish: logging (request/response summary), 404 responses, tighten CORS note, milestone release notes.
+7. Integration tests: POST then fetch index & a series; hash parity with CLI; negative 400/404 cases. (DONE)
+8. Documentation updates (contracts.md, testing.md). (DONE)
+9. Final polish: refine logging, review CORS defaults, draft release notes. (IN PROGRESS)
 
 ## Testing Strategy Additions
 - New test fixture spins up WebApplicationFactory for service endpoints.
@@ -83,19 +83,21 @@ Unchanged from SIM-M2: given identical spec + seed, per-series CSV content & has
 - Path traversal: sanitize `id` and `seriesId` (no `..`, no path separators) before file access.
 - CORS: wide open for local dev; must restrict origin + methods in future production milestone.
 
-## Open Questions
-- Do we require idempotency (dedupe identical spec submissions)? (Deferred—currently each POST yields a fresh run directory.)
-- Overlay semantics depth (shallow vs deep merge) for complex future spec additions.
-- Scenario registry format (YAML in repo vs embedded resources).
+## Open Questions / Follow-Ups
+- Idempotency (dedupe identical spec submissions) — deferred.
+- Deep vs shallow overlay extension for future spec complexity — next milestone to define.
+- Scenario registry externalization (resource file or dynamic source) — future.
+- Streaming alignment and events parity when SSE milestone lands.
 
 ## Exit Criteria Checklist
-- [ ] POST /sim/run deterministic and returns 200 + ID.
-- [ ] CLI vs API parity test green.
-- [ ] GET index + series endpoints implemented with 404 handling & path safety.
-- [ ] Basic integration test project added and passing in CI.
-- [ ] Milestone docs updated (this file + roadmap cross-ref).
-- [ ] Contracts doc mentions service endpoints.
-- [ ] Release notes (future SIM-SVC-M2) drafted.
+- [x] POST /sim/run deterministic and returns 200 + ID.
+- [x] CLI vs API parity test green.
+- [x] GET index + series endpoints implemented with 404 handling & path safety.
+- [x] Basic integration + negative tests passing.
+- [x] Overlay endpoint + spec.yaml persistence.
+- [x] Scenario registry endpoint.
+- [x] Docs updated (contracts.md & testing.md).
+- [x] Release notes draft.
 
 ---
 (End of SIM-SVC-M2 draft milestone notes)

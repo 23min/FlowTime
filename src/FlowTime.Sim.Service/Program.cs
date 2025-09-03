@@ -1,8 +1,9 @@
 using System.Globalization;
 using FlowTime.Sim.Core;
+using FlowTime.Sim.Service; // ScenarioRegistry
 
-// Entry point wrapped in explicit class so we can define helper static class below without top-level ordering issues.
-public partial class Program
+// Explicit Program class for integration tests & clear structure
+public class Program
 {
 	public static void Main(string[] args)
 	{
@@ -95,7 +96,7 @@ app.MapGet("/sim/runs/{id}/series/{seriesId}", (string id, string seriesId) =>
 });
 
 // GET /sim/scenarios  (static list of scenario presets)
-app.MapGet("/sim/scenarios", () => Results.Ok(Service.ScenarioRegistry.List()));
+app.MapGet("/sim/scenarios", () => Results.Ok(ScenarioRegistry.List()));
 
 // POST /sim/overlay  (derive run from base + overlay)
 // Body JSON: { baseRunId: string, overlay: { seed?, grid?, arrivals? } }
@@ -152,8 +153,8 @@ app.MapPost("/sim/overlay", async (HttpRequest req, CancellationToken ct) =>
 				{
 					spec.arrivals.rates = body.Overlay.Arrivals.Rates.ToList();
 					spec.arrivals.rate = null; // precedence
+					}
 				}
-			}
 		}
 
 		var validation = SimulationSpecValidator.Validate(spec);
@@ -179,51 +180,52 @@ app.MapPost("/sim/overlay", async (HttpRequest req, CancellationToken ct) =>
 		});
 
 		app.Run();
-		}
+	}
 
-		// Helper utilities
-		static class ServiceHelpers
+	// Helper utilities
+	static class ServiceHelpers
+	{
+		public static string RunsRoot()
 		{
-			public static string RunsRoot()
-			{
-				var runsRoot = Environment.GetEnvironmentVariable("FLOWTIME_SIM_RUNS_ROOT");
-				if (string.IsNullOrWhiteSpace(runsRoot)) runsRoot = Directory.GetCurrentDirectory();
-				return runsRoot;
-			}
-			public static bool IsSafeId(string id) => !string.IsNullOrWhiteSpace(id) && id.Length < 128 && id.All(ch => char.IsLetterOrDigit(ch) || ch is '_' or '-');
-			public static bool IsSafeSeriesId(string id) => !string.IsNullOrWhiteSpace(id) && id.Length < 128 && id.All(ch => char.IsLetterOrDigit(ch) || ch is '_' or '-' or '@');
+			var runsRoot = Environment.GetEnvironmentVariable("FLOWTIME_SIM_RUNS_ROOT");
+			if (string.IsNullOrWhiteSpace(runsRoot)) runsRoot = Directory.GetCurrentDirectory();
+			return runsRoot;
 		}
+		public static bool IsSafeId(string id) => !string.IsNullOrWhiteSpace(id) && id.Length < 128 && id.All(ch => char.IsLetterOrDigit(ch) || ch is '_' or '-');
+		public static bool IsSafeSeriesId(string id) => !string.IsNullOrWhiteSpace(id) && id.Length < 128 && id.All(ch => char.IsLetterOrDigit(ch) || ch is '_' or '-' or '@');
+	}
 
-		// Overlay DTOs
-		public sealed class OverlayRequest
-		{
-			public string BaseRunId { get; set; } = string.Empty;
-			public OverlayPatch? Overlay { get; set; }
-		}
+	// Overlay DTOs
+	public sealed class OverlayRequest
+	{
+		public string BaseRunId { get; set; } = string.Empty;
+		public OverlayPatch? Overlay { get; set; }
+	}
 
-		public sealed class OverlayPatch
-		{
-			public int? Seed { get; set; }
-			public OverlayGrid? Grid { get; set; }
-			public OverlayArrivals? Arrivals { get; set; }
-		}
+	public sealed class OverlayPatch
+	{
+		public int? Seed { get; set; }
+		public OverlayGrid? Grid { get; set; }
+		public OverlayArrivals? Arrivals { get; set; }
+	}
 
-		public sealed class OverlayGrid
-		{
-			public int? Bins { get; set; }
-			public int? BinMinutes { get; set; }
-		}
+	public sealed class OverlayGrid
+	{
+		public int? Bins { get; set; }
+		public int? BinMinutes { get; set; }
+	}
 
-		public sealed class OverlayArrivals
-		{
-			public string? Kind { get; set; }
-			public IEnumerable<double>? Values { get; set; }
-			public double? Rate { get; set; }
-			public IEnumerable<double>? Rates { get; set; }
-		}
+	public sealed class OverlayArrivals
+	{
+		public string? Kind { get; set; }
+		public IEnumerable<double>? Values { get; set; }
+		public double? Rate { get; set; }
+		public IEnumerable<double>? Rates { get; set; }
+	}
 
-		static string SerializeSpec(SimulationSpec spec)
-{
+
+	static string SerializeSpec(SimulationSpec spec)
+	{
 	// Minimal YAML serializer for persistence; for now we dump JSON-compatible YAML using simple StringBuilder.
 	// (Future: switch to a proper YAML emitter if formatting stability is required.)
 	var sb = new System.Text.StringBuilder();
@@ -260,4 +262,5 @@ app.MapPost("/sim/overlay", async (HttpRequest req, CancellationToken ct) =>
 		sb.AppendLine("  id: " + spec.route.id);
 	}
 	return sb.ToString();
+    }
 }

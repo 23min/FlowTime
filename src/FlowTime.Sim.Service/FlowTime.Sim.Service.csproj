@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../FlowTime.Sim.Core/FlowTime.Sim.Core.csproj" />
+    <ProjectReference Include="../FlowTime.Sim.Cli/FlowTime.Sim.Cli.csproj" />
   </ItemGroup>
 
 </Project>

@@ -15,6 +15,11 @@ Tests live under `tests/FlowTime.Sim.Tests` (xUnit).
   - `runId` matches documented pattern `sim_YYYY-MM-DDTHH-mm-ssZ_<8slug>`.
   - `series/index.json` enumerates all series; each entry has path, unit, hash, points count.
 - Optional events file (if emitted) basic shape guard (line-delimited JSON); its absence is not a failure.
+- Service integration (SIM-SVC-M2): minimal slice tests via WebApplicationFactory covering:
+  - POST /sim/run -> run id & artifact pack existence
+  - GET index & series endpoints (200 / 404 behavior)
+  - POST /sim/overlay creates distinct run with shallow patch
+  - CLI vs Service parity (per-series CSV hash equality for same spec+seed)
 
 ## Determinism Guarantees
 Given identical spec (including seed & rng):
@@ -38,7 +43,7 @@ Suites kept fast (<2s typical on devcontainer) to encourage frequent execution.
 - When introducing divergence between `run.json` and `manifest.json`, add an explicit test documenting the semantic difference.
 
 ## Future (Post SIM-M2)
-- Reintroduce API/service slice tests once Service milestone resumes (SIM-SVC-M2).
+// Service tests reintroduced in SIM-SVC-M2
 - Streaming parity (stream reconstruction equals file snapshot).
 - Backlog/queue depth & latency estimate semantics (schemaVersion 2) tests.
 - Performance micro-benchmarks with threshold assertions.
