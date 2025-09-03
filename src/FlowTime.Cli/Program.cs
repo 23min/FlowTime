@@ -92,7 +92,9 @@ foreach (var output in model.Outputs)
 {
 	var nodeId = new NodeId(output.Series);
 	var s = ctx[nodeId];
-	var seriesId = output.Series + "@" + (nodeId.Value.ToUpperInvariant()); // temporary component mapping = node id upper
+	var measure = output.Series; // the measure name (e.g., "served", "arrivals")
+	var componentId = nodeId.Value.ToUpperInvariant(); // component ID (e.g., "SERVED")
+	var seriesId = $"{measure}@{componentId}@DEFAULT"; // measure@componentId@class format per contracts
 	var csvName = seriesId + ".csv";
 	var path = Path.Combine(seriesDir, csvName);
 	using (var w = new StreamWriter(path, false, System.Text.Encoding.UTF8, 4096))
