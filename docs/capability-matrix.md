@@ -13,6 +13,9 @@ Legend: Done / Prototype / Partial / Planned.
 | API | /healthz, /run, /graph | Done (SVC-M0) | Full API implementation with parity tests |
 | API Artifacts | /runs/{runId}/index, /runs/{runId}/series/{seriesId} | Done (SVC-M1) | Artifact serving via SYN-M0 adapters |
 | UI | Health/Run/Graph demo, dark theme, simulation toggle | Done (UI-M0) | Complete SPA with API integration |
+| UI Template Runner | Template gallery, dynamic forms, catalog selection, simulation workflow | Done (UI-M1) | Full template-based simulation runner |
+| UI Parameter Forms | JSON schema-driven forms with validation | Done (UI-M1) | Auto-generated forms with type validation |
+| UI Catalog Management | System catalog selection with metadata | Done (UI-M1) | Visual catalog picker with capabilities |
 | UI Graph | Structural table (order, degrees, roles) | Done | Visual DAG planned for later |
 | Simulation Mode | Deterministic synthetic run + graph | Done | Toggle persisted (flag + query) |
 | Synthetic Adapter (SYN-M0) | Read artifacts & produce series | Done (SYN-M0) | FileSeriesReader, RunArtifactAdapter complete |
