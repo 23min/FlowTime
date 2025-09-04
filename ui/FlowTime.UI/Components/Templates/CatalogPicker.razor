@@ -1,4 +1,5 @@
 @using FlowTime.UI.Services
+@using MudBlazor
 @inject ICatalogService CatalogService
 @inject ISnackbar Snackbar
 
@@ -15,11 +16,13 @@
     else
     {
         <MudSelect T="CatalogInfo" Value="selectedCatalog" ValueChanged="SelectCatalog"
-                   Label="System Catalog" Variant="Variant.Outlined" AnchorOrigin="Origin.BottomCenter">
+                   Label="System Catalog" Variant="Variant.Outlined" 
+                   AnchorOrigin="Origin.BottomLeft" TransformOrigin="Origin.TopLeft"
+                   Class="catalog-select-dropdown">
             @foreach (var catalog in catalogs)
             {
                 <MudSelectItem Value="catalog">
-                    <div>
+                    <div style="padding: 4px 0;">
                         <MudText Typo="Typo.subtitle2">@catalog.Name</MudText>
                         <MudText Typo="Typo.caption" Class="text-muted">
                             @catalog.NodeCount nodes • @catalog.Type

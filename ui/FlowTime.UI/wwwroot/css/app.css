@@ -49,6 +49,31 @@ h1:focus {
     outline: none;
 }
 
+/* Fix catalog dropdown height to properly show two-line content - specific to catalog select only */
+.catalog-select-dropdown .mud-input-root {
+    min-height: 68px !important;
+}
+
+.catalog-select-dropdown .mud-input-slot {
+    min-height: 68px !important;
+    display: flex !important;
+    align-items: center !important;
+}
+
+.catalog-select-dropdown .mud-input-control {
+    min-height: 68px !important;
+}
+
+.catalog-select-dropdown .mud-input-control .mud-input {
+    min-height: 68px !important;
+    display: flex !important;
+    align-items: center !important;
+}
+
+.catalog-select-dropdown .mud-select {
+    min-height: 68px !important;
+}
+
 .valid.modified:not([type=checkbox]) {
     outline: 1px solid #26b050;
 }
