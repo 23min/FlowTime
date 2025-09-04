@@ -1,0 +1,154 @@
+@page "/templates"
+@using FlowTime.UI.Services
+@using FlowTime.UI.Components.Templates
+@inject ITemplateService TemplateService
+@inject ICatalogService CatalogService
+@inject IFlowTimeSimService SimService
+@inject ISnackbar Snackbar
+
+<PageTitle>Template Runner</PageTitle>
+
+<MudText Typo="Typo.h3" GutterBottom="true">Template-Based Simulation Runner</MudText>
+<MudText Typo="Typo.body1" Class="mb-4">
+    Select a template, configure parameters, choose a system catalog, and run simulations without writing YAML.
+</MudText>
+
+<MudGrid>
+    <MudItem xs="12" md="4">
+        <MudPaper Class="pa-4" Elevation="2">
+            <MudText Typo="Typo.h5" Class="mb-3">📋 Templates</MudText>
+            <TemplateGallery OnTemplateSelected="OnTemplateSelected" />
+        </MudPaper>
+    </MudItem>
+    
+    <MudItem xs="12" md="4">
+        <MudPaper Class="pa-4" Elevation="2">
+            <MudText Typo="Typo.h5" Class="mb-3">🏗️ System Catalog</MudText>
+            <CatalogPicker OnCatalogSelected="OnCatalogSelected" />
+        </MudPaper>
+    </MudItem>
+    
+    <MudItem xs="12" md="4">
+        <MudPaper Class="pa-4" Elevation="2">
+            <MudText Typo="Typo.h5" Class="mb-3">⚙️ Parameters</MudText>
+            @if (selectedTemplate != null)
+            {
+                <DynamicParameterForm 
+                    Template="selectedTemplate" 
+                    OnParametersChanged="OnParametersChanged" />
+            }
+            else
+            {
+                <MudText Typo="Typo.body2" Class="text-muted">Select a template to configure parameters</MudText>
+            }
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+<MudDivider Class="my-6" />
+
+<MudGrid>
+    <MudItem xs="12">
+        <MudPaper Class="pa-4" Elevation="2">
+            <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+                <MudText Typo="Typo.h5">🚀 Run Simulation</MudText>
+                <MudButton 
+                    Variant="Variant.Filled" 
+                    Color="Color.Primary" 
+                    OnClick="RunSimulation"
+                    Disabled="@(!CanRunSimulation())"
+                    StartIcon="@Icons.Material.Filled.PlayArrow">
+                    Run Simulation
+                </MudButton>
+            </MudStack>
+            
+            @if (isRunning)
+            {
+                <MudProgressLinear Indeterminate="true" Class="mb-4" />
+                <MudText Typo="Typo.body2">Running simulation...</MudText>
+            }
+            
+            @if (runResult != null)
+            {
+                <SimulationResults Result="runResult" />
+            }
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private TemplateInfo? selectedTemplate;
+    private CatalogInfo? selectedCatalog;
+    private Dictionary<string, object> parameters = new();
+    private bool isRunning;
+    private SimulationRunResult? runResult;
+
+    private void OnTemplateSelected(TemplateInfo template)
+    {
+        selectedTemplate = template;
+        parameters.Clear();
+        runResult = null;
+        StateHasChanged();
+    }
+
+    private void OnCatalogSelected(CatalogInfo catalog)
+    {
+        selectedCatalog = catalog;
+        StateHasChanged();
+    }
+
+    private void OnParametersChanged(Dictionary<string, object> newParameters)
+    {
+        parameters = newParameters;
+        StateHasChanged();
+    }
+
+    private bool CanRunSimulation()
+    {
+        if (selectedTemplate == null || selectedCatalog == null || isRunning)
+            return false;
+
+        // Check if all required parameters are provided
+        if (selectedTemplate.ParameterSchema?.Required != null)
+        {
+            foreach (var requiredParam in selectedTemplate.ParameterSchema.Required)
+            {
+                if (!parameters.ContainsKey(requiredParam) || parameters[requiredParam] == null)
+                    return false;
+            }
+        }
+
+        return true;
+    }
+
+    private async Task RunSimulation()
+    {
+        if (!CanRunSimulation()) return;
+
+        isRunning = true;
+        runResult = null;
+        StateHasChanged();
+
+        try
+        {
+            var request = new SimulationRunRequest
+            {
+                TemplateId = selectedTemplate!.Id,
+                CatalogId = selectedCatalog!.Id,
+                Parameters = parameters
+            };
+
+            runResult = await SimService.RunSimulationAsync(request);
+            Snackbar.Add("Simulation completed successfully!", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Simulation failed: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isRunning = false;
+            StateHasChanged();
+        }
+    }
+}

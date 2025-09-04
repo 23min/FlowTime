@@ -1,0 +1,88 @@
+@using FlowTime.UI.Services
+@inject ICatalogService CatalogService
+@inject ISnackbar Snackbar
+
+<MudStack Spacing="2">
+    @if (catalogs == null)
+    {
+        <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+        <MudText Typo="Typo.body2">Loading catalogs...</MudText>
+    }
+    else if (!catalogs.Any())
+    {
+        <MudAlert Severity="Severity.Info">No catalogs available</MudAlert>
+    }
+    else
+    {
+        <MudSelect T="CatalogInfo" Value="selectedCatalog" ValueChanged="SelectCatalog"
+                   Label="System Catalog" Variant="Variant.Outlined" AnchorOrigin="Origin.BottomCenter">
+            @foreach (var catalog in catalogs)
+            {
+                <MudSelectItem Value="catalog">
+                    <div>
+                        <MudText Typo="Typo.subtitle2">@catalog.Name</MudText>
+                        <MudText Typo="Typo.caption" Class="text-muted">
+                            @catalog.NodeCount nodes • @catalog.Type
+                        </MudText>
+                    </div>
+                </MudSelectItem>
+            }
+        </MudSelect>
+
+        @if (selectedCatalog != null)
+        {
+            <MudCard Outlined="true" Class="mt-2">
+                <MudCardContent>
+                    <MudText Typo="Typo.subtitle1">@selectedCatalog.Name</MudText>
+                    <MudText Typo="Typo.body2" Class="mb-2">@selectedCatalog.Description</MudText>
+                    <MudStack Row Spacing="1" Class="mb-2">
+                        <MudChip T="string" Size="Size.Small" Icon="@Icons.Material.Filled.AccountTree">
+                            @selectedCatalog.NodeCount nodes
+                        </MudChip>
+                        <MudChip T="string" Size="Size.Small" Color="Color.Primary">
+                            @selectedCatalog.Type
+                        </MudChip>
+                    </MudStack>
+                    @if (selectedCatalog.Capabilities.Any())
+                    {
+                        <MudText Typo="Typo.caption" Class="mb-1">Capabilities:</MudText>
+                        <MudStack Row Spacing="1" Wrap="Wrap.Wrap">
+                            @foreach (var capability in selectedCatalog.Capabilities)
+                            {
+                                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">
+                                    @capability
+                                </MudChip>
+                            }
+                        </MudStack>
+                    }
+                </MudCardContent>
+            </MudCard>
+        }
+    }
+</MudStack>
+
+@code {
+    [Parameter] public EventCallback<CatalogInfo> OnCatalogSelected { get; set; }
+    
+    private List<CatalogInfo>? catalogs;
+    private CatalogInfo? selectedCatalog;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            catalogs = await CatalogService.GetCatalogsAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to load catalogs: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task SelectCatalog(CatalogInfo catalog)
+    {
+        selectedCatalog = catalog;
+        await OnCatalogSelected.InvokeAsync(catalog);
+        StateHasChanged();
+    }
+}
