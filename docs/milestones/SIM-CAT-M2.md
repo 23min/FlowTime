@@ -1,6 +1,6 @@
 # SIM-CAT-M2 — Catalog.v1 (Structural Source of Truth)
 
-**Status**: Planning  
+**Status**: ✅ **COMPLETED** (September 3, 2025)  
 **Goal**: Provide a domain-neutral catalog that both the simulator and UI can consume to render system diagrams and stamp component IDs into artifacts.
 
 ## Overview
@@ -81,12 +81,12 @@ OR inline catalog:
 
 ## Acceptance Criteria
 
-- [ ] **Schema Validation**: Catalog.v1 schema enforced
-- [ ] **ID Consistency**: Each `component.id` maps 1:1 to Gold `component_id`
-- [ ] **UI Compatibility**: elk/react-flow can render structure from catalog
-- [ ] **Deterministic Layout**: Same catalog + hints → consistent diagram layout
-- [ ] **API Parity**: CLI and service produce identical artifacts when using catalogs
-- [ ] **Validation**: Schema and referential integrity checks pass
+- [x] **Schema Validation**: Catalog.v1 schema enforced
+- [x] **ID Consistency**: Each `component.id` maps 1:1 to Gold `component_id`
+- [x] **UI Compatibility**: elk/react-flow can render structure from catalog
+- [x] **Deterministic Layout**: Same catalog + hints → consistent diagram layout
+- [x] **API Parity**: CLI and service produce identical artifacts when using catalogs
+- [x] **Validation**: Schema and referential integrity checks pass
 
 ## Implementation Plan
 
