@@ -240,6 +240,40 @@ Even when returning mock data, the simulator **must write the artifact pack.** R
 * **UI reads `series/index.json`, then CSVs.**
 * **Keep `schemaVersion=1`, `source`, `grid`, and hashes correct.**
 
+---
+
+## 11) Future Considerations (Beyond Early Milestones)
+
+The spec above covers early milestones (UI-M0/1, SVC-M0/1, M0–M3), but several areas warrant future specification:
+
+### Error Handling & Artifact Integrity
+* **Incomplete artifacts:** What happens when artifacts are partially written or corrupted?
+* **Validation strategy:** Should consumers validate `manifest.json` hashes before processing?
+* **Recovery patterns:** How to handle missing series files referenced in `index.json`?
+* **Timeout scenarios:** Behavior when artifacts are being written during read attempts?
+
+### Streaming & Progressive Writing
+* **Long simulations:** How does progressive artifact writing work for multi-hour simulations?
+* **Incremental updates:** Can `series/index.json` be updated as new series become available?
+* **Live monitoring:** Pattern for reading partial results before completion?
+* **Watermark strategy:** How to signal "up to time T is complete" for streaming consumers?
+
+### Caching & Performance
+* **Artifact caching:** Guidelines for caching artifacts vs re-reading from source?
+* **Series-level caching:** When to cache individual CSV streams vs full artifact packs?
+* **Invalidation strategy:** How to detect when cached artifacts are stale?
+* **Multi-consumer scenarios:** Coordination when multiple services read same artifacts?
+
+### Schema Evolution & Migration
+* **Schema versioning:** How to handle evolution beyond `schemaVersion: 1`?
+* **Backward compatibility:** Support strategy for mixed-version artifact environments?
+* **Migration tooling:** Automated conversion between schema versions?
+* **Deprecation timeline:** How long to maintain compatibility with older schemas?
+
+These considerations should inform future milestone specifications as the system scales beyond prototype integration.
+
+---
+
 If you want, I can turn this into:
 
 * `docs/specs/sim-integration.md` (this spec)

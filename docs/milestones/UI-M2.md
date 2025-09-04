@@ -48,11 +48,13 @@ UI Template Runner → HTTP Services → FlowTime-Sim APIs → Simulation Engine
 - Load actual system catalogs with real metadata
 - Handle catalog availability and status information
 
-### FR-UI-M2-3: Live Simulation Execution
+### FR-UI-M2-3: Live Simulation Execution (Artifact-First)
 - Replace mock simulation service with real FlowTime-Sim API calls
-- Execute actual simulations with user parameters
-- Handle simulation submission and tracking
-- Process real FlowTime artifacts and results
+- Execute simulations via `POST /sim/run` → `{ simRunId }`
+- Read results from canonical run artifacts (`runs/<runId>/...`)
+- Parse `series/index.json` to discover available series
+- Stream individual CSVs via `/sim/runs/{id}/series/{seriesId}`
+- **Remove dependency on custom metadata fields** from UI-M1 mock
 
 ### FR-UI-M2-4: Real-Time Status Tracking
 - Implement polling for simulation progress
@@ -113,6 +115,32 @@ public class HttpFlowTimeSimService : IFlowTimeSimService { ... }
 
 ## Required FlowTime-Sim Endpoints
 
+### Simulation Execution (Per Integration Spec)
+```http
+POST /sim/run
+Body: {
+  "grid": { "bins": 288, "binMinutes": 5 },
+  "rng": { "seed": 12345 },
+  "components": ["COMP_A"],
+  "measures": ["arrivals","served"],
+  "arrivals": { "kind": "rate", "ratePerBin": 1.2 },
+  "served": { "kind": "fractionOf", "of": "arrivals", "fraction": 0.85 },
+  "catalogId": null,
+  "templateId": "hello",
+  "notes": "UI-M2 integration"
+}
+Response: { "simRunId": "sim_2025-09-04T10-22-01Z_ab12cd34" }
+```
+
+### Artifact Reading (Canonical)
+```http
+GET /sim/runs/{id}/index
+Response: series/index.json (application/json)
+
+GET /sim/runs/{id}/series/{seriesId}  
+Response: CSV stream (t,value)
+```
+
 ### Template Management
 ```http
 GET /api/templates
@@ -124,14 +152,6 @@ GET /api/templates/{id}/schema
 ```http
 GET /api/catalogs
 GET /api/catalogs/{id}
-```
-
-### Simulation Execution
-```http
-POST /api/simulations/run
-GET /api/simulations/{runId}/status
-GET /api/simulations/{runId}/results
-DELETE /api/simulations/{runId}
 ```
 
 ---
@@ -163,12 +183,54 @@ ui/FlowTime.UI/Extensions/
 tests/FlowTime.UI.Tests/Services/
   HttpTemplateServiceTests.cs
   HttpCatalogServiceTests.cs
-  HttpFlowTimeSimServiceTests.cs
+    HttpFlowTimeSimServiceTests.cs
 ```
+
+## Critical Changes Required from UI-M1
+
+### 1. **Remove Custom Metadata Dependencies**
+The UI-M1 mock returns custom metadata fields that violate the artifact-first principle:
+```csharp
+// REMOVE: Custom metadata fields from UI-M1 mock
+["stats.totalDemand"] = GetMockStatistic("totalDemand", request),
+["stats.avgThroughput"] = GetMockStatistic("avgThroughput", request),
+["timeSeries.demand.min"] = GetMockStatistic("demandMin", request),
+// ... etc
+```
+
+### 2. **Implement Artifact-First Result Reading**
+Replace custom metadata with canonical artifact reading:
+```csharp
+// NEW: Read from canonical artifacts
+var indexResponse = await httpClient.GetAsync($"/sim/runs/{runId}/index");
+var seriesIndex = await indexResponse.Content.ReadFromJsonAsync<SeriesIndex>();
+
+foreach (var series in seriesIndex.Series)
+{
+    var csvResponse = await httpClient.GetAsync($"/sim/runs/{runId}/series/{series.Id}");
+    var csvData = await csvResponse.Content.ReadAsStringAsync();
+    // Parse CSV and create visualization
+}
+```
+
+### 3. **Update SimulationResults Component**
+The results display must read from `series/index.json` rather than custom metadata:
+- Parse series from canonical index
+- Load individual CSV streams for visualization
+- Calculate statistics from actual series data
+- No hardcoded assumptions about available series
+
 
 ---
 
-## Acceptance Criteria
+### Acceptance Criteria
+
+### Artifact-First Integration ✅
+- [ ] UI reads simulation results from canonical run artifacts (`runs/<runId>/...`)
+- [ ] Results loaded via `series/index.json` discovery pattern
+- [ ] Individual series streamed via `/runs/{id}/series/{seriesId}` 
+- [ ] **No dependency on custom metadata fields** from UI-M1 mock
+- [ ] Simulation execution via `POST /sim/run` → `{ simRunId }` pattern
 
 ### Template Integration ✅
 - [ ] Real templates loaded from FlowTime-Sim API
@@ -182,17 +244,19 @@ tests/FlowTime.UI.Tests/Services/
 - [ ] Catalog availability and health status shown
 - [ ] Dropdown properly displays real catalog options
 
-### Simulation Execution ✅
-- [ ] Template Runner executes real simulations
-- [ ] User parameters properly submitted to simulation engine
-- [ ] Real FlowTime artifacts returned and displayed
-- [ ] Simulation results show actual statistical analysis
-
 ### Real-Time Features ✅
 - [ ] Simulation progress tracked with live updates
 - [ ] Status changes reflected in UI immediately
 - [ ] Long-running simulations handled gracefully
 - [ ] Users can cancel running simulations
+
+### Schema Compliance ✅
+- [ ] All artifacts follow `schemaVersion: 1` contract
+- [ ] `run.json` includes required fields: `source`, `engineVersion`, `grid`, `series[]`
+- [ ] `manifest.json` includes `rng`, `seriesHashes`, `eventCount`
+- [ ] `series/index.json` includes canonical series metadata
+- [ ] Series IDs follow `measure@componentId[@class]` convention
+- [ ] Units properly specified: flows=`entities/bin`, levels=`entities`, latency=`minutes`
 
 ### Error Handling ✅
 - [ ] Network failures handled with appropriate user feedback
@@ -232,14 +296,22 @@ tests/FlowTime.UI.Tests/Services/
 
 ## Dependencies
 
-### FlowTime-Sim Service
+### FlowTime-Sim Service Integration Spec Compliance
+- **Critical**: Current UI-M1 mock violates sim-integration-spec.md
+- **Required**: Mock must write canonical run artifacts (`runs/<runId>/...`)
+- **Required**: UI must read from `series/index.json` and stream CSVs
+- **Architecture**: Artifact-first pattern, not custom JSON blobs
+
+### FlowTime-Sim Service Requirements
 - SIM-SVC-M2: Template management endpoints
-- SIM-CAT-M2: Catalog management endpoints
+- SIM-CAT-M2: Catalog management endpoints  
 - Running FlowTime-Sim service for integration testing
+- Compliance with canonical artifact format (`schemaVersion: 1`)
 
 ### Infrastructure
 - Network connectivity to FlowTime-Sim service
 - Configuration management for different environments
+- File system access for artifact reading (if using file-based adapters)
 - Authentication/authorization if required
 
 ---
