@@ -12,59 +12,59 @@
 
 FlowTime behaves like a **spreadsheet for flows**:
 
-* Deterministic evaluation, grid-aligned.
-* Cells = time-bins, formulas = expressions, PMFs, built-ins.
-* Graph nodes reference each other like spreadsheet cells.
+- Deterministic evaluation, grid-aligned.
+- Cells = time-bins, formulas = expressions, PMFs, built-ins.
+- Graph nodes reference each other like spreadsheet cells.
 
 ## UI-M0 — Minimal Observer UI (Completed / Expanded)
 
 ### Visualization Early
 
-* UI is not deferred — it’s introduced from the beginning.
-* SPA (Blazor WASM). ✅
-* Load outputs from API runs (CLI fallback deferred). ✅ (API + Simulation stub toggle)
-* Display time-series in line chart. ✅
-* Structural graph view (table of nodes + degrees). ➕ (pulled early)
-* Micro-DAG visualization (compact SVG). ➕
-* Persistent preferences (theme, simulation mode, selected model). ➕
-* Simulation mode feature flag with deterministic stub. ➕
-* Early visualization validates the model, helps debugging, and makes FlowTime accessible.
-* Even a basic charting UI pays dividends for adoption.
+- UI is not deferred — it’s introduced from the beginning.
+- SPA (Blazor WASM). ✅
+- Load outputs from API runs (CLI fallback deferred). ✅ (API + Simulation stub toggle)
+- Display time-series in line chart. ✅
+- Structural graph view (table of nodes + degrees). ➕ (pulled early)
+- Micro-DAG visualization (compact SVG). ➕
+- Persistent preferences (theme, simulation mode, selected model). ➕
+- Simulation mode feature flag with deterministic stub. ➕
+- Early visualization validates the model, helps debugging, and makes FlowTime accessible.
+- Even a basic charting UI pays dividends for adoption.
 
 ### Acceptance Criteria (updated)
 
-* `dotnet run` for API + UI shows demand/served. ✅
-* Structural graph invariants test passes. ✅
-* Micro-DAG renders sources/sinks distinctly. ✅
-* Simulation vs API toggle switches data source. ✅
-* Theme + model selection persist across reloads. ✅
+- `dotnet run` for API + UI shows demand/served. ✅
+- Structural graph invariants test passes. ✅
+- Micro-DAG renders sources/sinks distinctly. ✅
+- Simulation vs API toggle switches data source. ✅
+- Theme + model selection persist across reloads. ✅
 
 ### API-First
 
-* All features must be callable via API first.
-* CLI, UI, and automation layers build on the same API surface.
-* Ensures end-to-end validation from the beginning.
+- All features must be callable via API first.
+- CLI, UI, and automation layers build on the same API surface.
+- Ensures end-to-end validation from the beginning.
 
 ### Expressions as Core
 
-* Expressions (`expr:` fields) make FlowTime “spreadsheet-y.”
-* They serve three roles:
+- Expressions (`expr:` fields) make FlowTime “spreadsheet-y.”
+- They serve three roles:
 
-  * **Modeling:** encode dependencies and math.
-  * **Lineage:** transparent references across nodes.
-  * **Teaching/Demo:** intuitive to explain to non-experts.
+  - **Modeling:** encode dependencies and math.
+  - **Lineage:** transparent references across nodes.
+  - **Teaching/Demo:** intuitive to explain to non-experts.
 
 ### Probabilistic Mass Functions (PMFs)
 
-* PMFs can approximate arrival/attempt patterns.
-* They are **optional**:
+- PMFs can approximate arrival/attempt patterns.
+- They are **optional**:
 
-  * Replaceable by real telemetry.
-  * Or, telemetry can be reduced to PMFs for input.
-* Scoping:
+  - Replaceable by real telemetry.
+  - Or, telemetry can be reduced to PMFs for input.
+- Scoping:
 
-  * Early milestones: simple expected value series.
-  * Later: convolution/distribution propagation.
+  - Early milestones: simple expected value series.
+  - Later: convolution/distribution propagation.
 
 ### Catalog.v1 (optional, domain-neutral)
 
@@ -102,25 +102,25 @@ This is the “Hello World” of FlowTime.
 
 ### Functional Requirements
 
-* **FR-M0-1:** Fixed canonical grid (`bins`, `bin_minutes`).
-* **FR-M0-2:** `Series<T>` = contiguous numeric vector aligned to grid.
-* **FR-M0-3:** Graph with nodes/edges, topological sort, deterministic `Evaluate()`.
-* **FR-M0-4:** Node kinds:
+- **FR-M0-1:** Fixed canonical grid (`bins`, `bin_minutes`).
+- **FR-M0-2:** `Series<T>` = contiguous numeric vector aligned to grid.
+- **FR-M0-3:** Graph with nodes/edges, topological sort, deterministic `Evaluate()`.
+- **FR-M0-4:** Node kinds:
 
-  * `ConstSeriesNode(id, values[])`
-  * `BinaryOpNode(id, left, right, op)` where op ∈ {Add, Mul}. In M0 YAML, scalar RHS is supported (e.g., "name \* 0.8"); a full expression parser is planned for M1.
-* **FR-M0-5:** CLI `run` command: load YAML model → emit CSV.
+  - `ConstSeriesNode(id, values[])`
+  - `BinaryOpNode(id, left, right, op)` where op ∈ {Add, Mul}. In M0 YAML, scalar RHS is supported (e.g., "name \* 0.8"); a full expression parser is planned for M1.
+- **FR-M0-5:** CLI `run` command: load YAML model → emit CSV.
 
 ### Nonfunctional Requirements
 
-* Deterministic eval, clear cycle detection.
-* Unit tests: core math, topo sort.
-* No allocations per bin inside Evaluate (basic perf hygiene).
-* Text editor with YAML schema validation.
-* Run button → calls API or simulation (respect flag) and refreshes chart.
-* Inline validation & evaluation errors (no stale results on failure).
-* Optional toggle between static model selector and editor mode.
-* Retain structural graph & micro-DAG panels for edited model.
+- Deterministic eval, clear cycle detection.
+- Unit tests: core math, topo sort.
+- No allocations per bin inside Evaluate (basic perf hygiene).
+- Text editor with YAML schema validation.
+- Run button → calls API or simulation (respect flag) and refreshes chart.
+- Inline validation & evaluation errors (no stale results on failure).
+- Optional toggle between static model selector and editor mode.
+- Retain structural graph & micro-DAG panels for edited model.
 
 ### Inputs
 
@@ -142,9 +142,9 @@ outputs:
 
 ### Outputs
 
-* `out/<run>/served.csv` with schema: `t,value`
-* Optional stdout run summary when `--verbose` is used.
-* CSV from the CLI is the canonical reference artifact in M0; later API JSON/CSV must match it byte-for-byte (content-wise) for the same model.
+- `out/<run>/served.csv` with schema: `t,value`
+- Optional stdout run summary when `--verbose` is used.
+- CSV from the CLI is the canonical reference artifact in M0; later API JSON/CSV must match it byte-for-byte (content-wise) for the same model.
 
 ### New Code/Files
 
@@ -172,9 +172,9 @@ dotnet run --project src/FlowTime.Cli -- run examples/hello/model.yaml --out out
 
 ### Acceptance Criteria
 
-* CSV matches expected values.
-* Cycles detected and rejected.
-* Unit tests pass (topo order and evaluation).
+- CSV matches expected values.
+- Cycles detected and rejected.
+- Unit tests pass (topo order and evaluation).
 
 ---
 
@@ -188,19 +188,19 @@ Introduce a thin, stateless HTTP surface so everything can be driven via API ear
 
 ### Functional Requirements
 
-* POST `/run` — input: model YAML (body or multipart); output: JSON with series values and basic metadata; optional zipped CSV artifact.
-* GET `/graph` — returns compiled node graph (nodes, edges) for explainability.
-* GET `/healthz` — simple health check.
-* Optional: POST `/negotiate` stub for future real-time (returns a placeholder payload).
+- POST `/run` — input: model YAML (body or multipart); output: JSON with series values and basic metadata; optional zipped CSV artifact.
+- GET `/graph` — returns compiled node graph (nodes, edges) for explainability.
+- GET `/healthz` — simple health check.
+- Optional: POST `/negotiate` stub for future real-time (returns a placeholder payload).
 
 ### Inputs
 
-* Same YAML as M0 (camelCase), including the minimal `expr` support already accepted in M0.
+- Same YAML as M0 (camelCase), including the minimal `expr` support already accepted in M0.
 
 ### Outputs
 
-* JSON response: grid, outputs as arrays, and file paths if writing CSV to a temp container.
-* Optional zipped CSVs for download.
+- JSON response: grid, outputs as arrays, and file paths if writing CSV to a temp container.
+- Optional zipped CSVs for download.
 
 ### New Code/Files
 
@@ -214,16 +214,16 @@ apis/FlowTime.API/
 
 ### Acceptance Criteria
 
-* Posting a valid model returns deterministic outputs and 200 OK.
-* `/graph` mirrors the CLI’s internal plan (ids, inputs, edges).
-* Runs locally with a lightweight host (Functions, ASP.NET Core, etc.); minimal logging and clear error messages.
+- Posting a valid model returns deterministic outputs and 200 OK.
+- `/graph` mirrors the CLI’s internal plan (ids, inputs, edges).
+- Runs locally with a lightweight host (Functions, ASP.NET Core, etc.); minimal logging and clear error messages.
 
 #### Parity and no-drift
 
-* Single source of truth: both CLI and API call FlowTime.Core for evaluation; no duplicated logic.
-* Contract tests compare CLI CSV vs API JSON/CSV for identical models; results must match.
-* Versioned output schema; breaking changes gated behind a version flag.
-* CLI integration: add optional `--via-api <url>` mode to route runs through the API for parity checks; default remains local execution to avoid coupling and keep offline support.
+- Single source of truth: both CLI and API call FlowTime.Core for evaluation; no duplicated logic.
+- Contract tests compare CLI CSV vs API JSON/CSV for identical models; results must match.
+- Versioned output schema; breaking changes gated behind a version flag.
+- CLI integration: add optional `--via-api <url>` mode to route runs through the API for parity checks; default remains local execution to avoid coupling and keep offline support.
 
 ---
 
@@ -239,11 +239,11 @@ Single backend origin & auth, private Sim topology, unified RBAC/audit, one run 
 
 ### Endpoints (proxy)
 
-* `POST /sim/run` → forwards to Sim; persists artifacts under `runs/<simRunId>/…`
-* `GET /sim/runs/{id}/index` → proxies `runs/<id>/series/index.json`
-* `GET /sim/runs/{id}/series/{seriesId}` → proxies CSV/Parquet
-* `GET /sim/scenarios` → proxies list
-* `GET /sim/stream` → proxy SSE/NDJSON (optional)
+- `POST /sim/run` → forwards to Sim; persists artifacts under `runs/<simRunId>/…`
+- `GET /sim/runs/{id}/index` → proxies `runs/<id>/series/index.json`
+- `GET /sim/runs/{id}/series/{seriesId}` → proxies CSV/Parquet
+- `GET /sim/scenarios` → proxies list
+- `GET /sim/stream` → proxy SSE/NDJSON (optional)
 
 ### Acceptance
 
@@ -261,17 +261,17 @@ Provide a first, minimal visualization: plot CSV outputs in a SPA (planned for a
 
 ### Functional Requirements
 
-* SPA (Blazor WASM).
-* Load outputs from API/CLI runs.
-* Display time-series in line chart.
+- SPA (Blazor WASM).
+- Load outputs from API/CLI runs.
+- Display time-series in line chart.
 
 ### Inputs
 
-* Prefer API (SVC-M0) when available; fallback to a local CSV file produced by the CLI. Outputs must be identical for the same model.
+- Prefer API (SVC-M0) when available; fallback to a local CSV file produced by the CLI. Outputs must be identical for the same model.
 
 ### Outputs
 
-* Line chart with labeled series.
+- Line chart with labeled series.
 
 ### New Code/Files
 
@@ -284,9 +284,9 @@ ui/FlowTime.UI/
 
 ### Acceptance Criteria
 
-* Can run `dotnet run` for API + UI.
+- Can run `dotnet run` for API + UI.
 
-* Chart shows demand/served.
+- Chart shows demand/served.
 
 ---
 
@@ -296,14 +296,14 @@ ui/FlowTime.UI/
 
 **Status**: All functional requirements implemented and verified.
 
-* **Reads FlowTime/Sim file artifacts** from disk and exposes **typed, grid-aligned series**:
+- **Reads FlowTime/Sim file artifacts** from disk and exposes **typed, grid-aligned series**:
 
-  * `runs/<runId>/run.json`
-  * `runs/<runId>/series/index.json`
-  * `runs/<runId>/series/*.csv`
-* Deterministic: repeated reads produce byte-identical re-exports.
-* Handles missing optional series gracefully (e.g., no backlog yet).
-* CI fixture: one golden run read & re-served via API.
+  - `runs/<runId>/run.json`
+  - `runs/<runId>/series/index.json`
+  - `runs/<runId>/series/*.csv`
+- Deterministic: repeated reads produce byte-identical re-exports.
+- Handles missing optional series gracefully (e.g., no backlog yet).
+- CI fixture: one golden run read & re-served via API.
 
 ### Code
 
@@ -370,8 +370,8 @@ Lock the core run artifact contract in parity with the simulator (FlowTime-Sim) 
 
 ### Inputs
 
-* Existing M0 YAML models (no new schema fields required).
-* Optional flag toggles: `--no-manifest` (tests verify absence), `--deterministic-run-id <seed>` (optional explicit override for reproducible directory name; if omitted derives from modelHash+seed).
+- Existing M0 YAML models (no new schema fields required).
+- Optional flag toggles: `--no-manifest` (tests verify absence), `--deterministic-run-id <seed>` (optional explicit override for reproducible directory name; if omitted derives from modelHash+seed).
 
 ### Outputs
 
@@ -490,18 +490,18 @@ docs/contracts.md (updated with new artifact shapes and field glossary)
 
 ### Acceptance Criteria
 
-* Running the existing hello model produces the dual-write directory with all three JSON files and per-series CSVs under `series/`.
-* JSON Schemas validate in CI (failing test if contract drift occurs without schema update).
-* simulator vs engine artifact parity test passes (structural & hash equivalence where expected).
-* Hash stability: reordering YAML keys does not change `modelHash`; changing a numeric literal does.
-* `--no-manifest` suppresses `manifest.json` only; other artifacts still emitted.
-* All prior tests remain green; no expression parser added ahead of original M1.
+- Running the existing hello model produces the dual-write directory with all three JSON files and per-series CSVs under `series/`.
+- JSON Schemas validate in CI (failing test if contract drift occurs without schema update).
+- simulator vs engine artifact parity test passes (structural & hash equivalence where expected).
+- Hash stability: reordering YAML keys does not change `modelHash`; changing a numeric literal does.
+- `--no-manifest` suppresses `manifest.json` only; other artifacts still emitted.
+- All prior tests remain green; no expression parser added ahead of original M1.
 
 ### Notes
 
-* This milestone intentionally avoids adding new functional modeling features; it focuses purely on artifact/contract stability to unblock UI + cross-tooling.
-* Event emission & enriched event fields will activate in later milestones (backlog, routing) without breaking changes due to reserved placeholders.
-* schemaVersion remains `1`; future breaking schema evolution will bump to `2` (e.g., when backlog/latency structural changes occur).
+- This milestone intentionally avoids adding new functional modeling features; it focuses purely on artifact/contract stability to unblock UI + cross-tooling.
+- Event emission & enriched event fields will activate in later milestones (backlog, routing) without breaking changes due to reserved placeholders.
+- schemaVersion remains `1`; future breaking schema evolution will bump to `2` (e.g., when backlog/latency structural changes occur).
 
 ---
 
@@ -513,9 +513,9 @@ Make FlowTime truly “spreadsheet-y” with formula parser and references.
 
 ### Functional Requirements
 
-* **FR-M1-1:** Expression parser (`+ - * /`, MIN, MAX, CLAMP).
-* **FR-M1-2:** Node reference resolution (`expr: "demand * 0.8 + SHIFT(demand,-1)"`).
-* **FR-M1-3:** Built-in function: `SHIFT(series, k)`.
+- **FR-M1-1:** Expression parser (`+ - * /`, MIN, MAX, CLAMP).
+- **FR-M1-2:** Node reference resolution (`expr: "demand * 0.8 + SHIFT(demand,-1)"`).
+- **FR-M1-3:** Built-in function: `SHIFT(series, k)`.
 
 ### Inputs
 
@@ -549,8 +549,8 @@ tests/FlowTime.Tests/ExpressionTests.cs
 
 ### Acceptance Criteria
 
-* Expressions with references work.
-* SHIFT validated.
+- Expressions with references work.
+- SHIFT validated.
 
 ---
 
@@ -562,23 +562,23 @@ Enable template-based simulation workflow with parameter configuration and catal
 
 ### Functional Requirements (Achieved)
 
-* **FR-UI-M1-1:** Template gallery with search and categorization ✅
-* **FR-UI-M1-2:** Dynamic parameter forms generated from JSON schemas ✅
-* **FR-UI-M1-3:** System catalog selection with detailed information ✅
-* **FR-UI-M1-4:** Complete simulation workflow execution ✅
-* **FR-UI-M1-5:** Realistic simulation results display ✅
+- **FR-UI-M1-1:** Template gallery with search and categorization ✅
+- **FR-UI-M1-2:** Dynamic parameter forms generated from JSON schemas ✅
+- **FR-UI-M1-3:** System catalog selection with detailed information ✅
+- **FR-UI-M1-4:** Complete simulation workflow execution ✅
+- **FR-UI-M1-5:** Realistic simulation results display ✅
 
 ### Inputs
 
-* Template selection from gallery
-* User-configured parameters via dynamic forms
-* Selected system catalog
+- Template selection from gallery
+- User-configured parameters via dynamic forms
+- Selected system catalog
 
 ### Outputs
 
-* Simulation execution with realistic mock results
-* Statistical analysis and performance metrics
-* Model metadata and execution information
+- Simulation execution with realistic mock results
+- Statistical analysis and performance metrics
+- Model metadata and execution information
 
 ### New Code/Files (Delivered)
 
@@ -595,19 +595,19 @@ ui/FlowTime.UI/wwwroot/css/app.css (enhanced)
 
 ### Acceptance Criteria (Met)
 
-* ✅ Template gallery displays available simulation templates
-* ✅ Parameter forms auto-generate from JSON schemas with validation
-* ✅ Catalog selection provides system information and capabilities
-* ✅ Simulation execution returns realistic FlowTime-style results
-* ✅ UI is responsive and handles errors gracefully
-* ✅ All components integrate into cohesive three-column workflow
+- ✅ Template gallery displays available simulation templates
+- ✅ Parameter forms auto-generate from JSON schemas with validation
+- ✅ Catalog selection provides system information and capabilities
+- ✅ Simulation execution returns realistic FlowTime-style results
+- ✅ UI is responsive and handles errors gracefully
+- ✅ All components integrate into cohesive three-column workflow
 
 ### Implementation Notes
 
-* Used mock services for UI-M1 to enable independent UI development
-* Template Runner accessible at `/template-runner` route
-* Professional MudBlazor components with consistent theming
-* Fixed critical infinite loop bug and improved dropdown UX
+- Used mock services for UI-M1 to enable independent UI development
+- Template Runner accessible at `/template-runner` route
+- Professional MudBlazor components with consistent theming
+- Fixed critical infinite loop bug and improved dropdown UX
 
 ---
 
@@ -619,9 +619,9 @@ Introduce PMF nodes for probabilistic modeling.
 
 ### Functional Requirements
 
-* **FR-M2-1:** Parse `{ value: prob }`, normalize.
+- **FR-M2-1:** Parse `{ value: prob }`, normalize.
 
-* **FR-M2-2:** Emit expected value series.
+- **FR-M2-2:** Emit expected value series.
 
 ### Inputs
 
@@ -634,7 +634,7 @@ nodes:
 
 ### Outputs
 
-* Expected attempts per bin.
+- Expected attempts per bin.
 
 ### New Code/Files
 
@@ -647,9 +647,9 @@ tests/FlowTime.Tests/PmfTests.cs
 
 ### Acceptance Criteria
 
-* PMF normalized.
+- PMF normalized.
 
-* CSV matches expectation.
+- CSV matches expectation.
 
 ---
 
@@ -661,13 +661,13 @@ Add histogram visualization for PMFs.
 
 ### Functional Requirements
 
-* Bar chart of PMF values.
+- Bar chart of PMF values.
 
-* Overlay expected value series.
+- Overlay expected value series.
 
 ### Acceptance Criteria
 
-* Histograms render correctly.
+- Histograms render correctly.
 
 ---
 
@@ -683,20 +683,20 @@ Users ask “what’s pending and how long?” early; the cost is modest (single
 
 ### Functional Requirements (Core)
 
-* `backlog[t] = max(0, backlog[t-1] + inflow[t] - served[t])`
-* `latency[t] = (served[t] == 0) ? 0 : backlog[t] / served[t] * binMinutes`
-* Emit `runs/<runId>/series/index.json` listing actual outputs and **units**:
+- `backlog[t] = max(0, backlog[t-1] + inflow[t] - served[t])`
+- `latency[t] = (served[t] == 0) ? 0 : backlog[t] / served[t] * binMinutes`
+- Emit `runs/<runId>/series/index.json` listing actual outputs and **units**:
 
-  * flows: **entities/bin**
-  * levels: **entities**
-  * derived latency: **minutes**
-* Per-series CSVs under `runs/<runId>/series/*.csv` (InvariantCulture formatting)
+  - flows: **entities/bin**
+  - levels: **entities**
+  - derived latency: **minutes**
+- Per-series CSVs under `runs/<runId>/series/*.csv` (InvariantCulture formatting)
 
 ### Functional Requirements (Service/API) — **SVC-M1** ✅
 
-* `GET /runs/{runId}/index` → returns `runs/<runId>/series/index.json` ✅
-* `GET /runs/{runId}/series/{seriesId}` → streams CSV ✅
-* (optional) `POST /compare` returns minimal deltas for common series
+- `GET /runs/{runId}/index` → returns `runs/<runId>/series/index.json` ✅
+- `GET /runs/{runId}/series/{seriesId}` → streams CSV ✅
+- (optional) `POST /compare` returns minimal deltas for common series
 
 **Status**: COMPLETED - Artifact endpoints implemented with SYN-M0 adapters, full test coverage.
 
@@ -714,9 +714,9 @@ Existing models; no schema change required.
 
 ### Acceptance Criteria
 
-* **Conservation:** `cum(inflow) − cum(served) ≈ backlog[last]`
-* **No div-by-zero crash:** latency set to 0 when `served[t]==0`; `run.json` warns for affected bins
-* **Parity:** CLI/API produce identical artifacts; existing tests remain green
+- **Conservation:** `cum(inflow) − cum(served) ≈ backlog[last]`
+- **No div-by-zero crash:** latency set to 0 when `served[t]==0`; `run.json` warns for affected bins
+- **Parity:** CLI/API produce identical artifacts; existing tests remain green
 
 ---
 
@@ -728,9 +728,9 @@ UI shows run metadata.
 
 ### Functional Requirements
 
-* Display run.json contents.
+- Display run.json contents.
 
-* Warn if PMF normalized.
+- Warn if PMF normalized.
 
 ---
 
@@ -742,19 +742,19 @@ What-if analysis via overlays.
 
 ### Functional Requirements
 
-* Overlay YAML schema: adjust demand/capacity.
+- Overlay YAML schema: adjust demand/capacity.
 
-* Apply overlay within time window.
+- Apply overlay within time window.
 
-* `compare` tool: baseline vs scenario.
+- `compare` tool: baseline vs scenario.
 
 ### Inputs
 
-* model.yaml + overlay.yaml.
+- model.yaml + overlay.yaml.
 
 ### Outputs
 
-* scenario series, delta.csv, kpi.csv.
+- scenario series, delta.csv, kpi.csv.
 
 ### New Code/Files
 
@@ -765,7 +765,7 @@ src/FlowTime.Cli/CompareCommand.cs
 
 ### Acceptance Criteria
 
-* Scenario runs show correct deltas.
+- Scenario runs show correct deltas.
 
 ---
 
@@ -777,9 +777,9 @@ UI can run scenarios and compare results.
 
 ### Functional Requirements
 
-* Editor for overlay YAML.
+- Editor for overlay YAML.
 
-* Side-by-side charts.
+- Side-by-side charts.
 
 ---
 
@@ -791,9 +791,9 @@ Consume **NDJSON events** + periodic **watermarks** (e.g., from FlowTime-Sim str
 
 ### Acceptance criteria
 
-* Order-independent within a bin; watermark yields consistent slices.
-* Resume from last watermark without duplication.
-* Parity check: accumulated file after stream == file produced for the same seed/run.
+- Order-independent within a bin; watermark yields consistent slices.
+- Resume from last watermark without duplication.
+- Parity check: accumulated file after stream == file produced for the same seed/run.
 
 ### Code
 
@@ -811,19 +811,19 @@ Model flows across multiple paths and capacity limits.
 
 ### Functional Requirements
 
-* RouterNode (split by ratio).
+- RouterNode (split by ratio).
 
-* FanOutNode (replicate).
+- FanOutNode (replicate).
 
-* CapacityNode (clamp inflow vs capacity).
+- CapacityNode (clamp inflow vs capacity).
 
-* Overflow series.
+- Overflow series.
 
 ### Acceptance Criteria
 
-* Splits sum to 1.
+- Splits sum to 1.
 
-* Overflow computed.
+- Overflow computed.
 
 ---
 
@@ -835,9 +835,9 @@ Visual graph view.
 
 ### Functional Requirements
 
-* Display nodes as boxes, edges as lines.
+- Display nodes as boxes, edges as lines.
 
-* Hover: show series previews.
+- Hover: show series previews.
 
 ---
 
@@ -849,15 +849,15 @@ Model periodic batch processing.
 
 ### Functional Requirements
 
-* BatchGateNode:
+- BatchGateNode:
 
-  * open/close windows.
+  - open/close windows.
 
-  * release retained arrivals during open.
+  - release retained arrivals during open.
 
 ### Acceptance Criteria
 
-* Batch spikes visible in series.
+- Batch spikes visible in series.
 
 ---
 
@@ -877,16 +877,16 @@ Introduce real queues and latency metrics.
 
 ### Functional Requirements
 
-* BacklogNode:
+- BacklogNode:
 
-  * Q\[t] = Q\[t-1] + inflow\[t] - served\[t]
-* Latency = Q\[t] / served\[t] \* bin\_minutes.
+  - Q\[t] = Q\[t-1] + inflow\[t] - served\[t]
+- Latency = Q\[t] / served\[t] \* bin\_minutes.
 
 ### Acceptance Criteria
 
-* Conservation holds.
+- Conservation holds.
 
-* Latency trends correct.
+- Latency trends correct.
 
 ---
 
@@ -906,13 +906,13 @@ Support multiple classes with fairness/priority.
 
 ### Functional Requirements
 
-* Series2D\[class, t].
+- Series2D\[class, t].
 
-* Weighted fair or strict priority serving.
+- Weighted fair or strict priority serving.
 
 ### Acceptance Criteria
 
-* VIP SLA maintained under priority.
+- VIP SLA maintained under priority.
 
 ---
 
@@ -932,15 +932,15 @@ Run models against real telemetry.
 
 ### Functional Requirements
 
-* CSV adapter: Gold schema.
+- CSV adapter: Gold schema.
 
-* Resample.
+- Resample.
 
-* Capacity smoothing.
+- Capacity smoothing.
 
 ### Acceptance Criteria
 
-* Modeled queues approximate telemetry.
+- Modeled queues approximate telemetry.
 
 ---
 
@@ -960,15 +960,15 @@ Sensitivity analysis across parameter ranges.
 
 ### Functional Requirements
 
-* CLI sweep with param expansion.
+- CLI sweep with param expansion.
 
-* Emit sweep.csv, sweep.html.
+- Emit sweep.csv, sweep.html.
 
 ### Acceptance Criteria
 
-* Multiple runs executed.
+- Multiple runs executed.
 
-* CSV aggregated.
+- CSV aggregated.
 
 ---
 
@@ -988,13 +988,13 @@ Enable automation.
 
 ### Functional Requirements
 
-* CLI: run, compare, sweep, learn.
+- CLI: run, compare, sweep, learn.
 
-* API: GET /graph, POST /run, GET /state\_window.
+- API: GET /graph, POST /run, GET /state\_window.
 
 ### Acceptance Criteria
 
-* API usable by UI.
+- API usable by UI.
 
 ---
 
@@ -1014,10 +1014,10 @@ From FlowTime UI, list FlowTime-Sim presets, tweak parameters, start a **Sim run
 
 ### Functional Requirements
 
-* **Mode toggle:** Analyze (engine) vs **Simulate** (sim)
-* Scenario list (`/sim/scenarios`), minimal parameter form, **Run**
-* After run: poll `/sim/runs/{id}/index`, render charts
-* Catalog merges sources with **source tag** (`engine`/`sim`)
+- **Mode toggle:** Analyze (engine) vs **Simulate** (sim)
+- Scenario list (`/sim/scenarios`), minimal parameter form, **Run**
+- After run: poll `/sim/runs/{id}/index`, render charts
+- Catalog merges sources with **source tag** (`engine`/`sim`)
 
 ### Acceptance Criteria
 
@@ -1049,9 +1049,9 @@ Reusable model templates.
 
 ### Functional Requirements
 
-* Template YAML expansion.
+- Template YAML expansion.
 
-* Parameters per type.
+- Parameters per type.
 
 ---
 
@@ -1071,7 +1071,7 @@ Advanced queue semantics.
 
 ### Functional Requirements
 
-* DLQ, priority spill, finite buffer.
+- DLQ, priority spill, finite buffer.
 
 ---
 
@@ -1091,9 +1091,9 @@ Close loop with telemetry.
 
 ### Functional Requirements
 
-* Learn routing, retries, delay.
+- Learn routing, retries, delay.
 
-* Drift report.
+- Drift report.
 
 ---
 
@@ -1113,9 +1113,9 @@ Model risk ranges.
 
 ### Functional Requirements
 
-* Monte Carlo runs.
+- Monte Carlo runs.
 
-* Emit P50/P90.
+- Emit P50/P90.
 
 ---
 
@@ -1129,13 +1129,13 @@ Shade percentile bands on charts.
 
 # Future-Proofing Placeholders
 
-* **GA/Optimization:** optional future milestone for genetic algorithms.
+- **GA/Optimization:** optional future milestone for genetic algorithms.
 
-* **Distributed Evaluation:** partition across workers.
+- **Distributed Evaluation:** partition across workers.
 
-* **Streaming Ingestion:** real-time incremental simulation.
+- **Streaming Ingestion:** real-time incremental simulation.
 
-* **Plugin System:** allow 3rd party nodes.
+- **Plugin System:** allow 3rd party nodes.
 
 ---
 
@@ -1145,15 +1145,15 @@ Goal: Run the engine in the browser for interactive what-if modeling and offline
 
 Scope (brief):
 
-* WASM binding exposing the same run API as the server engine; no HTTP.
-* UI toggle for Run Mode: Server (API) vs Browser (WASM).
-* Target: \~150 nodes × 7–14 days × 5m bins with AOT; parity via shared golden vectors.
+- WASM binding exposing the same run API as the server engine; no HTTP.
+- UI toggle for Run Mode: Server (API) vs Browser (WASM).
+- Target: \~150 nodes × 7–14 days × 5m bins with AOT; parity via shared golden vectors.
 
 Deliverables:
 
-* src/FlowTime.Core.Wasm (binding) and UI wiring.
-* Tests for parity and basic perf budgets.
-* docs/wasm.md with build flags (SIMD, optional AOT).
+- src/FlowTime.Core.Wasm (binding) and UI wiring.
+- Tests for parity and basic perf budgets.
+- docs/wasm.md with build flags (SIMD, optional AOT).
 
 ---
 
