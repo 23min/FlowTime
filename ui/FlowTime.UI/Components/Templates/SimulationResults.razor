@@ -1,0 +1,139 @@
+@using FlowTime.UI.Services
+
+<MudStack Spacing="4">
+    @if (Result != null)
+    {
+        <MudCard Outlined="true">
+            <MudCardContent>
+                <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
+                    <MudText Typo="Typo.h6">Simulation Results</MudText>
+                    <MudChip T="string" Color="@GetStatusColor(Result.Status)" Size="Size.Small">
+                        @Result.Status.ToUpperInvariant()
+                    </MudChip>
+                </MudStack>
+                
+                <MudGrid>
+                    <MudItem xs="12" sm="6" md="3">
+                        <MudText Typo="Typo.caption">Run ID</MudText>
+                        <MudText Typo="Typo.body2" Class="font-weight-bold">@Result.RunId</MudText>
+                    </MudItem>
+                    <MudItem xs="12" sm="6" md="3">
+                        <MudText Typo="Typo.caption">Duration</MudText>
+                        <MudText Typo="Typo.body2" Class="font-weight-bold">
+                            @(Result.EndTime?.Subtract(Result.StartTime).TotalSeconds.ToString("F1") ?? "N/A") seconds
+                        </MudText>
+                    </MudItem>
+                    <MudItem xs="12" sm="6" md="3">
+                        <MudText Typo="Typo.caption">Started</MudText>
+                        <MudText Typo="Typo.body2" Class="font-weight-bold">
+                            @Result.StartTime.ToString("HH:mm:ss")
+                        </MudText>
+                    </MudItem>
+                    <MudItem xs="12" sm="6" md="3">
+                        <MudText Typo="Typo.caption">Completed</MudText>
+                        <MudText Typo="Typo.body2" Class="font-weight-bold">
+                            @(Result.EndTime?.ToString("HH:mm:ss") ?? "N/A")
+                        </MudText>
+                    </MudItem>
+                </MudGrid>
+
+                @if (!string.IsNullOrEmpty(Result.ErrorMessage))
+                {
+                    <MudAlert Severity="Severity.Error" Class="mt-3">
+                        <MudText Typo="Typo.subtitle2">Error</MudText>
+                        <MudText Typo="Typo.body2">@Result.ErrorMessage</MudText>
+                    </MudAlert>
+                }
+                else if (Result.Status == "completed" && !string.IsNullOrEmpty(Result.ResultsUrl))
+                {
+                    <MudStack Row Spacing="2" Class="mt-3">
+                        <MudButton Variant="Variant.Filled" 
+                                 Color="Color.Primary" 
+                                 StartIcon="@Icons.Material.Filled.Visibility"
+                                 OnClick="ViewResults">
+                            View Results
+                        </MudButton>
+                        <MudButton Variant="Variant.Outlined" 
+                                 Color="Color.Primary" 
+                                 StartIcon="@Icons.Material.Filled.Download"
+                                 OnClick="DownloadResults">
+                            Download Data
+                        </MudButton>
+                    </MudStack>
+                }
+
+                @if (Result.Metadata.Any())
+                {
+                    <MudExpansionPanels Class="mt-3">
+                        <MudExpansionPanel>
+                            <TitleContent>
+                                <div class="d-flex align-center">
+                                    <MudIcon Icon="@Icons.Material.Filled.Info" class="mr-3" />
+                                    <MudText Typo="Typo.subtitle2">Simulation Details</MudText>
+                                </div>
+                            </TitleContent>
+                            <ChildContent>
+                                <MudSimpleTable Striped="true" Dense="true">
+                                    <tbody>
+                                        @foreach (var item in Result.Metadata)
+                                        {
+                                            <tr>
+                                                <td><strong>@item.Key</strong></td>
+                                                <td>@FormatMetadataValue(item.Value)</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </MudSimpleTable>
+                            </ChildContent>
+                        </MudExpansionPanel>
+                    </MudExpansionPanels>
+                }
+            </MudCardContent>
+        </MudCard>
+    }
+</MudStack>
+
+@code {
+    [Parameter] public SimulationRunResult? Result { get; set; }
+    [Parameter] public EventCallback OnViewResults { get; set; }
+    [Parameter] public EventCallback OnDownloadResults { get; set; }
+
+    private Color GetStatusColor(string status)
+    {
+        return status.ToLowerInvariant() switch
+        {
+            "completed" => Color.Success,
+            "failed" => Color.Error,
+            "running" => Color.Warning,
+            "pending" => Color.Info,
+            _ => Color.Default
+        };
+    }
+
+    private async Task ViewResults()
+    {
+        if (Result?.ResultsUrl != null)
+        {
+            // Navigate to the API demo page or chart view with the results
+            await OnViewResults.InvokeAsync();
+        }
+    }
+
+    private async Task DownloadResults()
+    {
+        if (Result?.ResultsUrl != null)
+        {
+            await OnDownloadResults.InvokeAsync();
+        }
+    }
+
+    private string FormatMetadataValue(object value)
+    {
+        return value switch
+        {
+            Dictionary<string, object> dict => string.Join(", ", dict.Select(kvp => $"{kvp.Key}: {kvp.Value}")),
+            IEnumerable<object> list => string.Join(", ", list),
+            _ => value.ToString() ?? string.Empty
+        };
+    }
+}

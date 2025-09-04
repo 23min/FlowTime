@@ -27,4 +27,9 @@ builder.Services.AddScoped<ApiRunClient>();
 builder.Services.AddScoped<SimulationRunClient>();
 builder.Services.AddScoped<IRunClient, RunClientRouter>();
 
+// Template services for UI-M1
+builder.Services.AddScoped<ITemplateService, TemplateService>();
+builder.Services.AddScoped<ICatalogService, CatalogService>();
+builder.Services.AddScoped<IFlowTimeSimService, FlowTimeSimService>();
+
 await builder.Build().RunAsync();

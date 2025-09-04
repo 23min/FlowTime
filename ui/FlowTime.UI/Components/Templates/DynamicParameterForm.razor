@@ -1,0 +1,229 @@
+@using FlowTime.UI.Services
+@using System.Text.Json
+
+<MudStack Spacing="3">
+    @if (Template?.ParameterSchema?.Properties != null)
+    {
+        @foreach (var property in Template.ParameterSchema.Properties)
+        {
+            <div>
+                @switch (property.Value.Type.ToLowerInvariant())
+                {
+                    case "number":
+                    case "integer":
+                        <MudNumericField T="double" 
+                                       Label="@GetFieldLabel(property.Key, property.Value)"
+                                       HelperText="@property.Value.Description"
+                                       Value="@GetNumericValue(property.Key, property.Value)"
+                                       ValueChanged="@(v => OnValueChanged(property.Key, v))"
+                                       Min="@(property.Value.Minimum ?? double.MinValue)"
+                                       Max="@(property.Value.Maximum ?? double.MaxValue)"
+                                       Variant="Variant.Outlined"
+                                       Required="@IsRequired(property.Key)" />
+                        break;
+                        
+                    case "string":
+                        @if (property.Value.Enum?.Any() == true)
+                        {
+                            <MudSelect T="string" 
+                                     Label="@GetFieldLabel(property.Key, property.Value)"
+                                     HelperText="@property.Value.Description"
+                                     Value="@GetStringValue(property.Key, property.Value)"
+                                     ValueChanged="@(v => OnValueChanged(property.Key, v))"
+                                     Variant="Variant.Outlined"
+                                     Required="@IsRequired(property.Key)">
+                                @foreach (var option in property.Value.Enum)
+                                {
+                                    <MudSelectItem Value="@option.ToString()">@option.ToString()</MudSelectItem>
+                                }
+                            </MudSelect>
+                        }
+                        else
+                        {
+                            <MudTextField T="string" 
+                                        Label="@GetFieldLabel(property.Key, property.Value)"
+                                        HelperText="@property.Value.Description"
+                                        Value="@GetStringValue(property.Key, property.Value)"
+                                        ValueChanged="@(v => OnValueChanged(property.Key, v))"
+                                        Variant="Variant.Outlined"
+                                        Required="@IsRequired(property.Key)" />
+                        }
+                        break;
+                        
+                    case "boolean":
+                        <MudCheckBox T="bool" 
+                                   Label="@GetFieldLabel(property.Key, property.Value)"
+                                   HelperText="@property.Value.Description"
+                                   Value="@GetBooleanValue(property.Key, property.Value)"
+                                   ValueChanged="@(v => OnValueChanged(property.Key, v))" />
+                        break;
+                        
+                    case "array":
+                        <MudTextField T="string" 
+                                    Label="@($"{GetFieldLabel(property.Key, property.Value)} (comma-separated)")"
+                                    HelperText="@($"{property.Value.Description} (enter values separated by commas)")"
+                                    Value="@GetArrayValue(property.Key, property.Value)"
+                                    ValueChanged="@(v => OnArrayValueChanged(property.Key, v))"
+                                    Variant="Variant.Outlined"
+                                    Required="@IsRequired(property.Key)" />
+                        break;
+                        
+                    default:
+                        <MudTextField T="string" 
+                                    Label="@GetFieldLabel(property.Key, property.Value)"
+                                    HelperText="@property.Value.Description"
+                                    Value="@GetStringValue(property.Key, property.Value)"
+                                    ValueChanged="@(v => OnValueChanged(property.Key, v))"
+                                    Variant="Variant.Outlined"
+                                    Required="@IsRequired(property.Key)" />
+                        break;
+                }
+            </div>
+        }
+        
+        @if (validationErrors.Any())
+        {
+            <MudAlert Severity="Severity.Error">
+                <MudText Typo="Typo.subtitle2">Validation Errors:</MudText>
+                <ul>
+                    @foreach (var error in validationErrors)
+                    {
+                        <li>@error</li>
+                    }
+                </ul>
+            </MudAlert>
+        }
+    }
+    else
+    {
+        <MudText Typo="Typo.body2" Class="text-muted">No parameters defined for this template</MudText>
+    }
+</MudStack>
+
+@code {
+    [Parameter] public TemplateInfo? Template { get; set; }
+    [Parameter] public EventCallback<Dictionary<string, object>> OnParametersChanged { get; set; }
+    
+    private Dictionary<string, object> parameters = new();
+    private List<string> validationErrors = new();
+    private TemplateInfo? _previousTemplate;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // Only initialize parameters when template changes
+        if (Template != _previousTemplate && Template?.ParameterSchema?.Properties != null)
+        {
+            parameters.Clear();
+            
+            // Initialize parameters with default values
+            foreach (var property in Template.ParameterSchema.Properties)
+            {
+                if (property.Value.Default != null)
+                {
+                    parameters[property.Key] = property.Value.Default;
+                }
+            }
+            
+            _previousTemplate = Template;
+            ValidateAndNotify();
+            await OnParametersChanged.InvokeAsync(parameters);
+        }
+    }
+
+    private async Task OnValueChanged(string key, object? value)
+    {
+        if (value != null)
+        {
+            parameters[key] = value;
+        }
+        else
+        {
+            parameters.Remove(key);
+        }
+        
+        ValidateAndNotify();
+        await OnParametersChanged.InvokeAsync(parameters);
+    }
+
+    private async Task OnArrayValueChanged(string key, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            var items = value.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                           .Select(s => s.Trim())
+                           .ToList();
+            parameters[key] = items;
+        }
+        else
+        {
+            parameters.Remove(key);
+        }
+        
+        ValidateAndNotify();
+        await OnParametersChanged.InvokeAsync(parameters);
+    }
+
+    private void ValidateAndNotify()
+    {
+        validationErrors.Clear();
+        
+        if (Template?.ParameterSchema?.Required != null)
+        {
+            foreach (var requiredField in Template.ParameterSchema.Required)
+            {
+                if (!parameters.ContainsKey(requiredField) || parameters[requiredField] == null)
+                {
+                    validationErrors.Add($"{requiredField} is required");
+                }
+            }
+        }
+        
+        StateHasChanged();
+    }
+
+    private string GetFieldLabel(string key, JsonSchemaProperty property)
+    {
+        return property.Title ?? key.Replace("_", " ").Replace("-", " ");
+    }
+
+    private bool IsRequired(string key)
+    {
+        return Template?.ParameterSchema?.Required?.Contains(key) == true;
+    }
+
+    private double GetNumericValue(string key, JsonSchemaProperty property)
+    {
+        if (parameters.TryGetValue(key, out var value))
+        {
+            return Convert.ToDouble(value);
+        }
+        return property.Default != null ? Convert.ToDouble(property.Default) : 0;
+    }
+
+    private string GetStringValue(string key, JsonSchemaProperty property)
+    {
+        if (parameters.TryGetValue(key, out var value))
+        {
+            return value.ToString() ?? string.Empty;
+        }
+        return property.Default?.ToString() ?? string.Empty;
+    }
+
+    private bool GetBooleanValue(string key, JsonSchemaProperty property)
+    {
+        if (parameters.TryGetValue(key, out var value))
+        {
+            return Convert.ToBoolean(value);
+        }
+        return property.Default != null && Convert.ToBoolean(property.Default);
+    }
+
+    private string GetArrayValue(string key, JsonSchemaProperty property)
+    {
+        if (parameters.TryGetValue(key, out var value) && value is List<object> list)
+        {
+            return string.Join(", ", list);
+        }
+        return string.Empty;
+    }
+}
