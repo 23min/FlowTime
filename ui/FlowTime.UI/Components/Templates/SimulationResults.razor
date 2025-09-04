@@ -1,4 +1,6 @@
 @using FlowTime.UI.Services
+@inject ISimResultsService SimResults
+@inject ISnackbar Snackbar
 
 <MudStack Spacing="4">
     @if (Result != null)
@@ -50,18 +52,69 @@
                         <MudButton Variant="Variant.Filled" 
                                  Color="Color.Primary" 
                                  StartIcon="@Icons.Material.Filled.Visibility"
-                                 OnClick="ViewResults">
-                            View Results
+                                 OnClick="ViewResults"
+                                 Disabled="@isLoadingResults">
+                            @if (isLoadingResults)
+                            {
+                                <MudProgressCircular Size="@Size.Small" Indeterminate="true" />
+                                <span class="ml-2">Loading...</span>
+                            }
+                            else
+                            {
+                                @(hasLoadedResults ? "Refresh Data" : "View Results")
+                            }
                         </MudButton>
                         <MudButton Variant="Variant.Outlined" 
                                  Color="Color.Primary" 
                                  StartIcon="@Icons.Material.Filled.Download"
-                                 OnClick="DownloadResults">
+                                 OnClick="DownloadResults"
+                                 Disabled="@(!hasLoadedResults)">
                             Download Data
                         </MudButton>
                     </MudStack>
                 }
 
+                @* Show actual series data when loaded (artifact-first pattern) *@
+                @if (simulationData != null)
+                {
+                    <MudExpansionPanels Class="mt-3">
+                        <MudExpansionPanel>
+                            <TitleContent>
+                                <div class="d-flex align-center">
+                                    <MudIcon Icon="@Icons.Material.Filled.BarChart" class="mr-3" />
+                                    <MudText Typo="Typo.subtitle2">Time Series Data (@simulationData.Series.Count series, @simulationData.Bins bins)</MudText>
+                                </div>
+                            </TitleContent>
+                            <ChildContent>
+                                <MudSimpleTable Striped="true" Dense="true">
+                                    <thead>
+                                        <tr>
+                                            <th>Series ID</th>
+                                            <th>Min</th>
+                                            <th>Max</th>
+                                            <th>Average</th>
+                                            <th>Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var series in simulationData.Series)
+                                        {
+                                            <tr>
+                                                <td><strong>@series.Key</strong></td>
+                                                <td>@series.Value.Min().ToString("F2")</td>
+                                                <td>@series.Value.Max().ToString("F2")</td>
+                                                <td>@series.Value.Average().ToString("F2")</td>
+                                                <td>@series.Value.Sum().ToString("F2")</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </MudSimpleTable>
+                            </ChildContent>
+                        </MudExpansionPanel>
+                    </MudExpansionPanels>
+                }
+
+                @* Show minimal metadata (artifact-first - metadata is not authoritative) *@
                 @if (Result.Metadata.Any())
                 {
                     <MudExpansionPanels Class="mt-3">
@@ -69,13 +122,18 @@
                             <TitleContent>
                                 <div class="d-flex align-center">
                                     <MudIcon Icon="@Icons.Material.Filled.Info" class="mr-3" />
-                                    <MudText Typo="Typo.subtitle2">Simulation Details</MudText>
+                                    <MudText Typo="Typo.subtitle2">Run Metadata</MudText>
                                 </div>
                             </TitleContent>
                             <ChildContent>
+                                <MudAlert Severity="Severity.Info" Class="mb-2">
+                                    <MudText Typo="Typo.caption">
+                                        Metadata shown here is not authoritative. Actual series data is loaded from artifacts above.
+                                    </MudText>
+                                </MudAlert>
                                 <MudSimpleTable Striped="true" Dense="true">
                                     <tbody>
-                                        @foreach (var item in Result.Metadata)
+                                        @foreach (var item in Result.Metadata.Where(m => IsDisplayableMetadata(m.Key)))
                                         {
                                             <tr>
                                                 <td><strong>@item.Key</strong></td>
@@ -98,6 +156,10 @@
     [Parameter] public EventCallback OnViewResults { get; set; }
     [Parameter] public EventCallback OnDownloadResults { get; set; }
 
+    private bool isLoadingResults;
+    private bool hasLoadedResults;
+    private SimResultData? simulationData;
+
     private Color GetStatusColor(string status)
     {
         return status.ToLowerInvariant() switch
@@ -112,18 +174,52 @@
 
     private async Task ViewResults()
     {
-        if (Result?.ResultsUrl != null)
+        if (Result?.RunId == null)
+            return;
+
+        isLoadingResults = true;
+        StateHasChanged();
+
+        try
         {
-            // Navigate to the API demo page or chart view with the results
-            await OnViewResults.InvokeAsync();
+            // Load results using artifact-first pattern
+            var result = await SimResults.GetSimulationResultsAsync(Result.RunId);
+            
+            if (result.Success && result.Value != null)
+            {
+                simulationData = result.Value;
+                hasLoadedResults = true;
+                Snackbar.Add($"Loaded {simulationData.Series.Count} series from simulation artifacts", Severity.Success);
+                
+                // Also trigger the parent callback
+                await OnViewResults.InvokeAsync();
+            }
+            else
+            {
+                Snackbar.Add($"Failed to load simulation data: {result.Error}", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading simulation results: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isLoadingResults = false;
+            StateHasChanged();
         }
     }
 
     private async Task DownloadResults()
     {
-        if (Result?.ResultsUrl != null)
+        if (Result?.ResultsUrl != null && hasLoadedResults)
         {
+            // Trigger download through parent callback
             await OnDownloadResults.InvokeAsync();
+            
+            // Note: Actual CSV download would be implemented by opening the artifact URLs
+            // e.g., /sim/runs/{runId}/series/{seriesId} for each series
+            Snackbar.Add("Download functionality will open artifact URLs for each series", Severity.Info);
         }
     }
 
@@ -135,5 +231,21 @@
             IEnumerable<object> list => string.Join(", ", list),
             _ => value.ToString() ?? string.Empty
         };
+    }
+
+    private static bool IsDisplayableMetadata(string key)
+    {
+        // Only show basic metadata - artifacts are authoritative for actual data
+        return key is "templateId" or "catalogId" or "source" or "schemaVersion";
+    }
+
+    protected override void OnParametersSet()
+    {
+        // Reset state when Result changes
+        if (Result?.RunId != simulationData?.GetHashCode().ToString())
+        {
+            hasLoadedResults = false;
+            simulationData = null;
+        }
     }
 }

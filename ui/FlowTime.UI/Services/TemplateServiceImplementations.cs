@@ -1,30 +1,38 @@
+using System.Text;
 using System.Text.Json;
 
 namespace FlowTime.UI.Services;
 
 public class TemplateService : ITemplateService
 {
-    private readonly HttpClient _httpClient;
-    private readonly ILogger<TemplateService> _logger;
+    private readonly IFlowTimeSimApiClient simClient;
+    private readonly ILogger<TemplateService> logger;
 
-    public TemplateService(HttpClient httpClient, ILogger<TemplateService> logger)
+    public TemplateService(IFlowTimeSimApiClient simClient, ILogger<TemplateService> logger)
     {
-        _httpClient = httpClient;
-        _logger = logger;
+        this.simClient = simClient;
+        this.logger = logger;
     }
 
-    public Task<List<TemplateInfo>> GetTemplatesAsync()
+    public async Task<List<TemplateInfo>> GetTemplatesAsync()
     {
         try
         {
-            // For UI-M1, we'll start with mock data since SIM-SVC-M2 templates aren't implemented yet
-            // This will be replaced with actual HTTP calls to FlowTime-Sim service
-            return Task.FromResult(GetMockTemplates());
+            // Get scenarios from FlowTime-Sim API and convert to templates
+            var scenariosResult = await simClient.GetScenariosAsync();
+            if (!scenariosResult.Success)
+            {
+                logger.LogWarning("Failed to get scenarios from Sim API: {Error}. Falling back to mock templates.", scenariosResult.Error);
+                return GetMockTemplates();
+            }
+
+            var scenarios = scenariosResult.Value ?? new List<ScenarioInfo>();
+            return scenarios.Select(ConvertScenarioToTemplate).ToList();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get templates");
-            throw;
+            logger.LogError(ex, "Failed to get templates from Sim API. Falling back to mock data.");
+            return GetMockTemplates();
         }
     }
 
@@ -37,7 +45,7 @@ public class TemplateService : ITemplateService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get template {TemplateId}", templateId);
+            logger.LogError(ex, "Failed to get template {TemplateId}", templateId);
             throw;
         }
     }
@@ -51,9 +59,74 @@ public class TemplateService : ITemplateService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get template schema {TemplateId}", templateId);
+            logger.LogError(ex, "Failed to get template schema {TemplateId}", templateId);
             throw;
         }
+    }
+
+    private static TemplateInfo ConvertScenarioToTemplate(ScenarioInfo scenario)
+    {
+        return new TemplateInfo
+        {
+            Id = scenario.Id,
+            Name = scenario.Name,
+            Description = scenario.Description,
+            Category = scenario.Category,
+            Tags = scenario.Tags,
+            ParameterSchema = CreateParameterSchemaFromDefaults(scenario.DefaultParameters)
+        };
+    }
+
+    private static JsonSchema CreateParameterSchemaFromDefaults(Dictionary<string, object> defaultParameters)
+    {
+        var schema = new JsonSchema
+        {
+            Title = "Simulation Parameters",
+            Properties = new Dictionary<string, JsonSchemaProperty>(),
+            Required = new List<string>()
+        };
+
+        foreach (var (key, value) in defaultParameters)
+        {
+            var property = new JsonSchemaProperty
+            {
+                Title = FormatPropertyTitle(key),
+                Default = value
+            };
+
+            // Infer type from default value
+            switch (value)
+            {
+                case int _:
+                    property.Type = "integer";
+                    break;
+                case double _:
+                case float _:
+                    property.Type = "number";
+                    break;
+                case bool _:
+                    property.Type = "boolean";
+                    break;
+                case string _:
+                    property.Type = "string";
+                    break;
+                default:
+                    property.Type = "string";
+                    break;
+            }
+
+            schema.Properties[key] = property;
+            schema.Required.Add(key);
+        }
+
+        return schema;
+    }
+
+    private static string FormatPropertyTitle(string key)
+    {
+        // Convert camelCase/snake_case to Title Case
+        return System.Text.RegularExpressions.Regex.Replace(key, @"([A-Z])|_(.)", m => 
+            (m.Groups[1].Success ? " " + m.Groups[1].Value : " " + m.Groups[2].Value.ToUpper())).Trim();
     }
 
     private static List<TemplateInfo> GetMockTemplates()
@@ -194,25 +267,27 @@ public class TemplateService : ITemplateService
 
 public class CatalogService : ICatalogService
 {
-    private readonly HttpClient _httpClient;
-    private readonly ILogger<CatalogService> _logger;
+    private readonly IFlowTimeSimApiClient simClient;
+    private readonly ILogger<CatalogService> logger;
 
-    public CatalogService(HttpClient httpClient, ILogger<CatalogService> logger)
+    public CatalogService(IFlowTimeSimApiClient simClient, ILogger<CatalogService> logger)
     {
-        _httpClient = httpClient;
-        _logger = logger;
+        this.simClient = simClient;
+        this.logger = logger;
     }
 
     public Task<List<CatalogInfo>> GetCatalogsAsync()
     {
         try
         {
-            // For UI-M1, we'll start with mock data since SIM-CAT-M2 isn't implemented yet
+            // For now, return mock catalogs as catalog support is planned for SIM-CAT-M2
+            // This will be updated when catalog API endpoints are available
+            logger.LogInformation("Using mock catalogs (real catalog API planned for SIM-CAT-M2)");
             return Task.FromResult(GetMockCatalogs());
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get catalogs");
+            logger.LogError(ex, "Failed to get catalogs");
             throw;
         }
     }
@@ -226,7 +301,7 @@ public class CatalogService : ICatalogService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get catalog {CatalogId}", catalogId);
+            logger.LogError(ex, "Failed to get catalog {CatalogId}", catalogId);
             throw;
         }
     }
@@ -268,82 +343,60 @@ public class CatalogService : ICatalogService
 
 public class FlowTimeSimService : IFlowTimeSimService
 {
-    private readonly HttpClient _httpClient;
-    private readonly ILogger<FlowTimeSimService> _logger;
+    private readonly IFlowTimeSimApiClient simClient;
+    private readonly ILogger<FlowTimeSimService> logger;
 
-    public FlowTimeSimService(HttpClient httpClient, ILogger<FlowTimeSimService> logger)
+    public FlowTimeSimService(IFlowTimeSimApiClient simClient, ILogger<FlowTimeSimService> logger)
     {
-        _httpClient = httpClient;
-        _logger = logger;
+        this.simClient = simClient;
+        this.logger = logger;
     }
 
     public async Task<SimulationRunResult> RunSimulationAsync(SimulationRunRequest request)
     {
         try
         {
-            // For UI-M1, we'll simulate the run and return mock results that resemble real FlowTime output
-            // This will be replaced with actual HTTP calls to FlowTime-Sim service
-            await Task.Delay(2000); // Simulate processing time
-
-            var runId = $"sim_{DateTime.UtcNow:yyyyMMddTHHmmssZ}_{Guid.NewGuid().ToString("N")[..8]}";
-            var startTime = DateTime.UtcNow.AddSeconds(-2);
-            var endTime = DateTime.UtcNow;
+            // Generate YAML spec from the request parameters
+            var yamlSpec = GenerateSimulationYaml(request);
             
+            // Call FlowTime-Sim API following artifact-first pattern
+            var runResult = await simClient.RunAsync(yamlSpec);
+            if (!runResult.Success)
+            {
+                logger.LogError("Simulation run failed: {Error}", runResult.Error);
+                return new SimulationRunResult
+                {
+                    RunId = $"failed_{DateTime.UtcNow:yyyyMMddTHHmmssZ}",
+                    Status = "failed",
+                    StartTime = DateTime.UtcNow,
+                    ErrorMessage = runResult.Error
+                };
+            }
+
+            var runId = runResult.Value?.SimRunId ?? throw new InvalidOperationException("No run ID returned");
+            
+            // Return artifact-first result - no custom metadata blobs
             return new SimulationRunResult
             {
                 RunId = runId,
                 Status = "completed",
-                StartTime = startTime,
-                EndTime = endTime,
-                ResultsUrl = $"/api/runs/{runId}/index",
-                Metadata = new()
+                StartTime = DateTime.UtcNow.AddSeconds(-1), // Approximate start time
+                EndTime = DateTime.UtcNow,
+                ResultsUrl = $"/sim/runs/{runId}/index", // Point to series index
+                Metadata = new() // Minimal metadata, artifacts are authoritative
                 {
-                    // Template and execution context
                     ["templateId"] = request.TemplateId,
                     ["catalogId"] = request.CatalogId,
-                    ["engineVersion"] = "0.1.0",
-                    ["schemaVersion"] = 1,
-                    
-                    // Grid configuration (typical for FlowTime simulations)
-                    ["grid.bins"] = 24,
-                    ["grid.binMinutes"] = 60,
-                    ["grid.timezone"] = "UTC",
-                    
-                    // Mock simulation results that would come from FlowTime engine
-                    ["series.count"] = 3,
-                    ["series.names"] = new[] { "demand@DEMAND@DEFAULT", "served@SERVED@DEFAULT", "capacity@CAPACITY@DEFAULT" },
-                    
-                    // Mock statistical results
-                    ["stats.totalDemand"] = GetMockStatistic("totalDemand", request),
-                    ["stats.avgThroughput"] = GetMockStatistic("avgThroughput", request),
-                    ["stats.utilizationRate"] = GetMockStatistic("utilizationRate", request),
-                    ["stats.peakTime"] = "14:00",
-                    
-                    // Mock time series summary
-                    ["timeSeries.demand.min"] = GetMockStatistic("demandMin", request),
-                    ["timeSeries.demand.max"] = GetMockStatistic("demandMax", request),
-                    ["timeSeries.demand.avg"] = GetMockStatistic("demandAvg", request),
-                    
-                    // Performance metrics
-                    ["performance.executionTimeMs"] = 1847,
-                    ["performance.memoryUsageMB"] = 45.2,
-                    
-                    // Model information
-                    ["model.nodeCount"] = GetMockNodeCount(request),
-                    ["model.edgeCount"] = GetMockEdgeCount(request),
-                    
-                    // Warning/info messages
-                    ["warnings"] = new string[0], // No warnings in successful mock run
-                    ["info.message"] = $"Successfully simulated {request.TemplateId} scenario"
+                    ["source"] = "sim"
                 }
             };
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to run simulation");
+            logger.LogError(ex, "Failed to run simulation for template {TemplateId}", request.TemplateId);
             return new SimulationRunResult
             {
-                RunId = $"failed_{Guid.NewGuid().ToString("N")[..8]}",
+                RunId = $"error_{DateTime.UtcNow:yyyyMMddTHHmmssZ}",
                 Status = "failed",
                 StartTime = DateTime.UtcNow,
                 ErrorMessage = ex.Message
@@ -351,57 +404,115 @@ public class FlowTimeSimService : IFlowTimeSimService
         }
     }
 
-    private static object GetMockStatistic(string statType, SimulationRunRequest request)
-    {
-        var random = new Random(request.TemplateId.GetHashCode());
-        
-        return statType switch
-        {
-            "totalDemand" => random.Next(1000, 5000),
-            "avgThroughput" => Math.Round(random.NextDouble() * 50 + 10, 2),
-            "utilizationRate" => Math.Round(random.NextDouble() * 0.4 + 0.6, 3), // 60-100%
-            "demandMin" => random.Next(5, 15),
-            "demandMax" => random.Next(80, 120),
-            "demandAvg" => Math.Round(random.NextDouble() * 30 + 40, 1),
-            _ => random.Next(1, 100)
-        };
-    }
-    
-    private static int GetMockNodeCount(SimulationRunRequest request)
-    {
-        return request.TemplateId switch
-        {
-            "transportation-basic" => 4,
-            "supply-chain-multi-tier" => 8,
-            "manufacturing-flow" => 6,
-            _ => 3
-        };
-    }
-    
-    private static int GetMockEdgeCount(SimulationRunRequest request)
-    {
-        var nodeCount = GetMockNodeCount(request);
-        return nodeCount - 1 + new Random(request.TemplateId.GetHashCode()).Next(0, 3);
-    }
-
     public async Task<SimulationStatus> GetRunStatusAsync(string runId)
     {
         try
         {
-            // Mock implementation for UI-M1
-            await Task.Delay(100);
-            return new SimulationStatus
+            // Try to get the series index to determine if run is complete
+            var indexResult = await simClient.GetIndexAsync(runId);
+            
+            if (indexResult.Success)
             {
-                RunId = runId,
-                Status = "completed",
-                Progress = 100,
-                Message = "Simulation completed successfully"
-            };
+                return new SimulationStatus
+                {
+                    RunId = runId,
+                    Status = "completed",
+                    Progress = 100,
+                    Message = "Simulation completed successfully"
+                };
+            }
+            else if (indexResult.StatusCode == 404)
+            {
+                return new SimulationStatus
+                {
+                    RunId = runId,
+                    Status = "not_found",
+                    Progress = 0,
+                    Message = "Run not found"
+                };
+            }
+            else
+            {
+                return new SimulationStatus
+                {
+                    RunId = runId,
+                    Status = "running",
+                    Progress = 50,
+                    Message = "Processing..."
+                };
+            }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get run status for {RunId}", runId);
-            throw;
+            logger.LogError(ex, "Failed to get status for run {RunId}", runId);
+            return new SimulationStatus
+            {
+                RunId = runId,
+                Status = "error",
+                Progress = 0,
+                Message = ex.Message
+            };
         }
+    }
+
+    private static string GenerateSimulationYaml(SimulationRunRequest request)
+    {
+        // Generate basic simulation spec YAML from request parameters
+        // This follows the FlowTime-Sim spec format
+        var yaml = new StringBuilder();
+        
+        yaml.AppendLine("# Generated simulation spec");
+        yaml.AppendLine($"# Template: {request.TemplateId}");
+        if (!string.IsNullOrEmpty(request.CatalogId))
+        {
+            yaml.AppendLine($"# Catalog: {request.CatalogId}");
+        }
+        yaml.AppendLine();
+        
+        // Basic grid configuration
+        yaml.AppendLine("grid:");
+        yaml.AppendLine("  bins: 288");
+        yaml.AppendLine("  binMinutes: 5");
+        yaml.AppendLine();
+        
+        // RNG configuration
+        var seed = request.Parameters.TryGetValue("seed", out var seedValue) ? 
+            Convert.ToInt32(seedValue) : Random.Shared.Next(1, 100000);
+        yaml.AppendLine("rng:");
+        yaml.AppendLine($"  seed: {seed}");
+        yaml.AppendLine();
+        
+        // Components (basic single component for now)
+        yaml.AppendLine("components:");
+        yaml.AppendLine("  - COMP_A");
+        yaml.AppendLine();
+        
+        // Measures
+        yaml.AppendLine("measures:");
+        yaml.AppendLine("  - arrivals");
+        yaml.AppendLine("  - served");
+        yaml.AppendLine();
+        
+        // Arrivals configuration
+        var arrivalRate = request.Parameters.TryGetValue("demandRate", out var rateValue) ? 
+            Convert.ToDouble(rateValue) : 1.2;
+        yaml.AppendLine("arrivals:");
+        yaml.AppendLine("  kind: rate");
+        yaml.AppendLine($"  ratePerBin: {arrivalRate:F2}");
+        yaml.AppendLine();
+        
+        // Served configuration  
+        var servedFraction = request.Parameters.TryGetValue("servedFraction", out var fracValue) ? 
+            Convert.ToDouble(fracValue) : 0.85;
+        yaml.AppendLine("served:");
+        yaml.AppendLine("  kind: fractionOf");
+        yaml.AppendLine("  of: arrivals");
+        yaml.AppendLine($"  fraction: {servedFraction:F2}");
+        yaml.AppendLine();
+        
+        // Notes
+        yaml.AppendLine($"notes: \"UI-M2 simulation from template {request.TemplateId}\"");
+        
+        return yaml.ToString();
     }
 }
