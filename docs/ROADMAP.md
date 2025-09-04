@@ -89,6 +89,19 @@ layoutHints:
 
 ---
 
+## Architecture
+
+For detailed architectural guidance including artifact-first integration patterns, schema contracts, and FlowTime-Sim integration specifications, see:
+
+- [Integration Architecture](docs/architecture/integration-spec.md)
+
+Key principles:
+- **Artifact-first:** All integration through canonical run artifacts, not custom JSON blobs
+- **Schema versioning:** v1 contract with backward compatibility requirements  
+- **Deterministic hashing:** Content-based artifact identification and caching
+
+---
+
 # Milestones
 
 ---
