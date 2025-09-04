@@ -653,21 +653,56 @@ tests/FlowTime.Tests/PmfTests.cs
 
 ---
 
-## UI-M2 — PMF Visualization
+## UI-M2 — Real API Integration
 
 ### Goal
 
-Add histogram visualization for PMFs.
+Replace mock services with real FlowTime-Sim API integration to make the Template Runner fully functional with live simulation execution.
 
 ### Functional Requirements
 
-- Bar chart of PMF values.
+- **FR-UI-M2-1:** Replace mock TemplateService with real FlowTime-Sim API calls
+- **FR-UI-M2-2:** Replace mock CatalogService with real catalog endpoints  
+- **FR-UI-M2-3:** Replace mock FlowTimeSimService with actual simulation execution
+- **FR-UI-M2-4:** Add real-time polling for simulation status and progress
+- **FR-UI-M2-5:** Enhanced error handling for network and API failures
+- **FR-UI-M2-6:** Loading states and progress indicators for long-running simulations
 
-- Overlay expected value series.
+### Inputs
+
+- Real FlowTime-Sim service endpoints (templates, catalogs, simulation execution)
+- User-configured parameters from UI-M1 Template Runner
+- Network configuration and API base URLs
+
+### Outputs
+
+- Live simulation execution with real results from FlowTime-Sim engine
+- Real-time status updates and progress tracking
+- Actual FlowTime artifacts and series data
+- Enhanced error reporting and retry mechanisms
+
+### New Code/Files
+
+```
+ui/FlowTime.UI/Services/Http/
+  HttpTemplateService.cs
+  HttpCatalogService.cs  
+  HttpFlowTimeSimService.cs
+ui/FlowTime.UI/Configuration/
+  ApiConfiguration.cs
+ui/FlowTime.UI/Models/
+  SimulationStatus.cs
+  ApiError.cs
+```
 
 ### Acceptance Criteria
 
-- Histograms render correctly.
+- Template Runner executes real simulations via FlowTime-Sim APIs
+- Real templates and catalogs loaded from backend services
+- Simulation progress tracked with real-time status updates
+- Network errors handled gracefully with user feedback
+- Results display actual FlowTime artifacts and series data
+- End-to-end integration testing with running FlowTime-Sim service
 
 ---
 

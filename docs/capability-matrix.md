@@ -16,6 +16,7 @@ Legend: Done / Prototype / Partial / Planned.
 | UI Template Runner | Template gallery, dynamic forms, catalog selection, simulation workflow | Done (UI-M1) | Full template-based simulation runner |
 | UI Parameter Forms | JSON schema-driven forms with validation | Done (UI-M1) | Auto-generated forms with type validation |
 | UI Catalog Management | System catalog selection with metadata | Done (UI-M1) | Visual catalog picker with capabilities |
+| UI Real API Integration | HTTP services, real simulation execution, status polling | Planned (UI-M2) | Replace mock services with live APIs |
 | UI Graph | Structural table (order, degrees, roles) | Done | Visual DAG planned for later |
 | Simulation Mode | Deterministic synthetic run + graph | Done | Toggle persisted (flag + query) |
 | Synthetic Adapter (SYN-M0) | Read artifacts & produce series | Done (SYN-M0) | FileSeriesReader, RunArtifactAdapter complete |
