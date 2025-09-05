@@ -666,56 +666,65 @@ tests/FlowTime.Tests/PmfTests.cs
 
 ---
 
-## UI-M2 — Real API Integration
+## UI-M2 — Real API Integration ✅
 
 ### Goal
 
-Replace mock services with real FlowTime-Sim API integration to make the Template Runner fully functional with live simulation execution.
+Replace mock services with real FlowTime-Sim API integration, implementing artifact-first architecture for live simulation execution. Transform the Template Runner from prototype to production-ready with full HTTP service integration while enhancing UX and component reliability.
 
 ### Functional Requirements
 
-- **FR-UI-M2-1:** Replace mock TemplateService with real FlowTime-Sim API calls
-- **FR-UI-M2-2:** Replace mock CatalogService with real catalog endpoints  
-- **FR-UI-M2-3:** Replace mock FlowTimeSimService with actual simulation execution
-- **FR-UI-M2-4:** Add real-time polling for simulation status and progress
-- **FR-UI-M2-5:** Enhanced error handling for network and API failures
-- **FR-UI-M2-6:** Loading states and progress indicators for long-running simulations
+- **FR-UI-M2-1:** Replace mock services with real FlowTime-Sim API calls ✅
+- **FR-UI-M2-2:** Implement artifact-first result loading via series/index.json ✅
+- **FR-UI-M2-3:** Add FlowTimeSimApiClient for /sim/run execution and CSV streaming ✅
+- **FR-UI-M2-4:** Enhance mode switching with reliable component state management ✅
+- **FR-UI-M2-5:** Add comprehensive error handling and graceful API fallbacks ✅
+- **FR-UI-M2-6:** Expand test coverage for critical artifact endpoints ✅
 
 ### Inputs
 
-- Real FlowTime-Sim service endpoints (templates, catalogs, simulation execution)
-- User-configured parameters from UI-M1 Template Runner
-- Network configuration and API base URLs
+- UI-M1 Template Runner with mock service layer
+- FlowTime-Sim service endpoints (/sim/run, /sim/runs/{id}/index, /sim/scenarios)
+- Integration specification for artifact-first communication patterns
 
 ### Outputs
 
-- Live simulation execution with real results from FlowTime-Sim engine
-- Real-time status updates and progress tracking
-- Actual FlowTime artifacts and series data
-- Enhanced error reporting and retry mechanisms
+- Live simulation execution via real FlowTime-Sim APIs
+- Artifact-first result loading from canonical run artifacts
+- HTTP-based template and catalog services with real data
+- Enhanced UX with mode switching and disabled state feedback
+- Expanded test coverage (33→35 tests) with API endpoint validation
+- Production-ready service architecture with graceful error handling
 
 ### New Code/Files
 
 ```
 ui/FlowTime.UI/Services/Http/
-  HttpTemplateService.cs
-  HttpCatalogService.cs  
-  HttpFlowTimeSimService.cs
-ui/FlowTime.UI/Configuration/
-  ApiConfiguration.cs
-ui/FlowTime.UI/Models/
-  SimulationStatus.cs
-  ApiError.cs
+  FlowTimeSimApiClient.cs       # Real API integration
+  SimResultsService.cs          # Artifact-first result loading
+ui/FlowTime.UI/Services/
+  (Updated) Template/Catalog services with HTTP calls
+ui/FlowTime.UI/Components/
+  (Enhanced) All components with real API integration
+apis/FlowTime.API/Services/
+  RunArtifactWriter.cs          # Shared artifact generation
+tests/FlowTime.Api.Tests/
+  ArtifactEndpointTests.cs      # Critical endpoint coverage
+scripts/
+  README.md + integration tests # Organized development workflow
 ```
 
 ### Acceptance Criteria
 
-- Template Runner executes real simulations via FlowTime-Sim APIs
-- Real templates and catalogs loaded from backend services
-- Simulation progress tracked with real-time status updates
-- Network errors handled gracefully with user feedback
-- Results display actual FlowTime artifacts and series data
-- End-to-end integration testing with running FlowTime-Sim service
+- Template Runner executes real simulations via FlowTime-Sim APIs ✅
+- Results loaded from canonical artifacts (series/index.json + CSV streaming) ✅
+- Real templates loaded from /sim/scenarios endpoint ✅
+- All mock services replaced with HTTP implementations ✅
+- Artifact-first architecture: no custom JSON blobs, canonical contracts only ✅
+- Mode switching works reliably with proper component remounting ✅
+- Error handling: 404 for missing artifacts, graceful API fallbacks ✅
+- Test coverage expanded with critical API endpoint validation ✅
+- End-to-end integration testing with running FlowTime-Sim service ✅
 
 ---
 

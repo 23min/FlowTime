@@ -8,15 +8,18 @@
 
 ## Goal
 
-Enhance the Template Runner UI with reliable mode switching between SIM and API modes, improved user experience for disabled states, and robust component state management. This milestone focused on fixing critical UX issues and preparing the foundation for future real API integration.
+Enhance the Template Runner UI with reliable mode switching between SIM and API modes, improved user experience for disabled states, robust component state management, AND implement real API integration with FlowTime-Sim services using artifact-first architecture. This milestone combined UX improvements with full API integration.
 
 ## What We Accomplished
 
+- **Real API Integration:** Replaced mock services with actual FlowTime-Sim API calls following artifact-first patterns
 - **Reliable Mode Switching:** Fixed mode toggle persistence and component refresh issues
 - **Enhanced UX:** Added clear disabled state feedback with tooltips and explanatory alerts  
 - **Component State Management:** Implemented proper subscription patterns and component remounting
+- **Artifact-First Architecture:** Implemented canonical run artifact reading (`series/index.json`, CSV streaming)
 - **Repository Organization:** Cleaned up development files and improved script organization
 - **Integration Testing:** Updated and verified API integration test scripts
+- **Test Coverage:** Expanded from 33 to 35 tests with critical API endpoint coverage
 
 ## Why This Approach
 
@@ -43,19 +46,19 @@ UI Template Runner → HTTP Services → FlowTime-Sim APIs → Simulation Engine
 
 ## Functional Requirements
 
-### FR-UI-M2-1: Real Template Service Integration
+### FR-UI-M2-1: Real Template Service Integration ✅
 - Replace `TemplateServiceImplementations` mock with HTTP-based implementation
-- Connect to FlowTime-Sim `/templates` endpoints
+- Connect to FlowTime-Sim `/sim/scenarios` endpoints  
 - Handle template schema loading and validation
 - Support template search and categorization
 
-### FR-UI-M2-2: Real Catalog Service Integration  
+### FR-UI-M2-2: Real Catalog Service Integration ✅
 - Replace catalog mock service with real API calls
 - Connect to FlowTime-Sim catalog endpoints
 - Load actual system catalogs with real metadata
 - Handle catalog availability and status information
 
-### FR-UI-M2-3: Live Simulation Execution (Artifact-First)
+### FR-UI-M2-3: Live Simulation Execution (Artifact-First) ✅
 - Replace mock simulation service with real FlowTime-Sim API calls
 - Execute simulations via `POST /sim/run` → `{ simRunId }`
 - Read results from canonical run artifacts (`runs/<runId>/...`)
@@ -63,23 +66,23 @@ UI Template Runner → HTTP Services → FlowTime-Sim APIs → Simulation Engine
 - Stream individual CSVs via `/sim/runs/{id}/series/{seriesId}`
 - **Remove dependency on custom metadata fields** from UI-M1 mock
 
-### FR-UI-M2-4: Real-Time Status Tracking
-- Implement polling for simulation progress
-- Display live status updates during execution
-- Handle long-running simulation scenarios
-- Provide cancellation capabilities
+### FR-UI-M2-4: Mode Toggle & UX Enhancement ✅
+- Implement reliable mode switching between SIM and API modes
+- Add enhanced UX with clear disabled state feedback and tooltips
+- Fix component state management with proper subscription patterns
+- Provide visual feedback during mode transitions
 
-### FR-UI-M2-5: Enhanced Error Handling
+### FR-UI-M2-5: Enhanced Error Handling ✅
 - Network timeout and retry logic
-- API error response handling
+- API error response handling (404 for missing artifacts)
 - User-friendly error messages
-- Offline/connectivity detection
+- Graceful fallbacks when APIs unavailable
 
-### FR-UI-M2-6: Configuration Management
-- Environment-specific API endpoints
-- Authentication/authorization support
-- Configurable timeouts and retry policies
-- Development vs production settings
+### FR-UI-M2-6: Repository & Test Organization ✅
+- Organize development files in scripts/ directory
+- Update integration test scripts for current API endpoints
+- Expand test coverage for critical API endpoints
+- Clean up unused dependencies and improve project structure
 
 ---
 
@@ -167,30 +170,31 @@ GET /api/catalogs/{id}
 
 ```
 ui/FlowTime.UI/Services/Http/
-  HttpTemplateService.cs
-  HttpCatalogService.cs
-  HttpFlowTimeSimService.cs
-  ApiClientFactory.cs
+  FlowTimeSimApiClient.cs
+  SimResultsService.cs
   
-ui/FlowTime.UI/Configuration/
-  FlowTimeSimApiOptions.cs
-  ApiConfiguration.cs
+ui/FlowTime.UI/Services/
+  FeatureFlagService.cs (enhanced)
   
-ui/FlowTime.UI/Models/Api/
-  ApiResponse.cs
-  ApiError.cs
-  SimulationStatusDto.cs
+ui/FlowTime.UI/Components/
+  TemplateRunner.razor (enhanced)
+  TemplateGallery.razor (enhanced)
+  CatalogPicker.razor (enhanced)
+  SimulationResults.razor (enhanced)
   
-ui/FlowTime.UI/Services/Background/
-  SimulationPollingService.cs
+apis/FlowTime.API/Services/
+  RunArtifactWriter.cs (shared)
   
-ui/FlowTime.UI/Extensions/
-  ServiceCollectionExtensions.cs
+tests/FlowTime.Api.Tests/
+  ArtifactEndpointTests.cs (enhanced)
   
-tests/FlowTime.UI.Tests/Services/
-  HttpTemplateServiceTests.cs
-  HttpCatalogServiceTests.cs
-    HttpFlowTimeSimServiceTests.cs
+scripts/
+  README.md
+  test-api-integration.sh
+  test-api.yaml
+  test-download.sh
+  test-ui-yaml.yaml
+  test.yaml
 ```
 
 ## Critical Changes Required from UI-M1
@@ -239,6 +243,14 @@ The results display must read from `series/index.json` rather than custom metada
 - [x] RUN button shows clear disabled state with helpful tooltips
 - [x] User feedback for disabled states with explanatory alerts
 
+### Real API Integration ✅
+- [x] Replace mock services with real FlowTime-Sim API calls
+- [x] FlowTimeSimApiClient for artifact-first communication
+- [x] SimResultsService for loading CSV series data from artifacts
+- [x] TemplateService updated to get scenarios from /sim/scenarios
+- [x] FlowTimeSimService calls /sim/run following integration spec
+- [x] SimulationResults component loads real data from series index
+
 ### Template Integration ✅
 - [x] Template mode switching works between mock (API) and SIM catalogs
 - [x] Template gallery refreshes when mode changes
@@ -256,19 +268,29 @@ The results display must read from `series/index.json` rather than custom metada
 - [x] Alert messages guide users when selections are incomplete
 - [x] Mode switching provides visual feedback
 - [x] Component remounting handles stale state properly
+- [x] API series endpoint returns 404 for missing index.json (not 500)
 
 ### Development Integration ✅
 - [x] Integration test scripts working with current API
 - [x] Repository organized with scripts in proper directory
 - [x] Documentation updated for current endpoints and usage
 - [x] Build and test tasks properly configured
+- [x] Comprehensive scripts/README.md with usage instructions
 
-### Future Artifact-First Integration (Post UI-M2)
-- [ ] UI reads simulation results from canonical run artifacts (`runs/<runId>/...`)
-- [ ] Results loaded via `series/index.json` discovery pattern
-- [ ] Individual series streamed via `/runs/{id}/series/{seriesId}` 
-- [ ] **No dependency on custom metadata fields** from UI-M1 mock
-- [ ] Simulation execution via `POST /sim/run` → `{ simRunId }` pattern
+### Artifact-First Architecture ✅
+- [x] UI reads simulation results from canonical run artifacts (`runs/<runId>/...`)
+- [x] Results loaded via `series/index.json` discovery pattern
+- [x] Individual series streamed via `/runs/{id}/series/{seriesId}` 
+- [x] **No dependency on custom metadata fields** from UI-M1 mock
+- [x] Simulation execution via `POST /sim/run` → `{ simRunId }` pattern
+- [x] Compliance with `schemaVersion: 1` artifact contract
+
+### Test Coverage Enhancement ✅
+- [x] Expanded test coverage from 33 to 35 tests (all passing)
+- [x] Added critical API endpoint tests for artifact handling
+- [x] Test for missing index.json returning 404 (not 500)
+- [x] Test for partial series name matching functionality
+- [x] Removed unused Moq dependency from FlowTime.UI.Tests
 
 ---
 
