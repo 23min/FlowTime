@@ -10,11 +10,13 @@ public interface ISimResultsService
 public class SimResultsService : ISimResultsService
 {
     private readonly IFlowTimeSimApiClient simClient;
+    private readonly IFlowTimeApiClient apiClient;
     private readonly ILogger<SimResultsService> logger;
 
-    public SimResultsService(IFlowTimeSimApiClient simClient, ILogger<SimResultsService> logger)
+    public SimResultsService(IFlowTimeSimApiClient simClient, IFlowTimeApiClient apiClient, ILogger<SimResultsService> logger)
     {
         this.simClient = simClient;
+        this.apiClient = apiClient;
         this.logger = logger;
     }
 
@@ -22,8 +24,23 @@ public class SimResultsService : ISimResultsService
     {
         try
         {
+            var isEngineRun = runId.StartsWith("engine_", StringComparison.OrdinalIgnoreCase);
+
             // Step 1: Get the series index following artifact-first pattern
-            var indexResult = await simClient.GetIndexAsync(runId, ct);
+            Result<SeriesIndex> indexResult;
+            if (isEngineRun)
+            {
+                var apiIndex = await apiClient.GetRunIndexAsync(runId, ct);
+                if (!apiIndex.Success || apiIndex.Value == null)
+                {
+                    return Result<SimResultData>.Fail($"Failed to get engine series index: {apiIndex.Error}", apiIndex.StatusCode);
+                }
+                indexResult = Result<SeriesIndex>.Ok(apiIndex.Value, apiIndex.StatusCode);
+            }
+            else
+            {
+                indexResult = await simClient.GetIndexAsync(runId, ct);
+            }
             if (!indexResult.Success)
             {
                 return Result<SimResultData>.Fail($"Failed to get series index: {indexResult.Error}", indexResult.StatusCode);
@@ -35,14 +52,26 @@ public class SimResultsService : ISimResultsService
             var seriesData = new Dictionary<string, double[]>();
             foreach (var series in index.Series)
             {
-                var csvResult = await simClient.GetSeriesAsync(runId, series.Id, ct);
-                if (!csvResult.Success)
+                Result<Stream> csvResult;
+                if (isEngineRun)
                 {
-                    logger.LogWarning("Failed to load series {SeriesId}: {Error}", series.Id, csvResult.Error);
-                    continue; // Skip failed series but continue with others
+                    var apiSeries = await apiClient.GetRunSeriesAsync(runId, series.Id, ct);
+                    csvResult = apiSeries.Success && apiSeries.Value != null
+                        ? Result<Stream>.Ok(apiSeries.Value, apiSeries.StatusCode)
+                        : Result<Stream>.Fail(apiSeries.Error ?? "Unknown error", apiSeries.StatusCode);
+                }
+                else
+                {
+                    csvResult = await simClient.GetSeriesAsync(runId, series.Id, ct);
                 }
 
-                var values = await ParseCsvStream(csvResult.Value!, ct);
+                if (!csvResult.Success || csvResult.Value == null)
+                {
+                    logger.LogWarning("Failed to load series {SeriesId}: {Error}", series.Id, csvResult.Error);
+                    continue;
+                }
+
+                var values = await ParseCsvStream(csvResult.Value, ct);
                 seriesData[series.Id] = values;
             }
 

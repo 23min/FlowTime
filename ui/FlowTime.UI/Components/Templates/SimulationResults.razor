@@ -1,6 +1,10 @@
 @using FlowTime.UI.Services
+@using System.Globalization
+@using Microsoft.JSInterop
 @inject ISimResultsService SimResults
 @inject ISnackbar Snackbar
+@inject IJSRuntime JSRuntime
+@inject FeatureFlagService FeatureFlags
 
 <MudStack Spacing="4">
     @if (Result != null)
@@ -126,17 +130,28 @@
                                 </div>
                             </TitleContent>
                             <ChildContent>
-                                <MudAlert Severity="Severity.Info" Class="mb-2">
-                                    <MudText Typo="Typo.caption">
-                                        Metadata shown here is not authoritative. Actual series data is loaded from artifacts above.
-                                    </MudText>
-                                </MudAlert>
+                                @if (IsSimMode())
+                                {
+                                    <MudAlert Severity="Severity.Info" Class="mb-2">
+                                        <MudText Typo="Typo.caption">
+                                            Metadata shown here is not authoritative. Actual series data is loaded from artifacts above.
+                                        </MudText>
+                                    </MudAlert>
+                                }
+                                else
+                                {
+                                    <MudAlert Severity="Severity.Success" Class="mb-2">
+                                        <MudText Typo="Typo.caption">
+                                            Rich simulation metadata generated from FlowTime API. This includes model analysis and performance insights.
+                                        </MudText>
+                                    </MudAlert>
+                                }
                                 <MudSimpleTable Striped="true" Dense="true">
                                     <tbody>
                                         @foreach (var item in Result.Metadata.Where(m => IsDisplayableMetadata(m.Key)))
                                         {
                                             <tr>
-                                                <td><strong>@item.Key</strong></td>
+                                                <td><strong>@FormatMetadataKey(item.Key)</strong></td>
                                                 <td>@FormatMetadataValue(item.Value)</td>
                                             </tr>
                                         }
@@ -212,14 +227,75 @@
 
     private async Task DownloadResults()
     {
-        if (Result?.ResultsUrl != null && hasLoadedResults)
+        if (Result?.RunId == null || simulationData == null || !hasLoadedResults)
         {
+            Snackbar.Add("No data available to download", Severity.Warning);
+            return;
+        }
+
+        // Check for mode mismatch
+        var resultSource = Result?.Metadata.GetValueOrDefault("source")?.ToString();
+        var currentlyInSimMode = FeatureFlags.UseSimulation;
+        
+        if (resultSource == "sim" && !currentlyInSimMode)
+        {
+            Snackbar.Add("This result was created in SIM mode, but you're currently in API mode. Turn on 'Use Simulation' to download SIM results.", Severity.Warning);
+            return;
+        }
+        else if (resultSource != "sim" && currentlyInSimMode)
+        {
+            Snackbar.Add("This result was created in API mode, but you're currently in SIM mode. Turn off 'Use Simulation' to download API results.", Severity.Warning);
+            return;
+        }
+
+        try
+        {
+            var downloadedCount = 0;
+            var totalSeries = simulationData.Series.Count;
+            
             // Trigger download through parent callback
             await OnDownloadResults.InvokeAsync();
             
-            // Note: Actual CSV download would be implemented by opening the artifact URLs
-            // e.g., /sim/runs/{runId}/series/{seriesId} for each series
-            Snackbar.Add("Download functionality will open artifact URLs for each series", Severity.Info);
+            // Download each series CSV file
+            foreach (var seriesId in simulationData.Series.Keys)
+            {
+                try
+                {
+                    // Determine the appropriate download URL based on current feature flag
+                    string downloadUrl;
+                    if (FeatureFlags.UseSimulation)
+                    {
+                        // SIM mode: Use full URL to FlowTime-Sim API on port 5279
+                        downloadUrl = $"http://localhost:5279/sim/runs/{Result.RunId}/series/{seriesId}";
+                    }
+                    else
+                    {
+                        // API mode: Use full URL to FlowTime API on port 8080
+                        downloadUrl = $"http://localhost:8080/runs/{Result.RunId}/series/{seriesId}";
+                    }
+                    
+                    // Open download URL in new tab to trigger browser download
+                    await JSRuntime.InvokeVoidAsync("window.open", downloadUrl, "_blank");
+                    downloadedCount++;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Failed to download series {seriesId}: {ex.Message}");
+                }
+            }
+            
+            if (downloadedCount > 0)
+            {
+                Snackbar.Add($"Initiated download for {downloadedCount} of {totalSeries} series files", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add("Failed to initiate any downloads", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error downloading results: {ex.Message}", Severity.Error);
         }
     }
 
@@ -227,16 +303,45 @@
     {
         return value switch
         {
-            Dictionary<string, object> dict => string.Join(", ", dict.Select(kvp => $"{kvp.Key}: {kvp.Value}")),
-            IEnumerable<object> list => string.Join(", ", list),
-            _ => value.ToString() ?? string.Empty
+            Dictionary<string, object> dict => string.Join(", ", dict.Select(kvp => $"{kvp.Key}: {FormatNestedValue(kvp.Value)}")),
+            string str => str,
+            IEnumerable<object> list => string.Join(", ", list.Select(FormatNestedValue)),
+            _ => value?.ToString() ?? string.Empty
         };
+    }
+
+    private string FormatNestedValue(object value)
+    {
+        return value switch
+        {
+            double d => d.ToString("F2", CultureInfo.InvariantCulture),
+            float f => f.ToString("F2", CultureInfo.InvariantCulture),
+            decimal m => m.ToString("F2", CultureInfo.InvariantCulture),
+            _ => value?.ToString() ?? string.Empty
+        };
+    }
+
+    private string FormatMetadataKey(string key)
+    {
+        // Convert camelCase to Title Case for better display
+        return System.Text.RegularExpressions.Regex.Replace(key, @"([A-Z])", " $1").Trim()
+            .Replace("Id", "ID")
+            .Replace("Url", "URL")
+            .Replace("Api", "API");
     }
 
     private static bool IsDisplayableMetadata(string key)
     {
-        // Only show basic metadata - artifacts are authoritative for actual data
-        return key is "templateId" or "catalogId" or "source" or "schemaVersion";
+        // For Sim mode: Only show basic metadata - artifacts are authoritative for actual data
+        // For API mode: Show all rich metadata
+        return key is not ("source"); // Hide internal source field
+    }
+
+    private bool IsSimMode()
+    {
+        // Check current feature flag setting rather than just result metadata
+        // This ensures downloads use the correct service based on current mode
+        return FeatureFlags.UseSimulation;
     }
 
     protected override void OnParametersSet()

@@ -1,7 +1,10 @@
 @using FlowTime.UI.Services
 @using MudBlazor
+@using MudBlazor
 @inject ICatalogService CatalogService
 @inject ISnackbar Snackbar
+@inject FeatureFlagService FeatureFlags
+@implements IDisposable
 
 <MudStack Spacing="2">
     @if (catalogs == null)
@@ -72,8 +75,22 @@
 
     protected override async Task OnInitializedAsync()
     {
+        FeatureFlags.Changed += OnModeChanged;
+        await LoadCatalogsAsync();
+    }
+
+    private async void OnModeChanged()
+    {
+        await LoadCatalogsAsync();
+        selectedCatalog = null;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task LoadCatalogsAsync()
+    {
         try
         {
+            await FeatureFlags.EnsureLoadedAsync();
             catalogs = await CatalogService.GetCatalogsAsync();
         }
         catch (Exception ex)
@@ -87,5 +104,10 @@
         selectedCatalog = catalog;
         await OnCatalogSelected.InvokeAsync(catalog);
         StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        FeatureFlags.Changed -= OnModeChanged;
     }
 }

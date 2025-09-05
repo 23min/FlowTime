@@ -1,10 +1,14 @@
 @page "/templates"
 @using FlowTime.UI.Services
 @using FlowTime.UI.Components.Templates
+@using System.Linq
+@using MudBlazor
 @inject ITemplateService TemplateService
 @inject ICatalogService CatalogService
 @inject IFlowTimeSimService SimService
 @inject ISnackbar Snackbar
+@inject FeatureFlagService FeatureFlags
+@implements IDisposable
 
 <PageTitle>Template Runner</PageTitle>
 
@@ -13,18 +17,38 @@
     Select a template, configure parameters, choose a system catalog, and run simulations without writing YAML.
 </MudText>
 
+@* Mode Banner *@
+<MudPaper Class="pa-3 mb-4" Style="@GetBannerStyle()">
+    <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+        <MudText Typo="Typo.body1">
+            <strong>Current Mode:</strong> @GetModeText()
+        </MudText>
+        <MudSpacer />
+        <MudButton 
+            Size="Size.Small" 
+            Variant="Variant.Text" 
+            StartIcon="@Icons.Material.Filled.SwapHoriz"
+            OnClick="ToggleMode"
+            Disabled="isRunning">
+            Switch Mode
+        </MudButton>
+    </MudStack>
+</MudPaper>
+
 <MudGrid>
     <MudItem xs="12" md="4">
         <MudPaper Class="pa-4" Elevation="2">
             <MudText Typo="Typo.h5" Class="mb-3">📋 Templates</MudText>
-            <TemplateGallery OnTemplateSelected="OnTemplateSelected" />
+            @* Force re-mount when mode changes so any internal selection state is cleared *@
+            <TemplateGallery @key="modeVersion" OnTemplateSelected="OnTemplateSelected" />
         </MudPaper>
     </MudItem>
     
     <MudItem xs="12" md="4">
         <MudPaper Class="pa-4" Elevation="2">
             <MudText Typo="Typo.h5" Class="mb-3">🏗️ System Catalog</MudText>
-            <CatalogPicker OnCatalogSelected="OnCatalogSelected" />
+            @* Force re-mount when mode changes so any internal selection state is cleared *@
+            <CatalogPicker @key="modeVersion" OnCatalogSelected="OnCatalogSelected" />
         </MudPaper>
     </MudItem>
     
@@ -34,6 +58,7 @@
             @if (selectedTemplate != null)
             {
                 <DynamicParameterForm 
+                    @key="modeVersion" 
                     Template="selectedTemplate" 
                     OnParametersChanged="OnParametersChanged" />
             }
@@ -52,20 +77,37 @@
         <MudPaper Class="pa-4" Elevation="2">
             <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
                 <MudText Typo="Typo.h5">🚀 Run Simulation</MudText>
-                <MudButton 
-                    Variant="Variant.Filled" 
-                    Color="Color.Primary" 
-                    OnClick="RunSimulation"
-                    Disabled="@(!CanRunSimulation())"
-                    StartIcon="@Icons.Material.Filled.PlayArrow">
-                    Run Simulation
-                </MudButton>
+                <MudTooltip Text="@GetRunButtonTooltip()">
+                    <MudButton 
+                        Variant="Variant.Filled" 
+                        Color="Color.Primary" 
+                        OnClick="RunSimulation"
+                        Disabled="@(!CanRunSimulation())"
+                        StartIcon="@Icons.Material.Filled.PlayArrow">
+                        Run Simulation
+                    </MudButton>
+                </MudTooltip>
             </MudStack>
+            @if (!CanRunSimulation())
+            {
+                <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true" Class="mb-4">
+                    @GetDisabledReasonFragment()
+                </MudAlert>
+            }
             
             @if (isRunning)
             {
                 <MudProgressLinear Indeterminate="true" Class="mb-4" />
-                <MudText Typo="Typo.body2">Running simulation...</MudText>
+                <MudText Typo="Typo.body2">
+                    @if (FeatureFlags.UseSimulation)
+                    {
+                        <text>Running simulation via FlowTime-Sim API (http://localhost:5279)...</text>
+                    }
+                    else
+                    {
+                        <text>Running simulation via built-in Rich Domain templates...</text>
+                    }
+                </MudText>
             }
             
             @if (runResult != null)
@@ -82,18 +124,67 @@
     private Dictionary<string, object> parameters = new();
     private bool isRunning;
     private SimulationRunResult? runResult;
+    private int modeVersion = 0; // increments on each mode toggle
+    private int? selectedTemplateModeVersion;
+    private int? selectedCatalogModeVersion;
 
+    protected override async Task OnInitializedAsync()
+    {
+        await FeatureFlags.EnsureLoadedAsync();
+        // Subscribe to flag changes to update banner
+        FeatureFlags.Changed += OnFlagsChanged;
+    }
+
+    public void Dispose()
+    {
+        FeatureFlags.Changed -= OnFlagsChanged;
+    }
+
+    private async void OnFlagsChanged()
+    {
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private string GetBannerStyle()
+    {
+        var backgroundColor = FeatureFlags.UseSimulation ? "#FF8C00" : "#4CAF50"; // Orange for Sim, Green for API
+        return $"background-color: {backgroundColor}; color: white;";
+    }
+
+    private string GetModeText()
+    {
+        return FeatureFlags.UseSimulation ? "Simulation" : "Real FlowTime-Sim API";
+    }
+
+    private async Task ToggleMode()
+    {
+        if (isRunning) return; // Don't allow mode switching during simulation
+        
+        await FeatureFlags.SetUseSimulationAsync(!FeatureFlags.UseSimulation);
+        // Clear current selections since templates will change
+        selectedTemplate = null;
+        selectedCatalog = null;
+        parameters.Clear();
+        runResult = null;
+    modeVersion++; // advance epoch so stale refs are invalidated
+    selectedTemplateModeVersion = null;
+    selectedCatalogModeVersion = null;
+        StateHasChanged();
+    }
+    
     private void OnTemplateSelected(TemplateInfo template)
     {
         selectedTemplate = template;
         parameters.Clear();
         runResult = null;
+    selectedTemplateModeVersion = modeVersion;
         StateHasChanged();
     }
 
     private void OnCatalogSelected(CatalogInfo catalog)
     {
         selectedCatalog = catalog;
+    selectedCatalogModeVersion = modeVersion;
         StateHasChanged();
     }
 
@@ -105,8 +196,12 @@
 
     private bool CanRunSimulation()
     {
+        // Must have current-mode selections
         if (selectedTemplate == null || selectedCatalog == null || isRunning)
             return false;
+
+        if (selectedTemplateModeVersion != modeVersion || selectedCatalogModeVersion != modeVersion)
+            return false; // stale selections from prior mode
 
         // Check if all required parameters are provided
         if (selectedTemplate.ParameterSchema?.Required != null)
@@ -121,9 +216,59 @@
         return true;
     }
 
+    private string GetRunButtonTooltip()
+    {
+        if (CanRunSimulation()) return FeatureFlags.UseSimulation ? "Run via FlowTime-Sim API" : "Run using engine templates";
+        if (isRunning) return "Simulation in progress";
+        if (selectedTemplate == null) return "Select a template first";
+        if (selectedCatalog == null) return "Select a system catalog";
+        if (selectedTemplateModeVersion != modeVersion || selectedCatalogModeVersion != modeVersion) return "Selections invalid after mode change – reselect";
+        return "Provide required parameters";
+    }
+
+    private RenderFragment GetDisabledReasonFragment() => builder =>
+    {
+        int seq = 0;
+        if (isRunning)
+        {
+            builder.AddContent(seq++, "Simulation is currently running.");
+            return;
+        }
+        if (selectedTemplate == null)
+        {
+            builder.AddContent(seq++, "Select a template to enable the run button.");
+            return;
+        }
+        if (selectedCatalog == null)
+        {
+            builder.AddContent(seq++, "Select a system catalog to enable the run button.");
+            return;
+        }
+        if (selectedTemplateModeVersion != modeVersion || selectedCatalogModeVersion != modeVersion)
+        {
+            builder.AddContent(seq++, "Mode changed – previous selections were cleared. Please reselect both template and catalog.");
+            return;
+        }
+        // Parameter gap
+        if (selectedTemplate?.ParameterSchema?.Required != null)
+        {
+            var missing = selectedTemplate.ParameterSchema.Required.Where(r => !parameters.ContainsKey(r) || parameters[r] == null).ToList();
+            if (missing.Count > 0)
+            {
+                builder.AddContent(seq++, $"Missing required parameters: {string.Join(", ", missing)}");
+                return;
+            }
+        }
+        builder.AddContent(seq++, "Provide selections to run simulation.");
+    };
+
     private async Task RunSimulation()
     {
-        if (!CanRunSimulation()) return;
+        if (!CanRunSimulation())
+        {
+            Snackbar.Add("Select a template and catalog for the current mode before running.", Severity.Warning);
+            return;
+        }
 
         isRunning = true;
         runResult = null;
@@ -138,12 +283,45 @@
                 Parameters = parameters
             };
 
+            var serviceType = FeatureFlags.UseSimulation ? "FlowTime-Sim API" : "Rich Domain Templates";
+            Snackbar.Add($"Starting simulation using {serviceType}...", Severity.Info);
+
             runResult = await SimService.RunSimulationAsync(request);
-            Snackbar.Add("Simulation completed successfully!", Severity.Success);
+            
+            // Check if the simulation actually succeeded
+            if (runResult.Status == "failed" || !string.IsNullOrEmpty(runResult.ErrorMessage))
+            {
+                var errorMsg = FeatureFlags.UseSimulation 
+                    ? $"FlowTime-Sim API error: {runResult.ErrorMessage}" 
+                    : $"Simulation error: {runResult.ErrorMessage}";
+                Snackbar.Add(errorMsg, Severity.Error);
+            }
+            else
+            {
+                var resultMessage = FeatureFlags.UseSimulation 
+                    ? "Simulation completed via FlowTime-Sim API!" 
+                    : "Simulation completed via Rich Domain Templates!";
+                Snackbar.Add(resultMessage, Severity.Success);
+            }
+        }
+        catch (HttpRequestException ex) when (ex.Message.Contains("timeout") || ex.Message.Contains("Timeout"))
+        {
+            var errorMsg = FeatureFlags.UseSimulation 
+                ? "FlowTime-Sim API request timed out. Check if the service is running on http://localhost:5279"
+                : "Simulation request timed out";
+            Snackbar.Add(errorMsg, Severity.Error);
+        }
+        catch (HttpRequestException ex) when (ex.Message.Contains("Connection refused") || ex.Message.Contains("No connection"))
+        {
+            var errorMsg = FeatureFlags.UseSimulation 
+                ? "Cannot connect to FlowTime-Sim API. Make sure it's running on http://localhost:5279"
+                : "Cannot connect to simulation service";
+            Snackbar.Add(errorMsg, Severity.Error);
         }
         catch (Exception ex)
         {
-            Snackbar.Add($"Simulation failed: {ex.Message}", Severity.Error);
+            var prefix = FeatureFlags.UseSimulation ? "FlowTime-Sim API error" : "Simulation error";
+            Snackbar.Add($"{prefix}: {ex.Message}", Severity.Error);
         }
         finally
         {

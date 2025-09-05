@@ -7,7 +7,9 @@ public record HealthResponse([property: JsonPropertyName("status")] string Statu
 public record RunResponse(
     [property: JsonPropertyName("grid")] GridInfo Grid,
     [property: JsonPropertyName("order")] string[] Order,
-    [property: JsonPropertyName("series")] Dictionary<string, double[]> Series);
+    [property: JsonPropertyName("series")] Dictionary<string, double[]> Series,
+    [property: JsonPropertyName("runId")] string RunId,
+    [property: JsonPropertyName("artifactsPath")] string? ArtifactsPath);
 
 public record GraphResponse(
     [property: JsonPropertyName("nodes")] string[] Nodes,

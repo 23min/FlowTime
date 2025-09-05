@@ -1,17 +1,7 @@
 # FlowTime
 
  [![Build](https://github.com/23min/FlowTime/actions/workflows/build.yml/badge.svg)](https://github.com/23min/FlowTime/actions/workflows/build.yml)
-![Li```
-
-Bash equivalent:
-
-```bash
-head -n 5 out/hello/served.csv
-```
-
-> **Note**: API (SVC-M0) and UI (UI-M0) are now available! See instructions below.
-
-## Running and calling the API(https://img.shields.io/badge/License-MIT-yellow.svg)
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
 > **FlowTime** is a deterministic, discrete-time, graph-based engine that models flows (entities) across services and queues, producing explainable time-series for backlog, latency, and throughput—useful for **what-if** (simulation) and **what-is/what-was** (time-travel observability). It feels **spreadsheet-like**, with a lightweight **SPA UI** for interactive analysis.
 
@@ -95,7 +85,7 @@ Teams who need **explainable flow modeling** and **time-travel observability**�
 
 * **FlowTime.Core** — the engine: canonical time grid, series math, DAG, nodes/evaluation. *(present in M0)*
 * **FlowTime.Cli** — a CLI that evaluates YAML models and writes CSV. *(present in M0)*
-* **FlowTime.UI** — SPA (Blazor WASM) to visualize runs. *(completed)*
+* **FlowTime.UI** — SPA (Blazor WASM) to visualize runs. *(early demo present)*
 * **FlowTime.API** — backend for graph/run/state (also hosts negotiate for real-time). *(early minimal version present)*
 
 **API‑first**: All features are exposed via the HTTP API; CLI and UI consume the same surface. The API will be hosted behind a neutral "FlowTime.API" service (initially Azure Functions is a likely host, but the implementation is swappable). Endpoints: negotiate, `/graph`, `/run`, `/state_window`.
@@ -343,36 +333,7 @@ Minimal useful slice implemented:
 * **Determinism**: `--deterministic-run-id` and `--seed` flags for reproducible CI/testing
 * **SeriesId format**: `measure@componentId@class` specification compliance
 
-Deferred to next milestones: backlog/queues, routing, autoscale; extended nodes (shift/resample/delay).
-
-## SVC-M0 scope ✅ COMPLETED
-
-**Minimal API** - HTTP surface for automation and UI integration:
-
-* **REST endpoints**: `POST /run`, `GET /graph`, `GET /healthz`
-* **CLI ↔ API parity**: Same FlowTime.Core engine ensures identical results
-* **Content negotiation**: YAML input, JSON output with optional CSV artifacts
-* **Development ready**: ASP.NET Core host with CORS support and comprehensive logging
-
-## UI-M0 scope ✅ COMPLETED
-
-**Minimal Observer UI** - SPA for visualization:
-
-* **Blazor WebAssembly**: Client-side SPA with theme support
-* **API integration**: Consumes FlowTime.API endpoints with fallback to local files  
-* **Time-series visualization**: Line charts with labeled series
-* **Node catalog**: Browse available node types and their capabilities
-* **Run client**: Execute models and view results in real-time
-
-## SYN-M0 scope ✅ COMPLETED
-
-**Synthetic Adapter (File)** - Read FlowTime/Sim artifacts:
-
-* **File adapter**: Reads structured artifacts from disk (`run.json`, `series/index.json`, `series/*.csv`)
-* **Cross-project compatibility**: Handles both FlowTime CLI and FlowTime-Sim outputs
-* **Typed interfaces**: `ISeriesReader`, `RunArtifactAdapter` for clean abstraction
-* **Deterministic**: Repeated reads produce byte-identical re-exports
-* **Graceful handling**: Missing optional series handled appropriately
+Deferred to next milestones: backlog/queues, routing, autoscale; backend; SPA viewer; extended nodes (shift/resample/delay).
 
 ---
 
@@ -380,11 +341,12 @@ Deferred to next milestones: backlog/queues, routing, autoscale; extended nodes 
 
 A high‑level view of upcoming work (details live in `docs/ROADMAP.md`):
 
+* **M1 — Contracts Parity**: artifact freeze (`spec.yaml`, `run.json` w/ `source` & expanded `grid`, `manifest.json` w/ `rng` object, `series/index.json` + per‑series hashes, placeholders `events.ndjson`, `gold/`) + deterministic formatting & hashing.
 * **M1.5 — Expressions**: parser + references + basic built‑ins (unblocks richer nodes & PMF composition).
 * **M2 — PMF (expected value)**: basic PMF nodes with normalization warnings.
 * **M3 — (reserved / potential hygiene)**: may absorb overflow from earlier milestones.
 * **M7 — Backlog & latency**: queued later (single queue + Little's Law latency) per current roadmap.
-* Further milestones: routing/capacity, scenarios/compare, backlog extensions, uncertainty (see full `docs/ROADMAP.md`).
+* Further milestones: routing/capacity, scenarios/compare, synthetic adapters, backlog extensions, uncertainty (see full `docs/ROADMAP.md`).
 
 > Note: Ordering locks artifact contracts (M1) before expanding modeling surface (Expressions at M1.5) to avoid churn across CLI/API/UI/adapters.
 

@@ -1,0 +1,11 @@
+schemaVersion: 1
+rng: pcg
+grid:
+  bins: 4
+  binMinutes: 60
+seed: 42
+arrivals:
+  kind: const
+  values: [10, 10, 10, 10]
+route:
+  id: COMP_A

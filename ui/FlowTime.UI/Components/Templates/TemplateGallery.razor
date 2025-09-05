@@ -1,6 +1,8 @@
 @using FlowTime.UI.Services
 @inject ITemplateService TemplateService
 @inject ISnackbar Snackbar
+@inject FeatureFlagService FeatureFlags
+@implements IDisposable
 
 <MudStack Spacing="2">
     @if (templates == null)
@@ -19,7 +21,14 @@
             <MudCard Class="@GetCardClass(template)" Style="cursor: pointer;" 
                      @onclick="() => SelectTemplate(template)">
                 <MudCardContent>
-                    <MudText Typo="Typo.h6">@template.Name</MudText>
+                    <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Start" Class="mb-2">
+                        <MudText Typo="Typo.h6">@template.Name</MudText>
+                        <MudChip T="string" Size="Size.Small" 
+                                Color="@(FeatureFlags.UseSimulation ? Color.Warning : Color.Success)"
+                                Variant="Variant.Filled">
+                            @(FeatureFlags.UseSimulation ? "SIM" : "API")
+                        </MudChip>
+                    </MudStack>
                     <MudText Typo="Typo.body2" Class="mb-2">@template.Description</MudText>
                     <MudChip T="string" Size="Size.Small" Color="@GetCategoryColor(template.Category)">
                         @template.Category
@@ -49,14 +58,36 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // Subscribe to mode changes
+        FeatureFlags.Changed += OnModeChanged;
+    await LoadTemplatesAsync();
+    }
+
+    private async void OnModeChanged()
+    {
+        await LoadTemplatesAsync();
+        // Clear selection since templates changed
+        selectedTemplateId = null;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task LoadTemplatesAsync()
+    {
         try
         {
+            await FeatureFlags.EnsureLoadedAsync();
             templates = await TemplateService.GetTemplatesAsync();
+            await InvokeAsync(StateHasChanged);
         }
         catch (Exception ex)
         {
             Snackbar.Add($"Failed to load templates: {ex.Message}", Severity.Error);
         }
+    }
+
+    public void Dispose()
+    {
+        FeatureFlags.Changed -= OnModeChanged;
     }
 
     private async Task SelectTemplate(TemplateInfo template)

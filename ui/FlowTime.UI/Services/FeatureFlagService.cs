@@ -25,6 +25,7 @@ public sealed class FeatureFlagService
     {
         if (loaded) return;
         loaded = true;
+        var previous = useSimulation; // capture default (false) before potential changes
         // precedence: query string ?sim=1 overrides stored value
         var uri = new Uri(nav.Uri);
         var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
@@ -33,6 +34,7 @@ public sealed class FeatureFlagService
         {
             useSimulation = true;
             await PersistAsync();
+            if (useSimulation != previous) Changed?.Invoke();
             return;
         }
         try
@@ -41,6 +43,7 @@ public sealed class FeatureFlagService
             if (stored == "1") useSimulation = true;
         }
         catch { /* ignore */ }
+        if (useSimulation != previous) Changed?.Invoke();
     }
 
     public async Task SetUseSimulationAsync(bool value)

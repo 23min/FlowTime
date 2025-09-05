@@ -1,4 +1,5 @@
 using System.Net.Http.Headers;
+using System.IO; // for Stream
 using System.Text;
 using System.Text.Json;
 
@@ -10,6 +11,8 @@ public interface IFlowTimeApiClient
     Task<ApiCallResult<HealthResponse>> HealthAsync(CancellationToken ct = default);
     Task<ApiCallResult<RunResponse>> RunAsync(string yaml, CancellationToken ct = default);
     Task<ApiCallResult<GraphResponse>> GraphAsync(string yaml, CancellationToken ct = default);
+    Task<ApiCallResult<SeriesIndex>> GetRunIndexAsync(string runId, CancellationToken ct = default);
+    Task<ApiCallResult<Stream>> GetRunSeriesAsync(string runId, string seriesId, CancellationToken ct = default);
 }
 
 internal sealed class FlowTimeApiClient : IFlowTimeApiClient
@@ -41,6 +44,31 @@ internal sealed class FlowTimeApiClient : IFlowTimeApiClient
         var content = new StringContent(yaml, Encoding.UTF8, "text/plain");
         Console.WriteLine($"[FlowTimeApiClient] POST /graph len={yaml.Length} preview='{yaml.Substring(0, Math.Min(60, yaml.Length)).Replace("\n", "\\n")}'");
         return PostJson<GraphResponse>("graph", content, ct);
+    }
+
+    public Task<ApiCallResult<SeriesIndex>> GetRunIndexAsync(string runId, CancellationToken ct = default)
+        => GetJson<SeriesIndex>($"runs/{runId}/index", ct);
+
+    public async Task<ApiCallResult<Stream>> GetRunSeriesAsync(string runId, string seriesId, CancellationToken ct = default)
+    {
+        var res = await http.GetAsync($"runs/{runId}/series/{seriesId}", HttpCompletionOption.ResponseHeadersRead, ct);
+        try
+        {
+            if (!res.IsSuccessStatusCode)
+            {
+                var err = await SafeReadError(res, ct);
+                return ApiCallResult<Stream>.Fail((int)res.StatusCode, err);
+            }
+            await using var body = await res.Content.ReadAsStreamAsync(ct);
+            var ms = new MemoryStream();
+            await body.CopyToAsync(ms, ct);
+            ms.Position = 0;
+            return ApiCallResult<Stream>.Ok(ms, (int)res.StatusCode);
+        }
+        finally
+        {
+            res.Dispose();
+        }
     }
 
     private async Task<ApiCallResult<T>> GetJson<T>(string path, CancellationToken ct)

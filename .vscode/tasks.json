@@ -39,6 +39,14 @@
       "command": "dotnet run --project src/FlowTime.Cli -- run examples/hello/model.yaml --out out/hello --verbose",
       "group": "none",
       "problemMatcher": []
+    },
+    {
+      "label": "start: api",
+      "type": "shell",
+      "command": "dotnet run --project apis/FlowTime.API --urls http://localhost:8080",
+      "group": "none",
+      "isBackground": true,
+      "problemMatcher": []
     }
   ]
 }

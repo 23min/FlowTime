@@ -128,12 +128,42 @@ app.MapPost("/run", async (HttpRequest req, ILogger<Program> logger) =>
         var order = graph.TopologicalOrder();
         var ctx = graph.Evaluate(grid);
 
+        // Build artifacts using shared writer
+        var artifactsDir = app.Configuration.GetValue<string>("ArtifactsDirectory") ?? Path.Combine(Directory.GetCurrentDirectory(), "out");
+        Directory.CreateDirectory(artifactsDir);
+        
+        // Create context dictionary for artifact writer
+        var artifactContext = new Dictionary<NodeId, double[]>();
+        foreach (var (nodeId, seriesData) in ctx)
+        {
+            artifactContext[nodeId] = seriesData.ToArray();
+        }
+
+        // Use shared artifact writer
+        var writeRequest = new FlowTime.Core.Artifacts.RunArtifactWriter.WriteRequest
+        {
+            Model = model,
+            Grid = grid,
+            Context = artifactContext,
+            SpecText = yaml,
+            RngSeed = null, // API doesn't support seed parameter yet
+            StartTimeBias = null,
+            DeterministicRunId = false,
+            OutputDirectory = artifactsDir,
+            Verbose = false
+        };
+
+        var artifactResult = await FlowTime.Core.Artifacts.RunArtifactWriter.WriteArtifactsAsync(writeRequest);
+        logger.LogInformation("Created artifacts at {RunDirectory}", artifactResult.RunDirectory);
+
         var series = order.ToDictionary(id => id.Value, id => ctx[id].ToArray());
         var response = new
         {
             grid = new { bins = grid.Bins, binMinutes = grid.BinMinutes },
             order = order.Select(o => o.Value).ToArray(),
-            series
+            series,
+            runId = artifactResult.RunId,
+            artifactsPath = artifactResult.RunDirectory
         };
         return Results.Ok(response);
     }
@@ -248,12 +278,34 @@ app.MapGet("/runs/{runId}/series/{seriesId}", async (string runId, string series
             return Results.NotFound(new { error = $"Run {runId} not found" });
         }
 
+        // First try exact match
+        string actualSeriesId = seriesId;
         if (!reader.SeriesExists(runPath, seriesId))
         {
-            return Results.NotFound(new { error = $"Series {seriesId} not found in run {runId}" });
+            // Try to find matching series by simple name (e.g., "demand" -> "demand@DEMAND@DEFAULT")
+            try
+            {
+                var adapter = new RunArtifactAdapter(reader, runPath);
+                var index = await adapter.GetIndexAsync();
+                var matchingSeries = index.Series.FirstOrDefault(s => s.Id.StartsWith(seriesId + "@"));
+                
+                if (matchingSeries != null)
+                {
+                    actualSeriesId = matchingSeries.Id;
+                }
+                else
+                {
+                    return Results.NotFound(new { error = $"Series {seriesId} not found in run {runId}" });
+                }
+            }
+            catch (FileNotFoundException)
+            {
+                // No index.json means no series exist for this run
+                return Results.NotFound(new { error = $"Series {seriesId} not found in run {runId}" });
+            }
         }
 
-        var series = await reader.ReadSeriesAsync(runPath, seriesId);
+        var series = await reader.ReadSeriesAsync(runPath, actualSeriesId);
         
         // Convert Series to CSV string
         var csv = new StringBuilder();

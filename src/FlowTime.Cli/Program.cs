@@ -1,4 +1,5 @@
 ﻿using FlowTime.Core;
+using FlowTime.Core.Artifacts;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 using YamlDotNet.RepresentationModel; // for canonical hashing
@@ -22,6 +23,7 @@ string outDir = "out/run";
 bool verbose = false;
 bool deterministicRunId = false;
 int? rngSeed = null;
+double? startTimeBias = null;
 string? viaApi = null;
 for (int i = 2; i < args.Length; i++)
 {
@@ -79,108 +81,34 @@ if (verbose)
 
 // Persist spec.yaml verbatim (line ending normalized) and compute canonical scenario/model hash
 var specVerbatim = yaml.Replace("\r\n", "\n");
-var scenarioHash = ComputeScenarioHash(specVerbatim);
 
-// M1 artifact layout: runs/<runId>/...
-var runId = deterministicRunId ? 
-	$"engine_deterministic_{scenarioHash[7..15]}" : // use first 8 chars of hash for deterministic case
-	$"engine_{DateTime.UtcNow:yyyyMMddTHHmmssZ}_{Guid.NewGuid().ToString("N")[..8]}";
-var runDir = Path.Combine(outDir, runId);
-var seriesDir = Path.Combine(runDir, "series");
-Directory.CreateDirectory(seriesDir);
-Directory.CreateDirectory(Path.Combine(runDir, "gold")); // placeholder
-
-File.WriteAllText(Path.Combine(runDir, "spec.yaml"), specVerbatim);
-
-var seriesMetas = new List<SeriesMeta>();
-var seriesHashes = new Dictionary<string,string>();
-
-// Write per-series CSVs based on requested outputs only (M0 behavior)
-foreach (var output in model.Outputs)
-{
-	var nodeId = new NodeId(output.Series);
-	var s = ctx[nodeId];
-	var measure = output.Series; // the measure name (e.g., "served", "arrivals")
-	var componentId = nodeId.Value.ToUpperInvariant(); // component ID (e.g., "SERVED")
-	var seriesId = $"{measure}@{componentId}@DEFAULT"; // measure@componentId@class format per contracts
-	var csvName = seriesId + ".csv";
-	var path = Path.Combine(seriesDir, csvName);
-	using (var w = new StreamWriter(path, false, System.Text.Encoding.UTF8, 4096))
+	// Create context dictionary for artifact writer
+	var context = new Dictionary<NodeId, double[]>();
+	foreach (var (nodeId, series) in ctx)
 	{
-		w.NewLine = "\n";
-		w.WriteLine("t,value");
-		for (int t = 0; t < s.Length; t++)
-		{
-			w.Write(t);
-			w.Write(',');
-			w.Write(s[t].ToString(System.Globalization.CultureInfo.InvariantCulture));
-			w.Write('\n');
-		}
+		context[nodeId] = series.ToArray();
 	}
-	var bytes = File.ReadAllBytes(path);
-	var hash = "sha256:" + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes)).ToLowerInvariant();
-	seriesHashes[seriesId] = hash;
-	seriesMetas.Add(new SeriesMeta
+
+	// Use shared artifact writer
+	var writeRequest = new RunArtifactWriter.WriteRequest
 	{
-		Id = seriesId,
-		Kind = "flow", // until more kinds
-		Path = $"series/{csvName}",
-		Unit = "entities/bin",
-		ComponentId = nodeId.Value.ToUpperInvariant(),
-		Class = "DEFAULT",
-		Points = s.Length,
-		Hash = hash
-	});
-	if (verbose) Console.WriteLine($"  Wrote {csvName} ({s.Length} rows)");
-}
+		Model = model,
+		Grid = grid,
+		Context = context,
+		SpecText = specVerbatim,
+		RngSeed = rngSeed,
+		StartTimeBias = startTimeBias,
+		DeterministicRunId = deterministicRunId,
+		OutputDirectory = outDir,
+		Verbose = verbose
+	};
 
-// Build run.json
-var runJson = new RunJson
-{
-	SchemaVersion = 1,
-	RunId = runId,
-	EngineVersion = "0.1.0", // TODO: derive from assembly
-	Source = "engine",
-	Grid = new GridJson { Bins = grid.Bins, BinMinutes = grid.BinMinutes, Timezone = "UTC", Align = "left" },
-	ScenarioHash = scenarioHash,
-	ModelHash = scenarioHash, // engine MAY emit modelHash; using same canonical hash for now
-	Warnings = Array.Empty<string>(),
-	Series = seriesMetas.Select(m => new RunSeriesEntry { Id = m.Id, Path = m.Path, Unit = m.Unit }).ToList(),
-	Events = new EventsJson { SchemaVersion = 0, FieldsReserved = new[]{"entityType","eventType","componentId","connectionId","class","simTime","wallTime","correlationId","attrs"} }
-};
-File.WriteAllText(Path.Combine(runDir, "run.json"), System.Text.Json.JsonSerializer.Serialize(runJson, JsonOpts.Value), System.Text.Encoding.UTF8);
+	var result = await RunArtifactWriter.WriteArtifactsAsync(writeRequest);
+	if (verbose) Console.WriteLine($"  RNG seed: {result.FinalSeed} ({(rngSeed.HasValue ? "provided" : "generated")})");
+	Console.WriteLine($"Wrote artifacts to {result.RunDirectory}");
 
-// Build series/index.json
-var index = new SeriesIndexJson
-{
-	SchemaVersion = 1,
-	Grid = new IndexGridJson { Bins = grid.Bins, BinMinutes = grid.BinMinutes, Timezone = "UTC" },
-	Series = seriesMetas,
-	Formats = new FormatsJson { GoldTable = new GoldTableJson { Path = "gold/node_time_bin.parquet", Dimensions = new[]{"time_bin","component_id","class"}, Measures = new[]{"arrivals","served","errors"} } }
-};
-Directory.CreateDirectory(seriesDir);
-File.WriteAllText(Path.Combine(seriesDir, "index.json"), System.Text.Json.JsonSerializer.Serialize(index, JsonOpts.Value), System.Text.Encoding.UTF8);
+	return 0;
 
-// Build manifest.json
-var finalSeed = rngSeed ?? Random.Shared.Next(0, int.MaxValue); // use provided seed or generate random
-var manifest = new ManifestJson
-{
-	SchemaVersion = 1,
-	ScenarioHash = runJson.ScenarioHash,
-	ModelHash = runJson.ModelHash,
-	Rng = new RngJson { Kind = "pcg32", Seed = finalSeed },
-	SeriesHashes = seriesHashes,
-	EventCount = 0,
-	CreatedUtc = DateTime.UtcNow.ToString("o")
-};
-File.WriteAllText(Path.Combine(runDir, "manifest.json"), System.Text.Json.JsonSerializer.Serialize(manifest, JsonOpts.Value), System.Text.Encoding.UTF8);
-
-// Validate generated artifacts against JSON Schema
-ValidateArtifacts(runDir, verbose);
-
-if (verbose) Console.WriteLine($"  RNG seed: {finalSeed} ({(rngSeed.HasValue ? "provided" : "generated")})");
-
-Console.WriteLine($"Wrote artifacts to {runDir}");
 return 0;
 
 static bool IsHelp(string? s)
@@ -356,30 +284,6 @@ static void ValidateArtifacts(string runDir, bool verbose)
 			WriteIndented = true
 		};
 	}
-	file sealed record RunJson
-	{
-		public int SchemaVersion { get; set; }
-		public string RunId { get; set; } = "";
-		public string EngineVersion { get; set; } = "";
-		public string Source { get; set; } = "engine";
-		public GridJson Grid { get; set; } = new();
-		public string? ModelHash { get; set; }
-		public string ScenarioHash { get; set; } = "";
-		public string CreatedUtc { get; set; } = DateTime.UtcNow.ToString("o");
-		public string[] Warnings { get; set; } = Array.Empty<string>();
-		public List<RunSeriesEntry> Series { get; set; } = new();
-		public EventsJson Events { get; set; } = new();
-	}
-	file sealed record GridJson { public int Bins { get; set; } public int BinMinutes { get; set; } public string Timezone { get; set; } = "UTC"; public string Align { get; set; } = "left"; }
-	file sealed record RunSeriesEntry { public string Id { get; set; } = ""; public string Path { get; set; } = ""; public string Unit { get; set; } = ""; }
-	file sealed record EventsJson { public int SchemaVersion { get; set; } public string[] FieldsReserved { get; set; } = Array.Empty<string>(); }
-	file sealed record ManifestJson { public int SchemaVersion { get; set; } public string ScenarioHash { get; set; } = ""; public RngJson Rng { get; set; } = new(); public Dictionary<string,string> SeriesHashes { get; set; } = new(); public int EventCount { get; set; } public string CreatedUtc { get; set; } = ""; public string? ModelHash { get; set; } }
-	file sealed record RngJson { public string Kind { get; set; } = "pcg32"; public int Seed { get; set; } }
-	file sealed record SeriesIndexJson { public int SchemaVersion { get; set; } public IndexGridJson Grid { get; set; } = new(); public List<SeriesMeta> Series { get; set; } = new(); public FormatsJson Formats { get; set; } = new(); }
-	file sealed record IndexGridJson { public int Bins { get; set; } public int BinMinutes { get; set; } public string Timezone { get; set; } = "UTC"; }
-	file sealed record SeriesMeta { public string Id { get; set; } = ""; public string Kind { get; set; } = "flow"; public string Path { get; set; } = ""; public string Unit { get; set; } = ""; public string ComponentId { get; set; } = ""; public string Class { get; set; } = "DEFAULT"; public int Points { get; set; } public string Hash { get; set; } = ""; }
-	file sealed record FormatsJson { public GoldTableJson GoldTable { get; set; } = new(); }
-	file sealed record GoldTableJson { public string Path { get; set; } = "gold/node_time_bin.parquet"; public string[] Dimensions { get; set; } = Array.Empty<string>(); public string[] Measures { get; set; } = Array.Empty<string>(); }
 
 // DTOs for YAML
 public sealed class ModelDto
