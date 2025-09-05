@@ -154,4 +154,97 @@ public class ArtifactEndpointTests : IClassFixture<WebApplicationFactory<Program
         // Cleanup
         Directory.Delete(runDir, true);
     }
+
+    [Fact]
+    public async Task GET_Series_MissingIndexJson_Returns404NotFound()
+    {
+        // Arrange: Create run directory with series folder but NO index.json
+        var tempDir = Path.GetTempPath();
+        var runDir = Path.Combine(tempDir, "test_artifacts_no_index");
+        Directory.CreateDirectory(runDir);
+
+        var runId = "test_run_no_index_456";
+        var runPath = Path.Combine(runDir, runId);
+        Directory.CreateDirectory(runPath);
+        Directory.CreateDirectory(Path.Combine(runPath, "series"));
+        // NOTE: Intentionally NOT creating series/index.json
+
+        // Configure the factory to use our temp directory
+        var clientWithConfig = factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseSetting("ArtifactsDirectory", runDir);
+        }).CreateClient();
+
+        // Act - Request a series when index.json doesn't exist
+        var response = await clientWithConfig.GetAsync($"/runs/{runId}/series/demand@DEMAND@DEFAULT");
+
+        // Assert - Should return 404, not 500 (this tests the FileNotFoundException fix)
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        
+        var content = await response.Content.ReadAsStringAsync();
+        Assert.Contains("not found", content.ToLower());
+
+        // Cleanup
+        Directory.Delete(runDir, true);
+    }
+
+    [Fact]
+    public async Task GET_Series_PartialSeriesName_FindsMatchingSeries()
+    {
+        // Arrange: Create run with proper artifacts
+        var tempDir = Path.GetTempPath();
+        var runDir = Path.Combine(tempDir, "test_artifacts_partial");
+        Directory.CreateDirectory(runDir);
+
+        var runId = "test_run_partial_789";
+        var runPath = Path.Combine(runDir, runId);
+        Directory.CreateDirectory(runPath);
+        Directory.CreateDirectory(Path.Combine(runPath, "series"));
+
+        // Create index.json with a series
+        var indexContent = @"{
+  ""schemaVersion"": 1,
+  ""grid"": {
+    ""bins"": 2,
+    ""binMinutes"": 30,
+    ""timezone"": ""UTC""
+  },
+  ""series"": [
+    {
+      ""id"": ""demand@DEMAND@DEFAULT"",
+      ""kind"": ""flow"",
+      ""path"": ""series/demand@DEMAND@DEFAULT.csv"",
+      ""unit"": ""entities/bin"",
+      ""componentId"": ""DEMAND"",
+      ""class"": ""DEFAULT"",
+      ""points"": 2,
+      ""hash"": ""sha256:abcd1234""
+    }
+  ]
+}";
+        await File.WriteAllTextAsync(Path.Combine(runPath, "series", "index.json"), indexContent);
+
+        // Create the actual CSV file
+        var csvContent = "t,value\n0,100\n1,200\n";
+        await File.WriteAllTextAsync(Path.Combine(runPath, "series", "demand@DEMAND@DEFAULT.csv"), csvContent);
+
+        // Configure the factory to use our temp directory
+        var clientWithConfig = factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseSetting("ArtifactsDirectory", runDir);
+        }).CreateClient();
+
+        // Act - Request series using partial name (should find "demand@DEMAND@DEFAULT")
+        var response = await clientWithConfig.GetAsync($"/runs/{runId}/series/demand");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var content = await response.Content.ReadAsStringAsync();
+        Assert.StartsWith("t,value", content);
+        Assert.Contains("0,100", content);
+        Assert.Contains("1,200", content);
+
+        // Cleanup
+        Directory.Delete(runDir, true);
+    }
 }
