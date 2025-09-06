@@ -40,7 +40,7 @@ find out/hello/run_* -type f
 head -n 5 out/hello/run_*/series/served@SERVED@DEFAULT.csv
 ```
 
-Beginning in M1 (Contracts Parity), all runs emit a structured artifact set under `runs/<runId>/` including `spec.yaml`, `run.json`, `manifest.json`, `series/index.json`, per‑series CSV files, and placeholder directories for `gold/` and `events.ndjson`.
+Beginning in M1 (Contracts Parity), all runs emit a structured artifact set under `runs/<runId>/` including `spec.yaml`, `run.json`, `manifest.json`, `series/index.json`, per‑series CSV files, and placeholder directory for `gold/`.
 
 ## Usage
 
@@ -131,7 +131,7 @@ Tip: In Bash shells, the dotnet commands are identical; only shell utilities (li
 ## What’s next
 
 ✅ **Milestone M1 (Contracts Parity)**: COMPLETED
-* Deterministic artifact set (`spec.yaml`, `run.json`, `manifest.json`, `series/index.json`, per‑series CSVs, placeholders for `events.ndjson` and `gold/`).
+* Deterministic artifact set (`spec.yaml`, `run.json`, `manifest.json`, `series/index.json`, per‑series CSVs, placeholder for `gold/`).
 * Per-series and scenario hashing (SHA-256) with canonical YAML normalization.
 * Implemented flags `--deterministic-run-id`, `--seed`.
 * JSON Schema validation for all artifacts.

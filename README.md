@@ -5,6 +5,8 @@
 
 > **FlowTime** is a deterministic, discrete-time, graph-based engine that models flows (entities) across services and queues, producing explainable time-series for backlog, latency, and throughput—useful for **what-if** (simulation) and **what-is/what-was** (time-travel observability). It feels **spreadsheet-like**, with a lightweight **SPA UI** for interactive analysis.
 
+> **Architectural Focus**: FlowTime processes only **gold metrics** (pre-binned time series data). Raw event processing and aggregation happen outside FlowTime in dedicated processors/adapters.
+
 ---
 
 ## Highlights
@@ -359,7 +361,7 @@ Deferred to next milestones: backlog/queues, routing, autoscale; backend; SPA vi
 
 A high‑level view of upcoming work (details live in `docs/ROADMAP.md`):
 
-* **M1 — Contracts Parity**: artifact freeze (`spec.yaml`, `run.json` w/ `source` & expanded `grid`, `manifest.json` w/ `rng` object, `series/index.json` + per‑series hashes, placeholders `events.ndjson`, `gold/`) + deterministic formatting & hashing.
+* **M1 — Contracts Parity**: artifact freeze (`spec.yaml`, `run.json` w/ `source` & expanded `grid`, `manifest.json` w/ `rng` object, `series/index.json` + per‑series hashes, placeholder `gold/`) + deterministic formatting & hashing.
 * **M1.5 — Expressions**: parser + references + basic built‑ins (unblocks richer nodes & PMF composition).
 * **M2 — PMF (expected value)**: basic PMF nodes with normalization warnings.
 * **M3 — (reserved / potential hygiene)**: may absorb overflow from earlier milestones.

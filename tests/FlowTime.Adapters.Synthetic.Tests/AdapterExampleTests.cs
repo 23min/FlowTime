@@ -97,11 +97,7 @@ public class AdapterExampleTests
             { "id": "demand@COMP_A", "path": "series/demand@COMP_A.csv", "unit": "entities/bin" },
             { "id": "served@COMP_A", "path": "series/served@COMP_A.csv", "unit": "entities/bin" },
             { "id": "backlog@COMP_A", "path": "series/backlog@COMP_A.csv", "unit": "entities" }
-          ],
-          "events": { 
-            "schemaVersion": 0, 
-            "fieldsReserved": ["entityType","eventType","componentId","connectionId","class","simTime","wallTime","correlationId","attrs"] 
-          }
+          ]
         }
         """;
         File.WriteAllText(Path.Combine(runPath, "run.json"), runJson);

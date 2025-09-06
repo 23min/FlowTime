@@ -135,8 +135,7 @@ public static class RunArtifactWriter
             ScenarioHash = scenarioHash,
             ModelHash = scenarioHash, // engine MAY emit modelHash; using same canonical hash for now
             Warnings = Array.Empty<string>(),
-            Series = seriesMetas.Select(m => new RunSeriesEntry { Id = m.Id, Path = m.Path, Unit = m.Unit }).ToList(),
-            Events = new EventsJson { SchemaVersion = 0, FieldsReserved = new[]{"entityType","eventType","componentId","connectionId","class","simTime","wallTime","correlationId","attrs"} }
+            Series = seriesMetas.Select(m => new RunSeriesEntry { Id = m.Id, Path = m.Path, Unit = m.Unit }).ToList()
         };
         
         var jsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true };
@@ -197,12 +196,10 @@ file sealed record RunJson
     public string CreatedUtc { get; set; } = DateTime.UtcNow.ToString("o");
     public string[] Warnings { get; set; } = Array.Empty<string>();
     public List<RunSeriesEntry> Series { get; set; } = new();
-    public EventsJson Events { get; set; } = new();
 }
 
 file sealed record GridJson { public int Bins { get; set; } public int BinMinutes { get; set; } public string Timezone { get; set; } = "UTC"; public string Align { get; set; } = "left"; }
 file sealed record RunSeriesEntry { public string Id { get; set; } = ""; public string Path { get; set; } = ""; public string Unit { get; set; } = ""; }
-file sealed record EventsJson { public int SchemaVersion { get; set; } public string[] FieldsReserved { get; set; } = Array.Empty<string>(); }
 file sealed record ManifestJson { public int SchemaVersion { get; set; } public string ScenarioHash { get; set; } = ""; public RngJson Rng { get; set; } = new(); public Dictionary<string,string> SeriesHashes { get; set; } = new(); public int EventCount { get; set; } public string CreatedUtc { get; set; } = ""; public string? ModelHash { get; set; } }
 file sealed record RngJson { public string Kind { get; set; } = "pcg32"; public int Seed { get; set; } }
 file sealed record SeriesIndexJson { public int SchemaVersion { get; set; } public IndexGridJson Grid { get; set; } = new(); public List<SeriesMeta> Series { get; set; } = new(); public FormatsJson Formats { get; set; } = new(); }

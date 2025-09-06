@@ -256,7 +256,7 @@ Single backend origin & auth, private Sim topology, unified RBAC/audit, one run 
 - `GET /sim/runs/{id}/index` → proxies `runs/<id>/series/index.json`
 - `GET /sim/runs/{id}/series/{seriesId}` → proxies CSV/Parquet
 - `GET /sim/scenarios` → proxies list
-- `GET /sim/stream` → proxy SSE/NDJSON (optional)
+- `GET /sim/stream` → proxy streaming of pre-binned time series data (optional)
 
 ### Acceptance
 
@@ -356,14 +356,13 @@ Lock the core run artifact contract in parity with the simulator (FlowTime-Sim) 
   - `manifest.json` (determinism + integrity metadata)
   - `series/index.json` (series index for quick discovery)
   - Per-series CSV: `series/<seriesId>.csv` (schema: `t,value`)
-  - Placeholder directories for `gold/` and `events.ndjson` (not yet implemented)
+  - Placeholder directories for `gold/` (future analytics formats)
 - **FR-M1-3:** run.json per authoritative contracts.md schema:
 
   - Add `source` field = "engine"
   - Add `engineVersion` (current version string)
   - Expand `grid` with `timezone: "UTC"` and `align: "left"`
   - Include `warnings` array for normalization notes
-  - Update `events` object with full `fieldsReserved` list: `["entityType","eventType","componentId","connectionId","class","simTime","wallTime","correlationId","attrs"]`
   - Optional `modelHash` (engine may include)
 - **FR-M1-4:** manifest.json per authoritative schema:
 
@@ -400,9 +399,7 @@ out/run_20250101T120000Z_ab12cd34/
     demand@COMP_1.csv
     served@COMP_1.csv
   gold/
-    (placeholder directory for future Parquet table)
-  events.ndjson
-    (placeholder file for future events)
+    (placeholder directory for future analytics formats)
 ```
 
 run.json (illustrative minimal fields):
@@ -844,13 +841,14 @@ UI can run scenarios and compare results.
 
 ### Goal
 
-Consume **NDJSON events** + periodic **watermarks** (e.g., from FlowTime-Sim streaming mode) and update in-memory series incrementally for live demos.
+Stream **pre-binned time series data** from external processors (e.g., from FlowTime-Sim or other gold metric producers) and update in-memory series incrementally for live demos.
 
 ### Acceptance criteria
 
 - Order-independent within a bin; watermark yields consistent slices.
 - Resume from last watermark without duplication.
 - Parity check: accumulated file after stream == file produced for the same seed/run.
+- **Note**: Raw event processing happens OUTSIDE FlowTime - adapters consume only gold metrics (time-binned data).
 
 ### Code
 
@@ -1086,7 +1084,7 @@ Sim artifacts render via SYN-M0; compare works between Sim ↔ engine.
 
 ### Goal
 
-Connect to `/sim/stream` (SSE/NDJSON + watermarks), render incrementally, and **snapshot** to artifacts.
+Connect to `/sim/stream` (streaming pre-binned time series data + watermarks), render incrementally, and **snapshot** to artifacts.
 
 ### Functional
 

@@ -101,8 +101,7 @@ public class FileSeriesReaderTests
           "series": [
             { "id": "demand@COMP_A", "path": "series/demand@COMP_A.csv", "unit": "entities/bin" },
             { "id": "served@COMP_A", "path": "series/served@COMP_A.csv", "unit": "entities/bin" }
-          ],
-          "events": { "schemaVersion": 0, "fieldsReserved": [] }
+          ]
         }
         """;
         File.WriteAllText(Path.Combine(testDataPath, "run.json"), runJson);

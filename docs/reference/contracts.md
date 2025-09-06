@@ -95,12 +95,11 @@ runs/<runId>/
     <seriesId>.csv
   gold/
     node_time_bin.parquet       # analytics table (CSV optional via flag)
-  events.ndjson                 # optional; used by streaming and audits
 ```
 
 > **Per-series CSVs** are the UI/adapters’ canonical inputs. The Parquet **gold** table is for analytics. Services must stream the same files over HTTP.
 
-### run.json (summary, series listing, reserved event fields)
+### run.json (summary, series listing)
 
 ```json
 {
@@ -116,14 +115,7 @@ runs/<runId>/
   "series": [
     { "id":"arrivals@COMP_A", "path":"series/arrivals@COMP_A.csv", "unit":"entities/bin" },
     { "id":"served@COMP_A",   "path":"series/served@COMP_A.csv",   "unit":"entities/bin" }
-  ],
-  "events": {
-    "schemaVersion": 0,
-    "fieldsReserved": [
-      "entityType","eventType","componentId","connectionId",
-      "class","simTime","wallTime","correlationId","attrs"
-    ]
-  }
+  ]
 }
 ```
 
@@ -142,7 +134,6 @@ runs/<runId>/
     "arrivals@COMP_A": "sha256:…",
     "served@COMP_A":   "sha256:…"
   },
-  "eventCount": 0,
   "createdUtc": "2025-09-01T18:30:12Z"
 }
 ```
@@ -201,26 +192,6 @@ t,value    # t = 0..(bins-1), LF newlines, InvariantCulture floats
   time_bin (UTC start), component_id, class, arrivals, served, errors
   ```
 
-### Events (optional file, used by streaming & audits)
-
-- Path: `events.ndjson`
-- Each line is an object with reserved keys:
-
-```json
-{
-  "entityId":"E-10023",
-  "entityType":"entity",
-  "eventType":"enter|exit|error",
-  "componentId":"COMP_A",
-  "connectionId":"COMP_A->COMP_B",
-  "class":"DEFAULT",
-  "simTime":"2025-09-01T08:00:00Z",
-  "wallTime":"2025-09-01T08:00:00Z",
-  "correlationId":"E-10023",
-  "attrs":{"attempt":1}
-}
-```
-
 ---
 
 ## Units & semantics (engine vs sim)
@@ -272,12 +243,12 @@ t,value    # t = 0..(bins-1), LF newlines, InvariantCulture floats
 
 ---
 
-## Streaming contract (Sim → UI / adapters)
+## Streaming contract (External processors → UI / adapters)
 
-- Transport: Server-Sent Events (SSE) or chunked NDJSON
+- Transport: Server-Sent Events (SSE) or chunked streaming
 - Frames:
 
-  - event: same shape as `events.ndjson`
+  - series data: pre-binned time series values
   - watermark:
 
     ```json
