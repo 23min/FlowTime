@@ -151,6 +151,66 @@ Today, you can build the same in code/tests by composing nodes directly.
 - Optimization: specific nodes (e.g., Shift) can be optimized later.
 - Caching: memoization at node granularity.
 
+## Model YAML Schema: FlowTime vs FlowTime-Sim
+
+FlowTime and FlowTime-Sim share the same YAML model schema for defining flows and nodes, but they differ in how they handle determinism and randomness:
+
+### FlowTime (Engine)
+FlowTime is **always deterministic** by design:
+- **No randomness**: Models are evaluated deterministically using fixed rules and expressions
+- **Seed/RNG ignored**: If `seed` or `rng` fields are present in the YAML, they are ignored during execution
+- **Reproducible results**: The same model always produces identical outputs regardless of `seed` values
+
+Example FlowTime model:
+```yaml
+grid:
+  bins: 8
+  binMinutes: 60
+nodes:
+  - id: demand
+    kind: const
+    values: [10,10,10,10,10,10,10,10]
+  - id: served
+    kind: expr
+    expr: "demand * 0.8"
+outputs:
+  - series: served
+    as: served.csv
+# seed: 42          # This field is ignored by FlowTime
+```
+
+### FlowTime-Sim (Simulator)
+FlowTime-Sim uses **configurable randomness** for synthetic data generation:
+- **Requires seed for determinism**: To get reproducible results, you must specify `seed` and `rng` fields
+- **Seed/RNG significant**: These fields control random number generation for synthetic arrivals and events
+- **Non-deterministic without seed**: If no seed is provided, results will vary between runs
+
+Example FlowTime-Sim model:
+```yaml
+schemaVersion: 1
+grid:
+  bins: 4
+  binMinutes: 60
+  start: 2025-01-01T00:00:00Z
+seed: 12345          # Required for deterministic results
+rng:
+  kind: pcg32        # Required for deterministic results
+arrivals:
+  kind: const
+  values: [5, 5, 5, 5]
+route:
+  id: nodeA
+outputs:
+  events: out/events.ndjson
+  gold: out/gold.csv
+```
+
+### Summary
+- **FlowTime**: Always deterministic, `seed`/`rng` ignored
+- **FlowTime-Sim**: Deterministic only when `seed`/`rng` are properly defined
+
+Both engines produce the same artifact structure (CSV files, JSON metadata) but use different approaches to achieve determinism.
+
 ## FAQs
 
 - Do expressions replace nodes? No—expressions compile to nodes. Nodes remain the execution plan.

@@ -205,6 +205,15 @@ curl -s -X POST http://flowtime-api:8080/run \
   --data-binary @/tmp/model.yaml | jq .
 ```
 
+### Model YAML Compatibility
+
+FlowTime uses the same YAML model format as [FlowTime-Sim](https://github.com/23min/FlowTime-Sim) but handles determinism differently:
+
+- **FlowTime**: Always deterministic - ignores `seed` and `rng` fields if present
+- **FlowTime-Sim**: Requires `seed` and `rng` fields for deterministic synthetic data generation
+
+This means you can share models between both engines, but only FlowTime-Sim uses randomness fields for stochastic simulation. See [Model Schema Documentation](docs/concepts/nodes-and-expressions.md#model-yaml-schema-flowtime-vs-flowtime-sim) for details.
+
 Tip (VS Code): use the preconfigured tasks
 
 ```text

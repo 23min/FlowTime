@@ -23,6 +23,26 @@
 - Breaking changes bump schemaVersion (e.g., adding `queue_depth` in Sim v2).
 - Keep **engine** vs **sim** differences explicit via the `source` field and series naming (see Units & semantics).
 
+## Model YAML Schema Compatibility {#model-schema}
+
+FlowTime and FlowTime-Sim use the same YAML model schema but handle determinism differently:
+
+### FlowTime (Engine) - Always Deterministic
+- **Behavior**: FlowTime is deterministic by design and produces identical results for identical models
+- **Seed/RNG handling**: `seed` and `rng` fields in model YAML are **ignored** during execution
+- **Use case**: Deterministic flow modeling and analysis where randomness is not required
+
+### FlowTime-Sim (Simulator) - Configurable Determinism  
+- **Behavior**: FlowTime-Sim requires explicit `seed` and `rng` configuration for deterministic results
+- **Seed/RNG handling**: `seed` and `rng` fields are **required** for reproducible synthetic data generation
+- **Use case**: Stochastic simulation and synthetic data generation with controlled randomness
+
+### Practical Implications
+- Models can be shared between FlowTime and FlowTime-Sim engines
+- FlowTime ignores randomness fields and always produces the same output
+- FlowTime-Sim produces deterministic output only when `seed`/`rng` are properly configured
+- Both produce compatible artifact structures (same JSON schemas, CSV formats)
+
 ## Determinism rules (for hashing, parity, CI) {#hashing}
 
 - Normalize model/spec text before hashing:
