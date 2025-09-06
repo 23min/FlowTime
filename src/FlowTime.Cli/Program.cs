@@ -1,4 +1,5 @@
-﻿using FlowTime.Core;
+﻿using FlowTime.Cli.Configuration;
+using FlowTime.Core;
 using FlowTime.Core.Artifacts;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
@@ -19,7 +20,7 @@ if (args[0] != "run")
 }
 
 string modelPath = args.Length > 1 ? args[1] : throw new ArgumentException("Missing model.yaml path");
-string outDir = "out/run";
+string outDir = OutputDirectoryProvider.GetDefaultOutputDirectory();
 bool verbose = false;
 bool deterministicRunId = false;
 int? rngSeed = null;
@@ -109,8 +110,6 @@ var specVerbatim = yaml.Replace("\r\n", "\n");
 
 	return 0;
 
-return 0;
-
 static bool IsHelp(string? s)
 {
 	if (string.IsNullOrWhiteSpace(s)) return true;
@@ -128,7 +127,7 @@ static void PrintUsage()
 	Console.WriteLine("Usage:");
 	Console.WriteLine("  flowtime run <model.yaml> [--out <dir>] [--verbose] [--deterministic-run-id] [--seed <n>] [--via-api <url>]\n");
 	Console.WriteLine("Options:");
-	Console.WriteLine("  --out <dir>             Output directory (default: out/run)");
+	Console.WriteLine("  --out <dir>             Output directory (default: ./data, or $FLOWTIME_DATA_DIR)");
 	Console.WriteLine("  --verbose               Print grid/topology/output summary");
 	Console.WriteLine("  --deterministic-run-id  Generate deterministic runId based on scenario hash (for testing/CI)");
 	Console.WriteLine("  --seed <n>              RNG seed for reproducible results (default: random)");

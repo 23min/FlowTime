@@ -18,6 +18,29 @@ public sealed class RunManifest
 }
 
 /// <summary>
+/// Deterministic manifest from manifest.json (contains hashes, RNG seed, integrity data)
+/// </summary>
+public sealed class DeterministicManifest
+{
+    public required int SchemaVersion { get; init; }
+    public required string ScenarioHash { get; init; }
+    public required RngInfo Rng { get; init; }
+    public required Dictionary<string, string> SeriesHashes { get; init; }
+    public required int EventCount { get; init; }
+    public required DateTime CreatedUtc { get; init; }
+    public string? ModelHash { get; init; }
+}
+
+/// <summary>
+/// RNG information from manifest.json
+/// </summary>
+public sealed class RngInfo
+{
+    public required string Kind { get; init; }
+    public required int Seed { get; init; }
+}
+
+/// <summary>
 /// Series reference from run.json
 /// </summary>
 public sealed class SeriesReference

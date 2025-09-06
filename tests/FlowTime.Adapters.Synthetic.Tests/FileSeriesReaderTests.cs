@@ -15,10 +15,10 @@ public class FileSeriesReaderTests
     }
 
     [Fact]
-    public async Task ReadManifestAsync_ValidRunJson_ReturnsCorrectManifest()
+    public async Task ReadRunInfoAsync_ValidRunJson_ReturnsCorrectManifest()
     {
         var reader = new FileSeriesReader();
-        var manifest = await reader.ReadManifestAsync(testDataPath);
+        var manifest = await reader.ReadRunInfoAsync(testDataPath);
 
         Assert.Equal(1, manifest.SchemaVersion);
         Assert.Equal("sim_2025-09-01T18-30-12Z_a1b2c3d4", manifest.RunId);

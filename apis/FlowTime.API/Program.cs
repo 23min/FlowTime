@@ -129,7 +129,7 @@ app.MapPost("/run", async (HttpRequest req, ILogger<Program> logger) =>
         var ctx = graph.Evaluate(grid);
 
         // Build artifacts using shared writer
-        var artifactsDir = app.Configuration.GetValue<string>("ArtifactsDirectory") ?? Path.Combine(Directory.GetCurrentDirectory(), "out");
+        var artifactsDir = Program.GetArtifactsDirectory(app.Configuration);
         Directory.CreateDirectory(artifactsDir);
         
         // Create context dictionary for artifact writer
@@ -238,7 +238,7 @@ app.MapPost("/graph", async (HttpRequest req, ILogger<Program> logger) =>
 
 // SVC-M1: Artifact endpoints
 // Configure the artifacts directory (where CLI writes output)
-var artifactsDirectory = builder.Configuration.GetValue<string>("ArtifactsDirectory") ?? "out";
+var artifactsDirectory = Program.GetArtifactsDirectory(builder.Configuration);
 
 // GET /runs/{runId}/index — returns series/index.json
 app.MapGet("/runs/{runId}/index", async (string runId, ILogger<Program> logger) =>
@@ -357,4 +357,28 @@ public sealed class OutputDto
 }
 
 // Allow WebApplicationFactory to reference the entry point for integration tests
-public partial class Program { }
+public partial class Program 
+{ 
+    /// <summary>
+    /// Get the artifacts directory with proper precedence: Environment Variable > Configuration > Default
+    /// </summary>
+    public static string GetArtifactsDirectory(IConfiguration configuration)
+    {
+        // 1. Environment variable has highest precedence
+        var envVar = Environment.GetEnvironmentVariable("FLOWTIME_DATA_DIR");
+        if (!string.IsNullOrWhiteSpace(envVar))
+        {
+            return envVar;
+        }
+        
+        // 2. Configuration setting (appsettings.json, etc.)
+        var configValue = configuration.GetValue<string>("ArtifactsDirectory");
+        if (!string.IsNullOrWhiteSpace(configValue))
+        {
+            return configValue;
+        }
+        
+        // 3. Default to ./data
+        return Path.Combine(Directory.GetCurrentDirectory(), "data");
+    }
+}

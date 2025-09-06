@@ -4,6 +4,7 @@ obj/
 
 # Run/output artifacts
 out/
+data/
 runs/
 
 # VS Code

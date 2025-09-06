@@ -8,9 +8,14 @@ namespace FlowTime.Adapters.Synthetic;
 public interface ISeriesReader
 {
     /// <summary>
-    /// Read the run manifest from run.json
+    /// Read the run metadata from run.json
     /// </summary>
-    Task<RunManifest> ReadManifestAsync(string runPath);
+    Task<RunManifest> ReadRunInfoAsync(string runPath);
+
+    /// <summary>
+    /// Read the deterministic manifest from manifest.json
+    /// </summary>
+    Task<DeterministicManifest> ReadManifestAsync(string runPath);
 
     /// <summary>
     /// Read the series index from series/index.json

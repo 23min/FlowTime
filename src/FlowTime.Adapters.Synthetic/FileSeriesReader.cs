@@ -16,15 +16,15 @@ public sealed class FileSeriesReader : ISeriesReader
         PropertyNameCaseInsensitive = true
     };
 
-    public async Task<RunManifest> ReadManifestAsync(string runPath)
+    public async Task<RunManifest> ReadRunInfoAsync(string runPath)
     {
-        var manifestPath = Path.Combine(runPath, "run.json");
-        if (!File.Exists(manifestPath))
+        var runJsonPath = Path.Combine(runPath, "run.json");
+        if (!File.Exists(runJsonPath))
         {
-            throw new FileNotFoundException($"run.json not found at {manifestPath}");
+            throw new FileNotFoundException($"run.json not found at {runJsonPath}");
         }
 
-        var json = await File.ReadAllTextAsync(manifestPath);
+        var json = await File.ReadAllTextAsync(runJsonPath);
         var runDoc = JsonDocument.Parse(json);
         var root = runDoc.RootElement;
 
@@ -47,6 +47,34 @@ public sealed class FileSeriesReader : ISeriesReader
             Series = root.GetProperty("series").EnumerateArray()
                 .Select(ParseSeriesReference)
                 .ToArray()
+        };
+    }
+
+    public async Task<DeterministicManifest> ReadManifestAsync(string runPath)
+    {
+        var manifestPath = Path.Combine(runPath, "manifest.json");
+        if (!File.Exists(manifestPath))
+        {
+            throw new FileNotFoundException($"manifest.json not found at {manifestPath}");
+        }
+
+        var json = await File.ReadAllTextAsync(manifestPath);
+        var manifestDoc = JsonDocument.Parse(json);
+        var root = manifestDoc.RootElement;
+
+        return new DeterministicManifest
+        {
+            SchemaVersion = root.GetProperty("schemaVersion").GetInt32(),
+            ScenarioHash = root.GetProperty("scenarioHash").GetString()!,
+            Rng = ParseRngInfo(root.GetProperty("rng")),
+            SeriesHashes = root.GetProperty("seriesHashes").EnumerateObject()
+                .ToDictionary(prop => prop.Name, prop => prop.Value.GetString()!),
+            EventCount = root.GetProperty("eventCount").GetInt32(),
+            CreatedUtc = DateTime.Parse(root.GetProperty("createdUtc").GetString()!, 
+                null, DateTimeStyles.RoundtripKind),
+            ModelHash = root.TryGetProperty("modelHash", out var modelHashProp) 
+                ? modelHashProp.GetString() 
+                : null
         };
     }
 
@@ -135,6 +163,15 @@ public sealed class FileSeriesReader : ISeriesReader
                 ? alignProp.GetString()! 
                 : "left"
         );
+    }
+
+    private static RngInfo ParseRngInfo(JsonElement rngElement)
+    {
+        return new RngInfo
+        {
+            Kind = rngElement.GetProperty("kind").GetString()!,
+            Seed = rngElement.GetProperty("seed").GetInt32()
+        };
     }
 
     private static SeriesReference ParseSeriesReference(JsonElement element)

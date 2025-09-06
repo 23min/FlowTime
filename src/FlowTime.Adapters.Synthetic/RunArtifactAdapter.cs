@@ -24,7 +24,7 @@ public sealed class RunArtifactAdapter
     /// </summary>
     public async Task<RunManifest> GetManifestAsync()
     {
-        cachedManifest ??= await reader.ReadManifestAsync(runPath);
+        cachedManifest ??= await reader.ReadRunInfoAsync(runPath);
         return cachedManifest;
     }
 
