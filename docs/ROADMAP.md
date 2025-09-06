@@ -93,7 +93,7 @@ layoutHints:
 
 For detailed architectural guidance including artifact-first integration patterns, schema contracts, and FlowTime-Sim integration specifications, see:
 
-- [Integration Architecture](docs/architecture/integration-spec.md)
+- [Integration Architecture](architecture/integration-spec.md)
 
 Key principles:
 - **Artifact-first:** All integration through canonical run artifacts, not custom JSON blobs
@@ -342,7 +342,7 @@ public interface ISeriesReader {
 
 Lock the core run artifact contract in parity with the simulator (FlowTime-Sim) so future UI & adapter work can rely on stable shapes. Introduce dual-write structured artifacts (run + manifest + index) and schema validation without introducing expression features early. This is an interposed milestone; numbering of later milestones remains unchanged.
 
-> Contract Source of Truth: Field-level semantics live in [contracts.md](contracts.md). This section enumerates required presence & ordering only; do not replicate or drift field definitions here.
+> Contract Source of Truth: Field-level semantics live in [contracts.md](reference/contracts.md). This section enumerates required presence & ordering only; do not replicate or drift field definitions here.
 
 **Status**: All functional requirements implemented and verified.
 

@@ -17,7 +17,7 @@ FlowTime services support configuration through multiple methods with clear prec
 | FlowTime UI  | 5219 | 5219 | 3000 (recommended) | `--urls` flag or `ASPNETCORE_URLS` env var |
 | FlowTime-Sim | 8081 | 8081 | 8081 | `--urls` flag or `ASPNETCORE_URLS` env var |
 
-**See [development-setup.md](development-setup.md) for local development and [deployment.md](deployment.md) for production deployment.**
+**See [development-setup.md](../development/development-setup.md) for local development and [deployment.md](../guides/deployment.md) for production deployment.**
 
 ## CLI Output Directory
 

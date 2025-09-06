@@ -4,7 +4,7 @@
 > **Applies to:** FlowTime (engine) and FlowTime-Sim (simulator)
 > **Scope:** Canonical **artifacts**, **service/API** surfaces, **streaming**, and **catalog**. Readers and UIs must rely on these contracts. Services are stateless after a run completes—artifacts are the source of truth.
 >
-> Roadmap linkage: Authoritative for milestone **M1 (Contracts Parity)** referenced in [ROADMAP.md](ROADMAP.md). Future milestones MUST treat this document as the single source of truth for artifact fields.
+> Roadmap linkage: Authoritative for milestone **M1 (Contracts Parity)** referenced in [ROADMAP.md](../ROADMAP.md). Future milestones MUST treat this document as the single source of truth for artifact fields.
 
 ## Vocabulary (domain-neutral)
 

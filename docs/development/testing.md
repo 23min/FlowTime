@@ -15,7 +15,7 @@ This repository separates tests by concern:
 
 For integration testing with real API endpoints and artifact downloads, see the development scripts:
 
-**📁 [scripts/README.md](../scripts/README.md)** - Integration test scripts and usage examples
+**📁 [scripts/README.md](../../scripts/README.md)** - Integration test scripts and usage examples
 
 Key integration test scripts:
 - `test-api-integration.sh` - Tests `/run` and `/runs/{id}/index` endpoints  
@@ -67,7 +67,7 @@ Synthetic adapter tests (SYN-M0):
 
 ### Artifact Contract References
 
-Authoritative spec: [contracts.md](contracts.md)  
+Authoritative spec: [contracts.md](../reference/contracts.md)  
 Schemas: [run](schemas/run.schema.json), [manifest](schemas/manifest.schema.json), [series index](schemas/series-index.schema.json)
 
 Test essentials:

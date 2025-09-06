@@ -12,7 +12,7 @@ Purpose: give AI agents the minimum context to be productive and safe in this re
 - Milestones: integrate on `milestone/mX` (m0 → m1 → …). Features target the milestone branch.
   - Feature branches: `feature/<surface>-mX/<short-desc>` (e.g., `feature/api-m0/run-endpoint`).
 - Conventional Commits: `feat(api): ...`, `fix(core): ...`, `chore(repo): ...`, `docs: ...`, `test(api): ...`.
-- See `docs/branching-strategy.md` for the full workflow.
+- See `docs/development/branching-strategy.md` for the full workflow.
 
 ## Dev workflows
 - Tasks: build (`dotnet build`), test (`dotnet test`), run CLI example (see `.vscode/tasks.json`).
@@ -21,7 +21,7 @@ Purpose: give AI agents the minimum context to be productive and safe in this re
   - API: “.NET Launch FlowTime.API” (http://localhost:5091). Use `apis/FlowTime.API/FlowTime.API.http`.
 
 ## Testing conventions
-- Docs: `docs/testing.md` (core vs API slice tests).
+- Docs: `docs/development/testing.md` (core vs API slice tests).
 - Core tests: no web deps; deterministic; fast.
 - API tests: `WebApplicationFactory<Program>` only; avoid mocking Core; include at least one negative case.
 

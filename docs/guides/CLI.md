@@ -141,7 +141,7 @@ Tip: In Bash shells, the dotnet commands are identical; only shell utilities (li
 * SVC-M0: FlowTime.API HTTP surface (POST /run, GET /graph, GET /healthz)
 
 ### Output Layout (Contracts Parity)
-Complete file/field definitions: [docs/contracts.md](docs/contracts.md). The CLI guarantees:
+Complete file/field definitions: [contracts.md](../reference/contracts.md). The CLI guarantees:
 * `spec.yaml` persisted verbatim with normalized line endings.
 * JSON artifacts (`run.json`, `manifest.json`, `series/index.json`) written after CSVs to finalize hashes.
 * Automatic schema validation with detailed error reporting.

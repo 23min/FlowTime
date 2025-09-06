@@ -10,7 +10,7 @@ The FlowTime UI is a standalone Blazor WebAssembly SPA intended to remain **deco
 
 ## Development Setup
 
-**For complete development setup including ports and configuration, see [development-setup.md](development-setup.md)**
+**For complete development setup including ports and configuration, see [development-setup.md](../development/development-setup.md)**
 
 The UI runs on port 5219 by default during development. For production deployment configurations, see [deployment.md](deployment.md).
 
@@ -59,7 +59,7 @@ Blazor default scoped `HttpClient` (UI origin) is used for static `/models/*.yam
 - Manifest viewer: render `run.json` & `manifest.json` (hashes, warnings)
 
 ## Data Loading (Post-M1)
-After Contracts Parity (M1) the UI consumes `series/index.json` (see [contracts.md](contracts.md)) to:
+After Contracts Parity (M1) the UI consumes `series/index.json` (see [contracts.md](../reference/contracts.md)) to:
 * Enumerate series (id, kind, unit, componentId, class)
 * Lazy load individual CSVs via `path`
 
