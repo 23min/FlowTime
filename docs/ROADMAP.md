@@ -218,7 +218,7 @@ Introduce a thin, stateless HTTP surface so everything can be driven via API ear
 ### New Code/Files
 
 ```
-apis/FlowTime.API/
+src/FlowTime.API/
   RunHandler.cs         # POST /run
   GraphHandler.cs       # GET /graph
   HealthHandler.cs      # GET /healthz
@@ -706,7 +706,7 @@ ui/FlowTime.UI/Services/
   (Updated) Template/Catalog services with HTTP calls
 ui/FlowTime.UI/Components/
   (Enhanced) All components with real API integration
-apis/FlowTime.API/Services/
+src/FlowTime.API/Services/
   RunArtifactWriter.cs          # Shared artifact generation
 tests/FlowTime.Api.Tests/
   ArtifactEndpointTests.cs      # Critical endpoint coverage

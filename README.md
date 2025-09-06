@@ -114,7 +114,7 @@ Current top-level structure (trimmed to primary source + docs):
 
 ```
 FlowTime/
-├─ apis/FlowTime.API/          # Minimal API surface (healthz, run, graph)
+├─ src/FlowTime.API/              # Minimal API surface (healthz, run, graph)
 ├─ docs/                       # Roadmap, contracts, schemas, concepts, releases
 │  ├─ schemas/                 # JSON Schemas: run, manifest, series-index
 │  └─ concepts/
@@ -178,8 +178,8 @@ You can run the minimal API locally from this repo and call it over HTTP.
 
 - VS Code: Run and Debug → "FlowTime.API" (F5). It binds to `http://0.0.0.0:8080` inside the container or `http://localhost:5091` per launch settings when run on the host.
 - CLI: from the repo root:
-  - `dotnet run --project apis/FlowTime.API --urls http://0.0.0.0:8080`
-  - or hot reload: `dotnet watch --project apis/FlowTime.API run --urls http://0.0.0.0:8080`
+  - `dotnet run --project src/FlowTime.API --urls http://0.0.0.0:8080`
+  - or hot reload: `dotnet watch --project src/FlowTime.API run --urls http://0.0.0.0:8080`
 
 Call the API (examples use the shared network name `flowtime-api`; use `localhost:8080` from host):
 

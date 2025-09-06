@@ -43,7 +43,7 @@
     {
       "label": "start: api",
       "type": "shell",
-      "command": "dotnet run --project apis/FlowTime.API --urls http://localhost:8080",
+      "command": "dotnet run --project src/FlowTime.API --urls http://localhost:8080",
       "group": "none",
       "isBackground": true,
       "problemMatcher": []

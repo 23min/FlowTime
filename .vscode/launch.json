@@ -40,7 +40,7 @@
       "args": [
         "run",
         "--project",
-        "apis/FlowTime.API",
+        "src/FlowTime.API",
         "--no-build",
         "--",
         "--urls",
@@ -61,9 +61,9 @@
       "request": "launch",
       "preLaunchTask": "prelaunch: api",
       "postDebugTask": "kill:8080",
-      "program": "${workspaceFolder}/apis/FlowTime.API/bin/Debug/net9.0/FlowTime.API.dll",
+      "program": "${workspaceFolder}/src/FlowTime.API/bin/Debug/net9.0/FlowTime.API.dll",
       "args": [],
-      "cwd": "${workspaceFolder}/apis/FlowTime.API",
+      "cwd": "${workspaceFolder}/src/FlowTime.API",
       "console": "internalConsole",
       "env": {
         "ASPNETCORE_URLS": "http://0.0.0.0:8080",

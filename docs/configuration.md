@@ -45,7 +45,7 @@ export FLOWTIME_DATA_DIR="/var/lib/flowtime"
 dotnet run --project src/FlowTime.Cli -- run model.yaml
 
 # API usage  
-dotnet run --project apis/FlowTime.API
+dotnet run --project src/FlowTime.API
 ```
 
 ### **CLI --out Parameter Override**

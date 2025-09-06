@@ -182,7 +182,7 @@ ui/FlowTime.UI/Components/
   CatalogPicker.razor (enhanced)
   SimulationResults.razor (enhanced)
   
-apis/FlowTime.API/Services/
+src/FlowTime.API/Services/
   RunArtifactWriter.cs (shared)
   
 tests/FlowTime.Api.Tests/

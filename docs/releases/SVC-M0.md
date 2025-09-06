@@ -9,14 +9,14 @@ Date: 2025-08-25
 - Maintains CLI ↔ API parity via shared FlowTime.Core
 
 ## Artifacts
-- API: `apis/FlowTime.API`
+- API: `src/FlowTime.API`
 - Endpoints: `/run`, `/graph`, `/healthz`
 - Tests: `tests/FlowTime.Api.Tests`
 
 ## Usage
 - Build: `dotnet build`
 - Test: `dotnet test`
-- Run API: `dotnet run --project apis/FlowTime.API`
+- Run API: `dotnet run --project src/FlowTime.API`
 - Health check: `GET http://localhost:8080/healthz`
 - Run model: `POST http://localhost:8080/run` (YAML body)
 

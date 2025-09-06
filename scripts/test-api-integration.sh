@@ -9,7 +9,7 @@ else
     # Start API in background
     echo "Starting FlowTime API..."
     cd /workspaces/flowtime-vnext
-    dotnet run --project apis/FlowTime.API --urls http://localhost:8080 > /dev/null 2>&1 &
+    dotnet run --project src/FlowTime.API --urls http://localhost:8080 > /dev/null 2>&1 &
     API_PID=$!
     
     # Wait for API to start

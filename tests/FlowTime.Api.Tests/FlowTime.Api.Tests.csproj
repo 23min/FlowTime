@@ -20,7 +20,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\apis\FlowTime.API\FlowTime.API.csproj" />
+    <ProjectReference Include="..\..\src\FlowTime.API\FlowTime.API.csproj" />
   <ProjectReference Include="..\..\src\FlowTime.Core\FlowTime.Core.csproj" />
   </ItemGroup>
 

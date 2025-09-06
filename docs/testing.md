@@ -51,7 +51,7 @@ Synthetic adapter tests (SYN-M0):
 ## Notes
 
 - The API project exposes `partial class Program` to enable `WebApplicationFactory` discovery.
-- The `.http` file under `apis/FlowTime.API` contains example requests for manual checks.
+- The `.http` file under `src/FlowTime.API` contains example requests for manual checks.
 
 ### Artifact Contract References
 

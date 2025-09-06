@@ -86,7 +86,7 @@ Run two VS Code windows, one for FlowTime (API), one for your sim. In FlowTime, 
 	"type": "coreclr",
 	"request": "launch",
 	"program": "dotnet",
-	"args": ["run", "--project", "apis/FlowTime.API", "--urls", "http://0.0.0.0:8080"],
+	"args": ["run", "--project", "src/FlowTime.API", "--urls", "http://0.0.0.0:8080"],
 	"cwd": "${workspaceFolder}",
 	"launchBrowser": false,
 	"justMyCode": true
