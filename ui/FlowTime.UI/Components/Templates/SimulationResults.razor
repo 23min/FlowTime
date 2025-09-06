@@ -1,6 +1,7 @@
 @using FlowTime.UI.Services
 @using System.Globalization
 @using Microsoft.JSInterop
+@using MudBlazor
 @inject ISimResultsService SimResults
 @inject ISnackbar Snackbar
 @inject IJSRuntime JSRuntime
@@ -266,12 +267,12 @@
                     if (FeatureFlags.UseSimulation)
                     {
                         // SIM mode: Use full URL to FlowTime-Sim API on port 5279
-                        downloadUrl = $"http://localhost:5279/sim/runs/{Result.RunId}/series/{seriesId}";
+                        downloadUrl = $"http://localhost:5279/sim/runs/{Result?.RunId}/series/{seriesId}";
                     }
                     else
                     {
                         // API mode: Use full URL to FlowTime API on port 8080
-                        downloadUrl = $"http://localhost:8080/runs/{Result.RunId}/series/{seriesId}";
+                        downloadUrl = $"http://localhost:8080/runs/{Result?.RunId}/series/{seriesId}";
                     }
                     
                     // Open download URL in new tab to trigger browser download

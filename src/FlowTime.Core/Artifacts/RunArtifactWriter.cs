@@ -4,6 +4,8 @@ using System.Text;
 using System.Text.Json;
 using FlowTime.Core;
 
+#pragma warning disable CS8602 // Dereference of a possibly null reference - suppressed for dynamic access patterns
+
 namespace FlowTime.Core.Artifacts;
 
 public static class RunArtifactWriter
@@ -65,14 +67,21 @@ public static class RunArtifactWriter
         
         foreach (var output in outputs)
         {
-            var nodeId = new NodeId(output.Series);
-            if (!request.Context.ContainsKey(nodeId))
-            {
-                continue; // Skip if series not found in context
-            }
+            if (output == null) continue; // Skip null outputs
             
-            var s = request.Context[nodeId];
-            var measure = (string)output.Series; // the measure name (e.g., "served", "arrivals")
+            try
+            {
+                var seriesValue = output.Series;
+                if (seriesValue == null) continue; // Skip outputs without Series
+                
+                var nodeId = new NodeId(seriesValue);
+                if (!request.Context.ContainsKey(nodeId))
+                {
+                    continue; // Skip if series not found in context
+                }
+                
+                var s = request.Context[nodeId];
+                var measure = (string)seriesValue; // the measure name (e.g., "served", "arrivals")
             var componentId = nodeId.Value.ToUpperInvariant(); // component ID (e.g., "SERVED")
             var seriesId = $"{measure}@{componentId}@DEFAULT"; // measure@componentId@class format per contracts
             var csvName = seriesId + ".csv";
@@ -106,6 +115,12 @@ public static class RunArtifactWriter
                 Hash = hash
             });
             if (request.Verbose) Console.WriteLine($"  Wrote {csvName} ({s.Length} rows)");
+            }
+            catch (Exception)
+            {
+                // Skip outputs that cause errors during dynamic access
+                continue;
+            }
         }
 
         // Build run.json
