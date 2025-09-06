@@ -11,7 +11,14 @@ public static class RunArtifactsWriter
     public static async Task<RunArtifacts> WriteAsync(string originalYaml, SimulationSpec spec, ArrivalGenerationResult arrivals, string rootOutDir, bool includeEvents, CancellationToken ct)
     {
         var runId = GenerateRunId();
-        var runDir = Path.Combine(rootOutDir, "runs", runId);
+        
+        // Create the runs directory structure
+        // If rootOutDir ends with "runs", use it directly; otherwise append "runs"
+        var runsDir = rootOutDir.EndsWith("runs") 
+            ? rootOutDir 
+            : Path.Combine(rootOutDir, "runs");
+            
+        var runDir = Path.Combine(runsDir, runId);
         Directory.CreateDirectory(runDir);
         var seriesDir = Path.Combine(runDir, "series");
         Directory.CreateDirectory(seriesDir);

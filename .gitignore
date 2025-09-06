@@ -47,3 +47,6 @@ local.settings.json
 
 # Generated outputs
 out/
+
+# Runtime data directory (simulation artifacts and runtime catalogs)
+data/

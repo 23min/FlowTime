@@ -1,0 +1,7 @@
+schemaVersion: 1
+grid:
+  bins: 3
+  binMinutes: 60
+arrivals:
+  kind: const
+  values: [10, 20, 15]

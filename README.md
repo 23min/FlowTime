@@ -89,6 +89,7 @@ This repo includes a devcontainer with the .NET 9 SDK and GitHub CLI. Open in a 
   - build: `dotnet build`
   - test: `dotnet test`
   - Run SIM-M0 example (legacy example; will be updated to SIM-M2 artifacts)
+- Development scripts: See `scripts/README.md` for API testing, configuration validation, and debugging tools.
 
 ---
 

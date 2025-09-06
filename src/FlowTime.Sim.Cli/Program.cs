@@ -11,10 +11,11 @@ namespace FlowTime.Sim.Cli
         string? OutPath,
         string Format,
         bool Verbose,
-        string Mode // engine | sim
+        string Mode, // engine | sim
+        string? DebugEventsPath // Optional debug events file
     )
     {
-        public static RunOptions Defaults => new("", "http://localhost:8080", null, "csv", false, "engine");
+        public static RunOptions Defaults => new("", "http://localhost:8080", null, "csv", false, "engine", null);
     }
 
     internal static class Program
@@ -122,7 +123,14 @@ namespace FlowTime.Sim.Cli
                         }
                     }
 
-                    var runArtifacts = await RunArtifactsWriter.WriteAsync(yaml, spec, arrivals, outDir, includeEvents: true, cts.Token);
+                    var runArtifacts = await RunArtifactsWriter.WriteAsync(yaml, spec, arrivals, outDir, includeEvents: false, cts.Token);
+                    
+                    // Write debug events file if requested
+                    if (opts.DebugEventsPath != null)
+                    {
+                        await WriteDebugEventsAsync(spec, arrivals, opts.DebugEventsPath, cts.Token);
+                    }
+                    
                     if (opts.Verbose)
                     {
                         Console.WriteLine("Mode: sim");
@@ -130,6 +138,10 @@ namespace FlowTime.Sim.Cli
                         Console.WriteLine($"RunDir -> {runArtifacts.RunDirectory}");
                         Console.WriteLine("series/index.json -> written");
                         Console.WriteLine("run.json + manifest.json -> written (dual)");
+                        if (opts.DebugEventsPath != null)
+                        {
+                            Console.WriteLine($"Debug events -> {opts.DebugEventsPath}");
+                        }
                     }
                 }
                 else
@@ -152,9 +164,22 @@ namespace FlowTime.Sim.Cli
             }
         }
 
+        static async Task WriteDebugEventsAsync(SimulationSpec spec, ArrivalGenerationResult arrivals, string debugEventsPath, CancellationToken ct)
+        {
+            try
+            {
+                await using var fs = File.Create(debugEventsPath);
+                await NdjsonWriter.WriteAsync(EventFactory.BuildEvents(spec, arrivals), fs, ct);
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"Warning: Failed to write debug events to {debugEventsPath}: {ex.Message}");
+            }
+        }
+
         static void PrintHelp()
         {
-            Console.WriteLine("Usage: flow-sim --model <file.yaml> [--mode engine|sim] [--flowtime http://localhost:8080] [--out outDir] [--format csv|json] [--verbose]");
+            Console.WriteLine("Usage: flow-sim --model <file.yaml> [--mode engine|sim] [--flowtime http://localhost:8080] [--out outDir] [--format csv|json] [--debug-events <file>] [--verbose]");
         }
     }
 
@@ -175,6 +200,7 @@ namespace FlowTime.Sim.Cli
                 else if (a is "--flowtime") opts = opts with { FlowTimeUrl = ArgValue(args, ref i) };
                 else if (a is "--out" or "-o") opts = opts with { OutPath = ArgValue(args, ref i) };
                 else if (a is "--format") opts = opts with { Format = ArgValue(args, ref i) };
+                else if (a is "--debug-events") opts = opts with { DebugEventsPath = ArgValue(args, ref i) };
                 else if (a is "--verbose" or "-v") opts = opts with { Verbose = true };
                 else if (a is "--mode") opts = opts with { Mode = ArgValue(args, ref i) };
                 else if (a is "--help" or "-h")
@@ -194,7 +220,7 @@ namespace FlowTime.Sim.Cli
 
         private static void PrintHelp()
         {
-            Console.WriteLine("Usage: flow-sim --model <file.yaml> [--mode engine|sim] [--flowtime http://localhost:8080] [--out outDir] [--format csv|json] [--verbose]");
+            Console.WriteLine("Usage: flow-sim --model <file.yaml> [--mode engine|sim] [--flowtime http://localhost:8080] [--out outDir] [--format csv|json] [--debug-events <file>] [--verbose]");
         }
     }
 }

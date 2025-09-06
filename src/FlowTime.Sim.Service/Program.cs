@@ -23,6 +23,9 @@ app.UseCors();
 CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
 CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
 
+// Initialize catalogs during startup
+ServiceHelpers.EnsureRuntimeCatalogs(app.Configuration);
+
 // Health
 app.MapGet("/healthz", () => Results.Ok(new { status = "ok" }));
 
@@ -54,11 +57,11 @@ app.MapPost("/sim/run", async (HttpRequest req, CancellationToken ct) =>
 		// Generate arrivals (deterministic)
 		var arrivals = ArrivalGenerators.Generate(spec);
 
-		// Runs root (parent of /runs directory) — defaults to current dir
-		var runsRoot = Environment.GetEnvironmentVariable("FLOWTIME_SIM_RUNS_ROOT");
-		if (string.IsNullOrWhiteSpace(runsRoot)) runsRoot = Directory.GetCurrentDirectory();
+		// Data root (parent of /runs and /catalogs directories) — uses configuration precedence
+		var dataRoot = ServiceHelpers.DataRoot(app.Configuration);
+		app.Logger.LogInformation("Creating simulation run in: {DataRoot}", dataRoot);
 
-		var artifacts = await FlowTime.Sim.Cli.RunArtifactsWriter.WriteAsync(yaml, spec, arrivals, runsRoot, includeEvents: true, ct);
+		var artifacts = await FlowTime.Sim.Cli.RunArtifactsWriter.WriteAsync(yaml, spec, arrivals, dataRoot, includeEvents: false, ct);
 
 		return Results.Ok(new { simRunId = artifacts.RunId });
 	}
@@ -76,8 +79,8 @@ app.MapPost("/sim/run", async (HttpRequest req, CancellationToken ct) =>
 app.MapGet("/sim/runs/{id}/index", (string id) =>
 {
 	if (!ServiceHelpers.IsSafeId(id)) return Results.BadRequest(new { error = "Invalid id" });
-	var root = ServiceHelpers.RunsRoot();
-	var path = Path.Combine(root, "runs", id, "series", "index.json");
+	var runsRoot = ServiceHelpers.RunsRoot(app.Configuration);
+	var path = Path.Combine(runsRoot, id, "series", "index.json");
 	if (!File.Exists(path)) return Results.NotFound(new { error = "Not found" });
 	// Return file contents (small JSON)
 	var json = File.ReadAllText(path);
@@ -88,8 +91,8 @@ app.MapGet("/sim/runs/{id}/index", (string id) =>
 app.MapGet("/sim/runs/{id}/series/{seriesId}", (string id, string seriesId) =>
 {
 	if (!ServiceHelpers.IsSafeId(id) || !ServiceHelpers.IsSafeSeriesId(seriesId)) return Results.BadRequest(new { error = "Invalid id" });
-	var root = ServiceHelpers.RunsRoot();
-	var path = Path.Combine(root, "runs", id, "series", seriesId + ".csv");
+	var runsRoot = ServiceHelpers.RunsRoot(app.Configuration);
+	var path = Path.Combine(runsRoot, id, "series", seriesId + ".csv");
 	if (!File.Exists(path)) return Results.NotFound(new { error = "Not found" });
 	var stream = File.OpenRead(path);
 	return Results.File(stream, contentType: "text/csv", fileDownloadName: seriesId + ".csv");
@@ -105,7 +108,7 @@ app.MapGet("/sim/catalogs", () =>
 {
 	try
 	{
-		var catalogsRoot = ServiceHelpers.CatalogsRoot();
+		var catalogsRoot = ServiceHelpers.CatalogsRoot(app.Configuration);
 		if (!Directory.Exists(catalogsRoot))
 		{
 			return Results.Ok(new { catalogs = Array.Empty<object>() });
@@ -155,7 +158,7 @@ app.MapGet("/sim/catalogs/{id}", (string id) =>
 		if (!ServiceHelpers.IsSafeCatalogId(id)) 
 			return Results.BadRequest(new { error = "Invalid catalog id" });
 
-		var catalogsRoot = ServiceHelpers.CatalogsRoot();
+		var catalogsRoot = ServiceHelpers.CatalogsRoot(app.Configuration);
 		var filePath = Path.Combine(catalogsRoot, id + ".yaml");
 		
 		if (!File.Exists(filePath))
@@ -244,8 +247,8 @@ app.MapPost("/sim/overlay", async (HttpRequest req, CancellationToken ct) =>
 		if (body is null || string.IsNullOrWhiteSpace(body.BaseRunId)) return Results.BadRequest(new { error = "baseRunId required" });
 		if (!ServiceHelpers.IsSafeId(body.BaseRunId)) return Results.BadRequest(new { error = "Invalid baseRunId" });
 
-		var root = ServiceHelpers.RunsRoot();
-		var baseDir = Path.Combine(root, "runs", body.BaseRunId);
+		var runsRoot = ServiceHelpers.RunsRoot(app.Configuration);
+		var baseDir = Path.Combine(runsRoot, body.BaseRunId);
 		var specPath = Path.Combine(baseDir, "spec.yaml");
 		if (!File.Exists(specPath)) return Results.NotFound(new { error = "Base run spec not found" });
 		var baseYaml = await File.ReadAllTextAsync(specPath, ct);
@@ -286,7 +289,8 @@ app.MapPost("/sim/overlay", async (HttpRequest req, CancellationToken ct) =>
 		}
 
 		var arrivals = ArrivalGenerators.Generate(spec);
-		var artifacts = await FlowTime.Sim.Cli.RunArtifactsWriter.WriteAsync(SerializeSpec(spec), spec, arrivals, root, includeEvents: true, ct);
+		var dataRoot = ServiceHelpers.DataRoot(app.Configuration);
+		var artifacts = await FlowTime.Sim.Cli.RunArtifactsWriter.WriteAsync(SerializeSpec(spec), spec, arrivals, dataRoot, includeEvents: false, ct);
 		return Results.Ok(new { simRunId = artifacts.RunId });
 	}
 	catch (Exception ex)
@@ -307,23 +311,109 @@ app.MapPost("/sim/overlay", async (HttpRequest req, CancellationToken ct) =>
 	// Helper utilities
 	static class ServiceHelpers
 	{
-		public static string RunsRoot()
+		/// <summary>
+		/// Gets the root data directory (parent of runs and catalogs).
+		/// Order of precedence:
+		/// 1. Environment variable FLOWTIME_SIM_DATA_DIR
+		/// 2. Configuration FlowTimeSim:DataDir
+		/// 3. Default: "./data"
+		/// </summary>
+		public static string DataRoot(IConfiguration? configuration = null)
 		{
-			var runsRoot = Environment.GetEnvironmentVariable("FLOWTIME_SIM_RUNS_ROOT");
-			if (string.IsNullOrWhiteSpace(runsRoot)) runsRoot = Directory.GetCurrentDirectory();
-			return runsRoot;
+			// Check primary data directory environment variable first
+			var dataDir = Environment.GetEnvironmentVariable("FLOWTIME_SIM_DATA_DIR");
+			if (!string.IsNullOrWhiteSpace(dataDir))
+			{
+				Directory.CreateDirectory(dataDir);
+				return dataDir;
+			}
+
+			// Check configuration if provided
+			if (configuration != null)
+			{
+				// Check primary data directory configuration
+				var configDataDir = configuration["FlowTimeSim:DataDir"];
+				if (!string.IsNullOrEmpty(configDataDir))
+				{
+					Directory.CreateDirectory(configDataDir);
+					return configDataDir;
+				}
+			}
+
+			// Default to ./data directory
+			var defaultRoot = "./data";
+			Directory.CreateDirectory(defaultRoot);
+			return defaultRoot;
 		}
 
-		public static string CatalogsRoot()
+		/// <summary>
+		/// Gets the root directory for simulation runs.
+		/// Order of precedence:
+		/// 1. Environment variable FLOWTIME_SIM_DATA_DIR + "/runs"
+		/// 2. Configuration FlowTimeSim:DataDir + "/runs"
+		/// 3. Default: "./data/runs"
+		/// </summary>
+		public static string RunsRoot(IConfiguration? configuration = null)
 		{
-			var catalogsRoot = Environment.GetEnvironmentVariable("FLOWTIME_SIM_CATALOGS_ROOT");
-			if (string.IsNullOrWhiteSpace(catalogsRoot))
+			var dataDir = DataRoot(configuration);
+			var runsDir = Path.Combine(dataDir, "runs");
+			Directory.CreateDirectory(runsDir);
+			return runsDir;
+		}
+
+		/// <summary>
+		/// Ensures runtime catalogs directory exists and is populated with demo catalogs if empty.
+		/// Copies source catalogs to runtime location during startup for consistent behavior.
+		/// </summary>
+		public static void EnsureRuntimeCatalogs(IConfiguration? configuration = null)
+		{
+			var dataDir = DataRoot(configuration);
+			var runtimeCatalogsDir = Path.Combine(dataDir, "catalogs");
+			
+			// Find workspace root by looking for the solution file
+			var currentDir = Directory.GetCurrentDirectory();
+			var workspaceRoot = currentDir;
+			while (!File.Exists(Path.Combine(workspaceRoot, "FlowTimeSim.sln")) && Directory.GetParent(workspaceRoot) != null)
 			{
-				// Default to catalogs/ directory relative to the runs root
-				var runsRoot = RunsRoot();
-				catalogsRoot = Path.Combine(runsRoot, "catalogs");
+				workspaceRoot = Directory.GetParent(workspaceRoot)!.FullName;
 			}
-			return catalogsRoot;
+			var sourceCatalogsDir = Path.Combine(workspaceRoot, "catalogs");
+			
+			// Create runtime catalogs directory if it doesn't exist
+			Directory.CreateDirectory(runtimeCatalogsDir);
+			
+			// Copy demo catalogs if runtime directory is empty or doesn't have .yaml files
+			if (Directory.GetFiles(runtimeCatalogsDir, "*.yaml").Length == 0)
+			{
+				if (Directory.Exists(sourceCatalogsDir))
+				{
+					foreach (var sourceFile in Directory.GetFiles(sourceCatalogsDir, "*.yaml"))
+					{
+						var fileName = Path.GetFileName(sourceFile);
+						var destFile = Path.Combine(runtimeCatalogsDir, fileName);
+						// Don't overwrite existing user customizations
+						if (!File.Exists(destFile))
+						{
+							File.Copy(sourceFile, destFile);
+						}
+					}
+				}
+			}
+		}
+
+		/// <summary>
+		/// Gets the root directory for catalogs.
+		/// Always returns the runtime catalogs directory after ensuring it's populated.
+		/// </summary>
+		public static string CatalogsRoot(IConfiguration? configuration = null)
+		{
+			var dataDir = DataRoot(configuration);
+			var runtimeCatalogsDir = Path.Combine(dataDir, "catalogs");
+			
+			// Ensure runtime catalogs are set up
+			EnsureRuntimeCatalogs(configuration);
+			
+			return runtimeCatalogsDir;
 		}
 
 		public static bool IsSafeId(string id) => !string.IsNullOrWhiteSpace(id) && id.Length < 128 && id.All(ch => char.IsLetterOrDigit(ch) || ch is '_' or '-');

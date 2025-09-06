@@ -1,0 +1,30 @@
+### FlowTime.Sim API Testing
+
+# Health check
+GET http://localhost:8081/healthz
+
+###
+
+# Test /sim/run endpoint  
+POST http://localhost:8081/sim/run
+Content-Type: text/plain
+
+schemaVersion: 1
+grid:
+  bins: 3
+  binMinutes: 60
+  start: 2025-01-01T00:00:00Z
+seed: 12345
+arrivals:
+  kind: const
+  values: [10, 20, 15]
+
+###
+arrivals:
+  kind: const
+  values: [10, 15, 8]
+route:
+  id: testNode
+
+### Health check
+GET http://localhost:8080/healthz

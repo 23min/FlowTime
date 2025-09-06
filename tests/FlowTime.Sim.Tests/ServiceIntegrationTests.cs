@@ -24,7 +24,7 @@ public class ServiceIntegrationTests : IClassFixture<WebApplicationFactory<Progr
         appFactory = factory.WithWebHostBuilder(builder => { });
         var root = Path.Combine(Path.GetTempPath(), "flow-sim-service-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
-        Environment.SetEnvironmentVariable("FLOWTIME_SIM_RUNS_ROOT", root);
+        Environment.SetEnvironmentVariable("FLOWTIME_SIM_DATA_DIR", root);
     }
 
     private static string sampleConstYaml = "schemaVersion: 1\n" +
@@ -82,8 +82,8 @@ public class ServiceIntegrationTests : IClassFixture<WebApplicationFactory<Progr
     var res = await client.PostAsync("/sim/run", new StringContent(sampleConstYaml, Encoding.UTF8, "text/plain"));
         res.EnsureSuccessStatusCode();
         var runId = await ExtractField(res, "simRunId");
-        var runsRoot = Environment.GetEnvironmentVariable("FLOWTIME_SIM_RUNS_ROOT")!;
-        var serviceSeriesPath = Path.Combine(runsRoot, "runs", runId, "series", "arrivals@COMP_A.csv");
+        var dataDir = Environment.GetEnvironmentVariable("FLOWTIME_SIM_DATA_DIR")!;
+        var serviceSeriesPath = Path.Combine(dataDir, "runs", runId, "series", "arrivals@COMP_A.csv");
         Assert.True(File.Exists(serviceSeriesPath));
         var serviceHash = await Sha256File(serviceSeriesPath);
 
@@ -106,9 +106,10 @@ public class ServiceIntegrationTests : IClassFixture<WebApplicationFactory<Progr
         var client = appFactory.CreateClient();
         
         // Set up test catalogs directory
-        var testCatalogsRoot = Path.Combine(Path.GetTempPath(), "flow-sim-catalog-tests", Guid.NewGuid().ToString("N"));
+        var testDataDir = Path.Combine(Path.GetTempPath(), "flow-sim-catalog-tests", Guid.NewGuid().ToString("N"));
+        var testCatalogsRoot = Path.Combine(testDataDir, "catalogs");
         Directory.CreateDirectory(testCatalogsRoot);
-        Environment.SetEnvironmentVariable("FLOWTIME_SIM_CATALOGS_ROOT", testCatalogsRoot);
+        Environment.SetEnvironmentVariable("FLOWTIME_SIM_DATA_DIR", testDataDir);
 
         // Create a test catalog
         var testCatalogYaml = @"version: 1
@@ -147,9 +148,10 @@ layoutHints:
         var client = appFactory.CreateClient();
         
         // Set up test catalogs directory 
-        var testCatalogsRoot = Path.Combine(Path.GetTempPath(), "flow-sim-catalog-tests", Guid.NewGuid().ToString("N"));
+        var testDataDir = Path.Combine(Path.GetTempPath(), "flow-sim-catalog-tests", Guid.NewGuid().ToString("N"));
+        var testCatalogsRoot = Path.Combine(testDataDir, "catalogs");
         Directory.CreateDirectory(testCatalogsRoot);
-        Environment.SetEnvironmentVariable("FLOWTIME_SIM_CATALOGS_ROOT", testCatalogsRoot);
+        Environment.SetEnvironmentVariable("FLOWTIME_SIM_DATA_DIR", testDataDir);
 
         var testCatalogYaml = @"version: 1
 metadata:
