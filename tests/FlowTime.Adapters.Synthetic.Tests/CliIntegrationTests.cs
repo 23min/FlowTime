@@ -54,7 +54,7 @@ public class CliIntegrationTests
             var manifest = await adapter.GetManifestAsync();
             Assert.Equal("engine", manifest.Source); // CLI produces engine artifacts
             Assert.True(manifest.EngineVersion.Length > 0);
-            Assert.Contains("engine_", manifest.RunId);
+            Assert.Contains("run_", manifest.RunId);
 
             // Read the series index
             var index = await adapter.GetIndexAsync();

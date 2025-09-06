@@ -28,7 +28,7 @@ Enable the API to serve previously generated run artifacts, allowing UI and exte
 
 * **ArtifactsDirectory** configuration setting (defaults to "out")
 * Reads from the same directory structure that CLI writes to
-* Supports nested run directories (e.g., `out/hello/engine_TIMESTAMP_HASH`)
+* Supports nested run directories (e.g., `out/hello/run_TIMESTAMP_HASH`)
 
 ## Implementation Details
 
@@ -86,11 +86,10 @@ Enable the API to serve previously generated run artifacts, allowing UI and exte
 ## Usage Example
 
 ```bash
-# Get series index for a run
-curl -s "http://localhost:8080/runs/hello/engine_20250903T201653Z_7c81c6e2/index" | jq .
+curl -s "http://localhost:8080/runs/hello/run_20250903T201653Z_7c81c6e2/index" | jq .
 
-# Download a specific series as CSV
-curl -s "http://localhost:8080/runs/hello/engine_20250903T201653Z_7c81c6e2/series/served@SERVED@DEFAULT"
+# Get series data
+curl -s "http://localhost:8080/runs/hello/run_20250903T201653Z_7c81c6e2/series/served@SERVED@DEFAULT"
 ```
 
 ## What's Next

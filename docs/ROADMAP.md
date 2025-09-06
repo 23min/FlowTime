@@ -391,7 +391,7 @@ Lock the core run artifact contract in parity with the simulator (FlowTime-Sim) 
 Directory layout example:
 
 ```
-out/engine_20250101T120000Z_ab12cd34/
+out/run_20250101T120000Z_ab12cd34/
   spec.yaml
   run.json
   manifest.json
@@ -410,7 +410,7 @@ run.json (illustrative minimal fields):
 ```json
 {
   "schemaVersion": 1,
-  "runId": "engine_20250101T120000Z_ab12cd34",
+  "runId": "run_20250101T120000Z_ab12cd34",
   "engineVersion": "0.1.0",
   "source": "engine",
   "grid": { "bins": 4, "binMinutes": 60, "timezone": "UTC", "align": "left" },

@@ -23,7 +23,7 @@ FlowTime uses a consistent configuration approach across both CLI and API compon
 ### **4. Directory Structure**
 ```
 FLOWTIME_DATA_DIR/
-└── engine_TIMESTAMP_ID/
+└── run_TIMESTAMP_ID/
     ├── manifest.json
     ├── run.json
     ├── spec.yaml

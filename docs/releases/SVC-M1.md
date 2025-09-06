@@ -42,10 +42,10 @@ FlowTime API can now serve previously generated run artifacts, enabling external
 ### Example Usage
 ```bash
 # Get series metadata
-curl "http://localhost:8080/runs/hello/engine_TIMESTAMP_HASH/index"
+curl "http://localhost:8080/runs/hello/run_TIMESTAMP_HASH/index"
 
 # Download specific series
-curl "http://localhost:8080/runs/hello/engine_TIMESTAMP_HASH/series/served@SERVED@DEFAULT"
+curl "http://localhost:8080/runs/hello/run_TIMESTAMP_HASH/series/served@SERVED@DEFAULT"
 ```
 
 ## ✅ Testing

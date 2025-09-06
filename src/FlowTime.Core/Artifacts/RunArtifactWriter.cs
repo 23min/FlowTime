@@ -37,8 +37,8 @@ public static class RunArtifactWriter
         
         // M1 artifact layout: runs/<runId>/...
         var runId = request.DeterministicRunId ? 
-            $"engine_deterministic_{scenarioHash[7..15]}" : // use first 8 chars of hash for deterministic case
-            $"engine_{DateTime.UtcNow:yyyyMMddTHHmmssZ}_{Guid.NewGuid().ToString("N")[..8]}";
+            $"run_deterministic_{scenarioHash[7..15]}" : // use first 8 chars of hash for deterministic case
+            $"run_{DateTime.UtcNow:yyyyMMddTHHmmssZ}_{Guid.NewGuid().ToString("N")[..8]}";
         
         var runDir = Path.Combine(request.OutputDirectory, runId);
         var seriesDir = Path.Combine(runDir, "series");

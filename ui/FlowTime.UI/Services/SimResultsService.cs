@@ -24,7 +24,7 @@ public class SimResultsService : ISimResultsService
     {
         try
         {
-            var isEngineRun = runId.StartsWith("engine_", StringComparison.OrdinalIgnoreCase);
+            var isEngineRun = runId.StartsWith("run_", StringComparison.OrdinalIgnoreCase);
 
             // Step 1: Get the series index following artifact-first pattern
             Result<SeriesIndex> indexResult;

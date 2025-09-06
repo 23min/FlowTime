@@ -25,8 +25,8 @@ Dotnet test --nologo
 Dotnet run --project src/FlowTime.Cli -- run examples/hello/model.yaml --out out/hello --verbose
 
 # Peek at the generated artifacts
-Get-ChildItem out/hello/engine_* -Recurse | Select-Object Name
-Get-Content out/hello/engine_*/series/served@SERVED@DEFAULT.csv | Select-Object -First 5
+Get-ChildItem out/hello/run_* -Recurse | Select-Object Name
+Get-Content out/hello/run_*/series/served@SERVED@DEFAULT.csv | Select-Object -First 5
 ```
 
 Bash equivalents:
@@ -36,8 +36,8 @@ Bash equivalents:
 dotnet run --project src/FlowTime.Cli -- run examples/hello/model.yaml --out out/hello --verbose
 
 # Peek at the generated artifacts
-find out/hello/engine_* -type f
-head -n 5 out/hello/engine_*/series/served@SERVED@DEFAULT.csv
+find out/hello/run_* -type f
+head -n 5 out/hello/run_*/series/served@SERVED@DEFAULT.csv
 ```
 
 Beginning in M1 (Contracts Parity), all runs emit a structured artifact set under `runs/<runId>/` including `spec.yaml`, `run.json`, `manifest.json`, `series/index.json`, per‑series CSV files, and placeholder directories for `gold/` and `events.ndjson`.
@@ -65,7 +65,7 @@ Options:
 Each run generates a complete artifact set under `out/<dir>/<runId>/`:
 
 ```
-engine_20250903T133923Z_e60c400a/
+run_20250903T133923Z_e60c400a/
 ├── spec.yaml                           # original model, normalized line endings
 ├── run.json                            # run summary, series listing
 ├── manifest.json                       # determinism & integrity (hashes, RNG seed)

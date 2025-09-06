@@ -475,7 +475,7 @@ public class FlowTimeSimService : IFlowTimeSimService
                 logger.LogError("Engine run failed: {Error}", runCall.Error);
                 return new SimulationRunResult
                 {
-                    RunId = $"engine_failed_{DateTime.UtcNow:yyyyMMddTHHmmssZ}",
+                    RunId = $"run_failed_{DateTime.UtcNow:yyyyMMddTHHmmssZ}",
                     Status = "failed",
                     StartTime = DateTime.UtcNow,
                     ErrorMessage = runCall.Error ?? "Unknown engine error"
@@ -503,7 +503,7 @@ public class FlowTimeSimService : IFlowTimeSimService
             logger.LogError(ex, "Failed to run API mode simulation for template {TemplateId}", request.TemplateId);
             return new SimulationRunResult
             {
-                RunId = $"engine_error_{DateTime.UtcNow.ToString("yyyyMMddTHHmmssZ", CultureInfo.InvariantCulture)}",
+                RunId = $"run_error_{DateTime.UtcNow.ToString("yyyyMMddTHHmmssZ", CultureInfo.InvariantCulture)}",
                 Status = "failed",
                 StartTime = DateTime.UtcNow,
                 ErrorMessage = ex.Message
