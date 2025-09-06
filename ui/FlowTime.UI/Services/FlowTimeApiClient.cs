@@ -9,6 +9,7 @@ public interface IFlowTimeApiClient
 {
     string? BaseAddress { get; }
     Task<ApiCallResult<HealthResponse>> HealthAsync(CancellationToken ct = default);
+    Task<ApiCallResult<HealthResponse>> LegacyHealthAsync(CancellationToken ct = default);
     Task<ApiCallResult<RunResponse>> RunAsync(string yaml, CancellationToken ct = default);
     Task<ApiCallResult<GraphResponse>> GraphAsync(string yaml, CancellationToken ct = default);
     Task<ApiCallResult<SeriesIndex>> GetRunIndexAsync(string runId, CancellationToken ct = default);
@@ -31,6 +32,9 @@ internal sealed class FlowTimeApiClient : IFlowTimeApiClient
 
     public Task<ApiCallResult<HealthResponse>> HealthAsync(CancellationToken ct = default)
         => GetJson<HealthResponse>("v1/healthz", ct);
+
+    public Task<ApiCallResult<HealthResponse>> LegacyHealthAsync(CancellationToken ct = default)
+        => GetJson<HealthResponse>("healthz", ct);
 
     public Task<ApiCallResult<RunResponse>> RunAsync(string yaml, CancellationToken ct = default)
     {

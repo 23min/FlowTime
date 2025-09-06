@@ -39,6 +39,26 @@
     <MudText Typo="Typo.body2" Class="mt-2"><strong>Configured URL:</strong> http://localhost:8080</MudText>
     <MudText Typo="Typo.body2"><strong>Purpose:</strong> Core engine operations, model evaluation</MudText>
     
+    <MudDivider Class="my-3" />
+    <MudText Typo="Typo.subtitle2">Endpoint Status</MudText>
+    <MudStack Row="true" Spacing="2" Class="mb-2">
+        <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="CheckV1Health" Disabled="@isLoading">
+            Check v1/healthz
+        </MudButton>
+        <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="CheckLegacyHealth" Disabled="@isLoading">
+            Check /healthz (legacy)
+        </MudButton>
+    </MudStack>
+    
+    @if (v1HealthStatus != null)
+    {
+        <MudText Typo="Typo.caption"><strong>v1/healthz:</strong> @v1HealthStatus</MudText>
+    }
+    @if (legacyHealthStatus != null)
+    {
+        <MudText Typo="Typo.caption"><strong>/healthz:</strong> @legacyHealthStatus</MudText>
+    }
+    
     @if (!string.IsNullOrEmpty(flowTimeApiError))
     {
         <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mt-2">
@@ -130,6 +150,10 @@
     private ApiStatus flowTimeApiStatus = ApiStatus.Unknown;
     private SimpleHealthInfo? flowTimeApiHealth;
     private string? flowTimeApiError;
+    
+    // Endpoint status tracking
+    private string? v1HealthStatus;
+    private string? legacyHealthStatus;
 
     // FlowTime-Sim API status
     private ApiStatus flowTimeSimApiStatus = ApiStatus.Unknown;
@@ -210,6 +234,34 @@
         }
         
         return Task.CompletedTask;
+    }
+
+    private async Task CheckV1Health()
+    {
+        try
+        {
+            var result = await FlowTimeApiClient.HealthAsync();
+            v1HealthStatus = result.Success ? "✅ Available" : $"❌ Failed ({result.StatusCode})";
+        }
+        catch (Exception ex)
+        {
+            v1HealthStatus = $"❌ Error: {ex.Message}";
+        }
+        StateHasChanged();
+    }
+
+    private async Task CheckLegacyHealth()
+    {
+        try
+        {
+            var result = await FlowTimeApiClient.LegacyHealthAsync();
+            legacyHealthStatus = result.Success ? "✅ Available" : $"❌ Failed ({result.StatusCode})";
+        }
+        catch (Exception ex)
+        {
+            legacyHealthStatus = $"❌ Error: {ex.Message}";
+        }
+        StateHasChanged();
     }
 
     private Color GetHealthButtonColor(ApiStatus status)
