@@ -121,12 +121,13 @@ Determinism: identical spec (including seed & rng) ⇒ identical per-series CSV 
 
 ## Docs & roadmap
 
-- Roadmap: `docs/ROADMAP.md`.
-- Contracts & spec: `docs/contracts.md`.
-- Testing strategy: `docs/testing.md`.
-- Branching strategy: `docs/branching-strategy.md`.
-- Milestones: `docs/milestones/` (SIM-M0, SIM-M1, SIM-M2 updated scope).
-- Releases: `docs/releases/`.
+- **CLI Guide**: [`docs/guides/CLI.md`](docs/guides/CLI.md) - Complete command-line usage and examples
+- **Configuration**: [`docs/guides/configuration.md`](docs/guides/configuration.md) - Setup and configuration guide
+- **Roadmap**: [`docs/ROADMAP.md`](docs/ROADMAP.md) - Project roadmap and future plans
+- **Development**: [`docs/development/`](docs/development/) - Development setup, testing, and devcontainer guides
+- **Reference**: [`docs/reference/`](docs/reference/) - Technical contracts and specifications
+- **Milestones**: [`docs/milestones/`](docs/milestones/) - SIM-M0, SIM-M1, SIM-M2 milestone tracking
+- **Releases**: [`docs/releases/`](docs/releases/) - Release notes and documentation
 
 ## License
 

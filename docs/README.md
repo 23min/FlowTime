@@ -8,6 +8,7 @@ This directory contains comprehensive documentation for FlowTime.Sim, organized 
 - [`ROADMAP.md`](./ROADMAP.md) - Project roadmap and future plans
 
 ### 👥 **User Guides**
+- [`guides/CLI.md`](./guides/CLI.md) - Command-line interface usage and examples
 - [`guides/configuration.md`](./guides/configuration.md) - Configuration and setup guide
 
 ### 🔧 **Development**
@@ -41,6 +42,7 @@ This directory contains comprehensive documentation for FlowTime.Sim, organized 
 ## 📖 Quick Links
 
 ### For Users
+- [CLI Guide](./guides/CLI.md) - Complete command-line usage and examples
 - [Configuration Guide](./guides/configuration.md) - Set up and configure FlowTime.Sim
 - [Project Roadmap](./ROADMAP.md) - See what's planned
 
