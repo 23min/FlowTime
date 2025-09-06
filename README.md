@@ -44,6 +44,15 @@ runs/<runId>/
 - `series/index.json` enumerates all series (id, kind, unit, path, hash, points).
 - `manifest.json` lists per-series SHA-256 hashes (`sha256:<64hex>`); `run.json` currently mirrors it (future semantic divergence reserved).
 
+### Model YAML Compatibility
+
+FlowTime-Sim uses the same YAML model format as [FlowTime](https://github.com/23min/FlowTime) but handles determinism differently:
+
+- **FlowTime-Sim**: Requires `seed` and `rng` fields for deterministic synthetic data generation
+- **FlowTime**: Always deterministic - ignores `seed` and `rng` fields if present
+
+This means you can share models between both engines. FlowTime-Sim uses the randomness fields for stochastic simulation, while FlowTime provides purely deterministic flow modeling without randomness.
+
 ## Repository layout
 
 ```
