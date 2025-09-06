@@ -80,7 +80,9 @@ After completion, inspect the newest `runs/<runId>/` directory.
 
 ## Devcontainer
 
-This repo includes a devcontainer with the .NET 9 SDK and GitHub CLI. Open in a container to get a consistent environment. See `.devcontainer/devcontainer.json`.
+This repo includes a devcontainer with the .NET 9 SDK and GitHub CLI for consistent development across local and Codespaces environments. The container supports cross-repository development with the main FlowTime API.
+
+For detailed setup instructions, see [`docs/development/devcontainer.md`](docs/development/devcontainer.md).
 
 ## CI & tasks
 

@@ -1,5 +1,7 @@
 # Development Setup: FlowTime Services Port Configuration
 
+> **Note**: For dev container setup and cross-repository development, see [devcontainer.md](devcontainer.md).
+
 ## **Service Port Assignments**
 
 To avoid port conflicts and ensure stable development, each service has a dedicated port:
