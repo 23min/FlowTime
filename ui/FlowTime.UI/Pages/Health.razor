@@ -1,0 +1,232 @@
+@page "/health"
+@using FlowTime.UI.Services
+@using FlowTime.UI.Components
+@using MudBlazor
+@inject IFlowTimeApiClient FlowTimeApiClient
+@inject ISnackbar Snackbar
+
+<PageTitle>API Health</PageTitle>
+
+<MudText Typo="Typo.h4" GutterBottom="true">API Health</MudText>
+<MudText Class="mb-4">Monitor the health status of all APIs used by the FlowTime UI.</MudText>
+
+@if (isLoading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-3" />
+}
+
+<MudPaper Class="pa-4 mb-4" Elevation="1">
+    <MudText Typo="Typo.h6" GutterBottom="true">FlowTime API</MudText>
+    <MudStack Row="true" Spacing="2">
+        <MudButton Variant="Variant.Filled" Color="@GetHealthButtonColor(flowTimeApiStatus)" OnClick="CheckFlowTimeApiHealth"
+            Disabled="@isLoading">
+            @if (isLoading)
+            {
+                <MudProgressCircular Class="mr-2" Size="Size.Small" Indeterminate="true" />
+            }
+            Check Health
+        </MudButton>
+        @if (flowTimeApiStatus == ApiStatus.Healthy)
+        {
+            <MudChip T="string" Color="Color.Success" Variant="Variant.Filled">healthy</MudChip>
+        }
+        else if (flowTimeApiStatus == ApiStatus.Unhealthy)
+        {
+            <MudChip T="string" Color="Color.Error" Variant="Variant.Filled">unhealthy</MudChip>
+        }
+    </MudStack>
+    
+    <MudText Typo="Typo.body2" Class="mt-2"><strong>Configured URL:</strong> http://localhost:8080</MudText>
+    <MudText Typo="Typo.body2"><strong>Purpose:</strong> Core engine operations, model evaluation</MudText>
+    
+    @if (!string.IsNullOrEmpty(flowTimeApiError))
+    {
+        <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mt-2">
+            <strong>Error:</strong> @flowTimeApiError
+        </MudAlert>
+    }
+    
+    @if (flowTimeApiHealth != null)
+    {
+        <MudDivider Class="my-3" />
+        <MudText Typo="Typo.subtitle2">Service Information</MudText>
+        <MudText Typo="Typo.body2"><strong>Service:</strong> @flowTimeApiHealth.ServiceName</MudText>
+        <MudText Typo="Typo.body2"><strong>Version:</strong> @flowTimeApiHealth.ApiVersion</MudText>
+        <MudText Typo="Typo.body2"><strong>Status:</strong> @flowTimeApiHealth.Status</MudText>
+        @if (flowTimeApiHealth.Uptime != null)
+        {
+            <MudText Typo="Typo.body2"><strong>Uptime:</strong> @flowTimeApiHealth.Uptime</MudText>
+        }
+    }
+</MudPaper>
+
+<MudPaper Class="pa-4 mb-4" Elevation="1">
+    <MudText Typo="Typo.h6" GutterBottom="true">FlowTime-Sim API</MudText>
+    <MudStack Row="true" Spacing="2">
+        <MudButton Variant="Variant.Filled" Color="@GetHealthButtonColor(flowTimeSimApiStatus)" OnClick="CheckFlowTimeSimApiHealth"
+            Disabled="@isLoading">
+            @if (isLoading)
+            {
+                <MudProgressCircular Class="mr-2" Size="Size.Small" Indeterminate="true" />
+            }
+            Check Health
+        </MudButton>
+        @if (flowTimeSimApiStatus == ApiStatus.Healthy)
+        {
+            <MudChip T="string" Color="Color.Success" Variant="Variant.Filled">healthy</MudChip>
+        }
+        else if (flowTimeSimApiStatus == ApiStatus.Unhealthy)
+        {
+            <MudChip T="string" Color="Color.Error" Variant="Variant.Filled">unhealthy</MudChip>
+        }
+    </MudStack>
+    
+    <MudText Typo="Typo.body2" Class="mt-2"><strong>Configured URL:</strong> http://localhost:8081</MudText>
+    <MudText Typo="Typo.body2"><strong>Purpose:</strong> Simulation engine and modeling</MudText>
+    
+    @if (!string.IsNullOrEmpty(flowTimeSimApiError))
+    {
+        <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mt-2">
+            <strong>Error:</strong> @flowTimeSimApiError
+        </MudAlert>
+    }
+</MudPaper>
+
+<MudPaper Class="pa-4" Elevation="1">
+    <MudText Typo="Typo.h6" GutterBottom="true">Overall Status</MudText>
+    <MudText Typo="Typo.body2" Class="mb-2">Last updated: @lastUpdated.ToString("HH:mm:ss")</MudText>
+    <MudStack Row="true" Spacing="2">
+        @if (flowTimeApiStatus == ApiStatus.Healthy && flowTimeSimApiStatus == ApiStatus.Healthy)
+        {
+            <MudChip T="string" Color="Color.Success" Size="Size.Medium">All Services Healthy</MudChip>
+        }
+        else if (flowTimeApiStatus == ApiStatus.Unhealthy && flowTimeSimApiStatus == ApiStatus.Unhealthy)
+        {
+            <MudChip T="string" Color="Color.Error" Size="Size.Medium">All Services Down</MudChip>
+        }
+        else
+        {
+            <MudChip T="string" Color="Color.Warning" Size="Size.Medium">Partial Service Availability</MudChip>
+        }
+        
+        <MudButton Variant="Variant.Outlined" OnClick="RefreshAllHealth" Disabled="@isLoading">
+            Refresh All
+        </MudButton>
+    </MudStack>
+</MudPaper>
+
+@code {
+    public enum ApiStatus
+    {
+        Unknown,
+        Healthy,
+        Unhealthy
+    }
+
+    private bool isLoading = false;
+    private DateTime lastUpdated = DateTime.Now;
+
+    // FlowTime API status
+    private ApiStatus flowTimeApiStatus = ApiStatus.Unknown;
+    private SimpleHealthInfo? flowTimeApiHealth;
+    private string? flowTimeApiError;
+
+    // FlowTime-Sim API status
+    private ApiStatus flowTimeSimApiStatus = ApiStatus.Unknown;
+    private string? flowTimeSimApiError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshAllHealth();
+    }
+
+    private async Task RefreshAllHealth()
+    {
+        isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            await CheckFlowTimeApiHealth();
+            await CheckFlowTimeSimApiHealth();
+            lastUpdated = DateTime.Now;
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task CheckFlowTimeApiHealth()
+    {
+        try
+        {
+            var result = await FlowTimeApiClient.HealthAsync();
+            
+            if (result.Success)
+            {
+                flowTimeApiStatus = ApiStatus.Healthy;
+                flowTimeApiError = null;
+                
+                // Try to extract basic health info
+                if (result.Value != null)
+                {
+                    flowTimeApiHealth = new SimpleHealthInfo
+                    {
+                        ServiceName = "FlowTime API",
+                        ApiVersion = "1.0", // Default
+                        Status = "healthy"
+                    };
+                }
+            }
+            else
+            {
+                flowTimeApiStatus = ApiStatus.Unhealthy;
+                flowTimeApiError = $"HTTP {result.StatusCode}: {result.Error ?? "Unknown error"}";
+                flowTimeApiHealth = null;
+            }
+        }
+        catch (Exception ex)
+        {
+            flowTimeApiStatus = ApiStatus.Unhealthy;
+            flowTimeApiError = $"Connection failed: {ex.Message}";
+            flowTimeApiHealth = null;
+        }
+    }
+
+    private Task CheckFlowTimeSimApiHealth()
+    {
+        try
+        {
+            // For now, assume FlowTime-Sim API is not implemented
+            flowTimeSimApiStatus = ApiStatus.Unknown;
+            flowTimeSimApiError = "Health check not yet implemented";
+        }
+        catch (Exception ex)
+        {
+            flowTimeSimApiStatus = ApiStatus.Unhealthy;
+            flowTimeSimApiError = $"Connection failed: {ex.Message}";
+        }
+        
+        return Task.CompletedTask;
+    }
+
+    private Color GetHealthButtonColor(ApiStatus status)
+    {
+        return status switch
+        {
+            ApiStatus.Healthy => Color.Success,
+            ApiStatus.Unhealthy => Color.Error,
+            _ => Color.Primary
+        };
+    }
+
+    public class SimpleHealthInfo
+    {
+        public string? ServiceName { get; set; }
+        public string? ApiVersion { get; set; }
+        public string? Status { get; set; }
+        public TimeSpan? Uptime { get; set; }
+    }
+}

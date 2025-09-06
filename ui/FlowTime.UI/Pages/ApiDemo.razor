@@ -27,28 +27,6 @@
 }
 
 <MudPaper Class="pa-4 mb-4" Elevation="1">
-    <MudStack Row="true" Spacing="2">
-        <MudButton Variant="Variant.Filled" Class="action-btn" Color="@HealthButtonColor" OnClick="CheckHealth"
-            Disabled="@healthLoading">
-            @if (healthLoading)
-            {
-                <MudProgressCircular Class="mr-2" Size="Size.Small" Indeterminate="true" />
-            }
-            @HealthButtonLabel
-        </MudButton>
-        @if (healthOutcome == Outcome.Success && health is not null)
-        {
-            <MudChip T="string" Color="Color.Success" Variant="Variant.Filled">ok</MudChip>
-        }
-        else if (healthOutcome == Outcome.Failed)
-        {
-            <MudChip T="string" Color="Color.Error" Variant="Variant.Filled">failed</MudChip>
-        }
-    </MudStack>
-</MudPaper>
-
-
-<MudPaper Class="pa-4 mb-4" Elevation="1">
     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-2">
         <MudText Typo="Typo.h6" Class="mb-0">Model</MudText>
         <MudSelect T="string" Value="@selectedModelKey" ValueChanged="HandleModelChanged" Dense="true"
@@ -167,22 +145,18 @@
 </MudExpansionPanels>
 
 @code {
-    private bool healthLoading, runLoading, graphLoading;
-    private bool? health;
+    private bool runLoading, graphLoading;
     private GraphRunResult? runResult;
     private GraphStructureResult? graphResult;
     private List<NodeInfoView> nodeViews = new();
     private string clientModeLabel = "api";
     [Inject] private FeatureFlagService Flags { get; set; } = default!;
     private string? lastError;
-    // No auto health probe; user initiated only per requirements.
 
     private enum ReqState { Idle, Loading }
     private enum Outcome { None, Success, Failed }
-    private ReqState healthState = ReqState.Idle;
     private ReqState runState = ReqState.Idle;
     private ReqState graphState = ReqState.Idle;
-    private Outcome healthOutcome = Outcome.None; // still used for health chip
     private bool expandRun = true;
     private bool expandGraph = false;
 
@@ -207,39 +181,6 @@
         await Prefs.SetModelKeyAsync(selectedModelKey);
         StateHasChanged();
     }
-
-    private async Task CheckHealth()
-    {
-        healthLoading = true;
-        healthState = ReqState.Loading;
-        lastError = null;
-        try
-        {
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
-            var res = await RunClient.HealthAsync(cts.Token);
-            if (res.Success)
-            {
-                health = true;
-                healthOutcome = Outcome.Success;
-            }
-            else
-            {
-                health = null;
-                lastError = $"Health failed ({res.StatusCode}): {res.Error}";
-                healthOutcome = Outcome.Failed;
-                Snackbar.Add(lastError, Severity.Error);
-            }
-        }
-        catch
-        {
-            healthOutcome = Outcome.Failed;
-            lastError = "Health request error (offline)";
-            Snackbar.Add(lastError, Severity.Error);
-        }
-        finally { healthLoading = false; healthState = ReqState.Idle; await InvokeAsync(StateHasChanged); }
-    }
-
-    // Removed OnAfterRender auto health + sample pre-population.
 
     private async Task RunModel()
     {
@@ -317,15 +258,12 @@
 
     // Removed sample JSON fallback loaders.
 
-    private string HealthButtonLabel => healthState == ReqState.Loading ? "Checking..." : "Check Health";
-    private Color HealthButtonColor => Color.Primary; // always neutral color
     private string RunButtonLabel => runState == ReqState.Loading ? "Running..." : "Run /run";
     private Color RunButtonColor => Color.Secondary; // always neutral
     private string GraphButtonLabel => graphState == ReqState.Loading ? "Loading..." : "Graph /graph";
     private Color GraphButtonColor => Color.Secondary; // always neutral
 
-    private bool anyLoading => healthState == ReqState.Loading || runState == ReqState.Loading || graphState ==
-    ReqState.Loading;
+    private bool anyLoading => runState == ReqState.Loading || graphState == ReqState.Loading;
 
     private record NodeInfoView(int Order, string Id, IReadOnlyList<string> Inputs, int InDegree, int OutDegree, bool
     IsSource, bool IsSink);

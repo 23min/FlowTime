@@ -15,6 +15,21 @@
             OnClick="ToggleDrawer" />
         <MudText Typo="Typo.h6">FlowTime</MudText>
         <MudSpacer />
+        
+        <!-- API Status LEDs -->
+        <MudTooltip Text="FlowTime API Status">
+            <MudIcon Icon="@Icons.Material.Filled.Circle" 
+                     Color="@GetApiStatusColor(flowTimeApiStatus)" 
+                     Size="Size.Small" 
+                     Class="mr-1" />
+        </MudTooltip>
+        <MudTooltip Text="FlowTime-Sim API Status">
+            <MudIcon Icon="@Icons.Material.Filled.Circle" 
+                     Color="@GetApiStatusColor(flowTimeSimApiStatus)" 
+                     Size="Size.Small" 
+                     Class="mr-3" />
+        </MudTooltip>
+        
         <MudChip T="string" Color="@(useSim? Color.Warning: Color.Success)" Variant="Variant.Outlined"
             Size="Size.Small">@(useSim ? "Sim" : "API")</MudChip>
         <MudSwitch T="bool" Value="useSim" ValueChanged="OnUseSimChanged" Color="Color.Primary" Class="ml-2 mr-2" />
@@ -34,6 +49,7 @@
             <MudNavLink Href="/nodes" Icon="@Icons.Material.Filled.AccountTree">Nodes</MudNavLink>
             <MudNavLink Href="/api-demo" Icon="@Icons.Material.Filled.Api">API Demo</MudNavLink>
             <MudNavLink Href="/templates" Icon="@Icons.Material.Filled.PlayArrow">Template Runner</MudNavLink>
+            <MudNavLink Href="/health" Icon="@Icons.Material.Filled.HealthAndSafety">Health</MudNavLink>
         </MudNavMenu>
     </MudDrawer>
 
@@ -50,6 +66,12 @@
 @code {
     private bool _drawerOpen = true;
     private bool useSim;
+    
+    // API Status tracking
+    public enum ApiStatus { Unknown, Healthy, Unhealthy }
+    private ApiStatus flowTimeApiStatus = ApiStatus.Unknown;
+    private ApiStatus flowTimeSimApiStatus = ApiStatus.Unknown;
+    
     void ToggleDrawer() => _drawerOpen = !_drawerOpen;
     [Inject] IJSRuntime JS { get; set; } = default!;
     async Task ToggleDarkAsync()
@@ -63,6 +85,9 @@
         await Task.WhenAll(Flags.EnsureLoadedAsync(), Theme.EnsureLoadedAsync(), Prefs.EnsureLoadedAsync());
         useSim = Flags.UseSimulation;
         Flags.Changed += OnFlagsChanged;
+        
+        // Start periodic health checks
+        _ = Task.Run(PeriodicHealthCheck);
     }
     private async void OnFlagsChanged()
     {
@@ -73,5 +98,60 @@
     {
         await Flags.SetUseSimulationAsync(value);
     }
+    
+    private Color GetApiStatusColor(ApiStatus status)
+    {
+        return status switch
+        {
+            ApiStatus.Healthy => Color.Success,
+            ApiStatus.Unhealthy => Color.Error,
+            _ => Color.Default
+        };
+    }
+    
+    private async Task PeriodicHealthCheck()
+    {
+        while (true)
+        {
+            try
+            {
+                // Simple health check - could be enhanced to use actual API clients
+                using var httpClient = new HttpClient();
+                httpClient.Timeout = TimeSpan.FromSeconds(5);
+                
+                // Check FlowTime API
+                try
+                {
+                    var response = await httpClient.GetAsync("http://localhost:8080/v1/healthz");
+                    flowTimeApiStatus = response.IsSuccessStatusCode ? ApiStatus.Healthy : ApiStatus.Unhealthy;
+                }
+                catch
+                {
+                    flowTimeApiStatus = ApiStatus.Unhealthy;
+                }
+                
+                // Check FlowTime-Sim API
+                try
+                {
+                    var response = await httpClient.GetAsync("http://localhost:8081/v1/healthz");
+                    flowTimeSimApiStatus = response.IsSuccessStatusCode ? ApiStatus.Healthy : ApiStatus.Unhealthy;
+                }
+                catch
+                {
+                    flowTimeSimApiStatus = ApiStatus.Unhealthy;
+                }
+                
+                await InvokeAsync(StateHasChanged);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Health check error: {ex.Message}");
+            }
+            
+            // Check every 30 seconds
+            await Task.Delay(30000);
+        }
+    }
+    
     public void Dispose() => Flags.Changed -= OnFlagsChanged;
 }

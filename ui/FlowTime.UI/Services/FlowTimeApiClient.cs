@@ -30,24 +30,24 @@ internal sealed class FlowTimeApiClient : IFlowTimeApiClient
     public string? BaseAddress => http.BaseAddress?.ToString();
 
     public Task<ApiCallResult<HealthResponse>> HealthAsync(CancellationToken ct = default)
-        => GetJson<HealthResponse>("healthz", ct);
+        => GetJson<HealthResponse>("v1/healthz", ct);
 
     public Task<ApiCallResult<RunResponse>> RunAsync(string yaml, CancellationToken ct = default)
     {
         var content = new StringContent(yaml, Encoding.UTF8, "text/plain");
-        Console.WriteLine($"[FlowTimeApiClient] POST /run len={yaml.Length} preview='{yaml.Substring(0, Math.Min(60, yaml.Length)).Replace("\n", "\\n")}'");
-        return PostJson<RunResponse>("run", content, ct);
+        Console.WriteLine($"[FlowTimeApiClient] POST /v1/run len={yaml.Length} preview='{yaml.Substring(0, Math.Min(60, yaml.Length)).Replace("\n", "\\n")}'");
+        return PostJson<RunResponse>("v1/run", content, ct);
     }
 
     public Task<ApiCallResult<GraphResponse>> GraphAsync(string yaml, CancellationToken ct = default)
     {
         var content = new StringContent(yaml, Encoding.UTF8, "text/plain");
-        Console.WriteLine($"[FlowTimeApiClient] POST /graph len={yaml.Length} preview='{yaml.Substring(0, Math.Min(60, yaml.Length)).Replace("\n", "\\n")}'");
-        return PostJson<GraphResponse>("graph", content, ct);
+        Console.WriteLine($"[FlowTimeApiClient] POST /v1/graph len={yaml.Length} preview='{yaml.Substring(0, Math.Min(60, yaml.Length)).Replace("\n", "\\n")}'");
+        return PostJson<GraphResponse>("v1/graph", content, ct);
     }
 
     public Task<ApiCallResult<SeriesIndex>> GetRunIndexAsync(string runId, CancellationToken ct = default)
-        => GetJson<SeriesIndex>($"runs/{runId}/index", ct);
+        => GetJson<SeriesIndex>($"v1/runs/{runId}/index", ct);
 
     public async Task<ApiCallResult<Stream>> GetRunSeriesAsync(string runId, string seriesId, CancellationToken ct = default)
     {

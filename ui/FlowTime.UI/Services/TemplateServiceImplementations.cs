@@ -302,18 +302,19 @@ public class CatalogService : ICatalogService
         
         if (featureFlags.UseSimulation)
         {
-            // Sim Mode: Future - get real catalogs from API when SIM-CAT-M2 is implemented
-            logger.LogInformation("Sim Mode: Real catalog API planned for SIM-CAT-M2");
-            return await GetDemoCatalogsAsync();
+            // Sim Mode: Use mock catalogs (placeholder until SIM-CAT-M2 catalog API is implemented)
+            logger.LogDebug("SIM Mode: Using mock catalogs");
+            return await GetMockCatalogsAsync();
         }
         else
         {
-            // API Mode: Return demo catalogs for rich domain examples
-            return await GetDemoCatalogsAsync();
+            // API Mode: Use mock catalogs (FlowTime API doesn't have catalog endpoints yet)
+            logger.LogDebug("API Mode: Using mock catalogs");
+            return await GetMockCatalogsAsync();
         }
     }
 
-    private Task<List<CatalogInfo>> GetDemoCatalogsAsync()
+    private Task<List<CatalogInfo>> GetMockCatalogsAsync()
     {
         try
         {
