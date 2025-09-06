@@ -227,10 +227,19 @@ The UI lets you invoke `/healthz`, `/run`, and `/graph` using a unified `IRunCli
   ```
 3. Run the UI:
   ```powershell
+  # Default development port (5219)
   dotnet run --project ui/FlowTime.UI
+  
+  # Or specify a custom port (recommended: 3000 for containers)
+  dotnet run --project ui/FlowTime.UI --urls http://localhost:3000
   ```
 4. Open the printed URL and go to the API Demo page.
 5. Toggle the Sim/API switch in the top bar to swap between real network calls and synthetic instant results. Persisted in `localStorage` (or force with `?sim=1`).
+
+#### UI Port Configuration
+- **Development**: Default port 5219 (configured in `launchSettings.json`)
+- **Production/Containers**: Recommended port 3000 (use `--urls` flag or `ASPNETCORE_URLS` environment variable)
+- **Documentation**: See `docs/UI.md` for detailed port configuration options
 
 Features:
 * Sample YAML model (const + expression node).

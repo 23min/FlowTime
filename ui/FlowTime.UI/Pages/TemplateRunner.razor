@@ -101,7 +101,7 @@
                 <MudText Typo="Typo.body2">
                     @if (FeatureFlags.UseSimulation)
                     {
-                        <text>Running simulation via FlowTime-Sim API (http://localhost:5279)...</text>
+                        <text>Running simulation via FlowTime-Sim API (http://localhost:8081)...</text>
                     }
                     else
                     {
@@ -307,14 +307,14 @@
         catch (HttpRequestException ex) when (ex.Message.Contains("timeout") || ex.Message.Contains("Timeout"))
         {
             var errorMsg = FeatureFlags.UseSimulation 
-                ? "FlowTime-Sim API request timed out. Check if the service is running on http://localhost:5279"
+                ? "FlowTime-Sim API request timed out. Check if the service is running on http://localhost:8081"
                 : "Simulation request timed out";
             Snackbar.Add(errorMsg, Severity.Error);
         }
         catch (HttpRequestException ex) when (ex.Message.Contains("Connection refused") || ex.Message.Contains("No connection"))
         {
             var errorMsg = FeatureFlags.UseSimulation 
-                ? "Cannot connect to FlowTime-Sim API. Make sure it's running on http://localhost:5279"
+                ? "Cannot connect to FlowTime-Sim API. Make sure it's running on http://localhost:8081"
                 : "Cannot connect to simulation service";
             Snackbar.Add(errorMsg, Severity.Error);
         }

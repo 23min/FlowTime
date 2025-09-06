@@ -11,6 +11,18 @@ This repository separates tests by concern:
 - End-to-end (optional, future): `tests/FlowTime.E2E.Tests`
   - Scope: full system flows using the CLI or hosted API (potentially with Testcontainers).
 
+## Integration Testing
+
+For integration testing with real API endpoints and artifact downloads, see the development scripts:
+
+**📁 [scripts/README.md](../scripts/README.md)** - Integration test scripts and usage examples
+
+Key integration test scripts:
+- `test-api-integration.sh` - Tests `/run` and `/runs/{id}/index` endpoints  
+- `test-download.sh` - Tests artifact download functionality via series endpoints
+
+These scripts test the actual HTTP API with real models and validate the complete request/response cycle including artifact generation.
+
 ## How to run
 
 - All tests: use the workspace task "test" or run `dotnet test` from the repo root.

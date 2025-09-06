@@ -266,8 +266,8 @@
                     string downloadUrl;
                     if (FeatureFlags.UseSimulation)
                     {
-                        // SIM mode: Use full URL to FlowTime-Sim API on port 5279
-                        downloadUrl = $"http://localhost:5279/sim/runs/{Result?.RunId}/series/{seriesId}";
+                        // SIM mode: Use full URL to FlowTime-Sim API on port 8081
+                        downloadUrl = $"http://localhost:8081/sim/runs/{Result?.RunId}/series/{seriesId}";
                     }
                     else
                     {

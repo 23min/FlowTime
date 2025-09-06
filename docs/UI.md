@@ -8,12 +8,18 @@ The FlowTime UI is a standalone Blazor WebAssembly SPA intended to remain **deco
 /src/FlowTime.API         # Minimal API (run, graph, healthz)
 ```
 
+## Development Setup
+
+**For complete development setup including ports and configuration, see [development-setup.md](development-setup.md)**
+
+The UI runs on port 5219 by default during development. For production deployment configurations, see [deployment.md](deployment.md).
+
 ## Path Base
 The project sets `<StaticWebAssetBasePath>ui</StaticWebAssetBasePath>`. The generated static assets expect to be served from `/ui/`.
 
 Dev usage (separate processes):
 1. Run API: `dotnet run --project src/FlowTime.API`
-2. Run UI:  `dotnet run --project ui/FlowTime.UI`
+2. Run UI:  `dotnet run --project ui/FlowTime.UI` (default port 5219)
 3. Open the UI dev server URL (printed by the Blazor dev server). During dev it serves at `/`.
 4. The UI issues POST requests to `/run` relative to its origin. For cross-origin setups, configure reverse proxy or adjust `HttpClient` base address.
 

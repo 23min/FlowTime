@@ -43,8 +43,8 @@ nodes:
     kind: expr
     expr: "demand * 0.8"'
 
-# FlowTime-Sim (if running on port 5279)
-curl -X POST http://localhost:5279/sim/run -H "Content-Type: text/plain" -d @scripts/test.yaml
+# FlowTime-Sim (if running on port 8081)
+curl -X POST http://localhost:8081/sim/run -H "Content-Type: text/plain" -d @scripts/test.yaml
 ```
 
 ## Current Status

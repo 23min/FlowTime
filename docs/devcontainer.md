@@ -2,98 +2,105 @@
 
 This repo ships a minimal devcontainer for M0–M1 to keep startup fast and diffs clean. Optional tooling (Node, Azure CLI, Azurite) will be added per milestone.
 
-## What’s included (base)
+# Dev Container Setup
+
+This repository includes a dev container configuration optimized for FlowTime development with minimal overhead.
+
+## What's Included
+
 - .NET 9 SDK (via devcontainers/dotnet image)
 - PowerShell 7 feature
 - VS Code extensions: C# Dev Kit, C#, EditorConfig, GitLens, GitHub Actions, Git Graph, YAML, REST Client
 
-## API-first dev with a shared Docker network
+## API-First Development with Shared Docker Network
 
-We support an "API-first" handoff so other repos (e.g., flowtime-sim) can call FlowTime over a Docker network.
+We support cross-repository development where other services (e.g., flowtime-sim) can communicate with FlowTime over a Docker network.
 
-### One-time: create the shared network on your host
+### One-Time Setup: Create Shared Network
 
 ```bash
 docker network create flowtime-dev
 ```
 
-### FlowTime devcontainer behavior
+### FlowTime Dev Container Configuration
 
-- Joins the `flowtime-dev` network and gets a stable name `flowtime-api`.
-- Forwards port 8080 to the host (optional but convenient).
-- Does not auto-start the API; start it manually via F5, `dotnet run`, or `dotnet watch run`.
+The dev container automatically:
+- Joins the `flowtime-dev` network with stable name `flowtime-api`
+- Forwards port 8080 to the host for convenience
+- Does not auto-start the API (start manually via F5, VS Code tasks, or command line)
 
-This is wired via `.devcontainer/devcontainer.json` using:
-- `runArgs: ["--network=flowtime-dev", "--name", "flowtime-api"]`
-- `forwardPorts: [8080]`
+This is configured in `.devcontainer/devcontainer.json`:
+```json
+{
+  "runArgs": ["--network=flowtime-dev", "--name", "flowtime-api"],
+  "forwardPorts": [8080]
+}
+```
 
-### How to call the API from another container (e.g., flowtime-sim)
+### Cross-Container Communication
 
-From inside the other container joined to the same network, use the service name after starting the API:
+From other containers on the `flowtime-dev` network, access the API using the service name:
 
 ```bash
+# Health check
 curl -s http://flowtime-api:8080/healthz
 
-cat > /tmp/model.yaml << 'YAML'
-grid: { bins: 4, binMinutes: 60 }
-nodes:
-	- id: demand
-		kind: const
-		values: [10,20,30,40]
-	- id: served
-		kind: expr
-		expr: "demand * 0.8"
-outputs:
-	- series: served
-		as: served.csv
-YAML
-
-curl -s -X POST http://flowtime-api:8080/run \
-	-H "Content-Type: application/yaml" \
-	--data-binary @/tmp/model.yaml
-```
-
-Environment variable pattern (recommended):
-
-```bash
+# API calls
 export FLOWTIME_URL=http://flowtime-api:8080
-curl -s "$FLOWTIME_URL/healthz"
-curl -s -X POST "$FLOWTIME_URL/run" -H "Content-Type: application/yaml" --data-binary @/tmp/model.yaml
+curl -s -X POST "$FLOWTIME_URL/run" 
+  -H "Content-Type: application/yaml" 
+  --data-binary @model.yaml
 ```
 
-### How to call the API from the host
+### Host Access
 
-If port forwarding is enabled, you can call:
-
+When port forwarding is enabled:
 ```bash
 curl -s http://localhost:8080/healthz
 ```
 
-### Troubleshooting
+## Port Configuration
 
-- Network membership: `docker network inspect flowtime-dev | jq '.[0].Containers | keys'`
-- Name resolution (from a sibling container): `getent hosts flowtime-api || ping -c1 flowtime-api`
-- API listening (inside FlowTime container): `ss -lntp | grep 8080`
-- Content type: POST `/run` accepts YAML; use `-H "Content-Type: application/yaml"` (or `text/plain` per M0 tests).
+**For detailed port configuration, see [development-setup.md](development-setup.md)**.
 
-### Debugging across two devcontainers
+Default ports:
+- **FlowTime API**: 8080
+- **FlowTime UI**: 5219 (development)
+- **FlowTime-Sim**: 8081 (separate repository)
 
-Run two VS Code windows, one for FlowTime (API), one for your sim. In FlowTime, use the launch config that runs:
+## Troubleshooting
 
-```json
-{
-	"name": "FlowTime.API",
-	"type": "coreclr",
-	"request": "launch",
-	"program": "dotnet",
-	"args": ["run", "--project", "src/FlowTime.API", "--urls", "http://0.0.0.0:8080"],
-	"cwd": "${workspaceFolder}",
-	"launchBrowser": false,
-	"justMyCode": true
-}
+### Network Issues
+```bash
+# Check network membership
+docker network inspect flowtime-dev | jq '.[0].Containers | keys'
+
+# Test name resolution (from sibling container)
+getent hosts flowtime-api || ping -c1 flowtime-api
+
+# Check API listening (inside FlowTime container)
+ss -lntp | grep 8080
 ```
 
-Set breakpoints in the `/run` handler and step into requests triggered from the sim container.
+### Debugging Across Multiple Dev Containers
+
+1. Open FlowTime in VS Code
+2. Open other repository (e.g., flowtime-sim) in separate VS Code window
+3. Start FlowTime API using F5 or launch configuration
+4. Both containers communicate via `flowtime-dev` network
+
+### Launch Configuration
+
+Example VS Code launch configuration for API:
+```json
+{
+  "name": "FlowTime.API",
+  "type": "coreclr",
+  "request": "launch",
+  "program": "dotnet",
+  "args": ["run", "--project", "src/FlowTime.API", "--urls", "http://0.0.0.0:8080"]
+}
+```
 
 ## Use
 - Open in VS Code and choose "Reopen in Container" (or start a Codespace).

@@ -31,10 +31,10 @@ builder.Services.AddScoped<IFlowTimeApiClient>(sp =>
 // FlowTime-Sim API client (for simulation operations) 
 builder.Services.AddScoped<IFlowTimeSimApiClient>(sp =>
 {
-	// FlowTime-Sim runs on port 5279 based on its launch settings
+	// FlowTime-Sim runs on port 8081 based on its launch settings
 	var simHttp = new HttpClient 
 	{ 
-		BaseAddress = new Uri("http://localhost:5279/"),
+		BaseAddress = new Uri("http://localhost:8081/"),
 		Timeout = TimeSpan.FromMinutes(5) // Increase timeout for simulations
 	};
 	var logger = sp.GetRequiredService<ILogger<FlowTimeSimApiClient>>();

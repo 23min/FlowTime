@@ -1,8 +1,25 @@
-# FlowTime Configuration Guide
+# Configuration Reference
 
-## ✅ **Data Storage Configuration**
+FlowTime services support configuration through multiple methods with clear precedence rules.
 
-FlowTime uses a consistent configuration approach across both CLI and API components for managing data storage locations.
+## Configuration Precedence
+
+1. **Command-line arguments** (highest priority)
+2. **Environment variables**
+3. **Configuration files** (`appsettings.json`, `appsettings.Development.json`)
+4. **Default values** (lowest priority)
+
+## Service Port Configuration
+
+| Service      | Default Port | Development | Production | Configuration Method |
+|--------------|--------------|-------------|------------|---------------------|
+| FlowTime API | 8080 | 8080 | 8080 | `--urls` flag or `ASPNETCORE_URLS` env var |
+| FlowTime UI  | 5219 | 5219 | 3000 (recommended) | `--urls` flag or `ASPNETCORE_URLS` env var |
+| FlowTime-Sim | 8081 | 8081 | 8081 | `--urls` flag or `ASPNETCORE_URLS` env var |
+
+**See [development-setup.md](development-setup.md) for local development and [deployment.md](deployment.md) for production deployment.**
+
+## CLI Output Directory
 
 ### **1. Configuration Precedence**
 ```
