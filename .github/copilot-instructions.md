@@ -14,6 +14,21 @@ Purpose: give AI agents the minimum context to be productive and safe in this re
 - Conventional Commits: `feat(api): ...`, `fix(core): ...`, `chore(repo): ...`, `docs: ...`, `test(api): ...`.
 - See `docs/branching-strategy.md` for the full workflow.
 
+## Versioning strategy
+- **Milestone-driven versioning**: Major.Minor reflects capability level, not arbitrary breaking changes
+- **Version format**: `<Major>.<Minor>.<Patch>[-<PreRelease>]`
+  - **Patch**: Bug fixes, CLI improvements, documentation updates within milestone scope
+  - **Minor**: Milestone completion, new capabilities, API additions
+  - **Major**: Reserved for fundamental architecture changes or major breaking changes
+  - **PreRelease**: `-preview`, `-rc` during development cycles
+- **Pre-merge review**: Before merging to main (release), evaluate:
+  - Does this complete a milestone? → Minor bump
+  - Is this a bug fix or improvement within current milestone? → Patch bump
+  - Does this break existing APIs or fundamentally change architecture? → Major bump
+  - Is this work-in-progress toward next milestone? → PreRelease suffix
+- **Version consistency**: Update `<VersionPrefix>` in all `.csproj` files together
+- **No hardcoded automation**: Version decisions made during merge review, not automated based on branch names
+
 ## Dev workflows
 - Tasks: build (`dotnet build`), test (`dotnet test`), run CLI example (see `.vscode/tasks.json`).
 
