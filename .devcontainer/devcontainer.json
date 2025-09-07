@@ -38,7 +38,9 @@
   },
   "remoteUser": "vscode",
   "runArgs": [
-    "--network=flowtime-dev"
+    "--network=flowtime-dev",
+    "--name",
+    "flowtime-sim"
   ],
   "containerEnv": {
     "FLOWTIME_API_BASEURL": "http://flowtime-api:8080"

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Globalization;
 using FlowTime.Sim.Core;
 using FlowTime.Sim.Service; // ScenarioRegistry
@@ -26,6 +27,25 @@ app.UseCors();
 
 CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
 CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
+
+// Access log (one-liner per request)
+app.Use(async (ctx, next) =>
+{
+	var sw = Stopwatch.StartNew();
+	try
+	{
+		await next();
+	}
+	finally
+	{
+		sw.Stop();
+		var method = ctx.Request.Method;
+		var path = ctx.Request.Path.HasValue ? ctx.Request.Path.Value : "/";
+		var status = ctx.Response?.StatusCode;
+		app.Logger.LogInformation("HTTP {Method} {Path} -> {Status} in {ElapsedMs} ms",
+			method, path, status, sw.ElapsedMilliseconds);
+	}
+});
 
 // Initialize catalogs during startup
 ServiceHelpers.EnsureRuntimeCatalogs(app.Configuration);

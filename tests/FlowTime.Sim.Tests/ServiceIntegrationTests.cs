@@ -44,17 +44,17 @@ public class ServiceIntegrationTests : IClassFixture<WebApplicationFactory<Progr
     {
     var client = appFactory.CreateClient();
     var content = new StringContent(sampleConstYaml, Encoding.UTF8, "text/plain");
-        var res = await client.PostAsync("/sim/run", content);
+        var res = await client.PostAsync("/v1/sim/run", content);
         Assert.Equal(HttpStatusCode.OK, res.StatusCode);
         var runId = await ExtractField(res, "simRunId");
         Assert.StartsWith("sim_", runId);
 
-        var idx = await client.GetAsync($"/sim/runs/{runId}/index");
+        var idx = await client.GetAsync($"/v1/sim/runs/{runId}/index");
         Assert.Equal(HttpStatusCode.OK, idx.StatusCode);
         var indexJson = await idx.Content.ReadAsStringAsync();
         Assert.Contains("arrivals@COMP_A", indexJson);
 
-        var series = await client.GetAsync($"/sim/runs/{runId}/series/arrivals@COMP_A");
+        var series = await client.GetAsync($"/v1/sim/runs/{runId}/series/arrivals@COMP_A");
         Assert.Equal(HttpStatusCode.OK, series.StatusCode);
         var csv = await series.Content.ReadAsStringAsync();
         Assert.Contains("t,value", csv);
@@ -65,11 +65,11 @@ public class ServiceIntegrationTests : IClassFixture<WebApplicationFactory<Progr
     public async Task Overlay_Creates_New_Run()
     {
     var client = appFactory.CreateClient();
-    var baseRes = await client.PostAsync("/sim/run", new StringContent(sampleConstYaml, Encoding.UTF8, "text/plain"));
+    var baseRes = await client.PostAsync("/v1/sim/run", new StringContent(sampleConstYaml, Encoding.UTF8, "text/plain"));
         baseRes.EnsureSuccessStatusCode();
         var baseRunId = await ExtractField(baseRes, "simRunId");
         var overlayPayload = "{ \"baseRunId\": \"" + baseRunId + "\", \"overlay\": { \"seed\": 99 } }";
-        var overlayRes = await client.PostAsync("/sim/overlay", new StringContent(overlayPayload, Encoding.UTF8, "application/json"));
+        var overlayRes = await client.PostAsync("/v1/sim/overlay", new StringContent(overlayPayload, Encoding.UTF8, "application/json"));
         overlayRes.EnsureSuccessStatusCode();
         var newRunId = await ExtractField(overlayRes, "simRunId");
         Assert.NotEqual(baseRunId, newRunId);
@@ -79,7 +79,7 @@ public class ServiceIntegrationTests : IClassFixture<WebApplicationFactory<Progr
     public async Task Cli_And_Service_Per_Series_Hash_Parity()
     {
     var client = appFactory.CreateClient();
-    var res = await client.PostAsync("/sim/run", new StringContent(sampleConstYaml, Encoding.UTF8, "text/plain"));
+    var res = await client.PostAsync("/v1/sim/run", new StringContent(sampleConstYaml, Encoding.UTF8, "text/plain"));
         res.EnsureSuccessStatusCode();
         var runId = await ExtractField(res, "simRunId");
         var dataDir = Environment.GetEnvironmentVariable("FLOWTIME_SIM_DATA_DIR")!;
@@ -131,7 +131,7 @@ layoutHints:
 
         await File.WriteAllTextAsync(Path.Combine(testCatalogsRoot, "test-catalog.yaml"), testCatalogYaml);
 
-        var res = await client.GetAsync("/sim/catalogs");
+        var res = await client.GetAsync("/v1/sim/catalogs");
         Assert.Equal(HttpStatusCode.OK, res.StatusCode);
         var json = await res.Content.ReadAsStringAsync();
         
@@ -164,7 +164,7 @@ classes: [""DEFAULT""]";
 
         await File.WriteAllTextAsync(Path.Combine(testCatalogsRoot, "specific-test.yaml"), testCatalogYaml);
 
-        var res = await client.GetAsync("/sim/catalogs/specific-test");
+        var res = await client.GetAsync("/v1/sim/catalogs/specific-test");
         Assert.Equal(HttpStatusCode.OK, res.StatusCode);
         var json = await res.Content.ReadAsStringAsync();
         
@@ -176,7 +176,7 @@ classes: [""DEFAULT""]";
     public async Task Catalogs_Get_Returns_NotFound_For_Missing_Catalog()
     {
         var client = appFactory.CreateClient();
-        var res = await client.GetAsync("/sim/catalogs/non-existent");
+        var res = await client.GetAsync("/v1/sim/catalogs/non-existent");
         Assert.Equal(HttpStatusCode.NotFound, res.StatusCode);
     }
 
@@ -200,7 +200,7 @@ connections:
 classes: [""DEFAULT""]";
 
         var content = new StringContent(validCatalogYaml, Encoding.UTF8, "text/plain");
-        var res = await client.PostAsync("/sim/catalogs/validate", content);
+        var res = await client.PostAsync("/v1/sim/catalogs/validate", content);
         Assert.Equal(HttpStatusCode.OK, res.StatusCode);
         
         var json = await res.Content.ReadAsStringAsync();
@@ -227,7 +227,7 @@ connections:
 classes: [""DEFAULT""]";
 
         var content = new StringContent(invalidCatalogYaml, Encoding.UTF8, "text/plain");
-        var res = await client.PostAsync("/sim/catalogs/validate", content);
+        var res = await client.PostAsync("/v1/sim/catalogs/validate", content);
         Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
         
         var json = await res.Content.ReadAsStringAsync();
