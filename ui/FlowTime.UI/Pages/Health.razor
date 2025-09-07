@@ -119,6 +119,69 @@
             <strong>Error:</strong> @flowTimeSimApiError
         </MudAlert>
     }
+    
+    @if (flowTimeSimApiHealth != null)
+    {
+        <MudDivider Class="my-3" />
+        <MudText Typo="Typo.subtitle2">Service Information</MudText>
+        <MudGrid>
+            <MudItem xs="12" md="6">
+                @if (flowTimeSimApiHealth is DetailedHealthResponse detailed)
+                {
+                    <MudText Typo="Typo.body2"><strong>Service:</strong> @detailed.ServiceName</MudText>
+                    <MudText Typo="Typo.body2"><strong>API Version:</strong> @detailed.ApiVersion</MudText>
+                    @if (detailed.Build != null)
+                    {
+                        <MudText Typo="Typo.body2"><strong>Version:</strong> @detailed.Build.Version</MudText>
+                        <MudText Typo="Typo.body2"><strong>Environment:</strong> @detailed.Build.Environment</MudText>
+                    }
+                    @if (detailed.Runtime != null)
+                    {
+                        <MudText Typo="Typo.body2"><strong>Uptime:</strong> @detailed.Runtime.Uptime</MudText>
+                        <MudText Typo="Typo.body2"><strong>Platform:</strong> @detailed.Runtime.Platform</MudText>
+                    }
+                }
+                else if (flowTimeSimApiHealth is SimpleHealthResponse simple)
+                {
+                    <MudText Typo="Typo.body2"><strong>Service:</strong> @simple.Service</MudText>
+                    <MudText Typo="Typo.body2"><strong>Status:</strong> @simple.Status</MudText>
+                    <MudText Typo="Typo.body2"><strong>Version:</strong> @simple.Version</MudText>
+                }
+            </MudItem>
+            <MudItem xs="12" md="6">
+                @if (flowTimeSimApiHealth is SimpleHealthResponse simpleWithEndpoints && simpleWithEndpoints.AvailableEndpoints?.Any() == true)
+                {
+                    <MudText Typo="Typo.subtitle2">Available Endpoints</MudText>
+                    <MudStack Row="false" Spacing="1" AlignItems="AlignItems.Start" Class="mb-2">
+                        @foreach (var endpoint in simpleWithEndpoints.AvailableEndpoints)
+                        {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Outlined">@endpoint</MudChip>
+                        }
+                    </MudStack>
+                }
+                else if (flowTimeSimApiHealth is DetailedHealthResponse detailed)
+                {
+                    <MudText Typo="Typo.subtitle2">API Endpoints</MudText>
+                    <MudStack Row="false" Spacing="1" AlignItems="AlignItems.Start" Class="mb-2">
+                        <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Outlined">GET /@detailed.ApiVersion/healthz</MudChip>
+                        <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Outlined">POST /@detailed.ApiVersion/run</MudChip>
+                        <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Outlined">GET /@detailed.ApiVersion/scenarios</MudChip>
+                        <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Outlined">GET /@detailed.ApiVersion/runs/{runId}</MudChip>
+                        <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Outlined">GET /@detailed.ApiVersion/runs/{runId}/series/{seriesId}</MudChip>
+                    </MudStack>
+                }
+            </MudItem>
+        </MudGrid>
+        
+        @if (flowTimeSimApiHealth is DetailedHealthResponse detailedWithHealth && detailedWithHealth.Health?.Details != null)
+        {
+            <MudDivider Class="my-3" />
+            <MudText Typo="Typo.subtitle2">Storage Locations</MudText>
+            <MudText Typo="Typo.body2"><strong>Data Directory:</strong> @detailedWithHealth.Health.Details.DataDirectory</MudText>
+            <MudText Typo="Typo.body2"><strong>Runs Directory:</strong> @detailedWithHealth.Health.Details.RunsDirectory</MudText>
+            <MudText Typo="Typo.body2"><strong>Catalogs Directory:</strong> @detailedWithHealth.Health.Details.CatalogsDirectory</MudText>
+        }
+    }
 </MudPaper>
 
 <MudPaper Class="pa-4" Elevation="1">
@@ -170,6 +233,7 @@
     // FlowTime-Sim API status
     private ApiStatus flowTimeSimApiStatus = ApiStatus.Unknown;
     private string? flowTimeSimApiError;
+    private object? flowTimeSimApiHealth;
 
     protected override async Task OnInitializedAsync()
     {
@@ -186,6 +250,7 @@
         flowTimeApiError = null;
         flowTimeSimApiError = null;
         flowTimeApiHealth = null;
+        flowTimeSimApiHealth = null;
         v1HealthStatus = null;
         legacyHealthStatus = null;
         
@@ -260,22 +325,36 @@
     {
         try
         {
+            // First try detailed health
+            var detailedResult = await FlowTimeSimApiClient.GetDetailedHealthAsync(ct);
+            if (detailedResult.Success && detailedResult.Value != null)
+            {
+                flowTimeSimApiStatus = ApiStatus.Healthy;
+                flowTimeSimApiError = null;
+                flowTimeSimApiHealth = detailedResult.Value;
+                return;
+            }
+
+            // Fallback to simple health check
             var result = await FlowTimeSimApiClient.HealthAsync(ct);
             if (result.Success)
             {
                 flowTimeSimApiStatus = ApiStatus.Healthy;
                 flowTimeSimApiError = null;
+                flowTimeSimApiHealth = null;
             }
             else
             {
                 flowTimeSimApiStatus = ApiStatus.Unhealthy;
                 flowTimeSimApiError = result.Error ?? "Health check failed";
+                flowTimeSimApiHealth = null;
             }
         }
         catch (Exception ex)
         {
             flowTimeSimApiStatus = ApiStatus.Unhealthy;
             flowTimeSimApiError = $"Connection failed: {ex.Message}";
+            flowTimeSimApiHealth = null;
         }
     }
 

@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json;
 
 namespace FlowTime.UI.Services;
 
@@ -9,6 +10,7 @@ public interface IFlowTimeSimApiClient
     Task<Result<Stream>> GetSeriesAsync(string runId, string seriesId, CancellationToken ct = default);
     Task<Result<List<ScenarioInfo>>> GetScenariosAsync(CancellationToken ct = default);
     Task<Result<bool>> HealthAsync(CancellationToken ct = default);
+    Task<Result<object>> GetDetailedHealthAsync(CancellationToken ct = default);
 }
 
 public class FlowTimeSimApiClient : IFlowTimeSimApiClient
@@ -37,6 +39,40 @@ public class FlowTimeSimApiClient : IFlowTimeSimApiClient
         {
             _logger.LogError(ex, "Health check failed");
             return Result<bool>.Fail($"Health check error: {ex.Message}");
+        }
+    }
+
+    public async Task<Result<object>> GetDetailedHealthAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync($"/{_apiVersion}/healthz", ct);
+            response.EnsureSuccessStatusCode();
+            
+            var content = await response.Content.ReadAsStringAsync(ct);
+            
+            // Try to parse as detailed health response first
+            try
+            {
+                var detailedHealth = JsonSerializer.Deserialize<DetailedHealthResponse>(content, new JsonSerializerOptions 
+                { 
+                    PropertyNameCaseInsensitive = true 
+                });
+                return new Result<object>(true, detailedHealth, null, (int)response.StatusCode);
+            }
+            catch
+            {
+                // Fall back to simple health response
+                var simpleHealth = JsonSerializer.Deserialize<SimpleHealthResponse>(content, new JsonSerializerOptions 
+                { 
+                    PropertyNameCaseInsensitive = true 
+                });
+                return new Result<object>(true, simpleHealth, null, (int)response.StatusCode);
+            }
+        }
+        catch (Exception ex)
+        {
+            return new Result<object>(false, null, $"Failed to get detailed health: {ex.Message}");
         }
     }
 
