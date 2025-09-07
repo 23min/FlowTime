@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using FlowTime.UI;
+using FlowTime.UI.Configuration;
 using MudBlazor.Services;
 using Microsoft.Extensions.DependencyInjection; // for AddHttpClient
 using FlowTime.UI.Services;
@@ -14,31 +15,36 @@ builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.
 builder.Services.AddMudServices();
 builder.Services.AddSingleton<ThemeService>();
 builder.Services.AddScoped<PreferencesService>();
-builder.Services.AddScoped<FlowTimeApiOptions>(_ => new FlowTimeApiOptions());
 
 // FlowTime API client (for engine/core operations)
 builder.Services.AddScoped<IFlowTimeApiClient>(sp =>
 {
-	var opts = sp.GetRequiredService<FlowTimeApiOptions>();
+	// Get configuration options
+	var config = builder.Configuration.GetSection(FlowTimeApiOptions.SectionName).Get<FlowTimeApiOptions>() 
+		?? new FlowTimeApiOptions();
+	
 	var apiHttp = new HttpClient 
 	{ 
-		BaseAddress = new Uri(opts.BaseUrl.TrimEnd('/') + "/"),
-		Timeout = TimeSpan.FromMinutes(3) // Increase timeout for API operations
+		BaseAddress = new Uri(config.BaseUrl.TrimEnd('/') + "/"),
+		Timeout = TimeSpan.FromMinutes(config.TimeoutMinutes)
 	};
-	return new FlowTimeApiClient(apiHttp, opts);
+	return new FlowTimeApiClient(apiHttp, config);
 });
 
 // FlowTime-Sim API client (for simulation operations) 
 builder.Services.AddScoped<IFlowTimeSimApiClient>(sp =>
 {
-	// FlowTime-Sim runs on port 8081 based on its launch settings
+	// Get configuration options
+	var config = builder.Configuration.GetSection(FlowTimeSimApiOptions.SectionName).Get<FlowTimeSimApiOptions>() 
+		?? new FlowTimeSimApiOptions();
+	
 	var simHttp = new HttpClient 
 	{ 
-		BaseAddress = new Uri("http://localhost:8081/"),
-		Timeout = TimeSpan.FromMinutes(5) // Increase timeout for simulations
+		BaseAddress = new Uri(config.BaseUrl),
+		Timeout = TimeSpan.FromMinutes(config.TimeoutMinutes)
 	};
 	var logger = sp.GetRequiredService<ILogger<FlowTimeSimApiClient>>();
-	return new FlowTimeSimApiClient(simHttp, logger);
+	return new FlowTimeSimApiClient(simHttp, logger, config.ApiVersion);
 });
 builder.Services.AddScoped<FeatureFlagService>();
 builder.Services.AddScoped<ApiRunClient>();
@@ -68,7 +74,8 @@ builder.Services.AddScoped<IFlowTimeSimService>(sp =>
 	var apiClient = sp.GetRequiredService<IFlowTimeApiClient>();
 	var featureFlags = sp.GetRequiredService<FeatureFlagService>();
 	var logger = sp.GetRequiredService<ILogger<FlowTimeSimService>>();
-	return new FlowTimeSimService(simClient, apiClient, featureFlags, logger);
+	var configuration = sp.GetRequiredService<IConfiguration>();
+	return new FlowTimeSimService(simClient, apiClient, featureFlags, logger, configuration);
 });
 
 // Simulation results service for artifact-first data loading

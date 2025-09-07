@@ -2,6 +2,8 @@ using System.Globalization;
 using System.Text;
 using System.Text.Json;
 
+using FlowTime.UI.Configuration;
+
 namespace FlowTime.UI.Services;
 
 public class TemplateService : ITemplateService
@@ -382,13 +384,15 @@ public class FlowTimeSimService : IFlowTimeSimService
     private readonly IFlowTimeApiClient apiClient;
     private readonly FeatureFlagService featureFlags;
     private readonly ILogger<FlowTimeSimService> logger;
+    private readonly IConfiguration configuration;
 
-    public FlowTimeSimService(IFlowTimeSimApiClient simClient, IFlowTimeApiClient apiClient, FeatureFlagService featureFlags, ILogger<FlowTimeSimService> logger)
+    public FlowTimeSimService(IFlowTimeSimApiClient simClient, IFlowTimeApiClient apiClient, FeatureFlagService featureFlags, ILogger<FlowTimeSimService> logger, IConfiguration configuration)
     {
         this.simClient = simClient;
         this.apiClient = apiClient;
         this.featureFlags = featureFlags;
         this.logger = logger;
+        this.configuration = configuration;
     }
 
     public async Task<SimulationRunResult> RunSimulationAsync(SimulationRunRequest request)
@@ -431,6 +435,10 @@ public class FlowTimeSimService : IFlowTimeSimService
 
             var runId = runResult.Value?.SimRunId ?? throw new InvalidOperationException("No run ID returned");
             
+            // Get configuration for versioned URL
+            var simConfig = configuration.GetSection(FlowTimeSimApiOptions.SectionName).Get<FlowTimeSimApiOptions>() 
+                ?? new FlowTimeSimApiOptions();
+            
             // Return artifact-first result - no custom metadata blobs
             return new SimulationRunResult
             {
@@ -438,7 +446,7 @@ public class FlowTimeSimService : IFlowTimeSimService
                 Status = "completed",
                 StartTime = DateTime.UtcNow.AddSeconds(-1), // Approximate start time
                 EndTime = DateTime.UtcNow,
-                ResultsUrl = $"/sim/runs/{runId}/index", // Point to series index
+                ResultsUrl = $"/{simConfig.ApiVersion}/sim/runs/{runId}/index", // Point to versioned series index
                 Metadata = new() // Minimal metadata, artifacts are authoritative
                 {
                     ["templateId"] = request.TemplateId,

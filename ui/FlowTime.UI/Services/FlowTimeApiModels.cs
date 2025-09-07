@@ -30,8 +30,3 @@ public sealed record ApiCallResult<T>(T? Value, bool Success, int StatusCode, st
     public static ApiCallResult<T> Ok(T value, int status) => new(value, true, status, null);
     public static ApiCallResult<T> Fail(int status, string? error) => new(default, false, status, error);
 }
-
-public sealed class FlowTimeApiOptions
-{
-    public string BaseUrl { get; set; } = "http://localhost:8080"; // TODO: externalize (config/env) for deployments
-}

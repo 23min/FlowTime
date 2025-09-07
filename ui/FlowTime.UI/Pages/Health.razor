@@ -3,6 +3,7 @@
 @using FlowTime.UI.Components
 @using MudBlazor
 @inject IFlowTimeApiClient FlowTimeApiClient
+@inject IFlowTimeSimApiClient FlowTimeSimApiClient
 @inject ISnackbar Snackbar
 
 <PageTitle>API Health</PageTitle>
@@ -18,9 +19,9 @@
 <MudPaper Class="pa-4 mb-4" Elevation="1">
     <MudText Typo="Typo.h6" GutterBottom="true">FlowTime API</MudText>
     <MudStack Row="true" Spacing="2">
-        <MudButton Variant="Variant.Filled" Color="@GetHealthButtonColor(flowTimeApiStatus)" OnClick="CheckFlowTimeApiHealth"
-            Disabled="@isLoading">
-            @if (isLoading)
+        <MudButton Variant="Variant.Filled" Color="@GetHealthButtonColor(flowTimeApiStatus)" OnClick="CheckFlowTimeApiHealthWithLoading"
+            Disabled="@isLoadingFlowTimeApi">
+            @if (isLoadingFlowTimeApi)
             {
                 <MudProgressCircular Class="mr-2" Size="Size.Small" Indeterminate="true" />
             }
@@ -33,6 +34,10 @@
         else if (flowTimeApiStatus == ApiStatus.Unhealthy)
         {
             <MudChip T="string" Color="Color.Error" Variant="Variant.Filled">unhealthy</MudChip>
+        }
+        else if (flowTimeApiStatus == ApiStatus.Checking)
+        {
+            <MudChip T="string" Color="Color.Info" Variant="Variant.Filled">checking...</MudChip>
         }
     </MudStack>
     
@@ -83,9 +88,9 @@
 <MudPaper Class="pa-4 mb-4" Elevation="1">
     <MudText Typo="Typo.h6" GutterBottom="true">FlowTime-Sim API</MudText>
     <MudStack Row="true" Spacing="2">
-        <MudButton Variant="Variant.Filled" Color="@GetHealthButtonColor(flowTimeSimApiStatus)" OnClick="CheckFlowTimeSimApiHealth"
-            Disabled="@isLoading">
-            @if (isLoading)
+        <MudButton Variant="Variant.Filled" Color="@GetHealthButtonColor(flowTimeSimApiStatus)" OnClick="CheckFlowTimeSimApiHealthWithLoading"
+            Disabled="@isLoadingFlowTimeSimApi">
+            @if (isLoadingFlowTimeSimApi)
             {
                 <MudProgressCircular Class="mr-2" Size="Size.Small" Indeterminate="true" />
             }
@@ -98,6 +103,10 @@
         else if (flowTimeSimApiStatus == ApiStatus.Unhealthy)
         {
             <MudChip T="string" Color="Color.Error" Variant="Variant.Filled">unhealthy</MudChip>
+        }
+        else if (flowTimeSimApiStatus == ApiStatus.Checking)
+        {
+            <MudChip T="string" Color="Color.Info" Variant="Variant.Filled">checking...</MudChip>
         }
     </MudStack>
     
@@ -139,11 +148,14 @@
     public enum ApiStatus
     {
         Unknown,
+        Checking,
         Healthy,
         Unhealthy
     }
 
     private bool isLoading = false;
+    private bool isLoadingFlowTimeApi = false;
+    private bool isLoadingFlowTimeSimApi = false;
     private DateTime lastUpdated = DateTime.Now;
 
     // FlowTime API status
@@ -167,13 +179,38 @@
     private async Task RefreshAllHealth()
     {
         isLoading = true;
+        
+        // Reset all statuses and clear errors
+        flowTimeApiStatus = ApiStatus.Checking;
+        flowTimeSimApiStatus = ApiStatus.Checking;
+        flowTimeApiError = null;
+        flowTimeSimApiError = null;
+        flowTimeApiHealth = null;
+        v1HealthStatus = null;
+        legacyHealthStatus = null;
+        
         StateHasChanged();
 
         try
         {
-            await CheckFlowTimeApiHealth();
-            await CheckFlowTimeSimApiHealth();
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5)); // 5 second timeout for refresh all
+            await CheckFlowTimeApiHealth(cts.Token);
+            await CheckFlowTimeSimApiHealth(cts.Token);
             lastUpdated = DateTime.Now;
+        }
+        catch (OperationCanceledException)
+        {
+            // Handle timeout for the entire refresh operation
+            if (flowTimeApiStatus == ApiStatus.Checking)
+            {
+                flowTimeApiStatus = ApiStatus.Unhealthy;
+                flowTimeApiError = "Health check timed out after 5 seconds";
+            }
+            if (flowTimeSimApiStatus == ApiStatus.Checking)
+            {
+                flowTimeSimApiStatus = ApiStatus.Unhealthy;
+                flowTimeSimApiError = "Health check timed out after 5 seconds";
+            }
         }
         finally
         {
@@ -182,11 +219,11 @@
         }
     }
 
-    private async Task CheckFlowTimeApiHealth()
+    private async Task CheckFlowTimeApiHealth(CancellationToken ct = default)
     {
         try
         {
-            var result = await FlowTimeApiClient.HealthAsync();
+            var result = await FlowTimeApiClient.HealthAsync(ct);
             
             if (result.Success)
             {
@@ -219,21 +256,73 @@
         }
     }
 
-    private Task CheckFlowTimeSimApiHealth()
+    private async Task CheckFlowTimeSimApiHealth(CancellationToken ct = default)
     {
         try
         {
-            // For now, assume FlowTime-Sim API is not implemented
-            flowTimeSimApiStatus = ApiStatus.Unknown;
-            flowTimeSimApiError = "Health check not yet implemented";
+            var result = await FlowTimeSimApiClient.HealthAsync(ct);
+            if (result.Success)
+            {
+                flowTimeSimApiStatus = ApiStatus.Healthy;
+                flowTimeSimApiError = null;
+            }
+            else
+            {
+                flowTimeSimApiStatus = ApiStatus.Unhealthy;
+                flowTimeSimApiError = result.Error ?? "Health check failed";
+            }
         }
         catch (Exception ex)
         {
             flowTimeSimApiStatus = ApiStatus.Unhealthy;
             flowTimeSimApiError = $"Connection failed: {ex.Message}";
         }
+    }
+
+    private async Task CheckFlowTimeApiHealthWithLoading()
+    {
+        isLoadingFlowTimeApi = true;
+        flowTimeApiStatus = ApiStatus.Checking;
+        StateHasChanged();
         
-        return Task.CompletedTask;
+        try
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            await CheckFlowTimeApiHealth(cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            flowTimeApiStatus = ApiStatus.Unhealthy;
+            flowTimeApiError = "Health check timed out after 5 seconds";
+        }
+        finally
+        {
+            isLoadingFlowTimeApi = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task CheckFlowTimeSimApiHealthWithLoading()
+    {
+        isLoadingFlowTimeSimApi = true;
+        flowTimeSimApiStatus = ApiStatus.Checking;
+        StateHasChanged();
+        
+        try
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            await CheckFlowTimeSimApiHealth(cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            flowTimeSimApiStatus = ApiStatus.Unhealthy;
+            flowTimeSimApiError = "Health check timed out after 5 seconds";
+        }
+        finally
+        {
+            isLoadingFlowTimeSimApi = false;
+            StateHasChanged();
+        }
     }
 
     private async Task CheckV1Health()
@@ -270,6 +359,7 @@
         {
             ApiStatus.Healthy => Color.Success,
             ApiStatus.Unhealthy => Color.Error,
+            ApiStatus.Checking => Color.Info,
             _ => Color.Primary
         };
     }

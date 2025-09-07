@@ -1,4 +1,5 @@
 @using FlowTime.UI.Services
+@using FlowTime.UI.Configuration
 @using System.Globalization
 @using Microsoft.JSInterop
 @using MudBlazor
@@ -6,6 +7,7 @@
 @inject ISnackbar Snackbar
 @inject IJSRuntime JSRuntime
 @inject FeatureFlagService FeatureFlags
+@inject IConfiguration Configuration
 
 <MudStack Spacing="4">
     @if (Result != null)
@@ -266,13 +268,19 @@
                     string downloadUrl;
                     if (FeatureFlags.UseSimulation)
                     {
-                        // SIM mode: Use full URL to FlowTime-Sim API on port 8081
-                        downloadUrl = $"http://localhost:8081/sim/runs/{Result?.RunId}/series/{seriesId}";
+                        // SIM mode: Use versioned URL to FlowTime-Sim API
+                        var simConfig = Configuration.GetSection(FlowTimeSimApiOptions.SectionName).Get<FlowTimeSimApiOptions>() 
+                            ?? new FlowTimeSimApiOptions();
+                        var baseUrl = simConfig.BaseUrl.TrimEnd('/');
+                        downloadUrl = $"{baseUrl}/{simConfig.ApiVersion}/sim/runs/{Result?.RunId}/series/{seriesId}";
                     }
                     else
                     {
-                        // API mode: Use full URL to FlowTime API on port 8080
-                        downloadUrl = $"http://localhost:8080/runs/{Result?.RunId}/series/{seriesId}";
+                        // API mode: Use versioned URL to FlowTime API
+                        var apiConfig = Configuration.GetSection(FlowTimeApiOptions.SectionName).Get<FlowTimeApiOptions>() 
+                            ?? new FlowTimeApiOptions();
+                        var baseUrl = apiConfig.BaseUrl.TrimEnd('/');
+                        downloadUrl = $"{baseUrl}/{apiConfig.ApiVersion}/runs/{Result?.RunId}/series/{seriesId}";
                     }
                     
                     // Open download URL in new tab to trigger browser download
