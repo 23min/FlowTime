@@ -20,7 +20,7 @@ public class ServiceNegativeTests : IClassFixture<WebApplicationFactory<Program>
     public async Task Get_Index_Unknown_Run_Returns_404()
     {
     var client = factory.CreateClient();
-        var res = await client.GetAsync("/sim/runs/does-not-exist/index");
+        var res = await client.GetAsync("/v1/sim/runs/does-not-exist/index");
         Assert.Equal(HttpStatusCode.NotFound, res.StatusCode);
         var body = await res.Content.ReadAsStringAsync();
         Assert.Contains("Not found", body);
@@ -30,7 +30,7 @@ public class ServiceNegativeTests : IClassFixture<WebApplicationFactory<Program>
     public async Task Get_Series_Unknown_Run_Returns_404()
     {
     var client = factory.CreateClient();
-        var res = await client.GetAsync("/sim/runs/does-not-exist/series/arrivals@COMP_A");
+        var res = await client.GetAsync("/v1/sim/runs/does-not-exist/series/arrivals@COMP_A");
         Assert.Equal(HttpStatusCode.NotFound, res.StatusCode);
     }
 
@@ -40,10 +40,10 @@ public class ServiceNegativeTests : IClassFixture<WebApplicationFactory<Program>
         // Create a real run first
     var client = factory.CreateClient();
         var yaml = "schemaVersion: 1\nrng: pcg\nseed: 1\ngrid:\n  bins: 2\n  binMinutes: 60\narrivals:\n  kind: const\n  values: [1,1]\nroute:\n  id: COMP_A\n";
-        var create = await client.PostAsync("/sim/run", new StringContent(yaml, Encoding.UTF8, "text/plain"));
+        var create = await client.PostAsync("/v1/sim/run", new StringContent(yaml, Encoding.UTF8, "text/plain"));
         create.EnsureSuccessStatusCode();
         var runId = await ExtractField(create, "simRunId");
-        var res = await client.GetAsync($"/sim/runs/{runId}/series/served@NOTCOMP");
+        var res = await client.GetAsync($"/v1/sim/runs/{runId}/series/served@NOTCOMP");
         Assert.Equal(HttpStatusCode.NotFound, res.StatusCode);
     }
 
@@ -52,7 +52,7 @@ public class ServiceNegativeTests : IClassFixture<WebApplicationFactory<Program>
     {
     var client = factory.CreateClient();
         var payload = "{ \"baseRunId\": \"missing_run\", \"overlay\": { \"seed\": 123 } }";
-        var res = await client.PostAsync("/sim/overlay", new StringContent(payload, Encoding.UTF8, "application/json"));
+        var res = await client.PostAsync("/v1/sim/overlay", new StringContent(payload, Encoding.UTF8, "application/json"));
         Assert.Equal(HttpStatusCode.NotFound, res.StatusCode);
     }
 
@@ -61,7 +61,7 @@ public class ServiceNegativeTests : IClassFixture<WebApplicationFactory<Program>
     {
     var client = factory.CreateClient();
         // Use a dot which is disallowed by IsSafeId but does not trigger path segment normalization like "../"
-        var res = await client.GetAsync("/sim/runs/bad.id/index");
+        var res = await client.GetAsync("/v1/sim/runs/bad.id/index");
         Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
     }
 

@@ -1,9 +1,13 @@
+using System.Diagnostics;
 using System.Globalization;
+using System.Runtime.InteropServices;
+using Microsoft.AspNetCore.Routing;
 using FlowTime.Sim.Core;
 using FlowTime.Sim.Service; // ScenarioRegistry
+using FlowTime.Sim.Service.Services; // ServiceInfoProvider
 
 // Explicit Program class for integration tests & clear structure
-public class Program
+public partial class Program
 {
 	public static void Main(string[] args)
 	{
@@ -17,20 +21,131 @@ builder.Logging.AddSimpleConsole(o =>
 });
 builder.Services.AddCors(p => p.AddDefaultPolicy(policy => policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
 
+// Register services
+builder.Services.AddSingleton<IServiceInfoProvider, ServiceInfoProvider>();
+builder.Services.AddSingleton<IEndpointDiscoveryService, EndpointDiscoveryService>();
+builder.Services.AddSingleton<ICapabilitiesDetectionService, CapabilitiesDetectionService>();
+
 var app = builder.Build();
 app.UseCors();
 
 CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
 CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
 
+// Access log (one-liner per request)
+app.Use(async (ctx, next) =>
+{
+	var sw = Stopwatch.StartNew();
+	try
+	{
+		await next();
+	}
+	finally
+	{
+		sw.Stop();
+		var method = ctx.Request.Method;
+		var path = ctx.Request.Path.HasValue ? ctx.Request.Path.Value : "/";
+		var status = ctx.Response?.StatusCode;
+		app.Logger.LogInformation("HTTP {Method} {Path} -> {Status} in {ElapsedMs} ms",
+			method, path, status, sw.ElapsedMilliseconds);
+	}
+});
+
 // Initialize catalogs during startup
 ServiceHelpers.EnsureRuntimeCatalogs(app.Configuration);
 
-// Health
-app.MapGet("/healthz", () => Results.Ok(new { status = "ok" }));
+// Health endpoints - simple and factual
+app.MapGet("/healthz", (HttpContext context, IConfiguration config, IEndpointDiscoveryService endpointService) =>
+{
+    // Check for detailed health parameter
+    var includeDetails = context.Request.Query.ContainsKey("detailed") || 
+                        context.Request.Query.ContainsKey("include-details");
+    
+    if (includeDetails)
+    {
+        // Enhanced but simple health response with only factual information
+        var process = System.Diagnostics.Process.GetCurrentProcess();
+        var assembly = System.Reflection.Assembly.GetExecutingAssembly();
+        var serviceName = assembly.GetName().Name ?? "FlowTime.Sim.Service";
+        var version = assembly.GetName().Version?.ToString(3) ?? "1.0.0";
+        
+        return Results.Ok(new
+        {
+            status = "ok",
+            service = serviceName,
+            version = version,
+            timestamp = DateTime.UtcNow,
+            uptime = DateTime.UtcNow - process.StartTime,
+            environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Development",
+            dataDirectory = ServiceHelpers.DataRoot(config),
+            system = new
+            {
+                workingSetMB = Math.Round(process.WorkingSet64 / 1024.0 / 1024.0, 1),
+                platform = Environment.OSVersion.Platform.ToString(),
+                architecture = RuntimeInformation.ProcessArchitecture.ToString()
+            },
+            availableEndpoints = endpointService.GetAvailableEndpoints()
+        });
+    }
+    else
+    {
+        // Legacy basic response
+        return Results.Ok(new { status = "ok" });
+    }
+});
 
-// POST /sim/run  — accepts YAML simulation spec (text/plain or application/x-yaml) and returns { simRunId }
-app.MapPost("/sim/run", async (HttpRequest req, CancellationToken ct) =>
+// Enhanced health endpoint with service information (v1)
+app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext context, IConfiguration config) =>
+{
+    // Check for detailed health parameter
+    var includeDetails = context.Request.Query.ContainsKey("detailed") || 
+                        context.Request.Query.ContainsKey("include-details");
+    
+    if (includeDetails)
+    {
+        // Enhanced but simple health response with only factual information
+        var process = System.Diagnostics.Process.GetCurrentProcess();
+        return Results.Ok(new
+        {
+            status = "ok",
+            service = "FlowTime.Sim.Service",
+            version = "1.0.0",
+            timestamp = DateTime.UtcNow,
+            uptime = DateTime.UtcNow - process.StartTime,
+            environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Development",
+            dataDirectory = ServiceHelpers.DataRoot(config),
+            system = new
+            {
+                workingSetMB = Math.Round(process.WorkingSet64 / 1024.0 / 1024.0, 1),
+                platform = Environment.OSVersion.Platform.ToString(),
+                architecture = RuntimeInformation.ProcessArchitecture.ToString()
+            },
+            availableEndpoints = new[]
+            {
+                "/healthz",
+                "/v1/healthz", 
+                "/v1/sim/run",
+                "/v1/sim/scenarios",
+                "/v1/sim/catalogs",
+                "/v1/sim/runs/{id}/index",
+                "/v1/sim/runs/{id}/series/{seriesId}",
+                "/v1/sim/overlay"
+            }
+        });
+    }
+    else
+    {
+        // Standard v1 health with service info
+        var serviceInfo = serviceInfoProvider.GetServiceInfo();
+        return Results.Ok(serviceInfo);
+    }
+});
+
+// V1 API Group - all new endpoints go under /v1
+var v1 = app.MapGroup("/v1");
+
+// V1: POST /v1/sim/run  — accepts YAML simulation spec (text/plain or application/x-yaml) and returns { simRunId }
+v1.MapPost("/sim/run", async (HttpRequest req, CancellationToken ct) =>
 {
 	try
 	{
@@ -75,8 +190,8 @@ app.MapPost("/sim/run", async (HttpRequest req, CancellationToken ct) =>
 	}
 });
 
-// GET /sim/runs/{id}/index  (series/index.json)
-app.MapGet("/sim/runs/{id}/index", (string id) =>
+// V1: GET /v1/sim/runs/{id}/index  (series/index.json)
+v1.MapGet("/sim/runs/{id}/index", (string id) =>
 {
 	if (!ServiceHelpers.IsSafeId(id)) return Results.BadRequest(new { error = "Invalid id" });
 	var runsRoot = ServiceHelpers.RunsRoot(app.Configuration);
@@ -87,8 +202,8 @@ app.MapGet("/sim/runs/{id}/index", (string id) =>
 	return Results.Content(json, "application/json");
 });
 
-// GET /sim/runs/{id}/series/{seriesId}  (CSV stream)
-app.MapGet("/sim/runs/{id}/series/{seriesId}", (string id, string seriesId) =>
+// V1: GET /v1/sim/runs/{id}/series/{seriesId}  (CSV stream)
+v1.MapGet("/sim/runs/{id}/series/{seriesId}", (string id, string seriesId) =>
 {
 	if (!ServiceHelpers.IsSafeId(id) || !ServiceHelpers.IsSafeSeriesId(seriesId)) return Results.BadRequest(new { error = "Invalid id" });
 	var runsRoot = ServiceHelpers.RunsRoot(app.Configuration);
@@ -98,13 +213,13 @@ app.MapGet("/sim/runs/{id}/series/{seriesId}", (string id, string seriesId) =>
 	return Results.File(stream, contentType: "text/csv", fileDownloadName: seriesId + ".csv");
 });
 
-// GET /sim/scenarios  (static list of scenario presets)
-app.MapGet("/sim/scenarios", () => Results.Ok(ScenarioRegistry.List()));
+// V1: GET /v1/sim/scenarios  (static list of scenario presets)
+v1.MapGet("/sim/scenarios", () => Results.Ok(ScenarioRegistry.List()));
 
-// === CATALOG ENDPOINTS (SIM-CAT-M2 Phase 2) ===
+// === V1 CATALOG ENDPOINTS (SIM-CAT-M2 Phase 2) ===
 
-// GET /sim/catalogs  → list catalogs (id, title, hash)
-app.MapGet("/sim/catalogs", () =>
+// V1: GET /v1/sim/catalogs  → list catalogs (id, title, hash)
+v1.MapGet("/sim/catalogs", () =>
 {
 	try
 	{
@@ -150,8 +265,8 @@ app.MapGet("/sim/catalogs", () =>
 	}
 });
 
-// GET /sim/catalogs/{id}  → returns Catalog.v1
-app.MapGet("/sim/catalogs/{id}", (string id) =>
+// V1: GET /v1/sim/catalogs/{id}  → returns Catalog.v1
+v1.MapGet("/sim/catalogs/{id}", (string id) =>
 {
 	try
 	{
@@ -173,8 +288,8 @@ app.MapGet("/sim/catalogs/{id}", (string id) =>
 	}
 });
 
-// POST /sim/catalogs/validate  → schema + referential integrity
-app.MapPost("/sim/catalogs/validate", async (HttpRequest req, CancellationToken ct) =>
+// V1: POST /v1/sim/catalogs/validate  → schema + referential integrity
+v1.MapPost("/sim/catalogs/validate", async (HttpRequest req, CancellationToken ct) =>
 {
 	try
 	{
@@ -223,9 +338,9 @@ app.MapPost("/sim/catalogs/validate", async (HttpRequest req, CancellationToken 
 	}
 });
 
-// POST /sim/overlay  (derive run from base + overlay)
+// V1: POST /v1/sim/overlay  (derive run from base + overlay)
 // Body JSON: { baseRunId: string, overlay: { seed?, grid?, arrivals? } }
-app.MapPost("/sim/overlay", async (HttpRequest req, CancellationToken ct) =>
+v1.MapPost("/sim/overlay", async (HttpRequest req, CancellationToken ct) =>
 {
 	try
 	{
@@ -309,7 +424,7 @@ app.MapPost("/sim/overlay", async (HttpRequest req, CancellationToken ct) =>
 	}
 
 	// Helper utilities
-	static class ServiceHelpers
+	public static class ServiceHelpers
 	{
 		/// <summary>
 		/// Gets the root data directory (parent of runs and catalogs).
