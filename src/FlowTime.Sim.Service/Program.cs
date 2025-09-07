@@ -1,11 +1,13 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.Runtime.InteropServices;
+using Microsoft.AspNetCore.Routing;
 using FlowTime.Sim.Core;
 using FlowTime.Sim.Service; // ScenarioRegistry
 using FlowTime.Sim.Service.Services; // ServiceInfoProvider
 
 // Explicit Program class for integration tests & clear structure
-public class Program
+public partial class Program
 {
 	public static void Main(string[] args)
 	{
@@ -19,8 +21,10 @@ builder.Logging.AddSimpleConsole(o =>
 });
 builder.Services.AddCors(p => p.AddDefaultPolicy(policy => policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
 
-// Register service info provider for v1 health endpoint
+// Register services
 builder.Services.AddSingleton<IServiceInfoProvider, ServiceInfoProvider>();
+builder.Services.AddSingleton<IEndpointDiscoveryService, EndpointDiscoveryService>();
+builder.Services.AddSingleton<ICapabilitiesDetectionService, CapabilitiesDetectionService>();
 
 var app = builder.Build();
 app.UseCors();
@@ -50,14 +54,91 @@ app.Use(async (ctx, next) =>
 // Initialize catalogs during startup
 ServiceHelpers.EnsureRuntimeCatalogs(app.Configuration);
 
-// Health endpoints - basic health for legacy compatibility
-app.MapGet("/healthz", () => Results.Ok(new { status = "ok" }));
+// Health endpoints - simple and factual
+app.MapGet("/healthz", (HttpContext context, IConfiguration config, IEndpointDiscoveryService endpointService) =>
+{
+    // Check for detailed health parameter
+    var includeDetails = context.Request.Query.ContainsKey("detailed") || 
+                        context.Request.Query.ContainsKey("include-details");
+    
+    if (includeDetails)
+    {
+        // Enhanced but simple health response with only factual information
+        var process = System.Diagnostics.Process.GetCurrentProcess();
+        var assembly = System.Reflection.Assembly.GetExecutingAssembly();
+        var serviceName = assembly.GetName().Name ?? "FlowTime.Sim.Service";
+        var version = assembly.GetName().Version?.ToString(3) ?? "1.0.0";
+        
+        return Results.Ok(new
+        {
+            status = "ok",
+            service = serviceName,
+            version = version,
+            timestamp = DateTime.UtcNow,
+            uptime = DateTime.UtcNow - process.StartTime,
+            environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Development",
+            dataDirectory = ServiceHelpers.DataRoot(config),
+            system = new
+            {
+                workingSetMB = Math.Round(process.WorkingSet64 / 1024.0 / 1024.0, 1),
+                platform = Environment.OSVersion.Platform.ToString(),
+                architecture = RuntimeInformation.ProcessArchitecture.ToString()
+            },
+            availableEndpoints = endpointService.GetAvailableEndpoints()
+        });
+    }
+    else
+    {
+        // Legacy basic response
+        return Results.Ok(new { status = "ok" });
+    }
+});
 
 // Enhanced health endpoint with service information (v1)
-app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider) =>
+app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext context, IConfiguration config) =>
 {
-    var serviceInfo = serviceInfoProvider.GetServiceInfo();
-    return Results.Ok(serviceInfo);
+    // Check for detailed health parameter
+    var includeDetails = context.Request.Query.ContainsKey("detailed") || 
+                        context.Request.Query.ContainsKey("include-details");
+    
+    if (includeDetails)
+    {
+        // Enhanced but simple health response with only factual information
+        var process = System.Diagnostics.Process.GetCurrentProcess();
+        return Results.Ok(new
+        {
+            status = "ok",
+            service = "FlowTime.Sim.Service",
+            version = "1.0.0",
+            timestamp = DateTime.UtcNow,
+            uptime = DateTime.UtcNow - process.StartTime,
+            environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Development",
+            dataDirectory = ServiceHelpers.DataRoot(config),
+            system = new
+            {
+                workingSetMB = Math.Round(process.WorkingSet64 / 1024.0 / 1024.0, 1),
+                platform = Environment.OSVersion.Platform.ToString(),
+                architecture = RuntimeInformation.ProcessArchitecture.ToString()
+            },
+            availableEndpoints = new[]
+            {
+                "/healthz",
+                "/v1/healthz", 
+                "/v1/sim/run",
+                "/v1/sim/scenarios",
+                "/v1/sim/catalogs",
+                "/v1/sim/runs/{id}/index",
+                "/v1/sim/runs/{id}/series/{seriesId}",
+                "/v1/sim/overlay"
+            }
+        });
+    }
+    else
+    {
+        // Standard v1 health with service info
+        var serviceInfo = serviceInfoProvider.GetServiceInfo();
+        return Results.Ok(serviceInfo);
+    }
 });
 
 // V1 API Group - all new endpoints go under /v1

@@ -18,21 +18,26 @@ public class ServiceInfoProvider : IServiceInfoProvider
 {
     private readonly DateTime _startTime;
     private readonly IWebHostEnvironment _environment;
+    private readonly IConfiguration configuration;
+    private readonly ICapabilitiesDetectionService capabilitiesService;
 
-    public ServiceInfoProvider(IWebHostEnvironment environment)
+    public ServiceInfoProvider(IWebHostEnvironment environment, IConfiguration configuration, ICapabilitiesDetectionService capabilitiesService)
     {
         _startTime = DateTime.UtcNow;
         _environment = environment;
+        this.configuration = configuration;
+        this.capabilitiesService = capabilitiesService;
     }
 
     public ServiceInfo GetServiceInfo()
     {
         var assembly = Assembly.GetExecutingAssembly();
         var version = assembly.GetName().Version?.ToString() ?? "0.1.0";
+        var serviceName = assembly.GetName().Name ?? "FlowTime.Sim.Service";
         
         return new ServiceInfo
         {
-            ServiceName = "FlowTime.Sim.Service",
+            ServiceName = serviceName,
             ApiVersion = "v1",
             Build = new BuildInfo
             {
@@ -43,23 +48,9 @@ public class ServiceInfoProvider : IServiceInfoProvider
             },
             Capabilities = new CapabilitiesInfo
             {
-                SupportedFormats = new[] { "yaml", "csv", "json", "ndjson" },
-                Features = new[] { 
-                    "simulation-generation", 
-                    "arrival-patterns", 
-                    "deterministic-rng", 
-                    "artifact-generation", 
-                    "series-endpoints",
-                    "catalog-management",
-                    "overlay-derivation"
-                },
-                Limits = new Dictionary<string, object>
-                {
-                    { "maxBins", 10000 },
-                    { "maxSeed", int.MaxValue },
-                    { "supportedArrivalKinds", new[] { "const", "poisson" } },
-                    { "supportedRngTypes", new[] { "pcg", "legacy" } }
-                }
+                SupportedFormats = capabilitiesService.GetSupportedFormats(),
+                Features = capabilitiesService.GetFeatures(),
+                Limits = capabilitiesService.GetLimits()
             },
             Runtime = new RuntimeInfo
             {
@@ -75,9 +66,9 @@ public class ServiceInfoProvider : IServiceInfoProvider
                 LastCheckTime = DateTime.UtcNow,
                 Details = new Dictionary<string, object>
                 {
-                    { "dataDirectory", Program.ServiceHelpers.DataRoot() },
-                    { "runsDirectory", Program.ServiceHelpers.RunsRoot() },
-                    { "catalogsDirectory", Program.ServiceHelpers.CatalogsRoot() }
+                    { "dataDirectory", Program.ServiceHelpers.DataRoot(configuration) },
+                    { "runsDirectory", Program.ServiceHelpers.RunsRoot(configuration) },
+                    { "catalogsDirectory", Program.ServiceHelpers.CatalogsRoot(configuration) }
                 }
             }
         };

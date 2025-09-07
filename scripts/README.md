@@ -1,76 +1,66 @@
-# FlowTime.Sim Testing Scripts
+# Scripts Directory
 
-This directory contains various scripts and test files for FlowTime.Sim development and testing.
+This directory contains development and testing scripts for FlowTime-Sim.
 
-## API Testing Scripts
+## Testing Scripts
 
-### `quick-test.sh`
-Simple API test script that starts the service and makes a basic API call to verify functionality.
+### Health Check Testing
+- **`test-health-endpoints.sh`** - Comprehensive health endpoint testing
+- **`test-simple-health.sh`** - Simple health response validation
 
-### `test-api.sh` 
-Comprehensive API test script that:
-- Builds the project
-- Starts the service
-- Tests multiple API endpoints
-- Validates responses
-- Cleans up
+### API Testing  
+- **`test-v1-api.sh`** - V1 API functional testing
+- **`validate-api-migration.sh`** - V1 API migration validation
+- **`test-api.sh`** - General API testing
+- **`quick-test.sh`** - Quick development testing
 
-### `test-api.http`
-VS Code REST Client file for interactive API testing. Contains HTTP requests for:
-- Health checks
-- `/sim/run` endpoint testing
-- Various payload examples
+### Configuration Testing
+- **`test-clean-config.sh`** - Clean configuration testing (no legacy support)
+- **`test-config.sh`** - Configuration validation
+- **`test-config.ps1`** - PowerShell configuration tests
+- **`test-single-data-dir.sh`** - Single data directory testing
+- **`test-single-data-final.sh`** - Final data directory validation
 
-### `test-catalogs.sh`
-Tests the catalog-related API endpoints:
-- Lists available catalogs
-- Retrieves specific catalog details
+### Legacy Testing
+- **`test-legacy-removed.sh`** - Verify legacy endpoints are removed
+- **`test-legacy-ignored.sh`** - Test legacy configuration handling
 
-## Configuration Testing Scripts
-
-### `test-config.sh`
-Tests various configuration scenarios including:
-- Environment variable overrides
-- CLI parameter handling
-- File output location configuration
-
-### `test-config.ps1`
-PowerShell version of configuration tests for cross-platform validation.
-
-### `test-single-data-dir.sh`
-Tests the single data directory configuration (`FLOWTIME_SIM_DATA_DIR`):
-- Creates test catalogs
-- Verifies directory structure
-- Tests both CLI and Service modes
-
-### `test-single-data-final.sh`
-Final validation test for the single data directory implementation.
-
-### `test-legacy-ignored.sh`
-Validates that legacy environment variables (`FLOWTIME_SIM_RUNS_ROOT`, `FLOWTIME_SIM_CATALOGS_ROOT`) are properly ignored when the new `FLOWTIME_SIM_DATA_DIR` approach is used.
-
-### `test-clean-config.sh`
-Tests configuration behavior in clean environments without legacy variables.
+### Feature Testing
+- **`test-request-logging.sh`** - Request logging validation
+- **`test-catalogs.sh`** - Catalog management testing
 
 ## Test Data Files
 
-### `simple-test.yaml`
-Simple YAML payload for basic API testing.
+- **`simple-test.yaml`** - Simple YAML payload for basic API testing
+- **`test-api.http`** - VS Code REST Client file for interactive testing
 
 ## Debug Files
 
-### `debug-events.ndjson`, `my-debug-events.ndjson`
-Debug output files containing event data for debugging and development purposes.
+- **`debug-events.ndjson`** - Debug output files for development
+- **`my-debug-events.ndjson`** - Additional debug data
 
 ## Usage
 
-Most scripts can be run directly from the scripts directory:
+All scripts should be run from the repository root:
 
 ```bash
-cd scripts
-./quick-test.sh
-./test-api.sh
-# etc.
+# Example: Test health endpoints
+./scripts/test-health-endpoints.sh
+
+# Example: Validate API migration
+./scripts/validate-api-migration.sh
+
+# Example: Test clean configuration
+./scripts/test-clean-config.sh
+
+# Example: Quick smoke test
+./scripts/quick-test.sh
 ```
 
-Note: Some scripts may require the service to be started manually or may start/stop the service themselves. Check individual script documentation for specific requirements.
+## Development Notes
+
+- Scripts assume the service can be started on `localhost:8081`
+- All scripts include cleanup procedures
+- Use `jq` for JSON formatting (installed in dev container)
+- Most scripts create temporary test files and clean them up automatically
+- Some scripts may require manual service startup - check individual script documentation
