@@ -15,17 +15,24 @@ Purpose: give AI agents the minimum context to be productive and safe in this re
 - See `docs/branching-strategy.md` for the full workflow.
 
 ## Versioning strategy
-- **Milestone-driven versioning**: Major.Minor reflects capability level, not arbitrary breaking changes
+- **Development vs Production phases**: 0.x.x for development, 1.x.x+ for production-ready releases
 - **Version format**: `<Major>.<Minor>.<Patch>[-<PreRelease>]`
-  - **Patch**: Bug fixes, CLI improvements, documentation updates within milestone scope
-  - **Minor**: Milestone completion, new capabilities, API additions
-  - **Major**: Reserved for fundamental architecture changes or major breaking changes
-  - **PreRelease**: `-preview`, `-rc` during development cycles
-- **Pre-merge review**: Before merging to main (release), evaluate:
-  - Does this complete a milestone? → Minor bump
-  - Is this a bug fix or improvement within current milestone? → Patch bump
-  - Does this break existing APIs or fundamentally change architecture? → Major bump
-  - Is this work-in-progress toward next milestone? → PreRelease suffix
+
+### Development Phase (0.x.x)
+- **0.x.0**: Milestone completions during development phase (breaking changes acceptable)
+- **0.x.y**: Bug fixes, improvements, and features within development milestones
+- **API instability expected**: Contracts, schemas, and interfaces may change between releases
+- **Breaking changes allowed**: Focus on capability delivery over backward compatibility
+
+### Production Phase (1.x.x+)  
+- **1.0.0**: First stable release with API/contract stability commitments
+- **1.x.0**: New capabilities with backward compatibility promises
+- **x.0.0**: Breaking changes only for fundamental architecture evolution (rare)
+
+### Pre-merge review guidance:
+- **Development phase**: Does this complete a milestone? → 0.x.0 bump | Bug fix/improvement? → 0.x.y bump
+- **Production phase**: New capability with compatibility? → x.y.0 | Breaking change? → y.0.0 | Bug fix? → x.y.z
+- **PreRelease**: `-preview`, `-rc` during development cycles
 - **Version consistency**: Update `<VersionPrefix>` in all `.csproj` files together
 - **No hardcoded automation**: Version decisions made during merge review, not automated based on branch names
 
