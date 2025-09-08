@@ -84,22 +84,36 @@ public class ServiceInfoProvider : IServiceInfoProvider
 
     private static string? GetCommitHash()
     {
-        // Try to get commit hash from environment or assembly metadata
+        // Try to get commit hash from assembly metadata first (embedded at build time)
+        var assembly = Assembly.GetExecutingAssembly();
+        var gitHashAttribute = assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
+            .FirstOrDefault(attr => attr.Key == "GitCommitHash");
+        if (gitHashAttribute != null && !string.IsNullOrEmpty(gitHashAttribute.Value))
+        {
+            return gitHashAttribute.Value;
+        }
+
+        // Fallback to environment variable
         var commitHash = Environment.GetEnvironmentVariable("GIT_COMMIT");
         if (!string.IsNullOrEmpty(commitHash))
         {
             return commitHash.Length > 8 ? commitHash[..8] : commitHash;
         }
 
-        // Fallback: try to read from assembly metadata (if available)
-        var assembly = Assembly.GetExecutingAssembly();
-        var attribute = assembly.GetCustomAttribute<AssemblyMetadataAttribute>();
-        return attribute?.Value;
+        return "unknown";
     }
 
     private static DateTime? GetBuildTime(Assembly assembly)
     {
-        // Try to get build time from assembly
+        // Try to get build time from assembly metadata first (embedded at build time)
+        var buildTimeAttribute = assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
+            .FirstOrDefault(attr => attr.Key == "BuildTime");
+        if (buildTimeAttribute != null && DateTime.TryParse(buildTimeAttribute.Value, out var buildTime))
+        {
+            return buildTime;
+        }
+
+        // Fallback to assembly file time
         try
         {
             var location = assembly.Location;
