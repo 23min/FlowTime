@@ -13,7 +13,7 @@ public class ServiceNegativeTests : IClassFixture<WebApplicationFactory<Program>
         this.factory = factory.WithWebHostBuilder(_ => { });
         var root = Path.Combine(Path.GetTempPath(), "flow-sim-service-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
-        Environment.SetEnvironmentVariable("FLOWTIME_SIM_RUNS_ROOT", root);
+        Environment.SetEnvironmentVariable("FLOWTIME_SIM_DATA_DIR", root);
     }
 
     [Fact]
