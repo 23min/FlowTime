@@ -90,3 +90,12 @@ public sealed record ApiCallResult<T>(T? Value, bool Success, int StatusCode, st
     public static ApiCallResult<T> Ok(T value, int status) => new(value, true, status, null);
     public static ApiCallResult<T> Fail(int status, string? error) => new(default, false, status, error);
 }
+
+// Basic health info for FlowTime API
+public record SimpleHealthInfo
+{
+    public string? ServiceName { get; init; }
+    public string? ApiVersion { get; init; }
+    public string? Status { get; init; }
+    public TimeSpan? Uptime { get; init; }
+}

@@ -20,7 +20,7 @@ public class ArtifactEndpointTests : IClassFixture<WebApplicationFactory<Program
     public async Task GET_Runs_NonExistentRun_Returns_NotFound()
     {
         // Act
-        var response = await client.GetAsync("/runs/nonexistent/index");
+        var response = await client.GetAsync("/v1/runs/nonexistent/index");
 
         // Assert
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
@@ -75,7 +75,7 @@ public class ArtifactEndpointTests : IClassFixture<WebApplicationFactory<Program
         }).CreateClient();
 
         // Act
-        var response = await clientWithConfig.GetAsync($"/runs/{runId}/index");
+        var response = await clientWithConfig.GetAsync($"/v1/runs/{runId}/index");
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -111,7 +111,7 @@ public class ArtifactEndpointTests : IClassFixture<WebApplicationFactory<Program
         }).CreateClient();
 
         // Act
-        var response = await clientWithConfig.GetAsync($"/runs/{runId}/series/test@TEST@DEFAULT");
+        var response = await clientWithConfig.GetAsync($"/v1/runs/{runId}/series/test@TEST@DEFAULT");
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -146,7 +146,7 @@ public class ArtifactEndpointTests : IClassFixture<WebApplicationFactory<Program
         }).CreateClient();
 
         // Act
-        var response = await clientWithConfig.GetAsync($"/runs/{runId}/series/nonexistent@SERIES@DEFAULT");
+        var response = await clientWithConfig.GetAsync($"/v1/runs/{runId}/series/nonexistent@SERIES@DEFAULT");
 
         // Assert
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
@@ -176,7 +176,7 @@ public class ArtifactEndpointTests : IClassFixture<WebApplicationFactory<Program
         }).CreateClient();
 
         // Act - Request a series when index.json doesn't exist
-        var response = await clientWithConfig.GetAsync($"/runs/{runId}/series/demand@DEMAND@DEFAULT");
+        var response = await clientWithConfig.GetAsync($"/v1/runs/{runId}/series/demand@DEMAND@DEFAULT");
 
         // Assert - Should return 404, not 500 (this tests the FileNotFoundException fix)
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
@@ -235,7 +235,7 @@ public class ArtifactEndpointTests : IClassFixture<WebApplicationFactory<Program
         }).CreateClient();
 
         // Act - Request series using partial name (should find "demand@DEMAND@DEFAULT")
-        var response = await clientWithConfig.GetAsync($"/runs/{runId}/series/demand");
+        var response = await clientWithConfig.GetAsync($"/v1/runs/{runId}/series/demand");
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);

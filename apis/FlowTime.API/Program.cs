@@ -1,6 +1,7 @@
 using System.Text;
 using FlowTime.Core;
 using FlowTime.Adapters.Synthetic;
+using FlowTime.API.Services;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 using Microsoft.AspNetCore.HttpLogging;
@@ -30,6 +31,9 @@ builder.Logging.AddSimpleConsole(options =>
 // Permissive CORS for local dev (UI runs on separate origin). Tighten in later milestones.
 builder.Services.AddCors(p => p.AddDefaultPolicy(policy =>
     policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
+
+// Register services
+builder.Services.AddSingleton<IServiceInfoProvider, ServiceInfoProvider>();
 
 var app = builder.Build();
 
@@ -68,8 +72,96 @@ app.Use(async (ctx, next) =>
     }
 });
 
-// Health
-app.MapGet("/healthz", () => Results.Ok(new { status = "ok" }));
+// Health endpoints - simple and enhanced
+app.MapGet("/healthz", (HttpContext context, IConfiguration config) =>
+{
+    // Check for detailed health parameter
+    var includeDetails = context.Request.Query.ContainsKey("detailed") || 
+                        context.Request.Query.ContainsKey("include-details");
+    
+    if (includeDetails)
+    {
+        // Enhanced but simple health response with only factual information
+        var process = System.Diagnostics.Process.GetCurrentProcess();
+        var assembly = System.Reflection.Assembly.GetExecutingAssembly();
+        var serviceName = assembly.GetName().Name ?? "FlowTime.API";
+        var version = assembly.GetName().Version?.ToString(3) ?? "1.0.0";
+        
+        return Results.Ok(new
+        {
+            status = "ok",
+            service = serviceName,
+            version = version,
+            timestamp = DateTime.UtcNow,
+            uptime = DateTime.UtcNow - process.StartTime,
+            environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Development",
+            system = new
+            {
+                workingSetMB = Math.Round(process.WorkingSet64 / 1024.0 / 1024.0, 1),
+                platform = Environment.OSVersion.Platform.ToString(),
+                architecture = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture.ToString()
+            },
+            availableEndpoints = new[]
+            {
+                "/healthz",
+                "/v1/healthz", 
+                "/run",
+                "/v1/run",
+                "/graph",
+                "/v1/graph"
+            }
+        });
+    }
+    else
+    {
+        // Legacy basic response
+        return Results.Ok(new { status = "ok" });
+    }
+});
+
+// Enhanced health endpoint with service information (v1)
+app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext context, IConfiguration config) =>
+{
+    // Check for detailed health parameter
+    var includeDetails = context.Request.Query.ContainsKey("detailed") || 
+                        context.Request.Query.ContainsKey("include-details");
+    
+    if (includeDetails)
+    {
+        // Enhanced but simple health response with only factual information
+        var process = System.Diagnostics.Process.GetCurrentProcess();
+        return Results.Ok(new
+        {
+            status = "ok",
+            service = "FlowTime.API",
+            version = "1.0.0",
+            timestamp = DateTime.UtcNow,
+            uptime = DateTime.UtcNow - process.StartTime,
+            environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Development",
+            system = new
+            {
+                workingSetMB = Math.Round(process.WorkingSet64 / 1024.0 / 1024.0, 1),
+                platform = Environment.OSVersion.Platform.ToString(),
+                architecture = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture.ToString()
+            },
+            availableEndpoints = new[]
+            {
+                "/healthz",
+                "/v1/healthz", 
+                "/run",
+                "/v1/run",
+                "/graph",
+                "/v1/graph"
+            }
+        });
+    }
+    else
+    {
+        // Standard v1 health with service info
+        var serviceInfo = serviceInfoProvider.GetServiceInfo();
+        return Results.Ok(serviceInfo);
+    }
+});
 
 // POST /run — body: YAML model
 app.MapPost("/run", async (HttpRequest req, ILogger<Program> logger) =>

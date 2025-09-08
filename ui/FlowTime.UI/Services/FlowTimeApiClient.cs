@@ -11,6 +11,7 @@ public interface IFlowTimeApiClient
     string? BaseAddress { get; }
     Task<ApiCallResult<HealthResponse>> HealthAsync(CancellationToken ct = default);
     Task<ApiCallResult<HealthResponse>> LegacyHealthAsync(CancellationToken ct = default);
+    Task<ApiCallResult<object>> GetDetailedHealthAsync(CancellationToken ct = default);
     Task<ApiCallResult<RunResponse>> RunAsync(string yaml, CancellationToken ct = default);
     Task<ApiCallResult<GraphResponse>> GraphAsync(string yaml, CancellationToken ct = default);
     Task<ApiCallResult<SeriesIndex>> GetRunIndexAsync(string runId, CancellationToken ct = default);
@@ -38,6 +39,40 @@ internal sealed class FlowTimeApiClient : IFlowTimeApiClient
 
     public Task<ApiCallResult<HealthResponse>> LegacyHealthAsync(CancellationToken ct = default)
         => GetJson<HealthResponse>("healthz", ct);
+
+    public async Task<ApiCallResult<object>> GetDetailedHealthAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await http.GetAsync($"{apiVersion}/healthz", ct);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync(ct);
+                
+                // Try to parse as detailed health response first
+                try
+                {
+                    var detailedHealth = JsonSerializer.Deserialize<DetailedHealthResponse>(content, json);
+                    return ApiCallResult<object>.Ok(detailedHealth, (int)response.StatusCode);
+                }
+                catch
+                {
+                    // Fall back to simple health response
+                    var simpleHealth = JsonSerializer.Deserialize<SimpleHealthResponse>(content, json);
+                    return ApiCallResult<object>.Ok(simpleHealth, (int)response.StatusCode);
+                }
+            }
+            else
+            {
+                return ApiCallResult<object>.Fail((int)response.StatusCode, $"HTTP {response.StatusCode}: {response.ReasonPhrase}");
+            }
+        }
+        catch (Exception ex)
+        {
+            return ApiCallResult<object>.Fail(0, $"Failed to get detailed health: {ex.Message}");
+        }
+    }
 
     public Task<ApiCallResult<RunResponse>> RunAsync(string yaml, CancellationToken ct = default)
     {
