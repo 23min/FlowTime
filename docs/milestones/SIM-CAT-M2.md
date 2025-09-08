@@ -1,6 +1,6 @@
 # SIM-CAT-M2 — Catalog.v1 (Structural Source of Truth)
 
-**Status**: ✅ **COMPLETED** (September 3, 2025)  
+**Status**: ✅ **COMPLETED** (September 3, 2025, tagged as `sim-cat-m2`)  
 **Goal**: Provide a domain-neutral catalog that both the simulator and UI can consume to render system diagrams and stamp component IDs into artifacts.
 
 ## Overview

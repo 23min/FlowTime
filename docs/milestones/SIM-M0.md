@@ -2,7 +2,7 @@
 
 (renamed from M0.md on 2025-08-27 for clarity)
 
-Status: COMPLETE (merged work on branch `feature/sim-m0/generators`).
+Status: COMPLETE (tagged as `sim-m0`).
 
 This document supersedes the earlier lightweight "M0" description and clarifies the true scope for the first simulator milestone (SIM-M0) distinct from the FlowTime engine M0. The current code base only implements an API relay CLI; the actual simulation engine (arrivals → events → Gold aggregation) is not yet present. This doc is the authoritative checklist to complete SIM-M0.
 

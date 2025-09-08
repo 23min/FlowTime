@@ -1,6 +1,6 @@
 # Milestone SIM-M1 — Service Times, Schema Version & RNG Hardening
 
-Status: RELEASE PREP (Phase 6) (branch `feature/sim-m1/release-prep`).
+Status: COMPLETE (tagged as `sim-m1`).
 
 SIM-M0 established the deterministic arrivals + Gold/event contracts. SIM-M1 extends the simulator with groundwork for richer performance modeling while freezing and versioning the public contract for adapter consumption.
 
