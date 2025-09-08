@@ -526,6 +526,8 @@ Make FlowTime truly “spreadsheet-y” with formula parser and references.
 - **FR-M1-1:** Expression parser (`+ - * /`, MIN, MAX, CLAMP).
 - **FR-M1-2:** Node reference resolution (`expr: "demand * 0.8 + SHIFT(demand,-1)"`).
 - **FR-M1-3:** Built-in function: `SHIFT(series, k)`.
+- **FR-M1-4:** Stateful primitives foundation (prepare for CONV, EMA, backlog state).
+- **FR-M1-5:** Causal evaluation with history buffers (single-pass, no algebraic loops).
 
 ### Inputs
 
@@ -788,6 +790,49 @@ UI shows run metadata.
 
 ---
 
+## M4.5 — Retry & Feedback Modeling
+
+### Goal
+
+Enable temporal feedback loops through causal delay operators.
+
+### Functional Requirements
+
+- **FR-M4.5-1:** CONV operator (`retries := CONV(errors, [0.0, 0.6, 0.3, 0.1])`).
+- **FR-M4.5-2:** DELAY operator for arbitrary time shifting.
+- **FR-M4.5-3:** RETRY built-in function with attempt limits and DLQ.
+- **FR-M4.5-4:** EMA operator for smoothed feedback signals.
+- **FR-M4.5-5:** Conservation validation (arrivals + retries - served - ΔQ - dlq ≈ 0).
+
+### Inputs
+
+YAML model with retry patterns:
+
+```yaml
+nodes:
+  - id: service
+    kind: expr
+    expr: |
+      arrivals_total := arrivals + retries
+      attempts := MIN(capacity, arrivals_total)  
+      errors := attempts * fail_rate
+      retries := CONV(errors, [0.0, 0.6, 0.3, 0.1])
+      served := attempts - errors
+```
+
+### Outputs
+
+- Series with retry echoes across time bins
+- Conservation reports showing flow accounting
+
+### Acceptance Criteria
+
+- Single-pass evaluation maintained (no algebraic loops)
+- Retry volumes match convolution kernel exactly
+- Conservation laws verified for complex retry scenarios
+
+---
+
 ## M4 — Scenarios & Compare
 
 ### Goal
@@ -954,6 +999,42 @@ Show backlog as area chart under series.
 ---
 
 ## M8 — Multi-Class + Priority/Fairness
+
+### Goal
+
+Support multiple flow classes with capacity sharing policies.
+
+### Functional Requirements
+
+- **FR-M8-1:** Class-aware series (`arrivals@serviceA@VIP`, `arrivals@serviceA@STANDARD`).
+- **FR-M8-2:** Weighted-fair capacity sharing when capacity binds.
+- **FR-M8-3:** Strict priority with overflow to lower classes.
+- **FR-M8-4:** Per-class retry behavior (VIP may have different retry kernels).
+
+### Inputs
+
+YAML with class definitions:
+
+```yaml
+classes: ["VIP", "STANDARD"]
+nodes:
+  - id: service
+    kind: expr
+    expr: |
+      # Class-aware expressions
+      served_vip := MIN(capacity * 0.7, arrivals_vip)
+      served_std := MIN(capacity * 0.3, arrivals_std)
+```
+
+### Acceptance Criteria
+
+- Multi-class conservation holds per class and in aggregate
+- Priority/fairness policies respected under capacity constraints
+- Retry behavior can differ by class
+
+---
+
+## M8.5 — Multi-Class + Priority/Fairness (UI)
 
 ### Goal
 
@@ -1146,9 +1227,10 @@ Close loop with telemetry.
 
 ### Functional Requirements
 
-- Learn routing, retries, delay.
-
-- Drift report.
+- Learn routing patterns from telemetry.
+- Calibrate retry kernels against observed behavior (building on M4.5 retry modeling).
+- Detect model drift in retry rates, latency distributions.
+- Drift report with statistical confidence intervals.
 
 ---
 
