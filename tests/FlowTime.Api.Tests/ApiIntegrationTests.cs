@@ -34,7 +34,7 @@ nodes:
     kind: expr
   expr: ""demand ** 0.8"""; // unsupported operator
     var content = new StringContent(yaml, Encoding.UTF8, "text/plain");
-    var resp = await client.PostAsync("/run", content);
+    var resp = await client.PostAsync("/v1/run", content);
     Assert.Equal(System.Net.HttpStatusCode.BadRequest, resp.StatusCode);
     var error = await resp.Content.ReadFromJsonAsync<Dictionary<string, string>>();
     Assert.NotNull(error);
@@ -70,7 +70,7 @@ outputs:
   - series: served
     as: served.csv";
     var content = new StringContent(yaml, Encoding.UTF8, "text/plain");
-    var resp = await client.PostAsync("/run", content);
+    var resp = await client.PostAsync("/v1/run", content);
     resp.EnsureSuccessStatusCode();
     var doc = await resp.Content.ReadFromJsonAsync<RunResponse>();
     Assert.NotNull(doc);
@@ -94,7 +94,7 @@ nodes:
     kind: expr
     expr: ""demand * 0.8""";
     var content = new StringContent(yaml, Encoding.UTF8, "text/plain");
-    var resp = await client.PostAsync("/graph", content);
+    var resp = await client.PostAsync("/v1/graph", content);
     resp.EnsureSuccessStatusCode();
     var doc = await resp.Content.ReadFromJsonAsync<GraphResponse>();
     Assert.NotNull(doc);
@@ -120,7 +120,7 @@ nodes:
   - id: c
     kind: expr
     expr: ""b * 2"""; // no outputs section needed for /graph
-    var resp = await client.PostAsync("/graph", new StringContent(yaml, Encoding.UTF8, "text/plain"));
+    var resp = await client.PostAsync("/v1/graph", new StringContent(yaml, Encoding.UTF8, "text/plain"));
     resp.EnsureSuccessStatusCode();
     var g = await resp.Content.ReadFromJsonAsync<GraphResponse>();
     Assert.NotNull(g);

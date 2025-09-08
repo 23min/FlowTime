@@ -1,35 +1,49 @@
 # FlowTime
 
- [![Build](https://github.com/23min/FlowTime/actions/workflows/build.yml/badge.svg)](https://github.com/23min/FlowTime/actions/workflows/build.yml)
+[![Build](https://github.com/23All features are callable via the **HTTP API** first; CLI and UI consume the same surface.
+
+## Repository layoutactions/workflows/build.yml/badge.svg)](https://github.com/23min/FlowTime/actions/workflows/build.yml)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
 > **FlowTime** is a deterministic, discrete-time, graph-based engine that models flows (entities) across services and queues, producing explainable time-series for backlog, latency, and throughput—useful for **what-if** (simulation) and **what-is/what-was** (time-travel observability). It feels **spreadsheet-like**, with a lightweight **SPA UI** for interactive analysis.
-
-> **Architectural Focus**: FlowTime processes only **gold metrics** (pre-binned time series data). Raw event processing and aggregation happen outside FlowTime in dedicated processors/adapters.
-
----
-
-## Highlights
-
-* **What-if**: model scenarios like outages, surges, reroutes, retry storms.
-* **What-is / what-was**: visualize the actual system state and history for incident forensics, SLA monitoring, and business flow impact.
-* **Unification**: provide a *single source of truth* that maps technical telemetry into business-relevant flows.
-* **Scalability**: run in seconds on 100+ nodes × months of telemetry, suitable for interactive analysis.
-* **Ownership**: lightweight codebase, no costly DES licenses, extensible by your team.
 
 ---
 
 ## Table of contents
 
-* [Who is this for?](#who-is-this-for)
-* [Design principles](#design-principles)
-* [Architecture](#architecture)
-* [Repository layout](#repository-layout)
-* [Quickstart](#quickstart)
+- Overview
+- Repository layout  
+- Quickstart
+- Current status
+- Usage
+- Docs & roadmap
+- Contributing
+- License
 
-  * [Local development](#local-development)
-  * [Configuration & secrets](#configuration--secrets)
-  * [Storage](#storage)
+---
+
+## Overview
+
+FlowTime provides **explainable flow modeling** and **time-travel observability** without heavyweight simulation tooling. Designed for SREs, platform engineers, data/ops analysts, and product owners who want "spreadsheet-like" clarity with reproducible runs and CSV outputs.
+
+### Key features
+
+* **What-if**: model scenarios like outages, surges, reroutes, retry storms
+* **What-is/what-was**: visualize system state and history for incident forensics, SLA monitoring, and business flow impact
+* **Unification**: single source of truth that maps technical telemetry into business-relevant flows
+* **Scalability**: run in seconds on 100+ nodes × months of telemetry, suitable for interactive analysis
+* **Ownership**: lightweight codebase, no costly DES licenses, extensible by your team
+
+### Architecture
+
+**Monorepo** with API-first design:
+
+* **FlowTime.Core** — the engine: canonical time grid, series math, DAG, nodes/evaluation
+* **FlowTime.Cli** — CLI that evaluates YAML models and writes CSV artifacts
+* **FlowTime.API** — HTTP API for graph/run operations with health monitoring
+* **FlowTime.UI** — Blazor WASM SPA for interactive analysis and visualization
+
+All features are callable via the **HTTP API** first; CLI and UI consume the same surface.
   * [Real‑time](#real-time)
   * [CLI reference (M0)](#cli-reference-m0)
 * [Milestone M0 scope](#milestone-m0-scope)
@@ -112,35 +126,16 @@ Swappability contract: HTTP surface and DTOs remain identical regardless of host
 
 ## Repository layout
 
-Current top-level structure (trimmed to primary source + docs):
-
 ```
-FlowTime/
-├─ src/FlowTime.API/              # Minimal API surface (healthz, run, graph)
-├─ docs/                       # Roadmap, contracts, schemas, concepts, releases
-│  ├─ schemas/                 # JSON Schemas: run, manifest, series-index
-│  └─ concepts/
-├─ examples/hello/             # Sample model
-├─ src/
-│  ├─ FlowTime.Core/           # Engine (grid, graph, nodes)
-│  └─ FlowTime.Cli/            # CLI driver
-├─ tests/
-│  ├─ FlowTime.Tests/          # Core + contract tests
-│  └─ FlowTime.Api.Tests/      # API slice tests
-├─ ui/
-│  ├─ FlowTime.UI/             # Blazor WASM SPA
-│  └─ FlowTime.UI.Tests/       # UI tests (early)
-├─ FlowTime.sln
-└─ README.md
-```
-
-Planned future roots (not yet or partially present):
-
-```
-adapters/                     # Synthetic + telemetry adapters (SYN milestones)
-infra/                        # Deployment & IaC
-.github/workflows/            # CI/CD workflows
-storage/                      # Pluggable storage providers
+flowtime-vnext/
+├─ src/FlowTime.API/              # HTTP API with health monitoring
+├─ src/FlowTime.Core/             # Engine (grid, graph, nodes)
+├─ src/FlowTime.Cli/              # CLI driver
+├─ ui/FlowTime.UI/                # Blazor WASM SPA
+├─ tests/                         # Core + API tests
+├─ docs/                          # Roadmap, contracts, schemas, concepts
+├─ examples/hello/                # Sample model
+└─ FlowTime.sln
 ```
 
 ---
@@ -172,8 +167,6 @@ Bash equivalent:
 head -n 5 out/hello/served.csv
 ```
 
-> API/UI are not part of M0. They’ll arrive as Functions (+ SPA) in later milestones.
-
 ## Running and calling the API
 
 You can run the minimal API locally from this repo and call it over HTTP.
@@ -202,8 +195,8 @@ outputs:
     as: served.csv
 YAML
 
-curl -s -X POST http://flowtime-api:8080/run \
-  -H "Content-Type: application/yaml" \
+curl -s -X POST http://localhost:8080/v1/run \
+  -H "Content-Type: text/plain" \
   --data-binary @/tmp/model.yaml | jq .
 ```
 
@@ -214,225 +207,47 @@ FlowTime uses the same YAML model format as [FlowTime-Sim](https://github.com/23
 - **FlowTime**: Always deterministic - ignores `seed` and `rng` fields if present
 - **FlowTime-Sim**: Requires `seed` and `rng` fields for deterministic synthetic data generation
 
-This means you can share models between both engines, but only FlowTime-Sim uses randomness fields for stochastic simulation. See [Model Schema Documentation](docs/concepts/nodes-and-expressions.md#model-yaml-schema-flowtime-vs-flowtime-sim) for details.
+This means you can share models between both engines.
 
-Tip (VS Code): use the preconfigured tasks
+## Current status
 
-```text
-Terminal > Run Task...
-  - build         # runs dotnet build
-  - test          # runs dotnet test
-  - run: hello    # runs the CLI against examples/hello/model.yaml (writes out/hello)
-```
+| Milestone | Description | Status |
+|-----------|-------------|--------|
+| **M0** | Minimal deterministic engine with CLI and CSV export | ✅ Completed |
+| **M1** | Contracts parity with structured artifacts and schema validation | ✅ Completed |
+| **SVC-M0** | HTTP API with `/run`, `/graph`, `/healthz` endpoints | ✅ Completed |
+| **SVC-M1** | Artifact serving API with run data access endpoints | ✅ Completed |
+| **SYN-M0** | Synthetic adapter for reading FlowTime-Sim and CLI artifacts | ✅ Completed |
+| **UI-M0** | Blazor WASM SPA with API integration and simulation mode | ✅ Completed |
+| **UI-M1** | Template-based simulation runner with dynamic forms | ✅ Completed |
+| **UI-M2** | Health monitoring, API versioning, and real API integration | ✅ Completed |
 
-### Configuration & secrets
+## Usage
 
-### Run the UI (Blazor WASM demo + simulation mode)
-
-The UI lets you invoke `/healthz`, `/run`, and `/graph` using a unified `IRunClient` abstraction that can point at the real API or an in‑browser deterministic simulation.
-
-1. (Optional) Start the API locally (`http://localhost:8080`).
-2. Build once:
-  ```powershell
-  dotnet build
-  ```
-3. Run the UI:
-  ```powershell
-  # Default development port (5219)
-  dotnet run --project ui/FlowTime.UI
-  
-  # Or specify a custom port (recommended: 3000 for containers)
-  dotnet run --project ui/FlowTime.UI --urls http://localhost:3000
-  ```
-4. Open the printed URL and go to the API Demo page.
-5. Toggle the Sim/API switch in the top bar to swap between real network calls and synthetic instant results. Persisted in `localStorage` (or force with `?sim=1`).
-
-#### UI Port Configuration
-- **Development**: Default port 5219 (configured in `launchSettings.json`)
-- **Production/Containers**: Recommended port 3000 (use `--urls` flag or `ASPNETCORE_URLS` environment variable)
-- **Documentation**: See `docs/UI.md` for detailed port configuration options
-
-Features:
-* Sample YAML model (const + expression node).
-* Health / Run / Graph buttons with spinners and timeouts (8s health, 12s run/graph).
-* Snackbar errors; no silent fallbacks.
-* Unified run output: `GraphRunResult { bins, binMinutes, order, series }`.
-* NEW: Structural graph view (no series) via `GraphStructureResult { order, nodes[] }` showing:
-  * Topological order index (#)
-  * Each node's direct inputs (fan‑in)
-  * Computed in/out degree, role chips (Source, Sink, Internal)
-  * Aggregate stats (sources, sinks, max fan‑out)
-* Simulation toggle (API vs deterministic in‑browser model) persisted in `localStorage` (override with `?sim=1` / `?sim=0`).
-
-Hot reload:
-```powershell
-dotnet watch --project ui/FlowTime.UI run
-```
-
-Troubleshooting:
-* 400 on Run: usually indentation—use provided sample YAML.
-* API down? Switch to Sim mode to keep exploring.
-* Timeouts surface as snackbar errors; check network/devtools.
-
-Planned next: editable YAML textarea + persistence, charts, visual DAG, richer node kinds.
-
-Structural graph vs run:
-
-* Use **Run** when you want numeric time‑series for output nodes (series data is returned).
-* Use **Graph** to validate model topology quickly (order, dependencies) before costly future features (visualization, large scenarios).
-
-See also: [Capability Matrix](docs/capability-matrix.md) and [Node Concepts](docs/concepts/nodes-and-expressions.md).
-
-Not applicable for M0 CLI runs. Future backend + SPA will use environment configuration and optional secret stores (e.g., Key Vault) as needed.
-
-### Calling the API from another container
-
-If you want to call FlowTime.API from a sibling container (e.g., flowtime-sim), join both to a shared Docker network and use `http://flowtime-api:8080`. Details and curl examples in `docs/devcontainer.md`.
-
-### Storage
-
-* **CSV** is first-class (models + outputs).
-* **Blob storage** is optional and opt‑in for persisting runs/artifacts.
-* **Later**: plug in **ADLS Gen2** or **S3** via the storage abstraction.
-
-### Real‑time
-
-Planned: **WebSocket pub/sub** with a **negotiate** step; alternatives like **SignalR** or **SSE** can fit behind an interface.
-
-### CLI reference (M1)
+### CLI
 
 ```bash
-# Evaluate a YAML model and generate M1 artifact set (run.json, manifest.json, series CSVs, etc.)
+# Evaluate a YAML model and generate artifact set
 dotnet run --project src/FlowTime.Cli -- run <path/to/model.yaml> --out out/<name> --verbose
 
-# M1 Options
+# Options
 # --out out/run1                    # output directory
 # --verbose                         # print evaluation summary + schema validation results
 # --deterministic-run-id            # stable runId for testing/CI (based on scenario hash)
 # --seed 42                         # RNG seed for reproducible results
-# --via-api http://localhost:7071   # route via API for parity testing (when available)
 ```
-
-**M1 Output Structure:**
-```
-out/<name>/<runId>/
-├── spec.yaml                           # original model (normalized)
-├── run.json                            # run summary with series listing
-├── manifest.json                       # hashes, RNG seed, integrity metadata  
-├── series/
-│   ├── index.json                      # series discovery & metadata
-│   └── served@SERVED@DEFAULT.csv       # per-series data files
-└── gold/                               # placeholder for analytics tables
-```
-
-Features:
-* **Canonical hashing**: SHA-256 for scenarios and per-series data
-* **Schema validation**: Automatic validation against JSON Schema files
-* **Determinism**: Reproducible artifacts for CI/testing with `--deterministic-run-id` + `--seed`
-* **SeriesId format**: `measure@componentId@class` per contracts specification
-
----
-
-## Milestone M0 scope ✅ COMPLETED
-
-Minimal useful slice implemented:
-
-* Canonical grid and numeric Series types.
-* DAG execution with **topological ordering** and **cycle detection**.
-* Minimal node set: **constant series** and **binary Add/Mul** (supports scalar RHS).
-* YAML → **evaluate** → **CSV export** via CLI.
-* Tiny sample model (`examples/hello`) and unit tests.
-
-## Milestone M1 scope ✅ COMPLETED  
-
-**Contracts Parity** - Complete artifact generation system:
-
-* **Structured artifacts**: `spec.yaml`, `run.json`, `manifest.json`, `series/index.json`, per-series CSVs
-* **Canonical hashing**: SHA-256 for scenario/model and per-series data with YAML normalization
-* **Schema validation**: JSON Schema validation for all artifact formats
-* **Determinism**: `--deterministic-run-id` and `--seed` flags for reproducible CI/testing
-* **SeriesId format**: `measure@componentId@class` specification compliance
-
-Deferred to next milestones: backlog/queues, routing, autoscale; backend; SPA viewer; extended nodes (shift/resample/delay).
-
----
-
-## What’s next (milestone ladder)
-
-A high‑level view of upcoming work (details live in `docs/ROADMAP.md`):
-
-* **M1 — Contracts Parity**: artifact freeze (`spec.yaml`, `run.json` w/ `source` & expanded `grid`, `manifest.json` w/ `rng` object, `series/index.json` + per‑series hashes, placeholder `gold/`) + deterministic formatting & hashing.
-* **M1.5 — Expressions**: parser + references + basic built‑ins (unblocks richer nodes & PMF composition).
-* **M2 — PMF (expected value)**: basic PMF nodes with normalization warnings.
-* **M3 — (reserved / potential hygiene)**: may absorb overflow from earlier milestones.
-* **M7 — Backlog & latency**: queued later (single queue + Little's Law latency) per current roadmap.
-* Further milestones: routing/capacity, scenarios/compare, synthetic adapters, backlog extensions, uncertainty (see full `docs/ROADMAP.md`).
-
-> Note: Ordering locks artifact contracts (M1) before expanding modeling surface (Expressions at M1.5) to avoid churn across CLI/API/UI/adapters.
-
-> Track progress and comment on prioritization in **`docs/ROADMAP.md`**.
-
----
-
-## CI/CD & deployment
-
-**Local-first**: use the CLI. CI workflows and code scanning can be added under `.github/workflows/`.
-
-**Cloud (optional, later)**
-
-* Any static host for the SPA + any app host/serverless for the backend.
-* Secret/config management via your platform’s secret store (e.g., Key Vault + App Config if you deploy on Azure).
-
----
-
-## Data & formats
-
-**CSV outputs** use a simple, culture‑invariant, human‑readable schema per series (example). Beginning with Contracts Parity (M1) each run also emits a set of deterministic artifacts under `runs/<runId>/`:
-
-```
-runs/<runId>/
-  spec.yaml              # canonicalized copy of the submitted model (for hashing)
-  run.json               # run metadata (schemaVersion, runId, engineVersion, source, grid{bins,binMinutes,timezone,align}, scenarioHash, modelHash?, warnings[], series[], events{schemaVersion,fieldsReserved[]})
-  manifest.json          # manifest (schemaVersion, scenarioHash, rng{kind,seed}, seriesHashes{}, eventCount, createdUtc, modelHash optional)
-  series/
-    index.json           # series metadata (ids, kind, unit, componentId, class, points, hash, formats.goldTable placeholder)
-    <series>.csv         # per-series time series (t,value)
-  events.ndjson          # (placeholder for future structured events)
-  gold/                  # (placeholder directory for normalized “gold table” view)
-```
-
-Determinism rules (enforced progressively through M1):
-* Canonical YAML hashing: strip comments, normalize line endings (LF), trim trailing whitespace, collapse blank line runs, key-order insensitive.
-* Hashes: SHA‑256 prefixed `sha256:` for model/scenario and per-series content (raw CSV bytes, LF newlines, invariant `G17` formatting for doubles).
-* Stable ordering: series entries listed in deterministic order (e.g., lexical by id) so `index.json` diff noise is avoided.
-
-```
-t,value
-0,12.5
-1,13.1
-2,15.0
-```
-
-Where `t` is the **bin index** (aligned to the model’s canonical grid). Run/series metadata (grid, hashes, RNG, units, warnings) lives in the JSON companions above to keep CSV lean and diff‑friendly.
-
-## Artifacts (M1 Contracts Parity)
-
-FlowTime emits a deterministic artifact set. Field-level definitions live in [docs/contracts.md](docs/contracts.md). Schemas:
-* [run.schema.json](docs/schemas/run.schema.json)
-* [manifest.schema.json](docs/schemas/manifest.schema.json)
-* [series-index.schema.json](docs/schemas/series-index.schema.json)
-
-See milestone status in [docs/ROADMAP.md](docs/ROADMAP.md). `schemaVersion=1` changes are additive-only; breaking changes will bump the version.
-
----
 
 ## Docs & roadmap
 
-* **Roadmap**: see [`docs/ROADMAP.md`](docs/ROADMAP.md).
-* **Release notes**: see `docs/releases/` (e.g., [`docs/releases/M0.md`](docs/releases/M0.md)). Consider tagging GitHub Releases that link to these notes.
-* **Concepts**: see [Nodes, expressions, and execution](docs/concepts/nodes-and-expressions.md) for how models compile to node graphs and run deterministically.
-
----
+- **CLI Guide**: [`docs/CLI.md`](docs/CLI.md) - Complete command-line usage and examples
+- **UI Documentation**: [`docs/UI.md`](docs/UI.md) - UI setup, configuration, and usage
+- **Deployment Guide**: [`docs/deployment.md`](docs/deployment.md) - Production deployment options
+- **Roadmap**: [`docs/ROADMAP.md`](docs/ROADMAP.md) - Project roadmap and milestone tracking
+- **Development Setup**: [`docs/development-setup.md`](docs/development-setup.md) - Development environment setup
+- **Configuration**: [`docs/configuration.md`](docs/configuration.md) - Configuration reference
+- **Testing Strategy**: [`docs/testing.md`](docs/testing.md) - Testing approach and guidelines
+- **Concepts**: [`docs/concepts/nodes-and-expressions.md`](docs/concepts/nodes-and-expressions.md) - Core modeling concepts
+- **Contracts**: [`docs/contracts.md`](docs/contracts.md) - API contracts and specifications
 
 ## Contributing
 
@@ -443,16 +258,7 @@ We welcome issues and PRs.
 3. Follow Conventional Commits (`feat:`, `fix:`, `docs:`, ...).
 4. For larger changes, open an issue first to align on direction.
 
-> Be kind and constructive. A `CODE_OF_CONDUCT.md` may be added; until then, treat others with respect.
-
----
-
 ## License
 
 **MIT** — permissive and simple. See [`LICENSE`](LICENSE).
 
----
-
-## Trademark
-
-**FlowTime** and the associated word mark are claimed by the project owner. You may reference FlowTime factually, but please avoid implying endorsement. For brand questions, contact the owner.

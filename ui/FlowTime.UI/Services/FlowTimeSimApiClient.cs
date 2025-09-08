@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json;
 
 namespace FlowTime.UI.Services;
 
@@ -9,24 +10,27 @@ public interface IFlowTimeSimApiClient
     Task<Result<Stream>> GetSeriesAsync(string runId, string seriesId, CancellationToken ct = default);
     Task<Result<List<ScenarioInfo>>> GetScenariosAsync(CancellationToken ct = default);
     Task<Result<bool>> HealthAsync(CancellationToken ct = default);
+    Task<Result<object>> GetDetailedHealthAsync(CancellationToken ct = default);
 }
 
 public class FlowTimeSimApiClient : IFlowTimeSimApiClient
 {
     private readonly HttpClient _httpClient;
     private readonly ILogger<FlowTimeSimApiClient> _logger;
+    private readonly string _apiVersion;
 
-    public FlowTimeSimApiClient(HttpClient httpClient, ILogger<FlowTimeSimApiClient> logger)
+    public FlowTimeSimApiClient(HttpClient httpClient, ILogger<FlowTimeSimApiClient> logger, string apiVersion = "v1")
     {
         _httpClient = httpClient;
         _logger = logger;
+        _apiVersion = apiVersion;
     }
 
     public async Task<Result<bool>> HealthAsync(CancellationToken ct = default)
     {
         try
         {
-            var response = await _httpClient.GetAsync("/healthz", ct);
+            var response = await _httpClient.GetAsync($"/{_apiVersion}/healthz", ct);
             return response.IsSuccessStatusCode 
                 ? Result<bool>.Ok(true, (int)response.StatusCode)
                 : Result<bool>.Fail($"Health check failed: {response.StatusCode}", (int)response.StatusCode);
@@ -38,12 +42,46 @@ public class FlowTimeSimApiClient : IFlowTimeSimApiClient
         }
     }
 
+    public async Task<Result<object>> GetDetailedHealthAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync($"/{_apiVersion}/healthz", ct);
+            response.EnsureSuccessStatusCode();
+            
+            var content = await response.Content.ReadAsStringAsync(ct);
+            
+            // Try to parse as detailed health response first
+            try
+            {
+                var detailedHealth = JsonSerializer.Deserialize<DetailedHealthResponse>(content, new JsonSerializerOptions 
+                { 
+                    PropertyNameCaseInsensitive = true 
+                });
+                return new Result<object>(true, detailedHealth, null, (int)response.StatusCode);
+            }
+            catch
+            {
+                // Fall back to simple health response
+                var simpleHealth = JsonSerializer.Deserialize<SimpleHealthResponse>(content, new JsonSerializerOptions 
+                { 
+                    PropertyNameCaseInsensitive = true 
+                });
+                return new Result<object>(true, simpleHealth, null, (int)response.StatusCode);
+            }
+        }
+        catch (Exception ex)
+        {
+            return new Result<object>(false, null, $"Failed to get detailed health: {ex.Message}");
+        }
+    }
+
     public async Task<Result<SimRunResponse>> RunAsync(string yaml, CancellationToken ct = default)
     {
         try
         {
             var content = new StringContent(yaml, Encoding.UTF8, "text/plain");
-            var response = await _httpClient.PostAsync("/sim/run", content, ct);
+            var response = await _httpClient.PostAsync($"/{_apiVersion}/sim/run", content, ct);
             
             if (!response.IsSuccessStatusCode)
             {
@@ -72,7 +110,7 @@ public class FlowTimeSimApiClient : IFlowTimeSimApiClient
     {
         try
         {
-            var response = await _httpClient.GetAsync($"/sim/runs/{runId}/index", ct);
+            var response = await _httpClient.GetAsync($"/{_apiVersion}/sim/runs/{runId}/index", ct);
             
             if (!response.IsSuccessStatusCode)
             {
@@ -101,7 +139,7 @@ public class FlowTimeSimApiClient : IFlowTimeSimApiClient
     {
         try
         {
-            var response = await _httpClient.GetAsync($"/sim/runs/{runId}/series/{seriesId}", ct);
+            var response = await _httpClient.GetAsync($"/{_apiVersion}/sim/runs/{runId}/series/{seriesId}", ct);
             
             if (!response.IsSuccessStatusCode)
             {
@@ -123,7 +161,7 @@ public class FlowTimeSimApiClient : IFlowTimeSimApiClient
     {
         try
         {
-            var response = await _httpClient.GetAsync("/sim/scenarios", ct);
+            var response = await _httpClient.GetAsync($"/{_apiVersion}/sim/scenarios", ct);
             
             if (!response.IsSuccessStatusCode)
             {

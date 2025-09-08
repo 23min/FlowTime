@@ -41,7 +41,7 @@ public class ParityTests : IClassFixture<WebApplicationFactory<Program>>
 
 		// Act: call API
 		var client = factory.CreateClient();
-		var resp = await client.PostAsync("/run", new StringContent(yaml, Encoding.UTF8, "text/plain"));
+		var resp = await client.PostAsync("/v1/run", new StringContent(yaml, Encoding.UTF8, "text/plain"));
 		if (!resp.IsSuccessStatusCode)
 		{
 			var body = await resp.Content.ReadAsStringAsync();

@@ -19,11 +19,13 @@ public class ServiceInfoProvider : IServiceInfoProvider
 {
     private readonly DateTime _startTime;
     private readonly IWebHostEnvironment _environment;
+    private readonly IConfiguration _configuration;
 
-    public ServiceInfoProvider(IWebHostEnvironment environment)
+    public ServiceInfoProvider(IWebHostEnvironment environment, IConfiguration configuration)
     {
         _startTime = DateTime.UtcNow;
         _environment = environment;
+        _configuration = configuration;
     }
 
     public ServiceInfo GetServiceInfo()
@@ -66,7 +68,17 @@ public class ServiceInfoProvider : IServiceInfoProvider
             },
             Status = "healthy",
             StartTime = _startTime,
-            Uptime = DateTime.UtcNow - _startTime
+            Uptime = DateTime.UtcNow - _startTime,
+            Health = new HealthInfo
+            {
+                Status = "healthy",
+                LastCheckTime = DateTime.UtcNow,
+                Details = new HealthDetails
+                {
+                    DataDirectory = GetDataDirectory(),
+                    RunsDirectory = GetRunsDirectory()
+                }
+            }
         };
     }
 
@@ -102,5 +114,32 @@ public class ServiceInfoProvider : IServiceInfoProvider
         }
 
         return null;
+    }
+
+    private string GetDataDirectory()
+    {
+        // Use the same logic as the GetArtifactsDirectory method in Program.cs
+        // 1. Environment variable has highest precedence
+        var envVar = Environment.GetEnvironmentVariable("FLOWTIME_DATA_DIR");
+        if (!string.IsNullOrWhiteSpace(envVar))
+        {
+            return envVar;
+        }
+        
+        // 2. Configuration setting (appsettings.json, etc.)
+        var configValue = _configuration.GetValue<string>("ArtifactsDirectory");
+        if (!string.IsNullOrWhiteSpace(configValue))
+        {
+            return configValue;
+        }
+        
+        // 3. Default to ./data
+        return Path.Combine(Directory.GetCurrentDirectory(), "data");
+    }
+
+    private string GetRunsDirectory()
+    {
+        // FlowTime API stores runs directly in the data directory with run_ prefix
+        return GetDataDirectory();
     }
 }

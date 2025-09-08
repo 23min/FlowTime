@@ -5,9 +5,6 @@ nodes:
   - id: demand
     kind: const
     values: [10, 20, 30]
-  - id: capacity
-    kind: const
-    values: [25, 25, 25]
-  - id: flow
+  - id: served
     kind: expr
-    expression: min(demand, capacity)
+    expr: "demand * 0.8"

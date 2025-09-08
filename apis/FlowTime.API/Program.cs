@@ -1,7 +1,6 @@
 using System.Text;
 using FlowTime.Core;
 using FlowTime.Adapters.Synthetic;
-using FlowTime.API.Models;
 using FlowTime.API.Services;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
@@ -12,7 +11,6 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Services
 builder.Services.AddOpenApi();
-builder.Services.AddSingleton<IServiceInfoProvider, ServiceInfoProvider>();
 builder.Services.AddHttpLogging(o =>
 {
     o.LoggingFields =
@@ -33,6 +31,9 @@ builder.Logging.AddSimpleConsole(options =>
 // Permissive CORS for local dev (UI runs on separate origin). Tighten in later milestones.
 builder.Services.AddCors(p => p.AddDefaultPolicy(policy =>
     policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
+
+// Register services
+builder.Services.AddSingleton<IServiceInfoProvider, ServiceInfoProvider>();
 
 var app = builder.Build();
 
@@ -71,21 +72,99 @@ app.Use(async (ctx, next) =>
     }
 });
 
-// Health endpoints
-app.MapGet("/healthz", () => Results.Ok(new { status = "ok" }));
-
-// Enhanced health endpoint with service information
-app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider) =>
+// Health endpoints - simple and enhanced
+app.MapGet("/healthz", (HttpContext context, IConfiguration config) =>
 {
-    var serviceInfo = serviceInfoProvider.GetServiceInfo();
-    return Results.Ok(serviceInfo);
+    // Check for detailed health parameter
+    var includeDetails = context.Request.Query.ContainsKey("detailed") || 
+                        context.Request.Query.ContainsKey("include-details");
+    
+    if (includeDetails)
+    {
+        // Enhanced but simple health response with only factual information
+        var process = System.Diagnostics.Process.GetCurrentProcess();
+        var assembly = System.Reflection.Assembly.GetExecutingAssembly();
+        var serviceName = assembly.GetName().Name ?? "FlowTime.API";
+        var version = assembly.GetName().Version?.ToString(3) ?? "1.0.0";
+        
+        return Results.Ok(new
+        {
+            status = "ok",
+            service = serviceName,
+            version = version,
+            timestamp = DateTime.UtcNow,
+            uptime = DateTime.UtcNow - process.StartTime,
+            environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Development",
+            system = new
+            {
+                workingSetMB = Math.Round(process.WorkingSet64 / 1024.0 / 1024.0, 1),
+                platform = Environment.OSVersion.Platform.ToString(),
+                architecture = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture.ToString()
+            },
+            availableEndpoints = new[]
+            {
+                "/healthz",
+                "/v1/healthz", 
+                "/run",
+                "/v1/run",
+                "/graph",
+                "/v1/graph"
+            }
+        });
+    }
+    else
+    {
+        // Legacy basic response
+        return Results.Ok(new { status = "ok" });
+    }
 });
 
-// V1 API Group
-var v1 = app.MapGroup("/v1");
+// Enhanced health endpoint with service information (v1)
+app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext context, IConfiguration config) =>
+{
+    // Check for detailed health parameter
+    var includeDetails = context.Request.Query.ContainsKey("detailed") || 
+                        context.Request.Query.ContainsKey("include-details");
+    
+    if (includeDetails)
+    {
+        // Enhanced but simple health response with only factual information
+        var process = System.Diagnostics.Process.GetCurrentProcess();
+        return Results.Ok(new
+        {
+            status = "ok",
+            service = "FlowTime.API",
+            version = "1.0.0",
+            timestamp = DateTime.UtcNow,
+            uptime = DateTime.UtcNow - process.StartTime,
+            environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Development",
+            system = new
+            {
+                workingSetMB = Math.Round(process.WorkingSet64 / 1024.0 / 1024.0, 1),
+                platform = Environment.OSVersion.Platform.ToString(),
+                architecture = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture.ToString()
+            },
+            availableEndpoints = new[]
+            {
+                "/healthz",
+                "/v1/healthz", 
+                "/run",
+                "/v1/run",
+                "/graph",
+                "/v1/graph"
+            }
+        });
+    }
+    else
+    {
+        // Standard v1 health with service info
+        var serviceInfo = serviceInfoProvider.GetServiceInfo();
+        return Results.Ok(serviceInfo);
+    }
+});
 
-// V1: POST /v1/run — body: YAML model
-v1.MapPost("/run", async (HttpRequest req, ILogger<Program> logger) =>
+// POST /run — body: YAML model
+app.MapPost("/run", async (HttpRequest req, ILogger<Program> logger) =>
 {
     string yaml = string.Empty;
     try
@@ -141,42 +220,12 @@ v1.MapPost("/run", async (HttpRequest req, ILogger<Program> logger) =>
         var order = graph.TopologicalOrder();
         var ctx = graph.Evaluate(grid);
 
-        // Build artifacts using shared writer
-        var artifactsDir = Program.GetArtifactsDirectory(app.Configuration);
-        Directory.CreateDirectory(artifactsDir);
-        
-        // Create context dictionary for artifact writer
-        var artifactContext = new Dictionary<NodeId, double[]>();
-        foreach (var (nodeId, seriesData) in ctx)
-        {
-            artifactContext[nodeId] = seriesData.ToArray();
-        }
-
-        // Use shared artifact writer
-        var writeRequest = new FlowTime.Core.Artifacts.RunArtifactWriter.WriteRequest
-        {
-            Model = model,
-            Grid = grid,
-            Context = artifactContext,
-            SpecText = yaml,
-            RngSeed = null, // API doesn't support seed parameter yet
-            StartTimeBias = null,
-            DeterministicRunId = false,
-            OutputDirectory = artifactsDir,
-            Verbose = false
-        };
-
-        var artifactResult = await FlowTime.Core.Artifacts.RunArtifactWriter.WriteArtifactsAsync(writeRequest);
-        logger.LogInformation("Created artifacts at {RunDirectory}", artifactResult.RunDirectory);
-
         var series = order.ToDictionary(id => id.Value, id => ctx[id].ToArray());
         var response = new
         {
             grid = new { bins = grid.Bins, binMinutes = grid.BinMinutes },
             order = order.Select(o => o.Value).ToArray(),
-            series,
-            runId = artifactResult.RunId,
-            artifactsPath = artifactResult.RunDirectory
+            series
         };
         return Results.Ok(response);
     }
@@ -186,8 +235,10 @@ v1.MapPost("/run", async (HttpRequest req, ILogger<Program> logger) =>
         return Results.BadRequest(new { error = ex.Message });
     }
 });
-// V1: POST /v1/graph — returns nodes and edges (inputs)
-v1.MapPost("/graph", async (HttpRequest req, ILogger<Program> logger) =>
+
+// POST /graph — returns nodes and edges (inputs)
+// TODO: Add GET /models/{id}/graph when models become server resources; keep POST for body-supplied YAML in M0.
+app.MapPost("/graph", async (HttpRequest req, ILogger<Program> logger) =>
 {
     string yaml = string.Empty;
     try
@@ -247,12 +298,15 @@ v1.MapPost("/graph", async (HttpRequest req, ILogger<Program> logger) =>
     }
 });
 
-// V1: Artifact endpoints
-v1.MapGet("/runs/{runId}/index", async (string runId, ILogger<Program> logger) =>
+// SVC-M1: Artifact endpoints
+// Configure the artifacts directory (where CLI writes output)
+var artifactsDirectory = builder.Configuration.GetValue<string>("ArtifactsDirectory") ?? "out";
+
+// GET /runs/{runId}/index — returns series/index.json
+app.MapGet("/runs/{runId}/index", async (string runId, ILogger<Program> logger) =>
 {
     try
     {
-        var artifactsDirectory = Program.GetArtifactsDirectory(builder.Configuration);
         var reader = new FileSeriesReader();
         var runPath = Path.Combine(artifactsDirectory, runId);
         
@@ -273,11 +327,11 @@ v1.MapGet("/runs/{runId}/index", async (string runId, ILogger<Program> logger) =
     }
 });
 
-v1.MapGet("/runs/{runId}/series/{seriesId}", async (string runId, string seriesId, ILogger<Program> logger) =>
+// GET /runs/{runId}/series/{seriesId} — streams CSV content
+app.MapGet("/runs/{runId}/series/{seriesId}", async (string runId, string seriesId, ILogger<Program> logger) =>
 {
     try
     {
-        var artifactsDirectory = Program.GetArtifactsDirectory(builder.Configuration);
         var reader = new FileSeriesReader();
         var runPath = Path.Combine(artifactsDirectory, runId);
         
@@ -286,34 +340,12 @@ v1.MapGet("/runs/{runId}/series/{seriesId}", async (string runId, string seriesI
             return Results.NotFound(new { error = $"Run {runId} not found" });
         }
 
-        // First try exact match
-        string actualSeriesId = seriesId;
         if (!reader.SeriesExists(runPath, seriesId))
         {
-            // Try to find matching series by simple name (e.g., "demand" -> "demand@DEMAND@DEFAULT")
-            try
-            {
-                var adapter = new RunArtifactAdapter(reader, runPath);
-                var index = await adapter.GetIndexAsync();
-                var matchingSeries = index.Series.FirstOrDefault(s => s.Id.StartsWith(seriesId + "@"));
-                
-                if (matchingSeries != null)
-                {
-                    actualSeriesId = matchingSeries.Id;
-                }
-                else
-                {
-                    return Results.NotFound(new { error = $"Series {seriesId} not found in run {runId}" });
-                }
-            }
-            catch (FileNotFoundException)
-            {
-                // No index.json means no series exist for this run
-                return Results.NotFound(new { error = $"Series {seriesId} not found in run {runId}" });
-            }
+            return Results.NotFound(new { error = $"Series {seriesId} not found in run {runId}" });
         }
 
-        var series = await reader.ReadSeriesAsync(runPath, actualSeriesId);
+        var series = await reader.ReadSeriesAsync(runPath, seriesId);
         
         // Convert Series to CSV string
         var csv = new StringBuilder();
@@ -332,7 +364,6 @@ v1.MapGet("/runs/{runId}/series/{seriesId}", async (string runId, string seriesI
         return Results.Problem($"Failed to read series: {ex.Message}");
     }
 });
-
 
 app.Run();
 
@@ -366,28 +397,4 @@ public sealed class OutputDto
 }
 
 // Allow WebApplicationFactory to reference the entry point for integration tests
-public partial class Program 
-{ 
-    /// <summary>
-    /// Get the artifacts directory with proper precedence: Environment Variable > Configuration > Default
-    /// </summary>
-    public static string GetArtifactsDirectory(IConfiguration configuration)
-    {
-        // 1. Environment variable has highest precedence
-        var envVar = Environment.GetEnvironmentVariable("FLOWTIME_DATA_DIR");
-        if (!string.IsNullOrWhiteSpace(envVar))
-        {
-            return envVar;
-        }
-        
-        // 2. Configuration setting (appsettings.json, etc.)
-        var configValue = configuration.GetValue<string>("ArtifactsDirectory");
-        if (!string.IsNullOrWhiteSpace(configValue))
-        {
-            return configValue;
-        }
-        
-        // 3. Default to ./data
-        return Path.Combine(Directory.GetCurrentDirectory(), "data");
-    }
-}
+public partial class Program { }

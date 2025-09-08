@@ -13,6 +13,7 @@
       "**/bin": true,
       "**/obj": true
     },
-    "powershell.cwd": "flowtime-vnext"
+    "powershell.cwd": "flowtime-vnext",
+    "dotnet.defaultSolution": "flowtime-vnext/FlowTime.sln"
   }
 }
