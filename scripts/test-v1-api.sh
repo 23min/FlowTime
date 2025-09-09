@@ -4,7 +4,7 @@ echo "Testing FlowTime-Sim v1 API..."
 
 # Start the service in background
 echo "Starting FlowTime-Sim service on port 8081..."
-cd /workspaces/flowtime/flowtime-sim-vnext
+cd /workspaces/flowtime-sim-vnext
 dotnet run --project src/FlowTime.Sim.Service --urls http://localhost:8081 &
 SERVICE_PID=$!
 

@@ -12,7 +12,7 @@ echo "   Data directory: $FLOWTIME_SIM_DATA_DIR"
 
 echo ""
 echo "2. Testing ServiceHelpers directly..."
-cd /workspaces/flowtime/flowtime-sim-vnext
+cd /workspaces/flowtime-sim-vnext
 
 # Create a simple test spec
 echo "version: 1

@@ -4,7 +4,7 @@ echo "Testing FlowTime.Sim Catalogs API..."
 echo "Starting service..."
 
 # Start the service in background
-cd /workspaces/flowtime/flowtime-sim-vnext
+cd /workspaces/flowtime-sim-vnext
 dotnet run --project src/FlowTime.Sim.Service &
 SERVICE_PID=$!
 

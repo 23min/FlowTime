@@ -10,9 +10,12 @@
     }
   ],
   "settings": {
+    "git.autoRepositoryDetection": "openEditors",
     "files.exclude": {
       "**/bin": true,
       "**/obj": true
-    }
+    },
+    "powershell.cwd": "flowtime-sim-vnext",
+    "dotnet.defaultSolution": "flowtime-sim-vnext/FlowTimeSim.sln"
   }
 }

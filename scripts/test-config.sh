@@ -7,7 +7,7 @@ echo "=== FlowTime.Sim Configuration Test ==="
 # Test 1: Check CLI behavior with environment variable
 echo ""
 echo "1. Testing CLI with environment variable override..."
-cd /workspaces/flowtime/flowtime-sim-vnext
+cd /workspaces/flowtime-sim-vnext
 
 # Clean up any existing test data
 rm -rf /tmp/flowtime-test
@@ -34,7 +34,7 @@ unset FLOWTIME_SIM_RUNS_ROOT
 # Test 2: Check default behavior (should use ./data when running from service directory)
 echo ""
 echo "2. Testing Service directory default behavior..."
-cd /workspaces/flowtime/flowtime-sim-vnext/src/FlowTime.Sim.Service
+cd /workspaces/flowtime-sim-vnext/src/FlowTime.Sim.Service
 
 # Clean up
 rm -rf ./data
@@ -90,7 +90,7 @@ fi
 rm -f TestConfig.cs
 rm -rf ./data
 
-cd /workspaces/flowtime/flowtime-sim-vnext
+cd /workspaces/flowtime-sim-vnext
 
 echo ""
 echo "=== Configuration Test Complete ==="

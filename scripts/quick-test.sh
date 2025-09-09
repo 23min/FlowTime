@@ -1,7 +1,7 @@
 #!/bin/bash
 echo "Testing FlowTime.Sim API..."
 
-cd /workspaces/flowtime/flowtime-sim-vnext
+cd /workspaces/flowtime-sim-vnext
 
 echo "Starting service..."
 dotnet run --project src/FlowTime.Sim.Service &

@@ -2,7 +2,7 @@
 
 echo "=== FlowTime-Sim v1 API Validation Test ==="
 
-cd /workspaces/flowtime/flowtime-sim-vnext
+cd /workspaces/flowtime-sim-vnext
 
 # Start service
 echo "Starting FlowTime-Sim service..."

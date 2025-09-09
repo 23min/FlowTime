@@ -17,7 +17,7 @@ echo "   FLOWTIME_SIM_CATALOGS_ROOT: $FLOWTIME_SIM_CATALOGS_ROOT (should be igno
 
 echo ""
 echo "2. Starting service - should use defaults, NOT legacy variables"
-cd /workspaces/flowtime/flowtime-sim-vnext
+cd /workspaces/flowtime-sim-vnext
 
 timeout 15s dotnet run --project src/FlowTime.Sim.Service &
 SERVICE_PID=$!

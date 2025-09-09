@@ -16,21 +16,21 @@ To avoid port conflicts and ensure stable development, each service has a dedica
 
 ### FlowTime API (Main Engine)
 ```bash
-cd /workspaces/flowtime/flowtime-vnext
+cd /workspaces/flowtime-vnext
 dotnet run --project apis/FlowTime.API
 # Runs on http://localhost:8080
 ```
 
 ### FlowTime.Sim API (Simulation)
 ```bash
-cd /workspaces/flowtime/flowtime-sim-vnext  
+cd /workspaces/flowtime-sim-vnext  
 dotnet run --project src/FlowTime.Sim.Service
 # Runs on http://localhost:8081
 ```
 
 ### FlowTime UI
 ```bash
-cd /workspaces/flowtime/flowtime-vnext/ui/FlowTime.UI
+cd /workspaces/flowtime-vnext/ui/FlowTime.UI
 dotnet run --project ui/FlowTime.UI
 # Runs on http://localhost:5219
 ```
@@ -52,7 +52,7 @@ export FLOWTIME_SIM_DATA_DIR="/var/lib/flowtime-sim"
 ```json
 {
   "FlowTimeSim": {
-    "DataDir": "/workspaces/flowtime/flowtime-sim-vnext/data"
+    "DataDir": "/workspaces/flowtime-sim-vnext/data"
   }
 }
 ```
@@ -63,10 +63,10 @@ export FLOWTIME_SIM_DATA_DIR="/var/lib/flowtime-sim"
 3. **Defaults**: `./data/runs` and `./data/catalogs`
 
 ### Development File Locations
-- **FlowTime data**: `/workspaces/flowtime/flowtime-vnext/data/`
-- **FlowTime.Sim data**: `/workspaces/flowtime/flowtime-sim-vnext/data/`
-  - **Runs**: `/workspaces/flowtime/flowtime-sim-vnext/data/runs/`
-  - **Catalogs**: `/workspaces/flowtime/flowtime-sim-vnext/data/catalogs/` (copied from source during startup)
+- **FlowTime data**: `/workspaces/flowtime-vnext/data/`
+- **FlowTime.Sim data**: `/workspaces/flowtime-sim-vnext/data/`
+  - **Runs**: `/workspaces/flowtime-sim-vnext/data/runs/`
+  - **Catalogs**: `/workspaces/flowtime-sim-vnext/data/catalogs/` (copied from source during startup)
 
 ### Catalog Management
 FlowTime.Sim uses a two-tier catalog system:

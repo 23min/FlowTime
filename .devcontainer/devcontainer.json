@@ -1,6 +1,12 @@
 {
   "name": "FlowTime-Sim Dev",
   "image": "mcr.microsoft.com/devcontainers/dotnet:9.0",
+  "workspaceFolder": "/workspaces/flowtime-sim-vnext",
+  "workspaceMount": "source=${localWorkspaceFolder}/..,target=/workspaces,type=bind,consistency=cached",
+  // Optional: also expose the sibling at a second path (not required since parent is mounted)
+  "mounts": [
+    "source=${localWorkspaceFolder}/../flowtime-vnext,target=/opt/flowtime-vnext,type=bind,consistency=cached,ro"
+  ],
   "features": {
     "ghcr.io/devcontainers/features/powershell:1": {},
     "ghcr.io/devcontainers/features/github-cli:1": {}
@@ -25,7 +31,6 @@
         "ms-dotnettools.csdevkit",
         "ms-dotnettools.csharp",
         "EditorConfig.EditorConfig",
-        "eamodio.gitlens",
         "github.vscode-github-actions",
         "mhutchie.git-graph",
         "redhat.vscode-yaml",
@@ -41,6 +46,9 @@
     "--network=flowtime-dev",
     "--name",
     "flowtime-sim"
+  ],
+    "forwardPorts": [
+    8081
   ],
   "containerEnv": {
     "FLOWTIME_API_BASEURL": "http://flowtime-api:8080"

@@ -2,7 +2,7 @@
 
 echo "=== FlowTime-Sim Health Check Testing ==="
 
-cd /workspaces/flowtime/flowtime-sim-vnext
+cd /workspaces/flowtime-sim-vnext
 
 # Start service
 echo "Starting FlowTime-Sim service..."

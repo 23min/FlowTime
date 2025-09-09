@@ -94,7 +94,7 @@ services:
 // appsettings.Development.json
 {
   "FlowTimeSim": {
-    "DataDir": "/workspaces/flowtime/flowtime-sim-vnext/data"
+    "DataDir": "/workspaces/flowtime-sim-vnext/data"
   }
 }
 ```

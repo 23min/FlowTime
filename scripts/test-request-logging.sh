@@ -2,7 +2,7 @@
 
 echo "=== Testing FlowTime-Sim Request Logging ==="
 
-cd /workspaces/flowtime/flowtime-sim-vnext
+cd /workspaces/flowtime-sim-vnext
 
 # Start service and capture logs
 echo "Starting FlowTime-Sim service with request logging..."

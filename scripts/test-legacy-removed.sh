@@ -4,7 +4,7 @@ echo "Testing that legacy endpoints are removed..."
 
 # Start the service in background
 echo "Starting FlowTime-Sim service on port 8082..."
-cd /workspaces/flowtime/flowtime-sim-vnext
+cd /workspaces/flowtime-sim-vnext
 dotnet run --project src/FlowTime.Sim.Service --urls http://localhost:8082 &
 SERVICE_PID=$!
 

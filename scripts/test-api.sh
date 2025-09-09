@@ -4,7 +4,7 @@
 echo "=== FlowTime.Sim API Test ==="
 
 # Change to the correct directory
-cd /workspaces/flowtime/flowtime-sim-vnext
+cd /workspaces/flowtime-sim-vnext
 
 echo "1. Checking current directory structure..."
 echo "Current directory: $(pwd)"

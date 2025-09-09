@@ -5,7 +5,7 @@ Write-Host "=== FlowTime.Sim Configuration Test ===" -ForegroundColor Green
 
 # Test 1: Check default behavior (should use ./data from configuration)
 Write-Host "`n1. Testing default configuration (Development environment)..." -ForegroundColor Yellow
-Push-Location "/workspaces/flowtime/flowtime-sim-vnext/src/FlowTime.Sim.Service"
+Push-Location "/workspaces/flowtime-sim-vnext/src/FlowTime.Sim.Service"
 
 # Clean up any existing test data
 Remove-Item -Path "./data" -Recurse -Force -ErrorAction SilentlyContinue
@@ -38,7 +38,7 @@ Pop-Location
 Write-Host "`n2. Testing environment variable override..." -ForegroundColor Yellow
 $env:FLOWTIME_SIM_RUNS_ROOT = "/tmp/flowtime-test"
 
-Push-Location "/workspaces/flowtime/flowtime-sim-vnext"
+Push-Location "/workspaces/flowtime-sim-vnext"
 
 # Clean up
 Remove-Item -Path "/tmp/flowtime-test" -Recurse -Force -ErrorAction SilentlyContinue

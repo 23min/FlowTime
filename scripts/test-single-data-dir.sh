@@ -29,7 +29,7 @@ EOF
 echo "Created test catalog at: $FLOWTIME_SIM_DATA_DIR/catalogs/test-catalog.yaml"
 
 # Start the service in background
-cd /workspaces/flowtime/flowtime-sim-vnext
+cd /workspaces/flowtime-sim-vnext
 dotnet run --project src/FlowTime.Sim.Service &
 SERVICE_PID=$!
 

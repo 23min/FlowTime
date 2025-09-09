@@ -12,14 +12,14 @@ echo "   Data directory: $FLOWTIME_SIM_DATA_DIR"
 
 # Create some test catalogs in the expected location
 mkdir -p "$FLOWTIME_SIM_DATA_DIR/catalogs"
-cp /workspaces/flowtime/flowtime-sim-vnext/catalogs/*.yaml "$FLOWTIME_SIM_DATA_DIR/catalogs/"
+cp /workspaces/flowtime-sim-vnext/catalogs/*.yaml "$FLOWTIME_SIM_DATA_DIR/catalogs/"
 
 echo "   Created catalogs in: $FLOWTIME_SIM_DATA_DIR/catalogs/"
 ls "$FLOWTIME_SIM_DATA_DIR/catalogs/"
 
 echo ""
 echo "2. Testing directory structure creation"
-cd /workspaces/flowtime/flowtime-sim-vnext
+cd /workspaces/flowtime-sim-vnext
 
 # Test the ServiceHelpers directly by running a quick CLI command
 echo "   Testing CLI with new data directory..."

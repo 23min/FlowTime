@@ -176,7 +176,7 @@ Example VS Code launch configuration for FlowTime.Sim Service:
   "args": ["run", "--project", "src/FlowTime.Sim.Service", "--urls", "http://0.0.0.0:8081"],
   "env": {
     "ASPNETCORE_ENVIRONMENT": "Development",
-    "FLOWTIME_SIM_DATA_DIR": "/workspaces/flowtime/flowtime-sim-vnext/data"
+    "FLOWTIME_SIM_DATA_DIR": "/workspaces/flowtime-sim-vnext/data"
   }
 }
 ```
