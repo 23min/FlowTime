@@ -1,231 +1,225 @@
-# FlowTime Sim Roadmap (v1.2, domain-neutral, SIM-Mx, API-enabled)
+# FlowTime Sim Roadmap (v2.0, Harmonized with Engine ↔ UI)
 
-> **Purpose:** Single source of truth with sequenced milestones (SIM-M0…SIM-M10+) spanning Core/Generators, **Service/API**, and artifacts. Each milestone states **Goal, Why, Inputs, Outputs, Code, CLI/API, Acceptance**.
-> **Scope:** FlowTime-Sim generates **synthetic events** and **Gold, bin-aligned series** compatible with FlowTime's contracts (**run.json** + **series/index.json** + per-series CSV/Parquet). It remains **domain-neutral**.
+> **Purpose:** Synchronized milestone plan ensuring lock-step development across Engine ↔ Sim ↔ UI with artifact-first contracts.
 
----
+**Current Engine Status**: 📋 M3 (Backlog v1 + Latency) not started yet  
+**Next Engine Priority**: 📋 M4 (Scenarios & Compare) or M3 - TBD  
+**Retry Status**: 📋 M9.5 (Retry & Feedback) - deferred from M4.5
 
-## Status Summary (✅ = Done)
+## Harmonized Guiding Rules
 
-- **SIM-M0 — Skeleton & Contracts** — **✅ Done**
-- **SIM-M1 — Foundations & Determinism Hardening** — **✅ Done**
-- **SIM-M2 — Artifact Parity & Series Index** — **✅ Done**
-- **SIM-SVC-M2 — Minimal Sim Service/API** — **✅ Done**
-- **SIM-CAT-M2 — Catalog.v1 (structural source of truth)** — **✅ Done**
+1. **Artifact-first, catalog-required**: run.json, manifest.json, series/index.json, series/*.csv; **Catalog.v1 is required** stable ID source
+2. **Units & IDs locked**: flows = entities/bin, levels = entities, latency = minutes; seriesId = measure@componentId[@class]  
+3. **Retry/feedback deferred**: Engine M9.5 ↔ Sim SIM-M6 (not urgent)
+4. **Lock-step milestones**: Engine↔Sim parity tests required on every milestone touching artifacts
 
-> v1.2 tightens **artifact parity** with FlowTime, adds a tiny **Catalog.v1** for structure/diagramming, and a **minimal Sim Service/API** so FlowTime UI can call Sim directly (or via FlowTime's optional proxy). It also clarifies **per-component series enumeration**, **latency semantics**, and **streaming details**.m Roadmap (v1.2, domain-neutral, SIM-Mx, API-enabled)
+## FlowTime-Sim's Role (per Harmonized Plan)
 
-> **Purpose:** Single source of truth with sequenced milestones (SIM-M0…SIM-M10+) spanning Core/Generators, **Service/API**, and artifacts. Each milestone states **Goal, Why, Inputs, Outputs, Code, CLI/API, Acceptance**.
-> **Scope:** FlowTime-Sim generates **synthetic events** and **Gold, bin-aligned series** compatible with FlowTime’s contracts (**run.json** + **series/index.json** + per-series CSV/Parquet). It remains **domain-neutral**.
+FlowTime-Sim is the **synthetic generator companion** producing telemetry-like data ("Gold" series) with **artifact-first, catalog-required contracts**. **Critical separation of concerns:**
 
----
+- **✅ FlowTime-Sim Responsibilities:**
+  - Generate synthetic telemetry when real telemetry unavailable
+  - Produce Gold series validating Engine features at each milestone
+  - Create training/calibration data for parameter learners  
+  - Support deterministic replay with seeded stochastic draws
+  - **Maintain Catalog.v1 as required stable ID source**
 
-## Status Summary (✅ = Done)
+- **❌ FlowTime-Sim DOES NOT:**
+  - Implement Engine's expression language (SHIFT, CONV, MIN, MAX, etc.)
+  - Evaluate DAG models or perform flow analysis
+  - Replace Engine's analytical capabilities
+  - Provide real-time flow processing or decision making
 
-- **SIM-M0 — Skeleton & Contracts** — **✅ Done**
-- **SIM-M1 — Foundations & Determinism Hardening** — **✅ Done**
+**Schema Compatibility**: Identical artifact schemas and API contracts between Engine and Sim. **Units & IDs locked**: flows = entities/bin, levels = entities, latency = minutes; seriesId = measure@componentId[@class].
 
-> v1.2 tightens **artifact parity** with FlowTime, adds a tiny **Catalog.v1** for structure/diagramming, and a **minimal Sim Service/API** so FlowTime UI can call Sim directly (or via FlowTime’s optional proxy). It also clarifies **per-component series enumeration**, **latency semantics**, and **streaming details**.
+## Status Summary (✅ = Done, 🔄 = Current Priority, 🚀 = Next)
 
----
+**Harmonized Engine ↔ Sim ↔ UI Development**
 
-## Vocabulary (domain-neutral)
+**Current Engine Status**: 📋 M3 (Backlog v1 + Latency) not started yet  
+**Next Engine Priority**: 📋 M4 (Scenarios & Compare) or M3 - TBD  
+**Retry Status**: 📋 M9.5 (Retry & Feedback) - deferred from M4.5
 
-- **entity** — the thing that moves (job/request/item)
-- **component** — processing point (node)
-- **connection** — directed link between components
-- **class** — segment/category of entities
-- **measure (per bin)** — `arrivals`, `served`, `errors` (flows)
-- **state level (per bin)** — `queue_depth` (pending level at bin boundary)
-- **grid** — `{ binMinutes, bins }`, UTC, **left-aligned**
-
-> Avoid “route/step/stock”; use **component/connection**, **measure**, **state level**.
-
----
-
-## Vocabulary (domain-neutral)
-
-- **Goal** Minimum CLI `run` from YAML; Poisson/constant arrivals; NDJSON + Gold; seeded determinism.
-- **Acceptance** Hash-stable outputs; time alignment; basic schema validation.
-
----
-
-### SIM-M1 — Foundations & Determinism Hardening — **✅ Done**
-
-- **Goal** Lock v1 behavior for reproducibility.
-- **Features** `schemaVersion:1`; PCG RNG default; manifest; validation; parity harness; service-time placeholder; negative tests.
+**FlowTime-Sim Alignment** (following harmonized milestone sequence):
+- **SIM-M0 — Core Foundations** — **✅ Done** (aligns with Engine M0)
+- **SIM-M1 — Contracts Parity Pack** — **✅ Done** (aligns with Engine M1)  
+- **SIM-M2 — PMF Expected-Value** — **📋 Not Started** (aligns with Engine M2)
+- **SIM-CAT-M1 — Catalog.v1 Required** — **✅ Done** (stable ID source)
+- **SIM-SVC-M1 — Minimal Service/API** — **✅ Done** (artifact endpoints)
+- **SIM-M3 — Backlog v1 + Latency + Endpoints** — **🔄 PRIORITY** (Basic queues, ready for Engine M3)
+- **SIM-M4 — Scenarios & Compare** — **🚀 Next** (Overlay support for Engine M4)
+- **SIM-M5 — Routing/Fan-out/Capacity** — **📋 Aligned** (Multi-path for Engine M5)
+- **SIM-M6 — Retry & Feedback** — **📋 Deferred** (Aligns with Engine M9.5)
 
 ---
 
-### SIM-M2 — Artifact Parity & Series Index — **✅ Done**
+## Completed Milestones
 
-- **Scope Update (2025-09-02)** Event enrichment, Parquet Gold table, and Service/API endpoints deferred (see SIM-SVC-M2). SIM-M2 now focuses solely on producing a stable artifact pack (dual JSON + per-series CSVs + index) with deterministic hashing & integrity tests.
-- **Goal** Provide a minimal, frozen artifact layout consumable by adapters/UI (no service dependency).
-- **Why** Unblock downstream tooling on a guaranteed-stable v1 artifact shape before layering APIs/streaming.
-- **Inputs** Simulation spec (unchanged semantics from SIM-M1; `metadata.json` deprecated).
-- **Outputs** `runs/<runId>/run.json`, `runs/<runId>/manifest.json` (currently identical content), `runs/<runId>/series/index.json`, `runs/<runId>/series/*.csv`; optional `runs/<runId>/events.ndjson` (may be omitted this milestone). No Parquet yet.
-- **Integrity** `manifest.json` lists per-series SHA-256 hashes (`sha256:<64hex>`). Tests enforce determinism and detect tampering.
-- **runId Format** Standardized: `sim_YYYY-MM-DDTHH-mm-ssZ_<8slug>` (underscore separators) supersedes earlier hyphenated draft.
-- **Deprecations** Single-file `gold.csv` & `metadata.json` removed; replaced by per-series CSVs and dual JSON documents.
-- **Acceptance**
-  - Determinism: identical spec+seed ⇒ identical per-series CSV bytes & hashes.
-  - Dual JSON present (`schemaVersion:1`), contents identical (divergence reserved for future roles).
-  - `series/index.json` enumerates all series with units + hash.
-  - Tamper test: altering a series CSV invalidates stored hash.
-  - runId matches documented regex; timestamps UTC.
-  - Absence of `events.ndjson` does not fail acceptance (optional).
+### SIM-M0 — Core Foundations — **✅ Done**
+
+- **Goal** Canonical grid, Series<T>, basic synthetic data generation
+- **Aligns with** Engine M0 (Core Foundations)
+- **Acceptance** Deterministic eval, cycle detection, unit tests
+
+### SIM-M1 — Contracts Parity Pack — **✅ Done**
+
+- **Goal** Dual-write artifacts (run/manifest/index), JSON schema validation, deterministic hashing
+- **Aligns with** Engine M1 (Contracts Parity Pack)
+- **Acceptance** Schema validation in CI; CLI vs API parity; Sim pack consumable by Engine adapters
 
 ---
 
-### **SIM-CAT-M2 — Catalog.v1 (structural source of truth)** — **✅ Done**
+## Planned Milestones
 
-- **Goal** Provide a **domain-neutral catalog** that both the simulator and UI can consume to render the system diagram and to stamp component IDs into Gold.
+### SIM-M2 — PMF Expected-Value — **📋 Not Started**
 
-```yaml
-version: 1
-components:
-  - id: COMP_A
-    label: "A"
-  - id: COMP_B
-    label: "B"
-connections:
-  - from: COMP_A
-    to: COMP_B
-classes: [ "DEFAULT" ]
-layoutHints:
-  rankDir: LR
-```
-
-- **Normalization:** `components[].id` MUST be stable, trimmed, and match Gold `component_id` exactly (case-sensitive). If normalization is applied, it must be deterministic and documented.
-- **API additions (extend SIM-SVC-M2 below)**
-
-  - `GET /sim/catalogs` → list catalogs (id, title, hash)
-  - `GET /sim/catalogs/{id}` → returns Catalog.v1
-  - `POST /sim/catalogs/validate` → schema + referential integrity
-  - `POST /sim/run` accepts `{ catalogId, scenario, params?, seed? }` **or** inline `{ catalog, … }`
-- **Acceptance** Each `component.id` maps to Gold `component_id`; elk/react-flow can render structure; deterministic layout for same catalog + hints.
+- **Goal** Generate series consistent with PMF expectations for demo parity
+- **Aligns with** Engine M2 (PMF Expected-Value Only)
+- **Why** Engine M2 implements pmf node → expected series. Sim provides optional generator for demo parity
+- **Features**
+  - Optional generator that emits series consistent with PMF expectations
+  - PMF normalization validation (sums to 1)
+  - Expected value calculation matching Engine behavior
+- **Acceptance** Expected value matches CSV; normalization sums to 1
 
 ---
 
-### **SIM-SVC-M2 — Minimal Sim Service/API (artifact-centric)** — **✅ Done**
+## Lock-Step Milestone Alignment
 
-- **Goal** Expose Sim as a **stateless HTTP service** so FlowTime UI can request scenarios/runs directly.
-- **API (minimum viable)**
+### SIM-M3 — Backlog v1 + Latency + Artifact Endpoints — **🔄 PRIORITY**
 
-  - `POST /sim/run` → `{ simRunId }` (writes `runs/<simRunId>/…`)
-  - `GET /sim/runs/{id}/index` → `series/index.json`
-  - `GET /sim/runs/{id}/series/{seriesId}` → CSV (Parquet passthrough if negotiated; accepts URL-encoded `seriesId`)
-  - `GET /sim/scenarios` → list presets + knobs (domain-neutral)
-  - `POST /sim/overlay` → `{ baseRunId, overlaySpec }` → new `simRunId`
-  - **Catalog endpoints** from **SIM-CAT-M2**
-- **Service rules** Stateless after completion; seed + scenario hash in manifest; CORS/AAD ready; culture-invariant formatting.
-- **Acceptance** CLI vs API parity; stable scenario listing; efficient artifact streaming.
-
----
-
-### SIM-M3 — Curve-First Generators & Fuse (GEN)
-
-- **Goal** Deterministic generators for arrivals & capacity and a **fuse** that computes served.
-- **Why** Produce useful Gold packs quickly for UI/CI.
-- **Inputs** `hourly.json`/`weekly.json` (arrivals profiles), `shifts.yaml` (capacity).
-- **Outputs** Gold + index + manifest/run.json (per-component series enumerated).
-- **Code** `Generators/GenArrivals`, `Generators/GenCapacity`, `Generators/Fuse` (`served = min(arrivals, capacity)`), shared writers.
+- **Goal** Generate basic queues and latency for Engine M3, consolidating queuing basics.
+- **Why** Engine M3 (Backlog v1 + Latency) pulled forward. Basic queues only - later M7 = Backlog v2 (buffers & spill).
+- **Engine Status** 📋 M3 not started yet, SIM-M3 ready when needed  
+- **Supports** Engine M3 (Backlog v1 + Latency + Artifact Endpoints)
+- **Core Features** 
+  - **backlog[t] = max(0, backlog[t-1] + inflow[t] − served[t])**
+  - **latency[t] = served[t]==0 ? 0 : backlog[t]/served[t]*binMinutes**
+  - **Emit series/backlog.csv, series/latency.csv**
+  - **Basic generator**: arrivals, served, capacity, backlog derived identically to Engine's formula
+  - **No retry echoes** (deferred to SIM-M6)
 - **CLI**
-
   ```
-  flow-sim gen arrivals --hourly hourly.json --bin-minutes 5 --seed 42 --out runs/A
-  flow-sim gen capacity --shifts shifts.yaml --bin-minutes 5 --out runs/A
-  flow-sim fuse --in runs/A --out runs/A
+  flow-sim gen basic --config basic-config.yaml --out runs/backlog-v1 --seed 42
+  # Basic queues for Engine M3 development
   ```
-- **Acceptance** Seeded determinism; served ≤ min(arrivals, capacity); writer parity; index lists all per-component series.
+- **Acceptance** 
+  - Engine M3 processes FlowTime-Sim artifacts without errors  
+  - Conservation holds: backlog formula matches Engine exactly
+  - Latency div-by-zero safe; file streaming endpoints pass
+  - **Integration validated**: Engine M3 development proceeds with synthetic data
 
 ---
 
-### SIM-M4 — Overlays Framework (windowed multipliers + selectors)
+### SIM-M4 — Scenarios & Compare — **🚀 NEXT**
 
-- **Goal** Apply time-windowed modifiers over generated arrays.
-- **Selector grammar (shared with FlowTime)**
-
-  - Match by `component_id` (glob/regex) and/or `class`.
-  - Optional label groups via catalog `layoutHints.groups` (if used, document as an extension until FlowTime adopts the same).
-  - Apply to measures (`arrivals`, `capacity`, …) within `{ start, end }`.
-- **CLI** `flow-sim overlay --in runs/A --overlay overlays/peak.yaml --out runs/A`
-- **Acceptance** Correct partial windows; non-matching is a no-op; idempotent overlays guarded.
-
----
-
-### SIM-M5 — Streaming Mode (stdout NDJSON + watermarks)
-
-- **Goal** Live playback without infra.
-- **Spec additions**
-
-  - Watermark includes **`binIndex`** **and** `simTime`.
-  - Stream preface includes **`runId`**.
-  - Optional **resume token** (`?resume=<binIndex>`).
-  - Optional **heartbeat** records every N seconds; terminal `{"type":"end"}` record.
-- **CLI** `flow-sim stream --in runs/A --speed 10x --watermark-bins 6`
-- **Acceptance** Ordered by `simTime`; watermarks on schedule; resume works; end frame emitted.
+- **Goal** Generate scenario variations using overlay patterns for Engine M4.
+- **Why** Engine M4 implements overlay YAML and compare CLI. FlowTime-Sim must generate baseline and scenario data.
+- **Aligned with** Engine M4 (Scenarios & Compare)
+- **Features**
+  - **Overlay framework**: Apply time-windowed demand/capacity modifiers
+  - **Scenario generation**: Baseline + variants matching Engine M4 overlay semantics
+  - **Compare support**: Generate delta.csv and kpi.csv equivalents
+- **CLI** 
+  ```
+  flow-sim scenarios --base baseline.yaml --overlays peak-load.yaml --out runs/scenarios
+  ```
+- **Acceptance** 
+  - Engine M4 compare functionality processes scenario artifacts correctly
+  - Overlay invariants maintained; compare reproducible across Engine/Sim artifacts
+  - **Integration validated**: Engine M4 scenario features work with synthetic data
 
 ---
 
-### **SIM-SVC-M5 — Streaming Endpoint (SSE/NDJSON)**
+### SIM-M5 — Routing/Fan-out/Capacity Caps — **📋 ALIGNED WITH ENGINE M5**
 
-- **Goal** Serve the same stream over HTTP for FlowTime UI.
-- **API** `GET /sim/stream?runId=…&speed=10x&watermarkBins=6[&resume=…]` → SSE or chunked NDJSON.
-- **Acceptance** Order-independent within a bin; watermark-based slices stable; final snapshot equals file outputs for same seed.
-
----
-
-### SIM-M6 — Exceptions, Retries & Fan-out
-
-- **Goal** Model failures (`errors`) and retry behavior via kernel PMFs; support fan-out.
-- **Inputs** Retry kernels (bins), fan-out distributions.
-- **Outputs** Events with correlation chains; Gold reflecting retries/fan-out.
-- **CLI** `flow-sim run scenario.yaml --retries retry.yaml --fanout fanout.yaml --out runs/R`
-- **Acceptance** Retry volumes match kernel; correlation traceability; bin-edge correctness.
+- **Goal** Generate synthetic data for routing, fan-out, and capacity constraints.
+- **Why** Engine M5 implements RouterNode, FanOutNode, CapacityNode. FlowTime-Sim must provide test data.
+- **Aligned with** Engine M5 (Routing, Fan-out, Capacity Caps)
+- **Features**
+  - **Multi-path routing**: Generate flows across multiple downstream paths
+  - **Fan-out patterns**: Replicated flows for testing FanOutNode
+  - **Capacity overflow**: Generate overflow series for capacity-constrained scenarios
+- **Acceptance** Engine M5 routing features validate correctly with synthetic multi-path data; splits sum to 1; overflow computed
 
 ---
 
-### SIM-M7 — Multi-Class & Fairness Controls
+### SIM-M6 — Retry & Feedback Modeling — **📋 DEFERRED TO ENGINE M9.5**
 
-- **Goal** Multiple classes with adjustable service share when capacity binds.
-- **Inputs** Class mixes; fairness policy (`weighted` | `strictPriority`).
-- **Outputs** Class-segmented Gold rows.
-- **Acceptance** Priority maintains SLA; weighted shares respect capacity.
-
----
-
-### SIM-M8 — Backlog Level v1 (+ latency estimate) — **schemaVersion: 2**
-
-- **Goal** Add `queue_depth` and a simple latency estimate.
-- **Core**
-
-  - `Q[t] = max(0, Q[t-1] + arrivals[t] - capacity[t])`
-  - `latency_est_minutes = (Q[t] / max(eps, capacity[t])) * binMinutes`
-- **Semantics**
-
-  - `latency_est_minutes` is a **service-rate estimate** (capacity-based).
-
-  - FlowTime’s **`latency`** (when present) is **flow-through**: `backlog / served * binMinutes`. Keep names distinct to avoid confusion.
-  - Optionally, Sim may later emit a `latency` series using the FlowTime formula once `served` is well-defined per component.
-- **Units** `queue_depth` → **entities**; `latency_est_minutes` → **minutes**.
-- **Acceptance** Non-negative Q; version bump to 2; consumers detect via index.
+- **Goal** Generate synthetic retry patterns that validate Engine M9.5 retry & feedback capabilities.
+- **Why** Engine moved retry features to M9.5. No longer urgent - deferred until Engine M9.5 active.
+- **Aligned with** Engine M9.5 (Retry & Feedback Modeling) - much later
+- **Features** (Future implementation when M9.5 becomes priority)
+  - **CONV operator validation**: Generate synthetic data for Engine M9.5 retry testing
+  - **Temporal echoes**: Retry kernels create realistic delay patterns
+  - **Conservation compliance**: Complex retry conservation validation
+- **Status** **DEFERRED** - No longer blocking Engine development
+- **Trigger** Engine M9.5 development becomes active priority
+- **Acceptance** Engine M9.5 retry volumes match kernels; conservation holds with retries & DLQ
 
 ---
 
-### SIM-M9 — Calibration Mode (fit from telemetry)
+### SIM-M7 — Backlog v2 (Multi-Queue Features) — **📋 ALIGNED WITH ENGINE M7**
 
-- **Goal** Fit arrivals PMFs and service/transfer distributions; emit parameter packs.
-- **Inputs** Telemetry in Gold shape.
-- **Outputs** `params.yaml` and regenerated pack.
-- **Acceptance** Error vs telemetry below tolerance.
+- **Goal** Generate synthetic data for finite buffers, basic spill to DLQ, configurable draining.
+- **Why** Engine M7 extends queues beyond basic M3. FlowTime-Sim must provide spill validation data.
+- **Aligned with** Engine M7 (Backlog v2 Multi-Queue Features)
+- **Features**
+  - **Finite buffer patterns**: Generate overflow when buffers reach limits
+  - **DLQ spill series**: Emit synthetic DLQ/spill series to validate Engine behaviors
+  - **Draining policies**: Different queue draining patterns
+- **Acceptance** Conservation with spill; buffer limits enforced; Engine M7 DLQ/spill indicators work
 
 ---
 
-### SIM-M10 — Scenario Library (domain-neutral presets)
+### SIM-M8 — Multi-Class + Priority/Fairness — **📋 ALIGNED WITH ENGINE M8**
 
-- **Goal** Publish reusable presets (baseline weekday, peak day, capacity dip, drift).
-- **Acceptance** CI regenerates identical hashes by name.
+- **Goal** Generate per-class synthetic data with priority/fairness policies.
+- **Why** Engine M8 implements multi-class flows with capacity sharing. FlowTime-Sim must provide per-class test data.
+- **Aligned with** Engine M8 (Multi-Class + Priority/Fairness)
+- **Features**
+  - **Per-class series**: Generate `arrivals@serviceA@VIP.csv`, `served@serviceA@STANDARD.csv`
+  - **Capacity sharing**: Test data for weighted-fair vs strict priority allocation
+  - **Class-specific policies**: Different behaviors per class (VIP vs Standard)
+- **Outputs** Class-segmented Gold series following Engine M8 naming convention
+- **Acceptance** 
+  - Engine M8 multi-class processing works correctly with synthetic per-class data
+  - Priority/fairness policies validated under capacity constraints
+
+---
+
+### SIM-M9 — Data Import & Fitting — **📋 ALIGNED WITH ENGINE M9**
+
+- **Goal** Generate synthetic data patterns that match real telemetry characteristics.
+- **Why** Engine M9 implements data import & fitting. FlowTime-Sim should support calibration workflows.
+- **Aligned with** Engine M9 (Data Import & Fitting)
+- **Features**
+  - **Telemetry-like patterns**: Generate synthetic data that resembles real system behavior
+  - **Parameter fitting**: Support calibration of synthetic generators against real data
+  - **Validation datasets**: Provide known-good synthetic data for fitting algorithm testing
+- **Acceptance** Engine M9 fitting algorithms work correctly with FlowTime-Sim calibration data
+
+---
+
+## Cross-Cutting Contract & Process Gates
+
+### Required for Every Milestone
+
+1. **Catalog.v1 is required**: remove all "optional" language - both Engine & Sim require catalog
+2. **Series ID/units are normative**: any change must bump schema version
+3. **Engine↔Sim parity tests are required gates**: on every milestone that touches artifacts
+4. **UI consumes artifacts only**: no bespoke payloads
+
+### Always-on Acceptance Gates
+
+- **Determinism:** same spec + seed ⇒ identical artifacts (hash-stable)
+- **Schema guard:** reject unknown top-level scenario keys unless `x-…`
+- **Time alignment:** all timestamps divisible by `binMinutes`
+- **Contracts parity:** CLI and Service write **identical artifacts**
+- **Catalog join test:** bijection between `Catalog.components[].id` and Gold `component_id`
+- **Unit parity:** Engine's adapters consume Sim pack with no overrides
+- **Schema compatibility:** FlowTime-Sim artifacts validate against Engine without modification
+- **Integration validation:** Each phase demonstrates actual Engine compatibility before advancement
 
 ---
 
@@ -236,52 +230,24 @@ flow-sim/
 ├─ src/
 │  ├─ Cli/                        # CLI entrypoints
 │  ├─ Core/                       # planner, sequencer, distributions
-│  ├─ Generators/                 # arrivals, capacity, fuse, backlog
+│  ├─ Generators/                 # arrivals, capacity, backlog, scenarios
 │  ├─ Writers/                    # events + Gold writers (shared)
-│  └─ Service/                    # Minimal Sim HTTP service (SIM-SVC-M2, M5)
-├─ catalogs/                      # Catalog.v1 files (optional, domain-neutral)
+│  └─ Service/                    # Minimal Sim HTTP service
+├─ catalogs/                      # Catalog.v1 files (REQUIRED, domain-neutral)
 │  ├─ tiny-demo.yaml
 │  └─ baseline.yaml
 ├─ specs/                         # scenarios & overlays
 │  ├─ baseline.weekday.yaml
 │  ├─ peak_day.overlay.yaml
 │  └─ outage.overlay.yaml
-├─ params/                        # saved parameter packs
-├─ samples/                       # generated packs for CI/demos
-│  └─ weekday-5m/
-├─ docs/
-│  ├─ roadmap.md
-│  ├─ contracts.md
-│  └─ schemas/
-│     ├─ manifest.v1.json
-│     ├─ events.v1.json
-│     └─ series-index.v1.json
-└─ tests/
-   ├─ determinism/
-   ├─ schema/
-   ├─ generators/
-   ├─ catalog/
-   └─ service/
+├─ tests/
+│  ├─ determinism/
+│  ├─ schema/
+│  ├─ generators/
+│  ├─ integration/                # Engine↔Sim parity tests
+│  └─ service/
+└─ docs/
+   ├─ ROADMAP.md
+   ├─ architecture/
+   └─ schemas/
 ```
-
----
-
-## FlowTime UI integration (at a glance)
-
-- **Direct:** UI calls **FlowTime-Sim Service** (`/sim/run`, `/sim/runs/{id}/index`, `/sim/stream`, `/sim/catalogs`) and FlowTime Service for analysis/compare.
-- **Via proxy (optional, in FlowTime):** FlowTime Service exposes `/sim/*` and stores artifacts under the same `runs/*` root → single origin/auth/catalog in UI.
-- **Adapters:** FlowTime’s **SYN-M0 (file)** and **SYN-M1 (stream)** consume these artifacts/streams. `series/index.json` + per-series CSVs are the UI’s **canonical** source.
-
----
-
-## Always-on Acceptance Gates
-
-- **Determinism:** same spec + seed ⇒ identical artifacts (hash-stable).
-- **Schema guard:** reject unknown top-level scenario keys unless `x-…`.
-- **Time alignment:** all timestamps divisible by `binMinutes`.
-- **Contracts parity:** CLI and Service write **identical artifacts** (dual-write `run.json` & `manifest.json`).
-- **Catalog join test:** bijection (or defined subset) between `Catalog.components[].id` and Gold `component_id`; IDs stable and normalized as documented.
-- **Unit parity:** FlowTime’s SYN-M0 reader consumes a Sim pack with no overrides.
-- **Performance (warn-only):** print bins/sec, rows/sec, wall time.
-- **Streaming:** watermarks include `binIndex`; optional heartbeat; terminal `{"type":"end"}` frame.
-- **CSV/Parquet disclosure:** manifest notes emitted formats; `--csv` flag switches writers.
