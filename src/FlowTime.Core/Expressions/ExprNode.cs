@@ -6,22 +6,22 @@ namespace FlowTime.Core.Expressions;
 /// </summary>
 public class ExprNode : INode
 {
-    private readonly ExpressionNode _ast;
+    private readonly ExpressionNode ast;
     
     public NodeId Id { get; }
     public IEnumerable<NodeId> Inputs { get; }
     
     public ExprNode(string id, ExpressionNode ast, IEnumerable<NodeId> inputs)
     {
-        Id = new NodeId(id ?? throw new ArgumentNullException(nameof(id)));
-        _ast = ast ?? throw new ArgumentNullException(nameof(ast));
-        Inputs = inputs?.ToList() ?? throw new ArgumentNullException(nameof(inputs));
+        Id = new NodeId(id);
+        this.ast = ast;
+        Inputs = inputs;
     }
     
     public Series Evaluate(TimeGrid grid, Func<NodeId, Series> getInput)
     {
         // For M1.5, we'll implement a simple evaluator that handles basic expressions
-        return EvaluateExpression(_ast, grid, getInput);
+        return EvaluateExpression(ast, grid, getInput);
     }
     
     private Series EvaluateExpression(ExpressionNode expr, TimeGrid grid, Func<NodeId, Series> getInput)

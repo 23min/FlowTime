@@ -5,7 +5,7 @@ namespace FlowTime.Tests.Expressions;
 
 public class ExpressionIntegrationTests
 {
-    private readonly TimeGrid _grid = new(Bins: 4, BinMinutes: 60);
+    private readonly TimeGrid grid = new(Bins: 4, BinMinutes: 60);
     
     [Fact]
     public void ParseAndEvaluate_SimpleLiteral_ReturnsConstantSeries()
@@ -16,7 +16,7 @@ public class ExpressionIntegrationTests
         var exprNode = ExpressionCompiler.Compile(ast, "result");
         
         // Act
-        var result = exprNode.Evaluate(_grid, _ => throw new ArgumentException("No inputs expected"));
+        var result = exprNode.Evaluate(grid, _ => throw new ArgumentException("No inputs expected"));
         
         // Assert
         Assert.Equal(4, result.Length);
@@ -41,7 +41,7 @@ public class ExpressionIntegrationTests
                 return new Series(sourceData);
             throw new ArgumentException($"Unknown node: {id}");
         };
-        var result = exprNode.Evaluate(_grid, getInput);
+        var result = exprNode.Evaluate(grid, getInput);
         
         // Assert
         Assert.Equal(4, result.Length);
@@ -67,7 +67,7 @@ public class ExpressionIntegrationTests
             if (id.Value == "b") return new Series(sourceB);
             throw new ArgumentException($"Unknown node: {id}");
         };
-        var result = exprNode.Evaluate(_grid, getInput);
+        var result = exprNode.Evaluate(grid, getInput);
         
         // Assert
         Assert.Equal(4, result.Length);
@@ -92,7 +92,7 @@ public class ExpressionIntegrationTests
                 return new Series(sourceData);
             throw new ArgumentException($"Unknown node: {id}");
         };
-        var result = exprNode.Evaluate(_grid, getInput);
+        var result = exprNode.Evaluate(grid, getInput);
         
         // Assert
         Assert.Equal(4, result.Length);
@@ -120,7 +120,7 @@ public class ExpressionIntegrationTests
             if (id.Value == "c") return new Series(sourceC);
             throw new ArgumentException($"Unknown node: {id}");
         };
-        var result = exprNode.Evaluate(_grid, getInput);
+        var result = exprNode.Evaluate(grid, getInput);
         
         // Assert
         Assert.Equal(4, result.Length);

@@ -7,12 +7,12 @@ namespace FlowTime.Core.Nodes;
 /// </summary>
 public class ShiftNode : IStatefulNode
 {
-    private readonly INode _sourceNode;
-    private readonly int _lag;
-    private readonly Queue<double> _history;
+    private readonly INode sourceNode;
+    private readonly int lag;
+    private readonly Queue<double> history;
     
     public NodeId Id { get; }
-    public IEnumerable<NodeId> Inputs => [_sourceNode.Id];
+    public IEnumerable<NodeId> Inputs => [sourceNode.Id];
     
     /// <summary>
     /// Creates a new SHIFT node.
@@ -26,29 +26,29 @@ public class ShiftNode : IStatefulNode
             throw new ArgumentException("Lag must be non-negative for causal evaluation", nameof(lag));
         
         Id = new NodeId(id ?? throw new ArgumentNullException(nameof(id)));
-        _sourceNode = sourceNode ?? throw new ArgumentNullException(nameof(sourceNode));
-        _lag = lag;
-        _history = new Queue<double>();
+        this.sourceNode = sourceNode ?? throw new ArgumentNullException(nameof(sourceNode));
+        this.lag = lag;
+        history = new Queue<double>();
     }
     
     public void InitializeState(TimeGrid grid)
     {
-        _history.Clear();
+        history.Clear();
         
         // Pre-fill history with zeros for the lag period
-        for (int i = 0; i < _lag; i++)
+        for (int i = 0; i < lag; i++)
         {
-            _history.Enqueue(0.0);
+            history.Enqueue(0.0);
         }
     }
     
     public Series Evaluate(TimeGrid grid, Func<NodeId, Series> getInput)
     {
-        var sourceValues = getInput(_sourceNode.Id);
+        var sourceValues = getInput(sourceNode.Id);
         var shiftedValues = new double[grid.Bins];
         
         // For lag=0, just return the source series directly
-        if (_lag == 0)
+        if (lag == 0)
         {
             return sourceValues;
         }
@@ -56,15 +56,15 @@ public class ShiftNode : IStatefulNode
         // For lag>0, shift the series
         for (int i = 0; i < grid.Bins; i++)
         {
-            if (i < _lag)
+            if (i < lag)
             {
-                // First _lag bins are zero
+                // First lag bins are zero
                 shiftedValues[i] = 0.0;
             }
             else
             {
-                // Subsequent bins get values from _lag bins earlier
-                shiftedValues[i] = sourceValues[i - _lag];
+                // Subsequent bins get values from lag bins earlier
+                shiftedValues[i] = sourceValues[i - lag];
             }
         }
         

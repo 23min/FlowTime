@@ -5,7 +5,7 @@ namespace FlowTime.Tests.Nodes;
 
 public class ShiftNodeTests
 {
-    private readonly TimeGrid _grid = new(Bins: 5, BinMinutes: 60);
+    private readonly TimeGrid grid = new(Bins: 5, BinMinutes: 60);
     
     [Fact]
     public void ShiftNode_Lag0_ReturnsIdentity()
@@ -15,7 +15,7 @@ public class ShiftNodeTests
         var shiftNode = new ShiftNode("shifted", sourceNode, lag: 0);
         
         // Act
-        var result = shiftNode.Evaluate(_grid, _ => sourceNode.Evaluate(_grid, _ => throw new InvalidOperationException()));
+        var result = shiftNode.Evaluate(grid, _ => sourceNode.Evaluate(grid, _ => throw new InvalidOperationException()));
         
         // Assert
         Assert.Equal(5, result.Length);
@@ -36,10 +36,10 @@ public class ShiftNodeTests
         // Act
         var getInput = (NodeId id) => {
             if (id.Value == "source")
-                return sourceNode.Evaluate(_grid, _ => throw new InvalidOperationException());
+                return sourceNode.Evaluate(grid, _ => throw new InvalidOperationException());
             throw new ArgumentException($"Unknown node: {id}");
         };
-        var result = shiftNode.Evaluate(_grid, getInput);
+        var result = shiftNode.Evaluate(grid, getInput);
         
         // Assert
         Assert.Equal(5, result.Length);
@@ -60,10 +60,10 @@ public class ShiftNodeTests
         // Act
         var getInput = (NodeId id) => {
             if (id.Value == "source")
-                return sourceNode.Evaluate(_grid, _ => throw new InvalidOperationException());
+                return sourceNode.Evaluate(grid, _ => throw new InvalidOperationException());
             throw new ArgumentException($"Unknown node: {id}");
         };
-        var result = shiftNode.Evaluate(_grid, getInput);
+        var result = shiftNode.Evaluate(grid, getInput);
         
         // Assert
         Assert.Equal(5, result.Length);
@@ -131,11 +131,11 @@ public class ShiftNodeTests
         var shiftNode = new ShiftNode("shifted", sourceNode, lag: 2);
         
         // Act - call InitializeState (should not throw)
-        shiftNode.InitializeState(_grid);
+        shiftNode.InitializeState(grid);
         
         // Assert - verify it doesn't crash and can still evaluate
-        var getInput = (NodeId id) => sourceNode.Evaluate(_grid, _ => throw new InvalidOperationException());
-        var result = shiftNode.Evaluate(_grid, getInput);
+        var getInput = (NodeId id) => sourceNode.Evaluate(grid, _ => throw new InvalidOperationException());
+        var result = shiftNode.Evaluate(grid, getInput);
         Assert.Equal(5, result.Length);
     }
 }

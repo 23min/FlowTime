@@ -29,13 +29,13 @@ public class ExpressionParseException : Exception
 /// </summary>
 public class ExpressionParser
 {
-    private readonly string _expression;
-    private int _position;
-    
+    private readonly string expression;
+    private int position;
+
     public ExpressionParser(string expression)
     {
-        _expression = expression ?? throw new ArgumentNullException(nameof(expression));
-        _position = 0;
+        this.expression = expression ?? throw new ArgumentNullException(nameof(expression));
+        position = 0;
     }
     
     /// <summary>
@@ -48,9 +48,9 @@ public class ExpressionParser
             var result = ParseExpression();
             SkipWhitespace();
             
-            if (_position < _expression.Length)
+            if (position < expression.Length)
             {
-                throw new ExpressionParseException($"Unexpected character '{CurrentChar}'", _position, _expression);
+                throw new ExpressionParseException($"Unexpected character '{CurrentChar}'", position, expression);
             }
             
             return result;
@@ -61,7 +61,7 @@ public class ExpressionParser
         }
         catch (Exception ex)
         {
-            throw new ExpressionParseException($"Unexpected error: {ex.Message}", _position, _expression);
+            throw new ExpressionParseException($"Unexpected error: {ex.Message}", position, expression);
         }
     }
     
@@ -72,7 +72,7 @@ public class ExpressionParser
         while (CurrentChar is '+' or '-')
         {
             var op = CurrentChar == '+' ? BinaryOperator.Add : BinaryOperator.Subtract;
-            var opPos = _position;
+            var opPos = position;
             Advance();
             SkipWhitespace();
             var right = ParseTerm();
@@ -96,7 +96,7 @@ public class ExpressionParser
         while (CurrentChar is '*' or '/')
         {
             var op = CurrentChar == '*' ? BinaryOperator.Multiply : BinaryOperator.Divide;
-            var opPos = _position;
+            var opPos = position;
             Advance();
             SkipWhitespace();
             var right = ParseFactor();
@@ -127,7 +127,7 @@ public class ExpressionParser
             
             if (CurrentChar != ')')
             {
-                throw new ExpressionParseException("Expected ')'", _position, _expression);
+                throw new ExpressionParseException("Expected ')'", position, expression);
             }
             
             Advance(); // consume ')'
@@ -147,39 +147,39 @@ public class ExpressionParser
             return ParseIdentifier();
         }
         
-        throw new ExpressionParseException($"Unexpected character '{CurrentChar}'", _position, _expression);
+        throw new ExpressionParseException($"Unexpected character '{CurrentChar}'", position, expression);
     }
     
     private ExpressionNode ParseNumber()
     {
-        var start = _position;
+        var start = position;
         
         // Integer part
-        while (_position < _expression.Length && char.IsDigit(_expression[_position]))
+        while (position < expression.Length && char.IsDigit(expression[position]))
         {
-            _position++;
+            position++;
         }
         
         // Decimal part
-        if (_position < _expression.Length && _expression[_position] == '.')
+        if (position < expression.Length && expression[position] == '.')
         {
-            _position++;
-            if (_position >= _expression.Length || !char.IsDigit(_expression[_position]))
+            position++;
+            if (position >= expression.Length || !char.IsDigit(expression[position]))
             {
-                throw new ExpressionParseException("Expected digit after decimal point", _position, _expression);
+                throw new ExpressionParseException("Expected digit after decimal point", position, expression);
             }
             
-            while (_position < _expression.Length && char.IsDigit(_expression[_position]))
+            while (position < expression.Length && char.IsDigit(expression[position]))
             {
-                _position++;
+                position++;
             }
         }
         
-        var numberText = _expression.Substring(start, _position - start);
+        var numberText = expression.Substring(start, position - start);
         
         if (!double.TryParse(numberText, NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
         {
-            throw new ExpressionParseException($"Invalid number format: {numberText}", start, _expression);
+            throw new ExpressionParseException($"Invalid number format: {numberText}", start, expression);
         }
         
         SkipWhitespace();
@@ -193,24 +193,24 @@ public class ExpressionParser
     
     private ExpressionNode ParseIdentifier()
     {
-        var start = _position;
+        var start = position;
         
         // First character must be letter or underscore
         if (!char.IsLetter(CurrentChar) && CurrentChar != '_')
         {
-            throw new ExpressionParseException("Expected identifier", _position, _expression);
+            throw new ExpressionParseException("Expected identifier", position, expression);
         }
         
-        _position++; // Don't call Advance() here to avoid skipping whitespace
+        position++; // Don't call Advance() here to avoid skipping whitespace
         
         // Subsequent characters can be letters, digits, or underscores
-        while (_position < _expression.Length && 
-               (char.IsLetterOrDigit(_expression[_position]) || _expression[_position] == '_'))
+        while (position < expression.Length && 
+               (char.IsLetterOrDigit(expression[position]) || expression[position] == '_'))
         {
-            _position++;
+            position++;
         }
         
-        var identifier = _expression.Substring(start, _position - start);
+        var identifier = expression.Substring(start, position - start);
         SkipWhitespace();
         
         // Check if this is a function call
@@ -261,7 +261,7 @@ public class ExpressionParser
                 // Check for trailing comma
                 if (CurrentChar == ')')
                 {
-                    throw new ExpressionParseException("Unexpected ',' before ')'", _position - 1, _expression);
+                    throw new ExpressionParseException("Unexpected ',' before ')'", position - 1, expression);
                 }
             }
             else if (CurrentChar == ')')
@@ -270,13 +270,13 @@ public class ExpressionParser
             }
             else
             {
-                throw new ExpressionParseException("Expected ',' or ')'", _position, _expression);
+                throw new ExpressionParseException("Expected ',' or ')'", position, expression);
             }
         } while (true);
         
         if (CurrentChar != ')')
         {
-            throw new ExpressionParseException("Expected ')'", _position, _expression);
+            throw new ExpressionParseException("Expected ')'", position, expression);
         }
         
         Advance(); // consume ')'
@@ -290,21 +290,21 @@ public class ExpressionParser
         };
     }
     
-    private char CurrentChar => _position < _expression.Length ? _expression[_position] : '\0';
+    private char CurrentChar => position < expression.Length ? expression[position] : '\0';
     
     private void Advance()
     {
-        if (_position < _expression.Length)
+        if (position < expression.Length)
         {
-            _position++;
+            position++;
         }
     }
     
     private void SkipWhitespace()
     {
-        while (_position < _expression.Length && char.IsWhiteSpace(_expression[_position]))
+        while (position < expression.Length && char.IsWhiteSpace(expression[position]))
         {
-            _position++;
+            position++;
         }
     }
 }
