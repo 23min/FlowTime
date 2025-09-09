@@ -66,7 +66,7 @@ FlowTime behaves like a **spreadsheet for flows**:
   - Early milestones: simple expected value series.
   - Later: convolution/distribution propagation.
 
-### Catalog.v1 (optional, domain-neutral)
+### Catalog.v1 (required, domain-neutral)
 
 A tiny **structural catalog** can be used by FlowTime (and FlowTime-Sim) for early diagramming and ID consistency:
 
@@ -515,19 +515,20 @@ docs/contracts.md (updated with new artifact shapes and field glossary)
 
 ---
 
-## M1.5 — Expressions & Built-ins
+## M1.5 — Focused Expression Language
 
 ### Goal
 
-Make FlowTime truly “spreadsheet-y” with formula parser and references.
+Add basic expression language with SHIFT operator only. Deliberately focused to avoid over-engineering.
 
 ### Functional Requirements
 
 - **FR-M1-1:** Expression parser (`+ - * /`, MIN, MAX, CLAMP).
 - **FR-M1-2:** Node reference resolution (`expr: "demand * 0.8 + SHIFT(demand,-1)"`).
-- **FR-M1-3:** Built-in function: `SHIFT(series, k)`.
-- **FR-M1-4:** Stateful primitives foundation (prepare for CONV, EMA, backlog state).
-- **FR-M1-5:** Causal evaluation with history buffers (single-pass, no algebraic loops).
+- **FR-M1-3:** Built-in function: `SHIFT(series, k)` for time-series offsetting.
+- **FR-M1-4:** Basic stateful node interface (minimal, for SHIFT only).
+
+**Scope Limitation:** Advanced retry modeling capabilities deferred to M9.5. YAGNI principle applied.
 
 ### Inputs
 
@@ -551,18 +552,20 @@ CSV: shifted series with lag.
 ### New Code/Files
 
 ```
-src/FlowTime.Expressions/
+src/FlowTime.Core/Expressions/
   ExpressionParser.cs
   Builtins.cs
-src/FlowTime.Engine/Nodes/
+src/FlowTime.Core/Nodes/
   ExprNode.cs
+  ShiftNode.cs
 tests/FlowTime.Tests/ExpressionTests.cs
 ```
 
 ### Acceptance Criteria
 
 - Expressions with references work.
-- SHIFT validated.
+- SHIFT operator validated with lag behavior.
+- No over-engineering for future retry modeling needs.
 
 ---
 
@@ -727,7 +730,7 @@ scripts/
 
 ---
 
-## **M3 — Backlog v1 + Latency + Series Index & Artifact Endpoints (pulled forward)**
+## **M3 — Backlog v1 + Latency + Artifact Endpoints**
 
 ### Goal
 
@@ -787,49 +790,6 @@ UI shows run metadata.
 - Display run.json contents.
 
 - Warn if PMF normalized.
-
----
-
-## M4.5 — Retry & Feedback Modeling
-
-### Goal
-
-Enable temporal feedback loops through causal delay operators.
-
-### Functional Requirements
-
-- **FR-M4.5-1:** CONV operator (`retries := CONV(errors, [0.0, 0.6, 0.3, 0.1])`).
-- **FR-M4.5-2:** DELAY operator for arbitrary time shifting.
-- **FR-M4.5-3:** RETRY built-in function with attempt limits and DLQ.
-- **FR-M4.5-4:** EMA operator for smoothed feedback signals.
-- **FR-M4.5-5:** Conservation validation (arrivals + retries - served - ΔQ - dlq ≈ 0).
-
-### Inputs
-
-YAML model with retry patterns:
-
-```yaml
-nodes:
-  - id: service
-    kind: expr
-    expr: |
-      arrivals_total := arrivals + retries
-      attempts := MIN(capacity, arrivals_total)  
-      errors := attempts * fail_rate
-      retries := CONV(errors, [0.0, 0.6, 0.3, 0.1])
-      served := attempts - errors
-```
-
-### Outputs
-
-- Series with retry echoes across time bins
-- Conservation reports showing flow accounting
-
-### Acceptance Criteria
-
-- Single-pass evaluation maintained (no algebraic loops)
-- Retry volumes match convolution kernel exactly
-- Conservation laws verified for complex retry scenarios
 
 ---
 
@@ -969,32 +929,131 @@ UI overlays shaded regions for batch windows.
 
 ---
 
-## M7 — Backlog v1 + Latency
+## M6.5 — Cross-System Integration
 
 ### Goal
 
-Introduce real queues and latency metrics.
+Validate FlowTime artifacts can be consumed by FlowTime-Sim and vice versa.
 
 ### Functional Requirements
 
-- BacklogNode:
+- **FR-M6.5-1:** Artifact schema compatibility tests
+- **FR-M6.5-2:** Series index interoperability validation  
+- **FR-M6.5-3:** Joint scenario execution (FlowTime model → FlowTime-Sim validation)
+- **FR-M6.5-4:** Grid alignment validation between systems
+- **FR-M6.5-5:** RNG determinism compatibility (PCG32 seeding)
 
-  - Q\[t] = Q\[t-1] + inflow\[t] - served\[t]
-- Latency = Q\[t] / served\[t] \* bin\_minutes.
+### Inputs
+
+YAML models compatible with both FlowTime and FlowTime-Sim:
+
+```yaml
+grid: { bins: 24, binMinutes: 60 }
+nodes:
+  - id: service
+    kind: expr
+    expr: "MIN(capacity, arrivals)"
+```
+
+### Outputs
+
+- Cross-system compatibility report
+- Schema validation results
+- Joint execution test results
+
+### New Code/Files
+
+```
+tests/FlowTime.Integration/
+  CrossSystemCompatibilityTests.cs
+  SchemaValidationTests.cs
+scripts/
+  validate-flowtime-sim-compat.sh
+```
 
 ### Acceptance Criteria
 
-- Conservation holds.
-
-- Latency trends correct.
+- FlowTime artifacts successfully consumed by FlowTime-Sim
+- FlowTime-Sim artifacts successfully consumed by FlowTime
+- Grid definitions compatible between systems
+- RNG seeding produces consistent results
+- Schema versions aligned across both systems
 
 ---
 
-## UI-M7 — Queue Depth Visualization
+## M7 — Backlog v2 (Buffers & Spill)
 
 ### Goal
 
-Show backlog as area chart under series.
+Advanced queue semantics with finite buffers and overflow handling.
+
+### Functional Requirements
+
+- **FR-M7-1:** Finite buffer queues with capacity limits
+- **FR-M7-2:** Overflow/spill handling when buffers exceed capacity
+- **FR-M7-3:** Buffer utilization metrics and reporting
+- **FR-M7-4:** Dead letter queue (DLQ) for dropped items
+- **FR-M7-5:** Enhanced conservation validation with spill accounting
+
+### Inputs
+
+YAML models with buffer specifications:
+
+```yaml
+nodes:
+  - id: service_queue
+    kind: backlog
+    capacity: 1000           # Maximum queue depth
+    spillPolicy: drop        # drop | redirect | dlq
+    dlq: service_dlq        # Target for spilled items
+```
+
+### Outputs
+
+- Enhanced backlog series with capacity constraints
+- Spill/drop metrics per queue
+- DLQ depth and utilization reports
+- Buffer utilization trends
+
+### New Code/Files
+
+```
+src/FlowTime.Core/Nodes/
+  FiniteBacklogNode.cs      # Buffer-constrained queue
+  SpillPolicyNode.cs        # Overflow handling logic
+  DlqNode.cs                # Dead letter queue implementation
+src/FlowTime.Core/Metrics/
+  BufferUtilizationCalc.cs  # Buffer metrics and reporting
+```
+
+### Acceptance Criteria
+
+- Buffer capacity limits enforced correctly
+- Spill policies handle overflow as specified  
+- Conservation holds: arrivals = served + queued + spilled
+- DLQ accumulates dropped items accurately
+- Performance scales with buffer size, not total volume
+
+---
+
+## UI-M7 — Buffer & Spill Visualization
+
+### Goal
+
+Show buffer utilization and spill indicators in queue visualizations.
+
+### Functional Requirements
+
+- Buffer capacity bars showing current vs maximum depth
+- Spill rate indicators and DLQ accumulation charts
+- Color-coded overflow warnings when approaching capacity
+- Historical buffer utilization trends
+
+### Acceptance Criteria
+
+- Buffer capacity visually distinguishable from infinite queues
+- Spill events highlighted in timeline visualization
+- DLQ growth patterns clearly visible
 
 ---
 
@@ -1009,7 +1068,7 @@ Support multiple flow classes with capacity sharing policies.
 - **FR-M8-1:** Class-aware series (`arrivals@serviceA@VIP`, `arrivals@serviceA@STANDARD`).
 - **FR-M8-2:** Weighted-fair capacity sharing when capacity binds.
 - **FR-M8-3:** Strict priority with overflow to lower classes.
-- **FR-M8-4:** Per-class retry behavior (VIP may have different retry kernels).
+- **FR-M8-4:** Foundation for per-class retry behavior (implementation in M9.5).
 
 ### Inputs
 
@@ -1030,7 +1089,7 @@ nodes:
 
 - Multi-class conservation holds per class and in aggregate
 - Priority/fairness policies respected under capacity constraints
-- Retry behavior can differ by class
+- Foundation established for per-class retry behavior (full implementation in M9.5)
 
 ---
 
@@ -1085,6 +1144,76 @@ Run models against real telemetry.
 ### Goal
 
 Overlay real telemetry vs model.
+
+---
+
+## M9.5 — Retry & Feedback Modeling
+
+### Goal
+
+Enable temporal feedback loops through causal delay operators.
+
+**Note:** Deferred from original M4.5 position to align with FlowTime-Sim SIM-M6 timeline and avoid over-engineering early milestones.
+
+### Functional Requirements
+
+- **FR-M9.5-1:** CONV operator (`retries := CONV(errors, [0.0, 0.6, 0.3, 0.1])`).
+- **FR-M9.5-2:** DELAY operator for arbitrary time shifting.
+- **FR-M9.5-3:** RETRY built-in function with attempt limits and DLQ.
+- **FR-M9.5-4:** EMA operator for smoothed feedback signals.
+- **FR-M9.5-5:** Conservation validation (arrivals + retries - served - ΔQ - dlq ≈ 0).
+- **FR-M9.5-6:** Integration with FlowTime-Sim retry pattern generation.
+
+### Inputs
+
+YAML model with retry patterns:
+
+```yaml
+nodes:
+  - id: service
+    kind: expr
+    expr: |
+      arrivals_total := arrivals + retries
+      attempts := MIN(capacity, arrivals_total)  
+      errors := attempts * fail_rate
+      retries := CONV(errors, [0.0, 0.6, 0.3, 0.1])
+      served := attempts - errors
+```
+
+### Outputs
+
+- Series with retry echoes across time bins
+- Conservation reports showing flow accounting
+- Compatible artifacts for FlowTime-Sim validation
+
+### New Code/Files
+
+```
+src/FlowTime.Core/Operators/
+  ConvNode.cs               # CONV operator implementation
+  DelayNode.cs              # DELAY operator implementation
+  RetryNode.cs              # RETRY built-in function
+  EmaNode.cs                # Exponential moving average
+src/FlowTime.Core/Validation/
+  ConservationValidator.cs  # Flow conservation validation
+tests/FlowTime.Tests/
+  RetryModelingTests.cs     # Comprehensive retry tests
+  ConservationTests.cs      # Conservation law validation
+```
+
+### Acceptance Criteria
+
+- Single-pass evaluation maintained (no algebraic loops)
+- Retry volumes match convolution kernel exactly
+- Conservation laws verified for complex retry scenarios
+- Integration validated with FlowTime-Sim SIM-M6+ retry patterns
+- Performance maintained despite temporal complexity
+
+### Dependencies
+
+- **Prerequisite:** M6.5 (Cross-System Integration) for FlowTime-Sim compatibility
+- **Prerequisite:** M8 (Multi-Class) for per-class retry behavior
+- **Aligned with:** FlowTime-Sim SIM-M6 retry pattern generation
 
 ---
 
@@ -1199,23 +1328,88 @@ List and instantiate templates in UI.
 
 ---
 
-## M13 — Backlog v2 (Multi-Queue + Spill)
+## M13 — Backlog v3 (Priority Spill & Class Depth)
 
 ### Goal
 
-Advanced queue semantics.
+Multi-class queue management with priority-based spill policies and per-class depth tracking.
 
 ### Functional Requirements
 
-- DLQ, priority spill, finite buffer.
+- **FR-M13-1:** Per-class queue depth tracking and reporting
+- **FR-M13-2:** Priority-based spill policies (VIP items spill last)
+- **FR-M13-3:** Class-aware buffer allocation and sharing
+- **FR-M13-4:** Advanced DLQ routing based on class and priority
+- **FR-M13-5:** Multi-class conservation validation with priority accounting
+
+### Inputs
+
+YAML models with class-aware buffer policies:
+
+```yaml
+classes: ["VIP", "STANDARD"]
+nodes:
+  - id: priority_queue
+    kind: backlog
+    capacity: 1000
+    classPolicy:
+      VIP: { priority: 1, minReserved: 200 }      # Higher priority, reserved space
+      STANDARD: { priority: 2, minReserved: 0 }   # Lower priority, shared space
+    spillPolicy: priority                          # Spill lowest priority first
+```
+
+### Outputs
+
+- Per-class queue depth series
+- Priority-based spill reports showing which classes dropped
+- Class utilization efficiency metrics
+- Priority violation reports (VIP items dropped while STANDARD queued)
+
+### New Code/Files
+
+```
+src/FlowTime.Core/Nodes/
+  PriorityBacklogNode.cs    # Multi-class priority queue
+  ClassAwareSpillPolicy.cs  # Priority-based overflow handling
+src/FlowTime.Core/Metrics/
+  ClassDepthCalculator.cs   # Per-class queue tracking
+  PriorityViolationDetector.cs # SLA violation detection
+```
+
+### Acceptance Criteria
+
+- Priority spill policies protect higher-class items
+- Per-class depth tracking accurate across all classes
+- Conservation holds per-class and in aggregate
+- VIP items never dropped while STANDARD items remain queued
+- Class reservation policies enforced under capacity pressure
+
+### Dependencies
+
+- **Prerequisite:** M8 (Multi-Class + Priority/Fairness) for class infrastructure
+- **Prerequisite:** M7 (Backlog v2) for buffer and spill foundation
 
 ---
 
-## UI-M13 — Spill Indicators
+## UI-M13 — Multi-Class Queue Visualization
 
 ### Goal
 
-Visual DLQ vs main queue.
+Visualize per-class queue depths and priority spill behavior.
+
+### Functional Requirements
+
+- Stacked area charts showing queue depth by class
+- Priority violation alerts when VIP items are dropped
+- Class reservation utilization indicators
+- Priority spill event timeline with class breakdown
+
+### Acceptance Criteria
+
+- Per-class queue depths clearly distinguished by color/pattern
+- Priority violations prominently highlighted in UI
+- Class reservation boundaries visible in queue visualizations
+- Spill events show which classes were affected
 
 ---
 
@@ -1228,7 +1422,7 @@ Close loop with telemetry.
 ### Functional Requirements
 
 - Learn routing patterns from telemetry.
-- Calibrate retry kernels against observed behavior (building on M4.5 retry modeling).
+- Calibrate retry kernels against observed behavior (building on M9.5 retry modeling).
 - Detect model drift in retry rates, latency distributions.
 - Drift report with statistical confidence intervals.
 
