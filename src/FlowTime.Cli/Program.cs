@@ -2,8 +2,7 @@
 using FlowTime.Core;
 using FlowTime.Core.Artifacts;
 using FlowTime.Core.Models;
-using YamlDotNet.Serialization;
-using YamlDotNet.Serialization.NamingConventions;
+using FlowTime.Contracts.Services;
 using System.Text.Json;
 
 if (args.Length == 0 || IsHelp(args[0]))
@@ -40,8 +39,7 @@ for (int i = 2; i < args.Length; i++)
 Directory.CreateDirectory(outDir);
 
 var yaml = File.ReadAllText(modelPath);
-var deserializer = new DeserializerBuilder().WithNamingConvention(CamelCaseNamingConvention.Instance).Build();
-var model = deserializer.Deserialize<ModelDto>(yaml);
+var coreModel = ModelService.ParseAndConvert(yaml);
 
 if (!string.IsNullOrWhiteSpace(viaApi))
 {
@@ -49,23 +47,6 @@ if (!string.IsNullOrWhiteSpace(viaApi))
 }
 
 // Parse the model using shared ModelParser
-var coreModel = new ModelDefinition
-{
-	Grid = new GridDefinition { Bins = model.Grid.Bins, BinMinutes = model.Grid.BinMinutes },
-	Nodes = model.Nodes.Select(n => new NodeDefinition 
-	{ 
-		Id = n.Id, 
-		Kind = n.Kind, 
-		Values = n.Values, 
-		Expr = n.Expr,
-		Pmf = n.Pmf
-	}).ToList(),
-	Outputs = model.Outputs.Select(o => new OutputDefinition 
-	{ 
-		Series = o.Series, 
-		As = o.As 
-	}).ToList()
-};
 var (grid, graph) = ModelParser.ParseModel(coreModel);
 var order = graph.TopologicalOrder();
 var ctx = graph.Evaluate(grid);
@@ -145,13 +126,4 @@ static void PrintUsage()
 		};
 	}
 
-// DTOs for YAML
-public sealed class ModelDto
-{
-	public GridDto Grid { get; set; } = default!;
-	public List<NodeDto> Nodes { get; set; } = new();
-	public List<OutputDto> Outputs { get; set; } = new();
-}
-public sealed class GridDto { public int Bins { get; set; } public int BinMinutes { get; set; } }
-public sealed class NodeDto { public string Id { get; set; } = ""; public string Kind { get; set; } = "const"; public double[]? Values { get; set; } public string? Expr { get; set; } public Dictionary<string, double>? Pmf { get; set; } }
-public sealed class OutputDto { public string Series { get; set; } = ""; public string As { get; set; } = "out.csv"; }
+

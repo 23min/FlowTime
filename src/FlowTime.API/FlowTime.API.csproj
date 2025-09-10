@@ -30,12 +30,12 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.7" />
-    <PackageReference Include="YamlDotNet" Version="16.3.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\FlowTime.Core\FlowTime.Core.csproj" />
     <ProjectReference Include="..\..\src\FlowTime.Adapters.Synthetic\FlowTime.Adapters.Synthetic.csproj" />
+    <ProjectReference Include="..\..\src\FlowTime.Contracts\FlowTime.Contracts.csproj" />
   </ItemGroup>
 
 </Project>
