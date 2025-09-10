@@ -16,12 +16,11 @@ Legend: Done / Prototype / Partial / Planned.
 | UI Template Runner | Template gallery, dynamic forms, catalog selection, simulation workflow | Done (UI-M1) | Full template-based simulation runner |
 | UI Parameter Forms | JSON schema-driven forms with validation | Done (UI-M1) | Auto-generated forms with type validation |
 | UI Catalog Management | System catalog selection with metadata | Done (UI-M1) | Visual catalog picker with capabilities |
-| UI Real API Integration | HTTP services, real simulation execution, artifact-first patterns | Done (UI-M2) ✅ | Complete FlowTime-Sim integration with series streaming |
 | UI Graph | Structural table (order, degrees, roles) | Done | Visual DAG planned for later |
 | Simulation Mode | Deterministic synthetic run + graph | Done | Toggle persisted (flag + query) |
 | Synthetic Adapter (SYN-M0) | Read artifacts & produce series | Done (SYN-M0) | FileSeriesReader, RunArtifactAdapter complete |
 | Backlog & Latency | Single-queue backlog + Little's Law latency | Planned (M7) | Not pulled forward in current roadmap |
-| Testing | Core unit tests & API slice + CLI parity + artifact endpoints | Done | 35/35 tests passing including enhanced artifact validation |
+| Testing | Core unit tests & API slice + CLI parity + artifact endpoints | Done | 33/33 tests passing including artifact validation |
 | Docs | README, roadmap, node concepts, releases | Done | Complete documentation for all milestones |
 
 This matrix will evolve; see `docs/ROADMAP.md` for full milestone detail.
