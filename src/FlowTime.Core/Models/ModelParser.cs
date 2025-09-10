@@ -54,6 +54,7 @@ public static class ModelParser
         {
             "const" => ParseConstNode(nodeDef),
             "expr" => ParseExprNode(nodeDef),
+            "pmf" => ParsePmfNode(nodeDef),
             _ => throw new ModelParseException($"Unknown node kind: {nodeDef.Kind}")
         };
     }
@@ -81,6 +82,39 @@ public static class ModelParser
         catch (Exception ex)
         {
             throw new ModelParseException($"Node {nodeDef.Id}: error parsing expression '{nodeDef.Expr}': {ex.Message}", ex);
+        }
+    }
+
+    private static INode ParsePmfNode(NodeDefinition nodeDef)
+    {
+        if (nodeDef.Pmf == null || nodeDef.Pmf.Count == 0)
+            throw new ModelParseException($"Node {nodeDef.Id}: pmf nodes require pmf property with at least one value");
+
+        try
+        {
+            // Parse PMF dictionary from string keys to double values
+            var distribution = new Dictionary<double, double>();
+            foreach (var kvp in nodeDef.Pmf)
+            {
+                if (!double.TryParse(kvp.Key, NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
+                    throw new ModelParseException($"Node {nodeDef.Id}: invalid PMF value '{kvp.Key}' - must be a valid number");
+                
+                if (distribution.ContainsKey(value))
+                    throw new ModelParseException($"Node {nodeDef.Id}: duplicate PMF value '{value}'");
+                    
+                distribution[value] = kvp.Value;
+            }
+
+            var pmf = new Pmf.Pmf(distribution);
+            return new Pmf.PmfNode(new NodeId(nodeDef.Id), pmf);
+        }
+        catch (ArgumentException ex)
+        {
+            throw new ModelParseException($"Node {nodeDef.Id}: error creating PMF: {ex.Message}", ex);
+        }
+        catch (Exception ex)
+        {
+            throw new ModelParseException($"Node {nodeDef.Id}: unexpected error parsing PMF: {ex.Message}", ex);
         }
     }
 }
@@ -116,6 +150,7 @@ public class NodeDefinition
     public string Kind { get; set; } = "const";
     public double[]? Values { get; set; }
     public string? Expr { get; set; }
+    public Dictionary<string, double>? Pmf { get; set; }
 }
 
 public class OutputDefinition
