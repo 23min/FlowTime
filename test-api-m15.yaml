@@ -1,0 +1,20 @@
+grid:
+  bins: 5
+  binMinutes: 60
+nodes:
+  - id: demand
+    kind: const
+    values: [10, 20, 30, 40, 50]
+  - id: shifted
+    kind: expr
+    expr: "SHIFT(demand, 1)"
+  - id: combined
+    kind: expr
+    expr: "demand + SHIFT(demand, 1)"
+outputs:
+  - series: demand
+    as: demand
+  - series: shifted
+    as: shifted
+  - series: combined
+    as: combined

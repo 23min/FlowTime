@@ -515,11 +515,13 @@ docs/contracts.md (updated with new artifact shapes and field glossary)
 
 ---
 
-## M1.5 — Focused Expression Language
+## M1.5 — Focused Expression Language ✅ COMPLETED
 
 ### Goal
 
 Add basic expression language with SHIFT operator only. Deliberately focused to avoid over-engineering.
+
+**Status**: All functional requirements implemented, tested, and performance validated.
 
 ### Functional Requirements
 

@@ -1,5 +1,6 @@
 using System.Text;
 using FlowTime.Core;
+using FlowTime.Core.Models;
 using FlowTime.Adapters.Synthetic;
 using FlowTime.API.Models;
 using FlowTime.API.Services;
@@ -104,40 +105,35 @@ v1.MapPost("/run", async (HttpRequest req, ILogger<Program> logger) =>
             .Build();
         var model = deserializer.Deserialize<ModelDto>(yaml);
 
-        var grid = new FlowTime.Core.TimeGrid(model.Grid.Bins, model.Grid.BinMinutes);
-        var nodes = new List<INode>();
-        foreach (var n in model.Nodes)
+        // Convert API DTO to Core model definition and parse using shared ModelParser
+        FlowTime.Core.TimeGrid grid;
+        Graph graph;
+        try
         {
-            if (n.Kind == "const")
+            var coreModel = new ModelDefinition
             {
-                if (n.Values is null) return Results.BadRequest(new { error = $"Node {n.Id}: values required for const" });
-                nodes.Add(new ConstSeriesNode(n.Id, n.Values));
-            }
-            else if (n.Kind == "expr")
-            {
-                if (string.IsNullOrWhiteSpace(n.Expr)) return Results.BadRequest(new { error = $"Node {n.Id}: expr required for expr kind" });
-                // M0 expr support: "<name> <op> <scalar>" where op ∈ {*, +}
-                var parts = n.Expr.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                if (parts.Length == 3)
-                {
-                    var left = new NodeId(parts[0]);
-                    var op = parts[1] == "*" ? BinOp.Mul : BinOp.Add;
-                    if (!double.TryParse(parts[2], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var scalar))
-                        return Results.BadRequest(new { error = $"Node {n.Id}: invalid scalar '{parts[2]}'" });
-                    nodes.Add(new BinaryOpNode(n.Id, left, new NodeId("__scalar__"), op, scalar));
-                }
-                else
-                {
-                    return Results.BadRequest(new { error = $"Node {n.Id}: unsupported expr '{n.Expr}' (M0 supports 'name * k' or 'name + k')" });
-                }
-            }
-            else
-            {
-                return Results.BadRequest(new { error = $"Unknown node kind: {n.Kind}" });
-            }
+                Grid = new GridDefinition { Bins = model.Grid.Bins, BinMinutes = model.Grid.BinMinutes },
+                Nodes = model.Nodes.Select(n => new NodeDefinition 
+                { 
+                    Id = n.Id, 
+                    Kind = n.Kind, 
+                    Values = n.Values, 
+                    Expr = n.Expr 
+                }).ToList(),
+                Outputs = model.Outputs.Select(o => new OutputDefinition 
+                { 
+                    Series = o.Series, 
+                    As = o.As 
+                }).ToList()
+            };
+            
+            (grid, graph) = ModelParser.ParseModel(coreModel);
+        }
+        catch (ModelParseException ex)
+        {
+            return Results.BadRequest(new { error = ex.Message });
         }
 
-        var graph = new Graph(nodes);
         var order = graph.TopologicalOrder();
         var ctx = graph.Evaluate(grid);
 
@@ -206,39 +202,47 @@ v1.MapPost("/graph", async (HttpRequest req, ILogger<Program> logger) =>
             .Build();
         var model = deserializer.Deserialize<ModelDto>(yaml);
 
-        var nodes = new List<INode>();
-        foreach (var n in model.Nodes)
+        // Convert API DTO to Core model definition and parse using shared ModelParser
+        try
         {
-            if (n.Kind == "const") nodes.Add(new ConstSeriesNode(n.Id, n.Values ?? Array.Empty<double>()));
-            else if (n.Kind == "expr")
+            var coreModel = new ModelDefinition
             {
-                if (string.IsNullOrWhiteSpace(n.Expr)) return Results.BadRequest(new { error = $"Node {n.Id}: expr required" });
-                var parts = n.Expr.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                if (parts.Length == 3)
-                {
-                    var left = new NodeId(parts[0]);
-                    var op = parts[1] == "*" ? BinOp.Mul : BinOp.Add;
-                    nodes.Add(new BinaryOpNode(n.Id, left, new NodeId("__scalar__"), op, 0.0));
-                }
-                else return Results.BadRequest(new { error = $"Node {n.Id}: unsupported expr '{n.Expr}'" });
-            }
-            else return Results.BadRequest(new { error = $"Unknown node kind: {n.Kind}" });
+                Grid = new GridDefinition { Bins = model.Grid.Bins, BinMinutes = model.Grid.BinMinutes },
+                Nodes = model.Nodes.Select(n => new NodeDefinition 
+                { 
+                    Id = n.Id, 
+                    Kind = n.Kind, 
+                    Values = n.Values, 
+                    Expr = n.Expr 
+                }).ToList(),
+                Outputs = model.Outputs.Select(o => new OutputDefinition 
+                { 
+                    Series = o.Series, 
+                    As = o.As 
+                }).ToList()
+            };
+            
+            var (grid, graph) = ModelParser.ParseModel(coreModel);
+            var order = graph.TopologicalOrder();
+            
+            // Get nodes from the coreModel since Graph doesn't expose them
+            var edges = coreModel.Nodes.Select(n => new
+            {
+                id = n.Id,
+                inputs = Array.Empty<string>() // For graph endpoint, we don't need detailed inputs
+            });
+
+            return Results.Ok(new
+            {
+                nodes = coreModel.Nodes.Select(n => n.Id).ToArray(),
+                order = order.Select(o => o.Value).ToArray(),
+                edges
+            });
         }
-
-        var graph = new Graph(nodes);
-        var order = graph.TopologicalOrder();
-        var edges = nodes.Select(n => new
+        catch (ModelParseException ex)
         {
-            id = n.Id.Value,
-            inputs = n.Inputs.Select(i => i.Value).ToArray()
-        });
-
-        return Results.Ok(new
-        {
-            nodes = nodes.Select(n => n.Id.Value).ToArray(),
-            order = order.Select(o => o.Value).ToArray(),
-            edges
-        });
+            return Results.BadRequest(new { error = ex.Message });
+        }
     }
     catch (Exception ex)
     {

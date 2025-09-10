@@ -215,6 +215,7 @@ This means you can share models between both engines.
 |-----------|-------------|--------|
 | **M0** | Minimal deterministic engine with CLI and CSV export | ✅ Completed |
 | **M1** | Contracts parity with structured artifacts and schema validation | ✅ Completed |
+| **M1.5** | Expression language with SHIFT operator, MIN/MAX/CLAMP functions | ✅ Completed |
 | **SVC-M0** | HTTP API with `/run`, `/graph`, `/healthz` endpoints | ✅ Completed |
 | **SVC-M1** | Artifact serving API with run data access endpoints | ✅ Completed |
 | **SYN-M0** | Synthetic adapter for reading FlowTime-Sim and CLI artifacts | ✅ Completed |
