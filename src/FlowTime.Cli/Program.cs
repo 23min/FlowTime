@@ -1,6 +1,7 @@
 ﻿using FlowTime.Cli.Configuration;
 using FlowTime.Core;
 using FlowTime.Core.Artifacts;
+using FlowTime.Core.Models;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 using System.Text.Json;
@@ -47,27 +48,24 @@ if (!string.IsNullOrWhiteSpace(viaApi))
 	Console.WriteLine($"--via-api is specified ({viaApi}), but HTTP mode isn’t implemented yet. Running locally for now to preserve parity and offline support.");
 }
 
-var grid = new TimeGrid(model.Grid.Bins, model.Grid.BinMinutes);
-var nodes = new List<INode>();
-foreach (var n in model.Nodes)
+// Parse the model using shared ModelParser
+var coreModel = new ModelDefinition
 {
-	if (n.Kind == "const") nodes.Add(new ConstSeriesNode(n.Id, n.Values!));
-	else if (n.Kind == "expr")
-	{
-		var parts = n.Expr!.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-		if (parts.Length == 3)
-		{
-			var left = new NodeId(parts[0]);
-			var op = parts[1] == "*" ? BinOp.Mul : BinOp.Add;
-			var scalar = double.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture);
-			nodes.Add(new BinaryOpNode(n.Id, left, new NodeId("__scalar__"), op, scalar));
-		}
-		else throw new InvalidOperationException($"Unsupported expr: {n.Expr}");
-	}
-	else throw new InvalidOperationException($"Unknown kind: {n.Kind}");
-}
-
-var graph = new Graph(nodes);
+	Grid = new GridDefinition { Bins = model.Grid.Bins, BinMinutes = model.Grid.BinMinutes },
+	Nodes = model.Nodes.Select(n => new NodeDefinition 
+	{ 
+		Id = n.Id, 
+		Kind = n.Kind, 
+		Values = n.Values, 
+		Expr = n.Expr 
+	}).ToList(),
+	Outputs = model.Outputs.Select(o => new OutputDefinition 
+	{ 
+		Series = o.Series, 
+		As = o.As 
+	}).ToList()
+};
+var (grid, graph) = ModelParser.ParseModel(coreModel);
 var order = graph.TopologicalOrder();
 var ctx = graph.Evaluate(grid);
 

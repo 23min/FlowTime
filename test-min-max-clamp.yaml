@@ -1,0 +1,26 @@
+grid:
+  bins: 4
+  binMinutes: 60
+nodes:
+  - id: a
+    kind: const
+    values: [10, 30, 15, 25]
+  - id: b
+    kind: const
+    values: [20, 10, 25, 15]
+  - id: test_min
+    kind: expr
+    expr: "MIN(a, b)"
+  - id: test_max
+    kind: expr
+    expr: "MAX(a, b)"
+  - id: test_clamp
+    kind: expr
+    expr: "CLAMP(a, 12, 22)"
+outputs:
+  - series: test_min
+    as: min_result
+  - series: test_max
+    as: max_result
+  - series: test_clamp
+    as: clamp_result
