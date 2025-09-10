@@ -42,7 +42,7 @@ public class PmfTests
             { 1, 1.0/6 }, { 2, 1.0/3 }, { 3, 0.5 }
         };
         Assert.Equal(expectedDistribution, pmf.Distribution);
-        Assert.Equal(2.5, pmf.ExpectedValue); // 1*(1/6) + 2*(1/3) + 3*(1/2) = 2.5
+        Assert.Equal(2.333333333333333, pmf.ExpectedValue, precision: 10); // 1*(1/6) + 2*(1/3) + 3*(1/2) = 14/6
     }
 
     [Fact]

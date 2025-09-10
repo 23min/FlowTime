@@ -118,7 +118,8 @@ v1.MapPost("/run", async (HttpRequest req, ILogger<Program> logger) =>
                     Id = n.Id, 
                     Kind = n.Kind, 
                     Values = n.Values, 
-                    Expr = n.Expr 
+                    Expr = n.Expr,
+                    Pmf = n.Pmf
                 }).ToList(),
                 Outputs = model.Outputs.Select(o => new OutputDefinition 
                 { 
@@ -213,7 +214,8 @@ v1.MapPost("/graph", async (HttpRequest req, ILogger<Program> logger) =>
                     Id = n.Id, 
                     Kind = n.Kind, 
                     Values = n.Values, 
-                    Expr = n.Expr 
+                    Expr = n.Expr,
+                    Pmf = n.Pmf
                 }).ToList(),
                 Outputs = model.Outputs.Select(o => new OutputDefinition 
                 { 
@@ -361,6 +363,7 @@ public sealed class NodeDto
     public string Kind { get; set; } = "const";
     public double[]? Values { get; set; }
     public string? Expr { get; set; }
+    public Dictionary<string, double>? Pmf { get; set; }
 }
 
 public sealed class OutputDto

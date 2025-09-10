@@ -57,7 +57,8 @@ var coreModel = new ModelDefinition
 		Id = n.Id, 
 		Kind = n.Kind, 
 		Values = n.Values, 
-		Expr = n.Expr 
+		Expr = n.Expr,
+		Pmf = n.Pmf
 	}).ToList(),
 	Outputs = model.Outputs.Select(o => new OutputDefinition 
 	{ 
@@ -152,5 +153,5 @@ public sealed class ModelDto
 	public List<OutputDto> Outputs { get; set; } = new();
 }
 public sealed class GridDto { public int Bins { get; set; } public int BinMinutes { get; set; } }
-public sealed class NodeDto { public string Id { get; set; } = ""; public string Kind { get; set; } = "const"; public double[]? Values { get; set; } public string? Expr { get; set; } }
+public sealed class NodeDto { public string Id { get; set; } = ""; public string Kind { get; set; } = "const"; public double[]? Values { get; set; } public string? Expr { get; set; } public Dictionary<string, double>? Pmf { get; set; } }
 public sealed class OutputDto { public string Series { get; set; } = ""; public string As { get; set; } = "out.csv"; }
