@@ -13,14 +13,15 @@ using System.Text;
 namespace FlowTime.Tests.Performance;
 
 /// <summary>
-/// BenchmarkDotNet-based performance tests for M1.5 Expression Language implementation.
+/// BenchmarkDotNet-based performance tests for M1.6 (M1.5 + BenchmarkDotNet infrastructure).
 /// Provides reliable, statistically rigorous performance measurements with proper warmup and JIT compilation.
+/// This represents the baseline benchmark capabilities established in M1.6 milestone.
 /// </summary>
 [MemoryDiagnoser]
 [RankColumn]
 [Orderer(SummaryOrderPolicy.FastestToSlowest)]
 [Config(typeof(Config))]
-public class M15BenchmarkDotNetTests
+public class M16BenchmarkDotNetTests
 {
     private class Config : ManualConfig
     {
@@ -254,24 +255,24 @@ public static class M15BenchmarkRunner
 {
     public static void RunAllBenchmarks()
     {
-        BenchmarkRunner.Run<M15BenchmarkDotNetTests>();
+        BenchmarkRunner.Run<M16BenchmarkDotNetTests>();
     }
 
     public static void RunScaleBenchmarks()
     {
-        BenchmarkRunner.Run<M15BenchmarkDotNetTests>(
+        BenchmarkRunner.Run<M16BenchmarkDotNetTests>(
             DefaultConfig.Instance.AddFilter(new BenchmarkCategoryFilter("Scale")));
     }
 
     public static void RunExpressionTypeBenchmarks()
     {
-        BenchmarkRunner.Run<M15BenchmarkDotNetTests>(
+        BenchmarkRunner.Run<M16BenchmarkDotNetTests>(
             DefaultConfig.Instance.AddFilter(new BenchmarkCategoryFilter("ExpressionType")));
     }
 
     public static void RunEndToEndBenchmarks()
     {
-        BenchmarkRunner.Run<M15BenchmarkDotNetTests>(
+        BenchmarkRunner.Run<M16BenchmarkDotNetTests>(
             DefaultConfig.Instance.AddFilter(new BenchmarkCategoryFilter("EndToEnd")));
     }
 }
