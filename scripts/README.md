@@ -9,9 +9,16 @@ This directory contains development and testing scripts for FlowTime.
 
 ## Test YAML Files
 
+### Basic Test Models
 - `test-api.yaml` - Simple FlowTime engine model for API testing (may have encoding issues, use inline YAML instead)
 - `test-ui-yaml.yaml` - UI-specific test model  
 - `test.yaml` - FlowTime-Sim compatible model for simulation testing
+
+### Milestone Feature Tests  
+- `test-api-m15.yaml` - M1.5 SHIFT expression testing
+- `test-complex-m15.yaml` - Complex expression combinations
+- `test-min-max-clamp.yaml` - MIN/MAX/CLAMP function testing
+- `test-pmf-example.yaml` - Probability Mass Function (PMF) testing
 
 ## Usage
 
