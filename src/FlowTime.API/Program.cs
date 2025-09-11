@@ -4,8 +4,7 @@ using FlowTime.Core.Models;
 using FlowTime.Adapters.Synthetic;
 using FlowTime.API.Models;
 using FlowTime.API.Services;
-using YamlDotNet.Serialization;
-using YamlDotNet.Serialization.NamingConventions;
+using FlowTime.Contracts.Services;
 using Microsoft.AspNetCore.HttpLogging;
 using System.Diagnostics;
 
@@ -100,32 +99,13 @@ v1.MapPost("/run", async (HttpRequest req, ILogger<Program> logger) =>
         var preview = yaml.Substring(0, previewLen);
         logger.LogDebug("/run accepted YAML: {Length} chars; preview: {Preview}", yaml.Length, preview);
 
-        var deserializer = new DeserializerBuilder()
-            .WithNamingConvention(CamelCaseNamingConvention.Instance)
-            .Build();
-        var model = deserializer.Deserialize<ModelDto>(yaml);
-
         // Convert API DTO to Core model definition and parse using shared ModelParser
         FlowTime.Core.TimeGrid grid;
         Graph graph;
+        FlowTime.Core.Models.ModelDefinition coreModel;
         try
         {
-            var coreModel = new ModelDefinition
-            {
-                Grid = new GridDefinition { Bins = model.Grid.Bins, BinMinutes = model.Grid.BinMinutes },
-                Nodes = model.Nodes.Select(n => new NodeDefinition 
-                { 
-                    Id = n.Id, 
-                    Kind = n.Kind, 
-                    Values = n.Values, 
-                    Expr = n.Expr 
-                }).ToList(),
-                Outputs = model.Outputs.Select(o => new OutputDefinition 
-                { 
-                    Series = o.Series, 
-                    As = o.As 
-                }).ToList()
-            };
+            coreModel = ModelService.ParseAndConvert(yaml);
             
             (grid, graph) = ModelParser.ParseModel(coreModel);
         }
@@ -151,7 +131,7 @@ v1.MapPost("/run", async (HttpRequest req, ILogger<Program> logger) =>
         // Use shared artifact writer
         var writeRequest = new FlowTime.Core.Artifacts.RunArtifactWriter.WriteRequest
         {
-            Model = model,
+            Model = coreModel,
             Grid = grid,
             Context = artifactContext,
             SpecText = yaml,
@@ -197,30 +177,10 @@ v1.MapPost("/graph", async (HttpRequest req, ILogger<Program> logger) =>
         var preview = yaml.Substring(0, previewLen);
         logger.LogDebug("/graph accepted YAML: {Length} chars; preview: {Preview}", yaml.Length, preview);
 
-        var deserializer = new DeserializerBuilder()
-            .WithNamingConvention(CamelCaseNamingConvention.Instance)
-            .Build();
-        var model = deserializer.Deserialize<ModelDto>(yaml);
-
         // Convert API DTO to Core model definition and parse using shared ModelParser
         try
         {
-            var coreModel = new ModelDefinition
-            {
-                Grid = new GridDefinition { Bins = model.Grid.Bins, BinMinutes = model.Grid.BinMinutes },
-                Nodes = model.Nodes.Select(n => new NodeDefinition 
-                { 
-                    Id = n.Id, 
-                    Kind = n.Kind, 
-                    Values = n.Values, 
-                    Expr = n.Expr 
-                }).ToList(),
-                Outputs = model.Outputs.Select(o => new OutputDefinition 
-                { 
-                    Series = o.Series, 
-                    As = o.As 
-                }).ToList()
-            };
+            var coreModel = ModelService.ParseAndConvert(yaml);
             
             var (grid, graph) = ModelParser.ParseModel(coreModel);
             var order = graph.TopologicalOrder();
@@ -339,35 +299,6 @@ v1.MapGet("/runs/{runId}/series/{seriesId}", async (string runId, string seriesI
 
 
 app.Run();
-
-// Request DTOs (YAML)
-public sealed class ModelDto
-{
-    public GridDto Grid { get; set; } = new();
-    public List<NodeDto> Nodes { get; set; } = new();
-    // M0 note: Outputs are a CLI concern for CSV emission and are ignored by the API.
-    public List<OutputDto> Outputs { get; set; } = new();
-}
-
-public sealed class GridDto
-{
-    public int Bins { get; set; }
-    public int BinMinutes { get; set; }
-}
-
-public sealed class NodeDto
-{
-    public string Id { get; set; } = "";
-    public string Kind { get; set; } = "const";
-    public double[]? Values { get; set; }
-    public string? Expr { get; set; }
-}
-
-public sealed class OutputDto
-{
-    public string Series { get; set; } = "";
-    public string As { get; set; } = "out.csv";
-}
 
 // Allow WebApplicationFactory to reference the entry point for integration tests
 public partial class Program 

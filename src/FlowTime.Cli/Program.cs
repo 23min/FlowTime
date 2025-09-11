@@ -2,8 +2,7 @@
 using FlowTime.Core;
 using FlowTime.Core.Artifacts;
 using FlowTime.Core.Models;
-using YamlDotNet.Serialization;
-using YamlDotNet.Serialization.NamingConventions;
+using FlowTime.Contracts.Services;
 using System.Text.Json;
 
 if (args.Length == 0 || IsHelp(args[0]))
@@ -40,32 +39,33 @@ for (int i = 2; i < args.Length; i++)
 Directory.CreateDirectory(outDir);
 
 var yaml = File.ReadAllText(modelPath);
-var deserializer = new DeserializerBuilder().WithNamingConvention(CamelCaseNamingConvention.Instance).Build();
-var model = deserializer.Deserialize<ModelDto>(yaml);
+
+// Convert YAML to Core model definition and parse using shared ModelParser
+FlowTime.Core.TimeGrid grid;
+Graph graph;
+FlowTime.Core.Models.ModelDefinition coreModel;
+try
+{
+	coreModel = ModelService.ParseAndConvert(yaml);
+	
+	(grid, graph) = ModelParser.ParseModel(coreModel);
+}
+catch (ModelParseException ex)
+{
+	Console.Error.WriteLine($"Error parsing model: {ex.Message}");
+	return 1;
+}
+catch (Exception ex)
+{
+	Console.Error.WriteLine($"Error processing model file: {ex.Message}");
+	return 1;
+}
 
 if (!string.IsNullOrWhiteSpace(viaApi))
 {
-	Console.WriteLine($"--via-api is specified ({viaApi}), but HTTP mode isn’t implemented yet. Running locally for now to preserve parity and offline support.");
+	Console.WriteLine($"--via-api is specified ({viaApi}), but HTTP mode isn't implemented yet. Running locally for now to preserve parity and offline support.");
 }
 
-// Parse the model using shared ModelParser
-var coreModel = new ModelDefinition
-{
-	Grid = new GridDefinition { Bins = model.Grid.Bins, BinMinutes = model.Grid.BinMinutes },
-	Nodes = model.Nodes.Select(n => new NodeDefinition 
-	{ 
-		Id = n.Id, 
-		Kind = n.Kind, 
-		Values = n.Values, 
-		Expr = n.Expr 
-	}).ToList(),
-	Outputs = model.Outputs.Select(o => new OutputDefinition 
-	{ 
-		Series = o.Series, 
-		As = o.As 
-	}).ToList()
-};
-var (grid, graph) = ModelParser.ParseModel(coreModel);
 var order = graph.TopologicalOrder();
 var ctx = graph.Evaluate(grid);
 
@@ -79,32 +79,32 @@ if (verbose)
 // Persist spec.yaml verbatim (line ending normalized) and compute canonical scenario/model hash
 var specVerbatim = yaml.Replace("\r\n", "\n");
 
-	// Create context dictionary for artifact writer
-	var context = new Dictionary<NodeId, double[]>();
-	foreach (var (nodeId, series) in ctx)
-	{
-		context[nodeId] = series.ToArray();
-	}
+// Create context dictionary for artifact writer
+var context = new Dictionary<NodeId, double[]>();
+foreach (var (nodeId, series) in ctx)
+{
+	context[nodeId] = series.ToArray();
+}
 
-	// Use shared artifact writer
-	var writeRequest = new RunArtifactWriter.WriteRequest
-	{
-		Model = model,
-		Grid = grid,
-		Context = context,
-		SpecText = specVerbatim,
-		RngSeed = rngSeed,
-		StartTimeBias = startTimeBias,
-		DeterministicRunId = deterministicRunId,
-		OutputDirectory = outDir,
-		Verbose = verbose
-	};
+// Use shared artifact writer
+var writeRequest = new RunArtifactWriter.WriteRequest
+{
+	Model = coreModel,
+	Grid = grid,
+	Context = context,
+	SpecText = specVerbatim,
+	RngSeed = rngSeed,
+	StartTimeBias = startTimeBias,
+	DeterministicRunId = deterministicRunId,
+	OutputDirectory = outDir,
+	Verbose = verbose
+};
 
-	var result = await RunArtifactWriter.WriteArtifactsAsync(writeRequest);
-	if (verbose) Console.WriteLine($"  RNG seed: {result.FinalSeed} ({(rngSeed.HasValue ? "provided" : "generated")})");
-	Console.WriteLine($"Wrote artifacts to {result.RunDirectory}");
+var result = await RunArtifactWriter.WriteArtifactsAsync(writeRequest);
+if (verbose) Console.WriteLine($"  RNG seed: {result.FinalSeed} ({(rngSeed.HasValue ? "provided" : "generated")})");
+Console.WriteLine($"Wrote artifacts to {result.RunDirectory}");
 
-	return 0;
+return 0;
 
 static bool IsHelp(string? s)
 {
@@ -136,21 +136,11 @@ static void PrintUsage()
 	Console.WriteLine("  flowtime run examples/hello/model.yaml --deterministic-run-id --out out/deterministic");
 	Console.WriteLine("  flowtime run examples/hello/model.yaml --seed 42 --verbose");
 }
-	file static class JsonOpts
-	{
-		public static readonly System.Text.Json.JsonSerializerOptions Value = new(System.Text.Json.JsonSerializerDefaults.Web)
-		{
-			WriteIndented = true
-		};
-	}
 
-// DTOs for YAML
-public sealed class ModelDto
+static class JsonOpts
 {
-	public GridDto Grid { get; set; } = default!;
-	public List<NodeDto> Nodes { get; set; } = new();
-	public List<OutputDto> Outputs { get; set; } = new();
+	public static readonly System.Text.Json.JsonSerializerOptions Value = new(System.Text.Json.JsonSerializerDefaults.Web)
+	{
+		WriteIndented = true
+	};
 }
-public sealed class GridDto { public int Bins { get; set; } public int BinMinutes { get; set; } }
-public sealed class NodeDto { public string Id { get; set; } = ""; public string Kind { get; set; } = "const"; public double[]? Values { get; set; } public string? Expr { get; set; } }
-public sealed class OutputDto { public string Series { get; set; } = ""; public string As { get; set; } = "out.csv"; }
