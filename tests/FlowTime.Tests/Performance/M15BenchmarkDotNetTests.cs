@@ -203,7 +203,9 @@ public class M15BenchmarkDotNetTests
         };
 
         // Create base distributions (referenced by expressions)
-        for (int i = 0; i < Math.Min(nodeCount / 5, 20); i++)
+        // Ensure we create enough base nodes for all possible references
+        int baseNodeCount = Math.Max(20, nodeCount / 2); // Generous allocation for base nodes
+        for (int i = 0; i < baseNodeCount; i++)
         {
             var values = new double[bins];
             for (int b = 0; b < bins; b++)
