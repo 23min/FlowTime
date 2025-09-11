@@ -43,9 +43,10 @@ FlowTime-Sim is the **synthetic generator companion** producing telemetry-like d
 **FlowTime-Sim Alignment** (following harmonized milestone sequence):
 - **SIM-M0 — Core Foundations** — **✅ Done** (aligns with Engine M0)
 - **SIM-M1 — Contracts Parity Pack** — **✅ Done** (aligns with Engine M1)  
-- **SIM-M2 — PMF Expected-Value** — **📋 Not Started** (aligns with Engine M2)
-- **SIM-CAT-M1 — Catalog.v1 Required** — **✅ Done** (stable ID source)
-- **SIM-SVC-M1 — Minimal Service/API** — **✅ Done** (artifact endpoints)
+- **SIM-M2 — Artifact Parity & Structure** — **✅ Done** (run.json, manifest.json, series index)
+- **SIM-CAT-M2 — Catalog.v1 Required** — **✅ Done** (stable ID source)
+- **SIM-SVC-M2 — Minimal Service/API** — **✅ Done** (artifact endpoints)
+- **SIM-M2.1 — PMF Generator Support** — **📋 Planned** (PMF arrivals for Engine M2 testing)
 - **SIM-M3 — Backlog v1 + Latency + Endpoints** — **🔄 PRIORITY** (Basic queues, ready for Engine M3)
 - **SIM-M4 — Scenarios & Compare** — **🚀 Next** (Overlay support for Engine M4)
 - **SIM-M5 — Routing/Fan-out/Capacity** — **📋 Aligned** (Multi-path for Engine M5)
@@ -67,24 +68,58 @@ FlowTime-Sim is the **synthetic generator companion** producing telemetry-like d
 - **Aligns with** Engine M1 (Contracts Parity Pack)
 - **Acceptance** Schema validation in CI; CLI vs API parity; Sim pack consumable by Engine adapters
 
+### SIM-M2 — Artifact Parity & Structure — **✅ Done**
+
+- **Goal** Standardize artifact structure with dual JSON artifacts and per-series CSV files
+- **Released** 2025-09-02 (tag: sim-m2)
+- **Features** 
+  - **Artifact structure**: `run.json`, `manifest.json`, `series/index.json`, per-series CSV files
+  - **Deterministic hashing**: SHA-256 integrity for all artifacts with tamper detection
+  - **Schema compliance**: Standardized artifact contracts for Engine compatibility
+  - **Deprecations**: Removed legacy `metadata.json` and single `gold.csv` patterns
+- **Acceptance** Deterministic hashing; tamper detection; series index discovery; Engine artifact compatibility
+
+### SIM-CAT-M2 — Catalog.v1 Required — **✅ Done**
+
+- **Goal** Domain-neutral catalog as stable ID source for both Engine & Sim
+- **Released** 2025-09-03 (tag: sim-cat-m2)
+- **Features** Component/connection structure, API endpoints, validation
+- **Acceptance** Catalog.v1 required (not optional); stable component IDs
+
+### SIM-SVC-M2 — Minimal Service/API — **✅ Done**
+
+- **Goal** Stateless HTTP service exposing artifact endpoints
+- **Released** 2025-09-03 (tag: sim-svc-m2)
+- **Features** POST /sim/run, GET /sim/runs/{id}/series/{seriesId}, overlay support
+- **Acceptance** CLI vs API parity; artifact streaming; scenario registry
+
 ---
 
-## Planned Milestones
+## Current Gap & Planned Work
 
-### SIM-M2 — PMF Expected-Value — **📋 Not Started**
+### SIM-M2.1 — PMF Generator Support — **📋 Planned**
 
-- **Goal** Generate series consistent with PMF expectations for demo parity
-- **Aligns with** Engine M2 (PMF Expected-Value Only)
-- **Why** Engine M2 implements pmf node → expected series. Sim provides optional generator for demo parity
-- **Features**
-  - Optional generator that emits series consistent with PMF expectations
-  - PMF normalization validation (sums to 1)
-  - Expected value calculation matching Engine behavior
-- **Acceptance** Expected value matches CSV; normalization sums to 1
+- **Goal** Extend arrival generators to support PMF distributions for Engine M2 testing
+- **Why** Engine M2 PMF support is complete, but FlowTime-Sim cannot generate PMF-based synthetic arrivals
+- **Gap** UI and testing workflows need PMF synthetic data but `ArrivalGenerators` only supports `const` and `poisson`
+- **Scope**
+  - Add `pmf` kind to `ArrivalGenerators.Generate()` method
+  - Support discrete value distributions with probability masses
+  - PMF validation (probabilities sum to 1.0, non-negative values)
+  - Maintain deterministic output with RNG seeding
+- **Example Usage**
+  ```yaml
+  arrivals:
+    kind: pmf
+    values: [1, 2, 3, 5]
+    probabilities: [0.1, 0.3, 0.4, 0.2]
+  ```
+- **Enables** Complete PMF workflows for UI testing, demo scenarios, and Engine validation
+- **Priority** High - needed for UI PMF workflow completeness
 
 ---
 
-## Lock-Step Milestone Alignment
+## Next Priority
 
 ### SIM-M3 — Backlog v1 + Latency + Artifact Endpoints — **🔄 PRIORITY**
 
