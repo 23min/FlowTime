@@ -1,6 +1,17 @@
 # Copilot instructions for FlowTime
 
-Purpose: give AI agents the minimum context to be productive and safe in this repo.
+Purpose: give AI a## Documentation conventions
+- **Release documents**: Use milestone-based naming pattern `M<X>.<Y>-v<major>.<minor>.<patch>.md` (e.g., `M2.0-v0.4.0.md`)
+  - Captures both milestone completion and semantic version
+  - More meaningful than pure semantic version naming for milestone-driven development
+  - Located in `docs/releases/`
+
+## Coding patterns and style
+- .NET 9, C# nullable + implicit usings enabled.
+- Avoid private field names starting with `_` (analyzers may flag them in tests).
+- For API changes, update `.http` examples and API tests together.
+
+## Roadmap-driven areas (reference docs, don't hard-code here)the minimum context to be productive and safe in this repo.
 
 ## Guardrails
 - Don’t push (no `git push`) or make network calls unless explicitly requested.
