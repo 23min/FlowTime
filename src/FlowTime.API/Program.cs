@@ -102,9 +102,10 @@ v1.MapPost("/run", async (HttpRequest req, ILogger<Program> logger) =>
         // Convert API DTO to Core model definition and parse using shared ModelParser
         FlowTime.Core.TimeGrid grid;
         Graph graph;
+        FlowTime.Core.Models.ModelDefinition coreModel;
         try
         {
-            var coreModel = ModelService.ParseAndConvert(yaml);
+            coreModel = ModelService.ParseAndConvert(yaml);
             
             (grid, graph) = ModelParser.ParseModel(coreModel);
         }
@@ -130,7 +131,7 @@ v1.MapPost("/run", async (HttpRequest req, ILogger<Program> logger) =>
         // Use shared artifact writer
         var writeRequest = new FlowTime.Core.Artifacts.RunArtifactWriter.WriteRequest
         {
-            Model = model,
+            Model = coreModel,
             Grid = grid,
             Context = artifactContext,
             SpecText = yaml,

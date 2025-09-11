@@ -39,15 +39,33 @@ for (int i = 2; i < args.Length; i++)
 Directory.CreateDirectory(outDir);
 
 var yaml = File.ReadAllText(modelPath);
-var coreModel = ModelService.ParseAndConvert(yaml);
+
+// Convert YAML to Core model definition and parse using shared ModelParser
+FlowTime.Core.TimeGrid grid;
+Graph graph;
+FlowTime.Core.Models.ModelDefinition coreModel;
+try
+{
+	coreModel = ModelService.ParseAndConvert(yaml);
+	
+	(grid, graph) = ModelParser.ParseModel(coreModel);
+}
+catch (ModelParseException ex)
+{
+	Console.Error.WriteLine($"Error parsing model: {ex.Message}");
+	return 1;
+}
+catch (Exception ex)
+{
+	Console.Error.WriteLine($"Error processing model file: {ex.Message}");
+	return 1;
+}
 
 if (!string.IsNullOrWhiteSpace(viaApi))
 {
-	Console.WriteLine($"--via-api is specified ({viaApi}), but HTTP mode isn’t implemented yet. Running locally for now to preserve parity and offline support.");
+	Console.WriteLine($"--via-api is specified ({viaApi}), but HTTP mode isn't implemented yet. Running locally for now to preserve parity and offline support.");
 }
 
-// Parse the model using shared ModelParser
-var (grid, graph) = ModelParser.ParseModel(coreModel);
 var order = graph.TopologicalOrder();
 var ctx = graph.Evaluate(grid);
 
@@ -61,32 +79,32 @@ if (verbose)
 // Persist spec.yaml verbatim (line ending normalized) and compute canonical scenario/model hash
 var specVerbatim = yaml.Replace("\r\n", "\n");
 
-	// Create context dictionary for artifact writer
-	var context = new Dictionary<NodeId, double[]>();
-	foreach (var (nodeId, series) in ctx)
-	{
-		context[nodeId] = series.ToArray();
-	}
+// Create context dictionary for artifact writer
+var context = new Dictionary<NodeId, double[]>();
+foreach (var (nodeId, series) in ctx)
+{
+	context[nodeId] = series.ToArray();
+}
 
-	// Use shared artifact writer
-	var writeRequest = new RunArtifactWriter.WriteRequest
-	{
-		Model = model,
-		Grid = grid,
-		Context = context,
-		SpecText = specVerbatim,
-		RngSeed = rngSeed,
-		StartTimeBias = startTimeBias,
-		DeterministicRunId = deterministicRunId,
-		OutputDirectory = outDir,
-		Verbose = verbose
-	};
+// Use shared artifact writer
+var writeRequest = new RunArtifactWriter.WriteRequest
+{
+	Model = coreModel,
+	Grid = grid,
+	Context = context,
+	SpecText = specVerbatim,
+	RngSeed = rngSeed,
+	StartTimeBias = startTimeBias,
+	DeterministicRunId = deterministicRunId,
+	OutputDirectory = outDir,
+	Verbose = verbose
+};
 
-	var result = await RunArtifactWriter.WriteArtifactsAsync(writeRequest);
-	if (verbose) Console.WriteLine($"  RNG seed: {result.FinalSeed} ({(rngSeed.HasValue ? "provided" : "generated")})");
-	Console.WriteLine($"Wrote artifacts to {result.RunDirectory}");
+var result = await RunArtifactWriter.WriteArtifactsAsync(writeRequest);
+if (verbose) Console.WriteLine($"  RNG seed: {result.FinalSeed} ({(rngSeed.HasValue ? "provided" : "generated")})");
+Console.WriteLine($"Wrote artifacts to {result.RunDirectory}");
 
-	return 0;
+return 0;
 
 static bool IsHelp(string? s)
 {
@@ -118,12 +136,11 @@ static void PrintUsage()
 	Console.WriteLine("  flowtime run examples/hello/model.yaml --deterministic-run-id --out out/deterministic");
 	Console.WriteLine("  flowtime run examples/hello/model.yaml --seed 42 --verbose");
 }
-	file static class JsonOpts
+
+static class JsonOpts
+{
+	public static readonly System.Text.Json.JsonSerializerOptions Value = new(System.Text.Json.JsonSerializerDefaults.Web)
 	{
-		public static readonly System.Text.Json.JsonSerializerOptions Value = new(System.Text.Json.JsonSerializerDefaults.Web)
-		{
-			WriteIndented = true
-		};
-	}
-
-
+		WriteIndented = true
+	};
+}
