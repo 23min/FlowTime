@@ -23,9 +23,9 @@ public sealed class FlowTimeError
 
 public static class FlowTimeClient
 {
-    public static async Task<FlowTimeRunResponse> RunAsync(HttpClient http, string baseUrl, string yaml, CancellationToken ct)
+    public static async Task<FlowTimeRunResponse> RunAsync(HttpClient http, string baseUrl, string yaml, CancellationToken ct, string apiVersion = "v1")
     {
-        using var req = new HttpRequestMessage(HttpMethod.Post, $"{baseUrl.TrimEnd('/')}/run");
+        using var req = new HttpRequestMessage(HttpMethod.Post, $"{baseUrl.TrimEnd('/')}/{apiVersion}/run");
         req.Content = new StringContent(yaml, Encoding.UTF8, "text/plain");
         // Defensive: ensure Accept header present (tests set it, but callers might forget)
         if (!http.DefaultRequestHeaders.Accept.Any(a => a.MediaType == "application/json"))

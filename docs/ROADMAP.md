@@ -46,7 +46,7 @@ FlowTime-Sim is the **synthetic generator companion** producing telemetry-like d
 - **SIM-M2 — Artifact Parity & Structure** — **✅ Done** (run.json, manifest.json, series index)
 - **SIM-CAT-M2 — Catalog.v1 Required** — **✅ Done** (stable ID source)
 - **SIM-SVC-M2 — Minimal Service/API** — **✅ Done** (artifact endpoints)
-- **SIM-M2.1 — PMF Generator Support** — **📋 Planned** (PMF arrivals for Engine M2 testing)
+- **SIM-M2.1 — PMF Generator Support** — **✅ Done** (PMF arrivals for Engine M2 testing)
 - **SIM-M3 — Backlog v1 + Latency + Endpoints** — **🔄 PRIORITY** (Basic queues, ready for Engine M3)
 - **SIM-M4 — Scenarios & Compare** — **🚀 Next** (Overlay support for Engine M4)
 - **SIM-M5 — Routing/Fan-out/Capacity** — **📋 Aligned** (Multi-path for Engine M5)
@@ -93,29 +93,17 @@ FlowTime-Sim is the **synthetic generator companion** producing telemetry-like d
 - **Features** POST /sim/run, GET /sim/runs/{id}/series/{seriesId}, overlay support
 - **Acceptance** CLI vs API parity; artifact streaming; scenario registry
 
----
-
-## Current Gap & Planned Work
-
-### SIM-M2.1 — PMF Generator Support — **📋 Planned**
+### SIM-M2.1 — PMF Generator Support — **✅ Done**
 
 - **Goal** Extend arrival generators to support PMF distributions for Engine M2 testing
-- **Why** Engine M2 PMF support is complete, but FlowTime-Sim cannot generate PMF-based synthetic arrivals
-- **Gap** UI and testing workflows need PMF synthetic data but `ArrivalGenerators` only supports `const` and `poisson`
-- **Scope**
-  - Add `pmf` kind to `ArrivalGenerators.Generate()` method
-  - Support discrete value distributions with probability masses
-  - PMF validation (probabilities sum to 1.0, non-negative values)
-  - Maintain deterministic output with RNG seeding
-- **Example Usage**
-  ```yaml
-  arrivals:
-    kind: pmf
-    values: [1, 2, 3, 5]
-    probabilities: [0.1, 0.3, 0.4, 0.2]
-  ```
-- **Enables** Complete PMF workflows for UI testing, demo scenarios, and Engine validation
-- **Priority** High - needed for UI PMF workflow completeness
+- **Released** 2025-09-11 (tag: M2.1-v0.3.0)
+- **Features** 
+  - **PMF arrival generation**: Complete discrete probability distribution support in `SimulationSpec.cs`
+  - **Environment configuration**: `FLOWTIME_API_BASEURL` and `FLOWTIME_API_VERSION` support with proper precedence
+  - **Cross-container networking**: Full Docker container communication via flowtime-dev network
+  - **API versioning**: Consistent `/v1/` endpoint usage across services
+  - **Enhanced testing**: 88 passing tests with comprehensive integration validation
+- **Acceptance** PMF workflows complete for UI testing; deterministic output with RNG seeding; Engine M2 PMF validation enabled
 
 ---
 

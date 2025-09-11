@@ -12,10 +12,14 @@ namespace FlowTime.Sim.Cli
         string Format,
         bool Verbose,
         string Mode, // engine | sim
-        string? DebugEventsPath // Optional debug events file
+        string? DebugEventsPath, // Optional debug events file
+        string ApiVersion // FlowTime API version (e.g., "v1")
     )
     {
-        public static RunOptions Defaults => new("", "http://localhost:8080", null, "csv", false, "engine", null);
+        public static RunOptions Defaults => new("", 
+            "http://localhost:8080", 
+            null, "csv", false, "engine", null,
+            "v1");
     }
 
     internal static class Program
@@ -57,7 +61,7 @@ namespace FlowTime.Sim.Cli
                         Console.Error.WriteLine("Spec appears to be a simulation spec (contains schemaVersion & arrivals). Use --mode sim or supply an engine model (grid + nodes).");
                         return 2;
                     }
-                    var res = await FlowTimeClient.RunAsync(http, opts.FlowTimeUrl, yaml, cts.Token);
+                    var res = await FlowTimeClient.RunAsync(http, opts.FlowTimeUrl, yaml, cts.Token, opts.ApiVersion);
                     if (opts.Verbose)
                     {
                         Console.WriteLine("Mode: engine");
@@ -179,7 +183,11 @@ namespace FlowTime.Sim.Cli
 
         static void PrintHelp()
         {
-            Console.WriteLine("Usage: flow-sim --model <file.yaml> [--mode engine|sim] [--flowtime http://localhost:8080] [--out outDir] [--format csv|json] [--debug-events <file>] [--verbose]");
+            var defaultUrl = Environment.GetEnvironmentVariable("FLOWTIME_API_BASEURL") ?? "http://localhost:8080";
+            var defaultApiVersion = Environment.GetEnvironmentVariable("FLOWTIME_API_VERSION") ?? "v1";
+            Console.WriteLine($"Usage: flow-sim --model <file.yaml> [--mode engine|sim] [--flowtime {defaultUrl}] [--api-version {defaultApiVersion}] [--out outDir] [--format csv|json] [--debug-events <file>] [--verbose]");
+            Console.WriteLine($"  Default FlowTime URL: {defaultUrl} (from FLOWTIME_API_BASEURL or fallback)");
+            Console.WriteLine($"  Default API Version: {defaultApiVersion} (from FLOWTIME_API_VERSION or fallback)");
         }
     }
 
@@ -193,11 +201,26 @@ namespace FlowTime.Sim.Cli
         public static RunOptions ParseArgs(string[] args)
         {
             var opts = RunOptions.Defaults;
+            
+            // Apply environment variable overrides to defaults
+            var envFlowTimeUrl = Environment.GetEnvironmentVariable("FLOWTIME_API_BASEURL");
+            if (!string.IsNullOrEmpty(envFlowTimeUrl))
+            {
+                opts = opts with { FlowTimeUrl = envFlowTimeUrl };
+            }
+            
+            var envApiVersion = Environment.GetEnvironmentVariable("FLOWTIME_API_VERSION");
+            if (!string.IsNullOrEmpty(envApiVersion))
+            {
+                opts = opts with { ApiVersion = envApiVersion };
+            }
+            
             for (int i = 0; i < args.Length; i++)
             {
                 var a = args[i];
                 if (a is "--model" or "-f") opts = opts with { ModelPath = ArgValue(args, ref i) };
                 else if (a is "--flowtime") opts = opts with { FlowTimeUrl = ArgValue(args, ref i) };
+                else if (a is "--api-version") opts = opts with { ApiVersion = ArgValue(args, ref i) };
                 else if (a is "--out" or "-o") opts = opts with { OutPath = ArgValue(args, ref i) };
                 else if (a is "--format") opts = opts with { Format = ArgValue(args, ref i) };
                 else if (a is "--debug-events") opts = opts with { DebugEventsPath = ArgValue(args, ref i) };
@@ -220,7 +243,11 @@ namespace FlowTime.Sim.Cli
 
         private static void PrintHelp()
         {
-            Console.WriteLine("Usage: flow-sim --model <file.yaml> [--mode engine|sim] [--flowtime http://localhost:8080] [--out outDir] [--format csv|json] [--debug-events <file>] [--verbose]");
+            var defaultUrl = Environment.GetEnvironmentVariable("FLOWTIME_API_BASEURL") ?? "http://localhost:8080";
+            var defaultApiVersion = Environment.GetEnvironmentVariable("FLOWTIME_API_VERSION") ?? "v1";
+            Console.WriteLine($"Usage: flow-sim --model <file.yaml> [--mode engine|sim] [--flowtime {defaultUrl}] [--api-version {defaultApiVersion}] [--out outDir] [--format csv|json] [--debug-events <file>] [--verbose]");
+            Console.WriteLine($"  Default FlowTime URL: {defaultUrl} (from FLOWTIME_API_BASEURL or fallback)");
+            Console.WriteLine($"  Default API Version: {defaultApiVersion} (from FLOWTIME_API_VERSION or fallback)");
         }
     }
 }

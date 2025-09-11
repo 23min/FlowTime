@@ -31,10 +31,13 @@ public sealed class GridSpec
 
 public sealed class ArrivalsSpec
 {
-    public string? kind { get; set; } // const | poisson
-    public List<double>? values { get; set; } // const counts per bin
+    public string? kind { get; set; } // const | poisson | pmf
+    public List<double>? values { get; set; } // const counts per bin | pmf discrete values (integers)
     public double? rate { get; set; } // single lambda
     public List<double>? rates { get; set; } // per-bin lambda
+    
+    // SIM-M2.1: PMF-specific properties
+    public List<double>? probabilities { get; set; } // PMF probabilities corresponding to values
 }
 
 public sealed class ServiceSpec
@@ -159,7 +162,7 @@ public static class SimulationSpecValidator
         {
             var kind = spec.arrivals.kind?.Trim().ToLowerInvariant();
             if (string.IsNullOrEmpty(kind)) errors.Add("arrivals.kind: required");
-            else if (kind is not ("const" or "poisson")) errors.Add("arrivals.kind: unsupported (expected const|poisson)");
+            else if (kind is not ("const" or "poisson" or "pmf")) errors.Add("arrivals.kind: unsupported (expected const|poisson|pmf)");
 
             if (kind == "const")
             {
@@ -172,6 +175,32 @@ public static class SimulationSpecValidator
                 var hasRates = spec.arrivals.rates is { Count: > 0 };
                 if (!hasRate && !hasRates) errors.Add("arrivals.rate or arrivals.rates: one required for kind=poisson");
                 if (hasRate && hasRates) errors.Add("arrivals: cannot specify both rate and rates");
+            }
+            else if (kind == "pmf")
+            {
+                if (spec.arrivals.values is null || spec.arrivals.values.Count == 0)
+                    errors.Add("arrivals.values: required for kind=pmf");
+                if (spec.arrivals.probabilities is null || spec.arrivals.probabilities.Count == 0)
+                    errors.Add("arrivals.probabilities: required for kind=pmf");
+                
+                if (spec.arrivals.values is not null && spec.arrivals.probabilities is not null)
+                {
+                    if (spec.arrivals.values.Count != spec.arrivals.probabilities.Count)
+                        errors.Add("PMF values and probabilities arrays must have the same length");
+                    
+                    // Check for non-negative values
+                    if (spec.arrivals.values.Any(v => v < 0))
+                        errors.Add("PMF values must be non-negative");
+                    
+                    // Check for non-negative probabilities
+                    if (spec.arrivals.probabilities.Any(p => p < 0))
+                        errors.Add("PMF probabilities must be non-negative");
+                    
+                    // Check probabilities sum to 1.0 (with tolerance)
+                    var sum = spec.arrivals.probabilities.Sum();
+                    if (Math.Abs(sum - 1.0) > 1e-9)
+                        errors.Add("PMF probabilities must sum to 1.0");
+                }
             }
         }
 
@@ -304,6 +333,7 @@ public static class ArrivalGenerators
         {
             "const" => GenerateConst(spec, bins),
             "poisson" => GeneratePoisson(spec, bins, rng ?? CreateRng(spec)),
+            "pmf" => GeneratePmf(spec, bins, rng ?? CreateRng(spec)),
             _ => throw new NotSupportedException($"arrivals.kind '{spec.arrivals.kind}' not supported")
         };
     }
@@ -358,5 +388,68 @@ public static class ArrivalGenerators
             p *= rng.NextDouble();
         } while (p > L);
         return k - 1;
+    }
+
+    // SIM-M2.1: PMF-based arrival generation
+    private static ArrivalGenerationResult GeneratePmf(SimulationSpec spec, int bins, IDeterministicRng rng)
+    {
+        if (spec.arrivals?.values is null) throw new InvalidOperationException("arrivals.values required for pmf");
+        if (spec.arrivals?.probabilities is null) throw new InvalidOperationException("arrivals.probabilities required for pmf");
+
+        // Convert values to integers for PMF (design specifies integer values)
+        var values = spec.arrivals.values.Select(v => (int)Math.Round(v)).ToList();
+        var probabilities = spec.arrivals.probabilities.ToList();
+
+        // Validate PMF specification
+        ValidatePmf(values, probabilities);
+
+        // Generate arrivals using PMF sampling
+        var counts = new int[bins];
+        for (int bin = 0; bin < bins; bin++)
+        {
+            counts[bin] = SampleFromPmf(values, probabilities, rng);
+        }
+
+        return new ArrivalGenerationResult(counts);
+    }
+
+    private static void ValidatePmf(List<int> values, List<double> probabilities)
+    {
+        if (values == null || probabilities == null)
+            throw new ArgumentException("PMF values and probabilities cannot be null");
+
+        if (values.Count != probabilities.Count)
+            throw new ArgumentException("PMF values and probabilities must have equal length");
+
+        if (values.Count == 0)
+            throw new ArgumentException("PMF must have at least one value");
+
+        if (probabilities.Any(p => p < 0))
+            throw new ArgumentException("PMF probabilities must be non-negative");
+
+        var sum = probabilities.Sum();
+        if (Math.Abs(sum - 1.0) > 1e-6)
+            throw new ArgumentException($"PMF probabilities must sum to 1.0, got {sum}");
+    }
+
+    private static double CalculateExpectedValue(List<int> values, List<double> probabilities)
+    {
+        return values.Zip(probabilities, (v, p) => v * p).Sum();
+    }
+
+    private static int SampleFromPmf(List<int> values, List<double> probabilities, IDeterministicRng rng)
+    {
+        var sample = rng.NextDouble();
+        var cumulative = 0.0;
+
+        for (int i = 0; i < probabilities.Count; i++)
+        {
+            cumulative += probabilities[i];
+            if (sample <= cumulative)
+                return values[i];
+        }
+
+        // Fallback to last value (handles floating point precision issues)
+        return values[values.Count - 1];
     }
 }
