@@ -1,4 +1,5 @@
 using FlowTime.Cli.Configuration;
+using FlowTime.Core.Configuration;
 using System;
 using System.IO;
 using Xunit;
@@ -50,7 +51,7 @@ public class OutputDirectoryConfigurationTests : IDisposable
     {
         // Arrange
         Environment.SetEnvironmentVariable("FLOWTIME_DATA_DIR", null);
-        var expectedPath = "/workspaces/flowtime-vnext/data";
+        var expectedPath = DirectoryProvider.GetDefaultDataDirectory();
 
         // Act
         var result = OutputDirectoryProvider.GetDefaultOutputDirectory();
@@ -64,7 +65,7 @@ public class OutputDirectoryConfigurationTests : IDisposable
     {
         // Arrange
         Environment.SetEnvironmentVariable("FLOWTIME_DATA_DIR", string.Empty);
-        var expectedPath = "/workspaces/flowtime-vnext/data";
+        var expectedPath = DirectoryProvider.GetDefaultDataDirectory();
 
         // Act
         var result = OutputDirectoryProvider.GetDefaultOutputDirectory();
@@ -78,7 +79,7 @@ public class OutputDirectoryConfigurationTests : IDisposable
     {
         // Arrange
         Environment.SetEnvironmentVariable("FLOWTIME_DATA_DIR", "   ");
-        var expectedPath = "/workspaces/flowtime-vnext/data";
+        var expectedPath = DirectoryProvider.GetDefaultDataDirectory();
 
         // Act
         var result = OutputDirectoryProvider.GetDefaultOutputDirectory();

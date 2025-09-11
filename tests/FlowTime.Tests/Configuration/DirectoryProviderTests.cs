@@ -12,11 +12,15 @@ public class DirectoryProviderTests
         
         // Assert
         // Should find the solution root and append /data
-        Assert.Contains("flowtime-vnext", dataDir);
         Assert.EndsWith("data", dataDir);
         
         // Should not be relative to current directory when solution root is found
         Assert.DoesNotContain("FlowTime.Tests", dataDir);
+        
+        // Should contain the directory where FlowTime.sln exists
+        var solutionRoot = DirectoryProvider.FindSolutionRoot();
+        Assert.NotNull(solutionRoot);
+        Assert.Equal(Path.Combine(solutionRoot, "data"), dataDir);
     }
     
     [Fact]

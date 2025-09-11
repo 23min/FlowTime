@@ -1,3 +1,4 @@
+using FlowTime.Core.Configuration;
 using Microsoft.Extensions.Configuration;
 using Xunit;
 
@@ -67,7 +68,7 @@ public class ConfigurationTests
     {
         // Arrange
         var configuration = new ConfigurationBuilder().Build();
-        var expectedPath = "/workspaces/flowtime-vnext/data";
+        var expectedPath = DirectoryProvider.GetDefaultDataDirectory();
 
         // Ensure no environment variable or configuration
         Environment.SetEnvironmentVariable("FLOWTIME_DATA_DIR", null);
