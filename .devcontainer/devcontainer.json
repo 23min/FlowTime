@@ -48,10 +48,11 @@
     "flowtime-sim"
   ],
     "forwardPorts": [
-    8081
+    8090
   ],
   "containerEnv": {
-    "FLOWTIME_API_BASEURL": "http://flowtime-api:8080"
+    "FLOWTIME_API_BASEURL": "http://flowtime-api:8080",
+    "FLOWTIME_API_VERSION": "v1"
   },
   "remoteEnv": {
     "NODE_OPTIONS": "--dns-result-order=ipv4first"

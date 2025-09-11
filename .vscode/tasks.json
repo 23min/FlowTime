@@ -49,6 +49,44 @@
       "options": {
         "cwd": "${workspaceFolder}"
       }
+    },
+    {
+      "label": "start: flowtime-sim-api",
+      "type": "shell",
+      "command": "dotnet run --project src/FlowTime.Sim.Service",
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "ASPNETCORE_URLS": "http://0.0.0.0:8090"
+        }
+      },
+      "group": "none",
+      "isBackground": true,
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "new",
+        "showReuseMessage": true,
+        "clear": false
+      },
+      "problemMatcher": [
+        {
+          "pattern": [
+            {
+              "regexp": ".",
+              "file": 1,
+              "location": 2,
+              "message": 3
+            }
+          ],
+          "background": {
+            "activeOnStart": true,
+            "beginsPattern": "^\\s*info: Microsoft.Hosting.Lifetime",
+            "endsPattern": "^\\s*info: Microsoft.Hosting.Lifetime.* Application started\\."
+          }
+        }
+      ]
     }
   ]
 }
