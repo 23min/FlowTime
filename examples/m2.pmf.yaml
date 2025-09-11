@@ -1,0 +1,22 @@
+# SIM-M2.1 Example: Simple PMF with 3 values
+# Demonstrates basic PMF arrival generation with discrete probability distribution
+
+schemaVersion: 1
+rng: pcg
+seed: 42
+
+grid:
+  bins: 10
+  binMinutes: 60
+
+arrivals:
+  kind: pmf
+  values: [1, 2, 3]           # discrete arrival counts
+  probabilities: [0.2, 0.5, 0.3]  # corresponding probabilities
+  # Expected value: 1*0.2 + 2*0.5 + 3*0.3 = 2.1 arrivals per bin
+
+route:
+  id: COMP_A
+
+outputs:
+  includeEvents: true
