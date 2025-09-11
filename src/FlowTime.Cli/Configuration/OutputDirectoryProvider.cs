@@ -1,5 +1,4 @@
-using System;
-using System.IO;
+using FlowTime.Core.Configuration;
 
 namespace FlowTime.Cli.Configuration;
 
@@ -14,14 +13,6 @@ public static class OutputDirectoryProvider
     /// <returns>The output directory path</returns>
     public static string GetDefaultOutputDirectory()
     {
-        // 1. Environment variable has highest precedence
-        var envVar = Environment.GetEnvironmentVariable("FLOWTIME_DATA_DIR");
-        if (!string.IsNullOrWhiteSpace(envVar))
-        {
-            return envVar;
-        }
-        
-        // 2. Default to ./data
-        return Path.Combine(Directory.GetCurrentDirectory(), "data");
+        return DirectoryProvider.GetDefaultDataDirectory();
     }
 }

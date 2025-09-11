@@ -1,5 +1,6 @@
 using System.Text;
 using FlowTime.Core;
+using FlowTime.Core.Configuration;
 using FlowTime.Core.Models;
 using FlowTime.Adapters.Synthetic;
 using FlowTime.API.Models;
@@ -304,7 +305,7 @@ app.Run();
 public partial class Program 
 { 
     /// <summary>
-    /// Get the artifacts directory with proper precedence: Environment Variable > Configuration > Default
+    /// Get the artifacts directory with proper precedence: Environment Variable > Configuration > Solution Root Default
     /// </summary>
     public static string GetArtifactsDirectory(IConfiguration configuration)
     {
@@ -319,10 +320,24 @@ public partial class Program
         var configValue = configuration.GetValue<string>("ArtifactsDirectory");
         if (!string.IsNullOrWhiteSpace(configValue))
         {
-            return configValue;
+            // If config value is absolute, use it as-is
+            if (Path.IsPathRooted(configValue))
+            {
+                return configValue;
+            }
+            
+            // If config value is relative, make it relative to solution root
+            var solutionRoot = DirectoryProvider.FindSolutionRoot();
+            if (!string.IsNullOrEmpty(solutionRoot))
+            {
+                return Path.Combine(solutionRoot, configValue);
+            }
+            
+            // Fallback: relative to current directory
+            return Path.Combine(Directory.GetCurrentDirectory(), configValue);
         }
         
-        // 3. Default to ./data
-        return Path.Combine(Directory.GetCurrentDirectory(), "data");
+        // 3. Default to solution root data directory
+        return DirectoryProvider.GetDefaultDataDirectory();
     }
 }

@@ -67,7 +67,7 @@ public class ConfigurationTests
     {
         // Arrange
         var configuration = new ConfigurationBuilder().Build();
-        var expectedPath = Path.Combine(Directory.GetCurrentDirectory(), "data");
+        var expectedPath = "/workspaces/flowtime-vnext/data";
 
         // Ensure no environment variable or configuration
         Environment.SetEnvironmentVariable("FLOWTIME_DATA_DIR", null);

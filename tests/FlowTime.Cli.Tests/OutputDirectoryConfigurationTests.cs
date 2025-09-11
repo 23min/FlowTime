@@ -50,7 +50,7 @@ public class OutputDirectoryConfigurationTests : IDisposable
     {
         // Arrange
         Environment.SetEnvironmentVariable("FLOWTIME_DATA_DIR", null);
-        var expectedPath = Path.Combine(Directory.GetCurrentDirectory(), "data");
+        var expectedPath = "/workspaces/flowtime-vnext/data";
 
         // Act
         var result = OutputDirectoryProvider.GetDefaultOutputDirectory();
@@ -64,7 +64,7 @@ public class OutputDirectoryConfigurationTests : IDisposable
     {
         // Arrange
         Environment.SetEnvironmentVariable("FLOWTIME_DATA_DIR", string.Empty);
-        var expectedPath = Path.Combine(Directory.GetCurrentDirectory(), "data");
+        var expectedPath = "/workspaces/flowtime-vnext/data";
 
         // Act
         var result = OutputDirectoryProvider.GetDefaultOutputDirectory();
@@ -78,7 +78,7 @@ public class OutputDirectoryConfigurationTests : IDisposable
     {
         // Arrange
         Environment.SetEnvironmentVariable("FLOWTIME_DATA_DIR", "   ");
-        var expectedPath = Path.Combine(Directory.GetCurrentDirectory(), "data");
+        var expectedPath = "/workspaces/flowtime-vnext/data";
 
         // Act
         var result = OutputDirectoryProvider.GetDefaultOutputDirectory();
