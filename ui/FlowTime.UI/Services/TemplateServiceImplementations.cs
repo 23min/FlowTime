@@ -25,13 +25,13 @@ public class TemplateService : ITemplateService
         
         if (featureFlags.UseSimulation)
         {
-            // Sim Mode: Get real scenarios from FlowTime-Sim API
-            return await GetRealScenariosAsync();
+            // Sim Mode: Return static UI templates (no API calls)
+            return GetRichDomainTemplates();
         }
         else
         {
-            // API Mode: Return rich domain templates for better UX
-            return GetRichDomainTemplates();
+            // API Mode: Get real scenarios from FlowTime-Sim API
+            return await GetRealScenariosAsync();
         }
     }
 
@@ -39,7 +39,9 @@ public class TemplateService : ITemplateService
     {
         try
         {
+            logger.LogInformation("API mode: Fetching scenarios from FlowTime-Sim API");
             var scenariosResult = await simClient.GetScenariosAsync();
+            
             if (!scenariosResult.Success)
             {
                 logger.LogWarning("Failed to get scenarios from Sim API: {Error}. Falling back to domain templates.", scenariosResult.Error);
@@ -47,6 +49,7 @@ public class TemplateService : ITemplateService
             }
 
             var scenarios = scenariosResult.Value ?? new List<ScenarioInfo>();
+            logger.LogInformation("Successfully fetched {Count} scenarios from FlowTime-Sim API", scenarios.Count);
             return scenarios.Select(ConvertScenarioToTemplate).ToList();
         }
         catch (Exception ex)
@@ -89,11 +92,123 @@ public class TemplateService : ITemplateService
         return new TemplateInfo
         {
             Id = scenario.Id,
-            Name = scenario.Name,
+            Name = scenario.Title,
             Description = scenario.Description,
-            Category = scenario.Category,
-            Tags = scenario.Tags,
-            ParameterSchema = CreateParameterSchemaFromDefaults(scenario.DefaultParameters)
+            Category = "FlowTime-Sim Scenarios",
+            Tags = new List<string> { "simulation", "scenario" },
+            ParameterSchema = CreateParameterSchemaForScenario(scenario.Id)
+        };
+    }
+
+    private static JsonSchema CreateParameterSchemaForScenario(string scenarioId)
+    {
+        return scenarioId switch
+        {
+            "const-quick" => new JsonSchema
+            {
+                Title = "Constant Arrivals Parameters",
+                Properties = new Dictionary<string, JsonSchemaProperty>
+                {
+                    ["bins"] = new JsonSchemaProperty
+                    {
+                        Type = "integer",
+                        Title = "Number of Time Bins",
+                        Description = "How many time periods to simulate",
+                        Default = 3,
+                        Minimum = 1,
+                        Maximum = 20
+                    },
+                    ["binMinutes"] = new JsonSchemaProperty
+                    {
+                        Type = "integer",
+                        Title = "Minutes per Bin",
+                        Description = "Duration of each time period in minutes",
+                        Default = 60,
+                        Minimum = 1,
+                        Maximum = 1440
+                    },
+                    ["arrivalValue"] = new JsonSchemaProperty
+                    {
+                        Type = "integer",
+                        Title = "Arrival Rate",
+                        Description = "Constant number of arrivals per time bin",
+                        Default = 2,
+                        Minimum = 1,
+                        Maximum = 100
+                    },
+                    ["seed"] = new JsonSchemaProperty
+                    {
+                        Type = "integer",
+                        Title = "Random Seed",
+                        Description = "Seed for reproducible results (optional)",
+                        Default = 42,
+                        Minimum = 1,
+                        Maximum = 99999
+                    }
+                },
+                Required = new List<string> { "bins", "binMinutes", "arrivalValue" }
+            },
+            "poisson-demo" => new JsonSchema
+            {
+                Title = "Poisson Arrivals Parameters",
+                Properties = new Dictionary<string, JsonSchemaProperty>
+                {
+                    ["bins"] = new JsonSchemaProperty
+                    {
+                        Type = "integer",
+                        Title = "Number of Time Bins",
+                        Description = "How many time periods to simulate",
+                        Default = 4,
+                        Minimum = 1,
+                        Maximum = 20
+                    },
+                    ["binMinutes"] = new JsonSchemaProperty
+                    {
+                        Type = "integer",
+                        Title = "Minutes per Bin",
+                        Description = "Duration of each time period in minutes",
+                        Default = 30,
+                        Minimum = 1,
+                        Maximum = 1440
+                    },
+                    ["rate"] = new JsonSchemaProperty
+                    {
+                        Type = "number",
+                        Title = "Arrival Rate (λ)",
+                        Description = "Average number of arrivals per time bin (Poisson parameter)",
+                        Default = 5.0,
+                        Minimum = 0.1,
+                        Maximum = 50.0
+                    },
+                    ["seed"] = new JsonSchemaProperty
+                    {
+                        Type = "integer",
+                        Title = "Random Seed",
+                        Description = "Seed for reproducible results (optional)",
+                        Default = 123,
+                        Minimum = 1,
+                        Maximum = 99999
+                    }
+                },
+                Required = new List<string> { "bins", "binMinutes", "rate" }
+            },
+            _ => new JsonSchema
+            {
+                Title = "Scenario Parameters",
+                Properties = new Dictionary<string, JsonSchemaProperty>
+                {
+                    ["seed"] = new JsonSchemaProperty
+                    {
+                        Type = "integer",
+                        Title = "Random Seed",
+                        Description = "Seed for reproducible results",
+                        Default = 42,
+                        Minimum = 1,
+                        Maximum = 99999
+                    }
+                },
+                Required = new List<string>()
+            }
         };
     }
 
@@ -637,8 +752,7 @@ public class FlowTimeSimService : IFlowTimeSimService
 
     private static string GenerateSimulationYaml(SimulationRunRequest request)
     {
-        // Generate FlowTime-Sim compatible YAML based on the actual spec format
-        // Reference: /workspaces/flowtime-sim-vnext/tests/FlowTime.Sim.Tests/SimulationSpecParserTests.cs
+        // Generate FlowTime-Sim compatible YAML based on the scenario and parameters
         var yaml = new StringBuilder();
         
         // Schema version (recommended)
@@ -647,28 +761,47 @@ public class FlowTimeSimService : IFlowTimeSimService
         // RNG configuration
         yaml.AppendLine("rng: pcg");
         
+        // Get parameters with defaults based on scenario
+        var bins = request.Parameters.TryGetValue("bins", out var binValue) ? 
+            Convert.ToInt32(binValue) : (request.TemplateId == "const-quick" ? 3 : 4);
+        var binMinutes = request.Parameters.TryGetValue("binMinutes", out var binMinValue) ? 
+            Convert.ToInt32(binMinValue) : (request.TemplateId == "const-quick" ? 60 : 30);
+        var seed = request.Parameters.TryGetValue("seed", out var seedValue) ? 
+            Convert.ToInt32(seedValue) : (request.TemplateId == "const-quick" ? 42 : 123);
+        
         // Grid configuration (REQUIRED)
-        var bins = request.Parameters.TryGetValue("timeBins", out var binValue) ? 
-            Convert.ToInt32(binValue) : 4;
         yaml.AppendLine("grid:");
         yaml.AppendLine($"  bins: {bins}");
-        yaml.AppendLine("  binMinutes: 60");
+        yaml.AppendLine($"  binMinutes: {binMinutes}");
         
         // Seed for deterministic runs
-        yaml.AppendLine("seed: 42");
+        yaml.AppendLine($"seed: {seed}");
         
-        // Arrivals configuration (REQUIRED)
-        var demandRate = request.Parameters.TryGetValue("demandRate", out var rateValue) ? 
-            Convert.ToDouble(rateValue) : 10.0;
+        // Arrivals configuration based on scenario type
         yaml.AppendLine("arrivals:");
-        yaml.AppendLine("  kind: const");
-        yaml.Append("  values: [");
-        for (int i = 0; i < bins; i++)
+        
+        if (request.TemplateId == "poisson-demo")
         {
-            yaml.Append(((int)demandRate).ToString(CultureInfo.InvariantCulture));
-            if (i < bins - 1) yaml.Append(", ");
+            // Poisson arrivals
+            var rate = request.Parameters.TryGetValue("rate", out var rateValue) ? 
+                Convert.ToDouble(rateValue) : 5.0;
+            yaml.AppendLine("  kind: poisson");
+            yaml.AppendLine($"  rate: {rate.ToString(CultureInfo.InvariantCulture)}");
         }
-        yaml.AppendLine("]");
+        else
+        {
+            // Constant arrivals (default for const-quick and fallback)
+            var arrivalValue = request.Parameters.TryGetValue("arrivalValue", out var arrivalValueParam) ? 
+                Convert.ToInt32(arrivalValueParam) : 2;
+            yaml.AppendLine("  kind: const");
+            yaml.Append("  values: [");
+            for (int i = 0; i < bins; i++)
+            {
+                yaml.Append(arrivalValue.ToString(CultureInfo.InvariantCulture));
+                if (i < bins - 1) yaml.Append(", ");
+            }
+            yaml.AppendLine("]");
+        }
         
         // Route configuration (REQUIRED)
         yaml.AppendLine("route:");

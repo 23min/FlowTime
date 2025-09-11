@@ -1,13 +1,24 @@
 namespace FlowTime.Contracts.Dtos;
 
 /// <summary>
+/// RNG configuration for FlowTime-Sim (ignored by FlowTime Engine)
+/// </summary>
+public sealed class RngDto 
+{ 
+    public string Kind { get; set; } = "pcg32"; 
+    public int? Seed { get; set; }
+}
+
+/// <summary>
 /// Root model definition for YAML deserialization
 /// </summary>
 public sealed class ModelDto
 {
+    public int? SchemaVersion { get; set; }
     public GridDto Grid { get; set; } = new();
     public List<NodeDto> Nodes { get; set; } = new();
     public List<OutputDto> Outputs { get; set; } = new();
+    public RngDto? Rng { get; set; }
 }
 
 /// <summary>

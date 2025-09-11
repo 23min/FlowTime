@@ -14,7 +14,7 @@
     <MudAppBar Elevation="1" Color="Color.Default" Class="appbar-surface" Dense="true">
         <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
             OnClick="ToggleDrawer" />
-        <MudText Typo="Typo.h6">FlowTime</MudText>
+        <MudText Typo="Typo.h6">FlowTime Expert Console</MudText>
         <MudSpacer />
         
         <!-- API Status LEDs -->
@@ -39,14 +39,16 @@
             <MudSwitch T="bool" Value="useSim" ValueChanged="OnUseSimChanged" Color="Color.Primary" Size="Size.Small" />
         </div>
         
-        <MudButton Variant="Variant.Text" 
-                  StartIcon="@Icons.Material.Filled.School"
-                  Href="/learn"
-                  Color="Color.Inherit"
-                  Size="Size.Small"
-                  Class="mr-2">
-            Learning Mode
-        </MudButton>
+        <!-- Switch to Learning Mode -->
+        <MudTooltip Text="Need help getting started?">
+            <MudButton Variant="Variant.Text" 
+                      StartIcon="@Icons.Material.Filled.School"
+                      Href="/learn"
+                      Color="Color.Inherit"
+                      Size="Size.Small">
+                Learning Mode
+            </MudButton>
+        </MudTooltip>
         <MudIconButton Icon="@(Theme.IsDark? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
             Color="Color.Inherit" OnClick="ToggleDarkAsync" />
         
@@ -135,14 +137,15 @@
         {
             try
             {
+                // Simple health check - could be enhanced to use actual API clients
+                using var httpClient = new HttpClient();
+                httpClient.Timeout = TimeSpan.FromSeconds(5);
+                
                 // Get configuration for API URLs
                 var flowTimeApiConfig = Configuration.GetSection(FlowTimeApiOptions.SectionName).Get<FlowTimeApiOptions>() 
                     ?? new FlowTimeApiOptions();
                 var flowTimeSimApiConfig = Configuration.GetSection(FlowTimeSimApiOptions.SectionName).Get<FlowTimeSimApiOptions>() 
                     ?? new FlowTimeSimApiOptions();
-                
-                using var httpClient = new HttpClient();
-                httpClient.Timeout = TimeSpan.FromSeconds(5);
                 
                 // Check FlowTime API using configured URL
                 try

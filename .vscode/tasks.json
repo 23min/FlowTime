@@ -24,14 +24,18 @@
       "type": "shell",
       "command": "dotnet build",
       "group": "build",
-      "problemMatcher": ["$msCompile"]
+      "problemMatcher": [
+        "$msCompile"
+      ]
     },
     {
       "label": "test",
       "type": "shell",
       "command": "dotnet test --nologo",
       "group": "test",
-      "problemMatcher": ["$msCompile"]
+      "problemMatcher": [
+        "$msCompile"
+      ]
     },
     {
       "label": "run: hello",
@@ -43,10 +47,40 @@
     {
       "label": "start: api",
       "type": "shell",
-      "command": "dotnet run --project src/FlowTime.API --urls http://localhost:8080",
+      "command": "dotnet run --project src/FlowTime.API",
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "ASPNETCORE_URLS": "http://0.0.0.0:8080"
+        }
+      },
       "group": "none",
       "isBackground": true,
-      "problemMatcher": []
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "new",
+        "showReuseMessage": true,
+        "clear": false
+      },
+      "problemMatcher": [
+        {
+          "pattern": [
+            {
+              "regexp": ".",
+              "file": 1,
+              "location": 2,
+              "message": 3
+            }
+          ],
+          "background": {
+            "activeOnStart": true,
+            "beginsPattern": "^\\s*info: Microsoft.Hosting.Lifetime",
+            "endsPattern": "^\\s*info: Microsoft.Hosting.Lifetime.* Application started\\."
+          }
+        }
+      ]
     }
   ]
 }

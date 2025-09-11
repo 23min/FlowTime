@@ -17,6 +17,7 @@ public static class ModelService
     {
         return new DeserializerBuilder()
             .WithNamingConvention(CamelCaseNamingConvention.Instance)
+            .IgnoreUnmatchedProperties()
             .Build();
     }
 

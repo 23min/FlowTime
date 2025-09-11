@@ -101,7 +101,7 @@
                 <MudText Typo="Typo.body2">
                     @if (FeatureFlags.UseSimulation)
                     {
-                        <text>Running simulation via FlowTime-Sim API (http://localhost:8081)...</text>
+                        <text>Running simulation via FlowTime-Sim API...</text>
                     }
                     else
                     {
@@ -142,6 +142,14 @@
 
     private async void OnFlagsChanged()
     {
+        // Clear current selections since templates will change when mode switches
+        selectedTemplate = null;
+        selectedCatalog = null;
+        parameters.Clear();
+        runResult = null;
+        modeVersion++; // advance epoch so stale refs are invalidated
+        selectedTemplateModeVersion = null;
+        selectedCatalogModeVersion = null;
         await InvokeAsync(StateHasChanged);
     }
 
@@ -307,14 +315,14 @@
         catch (HttpRequestException ex) when (ex.Message.Contains("timeout") || ex.Message.Contains("Timeout"))
         {
             var errorMsg = FeatureFlags.UseSimulation 
-                ? "FlowTime-Sim API request timed out. Check if the service is running on http://localhost:8081"
+                ? "FlowTime-Sim API request timed out. Check if the service is running and accessible"
                 : "Simulation request timed out";
             Snackbar.Add(errorMsg, Severity.Error);
         }
         catch (HttpRequestException ex) when (ex.Message.Contains("Connection refused") || ex.Message.Contains("No connection"))
         {
             var errorMsg = FeatureFlags.UseSimulation 
-                ? "Cannot connect to FlowTime-Sim API. Make sure it's running on http://localhost:8081"
+                ? "Cannot connect to FlowTime-Sim API. Check service configuration and connectivity"
                 : "Cannot connect to simulation service";
             Snackbar.Add(errorMsg, Severity.Error);
         }

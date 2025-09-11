@@ -16,6 +16,9 @@ builder.Services.AddMudServices();
 builder.Services.AddSingleton<ThemeService>();
 builder.Services.AddScoped<PreferencesService>();
 
+// Interface context service for dual interface support
+builder.Services.AddScoped<FlowTime.UI.Services.Interface.IInterfaceContextService, FlowTime.UI.Services.Interface.InterfaceContextService>();
+
 // FlowTime API client (for engine/core operations)
 builder.Services.AddScoped<IFlowTimeApiClient>(sp =>
 {

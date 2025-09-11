@@ -229,9 +229,7 @@ public class FormatsInfo
 public class ScenarioInfo
 {
     public string Id { get; set; } = string.Empty;
-    public string Name { get; set; } = string.Empty;
+    public string Title { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
-    public string Category { get; set; } = string.Empty;
-    public List<string> Tags { get; set; } = new();
-    public Dictionary<string, object> DefaultParameters { get; set; } = new();
+    public object? Preview { get; set; }
 }

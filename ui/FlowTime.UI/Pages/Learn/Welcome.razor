@@ -1,0 +1,98 @@
+@page "/learn"
+@page "/learn/welcome"
+
+<PageTitle>FlowTime Learning Center</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    <MudGrid>
+        <MudItem xs="12">
+            <MudPaper Class="pa-6" Elevation="2">
+                <MudText Typo="Typo.h3" Color="Color.Primary" Class="mb-4">
+                    Welcome to FlowTime Learning Center
+                </MudText>
+                
+                <MudText Typo="Typo.h6" Class="mb-3">
+                    🎯 What is FlowTime?
+                </MudText>
+                <MudText Typo="Typo.body1" Class="mb-4">
+                    FlowTime is a digital twin platform that helps you understand how your systems behave over time. 
+                    Think of it as a "crystal ball" for your business processes - it shows you what happens when 
+                    demand changes, systems fail, or you make improvements.
+                </MudText>
+                
+                <MudText Typo="Typo.h6" Class="mb-3">
+                    🚀 Ready to get started?
+                </MudText>
+                <MudText Typo="Typo.body1" Class="mb-4">
+                    This learning experience will guide you through digital twin concepts using examples from your industry.
+                </MudText>
+                
+                <MudGrid Class="mt-6">
+                    <MudItem xs="12" md="4">
+                        <MudCard>
+                            <MudCardContent>
+                                <MudText Typo="Typo.h6" Color="Color.Success">Executive Track</MudText>
+                                <MudText Typo="Typo.body2" Class="mt-2">
+                                    Business case, ROI, strategic planning (15-20 minutes)
+                                </MudText>
+                                <MudButton Variant="Variant.Filled" Color="Color.Success" Class="mt-3" FullWidth="true"
+                                          Href="/learn/foundations">
+                                    Start Executive Track
+                                </MudButton>
+                            </MudCardContent>
+                        </MudCard>
+                    </MudItem>
+                    
+                    <MudItem xs="12" md="4">
+                        <MudCard>
+                            <MudCardContent>
+                                <MudText Typo="Typo.h6" Color="Color.Info">Operations Track</MudText>
+                                <MudText Typo="Typo.body2" Class="mt-2">
+                                    Daily monitoring, incident analysis, capacity planning (30-45 minutes)
+                                </MudText>
+                                <MudButton Variant="Variant.Filled" Color="Color.Info" Class="mt-3" FullWidth="true"
+                                          Href="/learn/foundations">
+                                    Start Operations Track
+                                </MudButton>
+                            </MudCardContent>
+                        </MudCard>
+                    </MudItem>
+                    
+                    <MudItem xs="12" md="4">
+                        <MudCard>
+                            <MudCardContent>
+                                <MudText Typo="Typo.h6" Color="Color.Warning">Technical Track</MudText>
+                                <MudText Typo="Typo.body2" Class="mt-2">
+                                    Deep dive into modeling, advanced scenarios (60+ minutes)
+                                </MudText>
+                                <MudButton Variant="Variant.Filled" Color="Color.Warning" Class="mt-3" FullWidth="true"
+                                          Href="/learn/foundations">
+                                    Start Technical Track
+                                </MudButton>
+                            </MudCardContent>
+                        </MudCard>
+                    </MudItem>
+                </MudGrid>
+                
+                <MudDivider Class="my-6" />
+                
+                <MudGrid AlignItems="Center">
+                    <MudItem xs="12" md="8">
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">
+                            Already familiar with FlowTime? Switch to the expert interface for advanced tools and workflows.
+                        </MudText>
+                    </MudItem>
+                    <MudItem xs="12" md="4">
+                        <MudButton Variant="Variant.Outlined" 
+                                  StartIcon="@Icons.Material.Filled.Engineering"
+                                  Href="/"
+                                  Color="Color.Primary"
+                                  FullWidth="true">
+                            Expert Mode
+                        </MudButton>
+                    </MudItem>
+                </MudGrid>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+</MudContainer>
