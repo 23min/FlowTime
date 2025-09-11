@@ -26,28 +26,4 @@ jobs:
         run: dotnet build --configuration Release --no-restore
 
       - name: Test
-        run: dotnet test --configuration Release --no-build --logger trx --results-directory TestResults --collect "XPlat Code Coverage"
-
-      - name: Locate coverage file
-        run: |
-          COVERAGE_FILE=$(find . -type f -name 'coverage.cobertura.xml' | head -n 1)
-          if [ -z "$COVERAGE_FILE" ]; then
-            echo "No coverage file found"; exit 1;
-          fi
-          echo "COVERAGE_FILE=$COVERAGE_FILE" >> $GITHUB_ENV
-          echo "Found coverage at $COVERAGE_FILE"
-
-      - name: Coverage Summary
-        uses: irongut/CodeCoverageSummary@v1.3.0
-        with:
-          filename: ${{ env.COVERAGE_FILE }}
-          badge: true
-          fail_below_min: false
-          format: markdown
-          output: both
-
-      - name: Upload coverage artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage
-          path: ${{ env.COVERAGE_FILE }}
+        run: dotnet test --configuration Release --no-build
