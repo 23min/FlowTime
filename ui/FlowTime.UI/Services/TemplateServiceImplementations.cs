@@ -40,22 +40,30 @@ public class TemplateService : ITemplateService
         try
         {
             logger.LogInformation("API mode: Fetching scenarios from FlowTime-Sim API");
-            var scenariosResult = await simClient.GetScenariosAsync();
+            
+            // Add timeout to prevent hanging when API is down (same as LED check timeout)
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            var scenariosResult = await simClient.GetScenariosAsync(cts.Token);
             
             if (!scenariosResult.Success)
             {
-                logger.LogWarning("Failed to get scenarios from Sim API: {Error}. Falling back to domain templates.", scenariosResult.Error);
-                return GetRichDomainTemplates();
+                logger.LogWarning("Failed to get scenarios from Sim API: {Error}. No fallback in API mode.", scenariosResult.Error);
+                throw new InvalidOperationException($"FlowTime-Sim API error: {scenariosResult.Error}");
             }
 
             var scenarios = scenariosResult.Value ?? new List<ScenarioInfo>();
             logger.LogInformation("Successfully fetched {Count} scenarios from FlowTime-Sim API", scenarios.Count);
             return scenarios.Select(ConvertScenarioToTemplate).ToList();
         }
+        catch (OperationCanceledException)
+        {
+            logger.LogError("Timeout while fetching scenarios from Sim API");
+            throw new InvalidOperationException("FlowTime-Sim API request timed out. The service may be down or unresponsive.");
+        }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to get templates from Sim API. Falling back to domain templates.");
-            return GetRichDomainTemplates();
+            logger.LogError(ex, "Failed to get templates from Sim API. No fallback in API mode.");
+            throw new InvalidOperationException("FlowTime-Sim API is not available. Please check that the service is running and accessible.", ex);
         }
     }
 
@@ -89,13 +97,20 @@ public class TemplateService : ITemplateService
 
     private static TemplateInfo ConvertScenarioToTemplate(ScenarioInfo scenario)
     {
+        // Use actual API data instead of hardcoded values
+        var category = string.IsNullOrEmpty(scenario.Category) ? "Demo Templates" : 
+                      char.ToUpper(scenario.Category[0]) + scenario.Category.Substring(1) + " Templates";
+        
+        // Combine API tags with "simulation" tag to identify as demo templates
+        var tags = new List<string>(scenario.Tags) { "simulation" };
+        
         return new TemplateInfo
         {
             Id = scenario.Id,
             Name = scenario.Title,
             Description = scenario.Description,
-            Category = "FlowTime-Sim Scenarios",
-            Tags = new List<string> { "simulation", "scenario" },
+            Category = category,
+            Tags = tags,
             ParameterSchema = CreateParameterSchemaForScenario(scenario.Id)
         };
     }
@@ -395,6 +410,67 @@ public class TemplateService : ITemplateService
                     },
                     Required = new() { "stationCount", "cycleTime", "qualityRate" }
                 }
+            },
+            new()
+            {
+                Id = "it-system-microservices",
+                Name = "IT System with Microservices",
+                Description = "Modern web application with request queues, services, and error handling",
+                Category = "IT-Systems",
+                Tags = new() { "beginner", "microservices", "web-scale", "modern" },
+                ParameterSchema = new JsonSchema
+                {
+                    Title = "IT System Parameters",
+                    Properties = new()
+                    {
+                        ["requestRate"] = new JsonSchemaProperty
+                        {
+                            Type = "number",
+                            Title = "Request Rate (req/min)",
+                            Description = "Incoming API requests per minute",
+                            Default = 100.0,
+                            Minimum = 10.0,
+                            Maximum = 10000.0
+                        },
+                        ["serviceCapacity"] = new JsonSchemaProperty
+                        {
+                            Type = "number",
+                            Title = "Service Capacity (req/min)",
+                            Description = "Maximum requests each service can handle",
+                            Default = 80.0,
+                            Minimum = 5.0,
+                            Maximum = 5000.0
+                        },
+                        ["errorRate"] = new JsonSchemaProperty
+                        {
+                            Type = "number",
+                            Title = "Error Rate",
+                            Description = "Percentage of requests that fail",
+                            Default = 0.05,
+                            Minimum = 0.0,
+                            Maximum = 0.5
+                        },
+                        ["retryAttempts"] = new JsonSchemaProperty
+                        {
+                            Type = "integer",
+                            Title = "Max Retry Attempts",
+                            Description = "Maximum number of retries for failed requests",
+                            Default = 3,
+                            Minimum = 0,
+                            Maximum = 10
+                        },
+                        ["queueCapacity"] = new JsonSchemaProperty
+                        {
+                            Type = "integer",
+                            Title = "Queue Capacity",
+                            Description = "Maximum requests that can be queued",
+                            Default = 1000,
+                            Minimum = 50,
+                            Maximum = 50000
+                        }
+                    },
+                    Required = new() { "requestRate", "serviceCapacity", "errorRate" }
+                }
             }
         };
     }
@@ -674,6 +750,19 @@ public class FlowTimeSimService : IFlowTimeSimService
                 metadata["qualityRate"] = request.Parameters.GetValueOrDefault("qualityRate", 0.95);
                 metadata["expectedOutput"] = Math.Round(60.0 / Convert.ToDouble(metadata["cycleTime"]) * Convert.ToDouble(metadata["qualityRate"]), 2);
                 break;
+                
+            case "it-system-microservices":
+                metadata["networkType"] = "it-system";
+                metadata["requestRate"] = request.Parameters.GetValueOrDefault("requestRate", 100.0);
+                metadata["serviceCapacity"] = request.Parameters.GetValueOrDefault("serviceCapacity", 80.0);
+                metadata["errorRate"] = request.Parameters.GetValueOrDefault("errorRate", 0.05);
+                metadata["retryAttempts"] = request.Parameters.GetValueOrDefault("retryAttempts", 3);
+                metadata["queueCapacity"] = request.Parameters.GetValueOrDefault("queueCapacity", 1000);
+                var capacity = Convert.ToDouble(metadata["serviceCapacity"]);
+                var demand = Convert.ToDouble(metadata["requestRate"]);
+                metadata["systemUtilization"] = Math.Round(Math.Min(1.0, demand / capacity), 3);
+                metadata["avgResponseTime"] = Math.Round(capacity > 0 ? (1.0 / capacity) * 60 : 0, 2); // Convert to seconds
+                break;
         }
 
         // Add performance metrics
@@ -695,6 +784,7 @@ public class FlowTimeSimService : IFlowTimeSimService
             "transportation-basic" => "Flow Network",
             "supply-chain-multi-tier" => "Multi-Tier System",
             "manufacturing-line" => "Production Line",
+            "it-system-microservices" => "Microservice Architecture",
             _ => "Generic Model"
         };
     }

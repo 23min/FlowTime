@@ -1,0 +1,157 @@
+@page "/learn/system"
+@layout LearningLayout
+
+<PageTitle>Your System Explorer - FlowTime Learning Center</PageTitle>
+
+<MudText Typo="Typo.h3" Color="Color.Primary" Class="mb-4">
+    🌐 Understanding Your System
+</MudText>
+
+<MudText Typo="Typo.body1" Class="mb-6">
+    Every system can be viewed as a network of connected components. Let's explore how FlowTime 
+    sees your system and why this perspective is so powerful.
+</MudText>
+
+<MudGrid>
+    <MudItem xs="12" md="6">
+        <MudPaper Class="pa-4" Elevation="2">
+            <MudText Typo="Typo.h5" Class="mb-3">🔗 Systems as Networks</MudText>
+            
+            <MudText Typo="Typo.body1" Class="mb-3">
+                Think about your favorite restaurant again:
+            </MudText>
+            
+            <MudList T="string">
+                <MudListItem T="string" Icon="@Icons.Material.Filled.Input">
+                    <strong>Inputs:</strong> Customers arrive (demand)
+                </MudListItem>
+                <MudListItem T="string" Icon="@Icons.Material.Filled.Transform">
+                    <strong>Processing:</strong> Host seats guests, kitchen prepares food
+                </MudListItem>
+                <MudListItem T="string" Icon="@Icons.Material.Filled.Output">
+                    <strong>Outputs:</strong> Satisfied customers leave
+                </MudListItem>
+                <MudListItem T="string" Icon="@Icons.Material.Filled.Link">
+                    <strong>Connections:</strong> Each step feeds into the next
+                </MudListItem>
+            </MudList>
+            
+            <MudAlert Severity="Severity.Info" Variant="Variant.Text" Class="mt-3">
+                This network view helps you spot bottlenecks and optimize flow!
+            </MudAlert>
+        </MudPaper>
+    </MudItem>
+    
+    <MudItem xs="12" md="6">
+        <MudPaper Class="pa-4" Elevation="2" Style="background: linear-gradient(135deg, #fff3e0 0%, #f3e5f5 100%);">
+            <MudText Typo="Typo.h6" Class="mb-3">🎯 Network Visualization</MudText>
+            
+            <!-- Simple visual representation -->
+            <div style="text-align: center; padding: 20px;">
+                <div style="display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 15px;">
+                    <MudIcon Icon="@Icons.Material.Filled.People" Color="Color.Primary" Size="Size.Large" />
+                    <MudIcon Icon="@Icons.Material.Filled.ArrowForward" Color="Color.Default" />
+                    <MudIcon Icon="@Icons.Material.Filled.Restaurant" Color="Color.Secondary" Size="Size.Large" />
+                    <MudIcon Icon="@Icons.Material.Filled.ArrowForward" Color="Color.Default" />
+                    <MudIcon Icon="@Icons.Material.Filled.ThumbUp" Color="Color.Success" Size="Size.Large" />
+                </div>
+                <MudText Typo="Typo.caption">Customers → Restaurant → Satisfaction</MudText>
+            </div>
+            
+            <MudText Typo="Typo.body2" Class="mt-3">
+                Each circle is a <strong>node</strong> in your system. Arrows show how things flow between them.
+            </MudText>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+<MudDivider Class="my-6" />
+
+<MudGrid>
+    <MudItem xs="12">
+        <MudText Typo="Typo.h5" Class="mb-4">⚡ Why This Matters</MudText>
+        
+        <MudGrid>
+            <MudItem xs="12" md="4">
+                <MudCard>
+                    <MudCardContent>
+                        <MudIcon Icon="@Icons.Material.Filled.Visibility" Color="Color.Primary" Size="Size.Large" />
+                        <MudText Typo="Typo.h6" Class="mt-2">See Bottlenecks</MudText>
+                        <MudText Typo="Typo.body2" Class="mt-2">
+                            Spot where things get stuck before they become problems
+                        </MudText>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+            
+            <MudItem xs="12" md="4">
+                <MudCard>
+                    <MudCardContent>
+                        <MudIcon Icon="@Icons.Material.Filled.Speed" Color="Color.Secondary" Size="Size.Large" />
+                        <MudText Typo="Typo.h6" Class="mt-2">Optimize Flow</MudText>
+                        <MudText Typo="Typo.body2" Class="mt-2">
+                            Understand how changes in one area affect the whole system
+                        </MudText>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+            
+            <MudItem xs="12" md="4">
+                <MudCard>
+                    <MudCardContent>
+                        <MudIcon Icon="@Icons.Material.Filled.Psychology" Color="Color.Tertiary" Size="Size.Large" />
+                        <MudText Typo="Typo.h6" Class="mt-2">Plan Changes</MudText>
+                        <MudText Typo="Typo.body2" Class="mt-2">
+                            Test "what if" scenarios safely before implementing
+                        </MudText>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+        </MudGrid>
+    </MudItem>
+</MudGrid>
+
+<MudDivider Class="my-6" />
+
+<MudGrid>
+    <MudItem xs="12" md="8">
+        <MudPaper Class="pa-4" Elevation="2">
+            <MudText Typo="Typo.h6" Class="mb-3">🚀 Ready for Hands-On?</MudText>
+            <MudText Typo="Typo.body1" Class="mb-3">
+                You can already explore a real system network in the Template Runner. This lets you:
+            </MudText>
+            <MudList T="string">
+                <MudListItem T="string" Icon="@Icons.Material.Filled.PlayArrow">
+                    Run pre-built scenarios
+                </MudListItem>
+                <MudListItem T="string" Icon="@Icons.Material.Filled.Tune">
+                    Adjust parameters and see results
+                </MudListItem>
+                <MudListItem T="string" Icon="@Icons.Material.Filled.BarChart">
+                    Visualize system behavior over time
+                </MudListItem>
+            </MudList>
+        </MudPaper>
+    </MudItem>
+    
+    <MudItem xs="12" md="4">
+        <MudStack Spacing="3">
+            <MudButton Variant="Variant.Filled" 
+                      Color="Color.Primary" 
+                      StartIcon="@Icons.Material.Filled.PlayArrow"
+                      Href="/templates"
+                      FullWidth="true"
+                      Size="Size.Large">
+                Try Template Runner
+            </MudButton>
+            
+            <MudButton Variant="Variant.Outlined" 
+                      Color="Color.Primary" 
+                      StartIcon="@Icons.Material.Filled.ArrowForward"
+                      Href="/learn/scenarios"
+                      FullWidth="true">
+                Continue Learning
+            </MudButton>
+        </MudStack>
+    </MudItem>
+</MudGrid>

@@ -1,0 +1,121 @@
+@page "/learn/foundations"
+@layout LearningLayout
+
+<PageTitle>Digital Twin Foundations - FlowTime Learning Center</PageTitle>
+
+<MudText Typo="Typo.h3" Color="Color.Primary" Class="mb-4">
+    🏗️ Digital Twin Foundations
+</MudText>
+
+<MudText Typo="Typo.body1" Class="mb-6">
+    Let's start with the basics. A digital twin is like having a "practice version" of your real system 
+    that you can experiment with safely.
+</MudText>
+
+<MudGrid>
+    <MudItem xs="12" md="8">
+        <MudPaper Class="pa-4" Elevation="2">
+            <MudText Typo="Typo.h5" Class="mb-3">🔧 What is a Digital Twin?</MudText>
+            
+            <MudText Typo="Typo.body1" Class="mb-3">
+                Think about your favorite mobile app. Ever wonder why it's sometimes lightning fast and other times painfully slow? 
+                Before launching a new feature, wouldn't it be great to:
+            </MudText>
+            
+            <MudList T="string">
+                <MudListItem T="string" Icon="@Icons.Material.Filled.Speed">
+                    Predict how fast your app will respond under heavy load
+                </MudListItem>
+                <MudListItem T="string" Icon="@Icons.Material.Filled.Queue">
+                    See what happens when thousands of users hit "submit" at once
+                </MudListItem>
+                <MudListItem T="string" Icon="@Icons.Material.Filled.Error">
+                    Test how your system handles errors and recovers
+                </MudListItem>
+                <MudListItem T="string" Icon="@Icons.Material.Filled.CloudQueue">
+                    Plan server capacity for Black Friday traffic
+                </MudListItem>
+            </MudList>
+            
+            <MudText Typo="Typo.body1" Class="mt-3">
+                A digital twin lets you do exactly that - but for any type of system!
+            </MudText>
+        </MudPaper>
+    </MudItem>
+    
+    <MudItem xs="12" md="4">
+        <MudPaper Class="pa-4" Elevation="2" Style="background: linear-gradient(135deg, #f3e5f5 0%, #e1f5fe 100%);">
+            <MudText Typo="Typo.h6" Class="mb-3">💡 Key Insight</MudText>
+            <MudText Typo="Typo.body2" Class="mb-3">
+                <strong>Digital twins turn "What if?" questions into "Let me show you" answers.</strong>
+            </MudText>
+            <MudText Typo="Typo.caption">
+                Instead of guessing, you can see exactly what happens when things change.
+            </MudText>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+<MudDivider Class="my-6" />
+
+<MudGrid>
+    <MudItem xs="12">
+        <MudText Typo="Typo.h5" Class="mb-4">🌍 Real-World Examples</MudText>
+        
+        <MudGrid>
+            <MudItem xs="12" md="4">
+                <MudCard>
+                    <MudCardContent>
+                        <MudText Typo="Typo.h6" Color="Color.Primary">📱 Mobile Apps</MudText>
+                        <MudText Typo="Typo.body2" Class="mt-2">
+                            Companies like Netflix use digital twins to test how their apps handle millions of simultaneous users.
+                        </MudText>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+            
+            <MudItem xs="12" md="4">
+                <MudCard>
+                    <MudCardContent>
+                        <MudText Typo="Typo.h6" Color="Color.Secondary">☁️ Cloud Services</MudText>
+                        <MudText Typo="Typo.body2" Class="mt-2">
+                            Amazon Web Services simulates data center load to predict when to scale up servers.
+                        </MudText>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+            
+            <MudItem xs="12" md="4">
+                <MudCard>
+                    <MudCardContent>
+                        <MudText Typo="Typo.h6" Color="Color.Tertiary">🎮 Gaming</MudText>
+                        <MudText Typo="Typo.body2" Class="mt-2">
+                            Game companies test server capacity before big launches to prevent crashes during peak hours.
+                        </MudText>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+        </MudGrid>
+    </MudItem>
+</MudGrid>
+
+<MudDivider Class="my-6" />
+
+<MudGrid AlignItems="Center">
+    <MudItem xs="12" md="8">
+        <MudText Typo="Typo.h6" Class="mb-2">Ready to see your system?</MudText>
+        <MudText Typo="Typo.body1">
+            Let's look at how digital twins represent systems as networks of connected components.
+        </MudText>
+    </MudItem>
+    <MudItem xs="12" md="4">
+        <MudButton Variant="Variant.Filled" 
+                  Color="Color.Primary" 
+                  StartIcon="@Icons.Material.Filled.ArrowForward"
+                  Href="/learn/system"
+                  FullWidth="true"
+                  Size="Size.Large">
+            Explore Your System
+        </MudButton>
+    </MudItem>
+</MudGrid>

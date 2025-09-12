@@ -1,9 +1,13 @@
 @page "/health"
+@layout ExpertLayout
 @using FlowTime.UI.Services
 @using FlowTime.UI.Components
+@using FlowTime.UI.Configuration
 @using MudBlazor
 @inject IFlowTimeApiClient FlowTimeApiClient
 @inject IFlowTimeSimApiClient FlowTimeSimApiClient
+@inject IConfiguration Configuration
+@inject HttpClient HttpClient
 @inject ISnackbar Snackbar
 
 <PageTitle>API Health</PageTitle>
@@ -41,7 +45,7 @@
         }
     </MudStack>
     
-    <MudText Typo="Typo.body2" Class="mt-2"><strong>Configured URL:</strong> http://localhost:8080</MudText>
+    <MudText Typo="Typo.body2" Class="mt-2"><strong>Configured URL:</strong> @(FlowTimeApiClient.BaseAddress ?? "Not configured")</MudText>
     <MudText Typo="Typo.body2"><strong>Purpose:</strong> Core engine operations, model evaluation</MudText>
     
     <MudDivider Class="my-3" />
@@ -177,7 +181,7 @@
         }
     </MudStack>
     
-    <MudText Typo="Typo.body2" Class="mt-2"><strong>Configured URL:</strong> http://localhost:8081</MudText>
+    <MudText Typo="Typo.body2" Class="mt-2"><strong>Configured URL:</strong> @(FlowTimeSimApiClient.BaseAddress ?? "Not configured")</MudText>
     <MudText Typo="Typo.body2"><strong>Purpose:</strong> Simulation engine and modeling</MudText>
     
     @if (!string.IsNullOrEmpty(flowTimeSimApiError))
@@ -327,7 +331,25 @@
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5)); // 5 second timeout for refresh all
             await CheckFlowTimeApiHealth(cts.Token);
-            await CheckFlowTimeSimApiHealth(cts.Token);
+            
+            // Test FlowTimeSimApiClient on page load too
+            Console.WriteLine($"[RefreshAllHealth] Testing FlowTimeSimApiClient.BaseAddress: '{FlowTimeSimApiClient.BaseAddress}'");
+            var apiResult = await FlowTimeSimApiClient.HealthAsync(CancellationToken.None);
+            Console.WriteLine($"[RefreshAllHealth] FlowTimeSimApiClient.HealthAsync result: Success={apiResult.Success}, Error='{apiResult.Error}', StatusCode={apiResult.StatusCode}");
+            
+            if (apiResult.Success)
+            {
+                flowTimeSimApiStatus = ApiStatus.Healthy;
+                flowTimeSimApiError = null;
+                flowTimeSimApiHealth = null;
+                Console.WriteLine($"[RefreshAllHealth] SUCCESS via FlowTimeSimApiClient");
+            }
+            else
+            {
+                Console.WriteLine($"[RefreshAllHealth] FlowTimeSimApiClient failed, falling back to direct approach");
+                await CheckFlowTimeSimApiHealth(cts.Token);
+            }
+            
             lastUpdated = DateTime.Now;
         }
         catch (OperationCanceledException)
@@ -456,13 +478,26 @@
         
         try
         {
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-            await CheckFlowTimeSimApiHealth(cts.Token);
+            // Use FlowTimeSimApiClient directly - it works fine as shown in page load
+            var result = await FlowTimeSimApiClient.HealthAsync(CancellationToken.None);
+            if (result.Success)
+            {
+                flowTimeSimApiStatus = ApiStatus.Healthy;
+                flowTimeSimApiError = null;
+                flowTimeSimApiHealth = null;
+            }
+            else
+            {
+                flowTimeSimApiStatus = ApiStatus.Unhealthy;
+                flowTimeSimApiError = result.Error ?? "Health check failed";
+                flowTimeSimApiHealth = null;
+            }
         }
-        catch (OperationCanceledException)
+        catch (Exception ex)
         {
             flowTimeSimApiStatus = ApiStatus.Unhealthy;
-            flowTimeSimApiError = "Health check timed out after 5 seconds";
+            flowTimeSimApiError = $"Connection failed: {ex.Message}";
+            flowTimeSimApiHealth = null;
         }
         finally
         {

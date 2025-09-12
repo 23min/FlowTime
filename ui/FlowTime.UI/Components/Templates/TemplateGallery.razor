@@ -1,4 +1,6 @@
 @using FlowTime.UI.Services
+@using static FlowTime.UI.Pages.TemplateRunner
+@using MudBlazor
 @inject ITemplateService TemplateService
 @inject ISnackbar Snackbar
 @inject FeatureFlagService FeatureFlags
@@ -7,16 +9,55 @@
 <MudStack Spacing="2">
     @if (templates == null)
     {
-        <MudProgressCircular Indeterminate="true" Size="Size.Small" />
-        <MudText Typo="Typo.body2">Loading templates...</MudText>
+        @if (isLoading)
+        {
+            @if (FeatureFlags.UseSimulation)
+            {
+                <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+                <MudText Typo="Typo.body2">Loading demo templates...</MudText>
+            }
+            else
+            {
+                <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+                <MudText Typo="Typo.body2">Connecting to FlowTime-Sim API...</MudText>
+            }
+        }
+        else
+        {
+            @if (FeatureFlags.UseSimulation)
+            {
+                <MudAlert Severity="Severity.Error" Class="mb-3">
+                    <MudText Typo="Typo.body2">
+                        <strong>Failed to Load Demo Templates</strong><br/>
+                        An unexpected error occurred while loading built-in templates.
+                    </MudText>
+                </MudAlert>
+            }
+            else
+            {
+                <MudAlert Severity="Severity.Error" Class="mb-3">
+                    <MudText Typo="Typo.body2">
+                        <strong>FlowTime-Sim API Not Available</strong><br/>
+                        Please ensure the FlowTime-Sim service is running and accessible.
+                    </MudText>
+                </MudAlert>
+            }
+        }
     }
-    else if (!templates.Any())
+    else if (!filteredTemplates.Any())
     {
-        <MudAlert Severity="Severity.Info">No templates available</MudAlert>
+        @if (templates.Any())
+        {
+            <MudAlert Severity="Severity.Info">No templates match the current filter</MudAlert>
+        }
+        else
+        {
+            <MudAlert Severity="Severity.Info">No templates available</MudAlert>
+        }
     }
     else
     {
-        @foreach (var template in templates)
+        @foreach (var template in filteredTemplates)
         {
             <MudCard Class="@GetCardClass(template)" Style="cursor: pointer;" 
                      @onclick="() => SelectTemplate(template)">
@@ -26,7 +67,7 @@
                         <MudChip T="string" Size="Size.Small" 
                                 Color="@(FeatureFlags.UseSimulation ? Color.Warning : Color.Success)"
                                 Variant="Variant.Filled">
-                            @(FeatureFlags.UseSimulation ? "SIM" : "API")
+                            @(FeatureFlags.UseSimulation ? "DEMO" : "API")
                         </MudChip>
                     </MudStack>
                     <MudText Typo="Typo.body2" Class="mb-2">@template.Description</MudText>
@@ -52,9 +93,13 @@
 
 @code {
     [Parameter] public EventCallback<TemplateInfo> OnTemplateSelected { get; set; }
+    [Parameter] public EventCallback<List<TemplateInfo>?> OnTemplatesLoaded { get; set; }
+    [Parameter] public TemplateFilter TemplateFilter { get; set; } = TemplateFilter.All;
     
     private List<TemplateInfo>? templates;
     private string? selectedTemplateId;
+    private List<TemplateInfo> filteredTemplates = new();
+    private bool isLoading = true;
 
     protected override async Task OnInitializedAsync()
     {
@@ -73,16 +118,62 @@
 
     private async Task LoadTemplatesAsync()
     {
+        isLoading = true;
         try
         {
             await FeatureFlags.EnsureLoadedAsync();
             templates = await TemplateService.GetTemplatesAsync();
+            ApplyFilter();
+            await OnTemplatesLoaded.InvokeAsync(templates);
             await InvokeAsync(StateHasChanged);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("FlowTime-Sim API") || ex.Message.Contains("FlowTime API"))
+        {
+            // API-specific error - don't show generic error, let the UI handle it
+            templates = null;
+            filteredTemplates = new List<TemplateInfo>();
+            await OnTemplatesLoaded.InvokeAsync(templates);
+            await InvokeAsync(StateHasChanged);
+            var apiName = FeatureFlags.UseSimulation ? "Demo templates" : "FlowTime API";
+            Snackbar.Add($"{apiName} is not available", Severity.Warning);
         }
         catch (Exception ex)
         {
             Snackbar.Add($"Failed to load templates: {ex.Message}", Severity.Error);
+            templates = null;
+            filteredTemplates = new List<TemplateInfo>();
+            await OnTemplatesLoaded.InvokeAsync(templates);
+            await InvokeAsync(StateHasChanged);
         }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    protected override void OnParametersSet()
+    {
+        ApplyFilter();
+    }
+
+    private void ApplyFilter()
+    {
+        if (templates == null)
+        {
+            filteredTemplates = new List<TemplateInfo>();
+            return;
+        }
+
+        filteredTemplates = TemplateFilter switch
+        {
+            TemplateFilter.Demo => templates.Where(t => 
+                t.Category.Equals("theoretical", StringComparison.OrdinalIgnoreCase) || 
+                t.Tags.Any(tag => tag.Contains("demo") || tag.Contains("quick") || tag.Contains("beginner"))).ToList(),
+            TemplateFilter.Domain => templates.Where(t => 
+                t.Category.Equals("domain", StringComparison.OrdinalIgnoreCase) || 
+                t.Tags.Any(tag => tag.Contains("manufacturing") || tag.Contains("transportation") || tag.Contains("microservices") || tag.Contains("it-systems"))).ToList(),
+            _ => templates.ToList()
+        };
     }
 
     public void Dispose()

@@ -1,0 +1,167 @@
+@page "/learn/it-systems"
+@layout LearningLayout
+
+<PageTitle>IT Systems Deep Dive - FlowTime Learning Center</PageTitle>
+
+<MudText Typo="Typo.h3" Color="Color.Primary" Class="mb-4">
+    💻 IT Systems: Requests, Queues, and Services
+</MudText>
+
+<MudText Typo="Typo.body1" Class="mb-6">
+    Let's explore how modern web applications work under the hood. When you tap "Submit" on your phone, 
+    what really happens behind the scenes?
+</MudText>
+
+<MudGrid>
+    <MudItem xs="12" md="8">
+        <MudPaper Class="pa-4" Elevation="2">
+            <MudText Typo="Typo.h5" Class="mb-3">📲 The Journey of a Request</MudText>
+            
+            <MudStepper>
+                <MudStep Title="User Taps Submit">
+                    <MudText>Your finger taps the screen, creating a request</MudText>
+                </MudStep>
+                <MudStep Title="Request Enters Queue">
+                    <MudText>The request joins thousands of others waiting in line</MudText>
+                </MudStep>
+                <MudStep Title="Service Processes Request">
+                    <MudText>A server picks up your request and does the work</MudText>
+                </MudStep>
+                <MudStep Title="Response Returns">
+                    <MudText>Success! You see "Order Confirmed" on your screen</MudText>
+                </MudStep>
+            </MudStepper>
+            
+            <MudAlert Severity="Severity.Info" Class="mt-4">
+                <strong>💡 The Magic Question:</strong> What happens when 1 million people tap "Submit" at the same time?
+            </MudAlert>
+        </MudPaper>
+    </MudItem>
+    
+    <MudItem xs="12" md="4">
+        <MudPaper Class="pa-4" Elevation="2" Style="background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);">
+            <MudText Typo="Typo.h6" Class="mb-3">🔍 System Components</MudText>
+            
+            <MudList T="string" Dense="true">
+                <MudListItem T="string" Icon="@Icons.Material.Filled.Input">
+                    <strong>Requests:</strong> What users want
+                </MudListItem>
+                <MudListItem T="string" Icon="@Icons.Material.Filled.Queue">
+                    <strong>Queues:</strong> Waiting lines for requests
+                </MudListItem>
+                <MudListItem T="string" Icon="@Icons.Material.Filled.Memory">
+                    <strong>Services:</strong> Workers that process requests
+                </MudListItem>
+                <MudListItem T="string" Icon="@Icons.Material.Filled.Output">
+                    <strong>Responses:</strong> Results sent back
+                </MudListItem>
+                <MudListItem T="string" Icon="@Icons.Material.Filled.Error">
+                    <strong>Errors:</strong> When things go wrong
+                </MudListItem>
+            </MudList>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+<MudDivider Class="my-6" />
+
+<MudGrid>
+    <MudItem xs="12">
+        <MudText Typo="Typo.h5" Class="mb-4">🎯 Common Performance Problems</MudText>
+        
+        <MudGrid>
+            <MudItem xs="12" md="6">
+                <MudCard Class="h-100">
+                    <MudCardContent>
+                        <MudText Typo="Typo.h6" Color="Color.Error">🐌 Slow Response Times</MudText>
+                        <MudText Typo="Typo.body2" Class="mt-2 mb-3">
+                            <strong>Problem:</strong> Users wait 30 seconds for a simple login
+                        </MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Success">
+                            <strong>Digital Twin Solution:</strong> Test different server configurations to find optimal performance
+                        </MudText>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+            
+            <MudItem xs="12" md="6">
+                <MudCard Class="h-100">
+                    <MudCardContent>
+                        <MudText Typo="Typo.h6" Color="Color.Warning">💥 System Crashes</MudText>
+                        <MudText Typo="Typo.body2" Class="mt-2 mb-3">
+                            <strong>Problem:</strong> Black Friday traffic brings down your shopping app
+                        </MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Success">
+                            <strong>Digital Twin Solution:</strong> Simulate peak traffic and plan server capacity
+                        </MudText>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+        </MudGrid>
+        
+        <MudGrid Class="mt-4">
+            <MudItem xs="12" md="6">
+                <MudCard Class="h-100">
+                    <MudCardContent>
+                        <MudText Typo="Typo.h6" Color="Color.Info">🔄 Error Cascades</MudText>
+                        <MudText Typo="Typo.body2" Class="mt-2 mb-3">
+                            <strong>Problem:</strong> One failed service breaks the entire application
+                        </MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Success">
+                            <strong>Digital Twin Solution:</strong> Test retry logic and error handling patterns
+                        </MudText>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+            
+            <MudItem xs="12" md="6">
+                <MudCard Class="h-100">
+                    <MudCardContent>
+                        <MudText Typo="Typo.h6" Color="Color.Secondary">📊 Resource Waste</MudText>
+                        <MudText Typo="Typo.body2" Class="mt-2 mb-3">
+                            <strong>Problem:</strong> Over-provisioned servers waste money
+                        </MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Success">
+                            <strong>Digital Twin Solution:</strong> Find the sweet spot between performance and cost
+                        </MudText>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+        </MudGrid>
+    </MudItem>
+</MudGrid>
+
+<MudDivider Class="my-6" />
+
+<MudGrid AlignItems="Center">
+    <MudItem xs="12" md="8">
+        <MudText Typo="Typo.h6" Class="mb-2">Ready to build your first IT system model?</MudText>
+        <MudText Typo="Typo.body1" Class="mb-3">
+            Let's use the Template Runner to create a microservices architecture and see how 
+            requests flow through your system.
+        </MudText>
+        <MudButton Variant="Variant.Filled" 
+                   Color="Color.Primary" 
+                   StartIcon="@Icons.Material.Filled.Build"
+                   Href="/app/template-runner"
+                   Class="mr-3">
+            Try IT System Template
+        </MudButton>
+        <MudButton Variant="Variant.Outlined" 
+                   Color="Color.Primary" 
+                   StartIcon="@Icons.Material.Filled.ArrowForward"
+                   Href="/learn/scenarios">
+            Next: What-If Scenarios
+        </MudButton>
+    </MudItem>
+    
+    <MudItem xs="12" md="4">
+        <MudAlert Severity="Severity.Success" Class="text-center">
+            <MudText Typo="Typo.body2">
+                🎓 <strong>Learning Tip:</strong><br/>
+                Start with the "IT System with Microservices" template 
+                and experiment with different request rates!
+            </MudText>
+        </MudAlert>
+    </MudItem>
+</MudGrid>

@@ -1,0 +1,66 @@
+# IT System with Microservices - Example Model
+# This demonstrates a modern web application handling user requests through microservices
+
+schemaVersion: 1
+grid:
+  bins: 24        # 24 hours
+  binMinutes: 60  # 1-hour bins
+
+nodes:
+  # Incoming user requests (varies by time of day)
+  - id: user_requests
+    kind: const
+    values: [50, 30, 20, 15, 10, 15, 25, 45, 80, 120, 150, 180, 200, 190, 170, 160, 140, 110, 90, 75, 65, 60, 55, 50]
+    
+  # Load balancer distributes requests
+  - id: load_balancer_capacity
+    kind: const
+    values: [500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500]
+    
+  # Requests that get through load balancer
+  - id: accepted_requests
+    kind: expr
+    expr: "MIN(user_requests, load_balancer_capacity)"
+    
+  # Authentication service (some requests fail authentication)
+  - id: auth_service_capacity
+    kind: const
+    values: [400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400]
+    
+  - id: authenticated_requests
+    kind: expr
+    expr: "MIN(accepted_requests, auth_service_capacity) * 0.95"  # 5% auth failures
+    
+  # Database service (has limited capacity)
+  - id: database_capacity
+    kind: const
+    values: [200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200]
+    
+  - id: database_requests
+    kind: expr
+    expr: "MIN(authenticated_requests, database_capacity)"
+    
+  # Successful responses (some requests result in errors)
+  - id: successful_responses
+    kind: expr
+    expr: "database_requests * 0.98"  # 2% system errors
+    
+  # Failed requests (overload + auth failures + system errors)
+  - id: failed_requests
+    kind: expr
+    expr: "user_requests - successful_responses"
+    
+  # Response time indicator (higher when capacity is stressed)
+  - id: avg_response_time_ms
+    kind: expr
+    expr: "CLAMP(50 + (user_requests / database_capacity * 100), 50, 5000)"
+
+outputs:
+  - series: user_requests
+    as: user_requests.csv
+  - series: successful_responses  
+    as: successful_responses.csv
+  - series: failed_requests
+    as: failed_requests.csv
+  - series: avg_response_time_ms
+    as: response_times.csv

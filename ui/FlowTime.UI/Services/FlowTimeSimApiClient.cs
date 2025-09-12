@@ -5,6 +5,7 @@ namespace FlowTime.UI.Services;
 
 public interface IFlowTimeSimApiClient
 {
+    string? BaseAddress { get; }
     Task<Result<SimRunResponse>> RunAsync(string yaml, CancellationToken ct = default);
     Task<Result<SeriesIndex>> GetIndexAsync(string runId, CancellationToken ct = default);
     Task<Result<Stream>> GetSeriesAsync(string runId, string seriesId, CancellationToken ct = default);
@@ -25,6 +26,8 @@ public class FlowTimeSimApiClient : IFlowTimeSimApiClient
         _logger = logger;
         _apiVersion = apiVersion;
     }
+
+    public string? BaseAddress => _httpClient.BaseAddress?.ToString();
 
     public async Task<Result<bool>> HealthAsync(CancellationToken ct = default)
     {
@@ -231,5 +234,7 @@ public class ScenarioInfo
     public string Id { get; set; } = string.Empty;
     public string Title { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
+    public string Category { get; set; } = string.Empty;
+    public List<string> Tags { get; set; } = new();
     public object? Preview { get; set; }
 }

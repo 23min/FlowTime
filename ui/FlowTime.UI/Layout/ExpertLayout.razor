@@ -163,12 +163,15 @@
                 try
                 {
                     var simHealthUrl = $"{flowTimeSimApiConfig.BaseUrl.TrimEnd('/')}/{flowTimeSimApiConfig.ApiVersion}/healthz";
+                    Console.WriteLine($"[LED Check] FlowTime-Sim API URL: '{simHealthUrl}'");
                     var response = await httpClient.GetAsync(simHealthUrl);
                     flowTimeSimApiStatus = response.IsSuccessStatusCode ? ApiStatus.Healthy : ApiStatus.Unhealthy;
+                    Console.WriteLine($"[LED Check] FlowTime-Sim API Status: {response.StatusCode} -> {flowTimeSimApiStatus}");
                 }
-                catch
+                catch (Exception ex)
                 {
                     flowTimeSimApiStatus = ApiStatus.Unhealthy;
+                    Console.WriteLine($"[LED Check] FlowTime-Sim API Exception: {ex.GetType().Name} - {ex.Message}");
                 }
                 
                 await InvokeAsync(StateHasChanged);

@@ -1,4 +1,5 @@
 @page "/templates"
+@layout ExpertLayout
 @using FlowTime.UI.Services
 @using FlowTime.UI.Components.Templates
 @using System.Linq
@@ -38,9 +39,40 @@
 <MudGrid>
     <MudItem xs="12" md="4">
         <MudPaper Class="pa-4" Elevation="2">
-            <MudText Typo="Typo.h5" Class="mb-3">📋 Templates</MudText>
+            <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
+                <MudText Typo="Typo.h5">📋 Templates</MudText>
+                <MudButtonGroup Variant="Variant.Outlined" Size="Size.Small" Class="template-filter-buttons">
+                    <MudButton OnClick="() => SetTemplateFilter(TemplateFilter.All)" 
+                               Variant="@(templateFilter == TemplateFilter.All ? Variant.Filled : Variant.Outlined)"
+                               Color="@(templateFilter == TemplateFilter.All ? Color.Primary : Color.Default)"
+                               Size="Size.Small"
+                               Class="px-1 py-1"
+                               Style="@GetFilterButtonStyle(TemplateFilter.All)">
+                        All
+                    </MudButton>
+                    <MudButton OnClick="() => SetTemplateFilter(TemplateFilter.Demo)" 
+                               Variant="@(templateFilter == TemplateFilter.Demo ? Variant.Filled : Variant.Outlined)"
+                               Color="@(templateFilter == TemplateFilter.Demo ? Color.Primary : Color.Default)"
+                               Size="Size.Small"
+                               Class="px-1 py-1"
+                               Style="@GetFilterButtonStyle(TemplateFilter.Demo)">
+                        Demo
+                    </MudButton>
+                    <MudButton OnClick="() => SetTemplateFilter(TemplateFilter.Domain)" 
+                               Variant="@(templateFilter == TemplateFilter.Domain ? Variant.Filled : Variant.Outlined)"
+                               Color="@(templateFilter == TemplateFilter.Domain ? Color.Primary : Color.Default)"
+                               Size="Size.Small"
+                               Class="px-1 py-1"
+                               Style="@GetFilterButtonStyle(TemplateFilter.Domain)">
+                        Domain
+                    </MudButton>
+                </MudButtonGroup>
+            </MudStack>
             @* Force re-mount when mode changes so any internal selection state is cleared *@
-            <TemplateGallery @key="modeVersion" OnTemplateSelected="OnTemplateSelected" />
+            <TemplateGallery @key="@($"{modeVersion}-{templateFilter}")" 
+                           TemplateFilter="templateFilter"
+                           OnTemplateSelected="OnTemplateSelected"
+                           OnTemplatesLoaded="OnTemplatesLoaded" />
         </MudPaper>
     </MudItem>
     
@@ -101,11 +133,11 @@
                 <MudText Typo="Typo.body2">
                     @if (FeatureFlags.UseSimulation)
                     {
-                        <text>Running simulation via FlowTime-Sim API...</text>
+                        <text>Running demo with built-in content...</text>
                     }
                     else
                     {
-                        <text>Running simulation via built-in Rich Domain templates...</text>
+                        <text>Running simulation via FlowTime API...</text>
                     }
                 </MudText>
             }
@@ -127,6 +159,17 @@
     private int modeVersion = 0; // increments on each mode toggle
     private int? selectedTemplateModeVersion;
     private int? selectedCatalogModeVersion;
+    private TemplateFilter templateFilter = TemplateFilter.All;
+    private List<TemplateInfo>? templates; // Track template loading state for banner
+    private bool isLoadingTemplates = true; // Track if we're still loading templates
+    private bool hasApiError = false; // Track if API failed
+
+    public enum TemplateFilter
+    {
+        All,
+        Demo,
+        Domain
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -150,18 +193,59 @@
         modeVersion++; // advance epoch so stale refs are invalidated
         selectedTemplateModeVersion = null;
         selectedCatalogModeVersion = null;
+        
+        // Reset loading state when mode changes
+        isLoadingTemplates = true;
+        hasApiError = false;
+        templates = null;
+        
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OnTemplatesLoaded(List<TemplateInfo>? loadedTemplates)
+    {
+        templates = loadedTemplates;
+        isLoadingTemplates = false;
+        hasApiError = (loadedTemplates == null);
         await InvokeAsync(StateHasChanged);
     }
 
     private string GetBannerStyle()
     {
-        var backgroundColor = FeatureFlags.UseSimulation ? "#FF8C00" : "#4CAF50"; // Orange for Sim, Green for API
+        if (isLoadingTemplates)
+        {
+            // Still loading - grey until we know status
+            return "background-color: #9E9E9E; color: white;"; // Grey for loading/unknown
+        }
+        
+        if (hasApiError || templates == null)
+        {
+            // API failed or templates couldn't load - red for error
+            return "background-color: #f44336; color: white;"; // Red for error
+        }
+        
+        // Connected successfully
+        var backgroundColor = FeatureFlags.UseSimulation ? "#FF8C00" : "#4CAF50"; // Orange for Demo, Green for API
         return $"background-color: {backgroundColor}; color: white;";
     }
 
     private string GetModeText()
     {
-        return FeatureFlags.UseSimulation ? "Simulation" : "Real FlowTime-Sim API";
+        if (isLoadingTemplates)
+        {
+            return FeatureFlags.UseSimulation 
+                ? "Demo Mode - Connecting..." 
+                : "API Mode - Connecting...";
+        }
+        
+        if (hasApiError || templates == null)
+        {
+            return FeatureFlags.UseSimulation 
+                ? "Demo API is not available" 
+                : "FlowTime-Sim API is not available";
+        }
+        
+        return FeatureFlags.UseSimulation ? "Demo Mode" : "API Mode";
     }
 
     private async Task ToggleMode()
@@ -189,6 +273,16 @@
         StateHasChanged();
     }
 
+
+    
+    private string GetFilterButtonStyle(TemplateFilter filter)
+    {
+        var isSelected = templateFilter == filter;
+        return isSelected 
+            ? "font-weight: bold; min-width: 60px;" 
+            : "min-width: 60px;";
+    }
+
     private void OnCatalogSelected(CatalogInfo catalog)
     {
         selectedCatalog = catalog;
@@ -199,6 +293,16 @@
     private void OnParametersChanged(Dictionary<string, object> newParameters)
     {
         parameters = newParameters;
+        StateHasChanged();
+    }
+
+    private void SetTemplateFilter(TemplateFilter filter)
+    {
+        templateFilter = filter;
+        // Clear selection when filter changes since template may not be visible anymore
+        selectedTemplate = null;
+        parameters.Clear();
+        runResult = null;
         StateHasChanged();
     }
 
@@ -226,7 +330,7 @@
 
     private string GetRunButtonTooltip()
     {
-        if (CanRunSimulation()) return FeatureFlags.UseSimulation ? "Run via FlowTime-Sim API" : "Run using engine templates";
+        if (CanRunSimulation()) return FeatureFlags.UseSimulation ? "Run demo with built-in content" : "Run using FlowTime API";
         if (isRunning) return "Simulation in progress";
         if (selectedTemplate == null) return "Select a template first";
         if (selectedCatalog == null) return "Select a system catalog";
@@ -291,7 +395,7 @@
                 Parameters = parameters
             };
 
-            var serviceType = FeatureFlags.UseSimulation ? "FlowTime-Sim API" : "Rich Domain Templates";
+            var serviceType = FeatureFlags.UseSimulation ? "Demo Mode" : "FlowTime API";
             Snackbar.Add($"Starting simulation using {serviceType}...", Severity.Info);
 
             runResult = await SimService.RunSimulationAsync(request);
@@ -300,35 +404,35 @@
             if (runResult.Status == "failed" || !string.IsNullOrEmpty(runResult.ErrorMessage))
             {
                 var errorMsg = FeatureFlags.UseSimulation 
-                    ? $"FlowTime-Sim API error: {runResult.ErrorMessage}" 
-                    : $"Simulation error: {runResult.ErrorMessage}";
+                    ? $"Demo error: {runResult.ErrorMessage}" 
+                    : $"FlowTime API error: {runResult.ErrorMessage}";
                 Snackbar.Add(errorMsg, Severity.Error);
             }
             else
             {
                 var resultMessage = FeatureFlags.UseSimulation 
-                    ? "Simulation completed via FlowTime-Sim API!" 
-                    : "Simulation completed via Rich Domain Templates!";
+                    ? "Demo completed with built-in content!" 
+                    : "Simulation completed via FlowTime API!";
                 Snackbar.Add(resultMessage, Severity.Success);
             }
         }
         catch (HttpRequestException ex) when (ex.Message.Contains("timeout") || ex.Message.Contains("Timeout"))
         {
             var errorMsg = FeatureFlags.UseSimulation 
-                ? "FlowTime-Sim API request timed out. Check if the service is running and accessible"
-                : "Simulation request timed out";
+                ? "Demo mode request timed out"
+                : "FlowTime API request timed out. Check if the service is running and accessible";
             Snackbar.Add(errorMsg, Severity.Error);
         }
         catch (HttpRequestException ex) when (ex.Message.Contains("Connection refused") || ex.Message.Contains("No connection"))
         {
             var errorMsg = FeatureFlags.UseSimulation 
-                ? "Cannot connect to FlowTime-Sim API. Check service configuration and connectivity"
-                : "Cannot connect to simulation service";
+                ? "Demo mode connection error"
+                : "Cannot connect to FlowTime API. Check service configuration and connectivity";
             Snackbar.Add(errorMsg, Severity.Error);
         }
         catch (Exception ex)
         {
-            var prefix = FeatureFlags.UseSimulation ? "FlowTime-Sim API error" : "Simulation error";
+            var prefix = FeatureFlags.UseSimulation ? "Demo mode error" : "FlowTime API error";
             Snackbar.Add($"{prefix}: {ex.Message}", Severity.Error);
         }
         finally

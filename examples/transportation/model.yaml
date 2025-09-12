@@ -1,0 +1,60 @@
+# Transportation Network - Example Model  
+# This demonstrates traffic flow through a transportation network
+
+schemaVersion: 1
+grid:
+  bins: 24        # 24 hours
+  binMinutes: 60  # 1-hour bins
+
+nodes:
+  # Vehicle demand entering the network (rush hour patterns)
+  - id: vehicle_demand
+    kind: const  
+    values: [200, 150, 100, 80, 60, 80, 120, 300, 450, 350, 280, 250, 270, 290, 320, 400, 500, 480, 380, 320, 280, 250, 230, 220]
+    
+  # Highway capacity (fixed infrastructure)
+  - id: highway_capacity
+    kind: const
+    values: [400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400]
+    
+  # Traffic that flows smoothly
+  - id: smooth_traffic
+    kind: expr
+    expr: "MIN(vehicle_demand, highway_capacity * 0.8)"  # At 80% capacity, traffic flows well
+    
+  # Congested traffic (demand exceeds smooth capacity)
+  - id: congested_traffic  
+    kind: expr
+    expr: "MAX(0, MIN(vehicle_demand - smooth_traffic, highway_capacity * 0.2))"
+    
+  # Total throughput (smooth + congested)
+  - id: total_throughput
+    kind: expr
+    expr: "smooth_traffic + congested_traffic"
+    
+  # Blocked traffic (exceeds total capacity)
+  - id: blocked_traffic
+    kind: expr
+    expr: "MAX(0, vehicle_demand - total_throughput)"
+    
+  # Average speed (decreases with congestion)
+  - id: avg_speed_mph
+    kind: expr
+    expr: "CLAMP(65 - (congested_traffic / (highway_capacity * 0.2) * 30), 15, 65)"
+    
+  # Travel time multiplier (1.0 = normal, higher = delays)
+  - id: delay_factor
+    kind: expr
+    expr: "1.0 + (congested_traffic / (highway_capacity * 0.2) * 2.0)"
+
+outputs:
+  - series: vehicle_demand
+    as: vehicle_demand.csv
+  - series: total_throughput
+    as: total_throughput.csv  
+  - series: blocked_traffic
+    as: blocked_traffic.csv
+  - series: avg_speed_mph
+    as: avg_speed_mph.csv
+  - series: delay_factor
+    as: delay_factor.csv

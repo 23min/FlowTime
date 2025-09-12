@@ -1,0 +1,113 @@
+@inherits LayoutComponentBase
+@using MudBlazor
+@using FlowTime.UI.Configuration
+@inject FlowTime.UI.Services.ThemeService Theme
+@inject FlowTime.UI.Services.PreferencesService Prefs
+@inject FlowTime.UI.Services.FeatureFlagService Flags
+
+<MudThemeProvider Theme="@Theme.CurrentTheme" IsDarkMode="@Theme.IsDark" />
+<MudDialogProvider />
+<MudSnackbarProvider />
+<MudPopoverProvider />
+
+<MudLayout>
+    <MudAppBar Elevation="1" Color="Color.Primary" Class="learning-appbar">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
+            OnClick="ToggleDrawer" />
+        <MudText Typo="Typo.h6">FlowTime Learning Center</MudText>
+        <MudSpacer />
+        
+        <!-- Learning Progress Indicator -->
+        <MudChip T="string" Color="Color.Secondary" Variant="Variant.Text" Size="Size.Small" Class="mr-2">
+            Step @currentStep of @totalSteps
+        </MudChip>
+        
+        <!-- Switch to Expert Mode -->
+        <MudTooltip Text="Ready for advanced features?">
+            <MudButton Variant="Variant.Text" 
+                      StartIcon="@Icons.Material.Filled.Engineering"
+                      Href="/"
+                      Color="Color.Inherit"
+                      Size="Size.Small">
+                Expert Mode
+            </MudButton>
+        </MudTooltip>
+        
+        <MudIconButton Icon="@(Theme.IsDark? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
+            Color="Color.Inherit" OnClick="ToggleDarkAsync" />
+        
+        <MudTooltip Text="View on GitHub">
+            <MudIconButton Icon="@Icons.Custom.Brands.GitHub" 
+                          Color="Color.Inherit" 
+                          Href="https://github.com/23min/flowtime"
+                          Target="_blank" />
+        </MudTooltip>
+    </MudAppBar>
+
+    <MudDrawer @bind-Open="_drawerOpen" Elevation="1" ClipMode="DrawerClipMode.Always"
+        Variant="DrawerVariant.Responsive" Class="learning-drawer">
+        <MudDrawerHeader>
+            <MudText Typo="Typo.h6" Color="Color.Primary">Learning Journey</MudText>
+        </MudDrawerHeader>
+        <MudNavMenu>
+            <MudNavLink Href="/learn" Icon="@Icons.Material.Filled.Home" Match="NavLinkMatch.All">Welcome</MudNavLink>
+            <MudNavLink Href="/learn/foundations" Icon="@Icons.Material.Filled.Foundation">Digital Twin Concepts</MudNavLink>
+            <MudNavLink Href="/learn/it-systems" Icon="@Icons.Material.Filled.Computer">IT Systems Deep Dive</MudNavLink>
+            <MudNavLink Href="/learn/system" Icon="@Icons.Material.Filled.AccountTree">Your System</MudNavLink>
+            <MudNavLink Href="/learn/scenarios" Icon="@Icons.Material.Filled.Psychology">What-If Analysis</MudNavLink>
+            <MudNavLink Href="/learn/uncertainty" Icon="@Icons.Material.Filled.ShowChart">Risk & Variability</MudNavLink>
+            <MudNavLink Href="/learn/success" Icon="@Icons.Material.Filled.TrendingUp">Success Stories</MudNavLink>
+            <MudNavLink Href="/learn/sandbox" Icon="@Icons.Material.Filled.Science">Hands-On Lab</MudNavLink>
+            <MudDivider Class="my-2" />
+            <MudNavLink Href="/learn/bridge" Icon="@Icons.Material.Filled.ArrowForward">Ready for Expert Mode?</MudNavLink>
+        </MudNavMenu>
+    </MudDrawer>
+
+    <MudMainContent>
+        <MudContainer MaxWidth="MaxWidth.Large" Class="pa-4 learning-container">
+            @Body
+        </MudContainer>
+    </MudMainContent>
+    
+    <div class="pa-4 mud-text-caption" style="opacity:.55; text-align: center;">
+        🎓 FlowTime Learning Center · Interactive digital twin education
+    </div>
+</MudLayout>
+
+<style>
+.learning-appbar {
+    background: linear-gradient(135deg, var(--mud-palette-primary) 0%, var(--mud-palette-secondary) 100%);
+}
+
+.learning-drawer .mud-nav-link {
+    border-radius: 8px;
+    margin: 2px 8px;
+}
+
+.learning-container {
+    background: linear-gradient(180deg, rgba(var(--mud-palette-primary-rgb), 0.02) 0%, transparent 200px);
+}
+</style>
+
+@code {
+    private bool _drawerOpen = true;
+    private int currentStep = 1;
+    private int totalSteps = 7;
+    
+    void ToggleDrawer() => _drawerOpen = !_drawerOpen;
+    
+    [Inject] IJSRuntime JS { get; set; } = default!;
+    [Inject] IConfiguration Configuration { get; set; } = default!;
+    
+    async Task ToggleDarkAsync()
+    {
+        await Theme.EnsureLoadedAsync();
+        await Theme.ToggleAsync();
+        StateHasChanged();
+    }
+    
+    protected override async Task OnInitializedAsync()
+    {
+        await Task.WhenAll(Flags.EnsureLoadedAsync(), Theme.EnsureLoadedAsync(), Prefs.EnsureLoadedAsync());
+    }
+}

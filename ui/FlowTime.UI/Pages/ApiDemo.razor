@@ -1,4 +1,5 @@
 @page "/api-demo"
+@layout ExpertLayout
 @using FlowTime.UI.Services
 @using FlowTime.UI.Components
 @using MudBlazor
@@ -16,8 +17,8 @@
 @if (Flags.UseSimulation)
 {
     <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Elevation="0" Class="mb-4">
-        <b>Simulation Mode:</b> Showing deterministic stub outputs (optimized for UI iteration). The <em>extended</em> model
-        selection does not change simulated numeric results. Switch to <b>API</b> mode to evaluate the real model.
+        <b>Demo Mode:</b> Showing deterministic stub outputs (optimized for UI iteration). The <em>extended</em> model
+        selection does not change demo numeric results. Switch to <b>API</b> mode to evaluate the real model.
     </MudAlert>
 }
 
@@ -69,7 +70,7 @@
             @if (Flags.UseSimulation && selectedModelKey != "simple")
             {
                 <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Elevation="0" Dense="true" Class="mb-3">
-                    Extended model selected, but simulation client returns fixed simple model data.
+                    Extended model selected, but demo mode returns fixed simple model data.
                 </MudAlert>
             }
             <MudTable T="KeyValuePair<string, double[]>" Items="runResult.Series" Dense="true" Hover="true" Bordered="true"
@@ -338,7 +339,7 @@
     protected override async Task OnInitializedAsync()
     {
         await Flags.EnsureLoadedAsync();
-        clientModeLabel = Flags.UseSimulation ? "sim" : "api";
+        clientModeLabel = Flags.UseSimulation ? "demo" : "api";
         Flags.Changed += OnFlagsChanged;
         await Prefs.EnsureLoadedAsync();
         await LoadModelsAsync();
