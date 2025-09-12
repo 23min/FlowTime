@@ -11,7 +11,7 @@
     {
         @if (isLoading)
         {
-            @if (FeatureFlags.UseSimulation)
+            @if (FeatureFlags.UseDemoMode)
             {
                 <MudProgressCircular Indeterminate="true" Size="Size.Small" />
                 <MudText Typo="Typo.body2">Loading demo templates...</MudText>
@@ -24,7 +24,7 @@
         }
         else
         {
-            @if (FeatureFlags.UseSimulation)
+            @if (FeatureFlags.UseDemoMode)
             {
                 <MudAlert Severity="Severity.Error" Class="mb-3">
                     <MudText Typo="Typo.body2">
@@ -65,9 +65,9 @@
                     <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Start" Class="mb-2">
                         <MudText Typo="Typo.h6">@template.Name</MudText>
                         <MudChip T="string" Size="Size.Small" 
-                                Color="@(FeatureFlags.UseSimulation ? Color.Warning : Color.Success)"
+                                Color="@(FeatureFlags.UseDemoMode ? Color.Warning : Color.Success)"
                                 Variant="Variant.Filled">
-                            @(FeatureFlags.UseSimulation ? "DEMO" : "API")
+                            @(FeatureFlags.UseDemoMode ? "DEMO" : "API")
                         </MudChip>
                     </MudStack>
                     <MudText Typo="Typo.body2" Class="mb-2">@template.Description</MudText>
@@ -134,7 +134,7 @@
             filteredTemplates = new List<TemplateInfo>();
             await OnTemplatesLoaded.InvokeAsync(templates);
             await InvokeAsync(StateHasChanged);
-            var apiName = FeatureFlags.UseSimulation ? "Demo templates" : "FlowTime API";
+            var apiName = FeatureFlags.UseDemoMode ? "Demo templates" : "FlowTime API";
             Snackbar.Add($"{apiName} is not available", Severity.Warning);
         }
         catch (Exception ex)

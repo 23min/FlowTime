@@ -23,9 +23,9 @@ public class TemplateService : ITemplateService
     {
         await featureFlags.EnsureLoadedAsync();
         
-        if (featureFlags.UseSimulation)
+        if (featureFlags.UseDemoMode)
         {
-            // Sim Mode: Return static UI templates (no API calls)
+            // Demo Mode: Return static UI templates (no API calls)
             return GetRichDomainTemplates();
         }
         else
@@ -493,10 +493,10 @@ public class CatalogService : ICatalogService
     {
         await featureFlags.EnsureLoadedAsync();
         
-        if (featureFlags.UseSimulation)
+        if (featureFlags.UseDemoMode)
         {
-            // Sim Mode: Use mock catalogs (placeholder until SIM-CAT-M2 catalog API is implemented)
-            logger.LogDebug("SIM Mode: Using mock catalogs");
+            // Demo Mode: Use mock catalogs (placeholder until SIM-CAT-M2 catalog API is implemented)
+            logger.LogDebug("Demo Mode: Using mock catalogs");
             return await GetMockCatalogsAsync();
         }
         else
@@ -590,9 +590,9 @@ public class FlowTimeSimService : IFlowTimeSimService
     {
         await featureFlags.EnsureLoadedAsync();
         
-        if (featureFlags.UseSimulation)
+        if (featureFlags.UseDemoMode)
         {
-            return await RunSimModeSimulationAsync(request);
+            return await RunDemoModeSimulationAsync(request);
         }
         else
         {
@@ -600,7 +600,7 @@ public class FlowTimeSimService : IFlowTimeSimService
         }
     }
 
-    private async Task<SimulationRunResult> RunSimModeSimulationAsync(SimulationRunRequest request)
+    private async Task<SimulationRunResult> RunDemoModeSimulationAsync(SimulationRunRequest request)
     {
         try
         {

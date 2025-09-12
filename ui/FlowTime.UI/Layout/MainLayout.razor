@@ -34,9 +34,9 @@
         <!-- API/Sim Mode Toggle -->
         <div class="d-flex align-center pa-2 mr-2" style="border-left: 1px solid var(--mud-palette-divider); border-right: 1px solid var(--mud-palette-divider);">
             <span class="mud-typography-caption mr-2">Mode:</span>
-            <MudChip T="string" Color="@(useSim? Color.Warning: Color.Success)" Variant="Variant.Text"
-                Size="Size.Small" Class="mr-1">@(useSim ? "Sim" : "API")</MudChip>
-            <MudSwitch T="bool" Value="useSim" ValueChanged="OnUseSimChanged" Color="Color.Primary" Size="Size.Small" />
+            <MudChip T="string" Color="@(useDemoMode? Color.Warning: Color.Success)" Variant="Variant.Text"
+                Size="Size.Small" Class="mr-1">@(useDemoMode ? "Demo" : "API")</MudChip>
+            <MudSwitch T="bool" Value="useDemoMode" ValueChanged="OnDemoModeChanged" Color="Color.Primary" Size="Size.Small" />
         </div>
         
         <MudButton Variant="Variant.Text" 
@@ -84,7 +84,7 @@
 
 @code {
     private bool _drawerOpen = true;
-    private bool useSim;
+    private bool useDemoMode;
     
     // API Status tracking
     public enum ApiStatus { Unknown, Healthy, Unhealthy }
@@ -103,7 +103,7 @@
     protected override async Task OnInitializedAsync()
     {
         await Task.WhenAll(Flags.EnsureLoadedAsync(), Theme.EnsureLoadedAsync(), Prefs.EnsureLoadedAsync());
-        useSim = Flags.UseSimulation;
+        useDemoMode = Flags.UseDemoMode;
         Flags.Changed += OnFlagsChanged;
         
         // Start periodic health checks
@@ -111,12 +111,12 @@
     }
     private async void OnFlagsChanged()
     {
-        useSim = Flags.UseSimulation;
+        useDemoMode = Flags.UseDemoMode;
         await InvokeAsync(StateHasChanged);
     }
-    private async Task OnUseSimChanged(bool value)
+    private async Task OnDemoModeChanged(bool value)
     {
-        await Flags.SetUseSimulationAsync(value);
+        await Flags.SetDemoModeAsync(value);
     }
     
     private Color GetApiStatusColor(ApiStatus status)
@@ -156,16 +156,19 @@
                     flowTimeApiStatus = ApiStatus.Unhealthy;
                 }
                 
-                // Check FlowTime-Sim API using configured URL
+                                // Check FlowTime-Sim API using configured URL
                 try
                 {
-                    var simHealthUrl = $"{flowTimeSimApiConfig.BaseUrl.TrimEnd('/')}/{flowTimeSimApiConfig.ApiVersion}/healthz";
-                    var response = await httpClient.GetAsync(simHealthUrl);
+                    var simApiHealthUrl = $"{flowTimeSimApiConfig.BaseUrl.TrimEnd('/')}/{flowTimeSimApiConfig.ApiVersion}/healthz";
+                    Console.WriteLine($"[LED Check] FlowTime-Sim API URL: '{simApiHealthUrl}'");
+                    var response = await httpClient.GetAsync(simApiHealthUrl);
                     flowTimeSimApiStatus = response.IsSuccessStatusCode ? ApiStatus.Healthy : ApiStatus.Unhealthy;
+                    Console.WriteLine($"[LED Check] FlowTime-Sim API Status: {response.StatusCode} -> {flowTimeSimApiStatus}");
                 }
-                catch
+                catch (Exception ex)
                 {
                     flowTimeSimApiStatus = ApiStatus.Unhealthy;
+                    Console.WriteLine($"[LED Check] FlowTime-Sim API Exception: {ex.GetType().Name} - {ex.Message}");
                 }
                 
                 await InvokeAsync(StateHasChanged);

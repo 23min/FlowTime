@@ -8,8 +8,8 @@ public sealed class FeatureFlagService
     private readonly NavigationManager nav;
     private readonly IJSRuntime js;
     private bool loaded;
-    private bool useSimulation;
-    private const string storageKey = "ft.useSimulation";
+    private bool useDemoMode;
+    private const string storageKey = "ft.useSimulation"; // Keep old key name for backwards compatibility
 
     public event Action? Changed;
 
@@ -19,37 +19,37 @@ public sealed class FeatureFlagService
         this.js = js;
     }
 
-    public bool UseSimulation => useSimulation;
+    public bool UseDemoMode => useDemoMode;
 
     public async Task EnsureLoadedAsync()
     {
         if (loaded) return;
         loaded = true;
-        var previous = useSimulation; // capture default (false) before potential changes
+        var previous = useDemoMode; // capture default (false) before potential changes
         // precedence: query string ?sim=1 overrides stored value
         var uri = new Uri(nav.Uri);
         var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
         var simParam = query["sim"];
         if (simParam == "1")
         {
-            useSimulation = true;
+            useDemoMode = true;
             await PersistAsync();
-            if (useSimulation != previous) Changed?.Invoke();
+            if (useDemoMode != previous) Changed?.Invoke();
             return;
         }
         try
         {
             var stored = await js.InvokeAsync<string?>("localStorage.getItem", storageKey);
-            if (stored == "1") useSimulation = true;
+            if (stored == "1") useDemoMode = true;
         }
         catch { /* ignore */ }
-        if (useSimulation != previous) Changed?.Invoke();
+        if (useDemoMode != previous) Changed?.Invoke();
     }
 
-    public async Task SetUseSimulationAsync(bool value)
+    public async Task SetDemoModeAsync(bool value)
     {
-        if (useSimulation == value) return;
-        useSimulation = value;
+        if (useDemoMode == value) return;
+        useDemoMode = value;
         await PersistAsync();
         Changed?.Invoke();
     }
@@ -58,7 +58,7 @@ public sealed class FeatureFlagService
     {
         try
         {
-            await js.InvokeVoidAsync("localStorage.setItem", storageKey, useSimulation ? "1" : "0");
+            await js.InvokeVoidAsync("localStorage.setItem", storageKey, useDemoMode ? "1" : "0");
         }
         catch { /* ignore */ }
     }

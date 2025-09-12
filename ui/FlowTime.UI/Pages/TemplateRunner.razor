@@ -131,7 +131,7 @@
             {
                 <MudProgressLinear Indeterminate="true" Class="mb-4" />
                 <MudText Typo="Typo.body2">
-                    @if (FeatureFlags.UseSimulation)
+                    @if (FeatureFlags.UseDemoMode)
                     {
                         <text>Running demo with built-in content...</text>
                     }
@@ -225,7 +225,7 @@
         }
         
         // Connected successfully
-        var backgroundColor = FeatureFlags.UseSimulation ? "#FF8C00" : "#4CAF50"; // Orange for Demo, Green for API
+        var backgroundColor = FeatureFlags.UseDemoMode ? "#FF8C00" : "#4CAF50"; // Orange for Demo, Green for API
         return $"background-color: {backgroundColor}; color: white;";
     }
 
@@ -233,26 +233,26 @@
     {
         if (isLoadingTemplates)
         {
-            return FeatureFlags.UseSimulation 
+            return FeatureFlags.UseDemoMode 
                 ? "Demo Mode - Connecting..." 
                 : "API Mode - Connecting...";
         }
         
         if (hasApiError || templates == null)
         {
-            return FeatureFlags.UseSimulation 
+            return FeatureFlags.UseDemoMode 
                 ? "Demo API is not available" 
                 : "FlowTime-Sim API is not available";
         }
         
-        return FeatureFlags.UseSimulation ? "Demo Mode" : "API Mode";
+        return FeatureFlags.UseDemoMode ? "Demo Mode" : "API Mode";
     }
 
     private async Task ToggleMode()
     {
-        if (isRunning) return; // Don't allow mode switching during simulation
+        if (isRunning) return; // Don't allow mode switching during template execution
         
-        await FeatureFlags.SetUseSimulationAsync(!FeatureFlags.UseSimulation);
+        await FeatureFlags.SetDemoModeAsync(!FeatureFlags.UseDemoMode);
         // Clear current selections since templates will change
         selectedTemplate = null;
         selectedCatalog = null;
@@ -330,7 +330,7 @@
 
     private string GetRunButtonTooltip()
     {
-        if (CanRunSimulation()) return FeatureFlags.UseSimulation ? "Run demo with built-in content" : "Run using FlowTime API";
+        if (CanRunSimulation()) return FeatureFlags.UseDemoMode ? "Run demo with built-in content" : "Run using FlowTime API";
         if (isRunning) return "Simulation in progress";
         if (selectedTemplate == null) return "Select a template first";
         if (selectedCatalog == null) return "Select a system catalog";
@@ -395,7 +395,7 @@
                 Parameters = parameters
             };
 
-            var serviceType = FeatureFlags.UseSimulation ? "Demo Mode" : "FlowTime API";
+            var serviceType = FeatureFlags.UseDemoMode ? "Demo Mode" : "FlowTime API";
             Snackbar.Add($"Starting simulation using {serviceType}...", Severity.Info);
 
             runResult = await SimService.RunSimulationAsync(request);
@@ -403,14 +403,14 @@
             // Check if the simulation actually succeeded
             if (runResult.Status == "failed" || !string.IsNullOrEmpty(runResult.ErrorMessage))
             {
-                var errorMsg = FeatureFlags.UseSimulation 
+                var errorMsg = FeatureFlags.UseDemoMode 
                     ? $"Demo error: {runResult.ErrorMessage}" 
                     : $"FlowTime API error: {runResult.ErrorMessage}";
                 Snackbar.Add(errorMsg, Severity.Error);
             }
             else
             {
-                var resultMessage = FeatureFlags.UseSimulation 
+                var resultMessage = FeatureFlags.UseDemoMode 
                     ? "Demo completed with built-in content!" 
                     : "Simulation completed via FlowTime API!";
                 Snackbar.Add(resultMessage, Severity.Success);
@@ -418,21 +418,21 @@
         }
         catch (HttpRequestException ex) when (ex.Message.Contains("timeout") || ex.Message.Contains("Timeout"))
         {
-            var errorMsg = FeatureFlags.UseSimulation 
+            var errorMsg = FeatureFlags.UseDemoMode 
                 ? "Demo mode request timed out"
                 : "FlowTime API request timed out. Check if the service is running and accessible";
             Snackbar.Add(errorMsg, Severity.Error);
         }
         catch (HttpRequestException ex) when (ex.Message.Contains("Connection refused") || ex.Message.Contains("No connection"))
         {
-            var errorMsg = FeatureFlags.UseSimulation 
+            var errorMsg = FeatureFlags.UseDemoMode 
                 ? "Demo mode connection error"
                 : "Cannot connect to FlowTime API. Check service configuration and connectivity";
             Snackbar.Add(errorMsg, Severity.Error);
         }
         catch (Exception ex)
         {
-            var prefix = FeatureFlags.UseSimulation ? "Demo mode error" : "FlowTime API error";
+            var prefix = FeatureFlags.UseDemoMode ? "Demo mode error" : "FlowTime API error";
             Snackbar.Add($"{prefix}: {ex.Message}", Severity.Error);
         }
         finally

@@ -238,7 +238,7 @@
 
         // Check for mode mismatch
         var resultSource = Result?.Metadata.GetValueOrDefault("source")?.ToString();
-        var currentlyInSimMode = FeatureFlags.UseSimulation;
+        var currentlyInSimMode = FeatureFlags.UseDemoMode;
         
         if (resultSource == "sim" && !currentlyInSimMode)
         {
@@ -266,7 +266,7 @@
                 {
                     // Determine the appropriate download URL based on current feature flag
                     string downloadUrl;
-                    if (FeatureFlags.UseSimulation)
+                    if (FeatureFlags.UseDemoMode)
                     {
                         // SIM mode: Use versioned URL to FlowTime-Sim API
                         var simConfig = Configuration.GetSection(FlowTimeSimApiOptions.SectionName).Get<FlowTimeSimApiOptions>() 
@@ -350,7 +350,7 @@
     {
         // Check current feature flag setting rather than just result metadata
         // This ensures downloads use the correct service based on current mode
-        return FeatureFlags.UseSimulation;
+        return FeatureFlags.UseDemoMode;
     }
 
     protected override void OnParametersSet()

@@ -18,7 +18,7 @@ internal sealed class RunClientRouter : IRunClient, IDisposable
     private void OnFlagsChanged() => StateChanged?.Invoke();
     public event Action? StateChanged;
 
-    private IRunClient Current => flags.UseSimulation ? sim : api;
+    private IRunClient Current => flags.UseDemoMode ? sim : api;
 
     public Task<Result<bool>> HealthAsync(CancellationToken ct = default) => Current.HealthAsync(ct);
     public Task<Result<GraphRunResult>> RunAsync(string yaml, CancellationToken ct = default) => Current.RunAsync(yaml, ct);

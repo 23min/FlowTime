@@ -14,7 +14,7 @@
 <MudText Class="mb-1">Interact with FlowTime API using the typed client.</MudText>
 <MudText Typo="Typo.caption" Class="mb-4" Style="font-family:monospace">Client Mode: @(clientModeLabel)
 </MudText>
-@if (Flags.UseSimulation)
+@if (Flags.UseDemoMode)
 {
     <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Elevation="0" Class="mb-4">
         <b>Demo Mode:</b> Showing deterministic stub outputs (optimized for UI iteration). The <em>extended</em> model
@@ -67,7 +67,7 @@
     {
         <MudExpansionPanel Text="Run Result (series)" Expanded="@expandRun">
             <MudText Typo="Typo.subtitle2" Class="mb-2">Order: @string.Join(", ", runResult.Order)</MudText>
-            @if (Flags.UseSimulation && selectedModelKey != "simple")
+            @if (Flags.UseDemoMode && selectedModelKey != "simple")
             {
                 <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Elevation="0" Dense="true" Class="mb-3">
                     Extended model selected, but demo mode returns fixed simple model data.
@@ -103,7 +103,7 @@
             <MudText Typo="Typo.subtitle2" Class="mb-2">Order: @string.Join(", ", graphResult.Order)</MudText>
             <MudText Typo="Typo.caption" Class="mb-2">Nodes: @stats.Total · Sources: @stats.Sources · Sinks: @stats.Sinks ·
                 Max FanOut: @stats.MaxFanOut</MudText>
-            @if (Flags.UseSimulation && selectedModelKey != "simple")
+            @if (Flags.UseDemoMode && selectedModelKey != "simple")
             {
                 <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Elevation="0" Dense="true" Class="mb-3">
                     Structural graph reflects simulation stub, not the extended model.
@@ -339,7 +339,7 @@
     protected override async Task OnInitializedAsync()
     {
         await Flags.EnsureLoadedAsync();
-        clientModeLabel = Flags.UseSimulation ? "demo" : "api";
+        clientModeLabel = Flags.UseDemoMode ? "demo" : "api";
         Flags.Changed += OnFlagsChanged;
         await Prefs.EnsureLoadedAsync();
         await LoadModelsAsync();
@@ -351,7 +351,7 @@
 
     private async void OnFlagsChanged()
     {
-        clientModeLabel = Flags.UseSimulation ? "sim" : "api";
+        clientModeLabel = Flags.UseDemoMode ? "demo" : "api";
         await InvokeAsync(StateHasChanged);
     }
 
