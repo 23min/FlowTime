@@ -1,23 +1,17 @@
 # Copilot instructions for FlowTime
 
-Purpose: give AI a## Documentation conventions
-- **Release documents**: Use milestone-based naming pattern `M<X>.<Y>-v<major>.<minor>.<patch>.md` (e.g., `M2.0-v0.4.0.md`)
-  - Captures both milestone completion and semantic version
-  - More meaningful than pure semantic version naming for milestone-driven development
-  - Located in `docs/releases/`
-
-## Coding patterns and style
-- .NET 9, C# nullable + implicit usings enabled.
-- Avoid private field names starting with `_` (analyzers may flag them in tests).
-- For API changes, update `.http` examples and API tests together.
-
-## Roadmap-driven areas (reference docs, don't hard-code here)the minimum context to be productive and safe in this repo.
+Purpose: give AI agents the minimum context to be productive and safe in this repo.
 
 ## Guardrails
 - Don’t push (no `git push`) or make network calls unless explicitly requested.
 - Don’t commit or stage changes without explicit user approval. Propose edits first; commit only after the user says to.
 - Prefer editor-based edits; avoid cross-project refactors without context.
 - Always build and run tests before finishing; keep solution compiling.
+- **Process safety**: When managing solution services, use safe process management:
+  - Use `lsof -ti:PORT | xargs kill` or process name patterns like `pkill -f "ProcessName"`
+  - NEVER kill processes by bare PID numbers (e.g., `kill 8080`, `kill 5219`) as these could accidentally target system processes
+  - Solution ports: 8080 (FlowTime API), 5219/7047 (FlowTime UI), 8090 (FlowTime-Sim API), 5091
+  - When looking up PIDs by port, always verify the process before killing and use proper commands
 
 ## Branching and commits
 - Milestones: integrate on `milestone/mX` (m0 → m1 → …). Features target the milestone branch.
@@ -39,6 +33,12 @@ Purpose: give AI a## Documentation conventions
   - Is this work-in-progress toward next milestone? → PreRelease suffix
 - **Version consistency**: Update `<VersionPrefix>` in all `.csproj` files together
 - **No hardcoded automation**: Version decisions made during merge review, not automated based on branch names
+
+## Documentation conventions
+- **Release documents**: Use milestone-based naming pattern `M<X>.<Y>-v<major>.<minor>.<patch>.md` (e.g., `M2.0-v0.4.0.md`)
+  - Captures both milestone completion and semantic version
+  - More meaningful than pure semantic version naming for milestone-driven development
+  - Located in `docs/releases/`
 
 ## Dev workflows
 - Tasks: build (`dotnet build`), test (`dotnet test`), run CLI example (see `.vscode/tasks.json`).
