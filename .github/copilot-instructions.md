@@ -8,6 +8,14 @@ Purpose: give AI agents the minimum context to be productive and safe in this re
 - Prefer editor-based edits; avoid cross-project refactors without context.
 - Always build and run tests before finishing; keep solution compiling.
 
+- **Process safety**: When managing solution services, use safe process management:
+  - ALWAYS verify what process is running first: `lsof -ti:PORT` or `ps aux | grep ProcessName`
+  - Prefer process name patterns: `pkill -f "FlowTime.Sim.Service"` or `pkill -f "FlowTime.API"`
+  - If using port-based killing: `lsof -ti:PORT | xargs -r kill -TERM` (use TERM signal first)
+  - NEVER kill processes by bare PID numbers (e.g., `kill 8080`, `kill 5219`) as these could accidentally target system processes
+  - Solution ports: 8080 (FlowTime API), 5219/7047 (FlowTime UI), 8090 (FlowTime-Sim API), 5091
+  - In dev containers, prefer stopping/restarting tasks over killing processes directly instructions for FlowTime
+
 ## Branching and commits
 - Milestones: integrate on `milestone/mX` (m0 → m1 → …). Features target the milestone branch.
   - Feature branches: `feature/<surface>-mX/<short-desc>` (e.g., `feature/api-m0/run-endpoint`).
