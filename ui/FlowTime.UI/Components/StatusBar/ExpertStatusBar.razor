@@ -1,0 +1,113 @@
+@using MudBlazor
+@using FlowTime.UI.Services
+@inject IJSRuntime JS
+
+<div class="expert-status-bar">
+    <div class="status-bar-section">
+        <MudIcon Icon="@Icons.Material.Filled.AccountTree" Size="Size.Small" Class="mr-1" />
+        <MudText Typo="Typo.caption">@NodeCount nodes</MudText>
+    </div>
+    
+    <div class="status-bar-section">
+        <MudIcon Icon="@GetApiStatusIcon()" 
+                 Color="@GetApiStatusColor()" 
+                 Size="Size.Small" 
+                 Class="mr-1" />
+        <MudText Typo="Typo.caption">API @ApiStatusText</MudText>
+    </div>
+    
+    <div class="status-bar-section">
+        <MudIcon Icon="@Icons.Material.Filled.Speed" Size="Size.Small" Class="mr-1" />
+        <MudText Typo="Typo.caption">@PerformanceText</MudText>
+    </div>
+    
+    <MudSpacer />
+    
+    <div class="status-bar-section">
+        <MudText Typo="Typo.caption" Class="mr-2">@CurrentTime</MudText>
+        <MudText Typo="Typo.caption">FlowTime Expert Console</MudText>
+    </div>
+</div>
+
+<style>
+.expert-status-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 32px;
+    background-color: var(--mud-palette-surface);
+    border-top: 1px solid var(--mud-palette-divider);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    z-index: 1200;
+    font-size: 0.75rem;
+    box-shadow: 0 -1px 3px rgba(0,0,0,0.1);
+}
+
+.status-bar-section {
+    display: flex;
+    align-items: center;
+    margin-right: 24px;
+    color: var(--mud-palette-text-secondary);
+}
+
+.status-bar-section:last-child {
+    margin-right: 0;
+}
+
+.expert-status-bar .mud-icon {
+    opacity: 0.7;
+}
+
+.expert-status-bar .mud-typography {
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+</style>
+
+@code {
+    [Parameter] public int NodeCount { get; set; } = 0;
+    [Parameter] public string ApiStatusText { get; set; } = "Unknown";
+    [Parameter] public string PerformanceText { get; set; } = "Ready";
+    
+    private string CurrentTime => DateTime.Now.ToString("HH:mm");
+    private Timer? _timer;
+    
+    protected override void OnInitialized()
+    {
+        // Update time every minute
+        _timer = new Timer(UpdateTime, null, TimeSpan.Zero, TimeSpan.FromMinutes(1));
+    }
+    
+    private void UpdateTime(object? state)
+    {
+        InvokeAsync(StateHasChanged);
+    }
+    
+    private string GetApiStatusIcon()
+    {
+        return ApiStatusText switch
+        {
+            "Healthy" => Icons.Material.Filled.CheckCircle,
+            "Unhealthy" => Icons.Material.Filled.Error,
+            _ => Icons.Material.Filled.HelpOutline
+        };
+    }
+    
+    private Color GetApiStatusColor()
+    {
+        return ApiStatusText switch
+        {
+            "Healthy" => Color.Success,
+            "Unhealthy" => Color.Error,
+            _ => Color.Default
+        };
+    }
+    
+    public void Dispose()
+    {
+        _timer?.Dispose();
+    }
+}

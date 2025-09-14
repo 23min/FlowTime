@@ -1,0 +1,97 @@
+@page "/learn/what-if"
+@layout LearningLayout
+
+<PageTitle>What-If Analysis - FlowTime Learning</PageTitle>
+
+<MudGrid Spacing="3">
+    <MudItem xl="12" lg="12" md="12" sm="12" xs="12">
+        <MudPaper Class="pa-6" Style="background: linear-gradient(135deg, rgba(var(--mud-palette-primary-rgb), 0.1) 0%, rgba(var(--mud-palette-secondary-rgb), 0.05) 100%);">
+            <div class="d-flex align-center mb-4">
+                <MudIcon Icon="@Icons.Material.Filled.Psychology" Size="Size.Large" Color="Color.Primary" Class="mr-3" />
+                <div>
+                    <MudText Typo="Typo.h4" Color="Color.Primary" GutterBottom="true">What-If Analysis</MudText>
+                    <MudText Typo="Typo.body1" Color="Color.Secondary">Exploring scenarios and testing assumptions</MudText>
+                </div>
+            </div>
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xl="12" lg="12" md="12" sm="12" xs="12">
+        <MudCard>
+            <MudCardContent>
+                <MudText Typo="Typo.h6" Color="Color.Primary" GutterBottom="true">
+                    🔮 Coming Soon: Interactive What-If Scenarios
+                </MudText>
+
+                <MudText Typo="Typo.body1" Class="mb-4">
+                    This section will teach you how to use FlowTime for advanced scenario analysis, including:
+                </MudText>
+
+                <MudList T="string" Dense="true">
+                    <MudListItem Text="Testing different demand patterns" Icon="@Icons.Material.Filled.TrendingUp" />
+                    <MudListItem Text="Evaluating capacity changes" Icon="@Icons.Material.Filled.Storage" />
+                    <MudListItem Text="Comparing optimization strategies" Icon="@Icons.Material.Filled.CompareArrows" />
+                    <MudListItem Text="Sensitivity analysis techniques" Icon="@Icons.Material.Filled.Tune" />
+                    <MudListItem Text="Monte Carlo simulations" Icon="@Icons.Material.Filled.Casino" />
+                </MudList>
+
+                <MudAlert Severity="Severity.Info" Class="mt-4">
+                    <MudText>
+                        📚 <strong>Learning Objective:</strong> Master the art of asking "what if" questions 
+                        and using FlowTime to find data-driven answers for your systems.
+                    </MudText>
+                </MudAlert>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+
+    <MudItem xl="12" lg="12" md="12" sm="12" xs="12">
+        <MudCard>
+            <MudCardContent>
+                <MudText Typo="Typo.h6" GutterBottom="true">Preview: Key Concepts</MudText>
+                
+                <MudGrid>
+                    <MudItem xs="12" md="6">
+                        <MudPaper Class="pa-4" Style="background-color: rgba(var(--mud-palette-info-rgb), 0.1);">
+                            <div class="d-flex align-center mb-2">
+                                <MudIcon Icon="@Icons.Material.Filled.Science" Color="Color.Info" Class="mr-2" />
+                                <MudText Typo="Typo.subtitle1"><strong>Scenario Planning</strong></MudText>
+                            </div>
+                            <MudText Typo="Typo.body2">
+                                Learn to systematically explore different future conditions and their impact on your system performance.
+                            </MudText>
+                        </MudPaper>
+                    </MudItem>
+                    
+                    <MudItem xs="12" md="6">
+                        <MudPaper Class="pa-4" Style="background-color: rgba(var(--mud-palette-success-rgb), 0.1);">
+                            <div class="d-flex align-center mb-2">
+                                <MudIcon Icon="@Icons.Material.Filled.Analytics" Color="Color.Success" Class="mr-2" />
+                                <MudText Typo="Typo.subtitle1"><strong>Impact Analysis</strong></MudText>
+                            </div>
+                            <MudText Typo="Typo.body2">
+                                Understand how changes propagate through your system and quantify their effects.
+                            </MudText>
+                        </MudPaper>
+                    </MudItem>
+                </MudGrid>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+
+    <MudItem xl="12" lg="12" md="12" sm="12" xs="12">
+        <div class="d-flex justify-space-between">
+            <MudButton StartIcon="@Icons.Material.Filled.ArrowBack" 
+                      Href="/learn/system" 
+                      Variant="Variant.Text">
+                Previous: Your System
+            </MudButton>
+            <MudButton EndIcon="@Icons.Material.Filled.ArrowForward" 
+                      Href="/learn/risk" 
+                      Variant="Variant.Filled" 
+                      Color="Color.Primary">
+                Next: Risk & Variability
+            </MudButton>
+        </div>
+    </MudItem>
+</MudGrid>

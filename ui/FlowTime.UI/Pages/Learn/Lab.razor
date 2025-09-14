@@ -1,0 +1,181 @@
+@page "/learn/lab"
+@layout LearningLayout
+
+<PageTitle>Hands-On Lab - FlowTime Learning</PageTitle>
+
+<MudGrid Spacing="3">
+    <MudItem xl="12" lg="12" md="12" sm="12" xs="12">
+        <MudPaper Class="pa-6" Style="background: linear-gradient(135deg, rgba(var(--mud-palette-info-rgb), 0.1) 0%, rgba(var(--mud-palette-primary-rgb), 0.05) 100%);">
+            <div class="d-flex align-center mb-4">
+                <MudIcon Icon="@Icons.Material.Filled.Science" Size="Size.Large" Color="Color.Info" Class="mr-3" />
+                <div>
+                    <MudText Typo="Typo.h4" Color="Color.Primary" GutterBottom="true">Hands-On Lab</MudText>
+                    <MudText Typo="Typo.body1" Color="Color.Secondary">Interactive exercises and practical workshops</MudText>
+                </div>
+            </div>
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xl="12" lg="12" md="12" sm="12" xs="12">
+        <MudCard>
+            <MudCardContent>
+                <MudText Typo="Typo.h6" Color="Color.Primary" GutterBottom="true">
+                    🧪 Coming Soon: Interactive Laboratory
+                </MudText>
+
+                <MudText Typo="Typo.body1" Class="mb-4">
+                    This hands-on laboratory will provide guided exercises to master FlowTime through practice:
+                </MudText>
+
+                <MudGrid>
+                    <MudItem xs="12" md="6">
+                        <MudCard Elevation="2">
+                            <MudCardContent>
+                                <div class="d-flex align-center mb-3">
+                                    <MudIcon Icon="@Icons.Material.Filled.PlayArrow" Color="Color.Primary" Class="mr-2" />
+                                    <MudText Typo="Typo.h6">Lab 1: First Model</MudText>
+                                </div>
+                                <MudText Typo="Typo.body2" Class="mb-2">
+                                    Build your first FlowTime model from scratch using a simple coffee shop scenario.
+                                </MudText>
+                                <div class="d-flex align-center mt-2">
+                                    <MudChip T="string" Color="Color.Info" Size="Size.Small" Label="true">15 min</MudChip>
+                                    <MudChip T="string" Color="Color.Success" Size="Size.Small" Label="true" Class="ml-2">Beginner</MudChip>
+                                </div>
+                            </MudCardContent>
+                        </MudCard>
+                    </MudItem>
+
+                    <MudItem xs="12" md="6">
+                        <MudCard Elevation="2">
+                            <MudCardContent>
+                                <div class="d-flex align-center mb-3">
+                                    <MudIcon Icon="@Icons.Material.Filled.Settings" Color="Color.Secondary" Class="mr-2" />
+                                    <MudText Typo="Typo.h6">Lab 2: Optimization</MudText>
+                                </div>
+                                <MudText Typo="Typo.body2" Class="mb-2">
+                                    Learn to optimize resource allocation in a manufacturing system.
+                                </MudText>
+                                <div class="d-flex align-center mt-2">
+                                    <MudChip T="string" Color="Color.Info" Size="Size.Small" Label="true">25 min</MudChip>
+                                    <MudChip T="string" Color="Color.Warning" Size="Size.Small" Label="true" Class="ml-2">Intermediate</MudChip>
+                                </div>
+                            </MudCardContent>
+                        </MudCard>
+                    </MudItem>
+
+                    <MudItem xs="12" md="6">
+                        <MudCard Elevation="2">
+                            <MudCardContent>
+                                <div class="d-flex align-center mb-3">
+                                    <MudIcon Icon="@Icons.Material.Filled.TrendingUp" Color="Color.Success" Class="mr-2" />
+                                    <MudText Typo="Typo.h6">Lab 3: Forecasting</MudText>
+                                </div>
+                                <MudText Typo="Typo.body2" Class="mb-2">
+                                    Master demand forecasting and capacity planning for seasonal businesses.
+                                </MudText>
+                                <div class="d-flex align-center mt-2">
+                                    <MudChip T="string" Color="Color.Info" Size="Size.Small" Label="true">30 min</MudChip>
+                                    <MudChip T="string" Color="Color.Warning" Size="Size.Small" Label="true" Class="ml-2">Intermediate</MudChip>
+                                </div>
+                            </MudCardContent>
+                        </MudCard>
+                    </MudItem>
+
+                    <MudItem xs="12" md="6">
+                        <MudCard Elevation="2">
+                            <MudCardContent>
+                                <div class="d-flex align-center mb-3">
+                                    <MudIcon Icon="@Icons.Material.Filled.Speed" Color="Color.Error" Class="mr-2" />
+                                    <MudText Typo="Typo.h6">Lab 4: Advanced Scenarios</MudText>
+                                </div>
+                                <MudText Typo="Typo.body2" Class="mb-2">
+                                    Tackle complex multi-system integration and risk analysis challenges.
+                                </MudText>
+                                <div class="d-flex align-center mt-2">
+                                    <MudChip T="string" Color="Color.Info" Size="Size.Small" Label="true">45 min</MudChip>
+                                    <MudChip T="string" Color="Color.Error" Size="Size.Small" Label="true" Class="ml-2">Advanced</MudChip>
+                                </div>
+                            </MudCardContent>
+                        </MudCard>
+                    </MudItem>
+                </MudGrid>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+
+    <MudItem xl="12" lg="12" md="12" sm="12" xs="12">
+        <MudCard>
+            <MudCardContent>
+                <MudText Typo="Typo.h6" GutterBottom="true">Laboratory Environment Features</MudText>
+                
+                <MudList T="string" Dense="true">
+                    <MudListItem Icon="@Icons.Material.Filled.Code">
+                        <MudText><strong>Interactive Code Editor:</strong> Write and test FlowTime models directly in your browser</MudText>
+                    </MudListItem>
+                    <MudListItem Icon="@Icons.Material.Filled.Visibility">
+                        <MudText><strong>Real-Time Visualization:</strong> See your models come to life with dynamic charts and graphs</MudText>
+                    </MudListItem>
+                    <MudListItem Icon="@Icons.Material.Filled.CheckCircle">
+                        <MudText><strong>Automated Validation:</strong> Get instant feedback on your solutions with built-in test cases</MudText>
+                    </MudListItem>
+                    <MudListItem Icon="@Icons.Material.Filled.Save">
+                        <MudText><strong>Progress Tracking:</strong> Save your work and track completion across multiple sessions</MudText>
+                    </MudListItem>
+                    <MudListItem Icon="@Icons.Material.Filled.Help">
+                        <MudText><strong>Guided Hints:</strong> Contextual help and hints when you get stuck</MudText>
+                    </MudListItem>
+                </MudList>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+
+    <MudItem xl="12" lg="12" md="12" sm="12" xs="12">
+        <MudAlert Severity="Severity.Info">
+            <MudText>
+                🚀 <strong>Coming Soon:</strong> The interactive laboratory will integrate directly with FlowTime's 
+                API and simulation engine, giving you hands-on experience with real computational models.
+            </MudText>
+        </MudAlert>
+    </MudItem>
+
+    <MudItem xl="12" lg="12" md="12" sm="12" xs="12">
+        <MudCard>
+            <MudCardContent>
+                <MudText Typo="Typo.h6" GutterBottom="true">Prerequisites Check</MudText>
+                <MudText Typo="Typo.body2" Class="mb-3">Before starting the lab, make sure you've completed:</MudText>
+                
+                <MudList T="string" Dense="true">
+                    <MudListItem Icon="@(true ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.RadioButtonUnchecked)" 
+                                IconColor="@(true ? Color.Success : Color.Default)">
+                        <MudText>Digital Twin Concepts</MudText>
+                    </MudListItem>
+                    <MudListItem Icon="@(true ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.RadioButtonUnchecked)" 
+                                IconColor="@(true ? Color.Success : Color.Default)">
+                        <MudText>IT Systems Deep Dive</MudText>
+                    </MudListItem>
+                    <MudListItem Icon="@(true ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.RadioButtonUnchecked)" 
+                                IconColor="@(true ? Color.Success : Color.Default)">
+                        <MudText>Your System Analysis</MudText>
+                    </MudListItem>
+                </MudList>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+
+    <MudItem xl="12" lg="12" md="12" sm="12" xs="12">
+        <div class="d-flex justify-space-between">
+            <MudButton StartIcon="@Icons.Material.Filled.ArrowBack" 
+                      Href="/learn/success" 
+                      Variant="Variant.Text">
+                Previous: Success Stories
+            </MudButton>
+            <MudButton EndIcon="@Icons.Material.Filled.ArrowForward" 
+                      Href="/learn/bridge" 
+                      Variant="Variant.Filled" 
+                      Color="Color.Primary">
+                Next: Ready for Expert Mode?
+            </MudButton>
+        </div>
+    </MudItem>
+</MudGrid>

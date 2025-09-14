@@ -1,0 +1,167 @@
+@page "/learn/success"
+@layout LearningLayout
+
+<PageTitle>Success Stories - FlowTime Learning</PageTitle>
+
+<MudGrid Spacing="3">
+    <MudItem xl="12" lg="12" md="12" sm="12" xs="12">
+        <MudPaper Class="pa-6" Style="background: linear-gradient(135deg, rgba(var(--mud-palette-success-rgb), 0.1) 0%, rgba(var(--mud-palette-tertiary-rgb), 0.05) 100%);">
+            <div class="d-flex align-center mb-4">
+                <MudIcon Icon="@Icons.Material.Filled.EmojiEvents" Size="Size.Large" Color="Color.Success" Class="mr-3" />
+                <div>
+                    <MudText Typo="Typo.h4" Color="Color.Primary" GutterBottom="true">Success Stories</MudText>
+                    <MudText Typo="Typo.body1" Color="Color.Secondary">Real-world applications and transformative results</MudText>
+                </div>
+            </div>
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xl="12" lg="12" md="12" sm="12" xs="12">
+        <MudCard>
+            <MudCardContent>
+                <MudText Typo="Typo.h6" Color="Color.Primary" GutterBottom="true">
+                    🏆 Coming Soon: Inspiring Case Studies
+                </MudText>
+
+                <MudText Typo="Typo.body1" Class="mb-4">
+                    This section will showcase real organizations that have transformed their operations using FlowTime:
+                </MudText>
+
+                <MudExpansionPanels>
+                    <MudExpansionPanel Text="Manufacturing Excellence" Icon="@Icons.Material.Filled.Factory">
+                        <TitleContent>
+                            <div style="display: flex">
+                                <MudIcon Icon="@Icons.Material.Filled.Factory" class="mr-3"></MudIcon>
+                                <MudText><strong>Manufacturing Excellence</strong></MudText>
+                            </div>
+                        </TitleContent>
+                        <ChildContent>
+                            <MudText Typo="Typo.body2" Class="mb-2">
+                                <strong>Challenge:</strong> A global electronics manufacturer struggled with production bottlenecks and unpredictable delivery times.
+                            </MudText>
+                            <MudText Typo="Typo.body2" Class="mb-2">
+                                <strong>Solution:</strong> Used FlowTime to model their entire production line and identify optimal capacity allocation.
+                            </MudText>
+                            <MudText Typo="Typo.body2" Style="color: var(--mud-palette-success);">
+                                <strong>Results:</strong> 35% reduction in cycle time, 50% improvement in on-time delivery, $2M annual savings.
+                            </MudText>
+                        </ChildContent>
+                    </MudExpansionPanel>
+
+                    <MudExpansionPanel Text="Healthcare Optimization" Icon="@Icons.Material.Filled.LocalHospital">
+                        <TitleContent>
+                            <div style="display: flex">
+                                <MudIcon Icon="@Icons.Material.Filled.LocalHospital" class="mr-3"></MudIcon>
+                                <MudText><strong>Healthcare Optimization</strong></MudText>
+                            </div>
+                        </TitleContent>
+                        <ChildContent>
+                            <MudText Typo="Typo.body2" Class="mb-2">
+                                <strong>Challenge:</strong> Regional hospital network faced patient flow issues and resource allocation challenges.
+                            </MudText>
+                            <MudText Typo="Typo.body2" Class="mb-2">
+                                <strong>Solution:</strong> Implemented FlowTime to model patient journeys and optimize staff scheduling.
+                            </MudText>
+                            <MudText Typo="Typo.body2" Style="color: var(--mud-palette-success);">
+                                <strong>Results:</strong> 25% reduction in patient wait times, 20% improvement in bed utilization, enhanced patient satisfaction.
+                            </MudText>
+                        </ChildContent>
+                    </MudExpansionPanel>
+
+                    <MudExpansionPanel Text="Supply Chain Resilience" Icon="@Icons.Material.Filled.LocalShipping">
+                        <TitleContent>
+                            <div style="display: flex">
+                                <MudIcon Icon="@Icons.Material.Filled.LocalShipping" class="mr-3"></MudIcon>
+                                <MudText><strong>Supply Chain Resilience</strong></MudText>
+                            </div>
+                        </TitleContent>
+                        <ChildContent>
+                            <MudText Typo="Typo.body2" Class="mb-2">
+                                <strong>Challenge:</strong> Retail chain needed to optimize inventory levels while maintaining service quality.
+                            </MudText>
+                            <MudText Typo="Typo.body2" Class="mb-2">
+                                <strong>Solution:</strong> Applied FlowTime for demand forecasting and inventory optimization across 200+ stores.
+                            </MudText>
+                            <MudText Typo="Typo.body2" Style="color: var(--mud-palette-success);">
+                                <strong>Results:</strong> 30% reduction in inventory holding costs, 95% service level maintained, faster response to demand changes.
+                            </MudText>
+                        </ChildContent>
+                    </MudExpansionPanel>
+                </MudExpansionPanels>
+
+                <MudAlert Severity="Severity.Success" Class="mt-4">
+                    <MudText>
+                        💡 <strong>Key Insight:</strong> These organizations didn't just implement technology – 
+                        they transformed their decision-making culture using data-driven digital twin insights.
+                    </MudText>
+                </MudAlert>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+
+    <MudItem xl="12" lg="12" md="12" sm="12" xs="12">
+        <MudCard>
+            <MudCardContent>
+                <MudText Typo="Typo.h6" GutterBottom="true">Common Success Patterns</MudText>
+                
+                <MudGrid>
+                    <MudItem xs="12" md="6">
+                        <div class="d-flex align-center mb-3">
+                            <MudIcon Icon="@Icons.Material.Filled.Timeline" Color="Color.Primary" Class="mr-2" />
+                            <MudText Typo="Typo.subtitle1"><strong>Start Simple</strong></MudText>
+                        </div>
+                        <MudText Typo="Typo.body2" Class="mb-3">
+                            Most successful implementations begin with a focused pilot project rather than enterprise-wide deployment.
+                        </MudText>
+                    </MudItem>
+                    
+                    <MudItem xs="12" md="6">
+                        <div class="d-flex align-center mb-3">
+                            <MudIcon Icon="@Icons.Material.Filled.Group" Color="Color.Secondary" Class="mr-2" />
+                            <MudText Typo="Typo.subtitle1"><strong>Cross-Functional Teams</strong></MudText>
+                        </div>
+                        <MudText Typo="Typo.body2" Class="mb-3">
+                            Success requires collaboration between operations, IT, and analytics teams from the start.
+                        </MudText>
+                    </MudItem>
+                    
+                    <MudItem xs="12" md="6">
+                        <div class="d-flex align-center mb-3">
+                            <MudIcon Icon="@Icons.Material.Filled.TrendingUp" Color="Color.Success" Class="mr-2" />
+                            <MudText Typo="Typo.subtitle1"><strong>Iterative Improvement</strong></MudText>
+                        </div>
+                        <MudText Typo="Typo.body2" Class="mb-3">
+                            Models evolve continuously based on new data and changing business requirements.
+                        </MudText>
+                    </MudItem>
+                    
+                    <MudItem xs="12" md="6">
+                        <div class="d-flex align-center mb-3">
+                            <MudIcon Icon="@Icons.Material.Filled.Psychology" Color="Color.Info" Class="mr-2" />
+                            <MudText Typo="Typo.subtitle1"><strong>Change Management</strong></MudText>
+                        </div>
+                        <MudText Typo="Typo.body2" Class="mb-3">
+                            Training and cultural adaptation are as important as the technical implementation.
+                        </MudText>
+                    </MudItem>
+                </MudGrid>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+
+    <MudItem xl="12" lg="12" md="12" sm="12" xs="12">
+        <div class="d-flex justify-space-between">
+            <MudButton StartIcon="@Icons.Material.Filled.ArrowBack" 
+                      Href="/learn/risk" 
+                      Variant="Variant.Text">
+                Previous: Risk & Variability
+            </MudButton>
+            <MudButton EndIcon="@Icons.Material.Filled.ArrowForward" 
+                      Href="/learn/lab" 
+                      Variant="Variant.Filled" 
+                      Color="Color.Primary">
+                Next: Hands-On Lab
+            </MudButton>
+        </div>
+    </MudItem>
+</MudGrid>

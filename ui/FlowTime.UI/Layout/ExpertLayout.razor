@@ -1,6 +1,7 @@
 ﻿@inherits LayoutComponentBase
 @using MudBlazor
 @using FlowTime.UI.Configuration
+@implements IDisposable
 @inject FlowTime.UI.Services.ThemeService Theme
 @inject FlowTime.UI.Services.PreferencesService Prefs
 @inject FlowTime.UI.Services.FeatureFlagService Flags
@@ -14,7 +15,7 @@
     <MudAppBar Elevation="1" Color="Color.Default" Class="appbar-surface" Dense="true">
         <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
             OnClick="ToggleDrawer" />
-        <MudText Typo="Typo.h6">FlowTime Expert Console</MudText>
+        <MudText Typo="Typo.h6">FlowTime</MudText>
         <MudSpacer />
         
         <!-- API Status LEDs -->
@@ -60,29 +61,77 @@
         </MudTooltip>
     </MudAppBar>
 
-    <MudDrawer @bind-Open="_drawerOpen" Elevation="1" ClipMode="DrawerClipMode.Always"
-        Variant="DrawerVariant.Responsive" Class="drawer-surface">
+        <MudDrawer @bind-Open="_drawerOpen" 
+               ClipMode="DrawerClipMode.Always" 
+               Elevation="2"
+               Variant="DrawerVariant.Mini"
+               OpenMiniOnHover="true"
+               Width="280px"
+               Class="drawer-surface">
         <MudDrawerHeader>
-            <MudText Typo="Typo.h6">Navigation</MudText>
+            <MudText Typo="Typo.h6">Expert Console</MudText>
         </MudDrawerHeader>
         <MudNavMenu>
             <MudNavLink Href="/" Icon="@Icons.Material.Filled.Home" Match="NavLinkMatch.All">Home</MudNavLink>
-            <MudNavLink Href="/nodes" Icon="@Icons.Material.Filled.AccountTree">Nodes</MudNavLink>
-            <MudNavLink Href="/api-demo" Icon="@Icons.Material.Filled.Api">API Demo</MudNavLink>
-            <MudNavLink Href="/templates" Icon="@Icons.Material.Filled.PlayArrow">Template Runner</MudNavLink>
-            <MudNavLink Href="/health" Icon="@Icons.Material.Filled.HealthAndSafety">Health</MudNavLink>
+            
+            <!-- ANALYZE Section -->
+            <MudNavLink Href="/analyze" Icon="@Icons.Material.Filled.Analytics" Class="nav-section-header">
+                ANALYZE
+            </MudNavLink>
+            <MudNavLink Href="/nodes" Icon="@Icons.Material.Filled.AccountTree" Class="nav-submenu ps-6">
+                Node Explorer
+            </MudNavLink>
+            <MudNavLink Href="/api-demo" Icon="@Icons.Material.Filled.Api" Class="nav-submenu ps-6">
+                API Testing
+            </MudNavLink>
+            
+            <!-- SIMULATE Section -->
+            <MudNavLink Href="/simulate" Icon="@Icons.Material.Filled.ShowChart" Class="nav-section-header">
+                SIMULATE
+            </MudNavLink>
+            <MudNavLink Href="/templates" Icon="@Icons.Material.Filled.PlayArrow" Class="nav-submenu ps-6">
+                Template Studio
+            </MudNavLink>
+            
+            <!-- TOOLS Section -->
+            <MudNavLink Href="/tools" Icon="@Icons.Material.Filled.Build" Class="nav-section-header">
+                TOOLS
+            </MudNavLink>
+            <MudNavLink Href="/health" Icon="@Icons.Material.Filled.HealthAndSafety" Class="nav-submenu ps-6">
+                System Health
+            </MudNavLink>
+            
+            <MudDivider Class="my-2" />
+            
+            <!-- LEARN Section -->
+            <MudNavLink Href="/learn" Icon="@Icons.Material.Filled.MenuBook" Class="nav-section-header">
+                LEARN
+            </MudNavLink>
         </MudNavMenu>
     </MudDrawer>
 
-    <MudMainContent>
+    <MudMainContent Class="expert-main-content">
         <MudContainer MaxWidth="MaxWidth.False" Class="pa-4 main-container">
             @Body
         </MudContainer>
     </MudMainContent>
-    <div class="pa-4 mud-text-caption" style="opacity:.55;">
-        FlowTime demo UI · Theme: @(Theme.IsDark ? "Dark" : "Light")
-    </div>
+    
+    <!-- Expert Status Bar -->
+    <FlowTime.UI.Components.StatusBar.ExpertStatusBar 
+        NodeCount="@currentNodeCount"
+        ApiStatusText="@GetApiStatusText()"
+        PerformanceText="@GetPerformanceText()" />
 </MudLayout>
+
+<style>
+.expert-main-content {
+    padding-bottom: 32px; /* Make room for status bar */
+}
+
+.drawer-surface {
+    height: calc(100vh - 64px - 32px); /* Account for app bar and status bar */
+}
+</style>
 
 @code {
     private bool _drawerOpen = true;
@@ -92,6 +141,10 @@
     public enum ApiStatus { Unknown, Healthy, Unhealthy }
     private ApiStatus flowTimeApiStatus = ApiStatus.Unknown;
     private ApiStatus flowTimeSimApiStatus = ApiStatus.Unknown;
+    
+    // Status bar data
+    private int currentNodeCount = 0;
+    private DateTime lastHealthCheck = DateTime.MinValue;
     
     void ToggleDrawer() => _drawerOpen = !_drawerOpen;
     [Inject] IJSRuntime JS { get; set; } = default!;
@@ -163,15 +216,12 @@
                 try
                 {
                     var simApiHealthUrl = $"{flowTimeSimApiConfig.BaseUrl.TrimEnd('/')}/{flowTimeSimApiConfig.ApiVersion}/healthz";
-                    Console.WriteLine($"[LED Check] FlowTime-Sim API URL: '{simApiHealthUrl}'");
                     var response = await httpClient.GetAsync(simApiHealthUrl);
                     flowTimeSimApiStatus = response.IsSuccessStatusCode ? ApiStatus.Healthy : ApiStatus.Unhealthy;
-                    Console.WriteLine($"[LED Check] FlowTime-Sim API Status: {response.StatusCode} -> {flowTimeSimApiStatus}");
                 }
-                catch (Exception ex)
+                catch
                 {
                     flowTimeSimApiStatus = ApiStatus.Unhealthy;
-                    Console.WriteLine($"[LED Check] FlowTime-Sim API Exception: {ex.GetType().Name} - {ex.Message}");
                 }
                 
                 await InvokeAsync(StateHasChanged);
@@ -183,7 +233,30 @@
             
             // Check every 30 seconds
             await Task.Delay(30000);
+            lastHealthCheck = DateTime.Now;
         }
+    }
+    
+    // Status bar data providers
+    private string GetApiStatusText()
+    {
+        if (flowTimeApiStatus == ApiStatus.Healthy)
+            return "Healthy";
+        else if (flowTimeApiStatus == ApiStatus.Unhealthy)
+            return "Unhealthy";
+        else
+            return "Unknown";
+    }
+    
+    private string GetPerformanceText()
+    {
+        var timeSinceHealthCheck = DateTime.Now - lastHealthCheck;
+        if (timeSinceHealthCheck.TotalMinutes < 1)
+            return "Ready";
+        else if (timeSinceHealthCheck.TotalMinutes < 5)
+            return "Idle";
+        else
+            return "Stale";
     }
     
     public void Dispose() => Flags.Changed -= OnFlagsChanged;

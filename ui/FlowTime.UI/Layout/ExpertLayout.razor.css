@@ -1,0 +1,17 @@
+.nav-section-header {
+    text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    font-size: 0.85rem;
+    color: var(--mud-palette-text-secondary);
+    margin-top: 8px;
+}
+
+.nav-submenu {
+    font-size: 0.9rem;
+    padding-left: 2rem !important;
+}
+
+.nav-submenu .mud-nav-link-text {
+    font-weight: 400;
+}

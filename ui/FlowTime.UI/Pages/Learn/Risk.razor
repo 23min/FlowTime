@@ -1,0 +1,128 @@
+@page "/learn/risk"
+@layout LearningLayout
+
+<PageTitle>Risk & Variability - FlowTime Learning</PageTitle>
+
+<MudGrid Spacing="3">
+    <MudItem xl="12" lg="12" md="12" sm="12" xs="12">
+        <MudPaper Class="pa-6" Style="background: linear-gradient(135deg, rgba(var(--mud-palette-warning-rgb), 0.1) 0%, rgba(var(--mud-palette-error-rgb), 0.05) 100%);">
+            <div class="d-flex align-center mb-4">
+                <MudIcon Icon="@Icons.Material.Filled.Warning" Size="Size.Large" Color="Color.Warning" Class="mr-3" />
+                <div>
+                    <MudText Typo="Typo.h4" Color="Color.Primary" GutterBottom="true">Risk & Variability</MudText>
+                    <MudText Typo="Typo.body1" Color="Color.Secondary">Understanding and managing uncertainty in your systems</MudText>
+                </div>
+            </div>
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xl="12" lg="12" md="12" sm="12" xs="12">
+        <MudCard>
+            <MudCardContent>
+                <MudText Typo="Typo.h6" Color="Color.Primary" GutterBottom="true">
+                    ⚠️ Coming Soon: Advanced Risk Management
+                </MudText>
+
+                <MudText Typo="Typo.body1" Class="mb-4">
+                    This section will cover sophisticated techniques for handling uncertainty and risk in digital twin models:
+                </MudText>
+
+                <MudList T="string" Dense="true">
+                    <MudListItem Text="Probability distributions and stochastic modeling" Icon="@Icons.Material.Filled.ShowChart" />
+                    <MudListItem Text="Confidence intervals and statistical bounds" Icon="@Icons.Material.Filled.LinearScale" />
+                    <MudListItem Text="Risk quantification methodologies" Icon="@Icons.Material.Filled.Assessment" />
+                    <MudListItem Text="Uncertainty propagation through systems" Icon="@Icons.Material.Filled.DeviceHub" />
+                    <MudListItem Text="Robust optimization under uncertainty" Icon="@Icons.Material.Filled.Security" />
+                </MudList>
+
+                <MudAlert Severity="Severity.Warning" Class="mt-4">
+                    <MudText>
+                        🎯 <strong>Learning Objective:</strong> Learn to quantify uncertainty, assess risks, 
+                        and make robust decisions even when facing incomplete information.
+                    </MudText>
+                </MudAlert>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+
+    <MudItem xl="12" lg="12" md="12" sm="12" xs="12">
+        <MudCard>
+            <MudCardContent>
+                <MudText Typo="Typo.h6" GutterBottom="true">Preview: Risk Analysis Framework</MudText>
+                
+                <MudGrid>
+                    <MudItem xs="12" md="4">
+                        <MudPaper Class="pa-4" Style="background-color: rgba(var(--mud-palette-error-rgb), 0.1);">
+                            <div class="d-flex align-center mb-2">
+                                <MudIcon Icon="@Icons.Material.Filled.Visibility" Color="Color.Error" Class="mr-2" />
+                                <MudText Typo="Typo.subtitle1"><strong>Risk Identification</strong></MudText>
+                            </div>
+                            <MudText Typo="Typo.body2">
+                                Systematically identify sources of uncertainty and potential failure modes in your system.
+                            </MudText>
+                        </MudPaper>
+                    </MudItem>
+                    
+                    <MudItem xs="12" md="4">
+                        <MudPaper Class="pa-4" Style="background-color: rgba(var(--mud-palette-warning-rgb), 0.1);">
+                            <div class="d-flex align-center mb-2">
+                                <MudIcon Icon="@Icons.Material.Filled.Calculate" Color="Color.Warning" Class="mr-2" />
+                                <MudText Typo="Typo.subtitle1"><strong>Risk Quantification</strong></MudText>
+                            </div>
+                            <MudText Typo="Typo.body2">
+                                Use statistical methods to measure and model the probability and impact of risks.
+                            </MudText>
+                        </MudPaper>
+                    </MudItem>
+                    
+                    <MudItem xs="12" md="4">
+                        <MudPaper Class="pa-4" Style="background-color: rgba(var(--mud-palette-success-rgb), 0.1);">
+                            <div class="d-flex align-center mb-2">
+                                <MudIcon Icon="@Icons.Material.Filled.Shield" Color="Color.Success" Class="mr-2" />
+                                <MudText Typo="Typo.subtitle1"><strong>Risk Mitigation</strong></MudText>
+                            </div>
+                            <MudText Typo="Typo.body2">
+                                Develop strategies to reduce, transfer, or accept risks based on quantitative analysis.
+                            </MudText>
+                        </MudPaper>
+                    </MudItem>
+                </MudGrid>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+
+    <MudItem xl="12" lg="12" md="12" sm="12" xs="12">
+        <MudCard>
+            <MudCardContent>
+                <MudText Typo="Typo.h6" GutterBottom="true">Real-World Applications</MudText>
+                <MudText Typo="Typo.body2" Class="mb-3">
+                    Risk and variability analysis is crucial in many domains:
+                </MudText>
+                
+                <div class="d-flex flex-wrap">
+                    <MudChip T="string" Icon="@Icons.Material.Filled.Factory" Color="Color.Primary" Class="ma-1">Manufacturing</MudChip>
+                    <MudChip T="string" Icon="@Icons.Material.Filled.LocalShipping" Color="Color.Secondary" Class="ma-1">Supply Chain</MudChip>
+                    <MudChip T="string" Icon="@Icons.Material.Filled.AttachMoney" Color="Color.Success" Class="ma-1">Finance</MudChip>
+                    <MudChip T="string" Icon="@Icons.Material.Filled.HealthAndSafety" Color="Color.Info" Class="ma-1">Healthcare</MudChip>
+                    <MudChip T="string" Icon="@Icons.Material.Filled.ElectricBolt" Color="Color.Warning" Class="ma-1">Energy</MudChip>
+                </div>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+
+    <MudItem xl="12" lg="12" md="12" sm="12" xs="12">
+        <div class="d-flex justify-space-between">
+            <MudButton StartIcon="@Icons.Material.Filled.ArrowBack" 
+                      Href="/learn/what-if" 
+                      Variant="Variant.Text">
+                Previous: What-If Analysis
+            </MudButton>
+            <MudButton EndIcon="@Icons.Material.Filled.ArrowForward" 
+                      Href="/learn/success" 
+                      Variant="Variant.Filled" 
+                      Color="Color.Primary">
+                Next: Success Stories
+            </MudButton>
+        </div>
+    </MudItem>
+</MudGrid>

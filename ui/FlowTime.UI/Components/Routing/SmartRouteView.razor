@@ -1,0 +1,17 @@
+@using Microsoft.AspNetCore.Components.Routing
+@using FlowTime.UI.Services
+@inject ILayoutService LayoutService
+
+@{
+    var layoutType = LayoutService.GetLayoutForRoute(RouteData.PageType.GetCustomAttributes(typeof(RouteAttribute), false)
+        .Cast<RouteAttribute>()
+        .FirstOrDefault()?.Template ?? "");
+}
+
+<LayoutView Layout="@layoutType">
+    <RouteView RouteData="@RouteData" />
+</LayoutView>
+
+@code {
+    [Parameter] public RouteData RouteData { get; set; } = default!;
+}
