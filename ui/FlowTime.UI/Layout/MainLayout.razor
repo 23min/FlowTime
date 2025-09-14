@@ -59,47 +59,47 @@
     </MudAppBar>
 
     <MudDrawer @bind-Open="_drawerOpen" Elevation="1" ClipMode="DrawerClipMode.Always"
-        Variant="DrawerVariant.Responsive" Class="drawer-surface">
+               Variant="@DrawerVariant.Mini" OpenMiniOnHover="true" Width="280px">
         <MudDrawerHeader>
-            <MudText Typo="Typo.h6">Navigation</MudText>
+            <MudText Typo="Typo.h6">FlowTime</MudText>
         </MudDrawerHeader>
         <MudNavMenu>
             <MudNavLink Href="/" Icon="@Icons.Material.Filled.Home" Match="NavLinkMatch.All">Home</MudNavLink>
             
             <!-- ANALYZE Section -->
-            <MudNavLink Href="/analyze" Icon="@Icons.Material.Filled.Analytics" Class="nav-section-header" Style="font-weight: 600; margin-top: 0.5rem; margin-bottom: 0.25rem;">
+            <MudNavLink Href="/analyze" Icon="@Icons.Material.Filled.Analytics" Class="nav-section-header">
                 ANALYZE
             </MudNavLink>
-            <MudNavLink Href="/nodes" Icon="@Icons.Material.Filled.AccountTree" Class="nav-submenu" Style="margin-left: 1rem; padding-left: 0.5rem; opacity: 0.9; background-color: rgba(0,0,0,0.1); border-radius: 4px; margin-bottom: 2px;">
+            <MudNavLink Href="/nodes" Icon="@Icons.Material.Filled.AccountTree" Class="nav-submenu ps-6">
                 Node Explorer
             </MudNavLink>
-            <MudNavLink Href="/api-demo" Icon="@Icons.Material.Filled.Api" Class="nav-submenu" Style="margin-left: 1rem; padding-left: 0.5rem; opacity: 0.9; background-color: rgba(0,0,0,0.1); border-radius: 4px; margin-bottom: 2px;">
+            <MudNavLink Href="/api-demo" Icon="@Icons.Material.Filled.Api" Class="nav-submenu ps-6">
                 API Testing
             </MudNavLink>
             
             <!-- SIMULATE Section -->
-            <MudNavLink Href="/simulate" Icon="@Icons.Material.Filled.ShowChart" Class="nav-section-header" Style="font-weight: 600; margin-top: 0.5rem; margin-bottom: 0.25rem;">
+            <MudNavLink Href="/simulate" Icon="@Icons.Material.Filled.ShowChart" Class="nav-section-header">
                 SIMULATE
             </MudNavLink>
-            <MudNavLink Href="/sim/templates" Icon="@Icons.Material.Filled.PlayArrow" Class="nav-submenu" Style="margin-left: 1rem; padding-left: 0.5rem; opacity: 0.9; background-color: rgba(0,0,0,0.1); border-radius: 4px; margin-bottom: 2px;">
+            <MudNavLink Href="/sim/templates" Icon="@Icons.Material.Filled.PlayArrow" Class="nav-submenu ps-6">
                 Template Studio
             </MudNavLink>
             
             <!-- TOOLS Section -->
-            <MudNavLink Href="/tools" Icon="@Icons.Material.Filled.Build" Class="nav-section-header" Style="font-weight: 600; margin-top: 0.5rem; margin-bottom: 0.25rem;">
+            <MudNavLink Href="/tools" Icon="@Icons.Material.Filled.Build" Class="nav-section-header">
                 TOOLS
             </MudNavLink>
-            <MudNavLink Href="/health" Icon="@Icons.Material.Filled.HealthAndSafety" Class="nav-submenu" Style="margin-left: 1rem; padding-left: 0.5rem; opacity: 0.9; background-color: rgba(0,0,0,0.1); border-radius: 4px; margin-bottom: 2px;">
+            <MudNavLink Href="/health" Icon="@Icons.Material.Filled.HealthAndSafety" Class="nav-submenu ps-6">
                 System Health
             </MudNavLink>
             
             <MudDivider Class="my-2" />
             
             <!-- LEARN Section -->
-            <MudNavLink Href="/learn" Icon="@Icons.Material.Filled.School" Class="nav-section-header" Style="font-weight: 600; margin-top: 0.5rem; margin-bottom: 0.25rem;">
+            <MudNavLink Href="/learn" Icon="@Icons.Material.Filled.MenuBook" Class="nav-section-header">
                 LEARN
             </MudNavLink>
-            <MudNavLink Href="/learn/welcome" Icon="@Icons.Material.Filled.AutoStories" Class="nav-submenu" Style="margin-left: 1rem; padding-left: 0.5rem; opacity: 0.9; background-color: rgba(0,0,0,0.1); border-radius: 4px; margin-bottom: 2px;">
+            <MudNavLink Href="/learn/welcome" Icon="@Icons.Material.Filled.AutoStories" Class="nav-submenu ps-6">
                 Getting Started
             </MudNavLink>
         </MudNavMenu>

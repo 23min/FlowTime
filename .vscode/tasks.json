@@ -2,120 +2,90 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "kill:8080",
-      "type": "shell",
-      "command": "bash -lc 'lsof -ti:8080 | xargs -r kill -9; true'",
-      "group": "none",
-      "problemMatcher": []
-    },
-    {
-      "label": "prelaunch: api",
-      "type": "shell",
-      "command": "bash -lc 'echo prelaunch api'",
-      "dependsOn": [
-        "kill:8080",
-        "build"
-      ],
-      "group": "none",
-      "problemMatcher": []
-    },
-    {
       "label": "build",
       "type": "shell",
       "command": "dotnet build",
       "group": "build",
-      "problemMatcher": [
-        "$msCompile"
-      ]
+      "problemMatcher": ["$msCompile"],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": false,
+        "clear": false
+      }
     },
     {
       "label": "test",
       "type": "shell",
       "command": "dotnet test --nologo",
       "group": "test",
-      "problemMatcher": [
-        "$msCompile"
-      ]
-    },
-    {
-      "label": "run: hello",
-      "type": "shell",
-      "command": "dotnet run --project src/FlowTime.Cli -- run examples/hello/model.yaml --out out/hello --verbose",
-      "group": "none",
-      "problemMatcher": []
-    },
-    {
-      "label": "start: api",
-      "type": "shell",
-      "command": "dotnet run --project src/FlowTime.API",
-      "options": {
-        "cwd": "${workspaceFolder}",
-        "env": {
-          "ASPNETCORE_URLS": "http://0.0.0.0:8080"
-        }
-      },
-      "group": "none",
-      "isBackground": true,
+      "problemMatcher": ["$msCompile"],
       "presentation": {
         "echo": true,
         "reveal": "always",
         "focus": false,
-        "panel": "new",
-        "showReuseMessage": true,
+        "panel": "shared",
+        "showReuseMessage": false,
         "clear": false
-      },
-      "problemMatcher": [
-        {
-          "pattern": [
-            {
-              "regexp": ".",
-              "file": 1,
-              "location": 2,
-              "message": 3
-            }
-          ],
-          "background": {
-            "activeOnStart": true,
-            "beginsPattern": "^\\s*info: Microsoft.Hosting.Lifetime",
-            "endsPattern": "^\\s*info: Microsoft.Hosting.Lifetime.* Application started\\."
-          }
-        }
-      ]
+      }
     },
     {
-      "label": "start: ui",
+      "label": "start-api",
+      "type": "shell",
+      "command": "$env:ASPNETCORE_URLS = 'http://0.0.0.0:8080'; dotnet run --project src/FlowTime.API",
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated",
+        "showReuseMessage": false
+      }
+    },
+    {
+      "label": "stop-api",
+      "type": "shell",
+      "command": "pkill -f 'FlowTime.API' || echo 'No API process found'",
+      "problemMatcher": [],
+      "presentation": {
+        "echo": false,
+        "reveal": "silent",
+        "focus": false,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": true
+      }
+    },
+    {
+      "label": "start-ui",
       "type": "shell",
       "command": "dotnet run --project ui/FlowTime.UI",
-      "options": {
-        "cwd": "${workspaceFolder}"
-      },
-      "group": "none",
       "isBackground": true,
+      "problemMatcher": [],
       "presentation": {
         "echo": true,
         "reveal": "always",
         "focus": false,
-        "panel": "new",
-        "showReuseMessage": true,
-        "clear": false
-      },
-      "problemMatcher": [
-        {
-          "pattern": [
-            {
-              "regexp": ".",
-              "file": 1,
-              "location": 2,
-              "message": 3
-            }
-          ],
-          "background": {
-            "activeOnStart": true,
-            "beginsPattern": "^\\s*info: Microsoft.Hosting.Lifetime",
-            "endsPattern": "^\\s*info: Microsoft.Hosting.Lifetime.* Application started\\."
-          }
-        }
-      ]
+        "panel": "dedicated",
+        "showReuseMessage": false
+      }
+    },
+    {
+      "label": "stop-ui",
+      "type": "shell",
+      "command": "pkill -f 'FlowTime.UI' || echo 'No UI process found'",
+      "problemMatcher": [],
+      "presentation": {
+        "echo": false,
+        "reveal": "silent",
+        "focus": false,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": true
+      }
     }
   ]
 }

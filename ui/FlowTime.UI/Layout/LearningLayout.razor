@@ -50,15 +50,25 @@
             <MudText Typo="Typo.h6" Color="Color.Primary">Learning Journey</MudText>
         </MudDrawerHeader>
         <MudNavMenu>
-            <MudNavLink Href="/learn" Icon="@Icons.Material.Filled.Home" Match="NavLinkMatch.All">Welcome</MudNavLink>
+            <MudNavLink Href="/learn" Icon="@Icons.Material.Filled.AutoStories" Match="NavLinkMatch.All">Welcome</MudNavLink>
+            
+            <!-- Foundations Section -->
+            <MudText Typo="Typo.caption" Class="mt-6 mb-2 px-4" Style="opacity: 0.7; font-weight: 600; letter-spacing: 0.05em;">— Foundations —</MudText>
             <MudNavLink Href="/learn/foundations" Icon="@Icons.Material.Filled.Foundation">Digital Twin Concepts</MudNavLink>
             <MudNavLink Href="/learn/it-systems" Icon="@Icons.Material.Filled.Computer">IT Systems Deep Dive</MudNavLink>
             <MudNavLink Href="/learn/system" Icon="@Icons.Material.Filled.AccountTree">Your System</MudNavLink>
-            <MudNavLink Href="/learn/scenarios" Icon="@Icons.Material.Filled.Psychology">What-If Analysis</MudNavLink>
-            <MudNavLink Href="/learn/uncertainty" Icon="@Icons.Material.Filled.ShowChart">Risk & Variability</MudNavLink>
-            <MudNavLink Href="/learn/success" Icon="@Icons.Material.Filled.TrendingUp">Success Stories</MudNavLink>
-            <MudNavLink Href="/learn/sandbox" Icon="@Icons.Material.Filled.Science">Hands-On Lab</MudNavLink>
-            <MudDivider Class="my-2" />
+            
+            <!-- Advanced Analysis Section -->
+            <MudText Typo="Typo.caption" Class="mt-6 mb-2 px-4" Style="opacity: 0.7; font-weight: 600; letter-spacing: 0.05em;">— Advanced Analysis —</MudText>
+            <MudNavLink Href="/learn/what-if" Icon="@Icons.Material.Filled.Psychology">What-If Analysis</MudNavLink>
+            <MudNavLink Href="/learn/risk" Icon="@Icons.Material.Filled.Warning">Risk & Variability</MudNavLink>
+            
+            <!-- Apply & Extend Section -->
+            <MudText Typo="Typo.caption" Class="mt-6 mb-2 px-4" Style="opacity: 0.7; font-weight: 600; letter-spacing: 0.05em;">— Apply & Extend —</MudText>
+            <MudNavLink Href="/learn/success" Icon="@Icons.Material.Filled.EmojiEvents">Success Stories</MudNavLink>
+            <MudNavLink Href="/learn/lab" Icon="@Icons.Material.Filled.Science">Hands-On Lab</MudNavLink>
+            
+            <MudDivider Class="my-3" />
             <MudNavLink Href="/learn/bridge" Icon="@Icons.Material.Filled.ArrowForward">Ready for Expert Mode?</MudNavLink>
         </MudNavMenu>
     </MudDrawer>
