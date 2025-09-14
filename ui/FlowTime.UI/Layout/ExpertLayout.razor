@@ -12,35 +12,13 @@
 <MudPopoverProvider />
 
 <MudLayout>
-    <MudAppBar Elevation="1" Color="Color.Default" Class="appbar-surface" Dense="true">
+    <MudAppBar Elevation="1" Color="@GetAppBarColor()" Class="appbar-surface" Dense="true">
         <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
             OnClick="ToggleDrawer" />
         <MudText Typo="Typo.h6">FlowTime</MudText>
         <MudSpacer />
         
-        <!-- API Status LEDs -->
-        <MudTooltip Text="FlowTime API Status">
-            <MudIcon Icon="@Icons.Material.Filled.Circle" 
-                     Color="@GetApiStatusColor(flowTimeApiStatus)" 
-                     Size="Size.Small" 
-                     Class="mr-1" />
-        </MudTooltip>
-        <MudTooltip Text="FlowTime-Sim API Status">
-            <MudIcon Icon="@Icons.Material.Filled.Circle" 
-                     Color="@GetApiStatusColor(flowTimeSimApiStatus)" 
-                     Size="Size.Small" 
-                     Class="mr-3" />
-        </MudTooltip>
-        
-        <!-- API/Sim Mode Toggle -->
-        <div class="d-flex align-center pa-2 mr-2" style="border-left: 1px solid var(--mud-palette-divider); border-right: 1px solid var(--mud-palette-divider);">
-            <span class="mud-typography-caption mr-2">Mode:</span>
-            <MudChip T="string" Color="@(useDemoMode? Color.Warning: Color.Success)" Variant="Variant.Text"
-                Size="Size.Small" Class="mr-1">@(useDemoMode ? "Demo" : "API")</MudChip>
-            <MudSwitch T="bool" Value="useDemoMode" ValueChanged="OnDemoModeChanged" Color="Color.Primary" Size="Size.Small" />
-        </div>
-        
-        <!-- Switch to Learning Mode -->
+        <!-- Learning Mode and Theme Controls -->
         <MudTooltip Text="Need help getting started?">
             <MudButton Variant="Variant.Text" 
                       StartIcon="@Icons.Material.Filled.School"
@@ -115,13 +93,15 @@
             @Body
         </MudContainer>
     </MudMainContent>
-    
-    <!-- Expert Status Bar -->
-    <FlowTime.UI.Components.StatusBar.ExpertStatusBar 
-        NodeCount="@currentNodeCount"
-        ApiStatusText="@GetApiStatusText()"
-        PerformanceText="@GetPerformanceText()" />
 </MudLayout>
+
+<!-- Expert Status Bar - Outside MudLayout to span full width -->
+<FlowTime.UI.Components.StatusBar.ExpertStatusBar 
+    @ref="statusBar"
+    UseDemoMode="@useDemoMode"
+    OnDemoModeChanged="@OnDemoModeChanged"
+    FlowTimeApiColor="@GetApiStatusColor(flowTimeApiStatus)"
+    FlowTimeSimApiColor="@GetApiStatusColor(flowTimeSimApiStatus)" />
 
 <style>
 .expert-main-content {
@@ -131,6 +111,32 @@
 .drawer-surface {
     height: calc(100vh - 64px - 32px); /* Account for app bar and status bar */
 }
+
+/* OPTION 1: Force Info color on both toolbars in both light and dark mode (COMMENTED OUT) */
+/*
+.mud-appbar.appbar-surface {
+    background-color: var(--mud-palette-info) !important;
+}
+
+.mud-theme-dark .mud-appbar.appbar-surface {
+    background-color: var(--mud-palette-info) !important;
+}
+
+.mud-appbar.appbar-surface .mud-typography,
+.mud-appbar.appbar-surface .mud-icon-button,
+.mud-appbar.appbar-surface .mud-button {
+    color: white !important;
+}
+
+.mud-theme-dark .mud-appbar.appbar-surface .mud-typography,
+.mud-theme-dark .mud-appbar.appbar-surface .mud-icon-button,
+.mud-theme-dark .mud-appbar.appbar-surface .mud-button {
+    color: white !important;
+}
+*/
+
+/* OPTION 2: Use default dark mode colors (ACTIVE) */
+/* Let MudBlazor handle AppBar colors naturally with Color="Color.Info" */
 </style>
 
 @code {
@@ -142,9 +148,8 @@
     private ApiStatus flowTimeApiStatus = ApiStatus.Unknown;
     private ApiStatus flowTimeSimApiStatus = ApiStatus.Unknown;
     
-    // Status bar data
-    private int currentNodeCount = 0;
-    private DateTime lastHealthCheck = DateTime.MinValue;
+    // Status bar reference
+    private FlowTime.UI.Components.StatusBar.ExpertStatusBar? statusBar;
     
     void ToggleDrawer() => _drawerOpen = !_drawerOpen;
     [Inject] IJSRuntime JS { get; set; } = default!;
@@ -172,6 +177,11 @@
     private async Task OnDemoModeChanged(bool value)
     {
         await Flags.SetDemoModeAsync(value);
+    }
+    
+    private Color GetAppBarColor()
+    {
+        return Theme.IsDark ? Color.Default : Color.Info;
     }
     
     private Color GetApiStatusColor(ApiStatus status)
@@ -233,30 +243,13 @@
             
             // Check every 30 seconds
             await Task.Delay(30000);
-            lastHealthCheck = DateTime.Now;
         }
     }
     
-    // Status bar data providers
-    private string GetApiStatusText()
+    // Method to add notifications to status bar
+    public void AddNotification(string message, FlowTime.UI.Components.StatusBar.ExpertStatusBar.NotificationSeverity severity = FlowTime.UI.Components.StatusBar.ExpertStatusBar.NotificationSeverity.Info)
     {
-        if (flowTimeApiStatus == ApiStatus.Healthy)
-            return "Healthy";
-        else if (flowTimeApiStatus == ApiStatus.Unhealthy)
-            return "Unhealthy";
-        else
-            return "Unknown";
-    }
-    
-    private string GetPerformanceText()
-    {
-        var timeSinceHealthCheck = DateTime.Now - lastHealthCheck;
-        if (timeSinceHealthCheck.TotalMinutes < 1)
-            return "Ready";
-        else if (timeSinceHealthCheck.TotalMinutes < 5)
-            return "Idle";
-        else
-            return "Stale";
+        statusBar?.AddNotification(message, severity);
     }
     
     public void Dispose() => Flags.Changed -= OnFlagsChanged;

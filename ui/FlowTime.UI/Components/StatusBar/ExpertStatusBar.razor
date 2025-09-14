@@ -1,42 +1,117 @@
 @using MudBlazor
 @using FlowTime.UI.Services
 @inject IJSRuntime JS
+@inject ISnackbar Snackbar
+@inject ThemeService Theme
 
-<div class="expert-status-bar">
-    <div class="status-bar-section">
-        <MudIcon Icon="@Icons.Material.Filled.AccountTree" Size="Size.Small" Class="mr-1" />
-        <MudText Typo="Typo.caption">@NodeCount nodes</MudText>
-    </div>
-    
-    <div class="status-bar-section">
-        <MudIcon Icon="@GetApiStatusIcon()" 
-                 Color="@GetApiStatusColor()" 
-                 Size="Size.Small" 
-                 Class="mr-1" />
-        <MudText Typo="Typo.caption">API @ApiStatusText</MudText>
-    </div>
-    
-    <div class="status-bar-section">
-        <MudIcon Icon="@Icons.Material.Filled.Speed" Size="Size.Small" Class="mr-1" />
-        <MudText Typo="Typo.caption">@PerformanceText</MudText>
-    </div>
+<div class="expert-status-bar" style="background-color: @GetStatusBarBackgroundColor()">
+    <!-- Left side: Reserved for user actions, modeling status -->
     
     <MudSpacer />
     
+    <!-- Right side: Mode, API Status, Notifications -->
     <div class="status-bar-section">
-        <MudText Typo="Typo.caption" Class="mr-2">@CurrentTime</MudText>
-        <MudText Typo="Typo.caption">FlowTime Expert Console</MudText>
+        <!-- Mode Toggle -->
+        <span class="mud-typography-caption mr-2">Mode:</span>
+        <MudChip T="string" Color="@(UseDemoMode ? Color.Warning : Color.Success)" 
+                 Variant="Variant.Filled" Size="Size.Small" Class="mr-1 compact-chip white-bg-chip">
+            @(UseDemoMode ? "Demo" : "API")
+        </MudChip>
+        <MudSwitch T="bool" Value="UseDemoMode" ValueChanged="OnDemoModeChanged" 
+                   Color="Color.Primary" Size="Size.Small" Class="mr-3" />
+    </div>
+    
+    <div class="status-bar-section">
+        <!-- API Status LEDs -->
+        <MudTooltip Text="FlowTime API">
+            <MudIcon Icon="@Icons.Material.Filled.Circle" 
+                     Color="@FlowTimeApiColor" 
+                     Class="mr-1 small-led" />
+        </MudTooltip>
+        <MudText Typo="Typo.caption" Class="mr-2">Engine</MudText>
+        
+        <MudTooltip Text="FlowTime-Sim API">
+            <MudIcon Icon="@Icons.Material.Filled.Circle" 
+                     Color="@FlowTimeSimApiColor" 
+                     Class="mr-1 small-led" />
+        </MudTooltip>
+        <MudText Typo="Typo.caption" Class="mr-3">Sim</MudText>
+    </div>
+    
+    <div class="status-bar-section">
+        <!-- Notifications - Far Right -->
+        <MudIconButton Icon="@GetNotificationIcon()" 
+                      Color="@GetNotificationColor()" 
+                      Size="Size.Small" 
+                      OnClick="ShowNotifications"
+                      Class="notification-button white-icon" />
     </div>
 </div>
 
+<!-- Simple notification popup for testing -->
+@if (_showNotificationPopup)
+{
+    <div class="notification-popup">
+        <div class="notification-popup-header">
+            <span>Notifications (@_notifications.Count)</span>
+            <button @onclick="ShowNotifications" class="close-btn">×</button>
+        </div>
+        <div class="notification-popup-content">
+            @if (!_notifications.Any())
+            {
+                <div class="notification-item">No notifications</div>
+            }
+            else
+            {
+                @foreach (var notification in _notifications.OrderByDescending(n => n.Timestamp))
+                {
+                    <div class="notification-item @GetSeverityClass(notification.Severity)">
+                        <div class="notification-icon">@GetSeverityIcon(notification.Severity)</div>
+                        <div class="notification-content">
+                            <div class="notification-message">@notification.Message</div>
+                            <div class="notification-time">@notification.Timestamp.ToString("HH:mm:ss")</div>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+        @if (_notifications.Any())
+        {
+            <div class="notification-popup-footer">
+                <button @onclick="ClearNotifications" class="clear-btn">Clear All</button>
+            </div>
+        }
+    </div>
+}
+
 <style>
+/* OPTION 1: Force Info color in both light and dark mode (COMMENTED OUT) */
+/*
+.expert-status-bar,
+.mud-theme-dark .expert-status-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 32px;
+    background-color: var(--mud-palette-info) !important;
+    border-top: 1px solid var(--mud-palette-divider);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    z-index: 1200;
+    font-size: 0.75rem;
+    box-shadow: 0 -1px 3px rgba(0,0,0,0.1);
+}
+*/
+
+/* Dynamic background color applied via inline style */
 .expert-status-bar {
     position: fixed;
     bottom: 0;
     left: 0;
     right: 0;
     height: 32px;
-    background-color: var(--mud-palette-surface);
     border-top: 1px solid var(--mud-palette-divider);
     display: flex;
     align-items: center;
@@ -50,64 +125,359 @@
     display: flex;
     align-items: center;
     margin-right: 24px;
-    color: var(--mud-palette-text-secondary);
+    color: white;
 }
 
 .status-bar-section:last-child {
     margin-right: 0;
 }
 
-.expert-status-bar .mud-icon {
-    opacity: 0.7;
+/* Light mode: white text on Info background */
+.mud-theme-light .expert-status-bar .mud-icon {
+    opacity: 0.9;
+    color: white !important;
 }
 
-.expert-status-bar .mud-typography {
+.mud-theme-light .expert-status-bar .mud-typography {
     font-size: 0.75rem;
     font-weight: 500;
+    color: white !important;
 }
+
+.mud-theme-light .status-bar-section {
+    display: flex;
+    align-items: center;
+    margin-right: 24px;
+    color: white;
+}
+
+.mud-theme-light .white-icon {
+    color: white !important;
+}
+
+/* Dark mode: theme text colors on dark background */
+.mud-theme-dark .expert-status-bar .mud-icon {
+    opacity: 0.9;
+    color: var(--mud-palette-text-primary) !important;
+}
+
+.mud-theme-dark .expert-status-bar .mud-typography {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--mud-palette-text-primary) !important;
+}
+
+.mud-theme-dark .status-bar-section {
+    display: flex;
+    align-items: center;
+    margin-right: 24px;
+    color: var(--mud-palette-text-primary);
+}
+
+.mud-theme-dark .white-icon {
+    color: var(--mud-palette-text-primary) !important;
+}
+
+/* Base styles (fallback) */
+.status-bar-section {
+    display: flex;
+    align-items: center;
+    margin-right: 24px;
+}
+
+.notification-button {
+    min-width: 24px !important;
+    width: 24px !important;
+    height: 24px !important;
+}
+
+.white-icon {
+    color: white !important;
+}
+
+.compact-chip {
+    background-color: white !important;
+    color: var(--mud-palette-text-primary) !important;
+}
+
+.white-bg-chip {
+    background-color: white !important;
+    color: #212529 !important; /* Always dark text */
+    height: 16px !important;
+    font-size: 0.65rem !important;
+    padding: 0 6px !important;
+    line-height: 16px !important;
+    display: flex !important;
+    align-items: center !important;
+}
+
+.small-led {
+    font-size: 10px !important;
+    width: 10px !important;
+    height: 10px !important;
+}
+
+.notification-popup {
+    position: fixed;
+    bottom: 40px;
+    right: 16px;
+    width: 350px;
+    max-height: 400px;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    z-index: 9999;
+    overflow: hidden;
+}
+
+.notification-popup-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: #f8f9fa;
+    border-bottom: 1px solid #e9ecef;
+    font-weight: 600;
+    color: #495057;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    color: #6c757d;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+}
+
+.close-btn:hover {
+    background: #e9ecef;
+    color: #495057;
+}
+
+.notification-popup-content {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.notification-item {
+    display: flex;
+    align-items: flex-start;
+    padding: 12px 16px;
+    border-bottom: 1px solid #f1f3f4;
+    gap: 12px;
+}
+
+.notification-item:last-child {
+    border-bottom: none;
+}
+
+.notification-item.error {
+    border-left: 3px solid #dc3545;
+}
+
+.notification-item.warning {
+    border-left: 3px solid #ffc107;
+}
+
+.notification-item.info {
+    border-left: 3px solid #0dcaf0;
+}
+
+.notification-icon {
+    font-size: 16px;
+    margin-top: 2px;
+}
+
+.notification-item.error .notification-icon {
+    color: #dc3545;
+}
+
+.notification-item.warning .notification-icon {
+    color: #ffc107;
+}
+
+.notification-item.info .notification-icon {
+    color: #0dcaf0;
+}
+
+.notification-content {
+    flex: 1;
+}
+
+.notification-message {
+    font-size: 14px;
+    color: #212529;
+    margin-bottom: 4px;
+    line-height: 1.4;
+}
+
+.notification-time {
+    font-size: 12px;
+    color: #6c757d;
+}
+
+.notification-popup-footer {
+    padding: 12px 16px;
+    background: #f8f9fa;
+    border-top: 1px solid #e9ecef;
+    text-align: center;
+}
+
+.clear-btn {
+    background: #6c757d;
+    color: white;
+    border: none;
+    padding: 6px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+.clear-btn:hover {
+    background: #5a6268;
+}
+
 </style>
 
 @code {
-    [Parameter] public int NodeCount { get; set; } = 0;
-    [Parameter] public string ApiStatusText { get; set; } = "Unknown";
-    [Parameter] public string PerformanceText { get; set; } = "Ready";
+    // Parameters
+    [Parameter] public bool UseDemoMode { get; set; }
+    [Parameter] public EventCallback<bool> OnDemoModeChanged { get; set; }
+    [Parameter] public Color FlowTimeApiColor { get; set; } = Color.Default;
+    [Parameter] public Color FlowTimeSimApiColor { get; set; } = Color.Default;
     
-    private string CurrentTime => DateTime.Now.ToString("HH:mm");
-    private Timer? _timer;
+    // Notification system
+    private readonly List<NotificationItem> _notifications = new();
     
-    protected override void OnInitialized()
+    // Notification model
+    public class NotificationItem
     {
-        // Update time every minute
-        _timer = new Timer(UpdateTime, null, TimeSpan.Zero, TimeSpan.FromMinutes(1));
+        public string Message { get; set; } = "";
+        public NotificationSeverity Severity { get; set; }
+        public DateTime Timestamp { get; set; } = DateTime.Now;
     }
     
-    private void UpdateTime(object? state)
+    public enum NotificationSeverity
     {
+        Info,
+        Warning,
+        Error
+    }
+    
+    // Public methods for adding notifications
+    public void AddNotification(string message, NotificationSeverity severity = NotificationSeverity.Info)
+    {
+        _notifications.Add(new NotificationItem 
+        { 
+            Message = message, 
+            Severity = severity 
+        });
+        
+        // Keep only last 20 notifications
+        if (_notifications.Count > 20)
+        {
+            _notifications.RemoveAt(0);
+        }
+        
         InvokeAsync(StateHasChanged);
     }
     
-    private string GetApiStatusIcon()
+    private bool _showNotificationPopup = false;
+    
+    private void ShowNotifications()
     {
-        return ApiStatusText switch
+        _showNotificationPopup = !_showNotificationPopup;
+    }
+    
+    protected override void OnInitialized()
+    {
+        // Add some sample notifications for testing
+        AddSampleNotifications();
+    }
+    
+    private void AddSampleNotifications()
+    {
+        _notifications.Add(new NotificationItem 
+        { 
+            Message = "FlowTime API connected successfully", 
+            Severity = NotificationSeverity.Info,
+            Timestamp = DateTime.Now.AddMinutes(-5)
+        });
+        
+        _notifications.Add(new NotificationItem 
+        { 
+            Message = "Simulation completed with warnings", 
+            Severity = NotificationSeverity.Warning,
+            Timestamp = DateTime.Now.AddMinutes(-2)
+        });
+        
+        _notifications.Add(new NotificationItem 
+        { 
+            Message = "Failed to connect to FlowTime-Sim API", 
+            Severity = NotificationSeverity.Error,
+            Timestamp = DateTime.Now.AddSeconds(-30)
+        });
+    }
+    
+
+    
+    private string GetNotificationIcon()
+    {
+        // Active alarm bell when there are notifications, normal when none
+        return _notifications.Any() 
+            ? Icons.Material.Filled.NotificationsActive 
+            : Icons.Material.Filled.Notifications;
+    }
+    
+    private Color GetNotificationColor()
+    {
+        if (_notifications.Any(n => n.Severity == NotificationSeverity.Error))
+            return Color.Error;
+        else if (_notifications.Any(n => n.Severity == NotificationSeverity.Warning))
+            return Color.Warning;
+        else
+            return Color.Default;
+    }
+    
+
+    
+    private string GetSeverityClass(NotificationSeverity severity)
+    {
+        return severity switch
         {
-            "Healthy" => Icons.Material.Filled.CheckCircle,
-            "Unhealthy" => Icons.Material.Filled.Error,
-            _ => Icons.Material.Filled.HelpOutline
+            NotificationSeverity.Error => "error",
+            NotificationSeverity.Warning => "warning",
+            _ => "info"
         };
     }
     
-    private Color GetApiStatusColor()
+    private string GetSeverityIcon(NotificationSeverity severity)
     {
-        return ApiStatusText switch
+        return severity switch
         {
-            "Healthy" => Color.Success,
-            "Unhealthy" => Color.Error,
-            _ => Color.Default
+            NotificationSeverity.Error => "⚠️",
+            NotificationSeverity.Warning => "⚠️",
+            _ => "ℹ️"
         };
     }
     
-    public void Dispose()
+    private void ClearNotifications()
     {
-        _timer?.Dispose();
+        _notifications.Clear();
+        _showNotificationPopup = false;
+        StateHasChanged();
     }
+    
+    private string GetStatusBarBackgroundColor()
+    {
+        return Theme.IsDark ? "var(--mud-palette-background)" : "var(--mud-palette-info)";
+    }
+
 }
