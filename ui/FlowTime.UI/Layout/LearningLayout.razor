@@ -53,18 +53,24 @@
             <MudNavLink Href="/learn" Icon="@Icons.Material.Filled.AutoStories" Match="NavLinkMatch.All">Welcome</MudNavLink>
             
             <!-- Foundations Section -->
-            <MudText Typo="Typo.caption" Class="mt-6 mb-2 px-4" Style="opacity: 0.7; font-weight: 600; letter-spacing: 0.05em;">— Foundations —</MudText>
+            <div style="margin-top: 1rem; margin-bottom: 0.5rem; padding: 0.5rem 1rem; background-color: rgba(var(--mud-palette-primary-rgb), 0.1); border-radius: 4px; margin-left: 8px; margin-right: 8px; text-align: center;">
+                <MudText Typo="Typo.caption" Style="font-weight: 600; letter-spacing: 0.05em; opacity: 0.8;">Foundations</MudText>
+            </div>
             <MudNavLink Href="/learn/foundations" Icon="@Icons.Material.Filled.Foundation">Digital Twin Concepts</MudNavLink>
             <MudNavLink Href="/learn/it-systems" Icon="@Icons.Material.Filled.Computer">IT Systems Deep Dive</MudNavLink>
             <MudNavLink Href="/learn/system" Icon="@Icons.Material.Filled.AccountTree">Your System</MudNavLink>
             
             <!-- Advanced Analysis Section -->
-            <MudText Typo="Typo.caption" Class="mt-6 mb-2 px-4" Style="opacity: 0.7; font-weight: 600; letter-spacing: 0.05em;">— Advanced Analysis —</MudText>
+            <div style="margin-top: 1rem; margin-bottom: 0.5rem; padding: 0.5rem 1rem; background-color: rgba(var(--mud-palette-primary-rgb), 0.1); border-radius: 4px; margin-left: 8px; margin-right: 8px; text-align: center;">
+                <MudText Typo="Typo.caption" Style="font-weight: 600; letter-spacing: 0.05em; opacity: 0.8;">Advanced Analysis</MudText>
+            </div>
             <MudNavLink Href="/learn/what-if" Icon="@Icons.Material.Filled.Psychology">What-If Analysis</MudNavLink>
             <MudNavLink Href="/learn/risk" Icon="@Icons.Material.Filled.Warning">Risk & Variability</MudNavLink>
             
             <!-- Apply & Extend Section -->
-            <MudText Typo="Typo.caption" Class="mt-6 mb-2 px-4" Style="opacity: 0.7; font-weight: 600; letter-spacing: 0.05em;">— Apply & Extend —</MudText>
+            <div style="margin-top: 1rem; margin-bottom: 0.5rem; padding: 0.5rem 1rem; background-color: rgba(var(--mud-palette-primary-rgb), 0.1); border-radius: 4px; margin-left: 8px; margin-right: 8px; text-align: center;">
+                <MudText Typo="Typo.caption" Style="font-weight: 600; letter-spacing: 0.05em; opacity: 0.8;">Apply & Extend</MudText>
+            </div>
             <MudNavLink Href="/learn/success" Icon="@Icons.Material.Filled.EmojiEvents">Success Stories</MudNavLink>
             <MudNavLink Href="/learn/lab" Icon="@Icons.Material.Filled.Science">Hands-On Lab</MudNavLink>
             
@@ -92,6 +98,10 @@
 .learning-drawer .mud-nav-link {
     border-radius: 8px;
     margin: 2px 8px;
+    min-height: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
 }
 
 .learning-container {
