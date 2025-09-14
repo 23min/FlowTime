@@ -1,12 +1,12 @@
 @page "/nodes"
-@layout ExpertLayout
+@layout MainLayout
 @using FlowTime.UI.Data
 @using MudBlazor
 @inject NavigationManager Nav
 
-<PageTitle>Nodes</PageTitle>
+<PageTitle>Node Explorer (FlowTime Engine)</PageTitle>
 
-<MudText Typo="Typo.h4" GutterBottom="true">Node Catalog</MudText>
+<MudText Typo="Typo.h4" GutterBottom="true">Node Explorer</MudText>
 <MudText Class="mb-2">M0 available & planned node kinds. See also <a href="/docs/capability-matrix" target="_blank">Capability Matrix</a>.</MudText>
 <MudStack Row="true" Spacing="2" Class="mb-4">
     <MudChip T="string" Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Small">Total: @NodeCatalog.All.Count</MudChip>

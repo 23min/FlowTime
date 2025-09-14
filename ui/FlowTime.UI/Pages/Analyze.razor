@@ -1,0 +1,194 @@
+@page "/analyze"
+@layout MainLayout
+@using MudBlazor
+
+<PageTitle>Analyze (FlowTime Engine)</PageTitle>
+
+<MudGrid>
+    <!-- Header Section -->
+    <MudItem xs="12">
+        <MudPaper Class="pa-6" Elevation="3">
+            <MudText Typo="Typo.h3" GutterBottom="true">
+                <MudIcon Icon="@Icons.Material.Filled.Analytics" Class="mr-3" Size="Size.Large" />
+                FlowTime Engine Analysis
+            </MudText>
+            <MudText Typo="Typo.h6" Class="mb-4" Color="Color.Secondary">
+                Use FlowTime Engine when you want deterministic, explainable answers for real data, capacity studies, and what-if analysis.
+            </MudText>
+        </MudPaper>
+    </MudItem>
+
+    <!-- What FlowTime Engine Does -->
+    <MudItem xs="12">
+        <MudPaper Class="pa-4" Elevation="3">
+            <MudText Typo="Typo.h5" GutterBottom="true">
+                <MudIcon Icon="@Icons.Material.Filled.Search" Class="mr-2" />
+                What FlowTime Engine Does
+            </MudText>
+            <MudText Typo="Typo.body1" Class="mb-2">
+                FlowTime Engine gives you a digital twin of your system with spreadsheet-like modeling:
+            </MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+                Perfect for capacity planning, bottleneck analysis, and performance optimization with deterministic results you can trust.
+            </MudText>
+            
+            <MudGrid>
+                <MudItem xs="12" md="6">
+                    <MudCard Class="pa-3 mb-3" Elevation="1">
+                        <MudCardContent>
+                            <div class="d-flex align-center mb-2">
+                                <MudIcon Icon="@Icons.Material.Filled.Replay" Color="Color.Primary" Class="mr-2" />
+                                <MudText Typo="Typo.h6" Color="Color.Primary">Replay Reality</MudText>
+                            </div>
+                            <MudText Typo="Typo.body2">Load telemetry and see exactly what happened.</MudText>
+                        </MudCardContent>
+                    </MudCard>
+                </MudItem>
+                
+                <MudItem xs="12" md="6">
+                    <MudCard Class="pa-3 mb-3" Elevation="1">
+                        <MudCardContent>
+                            <div class="d-flex align-center mb-2">
+                                <MudIcon Icon="@Icons.Material.Filled.Speed" Color="Color.Primary" Class="mr-2" />
+                                <MudText Typo="Typo.h6" Color="Color.Primary">Analyze Capacity</MudText>
+                            </div>
+                            <MudText Typo="Typo.body2">Find bottlenecks, throughput limits, and SLA risks.</MudText>
+                        </MudCardContent>
+                    </MudCard>
+                </MudItem>
+                
+                <MudItem xs="12" md="6">
+                    <MudCard Class="pa-3 mb-3" Elevation="1">
+                        <MudCardContent>
+                            <div class="d-flex align-center mb-2">
+                                <MudIcon Icon="@Icons.Material.Filled.Help" Color="Color.Primary" Class="mr-2" />
+                                <MudText Typo="Typo.h6" Color="Color.Primary">Ask What-If</MudText>
+                            </div>
+                            <MudText Typo="Typo.body2">Run scenarios like outages, scaling policies, or surges.</MudText>
+                        </MudCardContent>
+                    </MudCard>
+                </MudItem>
+                
+                <MudItem xs="12" md="6">
+                    <MudCard Class="pa-3 mb-3" Elevation="1">
+                        <MudCardContent>
+                            <div class="d-flex align-center mb-2">
+                                <MudIcon Icon="@Icons.Material.Filled.Bolt" Color="Color.Primary" Class="mr-2" />
+                                <MudText Typo="Typo.h6" Color="Color.Primary">Get Answers Fast</MudText>
+                            </div>
+                            <MudText Typo="Typo.body2">Deterministic math, instant feedback, reproducible results.</MudText>
+                        </MudCardContent>
+                    </MudCard>
+                </MudItem>
+            </MudGrid>
+            
+            <MudAlert Severity="Severity.Normal" Variant="Variant.Text" Dense="true" NoIcon="true" Class="mt-4">
+                <div class="d-flex align-center">
+                    <MudIcon Icon="@Icons.Material.Filled.Lightbulb" Class="mr-2" Size="Size.Small" />
+                    <MudText Typo="Typo.body2">
+                        Don't have real data? Use FlowTime-Sim to generate synthetic telemetry and system models for analysis.
+                    </MudText>
+                </div>
+            </MudAlert>
+        </MudPaper>
+    </MudItem>
+
+    <!-- Analysis Tools -->
+    <MudItem xs="12">
+        <MudPaper Class="pa-4" Elevation="3">
+            <MudText Typo="Typo.h5" GutterBottom="true">
+                <MudIcon Icon="@Icons.Material.Filled.Build" Class="mr-2" />
+                Analysis Tools
+            </MudText>
+            <MudText Typo="Typo.body1" Class="mb-4">
+                Choose the right entry point for your analysis:
+            </MudText>
+            
+            <MudGrid>
+                <MudItem xs="12" md="4">
+                    <MudCard Class="pa-4" Elevation="1" Style="height: 100%;">
+                        <MudCardContent>
+                            <div class="d-flex align-center mb-3">
+                                <MudIcon Icon="@Icons.Material.Filled.AccountTree" Color="Color.Primary" Size="Size.Medium" Class="mr-2" />
+                                <MudText Typo="Typo.h6">
+                                    <MudButton Href="/nodes" Variant="Variant.Text" Color="Color.Primary" Class="pa-0">
+                                        Node Explorer
+                                    </MudButton>
+                                </MudText>
+                            </div>
+                            <MudText Typo="Typo.body2">
+                                Browse available node types and see what they can model.
+                            </MudText>
+                        </MudCardContent>
+                    </MudCard>
+                </MudItem>
+                
+                <MudItem xs="12" md="4">
+                    <MudCard Class="pa-4" Elevation="1" Style="height: 100%;">
+                        <MudCardContent>
+                            <div class="d-flex align-center mb-3">
+                                <MudIcon Icon="@Icons.Material.Filled.Api" Color="Color.Primary" Size="Size.Medium" Class="mr-2" />
+                                <MudText Typo="Typo.h6">
+                                    <MudButton Href="/api-demo" Variant="Variant.Text" Color="Color.Primary" Class="pa-0">
+                                        API Testing
+                                    </MudButton>
+                                </MudText>
+                            </div>
+                            <MudText Typo="Typo.body2">
+                                Send a model directly to the FlowTime Engine API and inspect outputs.
+                            </MudText>
+                        </MudCardContent>
+                    </MudCard>
+                </MudItem>
+                
+                <MudItem xs="12" md="4">
+                    <MudCard Class="pa-4" Elevation="1" Style="height: 100%;">
+                        <MudCardContent>
+                            <div class="d-flex align-center mb-3">
+                                <MudIcon Icon="@Icons.Material.Filled.RocketLaunch" Color="Color.Primary" Size="Size.Medium" Class="mr-2" />
+                                <MudText Typo="Typo.h6" Color="Color.Primary">Quick Start</MudText>
+                            </div>
+                            <MudText Typo="Typo.body2">
+                                Run your first analysis in under 2 minutes.
+                            </MudText>
+                            <MudText Typo="Typo.caption" Class="mt-2" Style="font-style: italic;">
+                                Coming soon
+                            </MudText>
+                        </MudCardContent>
+                    </MudCard>
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+    </MudItem>
+
+    <!-- About FlowTime Engine (Secondary) -->
+    <MudItem xs="12">
+        <MudPaper Class="pa-4" Elevation="1">
+            <MudText Typo="Typo.h6" GutterBottom="true">
+                <MudIcon Icon="@Icons.Material.Filled.Info" Class="mr-2" />
+                About FlowTime Engine
+            </MudText>
+            <MudText Typo="Typo.body2" Class="mb-3">
+                FlowTime Engine provides deterministic, spreadsheet-like modeling for flow analysis:
+            </MudText>
+            <MudList T="string" Dense="true">
+                <MudListItem T="string" Icon="@Icons.Material.Filled.Functions">
+                    <strong>Deterministic</strong> — Exact mathematical calculations
+                </MudListItem>
+                <MudListItem T="string" Icon="@Icons.Material.Filled.TableChart">
+                    <strong>Spreadsheet Metaphor</strong> — Grid-aligned time bins with formulas
+                </MudListItem>
+                <MudListItem T="string" Icon="@Icons.Material.Filled.Calculate">
+                    <strong>Analytical</strong> — Precise flow equations and capacity analysis
+                </MudListItem>
+                <MudListItem T="string" Icon="@Icons.Material.Filled.Speed">
+                    <strong>Fast</strong> — Instant results for scenario analysis
+                </MudListItem>
+            </MudList>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+@code {
+    
+}

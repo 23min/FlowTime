@@ -1,5 +1,5 @@
 @page "/api-demo"
-@layout ExpertLayout
+@layout MainLayout
 @using FlowTime.UI.Services
 @using FlowTime.UI.Components
 @using MudBlazor
@@ -8,10 +8,10 @@
 @inject ISnackbar Snackbar
 @inject PreferencesService Prefs
 
-<PageTitle>API Demo</PageTitle>
+<PageTitle>API Testing (FlowTime Engine)</PageTitle>
 
-<MudText Typo="Typo.h4" GutterBottom="true">API Demo</MudText>
-<MudText Class="mb-1">Interact with FlowTime API using the typed client.</MudText>
+<MudText Typo="Typo.h4" GutterBottom="true">API Testing</MudText>
+<MudText Class="mb-1">Interact with FlowTime Engine API using the typed client.</MudText>
 <MudText Typo="Typo.caption" Class="mb-4" Style="font-family:monospace">Client Mode: @(clientModeLabel)
 </MudText>
 @if (Flags.UseDemoMode)

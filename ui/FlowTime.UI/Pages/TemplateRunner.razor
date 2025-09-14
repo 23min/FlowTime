@@ -1,5 +1,5 @@
-@page "/templates"
-@layout ExpertLayout
+@page "/sim/templates"
+@layout MainLayout
 @using FlowTime.UI.Services
 @using FlowTime.UI.Components.Templates
 @using System.Linq
@@ -11,17 +11,17 @@
 @inject FeatureFlagService FeatureFlags
 @implements IDisposable
 
-<PageTitle>Template Runner</PageTitle>
+<PageTitle>Template Studio (FlowTime-Sim)</PageTitle>
 
-<MudText Typo="Typo.h3" GutterBottom="true">Template-Based Simulation Runner</MudText>
+<MudText Typo="Typo.h3" GutterBottom="true">Template Studio</MudText>
 <MudText Typo="Typo.body1" Class="mb-4">
     Select a template, configure parameters, choose a system catalog, and run simulations without writing YAML.
 </MudText>
 
 @* Mode Banner *@
-<MudPaper Class="pa-3 mb-4" Style="@GetBannerStyle()">
+<MudPaper Class="pa-2 mb-3" Style="@GetBannerStyle()">
     <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
-        <MudText Typo="Typo.body1">
+        <MudText Typo="Typo.body2">
             <strong>Current Mode:</strong> @GetModeText()
         </MudText>
         <MudSpacer />

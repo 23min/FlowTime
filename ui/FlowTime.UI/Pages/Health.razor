@@ -1,5 +1,5 @@
 @page "/health"
-@layout ExpertLayout
+@layout MainLayout
 @using FlowTime.UI.Services
 @using FlowTime.UI.Components
 @using FlowTime.UI.Configuration
@@ -10,10 +10,10 @@
 @inject HttpClient HttpClient
 @inject ISnackbar Snackbar
 
-<PageTitle>API Health</PageTitle>
+<PageTitle>System Health</PageTitle>
 
-<MudText Typo="Typo.h4" GutterBottom="true">API Health</MudText>
-<MudText Class="mb-4">Monitor the health status of all APIs used by the FlowTime UI.</MudText>
+<MudText Typo="Typo.h4" GutterBottom="true">System Health</MudText>
+<MudText Class="mb-4">Monitor the health status of FlowTime Engine and FlowTime-Sim APIs.</MudText>
 
 @if (isLoading)
 {

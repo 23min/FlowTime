@@ -22,7 +22,7 @@ public class TemplateService : ITemplateService
     public async Task<List<TemplateInfo>> GetTemplatesAsync()
     {
         await featureFlags.EnsureLoadedAsync();
-        
+
         if (featureFlags.UseDemoMode)
         {
             // Demo Mode: Return static UI templates (no API calls)
@@ -40,11 +40,11 @@ public class TemplateService : ITemplateService
         try
         {
             logger.LogInformation("API mode: Fetching scenarios from FlowTime-Sim API");
-            
+
             // Add timeout to prevent hanging when API is down (same as LED check timeout)
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
             var scenariosResult = await simClient.GetScenariosAsync(cts.Token);
-            
+
             if (!scenariosResult.Success)
             {
                 logger.LogWarning("Failed to get scenarios from Sim API: {Error}. No fallback in API mode.", scenariosResult.Error);
@@ -98,12 +98,12 @@ public class TemplateService : ITemplateService
     private static TemplateInfo ConvertScenarioToTemplate(ScenarioInfo scenario)
     {
         // Use actual API data instead of hardcoded values
-        var category = string.IsNullOrEmpty(scenario.Category) ? "Demo Templates" : 
+        var category = string.IsNullOrEmpty(scenario.Category) ? "Demo Templates" :
                       char.ToUpper(scenario.Category[0]) + scenario.Category.Substring(1) + " Templates";
-        
+
         // Combine API tags with "simulation" tag to identify as demo templates
         var tags = new List<string>(scenario.Tags) { "simulation" };
-        
+
         return new TemplateInfo
         {
             Id = scenario.Id,
@@ -275,7 +275,7 @@ public class TemplateService : ITemplateService
     private static string FormatPropertyTitle(string key)
     {
         // Convert camelCase/snake_case to Title Case
-        return System.Text.RegularExpressions.Regex.Replace(key, @"([A-Z])|_(.)", m => 
+        return System.Text.RegularExpressions.Regex.Replace(key, @"([A-Z])|_(.)", m =>
             (m.Groups[1].Success ? " " + m.Groups[1].Value : " " + m.Groups[2].Value.ToUpper())).Trim();
     }
 
@@ -492,7 +492,7 @@ public class CatalogService : ICatalogService
     public async Task<List<CatalogInfo>> GetCatalogsAsync()
     {
         await featureFlags.EnsureLoadedAsync();
-        
+
         if (featureFlags.UseDemoMode)
         {
             // Demo Mode: Use mock catalogs (placeholder until SIM-CAT-M2 catalog API is implemented)
@@ -589,7 +589,7 @@ public class FlowTimeSimService : IFlowTimeSimService
     public async Task<SimulationRunResult> RunSimulationAsync(SimulationRunRequest request)
     {
         await featureFlags.EnsureLoadedAsync();
-        
+
         if (featureFlags.UseDemoMode)
         {
             return await RunDemoModeSimulationAsync(request);
@@ -606,10 +606,10 @@ public class FlowTimeSimService : IFlowTimeSimService
         {
             // Generate YAML spec from the request parameters
             var yamlSpec = GenerateSimulationYaml(request);
-            
+
             // Log the generated YAML for debugging
             logger.LogInformation("Generated YAML for simulation:\n{Yaml}", yamlSpec);
-            
+
             // Call FlowTime-Sim API following artifact-first pattern
             var runResult = await simClient.RunAsync(yamlSpec);
             if (!runResult.Success)
@@ -625,11 +625,11 @@ public class FlowTimeSimService : IFlowTimeSimService
             }
 
             var runId = runResult.Value?.SimRunId ?? throw new InvalidOperationException("No run ID returned");
-            
+
             // Get configuration for versioned URL
-            var simConfig = configuration.GetSection(FlowTimeSimApiOptions.SectionName).Get<FlowTimeSimApiOptions>() 
+            var simConfig = configuration.GetSection(FlowTimeSimApiOptions.SectionName).Get<FlowTimeSimApiOptions>()
                 ?? new FlowTimeSimApiOptions();
-            
+
             // Return artifact-first result - no custom metadata blobs
             return new SimulationRunResult
             {
@@ -734,7 +734,7 @@ public class FlowTimeSimService : IFlowTimeSimService
                 metadata["utilizationRate"] = Math.Min(1.0, Convert.ToDouble(metadata["demandRate"]) / Convert.ToDouble(metadata["capacity"]));
                 metadata["expectedThroughput"] = Math.Min(Convert.ToDouble(metadata["demandRate"]), Convert.ToDouble(metadata["capacity"]));
                 break;
-                
+
             case "supply-chain-multi-tier":
                 metadata["networkType"] = "supply-chain";
                 metadata["supplierCount"] = request.Parameters.GetValueOrDefault("supplierCount", 3);
@@ -742,7 +742,7 @@ public class FlowTimeSimService : IFlowTimeSimService
                 metadata["demandPattern"] = request.Parameters.GetValueOrDefault("demandPattern", "steady");
                 metadata["complexity"] = "multi-tier";
                 break;
-                
+
             case "manufacturing-line":
                 metadata["networkType"] = "manufacturing";
                 metadata["stationCount"] = request.Parameters.GetValueOrDefault("stationCount", 5);
@@ -750,7 +750,7 @@ public class FlowTimeSimService : IFlowTimeSimService
                 metadata["qualityRate"] = request.Parameters.GetValueOrDefault("qualityRate", 0.95);
                 metadata["expectedOutput"] = Math.Round(60.0 / Convert.ToDouble(metadata["cycleTime"]) * Convert.ToDouble(metadata["qualityRate"]), 2);
                 break;
-                
+
             case "it-system-microservices":
                 metadata["networkType"] = "it-system";
                 metadata["requestRate"] = request.Parameters.GetValueOrDefault("requestRate", 100.0);
@@ -795,7 +795,7 @@ public class FlowTimeSimService : IFlowTimeSimService
         {
             // Try to get the series index to determine if run is complete
             var indexResult = await simClient.GetIndexAsync(runId);
-            
+
             if (indexResult.Success)
             {
                 return new SimulationStatus
@@ -844,36 +844,36 @@ public class FlowTimeSimService : IFlowTimeSimService
     {
         // Generate FlowTime-Sim compatible YAML based on the scenario and parameters
         var yaml = new StringBuilder();
-        
+
         // Schema version (recommended)
         yaml.AppendLine("schemaVersion: 1");
-        
+
         // RNG configuration
         yaml.AppendLine("rng: pcg");
-        
+
         // Get parameters with defaults based on scenario
-        var bins = request.Parameters.TryGetValue("bins", out var binValue) ? 
+        var bins = request.Parameters.TryGetValue("bins", out var binValue) ?
             Convert.ToInt32(binValue) : (request.TemplateId == "const-quick" ? 3 : 4);
-        var binMinutes = request.Parameters.TryGetValue("binMinutes", out var binMinValue) ? 
+        var binMinutes = request.Parameters.TryGetValue("binMinutes", out var binMinValue) ?
             Convert.ToInt32(binMinValue) : (request.TemplateId == "const-quick" ? 60 : 30);
-        var seed = request.Parameters.TryGetValue("seed", out var seedValue) ? 
+        var seed = request.Parameters.TryGetValue("seed", out var seedValue) ?
             Convert.ToInt32(seedValue) : (request.TemplateId == "const-quick" ? 42 : 123);
-        
+
         // Grid configuration (REQUIRED)
         yaml.AppendLine("grid:");
         yaml.AppendLine($"  bins: {bins}");
         yaml.AppendLine($"  binMinutes: {binMinutes}");
-        
+
         // Seed for deterministic runs
         yaml.AppendLine($"seed: {seed}");
-        
+
         // Arrivals configuration based on scenario type
         yaml.AppendLine("arrivals:");
-        
+
         if (request.TemplateId == "poisson-demo")
         {
             // Poisson arrivals
-            var rate = request.Parameters.TryGetValue("rate", out var rateValue) ? 
+            var rate = request.Parameters.TryGetValue("rate", out var rateValue) ?
                 Convert.ToDouble(rateValue) : 5.0;
             yaml.AppendLine("  kind: poisson");
             yaml.AppendLine($"  rate: {rate.ToString(CultureInfo.InvariantCulture)}");
@@ -881,7 +881,7 @@ public class FlowTimeSimService : IFlowTimeSimService
         else
         {
             // Constant arrivals (default for const-quick and fallback)
-            var arrivalValue = request.Parameters.TryGetValue("arrivalValue", out var arrivalValueParam) ? 
+            var arrivalValue = request.Parameters.TryGetValue("arrivalValue", out var arrivalValueParam) ?
                 Convert.ToInt32(arrivalValueParam) : 2;
             yaml.AppendLine("  kind: const");
             yaml.Append("  values: [");
@@ -892,11 +892,11 @@ public class FlowTimeSimService : IFlowTimeSimService
             }
             yaml.AppendLine("]");
         }
-        
+
         // Route configuration (REQUIRED)
         yaml.AppendLine("route:");
         yaml.AppendLine("  id: COMP_A");
-        
+
         return yaml.ToString();
     }
 

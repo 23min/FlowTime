@@ -4,16 +4,38 @@ body {
 }
 
 /* Theme background + text sync (light/dark) */
-body, .mud-layout, .mud-main-content {
+body,
+.mud-layout,
+.mud-main-content {
     background-color: var(--mud-palette-background) !important;
     color: var(--mud-palette-text-primary) !important;
     transition: background-color .25s ease, color .25s ease;
 }
 
 /* Ensure full viewport coverage */
-html, body, .mud-layout { min-height: 100%; }
+html,
+body,
+.mud-layout {
+    min-height: 100%;
+}
 
-.appbar-surface, .drawer-surface, .main-container {
+#app {
+    background-color: var(--mud-palette-background);
+}
+
+
+
+[data-theme="dark"] .panel-primary {
+    background-color: var(--mud-palette-surface) !important;
+}
+
+[data-theme="dark"] .panel-secondary {
+    background-color: var(--mud-palette-background-grey) !important;
+}
+
+.appbar-surface,
+.drawer-surface,
+.main-container {
     background-color: var(--mud-palette-surface) !important;
 }
 
@@ -21,14 +43,19 @@ html, body, .mud-layout { min-height: 100%; }
 .mud-button-root.color-primary:not(.mud-button-outlined) {
     color: var(--mud-palette-primary-contrast-text) !important;
 }
+
 .mud-button-root.color-secondary:not(.mud-button-outlined) {
     color: var(--mud-palette-secondary-contrast-text) !important;
 }
 
-.mud-drawer, .mud-appbar { backdrop-filter: saturate(1.2) blur(4px); }
+.mud-drawer,
+.mud-appbar {
+    backdrop-filter: saturate(1.2) blur(4px);
+}
 
 /* Table & paper subtle borders in dark mode */
-body.dark-mode .mud-paper, body.dark-mode .mud-table {
+body.dark-mode .mud-paper,
+body.dark-mode .mud-table {
     border-color: var(--mud-palette-divider) !important;
 }
 
@@ -157,11 +184,70 @@ code {
 
 /* Chart polish: keep line stroke width constant when SVG scales */
 .mud-charts-line-series path {
-    vector-effect: non-scaling-stroke; /* prevents stroke from scaling with transforms */
-    stroke-width: 1.4px; /* thinner consistent visual weight */
+    vector-effect: non-scaling-stroke;
+    /* prevents stroke from scaling with transforms */
+    stroke-width: 1.4px;
+    /* thinner consistent visual weight */
 }
 
 /* Optional: improve hit area without changing visual line thickness */
 .mud-charts-line-series path:hover {
     filter: brightness(1.15);
+}
+
+/* Navigation hierarchy styles - using multiple selectors for higher specificity */
+.mud-nav-link.nav-section-header,
+.mud-drawer .mud-nav-link.nav-section-header,
+.mud-nav-menu .mud-nav-link.nav-section-header {
+    font-weight: 600 !important;
+    font-size: 0.95rem !important;
+    margin-top: 0.5rem !important;
+    margin-bottom: 0.25rem !important;
+    border-left: 3px solid var(--mud-palette-primary) !important;
+    padding-left: 1rem !important;
+}
+
+.mud-nav-link.nav-section-header:first-child,
+.mud-drawer .mud-nav-link.nav-section-header:first-child,
+.mud-nav-menu .mud-nav-link.nav-section-header:first-child {
+    margin-top: 0 !important;
+}
+
+.mud-nav-link.nav-submenu,
+.mud-drawer .mud-nav-link.nav-submenu,
+.mud-nav-menu .mud-nav-link.nav-submenu {
+    padding-left: 4rem !important;
+    margin-left: 2rem !important;
+    font-size: 0.875rem !important;
+    opacity: 0.9 !important;
+    position: relative !important;
+    background-color: rgba(0, 0, 0, 0.1) !important;
+    border-radius: 4px !important;
+    margin-bottom: 2px !important;
+}
+
+.mud-nav-link.nav-submenu:hover,
+.mud-drawer .mud-nav-link.nav-submenu:hover,
+.mud-nav-menu .mud-nav-link.nav-submenu:hover {
+    opacity: 1 !important;
+    background-color: rgba(0, 0, 0, 0.2) !important;
+}
+
+.mud-nav-link.nav-submenu::before,
+.mud-drawer .mud-nav-link.nav-submenu::before,
+.mud-nav-menu .mud-nav-link.nav-submenu::before {
+    content: "└─" !important;
+    position: absolute !important;
+    left: 0.5rem !important;
+    top: 50% !important;
+    color: rgba(255, 255, 255, 0.4) !important;
+    transform: translateY(-50%) !important;
+    font-size: 0.75rem !important;
+}
+
+.mud-nav-link.nav-submenu .mud-icon,
+.mud-drawer .mud-nav-link.nav-submenu .mud-icon,
+.mud-nav-menu .mud-nav-link.nav-submenu .mud-icon {
+    margin-left: 0.25rem !important;
+    font-size: 1.125rem !important;
 }

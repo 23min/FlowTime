@@ -35,15 +35,31 @@ FlowTime implements a **dual-interface architecture** that separates expert prod
 
 **Expert Interface Routes:**
 ```
-/app                    → Dashboard/Home
-/app/runs              → Run Manager  
-/app/runs/{id}         → Run Details
-/app/scenarios         → Scenario Composer
-/app/pmf-library       → PMF Library
-/app/pmf-editor        → PMF Editor
-/app/graph/{runId}     → Graph Explorer
-/app/telemetry         → Telemetry Overlay
-/app/settings          → Configuration
+/                       → Dashboard/Home
+/analyze               → FlowTime Engine Overview (landing page)
+  /nodes               → Node Explorer (FlowTime Engine)
+  /api-demo            → API Testing (FlowTime Engine)  
+  /scenarios           → Scenario Composer (FlowTime Engine) - future
+/simulate              → FlowTime-Sim Overview (landing page)
+  /sim/templates       → Template Studio (FlowTime-Sim)
+  /sim/catalogs        → Catalog Browser (FlowTime-Sim) - future
+/tools                 → Tools Overview (landing page)
+  /health              → System Health Monitor
+  /settings            → Configuration - future
+```
+
+**Navigation Structure (Flat with Visual Hierarchy):**
+```
+🏠 Home
+📊 ANALYZE (FlowTime Engine) → /analyze
+    Node Explorer → /nodes
+    API Testing → /api-demo
+🎲 SIMULATE (FlowTime-Sim) → /simulate  
+    Template Studio → /sim/templates
+🔧 TOOLS → /tools
+    System Health → /health
+🎓 LEARN → /learn
+    Getting Started → /learn/welcome
 ```
 
 **Learning Interface Routes:**

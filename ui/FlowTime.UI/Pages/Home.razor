@@ -1,13 +1,118 @@
 ﻿@page "/"
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Home - FlowTime</PageTitle>
 
-<MudText Typo="Typo.h3" GutterBottom="true">FlowTime</MudText>
-<MudPaper Class="pa-4" Elevation="1">
-    <MudText Class="mb-2">Welcome. This is the UI M0 scaffold using MudBlazor.</MudText>
-    <MudList Dense="true" T="string">
-        <MudListItem T="string">Node catalog</MudListItem>
-        <MudListItem T="string">API demo page</MudListItem>
-        <MudListItem T="string">Dark/light theme toggle</MudListItem>
-    </MudList>
-</MudPaper>
+<MudGrid>
+    <!-- Welcome Header -->
+    <MudItem xs="12">
+        <MudPaper Class="pa-6" Elevation="2">
+            <div class="text-center">
+                <MudText Typo="Typo.h3" GutterBottom="true">
+                    <MudIcon Icon="@Icons.Material.Filled.Timeline" Class="mr-3" Size="Size.Large" />
+                    Welcome to FlowTime
+                </MudText>
+                <MudText Typo="Typo.h6" Class="mb-4" Color="Color.Secondary">
+                    FlowTime helps you understand and explore how work flows through complex systems.
+                </MudText>
+                <MudText Typo="Typo.body1" Class="mb-3">
+                    Use it to replay real data for answers and insights, or to simulate possible futures and explore "what-if" scenarios.
+                </MudText>
+            </div>
+        </MudPaper>
+    </MudItem>
+    
+    <!-- Two Main Approaches -->
+    <MudItem xs="12">
+        <MudGrid>
+            <!-- Analyze Panel -->
+            <MudItem xs="12" md="6">
+                <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.Analytics" Style="height: 100%;">
+                    <div class="d-flex align-center mb-3">
+                        <MudText Typo="Typo.h5" Color="Color.Primary">Analyze</MudText>
+                    </div>
+                    <MudText Typo="Typo.body2" Class="mb-3">
+                        Deterministic, telemetry-driven, "digital twin" analysis
+                    </MudText>
+                    
+                    <MudList T="string" Dense="true" Class="mb-3">
+                        <MudListItem T="string" Icon="@Icons.Material.Filled.Timeline">
+                            Replay real telemetry (what is/was)
+                        </MudListItem>
+                        <MudListItem T="string" Icon="@Icons.Material.Filled.Speed">
+                            Study capacity & throughput limits
+                        </MudListItem>
+                        <MudListItem T="string" Icon="@Icons.Material.Filled.Layers">
+                            Run what-if overlays (outages, SLA)
+                        </MudListItem>
+                        <MudListItem T="string" Icon="@Icons.Material.Filled.Assessment">
+                            Get reproducible KPIs & charts
+                        </MudListItem>
+                    </MudList>
+                    
+                    <MudText Typo="Typo.body2">
+                        <strong>Choose Analyze when you want deterministic answers from real data.</strong>
+                    </MudText>
+                    
+                    <MudAlert Severity="Severity.Normal" Variant="Variant.Text" Dense="true" NoIcon="true" Class="mt-3">
+                        <div class="d-flex align-center">
+                            <MudIcon Icon="@Icons.Material.Filled.Lightbulb" Class="mr-2" Size="Size.Small" />
+                            <MudText Typo="Typo.body2">
+                                Don't have real data? Generate synthetic data with Simulation Studio.
+                            </MudText>
+                        </div>
+                    </MudAlert>
+                </MudAlert>
+            </MudItem>
+            
+            <!-- Simulate Panel -->
+            <MudItem xs="12" md="6">
+                <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.ShowChart" Style="height: 100%;">
+                    <div class="d-flex align-center mb-3">
+                        <MudText Typo="Typo.h5" Color="Color.Secondary">Simulate</MudText>
+                    </div>
+                    <MudText Typo="Typo.body2" Class="mb-3">
+                        Probabilistic, distribution-driven, "what if" simulation
+                    </MudText>
+                    
+                    <MudList T="string" Dense="true" Class="mb-3">
+                        <MudListItem T="string" Icon="@Icons.Material.Filled.AutoGraph">
+                            Generate synthetic data
+                        </MudListItem>
+                        <MudListItem T="string" Icon="@Icons.Material.Filled.ScatterPlot">
+                            Model uncertainty & variability
+                        </MudListItem>
+                        <MudListItem T="string" Icon="@Icons.Material.Filled.TrendingUp">
+                            Explore stress-test scenarios
+                        </MudListItem>
+                        <MudListItem T="string" Icon="@Icons.Material.Filled.School">
+                            Teach & demo without real data
+                        </MudListItem>
+                    </MudList>
+                    
+                    <MudText Typo="Typo.body2">
+                        <strong>Choose Simulate when you want to explore possibilities & risks.</strong>
+                    </MudText>
+                </MudAlert>
+            </MudItem>
+        </MudGrid>
+    </MudItem>
+    
+    <!-- Learning Resources -->
+    <MudItem xs="12">
+        <MudPaper Class="pa-4" Elevation="1">
+            <div class="text-center">
+                <MudText Typo="Typo.body1" Class="mb-3">
+                    <MudIcon Icon="@Icons.Material.Filled.Help" Class="mr-2" />
+                    Not sure which approach fits your needs?
+                </MudText>
+                <MudButton Href="/learn" 
+                          Variant="Variant.Outlined" 
+                          Color="Color.Tertiary" 
+                          StartIcon="@Icons.Material.Filled.School"
+                          Size="Size.Large">
+                    Explore Learning Resources
+                </MudButton>
+            </div>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
