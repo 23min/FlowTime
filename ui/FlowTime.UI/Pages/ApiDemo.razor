@@ -10,9 +10,7 @@
 <PageTitle>API Testing (FlowTime Engine)</PageTitle>
 
 <MudText Typo="Typo.h4" GutterBottom="true">API Testing</MudText>
-<MudText Class="mb-1">Interact with FlowTime Engine API using the typed client.</MudText>
-<MudText Typo="Typo.caption" Class="mb-4" Style="font-family:monospace">Client Mode: @(clientModeLabel)
-</MudText>
+<MudText Class="mb-4">Interact with FlowTime Engine API using the typed client.</MudText>
 @if (Flags.UseDemoMode)
 {
     <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Elevation="0" Class="mb-4">
@@ -36,9 +34,6 @@
                 <MudSelectItem Value="@kv.Key">@kv.Key</MudSelectItem>
             }
         </MudSelect>
-        <MudTooltip Text="Switch between predefined static models (no editing in this milestone).">
-            <MudIcon Color="Color.Info" Icon="@Icons.Material.Filled.Info" />
-        </MudTooltip>
     </MudStack>
     <MudPaper Class="pa-2 code-block" Elevation="0">@CurrentModelYaml</MudPaper>
     <MudStack Row="true" Spacing="2" Class="mt-3">
@@ -90,7 +85,7 @@
                     XAxisLabels="@chartLabels" ChartSeries="@chartSeries" />
                 @if (!string.IsNullOrEmpty(chartDiag))
                 {
-                    <MudText Typo="Typo.caption" Class="mb-2" Style="font-family:monospace; opacity:.55;">@chartDiag</MudText>
+                    <MudText Typo="Typo.caption" Class="mb-2" Style="font-family: 'JetBrains Mono', 'Consolas', 'Monaco', 'Menlo', 'Courier New', monospace; font-weight: 100; font-size: 12px; color: #FFFF00; opacity:.55;">@chartDiag</MudText>
                 }
             }
         </MudExpansionPanel>

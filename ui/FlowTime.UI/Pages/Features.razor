@@ -6,15 +6,10 @@
 <PageTitle>Features (FlowTime Engine)</PageTitle>
 
 <MudText Typo="Typo.h4" GutterBottom="true">Features</MudText>
-<MudText Class="mb-2">Available node types and expression functions (M1.5 + M2 capabilities). See also <a href="/docs/capability-matrix" target="_blank">Capability Matrix</a>.</MudText>
-<MudStack Row="true" Spacing="2" Class="mb-4">
-    <MudChip T="string" Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Small" Text="@($"Node Types: {NodeTypes.Count()}")" />
-    <MudChip T="string" Color="Color.Secondary" Variant="Variant.Outlined" Size="Size.Small" Text="@($"Expression Functions: {ExpressionFunctions.Count()}")" />
-    <MudChip T="string" Color="Color.Success" Variant="Variant.Outlined" Size="Size.Small" Text="@($"All Implemented: {NodeCatalog.All.Length}")" />
-</MudStack>
+<MudText Class="mb-4">Available node types and expression functions (M1.5 + M2 capabilities). See also <a href="/docs/capability-matrix" target="_blank">Capability Matrix</a>.</MudText>
 
-<MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-6">
-    <MudTabPanel Text="Node Types">
+<MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-6" Class="features-tabs">
+    <MudTabPanel Text="Node Types" Icon="@Icons.Material.Filled.AccountTree">
         <MudText Typo="Typo.h6" Class="mb-3">Graph Building Blocks</MudText>
         <MudText Class="mb-4">These are the fundamental node types that can be added to your FlowTime models to build computation graphs.</MudText>
         
@@ -31,7 +26,11 @@
                     <MudTd DataLabel="Kind"><MudChip T="string" Color="Color.Primary" Size="Size.Small">@context.Kind</MudChip></MudTd>
                     <MudTd DataLabel="Title">@context.Title</MudTd>
                     <MudTd DataLabel="Description">@context.Description</MudTd>
-                    <MudTd DataLabel="Example"><code style="font-size:.8rem;">@context.ExampleExpr</code></MudTd>
+                                                <MudTd DataLabel="Example" Style="background-color: #424242;">
+                                <span style="font-family: 'JetBrains Mono', 'Consolas', 'Monaco', 'Menlo', 'Courier New', monospace; font-weight: 100; font-size: 12px; color: #FFFF00; background-color: transparent;">
+                                    @(context.TableSyntax ?? context.ExampleExpr)
+                                </span>
+                            </MudTd>
                 </RowTemplate>
             </MudTable>
         </MudPaper>
@@ -49,7 +48,7 @@
                     @if (!string.IsNullOrWhiteSpace(n.ExampleExpr))
                     {
                         <MudText Typo="Typo.subtitle2" Class="mb-1">Example YAML:</MudText>
-                        <MudPaper Class="pa-3 mb-3" Elevation="0" Style="background-color: #f5f5f5;"><pre style="margin:0; font-size:.85rem; font-family: 'Courier New', monospace;">@n.ExampleExpr</pre></MudPaper>
+                        <MudPaper Class="pa-3 mb-3" Elevation="0" Style="background-color: #424242;"><pre style="margin:0; color: #FFFF00; font-family: 'JetBrains Mono', 'Consolas', 'Monaco', 'Menlo', 'Courier New', monospace; font-weight: 100; font-size: 12px; line-height: 1.4;">@n.ExampleExpr</pre></MudPaper>
                     }
                     @if (!string.IsNullOrWhiteSpace(n.Notes))
                     {
@@ -60,9 +59,9 @@
         </MudExpansionPanels>
     </MudTabPanel>
 
-    <MudTabPanel Text="Expression Functions">
+    <MudTabPanel Text="Expression Functions" Icon="@Icons.Material.Filled.Functions">
         <MudText Typo="Typo.h6" Class="mb-3">Expression Language Functions</MudText>
-        <MudText Class="mb-4">These functions can be used within <code>expr</code> nodes to create sophisticated mathematical expressions with temporal operations, comparisons, and value constraints.</MudText>
+        <MudText Class="mb-4">These functions can be used within <code style="color: #FFFF00; background-color: #424242; padding: 2px 4px; border-radius: 2px; font-family: 'JetBrains Mono', 'Consolas', 'Monaco', 'Menlo', 'Courier New', monospace; font-weight: 100; font-size: 12px;">expr</code> nodes to create sophisticated mathematical expressions with temporal operations, comparisons, and value constraints.</MudText>
         
         <MudPaper Class="pa-4 mb-4" Elevation="1">
             <MudTextField @bind-Value="_funcSearch" Placeholder="Filter functions..." Immediate="true" Variant="Variant.Outlined" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Class="mb-2" />
@@ -75,7 +74,7 @@
                 <RowTemplate>
                     <MudTd DataLabel="Function"><MudChip T="string" Color="Color.Secondary" Size="Size.Small">@context.Kind</MudChip></MudTd>
                     <MudTd DataLabel="Description">@context.Description</MudTd>
-                    <MudTd DataLabel="Usage"><code style="font-size:.8rem;">@context.ExampleExpr</code></MudTd>
+                    <MudTd DataLabel="Usage" Style="background-color: #424242;"><code style="color: #FFFF00; background-color: transparent; font-family: 'JetBrains Mono', 'Consolas', 'Monaco', 'Menlo', 'Courier New', monospace; font-weight: 100; font-size: 12px;">@(context.TableSyntax ?? context.ExampleExpr)</code></MudTd>
                 </RowTemplate>
             </MudTable>
         </MudPaper>
@@ -92,8 +91,8 @@
                     </MudStack>
                     @if (!string.IsNullOrWhiteSpace(n.ExampleExpr))
                     {
-                        <MudText Typo="Typo.subtitle2" Class="mb-1">Usage Examples:</MudText>
-                        <MudPaper Class="pa-3 mb-3" Elevation="0" Style="background-color: #f5f5f5;"><pre style="margin:0; font-size:.85rem; font-family: 'Courier New', monospace;">@n.ExampleExpr</pre></MudPaper>
+                        <MudText Typo="Typo.subtitle2" Class="mb-1">Numeric Examples:</MudText>
+                        <MudPaper Class="pa-3 mb-3" Elevation="0" Style="background-color: #424242;"><pre style="margin:0; color: #FFFF00; font-family: 'JetBrains Mono', 'Consolas', 'Monaco', 'Menlo', 'Courier New', monospace; font-weight: 100; font-size: 12px; line-height: 1.4;">@n.ExampleExpr</pre></MudPaper>
                     }
                     @if (!string.IsNullOrWhiteSpace(n.Notes))
                     {
@@ -115,7 +114,7 @@
     
     // Expression Functions: Functions available within expr nodes
     private IEnumerable<NodeMetadata> ExpressionFunctions => NodeCatalog.All.Where(n => 
-        n.Kind == "shift" || n.Kind == "min_max" || n.Kind == "clamp");
+        n.Kind == "SHIFT" || n.Kind == "MIN/MAX" || n.Kind == "CLAMP");
 
     private bool MatchesSearch(NodeMetadata node, string searchTerm)
     {
@@ -127,3 +126,22 @@
                (node.ExampleExpr?.ToLowerInvariant().Contains(s) ?? false);
     }
 }
+
+<style>
+/* Tab bar styling - light blue accent for light mode only */
+.mud-theme-light .features-tabs .mud-tabs-toolbar {
+    background-color: #80D8FF !important; /* Accent1 color */
+}
+
+.mud-theme-light .features-tabs .mud-tab {
+    color: #1976d2 !important; /* Darker blue for contrast */
+}
+
+.mud-theme-light .features-tabs .mud-tab.mud-tab-active {
+    background-color: rgba(255, 255, 255, 0.2) !important;
+    color: #0d47a1 !important; /* Even darker for active tab */
+    font-weight: 600 !important;
+}
+
+/* Dark mode tabs remain unchanged (default MudBlazor styling) */
+</style>

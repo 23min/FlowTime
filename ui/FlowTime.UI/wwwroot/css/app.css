@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@100;200;300;400;500;600;700;800&display=swap');
+
 html,
 body {
     font-family: Roboto, system-ui, sans-serif;
@@ -60,16 +62,17 @@ body.dark-mode .mud-table {
 }
 
 .code-block {
-    white-space: pre;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
-    font-size: 0.85rem;
-    background: var(--mud-palette-surface);
-    color: var(--mud-palette-text-primary);
-    border: 1px solid var(--mud-palette-divider);
+    white-space: pre !important;
+    font-family: 'JetBrains Mono', 'Consolas', 'Monaco', 'Menlo', 'Courier New', monospace !important;
+    font-size: 12px !important;
+    font-weight: 100 !important;
+    background-color: #424242 !important;
+    color: #FFFF00 !important;
+    border: 1px solid var(--mud-palette-divider) !important;
     overflow: auto;
     max-height: 260px;
     border-radius: 4px;
-    padding: .5rem .75rem;
+    padding: .5rem .75rem !important;
 }
 
 h1:focus {

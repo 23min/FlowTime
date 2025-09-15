@@ -10,6 +10,7 @@ public sealed record NodeMetadata(
     string Output,
     NodeStatus Status,
     string? ExampleExpr = null,
+    string? TableSyntax = null,
     string? Notes = null
 );
 
@@ -49,33 +50,36 @@ public static class NodeCatalog
             Notes: "M2 complete: Expected value calculation from discrete PMF. Full distribution propagation in M15."
         ),
         new(
-            Kind: "shift",
+            Kind: "SHIFT",
             Title: "SHIFT Function",
             Description: "Temporal lag operation with stateful history buffers. SHIFT(series, k) returns series lagged by k bins.",
             Inputs: "1 series + lag parameter",
             Output: "Series<double>",
             Status: NodeStatus.Implemented,
-            ExampleExpr: "SHIFT(demand, 2) → [0, 0, demand[0], demand[1], ...]",
+            ExampleExpr: "SHIFT(demand, 2)\nInput:  [10, 20, 30, 40]\nOutput: [ 0,  0, 10, 20]",
+            TableSyntax: "SHIFT(series, k)",
             Notes: "M1.5 stateful node: maintains history, causal evaluation (k ≥ 0), efficient circular buffers."
         ),
         new(
-            Kind: "min_max",
+            Kind: "MIN/MAX",
             Title: "MIN/MAX Functions",
             Description: "Element-wise minimum and maximum operations between two series or series-scalar combinations.",
             Inputs: "2 operands (series or scalars)",
             Output: "Series<double>",
             Status: NodeStatus.Implemented,
-            ExampleExpr: "MIN(demand, capacity), MAX(baseline, 0)",
+            ExampleExpr: "MIN(a, b): [10, 5, 20] ↔ [8, 12, 15] → [8, 5, 15]\nMAX(a, b): [10, 5, 20] ↔ [8, 12, 15] → [10, 12, 20]",
+            TableSyntax: "MIN(a, b), MAX(a, b)",
             Notes: "M1.5 complete: Handles series-series and series-scalar broadcasting."
         ),
         new(
-            Kind: "clamp",
+            Kind: "CLAMP",
             Title: "CLAMP Function",
             Description: "Value constraining operation. CLAMP(value, min, max) bounds each element to range [min, max].",
             Inputs: "3 operands (value, min, max)",
             Output: "Series<double>",
             Status: NodeStatus.Implemented,
-            ExampleExpr: "CLAMP(utilization, 0.0, 1.0)",
+            ExampleExpr: "CLAMP(x, 0.0, 1.0): [1.5, -0.3, 0.8, 2.1] → [1.0, 0.0, 0.8, 1.0]",
+            TableSyntax: "CLAMP(value, min, max)",
             Notes: "M1.5 complete: Ensures values stay within specified bounds, supports series/scalar mixing."
         )
     };
