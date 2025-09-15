@@ -1,0 +1,129 @@
+@page "/features"
+@using FlowTime.UI.Data
+@using MudBlazor
+@inject NavigationManager Nav
+
+<PageTitle>Features (FlowTime Engine)</PageTitle>
+
+<MudText Typo="Typo.h4" GutterBottom="true">Features</MudText>
+<MudText Class="mb-2">Available node types and expression functions (M1.5 + M2 capabilities). See also <a href="/docs/capability-matrix" target="_blank">Capability Matrix</a>.</MudText>
+<MudStack Row="true" Spacing="2" Class="mb-4">
+    <MudChip T="string" Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Small" Text="@($"Node Types: {NodeTypes.Count()}")" />
+    <MudChip T="string" Color="Color.Secondary" Variant="Variant.Outlined" Size="Size.Small" Text="@($"Expression Functions: {ExpressionFunctions.Count()}")" />
+    <MudChip T="string" Color="Color.Success" Variant="Variant.Outlined" Size="Size.Small" Text="@($"All Implemented: {NodeCatalog.All.Length}")" />
+</MudStack>
+
+<MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-6">
+    <MudTabPanel Text="Node Types">
+        <MudText Typo="Typo.h6" Class="mb-3">Graph Building Blocks</MudText>
+        <MudText Class="mb-4">These are the fundamental node types that can be added to your FlowTime models to build computation graphs.</MudText>
+        
+        <MudPaper Class="pa-4 mb-4" Elevation="1">
+            <MudTextField @bind-Value="_nodeSearch" Placeholder="Filter node types..." Immediate="true" Variant="Variant.Outlined" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Class="mb-2" />
+            <MudTable Dense="true" Hover="true" Items="NodeTypes.Where(n => MatchesSearch(n, _nodeSearch))">
+                <HeaderContent>
+                    <MudTh>Kind</MudTh>
+                    <MudTh>Title</MudTh>
+                    <MudTh>Description</MudTh>
+                    <MudTh>Example</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Kind"><MudChip T="string" Color="Color.Primary" Size="Size.Small">@context.Kind</MudChip></MudTd>
+                    <MudTd DataLabel="Title">@context.Title</MudTd>
+                    <MudTd DataLabel="Description">@context.Description</MudTd>
+                    <MudTd DataLabel="Example"><code style="font-size:.8rem;">@context.ExampleExpr</code></MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudPaper>
+
+        <MudExpansionPanels Elevation="1">
+            @foreach (var n in NodeTypes.Where(n => MatchesSearch(n, _nodeSearch)))
+            {
+                <MudExpansionPanel Text="@n.Title" Icon="@Icons.Material.Filled.AccountTree">
+                    <MudText Typo="Typo.body1" Class="mb-3">@n.Description</MudText>
+                    <MudStack Row="true" Spacing="1" Class="mb-3">
+                        <MudChip T="string" Variant="Variant.Outlined" Color="Color.Info" Size="Size.Small">Inputs: @n.Inputs</MudChip>
+                        <MudChip T="string" Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small">Output: @n.Output</MudChip>
+                        <MudChip T="string" Variant="Variant.Filled" Color="Color.Success" Size="Size.Small">@n.Status</MudChip>
+                    </MudStack>
+                    @if (!string.IsNullOrWhiteSpace(n.ExampleExpr))
+                    {
+                        <MudText Typo="Typo.subtitle2" Class="mb-1">Example YAML:</MudText>
+                        <MudPaper Class="pa-3 mb-3" Elevation="0" Style="background-color: #f5f5f5;"><pre style="margin:0; font-size:.85rem; font-family: 'Courier New', monospace;">@n.ExampleExpr</pre></MudPaper>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(n.Notes))
+                    {
+                        <MudAlert Severity="Severity.Info" Elevation="0">@n.Notes</MudAlert>
+                    }
+                </MudExpansionPanel>
+            }
+        </MudExpansionPanels>
+    </MudTabPanel>
+
+    <MudTabPanel Text="Expression Functions">
+        <MudText Typo="Typo.h6" Class="mb-3">Expression Language Functions</MudText>
+        <MudText Class="mb-4">These functions can be used within <code>expr</code> nodes to create sophisticated mathematical expressions with temporal operations, comparisons, and value constraints.</MudText>
+        
+        <MudPaper Class="pa-4 mb-4" Elevation="1">
+            <MudTextField @bind-Value="_funcSearch" Placeholder="Filter functions..." Immediate="true" Variant="Variant.Outlined" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Class="mb-2" />
+            <MudTable Dense="true" Hover="true" Items="ExpressionFunctions.Where(n => MatchesSearch(n, _funcSearch))">
+                <HeaderContent>
+                    <MudTh>Function</MudTh>
+                    <MudTh>Description</MudTh>
+                    <MudTh>Usage</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Function"><MudChip T="string" Color="Color.Secondary" Size="Size.Small">@context.Kind</MudChip></MudTd>
+                    <MudTd DataLabel="Description">@context.Description</MudTd>
+                    <MudTd DataLabel="Usage"><code style="font-size:.8rem;">@context.ExampleExpr</code></MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudPaper>
+
+        <MudExpansionPanels Elevation="1">
+            @foreach (var n in ExpressionFunctions.Where(n => MatchesSearch(n, _funcSearch)))
+            {
+                <MudExpansionPanel Text="@n.Title" Icon="@Icons.Material.Filled.Functions">
+                    <MudText Typo="Typo.body1" Class="mb-3">@n.Description</MudText>
+                    <MudStack Row="true" Spacing="1" Class="mb-3">
+                        <MudChip T="string" Variant="Variant.Outlined" Color="Color.Info" Size="Size.Small">@n.Inputs</MudChip>
+                        <MudChip T="string" Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small">Returns: @n.Output</MudChip>
+                        <MudChip T="string" Variant="Variant.Filled" Color="Color.Success" Size="Size.Small">@n.Status</MudChip>
+                    </MudStack>
+                    @if (!string.IsNullOrWhiteSpace(n.ExampleExpr))
+                    {
+                        <MudText Typo="Typo.subtitle2" Class="mb-1">Usage Examples:</MudText>
+                        <MudPaper Class="pa-3 mb-3" Elevation="0" Style="background-color: #f5f5f5;"><pre style="margin:0; font-size:.85rem; font-family: 'Courier New', monospace;">@n.ExampleExpr</pre></MudPaper>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(n.Notes))
+                    {
+                        <MudAlert Severity="Severity.Info" Elevation="0">@n.Notes</MudAlert>
+                    }
+                </MudExpansionPanel>
+            }
+        </MudExpansionPanels>
+    </MudTabPanel>
+</MudTabs>
+
+@code {
+    private string _nodeSearch = string.Empty;
+    private string _funcSearch = string.Empty;
+    
+    // Node Types: Actual graph building blocks
+    private IEnumerable<NodeMetadata> NodeTypes => NodeCatalog.All.Where(n => 
+        n.Kind == "const" || n.Kind == "expr" || n.Kind == "pmf");
+    
+    // Expression Functions: Functions available within expr nodes
+    private IEnumerable<NodeMetadata> ExpressionFunctions => NodeCatalog.All.Where(n => 
+        n.Kind == "shift" || n.Kind == "min_max" || n.Kind == "clamp");
+
+    private bool MatchesSearch(NodeMetadata node, string searchTerm)
+    {
+        if (string.IsNullOrWhiteSpace(searchTerm)) return true;
+        var s = searchTerm.Trim().ToLowerInvariant();
+        return node.Kind.ToLowerInvariant().Contains(s) ||
+               node.Title.ToLowerInvariant().Contains(s) ||
+               node.Description.ToLowerInvariant().Contains(s) ||
+               (node.ExampleExpr?.ToLowerInvariant().Contains(s) ?? false);
+    }
+}
