@@ -340,4 +340,66 @@ public partial class Program
         // 3. Default to solution root data directory
         return DirectoryProvider.GetDefaultDataDirectory();
     }
+    
+    /// <summary>
+    /// Helper utilities (similar to flowtime-sim-vnext approach)
+    /// </summary>
+    public static class ServiceHelpers
+    {
+        /// <summary>
+        /// Gets the root data directory.
+        /// Order of precedence:
+        /// 1. Environment variable FLOWTIME_DATA_DIR
+        /// 2. Configuration ArtifactsDirectory
+        /// 3. Default: solution root + "/data"
+        /// </summary>
+        public static string DataRoot(IConfiguration? configuration = null)
+        {
+            // Check environment variable first
+            var dataDir = Environment.GetEnvironmentVariable("FLOWTIME_DATA_DIR");
+            if (!string.IsNullOrWhiteSpace(dataDir))
+            {
+                Directory.CreateDirectory(dataDir);
+                return dataDir;
+            }
+
+            // Check configuration if provided
+            if (configuration != null)
+            {
+                var configDataDir = configuration["ArtifactsDirectory"];
+                if (!string.IsNullOrEmpty(configDataDir))
+                {
+                    // If absolute path, use as-is
+                    if (Path.IsPathRooted(configDataDir))
+                    {
+                        Directory.CreateDirectory(configDataDir);
+                        return configDataDir;
+                    }
+                    
+                    // If relative path, make it relative to solution root
+                    var solutionRoot = DirectoryProvider.FindSolutionRoot();
+                    if (!string.IsNullOrEmpty(solutionRoot))
+                    {
+                        var fullPath = Path.Combine(solutionRoot, configDataDir);
+                        Directory.CreateDirectory(fullPath);
+                        return fullPath;
+                    }
+                }
+            }
+
+            // Default to solution root + data
+            var defaultPath = DirectoryProvider.GetDefaultDataDirectory();
+            Directory.CreateDirectory(defaultPath);
+            return defaultPath;
+        }
+
+        /// <summary>
+        /// Gets the runs directory (same as data directory for FlowTime API)
+        /// </summary>
+        public static string RunsRoot(IConfiguration? configuration = null)
+        {
+            // For FlowTime API, runs are stored directly in the data directory
+            return DataRoot(configuration);
+        }
+    }
 }
