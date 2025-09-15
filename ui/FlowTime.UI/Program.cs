@@ -20,6 +20,9 @@ builder.Services.AddScoped<PreferencesService>();
 builder.Services.AddScoped<FlowTime.UI.Services.Interface.IInterfaceContextService, FlowTime.UI.Services.Interface.InterfaceContextService>();
 builder.Services.AddScoped<ILayoutService, LayoutService>();
 
+// Port discovery service for API endpoint fallback
+builder.Services.AddScoped<IPortDiscoveryService, PortDiscoveryService>();
+
 // FlowTime API client (for engine/core operations)
 builder.Services.AddScoped<IFlowTimeApiClient>(sp =>
 {
@@ -35,21 +38,8 @@ builder.Services.AddScoped<IFlowTimeApiClient>(sp =>
 	return new FlowTimeApiClient(apiHttp, config);
 });
 
-// FlowTime-Sim API client (for simulation operations) 
-builder.Services.AddScoped<IFlowTimeSimApiClient>(sp =>
-{
-	// Get configuration options
-	var config = builder.Configuration.GetSection(FlowTimeSimApiOptions.SectionName).Get<FlowTimeSimApiOptions>() 
-		?? new FlowTimeSimApiOptions();
-	
-	var simHttp = new HttpClient 
-	{ 
-		BaseAddress = new Uri(config.BaseUrl),
-		Timeout = TimeSpan.FromMinutes(config.TimeoutMinutes)
-	};
-	var logger = sp.GetRequiredService<ILogger<FlowTimeSimApiClient>>();
-	return new FlowTimeSimApiClient(simHttp, logger, config.ApiVersion);
-});
+// FlowTime-Sim API client (for simulation operations) with port fallback
+builder.Services.AddScoped<IFlowTimeSimApiClient, FlowTimeSimApiClientWithFallback>();
 builder.Services.AddScoped<FeatureFlagService>();
 builder.Services.AddScoped<ApiRunClient>();
 builder.Services.AddScoped<SimulationRunClient>();

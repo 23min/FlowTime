@@ -137,18 +137,18 @@ public class ServiceInfoProvider : IServiceInfoProvider
         var envVar = Environment.GetEnvironmentVariable("FLOWTIME_DATA_DIR");
         if (!string.IsNullOrWhiteSpace(envVar))
         {
-            return envVar;
+            return Path.GetFullPath(envVar);
         }
         
         // 2. Configuration setting (appsettings.json, etc.)
         var configValue = _configuration.GetValue<string>("ArtifactsDirectory");
         if (!string.IsNullOrWhiteSpace(configValue))
         {
-            return configValue;
+            return Path.GetFullPath(configValue);
         }
         
-        // 3. Default to ./data
-        return Path.Combine(Directory.GetCurrentDirectory(), "data");
+        // 3. Default to ./data - always return absolute path
+        return Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "data"));
     }
 
     private string GetRunsDirectory()

@@ -49,28 +49,41 @@ public class FlowTimeSimApiClient : IFlowTimeSimApiClient
     {
         try
         {
-            var response = await _httpClient.GetAsync($"/{_apiVersion}/healthz", ct);
+            // Call with detailed parameter to get full health information including endpoints and storage
+            var response = await _httpClient.GetAsync($"/{_apiVersion}/healthz?detailed=true", ct);
             response.EnsureSuccessStatusCode();
             
             var content = await response.Content.ReadAsStringAsync(ct);
             
-            // Try to parse as detailed health response first
+            // Try to parse as FlowTime-Sim specific detailed health response first
             try
             {
-                var detailedHealth = JsonSerializer.Deserialize<DetailedHealthResponse>(content, new JsonSerializerOptions 
+                var simDetailedHealth = JsonSerializer.Deserialize<FlowTimeSimDetailedHealthResponse>(content, new JsonSerializerOptions 
                 { 
                     PropertyNameCaseInsensitive = true 
                 });
-                return new Result<object>(true, detailedHealth, null, (int)response.StatusCode);
+                return new Result<object>(true, simDetailedHealth, null, (int)response.StatusCode);
             }
             catch
             {
-                // Fall back to simple health response
-                var simpleHealth = JsonSerializer.Deserialize<SimpleHealthResponse>(content, new JsonSerializerOptions 
-                { 
-                    PropertyNameCaseInsensitive = true 
-                });
-                return new Result<object>(true, simpleHealth, null, (int)response.StatusCode);
+                try
+                {
+                    // Fall back to SimpleHealthResponse format
+                    var simpleHealth = JsonSerializer.Deserialize<SimpleHealthResponse>(content, new JsonSerializerOptions 
+                    { 
+                        PropertyNameCaseInsensitive = true 
+                    });
+                    return new Result<object>(true, simpleHealth, null, (int)response.StatusCode);
+                }
+                catch
+                {
+                    // Final fallback to generic object
+                    var genericHealth = JsonSerializer.Deserialize<object>(content, new JsonSerializerOptions 
+                    { 
+                        PropertyNameCaseInsensitive = true 
+                    });
+                    return new Result<object>(true, genericHealth, null, (int)response.StatusCode);
+                }
             }
         }
         catch (Exception ex)

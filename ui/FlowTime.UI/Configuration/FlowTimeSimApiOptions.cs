@@ -25,9 +25,14 @@ public class FlowTimeSimApiOptions
     public const string SectionName = "FlowTimeSimApi";
 
     /// <summary>
-    /// The base URL for the FlowTime-Sim API (default: http://localhost:8091/)
+    /// The base URL for the FlowTime-Sim API (default: http://localhost:8090/)
     /// </summary>
-    public string BaseUrl { get; set; } = "http://localhost:8091/";
+    public string BaseUrl { get; set; } = "http://localhost:8090/";
+
+    /// <summary>
+    /// Fallback URLs to try if BaseUrl is not available
+    /// </summary>
+    public List<string> FallbackUrls { get; set; } = new() { "http://localhost:8091/" };
 
     /// <summary>
     /// The API version to use (default: v1)

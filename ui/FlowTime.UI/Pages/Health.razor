@@ -20,6 +20,29 @@
 }
 
 <MudPaper Class="pa-4 mb-4" Elevation="1">
+    <MudText Typo="Typo.h6" GutterBottom="true">Overall Status</MudText>
+    <MudText Typo="Typo.body2" Class="mb-2">Last updated: @lastUpdated.ToString("HH:mm:ss")</MudText>
+    <MudStack Row="true" Spacing="2">
+        @if (flowTimeApiStatus == ApiStatus.Healthy && flowTimeSimApiStatus == ApiStatus.Healthy)
+        {
+            <MudChip T="string" Color="Color.Success" Size="Size.Medium">All Services Healthy</MudChip>
+        }
+        else if (flowTimeApiStatus == ApiStatus.Unhealthy && flowTimeSimApiStatus == ApiStatus.Unhealthy)
+        {
+            <MudChip T="string" Color="Color.Error" Size="Size.Medium">All Services Down</MudChip>
+        }
+        else
+        {
+            <MudChip T="string" Color="Color.Warning" Size="Size.Medium">Partial Service Availability</MudChip>
+        }
+        
+        <MudButton Variant="Variant.Outlined" OnClick="RefreshAllHealth" Disabled="@isLoading">
+            Refresh All
+        </MudButton>
+    </MudStack>
+</MudPaper>
+
+<MudPaper Class="pa-4 mb-4" Elevation="1">
     <MudText Typo="Typo.h6" GutterBottom="true">FlowTime API</MudText>
     <MudStack Row="true" Spacing="2">
         <MudButton Variant="Variant.Filled" Color="@GetHealthButtonColor(flowTimeApiStatus)" OnClick="CheckFlowTimeApiHealthWithLoading"
@@ -46,26 +69,6 @@
     
     <MudText Typo="Typo.body2" Class="mt-2"><strong>Configured URL:</strong> @(FlowTimeApiClient.BaseAddress ?? "Not configured")</MudText>
     <MudText Typo="Typo.body2"><strong>Purpose:</strong> Core engine operations, model evaluation</MudText>
-    
-    <MudDivider Class="my-3" />
-    <MudText Typo="Typo.subtitle2">Endpoint Status</MudText>
-    <MudStack Row="true" Spacing="2" Class="mb-2">
-        <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="CheckV1Health" Disabled="@isLoading">
-            Check v1/healthz
-        </MudButton>
-        <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="CheckLegacyHealth" Disabled="@isLoading">
-            Check /healthz (legacy)
-        </MudButton>
-    </MudStack>
-    
-    @if (v1HealthStatus != null)
-    {
-        <MudText Typo="Typo.caption"><strong>v1/healthz:</strong> @v1HealthStatus</MudText>
-    }
-    @if (legacyHealthStatus != null)
-    {
-        <MudText Typo="Typo.caption"><strong>/healthz:</strong> @legacyHealthStatus</MudText>
-    }
     
     @if (!string.IsNullOrEmpty(flowTimeApiError))
     {
@@ -122,7 +125,7 @@
                 }
                 else if (flowTimeApiHealth is DetailedHealthResponse detailedApi)
                 {
-                    <MudText Typo="Typo.subtitle2">API Endpoints</MudText>
+                    <MudText Typo="Typo.subtitle2">Available Endpoints</MudText>
                     <MudStack Row="false" Spacing="1" AlignItems="AlignItems.Start" Class="mb-2">
                         <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Outlined">GET /@detailedApi.ApiVersion/healthz</MudChip>
                         <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Outlined">POST /@detailedApi.ApiVersion/run</MudChip>
@@ -133,7 +136,7 @@
                 }
                 else
                 {
-                    <MudText Typo="Typo.subtitle2">API Endpoints</MudText>
+                    <MudText Typo="Typo.subtitle2">Available Endpoints</MudText>
                     <MudStack Row="false" Spacing="1" AlignItems="AlignItems.Start" Class="mb-2">
                         <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Outlined">GET /v1/healthz</MudChip>
                         <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Outlined">POST /v1/run</MudChip>
@@ -196,7 +199,14 @@
         <MudText Typo="Typo.subtitle2">Service Information</MudText>
         <MudGrid>
             <MudItem xs="12" md="6">
-                @if (flowTimeSimApiHealth is DetailedHealthResponse detailed)
+                @if (flowTimeSimApiHealth is FlowTimeSimDetailedHealthResponse simDetailed)
+                {
+                    <MudText Typo="Typo.body2"><strong>Service:</strong> @simDetailed.Service</MudText>
+                    <MudText Typo="Typo.body2"><strong>API Version:</strong> v1</MudText>
+                    <MudText Typo="Typo.body2"><strong>Version:</strong> @simDetailed.Version</MudText>
+                    <MudText Typo="Typo.body2"><strong>Environment:</strong> @simDetailed.Environment</MudText>
+                }
+                else if (flowTimeSimApiHealth is DetailedHealthResponse detailed)
                 {
                     <MudText Typo="Typo.body2"><strong>Service:</strong> @detailed.ServiceName</MudText>
                     <MudText Typo="Typo.body2"><strong>API Version:</strong> @detailed.ApiVersion</MudText>
@@ -214,12 +224,25 @@
                 else if (flowTimeSimApiHealth is SimpleHealthResponse simple)
                 {
                     <MudText Typo="Typo.body2"><strong>Service:</strong> @simple.Service</MudText>
+                    <MudText Typo="Typo.body2"><strong>API Version:</strong> v1</MudText>
                     <MudText Typo="Typo.body2"><strong>Status:</strong> @simple.Status</MudText>
                     <MudText Typo="Typo.body2"><strong>Version:</strong> @simple.Version</MudText>
+                    <MudText Typo="Typo.body2"><strong>Environment:</strong> @simple.Environment</MudText>
                 }
             </MudItem>
             <MudItem xs="12" md="6">
-                @if (flowTimeSimApiHealth is SimpleHealthResponse simpleWithEndpoints && simpleWithEndpoints.AvailableEndpoints?.Any() == true)
+                @* Show available endpoints - check both FlowTimeSimDetailedHealthResponse and SimpleHealthResponse since they have identical structure *@
+                @if (flowTimeSimApiHealth is FlowTimeSimDetailedHealthResponse simDetailedWithEndpoints && simDetailedWithEndpoints.AvailableEndpoints?.Any() == true)
+                {
+                    <MudText Typo="Typo.subtitle2">Available Endpoints</MudText>
+                    <MudStack Row="false" Spacing="1" AlignItems="AlignItems.Start" Class="mb-2">
+                        @foreach (var endpoint in simDetailedWithEndpoints.AvailableEndpoints)
+                        {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Outlined">@endpoint</MudChip>
+                        }
+                    </MudStack>
+                }
+                else if (flowTimeSimApiHealth is SimpleHealthResponse simpleWithEndpoints && simpleWithEndpoints.AvailableEndpoints?.Any() == true)
                 {
                     <MudText Typo="Typo.subtitle2">Available Endpoints</MudText>
                     <MudStack Row="false" Spacing="1" AlignItems="AlignItems.Start" Class="mb-2">
@@ -243,7 +266,20 @@
             </MudItem>
         </MudGrid>
         
-        @if (flowTimeSimApiHealth is DetailedHealthResponse detailedWithHealth && detailedWithHealth.Health?.Details != null)
+        @* Show storage information - check both FlowTimeSimDetailedHealthResponse and SimpleHealthResponse since they have identical structure *@
+        @if (flowTimeSimApiHealth is FlowTimeSimDetailedHealthResponse simDetailedWithStorage && !string.IsNullOrEmpty(simDetailedWithStorage.DataDirectory))
+        {
+            <MudDivider Class="my-3" />
+            <MudText Typo="Typo.subtitle2">Storage Locations</MudText>
+            <MudText Typo="Typo.body2"><strong>Data Directory:</strong> @simDetailedWithStorage.DataDirectory</MudText>
+        }
+        else if (flowTimeSimApiHealth is SimpleHealthResponse simpleWithStorage && !string.IsNullOrEmpty(simpleWithStorage.DataDirectory))
+        {
+            <MudDivider Class="my-3" />
+            <MudText Typo="Typo.subtitle2">Storage Locations</MudText>
+            <MudText Typo="Typo.body2"><strong>Data Directory:</strong> @simpleWithStorage.DataDirectory</MudText>
+        }
+        else if (flowTimeSimApiHealth is DetailedHealthResponse detailedWithHealth && detailedWithHealth.Health?.Details != null)
         {
             <MudDivider Class="my-3" />
             <MudText Typo="Typo.subtitle2">Storage Locations</MudText>
@@ -252,29 +288,6 @@
             <MudText Typo="Typo.body2"><strong>Catalogs Directory:</strong> @detailedWithHealth.Health.Details.CatalogsDirectory</MudText>
         }
     }
-</MudPaper>
-
-<MudPaper Class="pa-4" Elevation="1">
-    <MudText Typo="Typo.h6" GutterBottom="true">Overall Status</MudText>
-    <MudText Typo="Typo.body2" Class="mb-2">Last updated: @lastUpdated.ToString("HH:mm:ss")</MudText>
-    <MudStack Row="true" Spacing="2">
-        @if (flowTimeApiStatus == ApiStatus.Healthy && flowTimeSimApiStatus == ApiStatus.Healthy)
-        {
-            <MudChip T="string" Color="Color.Success" Size="Size.Medium">All Services Healthy</MudChip>
-        }
-        else if (flowTimeApiStatus == ApiStatus.Unhealthy && flowTimeSimApiStatus == ApiStatus.Unhealthy)
-        {
-            <MudChip T="string" Color="Color.Error" Size="Size.Medium">All Services Down</MudChip>
-        }
-        else
-        {
-            <MudChip T="string" Color="Color.Warning" Size="Size.Medium">Partial Service Availability</MudChip>
-        }
-        
-        <MudButton Variant="Variant.Outlined" OnClick="RefreshAllHealth" Disabled="@isLoading">
-            Refresh All
-        </MudButton>
-    </MudStack>
 </MudPaper>
 
 @code {
@@ -295,10 +308,6 @@
     private ApiStatus flowTimeApiStatus = ApiStatus.Unknown;
     private object? flowTimeApiHealth;
     private string? flowTimeApiError;
-    
-    // Endpoint status tracking
-    private string? v1HealthStatus;
-    private string? legacyHealthStatus;
 
     // FlowTime-Sim API status
     private ApiStatus flowTimeSimApiStatus = ApiStatus.Unknown;
@@ -321,8 +330,6 @@
         flowTimeSimApiError = null;
         flowTimeApiHealth = null;
         flowTimeSimApiHealth = null;
-        v1HealthStatus = null;
-        legacyHealthStatus = null;
         
         StateHasChanged();
 
@@ -331,23 +338,9 @@
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5)); // 5 second timeout for refresh all
             await CheckFlowTimeApiHealth(cts.Token);
             
-            // Test FlowTimeSimApiClient on page load too
+            // Check FlowTime-Sim API health with detailed information
             Console.WriteLine($"[RefreshAllHealth] Testing FlowTimeSimApiClient.BaseAddress: '{FlowTimeSimApiClient.BaseAddress}'");
-            var apiResult = await FlowTimeSimApiClient.HealthAsync(CancellationToken.None);
-            Console.WriteLine($"[RefreshAllHealth] FlowTimeSimApiClient.HealthAsync result: Success={apiResult.Success}, Error='{apiResult.Error}', StatusCode={apiResult.StatusCode}");
-            
-            if (apiResult.Success)
-            {
-                flowTimeSimApiStatus = ApiStatus.Healthy;
-                flowTimeSimApiError = null;
-                flowTimeSimApiHealth = null;
-                Console.WriteLine($"[RefreshAllHealth] SUCCESS via FlowTimeSimApiClient");
-            }
-            else
-            {
-                Console.WriteLine($"[RefreshAllHealth] FlowTimeSimApiClient failed, falling back to direct approach");
-                await CheckFlowTimeSimApiHealth(cts.Token);
-            }
+            await CheckFlowTimeSimApiHealth(cts.Token);
             
             lastUpdated = DateTime.Now;
         }
@@ -414,15 +407,20 @@
         try
         {
             // First try detailed health
+            Console.WriteLine("[CheckFlowTimeSimApiHealth] Calling GetDetailedHealthAsync...");
             var detailedResult = await FlowTimeSimApiClient.GetDetailedHealthAsync(ct);
+            Console.WriteLine($"[CheckFlowTimeSimApiHealth] GetDetailedHealthAsync result: Success={detailedResult.Success}, Value={detailedResult.Value?.GetType().Name}, StatusCode={detailedResult.StatusCode}");
+            
             if (detailedResult.Success && detailedResult.Value != null)
             {
+                Console.WriteLine($"[CheckFlowTimeSimApiHealth] SUCCESS - Using detailed health result of type: {detailedResult.Value.GetType().Name}");
                 flowTimeSimApiStatus = ApiStatus.Healthy;
                 flowTimeSimApiError = null;
                 flowTimeSimApiHealth = detailedResult.Value;
                 return;
             }
 
+            Console.WriteLine("[CheckFlowTimeSimApiHealth] GetDetailedHealthAsync failed, falling back to simple health check");
             // Fallback to simple health check
             var result = await FlowTimeSimApiClient.HealthAsync(ct);
             if (result.Success)
@@ -505,33 +503,7 @@
         }
     }
 
-    private async Task CheckV1Health()
-    {
-        try
-        {
-            var result = await FlowTimeApiClient.HealthAsync();
-            v1HealthStatus = result.Success ? "✅ Available" : $"❌ Failed ({result.StatusCode})";
-        }
-        catch (Exception ex)
-        {
-            v1HealthStatus = $"❌ Error: {ex.Message}";
-        }
-        StateHasChanged();
-    }
 
-    private async Task CheckLegacyHealth()
-    {
-        try
-        {
-            var result = await FlowTimeApiClient.LegacyHealthAsync();
-            legacyHealthStatus = result.Success ? "✅ Available" : $"❌ Failed ({result.StatusCode})";
-        }
-        catch (Exception ex)
-        {
-            legacyHealthStatus = $"❌ Error: {ex.Message}";
-        }
-        StateHasChanged();
-    }
 
     private Color GetHealthButtonColor(ApiStatus status)
     {

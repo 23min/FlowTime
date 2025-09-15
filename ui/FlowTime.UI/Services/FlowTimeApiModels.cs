@@ -64,6 +64,18 @@ public record SystemInfo(
     [property: JsonPropertyName("platform")] string? Platform,
     [property: JsonPropertyName("architecture")] string? Architecture);
 
+// FlowTime-Sim specific detailed health response format
+public record FlowTimeSimDetailedHealthResponse(
+    [property: JsonPropertyName("status")] string? Status,
+    [property: JsonPropertyName("service")] string? Service,
+    [property: JsonPropertyName("version")] string? Version,
+    [property: JsonPropertyName("timestamp")] string? Timestamp,
+    [property: JsonPropertyName("uptime")] string? Uptime,
+    [property: JsonPropertyName("environment")] string? Environment,
+    [property: JsonPropertyName("dataDirectory")] string? DataDirectory,
+    [property: JsonPropertyName("system")] SystemInfo? System,
+    [property: JsonPropertyName("availableEndpoints")] string[]? AvailableEndpoints);
+
 public record RunResponse(
     [property: JsonPropertyName("grid")] GridInfo Grid,
     [property: JsonPropertyName("order")] string[] Order,
