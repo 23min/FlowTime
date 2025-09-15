@@ -6,16 +6,16 @@
 <PageTitle>Node Explorer (FlowTime Engine)</PageTitle>
 
 <MudText Typo="Typo.h4" GutterBottom="true">Node Explorer</MudText>
-<MudText Class="mb-2">M0 available & planned node kinds. See also <a href="/docs/capability-matrix" target="_blank">Capability Matrix</a>.</MudText>
+<MudText Class="mb-2">Available node types and expression functions (M1.5 + M2 capabilities). See also <a href="/docs/capability-matrix" target="_blank">Capability Matrix</a>.</MudText>
 <MudStack Row="true" Spacing="2" Class="mb-4">
-    <MudChip T="string" Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Small">Total: @NodeCatalog.All.Count</MudChip>
-    <MudChip T="string" Color="Color.Success" Variant="Variant.Outlined" Size="Size.Small">Implemented: @ImplementedCount</MudChip>
-    <MudChip T="string" Color="Color.Warning" Variant="Variant.Outlined" Size="Size.Small">Planned: @PlannedCount</MudChip>
+    <MudChip T="string" Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Small" Text="@($"Total: {NodeCatalog.All.Length}")" />
+    <MudChip T="string" Color="Color.Success" Variant="Variant.Outlined" Size="Size.Small" Text="@($"Implemented: {ImplementedCount}")" />
+    <MudChip T="string" Color="Color.Warning" Variant="Variant.Outlined" Size="Size.Small" Text="@($"Planned: {PlannedCount}")" />
 </MudStack>
 
 <MudPaper Class="pa-4 mb-4" Elevation="1">
     <MudTextField @bind-Value="_search" Placeholder="Filter nodes..." Immediate="true" Variant="Variant.Outlined" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Class="mb-2" />
-    <MudTable Dense="true" Hover="true" Filter="Filter" Items="NodeCatalog.All">
+    <MudTable Dense="true" Hover="true" Items="NodeCatalog.All.Where(MatchesSearch)">
         <HeaderContent>
             <MudTh>Kind</MudTh>
             <MudTh>Title</MudTh>
@@ -63,7 +63,7 @@
     private int ImplementedCount => NodeCatalog.All.Count(n => n.Status == NodeStatus.Implemented);
     private int PlannedCount => NodeCatalog.All.Count(n => n.Status == NodeStatus.Planned);
 
-    private bool Filter(NodeMetadata node) => MatchesSearch(node);
+
     private bool MatchesSearch(NodeMetadata node)
     {
         if (string.IsNullOrWhiteSpace(_search)) return true;
