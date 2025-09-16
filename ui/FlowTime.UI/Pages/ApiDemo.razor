@@ -10,7 +10,8 @@
 <PageTitle>API Testing (FlowTime Engine)</PageTitle>
 
 <MudText Typo="Typo.h4" GutterBottom="true">API Testing</MudText>
-<MudText Class="mb-4">Interact with FlowTime Engine API using the typed client.</MudText>
+<MudText Class="mb-4">Interact with FlowTime Engine API through a guided workflow.</MudText>
+
 @if (Flags.UseDemoMode)
 {
     <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Elevation="0" Class="mb-4">
@@ -24,120 +25,207 @@
     <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-3" />
 }
 
-<MudPaper Class="pa-4 mb-4" Elevation="1">
-    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-2">
-        <MudText Typo="Typo.h6" Class="mb-0">Model</MudText>
-        <MudSelect T="string" Value="@selectedModelKey" ValueChanged="HandleModelChanged" Dense="true"
-            Variant="Variant.Outlined" Style="min-width:220px">
-            @foreach (var kv in modelCatalog)
+<MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-6" Class="api-wizard-tabs" @bind-ActivePanelIndex="activeTabIndex">
+    <MudTabPanel Text="1. Model" Icon="@Icons.Material.Filled.Description">
+        <MudText Typo="Typo.h6" Class="mb-3">Select Model</MudText>
+        <MudText Class="mb-4">Choose a FlowTime model to analyze. The YAML definition will be shown below.</MudText>
+        
+        <MudPaper Class="pa-4 mb-4" Elevation="1">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-3">
+                <MudText Typo="Typo.subtitle1" Class="mb-0">Model:</MudText>
+                <MudSelect T="string" Value="@selectedModelKey" ValueChanged="HandleModelChanged" Dense="true"
+                    Variant="Variant.Outlined">
+                    @foreach (var kv in modelCatalog)
+                    {
+                        <MudSelectItem Value="@kv.Key">@kv.Key</MudSelectItem>
+                    }
+                </MudSelect>
+                <MudSpacer />
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.AccountTree"
+                    OnClick="AnalyzeAndSwitchToGraph" Disabled="@(string.IsNullOrEmpty(selectedModelKey) || graphLoading)"
+                    Size="Size.Medium" Style="min-width: 120px;">
+                    @if (graphLoading)
+                    {
+                        <MudProgressCircular Class="mr-1" Size="Size.Small" Indeterminate="true" />
+                    }
+                    Analyze
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Success" StartIcon="@Icons.Material.Filled.PlayArrow"
+                    OnClick="RunAndSwitchToResults" Disabled="@(string.IsNullOrEmpty(selectedModelKey) || runLoading)"
+                    Size="Size.Medium" Style="min-width: 120px;">
+                    @if (runLoading)
+                    {
+                        <MudProgressCircular Class="mr-1" Size="Size.Small" Indeterminate="true" />
+                    }
+                    Run
+                </MudButton>
+            </MudStack>
+            
+            @if (!string.IsNullOrEmpty(selectedModelKey))
             {
-                <MudSelectItem Value="@kv.Key">@kv.Key</MudSelectItem>
+                <MudText Typo="Typo.subtitle2" Class="mb-2">Model Definition (YAML):</MudText>
+                <MudPaper Class="pa-2 code-block" Elevation="0" Style="max-height: 400px; overflow-y: auto;">@CurrentModelYaml</MudPaper>
             }
-        </MudSelect>
-    </MudStack>
-    <MudPaper Class="pa-2 code-block" Elevation="0">@CurrentModelYaml</MudPaper>
-    <MudStack Row="true" Spacing="2" Class="mt-3">
-        <MudButton Variant="Variant.Filled" Class="action-btn" Color="@RunButtonColor" OnClick="RunModel"
-            Disabled="@runLoading">
-            @if (runLoading)
-            {
-                <MudProgressCircular Class="mr-2" Size="Size.Small" Indeterminate="true" />
-            }
-            @RunButtonLabel
-        </MudButton>
-        <MudButton Variant="Variant.Outlined" Class="action-btn" Color="@GraphButtonColor" OnClick="GraphModel"
-            Disabled="@graphLoading">
-            @if (graphLoading)
-            {
-                <MudProgressCircular Class="mr-2" Size="Size.Small" Indeterminate="true" />
-            }
-            @GraphButtonLabel
-        </MudButton>
-    </MudStack>
-</MudPaper>
+        </MudPaper>
+    </MudTabPanel>
 
-<MudExpansionPanels MultiExpansion="true">
-    @if (runResult is not null)
-    {
-        <MudExpansionPanel Text="Run Result (series)" Expanded="@expandRun">
-            <MudText Typo="Typo.subtitle2" Class="mb-2">Order: @string.Join(", ", runResult.Order)</MudText>
-            @if (Flags.UseDemoMode && selectedModelKey != "simple")
+    <MudTabPanel Text="2. Graph" Icon="@Icons.Material.Filled.AccountTree" Disabled="@string.IsNullOrEmpty(selectedModelKey)">
+        <MudText Typo="Typo.h6" Class="mb-3">Graph Structure</MudText>
+        <MudText Class="mb-2">View how the model compiles into a computation graph with nodes and connections.</MudText>
+        <MudText Typo="Typo.body2" Class="mb-4" Style="color: var(--mud-palette-text-secondary);">
+            Calls the engine /graph endpoint to parse and validate the model structure.
+        </MudText>
+        
+        <MudPaper Class="pa-4 mb-4" Elevation="1" Style="min-height: 200px;">
+            @if (graphResult is null)
             {
-                <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Elevation="0" Dense="true" Class="mb-3">
-                    Extended model selected, but demo mode returns fixed simple model data.
-                </MudAlert>
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-3">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large" OnClick="GraphModel" Disabled="@graphLoading">
+                        @if (graphLoading)
+                        {
+                            <MudProgressCircular Class="mr-2" Size="Size.Small" Indeterminate="true" />
+                        }
+                        @(graphLoading ? "Analyzing..." : "Analyze Graph")
+                    </MudButton>
+                    <MudText Typo="Typo.caption" Style="color: var(--mud-palette-text-secondary);">
+                        Model: <strong>@(selectedModelKey ?? "None")</strong>
+                    </MudText>
+                </MudStack>
             }
-            <MudTable T="KeyValuePair<string, double[]>" Items="runResult.Series" Dense="true" Hover="true" Bordered="true"
-                Striped="true" Elevation="0">
-                <HeaderContent>
-                    <MudTh>Series</MudTh>
-                    <MudTh>Values</MudTh>
-                </HeaderContent>
-                <RowTemplate>
-                    <MudTd DataLabel="Series">@context.Key</MudTd>
-                    <MudTd DataLabel="Values">@string.Join(", ", context.Value)</MudTd>
-                </RowTemplate>
-            </MudTable>
-            @if (chartSeries?.Count > 0)
+            
+            @if (graphResult is null)
             {
-                <MudText Typo="Typo.caption" Class="mt-4 mb-1" Style="opacity:.75;">Series</MudText>
-                <MudChart @key="chartRenderVersion" Class="mb-2" Style="height:220px;" ChartType="ChartType.Line"
-                    XAxisLabels="@chartLabels" ChartSeries="@chartSeries" />
-                @if (!string.IsNullOrEmpty(chartDiag))
+                <MudStack AlignItems="AlignItems.Center" Spacing="3" Class="py-4" Style="opacity: 0.6;">
+                    <MudIcon Icon="@Icons.Material.Filled.AccountTree" Size="Size.Large" Color="Color.Primary" />
+                    <MudText Typo="Typo.body2" Align="Align.Center">
+                        Ready to compile your model into a computation graph and see the node structure.
+                    </MudText>
+                </MudStack>
+            }
+            
+            @if (graphResult is not null)
+            {
+                var stats = ComputeGraphStats(graphResult);
+                <MudText Typo="Typo.caption" Class="mb-2" Style="color: var(--mud-palette-text-secondary);">
+                    Nodes: @stats.Total, Sources: @stats.Sources, Sinks: @stats.Sinks, Max Fanout: @stats.MaxFanOut
+                </MudText>
+                @if (Flags.UseDemoMode && selectedModelKey != "simple")
                 {
-                    <MudText Typo="Typo.caption" Class="mb-2" Style="font-family: 'JetBrains Mono', 'Consolas', 'Monaco', 'Menlo', 'Courier New', monospace; font-weight: 100; font-size: 12px; color: #FFFF00; opacity:.55;">@chartDiag</MudText>
+                    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Elevation="0" Dense="true" Class="mb-3">
+                        Structural graph reflects simulation stub, not the extended model.
+                    </MudAlert>
                 }
+                
+                <MudText Typo="Typo.subtitle1" Class="mt-4 mb-2" Style="font-weight: 500;">Node Structure</MudText>
+                <MudTable T="NodeInfoView" Hover="true" Dense="true" Items="nodeViews" Elevation="0" Bordered="true"
+                    Striped="true">
+                    <HeaderContent>
+                        <MudTh>#</MudTh>
+                        <MudTh>Node</MudTh>
+                        <MudTh>Inputs</MudTh>
+                        <MudTh>In</MudTh>
+                        <MudTh>Out</MudTh>
+                        <MudTh>Role</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="#">@context.Order</MudTd>
+                        <MudTd DataLabel="Node">@context.Id</MudTd>
+                        <MudTd DataLabel="Inputs">@string.Join(", ", context.Inputs)</MudTd>
+                        <MudTd DataLabel="In">@context.InDegree</MudTd>
+                        <MudTd DataLabel="Out">@context.OutDegree</MudTd>
+                        <MudTd DataLabel="Role">
+                            @if (context.IsSource)
+                            {
+                                <MudChip T="string" Color="Color.Info" Variant="Variant.Outlined" Size="Size.Small">source</MudChip>
+                            }
+                            @if (context.IsSink)
+                            {
+                                <MudChip T="string" Color="Color.Warning" Variant="Variant.Outlined" Size="Size.Small">sink</MudChip>
+                            }
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+                
+                <MudDivider Class="my-4" />
+                <MudText Typo="Typo.subtitle1" Class="mb-2" Style="font-weight: 500;">Graph Visualization</MudText>
+                <MicroDag Structure="graphResult" Height="250" />
+                <div style="height: 40px;"></div>
             }
-        </MudExpansionPanel>
-    }
-    @if (graphResult is not null)
-    {
-        var stats = ComputeGraphStats(graphResult);
-        <MudExpansionPanel Text="Graph Structure" Expanded="@expandGraph">
-            <MudText Typo="Typo.subtitle2" Class="mb-2">Order: @string.Join(", ", graphResult.Order)</MudText>
-            <MudText Typo="Typo.caption" Class="mb-2">Nodes: @stats.Total · Sources: @stats.Sources · Sinks: @stats.Sinks ·
-                Max FanOut: @stats.MaxFanOut</MudText>
-            @if (Flags.UseDemoMode && selectedModelKey != "simple")
+        </MudPaper>
+    </MudTabPanel>
+
+    <MudTabPanel Text="3. Results" Icon="@Icons.Material.Filled.Timeline" Disabled="@string.IsNullOrEmpty(selectedModelKey)">
+        <MudText Typo="Typo.h6" Class="mb-3">Simulation Results</MudText>
+        <MudText Class="mb-2">Execute the model to generate time series data and view the results.</MudText>
+        <MudText Typo="Typo.body2" Class="mb-4" Style="color: var(--mud-palette-text-secondary);">
+            Calls the engine /run endpoint to execute the model and generate time series data.
+        </MudText>
+        
+        <MudPaper Class="pa-4 mb-4" Elevation="1" Style="min-height: 200px;">
+            @if (runResult is null)
             {
-                <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Elevation="0" Dense="true" Class="mb-3">
-                    Structural graph reflects simulation stub, not the extended model.
-                </MudAlert>
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-3">
+                    <MudButton Variant="Variant.Filled" Color="Color.Success" OnClick="RunModel" Disabled="@runLoading">
+                        @if (runLoading)
+                        {
+                            <MudProgressCircular Class="mr-2" Size="Size.Small" Indeterminate="true" />
+                        }
+                        @(runLoading ? "Running..." : "Run Simulation")
+                    </MudButton>
+                    <MudText Typo="Typo.caption" Style="color: var(--mud-palette-text-secondary);">
+                        Model: <strong>@(selectedModelKey ?? "None")</strong>
+                    </MudText>
+                </MudStack>
+                
+                <MudStack AlignItems="AlignItems.Center" Spacing="3" Class="py-4" Style="opacity: 0.6;">
+                    <MudIcon Icon="@Icons.Material.Filled.Timeline" Size="Size.Large" Color="Color.Primary" />
+                    <MudText Typo="Typo.body2" Align="Align.Center">
+                        Ready to execute your model and generate time series data with detailed results.
+                    </MudText>
+                </MudStack>
             }
-            <MudTable T="NodeInfoView" Hover="true" Dense="true" Items="nodeViews" Elevation="0" Bordered="true"
-                Striped="true">
-                <HeaderContent>
-                    <MudTh>#</MudTh>
-                    <MudTh>Node</MudTh>
-                    <MudTh>Inputs</MudTh>
-                    <MudTh>In</MudTh>
-                    <MudTh>Out</MudTh>
-                    <MudTh>Role</MudTh>
-                </HeaderContent>
-                <RowTemplate>
-                    <MudTd DataLabel="#">@context.Order</MudTd>
-                    <MudTd DataLabel="Node">@context.Id</MudTd>
-                    <MudTd DataLabel="Inputs">@string.Join(", ", context.Inputs)</MudTd>
-                    <MudTd DataLabel="In">@context.InDegree</MudTd>
-                    <MudTd DataLabel="Out">@context.OutDegree</MudTd>
-                    <MudTd DataLabel="Role">
-                        @if (context.IsSource)
-                        {
-                            <MudChip T="string" Color="Color.Info" Variant="Variant.Outlined" Size="Size.Small">source</MudChip>
-                        }
-                        @if (context.IsSink)
-                        {
-                            <MudChip T="string" Color="Color.Warning" Variant="Variant.Outlined" Size="Size.Small">sink
-                            </MudChip>
-                        }
-                    </MudTd>
-                </RowTemplate>
-            </MudTable>
-            <MudDivider Class="my-3" />
-            <MudText Typo="Typo.caption" Class="mb-1" Style="opacity:.75;">Micro DAG</MudText>
-            <MicroDag Structure="graphResult" Height="140" />
-        </MudExpansionPanel>
-    }
-</MudExpansionPanels>
+            
+            @if (runResult is not null)
+            {
+                <MudText Typo="Typo.caption" Class="mb-3">
+                    Generated @runResult.Series.Count series with @runResult.Order.Count time steps
+                </MudText>
+                
+                <MudText Typo="Typo.caption" Class="mb-2" Style="color: var(--mud-palette-text-secondary);">Execution Order: @string.Join(", ", runResult.Order)</MudText>
+                @if (Flags.UseDemoMode && selectedModelKey != "simple")
+                {
+                    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Elevation="0" Dense="true" Class="mb-3">
+                        Extended model selected, but demo mode returns fixed simple model data.
+                    </MudAlert>
+                }
+                
+                @if (chartSeries?.Count > 0)
+                {
+                    <MudText Typo="Typo.subtitle1" Class="mt-4 mb-2" Style="font-weight: 500;">Time Series Chart</MudText>
+                    <MudChart @key="chartRenderVersion" Class="mb-3" Style="height:280px;" ChartType="ChartType.Line"
+                        XAxisLabels="@chartLabels" ChartSeries="@chartSeries" />
+                }
+                
+                <MudText Typo="Typo.subtitle1" Class="mt-4 mb-2" Style="font-weight: 500;">Raw Data</MudText>
+                <MudTable T="KeyValuePair<string, double[]>" Items="runResult.Series" Dense="true" Hover="true" Bordered="true"
+                    Striped="true" Elevation="0">
+                    <HeaderContent>
+                        <MudTh>Series</MudTh>
+                        <MudTh>Values</MudTh>
+                        <MudTh>Range</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Series">@context.Key</MudTd>
+                        <MudTd DataLabel="Values">@string.Join(", ", context.Value.Select(v => v.ToString("F2")))</MudTd>
+                        <MudTd DataLabel="Range">@FormatSeriesRange(context.Key, context.Value.Min(), context.Value.Max())</MudTd>
+                    </RowTemplate>
+                </MudTable>
+            }
+        </MudPaper>
+    </MudTabPanel>
+</MudTabs>
+
+
 
 @code {
     private bool runLoading, graphLoading;
@@ -147,13 +235,12 @@
     private string clientModeLabel = "api";
     [Inject] private FeatureFlagService Flags { get; set; } = default!;
     private string? lastError;
+    private int activeTabIndex = 0; // 0=Model, 1=Graph, 2=Results
 
     private enum ReqState { Idle, Loading }
     private enum Outcome { None, Success, Failed }
     private ReqState runState = ReqState.Idle;
     private ReqState graphState = ReqState.Idle;
-    private bool expandRun = true;
-    private bool expandGraph = false;
 
     // Model catalog loaded from static files in wwwroot/models (no editing in this milestone)
     private readonly Dictionary<string, string> modelCatalog = new();
@@ -192,8 +279,6 @@
             {
                 runResult = res.Value;
                 BuildChart();
-                expandRun = true;
-                expandGraph = false;
                 // success outcome only reflected via results presence; no chip for run
             }
             else
@@ -229,8 +314,6 @@
             {
                 graphResult = res.Value;
                 nodeViews = BuildNodeViews(graphResult);
-                expandGraph = true;
-                expandRun = false;
             }
             else
             {
@@ -293,7 +376,7 @@
     }
 
     private static string FormatSeriesRange(string name, double min, double max)
-    => min == max ? $"{name}:{min:0.###}" : $"{name}:{min:0.###}-{max:0.###}";
+    => min == max ? $"{name}:{min:F2}" : $"{name}:{min:F2}-{max:F2}";
 
 
     private List<NodeInfoView> BuildNodeViews(GraphStructureResult g)
@@ -372,6 +455,18 @@
             lastError = "Model load error: " + ex.Message;
             Snackbar.Add(lastError, Severity.Error);
         }
+    }
+
+    private async Task AnalyzeAndSwitchToGraph()
+    {
+        activeTabIndex = 1; // Switch to Graph tab
+        await GraphModel(); // Call existing graph analysis method
+    }
+
+    private async Task RunAndSwitchToResults()
+    {
+        activeTabIndex = 2; // Switch to Results tab
+        await RunModel(); // Call existing run method
     }
 
 }

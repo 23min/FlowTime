@@ -106,6 +106,8 @@
 <style>
 .expert-main-content {
     padding-bottom: 32px; /* Make room for status bar */
+    max-height: calc(100vh - 64px - 32px); /* Maximum height to prevent overflow */
+    overflow-y: auto; /* Allow scrolling within main content if needed */
 }
 
 .drawer-surface {

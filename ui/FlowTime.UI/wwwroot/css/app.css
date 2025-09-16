@@ -70,9 +70,14 @@ body.dark-mode .mud-table {
     color: #FFFF00 !important;
     border: 1px solid var(--mud-palette-divider) !important;
     overflow: auto;
-    max-height: 260px;
     border-radius: 4px;
     padding: .5rem .75rem !important;
+}
+
+/* Override max-height for API Demo YAML viewer */
+.api-wizard-tabs .code-block {
+    max-height: none;
+    min-height: 400px;
 }
 
 h1:focus {
@@ -253,4 +258,69 @@ code {
 .mud-nav-menu .mud-nav-link.nav-submenu .mud-icon {
     margin-left: 0.25rem !important;
     font-size: 1.125rem !important;
+}
+
+/* API Wizard Tabs Styling */
+.api-wizard-tabs .mud-tabs-header {
+    background-color: var(--mud-palette-surface);
+    border-radius: 8px 8px 0 0;
+}
+
+.api-wizard-tabs .mud-tab {
+    font-weight: 500;
+    text-transform: none;
+    min-width: 140px;
+    padding: 12px 16px;
+}
+
+.api-wizard-tabs .mud-tab.mud-tab-active {
+    background-color: transparent;
+    color: var(--mud-palette-primary);
+    border-bottom: 2px solid var(--mud-palette-primary);
+    border-radius: 0;
+    margin: 0;
+}
+
+.api-wizard-tabs .mud-tabs-panels {
+    background-color: var(--mud-palette-background);
+    border-radius: 0 0 8px 8px;
+}
+
+.api-wizard-tabs .mud-tabs-panels .mud-tabpanel {
+    padding-bottom: 24px;
+}
+
+/* Reduce padding in table cells with chips */
+.api-wizard-tabs .mud-table .mud-table-cell {
+    padding-top: 8px;
+    padding-bottom: 8px;
+}
+
+.api-wizard-tabs .mud-table .mud-table-cell:last-child {
+    padding-top: 0px;
+    padding-bottom: 0px;
+}
+
+/* Add subtle outline to tables */
+.api-wizard-tabs .mud-table-root {
+    border: 1px solid var(--mud-palette-table-lines);
+    border-radius: 4px;
+}
+
+/* Model dropdown styling - keep it simple */
+.api-wizard-tabs .mud-select {
+    width: 300px !important;
+    margin-left: 8px !important;
+}
+
+.api-wizard-tabs .mud-select .mud-input-root {
+    min-height: 28px !important;
+    height: 28px !important;
+}
+
+.api-wizard-tabs .mud-select .mud-input-slot {
+    min-height: 28px !important;
+    height: 28px !important;
+    padding-top: 2px !important;
+    padding-bottom: 2px !important;
 }

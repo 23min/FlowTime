@@ -2,6 +2,7 @@ using System.Text;
 using FlowTime.Core;
 using FlowTime.Core.Configuration;
 using FlowTime.Core.Models;
+using FlowTime.Core.Services;
 using FlowTime.Adapters.Synthetic;
 using FlowTime.API.Models;
 using FlowTime.API.Services;
@@ -186,11 +187,12 @@ v1.MapPost("/graph", async (HttpRequest req, ILogger<Program> logger) =>
             var (grid, graph) = ModelParser.ParseModel(coreModel);
             var order = graph.TopologicalOrder();
             
-            // Get nodes from the coreModel since Graph doesn't expose them
+            // Since Graph doesn't expose nodes directly, we need to get the info from the model definition
+            // and construct the response based on the node metadata in the coreModel
             var edges = coreModel.Nodes.Select(n => new
             {
                 id = n.Id,
-                inputs = Array.Empty<string>() // For graph endpoint, we don't need detailed inputs
+                inputs = GraphAnalyzer.GetNodeInputs(n, coreModel)
             });
 
             return Results.Ok(new
@@ -297,7 +299,6 @@ v1.MapGet("/runs/{runId}/series/{seriesId}", async (string runId, string seriesI
         return Results.Problem($"Failed to read series: {ex.Message}");
     }
 });
-
 
 app.Run();
 

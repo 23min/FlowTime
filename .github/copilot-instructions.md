@@ -39,12 +39,12 @@ Purpose: give AI agents the minimum context to be productive and safe in this re
   - Captures both milestone completion and semantic version
   - More meaningful than pure semantic version naming for milestone-driven development
   - Located in `docs/releases/`
-
+  
 ## Dev workflows
 - Tasks: build (`dotnet build`), test (`dotnet test`), run CLI example (see `.vscode/tasks.json`).
 - Debug: 
-  - CLI: “.NET Launch FlowTime.Cli (hello)”
-  - API: “.NET Launch FlowTime.API” (http://localhost:5091). Use `apis/FlowTime.API/FlowTime.API.http`.
+  - CLI: ".NET Launch FlowTime.Cli (hello)"
+  - API: ".NET Launch FlowTime.API" (http://localhost:5091). Use `src/FlowTime.API/FlowTime.API.http`.
 
 ## Testing conventions
 - Docs: `docs/development/testing.md` (core vs API slice tests).
