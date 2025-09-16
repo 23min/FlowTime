@@ -1,7 +1,7 @@
 @using FlowTime.UI.Services
 @using MudBlazor
 @inject ICatalogService CatalogService
-@inject ISnackbar Snackbar
+@inject INotificationService NotificationService
 @inject FeatureFlagService FeatureFlags
 @implements IDisposable
 
@@ -94,7 +94,7 @@
         }
         catch (Exception ex)
         {
-            Snackbar.Add($"Failed to load catalogs: {ex.Message}", Severity.Error);
+            NotificationService.Add($"Failed to load catalogs: {ex.Message}", Severity.Error);
         }
     }
 

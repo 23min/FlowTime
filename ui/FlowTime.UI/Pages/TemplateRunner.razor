@@ -6,7 +6,7 @@
 @inject ITemplateService TemplateService
 @inject ICatalogService CatalogService
 @inject IFlowTimeSimService SimService
-@inject ISnackbar Snackbar
+@inject INotificationService NotificationService
 @inject FeatureFlagService FeatureFlags
 @implements IDisposable
 
@@ -377,7 +377,7 @@
     {
         if (!CanRunSimulation())
         {
-            Snackbar.Add("Select a template and catalog for the current mode before running.", Severity.Warning);
+            NotificationService.Add("Select a template and catalog for the current mode before running.", Severity.Warning);
             return;
         }
 
@@ -395,7 +395,7 @@
             };
 
             var serviceType = FeatureFlags.UseDemoMode ? "Demo Mode" : "FlowTime API";
-            Snackbar.Add($"Starting simulation using {serviceType}...", Severity.Info);
+            NotificationService.Add($"Starting simulation using {serviceType}...", Severity.Info);
 
             runResult = await SimService.RunSimulationAsync(request);
             
@@ -405,14 +405,14 @@
                 var errorMsg = FeatureFlags.UseDemoMode 
                     ? $"Demo error: {runResult.ErrorMessage}" 
                     : $"FlowTime API error: {runResult.ErrorMessage}";
-                Snackbar.Add(errorMsg, Severity.Error);
+                NotificationService.Add(errorMsg, Severity.Error);
             }
             else
             {
                 var resultMessage = FeatureFlags.UseDemoMode 
                     ? "Demo completed with built-in content!" 
                     : "Simulation completed via FlowTime API!";
-                Snackbar.Add(resultMessage, Severity.Success);
+                NotificationService.Add(resultMessage, Severity.Success);
             }
         }
         catch (HttpRequestException ex) when (ex.Message.Contains("timeout") || ex.Message.Contains("Timeout"))
@@ -420,19 +420,19 @@
             var errorMsg = FeatureFlags.UseDemoMode 
                 ? "Demo mode request timed out"
                 : "FlowTime API request timed out. Check if the service is running and accessible";
-            Snackbar.Add(errorMsg, Severity.Error);
+            NotificationService.Add(errorMsg, Severity.Error);
         }
         catch (HttpRequestException ex) when (ex.Message.Contains("Connection refused") || ex.Message.Contains("No connection"))
         {
             var errorMsg = FeatureFlags.UseDemoMode 
                 ? "Demo mode connection error"
                 : "Cannot connect to FlowTime API. Check service configuration and connectivity";
-            Snackbar.Add(errorMsg, Severity.Error);
+            NotificationService.Add(errorMsg, Severity.Error);
         }
         catch (Exception ex)
         {
             var prefix = FeatureFlags.UseDemoMode ? "Demo mode error" : "FlowTime API error";
-            Snackbar.Add($"{prefix}: {ex.Message}", Severity.Error);
+            NotificationService.Add($"{prefix}: {ex.Message}", Severity.Error);
         }
         finally
         {

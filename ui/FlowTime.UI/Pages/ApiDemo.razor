@@ -4,7 +4,7 @@
 @using MudBlazor
 @inject IRunClient RunClient
 @inject HttpClient Http
-@inject ISnackbar Snackbar
+@inject INotificationService NotificationService
 @inject PreferencesService Prefs
 
 <PageTitle>API Testing (FlowTime Engine)</PageTitle>
@@ -285,8 +285,8 @@
             {
                 runResult = null;
                 lastError = $"Run failed ({res.StatusCode}): {res.Error}";
-                // failure; no chip, error via snackbar
-                Snackbar.Add(lastError, Severity.Error);
+                // failure; no chip, error via snackbar and notifications
+                NotificationService.Add(lastError, Severity.Error);
             }
         }
         catch (Exception ex)
@@ -294,7 +294,7 @@
             runResult = null;
             // failure; no chip
             lastError = $"Run error: {ex.Message}";
-            Snackbar.Add(lastError, Severity.Error);
+            NotificationService.Add(lastError, Severity.Error);
         }
         finally { runLoading = false; runState = ReqState.Idle; await InvokeAsync(StateHasChanged); }
     }
@@ -320,8 +320,8 @@
                 graphResult = null;
                 nodeViews.Clear();
                 lastError = $"Graph failed ({res.StatusCode}): {res.Error}";
-                // failure outcome; no chip
-                Snackbar.Add(lastError, Severity.Error);
+                // failure outcome; no chip, error via snackbar and notifications
+                NotificationService.Add(lastError, Severity.Error);
             }
         }
         catch (Exception ex)
@@ -329,7 +329,7 @@
             graphResult = null;
             // failure outcome
             lastError = $"Graph error: {ex.Message}";
-            Snackbar.Add(lastError, Severity.Error);
+            NotificationService.Add(lastError, Severity.Error);
         }
         finally { graphLoading = false; graphState = ReqState.Idle; await InvokeAsync(StateHasChanged); }
     }
@@ -471,7 +471,7 @@
         catch (Exception ex)
         {
             lastError = "Model load error: " + ex.Message;
-            Snackbar.Add(lastError, Severity.Error);
+            NotificationService.Add(lastError, Severity.Error);
         }
     }
 

@@ -4,7 +4,7 @@
 @using Microsoft.JSInterop
 @using MudBlazor
 @inject ISimResultsService SimResults
-@inject ISnackbar Snackbar
+@inject INotificationService NotificationService
 @inject IJSRuntime JSRuntime
 @inject FeatureFlagService FeatureFlags
 @inject IConfiguration Configuration
@@ -207,19 +207,19 @@
             {
                 simulationData = result.Value;
                 hasLoadedResults = true;
-                Snackbar.Add($"Loaded {simulationData.Series.Count} series from simulation artifacts", Severity.Success);
+                NotificationService.Add($"Loaded {simulationData.Series.Count} series from simulation artifacts", Severity.Success);
                 
                 // Also trigger the parent callback
                 await OnViewResults.InvokeAsync();
             }
             else
             {
-                Snackbar.Add($"Failed to load simulation data: {result.Error}", Severity.Error);
+                NotificationService.Add($"Failed to load simulation data: {result.Error}", Severity.Error);
             }
         }
         catch (Exception ex)
         {
-            Snackbar.Add($"Error loading simulation results: {ex.Message}", Severity.Error);
+            NotificationService.Add($"Error loading simulation results: {ex.Message}", Severity.Error);
         }
         finally
         {
@@ -232,7 +232,7 @@
     {
         if (Result?.RunId == null || simulationData == null || !hasLoadedResults)
         {
-            Snackbar.Add("No data available to download", Severity.Warning);
+            NotificationService.Add("No data available to download", Severity.Warning);
             return;
         }
 
@@ -242,12 +242,12 @@
         
         if (resultSource == "sim" && !currentlyInSimMode)
         {
-            Snackbar.Add("This result was created in SIM mode, but you're currently in API mode. Turn on 'Use Simulation' to download SIM results.", Severity.Warning);
+            NotificationService.Add("This result was created in SIM mode, but you're currently in API mode. Turn on 'Use Simulation' to download SIM results.", Severity.Warning);
             return;
         }
         else if (resultSource != "sim" && currentlyInSimMode)
         {
-            Snackbar.Add("This result was created in API mode, but you're currently in SIM mode. Turn off 'Use Simulation' to download API results.", Severity.Warning);
+            NotificationService.Add("This result was created in API mode, but you're currently in SIM mode. Turn off 'Use Simulation' to download API results.", Severity.Warning);
             return;
         }
 
@@ -295,16 +295,16 @@
             
             if (downloadedCount > 0)
             {
-                Snackbar.Add($"Initiated download for {downloadedCount} of {totalSeries} series files", Severity.Success);
+                NotificationService.Add($"Initiated download for {downloadedCount} of {totalSeries} series files", Severity.Success);
             }
             else
             {
-                Snackbar.Add("Failed to initiate any downloads", Severity.Error);
+                NotificationService.Add("Failed to initiate any downloads", Severity.Error);
             }
         }
         catch (Exception ex)
         {
-            Snackbar.Add($"Error downloading results: {ex.Message}", Severity.Error);
+            NotificationService.Add($"Error downloading results: {ex.Message}", Severity.Error);
         }
     }
 

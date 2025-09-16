@@ -1,6 +1,7 @@
 ﻿@inherits LayoutComponentBase
 @using MudBlazor
 @using FlowTime.UI.Configuration
+@using FlowTime.UI.Services
 @implements IDisposable
 @inject FlowTime.UI.Services.ThemeService Theme
 @inject FlowTime.UI.Services.PreferencesService Prefs
@@ -156,6 +157,7 @@
     void ToggleDrawer() => _drawerOpen = !_drawerOpen;
     [Inject] IJSRuntime JS { get; set; } = default!;
     [Inject] IConfiguration Configuration { get; set; } = default!;
+    [Inject] INotificationService NotificationService { get; set; } = default!;
     async Task ToggleDarkAsync()
     {
         await Theme.EnsureLoadedAsync();
@@ -167,6 +169,12 @@
         await Task.WhenAll(Flags.EnsureLoadedAsync(), Theme.EnsureLoadedAsync(), Prefs.EnsureLoadedAsync());
         useDemoMode = Flags.UseDemoMode;
         Flags.Changed += OnFlagsChanged;
+        
+        // Register this layout with the notification service
+        if (NotificationService is NotificationService notificationService)
+        {
+            notificationService.RegisterLayout(this);
+        }
         
         // Start periodic health checks
         _ = Task.Run(PeriodicHealthCheck);

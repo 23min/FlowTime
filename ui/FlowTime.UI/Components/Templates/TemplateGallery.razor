@@ -2,7 +2,7 @@
 @using static FlowTime.UI.Pages.TemplateRunner
 @using MudBlazor
 @inject ITemplateService TemplateService
-@inject ISnackbar Snackbar
+@inject INotificationService NotificationService
 @inject FeatureFlagService FeatureFlags
 @implements IDisposable
 
@@ -135,11 +135,11 @@
             await OnTemplatesLoaded.InvokeAsync(templates);
             await InvokeAsync(StateHasChanged);
             var apiName = FeatureFlags.UseDemoMode ? "Demo templates" : "FlowTime API";
-            Snackbar.Add($"{apiName} is not available", Severity.Warning);
+            NotificationService.Add($"{apiName} is not available", Severity.Warning);
         }
         catch (Exception ex)
         {
-            Snackbar.Add($"Failed to load templates: {ex.Message}", Severity.Error);
+            NotificationService.Add($"Failed to load templates: {ex.Message}", Severity.Error);
             templates = null;
             filteredTemplates = new List<TemplateInfo>();
             await OnTemplatesLoaded.InvokeAsync(templates);

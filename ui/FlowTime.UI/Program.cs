@@ -15,6 +15,7 @@ builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.
 builder.Services.AddMudServices();
 builder.Services.AddSingleton<ThemeService>();
 builder.Services.AddScoped<PreferencesService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
 
 // Interface context service for dual interface support
 builder.Services.AddScoped<FlowTime.UI.Services.Interface.IInterfaceContextService, FlowTime.UI.Services.Interface.InterfaceContextService>();
