@@ -25,7 +25,7 @@ nodes:
     expr: "CLAMP(95 - response_time_minutes * 2 - (patient_acuity - 4) * 5, 50, 100)"
   - id: readmission_risk_pct
     kind: expr
-    expr: "CLAMP(5 + care_load_index * 2 + MAX(15 - response_time_minutes, 0) * -0.5, 2, 20)"
+    expr: "CLAMP(5 + care_load_index * 2 - MAX(15 - response_time_minutes, 0) * 0.5, 2, 20)"
   - id: medication_errors
     kind: expr
     expr: "CLAMP(1.2 + (care_load_index - 2) * 0.8 + MAX(response_time_minutes - 10, 0) * 0.3, 0.5, 8.0)"
