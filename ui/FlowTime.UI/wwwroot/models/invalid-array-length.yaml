@@ -1,0 +1,11 @@
+grid:
+  bins: 8
+  binMinutes: 60
+nodes:
+  - id: demand
+    kind: const
+    # ERROR: Array length (6) != grid bins (8)
+    values: [10, 20, 30, 40, 50, 60]
+outputs:
+  - series: demand
+    as: invalid.csv

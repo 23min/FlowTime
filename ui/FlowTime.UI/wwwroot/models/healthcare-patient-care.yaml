@@ -1,0 +1,37 @@
+grid:
+  bins: 14
+  binMinutes: 1440
+nodes:
+  - id: daily_admissions
+    kind: const
+    values: [45, 52, 48, 44, 50, 68, 72, 46, 51, 47, 43, 49, 65, 70]
+  - id: nursing_staff
+    kind: const
+    values: [28, 30, 32, 30, 28, 22, 20, 29, 31, 33, 31, 29, 23, 21]
+  - id: patient_acuity
+    kind: const
+    values: [4.2, 3.8, 4.1, 4.5, 4.8, 6.2, 6.8, 4.0, 3.9, 4.3, 4.6, 4.9, 6.0, 6.5]
+  - id: nurse_patient_ratio
+    kind: expr
+    expr: "nursing_staff / MAX(daily_admissions, 1)"
+  - id: care_load_index
+    kind: expr
+    expr: "daily_admissions * patient_acuity / 100"
+  - id: response_time_minutes
+    kind: expr
+    expr: "CLAMP(8 + (0.4 - nurse_patient_ratio) * 50, 3, 25)"
+  - id: patient_satisfaction
+    kind: expr
+    expr: "CLAMP(95 - response_time_minutes * 2 - (patient_acuity - 4) * 5, 50, 100)"
+  - id: readmission_risk_pct
+    kind: expr
+    expr: "CLAMP(5 + care_load_index * 2 + MAX(15 - response_time_minutes, 0) * -0.5, 2, 20)"
+  - id: medication_errors
+    kind: expr
+    expr: "CLAMP(1.2 + (care_load_index - 2) * 0.8 + MAX(response_time_minutes - 10, 0) * 0.3, 0.5, 8.0)"
+  - id: care_quality_score
+    kind: expr
+    expr: "CLAMP(90 - medication_errors * 3 - readmission_risk_pct * 1.5 + (nurse_patient_ratio - 0.5) * 20, 60, 100)"
+outputs:
+  - series: care_quality_score
+    as: healthcare.csv

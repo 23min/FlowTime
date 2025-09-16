@@ -1,0 +1,37 @@
+grid:
+  bins: 16
+  binMinutes: 1440
+nodes:
+  - id: daily_orders
+    kind: const
+    values: [850, 920, 880, 950, 1200, 1800, 1650, 900, 940, 880, 920, 1150, 1750, 1900, 920, 880]
+  - id: inventory_units
+    kind: const
+    values: [5000, 4800, 4600, 4200, 3800, 3200, 2400, 2200, 2100, 1950, 1800, 1500, 1100, 800, 600, 400]
+  - id: processing_capacity
+    kind: const
+    values: [1000, 1000, 1000, 1000, 1200, 800, 600, 1100, 1100, 1100, 1100, 1300, 900, 700, 1100, 1100]
+  - id: fulfilled_orders
+    kind: expr
+    expr: "MIN(daily_orders, MIN(inventory_units, processing_capacity))"
+  - id: backorders
+    kind: expr
+    expr: "MAX(daily_orders - fulfilled_orders, 0)"
+  - id: turnover_rate
+    kind: expr
+    expr: "fulfilled_orders / MAX(inventory_units, 1) * 100"
+  - id: shipping_cost
+    kind: expr
+    expr: "8.50 + MIN(backorders * 0.02, 15.00)"
+  - id: satisfaction_score
+    kind: expr
+    expr: "CLAMP(95 - backorders * 0.05 - MAX(daily_orders - processing_capacity, 0) * 0.08, 60, 100)"
+  - id: efficiency_metric
+    kind: expr
+    expr: "CLAMP(turnover_rate * (100 - MAX(turnover_rate - 25, 0) * 2) / 100, 0, 100)"
+  - id: rush_processing
+    kind: expr
+    expr: "MAX(100 - satisfaction_score - 5, 0) * 2"
+outputs:
+  - series: satisfaction_score
+    as: supply_chain.csv

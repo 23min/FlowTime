@@ -1,0 +1,31 @@
+grid:
+  bins: 7
+  binMinutes: 1440
+nodes:
+  - id: user_requests
+    kind: const
+    values: [850, 1250, 1400, 1600, 1550, 950, 780]
+  - id: auth_service
+    kind: const
+    values: [98.5, 97.2, 96.8, 95.1, 95.9, 98.8, 99.1]
+  - id: database_service
+    kind: expr
+    expr: "CLAMP(99.5 - user_requests * 0.002, 94, 99.5)"
+  - id: payment_service
+    kind: expr
+    expr: "CLAMP(auth_service - 1.5 - SHIFT(user_requests, 1) * 0.001, 92, 98)"
+  - id: notification_svc
+    kind: expr
+    expr: "MIN(database_service, auth_service) - 0.8"
+  - id: api_gateway
+    kind: expr
+    expr: "MIN(auth_service, MIN(database_service, payment_service)) * 0.98"
+  - id: order_processing
+    kind: expr
+    expr: "CLAMP(MIN(payment_service, database_service) - user_requests * 0.003, 88, 97)"
+  - id: system_health
+    kind: expr
+    expr: "MIN(api_gateway, MIN(order_processing, notification_svc)) * 0.95"
+outputs:
+  - series: system_health
+    as: it_services.csv

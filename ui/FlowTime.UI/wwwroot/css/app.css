@@ -203,6 +203,16 @@ code {
     filter: brightness(1.15);
 }
 
+/* Smaller font size for chart axis labels with max size limit */
+.mud-charts-x-axis text,
+.mud-charts-y-axis text {
+    font-size: clamp(8px, 10px, 16px) !important;
+}
+
+.mud-chart-legend text {
+    font-size: clamp(9px, 11px, 16px) !important;
+}
+
 /* Navigation hierarchy styles - using multiple selectors for higher specificity */
 .mud-nav-link.nav-section-header,
 .mud-drawer .mud-nav-link.nav-section-header,

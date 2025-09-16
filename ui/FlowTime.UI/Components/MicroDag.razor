@@ -37,7 +37,10 @@
                 var strokeWidth = n.IsSource || n.IsSink ? "1" : "1";
                 <g class="dag-node">
                     <rect x="@(Math.Round(n.X) + 0.5)" y="@(Math.Round(n.Y) + 0.5)" width="@DagLayout.NodeWidth" height="@DagLayout.NodeHeight" fill="@fill" stroke="@stroke" stroke-width="@strokeWidth" />
-                    <text x="@(n.X + DagLayout.NodeWidth/2.0)" y="@(n.Y + DagLayout.NodeHeight/2.0 + 4)" text-anchor="middle" font-size="11" fill="var(--mud-palette-text-primary)" style="font-family:monospace;">@n.Id</text>
+                    <text x="@(n.X + DagLayout.NodeWidth/2.0)" y="@(n.Y + DagLayout.NodeHeight/2.0 + 4)" text-anchor="middle" font-size="11" fill="var(--mud-palette-text-primary)" style="font-family:monospace;">
+                        <title>@n.Id</title>
+                        @TruncateNodeText(n.Id)
+                    </text>
                 </g>
             }
         </svg>
@@ -48,6 +51,15 @@
     [Parameter] public GraphStructureResult? Structure { get; set; }
     // Height derived from layout; parameter kept for backward compat but unused now.
     [Parameter] public int Height { get; set; } = 0;
+    
+    private static string TruncateNodeText(string nodeId)
+    {
+        // Approximate character limit for 70px width with 11px monospace font
+        const int maxChars = 8;
+        if (nodeId.Length <= maxChars)
+            return nodeId;
+        return nodeId.Substring(0, maxChars - 1) + "…";
+    }
 }
 
 @* Minimal DAG visualization intentionally compact ("micro-DAG"). *@

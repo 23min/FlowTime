@@ -190,8 +190,6 @@
                 <MudText Typo="Typo.caption" Class="mb-3">
                     Generated @runResult.Series.Count series with @runResult.Order.Count time steps
                 </MudText>
-                
-                <MudText Typo="Typo.caption" Class="mb-2" Style="color: var(--mud-palette-text-secondary);">Execution Order: @string.Join(", ", runResult.Order)</MudText>
                 @if (Flags.UseDemoMode && selectedModelKey != "simple")
                 {
                     <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Elevation="0" Dense="true" Class="mb-3">
@@ -212,12 +210,14 @@
                     <HeaderContent>
                         <MudTh>Series</MudTh>
                         <MudTh>Values</MudTh>
-                        <MudTh>Range</MudTh>
+                        <MudTh>Min</MudTh>
+                        <MudTh>Max</MudTh>
                     </HeaderContent>
                     <RowTemplate>
                         <MudTd DataLabel="Series">@context.Key</MudTd>
                         <MudTd DataLabel="Values">@string.Join(", ", context.Value.Select(v => v.ToString("F2")))</MudTd>
-                        <MudTd DataLabel="Range">@FormatSeriesRange(context.Key, context.Value.Min(), context.Value.Max())</MudTd>
+                        <MudTd DataLabel="Min">@context.Value.Min().ToString("F2")</MudTd>
+                        <MudTd DataLabel="Max">@context.Value.Max().ToString("F2")</MudTd>
                     </RowTemplate>
                 </MudTable>
             }
@@ -438,16 +438,34 @@
     {
         try
         {
-            // Load both models; ignore if already loaded
-            if (!modelCatalog.ContainsKey("simple"))
+            // Define all available models
+            var modelNames = new[]
             {
-                var simple = await Http.GetStringAsync("/models/simple.yaml");
-                modelCatalog["simple"] = simple;
-            }
-            if (!modelCatalog.ContainsKey("extended"))
+                "simple",
+                "extended", 
+                "invalid-array-length",
+                "it-system-monitoring",
+                "transport-logistics",
+                "supply-chain-dynamics",
+                "healthcare-patient-care"
+            };
+
+            // Load each model if not already loaded
+            foreach (var modelName in modelNames)
             {
-                var extended = await Http.GetStringAsync("/models/extended.yaml");
-                modelCatalog["extended"] = extended;
+                if (!modelCatalog.ContainsKey(modelName))
+                {
+                    try
+                    {
+                        var modelContent = await Http.GetStringAsync($"/models/{modelName}.yaml");
+                        modelCatalog[modelName] = modelContent;
+                    }
+                    catch (Exception ex)
+                    {
+                        // Log individual model load failures but continue with others
+                        Console.WriteLine($"Failed to load model '{modelName}': {ex.Message}");
+                    }
+                }
             }
         }
         catch (Exception ex)
