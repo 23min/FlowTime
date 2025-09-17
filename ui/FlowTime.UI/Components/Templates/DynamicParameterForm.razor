@@ -102,6 +102,7 @@
 
 @code {
     [Parameter] public TemplateInfo? Template { get; set; }
+    [Parameter] public Dictionary<string, object>? Parameters { get; set; }
     [Parameter] public EventCallback<Dictionary<string, object>> OnParametersChanged { get; set; }
     
     private Dictionary<string, object> parameters = new();
@@ -115,10 +116,19 @@
         {
             parameters.Clear();
             
-            // Initialize parameters with default values
+            // First, use provided Parameters if available
+            if (Parameters != null)
+            {
+                foreach (var param in Parameters)
+                {
+                    parameters[param.Key] = param.Value;
+                }
+            }
+            
+            // Then fill in any missing parameters with default values
             foreach (var property in Template.ParameterSchema.Properties)
             {
-                if (property.Value.Default != null)
+                if (!parameters.ContainsKey(property.Key) && property.Value.Default != null)
                 {
                     parameters[property.Key] = property.Value.Default;
                 }
@@ -127,6 +137,25 @@
             _previousTemplate = Template;
             ValidateAndNotify();
             await OnParametersChanged.InvokeAsync(parameters);
+        }
+        // Even if template hasn't changed, sync with provided Parameters
+        else if (Parameters != null && Template?.ParameterSchema?.Properties != null)
+        {
+            var hasChanges = false;
+            foreach (var param in Parameters)
+            {
+                if (!parameters.ContainsKey(param.Key) || !parameters[param.Key].Equals(param.Value))
+                {
+                    parameters[param.Key] = param.Value;
+                    hasChanges = true;
+                }
+            }
+            
+            if (hasChanges)
+            {
+                ValidateAndNotify();
+                StateHasChanged();
+            }
         }
     }
 

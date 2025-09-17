@@ -39,7 +39,7 @@ public class LayoutService : ILayoutService
         return route == "/" || // Landing page should be expert mode
                route.StartsWith("/app", StringComparison.OrdinalIgnoreCase) ||
                route.StartsWith("/templates", StringComparison.OrdinalIgnoreCase) ||
-               route.StartsWith("/nodes", StringComparison.OrdinalIgnoreCase) ||
+               route.StartsWith("/features", StringComparison.OrdinalIgnoreCase) ||
                route.StartsWith("/api-demo", StringComparison.OrdinalIgnoreCase) ||
                route.StartsWith("/health", StringComparison.OrdinalIgnoreCase);
     }

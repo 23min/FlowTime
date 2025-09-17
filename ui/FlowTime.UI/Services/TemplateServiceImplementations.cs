@@ -1,6 +1,8 @@
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
+using YamlDotNet.Serialization;
+using YamlDotNet.Serialization.NamingConventions;
 
 using FlowTime.UI.Configuration;
 
@@ -86,6 +88,15 @@ public class TemplateService : ITemplateService
         try
         {
             var template = await GetTemplateAsync(templateId);
+            
+            // Debug logging for IT system template
+            if (templateId == "it-system-microservices" && template?.ParameterSchema?.Properties != null)
+            {
+                logger.LogInformation("IT System template schema has {Count} properties: {Properties}", 
+                    template.ParameterSchema.Properties.Count,
+                    string.Join(", ", template.ParameterSchema.Properties.Keys));
+            }
+            
             return template?.ParameterSchema ?? new JsonSchema();
         }
         catch (Exception ex)
@@ -207,6 +218,218 @@ public class TemplateService : ITemplateService
                 },
                 Required = new List<string> { "bins", "binMinutes", "rate" }
             },
+            "it-system-microservices" => new JsonSchema
+            {
+                Title = "IT System Parameters",
+                Properties = new Dictionary<string, JsonSchemaProperty>
+                {
+                    ["requestRate"] = new JsonSchemaProperty
+                    {
+                        Type = "number",
+                        Title = "Peak Request Rate",
+                        Description = "Maximum requests per hour during business hours",
+                        Default = 100.0,
+                        Minimum = 1.0,
+                        Maximum = 1000.0
+                    },
+                    ["serviceCapacity"] = new JsonSchemaProperty
+                    {
+                        Type = "number",
+                        Title = "Service Capacity",
+                        Description = "Maximum requests each service can handle per hour",
+                        Default = 80.0,
+                        Minimum = 1.0,
+                        Maximum = 500.0
+                    },
+                    ["errorRate"] = new JsonSchemaProperty
+                    {
+                        Type = "number",
+                        Title = "Error Rate",
+                        Description = "Probability of service errors (0.0 to 1.0)",
+                        Default = 0.05,
+                        Minimum = 0.0,
+                        Maximum = 0.5
+                    },
+                    ["retryAttempts"] = new JsonSchemaProperty
+                    {
+                        Type = "integer",
+                        Title = "Retry Attempts",
+                        Description = "Number of retry attempts for failed requests",
+                        Default = 3,
+                        Minimum = 0,
+                        Maximum = 10
+                    },
+                    ["queueCapacity"] = new JsonSchemaProperty
+                    {
+                        Type = "integer",
+                        Title = "Queue Capacity",
+                        Description = "Maximum number of requests that can be queued",
+                        Default = 1000,
+                        Minimum = 10,
+                        Maximum = 10000
+                    },
+                    ["seed"] = new JsonSchemaProperty
+                    {
+                        Type = "integer",
+                        Title = "Random Seed",
+                        Description = "Seed for reproducible results (optional)",
+                        Default = 42,
+                        Minimum = 1,
+                        Maximum = 99999
+                    }
+                },
+                Required = new List<string> { "requestRate", "serviceCapacity", "errorRate" }
+            },
+            "transportation-basic" => new JsonSchema
+            {
+                Title = "Transportation Parameters",
+                Properties = new Dictionary<string, JsonSchemaProperty>
+                {
+                    ["demandRate"] = new JsonSchemaProperty
+                    {
+                        Type = "number",
+                        Title = "Demand Rate",
+                        Description = "Number of passengers per hour",
+                        Default = 10.0,
+                        Minimum = 1.0,
+                        Maximum = 100.0
+                    },
+                    ["capacity"] = new JsonSchemaProperty
+                    {
+                        Type = "number",
+                        Title = "Vehicle Capacity",
+                        Description = "Maximum passengers each vehicle can carry per hour",
+                        Default = 15.0,
+                        Minimum = 1.0,
+                        Maximum = 200.0
+                    },
+                    ["simulationHours"] = new JsonSchemaProperty
+                    {
+                        Type = "integer",
+                        Title = "Simulation Duration",
+                        Description = "Number of hours to simulate",
+                        Default = 24,
+                        Minimum = 1,
+                        Maximum = 168
+                    },
+                    ["seed"] = new JsonSchemaProperty
+                    {
+                        Type = "integer",
+                        Title = "Random Seed",
+                        Description = "Seed for reproducible results (optional)",
+                        Default = 42,
+                        Minimum = 1,
+                        Maximum = 99999
+                    }
+                },
+                Required = new List<string> { "demandRate", "capacity", "simulationHours" }
+            },
+            "manufacturing-line" => new JsonSchema
+            {
+                Title = "Manufacturing Parameters",
+                Properties = new Dictionary<string, JsonSchemaProperty>
+                {
+                    ["productionRate"] = new JsonSchemaProperty
+                    {
+                        Type = "number",
+                        Title = "Production Rate",
+                        Description = "Items produced per hour",
+                        Default = 50.0,
+                        Minimum = 1.0,
+                        Maximum = 1000.0
+                    },
+                    ["defectRate"] = new JsonSchemaProperty
+                    {
+                        Type = "number",
+                        Title = "Defect Rate",
+                        Description = "Probability of defective items (0.0 to 1.0)",
+                        Default = 0.03,
+                        Minimum = 0.0,
+                        Maximum = 0.5
+                    },
+                    ["maintenanceHours"] = new JsonSchemaProperty
+                    {
+                        Type = "integer",
+                        Title = "Maintenance Downtime",
+                        Description = "Hours per day for maintenance",
+                        Default = 2,
+                        Minimum = 0,
+                        Maximum = 12
+                    },
+                    ["shifts"] = new JsonSchemaProperty
+                    {
+                        Type = "integer",
+                        Title = "Number of Shifts",
+                        Description = "Number of production shifts per day",
+                        Default = 3,
+                        Minimum = 1,
+                        Maximum = 4
+                    },
+                    ["seed"] = new JsonSchemaProperty
+                    {
+                        Type = "integer",
+                        Title = "Random Seed",
+                        Description = "Seed for reproducible results (optional)",
+                        Default = 42,
+                        Minimum = 1,
+                        Maximum = 99999
+                    }
+                },
+                Required = new List<string> { "productionRate", "defectRate", "shifts" }
+            },
+            "supply-chain-multi-tier" => new JsonSchema
+            {
+                Title = "Supply Chain Parameters",
+                Properties = new Dictionary<string, JsonSchemaProperty>
+                {
+                    ["orderVolume"] = new JsonSchemaProperty
+                    {
+                        Type = "number",
+                        Title = "Daily Order Volume",
+                        Description = "Number of orders per day",
+                        Default = 100.0,
+                        Minimum = 1.0,
+                        Maximum = 10000.0
+                    },
+                    ["supplierReliability"] = new JsonSchemaProperty
+                    {
+                        Type = "number",
+                        Title = "Supplier Reliability",
+                        Description = "Percentage of on-time deliveries (0.0 to 1.0)",
+                        Default = 0.95,
+                        Minimum = 0.5,
+                        Maximum = 1.0
+                    },
+                    ["inventoryCapacity"] = new JsonSchemaProperty
+                    {
+                        Type = "integer",
+                        Title = "Warehouse Capacity",
+                        Description = "Maximum items in inventory",
+                        Default = 5000,
+                        Minimum = 100,
+                        Maximum = 100000
+                    },
+                    ["leadTimeDays"] = new JsonSchemaProperty
+                    {
+                        Type = "integer",
+                        Title = "Lead Time",
+                        Description = "Days from order to delivery",
+                        Default = 7,
+                        Minimum = 1,
+                        Maximum = 90
+                    },
+                    ["seed"] = new JsonSchemaProperty
+                    {
+                        Type = "integer",
+                        Title = "Random Seed",
+                        Description = "Seed for reproducible results (optional)",
+                        Default = 42,
+                        Minimum = 1,
+                        Maximum = 99999
+                    }
+                },
+                Required = new List<string> { "orderVolume", "supplierReliability", "inventoryCapacity" }
+            },
             _ => new JsonSchema
             {
                 Title = "Scenario Parameters",
@@ -283,6 +506,26 @@ public class TemplateService : ITemplateService
     {
         return new List<TemplateInfo>
         {
+            // Theoretical templates - useful in both demo and API modes
+            new()
+            {
+                Id = "const-arrivals-demo",
+                Name = "Constant Arrivals",
+                Description = "Simple model with constant arrival rates - ideal for learning FlowTime basics",
+                Category = "Theoretical",
+                Tags = new() { "theoretical", "beginner", "arrivals" },
+                ParameterSchema = CreateParameterSchemaForScenario("const-quick")
+            },
+            new()
+            {
+                Id = "poisson-arrivals-demo", 
+                Name = "Poisson Arrivals",
+                Description = "Stochastic arrival model using Poisson distribution - good for understanding variability",
+                Category = "Theoretical",
+                Tags = new() { "theoretical", "intermediate", "stochastic", "arrivals" },
+                ParameterSchema = CreateParameterSchemaForScenario("poisson-demo")
+            },
+            // Domain-specific templates
             new()
             {
                 Id = "transportation-basic",
@@ -602,13 +845,32 @@ public class FlowTimeSimService : IFlowTimeSimService
 
     private async Task<SimulationRunResult> RunDemoModeSimulationAsync(SimulationRunRequest request)
     {
+        string yamlSpec;
         try
         {
-            // Generate YAML spec from the request parameters
-            var yamlSpec = GenerateSimulationYaml(request);
+            // Generate YAML spec with FlowTime-Sim schema translation
+            yamlSpec = await GenerateSimulationYamlAsync(request);
 
             // Log the generated YAML for debugging
-            logger.LogInformation("Generated YAML for simulation:\n{Yaml}", yamlSpec);
+            logger.LogInformation("Generated FlowTime-Sim YAML for simulation:\n{Yaml}", yamlSpec);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("schema translation"))
+        {
+            // Schema translation failed - return clear error
+            logger.LogError(ex, "Schema translation failed for template {TemplateId}", request.TemplateId);
+            return new SimulationRunResult
+            {
+                RunId = $"translation_failed_{DateTime.UtcNow:yyyyMMddTHHmmssZ}",
+                Status = "failed",
+                StartTime = DateTime.UtcNow,
+                ErrorMessage = $"Template '{request.TemplateId}' cannot be automatically translated to FlowTime-Sim format. " +
+                              "This template may be too complex for synthetic data generation. " +
+                              "Try using the Analyze tab instead for flow analysis."
+            };
+        }
+
+        try
+        {
 
             // Call FlowTime-Sim API following artifact-first pattern
             var runResult = await simClient.RunAsync(yamlSpec);
@@ -840,62 +1102,507 @@ public class FlowTimeSimService : IFlowTimeSimService
         }
     }
 
+    public async Task<string> GenerateModelYamlAsync(SimulationRunRequest request)
+    {
+        await Task.CompletedTask; // Make this async for consistency
+        return GenerateSimulationYaml(request);
+    }
+
+    /// <summary>
+    /// Generate YAML for FlowTime-Sim using the arrivals/route schema format
+    /// </summary>
+    public async Task<string> GenerateSimulationYamlAsync(SimulationRunRequest request)
+    {
+        await Task.CompletedTask; // Make this async for consistency
+        
+        // Generate the modern nodes format first
+        var nodesYaml = GenerateSimulationYaml(request);
+        
+        // Convert to FlowTime-Sim format (arrivals/route schema)
+        return TranslateToSimulationSchema(nodesYaml, request);
+    }
+
     private static string GenerateSimulationYaml(SimulationRunRequest request)
     {
-        // Generate FlowTime-Sim compatible YAML based on the scenario and parameters
+        // Generate template-specific YAML with proper topology
+        var result = request.TemplateId switch
+        {
+            "it-system-microservices" => GenerateITSystemYaml(request),
+            "transportation-basic" => GenerateTransportationYaml(request),
+            "manufacturing-line" => GenerateManufacturingYaml(request),
+            "supply-chain-multi-tier" => GenerateSupplyChainYaml(request),
+            _ => GenerateBasicSimulationYaml(request)
+        };
+        
+        // Debug: Log which generation method was used
+        System.Diagnostics.Debug.WriteLine($"Generated YAML for template '{request.TemplateId}' using {request.TemplateId switch {
+            "it-system-microservices" => "GenerateITSystemYaml",
+            "transportation-basic" => "GenerateTransportationYaml", 
+            "manufacturing-line" => "GenerateManufacturingYaml",
+            "supply-chain-multi-tier" => "GenerateSupplyChainYaml",
+            _ => "GenerateBasicSimulationYaml (fallback)"
+        }}");
+        
+        return result;
+    }
+
+    /// <summary>
+    /// Translate from FlowTime Engine nodes schema to FlowTime-Sim arrivals/route schema
+    /// </summary>
+    private static string TranslateToSimulationSchema(string nodesYaml, SimulationRunRequest request)
+    {
+        try
+        {
+            // Parse the nodes YAML to extract the first const node for arrivals
+            using var reader = new StringReader(nodesYaml);
+            var deserializer = new DeserializerBuilder()
+                .WithNamingConvention(CamelCaseNamingConvention.Instance)
+                .IgnoreUnmatchedProperties()
+                .Build();
+                
+            var model = deserializer.Deserialize<Dictionary<string, object>>(nodesYaml);
+            
+            // Extract grid information
+            var grid = model.TryGetValue("grid", out var gridObj) ? gridObj as Dictionary<object, object> : null;
+            var bins = grid?.TryGetValue("bins", out var binsObj) == true ? Convert.ToInt32(binsObj) : 24;
+            var binMinutes = grid?.TryGetValue("binMinutes", out var binMinutesObj) == true ? Convert.ToInt32(binMinutesObj) : 60;
+            
+            // Extract the first const node as the arrival pattern
+            var nodes = model.TryGetValue("nodes", out var nodesObj) ? nodesObj as List<object> : null;
+            var firstConstNode = nodes?.OfType<Dictionary<object, object>>()
+                .FirstOrDefault(n => n.TryGetValue("kind", out var kind) && kind?.ToString() == "const");
+                
+            var values = firstConstNode?.TryGetValue("values", out var valuesObj) == true 
+                ? (valuesObj as List<object>)?.Select(v => Convert.ToDouble(v)).ToArray() 
+                : Enumerable.Repeat(100.0, bins).ToArray();
+            
+            var nodeId = firstConstNode?.TryGetValue("id", out var idObj) == true 
+                ? idObj?.ToString() ?? "demand" 
+                : "demand";
+
+            // Generate FlowTime-Sim YAML with arrivals/route schema
+            var yaml = new StringBuilder();
+            yaml.AppendLine("# Translated from nodes schema to FlowTime-Sim arrivals/route schema");
+            yaml.AppendLine("schemaVersion: 1");
+            yaml.AppendLine("grid:");
+            yaml.AppendLine($"  bins: {bins}");
+            yaml.AppendLine($"  binMinutes: {binMinutes}");
+            yaml.AppendLine();
+            yaml.AppendLine("arrivals:");
+            yaml.AppendLine("  kind: const");
+            yaml.Append("  values: [");
+            yaml.Append(string.Join(", ", values.Select(v => v.ToString("F0", CultureInfo.InvariantCulture))));
+            yaml.AppendLine("]");
+            yaml.AppendLine();
+            yaml.AppendLine("route:");
+            yaml.AppendLine($"  id: {nodeId}");
+            
+            return yaml.ToString();
+        }
+        catch (Exception ex)
+        {
+            // Don't hide translation failures - throw with clear context
+            throw new InvalidOperationException(
+                $"Failed to translate template '{request.TemplateId}' from nodes schema to FlowTime-Sim arrivals/route schema. " +
+                $"This template may be too complex for automatic translation. " +
+                $"Original error: {ex.Message}", ex);
+        }
+    }
+
+    private static string GenerateITSystemYaml(SimulationRunRequest request)
+    {
         var yaml = new StringBuilder();
-
-        // Schema version (recommended)
+        
+        // Get IT system parameters
+        var requestRate = request.Parameters.TryGetValue("requestRate", out var rr) ? Convert.ToDouble(rr) : 100.0;
+        var serviceCapacity = request.Parameters.TryGetValue("serviceCapacity", out var sc) ? Convert.ToDouble(sc) : 80.0;
+        var errorRate = request.Parameters.TryGetValue("errorRate", out var er) ? Convert.ToDouble(er) : 0.05;
+        var retryAttempts = request.Parameters.TryGetValue("retryAttempts", out var ra) ? Convert.ToInt32(ra) : 3;
+        var queueCapacity = request.Parameters.TryGetValue("queueCapacity", out var qc) ? Convert.ToInt32(qc) : 1000;
+        
+        // Calculate derived values
+        var bins = 24; // 24 hours
+        var binMinutes = 60; // hourly bins
+        var successRate = 1.0 - errorRate;
+        var effectiveCapacity = serviceCapacity * successRate;
+        
+        yaml.AppendLine("# IT System with Microservices - Generated Model");
+        yaml.AppendLine("# This demonstrates a modern web application handling user requests through microservices");
+        yaml.AppendLine();
         yaml.AppendLine("schemaVersion: 1");
+        yaml.AppendLine($"grid:");
+        yaml.AppendLine($"  bins: {bins}");
+        yaml.AppendLine($"  binMinutes: {binMinutes}");
+        yaml.AppendLine();
+        
+        yaml.AppendLine("nodes:");
+        
+        // User requests (varies by time of day - peak during business hours)
+        yaml.AppendLine("  # Incoming user requests (varies by time of day)");
+        yaml.AppendLine("  - id: user_requests");
+        yaml.AppendLine("    kind: const");
+        yaml.Append("    values: [");
+        for (int i = 0; i < bins; i++)
+        {
+            // Simulate daily traffic pattern with peak during business hours (9-17)
+            var timeOfDay = i;
+            var hourlyRate = timeOfDay >= 9 && timeOfDay <= 17 
+                ? requestRate * (0.8 + 0.4 * Math.Sin((timeOfDay - 9) * Math.PI / 8)) // Business hours with variation
+                : requestRate * (0.2 + 0.1 * Math.Sin(timeOfDay * Math.PI / 12)); // Off hours
+            
+            yaml.Append(hourlyRate.ToString("F0", CultureInfo.InvariantCulture));
+            if (i < bins - 1) yaml.Append(", ");
+        }
+        yaml.AppendLine("]");
+        yaml.AppendLine();
+        
+        // Load balancer
+        yaml.AppendLine("  # Load balancer distributes requests");
+        yaml.AppendLine("  - id: load_balancer");
+        yaml.AppendLine("    kind: expr");
+        yaml.AppendLine($"    expr: \"MIN(user_requests, {queueCapacity})\"");
+        yaml.AppendLine();
+        
+        // Authentication service
+        yaml.AppendLine("  # Authentication service processes login requests");
+        yaml.AppendLine("  - id: auth_service");
+        yaml.AppendLine("    kind: expr");
+        yaml.AppendLine($"    expr: \"MIN(load_balancer, {effectiveCapacity}) * {successRate:F3}\"");
+        yaml.AppendLine();
+        
+        // Business logic service
+        yaml.AppendLine("  # Business logic service handles authenticated requests");
+        yaml.AppendLine("  - id: business_service");
+        yaml.AppendLine("    kind: expr");
+        yaml.AppendLine($"    expr: \"MIN(auth_service, {serviceCapacity * 0.9:F0}) * {(1 - errorRate * 0.5):F3}\"");
+        yaml.AppendLine();
+        
+        // Database service
+        yaml.AppendLine("  # Database service handles data operations");
+        yaml.AppendLine("  - id: database_service");
+        yaml.AppendLine("    kind: expr"); 
+        yaml.AppendLine($"    expr: \"MIN(business_service, {serviceCapacity * 1.2:F0}) * {(1 - errorRate * 0.3):F3}\"");
+        yaml.AppendLine();
+        
+        // API Gateway (final output)
+        yaml.AppendLine("  # API Gateway final response");
+        yaml.AppendLine("  - id: api_response");
+        yaml.AppendLine("    kind: expr");
+        yaml.AppendLine("    expr: \"MIN(auth_service, MIN(business_service, database_service)) * 0.98\"");
+        yaml.AppendLine();
+        
+        // Retry logic for failed requests
+        if (retryAttempts > 0)
+        {
+            yaml.AppendLine("  # Retry service for failed requests");
+            yaml.AppendLine("  - id: retry_service");
+            yaml.AppendLine("    kind: expr");
+            yaml.AppendLine($"    expr: \"(user_requests - api_response) * {Math.Min(retryAttempts, 3) * 0.3:F2}\"");
+            yaml.AppendLine();
+        }
+        
+        yaml.AppendLine("outputs:");
+        yaml.AppendLine("  - series: user_requests");
+        yaml.AppendLine("    as: user_requests.csv");
+        yaml.AppendLine("  - series: api_response"); 
+        yaml.AppendLine("    as: served.csv");
+        yaml.AppendLine("  - series: auth_service");
+        yaml.AppendLine("    as: auth_service.csv");
+        yaml.AppendLine("  - series: business_service");
+        yaml.AppendLine("    as: business_service.csv");
+        yaml.AppendLine("  - series: database_service");
+        yaml.AppendLine("    as: database_service.csv");
+        
+        return yaml.ToString();
+    }
 
-        // RNG configuration
-        yaml.AppendLine("rng: pcg");
+    private static string GenerateTransportationYaml(SimulationRunRequest request)
+    {
+        var yaml = new StringBuilder();
+        
+        // Get transportation parameters
+        var demandRate = request.Parameters.TryGetValue("demandRate", out var dr) ? Convert.ToDouble(dr) : 10.0;
+        var capacity = request.Parameters.TryGetValue("capacity", out var cap) ? Convert.ToDouble(cap) : 15.0;
+        var simulationHours = request.Parameters.TryGetValue("simulationHours", out var h) ? Convert.ToInt32(h) : 24;
+        
+        yaml.AppendLine("# Transportation Network - Generated Model");
+        yaml.AppendLine("# This simulates passenger demand and vehicle capacity in a transit system");
+        yaml.AppendLine();
+        yaml.AppendLine("schemaVersion: 1");
+        yaml.Append($"grid:");
+        yaml.AppendLine($"  bins: {simulationHours}");
+        yaml.AppendLine($"  binMinutes: 60");
+        yaml.AppendLine();
+        yaml.AppendLine("nodes:");
+        
+        // Passenger demand (varies by hour - rush hours, etc.)
+        yaml.AppendLine("  # Passenger demand (varies by time of day)");
+        yaml.AppendLine("  - id: passenger_demand");
+        yaml.AppendLine("    kind: const");
+        yaml.Append("    values: [");
+        for (int i = 0; i < simulationHours; i++)
+        {
+            // Create rush hour patterns: morning (7-9) and evening (17-19)
+            var hourOfDay = i % 24;
+            var rushMultiplier = 1.0;
+            if ((hourOfDay >= 7 && hourOfDay <= 9) || (hourOfDay >= 17 && hourOfDay <= 19))
+            {
+                rushMultiplier = 2.5; // Rush hour
+            }
+            else if (hourOfDay >= 6 && hourOfDay <= 22)
+            {
+                rushMultiplier = 1.2; // Regular daytime
+            }
+            else
+            {
+                rushMultiplier = 0.3; // Night time
+            }
+            
+            var hourlyDemand = demandRate * rushMultiplier;
+            yaml.Append(hourlyDemand.ToString("F1", CultureInfo.InvariantCulture));
+            if (i < simulationHours - 1) yaml.Append(", ");
+        }
+        yaml.AppendLine("]");
+        yaml.AppendLine();
+        
+        // Vehicle capacity
+        yaml.AppendLine("  # Available vehicle capacity");
+        yaml.AppendLine("  - id: vehicle_capacity");
+        yaml.AppendLine("    kind: const");
+        yaml.AppendLine($"    values: [{string.Join(", ", Enumerable.Repeat(capacity.ToString("F0", CultureInfo.InvariantCulture), simulationHours))}]");
+        yaml.AppendLine();
+        
+        // Passengers served
+        yaml.AppendLine("  # Passengers successfully transported");
+        yaml.AppendLine("  - id: passengers_served");
+        yaml.AppendLine("    kind: expr");
+        yaml.AppendLine("    expr: \"MIN(passenger_demand, vehicle_capacity)\"");
+        yaml.AppendLine();
+        
+        // Unmet demand (overcrowding)
+        yaml.AppendLine("  # Unmet demand (overcrowding situations)");
+        yaml.AppendLine("  - id: unmet_demand");
+        yaml.AppendLine("    kind: expr");
+        yaml.AppendLine("    expr: \"MAX(0, passenger_demand - vehicle_capacity)\"");
+        yaml.AppendLine();
+        
+        // System utilization
+        yaml.AppendLine("  # System utilization rate");
+        yaml.AppendLine("  - id: utilization");
+        yaml.AppendLine("    kind: expr");
+        yaml.AppendLine("    expr: \"passengers_served / vehicle_capacity\"");
+        yaml.AppendLine();
+        
+        yaml.AppendLine("outputs:");
+        yaml.AppendLine("  - series: passenger_demand");
+        yaml.AppendLine("    as: demand.csv");
+        yaml.AppendLine("  - series: passengers_served");
+        yaml.AppendLine("    as: served.csv");
+        yaml.AppendLine("  - series: unmet_demand");
+        yaml.AppendLine("    as: overcrowding.csv");
+        yaml.AppendLine("  - series: utilization");
+        yaml.AppendLine("    as: utilization.csv");
+        
+        return yaml.ToString();
+    }
 
-        // Get parameters with defaults based on scenario
-        var bins = request.Parameters.TryGetValue("bins", out var binValue) ?
-            Convert.ToInt32(binValue) : (request.TemplateId == "const-quick" ? 3 : 4);
-        var binMinutes = request.Parameters.TryGetValue("binMinutes", out var binMinValue) ?
-            Convert.ToInt32(binMinValue) : (request.TemplateId == "const-quick" ? 60 : 30);
-        var seed = request.Parameters.TryGetValue("seed", out var seedValue) ?
-            Convert.ToInt32(seedValue) : (request.TemplateId == "const-quick" ? 42 : 123);
+    private static string GenerateManufacturingYaml(SimulationRunRequest request)
+    {
+        var yaml = new StringBuilder();
+        
+        // Get manufacturing parameters
+        var productionRate = request.Parameters.TryGetValue("productionRate", out var pr) ? Convert.ToDouble(pr) : 50.0;
+        var defectRate = request.Parameters.TryGetValue("defectRate", out var dr) ? Convert.ToDouble(dr) : 0.03;
+        var maintenanceHours = request.Parameters.TryGetValue("maintenanceHours", out var mh) ? Convert.ToInt32(mh) : 2;
+        var shifts = request.Parameters.TryGetValue("shifts", out var s) ? Convert.ToInt32(s) : 3;
+        
+        var hoursPerShift = 8;
+        var totalHours = shifts * hoursPerShift;
+        var qualityRate = 1.0 - defectRate;
+        var effectiveHours = totalHours - maintenanceHours;
+        var hourlyProduction = productionRate * qualityRate;
+        
+        yaml.AppendLine("# Manufacturing Production Line - Generated Model");
+        yaml.AppendLine("# This simulates a production line with quality control and maintenance downtime");
+        yaml.AppendLine();
+        yaml.AppendLine("schemaVersion: 1");
+        yaml.AppendLine($"grid:");
+        yaml.AppendLine($"  bins: {totalHours}");
+        yaml.AppendLine($"  binMinutes: 60");
+        yaml.AppendLine();
+        yaml.AppendLine("nodes:");
+        
+        // Raw material input
+        yaml.AppendLine("  # Raw material availability");
+        yaml.AppendLine("  - id: raw_materials");
+        yaml.AppendLine("    kind: const");
+        yaml.Append("    values: [");
+        for (int i = 0; i < totalHours; i++)
+        {
+            // Maintenance downtime reduces availability
+            var availability = (i < maintenanceHours) ? 0 : productionRate;
+            yaml.Append(availability.ToString("F0", CultureInfo.InvariantCulture));
+            if (i < totalHours - 1) yaml.Append(", ");
+        }
+        yaml.AppendLine("]");
+        yaml.AppendLine();
+        
+        // Production line stages
+        yaml.AppendLine("  # Assembly stage");
+        yaml.AppendLine("  - id: assembly");
+        yaml.AppendLine("    kind: expr");
+        yaml.AppendLine($"    expr: \"MIN(raw_materials, {hourlyProduction:F1})\"");
+        yaml.AppendLine();
+        
+        yaml.AppendLine("  # Quality control");
+        yaml.AppendLine("  - id: quality_control");
+        yaml.AppendLine("    kind: expr");
+        yaml.AppendLine($"    expr: \"assembly * {qualityRate:F3}\"");
+        yaml.AppendLine();
+        
+        yaml.AppendLine("  # Final packaging");
+        yaml.AppendLine("  - id: packaging");
+        yaml.AppendLine("    kind: expr");
+        yaml.AppendLine($"    expr: \"MIN(quality_control, {productionRate * 0.9:F1})\"");
+        yaml.AppendLine();
+        
+        yaml.AppendLine("  # Defective items (waste)");
+        yaml.AppendLine("  - id: defects");
+        yaml.AppendLine("    kind: expr");
+        yaml.AppendLine($"    expr: \"assembly * {defectRate:F3}\"");
+        yaml.AppendLine();
+        
+        yaml.AppendLine("outputs:");
+        yaml.AppendLine("  - series: raw_materials");
+        yaml.AppendLine("    as: raw_materials.csv");
+        yaml.AppendLine("  - series: packaging");
+        yaml.AppendLine("    as: finished_goods.csv");
+        yaml.AppendLine("  - series: defects");
+        yaml.AppendLine("    as: waste.csv");
+        
+        return yaml.ToString();
+    }
 
-        // Grid configuration (REQUIRED)
+    private static string GenerateSupplyChainYaml(SimulationRunRequest request)
+    {
+        var yaml = new StringBuilder();
+        
+        // Get supply chain parameters
+        var orderVolume = request.Parameters.TryGetValue("orderVolume", out var ov) ? Convert.ToDouble(ov) : 100.0;
+        var supplierReliability = request.Parameters.TryGetValue("supplierReliability", out var sr) ? Convert.ToDouble(sr) : 0.95;
+        var inventoryCapacity = request.Parameters.TryGetValue("inventoryCapacity", out var ic) ? Convert.ToInt32(ic) : 5000;
+        var leadTimeDays = request.Parameters.TryGetValue("leadTimeDays", out var ltd) ? Convert.ToInt32(ltd) : 7;
+        
+        var simulationDays = Math.Max(leadTimeDays * 4, 30); // At least 30 days or 4x lead time
+        var dailyCapacity = inventoryCapacity / 10.0; // 10% of capacity per day processing
+        
+        yaml.AppendLine("# Multi-Tier Supply Chain - Generated Model");
+        yaml.AppendLine("# This simulates order processing through suppliers, warehousing, and distribution");
+        yaml.AppendLine();
+        yaml.AppendLine("schemaVersion: 1");
+        yaml.AppendLine($"grid:");
+        yaml.AppendLine($"  bins: {simulationDays}");
+        yaml.AppendLine($"  binMinutes: 1440"); // Daily bins
+        yaml.AppendLine();
+        yaml.AppendLine("nodes:");
+        
+        // Customer orders
+        yaml.AppendLine("  # Daily customer orders");
+        yaml.AppendLine("  - id: customer_orders");
+        yaml.AppendLine("    kind: const");
+        yaml.Append("    values: [");
+        for (int i = 0; i < simulationDays; i++)
+        {
+            // Add some daily variation (±20%)
+            var dailyOrders = orderVolume * (0.8 + 0.4 * Math.Sin(i * Math.PI / 7)); // Weekly pattern
+            yaml.Append(dailyOrders.ToString("F0", CultureInfo.InvariantCulture));
+            if (i < simulationDays - 1) yaml.Append(", ");
+        }
+        yaml.AppendLine("]");
+        yaml.AppendLine();
+        
+        // Supplier processing with lead time and reliability
+        yaml.AppendLine("  # Supplier order processing (with lead time delay)");
+        yaml.AppendLine("  - id: supplier_orders");
+        yaml.AppendLine("    kind: expr");
+        yaml.AppendLine($"    expr: \"customer_orders * {supplierReliability:F3}\"");
+        yaml.AppendLine();
+        
+        // Warehouse receiving (delayed by lead time)
+        yaml.AppendLine("  # Warehouse receiving (simulated lead time impact)");
+        yaml.AppendLine("  - id: warehouse_receiving");
+        yaml.AppendLine("    kind: expr");
+        yaml.AppendLine($"    expr: \"MIN(supplier_orders, {dailyCapacity:F0})\"");
+        yaml.AppendLine();
+        
+        // Inventory management
+        yaml.AppendLine("  # Inventory processing");
+        yaml.AppendLine("  - id: inventory_processed");
+        yaml.AppendLine("    kind: expr");
+        yaml.AppendLine($"    expr: \"MIN(warehouse_receiving, {inventoryCapacity / simulationDays:F0})\"");
+        yaml.AppendLine();
+        
+        // Distribution to customers
+        yaml.AppendLine("  # Distribution to customers");
+        yaml.AppendLine("  - id: fulfilled_orders");
+        yaml.AppendLine("    kind: expr");
+        yaml.AppendLine("    expr: \"MIN(inventory_processed, customer_orders * 0.98)\"");
+        yaml.AppendLine();
+        
+        // Backorders (unfulfilled demand)
+        yaml.AppendLine("  # Backorders (unfulfilled demand)");
+        yaml.AppendLine("  - id: backorders");
+        yaml.AppendLine("    kind: expr");
+        yaml.AppendLine("    expr: \"MAX(0, customer_orders - fulfilled_orders)\"");
+        yaml.AppendLine();
+        
+        yaml.AppendLine("outputs:");
+        yaml.AppendLine("  - series: customer_orders");
+        yaml.AppendLine("    as: orders.csv");
+        yaml.AppendLine("  - series: fulfilled_orders");
+        yaml.AppendLine("    as: fulfilled.csv");
+        yaml.AppendLine("  - series: backorders");
+        yaml.AppendLine("    as: backorders.csv");
+        yaml.AppendLine("  - series: inventory_processed");
+        yaml.AppendLine("    as: inventory.csv");
+        
+        return yaml.ToString();
+    }
+
+    private static string GenerateBasicSimulationYaml(SimulationRunRequest request)
+    {
+        // Fallback for basic templates - using modern nodes format
+        var yaml = new StringBuilder();
+        var bins = request.Parameters.TryGetValue("bins", out var binValue) ? Convert.ToInt32(binValue) : 4;
+        var binMinutes = request.Parameters.TryGetValue("binMinutes", out var binMinValue) ? Convert.ToInt32(binMinValue) : 60;
+        var demandRate = request.Parameters.TryGetValue("demandRate", out var rateValue) ? Convert.ToDouble(rateValue) : 100.0;
+
+        yaml.AppendLine("# Basic Simulation Model - Generated");
+        yaml.AppendLine("schemaVersion: 1");
         yaml.AppendLine("grid:");
         yaml.AppendLine($"  bins: {bins}");
         yaml.AppendLine($"  binMinutes: {binMinutes}");
-
-        // Seed for deterministic runs
-        yaml.AppendLine($"seed: {seed}");
-
-        // Arrivals configuration based on scenario type
-        yaml.AppendLine("arrivals:");
-
-        if (request.TemplateId == "poisson-demo")
+        yaml.AppendLine();
+        yaml.AppendLine("nodes:");
+        yaml.AppendLine("  - id: demand");
+        yaml.AppendLine("    kind: const");
+        yaml.Append("    values: [");
+        for (int i = 0; i < bins; i++)
         {
-            // Poisson arrivals
-            var rate = request.Parameters.TryGetValue("rate", out var rateValue) ?
-                Convert.ToDouble(rateValue) : 5.0;
-            yaml.AppendLine("  kind: poisson");
-            yaml.AppendLine($"  rate: {rate.ToString(CultureInfo.InvariantCulture)}");
+            yaml.Append(demandRate.ToString("F0", CultureInfo.InvariantCulture));
+            if (i < bins - 1) yaml.Append(", ");
         }
-        else
-        {
-            // Constant arrivals (default for const-quick and fallback)
-            var arrivalValue = request.Parameters.TryGetValue("arrivalValue", out var arrivalValueParam) ?
-                Convert.ToInt32(arrivalValueParam) : 2;
-            yaml.AppendLine("  kind: const");
-            yaml.Append("  values: [");
-            for (int i = 0; i < bins; i++)
-            {
-                yaml.Append(arrivalValue.ToString(CultureInfo.InvariantCulture));
-                if (i < bins - 1) yaml.Append(", ");
-            }
-            yaml.AppendLine("]");
-        }
-
-        // Route configuration (REQUIRED)
-        yaml.AppendLine("route:");
-        yaml.AppendLine("  id: COMP_A");
+        yaml.AppendLine("]");
+        yaml.AppendLine();
+        yaml.AppendLine("  - id: served");
+        yaml.AppendLine("    kind: expr");
+        yaml.AppendLine("    expr: \"demand * 0.85\"");
+        yaml.AppendLine();
+        yaml.AppendLine("outputs:");
+        yaml.AppendLine("  - series: demand");
+        yaml.AppendLine("    as: demand.csv");
+        yaml.AppendLine("  - series: served");
+        yaml.AppendLine("    as: served.csv");
 
         return yaml.ToString();
     }

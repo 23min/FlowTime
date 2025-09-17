@@ -32,7 +32,7 @@ Implement clear Engine vs Sim navigation structure that reinforces architectural
 ### URL Structure
 ```
 /                       → Home
-/nodes                  → FlowTime Engine (Node Explorer)
+/features              → FlowTime Engine (Features)
 /api-demo              → FlowTime Engine (API Testing)
 /scenarios             → FlowTime Engine (Scenario Composer) - future
 /sim/templates         → FlowTime-Sim (Template Studio)
@@ -44,7 +44,7 @@ Implement clear Engine vs Sim navigation structure that reinforces architectural
 ### Navigation Structure
 ```
 📊 ANALYZE (FlowTime Engine)
-   ├─ Nodes (/nodes)
+   ├─ Features (/features)
    ├─ API Demo (/api-demo) 
    └─ Scenarios (/scenarios) - future
 🎲 SIMULATE (FlowTime-Sim)
@@ -63,7 +63,7 @@ Implement clear Engine vs Sim navigation structure that reinforces architectural
 - Move TemplateRunner from `/templates` to `/sim/templates`
 - Establish `/sim/*` prefix for all FlowTime-Sim related pages
 - Maintain existing `/learn/*` structure for Learning Interface
-- Keep FlowTime Engine pages at root level (`/nodes`, `/api-demo`, etc.)
+- Keep FlowTime Engine pages at root level (`/features`, `/api-demo`, etc.)
 
 ### FR-UI-M2.5-2: Flat Navigation with Visual Hierarchy ✅
 - Implement flat navigation structure with section headers and indented submenus
@@ -130,7 +130,7 @@ ui/FlowTime.UI/Layout/MainLayout.razor.css    # Navigation hierarchy CSS styles
 ui/FlowTime.UI/Pages/Analyze.razor           # FlowTime Engine landing page
 ui/FlowTime.UI/Pages/Simulate.razor          # FlowTime-Sim landing page  
 ui/FlowTime.UI/Pages/Tools.razor             # Tools landing page
-ui/FlowTime.UI/Pages/Nodes.razor             # Enhanced page title
+ui/FlowTime.UI/Pages/Features.razor           # Enhanced page title
 ui/FlowTime.UI/Pages/ApiDemo.razor           # Enhanced page title
 ui/FlowTime.UI/Pages/Health.razor            # Enhanced page title
 ```

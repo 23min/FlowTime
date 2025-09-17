@@ -452,6 +452,10 @@
     
     private string GetStatusBarBackgroundColor()
     {
+        if (UseDemoMode)
+        {
+            return "#FF8C00"; // Orange for demo mode
+        }
         return Theme.IsDark ? "var(--mud-palette-background)" : "var(--mud-palette-info)";
     }
 

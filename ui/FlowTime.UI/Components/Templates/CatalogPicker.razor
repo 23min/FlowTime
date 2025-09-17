@@ -5,69 +5,38 @@
 @inject FeatureFlagService FeatureFlags
 @implements IDisposable
 
-<MudStack Spacing="2">
+<MudGrid Spacing="3" Justify="Justify.FlexStart">
     @if (catalogs == null)
     {
-        <MudProgressCircular Indeterminate="true" Size="Size.Small" />
-        <MudText Typo="Typo.body2">Loading catalogs...</MudText>
+        <MudItem xs="12">
+            <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+                <MudText Typo="Typo.body2">Loading catalogs...</MudText>
+            </MudStack>
+        </MudItem>
     }
     else if (!catalogs.Any())
     {
-        <MudAlert Severity="Severity.Info">No catalogs available</MudAlert>
+        <MudItem xs="12">
+            <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+                No catalogs available
+            </MudAlert>
+        </MudItem>
     }
     else
     {
-        <MudSelect T="CatalogInfo" Value="selectedCatalog" ValueChanged="SelectCatalog"
-                   Label="System Catalog" Variant="Variant.Outlined" 
-                   AnchorOrigin="Origin.BottomLeft" TransformOrigin="Origin.TopLeft"
-                   Class="catalog-select-dropdown">
-            @foreach (var catalog in catalogs)
-            {
-                <MudSelectItem Value="catalog">
-                    <div style="padding: 4px 0;">
-                        <MudText Typo="Typo.subtitle2">@catalog.Name</MudText>
-                        <MudText Typo="Typo.caption" Class="text-muted">
-                            @catalog.NodeCount nodes • @catalog.Type
-                        </MudText>
-                    </div>
-                </MudSelectItem>
-            }
-        </MudSelect>
-
-        @if (selectedCatalog != null)
+        @foreach (var catalog in catalogs)
         {
-            <MudCard Outlined="true" Class="mt-2">
-                <MudCardContent>
-                    <MudText Typo="Typo.subtitle1">@selectedCatalog.Name</MudText>
-                    <MudText Typo="Typo.body2" Class="mb-2">@selectedCatalog.Description</MudText>
-                    <MudStack Row Spacing="1" Class="mb-2">
-                        <MudChip T="string" Size="Size.Small" Icon="@Icons.Material.Filled.AccountTree">
-                            @selectedCatalog.NodeCount nodes
-                        </MudChip>
-                        <MudChip T="string" Size="Size.Small" Color="Color.Primary">
-                            @selectedCatalog.Type
-                        </MudChip>
-                    </MudStack>
-                    @if (selectedCatalog.Capabilities.Any())
-                    {
-                        <MudText Typo="Typo.caption" Class="mb-1">Capabilities:</MudText>
-                        <MudStack Row Spacing="1" Wrap="Wrap.Wrap">
-                            @foreach (var capability in selectedCatalog.Capabilities)
-                            {
-                                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">
-                                    @capability
-                                </MudChip>
-                            }
-                        </MudStack>
-                    }
-                </MudCardContent>
-            </MudCard>
+            <MudItem xs="12" sm="6" md="4" lg="3">
+                @RenderCatalogCard()(catalog)
+            </MudItem>
         }
     }
-</MudStack>
+</MudGrid>
 
 @code {
     [Parameter] public EventCallback<CatalogInfo> OnCatalogSelected { get; set; }
+    [Parameter] public CatalogInfo? SelectedCatalog { get; set; }
     
     private List<CatalogInfo>? catalogs;
     private CatalogInfo? selectedCatalog;
@@ -76,6 +45,12 @@
     {
         FeatureFlags.Changed += OnModeChanged;
         await LoadCatalogsAsync();
+    }
+
+    protected override void OnParametersSet()
+    {
+        // Sync selectedCatalog with SelectedCatalog parameter
+        selectedCatalog = SelectedCatalog;
     }
 
     private async void OnModeChanged()
@@ -104,6 +79,57 @@
         await OnCatalogSelected.InvokeAsync(catalog);
         StateHasChanged();
     }
+
+    private string GetCardClass(CatalogInfo catalog)
+    {
+        var isSelected = selectedCatalog?.Id == catalog.Id;
+        return isSelected ? "mud-elevation-8 catalog-card-selected" : "mud-elevation-2 catalog-card";
+    }
+
+    private Color GetTypeColor(string type) => type?.ToLowerInvariant() switch
+    {
+        "production" => Color.Primary,
+        "demo" => Color.Secondary,
+        "test" => Color.Info,
+        _ => Color.Default
+    };
+
+    private RenderFragment<CatalogInfo> RenderCatalogCard() => catalog =>
+        @<MudCard Class="@GetCardClass(catalog)" 
+                 Style="cursor: pointer; height: 100%;" 
+                 onclick="@(() => SelectCatalog(catalog))">
+            <MudCardContent>
+                <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Start" Class="mb-2">
+                    <MudText Typo="Typo.h6">@catalog.Name</MudText>
+                    <MudChip T="string" Size="Size.Small" Color="@GetTypeColor(catalog.Type)">
+                        @catalog.Type
+                    </MudChip>
+                </MudStack>
+                <MudText Typo="Typo.body2" Class="mb-2">@catalog.Description</MudText>
+                <MudStack Row Spacing="1" Class="mb-2">
+                    <MudChip T="string" Size="Size.Small" Icon="@Icons.Material.Filled.AccountTree" Variant="Variant.Outlined">
+                        @catalog.NodeCount nodes
+                    </MudChip>
+                </MudStack>
+                @if (catalog.Capabilities.Any())
+                {
+                    <div class="mt-2">
+                        @foreach (var capability in catalog.Capabilities.Take(3))
+                        {
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Class="mr-1 mb-1">
+                                @capability
+                            </MudChip>
+                        }
+                        @if (catalog.Capabilities.Count > 3)
+                        {
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Secondary" Class="mr-1">
+                                +@(catalog.Capabilities.Count - 3) more
+                            </MudChip>
+                        }
+                    </div>
+                }
+            </MudCardContent>
+        </MudCard>;
 
     public void Dispose()
     {

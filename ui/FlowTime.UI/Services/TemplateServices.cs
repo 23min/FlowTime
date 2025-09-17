@@ -17,6 +17,7 @@ public interface IFlowTimeSimService
 {
     Task<SimulationRunResult> RunSimulationAsync(SimulationRunRequest request);
     Task<SimulationStatus> GetRunStatusAsync(string runId);
+    Task<string> GenerateModelYamlAsync(SimulationRunRequest request);
 }
 
 public class TemplateInfo

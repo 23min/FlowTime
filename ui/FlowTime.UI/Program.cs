@@ -82,4 +82,8 @@ builder.Services.AddScoped<ISimResultsService>(sp =>
 	return new SimResultsService(simClient, apiClient, logger);
 });
 
+// Shared services for graph analysis and simulation results
+builder.Services.AddScoped<IGraphAnalysisService, GraphAnalysisService>();
+builder.Services.AddScoped<ISimulationResultsService, SimulationResultsService>();
+
 await builder.Build().RunAsync();

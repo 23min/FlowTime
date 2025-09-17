@@ -1,0 +1,33 @@
+/* Template Studio Styles */
+
+.catalog-card {
+    transition: all 0.2s ease-in-out;
+    border: 2px solid transparent;
+}
+
+.catalog-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15) !important;
+}
+
+.catalog-card-selected {
+    border: 2px solid var(--mud-palette-primary) !important;
+    background-color: var(--mud-palette-primary-lighten) !important;
+    transform: translateY(-2px);
+}
+
+.catalog-card-selected:hover {
+    transform: translateY(-4px);
+}
+
+/* Fix chip wrapping */
+.template-filter-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+/* Remove gaps between chips */
+.mud-chip {
+    margin: 0 !important;
+}

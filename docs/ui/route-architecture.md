@@ -37,7 +37,7 @@ FlowTime implements a **dual-interface architecture** that separates expert prod
 ```
 /                       → Dashboard/Home
 /analyze               → FlowTime Engine Overview (landing page)
-  /nodes               → Node Explorer (FlowTime Engine)
+  /features            → Features (FlowTime Engine)
   /api-demo            → API Testing (FlowTime Engine)  
   /scenarios           → Scenario Composer (FlowTime Engine) - future
 /simulate              → FlowTime-Sim Overview (landing page)
@@ -52,7 +52,7 @@ FlowTime implements a **dual-interface architecture** that separates expert prod
 ```
 🏠 Home
 📊 ANALYZE (FlowTime Engine) → /analyze
-    Node Explorer → /nodes
+    Features → /features
     API Testing → /api-demo
 🎲 SIMULATE (FlowTime-Sim) → /simulate  
     Template Studio → /sim/templates

@@ -1,13 +1,18 @@
 @page "/templates"
 @using FlowTime.UI.Services
 @using FlowTime.UI.Components.Templates
+@using FlowTime.UI.Components
 @using System.Linq
 @using MudBlazor
 @inject ITemplateService TemplateService
 @inject ICatalogService CatalogService
 @inject IFlowTimeSimService SimService
+@inject IRunClient RunClient
 @inject INotificationService NotificationService
 @inject FeatureFlagService FeatureFlags
+@inject IJSRuntime JSRuntime
+@inject IGraphAnalysisService GraphAnalysisService
+@inject ISimulationResultsService SimulationResultsService
 @implements IDisposable
 
 <PageTitle>Template Studio (FlowTime-Sim)</PageTitle>
@@ -17,158 +22,378 @@
     Select a template, configure parameters, choose a system catalog, and run simulations without writing YAML.
 </MudText>
 
-@* Mode Banner *@
-<MudPaper Class="pa-2 mb-3" Style="@GetBannerStyle()">
-    <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
-        <MudText Typo="Typo.body2">
-            <strong>Current Mode:</strong> @GetModeText()
-        </MudText>
-        <MudSpacer />
-        <MudButton 
-            Size="Size.Small" 
-            Variant="Variant.Text" 
-            StartIcon="@Icons.Material.Filled.SwapHoriz"
-            OnClick="ToggleMode"
-            Disabled="isRunning">
-            Switch Mode
-        </MudButton>
-    </MudStack>
-</MudPaper>
+@* Mode switch button (without banner) *@
+<MudStack Row Justify="Justify.FlexEnd" Class="mb-3">
+    <MudButton 
+        Size="Size.Small" 
+        Variant="Variant.Text" 
+        StartIcon="@Icons.Material.Filled.SwapHoriz"
+        OnClick="ToggleMode"
+        Disabled="isRunning">
+        Switch Mode (@GetModeText())
+    </MudButton>
+</MudStack>
 
-<MudGrid>
-    <MudItem xs="12" md="4">
-        <MudPaper Class="pa-4" Elevation="2">
-            <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
-                <MudText Typo="Typo.h5">📋 Templates</MudText>
-                <MudButtonGroup Variant="Variant.Outlined" Size="Size.Small" Class="template-filter-buttons">
-                    <MudButton OnClick="() => SetTemplateFilter(TemplateFilter.All)" 
-                               Variant="@(templateFilter == TemplateFilter.All ? Variant.Filled : Variant.Outlined)"
-                               Color="@(templateFilter == TemplateFilter.All ? Color.Primary : Color.Default)"
-                               Size="Size.Small"
-                               Class="px-1 py-1"
-                               Style="@GetFilterButtonStyle(TemplateFilter.All)">
-                        All
-                    </MudButton>
-                    <MudButton OnClick="() => SetTemplateFilter(TemplateFilter.Demo)" 
-                               Variant="@(templateFilter == TemplateFilter.Demo ? Variant.Filled : Variant.Outlined)"
-                               Color="@(templateFilter == TemplateFilter.Demo ? Color.Primary : Color.Default)"
-                               Size="Size.Small"
-                               Class="px-1 py-1"
-                               Style="@GetFilterButtonStyle(TemplateFilter.Demo)">
-                        Demo
-                    </MudButton>
-                    <MudButton OnClick="() => SetTemplateFilter(TemplateFilter.Domain)" 
-                               Variant="@(templateFilter == TemplateFilter.Domain ? Variant.Filled : Variant.Outlined)"
-                               Color="@(templateFilter == TemplateFilter.Domain ? Color.Primary : Color.Default)"
-                               Size="Size.Small"
-                               Class="px-1 py-1"
-                               Style="@GetFilterButtonStyle(TemplateFilter.Domain)">
-                        Domain
-                    </MudButton>
-                </MudButtonGroup>
+<MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-6" @bind-ActivePanelIndex="activeTabIndex" @bind-ActivePanelIndex:after="OnTabChanged">
+    <MudTabPanel Text="Templates" Icon="@Icons.Material.Filled.Description">
+        <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+            <MudText Typo="Typo.h6" Style="white-space: nowrap;">Select a template to start</MudText>
+            <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                @if (availableTags != null && availableTags.Any())
+                {
+                    @foreach (var tag in availableTags.OrderBy(t => t))
+                    {
+                        <MudChip T="string" 
+                                Variant="@(selectedTags.Contains(tag) ? Variant.Filled : Variant.Outlined)"
+                                Color="@(selectedTags.Contains(tag) ? Color.Primary : Color.Default)"
+                                Size="Size.Small"
+                                OnClick="() => ToggleTagFilter(tag)"
+                                Style="cursor: pointer;">
+                            @tag
+                        </MudChip>
+                    }
+                    @if (selectedTags.Any())
+                    {
+                        <MudChip T="string" 
+                                Variant="Variant.Text"
+                                Color="Color.Secondary"
+                                Size="Size.Small"
+                                OnClick="ClearTagFilters"
+                                Icon="@Icons.Material.Filled.Clear"
+                                Style="cursor: pointer;">
+                            Clear
+                        </MudChip>
+                    }
+                }
+            </div>
+        </MudStack>
+        @* Force re-mount when mode changes so any internal selection state is cleared *@
+        <TemplateGallery @key="@($"{modeVersion}-{string.Join(",", selectedTags)}")" 
+                       SelectedTags="selectedTags"
+                       OnTemplateSelected="OnTemplateSelected"
+                       OnTemplatesLoaded="OnTemplatesLoaded"
+                       SelectedTemplate="selectedTemplate" />
+        
+        @if (selectedTemplate != null)
+        {
+            <MudStack Row Justify="Justify.Center" Class="mt-4">
+                <MudButton Variant="Variant.Filled" 
+                          Color="Color.Primary" 
+                          Size="Size.Large"
+                          StartIcon="@Icons.Material.Filled.Storage"
+                          OnClick="() => activeTabIndex = 1">
+                    Choose Catalog
+                </MudButton>
             </MudStack>
-            @* Force re-mount when mode changes so any internal selection state is cleared *@
-            <TemplateGallery @key="@($"{modeVersion}-{templateFilter}")" 
-                           TemplateFilter="templateFilter"
-                           OnTemplateSelected="OnTemplateSelected"
-                           OnTemplatesLoaded="OnTemplatesLoaded" />
-        </MudPaper>
-    </MudItem>
+        }
+    </MudTabPanel>
     
-    <MudItem xs="12" md="4">
-        <MudPaper Class="pa-4" Elevation="2">
-            <MudText Typo="Typo.h5" Class="mb-3">🏗️ System Catalog</MudText>
-            @* Force re-mount when mode changes so any internal selection state is cleared *@
-            <CatalogPicker @key="modeVersion" OnCatalogSelected="OnCatalogSelected" />
-        </MudPaper>
-    </MudItem>
+    <MudTabPanel Text="Catalog" Icon="@Icons.Material.Filled.Storage">
+        <MudText Typo="Typo.h6" Class="mb-4">Choose a system catalog</MudText>
+        @* Force re-mount when mode changes so any internal selection state is cleared *@
+        <CatalogPicker @key="modeVersion" 
+                      OnCatalogSelected="OnCatalogSelected" 
+                      SelectedCatalog="selectedCatalog" />
+        
+        @if (selectedCatalog != null)
+        {
+            <MudStack Row Justify="Justify.Center" Class="mt-4">
+                <MudButton Variant="Variant.Filled" 
+                          Color="Color.Primary" 
+                          Size="Size.Large"
+                          StartIcon="@Icons.Material.Filled.Settings"
+                          OnClick="() => activeTabIndex = 2">
+                    Modify Parameters
+                </MudButton>
+            </MudStack>
+        }
+    </MudTabPanel>
     
-    <MudItem xs="12" md="4">
-        <MudPaper Class="pa-4" Elevation="2">
-            <MudText Typo="Typo.h5" Class="mb-3">⚙️ Parameters</MudText>
-            @if (selectedTemplate != null)
+    <MudTabPanel Text="Parameters" Icon="@Icons.Material.Filled.Settings">
+        <MudText Typo="Typo.h6" Class="mb-4">Configure template parameters</MudText>
+        @if (selectedTemplate != null)
+        {
+            <DynamicParameterForm 
+                @key="modeVersion" 
+                Template="selectedTemplate"
+                Parameters="parameters"
+                OnParametersChanged="OnParametersChanged" />
+        }
+        else
+        {
+            <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+                Select a template first to configure parameters
+            </MudAlert>
+        }
+    </MudTabPanel>
+    
+    <MudTabPanel Text="Model Preview" Icon="@Icons.Material.Filled.Code">
+        <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+            <MudText Typo="Typo.h6">Generated YAML model</MudText>
+            @if (!string.IsNullOrEmpty(generatedYaml))
             {
-                <DynamicParameterForm 
-                    @key="modeVersion" 
-                    Template="selectedTemplate" 
-                    OnParametersChanged="OnParametersChanged" />
+                <MudButton Variant="Variant.Outlined" 
+                          StartIcon="@Icons.Material.Filled.ContentCopy" 
+                          OnClick="CopyYamlToClipboard"
+                          Size="Size.Small">
+                    Copy YAML
+                </MudButton>
+            }
+        </MudStack>
+        @if (CanGenerateModel())
+        {
+            @if (!string.IsNullOrEmpty(generatedYaml))
+            {
+                <MudPaper Class="pa-2 code-block" Elevation="0" Style="max-height: 400px; overflow-y: auto;">@generatedYaml</MudPaper>
             }
             else
             {
-                <MudText Typo="Typo.body2" Class="text-muted">Select a template to configure parameters</MudText>
+                <MudButton Variant="Variant.Outlined" 
+                          StartIcon="@Icons.Material.Filled.Refresh" 
+                          OnClick="GenerateModelPreview">
+                    Generate Preview
+                </MudButton>
+            }
+        }
+        else
+        {
+            <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+                Complete template selection, catalog choice, and parameters to preview the model
+            </MudAlert>
+        }
+    </MudTabPanel>
+    
+    <MudTabPanel Text="Analyze" Icon="@Icons.Material.Filled.Analytics">
+        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-4">
+            <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.Engineering" />
+                <MudText><strong>FlowTime Engine Analysis</strong> - Deterministic flow modeling using nodes schema</MudText>
+            </MudStack>
+        </MudAlert>
+        
+        @* Graph Structure Section *@
+        <MudText Typo="Typo.h6" Class="mb-3">Graph Structure</MudText>
+        <MudText Class="mb-2" Typo="Typo.body2">View how the model compiles into a computation graph with nodes and dependencies.</MudText>
+        
+        <MudPaper Class="pa-4 mb-4" Elevation="1" Style="min-height: 200px;">
+            @if (graphStructureResult is null)
+            {
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-3">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="AnalyzeGraph" Disabled="@(isAnalyzing || !CanGenerateModel())">
+                        @if (isAnalyzing)
+                        {
+                            <MudProgressCircular Class="mr-2" Size="Size.Small" Indeterminate="true" />
+                        }
+                        @(isAnalyzing ? "Analyzing..." : "Analyze Structure")
+                    </MudButton>
+                    <MudText Typo="Typo.caption" Style="color: var(--mud-palette-text-secondary);">
+                        Template: <strong>@(selectedTemplate?.Name ?? "None")</strong>
+                    </MudText>
+                </MudStack>
+            }
+            
+            @if (graphStructureResult is null)
+            {
+                <MudStack AlignItems="AlignItems.Center" Spacing="3" Class="py-4" Style="opacity: 0.6;">
+                    <MudIcon Icon="@Icons.Material.Filled.AccountTree" Size="Size.Large" Color="Color.Primary" />
+                    <MudText Typo="Typo.body2" Align="Align.Center">
+                        Ready to analyze your model structure and node dependencies.
+                    </MudText>
+                </MudStack>
+            }
+            
+            @if (graphStructureResult is not null)
+            {
+                var stats = ComputeGraphStats(graphStructureResult);
+                <MudText Typo="Typo.caption" Class="mb-2" Style="color: var(--mud-palette-text-secondary);">
+                    Nodes: @stats.Total, Sources: @stats.Sources, Sinks: @stats.Sinks, Max Fanout: @stats.MaxFanOut
+                </MudText>
+                @if (FeatureFlags.UseDemoMode)
+                {
+                    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Elevation="0" Dense="true" Class="mb-3">
+                        Structural graph reflects simulation stub, not the extended model.
+                    </MudAlert>
+                }
+                
+                <MudText Typo="Typo.subtitle1" Class="mt-4 mb-2" Style="font-weight: 500;">Node Structure</MudText>
+                <MudTable T="NodeInfoView" Hover="true" Dense="true" Items="nodeViews" Elevation="0" Bordered="true"
+                    Striped="true">
+                    <HeaderContent>
+                        <MudTh>#</MudTh>
+                        <MudTh>Node</MudTh>
+                        <MudTh>Inputs</MudTh>
+                        <MudTh>In</MudTh>
+                        <MudTh>Out</MudTh>
+                        <MudTh>Role</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="#">@context.Order</MudTd>
+                        <MudTd DataLabel="Node">@context.Id</MudTd>
+                        <MudTd DataLabel="Inputs">@string.Join(", ", context.Inputs)</MudTd>
+                        <MudTd DataLabel="In">@context.InDegree</MudTd>
+                        <MudTd DataLabel="Out">@context.OutDegree</MudTd>
+                        <MudTd DataLabel="Role">
+                            @if (context.IsSource)
+                            {
+                                <MudChip T="string" Color="Color.Info" Variant="Variant.Outlined" Size="Size.Small">source</MudChip>
+                            }
+                            @if (context.IsSink)
+                            {
+                                <MudChip T="string" Color="Color.Warning" Variant="Variant.Outlined" Size="Size.Small">sink</MudChip>
+                            }
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+                
+                <MudDivider Class="my-4" />
+                <MudText Typo="Typo.subtitle1" Class="mb-2" Style="font-weight: 500;">Graph Visualization</MudText>
+                <MicroDag Structure="graphStructureResult" Height="250" />
             }
         </MudPaper>
-    </MudItem>
-</MudGrid>
-
-<MudDivider Class="my-6" />
-
-<MudGrid>
-    <MudItem xs="12">
-        <MudPaper Class="pa-4" Elevation="2">
-            <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
-                <MudText Typo="Typo.h5">🚀 Run Simulation</MudText>
-                <MudTooltip Text="@GetRunButtonTooltip()">
-                    <MudButton 
-                        Variant="Variant.Filled" 
-                        Color="Color.Primary" 
-                        OnClick="RunSimulation"
-                        Disabled="@(!CanRunSimulation())"
-                        StartIcon="@Icons.Material.Filled.PlayArrow">
-                        Run Simulation
+        
+        @* Flow Analysis Section *@
+        <MudText Typo="Typo.h6" Class="mb-3 mt-4">Flow Analysis</MudText>
+        <MudText Class="mb-2" Typo="Typo.body2">Execute the model to compute time series data and analyze flow behavior.</MudText>
+        
+        <MudPaper Class="pa-4 mb-4" Elevation="1" Style="min-height: 200px;">
+            @if (engineRunResult is null)
+            {
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-3">
+                    <MudButton Variant="Variant.Filled" Color="Color.Success" OnClick="RunFlowAnalysis" Disabled="@(isRunning || !CanRunSimulation())">
+                        @if (isRunning)
+                        {
+                            <MudProgressCircular Class="mr-2" Size="Size.Small" Indeterminate="true" />
+                        }
+                        @(isRunning ? "Analyzing..." : "Run Flow Analysis")
                     </MudButton>
-                </MudTooltip>
-            </MudStack>
-            @if (!CanRunSimulation())
-            {
-                <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true" Class="mb-4">
-                    @GetDisabledReasonFragment()
-                </MudAlert>
+                    <MudText Typo="Typo.caption" Style="color: var(--mud-palette-text-secondary);">
+                        Template: <strong>@(selectedTemplate?.Name ?? "None")</strong>
+                    </MudText>
+                </MudStack>
+                
+                <MudStack AlignItems="AlignItems.Center" Spacing="3" Class="py-4" Style="opacity: 0.6;">
+                    <MudIcon Icon="@Icons.Material.Filled.Timeline" Size="Size.Large" Color="Color.Primary" />
+                    <MudText Typo="Typo.body2" Align="Align.Center">
+                        Ready to execute your model and compute deterministic time series results.
+                    </MudText>
+                </MudStack>
             }
             
-            @if (isRunning)
+            @if (engineRunResult is not null)
             {
-                <MudProgressLinear Indeterminate="true" Class="mb-4" />
-                <MudText Typo="Typo.body2">
-                    @if (FeatureFlags.UseDemoMode)
-                    {
-                        <text>Running demo with built-in content...</text>
-                    }
-                    else
-                    {
-                        <text>Running simulation via FlowTime API...</text>
-                    }
+                <MudText Typo="Typo.caption" Class="mb-3">
+                    Generated @engineRunResult.Series.Count series with @engineRunResult.Order.Count time steps
                 </MudText>
+                @if (FeatureFlags.UseDemoMode)
+                {
+                    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Elevation="0" Dense="true" Class="mb-3">
+                        Demo mode: Using sample model data instead of generated template.
+                    </MudAlert>
+                }
+                
+                @if (chartSeries?.Count > 0)
+                {
+                    <MudText Typo="Typo.subtitle1" Class="mt-4 mb-2" Style="font-weight: 500;">Time Series Chart</MudText>
+                    <MudChart @key="chartRenderVersion" Class="mb-3" Style="height:280px;" ChartType="ChartType.Line"
+                        XAxisLabels="@chartLabels" ChartSeries="@chartSeries" />
+                }
+                
+                <MudText Typo="Typo.subtitle1" Class="mt-4 mb-2" Style="font-weight: 500;">Flow Data</MudText>
+                <MudTable T="KeyValuePair<string, double[]>" Items="engineRunResult.Series" Dense="true" Hover="true" Bordered="true"
+                    Striped="true" Elevation="0">
+                    <HeaderContent>
+                        <MudTh>Series</MudTh>
+                        <MudTh>Values</MudTh>
+                        <MudTh>Min</MudTh>
+                        <MudTh>Max</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Series">@context.Key</MudTd>
+                        <MudTd DataLabel="Values">@string.Join(", ", context.Value.Select(v => v.ToString("F2")))</MudTd>
+                        <MudTd DataLabel="Min">@context.Value.Min().ToString("F2")</MudTd>
+                        <MudTd DataLabel="Max">@context.Value.Max().ToString("F2")</MudTd>
+                    </RowTemplate>
+                </MudTable>
+            }
+        </MudPaper>
+    </MudTabPanel>
+    
+    <MudTabPanel Text="Simulate" Icon="@Icons.Material.Filled.CloudSync">
+        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-4">
+            <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.DataUsage" />
+                <MudText><strong>FlowTime-Sim</strong> - Synthetic data generation using arrivals/route schema</MudText>
+            </MudStack>
+        </MudAlert>
+        
+        <MudText Typo="Typo.h6" Class="mb-3">Data Generation</MudText>
+        <MudText Class="mb-4" Typo="Typo.body2">Generate synthetic telemetry data using stochastic simulation.</MudText>
+        
+        <MudPaper Class="pa-4 mb-4" Elevation="1" Style="min-height: 200px;">
+            @if (runResult is null)
+            {
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-3">
+                    <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="RunDataGeneration" Disabled="@(isSimulating || !CanRunSimulation())">
+                        @if (isSimulating)
+                        {
+                            <MudProgressCircular Class="mr-2" Size="Size.Small" Indeterminate="true" />
+                        }
+                        @(isSimulating ? "Generating..." : "Generate Data")
+                    </MudButton>
+                    <MudText Typo="Typo.caption" Style="color: var(--mud-palette-text-secondary);">
+                        Template: <strong>@(selectedTemplate?.Name ?? "None")</strong>
+                    </MudText>
+                </MudStack>
+                
+                <MudStack AlignItems="AlignItems.Center" Spacing="3" Class="py-4" Style="opacity: 0.6;">
+                    <MudIcon Icon="@Icons.Material.Filled.CloudSync" Size="Size.Large" Color="Color.Secondary" />
+                    <MudText Typo="Typo.body2" Align="Align.Center">
+                        Ready to generate synthetic datasets using FlowTime-Sim with configurable randomness.
+                    </MudText>
+                </MudStack>
             }
             
-            @if (runResult != null)
+            @if (runResult is not null)
             {
                 <SimulationResults Result="runResult" />
             }
         </MudPaper>
-    </MudItem>
-</MudGrid>
+    </MudTabPanel>
+</MudTabs>
 
 @code {
     private TemplateInfo? selectedTemplate;
     private CatalogInfo? selectedCatalog;
     private Dictionary<string, object> parameters = new();
     private bool isRunning;
+    private bool isSimulating; // Track if data generation is running
     private SimulationRunResult? runResult;
     private int modeVersion = 0; // increments on each mode toggle
     private int? selectedTemplateModeVersion;
     private int? selectedCatalogModeVersion;
-    private TemplateFilter templateFilter = TemplateFilter.All;
+    private HashSet<string> selectedTags = new();
+    private List<string>? availableTags;
     private List<TemplateInfo>? templates; // Track template loading state for banner
     private bool isLoadingTemplates = true; // Track if we're still loading templates
     private bool hasApiError = false; // Track if API failed
+    private int activeTabIndex = 0; // Current active tab (0=Templates, 1=Catalog, 2=Parameters, 3=Model Preview, 4=Analyze, 5=Simulate)
+    private string generatedYaml = string.Empty; // Generated YAML for model preview
+    private bool isAnalyzing = false; // Track if graph analysis is running
 
-    public enum TemplateFilter
-    {
-        All,
-        Demo,
-        Domain
-    }
+    
+    // New properties for actual Graph and Run functionality
+    private GraphAnalysisResult? graphAnalysisResult;
+
+    private GraphRunResult? engineRunResult;
+    
+    // Backward compatibility properties for existing UI
+    private GraphStructureResult? graphStructureResult => graphAnalysisResult?.Structure;
+    private List<NodeInfoView> nodeViews => graphAnalysisResult?.NodeViews ?? new();
+    
+    // Charting
+    private List<ChartSeries>? chartSeries;
+    private string[]? chartLabels;
+    private int chartRenderVersion = 0;
 
     protected override async Task OnInitializedAsync()
     {
@@ -206,26 +431,19 @@
         templates = loadedTemplates;
         isLoadingTemplates = false;
         hasApiError = (loadedTemplates == null);
+        
+        // Extract all available tags from templates
+        if (templates != null)
+        {
+            availableTags = templates
+                .SelectMany(t => t.Tags)
+                .Where(tag => !string.IsNullOrEmpty(tag))
+                .Distinct()
+                .OrderBy(tag => tag)
+                .ToList();
+        }
+        
         await InvokeAsync(StateHasChanged);
-    }
-
-    private string GetBannerStyle()
-    {
-        if (isLoadingTemplates)
-        {
-            // Still loading - grey until we know status
-            return "background-color: #9E9E9E; color: white;"; // Grey for loading/unknown
-        }
-        
-        if (hasApiError || templates == null)
-        {
-            // API failed or templates couldn't load - red for error
-            return "background-color: #f44336; color: white;"; // Red for error
-        }
-        
-        // Connected successfully
-        var backgroundColor = FeatureFlags.UseDemoMode ? "#FF8C00" : "#4CAF50"; // Orange for Demo, Green for API
-        return $"background-color: {backgroundColor}; color: white;";
     }
 
     private string GetModeText()
@@ -268,42 +486,67 @@
         selectedTemplate = template;
         parameters.Clear();
         runResult = null;
-    selectedTemplateModeVersion = modeVersion;
+        generatedYaml = string.Empty; // Clear previous model preview
+        selectedTemplateModeVersion = modeVersion;
+        
         StateHasChanged();
     }
 
 
     
-    private string GetFilterButtonStyle(TemplateFilter filter)
+    private void ToggleTagFilter(string tag)
     {
-        var isSelected = templateFilter == filter;
-        return isSelected 
-            ? "font-weight: bold; min-width: 60px;" 
-            : "min-width: 60px;";
+        if (selectedTags.Contains(tag))
+        {
+            selectedTags.Remove(tag);
+        }
+        else
+        {
+            selectedTags.Add(tag);
+        }
+        StateHasChanged();
     }
 
-    private void OnCatalogSelected(CatalogInfo catalog)
+    private void ClearTagFilters()
+    {
+        selectedTags.Clear();
+        StateHasChanged();
+    }
+
+    private async void OnCatalogSelected(CatalogInfo catalog)
     {
         selectedCatalog = catalog;
-    selectedCatalogModeVersion = modeVersion;
+        selectedCatalogModeVersion = modeVersion;
+        generatedYaml = string.Empty; // Clear previous model preview
+        
+        // Refresh template schema with catalog context
+        if (selectedTemplate != null)
+        {
+            try
+            {
+                var refreshedSchema = await TemplateService.GetTemplateSchemaAsync(selectedTemplate.Id);
+                selectedTemplate.ParameterSchema = refreshedSchema;
+            }
+            catch (Exception ex)
+            {
+                NotificationService.Add($"Failed to refresh template schema: {ex.Message}", Severity.Error);
+            }
+        }
+        
+        // Clear parameters to force re-evaluation with new schema
+        parameters.Clear();
+        
         StateHasChanged();
     }
 
     private void OnParametersChanged(Dictionary<string, object> newParameters)
     {
         parameters = newParameters;
+        generatedYaml = string.Empty; // Clear previous model preview when parameters change
         StateHasChanged();
     }
 
-    private void SetTemplateFilter(TemplateFilter filter)
-    {
-        templateFilter = filter;
-        // Clear selection when filter changes since template may not be visible anymore
-        selectedTemplate = null;
-        parameters.Clear();
-        runResult = null;
-        StateHasChanged();
-    }
+
 
     private bool CanRunSimulation()
     {
@@ -373,17 +616,23 @@
         builder.AddContent(seq++, "Provide selections to run simulation.");
     };
 
-    private async Task RunSimulation()
+    private bool CanGenerateModel()
     {
-        if (!CanRunSimulation())
+        return selectedTemplate != null && 
+               selectedCatalog != null && 
+               selectedTemplateModeVersion == modeVersion && 
+               selectedCatalogModeVersion == modeVersion &&
+               (selectedTemplate.ParameterSchema?.Required == null || 
+                selectedTemplate.ParameterSchema.Required.All(r => parameters.ContainsKey(r) && parameters[r] != null));
+    }
+
+    private async Task GenerateModelPreview()
+    {
+        if (!CanGenerateModel())
         {
-            NotificationService.Add("Select a template and catalog for the current mode before running.", Severity.Warning);
+            NotificationService.Add("Complete template selection, catalog choice, and parameters to generate model preview.", Severity.Warning);
             return;
         }
-
-        isRunning = true;
-        runResult = null;
-        StateHasChanged();
 
         try
         {
@@ -394,25 +643,83 @@
                 Parameters = parameters
             };
 
-            var serviceType = FeatureFlags.UseDemoMode ? "Demo Mode" : "FlowTime API";
-            NotificationService.Add($"Starting simulation using {serviceType}...", Severity.Info);
+            // Use the simulation service to generate the model (without running)
+            generatedYaml = await SimService.GenerateModelYamlAsync(request);
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Add($"Failed to generate model preview: {ex.Message}", Severity.Error);
+            generatedYaml = string.Empty;
+        }
+    }
 
-            runResult = await SimService.RunSimulationAsync(request);
-            
-            // Check if the simulation actually succeeded
-            if (runResult.Status == "failed" || !string.IsNullOrEmpty(runResult.ErrorMessage))
+    private async Task OnTabChanged()
+    {
+        // Auto-generate model preview when switching to Model Preview tab (index 3)
+        if (activeTabIndex == 3 && string.IsNullOrEmpty(generatedYaml) && CanGenerateModel())
+        {
+            await GenerateModelPreview();
+        }
+    }
+
+    private async Task CopyYamlToClipboard()
+    {
+        if (string.IsNullOrEmpty(generatedYaml))
+            return;
+
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", generatedYaml);
+            NotificationService.Add("YAML copied to clipboard!", Severity.Success);
+        }
+        catch (Exception)
+        {
+            NotificationService.Add("Failed to copy to clipboard. Please copy manually.", Severity.Warning);
+        }
+    }
+
+    private async Task RunFlowAnalysis()
+    {
+        if (!CanRunSimulation())
+        {
+            NotificationService.Add("Select a template and catalog for the current mode before running.", Severity.Warning);
+            return;
+        }
+
+        isRunning = true;
+        engineRunResult = null;
+        
+        // Navigate to Analyze tab when starting analysis
+        activeTabIndex = 4;
+        StateHasChanged();
+
+        try
+        {
+            var serviceType = FeatureFlags.UseDemoMode ? "Demo Mode" : "FlowTime Engine";
+            NotificationService.Add($"Starting flow analysis using {serviceType}...", Severity.Info);
+
+            // Generate the model YAML if not already done  
+            if (string.IsNullOrEmpty(generatedYaml))
             {
-                var errorMsg = FeatureFlags.UseDemoMode 
-                    ? $"Demo error: {runResult.ErrorMessage}" 
-                    : $"FlowTime API error: {runResult.ErrorMessage}";
-                NotificationService.Add(errorMsg, Severity.Error);
+                await GenerateModelPreview();
+            }
+            
+            // Call the FlowTime Engine /run endpoint directly
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
+            var engineRes = await RunClient.RunAsync(generatedYaml, cts.Token);
+            
+            if (engineRes.Success && engineRes.Value is not null)
+            {
+                engineRunResult = engineRes.Value;
+                BuildChart();
+                NotificationService.Add("Flow analysis completed successfully!", Severity.Success);
             }
             else
             {
-                var resultMessage = FeatureFlags.UseDemoMode 
-                    ? "Demo completed with built-in content!" 
-                    : "Simulation completed via FlowTime API!";
-                NotificationService.Add(resultMessage, Severity.Success);
+                engineRunResult = null;
+                var errorMsg = $"Flow analysis failed ({engineRes.StatusCode}): {engineRes.Error}";
+                NotificationService.Add(errorMsg, Severity.Error);
             }
         }
         catch (HttpRequestException ex) when (ex.Message.Contains("timeout") || ex.Message.Contains("Timeout"))
@@ -439,5 +746,149 @@
             isRunning = false;
             StateHasChanged();
         }
+    }
+    
+    private async Task RunDataGeneration()
+    {
+        if (!CanRunSimulation())
+        {
+            NotificationService.Add("Select a template and catalog for the current mode before generating data.", Severity.Warning);
+            return;
+        }
+
+        isSimulating = true;
+        runResult = null;
+        
+        // Navigate to Simulate tab when starting data generation
+        activeTabIndex = 5;
+        StateHasChanged();
+
+        try
+        {
+            var request = new SimulationRunRequest
+            {
+                TemplateId = selectedTemplate!.Id,
+                CatalogId = selectedCatalog!.Id,
+                Parameters = parameters
+            };
+
+            var serviceType = FeatureFlags.UseDemoMode ? "Demo Mode" : "FlowTime-Sim";
+            NotificationService.Add($"Starting data generation using {serviceType}...", Severity.Info);
+
+            // Generate the model YAML if not already done  
+            if (string.IsNullOrEmpty(generatedYaml))
+            {
+                await GenerateModelPreview();
+            }
+            
+            // Call FlowTime-Sim service (needs schema translation)
+            runResult = await SimService.RunSimulationAsync(request);
+            
+            // Check if the simulation succeeded
+            if (runResult.Status == "failed" || !string.IsNullOrEmpty(runResult.ErrorMessage))
+            {
+                var errorMsg = FeatureFlags.UseDemoMode 
+                    ? $"Demo data generation error: {runResult.ErrorMessage}" 
+                    : $"FlowTime-Sim error: {runResult.ErrorMessage}";
+                NotificationService.Add(errorMsg, Severity.Error);
+            }
+            else
+            {
+                NotificationService.Add("Data generation completed successfully!", Severity.Success);
+            }
+        }
+        catch (HttpRequestException ex) when (ex.Message.Contains("timeout") || ex.Message.Contains("Timeout"))
+        {
+            var errorMsg = FeatureFlags.UseDemoMode 
+                ? "Demo mode request timed out"
+                : "FlowTime-Sim request timed out. Check if the service is running and accessible";
+            NotificationService.Add(errorMsg, Severity.Error);
+        }
+        catch (HttpRequestException ex) when (ex.Message.Contains("Connection refused") || ex.Message.Contains("No connection"))
+        {
+            var errorMsg = FeatureFlags.UseDemoMode 
+                ? "Demo mode connection error"
+                : "Cannot connect to FlowTime-Sim. Check service configuration and connectivity";
+            NotificationService.Add(errorMsg, Severity.Error);
+        }
+        catch (Exception ex)
+        {
+            var prefix = FeatureFlags.UseDemoMode ? "Demo mode error" : "FlowTime-Sim error";
+            NotificationService.Add($"{prefix}: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isSimulating = false;
+            StateHasChanged();
+        }
+    }
+    
+    private async Task AnalyzeGraph()
+    {
+        if (!CanGenerateModel()) return;
+        
+        isAnalyzing = true;
+        graphAnalysisResult = null;
+        StateHasChanged();
+        
+        try
+        {
+            // Generate the model YAML if not already done
+            if (string.IsNullOrEmpty(generatedYaml))
+            {
+                await GenerateModelPreview();
+            }
+            
+            // Use the shared GraphAnalysisService
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
+            graphAnalysisResult = await GraphAnalysisService.AnalyzeGraphAsync(generatedYaml, cts.Token);
+            
+            if (graphAnalysisResult.Success)
+            {
+                NotificationService.Add("Graph analysis completed successfully", Severity.Success);
+            }
+            else
+            {
+                var errorMsg = $"Graph analysis failed: {graphAnalysisResult.Error}";
+                NotificationService.Add(errorMsg, Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            graphAnalysisResult = new GraphAnalysisResult { Success = false, Error = ex.Message };
+            var errorMsg = $"Graph analysis error: {ex.Message}";
+            NotificationService.Add(errorMsg, Severity.Error);
+        }
+        finally
+        {
+            isAnalyzing = false;
+            StateHasChanged();
+        }
+    }
+
+    
+    private (int Total, int Sources, int Sinks, int MaxFanOut) ComputeGraphStats(GraphStructureResult g)
+    {
+        var stats = graphAnalysisResult?.Stats;
+        return stats != null ? (stats.Total, stats.Sources, stats.Sinks, stats.MaxFanOut) : (0, 0, 0, 0);
+    }
+    
+    private void BuildChart()
+    {
+        if (engineRunResult is null) { chartSeries = null; chartLabels = null; return; }
+        chartLabels = Enumerable.Range(0, engineRunResult.Bins).Select(i => i.ToString()).ToArray();
+        if (engineRunResult.Series.Count == 0) { chartSeries = new List<ChartSeries>(); return; }
+        
+        // Respect declared evaluation order, but only include those with data, up to 4
+        chartSeries = new List<ChartSeries>();
+        int idx = 0;
+        foreach (var name in engineRunResult.Order)
+        {
+            if (!engineRunResult.Series.TryGetValue(name, out var raw)) continue;
+            if (idx++ == 4) break;
+            var data = raw.Select(v => v).ToArray();
+            chartSeries.Add(new ChartSeries { Name = name, Data = data });
+        }
+        chartRenderVersion++; // force re-render
     }
 }

@@ -6,6 +6,8 @@
 @inject HttpClient Http
 @inject INotificationService NotificationService
 @inject PreferencesService Prefs
+@inject IGraphAnalysisService GraphAnalysisService
+@inject ISimulationResultsService SimulationResultsService
 
 <PageTitle>API Testing (FlowTime Engine)</PageTitle>
 
@@ -230,8 +232,8 @@
 @code {
     private bool runLoading, graphLoading;
     private GraphRunResult? runResult;
-    private GraphStructureResult? graphResult;
-    private List<NodeInfoView> nodeViews = new();
+    private GraphAnalysisResult? graphAnalysisResult;
+
     private string clientModeLabel = "api";
     [Inject] private FeatureFlagService Flags { get; set; } = default!;
     private string? lastError;
@@ -248,12 +250,15 @@
     private string selectedModelKey = "simple"; // overridden by stored pref if present
     private string CurrentModelYaml => modelCatalog.TryGetValue(selectedModelKey, out var y) ? y : "(model not loaded)";
 
+    // Backward compatibility properties for existing UI
+    private GraphStructureResult? graphResult => graphAnalysisResult?.Structure;
+    private List<NodeInfoView> nodeViews => graphAnalysisResult?.NodeViews ?? new();
+
     private void OnModelChanged()
     {
         // Reset previous results when switching models
         runResult = null;
-        graphResult = null;
-        nodeViews.Clear();
+        graphAnalysisResult = null;
         chartSeries?.Clear();
     }
     private async Task HandleModelChanged(string key)
@@ -274,6 +279,8 @@
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
             Console.WriteLine($"[ApiDemo] Running model key='{selectedModelKey}' ({CurrentModelYaml.Length} chars)");
             var yaml = CurrentModelYaml; // snapshot in case user switches mid-run
+            
+            // Use the legacy RunClient for backward compatibility with existing chart logic
             var res = await RunClient.RunAsync(yaml, cts.Token);
             if (res.Success && res.Value is not null)
             {
@@ -309,25 +316,17 @@
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
             Console.WriteLine($"[ApiDemo] Graph model key='{selectedModelKey}' ({CurrentModelYaml.Length} chars)");
             var yaml = CurrentModelYaml;
-            var res = await RunClient.GraphAsync(yaml, cts.Token);
-            if (res.Success && res.Value is not null)
+            graphAnalysisResult = await GraphAnalysisService.AnalyzeGraphAsync(yaml, cts.Token);
+            
+            if (!graphAnalysisResult.Success)
             {
-                graphResult = res.Value;
-                nodeViews = BuildNodeViews(graphResult);
-            }
-            else
-            {
-                graphResult = null;
-                nodeViews.Clear();
-                lastError = $"Graph failed ({res.StatusCode}): {res.Error}";
-                // failure outcome; no chip, error via snackbar and notifications
+                lastError = $"Graph failed: {graphAnalysisResult.Error}";
                 NotificationService.Add(lastError, Severity.Error);
             }
         }
         catch (Exception ex)
         {
-            graphResult = null;
-            // failure outcome
+            graphAnalysisResult = new GraphAnalysisResult { Success = false, Error = ex.Message };
             lastError = $"Graph error: {ex.Message}";
             NotificationService.Add(lastError, Severity.Error);
         }
@@ -343,8 +342,7 @@
 
     private bool anyLoading => runState == ReqState.Loading || graphState == ReqState.Loading;
 
-    private record NodeInfoView(int Order, string Id, IReadOnlyList<string> Inputs, int InDegree, int OutDegree, bool
-    IsSource, bool IsSink);
+
 
     // Charting
     private List<ChartSeries>? chartSeries;
@@ -379,38 +377,10 @@
     => min == max ? $"{name}:{min:F2}" : $"{name}:{min:F2}-{max:F2}";
 
 
-    private List<NodeInfoView> BuildNodeViews(GraphStructureResult g)
-    {
-        var inDeg = new Dictionary<string, int>();
-        var outDeg = new Dictionary<string, int>();
-        var orderIndex = new Dictionary<string, int>();
-        for (int i = 0; i < g.Order.Count; i++) orderIndex[g.Order[i]] = i;
-        foreach (var n in g.Nodes)
-        {
-            if (!outDeg.ContainsKey(n.Id)) outDeg[n.Id] = 0;
-            foreach (var inp in n.Inputs)
-            {
-                inDeg[inp] = inDeg.TryGetValue(inp, out var v) ? v + 1 : 1;
-                outDeg[n.Id] = outDeg[n.Id] + 1;
-            }
-            if (!inDeg.ContainsKey(n.Id)) inDeg[n.Id] = inDeg.GetValueOrDefault(n.Id, 0);
-        }
-        return g.Nodes.Select(n => new NodeInfoView(
-        orderIndex.GetValueOrDefault(n.Id, int.MaxValue),
-        n.Id,
-        n.Inputs,
-        inDeg.GetValueOrDefault(n.Id, 0),
-        outDeg.GetValueOrDefault(n.Id, 0),
-        n.Inputs.Count == 0,
-        !g.Nodes.Any(other => other.Inputs.Contains(n.Id))
-        )).OrderBy(v => v.Order).ThenBy(v => v.Id).ToList();
-    }
-
     private (int Total, int Sources, int Sinks, int MaxFanOut) ComputeGraphStats(GraphStructureResult g)
     {
-        var views = nodeViews.Count > 0 ? nodeViews : BuildNodeViews(g);
-        return (views.Count, views.Count(v => v.IsSource), views.Count(v => v.IsSink), views.Count == 0 ? 0 : views.Max(v =>
-        v.OutDegree));
+        var stats = graphAnalysisResult?.Stats;
+        return stats != null ? (stats.Total, stats.Sources, stats.Sinks, stats.MaxFanOut) : (0, 0, 0, 0);
     }
 
     protected override async Task OnInitializedAsync()

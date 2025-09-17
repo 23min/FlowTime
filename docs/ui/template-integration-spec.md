@@ -8,7 +8,7 @@ This specification defines how the FlowTime UI integrates with FlowTime-Sim's pa
 
 ### Current Structure
 - **Learning Mode** (`/learn/`) - Educational guided experiences
-- **Expert Mode** (`/templates`, `/api-demo`, `/nodes`) - Advanced simulation configuration
+- **Expert Mode** (`/templates`, `/api-demo`, `/features`) - Advanced simulation configuration
 - **Dual API Support** - Demo Mode (static content) vs API Mode (FlowTime-Sim integration)
 
 ### Template System Role

@@ -1,100 +1,41 @@
 @using FlowTime.UI.Services
-@using static FlowTime.UI.Pages.TemplateRunner
 @using MudBlazor
 @inject ITemplateService TemplateService
 @inject INotificationService NotificationService
 @inject FeatureFlagService FeatureFlags
 @implements IDisposable
 
-<MudStack Spacing="2">
+<MudGrid Spacing="3" Justify="Justify.FlexStart">
     @if (templates == null)
     {
-        @if (isLoading)
-        {
-            @if (FeatureFlags.UseDemoMode)
-            {
-                <MudProgressCircular Indeterminate="true" Size="Size.Small" />
-                <MudText Typo="Typo.body2">Loading demo templates...</MudText>
-            }
-            else
-            {
-                <MudProgressCircular Indeterminate="true" Size="Size.Small" />
-                <MudText Typo="Typo.body2">Connecting to FlowTime-Sim API...</MudText>
-            }
-        }
-        else
-        {
-            @if (FeatureFlags.UseDemoMode)
-            {
-                <MudAlert Severity="Severity.Error" Class="mb-3">
-                    <MudText Typo="Typo.body2">
-                        <strong>Failed to Load Demo Templates</strong><br/>
-                        An unexpected error occurred while loading built-in templates.
-                    </MudText>
-                </MudAlert>
-            }
-            else
-            {
-                <MudAlert Severity="Severity.Error" Class="mb-3">
-                    <MudText Typo="Typo.body2">
-                        <strong>FlowTime-Sim API Not Available</strong><br/>
-                        Please ensure the FlowTime-Sim service is running and accessible.
-                    </MudText>
-                </MudAlert>
-            }
-        }
+        <MudItem xs="12">
+            @RenderLoadingOrError()
+        </MudItem>
     }
-    else if (!filteredTemplates.Any())
+    else if (filteredTemplates.Count() == 0)
     {
-        @if (templates.Any())
-        {
-            <MudAlert Severity="Severity.Info">No templates match the current filter</MudAlert>
-        }
-        else
-        {
-            <MudAlert Severity="Severity.Info">No templates available</MudAlert>
-        }
+        <MudItem xs="12">
+            <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+                No templates match the current filter.
+            </MudAlert>
+        </MudItem>
     }
     else
     {
         @foreach (var template in filteredTemplates)
         {
-            <MudCard Class="@GetCardClass(template)" Style="cursor: pointer;" 
-                     @onclick="() => SelectTemplate(template)">
-                <MudCardContent>
-                    <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Start" Class="mb-2">
-                        <MudText Typo="Typo.h6">@template.Name</MudText>
-                        <MudChip T="string" Size="Size.Small" 
-                                Color="@(FeatureFlags.UseDemoMode ? Color.Warning : Color.Success)"
-                                Variant="Variant.Filled">
-                            @(FeatureFlags.UseDemoMode ? "DEMO" : "API")
-                        </MudChip>
-                    </MudStack>
-                    <MudText Typo="Typo.body2" Class="mb-2">@template.Description</MudText>
-                    <MudChip T="string" Size="Size.Small" Color="@GetCategoryColor(template.Category)">
-                        @template.Category
-                    </MudChip>
-                    @if (template.Tags.Any())
-                    {
-                        <div class="mt-2">
-                            @foreach (var tag in template.Tags)
-                            {
-                                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Class="mr-1">
-                                    @tag
-                                </MudChip>
-                            }
-                        </div>
-                    }
-                </MudCardContent>
-            </MudCard>
+            <MudItem xs="12" sm="6" md="4" lg="3">
+                @RenderTemplateCard()(template)
+            </MudItem>
         }
     }
-</MudStack>
+</MudGrid>
 
 @code {
     [Parameter] public EventCallback<TemplateInfo> OnTemplateSelected { get; set; }
     [Parameter] public EventCallback<List<TemplateInfo>?> OnTemplatesLoaded { get; set; }
-    [Parameter] public TemplateFilter TemplateFilter { get; set; } = TemplateFilter.All;
+    [Parameter] public HashSet<string> SelectedTags { get; set; } = new();
+    [Parameter] public TemplateInfo? SelectedTemplate { get; set; }
     
     private List<TemplateInfo>? templates;
     private string? selectedTemplateId;
@@ -105,7 +46,14 @@
     {
         // Subscribe to mode changes
         FeatureFlags.Changed += OnModeChanged;
-    await LoadTemplatesAsync();
+        await LoadTemplatesAsync();
+    }
+
+    protected override void OnParametersSet()
+    {
+        // Sync selectedTemplateId with SelectedTemplate parameter
+        selectedTemplateId = SelectedTemplate?.Id;
+        ApplyFilter();
     }
 
     private async void OnModeChanged()
@@ -151,11 +99,6 @@
         }
     }
 
-    protected override void OnParametersSet()
-    {
-        ApplyFilter();
-    }
-
     private void ApplyFilter()
     {
         if (templates == null)
@@ -164,16 +107,18 @@
             return;
         }
 
-        filteredTemplates = TemplateFilter switch
+        // If no tags selected, show all templates
+        if (!SelectedTags.Any())
         {
-            TemplateFilter.Demo => templates.Where(t => 
-                t.Category.Equals("theoretical", StringComparison.OrdinalIgnoreCase) || 
-                t.Tags.Any(tag => tag.Contains("demo") || tag.Contains("quick") || tag.Contains("beginner"))).ToList(),
-            TemplateFilter.Domain => templates.Where(t => 
-                t.Category.Equals("domain", StringComparison.OrdinalIgnoreCase) || 
-                t.Tags.Any(tag => tag.Contains("manufacturing") || tag.Contains("transportation") || tag.Contains("microservices") || tag.Contains("it-systems"))).ToList(),
-            _ => templates.ToList()
-        };
+            filteredTemplates = templates.ToList();
+            return;
+        }
+
+        // Show templates that have ALL selected tags (AND logic)
+        filteredTemplates = templates.Where(template =>
+            SelectedTags.All(selectedTag => 
+                template.Tags.Any(templateTag => 
+                    templateTag.Equals(selectedTag, StringComparison.OrdinalIgnoreCase)))).ToList();
     }
 
     public void Dispose()
@@ -193,7 +138,7 @@
         var baseClass = "mb-2";
         if (template.Id == selectedTemplateId)
         {
-            baseClass += " mud-theme-primary";
+            baseClass += " mud-theme-info";
         }
         return baseClass;
     }
@@ -210,4 +155,74 @@
             _ => Color.Default
         };
     }
+
+    private RenderFragment RenderLoadingOrError() => __builder =>
+    {
+        @if (isLoading)
+        {
+            @if (FeatureFlags.UseDemoMode)
+            {
+                <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+                <MudText Typo="Typo.body2">Loading demo templates...</MudText>
+            }
+            else
+            {
+                <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+                <MudText Typo="Typo.body2">Connecting to FlowTime-Sim API...</MudText>
+            }
+        }
+        else
+        {
+            @if (FeatureFlags.UseDemoMode)
+            {
+                <MudAlert Severity="Severity.Error" Class="mb-3">
+                    <MudText Typo="Typo.body2">
+                        <strong>Failed to Load Demo Templates</strong><br/>
+                        An unexpected error occurred while loading built-in templates.
+                    </MudText>
+                </MudAlert>
+            }
+            else
+            {
+                <MudAlert Severity="Severity.Error" Class="mb-3">
+                    <MudText Typo="Typo.body2">
+                        <strong>FlowTime-Sim API Not Available</strong><br/>
+                        Check that the FlowTime-Sim service is running and accessible.
+                    </MudText>
+                </MudAlert>
+            }
+        }
+    };
+
+    private RenderFragment<TemplateInfo> RenderTemplateCard() => template =>
+        @<MudCard Class="@GetCardClass(template)" 
+                 Style="cursor: pointer; height: 100%;" 
+                 onclick="@(() => SelectTemplate(template))">
+            <MudCardContent>
+                <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Start" Class="mb-2">
+                    <MudText Typo="Typo.h6">@template.Name</MudText>
+                    @if (FeatureFlags.UseDemoMode)
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined">
+                            DEMO
+                        </MudChip>
+                    }
+                </MudStack>
+                <MudText Typo="Typo.body2" Class="mb-2">@template.Description</MudText>
+                <MudChip T="string" Size="Size.Small" Color="Color.Default">
+                    @template.Category
+                </MudChip>
+                @if (template.Tags.Any())
+                {
+                    <div class="mt-2">
+                        @foreach (var tag in template.Tags)
+                        {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined" Class="mr-1">
+                                @tag
+                            </MudChip>
+                        }
+                    </div>
+                }
+            </MudCardContent>
+        </MudCard>;
 }
