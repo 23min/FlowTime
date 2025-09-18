@@ -44,7 +44,7 @@
         </MudTooltip>
     </MudAppBar>
 
-    <MudDrawer @bind-Open="_drawerOpen" Elevation="1" ClipMode="DrawerClipMode.Always"
+    <MudDrawer @bind-Open="drawerOpen" Elevation="1" ClipMode="DrawerClipMode.Always"
         Variant="DrawerVariant.Responsive" Class="learning-drawer">
         <MudDrawerHeader>
             <MudText Typo="Typo.h6" Color="Color.Primary">Learning Journey</MudText>
@@ -93,11 +93,11 @@
 
 
 @code {
-    private bool _drawerOpen = true;
+    private bool drawerOpen = true;
     private int currentStep = 1;
     private int totalSteps = 7;
     
-    void ToggleDrawer() => _drawerOpen = !_drawerOpen;
+    void ToggleDrawer() => drawerOpen = !drawerOpen;
     
     [Inject] IJSRuntime JS { get; set; } = default!;
     [Inject] IConfiguration Configuration { get; set; } = default!;

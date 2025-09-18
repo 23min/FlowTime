@@ -14,8 +14,8 @@
         <MudText Class="mb-4">These are the fundamental node types that can be added to your FlowTime models to build computation graphs.</MudText>
         
         <MudPaper Class="pa-4 mb-4" Elevation="1">
-            <MudTextField @bind-Value="_nodeSearch" Placeholder="Filter node types..." Immediate="true" Variant="Variant.Outlined" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Class="mb-2" />
-            <MudTable Dense="true" Hover="true" Items="NodeTypes.Where(n => MatchesSearch(n, _nodeSearch))">
+            <MudTextField @bind-Value="nodeSearch" Placeholder="Filter node types..." Immediate="true" Variant="Variant.Outlined" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Class="mb-2" />
+            <MudTable Dense="true" Hover="true" Items="NodeTypes.Where(n => MatchesSearch(n, nodeSearch))">
                 <HeaderContent>
                     <MudTh>Kind</MudTh>
                     <MudTh>Title</MudTh>
@@ -36,7 +36,7 @@
         </MudPaper>
 
         <MudExpansionPanels Elevation="1">
-            @foreach (var n in NodeTypes.Where(n => MatchesSearch(n, _nodeSearch)))
+            @foreach (var n in NodeTypes.Where(n => MatchesSearch(n, nodeSearch)))
             {
                 <MudExpansionPanel Text="@n.Title" Icon="@Icons.Material.Filled.AccountTree">
                     <MudText Typo="Typo.body1" Class="mb-3">@n.Description</MudText>
@@ -64,8 +64,8 @@
         <MudText Class="mb-4">These functions can be used within <code style="color: #FFFF00; background-color: #424242; padding: 2px 4px; border-radius: 2px; font-family: 'JetBrains Mono', 'Consolas', 'Monaco', 'Menlo', 'Courier New', monospace; font-weight: 100; font-size: 12px;">expr</code> nodes to create sophisticated mathematical expressions with temporal operations, comparisons, and value constraints.</MudText>
         
         <MudPaper Class="pa-4 mb-4" Elevation="1">
-            <MudTextField @bind-Value="_funcSearch" Placeholder="Filter functions..." Immediate="true" Variant="Variant.Outlined" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Class="mb-2" />
-            <MudTable Dense="true" Hover="true" Items="ExpressionFunctions.Where(n => MatchesSearch(n, _funcSearch))">
+            <MudTextField @bind-Value="funcSearch" Placeholder="Filter functions..." Immediate="true" Variant="Variant.Outlined" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Class="mb-2" />
+            <MudTable Dense="true" Hover="true" Items="ExpressionFunctions.Where(n => MatchesSearch(n, funcSearch))">
                 <HeaderContent>
                     <MudTh>Function</MudTh>
                     <MudTh>Description</MudTh>
@@ -80,7 +80,7 @@
         </MudPaper>
 
         <MudExpansionPanels Elevation="1">
-            @foreach (var n in ExpressionFunctions.Where(n => MatchesSearch(n, _funcSearch)))
+            @foreach (var n in ExpressionFunctions.Where(n => MatchesSearch(n, funcSearch)))
             {
                 <MudExpansionPanel Text="@n.Title" Icon="@Icons.Material.Filled.Functions">
                     <MudText Typo="Typo.body1" Class="mb-3">@n.Description</MudText>
@@ -105,8 +105,8 @@
 </MudTabs>
 
 @code {
-    private string _nodeSearch = string.Empty;
-    private string _funcSearch = string.Empty;
+    private string nodeSearch = string.Empty;
+    private string funcSearch = string.Empty;
     
     // Node Types: Actual graph building blocks
     private IEnumerable<NodeMetadata> NodeTypes => NodeCatalog.All.Where(n => 

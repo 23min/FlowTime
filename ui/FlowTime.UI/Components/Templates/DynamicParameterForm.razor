@@ -107,12 +107,12 @@
     
     private Dictionary<string, object> parameters = new();
     private List<string> validationErrors = new();
-    private TemplateInfo? _previousTemplate;
+    private TemplateInfo? previousTemplate;
 
     protected override async Task OnParametersSetAsync()
     {
         // Only initialize parameters when template changes
-        if (Template != _previousTemplate && Template?.ParameterSchema?.Properties != null)
+        if (Template != previousTemplate && Template?.ParameterSchema?.Properties != null)
         {
             parameters.Clear();
             
@@ -134,7 +134,7 @@
                 }
             }
             
-            _previousTemplate = Template;
+            previousTemplate = Template;
             ValidateAndNotify();
             await OnParametersChanged.InvokeAsync(parameters);
         }

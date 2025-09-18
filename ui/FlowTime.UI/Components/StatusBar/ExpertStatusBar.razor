@@ -49,21 +49,21 @@
 </div>
 
 <!-- Simple notification popup for testing -->
-@if (_showNotificationPopup)
+@if (showNotificationPopup)
 {
     <div class="notification-popup">
         <div class="notification-popup-header">
-            <span>Notifications (@_notifications.Count)</span>
+            <span>Notifications (@notifications.Count)</span>
             <button @onclick="ShowNotifications" class="close-btn">×</button>
         </div>
         <div class="notification-popup-content">
-            @if (!_notifications.Any())
+            @if (!notifications.Any())
             {
                 <div class="notification-item">No notifications</div>
             }
             else
             {
-                @foreach (var notification in _notifications.OrderByDescending(n => n.Timestamp))
+                @foreach (var notification in notifications.OrderByDescending(n => n.Timestamp))
                 {
                     <div class="notification-item @GetSeverityClass(notification.Severity)">
                         <div class="notification-icon">@GetSeverityIcon(notification.Severity)</div>
@@ -75,7 +75,7 @@
                 }
             }
         </div>
-        @if (_notifications.Any())
+        @if (notifications.Any())
         {
             <div class="notification-popup-footer">
                 <button @onclick="ClearNotifications" class="clear-btn">Clear All</button>
@@ -94,7 +94,7 @@
     [Parameter] public Color FlowTimeSimApiColor { get; set; } = Color.Default;
     
     // Notification system
-    private readonly List<NotificationItem> _notifications = new();
+    private readonly List<NotificationItem> notifications = new();
     
     // Notification model
     public class NotificationItem
@@ -114,26 +114,26 @@
     // Public methods for adding notifications
     public void AddNotification(string message, NotificationSeverity severity = NotificationSeverity.Info)
     {
-        _notifications.Add(new NotificationItem 
+        notifications.Add(new NotificationItem 
         { 
             Message = message, 
             Severity = severity 
         });
         
         // Keep only last 20 notifications
-        if (_notifications.Count > 20)
+        if (notifications.Count > 20)
         {
-            _notifications.RemoveAt(0);
+            notifications.RemoveAt(0);
         }
         
         InvokeAsync(StateHasChanged);
     }
     
-    private bool _showNotificationPopup = false;
+    private bool showNotificationPopup = false;
     
     private void ShowNotifications()
     {
-        _showNotificationPopup = !_showNotificationPopup;
+        showNotificationPopup = !showNotificationPopup;
     }
     
     protected override void OnInitialized()
@@ -146,16 +146,16 @@
     private string GetNotificationIcon()
     {
         // Active alarm bell when there are notifications, normal when none
-        return _notifications.Any() 
+        return notifications.Any() 
             ? Icons.Material.Filled.NotificationsActive 
             : Icons.Material.Filled.Notifications;
     }
     
     private Color GetNotificationColor()
     {
-        if (_notifications.Any(n => n.Severity == NotificationSeverity.Error))
+        if (notifications.Any(n => n.Severity == NotificationSeverity.Error))
             return Color.Error;
-        else if (_notifications.Any(n => n.Severity == NotificationSeverity.Warning))
+        else if (notifications.Any(n => n.Severity == NotificationSeverity.Warning))
             return Color.Warning;
         else
             return Color.Default;
@@ -185,8 +185,8 @@
     
     private void ClearNotifications()
     {
-        _notifications.Clear();
-        _showNotificationPopup = false;
+        notifications.Clear();
+        showNotificationPopup = false;
         StateHasChanged();
     }
     
