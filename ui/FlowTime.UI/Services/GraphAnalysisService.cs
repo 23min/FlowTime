@@ -4,18 +4,18 @@ namespace FlowTime.UI.Services;
 
 public class GraphAnalysisService : IGraphAnalysisService
 {
-    private readonly IRunClient _runClient;
+    private readonly IRunClient runClient;
 
     public GraphAnalysisService(IRunClient runClient)
     {
-        _runClient = runClient;
+        this.runClient = runClient;
     }
 
     public async Task<GraphAnalysisResult> AnalyzeGraphAsync(string yamlModel, CancellationToken cancellationToken = default)
     {
         try
         {
-            var result = await _runClient.GraphAsync(yamlModel, cancellationToken);
+            var result = await runClient.GraphAsync(yamlModel, cancellationToken);
             if (!result.Success || result.Value is null)
             {
                 return new GraphAnalysisResult

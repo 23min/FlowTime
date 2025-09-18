@@ -9,11 +9,11 @@ public interface IPortDiscoveryService
 
 public class PortDiscoveryService : IPortDiscoveryService
 {
-    private readonly ILogger<PortDiscoveryService> _logger;
+    private readonly ILogger<PortDiscoveryService> logger;
 
     public PortDiscoveryService(ILogger<PortDiscoveryService> logger)
     {
-        _logger = logger;
+        this.logger = logger;
     }
 
     public async Task<string> GetAvailableFlowTimeSimUrlAsync(FlowTimeSimApiOptions options)
@@ -26,15 +26,15 @@ public class PortDiscoveryService : IPortDiscoveryService
         {
             if (await IsPortAvailableAsync(url))
             {
-                _logger.LogInformation("FlowTime-Sim API available at: {Url}", url);
+                logger.LogInformation("FlowTime-Sim API available at: {Url}", url);
                 return url;
             }
             
-            _logger.LogDebug("FlowTime-Sim API not available at: {Url}", url);
+            logger.LogDebug("FlowTime-Sim API not available at: {Url}", url);
         }
 
         // If none work, return the primary URL anyway (will fail but that's expected behavior)
-        _logger.LogWarning("No FlowTime-Sim API endpoints available, using primary URL: {Url}", options.BaseUrl);
+        logger.LogWarning("No FlowTime-Sim API endpoints available, using primary URL: {Url}", options.BaseUrl);
         return options.BaseUrl;
     }
 
@@ -53,7 +53,7 @@ public class PortDiscoveryService : IPortDiscoveryService
         }
         catch (Exception ex)
         {
-            _logger.LogDebug("Port availability check failed for {Url}: {Error}", baseUrl, ex.Message);
+            logger.LogDebug("Port availability check failed for {Url}: {Error}", baseUrl, ex.Message);
             return false;
         }
     }

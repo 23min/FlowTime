@@ -24,12 +24,12 @@ public interface INotificationService
 
 public class NotificationService : INotificationService
 {
-    private readonly ISnackbar _snackbar;
-    private ExpertLayout? _expertLayout;
+    private readonly ISnackbar snackbar;
+    private ExpertLayout? expertLayout;
     
     public NotificationService(ISnackbar snackbar)
     {
-        _snackbar = snackbar;
+        this.snackbar = snackbar;
     }
     
     /// <summary>
@@ -38,13 +38,13 @@ public class NotificationService : INotificationService
     /// </summary>
     public void RegisterLayout(ExpertLayout expertLayout)
     {
-        _expertLayout = expertLayout;
+        this.expertLayout = expertLayout;
     }
     
     public void Add(string message, Severity severity)
     {
         // Always add to snackbar
-        _snackbar.Add(message, severity);
+        snackbar.Add(message, severity);
         
         // Add to notifications only for errors and warnings
         if (severity == Severity.Error || severity == Severity.Warning)
@@ -53,14 +53,14 @@ public class NotificationService : INotificationService
                 ? Components.StatusBar.ExpertStatusBar.NotificationSeverity.Error
                 : Components.StatusBar.ExpertStatusBar.NotificationSeverity.Warning;
                 
-            _expertLayout?.AddNotification(message, notificationSeverity);
+            expertLayout?.AddNotification(message, notificationSeverity);
         }
     }
     
     public void Add(string message, Severity severity, Action<SnackbarOptions> configure)
     {
         // Always add to snackbar with configuration
-        _snackbar.Add(message, severity, configure);
+        snackbar.Add(message, severity, configure);
         
         // Add to notifications only for errors and warnings
         if (severity == Severity.Error || severity == Severity.Warning)
@@ -69,7 +69,7 @@ public class NotificationService : INotificationService
                 ? Components.StatusBar.ExpertStatusBar.NotificationSeverity.Error
                 : Components.StatusBar.ExpertStatusBar.NotificationSeverity.Warning;
                 
-            _expertLayout?.AddNotification(message, notificationSeverity);
+            expertLayout?.AddNotification(message, notificationSeverity);
         }
     }
 }

@@ -5,18 +5,18 @@ namespace FlowTime.UI.Services;
 
 public class SimulationResultsService : ISimulationResultsService
 {
-    private readonly IRunClient _runClient;
+    private readonly IRunClient runClient;
 
     public SimulationResultsService(IRunClient runClient)
     {
-        _runClient = runClient;
+        this.runClient = runClient;
     }
 
     public async Task<SimulationResult> RunSimulationAsync(string yamlModel, CancellationToken cancellationToken = default)
     {
         try
         {
-            var result = await _runClient.RunAsync(yamlModel, cancellationToken);
+            var result = await runClient.RunAsync(yamlModel, cancellationToken);
             if (!result.Success || result.Value is null)
             {
                 return new SimulationResult

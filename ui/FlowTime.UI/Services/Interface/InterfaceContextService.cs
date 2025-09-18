@@ -17,21 +17,21 @@ public enum InterfaceType
 
 public class InterfaceContextService : IInterfaceContextService
 {
-    private InterfaceType _currentInterface = InterfaceType.Expert;
+    private InterfaceType currentInterface = InterfaceType.Expert;
     
-    public InterfaceType CurrentInterface => _currentInterface;
-    public bool IsExpertInterface => _currentInterface == InterfaceType.Expert;
-    public bool IsLearningInterface => _currentInterface == InterfaceType.Learning;
+    public InterfaceType CurrentInterface => currentInterface;
+    public bool IsExpertInterface => currentInterface == InterfaceType.Expert;
+    public bool IsLearningInterface => currentInterface == InterfaceType.Learning;
     
     public void SetContext(string currentPath)
     {
         if (currentPath.StartsWith("/learn", StringComparison.OrdinalIgnoreCase))
         {
-            _currentInterface = InterfaceType.Learning;
+            currentInterface = InterfaceType.Learning;
         }
         else
         {
-            _currentInterface = InterfaceType.Expert;
+            currentInterface = InterfaceType.Expert;
         }
     }
     

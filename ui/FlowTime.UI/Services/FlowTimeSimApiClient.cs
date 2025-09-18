@@ -16,31 +16,31 @@ public interface IFlowTimeSimApiClient
 
 public class FlowTimeSimApiClient : IFlowTimeSimApiClient
 {
-    private readonly HttpClient _httpClient;
-    private readonly ILogger<FlowTimeSimApiClient> _logger;
-    private readonly string _apiVersion;
+    private readonly HttpClient httpClient;
+    private readonly ILogger<FlowTimeSimApiClient> logger;
+    private readonly string apiVersion;
 
-    public FlowTimeSimApiClient(HttpClient httpClient, ILogger<FlowTimeSimApiClient> logger, string apiVersion = "v1")
+    public FlowTimeSimApiClient(HttpClient httpClient, ILogger<FlowTimeSimApiClient> logger)
     {
-        _httpClient = httpClient;
-        _logger = logger;
-        _apiVersion = apiVersion;
+        this.httpClient = httpClient;
+        this.logger = logger;
+        this.apiVersion = "v1";
     }
 
-    public string? BaseAddress => _httpClient.BaseAddress?.ToString();
+    public string? BaseAddress => httpClient.BaseAddress?.ToString();
 
     public async Task<Result<bool>> HealthAsync(CancellationToken ct = default)
     {
         try
         {
-            var response = await _httpClient.GetAsync($"/{_apiVersion}/healthz", ct);
+            var response = await httpClient.GetAsync($"/{apiVersion}/healthz", ct);
             return response.IsSuccessStatusCode 
                 ? Result<bool>.Ok(true, (int)response.StatusCode)
                 : Result<bool>.Fail($"Health check failed: {response.StatusCode}", (int)response.StatusCode);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Health check failed");
+            logger.LogError(ex, "Health check failed");
             return Result<bool>.Fail($"Health check error: {ex.Message}");
         }
     }
@@ -50,7 +50,7 @@ public class FlowTimeSimApiClient : IFlowTimeSimApiClient
         try
         {
             // Call with detailed parameter to get full health information including endpoints and storage
-            var response = await _httpClient.GetAsync($"/{_apiVersion}/healthz?detailed=true", ct);
+            var response = await httpClient.GetAsync($"/{apiVersion}/healthz?detailed=true", ct);
             response.EnsureSuccessStatusCode();
             
             var content = await response.Content.ReadAsStringAsync(ct);
@@ -97,7 +97,7 @@ public class FlowTimeSimApiClient : IFlowTimeSimApiClient
         try
         {
             var content = new StringContent(yaml, Encoding.UTF8, "text/plain");
-            var response = await _httpClient.PostAsync($"/{_apiVersion}/sim/run", content, ct);
+            var response = await httpClient.PostAsync($"/{apiVersion}/sim/run", content, ct);
             
             if (!response.IsSuccessStatusCode)
             {
@@ -117,7 +117,7 @@ public class FlowTimeSimApiClient : IFlowTimeSimApiClient
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Simulation run failed");
+            logger.LogError(ex, "Simulation run failed");
             return Result<SimRunResponse>.Fail($"Simulation error: {ex.Message}");
         }
     }
@@ -126,7 +126,7 @@ public class FlowTimeSimApiClient : IFlowTimeSimApiClient
     {
         try
         {
-            var response = await _httpClient.GetAsync($"/{_apiVersion}/sim/runs/{runId}/index", ct);
+            var response = await httpClient.GetAsync($"/{apiVersion}/sim/runs/{runId}/index", ct);
             
             if (!response.IsSuccessStatusCode)
             {
@@ -146,7 +146,7 @@ public class FlowTimeSimApiClient : IFlowTimeSimApiClient
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get series index for run {RunId}", runId);
+            logger.LogError(ex, "Failed to get series index for run {RunId}", runId);
             return Result<SeriesIndex>.Fail($"Index error: {ex.Message}");
         }
     }
@@ -155,7 +155,7 @@ public class FlowTimeSimApiClient : IFlowTimeSimApiClient
     {
         try
         {
-            var response = await _httpClient.GetAsync($"/{_apiVersion}/sim/runs/{runId}/series/{seriesId}", ct);
+            var response = await httpClient.GetAsync($"/{apiVersion}/sim/runs/{runId}/series/{seriesId}", ct);
             
             if (!response.IsSuccessStatusCode)
             {
@@ -168,7 +168,7 @@ public class FlowTimeSimApiClient : IFlowTimeSimApiClient
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get series {SeriesId} for run {RunId}", seriesId, runId);
+            logger.LogError(ex, "Failed to get series {SeriesId} for run {RunId}", seriesId, runId);
             return Result<Stream>.Fail($"Series error: {ex.Message}");
         }
     }
@@ -177,7 +177,7 @@ public class FlowTimeSimApiClient : IFlowTimeSimApiClient
     {
         try
         {
-            var response = await _httpClient.GetAsync($"/{_apiVersion}/sim/scenarios", ct);
+            var response = await httpClient.GetAsync($"/{apiVersion}/sim/scenarios", ct);
             
             if (!response.IsSuccessStatusCode)
             {
@@ -197,7 +197,7 @@ public class FlowTimeSimApiClient : IFlowTimeSimApiClient
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get scenarios");
+            logger.LogError(ex, "Failed to get scenarios");
             return Result<List<ScenarioInfo>>.Fail($"Scenarios error: {ex.Message}");
         }
     }
