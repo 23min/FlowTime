@@ -55,114 +55,146 @@
                 }
                 else if (Result.Status == "completed" && !string.IsNullOrEmpty(Result.ResultsUrl))
                 {
-                    <MudStack Row Spacing="2" Class="mt-3">
-                        <MudButton Variant="Variant.Filled" 
-                                 Color="Color.Primary" 
-                                 StartIcon="@Icons.Material.Filled.Visibility"
-                                 OnClick="ViewResults"
-                                 Disabled="@isLoadingResults">
-                            @if (isLoadingResults)
-                            {
+                    @if (isLoadingResults)
+                    {
+                        <MudAlert Severity="Severity.Info" Class="mt-3">
+                            <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
                                 <MudProgressCircular Size="@Size.Small" Indeterminate="true" />
-                                <span class="ml-2">Loading...</span>
-                            }
-                            else
-                            {
-                                @(hasLoadedResults ? "Refresh Data" : "View Results")
-                            }
-                        </MudButton>
-                        <MudButton Variant="Variant.Outlined" 
-                                 Color="Color.Primary" 
-                                 StartIcon="@Icons.Material.Filled.Download"
-                                 OnClick="DownloadResults"
-                                 Disabled="@(!hasLoadedResults)">
-                            Download Data
-                        </MudButton>
-                    </MudStack>
+                                <MudText Typo="Typo.body2">Loading simulation data...</MudText>
+                            </MudStack>
+                        </MudAlert>
+                    }
                 }
 
                 @* Show actual series data when loaded (artifact-first pattern) *@
                 @if (simulationData != null)
                 {
-                    <MudExpansionPanels Class="mt-3">
-                        <MudExpansionPanel>
-                            <TitleContent>
-                                <div class="d-flex align-center">
-                                    <MudIcon Icon="@Icons.Material.Filled.BarChart" class="mr-3" />
-                                    <MudText Typo="Typo.subtitle2">Time Series Data (@simulationData.Series.Count series, @simulationData.Bins bins)</MudText>
-                                </div>
-                            </TitleContent>
-                            <ChildContent>
-                                <MudSimpleTable Striped="true" Dense="true">
-                                    <thead>
-                                        <tr>
-                                            <th>Series ID</th>
-                                            <th>Min</th>
-                                            <th>Max</th>
-                                            <th>Average</th>
-                                            <th>Total</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach (var series in simulationData.Series)
-                                        {
-                                            <tr>
-                                                <td><strong>@series.Key</strong></td>
-                                                <td>@series.Value.Min().ToString("F2")</td>
-                                                <td>@series.Value.Max().ToString("F2")</td>
-                                                <td>@series.Value.Average().ToString("F2")</td>
-                                                <td>@series.Value.Sum().ToString("F2")</td>
-                                            </tr>
-                                        }
-                                    </tbody>
-                                </MudSimpleTable>
-                            </ChildContent>
-                        </MudExpansionPanel>
-                    </MudExpansionPanels>
+                    <div class="mt-4">
+                        <MudStack Row AlignItems="AlignItems.Center" Spacing="2" Class="mb-3">
+                            <MudIcon Icon="@Icons.Material.Filled.BarChart" />
+                            <MudText Typo="Typo.h6">Time Series Data</MudText>
+                            <MudChip T="string" Size="Size.Small" Color="Color.Info">
+                                @simulationData.Series.Count series
+                            </MudChip>
+                            <MudChip T="string" Size="Size.Small" Color="Color.Secondary">
+                                @simulationData.Bins time bins (@simulationData.BinMinutes min each)
+                            </MudChip>
+                        </MudStack>
+                        
+                        @{
+                            var isITTemplate = Result?.Metadata?.GetValueOrDefault("templateId")?.ToString() == "it-system-microservices";
+                            var isApiMode = !FeatureFlags.UseDemoMode;
+                            var dataSource = Result?.Metadata?.GetValueOrDefault("source")?.ToString();
+                        }
+                        
+                        @if (isITTemplate && isApiMode && dataSource == "sim")
+                        {
+                            <MudAlert Severity="Severity.Warning" Class="mb-3">
+                                <MudText Typo="Typo.caption">
+                                    <strong>Note:</strong> IT system templates work best in <strong>Demo mode</strong> for realistic microservices data. 
+                                    API mode provides simplified queueing model results. Switch to Demo mode for detailed microservices telemetry.
+                                </MudText>
+                            </MudAlert>
+                        }
+                        
+                        <MudAlert Severity="Severity.Info" Class="mb-3">
+                            <MudText Typo="Typo.caption">
+                                <strong>Data represents:</strong> @(isITTemplate ? "IT system microservices telemetry" : "Simulation time series"). 
+                                Each series shows throughput (requests/transactions per time bin) over @simulationData.Bins hours.
+                                Values are cumulative counts for each @simulationData.BinMinutes-minute time window.
+                            </MudText>
+                        </MudAlert>
+                        
+                        <MudSimpleTable Striped="true" Dense="true">
+                            <thead>
+                                <tr>
+                                    <th>Series ID</th>
+                                    <th>Min</th>
+                                    <th>Max</th>
+                                    <th>Average</th>
+                                    <th>Total</th>
+                                    <th>Download</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var series in simulationData.Series)
+                                {
+                                    <tr>
+                                        <td><strong>@series.Key</strong></td>
+                                        <td>@series.Value.Min().ToString("F2")</td>
+                                        <td>@series.Value.Max().ToString("F2")</td>
+                                        <td>@series.Value.Average().ToString("F2")</td>
+                                        <td>@series.Value.Sum().ToString("F2")</td>
+                                        <td>
+                                            <MudButton Variant="Variant.Text"
+                                                     Color="Color.Primary"
+                                                     Size="Size.Small"
+                                                     StartIcon="@Icons.Material.Filled.Download"
+                                                     OnClick="@(() => DownloadSeries(series.Key))">
+                                                CSV
+                                            </MudButton>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </MudSimpleTable>
+                    </div>
                 }
 
                 @* Show minimal metadata (artifact-first - metadata is not authoritative) *@
                 @if (Result.Metadata.Any())
                 {
-                    <MudExpansionPanels Class="mt-3">
-                        <MudExpansionPanel>
-                            <TitleContent>
-                                <div class="d-flex align-center">
-                                    <MudIcon Icon="@Icons.Material.Filled.Info" class="mr-3" />
-                                    <MudText Typo="Typo.subtitle2">Run Metadata</MudText>
-                                </div>
-                            </TitleContent>
-                            <ChildContent>
-                                @if (IsSimMode())
+                    <div class="mt-4">
+                        <MudStack Row AlignItems="AlignItems.Center" Spacing="2" Class="mb-3">
+                            <MudIcon Icon="@Icons.Material.Filled.Info" />
+                            <MudText Typo="Typo.h6">Run Metadata</MudText>
+                        </MudStack>
+                        
+                        @if (IsSimMode())
+                        {
+                            <MudAlert Severity="Severity.Info" Class="mb-2">
+                                <MudText Typo="Typo.caption">
+                                    Metadata shown here is not authoritative. Actual series data is loaded from artifacts above.
+                                </MudText>
+                            </MudAlert>
+                        }
+                        else
+                        {
+                            <MudAlert Severity="Severity.Success" Class="mb-2">
+                                <MudText Typo="Typo.caption">
+                                    Rich simulation metadata generated from FlowTime API. This includes model analysis and performance insights.
+                                </MudText>
+                            </MudAlert>
+                        }
+                        
+                        <MudSimpleTable Striped="true" Dense="true">
+                            <tbody>
+                                @foreach (var item in Result.Metadata.Where(m => IsDisplayableMetadata(m.Key)))
                                 {
-                                    <MudAlert Severity="Severity.Info" Class="mb-2">
-                                        <MudText Typo="Typo.caption">
-                                            Metadata shown here is not authoritative. Actual series data is loaded from artifacts above.
-                                        </MudText>
-                                    </MudAlert>
+                                    <tr>
+                                        <td><strong>@FormatMetadataKey(item.Key)</strong></td>
+                                        <td>@FormatMetadataValue(item.Value)</td>
+                                    </tr>
                                 }
-                                else
+                                @* Add grid information if simulation data is loaded *@
+                                @if (simulationData != null)
                                 {
-                                    <MudAlert Severity="Severity.Success" Class="mb-2">
-                                        <MudText Typo="Typo.caption">
-                                            Rich simulation metadata generated from FlowTime API. This includes model analysis and performance insights.
-                                        </MudText>
-                                    </MudAlert>
+                                    <tr>
+                                        <td><strong>Grid Configuration</strong></td>
+                                        <td>@simulationData.Bins bins × @simulationData.BinMinutes minutes each</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Time Coverage</strong></td>
+                                        <td>@(simulationData.Bins * simulationData.BinMinutes / 60.0) hours total</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Series Count</strong></td>
+                                        <td>@simulationData.Series.Count time series</td>
+                                    </tr>
                                 }
-                                <MudSimpleTable Striped="true" Dense="true">
-                                    <tbody>
-                                        @foreach (var item in Result.Metadata.Where(m => IsDisplayableMetadata(m.Key)))
-                                        {
-                                            <tr>
-                                                <td><strong>@FormatMetadataKey(item.Key)</strong></td>
-                                                <td>@FormatMetadataValue(item.Value)</td>
-                                            </tr>
-                                        }
-                                    </tbody>
-                                </MudSimpleTable>
-                            </ChildContent>
-                        </MudExpansionPanel>
-                    </MudExpansionPanels>
+                            </tbody>
+                        </MudSimpleTable>
+                    </div>
                 }
             </MudCardContent>
         </MudCard>
@@ -190,9 +222,9 @@
         };
     }
 
-    private async Task ViewResults()
+    private async Task LoadResults()
     {
-        if (Result?.RunId == null)
+        if (Result?.RunId == null || Result.Status != "completed" || string.IsNullOrEmpty(Result.ResultsUrl))
             return;
 
         isLoadingResults = true;
@@ -207,9 +239,8 @@
             {
                 simulationData = result.Value;
                 hasLoadedResults = true;
-                NotificationService.Add($"Loaded {simulationData.Series.Count} series from simulation artifacts", Severity.Success);
                 
-                // Also trigger the parent callback
+                // Trigger the parent callback
                 await OnViewResults.InvokeAsync();
             }
             else
@@ -228,83 +259,57 @@
         }
     }
 
-    private async Task DownloadResults()
+    private async Task DownloadSeries(string seriesId)
     {
-        if (Result?.RunId == null || simulationData == null || !hasLoadedResults)
+        if (Result?.RunId == null || string.IsNullOrEmpty(seriesId))
         {
-            NotificationService.Add("No data available to download", Severity.Warning);
-            return;
-        }
-
-        // Check for mode mismatch
-        var resultSource = Result?.Metadata.GetValueOrDefault("source")?.ToString();
-        var currentlyInSimMode = FeatureFlags.UseDemoMode;
-        
-        if (resultSource == "sim" && !currentlyInSimMode)
-        {
-            NotificationService.Add("This result was created in SIM mode, but you're currently in API mode. Turn on 'Use Simulation' to download SIM results.", Severity.Warning);
-            return;
-        }
-        else if (resultSource != "sim" && currentlyInSimMode)
-        {
-            NotificationService.Add("This result was created in API mode, but you're currently in SIM mode. Turn off 'Use Simulation' to download API results.", Severity.Warning);
+            NotificationService.Add("Invalid series or run ID", Severity.Warning);
             return;
         }
 
         try
         {
-            var downloadedCount = 0;
-            var totalSeries = simulationData.Series.Count;
+            // Check for mode mismatch
+            var resultSource = Result?.Metadata.GetValueOrDefault("source")?.ToString();
+            var currentlyInDemoMode = FeatureFlags.UseDemoMode;
             
-            // Trigger download through parent callback
-            await OnDownloadResults.InvokeAsync();
-            
-            // Download each series CSV file
-            foreach (var seriesId in simulationData.Series.Keys)
+            if (resultSource == "sim" && !currentlyInDemoMode)
             {
-                try
-                {
-                    // Determine the appropriate download URL based on current feature flag
-                    string downloadUrl;
-                    if (FeatureFlags.UseDemoMode)
-                    {
-                        // SIM mode: Use versioned URL to FlowTime-Sim API
-                        var simConfig = Configuration.GetSection(FlowTimeSimApiOptions.SectionName).Get<FlowTimeSimApiOptions>() 
-                            ?? new FlowTimeSimApiOptions();
-                        var baseUrl = simConfig.BaseUrl.TrimEnd('/');
-                        downloadUrl = $"{baseUrl}/{simConfig.ApiVersion}/sim/runs/{Result?.RunId}/series/{seriesId}";
-                    }
-                    else
-                    {
-                        // API mode: Use versioned URL to FlowTime API
-                        var apiConfig = Configuration.GetSection(FlowTimeApiOptions.SectionName).Get<FlowTimeApiOptions>() 
-                            ?? new FlowTimeApiOptions();
-                        var baseUrl = apiConfig.BaseUrl.TrimEnd('/');
-                        downloadUrl = $"{baseUrl}/{apiConfig.ApiVersion}/runs/{Result?.RunId}/series/{seriesId}";
-                    }
-                    
-                    // Open download URL in new tab to trigger browser download
-                    await JSRuntime.InvokeVoidAsync("window.open", downloadUrl, "_blank");
-                    downloadedCount++;
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Failed to download series {seriesId}: {ex.Message}");
-                }
+                NotificationService.Add("This result was created in Demo mode, but you're currently in API mode. Switch to Demo mode to download.", Severity.Warning);
+                return;
             }
-            
-            if (downloadedCount > 0)
+            else if (resultSource != "sim" && currentlyInDemoMode)
             {
-                NotificationService.Add($"Initiated download for {downloadedCount} of {totalSeries} series files", Severity.Success);
+                NotificationService.Add("This result was created in API mode, but you're currently in Demo mode. Switch to API mode to download.", Severity.Warning);
+                return;
+            }
+
+            // Determine the appropriate download URL based on current feature flag
+            string downloadUrl;
+            if (FeatureFlags.UseDemoMode)
+            {
+                // Demo mode: Use versioned URL to FlowTime-Sim API
+                var simConfig = Configuration.GetSection(FlowTimeSimApiOptions.SectionName).Get<FlowTimeSimApiOptions>() 
+                    ?? new FlowTimeSimApiOptions();
+                var baseUrl = simConfig.BaseUrl?.TrimEnd('/') ?? "";
+                downloadUrl = $"{baseUrl}/{simConfig.ApiVersion}/sim/runs/{Result.RunId}/series/{seriesId}";
             }
             else
             {
-                NotificationService.Add("Failed to initiate any downloads", Severity.Error);
+                // API mode: Use versioned URL to FlowTime API
+                var apiConfig = Configuration.GetSection(FlowTimeApiOptions.SectionName).Get<FlowTimeApiOptions>() 
+                    ?? new FlowTimeApiOptions();
+                var baseUrl = apiConfig.BaseUrl?.TrimEnd('/') ?? "";
+                downloadUrl = $"{baseUrl}/{apiConfig.ApiVersion}/runs/{Result.RunId}/series/{seriesId}";
             }
+            
+            // Open download URL in new tab to trigger browser download
+            await JSRuntime.InvokeVoidAsync("window.open", downloadUrl, "_blank");
+            NotificationService.Add($"Downloading {seriesId}.csv", Severity.Success);
         }
         catch (Exception ex)
         {
-            NotificationService.Add($"Error downloading results: {ex.Message}", Severity.Error);
+            NotificationService.Add($"Error downloading series {seriesId}: {ex.Message}", Severity.Error);
         }
     }
 
@@ -353,13 +358,24 @@
         return FeatureFlags.UseDemoMode;
     }
 
-    protected override void OnParametersSet()
+    private string? lastLoadedRunId;
+    
+    protected override async Task OnParametersSetAsync()
     {
-        // Reset state when Result changes
-        if (Result?.RunId != simulationData?.GetHashCode().ToString())
+        // Reset state when Result changes - use RunId comparison to avoid endless loops
+        var currentRunId = Result?.RunId;
+        if (currentRunId != null && currentRunId != lastLoadedRunId)
         {
             hasLoadedResults = false;
             simulationData = null;
+            lastLoadedRunId = null;
+            
+            // Auto-load results for completed runs
+            if (Result?.Status == "completed" && !string.IsNullOrEmpty(Result.ResultsUrl))
+            {
+                await LoadResults();
+                lastLoadedRunId = currentRunId;
+            }
         }
     }
 }

@@ -104,43 +104,7 @@
     FlowTimeApiColor="@GetApiStatusColor(flowTimeApiStatus)"
     FlowTimeSimApiColor="@GetApiStatusColor(flowTimeSimApiStatus)" />
 
-<style>
-.expert-main-content {
-    padding-bottom: 32px; /* Make room for status bar */
-    max-height: calc(100vh - 64px - 32px); /* Maximum height to prevent overflow */
-    overflow-y: auto; /* Allow scrolling within main content if needed */
-}
 
-.drawer-surface {
-    height: calc(100vh - 64px - 32px); /* Account for app bar and status bar */
-}
-
-/* OPTION 1: Force Info color on both toolbars in both light and dark mode (COMMENTED OUT) */
-/*
-.mud-appbar.appbar-surface {
-    background-color: var(--mud-palette-info) !important;
-}
-
-.mud-theme-dark .mud-appbar.appbar-surface {
-    background-color: var(--mud-palette-info) !important;
-}
-
-.mud-appbar.appbar-surface .mud-typography,
-.mud-appbar.appbar-surface .mud-icon-button,
-.mud-appbar.appbar-surface .mud-button {
-    color: white !important;
-}
-
-.mud-theme-dark .mud-appbar.appbar-surface .mud-typography,
-.mud-theme-dark .mud-appbar.appbar-surface .mud-icon-button,
-.mud-theme-dark .mud-appbar.appbar-surface .mud-button {
-    color: white !important;
-}
-*/
-
-/* OPTION 2: Use default dark mode colors (ACTIVE) */
-/* Let MudBlazor handle AppBar colors naturally with Color="Color.Info" */
-</style>
 
 @code {
     private bool _drawerOpen = true;

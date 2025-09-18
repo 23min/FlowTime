@@ -2,6 +2,19 @@ using System.Globalization;
 
 namespace FlowTime.UI.Services;
 
+// Extension method for Gaussian distribution
+public static class RandomExtensions
+{
+    public static double NextGaussian(this Random random)
+    {
+        // Box-Muller transform for normal distribution
+        var u1 = 1.0 - random.NextDouble(); // uniform(0,1] random doubles
+        var u2 = 1.0 - random.NextDouble();
+        var randStdNormal = Math.Sqrt(-2.0 * Math.Log(u1)) * Math.Sin(2.0 * Math.PI * u2); // random normal(0,1)
+        return randStdNormal;
+    }
+}
+
 public interface ISimResultsService
 {
     Task<Result<SimResultData>> GetSimulationResultsAsync(string runId, CancellationToken ct = default);
@@ -11,12 +24,14 @@ public class SimResultsService : ISimResultsService
 {
     private readonly IFlowTimeSimApiClient simClient;
     private readonly IFlowTimeApiClient apiClient;
+    private readonly FeatureFlagService featureFlags;
     private readonly ILogger<SimResultsService> logger;
 
-    public SimResultsService(IFlowTimeSimApiClient simClient, IFlowTimeApiClient apiClient, ILogger<SimResultsService> logger)
+    public SimResultsService(IFlowTimeSimApiClient simClient, IFlowTimeApiClient apiClient, FeatureFlagService featureFlags, ILogger<SimResultsService> logger)
     {
         this.simClient = simClient;
         this.apiClient = apiClient;
+        this.featureFlags = featureFlags;
         this.logger = logger;
     }
 
@@ -24,6 +39,21 @@ public class SimResultsService : ISimResultsService
     {
         try
         {
+            await featureFlags.EnsureLoadedAsync();
+            
+            // Handle demo:// URL scheme - always use demo data regardless of mode
+            if (runId.StartsWith("demo://", StringComparison.OrdinalIgnoreCase))
+            {
+                var demoRunId = runId.Substring(7); // Remove "demo://" prefix
+                return await GetDemoModeResultsAsync(demoRunId, ct);
+            }
+            
+            // In demo mode, return synthetic data to match the template expectations
+            if (featureFlags.UseDemoMode)
+            {
+                return await GetDemoModeResultsAsync(runId, ct);
+            }
+
             var isEngineRun = runId.StartsWith("run_", StringComparison.OrdinalIgnoreCase);
 
             // Step 1: Get the series index following artifact-first pattern
@@ -90,6 +120,71 @@ public class SimResultsService : ISimResultsService
             logger.LogError(ex, "Failed to get simulation results for run {RunId}", runId);
             return Result<SimResultData>.Fail($"Error loading results: {ex.Message}");
         }
+    }
+
+    private async Task<Result<SimResultData>> GetDemoModeResultsAsync(string runId, CancellationToken ct)
+    {
+        // Generate realistic multi-series data for IT system template
+        logger.LogInformation("Generating demo mode results for run {RunId}", runId);
+        
+        var bins = 24; // 24 hours of data
+        var binMinutes = 60; // hourly bins
+        var random = new Random(runId.GetHashCode()); // Deterministic but varied per runId
+        
+        // Generate realistic IT system microservices data
+        var seriesData = new Dictionary<string, double[]>
+        {
+            ["user_requests"] = GenerateTrafficSeries(bins, random, baseRate: 150, peakHours: new[] { 9, 12, 15 }),
+            ["api_response"] = GenerateProcessingSeries(bins, random, baseRate: 145, efficiency: 0.97), 
+            ["auth_service"] = GenerateServiceSeries(bins, random, baseRate: 145, latency: 25),
+            ["business_service"] = GenerateServiceSeries(bins, random, baseRate: 140, latency: 45),
+            ["database_service"] = GenerateServiceSeries(bins, random, baseRate: 135, latency: 15)
+        };
+
+        var order = seriesData.Keys.ToArray();
+        
+        var result = new SimResultData(bins, binMinutes, order, seriesData);
+        
+        // Simulate some processing delay for realism
+        await Task.Delay(100, ct);
+        
+        return Result<SimResultData>.Ok(result);
+    }
+
+    private static double[] GenerateTrafficSeries(int bins, Random random, double baseRate, int[] peakHours)
+    {
+        var values = new double[bins];
+        for (int i = 0; i < bins; i++)
+        {
+            var hour = i;
+            var isPeakHour = peakHours.Contains(hour % 24);
+            var multiplier = isPeakHour ? 1.5 + random.NextDouble() * 0.5 : 0.7 + random.NextDouble() * 0.6;
+            values[i] = Math.Round(baseRate * multiplier + random.NextGaussian() * 10, 1);
+        }
+        return values;
+    }
+
+    private static double[] GenerateProcessingSeries(int bins, Random random, double baseRate, double efficiency)
+    {
+        var values = new double[bins];
+        for (int i = 0; i < bins; i++)
+        {
+            var processed = baseRate * efficiency * (0.95 + random.NextDouble() * 0.1);
+            values[i] = Math.Round(processed + random.NextGaussian() * 5, 1);
+        }
+        return values;
+    }
+
+    private static double[] GenerateServiceSeries(int bins, Random random, double baseRate, double latency)
+    {
+        var values = new double[bins];
+        for (int i = 0; i < bins; i++)
+        {
+            var throughput = baseRate * (0.9 + random.NextDouble() * 0.2);
+            var latencyEffect = 1.0 - (latency / 1000.0); // Higher latency = lower throughput
+            values[i] = Math.Round(throughput * latencyEffect + random.NextGaussian() * 8, 1);
+        }
+        return values;
     }
 
     private static async Task<double[]> ParseCsvStream(Stream csvStream, CancellationToken ct)

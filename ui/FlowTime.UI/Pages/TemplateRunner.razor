@@ -80,36 +80,15 @@
                 <MudButton Variant="Variant.Filled" 
                           Color="Color.Primary" 
                           Size="Size.Large"
-                          StartIcon="@Icons.Material.Filled.Storage"
-                          OnClick="() => activeTabIndex = 1">
-                    Choose Catalog
-                </MudButton>
-            </MudStack>
-        }
-    </MudTabPanel>
-    
-    <MudTabPanel Text="Catalog" Icon="@Icons.Material.Filled.Storage">
-        <MudText Typo="Typo.h6" Class="mb-4">Choose a system catalog</MudText>
-        @* Force re-mount when mode changes so any internal selection state is cleared *@
-        <CatalogPicker @key="modeVersion" 
-                      OnCatalogSelected="OnCatalogSelected" 
-                      SelectedCatalog="selectedCatalog" />
-        
-        @if (selectedCatalog != null)
-        {
-            <MudStack Row Justify="Justify.Center" Class="mt-4">
-                <MudButton Variant="Variant.Filled" 
-                          Color="Color.Primary" 
-                          Size="Size.Large"
                           StartIcon="@Icons.Material.Filled.Settings"
-                          OnClick="() => activeTabIndex = 2">
-                    Modify Parameters
+                          OnClick="() => activeTabIndex = 1">
+                    Configure Parameters
                 </MudButton>
             </MudStack>
         }
     </MudTabPanel>
     
-    <MudTabPanel Text="Parameters" Icon="@Icons.Material.Filled.Settings">
+    <MudTabPanel Text="Parameters" Icon="@Icons.Material.Filled.Settings" Disabled="@(!IsParametersTabEnabled)">
         <MudText Typo="Typo.h6" Class="mb-4">Configure template parameters</MudText>
         @if (selectedTemplate != null)
         {
@@ -127,7 +106,7 @@
         }
     </MudTabPanel>
     
-    <MudTabPanel Text="Model Preview" Icon="@Icons.Material.Filled.Code">
+    <MudTabPanel Text="Model Preview" Icon="@Icons.Material.Filled.Code" Disabled="@(!IsModelPreviewTabEnabled)">
         <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
             <MudText Typo="Typo.h6">Generated YAML model</MudText>
             @if (!string.IsNullOrEmpty(generatedYaml))
@@ -158,12 +137,65 @@
         else
         {
             <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
-                Complete template selection, catalog choice, and parameters to preview the model
+                Complete template selection and parameters to preview the model
             </MudAlert>
         }
     </MudTabPanel>
     
-    <MudTabPanel Text="Analyze" Icon="@Icons.Material.Filled.Analytics">
+    <MudTabPanel Text="Simulate" Icon="@Icons.Material.Filled.CloudSync" Disabled="@(!IsSimulateTabEnabled)">
+        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-4">
+            <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.CloudSync" />
+                <MudText><strong>FlowTime-Sim</strong> - Synthetic data generation using arrivals/route schema</MudText>
+            </MudStack>
+        </MudAlert>
+        
+        <MudText Typo="Typo.h6" Class="mb-3">Data Generation</MudText>
+        <MudText Class="mb-4" Typo="Typo.body2">Generate synthetic datasets to simulate system behavior under various conditions.</MudText>
+        
+        @* Warning for IT systems in API mode *@
+        @if (selectedTemplate?.Id == "it-system-microservices" && !FeatureFlags.UseDemoMode)
+        {
+            <MudAlert Severity="Severity.Warning" Class="mb-4">
+                <MudText Typo="Typo.body2">
+                    <strong>Recommendation:</strong> IT system templates work best in <strong>Demo mode</strong> for detailed microservices data. 
+                    API mode provides simplified queueing results. Consider switching to Demo mode for realistic telemetry.
+                </MudText>
+            </MudAlert>
+        }
+        
+        <MudPaper Class="pa-4 mb-4" Elevation="1" Style="min-height: 200px;">
+            @if (runResult is null)
+            {
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-3">
+                    <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="RunDataGeneration" Disabled="@(isSimulating || !CanRunSimulation())">
+                        @if (isSimulating)
+                        {
+                            <MudProgressCircular Class="mr-2" Size="Size.Small" Indeterminate="true" />
+                        }
+                        @(isSimulating ? "Generating..." : "Generate Data")
+                    </MudButton>
+                    <MudText Typo="Typo.caption" Style="color: var(--mud-palette-text-secondary);">
+                        Template: <strong>@(selectedTemplate?.Name ?? "None")</strong>
+                    </MudText>
+                </MudStack>
+                
+                <MudStack AlignItems="AlignItems.Center" Spacing="3" Class="py-4" Style="opacity: 0.6;">
+                    <MudIcon Icon="@Icons.Material.Filled.CloudSync" Size="Size.Large" Color="Color.Secondary" />
+                    <MudText Typo="Typo.body2" Align="Align.Center">
+                        Ready to generate synthetic datasets using FlowTime-Sim with configurable randomness.
+                    </MudText>
+                </MudStack>
+            }
+            
+            @if (runResult is not null)
+            {
+                <SimulationResults Result="runResult" />
+            }
+        </MudPaper>
+    </MudTabPanel>
+    
+    <MudTabPanel Text="Analyze" Icon="@Icons.Material.Filled.Analytics" Disabled="@(!IsAnalyzeTabEnabled)">
         <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-4">
             <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
                 <MudIcon Icon="@Icons.Material.Filled.Engineering" />
@@ -317,48 +349,6 @@
             }
         </MudPaper>
     </MudTabPanel>
-    
-    <MudTabPanel Text="Simulate" Icon="@Icons.Material.Filled.CloudSync">
-        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-4">
-            <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
-                <MudIcon Icon="@Icons.Material.Filled.DataUsage" />
-                <MudText><strong>FlowTime-Sim</strong> - Synthetic data generation using arrivals/route schema</MudText>
-            </MudStack>
-        </MudAlert>
-        
-        <MudText Typo="Typo.h6" Class="mb-3">Data Generation</MudText>
-        <MudText Class="mb-4" Typo="Typo.body2">Generate synthetic telemetry data using stochastic simulation.</MudText>
-        
-        <MudPaper Class="pa-4 mb-4" Elevation="1" Style="min-height: 200px;">
-            @if (runResult is null)
-            {
-                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-3">
-                    <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="RunDataGeneration" Disabled="@(isSimulating || !CanRunSimulation())">
-                        @if (isSimulating)
-                        {
-                            <MudProgressCircular Class="mr-2" Size="Size.Small" Indeterminate="true" />
-                        }
-                        @(isSimulating ? "Generating..." : "Generate Data")
-                    </MudButton>
-                    <MudText Typo="Typo.caption" Style="color: var(--mud-palette-text-secondary);">
-                        Template: <strong>@(selectedTemplate?.Name ?? "None")</strong>
-                    </MudText>
-                </MudStack>
-                
-                <MudStack AlignItems="AlignItems.Center" Spacing="3" Class="py-4" Style="opacity: 0.6;">
-                    <MudIcon Icon="@Icons.Material.Filled.CloudSync" Size="Size.Large" Color="Color.Secondary" />
-                    <MudText Typo="Typo.body2" Align="Align.Center">
-                        Ready to generate synthetic datasets using FlowTime-Sim with configurable randomness.
-                    </MudText>
-                </MudStack>
-            }
-            
-            @if (runResult is not null)
-            {
-                <SimulationResults Result="runResult" />
-            }
-        </MudPaper>
-    </MudTabPanel>
 </MudTabs>
 
 @code {
@@ -376,9 +366,15 @@
     private List<TemplateInfo>? templates; // Track template loading state for banner
     private bool isLoadingTemplates = true; // Track if we're still loading templates
     private bool hasApiError = false; // Track if API failed
-    private int activeTabIndex = 0; // Current active tab (0=Templates, 1=Catalog, 2=Parameters, 3=Model Preview, 4=Analyze, 5=Simulate)
+    private int activeTabIndex = 0; // Current active tab (0=Templates, 1=Parameters, 2=Model Preview, 3=Simulate, 4=Analyze)
     private string generatedYaml = string.Empty; // Generated YAML for model preview
     private bool isAnalyzing = false; // Track if graph analysis is running
+    
+    // Wizard-style tab enablement
+    private bool IsParametersTabEnabled => selectedTemplate != null;
+    private bool IsModelPreviewTabEnabled => selectedTemplate != null && parameters.Any();
+    private bool IsSimulateTabEnabled => selectedTemplate != null && parameters.Any(); 
+    private bool IsAnalyzeTabEnabled => selectedTemplate != null && parameters.Any();
 
     
     // New properties for actual Graph and Run functionality
@@ -481,7 +477,7 @@
         StateHasChanged();
     }
     
-    private void OnTemplateSelected(TemplateInfo template)
+    private async void OnTemplateSelected(TemplateInfo template)
     {
         selectedTemplate = template;
         parameters.Clear();
@@ -489,7 +485,34 @@
         generatedYaml = string.Empty; // Clear previous model preview
         selectedTemplateModeVersion = modeVersion;
         
+        // Reset wizard state - clear all downstream results
+        graphAnalysisResult = null;
+        engineRunResult = null;
+        chartSeries = null;
+        chartLabels = null;
+        
+        // Auto-select the first available catalog since catalog tab is hidden
+        await AutoSelectDefaultCatalogAsync();
+        
         StateHasChanged();
+    }
+    
+    private async Task AutoSelectDefaultCatalogAsync()
+    {
+        try
+        {
+            await FeatureFlags.EnsureLoadedAsync();
+            var catalogs = await CatalogService.GetCatalogsAsync();
+            if (catalogs.Any())
+            {
+                selectedCatalog = catalogs.First();
+                selectedCatalogModeVersion = modeVersion;
+            }
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Add($"Failed to load catalogs: {ex.Message}", Severity.Warning);
+        }
     }
 
 
@@ -551,10 +574,10 @@
     private bool CanRunSimulation()
     {
         // Must have current-mode selections
-        if (selectedTemplate == null || selectedCatalog == null || isRunning)
+        if (selectedTemplate == null || isRunning)
             return false;
 
-        if (selectedTemplateModeVersion != modeVersion || selectedCatalogModeVersion != modeVersion)
+        if (selectedTemplateModeVersion != modeVersion)
             return false; // stale selections from prior mode
 
         // Check if all required parameters are provided
@@ -575,8 +598,7 @@
         if (CanRunSimulation()) return FeatureFlags.UseDemoMode ? "Run demo with built-in content" : "Run using FlowTime API";
         if (isRunning) return "Simulation in progress";
         if (selectedTemplate == null) return "Select a template first";
-        if (selectedCatalog == null) return "Select a system catalog";
-        if (selectedTemplateModeVersion != modeVersion || selectedCatalogModeVersion != modeVersion) return "Selections invalid after mode change – reselect";
+        if (selectedTemplateModeVersion != modeVersion) return "Template selection invalid after mode change – reselect";
         return "Provide required parameters";
     }
 
@@ -593,14 +615,9 @@
             builder.AddContent(seq++, "Select a template to enable the run button.");
             return;
         }
-        if (selectedCatalog == null)
+        if (selectedTemplateModeVersion != modeVersion)
         {
-            builder.AddContent(seq++, "Select a system catalog to enable the run button.");
-            return;
-        }
-        if (selectedTemplateModeVersion != modeVersion || selectedCatalogModeVersion != modeVersion)
-        {
-            builder.AddContent(seq++, "Mode changed – previous selections were cleared. Please reselect both template and catalog.");
+            builder.AddContent(seq++, "Mode changed – previous template selection was cleared. Please reselect template.");
             return;
         }
         // Parameter gap
@@ -619,9 +636,7 @@
     private bool CanGenerateModel()
     {
         return selectedTemplate != null && 
-               selectedCatalog != null && 
                selectedTemplateModeVersion == modeVersion && 
-               selectedCatalogModeVersion == modeVersion &&
                (selectedTemplate.ParameterSchema?.Required == null || 
                 selectedTemplate.ParameterSchema.Required.All(r => parameters.ContainsKey(r) && parameters[r] != null));
     }
@@ -630,7 +645,7 @@
     {
         if (!CanGenerateModel())
         {
-            NotificationService.Add("Complete template selection, catalog choice, and parameters to generate model preview.", Severity.Warning);
+            NotificationService.Add("Complete template selection and parameters to generate model preview.", Severity.Warning);
             return;
         }
 
@@ -639,7 +654,7 @@
             var request = new SimulationRunRequest
             {
                 TemplateId = selectedTemplate!.Id,
-                CatalogId = selectedCatalog!.Id,
+                CatalogId = "default", // No longer using catalogs
                 Parameters = parameters
             };
 
@@ -657,7 +672,7 @@
     private async Task OnTabChanged()
     {
         // Auto-generate model preview when switching to Model Preview tab (index 3)
-        if (activeTabIndex == 3 && string.IsNullOrEmpty(generatedYaml) && CanGenerateModel())
+        if (activeTabIndex == 2 && string.IsNullOrEmpty(generatedYaml) && CanGenerateModel())
         {
             await GenerateModelPreview();
         }
@@ -683,7 +698,7 @@
     {
         if (!CanRunSimulation())
         {
-            NotificationService.Add("Select a template and catalog for the current mode before running.", Severity.Warning);
+            NotificationService.Add("Select a template for the current mode before running.", Severity.Warning);
             return;
         }
 
@@ -752,15 +767,14 @@
     {
         if (!CanRunSimulation())
         {
-            NotificationService.Add("Select a template and catalog for the current mode before generating data.", Severity.Warning);
+            NotificationService.Add("Select a template for the current mode before generating data.", Severity.Warning);
             return;
         }
 
         isSimulating = true;
         runResult = null;
         
-        // Navigate to Simulate tab when starting data generation
-        activeTabIndex = 5;
+        // Stay on current tab during data generation
         StateHasChanged();
 
         try
@@ -768,7 +782,7 @@
             var request = new SimulationRunRequest
             {
                 TemplateId = selectedTemplate!.Id,
-                CatalogId = selectedCatalog!.Id,
+                CatalogId = "default", // No longer using catalogs
                 Parameters = parameters
             };
 

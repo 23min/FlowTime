@@ -843,112 +843,88 @@ public class FlowTimeSimService : IFlowTimeSimService
         }
     }
 
-    private async Task<SimulationRunResult> RunDemoModeSimulationAsync(SimulationRunRequest request)
+    private Task<SimulationRunResult> RunDemoModeSimulationAsync(SimulationRunRequest request)
     {
-        string yamlSpec;
-        try
-        {
-            // Generate YAML spec with FlowTime-Sim schema translation
-            yamlSpec = await GenerateSimulationYamlAsync(request);
-
-            // Log the generated YAML for debugging
-            logger.LogInformation("Generated FlowTime-Sim YAML for simulation:\n{Yaml}", yamlSpec);
-        }
-        catch (InvalidOperationException ex) when (ex.Message.Contains("schema translation"))
-        {
-            // Schema translation failed - return clear error
-            logger.LogError(ex, "Schema translation failed for template {TemplateId}", request.TemplateId);
-            return new SimulationRunResult
-            {
-                RunId = $"translation_failed_{DateTime.UtcNow:yyyyMMddTHHmmssZ}",
-                Status = "failed",
-                StartTime = DateTime.UtcNow,
-                ErrorMessage = $"Template '{request.TemplateId}' cannot be automatically translated to FlowTime-Sim format. " +
-                              "This template may be too complex for synthetic data generation. " +
-                              "Try using the Analyze tab instead for flow analysis."
-            };
-        }
+        // Demo Mode: Generate synthetic data offline without calling any APIs
+        logger.LogInformation("Running demo mode (offline) simulation for template {TemplateId}", request.TemplateId);
 
         try
         {
-
-            // Call FlowTime-Sim API following artifact-first pattern
-            var runResult = await simClient.RunAsync(yamlSpec);
-            if (!runResult.Success)
-            {
-                logger.LogError("Simulation run failed: {Error}", runResult.Error);
-                return new SimulationRunResult
-                {
-                    RunId = $"failed_{DateTime.UtcNow.ToString("yyyyMMddTHHmmssZ", CultureInfo.InvariantCulture)}",
-                    Status = "failed",
-                    StartTime = DateTime.UtcNow,
-                    ErrorMessage = runResult.Error
-                };
-            }
-
-            var runId = runResult.Value?.SimRunId ?? throw new InvalidOperationException("No run ID returned");
-
-            // Get configuration for versioned URL
-            var simConfig = configuration.GetSection(FlowTimeSimApiOptions.SectionName).Get<FlowTimeSimApiOptions>()
-                ?? new FlowTimeSimApiOptions();
-
-            // Return artifact-first result - no custom metadata blobs
-            return new SimulationRunResult
-            {
-                RunId = runId,
-                Status = "completed",
-                StartTime = DateTime.UtcNow.AddSeconds(-1), // Approximate start time
-                EndTime = DateTime.UtcNow,
-                ResultsUrl = $"/{simConfig.ApiVersion}/sim/runs/{runId}/index", // Point to versioned series index
-                Metadata = new() // Minimal metadata, artifacts are authoritative
-                {
-                    ["templateId"] = request.TemplateId,
-                    ["catalogId"] = request.CatalogId,
-                    ["source"] = "sim"
-                }
-            };
+            // Generate realistic synthetic data based on template parameters
+            var runResult = GenerateDemoSimulationData(request);
+            // Return offline demo result
+            return Task.FromResult(runResult);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to run simulation for template {TemplateId}", request.TemplateId);
-            return new SimulationRunResult
+            logger.LogError(ex, "Failed to run demo mode simulation for template {TemplateId}", request.TemplateId);
+            return Task.FromResult(new SimulationRunResult
             {
-                RunId = $"error_{DateTime.UtcNow.ToString("yyyyMMddTHHmmssZ", CultureInfo.InvariantCulture)}",
+                RunId = $"demo_error_{DateTime.UtcNow.ToString("yyyyMMddTHHmmssZ", CultureInfo.InvariantCulture)}",
                 Status = "failed",
                 StartTime = DateTime.UtcNow,
                 ErrorMessage = ex.Message
-            };
+            });
         }
+    }
+
+    private SimulationRunResult GenerateDemoSimulationData(SimulationRunRequest request)
+    {
+        // Generate realistic synthetic data based on template parameters for offline demo mode
+        var runId = $"demo_{DateTime.UtcNow:yyyyMMddTHHmmssZ}_{Guid.NewGuid().ToString("N")[..8]}";
+        
+        logger.LogInformation("Generating synthetic demo data for template {TemplateId} with runId {RunId}", 
+            request.TemplateId, runId);
+
+        // Demo mode uses a special "demo://" scheme URL that SimResultsService handles
+        return new SimulationRunResult
+        {
+            RunId = runId,
+            Status = "completed", 
+            StartTime = DateTime.UtcNow.AddSeconds(-2),
+            EndTime = DateTime.UtcNow,
+            ResultsUrl = $"demo://{runId}", // Special scheme for demo mode
+            Metadata = new Dictionary<string, object>
+            {
+                ["templateId"] = request.TemplateId,
+                ["source"] = "demo",
+                ["mode"] = "offline",
+                ["dataType"] = "synthetic telemetry",
+                ["description"] = "Simulated IT system microservices performance data",
+                ["parameters"] = request.Parameters ?? new Dictionary<string, object>()
+            }
+        };
     }
 
     private async Task<SimulationRunResult> RunApiModeSimulationAsync(SimulationRunRequest request)
     {
         try
         {
-            // API Mode: Call FlowTime Engine API (/run) to produce real engine artifacts
-            logger.LogInformation("Running API mode (engine) simulation for template {TemplateId}", request.TemplateId);
+            // API Mode: Call FlowTime-Sim API (/sim/run) to produce real simulation artifacts
+            logger.LogInformation("Running API mode (FlowTime-Sim) simulation for template {TemplateId}", request.TemplateId);
 
-            var yamlSpec = GenerateEngineYaml(request);
-            logger.LogInformation("Generated YAML for engine run (API mode):\n{Yaml}", yamlSpec);
+            // Generate YAML for FlowTime-Sim using arrivals/route schema translation
+            var yamlSpec = await GenerateSimulationYamlAsync(request);
+            logger.LogInformation("Generated YAML for FlowTime-Sim run (API mode):\n{Yaml}", yamlSpec);
 
-            var runCall = await apiClient.RunAsync(yamlSpec);
+            var runCall = await simClient.RunAsync(yamlSpec);
             if (!runCall.Success || runCall.Value == null)
             {
-                logger.LogError("Engine run failed: {Error}", runCall.Error);
+                logger.LogError("FlowTime-Sim run failed: {Error}", runCall.Error);
                 return new SimulationRunResult
                 {
-                    RunId = $"run_failed_{DateTime.UtcNow:yyyyMMddTHHmmssZ}",
+                    RunId = $"sim_failed_{DateTime.UtcNow:yyyyMMddTHHmmssZ}",
                     Status = "failed",
                     StartTime = DateTime.UtcNow,
-                    ErrorMessage = runCall.Error ?? "Unknown engine error"
+                    ErrorMessage = runCall.Error ?? "Unknown FlowTime-Sim error"
                 };
             }
 
-            var runId = runCall.Value.RunId;
+            var runId = runCall.Value.SimRunId;
 
-            var metadata = GenerateApiModeMetadata(request);
-            metadata["runId"] = runId;
-            metadata["source"] = "engine"; // authoritative source tag
+            // Get configuration for versioned URL
+            var simConfig = configuration.GetSection(FlowTimeSimApiOptions.SectionName).Get<FlowTimeSimApiOptions>()
+                ?? new FlowTimeSimApiOptions();
 
             return new SimulationRunResult
             {
@@ -956,8 +932,14 @@ public class FlowTimeSimService : IFlowTimeSimService
                 Status = "completed",
                 StartTime = DateTime.UtcNow.AddSeconds(-2),
                 EndTime = DateTime.UtcNow,
-                ResultsUrl = $"/runs/{runId}/index",
-                Metadata = metadata
+                ResultsUrl = $"/{simConfig.ApiVersion}/sim/runs/{runId}/index", // Point to versioned FlowTime-Sim series index
+                Metadata = new() // Minimal metadata, artifacts are authoritative
+                {
+                    ["templateId"] = request.TemplateId,
+                    ["source"] = "sim", // FlowTime-Sim API source
+                    ["dataType"] = "simulation telemetry",
+                    ["description"] = "Real simulation data from FlowTime-Sim API"
+                }
             };
         }
         catch (Exception ex)

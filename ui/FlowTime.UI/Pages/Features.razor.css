@@ -1,0 +1,16 @@
+/* Tab bar styling - light blue accent for light mode only */
+.mud-theme-light .features-tabs .mud-tabs-toolbar {
+    background-color: #80D8FF !important; /* Accent1 color */
+}
+
+.mud-theme-light .features-tabs .mud-tab {
+    color: #1976d2 !important; /* Darker blue for contrast */
+}
+
+.mud-theme-light .features-tabs .mud-tab.mud-tab-active {
+    background-color: rgba(255, 255, 255, 0.2) !important;
+    color: #0d47a1 !important; /* Even darker for active tab */
+    font-weight: 600 !important;
+}
+
+/* Dark mode tabs remain unchanged (default MudBlazor styling) */

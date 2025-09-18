@@ -78,8 +78,9 @@ builder.Services.AddScoped<ISimResultsService>(sp =>
 {
 	var simClient = sp.GetRequiredService<IFlowTimeSimApiClient>();
 	var apiClient = sp.GetRequiredService<IFlowTimeApiClient>();
+	var featureFlags = sp.GetRequiredService<FeatureFlagService>();
 	var logger = sp.GetRequiredService<ILogger<SimResultsService>>();
-	return new SimResultsService(simClient, apiClient, logger);
+	return new SimResultsService(simClient, apiClient, featureFlags, logger);
 });
 
 // Shared services for graph analysis and simulation results
