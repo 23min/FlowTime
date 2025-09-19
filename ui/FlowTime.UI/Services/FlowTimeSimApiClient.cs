@@ -20,11 +20,11 @@ public class FlowTimeSimApiClient : IFlowTimeSimApiClient
     private readonly ILogger<FlowTimeSimApiClient> logger;
     private readonly string apiVersion;
 
-    public FlowTimeSimApiClient(HttpClient httpClient, ILogger<FlowTimeSimApiClient> logger)
+    public FlowTimeSimApiClient(HttpClient httpClient, ILogger<FlowTimeSimApiClient> logger, string apiVersion = "v1")
     {
         this.httpClient = httpClient;
         this.logger = logger;
-        this.apiVersion = "v1";
+        this.apiVersion = apiVersion;
     }
 
     public string? BaseAddress => httpClient.BaseAddress?.ToString();

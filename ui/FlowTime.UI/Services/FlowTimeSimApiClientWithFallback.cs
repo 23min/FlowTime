@@ -8,12 +8,12 @@ public class FlowTimeSimApiClientWithFallback : IFlowTimeSimApiClient
     private readonly IConfiguration configuration;
     private readonly ILogger<FlowTimeSimApiClientWithFallback> logger;
     private readonly IServiceProvider serviceProvider;
-    
+
     private IFlowTimeSimApiClient? activeClient;
     private string? activeBaseUrl;
 
     public FlowTimeSimApiClientWithFallback(
-        IPortDiscoveryService portDiscovery, 
+        IPortDiscoveryService portDiscovery,
         IConfiguration configuration,
         ILogger<FlowTimeSimApiClientWithFallback> logger,
         IServiceProvider serviceProvider)
@@ -32,25 +32,25 @@ public class FlowTimeSimApiClientWithFallback : IFlowTimeSimApiClient
             return activeClient;
 
         // Get configuration
-        var config = configuration.GetSection(FlowTimeSimApiOptions.SectionName).Get<FlowTimeSimApiOptions>() 
+        var config = configuration.GetSection(FlowTimeSimApiOptions.SectionName).Get<FlowTimeSimApiOptions>()
             ?? new FlowTimeSimApiOptions();
 
         // Discover available port
         var availableUrl = await portDiscovery.GetAvailableFlowTimeSimUrlAsync(config);
-        
+
         // Create HttpClient with discovered URL
-        var simHttp = new HttpClient 
-        { 
+        var simHttp = new HttpClient
+        {
             BaseAddress = new Uri(availableUrl),
             Timeout = TimeSpan.FromMinutes(config.TimeoutMinutes)
         };
-        
+
         var clientLogger = serviceProvider.GetRequiredService<ILogger<FlowTimeSimApiClient>>();
         activeClient = new FlowTimeSimApiClient(simHttp, clientLogger, config.ApiVersion);
         activeBaseUrl = availableUrl;
-        
+
         logger.LogInformation("FlowTime-Sim API client initialized with URL: {Url}", availableUrl);
-        
+
         return activeClient;
     }
 
