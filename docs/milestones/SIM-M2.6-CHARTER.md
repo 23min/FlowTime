@@ -1,7 +1,9 @@
-# Milestone SIM-M2.6 — Charter-Aligned Model Authoring Platform
+# Milestone SIM-M3.0 — Charter-Aligned Model Authoring Platform
+
+> **📋 Charter Alignment**: This milestone number has been updated to align with [FlowTime-Engine Charter Roadmap](../../../flowtime-vnext/docs/milestones/CHARTER-ROADMAP.md) which references SIM-M3.0 as the Sim charter milestone.
 
 **Status:** 📋 Planned (Charter-Aligned)  
-**Dependencies:** SIM-M2.1 (PMF Generator Support), FlowTime Engine M2.6 (Artifacts Registry)  
+**Dependencies:** SIM-M2.1 (PMF Generator Support), FlowTime Engine M2.7 (Artifacts Registry Foundation)  
 **Target:** FlowTime-Sim as charter-compliant model authoring platform  
 **Date:** 2025-10-01
 

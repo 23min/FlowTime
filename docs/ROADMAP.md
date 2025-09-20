@@ -1,10 +1,19 @@
-# FlowTime Sim Roadmap (v2.0, Harmonized with Engine ↔ UI)
+# FlowTime Sim Roadmap (Legacy - Charter Superseded)
 
-> **Purpose:** Synchronized milestone plan ensuring lock-step development across Engine ↔ Sim ↔ UI with artifact-first contracts.
+> **🚀 CHARTER NOTICE**: This roadmap has been superseded by the [FlowTime-Engine Charter](../../flowtime-vnext/docs/flowtime-engine-charter.md) and [Charter Roadmap](../../flowtime-vnext/docs/milestones/CHARTER-ROADMAP.md). 
+>
+> **Current Development**: FlowTime-Sim follows **SIM-M3.0** charter milestone for model authoring platform alignment. See [FlowTime-Sim Charter](flowtime-sim-charter.md) for current scope and [SIM-M3.0 Charter Milestone](milestones/SIM-M2.6-CHARTER.md) for implementation details.
+>
+> **Legacy Status**: The milestone sequence below represents the pre-charter roadmap preserved for historical reference.
 
-**Current Engine Status**: 📋 M3 (Backlog v1 + Latency) not started yet  
-**Next Engine Priority**: 📋 M4 (Scenarios & Compare) or M3 - TBD  
-**Retry Status**: 📋 M9.5 (Retry & Feedback) - deferred from M4.5
+---
+
+## Legacy Purpose *(Charter Superseded)*
+~~Synchronized milestone plan ensuring lock-step development across Engine ↔ Sim ↔ UI with artifact-first contracts.~~
+
+**Charter Status**: 📋 **SIM-M3.0 Charter Alignment** - Model authoring platform  
+**Engine Dependencies**: 📋 **M2.7 Artifacts Registry** → **M2.8 Charter UI** → **M2.9 Compare**  
+**Charter Workflow**: **[Models] → [Runs] → [Artifacts] → [Learn]**
 
 ## Harmonized Guiding Rules
 
@@ -40,19 +49,25 @@ FlowTime-Sim is the **modeling front-end** for FlowTime that generates models, s
 **Next Engine Priority**: 📋 M4 (Scenarios & Compare) or M3 - TBD  
 **Retry Status**: 📋 M9.5 (Retry & Feedback) - deferred from M4.5
 
-**FlowTime-Sim Alignment** (following harmonized milestone sequence):
-- **SIM-M0 — Core Foundations** — **✅ Done** (aligns with Engine M0)
-- **SIM-M1 — Contracts Parity Pack** — **✅ Done** (aligns with Engine M1)  
-- **SIM-M2 — Artifact Parity & Structure** — **✅ Done** (run.json, manifest.json, series index)
-- **SIM-CAT-M2 — Catalog.v1 Required** — **✅ Done** (stable ID source)
-- **SIM-SVC-M2 — Minimal Service/API** — **✅ Done** (artifact endpoints)
-- **SIM-M2.1 — PMF Generator Support** — **✅ Done** (PMF arrivals for Engine M2 testing)
-- **SIM-M2.6 — Charter-Aligned Model Authoring** — **🔄 IN PROGRESS** (Charter-compliant model artifacts creation)
-- **SIM-M2.7 — Artifacts Registry Integration** — **📋 Planned** (Sim models discoverable in Engine M2.7 registry)
-- **SIM-M3 — Backlog v1 + Latency + Endpoints** — **� Next** (Basic queues, ready for Engine M3)
-- **SIM-M4 — Scenarios & Compare** — **🚀 Next** (Overlay support for Engine M4)
-- **SIM-M5 — Routing/Fan-out/Capacity** — **📋 Aligned** (Multi-path for Engine M5)
-- **SIM-M6 — Retry & Feedback** — **📋 Deferred** (Aligns with Engine M9.5)
+**Legacy FlowTime-Sim Alignment** *(Charter Superseded)*:
+- **SIM-M0 — Core Foundations** — **✅ Done** (aligns with Engine M0) *(Pre-Charter)*
+- **SIM-M1 — Contracts Parity Pack** — **✅ Done** (aligns with Engine M1) *(Pre-Charter)*  
+- **SIM-M2 — Artifact Parity & Structure** — **✅ Done** (run.json, manifest.json, series index) *(Pre-Charter)*
+- **SIM-CAT-M2 — Catalog.v1 Required** — **✅ Done** (stable ID source) *(Pre-Charter)*
+- **SIM-SVC-M2 — Minimal Service/API** — **✅ Done** (artifact endpoints) *(Pre-Charter)*
+- **SIM-M2.1 — PMF Generator Support** — **✅ Done** (PMF arrivals for Engine M2 testing) *(Pre-Charter)*
+
+**Charter-Aligned Milestones** *(Current Development)*:
+- **SIM-M3.0 — Charter Model Authoring Platform** — **🔄 IN PROGRESS** (Charter-compliant model artifacts creation)
+  - Replaces legacy SIM-M2.6 + SIM-M2.7 sequence 
+  - Dependencies: Engine M2.7 (Registry Foundation)
+  - Integrates with Engine M2.8 (Charter UI) → M2.9 (Compare)
+
+**Legacy Sequence** *(Superseded by Charter)*:
+- ~~**SIM-M3 — Backlog v1 + Latency + Endpoints**~~ → **See Engine M2.7-M2.9 Charter Milestones**
+- ~~**SIM-M4 — Scenarios & Compare**~~ → **See Engine M2.9 Charter Compare Workflow**
+- ~~**SIM-M5 — Routing/Fan-out/Capacity**~~ → **Future Charter Milestones TBD**
+- ~~**SIM-M6 — Retry & Feedback**~~ → **Deferred in Charter Scope**
 
 ---
 

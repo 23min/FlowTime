@@ -1,5 +1,7 @@
 # FlowTime-Sim Charter (v1.0)
 
+> **🔗 Charter Ecosystem**: This charter operates within the broader [FlowTime-Engine Charter](../../flowtime-vnext/docs/flowtime-engine-charter.md) ecosystem. Together they define the **Engine+Sim** architecture supporting the artifacts-centric workflow: **[Models] → [Runs] → [Artifacts] → [Learn]**.
+
 **Date:** 2025-09-20
 **Audience:** Engineers, architects, UI developers, and contributors to FlowTime.
 **Status:** Active scope definition.
@@ -8,7 +10,7 @@
 
 ## Purpose (one-liner)
 
-FlowTime-Sim is the **modeling front-end** for FlowTime. It generates models, stochastic input patterns, and templates for systems, but **never computes telemetry**.
+FlowTime-Sim is the **modeling front-end** for the FlowTime Engine+Sim ecosystem. It generates model artifacts, stochastic input patterns, and templates for systems, but **never computes telemetry** - that remains the exclusive domain of FlowTime-Engine.
 
 ---
 

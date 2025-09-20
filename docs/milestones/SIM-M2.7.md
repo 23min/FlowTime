@@ -1,7 +1,9 @@
-# SIM-M2.7 — Artifacts Registry Integration
+# SIM-M3.0-PART2 — Artifacts Registry Integration
+
+> **📋 Charter Alignment**: This milestone is now part of SIM-M3.0 charter milestone to align with [FlowTime-Engine Charter Roadmap](../../../flowtime-vnext/docs/milestones/CHARTER-ROADMAP.md).
 
 **Status:** 📋 Planned (Charter-Aligned)  
-**Dependencies:** SIM-M2.6 (Charter-Aligned Model Authoring), FlowTime Engine M2.7 (Artifacts Registry Foundation)  
+**Dependencies:** SIM-M3.0-PART1 (Charter-Aligned Model Authoring), FlowTime Engine M2.7 (Artifacts Registry Foundation)  
 **Target:** FlowTime-Sim model artifacts discoverable in Engine registry system  
 **Date:** 2025-10-15
 
