@@ -1,9 +1,13 @@
-# Milestone: SIM-SVC-M2 — Minimal Simulation Service/API (Artifact-Centric)
+# Milestone: SIM-SVC-M2 — Minimal Simulation Service/API (Pre-Charter)
 
-Status: Complete (released as tag `sim-svc-m2` on commit 7fe761a)
+> ⚠️ **CHARTER VIOLATION**: This milestone describes FlowTime-Sim as a "simulation engine" that generates telemetry, violating Charter v1.0.
+> Per Charter v1.0, FlowTime-Sim is a "modeling front-end" that creates model artifacts but **never computes telemetry**.
+> This milestone is **SUPERSEDED** by charter-compliant SIM-M2.6 (Model Authoring) and SIM-M2.7 (Registry Integration).
 
-## Goal
-Expose the simulation engine as a stateless HTTP service that produces the same on-disk artifact pack (run.json, manifest.json, series/index.json, per-series CSVs, optional events.ndjson) as the CLI, enabling UI / other services to request new simulation runs via simple HTTP calls.
+Status: Complete (Pre-Charter, now deprecated)
+
+## Goal (Charter Violation)
+**OUTDATED**: This goal violates charter by describing telemetry generation. Charter-compliant model authoring services replace this functionality.
 
 ## Motivation
 - Decouple front-end (UI) from local CLI execution.

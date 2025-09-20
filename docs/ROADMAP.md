@@ -13,24 +13,24 @@
 3. **Retry/feedback deferred**: Engine M9.5 ↔ Sim SIM-M6 (not urgent)
 4. **Lock-step milestones**: Engine↔Sim parity tests required on every milestone touching artifacts
 
-## FlowTime-Sim's Role (per Harmonized Plan)
+## FlowTime-Sim's Role (per Charter v1.0)
 
-FlowTime-Sim is the **synthetic generator companion** producing telemetry-like data ("Gold" series) with **artifact-first, catalog-required contracts**. **Critical separation of concerns:**
+FlowTime-Sim is the **modeling front-end** for FlowTime that generates models, stochastic input patterns, and templates for systems, but **never computes telemetry**. **Charter-compliant separation of concerns:**
 
-- **✅ FlowTime-Sim Responsibilities:**
-  - Generate synthetic telemetry when real telemetry unavailable
-  - Produce Gold series validating Engine features at each milestone
-  - Create training/calibration data for parameter learners  
-  - Support deterministic replay with seeded stochastic draws
-  - **Maintain Catalog.v1 as required stable ID source**
+- **✅ FlowTime-Sim Responsibilities (Charter v1.0):**
+  - Generate model artifacts and stochastic input definitions  
+  - Provide templates and model authoring capabilities
+  - Create parameterizable models for Engine execution
+  - Support model validation and Engine compatibility checking
+  - **Maintain model artifacts as input to Engine ecosystem**
 
-- **❌ FlowTime-Sim DOES NOT:**
-  - Implement Engine's expression language (SHIFT, CONV, MIN, MAX, etc.)
-  - Evaluate DAG models or perform flow analysis
-  - Replace Engine's analytical capabilities
-  - Provide real-time flow processing or decision making
+- **❌ FlowTime-Sim DOES NOT (Charter Boundaries):**
+  - Generate telemetry or execute models for data production
+  - Implement Engine's execution, expression evaluation, or DAG processing
+  - Replace Engine's analytical or telemetry generation capabilities
+  - Provide model execution, run processing, or telemetry computation
 
-**Schema Compatibility**: Identical artifact schemas and API contracts between Engine and Sim. **Units & IDs locked**: flows = entities/bin, levels = entities, latency = minutes; seriesId = measure@componentId[@class].
+**Charter Integration**: Model artifacts from Sim integrate with Engine registry for execution. **Role Separation**: Sim authors models, Engine executes models and generates telemetry.
 
 ## Status Summary (✅ = Done, 🔄 = Current Priority, 🚀 = Next)
 
@@ -88,12 +88,12 @@ FlowTime-Sim is the **synthetic generator companion** producing telemetry-like d
 - **Features** Component/connection structure, API endpoints, validation
 - **Acceptance** Catalog.v1 required (not optional); stable component IDs
 
-### SIM-SVC-M2 — Minimal Service/API — **✅ Done**
+### SIM-SVC-M2 — Minimal Service/API — **✅ Done** (Pre-Charter)
 
 - **Goal** Stateless HTTP service exposing artifact endpoints
 - **Released** 2025-09-03 (tag: sim-svc-m2)
-- **Features** POST /sim/run, GET /sim/runs/{id}/series/{seriesId}, overlay support
-- **Acceptance** CLI vs API parity; artifact streaming; scenario registry
+- **Features** Legacy endpoints (superseded by charter-compliant SIM-M2.6/M2.7)
+- **Charter Note** Replaced by charter-compliant model export and registry integration
 
 ### SIM-M2.1 — PMF Generator Support — **✅ Done**
 
@@ -137,105 +137,110 @@ FlowTime-Sim is the **synthetic generator companion** producing telemetry-like d
 
 ## Next Priority
 
-### SIM-M3 — Backlog v1 + Latency + Artifact Endpoints — **🔄 PRIORITY**
+### SIM-M3 — Charter-Aligned Backlog & Latency Models — **� NEXT**
 
-- **Goal** Generate basic queues and latency for Engine M3, consolidating queuing basics.
-- **Why** Engine M3 (Backlog v1 + Latency) pulled forward. Basic queues only - later M7 = Backlog v2 (buffers & spill).
-- **Engine Status** 📋 M3 not started yet, SIM-M3 ready when needed  
-- **Supports** Engine M3 (Backlog v1 + Latency + Artifact Endpoints)
-- **Core Features** 
-  - **backlog[t] = max(0, backlog[t-1] + inflow[t] − served[t])**
-  - **latency[t] = served[t]==0 ? 0 : backlog[t]/served[t]*binMinutes**
-  - **Emit series/backlog.csv, series/latency.csv**
-  - **Basic generator**: arrivals, served, capacity, backlog derived identically to Engine's formula
-  - **No retry echoes** (deferred to SIM-M6)
-- **CLI**
+- **Goal** Create charter-compliant backlog and latency model templates for Engine M3 execution.
+- **Charter Alignment** Generate model definitions with backlog/latency expressions, Engine executes for telemetry
+- **Dependencies** SIM-M2.7 (Registry Integration), Engine M3 (Backlog v1 + Latency execution)  
+- **Supports** Engine M3 backlog/latency execution with Sim-authored model templates
+- **Charter-Compliant Features** 
+  - **Model Templates**: Backlog and latency model definitions for Engine execution
+  - **Expression Definitions**: `backlog[t] = max(0, backlog[t-1] + inflow[t] − served[t])` model schemas
+  - **Engine Integration**: Models define latency calculations for Engine to execute
+  - **Registry Integration**: Backlog/latency models discoverable in Engine via SIM-M2.7
+  - **Charter Boundary**: Sim creates models, Engine generates backlog.csv and latency.csv
+- **Charter-Compliant CLI**
+  ```bash
+  # Create backlog model templates (charter-compliant)
+  flowtime sim export --template backlog-queue --name "basic-backlog" --out artifacts
+  flowtime sim export --template latency-analysis --name "basic-latency" --out artifacts
+  
+  # Models registered for Engine M3 execution via SIM-M2.7
   ```
-  flow-sim gen basic --config basic-config.yaml --out runs/backlog-v1 --seed 42
-  # Basic queues for Engine M3 development
-  ```
-- **Acceptance** 
-  - Engine M3 processes FlowTime-Sim artifacts without errors  
-  - Conservation holds: backlog formula matches Engine exactly
-  - Latency div-by-zero safe; file streaming endpoints pass
-  - **Integration validated**: Engine M3 development proceeds with synthetic data
+- **Charter-Compliant Acceptance** 
+  - Engine M3 can discover and execute Sim-created backlog/latency models via registry
+  - Model templates generate valid Engine schemas with backlog/latency expressions
+  - Engine execution produces backlog.csv and latency.csv from Sim models
+  - **Charter Integration**: Sim models → Engine registry → Engine execution → telemetry generation
 
 ---
 
-### SIM-M4 — Scenarios & Compare — **🚀 NEXT**
+### SIM-M4 — Charter-Aligned Scenarios & Model Variations — **� Aligned**
 
-- **Goal** Generate scenario variations using overlay patterns for Engine M4.
-- **Why** Engine M4 implements overlay YAML and compare CLI. FlowTime-Sim must generate baseline and scenario data.
-- **Aligned with** Engine M4 (Scenarios & Compare)
+- **Goal** Create charter-compliant scenario model templates for Engine M4 execution and comparison.
+- **Charter Alignment** Generate model variations and overlay definitions, Engine executes scenarios for comparison
+- **Dependencies** SIM-M3 (Backlog Models), Engine M4 (Scenarios & Compare execution)
 - **Features**
-  - **Overlay framework**: Apply time-windowed demand/capacity modifiers
-  - **Scenario generation**: Baseline + variants matching Engine M4 overlay semantics
-  - **Compare support**: Generate delta.csv and kpi.csv equivalents
-- **CLI** 
+  - **Model Variation Templates**: Baseline and scenario model definitions with parameter variations
+  - **Overlay Schema Generation**: Time-windowed demand/capacity modifier definitions for Engine
+  - **Comparison Model Support**: Model templates designed for Engine M4 comparison workflows
+  - **Charter Integration**: Scenario models discoverable in Engine registry for execution
+- **Charter-Compliant CLI** 
+  ```bash
+  # Create scenario model variations (charter-compliant)
+  flowtime sim derive --from baseline-model --overlay peak-load --name "peak-scenario" 
+  flowtime sim export --template comparison-set --scenarios baseline,peak,low --out artifacts
   ```
-  flow-sim scenarios --base baseline.yaml --overlays peak-load.yaml --out runs/scenarios
-  ```
-- **Acceptance** 
-  - Engine M4 compare functionality processes scenario artifacts correctly
-  - Overlay invariants maintained; compare reproducible across Engine/Sim artifacts
-  - **Integration validated**: Engine M4 scenario features work with synthetic data
+- **Charter-Compliant Acceptance** 
+  - Engine M4 can execute Sim scenario models and generate comparison telemetry
+  - Model variations produce Engine-compatible overlay semantics
+  - **Charter Workflow**: Sim creates scenario models → Engine executes → Engine generates delta.csv/kpi.csv
 
 ---
 
-### SIM-M5 — Routing/Fan-out/Capacity Caps — **📋 ALIGNED WITH ENGINE M5**
+### SIM-M5 — Charter-Aligned Routing & Multi-Path Models — **📋 ALIGNED WITH ENGINE M5**
 
-- **Goal** Generate synthetic data for routing, fan-out, and capacity constraints.
-- **Why** Engine M5 implements RouterNode, FanOutNode, CapacityNode. FlowTime-Sim must provide test data.
-- **Aligned with** Engine M5 (Routing, Fan-out, Capacity Caps)
-- **Features**
-  - **Multi-path routing**: Generate flows across multiple downstream paths
-  - **Fan-out patterns**: Replicated flows for testing FanOutNode
-  - **Capacity overflow**: Generate overflow series for capacity-constrained scenarios
-- **Acceptance** Engine M5 routing features validate correctly with synthetic multi-path data; splits sum to 1; overflow computed
+- **Goal** Create charter-compliant routing, fan-out, and capacity model templates for Engine M5.
+- **Charter Alignment** Generate multi-path model definitions, Engine executes for routing telemetry  
+- **Dependencies** SIM-M4 (Scenario Models), Engine M5 (RouterNode, FanOutNode, CapacityNode execution)
+- **Charter-Compliant Features**
+  - **Multi-path Model Templates**: Router and fan-out model definitions for Engine execution
+  - **Capacity Constraint Models**: Overflow and capacity-limited model schemas for Engine
+  - **Routing Logic Definitions**: Split ratios and routing rules for Engine RouterNode execution
+- **Charter-Compliant Acceptance** Engine M5 can execute Sim routing models and generate multi-path telemetry; Engine computes splits and overflow from Sim models
 
 ---
 
-### SIM-M6 — Retry & Feedback Modeling — **📋 DEFERRED TO ENGINE M9.5**
+### SIM-M6 — Charter-Aligned Retry & Feedback Models — **📋 DEFERRED TO ENGINE M9.5**
 
-- **Goal** Generate synthetic retry patterns that validate Engine M9.5 retry & feedback capabilities.
-- **Why** Engine moved retry features to M9.5. No longer urgent - deferred until Engine M9.5 active.
-- **Aligned with** Engine M9.5 (Retry & Feedback Modeling) - much later
-- **Features** (Future implementation when M9.5 becomes priority)
-  - **CONV operator validation**: Generate synthetic data for Engine M9.5 retry testing
-  - **Temporal echoes**: Retry kernels create realistic delay patterns
-  - **Conservation compliance**: Complex retry conservation validation
-- **Status** **DEFERRED** - No longer blocking Engine development
+- **Goal** Create charter-compliant retry and feedback model templates for Engine M9.5 execution.
+- **Charter Alignment** Generate retry model definitions with CONV operators, Engine executes for retry telemetry
+- **Dependencies** Engine M9.5 (Retry & Feedback execution capabilities) - much later
+- **Charter-Compliant Features** (Future implementation when M9.5 becomes priority)
+  - **Retry Model Templates**: CONV operator and temporal echo definitions for Engine execution
+  - **Feedback Loop Models**: Retry kernel and delay pattern schemas for Engine processing
+  - **Conservation Model Definitions**: Complex retry conservation rules for Engine validation
+- **Status** **DEFERRED** - No longer blocking Engine development, charter-aligned when needed
 - **Trigger** Engine M9.5 development becomes active priority
-- **Acceptance** Engine M9.5 retry volumes match kernels; conservation holds with retries & DLQ
+- **Charter-Compliant Acceptance** Engine M9.5 executes Sim retry models and generates retry telemetry with conservation
 
 ---
 
-### SIM-M7 — Backlog v2 (Multi-Queue Features) — **📋 ALIGNED WITH ENGINE M7**
+### SIM-M7 — Charter-Aligned Multi-Queue & Buffer Models — **📋 ALIGNED WITH ENGINE M7**
 
-- **Goal** Generate synthetic data for finite buffers, basic spill to DLQ, configurable draining.
-- **Why** Engine M7 extends queues beyond basic M3. FlowTime-Sim must provide spill validation data.
-- **Aligned with** Engine M7 (Backlog v2 Multi-Queue Features)
-- **Features**
-  - **Finite buffer patterns**: Generate overflow when buffers reach limits
-  - **DLQ spill series**: Emit synthetic DLQ/spill series to validate Engine behaviors
-  - **Draining policies**: Different queue draining patterns
-- **Acceptance** Conservation with spill; buffer limits enforced; Engine M7 DLQ/spill indicators work
+- **Goal** Create charter-compliant finite buffer and DLQ model templates for Engine M7 execution.
+- **Charter Alignment** Generate buffer overflow and spill model definitions, Engine executes for queue telemetry
+- **Dependencies** SIM-M5 (Routing Models), Engine M7 (Backlog v2 Multi-Queue execution)
+- **Charter-Compliant Features**
+  - **Buffer Limit Models**: Finite buffer and overflow model definitions for Engine execution
+  - **DLQ Model Templates**: Spill-to-DLQ pattern schemas for Engine processing
+  - **Draining Policy Models**: Queue draining behavior definitions for Engine implementation
+- **Charter-Compliant Acceptance** Engine M7 executes Sim buffer models and generates DLQ/spill telemetry with conservation
 
 ---
 
-### SIM-M8 — Multi-Class + Priority/Fairness — **📋 ALIGNED WITH ENGINE M8**
+### SIM-M8 — Charter-Aligned Multi-Class & Priority Models — **📋 ALIGNED WITH ENGINE M8**
 
-- **Goal** Generate per-class synthetic data with priority/fairness policies.
-- **Why** Engine M8 implements multi-class flows with capacity sharing. FlowTime-Sim must provide per-class test data.
-- **Aligned with** Engine M8 (Multi-Class + Priority/Fairness)
-- **Features**
-  - **Per-class series**: Generate `arrivals@serviceA@VIP.csv`, `served@serviceA@STANDARD.csv`
-  - **Capacity sharing**: Test data for weighted-fair vs strict priority allocation
-  - **Class-specific policies**: Different behaviors per class (VIP vs Standard)
-- **Outputs** Class-segmented Gold series following Engine M8 naming convention
-- **Acceptance** 
-  - Engine M8 multi-class processing works correctly with synthetic per-class data
-  - Priority/fairness policies validated under capacity constraints
+- **Goal** Create charter-compliant multi-class and priority model templates for Engine M8 execution.
+- **Charter Alignment** Generate per-class model definitions and priority policies, Engine executes for multi-class telemetry
+- **Dependencies** SIM-M7 (Multi-Queue Models), Engine M8 (Multi-Class + Priority/Fairness execution)
+- **Charter-Compliant Features**
+  - **Multi-Class Model Templates**: Per-class flow definitions for Engine execution (`arrivals@serviceA@VIP`, etc.)
+  - **Priority Policy Models**: Weighted-fair and strict priority model schemas for Engine
+  - **Capacity Sharing Models**: Class-specific capacity allocation definitions for Engine processing
+- **Charter-Compliant Acceptance** 
+  - Engine M8 executes Sim multi-class models and generates per-class telemetry series
+  - Priority/fairness policies validated through Engine execution of Sim model definitions
 
 ---
 

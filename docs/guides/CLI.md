@@ -1,7 +1,11 @@
-# FlowTime.Sim CLI Guide (SIM-M2 → SIM-M3)
+# FlowTime.Sim CLI Guide (Pre-Charter Documentation)
 
-This guide shows how to build, test, and run the FlowTime.Sim CLI for synthetic data generation with SIM-M2 (Artifact Parity & Series Index) features.
-Examples use PowerShell by default (Windows-first), with Bash equivalents where syntax differs.
+> ⚠️ **CHARTER COMPLIANCE NOTICE**: This guide describes pre-charter FlowTime-Sim that violates Charter v1.0 by generating telemetry. 
+> Per Charter v1.0, FlowTime-Sim is a "modeling front-end" that creates model artifacts but **never computes telemetry**.
+> This guide will be updated to reflect charter-compliant model authoring workflows in SIM-M2.6+.
+
+This guide shows legacy CLI functionality for synthetic data generation. 
+**Charter-aligned model authoring guides will replace this content.**
 
 ## Prerequisites
 

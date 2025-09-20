@@ -1,4 +1,8 @@
-# FlowTime.Sim Configuration Guide
+# FlowTime.Sim Configuration Guide (Pre-Charter Documentation)
+
+> ⚠️ **CHARTER COMPLIANCE NOTICE**: This guide describes pre-charter configuration that may include telemetry generation features.
+> Per Charter v1.0, FlowTime-Sim creates model artifacts but **never computes telemetry**.
+> Configuration guides will be updated for charter-compliant model authoring in SIM-M2.6+.
 
 ## ✅ **Data Storage Configuration**
 
