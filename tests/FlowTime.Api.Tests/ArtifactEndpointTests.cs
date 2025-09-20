@@ -247,4 +247,269 @@ public class ArtifactEndpointTests : IClassFixture<WebApplicationFactory<Program
         // Cleanup
         Directory.Delete(runDir, true);
     }
+
+    [Fact]
+    public async Task POST_Export_Creates_All_Formats_And_Returns_Success()
+    {
+        // Arrange: Create a test run with data
+        var tempDir = Path.GetTempPath();
+        var runDir = Path.Combine(tempDir, "test_export_artifacts");
+        Directory.CreateDirectory(runDir);
+
+        var runId = "test_run_export_123";
+        var runPath = Path.Combine(runDir, runId);
+        Directory.CreateDirectory(runPath);
+        Directory.CreateDirectory(Path.Combine(runPath, "series"));
+
+        // Create series/index.json (this is what the FileSeriesReader expects)
+        var seriesIndexContent = @"{
+  ""schemaVersion"": 1,
+  ""grid"": {
+    ""bins"": 3,
+    ""binMinutes"": 60,
+    ""timezone"": ""UTC""
+  },
+  ""series"": [
+    {
+      ""id"": ""demand@DEMAND@DEFAULT"",
+      ""kind"": ""flow"",
+      ""path"": ""demand@DEMAND@DEFAULT.csv"",
+      ""unit"": ""entities/bin"",
+      ""componentId"": ""DEMAND"",
+      ""class"": ""DEFAULT"",
+      ""points"": 3,
+      ""hash"": ""sha256:abcd1234""
+    }
+  ]
+}";
+        await File.WriteAllTextAsync(Path.Combine(runPath, "series", "index.json"), seriesIndexContent);
+
+        // Create series data file
+        var csvContent = "t,value\n0,100\n1,150\n2,200\n";
+        await File.WriteAllTextAsync(Path.Combine(runPath, "series", "demand@DEMAND@DEFAULT.csv"), csvContent);
+
+        // Configure the factory to use our temp directory
+        var clientWithConfig = factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseSetting("ArtifactsDirectory", runDir);
+        }).CreateClient();
+
+        // Act - POST to create export artifacts
+        var response = await clientWithConfig.PostAsync($"/v1/runs/{runId}/export", null);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var jsonResponse = await response.Content.ReadFromJsonAsync<dynamic>();
+        Assert.NotNull(jsonResponse);
+
+        // Verify export files were created
+        var goldDir = Path.Combine(runPath, "gold");
+        Assert.True(Directory.Exists(goldDir));
+        Assert.True(File.Exists(Path.Combine(goldDir, "export.csv")));
+        Assert.True(File.Exists(Path.Combine(goldDir, "export.ndjson")));
+        Assert.True(File.Exists(Path.Combine(goldDir, "export.parquet")));
+
+        // Cleanup
+        Directory.Delete(runDir, true);
+    }
+
+    [Fact]
+    public async Task GET_Export_CSV_Returns_Correct_Format()
+    {
+        // Arrange: Create a test run with exported data
+        var tempDir = Path.GetTempPath();
+        var runDir = Path.Combine(tempDir, "test_csv_export");
+        Directory.CreateDirectory(runDir);
+
+        var runId = "test_run_csv_456";
+        var runPath = Path.Combine(runDir, runId);
+        var goldDir = Path.Combine(runPath, "gold");
+        Directory.CreateDirectory(goldDir);
+
+        // Create export.csv file directly (simulating POST export already happened)
+        var csvContent = "time_bin,component_id,measure,value\n0,DEMAND,flow,100\n1,DEMAND,flow,150\n2,DEMAND,flow,200\n";
+        await File.WriteAllTextAsync(Path.Combine(goldDir, "export.csv"), csvContent);
+
+        // Configure the factory
+        var clientWithConfig = factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseSetting("ArtifactsDirectory", runDir);
+        }).CreateClient();
+
+        // Act - GET CSV export
+        var response = await clientWithConfig.GetAsync($"/v1/runs/{runId}/export/csv");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("text/csv", response.Content.Headers.ContentType?.MediaType);
+        
+        var content = await response.Content.ReadAsStringAsync();
+        Assert.StartsWith("time_bin,component_id,measure,value", content);
+        Assert.Contains("0,DEMAND,flow,100", content);
+        Assert.Contains("1,DEMAND,flow,150", content);
+        Assert.Contains("2,DEMAND,flow,200", content);
+
+        // Cleanup
+        Directory.Delete(runDir, true);
+    }
+
+    [Fact]
+    public async Task GET_Export_NDJSON_Returns_Correct_Format()
+    {
+        // Arrange: Create a test run with exported data
+        var tempDir = Path.GetTempPath();
+        var runDir = Path.Combine(tempDir, "test_ndjson_export");
+        Directory.CreateDirectory(runDir);
+
+        var runId = "test_run_ndjson_789";
+        var runPath = Path.Combine(runDir, runId);
+        var goldDir = Path.Combine(runPath, "gold");
+        Directory.CreateDirectory(goldDir);
+
+        // Create export.ndjson file directly
+        var ndjsonContent = @"{""time_bin"":0,""component_id"":""DEMAND"",""measure"":""flow"",""value"":100}
+{""time_bin"":1,""component_id"":""DEMAND"",""measure"":""flow"",""value"":150}
+{""time_bin"":2,""component_id"":""DEMAND"",""measure"":""flow"",""value"":200}
+";
+        await File.WriteAllTextAsync(Path.Combine(goldDir, "export.ndjson"), ndjsonContent);
+
+        // Configure the factory
+        var clientWithConfig = factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseSetting("ArtifactsDirectory", runDir);
+        }).CreateClient();
+
+        // Act - GET NDJSON export
+        var response = await clientWithConfig.GetAsync($"/v1/runs/{runId}/export/ndjson");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("application/x-ndjson", response.Content.Headers.ContentType?.MediaType);
+        
+        var content = await response.Content.ReadAsStringAsync();
+        Assert.Contains(@"""time_bin"":0", content);
+        Assert.Contains(@"""component_id"":""DEMAND""", content);
+        Assert.Contains(@"""measure"":""flow""", content);
+        Assert.Contains(@"""value"":100", content);
+
+        // Cleanup
+        Directory.Delete(runDir, true);
+    }
+
+    [Fact]
+    public async Task GET_Export_Parquet_Returns_Binary_Data()
+    {
+        // Arrange: Create a test run with exported data
+        var tempDir = Path.GetTempPath();
+        var runDir = Path.Combine(tempDir, "test_parquet_export");
+        Directory.CreateDirectory(runDir);
+
+        var runId = "test_run_parquet_101";
+        var runPath = Path.Combine(runDir, runId);
+        var goldDir = Path.Combine(runPath, "gold");
+        Directory.CreateDirectory(goldDir);
+
+        // Create a minimal parquet file (we'll create a dummy binary file for this test)
+        var parquetBytes = new byte[] { 0x50, 0x41, 0x52, 0x31 }; // "PAR1" magic bytes
+        await File.WriteAllBytesAsync(Path.Combine(goldDir, "export.parquet"), parquetBytes);
+
+        // Configure the factory
+        var clientWithConfig = factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseSetting("ArtifactsDirectory", runDir);
+        }).CreateClient();
+
+        // Act - GET Parquet export
+        var response = await clientWithConfig.GetAsync($"/v1/runs/{runId}/export/parquet");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("application/octet-stream", response.Content.Headers.ContentType?.MediaType);
+        
+        var content = await response.Content.ReadAsByteArrayAsync();
+        Assert.True(content.Length > 0);
+        Assert.Equal(0x50, content[0]); // Verify first byte is 'P'
+
+        // Cleanup
+        Directory.Delete(runDir, true);
+    }
+
+    [Fact]
+    public async Task POST_Export_NonexistentRun_Returns_NotFound()
+    {
+        // Arrange: Use empty temp directory (no runs)
+        var tempDir = Path.GetTempPath();
+        var runDir = Path.Combine(tempDir, "test_empty_export");
+        Directory.CreateDirectory(runDir);
+
+        var clientWithConfig = factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseSetting("ArtifactsDirectory", runDir);
+        }).CreateClient();
+
+        // Act
+        var response = await clientWithConfig.PostAsync("/v1/runs/nonexistent_run/export", null);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+
+        // Cleanup
+        Directory.Delete(runDir, true);
+    }
+
+    [Fact]
+    public async Task GET_Export_InvalidFormat_Returns_BadRequest()
+    {
+        // Arrange: Create minimal run setup
+        var tempDir = Path.GetTempPath();
+        var runDir = Path.Combine(tempDir, "test_invalid_format");
+        Directory.CreateDirectory(runDir);
+
+        var runId = "test_run_invalid_format";
+        var runPath = Path.Combine(runDir, runId);
+        var goldDir = Path.Combine(runPath, "gold");
+        Directory.CreateDirectory(goldDir);
+
+        var clientWithConfig = factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseSetting("ArtifactsDirectory", runDir);
+        }).CreateClient();
+
+        // Act - Request invalid format
+        var response = await clientWithConfig.GetAsync($"/v1/runs/{runId}/export/invalidformat");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        // Cleanup
+        Directory.Delete(runDir, true);
+    }
+
+    [Fact]
+    public async Task GET_Export_MissingExportFile_Returns_NotFound()
+    {
+        // Arrange: Create run directory but no export files
+        var tempDir = Path.GetTempPath();
+        var runDir = Path.Combine(tempDir, "test_missing_export");
+        Directory.CreateDirectory(runDir);
+
+        var runId = "test_run_no_exports";
+        var runPath = Path.Combine(runDir, runId);
+        Directory.CreateDirectory(runPath);
+        // Note: Not creating gold directory or export files
+
+        var clientWithConfig = factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseSetting("ArtifactsDirectory", runDir);
+        }).CreateClient();
+
+        // Act - Request CSV when no exports exist
+        var response = await clientWithConfig.GetAsync($"/v1/runs/{runId}/export/csv");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+
+        // Cleanup
+        Directory.Delete(runDir, true);
+    }
 }

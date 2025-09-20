@@ -177,12 +177,12 @@ public class FlowTimeSimApiClient : IFlowTimeSimApiClient
     {
         try
         {
-            var response = await httpClient.GetAsync($"/{apiVersion}/sim/scenarios", ct);
+            var response = await httpClient.GetAsync($"/{apiVersion}/sim/templates", ct);
             
             if (!response.IsSuccessStatusCode)
             {
                 var errorText = await response.Content.ReadAsStringAsync(ct);
-                return Result<List<ScenarioInfo>>.Fail($"Failed to get scenarios: {errorText}", (int)response.StatusCode);
+                return Result<List<ScenarioInfo>>.Fail($"Failed to get templates: {errorText}", (int)response.StatusCode);
             }
 
             var responseText = await response.Content.ReadAsStringAsync(ct);
@@ -193,12 +193,12 @@ public class FlowTimeSimApiClient : IFlowTimeSimApiClient
 
             return result != null 
                 ? Result<List<ScenarioInfo>>.Ok(result, (int)response.StatusCode)
-                : Result<List<ScenarioInfo>>.Fail("Failed to parse scenarios");
+                : Result<List<ScenarioInfo>>.Fail("Failed to parse templates");
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to get scenarios");
-            return Result<List<ScenarioInfo>>.Fail($"Scenarios error: {ex.Message}");
+            logger.LogError(ex, "Failed to get templates");
+            return Result<List<ScenarioInfo>>.Fail($"Templates error: {ex.Message}");
         }
     }
 }

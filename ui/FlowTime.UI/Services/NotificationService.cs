@@ -1,6 +1,7 @@
 using MudBlazor;
 using FlowTime.UI.Layout;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.Logging;
 
 namespace FlowTime.UI.Services;
 
@@ -25,11 +26,13 @@ public interface INotificationService
 public class NotificationService : INotificationService
 {
     private readonly ISnackbar snackbar;
+    private readonly ILogger<NotificationService> logger;
     private ExpertLayout? expertLayout;
     
-    public NotificationService(ISnackbar snackbar)
+    public NotificationService(ISnackbar snackbar, ILogger<NotificationService> logger)
     {
         this.snackbar = snackbar;
+        this.logger = logger;
     }
     
     /// <summary>
@@ -43,6 +46,9 @@ public class NotificationService : INotificationService
     
     public void Add(string message, Severity severity)
     {
+        // Log to console for debugging
+        LogNotification(message, severity);
+        
         // Always add to snackbar
         snackbar.Add(message, severity);
         
@@ -59,6 +65,9 @@ public class NotificationService : INotificationService
     
     public void Add(string message, Severity severity, Action<SnackbarOptions> configure)
     {
+        // Log to console for debugging
+        LogNotification(message, severity);
+        
         // Always add to snackbar with configuration
         snackbar.Add(message, severity, configure);
         
@@ -70,6 +79,28 @@ public class NotificationService : INotificationService
                 : Components.StatusBar.ExpertStatusBar.NotificationSeverity.Warning;
                 
             expertLayout?.AddNotification(message, notificationSeverity);
+        }
+    }
+    
+    private void LogNotification(string message, Severity severity)
+    {
+        switch (severity)
+        {
+            case Severity.Error:
+                logger.LogError("NOTIFICATION: {Message}", message);
+                break;
+            case Severity.Warning:
+                logger.LogWarning("NOTIFICATION: {Message}", message);
+                break;
+            case Severity.Info:
+                logger.LogInformation("NOTIFICATION: {Message}", message);
+                break;
+            case Severity.Success:
+                logger.LogInformation("NOTIFICATION (Success): {Message}", message);
+                break;
+            default:
+                logger.LogDebug("NOTIFICATION: {Message}", message);
+                break;
         }
     }
 }

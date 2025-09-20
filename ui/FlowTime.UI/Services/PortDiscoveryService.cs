@@ -1,4 +1,5 @@
 using FlowTime.UI.Configuration;
+using System.Net.Http;
 
 namespace FlowTime.UI.Services;
 
@@ -10,10 +11,12 @@ public interface IPortDiscoveryService
 public class PortDiscoveryService : IPortDiscoveryService
 {
     private readonly ILogger<PortDiscoveryService> logger;
+    private readonly IHttpClientFactory httpClientFactory;
 
-    public PortDiscoveryService(ILogger<PortDiscoveryService> logger)
+    public PortDiscoveryService(ILogger<PortDiscoveryService> logger, IHttpClientFactory httpClientFactory)
     {
         this.logger = logger;
+        this.httpClientFactory = httpClientFactory;
     }
 
     public async Task<string> GetAvailableFlowTimeSimUrlAsync(FlowTimeSimApiOptions options)
@@ -42,11 +45,11 @@ public class PortDiscoveryService : IPortDiscoveryService
     {
         try
         {
-            using var client = new HttpClient();
+            using var client = httpClientFactory.CreateClient();
             client.Timeout = TimeSpan.FromSeconds(2); // Quick timeout for discovery
             
-            // Try a simple health check or basic connection
-            var uri = new Uri(baseUrl.TrimEnd('/') + "/healthz");
+            // Try the versioned health check endpoint
+            var uri = new Uri(baseUrl.TrimEnd('/') + "/v1/healthz");
             var response = await client.GetAsync(uri);
             
             return response.IsSuccessStatusCode;

@@ -8,6 +8,7 @@
 @inject IJSRuntime JSRuntime
 @inject FeatureFlagService FeatureFlags
 @inject IConfiguration Configuration
+@inject IHttpClientFactory HttpClientFactory
 
 <MudStack Spacing="4">
     @if (Result != null)
@@ -70,15 +71,19 @@
                 @if (simulationData != null)
                 {
                     <div class="mt-4">
-                        <MudStack Row AlignItems="AlignItems.Center" Spacing="2" Class="mb-3">
-                            <MudIcon Icon="@Icons.Material.Filled.BarChart" />
-                            <MudText Typo="Typo.h6">Time Series Data</MudText>
-                            <MudChip T="string" Size="Size.Small" Color="Color.Info">
-                                @simulationData.Series.Count series
-                            </MudChip>
-                            <MudChip T="string" Size="Size.Small" Color="Color.Secondary">
-                                @simulationData.Bins time bins (@simulationData.BinMinutes min each)
-                            </MudChip>
+                        <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+                            <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                                <MudIcon Icon="@Icons.Material.Filled.BarChart" />
+                                <MudText Typo="Typo.h6">Time Series Data</MudText>
+                                <MudChip T="string" Size="Size.Small" Color="Color.Info">
+                                    @simulationData.Series.Count series
+                                </MudChip>
+                                <MudChip T="string" Size="Size.Small" Color="Color.Secondary">
+                                    @simulationData.Bins time bins (@simulationData.BinMinutes min each)
+                                </MudChip>
+                            </MudStack>
+                            
+
                         </MudStack>
                         
                         @{

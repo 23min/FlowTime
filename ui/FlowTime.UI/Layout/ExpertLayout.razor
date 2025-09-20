@@ -6,6 +6,7 @@
 @inject FlowTime.UI.Services.ThemeService Theme
 @inject FlowTime.UI.Services.PreferencesService Prefs
 @inject FlowTime.UI.Services.FeatureFlagService Flags
+@inject IHttpClientFactory HttpClientFactory
 
 <MudThemeProvider Theme="@Theme.CurrentTheme" IsDarkMode="@Theme.IsDark" />
 <MudDialogProvider />
@@ -175,7 +176,7 @@
             try
             {
                 // Simple health check - could be enhanced to use actual API clients
-                using var httpClient = new HttpClient();
+                using var httpClient = HttpClientFactory.CreateClient("General");
                 httpClient.Timeout = TimeSpan.FromSeconds(5);
                 
                 // Get configuration for API URLs

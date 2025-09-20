@@ -4,14 +4,55 @@ using FlowTime.UI;
 using FlowTime.UI.Configuration;
 using MudBlazor.Services;
 using Microsoft.Extensions.DependencyInjection; // for AddHttpClient
+using Microsoft.Extensions.Logging;
 using FlowTime.UI.Services;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
-// Default HttpClient: points to the UI host (used for static asset fetches like /models/*.yaml)
-builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
+// Configure logging to reduce HTTP client noise
+builder.Logging.SetMinimumLevel(LogLevel.Information);
+builder.Logging.AddFilter("System.Net.Http.HttpClient", LogLevel.Warning);
+builder.Logging.AddFilter("System.Net.Http.HttpClient.Default.LogicalHandler", LogLevel.Warning);
+builder.Logging.AddFilter("System.Net.Http.HttpClient.Default.ClientHandler", LogLevel.Warning);
+builder.Logging.AddFilter("System.Net.Http.HttpClient.General.LogicalHandler", LogLevel.Warning);
+builder.Logging.AddFilter("System.Net.Http.HttpClient.General.ClientHandler", LogLevel.Warning);
+
+// Configure HttpClientFactory for proper HTTP client management
+builder.Services.AddHttpClient();
+
+// Default HttpClient for Blazor components (used for static asset fetches like /models/*.yaml)
+builder.Services.AddScoped(sp => 
+{
+    var factory = sp.GetRequiredService<IHttpClientFactory>();
+    var client = factory.CreateClient();
+    client.BaseAddress = new Uri(builder.HostEnvironment.BaseAddress);
+    return client;
+});
+
+// Named HttpClient for UI host (used for static asset fetches like /models/*.yaml)
+builder.Services.AddHttpClient("UI", client =>
+{
+    client.BaseAddress = new Uri(builder.HostEnvironment.BaseAddress);
+});
+
+// Named HttpClient for FlowTime API
+builder.Services.AddHttpClient("FlowTimeAPI", (sp, client) =>
+{
+    var config = builder.Configuration.GetSection(FlowTimeApiOptions.SectionName).Get<FlowTimeApiOptions>() 
+        ?? new FlowTimeApiOptions();
+    
+    client.BaseAddress = new Uri(config.BaseUrl.TrimEnd('/') + "/");
+    client.Timeout = TimeSpan.FromMinutes(config.TimeoutMinutes);
+});
+
+// Named HttpClient for general API calls with short timeout
+builder.Services.AddHttpClient("General", client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+
 builder.Services.AddMudServices();
 builder.Services.AddSingleton<ThemeService>();
 builder.Services.AddScoped<PreferencesService>();
@@ -24,19 +65,15 @@ builder.Services.AddScoped<ILayoutService, LayoutService>();
 // Port discovery service for API endpoint fallback
 builder.Services.AddScoped<IPortDiscoveryService, PortDiscoveryService>();
 
-// FlowTime API client (for engine/core operations)
+// FlowTime API client (for engine/core operations) - now using IHttpClientFactory
 builder.Services.AddScoped<IFlowTimeApiClient>(sp =>
 {
-	// Get configuration options
-	var config = builder.Configuration.GetSection(FlowTimeApiOptions.SectionName).Get<FlowTimeApiOptions>() 
-		?? new FlowTimeApiOptions();
-	
-	var apiHttp = new HttpClient 
-	{ 
-		BaseAddress = new Uri(config.BaseUrl.TrimEnd('/') + "/"),
-		Timeout = TimeSpan.FromMinutes(config.TimeoutMinutes)
-	};
-	return new FlowTimeApiClient(apiHttp, config);
+    var config = builder.Configuration.GetSection(FlowTimeApiOptions.SectionName).Get<FlowTimeApiOptions>() 
+        ?? new FlowTimeApiOptions();
+    
+    var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
+    var apiHttp = httpClientFactory.CreateClient("FlowTimeAPI");
+    return new FlowTimeApiClient(apiHttp, config);
 });
 
 // FlowTime-Sim API client (for simulation operations) with port fallback
