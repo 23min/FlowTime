@@ -47,7 +47,9 @@ FlowTime-Sim is the **synthetic generator companion** producing telemetry-like d
 - **SIM-CAT-M2 — Catalog.v1 Required** — **✅ Done** (stable ID source)
 - **SIM-SVC-M2 — Minimal Service/API** — **✅ Done** (artifact endpoints)
 - **SIM-M2.1 — PMF Generator Support** — **✅ Done** (PMF arrivals for Engine M2 testing)
-- **SIM-M3 — Backlog v1 + Latency + Endpoints** — **🔄 PRIORITY** (Basic queues, ready for Engine M3)
+- **SIM-M2.6 — Charter-Aligned Model Authoring** — **🔄 IN PROGRESS** (Charter-compliant model artifacts creation)
+- **SIM-M2.7 — Artifacts Registry Integration** — **📋 Planned** (Sim models discoverable in Engine M2.7 registry)
+- **SIM-M3 — Backlog v1 + Latency + Endpoints** — **� Next** (Basic queues, ready for Engine M3)
 - **SIM-M4 — Scenarios & Compare** — **🚀 Next** (Overlay support for Engine M4)
 - **SIM-M5 — Routing/Fan-out/Capacity** — **📋 Aligned** (Multi-path for Engine M5)
 - **SIM-M6 — Retry & Feedback** — **📋 Deferred** (Aligns with Engine M9.5)
@@ -104,6 +106,32 @@ FlowTime-Sim is the **synthetic generator companion** producing telemetry-like d
   - **API versioning**: Consistent `/v1/` endpoint usage across services
   - **Enhanced testing**: 88 passing tests with comprehensive integration validation
 - **Acceptance** PMF workflows complete for UI testing; deterministic output with RNG seeding; Engine M2 PMF validation enabled
+
+### SIM-M2.6 — Charter-Aligned Model Authoring — **🔄 IN PROGRESS**
+
+- **Goal** Transform FlowTime-Sim to charter-compliant model authoring platform that creates Engine-compatible model artifacts
+- **Charter Alignment** FlowTime-Sim Charter v1.0 - "modeling front-end" that generates models but never computes telemetry  
+- **Dependencies** SIM-M2.1 (PMF Generator Support), FlowTime Engine M2.6 (Artifacts Registry)
+- **Core Features**
+  - **Charter-Compliant Model Artifacts**: Engine-compatible model export without telemetry generation
+  - **Structure Validation**: Model validation without execution (charter boundary respect)
+  - **Template System Enhancement**: Engine model generation from Sim templates
+  - **Quality Assessment**: Structure-only quality metrics and compatibility validation
+- **Charter Boundaries** NO telemetry generation, NO execution, pure model authoring focus
+- **Acceptance** Model artifacts validate for Engine execution; charter compliance verified; template-to-Engine workflow complete
+
+### SIM-M2.7 — Artifacts Registry Integration — **📋 Planned**
+
+- **Goal** Enable FlowTime-Sim model artifacts to integrate seamlessly with FlowTime Engine M2.7 Artifacts Registry
+- **Dependencies** SIM-M2.6 (Charter-Aligned Model Authoring), FlowTime Engine M2.7 (Artifacts Registry Foundation)
+- **Engine Alignment** Builds on Engine M2.7 Registry KISS file-based implementation
+- **Core Features**
+  - **Registry Integration**: Sim model artifacts discoverable in Engine registry system
+  - **Auto-Registration**: Automatic model registration with Engine registry upon creation
+  - **Charter UI Support**: Models selectable in Engine Runs wizard "Select Input" step
+  - **Health Monitoring**: Registry synchronization status and integration health tracking
+- **Charter Workflow** `Sim (Create + Register Models) → Engine Registry (Discover Models) → Engine Execution`
+- **Acceptance** Sim models appear in Engine registry; Engine UI can select Sim models; charter boundaries maintained
 
 ---
 
