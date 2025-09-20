@@ -1,8 +1,11 @@
 # FlowTime UI API Integration Guide
 
+> **📋 Charter Notice**: This integration guide will be updated for charter-aligned development in [M2.8 Incremental Charter UI](../milestones/M2.8-UI-INCREMENTAL.md). Current API patterns will be preserved during charter transition with incremental migration to registry-centric workflows.
+
 **Version:** 1.0  
 **Audience:** UI developers, integration engineers  
 **Purpose:** Detailed guide for integrating FlowTime UI with FlowTime API endpoints  
+**Charter Status:** Legacy patterns preserved during M2.8 incremental migration
 
 ---
 

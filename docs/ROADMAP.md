@@ -1,6 +1,14 @@
 # FlowTime OSS Roadmap (Full Master Reference)
 
-> **Version:** 1.0
+> **⚠️ IMPORTANT CHARTER UPDATE**  
+> This roadmap is **superseded by the FlowTime-Engine Charter** (September 2025).  
+> **👉 See [Charter Roadmap](milestones/CHARTER-ROADMAP.md)** for current milestone sequence and artifacts-centric paradigm.  
+> **👉 See [FlowTime-Engine Charter](flowtime-engine-charter.md)** for the new architectural vision.  
+>  
+> This document remains for **historical reference and M0-M2.6 completed milestones**.  
+> **New development follows charter milestones: M2.7 (Registry) → M2.8 (Charter UI) → M2.9 (Compare) → SIM-M3.0.**
+
+> **Version:** 1.0 (Legacy - Charter Superseded)
 > **Audience:** Engineers and architects implementing FlowTime.
 > **Purpose:** Defines a sequenced, detailed roadmap with milestones M0–M15, interleaving Core/Engine, UI, Service/API, data adapters, scenarios, and calibration. Each milestone includes requirements, inputs/outputs, new code/files, and acceptance criteria.
 

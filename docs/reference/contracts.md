@@ -1,10 +1,12 @@
 # contracts.md (shared by FlowTime & FlowTime-Sim)
 
+> **📋 Charter Alignment**: This artifact-first contract specification directly supports the [FlowTime-Engine Charter](../flowtime-engine-charter.md) paradigm. The "artifacts are source of truth" principle here implements the charter's artifacts-centric workflow: [Models] → [Runs] → [Artifacts] → [Learn].
+
 > **Status:** v1.0 (artifact-first, domain-neutral)
 > **Applies to:** FlowTime (engine) and FlowTime-Sim (simulator)
 > **Scope:** Canonical **artifacts**, **service/API** surfaces, **streaming**, and **catalog**. Readers and UIs must rely on these contracts. Services are stateless after a run completes—artifacts are the source of truth.
 >
-> Roadmap linkage: Authoritative for milestone **M1 (Contracts Parity)** referenced in [ROADMAP.md](../ROADMAP.md). Future milestones MUST treat this document as the single source of truth for artifact fields.
+> **Charter Context**: This document defines the artifact contracts that enable the M2.7 KISS Registry and support charter workflow integration across the Engine+Sim ecosystem.
 
 ## Vocabulary (domain-neutral)
 

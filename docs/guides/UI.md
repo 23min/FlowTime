@@ -1,6 +1,8 @@
 # FlowTime UI (Blazor WASM)
 
-The FlowTime UI is a standalone Blazor WebAssembly SPA intended to remain **decoupled** from the API (which may evolve to Azure Functions or another hosting model). It targets path base `/ui/` when published.
+> **📋 Charter Notice**: For current UI development direction, see [Charter UI Incremental](../milestones/M2.8-UI-INCREMENTAL.md) and [UI Charter Transition](../milestones/UI-M2.6-CHARTER-TRANSITION.md).
+
+The FlowTime UI is a **charter-aligned** Blazor WebAssembly SPA that implements the artifacts-centric workflow: **[Models] → [Runs] → [Artifacts] → [Learn]**. The UI is transitioning from direct API consumption to registry-based artifact analysis while maintaining backward compatibility.
 
 ## Layout
 ```
@@ -47,16 +49,26 @@ Blazor default scoped `HttpClient` (UI origin) is used for static `/models/*.yam
 ### Preferences & State
 `PreferencesService` restores the last selected model key on load. Expansion state for panels may be persisted in a later milestone.
 
-## Future Enhancements
-- Editable model editor + validation pass before run (M1+)
-- CSV upload + charting (artifact replay)
-- Rich graph visualization (edges, layout)
+## Charter Workflow Implementation
+
+### Current State (M2.6+)
+- **Models**: YAML selector from static collection
+- **Runs**: API-driven execution with immediate results
+- **Artifacts**: Export capability producing structured outputs
+- **Learn**: Basic visualization and analysis
+
+### Charter Milestones (M2.7-M2.9)
+- **M2.7 Registry**: Browse/filter runs by metadata; basic artifact discovery
+- **M2.8 Charter UI**: Incremental migration to registry-centric interface  
+- **M2.9 Compare**: Contextual cross-run analysis within artifact collections
+
+## Future Enhancements (Legacy Roadmap)
+> **⚠️ Charter Superseded**: The enhancements below represent the pre-charter roadmap. See [Charter Roadmap](../milestones/CHARTER-ROADMAP.md) for current development priorities.
+
+- Editable model editor + validation pass before run
+- Rich graph visualization (edges, layout)  
 - Persisted model gallery (user models)
 - Copy‑to‑clipboard and download buttons (YAML & results)
-- Backlog & latency charts (after M7 — not early)
-- Basic metrics (latency, node counts) surfaced in UI (latency deferred to backlog milestone)
-- Series index consumption: fetch `index.json` (Contracts Parity M1) instead of inferring outputs from run response
-- Manifest viewer: render `run.json` & `manifest.json` (hashes, warnings)
 
 ## Data Loading (Post-M1)
 After Contracts Parity (M1) the UI consumes `series/index.json` (see [contracts.md](../reference/contracts.md)) to:
@@ -68,12 +80,17 @@ Planned optional formats (gold table, events) are referenced but safely ignored 
 ## Keeping Concerns Separate
 No build-time copy of UI into API. Integration for single-domain hosting can be added later via an opt-in MSBuild target or reverse proxy rules.
 
-### Artifacts (Planned M1)
+### Charter Artifacts Workflow (M2.7+)
 
-Once the Contracts Parity milestone lands, the UI will:
-1. Request a run (`POST /run`) which writes artifacts under a run directory.
-2. Fetch `index.json` (future GET endpoint or embedded link) to enumerate available series.
-3. Lazily stream individual CSVs for selected series (enables large run scaling without bloating initial payload).
-4. Optionally display manifest & run metadata (hashes, seed, grid) for parity/debug.
+**Registry Integration** (M2.7):
+1. Browse runs through file-based registry with `index.json` metadata
+2. Filter/search runs by tags, timestamps, model parameters  
+3. Select artifact collections for analysis
 
-Until then, the UI consumes the inline series arrays returned directly from `/run`.
+**Incremental Charter UI** (M2.8):
+1. **Models**: Enhanced model management with registry integration
+2. **Runs**: Execution with immediate registry registration
+3. **Artifacts**: Direct consumption from registry structure  
+4. **Learn**: Registry-aware analysis and visualization
+
+**Legacy Compatibility**: Direct API consumption maintained during transition period for existing workflows.

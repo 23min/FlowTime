@@ -1,5 +1,9 @@
 # Nodes, Expressions, and Execution
 
+> **📋 Charter Context**: This document describes core engine concepts that remain central to the [FlowTime-Engine Charter](../flowtime-engine-charter.md). The execution engine and node system directly support the charter's artifacts-centric workflow by producing structured, deterministic outputs.
+
+This document explains how FlowTime represents models internally (nodes and graphs), how expressions map to nodes, and how evaluation executes deterministically on a canonical time grid. These capabilities form the execution core of the charter paradigm: **[Models] → [Runs] → [Artifacts] → [Learn]**.odes, Expressions, and Execution
+
 This document explains how FlowTime represents models internally (nodes and graphs), how expressions map to nodes, and how evaluation executes deterministically on a canonical time grid. It also shows how today’s M0 implementation works and how it evolves per the roadmap.
 
 ## Mental model

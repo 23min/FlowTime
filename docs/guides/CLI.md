@@ -1,5 +1,7 @@
 # FlowTime CLI Guide (M0 → M1)
 
+> **📋 Charter Context**: CLI capabilities described here remain core to the [FlowTime-Engine Charter](../flowtime-engine-charter.md). The CLI provides the foundational execution engine supporting the artifacts-centric workflow. See [Charter Roadmap](../milestones/CHARTER-ROADMAP.md) for current development direction.
+
 This guide shows how to build, test, and run the FlowTime CLI with M1 (Contracts Parity) features.
 Examples use PowerShell by default (Windows-first), with Bash equivalents where syntax differs.
 

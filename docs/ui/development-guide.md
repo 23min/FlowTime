@@ -1,6 +1,8 @@
 # FlowTime UI Development Guide
 
-**Version:** 1.0  
+> **📋 Charter Notice**: UI development is transitioning to charter-aligned patterns. See [M2.8 Incremental Charter UI](../milestones/M2.8-UI-INCREMENTAL.md) for artifacts-centric development workflows. This guide covers current development setup with charter migration notes.
+
+**Version:** 1.0 (Charter Transitioning)  
 **Audience:** UI developers, frontend engineers  
 **Purpose:** Setup, tooling, debugging, and development workflows for FlowTime UI  
 

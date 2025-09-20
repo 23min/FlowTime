@@ -1,5 +1,7 @@
 # Development Setup: FlowTime Services
 
+> **📋 Charter Context**: This setup supports both legacy and charter workflows. For charter-specific development patterns, see [Charter Roadmap](../milestones/CHARTER-ROADMAP.md) and milestone-specific documentation (M2.7-M2.9).
+
 ## **Service Port Assignments**
 
 To avoid port conflicts and ensure stable development, each service has a dedicated port:

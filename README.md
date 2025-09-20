@@ -36,14 +36,14 @@ FlowTime provides **explainable flow modeling** and **time-travel observability*
 
 ### Architecture
 
-**Monorepo** with API-first design:
+**Artifacts-centric execution core** within **Engine+Sim ecosystem**:
 
 * **FlowTime.Core** — the engine: canonical time grid, series math, DAG, nodes/evaluation
-* **FlowTime.Cli** — CLI that evaluates YAML models and writes CSV artifacts
 * **FlowTime.API** — HTTP API for graph/run operations with health monitoring
-* **FlowTime.UI** — Blazor WASM SPA for interactive analysis and visualization
+* **FlowTime.Cli** — CLI that evaluates YAML models and writes CSV artifacts  
+* **FlowTime.UI** — Charter-aligned SPA for artifact-centric analysis and visualization
 
-All features are callable via the **HTTP API** first; CLI and UI consume the same surface.
+**Workflow**: [Models] → [Runs] → [Artifacts] → [Learn] with file-based registry for artifact organization.
   * [Real‑time](#real-time)
   * [CLI reference (M0)](#cli-reference-m0)
 * [Milestone M0 scope](#milestone-m0-scope)
@@ -97,30 +97,37 @@ Teams who need **explainable flow modeling** and **time-travel observability**�
 
 ## Architecture
 
-**Monorepo** with these components:
+> **📋 Charter Notice**: For complete architecture details and current development roadmap, see [FlowTime-Engine Charter](docs/flowtime-engine-charter.md) and [Charter Roadmap](docs/CHARTER-ROADMAP.md).
 
-* **FlowTime.Core** — the engine: canonical time grid, series math, DAG, nodes/evaluation. *(present in M0)*
-* **FlowTime.Cli** — a CLI that evaluates YAML models and writes CSV. *(present in M0)*
-* **FlowTime.UI** — SPA (Blazor WASM) to visualize runs. *(early demo present)*
-* **FlowTime.API** — backend for graph/run/state (also hosts negotiate for real-time). *(early minimal version present)*
+**FlowTime-Engine** operates as an **artifacts-centric execution core** within the broader **Engine+Sim ecosystem**:
 
-**API‑first**: All features are exposed via the HTTP API; CLI and UI consume the same surface. The API will be hosted behind a neutral "FlowTime.API" service (initially Azure Functions is a likely host, but the implementation is swappable). Endpoints: negotiate, `/graph`, `/run`, `/state_window`.
+### Core Workflow
+**[Models]** → **[Runs]** → **[Artifacts]** → **[Learn]**
 
-### Hosting options (FlowTime.API)
+1. **Models**: YAML definitions of flow systems 
+2. **Runs**: Deterministic execution producing time-series data
+3. **Artifacts**: Structured outputs (CSV, exports, metadata) stored in file-based registry
+4. **Learn**: Analysis, visualization, and insight extraction from artifact collections
 
-FlowTime.API is host‑agnostic. Pick the option that fits your platform; the engine stays the same and only a thin adapter changes.
+### Engine+Sim Ecosystem
 
-- Azure Functions (HTTP triggers): quick local dev, scale‑to‑zero, serverless ergonomics.
-- ASP.NET Core minimal APIs (Kestrel or container): portable, simple, no platform dependency.
-- Containers/orchestrators: package either host in a container for Kubernetes/App Service/etc.
+* **FlowTime-Engine** — execution core with artifacts-centric workflow *(this repository)*
+* **FlowTime-Sim** — specialized simulation extensions and advanced modeling *(separate repository)*
 
-Swappability contract: HTTP surface and DTOs remain identical regardless of host; only wiring and deployment differ.
+### FlowTime-Engine Components
 
-**Real‑time** (planned) is provider‑agnostic: the UI calls a **negotiate** endpoint to obtain a temporary WebSocket pub/sub URL; implementations can swap behind an abstraction (Web PubSub, SignalR, SSE).
+* **FlowTime.Core** — canonical time grid, series math, DAG, nodes/evaluation
+* **FlowTime.API** — HTTP API for graph/run operations with health monitoring  
+* **FlowTime.Cli** — CLI that evaluates YAML models and writes CSV artifacts
+* **FlowTime.UI** — Charter-aligned SPA for incremental artifact-centric analysis
 
-**Data** starts with **CSV**; artifacts can optionally persist in **blob storage**. Cloud data layers (**ADLS Gen2**, **S3**) are planned via a storage provider abstraction.
+### Charter Milestones (Current)
 
-**Auth**: **KISS (anonymous)** for dev/demo; enterprises can enable **Entra ID** later without changing the core.
+* **M2.7**: KISS File-Based Registry - Simple artifact organization and discovery
+* **M2.8**: Incremental Charter UI - Artifact-centric interface aligned with charter workflow
+* **M2.9**: Contextual Compare - Cross-run analysis within artifact collections
+
+See [Charter Roadmap](docs/CHARTER-ROADMAP.md) for detailed milestone specifications and [FlowTime-Engine Charter](docs/flowtime-engine-charter.md) for architecture principles.
 
 ---
 

@@ -1,4 +1,10 @@
-Got it. Short answer first: **you were right to correct Copilot.** It was still a bit off in two places:
+# FlowTime-Sim ↔ FlowTime Integration — Working Spec (v1.1)
+
+> **📋 Charter Alignment**: This integration specification aligns well with the [FlowTime-Engine Charter](../flowtime-engine-charter.md) artifacts-centric paradigm. The "artifact-first" principle described here directly supports the charter workflow: [Models] → [Runs] → [Artifacts] → [Learn].
+
+**Scope:** Early milestones (UI-M0/1, SVC-M0/1, M0–M3).  
+**Principle:** *Artifact-first*. Services are stateless post-run. UI/adapters load artifacts, not ad-hoc JSON.  
+**Charter Connection:** Implements Engine+Sim ecosystem with shared artifact contracts supporting registry-based analysis. answer first: **you were right to correct Copilot.** It was still a bit off in two places:
 
 1. It treated “simulation parameters → FlowTime API” as if the engine would *run the simulation*. In our split, **FlowTime-Sim** produces the run **artifacts**; **FlowTime (engine)** either evaluates models or *reads those artifacts via adapters*.
 2. Its mock result returns a blob of JSON metadata but **doesn’t write the canonical run pack** (`runs/<runId>/…`). For UI-M0 and beyond, **files are the source of truth**, even in mock mode.
