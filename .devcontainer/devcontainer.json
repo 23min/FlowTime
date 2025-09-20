@@ -48,7 +48,8 @@
     "flowtime-sim"
   ],
     "forwardPorts": [
-    8090
+    8090,
+    8091
   ],
   "containerEnv": {
     "FLOWTIME_API_BASEURL": "http://flowtime-api:8080",

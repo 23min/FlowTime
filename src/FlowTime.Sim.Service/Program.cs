@@ -3,7 +3,7 @@ using System.Globalization;
 using System.Runtime.InteropServices;
 using Microsoft.AspNetCore.Routing;
 using FlowTime.Sim.Core;
-using FlowTime.Sim.Service; // ScenarioRegistry
+using FlowTime.Sim.Service; // TemplateRegistry
 using FlowTime.Sim.Service.Services; // ServiceInfoProvider
 
 // Explicit Program class for integration tests & clear structure
@@ -125,7 +125,11 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
                 "/healthz",
                 "/v1/healthz", 
                 "/v1/sim/run",
-                "/v1/sim/scenarios",
+                "/v1/sim/templates",
+                "/v1/sim/templates/categories",
+                "/v1/sim/templates/{id}/generate",
+                "/v1/sim/scenarios", // deprecated, use /templates
+                "/v1/sim/scenarios/categories", // deprecated, use /templates/categories
                 "/v1/sim/catalogs",
                 "/v1/sim/runs/{id}/index",
                 "/v1/sim/runs/{id}/series/{seriesId}",
@@ -213,8 +217,33 @@ v1.MapGet("/sim/runs/{id}/series/{seriesId}", (string id, string seriesId) =>
 	return Results.File(stream, contentType: "text/csv", fileDownloadName: seriesId + ".csv");
 });
 
-// V1: GET /v1/sim/scenarios  (static list of scenario presets)
-v1.MapGet("/sim/scenarios", () => Results.Ok(ScenarioRegistry.List()));
+// V1: GET /v1/sim/templates  (static list of template presets)
+v1.MapGet("/sim/templates", (string? category) => Results.Ok(TemplateRegistry.List(category)));
+
+// V1: GET /v1/sim/templates/categories  (list available categories)
+v1.MapGet("/sim/templates/categories", () => Results.Ok(new { categories = TemplateRegistry.GetCategories() }));
+
+// V1: POST /v1/sim/templates/{id}/generate  (generate scenario from template with parameters)
+v1.MapPost("/sim/templates/{id}/generate", (string id, Dictionary<string, object> parameters) =>
+{
+    try
+    {
+        var scenario = TemplateRegistry.GenerateScenario(id, parameters);
+        return Results.Ok(new { scenario, templateId = id, parameters });
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem($"Failed to generate scenario: {ex.Message}");
+    }
+});
+
+// BACKWARD COMPATIBILITY: Keep old scenario endpoints (deprecated)
+v1.MapGet("/sim/scenarios", (string? category) => Results.Ok(TemplateRegistry.List(category)));
+v1.MapGet("/sim/scenarios/categories", () => Results.Ok(new { categories = TemplateRegistry.GetCategories() }));
 
 // === V1 CATALOG ENDPOINTS (SIM-CAT-M2 Phase 2) ===
 
