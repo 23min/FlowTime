@@ -1,7 +1,23 @@
 # FlowTime Charter Roadmap Overview
 
-**Charter Paradigm:** Transform from demo tool to **artifacts-centric model authoring and analysis platform**  
-**Charter Document:** [FlowTime-Engine Charter](../charter/flowtime-engine.md)  
+**Charter Paradigm:** Transform from demo tool to artifacts-centric model authoring and analysis platform
+
+### **Charter Success Metrics**
+
+### **Paradigm Shift Success**
+- **Artifacts Usage**: Majority of user actions use artifacts registry
+- **Charter Navigation**: Users primarily adopt charter tabs for workflow navigation  
+- **Compare Adoption**: Analysis sessions regularly include Compare workflows
+
+### **Technical Success**
+- **Registry Performance**: Artifacts registry queries performant for large artifact collections
+- **UI Responsiveness**: Charter tabs performance matches existing UI performance
+- **Integration Reliability**: Charter workflows maintain high success rate
+
+### **User Experience Success**
+- **Workflow Continuity**: Zero user complaints about functionality regression
+- **Charter Discoverability**: Users find and use charter features without training
+- **Efficiency Gains**: Charter workflows reduce analysis time for comparison taskser Document:** [FlowTime-Engine Charter](../charter/flowtime-engine.md)  
 **Status:** Charter alignment in progress  
 **Date:** 2025-09-20
 
@@ -42,9 +58,9 @@ FlowTime transforms from simulation demo tool to **model authoring platform** wi
 
 ### **Core Charter Implementation**
 
-#### **M2.7 Artifacts Registry** 📋 PLANNED (Week 1-2)
+#### **M2.7 Artifacts Registry** 📋 PLANNED
 **Charter Role:** Persistent backbone implementing "never forget" principle
-- **Artifacts Storage**: Persistent SQLite registry with full metadata
+- **Artifacts Storage**: File-based storage with pluggable architecture for future enhancement (database)
 - **Registry API**: REST endpoints for artifact CRUD operations
 - **Artifact Types**: Run, Model, Telemetry, Comparison with extensible schema
 - **Automatic Creation**: Run artifacts auto-created on analysis completion
@@ -53,7 +69,7 @@ FlowTime transforms from simulation demo tool to **model authoring platform** wi
 **Dependencies:** M2.6 (Export Infrastructure)  
 **Enables:** M2.8, M2.9, SIM-M3.0
 
-#### **M2.8 Charter UI Migration** 📋 PLANNED (Week 3-4)
+#### **M2.8 Charter UI Migration** 📋 PLANNED
 **Charter Role:** Incremental migration to charter 4-tab structure
 - **Parallel UI**: Charter tabs alongside existing UI during transition
 - **4-Tab Structure**: [Models] [Runs] [Artifacts] [Learn] implementation
@@ -64,7 +80,39 @@ FlowTime transforms from simulation demo tool to **model authoring platform** wi
 **Dependencies:** M2.7 (Artifacts Registry)  
 **Enables:** M2.9 (Compare actions from artifacts)
 
-#### **M2.9 Compare Workflow** 📋 PLANNED (Week 5-6)
+### **UI Implementation Architecture**
+
+**Separation of Concerns**: Charter implementation separates backend services (M2.x) from UI implementation (UI-M2.x) for better maintainability and parallel development.
+
+#### **UI-M2.7 Artifacts Registry UI** 📋 PLANNED
+**Charter Role:** Comprehensive artifacts browsing and management interface
+- **Artifacts Browser**: Search, filter, and browse all artifact types
+- **Artifact Detail Views**: Complete metadata, file listings, and contextual actions
+- **Charter Integration**: Reusable components for artifact selection throughout charter workflows
+- **Performance**: Responsive interface supporting 1000+ artifacts
+
+#### **UI-M2.8 Charter Navigation & Tab Structure** 📋 PLANNED
+**Charter Role:** Charter tab navigation system and workflow context management
+- **Charter Layout**: [Models] → [Runs] → [Artifacts] → [Learn] tab navigation
+- **Workflow Context**: State management preserving charter progression across sessions
+- **Tab Content**: Modular components implementing charter workflow stages
+- **Integration**: Seamless integration with existing TemplateRunner during transition
+
+#### **UI-M2.9 Compare Workflow UI Integration** 📋 PLANNED
+**Charter Role:** Visual comparison interfaces integrated into charter navigation
+- **Comparison Interface**: Side-by-side artifact comparison with difference highlighting
+- **Visualization**: Charts, tables, and statistical analysis of comparison results
+- **Charter Integration**: Contextual comparison actions throughout charter workflow
+- **Cross-Platform**: Preparation for Engine vs Simulation comparisons
+
+#### **UI-M3.0 Cross-Platform Charter Integration** 📋 PLANNED
+**Charter Role:** Unified charter UI spanning Engine and Simulation platforms
+- **Unified Navigation**: Charter structure extended to include simulation capabilities
+- **Model Authoring**: Embedded simulation model creation within charter workflow
+- **Cross-Platform Workflows**: Seamless Engine ↔ Sim integration through unified UI
+- **Integration Status**: Clear communication of cross-platform connectivity and capabilities
+
+#### **M2.9 Compare Workflow** 📋 PLANNED
 **Charter Role:** Core charter Compare functionality with contextual actions
 - **Contextual Compare**: Launch from results and artifacts, not standalone mode
 - **Input Flexibility**: Compare any artifact type (Run vs Run, Run vs Telemetry, Model vs Run)
@@ -72,20 +120,22 @@ FlowTime transforms from simulation demo tool to **model authoring platform** wi
 - **Artifact Results**: Comparison results stored as artifacts in registry
 - **Charter Compliance**: Compare as contextual action, not separate analysis mode
 
-**Dependencies:** M2.7 (Artifacts Registry), M2.8 (Charter UI)  
+**Dependencies:** M2.7, M2.8, UI-M2.8 (Charter Navigation), UI-M2.9 (Compare Workflow UI)  
 **Enables:** Full charter workflow completion
 
 ### **Ecosystem Integration**
 
-#### **SIM-M3.0 FlowTime-Sim Charter** 📋 PLANNED (Week 7-8)  
+#### **SIM-M3.0 FlowTime-Sim Charter** 📋 PLANNED
 **Charter Role:** Model authoring platform feeding charter ecosystem
-- **Model Artifacts**: Sim creates charter-compatible model artifacts
-- **Charter Integration**: Seamless handoff from Sim model creation to Engine execution
-- **Quality Validation**: Sim validates models before Engine export
+- **Model Artifacts**: Sim creates charter-compatible model artifacts via registry API
+- **Charter Integration**: Seamless handoff from Sim model creation to Engine execution through artifact registry
+- **Registry Access**: FlowTime-Sim uses registry API for model artifact management and Engine integration
+- **Quality Validation**: Sim validates models before registry submission
 - **Ecosystem Flow**: Complete Sim (Create) → Engine (Execute) → Compare & Learn workflow
 
-**Dependencies:** M2.7 (Artifacts Registry for model artifacts)  
-**Enables:** Complete ecosystem model authoring to analysis flow
+**Dependencies:** M2.7 (Artifacts Registry), SIM-M2.7+SIM-M2.8+SIM-M2.9 (Sim preparation milestones)  
+**Enables:** Complete ecosystem model authoring to analysis flow  
+**Implementation:** See [SIM-M3.0 in FlowTime-Sim repository](../../flowtime-sim-vnext/docs/milestones/SIM-M3.0.md)
 
 ---
 
@@ -100,16 +150,17 @@ The charter transition uses **incremental migration** to preserve user workflows
 - Preserve all existing UI and workflows
 - **User Impact:** None - registry operates transparently
 
-#### **Phase 2: Charter UI (M2.8)**
-- Add charter tabs alongside existing UI
-- Implement artifacts registry browsing
-- Enable charter navigation patterns
+#### **Phase 2: Charter Navigation (M2.8 + UI-M2.8)**
+- **Backend (M2.8):** Registry integration APIs and enhanced service architecture
+- **Frontend (UI-M2.8):** Charter tabs alongside existing UI with navigation patterns
+- **Integration:** Artifacts registry browsing through UI components consuming M2.8 APIs
 - **User Impact:** New capabilities, existing workflows unchanged
 
-#### **Phase 3: Charter Actions (M2.9)**
-- Add Compare actions to artifacts and results
-- Enable contextual charter workflows
-- Integrate existing UI with charter actions
+#### **Phase 3: Charter Actions (M2.9 + UI-M2.9)**
+- **Backend (M2.9):** Compare infrastructure and contextual action APIs
+- **Frontend (UI-M2.9):** Compare interfaces integrated into charter workflow
+- **Integration:** Charter actions consume M2.9 infrastructure through UI-M2.9 components
+- **User Impact:** Complete charter workflow with comparison capabilities
 - **User Impact:** Enhanced capabilities via contextual actions
 
 #### **Phase 4: Full Charter (M3.x)**
@@ -160,38 +211,45 @@ The charter transition uses **incremental migration** to preserve user workflows
 
 ```mermaid
 gantt
-    title Charter Implementation Timeline
-    dateFormat  YYYY-MM-DD
+    title Charter Implementation Sequence (Backend + UI)
+    dateFormat  X
     section Foundation
-    M2.6 Export System (Complete)    :done, m26, 2025-09-18, 2025-09-20
+    M2.6 Export System (Complete)    :done, m26, 0, 1
     
-    section Core Charter
-    M2.7 Artifacts Registry          :m27, 2025-09-21, 2025-10-04
-    M2.8 Charter UI Migration        :m28, 2025-10-05, 2025-10-18
-    M2.9 Compare Workflow            :m29, 2025-10-19, 2025-11-01
+    section Core Charter Backend
+    M2.7                             :m27, after m26, 2
+    M2.8                             :m28, after m27, 3  
+    M2.9                             :m29, after m28, 4
     
-    section Ecosystem
-    SIM-M3.0 Charter Alignment       :sim30, 2025-11-02, 2025-11-15
+    section Charter UI
+    UI-M2.7 Artifacts Registry UI    :ui27, after m27, 2
+    UI-M2.8 Charter Navigation       :ui28, after m28, 3
+    UI-M2.9 Compare Workflow UI      :ui29, after m29, 4
+    
+    section Cross-Platform
+    UI-M3.0 Cross-Platform Charter   :ui30, after ui29, 5
+    SIM-M3.0 Charter Alignment       :sim30, after ui30, 6
 ```
 
 ### **Critical Path Analysis**
-1. **M2.7 (Registry)** blocks all other charter work - highest priority
-2. **M2.8 (Charter UI)** enables charter user experience - second priority
-3. **M2.9 (Compare)** completes core charter workflow - third priority
-4. **SIM-M3.0** extends charter to ecosystem - final integration
+1. **M2.7** blocks all other charter work - highest priority
+2. **M2.8 + UI-M2.8 (Charter Navigation)** enables charter user experience - second priority
+3. **M2.9 + UI-M2.9 (Compare UI)** completes core charter workflow - third priority
+4. **SIM-M3.0 + UI-M3.0** extends charter to cross-platform ecosystem - final integration
 
 ### **Parallel Development Opportunities**
-- M2.8 UI components can develop in parallel with M2.7 registry implementation
-- M2.9 Compare engine logic can develop in parallel with M2.8 UI implementation
-- SIM-M3.0 model artifact schema can develop in parallel with M2.7 registry schema
+- UI-M2.7/UI-M2.8 UI components can develop in parallel with M2.7/M2.8 backend implementation
+- M2.9 Compare infrastructure can develop in parallel with UI-M2.9 comparison interfaces
+- SIM-M3.0 model artifact schema can develop in parallel with UI-M3.0 cross-platform integration
 
 ---
 
 ## Next Actions
 
-### **Immediate (Next Week)**
-1. **Start M2.7 Artifacts Registry** - SQLite schema design and registry API
-2. **Charter UI Planning** - Begin M2.8 component design and navigation patterns
+### **Immediate Next Actions**
+1. **Start M2.7 Artifacts Registry** - File-based storage schema design and registry API
+2. **Begin UI Architecture** - Start UI-M2.7/UI-M2.8 component design and navigation patterns
+3. **API Enhancement Planning** - Prepare M2.8 registry integration and workflow services
 3. **Compare Architecture** - Design M2.9 engine integration and comparison algorithms
 
 ### **Charter Communication**

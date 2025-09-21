@@ -1,65 +1,84 @@
 # FlowTime Route-Based UI Architecture
 
-**Version:** 1.0  
+**Version:** 2.0 (Charter-Aligned)  
 **Audience:** UI architects, Blazor developers, DevOps engineers  
-**Purpose:** Technical specification for implementing dual-interface architecture using route-based separation  
+**Purpose:** Technical specification for implementing charter-aligned [Models|Runs|Artifacts|Learn] architecture using route-based separation  
+**Charter Status:** Updated for M2.8 charter workflows and M2.7 registry integration  
 
 ---
 
 ## 1. Architecture Overview
 
-FlowTime implements a **dual-interface architecture** that separates expert productivity tools from pedagogical learning experiences while sharing core infrastructure. The solution uses **route-based separation** with distinct URL patterns, layouts, and navigation paradigms.
+FlowTime implements a **charter-aligned dual-interface architecture** following the [Models]→[Runs]→[Artifacts]→[Learn]→[Compare] workflow paradigm. Expert productivity tools are separated from pedagogical learning experiences while sharing core infrastructure via the artifacts registry.
 
-### 1.1 Interface Separation Strategy
+### 1.1 Charter Interface Strategy
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    FlowTime Application                     │
+│                FlowTime Charter Application                 │
 ├─────────────────────────────┬───────────────────────────────┤
-│        Expert Interface     │      Learning Interface      │
-│         /app/*              │          /learn/*            │
+│    Charter Expert Interface │      Learning Interface      │
+│    /models, /runs, /artifacts│          /learn/*           │
 ├─────────────────────────────┼───────────────────────────────┤
-│ • Production workflows      │ • Guided discovery           │
-│ • Advanced configuration    │ • Concept explanation        │
-│ • Technical terminology     │ • Business language          │
-│ • Dense information         │ • Progressive complexity     │
-│ • Keyboard shortcuts        │ • Interactive tutorials      │
+│ • Models → Runs workflow    │ • Guided discovery           │
+│ • Registry-centric design   │ • Concept explanation        │
+│ • Artifacts as shared state │ • Business language          │
+│ • Technical terminology     │ • Progressive complexity     │
+│ • Production efficiency     │ • Interactive tutorials      │
 └─────────────────────────────┴───────────────────────────────┘
 ┌─────────────────────────────────────────────────────────────┐
-│                   Shared Infrastructure                     │
-│ • API Services • Data Models • Core Components • State     │
+│              Shared Charter Infrastructure                  │
+│ • Registry Service • API Client • Charter Components       │
+│ • Artifact Models • Run State • Compare Engine             │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### 1.2 Route Structure
+### 1.2 Charter-Aligned Route Structure
 
-**Expert Interface Routes:**
+**Charter Interface Routes (Expert Mode):**
 ```
 /                       → Dashboard/Home
-/analyze               → FlowTime Engine Overview (landing page)
-  /features            → Features (FlowTime Engine)
-  /api-demo            → API Testing (FlowTime Engine)  
-  /scenarios           → Scenario Composer (FlowTime Engine) - future
-/simulate              → FlowTime-Sim Overview (landing page)
-  /sim/templates       → Template Studio (FlowTime-Sim)
-  /sim/catalogs        → Catalog Browser (FlowTime-Sim) - future
-/tools                 → Tools Overview (landing page)
-  /health              → System Health Monitor
-  /settings            → Configuration - future
+/models                → Models (FlowTime-Sim)
+  /models/templates    → Template Library
+  /models/stochastic   → Stochastic Inputs Editor  
+  /models/yaml         → YAML Model Editor
+  /models/preview      → DAG Previewer
+/runs                  → Runs (FlowTime-Engine)
+  /runs/new            → Run Wizard
+  /runs/history        → Run History
+  /runs/{id}           → Run Results & Details
+  /runs/{id}/compare   → Compare Wizard (from specific run)
+/artifacts             → Artifacts Registry
+  /artifacts/browse    → Artifact Browser & Search
+  /artifacts/import    → Import Wizard
+  /artifacts/manage    → Versioning & Management
+/tools                 → System Tools
+  /tools/health        → System Health Monitor
+  /tools/api-test      → API Testing Interface
+  /tools/settings      → Configuration
 ```
 
-**Navigation Structure (Flat with Visual Hierarchy):**
+**Navigation Structure (Charter Hierarchy):**
 ```
 🏠 Home
-📊 ANALYZE (FlowTime Engine) → /analyze
-    Features → /features
-    API Testing → /api-demo
-🎲 SIMULATE (FlowTime-Sim) → /simulate  
-    Template Studio → /sim/templates
+� MODELS (FlowTime-Sim) → /models
+    📋 Templates → /models/templates
+    🎲 Stochastic Inputs → /models/stochastic
+    📝 YAML Editor → /models/yaml
+    👁️ Preview DAG → /models/preview
+🚀 RUNS (FlowTime-Engine) → /runs
+    ➕ New Run → /runs/new
+    📊 History → /runs/history
+    🔄 Compare → /runs/{id}/compare
+📦 ARTIFACTS (Registry) → /artifacts
+    🔍 Browse → /artifacts/browse
+    📥 Import → /artifacts/import
+    ⚙️ Manage → /artifacts/manage
 🔧 TOOLS → /tools
-    System Health → /health
+    💚 Health → /tools/health
+    🧪 API Test → /tools/api-test
 🎓 LEARN → /learn
-    Getting Started → /learn/welcome
+    👋 Getting Started → /learn/welcome
 ```
 
 **Learning Interface Routes:**

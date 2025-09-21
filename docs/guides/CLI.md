@@ -47,7 +47,7 @@ Beginning in M1 (Contracts Parity), all runs emit a structured artifact set unde
 ## Usage
 
 ```text
-flowtime run <model.yaml> [--out <dir>] [--verbose] [--deterministic-run-id] [--seed <n>] [--via-api <url>]
+flowtime run <model-artifact.yaml> [--out <dir>] [--verbose] [--deterministic-run-id] [--seed <n>] [--via-api <url>]
 ```
 
 Options:
@@ -68,7 +68,7 @@ Each run generates a complete artifact set under `out/<dir>/<runId>/`:
 
 ```
 run_20250903T133923Z_e60c400a/
-├── spec.yaml                           # original model, normalized line endings
+├── spec.yaml                           # original model artifact, normalized line endings
 ├── run.json                            # run summary, series listing
 ├── manifest.json                       # determinism & integrity (hashes, RNG seed)
 ├── series/
@@ -83,30 +83,39 @@ run_20250903T133923Z_e60c400a/
 - **Schema validation**: Automatic JSON Schema validation against [docs/schemas/](schemas/) files
 - **Determinism**: `--deterministic-run-id` + `--seed` enable reproducible artifacts for CI/testing
 
-## Model format (M0)
+## Model Artifact Format (M2.x)
 
-Minimal YAML schema with a canonical grid and a small node set.
+Unified Model artifact structure that works with both FlowTime and FlowTime-Sim:
 
 ```yaml
-grid:
-  bins: 8
-  binMinutes: 60
-nodes:
-  - id: demand
-    kind: const
-    values: [10,10,10,10,10,10,10,10]
-  - id: served
-    kind: expr
-    expr: "demand * 0.8"
-outputs:
-  - series: served
-    as: served.csv
+kind: Model
+schemaVersion: 1
+metadata:
+  title: "Hello World Flow"
+  created: "2024-09-20T10:00:00Z"
+spec:
+  grid:
+    bins: 8
+    binMinutes: 60
+  nodes:
+    - id: demand
+      kind: const
+      values: [10,10,10,10,10,10,10,10]
+    - id: served
+      kind: expr
+      expr: "demand * 0.8"
+  outputs:
+    - series: served
+      as: served.csv
 ```
 
 Notes:
-- `values` length must equal `grid.bins`.
-- `expr` supports simple forms like `name * <scalar>` or `name + <scalar>`.
-- Numbers use culture-invariant parsing/formatting.
+- `kind: Model` identifies this as a Model artifact for registry and UI
+- `metadata` provides tracking and discovery information
+- `spec` contains the actual model definition both engines understand
+- `values` length must equal `grid.bins`
+- `expr` supports simple forms like `name * <scalar>` or `name + <scalar>`
+- Numbers use culture-invariant parsing/formatting
 
 ## VS Code tasks
 
@@ -116,7 +125,7 @@ This repo includes basic tasks:
 Terminal > Run Task...
   - build         # dotnet build
   - test          # dotnet test
-  - run: hello    # run CLI on examples/hello/model.yaml
+  - run: hello    # run CLI on examples/hello/model.yaml (Model artifact)
 ```
 
 Use these for fast iteration without typing full commands.

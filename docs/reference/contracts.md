@@ -25,25 +25,42 @@
 - Breaking changes bump schemaVersion (e.g., adding `queue_depth` in Sim v2).
 - Keep **engine** vs **sim** differences explicit via the `source` field and series naming (see Units & semantics).
 
-## Model YAML Schema Compatibility {#model-schema}
+## Unified Model Artifact Format {#model-artifact}
 
-FlowTime and FlowTime-Sim use the same YAML model schema but handle determinism differently:
+Both FlowTime (Engine) and FlowTime-Sim use a unified Model artifact structure that wraps the model definition:
 
-### FlowTime (Engine) - Always Deterministic
-- **Behavior**: FlowTime is deterministic by design and produces identical results for identical models
-- **Seed/RNG handling**: `seed` and `rng` fields in model YAML are **ignored** during execution
-- **Use case**: Deterministic flow modeling and analysis where randomness is not required
+### Model Artifact Structure
+```yaml
+kind: Model
+schemaVersion: 1
+metadata:
+  title: "Manufacturing Line Model"
+  created: "2024-09-20T10:00:00Z"
+  description: "Production flow with capacity constraints"  # optional
+  tags: ["production", "manufacturing"]                    # optional
+spec:
+  # Standard model definition (same YAML both engines consume)
+  grid: { bins: 2160, binMinutes: 60 }
+  nodes:
+    - id: demand
+      kind: const
+      values: [10, 10, 10, 10]
+    - id: served
+      kind: expr
+      expr: "demand * 0.8"
+  rng:                    # optional - ignored by Engine, used by Sim
+    kind: pcg32
+    seed: 12345
+  outputs:
+    - series: served
+      as: served.csv
+```
 
-### FlowTime-Sim (Simulator) - Configurable Determinism  
-- **Behavior**: FlowTime-Sim requires explicit `seed` and `rng` configuration for deterministic results
-- **Seed/RNG handling**: `seed` and `rng` fields are **required** for reproducible synthetic data generation
-- **Use case**: Stochastic simulation and synthetic data generation with controlled randomness
-
-### Practical Implications
-- Models can be shared between FlowTime and FlowTime-Sim engines
-- FlowTime ignores randomness fields and always produces the same output
-- FlowTime-Sim produces deterministic output only when `seed`/`rng` are properly configured
-- Both produce compatible artifact structures (same JSON schemas, CSV formats)
+### Engine vs Simulator Behavior
+- **FlowTime (Engine)**: Always deterministic; ignores `rng`/`seed` fields in `spec`
+- **FlowTime-Sim**: Uses `rng`/`seed` from `spec` for reproducible synthetic data generation
+- **Model Sharing**: Same Model artifact works for both engines - only execution behavior differs
+- **Artifacts**: Both produce compatible run artifacts (same JSON schemas, CSV formats)
 
 ## Determinism rules (for hashing, parity, CI) {#hashing}
 

@@ -1,11 +1,11 @@
 # FlowTime UI API Integration Guide
 
-> **📋 Charter Notice**: This integration guide will be updated for charter-aligned development in [M2.8 Incremental Charter UI](../milestones/M2.8-UI-INCREMENTAL.md). Current API patterns will be preserved during charter transition with incremental migration to registry-centric workflows.
+> **📋 Charter Integration**: This guide covers charter-aligned API integration patterns for [M2.8](../milestones/M2.8.md) registry workflows and [M2.7](../milestones/M2.7.md) artifacts system. All patterns support the [Models|Runs|Artifacts|Learn] paradigm with registry-centric state management.
 
-**Version:** 1.0  
+**Version:** 2.0 (Charter-Aligned)  
 **Audience:** UI developers, integration engineers  
-**Purpose:** Detailed guide for integrating FlowTime UI with FlowTime API endpoints  
-**Charter Status:** Legacy patterns preserved during M2.8 incremental migration
+**Purpose:** Detailed guide for integrating FlowTime UI with FlowTime API endpoints using charter workflows and registry services  
+**Charter Status:** Updated for M2.8 charter workflows and M2.7 registry integration
 
 ---
 
@@ -34,9 +34,109 @@ builder.Services.AddHttpClient<IFlowTimeApiClient, FlowTimeApiClient>(client =>
 });
 ```
 
+### 1.3 Charter Service Registration
+```csharp
+// Program.cs - Charter-aligned services
+builder.Services.AddScoped<IArtifactRegistryService, ArtifactRegistryService>();
+builder.Services.AddScoped<IModelsService, ModelsService>();
+builder.Services.AddScoped<IRunsService, RunsService>();
+builder.Services.AddScoped<ICompareService, CompareService>();
+
+// Registry configuration for M2.7 artifacts
+builder.Services.Configure<RegistryConfiguration>(options =>
+{
+    options.BasePath = builder.Configuration["Registry:BasePath"] ?? "./data/artifacts";
+    options.IndexFile = "index.json";
+    options.EnableMetadataCache = true;
+});
+```
+
 ---
 
-## 2. Core API Endpoints
+## 2. Charter API Integration Patterns
+
+### 2.1 Artifacts Registry Service (M2.7)
+```csharp
+public interface IArtifactRegistryService
+{
+    Task<List<ArtifactMetadata>> GetArtifactsAsync(ArtifactType? type = null);
+    Task<List<ArtifactMetadata>> SearchArtifactsAsync(string query);
+    Task<ArtifactDetails> GetArtifactAsync(string artifactId);
+    Task<string> SaveArtifactAsync(ArtifactCreateRequest request);
+    Task DeleteArtifactAsync(string artifactId);
+}
+
+public class ArtifactRegistryService : IArtifactRegistryService
+{
+    private readonly HttpClient _httpClient;
+    
+    public async Task<List<ArtifactMetadata>> GetArtifactsAsync(ArtifactType? type = null)
+    {
+        var queryString = type.HasValue ? $"?type={type}" : "";
+        var response = await _httpClient.GetAsync($"/api/artifacts{queryString}");
+        return await response.Content.ReadFromJsonAsync<List<ArtifactMetadata>>();
+    }
+}
+```
+
+### 2.2 Models Service (Charter Integration)
+```csharp
+public interface IModelsService
+{
+    Task<List<ModelTemplate>> GetTemplatesAsync();
+    Task<ModelArtifact> CreateFromTemplateAsync(string templateId, ModelConfiguration config);
+    Task<DAGPreview> PreviewModelAsync(ModelArtifact modelArtifact);
+    Task<string> SaveModelArtifactAsync(ModelArtifact modelArtifact);
+    Task<ModelArtifact> LoadModelArtifactAsync(string artifactId);
+}
+
+// UI Integration for Models page
+@inject IModelsService ModelsService
+@inject IArtifactRegistryService RegistryService
+
+private async Task CreateModelFromTemplate(string templateId)
+{
+    var config = BuildConfigurationFromUI();
+    var modelArtifact = await ModelsService.CreateFromTemplateAsync(templateId, config);
+    var artifactId = await RegistryService.SaveArtifactAsync(new ArtifactCreateRequest 
+    {
+        Type = ArtifactType.Model,
+        Name = modelArtifact.Metadata.Title,
+        Content = modelArtifact
+    });
+    NavigationManager.NavigateTo($"/runs/new?modelId={artifactId}");
+}
+```
+
+### 2.3 Runs Service (Charter Workflow)
+```csharp
+public interface IRunsService
+{
+    Task<List<RunSummary>> GetRunHistoryAsync();
+    Task<RunResult> ExecuteRunAsync(RunRequest request);
+    Task<RunDetails> GetRunDetailsAsync(string runId);
+    Task<CompareResult> CompareRunsAsync(string baselineId, string comparisonId);
+}
+
+// UI Integration for Runs wizard
+@inject IRunsService RunsService
+
+private async Task ExecuteNewRun()
+{
+    var request = new RunRequest
+    {
+        ModelArtifactId = selectedModelId,
+        Configuration = wizardConfiguration
+    };
+    
+    var result = await RunsService.ExecuteRunAsync(request);
+    NavigationManager.NavigateTo($"/runs/{result.RunId}");
+}
+```
+
+---
+
+## 3. Legacy API Endpoints (Preserved)
 
 ### 2.1 Health Check Integration
 ```csharp
@@ -150,7 +250,8 @@ public class GraphService : IGraphService
 ```csharp
 public interface IRunService
 {
-    Task<RunResult> TriggerRunAsync(ModelDefinition model);
+    Task<RunResult> TriggerRunAsync(ModelArtifact modelArtifact);
+    Task<RunResult> TriggerRunFromArtifactIdAsync(string modelArtifactId);
     Task<RunSummary[]> GetRunsAsync();
     Task<RunDetails> GetRunDetailsAsync(string runId);
     Task<byte[]> ExportRunAsync(string runId, ExportFormat format);
@@ -160,9 +261,10 @@ public class RunService : IRunService
 {
     private readonly HttpClient _httpClient;
     
-    public async Task<RunResult> TriggerRunAsync(ModelDefinition model)
+    public async Task<RunResult> TriggerRunAsync(ModelArtifact modelArtifact)
     {
-        var yamlContent = YamlSerializer.Serialize(model);
+        // Send model spec (extracted from artifact) to run API
+        var yamlContent = YamlSerializer.Serialize(modelArtifact.Spec);
         var content = new StringContent(yamlContent, Encoding.UTF8, "text/plain");
         
         var response = await _httpClient.PostAsync("/v1/run", content);
@@ -170,6 +272,20 @@ public class RunService : IRunService
         
         var yamlResult = await response.Content.ReadAsStringAsync();
         return YamlSerializer.Deserialize<RunResult>(yamlResult);
+    }
+    
+    public async Task<RunResult> TriggerRunFromArtifactIdAsync(string modelArtifactId)
+    {
+        // Charter pattern: reference model artifact by ID
+        var payload = new { ModelArtifactId = modelArtifactId };
+        var json = JsonSerializer.Serialize(payload);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        
+        var response = await _httpClient.PostAsync("/v1/runs", content);
+        response.EnsureSuccessStatusCode();
+        
+        var result = await response.Content.ReadAsStringAsync();
+        return JsonSerializer.Deserialize<RunResult>(result);
     }
     
     public async Task<RunSummary[]> GetRunsAsync()

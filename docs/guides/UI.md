@@ -1,6 +1,6 @@
 # FlowTime UI (Blazor WASM)
 
-> **📋 Charter Notice**: For current UI development direction, see [Charter UI Incremental](../milestones/M2.8-UI-INCREMENTAL.md) and [UI Charter Transition](../milestones/UI-M2.6-CHARTER-TRANSITION.md).
+> **Charter Notice**: For current UI development direction, see [M2.8](../milestones/M2.8.md) (backend) and [UI Charter Transition](../transitions/UI-M2.6-CHARTER-TRANSITION.md) (reference).
 
 The FlowTime UI is a **charter-aligned** Blazor WebAssembly SPA that implements the artifacts-centric workflow: **[Models] → [Runs] → [Artifacts] → [Learn]**. The UI is transitioning from direct API consumption to registry-based artifact analysis while maintaining backward compatibility.
 

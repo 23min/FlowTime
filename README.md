@@ -97,7 +97,7 @@ Teams who need **explainable flow modeling** and **time-travel observability**â€
 
 ## Architecture
 
-> **ðŸ“‹ Charter Notice**: For complete architecture details and current development roadmap, see [FlowTime-Engine Charter](docs/flowtime-engine-charter.md) and [Charter Roadmap](docs/CHARTER-ROADMAP.md).
+> **ðŸ“‹ Charter Notice**: For complete architecture details and current development roadmap, see [FlowTime-Engine Charter](docs/charter/flowtime-engine.md) and [Roadmap](docs/ROADMAP.md).
 
 **FlowTime-Engine** operates as an **artifacts-centric execution core** within the broader **Engine+Sim ecosystem**:
 
@@ -127,7 +127,7 @@ Teams who need **explainable flow modeling** and **time-travel observability**â€
 * **M2.8**: Incremental Charter UI - Artifact-centric interface aligned with charter workflow
 * **M2.9**: Contextual Compare - Cross-run analysis within artifact collections
 
-See [Charter Roadmap](docs/CHARTER-ROADMAP.md) for detailed milestone specifications and [FlowTime-Engine Charter](docs/flowtime-engine-charter.md) for architecture principles.
+See [Roadmap](docs/ROADMAP.md) for comprehensive development roadmap and [FlowTime-Engine Charter](docs/charter/flowtime-engine.md) for architecture principles.
 
 ---
 
@@ -254,7 +254,7 @@ dotnet run --project src/FlowTime.Cli -- run <path/to/model.yaml> --out out/<nam
 - **CLI Guide**: [`docs/CLI.md`](docs/CLI.md) - Complete command-line usage and examples
 - **UI Documentation**: [`docs/UI.md`](docs/UI.md) - UI setup, configuration, and usage
 - **Deployment Guide**: [`docs/deployment.md`](docs/deployment.md) - Production deployment options
-- **Roadmap**: [`docs/ROADMAP.md`](docs/ROADMAP.md) - Project roadmap and milestone tracking
+- **Roadmap**: [`docs/ROADMAP.md`](docs/ROADMAP.md) - Comprehensive project roadmap with charter vision and development phases
 - **Development Setup**: [`docs/development-setup.md`](docs/development-setup.md) - Development environment setup
 - **Configuration**: [`docs/configuration.md`](docs/configuration.md) - Configuration reference
 - **Testing Strategy**: [`docs/testing.md`](docs/testing.md) - Testing approach and guidelines

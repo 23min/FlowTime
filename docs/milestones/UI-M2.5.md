@@ -1,6 +1,6 @@
 # UI-M2.5 — Navigation Architecture Enhancement
 
-> **📋 Charter Notice**: This milestone has been superseded by the [FlowTime-Engine Charter](../flowtime-engine-charter.md). The Engine+Sim navigation structure described here aligns with charter principles but implementation details now follow [M2.8 Incremental Charter UI](M2.8-UI-INCREMENTAL.md).
+> **📋 Charter Notice**: This milestone has been superseded by the [FlowTime-Engine Charter](../flowtime-engine-charter.md). The Engine+Sim navigation structure described here aligns with charter principles but implementation details now follow the Charter UI Milestone Structure (UI-M2.7, UI-M2.8, UI-M2.9, UI-M3.0).
 
 > **Target Project:** FlowTime UI  
 > **Prerequisites:** UI-M2 ✅  
