@@ -1,4 +1,5 @@
 using FlowTime.UI.Configuration;
+using System.Net.Http;
 
 namespace FlowTime.UI.Services;
 
@@ -38,8 +39,10 @@ public class FlowTimeSimApiClientWithFallback : IFlowTimeSimApiClient
         // Discover available port
         var availableUrl = await portDiscovery.GetAvailableFlowTimeSimUrlAsync(config);
 
-        // Create HttpClient with discovered URL
-        var simHttp = new HttpClient
+        // Create HttpClient with discovered URL using factory
+        // Note: We create a new client instance rather than trying to modify BaseAddress
+        // because HttpClientFactory-created clients may have immutable configuration
+        var simHttp = new HttpClient()
         {
             BaseAddress = new Uri(availableUrl),
             Timeout = TimeSpan.FromMinutes(config.TimeoutMinutes)

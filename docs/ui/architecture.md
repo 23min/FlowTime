@@ -1,8 +1,9 @@
 # FlowTime UI Architecture
 
-**Version:** 1.0  
+**Version:** 2.0 (Charter-Aligned)  
 **Audience:** UI architects, senior developers, technical leads  
-**Purpose:** Define architectural patterns, component structure, and design principles for FlowTime UI  
+**Purpose:** Define architectural patterns, component structure, and design principles for FlowTime UI following the [Models|Runs|Artifacts|Learn] charter paradigm  
+**Charter Status:** Updated for M2.8 charter-aligned development  
 
 ---
 
@@ -54,30 +55,69 @@
 └─────────────────┘
 ```
 
-### 2.2 Component Hierarchy
+### 2.2 Component Hierarchy (Charter-Aligned)
 ```
 App
 ├── Layout (navigation, header, footer)
-├── Pages
-│   ├── GraphExplorer
-│   │   ├── DAGVisualizer
-│   │   ├── NodeInspector
-│   │   └── TimeScrubber
-│   ├── RunManager
-│   │   ├── ModelEditor
-│   │   ├── RunTrigger
-│   │   └── ResultsViewer
-│   ├── ScenarioComposer
-│   │   ├── OverlayEditor
-│   │   ├── PMFAttacher
-│   │   └── ComparisonView
-│   ├── PMFLibrary
-│   │   ├── PMFList
-│   │   ├── PMFSearch
-│   │   └── PMFVersioning
-│   └── PMFEditor
-│       ├── HistogramCanvas
-│       ├── StatsPanel
+├── Charter Pages
+│   ├── ModelsPage (FlowTime-Sim)
+│   │   ├── TemplateLibrary
+│   │   │   ├── TemplateList
+│   │   │   ├── TemplateSearch
+│   │   │   └── TemplateVersioning
+│   │   ├── StochasticInputsEditor
+│   │   │   ├── PMFAttacher
+│   │   │   ├── HistogramCanvas
+│   │   │   └── StatsPanel
+│   │   ├── YAMLModelEditor (Monaco)
+│   │   ├── DAGPreviewer
+│   │   │   ├── DAGVisualizer
+│   │   │   ├── NodeInspector
+│   │   │   └── ValidationPanel
+│   │   └── ModelArtifactSaver
+│   ├── RunsPage (FlowTime-Engine)
+│   │   ├── RunWizard
+│   │   │   ├── InputSelector
+│   │   │   │   ├── ArtifactBrowser
+│   │   │   │   ├── TelemetryUploader
+│   │   │   │   └── CSVUploader
+│   │   │   ├── ConfigurationPanel
+│   │   │   │   ├── GridSelector
+│   │   │   │   ├── HorizonSelector
+│   │   │   │   └── OverlayEditor
+│   │   │   ├── ComputeManager
+│   │   │   │   ├── RunTrigger
+│   │   │   │   └── ProgressTracker
+│   │   │   └── ResultsViewer
+│   │   │       ├── DAGVisualizer
+│   │   │       ├── TimeScrubber
+│   │   │       ├── MetricsPanel
+│   │   │       └── ExportManager
+│   │   └── CompareWizard
+│   │       ├── BaselineSelector
+│   │       ├── ComparisonSelector
+│   │       ├── AlignmentConfiguration
+│   │       └── ComparisonView
+│   │           ├── SideBySideCharts
+│   │           ├── DeltaDAGView
+│   │           └── DiffExporter
+│   ├── ArtifactsPage (Registry)
+│   │   ├── ArtifactBrowser
+│   │   │   ├── FilterPanel
+│   │   │   ├── SearchBar
+│   │   │   └── ArtifactGrid
+│   │   ├── ArtifactCard
+│   │   │   ├── MetadataDisplay
+│   │   │   ├── PreviewPanel
+│   │   │   └── ActionButtons
+│   │   └── ArtifactManager
+│   │       ├── ImportWizard
+│   │       ├── ExportManager
+│   │       └── VersioningPanel
+│   └── LearnPage (Educational Interface)
+│       ├── ConceptExplorer
+│       ├── InteractiveTutorials
+│       ├── GuidedWorkflows
 │       └── TemplateSelector
 └── Shared
     ├── Charts (TimeSeriesChart, HistogramChart)
@@ -95,20 +135,23 @@ App
 - Manage application state
 - Handle API communication
 - Contain business logic
-- Examples: `RunManager`, `ScenarioComposer`
+- Examples: `RunsPage`, `ModelsPage`, `ArtifactsPage`, `RunWizard`, `CompareWizard`
 
 ```csharp
 @page "/runs"
-@inject IRunService RunService
+@inject IFlowTimeApiClient ApiClient
+@inject IArtifactRegistryService RegistryService
 @inject IStateContainer StateContainer
 
-public partial class RunManager : ComponentBase
+public partial class RunsPage : ComponentBase
 {
     private List<RunSummary> runs = new();
+    private List<ArtifactMetadata> availableArtifacts = new();
     
     protected override async Task OnInitializedAsync()
     {
-        runs = await RunService.GetRunsAsync();
+        runs = await ApiClient.GetRunHistoryAsync();
+        availableArtifacts = await RegistryService.GetArtifactsAsync(ArtifactType.Model);
         StateContainer.OnChange += StateHasChanged;
     }
 }
@@ -118,7 +161,7 @@ public partial class RunManager : ComponentBase
 - Pure rendering logic
 - No direct API calls
 - Receive data via parameters
-- Examples: `TimeSeriesChart`, `PMFHistogram`
+- Examples: `TimeSeriesChart`, `DAGVisualizer`, `ArtifactCard`, `MetricsPanel`
 
 ```csharp
 @typeparam TData
@@ -307,8 +350,9 @@ public async Task<string> UploadModelAsync(IBrowserFile file)
     using var stream = file.OpenReadStream();
     var content = await new StreamReader(stream).ReadToEndAsync();
     
-    // Validate YAML format
-    var model = YamlSerializer.Deserialize<ModelDefinition>(content);
+    // Validate Model artifact format
+    var modelArtifact = YamlSerializer.Deserialize<ModelArtifact>(content);
+    var model = modelArtifact.Spec; // Extract model definition from artifact
     
     return content;
 }

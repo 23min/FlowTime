@@ -1,26 +1,35 @@
-# Capability Matrix (Snapshot)
+# FlowTime Capability Matrix
 
-Legend: Done / Prototype / Partial / Planned.
+**Current Status:** Post-M2.6 Charter Foundation  
+**Focus:** M2.x capabilities and current implementation state  
 
-| Area | Capability | Status | Notes |
-|------|------------|--------|-------|
-| Core Engine | Deterministic grid, Series<T>, DAG topo order | Done (M0) | Cycle detection present |
-| Nodes | const, basic expr (series * scalar, + scalar) | Done | Series-series & advanced built-ins in M1.5 |
-| Artifacts (Contracts Parity) | spec.yaml, run.json(source,grid+tz,align), manifest.json(rng), series/index.json, per-series hashes, placeholders (events, gold) | Done (M1) | Deterministic hashing + JSON Schema validation |
-| Expressions | Parser + refs + built-ins | ✅ Complete (M1.5) | Full expression language with SHIFT, MIN, MAX, CLAMP |
-| CLI | Evaluate YAML -> CSV + structured artifacts | Done (M1) | Deterministic artifacts with hashing |
-| CLI Flags | --deterministic-run-id, --seed, determinism | Done (M1) | Full determinism support |
-| API | /healthz, /run, /graph | Done (SVC-M0) | Full API implementation with parity tests |
-| API Artifacts | /runs/{runId}/index, /runs/{runId}/series/{seriesId} | Done (SVC-M1) | Artifact serving via SYN-M0 adapters |
-| UI | Health/Run/Graph demo, dark theme, simulation toggle | Done (UI-M0) | Complete SPA with API integration |
-| UI Template Runner | Template gallery, dynamic forms, catalog selection, simulation workflow | Done (UI-M1) | Full template-based simulation runner |
-| UI Parameter Forms | JSON schema-driven forms with validation | Done (UI-M1) | Auto-generated forms with type validation |
-| UI Catalog Management | System catalog selection with metadata | Done (UI-M1) | Visual catalog picker with capabilities |
-| UI Graph | Structural table (order, degrees, roles) | Done | Visual DAG planned for later |
-| Simulation Mode | Deterministic synthetic run + graph | Done | Toggle persisted (flag + query) |
-| Synthetic Adapter (SYN-M0) | Read artifacts & produce series | Done (SYN-M0) | FileSeriesReader, RunArtifactAdapter complete |
-| Backlog & Latency | Single-queue backlog + Little's Law latency | Planned (M7) | Not pulled forward in current roadmap |
-| Testing | Core unit tests & API slice + CLI parity + artifact endpoints | Done | 33/33 tests passing including artifact validation |
-| Docs | README, roadmap, node concepts, releases | Done | Complete documentation for all milestones |
+## Core Capabilities (Completed)
 
-This matrix will evolve; see `docs/ROADMAP.md` for full milestone detail.
+| Area | Capability | Status | Implementation |
+|------|------------|--------|----------------|
+| **Engine Core** | Deterministic grid evaluation, Series<T>, DAG processing | ✅ Done | M0 foundation |
+| **Expression Language** | Parser, references, mathematical operations (SHIFT, MIN, MAX, CLAMP) | ✅ Done | M1.5 complete |
+| **Artifacts System** | Structured output, JSON schemas, deterministic hashing | ✅ Done | M1 + M2.6 export |
+| **CLI Interface** | Run evaluation, deterministic output, artifact generation | ✅ Done | Full CLI parity |
+| **API Endpoints** | /healthz, /run, /graph, artifact serving | ✅ Done | Core API complete |
+| **UI Foundation** | Basic visualization, API integration | ✅ Done | Legacy UI preserved |
+
+## M2.x Charter Capabilities (In Progress)
+
+| Area | Capability | Status | Target Milestone |
+|------|------------|--------|------------------|
+| **Artifact Registry** | File-based registry, metadata indexing, discovery | 🚧 In Progress | M2.7 |
+| **Charter UI** | Models→Runs→Artifacts→Learn workflow | 📋 Planned | M2.8 |
+| **Compare System** | Cross-run comparison, delta computation | 📋 Planned | M2.9 |
+| **Registry API** | Enhanced endpoints, metadata enrichment | 📋 Planned | M2.8 |
+
+## Technical Foundation
+
+- **Testing:** Comprehensive unit and integration tests
+- **Determinism:** Full reproducibility with seeded runs  
+- **Documentation:** Complete milestone and API documentation
+- **Parity:** CLI and API produce identical results
+
+---
+
+> **Reference:** See [ROADMAP.md](ROADMAP.md) for complete development vision and [M2.x coordination matrix](coordination-matrix.md) for current milestone details.

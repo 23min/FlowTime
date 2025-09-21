@@ -1,6 +1,8 @@
 # UI-M2.6 — Export/Import Workflow
 
-**Status:** 📋 Planned  
+> **📋 Charter Notice**: This milestone has been superseded by the [FlowTime-Engine Charter](../flowtime-engine-charter.md). Current development follows the Charter UI Milestone Structure (UI-M2.7, UI-M2.8, UI-M2.9, UI-M3.0) which implements artifacts-centric workflow. This document is preserved for reference.
+
+**Status:** 📋 Charter Superseded *(originally Planned)*  
 **Dependencies:** M2.6 (Export/Import Loop), UI-M2.5 (Navigation)  
 **Owner:** UI Team
 

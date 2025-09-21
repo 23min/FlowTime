@@ -1,5 +1,9 @@
 # Nodes, Expressions, and Execution
 
+> **📋 Charter Context**: This document describes core engine concepts that remain central to the [FlowTime-Engine Charter](../flowtime-engine-charter.md). The execution engine and node system directly support the charter's artifacts-centric workflow by producing structured, deterministic outputs.
+
+This document explains how FlowTime represents models internally (nodes and graphs), how expressions map to nodes, and how evaluation executes deterministically on a canonical time grid. These capabilities form the execution core of the charter paradigm: **[Models] → [Runs] → [Artifacts] → [Learn]**.
+
 This document explains how FlowTime represents models internally (nodes and graphs), how expressions map to nodes, and how evaluation executes deterministically on a canonical time grid. It also shows how today’s M0 implementation works and how it evolves per the roadmap.
 
 ## Mental model
@@ -96,21 +100,27 @@ This yields deterministic, repeatable results with no hidden state.
 
 ## Examples in practice
 
-### Minimal model (M0)
+### Minimal Model Artifact (M2.x)
 ```yaml
-grid:
-  bins: 8
-  binMinutes: 60
-nodes:
-  - id: demand
-    kind: const
-    values: [10,10,10,10,10,10,10,10]
-  - id: served
-    kind: expr
-    expr: "demand * 0.8"
-outputs:
-  - series: served
-    as: served.csv
+kind: Model
+schemaVersion: 1
+metadata:
+  title: "Hello World Flow"
+  created: "2024-09-20T10:00:00Z"
+spec:
+  grid:
+    bins: 8
+    binMinutes: 60
+  nodes:
+    - id: demand
+      kind: const
+      values: [10,10,10,10,10,10,10,10]
+    - id: served
+      kind: expr
+      expr: "demand * 0.8"
+  outputs:
+    - series: served
+      as: served.csv
 ```
 Run (CLI):
 ```powershell
@@ -151,65 +161,49 @@ Today, you can build the same in code/tests by composing nodes directly.
 - Optimization: specific nodes (e.g., Shift) can be optimized later.
 - Caching: memoization at node granularity.
 
-## Model YAML Schema: FlowTime vs FlowTime-Sim
+## Unified Model Artifact: FlowTime & FlowTime-Sim
 
-FlowTime and FlowTime-Sim share the same YAML model schema for defining flows and nodes, but they differ in how they handle determinism and randomness:
+Both FlowTime and FlowTime-Sim now use the same unified Model artifact format. The `spec` contains the model definition that both engines understand:
 
-### FlowTime (Engine)
-FlowTime is **always deterministic** by design:
-- **No randomness**: Models are evaluated deterministically using fixed rules and expressions
-- **Seed/RNG ignored**: If `seed` or `rng` fields are present in the YAML, they are ignored during execution
-- **Reproducible results**: The same model always produces identical outputs regardless of `seed` values
-
-Example FlowTime model:
+### Model Artifact Structure
 ```yaml
-grid:
-  bins: 8
-  binMinutes: 60
-nodes:
-  - id: demand
-    kind: const
-    values: [10,10,10,10,10,10,10,10]
-  - id: served
-    kind: expr
-    expr: "demand * 0.8"
-outputs:
-  - series: served
-    as: served.csv
-# seed: 42          # This field is ignored by FlowTime
-```
-
-### FlowTime-Sim (Simulator)
-FlowTime-Sim uses **configurable randomness** for synthetic data generation:
-- **Requires seed for determinism**: To get reproducible results, you must specify `seed` and `rng` fields
-- **Seed/RNG significant**: These fields control random number generation for synthetic arrivals and events
-- **Non-deterministic without seed**: If no seed is provided, results will vary between runs
-
-Example FlowTime-Sim model:
-```yaml
+kind: Model
 schemaVersion: 1
-grid:
-  bins: 4
-  binMinutes: 60
-  start: 2025-01-01T00:00:00Z
-seed: 12345          # Required for deterministic results
-rng:
-  kind: pcg32        # Required for deterministic results
-arrivals:
-  kind: const
-  values: [5, 5, 5, 5]
-route:
-  id: nodeA
-outputs:
-  events: out/events.ndjson
-  gold: out/gold.csv
+metadata:
+  title: "Production Flow Model"
+  created: "2024-09-20T10:00:00Z"
+  description: "Basic demand and capacity model"
+spec:
+  grid:
+    bins: 8
+    binMinutes: 60
+  nodes:
+    - id: demand
+      kind: const
+      values: [10,10,10,10,10,10,10,10]
+    - id: served
+      kind: expr
+      expr: "demand * 0.8"
+  # Optional randomness configuration (used by Sim, ignored by Engine)
+  rng:
+    kind: pcg32
+    seed: 12345
+  outputs:
+    - series: served
+      as: served.csv
 ```
 
-### Summary
-- **FlowTime**: Always deterministic, `seed`/`rng` ignored
-- **FlowTime-Sim**: Deterministic only when `seed`/`rng` are properly defined
+### Engine Behavior Differences
+- **FlowTime (Engine)**: Always deterministic - ignores `rng`/`seed` fields in `spec`
+- **FlowTime-Sim**: Uses `rng`/`seed` from `spec` for reproducible synthetic data generation
+- **Model Sharing**: Same Model artifact works for both engines - only execution behavior differs
+- **Artifacts**: Both produce compatible output artifacts (same JSON schemas, CSV formats)
 
-Both engines produce the same artifact structure (CSV files, JSON metadata) but use different approaches to achieve determinism.
+### Benefits of Unified Format
+- **Single Model Definition**: No need for separate Engine vs Sim model files
+- **Registry Integration**: Clear artifact identity with `kind: Model` for M2.7+ registry
+- **Metadata Support**: Rich metadata for discovery, organization, and UI display
+- **Future Extensions**: Easy to add tags, descriptions, version info as needed
 
 ## FAQs
 

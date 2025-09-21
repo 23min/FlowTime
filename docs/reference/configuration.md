@@ -1,5 +1,7 @@
 # Configuration Reference
 
+> **📋 Charter Context**: Configuration patterns described here support both legacy and charter workflows. Charter-specific configurations are documented in individual milestone specifications (M2.7-M2.9).
+
 FlowTime services support configuration through multiple methods with clear precedence rules.
 
 ## Configuration Precedence

@@ -4,7 +4,8 @@ public sealed record GraphRunResult(
     int Bins,
     int BinMinutes,
     IReadOnlyList<string> Order,
-    IReadOnlyDictionary<string, double[]> Series);
+    IReadOnlyDictionary<string, double[]> Series,
+    string? RunId = null);
 
 // Structural graph response (no series data)
 public sealed record GraphStructureResult(

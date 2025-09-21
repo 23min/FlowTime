@@ -1,8 +1,10 @@
 # PMF Modeling in FlowTime
 
+> **📋 Charter Context**: PMF modeling capabilities described here support the [FlowTime-Engine Charter](../flowtime-engine-charter.md) execution engine. PMFs enable stochastic modeling within the deterministic artifacts-centric workflow, producing reproducible series outputs that integrate seamlessly with the charter paradigm.
+
 ## Overview
 
-Probability Mass Functions (PMFs) are a fundamental tool in FlowTime for modeling uncertainty and variability in business processes. This guide explains PMF concepts, implementation across FlowTime components, and best practices for effective probabilistic modeling.
+Probability Mass Functions (PMFs) are a fundamental tool in FlowTime for modeling uncertainty and variability in business processes. This guide explains PMF concepts, implementation across FlowTime components, and best practices for effective probabilistic modeling within the charter execution framework.
 
 ## What are PMFs?
 

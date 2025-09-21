@@ -2,6 +2,7 @@
 @using FlowTime.UI.Services
 @using FlowTime.UI.Components.Templates
 @using FlowTime.UI.Components
+@using FlowTime.UI.Configuration
 @using System.Linq
 @using MudBlazor
 @inject ITemplateService TemplateService
@@ -13,6 +14,8 @@
 @inject IJSRuntime JSRuntime
 @inject IGraphAnalysisService GraphAnalysisService
 @inject ISimulationResultsService SimulationResultsService
+@inject IHttpClientFactory HttpClientFactory
+@inject IConfiguration Configuration
 @implements IDisposable
 
 <PageTitle>Template Studio (FlowTime-Sim)</PageTitle>
@@ -298,6 +301,10 @@
                         }
                         @(isRunning ? "Analyzing..." : "Run Flow Analysis")
                     </MudButton>
+                    <MudCheckBox T="bool" @bind-Value="exportTelemetryOnRun"
+                               Label="Export Telemetry" 
+                               Size="Size.Small"
+                               Color="Color.Primary" />
                     <MudText Typo="Typo.caption" Style="color: var(--mud-palette-text-secondary);">
                         Template: <strong>@(selectedTemplate?.Name ?? "None")</strong>
                     </MudText>
@@ -346,6 +353,41 @@
                         <MudTd DataLabel="Max">@context.Value.Max().ToString("F2")</MudTd>
                     </RowTemplate>
                 </MudTable>
+                
+                @* Export Section *@
+                <MudDivider Class="my-4" />
+                <MudText Typo="Typo.subtitle1" Class="mb-3" Style="font-weight: 500;">Download Artifacts</MudText>
+                
+                <MudStack Row AlignItems="AlignItems.Center" Spacing="3" Class="mb-3">
+                    <MudButton Variant="Variant.Filled" 
+                             Size="Size.Medium" 
+                             Color="Color.Primary"
+                             StartIcon="@Icons.Material.Filled.Download"
+                             OnClick="@(() => DownloadArtifact("csv"))">
+                        Gold CSV
+                    </MudButton>
+                    <MudButton Variant="Variant.Filled" 
+                             Size="Size.Medium" 
+                             Color="Color.Secondary"
+                             StartIcon="@Icons.Material.Filled.Download"
+                             OnClick="@(() => DownloadArtifact("ndjson"))">
+                        NDJSON
+                    </MudButton>
+                    <MudButton Variant="Variant.Filled" 
+                             Size="Size.Medium" 
+                             Color="Color.Tertiary"
+                             StartIcon="@Icons.Material.Filled.Download"
+                             OnClick="@(() => DownloadArtifact("parquet"))">
+                        Parquet
+                    </MudButton>
+                </MudStack>
+                
+                <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-2">
+                    <MudText Typo="Typo.caption">
+                        <strong>Download Info:</strong> Get analysis artifacts created during flow analysis. 
+                        Gold CSV provides cleaned tabular data, NDJSON offers streaming format, and Parquet enables efficient analytics.
+                    </MudText>
+                </MudAlert>
             }
         </MudPaper>
     </MudTabPanel>
@@ -390,6 +432,9 @@
     private List<ChartSeries>? chartSeries;
     private string[]? chartLabels;
     private int chartRenderVersion = 0;
+    
+    // Export functionality
+    private bool exportTelemetryOnRun = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -724,11 +769,25 @@
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
             var engineRes = await RunClient.RunAsync(generatedYaml, cts.Token);
             
+            NotificationService.Add($"DEBUG: Run response - Success: {engineRes.Success}, Value null: {engineRes.Value == null}, Status: {engineRes.StatusCode}", Severity.Info);
+            
             if (engineRes.Success && engineRes.Value is not null)
             {
                 engineRunResult = engineRes.Value;
                 BuildChart();
                 NotificationService.Add("Flow analysis completed successfully!", Severity.Success);
+                
+                // Auto-export telemetry if checkbox is checked
+                NotificationService.Add($"Export checkbox state: {exportTelemetryOnRun}, RunId: {engineRunResult.RunId}", Severity.Info);
+                if (exportTelemetryOnRun && engineRunResult.RunId != null)
+                {
+                    NotificationService.Add("Triggering automatic export...", Severity.Info);
+                    await ExportAllTelemetry();
+                }
+                else
+                {
+                    NotificationService.Add("Automatic export skipped - checkbox not checked or no RunId", Severity.Info);
+                }
             }
             else
             {
@@ -904,5 +963,122 @@
             chartSeries.Add(new ChartSeries { Name = name, Data = data });
         }
         chartRenderVersion++; // force re-render
+    }
+    
+    private async Task ExportFlowData(string format, bool saveToArtifacts)
+    {
+        if (engineRunResult?.RunId == null)
+        {
+            NotificationService.Add("No flow analysis results to export. Run Flow Analysis first.", Severity.Warning);
+            return;
+        }
+
+        try
+        {
+            // Build export URL using FlowTime API
+            var apiConfig = Configuration.GetSection(FlowTimeApiOptions.SectionName).Get<FlowTimeApiOptions>() 
+                ?? new FlowTimeApiOptions();
+            var baseUrl = apiConfig.BaseUrl?.TrimEnd('/') ?? "";
+            
+            if (saveToArtifacts)
+            {
+                // First, create artifacts with POST /export
+                var createExportUrl = $"{baseUrl}/{apiConfig.ApiVersion}/runs/{engineRunResult.RunId}/export";
+                using var httpClient = HttpClientFactory.CreateClient("General");
+                var createResponse = await httpClient.PostAsync(createExportUrl, null);
+                
+                if (createResponse.IsSuccessStatusCode)
+                {
+                    NotificationService.Add("Export artifacts created successfully", Severity.Success);
+                }
+                else
+                {
+                    NotificationService.Add("Failed to create export artifacts", Severity.Warning);
+                }
+            }
+            
+            // Build retrieve URL for specific format
+            var exportUrl = $"{baseUrl}/{apiConfig.ApiVersion}/runs/{engineRunResult.RunId}/export/{format}";
+            
+            // Open export URL in new tab to trigger browser download
+            await JSRuntime.InvokeVoidAsync("window.open", exportUrl, "_blank");
+            
+            var saveMessage = saveToArtifacts ? " (artifacts saved)" : "";
+            NotificationService.Add($"Exporting {format.ToUpper()} format{saveMessage}", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Add($"Export failed: {ex.Message}", Severity.Error);
+        }
+    }
+    
+    private async Task ExportAllTelemetry()
+    {
+        if (engineRunResult?.RunId == null)
+        {
+            NotificationService.Add("No analysis results available for export", Severity.Warning);
+            return;
+        }
+
+        try
+        {
+            NotificationService.Add($"Starting automatic export for run {engineRunResult.RunId}...", Severity.Info);
+            
+            // Build export URL using FlowTime API
+            var apiConfig = Configuration.GetSection(FlowTimeApiOptions.SectionName).Get<FlowTimeApiOptions>() 
+                ?? new FlowTimeApiOptions();
+            var baseUrl = apiConfig.BaseUrl?.TrimEnd('/') ?? "";
+            
+            // Create all export artifacts with POST /export
+            var createExportUrl = $"{baseUrl}/{apiConfig.ApiVersion}/runs/{engineRunResult.RunId}/export";
+            NotificationService.Add($"Calling export endpoint: {createExportUrl}", Severity.Info);
+            
+            using var httpClient = HttpClientFactory.CreateClient("General");
+            var createResponse = await httpClient.PostAsync(createExportUrl, null);
+            
+            if (createResponse.IsSuccessStatusCode)
+            {
+                var responseContent = await createResponse.Content.ReadAsStringAsync();
+                NotificationService.Add($"All telemetry artifacts exported successfully: {responseContent}", Severity.Success);
+            }
+            else
+            {
+                var errorContent = await createResponse.Content.ReadAsStringAsync();
+                NotificationService.Add($"Failed to export telemetry artifacts (Status: {createResponse.StatusCode}): {errorContent}", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Add($"Telemetry export failed: {ex.Message}", Severity.Error);
+        }
+    }
+    
+    private async Task DownloadArtifact(string format)
+    {
+        if (engineRunResult?.RunId == null)
+        {
+            NotificationService.Add("No analysis artifacts available for download", Severity.Warning);
+            return;
+        }
+
+        try
+        {
+            // Build download URL using FlowTime API
+            var apiConfig = Configuration.GetSection(FlowTimeApiOptions.SectionName).Get<FlowTimeApiOptions>() 
+                ?? new FlowTimeApiOptions();
+            var baseUrl = apiConfig.BaseUrl?.TrimEnd('/') ?? "";
+            
+            // Build retrieve URL for specific format
+            var downloadUrl = $"{baseUrl}/{apiConfig.ApiVersion}/runs/{engineRunResult.RunId}/export/{format}";
+            
+            // Open download URL in new tab to trigger browser download
+            await JSRuntime.InvokeVoidAsync("window.open", downloadUrl, "_blank");
+            
+            NotificationService.Add($"Downloading {format.ToUpper()} artifact", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Add($"Download failed: {ex.Message}", Severity.Error);
+        }
     }
 }

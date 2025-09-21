@@ -16,7 +16,7 @@ internal sealed class ApiRunClient : IRunClient
         var res = await api.RunAsync(yaml, ct);
         if (!res.Success || res.Value is null) return Result<GraphRunResult>.Fail(res.Error, res.StatusCode);
         var r = res.Value;
-        var gr = new GraphRunResult(r.Grid.Bins, r.Grid.BinMinutes, r.Order, r.Series);
+        var gr = new GraphRunResult(r.Grid.Bins, r.Grid.BinMinutes, r.Order, r.Series, r.RunId);
         return Result<GraphRunResult>.Ok(gr, res.StatusCode);
     }
 

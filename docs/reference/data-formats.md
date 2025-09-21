@@ -1,14 +1,16 @@
 # Data Formats Reference
 
+> **📋 Charter Context**: Data format standards described here support the [FlowTime-Engine Charter](../flowtime-engine-charter.md) artifacts-centric workflow. Format selection patterns enable effective organization and processing within the charter paradigm: [Models] → [Runs] → [Artifacts] → [Learn].
+
 **Version:** 1.0  
 **Date:** September 19, 2025  
-**Status:** Active Reference
+**Status:** Active Reference (Charter Aligned)
 
 ---
 
 ## Overview
 
-FlowTime uses different data formats for different purposes, following a consistent pattern based on **authorship, audience, and processing requirements**. This document defines when to use JSON vs YAML vs other formats across the FlowTime ecosystem.
+FlowTime uses different data formats for different purposes, following a consistent pattern based on **authorship, audience, and processing requirements**. This document defines when to use JSON vs YAML vs other formats across the FlowTime Engine+Sim ecosystem.
 
 ## Format Selection Matrix
 

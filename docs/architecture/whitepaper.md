@@ -1,12 +1,10 @@
-Here’s a comprehensive **engineering whitepaper** draft you can use as the new baseline spec for FlowTime and FlowTime-Sim. I’ve combined everything from the roadmap, ground doc, retry discussions, DAG evaluation model, and the spreadsheet ethos into one cohesive engineering document.
+# FlowTime Engineering Whitepaper
 
----
-
-# FlowTime & FlowTime-Sim Engineering Whitepaper
+> **Charter Update Note:** This whitepaper was updated after the FlowTime Charter v1.0 to focus exclusively on FlowTime Engine capabilities. FlowTime-Sim content has been moved to the FlowTime-Sim repository documentation. For the complete FlowTime ecosystem including simulation capabilities, see the [FlowTime Charter](../CHARTER.md).
 
 **Version:** 1.0 (Baseline)
-**Audience:** Architects, engineers, telemetry specialists, SREs, simulation developers.
-**Purpose:** Define the design, functionality, and implementation of the FlowTime engine and FlowTime-Sim, including retry and feedback loop modeling, DAG evaluation, expression semantics, artifacts, and contracts. This whitepaper serves as the engineering reference for building, extending, and maintaining FlowTime across domains.
+**Audience:** Architects, engineers, telemetry specialists, SREs.
+**Purpose:** Define the design, functionality, and implementation of the FlowTime Engine, including retry and feedback loop modeling, DAG evaluation, expression semantics, artifacts, and contracts. This whitepaper serves as the engineering reference for building, extending, and maintaining FlowTime Engine.
 
 ---
 
@@ -26,14 +24,6 @@ FlowTime is designed as a **spreadsheet for flows**:
 * **Graph nodes** = spreadsheet cells that reference each other, forming a DAG.
 
 This keeps models **deterministic, transparent, and explainable** while allowing complex behaviors such as retries and feedback loops.
-
-### 1.3 FlowTime-Sim
-
-FlowTime-Sim is the **synthetic generator** companion that produces telemetry-like data (“Gold” series) conforming to FlowTime’s contracts. It supports deterministic replay, seeded stochastic draws, and retry/failure modeling. FlowTime-Sim is used for:
-
-* Testing FlowTime engine features against controlled inputs.
-* Exploring “what-if” traffic/arrival patterns without relying on real telemetry.
-* Producing training/calibration data for parameter learners.
 
 ---
 
@@ -62,7 +52,7 @@ Flows (e.g., Order, Refund, VIP) are modeled as **classes**. All node computatio
 
 ## 3. Expressions & Built-ins
 
-Expressions are the “formula language” of FlowTime. Each node can declare `expr: "..."` referencing series and applying built-ins.
+Expressions are the "formula language" of FlowTime. Each node can declare `expr: "..."` referencing series and applying built-ins.
 
 ### 3.1 Elementwise Operators
 
@@ -183,51 +173,22 @@ retries[t] = CONV(errors, kernel)
 
 ---
 
-## 6. FlowTime-Sim Implementation
+## 6. FlowTime Engine Implementation
 
-### 6.1 Purpose
-
-* Generate synthetic Gold series for arrivals, capacity, errors, retries, backlog.
-* Validate FlowTime engine under controlled patterns.
-* Provide deterministic reproducibility with seeded RNG.
-
-### 6.2 Inputs
-
-* `hourly.json` / `weekly.json` demand shapes (or absolute series).
-* `capacity.yaml` (shifts).
-* `retry.yaml` (mode, kernel, attempts, failure rates).
-* `catalog.yaml` (nodes, dependencies).
-
-### 6.3 Generation Steps
-
-1. Generate arrivals and capacity series.
-2. Fuse into attempts/served/errors.
-3. Apply retry mode (tax or explicit).
-4. Write artifacts (`run.json`, `series/index.json`, CSV/Parquet).
-
-### 6.4 Outputs
-
-* All additive series: `arrivals`, `served`, `errors`, `retries`, `dlq`, `calls_dep`.
-* Metadata: `manifest.json` includes RNG seed and retry parameters.
-
----
-
-## 7. FlowTime Engine Implementation
-
-### 7.1 Architecture
+### 6.1 Architecture
 
 * **FlowTime.Core**: DAG compiler, primitives, evaluator.
 * **FlowTime.API**: stateless HTTP surface (`/run`, `/graph`, `/state`).
 * **FlowTime.UI**: Blazor app consuming API outputs.
 * **Artifacts**: `run.json`, `series/index.json`, CSV/Parquet for external consumption.
 
-### 7.2 Evaluation
+### 6.2 Evaluation
 
 * Vectorized arrays per node/class.
 * State maintained in per-node buffers (for queues, retries, autoscale).
 * Conservation checks ensure integrity.
 
-### 7.3 API Contracts
+### 6.3 API Contracts
 
 * `POST /run` — run model and return outputs.
 * `GET /graph` — return compiled DAG.
@@ -236,7 +197,7 @@ retries[t] = CONV(errors, kernel)
 
 ---
 
-## 8. Artifacts & Contracts
+## 7. Artifacts & Contracts
 
 * **series/index.json**: list of all output series (id, unit, type).
 * **run.json**: metadata, retry config, scenario name, hashes.
@@ -247,7 +208,7 @@ Readers must tolerate unknown series (forward compatibility).
 
 ---
 
-## 9. Domain-General Application
+## 8. Domain-General Application
 
 While the motivating use case is IT systems (queues, APIs, retries), **feedback loops and retries exist in many domains**:
 
@@ -256,30 +217,30 @@ While the motivating use case is IT systems (queues, APIs, retries), **feedback 
 * **Manufacturing**: rework of defective items, queues with inspection/retry loops.
 * **Finance**: re-submission of trades or payments after rejection.
 
-FlowTime’s spreadsheet-based, DAG + delay model makes it **domain-neutral**. By keeping terminology generic (arrivals, capacity, retries, backlog), it adapts to any flow system.
+FlowTime's spreadsheet-based, DAG + delay model makes it **domain-neutral**. By keeping terminology generic (arrivals, capacity, retries, backlog), it adapts to any flow system.
 
 ---
 
-## 10. Developer Guidance
+## 9. Developer Guidance
 
-### 10.1 Key Principles
+### 9.1 Key Principles
 
 * Always model on a fixed grid.
 * Keep loops causal with explicit delay.
 * Use additive series to avoid schema churn.
 * Expose retry and error patterns explicitly for explainability.
 
-### 10.2 Recommended Workflow
+### 9.2 Recommended Workflow
 
 1. Start with arrivals/capacity/backlog.
 2. Add retries (tax → explicit).
 3. Extend to multi-class and priority.
 4. Calibrate against telemetry.
-5. Use FlowTime-Sim for what-if tests and learner validation.
+5. Use simulation tools for what-if tests and learner validation.
 
 ---
 
-## 11. Example: Service with Retries & Queue
+## 10. Example: Service with Retries & Queue
 
 ```yaml
 grid: { bins: 6, binMinutes: 5 }
@@ -309,21 +270,21 @@ Evaluation:
 * Bin 0: `retries=0`.
 * Bin 1: `retries[1] = failures[0]*0.6`.
 * Bin 2: `retries[2] = failures[0]*0.3 + failures[1]*0.6`.
-* And so on — retries “echo” across future bins.
+* And so on — retries "echo" across future bins.
 
 ---
 
-## 12. Acceptance Criteria
+## 11. Acceptance Criteria
 
 * Deterministic evaluation: same inputs → same outputs.
 * Conservation checks pass.
 * Retry echoes appear per kernel definition.
-* Artifacts match schema; additive outputs don’t break compatibility.
+* Artifacts match schema; additive outputs don't break compatibility.
 * UI shows retries, DLQ, effort vs throughput distinctly.
 
 ---
 
-## 13. Future Directions
+## 12. Future Directions
 
 * Monte Carlo (uncertainty bands).
 * Streaming ingestion & WASM engine.
@@ -334,13 +295,11 @@ Evaluation:
 
 # Conclusion
 
-FlowTime and FlowTime-Sim together provide a **domain-neutral, spreadsheet-like engine** for modeling flows with retries, feedback loops, queues, and capacity dynamics.
+FlowTime provides a **domain-neutral, spreadsheet-like engine** for modeling flows with retries, feedback loops, queues, and capacity dynamics.
 By grounding everything in **deterministic DAG evaluation with explicit delay**, FlowTime remains both **beautifully simple** and **expressively powerful**.
 
 It supports IT systems today and generalizes to healthcare, logistics, manufacturing, and finance — anywhere feedback and retries matter.
 
-This whitepaper is the engineering baseline: architects can design systems with it, and developers can implement FlowTime and FlowTime-Sim from it.
+This whitepaper serves as the engineering baseline for FlowTime Engine implementation and integration.
 
 ---
-
-Would you like me to also generate a **set of canonical worked examples** (with numbers in bins) as an appendix to this whitepaper? That would give developers “golden vectors” to test their implementation against.

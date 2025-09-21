@@ -300,6 +300,148 @@ v1.MapGet("/runs/{runId}/series/{seriesId}", async (string runId, string seriesI
     }
 });
 
+// V1: Export endpoints - M2.6 Export System (REST-compliant design)
+
+// Export endpoint - creates all export formats and saves to artifacts (POST for side effects)
+v1.MapPost("/runs/{runId}/export", async (string runId, ILogger<Program> logger) =>
+{
+    try
+    {
+        var artifactsDirectory = Program.GetArtifactsDirectory(builder.Configuration);
+        var runPath = Path.Combine(artifactsDirectory, runId);
+        
+        if (!Directory.Exists(runPath))
+        {
+            return Results.NotFound(new { error = $"Run {runId} not found" });
+        }
+
+        // Save all available export formats to disk
+        await SaveAllExportFormatsAsync(runPath, logger);
+        
+        var goldDirectory = Path.Combine(runPath, "gold");
+        return Results.Ok(new { 
+            message = "Export completed successfully",
+            runId = runId,
+            formats = new[] { "csv", "ndjson", "parquet" },
+            artifactsPath = goldDirectory,
+            files = new[] {
+                "export.csv",
+                "export.ndjson", 
+                "export.parquet"
+            }
+        });
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Failed to export run {RunId}", runId);
+        return Results.Problem($"Export failed: {ex.Message}");
+    }
+});
+
+// Retrieve endpoint - returns specific format data (GET with no side effects)  
+v1.MapGet("/runs/{runId}/export/{format}", async (string runId, string format, ILogger<Program> logger) =>
+{
+    try
+    {
+        var artifactsDirectory = Program.GetArtifactsDirectory(builder.Configuration);
+        var runPath = Path.Combine(artifactsDirectory, runId);
+        
+        if (!Directory.Exists(runPath))
+        {
+            return Results.NotFound(new { error = $"Run {runId} not found" });
+        }
+
+        // Return the requested format (no side effects)
+        return format.ToLowerInvariant() switch
+        {
+            "gold" or "csv" => await GetGoldCsvResponse(runPath, runId, logger),
+            "ndjson" => await GetNdjsonResponse(runPath, runId, logger),
+            "parquet" => await GetParquetResponse(runPath, runId, logger),
+            _ => Results.BadRequest(new { error = $"Unsupported export format: {format}. Supported formats: gold, csv, ndjson, parquet" })
+        };
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Failed to retrieve run {RunId} in format {Format}", runId, format);
+        return Results.Problem($"Retrieve failed: {ex.Message}");
+    }
+});
+
+// Helper methods for format-specific responses
+static async Task<IResult> GetGoldCsvResponse(string runPath, string runId, ILogger logger)
+{
+    var goldCsvPath = Path.Combine(runPath, "gold", "export.csv");
+    if (!File.Exists(goldCsvPath))
+    {
+        return Results.NotFound(new { error = $"Export CSV file not found for run {runId}. Run POST /export to create it first." });
+    }
+    
+    var csvContent = await File.ReadAllTextAsync(goldCsvPath);
+    logger.LogInformation("Retrieved Gold CSV export for run {RunId}: {Size} bytes", runId, csvContent.Length);
+    return Results.Text(csvContent, "text/csv", Encoding.UTF8);
+}
+
+static async Task<IResult> GetNdjsonResponse(string runPath, string runId, ILogger logger)
+{
+    var ndjsonPath = Path.Combine(runPath, "gold", "export.ndjson");
+    if (!File.Exists(ndjsonPath))
+    {
+        return Results.NotFound(new { error = $"Export NDJSON file not found for run {runId}. Run POST /export to create it first." });
+    }
+    
+    var ndjsonContent = await File.ReadAllTextAsync(ndjsonPath);
+    logger.LogInformation("Retrieved NDJSON export for run {RunId}: {Size} bytes", runId, ndjsonContent.Length);
+    return Results.Text(ndjsonContent, "application/x-ndjson", Encoding.UTF8);
+}
+
+static async Task<IResult> GetParquetResponse(string runPath, string runId, ILogger logger)
+{
+    var parquetPath = Path.Combine(runPath, "gold", "export.parquet");
+    if (!File.Exists(parquetPath))
+    {
+        return Results.NotFound(new { error = $"Export Parquet file not found for run {runId}. Run POST /export to create it first." });
+    }
+    
+    var parquetData = await File.ReadAllBytesAsync(parquetPath);
+    logger.LogInformation("Retrieved Parquet export for run {RunId}: {Size} bytes", runId, parquetData.Length);
+    return Results.Bytes(parquetData, "application/octet-stream", $"{runId}.parquet");
+}
+
+// Helper method to save all export formats to disk
+static async Task SaveAllExportFormatsAsync(string runPath, ILogger logger)
+{
+    var goldDirectory = Path.Combine(runPath, "gold");
+    Directory.CreateDirectory(goldDirectory); // Ensure gold directory exists
+    
+    try
+    {
+        // Save Gold CSV format
+        var goldCsvPath = Path.Combine(goldDirectory, "export.csv");
+        var csvResult = await GoldCsvExporter.ExportToFileAsync(runPath, goldCsvPath);
+        logger.LogInformation("Saved Gold CSV export: {FilePath} ({RowCount} rows, {SeriesCount} series)", 
+            goldCsvPath, csvResult.RowCount, csvResult.SeriesCount);
+        
+        // Save NDJSON format
+        var ndjsonPath = Path.Combine(goldDirectory, "export.ndjson");
+        var ndjsonResult = await NdjsonExporter.ExportToFileAsync(runPath, ndjsonPath);
+        logger.LogInformation("Saved NDJSON export: {FilePath} ({RowCount} rows, {SeriesCount} series)", 
+            ndjsonPath, ndjsonResult.RowCount, ndjsonResult.SeriesCount);
+        
+        // Save Parquet format  
+        var parquetPath = Path.Combine(goldDirectory, "export.parquet");
+        var parquetResult = await ParquetExporter.ExportToFileAsync(runPath, parquetPath);
+        logger.LogInformation("Saved Parquet export: {FilePath} ({RowCount} rows, {SeriesCount} series)", 
+            parquetPath, parquetResult.RowCount, parquetResult.SeriesCount);
+        
+        logger.LogInformation("Saved all export formats for run at {RunPath}: CSV, NDJSON, Parquet", runPath);
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Failed to save export formats for run at {RunPath}", runPath);
+        throw; // Re-throw so the endpoint can return proper error response
+    }
+}
+
 app.Run();
 
 // Allow WebApplicationFactory to reference the entry point for integration tests
