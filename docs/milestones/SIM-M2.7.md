@@ -1,9 +1,9 @@
-# SIM-M3.0-PART2 — Artifacts Registry Integration
+# SIM-M2.7 — Registry Integration Preparation
 
-> **📋 Charter Alignment**: This milestone is now part of SIM-M3.0 charter milestone to align with [FlowTime-Engine Charter Roadmap](../../../flowtime-vnext/docs/milestones/CHARTER-ROADMAP.md).
+> **📋 Charter Alignment**: This milestone prepares FlowTime-Sim for integration with Engine M2.7 Artifacts Registry, enabling model artifact creation and discovery.
 
 **Status:** 📋 Planned (Charter-Aligned)  
-**Dependencies:** SIM-M3.0-PART1 (Charter-Aligned Model Authoring), FlowTime Engine M2.7 (Artifacts Registry Foundation)  
+**Dependencies:** SIM-M2.6 (Foundation), FlowTime Engine M2.7  
 **Target:** FlowTime-Sim model artifacts discoverable in Engine registry system  
 **Date:** 2025-10-15
 
@@ -86,7 +86,7 @@ Ensure Sim model artifacts integrate seamlessly with Engine M2.7 Registry struct
 ├── registry-index.json             # Engine registry index
 ├── models/                         # Model artifacts (from Sim)
 │   └── manufacturing_line_v1_a1b2/
-│       ├── model.yaml              # Engine-compatible model
+│       ├── model.yaml              # Unified Model artifact
 │       ├── metadata.json           # Registry metadata
 │       └── preview.svg             # Optional DAG preview
 ├── runs/                           # Run artifacts (from Engine)
@@ -188,7 +188,7 @@ public async Task<ModelDefinition> LoadSimModelAsync(string modelId)
     // Charter boundary: Engine loads model file, never accesses Sim execution
     var modelYaml = await _registry.ReadFileAsync(modelId, "model.yaml");
     
-    // Parse and return for Engine execution
+    // Parse unified Model artifact for Engine execution
     return ModelDefinition.FromYaml(modelYaml);
 }
 ```
@@ -387,7 +387,7 @@ public interface ISimRegistryService
 
 1. **SIM-M2.8**: Advanced model management and versioning via registry
 2. **SIM-M3**: Charter-aligned backlog and queueing system integration
-3. **Engine M2.8 UI**: Charter UI restructure with full registry integration
+3. **Engine M2.8 + UI-M2.8**: Registry integration backend and Charter UI restructure
 
 ---
 

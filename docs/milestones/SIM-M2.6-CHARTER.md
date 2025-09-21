@@ -1,10 +1,10 @@
-# Milestone SIM-M3.0 — Charter-Aligned Model Authoring Platform
+# Milestone SIM-M2.6 — Foundation & Current Baseline
 
-> **📋 Charter Alignment**: This milestone number has been updated to align with [FlowTime-Engine Charter Roadmap](../../../flowtime-vnext/docs/milestones/CHARTER-ROADMAP.md) which references SIM-M3.0 as the Sim charter milestone.
+> **📋 Charter Notice**: This milestone establishes the foundation for charter alignment. Charter integration continues through SIM-M2.7, SIM-M2.8, SIM-M2.9, culminating in SIM-M3.0 full charter alignment.
 
 **Status:** 📋 Planned (Charter-Aligned)  
-**Dependencies:** SIM-M2.1 (PMF Generator Support), FlowTime Engine M2.7 (Artifacts Registry Foundation)  
-**Target:** FlowTime-Sim as charter-compliant model authoring platform  
+**Dependencies:** SIM-M2.1 (PMF Generator Support)  
+**Target:** Establish foundation for charter alignment sequence (M2.7→M2.8→M2.9→M3.0)  
 **Date:** 2025-10-01
 
 ---
@@ -35,48 +35,49 @@ FlowTime-Sim generates Engine-compatible model artifacts while strictly avoiding
 **Model Artifact Schema:**
 ```yaml
 # /artifacts/models/model-{id}.yaml
-apiVersion: "flowtime/v1"
-kind: "Model"
+kind: Model
+schemaVersion: 1
 metadata:
-  id: "manufacturing_line_2024"
   title: "Manufacturing Line Model Q4 2024"
   description: "Production line with seasonal demand patterns and capacity constraints"
   created: "2024-09-20T10:30:00Z"
-  author: "operations@acme.com"
-  version: "1.2.0"
-  tags: ["manufacturing", "capacity", "seasonal"]
-  sim_source: "template:manufacturing-line"
+  author: "operations@acme.com"  # optional
+  tags: ["manufacturing", "capacity", "seasonal"]  # optional
 
 spec:
-  # FlowTime Engine Model Definition (schemaVersion 1 compatible)
-  flowtime_model:
-    grid:
-      bins: 2160        # 90 days * 24 hours = 2160 bins
-      binMinutes: 60    # 1-hour time steps
+  # Unified model definition (compatible with both FlowTime Engine and FlowTime-Sim)
+  grid:
+    bins: 2160        # 90 days * 24 hours = 2160 bins
+    binMinutes: 60    # 1-hour time steps
+    
+  nodes:
+    # Input demand with seasonal pattern
+    - id: demand_pattern
+      kind: pmf
+      pmf: 
+        "80": 0.1    # Low demand (10% of time)
+        "100": 0.6   # Normal demand (60% of time)  
+        "150": 0.3   # High demand (30% of time)
       
-    nodes:
-      # Input demand with seasonal pattern
-      - id: demand_pattern
-        kind: pmf
-        pmf: 
-          "80": 0.1    # Low demand (10% of time)
-          "100": 0.6   # Normal demand (60% of time)  
-          "150": 0.3   # High demand (30% of time)
-        
-      # Seasonal multiplier
-      - id: seasonal_factor
-        kind: const
-        values: [1.0, 1.0, 1.2, 1.2, 1.5, 1.5, 1.3, 1.3, 1.1, 1.1, 1.0, 1.0]  # Monthly pattern
-        
-      # Combined seasonal demand
-      - id: seasonal_demand
-        kind: expr
-        expr: "demand_pattern * seasonal_factor"
-        
-      # Production capacity constraint
-      - id: capacity_limit
-        kind: const
-        values: [120]  # Max 120 units/hour
+    # Seasonal multiplier
+    - id: seasonal_factor
+      kind: const
+      values: [1.0, 1.0, 1.2, 1.2, 1.5, 1.5, 1.3, 1.3, 1.1, 1.1, 1.0, 1.0]  # Monthly pattern
+      
+    # Combined seasonal demand
+    - id: seasonal_demand
+      kind: expr
+      expr: "demand_pattern * seasonal_factor"
+      
+    # Production capacity constraint
+    - id: capacity_limit
+      kind: const
+      values: [120]  # Max 120 units/hour
+      
+  # RNG configuration (used by Sim, ignored by Engine)
+  rng:
+    kind: pcg32
+    seed: 12345
         
       # Actual throughput (min of demand and capacity)
       - id: throughput

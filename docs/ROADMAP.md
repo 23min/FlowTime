@@ -2,7 +2,7 @@
 
 > **🚀 CHARTER NOTICE**: This roadmap has been superseded by the [FlowTime-Engine Charter](../../flowtime-vnext/docs/flowtime-engine-charter.md) and [Charter Roadmap](../../flowtime-vnext/docs/milestones/CHARTER-ROADMAP.md). 
 >
-> **Current Development**: FlowTime-Sim follows **SIM-M3.0** charter milestone for model authoring platform alignment. See [FlowTime-Sim Charter](flowtime-sim-charter.md) for current scope and [SIM-M3.0 Charter Milestone](milestones/SIM-M2.6-CHARTER.md) for implementation details.
+> **Current Development**: FlowTime-Sim follows **charter milestone sequence** (SIM-M2.7 → SIM-M2.8 → SIM-M2.9 → SIM-M3.0) aligned with Engine milestones. See [FlowTime-Sim Charter](flowtime-sim-charter.md) for current scope and [SIM-M3.0 Charter Milestone](milestones/SIM-M3.0.md) for implementation details.
 >
 > **Legacy Status**: The milestone sequence below represents the pre-charter roadmap preserved for historical reference.
 
@@ -11,8 +11,9 @@
 ## Legacy Purpose *(Charter Superseded)*
 ~~Synchronized milestone plan ensuring lock-step development across Engine ↔ Sim ↔ UI with artifact-first contracts.~~
 
-**Charter Status**: 📋 **SIM-M3.0 Charter Alignment** - Model authoring platform  
-**Engine Dependencies**: 📋 **M2.7 Artifacts Registry** → **M2.8 Charter UI** → **M2.9 Compare**  
+**Charter Status**: 📋 **Charter Milestone Alignment** - Model authoring platform  
+**Aligned Milestones**: 📋 **SIM-M2.7** → **SIM-M2.8** → **SIM-M2.9** → **SIM-M3.0**  
+**Engine Dependencies**: 📋 **Engine M2.7** → **Engine M2.8** → **Engine M2.9**  
 **Charter Workflow**: **[Models] → [Runs] → [Artifacts] → [Learn]**
 
 ## Harmonized Guiding Rules
@@ -160,7 +161,7 @@ FlowTime-Sim is the **modeling front-end** for FlowTime that generates models, s
 - **Supports** Engine M3 backlog/latency execution with Sim-authored model templates
 - **Charter-Compliant Features** 
   - **Model Templates**: Backlog and latency model definitions for Engine execution
-  - **Expression Definitions**: `backlog[t] = max(0, backlog[t-1] + inflow[t] − served[t])` model schemas
+  - **Expression Definitions**: `backlog[t] = max(0, backlog[t-1] + inflow[t] − served[t])` unified Model artifacts
   - **Engine Integration**: Models define latency calculations for Engine to execute
   - **Registry Integration**: Backlog/latency models discoverable in Engine via SIM-M2.7
   - **Charter Boundary**: Sim creates models, Engine generates backlog.csv and latency.csv
@@ -174,7 +175,7 @@ FlowTime-Sim is the **modeling front-end** for FlowTime that generates models, s
   ```
 - **Charter-Compliant Acceptance** 
   - Engine M3 can discover and execute Sim-created backlog/latency models via registry
-  - Model templates generate valid Engine schemas with backlog/latency expressions
+  - Model templates generate valid Engine artifacts with backlog/latency expressions
   - Engine execution produces backlog.csv and latency.csv from Sim models
   - **Charter Integration**: Sim models → Engine registry → Engine execution → telemetry generation
 
@@ -210,7 +211,7 @@ FlowTime-Sim is the **modeling front-end** for FlowTime that generates models, s
 - **Dependencies** SIM-M4 (Scenario Models), Engine M5 (RouterNode, FanOutNode, CapacityNode execution)
 - **Charter-Compliant Features**
   - **Multi-path Model Templates**: Router and fan-out model definitions for Engine execution
-  - **Capacity Constraint Models**: Overflow and capacity-limited model schemas for Engine
+  - **Capacity Constraint Models**: Overflow and capacity-limited Model artifacts for Engine
   - **Routing Logic Definitions**: Split ratios and routing rules for Engine RouterNode execution
 - **Charter-Compliant Acceptance** Engine M5 can execute Sim routing models and generate multi-path telemetry; Engine computes splits and overflow from Sim models
 
@@ -223,7 +224,7 @@ FlowTime-Sim is the **modeling front-end** for FlowTime that generates models, s
 - **Dependencies** Engine M9.5 (Retry & Feedback execution capabilities) - much later
 - **Charter-Compliant Features** (Future implementation when M9.5 becomes priority)
   - **Retry Model Templates**: CONV operator and temporal echo definitions for Engine execution
-  - **Feedback Loop Models**: Retry kernel and delay pattern schemas for Engine processing
+  - **Feedback Loop Models**: Retry kernel and delay pattern artifacts for Engine processing
   - **Conservation Model Definitions**: Complex retry conservation rules for Engine validation
 - **Status** **DEFERRED** - No longer blocking Engine development, charter-aligned when needed
 - **Trigger** Engine M9.5 development becomes active priority
@@ -238,7 +239,7 @@ FlowTime-Sim is the **modeling front-end** for FlowTime that generates models, s
 - **Dependencies** SIM-M5 (Routing Models), Engine M7 (Backlog v2 Multi-Queue execution)
 - **Charter-Compliant Features**
   - **Buffer Limit Models**: Finite buffer and overflow model definitions for Engine execution
-  - **DLQ Model Templates**: Spill-to-DLQ pattern schemas for Engine processing
+  - **DLQ Model Templates**: Spill-to-DLQ pattern artifacts for Engine processing
   - **Draining Policy Models**: Queue draining behavior definitions for Engine implementation
 - **Charter-Compliant Acceptance** Engine M7 executes Sim buffer models and generates DLQ/spill telemetry with conservation
 
@@ -251,7 +252,7 @@ FlowTime-Sim is the **modeling front-end** for FlowTime that generates models, s
 - **Dependencies** SIM-M7 (Multi-Queue Models), Engine M8 (Multi-Class + Priority/Fairness execution)
 - **Charter-Compliant Features**
   - **Multi-Class Model Templates**: Per-class flow definitions for Engine execution (`arrivals@serviceA@VIP`, etc.)
-  - **Priority Policy Models**: Weighted-fair and strict priority model schemas for Engine
+  - **Priority Policy Models**: Weighted-fair and strict priority Model artifacts for Engine
   - **Capacity Sharing Models**: Class-specific capacity allocation definitions for Engine processing
 - **Charter-Compliant Acceptance** 
   - Engine M8 executes Sim multi-class models and generates per-class telemetry series
