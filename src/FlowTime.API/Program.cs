@@ -15,6 +15,8 @@ var builder = WebApplication.CreateBuilder(args);
 // Services
 builder.Services.AddOpenApi();
 builder.Services.AddSingleton<IServiceInfoProvider, ServiceInfoProvider>();
+builder.Services.AddSingleton<IArtifactRegistry, FileSystemArtifactRegistry>();
+builder.Services.AddSingleton<IArtifactRegistry, FileSystemArtifactRegistry>();
 builder.Services.AddHttpLogging(o =>
 {
     o.LoggingFields =
@@ -85,6 +87,72 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider) =>
 
 // V1 API Group
 var v1 = app.MapGroup("/v1");
+
+// Artifacts registry endpoints
+v1.MapPost("/artifacts/index", async (IArtifactRegistry registry, ILogger<Program> logger) =>
+{
+    logger.LogInformation("Rebuilding artifact registry index");
+    var index = await registry.RebuildIndexAsync();
+    return Results.Ok(index);
+});
+
+v1.MapGet("/artifacts", async (IArtifactRegistry registry, HttpContext context, ILogger<Program> logger) =>
+{
+    var query = context.Request.Query;
+    var options = new ArtifactQueryOptions
+    {
+        // Existing options
+        Type = query["type"].FirstOrDefault(),
+        Search = query["search"].FirstOrDefault(),
+        Tags = query["tags"].FirstOrDefault()?.Split(','),
+        Skip = int.TryParse(query["skip"].FirstOrDefault(), out var skip) ? skip : 0,
+        Limit = int.TryParse(query["limit"].FirstOrDefault(), out var limit) ? Math.Min(limit, 1000) : 50,
+        SortBy = query["sortBy"].FirstOrDefault() ?? "created",
+        SortOrder = query["sortOrder"].FirstOrDefault() ?? "desc",
+        
+        // M2.8 Enhanced options
+        CreatedAfter = DateTime.TryParse(query["createdAfter"].FirstOrDefault(), out var after) ? after : null,
+        CreatedBefore = DateTime.TryParse(query["createdBefore"].FirstOrDefault(), out var before) ? before : null,
+        MinFileSize = long.TryParse(query["minSize"].FirstOrDefault(), out var minSize) ? minSize : null,
+        MaxFileSize = long.TryParse(query["maxSize"].FirstOrDefault(), out var maxSize) ? maxSize : null,
+        FullTextSearch = query["fullText"].FirstOrDefault(),
+        RelatedToArtifact = query["relatedTo"].FirstOrDefault()
+    };
+    
+    try
+    {
+        var response = await registry.GetArtifactsAsync(options);
+        return Results.Ok(response);
+    }
+    catch (FileNotFoundException)
+    {
+        // If index doesn't exist, rebuild it automatically
+        logger.LogInformation("Registry index not found, rebuilding automatically");
+        await registry.RebuildIndexAsync();
+        var response = await registry.GetArtifactsAsync(options);
+        return Results.Ok(response);
+    }
+});
+
+// M2.8: Artifact relationships endpoint
+v1.MapGet("/artifacts/{id}/relationships", async (string id, IArtifactRegistry registry, ILogger<Program> logger) =>
+{
+    try
+    {
+        var relationships = await registry.GetArtifactRelationshipsAsync(id);
+        return Results.Ok(relationships);
+    }
+    catch (ArgumentException ex)
+    {
+        logger.LogWarning("Artifact not found for relationships: {ArtifactId}", id);
+        return Results.NotFound(new { error = ex.Message });
+    }
+    catch (FileNotFoundException)
+    {
+        logger.LogWarning("Registry index not found when querying relationships for: {ArtifactId}", id);
+        return Results.NotFound(new { error = "Registry index not found. Try rebuilding with POST /v1/artifacts/index" });
+    }
+});
 
 // V1: POST /v1/run — body: YAML model
 v1.MapPost("/run", async (HttpRequest req, ILogger<Program> logger) =>
