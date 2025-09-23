@@ -72,6 +72,12 @@ public class RegistryIndex
     /// All artifacts in the registry
     /// </summary>
     public List<Artifact> Artifacts { get; set; } = new();
+
+    /// <summary>
+    /// Number of artifacts in the registry
+    /// </summary>
+    [JsonPropertyName("artifactCount")]
+    public int ArtifactCount { get; set; }
 }
 
 /// <summary>

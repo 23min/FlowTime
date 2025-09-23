@@ -36,6 +36,14 @@ public class FileSystemArtifactRegistry : IArtifactRegistry
 
         var artifacts = new List<Artifact>();
         var runDirectories = Directory.GetDirectories(this.dataDirectory, "run_*", SearchOption.TopDirectoryOnly);
+        
+        this.logger.LogInformation("Found {Count} run directories matching 'run_*' pattern", runDirectories.Length);
+        if (runDirectories.Length == 0)
+        {
+            var allDirectories = Directory.GetDirectories(this.dataDirectory, "*", SearchOption.TopDirectoryOnly);
+            this.logger.LogInformation("Available directories in {DataDirectory}: {Directories}", 
+                this.dataDirectory, string.Join(", ", allDirectories.Select(Path.GetFileName)));
+        }
 
         foreach (var runDir in runDirectories)
         {
@@ -57,7 +65,8 @@ public class FileSystemArtifactRegistry : IArtifactRegistry
         {
             SchemaVersion = 1,
             LastUpdated = DateTime.UtcNow,
-            Artifacts = artifacts
+            Artifacts = artifacts,
+            ArtifactCount = artifacts.Count
         };
 
         await SaveIndexAsync(index);
@@ -331,6 +340,7 @@ public class FileSystemArtifactRegistry : IArtifactRegistry
             var manifestJson = JsonSerializer.Deserialize<JsonElement>(manifestContent); // Will throw if invalid JSON
             
             // M2.8: Extract metadata from manifest for enhanced searching
+            // Handle both test manifests (with "metadata" property) and real manifests (direct properties)
             if (manifestJson.TryGetProperty("metadata", out var metadataElement))
             {
                 foreach (var prop in metadataElement.EnumerateObject())
@@ -339,16 +349,26 @@ public class FileSystemArtifactRegistry : IArtifactRegistry
                 }
             }
             
-            // Extract additional manifest properties for search
+            // Extract real manifest properties for searching
+            foreach (var prop in manifestJson.EnumerateObject())
+            {
+                if (prop.Name != "metadata" && prop.Name != "tags") // Avoid duplicating these
+                {
+                    metadata[prop.Name] = prop.Value.ToString();
+                }
+            }
+            
+            // Extract tags from manifest (for test manifests)
             if (manifestJson.TryGetProperty("tags", out var tagsElement) && tagsElement.ValueKind == JsonValueKind.Array)
             {
-                var manifestTags = tagsElement.EnumerateArray().Select(t => t.GetString()).Where(t => !string.IsNullOrEmpty(t));
-                tags.AddRange(manifestTags!);
+                var manifestTags = tagsElement.EnumerateArray().Select(t => t.GetString()).Where(t => !string.IsNullOrEmpty(t)).Cast<string>();
+                tags.AddRange(manifestTags);
             }
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // Skip artifacts with invalid manifest.json
+            // Skip artifacts with invalid manifest.json, but log for debugging
+            this.logger.LogWarning(ex, "Failed to parse manifest.json in directory: {RunDirectory}", runDirectory);
             return null;
         }
         
@@ -391,7 +411,7 @@ public class FileSystemArtifactRegistry : IArtifactRegistry
             Created = created,
             Tags = tags.ToArray(),
             Metadata = metadata,
-            Files = files.Select(Path.GetFileName).ToArray(),
+            Files = files.Select(f => Path.GetFileName(f) ?? f).ToArray(),
             TotalSize = totalSize,
             LastModified = lastModified
         };
