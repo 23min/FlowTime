@@ -15,6 +15,8 @@ var builder = WebApplication.CreateBuilder(args);
 // Services
 builder.Services.AddOpenApi();
 builder.Services.AddSingleton<IServiceInfoProvider, ServiceInfoProvider>();
+builder.Services.AddSingleton<IArtifactRegistry, FileSystemArtifactRegistry>();
+builder.Services.AddSingleton<IArtifactRegistry, FileSystemArtifactRegistry>();
 builder.Services.AddHttpLogging(o =>
 {
     o.LoggingFields =
@@ -85,6 +87,43 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider) =>
 
 // V1 API Group
 var v1 = app.MapGroup("/v1");
+
+// Artifacts registry endpoints
+v1.MapPost("/artifacts/index", async (IArtifactRegistry registry, ILogger<Program> logger) =>
+{
+    logger.LogInformation("Rebuilding artifact registry index");
+    var index = await registry.RebuildIndexAsync();
+    return Results.Ok(index);
+});
+
+v1.MapGet("/artifacts", async (IArtifactRegistry registry, HttpContext context, ILogger<Program> logger) =>
+{
+    var query = context.Request.Query;
+    var options = new ArtifactQueryOptions
+    {
+        Type = query["type"].FirstOrDefault(),
+        Search = query["search"].FirstOrDefault(),
+        Tags = query["tags"].FirstOrDefault()?.Split(','),
+        Skip = int.TryParse(query["skip"].FirstOrDefault(), out var skip) ? skip : 0,
+        Limit = int.TryParse(query["limit"].FirstOrDefault(), out var limit) ? Math.Min(limit, 100) : 50,
+        SortBy = query["sortBy"].FirstOrDefault() ?? "created",
+        SortOrder = query["sortOrder"].FirstOrDefault() ?? "desc"
+    };
+    
+    try
+    {
+        var response = await registry.GetArtifactsAsync(options);
+        return Results.Ok(response);
+    }
+    catch (FileNotFoundException)
+    {
+        // If index doesn't exist, rebuild it automatically
+        logger.LogInformation("Registry index not found, rebuilding automatically");
+        await registry.RebuildIndexAsync();
+        var response = await registry.GetArtifactsAsync(options);
+        return Results.Ok(response);
+    }
+});
 
 // V1: POST /v1/run — body: YAML model
 v1.MapPost("/run", async (HttpRequest req, ILogger<Program> logger) =>
