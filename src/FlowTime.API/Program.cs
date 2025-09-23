@@ -101,13 +101,22 @@ v1.MapGet("/artifacts", async (IArtifactRegistry registry, HttpContext context, 
     var query = context.Request.Query;
     var options = new ArtifactQueryOptions
     {
+        // Existing options
         Type = query["type"].FirstOrDefault(),
         Search = query["search"].FirstOrDefault(),
         Tags = query["tags"].FirstOrDefault()?.Split(','),
         Skip = int.TryParse(query["skip"].FirstOrDefault(), out var skip) ? skip : 0,
-        Limit = int.TryParse(query["limit"].FirstOrDefault(), out var limit) ? Math.Min(limit, 100) : 50,
+        Limit = int.TryParse(query["limit"].FirstOrDefault(), out var limit) ? Math.Min(limit, 1000) : 50,
         SortBy = query["sortBy"].FirstOrDefault() ?? "created",
-        SortOrder = query["sortOrder"].FirstOrDefault() ?? "desc"
+        SortOrder = query["sortOrder"].FirstOrDefault() ?? "desc",
+        
+        // M2.8 Enhanced options
+        CreatedAfter = DateTime.TryParse(query["createdAfter"].FirstOrDefault(), out var after) ? after : null,
+        CreatedBefore = DateTime.TryParse(query["createdBefore"].FirstOrDefault(), out var before) ? before : null,
+        MinFileSize = long.TryParse(query["minSize"].FirstOrDefault(), out var minSize) ? minSize : null,
+        MaxFileSize = long.TryParse(query["maxSize"].FirstOrDefault(), out var maxSize) ? maxSize : null,
+        FullTextSearch = query["fullText"].FirstOrDefault(),
+        RelatedToArtifact = query["relatedTo"].FirstOrDefault()
     };
     
     try
@@ -122,6 +131,26 @@ v1.MapGet("/artifacts", async (IArtifactRegistry registry, HttpContext context, 
         await registry.RebuildIndexAsync();
         var response = await registry.GetArtifactsAsync(options);
         return Results.Ok(response);
+    }
+});
+
+// M2.8: Artifact relationships endpoint
+v1.MapGet("/artifacts/{id}/relationships", async (string id, IArtifactRegistry registry, ILogger<Program> logger) =>
+{
+    try
+    {
+        var relationships = await registry.GetArtifactRelationshipsAsync(id);
+        return Results.Ok(relationships);
+    }
+    catch (ArgumentException ex)
+    {
+        logger.LogWarning("Artifact not found for relationships: {ArtifactId}", id);
+        return Results.NotFound(new { error = ex.Message });
+    }
+    catch (FileNotFoundException)
+    {
+        logger.LogWarning("Registry index not found when querying relationships for: {ArtifactId}", id);
+        return Results.NotFound(new { error = "Registry index not found. Try rebuilding with POST /v1/artifacts/index" });
     }
 });
 

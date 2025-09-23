@@ -32,10 +32,15 @@ public interface IArtifactRegistry
     /// Remove an artifact from the registry
     /// </summary>
     Task RemoveArtifactAsync(string id);
+
+    /// <summary>
+    /// Get artifacts related to the specified artifact
+    /// </summary>
+    Task<ArtifactRelationships> GetArtifactRelationshipsAsync(string id);
 }
 
 /// <summary>
-/// Options for querying artifacts
+/// Options for querying artifacts with enhanced filtering capabilities
 /// </summary>
 public class ArtifactQueryOptions
 {
@@ -60,12 +65,12 @@ public class ArtifactQueryOptions
     public int Skip { get; set; } = 0;
 
     /// <summary>
-    /// Take at most this many artifacts (for pagination)
+    /// Take at most this many artifacts (for pagination, max 1000)
     /// </summary>
     public int Limit { get; set; } = 50;
 
     /// <summary>
-    /// Sort field (id, created, title)
+    /// Sort field (id, created, title, size)
     /// </summary>
     public string SortBy { get; set; } = "created";
 
@@ -73,4 +78,36 @@ public class ArtifactQueryOptions
     /// Sort direction (asc, desc)
     /// </summary>
     public string SortOrder { get; set; } = "desc";
+
+    // Enhanced filtering options for M2.8
+
+    /// <summary>
+    /// Filter artifacts created after this date
+    /// </summary>
+    public DateTime? CreatedAfter { get; set; }
+
+    /// <summary>
+    /// Filter artifacts created before this date
+    /// </summary>
+    public DateTime? CreatedBefore { get; set; }
+
+    /// <summary>
+    /// Filter by minimum file size in bytes
+    /// </summary>
+    public long? MinFileSize { get; set; }
+
+    /// <summary>
+    /// Filter by maximum file size in bytes
+    /// </summary>
+    public long? MaxFileSize { get; set; }
+
+    /// <summary>
+    /// Full-text search across all artifact content and metadata
+    /// </summary>
+    public string? FullTextSearch { get; set; }
+
+    /// <summary>
+    /// Find artifacts related to the specified artifact ID
+    /// </summary>
+    public string? RelatedToArtifact { get; set; }
 }

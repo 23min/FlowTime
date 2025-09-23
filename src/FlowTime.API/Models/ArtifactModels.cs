@@ -41,6 +41,16 @@ public class Artifact
     /// Available files in this artifact
     /// </summary>
     public string[] Files { get; set; } = Array.Empty<string>();
+
+    /// <summary>
+    /// Total size of all files in this artifact (bytes)
+    /// </summary>
+    public long TotalSize { get; set; }
+
+    /// <summary>
+    /// Last modified timestamp
+    /// </summary>
+    public DateTime LastModified { get; set; }
 }
 
 /// <summary>
@@ -83,4 +93,56 @@ public class ArtifactListResponse
     /// Number of artifacts returned in this response
     /// </summary>
     public int Count { get; set; }
+}
+
+/// <summary>
+/// Artifact relationships information
+/// </summary>
+public class ArtifactRelationships
+{
+    /// <summary>
+    /// The artifact ID these relationships are for
+    /// </summary>
+    public required string ArtifactId { get; set; }
+
+    /// <summary>
+    /// Artifacts that this artifact is derived from (e.g., model used for run)
+    /// </summary>
+    public List<ArtifactReference> DerivedFrom { get; set; } = new();
+
+    /// <summary>
+    /// Artifacts that are derived from this artifact (e.g., runs created from model)
+    /// </summary>
+    public List<ArtifactReference> Derivatives { get; set; } = new();
+
+    /// <summary>
+    /// Related artifacts (e.g., same model, similar parameters)
+    /// </summary>
+    public List<ArtifactReference> Related { get; set; } = new();
+}
+
+/// <summary>
+/// Reference to another artifact
+/// </summary>
+public class ArtifactReference
+{
+    /// <summary>
+    /// Referenced artifact ID
+    /// </summary>
+    public required string Id { get; set; }
+
+    /// <summary>
+    /// Referenced artifact type
+    /// </summary>
+    public required string Type { get; set; }
+
+    /// <summary>
+    /// Referenced artifact title
+    /// </summary>
+    public required string Title { get; set; }
+
+    /// <summary>
+    /// Type of relationship
+    /// </summary>
+    public required string RelationshipType { get; set; }
 }

@@ -92,7 +92,52 @@ public class FileSystemArtifactRegistry : IArtifactRegistry
             artifacts = artifacts.Where(a => a.Tags != null && a.Tags.Any(tag => options.Tags.Contains(tag)));
         }
 
-        // Apply sorting
+        // Enhanced M2.8 filters
+        if (options.CreatedAfter.HasValue)
+        {
+            artifacts = artifacts.Where(a => a.Created >= options.CreatedAfter.Value);
+        }
+
+        if (options.CreatedBefore.HasValue)
+        {
+            artifacts = artifacts.Where(a => a.Created <= options.CreatedBefore.Value);
+        }
+
+        if (options.MinFileSize.HasValue)
+        {
+            artifacts = artifacts.Where(a => a.TotalSize >= options.MinFileSize.Value);
+        }
+
+        if (options.MaxFileSize.HasValue)
+        {
+            artifacts = artifacts.Where(a => a.TotalSize <= options.MaxFileSize.Value);
+        }
+
+        if (!string.IsNullOrEmpty(options.FullTextSearch))
+        {
+            var searchLower = options.FullTextSearch.ToLowerInvariant();
+            artifacts = artifacts.Where(a => 
+                a.Title.ToLowerInvariant().Contains(searchLower) ||
+                a.Id.ToLowerInvariant().Contains(searchLower) ||
+                (a.Tags != null && a.Tags.Any(tag => tag.ToLowerInvariant().Contains(searchLower))) ||
+                (a.Metadata != null && a.Metadata.Values.Any(v => v.ToString()?.ToLowerInvariant().Contains(searchLower) == true)) ||
+                (a.Files != null && a.Files.Any(f => f.ToLowerInvariant().Contains(searchLower))));
+        }
+
+        if (!string.IsNullOrEmpty(options.RelatedToArtifact))
+        {
+            // Find artifacts with similar characteristics to the specified artifact
+            var relatedTo = index.Artifacts.FirstOrDefault(a => a.Id == options.RelatedToArtifact);
+            if (relatedTo != null)
+            {
+                artifacts = artifacts.Where(a => a.Id != options.RelatedToArtifact && (
+                    a.Type == relatedTo.Type ||
+                    (a.Tags != null && relatedTo.Tags != null && a.Tags.Intersect(relatedTo.Tags).Any()) ||
+                    Math.Abs((a.Created - relatedTo.Created).TotalHours) < 24));
+            }
+        }
+
+        // Enhanced sorting with new fields
         artifacts = options.SortBy.ToLowerInvariant() switch
         {
             "title" => options.SortOrder.ToLowerInvariant() == "asc" 
@@ -101,13 +146,22 @@ public class FileSystemArtifactRegistry : IArtifactRegistry
             "id" => options.SortOrder.ToLowerInvariant() == "asc" 
                 ? artifacts.OrderBy(a => a.Id) 
                 : artifacts.OrderByDescending(a => a.Id),
+            "size" => options.SortOrder.ToLowerInvariant() == "asc" 
+                ? artifacts.OrderBy(a => a.TotalSize) 
+                : artifacts.OrderByDescending(a => a.TotalSize),
+            "modified" => options.SortOrder.ToLowerInvariant() == "asc" 
+                ? artifacts.OrderBy(a => a.LastModified) 
+                : artifacts.OrderByDescending(a => a.LastModified),
             _ => options.SortOrder.ToLowerInvariant() == "asc" 
                 ? artifacts.OrderBy(a => a.Created) 
                 : artifacts.OrderByDescending(a => a.Created)
         };
 
         var totalCount = artifacts.Count();
-        var pagedArtifacts = artifacts.Skip(options.Skip).Take(options.Limit).ToList();
+        
+        // M2.8: Support up to 1000 artifacts per page for large collections
+        var effectiveLimit = Math.Min(options.Limit, 1000);
+        var pagedArtifacts = artifacts.Skip(options.Skip).Take(effectiveLimit).ToList();
 
         return new ArtifactListResponse
         {
@@ -152,6 +206,62 @@ public class FileSystemArtifactRegistry : IArtifactRegistry
         await SaveIndexAsync(index);
     }
 
+    public async Task<ArtifactRelationships> GetArtifactRelationshipsAsync(string id)
+    {
+        var index = await LoadIndexAsync();
+        var artifact = index.Artifacts.FirstOrDefault(a => a.Id == id);
+        
+        if (artifact == null)
+        {
+            throw new ArgumentException($"Artifact with ID '{id}' not found", nameof(id));
+        }
+
+        var relationships = new ArtifactRelationships
+        {
+            ArtifactId = id
+        };
+
+        // For run artifacts, find related models and other runs
+        if (artifact.Type == "run")
+        {
+            // Find model artifacts that might be related (same time period, similar tags)
+            var potentialModels = index.Artifacts
+                .Where(a => a.Type == "model" && Math.Abs((a.Created - artifact.Created).TotalHours) < 24)
+                .Take(5);
+
+            foreach (var model in potentialModels)
+            {
+                relationships.DerivedFrom.Add(new ArtifactReference
+                {
+                    Id = model.Id,
+                    Type = model.Type,
+                    Title = model.Title,
+                    RelationshipType = "model-source"
+                });
+            }
+
+            // Find other runs with similar characteristics
+            var similarRuns = index.Artifacts
+                .Where(a => a.Type == "run" && a.Id != id)
+                .Where(a => a.Tags.Intersect(artifact.Tags).Any() || 
+                           Math.Abs((a.Created - artifact.Created).TotalHours) < 1)
+                .Take(5);
+
+            foreach (var run in similarRuns)
+            {
+                relationships.Related.Add(new ArtifactReference
+                {
+                    Id = run.Id,
+                    Type = run.Type,
+                    Title = run.Title,
+                    RelationshipType = "similar-run"
+                });
+            }
+        }
+
+        return relationships;
+    }
+
     private async Task<Artifact?> ScanRunDirectoryAsync(string runDirectory)
     {
         var dirName = Path.GetFileName(runDirectory);
@@ -182,6 +292,27 @@ public class FileSystemArtifactRegistry : IArtifactRegistry
         // Look for specific files to extract metadata
         var files = Directory.GetFiles(runDirectory);
         
+        // M2.8: Calculate total size and last modified time
+        long totalSize = 0;
+        DateTime lastModified = created;
+        
+        foreach (var file in files)
+        {
+            try
+            {
+                var fileInfo = new FileInfo(file);
+                totalSize += fileInfo.Length;
+                if (fileInfo.LastWriteTimeUtc > lastModified)
+                {
+                    lastModified = fileInfo.LastWriteTimeUtc;
+                }
+            }
+            catch (Exception ex)
+            {
+                this.logger.LogWarning(ex, "Failed to get file info for: {FilePath}", file);
+            }
+        }
+        
         // Validate that this is a proper run directory
         // For M2.7, we require manifest.json for proper artifacts
         var hasManifest = files.Any(f => Path.GetFileName(f).Equals("manifest.json", StringComparison.OrdinalIgnoreCase));
@@ -192,12 +323,28 @@ public class FileSystemArtifactRegistry : IArtifactRegistry
             return null;
         }
         
-        // Try to validate manifest.json is valid JSON
+        // Try to validate manifest.json and extract metadata
         try
         {
             var manifestPath = files.First(f => Path.GetFileName(f).Equals("manifest.json", StringComparison.OrdinalIgnoreCase));
             var manifestContent = await File.ReadAllTextAsync(manifestPath);
-            JsonSerializer.Deserialize<JsonElement>(manifestContent); // Will throw if invalid JSON
+            var manifestJson = JsonSerializer.Deserialize<JsonElement>(manifestContent); // Will throw if invalid JSON
+            
+            // M2.8: Extract metadata from manifest for enhanced searching
+            if (manifestJson.TryGetProperty("metadata", out var metadataElement))
+            {
+                foreach (var prop in metadataElement.EnumerateObject())
+                {
+                    metadata[prop.Name] = prop.Value.ToString();
+                }
+            }
+            
+            // Extract additional manifest properties for search
+            if (manifestJson.TryGetProperty("tags", out var tagsElement) && tagsElement.ValueKind == JsonValueKind.Array)
+            {
+                var manifestTags = tagsElement.EnumerateArray().Select(t => t.GetString()).Where(t => !string.IsNullOrEmpty(t));
+                tags.AddRange(manifestTags!);
+            }
         }
         catch (Exception)
         {
@@ -234,6 +381,7 @@ public class FileSystemArtifactRegistry : IArtifactRegistry
 
         metadata["directoryPath"] = runDirectory;
         metadata["fileCount"] = files.Length;
+        metadata["totalSizeBytes"] = totalSize;
 
         return new Artifact
         {
@@ -242,7 +390,10 @@ public class FileSystemArtifactRegistry : IArtifactRegistry
             Title = $"Run {parts[2]}", // Use just the suffix for title
             Created = created,
             Tags = tags.ToArray(),
-            Metadata = metadata
+            Metadata = metadata,
+            Files = files.Select(Path.GetFileName).ToArray(),
+            TotalSize = totalSize,
+            LastModified = lastModified
         };
     }
 
