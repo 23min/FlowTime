@@ -1,119 +1,185 @@
 # FlowTime-Sim
 
-![Build](https://github.com/23min/FlowTime-Sim/actions/workflows/build.yml/badge.svg?branch=main)
+[![Build](https://github.com/23min/FlowTime-Sim/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/23min/FlowTime-Sim/actions/workflows/build.yml)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
-> FlowTime-Sim is a spec-driven synthetic data generator for FlowTime. It produces deterministic per-series time series packs and (optionally) event streams to power demos, CI, and what-if experiments when real telemetry is unavailable.
+FlowTime-Sim is a model authoring platform that creates model templates and stochastic input definitions for system analysis. It helps define realistic arrival patterns, service times, and flow behaviors that can be used for capacity planning, SLA modeling, and "what-if" scenarios.
 
----
+## What it does
 
-## Table of contents
+FlowTime-Sim helps you model systems like:
+- API services with varying load patterns  
+- Queue-based workflows with backlog dynamics
+- Multi-stage processing pipelines
+- Retry and circuit breaker behaviors
 
-- Overview
-- Repository layout
-- Quickstart
-- Devcontainer
-- CI & tasks
-- Usage
-- Docs & roadmap
+Currently, it can generate synthetic time-series data (CSV) and metadata (JSON), but is transitioning to a charter-compliant model authoring focus that creates model artifacts for FlowTime-Engine execution.
 
----
+## Quick start
 
-## Overview
-
-FlowTime-Sim generates arrivals and related measures consistent with domains like logistics, manufacturing, and cloud systems. It emits a **run artifact pack** consisting of JSON metadata and per-series CSV files. Event enrichment, Parquet Gold tables, and service endpoints are deferred to later milestones.
-
-See the high-level plan in `docs/ROADMAP.md`.
-
-### Current status (Milestone SIM-M2 – Artifact Parity & Series Index)
-
-SIM-M2 focuses on a stable artifact layout (dual JSON + index + per-series CSVs) with deterministic hashing & integrity checks. Removed legacy `metadata.json` and single `gold.csv` patterns.
-
-Artifacts per run (optional `events.ndjson`):
-```
-runs/<runId>/
-  run.json
-  manifest.json
-  series/
-    <seriesId>.csv
-  series/index.json
-  [events.ndjson]
-```
-- runId format: `sim_YYYY-MM-DDTHH-mm-ssZ_<8slug>` (opaque; do not parse).
-- Per-series CSV schema: `t,value` where `t` = 0..(bins-1).
-- `series/index.json` enumerates all series (id, kind, unit, path, hash, points).
-- `manifest.json` lists per-series SHA-256 hashes (`sha256:<64hex>`); `run.json` currently mirrors it (future semantic divergence reserved).
-
-### Model YAML Compatibility
-
-FlowTime-Sim uses the same YAML model format as [FlowTime](https://github.com/23min/FlowTime) but handles determinism differently:
-
-- **FlowTime-Sim**: Requires `seed` and `rng` fields for deterministic synthetic data generation
-- **FlowTime**: Always deterministic - ignores `seed` and `rng` fields if present
-
-This means you can share models between both engines. FlowTime-Sim uses the randomness fields for stochastic simulation, while FlowTime provides purely deterministic flow modeling without randomness.
-
-## Repository layout
-
-```
-flowtime-sim-vnext/
-  src/
-    FlowTime.Sim.Core/
-  tests/
-    FlowTime.Sim.Tests/
-  docs/
-    ROADMAP.md
-    contracts.md
-```
-
-## Quickstart
-
-Prereqs: .NET 9 SDK, Git.
+**Prerequisites**: .NET 9 SDK
 
 ```bash
-# restore & build
-dotnet restore
+# Clone and build
+git clone https://github.com/23min/FlowTime-Sim.git
+cd FlowTime-Sim
 dotnet build
 
-# run unit tests
-dotnet test
+# Run a simple example
+dotnet run --project src/FlowTime.Sim.Cli -- --model examples/m0.const.yaml --out output/
+
+# Check the results
+ls output/  # Contains run.json, manifest.json, and CSV files
 ```
 
-Run the simulator CLI against the example spec:
+## Basic example
+
+Create a file called `my-model.yaml`:
+
+```yaml
+schemaVersion: 1
+grid: 
+  bins: 24
+  binMinutes: 60
+  start: 2025-01-01T00:00:00Z
+seed: 42
+rng: pcg
+
+arrivals:
+  kind: pmf
+  pmf:
+    - { value: 100, probability: 0.6 }  # 60% chance of 100 requests/hour
+    - { value: 200, probability: 0.3 }  # 30% chance of 200 requests/hour  
+    - { value: 500, probability: 0.1 }  # 10% chance of 500 requests/hour (spike)
+
+route: { id: api-service }
+catalog: catalogs/demo-system.yaml
+```
+
+Run it:
+```bash
+dotnet run --project src/FlowTime.Sim.Cli -- --model my-model.yaml --out results/
+```
+
+This creates a 24-hour model specification with realistic traffic patterns including occasional spikes. Currently generates synthetic data, but will transition to model artifact creation.
+
+## What you get
+
+FlowTime-Sim currently outputs structured data you can analyze:
+
+- **run.json** - Metadata about the simulation run
+- **manifest.json** - File integrity hashes 
+- **series/{metric}.csv** - Time-series data (arrivals, flows, backlogs, etc.)
+
+Each CSV has simple `t,value` format where `t` is the time bin (0, 1, 2...) and `value` is the metric.
+
+**Note**: This synthetic data generation is legacy functionality. Future charter-compliant versions will output model artifacts for FlowTime-Engine execution instead.
+
+## HTTP API (Legacy)
+
+Start the service:
+```bash
+dotnet run --project src/FlowTime.Sim.Service
+```
+
+Get available templates:
+```bash
+curl http://localhost:8090/v1/sim/templates
+```
+
+Run a simulation (legacy - generates synthetic data):
+```bash
+curl -X POST http://localhost:8090/v1/sim/run \
+  -H "Content-Type: application/json" \
+  -d '{"templateId": "basic", "parameters": {}}'
+```
+
+**Note**: The `/v1/sim/run` endpoint generates synthetic data (legacy behavior). Future charter-compliant versions will focus on model template export instead.
+
+## CLI options
 
 ```bash
-dotnet run --project src/FlowTime.Sim.Cli -- --model examples/m0.const.yaml --out runs
+# Basic usage
+dotnet run --project src/FlowTime.Sim.Cli -- --model path/to/model.yaml --out output/
+
+# Options:
+--model <file>       YAML model file
+--out <directory>    Output directory  
+--format csv|json    Output format
+--mode engine|sim    Integration mode (engine posts to FlowTime-Engine, sim generates locally)
+--flowtime <url>     FlowTime-Engine URL for integration mode
+--verbose            Detailed logging
 ```
 
-After completion, inspect the newest `runs/<runId>/` directory.
+## Integration with FlowTime-Engine
 
-## Devcontainer
+FlowTime-Sim can send data directly to a FlowTime-Engine instance:
 
-This repo includes a devcontainer with the .NET 9 SDK and GitHub CLI for consistent development across local and Codespaces environments. The container supports cross-repository development with the main FlowTime API.
+```bash
+dotnet run --project src/FlowTime.Sim.Cli -- \
+  --model examples/m0.const.yaml \
+  --flowtime http://localhost:8080 \
+  --out results.csv \
+  --format csv
+```
 
-For detailed setup instructions, see [`docs/development/devcontainer.md`](docs/development/devcontainer.md).
+This posts the model to FlowTime-Engine for deterministic execution rather than generating synthetic data locally. This integration approach aligns with the charter-compliant direction.
 
-## CI & tasks
+## Development status
 
-- GitHub Actions workflow runs build and tests on PRs to main.
-- VS Code tasks:
-  - build: `dotnet build`
-  - test: `dotnet test`
-  - Run SIM-M0 example (legacy example; will be updated to SIM-M2 artifacts)
-- Development scripts: See `scripts/README.md` for API testing, configuration validation, and debugging tools.
+FlowTime-Sim is currently transitioning to a "model authoring" focus as part of the FlowTime ecosystem reorganization. The current version generates synthetic data, but future versions will focus on creating model templates for FlowTime-Engine execution.
+
+See [docs/CHARTER-TRANSITION-PLAN.md](docs/CHARTER-TRANSITION-PLAN.md) for the complete development strategy.
+
+## Documentation
+
+- [Roadmap](docs/ROADMAP.md) - Development milestones and timeline
+- [Charter](docs/flowtime-sim-charter.md) - Project scope and boundaries  
+- [Development Setup](docs/development-setup.md) - Environment configuration
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/new-feature`)
+3. Make your changes
+4. Run tests (`dotnet test`)
+5. Commit your changes (`git commit -am 'Add new feature'`)
+6. Push to the branch (`git push origin feature/new-feature`)  
+7. Create a Pull Request
+
+## License
+
+MIT License - see [LICENSE](LICENSE) for details.
 
 ---
 
-## Usage (Simulator CLI)
+## Docs & roadmap
 
-Minimal constant-arrivals spec:
-```yaml
-schemaVersion: 1
-grid: { bins: 3, binMinutes: 60, start: 2025-01-01T00:00:00Z }
-seed: 123
-arrivals: { kind: const, values: [4,5,6] }
-route: { id: nodeA }
-```
+- **[Charter Transition Strategic Plan](docs/CHARTER-TRANSITION-PLAN.md)** - Engine-first development strategy
+- **[Development Status](docs/DEVELOPMENT-STATUS.md)** - Current phase tracking and progress  
+- **[Roadmap](docs/ROADMAP.md)** - Legacy milestone timeline and charter evolution
+- **[FlowTime-Sim Charter v1.0](docs/flowtime-sim-charter.md)** - Scope, boundaries, and role definition
+- **[Development Setup](docs/development-setup.md)** - Service configuration and environment setup
+- **[Architecture Documentation](docs/architecture/)** - Technical reference and design patterns
+
+---
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/amazing-feature`  
+3. Run tests: `dotnet test`
+4. Commit changes: `git commit -m 'Add amazing feature'`
+5. Push to branch: `git push origin feature/amazing-feature`
+6. Open a Pull Request
+
+See [Development Status](docs/DEVELOPMENT-STATUS.md) for current strategic priorities and charter alignment progress.
+
+---
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 Run:
 ```bash
 dotnet run --project src/FlowTime.Sim.Cli -- --model examples/m0.const.yaml --out runs

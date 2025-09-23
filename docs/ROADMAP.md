@@ -2,7 +2,9 @@
 
 > **🚀 CHARTER NOTICE**: This roadmap has been superseded by the [FlowTime-Engine Charter](../../flowtime-vnext/docs/flowtime-engine-charter.md) and [Charter Roadmap](../../flowtime-vnext/docs/milestones/CHARTER-ROADMAP.md). 
 >
-> **Current Development**: FlowTime-Sim follows **charter milestone sequence** (SIM-M2.7 → SIM-M2.8 → SIM-M2.9 → SIM-M3.0) aligned with Engine milestones. See [FlowTime-Sim Charter](flowtime-sim-charter.md) for current scope and [SIM-M3.0 Charter Milestone](milestones/SIM-M3.0.md) for implementation details.
+> **Current Development**: FlowTime-Sim follows **strategic two-phase approach** - Engine charter foundation (Engine M2.7-M2.9) first, then Sim charter alignment (SIM-M2.6 completion). See [Charter Transition Strategic Plan](CHARTER-TRANSITION-PLAN.md) for complete development strategy.
+>
+> **Strategic Status**: **Phase 1** prioritizes Engine M2.7-M2.9 completion in flowtime-vnext repository before completing SIM-M2.6 charter alignment in this repository.
 >
 > **Legacy Status**: The milestone sequence below represents the pre-charter roadmap preserved for historical reference.
 
@@ -11,9 +13,9 @@
 ## Legacy Purpose *(Charter Superseded)*
 ~~Synchronized milestone plan ensuring lock-step development across Engine ↔ Sim ↔ UI with artifact-first contracts.~~
 
-**Charter Status**: 📋 **Charter Milestone Alignment** - Model authoring platform  
-**Aligned Milestones**: 📋 **SIM-M2.7** → **SIM-M2.8** → **SIM-M2.9** → **SIM-M3.0**  
-**Engine Dependencies**: 📋 **Engine M2.7** → **Engine M2.8** → **Engine M2.9**  
+**Charter Status**: 📋 **Strategic Two-Phase Development** - Engine foundation first, then Sim charter alignment  
+**Phase 1**: � **Engine M2.7** → **Engine M2.8** → **Engine M2.9** (flowtime-vnext repository)  
+**Phase 2**: 📋 **SIM-M2.6 completion** → **SIM-M2.7** → **SIM-M3.0** (this repository)  
 **Charter Workflow**: **[Models] → [Runs] → [Artifacts] → [Learn]**
 
 ## Harmonized Guiding Rules
@@ -44,11 +46,12 @@ FlowTime-Sim is the **modeling front-end** for FlowTime that generates models, s
 
 ## Status Summary (✅ = Done, 🔄 = Current Priority, 🚀 = Next)
 
-**Harmonized Engine ↔ Sim ↔ UI Development**
+**Strategic Two-Phase Development Status**
 
-**Current Engine Status**: 📋 M3 (Backlog v1 + Latency) not started yet  
-**Next Engine Priority**: 📋 M4 (Scenarios & Compare) or M3 - TBD  
-**Retry Status**: 📋 M9.5 (Retry & Feedback) - deferred from M4.5
+**Current Priority**: � **Phase 1** - Engine charter foundation (flowtime-vnext repository)  
+**Phase 1 Status**: Engine M2.7 (Registry) → Engine M2.8 (Registry Integration) → Engine M2.9 (Compare)  
+**Phase 2 Status**: 📋 **Deferred** - SIM-M2.6 charter completion after Engine foundation ready  
+**Strategic Rationale**: Infrastructure dependency - SIM-M2.6 requires Engine M2.7 Registry to be meaningful
 
 **Legacy FlowTime-Sim Alignment** *(Charter Superseded)*:
 - **SIM-M0 — Core Foundations** — **✅ Done** (aligns with Engine M0) *(Pre-Charter)*
@@ -58,11 +61,16 @@ FlowTime-Sim is the **modeling front-end** for FlowTime that generates models, s
 - **SIM-SVC-M2 — Minimal Service/API** — **✅ Done** (artifact endpoints) *(Pre-Charter)*
 - **SIM-M2.1 — PMF Generator Support** — **✅ Done** (PMF arrivals for Engine M2 testing) *(Pre-Charter)*
 
-**Charter-Aligned Milestones** *(Current Development)*:
-- **SIM-M3.0 — Charter Model Authoring Platform** — **🔄 IN PROGRESS** (Charter-compliant model artifacts creation)
-  - Replaces legacy SIM-M2.6 + SIM-M2.7 sequence 
-  - Dependencies: Engine M2.7 (Registry Foundation)
-  - Integrates with Engine M2.8 (Charter UI) → M2.9 (Compare)
+**Charter-Aligned Milestones** *(Strategic Two-Phase Plan)*:
+- **Phase 1: Engine Foundation** — **🔄 IN PROGRESS** (flowtime-vnext repository)
+  - Engine M2.7 (Artifacts Registry) → Engine M2.8 (Registry Integration) → Engine M2.9 (Compare)
+  - Establishes infrastructure foundation required for Sim charter compliance
+- **Phase 2: Sim Charter Alignment** — **📋 DEFERRED** (this repository)  
+  - **SIM-M2.6 completion**: Transform to charter-compliant model authoring platform
+  - **SIM-M2.7**: Registry integration with established Engine registry
+  - **SIM-M3.0**: Complete charter-aligned model authoring ecosystem
+  - **Dependencies**: Engine M2.7 Registry → UI Charter Navigation → SIM Integration
+  - **See**: [Charter Transition Strategic Plan](CHARTER-TRANSITION-PLAN.md)
 
 **Legacy Sequence** *(Superseded by Charter)*:
 - ~~**SIM-M3 — Backlog v1 + Latency + Endpoints**~~ → **See Engine M2.7-M2.9 Charter Milestones**
@@ -123,23 +131,27 @@ FlowTime-Sim is the **modeling front-end** for FlowTime that generates models, s
   - **Enhanced testing**: 88 passing tests with comprehensive integration validation
 - **Acceptance** PMF workflows complete for UI testing; deterministic output with RNG seeding; Engine M2 PMF validation enabled
 
-### SIM-M2.6 — Charter-Aligned Model Authoring — **🔄 IN PROGRESS**
+### SIM-M2.6 — Charter-Aligned Model Authoring — **⚠️ INCOMPLETE & NON-COMPLIANT**
+
+> **🚨 STATUS CHANGE**: Previously marked "🔄 IN PROGRESS" but analysis reveals **charter violations remain**. **Strategic Decision**: Defer completion to Phase 2 after Engine charter foundation (M2.7-M2.9) is established. See [Charter Transition Strategic Plan](CHARTER-TRANSITION-PLAN.md).
 
 - **Goal** Transform FlowTime-Sim to charter-compliant model authoring platform that creates Engine-compatible model artifacts
 - **Charter Alignment** FlowTime-Sim Charter v1.0 - "modeling front-end" that generates models but never computes telemetry  
-- **Dependencies** SIM-M2.1 (PMF Generator Support), FlowTime Engine M2.6 (Artifacts Registry)
-- **Core Features**
-  - **Charter-Compliant Model Artifacts**: Engine-compatible model export without telemetry generation
-  - **Structure Validation**: Model validation without execution (charter boundary respect)
-  - **Template System Enhancement**: Engine model generation from Sim templates
-  - **Quality Assessment**: Structure-only quality metrics and compatibility validation
+- **Dependencies** SIM-M2.1 (PMF Generator Support), **FlowTime Engine M2.7 (Artifacts Registry)** ← **BLOCKING**
+- **Current Issues** *(Non-Charter-Compliant)*:
+  - ❌ **Service still generates telemetry** via `/v1/sim/run` endpoint
+  - ❌ **Templates create simulation data** instead of model artifacts  
+  - ❌ **No model export functionality** implemented
+  - ❌ **UI expects telemetry generation** not model authoring
+- **Strategic Status** **📋 DEFERRED TO PHASE 2** - Complete Engine M2.7-M2.9 charter foundation first
 - **Charter Boundaries** NO telemetry generation, NO execution, pure model authoring focus
-- **Acceptance** Model artifacts validate for Engine execution; charter compliance verified; template-to-Engine workflow complete
+- **Phase 2 Acceptance** Model artifacts validate for Engine execution; charter compliance verified; registry integration operational
 
-### SIM-M2.7 — Artifacts Registry Integration — **📋 Planned**
+### SIM-M2.7 — Artifacts Registry Integration — **📋 Phase 2 (Deferred)**
 
 - **Goal** Enable FlowTime-Sim model artifacts to integrate seamlessly with FlowTime Engine M2.7 Artifacts Registry
-- **Dependencies** SIM-M2.6 (Charter-Aligned Model Authoring), FlowTime Engine M2.7 (Artifacts Registry Foundation)
+- **Strategic Status** **Phase 2** - Deferred until Engine M2.7 Registry foundation is complete
+- **Dependencies** SIM-M2.6 (Charter-Aligned Model Authoring), **FlowTime Engine M2.7 (Artifacts Registry Foundation)** ← **BLOCKING**
 - **Engine Alignment** Builds on Engine M2.7 Registry KISS file-based implementation
 - **Core Features**
   - **Registry Integration**: Sim model artifacts discoverable in Engine registry system
