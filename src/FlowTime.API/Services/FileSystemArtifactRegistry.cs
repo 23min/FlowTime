@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using FlowTime.API.Models;
+using YamlDotNet.RepresentationModel;
 
 namespace FlowTime.API.Services;
 
@@ -271,7 +272,7 @@ public class FileSystemArtifactRegistry : IArtifactRegistry
         return relationships;
     }
 
-    private async Task<Artifact?> ScanRunDirectoryAsync(string runDirectory)
+    public async Task<Artifact?> ScanRunDirectoryAsync(string runDirectory)
     {
         var dirName = Path.GetFileName(runDirectory);
         if (!dirName.StartsWith("run_"))
@@ -403,11 +404,28 @@ public class FileSystemArtifactRegistry : IArtifactRegistry
         metadata["fileCount"] = files.Length;
         metadata["totalSizeBytes"] = totalSize;
 
+        // Extract meaningful title from spec.yaml if available
+        string title = $"Run {parts[2]}"; // Default fallback
+        try
+        {
+            var specPath = files.FirstOrDefault(f => Path.GetFileName(f).Equals("spec.yaml", StringComparison.OrdinalIgnoreCase));
+            if (specPath != null)
+            {
+                var specContent = await File.ReadAllTextAsync(specPath);
+                title = ExtractMeaningfulTitle(specContent, parts[2]);
+            }
+        }
+        catch (Exception ex)
+        {
+            this.logger.LogWarning(ex, "Failed to extract title from spec.yaml in directory: {RunDirectory}", runDirectory);
+            // Keep default title on error
+        }
+
         return new Artifact
         {
             Id = runId,
             Type = "run",
-            Title = $"Run {parts[2]}", // Use just the suffix for title
+            Title = title,
             Created = created,
             Tags = tags.ToArray(),
             Metadata = metadata,
@@ -448,6 +466,143 @@ public class FileSystemArtifactRegistry : IArtifactRegistry
         {
             this.logger.LogError(ex, "Failed to save registry index to {IndexPath}", this.indexFilePath);
             throw;
+        }
+    }
+
+    /// <summary>
+    /// Extract meaningful title from YAML spec content with priority-based approach:
+    /// 1. Parse structured metadata (title, description fields)
+    /// 2. Parse comment-based descriptions from file header  
+    /// 3. Extract model structure information from YAML nodes
+    /// 4. Fall back to generic title with ID
+    /// </summary>
+    private static string ExtractMeaningfulTitle(string specContent, string fallbackId)
+    {
+        try
+        {
+            // Priority 1: Look for structured metadata fields
+            using var reader = new StringReader(specContent);
+            var yaml = new YamlStream();
+            yaml.Load(reader);
+
+            if (yaml.Documents.Count > 0 && yaml.Documents[0].RootNode is YamlMappingNode rootNode)
+            {
+                // Check for metadata.title or metadata.description
+                if (rootNode.Children.TryGetValue(new YamlScalarNode("metadata"), out var metadataNode) && 
+                    metadataNode is YamlMappingNode metadata)
+                {
+                    // Prefer title first
+                    if (metadata.Children.TryGetValue(new YamlScalarNode("title"), out var titleNode) && 
+                        titleNode is YamlScalarNode titleScalar && !string.IsNullOrWhiteSpace(titleScalar.Value))
+                    {
+                        return titleScalar.Value;
+                    }
+                    
+                    // Then description
+                    if (metadata.Children.TryGetValue(new YamlScalarNode("description"), out var descNode) && 
+                        descNode is YamlScalarNode descScalar && !string.IsNullOrWhiteSpace(descScalar.Value))
+                    {
+                        // Truncate long descriptions to reasonable title length
+                        var desc = descScalar.Value.Trim();
+                        if (desc.Length > 80)
+                        {
+                            var firstSentence = desc.Split('.', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+                            return firstSentence?.Trim() ?? desc.Substring(0, 77) + "...";
+                        }
+                        return desc;
+                    }
+                }
+
+                // Check for top-level title or description (fallback pattern)
+                if (rootNode.Children.TryGetValue(new YamlScalarNode("title"), out var topTitleNode) && 
+                    topTitleNode is YamlScalarNode topTitleScalar && !string.IsNullOrWhiteSpace(topTitleScalar.Value))
+                {
+                    return topTitleScalar.Value;
+                }
+                
+                if (rootNode.Children.TryGetValue(new YamlScalarNode("description"), out var topDescNode) && 
+                    topDescNode is YamlScalarNode topDescScalar && !string.IsNullOrWhiteSpace(topDescScalar.Value))
+                {
+                    var desc = topDescScalar.Value.Trim();
+                    if (desc.Length > 80)
+                    {
+                        var firstSentence = desc.Split('.', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+                        return firstSentence?.Trim() ?? desc.Substring(0, 77) + "...";
+                    }
+                    return desc;
+                }
+            }
+
+            // Priority 2: Extract meaningful title from top-level comments
+            var lines = specContent.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+            foreach (var line in lines)
+            {
+                var trimmedLine = line.Trim();
+                if (trimmedLine.StartsWith("# ") && trimmedLine.Length > 2)
+                {
+                    var comment = trimmedLine.Substring(2).Trim();
+                    // Focus on meaningful descriptions, skip generic comments
+                    if (!comment.StartsWith("Generated") && 
+                        !comment.StartsWith("This is") && 
+                        !comment.StartsWith("File:") &&
+                        !comment.ToLower().Contains("generated model") &&
+                        comment.Length > 10)
+                    {
+                        return comment;
+                    }
+                }
+                // Stop at first non-comment line that isn't empty
+                else if (!trimmedLine.StartsWith("#") && !string.IsNullOrWhiteSpace(trimmedLine))
+                {
+                    break;
+                }
+            }
+
+            // Priority 3: Parse YAML to extract node names or model structure
+            if (yaml.Documents.Count > 0 && yaml.Documents[0].RootNode is YamlMappingNode rootNodeForStructure)
+            {
+                // Look for meaningful structure patterns
+                if (rootNodeForStructure.Children.TryGetValue(new YamlScalarNode("nodes"), out var nodesNode) && 
+                    nodesNode is YamlSequenceNode nodeSeq)
+                {
+                    var nodeNames = new List<string>();
+                    foreach (var nodeItem in nodeSeq.Children.OfType<YamlMappingNode>().Take(3))
+                    {
+                        if (nodeItem.Children.TryGetValue(new YamlScalarNode("id"), out var idNode) && 
+                            idNode is YamlScalarNode idScalar && !string.IsNullOrEmpty(idScalar.Value))
+                        {
+                            nodeNames.Add(idScalar.Value);
+                        }
+                    }
+
+                    if (nodeNames.Count > 0)
+                    {
+                        return $"Model with {string.Join(", ", nodeNames)}";
+                    }
+                }
+                
+                // Fallback: Look for any nodes structure pattern
+                if (rootNodeForStructure.Children.TryGetValue(new YamlScalarNode("nodes"), out var fallbackNodesNode) && 
+                    fallbackNodesNode is YamlMappingNode nodes)
+                {
+                    var nodeNames = nodes.Children.Keys.OfType<YamlScalarNode>()
+                        .Select(k => k.Value)
+                        .Where(name => !string.IsNullOrEmpty(name))
+                        .Take(3)
+                        .ToList();
+
+                    if (nodeNames.Count > 0)
+                    {
+                        return $"Model with {string.Join(", ", nodeNames)}";
+                    }
+                }
+            }
+
+            return $"Run {fallbackId}";
+        }
+        catch (Exception)
+        {
+            return $"Run {fallbackId}";
         }
     }
 }

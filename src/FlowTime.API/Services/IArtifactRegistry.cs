@@ -37,6 +37,12 @@ public interface IArtifactRegistry
     /// Get artifacts related to the specified artifact
     /// </summary>
     Task<ArtifactRelationships> GetArtifactRelationshipsAsync(string id);
+
+    /// <summary>
+    /// Scan a specific run directory and create an artifact object
+    /// Used for automatic registry updates after run completion
+    /// </summary>
+    Task<Artifact?> ScanRunDirectoryAsync(string runDirectory);
 }
 
 /// <summary>

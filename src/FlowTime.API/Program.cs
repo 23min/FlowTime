@@ -154,8 +154,122 @@ v1.MapGet("/artifacts/{id}/relationships", async (string id, IArtifactRegistry r
     }
 });
 
+// Get individual artifact details
+v1.MapGet("/artifacts/{id}", async (string id, IArtifactRegistry registry, ILogger<Program> logger) =>
+{
+    try
+    {
+        var artifact = await registry.GetArtifactAsync(id);
+        if (artifact == null)
+        {
+            return Results.NotFound(new { error = $"Artifact '{id}' not found" });
+        }
+        return Results.Ok(artifact);
+    }
+    catch (FileNotFoundException)
+    {
+        logger.LogWarning("Registry index not found when querying artifact: {ArtifactId}", id);
+        return Results.NotFound(new { error = "Registry index not found. Try rebuilding with POST /v1/artifacts/index" });
+    }
+});
+
+// Download artifact files as zip
+v1.MapGet("/artifacts/{id}/download", async (string id, IArtifactRegistry registry, ILogger<Program> logger) =>
+{
+    try
+    {
+        var artifact = await registry.GetArtifactAsync(id);
+        if (artifact == null)
+        {
+            return Results.NotFound(new { error = $"Artifact '{id}' not found" });
+        }
+
+        var artifactsDir = Program.GetArtifactsDirectory(app.Configuration);
+        var artifactPath = Path.Combine(artifactsDir, id);
+        
+        if (!Directory.Exists(artifactPath))
+        {
+            return Results.NotFound(new { error = $"Artifact directory '{id}' not found" });
+        }
+
+        // Create a temporary zip file with unique name
+        var tempZipPath = Path.Combine(Path.GetTempPath(), $"{id}_{Guid.NewGuid():N}.zip");
+        try
+        {
+            System.IO.Compression.ZipFile.CreateFromDirectory(artifactPath, tempZipPath);
+            
+            var zipBytes = await File.ReadAllBytesAsync(tempZipPath);
+            var fileName = $"{artifact.Title?.Replace(" ", "_") ?? id}.zip";
+            
+            return Results.File(zipBytes, "application/zip", fileName);
+        }
+        finally
+        {
+            if (File.Exists(tempZipPath))
+            {
+                File.Delete(tempZipPath);
+            }
+        }
+    }
+    catch (FileNotFoundException)
+    {
+        logger.LogWarning("Registry index not found when downloading artifact: {ArtifactId}", id);
+        return Results.NotFound(new { error = "Registry index not found. Try rebuilding with POST /v1/artifacts/index" });
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Error creating zip for artifact: {ArtifactId}", id);
+        return Results.Problem("Error creating artifact download");
+    }
+});
+
+// Get individual artifact file
+v1.MapGet("/artifacts/{id}/files/{fileName}", async (string id, string fileName, IArtifactRegistry registry, ILogger<Program> logger) =>
+{
+    try
+    {
+        var artifact = await registry.GetArtifactAsync(id);
+        if (artifact == null)
+        {
+            return Results.NotFound(new { error = $"Artifact '{id}' not found" });
+        }
+
+        var artifactsDir = Program.GetArtifactsDirectory(app.Configuration);
+        var filePath = Path.Combine(artifactsDir, id, fileName);
+        
+        if (!File.Exists(filePath))
+        {
+            return Results.NotFound(new { error = $"File '{fileName}' not found in artifact '{id}'" });
+        }
+
+        // Determine content type based on file extension
+        var contentType = Path.GetExtension(fileName).ToLower() switch
+        {
+            ".json" => "application/json",
+            ".yaml" or ".yml" => "text/yaml",
+            ".csv" => "text/csv",
+            ".txt" => "text/plain",
+            ".log" => "text/plain",
+            _ => "application/octet-stream"
+        };
+
+        var fileBytes = await File.ReadAllBytesAsync(filePath);
+        return Results.File(fileBytes, contentType, fileName);
+    }
+    catch (FileNotFoundException)
+    {
+        logger.LogWarning("Registry index not found when accessing file: {FileName} in artifact {ArtifactId}", fileName, id);
+        return Results.NotFound(new { error = "Registry index not found. Try rebuilding with POST /v1/artifacts/index" });
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Error accessing file: {FileName} in artifact {ArtifactId}", fileName, id);
+        return Results.Problem("Error accessing artifact file");
+    }
+});
+
 // V1: POST /v1/run — body: YAML model
-v1.MapPost("/run", async (HttpRequest req, ILogger<Program> logger) =>
+v1.MapPost("/run", async (HttpRequest req, IArtifactRegistry registry, ILogger<Program> logger) =>
 {
     string yaml = string.Empty;
     try
@@ -214,6 +328,25 @@ v1.MapPost("/run", async (HttpRequest req, ILogger<Program> logger) =>
 
         var artifactResult = await FlowTime.Core.Artifacts.RunArtifactWriter.WriteArtifactsAsync(writeRequest);
         logger.LogInformation("Created artifacts at {RunDirectory}", artifactResult.RunDirectory);
+
+        // Automatically add new run to artifact registry (fire-and-forget to avoid blocking response)
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var artifact = await registry.ScanRunDirectoryAsync(artifactResult.RunDirectory);
+                if (artifact != null)
+                {
+                    await registry.AddOrUpdateArtifactAsync(artifact);
+                    logger.LogDebug("Automatically added run {RunId} to artifact registry", artifactResult.RunId);
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log but don't fail the main request
+                logger.LogWarning(ex, "Failed to automatically add run {RunId} to artifact registry", artifactResult.RunId);
+            }
+        });
 
         var series = order.ToDictionary(id => id.Value, id => ctx[id].ToArray());
         var response = new
