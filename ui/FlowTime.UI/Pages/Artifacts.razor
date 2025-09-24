@@ -66,18 +66,20 @@
                                    Variant="Variant.Outlined" />
                 </MudItem>
                 <MudItem xs="12" md="4">
-                    <MudStack Row Spacing="1" Wrap="Wrap.Wrap" AlignItems="AlignItems.Center">
-                        <MudText Typo="Typo.caption">Tags:</MudText>
+                    <MudText Typo="Typo.caption" Class="mb-2">Tags:</MudText>
+                    <div style="display: flex; flex-wrap: wrap; gap: 4px;">
                         @foreach (var tag in _availableTags)
                         {
-                            <MudButton Size="Size.Small" 
-                                       OnClick="@(async () => await ToggleTag(tag))"
-                                       Variant="@(_selectedTags.Contains(tag) ? Variant.Filled : Variant.Outlined)"
-                                       Color="@(_selectedTags.Contains(tag) ? Color.Primary : Color.Default)">
+                            <MudChip T="string" 
+                                    Size="Size.Small"
+                                    OnClick="@(async () => await ToggleTag(tag))"
+                                    Variant="@(_selectedTags.Contains(tag) ? Variant.Filled : Variant.Outlined)"
+                                    Color="@(_selectedTags.Contains(tag) ? Color.Primary : Color.Default)"
+                                    Style="cursor: pointer;">
                                 @tag
-                            </MudButton>
+                            </MudChip>
                         }
-                    </MudStack>
+                    </div>
                 </MudItem>
             </MudGrid>
         </MudPaper>
@@ -115,16 +117,16 @@
                         </PropertyColumn>
                         <PropertyColumn Property="x => x.Tags" Title="Tags">
                             <CellTemplate>
-                                <MudStack Row Spacing="1" Wrap="Wrap.Wrap">
+                                <div style="display: flex; flex-wrap: wrap; gap: 2px;">
                                     @foreach (var tag in context.Item.Tags.Take(3))
                                     {
-                                        <MudChip T="string" Size="Size.Small" Text="@tag" />
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined" Text="@tag" />
                                     }
                                     @if (context.Item.Tags.Count > 3)
                                     {
-                                        <MudChip T="string" Size="Size.Small" Text="@($"+{context.Item.Tags.Count - 3} more")" Color="Color.Secondary" />
+                                        <MudChip T="string" Size="Size.Small" Text="@($"+{context.Item.Tags.Count - 3} more")" Color="Color.Secondary" Variant="Variant.Outlined" />
                                     }
-                                </MudStack>
+                                </div>
                             </CellTemplate>
                         </PropertyColumn>
                         <TemplateColumn Title="Actions" Sortable="false">

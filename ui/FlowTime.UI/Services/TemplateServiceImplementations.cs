@@ -1211,6 +1211,15 @@ public class FlowTimeSimService : IFlowTimeSimService
         yaml.AppendLine("# IT System with Microservices - Generated Model");
         yaml.AppendLine("# This demonstrates a modern web application handling user requests through microservices");
         yaml.AppendLine();
+        
+        // Add metadata section to preserve template information
+        yaml.AppendLine("metadata:");
+        yaml.AppendLine("  title: 'IT System with Microservices - Generated Model'");
+        yaml.AppendLine("  description: 'Modern web application handling user requests through microservices'");
+        yaml.AppendLine("  templateId: 'it-system-microservices'");
+        yaml.AppendLine("  tags: [microservices, web-scale, modern, it-systems]");
+        yaml.AppendLine();
+        
         yaml.AppendLine("schemaVersion: 1");
         yaml.AppendLine($"grid:");
         yaml.AppendLine($"  bins: {bins}");
@@ -1310,8 +1319,17 @@ public class FlowTimeSimService : IFlowTimeSimService
         yaml.AppendLine("# Transportation Network - Generated Model");
         yaml.AppendLine("# This simulates passenger demand and vehicle capacity in a transit system");
         yaml.AppendLine();
+        
+        // Add metadata section to preserve template information
+        yaml.AppendLine("metadata:");
+        yaml.AppendLine("  title: 'This simulates passenger demand and vehicle capacity in a transit system'");
+        yaml.AppendLine("  description: 'Transportation network with demand patterns and capacity constraints'");
+        yaml.AppendLine("  templateId: 'transportation-basic'");
+        yaml.AppendLine("  tags: [transportation, transit, capacity, beginner]");
+        yaml.AppendLine();
+        
         yaml.AppendLine("schemaVersion: 1");
-        yaml.Append($"grid:");
+        yaml.AppendLine($"grid:");
         yaml.AppendLine($"  bins: {simulationHours}");
         yaml.AppendLine($"  binMinutes: 60");
         yaml.AppendLine();
@@ -1407,6 +1425,15 @@ public class FlowTimeSimService : IFlowTimeSimService
         yaml.AppendLine("# Manufacturing Production Line - Generated Model");
         yaml.AppendLine("# This simulates a production line with quality control and maintenance downtime");
         yaml.AppendLine();
+        
+        // Add metadata section to preserve template information
+        yaml.AppendLine("metadata:");
+        yaml.AppendLine("  title: 'Manufacturing Production Line - Generated Model'");
+        yaml.AppendLine("  description: 'Production line with quality control and maintenance downtime'");
+        yaml.AppendLine("  templateId: 'manufacturing-line'");
+        yaml.AppendLine("  tags: [manufacturing, production, bottleneck, operations]");
+        yaml.AppendLine();
+        
         yaml.AppendLine("schemaVersion: 1");
         yaml.AppendLine($"grid:");
         yaml.AppendLine($"  bins: {totalHours}");

@@ -404,7 +404,7 @@ public class FileSystemArtifactRegistry : IArtifactRegistry
         metadata["fileCount"] = files.Length;
         metadata["totalSizeBytes"] = totalSize;
 
-        // Extract meaningful title from spec.yaml if available
+        // Extract meaningful title and template tags from spec.yaml if available
         string title = $"Run {parts[2]}"; // Default fallback
         try
         {
@@ -413,6 +413,13 @@ public class FileSystemArtifactRegistry : IArtifactRegistry
             {
                 var specContent = await File.ReadAllTextAsync(specPath);
                 title = ExtractMeaningfulTitle(specContent, parts[2]);
+                
+                // Extract template tags from metadata section
+                var templateTags = ExtractTemplateTags(specContent);
+                foreach (var tag in templateTags)
+                {
+                    tags.Add(tag);
+                }
             }
         }
         catch (Exception ex)
@@ -604,5 +611,65 @@ public class FileSystemArtifactRegistry : IArtifactRegistry
         {
             return $"Run {fallbackId}";
         }
+    }
+
+    private static List<string> ExtractTemplateTags(string specContent)
+    {
+        var tags = new List<string>();
+        try
+        {
+            var yaml = new YamlStream();
+            yaml.Load(new StringReader(specContent));
+
+            if (yaml.Documents.Count > 0 && yaml.Documents[0].RootNode is YamlMappingNode rootNode)
+            {
+                // Look for metadata section
+                if (rootNode.Children.TryGetValue(new YamlScalarNode("metadata"), out var metadataNode) && 
+                    metadataNode is YamlMappingNode metadataMapping)
+                {
+                    // Extract tags from metadata
+                    if (metadataMapping.Children.TryGetValue(new YamlScalarNode("tags"), out var tagsNode))
+                    {
+                        if (tagsNode is YamlSequenceNode tagsSequence)
+                        {
+                            // Handle array format: tags: [tag1, tag2, tag3]
+                            foreach (var tagNode in tagsSequence.Children.OfType<YamlScalarNode>())
+                            {
+                                var tag = tagNode.Value?.Trim();
+                                if (!string.IsNullOrEmpty(tag))
+                                {
+                                    tags.Add(tag);
+                                }
+                            }
+                        }
+                        else if (tagsNode is YamlScalarNode tagsScalar)
+                        {
+                            // Handle string format: tags: [tag1, tag2, tag3] - parse as string
+                            var tagsString = tagsScalar.Value?.Trim();
+                            if (!string.IsNullOrEmpty(tagsString))
+                            {
+                                // Remove brackets and split by comma
+                                tagsString = tagsString.Trim('[', ']');
+                                var individualTags = tagsString.Split(',', StringSplitOptions.RemoveEmptyEntries);
+                                foreach (var tag in individualTags)
+                                {
+                                    var cleanTag = tag.Trim();
+                                    if (!string.IsNullOrEmpty(cleanTag))
+                                    {
+                                        tags.Add(cleanTag);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception)
+        {
+            // Ignore parsing errors - just return whatever tags we could extract
+        }
+
+        return tags;
     }
 }
