@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.InteropServices;
+using System.Text.Json;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using FlowTime.Sim.Core;
 using FlowTime.Sim.Service; // TemplateRegistry
@@ -25,6 +27,12 @@ builder.Services.AddCors(p => p.AddDefaultPolicy(policy => policy.AllowAnyOrigin
 builder.Services.AddSingleton<IServiceInfoProvider, ServiceInfoProvider>();
 builder.Services.AddSingleton<IEndpointDiscoveryService, EndpointDiscoveryService>();
 builder.Services.AddSingleton<ICapabilitiesDetectionService, CapabilitiesDetectionService>();
+builder.Services.AddSingleton<ITemplateRepository>(provider =>
+{
+	var logger = provider.GetRequiredService<ILogger<FileSystemTemplateRepository>>();
+	var templatesDirectory = ServiceHelpers.TemplatesRoot(builder.Configuration);
+	return new FileSystemTemplateRepository(templatesDirectory, logger);
+});
 
 var app = builder.Build();
 app.UseCors();
@@ -218,17 +226,52 @@ v1.MapGet("/sim/runs/{id}/series/{seriesId}", (string id, string seriesId) =>
 });
 
 // V1: GET /v1/sim/templates  (static list of template presets)
-v1.MapGet("/sim/templates", (string? category) => Results.Ok(TemplateRegistry.List(category)));
+v1.MapGet("/sim/templates", async (ITemplateRepository templateRepo, string? category) => 
+{
+    var templates = await templateRepo.GetAllTemplatesAsync();
+    if (!string.IsNullOrEmpty(category))
+    {
+        templates = templates.Where(t => t.Category.Equals(category, StringComparison.OrdinalIgnoreCase)).ToList();
+    }
+    return Results.Ok(templates);
+});
 
 // V1: GET /v1/sim/templates/categories  (list available categories)
-v1.MapGet("/sim/templates/categories", () => Results.Ok(new { categories = TemplateRegistry.GetCategories() }));
+v1.MapGet("/sim/templates/categories", async (ITemplateRepository templateRepo) => 
+{
+    var templates = await templateRepo.GetAllTemplatesAsync();
+    var categories = templates.Select(t => t.Category).Distinct().ToArray();
+    return Results.Ok(new { categories });
+});
 
 // V1: POST /v1/sim/templates/{id}/generate  (generate scenario from template with parameters)
-v1.MapPost("/sim/templates/{id}/generate", (string id, Dictionary<string, object> parameters) =>
+v1.MapPost("/sim/templates/{id}/generate", async (string id, HttpRequest req, ITemplateRepository templateRepo) =>
 {
     try
     {
-        var scenario = TemplateRegistry.GenerateScenario(id, parameters);
+        // Read and parse JSON body
+        using var reader = new StreamReader(req.Body, System.Text.Encoding.UTF8);
+        var bodyText = await reader.ReadToEndAsync();
+        if (string.IsNullOrWhiteSpace(bodyText)) return Results.BadRequest(new { error = "Empty body" });
+        
+        var parametersJson = JsonDocument.Parse(bodyText).RootElement;
+        
+        // Convert JsonElement to Dictionary<string, object> - keep JsonElements for arrays
+        var parameters = new Dictionary<string, object>();
+        foreach (var property in parametersJson.EnumerateObject())
+        {
+            parameters[property.Name] = property.Value.ValueKind switch
+            {
+                JsonValueKind.String => property.Value.GetString()!,
+                JsonValueKind.Number => property.Value.GetDouble(),
+                JsonValueKind.True => true,
+                JsonValueKind.False => false,
+                JsonValueKind.Array => property.Value, // Keep as JsonElement
+                _ => property.Value.ToString()
+            };
+        }
+
+        var scenario = await templateRepo.GenerateScenarioAsync(id, parameters);
         return Results.Ok(new { scenario, templateId = id, parameters });
     }
     catch (ArgumentException ex)
@@ -242,8 +285,21 @@ v1.MapPost("/sim/templates/{id}/generate", (string id, Dictionary<string, object
 });
 
 // BACKWARD COMPATIBILITY: Keep old scenario endpoints (deprecated)
-v1.MapGet("/sim/scenarios", (string? category) => Results.Ok(TemplateRegistry.List(category)));
-v1.MapGet("/sim/scenarios/categories", () => Results.Ok(new { categories = TemplateRegistry.GetCategories() }));
+v1.MapGet("/sim/scenarios", async (ITemplateRepository templateRepo, string? category) => 
+{
+    var templates = await templateRepo.GetAllTemplatesAsync();
+    if (!string.IsNullOrEmpty(category))
+    {
+        templates = templates.Where(t => t.Category.Equals(category, StringComparison.OrdinalIgnoreCase)).ToList();
+    }
+    return Results.Ok(templates);
+});
+v1.MapGet("/sim/scenarios/categories", async (ITemplateRepository templateRepo) => 
+{
+    var templates = await templateRepo.GetAllTemplatesAsync();
+    var categories = templates.Select(t => t.Category).Distinct().ToArray();
+    return Results.Ok(new { categories });
+});
 
 // === V1 CATALOG ENDPOINTS (SIM-CAT-M2 Phase 2) ===
 
@@ -486,6 +542,43 @@ v1.MapPost("/sim/overlay", async (HttpRequest req, CancellationToken ct) =>
 
 			// Default to ./data directory
 			var defaultRoot = "./data";
+			Directory.CreateDirectory(defaultRoot);
+			return defaultRoot;
+		}
+
+		/// <summary>
+		/// Gets the templates directory.
+		/// Order of precedence:
+		/// 1. Environment variable FLOWTIME_SIM_TEMPLATES_DIR
+		/// 2. Configuration FlowTimeSim:TemplatesDir
+		/// 3. Default: "./templates"
+		/// </summary>
+		public static string TemplatesRoot(IConfiguration? configuration = null)
+		{
+			// Check templates directory environment variable first
+			var templatesDir = Environment.GetEnvironmentVariable("FLOWTIME_SIM_TEMPLATES_DIR");
+			if (!string.IsNullOrWhiteSpace(templatesDir))
+			{
+				Directory.CreateDirectory(templatesDir);
+				return templatesDir;
+			}
+
+			// Check configuration if provided
+			if (configuration != null)
+			{
+				// Check templates directory configuration
+				var configTemplatesDir = configuration["FlowTimeSim:TemplatesDir"];
+				if (!string.IsNullOrEmpty(configTemplatesDir))
+				{
+					Directory.CreateDirectory(configTemplatesDir);
+					return configTemplatesDir;
+				}
+			}
+
+			// Default to absolute path to workspace templates directory
+			var baseDir = Directory.GetCurrentDirectory();
+			var templateRoot = Path.Combine(baseDir, "..", "..", "templates");
+			var defaultRoot = Path.GetFullPath(templateRoot);
 			Directory.CreateDirectory(defaultRoot);
 			return defaultRoot;
 		}

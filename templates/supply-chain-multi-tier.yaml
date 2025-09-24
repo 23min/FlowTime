@@ -1,0 +1,69 @@
+# Multi-Tier Supply Chain - Template
+# Complex supply chain with suppliers, distributors, retailers, and demand variability
+
+metadata:
+  title: 'Multi-Tier Supply Chain'
+  description: 'Complex supply chain with suppliers, distributors, retailers, and demand variability'
+  templateId: 'supply-chain-multi-tier'
+  tags: [advanced, supply-chain, multi-tier, variability, logistics]
+
+schemaVersion: 1
+grid:
+  bins: {{bins}}
+  binMinutes: {{binMinutes}}
+
+nodes:
+  # Customer demand (variable)
+  - id: customer_demand
+    kind: const
+    values: {{demandPattern}}
+
+  # Supplier capacity
+  - id: supplier_capacity
+    kind: const
+    values: {{supplierCapacity}}
+
+  # Distributor capacity
+  - id: distributor_capacity
+    kind: const
+    values: {{distributorCapacity}}
+
+  # Retailer capacity
+  - id: retailer_capacity
+    kind: const
+    values: {{retailerCapacity}}
+
+  # Items supplied
+  - id: supplied_items
+    kind: expr
+    expr: "MIN(customer_demand * {{bufferSize}}, supplier_capacity)"
+
+  # Items distributed
+  - id: distributed_items
+    kind: expr
+    expr: "MIN(supplied_items, distributor_capacity)"
+
+  # Items sold at retail
+  - id: retail_sales
+    kind: expr
+    expr: "MIN(distributed_items, retailer_capacity)"
+
+  # Unmet demand
+  - id: unmet_demand
+    kind: expr
+    expr: "MAX(0, customer_demand - retail_sales)"
+
+  # Supply chain efficiency
+  - id: supply_efficiency
+    kind: expr
+    expr: "retail_sales / customer_demand"
+
+outputs:
+  - series: customer_demand
+    as: demand.csv
+  - series: retail_sales
+    as: sales.csv
+  - series: unmet_demand
+    as: stockouts.csv
+  - series: supply_efficiency
+    as: efficiency.csv

@@ -105,6 +105,62 @@ route:
                 new("binMinutes", ParameterType.Integer, "Minutes per Period", "Duration of each time period", 120, 30, 480),
                 new("seed", ParameterType.Integer, "Random Seed", "Seed for reproducible results", 321, 1, 999999)
             ]
+        ),
+        new(
+            Id: "manufacturing-line",
+            Title: "Manufacturing Production Line",
+            Description: "Production line with workstations, quality control, and bottleneck identification",
+            Category: "domain",
+            Tags: ["intermediate", "manufacturing", "production", "bottleneck", "quality"],
+            Yaml: """
+schemaVersion: 1
+rng: pcg
+seed: {{seed}}
+grid:
+  bins: {{bins}}
+  binMinutes: {{binMinutes}}
+arrivals:
+  kind: const
+  values: {{productionSchedule}}
+route:
+  id: STATION_1
+""",
+            Parameters: [
+                new("productionRate", ParameterType.Number, "Production Rate (units/hour)", "Target production rate per hour", 12.0, 1.0, 100.0),
+                new("qualityRate", ParameterType.Number, "Quality Pass Rate", "Percentage of items passing quality control", 0.95, 0.5, 1.0),
+                new("bins", ParameterType.Integer, "Production Shifts", "Number of production time periods", 8, 4, 24),
+                new("binMinutes", ParameterType.Integer, "Minutes per Shift", "Duration of each production period", 30, 15, 120),
+                new("seed", ParameterType.Integer, "Random Seed", "Seed for reproducible results", 456, 1, 999999)
+            ]
+        ),
+        new(
+            Id: "supply-chain-multi-tier",
+            Title: "Multi-Tier Supply Chain",
+            Description: "Complex supply chain with suppliers, distributors, retailers, and demand variability",
+            Category: "domain",
+            Tags: ["advanced", "supply-chain", "multi-tier", "variability", "logistics"],
+            Yaml: """
+schemaVersion: 1
+rng: pcg
+seed: {{seed}}
+grid:
+  bins: {{bins}}
+  binMinutes: {{binMinutes}}
+arrivals:
+  kind: poisson
+  rate: {{demandRate}}
+route:
+  id: SUPPLIER_A
+""",
+            Parameters: [
+                new("demandRate", ParameterType.Number, "Customer Demand Rate (orders/day)", "Rate of customer orders entering the supply chain", 50.0, 10.0, 1000.0),
+                new("leadTime", ParameterType.Integer, "Lead Time (days)", "Average lead time between tiers", 3, 1, 14),
+                new("bufferSize", ParameterType.Number, "Buffer Inventory", "Safety stock multiplier", 1.5, 1.0, 5.0),
+                new("variability", ParameterType.Number, "Demand Variability", "Coefficient of variation in demand", 0.3, 0.1, 1.0),
+                new("bins", ParameterType.Integer, "Time Periods", "Number of time periods to simulate", 12, 6, 52),
+                new("binMinutes", ParameterType.Integer, "Minutes per Period", "Duration of each time period (typically daily)", 1440, 60, 10080),
+                new("seed", ParameterType.Integer, "Random Seed", "Seed for reproducible results", 987, 1, 999999)
+            ]
         )
     ];
 
@@ -156,11 +212,11 @@ route:
         var yaml = template.Yaml;
         
         // Handle special case for manufacturing production schedule
-        if (templateId == "manufacturing-basic" && parameters.ContainsKey("productionRate") && parameters.ContainsKey("bins"))
+        if ((templateId == "manufacturing-basic" || templateId == "manufacturing-line") && parameters.ContainsKey("productionRate") && parameters.ContainsKey("bins"))
         {
-            var rate = Convert.ToDouble(parameters["productionRate"]);
-            var bins = Convert.ToInt32(parameters["bins"]);
-            var schedule = string.Join(",", Enumerable.Repeat(rate.ToString("F1"), bins));
+            var rate = ToDouble(parameters["productionRate"]);
+            var bins = ToInt32(parameters["bins"]);
+            var schedule = string.Join(",", System.Linq.Enumerable.Repeat(rate.ToString("F1"), bins));
             yaml = yaml.Replace("{{productionSchedule}}", $"[{schedule}]");
         }
 
