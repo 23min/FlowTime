@@ -3,7 +3,17 @@
 [![Build](https://github.com/23min/FlowTime-Sim/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/23min/FlowTime-Sim/actions/workflows/build.yml)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
-FlowTime-Sim is a model authoring platform that creates model templates and stochastic input definitions for system analysis. It helps define realistic arrival patterns, service times, and flow behaviors that can be used for capacity planning, SLA modeling, and "what-if" scenarios.
+FlowTime-Sim is a model authoring platform for creating stochastic simulation models with metadata-driven template support. It generates realistic arrival patterns, service times, and flow behaviors for capacity planning, SLA modeling, and system analysis.
+
+## Latest Release: v0.3.1 (Template Metadata System)
+
+🚀 **Major improvement**: Complete metadata-driven parameter system with template-specific configurations
+- **Template Metadata Support**: Each template now defines its own parameter types, defaults, and validation rules
+- **Dynamic Template Discovery**: API endpoints for listing templates and generating model scenarios
+- **Backward Compatibility**: Existing models continue to work while benefiting from enhanced metadata
+- **4 Enhanced Templates**: Transportation, manufacturing, IT systems, and supply chain scenarios
+
+See [M2.6-v0.3.1 Release Notes](docs/releases/M2.6-v0.3.1.md) for complete technical details and migration guide.
 
 ## What it does
 
@@ -11,9 +21,11 @@ FlowTime-Sim helps you model systems like:
 - API services with varying load patterns  
 - Queue-based workflows with backlog dynamics
 - Multi-stage processing pipelines
-- Retry and circuit breaker behaviors
+- Transportation and logistics systems
+- Manufacturing workflows
+- Multi-tier supply chains
 
-Currently, it can generate synthetic time-series data (CSV) and metadata (JSON), but is transitioning to a charter-compliant model authoring focus that creates model artifacts for FlowTime-Engine execution.
+The platform generates structured simulation data and is evolving toward charter-compliant model authoring for FlowTime-Engine integration.
 
 ## Quick start
 
@@ -75,26 +87,37 @@ Each CSV has simple `t,value` format where `t` is the time bin (0, 1, 2...) and 
 
 **Note**: This synthetic data generation is legacy functionality. Future charter-compliant versions will output model artifacts for FlowTime-Engine execution instead.
 
-## HTTP API (Legacy)
+## HTTP API with Template Support
 
 Start the service:
 ```bash
 dotnet run --project src/FlowTime.Sim.Service
 ```
 
-Get available templates:
+**New in v0.3.1**: Template metadata endpoints
+
+List available templates with metadata:
 ```bash
 curl http://localhost:8090/v1/sim/templates
 ```
 
-Run a simulation (legacy - generates synthetic data):
+Generate scenario from template (uses template-specific parameters):
+```bash
+curl -X POST http://localhost:8090/v1/sim/templates/transportation-basic/generate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "demandPeakHour": 8,
+    "demandPeakMultiplier": 2.5,
+    "capacityBaseLevel": 150
+  }'
+```
+
+Legacy simulation endpoint (generates synthetic data):
 ```bash
 curl -X POST http://localhost:8090/v1/sim/run \
   -H "Content-Type: application/json" \
   -d '{"templateId": "basic", "parameters": {}}'
 ```
-
-**Note**: The `/v1/sim/run` endpoint generates synthetic data (legacy behavior). Future charter-compliant versions will focus on model template export instead.
 
 ## CLI options
 
@@ -127,42 +150,49 @@ This posts the model to FlowTime-Engine for deterministic execution rather than 
 
 ## Development status
 
-FlowTime-Sim is currently transitioning to a "model authoring" focus as part of the FlowTime ecosystem reorganization. The current version generates synthetic data, but future versions will focus on creating model templates for FlowTime-Engine execution.
+**Current Release**: v0.3.1 - Metadata-driven template parameter system  
+**Phase**: SIM-M2 milestone development with enhanced template support  
+**Architecture**: Transitioning to charter-compliant model authoring for FlowTime-Engine integration
 
-See [docs/CHARTER-TRANSITION-PLAN.md](docs/CHARTER-TRANSITION-PLAN.md) for the complete development strategy.
+### Recent Improvements
+- ✅ **Template Metadata System**: Dynamic parameter discovery and validation  
+- ✅ **Template Repository**: File-based template management with YAML metadata parsing
+- ✅ **Enhanced Templates**: 4 domain-specific templates with proper parameter definitions
+- ✅ **Backward Compatibility**: Existing models work seamlessly with new system
+- 🔄 **Charter Alignment**: Evolving toward FlowTime-Engine model artifact creation
+
+### Output Structure (SIM-M2)
+```bash
+# CLI Usage
+dotnet run --project src/FlowTime.Sim.Cli -- --model examples/m0.const.yaml --out runs
+
+# Generated Output
+run.json         # run summary (schemaVersion, runId, grid, hashes)
+manifest.json    # integrity document 
+series/index.json# discovery (series list, units, per-series hashes)
+series/*.csv     # canonical per-series time series
+[events.ndjson]  # optional events (may be absent)
+```
+
+**Determinism**: Identical specifications (including seed & rng) produce identical CSV bytes and hashes.
 
 ## Documentation
 
-- [Roadmap](docs/ROADMAP.md) - Development milestones and timeline
-- [Charter](docs/flowtime-sim-charter.md) - Project scope and boundaries  
-- [Development Setup](docs/development-setup.md) - Environment configuration
+### Core Documentation
+- **[Roadmap](docs/ROADMAP.md)** - Project roadmap and milestone timeline
+- **[Charter](docs/flowtime-sim-charter.md)** - Project scope, boundaries, and role definition  
+- **[Development Setup](docs/development-setup.md)** - Environment configuration and service setup
 
-## Contributing
+### Guides & Reference
+- **[CLI Guide](docs/guides/CLI.md)** - Complete command-line usage and examples
+- **[Configuration Guide](docs/guides/configuration.md)** - Setup and configuration reference
+- **[Architecture Documentation](docs/architecture/)** - Technical design patterns and reference
+- **[API Reference](docs/reference/)** - Technical contracts and specifications
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/new-feature`)
-3. Make your changes
-4. Run tests (`dotnet test`)
-5. Commit your changes (`git commit -am 'Add new feature'`)
-6. Push to the branch (`git push origin feature/new-feature`)  
-7. Create a Pull Request
-
-## License
-
-MIT License - see [LICENSE](LICENSE) for details.
-
----
-
-## Docs & roadmap
-
-- **[Charter Transition Strategic Plan](docs/CHARTER-TRANSITION-PLAN.md)** - Engine-first development strategy
-- **[Development Status](docs/DEVELOPMENT-STATUS.md)** - Current phase tracking and progress  
-- **[Roadmap](docs/ROADMAP.md)** - Legacy milestone timeline and charter evolution
-- **[FlowTime-Sim Charter v1.0](docs/flowtime-sim-charter.md)** - Scope, boundaries, and role definition
-- **[Development Setup](docs/development-setup.md)** - Service configuration and environment setup
-- **[Architecture Documentation](docs/architecture/)** - Technical reference and design patterns
-
----
+### Development Resources
+- **[Development Guides](docs/development/)** - Setup, testing, and devcontainer guides
+- **[Milestone Tracking](docs/milestones/)** - SIM-M0, SIM-M1, SIM-M2 progress
+- **[Release Notes](docs/releases/)** - Version history and migration guides
 
 ## Contributing
 
@@ -173,38 +203,9 @@ MIT License - see [LICENSE](LICENSE) for details.
 5. Push to branch: `git push origin feature/amazing-feature`
 6. Open a Pull Request
 
-See [Development Status](docs/DEVELOPMENT-STATUS.md) for current strategic priorities and charter alignment progress.
-
----
+See [Development Setup](docs/development-setup.md) for environment configuration and [Roadmap](docs/ROADMAP.md) for current priorities.
 
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-Run:
-```bash
-dotnet run --project src/FlowTime.Sim.Cli -- --model examples/m0.const.yaml --out runs
-```
-Outputs (SIM-M2):
-```
-run.json         # run summary (schemaVersion, runId, grid, hashes via series listing)
-manifest.json    # integrity document (currently identical to run.json)
-series/index.json# discovery (series list, units, per-series hashes)
-series/*.csv     # canonical per-series time series
-[events.ndjson]  # optional events (may be absent)
-```
-Determinism: identical spec (including seed & rng) ⇒ identical per-series CSV bytes and hashes.
-
-## Docs & roadmap
-
-- **CLI Guide**: [`docs/guides/CLI.md`](docs/guides/CLI.md) - Complete command-line usage and examples
-- **Configuration**: [`docs/guides/configuration.md`](docs/guides/configuration.md) - Setup and configuration guide
-- **Roadmap**: [`docs/ROADMAP.md`](docs/ROADMAP.md) - Project roadmap and future plans
-- **Development**: [`docs/development/`](docs/development/) - Development setup, testing, and devcontainer guides
-- **Reference**: [`docs/reference/`](docs/reference/) - Technical contracts and specifications
-- **Milestones**: [`docs/milestones/`](docs/milestones/) - SIM-M0, SIM-M1, SIM-M2 milestone tracking
-- **Releases**: [`docs/releases/`](docs/releases/) - Release notes and documentation
-
-## License
-
-MIT. A `LICENSE` may be added later.
 
