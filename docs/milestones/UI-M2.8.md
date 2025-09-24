@@ -569,7 +569,7 @@ public class NavigationStateService : INavigationStateService
 - ✅ Charter workflow prevents invalid progressions (e.g., Runs without Models)
 - ✅ Context validation ensures workflow integrity at each stage
 - ✅ Charter "never forget" principle maintained through persistent context
-- ✅ Workflow actions create proper audit trails and artifact relationships
+- ✅ Workflow actions create proper audit trails. ⚠️ Artifact relationship visuals/actions depend on the deferred UI work scheduled in UI-M2.9.
 
 ## Implementation Plan
 

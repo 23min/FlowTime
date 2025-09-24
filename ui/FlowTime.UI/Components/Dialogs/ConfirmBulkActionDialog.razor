@@ -1,0 +1,51 @@
+@using MudBlazor
+
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.Warning" Color="Color.Warning" Size="Size.Large" />
+                <MudText Typo="Typo.h6">@Title</MudText>
+            </MudStack>
+            
+            <MudText Typo="Typo.body1">@Message</MudText>
+            
+            @if (SelectedItems.Any())
+            {
+                <MudPaper Class="pa-3" Elevation="0" Style="background-color: var(--mud-palette-background-grey); max-height: 200px; overflow-y: auto;">
+                    <MudText Typo="Typo.caption" Class="mb-2">Affected artifacts:</MudText>
+                    @foreach (var item in SelectedItems.Take(10))
+                    {
+                        <MudText Typo="Typo.body2">• @item</MudText>
+                    }
+                    @if (SelectedItems.Count > 10)
+                    {
+                        <MudText Typo="Typo.body2">• ... and @(SelectedItems.Count - 10) more</MudText>
+                    }
+                </MudPaper>
+            }
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="@ActionButtonColor" 
+                   Variant="Variant.Filled" 
+                   OnClick="Confirm"
+                   StartIcon="@(ActionButtonColor == Color.Error ? Icons.Material.Filled.Delete : Icons.Material.Filled.Archive)">
+            @ActionButtonText
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public string Message { get; set; } = "";
+    [Parameter] public string ActionButtonText { get; set; } = "Confirm";
+    [Parameter] public Color ActionButtonColor { get; set; } = Color.Primary;
+    [Parameter] public List<string> SelectedItems { get; set; } = new();
+
+    private void Cancel() => MudDialog.Cancel();
+    private void Confirm() => MudDialog.Close();
+}

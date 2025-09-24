@@ -116,4 +116,9 @@ public class ArtifactQueryOptions
     /// Find artifacts related to the specified artifact ID
     /// </summary>
     public string? RelatedToArtifact { get; set; }
+
+    /// <summary>
+    /// Whether to include archived artifacts in results (default: false)
+    /// </summary>
+    public bool IncludeArchived { get; set; } = false;
 }

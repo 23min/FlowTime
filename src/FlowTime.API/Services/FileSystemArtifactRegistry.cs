@@ -102,6 +102,12 @@ public class FileSystemArtifactRegistry : IArtifactRegistry
             artifacts = artifacts.Where(a => a.Tags != null && a.Tags.Any(tag => options.Tags.Contains(tag)));
         }
 
+        // Filter archived artifacts by default unless explicitly requested
+        if (!options.IncludeArchived)
+        {
+            artifacts = artifacts.Where(a => a.Tags == null || !a.Tags.Contains("archived"));
+        }
+
         // Enhanced M2.8 filters
         if (options.CreatedAfter.HasValue)
         {

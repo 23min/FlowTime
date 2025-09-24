@@ -116,7 +116,8 @@ v1.MapGet("/artifacts", async (IArtifactRegistry registry, HttpContext context, 
         MinFileSize = long.TryParse(query["minSize"].FirstOrDefault(), out var minSize) ? minSize : null,
         MaxFileSize = long.TryParse(query["maxSize"].FirstOrDefault(), out var maxSize) ? maxSize : null,
         FullTextSearch = query["fullText"].FirstOrDefault(),
-        RelatedToArtifact = query["relatedTo"].FirstOrDefault()
+        RelatedToArtifact = query["relatedTo"].FirstOrDefault(),
+        IncludeArchived = bool.TryParse(query["includeArchived"].FirstOrDefault(), out var includeArchived) ? includeArchived : false
     };
     
     try
@@ -265,6 +266,115 @@ v1.MapGet("/artifacts/{id}/files/{fileName}", async (string id, string fileName,
     {
         logger.LogError(ex, "Error accessing file: {FileName} in artifact {ArtifactId}", fileName, id);
         return Results.Problem("Error accessing artifact file");
+    }
+});
+
+// V1: POST /v1/artifacts/bulk-delete — body: string[] artifact IDs
+v1.MapPost("/artifacts/bulk-delete", async (string[] artifactIds, IArtifactRegistry registry, ILogger<Program> logger) =>
+{
+    try
+    {
+        logger.LogInformation("Bulk delete request for {Count} artifacts: {Ids}", artifactIds.Length, string.Join(", ", artifactIds));
+        
+        var results = new List<object>();
+        var artifactsDir = Program.GetArtifactsDirectory(app.Configuration);
+        
+        foreach (var artifactId in artifactIds)
+        {
+            try
+            {
+                var artifactPath = Path.Combine(artifactsDir, artifactId);
+                if (Directory.Exists(artifactPath))
+                {
+                    Directory.Delete(artifactPath, recursive: true);
+                    await registry.RemoveArtifactAsync(artifactId);
+                    results.Add(new { id = artifactId, success = true });
+                    logger.LogInformation("Successfully deleted artifact: {ArtifactId}", artifactId);
+                }
+                else
+                {
+                    results.Add(new { id = artifactId, success = false, error = "Artifact not found" });
+                    logger.LogWarning("Artifact not found for deletion: {ArtifactId}", artifactId);
+                }
+            }
+            catch (Exception ex)
+            {
+                results.Add(new { id = artifactId, success = false, error = ex.Message });
+                logger.LogError(ex, "Error deleting artifact: {ArtifactId}", artifactId);
+            }
+        }
+        
+        var successCount = results.Count(r => ((dynamic)r).success);
+        logger.LogInformation("Bulk delete completed: {SuccessCount}/{TotalCount} artifacts deleted", successCount, artifactIds.Length);
+        
+        return Results.Ok(new { 
+            success = true, 
+            processed = artifactIds.Length,
+            deleted = successCount,
+            results = results 
+        });
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Error in bulk delete operation");
+        return Results.Problem("Error performing bulk delete operation");
+    }
+});
+
+// V1: POST /v1/artifacts/archive — body: string[] artifact IDs
+v1.MapPost("/artifacts/archive", async (string[] artifactIds, IArtifactRegistry registry, ILogger<Program> logger) =>
+{
+    try
+    {
+        logger.LogInformation("Bulk archive request for {Count} artifacts: {Ids}", artifactIds.Length, string.Join(", ", artifactIds));
+        
+        var results = new List<object>();
+        
+        foreach (var artifactId in artifactIds)
+        {
+            try
+            {
+                var artifact = await registry.GetArtifactAsync(artifactId);
+                if (artifact != null)
+                {
+                    // Add 'archived' tag if not already present
+                    if (!artifact.Tags.Contains("archived"))
+                    {
+                        var tagsList = artifact.Tags.ToList();
+                        tagsList.Add("archived");
+                        artifact.Tags = tagsList.ToArray();
+                        await registry.AddOrUpdateArtifactAsync(artifact);
+                    }
+                    results.Add(new { id = artifactId, success = true });
+                    logger.LogInformation("Successfully archived artifact: {ArtifactId}", artifactId);
+                }
+                else
+                {
+                    results.Add(new { id = artifactId, success = false, error = "Artifact not found" });
+                    logger.LogWarning("Artifact not found for archiving: {ArtifactId}", artifactId);
+                }
+            }
+            catch (Exception ex)
+            {
+                results.Add(new { id = artifactId, success = false, error = ex.Message });
+                logger.LogError(ex, "Error archiving artifact: {ArtifactId}", artifactId);
+            }
+        }
+        
+        var successCount = results.Count(r => ((dynamic)r).success);
+        logger.LogInformation("Bulk archive completed: {SuccessCount}/{TotalCount} artifacts archived", successCount, artifactIds.Length);
+        
+        return Results.Ok(new { 
+            success = true, 
+            processed = artifactIds.Length,
+            archived = successCount,
+            results = results 
+        });
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Error in bulk archive operation");
+        return Results.Problem("Error performing bulk archive operation");
     }
 });
 

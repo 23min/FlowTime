@@ -9,7 +9,7 @@
 
 ## Goal
 
-Implement **comprehensive comparison workflow UI** that enables users to compare artifacts, runs, and models through intuitive interfaces integrated into the charter navigation system. This milestone creates the visualization and interaction layer for M2.9's comparison infrastructure, making artifact comparison a seamless part of the charter workflow.
+Implement **comprehensive comparison workflow UI** that enables users to compare artifacts, runs, and models through intuitive interfaces integrated into the charter navigation system. This milestone creates the visualization and interaction layer for M2.9's comparison infrastructure, making artifact comparison a seamless part of the charter workflow. It also absorbs the **related-artifact UI** deferred from UI-M2.7, wiring the relationships endpoint into charter navigation.
 
 ## Context & Charter Alignment
 
@@ -17,7 +17,19 @@ The **M2.9 Compare Infrastructure** provides the API and analysis capabilities f
 
 **Charter Role**: Enables the **[Learn]** tab's comparative analysis capabilities and provides comparison actions throughout all charter workflow stages.
 
+### Carried-Over Scope
+- Surface related artifacts in the detail view using `/v1/artifacts/{id}/relationships`.
+- Provide "Compare" shortcuts from related artifacts back into the comparison workflow.
+
 ## Functional Requirements
+
+### **FR-UI-M2.9-0: Relationships Navigation Hooks**
+Integrate the deferred relationships UI into the charter workflow.
+
+**Core Capabilities:**
+- Display related artifacts (derived from, similar runs, etc.) on the artifact detail page using the relationships endpoint.
+- Provide one-click navigation to view or compare any related artifact.
+- Respect charter context state when traversing via related-artifact links.
 
 ### **FR-UI-M2.9-1: Artifact Comparison Interface**
 Visual comparison interface for artifacts with side-by-side views and difference highlighting.
