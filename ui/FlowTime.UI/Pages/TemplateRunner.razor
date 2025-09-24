@@ -146,12 +146,24 @@
     </MudTabPanel>
     
     <MudTabPanel Text="Simulate" Icon="@Icons.Material.Filled.CloudSync" Disabled="@(!IsSimulateTabEnabled)">
-        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-4">
-            <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
-                <MudIcon Icon="@Icons.Material.Filled.CloudSync" />
-                <MudText><strong>FlowTime-Sim</strong> - Synthetic data generation using arrivals/route schema</MudText>
-            </MudStack>
-        </MudAlert>
+        @if (string.IsNullOrEmpty(generatedYaml) && CanGenerateModel())
+        {
+            <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-4">
+                <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.Warning" />
+                    <MudText>Generate the model preview first. Parameters have changed since the last model generation.</MudText>
+                </MudStack>
+            </MudAlert>
+        }
+        else
+        {
+            <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-4">
+                <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.CloudSync" />
+                    <MudText><strong>FlowTime-Sim</strong> - Synthetic data generation using arrivals/route schema</MudText>
+                </MudStack>
+            </MudAlert>
+        }
         
         <MudText Typo="Typo.h6" Class="mb-3">Data Generation</MudText>
         <MudText Class="mb-4" Typo="Typo.body2">Generate synthetic datasets to simulate system behavior under various conditions.</MudText>
@@ -199,12 +211,24 @@
     </MudTabPanel>
     
     <MudTabPanel Text="Analyze" Icon="@Icons.Material.Filled.Analytics" Disabled="@(!IsAnalyzeTabEnabled)">
-        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-4">
-            <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
-                <MudIcon Icon="@Icons.Material.Filled.Engineering" />
-                <MudText><strong>FlowTime Engine Analysis</strong> - Deterministic flow modeling using nodes schema</MudText>
-            </MudStack>
-        </MudAlert>
+        @if (string.IsNullOrEmpty(generatedYaml) && CanGenerateModel())
+        {
+            <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-4">
+                <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.Warning" />
+                    <MudText>Generate the model preview first. Parameters have changed since the last model generation.</MudText>
+                </MudStack>
+            </MudAlert>
+        }
+        else
+        {
+            <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-4">
+                <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.Engineering" />
+                    <MudText><strong>FlowTime Engine Analysis</strong> - Deterministic flow modeling using nodes schema</MudText>
+                </MudStack>
+            </MudAlert>
+        }
         
         @* Graph Structure Section *@
         <MudText Typo="Typo.h6" Class="mb-3">Graph Structure</MudText>
@@ -414,9 +438,9 @@
     
     // Wizard-style tab enablement
     private bool IsParametersTabEnabled => selectedTemplate != null;
-    private bool IsModelPreviewTabEnabled => selectedTemplate != null && parameters.Any();
-    private bool IsSimulateTabEnabled => selectedTemplate != null && parameters.Any(); 
-    private bool IsAnalyzeTabEnabled => selectedTemplate != null && parameters.Any();
+    private bool IsModelPreviewTabEnabled => CanGenerateModel();
+    private bool IsSimulateTabEnabled => !string.IsNullOrEmpty(generatedYaml) && CanGenerateModel(); 
+    private bool IsAnalyzeTabEnabled => !string.IsNullOrEmpty(generatedYaml) && CanGenerateModel();
 
     
     // New properties for actual Graph and Run functionality
