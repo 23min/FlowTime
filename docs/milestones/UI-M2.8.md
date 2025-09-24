@@ -11,6 +11,9 @@
 
 Implement the **charter tab navigation structure** that enables seamless workflow transitions between [Models]→[Runs]→[Artifacts]→[Learn] tabs. This milestone creates the foundational navigation system that embodies the charter's artifacts-centric workflow paradigm and provides the UI framework for all future charter interactions.
 
+**PHASE 1**: Complete Template API Integration by migrating from hardcoded UI template generation to FlowTime-Sim API-driven templates.
+**PHASE 2**: Charter navigation system implementation.
+
 ## Context & Charter Alignment
 
 The **Charter Roadmap M2.8** establishes the core registry integration and artifacts-centric workflow. **UI-M2.8** implements the user interface manifestation of this charter, creating the tab structure that guides users through the complete FlowTime workflow.
@@ -18,6 +21,64 @@ The **Charter Roadmap M2.8** establishes the core registry integration and artif
 **Charter Role**: Provides the primary navigation framework that makes the charter **actionable** through intuitive UI patterns that match mental models of iterative workflow improvement.
 
 ## Functional Requirements
+
+### **FR-UI-M2.8-0: Template API Integration (PHASE 1)**
+**Priority**: Execute immediately after UI-M2.7 completion
+
+Complete the migration from hardcoded UI template generation to FlowTime-Sim API-driven template system.
+
+#### Technical Debt Resolution
+- **Issue**: Template Studio currently uses hybrid architecture where template lists come from FlowTime-Sim API but YAML generation is hardcoded in UI
+- **Root Cause**: UI was built to work independently while FlowTime-Sim APIs were being developed  
+- **Impact**: Architectural inconsistency, duplicate template logic, maintenance burden
+- **Bug Context**: YAML formatting bug in `GenerateTransportationYaml()` (fixed in UI-M2.7) highlights this architectural gap
+
+#### Integration Requirements
+
+**Replace UI YAML Generation with API Calls:**
+```csharp
+// BEFORE (UI-M2.7): Hardcoded generation in TemplateServiceImplementations.cs
+private static string GenerateTransportationYaml(SimulationRunRequest request)
+{
+    var yaml = new StringBuilder();
+    yaml.AppendLine("# Transportation Network - Generated Model");
+    yaml.AppendLine($"grid:");
+    yaml.AppendLine($"  bins: {simulationHours}");
+    // ... hardcoded template logic
+}
+
+// AFTER (UI-M2.8): API-driven generation
+public async Task<string> GenerateModelYamlAsync(SimulationRunRequest request)
+{
+    if (featureFlags.UseDemoMode)
+    {
+        return GenerateStaticDemoYaml(request); // Keep for demo mode
+    }
+    
+    // Use FlowTime-Sim template generation API
+    var response = await simClient.GenerateTemplateAsync(request.TemplateId, request.Parameters);
+    return response.Value.Scenario;
+}
+```
+
+**Demo Mode Preservation:**
+- **Keep hardcoded templates for demo mode** - these provide value for offline demonstrations
+- **Clear distinction**: Demo templates vs Live API templates
+- **Mode detection**: Easy identification of template source in UI
+
+**API Integration Points:**
+- Use existing `POST /v1/sim/templates/{id}/generate` endpoint
+- Remove hardcoded methods: `GenerateTransportationYaml()`, `GenerateITSystemYaml()`, etc.
+- Migrate to schema-driven template system from FlowTime-Sim
+
+#### Acceptance Criteria
+- [ ] All template YAML generation uses FlowTime-Sim API in API mode
+- [ ] Demo mode retains hardcoded templates with clear source indication
+- [ ] UI template generation methods removed (except demo fallbacks)
+- [ ] Template Studio works identically to users (no UX regression)
+- [ ] API mode clearly shows "Live Templates" vs "Demo Templates" in UI
+
+---
 
 ### **FR-UI-M2.8-1: Charter Tab Navigation System**
 Core navigation framework with tab-based charter workflow structure.
@@ -453,6 +514,37 @@ public class NavigationStateService : INavigationStateService
 - Workflow context system ready for UI-M3.0 cross-platform scenarios
 - Navigation framework supports dynamic tab addition for future capabilities
 
+## Technical Debt Documentation
+
+### **Template API Integration Debt**
+**Identified**: September 24, 2025 during UI-M2.7 testing  
+**Context**: YAML formatting bug in Transportation Network template revealed architectural inconsistency
+
+#### Current State (Post UI-M2.7)
+- ✅ **Template Lists**: Retrieved from FlowTime-Sim API (`GET /v1/sim/templates`)
+- ❌ **YAML Generation**: Hardcoded in UI (`GenerateTransportationYaml()`, etc.)
+- ✅ **Bug Fixed**: YAML formatting issue resolved in `TemplateServiceImplementations.cs`
+
+#### API Readiness Assessment
+- ✅ FlowTime-Sim has `POST /v1/sim/templates/{id}/generate` endpoint
+- ✅ SIM-SVC-M2 and SIM-CAT-M2 provide complete template infrastructure
+- ✅ UI already calls FlowTime-Sim for template discovery
+- ❌ UI bypasses FlowTime-Sim for template generation (inconsistent architecture)
+
+#### Migration Priority
+- **Impact**: Medium (architectural consistency, maintenance burden)
+- **Risk**: Low (current hybrid approach works correctly)
+- **Effort**: Medium (requires API integration changes, not UX changes) 
+- **Timing**: UI-M2.8 Phase 1 (before charter navigation work)
+
+#### Value Proposition
+- **Consistency**: Single source of truth for templates in FlowTime-Sim
+- **Maintainability**: Remove duplicate template logic from UI
+- **Extensibility**: New templates only need FlowTime-Sim changes
+- **Demo Mode**: Preserve hardcoded templates for offline demonstrations
+
+---
+
 ## Acceptance Criteria
 
 ### **Charter Navigation Functionality**
@@ -477,29 +569,69 @@ public class NavigationStateService : INavigationStateService
 - ✅ Charter workflow prevents invalid progressions (e.g., Runs without Models)
 - ✅ Context validation ensures workflow integrity at each stage
 - ✅ Charter "never forget" principle maintained through persistent context
-- ✅ Workflow actions create proper audit trails and artifact relationships
+- ✅ Workflow actions create proper audit trails. ⚠️ Artifact relationship visuals/actions depend on the deferred UI work scheduled in UI-M2.9.
 
 ## Implementation Plan
 
-### **Phase 1: Navigation Framework**
+### **Phase 1: Template API Integration** 
+**Priority**: Execute immediately after UI-M2.7 - Address technical debt**
+
+#### 1.1 API Service Updates
+```csharp
+// Update FlowTimeSimService.GenerateModelYamlAsync()
+public async Task<string> GenerateModelYamlAsync(SimulationRunRequest request)
+{
+    if (featureFlags.UseDemoMode)
+    {
+        // Keep hardcoded templates for demo mode
+        return GenerateStaticDemoYaml(request);
+    }
+    
+    // Use FlowTime-Sim API for live templates
+    var apiResult = await simClient.GenerateTemplateAsync(request.TemplateId, request.Parameters);
+    if (!apiResult.Success)
+    {
+        throw new InvalidOperationException($"Template generation failed: {apiResult.Error}");
+    }
+    
+    return apiResult.Value.Scenario;
+}
+```
+
+#### 1.2 Demo Mode Refactoring
+- Extract hardcoded template methods to `DemoTemplateService`
+- Maintain template quality for offline demonstrations  
+- Add clear UI indicators: "Demo Templates" vs "Live Templates"
+
+#### 1.3 Code Cleanup
+- Remove: `GenerateTransportationYaml()`, `GenerateITSystemYaml()`, etc.
+- Update: Template generation calls to use API service
+- Test: Both demo and API modes work identically from user perspective
+
+#### 1.4 Integration Testing
+- Verify FlowTime-Sim API integration works correctly
+- Ensure demo mode fallback maintains UX quality
+- Test error handling when API unavailable
+
+### **Phase 2: Charter Navigation Framework**
 1. **Charter layout component** with app-wide navigation structure
 2. **Tab navigation system** with charter workflow stages
 3. **Basic workflow context** model and state management
 4. **Navigation persistence** using browser localStorage
 
-### **Phase 2: Charter Tab Content**
+### **Phase 3: Charter Tab Content**
 1. **Models tab content** with model selection and configuration
 2. **Runs tab content** with run wizard and monitoring
 3. **Artifacts tab content** integration with UI-M2.7 components
 4. **Learn tab content** foundation for future analytics
 
-### **Phase 3: Workflow Context System**
+### **Phase 4: Workflow Context System**
 1. **Advanced workflow context** management with validation
 2. **Multi-workflow support** and workflow history
 3. **Registry API integration** for context persistence
 4. **Context synchronization** across browser tabs
 
-### **Phase 4: User Experience Polish**
+### **Phase 5: User Experience Polish**
 1. **Charter progression indicators** and workflow guidance
 2. **Advanced navigation features** (bookmarks, shortcuts)
 3. **Performance optimization** for large workflow contexts
@@ -514,3 +646,28 @@ public class NavigationStateService : INavigationStateService
 3. **Enhanced workflows**: Advanced charter capabilities building on navigation foundation
 
 This milestone creates the **navigational foundation** for the charter's artifacts-centric workflow, making the charter's mental model actionable through intuitive UI that guides users through iterative improvement cycles.
+
+---
+
+## Summary of Changes
+
+### **Template API Integration (Phase 1)**
+**Immediate Priority**: Addresses technical debt identified during UI-M2.7 testing
+
+**Current State**:
+- ✅ YAML formatting bug fixed in `TemplateServiceImplementations.cs`
+- ❌ Architectural inconsistency: Template lists from API, YAML generation hardcoded
+- ✅ FlowTime-Sim APIs ready: `POST /v1/sim/templates/{id}/generate`
+
+**Phase 1 Deliverables**:
+- Migrate all template YAML generation to FlowTime-Sim API calls
+- Preserve hardcoded templates for demo mode (clearly distinguished)
+- Remove duplicate template logic from UI codebase
+- Maintain identical user experience (no UX regression)
+
+**Value**: Consistent architecture, reduced maintenance burden, single source of truth for templates
+
+### **Charter Navigation (Phases 2-5)**
+**Charter Foundation**: Core navigation system for [Models]→[Runs]→[Artifacts]→[Learn] workflow
+
+Builds on the clean template architecture from Phase 1 to provide the charter's artifacts-centric navigation paradigm.

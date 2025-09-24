@@ -1,7 +1,9 @@
 using System.Net.Http.Json;
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Xunit;
 using System.Net;
+using FlowTime.API.Models;
 
 namespace FlowTime.Api.Tests;
 
@@ -511,5 +513,113 @@ public class ArtifactEndpointTests : IClassFixture<WebApplicationFactory<Program
 
         // Cleanup
         Directory.Delete(runDir, true);
+    }
+
+    [Fact]
+    public async Task POST_ArtifactsArchive_MarksArtifactsAndHidesFromDefaultQueries()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"test_artifacts_archive_{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempRoot);
+
+        try
+        {
+            var runSuffix = Guid.NewGuid().ToString("N").Substring(0, 8);
+            var runId = $"run_{DateTime.UtcNow:yyyyMMddTHHmmssZ}_{runSuffix}";
+            var runDir = Path.Combine(tempRoot, runId);
+            Directory.CreateDirectory(runDir);
+
+            await File.WriteAllTextAsync(Path.Combine(runDir, "manifest.json"), "{ \"schemaVersion\": 1, \"title\": \"Archive Candidate\" }");
+            await File.WriteAllTextAsync(Path.Combine(runDir, "spec.yaml"), "schemaVersion: 1\nmetadata:\n  tags: [sample]\n");
+
+            using var clientWithConfig = factory.WithWebHostBuilder(builder =>
+            {
+                builder.UseSetting("ArtifactsDirectory", tempRoot);
+            }).CreateClient();
+
+            await clientWithConfig.PostAsync("/v1/artifacts/index", null);
+
+            var beforeDefault = await GetArtifactsAsync(clientWithConfig, "/v1/artifacts");
+            Assert.Single(beforeDefault.Artifacts);
+
+            var archiveResponse = await clientWithConfig.PostAsJsonAsync("/v1/artifacts/archive", new[] { runId });
+            archiveResponse.EnsureSuccessStatusCode();
+
+            var afterDefault = await GetArtifactsAsync(clientWithConfig, "/v1/artifacts");
+            Assert.Empty(afterDefault.Artifacts);
+
+            var afterInclude = await GetArtifactsAsync(clientWithConfig, "/v1/artifacts?includeArchived=true");
+            Assert.Single(afterInclude.Artifacts);
+            Assert.Contains("archived", afterInclude.Artifacts[0].Tags);
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                Directory.Delete(tempRoot, true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task POST_ArtifactsBulkDelete_RemovesArtifactsAndDirectories()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"test_artifacts_delete_{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempRoot);
+
+        try
+        {
+            var runIds = Enumerable.Range(0, 2)
+                .Select(offset =>
+                {
+                    var suffix = Guid.NewGuid().ToString("N").Substring(0, 8);
+                    return $"run_{DateTime.UtcNow.AddSeconds(offset):yyyyMMddTHHmmssZ}_{suffix}";
+                })
+                .ToArray();
+
+            foreach (var runId in runIds)
+            {
+                var runDir = Path.Combine(tempRoot, runId);
+                Directory.CreateDirectory(runDir);
+                await File.WriteAllTextAsync(Path.Combine(runDir, "manifest.json"), "{ \"schemaVersion\": 1 }");
+                await File.WriteAllTextAsync(Path.Combine(runDir, "spec.yaml"), "schemaVersion: 1\n");
+            }
+
+            using var clientWithConfig = factory.WithWebHostBuilder(builder =>
+            {
+                builder.UseSetting("ArtifactsDirectory", tempRoot);
+            }).CreateClient();
+
+            await clientWithConfig.PostAsync("/v1/artifacts/index", null);
+
+            var beforeDelete = await GetArtifactsAsync(clientWithConfig, "/v1/artifacts?includeArchived=true");
+            Assert.Equal(2, beforeDelete.Artifacts.Count);
+
+            var deleteResponse = await clientWithConfig.PostAsJsonAsync("/v1/artifacts/bulk-delete", runIds);
+            deleteResponse.EnsureSuccessStatusCode();
+
+            foreach (var runId in runIds)
+            {
+                Assert.False(Directory.Exists(Path.Combine(tempRoot, runId)));
+            }
+
+            var afterDelete = await GetArtifactsAsync(clientWithConfig, "/v1/artifacts?includeArchived=true");
+            Assert.Empty(afterDelete.Artifacts);
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                Directory.Delete(tempRoot, true);
+            }
+        }
+    }
+
+    private static async Task<ArtifactListResponse> GetArtifactsAsync(HttpClient client, string route)
+    {
+        var response = await client.GetAsync(route);
+        response.EnsureSuccessStatusCode();
+        var content = await response.Content.ReadAsStringAsync();
+        return JsonSerializer.Deserialize<ArtifactListResponse>(content, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+            ?? new ArtifactListResponse();
     }
 }

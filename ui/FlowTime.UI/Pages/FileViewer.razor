@@ -1,0 +1,90 @@
+@page "/artifacts/{artifactId}/files/{fileName}"
+@inject HttpClient Http
+@inject ILogger<FileViewer> Logger
+
+<PageTitle>File Viewer - @FileName</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.False" Class="pa-4">
+    <MudBreadcrumbs Items="_breadcrumbItems" />
+    
+    <MudPaper Class="pa-4 mt-4">
+        <MudStack Spacing="3">
+            <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                <MudText Typo="Typo.h5">@FileName</MudText>
+                <MudButton Variant="Variant.Outlined" 
+                          StartIcon="Icons.Material.Filled.ArrowBack"
+                          Href="@($"/artifacts/{ArtifactId}")">
+                    Back to Artifact
+                </MudButton>
+            </MudStack>
+
+            @if (_isLoading)
+            {
+                <MudProgressLinear Indeterminate="true" />
+                <MudText>Loading file content...</MudText>
+            }
+            else if (!string.IsNullOrEmpty(_errorMessage))
+            {
+                <MudAlert Severity="Severity.Error">@_errorMessage</MudAlert>
+            }
+            else if (!string.IsNullOrEmpty(_fileContent))
+            {
+                <MudPaper Class="pa-2 code-block" Elevation="0" Style="max-height: 80vh; overflow-y: auto;">@_fileContent</MudPaper>
+            }
+        </MudStack>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    [Parameter] public string ArtifactId { get; set; } = string.Empty;
+    [Parameter] public string FileName { get; set; } = string.Empty;
+
+    private bool _isLoading = true;
+    private string _errorMessage = string.Empty;
+    private string _fileContent = string.Empty;
+    private List<BreadcrumbItem> _breadcrumbItems = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _breadcrumbItems = new List<BreadcrumbItem>
+        {
+            new("Artifacts", "/artifacts"),
+            new(ArtifactId, $"/artifacts/{ArtifactId}"),
+            new(FileName, null, disabled: true)
+        };
+
+        await LoadFileContent();
+    }
+
+    private async Task LoadFileContent()
+    {
+        try
+        {
+            _isLoading = true;
+            _errorMessage = string.Empty;
+
+            Logger.LogInformation("Loading file content: {FileName} from artifact: {ArtifactId}", FileName, ArtifactId);
+
+            var response = await Http.GetAsync($"http://localhost:8080/v1/artifacts/{ArtifactId}/files/{FileName}");
+            
+            if (response.IsSuccessStatusCode)
+            {
+                _fileContent = await response.Content.ReadAsStringAsync();
+            }
+            else
+            {
+                _errorMessage = $"Failed to load file: {response.StatusCode} - {response.ReasonPhrase}";
+                Logger.LogError("Failed to load file content: {StatusCode} - {ReasonPhrase}", response.StatusCode, response.ReasonPhrase);
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Error loading file: {ex.Message}";
+            Logger.LogError(ex, "Error loading file content: {FileName} from artifact: {ArtifactId}", FileName, ArtifactId);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+}

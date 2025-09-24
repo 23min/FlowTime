@@ -1,9 +1,9 @@
 # UI-M2.7 — Artifacts Registry UI
 
-**Status:** 📋 Planned (Charter-Aligned)  
+**Status:** ✅ Complete (with documented deferrals)  
 **Dependencies:** M2.7 ✅, M2.8 ✅, UI-M2.6 ✅  
 **Target:** User interface for artifacts registry browsing and management  
-**Date:** 2025-09-25
+**Completed:** 2025-09-24
 
 ---
 
@@ -34,7 +34,7 @@ Users can view comprehensive artifact details including metadata, files, and rel
 **Core Capabilities:**
 - **Metadata Display**: Complete artifact information (ID, created date, type, tags, source)
 - **File Listing**: All files within artifact with sizes and download options
-- **Relationships**: Links to related artifacts when available
+- **Relationships**: Links to related artifacts when available *(Deferred to UI-M2.9—see Deferred Scope)*
 - **Actions**: Compare, download, edit metadata functionality
 - **Navigation**: Breadcrumb navigation back to registry browser
                                 
@@ -42,7 +42,7 @@ Users can view comprehensive artifact details including metadata, files, and rel
 UI consumes M2.7/M2.8 enhanced artifacts registry APIs for all functionality.
 
 **Integration Requirements:**
-- **Registry API**: Consume all M2.7/M2.8 endpoints (`/v1/artifacts`, `/v1/artifacts/{id}`, `/v1/artifacts/{id}/relationships`)
+- **Registry API**: Consume `/v1/artifacts` and `/v1/artifacts/{id}`. UI integration for `/v1/artifacts/{id}/relationships` is deferred to UI-M2.9.
 - **Enhanced Queries**: Support M2.8 advanced filtering (date ranges, file sizes, full-text search)
 - **Error Handling**: Graceful degradation for API unavailability with user feedback
 - **Performance**: Efficient loading with pagination, caching for large artifact collections
@@ -77,6 +77,7 @@ Artifacts UI integrates seamlessly with charter navigation and workflow context.
 - ✅ Artifact detail view shows complete metadata and file listings
 - ✅ File download and preview functionality works for all artifact types
 - ✅ Registry refresh and import functionality accessible from UI
+- ⏳ Related-artifact linking deferred to UI-M2.9 (interim placeholder banner acceptable)
 
 ### **Charter Workflow Integration**
 - ✅ Artifact selector components work in Runs wizard input selection
@@ -98,6 +99,13 @@ Artifacts UI integrates seamlessly with charter navigation and workflow context.
 3. **API Integration**: Connect to M2.7/M2.8 registry endpoints with error handling
 4. **Charter Integration**: Add to navigation, create reusable components
 5. **Polish**: Performance optimization, responsive design, accessibility
+
+---
+
+## Deferred Scope
+
+- **Related Artifact Links (UI Exposure)**: The backend relationships endpoint (`/v1/artifacts/{id}/relationships`) remains available, but the UI surfacing and navigation affordances are postponed to **UI-M2.9 – Compare Workflow UI Integration**. Interim UI should indicate that relationships are coming soon.
+- **Compare-from-Detail Shortcut**: Compare actions that depend on the relationships panel ship alongside the deferred work above.
 
 ---
 

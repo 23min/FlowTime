@@ -1,0 +1,655 @@
+@page "/artifacts"
+@using FlowTime.UI.Services
+@using FlowTime.UI.Components.Dialogs
+@using System.Text.Json
+@inject IHttpClientFactory HttpClientFactory
+@inject ILogger<Artifacts> Logger
+@inject NavigationManager Navigation
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Artifacts Registry</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.False">
+    <MudStack Spacing="3">
+        <!-- Header -->
+       <MudPaper Class="pa-4" Elevation="2">
+            <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                <MudStack>
+                    <MudText Typo="Typo.h4">Artifacts Registry</MudText>
+                    <MudText Typo="Typo.body1" Color="Color.Secondary">
+                        Browse and manage all FlowTime artifacts
+                    </MudText>
+                </MudStack>
+                <MudStack Row Spacing="2">
+                    <MudButton Variant="Variant.Outlined" 
+                               StartIcon="@Icons.Material.Filled.Refresh"
+                               OnClick="RefreshArtifacts"
+                               Disabled="@_isLoading">
+                        Refresh
+                    </MudButton>
+                    <MudSwitch @bind-Value="IncludeArchived" 
+                               Color="Color.Secondary"
+                               Label="Show Archived"
+                               T="bool" />
+                    <MudChip T="string" Icon="@Icons.Material.Filled.Archive" 
+                             Size="Size.Medium"
+                             Color="Color.Primary">
+                        @_totalArtifacts artifacts
+                    </MudChip>
+                </MudStack>
+            </MudStack>
+        </MudPaper>
+
+        <!-- Search and Filters -->
+        <MudPaper Class="pa-4" Elevation="1">
+            <MudGrid>
+                <MudItem xs="12" sm="6" md="4">
+                                    <MudTextField T="string" 
+                              Value="@_searchQuery" 
+                              ValueChanged="@(async (string value) => await OnSearchChanged(value))"
+                              Placeholder="Search artifacts..."
+                              Adornment="Adornment.Start" 
+                              AdornmentIcon="@Icons.Material.Filled.Search"
+                              DebounceInterval="300"
+                              Immediate="false" />
+                </MudItem>
+                <MudItem xs="12" sm="3" md="2">
+                    <MudSelect Value="@_selectedType" 
+                               ValueChanged="@(async (string value) => await OnTypeChanged(value))"
+                               Label="Type" 
+                               Variant="Variant.Outlined"
+                               AnchorOrigin="Origin.BottomCenter">
+                        <MudSelectItem Value="@("all")">All Types</MudSelectItem>
+                        <MudSelectItem Value="@("run")">Runs</MudSelectItem>
+                        <MudSelectItem Value="@("model")">Models</MudSelectItem>
+                        <MudSelectItem Value="@("telemetry")">Telemetry</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="3" md="2">
+                    <MudDatePicker Date="@_dateFilter" 
+                                   DateChanged="@(async (DateTime? date) => await OnDateChanged(date))"
+                                   Label="Created After" 
+                                   Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12" md="4">
+                    <MudText Typo="Typo.caption" Class="mb-2">Tags:</MudText>
+                    <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                        @foreach (var tag in _availableTags)
+                        {
+                            <MudChip T="string" 
+                                    Size="Size.Small"
+                                    OnClick="@(async () => await ToggleTag(tag))"
+                                    Variant="@(_selectedTags.Contains(tag) ? Variant.Filled : Variant.Outlined)"
+                                    Color="@(_selectedTags.Contains(tag) ? Color.Primary : Color.Default)"
+                                    Style="cursor: pointer;">
+                                @tag
+                            </MudChip>
+                        }
+                    </div>
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+
+        <!-- Bulk Action Toolbar -->
+        @if (_selectedArtifacts.Any())
+        {
+            <MudPaper Class="pa-3 mb-3" Elevation="2">
+                <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                    <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                        <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Primary" />
+                        <MudText Typo="Typo.body1"><strong>@_selectedArtifacts.Count</strong> artifact(s) selected</MudText>
+                        <MudButton Size="Size.Small" 
+                                   Variant="Variant.Text" 
+                                   OnClick="ClearSelection"
+                                   StartIcon="@Icons.Material.Filled.Clear">
+                            Clear Selection
+                        </MudButton>
+                    </MudStack>
+                    <MudStack Row Spacing="2">
+                        <MudButton Variant="Variant.Outlined" 
+                                   StartIcon="@Icons.Material.Filled.Archive"
+                                   OnClick="ArchiveSelectedArtifacts"
+                                   Color="Color.Warning"
+                                   Disabled="@_isBulkOperationInProgress">
+                            Archive (@_selectedArtifacts.Count)
+                        </MudButton>
+                        <MudButton Variant="Variant.Filled" 
+                                   StartIcon="@Icons.Material.Filled.Delete"
+                                   OnClick="DeleteSelectedArtifacts"
+                                   Color="Color.Error"
+                                   Disabled="@_isBulkOperationInProgress">
+                            Delete (@_selectedArtifacts.Count)
+                        </MudButton>
+                    </MudStack>
+                </MudStack>
+            </MudPaper>
+        }
+
+        <!-- Artifacts List -->
+        <MudPaper Class="pa-4" Elevation="1">
+            @if (_isLoading)
+            {
+                <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+                <MudText Typo="Typo.body2" Class="mt-4 text-center">Loading artifacts...</MudText>
+            }
+            else if (_filteredArtifacts.Any())
+            {
+                                <MudDataGrid Items="@_filteredArtifacts" 
+                             SortMode="SortMode.Multiple" 
+                             Filterable="false"
+                             Hover="true"
+                             ReadOnly="true"
+                             Dense="true"
+                             MultiSelection="true"
+                             @bind-SelectedItems="_selectedArtifacts">
+                    <Columns>
+                        <SelectColumn T="ArtifactViewModel" />
+                        <PropertyColumn Property="x => x.Type" Title="Type" SortBy="@(new Func<ArtifactViewModel, object>(x => x.Type))">
+                            <CellTemplate>
+                                <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                                    <MudIcon Icon="@GetArtifactIcon(context.Item.Type)" Size="Size.Small" Color="@GetArtifactColor(context.Item.Type)" />
+                                    <MudText Typo="Typo.caption">@context.Item.Type.ToUpper()</MudText>
+                                </MudStack>
+                            </CellTemplate>
+                        </PropertyColumn>
+                        <PropertyColumn Property="x => x.Title" Title="Title" SortBy="@(new Func<ArtifactViewModel, object>(x => x.Title))" />
+                        <PropertyColumn Property="x => x.Created" Title="Created" Format="yyyy-MM-dd HH:mm" SortBy="@(new Func<ArtifactViewModel, object>(x => x.Created))" />
+                        <PropertyColumn Property="x => x.TotalSize" Title="Size" SortBy="@(new Func<ArtifactViewModel, object>(x => x.TotalSize))">
+                            <CellTemplate>
+                                <MudText Typo="Typo.body2">@FormatFileSize(context.Item.TotalSize)</MudText>
+                            </CellTemplate>
+                        </PropertyColumn>
+                        <PropertyColumn Property="x => x.Tags" Title="Tags">
+                            <CellTemplate>
+                                <div style="display: flex; flex-wrap: wrap; gap: 2px;">
+                                    @foreach (var tag in context.Item.Tags.Take(3))
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined" Text="@tag" />
+                                    }
+                                    @if (context.Item.Tags.Count > 3)
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Text="@($"+{context.Item.Tags.Count - 3} more")" Color="Color.Secondary" Variant="Variant.Outlined" />
+                                    }
+                                </div>
+                            </CellTemplate>
+                        </PropertyColumn>
+                        <TemplateColumn Title="Actions" Sortable="false">
+                            <CellTemplate>
+                                <MudButtonGroup Size="Size.Small" Variant="Variant.Text">
+                                    <MudButton StartIcon="@Icons.Material.Filled.Visibility" 
+                                               OnClick="@((e) => ViewArtifact(context.Item.Id))"
+                                               Color="Color.Primary">
+                                        View
+                                    </MudButton>
+                                    <MudButton StartIcon="@Icons.Material.Filled.Download" 
+                                               OnClick="@((e) => DownloadArtifact(context.Item.Id))"
+                                               Color="Color.Secondary">
+                                        Download
+                                    </MudButton>
+                                </MudButtonGroup>
+                            </CellTemplate>
+                        </TemplateColumn>
+                    </Columns>
+                </MudDataGrid>
+            }
+            else
+            {
+                <MudAlert Severity="Severity.Info" Icon="@Icons.Material.Filled.SearchOff">
+                    <MudText>No artifacts found matching your criteria.</MudText>
+                    <MudText Typo="Typo.body2">Try adjusting your search filters or refresh the registry.</MudText>
+                </MudAlert>
+            }
+        </MudPaper>
+    </MudStack>
+</MudContainer>
+
+@code {
+    private bool _isLoading = true;
+    private string _searchQuery = "";
+    private string _selectedType = "all";
+    private DateTime? _dateFilter;
+    private List<string> _selectedTags = new();
+    private List<string> _availableTags = new();
+    private List<ArtifactViewModel> _artifacts = new();
+    private int _totalArtifacts = 0;
+    private HashSet<ArtifactViewModel> _selectedArtifacts = new();
+    private bool _isBulkOperationInProgress = false;
+    private bool _includeArchived = false;
+
+    // Property with automatic reload when archived toggle changes
+    private bool IncludeArchived
+    {
+        get => _includeArchived;
+        set
+        {
+            if (_includeArchived != value)
+            {
+                _includeArchived = value;
+                _ = Task.Run(async () => await LoadArtifacts());
+            }
+        }
+    }
+
+    private IEnumerable<ArtifactViewModel> _filteredArtifacts => FilterArtifacts();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadArtifacts();
+    }
+
+    private async Task LoadArtifacts()
+    {
+        _isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            Logger.LogInformation("Loading artifacts from registry API");
+            using var httpClient = HttpClientFactory.CreateClient("FlowTimeAPI");
+            
+            // Build query parameters
+            var queryParams = new List<string>();
+            
+            if (_selectedType != "all")
+            {
+                queryParams.Add($"type={Uri.EscapeDataString(_selectedType)}");
+            }
+            
+            if (!string.IsNullOrWhiteSpace(_searchQuery))
+            {
+                queryParams.Add($"search={Uri.EscapeDataString(_searchQuery)}");
+            }
+            
+            if (_selectedTags.Any())
+            {
+                queryParams.Add($"tags={Uri.EscapeDataString(string.Join(",", _selectedTags))}");
+            }
+            
+            if (_dateFilter.HasValue)
+            {
+                queryParams.Add($"createdAfter={_dateFilter.Value:yyyy-MM-ddTHH:mm:ssZ}");
+            }
+            
+            // Request more artifacts to show full count
+            queryParams.Add("limit=1000");
+            
+            // Include archived artifacts if requested
+            if (_includeArchived)
+            {
+                queryParams.Add("includeArchived=true");
+            }
+            
+            var queryString = queryParams.Any() ? "?" + string.Join("&", queryParams) : "";
+            var response = await httpClient.GetAsync($"v1/artifacts{queryString}");
+            
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync();
+                var apiResponse = JsonSerializer.Deserialize<ArtifactsApiResponse>(json, new JsonSerializerOptions 
+                { 
+                    PropertyNameCaseInsensitive = true 
+                });
+
+                _artifacts = apiResponse?.Artifacts?.Select(a => new ArtifactViewModel
+                {
+                    Id = a.Id ?? "",
+                    Type = a.Type ?? "unknown",
+                    Title = a.Title ?? a.Id ?? "Untitled",
+                    Created = a.Created,
+                    Tags = a.Tags ?? new List<string>(),
+                    TotalSize = a.TotalSize ?? 0,
+                    Files = a.Files ?? new List<string>()
+                }).ToList() ?? new List<ArtifactViewModel>();
+
+                _totalArtifacts = apiResponse?.Total ?? _artifacts.Count;
+
+                // Extract unique tags from ALL artifacts (not just current page)
+                // For better UX, we should get all available tags regardless of current filters
+                if (!_selectedTags.Any() && !_availableTags.Any()) 
+                {
+                    _availableTags = _artifacts
+                        .SelectMany(a => a.Tags)
+                        .Distinct()
+                        .OrderBy(t => t)
+                        .ToList();
+                }
+
+                Logger.LogInformation("Loaded {Count} artifacts (of {Total} total) with {TagCount} unique tags", _artifacts.Count, _totalArtifacts, _availableTags.Count);
+            }
+            else
+            {
+                Logger.LogError("Failed to load artifacts: {StatusCode}", response.StatusCode);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading artifacts from registry");
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private IEnumerable<ArtifactViewModel> FilterArtifacts()
+    {
+        var filtered = _artifacts.AsEnumerable();
+
+        if (!string.IsNullOrWhiteSpace(_searchQuery))
+        {
+            filtered = filtered.Where(a => 
+                a.Title.Contains(_searchQuery, StringComparison.OrdinalIgnoreCase) ||
+                a.Id.Contains(_searchQuery, StringComparison.OrdinalIgnoreCase) ||
+                a.Tags.Any(t => t.Contains(_searchQuery, StringComparison.OrdinalIgnoreCase)));
+        }
+
+        if (_selectedType != "all")
+        {
+            filtered = filtered.Where(a => a.Type.Equals(_selectedType, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (_dateFilter.HasValue)
+        {
+            filtered = filtered.Where(a => a.Created >= _dateFilter.Value);
+        }
+
+        if (_selectedTags.Any())
+        {
+            filtered = filtered.Where(a => _selectedTags.All(tag => a.Tags.Contains(tag)));
+        }
+
+        return filtered.OrderByDescending(a => a.Created);
+    }
+
+    private async Task RefreshArtifacts()
+    {
+        await LoadArtifacts();
+    }
+
+    private void HandleSearchKeyPress(KeyboardEventArgs e)
+    {
+        // Filter automatically updates due to Immediate="true"
+        StateHasChanged();
+    }
+
+    private async Task OnSearchChanged(string searchQuery)
+    {
+        _searchQuery = searchQuery;
+        Logger.LogInformation("Search query changed: {SearchQuery}", _searchQuery);
+        await LoadArtifacts();
+    }
+
+    private async Task OnTypeChanged(string selectedType)
+    {
+        _selectedType = selectedType;
+        Logger.LogInformation("Type filter changed: {SelectedType}", _selectedType);
+        await LoadArtifacts();
+    }
+
+    private async Task OnDateChanged(DateTime? date)
+    {
+        _dateFilter = date;
+        Logger.LogInformation("Date filter changed: {DateFilter}", _dateFilter);
+        await LoadArtifacts();
+    }
+
+    private async Task ToggleTag(string tag)
+    {
+        if (_selectedTags.Contains(tag))
+        {
+            _selectedTags.Remove(tag);
+            Logger.LogInformation("Removed tag filter: {Tag}. Selected tags: [{Tags}]", tag, string.Join(", ", _selectedTags));
+        }
+        else
+        {
+            _selectedTags.Add(tag);
+            Logger.LogInformation("Added tag filter: {Tag}. Selected tags: [{Tags}]", tag, string.Join(", ", _selectedTags));
+        }
+        
+        // Reload artifacts with new filter
+        await LoadArtifacts();
+    }
+
+    private void OnArtifactRowClick(DataGridRowClickEventArgs<ArtifactViewModel> args)
+    {
+        ViewArtifact(args.Item.Id);
+    }
+
+    private void ViewArtifact(string artifactId)
+    {
+        Navigation.NavigateTo($"/artifacts/{artifactId}");
+    }
+
+    private void ClearSelection()
+    {
+        _selectedArtifacts.Clear();
+        StateHasChanged();
+    }
+
+    private async Task ArchiveSelectedArtifacts()
+    {
+        if (!_selectedArtifacts.Any()) return;
+
+        var options = new DialogOptions 
+        { 
+            CloseOnEscapeKey = true, 
+            MaxWidth = MaxWidth.Medium, 
+            FullWidth = true 
+        };
+
+        var parameters = new DialogParameters<ConfirmBulkActionDialog>
+        {
+            { x => x.Title, "Archive Artifacts" },
+            { x => x.Message, $"Are you sure you want to archive {_selectedArtifacts.Count} artifact(s)? They will be hidden from the main list but can be restored later." },
+            { x => x.ActionButtonText, "Archive" },
+            { x => x.ActionButtonColor, Color.Warning },
+            { x => x.SelectedItems, _selectedArtifacts.Select(a => a.Title).ToList() }
+        };
+
+        var dialog = await DialogService.ShowAsync<ConfirmBulkActionDialog>("Confirm Archive", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            await PerformBulkArchive();
+        }
+    }
+
+    private async Task DeleteSelectedArtifacts()
+    {
+        if (!_selectedArtifacts.Any()) return;
+
+        var options = new DialogOptions 
+        { 
+            CloseOnEscapeKey = true, 
+            MaxWidth = MaxWidth.Medium, 
+            FullWidth = true 
+        };
+
+        var parameters = new DialogParameters<ConfirmBulkActionDialog>
+        {
+            { x => x.Title, "Delete Artifacts" },
+            { x => x.Message, $"Are you sure you want to permanently delete {_selectedArtifacts.Count} artifact(s)? This action cannot be undone." },
+            { x => x.ActionButtonText, "Delete" },
+            { x => x.ActionButtonColor, Color.Error },
+            { x => x.SelectedItems, _selectedArtifacts.Select(a => a.Title).ToList() }
+        };
+
+        var dialog = await DialogService.ShowAsync<ConfirmBulkActionDialog>("Confirm Deletion", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            await PerformBulkDelete();
+        }
+    }
+
+    private async Task PerformBulkArchive()
+    {
+        _isBulkOperationInProgress = true;
+        StateHasChanged();
+
+        try
+        {
+            var artifactIds = _selectedArtifacts.Select(a => a.Id).ToArray();
+            Logger.LogInformation("Archiving {Count} artifacts: {Ids}", artifactIds.Length, string.Join(", ", artifactIds));
+
+            using var httpClient = HttpClientFactory.CreateClient("FlowTimeAPI");
+            var json = System.Text.Json.JsonSerializer.Serialize(artifactIds);
+            var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+            
+            var response = await httpClient.PostAsync("v1/artifacts/archive", content);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                Snackbar.Add($"Successfully archived {artifactIds.Length} artifact(s)", Severity.Success);
+                ClearSelection();
+                await LoadArtifacts();
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                Logger.LogError("Failed to archive artifacts: {StatusCode} - {Error}", response.StatusCode, error);
+                Snackbar.Add($"Failed to archive artifacts: {response.StatusCode}", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error archiving artifacts");
+            Snackbar.Add("Error archiving artifacts. Please try again.", Severity.Error);
+        }
+        finally
+        {
+            _isBulkOperationInProgress = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task PerformBulkDelete()
+    {
+        _isBulkOperationInProgress = true;
+        StateHasChanged();
+
+        try
+        {
+            var artifactIds = _selectedArtifacts.Select(a => a.Id).ToArray();
+            Logger.LogInformation("Deleting {Count} artifacts: {Ids}", artifactIds.Length, string.Join(", ", artifactIds));
+
+            using var httpClient = HttpClientFactory.CreateClient("FlowTimeAPI");
+            var json = System.Text.Json.JsonSerializer.Serialize(artifactIds);
+            var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+            
+            var response = await httpClient.PostAsync("v1/artifacts/bulk-delete", content);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                Snackbar.Add($"Successfully deleted {artifactIds.Length} artifact(s)", Severity.Success);
+                ClearSelection();
+                await LoadArtifacts();
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                Logger.LogError("Failed to delete artifacts: {StatusCode} - {Error}", response.StatusCode, error);
+                Snackbar.Add($"Failed to delete artifacts: {response.StatusCode}", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error deleting artifacts");
+            Snackbar.Add("Error deleting artifacts. Please try again.", Severity.Error);
+        }
+        finally
+        {
+            _isBulkOperationInProgress = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task DownloadArtifact(string artifactId)
+    {
+        try
+        {
+            Logger.LogInformation("Downloading artifact: {ArtifactId}", artifactId);
+            using var httpClient = HttpClientFactory.CreateClient("FlowTimeAPI");
+            var response = await httpClient.GetAsync($"v1/artifacts/{artifactId}/download");
+            
+            if (response.IsSuccessStatusCode)
+            {
+                var fileBytes = await response.Content.ReadAsByteArrayAsync();
+                var artifact = _artifacts.FirstOrDefault(a => a.Id == artifactId);
+                var fileName = $"{(artifact?.Title ?? artifactId).Replace(" ", "_")}.zip";
+                
+                // Create download URL and trigger download
+                var base64 = Convert.ToBase64String(fileBytes);
+                var dataUri = $"data:application/zip;base64,{base64}";
+                Navigation.NavigateTo(dataUri, true);
+                
+                Logger.LogInformation("Download initiated for artifact: {ArtifactId}", artifactId);
+            }
+            else
+            {
+                Logger.LogError("Failed to download artifact: {StatusCode}", response.StatusCode);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error downloading artifact: {ArtifactId}", artifactId);
+        }
+    }
+
+    private string GetArtifactIcon(string type) => type.ToLower() switch
+    {
+        "run" => Icons.Material.Filled.PlayArrow,
+        "model" => Icons.Material.Filled.Schema,
+        "telemetry" => Icons.Material.Filled.Sensors,
+        _ => Icons.Material.Filled.Description
+    };
+
+    private Color GetArtifactColor(string type) => type.ToLower() switch
+    {
+        "run" => Color.Success,
+        "model" => Color.Primary,
+        "telemetry" => Color.Secondary,
+        _ => Color.Default
+    };
+
+    private string FormatFileSize(long bytes)
+    {
+        if (bytes < 1024) return $"{bytes} B";
+        if (bytes < 1024 * 1024) return $"{bytes / 1024} KB";
+        return $"{bytes / (1024 * 1024)} MB";
+    }
+
+    // Data models for API response
+    private class ArtifactsApiResponse
+    {
+        public List<ArtifactApiModel>? Artifacts { get; set; }
+        public int Total { get; set; }
+        public int Count { get; set; }
+    }
+
+    private class ArtifactApiModel
+    {
+        public string? Id { get; set; }
+        public string? Type { get; set; }
+        public string? Title { get; set; }
+        public DateTime Created { get; set; }
+        public List<string>? Tags { get; set; }
+        public long? TotalSize { get; set; }
+        public List<string>? Files { get; set; }
+    }
+
+    private class ArtifactViewModel
+    {
+        public string Id { get; set; } = "";
+        public string Type { get; set; } = "";
+        public string Title { get; set; } = "";
+        public DateTime Created { get; set; }
+        public List<string> Tags { get; set; } = new();
+        public long TotalSize { get; set; }
+        public List<string> Files { get; set; } = new();
+    }
+}

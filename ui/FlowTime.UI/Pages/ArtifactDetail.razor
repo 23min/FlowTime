@@ -1,0 +1,340 @@
+@page "/artifacts/{ArtifactId}"
+@using FlowTime.UI.Services
+@using System.Text.Json
+@inject IHttpClientFactory HttpClientFactory
+@inject ILogger<ArtifactDetail> Logger
+@inject NavigationManager Navigation
+
+<PageTitle>Artifact Details - @_artifact?.Title</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.False">
+    <MudStack Spacing="3">
+        <!-- Header with Back Button -->
+        <MudPaper Class="pa-4" Elevation="2">
+            <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                    <MudButton Variant="Variant.Text" 
+                               StartIcon="@Icons.Material.Filled.ArrowBack"
+                               OnClick="GoBack"
+                               Color="Color.Primary">
+                        Back to Artifacts
+                    </MudButton>
+                    <MudDivider Vertical="true" FlexItem="true" />
+                    <MudStack>
+                        <MudText Typo="Typo.h4">@(_artifact?.Title ?? "Loading...")</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">
+                            Artifact ID: @ArtifactId
+                        </MudText>
+                    </MudStack>
+                </MudStack>
+                <MudStack Row Spacing="2">
+                    <MudButton Variant="Variant.Outlined" 
+                               StartIcon="@Icons.Material.Filled.Download"
+                               OnClick="DownloadArtifact"
+                               Disabled="@(_isLoading || _artifact == null)"
+                               Color="Color.Secondary">
+                        Download
+                    </MudButton>
+                    <MudButton Variant="Variant.Outlined" 
+                               StartIcon="@Icons.Material.Filled.Refresh"
+                               OnClick="RefreshArtifact"
+                               Disabled="@_isLoading">
+                        Refresh
+                    </MudButton>
+                </MudStack>
+            </MudStack>
+        </MudPaper>
+
+        @if (_isLoading)
+        {
+            <MudPaper Class="pa-4" Elevation="1">
+                <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+                <MudText Typo="Typo.body2" Class="mt-4 text-center">Loading artifact details...</MudText>
+            </MudPaper>
+        }
+        else if (_artifact == null && !_isLoading)
+        {
+            <MudAlert Severity="Severity.Error" Icon="@Icons.Material.Filled.ErrorOutline">
+                <MudText>Artifact not found.</MudText>
+                <MudText Typo="Typo.body2">The artifact with ID "@ArtifactId" could not be found.</MudText>
+            </MudAlert>
+        }
+        else if (_artifact != null)
+        {
+            <!-- Basic Information -->
+            <MudPaper Class="pa-4" Elevation="1">
+                <MudText Typo="Typo.h6" Class="mb-3">Basic Information</MudText>
+                <MudGrid>
+                    <MudItem xs="12" sm="6" md="3">
+                        <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                            <MudIcon Icon="@GetArtifactIcon(_artifact.Type)" Size="Size.Small" Color="@GetArtifactColor(_artifact.Type)" />
+                            <MudText Typo="Typo.caption">Type:</MudText>
+                            <MudText Typo="Typo.body2"><strong>@_artifact.Type.ToUpper()</strong></MudText>
+                        </MudStack>
+                    </MudItem>
+                    <MudItem xs="12" sm="6" md="3">
+                        <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                            <MudIcon Icon="@Icons.Material.Filled.Schedule" Size="Size.Small" />
+                            <MudText Typo="Typo.caption">Created:</MudText>
+                            <MudText Typo="Typo.body2"><strong>@_artifact.Created.ToString("yyyy-MM-dd HH:mm")</strong></MudText>
+                        </MudStack>
+                    </MudItem>
+                    <MudItem xs="12" sm="6" md="3">
+                        <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                            <MudIcon Icon="@Icons.Material.Filled.Storage" Size="Size.Small" />
+                            <MudText Typo="Typo.caption">Size:</MudText>
+                            <MudText Typo="Typo.body2"><strong>@FormatFileSize(_artifact.TotalSize)</strong></MudText>
+                        </MudStack>
+                    </MudItem>
+                    <MudItem xs="12" sm="6" md="3">
+                        <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                            <MudIcon Icon="@Icons.Material.Filled.InsertDriveFile" Size="Size.Small" />
+                            <MudText Typo="Typo.caption">Files:</MudText>
+                            <MudText Typo="Typo.body2"><strong>@_artifact.Files.Count</strong></MudText>
+                        </MudStack>
+                    </MudItem>
+                </MudGrid>
+
+                @if (_artifact.Tags.Any())
+                {
+                    <MudDivider Class="my-4" />
+                    <MudStack Row Spacing="1" Wrap="Wrap.Wrap" AlignItems="AlignItems.Center">
+                        <MudText Typo="Typo.caption">Tags:</MudText>
+                        @foreach (var tag in _artifact.Tags)
+                        {
+                            <MudChip T="string" Size="Size.Small" Text="@tag" Color="Color.Primary" />
+                        }
+                    </MudStack>
+                }
+            </MudPaper>
+
+            <!-- Files List -->
+            <MudPaper Class="pa-4" Elevation="1">
+                <MudText Typo="Typo.h6" Class="mb-3">Files (@_artifact.Files.Count)</MudText>
+                @if (_artifact.Files.Any())
+                {
+                    <MudDataGrid Items="@_artifact.Files" 
+                                 SortMode="SortMode.Multiple" 
+                                 Filterable="false"
+                                 Dense="true"
+                                 Hover="true">
+                        <Columns>
+                            <PropertyColumn Property="x => x" Title="Filename">
+                                <CellTemplate>
+                                    <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                                        <MudIcon Icon="@GetFileIcon(context.Item)" Size="Size.Small" />
+                                        <MudText Typo="Typo.body2">@context.Item</MudText>
+                                    </MudStack>
+                                </CellTemplate>
+                            </PropertyColumn>
+                            <TemplateColumn Title="Actions" Sortable="false">
+                                <CellTemplate>
+                                    <MudButton Size="Size.Small" 
+                                               Variant="Variant.Text"
+                                               StartIcon="@Icons.Material.Filled.OpenInNew"
+                                               OnClick="@(() => ViewFile(context.Item))"
+                                               Color="Color.Primary">
+                                        View
+                                    </MudButton>
+                                </CellTemplate>
+                            </TemplateColumn>
+                        </Columns>
+                    </MudDataGrid>
+                }
+                else
+                {
+                    <MudAlert Severity="Severity.Info">
+                        No files found in this artifact.
+                    </MudAlert>
+                }
+            </MudPaper>
+
+            <!-- Metadata -->
+            @if (_artifact.Metadata != null && _artifact.Metadata.Any())
+            {
+                <MudPaper Class="pa-4" Elevation="1">
+                    <MudText Typo="Typo.h6" Class="mb-3">Metadata</MudText>
+                    <MudExpansionPanels Elevation="0">
+                        @foreach (var kvp in _artifact.Metadata)
+                        {
+                            <MudExpansionPanel Text="@kvp.Key">
+                                <div class="pa-2">
+                                    <MudText Typo="Typo.body2" Style="white-space: pre-wrap; font-family: 'Courier New', monospace;">@kvp.Value?.ToString()</MudText>
+                                </div>
+                            </MudExpansionPanel>
+                        }
+                    </MudExpansionPanels>
+                </MudPaper>
+            }
+        }
+    </MudStack>
+</MudContainer>
+
+@code {
+    [Parameter] public string ArtifactId { get; set; } = "";
+
+    private bool _isLoading = true;
+    private ArtifactDetailModel? _artifact;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadArtifact();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!string.IsNullOrEmpty(ArtifactId))
+        {
+            await LoadArtifact();
+        }
+    }
+
+    private async Task LoadArtifact()
+    {
+        _isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            Logger.LogInformation("Loading artifact details for: {ArtifactId}", ArtifactId);
+            using var httpClient = HttpClientFactory.CreateClient("FlowTimeAPI");
+            var response = await httpClient.GetAsync($"v1/artifacts/{ArtifactId}");
+            
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync();
+                _artifact = JsonSerializer.Deserialize<ArtifactDetailModel>(json, new JsonSerializerOptions 
+                { 
+                    PropertyNameCaseInsensitive = true 
+                });
+
+                Logger.LogInformation("Loaded artifact: {Title} with {FileCount} files", _artifact?.Title, _artifact?.Files?.Count ?? 0);
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                Logger.LogWarning("Artifact not found: {ArtifactId}", ArtifactId);
+                _artifact = null;
+            }
+            else
+            {
+                Logger.LogError("Failed to load artifact: {StatusCode}", response.StatusCode);
+                _artifact = null;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading artifact details for: {ArtifactId}", ArtifactId);
+            _artifact = null;
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task RefreshArtifact()
+    {
+        await LoadArtifact();
+    }
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo("/artifacts");
+    }
+
+    private async Task DownloadArtifact()
+    {
+        if (_artifact == null) return;
+
+        try
+        {
+            Logger.LogInformation("Downloading artifact: {ArtifactId}", ArtifactId);
+            using var httpClient = HttpClientFactory.CreateClient("FlowTimeAPI");
+            var response = await httpClient.GetAsync($"v1/artifacts/{ArtifactId}/download");
+            
+            if (response.IsSuccessStatusCode)
+            {
+                var fileBytes = await response.Content.ReadAsByteArrayAsync();
+                var fileName = $"{_artifact.Title.Replace(" ", "_")}.zip";
+                
+                // Create download URL and trigger download
+                var base64 = Convert.ToBase64String(fileBytes);
+                var dataUri = $"data:application/zip;base64,{base64}";
+                Navigation.NavigateTo(dataUri, true);
+                
+                Logger.LogInformation("Download initiated for artifact: {ArtifactId}", ArtifactId);
+            }
+            else
+            {
+                Logger.LogError("Failed to download artifact: {StatusCode}", response.StatusCode);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error downloading artifact: {ArtifactId}", ArtifactId);
+        }
+    }
+
+    private async Task ViewFile(string fileName)
+    {
+        try
+        {
+            Logger.LogInformation("Viewing file: {FileName} from artifact: {ArtifactId}", fileName, ArtifactId);
+            
+            // Navigate to the file viewer page
+            Navigation.NavigateTo($"/artifacts/{ArtifactId}/files/{fileName}");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error viewing file: {FileName} from artifact: {ArtifactId}", fileName, ArtifactId);
+        }
+    }
+
+    private string GetArtifactIcon(string type) => type.ToLower() switch
+    {
+        "run" => Icons.Material.Filled.PlayArrow,
+        "model" => Icons.Material.Filled.Schema,
+        "telemetry" => Icons.Material.Filled.Sensors,
+        _ => Icons.Material.Filled.Description
+    };
+
+    private Color GetArtifactColor(string type) => type.ToLower() switch
+    {
+        "run" => Color.Success,
+        "model" => Color.Primary,
+        "telemetry" => Color.Secondary,
+        _ => Color.Default
+    };
+
+    private string GetFileIcon(string fileName) => Path.GetExtension(fileName).ToLower() switch
+    {
+        ".json" => Icons.Material.Filled.DataObject,
+        ".yaml" or ".yml" => Icons.Material.Filled.Code,
+        ".csv" => Icons.Material.Filled.TableChart,
+        ".txt" => Icons.Material.Filled.TextSnippet,
+        ".log" => Icons.Material.Filled.Article,
+        _ => Icons.Material.Filled.InsertDriveFile
+    };
+
+    private string FormatFileSize(long bytes)
+    {
+        if (bytes < 1024) return $"{bytes} B";
+        if (bytes < 1024 * 1024) return $"{bytes / 1024} KB";
+        return $"{bytes / (1024 * 1024)} MB";
+    }
+
+    // Data model for individual artifact
+    private class ArtifactDetailModel
+    {
+        public string Id { get; set; } = "";
+        public string Type { get; set; } = "";
+        public string Title { get; set; } = "";
+        public DateTime Created { get; set; }
+        public List<string> Tags { get; set; } = new();
+        public Dictionary<string, object>? Metadata { get; set; }
+        public List<string> Files { get; set; } = new();
+        public long TotalSize { get; set; }
+        public DateTime LastModified { get; set; }
+    }
+}

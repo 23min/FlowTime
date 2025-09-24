@@ -133,8 +133,8 @@ public class ServiceInfoProvider : IServiceInfoProvider
 
     private string GetDataDirectory()
     {
-        // Use the same approach as flowtime-sim-vnext for consistency
-        return Program.ServiceHelpers.DataRoot(configuration);
+        // Use the same method as the rest of the API for consistency
+        return Program.GetArtifactsDirectory(configuration);
     }
 
     private string GetRunsDirectory()
