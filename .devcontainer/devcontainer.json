@@ -34,7 +34,6 @@
         "ms-dotnettools.csdevkit",
         "ms-dotnettools.csharp",
         "EditorConfig.EditorConfig",
-        "eamodio.gitlens",
         "github.vscode-github-actions",
         "mhutchie.git-graph",
         "redhat.vscode-yaml",
