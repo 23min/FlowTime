@@ -2,8 +2,6 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text.Json;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Routing;
 using FlowTime.Sim.Core;
 using FlowTime.Sim.Service; // TemplateRegistry
 using FlowTime.Sim.Service.Services; // ServiceInfoProvider
@@ -271,8 +269,8 @@ v1.MapPost("/sim/templates/{id}/generate", async (string id, HttpRequest req, IT
             };
         }
 
-        var scenario = await templateRepo.GenerateScenarioAsync(id, parameters);
-        return Results.Ok(new { scenario, templateId = id, parameters });
+        var model = await templateRepo.GenerateModelAsync(id, parameters);
+        return Results.Ok(new { model, templateId = id, parameters });
     }
     catch (ArgumentException ex)
     {

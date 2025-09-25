@@ -8,7 +8,7 @@ namespace FlowTime.Sim.Tests.Service;
 public class TemplateParameterBugTests
 {
     [Fact]
-    public async Task GenerateScenarioAsync_ShouldStripParametersFromMetadata()
+    public async Task GenerateModelAsync_ShouldStripParametersFromMetadata()
     {
         // Arrange
         var currentDir = Directory.GetCurrentDirectory();
@@ -52,14 +52,14 @@ public class TemplateParameterBugTests
         foreach (var templateId in templateIds)
         {
             // Act
-            var generatedScenario = await repository.GenerateScenarioAsync(templateId, parameters);
+            var generatedModel = await repository.GenerateModelAsync(templateId, parameters);
 
             // Assert
-            Assert.NotNull(generatedScenario);
-            Assert.DoesNotContain("  parameters:", generatedScenario);
+            Assert.NotNull(generatedModel);
+            Assert.DoesNotContain("  parameters:", generatedModel);
             
-            // Additional check - verify the scenario is valid YAML and doesn't contain parameters in metadata
-            var lines = generatedScenario.Split('\n');
+            // Additional check - verify the model is valid YAML and doesn't contain parameters in metadata
+            var lines = generatedModel.Split('\n');
             var inMetadataSection = false;
             var foundParametersInMetadata = false;
 
@@ -86,7 +86,7 @@ public class TemplateParameterBugTests
             }
 
             Assert.False(foundParametersInMetadata, 
-                $"Template {templateId} generated scenario still contains 'parameters:' in metadata section");
+                $"Template {templateId} generated model still contains 'parameters:' in metadata section");
         }
     }
 

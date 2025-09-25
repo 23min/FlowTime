@@ -329,7 +329,7 @@ public class FileSystemTemplateRepository : ITemplateRepository
         };
     }
 
-    public async Task<string> GenerateScenarioAsync(string templateId, Dictionary<string, object> parameters)
+    public async Task<string> GenerateModelAsync(string templateId, Dictionary<string, object> parameters)
     {
         var template = await GetTemplateAsync(templateId);
         if (template == null)
@@ -347,33 +347,15 @@ public class FileSystemTemplateRepository : ITemplateRepository
             scenario = scenario.Replace(placeholder, replacementValue);
         }
 
-        // Parse YAML and remove parameters section from metadata
-        var deserializer = new DeserializerBuilder()
-            .WithNamingConvention(CamelCaseNamingConvention.Instance)
-            .Build();
-        
-        var serializer = new SerializerBuilder()
-            .WithNamingConvention(CamelCaseNamingConvention.Instance)
-            .Build();
-
+        // Remove parameters section from metadata using string manipulation to preserve formatting
         try
         {
-            var yamlObject = deserializer.Deserialize<Dictionary<object, object>>(scenario);
-            
-            // Remove parameters from metadata if it exists
-            if (yamlObject.TryGetValue("metadata", out var metadataObj) && 
-                metadataObj is Dictionary<object, object> metadata)
-            {
-                metadata.Remove("parameters");
-            }
-            
-            // Re-serialize the cleaned YAML
-            scenario = serializer.Serialize(yamlObject);
+            scenario = RemoveParametersFromMetadata(scenario);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to clean parameters from generated scenario for template {TemplateId}. Returning original scenario.", templateId);
-            // If YAML parsing fails, return the scenario with parameters (fallback behavior)
+            // If parameter removal fails, return the scenario with parameters (fallback behavior)
         }
 
         return scenario;
@@ -429,6 +411,90 @@ public class FileSystemTemplateRepository : ITemplateRepository
             values.Add(FormatParameterValue(item));
         }
         return $"[{string.Join(", ", values)}]";
+    }
+
+    private string RemoveParametersFromMetadata(string yamlContent)
+    {
+        var lines = yamlContent.Split('\n').ToList();
+        var result = new List<string>();
+        var inMetadataSection = false;
+        var inParametersSection = false;
+        var metadataIndentLevel = 0;
+        var parametersIndentLevel = 0;
+
+        for (int i = 0; i < lines.Count; i++)
+        {
+            var line = lines[i];
+            var trimmedLine = line.Trim();
+
+            // Detect metadata section start
+            if (trimmedLine == "metadata:")
+            {
+                inMetadataSection = true;
+                metadataIndentLevel = GetIndentLevel(line);
+                result.Add(line);
+                continue;
+            }
+
+            // If we're in metadata section
+            if (inMetadataSection)
+            {
+                var currentIndent = GetIndentLevel(line);
+
+                // Check if we're leaving metadata section (less or equal indentation for non-empty lines)
+                if (!string.IsNullOrWhiteSpace(line) && currentIndent <= metadataIndentLevel)
+                {
+                    inMetadataSection = false;
+                    inParametersSection = false;
+                    result.Add(line);
+                    continue;
+                }
+
+                // Check if we're entering parameters section
+                if (trimmedLine == "parameters:")
+                {
+                    inParametersSection = true;
+                    parametersIndentLevel = currentIndent;
+                    // Skip this line (don't add to result)
+                    continue;
+                }
+
+                // If we're in parameters section, skip all lines until we get to same or lesser indentation
+                if (inParametersSection)
+                {
+                    // Skip empty lines and lines with greater indentation than parameters
+                    if (string.IsNullOrWhiteSpace(line) || currentIndent > parametersIndentLevel)
+                    {
+                        continue;
+                    }
+                    else
+                    {
+                        // We've exited the parameters section
+                        inParametersSection = false;
+                        result.Add(line);
+                        continue;
+                    }
+                }
+            }
+
+            // Add line if we're not skipping it
+            result.Add(line);
+        }
+
+        return string.Join('\n', result);
+    }
+
+    private int GetIndentLevel(string line)
+    {
+        int indent = 0;
+        foreach (char c in line)
+        {
+            if (c == ' ')
+                indent++;
+            else
+                break;
+        }
+        return indent;
     }
 }
 
