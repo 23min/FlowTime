@@ -87,15 +87,15 @@ public class FlowTimeSimApiClientWithFallback : IFlowTimeSimApiClient
         return await client.GetSeriesAsync(runId, seriesId, ct);
     }
 
-    public async Task<Result<List<ScenarioInfo>>> GetScenariosAsync(CancellationToken ct = default)
+    public async Task<Result<List<ApiTemplateInfo>>> GetTemplatesAsync(CancellationToken ct = default)
     {
         var client = await GetActiveClientAsync();
-        return await client.GetScenariosAsync(ct);
+        return await client.GetTemplatesAsync(ct);
     }
 
-    public async Task<Result<TemplateGenerationResponse>> GenerateTemplateAsync(string templateId, Dictionary<string, object> parameters, CancellationToken ct = default)
+    public async Task<Result<TemplateGenerationResponse>> GenerateModelAsync(string templateId, Dictionary<string, object> parameters, CancellationToken ct = default)
     {
         var client = await GetActiveClientAsync();
-        return await client.GenerateTemplateAsync(templateId, parameters, ct);
+        return await client.GenerateModelAsync(templateId, parameters, ct);
     }
 }

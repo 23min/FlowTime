@@ -9,8 +9,8 @@ public interface IFlowTimeSimApiClient
     Task<Result<SimRunResponse>> RunAsync(string yaml, CancellationToken ct = default);
     Task<Result<SeriesIndex>> GetIndexAsync(string runId, CancellationToken ct = default);
     Task<Result<Stream>> GetSeriesAsync(string runId, string seriesId, CancellationToken ct = default);
-    Task<Result<List<ScenarioInfo>>> GetScenariosAsync(CancellationToken ct = default);
-    Task<Result<TemplateGenerationResponse>> GenerateTemplateAsync(string templateId, Dictionary<string, object> parameters, CancellationToken ct = default);
+    Task<Result<List<ApiTemplateInfo>>> GetTemplatesAsync(CancellationToken ct = default);
+    Task<Result<TemplateGenerationResponse>> GenerateModelAsync(string templateId, Dictionary<string, object> parameters, CancellationToken ct = default);
     Task<Result<bool>> HealthAsync(CancellationToken ct = default);
     Task<Result<object>> GetDetailedHealthAsync(CancellationToken ct = default);
 }
@@ -174,7 +174,7 @@ public class FlowTimeSimApiClient : IFlowTimeSimApiClient
         }
     }
 
-    public async Task<Result<List<ScenarioInfo>>> GetScenariosAsync(CancellationToken ct = default)
+    public async Task<Result<List<ApiTemplateInfo>>> GetTemplatesAsync(CancellationToken ct = default)
     {
         try
         {
@@ -183,31 +183,31 @@ public class FlowTimeSimApiClient : IFlowTimeSimApiClient
             if (!response.IsSuccessStatusCode)
             {
                 var errorText = await response.Content.ReadAsStringAsync(ct);
-                return Result<List<ScenarioInfo>>.Fail($"Failed to get templates: {errorText}", (int)response.StatusCode);
+                return Result<List<ApiTemplateInfo>>.Fail($"Failed to get templates: {errorText}", (int)response.StatusCode);
             }
 
             var responseText = await response.Content.ReadAsStringAsync(ct);
-            var result = System.Text.Json.JsonSerializer.Deserialize<List<ScenarioInfo>>(responseText, new System.Text.Json.JsonSerializerOptions
+            var result = System.Text.Json.JsonSerializer.Deserialize<List<ApiTemplateInfo>>(responseText, new System.Text.Json.JsonSerializerOptions
             {
                 PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
             });
 
             return result != null 
-                ? Result<List<ScenarioInfo>>.Ok(result, (int)response.StatusCode)
-                : Result<List<ScenarioInfo>>.Fail("Failed to parse templates");
+                ? Result<List<ApiTemplateInfo>>.Ok(result, (int)response.StatusCode)
+                : Result<List<ApiTemplateInfo>>.Fail("Failed to parse templates");
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to get templates");
-            return Result<List<ScenarioInfo>>.Fail($"Templates error: {ex.Message}");
+            return Result<List<ApiTemplateInfo>>.Fail($"Templates error: {ex.Message}");
         }
     }
 
-    public async Task<Result<TemplateGenerationResponse>> GenerateTemplateAsync(string templateId, Dictionary<string, object> parameters, CancellationToken ct = default)
+    public async Task<Result<TemplateGenerationResponse>> GenerateModelAsync(string templateId, Dictionary<string, object> parameters, CancellationToken ct = default)
     {
         try
         {
-            logger.LogInformation("Generating template '{TemplateId}' with {ParamCount} parameters", templateId, parameters.Count);
+            logger.LogInformation("Generating model from template '{TemplateId}' with {ParamCount} parameters", templateId, parameters.Count);
             
             var json = JsonSerializer.Serialize(parameters, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
             var content = new StringContent(json, Encoding.UTF8, "application/json");
@@ -217,8 +217,8 @@ public class FlowTimeSimApiClient : IFlowTimeSimApiClient
             if (!response.IsSuccessStatusCode)
             {
                 var errorContent = await response.Content.ReadAsStringAsync(ct);
-                logger.LogWarning("Template generation failed: {StatusCode} - {Error}", response.StatusCode, errorContent);
-                return Result<TemplateGenerationResponse>.Fail($"Template generation failed: {response.StatusCode}", (int)response.StatusCode);
+                logger.LogWarning("Model generation failed: {StatusCode} - {Error}", response.StatusCode, errorContent);
+                return Result<TemplateGenerationResponse>.Fail($"Model generation failed: {response.StatusCode}", (int)response.StatusCode);
             }
             
             var responseContent = await response.Content.ReadAsStringAsync(ct);
@@ -226,16 +226,16 @@ public class FlowTimeSimApiClient : IFlowTimeSimApiClient
             
             if (result == null)
             {
-                return Result<TemplateGenerationResponse>.Fail("Empty response from template generation API");
+                return Result<TemplateGenerationResponse>.Fail("Empty response from model generation API");
             }
             
-            logger.LogInformation("Successfully generated template '{TemplateId}' - scenario length: {Length} chars", templateId, result.Scenario?.Length ?? 0);
+            logger.LogInformation("Successfully generated model from template '{TemplateId}' - model length: {Length} chars", templateId, result.Model?.Length ?? 0);
             return Result<TemplateGenerationResponse>.Ok(result, (int)response.StatusCode);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to generate template '{TemplateId}'", templateId);
-            return Result<TemplateGenerationResponse>.Fail($"Template generation error: {ex.Message}");
+            logger.LogError(ex, "Failed to generate model from template '{TemplateId}'", templateId);
+            return Result<TemplateGenerationResponse>.Fail($"Model generation error: {ex.Message}");
         }
     }
 }
@@ -279,7 +279,7 @@ public class FormatsInfo
     public string GoldTable { get; set; } = string.Empty;
 }
 
-public class ScenarioInfo
+public class ApiTemplateInfo
 {
     public string Id { get; set; } = string.Empty;
     public string Title { get; set; } = string.Empty;
@@ -291,7 +291,8 @@ public class ScenarioInfo
 
 public class TemplateGenerationResponse
 {
-    public string Scenario { get; set; } = string.Empty;
+    [System.Text.Json.Serialization.JsonPropertyName("scenario")]
+    public string Model { get; set; } = string.Empty;
     public string TemplateId { get; set; } = string.Empty;
     public Dictionary<string, object> Parameters { get; set; } = new();
 }
