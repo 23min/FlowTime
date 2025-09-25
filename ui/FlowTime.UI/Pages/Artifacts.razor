@@ -133,6 +133,20 @@
                 <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
                 <MudText Typo="Typo.body2" Class="mt-4 text-center">Loading artifacts...</MudText>
             }
+            else if (!string.IsNullOrEmpty(_errorMessage))
+            {
+                <MudAlert Severity="Severity.Error" Icon="@Icons.Material.Filled.Error">
+                    <MudText><strong>Failed to load artifacts</strong></MudText>
+                    <MudText Typo="Typo.body2">@_errorMessage</MudText>
+                    <MudButton StartIcon="@Icons.Material.Filled.Refresh" 
+                              OnClick="LoadArtifacts" 
+                              Variant="Variant.Text" 
+                              Color="Color.Primary" 
+                              Class="mt-2">
+                        Retry
+                    </MudButton>
+                </MudAlert>
+            }
             else if (_filteredArtifacts.Any())
             {
                                 <MudDataGrid Items="@_filteredArtifacts" 
@@ -206,6 +220,7 @@
 
 @code {
     private bool _isLoading = true;
+    private string? _errorMessage = null;
     private string _searchQuery = "";
     private string _selectedType = "all";
     private DateTime? _dateFilter;
@@ -241,6 +256,7 @@
     private async Task LoadArtifacts()
     {
         _isLoading = true;
+        _errorMessage = null;
         StateHasChanged();
 
         try
@@ -319,11 +335,13 @@
             }
             else
             {
+                _errorMessage = $"Server error ({response.StatusCode}): Unable to load artifacts. The artifact registry may be corrupted or unavailable.";
                 Logger.LogError("Failed to load artifacts: {StatusCode}", response.StatusCode);
             }
         }
         catch (Exception ex)
         {
+            _errorMessage = $"Connection error: {ex.Message}";
             Logger.LogError(ex, "Error loading artifacts from registry");
         }
         finally

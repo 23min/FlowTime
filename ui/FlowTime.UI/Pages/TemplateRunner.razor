@@ -740,10 +740,15 @@
 
     private async Task OnTabChanged()
     {
-        // Auto-generate model preview when switching to Model Preview tab (index 3)
+        // Auto-generate model preview when switching to Model Preview tab, but add a small delay
+        // to prevent race conditions with manual generation
         if (activeTabIndex == 2 && string.IsNullOrEmpty(generatedYaml) && CanGenerateModel())
         {
-            await GenerateModelPreview();
+            await Task.Delay(100); // Small delay to let any pending generation complete
+            if (string.IsNullOrEmpty(generatedYaml)) // Check again after delay
+            {
+                await GenerateModelPreview();
+            }
         }
     }
 

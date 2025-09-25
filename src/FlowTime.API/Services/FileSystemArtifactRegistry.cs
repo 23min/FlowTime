@@ -15,6 +15,7 @@ public class FileSystemArtifactRegistry : IArtifactRegistry
     private readonly string indexFilePath;
     private readonly ILogger<FileSystemArtifactRegistry> logger;
     private readonly JsonSerializerOptions jsonOptions;
+    private static readonly SemaphoreSlim indexLock = new(1, 1);
 
     public FileSystemArtifactRegistry(IConfiguration configuration, ILogger<FileSystemArtifactRegistry> logger)
     {
@@ -417,15 +418,50 @@ public class FileSystemArtifactRegistry : IArtifactRegistry
             var specPath = files.FirstOrDefault(f => Path.GetFileName(f).Equals("spec.yaml", StringComparison.OrdinalIgnoreCase));
             if (specPath != null)
             {
-                var specContent = await File.ReadAllTextAsync(specPath);
-                title = ExtractMeaningfulTitle(specContent, parts[2]);
+                this.logger.LogDebug("Processing spec.yaml for directory: {RunDirectory}", runDirectory);
                 
-                // Extract template tags from metadata section
-                var templateTags = ExtractTemplateTags(specContent);
-                foreach (var tag in templateTags)
+                // Use WhenAny for proper timeout implementation
+                var specContent = await File.ReadAllTextAsync(specPath);
+                
+                var titleTask = Task.Run(() => ExtractMeaningfulTitle(specContent, parts[2]));
+                var tagsTask = Task.Run(() => ExtractTemplateTags(specContent));
+                var timeoutTask = Task.Delay(TimeSpan.FromSeconds(5));
+                
+                var titleResult = await Task.WhenAny(titleTask, timeoutTask);
+                var tagsResult = await Task.WhenAny(tagsTask, timeoutTask);
+                
+                if (titleResult == titleTask && !titleTask.IsFaulted)
                 {
-                    tags.Add(tag);
+                    var extractedTitle = await titleTask;
+                    if (!string.IsNullOrEmpty(extractedTitle) && extractedTitle != $"Run {parts[2]}")
+                    {
+                        title = extractedTitle;
+                        this.logger.LogDebug("Extracted title '{Title}' for directory: {RunDirectory}", title, runDirectory);
+                    }
                 }
+                else if (titleResult == timeoutTask)
+                {
+                    this.logger.LogWarning("YAML title parsing timed out for directory: {RunDirectory}", runDirectory);
+                }
+                
+                if (tagsResult == tagsTask && !tagsTask.IsFaulted)
+                {
+                    var templateTags = await tagsTask;
+                    if (templateTags.Count > 0)
+                    {
+                        foreach (var tag in templateTags)
+                        {
+                            tags.Add(tag);
+                        }
+                        this.logger.LogDebug("Extracted {Count} template tags for directory: {RunDirectory}: {Tags}", templateTags.Count, runDirectory, string.Join(", ", templateTags));
+                    }
+                }
+                else if (tagsResult == timeoutTask)
+                {
+                    this.logger.LogWarning("YAML tags parsing timed out for directory: {RunDirectory}", runDirectory);
+                }
+                
+                this.logger.LogDebug("Completed processing spec.yaml for directory: {RunDirectory}", runDirectory);
             }
         }
         catch (Exception ex)
@@ -450,35 +486,71 @@ public class FileSystemArtifactRegistry : IArtifactRegistry
 
     private async Task<RegistryIndex> LoadIndexAsync()
     {
-        if (!File.Exists(this.indexFilePath))
-        {
-            throw new FileNotFoundException($"Registry index not found at {this.indexFilePath}");
-        }
-
+        await indexLock.WaitAsync();
         try
         {
-            var json = await File.ReadAllTextAsync(this.indexFilePath);
-            return JsonSerializer.Deserialize<RegistryIndex>(json, this.jsonOptions) 
-                ?? throw new InvalidOperationException("Failed to deserialize registry index");
+            if (File.Exists(this.indexFilePath))
+            {
+                try
+                {
+                    var json = await File.ReadAllTextAsync(this.indexFilePath);
+                    return JsonSerializer.Deserialize<RegistryIndex>(json, this.jsonOptions) 
+                        ?? throw new InvalidOperationException("Failed to deserialize registry index");
+                }
+                catch (JsonException jsonEx)
+                {
+                    this.logger.LogError(jsonEx, "Registry index is corrupted at {IndexPath}, rebuilding from scratch", this.indexFilePath);
+                    
+                    // Backup the corrupted file for investigation
+                    var backupPath = $"{this.indexFilePath}.corrupted.{DateTime.UtcNow:yyyyMMddHHmmss}";
+                    try
+                    {
+                        File.Copy(this.indexFilePath, backupPath);
+                        this.logger.LogInformation("Corrupted registry backed up to {BackupPath}", backupPath);
+                    }
+                    catch (Exception backupEx)
+                    {
+                        this.logger.LogWarning(backupEx, "Failed to backup corrupted registry");
+                    }
+                }
+            }
         }
-        catch (Exception ex)
+        finally
         {
-            this.logger.LogError(ex, "Failed to load registry index from {IndexPath}", this.indexFilePath);
-            throw;
+            indexLock.Release();
         }
+        
+        // Rebuild without holding the lock (avoid deadlock)
+        this.logger.LogInformation("Registry index not found or corrupted at {IndexPath}, rebuilding from scratch", this.indexFilePath);
+        return await RebuildIndexAsync();
     }
 
+
+    
     private async Task SaveIndexAsync(RegistryIndex index)
     {
+        await indexLock.WaitAsync();
         try
         {
             var json = JsonSerializer.Serialize(index, this.jsonOptions);
-            await File.WriteAllTextAsync(this.indexFilePath, json);
+            
+            // Write to temporary file first, then atomic move to prevent corruption
+            var tempPath = $"{this.indexFilePath}.tmp";
+            await File.WriteAllTextAsync(tempPath, json);
+            
+            // Atomic move
+            File.Move(tempPath, this.indexFilePath, overwrite: true);
+            
+            this.logger.LogDebug("Registry index saved successfully");
         }
         catch (Exception ex)
         {
             this.logger.LogError(ex, "Failed to save registry index to {IndexPath}", this.indexFilePath);
             throw;
+        }
+        finally
+        {
+            indexLock.Release();
         }
     }
 

@@ -269,6 +269,40 @@ v1.MapGet("/artifacts/{id}/files/{fileName}", async (string id, string fileName,
     }
 });
 
+// DEBUG: Test individual directory scanning
+v1.MapGet("/debug/scan-directory/{dirName}", async (string dirName, IArtifactRegistry registry, ILogger<Program> logger) =>
+{
+    try
+    {
+        logger.LogInformation("Debug: Scanning individual directory: {DirName}", dirName);
+        var artifactsDir = Program.GetArtifactsDirectory(app.Configuration);
+        var fullPath = Path.Combine(artifactsDir, dirName);
+        
+        if (!Directory.Exists(fullPath))
+        {
+            return Results.NotFound(new { error = $"Directory not found: {dirName}" });
+        }
+        
+        // Cast to FileSystemArtifactRegistry to access ScanRunDirectoryAsync
+        if (registry is FileSystemArtifactRegistry fsRegistry)
+        {
+            var artifact = await fsRegistry.ScanRunDirectoryAsync(fullPath);
+            return Results.Ok(new { 
+                directory = dirName, 
+                success = true, 
+                artifact = artifact 
+            });
+        }
+        
+        return Results.BadRequest(new { error = "Registry is not FileSystemArtifactRegistry" });
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Debug: Failed to scan directory: {DirName}", dirName);
+        return Results.BadRequest(new { error = ex.Message, stackTrace = ex.StackTrace });
+    }
+});
+
 // V1: POST /v1/artifacts/bulk-delete — body: string[] artifact IDs
 v1.MapPost("/artifacts/bulk-delete", async (string[] artifactIds, IArtifactRegistry registry, ILogger<Program> logger) =>
 {
