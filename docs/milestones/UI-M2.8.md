@@ -9,16 +9,16 @@
 
 ## Goal
 
-Implement the **charter tab navigation structure** that enables seamless workflow transitions between [Models]→[Runs]→[Artifacts]→[Learn] tabs. This milestone creates the foundational navigation system that embodies the charter's artifacts-centric workflow paradigm and provides the UI framework for all future charter interactions.
+Implement the **charter workflow navigation system** that enables seamless workflow progression through [Template]→[Configure]→[Run]→[Results] stages via a persistent stepper-style context bar. This milestone creates the foundational navigation system that embodies the charter's artifacts-centric workflow paradigm while preserving existing page functionality and user workflows.
 
 **PHASE 1**: ✅ **COMPLETE** - Template API Integration migrated from hardcoded UI template generation to FlowTime-Sim API-driven templates.
-**PHASE 2**: 📋 **READY** - Charter navigation system implementation.
+**PHASE 2**: 📋 **READY** - Stepper-style workflow context bar implementation.
 
 ## Context & Charter Alignment
 
-The **Charter Roadmap M2.8** establishes the core registry integration and artifacts-centric workflow. **UI-M2.8** implements the user interface manifestation of this charter, creating the tab structure that guides users through the complete FlowTime workflow.
+The **Charter Roadmap M2.8** establishes the core registry integration and artifacts-centric workflow. **UI-M2.8** implements a stepper-style workflow context system that guides users through the complete FlowTime workflow while preserving existing navigation patterns and tool accessibility.
 
-**Charter Role**: Provides the primary navigation framework that makes the charter **actionable** through intuitive UI patterns that match mental models of iterative workflow improvement.
+**Charter Role**: Provides workflow continuity and progress tracking that makes the charter **actionable** through non-intrusive visual guidance that enhances rather than replaces existing UI patterns.
 
 ## Functional Requirements
 
@@ -27,11 +27,11 @@ The **Charter Roadmap M2.8** establishes the core registry integration and artif
 
 Complete the migration from hardcoded UI template generation to FlowTime-Sim API-driven template system.
 
-#### Technical Debt Resolution
-- **Issue**: Template Studio currently uses hybrid architecture where template lists come from FlowTime-Sim API but YAML generation is hardcoded in UI
+#### Technical Debt Resolution (COMPLETED)
+- **Issue**: Template Studio used hybrid architecture where template lists came from FlowTime-Sim API but YAML generation was hardcoded in UI
 - **Root Cause**: UI was built to work independently while FlowTime-Sim APIs were being developed  
 - **Impact**: Architectural inconsistency, duplicate template logic, maintenance burden
-- **Bug Context**: YAML formatting bug in `GenerateTransportationYaml()` (fixed in UI-M2.7) highlights this architectural gap
+- **Resolution**: Migrated all template YAML generation to FlowTime-Sim API calls with graceful demo mode fallback
 
 #### Integration Requirements
 
@@ -80,439 +80,160 @@ public async Task<string> GenerateModelYamlAsync(SimulationRunRequest request)
 
 ---
 
-### **FR-UI-M2.8-1: Charter Tab Navigation System**
-Core navigation framework with tab-based charter workflow structure.
+### **FR-UI-M2.8-1: Stepper-Style Workflow Context Bar**
+Persistent workflow navigation system that provides visual progression guidance while preserving existing page functionality.
 
-**Charter Layout Component:**
-```csharp
-// /Shared/CharterLayout.razor
-@inherits LayoutView
-@using FlowTime.UI.Services
-
-<MudThemeProvider />
-<MudDialogProvider />
-<MudSnackbarProvider />
-
-<MudLayout>
-    <!-- Application Header -->
-    <MudAppBar Elevation="1">
-        <MudIconButton Icon="@Icons.Material.Filled.Menu" 
-                       Color="Color.Inherit" 
-                       Edge="Edge.Start" 
-                       OnClick="@((e) => DrawerToggle())" />
-        <MudSpacer />
-        <MudText Typo="Typo.h6">FlowTime Charter</MudText>
-        <MudSpacer />
-        <MudIconButton Icon="@Icons.Material.Filled.Settings" 
-                       Color="Color.Inherit" />
-    </MudAppBar>
-
-    <!-- Side Navigation Drawer -->
-    <MudDrawer @bind-Open="_drawerOpen" Elevation="1" Variant="@DrawerVariant.Mini" OpenMiniOnHover="true">
-        <MudDrawerHeader>
-            <MudText Typo="Typo.h6">FlowTime</MudText>
-        </MudDrawerHeader>
-        <MudNavMenu>
-            <MudNavLink Href="/charter" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">Charter</MudNavLink>
-            <MudNavLink Href="/artifacts" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Archive">Artifacts</MudNavLink>
-            <MudNavLink Href="/settings" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Settings">Settings</MudNavLink>
-        </MudNavMenu>
-    </MudDrawer>
-
-    <!-- Main Content Area -->
-    <MudMainContent>
-        <MudContainer MaxWidth="MaxWidth.False" Class="ma-4">
-            @Body
-        </MudContainer>
-    </MudMainContent>
-</MudLayout>
-
-@code {
-    bool _drawerOpen = true;
-    void DrawerToggle() => _drawerOpen = !_drawerOpen;
-}
+**Visual Design:**
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ ① Template    →    ② Configure    →    ③ Run    →    ④ Results      │
+│   [Complete]       [Active]           [Todo]        [Todo]     [Clear]│
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-**Charter Tab Navigation Page:**
-```csharp
-// /Pages/Charter.razor
-@page "/charter"
-@page "/"
-@using FlowTime.UI.Components.Charter
-@using FlowTime.UI.Services
+**Key Features:**
+- **Persistent Display**: Shows on all relevant pages (Template Studio, Run Monitor, Results)
+- **Visual Progress**: Stepper-style UI shows completion status of each stage
+- **Smart Navigation**: Click any step to jump to that stage with context preserved
+- **State Indicators**: Visual feedback for completed, active, and pending stages
+- **Context Preservation**: Maintains workflow state across page navigation and browser refresh
 
-<MudContainer MaxWidth="MaxWidth.False">
-    <MudStack Spacing="3">
-        <!-- Charter Header -->
-        <MudPaper Class="pa-4" Elevation="2">
-            <MudStack Row Justify="Justify.SpaceBetween" AlignItems="Center.Center">
-                <MudStack>
-                    <MudText Typo="Typo.h4">FlowTime Charter</MudText>
-                    <MudText Typo="Typo.body1" Color="Color.Secondary">
-                        Artifacts-centric workflow: [Models] → [Runs] → [Artifacts] → [Learn]
-                    </MudText>
-                </MudStack>
-                <MudStack Row Spacing="2">
-                    <MudButton Variant="Variant.Outlined" 
-                               StartIcon="@Icons.Material.Filled.History"
-                               OnClick="ViewWorkflowHistory">History</MudButton>
-                    <MudButton Variant="Variant.Filled" 
-                               StartIcon="@Icons.Material.Filled.Add"
-                               OnClick="StartNewWorkflow">New Workflow</MudButton>
-                </MudStack>
-            </MudStack>
-        </MudPaper>
+**Integration Points:**
+- Appears as a banner component below the main navigation
+- Integrates with existing Template Studio, API Demo, and Artifacts pages
+- Uses MudBlazor Stepper component for consistent visual design
 
-        <!-- Charter Tab Navigation -->
-        <MudPaper Elevation="2" Class="charter-tabs-container">
-            <MudTabs Elevation="0" 
-                     Rounded="false" 
-                     Border="false"
-                     Class="charter-tabs"
-                     ActivePanelIndex="activeTabIndex"
-                     ActivePanelIndexChanged="OnTabChanged">
-                
-                <!-- [Models] Tab -->
-                <MudTabPanel Text="Models" Icon="@Icons.Material.Filled.Schema">
-                    <div class="tab-content-container pa-4">
-                        <ModelsTabContent CurrentContext="@workflowContext" 
-                                          OnModelSelected="HandleModelSelected"
-                                          OnModelCreated="HandleModelCreated" />
-                    </div>
-                </MudTabPanel>
+### **FR-UI-M2.8-2: Workflow Context System**
+Lightweight workflow state management that persists across page navigation and enables smart routing between workflow stages.
 
-                <!-- [Runs] Tab -->
-                <MudTabPanel Text="Runs" Icon="@Icons.Material.Filled.PlayArrow">
-                    <div class="tab-content-container pa-4">
-                        <RunsTabContent CurrentContext="@workflowContext"
-                                        OnRunStarted="HandleRunStarted"
-                                        OnRunCompleted="HandleRunCompleted" />
-                    </div>
-                </MudTabPanel>
+**Workflow State Model:**
+- **Template Stage**: Selected template ID (e.g., "it-system", "supply-chain")
+- **Configure Stage**: Parameter values for template configuration
+- **Run Stage**: Active run ID and execution status
+- **Results Stage**: Generated artifact IDs for analysis
 
-                <!-- [Artifacts] Tab -->
-                <MudTabPanel Text="Artifacts" Icon="@Icons.Material.Filled.Archive">
-                    <div class="tab-content-container pa-4">
-                        <ArtifactsTabContent CurrentContext="@workflowContext"
-                                             OnArtifactSelected="HandleArtifactSelected"
-                                             OnCompareRequested="HandleCompareRequested" />
-                    </div>
-                </MudTabPanel>
+**State Management:**
+- **Persistence**: Browser localStorage for cross-session continuity
+- **Event System**: Components can subscribe to workflow context changes
+- **Smart Routing**: URL generation based on current workflow state
+- **Validation**: Prevent invalid stage transitions (e.g., skip to Results without Run)
 
-                <!-- [Learn] Tab -->
-                <MudTabPanel Text="Learn" Icon="@Icons.Material.Filled.TrendingUp">
-                    <div class="tab-content-container pa-4">
-                        <LearnTabContent CurrentContext="@workflowContext"
-                                         OnInsightDiscovered="HandleInsightDiscovered"
-                                         OnRecommendationApplied="HandleRecommendationApplied" />
-                    </div>
-                </MudTabPanel>
-            </MudTabs>
-        </MudPaper>
+**Workflow Stages:**
+1. **Template** (`/templates`) - Select template from gallery
+2. **Configure** (`/templates/configure/{templateId}`) - Set parameters  
+3. **Run** (`/run/{runId}`) - Monitor execution
+4. **Results** (`/results/{runId}`) - Analyze artifacts
 
-        <!-- Workflow Context Status Bar -->
-        <MudPaper Class="pa-3" Elevation="1" Style="background: var(--mud-palette-background-grey);">
-            <WorkflowContextStatus Context="@workflowContext" OnContextReset="ResetWorkflowContext" />
-        </MudPaper>
-    </MudStack>
-</MudContainer>
+### **FR-UI-M2.8-3: Context-Aware Page Enhancements**
+Enhanced existing pages with workflow context awareness and smart routing between workflow stages.
 
-<style>
-.charter-tabs-container {
-    min-height: 60vh;
-}
+**Page Integration Strategy:**
+```
+Existing Pages + Workflow Context Bar = Enhanced User Experience
 
-.charter-tabs .mud-tabs-toolbar {
-    background: var(--mud-palette-surface);
-    border-bottom: 1px solid var(--mud-palette-divider);
-}
-
-.tab-content-container {
-    min-height: 50vh;
-    background: var(--mud-palette-background);
-}
-</style>
-
-@code {
-    private int activeTabIndex = 0;
-    private WorkflowContext workflowContext = new();
-
-    private async Task OnTabChanged(int newIndex)
-    {
-        activeTabIndex = newIndex;
-        await UpdateWorkflowContext(newIndex);
-    }
-
-    private async Task UpdateWorkflowContext(int tabIndex)
-    {
-        // Update context based on tab progression
-        switch (tabIndex)
-        {
-            case 0: // Models
-                workflowContext.CurrentStage = WorkflowStage.Models;
-                break;
-            case 1: // Runs
-                workflowContext.CurrentStage = WorkflowStage.Runs;
-                break;
-            case 2: // Artifacts
-                workflowContext.CurrentStage = WorkflowStage.Artifacts;
-                break;
-            case 3: // Learn
-                workflowContext.CurrentStage = WorkflowStage.Learn;
-                break;
-        }
-        
-        StateHasChanged();
-    }
-}
+┌─────────────────────────────────────────────────────────────────────┐
+│ ① Template    →    ② Configure    →    ③ Run    →    ④ Results      │ ← Context Bar
+│   [Complete]       [Active]           [Todo]        [Todo]     [Clear]│
+├─────────────────────────────────────────────────────────────────────┤
+│                    Template Studio                                  │ ← Existing Page
+│ [Template selection and parameter configuration UI]                 │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-### **FR-UI-M2.8-2: Charter Workflow Context System**
-Workflow state management that persists across tab transitions and maintains charter progression context.
+**Enhanced Pages:**
 
-**Workflow Context Service:**
-```csharp
-// /Services/IWorkflowContextService.cs
-public interface IWorkflowContextService
-{
-    WorkflowContext CurrentContext { get; }
-    Task<WorkflowContext> CreateNewWorkflowAsync();
-    Task UpdateContextAsync(WorkflowContext context);
-    Task<IEnumerable<WorkflowContext>> GetRecentWorkflowsAsync();
-    Task SaveWorkflowAsync(WorkflowContext context);
-    event EventHandler<WorkflowContextChangedEventArgs> ContextChanged;
-}
+**1. Template Studio Enhancement:**
+- **New Route**: `/templates/configure/{templateId}` for step 2
+- **Context Integration**: Shows context bar when workflow is active
+- **State Preservation**: Selected template and parameters persist across navigation
 
-// /Models/WorkflowContext.cs
-public class WorkflowContext
-{
-    public string Id { get; set; } = Guid.NewGuid().ToString();
-    public string Name { get; set; } = $"Workflow {DateTime.Now:yyyy-MM-dd HH:mm}";
-    public WorkflowStage CurrentStage { get; set; } = WorkflowStage.Models;
-    public DateTime Created { get; set; } = DateTime.UtcNow;
-    public DateTime LastModified { get; set; } = DateTime.UtcNow;
+**2. New Run Monitoring Page:**
+- **Route**: `/run/{runId}` for step 3  
+- **Purpose**: Monitor active simulation runs
+- **Features**: Real-time status, progress indicators, log viewing
 
-    // Charter Stage Context
-    public ModelContext? SelectedModel { get; set; }
-    public RunContext? ActiveRun { get; set; }
-    public ArtifactContext? SelectedArtifacts { get; set; } = new();
-    public LearnContext? Insights { get; set; } = new();
+**3. New Results Analysis Page:**
+- **Route**: `/results/{runId}` for step 4
+- **Purpose**: Filtered view of artifacts from specific run
+- **Features**: Run-specific artifact filtering, comparison tools, analysis widgets
 
-    // Navigation State
-    public Dictionary<string, object> TabState { get; set; } = new();
-    public List<WorkflowAction> ActionHistory { get; set; } = new();
-}
+**Page Behavior:**
+- Context bar automatically appears when workflow is active
+- Each page updates workflow state when loaded
+- Smart navigation between workflow stages preserves context
+- Existing page functionality remains unchanged for non-workflow users
 
-public enum WorkflowStage
-{
-    Models,
-    Runs, 
-    Artifacts,
-    Learn
-}
+### **FR-UI-M2.8-4: Workflow State Persistence and Smart Routing**
+Browser localStorage persistence and intelligent URL routing that maintains workflow continuity across sessions.
 
-public class ModelContext
-{
-    public string? ModelPath { get; set; }
-    public string? ModelType { get; set; }
-    public Dictionary<string, object> Parameters { get; set; } = new();
-    public bool IsValid { get; set; }
-}
+**State Persistence:**
+- **Browser localStorage**: Workflow context survives page refresh and browser restart
+- **Automatic Saving**: Context saved on every workflow state change
+- **Restoration**: Context restored when user returns to any workflow page
 
-public class RunContext  
-{
-    public string? RunId { get; set; }
-    public RunStatus Status { get; set; }
-    public DateTime? StartTime { get; set; }
-    public DateTime? EndTime { get; set; }
-    public Dictionary<string, object> Configuration { get; set; } = new();
-}
-
-public class ArtifactContext
-{
-    public List<string> SelectedArtifactIds { get; set; } = new();
-    public string? CompareBaselineId { get; set; }
-    public List<string> DownloadQueue { get; set; } = new();
-}
+**Smart Routing Logic:**
+```
+Click "① Template"   → Navigate to /templates
+Click "② Configure"  → Navigate to /templates/configure/{templateId} (if template selected)
+Click "③ Run"        → Navigate to /run/{runId} (if run exists)
+Click "④ Results"    → Navigate to /results/{runId} (if run completed)
 ```
 
-### **FR-UI-M2.8-3: Charter Tab Content Components**
-Modular tab content components that implement charter workflow stages.
+**Fallback Behavior:**
+- If user clicks a step without required context, redirect to appropriate starting point
+- If workflow context is invalid/corrupted, reset to clean state
+- If user manually navigates to workflow URLs, context is updated accordingly
 
-**Models Tab Content:**
-```csharp
-// /Components/Charter/ModelsTabContent.razor
-<MudStack Spacing="3">
-    <!-- Model Selection/Creation Header -->
-    <MudStack Row Justify="Justify.SpaceBetween" AlignItems="Center.Center">
-        <MudText Typo="Typo.h5">Model Selection</MudText>
-        <MudButtonGroup Variant="Variant.Outlined">
-            <MudButton StartIcon="@Icons.Material.Filled.Upload" OnClick="ImportModel">Import</MudButton>
-            <MudButton StartIcon="@Icons.Material.Filled.Add" OnClick="CreateModel">Create</MudButton>
-        </MudButtonGroup>
-    </MudStack>
+**URL State Synchronization:**
+- URL reflects current workflow stage and context
+- Direct linking to workflow stages works correctly
+- Browser back/forward buttons maintain workflow context
 
-    <!-- Recent Models Quick Access -->
-    <MudPaper Class="pa-4">
-        <MudText Typo="Typo.h6" Class="mb-3">Recent Models</MudText>
-        <MudGrid>
-            @foreach (var model in recentModels)
-            {
-                <MudItem xs="12" sm="6" md="4">
-                    <MudCard Outlined="true" Class="cursor-pointer" @onclick="@(() => SelectModel(model))">
-                        <MudCardContent>
-                            <MudStack Row AlignItems="Center.Center" Spacing="2">
-                                <MudIcon Icon="@Icons.Material.Filled.Schema" />
-                                <div>
-                                    <MudText Typo="Typo.subtitle1">@model.Name</MudText>
-                                    <MudText Typo="Typo.caption" Color="Color.Secondary">@model.Type</MudText>
-                                </div>
-                            </MudStack>
-                        </MudCardContent>
-                    </MudCard>
-                </MudItem>
-            }
-        </MudGrid>
-    </MudPaper>
 
-    <!-- Model Configuration Panel -->
-    @if (CurrentContext?.SelectedModel != null)
-    {
-        <MudPaper Class="pa-4">
-            <MudText Typo="Typo.h6" Class="mb-3">Model Configuration</MudText>
-            <ModelConfigurationForm Model="@CurrentContext.SelectedModel" 
-                                    OnConfigurationChanged="HandleModelConfigurationChanged" />
-        </MudPaper>
-    }
+## Architecture Overview
 
-    <!-- Charter Progression Actions -->
-    <MudPaper Class="pa-4" Style="background: var(--mud-palette-action-hover);">
-        <MudStack Row Justify="Justify.SpaceBetween" AlignItems="Center.Center">
-            <MudText Typo="Typo.body1">
-                @if (CurrentContext?.SelectedModel != null)
-                {
-                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Small" />
-                    <span>Model ready: @CurrentContext.SelectedModel.ModelPath</span>
-                }
-                else
-                {
-                    <span>Select or create a model to continue...</span>
-                }
-            </MudText>
-            <MudButton Variant="Variant.Filled" 
-                       Disabled="@(CurrentContext?.SelectedModel == null)"
-                       StartIcon="@Icons.Material.Filled.ArrowForward"
-                       OnClick="ProceedToRuns">
-                Continue to Runs
-            </MudButton>
-        </MudStack>
-    </MudPaper>
-</MudStack>
+**Workflow Context Bar Integration:**
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                        FlowTime UI                                  │
+├─────────────────────────────────────────────────────────────────────┤
+│ Expert Navigation (Existing)                                        │
+│ ├─ Analyze                                                          │
+│ ├─ Simulate                                                         │  
+│ ├─ Artifacts                                                        │
+│ └─ Tools                                                            │
+├──────────────────────────────────────────────────────────── ────────┤
+│ Workflow Context Bar (New)                                          │
+│ ① Template → ② Configure → ③ Run → ④ Results              [Clear]   │
+├─────────────────────────────────────────────────────────────────────┤
+│ Page Content (Enhanced)                                             │
+│ ├─ Template Studio (/templates, /templates/configure/{id})          │
+│ ├─ Run Monitor (/run/{id}) [New]                                    │
+│ └─ Results View (/results/{id}) [New]                               │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-**Runs Tab Content:**
-```csharp
-// /Components/Charter/RunsTabContent.razor  
-<MudStack Spacing="3">
-    <!-- Run Configuration Wizard -->
-    <MudPaper Class="pa-4">
-        <MudText Typo="Typo.h5" Class="mb-3">Run Configuration</MudText>
-        
-        @if (CurrentContext?.SelectedModel != null)
-        {
-            <MudAlert Severity="Severity.Info" Class="mb-3">
-                Using model: <strong>@CurrentContext.SelectedModel.ModelPath</strong>
-            </MudAlert>
-            
-            <RunConfigurationWizard ModelContext="@CurrentContext.SelectedModel"
-                                    OnConfigurationComplete="HandleRunConfigurationComplete"
-                                    OnRunStarted="HandleRunStarted" />
-        }
-        else
-        {
-            <MudAlert Severity="Severity.Warning">
-                No model selected. Return to the Models tab to select a model first.
-            </MudAlert>
-        }
-    </MudPaper>
-
-    <!-- Active Run Monitoring -->
-    @if (CurrentContext?.ActiveRun != null)
-    {
-        <MudPaper Class="pa-4">
-            <MudText Typo="Typo.h6" Class="mb-3">Active Run</MudText>
-            <RunMonitoringPanel RunContext="@CurrentContext.ActiveRun" 
-                                OnRunCompleted="HandleRunCompleted" />
-        </MudPaper>
-    }
-
-    <!-- Run History -->
-    <MudPaper Class="pa-4">
-        <MudText Typo="Typo.h6" Class="mb-3">Recent Runs</MudText>
-        <RecentRunsList OnRunSelected="HandlePreviousRunSelected" />
-    </MudPaper>
-</MudStack>
-```
-
-### **FR-UI-M2.8-4: Charter Navigation State Persistence**
-Navigation state persistence and restoration across browser sessions.
-
-**Navigation State Service:**
-```csharp
-// /Services/NavigationStateService.cs
-public class NavigationStateService : INavigationStateService
-{
-    private readonly IJSRuntime _jsRuntime;
-    private readonly ILogger<NavigationStateService> _logger;
-
-    public async Task SaveNavigationStateAsync(WorkflowContext context)
-    {
-        try
-        {
-            var json = JsonSerializer.Serialize(context, JsonOptions);
-            await _jsRuntime.InvokeVoidAsync("localStorage.setItem", "flowtime_workflow_context", json);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to save navigation state");
-        }
-    }
-
-    public async Task<WorkflowContext?> RestoreNavigationStateAsync()
-    {
-        try
-        {
-            var json = await _jsRuntime.InvokeAsync<string>("localStorage.getItem", "flowtime_workflow_context");
-            if (string.IsNullOrEmpty(json))
-                return null;
-
-            return JsonSerializer.Deserialize<WorkflowContext>(json, JsonOptions);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to restore navigation state");
-            return null;
-        }
-    }
-}
-```
+**User Experience Flow:**
+1. **Expert users** continue using existing navigation normally
+2. **Workflow users** get context bar guidance when they start a workflow
+3. **Hybrid approach** allows switching between expert and workflow modes seamlessly
 
 ## Integration Points
 
 ### **UI-M2.7 Artifacts Integration**
-- Artifacts tab content leverages UI-M2.7 artifact browser components
-- Artifact selector components used in Models and Runs tab workflows
-- Consistent artifact management across all charter tabs
+- Results page leverages existing artifact browser components
+- Workflow context filters artifacts to show run-specific results
+- Maintains consistency with standalone Artifacts page
 
-### **M2.8 Registry API Integration**
-- Charter workflow context synchronized with M2.8 registry services
-- Model and run metadata stored through registry APIs
-- Workflow progression tracked via registry audit logs
+### **M2.8 Registry API Integration**  
+- Workflow state synchronized with registry for model and run metadata
+- Context bar shows real-time status from registry APIs
+- Workflow progression creates audit trail in registry
 
-### **Future UI Milestone Preparation**
-- Tab content components designed for UI-M2.9 compare workflow integration
-- Workflow context system ready for UI-M3.0 cross-platform scenarios
-- Navigation framework supports dynamic tab addition for future capabilities
+### **Future Milestone Preparation**
+- Workflow context system ready for UI-M2.9 compare workflow features
+- Context bar extensible for additional workflow stages in future milestones
+- Foundation for cross-platform workflow integration in UI-M3.0
 
 ## Technical Debt Documentation
 
@@ -520,22 +241,24 @@ public class NavigationStateService : INavigationStateService
 **Identified**: September 24, 2025 during UI-M2.7 testing  
 **Context**: YAML formatting bug in Transportation Network template revealed architectural inconsistency
 
-#### Current State (Post UI-M2.7)
+#### Current State (Post UI-M2.8 Phase 1)
 - ✅ **Template Lists**: Retrieved from FlowTime-Sim API (`GET /v1/sim/templates`)
-- ❌ **YAML Generation**: Hardcoded in UI (`GenerateTransportationYaml()`, etc.)
+- ✅ **YAML Generation**: Migrated to FlowTime-Sim API (`POST /v1/sim/templates/{id}/generate`)
+- ✅ **Demo Mode**: Graceful fallback to hardcoded templates for offline demonstrations
 - ✅ **Bug Fixed**: YAML formatting issue resolved in `TemplateServiceImplementations.cs`
 
-#### API Readiness Assessment
+#### API Integration Assessment (COMPLETED)
 - ✅ FlowTime-Sim has `POST /v1/sim/templates/{id}/generate` endpoint
 - ✅ SIM-SVC-M2 and SIM-CAT-M2 provide complete template infrastructure
-- ✅ UI already calls FlowTime-Sim for template discovery
-- ❌ UI bypasses FlowTime-Sim for template generation (inconsistent architecture)
+- ✅ UI calls FlowTime-Sim for template discovery
+- ✅ UI uses FlowTime-Sim API for template generation (consistent architecture)
+- ✅ Feature flag system enables demo mode fallback when needed
 
-#### Migration Priority
-- **Impact**: Medium (architectural consistency, maintenance burden)
-- **Risk**: Low (current hybrid approach works correctly)
-- **Effort**: Medium (requires API integration changes, not UX changes) 
-- **Timing**: UI-M2.8 Phase 1 (before charter navigation work)
+#### Migration Results (COMPLETED)
+- **Impact**: ✅ Achieved architectural consistency, reduced maintenance burden
+- **Risk**: ✅ Zero regression - template generation works identically from user perspective
+- **Effort**: ✅ Completed with minimal UX changes, robust error handling added
+- **Timing**: ✅ Completed in UI-M2.8 Phase 1 as planned
 
 #### Value Proposition
 - **Consistency**: Single source of truth for templates in FlowTime-Sim
@@ -608,7 +331,7 @@ public class NavigationStateService : INavigationStateService
 ## Implementation Plan
 
 ### **Phase 1: Template API Integration** 
-**Status:** ✅ **COMPLETE** - 2025-09-25**
+**Status:** ✅ **COMPLETE** - 2025-09-25
 
 #### 1.1 API Service Updates
 ```csharp
@@ -647,29 +370,29 @@ public async Task<string> GenerateModelYamlAsync(SimulationRunRequest request)
 - Ensure demo mode fallback maintains UX quality
 - Test error handling when API unavailable
 
-### **Phase 2: Charter Navigation Framework**
-1. **Charter layout component** with app-wide navigation structure
-2. **Tab navigation system** with charter workflow stages
-3. **Basic workflow context** model and state management
+### **Phase 2: Stepper-Style Workflow Context Bar**
+1. **WorkflowContextBar component** with stepper-style visual progression
+2. **WorkflowContextService** for lightweight state management
+3. **Enhanced Template Studio** with configure mode routing
 4. **Navigation persistence** using browser localStorage
 
-### **Phase 3: Charter Tab Content**
-1. **Models tab content** with model selection and configuration
-2. **Runs tab content** with run wizard and monitoring
-3. **Artifacts tab content** integration with UI-M2.7 components
-4. **Learn tab content** foundation for future analytics
+### **Phase 3: Context-Aware Page Integration**
+1. **Template Studio enhancement** with configure step integration
+2. **Run monitoring page** creation for workflow step 3
+3. **Results page** creation with filtered artifacts view
+4. **Smart routing** between workflow stages with context preservation
 
-### **Phase 4: Workflow Context System**
-1. **Advanced workflow context** management with validation
-2. **Multi-workflow support** and workflow history
-3. **Registry API integration** for context persistence
-4. **Context synchronization** across browser tabs
+### **Phase 4: Workflow State Validation**
+1. **Step progression validation** (prevent skipping required steps)
+2. **Context restoration** on page refresh and browser restart
+3. **URL synchronization** with workflow state
+4. **Error handling** for invalid workflow states
 
 ### **Phase 5: User Experience Polish**
-1. **Charter progression indicators** and workflow guidance
-2. **Advanced navigation features** (bookmarks, shortcuts)
-3. **Performance optimization** for large workflow contexts
-4. **Accessibility improvements** and keyboard navigation
+1. **Visual feedback** for workflow progression and completion
+2. **Keyboard shortcuts** for workflow navigation
+3. **Responsive design** for context bar on mobile devices
+4. **Performance optimization** for context state management
 
 ---
 
@@ -679,7 +402,7 @@ public async Task<string> GenerateModelYamlAsync(SimulationRunRequest request)
 2. **UI-M3.0**: Cross-platform charter integration with Sim UI components
 3. **Enhanced workflows**: Advanced charter capabilities building on navigation foundation
 
-This milestone creates the **navigational foundation** for the charter's artifacts-centric workflow, making the charter's mental model actionable through intuitive UI that guides users through iterative improvement cycles.
+This milestone creates the **workflow navigation foundation** for the charter's artifacts-centric workflow, making the charter's mental model actionable through persistent visual guidance that enhances existing UI patterns without disrupting user workflows.
 
 ---
 
@@ -700,6 +423,23 @@ This milestone creates the **navigational foundation** for the charter's artifac
 - Maintain identical user experience (no UX regression)
 
 **Value**: Consistent architecture, reduced maintenance burden, single source of truth for templates
+
+### **Stepper-Style Workflow Context Bar (Phase 2)**
+**Charter Integration**: Non-intrusive workflow guidance that preserves existing navigation patterns
+
+**Current State**:
+- ✅ Template Studio provides template selection and parameter configuration
+- ✅ Artifacts page shows all run results
+- ❌ No workflow continuity between template creation and result analysis
+- ❌ Users lose context when navigating between pages
+
+**Phase 2 Deliverables**:
+- Persistent stepper-style context bar showing workflow progression
+- Enhanced Template Studio with configure mode routing
+- New run monitoring and results pages for workflow steps 3 and 4
+- localStorage-based workflow state persistence across browser sessions
+
+**Value**: Workflow continuity without disrupting existing UI patterns, clear progression guidance, enhanced user experience for iterative analysis workflows
 
 ### **Charter Navigation (Phases 2-5)**
 **Charter Foundation**: Core navigation system for [Models]→[Runs]→[Artifacts]→[Learn] workflow
