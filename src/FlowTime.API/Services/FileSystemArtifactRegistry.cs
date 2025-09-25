@@ -196,31 +196,72 @@ public class FileSystemArtifactRegistry : IArtifactRegistry
 
     public async Task AddOrUpdateArtifactAsync(Artifact artifact)
     {
-        var index = await LoadIndexAsync();
-        var artifacts = index.Artifacts;
-
-        var existingIndex = artifacts.FindIndex(a => a.Id == artifact.Id);
-        if (existingIndex >= 0)
+        await indexLock.WaitAsync();
+        try
         {
-            artifacts[existingIndex] = artifact;
+            // Load index without internal locking since we already hold the lock
+            RegistryIndex index;
+            if (File.Exists(this.indexFilePath))
+            {
+                var json = await File.ReadAllTextAsync(this.indexFilePath);
+                index = JsonSerializer.Deserialize<RegistryIndex>(json, this.jsonOptions) ?? new RegistryIndex();
+            }
+            else
+            {
+                index = new RegistryIndex();
+            }
+
+            var artifacts = index.Artifacts;
+            var existingIndex = artifacts.FindIndex(a => a.Id == artifact.Id);
+            if (existingIndex >= 0)
+            {
+                artifacts[existingIndex] = artifact;
+            }
+            else
+            {
+                artifacts.Add(artifact);
+            }
+
+            index.LastUpdated = DateTime.UtcNow;
+            
+            // Save index without internal locking since we already hold the lock
+            var updatedJson = JsonSerializer.Serialize(index, this.jsonOptions);
+            await File.WriteAllTextAsync(this.indexFilePath, updatedJson);
         }
-        else
+        finally
         {
-            artifacts.Add(artifact);
+            indexLock.Release();
         }
-
-        index.LastUpdated = DateTime.UtcNow;
-
-        await SaveIndexAsync(index);
     }
 
     public async Task RemoveArtifactAsync(string id)
     {
-        var index = await LoadIndexAsync();
-        index.Artifacts.RemoveAll(a => a.Id == id);
-        index.LastUpdated = DateTime.UtcNow;
+        await indexLock.WaitAsync();
+        try
+        {
+            // Load index without internal locking since we already hold the lock
+            RegistryIndex index;
+            if (File.Exists(this.indexFilePath))
+            {
+                var json = await File.ReadAllTextAsync(this.indexFilePath);
+                index = JsonSerializer.Deserialize<RegistryIndex>(json, this.jsonOptions) ?? new RegistryIndex();
+            }
+            else
+            {
+                index = new RegistryIndex();
+            }
 
-        await SaveIndexAsync(index);
+            index.Artifacts.RemoveAll(a => a.Id == id);
+            index.LastUpdated = DateTime.UtcNow;
+            
+            // Save index without internal locking since we already hold the lock
+            var updatedJson = JsonSerializer.Serialize(index, this.jsonOptions);
+            await File.WriteAllTextAsync(this.indexFilePath, updatedJson);
+        }
+        finally
+        {
+            indexLock.Release();
+        }
     }
 
     public async Task<ArtifactRelationships> GetArtifactRelationshipsAsync(string id)
@@ -389,8 +430,12 @@ public class FileSystemArtifactRegistry : IArtifactRegistry
             tags.Add("csv");
         }
 
-        // Check for JSON output file
-        var jsonFile = files.FirstOrDefault(f => Path.GetExtension(f).Equals(".json", StringComparison.OrdinalIgnoreCase));
+        // Check for JSON output file (exclude known metadata files)
+        var jsonFile = files
+            .Where(f => Path.GetExtension(f).Equals(".json", StringComparison.OrdinalIgnoreCase))
+            .Where(f => !Path.GetFileName(f).Equals("manifest.json", StringComparison.OrdinalIgnoreCase))
+            .Where(f => !Path.GetFileName(f).Equals("index.json", StringComparison.OrdinalIgnoreCase))
+            .FirstOrDefault();
         if (jsonFile != null)
         {
             metadata["outputFile"] = Path.GetFileName(jsonFile);
