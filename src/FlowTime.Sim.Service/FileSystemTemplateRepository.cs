@@ -225,7 +225,10 @@ public class FileSystemTemplateRepository : ITemplateRepository
             {
                 "integer" => ParameterType.Integer,
                 "number" => ParameterType.Number,
-                "numberarray" => ParameterType.Number, // We'll treat arrays as Number type for now
+                "numberarray" => ParameterType.NumberArray,
+                "stringarray" => ParameterType.StringArray,
+                "string" => ParameterType.String,
+                "boolean" => ParameterType.Boolean,
                 _ => ParameterType.Number
             };
 
