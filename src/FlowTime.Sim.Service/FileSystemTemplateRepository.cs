@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using FlowTime.Sim.Core;
+using Microsoft.Extensions.Logging;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
@@ -344,6 +345,35 @@ public class FileSystemTemplateRepository : ITemplateRepository
             var placeholder = $"{{{{{kvp.Key}}}}}";
             var replacementValue = FormatParameterValue(kvp.Value);
             scenario = scenario.Replace(placeholder, replacementValue);
+        }
+
+        // Parse YAML and remove parameters section from metadata
+        var deserializer = new DeserializerBuilder()
+            .WithNamingConvention(CamelCaseNamingConvention.Instance)
+            .Build();
+        
+        var serializer = new SerializerBuilder()
+            .WithNamingConvention(CamelCaseNamingConvention.Instance)
+            .Build();
+
+        try
+        {
+            var yamlObject = deserializer.Deserialize<Dictionary<object, object>>(scenario);
+            
+            // Remove parameters from metadata if it exists
+            if (yamlObject.TryGetValue("metadata", out var metadataObj) && 
+                metadataObj is Dictionary<object, object> metadata)
+            {
+                metadata.Remove("parameters");
+            }
+            
+            // Re-serialize the cleaned YAML
+            scenario = serializer.Serialize(yamlObject);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to clean parameters from generated scenario for template {TemplateId}. Returning original scenario.", templateId);
+            // If YAML parsing fails, return the scenario with parameters (fallback behavior)
         }
 
         return scenario;
