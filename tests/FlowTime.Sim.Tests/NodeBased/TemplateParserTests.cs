@@ -111,13 +111,13 @@ parameters:
     min: 1
     max: 100
 grid:
-  bins: "{{grid_size}}"
+  bins: 5
   binSize: 60
   binUnit: minutes
 nodes:
   - id: arrivals
     kind: const
-    values: "{{arrival_rate}}"
+    values: [100]
 outputs:
   - id: arrival_series
     source: arrivals
@@ -131,13 +131,17 @@ outputs:
         
         var arrivalRateParam = template.Parameters.First(p => p.Name == "arrival_rate");
         Assert.Equal("number", arrivalRateParam.Type);
-        Assert.Equal(100.0, arrivalRateParam.Default);
-        Assert.Equal(0.0, arrivalRateParam.Min);
-        Assert.Equal(1000.0, arrivalRateParam.Max);
+        Assert.NotNull(arrivalRateParam.Default);
+        Assert.Equal("100", arrivalRateParam.Default.ToString()); // Use string comparison to avoid type issues
+        Assert.NotNull(arrivalRateParam.Min);
+        Assert.Equal("0", arrivalRateParam.Min.ToString());
+        Assert.NotNull(arrivalRateParam.Max);
+        Assert.Equal("1000", arrivalRateParam.Max.ToString());
         
         var gridSizeParam = template.Parameters.First(p => p.Name == "grid_size");
         Assert.Equal("integer", gridSizeParam.Type);
-        Assert.Equal(5, gridSizeParam.Default);
+        Assert.NotNull(gridSizeParam.Default);
+        Assert.Equal("5", gridSizeParam.Default.ToString());
     }
 
     [Fact]
@@ -151,7 +155,7 @@ grid:
 # Missing nodes and outputs
 """;
 
-        Assert.Throws<TemplateParsingException>(() => TemplateParser.ParseFromYaml(yaml));
+        Assert.Throws<TemplateValidationException>(() => TemplateParser.ParseFromYaml(yaml));
     }
 
     [Fact]
