@@ -25,7 +25,7 @@ route:
 
 **Via Service API:**
 ```http
-POST /v1/sim/run
+POST /api/v1/run
 Content-Type: text/plain
 
 [YAML configuration above]

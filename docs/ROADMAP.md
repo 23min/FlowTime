@@ -66,6 +66,7 @@ FlowTime-Sim is the **modeling front-end** for FlowTime that generates models, s
   - Engine M2.7 (Artifacts Registry) → Engine M2.8 (Registry Integration) → Engine M2.9 (Compare)
   - Establishes infrastructure foundation required for Sim charter compliance
 - **Phase 2: Sim Charter Alignment** — **📋 DEFERRED** (this repository)  
+  - **SIM-M2.6-CORRECTIVE**: Node-based schema foundation (**🔄 IN PROGRESS**)
   - **SIM-M2.6 completion**: Transform to charter-compliant model authoring platform
   - **SIM-M2.7**: Registry integration with established Engine registry
   - **SIM-M3.0**: Complete charter-aligned model authoring ecosystem
@@ -134,12 +135,14 @@ FlowTime-Sim is the **modeling front-end** for FlowTime that generates models, s
 ### SIM-M2.6 — Charter-Aligned Model Authoring — **⚠️ INCOMPLETE & NON-COMPLIANT**
 
 > **🚨 STATUS CHANGE**: Previously marked "🔄 IN PROGRESS" but analysis reveals **charter violations remain**. **Strategic Decision**: Defer completion to Phase 2 after Engine charter foundation (M2.7-M2.9) is established. See [Charter Transition Strategic Plan](CHARTER-TRANSITION-PLAN.md).
+>
+> **🔄 FOUNDATION WORK**: SIM-M2.6-CORRECTIVE milestone implementing proper node-based schema foundation as course correction from v0.3.1 metadata-driven approach.
 
 - **Goal** Transform FlowTime-Sim to charter-compliant model authoring platform that creates Engine-compatible model artifacts
 - **Charter Alignment** FlowTime-Sim Charter v1.0 - "modeling front-end" that generates models but never computes telemetry  
-- **Dependencies** SIM-M2.1 (PMF Generator Support), **FlowTime Engine M2.7 (Artifacts Registry)** ← **BLOCKING**
+- **Foundation Dependencies** SIM-M2.6-CORRECTIVE (Node-Based Schema), SIM-M2.1 (PMF Generator Support), **FlowTime Engine M2.7 (Artifacts Registry)** ← **BLOCKING**
 - **Current Issues** *(Non-Charter-Compliant)*:
-  - ❌ **Service still generates telemetry** via `/v1/sim/run` endpoint
+  - ❌ **Service still generates telemetry** via `/api/v1/run` endpoint
   - ❌ **Templates create simulation data** instead of model artifacts  
   - ❌ **No model export functionality** implemented
   - ❌ **UI expects telemetry generation** not model authoring

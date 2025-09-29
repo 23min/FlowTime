@@ -29,7 +29,7 @@ FlowTime-Sim development follows a **strategic two-phase approach** prioritizing
 
 | Issue | Current State | Charter Requirement | Impact |
 |-------|---------------|---------------------|---------|
-| **Telemetry Generation** | ❌ Service generates data via `/v1/sim/run` | ✅ NO telemetry generation | Charter violation |
+| **Telemetry Generation** | ❌ Service generates data via `/api/v1/run` | ✅ NO telemetry generation | Charter violation |
 | **Template Behavior** | ❌ Creates simulation data | ✅ Export model artifacts | Wrong output type |
 | **API Endpoints** | ❌ Execution-focused | ✅ Model authoring focused | API restructure needed |
 | **UI Integration** | ❌ Expects telemetry | ✅ Expects model artifacts | UI contract mismatch |
