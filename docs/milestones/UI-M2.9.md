@@ -1,618 +1,351 @@
-# UI-M2.9 — Compare Workflow UI Integration
+# UI-M2.9 — New Template Schema Migration
 
-**Status:** 📋 Planned (Charter-Aligned)  
-**Dependencies:** M2.9 (Compare Infrastructure), UI-M2.8 (Charter Navigation), UI-M2.7 (Artifacts Registry UI)  
-**Target:** Comparison workflow user interface and visualization components  
+**Status:** 📋 Planned  
+**Dependencies:** FlowTime-Sim new template schema implementation  
+**Target:** Complete migration to DAG-based template system  
 **Date:** 2025-10-07
 
 ---
 
-## Goal
+## Overview
+Complete migration to the new DAG-based template schema for FlowTime-Sim integration. This milestone replaces the current mustache-style template system with a structured JSON/YAML format supporting formal parameters, node types (const, pmf, expr), and explicit outputs.
 
-Implement **comprehensive comparison workflow UI** that enables users to compare artifacts, runs, and models through intuitive interfaces integrated into the charter navigation system. This milestone creates the visualization and interaction layer for M2.9's comparison infrastructure, making artifact comparison a seamless part of the charter workflow. It also absorbs the **related-artifact UI** deferred from UI-M2.7, wiring the relationships endpoint into charter navigation.
+**Breaking Change**: No backwards compatibility with existing template endpoints, schemas, or artifacts.
 
-## Context & Charter Alignment
+## Strategic Context
+- **Motivation**: Enable advanced simulation capabilities with DAG computation models, formal parameter validation, and structured outputs
+- **Impact**: Complete overhaul of template system from simple string substitution to rich computational modeling
+- **Dependencies**: FlowTime-Sim service must implement new schema support first
 
-The **M2.9 Compare Infrastructure** provides the API and analysis capabilities for comparing artifacts across the FlowTime ecosystem. **UI-M2.9** creates the user-facing interfaces that make comparison workflows accessible, visual, and actionable within the charter's [Models]→[Runs]→[Artifacts]→[Learn] progression.
+## Schema Architecture
 
-**Charter Role**: Enables the **[Learn]** tab's comparative analysis capabilities and provides comparison actions throughout all charter workflow stages.
+**Important**: This migration involves **two different schema formats**:
 
-### Carried-Over Scope
-- Surface related artifacts in the detail view using `/v1/artifacts/{id}/relationships`.
-- Provide "Compare" shortcuts from related artifacts back into the comparison workflow.
-
-## Functional Requirements
-
-### **FR-UI-M2.9-0: Relationships Navigation Hooks**
-Integrate the deferred relationships UI into the charter workflow.
-
-**Core Capabilities:**
-- Display related artifacts (derived from, similar runs, etc.) on the artifact detail page using the relationships endpoint.
-- Provide one-click navigation to view or compare any related artifact.
-- Respect charter context state when traversing via related-artifact links.
-
-### **FR-UI-M2.9-1: Artifact Comparison Interface**
-Visual comparison interface for artifacts with side-by-side views and difference highlighting.
-
-**Compare Page Layout:**
-```csharp
-// /Pages/Compare.razor
-@page "/compare"
-@page "/compare/{baselineId}/{comparisonId}"
-@using FlowTime.UI.Services.Compare
-@using FlowTime.UI.Components.Compare
-
-<MudContainer MaxWidth="MaxWidth.False">
-    <MudStack Spacing="3">
-        <!-- Compare Header with Artifact Selection -->
-        <MudPaper Class="pa-4" Elevation="2">
-            <MudStack Row Justify="Justify.SpaceBetween" AlignItems="Center.Center">
-                <MudText Typo="Typo.h4">Artifact Comparison</MudText>
-                <MudStack Row Spacing="2">
-                    <MudButton Variant="Variant.Outlined" 
-                               StartIcon="@Icons.Material.Filled.SwapHoriz"
-                               OnClick="SwapArtifacts">Swap</MudButton>
-                    <MudButton Variant="Variant.Outlined" 
-                               StartIcon="@Icons.Material.Filled.Share"
-                               OnClick="ShareComparison">Share</MudButton>
-                    <MudButton Variant="Variant.Filled" 
-                               StartIcon="@Icons.Material.Filled.Download"
-                               OnClick="ExportComparison">Export</MudButton>
-                </MudStack>
-            </MudStack>
-        </MudPaper>
-
-        <!-- Artifact Selection Panel -->
-        @if (string.IsNullOrEmpty(BaselineId) || string.IsNullOrEmpty(ComparisonId))
-        {
-            <MudPaper Class="pa-4">
-                <MudText Typo="Typo.h6" Class="mb-3">Select Artifacts to Compare</MudText>
-                <MudGrid>
-                    <MudItem xs="12" md="6">
-                        <MudStack Spacing="2">
-                            <MudText Typo="Typo.subtitle1">Baseline Artifact</MudText>
-                            <ArtifactSelector @bind-SelectedArtifactId="selectedBaselineId" 
-                                              Label="Select baseline..." 
-                                              AllowedTypes="@(new[] { "run", "model", "telemetry" })" />
-                        </MudStack>
-                    </MudItem>
-                    <MudItem xs="12" md="6">
-                        <MudStack Spacing="2">
-                            <MudText Typo="Typo.subtitle1">Comparison Artifact</MudText>
-                            <ArtifactSelector @bind-SelectedArtifactId="selectedComparisonId" 
-                                              Label="Select comparison..." 
-                                              AllowedTypes="@(new[] { "run", "model", "telemetry" })" />
-                        </MudStack>
-                    </MudItem>
-                </MudGrid>
-                
-                <div class="text-center mt-4">
-                    <MudButton Variant="Variant.Filled" 
-                               StartIcon="@Icons.Material.Filled.Compare"
-                               Disabled="@(string.IsNullOrEmpty(selectedBaselineId) || string.IsNullOrEmpty(selectedComparisonId))"
-                               OnClick="StartComparison">
-                        Start Comparison
-                    </MudButton>
-                </div>
-            </MudPaper>
-        }
-
-        <!-- Comparison Results Display -->
-        @if (comparisonResult != null)
-        {
-            <!-- Comparison Summary -->
-            <MudPaper Class="pa-4">
-                <ComparisonSummaryCard Result="@comparisonResult" />
-            </MudPaper>
-
-            <!-- Comparison Tabs -->
-            <MudPaper Elevation="2">
-                <MudTabs Elevation="0" Border="false" Centered="true" Class="comparison-tabs">
-                    <MudTabPanel Text="Overview" Icon="@Icons.Material.Filled.Dashboard">
-                        <div class="pa-4">
-                            <ComparisonOverviewPanel Result="@comparisonResult" />
-                        </div>
-                    </MudTabPanel>
-
-                    <MudTabPanel Text="Metadata" Icon="@Icons.Material.Filled.Info">
-                        <div class="pa-4">
-                            <MetadataComparisonPanel Baseline="@comparisonResult.Baseline" 
-                                                     Comparison="@comparisonResult.Comparison" 
-                                                     Differences="@comparisonResult.MetadataDifferences" />
-                        </div>
-                    </MudTabPanel>
-
-                    <MudTabPanel Text="Data" Icon="@Icons.Material.Filled.DataObject">
-                        <div class="pa-4">
-                            <DataComparisonPanel Result="@comparisonResult" />
-                        </div>
-                    </MudTabPanel>
-
-                    <MudTabPanel Text="Visualizations" Icon="@Icons.Material.Filled.BarChart">
-                        <div class="pa-4">
-                            <ComparisonVisualizationPanel Result="@comparisonResult" />
-                        </div>
-                    </MudTabPanel>
-
-                    <MudTabPanel Text="Analysis" Icon="@Icons.Material.Filled.Analytics">
-                        <div class="pa-4">
-                            <ComparisonAnalysisPanel Result="@comparisonResult" 
-                                                     OnInsightGenerated="HandleInsightGenerated" />
-                        </div>
-                    </MudTabPanel>
-                </MudTabs>
-            </MudPaper>
-        }
-    </MudStack>
-</MudContainer>
-
-<style>
-.comparison-tabs .mud-tabs-toolbar {
-    background: var(--mud-palette-surface);
-    border-bottom: 1px solid var(--mud-palette-divider);
-}
-</style>
-
-@code {
-    [Parameter] public string? BaselineId { get; set; }
-    [Parameter] public string? ComparisonId { get; set; }
-    
-    private string selectedBaselineId = "";
-    private string selectedComparisonId = "";
-    private ComparisonResult? comparisonResult;
-    
-    protected override async Task OnInitializedAsync()
-    {
-        if (!string.IsNullOrEmpty(BaselineId) && !string.IsNullOrEmpty(ComparisonId))
-        {
-            selectedBaselineId = BaselineId;
-            selectedComparisonId = ComparisonId;
-            await StartComparison();
-        }
-    }
-}
+### 1. Template Schema (FlowTime-Sim Input)
+```yaml
+grid:
+  bins: 24
+  binSize: 60        # ← New flexible format
+  binUnit: "minutes" # ← Supports minutes, hours, days
 ```
 
-### **FR-UI-M2.9-2: Comparison Visualization Components**
-Reusable components for visualizing comparison results with charts, tables, and difference highlighting.
-
-**Comparison Summary Card:**
-```csharp
-// /Components/Compare/ComparisonSummaryCard.razor
-<MudCard Elevation="0" Outlined="true">
-    <MudCardContent>
-        <MudGrid>
-            <!-- Comparison Overview -->
-            <MudItem xs="12" md="8">
-                <MudStack Spacing="2">
-                    <MudStack Row AlignItems="Center.Center" Spacing="3">
-                        <!-- Baseline Artifact -->
-                        <MudStack AlignItems="Center.Center" Class="text-center">
-                            <MudIcon Icon="@GetArtifactIcon(Result.Baseline.Type)" Size="Size.Large" />
-                            <MudText Typo="Typo.subtitle1">@Result.Baseline.Title</MudText>
-                            <MudText Typo="Typo.caption" Color="Color.Secondary">Baseline</MudText>
-                        </MudStack>
-
-                        <!-- Comparison Arrow -->
-                        <MudIcon Icon="@Icons.Material.Filled.CompareArrows" Size="Size.Large" Color="Color.Primary" />
-
-                        <!-- Comparison Artifact -->
-                        <MudStack AlignItems="Center.Center" Class="text-center">
-                            <MudIcon Icon="@GetArtifactIcon(Result.Comparison.Type)" Size="Size.Large" />
-                            <MudText Typo="Typo.subtitle1">@Result.Comparison.Title</MudText>
-                            <MudText Typo="Typo.caption" Color="Color.Secondary">Comparison</MudText>
-                        </MudStack>
-                    </MudStack>
-
-                    <MudDivider />
-
-                    <!-- Comparison Statistics -->
-                    <MudGrid>
-                        <MudItem xs="6" sm="3">
-                            <MudStack AlignItems="Center.Center" Class="text-center">
-                                <MudText Typo="Typo.h6" Color="Color.Success">@Result.Statistics.Similarities</MudText>
-                                <MudText Typo="Typo.caption">Similarities</MudText>
-                            </MudStack>
-                        </MudItem>
-                        <MudItem xs="6" sm="3">
-                            <MudStack AlignItems="Center.Center" Class="text-center">
-                                <MudText Typo="Typo.h6" Color="Color.Warning">@Result.Statistics.Differences</MudText>
-                                <MudText Typo="Typo.caption">Differences</MudText>
-                            </MudStack>
-                        </MudItem>
-                        <MudItem xs="6" sm="3">
-                            <MudStack AlignItems="Center.Center" Class="text-center">
-                                <MudText Typo="Typo.h6" Color="Color.Info">@($"{Result.Statistics.SimilarityScore:P1}")</MudText>
-                                <MudText Typo="Typo.caption">Similarity</MudText>
-                            </MudStack>
-                        </MudItem>
-                        <MudItem xs="6" sm="3">
-                            <MudStack AlignItems="Center.Center" Class="text-center">
-                                <MudText Typo="Typo.h6" Color="Color.Primary">@Result.Statistics.DataPoints</MudText>
-                                <MudText Typo="Typo.caption">Data Points</MudText>
-                            </MudStack>
-                        </MudItem>
-                    </MudGrid>
-                </MudStack>
-            </MudItem>
-
-            <!-- Quick Actions -->
-            <MudItem xs="12" md="4">
-                <MudStack Spacing="2">
-                    <MudText Typo="Typo.subtitle2">Quick Actions</MudText>
-                    <MudButtonGroup Orientation="Orientation.Vertical" Variant="Variant.Text" Size="Size.Small">
-                        <MudButton StartIcon="@Icons.Material.Filled.Visibility" OnClick="@(() => ViewDetails())">
-                            View Details
-                        </MudButton>
-                        <MudButton StartIcon="@Icons.Material.Filled.TrendingUp" OnClick="@(() => ViewTrends())">
-                            View Trends
-                        </MudButton>
-                        <MudButton StartIcon="@Icons.Material.Filled.Download" OnClick="@(() => ExportResults())">
-                            Export Results
-                        </MudButton>
-                        <MudButton StartIcon="@Icons.Material.Filled.Share" OnClick="@(() => ShareComparison())">
-                            Share Comparison
-                        </MudButton>
-                    </MudButtonGroup>
-                </MudStack>
-            </MudItem>
-        </MudGrid>
-    </MudCardContent>
-</MudCard>
-
-@code {
-    [Parameter] public ComparisonResult Result { get; set; } = null!;
-    [Parameter] public EventCallback OnViewDetails { get; set; }
-    [Parameter] public EventCallback OnViewTrends { get; set; }
-    [Parameter] public EventCallback OnExportResults { get; set; }
-    [Parameter] public EventCallback OnShareComparison { get; set; }
-}
+### 2. Engine Schema (FlowTime Engine Input)  
+```yaml
+grid:
+  bins: 24
+  binMinutes: 60     # ← Engine still uses binMinutes internally
 ```
 
-**Data Comparison Panel:**
-```csharp
-// /Components/Compare/DataComparisonPanel.razor
-<MudStack Spacing="3">
-    <!-- Data Comparison Options -->
-    <MudPaper Class="pa-3" Elevation="1">
-        <MudStack Row Justify="Justify.SpaceBetween" AlignItems="Center.Center">
-            <MudText Typo="Typo.h6">Data Comparison</MudText>
-            <MudStack Row Spacing="2">
-                <MudSelect @bind-Value="selectedViewMode" Label="View Mode" Variant="Variant.Outlined" Dense="true">
-                    <MudSelectItem Value="@("side-by-side")">Side by Side</MudSelectItem>
-                    <MudSelectItem Value="@("overlay")">Overlay</MudSelectItem>
-                    <MudSelectItem Value="@("difference")">Differences Only</MudSelectItem>
-                </MudSelect>
-                <MudToggleIconButton @bind-Toggled="showStatistics" 
-                                     Icon="@Icons.Material.Filled.Analytics" 
-                                     ToggledIcon="@Icons.Material.Filled.Analytics"
-                                     Title="Show Statistics" />
-            </MudStack>
-        </MudStack>
-    </MudPaper>
+**FlowTime-Sim Responsibility**: Convert between these formats during model generation.
 
-    @if (selectedViewMode == "side-by-side")
-    {
-        <!-- Side-by-Side Data View -->
-        <MudGrid>
-            <MudItem xs="12" md="6">
-                <MudPaper Class="pa-3">
-                    <MudText Typo="Typo.subtitle1" Class="mb-2">Baseline: @Result.Baseline.Title</MudText>
-                    <DataVisualizationComponent Data="@Result.BaselineData" 
-                                                ShowStatistics="@showStatistics" 
-                                                HighlightDifferences="false" />
-                </MudPaper>
-            </MudItem>
-            <MudItem xs="12" md="6">
-                <MudPaper Class="pa-3">
-                    <MudText Typo="Typo.subtitle1" Class="mb-2">Comparison: @Result.Comparison.Title</MudText>
-                    <DataVisualizationComponent Data="@Result.ComparisonData" 
-                                                ShowStatistics="@showStatistics" 
-                                                HighlightDifferences="false" />
-                </MudPaper>
-            </MudItem>
-        </MudGrid>
-    }
-    else if (selectedViewMode == "overlay")
-    {
-        <!-- Overlay Data View -->
-        <MudPaper Class="pa-3">
-            <MudText Typo="Typo.subtitle1" Class="mb-2">Overlayed Comparison</MudText>
-            <OverlayDataVisualizationComponent BaselineData="@Result.BaselineData"
-                                               ComparisonData="@Result.ComparisonData"
-                                               ShowStatistics="@showStatistics" />
-        </MudPaper>
-    }
-    else if (selectedViewMode == "difference")
-    {
-        <!-- Differences Only View -->
-        <MudPaper Class="pa-3">
-            <MudText Typo="Typo.subtitle1" Class="mb-2">Differences Analysis</MudText>
-            <DifferencesVisualizationComponent Differences="@Result.DataDifferences"
-                                               ShowStatistics="@showStatistics" />
-        </MudPaper>
-    }
+### Migration Scope
+- **Template Schema**: Full migration to `binSize`/`binUnit` format ✅
+- **Engine Schema**: Remains `binMinutes` (no engine changes needed)
+- **UI Template Forms**: Support new `binSize`/`binUnit` parameters
+- **Translation Logic**: FlowTime-Sim handles schema conversion
 
-    <!-- Data Comparison Statistics -->
-    @if (showStatistics && Result.DataStatistics != null)
-    {
-        <MudPaper Class="pa-3">
-            <MudText Typo="Typo.h6" Class="mb-3">Statistical Analysis</MudText>
-            <MudGrid>
-                <MudItem xs="12" sm="6" md="3">
-                    <MudStack AlignItems="Center.Center" Class="text-center">
-                        <MudText Typo="Typo.h6">@($"{Result.DataStatistics.CorrelationCoefficient:F3}")</MudText>
-                        <MudText Typo="Typo.caption">Correlation</MudText>
-                    </MudStack>
-                </MudItem>
-                <MudItem xs="12" sm="6" md="3">
-                    <MudStack AlignItems="Center.Center" Class="text-center">
-                        <MudText Typo="Typo.h6">@($"{Result.DataStatistics.MeanAbsoluteError:F3}")</MudText>
-                        <MudText Typo="Typo.caption">MAE</MudText>
-                    </MudStack>
-                </MudItem>
-                <MudItem xs="12" sm="6" md="3">
-                    <MudStack AlignItems="Center.Center" Class="text-center">
-                        <MudText Typo="Typo.h6">@($"{Result.DataStatistics.RootMeanSquareError:F3}")</MudText>
-                        <MudText Typo="Typo.caption">RMSE</MudText>
-                    </MudStack>
-                </MudItem>
-                <MudItem xs="12" sm="6" md="3">
-                    <MudStack AlignItems="Center.Center" Class="text-center">
-                        <MudText Typo="Typo.h6">@($"{Result.DataStatistics.SignificanceScore:F3}")</MudText>
-                        <MudText Typo="Typo.caption">Significance</MudText>
-                    </MudStack>
-                </MudItem>
-            </MudGrid>
-        </MudPaper>
-    }
-</MudStack>
+## Five-Phase Migration Plan
 
-@code {
-    [Parameter] public ComparisonResult Result { get; set; } = null!;
-    
-    private string selectedViewMode = "side-by-side";
-    private bool showStatistics = true;
-}
+### Phase 0: Test-Driven Development Setup
+**Goal**: Establish comprehensive test coverage before migration to ensure safe refactoring
+
+**TDD Strategy**: Write tests first, then implement changes to ensure nothing breaks during the migration.
+
+#### 0.1 Test Analysis & Planning
+**Approach**: Analyze existing test coverage and identify gaps before making any changes.
+
+**Key Activities:**
+- **Current Test Audit**: Review existing template, API, and engine tests
+- **Test Gap Analysis**: Identify missing coverage for schema validation, API contracts, UI components
+- **Test Strategy**: Define test patterns for new schema formats
+- **Breaking Change Tests**: Create tests that will fail with old schema, pass with new schema
+
+#### 0.2 New Test Implementation
+**Focus**: Write tests for target state before implementing changes.
+
+**Test Categories:**
+- **Schema Validation Tests**: New template format validation
+- **API Contract Tests**: FlowTime-Sim new endpoints and responses  
+- **Engine Schema Tests**: `binSize`/`binUnit` format support
+- **UI Integration Tests**: New parameter forms and validation
+- **Translation Tests**: Schema conversion between formats
+- **Regression Tests**: Ensure existing functionality preservation
+
+#### 0.3 Legacy Test Identification
+**Goal**: Mark obsolete tests for removal and update tests that need modification.
+
+**Activities:**
+- **Obsolete Test Marking**: Identify tests that will become invalid
+- **Update Planning**: Plan modifications for tests that need schema updates
+- **Test Cleanup Strategy**: Document which tests to remove vs. update
+
+**Benefits of TDD Approach:**
+- ✅ **Safe Refactoring**: Tests ensure no functionality is lost
+- ✅ **Clear Requirements**: Tests define exactly what new system should do
+- ✅ **Confidence**: Green tests mean migration is successful
+- ✅ **Documentation**: Tests serve as living specification
+
+### Phase 1: Core Infrastructure & Schema Support
+**Goal**: Establish foundation for new template format without breaking existing functionality
+
+#### 1.1 FlowTime-Sim Schema Support (Blocking Dependency)
+**Requirement**: FlowTime-Sim service must implement the new template schema as defined in `docs/schemas/template-schema.md`.
+
+**Expected API Endpoints:**
+
+```http
+GET /api/templates
+→ Returns list with new metadata structure
+
+GET /api/templates/{id}  
+Accept: application/json       # Default - returns JSON
+Accept: application/x-yaml     # Returns YAML
+
+POST /api/templates/{id}/generate
+→ Uses structured parameters
+
+POST /api/templates/{id}/validate (NEW)
+→ Template validation endpoint
 ```
 
-### **FR-UI-M2.9-3: Charter Integration for Comparisons**
-Integration with charter navigation system for contextual comparison workflows.
+#### 1.2 UI Type Definitions
+**Goal**: Define corresponding types in FlowTime UI to match the new schema.
 
-**Learn Tab Comparison Integration:**
+### Phase 2: FlowTime Engine Schema Migration
+**Goal**: Migrate FlowTime Engine to use `binSize`/`binUnit` format for schema unification
+
+**Strategic Benefits:**
+- **Schema Unification**: Single schema across Template and Engine
+- **Enhanced Flexibility**: Support for hours, days, etc. natively
+- **Future-Proofing**: Extensible time unit system
+- **Reduced Complexity**: No translation layer needed
+
+#### 2.1 Core Engine Updates (flowtime-vnext)
+**Files to Update:**
+- `src/FlowTime.Core/TimeGrid.cs` → Update to support binSize/binUnit
+- `src/FlowTime.Core/Models/ModelParser.cs` → Add unit conversion logic
+- `src/FlowTime.Contracts/Dtos/ModelDtos.cs` → Schema changes
+
+**TimeGrid Migration:**
 ```csharp
-// /Components/Charter/LearnTabContent.razor
-<MudStack Spacing="3">
-    <!-- Learning Dashboard Header -->
-    <MudStack Row Justify="Justify.SpaceBetween" AlignItems="Center.Center">
-        <MudText Typo="Typo.h5">Learning & Analysis</MudText>
-        <MudButtonGroup Variant="Variant.Outlined">
-            <MudButton StartIcon="@Icons.Material.Filled.Compare" OnClick="StartComparison">Compare</MudButton>
-            <MudButton StartIcon="@Icons.Material.Filled.TrendingUp" OnClick="ViewTrends">Trends</MudButton>
-        </MudButtonGroup>
-    </MudStack>
+// Before
+public readonly record struct TimeGrid(int Bins, int BinMinutes)
 
-    <!-- Quick Comparison Panel -->
-    <MudPaper Class="pa-4">
-        <MudText Typo="Typo.h6" Class="mb-3">Quick Comparisons</MudText>
-        <MudGrid>
-            <MudItem xs="12" md="6">
-                <MudCard Outlined="true" Class="cursor-pointer" @onclick="CompareLatestRuns">
-                    <MudCardContent>
-                        <MudStack Row AlignItems="Center.Center" Spacing="2">
-                            <MudIcon Icon="@Icons.Material.Filled.Compare" Color="Color.Primary" />
-                            <div>
-                                <MudText Typo="Typo.subtitle1">Latest Runs</MudText>
-                                <MudText Typo="Typo.caption">Compare your two most recent runs</MudText>
-                            </div>
-                        </MudStack>
-                    </MudCardContent>
-                </MudCard>
-            </MudItem>
-            
-            <MudItem xs="12" md="6">
-                <MudCard Outlined="true" Class="cursor-pointer" @onclick="CompareWithBaseline">
-                    <MudCardContent>
-                        <MudStack Row AlignItems="Center.Center" Spacing="2">
-                            <MudIcon Icon="@Icons.Material.Filled.Baseline" Color="Color.Secondary" />
-                            <div>
-                                <MudText Typo="Typo.subtitle1">Against Baseline</MudText>
-                                <MudText Typo="Typo.caption">Compare current run with baseline</MudText>
-                            </div>
-                        </MudStack>
-                    </MudCardContent>
-                </MudCard>
-            </MudItem>
-        </MudGrid>
-    </MudPaper>
-
-    <!-- Comparison History -->
-    @if (recentComparisons?.Any() == true)
-    {
-        <MudPaper Class="pa-4">
-            <MudText Typo="Typo.h6" Class="mb-3">Recent Comparisons</MudText>
-            <MudDataGrid Items="@recentComparisons" ReadOnly="true" Hover="true">
-                <Columns>
-                    <PropertyColumn Property="x => x.BaselineTitle" Title="Baseline" />
-                    <PropertyColumn Property="x => x.ComparisonTitle" Title="Comparison" />
-                    <PropertyColumn Property="x => x.SimilarityScore" Title="Similarity" Format="P1" />
-                    <PropertyColumn Property="x => x.CreatedAt" Title="Created" Format="MM/dd/yyyy" />
-                    <TemplateColumn Title="Actions" Sortable="false">
-                        <CellTemplate>
-                            <MudButtonGroup Size="Size.Small">
-                                <MudButton StartIcon="@Icons.Material.Filled.Visibility"
-                                           OnClick="@(() => ViewComparison(context.Item.Id))">View</MudButton>
-                                <MudButton StartIcon="@Icons.Material.Filled.Share"
-                                           OnClick="@(() => ShareComparison(context.Item.Id))">Share</MudButton>
-                            </MudButtonGroup>
-                        </CellTemplate>
-                    </TemplateColumn>
-                </Columns>
-            </MudDataGrid>
-        </MudPaper>
-    }
-
-    <!-- Insights and Recommendations -->
-    @if (CurrentContext?.SelectedArtifacts?.SelectedArtifactIds?.Any() == true)
-    {
-        <MudPaper Class="pa-4">
-            <MudText Typo="Typo.h6" Class="mb-3">Generated Insights</MudText>
-            <ComparisonInsightsPanel ArtifactIds="@CurrentContext.SelectedArtifacts.SelectedArtifactIds"
-                                     OnInsightApplied="HandleInsightApplied" />
-        </MudPaper>
-    }
-</MudStack>
-
-@code {
-    [Parameter] public WorkflowContext? CurrentContext { get; set; }
-    [Parameter] public EventCallback<InsightDiscoveredEventArgs> OnInsightDiscovered { get; set; }
-    
-    private IEnumerable<ComparisonSummary>? recentComparisons;
-}
-```
-
-### **FR-UI-M2.9-4: Comparison Service Integration**
-Client-side services for M2.9 comparison API integration with caching and state management.
-
-**Comparison Service Interface:**
-```csharp
-// /Services/IComparisonService.cs
-public interface IComparisonService
+// After
+public readonly record struct TimeGrid(int Bins, int BinSize, string BinUnit)
 {
-    Task<ComparisonResult> CompareArtifactsAsync(string baselineId, string comparisonId, ComparisonOptions options = null);
-    Task<IEnumerable<ComparisonSummary>> GetRecentComparisonsAsync(int limit = 10);
-    Task<ComparisonResult> GetComparisonAsync(string comparisonId);
-    Task<string> SaveComparisonAsync(ComparisonResult result);
-    Task<bool> DeleteComparisonAsync(string comparisonId);
-    Task<Stream> ExportComparisonAsync(string comparisonId, ExportFormat format);
-    Task<ComparisonInsights> GenerateInsightsAsync(string comparisonId);
-    Task RefreshComparisonCacheAsync();
-}
-
-// /Services/ComparisonService.cs
-public class ComparisonService : IComparisonService
-{
-    private readonly HttpClient _httpClient;
-    private readonly IMemoryCache _cache;
-    private readonly ILogger<ComparisonService> _logger;
-
-    public async Task<ComparisonResult> CompareArtifactsAsync(string baselineId, string comparisonId, ComparisonOptions options = null)
+    public int BinMinutes => BinUnit switch
     {
-        var cacheKey = $"comparison_{baselineId}_{comparisonId}_{options?.GetHashCode()}";
-        
-        if (_cache.TryGetValue(cacheKey, out ComparisonResult cachedResult))
-        {
-            return cachedResult;
-        }
-
-        var request = new ComparisonRequest
-        {
-            BaselineId = baselineId,
-            ComparisonId = comparisonId,
-            Options = options ?? new ComparisonOptions()
-        };
-
-        var json = JsonSerializer.Serialize(request, JsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
-        
-        var response = await _httpClient.PostAsync("/v1/compare", content);
-        response.EnsureSuccessStatusCode();
-        
-        var responseJson = await response.Content.ReadAsStringAsync();
-        var result = JsonSerializer.Deserialize<ComparisonResult>(responseJson, JsonOptions);
-        
-        // Cache result for 5 minutes
-        _cache.Set(cacheKey, result, TimeSpan.FromMinutes(5));
-        
-        return result;
-    }
-
-    public async Task<ComparisonInsights> GenerateInsightsAsync(string comparisonId)
-    {
-        var response = await _httpClient.PostAsync($"/v1/compare/{comparisonId}/insights", null);
-        response.EnsureSuccessStatusCode();
-        
-        var json = await response.Content.ReadAsStringAsync();
-        return JsonSerializer.Deserialize<ComparisonInsights>(json, JsonOptions);
-    }
+        "minutes" => BinSize,
+        "hours" => BinSize * 60,
+        "days" => BinSize * 1440,
+        _ => throw new ArgumentException($"Unknown unit: {BinUnit}")
+    };
 }
 ```
 
-## Integration Points
+#### 2.2 API & Service Updates (flowtime-vnext)
+**Files to Update:**
+- `src/FlowTime.API/Program.cs` → Update API responses
+- `src/FlowTime.API/Services/*.cs` → Update exporters (3-4 files)
+- `src/FlowTime.Cli/Program.cs` → Update CLI output
 
-### **M2.9 Compare Infrastructure API**
-- All comparison UI components consume M2.9 comparison REST API endpoints
-- Real-time comparison results with progress indicators and streaming updates
-- Comparison caching and result persistence through M2.9 storage services
+#### 2.3 Examples & Tests Migration (flowtime-vnext)
+**Files to Update:**
+- `examples/hello/model.yaml` → Update grid format
+- `examples/it-system/model.yaml` → Update grid format
+- `examples/transportation/model.yaml` → Update grid format
+- `examples/shift-test/model.yaml` → Update grid format
+- All test files referencing `binMinutes`
 
-### **UI-M2.8 Charter Navigation Integration**
-- Comparison workflows accessible from all charter tabs (Models, Runs, Artifacts, Learn)
-- Comparison results integrated into workflow context and navigation state
-- Contextual comparison actions based on current workflow stage
+**Example Migration:**
+```yaml
+# Before
+grid:
+  bins: 24
+  binMinutes: 60
 
-### **UI-M2.7 Artifacts Integration**
-- Artifact selector components reused for comparison baseline and target selection
-- Comparison results stored as artifacts in registry for future reference
-- Artifact browser shows comparison history and related comparisons
+# After  
+grid:
+  bins: 24
+  binSize: 1
+  binUnit: "hours"
+```
 
-## Acceptance Criteria
+#### 2.4 Documentation Updates
+**Files to Update:**
+- `docs/schemas/engine-input-schema.md` → Update to new format
+- `docs/schemas/README.md` → Update examples
+- `docs/guides/CLI.md` → Update model examples
 
-### **Comparison Workflow Functionality**
-- ✅ Users can easily select artifacts for comparison from charter workflows
-- ✅ Comparison visualizations clearly show similarities and differences
-- ✅ Multiple comparison view modes (side-by-side, overlay, differences) work effectively
-- ✅ Comparison results can be saved, shared, and exported in multiple formats
+### Phase 3: UI API Integration & Service Updates
+**Goal**: Update FlowTime UI to consume new template API format
 
-### **Charter Integration Excellence**
-- ✅ Comparison actions are contextually available throughout charter navigation
-- ✅ Comparison workflow integrates seamlessly with Models→Runs→Artifacts→Learn progression
-- ✅ Generated insights from comparisons enhance the Learn tab experience
-- ✅ Comparison history is accessible and searchable through artifacts registry
+#### 3.1 API Client Updates (flowtime-vnext)
+**Files to Update:**
+- `ui/FlowTime.UI/Services/FlowTimeSimApiClient.cs` → Major restructure
+- `ui/FlowTime.UI/Services/TemplateServices.cs` → Interface updates
 
-### **Visual and Performance Quality**
-- ✅ Comparison visualizations are clear, responsive, and informative
-- ✅ Large dataset comparisons complete within reasonable time (< 30 seconds)
-- ✅ UI remains responsive during comparison calculations with progress indicators
-- ✅ Mobile-responsive comparison interfaces work effectively on tablets
+**ApiTemplateInfo Replacement:**
+```csharp
+// Replace current ApiTemplateInfo with new structure
+public record NewApiTemplateInfo(
+    TemplateMetadata Metadata,
+    TemplateParameter[] Parameters,
+    int NodeCount,
+    int OutputCount
+);
 
-### **User Experience Excellence**
-- ✅ Comparison workflow requires minimal training and is intuitive to use
-- ✅ Error states and validation provide clear feedback and recovery options
-- ✅ Comparison insights provide actionable recommendations for workflow improvement
-- ✅ Sharing and collaboration features enable team-based comparison workflows
+// Update API methods
+public async Task<Result<List<NewApiTemplateInfo>>> GetTemplatesAsync(CancellationToken ct = default);
+public async Task<Result<NewTemplateDefinition>> GetTemplateAsync(string templateId, CancellationToken ct = default);
+public async Task<Result<TemplateGenerationResponse>> GenerateModelAsync(string templateId, Dictionary<string, object> parameters, CancellationToken ct = default);
+```
 
-## Implementation Plan
+#### 3.2 Template Service Overhaul (flowtime-vnext)
+**Files to Update:**
+- `ui/FlowTime.UI/Services/TemplateServiceImplementations.cs` → Complete rewrite
 
-### **Phase 1: Core Comparison Interface**
-1. **Comparison page layout** with artifact selection and results display
-2. **Basic comparison visualization** components for metadata and data differences
-3. **Comparison service** integration with M2.9 API endpoints
-4. **Charter navigation** integration for comparison access
+**Key Changes:**
+- Remove `ConvertTemplateInfoToTemplate()` - no longer needed
+- Remove `CreateParameterSchemaForTemplate()` - parameters come from API
+- **Deprecate demo templates** - new schema requires API integration; demo mode becomes API-only for UI testing
+- Simplify template loading logic to be purely API-driven
 
-### **Phase 2: Advanced Visualizations**
-1. **Multiple comparison view modes** (side-by-side, overlay, differences)
-2. **Statistical analysis panels** with correlation and significance metrics
-3. **Interactive data visualization** components with zooming and filtering
-4. **Comparison export capabilities** in multiple formats (PDF, CSV, JSON)
+#### 3.3 Parameter Form Generation Updates
+**Files to Analyze/Update:**
+- `ui/FlowTime.UI/Components/Templates/DynamicParameterForm.razor` (if exists)
+- Any parameter form generation logic
 
-### **Phase 3: Charter Workflow Integration**
-1. **Contextual comparison actions** throughout charter tab navigation
-2. **Learn tab integration** with comparison history and insights
-3. **Workflow context integration** for comparison state persistence
-4. **Quick comparison shortcuts** for common comparison scenarios
+**Changes Needed:**
+- Handle new parameter types (integer, number, boolean, string, array)
+- Support min/max validation from parameter metadata
+- Handle array parameter types properly
 
-### **Phase 4: Advanced Features and Polish**
-1. **Comparison insights generation** with AI-powered recommendations
-2. **Collaborative comparison features** with sharing and annotations
-3. **Performance optimization** for large dataset comparisons
-4. **Accessibility improvements** and comprehensive testing
+### Phase 4: Final Integration & Documentation
+**Goal**: Complete UI integration, comprehensive testing, and documentation updates
 
----
+#### 4.1 Template Runner Updates
+**Files to Update**:
+- `ui/FlowTime.UI/Pages/TemplateRunner.razor` → Parameter handling updates
+- Template selection and execution workflows
 
-## Next Steps
+**Key Changes:**
+- Parameter forms now driven by API metadata
+- Enhanced validation feedback
+- Support for new parameter types
 
-1. **UI-M3.0**: Cross-platform charter integration incorporating Sim UI comparison capabilities
-2. **Advanced analytics**: Machine learning insights and recommendation systems building on comparison data
-3. **Team collaboration**: Enhanced sharing and collaboration features for comparison workflows
+#### 4.2 Documentation Updates
+**Files to Update:**
 
-This milestone creates **comprehensive comparison capabilities** that make the charter's learning cycle actionable through visual analysis, statistical insights, and workflow integration that guides users toward continuous improvement.
+**Major Updates Required:**
+- `docs/ui/template-integration-spec.md` → Complete rewrite
+- `docs/guides/template-api-integration.md` → Update API examples
+
+**Minor Updates Required:**
+- `docs/guides/template-categories.md` → Update examples
+- `docs/reference/data-formats.md` → Document new JSON schema
+- `docs/reference/contracts.md` → Update template contracts
+
+**New Documentation:**
+- `docs/schemas/template-schema.md` → Already created
+- `docs/migration/template-schema-migration.md` → Migration guide
+
+#### 4.3 Comprehensive Testing
+**Test Areas:**
+1. **Unit Tests**: New template types, validation logic
+2. **Integration Tests**: API client with new endpoints
+3. **E2E Tests**: Full template workflow in UI
+4. **Validation Tests**: PMF probability sums, circular dependency detection
+5. **Content Negotiation Tests**: YAML vs JSON responses
+6. **Engine Schema Tests**: New binSize/binUnit format validation
+
+### Post-M2.9 Documentation Cleanup
+**Goal**: Address remaining documentation inconsistencies and legacy references
+
+#### Broader Documentation Updates
+- **Legacy schema references** → Update remaining `binMinutes` references in examples and documentation (separate from schema migration)
+- **API documentation** → Ensure all FlowTime-Sim API endpoints are properly documented
+- **Integration guide updates** → Update guides to reflect new template workflow
+
+**Note**: The core schema migration from `binMinutes` to `binSize`/`binUnit` is completed within M2.9 scope.
+
+## Migration Risks & Mitigation
+
+### High-Risk Areas
+1. **Complete API Contract Change**: Templates API response format changes entirely
+2. **Parameter System Overhaul**: From simple key-value to structured objects
+3. **UI Form Generation**: Parameter forms need complete revision
+
+### Mitigation Strategies
+1. **Parallel Development**: Implement new system alongside old (temporarily)
+2. **Feature Flags**: Enable gradual rollout of new template system
+3. **Comprehensive Testing**: Extensive validation before deprecating old system
+4. **Documentation First**: Update specs before implementation
+
+## Dependencies & Prerequisites
+
+### External Dependencies
+1. **FlowTime-Sim Service**: Must implement new template schema first
+2. **Engine Compatibility**: Engine must support new template format
+
+### Internal Dependencies
+1. **Feature Flags**: For gradual rollout
+2. **Testing Infrastructure**: For validation of new format
+
+## Success Criteria
+
+### Phase 1 Complete
+- [ ] New template types defined and validated
+- [ ] FlowTime-Sim service supports new schema
+- [ ] Basic API endpoints functional
+- [ ] Template validation logic implemented
+
+### Phase 2 Complete  
+- [ ] FlowTime Engine uses `binSize`/`binUnit` format
+- [ ] All examples updated to new schema
+- [ ] TimeGrid class migration complete
+- [ ] API responses use new format
+- [ ] All tests pass with new schema
+
+### Phase 3 Complete
+- [ ] FlowTime UI API client updated
+- [ ] Template service supports new format
+- [ ] Parameter handling modernized
+- [ ] Demo templates deprecated (API-only approach)
+
+### Phase 4 Complete
+- [ ] Full UI integration working
+- [ ] All documentation updated
+- [ ] Comprehensive test coverage
+- [ ] Migration guide published
+
+### Milestone 2.9 Complete
+- [ ] **Schema Unification**: Single `binSize`/`binUnit` format across ecosystem
+- [ ] New template schema fully integrated
+- [ ] All legacy template code removed
+- [ ] Complete test coverage
+- [ ] Performance validation passed
+- [ ] Documentation complete and accurate
+
+## File Impact Summary
+
+### Files to Replace Completely
+- `ui/FlowTime.UI/Services/TemplateServiceImplementations.cs`
+
+### Files Requiring Major Updates
+- `ui/FlowTime.UI/Services/FlowTimeSimApiClient.cs`
+- `docs/ui/template-integration-spec.md`
+
+### Files Requiring Minor Updates
+- `ui/FlowTime.UI/Services/TemplateServices.cs`
+- `ui/FlowTime.UI/Pages/TemplateRunner.razor`
+- Various documentation files
+
+### New Files to Create
+- `docs/migration/template-schema-migration.md`
+- Template validation tests
+- Integration tests for new API format
+
+This migration represents a fundamental architectural upgrade that will enable advanced simulation capabilities while providing a much more robust and extensible template system.
+

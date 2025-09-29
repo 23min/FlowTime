@@ -8,6 +8,12 @@ using FlowTime.UI.Configuration;
 
 namespace FlowTime.UI.Services;
 
+// ⚠️ SCHEMA MIGRATION IN PROGRESS
+// This file contains legacy demo templates with `binMinutes` references.
+// Current Implementation: Use `grid: { bins, binSize, binUnit }` format.
+// See: docs/schemas/template-schema.md for authoritative schema.
+// Status: Demo templates will be deprecated in UI-M2.9.
+
 public class TemplateService : ITemplateService
 {
     private readonly IFlowTimeSimApiClient simClient;
@@ -144,14 +150,22 @@ public class TemplateService : ITemplateService
                         Minimum = 1,
                         Maximum = 20
                     },
-                    ["binMinutes"] = new JsonSchemaProperty
+                    ["binSize"] = new JsonSchemaProperty
                     {
                         Type = "integer",
-                        Title = "Minutes per Bin",
-                        Description = "Duration of each time period in minutes",
+                        Title = "Bin Size",
+                        Description = "Duration of each time period",
                         Default = 60,
                         Minimum = 1,
                         Maximum = 1440
+                    },
+                    ["binUnit"] = new JsonSchemaProperty
+                    {
+                        Type = "string",
+                        Title = "Bin Unit",
+                        Description = "Time unit for bin duration",
+                        Default = "minutes",
+                        Enum = new List<object> { "minutes", "hours", "days" }
                     },
                     ["arrivalValue"] = new JsonSchemaProperty
                     {
@@ -172,7 +186,7 @@ public class TemplateService : ITemplateService
                         Maximum = 99999
                     }
                 },
-                Required = new List<string> { "bins", "binMinutes", "arrivalValue" }
+                Required = new List<string> { "bins", "binSize", "binUnit", "arrivalValue" }
             },
             "poisson-demo" => new JsonSchema
             {
@@ -188,14 +202,22 @@ public class TemplateService : ITemplateService
                         Minimum = 1,
                         Maximum = 20
                     },
-                    ["binMinutes"] = new JsonSchemaProperty
+                    ["binSize"] = new JsonSchemaProperty
                     {
                         Type = "integer",
-                        Title = "Minutes per Bin",
-                        Description = "Duration of each time period in minutes",
+                        Title = "Bin Size",
+                        Description = "Duration of each time period",
                         Default = 30,
                         Minimum = 1,
                         Maximum = 1440
+                    },
+                    ["binUnit"] = new JsonSchemaProperty
+                    {
+                        Type = "string",
+                        Title = "Bin Unit",
+                        Description = "Time unit for bin duration",
+                        Default = "minutes",
+                        Enum = new List<object> { "minutes", "hours", "days" }
                     },
                     ["rate"] = new JsonSchemaProperty
                     {
@@ -216,7 +238,7 @@ public class TemplateService : ITemplateService
                         Maximum = 99999
                     }
                 },
-                Required = new List<string> { "bins", "binMinutes", "rate" }
+                Required = new List<string> { "bins", "binSize", "binUnit", "rate" }
             },
             "it-system-microservices" => new JsonSchema
             {
@@ -232,14 +254,22 @@ public class TemplateService : ITemplateService
                         Minimum = 3,
                         Maximum = 168
                     },
-                    ["binMinutes"] = new JsonSchemaProperty
+                    ["binSize"] = new JsonSchemaProperty
                     {
                         Type = "integer",
-                        Title = "Minutes per Period",
+                        Title = "Bin Size",
                         Description = "Duration of each time period",
                         Default = 60, // Hourly periods
                         Minimum = 15,
                         Maximum = 480
+                    },
+                    ["binUnit"] = new JsonSchemaProperty
+                    {
+                        Type = "string",
+                        Title = "Bin Unit",
+                        Description = "Time unit for bin duration",
+                        Default = "minutes",
+                        Enum = new List<object> { "minutes", "hours", "days" }
                     },
                     ["requestPattern"] = new JsonSchemaProperty
                     {
@@ -278,7 +308,7 @@ public class TemplateService : ITemplateService
                         Maximum = 1000
                     }
                 },
-                Required = new List<string> { "bins", "binMinutes", "requestPattern", "loadBalancerCapacity", "authCapacity", "databaseCapacity" }
+                Required = new List<string> { "bins", "binSize", "binUnit", "requestPattern", "loadBalancerCapacity", "authCapacity", "databaseCapacity" }
             },
             "transportation-basic" => new JsonSchema
             {
@@ -322,7 +352,7 @@ public class TemplateService : ITemplateService
                         Maximum = 1000
                     }
                 },
-                Required = new List<string> { "bins", "binMinutes", "demandPattern", "capacityPattern" }
+                Required = new List<string> { "bins", "binSize", "binUnit", "demandPattern", "capacityPattern" }
             },
             "manufacturing-line" => new JsonSchema
             {
@@ -402,7 +432,7 @@ public class TemplateService : ITemplateService
                         Maximum = 0.5
                     }
                 },
-                Required = new List<string> { "bins", "binMinutes", "rawMaterialSchedule", "assemblyCapacity", "qualityCapacity" }
+                Required = new List<string> { "bins", "binSize", "binUnit", "rawMaterialSchedule", "assemblyCapacity", "qualityCapacity" }
             },
             "supply-chain-multi-tier" => new JsonSchema
             {
@@ -418,14 +448,22 @@ public class TemplateService : ITemplateService
                         Minimum = 3,
                         Maximum = 48
                     },
-                    ["binMinutes"] = new JsonSchemaProperty
+                    ["binSize"] = new JsonSchemaProperty
                     {
                         Type = "integer",
-                        Title = "Minutes per Period",
+                        Title = "Bin Size",
                         Description = "Duration of each time period",
                         Default = 1440, // Daily periods
                         Minimum = 60,
                         Maximum = 10080
+                    },
+                    ["binUnit"] = new JsonSchemaProperty
+                    {
+                        Type = "string",
+                        Title = "Bin Unit",
+                        Description = "Time unit for bin duration",
+                        Default = "minutes",
+                        Enum = new List<object> { "minutes", "hours", "days" }
                     },
                     ["demandPattern"] = new JsonSchemaProperty
                     {
@@ -473,7 +511,7 @@ public class TemplateService : ITemplateService
                         Maximum = 3.0
                     }
                 },
-                Required = new List<string> { "bins", "binMinutes", "demandPattern", "supplierCapacity", "distributorCapacity", "retailerCapacity" }
+                Required = new List<string> { "bins", "binSize", "binUnit", "demandPattern", "supplierCapacity", "distributorCapacity", "retailerCapacity" }
             },
             _ => new JsonSchema
             {
@@ -1122,7 +1160,8 @@ public class FlowTimeSimService : IFlowTimeSimService
             // Extract grid information
             var grid = model.TryGetValue("grid", out var gridObj) ? gridObj as Dictionary<object, object> : null;
             var bins = grid?.TryGetValue("bins", out var binsObj) == true ? Convert.ToInt32(binsObj) : 24;
-            var binMinutes = grid?.TryGetValue("binMinutes", out var binMinutesObj) == true ? Convert.ToInt32(binMinutesObj) : 60;
+            var binSize = grid?.TryGetValue("binSize", out var binSizeObj) == true ? Convert.ToInt32(binSizeObj) : 60;
+            var binUnit = grid?.TryGetValue("binUnit", out var binUnitObj) == true ? binUnitObj?.ToString() ?? "minutes" : "minutes";
             
             // Extract the first const node as the arrival pattern
             var nodes = model.TryGetValue("nodes", out var nodesObj) ? nodesObj as List<object> : null;
@@ -1143,12 +1182,13 @@ public class FlowTimeSimService : IFlowTimeSimService
             yaml.AppendLine("schemaVersion: 1");
             yaml.AppendLine("grid:");
             yaml.AppendLine($"  bins: {bins}");
-            yaml.AppendLine($"  binMinutes: {binMinutes}");
+            yaml.AppendLine($"  binSize: {binSize}");
+            yaml.AppendLine($"  binUnit: {binUnit}");
             yaml.AppendLine();
             yaml.AppendLine("arrivals:");
             yaml.AppendLine("  kind: const");
             yaml.Append("  values: [");
-            yaml.Append(string.Join(", ", values.Select(v => v.ToString("F0", CultureInfo.InvariantCulture))));
+            yaml.Append(string.Join(", ", (values ?? Array.Empty<double>()).Select(v => v.ToString("F0", CultureInfo.InvariantCulture))));
             yaml.AppendLine("]");
             yaml.AppendLine();
             yaml.AppendLine("route:");
@@ -1179,7 +1219,8 @@ public class FlowTimeSimService : IFlowTimeSimService
         
         // Calculate derived values
         var bins = 24; // 24 hours
-        var binMinutes = 60; // hourly bins
+        var binSize = 60; // hourly bins
+        var binUnit = "minutes";
         var successRate = 1.0 - errorRate;
         var effectiveCapacity = serviceCapacity * successRate;
         
@@ -1198,7 +1239,8 @@ public class FlowTimeSimService : IFlowTimeSimService
         yaml.AppendLine("schemaVersion: 1");
         yaml.AppendLine($"grid:");
         yaml.AppendLine($"  bins: {bins}");
-        yaml.AppendLine($"  binMinutes: {binMinutes}");
+        yaml.AppendLine($"  binSize: {binSize}");
+        yaml.AppendLine($"  binUnit: {binUnit}");
         yaml.AppendLine();
         
         yaml.AppendLine("nodes:");
@@ -1558,14 +1600,16 @@ public class FlowTimeSimService : IFlowTimeSimService
         // Fallback for basic templates - using modern nodes format
         var yaml = new StringBuilder();
         var bins = request.Parameters.TryGetValue("bins", out var binValue) ? Convert.ToInt32(binValue) : 4;
-        var binMinutes = request.Parameters.TryGetValue("binMinutes", out var binMinValue) ? Convert.ToInt32(binMinValue) : 60;
+        var binSize = request.Parameters.TryGetValue("binSize", out var binSizeValue) ? Convert.ToInt32(binSizeValue) : 60;
+        var binUnit = request.Parameters.TryGetValue("binUnit", out var binUnitValue) ? binUnitValue?.ToString() ?? "minutes" : "minutes";
         var demandRate = request.Parameters.TryGetValue("demandRate", out var rateValue) ? Convert.ToDouble(rateValue) : 100.0;
 
         yaml.AppendLine("# Basic Simulation Model - Generated");
         yaml.AppendLine("schemaVersion: 1");
         yaml.AppendLine("grid:");
         yaml.AppendLine($"  bins: {bins}");
-        yaml.AppendLine($"  binMinutes: {binMinutes}");
+        yaml.AppendLine($"  binSize: {binSize}");
+        yaml.AppendLine($"  binUnit: {binUnit}");
         yaml.AppendLine();
         yaml.AppendLine("nodes:");
         yaml.AppendLine("  - id: demand");

@@ -1,5 +1,11 @@
 # FlowTime UI: Template Integration Specification
 
+> ⚠️ **SCHEMA MIGRATION IN PROGRESS**  
+> This document contains legacy `binMinutes` references.  
+> **Current Implementation**: Use `grid: { bins, binSize, binUnit }` format.  
+> **See**: `docs/schemas/template-schema.md` for authoritative schema.  
+> **Status**: Documentation update pending post-UI-M2.9.
+
 ## Overview
 
 This specification defines how the FlowTime UI integrates with FlowTime-Sim's parameterized template system. Templates provide a bridge between Learning Mode (guided tutorials) and Expert Mode (raw YAML editing) by offering parameterized scenarios that generate custom YAML.

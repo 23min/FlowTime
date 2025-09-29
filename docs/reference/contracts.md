@@ -1,5 +1,11 @@
 # contracts.md (shared by FlowTime & FlowTime-Sim)
 
+> ⚠️ **SCHEMA MIGRATION IN PROGRESS**  
+> This document contains legacy `binMinutes` references.  
+> **Current Implementation**: Use `grid: { bins, binSize, binUnit }` format.  
+> **See**: `docs/schemas/template-schema.md` for authoritative schema.  
+> **Status**: Documentation update pending post-UI-M2.9.
+
 > **📋 Charter Alignment**: This artifact-first contract specification directly supports the [FlowTime-Engine Charter](../flowtime-engine-charter.md) paradigm. The "artifacts are source of truth" principle here implements the charter's artifacts-centric workflow: [Models] → [Runs] → [Artifacts] → [Learn].
 
 > **Status:** v1.0 (artifact-first, domain-neutral)

@@ -1,0 +1,168 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://flowtime.dev/schemas/engine-input.schema.json",
+  "title": "FlowTime Engine Input Model",
+  "description": "Schema for YAML model definitions accepted by FlowTime Engine POST /run endpoint",
+  "type": "object",
+  "required": ["grid", "nodes"],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1,
+      "description": "Schema version, currently 1"
+    },
+    "grid": {
+      "type": "object",
+      "required": ["bins", "binMinutes"],
+      "properties": {
+        "bins": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8760,
+          "description": "Number of time periods"
+        },
+        "binMinutes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1440,
+          "description": "Duration of each time period in minutes"
+        }
+      },
+      "additionalProperties": false
+    },
+    "nodes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "kind"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+            "description": "Unique node identifier"
+          },
+          "kind": {
+            "enum": ["const", "expr", "pmf"],
+            "description": "Node type"
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "description": "Array of constant values (for const nodes)"
+          },
+          "expr": {
+            "type": "string",
+            "description": "Expression string (for expr nodes)"
+          },
+          "pmf": {
+            "type": "object",
+            "required": ["values", "probabilities"],
+            "properties": {
+              "values": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "description": "Possible values for PMF distribution"
+              },
+              "probabilities": {
+                "type": "array",
+                "items": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "description": "Probabilities for each value (must sum to 1.0)"
+              }
+            },
+            "additionalProperties": false,
+            "description": "Probability mass function definition (for pmf nodes)"
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": { "kind": { "const": "const" } }
+            },
+            "then": {
+              "required": ["values"],
+              "not": {
+                "anyOf": [
+                  { "required": ["expr"] },
+                  { "required": ["pmf"] }
+                ]
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": { "kind": { "const": "expr" } }
+            },
+            "then": {
+              "required": ["expr"],
+              "not": {
+                "anyOf": [
+                  { "required": ["values"] },
+                  { "required": ["pmf"] }
+                ]
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": { "kind": { "const": "pmf" } }
+            },
+            "then": {
+              "required": ["pmf"],
+              "not": {
+                "anyOf": [
+                  { "required": ["values"] },
+                  { "required": ["expr"] }
+                ]
+              }
+            }
+          }
+        ],
+        "additionalProperties": false
+      }
+    },
+    "outputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["series", "as"],
+        "properties": {
+          "series": {
+            "type": "string",
+            "description": "Node ID to output"
+          },
+          "as": {
+            "type": "string",
+            "description": "Output filename"
+          }
+        },
+        "additionalProperties": false
+      },
+      "description": "Output definitions (ignored by API, used by CLI)"
+    },
+    "rng": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "description": "RNG type (ignored by Engine)"
+        },
+        "seed": {
+          "type": "integer",
+          "description": "Random seed (ignored by Engine)"
+        }
+      },
+      "additionalProperties": false,
+      "description": "RNG configuration (ignored by Engine, used by FlowTime-Sim)"
+    }
+  },
+  "additionalProperties": false
+}
