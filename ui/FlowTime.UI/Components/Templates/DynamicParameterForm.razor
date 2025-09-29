@@ -178,10 +178,29 @@
     {
         if (!string.IsNullOrWhiteSpace(value))
         {
-            var items = value.Split(',', StringSplitOptions.RemoveEmptyEntries)
-                           .Select(s => s.Trim())
-                           .ToList();
-            parameters[key] = items;
+            var stringItems = value.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                                  .Select(s => s.Trim())
+                                  .ToList();
+            
+            // Try to parse as numbers first (most array parameters are numeric)
+            var numericItems = new List<object>();
+            bool allNumeric = true;
+            
+            foreach (var item in stringItems)
+            {
+                if (double.TryParse(item, out var numValue))
+                {
+                    numericItems.Add(numValue);
+                }
+                else
+                {
+                    allNumeric = false;
+                    break;
+                }
+            }
+            
+            // Use numeric array if all items are numeric, otherwise use string array
+            parameters[key] = allNumeric ? numericItems : stringItems.Cast<object>().ToList();
         }
         else
         {
@@ -253,6 +272,21 @@
         {
             return string.Join(", ", list);
         }
+        
+        // Use default value if available
+        if (property.Default != null)
+        {
+            if (property.Default is List<object> defaultList)
+            {
+                return string.Join(", ", defaultList);
+            }
+            else
+            {
+                // Handle scalar default value - create a simple array pattern
+                return property.Default.ToString() ?? string.Empty;
+            }
+        }
+        
         return string.Empty;
     }
 }

@@ -10,8 +10,8 @@
 
 ### **UI Implementation Milestones**
 - **UI-M2.7.md** - 📋 Artifacts Registry UI (Planned)
-- **UI-M2.8.md** - 📋 Charter Navigation & Tab Structure (Planned)
-- **UI-M2.9.md** - 📋 Compare Workflow UI Integration (Planned)
+- **UI-M2.8.md** - � Charter Navigation & Tab Structure (Phase 1 ✅ Complete, Phases 2+ ❌ Postponed)
+- **UI-M2.9.md** - ❌ Compare Workflow UI Integration (Postponed)
 - **UI-M3.0.md** - 📋 Cross-Platform Charter Integration (Planned)
 
 ## Legacy/Reference Files

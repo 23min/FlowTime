@@ -1,8 +1,8 @@
 # FlowTime Engine Roadmap
 
 **Vision:** Transform FlowTime into a comprehensive **model authoring and analysis platform** with artifacts-centric workflow  
-**Status:** Charter Implementation in Progress  
-**Last Updated:** September 21, 2025
+**Status:** Charter Implementation Revised (UI-M2.8 Phase 2+ Postponed)  
+**Last Updated:** January 27, 2025
 
 ---
 
@@ -69,10 +69,10 @@ FlowTime is evolving from a simulation demonstration tool into a **professional 
 - **Charter Impact:** Completes core charter workflow enabling comprehensive analysis
 - **Dependencies:** M2.8 (Registry Integration)
 
-### **Phase 2: Charter User Experience (UI-M2.7 - UI-M2.9) - Parallel Development**
+### **Phase 2: Charter User Experience (UI-M2.7+) - Revised Scope**
 
-**Timeframe:** October 2025 - Q2 2026  
-**Goal:** Implement charter navigation and user interfaces
+**Timeframe:** October 2025 - Q2 2026 (Revised: Jan 2026+)  
+**Revised Goal:** Implement artifacts registry UI; charter navigation postponed pending reimplementation
 
 #### **📋 UI-M2.7 Artifacts Registry UI**
 - **Goal:** Comprehensive artifacts browsing and management interface
@@ -83,23 +83,19 @@ FlowTime is evolving from a simulation demonstration tool into a **professional 
   - Performance optimized for 1000+ artifacts
 - **User Impact:** Enables discovery and navigation of all preserved work
 
-#### **📋 UI-M2.8 Charter Navigation & Tab Structure**
-- **Goal:** Charter tab navigation system and workflow context management
-- **Key Features:**
-  - Charter tab structure: [Models] → [Runs] → [Artifacts] → [Learn]
-  - Workflow context management preserving charter progression across sessions
-  - Backward compatibility with existing TemplateRunner during transition
-  - Modular tab content components
-- **User Impact:** Provides intuitive charter workflow navigation while preserving existing functionality
+#### **� UI-M2.8 Charter Navigation & Tab Structure**
+- **Status:** ✅ **PHASE 1 COMPLETE** (Jan 2025) - ❌ **PHASES 2+ POSTPONED**
+- **Completed:** Template API Integration with FlowTime-Sim API migration and demo mode preservation
+- **Postponed:** Charter workflow navigation system (stepper-based context bar, workflow state management)
+- **Reason:** Charter workflow approach requires reimplementation with clearer user value proposition
+- **Impact:** Template Studio functionality enhanced through API integration; charter navigation deferred pending architectural review
 
-#### **📋 UI-M2.9 Compare Workflow UI Integration**
-- **Goal:** Visual comparison interfaces integrated into charter navigation
-- **Key Features:**
-  - Side-by-side comparison interfaces with difference highlighting
-  - Visual charts, tables, and statistical analysis of comparison results
-  - Contextual comparison actions throughout charter workflow
-  - Cross-platform comparison capabilities preparation
-- **User Impact:** Completes charter workflow with powerful comparison and analysis tools
+#### **❌ UI-M2.9 Compare Workflow UI Integration**
+- **Status:** **POSTPONED** pending charter workflow reimplementation
+- **Original Goal:** Visual comparison interfaces integrated into charter navigation
+- **Postponement Reason:** Depends on UI-M2.8 charter navigation system which has been postponed
+- **Dependencies:** UI-M2.8 Phase 2+ (postponed), M2.9 Compare Workflow
+- **Future Consideration:** Will be reconsidered when charter workflow approach is reimagined
 
 ### **Phase 3: Cross-Platform Integration (UI-M3.0 - SIM-M3.0) - Future**
 

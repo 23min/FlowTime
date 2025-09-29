@@ -495,8 +495,6 @@ public class TemplateService : ITemplateService
         };
     }
 
-
-
     private static List<TemplateInfo> GetDemoTemplates()
     {
         return new List<TemplateInfo>
