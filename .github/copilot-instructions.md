@@ -47,6 +47,12 @@ Purpose: give AI agents the minimum context to be productive and safe in this re
 ## Dev workflows
 - Tasks: build (`dotnet build`), test (`dotnet test`), run CLI example (see `.vscode/tasks.json`).
 
+## API conventions
+- **REST API base path**: Always use `/api/v1/` for all REST endpoints (not `/sim/`, `/v1/sim/`, etc.)
+- **Template endpoints**: `/api/v1/templates`, `/api/v1/templates/{id}`, `/api/v1/templates/{id}/generate`
+- **System endpoints**: `/api/v1/health`, `/api/v1/version`
+- **Content negotiation**: Support both `application/json` (default) and `application/x-yaml`
+
 ## Testing conventions
 - Docs: `docs/testing.md` (core vs API slice tests).
 - Core tests: no web deps; deterministic; fast.

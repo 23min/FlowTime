@@ -6,5 +6,5 @@ public interface ITemplateRepository
 {
     Task<IReadOnlyList<TemplateDef>> GetAllTemplatesAsync();
     Task<TemplateDef?> GetTemplateAsync(string id);
-    Task<string> GenerateScenarioAsync(string templateId, Dictionary<string, object> parameters);
+    Task<string> GenerateModelAsync(string templateId, Dictionary<string, object> parameters);
 }

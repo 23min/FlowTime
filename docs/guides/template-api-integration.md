@@ -1,5 +1,11 @@
 # Template API Integration Guide
 
+> ⚠️ **SCHEMA MIGRATION IN PROGRESS**  
+> This document contains legacy `binMinutes` references.  
+> **Current Implementation**: Use `grid: { bins, binSize, binUnit }` format.  
+> **See**: `docs/schemas/template-schema.md` for authoritative schema.  
+> **Status**: Documentation update pending post-UI-M2.9.
+
 This guide explains how to integrate with FlowTime-Sim's parameterized template system for building user interfaces that allow dynamic scenario generation.
 
 ## Overview
@@ -10,14 +16,14 @@ FlowTime-Sim has evolved from static scenarios to **parameterized templates** th
 
 ### Before: Static Scenarios
 ```
-GET /v1/sim/scenarios → Static YAML definitions
+GET /api/v1/scenarios → Static YAML definitions
 User selection → Fixed YAML scenario
 ```
 
 ### Now: Parameterized Templates  
 ```
-GET /v1/sim/templates → Template metadata + parameter schemas
-User parameter input → POST /v1/sim/templates/{id}/generate → Custom YAML scenario
+GET /api/v1/templates → Template metadata + parameter schemas
+User parameter input → POST /api/v1/templates/{id}/generate → Custom YAML scenario
 ```
 
 ## Core Concepts
@@ -35,7 +41,7 @@ Each template includes a parameter schema defining:
 
 ## API Endpoints
 
-### 1. Template Discovery: `GET /v1/sim/templates`
+### 1. Template Discovery: `GET /api/v1/templates`
 
 **Purpose**: Get available templates with parameter schemas for UI form generation.
 
@@ -68,7 +74,7 @@ Each template includes a parameter schema defining:
 **Query Parameters**:
 - `?category=domain` - Filter by category (`theoretical`, `domain`)
 
-### 2. Scenario Generation: `POST /v1/sim/templates/{id}/generate`
+### 2. Scenario Generation: `POST /api/v1/templates/{id}/generate`
 
 **Purpose**: Convert template + parameters into concrete YAML scenario.
 
@@ -100,7 +106,7 @@ Each template includes a parameter schema defining:
 - `400 Bad Request` with `{"error": "Parameter 'requestRate' must be a number"}` for validation failures
 - `404 Not Found` for unknown template IDs
 
-### 3. Backward Compatibility: `GET /v1/sim/scenarios`
+### 3. Backward Compatibility: `GET /api/v1/scenarios`
 
 **Purpose**: Legacy endpoint for static scenarios (deprecated but functional).
 
@@ -116,12 +122,12 @@ sequenceDiagram
     participant SimAPI as FlowTime-Sim API
     participant CoreAPI as FlowTime Core API
     
-    UI->>SimAPI: GET /v1/sim/templates
+    UI->>SimAPI: GET /api/v1/templates
     SimAPI-->>UI: Templates with parameter schemas
     
     Note over UI: User selects template<br/>UI renders parameter form
     
-    UI->>SimAPI: POST /v1/sim/templates/{id}/generate
+    UI->>SimAPI: POST /api/v1/templates/{id}/generate
     SimAPI-->>UI: Generated YAML scenario
     
     UI->>CoreAPI: POST /run with YAML
@@ -132,7 +138,8 @@ sequenceDiagram
 
 1. **Template Discovery**
    ```typescript
-   const templates = await fetch('/v1/sim/templates').then(r => r.json());
+   // 1. Get available templates
+   const templates = await fetch('/api/v1/templates').then(r => r.json());
    // Display template list with categories
    ```
 
@@ -145,7 +152,7 @@ sequenceDiagram
 
 3. **Scenario Generation**
    ```typescript
-   const response = await fetch(`/v1/sim/templates/${templateId}/generate`, {
+   const response = await fetch(`/api/v1/templates/${templateId}/generate`, {
      method: 'POST',
      headers: { 'Content-Type': 'application/json' },
      body: JSON.stringify(userParameters)
@@ -263,7 +270,7 @@ try {
 ### Feature Detection
 ```typescript
 // Check if parameterized templates are available
-const template = await fetch('/v1/sim/templates/it-system-microservices').then(r => r.json());
+const template = await fetch('/api/v1/templates/it-system-microservices').then(r => r.json());
 const hasParameters = template.parameters && template.parameters.length > 0;
 
 if (hasParameters) {
@@ -299,14 +306,14 @@ if (hasParameters) {
 ```typescript
 class TemplateManager {
   async getTemplates(category?: string): Promise<Template[]> {
-    const url = category 
-      ? `/v1/sim/templates?category=${category}`
-      : '/v1/sim/templates';
+    const url = category
+      ? `/api/v1/templates?category=${category}`
+      : '/api/v1/templates';
     return fetch(url).then(r => r.json());
   }
 
   async generateScenario(templateId: string, parameters: Record<string, any>): Promise<string> {
-    const response = await fetch(`/v1/sim/templates/${templateId}/generate`, {
+    const response = await fetch(`/api/v1/templates/${templateId}/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(parameters)

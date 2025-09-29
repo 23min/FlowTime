@@ -6,6 +6,56 @@ metadata:
   description: 'Complex supply chain with suppliers, distributors, retailers, and demand variability'
   templateId: 'supply-chain-multi-tier'
   tags: [advanced, supply-chain, multi-tier, variability, logistics]
+  parameters:
+    - name: bins
+      type: integer
+      title: "Time Periods"
+      description: "Number of time periods to simulate"
+      defaultValue: 12
+      minimum: 3
+      maximum: 48
+    - name: binMinutes
+      type: integer
+      title: "Minutes per Period"  
+      description: "Duration of each time period"
+      defaultValue: 60
+      minimum: 15
+      maximum: 480
+    - name: demandPattern
+      type: numberArray
+      title: "Customer Demand Pattern"
+      description: "Customer demand volume per time period"
+      defaultValue: [80, 120, 160, 140, 100, 60]
+      minimum: 0
+      maximum: 5000
+    - name: supplierCapacity
+      type: numberArray
+      title: "Supplier Capacity"
+      description: "Supplier production capacity per time period"
+      defaultValue: [200, 200, 200, 200, 200, 200]
+      minimum: 1
+      maximum: 5000
+    - name: distributorCapacity
+      type: numberArray
+      title: "Distributor Capacity"
+      description: "Distribution center capacity per time period"
+      defaultValue: [150, 150, 150, 150, 150, 150]
+      minimum: 1
+      maximum: 5000
+    - name: retailerCapacity
+      type: numberArray
+      title: "Retailer Capacity"
+      description: "Retail outlet capacity per time period"
+      defaultValue: [120, 120, 120, 120, 120, 120]
+      minimum: 1
+      maximum: 5000
+    - name: bufferSize
+      type: number
+      title: "Buffer Size Multiplier"
+      description: "Safety stock buffer as multiplier of demand"
+      defaultValue: 1.2
+      minimum: 1.0
+      maximum: 3.0
 
 schemaVersion: 1
 grid:

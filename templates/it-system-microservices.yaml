@@ -6,6 +6,49 @@ metadata:
   description: 'Modern web application with request queues, load balancer, auth service, and database bottlenecks'
   templateId: 'it-system-microservices'
   tags: [intermediate, microservices, web-scale, modern, it-systems]
+  parameters:
+    - name: bins
+      type: integer
+      title: "Time Periods"
+      description: "Number of time periods to simulate"
+      defaultValue: 12
+      minimum: 3
+      maximum: 48
+    - name: binMinutes
+      type: integer
+      title: "Minutes per Period"
+      description: "Duration of each time period"
+      defaultValue: 60
+      minimum: 15
+      maximum: 480
+    - name: requestPattern
+      type: numberArray
+      title: "User Request Pattern"
+      description: "Number of requests per time period"
+      defaultValue: [100, 150, 200, 180, 120, 80]
+      minimum: 0
+      maximum: 10000
+    - name: loadBalancerCapacity
+      type: numberArray
+      title: "Load Balancer Capacity"
+      description: "Load balancer throughput per time period"
+      defaultValue: [300, 300, 300, 300, 300, 300]
+      minimum: 1
+      maximum: 10000
+    - name: authCapacity
+      type: numberArray  
+      title: "Auth Service Capacity"
+      description: "Authentication service throughput per time period"
+      defaultValue: [250, 250, 250, 250, 250, 250]
+      minimum: 1
+      maximum: 10000
+    - name: databaseCapacity
+      type: numberArray
+      title: "Database Capacity"
+      description: "Database query capacity per time period"
+      defaultValue: [180, 180, 180, 180, 180, 180]
+      minimum: 1
+      maximum: 10000
 
 schemaVersion: 1
 grid:

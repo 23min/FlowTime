@@ -353,5 +353,7 @@ public enum ParameterType
     Integer,
     String,
     Boolean,
-    Enum
+    Enum,
+    NumberArray,
+    StringArray
 }

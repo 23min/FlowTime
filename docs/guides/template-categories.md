@@ -51,28 +51,28 @@ FlowTime-Sim templates are organized into categories that support different lear
   - Hub-and-spoke network patterns
   - Tags: `beginner`, `transportation`, `logistics`, `capacity`
 
-## API Usage
+## API Endpoints
 
 ### List All Templates
-```bash
-GET /v1/sim/templates
+```
+GET /api/v1/templates
 ```
 
 ### Filter by Category
-```bash
-GET /v1/sim/templates?category=theoretical
-GET /v1/sim/templates?category=domain
+```
+GET /api/v1/templates?category=theoretical
+GET /api/v1/templates?category=domain
 ```
 
-### List Available Categories
-```bash
-GET /v1/sim/templates/categories
+### List Categories
+```
+GET /api/v1/templates/categories
 ```
 
-### Backward Compatibility (Deprecated)
-```bash
-GET /v1/sim/scenarios          # Use /templates instead
-GET /v1/sim/scenarios/categories # Use /templates/categories instead
+### Deprecated Endpoints
+```
+GET /api/v1/scenarios          # Use /templates instead
+GET /api/v1/scenarios/categories # Use /templates/categories instead
 ```
 
 ## Educational Progression

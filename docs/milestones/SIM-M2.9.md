@@ -23,7 +23,23 @@ Prepare **FlowTime-Sim** to support Engine M2.9 Compare Workflow by implementing
 
 ## Functional Requirements
 
-### **FR-SIM-M2.9-1: Model Validation & Quality Assurance**
+### **FR-SIM-M2.9-1: API Consolidation & Legacy Cleanup**
+Clean up deprecated scenarios endpoints following successful UI-M2.8 template API integration.
+
+**Background**: UI-M2.8 successfully migrated FlowTime UI from hardcoded template generation to FlowTime-Sim `/v1/sim/templates` API integration. The legacy `/v1/sim/scenarios` endpoints are now obsolete.
+
+**API Cleanup:**
+- **Remove deprecated endpoints**: `/v1/sim/scenarios`, `/v1/sim/scenarios/categories`
+- **Update test scripts**: Migrate validation scripts from scenarios to templates endpoints  
+- **Documentation cleanup**: Remove scenarios references, update integration guides
+- **Backward compatibility plan**: Define deprecation timeline and migration guidance
+
+**Integration Validation:**
+- **UI compatibility**: Ensure UI-M2.8 template integration remains unaffected
+- **External dependencies**: Identify and migrate any remaining scenarios endpoint usage
+- **API versioning**: Maintain clean v1 API surface focused on templates architecture
+
+### **FR-SIM-M2.9-2: Model Validation & Quality Assurance**
 Comprehensive validation system ensuring Sim models work reliably in Engine compare workflows.
 
 **Validation Framework:**
@@ -38,7 +54,7 @@ Comprehensive validation system ensuring Sim models work reliably in Engine comp
 - **Performance Score**: Expected Engine execution efficiency, memory usage, computation time
 - **Comparison Readiness**: Model suitability for comparison scenarios and baseline usage
 
-### **FR-SIM-M2.9-2: Engine Integration Testing**
+### **FR-SIM-M2.9-3: Engine Integration Testing**
 Testing framework to validate model compatibility with Engine execution and comparison workflows.
 
 **Integration Test Framework:**
@@ -53,7 +69,7 @@ Testing framework to validate model compatibility with Engine execution and comp
 - **Parameter Sensitivity**: Test model behavior with varied parameter values
 - **Edge Case Handling**: Validate model behavior at parameter boundaries and unusual inputs
 
-### **FR-SIM-M2.9-3: Compare Workflow Support**
+### **FR-SIM-M2.9-4: Compare Workflow Readiness**
 Features that enable Sim models to participate effectively in Engine compare workflows.
 
 **Comparison Metadata:**
@@ -87,6 +103,13 @@ Features that enable Sim models to participate effectively in Engine compare wor
 
 ## Acceptance Criteria
 
+### **API Consolidation**
+- ✅ Deprecated `/v1/sim/scenarios` and `/v1/sim/scenarios/categories` endpoints removed
+- ✅ All test scripts migrated to use `/v1/sim/templates` endpoints exclusively
+- ✅ Documentation updated to reflect templates-only API surface
+- ✅ UI-M2.8 template integration remains fully functional after cleanup
+- ✅ No breaking changes for active FlowTime UI integration
+
 ### **Model Validation**
 - ✅ Validation framework catches 95%+ of model configuration errors before Engine integration
 - ✅ Quality assessment provides meaningful scores and actionable improvement recommendations
@@ -107,8 +130,9 @@ Features that enable Sim models to participate effectively in Engine compare wor
 
 ## Implementation Plan
 
-### **Phase 1: Validation Framework**
-1. **Model validation service** with syntax, semantic, and compatibility checking
+### **Phase 1: API Consolidation & Validation Framework**
+1. **API cleanup**: Remove deprecated `/v1/sim/scenarios` endpoints and update dependent scripts
+2. **Model validation service** with syntax, semantic, and compatibility checking
 2. **Quality assessment metrics** with scoring and improvement recommendations
 3. **Validation feedback UI** with specific error messages and guidance
 4. **Quality dashboard** showing model assessment results and trends
