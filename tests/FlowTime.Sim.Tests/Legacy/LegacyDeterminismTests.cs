@@ -1,13 +1,15 @@
 using FlowTime.Sim.Core;
 using Xunit;
 
-namespace FlowTime.Sim.Tests;
+namespace FlowTime.Sim.Tests.Legacy;
 
 /// <summary>
 /// Tests to verify deterministic behavior of FlowTime-Sim.
 /// Determinism is critical for reproducible results and debugging.
 /// </summary>
-public class DeterminismTests
+[Trait("Category", "Legacy")]
+[Obsolete("Legacy determinism tests - will be replaced by node-based template tests")]
+public class LegacyDeterminismTests
 {
     private SimulationSpec BaseConstSpec()
     {

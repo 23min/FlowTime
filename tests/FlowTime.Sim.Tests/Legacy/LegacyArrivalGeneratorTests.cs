@@ -1,9 +1,11 @@
 using FlowTime.Sim.Core;
 using Xunit;
 
-namespace FlowTime.Sim.Tests;
+namespace FlowTime.Sim.Tests.Legacy;
 
-public class ArrivalGeneratorTests
+[Trait("Category", "Legacy")]
+[Obsolete("Legacy arrival generator tests - will be replaced by node-based template tests")]
+public class LegacyArrivalGeneratorTests
 {
     private SimulationSpec BaseGrid(int bins = 5) => new()
     {

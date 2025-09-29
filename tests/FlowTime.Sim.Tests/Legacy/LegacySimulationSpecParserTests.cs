@@ -1,9 +1,11 @@
 using FlowTime.Sim.Core;
 using Xunit;
 
-namespace FlowTime.Sim.Tests;
+namespace FlowTime.Sim.Tests.Legacy;
 
-public class SimulationSpecParserTests
+[Trait("Category", "Legacy")]
+[Obsolete("Legacy arrivals/route schema tests - will be replaced by node-based template tests")]
+public class LegacySimulationSpecParserTests
 {
         [Fact]
         public void Valid_Const_Spec_Parses_And_Validates()
