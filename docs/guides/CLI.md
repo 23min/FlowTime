@@ -47,7 +47,7 @@ Beginning in M1 (Contracts Parity), all runs emit a structured artifact set unde
 ## Usage
 
 ```text
-flowtime run <model-artifact.yaml> [--out <dir>] [--verbose] [--deterministic-run-id] [--seed <n>] [--via-api <url>]
+flowtime run <model-artifact.yaml> [--out <dir>] [--verbose] [--deterministic-run-id] [--seed <n>]
 ```
 
 Options:
@@ -55,12 +55,8 @@ Options:
 * `--verbose`: Print run summary (grid, topology, outputs, schema validation results).
 * `--deterministic-run-id`: Generate stable runId based on scenario hash (for testing/CI).
 * `--seed <n>`: RNG seed for reproducible results (default: random).
-* `--via-api <url>`: Route the run through the API for parity testing (falls back to local eval until API matures).
-* `--verbose`: Print run summary (grid, topology, outputs, schema validation results).
-* `--deterministic-run-id`: Generate stable runId based on scenario hash (for testing/CI).
-* `--seed <n>`: RNG seed for reproducible results (default: random).
-* `--via-api <url>`: Route the run through the API for parity testing (falls back to local eval until API matures).
- - Help: `-h`, `--help`, `/?`, `/h` — print usage and exit 0.
+
+Help: `-h`, `--help`, `/?`, `/h` — print usage and exit 0.
 
 ## M1 Artifact Structure
 
@@ -150,6 +146,90 @@ Tip: In Bash shells, the dotnet commands are identical; only shell utilities (li
 **Next Milestones:**
 * M2: Expression grammar expansion, advanced node types
 * SVC-M0: FlowTime.API HTTP surface (POST /run, GET /graph, GET /healthz)
+
+## M2.9 CLI Evolution
+
+Starting in M2.9, the CLI evolves to become the primary developer tool with enhanced capabilities:
+
+### Architecture Changes
+- **Direct Core Access**: CLI operates directly on FlowTime.Core, no API dependency
+- **Command Name**: Primary command becomes `flowtime` (not `FlowTime.Cli`)
+- **Developer Focus**: Optimized for development workflows, testing, and automation
+
+### Enhanced Commands
+
+#### Model Validation
+```bash
+flowtime validate <model-artifact.yaml> [--schema-version <ver>] [--strict]
+```
+- Validates model structure and syntax without execution
+- Schema version compatibility checking
+- Strict mode for enhanced validation rules
+- Returns detailed validation reports
+
+#### Model Information
+```bash
+flowtime info <model-artifact.yaml> [--format json|yaml|table]
+```
+- Display model metadata, structure, and statistics
+- Node dependency analysis
+- Grid configuration summary
+- Output format options for tooling integration
+
+### Enhanced Run Options
+
+#### Advanced Output Control
+```bash
+flowtime run <model> --out-format [csv|json|parquet] --series <pattern>
+```
+- Multiple output formats beyond CSV
+- Series filtering and selection
+- Structured data for analytics workflows
+
+#### Performance Profiling
+```bash
+flowtime run <model> --profile [--profile-out <file>]
+```
+- Execution timing and performance metrics
+- Node-level performance analysis
+- Memory usage tracking
+- Optimization guidance
+
+### Development Workflow Integration
+
+#### Registry Integration
+```bash
+flowtime registry list [--format table|json]
+flowtime registry add <model> [--tags <tag1,tag2>]
+flowtime registry remove <model-id>
+```
+- Local model registry management
+- Tagging and categorization
+- Discovery and reuse workflows
+
+### Future Enhancements
+
+#### Configuration Management
+- Global and workspace-level configuration files
+- User preferences and tool behavior customization
+- Environment-specific settings and profiles
+
+### M2.9 Implementation Plan
+
+**Phase 1**: Core CLI Architecture
+- Migrate from API-dependent to direct Core access
+- Implement new command structure and argument parsing
+- Basic enhanced commands (validate, info)
+
+**Phase 2**: Enhanced Capabilities
+- Advanced output control and formatting options
+- Performance profiling and optimization tools
+- Registry integration for model management
+
+**Phase 3**: Documentation and Polish
+- Comprehensive CLI documentation updates
+- Example workflows and use cases
+- Integration guides for development teams
 
 ### Output Layout (Contracts Parity)
 Complete file/field definitions: [contracts.md](../reference/contracts.md). The CLI guarantees:

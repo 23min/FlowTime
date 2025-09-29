@@ -51,33 +51,43 @@ grid:
 
 **TDD Strategy**: Write tests first, then implement changes to ensure nothing breaks during the migration.
 
-#### 0.1 Test Analysis & Planning
-**Approach**: Analyze existing test coverage and identify gaps before making any changes.
+#### 0.1 Legacy Test Isolation
+**Approach**: Move existing UI tests to `.Legacy` namespaces before building new test suite.
 
-**Key Activities:**
-- **Current Test Audit**: Review existing template, API, and engine tests
-- **Test Gap Analysis**: Identify missing coverage for schema validation, API contracts, UI components
-- **Test Strategy**: Define test patterns for new schema formats
-- **Breaking Change Tests**: Create tests that will fail with old schema, pass with new schema
+**Namespace Migration:**
+- `FlowTime.UI.Tests` → `FlowTime.UI.Tests.Legacy`
+- `FlowTime.UI.Services.Tests` → `FlowTime.UI.Services.Tests.Legacy`
 
-#### 0.2 New Test Implementation
-**Focus**: Write tests for target state before implementing changes.
+**Benefits:**
+- **Clear Separation**: Old vs new UI tests clearly distinguished
+- **Preservation**: Legacy tests remain functional during UI migration
+- **Clean Architecture**: New tests start with proper structure for new template schema
 
-**Test Categories:**
-- **Schema Validation Tests**: New template format validation
-- **API Contract Tests**: FlowTime-Sim new endpoints and responses  
-- **Engine Schema Tests**: `binSize`/`binUnit` format support
-- **UI Integration Tests**: New parameter forms and validation
-- **Translation Tests**: Schema conversion between formats
-- **Regression Tests**: Ensure existing functionality preservation
+#### 0.2 New UI Test Implementation
+**Focus**: Write tests for new template schema UI integration before implementing changes.
 
-#### 0.3 Legacy Test Identification
-**Goal**: Mark obsolete tests for removal and update tests that need modification.
+**New Test Structure:**
+```
+FlowTime.UI.Tests/
+├── Services/
+│   ├── TemplateServiceTests.cs      # New template API integration
+│   └── FlowTimeSimApiClientTests.cs # New API client tests
+├── Components/
+│   └── TemplateFormTests.cs         # New parameter form tests
+├── Schema/
+│   └── TemplateValidationTests.cs   # New schema validation tests
+└── Legacy/                          # Moved legacy tests
+    └── [existing test files]
+```
 
-**Activities:**
-- **Obsolete Test Marking**: Identify tests that will become invalid
-- **Update Planning**: Plan modifications for tests that need schema updates
-- **Test Cleanup Strategy**: Document which tests to remove vs. update
+#### 0.3 Test-First UI Development
+**Goal**: Write failing tests that define UI success criteria before implementation.
+
+**UI TDD Focus:**
+- Template form generation from new schema
+- API client integration with new endpoints
+- Parameter validation and error handling
+- Schema compatibility during M2.9 evolution
 
 **Benefits of TDD Approach:**
 - ✅ **Safe Refactoring**: Tests ensure no functionality is lost
@@ -111,96 +121,45 @@ POST /api/templates/{id}/validate (NEW)
 #### 1.2 UI Type Definitions
 **Goal**: Define corresponding types in FlowTime UI to match the new schema.
 
-### Phase 2: FlowTime Engine Schema Migration
-**Goal**: Migrate FlowTime Engine to use `binSize`/`binUnit` format for schema unification
+### Phase 2: UI API Integration & Service Updates
+**Goal**: Update FlowTime UI to consume new template API format and support FlowTime Engine schema evolution
 
-**Strategic Benefits:**
-- **Schema Unification**: Single schema across Template and Engine
-- **Enhanced Flexibility**: Support for hours, days, etc. natively
-- **Future-Proofing**: Extensible time unit system
+**Note**: This phase runs in parallel with M2.9 (FlowTime Engine Schema Migration). The engine migration is handled separately in M2.9.
 - **Reduced Complexity**: No translation layer needed
 
-#### 2.1 Core Engine Updates (flowtime-vnext)
+#### 2.1 API Client Updates
+**Goal**: Update FlowTime UI to consume new template API format and support engine schema evolution.
+
 **Files to Update:**
-- `src/FlowTime.Core/TimeGrid.cs` → Update to support binSize/binUnit
-- `src/FlowTime.Core/Models/ModelParser.cs` → Add unit conversion logic
-- `src/FlowTime.Contracts/Dtos/ModelDtos.cs` → Schema changes
-
-**TimeGrid Migration:**
-```csharp
-// Before
-public readonly record struct TimeGrid(int Bins, int BinMinutes)
-
-// After
-public readonly record struct TimeGrid(int Bins, int BinSize, string BinUnit)
-{
-    public int BinMinutes => BinUnit switch
-    {
-        "minutes" => BinSize,
-        "hours" => BinSize * 60,
-        "days" => BinSize * 1440,
-        _ => throw new ArgumentException($"Unknown unit: {BinUnit}")
-    };
-}
-```
-
-#### 2.2 API & Service Updates (flowtime-vnext)
-**Files to Update:**
-- `src/FlowTime.API/Program.cs` → Update API responses
-- `src/FlowTime.API/Services/*.cs` → Update exporters (3-4 files)
-- `src/FlowTime.Cli/Program.cs` → Update CLI output
-
-#### 2.3 Examples & Tests Migration (flowtime-vnext)
-**Files to Update:**
-- `examples/hello/model.yaml` → Update grid format
-- `examples/it-system/model.yaml` → Update grid format
-- `examples/transportation/model.yaml` → Update grid format
-- `examples/shift-test/model.yaml` → Update grid format
-- All test files referencing `binMinutes`
-
-**Example Migration:**
-```yaml
-# Before
-grid:
-  bins: 24
-  binMinutes: 60
-
-# After  
-grid:
-  bins: 24
-  binSize: 1
-  binUnit: "hours"
-```
-
-#### 2.4 Documentation Updates
-**Files to Update:**
-- `docs/schemas/engine-input-schema.md` → Update to new format
-- `docs/schemas/README.md` → Update examples
-- `docs/guides/CLI.md` → Update model examples
-
-### Phase 3: UI API Integration & Service Updates
-**Goal**: Update FlowTime UI to consume new template API format
-
-#### 3.1 API Client Updates (flowtime-vnext)
-**Files to Update:**
-- `ui/FlowTime.UI/Services/FlowTimeSimApiClient.cs` → Major restructure
+- `ui/FlowTime.UI/Services/FlowTimeSimApiClient.cs` → Major restructure for new API
 - `ui/FlowTime.UI/Services/TemplateServices.cs` → Interface updates
+- `ui/FlowTime.UI/Services/TemplateServiceImplementations.cs` → Schema support updates
 
-**ApiTemplateInfo Replacement:**
-```csharp
-// Replace current ApiTemplateInfo with new structure
-public record NewApiTemplateInfo(
-    TemplateMetadata Metadata,
-    TemplateParameter[] Parameters,
-    int NodeCount,
-    int OutputCount
-);
+**API Integration Updates:**
+- Support new structured template metadata and parameters
+- Handle both `binSize`/`binUnit` (template) and `binMinutes` (engine) formats during transition
+- Update template generation request/response handling
+- Implement new template validation endpoints
 
-// Update API methods
-public async Task<Result<List<NewApiTemplateInfo>>> GetTemplatesAsync(CancellationToken ct = default);
-public async Task<Result<NewTemplateDefinition>> GetTemplateAsync(string templateId, CancellationToken ct = default);
-public async Task<Result<TemplateGenerationResponse>> GenerateModelAsync(string templateId, Dictionary<string, object> parameters, CancellationToken ct = default);
-```
+#### 2.2 Schema Format Support
+**Goal**: Update UI forms and validation to support both schema formats during engine migration.
+
+**Template Form Updates:**
+- Update grid parameter forms to use `binSize`/`binUnit` format
+- Add time unit selection (minutes, hours, days)
+- Maintain backward compatibility during M2.9 engine migration
+- Update validation logic for new parameter types
+
+#### 2.3 Engine Integration Strategy
+**Goal**: Ensure UI leverages new engine capabilities when M2.9 completes.
+
+**Integration Strategy:**
+- UI templates use `binSize`/`binUnit` format (already implemented)
+- FlowTime-Sim produces Template Schema format (current capability)
+- M2.9 will evolve engine to accept Template Schema directly
+- Clean integration when M2.9 engine evolution completes
+
+### Phase 3: Template Form & Validation Updates
 
 #### 3.2 Template Service Overhaul (flowtime-vnext)
 **Files to Update:**
@@ -295,38 +254,38 @@ public async Task<Result<TemplateGenerationResponse>> GenerateModelAsync(string 
 
 ## Success Criteria
 
-### Phase 1 Complete
-- [ ] New template types defined and validated
-- [ ] FlowTime-Sim service supports new schema
-- [ ] Basic API endpoints functional
-- [ ] Template validation logic implemented
+### Phase 1 Complete ✅
+- [x] New template types defined and validated
+- [x] FlowTime-Sim service supports new schema  
+- [x] Basic API endpoints functional
+- [x] Template validation logic implemented
 
-### Phase 2 Complete  
-- [ ] FlowTime Engine uses `binSize`/`binUnit` format
-- [ ] All examples updated to new schema
-- [ ] TimeGrid class migration complete
-- [ ] API responses use new format
-- [ ] All tests pass with new schema
-
-### Phase 3 Complete
+### Phase 2 Complete 📋 PLANNED
 - [ ] FlowTime UI API client updated
 - [ ] Template service supports new format
-- [ ] Parameter handling modernized
-- [ ] Demo templates deprecated (API-only approach)
+- [ ] UI prepared for M2.9 engine evolution
+- [ ] Clean integration path established
 
-### Phase 4 Complete
+### Phase 3 Complete 📋 PLANNED  
+- [ ] Parameter forms support new schema types
+- [ ] Template selection and execution workflows updated
+- [ ] Enhanced validation feedback implemented
+- [ ] Demo templates updated for new API
+
+### Phase 4 Complete 📋 PLANNED
 - [ ] Full UI integration working
-- [ ] All documentation updated
-- [ ] Comprehensive test coverage
-- [ ] Migration guide published
+- [ ] All UI documentation updated
+- [ ] Comprehensive UI test coverage
+- [ ] Template workflow guide published
 
-### Milestone 2.9 Complete
-- [ ] **Schema Unification**: Single `binSize`/`binUnit` format across ecosystem
-- [ ] New template schema fully integrated
-- [ ] All legacy template code removed
-- [ ] Complete test coverage
-- [ ] Performance validation passed
-- [ ] Documentation complete and accurate
+### UI-M2.9 Complete
+- [ ] **UI Schema Support**: FlowTime UI fully supports new template schema
+- [ ] **API Integration**: New FlowTime-Sim API fully integrated
+- [ ] **Template Workflows**: All template workflows use new structured format
+- [ ] **Documentation**: UI integration documentation complete
+- [ ] **M2.9 Ready**: UI prepared to leverage M2.9 engine evolution
+
+**Note**: Engine evolution (schema, PMF, RNG) is handled separately in M2.9 milestone.
 
 ## File Impact Summary
 
