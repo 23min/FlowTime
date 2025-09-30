@@ -140,33 +140,22 @@ public class TemplateParameterBugTests
             // Verify the raw template YAML contains parameters section
             Assert.Contains("parameters:", template.Yaml);
             
-            // Additional verification - check that parameters section is in the metadata
+            // Additional verification - check that parameters section is at top level (new schema format)
             var lines = template.Yaml.Split('\n');
-            var inMetadataSection = false;
-            var foundParametersInMetadata = false;
+            var foundParametersAtTopLevel = false;
 
             foreach (var line in lines)
             {
-                if (line.Trim() == "metadata:")
+                // Check for top-level parameters section (not indented)
+                if (line.Trim() == "parameters:" && !line.StartsWith(" "))
                 {
-                    inMetadataSection = true;
-                    continue;
-                }
-
-                if (inMetadataSection && !string.IsNullOrWhiteSpace(line) && !line.StartsWith(" "))
-                {
-                    inMetadataSection = false;
-                }
-
-                if (inMetadataSection && line.Trim().StartsWith("parameters:"))
-                {
-                    foundParametersInMetadata = true;
+                    foundParametersAtTopLevel = true;
                     break;
                 }
             }
 
-            Assert.True(foundParametersInMetadata, 
-                $"Template {expectedId} should have 'parameters:' section in metadata");
+            Assert.True(foundParametersAtTopLevel, 
+                $"Template {expectedId} should have top-level 'parameters:' section (new schema format)");
         }
     }
 }
