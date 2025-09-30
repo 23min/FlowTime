@@ -3,6 +3,13 @@
 ## Overview
 Templates define computation models. They are authored in YAML for human readability and can be served as either YAML or JSON via content negotiation. Templates are converted to models by FlowTime-Sim and models are sent to the Engine for computation.
 
+## Validation Responsibilities
+
+**FlowTime-Sim validates**: Template syntax, schema compliance, parameter constraints
+**FlowTime Engine validates**: Model semantics, node dependencies, expression syntax, DAG structure
+
+See [SIM-Engine Architectural Boundaries](../architecture/sim-engine-boundaries.md) for complete details.
+
 ## Storage and Processing
 
 Storage: YAML format (preserves comments and formatting)

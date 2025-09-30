@@ -11,6 +11,7 @@ public class Template
     public TemplateGrid Grid { get; set; } = new();
     public List<TemplateNode> Nodes { get; set; } = new();
     public List<TemplateOutput> Outputs { get; set; } = new();
+    public TemplateRng? Rng { get; set; } = null;
 }
 
 /// <summary>
@@ -84,4 +85,13 @@ public class TemplateOutput
     public string Id { get; set; } = string.Empty;
     public string Source { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// RNG (Random Number Generator) configuration for deterministic simulation.
+/// </summary>
+public class TemplateRng
+{
+    public string Kind { get; set; } = string.Empty;
+    public string Seed { get; set; } = string.Empty;
 }

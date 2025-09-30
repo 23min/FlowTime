@@ -1,4 +1,22 @@
-namespace FlowTime.Sim.Core.Templates;
+namespace FlowTime.Sim.Core.Templates.Exceptions;
+
+/// <summary>
+/// Exception thrown when PMF validation fails.
+/// </summary>
+public class PmfValidationException : Exception
+{
+    public PmfValidationException(string message) : base(message) { }
+    public PmfValidationException(string message, Exception innerException) : base(message, innerException) { }
+}
+
+/// <summary>
+/// Exception thrown when parameter substitution fails.
+/// </summary>
+public class ParameterSubstitutionException : Exception
+{
+    public ParameterSubstitutionException(string message) : base(message) { }
+    public ParameterSubstitutionException(string message, Exception innerException) : base(message, innerException) { }
+}
 
 /// <summary>
 /// Exception thrown when template parsing fails.
