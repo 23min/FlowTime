@@ -2,111 +2,116 @@
 # Modern web application with request queues, load balancer, auth service, and database bottlenecks
 
 metadata:
+  id: 'it-system-microservices'
   title: 'IT System with Microservices'
   description: 'Modern web application with request queues, load balancer, auth service, and database bottlenecks'
-  templateId: 'it-system-microservices'
   tags: [intermediate, microservices, web-scale, modern, it-systems]
-  parameters:
-    - name: bins
-      type: integer
-      title: "Time Periods"
-      description: "Number of time periods to simulate"
-      defaultValue: 12
-      minimum: 3
-      maximum: 48
-    - name: binMinutes
-      type: integer
-      title: "Minutes per Period"
-      description: "Duration of each time period"
-      defaultValue: 60
-      minimum: 15
-      maximum: 480
-    - name: requestPattern
-      type: numberArray
-      title: "User Request Pattern"
-      description: "Number of requests per time period"
-      defaultValue: [100, 150, 200, 180, 120, 80]
-      minimum: 0
-      maximum: 10000
-    - name: loadBalancerCapacity
-      type: numberArray
-      title: "Load Balancer Capacity"
-      description: "Load balancer throughput per time period"
-      defaultValue: [300, 300, 300, 300, 300, 300]
-      minimum: 1
-      maximum: 10000
-    - name: authCapacity
-      type: numberArray  
-      title: "Auth Service Capacity"
-      description: "Authentication service throughput per time period"
-      defaultValue: [250, 250, 250, 250, 250, 250]
-      minimum: 1
-      maximum: 10000
-    - name: databaseCapacity
-      type: numberArray
-      title: "Database Capacity"
-      description: "Database query capacity per time period"
-      defaultValue: [180, 180, 180, 180, 180, 180]
-      minimum: 1
-      maximum: 10000
 
-schemaVersion: 1
+parameters:
+  - name: bins
+    type: integer
+    title: "Time Periods"
+    description: "Number of time periods to simulate"
+    default: 12
+    minimum: 3
+    maximum: 48
+  - name: binMinutes
+    type: integer
+    title: "Minutes per Period"
+    description: "Duration of each time period"
+    default: 60
+    minimum: 15
+    maximum: 480
+  - name: requestPattern
+    type: array
+    title: "User Request Pattern"
+    description: "Number of requests per time period"
+    default: [100, 150, 200, 180, 120, 80]
+    minimum: 0
+    maximum: 10000
+  - name: loadBalancerCapacity
+    type: array
+    title: "Load Balancer Capacity"
+    description: "Load balancer throughput per time period"
+    default: [300, 300, 300, 300, 300, 300]
+    minimum: 1
+    maximum: 10000
+  - name: authCapacity
+    type: array
+    title: "Auth Service Capacity"
+    description: "Authentication service throughput per time period"
+    default: [250, 250, 250, 250, 250, 250]
+    minimum: 1
+    maximum: 10000
+  - name: databaseCapacity
+    type: array
+    title: "Database Capacity"
+    description: "Database query capacity per time period"
+    default: [180, 180, 180, 180, 180, 180]
+    minimum: 1
+    maximum: 10000
+
 grid:
-  bins: {{bins}}
-  binMinutes: {{binMinutes}}
+  bins: ${bins}
+  binSize: ${binMinutes}
+  binUnit: minutes
 
 nodes:
   # Incoming user requests (varies by time of day)
   - id: user_requests
     kind: const
-    values: {{requestPattern}}
+    values: ${requestPattern}
 
   # Load balancer processing capacity
   - id: load_balancer_capacity
     kind: const
-    values: {{loadBalancerCapacity}}
+    values: ${loadBalancerCapacity}
 
   # Authentication service capacity
   - id: auth_capacity
     kind: const
-    values: {{authCapacity}}
+    values: ${authCapacity}
 
   # Database capacity
   - id: database_capacity
     kind: const
-    values: {{databaseCapacity}}
+    values: ${databaseCapacity}
 
   # Requests processed by load balancer
   - id: load_balanced_requests
     kind: expr
-    expr: "MIN(user_requests, load_balancer_capacity)"
+    expression: "MIN(user_requests, load_balancer_capacity)"
 
   # Requests processed by auth service
   - id: authenticated_requests
     kind: expr
-    expr: "MIN(load_balanced_requests, auth_capacity)"
+    expression: "MIN(load_balanced_requests, auth_capacity)"
 
   # Requests processed by database
   - id: processed_requests
     kind: expr
-    expr: "MIN(authenticated_requests, database_capacity)"
+    expression: "MIN(authenticated_requests, database_capacity)"
 
   # Failed requests (bottlenecked)
   - id: failed_requests
     kind: expr
-    expr: "user_requests - processed_requests"
+    expression: "user_requests - processed_requests"
 
   # System utilization
   - id: system_utilization
     kind: expr
-    expr: "processed_requests / user_requests"
+    expression: "processed_requests / user_requests"
 
 outputs:
-  - series: user_requests
-    as: requests.csv
-  - series: processed_requests
-    as: processed.csv
-  - series: failed_requests
-    as: failures.csv
-  - series: system_utilization
-    as: utilization.csv
+  - id: user_requests
+    source: user_requests
+    filename: requests.csv
+  - id: processed_requests
+    source: processed_requests
+    filename: processed.csv
+  - id: failed_requests
+    source: failed_requests
+    filename: failures.csv
+  - id: system_utilization
+    source: system_utilization
+    filename: utilization.csv

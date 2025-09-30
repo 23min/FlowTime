@@ -1,3 +1,4 @@
+using FlowTime.Sim.Core.Templates.Exceptions;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
@@ -102,6 +103,12 @@ public static class TemplateParser
         foreach (var output in template.Outputs)
         {
             ValidateOutput(output, template.Nodes);
+        }
+
+        // Validate RNG (optional)
+        if (template.Rng != null)
+        {
+            ValidateRng(template.Rng);
         }
     }
 
@@ -211,6 +218,29 @@ public static class TemplateParser
         if (!nodes.Any(n => n.Id == output.Source))
         {
             throw new TemplateValidationException($"Output '{output.Id}' references unknown node '{output.Source}'");
+        }
+    }
+
+    /// <summary>
+    /// Validate RNG configuration.
+    /// </summary>
+    private static void ValidateRng(TemplateRng rng)
+    {
+        if (string.IsNullOrEmpty(rng.Kind))
+        {
+            throw new TemplateValidationException("RNG kind is required");
+        }
+
+        // Validate RNG kind
+        var validKinds = new[] { "pcg32" };
+        if (!validKinds.Contains(rng.Kind))
+        {
+            throw new TemplateValidationException($"Invalid RNG kind '{rng.Kind}'. Valid kinds are: {string.Join(", ", validKinds)}");
+        }
+
+        if (string.IsNullOrEmpty(rng.Seed))
+        {
+            throw new TemplateValidationException("RNG seed is required");
         }
     }
 }

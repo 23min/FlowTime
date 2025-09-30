@@ -2,77 +2,82 @@
 # Simple transportation flow with demand and capacity constraints, ideal for logistics learning
 
 metadata:
+  id: 'transportation-basic'
   title: 'Transportation Network'
   description: 'Simple transportation flow with demand and capacity constraints, ideal for logistics learning'
-  templateId: 'transportation-basic'
   tags: [beginner, transportation, logistics, capacity]
-  parameters:
-    - name: bins
-      type: integer
-      title: "Time Periods"
-      description: "Number of time periods to simulate"
-      defaultValue: 12
-      minimum: 3
-      maximum: 48
-    - name: binMinutes
-      type: integer
-      title: "Minutes per Period"
-      description: "Duration of each time period"
-      defaultValue: 60
-      minimum: 15
-      maximum: 480
-    - name: demandPattern
-      type: numberArray
-      title: "Passenger Demand Pattern"
-      description: "Number of passengers wanting to travel in each time period"
-      defaultValue: [10, 15, 20, 25, 18, 12]
-      minimum: 0
-      maximum: 1000
-    - name: capacityPattern
-      type: numberArray
-      title: "Vehicle Capacity Pattern"
-      description: "Number of available seats/spaces in each time period"
-      defaultValue: [15, 18, 25, 30, 22, 16]
-      minimum: 1
-      maximum: 1000
 
-schemaVersion: 1
+parameters:
+  - name: bins
+    type: integer
+    title: "Time Periods"
+    description: "Number of time periods to simulate"
+    default: 12
+    minimum: 3
+    maximum: 48
+  - name: binMinutes
+    type: integer
+    title: "Minutes per Period"
+    description: "Duration of each time period"
+    default: 60
+    minimum: 15
+    maximum: 480
+  - name: demandPattern
+    type: array
+    title: "Passenger Demand Pattern"
+    description: "Number of passengers wanting to travel in each time period"
+    default: [10, 15, 20, 25, 18, 12]
+    minimum: 0
+    maximum: 1000
+  - name: capacityPattern
+    type: array
+    title: "Vehicle Capacity Pattern"
+    description: "Number of available seats/spaces in each time period"
+    default: [15, 18, 25, 30, 22, 16]
+    minimum: 1
+    maximum: 1000
+
 grid:
-  bins: {{bins}}
-  binMinutes: {{binMinutes}}
+  bins: ${bins}
+  binSize: ${binMinutes}
+  binUnit: minutes
 
 nodes:
   # Passenger demand (varies by time of day)
   - id: passenger_demand
     kind: const
-    values: {{demandPattern}}
+    values: ${demandPattern}
 
   # Available vehicle capacity
   - id: vehicle_capacity
     kind: const
-    values: {{capacityPattern}}
+    values: ${capacityPattern}
 
   # Passengers successfully transported
   - id: passengers_served
     kind: expr
-    expr: "MIN(passenger_demand, vehicle_capacity)"
+    expression: "MIN(passenger_demand, vehicle_capacity)"
 
   # Unmet demand (overcrowding situations)
   - id: unmet_demand
     kind: expr
-    expr: "MAX(0, passenger_demand - vehicle_capacity)"
+    expression: "MAX(0, passenger_demand - vehicle_capacity)"
 
   # System utilization rate
   - id: utilization
     kind: expr
-    expr: "passengers_served / vehicle_capacity"
+    expression: "passengers_served / vehicle_capacity"
 
 outputs:
-  - series: passenger_demand
-    as: demand.csv
-  - series: passengers_served
-    as: served.csv
-  - series: unmet_demand
-    as: overcrowding.csv
-  - series: utilization
-    as: utilization.csv
+  - id: passenger_demand
+    source: passenger_demand
+    filename: demand.csv
+  - id: passengers_served
+    source: passengers_served
+    filename: served.csv
+  - id: unmet_demand
+    source: unmet_demand
+    filename: overcrowding.csv
+  - id: utilization
+    source: utilization
+    filename: utilization.csv

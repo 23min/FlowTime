@@ -5,11 +5,12 @@ using System.Text.Json;
 using FlowTime.Sim.Core;
 using FlowTime.Sim.Service; // TemplateRegistry
 using FlowTime.Sim.Service.Services; // ServiceInfoProvider
+using FlowTime.Sim.Service.Extensions; // TemplateValidationExtensions
 
 // Explicit Program class for integration tests & clear structure
 public partial class Program
 {
-	public static void Main(string[] args)
+	public static async Task Main(string[] args)
 	{
 		var builder = WebApplication.CreateBuilder(args);
 
@@ -502,6 +503,9 @@ v1.MapPost("/sim/overlay", async (HttpRequest req, CancellationToken ct) =>
 			var urls = string.Join(", ", app.Urls);
 			app.Logger.LogInformation("FlowTime.Sim.Service started. Urls={Urls}", urls);
 		});
+
+		// Validate templates at startup (logs warnings, doesn't fail startup)
+		await app.ValidateTemplatesAsync();
 
 		app.Run();
 	}

@@ -1,4 +1,5 @@
 using FlowTime.Sim.Core.Templates;
+using FlowTime.Sim.Core.Templates.Exceptions;
 using Xunit;
 
 namespace FlowTime.Sim.Tests.NodeBased;
@@ -239,5 +240,137 @@ outputs:
         Assert.Equal("multiplied_rate", exprNode.Id);
         Assert.Equal("base_rate * 1.5", exprNode.Expression);
         Assert.Equal(new[] { "base_rate" }, exprNode.Dependencies);
+    }
+
+    [Fact]
+    public void Template_With_RNG_Configuration_Parses_Successfully()
+    {
+        var yaml = """
+metadata:
+  id: rng-template
+  title: Template with RNG Configuration
+grid:
+  bins: 3
+  binSize: 60
+  binUnit: minutes
+nodes:
+  - id: arrivals
+    kind: const
+    values: [100, 150, 200]
+outputs:
+  - id: arrival_series
+    source: arrivals
+rng:
+  kind: pcg32
+  seed: "12345"
+""";
+
+        var template = TemplateParser.ParseFromYaml(yaml);
+        
+        Assert.NotNull(template);
+        Assert.Equal("rng-template", template.Metadata.Id);
+        
+        Assert.NotNull(template.Rng);
+        Assert.Equal("pcg32", template.Rng.Kind);
+        Assert.Equal("12345", template.Rng.Seed);
+    }
+
+    [Fact]
+    public void Template_With_RNG_Parameter_Reference_Parses_Successfully()
+    {
+        var yaml = """
+metadata:
+  id: rng-param-template
+  title: Template with RNG Parameter
+parameters:
+  - name: rngSeed
+    type: integer
+    title: Random Seed
+    description: Seed for deterministic random generation
+    default: 42
+    min: 1
+    max: 2147483647
+grid:
+  bins: 3
+  binSize: 60
+  binUnit: minutes
+nodes:
+  - id: arrivals
+    kind: const
+    values: [100, 150, 200]
+outputs:
+  - id: arrival_series
+    source: arrivals
+rng:
+  kind: pcg32
+  seed: "42"
+""";
+
+        var template = TemplateParser.ParseFromYaml(yaml);
+        
+        Assert.NotNull(template);
+        Assert.Equal("rng-param-template", template.Metadata.Id);
+        
+        // Verify parameter
+        var rngSeedParam = template.Parameters.First(p => p.Name == "rngSeed");
+        Assert.Equal("integer", rngSeedParam.Type);
+        Assert.Equal("42", rngSeedParam.Default?.ToString());
+        
+        // Verify RNG configuration
+        Assert.NotNull(template.Rng);
+        Assert.Equal("pcg32", template.Rng.Kind);
+        Assert.Equal("42", template.Rng.Seed); // After parameter substitution this would be the actual value
+    }
+
+    [Fact]
+    public void Template_Without_RNG_Has_Null_RNG()
+    {
+        var yaml = """
+metadata:
+  id: no-rng-template
+  title: Template without RNG
+grid:
+  bins: 3
+  binSize: 60
+  binUnit: minutes
+nodes:
+  - id: arrivals
+    kind: const
+    values: [100, 150, 200]
+outputs:
+  - id: arrival_series
+    source: arrivals
+""";
+
+        var template = TemplateParser.ParseFromYaml(yaml);
+        
+        Assert.NotNull(template);
+        Assert.Null(template.Rng); // RNG is optional
+    }
+
+    [Fact]
+    public void Template_With_Invalid_RNG_Kind_Throws_Exception()
+    {
+        var yaml = """
+metadata:
+  id: invalid-rng-template
+  title: Template with Invalid RNG
+grid:
+  bins: 3
+  binSize: 60
+  binUnit: minutes
+nodes:
+  - id: arrivals
+    kind: const
+    values: [100, 150, 200]
+outputs:
+  - id: arrival_series
+    source: arrivals
+rng:
+  kind: invalid_rng
+  seed: "12345"
+""";
+
+        Assert.Throws<TemplateValidationException>(() => TemplateParser.ParseFromYaml(yaml));
     }
 }
