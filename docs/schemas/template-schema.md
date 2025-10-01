@@ -1,34 +1,20 @@
 # Template Schemas
 
 ## Overview
+Templates define computation models. They are authored in YAML for human readability and can be served as either YAML or JSON via content negotiation. Templates are converted to models by FlowTime-Sim and models are sent to the Engine for computation.
 
-Templates define computation models that FlowTime-Sim uses to generate executable models for FlowTime Engine. They are authored in YAML for human readability and can be served as either YAML or JSON via content negotiation.
+## Validation Responsibilities
 
-**Schema Relationship:**
-- **Template Schema** (this document) → FlowTime-Sim input format
-- **Engine Schema** ([`engine-input-schema.md`](engine-input-schema.md)) → FlowTime Engine execution format
-- **FlowTime-Sim** translates templates into engine-compatible models
+**FlowTime-Sim validates**: Template syntax, schema compliance, parameter constraints
+**FlowTime Engine validates**: Model semantics, node dependencies, expression syntax, DAG structure
 
-## Processing Flow
-
-```mermaid
-graph LR
-    A[Template YAML] --> B[FlowTime-Sim]
-    B --> C[Engine Model YAML]
-    C --> D[FlowTime Engine]
-    D --> E[Telemetry CSV]
-```
-
-1. **Template** (complex parameters, stochastic definitions)
-2. **FlowTime-Sim** (generates concrete values, translates schema)  
-3. **Engine Model** (concrete values, executable expressions)
-4. **FlowTime Engine** (deterministic execution, telemetry output)
+See [SIM-Engine Architectural Boundaries](../architecture/sim-engine-boundaries.md) for complete details.
 
 ## Storage and Processing
 
-- **Storage**: YAML format (preserves comments and formatting)
-- **Processing**: Convert to JSON internally
-- **API Output**: Both YAML and JSON supported
+Storage: YAML format (preserves comments and formatting)
+Processing: Convert to JSON internally
+API Output: Both YAML and JSON supported
 
 ## Content Negotiation
 ```http
@@ -82,10 +68,6 @@ properties:
           type: number
         max:
           type: number
-        enum:
-          type: array
-          items:
-            # Type depends on parameter type
 
   grid:
     type: object
@@ -99,6 +81,13 @@ properties:
         minimum: 1
       binUnit:
         enum: [minutes, hours, days]
+      start:
+        description: "Optional UTC anchor timestamp for bin 0 (wall-clock alignment)"
+        type: string
+        format: date-time
+        examples:
+          - "2025-01-01T00:00:00Z"
+          - "2025-09-11T00:00:00+00:00"
 
   nodes:
     type: array
@@ -107,9 +96,14 @@ properties:
       required: [id, kind]
       properties:
         id:
-          type: string
-          pattern: "^[a-zA-Z_][a-zA-Z0-9_]*$"
-        kind:
+              # For expr nodes (authoring)
+              expression:
+                type: string
+              dependencies:
+                type: array
+                description: Explicit list of node IDs referenced by this expression
+                items:
+                  type: string
           enum: [const, pmf, expr]
         # For const nodes
         values:
@@ -129,9 +123,6 @@ properties:
                 type: number
                 minimum: 0
                 maximum: 1
-            policy:
-              enum: [repeat, error]
-              default: repeat
         # For expr nodes  
         expr:
           type: string
@@ -147,17 +138,6 @@ properties:
         filename:
           type: string
           pattern: "^[a-zA-Z0-9_-]+\\.csv$"
-
-  rng:
-    type: object
-    properties:
-      kind:
-        enum: [pcg32]
-        default: pcg32
-      seed:
-        type: integer
-        minimum: 1
-        maximum: 2147483647
 ```
 
 ## Template Example (YAML version)
@@ -236,6 +216,8 @@ grid:
   bins: ${bins}
   binSize: ${binSize}
   binUnit: ${binUnit}
+  # Optional wall-clock anchor for bin 0
+  start: "2025-01-01T00:00:00Z"  # Must be UTC (Z or +00:00)
 
 nodes:
   # Input traffic
@@ -366,7 +348,6 @@ rng:
 
 ### Const Nodes (Static Values)
 Define constant values or arrays:
-
 ```yaml
 nodes:
   - id: capacity
@@ -393,7 +374,6 @@ nodes:
 ```
 
 **Engine Model Format** (what FlowTime-Sim generates):
-
 ```yaml
 # Generated for Engine (preserves PMF spec)
 nodes:
@@ -407,24 +387,34 @@ nodes:
 ```
 
 **Grid Contract:**
-- **Length alignment**: PMF length must divide evenly into grid.bins when using repeat policy
-- **Error policy**: If length ≠ bins and policy is error, Engine fails with clear message
-- **No resampling**: v1 supports only repeat and error policies for simplicity
+- **Length alignment**: PMF length must divide evenly into grid.bins when using `repeat` policy
+- **Error policy**: If length ≠ bins and policy is `error`, Engine fails with clear message
+- **No resampling**: v1 supports only `repeat` and `error` policies for simplicity
 - **Deterministic compilation**: Engine compiles PMF to const series during ingest
 
 ### Expression Nodes (Mathematical Operations)
-Define computed values using expressions:
-
+Define computed values using expressions (with explicit dependencies):
 ```yaml
 nodes:
   - id: utilization
     kind: expr
-    expr: "processed / capacity * 100"
+    expression: "processed / capacity * 100"
+    dependencies: [processed, capacity]
     
   - id: effective_capacity
     kind: expr
-    expr: "capacity * reliability_factor"
+    expression: "capacity * reliability_factor"
+    dependencies: [capacity, reliability_factor]
 ```
+
+Note on field names and translation:
+- Authoring format uses `expression` and `dependencies`.
+- Engine model uses `expr` (singular) in the translated representation. FlowTime-Sim performs this translation.
+
+Why dependencies are explicit:
+- Deterministic validation and DAG construction without parsing expression strings.
+- Avoids ambiguity with functions, literals, and future syntax extensions.
+- Clear error messages when a referenced node is missing.
 
 ## JSON Version (API Response)
 
@@ -642,6 +632,18 @@ nodes:
 }
 ```
 
+## Model Persistence for UI Integration
+
+When a model is generated via `POST /api/v1/templates/{id}/generate`, FlowTime‑Sim persists the Engine‑compatible YAML to disk for downstream tooling (UI) to pick up and post to the Engine.
+
+- Path convention: `<DataRoot>/models/<templateId>/model.yaml`
+- DataRoot precedence:
+  1. `FLOWTIME_SIM_DATA_DIR`
+  2. `FlowTimeSim:DataDir`
+  3. `./data`
+
+The endpoint response includes a `path` field with the absolute file path alongside the generated YAML.
+
 ## Key Design Points
 
 - **Three node types currently supported**: `const`, `pmf`, `expr`
@@ -650,7 +652,7 @@ nodes:
 - **Template variables**: Using `${}` syntax
 - **PMF nodes**: Simple values/probabilities structure
 - **PMF sampling**: Uses RNG for probabilistic value selection
-- **RNG configuration**: Optional rng section with PCG32 algorithm and seed
+- **RNG configuration**: Optional `rng` section with PCG32 algorithm and seed
 - **Deterministic behavior**: Same seed produces identical results
 - **Flat parameters**: No nested objects, keeping it simple
 - **CSV outputs only**: Single output format
@@ -664,7 +666,7 @@ nodes:
 - ID patterns: lowercase alphanumeric with hyphens for metadata.id
 - Node IDs: alphanumeric with underscores, must start with letter
 - Filename pattern: alphanumeric with hyphens/underscores, .csv extension
-- Parameter references: All ${} variables have corresponding parameters
+- Parameter references: All `${}` variables have corresponding parameters
 - PMF structure: Basic checks that values/probabilities arrays exist and same length
 - RNG structure: Valid kind and seed format if specified
 
@@ -691,21 +693,34 @@ nodes:
 - **Computation execution**: Run deterministic model computation
 - **Output generation**: Create CSV files from computed results
 
+
+
+## Validation (by Engine)
+
+- **PMF compilation**: Probabilities sum to ≈ 1.0 (ε = 0.001) with optional renormalization
+- **Grid alignment**: PMF length vs grid.bins compatibility with repeat/error policies
+- **PMF properties**: Non-negativity, array length matching
+- **Expression syntax**: Valid arithmetic and function calls
+- **Node dependencies**: All referenced nodes exist, no circular dependencies
+- **Array compatibility**: Expression operands have compatible lengths
+- **RNG configuration**: Seed within valid range, kind is `pcg32`
+- **Provenance**: Record PMF specs and compiled series hashes for explainability
+
 ## PMF Compilation Pipeline (Engine)
 
 The Engine compiles PMF nodes to deterministic const series during model ingest:
 
 ### 1. Validation
-- **Non-negativity**: All probabilities ≥ 0
-- **Normalization**: Σ probabilities ≈ 1.0 within ε=0.001
-- **Length matching**: values.length == probabilities.length
-- **Optional renormalization** with warning in logs
+- Non-negativity: All probabilities ≥ 0
+- Normalization: Σ probabilities ≈ 1.0 within ε=0.001
+- Length matching: values.length == probabilities.length
+- Optional renormalization with warning in logs
 
 ### 2. Grid Alignment
-- If length == grid.bins: use PMF as-is
-- If policy == repeat and bins % length == 0: tile PMF to grid size
-- If policy == error: fail with TIMEGRID_MISMATCH error
-- **No implicit resampling** in v1
+- If `length == grid.bins`: use PMF as-is
+- If `policy == repeat` and `bins % length == 0`: tile PMF to grid size
+- If `policy == error`: fail with `TIMEGRID_MISMATCH` error
+- No implicit resampling in v1
 
 ### 3. Compilation
 - Produce internal const series with deterministic ordering
@@ -718,7 +733,6 @@ The Engine compiles PMF nodes to deterministic const series during model ingest:
 - Enable UI to show both PMF spec and compiled series
 
 ### Example Compilation
-
 ```yaml
 # Input PMF (7-day pattern for 14-bin grid)
 kind: pmf
@@ -731,17 +745,6 @@ spec:
 kind: const
 values: [0.8, 1.2, 1.0, 0.9, 1.1, 0.7, 0.6, 0.8, 1.2, 1.0, 0.9, 1.1, 0.7, 0.6]
 ```
-
-## Validation (by Engine)
-
-- **PMF compilation**: Probabilities sum to ≈ 1.0 (ε = 0.001) with optional renormalization
-- **Grid alignment**: PMF length vs grid.bins compatibility with repeat/error policies
-- **PMF properties**: Non-negativity, array length matching
-- **Expression syntax**: Valid arithmetic and function calls
-- **Node dependencies**: All referenced nodes exist, no circular dependencies
-- **Array compatibility**: Expression operands have compatible lengths
-- **RNG configuration**: Seed within valid range, kind is pcg32
-- **Provenance**: Record PMF specs and compiled series hashes for explainability
 
 ## HTTP Status Codes
 
