@@ -122,7 +122,7 @@ done
 
 **Changes Made:**
 1. **Added parameters sections** to `it-system-microservices.yaml` and `supply-chain-multi-tier.yaml` templates  
-2. **Modified `GenerateModelAsync` method** in `FileSystemTemplateRepository.cs` to strip `parameters` section from generated model metadata
+2. Legacy pathway removed. Generation now handled by `FlowTime.Sim.Core.Services.NodeBasedTemplateService`, which strips the `parameters` section from generated model metadata by design.
 3. **Added proper parameter definitions** with titles, descriptions, default values, and validation constraints
 
 **Test Results:**

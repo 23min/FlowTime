@@ -21,12 +21,9 @@ public static class TemplateValidationExtensions
         try
         {
             logger.LogInformation("Validating templates at startup...");
-            
-            // Use the same template repository that runtime uses
-            var templateRepository = app.Services.GetRequiredService<ITemplateRepository>();
-            
-            // This calls the same validation logic as runtime
-            var templates = await templateRepository.GetAllTemplatesAsync();
+            // Use the node-based core service
+            var templateService = app.Services.GetRequiredService<FlowTime.Sim.Core.Services.INodeBasedTemplateService>();
+            var templates = await templateService.GetAllTemplatesAsync();
             
             if (templates.Count == 0)
             {
@@ -39,7 +36,7 @@ public static class TemplateValidationExtensions
                 // Log template IDs for visibility
                 foreach (var template in templates)
                 {
-                    logger.LogDebug("Validated template: {TemplateId} - {TemplateTitle}", template.Id, template.Title);
+                    logger.LogDebug("Validated template: {TemplateId} - {TemplateTitle}", template.Metadata.Id, template.Metadata.Title);
                 }
             }
         }

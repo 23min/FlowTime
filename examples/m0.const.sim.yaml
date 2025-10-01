@@ -1,14 +1,24 @@
+metadata:
+  id: m0.const.sim
+  title: SIM-M0 const arrivals (node-based)
+  description: Simple constant arrivals expressed as nodes
 schemaVersion: 1
 grid:
   bins: 4
-  binMinutes: 60
+  binSize: 60
+  binUnit: minutes
   start: 2025-01-01T00:00:00Z
-seed: 12345
-arrivals:
-  kind: const
-  values: [5, 5, 5, 5]
-route:
-  id: nodeA
+rng:
+  kind: pcg32
+  seed: 12345
+nodes:
+  - id: arrivals
+    kind: const
+    values: [5, 5, 5, 5]
+  - id: nodeA
+    kind: expr
+    expression: arrivals
+    dependencies: [arrivals]
 outputs:
-  events: out/events.ndjson
-  gold: out/gold.csv
+  - id: events
+    source: nodeA

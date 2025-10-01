@@ -81,6 +81,13 @@ properties:
         minimum: 1
       binUnit:
         enum: [minutes, hours, days]
+      start:
+        description: "Optional UTC anchor timestamp for bin 0 (wall-clock alignment)"
+        type: string
+        format: date-time
+        examples:
+          - "2025-01-01T00:00:00Z"
+          - "2025-09-11T00:00:00+00:00"
 
   nodes:
     type: array
@@ -89,9 +96,14 @@ properties:
       required: [id, kind]
       properties:
         id:
-          type: string
-          pattern: "^[a-zA-Z_][a-zA-Z0-9_]*$"
-        kind:
+              # For expr nodes (authoring)
+              expression:
+                type: string
+              dependencies:
+                type: array
+                description: Explicit list of node IDs referenced by this expression
+                items:
+                  type: string
           enum: [const, pmf, expr]
         # For const nodes
         values:
@@ -204,6 +216,8 @@ grid:
   bins: ${bins}
   binSize: ${binSize}
   binUnit: ${binUnit}
+  # Optional wall-clock anchor for bin 0
+  start: "2025-01-01T00:00:00Z"  # Must be UTC (Z or +00:00)
 
 nodes:
   # Input traffic
@@ -379,17 +393,28 @@ nodes:
 - **Deterministic compilation**: Engine compiles PMF to const series during ingest
 
 ### Expression Nodes (Mathematical Operations)
-Define computed values using expressions:
+Define computed values using expressions (with explicit dependencies):
 ```yaml
 nodes:
   - id: utilization
     kind: expr
-    expr: "processed / capacity * 100"
+    expression: "processed / capacity * 100"
+    dependencies: [processed, capacity]
     
   - id: effective_capacity
     kind: expr
-    expr: "capacity * reliability_factor"
+    expression: "capacity * reliability_factor"
+    dependencies: [capacity, reliability_factor]
 ```
+
+Note on field names and translation:
+- Authoring format uses `expression` and `dependencies`.
+- Engine model uses `expr` (singular) in the translated representation. FlowTime-Sim performs this translation.
+
+Why dependencies are explicit:
+- Deterministic validation and DAG construction without parsing expression strings.
+- Avoids ambiguity with functions, literals, and future syntax extensions.
+- Clear error messages when a referenced node is missing.
 
 ## JSON Version (API Response)
 
@@ -606,6 +631,18 @@ nodes:
   ]
 }
 ```
+
+## Model Persistence for UI Integration
+
+When a model is generated via `POST /api/v1/templates/{id}/generate`, FlowTime‑Sim persists the Engine‑compatible YAML to disk for downstream tooling (UI) to pick up and post to the Engine.
+
+- Path convention: `<DataRoot>/models/<templateId>/model.yaml`
+- DataRoot precedence:
+  1. `FLOWTIME_SIM_DATA_DIR`
+  2. `FlowTimeSim:DataDir`
+  3. `./data`
+
+The endpoint response includes a `path` field with the absolute file path alongside the generated YAML.
 
 ## Key Design Points
 

@@ -5,6 +5,12 @@ using System.Security.Cryptography;
 
 namespace FlowTime.Sim.Core;
 
+// LEGACY: Event generation for old run-centric format (SIM-M0/M1).
+// Maintained for CLI backward compatibility. Node-based templates use different artifact generation.
+
+#pragma warning disable CS0618 // Type or member is obsolete - suppressing within legacy code itself
+
+[Obsolete("Legacy event format from SIM-M0/M1. Node-based templates use different artifact generation. Maintained for CLI backward compatibility.", false)]
 public sealed record SimEvent(
     string entity_id,
     string event_type,
@@ -13,6 +19,7 @@ public sealed record SimEvent(
     string flow
 );
 
+[Obsolete("Legacy event factory from SIM-M0/M1. Use node-based template artifact generation for new code. Maintained for CLI backward compatibility.", false)]
 public static class EventFactory
 {
     public static IEnumerable<SimEvent> BuildEvents(SimulationSpec spec, ArrivalGenerationResult arrivals)
@@ -48,6 +55,7 @@ public static class EventFactory
     }
 }
 
+[Obsolete("Legacy NDJSON writer from SIM-M0/M1. Maintained for CLI backward compatibility.", false)]
 public static class NdjsonWriter
 {
     public static async Task WriteAsync(IEnumerable<SimEvent> events, Stream output, CancellationToken ct)
@@ -62,6 +70,7 @@ public static class NdjsonWriter
     }
 }
 
+[Obsolete("Legacy Gold CSV writer from SIM-M0/M1. Maintained for CLI backward compatibility.", false)]
 public static class GoldWriter
 {
     public static async Task WriteAsync(SimulationSpec spec, ArrivalGenerationResult arrivals, Stream output, CancellationToken ct)
@@ -110,6 +119,7 @@ public sealed record MetadataManifest(
     string generatedAt
 );
 
+[Obsolete("Legacy metadata writer from SIM-M1. Maintained for CLI backward compatibility.", false)]
 public static class MetadataWriter
 {
     public static async Task<MetadataManifest> WriteAsync(

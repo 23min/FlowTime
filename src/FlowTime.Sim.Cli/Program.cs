@@ -3,6 +3,8 @@ using System.Net.Http.Headers;
 using System.Text;
 using FlowTime.Sim.Core; // bring core simulation types into scope
 
+#pragma warning disable CS0618 // Type or member is obsolete - CLI is the intended consumer of legacy code
+
 namespace FlowTime.Sim.Cli
 {
     public sealed record RunOptions(

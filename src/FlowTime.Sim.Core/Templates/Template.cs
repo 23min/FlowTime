@@ -1,3 +1,5 @@
+using YamlDotNet.Serialization;
+
 namespace FlowTime.Sim.Core.Templates;
 
 /// <summary>
@@ -6,6 +8,8 @@ namespace FlowTime.Sim.Core.Templates;
 /// </summary>
 public class Template
 {
+    [YamlMember(Alias = "schemaVersion", ApplyNamingConventions = false)]
+    public int SchemaVersion { get; set; } = 1;
     public TemplateMetadata Metadata { get; set; } = new();
     public List<TemplateParameter> Parameters { get; set; } = new();
     public TemplateGrid Grid { get; set; } = new();
@@ -37,6 +41,14 @@ public class TemplateParameter
     public object? Default { get; set; }
     public double? Min { get; set; }
     public double? Max { get; set; }
+
+    // Accept alternative YAML keys used in some templates
+    // Map 'minimum'/'maximum' onto canonical Min/Max
+    [YamlMember(Alias = "minimum", ApplyNamingConventions = false)]
+    public double? Minimum { get => Min; set => Min = value; }
+
+    [YamlMember(Alias = "maximum", ApplyNamingConventions = false)]
+    public double? Maximum { get => Max; set => Max = value; }
 }
 
 /// <summary>
@@ -47,6 +59,8 @@ public class TemplateGrid
     public int Bins { get; set; }
     public int BinSize { get; set; }
     public string BinUnit { get; set; } = string.Empty;
+    // Optional start timestamp (ISO 8601); not required by validator but supported in schema
+    public string? Start { get; set; }
 }
 
 /// <summary>

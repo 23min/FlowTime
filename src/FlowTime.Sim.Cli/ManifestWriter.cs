@@ -3,6 +3,8 @@ using System.Text;
 using System.Text.Json;
 using FlowTime.Sim.Core;
 
+#pragma warning disable CS0618 // Type or member is obsolete - CLI is the intended consumer of legacy code
+
 namespace FlowTime.Sim.Cli;
 
 // Reworked for SIM-M2 (artifact parity): produce run.json, manifest.json (identical), series/index.json and per-series CSVs.

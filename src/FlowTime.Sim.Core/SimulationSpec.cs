@@ -6,7 +6,12 @@ using YamlDotNet.Serialization.NamingConventions;
 namespace FlowTime.Sim.Core;
 
 // Root simulation spec DTOs (Phase 1/2) — minimal for SIM-M0.
+// LEGACY: This is the old run-centric format from SIM-M0/M1. New code should use node-based templates.
+// See docs/architecture/ for migration guidance. Maintained for CLI backward compatibility and tests.
 
+#pragma warning disable CS0618 // Type or member is obsolete - suppressing within legacy code itself
+
+[Obsolete("Legacy run-centric format from SIM-M0/M1. Use node-based templates (Template.cs) for new code. This is maintained for CLI backward compatibility.", false)]
 public sealed class SimulationSpec
 {
     // SIM-M1+: explicit contract version. If null treat as 0 (legacy) and warn; only 1 supported going forward.

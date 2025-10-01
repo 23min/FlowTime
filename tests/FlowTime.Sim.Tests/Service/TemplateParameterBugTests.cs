@@ -1,6 +1,5 @@
-using FlowTime.Sim.Service;
+using FlowTime.Sim.Core.Services;
 using Microsoft.Extensions.Logging.Abstractions;
-using System.Text.Json;
 using Xunit;
 
 namespace FlowTime.Sim.Tests.Service;
@@ -39,26 +38,33 @@ public class TemplateParameterBugTests
         {
             throw new DirectoryNotFoundException($"Templates directory not found. Current directory: {currentDir}. Tried paths: {string.Join(", ", possiblePaths)}");
         }
-        var repository = new FileSystemTemplateRepository(templatesDirectory, NullLogger<FileSystemTemplateRepository>.Instance);
+        // Preload templates explicitly to avoid directory scanning variability
+        var templateIds = new[] { "it-system-microservices", "supply-chain-multi-tier", "manufacturing-line", "transportation-basic" };
+        var preloaded = new Dictionary<string, string>();
+        foreach (var id in templateIds)
+        {
+            var path = Path.Combine(templatesDirectory, id + ".yaml");
+            Assert.True(File.Exists(path), $"Expected template file missing: {path}");
+            preloaded[id] = await File.ReadAllTextAsync(path);
+        }
+
+        var service = new NodeBasedTemplateService(preloaded, NullLogger<NodeBasedTemplateService>.Instance);
         var parameters = new Dictionary<string, object>
         {
             {"bins", 4},
             {"binMinutes", 60}
         };
 
-        // Test all templates
-        var templateIds = new[] { "it-system-microservices", "supply-chain-multi-tier", "manufacturing-line", "transportation-basic" };
-
         foreach (var templateId in templateIds)
         {
             // Act
-            var generatedModel = await repository.GenerateModelAsync(templateId, parameters);
+            var generatedModel = await service.GenerateEngineModelAsync(templateId, parameters);
 
             // Assert
             Assert.NotNull(generatedModel);
             Assert.DoesNotContain("  parameters:", generatedModel);
             
-            // Additional check - verify the model is valid YAML and doesn't contain parameters in metadata
+            // Additional check - ensure parameters section is not present in the output (engine schema)
             var lines = generatedModel.Split('\n');
             var inMetadataSection = false;
             var foundParametersInMetadata = false;
@@ -122,10 +128,20 @@ public class TemplateParameterBugTests
         {
             throw new DirectoryNotFoundException($"Templates directory not found. Current directory: {currentDir}. Tried paths: {string.Join(", ", possiblePaths)}");
         }
-        var repository = new FileSystemTemplateRepository(templatesDirectory, NullLogger<FileSystemTemplateRepository>.Instance);
+        // Preload specific templates explicitly
+        var templateIds = new[] { "it-system-microservices", "supply-chain-multi-tier", "manufacturing-line", "transportation-basic" };
+        var preloaded = new Dictionary<string, string>();
+        foreach (var id in templateIds)
+        {
+            var path = Path.Combine(templatesDirectory, id + ".yaml");
+            Assert.True(File.Exists(path), $"Expected template file missing: {path}");
+            preloaded[id] = await File.ReadAllTextAsync(path);
+        }
+
+        var service = new NodeBasedTemplateService(preloaded, NullLogger<NodeBasedTemplateService>.Instance);
 
         // Act
-        var templates = await repository.GetAllTemplatesAsync();
+        var templates = await service.GetAllTemplatesAsync();
 
         // Assert
         Assert.NotEmpty(templates);
@@ -134,28 +150,12 @@ public class TemplateParameterBugTests
         
         foreach (var expectedId in expectedTemplateIds)
         {
-            var template = templates.FirstOrDefault(t => t.Id == expectedId);
+            var template = templates.FirstOrDefault(t => t.Metadata.Id == expectedId);
             Assert.NotNull(template);
-            
-            // Verify the raw template YAML contains parameters section
-            Assert.Contains("parameters:", template.Yaml);
-            
-            // Additional verification - check that parameters section is at top level (new schema format)
-            var lines = template.Yaml.Split('\n');
-            var foundParametersAtTopLevel = false;
 
-            foreach (var line in lines)
-            {
-                // Check for top-level parameters section (not indented)
-                if (line.Trim() == "parameters:" && !line.StartsWith(" "))
-                {
-                    foundParametersAtTopLevel = true;
-                    break;
-                }
-            }
-
-            Assert.True(foundParametersAtTopLevel, 
-                $"Template {expectedId} should have top-level 'parameters:' section (new schema format)");
+            // Verify new service exposes parameters via the model
+            Assert.NotNull(template!.Parameters);
+            Assert.NotEmpty(template.Parameters);
         }
     }
 }

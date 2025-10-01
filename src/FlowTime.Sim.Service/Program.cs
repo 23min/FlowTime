@@ -26,11 +26,11 @@ builder.Services.AddCors(p => p.AddDefaultPolicy(policy => policy.AllowAnyOrigin
 builder.Services.AddSingleton<IServiceInfoProvider, ServiceInfoProvider>();
 builder.Services.AddSingleton<IEndpointDiscoveryService, EndpointDiscoveryService>();
 builder.Services.AddSingleton<ICapabilitiesDetectionService, CapabilitiesDetectionService>();
-builder.Services.AddSingleton<ITemplateRepository>(provider =>
+builder.Services.AddSingleton<FlowTime.Sim.Core.Services.INodeBasedTemplateService>(provider =>
 {
-	var logger = provider.GetRequiredService<ILogger<FileSystemTemplateRepository>>();
+	var logger = provider.GetRequiredService<ILogger<FlowTime.Sim.Core.Services.NodeBasedTemplateService>>();
 	var templatesDirectory = ServiceHelpers.TemplatesRoot(builder.Configuration);
-	return new FileSystemTemplateRepository(templatesDirectory, logger);
+	return new FlowTime.Sim.Core.Services.NodeBasedTemplateService(templatesDirectory, logger);
 });
 
 var app = builder.Build();
@@ -130,17 +130,16 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
             availableEndpoints = new[]
             {
                 "/healthz",
-                "/v1/healthz", 
-                "/v1/sim/run",
-                "/v1/sim/templates",
-                "/v1/sim/templates/categories",
-                "/v1/sim/templates/{id}/generate",
-                "/v1/sim/scenarios", // deprecated, use /templates
-                "/v1/sim/scenarios/categories", // deprecated, use /templates/categories
-                "/v1/sim/catalogs",
-                "/v1/sim/runs/{id}/index",
-                "/v1/sim/runs/{id}/series/{seriesId}",
-                "/v1/sim/overlay"
+                "/v1/healthz",
+                "/api/v1/templates",
+                "/api/v1/templates/{id}",
+                "/api/v1/templates/{id}/generate",
+                "/api/v1/templates/categories",
+                "/api/v1/models",
+                "/api/v1/models/{templateId}",
+                "/api/v1/catalogs",
+                "/api/v1/catalogs/{id}",
+                "/api/v1/catalogs/validate"
             }
         });
     }
@@ -152,351 +151,444 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
     }
 });
 
-// V1 API Group - all new endpoints go under /v1
-var v1 = app.MapGroup("/v1");
+		// Modern RESTful endpoints under /api/v1
+		var api = app.MapGroup("/api/v1");
 
-// V1: POST /v1/sim/run  — accepts YAML simulation spec (text/plain or application/x-yaml) and returns { simRunId }
-v1.MapPost("/sim/run", async (HttpRequest req, CancellationToken ct) =>
-{
-	try
-	{
-		using var reader = new StreamReader(req.Body, System.Text.Encoding.UTF8);
-		var yaml = await reader.ReadToEndAsync(ct);
-		if (string.IsNullOrWhiteSpace(yaml)) return Results.BadRequest(new { error = "Empty body" });
-
-		// Parse & validate
-		SimulationSpec spec;
-		try
+		// API: GET /api/v1/templates  (list all templates)
+		api.MapGet("/templates", async (FlowTime.Sim.Core.Services.INodeBasedTemplateService templateService, string? category) =>
 		{
-			spec = SimulationSpecLoader.LoadFromString(yaml);
-		}
-		catch (Exception ex)
-		{
-			return Results.BadRequest(new { error = "YAML parse failed", detail = ex.Message });
-		}
-		var validation = SimulationSpecValidator.Validate(spec);
-		if (!validation.IsValid)
-		{
-			return Results.BadRequest(new { error = "Spec validation failed", errors = validation.Errors });
-		}
+			var items = await templateService.GetAllTemplatesAsync();
+			
+			var templates = items.Select(t => new
+			{
+				id = t.Metadata.Id,
+				title = t.Metadata.Title ?? t.Metadata.Id,
+				description = t.Metadata.Description ?? string.Empty,
+				category = "general", // node-based templates don't carry category yet
+				tags = t.Metadata.Tags
+			});
+			
+			if (!string.IsNullOrEmpty(category))
+			{
+				templates = templates.Where(t => string.Equals(t.category, category, StringComparison.OrdinalIgnoreCase));
+			}
+			return Results.Ok(templates);
+		});
 
-		// Generate arrivals (deterministic)
-		var arrivals = ArrivalGenerators.Generate(spec);
-
-		// Data root (parent of /runs and /catalogs directories) — uses configuration precedence
-		var dataRoot = ServiceHelpers.DataRoot(app.Configuration);
-		app.Logger.LogInformation("Creating simulation run in: {DataRoot}", dataRoot);
-
-		var artifacts = await FlowTime.Sim.Cli.RunArtifactsWriter.WriteAsync(yaml, spec, arrivals, dataRoot, includeEvents: false, ct);
-
-		return Results.Ok(new { simRunId = artifacts.RunId });
-	}
-	catch (OperationCanceledException)
-	{
-		return Results.StatusCode(StatusCodes.Status499ClientClosedRequest);
-	}
-	catch (Exception ex)
-	{
-		return Results.Problem(ex.Message);
-	}
-});
-
-// V1: GET /v1/sim/runs/{id}/index  (series/index.json)
-v1.MapGet("/sim/runs/{id}/index", (string id) =>
-{
-	if (!ServiceHelpers.IsSafeId(id)) return Results.BadRequest(new { error = "Invalid id" });
-	var runsRoot = ServiceHelpers.RunsRoot(app.Configuration);
-	var path = Path.Combine(runsRoot, id, "series", "index.json");
-	if (!File.Exists(path)) return Results.NotFound(new { error = "Not found" });
-	// Return file contents (small JSON)
-	var json = File.ReadAllText(path);
-	return Results.Content(json, "application/json");
-});
-
-// V1: GET /v1/sim/runs/{id}/series/{seriesId}  (CSV stream)
-v1.MapGet("/sim/runs/{id}/series/{seriesId}", (string id, string seriesId) =>
-{
-	if (!ServiceHelpers.IsSafeId(id) || !ServiceHelpers.IsSafeSeriesId(seriesId)) return Results.BadRequest(new { error = "Invalid id" });
-	var runsRoot = ServiceHelpers.RunsRoot(app.Configuration);
-	var path = Path.Combine(runsRoot, id, "series", seriesId + ".csv");
-	if (!File.Exists(path)) return Results.NotFound(new { error = "Not found" });
-	var stream = File.OpenRead(path);
-	return Results.File(stream, contentType: "text/csv", fileDownloadName: seriesId + ".csv");
-});
-
-// V1: GET /v1/sim/templates  (static list of template presets)
-v1.MapGet("/sim/templates", async (ITemplateRepository templateRepo, string? category) => 
-{
-    var templates = await templateRepo.GetAllTemplatesAsync();
-    if (!string.IsNullOrEmpty(category))
-    {
-        templates = templates.Where(t => t.Category.Equals(category, StringComparison.OrdinalIgnoreCase)).ToList();
-    }
-    return Results.Ok(templates);
-});
-
-// V1: GET /v1/sim/templates/categories  (list available categories)
-v1.MapGet("/sim/templates/categories", async (ITemplateRepository templateRepo) => 
-{
-    var templates = await templateRepo.GetAllTemplatesAsync();
-    var categories = templates.Select(t => t.Category).Distinct().ToArray();
-    return Results.Ok(new { categories });
-});
-
-// V1: POST /v1/sim/templates/{id}/generate  (generate scenario from template with parameters)
-v1.MapPost("/sim/templates/{id}/generate", async (string id, HttpRequest req, ITemplateRepository templateRepo) =>
-{
-    try
-    {
-        // Read and parse JSON body
-        using var reader = new StreamReader(req.Body, System.Text.Encoding.UTF8);
-        var bodyText = await reader.ReadToEndAsync();
-        if (string.IsNullOrWhiteSpace(bodyText)) return Results.BadRequest(new { error = "Empty body" });
-        
-        var parametersJson = JsonDocument.Parse(bodyText).RootElement;
-        
-        // Convert JsonElement to Dictionary<string, object> - keep JsonElements for arrays
-        var parameters = new Dictionary<string, object>();
-        foreach (var property in parametersJson.EnumerateObject())
-        {
-            parameters[property.Name] = property.Value.ValueKind switch
-            {
-                JsonValueKind.String => property.Value.GetString()!,
-                JsonValueKind.Number => property.Value.GetDouble(),
-                JsonValueKind.True => true,
-                JsonValueKind.False => false,
-                JsonValueKind.Array => property.Value, // Keep as JsonElement
-                _ => property.Value.ToString()
-            };
-        }
-
-        var model = await templateRepo.GenerateModelAsync(id, parameters);
-        return Results.Ok(new { model, templateId = id, parameters });
-    }
-    catch (ArgumentException ex)
-    {
-        return Results.BadRequest(new { error = ex.Message });
-    }
-    catch (Exception ex)
-    {
-        return Results.Problem($"Failed to generate scenario: {ex.Message}");
-    }
-});
-
-// BACKWARD COMPATIBILITY: Keep old scenario endpoints (deprecated)
-v1.MapGet("/sim/scenarios", async (ITemplateRepository templateRepo, string? category) => 
-{
-    var templates = await templateRepo.GetAllTemplatesAsync();
-    if (!string.IsNullOrEmpty(category))
-    {
-        templates = templates.Where(t => t.Category.Equals(category, StringComparison.OrdinalIgnoreCase)).ToList();
-    }
-    return Results.Ok(templates);
-});
-v1.MapGet("/sim/scenarios/categories", async (ITemplateRepository templateRepo) => 
-{
-    var templates = await templateRepo.GetAllTemplatesAsync();
-    var categories = templates.Select(t => t.Category).Distinct().ToArray();
-    return Results.Ok(new { categories });
-});
-
-// === V1 CATALOG ENDPOINTS (SIM-CAT-M2 Phase 2) ===
-
-// V1: GET /v1/sim/catalogs  → list catalogs (id, title, hash)
-v1.MapGet("/sim/catalogs", () =>
-{
-	try
-	{
-		var catalogsRoot = ServiceHelpers.CatalogsRoot(app.Configuration);
-		if (!Directory.Exists(catalogsRoot))
-		{
-			return Results.Ok(new { catalogs = Array.Empty<object>() });
-		}
-
-		var catalogFiles = Directory.GetFiles(catalogsRoot, "*.yaml", SearchOption.TopDirectoryOnly);
-		var catalogs = new List<object>();
-
-		foreach (var filePath in catalogFiles)
+		// API: GET /api/v1/templates/{id}  (get template details with parameters)
+		api.MapGet("/templates/{id}", async (string id, FlowTime.Sim.Core.Services.INodeBasedTemplateService templateService) =>
 		{
 			try
 			{
-				var catalog = CatalogIO.ReadCatalogFromFile(filePath);
-				var hash = CatalogIO.ComputeCatalogHash(catalog);
-				var fileId = Path.GetFileNameWithoutExtension(filePath);
-				
-				catalogs.Add(new 
+				var template = await templateService.GetTemplateAsync(id);
+				if (template == null)
 				{
-					id = fileId,
-					title = catalog.Metadata.Title ?? fileId,
-					description = catalog.Metadata.Description,
-					hash = hash,
+					return Results.NotFound(new { error = $"Template '{id}' not found" });
+				}
+
+				return Results.Ok(new
+				{
+					id = template.Metadata.Id,
+					title = template.Metadata.Title ?? template.Metadata.Id,
+					description = template.Metadata.Description ?? string.Empty,
+					category = "general",
+					tags = template.Metadata.Tags,
+					parameters = template.Parameters?.Select(p => new
+					{
+						name = p.Name,
+						type = p.Type,
+						title = p.Title ?? string.Empty,
+						description = p.Description ?? string.Empty,
+						defaultValue = p.Default,
+						min = p.Min,
+						max = p.Max
+					}) ?? Enumerable.Empty<object>()
+				});
+			}
+			catch (ArgumentException ex)
+			{
+				return Results.NotFound(new { error = ex.Message });
+			}
+			catch (Exception ex)
+			{
+				return Results.Problem($"Failed to retrieve template: {ex.Message}");
+			}
+		});
+
+		// API: GET /api/v1/templates/categories  (list available categories)
+		api.MapGet("/templates/categories", () => 
+		{
+			// Node-based templates don't carry category; expose a single 'general' category
+			var categories = new[] { "general" };
+			return Results.Ok(new { categories });
+		});
+
+		// API: POST /api/v1/templates/{id}/generate  (generate model from template with parameter substitution)
+		api.MapPost("/templates/{id}/generate", async (string id, HttpRequest req, IConfiguration config, FlowTime.Sim.Core.Services.INodeBasedTemplateService templateService) =>
+		{
+			try
+			{
+				// Parse request body for parameters
+				using var reader = new StreamReader(req.Body, System.Text.Encoding.UTF8);
+				var bodyText = await reader.ReadToEndAsync();
+				var parameters = new Dictionary<string, object>();
+				
+				if (!string.IsNullOrWhiteSpace(bodyText))
+				{
+					var parametersJson = JsonDocument.Parse(bodyText).RootElement;
+					foreach (var property in parametersJson.EnumerateObject())
+					{
+						parameters[property.Name] = property.Value.ValueKind switch
+						{
+							JsonValueKind.Number => property.Value.GetDouble(),
+							JsonValueKind.String => property.Value.GetString() ?? "",
+							JsonValueKind.True => true,
+							JsonValueKind.False => false,
+							JsonValueKind.Array => property.Value,
+							_ => property.Value.ToString()
+						};
+					}
+				}
+
+				var modelYaml = await templateService.GenerateEngineModelAsync(id, parameters);
+
+				// Compute canonical model hash for integrity/cross-system compatibility
+				var modelHash = ModelHasher.ComputeModelHash(modelYaml);
+
+				// Use hash prefix for directory naming to prevent parameter collisions
+				// Format: data/models/{templateId}/{hashPrefix8}/
+				var hashPrefix = modelHash.Substring(7, 8); // Skip "sha256:" prefix, take first 8 hex chars
+				var modelsRoot = ServiceHelpers.ModelsRoot(config);
+				var templateModelsDir = Path.Combine(modelsRoot, id, hashPrefix);
+				Directory.CreateDirectory(templateModelsDir);
+				var modelPath = Path.Combine(templateModelsDir, "model.yaml");
+				await File.WriteAllTextAsync(modelPath, modelYaml, System.Text.Encoding.UTF8);
+
+				// Persist metadata with hash, parameters, and timestamp
+				var metadataPath = Path.Combine(templateModelsDir, "metadata.json");
+				var metadata = new
+				{
+					templateId = id,
+					parameters,
+					modelHash,
+					generatedAtUtc = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture)
+				};
+				await File.WriteAllTextAsync(metadataPath, JsonSerializer.Serialize(metadata, new JsonSerializerOptions { WriteIndented = true }), System.Text.Encoding.UTF8);
+
+				// Default to YAML response unless JSON explicitly requested via Content-Type
+				var contentType = req.ContentType ?? string.Empty;
+				if (contentType.Contains("application/json", StringComparison.OrdinalIgnoreCase))
+				{
+					return Results.Ok(new { model = modelYaml, templateId = id, parameters, modelHash, path = modelPath });
+				}
+				// Default: return YAML
+				return Results.Text(modelYaml, "application/x-yaml");
+			}
+			catch (ArgumentException ex)
+			{
+				return Results.BadRequest(new { error = ex.Message });
+			}
+			catch (Exception ex)
+			{
+				return Results.Problem($"Failed to generate model: {ex.Message}");
+			}
+		});
+
+		// API: GET /api/v1/models  (list all generated models)
+		api.MapGet("/models", (IConfiguration config) =>
+		{
+			try
+			{
+				var modelsRoot = ServiceHelpers.ModelsRoot(config);
+				if (!Directory.Exists(modelsRoot))
+				{
+					return Results.Ok(new { models = Array.Empty<object>() });
+				}
+
+				var models = new List<object>();
+				foreach (var templateDir in Directory.GetDirectories(modelsRoot))
+				{
+					var templateId = Path.GetFileName(templateDir);
+					
+					// Check for hash-based subdirectories
+					foreach (var hashDir in Directory.GetDirectories(templateDir))
+					{
+						var modelPath = Path.Combine(hashDir, "model.yaml");
+						var metadataPath = Path.Combine(hashDir, "metadata.json");
+						
+						if (File.Exists(modelPath))
+						{
+							var fileInfo = new FileInfo(modelPath);
+							string? modelHash = null;
+							
+							// Read modelHash from metadata.json if it exists
+							if (File.Exists(metadataPath))
+							{
+								try
+								{
+									var metadataJson = File.ReadAllText(metadataPath);
+									var metadataDoc = JsonDocument.Parse(metadataJson);
+									if (metadataDoc.RootElement.TryGetProperty("modelHash", out var hashElement))
+									{
+										modelHash = hashElement.GetString();
+									}
+								}
+								catch { /* ignore metadata read errors */ }
+							}
+							
+							models.Add(new
+							{
+								templateId,
+								path = modelPath,
+								size = fileInfo.Length,
+								modifiedUtc = fileInfo.LastWriteTimeUtc,
+								contentType = "application/x-yaml",
+								modelHash
+							});
+						}
+					}
+				}
+
+				return Results.Ok(new { models });
+			}
+			catch (Exception ex)
+			{
+				return Results.Problem($"Failed to list models: {ex.Message}");
+			}
+		});
+
+		// API: GET /api/v1/models/{templateId}  (get specific model by template ID)
+		api.MapGet("/models/{templateId}", (string templateId, IConfiguration config) =>
+		{
+			try
+			{
+				var modelsRoot = ServiceHelpers.ModelsRoot(config);
+				var templateDir = Path.Combine(modelsRoot, templateId);
+				
+				if (!Directory.Exists(templateDir))
+				{
+					return Results.NotFound(new { error = $"No models found for template '{templateId}'" });
+				}
+
+				// Find the most recent model (newest hash directory)
+				var hashDirs = Directory.GetDirectories(templateDir);
+				if (hashDirs.Length == 0)
+				{
+					return Results.NotFound(new { error = $"No models found for template '{templateId}'" });
+				}
+
+				// Get the most recently modified model
+				var latestHashDir = hashDirs
+					.Select(d => new { Dir = d, Time = Directory.GetLastWriteTimeUtc(d) })
+					.OrderByDescending(x => x.Time)
+					.First().Dir;
+
+				var modelPath = Path.Combine(latestHashDir, "model.yaml");
+				var metadataPath = Path.Combine(latestHashDir, "metadata.json");
+				
+				if (!File.Exists(modelPath))
+				{
+					return Results.NotFound(new { error = $"Model file not found for template '{templateId}'" });
+				}
+
+				var modelYaml = File.ReadAllText(modelPath);
+				var fileInfo = new FileInfo(modelPath);
+				string? modelHash = null;
+				
+				// Read modelHash from metadata.json if it exists
+				if (File.Exists(metadataPath))
+				{
+					try
+					{
+						var metadataJson = File.ReadAllText(metadataPath);
+						var metadataDoc = JsonDocument.Parse(metadataJson);
+						if (metadataDoc.RootElement.TryGetProperty("modelHash", out var hashElement))
+						{
+							modelHash = hashElement.GetString();
+						}
+					}
+					catch { /* ignore metadata read errors */ }
+				}
+
+				return Results.Ok(new
+				{
+					templateId,
+					model = modelYaml,
+					path = modelPath,
+					size = fileInfo.Length,
+					modifiedUtc = fileInfo.LastWriteTimeUtc,
+					modelHash
+				});
+			}
+			catch (Exception ex)
+			{
+				return Results.Problem($"Failed to retrieve model: {ex.Message}");
+			}
+		});
+
+		// API: GET /api/v1/catalogs (list all catalogs)
+		api.MapGet("/catalogs", (IConfiguration config) =>
+		{
+			try
+			{
+				var catalogsRoot = ServiceHelpers.CatalogsRoot(config);
+				if (!Directory.Exists(catalogsRoot))
+				{
+					return Results.Ok(new { catalogs = Array.Empty<object>() });
+				}
+
+				var catalogFiles = Directory.GetFiles(catalogsRoot, "*.yaml", SearchOption.TopDirectoryOnly);
+				var catalogs = new List<object>();
+
+				foreach (var filePath in catalogFiles)
+				{
+					try
+					{
+						var catalog = CatalogIO.ReadCatalogFromFile(filePath);
+						var hash = CatalogIO.ComputeCatalogHash(catalog);
+						var fileId = Path.GetFileNameWithoutExtension(filePath);
+						
+						catalogs.Add(new 
+						{
+							id = fileId,
+							title = catalog.Metadata.Title ?? fileId,
+							description = catalog.Metadata.Description,
+							hash = hash,
+							componentCount = catalog.Components.Count,
+							connectionCount = catalog.Connections.Count
+						});
+					}
+					catch (Exception ex)
+					{
+						app.Logger.LogWarning("Failed to read catalog {FilePath}: {Message}", filePath, ex.Message);
+					}
+				}
+
+				return Results.Ok(catalogs);
+			}
+			catch (Exception ex)
+			{
+				return Results.Problem($"Failed to list catalogs: {ex.Message}");
+			}
+		});
+
+		// API: GET /api/v1/catalogs/{id} (get specific catalog)
+		api.MapGet("/catalogs/{id}", (string id, IConfiguration config) =>
+		{
+			try
+			{
+				if (!ServiceHelpers.IsSafeCatalogId(id))
+					return Results.BadRequest(new { error = "Invalid catalog id" });
+
+				var catalogsRoot = ServiceHelpers.CatalogsRoot(config);
+				var filePath = Path.Combine(catalogsRoot, id + ".yaml");
+				
+				if (!File.Exists(filePath))
+					return Results.NotFound(new { error = $"Catalog '{id}' not found" });
+
+				var catalog = CatalogIO.ReadCatalogFromFile(filePath);
+				return Results.Ok(catalog);
+			}
+			catch (Exception ex)
+			{
+				return Results.BadRequest(new { error = "Failed to read catalog", detail = ex.Message });
+			}
+		});
+
+		// API: PUT /api/v1/catalogs/{id} (create/update catalog)
+		api.MapPut("/catalogs/{id}", async (string id, HttpRequest req, IConfiguration config) =>
+		{
+			try
+			{
+				if (!ServiceHelpers.IsSafeCatalogId(id))
+					return Results.BadRequest(new { error = "Invalid catalog id" });
+
+				using var reader = new StreamReader(req.Body, System.Text.Encoding.UTF8);
+				var yaml = await reader.ReadToEndAsync();
+				if (string.IsNullOrWhiteSpace(yaml))
+				{
+					return Results.BadRequest(new { error = "Empty body" });
+				}
+
+				Catalog catalog;
+				try
+				{
+					catalog = CatalogIO.ParseCatalogFromYaml(yaml);
+				}
+				catch (Exception ex)
+				{
+					return Results.BadRequest(new { error = "YAML parse failed", detail = ex.Message });
+				}
+
+				var validation = catalog.Validate();
+				if (!validation.IsValid)
+				{
+					return Results.BadRequest(new { error = "Catalog validation failed", errors = validation.Errors });
+				}
+
+				var catalogsRoot = ServiceHelpers.CatalogsRoot(config);
+				var filePath = Path.Combine(catalogsRoot, id + ".yaml");
+				await File.WriteAllTextAsync(filePath, yaml, System.Text.Encoding.UTF8);
+
+				var hash = CatalogIO.ComputeCatalogHash(catalog);
+				
+				return Results.Ok(new
+				{
+					id,
+					hash,
 					componentCount = catalog.Components.Count,
 					connectionCount = catalog.Connections.Count
 				});
 			}
 			catch (Exception ex)
 			{
-				// Log and skip invalid catalogs
-				Console.WriteLine($"Warning: Failed to read catalog {filePath}: {ex.Message}");
+				return Results.BadRequest(new { error = ex.Message });
 			}
-		}
+		});
 
-		return Results.Ok(new { catalogs });
-	}
-	catch (Exception ex)
-	{
-		return Results.Problem(ex.Message);
-	}
-});
-
-// V1: GET /v1/sim/catalogs/{id}  → returns Catalog.v1
-v1.MapGet("/sim/catalogs/{id}", (string id) =>
-{
-	try
-	{
-		if (!ServiceHelpers.IsSafeCatalogId(id)) 
-			return Results.BadRequest(new { error = "Invalid catalog id" });
-
-		var catalogsRoot = ServiceHelpers.CatalogsRoot(app.Configuration);
-		var filePath = Path.Combine(catalogsRoot, id + ".yaml");
-		
-		if (!File.Exists(filePath))
-			return Results.NotFound(new { error = "Catalog not found" });
-
-		var catalog = CatalogIO.ReadCatalogFromFile(filePath);
-		return Results.Ok(catalog);
-	}
-	catch (Exception ex)
-	{
-		return Results.BadRequest(new { error = "Failed to read catalog", detail = ex.Message });
-	}
-});
-
-// V1: POST /v1/sim/catalogs/validate  → schema + referential integrity
-v1.MapPost("/sim/catalogs/validate", async (HttpRequest req, CancellationToken ct) =>
-{
-	try
-	{
-		using var reader = new StreamReader(req.Body, System.Text.Encoding.UTF8);
-		var yaml = await reader.ReadToEndAsync(ct);
-		if (string.IsNullOrWhiteSpace(yaml)) 
-			return Results.BadRequest(new { error = "Empty body" });
-
-		// Parse the catalog
-		Catalog catalog;
-		try
+		// API: POST /api/v1/catalogs/validate (validate catalog without saving)
+		api.MapPost("/catalogs/validate", async (HttpRequest req) =>
 		{
-			catalog = CatalogIO.ParseCatalogFromYaml(yaml);
-		}
-		catch (Exception ex)
-		{
-			return Results.BadRequest(new { error = "YAML parse failed", detail = ex.Message });
-		}
-
-		// Validate the catalog
-		var validation = catalog.Validate();
-		
-		if (validation.IsValid)
-		{
-			var hash = CatalogIO.ComputeCatalogHash(catalog);
-			return Results.Ok(new 
+			try
 			{
-				valid = true, 
-				hash = hash,
-				componentCount = catalog.Components.Count,
-				connectionCount = catalog.Connections.Count
-			});
-		}
-		else
-		{
-			return Results.BadRequest(new 
-			{
-				valid = false, 
-				errors = validation.Errors
-			});
-		}
-	}
-	catch (Exception ex)
-	{
-		return Results.BadRequest(new { error = "Validation failed", detail = ex.Message });
-	}
-});
+				using var reader = new StreamReader(req.Body, System.Text.Encoding.UTF8);
+				var yaml = await reader.ReadToEndAsync();
+				if (string.IsNullOrWhiteSpace(yaml))
+				{
+					return Results.BadRequest(new { valid = false, errors = new[] { "Empty body" } });
+				}
 
-// V1: POST /v1/sim/overlay  (derive run from base + overlay)
-// Body JSON: { baseRunId: string, overlay: { seed?, grid?, arrivals? } }
-v1.MapPost("/sim/overlay", async (HttpRequest req, CancellationToken ct) =>
-{
-	try
-	{
-		using var reader = new StreamReader(req.Body, System.Text.Encoding.UTF8);
-		var json = await reader.ReadToEndAsync(ct);
-		if (string.IsNullOrWhiteSpace(json)) return Results.BadRequest(new { error = "Empty body" });
-		OverlayRequest? body;
-		try
-		{
-			body = System.Text.Json.JsonSerializer.Deserialize<OverlayRequest>(json, new System.Text.Json.JsonSerializerOptions
-			{
-				PropertyNameCaseInsensitive = true
-			});
-		}
-		catch (Exception ex)
-		{
-			return Results.BadRequest(new { error = "Invalid JSON", detail = ex.Message });
-		}
-		if (body is null || string.IsNullOrWhiteSpace(body.BaseRunId)) return Results.BadRequest(new { error = "baseRunId required" });
-		if (!ServiceHelpers.IsSafeId(body.BaseRunId)) return Results.BadRequest(new { error = "Invalid baseRunId" });
+				Catalog catalog;
+				try
+				{
+					catalog = CatalogIO.ParseCatalogFromYaml(yaml);
+				}
+				catch (Exception ex)
+				{
+					return Results.BadRequest(new { valid = false, errors = new[] { $"YAML parse failed: {ex.Message}" } });
+				}
 
-		var runsRoot = ServiceHelpers.RunsRoot(app.Configuration);
-		var baseDir = Path.Combine(runsRoot, body.BaseRunId);
-		var specPath = Path.Combine(baseDir, "spec.yaml");
-		if (!File.Exists(specPath)) return Results.NotFound(new { error = "Base run spec not found" });
-		var baseYaml = await File.ReadAllTextAsync(specPath, ct);
-		var spec = SimulationSpecLoader.LoadFromString(baseYaml);
+				var validation = catalog.Validate();
+				if (!validation.IsValid)
+				{
+					return Results.BadRequest(new { valid = false, errors = validation.Errors });
+				}
 
-		// Apply shallow overlay
-		if (body.Overlay is not null)
-		{
-			if (body.Overlay.Seed.HasValue) spec.seed = body.Overlay.Seed.Value;
-			if (body.Overlay.Grid is not null)
-			{
-				spec.grid ??= new GridSpec();
-				if (body.Overlay.Grid.Bins.HasValue) spec.grid.bins = body.Overlay.Grid.Bins.Value;
-				if (body.Overlay.Grid.BinMinutes.HasValue) spec.grid.binMinutes = body.Overlay.Grid.BinMinutes.Value;
+				var hash = CatalogIO.ComputeCatalogHash(catalog);
+				
+				return Results.Ok(new
+				{
+					valid = true,
+					hash,
+					componentCount = catalog.Components.Count,
+					connectionCount = catalog.Connections.Count
+				});
 			}
-			if (body.Overlay.Arrivals is not null)
+			catch (Exception ex)
 			{
-				spec.arrivals ??= new ArrivalsSpec();
-				if (!string.IsNullOrWhiteSpace(body.Overlay.Arrivals.Kind)) spec.arrivals.kind = body.Overlay.Arrivals.Kind;
-				if (body.Overlay.Arrivals.Values is not null) spec.arrivals.values = body.Overlay.Arrivals.Values.ToList();
-				if (body.Overlay.Arrivals.Rate.HasValue)
-				{
-					spec.arrivals.rate = body.Overlay.Arrivals.Rate.Value;
-					spec.arrivals.rates = null; // precedence
-				}
-				if (body.Overlay.Arrivals.Rates is not null)
-				{
-					spec.arrivals.rates = body.Overlay.Arrivals.Rates.ToList();
-					spec.arrivals.rate = null; // precedence
-					}
-				}
-		}
-
-		var validation = SimulationSpecValidator.Validate(spec);
-		if (!validation.IsValid)
-		{
-			return Results.BadRequest(new { error = "Overlay validation failed", errors = validation.Errors });
-		}
-
-		var arrivals = ArrivalGenerators.Generate(spec);
-		var dataRoot = ServiceHelpers.DataRoot(app.Configuration);
-		var artifacts = await FlowTime.Sim.Cli.RunArtifactsWriter.WriteAsync(SerializeSpec(spec), spec, arrivals, dataRoot, includeEvents: false, ct);
-		return Results.Ok(new { simRunId = artifacts.RunId });
-	}
-	catch (Exception ex)
-	{
-		return Results.BadRequest(new { error = ex.Message });
-	}
-});
+				return Results.BadRequest(new { valid = false, errors = new[] { ex.Message } });
+			}
+		});
 
 		app.Lifetime.ApplicationStarted.Register(() =>
 		{
@@ -586,12 +678,22 @@ v1.MapPost("/sim/overlay", async (HttpRequest req, CancellationToken ct) =>
 		}
 
 		/// <summary>
-		/// Gets the root directory for simulation runs.
-		/// Order of precedence:
-		/// 1. Environment variable FLOWTIME_SIM_DATA_DIR + "/runs"
-		/// 2. Configuration FlowTimeSim:DataDir + "/runs"
-		/// 3. Default: "./data/runs"
+		/// Gets the models directory (for generated models from templates).
+		/// Returns: {DataRoot}/models
 		/// </summary>
+		public static string ModelsRoot(IConfiguration? configuration = null)
+		{
+			var dataRoot = DataRoot(configuration);
+			var modelsDir = Path.Combine(dataRoot, "models");
+			Directory.CreateDirectory(modelsDir);
+			return modelsDir;
+		}
+
+		/// <summary>
+		/// OBSOLETE: RunsRoot removed - no longer use run-based storage.
+		/// Use ModelsRoot() for hash-based model storage instead.
+		/// </summary>
+		[Obsolete("Run-based storage is obsolete. Use hash-based model storage via ModelsRoot() instead.")]
 		public static string RunsRoot(IConfiguration? configuration = null)
 		{
 			var dataDir = DataRoot(configuration);
@@ -660,72 +762,6 @@ v1.MapPost("/sim/overlay", async (HttpRequest req, CancellationToken ct) =>
 		public static bool IsSafeCatalogId(string id) => !string.IsNullOrWhiteSpace(id) && id.Length < 128 && id.All(ch => char.IsLetterOrDigit(ch) || ch is '_' or '-' or '.');
 	}
 
-	// Overlay DTOs
-	public sealed class OverlayRequest
-	{
-		public string BaseRunId { get; set; } = string.Empty;
-		public OverlayPatch? Overlay { get; set; }
-	}
-
-	public sealed class OverlayPatch
-	{
-		public int? Seed { get; set; }
-		public OverlayGrid? Grid { get; set; }
-		public OverlayArrivals? Arrivals { get; set; }
-	}
-
-	public sealed class OverlayGrid
-	{
-		public int? Bins { get; set; }
-		public int? BinMinutes { get; set; }
-	}
-
-	public sealed class OverlayArrivals
-	{
-		public string? Kind { get; set; }
-		public IEnumerable<double>? Values { get; set; }
-		public double? Rate { get; set; }
-		public IEnumerable<double>? Rates { get; set; }
-	}
-
-
-	static string SerializeSpec(SimulationSpec spec)
-	{
-	// Minimal YAML serializer for persistence; for now we dump JSON-compatible YAML using simple StringBuilder.
-	// (Future: switch to a proper YAML emitter if formatting stability is required.)
-	var sb = new System.Text.StringBuilder();
-	sb.AppendLine("schemaVersion: " + (spec.schemaVersion ?? 1));
-	if (!string.IsNullOrWhiteSpace(spec.rng)) sb.AppendLine("rng: " + spec.rng);
-	if (spec.seed.HasValue) sb.AppendLine("seed: " + spec.seed.Value);
-	if (spec.grid is not null)
-	{
-		sb.AppendLine("grid:");
-		if (spec.grid.bins.HasValue) sb.AppendLine("  bins: " + spec.grid.bins.Value);
-		if (spec.grid.binMinutes.HasValue) sb.AppendLine("  binMinutes: " + spec.grid.binMinutes.Value);
-		if (!string.IsNullOrWhiteSpace(spec.grid.start)) sb.AppendLine("  start: " + spec.grid.start);
-	}
-	if (spec.arrivals is not null)
-	{
-		sb.AppendLine("arrivals:");
-		if (!string.IsNullOrWhiteSpace(spec.arrivals.kind)) sb.AppendLine("  kind: " + spec.arrivals.kind);
-		if (spec.arrivals.values is not null)
-		{
-			sb.AppendLine("  values: [" + string.Join(',', spec.arrivals.values.Select(v => v.ToString(System.Globalization.CultureInfo.InvariantCulture))) + "]");
-		}
-		else if (spec.arrivals.rate.HasValue)
-		{
-			sb.AppendLine("  rate: " + spec.arrivals.rate.Value.ToString(System.Globalization.CultureInfo.InvariantCulture));
-		}
-		else if (spec.arrivals.rates is not null)
-		{
-			sb.AppendLine("  rates: [" + string.Join(',', spec.arrivals.rates.Select(r => r.ToString(System.Globalization.CultureInfo.InvariantCulture))) + "]");
-		}
-	}
-	if (spec.route is not null && !string.IsNullOrWhiteSpace(spec.route.id))
-	{
-		sb.AppendLine("route:");
-		sb.AppendLine("  id: " + spec.route.id);
-	}
-	return sb.ToString();
-    }
+	// === OBSOLETE DTOs REMOVED ===
+	// Overlay feature removed - no longer needed for template-based model generation
 }

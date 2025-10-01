@@ -33,4 +33,12 @@
     <ProjectReference Include="../FlowTime.Sim.Cli/FlowTime.Sim.Cli.csproj" />
   </ItemGroup>
 
+  <!-- Exclude legacy files from compilation (pending physical deletion) -->
+  <ItemGroup>
+    <Compile Remove="FileSystemTemplateRepository.cs" />
+    <Compile Remove="ITemplateRepository.cs" />
+    <Compile Remove="NodeBasedTemplateRepositoryAdapter.cs" />
+    <Compile Remove="TemplateRegistry.cs" />
+  </ItemGroup>
+
 </Project>

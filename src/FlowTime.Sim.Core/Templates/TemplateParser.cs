@@ -9,7 +9,7 @@ namespace FlowTime.Sim.Core.Templates;
 /// </summary>
 public static class TemplateParser
 {
-    private static readonly IDeserializer YamlDeserializer = new DeserializerBuilder()
+    private static readonly IDeserializer yamlDeserializer = new DeserializerBuilder()
         .WithNamingConvention(CamelCaseNamingConvention.Instance)
         .Build();
 
@@ -25,8 +25,8 @@ public static class TemplateParser
         try
         {
             // Parse YAML into template object
-            var template = YamlDeserializer.Deserialize<Template>(yaml);
-            
+            var template = yamlDeserializer.Deserialize<Template>(yaml);
+
             if (template == null)
             {
                 throw new TemplateParsingException("Failed to parse YAML template");

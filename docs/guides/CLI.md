@@ -46,6 +46,16 @@ head -n 5 data/runs/sim_*/series/arrivals@nodeA.csv
 
 Beginning in SIM-M2 (Artifact Parity & Series Index), all simulation runs emit a structured artifact set under `runs/<runId>/` including `run.json`, `manifest.json`, `series/index.json`, per‑series CSV files, and the original `spec.yaml` with deterministic hashing.
 
+For node-based template generation (Engine models), FlowTime-Sim also persists the generated Engine model YAML so the UI can pick it up and post to the Engine:
+
+- Location: `<DataRoot>/models/<templateId>/model.yaml`
+- DataRoot resolution order:
+  1. `FLOWTIME_SIM_DATA_DIR`
+  2. `FlowTimeSim:DataDir` (appsettings)
+  3. `./data`
+
+The `/api/v1/templates/{id}/generate` endpoint returns the generated YAML (YAML or JSON-wrapped) and includes the `path` field pointing to the persisted file.
+
 ## Usage
 
 ```text
