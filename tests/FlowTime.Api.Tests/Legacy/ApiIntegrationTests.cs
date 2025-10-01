@@ -4,6 +4,8 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.AspNetCore.Hosting;
 
+namespace FlowTime.Api.Tests.Legacy;
+
 public class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
 {
   private readonly WebApplicationFactory<Program> factory;

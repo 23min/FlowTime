@@ -1,5 +1,7 @@
 using FlowTime.Core;
 
+namespace FlowTime.Tests.Legacy;
+
 public class GraphTests
 {
     [Fact]
