@@ -1,29 +1,29 @@
-# SIM-M2.1 Example: Complex multi-component PMF scenario
-# Demonstrates advanced PMF usage with different distributions per component
-
+metadata:
+  id: m15.complex-pmf
+  title: SIM-M2.1 Complex PMF example (node-based)
+  description: Complex PMF arrivals with a derived route node
 schemaVersion: 1
-rng: pcg
-seed: 123
-
+rng:
+  kind: pcg32
+  seed: 123
 grid:
   bins: 24
-  binMinutes: 60
+  binSize: 60
+  binUnit: minutes
   start: "2025-09-11T00:00:00Z"
-
-# Note: This example shows the intended usage pattern
-# Current implementation supports single component, but framework ready for multi-component
-arrivals:
-  kind: pmf
-  values: [1, 2, 3, 5, 8]          # Fibonacci-like values
-  probabilities: [0.1, 0.2, 0.3, 0.3, 0.1]  # Skewed distribution
-  # Expected value: 1*0.1 + 2*0.2 + 3*0.3 + 5*0.3 + 8*0.1 = 3.6 arrivals per bin
-
-route:
-  id: COMP_A
-
-service:
-  kind: const
-  value: 1.0
-
+nodes:
+  - id: arrivals
+    kind: pmf
+    pmf:
+      values: [1, 2, 3, 5, 8]
+      probabilities: [0.1, 0.2, 0.3, 0.3, 0.1]
+  - id: COMP_A
+    kind: expr
+    expression: arrivals
+    dependencies: [arrivals]
+  - id: service_rate
+    kind: const
+    values: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
 outputs:
-  includeEvents: true
+  - id: events
+    source: COMP_A

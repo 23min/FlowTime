@@ -37,55 +37,46 @@ git clone https://github.com/23min/FlowTime-Sim.git
 cd FlowTime-Sim
 dotnet build
 
-# Run a simple example
-dotnet run --project src/FlowTime.Sim.Cli -- --model examples/m0.const.yaml --out output/
+# List available templates
+dotnet run --project src/FlowTime.Sim.Cli -- list templates
 
-# Check the results
-ls output/  # Contains run.json, manifest.json, and CSV files
+# Generate a model from a template
+dotnet run --project src/FlowTime.Sim.Cli -- generate --id transportation-basic --out my-model.yaml
 ```
 
 ## Basic example
 
-Create a file called `my-model.yaml`:
+Generate a model from a template:
 
-```yaml
-schemaVersion: 1
-grid: 
-  bins: 24
-  binMinutes: 60
-  start: 2025-01-01T00:00:00Z
-seed: 42
-rng: pcg
-
-arrivals:
-  kind: pmf
-  pmf:
-    - { value: 100, probability: 0.6 }  # 60% chance of 100 requests/hour
-    - { value: 200, probability: 0.3 }  # 30% chance of 200 requests/hour  
-    - { value: 500, probability: 0.1 }  # 10% chance of 500 requests/hour (spike)
-
-route: { id: api-service }
-catalog: catalogs/demo-system.yaml
-```
-
-Run it:
 ```bash
-dotnet run --project src/FlowTime.Sim.Cli -- --model my-model.yaml --out results/
+# List available templates
+dotnet run --project src/FlowTime.Sim.Cli -- list templates
+
+# Show a template with its parameters
+dotnet run --project src/FlowTime.Sim.Cli -- show template --id transportation-basic
+
+# Generate a model using template defaults
+dotnet run --project src/FlowTime.Sim.Cli -- generate --id transportation-basic --out my-model.yaml
+
+# Or generate with custom parameters
+echo '{ "bins": 24, "demandPattern": [100, 200, 150, 180] }' > params.json
+dotnet run --project src/FlowTime.Sim.Cli -- generate --id transportation-basic --params params.json --out my-model.yaml
 ```
 
-This creates a 24-hour model specification with realistic traffic patterns including occasional spikes. Currently generates synthetic data, but will transition to model artifact creation.
+The generated model is a complete YAML specification ready for simulation with FlowTime-Engine.
 
 ## What you get
 
-FlowTime-Sim currently outputs structured data you can analyze:
+FlowTime-Sim generates structured YAML model files ready for simulation:
 
-- **run.json** - Metadata about the simulation run
-- **manifest.json** - File integrity hashes 
-- **series/{metric}.csv** - Time-series data (arrivals, flows, backlogs, etc.)
+- **Model YAML** - Complete node-based model specification with:
+  - Grid configuration (time periods, bin size, start time)
+  - RNG configuration for deterministic simulation
+  - Node definitions (source, processing, sink nodes)
+  - Grid data (arrival patterns, service times)
+  - Output specifications
 
-Each CSV has simple `t,value` format where `t` is the time bin (0, 1, 2...) and `value` is the metric.
-
-**Note**: This synthetic data generation is legacy functionality. Future charter-compliant versions will output model artifacts for FlowTime-Engine execution instead.
+These models are designed for execution by FlowTime-Engine, which will produce time-series results and telemetry.
 
 ## HTTP API with Template Support
 
@@ -94,59 +85,73 @@ Start the service:
 dotnet run --project src/FlowTime.Sim.Service
 ```
 
-**New in v0.3.1**: Template metadata endpoints
+The API provides endpoints for template management and catalog validation:
 
-List available templates with metadata:
 ```bash
-curl http://localhost:8090/v1/sim/templates
+# List available catalogs
+curl http://localhost:8090/api/v1/catalogs
+
+# Get a specific catalog
+curl http://localhost:8090/api/v1/catalogs/demo-system
+
+# Validate a catalog YAML
+curl -X POST http://localhost:8090/api/v1/catalogs/validate \
+  -H "Content-Type: text/plain" \
+  --data-binary @my-catalog.yaml
+
+# Health check
+curl http://localhost:8090/health
 ```
 
-Generate scenario from template (uses template-specific parameters):
-```bash
-curl -X POST http://localhost:8090/v1/sim/templates/transportation-basic/generate \
-  -H "Content-Type: application/json" \
-  -d '{
-    "demandPeakHour": 8,
-    "demandPeakMultiplier": 2.5,
-    "capacityBaseLevel": 150
-  }'
-```
-
-Legacy simulation endpoint (generates synthetic data):
-```bash
-curl -X POST http://localhost:8090/v1/sim/run \
-  -H "Content-Type: application/json" \
-  -d '{"templateId": "basic", "parameters": {}}'
-```
-
-## CLI options
+## CLI commands
 
 ```bash
-# Basic usage
-dotnet run --project src/FlowTime.Sim.Cli -- --model path/to/model.yaml --out output/
+# List templates
+flow-sim list templates
+
+# List generated models
+flow-sim list models
+
+# Show template details
+flow-sim show template --id <template-id>
+
+# Show generated model
+flow-sim show model --id <model-hash>
+
+# Generate model from template
+flow-sim generate --id <template-id> [--params <params.json>] [--out <file>]
+
+# Validate template or catalog
+flow-sim validate template --id <template-id>
+flow-sim validate catalog <file.yaml>
+
+# Initialize config
+flow-sim init
 
 # Options:
---model <file>       YAML model file
---out <directory>    Output directory  
---format csv|json    Output format
---mode engine|sim    Integration mode (engine posts to FlowTime-Engine, sim generates locally)
---flowtime <url>     FlowTime-Engine URL for integration mode
---verbose            Detailed logging
+--id <id>                Template or model ID
+--params <file>          JSON file with parameter overrides
+--out <file>             Output file (default: stdout)
+--format yaml|json       Output format (default: yaml)
+--templates-dir <path>   Templates directory (default: ./templates)
+--models-dir <path>      Models directory (default: ./data/models)
+--verbose, -v            Verbose output
+--help, -h               Show help
 ```
 
 ## Integration with FlowTime-Engine
 
-FlowTime-Sim can send data directly to a FlowTime-Engine instance:
+FlowTime-Sim generates model YAML files that can be executed by FlowTime-Engine:
 
 ```bash
-dotnet run --project src/FlowTime.Sim.Cli -- \
-  --model examples/m0.const.yaml \
-  --flowtime http://localhost:8080 \
-  --out results.csv \
-  --format csv
+# Generate a model
+flow-sim generate --id transportation-basic --out model.yaml
+
+# Execute with FlowTime-Engine (using its CLI or API)
+flowtime run --model model.yaml
 ```
 
-This posts the model to FlowTime-Engine for deterministic execution rather than generating synthetic data locally. This integration approach aligns with the charter-compliant direction.
+The node-based model format aligns with FlowTime-Engine's charter-compliant execution model.
 
 ## Development status
 
@@ -184,10 +189,10 @@ series/*.csv     # canonical per-series time series
 - **[Development Setup](docs/development-setup.md)** - Environment configuration and service setup
 
 ### Guides & Reference
-- **[CLI Guide](docs/guides/CLI.md)** - Complete command-line usage and examples
 - **[Configuration Guide](docs/guides/configuration.md)** - Setup and configuration reference
 - **[Architecture Documentation](docs/architecture/)** - Technical design patterns and reference
 - **[API Reference](docs/reference/)** - Technical contracts and specifications
+- **CLI Usage**: Run `flow-sim --help` for complete command reference
 
 ### Development Resources
 - **[Development Guides](docs/development/)** - Setup, testing, and devcontainer guides

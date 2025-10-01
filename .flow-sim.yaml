@@ -1,0 +1,17 @@
+# FlowTime-Sim CLI Configuration
+# Place this file at:
+#   - ./.flow-sim.yaml (project-local, highest priority)
+#   - ~/.flow-sim.yaml (user config)
+
+# Template directory
+templates:
+  directory: /workspaces/flowtime-sim-vnext/templates
+
+# Data storage
+data:
+  models: /workspaces/flowtime-sim-vnext/data/models
+
+# Default preferences
+defaults:
+  format: yaml  # yaml | json
+  verbose: false

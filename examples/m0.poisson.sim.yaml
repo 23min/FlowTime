@@ -1,14 +1,28 @@
+metadata:
+  id: m0.poisson.sim
+  title: SIM-M0 poisson arrivals (node-based)
+  description: Poisson arrivals mapped through an expression node placeholder
 schemaVersion: 1
 grid:
   bins: 4
-  binMinutes: 60
+  binSize: 60
+  binUnit: minutes
   start: 2025-01-01T00:00:00Z
-seed: 999
-arrivals:
-  kind: poisson
-  rate: 3.5
-route:
-  id: nodeA
+rng:
+  kind: pcg32
+  seed: 999
+nodes:
+  - id: arrivals_rate
+    kind: const
+    values: [3.5, 3.5, 3.5, 3.5]
+  - id: arrivals
+    kind: expr
+    expression: arrivals_rate
+    dependencies: [arrivals_rate]
+  - id: nodeA
+    kind: expr
+    expression: arrivals
+    dependencies: [arrivals]
 outputs:
-  events: out/poisson.events.ndjson
-  gold: out/poisson.gold.csv
+  - id: events
+    source: nodeA

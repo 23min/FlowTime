@@ -1,8 +1,24 @@
 # FlowTime-Sim CLI Usage Guide
 
+**Charter-Compliant Model Authoring Tool**
+
 ## Overview
 
-The FlowTime-Sim CLI provides template-based simulation model generation from the command line. It supports the new DAG-based template schema and integrates with the FlowTime Engine.
+FlowTime-Sim CLI is a template-based model authoring tool that generates FlowTime Engine-compatible models. It uses `NodeBasedTemplateService` from FlowTime.Sim.Core directly - no API calls, pure local model generation.
+
+## What FlowTime-Sim CLI Does
+
+✅ **Lists** available templates  
+✅ **Shows** template details and parameters with **defaults**  
+✅ **Generates** Engine-compatible models from templates  
+✅ **Validates** parameter overrides  
+✅ **Lists** generated models  
+
+❌ **Does NOT** call any APIs  
+❌ **Does NOT** generate telemetry or execute models  
+❌ **Does NOT** have engine or sim modes  
+
+This is a **model authoring tool only**. To execute models and generate telemetry, use FlowTime Engine.
 
 ## Installation
 
@@ -11,496 +27,366 @@ The FlowTime-Sim CLI provides template-based simulation model generation from th
 cd src/FlowTime.Sim.Cli
 dotnet build
 
-# Run directly
-dotnet run --project src/FlowTime.Sim.Cli -- [options]
-
-# Create alias for convenience
-alias flowtime-sim="dotnet run --project /path/to/FlowTime.Sim.Cli --"
+# Or build the entire solution
+dotnet build
 ```
 
-## Command Structure
+## Usage
 
 ```bash
-flowtime-sim <command> <action> [options]
+flow-sim <command> [options]
 ```
 
-## Template Commands
+## Commands
 
-### template list
+### 1. List Templates
 
-Lists all available templates.
+List all available templates:
 
 ```bash
-flowtime-sim template list [options]
-```
-
-**Options:**
-- `--format <json|table>`: Output format (default: table)
-- `--tag <tag>`: Filter by tag
-- `--verbose`: Show detailed information
-
-**Examples:**
-```bash
-# List all templates
-flowtime-sim template list
-
-# List with JSON output
-flowtime-sim template list --format json
-
-# Filter by tag
-flowtime-sim template list --tag microservices
-
-# Verbose output with descriptions
-flowtime-sim template list --verbose
-```
-
-**Output (table format):**
-```
-ID                        TITLE                         VERSION  TAGS
-it-system-microservices   IT System with Microservices 1.0.0    microservices, web-scale
-manufacturing-assembly    Manufacturing Assembly Line  1.2.1    manufacturing, assembly
-network-routing          Network Packet Routing       0.9.0    networking, routing
-```
-
-**Output (JSON format):**
-```json
-{
-  "templates": [
-    {
-      "id": "it-system-microservices",
-      "title": "IT System with Microservices",
-      "version": "1.0.0",
-      "tags": ["microservices", "web-scale", "stochastic"],
-      "parameterCount": 7,
-      "nodeCount": 19,
-      "outputCount": 8
-    }
-  ]
-}
-```
-
-### template show
-
-Displays complete template definition.
-
-```bash
-flowtime-sim template show --id <template-id> [options]
-```
-
-**Options:**
-- `--id <id>`: Template identifier (required)
-- `--format <yaml|json>`: Output format (default: yaml)
-- `--section <metadata|parameters|nodes|outputs>`: Show specific section only
-- `--with-params <file>`: Show processed template with parameter values
-
-**Examples:**
-```bash
-# Show complete template
-flowtime-sim template show --id it-system-microservices
-
-# Show as JSON
-flowtime-sim template show --id it-system-microservices --format json
-
-# Show only parameters section
-flowtime-sim template show --id it-system-microservices --section parameters
-
-# Show processed template with parameter values
-flowtime-sim template show --id it-system-microservices --with-params params.json
-```
-
-### template validate
-
-Validates template structure and parameters.
-
-```bash
-flowtime-sim template validate [options]
-```
-
-**Options:**
-- `--id <id>`: Validate existing template by ID
-- `--file <path>`: Validate template file
-- `--params <file>`: Validate with specific parameters
-- `--strict`: Enable strict validation (fail on warnings)
-
-**Examples:**
-```bash
-# Validate existing template
-flowtime-sim template validate --id it-system-microservices
-
-# Validate template file
-flowtime-sim template validate --file my-template.yaml
-
-# Validate with parameters
-flowtime-sim template validate --id it-system-microservices --params test-params.json
-
-# Strict validation
-flowtime-sim template validate --file my-template.yaml --strict
+flow-sim list
 ```
 
 **Output:**
 ```
-✓ Template structure valid
-✓ All required fields present
-✓ Parameter types consistent
-✓ Node references valid
-✓ PMF probabilities sum to 1.0
-✓ No circular dependencies
-✓ Output series reference valid nodes
+Available Templates (5):
 
-Validation passed: 7/7 checks
+ID: transportation-basic
+  Title: Transportation Network
+  Description: Simple transportation flow with demand and capacity constraints
+  Tags: beginner, transportation, logistics, capacity
+  Parameters: 4
+
+[... more templates ...]
 ```
 
-### template generate
+### 2. Show Template Details
 
-Generates FlowTime Engine model from template and parameters.
+Show detailed information about a template, including its parameters with their **default values**:
 
 ```bash
-flowtime-sim template generate --id <template-id> [options]
+flow-sim show template --id transportation-basic
 ```
 
-**Options:**
-- `--id <id>`: Template identifier (required)
-- `--params <file>`: Parameter file (JSON/YAML)
-- `--output <path>`: Output file path (default: stdout)
-- `--format <yaml|json>`: Output format (default: yaml)
-- `--validate`: Validate parameters before generation
+This displays:
+- Template metadata (title, description, tags)
+- All available parameters with their types and **default values**
+- Grid configuration
+- Node definitions
+- Output specifications
 
-**Parameter File Formats:**
+**Note**: Templates are self-contained with parameter defaults. You don't need separate parameter files unless you want to **override** specific defaults.
 
-**JSON format:**
+### 3. List Generated Models
+
+List all models that have been generated:
+
+```bash
+flow-sim list models
+```
+
+**Output:**
+```
+Available models in /workspaces/flowtime-sim-vnext/data/models:
+
+  it-system-microservices
+  manufacturing-line
+```
+
+### 4. Show Model Details
+
+Show detailed information about a generated model:
+
+```bash
+flow-sim show model --id it-system-microservices
+```
+
+**Output:**
+```
+Model: it-system-microservices
+Location: /workspaces/flowtime-sim-vnext/data/models/it-system-microservices
+
+Metadata:
+  Template ID:      it-system-microservices
+  Generated:        2025-10-01T08:33:06.1564019Z
+  Model Hash:       sha256:ab4586517323e9774824c63ea80a8ee6290f97aa7053a703589dc88ba2268e81
+  Parameters:       (none - using template defaults)
+
+Model Preview:
+  schemaVersion: 1
+  
+  grid:
+    bins: 12
+    binMinutes: 60
+  
+  nodes:
+    - id: user_requests
+      kind: const
+      values: [100, 150, 200, 180, 120, 80]
+  ... (36 more lines)
+
+Full model: /workspaces/flowtime-sim-vnext/data/models/it-system-microservices/model.yaml
+```
+
+This displays:
+- Model location and metadata
+- Template used to generate the model
+- Generation timestamp and hash
+- Parameters that were used (or defaults)
+- Preview of the model content (first 20 lines)
+- Full path to the model file
+
+### 5. Generate Engine Model
+
+Generate a FlowTime Engine model from a template:
+
+```bash
+# Generate with default parameters (output to stdout)
+flow-sim generate --id transportation-basic
+
+# Generate with default parameters to file
+flow-sim generate --id transportation-basic --out model.yaml
+
+# Generate with parameter overrides
+flow-sim generate --id transportation-basic --params overrides.json --out model.yaml
+
+# Generate in JSON format
+flow-sim generate --id transportation-basic --format json --out model.json
+```
+
+#### Parameter Override File Format
+
+Templates have **built-in default values** for all parameters. You only need a parameter file if you want to **override** specific defaults:
+
 ```json
 {
   "bins": 24,
-  "binSize": 1,
-  "binUnit": "hours",
-  "requestPattern": [100, 150, 200, 180, 120],
-  "capacity": 300
+  "binMinutes": 30,
+  "demandPattern": [20, 30, 40, 35, 25, 15]
 }
 ```
 
-**YAML format:**
-```yaml
-bins: 24
-binSize: 1
-binUnit: hours
-requestPattern: [100, 150, 200, 180, 120]
-capacity: 300
-```
+**Note**: You don't need to specify all parameters - only the ones you want to override. Unspecified parameters use their template defaults.
 
-**Examples:**
-```bash
-# Generate with JSON parameters
-flowtime-sim template generate --id it-system-microservices --params params.json
+### 6. Validate Parameters
 
-# Generate with YAML parameters and save to file
-flowtime-sim template generate \
-  --id it-system-microservices \
-  --params params.yaml \
-  --output model.yaml
-
-# Generate with validation
-flowtime-sim template generate \
-  --id it-system-microservices \
-  --params params.json \
-  --validate \
-  --output engine-model.yaml
-
-# Interactive parameter input
-flowtime-sim template generate --id it-system-microservices --interactive
-```
-
-## Simulation Commands
-
-### sim run
-
-Executes complete simulation pipeline: template → model → FlowTime Engine → results.
+Validate that parameter overrides meet template requirements:
 
 ```bash
-flowtime-sim sim run --template <id> [options]
+# Validate parameter overrides
+flow-sim validate --id transportation-basic --params overrides.json
+
+# Show all template parameters with their defaults
+flow-sim validate --id transportation-basic
 ```
 
-**Options:**
-- `--template <id>`: Template identifier (required)
-- `--params <file>`: Parameter file
-- `--output <dir>`: Output directory for CSV files (default: ./output)
-- `--flowtime-url <url>`: FlowTime Engine API URL (default: http://localhost:8080)
-- `--engine-args <args>`: Additional FlowTime Engine arguments
-- `--keep-model`: Keep generated model file
+This checks:
+- Provided parameters exist in the template
+- Types match specifications
+- Values are within defined ranges (min/max constraints)
+- Shows which parameters use defaults vs. overrides
 
-**Examples:**
+### 7. Initialize Configuration
+
+Create a `.flow-sim.yaml` configuration file:
+
 ```bash
-# Basic simulation run
-flowtime-sim sim run --template it-system-microservices --params params.json
+# Create config with smart defaults
+flow-sim init
 
-# Custom output directory
-flowtime-sim sim run \
-  --template it-system-microservices \
-  --params params.json \
-  --output results/run-001
-
-# Use remote FlowTime Engine
-flowtime-sim sim run \
-  --template it-system-microservices \
-  --params params.json \
-  --flowtime-url http://flowtime-engine:8080
-
-# Keep generated model for inspection
-flowtime-sim sim run \
-  --template it-system-microservices \
-  --params params.json \
-  --keep-model \
-  --output results/
+# Create config with custom paths
+flow-sim init --templates-dir /path/to/templates --models-dir /path/to/models
 ```
 
 **Output:**
 ```
-Generating model from template 'it-system-microservices'...
-✓ Template loaded
-✓ Parameters validated
-✓ Model generated (485 lines)
+Created configuration file: /workspaces/flowtime-sim-vnext/.flow-sim.yaml
 
-Executing simulation via FlowTime Engine...
-✓ Model submitted to engine
-✓ Simulation completed (2.3s)
+Configured values:
+  Templates directory: /workspaces/flowtime-sim-vnext/templates
+  Models directory:    /workspaces/flowtime-sim-vnext/data/models
+  Default format:      yaml
+  Default verbose:     False
 
-Results written to: results/
-- requests.csv (24 rows)
-- processed.csv (24 rows)
-- utilization.csv (24 rows)
-- failure_rate.csv (24 rows)
-
-Summary:
-- Total requests: 4,320
-- Total processed: 3,890 (90.1%)
-- Peak utilization: 98.2%
-- Max failure rate: 15.3%
+✓ All directories exist.
 ```
 
-## Template-Only Operation
+See [`docs/cli/configuration.md`](configuration.md) for details on configuration files and priority.
 
-**Note**: FlowTime-Sim operates exclusively with node-based templates. Legacy simulation files are not supported.
+## Options
 
-## Migration Commands
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--id <id>` | Template identifier | - |
+| `--params <file>` | JSON file with parameter overrides (optional) | None |
+| `--out <file>` | Output file path | stdout |
+| `--format yaml\|json` | Output format | yaml |
+| `--templates-dir <path>` | Templates directory | `./templates` |
+| `--models-dir <path>` | Models directory | `./data/models` |
+| `--verbose, -v` | Verbose output | false |
+| `--help, -h` | Show help | - |
 
-### migrate yaml-to-template
+## Typical Workflows
 
-Converts legacy simulation YAML to new template format.
+### Quick Start: Generate with Defaults
+
+1. **Discover templates**
+   ```bash
+   flow-sim list
+   ```
+
+2. **Examine a template** (shows default parameters)
+   ```bash
+   flow-sim show --id transportation-basic
+   ```
+
+3. **Generate model with defaults**
+   ```bash
+   flow-sim generate --id transportation-basic --out model.yaml
+   ```
+
+4. **Use model with FlowTime Engine**
+   ```bash
+   # Via Engine CLI (when available)
+   flowtime run --model model.yaml
+   
+   # Or via Engine API
+   curl -X POST http://localhost:8080/api/v1/run \
+     -H "Content-Type: application/x-yaml" \
+     --data-binary @model.yaml
+   ```
+
+### Advanced: Override Specific Parameters
+
+1. **Examine template defaults**
+   ```bash
+   flow-sim show --id transportation-basic
+   ```
+
+2. **Create overrides file** (`overrides.json`) - only override what you want to change
+   ```json
+   {
+     "bins": 24,
+     "demandPattern": [25, 30, 35, 40, 35, 30]
+   }
+   ```
+   *Note: `binMinutes` and `capacityPattern` will use template defaults*
+
+3. **Validate overrides** (optional but recommended)
+   ```bash
+   flow-sim validate --id transportation-basic --params overrides.json
+   ```
+
+4. **Generate model with overrides**
+   ```bash
+   flow-sim generate --id transportation-basic --params overrides.json --out model.yaml
+   ```
+
+5. **List generated models**
+   ```bash
+   flow-sim models
+   ```
+
+## CLI/API Parity
+
+The CLI provides the same core functionality as the FlowTime-Sim API:
+
+| Functionality | CLI Command | API Endpoint |
+|--------------|-------------|--------------|
+| List templates | `flow-sim list` | `GET /api/v1/templates` |
+| Show template | `flow-sim show --id <id>` | `GET /api/v1/templates/{id}` |
+| Generate model | `flow-sim generate --id <id>` | `POST /api/v1/templates/{id}/generate` |
+| List models | `flow-sim models` | `GET /api/v1/models` |
+
+**Not in CLI** (API-specific config management):
+- Catalog operations (`GET /api/v1/catalogs`, `PUT /api/v1/catalogs/{id}`)
+- Health/version endpoints
+
+## Charter Compliance
+
+✅ **Model authoring only** - Generates models, doesn't execute them  
+✅ **No API calls** - Uses Core services directly  
+✅ **No telemetry generation** - That's FlowTime Engine's job  
+✅ **Template-driven** - All models come from parameterized templates  
+✅ **Clear separation** - Sim creates, Engine executes  
+
+## Troubleshooting
+
+### Templates directory not found
 
 ```bash
-flowtime-sim migrate yaml-to-template --input <file> [options]
+Templates directory not found: ./templates
+Specify with --templates-dir <path> or ensure ./templates exists.
 ```
 
-**Options:**
-- `--input <file>`: Legacy YAML file (required)
-- `--output <file>`: Output template file (default: <input>-template.yaml)
-- `--template-id <id>`: Template ID for generated template
-- `--extract-params`: Extract values as parameters
-
-**Examples:**
+**Solution**: Specify the correct templates directory:
 ```bash
-# Basic conversion
-flowtime-sim migrate yaml-to-template --input legacy.yaml
-
-# Custom output and template ID
-flowtime-sim migrate yaml-to-template \
-  --input legacy.yaml \
-  --output new-template.yaml \
-  --template-id converted-template
-
-# Extract values as parameters
-flowtime-sim migrate yaml-to-template \
-  --input legacy.yaml \
-  --extract-params
+flow-sim list --templates-dir /path/to/templates
 ```
 
-## Configuration
-
-### Global Configuration
-
-Create `~/.flowtime-sim/config.yaml`:
-
-```yaml
-# Default FlowTime Engine settings
-engine:
-  url: http://localhost:8080
-  timeout: 30s
-
-# Default directories
-directories:
-  output: ./output
-  templates: ./templates
-  cache: ~/.flowtime-sim/cache
-
-# CLI preferences
-preferences:
-  defaultFormat: yaml
-  verboseOutput: false
-  colorOutput: true
-```
-
-### Environment Variables
+### Template not found
 
 ```bash
-# FlowTime Engine URL
-export FLOWTIME_ENGINE_URL=http://localhost:8080
-
-# Default output directory
-export FLOWTIME_OUTPUT_DIR=./results
-
-# Enable debug logging
-export FLOWTIME_DEBUG=true
-
-# Template directory for custom templates
-export FLOWTIME_TEMPLATE_DIR=./templates
+Error: Template 'unknown-template' not found
 ```
 
-## Advanced Usage
+**Solution**: List available templates first:
+```bash
+flow-sim list
+```
 
-### Batch Processing
-
-Process multiple parameter sets:
+### Parameter validation failed
 
 ```bash
-# Create parameter sets
-echo '{"capacity": 100}' > params-small.json
-echo '{"capacity": 500}' > params-large.json
-
-# Batch process
-for params in params-*.json; do
-  flowtime-sim sim run \
-    --template it-system-microservices \
-    --params "$params" \
-    --output "results/$(basename $params .json)"
-done
+✗ Validation failed:
+  - Parameter 'bins' must be between 3 and 48
 ```
 
-### Pipeline Integration
+**Solution**: Check template constraints with `show` and adjust your overrides.
 
-Use in CI/CD pipelines:
+## Examples
+
+### Generate multiple models with different parameters
+
+```bash
+# Create parameter override files
+cat > low-demand.json <<EOF
+{"demandPattern": [5, 8, 10, 12, 8, 5]}
+EOF
+
+cat > high-demand.json <<EOF
+{"demandPattern": [30, 40, 50, 45, 35, 25]}
+EOF
+
+# Generate models
+flow-sim generate --id transportation-basic --params low-demand.json --out model-low.yaml
+flow-sim generate --id transportation-basic --params high-demand.json --out model-high.yaml
+
+# List generated models
+flow-sim models
+```
+
+### Pipeline integration
 
 ```bash
 #!/bin/bash
-# simulation-pipeline.sh
+# Generate model and run simulation
 
-set -e
+# Generate model
+flow-sim generate --id transportation-basic --out model.yaml
 
-# Validate all templates
-for template in templates/*.yaml; do
-  flowtime-sim template validate --file "$template" --strict
-done
+# Execute with FlowTime Engine
+curl -X POST http://localhost:8080/api/v1/run \
+  -H "Content-Type: application/x-yaml" \
+  --data-binary @model.yaml \
+  -o results.json
 
-# Run regression tests
-flowtime-sim sim run \
-  --template baseline-performance \
-  --params regression-params.json \
-  --output regression-results/
-
-# Compare with baseline
-if ! diff -q regression-results/ baseline-results/; then
-  echo "Performance regression detected!"
-  exit 1
-fi
+# Analyze results
+jq '.series[] | select(.id == "utilization") | .values' results.json
 ```
 
-### Custom Templates
+## See Also
 
-Develop and test custom templates:
-
-```bash
-# Create new template
-flowtime-sim template create \
-  --id my-custom-template \
-  --title "My Custom Template" \
-  --output custom-template.yaml
-
-# Edit template file...
-
-# Validate custom template
-flowtime-sim template validate --file custom-template.yaml
-
-# Test with parameters
-flowtime-sim template generate \
-  --file custom-template.yaml \
-  --params test-params.json
-
-# Install template
-flowtime-sim template install --file custom-template.yaml
-```
-
-## Output Formats
-
-### Table Format (default)
-Human-readable tables for terminal display.
-
-### JSON Format
-Structured data for programmatic processing:
-
-```bash
-flowtime-sim template list --format json | jq '.templates[].id'
-```
-
-### YAML Format
-Human-readable structured data:
-
-```bash
-flowtime-sim template show --id my-template --format yaml > template.yaml
-```
-
-## Error Handling
-
-CLI provides structured error reporting:
-
-```bash
-# Exit codes:
-# 0 - Success
-# 1 - General error
-# 2 - Invalid arguments
-# 3 - Template not found
-# 4 - Parameter validation failed
-# 5 - Model generation failed
-# 6 - Engine communication error
-
-# Error output includes:
-# - Error description
-# - Suggested fixes
-# - Relevant documentation links
-```
-
-**Example error output:**
-```
-Error: Parameter validation failed
-
-Details:
-- Parameter 'capacity': Value -1 is below minimum allowed value of 1
-- Parameter 'requestPattern': Array cannot be empty
-
-Suggestions:
-- Check parameter constraints in template definition
-- Use 'flowtime-sim template show --id <template> --section parameters'
-- Validate parameters with 'flowtime-sim template validate'
-
-Documentation: https://docs.flowtime.dev/templates
-```
-
-## Debugging
-
-Enable debug output:
-
-```bash
-# Environment variable
-export FLOWTIME_DEBUG=true
-flowtime-sim template generate --id my-template --params params.json
-
-# Command line flag
-flowtime-sim --debug template generate --id my-template --params params.json
-
-# Verbose output
-flowtime-sim --verbose template generate --id my-template --params params.json
-```
-
-Debug output includes:
-- Template loading process  
-- Parameter substitution details
-- Model generation steps
-- Engine communication logs
-- Performance timing information
+- [FlowTime-Sim API Documentation](../api/)
+- [Template Schema Reference](../schemas/template-schema.md)
+- [FlowTime Engine Documentation](https://github.com/23min/flowtime-vnext/docs/)
