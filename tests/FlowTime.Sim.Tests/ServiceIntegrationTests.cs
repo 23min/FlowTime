@@ -3,19 +3,11 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using FlowTime.Sim.Core;
-using FlowTime.Sim.Cli; // CLI types
 using FlowTime.Sim.Service;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Xunit;
 
 namespace FlowTime.Sim.Tests;
-
-// Facade kept minimal; direct call now that duplicate using removed.
-internal static class RunArtifactsWriterFacade
-{
-    public static Task<RunArtifacts> WriteAsync(string originalYaml, SimulationSpec spec, ArrivalGenerationResult arrivals, string rootOutDir, bool includeEvents, CancellationToken ct)
-        => RunArtifactsWriter.WriteAsync(originalYaml, spec, arrivals, rootOutDir, includeEvents, ct);
-}
 
 public class ServiceIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
 {

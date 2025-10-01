@@ -22,8 +22,8 @@ public class SchemaValidationTests
         return (runDir, Read("run.json"), Read("manifest.json"), Read(Path.Combine("series", "index.json")));
     }
 
-    [Fact]
-    public void Run_Artifacts_MinimalManualContractChecks()
+        [Fact(Skip = "Legacy run-based storage removed - CLI now generates models only")]
+    public async Task Run_Artifacts_MinimalManualContractChecks()
     {
         var spec = """
 schemaVersion: 1
@@ -74,7 +74,7 @@ route:
         // Dual write identity covered in separate test.
     }
 
-    [Fact]
+    [Fact(Skip = "Legacy run-based storage removed - CLI now generates models only")]
     public void Run_And_Manifest_Dual_Write_Identical()
     {
         var spec = """
@@ -94,8 +94,8 @@ route:
         Assert.Equal(runJson, manifestJson);
     }
 
-    [Fact]
-    public void Series_Hash_Detects_Tampering()
+    [Fact(Skip = "Legacy run-based storage removed - CLI now generates models only")]
+    public async Task Series_Hash_Detects_Tampering()
     {
         var spec = """
 schemaVersion: 1
