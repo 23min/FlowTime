@@ -690,19 +690,6 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 		}
 
 		/// <summary>
-		/// OBSOLETE: RunsRoot removed - no longer use run-based storage.
-		/// Use ModelsRoot() for hash-based model storage instead.
-		/// </summary>
-		[Obsolete("Run-based storage is obsolete. Use hash-based model storage via ModelsRoot() instead.")]
-		public static string RunsRoot(IConfiguration? configuration = null)
-		{
-			var dataDir = DataRoot(configuration);
-			var runsDir = Path.Combine(dataDir, "runs");
-			Directory.CreateDirectory(runsDir);
-			return runsDir;
-		}
-
-		/// <summary>
 		/// Ensures runtime catalogs directory exists and is populated with demo catalogs if empty.
 		/// Copies source catalogs to runtime location during startup for consistent behavior.
 		/// </summary>

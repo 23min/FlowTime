@@ -33,16 +33,6 @@ public class ServiceNegativeTests : IClassFixture<WebApplicationFactory<Program>
         Assert.Equal(HttpStatusCode.NotFound, res.StatusCode);
     }
 
-    [Fact(Skip = "Legacy /v1/sim/runs endpoint removed - API now uses /api/v1 endpoints")]
-    public async Task Invalid_RunId_Format_Returns_400()
-    {
-    var client = factory.CreateClient();
-        // Use a dot which is disallowed by IsSafeId but does not trigger path segment normalization like "../"
-        var res = await client.GetAsync("/v1/sim/runs/bad.id/index");
-        // Endpoint validates ID format first, returns 400 for invalid format
-        Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
-    }
-
     private static async Task<string> ExtractField(HttpResponseMessage res, string field)
     {
         var json = await res.Content.ReadAsStringAsync();
