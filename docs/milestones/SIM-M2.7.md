@@ -44,16 +44,23 @@ When Engine executes a Sim-generated model, we currently lose the trail:
 
 Sim generates provenance for every model.
 
-**Provenance Schema** (JSON):
-- source: "flowtime-sim"
-- model_id: "model_{timestamp}_{hash}"
-- template_id: string
-- template_version: string
-- template_title: string
-- parameters: object
-- generated_at: ISO8601 timestamp
-- sim_version: string
-- schema_version: string
+**Provenance Schema** (JSON with camelCase convention):
+```json
+{
+  "source": "flowtime-sim",
+  "modelId": "model_{timestamp}_{hash}",
+  "templateId": "string",
+  "templateVersion": "string",
+  "templateTitle": "string",
+  "parameters": {},
+  "generatedAt": "ISO8601 timestamp",
+  "generator": "flowtime-sim/{version}",
+  "schemaVersion": "string"
+}
+```
+
+**Field Naming**: camelCase (standard for JSON APIs, JavaScript/TypeScript friendly)  
+**Note**: `generator` field format is `flowtime-sim/{version}` (e.g., `flowtime-sim/0.5.0`)
 
 **Model ID Generation**:
 - Format: model_{timestamp}_{hash}
@@ -61,10 +68,10 @@ Sim generates provenance for every model.
 - Unique: Timestamp ensures global uniqueness
 
 **Acceptance**:
-- Every generated model has unique model_id
-- model_id is deterministic for reproducibility
+- Every generated model has unique `modelId`
+- `modelId` is deterministic for reproducibility
 - Provenance includes all template and parameter information
-- Provenance serializes to JSON correctly
+- Provenance serializes to JSON correctly with camelCase fields
 
 ---
 
@@ -103,8 +110,8 @@ POST /v1/run with X-Model-Provenance header (JSON string)
 /data/run_*/provenance.json
 
 **Engine Registry Integration**:
-- Include template_id, model_id in registry metadata
-- Support queries by source, template_id
+- Include `templateId`, `modelId` in registry metadata
+- Support queries by source, `templateId`
 
 **Note**: This is Engine-side implementation. SIM-M2.7 provides the provenance format specification.
 
@@ -141,16 +148,16 @@ Support embedding provenance directly in model YAML as alternative to separate d
 ```yaml
 schemaVersion: 1
 
-# Optional provenance section
+# Optional provenance section (camelCase in YAML)
 provenance:
   source: flowtime-sim
-  model_id: model_20250925T120000Z_abc123def
-  template_id: it-system-microservices
-  template_version: "1.0"
-  template_title: "IT System - Microservices"
-  generated_at: "2025-09-25T12:00:00Z"
+  modelId: model_20250925T120000Z_abc123def
+  templateId: it-system-microservices
+  templateVersion: "1.0"
+  templateTitle: "IT System - Microservices"
+  generatedAt: "2025-09-25T12:00:00Z"
   generator: "flowtime-sim/0.5.0"
-  schema_version: "1"
+  schemaVersion: "1"
   parameters:
     bins: 12
     binSize: 1
@@ -207,7 +214,7 @@ sequenceDiagram
     U->>S: POST /api/v1/templates/{id}/generate<br/>{parameters}
     activate S
     S->>S: Generate Model
-    S->>S: Create Provenance<br/>(model_id, template_id, params)
+    S->>S: Create Provenance<br/>(modelId, templateId, params)
     S-->>U: {model: "...", provenance: {...}}
     deactivate S
 
@@ -224,9 +231,9 @@ sequenceDiagram
     U->>E: GET /v1/artifacts?source=flowtime-sim
     E->>R: Query Registry
     R-->>E: Runs with provenance metadata
-    E-->>U: [{id, template_id, parameters, ...}]
+    E-->>U: [{id, templateId, parameters, ...}]
 
-    U->>E: GET /v1/artifacts?metadata.template_id=it-system
+    U->>E: GET /v1/artifacts?metadata.templateId=it-system
     E->>R: Filter by Template
     R-->>E: Matching runs
     E-->>U: All runs from same template
@@ -256,7 +263,7 @@ sequenceDiagram
 **Query Capabilities** (via Engine registry):
 - Find all runs from specific template
 - Compare runs with different parameters
-- Filter by model_id for exact reproducibility
+- Filter by `modelId` for exact reproducibility
 
 **Note**: UI-side implementation. SIM-M2.7 provides the provenance data.
 
@@ -273,9 +280,9 @@ sequenceDiagram
 ### Provenance Service
 
 **Responsibilities**:
-- Generate unique model_id
+- Generate unique `modelId`
 - Create provenance metadata structure
-- Serialize to JSON
+- Serialize to JSON with camelCase fields
 
 **Model ID Algorithm**:
 1. Create content string: {templateId}:{parametersJson}
@@ -301,10 +308,10 @@ sequenceDiagram
 ## Acceptance Criteria
 
 ### Provenance Generation
-- Unique model_id for every generated model
+- Unique `modelId` for every generated model
 - Deterministic hash for reproducibility
 - All template and parameter data captured
-- JSON serialization correct
+- JSON serialization correct with camelCase fields
 
 ### API Enhancement
 - /generate returns model + provenance

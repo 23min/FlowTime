@@ -6,32 +6,18 @@
 > **See**: `docs/schemas/template-schema.md` for authoritative schema.  
 > **Status**: Documentation update pending post-UI-M2.9.
 
-This guide explains how to integrate with FlowTime-Sim's parameterized template system for building user interfaces that allow dynamic scenario generation.
+This guide explains how to integrate with FlowTime-Sim's parameterized template system for building user interfaces that allow dynamic model generation.
 
 ## Overview
 
-FlowTime-Sim has evolved from static scenarios to **parameterized templates** that generate customized simulation scenarios based on user input. This enables rich UI experiences where users can configure parameters through forms rather than editing raw YAML.
-
-## API Evolution
-
-### Before: Static Scenarios
-```
-GET /api/v1/scenarios → Static YAML definitions
-User selection → Fixed YAML scenario
-```
-
-### Now: Parameterized Templates  
-```
-GET /api/v1/templates → Template metadata + parameter schemas
-User parameter input → POST /api/v1/templates/{id}/generate → Custom YAML scenario
-```
+FlowTime-Sim provides **parameterized templates** that generate customized simulation models based on user input. This enables rich UI experiences where users can configure parameters through forms rather than editing raw YAML.
 
 ## Core Concepts
 
-### Templates vs Scenarios
+### Templates and Models
 - **Template**: A parameterized blueprint with `{{placeholder}}` syntax and parameter schema
-- **Scenario**: A concrete YAML definition ready for simulation
-- **Generation**: The process of template + parameters → scenario
+- **Model**: A concrete YAML definition ready for Engine execution
+- **Generation**: The process of template + parameters → model
 
 ### Parameter Schema
 Each template includes a parameter schema defining:
@@ -76,7 +62,7 @@ Each template includes a parameter schema defining:
 
 ### 2. Scenario Generation: `POST /api/v1/templates/{id}/generate`
 
-**Purpose**: Convert template + parameters into concrete YAML scenario.
+**Purpose**: Convert template + parameters into concrete YAML model.
 
 **Request Body**:
 ```json
@@ -88,133 +74,96 @@ Each template includes a parameter schema defining:
 }
 ```
 
+**Query Parameters**:
+- `?embed_provenance=true` - Include provenance metadata embedded in model YAML (optional)
+
 **Response**:
 ```json
 {
-  "scenario": "schemaVersion: 1\nrng: pcg\nseed: 999\ngrid:\n  bins: 8\n  binMinutes: 45\narrivals:\n  kind: poisson\n  rate: 200\nroute:\n  id: LOAD_BALANCER",
-  "templateId": "it-system-microservices",
-  "parameters": {
-    "requestRate": 200,
-    "bins": 8,
-    "binMinutes": 45,
-    "seed": 999
+  "model": "schemaVersion: 1\nrng: pcg\nseed: 999\ngrid:\n  bins: 8\n  binMinutes: 45\narrivals:\n  kind: poisson\n  rate: 200\nroute:\n  id: LOAD_BALANCER",
+  "provenance": {
+    "source": "flowtime-sim",
+    "modelId": "model_20251002T103045Z_a3f8c2d1",
+    "templateId": "it-system-microservices",
+    "templateVersion": "1.0",
+    "templateTitle": "IT System with Microservices",
+    "parameters": { /* submitted parameters */ },
+    "generatedAt": "2025-10-02T10:30:45.1234567Z",
+    "generator": "flowtime-sim/0.5.0",
+    "schemaVersion": "1"
   }
 }
 ```
+
+**Response Fields**:
+- `model` - Generated YAML model ready for Engine execution
+- `provenance` - Metadata for traceability (template ID, parameters, model ID, etc.)
+
+> **Note:** For complete provenance metadata schema and integration patterns, see [`docs/architecture/model-lifecycle.md`](../architecture/model-lifecycle.md).
 
 **Error Handling**:
 - `400 Bad Request` with `{"error": "Parameter 'requestRate' must be a number"}` for validation failures
 - `404 Not Found` for unknown template IDs
 
-### 3. Backward Compatibility: `GET /api/v1/scenarios`
-
-**Purpose**: Legacy endpoint for static scenarios (deprecated but functional).
-
-Static scenarios are now represented as templates with no parameters. Existing integrations continue to work unchanged.
-
 ## UI Integration Flow
-
-### Recommended Implementation
 
 ```mermaid
 sequenceDiagram
     participant UI
-    participant SimAPI as FlowTime-Sim API
-    participant CoreAPI as FlowTime Core API
+    participant Sim as FlowTime-Sim API
+    participant Engine as FlowTime Engine
     
-    UI->>SimAPI: GET /api/v1/templates
-    SimAPI-->>UI: Templates with parameter schemas
+    UI->>Sim: GET /api/v1/templates
+    Sim-->>UI: Templates with parameter schemas
     
     Note over UI: User selects template<br/>UI renders parameter form
     
-    UI->>SimAPI: POST /api/v1/templates/{id}/generate
-    SimAPI-->>UI: Generated YAML scenario
+    UI->>Sim: POST /api/v1/templates/{id}/generate
+    Sim-->>UI: {model, provenance}
     
-    UI->>CoreAPI: POST /run with YAML
-    CoreAPI-->>UI: Simulation results
+    UI->>Engine: POST /v1/run (model YAML)
+    Engine-->>UI: Run results
 ```
 
-### Step-by-Step UI Flow
+### Workflow Steps
 
-1. **Template Discovery**
-   ```typescript
-   // 1. Get available templates
-   const templates = await fetch('/api/v1/templates').then(r => r.json());
-   // Display template list with categories
-   ```
+1. **Template Discovery**: Query `/api/v1/templates` to get available templates with parameter schemas
+2. **Parameter Form**: Build dynamic form from `template.parameters` schema with validation (min/max/type constraints)
+3. **Model Generation**: POST parameters to `/api/v1/templates/{id}/generate` to get model + provenance
+4. **Execution**: Send model YAML to FlowTime Engine `/v1/run` endpoint
 
-2. **Parameter Form Generation** 
-   ```typescript
-   const template = templates.find(t => t.id === selectedId);
-   // Build form dynamically from template.parameters schema
-   // Include validation based on min/max/type constraints
-   ```
-
-3. **Scenario Generation**
-   ```typescript
-   const response = await fetch(`/api/v1/templates/${templateId}/generate`, {
-     method: 'POST',
-     headers: { 'Content-Type': 'application/json' },
-     body: JSON.stringify(userParameters)
-   });
-   const { scenario } = await response.json();
-   ```
-
-4. **Simulation Execution**
-   ```typescript
-   // Send generated YAML to FlowTime Core as before
-   const results = await fetch('/run', {
-     method: 'POST', 
-     body: scenario,
-     headers: { 'Content-Type': 'text/plain' }
-   });
-   ```
+> **Note:** For complete workflow including provenance tracking and Engine integration, see [`docs/architecture/model-lifecycle.md`](../architecture/model-lifecycle.md).
 
 ## Parameter Types & Validation
 
-### Type System
-```typescript
-type ParameterType = 'number' | 'integer' | 'string' | 'boolean' | 'enum';
+### Parameter Schema
 
-interface TemplateParameter {
-  name: string;
-  type: ParameterType;
-  title: string;           // Human-readable label
-  description: string;     // Help text
-  defaultValue: any;       // Default value
-  minimum?: number;        // For number/integer types
-  maximum?: number;        // For number/integer types  
-  allowedValues?: string[]; // For enum types
+Each template parameter has the following structure:
+
+```json
+{
+  "name": "requestRate",
+  "type": "number",
+  "title": "Request Rate (req/min)",
+  "description": "Incoming API requests per minute",
+  "defaultValue": 100,
+  "minimum": 10,
+  "maximum": 10000,
+  "allowedValues": null
 }
 ```
 
-### UI Form Generation Examples
+**Parameter Types:**
+- `number` - Numeric values (can be decimal)
+- `integer` - Whole numbers only
+- `string` - Text values
+- `boolean` - True/false flags
+- `enum` - Selection from predefined list (`allowedValues`)
 
-```typescript
-// Number input with range validation
-if (param.type === 'number') {
-  return (
-    <input 
-      type="number" 
-      min={param.minimum} 
-      max={param.maximum}
-      defaultValue={param.defaultValue}
-      title={param.description}
-    />
-  );
-}
-
-// Select dropdown for enum types
-if (param.type === 'enum' && param.allowedValues) {
-  return (
-    <select defaultValue={param.defaultValue}>
-      {param.allowedValues.map(value => 
-        <option key={value} value={value}>{value}</option>
-      )}
-    </select>
-  );
-}
-```
+**Validation Fields:**
+- `minimum` / `maximum` - Range constraints for `number` and `integer` types
+- `allowedValues` - Array of valid choices for `enum` type
+- `defaultValue` - Default value if parameter not provided
 
 ## Template Categories
 
@@ -246,97 +195,17 @@ if (param.type === 'enum' && param.allowedValues) {
 }
 ```
 
-### UI Error Handling Strategy
-```typescript
-try {
-  const response = await generateScenario(templateId, params);
-  if (!response.ok) {
-    const error = await response.json();
-    showParameterError(error.error); // Show user-friendly validation message
-  }
-} catch (err) {
-  showGenericError('Failed to generate scenario');
-}
-```
+## UI Best Practices
 
-## Migration Strategy
-
-### For Existing UIs
-1. **Phase 1**: Continue using `/scenarios` endpoint (no changes required)
-2. **Phase 2**: Add `/templates` support for new features
-3. **Phase 3**: Migrate gradually, template by template
-4. **Phase 4**: Deprecate `/scenarios` when ready
-
-### Feature Detection
-```typescript
-// Check if parameterized templates are available
-const template = await fetch('/api/v1/templates/it-system-microservices').then(r => r.json());
-const hasParameters = template.parameters && template.parameters.length > 0;
-
-if (hasParameters) {
-  // Show parameter form UI
-} else {
-  // Show static scenario selection
-}
-```
-
-## Best Practices
-
-### UI Design
 - **Progressive Disclosure**: Show basic parameters first, advanced in collapsible sections
-- **Real-time Validation**: Validate parameters as user types
-- **Default Values**: Pre-populate with sensible defaults from schema
-- **Help Text**: Use parameter descriptions for tooltips/help text
-
-### Performance
-- **Template Caching**: Cache template metadata, regenerate scenarios as needed
-- **Debounced Generation**: Don't regenerate on every parameter change
-- **Preview Mode**: Consider showing YAML preview without full generation
-
-### User Experience
-- **Parameter Grouping**: Group related parameters (timing, capacity, etc.)
-- **Units in Labels**: Include units in parameter titles ("Request Rate (req/min)")
-- **Validation Feedback**: Clear error messages tied to specific parameters
+- **Real-time Validation**: Validate parameters as user types using schema constraints
+- **Default Values**: Pre-populate forms with `defaultValue` from schema
+- **Help Text**: Use parameter `description` for tooltips/help text
+- **Parameter Grouping**: Group related parameters (timing, capacity, etc.) visually
+- **Units in Labels**: Include units in titles ("Request Rate (req/min)")
+- **Validation Feedback**: Show clear error messages tied to specific parameters
 - **Preset Configurations**: Allow saving/loading parameter combinations
+- **Template Caching**: Cache template metadata, regenerate models on demand
+- **Debounced Generation**: Avoid regenerating on every keystroke
 
-## Examples
-
-### Complete Integration Example
-
-```typescript
-class TemplateManager {
-  async getTemplates(category?: string): Promise<Template[]> {
-    const url = category
-      ? `/api/v1/templates?category=${category}`
-      : '/api/v1/templates';
-    return fetch(url).then(r => r.json());
-  }
-
-  async generateScenario(templateId: string, parameters: Record<string, any>): Promise<string> {
-    const response = await fetch(`/api/v1/templates/${templateId}/generate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(parameters)
-    });
-    
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error);
-    }
-    
-    const { scenario } = await response.json();
-    return scenario;
-  }
-}
-
-// Usage
-const manager = new TemplateManager();
-const templates = await manager.getTemplates('domain');
-const scenario = await manager.generateScenario('it-system-microservices', {
-  requestRate: 150,
-  bins: 8,
-  seed: 42
-});
-```
-
-This template system provides the foundation for rich, interactive simulation configuration UIs while maintaining backward compatibility with existing static scenario workflows.
+This template system provides the foundation for rich, interactive model configuration interfaces.

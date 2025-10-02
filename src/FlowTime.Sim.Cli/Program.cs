@@ -610,6 +610,9 @@ namespace FlowTime.Sim.Cli
             Console.WriteLine("  --format yaml|json       Output format (default: yaml)");
             Console.WriteLine("  --templates-dir <path>   Templates directory (default: ./templates)");
             Console.WriteLine("  --models-dir <path>      Models directory (default: ./data/models)");
+            Console.WriteLine("  --provenance <file>      Save provenance metadata to separate JSON file");
+            Console.WriteLine("  --embed-provenance       Embed provenance metadata in model YAML");
+            Console.WriteLine("                           NOTE: --provenance and --embed-provenance are mutually exclusive");
             Console.WriteLine("  --verbose, -v            Verbose output");
             Console.WriteLine("  --help, -h               Show this help\n");
             Console.WriteLine("Examples:");
@@ -621,6 +624,10 @@ namespace FlowTime.Sim.Cli
             Console.WriteLine("                                             # Generate with defaults");
             Console.WriteLine("  flow-sim generate --id transportation-basic --params overrides.json");
             Console.WriteLine("                                             # Override specific params");
+            Console.WriteLine("  flow-sim generate --id transportation-basic --out model.yaml --provenance provenance.json");
+            Console.WriteLine("                                             # Generate with separate provenance file");
+            Console.WriteLine("  flow-sim generate --id transportation-basic --out model.yaml --embed-provenance");
+            Console.WriteLine("                                             # Generate with embedded provenance");
         }
     }
 
