@@ -139,7 +139,7 @@ sequenceDiagram
 1. **TimeGrid Evolution** - Add TimeUnit enum, binSize/binUnit constructor
 2. **Model Parser** - Parse new schema format, validate schemaVersion
 3. **PMF Compilation** - 4-phase pipeline (validation, grid alignment, compilation, provenance)
-4. **RNG/PCG32** - Deterministic random number generator
+4. **RNG/PCG32** - Deterministic random number generator (see [`docs/architecture/rng-algorithm.md`](architecture/rng-algorithm.md))
 5. **Provenance Support** - Parse header/embedded provenance, store provenance.json
 6. **Hash Calculation** - Exclude provenance from model_hash
 

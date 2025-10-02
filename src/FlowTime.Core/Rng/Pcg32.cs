@@ -10,6 +10,9 @@ namespace FlowTime.Core;
 /// 
 /// Algorithm: PCG-XSH-RR by Melissa O'Neill (www.pcg-random.org)
 /// License: Apache 2.0 or MIT (permissive)
+/// 
+/// For algorithm selection rationale and performance analysis, see:
+/// docs/architecture/rng-algorithm.md
 /// </remarks>
 public class Pcg32
 {
