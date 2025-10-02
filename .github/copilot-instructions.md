@@ -60,6 +60,12 @@ Purpose: give AI agents the minimum context to be productive and safe in this re
 - Maintain parity between CLI CSV and API JSON for the same model.
 - Add/keep contract tests (future: dedicated parity suite). Update tests/docs on intentional changes.
 
+## API architecture and patterns
+- **Minimal APIs**: Use Minimal APIs (`.MapPost()`, `.MapGet()`, etc.) defined in `Program.cs`. Do NOT create controller classes.
+- **Route pattern**: Group routes using `app.MapGroup("/v1")` for versioning.
+- **Dependency injection**: Inject services directly into route handlers (e.g., `(HttpRequest req, IArtifactRegistry registry, ILogger<Program> logger) => { ... }`).
+- **Testing**: Use `WebApplicationFactory<Program>` for integration tests. Make HTTP requests via `HttpClient`, never instantiate handlers directly.
+
 ## API contracts and errors (M0)
 - Content type: `text/plain` with YAML body for `/run` and `/graph`.
 - Error model: return `400 Bad Request` with `{ error: "..." }` for invalid input; avoid `500` by validating early.
