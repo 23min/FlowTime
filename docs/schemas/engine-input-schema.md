@@ -1,5 +1,24 @@
 # FlowTime Engine Input Schema
 
+> **⚠️ DEPRECATED**: This schema is **obsolete** as of M2.9. Use [`target-model-schema.md`](target-model-schema.md) instead.
+>
+> **Migration**: The unified schema uses `binSize`/`binUnit` format instead of `binMinutes`:
+> ```yaml
+> # OLD (deprecated)
+> grid:
+>   bins: 24
+>   binMinutes: 60
+>
+> # NEW (M2.9+)
+> schemaVersion: 1
+> grid:
+>   bins: 24
+>   binSize: 1
+>   binUnit: hours
+> ```
+>
+> **Removal**: This file will be deleted after M2.9 implementation is complete.
+
 ## Overview
 
 The FlowTime Engine accepts **YAML** input via the `POST /run` endpoint. This document defines the authoritative schema for model definitions that the engine can execute.

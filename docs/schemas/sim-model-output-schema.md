@@ -1,5 +1,13 @@
 # FlowTime-Sim Model Output Schema
 
+> **⚠️ DEPRECATED**: This schema is **obsolete** as of M2.9. Use [`target-model-schema.md`](target-model-schema.md) instead.
+>
+> **Reason**: M2.9 unified the schema - FlowTime-Sim now outputs `binSize`/`binUnit` format directly (no conversion to `binMinutes`). Both Sim and Engine use the same schema.
+>
+> **Migration**: See [`target-model-schema.md`](target-model-schema.md) for the unified format that both FlowTime-Sim generates and FlowTime Engine executes.
+>
+> **Removal**: This file will be deleted after M2.9 implementation is complete.
+
 ## Overview
 
 FlowTime-Sim generates **YAML models** that are compatible with the FlowTime Engine's input requirements. This document defines the schema for models produced by FlowTime-Sim's template generation process.

@@ -369,6 +369,73 @@ rng:
 
 ---
 
+### 6. Provenance Metadata (Optional)
+
+```yaml
+provenance:
+  source: flowtime-sim
+  model_id: model_20250925T120000Z_abc123def
+  template_id: it-system-microservices
+  template_version: "1.0"
+  generated_at: "2025-09-25T12:00:00Z"
+  generator: "flowtime-sim/0.4.0"
+  parameters:
+    bins: 12
+    binSize: 1
+    binUnit: hours
+    loadBalancerCapacity: 300
+```
+
+**Properties:**
+- `source` (optional): String, system that generated this model
+- `model_id` (optional): String, unique identifier for this model instance
+- `template_id` (optional): String, template identifier if generated from template
+- `template_version` (optional): String, template version used
+- `generated_at` (optional): String (ISO 8601), generation timestamp
+- `generator` (optional): String, generator name and version
+- `parameters` (optional): Object, template parameters used during generation
+
+**Purpose:**
+- **Traceability**: Track model lineage from template to execution
+- **Reproducibility**: Record parameters used for generation
+- **Debugging**: Identify model source when issues occur
+- **Audit**: Maintain complete execution history
+
+**Engine Behavior:**
+- Provenance accepted via **HTTP header** (`X-Model-Provenance`) OR **embedded in YAML**
+- **Header takes precedence** if both present (logs warning)
+- Provenance **stripped from `spec.yaml`** before storage
+- Stored permanently in **`provenance.json`** artifact
+- **Excluded from `model_hash`** calculation (models with same logic but different provenance have same hash)
+
+**Alternative: HTTP Header**
+```http
+POST /v1/run
+X-Model-Provenance: model_20250925T120000Z_abc123def
+Content-Type: application/x-yaml
+
+schemaVersion: 1
+# ... model without provenance section
+```
+
+**Rules:**
+- Entire `provenance` section is optional
+- All fields within provenance are optional
+- Free-form `parameters` object (template-specific)
+- `model_id` should follow pattern: `model_YYYYMMDDTHHmmssZ_<hash>`
+
+**Use Cases:**
+- **Template-generated models**: FlowTime-Sim embeds provenance automatically
+- **Manual models**: Users can add provenance for documentation
+- **UI workflows**: UI can track model creation context
+- **Self-contained files**: Model + provenance travels together
+
+**See Also:**
+- [Run Provenance Architecture](../architecture/run-provenance.md)
+- [Registry Integration](../../flowtime-sim-vnext/docs/architecture/registry-integration.md)
+
+---
+
 ## Complete Example
 
 ```yaml

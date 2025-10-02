@@ -10,6 +10,7 @@ description: |
   - FlowTime-Sim generates models in this format
   - FlowTime Engine executes models in this format
   - Replaces legacy binMinutes format with binSize/binUnit
+  - Supports optional provenance metadata for traceability
 
 type: object
 required:
@@ -248,6 +249,71 @@ properties:
 
     additionalProperties: false
 
+  provenance:
+    type: object
+    description: |
+      Optional model provenance metadata for traceability.
+      Tracks template origin, generation parameters, and lineage.
+      Engine accepts provenance via HTTP header (X-Model-Provenance) OR embedded in YAML.
+      Header takes precedence if both present.
+      Provenance is stripped from spec.yaml and stored in provenance.json.
+    properties:
+      source:
+        type: string
+        description: "Source system that generated this model"
+        examples:
+          - "flowtime-sim"
+          - "manual"
+          - "ui-builder"
+
+      model_id:
+        type: string
+        description: "Unique identifier for this model instance"
+        pattern: "^model_[0-9]{8}T[0-9]{6}Z_[a-f0-9]{8,}$"
+        examples:
+          - "model_20250925T120000Z_abc123def"
+
+      template_id:
+        type: string
+        description: "Template identifier if generated from template"
+        examples:
+          - "it-system-microservices"
+          - "manufacturing-line"
+          - "supply-chain-multi-tier"
+
+      template_version:
+        type: string
+        description: "Template version used for generation"
+        examples:
+          - "1.0"
+          - "2.1.0"
+
+      generated_at:
+        type: string
+        format: date-time
+        description: "ISO 8601 timestamp when model was generated"
+        examples:
+          - "2025-09-25T12:00:00Z"
+
+      generator:
+        type: string
+        description: "Generator name and version"
+        examples:
+          - "flowtime-sim/0.4.0"
+          - "ui-builder/1.2.0"
+
+      parameters:
+        type: object
+        description: "Template parameters used during generation (free-form)"
+        additionalProperties: true
+        examples:
+          - bins: 12
+            binSize: 1
+            binUnit: hours
+            loadBalancerCapacity: 300
+
+    additionalProperties: false
+
 additionalProperties: false
 
 # Example valid models demonstrating schema capabilities
@@ -301,6 +367,39 @@ examples:
     rng:
       kind: pcg32
       seed: 42
+
+  # Model with embedded provenance (template-generated)
+  - schemaVersion: 1
+    provenance:
+      source: flowtime-sim
+      model_id: model_20250925T120000Z_abc123def
+      template_id: it-system-microservices
+      template_version: "1.0"
+      generated_at: "2025-09-25T12:00:00Z"
+      generator: "flowtime-sim/0.4.0"
+      parameters:
+        bins: 12
+        binSize: 1
+        binUnit: hours
+        loadBalancerCapacity: 300
+        replicaCount: 3
+    grid:
+      bins: 12
+      binSize: 1
+      binUnit: hours
+    nodes:
+      - id: incoming_requests
+        kind: const
+        values: [100, 120, 150, 180, 200, 220, 200, 180, 150, 120, 100, 90]
+      - id: capacity
+        kind: const
+        values: [300, 300, 300, 300, 300, 300, 300, 300, 300, 300, 300, 300]
+      - id: served
+        kind: expr
+        expr: "MIN(incoming_requests, capacity)"
+    outputs:
+      - series: served
+        as: served.csv
 
   # Model with feedback loop using SHIFT
   - schemaVersion: 1

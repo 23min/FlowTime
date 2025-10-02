@@ -4,6 +4,8 @@
 
 This document defines how FlowTime Engine accepts and stores model provenance metadata to maintain complete traceability from template generation (FlowTime-Sim) through execution (FlowTime Engine) to results.
 
+**Architecture Note:** Engine is the single source of truth for all artifacts (models + runs + telemetry). FlowTime-Sim provides temporary storage for UI workflows, but Engine stores everything permanently. UI orchestrates the workflow - Sim and Engine do NOT communicate directly. See [Registry Integration Architecture](../../flowtime-sim-vnext/docs/architecture/registry-integration.md) for complete system design.
+
 ## The Provenance Gap
 
 ### Current State (M2.7)
@@ -116,6 +118,9 @@ grid:
 - Header takes precedence if both present
 - Embedded provenance is fallback
 - Either is optional (backward compatible)
+- **Storage**: Provenance stripped from `spec.yaml`, stored only in `provenance.json`
+- **Hash calculation**: `model_hash` excludes provenance (only grid + nodes)
+- **Warning**: Log if both header and embedded provenance present
 
 ### 2. Store Provenance in Run Artifacts
 
@@ -139,6 +144,10 @@ grid:
   "links": {
     "model_artifact": "/api/v1/models/model_20250925T120000Z_abc123def",
     "template_artifact": "/api/v1/templates/it-system-microservices"
+  },
+  "_meta": {
+    "source_type": "header | embedded",
+    "note": "Provenance accepted from X-Model-Provenance header OR embedded in model YAML. Header takes precedence if both present."
   }
 }
 ```
@@ -487,10 +496,12 @@ User sees run → ??? → No idea which template or parameters
 
 **After:**
 ```
-User sees run → provenance.json → model_id → query Sim API
+User sees run → provenance.json → model_id, template_id, parameters
                                           ↓
-                               template_id + parameters + metadata
+                         All metadata stored in Engine artifacts
 ```
+
+**Note:** UI can retrieve model from Sim temporary storage (`/api/v1/models`) before sending to Engine, but Engine stores the permanent record with provenance.
 
 ### Enhanced Queries
 
@@ -591,10 +602,21 @@ public async Task EndToEnd_SimToEngine_PreservesProvenance()
 
 ## Related Documentation
 
-- **FlowTime-Sim**: See `flowtime-sim-vnext/docs/architecture/model-provenance.md` (Sim-side implementation)
+- **KISS Architecture**: See `flowtime-sim-vnext/docs/architecture/registry-integration.md` (**SUPERSEDES** old model-provenance.md dual-registry approach)
+- **Sim-Side Implementation**: FlowTime-Sim generates provenance and provides temporary storage (SIM-M2.7)
+- **Engine-Side Implementation**: FlowTime Engine accepts and stores provenance permanently (M2.9 section 2.6)
 - **Target Schema**: See `docs/schemas/target-model-schema.md` (provenance schema definition)
 - **Artifact Registry**: See `docs/milestones/M2.7.md` (registry architecture)
+- **UI Orchestration**: UI retrieves models from Sim and sends to Engine (UI-M3.x)
+
+## Architecture Principles (KISS)
+
+1. **Single Registry**: Engine owns the artifact registry (single source of truth)
+2. **Temporary Sim Storage**: Sim stores models temporarily for UI retrieval only
+3. **UI Orchestration**: UI coordinates workflow - Sim and Engine do NOT talk directly
+4. **Stateless Sim**: Can scale horizontally, no permanent storage responsibility
+5. **Standard HTTP**: No custom protocols, just REST APIs and headers
 
 ---
 
-**Status**: Architecture defined, implementation planned for M2.9 or M3.0
+**Status**: Architecture defined per KISS principles, Engine-side implementation in M2.9 section 2.6

@@ -1,5 +1,11 @@
 # Template Schemas
 
+> **📝 NOTE**: This is a **reference copy** for Engine integration documentation.
+>
+> **Canonical Source**: [`flowtime-sim-vnext/docs/schemas/template-schema.md`](../../../flowtime-sim-vnext/docs/schemas/template-schema.md)
+>
+> **Reason**: Templates are authored in FlowTime-Sim, which owns the template schema specification. This copy helps Engine developers understand the Sim ↔ Engine integration.
+
 ## Overview
 Templates define computation models. They are authored in YAML for human readability and can be served as either YAML or JSON via content negotiation. Templates are converted to models by FlowTime-Sim and models are sent to the Engine for computation.
 
