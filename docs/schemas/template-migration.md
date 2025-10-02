@@ -11,7 +11,8 @@ This guide covers the transition from legacy `arrivals`/`route` schema to the ne
 schemaVersion: 1
 grid:
   bins: 12
-  binMinutes: 60
+  binSize: 1
+  binUnit: hours
 arrivals:
   kind: const
   values: [100, 150, 200]
@@ -35,8 +36,8 @@ parameters:
 
 grid:
   bins: ${bins}
-  binSize: 60
-  binUnit: minutes
+  binSize: 1
+  binUnit: hours
 
 nodes:
   - id: user_requests
