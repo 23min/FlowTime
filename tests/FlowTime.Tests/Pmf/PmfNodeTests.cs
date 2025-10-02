@@ -75,7 +75,7 @@ public class PmfNodeTests
         // Act & Assert for various grid sizes
         foreach (var bins in new[] { 1, 3, 10, 24 })
         {
-            var grid = new TimeGrid(bins, 60);
+            var grid = new TimeGrid(bins, 60, TimeUnit.Minutes);
             var result = node.Evaluate(grid, _ => throw new NotSupportedException());
             
             Assert.Equal(bins, result.Length);
