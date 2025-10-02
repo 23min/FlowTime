@@ -7,7 +7,8 @@ Purpose: give AI agents the minimum context to be productive and safe in this re
 - Don’t commit or stage changes without explicit user approval. Propose edits first; commit only after the user says to.
 - Prefer editor-based edits; avoid cross-project refactors without context.
 - Always build and run tests before finishing; keep solution compiling.
-
+- **No time estimates in documentation**: Don't write hours, days, or weeks in docs. No effort estimates in milestones, roadmaps, or planning documents.
+- **Repository access**: When working from flowtime-sim-vnext container, treat flowtime-vnext as read-only reference. Only commit to the flowtime-vnext repository unless explicitly requested to modify flowtime-vnext.
 - **Process safety**: When managing solution services, use safe process management:
   - ALWAYS verify what process is running first: `lsof -ti:PORT` or `ps aux | grep ProcessName`
   - Prefer process name patterns: `pkill -f "FlowTime.Sim.Service"` or `pkill -f "FlowTime.API"`
