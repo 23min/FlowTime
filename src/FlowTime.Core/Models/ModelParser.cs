@@ -139,6 +139,7 @@ public class ModelParseException : Exception
 /// </summary>
 public class ModelDefinition
 {
+    public int SchemaVersion { get; set; }
     public GridDefinition? Grid { get; set; }
     public List<NodeDefinition> Nodes { get; set; } = new();
     public List<OutputDefinition> Outputs { get; set; } = new();

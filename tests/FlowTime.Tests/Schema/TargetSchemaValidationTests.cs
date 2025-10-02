@@ -1,3 +1,5 @@
+using FlowTime.Core;
+
 namespace FlowTime.Tests.Schema;
 
 /// <summary>
@@ -24,7 +26,7 @@ nodes:
 ";
         
         // Act
-        var result = Core.ModelValidator.Validate(yaml);
+        var result = ModelValidator.Validate(yaml);
         
         // Assert
         Assert.True(result.IsValid);
@@ -46,7 +48,7 @@ nodes:
 ";
         
         // Act
-        var result = Core.ModelValidator.Validate(yaml);
+        var result = ModelValidator.Validate(yaml);
         
         // Assert
         Assert.False(result.IsValid);
@@ -69,7 +71,7 @@ nodes:
 ";
         
         // Act
-        var result = Core.ModelValidator.Validate(yaml);
+        var result = ModelValidator.Validate(yaml);
         
         // Assert
         Assert.False(result.IsValid);
@@ -91,7 +93,7 @@ nodes:
 ";
         
         // Act
-        var result = Core.ModelValidator.Validate(yaml);
+        var result = ModelValidator.Validate(yaml);
         
         // Assert
         Assert.False(result.IsValid);
@@ -118,7 +120,7 @@ nodes:
 ";
         
         // Act
-        var result = Core.ModelValidator.Validate(yaml);
+        var result = ModelValidator.Validate(yaml);
         
         // Assert
         Assert.True(result.IsValid);
@@ -144,7 +146,7 @@ nodes:
 ";
         
         // Act
-        var result = Core.ModelValidator.Validate(yaml);
+        var result = ModelValidator.Validate(yaml);
         
         // Assert
         Assert.False(result.IsValid);
@@ -170,7 +172,7 @@ nodes:
 ";
         
         // Act
-        var result = Core.ModelValidator.Validate(yaml);
+        var result = ModelValidator.Validate(yaml);
         
         // Assert
         Assert.True(result.IsValid);
@@ -192,7 +194,7 @@ nodes:
 ";
         
         // Act
-        var result = Core.ModelValidator.Validate(yaml);
+        var result = ModelValidator.Validate(yaml);
         
         // Assert
         Assert.False(result.IsValid);
@@ -222,7 +224,7 @@ nodes:
 ";
         
         // Act
-        var result = Core.ModelValidator.Validate(yaml);
+        var result = ModelValidator.Validate(yaml);
         
         // Assert
         Assert.True(result.IsValid);
@@ -254,7 +256,7 @@ nodes:
 ";
         
         // Act
-        var result = Core.ModelValidator.Validate(yaml);
+        var result = ModelValidator.Validate(yaml);
         
         // Assert
         Assert.True(result.IsValid);

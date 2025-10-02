@@ -1,3 +1,5 @@
+using FlowTime.Core;
+
 namespace FlowTime.Tests.Schema;
 
 /// <summary>
@@ -19,7 +21,7 @@ nodes:
 ";
         
         // Act
-        var result = Core.ModelValidator.Validate(yaml);
+        var result = ModelValidator.Validate(yaml);
         
         // Assert
         Assert.False(result.IsValid);
@@ -45,7 +47,7 @@ nodes:
 ";
         
         // Act
-        var result = Core.ModelValidator.Validate(yaml);
+        var result = ModelValidator.Validate(yaml);
         
         // Assert
         Assert.False(result.IsValid);
@@ -60,7 +62,7 @@ nodes:
         var yaml = "";
         
         // Act
-        var result = Core.ModelValidator.Validate(yaml);
+        var result = ModelValidator.Validate(yaml);
         
         // Assert
         Assert.False(result.IsValid);
@@ -72,7 +74,7 @@ nodes:
     {
         // Act & Assert
         Assert.Throws<ArgumentNullException>(() => 
-            Core.ModelValidator.Validate(null!));
+            ModelValidator.Validate(null!));
     }
     
     [Fact]
@@ -89,7 +91,7 @@ nodes:
 ";
         
         // Act
-        var result = Core.ModelValidator.Validate(yaml);
+        var result = ModelValidator.Validate(yaml);
         
         // Assert
         Assert.False(result.IsValid);
@@ -121,7 +123,7 @@ nodes:
 ";
         
         // Act
-        var result = Core.ModelValidator.Validate(yaml);
+        var result = ModelValidator.Validate(yaml);
         
         // Assert
         Assert.True(result.IsValid);
@@ -145,7 +147,7 @@ nodes:
 ";
         
         // Act
-        var result = Core.ModelValidator.Validate(yaml);
+        var result = ModelValidator.Validate(yaml);
         
         // Assert - Should still succeed (case-insensitive parsing)
         Assert.True(result.IsValid);
@@ -170,7 +172,7 @@ metadata:
 ";
         
         // Act
-        var result = Core.ModelValidator.Validate(yaml);
+        var result = ModelValidator.Validate(yaml);
         
         // Assert
         Assert.True(result.IsValid);
@@ -195,7 +197,7 @@ nodes:
 ";
         
         // Act
-        var result = Core.ModelValidator.Validate(yaml);
+        var result = ModelValidator.Validate(yaml);
         
         // Assert
         Assert.False(result.IsValid);
@@ -222,7 +224,7 @@ nodes:
 ";
         
         // Act
-        var result = Core.ModelValidator.Validate(yaml);
+        var result = ModelValidator.Validate(yaml);
         
         // Assert
         Assert.False(result.IsValid);
