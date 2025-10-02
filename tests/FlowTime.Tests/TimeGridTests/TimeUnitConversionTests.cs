@@ -1,8 +1,10 @@
+using FlowTime.Core;
+
 namespace FlowTime.Tests.TimeGridTests;
 
 /// <summary>
 /// Tests for TimeUnit enum and conversion logic
-/// Status: FAILING (RED) - TimeUnit enum doesn't exist yet
+/// Status: GREEN - Tests pass
 /// </summary>
 public class TimeUnitConversionTests
 {

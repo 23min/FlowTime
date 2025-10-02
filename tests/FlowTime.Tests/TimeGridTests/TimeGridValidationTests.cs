@@ -1,8 +1,10 @@
+using FlowTime.Core;
+
 namespace FlowTime.Tests.TimeGridTests;
 
 /// <summary>
 /// Tests for TimeGrid validation with binSize + binUnit format (target schema)
-/// Status: FAILING (RED) - TimeUnit enum and new constructor don't exist yet
+/// Status: GREEN - Tests pass
 /// </summary>
 public class TimeGridValidationTests
 {

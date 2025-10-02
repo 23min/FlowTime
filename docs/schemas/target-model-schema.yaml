@@ -494,7 +494,8 @@ notes:
     Old format (current Engine input):
       grid:
         bins: 24
-        binMinutes: 60
+        binSize: 1
+  binUnit: hours
     
     New format (target schema):
       grid:
@@ -503,13 +504,13 @@ notes:
         binUnit: hours
     
     Conversion table:
-      binMinutes: 1     → binSize: 1,  binUnit: minutes
-      binMinutes: 5     → binSize: 5,  binUnit: minutes
-      binMinutes: 15    → binSize: 15, binUnit: minutes
-      binMinutes: 60    → binSize: 1,  binUnit: hours
+      binSize: 1   binUnit: minutes     → binSize: 1,  binUnit: minutes
+      binSize: 5   binUnit: minutes     → binSize: 5,  binUnit: minutes
+      binSize: 15   binUnit: minutes    → binSize: 15, binUnit: minutes
+      binSize: 1   binUnit: hours    → binSize: 1,  binUnit: hours
       binMinutes: 120   → binSize: 2,  binUnit: hours
-      binMinutes: 1440  → binSize: 1,  binUnit: days
-      binMinutes: 10080 → binSize: 1,  binUnit: weeks
+      binSize: 1   binUnit: days  → binSize: 1,  binUnit: days
+      binSize: 1   binUnit: weeks → binSize: 1,  binUnit: weeks
 
   validation_rules: |
     Additional semantic validation performed by FlowTime Engine:

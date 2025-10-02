@@ -18,8 +18,14 @@ public static class ModelParser
     {
         if (model.Grid == null)
             throw new ModelParseException("Model must have a grid definition");
-            
-        var grid = new TimeGrid(model.Grid.Bins, model.Grid.BinMinutes);
+        
+        // Require binSize + binUnit (no legacy support)
+        if (model.Grid.BinSize <= 0 || string.IsNullOrEmpty(model.Grid.BinUnit))
+            throw new ModelParseException("Grid must specify binSize and binUnit");
+        
+        var unit = TimeUnitExtensions.Parse(model.Grid.BinUnit);
+        var grid = new TimeGrid(model.Grid.Bins, model.Grid.BinSize, unit);
+        
         var nodes = ParseNodes(model.Nodes);
         var graph = new Graph(nodes);
         
@@ -141,7 +147,8 @@ public class ModelDefinition
 public class GridDefinition
 {
     public int Bins { get; set; }
-    public int BinMinutes { get; set; }
+    public int BinSize { get; set; }
+    public string BinUnit { get; set; } = "minutes";
 }
 
 public class NodeDefinition

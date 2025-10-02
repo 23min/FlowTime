@@ -5,7 +5,7 @@ public class BinaryOpTests
     [Fact]
     public void SeriesTimesSeries_Works()
     {
-        var grid = new TimeGrid(3, 60);
+        var grid = new TimeGrid(3, 60, TimeUnit.Minutes);
         var a = new ConstSeriesNode("a", new double[]{2,3,4});
         var c = new ConstSeriesNode("c", new double[]{5,6,7});
         var b = new BinaryOpNode("b", new NodeId("a"), new NodeId("c"), BinOp.Mul);
@@ -17,7 +17,7 @@ public class BinaryOpTests
     [Fact]
     public void SeriesPlusSeries_Works()
     {
-        var grid = new TimeGrid(3, 60);
+        var grid = new TimeGrid(3, 60, TimeUnit.Minutes);
         var a = new ConstSeriesNode("a", new double[]{1,2,3});
         var c = new ConstSeriesNode("c", new double[]{4,5,6});
         var b = new BinaryOpNode("b", new NodeId("a"), new NodeId("c"), BinOp.Add);
@@ -29,7 +29,7 @@ public class BinaryOpTests
     [Fact]
     public void MissingInput_ThrowsKeyNotFound()
     {
-        var grid = new TimeGrid(2, 60);
+        var grid = new TimeGrid(2, 60, TimeUnit.Minutes);
         var b = new BinaryOpNode("b", new NodeId("a"), new NodeId("c"), BinOp.Add);
         var g = new Graph(new INode[]{ b });
         Assert.Throws<KeyNotFoundException>(() => g.Evaluate(grid));
@@ -38,7 +38,7 @@ public class BinaryOpTests
     [Fact]
     public void ScalarRight_IgnoresRightDependency()
     {
-        var grid = new TimeGrid(2, 60);
+        var grid = new TimeGrid(2, 60, TimeUnit.Minutes);
         var a = new ConstSeriesNode("a", new double[]{1,1});
         var b = new BinaryOpNode("b", new NodeId("a"), new NodeId("nonexistent"), BinOp.Add, 2.0);
         var g = new Graph(new INode[]{ a, b });

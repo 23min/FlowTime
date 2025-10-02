@@ -4,7 +4,8 @@
 schemaVersion: 1
 grid:
   bins: 24        # 24 hours
-  binMinutes: 60  # 1-hour bins
+  binSize: 1
+  binUnit: hours  # 1-hour bins
 
 nodes:
   # Vehicle demand entering the network (rush hour patterns)

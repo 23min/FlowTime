@@ -169,7 +169,7 @@ public sealed class RunArtifactAdapter
     public async Task<FlowTime.Core.TimeGrid> GetCoreTimeGridAsync()
     {
         var manifest = await GetManifestAsync();
-        return new FlowTime.Core.TimeGrid(manifest.Grid.Bins, manifest.Grid.BinMinutes);
+        return new FlowTime.Core.TimeGrid(manifest.Grid.Bins, manifest.Grid.BinMinutes, FlowTime.Core.TimeUnit.Minutes);
     }
 }
 

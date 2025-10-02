@@ -51,7 +51,7 @@ public class ParityTests : IClassFixture<WebApplicationFactory<Program>>
 		Assert.NotNull(doc);
 
 		// Compute expected values using Core directly
-		var grid = new TimeGrid(8, 60);
+		var grid = new TimeGrid(8, 60, TimeUnit.Minutes);
 		var nodes = new INode[]
 		{
 						new ConstSeriesNode("demand", Enumerable.Repeat(10.0, 8).ToArray()),

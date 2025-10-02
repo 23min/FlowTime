@@ -40,7 +40,8 @@ public static class ModelService
             Grid = new GridDefinition 
             { 
                 Bins = model.Grid.Bins, 
-                BinMinutes = model.Grid.BinMinutes 
+                BinSize = model.Grid.BinSize,
+                BinUnit = model.Grid.BinUnit
             },
             Nodes = model.Nodes.Select(n => new NodeDefinition 
             { 

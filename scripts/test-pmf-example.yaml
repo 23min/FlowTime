@@ -1,6 +1,7 @@
 grid:
   bins: 3
-  binMinutes: 60
+  binSize: 1
+  binUnit: hours
 nodes:
   - id: demand
     kind: pmf

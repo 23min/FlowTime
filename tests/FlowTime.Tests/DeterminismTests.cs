@@ -5,7 +5,7 @@ public class DeterminismTests
     [Fact]
     public void Evaluate_IsDeterministic()
     {
-        var grid = new TimeGrid(4, 60);
+        var grid = new TimeGrid(4, 60, TimeUnit.Minutes);
         var a = new ConstSeriesNode("a", new double[]{1,2,3,4});
         var b = new BinaryOpNode("b", new NodeId("a"), new NodeId("__scalar__"), BinOp.Mul, 2);
         var g = new Graph(new INode[]{ a, b });
@@ -17,7 +17,7 @@ public class DeterminismTests
     [Fact]
     public void AddScalar_Works()
     {
-        var grid = new TimeGrid(3, 60);
+        var grid = new TimeGrid(3, 60, TimeUnit.Minutes);
         var a = new ConstSeriesNode("a", new double[]{1,1,1});
         var b = new BinaryOpNode("b", new NodeId("a"), new NodeId("__scalar__"), BinOp.Add, 0.5);
         var g = new Graph(new INode[]{ a, b });
@@ -28,7 +28,7 @@ public class DeterminismTests
     [Fact]
     public void ZeroLengthGrid_AllowsEmptyOutputs()
     {
-        var grid = new TimeGrid(0, 60);
+        var grid = new TimeGrid(0, 60, TimeUnit.Minutes);
         var a = new ConstSeriesNode("a", Array.Empty<double>());
         var g = new Graph(new INode[]{ a });
         var s = g.Evaluate(grid)[new NodeId("a")];

@@ -225,7 +225,8 @@ examples:
     schemaVersion: 1
     grid:
       bins: 4
-      binMinutes: 60
+      binSize: 1
+  binUnit: hours
     nodes:
       - id: demand
         kind: const
@@ -238,7 +239,8 @@ examples:
     schemaVersion: 1
     grid:
       bins: 8
-      binMinutes: 60
+      binSize: 1
+  binUnit: hours
     nodes:
       - id: demand
         kind: const
@@ -267,7 +269,8 @@ examples:
     schemaVersion: 1
     grid:
       bins: 24
-      binMinutes: 60
+      binSize: 1
+  binUnit: hours
     nodes:
       - id: arrivals
         kind: const

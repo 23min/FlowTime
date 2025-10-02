@@ -5,7 +5,7 @@ namespace FlowTime.Tests.Expressions;
 
 public class ExpressionIntegrationTests
 {
-    private readonly TimeGrid grid = new(Bins: 4, BinMinutes: 60);
+    private readonly TimeGrid grid = new(bins: 4, binSize: 60, binUnit: TimeUnit.Minutes);
     
     [Fact]
     public void ParseAndEvaluate_SimpleLiteral_ReturnsConstantSeries()

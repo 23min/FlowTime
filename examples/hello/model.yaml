@@ -1,6 +1,6 @@
 grid:
   bins: 8
-  binMinutes: 60
+  binSize: 1  binUnit: hours
 nodes:
   - id: demand
     kind: const
