@@ -1,0 +1,110 @@
+namespace FlowTime.Core;
+
+/// <summary>
+/// Compiles PMF specifications into validated Pmf objects.
+/// Implements 4-phase compilation pipeline:
+/// 1. Validation - Check probabilities, normalization
+/// 2. Grid Alignment - Handle repeat/error policies  
+/// 3. Compilation - Sample from PMF using RNG
+/// 4. Provenance - Track original specs
+/// </summary>
+public static class PmfCompiler
+{
+    private const double DEFAULT_NORMALIZATION_TOLERANCE = 0.001;
+
+    /// <summary>
+    /// Compile a PMF from entries.
+    /// Phase 1: Validation only (for now).
+    /// </summary>
+    /// <param name="entries">PMF entries with values and probabilities</param>
+    /// <param name="name">Name/ID for this PMF (for error messages)</param>
+    /// <param name="options">Compilation options (optional)</param>
+    /// <returns>Compilation result with validated Pmf or error</returns>
+    public static PmfCompilationResult Compile(
+        PmfEntry[] entries,
+        string name,
+        PmfCompilerOptions? options = null)
+    {
+        options ??= new PmfCompilerOptions();
+        var warnings = new List<string>();
+
+        try
+        {
+            // ============================================================
+            // PHASE 1: VALIDATION
+            // ============================================================
+
+            // Validate input
+            if (entries == null || entries.Length == 0)
+                return PmfCompilationResult.Failure("PMF must have at least one entry");
+
+            // Check for negative probabilities
+            foreach (var entry in entries)
+            {
+                if (entry.Probability < 0)
+                {
+                    return PmfCompilationResult.Failure(
+                        $"PMF '{name}': Probability must be non-negative, got {entry.Probability} for value {entry.Value}");
+                }
+            }
+
+            // Check probability sum
+            var sum = entries.Sum(e => e.Probability);
+            
+            if (sum <= 0)
+            {
+                return PmfCompilationResult.Failure(
+                    $"PMF '{name}': Probabilities sum to {sum}, must be positive");
+            }
+
+            // Normalization check
+            var tolerance = options.NormalizationTolerance;
+            double[] probabilities;
+            
+            if (Math.Abs(sum - 1.0) > tolerance)
+            {
+                // Renormalize with warning
+                warnings.Add($"PMF '{name}': Probabilities sum to {sum:F6}, renormalizing to 1.0");
+                probabilities = entries.Select(e => e.Probability / sum).ToArray();
+            }
+            else
+            {
+                probabilities = entries.Select(e => e.Probability).ToArray();
+            }
+
+            // Extract values
+            var values = entries.Select(e => e.Value).ToArray();
+
+            // Create validated Pmf
+            var pmf = new Pmf.Pmf(values, probabilities);
+
+            return PmfCompilationResult.Success(pmf, warnings);
+        }
+        catch (Exception ex)
+        {
+            return PmfCompilationResult.Failure($"PMF '{name}': {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Validate PMF entries without compiling.
+    /// Useful for quick validation checks.
+    /// </summary>
+    public static (bool IsValid, string? ErrorMessage) Validate(PmfEntry[] entries)
+    {
+        if (entries == null || entries.Length == 0)
+            return (false, "PMF must have at least one entry");
+
+        foreach (var entry in entries)
+        {
+            if (entry.Probability < 0)
+                return (false, $"Negative probability: {entry.Probability}");
+        }
+
+        var sum = entries.Sum(e => e.Probability);
+        if (sum <= 0)
+            return (false, $"Probabilities sum to {sum}, must be positive");
+
+        return (true, null);
+    }
+}
