@@ -1,6 +1,6 @@
 using FlowTime.Core;
 
-namespace FlowTime.Tests.Legacy;
+namespace FlowTime.Tests.GraphEvaluation;
 
 public class GraphTests
 {

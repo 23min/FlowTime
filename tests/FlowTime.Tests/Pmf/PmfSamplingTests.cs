@@ -19,7 +19,8 @@ public class PmfSamplingTests
         var options = new Core.PmfCompilerOptions
         {
             GridBins = 10,
-            Seed = 42
+            Seed = 42,
+            RepeatPolicy = Core.RepeatPolicy.Repeat // PMF length (2) doesn't match grid (10)
         };
 
         // Act
@@ -48,8 +49,9 @@ public class PmfSamplingTests
         
         var options = new Core.PmfCompilerOptions
         {
-            GridBins = 100,
-            Seed = 12345
+            GridBins = 99,  // Divisible by 3 (PMF length)
+            Seed = 12345,
+            RepeatPolicy = Core.RepeatPolicy.Repeat
         };
 
         // Act
@@ -75,13 +77,15 @@ public class PmfSamplingTests
         var options1 = new Core.PmfCompilerOptions
         {
             GridBins = 50,
-            Seed = 42
+            Seed = 42,
+            RepeatPolicy = Core.RepeatPolicy.Repeat // PMF length (2) doesn't match grid (50)
         };
         
         var options2 = new Core.PmfCompilerOptions
         {
             GridBins = 50,
-            Seed = 43
+            Seed = 43,
+            RepeatPolicy = Core.RepeatPolicy.Repeat // PMF length (2) doesn't match grid (50)
         };
 
         // Act
@@ -134,7 +138,8 @@ public class PmfSamplingTests
         var options = new Core.PmfCompilerOptions
         {
             GridBins = 1000,
-            Seed = 42
+            Seed = 42,
+            RepeatPolicy = Core.RepeatPolicy.Repeat // PMF length (4) doesn't match grid (1000)
         };
 
         // Act
@@ -170,8 +175,9 @@ public class PmfSamplingTests
         
         var options = new Core.PmfCompilerOptions
         {
-            GridBins = 1000,
-            Seed = 42
+            GridBins = 999,  // Divisible by 3 (PMF length)
+            Seed = 42,
+            RepeatPolicy = Core.RepeatPolicy.Repeat
         };
 
         // Act
@@ -185,13 +191,13 @@ public class PmfSamplingTests
             .GroupBy(x => x)
             .ToDictionary(g => g.Key, g => g.Count());
 
-        // 100.0 should appear ~800 times
+        // 100.0 should appear ~799 times (999 * 0.8)
         Assert.InRange(freq[100.0], 750, 850);
         
-        // 200.0 should appear ~150 times
+        // 200.0 should appear ~150 times (999 * 0.15)
         Assert.InRange(freq[200.0], 100, 200);
         
-        // 300.0 should appear ~50 times
+        // 300.0 should appear ~50 times (999 * 0.05)
         Assert.InRange(freq[300.0], 20, 80);
     }
 
@@ -207,7 +213,8 @@ public class PmfSamplingTests
         var options = new Core.PmfCompilerOptions
         {
             GridBins = 20,
-            Seed = 12345
+            Seed = 12345,
+            RepeatPolicy = Core.RepeatPolicy.Repeat // PMF length (1) doesn't match grid (20)
         };
 
         // Act
@@ -234,7 +241,8 @@ public class PmfSamplingTests
         var options = new Core.PmfCompilerOptions
         {
             GridBins = 10000,
-            Seed = 999
+            Seed = 999,
+            RepeatPolicy = Core.RepeatPolicy.Repeat // PMF length (5) doesn't match grid (10000)
         };
 
         // Act - compile twice with same seed
@@ -294,7 +302,8 @@ public class PmfSamplingTests
         var options = new Core.PmfCompilerOptions
         {
             GridBins = 20,
-            Seed = 42
+            Seed = 42,
+            RepeatPolicy = Core.RepeatPolicy.Repeat // PMF length (2) doesn't match grid (20)
         };
 
         // Act
@@ -304,8 +313,9 @@ public class PmfSamplingTests
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.CompiledSeries);
         Assert.Equal(20, result.CompiledSeries!.Length);
-        Assert.Single(result.Warnings); // Should have normalization warning
+        Assert.Equal(2, result.Warnings.Count); // Should have normalization + tiling warnings
         Assert.Contains("renormalizing", result.Warnings[0], StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("tile", result.Warnings[1], StringComparison.OrdinalIgnoreCase);
         
         // After renormalization, each value should have 0.5 probability
         var freq = result.CompiledSeries
