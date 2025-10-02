@@ -92,31 +92,28 @@ Based on M1.6 benchmarking results:
 
 ## Implementation Priority Framework
 
-### Phase 1: Low Hanging Fruit (Target: M2.1)
+### Phase 1: Low Hanging Fruit
 1. **ArrayPool Integration**: Replace array allocations with pooled arrays
 2. **Node ID Optimization**: Replace string lookups with integer indices  
 3. **Basic Result Caching**: Implement memoization for repeated evaluations
 4. **SIMD Vectorization**: Use Vector<T> for element-wise operations
 
-**Estimated Development**: 2-3 weeks
 **Expected Performance Gain**: 40-60% evaluation improvement
 
-### Phase 2: Architectural Improvements (Target: M2.2)
+### Phase 2: Architectural Improvements
 1. **Expression Compilation**: Compile expression trees to optimized delegates
 2. **Lazy Evaluation Engine**: Implement demand-driven evaluation
 3. **Memory Management Overhaul**: Comprehensive allocation reduction
 4. **Parallel Evaluation Framework**: Multi-threaded evaluation pipeline
 
-**Estimated Development**: 4-6 weeks  
 **Expected Performance Gain**: 2-5x overall improvement
 
-### Phase 3: Advanced Optimizations (Target: M3+)
+### Phase 3: Advanced Optimizations (Future)
 1. **JIT Compilation**: Runtime code generation for hot paths
 2. **GPU Acceleration**: CUDA/OpenCL for large-scale computations
 3. **Streaming Evaluation**: Process time series data in chunks
 4. **Distributed Computing**: Scale across multiple machines
 
-**Estimated Development**: 8-12 weeks
 **Expected Performance Gain**: 10x+ for suitable workloads
 
 ## Measurement and Validation Strategy

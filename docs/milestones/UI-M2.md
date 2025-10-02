@@ -1,6 +1,6 @@
 # UI-M2 — Mode Toggle & UX Enhancement
 
-> **📋 Charter Notice**: This completed milestone predates the [FlowTime-Engine Charter](../flowtime-engine-charter.md). The artifact-first architecture implemented here aligns with charter principles. See [Charter Roadmap](CHARTER-ROADMAP.md) for current development direction.
+> **📋 Charter Notice**: This completed milestone predates the [FlowTime-Engine Charter](../flowtime-engine-charter.md). The artifact-first architecture implemented here aligns with charter principles. See [ROADMAP.md](../ROADMAP.md) for current development direction.
 
 > **Target Project:** FlowTime UI  
 > **Prerequisites:** UI-M1 ✅, SVC-M1 ✅, SYN-M0 ✅  

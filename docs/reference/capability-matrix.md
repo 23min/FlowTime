@@ -1,6 +1,6 @@
 # Capability Matrix (Snapshot)
 
-> **📋 Charter Notice**: This capability matrix reflects pre-charter milestones (M0-M2.6). For current development capabilities and roadmap, see [Charter Roadmap](../milestones/CHARTER-ROADMAP.md) milestones M2.7-M2.9.
+> **📋 Charter Notice**: This capability matrix reflects pre-charter milestones (M0-M2.6). For current development capabilities and roadmap, see [ROADMAP.md](../ROADMAP.md).
 
 Legend: Done / Prototype / Partial / Planned.
 
@@ -26,4 +26,4 @@ Legend: Done / Prototype / Partial / Planned.
 | Testing | Core unit tests & API slice + CLI parity + artifact endpoints | Done | 35/35 tests passing including enhanced artifact validation |
 | Docs | README, roadmap, node concepts, releases | Done | Complete documentation for all milestones |
 
-**Charter Status**: This matrix reflects completed pre-charter work. Current development follows [Charter Roadmap](../milestones/CHARTER-ROADMAP.md) with artifacts-centric milestones M2.7-M2.9.
+**Charter Status**: This matrix reflects completed pre-charter work. Current development follows [ROADMAP.md](../ROADMAP.md) with artifacts-centric milestones.
