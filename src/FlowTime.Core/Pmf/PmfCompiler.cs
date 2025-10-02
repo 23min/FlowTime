@@ -75,7 +75,39 @@ public static class PmfCompiler
             // Extract values
             var values = entries.Select(e => e.Value).ToArray();
 
-            // Create validated Pmf
+            // ============================================================
+            // PHASE 2: GRID ALIGNMENT VALIDATION
+            // ============================================================
+
+            if (options.GridBins.HasValue)
+            {
+                var gridBins = options.GridBins.Value;
+                var pmfLength = values.Length;
+
+                if (pmfLength == gridBins)
+                {
+                    // Perfect match - no issues
+                }
+                else if (options.RepeatPolicy == RepeatPolicy.Repeat)
+                {
+                    // Check if PMF can tile evenly into grid
+                    if (gridBins % pmfLength != 0)
+                    {
+                        return PmfCompilationResult.Failure(
+                            $"PMF '{name}': Cannot repeat {pmfLength} values to fit {gridBins} bins (not evenly divisible)");
+                    }
+
+                    // Valid for tiling - record in warnings
+                    warnings.Add($"PMF '{name}': Will tile {pmfLength} values to {gridBins} bins ({gridBins / pmfLength}x repeat) during sampling");
+                }
+                else // RepeatPolicy.Error
+                {
+                    return PmfCompilationResult.Failure(
+                        $"PMF '{name}': Length mismatch - PMF has {pmfLength} values but grid has {gridBins} bins (policy: error)");
+                }
+            }
+
+            // Create validated Pmf (original distribution, not tiled)
             var pmf = new Pmf.Pmf(values, probabilities);
 
             return PmfCompilationResult.Success(pmf, warnings);

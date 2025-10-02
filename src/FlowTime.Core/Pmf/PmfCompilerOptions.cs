@@ -1,7 +1,7 @@
 namespace FlowTime.Core;
 
 /// <summary>
-/// Options for PMF compilation pipeline.
+/// Options for PMF compilation.
 /// </summary>
 public class PmfCompilerOptions
 {
