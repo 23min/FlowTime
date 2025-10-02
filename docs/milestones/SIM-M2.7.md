@@ -78,10 +78,15 @@ Return both model and provenance from generate endpoint.
   "provenance": {...}
 }
 
+**Query Parameter**:
+- `?embed_provenance=true` - Embeds provenance in model YAML (see FR-SIM-M2.7-5)
+- Default (false) - Returns provenance separately
+
 **Backward Compatibility**: Existing callers can ignore provenance field.
 
 **Acceptance**:
 - /generate returns both model and provenance
+- Supports both separate and embedded provenance modes
 - Backward compatible (additive change)
 - API documentation updated
 
@@ -123,6 +128,66 @@ flowtime-sim generate --template it-system --params bins=12 --output model.yaml 
 **Acceptance**:
 - CLI --provenance flag saves metadata to file
 - Provenance file format matches API response
+
+---
+
+### FR-SIM-M2.7-5: Embedded Provenance Support
+
+Support embedding provenance directly in model YAML as alternative to separate delivery.
+
+**Motivation**: Self-contained model files for file-based workflows (CLI, scripts, sharing).
+
+**Embedded Format**:
+```yaml
+schemaVersion: 1
+
+# Optional provenance section
+provenance:
+  source: flowtime-sim
+  model_id: model_20250925T120000Z_abc123def
+  template_id: it-system-microservices
+  template_version: "1.0"
+  template_title: "IT System - Microservices"
+  generated_at: "2025-09-25T12:00:00Z"
+  generator: "flowtime-sim/0.5.0"
+  schema_version: "1"
+  parameters:
+    bins: 12
+    binSize: 1
+    binUnit: hours
+    loadBalancerCapacity: 300
+
+# Execution spec follows
+grid:
+  bins: 12
+  binSize: 1
+  binUnit: hours
+nodes:
+  # ...
+```
+
+**API Support**:
+```bash
+POST /api/v1/templates/{id}/generate?embed_provenance=true
+```
+
+**CLI Support**:
+```bash
+flowtime-sim generate --template it-system --output model.yaml --embed-provenance
+```
+
+**Benefits**:
+- Self-contained model files (provenance travels with model)
+- Simpler file-based workflows
+- No header coordination needed
+- Engine supports both embedded and header delivery
+
+**Acceptance**:
+- API `?embed_provenance=true` returns model with embedded provenance
+- CLI `--embed-provenance` flag embeds provenance in output file
+- Provenance section placed after schemaVersion, before grid
+- Engine successfully extracts embedded provenance
+- Backward compatible (provenance section is optional)
 
 ---
 
@@ -252,14 +317,24 @@ sequenceDiagram
 - Integration tested end-to-end
 
 ### CLI Support
-- CLI outputs provenance to file
-- File format matches API response
+- CLI outputs provenance to separate file (--provenance)
+- CLI embeds provenance in model file (--embed-provenance)
+- File formats match API response
+
+### Embedded Provenance
+- API supports ?embed_provenance=true query parameter
+- CLI supports --embed-provenance flag
+- Provenance section correctly positioned in YAML
+- Engine extracts embedded provenance successfully
+- Backward compatible (optional feature)
 
 ### Testing
 - Unit tests for provenance service
-- API integration tests
+- Unit tests for provenance embedding
+- API integration tests (separate and embedded modes)
+- CLI tests (both flag options)
 - Model ID determinism tests
-- End-to-end validation
+- End-to-end validation with Engine
 
 ---
 
@@ -279,10 +354,17 @@ sequenceDiagram
 ### Phase 2: API Enhancement (Week 1)
 
 **Files to Modify**:
-- src/FlowTime.Sim.Service/Controllers/TemplatesController.cs
-- src/FlowTime.Sim.Service/Models/GenerateResponse.cs
+- src/FlowTime.Sim.Service/Program.cs (minimal API endpoints)
+- src/FlowTime.Sim.Core/Services/ModelGenerator.cs (add embedding logic)
+- tests/FlowTime.Sim.Tests/Api/TemplatesEndpointTests.cs
 
-**Deliverable**: Enhanced API endpoint
+**Tasks**:
+1. Add provenance embedding method to ModelGenerator
+2. Add `?embed_provenance` query parameter to /generate endpoint
+3. Return embedded or separate provenance based on parameter
+4. Add API tests for both modes
+
+**Deliverable**: Enhanced API endpoint with embedded provenance support
 
 ---
 
@@ -290,8 +372,15 @@ sequenceDiagram
 
 **Files to Modify**:
 - src/FlowTime.Sim.Cli/Commands/GenerateCommand.cs
+- tests/FlowTime.Sim.Tests/Cli/GenerateCommandTests.cs
 
-**Deliverable**: CLI with --provenance flag
+**Tasks**:
+1. Add `--provenance <file>` option for separate file output
+2. Add `--embed-provenance` flag for embedded mode
+3. Mutual exclusivity: Can't use both flags together
+4. Add CLI tests for both modes
+
+**Deliverable**: CLI with --provenance and --embed-provenance flags
 
 ---
 

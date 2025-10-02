@@ -178,7 +178,37 @@ sequenceDiagram
     deactivate Engine
 ```
 
-**Key Point:** UI can choose to use the immediate `/generate` response OR retrieve any previously generated model from Sim's temporary storage before posting to Engine.
+**Option 3: Generate with Embedded Provenance**
+
+```mermaid
+sequenceDiagram
+    participant UI as FlowTime UI<br/>:5219
+    participant Sim as FlowTime-Sim API<br/>:8090
+    participant Engine as FlowTime Engine API<br/>:8080
+    
+    Note over Sim,Engine: Self-Contained Model with Provenance
+    
+    UI->>Sim: POST /api/v1/templates/{id}/generate?embed_provenance=true
+    activate Sim
+    Sim->>Sim: Generate model
+    Sim->>Sim: Embed provenance in YAML
+    Sim-->>UI: Return model with embedded provenance
+    deactivate Sim
+    
+    Note over UI: Model is self-contained<br/>No separate metadata needed
+    
+    UI->>Engine: POST /v1/run<br/>Body: model YAML (with embedded provenance)
+    activate Engine
+    Engine->>Engine: Extract provenance from YAML
+    Engine->>Engine: Execute + store permanently
+    Engine-->>UI: Return {runId}
+    deactivate Engine
+```
+
+**Key Points:** 
+- UI can choose immediate `/generate` response OR retrieve from Sim's temporary storage
+- Provenance can be delivered separately (header) OR embedded (in YAML)
+- Embedded provenance creates self-contained model files
 
 ### Service Responsibilities
 
@@ -245,7 +275,7 @@ graph LR
   - `model`: YAML content string
   - `provenance`: ProvenanceMetadata object
 
-**Sim API flow:**
+**Sim API flow (Separate Provenance):**
 
 ```bash
 # 1. Generate model with parameters
@@ -261,7 +291,7 @@ Content-Type: application/json
   }
 }
 
-# 2. Sim responds with model + provenance
+# 2. Sim responds with model + provenance separately
 HTTP/1.1 200 OK
 Content-Type: application/json
 
@@ -279,12 +309,65 @@ Content-Type: application/json
   }
 }
 
-# 3. UI/CLI posts BOTH to Engine
+# 3. UI/CLI posts to Engine with header
 POST http://engine:8080/v1/run
 Content-Type: application/x-yaml
 X-Model-Provenance: {"source":"flowtime-sim","model_id":"model_20251001T120000Z_abc123",...}
 
 schemaVersion: 1
+grid:
+  bins: 12
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: load-balancer
+    ...
+```
+
+**Sim API flow (Embedded Provenance):**
+
+```bash
+# 1. Generate model with embed_provenance=true
+POST /api/v1/templates/it-system-microservices/generate?embed_provenance=true
+Content-Type: application/json
+
+{
+  "parameters": {
+    "bins": 12,
+    "binSize": 1,
+    "binUnit": "hours",
+    "loadBalancerCapacity": 300
+  }
+}
+
+# 2. Sim responds with embedded provenance in model YAML
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{
+  "model": "schemaVersion: 1\n\nprovenance:\n  source: flowtime-sim\n  model_id: model_20251001T120000Z_abc123\n  ...\n\ngrid:\n  bins: 12\n  ..."
+}
+
+# 3. UI/CLI posts self-contained model to Engine
+POST http://engine:8080/v1/run
+Content-Type: application/x-yaml
+
+schemaVersion: 1
+
+provenance:
+  source: flowtime-sim
+  model_id: model_20251001T120000Z_abc123
+  template_id: it-system-microservices
+  template_version: "1.0"
+  generated_at: "2025-10-01T12:00:00Z"
+  generator: "flowtime-sim/0.5.0"
+  schema_version: "1"
+  parameters:
+    bins: 12
+    binSize: 1
+    binUnit: hours
+    loadBalancerCapacity: 300
+
 grid:
   bins: 12
   binSize: 1
@@ -362,14 +445,29 @@ Each model has accompanying `metadata.json`:
 
 **Enhanced `/v1/run` endpoint:**
 
-Accepts new optional header:
+Engine supports TWO provenance delivery methods:
+
+**Option 1: HTTP Header**
 ```
 X-Model-Provenance: <JSON provenance metadata>
 ```
 
+**Option 2: Embedded in YAML**
+```yaml
+schemaVersion: 1
+
+provenance:
+  source: flowtime-sim
+  model_id: model_...
+  # ... provenance fields
+
+grid:
+  # ... model spec
+```
+
 Processing flow:
 1. Parse model YAML (existing)
-2. Parse provenance from header (new)
+2. Extract provenance from header OR embedded section (new)
 3. Execute model (existing)
 4. Store artifacts including provenance (enhanced)
 5. Update registry (existing)
@@ -528,9 +626,16 @@ graph TD
 
 **Enhance in SIM-M2.7:**
 - ✅ Add additional provenance fields to metadata.json (template version, template title, schema version, sim version)
-- ✅ Enhanced `/generate` endpoint to return provenance in response body (optional, for direct workflows)
-- ✅ CLI option to save model + provenance locally (for template development)
+- ✅ Enhanced `/generate` endpoint to return provenance in response body
+- ✅ Support embedded provenance via `?embed_provenance=true` query parameter
+- ✅ CLI option to save provenance separately (`--provenance <file>`)
+- ✅ CLI option to embed provenance in model YAML (`--embed-provenance`)
 - ✅ Document UI workflows for model retrieval and reuse
+
+**Provenance Delivery Options:**
+- **Separate**: Return `{model, provenance}` separately (default)
+- **Embedded**: Return model with provenance section embedded in YAML (`?embed_provenance=true`)
+- **Choice**: UI/CLI can choose which method to use
 
 **Don't implement:**
 - ❌ Permanent artifact storage (Engine's job)
@@ -540,6 +645,7 @@ graph TD
 
 **Add to Engine (M2.9 coordination):**
 - ✅ Accept `X-Model-Provenance` header in Engine `/v1/run`
+- ✅ Accept embedded provenance in model YAML (alternative method)
 - ✅ Store `provenance.json` in run artifacts
 - ✅ Enhanced registry metadata extraction
 - ✅ UI support for provenance display
