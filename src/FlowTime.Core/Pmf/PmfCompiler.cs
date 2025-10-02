@@ -1,12 +1,11 @@
 namespace FlowTime.Core;
 
 /// <summary>
-/// Compiles PMF specifications into validated Pmf objects.
-/// Implements 4-phase compilation pipeline:
+/// Compiles PMF specifications into validated Pmf objects and optionally samples series.
+/// Implements 3-phase compilation pipeline:
 /// 1. Validation - Check probabilities, normalization
 /// 2. Grid Alignment - Handle repeat/error policies  
-/// 3. Compilation - Sample from PMF using RNG
-/// 4. Provenance - Track original specs
+/// 3. Compilation - Sample deterministic series from PMF using RNG (if GridBins specified)
 /// </summary>
 public static class PmfCompiler
 {
@@ -110,12 +109,53 @@ public static class PmfCompiler
             // Create validated Pmf (original distribution, not tiled)
             var pmf = new Pmf.Pmf(values, probabilities);
 
-            return PmfCompilationResult.Success(pmf, warnings);
+            // ============================================================
+            // PHASE 3: COMPILATION (SAMPLING)
+            // ============================================================
+
+            double[]? compiledSeries = null;
+
+            if (options.GridBins.HasValue)
+            {
+                var gridBins = options.GridBins.Value;
+                var rng = new Pcg32(options.Seed);
+
+                compiledSeries = new double[gridBins];
+
+                // Sample from PMF distribution
+                for (int i = 0; i < gridBins; i++)
+                {
+                    compiledSeries[i] = SampleFromPmf(values, probabilities, rng);
+                }
+            }
+
+            return PmfCompilationResult.Success(pmf, compiledSeries, warnings);
         }
         catch (Exception ex)
         {
             return PmfCompilationResult.Failure($"PMF '{name}': {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// Sample a value from the PMF using inverse transform sampling.
+    /// </summary>
+    private static double SampleFromPmf(double[] values, double[] probabilities, Pcg32 rng)
+    {
+        var u = rng.NextDouble();
+        var cumulativeProb = 0.0;
+
+        for (int i = 0; i < probabilities.Length; i++)
+        {
+            cumulativeProb += probabilities[i];
+            if (u <= cumulativeProb)
+            {
+                return values[i];
+            }
+        }
+
+        // Fallback for rounding errors: return last value
+        return values[^1];
     }
 
     /// <summary>
