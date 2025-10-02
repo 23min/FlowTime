@@ -1,5 +1,23 @@
 # FlowTime-Sim Model Schema Compatibility Guide
 
+> ⚠️ **OUTDATED**: This document predates SIM-M2.6.1 schema evolution and SIM-M2.7 provenance integration.
+> 
+> **Known Issues:**
+> - Examples use `binMinutes` format (SIM-M2.6.1 changes to `binSize`/`binUnit`)
+> - Missing `schemaVersion` field requirement (SIM-M2.6.1)
+> - API endpoints don't match current implementation (`/model/generate` vs `/api/v1/templates/{id}/generate`)
+> - No mention of template-based generation system
+> - No mention of provenance metadata (SIM-M2.7)
+> - Preview artifacts section may not reflect actual implementation
+> 
+> **Status**: Needs comprehensive update after SIM-M2.6.1 implementation completes.  
+> **See Instead**: 
+> - Current architecture: `docs/architecture/registry-integration.md`
+> - Schema evolution: `docs/milestones/SIM-M2.6.1.md`
+> - Provenance integration: `docs/milestones/SIM-M2.7.md`
+
+---
+
 **Version:** 2.0 (Charter v1.0 Compliant)  
 **Purpose:** Define single-schema compatibility where FlowTime-Sim generates the same model.yaml format that FlowTime Engine consumes.
 
