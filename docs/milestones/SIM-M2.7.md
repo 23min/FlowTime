@@ -1,393 +1,368 @@
-# SIM-M2.7 — Registry Integration Preparation
+# SIM-M2.7 — Model Provenance Integration
 
-> **📋 Charter Alignment**: This milestone prepares FlowTime-Sim for integration with Engine M2.7 Artifacts Registry, enabling model artifact creation and discovery.
-
-**Status:** 📋 Planned (Charter-Aligned)  
-**Dependencies:** SIM-M2.6 (Foundation), FlowTime Engine M2.7  
-**Target:** FlowTime-Sim model artifacts discoverable in Engine registry system  
-**Date:** 2025-10-15
+**Status:** 📋 Planned  
+**Dependencies:** SIM-M2.6.1 (Schema Evolution), Engine M2.9 (Provenance Acceptance)  
+**Target:** Complete provenance traceability from template to run  
+**Version:** 0.5.0 → 0.6.0 (minor feature addition)  
+**Date:** 2025-10-22
 
 ---
 
 ## Goal
 
-Enable **FlowTime-Sim model artifacts** to integrate seamlessly with the **FlowTime Engine M2.7 Artifacts Registry**. This milestone ensures that model artifacts created by Sim become discoverable, searchable, and selectable within the Engine's charter UI workflows, particularly the Runs wizard "Select Input" step.
+Enable **complete provenance traceability** by having Sim generate provenance metadata that Engine stores with run artifacts. Every run can be traced back to its source template and parameter values.
 
-## Context & Charter Alignment
+**Architecture Principle**: Sim is stateless. Engine owns the registry. UI orchestrates.
 
-The **FlowTime Engine M2.7 Registry** provides the persistent backbone for the charter UI workflow. FlowTime-Sim must integrate with this registry to ensure:
+---
 
-- **Model Discovery**: Sim-created models appear in Engine artifact listings
-- **Charter UI Support**: Models become selectable inputs for Engine Runs wizard
-- **Persistent Integration**: "Never forget" principle extends to Sim model artifacts
-- **Charter Boundaries**: Registry integration respects Sim authoring vs Engine execution separation
+## Context
 
-This milestone completes the **charter ecosystem integration**:
-```
-FlowTime-Sim (Create + Register Models) → Engine Registry (Discover Models) → Engine Execution (Run Models)
-```
+### The Provenance Problem
+
+When Engine executes a Sim-generated model, we currently lose the trail:
+- Which template generated this model?
+- What parameter values were used?
+- Can we reproduce this exact model?
+- Which runs came from the same template?
+
+**Solution**: Sim generates provenance metadata, UI passes it to Engine, Engine stores it with run artifacts.
+### KISS Architecture
+
+**Service Separation**:
+- **Sim**: Generates models + provenance (stateless, no storage)
+- **Engine**: Executes models + stores everything (single source of truth)
+- **UI**: Orchestrates workflow (calls Sim, then Engine)
+
+**Critical Rule**: Sim and Engine DO NOT talk to each other directly. UI is the orchestrator.
+
+---
 
 ## Functional Requirements
 
-### **FR-SIM-M2.7-1: Registry-Compatible Model Artifacts**
-Ensure Sim model artifacts integrate seamlessly with Engine M2.7 Registry structure.
+### FR-SIM-M2.7-1: Provenance Metadata Generation
 
-**Registry Integration Schema:**
-```json
-// Model artifact metadata for Engine Registry
+Sim generates provenance for every model.
+
+**Provenance Schema** (JSON):
+- source: "flowtime-sim"
+- model_id: "model_{timestamp}_{hash}"
+- template_id: string
+- template_version: string
+- template_title: string
+- parameters: object
+- generated_at: ISO8601 timestamp
+- sim_version: string
+- schema_version: string
+
+**Model ID Generation**:
+- Format: model_{timestamp}_{hash}
+- Deterministic: Same template + parameters = reproducible hash
+- Unique: Timestamp ensures global uniqueness
+
+**Acceptance**:
+- Every generated model has unique model_id
+- model_id is deterministic for reproducibility
+- Provenance includes all template and parameter information
+- Provenance serializes to JSON correctly
+
+---
+
+### FR-SIM-M2.7-2: Enhanced /api/v1/templates/{id}/generate Endpoint
+
+Return both model and provenance from generate endpoint.
+
+**Enhanced Response** (SIM-M2.7):
 {
-  "id": "manufacturing_line_v1_a1b2",
-  "type": "model",
-  "title": "Manufacturing Line Model v1.0",
-  "description": "Production line with seasonal demand patterns",
-  "created": "2025-09-20T10:30:00Z",
-  "source": "flowtime-sim",
-  "schema_version": "v1",
-  "capabilities": ["executable", "parameterizable", "validatable"],
-  "tags": ["manufacturing", "capacity", "seasonal"],
-  "metadata": {
-    "sim_template": "manufacturing-line",
-    "sim_version": "2.7.0",
-    "engine_compatible": true,
-    "parameter_count": 4,
-    "validation_score": 0.94
-  },
-  "relationships": {
-    "template_source": "template:manufacturing-line",
-    "derived_from": null,
-    "generates": []
-  },
-  "files": [
-    {
-      "name": "model.yaml",
-      "type": "engine_model",
-      "size_bytes": 2048,
-      "content_type": "application/x-yaml"
-    },
-    {
-      "name": "metadata.json", 
-      "type": "metadata",
-      "size_bytes": 1024,
-      "content_type": "application/json"
-    },
-    {
-      "name": "preview.svg",
-      "type": "visualization", 
-      "size_bytes": 4096,
-      "content_type": "image/svg+xml"
-    }
-  ]
+  "model": "schemaVersion: 1\n...",
+  "provenance": {...}
 }
-```
 
-**Registry Storage Integration:**
-```
-/data/                              # Engine Registry root
-├── registry-index.json             # Engine registry index
-├── models/                         # Model artifacts (from Sim)
-│   └── manufacturing_line_v1_a1b2/
-│       ├── model.yaml              # Unified Model artifact
-│       ├── metadata.json           # Registry metadata
-│       └── preview.svg             # Optional DAG preview
-├── runs/                           # Run artifacts (from Engine)
-│   └── run_20250920T080707Z_*/
-└── telemetry/                      # Imported telemetry (from Engine)
-```
+**Backward Compatibility**: Existing callers can ignore provenance field.
 
-### **FR-SIM-M2.7-2: Auto-Registration Service**
-Automatically register Sim model artifacts with Engine Registry upon creation.
+**Acceptance**:
+- /generate returns both model and provenance
+- Backward compatible (additive change)
+- API documentation updated
 
-**Auto-Registration Workflow:**
-```
-1. Sim creates model artifact (SIM-M2.6)
-2. Registry service detects new model
-3. Extract metadata from Sim artifact
-4. Generate registry-compatible entry
-5. Update Engine registry index
-6. Model becomes discoverable in Engine
-```
+---
 
-**Registry Integration Endpoints:**
-```http
-# Registry integration (called by Sim after model creation)
-POST /sim/v1/registry/models         # Register model with Engine registry
-PUT  /sim/v1/registry/models/{id}    # Update model registry entry
-GET  /sim/v1/registry/status         # Check registry integration health
+### FR-SIM-M2.7-3: Engine Provenance Acceptance
 
-# Registry query (proxy to Engine registry)
-GET  /sim/v1/registry/artifacts      # List all artifacts (proxy to Engine)
-GET  /sim/v1/registry/models         # List model artifacts specifically
-```
+**Coordinate with Engine Team**: Engine must accept and store provenance metadata.
 
-**Auto-Registration Implementation:**
-```csharp
-public class SimRegistryIntegrationService
-{
-    private readonly IEngineRegistryClient _engineRegistry;
-    private readonly IModelArtifactExporter _modelExporter;
+**Engine /v1/run Enhancement**:
+POST /v1/run with X-Model-Provenance header (JSON string)
 
-    public async Task RegisterModelAsync(string modelId)
-    {
-        // Get model artifact from Sim
-        var modelArtifact = await _modelExporter.GetModelArtifactAsync(modelId);
-        
-        // Transform to registry-compatible format
-        var registryEntry = new RegistryArtifact
-        {
-            Id = modelId,
-            Type = "model",
-            Source = "flowtime-sim",
-            Metadata = ExtractRegistryMetadata(modelArtifact),
-            Files = ListArtifactFiles(modelArtifact)
-        };
-        
-        // Register with Engine registry
-        await _engineRegistry.RegisterArtifactAsync(registryEntry);
-    }
-}
-```
+**Engine Storage**:
+/data/run_*/provenance.json
 
-### **FR-SIM-M2.7-3: Charter-Compliant Registry Discovery**
-Enable Engine to discover and utilize Sim model artifacts while respecting charter boundaries.
+**Engine Registry Integration**:
+- Include template_id, model_id in registry metadata
+- Support queries by source, template_id
 
-**Engine Registry Integration:**
-- **Model Discovery**: Engine registry scanning detects Sim model artifacts automatically
-- **Metadata Extraction**: Registry reads Sim metadata without requiring execution
-- **Charter Boundaries**: Registry provides metadata only, Engine handles all execution
-- **File Access**: Engine can access model files for execution via registry API
+**Note**: This is Engine-side implementation. SIM-M2.7 provides the provenance format specification.
 
-**Registry Query Integration:**
-```typescript
-// Engine UI: Select model for run (charter UI workflow)
-const modelArtifacts = await registryApi.getArtifacts({
-  type: 'model',
-  source: 'flowtime-sim',
-  capabilities: ['executable']
-});
+**Acceptance** (Engine validation):
+- Engine accepts X-Model-Provenance header
+- Engine stores provenance.json in run artifacts
+- Engine registry includes provenance metadata
+- Engine queries support template/model filtering
 
-// Display model cards with Sim metadata
-modelArtifacts.forEach(model => {
-  displayModelCard({
-    title: model.title,
-    description: model.description,
-    template: model.metadata.sim_template,
-    validationScore: model.metadata.validation_score,
-    created: model.created
-  });
-});
-```
+---
 
-**Charter-Compliant File Access:**
-```csharp
-// Engine accessing Sim model for execution
-public async Task<ModelDefinition> LoadSimModelAsync(string modelId)
-{
-    // Get model artifact info from registry
-    var artifact = await _registry.GetArtifactAsync(modelId);
-    
-    // Charter boundary: Engine loads model file, never accesses Sim execution
-    var modelYaml = await _registry.ReadFileAsync(modelId, "model.yaml");
-    
-    // Parse unified Model artifact for Engine execution
-    return ModelDefinition.FromYaml(modelYaml);
-}
-```
+### FR-SIM-M2.7-4: CLI Provenance Output
 
-### **FR-SIM-M2.7-4: Registry Synchronization & Health Monitoring**
-Maintain synchronization between Sim and Engine registries with health monitoring.
+CLI can save provenance to file for template development workflows.
 
-**Registry Synchronization:**
-- **Automatic Sync**: New Sim models appear in Engine registry within 30 seconds
-- **Health Monitoring**: Track registry integration status and connection health  
-- **Conflict Resolution**: Handle duplicate model IDs and metadata conflicts
-- **Cleanup Integration**: Deleted Sim models removed from Engine registry appropriately
+**Usage**:
+flowtime-sim generate --template it-system --params bins=12 --output model.yaml --provenance provenance.json
 
-**Health Monitoring Dashboard:**
-```json
-// GET /sim/v1/registry/health
-{
-  "engine_registry": {
-    "status": "connected|disconnected|error",
-    "last_sync": "2025-09-20T10:30:00Z",
-    "pending_registrations": 2,
-    "sync_errors": []
-  },
-  "sim_models": {
-    "total_models": 15,
-    "registered_models": 13,
-    "unregistered_models": 2,
-    "failed_registrations": 0
-  },
-  "performance": {
-    "avg_registration_time_ms": 150,
-    "registry_query_time_ms": 45,
-    "last_health_check": "2025-09-20T10:29:45Z"
-  }
-}
-```
+**Use Case**: Template authors developing without Engine running.
 
-**Registry Maintenance Operations:**
-```bash
-# CLI commands for registry maintenance
-flowtime sim registry sync               # Force sync all models to Engine registry
-flowtime sim registry status            # Display registry integration health  
-flowtime sim registry resync {model_id} # Resync specific model
-flowtime sim registry validate          # Validate all registered models
-```
+**Acceptance**:
+- CLI --provenance flag saves metadata to file
+- Provenance file format matches API response
+
+---
 
 ## Integration Points
 
-### **SIM-M2.6 Model Authoring Integration**
-- Build on model artifact creation from SIM-M2.6
-- Extend export workflow to include automatic registry integration
-- Maintain charter compliance from SIM-M2.6 - no execution, only registration
+### Integration Architecture
 
-### **Engine M2.7 Registry Integration**
-- Utilize Engine registry API endpoints for model registration
-- Follow Engine registry schemas and metadata requirements
-- Integrate with Engine file serving for model access during execution
+```mermaid
+sequenceDiagram
+    participant U as UI/CLI
+    participant S as Sim API<br/>:8090
+    participant E as Engine API<br/>:8080
+    participant R as Engine Registry<br/>/data/
 
-### **Charter UI Workflow Support**
-- Enable "Select Input" step in Engine Runs wizard
-- Support model browsing and selection via registry
-- Provide model metadata for informed selection decisions
+    Note over U,R: Provenance-Enabled Workflow
 
-### **Template System Integration**
-- Link registered models back to their source templates
-- Support template-based model discovery and categorization
-- Enable template versioning through registry metadata
+    U->>S: POST /api/v1/templates/{id}/generate<br/>{parameters}
+    activate S
+    S->>S: Generate Model
+    S->>S: Create Provenance<br/>(model_id, template_id, params)
+    S-->>U: {model: "...", provenance: {...}}
+    deactivate S
+
+    U->>E: POST /v1/run<br/>X-Model-Provenance: {...}<br/>Body: model YAML
+    activate E
+    E->>E: Execute Model
+    E->>R: Store Run Artifacts<br/>- spec.yaml<br/>- provenance.json<br/>- manifest.json<br/>- series/
+    E->>R: Update Registry Index<br/>(include provenance metadata)
+    E-->>U: {run_id: "..."}
+    deactivate E
+
+    Note over U,R: Query with Provenance
+
+    U->>E: GET /v1/artifacts?source=flowtime-sim
+    E->>R: Query Registry
+    R-->>E: Runs with provenance metadata
+    E-->>U: [{id, template_id, parameters, ...}]
+
+    U->>E: GET /v1/artifacts?metadata.template_id=it-system
+    E->>R: Filter by Template
+    R-->>E: Matching runs
+    E-->>U: All runs from same template
+```
+
+### Engine M2.9 Coordination
+
+**Dependency**: Engine must implement provenance acceptance in parallel.
+
+**Interface Contract**:
+- Header: X-Model-Provenance (JSON string)
+- Storage: provenance.json in run artifacts
+- Registry: Include provenance in metadata
+
+**Timeline**: Parallel development with SIM-M2.7.
+
+---
+
+### UI Orchestration
+
+**UI Workflow**:
+1. Call Sim: POST /api/v1/templates/{id}/generate
+2. Receive: {model, provenance}
+3. Call Engine: POST /v1/run with model body + provenance header
+4. Display: Show provenance in run details
+
+**Query Capabilities** (via Engine registry):
+- Find all runs from specific template
+- Compare runs with different parameters
+- Filter by model_id for exact reproducibility
+
+**Note**: UI-side implementation. SIM-M2.7 provides the provenance data.
+
+---
+
+### Template System
+
+**No Changes Required**: Templates already contain all information needed for provenance.
+
+---
 
 ## Technical Architecture
 
-### **Registry Integration Service**
-```csharp
-public interface ISimRegistryService
-{
-    // Model registration
-    Task RegisterModelAsync(string modelId);
-    Task UnregisterModelAsync(string modelId);
-    Task UpdateModelMetadataAsync(string modelId, ModelMetadata metadata);
-    
-    // Registry synchronization
-    Task SyncAllModelsAsync();
-    Task<RegistryHealth> GetHealthStatusAsync();
-    
-    // Registry queries (proxy to Engine)
-    Task<IEnumerable<RegistryArtifact>> ListArtifactsAsync(ArtifactQuery query);
-    Task<RegistryArtifact> GetArtifactAsync(string artifactId);
-}
-```
+### Provenance Service
 
-### **Registry Client Architecture**
-```
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   FlowTime-Sim  │    │  Registry Sync   │    │ Engine Registry │
-│                 │    │     Service      │    │                 │
-│ Model Creation  ├───►│                  ├───►│ Artifact Index  │
-│ (SIM-M2.6)      │    │ Auto-Registration│    │ Model Discovery │
-└─────────────────┘    └──────────────────┘    └─────────────────┘
-                                │                        │
-                                ▼                        ▼
-                       ┌──────────────────┐    ┌─────────────────┐
-                       │ Health Monitoring│    │   Engine UI     │
-                       │ Status Dashboard │    │ Model Selection │
-                       └──────────────────┘    └─────────────────┘
-```
+**Responsibilities**:
+- Generate unique model_id
+- Create provenance metadata structure
+- Serialize to JSON
+
+**Model ID Algorithm**:
+1. Create content string: {templateId}:{parametersJson}
+2. Compute SHA-256 hash
+3. Take first 8 characters of hash (hex lowercase)
+4. Format: model_{timestamp}_{hash}
+
+**Determinism**: Same inputs → same hash portion. Timestamp ensures uniqueness.
+
+---
+
+### API Response Enhancement
+
+**Minimal Change**: Add provenance field to existing response.
+
+**Implementation**:
+1. Generate model (existing logic)
+2. Create provenance (new service)
+3. Return both in response object
+
+---
 
 ## Acceptance Criteria
 
-### **Registry Integration**
-- ✅ All Sim model artifacts appear in Engine registry within 30 seconds of creation
-- ✅ Engine UI can discover and select Sim models for execution
-- ✅ Registry metadata includes all necessary information for informed model selection
-- ✅ **Charter Compliance**: Registry integration never triggers model execution in Sim
+### Provenance Generation
+- Unique model_id for every generated model
+- Deterministic hash for reproducibility
+- All template and parameter data captured
+- JSON serialization correct
 
-### **Engine Workflow Support**
-- ✅ Engine Runs wizard "Select Input" step displays Sim models correctly
-- ✅ Engine can load and execute Sim models via registry file access
-- ✅ Model selection UI shows Sim-specific metadata (template, validation score, etc.)
-- ✅ **Charter Boundary**: Engine handles all execution, Sim provides model definitions only
+### API Enhancement
+- /generate returns model + provenance
+- Backward compatible
+- API documentation complete
 
-### **Registry Synchronization**
-- ✅ Registry health monitoring detects integration issues automatically
-- ✅ Failed registrations are retried with exponential backoff
-- ✅ Registry sync operations complete without data corruption
-- ✅ Deleted Sim models are properly handled in Engine registry
+### Engine Integration
+- Provenance format spec documented
+- Interface contract clear
+- Integration tested end-to-end
 
-### **Performance & Reliability**
-- ✅ Model registration completes in < 500ms for typical models
-- ✅ Registry queries respond in < 200ms for model discovery
-- ✅ Registry integration survives Engine restarts without losing models
-- ✅ Health dashboard provides actionable information for troubleshooting
+### CLI Support
+- CLI outputs provenance to file
+- File format matches API response
+
+### Testing
+- Unit tests for provenance service
+- API integration tests
+- Model ID determinism tests
+- End-to-end validation
+
+---
 
 ## Implementation Plan
 
-### **Phase 1: Registry Client & Integration (Week 1)**
-1. **Engine registry client** - HTTP client for Engine M2.7 registry API
-2. **Model registration service** - Auto-register Sim models with Engine
-3. **Metadata transformation** - Convert Sim metadata to registry format
-4. **Basic health monitoring** - Track registration success/failure
+### Phase 1: Provenance Service (Week 1)
 
-### **Phase 2: Auto-Registration Workflow (Week 2)**
-1. **SIM-M2.6 integration** - Extend model export to trigger registration
-2. **Registry synchronization** - Batch sync and conflict resolution
-3. **File access integration** - Enable Engine to access Sim model files
-4. **Error handling** - Robust retry and failure recovery
+**Files to Create**:
+- src/FlowTime.Sim.Core/Models/ProvenanceMetadata.cs
+- src/FlowTime.Sim.Core/Services/IProvenanceService.cs
+- src/FlowTime.Sim.Core/Services/ProvenanceService.cs
 
-### **Phase 3: Health Monitoring & Management (Week 2-3)**
-1. **Health dashboard** - Registry status monitoring and diagnostics
-2. **CLI maintenance commands** - Manual sync and validation tools
-3. **Performance monitoring** - Track registration and query performance
-4. **Registry cleanup** - Handle model deletion and orphaned entries
+**Deliverable**: Working provenance service with tests
 
-### **Phase 4: Charter UI Integration Testing (Week 3)**
-1. **Engine UI integration** - Test model selection in Runs wizard
-2. **End-to-end workflow** - Validate Sim→Registry→Engine→Execution flow
-3. **Charter compliance validation** - Ensure boundaries respected throughout
-4. **Performance optimization** - Optimize for charter UI responsiveness
+---
+
+### Phase 2: API Enhancement (Week 1)
+
+**Files to Modify**:
+- src/FlowTime.Sim.Service/Controllers/TemplatesController.cs
+- src/FlowTime.Sim.Service/Models/GenerateResponse.cs
+
+**Deliverable**: Enhanced API endpoint
+
+---
+
+### Phase 3: CLI Support (Week 1)
+
+**Files to Modify**:
+- src/FlowTime.Sim.Cli/Commands/GenerateCommand.cs
+
+**Deliverable**: CLI with --provenance flag
+
+---
+
+### Phase 4: Documentation (Week 1-2)
+
+**Documents to Update**:
+- API documentation
+- CLI documentation
+- Integration guide for Engine team
+
+**Deliverable**: Complete documentation
+
+---
+
+### Phase 5: Engine Coordination (Week 2)
+
+**Activities**:
+- Share provenance schema with Engine team
+- Review Engine implementation
+- Integration testing
+- Resolve any issues
+
+**Deliverable**: Validated end-to-end integration
+
+---
+
+## Breaking Changes
+
+**None**. This is an additive change.
+
+**Version**: 0.5.0 → 0.6.0 (minor version bump for new feature)
+
+---
 
 ## Risk Mitigation
 
-### **Registry Dependency Risk**
-**Risk:** Engine registry unavailable breaks Sim model creation workflow  
-**Mitigation:**
-- Asynchronous registration - model creation succeeds even if registry fails
-- Queue failed registrations for retry when registry becomes available
-- Graceful degradation - Sim functions normally without registry integration
+### Risk: Engine M2.9 Delayed
 
-### **Charter Boundary Risk**
-**Risk:** Registry integration inadvertently triggers execution in Sim  
-**Mitigation:**
-- Clear separation between registration (metadata) and execution (Engine only)
-- Registry operations are pure metadata and file access - no model execution
-- Comprehensive charter compliance testing throughout integration
+**Mitigation**: Define clear interface contract early. Can release Sim-side independently.
 
-### **Performance Risk**
-**Risk:** Registry operations slow down Sim model creation  
-**Mitigation:**
-- Asynchronous registration after model creation completes
-- Background sync processes don't block user workflows
-- Performance monitoring with alerts for degradation
+### Risk: Provenance Schema Changes
+
+**Mitigation**: Version provenance schema. Review with Engine team early.
+
+### Risk: Model ID Collisions
+
+**Mitigation**: Timestamp + hash ensures uniqueness. Test collision resistance.
+
+---
 
 ## Success Metrics
 
-### **Integration Success**
-- **Discovery Rate**: 100% of Sim models appear in Engine registry within 30 seconds
-- **Workflow Completion**: Engine users can select and execute Sim models via registry
-- **Metadata Accuracy**: Registry metadata enables informed model selection decisions
-- **Charter Compliance**: Zero execution triggered in Sim during registry operations
+- 100% of Sim-generated runs have provenance
+- All runs traceable to source template
+- Zero Sim storage (stateless)
+- Single source of truth (Engine)
 
-### **Performance Metrics**
-- **Registration Time**: < 500ms average for model registration
-- **Query Performance**: < 200ms for registry queries from Engine UI
-- **Sync Reliability**: 99%+ successful registration rate for valid models
-- **Health Monitoring**: < 10 seconds to detect and alert on registry issues
+---
+
+## Related Documents
+
+- Architecture: docs/architecture/registry-integration.md
+- Schema Evolution: docs/milestones/SIM-M2.6.1.md
+
+---
 
 ## Next Steps
 
-1. **SIM-M2.8**: Advanced model management and versioning via registry
-2. **SIM-M3**: Charter-aligned backlog and queueing system integration
-3. **Engine M2.8 + UI-M2.8**: Registry integration backend and Charter UI restructure
+**After SIM-M2.7**:
+1. SIM-M2.8: Template enhancements
+2. SIM-M3.0: Charter-aligned model authoring
 
 ---
 
@@ -395,6 +370,12 @@ public interface ISimRegistryService
 
 | Date | Change | Author |
 |------|--------|--------|
-| 2025-09-20 | Initial SIM-M2.7 milestone specification created | Assistant |
+| 2025-10-01 | Created with KISS architecture and provenance focus | Assistant |
 
-This milestone establishes **FlowTime-Sim as a fully integrated model authoring platform** within the Engine registry ecosystem, enabling seamless charter UI workflows while maintaining strict charter compliance boundaries.
+---
+
+**Milestone**: SIM-M2.7  
+**Status**: Planned  
+**Priority**: Medium  
+**Effort**: 1-2 weeks  
+**Impact**: Additive (no breaking changes)
