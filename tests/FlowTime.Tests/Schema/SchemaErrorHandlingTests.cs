@@ -70,11 +70,14 @@ nodes:
     }
     
     [Fact]
-    public void ValidateModel_NullModel_ThrowsArgumentNullException()
+    public void ValidateModel_NullModel_ReturnsError()
     {
-        // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => 
-            ModelValidator.Validate(null!));
+        // Act
+        var result = ModelValidator.Validate(null!);
+        
+        // Assert
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Errors, e => e.Contains("null") || e.Contains("empty"));
     }
     
     [Fact]

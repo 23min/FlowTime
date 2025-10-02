@@ -69,10 +69,10 @@ public class TimeGridValidationTests
     }
     
     [Theory]
-    [InlineData(24, 1, 1440)]   // Hours: 24 hours = 1 day  
-    [InlineData(7, 1, 10080)]   // Days: 7 days = 1 week
-    [InlineData(52, 1, 524160)] // Weeks: 52 weeks ≈ 1 year
-    [InlineData(100, 5, 500)]   // Minutes: 100 bins × 5 minutes
+    [InlineData(24, 1, 1440)]   // 24 bins × 1 hour = 24 hours = 1440 minutes
+    [InlineData(7, 1, 420)]     // 7 bins × 1 hour = 7 hours = 420 minutes
+    [InlineData(52, 1, 3120)]   // 52 bins × 1 hour = 52 hours = 3120 minutes
+    [InlineData(100, 5, 30000)] // 100 bins × 5 hours = 500 hours = 30000 minutes
     public void TimeGrid_TotalDuration_CalculatedCorrectly_Hours(
         int bins, int binSize, int expectedMinutes)
     {

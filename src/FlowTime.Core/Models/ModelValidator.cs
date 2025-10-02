@@ -71,6 +71,12 @@ public static class ModelValidator
             {
                 errors.Add("Grid must be an object");
             }
+
+            // Validate nodes definition
+            if (rawModel.ContainsKey("nodes") && rawModel["nodes"] is IDictionary<object, object> nodesDict)
+            {
+                ValidateNodes(nodesDict, errors);
+            }
         }
         catch (YamlDotNet.Core.YamlException ex)
         {
@@ -137,6 +143,27 @@ public static class ModelValidator
             if (!validUnits.Contains(binUnit.ToLowerInvariant()))
             {
                 errors.Add($"binUnit must be one of: {string.Join(", ", validUnits)}");
+            }
+        }
+    }
+
+    private static void ValidateNodes(IDictionary<object, object> nodesDict, List<string> errors)
+    {
+        foreach (var kvp in nodesDict)
+        {
+            if (kvp.Key is not string nodeName)
+                continue;
+
+            if (kvp.Value is not IDictionary<object, object> nodeDict)
+                continue;
+
+            // Check for legacy "expression" field (should be "expr")
+            foreach (var nodeKvp in nodeDict)
+            {
+                if (nodeKvp.Key is string fieldName && fieldName == "expression")
+                {
+                    errors.Add($"Node '{nodeName}': 'expression' field is no longer supported, use 'expr' instead");
+                }
             }
         }
     }
