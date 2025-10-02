@@ -67,9 +67,8 @@ rng:
         Assert.Contains("schemaVersion: 1", generatedYaml);
         Assert.Contains("grid:", generatedYaml);
         Assert.Contains("bins: 4", generatedYaml);
-        Assert.Contains("binMinutes: 30", generatedYaml); // Converted from binSize + binUnit
-        Assert.DoesNotContain("binSize:", generatedYaml); // Should be converted
-        Assert.DoesNotContain("binUnit:", generatedYaml); // Should be converted
+        Assert.Contains("binSize: 30", generatedYaml); // Now passed through unchanged
+        Assert.Contains("binUnit: minutes", generatedYaml); // Now passed through unchanged
         Assert.Contains("nodes:", generatedYaml);
         Assert.Contains("kind: const", generatedYaml);
         Assert.Contains("outputs:", generatedYaml);
@@ -130,10 +129,9 @@ outputs:
         Assert.DoesNotContain("${high_prob}", generatedYaml); // Parameter should be substituted
         Assert.Contains("0.7", generatedYaml); // Substituted value should be present
         
-        // Validate grid conversion: 1 hour → 60 minutes
-        Assert.Contains("binMinutes: 60", generatedYaml);
-        Assert.DoesNotContain("binSize:", generatedYaml);
-        Assert.DoesNotContain("binUnit:", generatedYaml);
+        // Validate grid format: now uses binSize/binUnit (no conversion)
+        Assert.Contains("binSize: 1", generatedYaml);
+        Assert.Contains("binUnit: hours", generatedYaml);
         
         // Validate PMF structure preserved for Engine
         Assert.Contains("kind: pmf", generatedYaml);
@@ -200,8 +198,9 @@ outputs:
         Assert.DoesNotContain("${efficiency}", generatedYaml); // Parameter should be substituted
         Assert.Contains("0.9", generatedYaml); // Substituted value should be present
         
-        // Validate grid unchanged (already in minutes)
-        Assert.Contains("binMinutes: 15", generatedYaml);
+        // Validate grid format: binSize/binUnit passed through
+        Assert.Contains("binSize: 15", generatedYaml);
+        Assert.Contains("binUnit: minutes", generatedYaml);
         
         // Validate expression structure conversion: Template.Expression → Engine.expr
         Assert.Contains("kind: expr", generatedYaml);
@@ -268,10 +267,9 @@ rng:
         Assert.Contains("75", generatedYaml); // Parameter value present
         Assert.Contains("schemaVersion: 1", generatedYaml); // Engine schema version added
         
-        // Validate grid conversion: 2 hours → 120 minutes
-        Assert.Contains("binMinutes: 120", generatedYaml);
-        Assert.DoesNotContain("binSize:", generatedYaml);
-        Assert.DoesNotContain("binUnit:", generatedYaml);
+        // Validate grid format: binSize/binUnit passed through
+        Assert.Contains("binSize: 2", generatedYaml);
+        Assert.Contains("binUnit: hours", generatedYaml);
         
         Assert.Contains("nodes:", generatedYaml);
         Assert.Contains("kind: const", generatedYaml);
