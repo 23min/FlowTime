@@ -13,7 +13,8 @@
 **FlowTime-Sim M2.7 is complete** and now generates provenance metadata for every model. Engine M2.9 needs to accept and store this provenance to enable complete traceability from template → model → run.
 
 **What Sim Provides**: Model YAML + provenance metadata (JSON)  
-**What Engine Needs**: Accept provenance, store with run artifacts, enable queries  
+**What Engine Needs (M2.9)**: Accept provenance, store with run artifacts  
+**What Engine Needs (M2.10)**: Enable provenance queries  
 **Integration Point**: UI orchestrates (calls Sim, then Engine)
 
 ---
@@ -56,6 +57,8 @@
 | `schemaVersion` | string | Yes | Provenance schema version (currently `"1"`) |
 
 **Field Naming**: camelCase (standard for JSON APIs)
+
+**Serialization**: Sim uses `System.Text.Json` with `JsonNamingPolicy.CamelCase`. C# properties are PascalCase, but JSON output is camelCase.
 
 ---
 
@@ -101,11 +104,12 @@ sequenceDiagram
     
     Note over UI: UI has both model YAML and provenance JSON
     
-    UI->>Engine: POST /v1/run<br/>Body: model YAML<br/>+ provenance (method TBD)
+    UI->>Engine: POST /v1/run<br/>Body: model YAML<br/>Header: X-Model-Provenance (JSON)
     activate Engine
+    Engine->>Engine: Parse provenance from header
     Engine->>Engine: Execute model
     Engine->>Engine: Store provenance.json with run artifacts
-    Engine-->>UI: {runId: "..."}
+    Engine-->>UI: {runId, grid, order, series, artifactsPath}
     deactivate Engine
     
     Note over Engine: Stored: /data/run_{id}/provenance.json
@@ -132,7 +136,7 @@ sequenceDiagram
 
 ### 1. Accept Provenance Metadata (M2.9)
 
-**Option A: HTTP Header** (Recommended)
+**Option A: HTTP Header**
 ```http
 POST /v1/run
 Content-Type: application/x-yaml
@@ -141,7 +145,11 @@ X-Model-Provenance: {"source":"flowtime-sim","modelId":"model_20251002T103045Z_a
 <model YAML in body>
 ```
 
-**Note:** The header contains the **complete provenance JSON object** as a single-line string.
+**Header Format Details:**
+- Header value is the **complete provenance JSON object** as a string
+- Not Base64-encoded, not URL-encoded - just the JSON string
+- Engine deserializes the header value: `JsonSerializer.Deserialize<ProvenanceMetadata>(headerValue)`
+- Single-line format (no newlines in header value)
 
 **Option B: Multipart Request**
 ```http
@@ -182,10 +190,11 @@ grid:
 Engine extracts `provenance` section before execution.
 
 **Implementation Decision (M2.9)**: Engine supports **both Option A and Option C**:
-- **Option A (Header):** Best for UI orchestration - clean API calls with metadata separate from model
-- **Option C (Embedded):** Best for file-based workflows - self-contained model files  
-- Header takes precedence if both present (with warning logged)
-- Either approach is optional (backward compatible with runs that have no provenance)
+- **Option A (Header):** Best for UI orchestration - clean separation, explicit metadata passing
+- **Option C (Embedded):** Best for file-based workflows - self-contained model files, simpler for CLI
+- Both approaches are equally supported (no preference)
+- Header takes precedence if both present (Engine logs warning)
+- Either approach is optional (backward compatible - runs without provenance still work)
 
 ---
 
@@ -206,9 +215,11 @@ Engine extracts `provenance` section before execution.
 
 ---
 
-### 3. Update Registry Index (M2.9 - Basic, M2.10 - Enhanced)
+### 3. Update Registry Index
 
-**Enhance `registry-index.json`** to include provenance metadata:
+**M2.9 Scope:** Store provenance.json file with run artifacts (no registry index changes yet)
+
+**M2.10 Scope (Future):** Enhance `registry-index.json` to include provenance metadata for queries:
 
 ```json
 {
@@ -294,10 +305,14 @@ curl -X POST http://localhost:8080/v1/run \
   -H "X-Model-Provenance: $PROVENANCE" \
   --data-binary "$MODEL"
 
-# 3. Verify provenance was stored
-RUN_ID="<runId from response>"
-curl http://localhost:8080/v1/artifacts/$RUN_ID/provenance
-# Should return the same provenance JSON
+# Response includes: runId, grid, order, series, artifactsPath, modelHash
+# Extract runId for subsequent queries
+RUN_ID=$(jq -r '.runId' response.json)
+
+# 3. Verify provenance was stored (M2.10 - future endpoint)
+# curl http://localhost:8080/v1/artifacts/$RUN_ID/provenance
+# M2.9: Check artifacts directory directly
+ls /data/$RUN_ID/provenance.json
 ```
 
 ### Test Scenario 2: Embedded Provenance
@@ -309,30 +324,41 @@ curl -X POST http://localhost:8090/api/v1/templates/transportation-basic/generat
   -d '{"bins": 12}' \
   | jq -r '.model' > model-with-provenance.yaml
 
-# 2. Send to Engine (no header needed)
+# 2. Send to Engine (no header needed - provenance embedded in YAML)
 curl -X POST http://localhost:8080/v1/run \
   -H "Content-Type: application/x-yaml" \
   --data-binary @model-with-provenance.yaml
 
-# 3. Verify Engine extracted and stored provenance
-curl http://localhost:8080/v1/artifacts/$RUN_ID/provenance
+# Response includes runId - extract it
+RUN_ID=$(jq -r '.runId' response.json)
+
+# 3. Verify Engine extracted and stored provenance (M2.9)
+ls /data/$RUN_ID/provenance.json
+# M2.10 will have: curl http://localhost:8080/v1/artifacts/$RUN_ID/provenance
 ```
 
-### Test Scenario 3: Query by Template
+### Test Scenario 3: Query by Template (M2.10 - Future)
+
+**Note:** This test scenario requires M2.10 query endpoints. Included here for completeness.
 
 ```bash
 # Generate and run multiple models from same template with different parameters
 for BINS in 6 12 24; do
-  curl -X POST http://localhost:8090/api/v1/templates/transportation-basic/generate \
+  RESPONSE=$(curl -s -X POST http://localhost:8090/api/v1/templates/transportation-basic/generate \
     -H "Content-Type: application/json" \
-    -d "{\"bins\": $BINS}" | jq -r '.model' | \
-    curl -X POST http://localhost:8080/v1/run \
-      -H "Content-Type: application/x-yaml" \
-      --data-binary @-
+    -d "{\"bins\": $BINS}")
+  
+  MODEL=$(echo "$RESPONSE" | jq -r '.model')
+  PROVENANCE=$(echo "$RESPONSE" | jq -c '.provenance')
+  
+  curl -X POST http://localhost:8080/v1/run \
+    -H "Content-Type: application/x-yaml" \
+    -H "X-Model-Provenance: $PROVENANCE" \
+    --data-binary "$MODEL"
 done
 
-# Query all runs from this template
-curl "http://localhost:8080/v1/artifacts?templateId=transportation-basic"
+# M2.10: Query all runs from this template
+# curl "http://localhost:8080/v1/artifacts?templateId=transportation-basic"
 # Should return 3 runs with different parameters
 ```
 
@@ -342,14 +368,15 @@ curl "http://localhost:8080/v1/artifacts?templateId=transportation-basic"
 
 ### Engine M2.9 Implementation (Current Milestone)
 
-- [ ] Accept provenance via HTTP header (full JSON object)
-- [ ] Accept provenance via embedded YAML
+- [ ] Accept provenance via HTTP header (`X-Model-Provenance` with full JSON string)
+- [ ] Deserialize header value using `JsonSerializer.Deserialize<ProvenanceMetadata>`
+- [ ] Accept provenance via embedded YAML (extract `provenance:` section)
 - [ ] Store `provenance.json` in run artifacts directory
 - [ ] Handle missing provenance gracefully (backward compatibility)
-- [ ] Validate `schemaVersion` field
-- [ ] Use camelCase for all provenance fields
-- [ ] Support `templateTitle` field
-- [ ] Log warning when both header and embedded provenance present
+- [ ] Validate `schemaVersion` field (currently "1")
+- [ ] Use camelCase for all provenance fields (`modelId`, `templateId`, etc.)
+- [ ] Include `templateTitle` field in ProvenanceMetadata model
+- [ ] Log warning when both header and embedded provenance present (use header)
 
 ### Engine M2.10 Implementation (Future Milestone)
 
@@ -501,8 +528,9 @@ route:
 └── series/
 ```
 
-### 4. UI Queries Results
+### 4. UI Queries Results (M2.10 - Future)
 
+**M2.10 will add:**
 ```http
 GET /v1/artifacts/run_20251002T104530Z_b2c4d6e8/provenance
 ```
@@ -512,6 +540,8 @@ GET /v1/artifacts/run_20251002T104530Z_b2c4d6e8/provenance
 - "Parameters: bins=12, binSize=1 hour"
 - "Model ID: model_20251002T103045Z_a3f8c2d1"
 - Button: "Run Again with Same Parameters"
+
+**M2.9 Alternative**: UI can read provenance from the run's artifactsPath returned in the original /v1/run response.
 
 ---
 
@@ -524,11 +554,16 @@ GET /v1/artifacts/run_20251002T104530Z_b2c4d6e8/provenance
 - Deterministic model IDs with hashing
 - Complete parameter capture
 
-**What Engine Needs** ⏳:
-- Accept provenance via HTTP header or extraction
+**What Engine Needs (M2.9)** ⏳:
+- Accept provenance via HTTP header or embedded YAML
 - Store provenance.json with run artifacts
+- Use camelCase field naming throughout
+- Handle missing provenance (backward compatible)
+
+**What Engine Needs (M2.10 - Future)** 🔮:
 - Update registry index with provenance metadata
 - Support provenance queries (by template, model ID, etc.)
+- Add dedicated `/v1/artifacts/{runId}/provenance` endpoint
 - Enable traceability: runId → modelId → templateId → parameters
 
 **Benefits** 🎯:
