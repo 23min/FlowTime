@@ -46,9 +46,9 @@ Content-Type: application/x-yaml
 schemaVersion: 1
 provenance:  # Optional embedded provenance
   source: flowtime-sim
-  model_id: model_20250925T120000Z_abc123def
-  template_id: it-system-microservices
-  generated_at: "2025-09-25T12:00:00Z"
+  modelId: model_20250925T120000Z_abc123def
+  templateId: it-system-microservices
+  generatedAt: "2025-09-25T12:00:00Z"
 
 grid:
   bins: 12
@@ -96,9 +96,9 @@ Content-Type: application/x-yaml
 schemaVersion: 1
 provenance:
   source: flowtime-sim
-  model_id: model_20250925T120000Z_abc123def
-  template_id: it-system-microservices
-  generated_at: "2025-09-25T12:00:00Z"
+  modelId: model_20250925T120000Z_abc123def
+  templateId: it-system-microservices
+  generatedAt: "2025-09-25T12:00:00Z"
 
 grid:
   bins: 12
@@ -129,12 +129,12 @@ grid:
 ```json
 {
   "source": "flowtime-sim",
-  "model_id": "model_20250925T120000Z_abc123def",
-  "template_id": "it-system-microservices",
-  "template_version": "1.0",
-  "generated_at": "2025-09-25T12:00:00Z",
-  "received_at": "2025-09-25T12:05:00Z",
-  "sim_version": "0.4.0",
+  "modelId": "model_20250925T120000Z_abc123def",
+  "templateId": "it-system-microservices",
+  "templateVersion": "1.0",
+  "generatedAt": "2025-09-25T12:00:00Z",
+  "receivedAt": "2025-09-25T12:05:00Z",
+  "simVersion": "0.4.0",
   "parameters": {
     "bins": 12,
     "binSize": 1,
@@ -142,11 +142,11 @@ grid:
     "loadBalancerCapacity": 300
   },
   "links": {
-    "model_artifact": "/api/v1/models/model_20250925T120000Z_abc123def",
-    "template_artifact": "/api/v1/templates/it-system-microservices"
+    "modelArtifact": "/api/v1/models/model_20250925T120000Z_abc123def",
+    "templateArtifact": "/api/v1/templates/it-system-microservices"
   },
   "_meta": {
-    "source_type": "header | embedded",
+    "sourceType": "header | embedded",
     "note": "Provenance accepted from X-Model-Provenance header OR embedded in model YAML. Header takes precedence if both present."
   }
 }
@@ -176,8 +176,8 @@ grid:
     "bin_unit": "hours"
   },
   "provenance": {
-    "has_provenance": true,
-    "model_id": "model_20250925T120000Z_abc123def",
+    "hasProvenance": true,
+    "modelId": "model_20250925T120000Z_abc123def",
     "source": "flowtime-sim"
   },
   "created_at": "2025-09-25T12:05:00Z"
@@ -186,7 +186,7 @@ grid:
 
 **Benefits:**
 - Quick check if run has provenance (without reading provenance.json)
-- Model_id available in manifest for fast queries
+- modelId available in manifest for fast queries
 - Backward compatible (provenance section optional)
 
 ### 4. Update Artifact Registry Index
@@ -202,8 +202,8 @@ grid:
       "created": "2025-09-25T12:05:00Z",
       "tags": ["capacity", "microservices"],
       "provenance": {
-        "model_id": "model_20250925T120000Z_abc123def",
-        "template_id": "it-system-microservices",
+        "modelId": "model_20250925T120000Z_abc123def",
+        "templateId": "it-system-microservices",
         "source": "flowtime-sim"
       },
       "path": "run_20250925T120500Z_xyz789"
@@ -214,8 +214,8 @@ grid:
 
 **Enables queries like:**
 ```bash
-GET /v1/artifacts?model_id=model_20250925T120000Z_abc123def
-GET /v1/artifacts?template_id=it-system-microservices
+GET /v1/artifacts?modelId=model_20250925T120000Z_abc123def
+GET /v1/artifacts?templateId=it-system-microservices
 GET /v1/artifacts?source=flowtime-sim
 ```
 
@@ -245,8 +245,8 @@ nodes:
   "status": "completed",
   "execution_time_ms": 1250,
   "provenance": {
-    "model_id": "model_20250925T120000Z_abc123def",
-    "has_provenance": true
+    "modelId": "model_20250925T120000Z_abc123def",
+    "hasProvenance": true
   },
   "artifacts": {
     "spec": "/v1/runs/run_20250925T120500Z_xyz789/spec.yaml",
@@ -261,10 +261,10 @@ nodes:
 **Filter runs by provenance:**
 ```bash
 # All runs from a specific model
-GET /v1/runs?model_id=model_20250925T120000Z_abc123def
+GET /v1/runs?modelId=model_20250925T120000Z_abc123def
 
 # All runs from a specific template
-GET /v1/runs?template_id=it-system-microservices
+GET /v1/runs?templateId=it-system-microservices
 
 # All runs from Sim (vs manual YAML uploads)
 GET /v1/runs?source=flowtime-sim
@@ -279,9 +279,9 @@ GET /v1/runs/{run_id}/provenance.json
 ```json
 {
   "source": "flowtime-sim",
-  "model_id": "model_20250925T120000Z_abc123def",
-  "template_id": "it-system-microservices",
-  "generated_at": "2025-09-25T12:00:00Z",
+  "modelId": "model_20250925T120000Z_abc123def",
+  "templateId": "it-system-microservices",
+  "generatedAt": "2025-09-25T12:00:00Z",
   "parameters": { ... }
 }
 ```
