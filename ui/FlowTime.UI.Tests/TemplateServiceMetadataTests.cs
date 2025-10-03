@@ -93,7 +93,15 @@ public class TemplateServiceMetadataTests
 
 		var gridNode = (YamlMappingNode)root.Children[new YamlScalarNode("grid")];
 		var bins = int.Parse(((YamlScalarNode)gridNode.Children[new YamlScalarNode("bins")]).Value!, CultureInfo.InvariantCulture);
-		var binMinutes = int.Parse(((YamlScalarNode)gridNode.Children[new YamlScalarNode("binMinutes")]).Value!, CultureInfo.InvariantCulture);
+		var binSize = int.Parse(((YamlScalarNode)gridNode.Children[new YamlScalarNode("binSize")]).Value!, CultureInfo.InvariantCulture);
+		var binUnit = ((YamlScalarNode)gridNode.Children[new YamlScalarNode("binUnit")]).Value!;
+		var binMinutes = binUnit.ToLowerInvariant() switch
+		{
+			"minutes" => binSize,
+			"hours" => binSize * 60,
+			"days" => binSize * 1440,
+			_ => throw new ArgumentException($"Unknown time unit: {binUnit}")
+		};
 
 		var arrivalsNode = (YamlMappingNode)root.Children[new YamlScalarNode("arrivals")];
 		var valuesNode = (YamlSequenceNode)arrivalsNode.Children[new YamlScalarNode("values")];

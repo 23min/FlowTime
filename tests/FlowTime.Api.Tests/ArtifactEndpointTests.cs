@@ -48,7 +48,8 @@ public class ArtifactEndpointTests : IClassFixture<TestWebApplicationFactory>
   ""schemaVersion"": 1,
   ""grid"": {
     ""bins"": 3,
-    ""binMinutes"": 60,
+    ""binSize"": 1,
+    ""binUnit"": ""hours"",
     ""timezone"": ""UTC""
   },
   ""series"": [
@@ -208,7 +209,8 @@ public class ArtifactEndpointTests : IClassFixture<TestWebApplicationFactory>
   ""schemaVersion"": 1,
   ""grid"": {
     ""bins"": 2,
-    ""binMinutes"": 30,
+    ""binSize"": 30,
+    ""binUnit"": ""minutes"",
     ""timezone"": ""UTC""
   },
   ""series"": [
@@ -268,7 +270,8 @@ public class ArtifactEndpointTests : IClassFixture<TestWebApplicationFactory>
   ""schemaVersion"": 1,
   ""grid"": {
     ""bins"": 3,
-    ""binMinutes"": 60,
+    ""binSize"": 1,
+    ""binUnit"": ""hours"",
     ""timezone"": ""UTC""
   },
   ""series"": [
