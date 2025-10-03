@@ -9,13 +9,9 @@ namespace FlowTime.API.Services;
 /// </summary>
 public static class ProvenanceService
 {
-    private static readonly IDeserializer camelCaseDeserializer = new DeserializerBuilder()
-        .WithNamingConvention(CamelCaseNamingConvention.Instance)
-        .IgnoreUnmatchedProperties()
-        .Build();
-    
-    private static readonly IDeserializer underscoreDeserializer = new DeserializerBuilder()
-        .WithNamingConvention(UnderscoredNamingConvention.Instance)
+    // Generic deserializer without naming convention enforcement
+    // Used to parse the full YAML document without modifying field names
+    private static readonly IDeserializer genericDeserializer = new DeserializerBuilder()
         .IgnoreUnmatchedProperties()
         .Build();
 
@@ -64,7 +60,7 @@ public static class ProvenanceService
         // Try to extract from embedded YAML
         try
         {
-            var yamlDoc = camelCaseDeserializer.Deserialize<Dictionary<string, object>>(yaml);
+            var yamlDoc = genericDeserializer.Deserialize<Dictionary<string, object>>(yaml);
             if (yamlDoc != null && yamlDoc.ContainsKey("provenance"))
             {
                 var provenanceObj = yamlDoc["provenance"];
@@ -130,14 +126,13 @@ public static class ProvenanceService
     {
         try
         {
-            var yamlDoc = camelCaseDeserializer.Deserialize<Dictionary<string, object>>(yaml);
+            var yamlDoc = genericDeserializer.Deserialize<Dictionary<string, object>>(yaml);
             if (yamlDoc != null && yamlDoc.ContainsKey("provenance"))
             {
                 yamlDoc.Remove("provenance");
                 
-                // Re-serialize to YAML
+                // Re-serialize to YAML without naming convention (preserve original)
                 var serializer = new SerializerBuilder()
-                    .WithNamingConvention(CamelCaseNamingConvention.Instance)
                     .Build();
                 return serializer.Serialize(yamlDoc);
             }
