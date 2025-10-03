@@ -124,8 +124,8 @@ public class ProvenanceHashTests : IClassFixture<WebApplicationFactory<Program>>
             schemaVersion: 1
             provenance:
               source: flowtime-sim
-              model_id: model_20250925T150000Z_first
-              template_id: template-A
+              modelId: model_20250925T150000Z_first
+              templateId: template-A
             grid:
               bins: 4
               binSize: 1
@@ -140,8 +140,8 @@ public class ProvenanceHashTests : IClassFixture<WebApplicationFactory<Program>>
             schemaVersion: 1
             provenance:
               source: manual
-              model_id: model_20250925T160000Z_second
-              template_id: template-B
+              modelId: model_20250925T160000Z_second
+              templateId: template-B
             grid:
               bins: 4
               binSize: 1
@@ -183,7 +183,7 @@ public class ProvenanceHashTests : IClassFixture<WebApplicationFactory<Program>>
         var model1 = """
             schemaVersion: 1
             provenance:
-              model_id: model_20250925T170000Z_model1
+              modelId: model_20250925T170000Z_model1
             grid:
               bins: 4
               binSize: 1
@@ -197,7 +197,7 @@ public class ProvenanceHashTests : IClassFixture<WebApplicationFactory<Program>>
         var model2 = """
             schemaVersion: 1
             provenance:
-              model_id: model_20250925T180000Z_model2
+              modelId: model_20250925T180000Z_model2
             grid:
               bins: 4
               binSize: 1
@@ -240,8 +240,8 @@ public class ProvenanceHashTests : IClassFixture<WebApplicationFactory<Program>>
             schemaVersion: 1
             provenance:
               source: flowtime-sim
-              model_id: model_20250925T190000Z_complex1
-              template_id: it-system
+              modelId: model_20250925T190000Z_complex1
+              templateId: it-system
               parameters:
                 bins: 12
                 loadBalancerCount: 3
@@ -261,8 +261,8 @@ public class ProvenanceHashTests : IClassFixture<WebApplicationFactory<Program>>
             schemaVersion: 1
             provenance:
               source: manual
-              model_id: model_20250925T200000Z_complex2
-              template_id: custom-system
+              modelId: model_20250925T200000Z_complex2
+              templateId: custom-system
               parameters:
                 bins: 24
                 serverCount: 10

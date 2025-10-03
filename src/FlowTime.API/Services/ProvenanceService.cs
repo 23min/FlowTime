@@ -36,13 +36,28 @@ public static class ProvenanceService
         if (request.Headers.TryGetValue("X-Model-Provenance", out var headerValue))
         {
             // Use FirstOrDefault to handle multiple headers (take first value)
-            var modelId = headerValue.FirstOrDefault()?.Trim();
-            if (!string.IsNullOrWhiteSpace(modelId))
+            var headerJson = headerValue.FirstOrDefault()?.Trim();
+            if (!string.IsNullOrWhiteSpace(headerJson))
             {
-                headerProvenance = new ProvenanceMetadata
+                try
                 {
-                    ModelId = modelId
-                };
+                    // Try to parse as full JSON object first
+                    headerProvenance = System.Text.Json.JsonSerializer.Deserialize<ProvenanceMetadata>(headerJson);
+                    
+                    // If deserialization succeeded but ModelId is empty, treat as invalid
+                    if (headerProvenance != null && string.IsNullOrWhiteSpace(headerProvenance.ModelId))
+                    {
+                        headerProvenance = null;
+                    }
+                }
+                catch (System.Text.Json.JsonException)
+                {
+                    // Fallback: treat as simple modelId string (backward compatibility)
+                    headerProvenance = new ProvenanceMetadata
+                    {
+                        ModelId = headerJson
+                    };
+                }
             }
         }
 
@@ -60,9 +75,20 @@ public static class ProvenanceService
                     throw new InvalidOperationException("Provenance must be an object, not a string or other primitive type");
                 }
 
-                // Serialize to JSON and deserialize back to ProvenanceMetadata with snake_case handling
-                var provenanceJson = System.Text.Json.JsonSerializer.Serialize(provenanceObj);
-                embeddedProvenance = System.Text.Json.JsonSerializer.Deserialize<ProvenanceMetadata>(provenanceJson);
+                // Serialize to JSON and deserialize back to ProvenanceMetadata
+                // Use camelCase naming policy to match our property names
+                // WriteIndented=false and proper type handling for embedded objects
+                var jsonOptions = new System.Text.Json.JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
+                    WriteIndented = false
+                };
+                // Convert to JSON preserving types from YAML deserialization
+                var provenanceJson = System.Text.Json.JsonSerializer.Serialize(provenanceObj, new System.Text.Json.JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
+                });
+                embeddedProvenance = System.Text.Json.JsonSerializer.Deserialize<ProvenanceMetadata>(provenanceJson, jsonOptions);
                 
                 // Ignore if only empty values
                 if (string.IsNullOrWhiteSpace(embeddedProvenance?.ModelId))

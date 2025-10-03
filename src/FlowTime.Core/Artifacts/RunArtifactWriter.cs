@@ -171,8 +171,8 @@ public static class RunArtifactWriter
                 provenanceRef = new ProvenanceRef
                 {
                     HasProvenance = true,
-                    ModelId = provenanceDoc.TryGetProperty("model_id", out var modelId) ? modelId.GetString() : null,
-                    TemplateId = provenanceDoc.TryGetProperty("template_id", out var templateId) ? templateId.GetString() : null
+                    ModelId = provenanceDoc.TryGetProperty("modelId", out var modelId) ? modelId.GetString() : null,
+                    TemplateId = provenanceDoc.TryGetProperty("templateId", out var templateId) ? templateId.GetString() : null
                 };
             }
             catch
@@ -248,9 +248,9 @@ file sealed record RngJson
 }
 file sealed record ProvenanceRef 
 { 
-    [System.Text.Json.Serialization.JsonPropertyName("has_provenance")] public bool HasProvenance { get; set; }
-    [System.Text.Json.Serialization.JsonPropertyName("model_id")] public string? ModelId { get; set; }
-    [System.Text.Json.Serialization.JsonPropertyName("template_id")] public string? TemplateId { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("hasProvenance")] public bool HasProvenance { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("modelId")] public string? ModelId { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("templateId")] public string? TemplateId { get; set; }
 }
 file sealed record SeriesIndexJson { public int SchemaVersion { get; set; } public IndexGridJson Grid { get; set; } = new(); public List<SeriesMeta> Series { get; set; } = new(); public FormatsJson Formats { get; set; } = new(); }
 file sealed record IndexGridJson { public int Bins { get; set; } public int BinMinutes { get; set; } public string Timezone { get; set; } = "UTC"; }

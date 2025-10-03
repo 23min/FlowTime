@@ -30,8 +30,8 @@ public class ProvenancePrecedenceTests : IClassFixture<WebApplicationFactory<Pro
             schemaVersion: 1
             provenance:
               source: flowtime-sim
-              model_id: model_20250925T120000Z_embedded
-              template_id: from-embedded
+              modelId: model_20250925T120000Z_embedded
+              templateId: from-embedded
             grid:
               bins: 4
               binSize: 1
@@ -60,11 +60,11 @@ public class ProvenancePrecedenceTests : IClassFixture<WebApplicationFactory<Pro
         var provenance = JsonSerializer.Deserialize<JsonElement>(provenanceJson);
 
         // Header should win
-        Assert.True(provenance.TryGetProperty("model_id", out var modelId));
+        Assert.True(provenance.TryGetProperty("modelId", out var modelId));
         Assert.Equal("model_20250925T120000Z_header", modelId.GetString());
 
         // Embedded values should NOT be present (or overridden)
-        if (provenance.TryGetProperty("template_id", out var templateId))
+        if (provenance.TryGetProperty("templateId", out var templateId))
         {
             Assert.NotEqual("from-embedded", templateId.GetString());
         }
@@ -80,7 +80,7 @@ public class ProvenancePrecedenceTests : IClassFixture<WebApplicationFactory<Pro
         var model = """
             schemaVersion: 1
             provenance:
-              model_id: model_20250925T130000Z_embedded
+              modelId: model_20250925T130000Z_embedded
             grid:
               bins: 4
               binSize: 1
@@ -112,7 +112,7 @@ public class ProvenancePrecedenceTests : IClassFixture<WebApplicationFactory<Pro
         var provenanceJson = await File.ReadAllTextAsync(provenancePath);
         var provenance = JsonSerializer.Deserialize<JsonElement>(provenanceJson);
 
-        Assert.True(provenance.TryGetProperty("model_id", out var modelId));
+        Assert.True(provenance.TryGetProperty("modelId", out var modelId));
         Assert.Equal("model_20250925T130000Z_header", modelId.GetString());
     }
 
@@ -150,7 +150,7 @@ public class ProvenancePrecedenceTests : IClassFixture<WebApplicationFactory<Pro
         var provenanceJson = await File.ReadAllTextAsync(provenancePath);
         var provenance = JsonSerializer.Deserialize<JsonElement>(provenanceJson);
 
-        Assert.True(provenance.TryGetProperty("model_id", out var modelId));
+        Assert.True(provenance.TryGetProperty("modelId", out var modelId));
         Assert.Equal("model_20250925T140000Z_headeronly", modelId.GetString());
     }
 
@@ -163,8 +163,8 @@ public class ProvenancePrecedenceTests : IClassFixture<WebApplicationFactory<Pro
             schemaVersion: 1
             provenance:
               source: flowtime-sim
-              model_id: model_20250925T150000Z_embeddedonly
-              template_id: manufacturing-line
+              modelId: model_20250925T150000Z_embeddedonly
+              templateId: manufacturing-line
             grid:
               bins: 4
               binSize: 1
@@ -192,9 +192,9 @@ public class ProvenancePrecedenceTests : IClassFixture<WebApplicationFactory<Pro
         var provenanceJson = await File.ReadAllTextAsync(provenancePath);
         var provenance = JsonSerializer.Deserialize<JsonElement>(provenanceJson);
 
-        Assert.True(provenance.TryGetProperty("model_id", out var modelId));
+        Assert.True(provenance.TryGetProperty("modelId", out var modelId));
         Assert.Equal("model_20250925T150000Z_embeddedonly", modelId.GetString());
-        Assert.True(provenance.TryGetProperty("template_id", out var templateId));
+        Assert.True(provenance.TryGetProperty("templateId", out var templateId));
         Assert.Equal("manufacturing-line", templateId.GetString());
     }
 
@@ -248,7 +248,7 @@ public class ProvenancePrecedenceTests : IClassFixture<WebApplicationFactory<Pro
         var model = """
             schemaVersion: 1
             provenance:
-              model_id: model_20250925T160000Z_embedded
+              modelId: model_20250925T160000Z_embedded
             grid:
               bins: 4
               binSize: 1
@@ -278,7 +278,7 @@ public class ProvenancePrecedenceTests : IClassFixture<WebApplicationFactory<Pro
         var provenance = JsonSerializer.Deserialize<JsonElement>(provenanceJson);
 
         // Even though embedded has more fields, header wins
-        Assert.True(provenance.TryGetProperty("model_id", out var modelId));
+        Assert.True(provenance.TryGetProperty("modelId", out var modelId));
         Assert.Equal("model_20250925T160000Z_header_complete", modelId.GetString());
     }
 

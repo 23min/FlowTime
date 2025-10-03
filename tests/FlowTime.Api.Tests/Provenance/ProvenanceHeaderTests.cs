@@ -55,7 +55,7 @@ public class ProvenanceHeaderTests : IClassFixture<WebApplicationFactory<Program
         var provenanceJson = await File.ReadAllTextAsync(provenancePath);
         var provenance = JsonSerializer.Deserialize<JsonElement>(provenanceJson);
 
-        Assert.True(provenance.TryGetProperty("model_id", out var modelId));
+        Assert.True(provenance.TryGetProperty("modelId", out var modelId));
         Assert.Equal("model_20250925T120000Z_abc123def", modelId.GetString());
     }
 
@@ -194,7 +194,7 @@ public class ProvenanceHeaderTests : IClassFixture<WebApplicationFactory<Program
         var provenanceJson = await File.ReadAllTextAsync(provenancePath);
         var provenance = JsonSerializer.Deserialize<JsonElement>(provenanceJson);
 
-        Assert.True(provenance.TryGetProperty("model_id", out var storedModelId));
+        Assert.True(provenance.TryGetProperty("modelId", out var storedModelId));
         Assert.Equal(modelId, storedModelId.GetString());
     }
 
@@ -232,7 +232,7 @@ public class ProvenanceHeaderTests : IClassFixture<WebApplicationFactory<Program
         var provenanceJson = await File.ReadAllTextAsync(provenancePath);
         var provenance = JsonSerializer.Deserialize<JsonElement>(provenanceJson);
 
-        Assert.True(provenance.TryGetProperty("model_id", out var modelId));
+        Assert.True(provenance.TryGetProperty("modelId", out var modelId));
         Assert.Equal("model_20250925T120000Z_abc123def", modelId.GetString());
     }
 
@@ -271,7 +271,7 @@ public class ProvenanceHeaderTests : IClassFixture<WebApplicationFactory<Program
         var provenanceJson = await File.ReadAllTextAsync(provenancePath);
         var provenance = JsonSerializer.Deserialize<JsonElement>(provenanceJson);
 
-        Assert.True(provenance.TryGetProperty("model_id", out var modelId));
+        Assert.True(provenance.TryGetProperty("modelId", out var modelId));
         // Should use first header value (HTTP standard)
         Assert.Equal("model_20250925T120000Z_first", modelId.GetString());
     }
@@ -311,7 +311,7 @@ public class ProvenanceHeaderTests : IClassFixture<WebApplicationFactory<Program
         var provenanceJson = await File.ReadAllTextAsync(provenancePath);
         var provenance = JsonSerializer.Deserialize<JsonElement>(provenanceJson);
 
-        Assert.True(provenance.TryGetProperty("model_id", out var modelId));
+        Assert.True(provenance.TryGetProperty("modelId", out var modelId));
         Assert.Equal("model_20250925T120000Z_abc123def", modelId.GetString());
     }
 

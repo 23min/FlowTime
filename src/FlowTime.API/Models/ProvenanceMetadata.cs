@@ -16,31 +16,37 @@ public class ProvenanceMetadata
     /// <summary>
     /// Unique model identifier from the source system
     /// </summary>
-    [JsonPropertyName("model_id")]
+    [JsonPropertyName("modelId")]
     public string ModelId { get; set; } = string.Empty;
 
     /// <summary>
     /// Template identifier this model was generated from
     /// </summary>
-    [JsonPropertyName("template_id")]
+    [JsonPropertyName("templateId")]
     public string? TemplateId { get; set; }
 
     /// <summary>
     /// Template version used for generation
     /// </summary>
-    [JsonPropertyName("template_version")]
+    [JsonPropertyName("templateVersion")]
     public string? TemplateVersion { get; set; }
+
+    /// <summary>
+    /// Human-readable template title
+    /// </summary>
+    [JsonPropertyName("templateTitle")]
+    public string? TemplateTitle { get; set; }
 
     /// <summary>
     /// Timestamp when the model was generated (ISO 8601)
     /// </summary>
-    [JsonPropertyName("generated_at")]
+    [JsonPropertyName("generatedAt")]
     public string? GeneratedAt { get; set; }
 
     /// <summary>
     /// Timestamp when the model was received by FlowTime Engine (ISO 8601)
     /// </summary>
-    [JsonPropertyName("received_at")]
+    [JsonPropertyName("receivedAt")]
     public string? ReceivedAt { get; set; }
 
     /// <summary>
@@ -51,7 +57,8 @@ public class ProvenanceMetadata
 
     /// <summary>
     /// Generation parameters used to create the model.
-    /// NOTE: YAML numeric values may be represented as strings due to serialization limitations.
+    /// NOTE: YAML numeric values are represented as strings due to serialization limitations.
+    /// See docs/architecture/run-provenance.md for rationale.
     /// </summary>
     [JsonPropertyName("parameters")]
     public Dictionary<string, object>? Parameters { get; set; }

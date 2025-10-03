@@ -60,7 +60,7 @@ public class ProvenanceStorageTests : IClassFixture<WebApplicationFactory<Progra
         var provenanceJson = await File.ReadAllTextAsync(provenancePath);
         var provenance = JsonSerializer.Deserialize<JsonElement>(provenanceJson);
 
-        Assert.True(provenance.TryGetProperty("model_id", out var modelId));
+        Assert.True(provenance.TryGetProperty("modelId", out var modelId));
         Assert.Equal("model_20250925T120000Z_abc123def", modelId.GetString());
     }
 
@@ -73,10 +73,10 @@ public class ProvenanceStorageTests : IClassFixture<WebApplicationFactory<Progra
             schemaVersion: 1
             provenance:
               source: flowtime-sim
-              model_id: model_20250925T130000Z_def456ghi
-              template_id: it-system-microservices
-              template_version: "1.0"
-              generated_at: "2025-09-25T13:00:00Z"
+              modelId: model_20250925T130000Z_def456ghi
+              templateId: it-system-microservices
+              templateVersion: "1.0"
+              generatedAt: "2025-09-25T13:00:00Z"
             grid:
               bins: 4
               binSize: 1
@@ -111,9 +111,9 @@ public class ProvenanceStorageTests : IClassFixture<WebApplicationFactory<Progra
 
         Assert.True(provenance.TryGetProperty("source", out var source));
         Assert.Equal("flowtime-sim", source.GetString());
-        Assert.True(provenance.TryGetProperty("model_id", out var modelId));
+        Assert.True(provenance.TryGetProperty("modelId", out var modelId));
         Assert.Equal("model_20250925T130000Z_def456ghi", modelId.GetString());
-        Assert.True(provenance.TryGetProperty("template_id", out var templateId));
+        Assert.True(provenance.TryGetProperty("templateId", out var templateId));
         Assert.Equal("it-system-microservices", templateId.GetString());
     }
 
@@ -170,8 +170,8 @@ public class ProvenanceStorageTests : IClassFixture<WebApplicationFactory<Progra
             schemaVersion: 1
             provenance:
               source: flowtime-sim
-              model_id: model_20250925T140000Z_ghi789jkl
-              template_id: manufacturing-line
+              modelId: model_20250925T140000Z_ghi789jkl
+              templateId: manufacturing-line
             grid:
               bins: 4
               binSize: 1
@@ -204,11 +204,11 @@ public class ProvenanceStorageTests : IClassFixture<WebApplicationFactory<Progra
         var manifest = JsonSerializer.Deserialize<JsonElement>(manifestJson);
 
         Assert.True(manifest.TryGetProperty("provenance", out var provenanceRef));
-        Assert.True(provenanceRef.TryGetProperty("has_provenance", out var hasProvenance));
+        Assert.True(provenanceRef.TryGetProperty("hasProvenance", out var hasProvenance));
         Assert.True(hasProvenance.GetBoolean());
-        Assert.True(provenanceRef.TryGetProperty("model_id", out var modelId));
+        Assert.True(provenanceRef.TryGetProperty("modelId", out var modelId));
         Assert.Equal("model_20250925T140000Z_ghi789jkl", modelId.GetString());
-        Assert.True(provenanceRef.TryGetProperty("template_id", out var templateId));
+        Assert.True(provenanceRef.TryGetProperty("templateId", out var templateId));
         Assert.Equal("manufacturing-line", templateId.GetString());
     }
 
@@ -221,7 +221,7 @@ public class ProvenanceStorageTests : IClassFixture<WebApplicationFactory<Progra
             schemaVersion: 1
             provenance:
               source: flowtime-sim
-              model_id: model_20250925T150000Z_jkl012mno
+              modelId: model_20250925T150000Z_jkl012mno
             grid:
               bins: 4
               binSize: 1
@@ -252,7 +252,7 @@ public class ProvenanceStorageTests : IClassFixture<WebApplicationFactory<Progra
 
         var specYaml = await File.ReadAllTextAsync(specPath);
         Assert.DoesNotContain("provenance:", specYaml);
-        Assert.DoesNotContain("model_id:", specYaml);
+        Assert.DoesNotContain("modelId:", specYaml);
         Assert.DoesNotContain("flowtime-sim", specYaml);
 
         // Verify spec.yaml still has valid execution spec
@@ -270,8 +270,8 @@ public class ProvenanceStorageTests : IClassFixture<WebApplicationFactory<Progra
             schemaVersion: 1
             provenance:
               source: flowtime-sim
-              model_id: model_20250925T160000Z_mno345pqr
-              generated_at: "2025-09-25T16:00:00Z"
+              modelId: model_20250925T160000Z_mno345pqr
+              generatedAt: "2025-09-25T16:00:00Z"
             grid:
               bins: 4
               binSize: 1
@@ -300,8 +300,8 @@ public class ProvenanceStorageTests : IClassFixture<WebApplicationFactory<Progra
         var provenanceJson = await File.ReadAllTextAsync(provenancePath);
         var provenance = JsonSerializer.Deserialize<JsonElement>(provenanceJson);
 
-        // Should have received_at timestamp
-        Assert.True(provenance.TryGetProperty("received_at", out var receivedAt));
+        // Should have receivedAt timestamp
+        Assert.True(provenance.TryGetProperty("receivedAt", out var receivedAt));
         var receivedAtTime = DateTime.Parse(receivedAt.GetString()!);
 
         // Verify it's within reasonable time window
