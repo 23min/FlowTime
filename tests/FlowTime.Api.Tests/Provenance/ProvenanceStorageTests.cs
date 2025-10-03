@@ -11,11 +11,11 @@ namespace FlowTime.Api.Tests.Provenance;
 /// Tests that provenance metadata is correctly stored in run artifacts.
 /// Validates provenance.json creation, structure, and manifest.json reference.
 /// </summary>
-public class ProvenanceStorageTests : IClassFixture<WebApplicationFactory<Program>>
+public class ProvenanceStorageTests : IClassFixture<TestWebApplicationFactory>
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly TestWebApplicationFactory _factory;
 
-    public ProvenanceStorageTests(WebApplicationFactory<Program> factory)
+    public ProvenanceStorageTests(TestWebApplicationFactory factory)
     {
         _factory = factory;
     }

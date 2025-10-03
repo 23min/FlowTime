@@ -11,11 +11,11 @@ namespace FlowTime.Api.Tests.Provenance;
 /// Tests X-Model-Provenance HTTP header parsing and handling.
 /// Validates header format, parsing, and error handling.
 /// </summary>
-public class ProvenanceHeaderTests : IClassFixture<WebApplicationFactory<Program>>
+public class ProvenanceHeaderTests : IClassFixture<TestWebApplicationFactory>
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly TestWebApplicationFactory _factory;
 
-    public ProvenanceHeaderTests(WebApplicationFactory<Program> factory)
+    public ProvenanceHeaderTests(TestWebApplicationFactory factory)
     {
         _factory = factory;
     }

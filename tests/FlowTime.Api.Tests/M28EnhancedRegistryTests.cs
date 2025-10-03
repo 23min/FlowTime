@@ -11,12 +11,12 @@ namespace FlowTime.Api.Tests;
 /// <summary>
 /// Tests for M2.8 enhanced artifacts registry features
 /// </summary>
-public class M28EnhancedRegistryTests : IClassFixture<WebApplicationFactory<Program>>
+public class M28EnhancedRegistryTests : IClassFixture<TestWebApplicationFactory>
 {
-    private readonly WebApplicationFactory<Program> factory;
+    private readonly TestWebApplicationFactory factory;
     private readonly HttpClient client;
     
-    public M28EnhancedRegistryTests(WebApplicationFactory<Program> factory)
+    public M28EnhancedRegistryTests(TestWebApplicationFactory factory)
     {
         this.factory = factory;
         this.client = factory.CreateClient();

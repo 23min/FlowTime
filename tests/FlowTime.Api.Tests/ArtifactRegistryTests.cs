@@ -10,11 +10,11 @@ namespace FlowTime.Api.Tests;
 /// Tests for M2.7 Artifacts Registry functionality
 /// Covers registry index management, new API endpoints, and engine integration
 /// </summary>
-public class ArtifactRegistryTests : IClassFixture<WebApplicationFactory<Program>>
+public class ArtifactRegistryTests : IClassFixture<TestWebApplicationFactory>
 {
-    private readonly WebApplicationFactory<Program> factory;
+    private readonly TestWebApplicationFactory factory;
 
-    public ArtifactRegistryTests(WebApplicationFactory<Program> factory)
+    public ArtifactRegistryTests(TestWebApplicationFactory factory)
     {
         this.factory = factory;
     }

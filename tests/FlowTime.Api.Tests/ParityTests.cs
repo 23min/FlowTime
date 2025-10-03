@@ -2,22 +2,19 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Linq;
 using FlowTime.Core;
+using FlowTime.Api.Tests;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.AspNetCore.Hosting;
 
-public class ParityTests : IClassFixture<WebApplicationFactory<Program>>
+public class ParityTests : IClassFixture<TestWebApplicationFactory>
 {
-	private readonly WebApplicationFactory<Program> factory;
+	private readonly TestWebApplicationFactory factory;
 
-	public ParityTests(WebApplicationFactory<Program> factory)
+	public ParityTests(TestWebApplicationFactory factory)
 	{
-		this.factory = factory.WithWebHostBuilder(builder =>
-		{
-			builder.UseEnvironment("Development");
-			builder.UseTestServer();
-			builder.UseSetting(Microsoft.AspNetCore.Hosting.WebHostDefaults.ServerUrlsKey, "http://127.0.0.1:0");
-		});
+		// TestWebApplicationFactory already configures test isolation
+		this.factory = factory;
 	}
 
 	[Fact]

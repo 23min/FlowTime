@@ -6,19 +6,14 @@ using Microsoft.AspNetCore.Hosting;
 
 namespace FlowTime.Api.Tests.Legacy;
 
-public class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
+public class ApiIntegrationTests : IClassFixture<TestWebApplicationFactory>
 {
-  private readonly WebApplicationFactory<Program> factory;
+  private readonly TestWebApplicationFactory factory;
 
-  public ApiIntegrationTests(WebApplicationFactory<Program> factory)
+  public ApiIntegrationTests(TestWebApplicationFactory factory)
   {
-    // Force TestServer to avoid binding real ports (e.g., 8080) during tests
-    this.factory = factory.WithWebHostBuilder(builder =>
-    {
-      builder.UseEnvironment("Development");
-      builder.UseTestServer();
-      builder.UseSetting(Microsoft.AspNetCore.Hosting.WebHostDefaults.ServerUrlsKey, "http://127.0.0.1:0");
-    });
+    // TestWebApplicationFactory already configures test isolation and unique directories
+    this.factory = factory;
   }
 
   [Fact]

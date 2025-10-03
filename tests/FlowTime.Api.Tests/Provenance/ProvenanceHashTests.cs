@@ -11,11 +11,11 @@ namespace FlowTime.Api.Tests.Provenance;
 /// Two models with identical logic but different provenance should have the same hash.
 /// This ensures proper deduplication of functionally equivalent models.
 /// </summary>
-public class ProvenanceHashTests : IClassFixture<WebApplicationFactory<Program>>
+public class ProvenanceHashTests : IClassFixture<TestWebApplicationFactory>
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly TestWebApplicationFactory _factory;
 
-    public ProvenanceHashTests(WebApplicationFactory<Program> factory)
+    public ProvenanceHashTests(TestWebApplicationFactory factory)
     {
         _factory = factory;
     }

@@ -7,12 +7,12 @@ using FlowTime.API.Models;
 
 namespace FlowTime.Api.Tests;
 
-public class ArtifactEndpointTests : IClassFixture<WebApplicationFactory<Program>>
+public class ArtifactEndpointTests : IClassFixture<TestWebApplicationFactory>
 {
-    private readonly WebApplicationFactory<Program> factory;
+    private readonly TestWebApplicationFactory factory;
     private readonly HttpClient client;
 
-    public ArtifactEndpointTests(WebApplicationFactory<Program> factory)
+    public ArtifactEndpointTests(TestWebApplicationFactory factory)
     {
         this.factory = factory;
         client = factory.CreateClient();

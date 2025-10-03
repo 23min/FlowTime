@@ -11,11 +11,11 @@ namespace FlowTime.Api.Tests.Provenance;
 /// Tests embedded provenance in YAML model body.
 /// Validates parsing, validation, and storage of provenance section.
 /// </summary>
-public class ProvenanceEmbeddedTests : IClassFixture<WebApplicationFactory<Program>>
+public class ProvenanceEmbeddedTests : IClassFixture<TestWebApplicationFactory>
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly TestWebApplicationFactory _factory;
 
-    public ProvenanceEmbeddedTests(WebApplicationFactory<Program> factory)
+    public ProvenanceEmbeddedTests(TestWebApplicationFactory factory)
     {
         _factory = factory;
     }

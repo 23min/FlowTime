@@ -12,11 +12,11 @@ namespace FlowTime.Api.Tests.Provenance;
 /// Tests precedence rules when provenance is provided via both header and embedded YAML.
 /// Validates that header takes precedence and warning is logged.
 /// </summary>
-public class ProvenancePrecedenceTests : IClassFixture<WebApplicationFactory<Program>>
+public class ProvenancePrecedenceTests : IClassFixture<TestWebApplicationFactory>
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly TestWebApplicationFactory _factory;
 
-    public ProvenancePrecedenceTests(WebApplicationFactory<Program> factory)
+    public ProvenancePrecedenceTests(TestWebApplicationFactory factory)
     {
         _factory = factory;
     }
