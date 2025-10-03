@@ -1,6 +1,7 @@
 grid:
   bins: 14
-  binMinutes: 1440
+  binSize: 1
+  binUnit: days
 nodes:
   - id: daily_admissions
     kind: const

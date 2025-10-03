@@ -5,7 +5,7 @@ namespace FlowTime.Tests.Nodes;
 
 public class ShiftNodeTests
 {
-    private readonly TimeGrid grid = new(Bins: 5, BinMinutes: 60);
+    private readonly TimeGrid grid = new(bins: 5, binSize: 60, binUnit: TimeUnit.Minutes);
     
     [Fact]
     public void ShiftNode_Lag0_ReturnsIdentity()
@@ -79,7 +79,7 @@ public class ShiftNodeTests
     {
         // Arrange
         var sourceNode = new ConstSeriesNode("source", [1.0, 2.0, 3.0]);
-        var grid = new TimeGrid(Bins: 3, BinMinutes: 60);
+        var grid = new TimeGrid(bins: 3, binSize: 60, binUnit: TimeUnit.Minutes);
         var shiftNode = new ShiftNode("shifted", sourceNode, lag: 5);
         
         // Act

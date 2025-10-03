@@ -1,8 +1,9 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://flowtime.dev/schemas/engine-input.schema.json",
-  "title": "FlowTime Engine Input Model",
-  "description": "Schema for YAML model definitions accepted by FlowTime Engine POST /run endpoint",
+  "title": "FlowTime Engine Input Model (DEPRECATED)",
+  "description": "DEPRECATED: This schema is obsolete as of M2.9. Use target-model-schema.yaml instead. The unified schema uses binSize/binUnit format instead of binMinutes. This file will be removed after M2.9 implementation is complete.",
+  "deprecated": true,
   "type": "object",
   "required": ["grid", "nodes"],
   "properties": {

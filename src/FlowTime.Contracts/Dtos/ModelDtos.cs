@@ -27,7 +27,8 @@ public sealed class ModelDto
 public sealed class GridDto
 {
     public int Bins { get; set; }
-    public int BinMinutes { get; set; }
+    public int BinSize { get; set; }
+    public string BinUnit { get; set; } = "minutes";
 }
 
 /// <summary>

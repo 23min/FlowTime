@@ -2,12 +2,60 @@
 
 Purpose: give AI agents the minimum context to be productive and safe in this repo.
 
+## Serena
+# Copilot Instructions for FlowTime Project
+
+## Code Navigation and Editing Rules
+
+**ALWAYS use Serena MCP tools for code operations:**
+
+### Before any implementation:
+1. Use `serena__find_symbol` to locate relevant existing code
+2. Use `serena__get_symbols_overview` to understand file structure
+3. Use `serena__find_referencing_symbols` to see how code is used
+
+### When writing new code:
+1. Use `serena__find_symbol` to find similar patterns in the codebase
+2. Look for existing base classes, interfaces, or patterns to follow
+3. Use `serena__insert_after_symbol` or `serena__replace_symbol_body` for precise placement
+
+### When modifying code:
+- NEVER read entire files unless absolutely necessary
+- Use `serena__read_file` for targeted file reading
+- Use `serena__replace_symbol_body` to modify specific methods/classes
+- Use `serena__insert_after_symbol` to add new code near existing symbols
+
+### When writing tests:
+1. Use `serena__find_symbol` to locate the class being tested
+2. Find existing test patterns with `serena__find_symbol` (e.g., "Test")
+3. Understand test structure before generating new tests
+
+### Examples:
+- ❌ "Read OrderService.cs and modify the CalculateTotal method"
+- ✅ "Use serena__find_symbol to locate CalculateTotal, then serena__replace_symbol_body to update it"
+
+- ❌ "Show me all the files in src/"
+- ✅ "Use serena__find_symbol to find all classes in the Services namespace"
+
+## Project Structure
+- API is in `src/FlowTime.Api/`
+- CLI is in `src/FlowTime.CLI/`
+- Core logic (Engine) is in `src/FlowTime.Core/`
+
+- Tests follow pattern: `ClassName` → `ClassNameTests`
+- Most test locations follow this pattern `tests/` + name of the project + `Tests` (e.g., `tests/FlowTime.Core.Tests/`)
+- Some tests are located simply in `tests/FlowTime.Tests` (for cross-cutting tests)
+
+Prefer semantic, symbol-level operations over file-level operations whenever possible.
+
+
 ## Guardrails
 - Don't push (no `git push`) or make network calls unless explicitly requested.
 - Don't commit or stage changes without explicit user approval. Propose edits first; commit only after the user says to.
 - Prefer editor-based edits; avoid cross-project refactors without context.
 - Always build and run tests before finishing; keep solution compiling.
-- **Repository access**: When working from flowtime-vnext container, treat flowtime-sim-vnext as read-only reference. Only commit to the flowtime-vnext repository unless explicitly requested to modify flowtime-sim-vnext.
+- **No time estimates in documentation**: Don't write hours, days, or weeks in docs. No effort estimates in milestones, roadmaps, or planning documents.
+- **Repository access**: When working from flowtime-vnext container, treat flowtime-sim-vnext as read-only reference. Only commit to the flowtime-sim-vnext repository unless explicitly requested to modify flowtime-sim-vnext.
 - **Process safety**: When managing solution services, use safe process management:
   - Use `lsof -ti:PORT | xargs kill` or process name patterns like `pkill -f "ProcessName"`
   - NEVER kill processes by bare PID numbers (e.g., `kill 8080`, `kill 5219`) as these could accidentally target system processes
@@ -59,6 +107,12 @@ Purpose: give AI agents the minimum context to be productive and safe in this re
 ## CLI ↔ API parity
 - Maintain parity between CLI CSV and API JSON for the same model.
 - Add/keep contract tests (future: dedicated parity suite). Update tests/docs on intentional changes.
+
+## API architecture and patterns
+- **Minimal APIs**: Use Minimal APIs (`.MapPost()`, `.MapGet()`, etc.) defined in `Program.cs`. Do NOT create controller classes.
+- **Route pattern**: Group routes using `app.MapGroup("/v1")` for versioning.
+- **Dependency injection**: Inject services directly into route handlers (e.g., `(HttpRequest req, IArtifactRegistry registry, ILogger<Program> logger) => { ... }`).
+- **Testing**: Use `WebApplicationFactory<Program>` for integration tests. Make HTTP requests via `HttpClient`, never instantiate handlers directly.
 
 ## API contracts and errors (M0)
 - Content type: `text/plain` with YAML body for `/run` and `/graph`.

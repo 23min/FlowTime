@@ -63,7 +63,7 @@ Blazor default scoped `HttpClient` (UI origin) is used for static `/models/*.yam
 - **M2.9 Compare**: Contextual cross-run analysis within artifact collections
 
 ## Future Enhancements (Legacy Roadmap)
-> **⚠️ Charter Superseded**: The enhancements below represent the pre-charter roadmap. See [Charter Roadmap](../milestones/CHARTER-ROADMAP.md) for current development priorities.
+> **⚠️ Charter Superseded**: The enhancements below represent the pre-charter roadmap. See [ROADMAP.md](../ROADMAP.md) for current development priorities.
 
 - Editable model editor + validation pass before run
 - Rich graph visualization (edges, layout)  

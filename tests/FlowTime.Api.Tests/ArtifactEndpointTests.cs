@@ -7,12 +7,12 @@ using FlowTime.API.Models;
 
 namespace FlowTime.Api.Tests;
 
-public class ArtifactEndpointTests : IClassFixture<WebApplicationFactory<Program>>
+public class ArtifactEndpointTests : IClassFixture<TestWebApplicationFactory>
 {
-    private readonly WebApplicationFactory<Program> factory;
+    private readonly TestWebApplicationFactory factory;
     private readonly HttpClient client;
 
-    public ArtifactEndpointTests(WebApplicationFactory<Program> factory)
+    public ArtifactEndpointTests(TestWebApplicationFactory factory)
     {
         this.factory = factory;
         client = factory.CreateClient();
@@ -48,7 +48,8 @@ public class ArtifactEndpointTests : IClassFixture<WebApplicationFactory<Program
   ""schemaVersion"": 1,
   ""grid"": {
     ""bins"": 3,
-    ""binMinutes"": 60,
+    ""binSize"": 1,
+    ""binUnit"": ""hours"",
     ""timezone"": ""UTC""
   },
   ""series"": [
@@ -208,7 +209,8 @@ public class ArtifactEndpointTests : IClassFixture<WebApplicationFactory<Program
   ""schemaVersion"": 1,
   ""grid"": {
     ""bins"": 2,
-    ""binMinutes"": 30,
+    ""binSize"": 30,
+    ""binUnit"": ""minutes"",
     ""timezone"": ""UTC""
   },
   ""series"": [
@@ -268,7 +270,8 @@ public class ArtifactEndpointTests : IClassFixture<WebApplicationFactory<Program
   ""schemaVersion"": 1,
   ""grid"": {
     ""bins"": 3,
-    ""binMinutes"": 60,
+    ""binSize"": 1,
+    ""binUnit"": ""hours"",
     ""timezone"": ""UTC""
   },
   ""series"": [

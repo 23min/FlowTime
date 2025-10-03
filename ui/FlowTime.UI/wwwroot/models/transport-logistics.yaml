@@ -1,6 +1,7 @@
 grid:
   bins: 24
-  binMinutes: 60
+  binSize: 1
+  binUnit: hours
 nodes:
   - id: passenger_demand
     kind: const

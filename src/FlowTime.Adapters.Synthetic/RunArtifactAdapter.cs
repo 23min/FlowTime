@@ -169,7 +169,14 @@ public sealed class RunArtifactAdapter
     public async Task<FlowTime.Core.TimeGrid> GetCoreTimeGridAsync()
     {
         var manifest = await GetManifestAsync();
-        return new FlowTime.Core.TimeGrid(manifest.Grid.Bins, manifest.Grid.BinMinutes);
+        var binUnit = manifest.Grid.BinUnit.ToLowerInvariant() switch
+        {
+            "minutes" => FlowTime.Core.TimeUnit.Minutes,
+            "hours" => FlowTime.Core.TimeUnit.Hours,
+            "days" => FlowTime.Core.TimeUnit.Days,
+            _ => throw new ArgumentException($"Unknown time unit: {manifest.Grid.BinUnit}")
+        };
+        return new FlowTime.Core.TimeGrid(manifest.Grid.Bins, manifest.Grid.BinSize, binUnit);
     }
 }
 

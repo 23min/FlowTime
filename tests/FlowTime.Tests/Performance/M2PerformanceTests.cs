@@ -200,7 +200,7 @@ public class M2PerformanceTests
     {
         var model = new ModelDefinition
         {
-            Grid = new GridDefinition { Bins = bins, BinMinutes = 60 },
+            Grid = new GridDefinition { Bins = bins, BinSize = 1, BinUnit = "hours" },
             Nodes = new List<NodeDefinition>(),
             Outputs = new List<OutputDefinition>()
         };
@@ -239,7 +239,7 @@ public class M2PerformanceTests
     {
         var model = new ModelDefinition
         {
-            Grid = new GridDefinition { Bins = bins, BinMinutes = 60 },
+            Grid = new GridDefinition { Bins = bins, BinSize = 1, BinUnit = "hours" },
             Nodes = new List<NodeDefinition>(),
             Outputs = new List<OutputDefinition>()
         };
@@ -272,7 +272,7 @@ public class M2PerformanceTests
     {
         var model = new ModelDefinition
         {
-            Grid = new GridDefinition { Bins = bins, BinMinutes = 60 },
+            Grid = new GridDefinition { Bins = bins, BinSize = 1, BinUnit = "hours" },
             Nodes = new List<NodeDefinition>(),
             Outputs = new List<OutputDefinition>()
         };

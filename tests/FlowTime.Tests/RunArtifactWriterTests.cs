@@ -14,7 +14,7 @@ public class RunArtifactWriterTests
         Directory.CreateDirectory(tempDir);
 
         var model = CreateTestModel();
-        var grid = new TimeGrid(3, 60);
+        var grid = new TimeGrid(3, 60, TimeUnit.Minutes);
         var context = new Dictionary<NodeId, double[]>
         {
             [new NodeId("demand")] = new[] { 10.0, 20.0, 30.0 },
@@ -56,7 +56,7 @@ public class RunArtifactWriterTests
         Directory.CreateDirectory(tempDir);
 
         var model = CreateTestModel();
-        var grid = new TimeGrid(3, 60);
+        var grid = new TimeGrid(3, 60, TimeUnit.Minutes);
         var context = new Dictionary<NodeId, double[]>
         {
             [new NodeId("demand")] = new[] { 10.0, 20.0, 30.0 },
@@ -111,7 +111,7 @@ public class RunArtifactWriterTests
         Directory.CreateDirectory(tempDir2);
 
         var model = CreateTestModel();
-        var grid = new TimeGrid(3, 60);
+        var grid = new TimeGrid(3, 60, TimeUnit.Minutes);
         var context1 = new Dictionary<NodeId, double[]>
         {
             [new NodeId("demand")] = new[] { 10.0, 20.0, 30.0 }
@@ -157,7 +157,7 @@ public class RunArtifactWriterTests
         Directory.CreateDirectory(tempDir);
 
         var model = CreateTestModel();
-        var grid = new TimeGrid(2, 30);
+        var grid = new TimeGrid(2, 30, TimeUnit.Minutes);
         var context = new Dictionary<NodeId, double[]>
         {
             [new NodeId("demand")] = new[] { 5.0, 15.0 }
@@ -196,7 +196,7 @@ public class RunArtifactWriterTests
         Directory.CreateDirectory(tempDir);
 
         var model = CreateTestModel();
-        var grid = new TimeGrid(1, 60);
+        var grid = new TimeGrid(1, 60, TimeUnit.Minutes);
         var context = new Dictionary<NodeId, double[]>();
 
         var request = new RunArtifactWriter.WriteRequest

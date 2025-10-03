@@ -51,7 +51,7 @@ public class PmfNodeTests
         var nodeId = new NodeId("demand");
         var pmf = new Core.Pmf.Pmf(new Dictionary<double, double> { { 10, 0.2 }, { 20, 0.3 }, { 30, 0.5 } });
         var node = new PmfNode(nodeId, pmf);
-        var grid = new TimeGrid(4, 60); // 4 bins, 60 minutes each
+        var grid = new TimeGrid(4, 60, TimeUnit.Minutes); // 4 bins, 60 minutes each
         
         // Act
         var result = node.Evaluate(grid, _ => throw new NotSupportedException("PMF nodes should not request inputs"));
@@ -75,7 +75,7 @@ public class PmfNodeTests
         // Act & Assert for various grid sizes
         foreach (var bins in new[] { 1, 3, 10, 24 })
         {
-            var grid = new TimeGrid(bins, 60);
+            var grid = new TimeGrid(bins, 60, TimeUnit.Minutes);
             var result = node.Evaluate(grid, _ => throw new NotSupportedException());
             
             Assert.Equal(bins, result.Length);
@@ -96,7 +96,7 @@ public class PmfNodeTests
         };
         var pmf = new Core.Pmf.Pmf(distribution);
         var node = new PmfNode(new NodeId("demand"), pmf);
-        var grid = new TimeGrid(3, 60);
+        var grid = new TimeGrid(3, 60, TimeUnit.Minutes);
 
         // Act
         var result = node.Evaluate(grid, _ => throw new NotSupportedException());

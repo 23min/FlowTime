@@ -209,7 +209,7 @@ public class M2BenchmarkDotNetTests
 
         return new ModelDefinition
         {
-            Grid = new GridDefinition { Bins = bins, BinMinutes = 60 },
+            Grid = new GridDefinition { Bins = bins, BinSize = 1, BinUnit = "hours" },
             Nodes = nodes
         };
     }
@@ -248,7 +248,7 @@ public class M2BenchmarkDotNetTests
 
         return new ModelDefinition
         {
-            Grid = new GridDefinition { Bins = bins, BinMinutes = 60 },
+            Grid = new GridDefinition { Bins = bins, BinSize = 1, BinUnit = "hours" },
             Nodes = nodes
         };
     }

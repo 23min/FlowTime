@@ -1,8 +1,52 @@
 # FlowTime-Engine Charter (v1.0)
 
 **Date:** 2025-09-20
-**Audience:** Engineers, architects, UI developers, and contributors to FlowTime.
-**Status:** Active scope definition.
+**Audience:** Engineers, architects, UI developers, and contribu## Current Implementation Status
+
+### ✅ Implemented
+* **Deterministic execution**: DAG evaluation on canonical time grid
+* **Telemetry generation**: Binned CSV/NDJSON/Parquet exports with catalog.json
+* **API-first runtime**: REST endpoints (`/v1/run`, `/v1/graph`, `/v1/artifacts`)
+* **Artifacts registry**: Persistent storage and discovery of runs and models
+* **Export system**: Multiple format support (M2.6)
+* **Registry integration**: Enhanced API with query capabilities (M2.7, M2.8)
+
+### 🔄 In Progress
+* **Schema evolution**: binSize/binUnit time specifications, provenance tracking (M2.9)
+
+### 📋 Planned
+* **Backlog & Latency primitives**: Single-queue backlog tracking, Little's Law calculations (M3.0)
+* **Telemetry import (Replay Mode)**: Hydrate runs from Gold telemetry
+* **Scenario execution (Overlay)**: Apply overlays to baseline runs
+* **Compare workflow**: Side-by-side comparison of runs and models (Deferred)
+
+### 🔮 Future Directions
+* **Extended primitives**: DLQ, multi-class fairness, advanced retries
+* **Calibration**: Fit parameters from telemetry
+* **Uncertainty modeling**: Monte Carlo runs with percentile bands
+* **Performance scaling**: Larger DAGs, distributed execution
+* **WASM runtime**: In-browser Engine for interactive demos
+
+---
+
+## Architecture Principles (KISS)
+
+* **Single Registry**: Engine owns the single source of truth for all artifacts (models + runs + telemetry)
+* **No Direct Communication**: Sim and Engine do NOT talk directly; UI orchestrates all workflows
+* **Temporary vs Permanent**: Sim provides temporary storage; Engine provides permanent artifact storage
+* **UI as Orchestrator**: UI coordinates Sim ↔ Engine workflows, fetching from Sim and posting to Engine
+
+---
+
+## Summary
+
+* FlowTime-Engine = **executor + telemetry generator**
+* FlowTime-Sim = **model authoring + stochastic input generator**
+* **Telemetry artifacts** are the lingua franca: all runs, replays, and comparisons flow through them
+* **Artifacts registry** is the persistent backbone: no forgetting, everything discoverable
+* **UI orchestrates** all cross-service workflows
+
+For current development roadmap and milestone details, see [`ROADMAP.md`](ROADMAP.md).**Status:** Active scope definition.
 
 ---
 

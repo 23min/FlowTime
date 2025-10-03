@@ -4,28 +4,27 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.AspNetCore.Hosting;
 
-public class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
-{
-  private readonly WebApplicationFactory<Program> factory;
+namespace FlowTime.Api.Tests.Legacy;
 
-  public ApiIntegrationTests(WebApplicationFactory<Program> factory)
+public class ApiIntegrationTests : IClassFixture<TestWebApplicationFactory>
+{
+  private readonly TestWebApplicationFactory factory;
+
+  public ApiIntegrationTests(TestWebApplicationFactory factory)
   {
-    // Force TestServer to avoid binding real ports (e.g., 8080) during tests
-    this.factory = factory.WithWebHostBuilder(builder =>
-    {
-      builder.UseEnvironment("Development");
-      builder.UseTestServer();
-      builder.UseSetting(Microsoft.AspNetCore.Hosting.WebHostDefaults.ServerUrlsKey, "http://127.0.0.1:0");
-    });
+    // TestWebApplicationFactory already configures test isolation and unique directories
+    this.factory = factory;
   }
 
   [Fact]
   public async Task Run_InvalidExpr_ReturnsBadRequestWithError()
   {
     var client = factory.CreateClient();
-    var yaml = @"grid:
+    var yaml = @"schemaVersion: 1
+grid:
   bins: 3
-  binMinutes: 60
+  binSize: 60
+  binUnit: minutes
 nodes:
   - id: demand
     kind: const
@@ -39,6 +38,29 @@ nodes:
     var error = await resp.Content.ReadFromJsonAsync<Dictionary<string, string>>();
     Assert.NotNull(error);
     Assert.True(error!.ContainsKey("error"), "Expected error payload with 'error' field");
+  }
+
+  [Fact]
+  public async Task Run_LegacyArrivalsRouteSchema_ReturnsBadRequest()
+  {
+    var client = factory.CreateClient();
+    var yaml = @"schemaVersion: 1
+grid:
+  bins: 3
+  binSize: 1
+  binUnit: hours
+arrivals:
+  kind: const
+  values: [10, 20, 30]
+route:
+  id: TEST";
+    var content = new StringContent(yaml, Encoding.UTF8, "text/plain");
+    var resp = await client.PostAsync("/v1/run", content);
+    Assert.Equal(System.Net.HttpStatusCode.BadRequest, resp.StatusCode);
+    var error = await resp.Content.ReadFromJsonAsync<Dictionary<string, string>>();
+    Assert.NotNull(error);
+    Assert.True(error!.ContainsKey("error"), "Expected error payload with 'error' field");
+    Assert.Contains("arrivals", error["error"], StringComparison.OrdinalIgnoreCase);
   }
 
   [Fact]
@@ -56,9 +78,11 @@ nodes:
   public async Task Run_ReturnsExpectedSeries()
   {
     var client = factory.CreateClient();
-    var yaml = @"grid:
+    var yaml = @"schemaVersion: 1
+grid:
   bins: 3
-  binMinutes: 60
+  binSize: 60
+  binUnit: minutes
 nodes:
   - id: demand
     kind: const
@@ -83,9 +107,11 @@ outputs:
   public async Task Graph_ReturnsNodesAndOrder()
   {
     var client = factory.CreateClient();
-    var yaml = @"grid:
+    var yaml = @"schemaVersion: 1
+grid:
   bins: 3
-  binMinutes: 60
+  binSize: 60
+  binUnit: minutes
 nodes:
   - id: demand
     kind: const
@@ -107,9 +133,11 @@ nodes:
   public async Task Graph_Structure_Invariants_Hold()
   {
     var client = factory.CreateClient();
-    var yaml = @"grid:
+    var yaml = @"schemaVersion: 1
+grid:
   bins: 4
-  binMinutes: 60
+  binSize: 60
+  binUnit: minutes
 nodes:
   - id: a
     kind: const

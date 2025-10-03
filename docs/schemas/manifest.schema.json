@@ -25,7 +25,18 @@
       "propertyNames": { "$ref": "#/$defs/seriesId" }
     },
     "eventCount": { "type": "integer", "minimum": 0 },
-    "createdUtc": { "type": "string", "format": "date-time" }
+    "createdUtc": { "type": "string", "format": "date-time" },
+    "provenance": {
+      "type": "object",
+      "description": "Reference to model provenance metadata",
+      "additionalProperties": false,
+      "properties": {
+        "has_provenance": { "type": "boolean" },
+        "model_id": { "type": "string" },
+        "template_id": { "type": "string" },
+        "source": { "type": "string" }
+      }
+    }
   },
   "$defs": {
     "hash": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },

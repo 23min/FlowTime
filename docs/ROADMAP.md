@@ -1,348 +1,343 @@
 # FlowTime Engine Roadmap
 
-**Vision:** Transform FlowTime into a comprehensive **model authoring and analysis platform** with artifacts-centric workflow  
-**Status:** Charter Implementation Revised (UI-M2.8 Phase 2+ Postponed)  
-**Last Updated:** January 27, 2025
+**Status:** Active  
+**Last Updated:** October 2, 2025  
+**Purpose:** Clear roadmap aligned with KISS architecture, recent milestones, and actual system capabilities
 
 ---
 
 ## Executive Summary
 
-FlowTime is evolving from a simulation demonstration tool into a **professional model authoring platform** that enables engineers to create, execute, persist, and compare probabilistic models at scale. The platform follows an **artifacts-centric paradigm** where all work is preserved and discoverable through persistent registry.
+FlowTime Engine is a **deterministic execution and telemetry generation platform** that evaluates flow models on canonical time grids. It's part of a three-component ecosystem:
 
-### **Charter Workflow Paradigm**
-```
-[Models] → [Runs] → [Artifacts] → [Learn] → [Compare]
-    ↑         ↑         ↑           ↑         ↑
-    │         │         │           │         │
- Author    Execute   Persist     Analyze   Compare
- models    models   results    patterns  scenarios
-```
+- **FlowTime-Sim**: Model authoring and template generation (generates models with provenance)
+- **FlowTime Engine**: Model execution and artifact generation (executes models, stores artifacts permanently)
+- **FlowTime UI**: Orchestration and visualization (coordinates Sim ↔ Engine workflows, visualizes results)
 
-### **Key Principles**
-- **Never Forget**: Persistent artifacts registry remembers all work
-- **Artifacts-Centric**: Everything flows through artifacts (runs, models, telemetry, comparisons)
-- **Contextual Actions**: Compare, Export, Analyze launched from artifacts and results
-- **Unified Workflow**: Input Selection → Configure → Compute → Results pattern across all features
+**Key Architecture Principle (KISS)**: 
+- **Engine owns the single artifacts registry** (models + runs + telemetry)
+- **Sim provides temporary model storage** for UI workflows
+- **UI orchestrates everything** - Sim and Engine do NOT communicate directly
 
 ---
 
-## Development Phases
+## Current State
 
-### **Phase 1: Charter Foundation (M2.6-M2.9) - Current Focus**
+### ✅ Completed Capabilities
 
-**Timeframe:** September 2025 - Q1 2026  
-**Goal:** Establish artifacts-centric infrastructure and charter UI
+| Milestone | Status | Key Achievements |
+|-----------|--------|------------------|
+| **M0-M2.0** | ✅ Complete | Core engine, expression evaluation, basic UI |
+| **M2.6** | ✅ Complete (v0.6.0) | Export system (CSV, NDJSON, Parquet) |
+| **M2.7** | ✅ Complete (v0.6.0) | Artifacts registry with file-based storage |
+| **M2.8** | ✅ Complete | Enhanced registry APIs, query capabilities |
+| **UI-M2.8 Phase 1** | ✅ Complete | Template API integration, Sim API migration |
 
-#### **✅ M2.6 Export System (Completed)**
-- **Achievement:** Export functionality with CSV, NDJSON, Parquet formats
-- **Charter Impact:** Provides foundation for artifact generation in charter workflow
-- **Status:** Complete - enables transition to artifacts-centric paradigm
+### 🔄 In Progress
 
-#### **📋 M2.7 Artifacts Registry (Planned)**
-- **Goal:** Persistent artifact storage and discovery system
-- **Key Features:**
-  - File-based artifact storage with JSON metadata
-  - REST API for artifact CRUD operations
-  - Search and filtering capabilities across artifact types
-  - Auto-generation of artifacts from existing runs
-- **Charter Impact:** Core infrastructure enabling "Never Forget" principle
-- **Dependencies:** M2.6 (Export System)
+| Milestone | Status | Current Phase |
+|-----------|--------|---------------|
+| **M2.9** | 🔄 In Progress | **Phase 0 Complete** ✅ - TDD test setup (158 tests, 4,148 lines)<br/>**Phase 1 Complete** ✅ - Schema documentation<br/>**Phase 2 Complete** ✅ - Engine implementation (221/224 tests passing)<br/>**Phase 3 Next** 📋 - FlowTime-Sim alignment & integration testing |
 
-#### **📋 M2.8 Registry Integration & API Enhancement (Planned)**
-- **Goal:** Enhanced API integration with artifacts registry and service-level charter support
-- **Key Features:**
-  - Registry integration throughout existing APIs
-  - Enhanced workflow services supporting charter patterns
-  - Background services for artifact management
-  - API preparation for UI charter implementation
-- **Charter Impact:** Enables seamless integration between existing functionality and new charter workflow
-- **Dependencies:** M2.7 (Artifacts Registry)
+### 📋 Upcoming
 
-#### **📋 M2.9 Compare Workflow (Planned)**
-- **Goal:** Implement charter Compare functionality using artifacts registry
-- **Key Features:**
-  - Contextual comparison launched from artifacts and results
-  - Side-by-side analysis with difference highlighting
-  - Flexible comparison inputs (Run vs Run, Run vs Telemetry, Model vs Run)
-  - Comparison results stored as artifacts
-- **Charter Impact:** Completes core charter workflow enabling comprehensive analysis
-- **Dependencies:** M2.8 (Registry Integration)
-
-### **Phase 2: Charter User Experience (UI-M2.7+) - Revised Scope**
-
-**Timeframe:** October 2025 - Q2 2026 (Revised: Jan 2026+)  
-**Revised Goal:** Implement artifacts registry UI; charter navigation postponed pending reimplementation
-
-#### **📋 UI-M2.7 Artifacts Registry UI**
-- **Goal:** Comprehensive artifacts browsing and management interface
-- **Key Features:**
-  - Artifacts browser with search, filtering, and metadata display
-  - Artifact detail views with file listings and contextual actions
-  - Reusable artifact selector components for charter workflows
-  - Performance optimized for 1000+ artifacts
-- **User Impact:** Enables discovery and navigation of all preserved work
-
-#### **� UI-M2.8 Charter Navigation & Tab Structure**
-- **Status:** ✅ **PHASE 1 COMPLETE** (Jan 2025) - ❌ **PHASES 2+ POSTPONED**
-- **Completed:** Template API Integration with FlowTime-Sim API migration and demo mode preservation
-- **Postponed:** Charter workflow navigation system (stepper-based context bar, workflow state management)
-- **Reason:** Charter workflow approach requires reimplementation with clearer user value proposition
-- **Impact:** Template Studio functionality enhanced through API integration; charter navigation deferred pending architectural review
-
-#### **❌ UI-M2.9 Compare Workflow UI Integration**
-- **Status:** **POSTPONED** pending charter workflow reimplementation
-- **Original Goal:** Visual comparison interfaces integrated into charter navigation
-- **Postponement Reason:** Depends on UI-M2.8 charter navigation system which has been postponed
-- **Dependencies:** UI-M2.8 Phase 2+ (postponed), M2.9 Compare Workflow
-- **Future Consideration:** Will be reconsidered when charter workflow approach is reimagined
-
-### **Phase 3: Cross-Platform Integration (UI-M3.0 - SIM-M3.0) - Future**
-
-**Timeframe:** Q2-Q3 2026  
-**Goal:** Unified charter experience spanning Engine and Simulation platforms
-
-#### **📋 UI-M3.0 Cross-Platform Charter Integration**
-- **Goal:** Unified charter UI spanning Engine and Simulation platforms
-- **Key Features:**
-  - Charter navigation extended to include simulation capabilities
-  - Embedded model authoring interface within charter workflow
-  - Cross-platform workflow integration and state management
-  - Clear communication of cross-platform connectivity and capabilities
-
-#### **📋 SIM-M3.0 Charter Alignment**
-- **Goal:** Full charter integration between Engine and Simulation platforms
-- **Key Features:**
-  - Model artifacts created in Sim discoverable in Engine charter
-  - Seamless workflow transitions between platforms
-  - Cross-platform comparison capabilities (Engine vs Simulation)
-  - Unified artifact registry spanning both platforms
-
-### **Phase 4: Advanced Engine Capabilities (M3.0+) - Future**
-
-**Timeframe:** Q4 2026 - 2027  
-**Goal:** Expand FlowTime engine with advanced modeling and analysis capabilities
-
-#### **📋 M3.0 Backlog & Latency Modeling**
-- **Goal:** Advanced queueing theory with backlog tracking and latency computation
-- **Key Features:**
-  - Single-queue backlog modeling with Little's Law latency calculations
-  - Backlog persistence and accumulation across time periods
-  - Latency metrics per entity/transaction flow
-  - Service time distribution modeling
-- **Charter Impact:** Enables sophisticated capacity planning and performance analysis workflows
-
-#### **📋 M4.0 Scenarios & Advanced Compare**
-- **Goal:** Multi-scenario modeling with comprehensive comparison capabilities
-- **Key Features:**
-  - Scenario management and batch execution
-  - Statistical comparison across scenario runs
-  - What-if analysis with parameter sweeps
-  - Confidence intervals and distribution analysis
-- **Charter Impact:** Transforms charter Compare into professional scenario analysis platform
-
-#### **📋 M5.0 Routing & Network Modeling**
-- **Goal:** Multi-path routing with fan-out and capacity constraints
-- **Key Features:**
-  - Dynamic routing with load balancing algorithms
-  - Fan-out patterns with configurable distribution
-  - Capacity caps and overflow handling
-  - Network topology modeling and visualization
-- **Charter Impact:** Enables complex system architecture modeling within charter workflow
-
-#### **📋 M6.0 Batch Processing & Temporal Windows**
-- **Goal:** Batch window processing with lag/shift operations
-- **Key Features:**
-  - Configurable batch windows with time alignment
-  - Lag compensation and temporal shift modeling
-  - Batch accumulation and release patterns
-  - Window-based aggregation functions
-- **Charter Impact:** Advanced temporal modeling for batch processing systems
-
-### **Phase 5: Enterprise & Integration (M7.0+) - Long-term Vision**
-
-**Timeframe:** 2028+  
-**Goal:** Enterprise-grade capabilities and external system integration
-
-#### **📋 M7.0 Advanced Queueing Systems**
-- **Goal:** Multi-queue systems with buffers and spillover
-- **Key Features:**
-  - Finite buffer queues with capacity limits
-  - Spillover and overflow handling policies
-  - Priority queues and service level agreements
-  - Resource contention modeling
-- **Charter Impact:** Professional queueing analysis with enterprise-grade modeling
-
-#### **📋 M8.0 Real-Time Data Integration**
-- **Goal:** Live data feeds and real-time model updates
-- **Key Features:**
-  - Streaming data ingestion from external systems
-  - Real-time model calibration and parameter updates
-  - Live dashboard updates and monitoring
-  - Event-driven model execution triggers
-- **Charter Impact:** Charter workflow extended to live operational systems
-
-#### **📋 M9.0 Machine Learning Integration**
-- **Goal:** ML-powered model optimization and pattern recognition
-- **Key Features:**
-  - Automated parameter tuning using ML algorithms
-  - Pattern recognition in artifact collections
-  - Predictive modeling based on historical artifacts
-  - Anomaly detection in model behavior
-- **Charter Impact:** AI-enhanced charter workflows with intelligent insights
-
-#### **📋 M10.0+ Platform Ecosystem**
-- **Goal:** Comprehensive modeling platform with ecosystem integration
-- **Key Features:**
-  - Plugin architecture for custom modeling components
-  - Third-party integration APIs and connectors
-  - Cloud-native deployment and scaling capabilities
-  - Multi-tenant enterprise deployment options
-- **Charter Impact:** FlowTime as comprehensive enterprise modeling platform
+| Milestone | Status | Focus |
+|-----------|--------|-------|
+| **M2.9 Phase 3** | 🔄 Final Phase | FlowTime-Sim alignment, example migration, legacy test cleanup |
+| **M2.10** | 📋 Next | Compare workflow and cross-run analysis |
+| **M3.0** | 📋 Planned | Backlog & Latency Modeling (single-queue, Little's Law) |
 
 ---
 
-## Historical Context: The M2.6 Charter Transition
+## Architecture Context
 
-### **Pre-Charter Era (M0-M2.5)**
-**Characteristics:** Demo-focused development with individual feature milestones
-- **M0-M1:** Core engine and basic UI implementation
-- **M2.0-M2.5:** Individual features (templates, analysis pipeline, UI components)
-- **Approach:** Feature-driven development without unified workflow vision
+### KISS Principle: Single Registry
 
-### **Charter Transition (M2.6)**
-**Catalyst:** Recognition that FlowTime needed transformation from demo tool to professional platform  
-**Key Insight:** Users needed persistent workflow and artifact management, not just individual features
+**Who Owns What:**
 
-**M2.6 as Turning Point:**
-- **Last Pre-Charter Milestone:** Completed export functionality using traditional approach
-- **Charter Foundation:** Export system provided infrastructure patterns for artifact generation
-- **Paradigm Shift:** Transitioned from export-focused to artifacts-centric thinking
-- **Architecture Alignment:** M2.6 work preserved and enhanced to support charter vision
-
-### **Post-Charter Era (M2.7+)**
-**Characteristics:** Artifacts-centric development with unified workflow vision
-- **Unified Vision:** All development aligned with charter workflow paradigm
-- **User Focus:** Professional workflows that preserve and build upon all work
-- **Architecture:** Separation of concerns between backend services (M2.x) and UI implementation (UI-M2.x)
-
----
-
-## Platform Architecture Evolution
-
-### **Current Architecture (Post-M2.6)**
 ```
-┌─────────────────┬─────────────────┬─────────────────┐
-│   UI Layer      │  Service Layer  │  Storage Layer  │
-├─────────────────┼─────────────────┼─────────────────┤
-│ Charter Tabs    │ Registry APIs   │ Artifact Files  │
-│ Artifact Browser│ Workflow APIs   │ JSON Metadata   │  
-│ Compare UI      │ Export Services │ Run Results     │
-│ Template Runner │ Analysis Engine │ Model Storage   │
-└─────────────────┴─────────────────┴─────────────────┘
+FlowTime-Sim (/workspaces/flowtime-sim-vnext)
+├── Generates models from templates
+├── Creates provenance metadata (template_id, parameters, model_id)
+├── Stores models TEMPORARILY in /data/models/
+└── Exposes GET /api/v1/models/{id} for UI retrieval
+
+FlowTime UI (:5219)
+├── ORCHESTRATES everything (Sim ↔ Engine)
+├── Gets model + provenance from Sim
+├── Posts model + provenance to Engine
+└── Queries Engine for results
+
+FlowTime Engine (/workspaces/flowtime-vnext)
+├── SINGLE SOURCE OF TRUTH for all artifacts
+├── Executes models deterministically
+├── Stores PERMANENTLY: models + runs + telemetry
+├── Registry: /data/registry-index.json
+└── Artifacts: /data/{run_*|models/*}/
 ```
 
-### **Milestone Architecture Alignment**
-- **Backend Milestones (M2.x):** API services, data management, business logic
-- **UI Milestones (UI-M2.x):** User interfaces, navigation, user experience
-- **Cross-Platform Milestones (SIM-M2.x):** Integration between Engine and Simulation
-- **Clear Separation:** Enables parallel development and independent evolution
+**No Direct Communication**: Sim and Engine do NOT talk directly. UI coordinates all workflows.
+
+### Communication Flow
+
+```mermaid
+sequenceDiagram
+    participant UI as FlowTime UI
+    participant Sim as FlowTime-Sim
+    participant Engine as FlowTime Engine
+    
+    Note over Sim,Engine: NO DIRECT CONNECTION
+    
+    UI->>Sim: POST /api/v1/templates/{id}/generate
+    Sim-->>UI: Return model YAML + metadata
+    
+    UI->>Sim: GET /api/v1/models/{id}
+    Sim-->>UI: Return {model, provenance}
+    
+    UI->>Engine: POST /v1/run<br/>X-Model-Provenance: {model_id}<br/>Body: model YAML
+    Engine-->>UI: Return {runId, artifacts}
+    
+    UI->>Engine: GET /v1/artifacts
+    Engine-->>UI: Return artifact list
+```
 
 ---
 
-## Success Metrics & Validation
+## Milestone Details
 
-### **Charter Adoption Metrics**
-- **Artifacts Usage:** >70% of user actions utilize artifacts registry
-- **Charter Navigation:** >60% of sessions use charter tabs for workflow navigation
-- **Compare Adoption:** >40% of analysis sessions include Compare workflows
-- **Workflow Continuity:** Zero functionality regression during charter transition
+### M2.9: Schema Evolution & Provenance (🔄 In Progress)
 
-### **Technical Performance Metrics**
-- **Registry Performance:** Artifact queries <200ms for 10K+ artifacts
-- **UI Responsiveness:** Charter interface performance matches existing UI
-- **Integration Reliability:** Charter workflows maintain 99%+ success rate
-- **Data Persistence:** 100% artifact preservation and discoverability
+**Goal**: Complete schema evolution and provenance tracking for full model traceability.
 
-### **User Experience Metrics**
-- **Feature Discoverability:** Users find charter features without training
-- **Workflow Efficiency:** Charter reduces analysis time by 30%+ for comparison tasks
-- **Adoption Rate:** Steady increase in charter feature usage month-over-month
-- **User Satisfaction:** Positive feedback on workflow continuity and persistence
+#### Status: Phase 0 Complete ✅
+
+**Completed Work:**
+- ✅ 158 comprehensive tests created (4,148 lines of test code)
+- ✅ TDD setup with RED state confirmed (tests compile, fail as expected)
+- ✅ Schema documentation updated (target-model-schema.yaml/md)
+- ✅ Deprecation notices on legacy schemas
+- ✅ Architecture documents aligned with KISS
+
+**Test Coverage:**
+- TimeGrid evolution (binSize/binUnit): 18 tests
+- Schema validation: 33 tests  
+- PMF compilation pipeline: 34 tests
+- RNG/PCG32 algorithm: 33 tests
+- API provenance support: 40 tests
+
+#### Phase 1: Schema Documentation ✅ Complete
+
+**Completed:**
+- ✅ target-model-schema.yaml with provenance field
+- ✅ target-model-schema.md with provenance documentation
+- ✅ manifest.schema.json with provenance reference
+- ✅ Deprecated legacy schemas (engine-input-schema.*, sim-model-output-schema.*)
+- ✅ README.md updated to reference unified schema
+
+#### Phase 2: Engine Implementation (📋 Next)
+
+**Implementation Order:**
+1. **TimeGrid Evolution** - Add TimeUnit enum, binSize/binUnit constructor
+2. **Model Parser** - Parse new schema format, validate schemaVersion
+3. **PMF Compilation** - 4-phase pipeline (validation, grid alignment, compilation, provenance)
+4. **RNG/PCG32** - Deterministic random number generator (see [`docs/architecture/rng-algorithm.md`](architecture/rng-algorithm.md))
+5. **Provenance Support** - Parse header/embedded provenance, store provenance.json
+6. **Hash Calculation** - Exclude provenance from model_hash
+
+**Expected Outcome**: All 158 tests pass (GREEN state)
+
+#### Phase 3: FlowTime-Sim Alignment (📋 Coordinate with Sim team)
+
+**Sim Changes Needed:**
+- Remove binSize/binUnit → binMinutes conversion
+- Output target-model-schema format directly
+- Embed provenance in generated models (optional, alongside header)
+
+**Timeline**: Coordinate with Sim M2.7-M2.9 milestones
+
+#### Phase 4: Validation & Documentation
+
+**Final Steps:**
+- Integration testing between Sim and Engine
+- Update examples and documentation
+- User migration guide
+- Release notes
 
 ---
 
-## Technology & Implementation Strategy
+### M2.10: Compare Workflow (� Deferred)
 
-### **Development Approach**
-- **Incremental Migration:** Preserve existing functionality while adding charter capabilities
-- **Parallel Development:** Backend (M2.x) and UI (UI-M2.x) milestones can develop simultaneously
-- **User-Centric:** No disruption to established workflows during transition
-- **Charter Alignment:** All new development follows charter principles from M2.7 forward
+**Original Goal**: Side-by-side comparison of runs, telemetry, and models.
 
-### **Technical Stack**
-- **Backend:** .NET 9, ASP.NET Core APIs, file-based artifact storage
-- **Frontend:** Blazor Server, MudBlazor components, responsive design
-- **Integration:** RESTful APIs, JSON artifact metadata, cross-platform HTTP communication
-- **Testing:** Charter workflow integration tests, performance validation, user acceptance testing
+**Status**: **Deferred pending charter workflow re-evaluation**
 
-### **Risk Mitigation**
-- **Backward Compatibility:** Existing export and analysis functionality preserved
-- **Incremental Rollout:** Charter features added alongside existing UI
-- **User Communication:** Clear messaging about charter benefits and transition
-- **Performance Monitoring:** Continuous validation of system performance during growth
+**Why Deferred:**
+- Charter navigation system postponed (UI-M2.8 Phase 2+)
+- Compare functionality requires reimagined charter paradigm
+- Current focus on core modeling capabilities (M3.0+)
+
+**What M2.9 Already Provides:**
+- ✅ Model provenance tracking (template_id, model_id, parameters)
+- ✅ Model storage in Engine registry
+- ✅ Model discovery via artifacts API
+- ✅ Model deduplication via model_hash
+
+**Note**: Basic comparison workflows can be implemented later without requiring a separate milestone. After M2.9, focus shifts to M3.0 (modeling capabilities).
 
 ---
 
-## Future Vision: Long-Term Platform Evolution
+## Future Milestones
 
-### **Advanced Modeling Capabilities (Phase 4: M3.0-M6.0)**
-- **Queueing Theory:** Advanced backlog modeling, latency computation, and Little's Law applications
-- **Scenario Analysis:** Multi-scenario execution with statistical comparison and what-if analysis
-- **Network Modeling:** Routing, fan-out patterns, capacity constraints, and topology visualization
-- **Temporal Processing:** Batch windows, lag compensation, and temporal shift operations
+### Advanced Engine Capabilities
 
-### **Enterprise Integration (Phase 5: M7.0-M10.0)**
-- **Advanced Queueing:** Multi-queue systems, buffer management, priority queues, and SLA modeling
-- **Real-Time Integration:** Live data feeds, streaming ingestion, and event-driven execution
-- **Machine Learning:** AI-powered optimization, pattern recognition, and predictive modeling
-- **Platform Ecosystem:** Plugin architecture, third-party integrations, and multi-tenant deployment
+**M3.0: Backlog & Latency Modeling**
+- Single-queue backlog tracking
+- Little's Law latency calculations
+- Service time distribution modeling
 
-### **Charter Workflow Evolution**
-The charter paradigm scales naturally to accommodate advanced capabilities:
-- **[Models]** expands to include complex queueing systems, network topologies, and ML models
-- **[Runs]** supports scenario batches, parameter sweeps, and real-time execution
-- **[Artifacts]** encompasses statistical analyses, ML insights, and enterprise-grade reporting
-- **[Learn]** integrates advanced analytics, predictive modeling, and collaborative insights
-- **[Compare]** evolves into comprehensive scenario analysis and optimization workflows
+**M3.1: Scenarios & Parameter Sweeps**
+- Multi-scenario execution
+- Parameter sweep workflows
+- Statistical comparison
+
+### Cross-Platform Integration
+
+**UI-M3.0: Cross-Platform Charter**
+- Unified UI spanning Engine and Sim
+- Embedded model authoring
+- Cross-platform workflows
+
+**SIM-M3.0: Charter Alignment**
+- Model artifacts integration
+- Seamless Engine ↔ Sim workflows
+
+### Advanced Capabilities (Future)
+
+**M4.0+: Advanced Modeling**
+- Routing & network modeling
+- Multi-queue systems
+- Batch processing & temporal windows
+
+**M5.0+: Enterprise Features**
+- Real-time data integration
+- Machine learning integration
+- Cloud-native deployment
+
+---
+
+## Technology Stack
+
+### Backend (.NET 9)
+- **API Style**: Minimal APIs (`.MapPost()`, `.MapGet()`) in Program.cs
+- **No Controllers**: Direct route handlers with dependency injection
+- **Storage**: File-based artifacts (/data/ directory)
+- **Registry**: JSON index (registry-index.json)
+
+### Frontend (Blazor Server)
+- **UI Framework**: Blazor Server with MudBlazor
+- **Architecture**: Orchestrator pattern (UI coordinates Sim ↔ Engine)
+- **API Integration**: HTTP client calls to both services
+
+### Testing Strategy
+- **Core Tests**: No web dependencies, deterministic, fast
+- **API Tests**: WebApplicationFactory<Program> for Minimal APIs
+- **Integration Tests**: Full workflow tests (UI → Sim → Engine)
+- **TDD Approach**: Tests first (RED), then implementation (GREEN)
+
+---
+
+## Development Principles
+
+### 1. KISS Architecture
+- Single registry (Engine owns it)
+- No direct service-to-service communication
+- UI orchestrates workflows
+- Temporary vs permanent storage clearly separated
+
+### 2. Determinism
+- Same model + seed → same results
+- Reproducible artifacts
+- Exact numeric assertions in tests
+
+### 3. Test-Driven Development
+- Comprehensive tests before implementation
+- RED → GREEN → REFACTOR cycle
+- No time estimates in documentation
+
+### 4. Schema Evolution
+- Versioned schemas (schemaVersion: 1)
+- Additive changes preferred
+- Clear deprecation strategy
+
+### 5. Provenance Tracking
+- Complete model lineage (template → model → run)
+- Metadata in artifacts
+- Permanent storage in Engine registry
+
+---
+
+## Success Metrics
+
+### Technical Metrics
+- **Registry Performance**: <200ms queries for 10K+ artifacts
+- **Determinism**: 100% reproducible runs
+- **Test Coverage**: >90% for core execution engine
+- **API Reliability**: 99%+ success rate
+
+### User Experience Metrics
+- **Workflow Continuity**: Zero regression in existing features
+- **Artifact Discoverability**: All runs/models findable in registry
+- **Cross-Platform Integration**: Seamless Sim → Engine workflows
+
+---
+
+## Archived Documents
+
+For historical context, see `docs/archive/`:
+- **ROADMAP-2025-01.md** - January 2025 charter-focused roadmap (outdated status)
+- **ROADMAP-LEGACY.md** - Pre-charter milestone structure
+- **CHARTER-ROADMAP.md** - Charter implementation sequence (superseded by this roadmap)
+
+### Superseded Schema Documents
+
+The following schema documents are deprecated:
+- **engine-input-schema.md** - Use `target-model-schema.md` instead
+- **engine-input.schema.json** - Use `target-model-schema.yaml` instead
+- **sim-model-output-schema.md** - Unified to `target-model-schema.md`
 
 ---
 
 ## Getting Started
 
-### **For Developers**
-1. **Current Development:** Focus on M2.7 Artifacts Registry implementation
-2. **Architecture Understanding:** Review [Charter Document](charter/flowtime-engine.md) for vision alignment
-3. **Milestone Planning:** See [Charter Roadmap](milestones/CHARTER-ROADMAP.md) for detailed implementation sequence
-4. **Code Standards:** Follow charter architectural principles in all new development
+### For Developers
+1. Review this ROADMAP.md for current direction
+2. Check M2.9 milestone document for detailed implementation plan
+3. See tests in tests/FlowTime.Tests/ and tests/FlowTime.Api.Tests/Provenance/
+4. Follow TDD: tests exist, make them pass
+5. Use Minimal APIs pattern (not controllers)
 
-### **For Users**
-1. **Current Features:** Continue using existing export and analysis functionality
-2. **Charter Preview:** Look for new charter features as M2.7-M2.9 milestones complete
-3. **Workflow Transition:** Expect gradual introduction of charter navigation and artifact management
-4. **Feedback:** Provide input on charter workflow patterns and feature priorities
+### For Stakeholders
+1. **Current Focus**: M2.9 schema evolution (Phase 0 complete, Phase 2 next)
+2. **Architecture**: KISS principle with single registry
+3. **Next Milestone**: M3.0 (Backlog & Latency Modeling) after M2.9
+4. **Integration**: Sim ↔ UI ↔ Engine coordination via UI orchestration
 
-### **For Stakeholders**
-1. **Charter Benefits:** Persistent workflows, comprehensive artifact management, professional analysis platform
-2. **Development Timeline:** 
-   - **2026:** Core charter functionality (M2.7-M2.9) and cross-platform integration (UI-M3.0-SIM-M3.0)
-   - **2027:** Advanced engine capabilities (M3.0-M6.0) with queueing, scenarios, and network modeling
-   - **2028+:** Enterprise features (M7.0-M10.0) with real-time integration and ML capabilities
-3. **Investment Value:** Evolution from demo tool → professional platform → enterprise modeling ecosystem
-4. **Competitive Position:** Comprehensive modeling platform spanning basic workflows to advanced enterprise capabilities
+### For Users
+1. Continue using existing workflows (no disruption)
+2. New provenance features coming in M2.9
+3. Backlog & latency modeling coming in M3.0 (next)
+4. Cross-platform integration (future)
 
 ---
 
-**Charter Status:** 🔄 Implementation in Progress  
-**Next Milestone:** 📋 M2.7 Artifacts Registry  
-**Charter Vision:** ✅ Established and Aligned
+**Next Actions:**
+1. ✅ Review and discuss ROADMAP.md
+2. ✅ Update/retire outdated documents (archived)
+3. 📋 Complete M2.9 Phase 2 implementation
+4. 📋 Plan M3.0 backlog & latency modeling
+
+---
+
+**Roadmap Status:** ✅ Active  
+**Current Milestone:** M2.9 (Phase 0 ✅ Complete, Phase 2 📋 Next)  
+**Architecture:** KISS - Single Registry in Engine

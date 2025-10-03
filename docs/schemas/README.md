@@ -5,18 +5,23 @@
 **FlowTime Engine** expects **YAML** input on `POST /run` with the following structure:
 
 ```yaml
-grid:
-  bins: 24          # Required: Number of time periods
-  binMinutes: 60    # Required: Minutes per time period
+schemaVersion: 1    # Required: Schema version (always 1 for current)
 
-nodes:              # Required: Array of node definitions
-  - id: demand      # Required: Unique identifier
-    kind: const     # Required: const|expr|pmf
-    values: [...]   # For const: array of numbers
+grid:                # Required: Time grid definition
+  bins: 24           # Required: Number of time periods
+  binSize: 1         # Required: Duration magnitude
+  binUnit: hours     # Required: minutes|hours|days|weeks
+
+nodes:               # Required: Array of node definitions
+  - id: demand       # Required: Unique identifier
+    kind: const      # Required: const|expr|pmf
+    values: [...]    # For const: array of numbers
   - id: served
     kind: expr
     expr: "demand * 0.8"  # For expr: expression string
 ```
+
+**⚠️ Schema Evolution**: FlowTime M2.9 uses `binSize`/`binUnit` format (not legacy `binMinutes`). See [target-model-schema.md](target-model-schema.md) for complete specification.
 
 ## Content Format
 
@@ -33,8 +38,9 @@ nodes:              # Required: Array of node definitions
 
 ## Schema Validation
 
-- **Formal Schema**: [`engine-input.schema.json`](engine-input.schema.json)
-- **Documentation**: [`engine-input-schema.md`](engine-input-schema.md)
+- **Current Schema (M2.9)**: [`target-model-schema.yaml`](target-model-schema.yaml) - Unified format with `binSize`/`binUnit`
+- **Documentation**: [`target-model-schema.md`](target-model-schema.md) - Complete specification
+- **Legacy Schemas**: `engine-input.schema.json` and `engine-input-schema.md` are **deprecated** (use target-model-schema instead)
 - **Examples**: [`/examples/`](/examples/) directory
 
 ## Integration with FlowTime-Sim

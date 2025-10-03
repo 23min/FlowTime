@@ -1,4 +1,4 @@
-﻿namespace FlowTime.Tests;
+namespace FlowTime.Tests;
 
 public class UnitTest1
 {

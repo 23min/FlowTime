@@ -33,9 +33,11 @@ public class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
   public async Task Run_ReturnsExpectedSeries()
   {
     var client = factory.CreateClient();
-    var yaml = @"grid:
+    var yaml = @"schemaVersion: 1
+grid:
   bins: 3
-  binMinutes: 60
+  binSize: 60
+  binUnit: minutes
 nodes:
   - id: demand
     kind: const
@@ -60,9 +62,11 @@ outputs:
   public async Task Graph_ReturnsNodesAndOrder()
   {
     var client = factory.CreateClient();
-    var yaml = @"grid:
+    var yaml = @"schemaVersion: 1
+grid:
   bins: 3
-  binMinutes: 60
+  binSize: 60
+  binUnit: minutes
 nodes:
   - id: demand
     kind: const

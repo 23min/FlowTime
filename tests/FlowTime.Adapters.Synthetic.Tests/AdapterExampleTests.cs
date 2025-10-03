@@ -89,7 +89,7 @@ public class AdapterExampleTests
           "runId": "sim_2025-09-03T12-00-00Z_abc12345",
           "engineVersion": "sim-0.2.0",
           "source": "sim",
-          "grid": { "bins": 4, "binMinutes": 60, "timezone": "UTC", "align": "left" },
+          "grid": { "bins": 4, "binSize": 1, "binUnit": "hours", "timezone": "UTC", "align": "left" },
           "scenarioHash": "sha256:sample123",
           "createdUtc": "2025-09-03T12:00:00Z",
           "warnings": ["PMF normalized"],
@@ -106,7 +106,7 @@ public class AdapterExampleTests
         var indexJson = """
         {
           "schemaVersion": 1,
-          "grid": { "bins": 4, "binMinutes": 60, "timezone": "UTC" },
+          "grid": { "bins": 4, "binSize": 1, "binUnit": "hours", "timezone": "UTC" },
           "series": [
             {
               "id": "demand@COMP_A",

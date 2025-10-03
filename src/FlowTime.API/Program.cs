@@ -427,13 +427,43 @@ v1.MapPost("/run", async (HttpRequest req, IArtifactRegistry registry, ILogger<P
         var preview = yaml.Substring(0, previewLen);
         logger.LogDebug("/run accepted YAML: {Length} chars; preview: {Preview}", yaml.Length, preview);
 
+        // Extract provenance metadata (from header or embedded YAML)
+        ProvenanceMetadata? provenance;
+        try
+        {
+            provenance = ProvenanceService.ExtractProvenance(req, yaml, logger);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Results.BadRequest(new { error = $"Invalid provenance: {ex.Message}" });
+        }
+        
+        string? provenanceJson = null;
+        if (provenance != null)
+        {
+            // Set received timestamp
+            provenance.ReceivedAt = DateTime.UtcNow.ToString("o");
+            provenanceJson = System.Text.Json.JsonSerializer.Serialize(provenance, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+        }
+
+        // Strip provenance from YAML to get clean execution spec
+        var cleanYaml = ProvenanceService.StripProvenance(yaml);
+
+        // Validate schema before parsing
+        var validationResult = ModelValidator.Validate(cleanYaml);
+        if (!validationResult.IsValid)
+        {
+            var errorMsg = string.Join("; ", validationResult.Errors);
+            return Results.BadRequest(new { error = errorMsg });
+        }
+
         // Convert API DTO to Core model definition and parse using shared ModelParser
         FlowTime.Core.TimeGrid grid;
         Graph graph;
         FlowTime.Core.Models.ModelDefinition coreModel;
         try
         {
-            coreModel = ModelService.ParseAndConvert(yaml);
+            coreModel = ModelService.ParseAndConvert(cleanYaml);
             
             (grid, graph) = ModelParser.ParseModel(coreModel);
         }
@@ -462,12 +492,13 @@ v1.MapPost("/run", async (HttpRequest req, IArtifactRegistry registry, ILogger<P
             Model = coreModel,
             Grid = grid,
             Context = artifactContext,
-            SpecText = yaml,
+            SpecText = cleanYaml, // Use clean YAML without provenance
             RngSeed = null, // API doesn't support seed parameter yet
             StartTimeBias = null,
             DeterministicRunId = false,
             OutputDirectory = artifactsDir,
-            Verbose = false
+            Verbose = false,
+            ProvenanceJson = provenanceJson // Include provenance if present
         };
 
         var artifactResult = await FlowTime.Core.Artifacts.RunArtifactWriter.WriteArtifactsAsync(writeRequest);
@@ -495,11 +526,12 @@ v1.MapPost("/run", async (HttpRequest req, IArtifactRegistry registry, ILogger<P
         var series = order.ToDictionary(id => id.Value, id => ctx[id].ToArray());
         var response = new
         {
-            grid = new { bins = grid.Bins, binMinutes = grid.BinMinutes },
+            grid = new { bins = grid.Bins, binSize = grid.BinSize, binUnit = grid.BinUnit.ToString().ToLowerInvariant() },
             order = order.Select(o => o.Value).ToArray(),
             series,
             runId = artifactResult.RunId,
-            artifactsPath = artifactResult.RunDirectory
+            artifactsPath = artifactResult.RunDirectory,
+            modelHash = artifactResult.ScenarioHash // Include model hash for deduplication
         };
         return Results.Ok(response);
     }

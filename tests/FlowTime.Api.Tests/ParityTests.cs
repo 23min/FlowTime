@@ -2,22 +2,19 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Linq;
 using FlowTime.Core;
+using FlowTime.Api.Tests;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.AspNetCore.Hosting;
 
-public class ParityTests : IClassFixture<WebApplicationFactory<Program>>
+public class ParityTests : IClassFixture<TestWebApplicationFactory>
 {
-	private readonly WebApplicationFactory<Program> factory;
+	private readonly TestWebApplicationFactory factory;
 
-	public ParityTests(WebApplicationFactory<Program> factory)
+	public ParityTests(TestWebApplicationFactory factory)
 	{
-		this.factory = factory.WithWebHostBuilder(builder =>
-		{
-			builder.UseEnvironment("Development");
-			builder.UseTestServer();
-			builder.UseSetting(Microsoft.AspNetCore.Hosting.WebHostDefaults.ServerUrlsKey, "http://127.0.0.1:0");
-		});
+		// TestWebApplicationFactory already configures test isolation
+		this.factory = factory;
 	}
 
 	[Fact]
@@ -25,9 +22,11 @@ public class ParityTests : IClassFixture<WebApplicationFactory<Program>>
 	{
 		// Arrange: model YAML mirrors examples/hello/model.yaml (no tabs)
 		var yaml =
+			"schemaVersion: 1\n" +
 			"grid:\n" +
 			"  bins: 8\n" +
-			"  binMinutes: 60\n" +
+			"  binSize: 60\n" +
+			"  binUnit: minutes\n" +
 			"nodes:\n" +
 			"  - id: demand\n" +
 			"    kind: const\n" +
@@ -51,7 +50,7 @@ public class ParityTests : IClassFixture<WebApplicationFactory<Program>>
 		Assert.NotNull(doc);
 
 		// Compute expected values using Core directly
-		var grid = new TimeGrid(8, 60);
+		var grid = new TimeGrid(8, 60, TimeUnit.Minutes);
 		var nodes = new INode[]
 		{
 						new ConstSeriesNode("demand", Enumerable.Repeat(10.0, 8).ToArray()),
@@ -65,7 +64,8 @@ public class ParityTests : IClassFixture<WebApplicationFactory<Program>>
 		// Assert exact equality (M0 determinism)
 		Assert.Equal(expected, doc!.series["served"]);
 		Assert.Equal(grid.Bins, doc.grid.bins);
-		Assert.Equal(grid.BinMinutes, doc.grid.binMinutes);
+		Assert.Equal(grid.BinSize, doc.grid.binSize);
+		Assert.Equal(grid.BinUnit.ToString().ToLowerInvariant(), doc.grid.binUnit);
 		Assert.Contains("served", doc.series.Keys);
 	}
 
@@ -75,6 +75,6 @@ public class ParityTests : IClassFixture<WebApplicationFactory<Program>>
 		public required string[] order { get; init; }
 		public required Dictionary<string, double[]> series { get; init; }
 	}
-	public sealed class Grid { public int bins { get; init; } public int binMinutes { get; init; } }
+	public sealed class Grid { public int bins { get; init; } public int binSize { get; init; } public string binUnit { get; init; } = ""; }
 }
 

@@ -2,7 +2,8 @@ schemaVersion: 1
 rng: pcg
 grid:
   bins: 4
-  binMinutes: 60
+  binSize: 1
+  binUnit: hours
 seed: 42
 arrivals:
   kind: const

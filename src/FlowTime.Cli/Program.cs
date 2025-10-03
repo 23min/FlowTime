@@ -40,6 +40,18 @@ Directory.CreateDirectory(outDir);
 
 var yaml = File.ReadAllText(modelPath);
 
+// Validate schema before parsing
+var validationResult = ModelValidator.Validate(yaml);
+if (!validationResult.IsValid)
+{
+	Console.Error.WriteLine("Model validation failed:");
+	foreach (var error in validationResult.Errors)
+	{
+		Console.Error.WriteLine($"  - {error}");
+	}
+	return 1;
+}
+
 // Convert YAML to Core model definition and parse using shared ModelParser
 FlowTime.Core.TimeGrid grid;
 Graph graph;

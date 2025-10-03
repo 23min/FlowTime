@@ -4,9 +4,10 @@
 
 ### **Backend/API Milestones**
 - **M2.6.md** - ✅ Export System Implementation (Completed)
-- **M2.7.md** - 📋 Artifacts Registry (Planned)
-- **M2.8.md** - 📋 Registry Integration & API Enhancement (Planned)
-- **M2.9.md** - 📋 Compare Workflow (Planned)
+- **M2.7.md** - ✅ Artifacts Registry (Completed)
+- **M2.8.md** - ✅ Registry Integration & API Enhancement (Completed)
+- **M2.9.md** - � Schema Evolution & Documentation (In Progress - Phase 0 Complete)
+  - **M2.9.1.md** - Detailed implementation plan
 
 ### **UI Implementation Milestones**
 - **UI-M2.7.md** - 📋 Artifacts Registry UI (Planned)
@@ -31,7 +32,7 @@
 
 ## Architecture Documents
 
-- **CHARTER-ROADMAP.md** - Overall charter implementation roadmap and sequencing
+- **CHARTER-ROADMAP.md** - Archived (see [ROADMAP.md](../ROADMAP.md) for current roadmap)
 
 ## Archived Documents
 

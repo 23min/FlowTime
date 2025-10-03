@@ -155,7 +155,8 @@ public sealed class FileSeriesReader : ISeriesReader
     {
         return new TimeGrid(
             Bins: gridElement.GetProperty("bins").GetInt32(),
-            BinMinutes: gridElement.GetProperty("binMinutes").GetInt32(),
+            BinSize: gridElement.GetProperty("binSize").GetInt32(),
+            BinUnit: gridElement.GetProperty("binUnit").GetString()!,
             Timezone: gridElement.TryGetProperty("timezone", out var tzProp) 
                 ? tzProp.GetString()! 
                 : "UTC",

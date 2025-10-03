@@ -2,24 +2,21 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Net.Http.Json;
 using System.Text;
+using FlowTime.Api.Tests;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 
 // Parity test: Invoke the real CLI (dotnet run) on examples/hello/model.yaml and compare
 // the produced served.csv values with the API /run JSON response.
-public class CliApiParityTests : IClassFixture<WebApplicationFactory<Program>>
+public class CliApiParityTests : IClassFixture<TestWebApplicationFactory>
 {
-    private readonly WebApplicationFactory<Program> factory;
+    private readonly TestWebApplicationFactory factory;
 
-    public CliApiParityTests(WebApplicationFactory<Program> factory)
+    public CliApiParityTests(TestWebApplicationFactory factory)
     {
-        this.factory = factory.WithWebHostBuilder(builder =>
-        {
-            builder.UseEnvironment("Development");
-            builder.UseTestServer();
-            builder.UseSetting(Microsoft.AspNetCore.Hosting.WebHostDefaults.ServerUrlsKey, "http://127.0.0.1:0");
-        });
+        // TestWebApplicationFactory already configures test isolation
+        this.factory = factory;
     }
 
     [Fact]
@@ -105,5 +102,5 @@ public class CliApiParityTests : IClassFixture<WebApplicationFactory<Program>>
         public required string[] order { get; init; }
         public required Dictionary<string, double[]> series { get; init; }
     }
-    public sealed class Grid { public int bins { get; init; } public int binMinutes { get; init; } }
+    public sealed class Grid { public int bins { get; init; } public int binSize { get; init; } public string binUnit { get; init; } = ""; }
 }
