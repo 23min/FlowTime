@@ -81,13 +81,12 @@ nodes:
     }
     
     [Fact]
-    public void ValidateModel_ErrorMessages_AreHelpful()
+    public void ValidateModel_ErrorMessages_AreNotEmpty()
     {
-        // Arrange
+        // Arrange - Use intentionally invalid schema to trigger validation errors
         var yaml = @"
 grid:
   bins: 24
-  binMinutes: 60
 nodes:
   result:
     const: 42.5
@@ -99,12 +98,14 @@ nodes:
         // Assert
         Assert.False(result.IsValid);
         
-        // Error messages should be helpful
+        // Should have multiple validation errors (missing schemaVersion, binSize, binUnit)
+        Assert.True(result.Errors.Count >= 2, "Should have multiple validation errors");
+        
         foreach (var error in result.Errors)
         {
             Assert.False(string.IsNullOrWhiteSpace(error));
-            // Should include context about what's wrong
-            Assert.True(error.Length > 10, "Error messages should be descriptive");
+            // Should have minimum descriptive content
+            Assert.True(error.Length > 10, "Error messages should have minimum descriptive content");
         }
     }
     
