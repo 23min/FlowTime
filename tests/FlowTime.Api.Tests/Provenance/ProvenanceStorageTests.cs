@@ -325,19 +325,16 @@ public class ProvenanceStorageTests : IClassFixture<TestWebApplicationFactory>
 
     private string GetProvenanceFilePath(string runId)
     {
-        var dataDir = DirectoryProvider.GetDefaultDataDirectory();
-        return Path.Combine(dataDir, runId, "provenance.json");
+        return Path.Combine(_factory.TestDataDirectory, runId, "provenance.json");
     }
 
     private string GetManifestFilePath(string runId)
     {
-        var dataDir = DirectoryProvider.GetDefaultDataDirectory();
-        return Path.Combine(dataDir, runId, "manifest.json");
+        return Path.Combine(_factory.TestDataDirectory, runId, "manifest.json");
     }
 
     private string GetSpecFilePath(string runId)
     {
-        var dataDir = DirectoryProvider.GetDefaultDataDirectory();
-        return Path.Combine(dataDir, runId, "spec.yaml");
+        return Path.Combine(_factory.TestDataDirectory, runId, "spec.yaml");
     }
 }

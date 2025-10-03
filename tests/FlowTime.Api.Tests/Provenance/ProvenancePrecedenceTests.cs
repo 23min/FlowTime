@@ -339,7 +339,6 @@ public class ProvenancePrecedenceTests : IClassFixture<TestWebApplicationFactory
 
     private string GetProvenanceFilePath(string runId)
     {
-        var dataDir = DirectoryProvider.GetDefaultDataDirectory();
-        return Path.Combine(dataDir, runId, "provenance.json");
+        return Path.Combine(_factory.TestDataDirectory, runId, "provenance.json");
     }
 }
