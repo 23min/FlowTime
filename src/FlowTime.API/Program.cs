@@ -427,13 +427,26 @@ v1.MapPost("/run", async (HttpRequest req, IArtifactRegistry registry, ILogger<P
         var preview = yaml.Substring(0, previewLen);
         logger.LogDebug("/run accepted YAML: {Length} chars; preview: {Preview}", yaml.Length, preview);
 
+        // Extract provenance metadata (from header or embedded YAML)
+        var provenance = ProvenanceService.ExtractProvenance(req, yaml, logger);
+        string? provenanceJson = null;
+        if (provenance != null)
+        {
+            // Set received timestamp
+            provenance.ReceivedAt = DateTime.UtcNow.ToString("o");
+            provenanceJson = System.Text.Json.JsonSerializer.Serialize(provenance, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+        }
+
+        // Strip provenance from YAML to get clean execution spec
+        var cleanYaml = ProvenanceService.StripProvenance(yaml);
+
         // Convert API DTO to Core model definition and parse using shared ModelParser
         FlowTime.Core.TimeGrid grid;
         Graph graph;
         FlowTime.Core.Models.ModelDefinition coreModel;
         try
         {
-            coreModel = ModelService.ParseAndConvert(yaml);
+            coreModel = ModelService.ParseAndConvert(cleanYaml);
             
             (grid, graph) = ModelParser.ParseModel(coreModel);
         }
@@ -462,12 +475,13 @@ v1.MapPost("/run", async (HttpRequest req, IArtifactRegistry registry, ILogger<P
             Model = coreModel,
             Grid = grid,
             Context = artifactContext,
-            SpecText = yaml,
+            SpecText = cleanYaml, // Use clean YAML without provenance
             RngSeed = null, // API doesn't support seed parameter yet
             StartTimeBias = null,
             DeterministicRunId = false,
             OutputDirectory = artifactsDir,
-            Verbose = false
+            Verbose = false,
+            ProvenanceJson = provenanceJson // Include provenance if present
         };
 
         var artifactResult = await FlowTime.Core.Artifacts.RunArtifactWriter.WriteArtifactsAsync(writeRequest);

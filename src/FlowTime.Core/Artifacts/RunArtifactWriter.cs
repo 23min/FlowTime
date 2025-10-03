@@ -21,6 +21,7 @@ public static class RunArtifactWriter
         public bool DeterministicRunId { get; init; }
         public required string OutputDirectory { get; init; }
         public bool Verbose { get; init; }
+        public string? ProvenanceJson { get; init; } // Optional provenance metadata as JSON string
     }
     
     public record WriteResult
@@ -46,6 +47,12 @@ public static class RunArtifactWriter
         Directory.CreateDirectory(Path.Combine(runDir, "gold")); // placeholder
 
         await File.WriteAllTextAsync(Path.Combine(runDir, "spec.yaml"), request.SpecText, Encoding.UTF8);
+
+        // Write provenance.json if provided
+        if (!string.IsNullOrWhiteSpace(request.ProvenanceJson))
+        {
+            await File.WriteAllTextAsync(Path.Combine(runDir, "provenance.json"), request.ProvenanceJson, Encoding.UTF8);
+        }
 
         var seriesMetas = new List<SeriesMeta>();
         var seriesHashes = new Dictionary<string, string>();
@@ -161,7 +168,8 @@ public static class RunArtifactWriter
             Rng = new RngJson { Kind = "pcg32", Seed = finalSeed },
             SeriesHashes = seriesHashes,
             EventCount = 0,
-            CreatedUtc = DateTime.UtcNow.ToString("o")
+            CreatedUtc = DateTime.UtcNow.ToString("o"),
+            Provenance = !string.IsNullOrWhiteSpace(request.ProvenanceJson) ? new ProvenanceRef { HasProvenance = true } : null
         };
         await File.WriteAllTextAsync(Path.Combine(runDir, "manifest.json"), JsonSerializer.Serialize(manifest, jsonOptions), Encoding.UTF8);
 
@@ -200,8 +208,9 @@ file sealed record RunJson
 
 file sealed record GridJson { public int Bins { get; set; } public int BinMinutes { get; set; } public string Timezone { get; set; } = "UTC"; public string Align { get; set; } = "left"; }
 file sealed record RunSeriesEntry { public string Id { get; set; } = ""; public string Path { get; set; } = ""; public string Unit { get; set; } = ""; }
-file sealed record ManifestJson { public int SchemaVersion { get; set; } public string ScenarioHash { get; set; } = ""; public RngJson Rng { get; set; } = new(); public Dictionary<string,string> SeriesHashes { get; set; } = new(); public int EventCount { get; set; } public string CreatedUtc { get; set; } = ""; public string? ModelHash { get; set; } }
+file sealed record ManifestJson { public int SchemaVersion { get; set; } public string ScenarioHash { get; set; } = ""; public RngJson Rng { get; set; } = new(); public Dictionary<string,string> SeriesHashes { get; set; } = new(); public int EventCount { get; set; } public string CreatedUtc { get; set; } = ""; public string? ModelHash { get; set; } public ProvenanceRef? Provenance { get; set; } }
 file sealed record RngJson { public string Kind { get; set; } = "pcg32"; public int Seed { get; set; } }
+file sealed record ProvenanceRef { public bool HasProvenance { get; set; } }
 file sealed record SeriesIndexJson { public int SchemaVersion { get; set; } public IndexGridJson Grid { get; set; } = new(); public List<SeriesMeta> Series { get; set; } = new(); public FormatsJson Formats { get; set; } = new(); }
 file sealed record IndexGridJson { public int Bins { get; set; } public int BinMinutes { get; set; } public string Timezone { get; set; } = "UTC"; }
 file sealed record SeriesMeta { public string Id { get; set; } = ""; public string Kind { get; set; } = "flow"; public string Path { get; set; } = ""; public string Unit { get; set; } = ""; public string ComponentId { get; set; } = ""; public string Class { get; set; } = "DEFAULT"; public int Points { get; set; } public string Hash { get; set; } = ""; }

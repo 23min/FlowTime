@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Xunit;
+using FlowTime.Core.Configuration;
 
 namespace FlowTime.Api.Tests.Provenance;
 
@@ -315,7 +316,7 @@ public class ProvenanceStorageTests : IClassFixture<WebApplicationFactory<Progra
         // This depends on actual API response structure
         var responseJson = await response.Content.ReadAsStringAsync();
         var doc = JsonSerializer.Deserialize<JsonElement>(responseJson);
-        if (doc.TryGetProperty("run_id", out var runId))
+        if (doc.TryGetProperty("runId", out var runId))  // API returns camelCase
         {
             return runId.GetString();
         }
@@ -324,19 +325,19 @@ public class ProvenanceStorageTests : IClassFixture<WebApplicationFactory<Progra
 
     private string GetProvenanceFilePath(string runId)
     {
-        // TODO: Construct path based on actual artifact storage location
-        return Path.Combine("/data", runId, "provenance.json");
+        var dataDir = DirectoryProvider.GetDefaultDataDirectory();
+        return Path.Combine(dataDir, runId, "provenance.json");
     }
 
     private string GetManifestFilePath(string runId)
     {
-        // TODO: Construct path based on actual artifact storage location
-        return Path.Combine("/data", runId, "manifest.json");
+        var dataDir = DirectoryProvider.GetDefaultDataDirectory();
+        return Path.Combine(dataDir, runId, "manifest.json");
     }
 
     private string GetSpecFilePath(string runId)
     {
-        // TODO: Construct path based on actual artifact storage location
-        return Path.Combine("/data", runId, "spec.yaml");
+        var dataDir = DirectoryProvider.GetDefaultDataDirectory();
+        return Path.Combine(dataDir, runId, "spec.yaml");
     }
 }

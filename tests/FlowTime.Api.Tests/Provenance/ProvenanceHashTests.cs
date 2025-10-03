@@ -376,7 +376,7 @@ public class ProvenanceHashTests : IClassFixture<WebApplicationFactory<Program>>
     {
         var responseJson = await response.Content.ReadAsStringAsync();
         var doc = JsonSerializer.Deserialize<JsonElement>(responseJson);
-        if (doc.TryGetProperty("run_id", out var runId))
+        if (doc.TryGetProperty("runId", out var runId))  // API returns camelCase
         {
             return runId.GetString();
         }

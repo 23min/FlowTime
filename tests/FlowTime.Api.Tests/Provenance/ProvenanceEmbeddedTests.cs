@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Xunit;
+using FlowTime.Core.Configuration;
 
 namespace FlowTime.Api.Tests.Provenance;
 
@@ -346,7 +347,7 @@ public class ProvenanceEmbeddedTests : IClassFixture<WebApplicationFactory<Progr
     {
         var responseJson = await response.Content.ReadAsStringAsync();
         var doc = JsonSerializer.Deserialize<JsonElement>(responseJson);
-        if (doc.TryGetProperty("run_id", out var runId))
+        if (doc.TryGetProperty("runId", out var runId))  // API returns camelCase
         {
             return runId.GetString();
         }
@@ -355,6 +356,7 @@ public class ProvenanceEmbeddedTests : IClassFixture<WebApplicationFactory<Progr
 
     private string GetProvenanceFilePath(string runId)
     {
-        return Path.Combine("/data", runId, "provenance.json");
+        var dataDir = DirectoryProvider.GetDefaultDataDirectory();
+        return Path.Combine(dataDir, runId, "provenance.json");
     }
 }
