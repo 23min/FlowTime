@@ -10,22 +10,28 @@ namespace FlowTime.Api.Tests;
 /// </summary>
 public class TestWebApplicationFactory : WebApplicationFactory<Program>
 {
-    private readonly string _testDataDirectory;
+    private readonly string testDataDirectory;
+
+    /// <summary>
+    /// Gets the temporary data directory used by this test instance.
+    /// Tests should use this directory when reading files created by the API.
+    /// </summary>
+    public string TestDataDirectory => testDataDirectory;
 
     public TestWebApplicationFactory()
     {
         // Create a unique test data directory for this test run
         // Use a path that's clearly temporary and won't pollute production data
         var testId = Guid.NewGuid().ToString("N")[..12]; // Short GUID for readability
-        _testDataDirectory = Path.Combine(Path.GetTempPath(), $"flowtime_test_{testId}");
-        Directory.CreateDirectory(_testDataDirectory);
+        testDataDirectory = Path.Combine(Path.GetTempPath(), $"flowtime_test_{testId}");
+        Directory.CreateDirectory(testDataDirectory);
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         // Override the artifacts/data directory to use our test directory
-        builder.UseSetting("ArtifactsDirectory", _testDataDirectory);
-        builder.UseSetting("DataDirectory", _testDataDirectory);
+        builder.UseSetting("ArtifactsDirectory", testDataDirectory);
+        builder.UseSetting("DataDirectory", testDataDirectory);
 
         base.ConfigureWebHost(builder);
     }
@@ -37,9 +43,9 @@ public class TestWebApplicationFactory : WebApplicationFactory<Program>
             // Clean up test data directory after tests complete
             try
             {
-                if (Directory.Exists(_testDataDirectory))
+                if (Directory.Exists(testDataDirectory))
                 {
-                    Directory.Delete(_testDataDirectory, recursive: true);
+                    Directory.Delete(testDataDirectory, recursive: true);
                 }
             }
             catch
