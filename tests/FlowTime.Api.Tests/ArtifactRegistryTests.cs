@@ -302,7 +302,7 @@ public class ArtifactRegistryTests : IClassFixture<TestWebApplicationFactory>
             runId = runId,
             engineVersion = "0.5.0",
             source = "engine",
-            grid = new { bins = 8, binMinutes = 60, timezone = "UTC", align = "left" },
+            grid = new { bins = 8, binSize = 1, binUnit = "hours", timezone = "UTC", align = "left" },
             modelHash = "sha256:model123",
             scenarioHash = "sha256:test123",
             createdUtc = DateTime.UtcNow.ToString("O"),
@@ -315,7 +315,7 @@ public class ArtifactRegistryTests : IClassFixture<TestWebApplicationFactory>
 
         // Create spec.yaml
         await File.WriteAllTextAsync(Path.Combine(runPath, "spec.yaml"), 
-            "grid:\n  bins: 8\n  binMinutes: 60\nnodes:\n  - id: test\n    kind: const\n    values: [1,2,3]");
+            "schemaVersion: 1\ngrid:\n  bins: 8\n  binSize: 1\n  binUnit: hours\nnodes:\n  - id: test\n    kind: const\n    values: [1,2,3]");
 
         // Create minimal series data
         await File.WriteAllTextAsync(Path.Combine(runPath, "series", "index.json"), "{}");
@@ -354,7 +354,8 @@ public class ArtifactRegistryTests : IClassFixture<TestWebApplicationFactory>
   ""source"": ""engine"",
   ""grid"": {
     ""bins"": 8,
-    ""binMinutes"": 60,
+    ""binSize"": 1,
+    ""binUnit"": ""hours"",
     ""timezone"": ""UTC"",
     ""align"": ""left""
   },
@@ -366,9 +367,11 @@ public class ArtifactRegistryTests : IClassFixture<TestWebApplicationFactory>
         await File.WriteAllTextAsync(Path.Combine(runPath, "run.json"), run);
 
         // Real spec.yaml
-        var spec = @"grid:
+        var spec = @"schemaVersion: 1
+grid:
   bins: 8
-  binMinutes: 60
+  binSize: 1
+  binUnit: hours
 nodes:
   - id: served
     kind: const
