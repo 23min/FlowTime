@@ -467,11 +467,70 @@ sequenceDiagram
 | Date | Change | Author |
 |------|--------|--------|
 | 2025-10-01 | Created with KISS architecture and provenance focus | Assistant |
+| 2025-10-03 | Marked complete with integration test validation | Assistant |
+
+---
+
+## Completion Summary
+
+**Completed**: October 3, 2025  
+**Branch**: `feature/core-m2.7/provenance-integration`  
+**Commits**: Multiple (final integration test suite: 949149f)
+
+### Delivered Features
+
+✅ **Provenance Generation**:
+- ProvenanceService with model ID generation (timestamp + content hash)
+- Template metadata capture (id, version, title)
+- Parameter tracking
+- Format aligned with Engine M2.9 specification
+
+✅ **API Enhancements**:
+- `/api/v1/templates/{id}/generate` returns provenance in response
+- `?embed_provenance=true` parameter for embedded provenance
+- Both header-based and embedded delivery methods supported
+
+✅ **CLI Enhancements**:
+- `--provenance <file>` flag to save provenance metadata
+- `--embed-provenance` flag to embed provenance in model YAML
+- File-based workflows fully supported
+
+✅ **Integration Validated**:
+- End-to-end Sim → Engine workflow tested
+- Engine accepts X-Model-Provenance header
+- Engine stores provenance.json correctly
+- Old schema (arrivals/route) correctly rejected
+- All Engine response fields validated
+
+### Test Results
+
+- **Unit Tests**: 128 tests passing (Sim-side)
+- **Integration Tests**: 4/4 passing
+  - ✅ Basic workflow (generation → execution)
+  - ✅ Provenance storage validated
+  - ✅ Optional provenance (backward compatibility)
+  - ✅ Old schema rejection (breaking change validation)
+
+### Documentation
+
+- Integration test suite (automated bash script + manual HTTP file + comprehensive docs)
+- Engine spec alignment (engine-m2.9-provenance-spec.md)
+- API examples (.http files)
+- CLI usage documentation
+
+### Achievements
+
+- Complete provenance traceability from template → model → run
+- Zero Sim-side storage (stateless design maintained)
+- Single source of truth (Engine registry)
+- Backward compatible (provenance is optional)
+- Both delivery methods working (header + embedded)
 
 ---
 
 **Milestone**: SIM-M2.7  
-**Status**: Planned  
+**Status**: ✅ Complete  
 **Priority**: Medium  
 **Effort**: 1-2 weeks  
-**Impact**: Additive (no breaking changes)
+**Impact**: Additive (no breaking changes)  
+**Version**: 0.5.0 → 0.6.0

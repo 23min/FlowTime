@@ -1,22 +1,25 @@
 # FlowTime-Sim Roadmap (Clean Slate)
 
-**Current Version:** v0.4.0 (Released 2025-09-24)  
-**Active Branch:** `schema-convergence` (5 commits, ready for review)  
-**Next Version:** v0.5.0 (breaking change - schema evolution)  
-**Last Updated:** October 2, 2025
+**Current Version:** v0.6.0 (Released 2025-10-03)  
+**Active Branch:** `feature/core-m2.7/provenance-integration` (ready for merge)  
+**Next Version:** v1.0.0 (stable release)  
+**Last Updated:** October 3, 2025
 
 ---
 
-## Current State (v0.4.0)
+## Current State (v0.6.0)
 
 ### ✅ What's Working
 - **SIM-M2.6-CORRECTIVE**: Node-based template system with proper schema foundation
+- **SIM-M2.6.1**: Schema convergence (binSize/binUnit format, schemaVersion field)
+- **SIM-M2.7**: Provenance integration (metadata tracking, embedded provenance)
 - **Template Generation**: `/api/v1/templates/{id}/generate` creates Engine-compatible models
+- **Provenance Tracking**: Model identity and lineage from template → run
 - **PMF Support**: Probability mass functions for stochastic patterns
-- **CLI**: Charter-compliant `flowtime-sim` tool with verb+noun pattern
+- **CLI**: Charter-compliant `flowtime-sim` tool with provenance flags
 - **Hash Storage**: Deterministic model storage in `/data/models/{templateId}/{hashPrefix}/`
 - **Content Negotiation**: Both YAML and JSON formats supported
-- **88 Passing Tests**: Comprehensive test coverage across Core, API, and integration
+- **132 Passing Tests**: 128 unit tests + 4 integration tests (Sim ↔ Engine validated)
 
 ### 📦 What We Ship
 FlowTime-Sim is a **model authoring platform** that generates Engine-compatible model artifacts:
@@ -32,72 +35,77 @@ FlowTime-Sim is a **model authoring platform** that generates Engine-compatible 
 
 ---
 
-## Active Work (schema-convergence branch)
+## Completed Milestones
 
-### 📝 Documentation Complete (5 commits)
-1. **KISS Architecture**: Single registry design (Engine owns registry, Sim stores temporarily)
-2. **SIM-M2.6.1**: Schema evolution milestone (binMinutes → binSize/binUnit)
-3. **SIM-M2.7**: Provenance integration milestone (metadata tracking + embedded provenance)
-4. **Schema Cleanup**: Removed superseded docs, synchronized with Engine specs
-5. **Embedded Provenance**: Added support for `?embed_provenance` query parameter
+### ✅ SIM-M2.6.1 - Schema Evolution (v0.4.0 → v0.5.0)
+**Completed**: October 3, 2025  
+**Breaking Change**: Removed `binMinutes`, adopted Engine `binSize`/`binUnit` format
 
-### 🎯 Ready for Implementation
+**Delivered**:
+- Removed conversion layer (direct Engine format generation)
+- Added `schemaVersion: 1` to all models
+- Updated all tests and fixtures
+- Engine M2.9 validated (accepts new format)
 
-#### **SIM-M2.6.1 - Schema Evolution** (v0.4.0 → v0.5.0)
-- **Status**: READY (docs complete, blocked on Engine M2.9)
-- **Breaking Change**: Remove `binMinutes`, require `binSize`/`binUnit`
-- **Key Changes**:
-  - Remove `ConvertGridToEngineFormat()` conversion layer
-  - Add `schemaVersion: 1` field to all models
-  - Update all tests to assert new format
-  - Files: `ModelGenerator.cs`, `ModelGeneratorTests.cs`, test fixtures
+### ✅ SIM-M2.7 - Provenance Integration (v0.5.0 → v0.6.0)
+**Completed**: October 3, 2025  
+**Branch**: `feature/core-m2.7/provenance-integration`  
+**Minor Feature**: Added complete provenance traceability
 
-#### **SIM-M2.7 - Provenance Integration** (v0.5.0 → v0.6.0)
-- **Status**: READY (docs complete, blocked on Engine M2.9)
-- **Minor Feature**: Add provenance metadata without breaking existing APIs
-- **Key Changes**:
-  - Provenance metadata generation (model_id, template_id, timestamps)
-  - API enhancement: `?embed_provenance=true` query parameter
-  - CLI flags: `--provenance` and `--embed-provenance`
-  - Two delivery methods: HTTP header OR embedded in YAML
+**Delivered**:
+- ProvenanceService with model ID generation (timestamp + hash)
+- Template metadata capture (id, version, title, parameters)
+- API enhancement: `/generate` returns provenance, `?embed_provenance=true` support
+- CLI flags: `--provenance <file>` and `--embed-provenance`
+- Two delivery methods: X-Model-Provenance header OR embedded in YAML
+- Engine integration validated: 4/4 integration tests passing
+- Total test coverage: 128 unit tests + 4 integration tests
+
+**Integration Validated**:
+- ✅ Sim generates models with provenance metadata
+- ✅ Engine accepts X-Model-Provenance header
+- ✅ Engine stores provenance.json in run artifacts
+- ✅ Old schema (arrivals/route) correctly rejected
+- ✅ All Engine response fields validated
+- ✅ End-to-end Sim → Engine workflow operational
+
+**Test Results**:
+- Basic workflow (generation → execution): PASS
+- Provenance storage: PASS
+- Optional provenance (backward compatibility): PASS
+- Old schema rejection: PASS
 
 ---
 
-## Dependency Status
+## Active Work
 
-### 🔴 BLOCKING: Engine M2.9
-FlowTime-Sim implementation is blocked on Engine M2.9 readiness:
+### 🎯 Next Milestone: v1.0.0 Stable Release
 
-**Required from Engine:**
-- ✅ Accept `binSize`/`binUnit` format (not `binMinutes`)
-- ✅ Require `schemaVersion: 1` field in models
-- ✅ Support `X-Model-Provenance` HTTP header
-- ✅ Support embedded provenance in YAML (optional)
+**Goal**: Production-ready stable release with API contracts and backward compatibility commitments
 
-**Verification Needed:**
-```bash
-# Test Engine accepts new schema format
-POST /api/v1/run
-Content-Type: application/x-yaml
+**Remaining Tasks**:
+- Merge `feature/core-m2.7/provenance-integration` to main
+- API contract documentation and stability review
+- Backward compatibility policy definition
+- Production-ready defaults validation
+- Complete user documentation
+- Release preparation
 
-grid:
-  bins: 12
-  binSize: 1
-  binUnit: hours
-  schemaVersion: 1
-```
-
-**Next Action**: Verify Engine M2.9 status before starting SIM-M2.6.1 implementation
+**Timeline**: 1-2 weeks after provenance merge
 
 ---
 
 ## Milestone Sequence
 
-### Phase 1: Schema Convergence (Current)
+### Phase 1: Foundation & Integration ✅ COMPLETE
 ```
-v0.4.0 (SIM-M2.6-CORRECTIVE) ✅
+v0.4.0 (SIM-M2.6-CORRECTIVE) ✅ Released Sep 24, 2025
   ↓
-[schema-convergence branch] 📝 (docs ready)
+v0.5.0 (SIM-M2.6.1 Schema Evolution) ✅ Completed Oct 3, 2025
+  ↓
+v0.6.0 (SIM-M2.7 Provenance) ✅ Completed Oct 3, 2025
+  ↓
+[ready for merge to main]
   ↓
 v0.5.0 (SIM-M2.6.1) ⏸️ (blocked on Engine M2.9)
   ↓
@@ -244,13 +252,13 @@ After v1.0.0 stable release, add features **only as needed** based on actual usa
 - ✅ No `binMinutes` references remain
 - ✅ `schemaVersion: 1` in all models
 
-### SIM-M2.7 Success
-- ✅ Models have unique IDs
-- ✅ Provenance tracks creation metadata
-- ✅ CLI supports both delivery methods (header + embedded)
-- ✅ Engine accepts and stores provenance
-- ✅ UI can retrieve models from Sim and send to Engine
-- ✅ Complete end-to-end workflow operational
+### SIM-M2.7 Success ✅ ACHIEVED
+- ✅ Models have unique IDs (timestamp + content hash)
+- ✅ Provenance tracks creation metadata (template, parameters, generator)
+- ✅ CLI supports both delivery methods (`--provenance`, `--embed-provenance`)
+- ✅ API supports both methods (header response, `?embed_provenance=true`)
+- ✅ Engine accepts and stores provenance (validated via integration tests)
+- ✅ Complete end-to-end workflow operational (4/4 integration tests passing)
 
 ### v1.0.0 Success
 - ✅ API contracts stable and documented
