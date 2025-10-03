@@ -37,14 +37,15 @@ FlowTime Engine is a **deterministic execution and telemetry generation platform
 
 | Milestone | Status | Current Phase |
 |-----------|--------|---------------|
-| **M2.9** | 🔄 In Progress | **Phase 0 Complete** - TDD test setup done (158 tests, 4,148 lines)<br/>**Phase 1 Next** - Schema documentation updates<br/>**Phase 2 Pending** - Engine implementation |
+| **M2.9** | 🔄 In Progress | **Phase 0 Complete** ✅ - TDD test setup (158 tests, 4,148 lines)<br/>**Phase 1 Complete** ✅ - Schema documentation<br/>**Phase 2 Complete** ✅ - Engine implementation (221/224 tests passing)<br/>**Phase 3 Next** 📋 - FlowTime-Sim alignment & integration testing |
 
 ### 📋 Upcoming
 
 | Milestone | Status | Focus |
 |-----------|--------|-------|
-| **M2.9 Completion** | 🔄 In Progress | Schema evolution (binSize/binUnit), PMF nodes, RNG, provenance |
-| **M3.0** | 📋 Next | Backlog & Latency Modeling (single-queue, Little's Law) |
+| **M2.9 Phase 3** | 🔄 Final Phase | FlowTime-Sim alignment, example migration, legacy test cleanup |
+| **M2.10** | 📋 Next | Compare workflow and cross-run analysis |
+| **M3.0** | 📋 Planned | Backlog & Latency Modeling (single-queue, Little's Law) |
 
 ---
 
