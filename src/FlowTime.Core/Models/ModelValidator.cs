@@ -33,6 +33,16 @@ public static class ModelValidator
             // Parse YAML to a dynamic object first to check raw structure
             var rawModel = Deserializer.Deserialize<Dictionary<string, object>>(yaml);
 
+            // Check for legacy top-level fields that are no longer supported
+            if (rawModel.ContainsKey("arrivals"))
+            {
+                errors.Add("Top-level 'arrivals' field is not supported. Use 'nodes' array with node definitions instead.");
+            }
+            if (rawModel.ContainsKey("route"))
+            {
+                errors.Add("Top-level 'route' field is not supported. Use 'nodes' array with node definitions instead.");
+            }
+
             // Validate schema version
             if (!rawModel.ContainsKey("schemaVersion"))
             {

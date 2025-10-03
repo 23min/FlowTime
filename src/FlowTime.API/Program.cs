@@ -449,6 +449,14 @@ v1.MapPost("/run", async (HttpRequest req, IArtifactRegistry registry, ILogger<P
         // Strip provenance from YAML to get clean execution spec
         var cleanYaml = ProvenanceService.StripProvenance(yaml);
 
+        // Validate schema before parsing
+        var validationResult = ModelValidator.Validate(cleanYaml);
+        if (!validationResult.IsValid)
+        {
+            var errorMsg = string.Join("; ", validationResult.Errors);
+            return Results.BadRequest(new { error = errorMsg });
+        }
+
         // Convert API DTO to Core model definition and parse using shared ModelParser
         FlowTime.Core.TimeGrid grid;
         Graph graph;
@@ -518,7 +526,7 @@ v1.MapPost("/run", async (HttpRequest req, IArtifactRegistry registry, ILogger<P
         var series = order.ToDictionary(id => id.Value, id => ctx[id].ToArray());
         var response = new
         {
-            grid = new { bins = grid.Bins, binMinutes = grid.BinMinutes },
+            grid = new { bins = grid.Bins, binSize = grid.BinSize, binUnit = grid.BinUnit.ToString().ToLowerInvariant() },
             order = order.Select(o => o.Value).ToArray(),
             series,
             runId = artifactResult.RunId,

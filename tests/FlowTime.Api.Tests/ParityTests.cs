@@ -22,9 +22,11 @@ public class ParityTests : IClassFixture<TestWebApplicationFactory>
 	{
 		// Arrange: model YAML mirrors examples/hello/model.yaml (no tabs)
 		var yaml =
+			"schemaVersion: 1\n" +
 			"grid:\n" +
 			"  bins: 8\n" +
-			"  binMinutes: 60\n" +
+			"  binSize: 60\n" +
+			"  binUnit: minutes\n" +
 			"nodes:\n" +
 			"  - id: demand\n" +
 			"    kind: const\n" +
@@ -62,7 +64,8 @@ public class ParityTests : IClassFixture<TestWebApplicationFactory>
 		// Assert exact equality (M0 determinism)
 		Assert.Equal(expected, doc!.series["served"]);
 		Assert.Equal(grid.Bins, doc.grid.bins);
-		Assert.Equal(grid.BinMinutes, doc.grid.binMinutes);
+		Assert.Equal(grid.BinSize, doc.grid.binSize);
+		Assert.Equal(grid.BinUnit.ToString().ToLowerInvariant(), doc.grid.binUnit);
 		Assert.Contains("served", doc.series.Keys);
 	}
 
@@ -72,6 +75,6 @@ public class ParityTests : IClassFixture<TestWebApplicationFactory>
 		public required string[] order { get; init; }
 		public required Dictionary<string, double[]> series { get; init; }
 	}
-	public sealed class Grid { public int bins { get; init; } public int binMinutes { get; init; } }
+	public sealed class Grid { public int bins { get; init; } public int binSize { get; init; } public string binUnit { get; init; } = ""; }
 }
 

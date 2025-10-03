@@ -102,5 +102,5 @@ public class CliApiParityTests : IClassFixture<TestWebApplicationFactory>
         public required string[] order { get; init; }
         public required Dictionary<string, double[]> series { get; init; }
     }
-    public sealed class Grid { public int bins { get; init; } public int binMinutes { get; init; } }
+    public sealed class Grid { public int bins { get; init; } public int binSize { get; init; } public string binUnit { get; init; } = ""; }
 }

@@ -201,6 +201,32 @@ nodes:
         Assert.Contains(result.Errors, e => 
             e.Contains("expression") && e.Contains("expr"));
     }
+
+    [Fact]
+    public void ValidateModel_LegacyArrivalsRouteSchema_ReturnsError()
+    {
+        // Arrange - old schema format with top-level arrivals and route
+        var yaml = @"
+schemaVersion: 1
+grid:
+  bins: 3
+  binSize: 1
+  binUnit: hours
+arrivals:
+  kind: const
+  values: [10, 20, 30]
+route:
+  id: TEST
+";
+
+        // Act
+        var result = ModelValidator.Validate(yaml);
+
+        // Assert
+        Assert.False(result.IsValid, "Legacy arrivals/route schema should be rejected");
+        Assert.Contains(result.Errors, e => e.Contains("arrivals") && e.Contains("not supported"));
+        Assert.Contains(result.Errors, e => e.Contains("route") && e.Contains("not supported"));
+    }
     
     [Fact]
     public void ValidateModel_PmfNode_WithTargetSchema_Succeeds()

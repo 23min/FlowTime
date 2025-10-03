@@ -1,6 +1,8 @@
+schemaVersion: 1
 grid:
   bins: 8
-  binSize: 1  binUnit: hours
+  binSize: 1
+  binUnit: hours
 nodes:
   - id: demand
     kind: const
