@@ -50,7 +50,8 @@ public class ProvenanceMetadata
     public string? Generator { get; set; }
 
     /// <summary>
-    /// Generation parameters used to create the model
+    /// Generation parameters used to create the model.
+    /// NOTE: YAML numeric values may be represented as strings due to serialization limitations.
     /// </summary>
     [JsonPropertyName("parameters")]
     public Dictionary<string, object>? Parameters { get; set; }

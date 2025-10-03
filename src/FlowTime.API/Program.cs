@@ -428,7 +428,16 @@ v1.MapPost("/run", async (HttpRequest req, IArtifactRegistry registry, ILogger<P
         logger.LogDebug("/run accepted YAML: {Length} chars; preview: {Preview}", yaml.Length, preview);
 
         // Extract provenance metadata (from header or embedded YAML)
-        var provenance = ProvenanceService.ExtractProvenance(req, yaml, logger);
+        ProvenanceMetadata? provenance;
+        try
+        {
+            provenance = ProvenanceService.ExtractProvenance(req, yaml, logger);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Results.BadRequest(new { error = $"Invalid provenance: {ex.Message}" });
+        }
+        
         string? provenanceJson = null;
         if (provenance != null)
         {
@@ -513,7 +522,8 @@ v1.MapPost("/run", async (HttpRequest req, IArtifactRegistry registry, ILogger<P
             order = order.Select(o => o.Value).ToArray(),
             series,
             runId = artifactResult.RunId,
-            artifactsPath = artifactResult.RunDirectory
+            artifactsPath = artifactResult.RunDirectory,
+            modelHash = artifactResult.ScenarioHash // Include model hash for deduplication
         };
         return Results.Ok(response);
     }

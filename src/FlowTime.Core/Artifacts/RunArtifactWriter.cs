@@ -160,6 +160,28 @@ public static class RunArtifactWriter
 
         // Build manifest.json
         var finalSeed = request.RngSeed ?? Random.Shared.Next(0, int.MaxValue); // use provided seed or generate random
+        
+        // Extract provenance reference for manifest
+        ProvenanceRef? provenanceRef = null;
+        if (!string.IsNullOrWhiteSpace(request.ProvenanceJson))
+        {
+            try
+            {
+                var provenanceDoc = JsonSerializer.Deserialize<JsonElement>(request.ProvenanceJson);
+                provenanceRef = new ProvenanceRef
+                {
+                    HasProvenance = true,
+                    ModelId = provenanceDoc.TryGetProperty("model_id", out var modelId) ? modelId.GetString() : null,
+                    TemplateId = provenanceDoc.TryGetProperty("template_id", out var templateId) ? templateId.GetString() : null
+                };
+            }
+            catch
+            {
+                // If parsing fails, just indicate has_provenance without details
+                provenanceRef = new ProvenanceRef { HasProvenance = true };
+            }
+        }
+        
         var manifest = new ManifestJson
         {
             SchemaVersion = 1,
@@ -169,7 +191,7 @@ public static class RunArtifactWriter
             SeriesHashes = seriesHashes,
             EventCount = 0,
             CreatedUtc = DateTime.UtcNow.ToString("o"),
-            Provenance = !string.IsNullOrWhiteSpace(request.ProvenanceJson) ? new ProvenanceRef { HasProvenance = true } : null
+            Provenance = provenanceRef
         };
         await File.WriteAllTextAsync(Path.Combine(runDir, "manifest.json"), JsonSerializer.Serialize(manifest, jsonOptions), Encoding.UTF8);
 
@@ -208,9 +230,28 @@ file sealed record RunJson
 
 file sealed record GridJson { public int Bins { get; set; } public int BinMinutes { get; set; } public string Timezone { get; set; } = "UTC"; public string Align { get; set; } = "left"; }
 file sealed record RunSeriesEntry { public string Id { get; set; } = ""; public string Path { get; set; } = ""; public string Unit { get; set; } = ""; }
-file sealed record ManifestJson { public int SchemaVersion { get; set; } public string ScenarioHash { get; set; } = ""; public RngJson Rng { get; set; } = new(); public Dictionary<string,string> SeriesHashes { get; set; } = new(); public int EventCount { get; set; } public string CreatedUtc { get; set; } = ""; public string? ModelHash { get; set; } public ProvenanceRef? Provenance { get; set; } }
-file sealed record RngJson { public string Kind { get; set; } = "pcg32"; public int Seed { get; set; } }
-file sealed record ProvenanceRef { public bool HasProvenance { get; set; } }
+file sealed record ManifestJson 
+{ 
+    [System.Text.Json.Serialization.JsonPropertyName("schemaVersion")] public int SchemaVersion { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("scenarioHash")] public string ScenarioHash { get; set; } = "";
+    [System.Text.Json.Serialization.JsonPropertyName("rng")] public RngJson Rng { get; set; } = new();
+    [System.Text.Json.Serialization.JsonPropertyName("seriesHashes")] public Dictionary<string,string> SeriesHashes { get; set; } = new();
+    [System.Text.Json.Serialization.JsonPropertyName("eventCount")] public int EventCount { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("createdUtc")] public string CreatedUtc { get; set; } = "";
+    [System.Text.Json.Serialization.JsonPropertyName("modelHash")] public string? ModelHash { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("provenance")] public ProvenanceRef? Provenance { get; set; }
+}
+file sealed record RngJson 
+{ 
+    [System.Text.Json.Serialization.JsonPropertyName("kind")] public string Kind { get; set; } = "pcg32";
+    [System.Text.Json.Serialization.JsonPropertyName("seed")] public int Seed { get; set; }
+}
+file sealed record ProvenanceRef 
+{ 
+    [System.Text.Json.Serialization.JsonPropertyName("has_provenance")] public bool HasProvenance { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("model_id")] public string? ModelId { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("template_id")] public string? TemplateId { get; set; }
+}
 file sealed record SeriesIndexJson { public int SchemaVersion { get; set; } public IndexGridJson Grid { get; set; } = new(); public List<SeriesMeta> Series { get; set; } = new(); public FormatsJson Formats { get; set; } = new(); }
 file sealed record IndexGridJson { public int Bins { get; set; } public int BinMinutes { get; set; } public string Timezone { get; set; } = "UTC"; }
 file sealed record SeriesMeta { public string Id { get; set; } = ""; public string Kind { get; set; } = "flow"; public string Path { get; set; } = ""; public string Unit { get; set; } = ""; public string ComponentId { get; set; } = ""; public string Class { get; set; } = "DEFAULT"; public int Points { get; set; } public string Hash { get; set; } = ""; }

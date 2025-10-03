@@ -35,7 +35,8 @@ public static class ProvenanceService
         // Try to extract from header (case-insensitive)
         if (request.Headers.TryGetValue("X-Model-Provenance", out var headerValue))
         {
-            var modelId = headerValue.ToString().Trim();
+            // Use FirstOrDefault to handle multiple headers (take first value)
+            var modelId = headerValue.FirstOrDefault()?.Trim();
             if (!string.IsNullOrWhiteSpace(modelId))
             {
                 headerProvenance = new ProvenanceMetadata
@@ -52,17 +53,28 @@ public static class ProvenanceService
             if (yamlDoc != null && yamlDoc.ContainsKey("provenance"))
             {
                 var provenanceObj = yamlDoc["provenance"];
-                if (provenanceObj != null)
+                
+                // Validate provenance is an object, not a string/primitive
+                if (provenanceObj is not IDictionary<object, object> && provenanceObj is not Dictionary<string, object>)
                 {
-                    // Re-serialize and deserialize to convert to ProvenanceMetadata
-                    // Use underscored naming convention to match YAML with snake_case
-                    var serializer = new SerializerBuilder()
-                        .WithNamingConvention(UnderscoredNamingConvention.Instance)
-                        .Build();
-                    var provenanceYaml = serializer.Serialize(provenanceObj);
-                    embeddedProvenance = underscoreDeserializer.Deserialize<ProvenanceMetadata>(provenanceYaml);
+                    throw new InvalidOperationException("Provenance must be an object, not a string or other primitive type");
+                }
+
+                // Serialize to JSON and deserialize back to ProvenanceMetadata with snake_case handling
+                var provenanceJson = System.Text.Json.JsonSerializer.Serialize(provenanceObj);
+                embeddedProvenance = System.Text.Json.JsonSerializer.Deserialize<ProvenanceMetadata>(provenanceJson);
+                
+                // Ignore if only empty values
+                if (string.IsNullOrWhiteSpace(embeddedProvenance?.ModelId))
+                {
+                    embeddedProvenance = null;
                 }
             }
+        }
+        catch (InvalidOperationException)
+        {
+            // Re-throw validation errors
+            throw;
         }
         catch (Exception ex)
         {
