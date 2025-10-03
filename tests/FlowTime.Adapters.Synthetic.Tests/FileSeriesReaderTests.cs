@@ -94,7 +94,7 @@ public class FileSeriesReaderTests
           "runId": "sim_2025-09-01T18-30-12Z_a1b2c3d4",
           "engineVersion": "sim-0.1.0",
           "source": "sim",
-          "grid": { "bins": 4, "binMinutes": 60, "timezone": "UTC", "align": "left" },
+          "grid": { "bins": 4, "binSize": 1, "binUnit": "hours", "timezone": "UTC", "align": "left" },
           "scenarioHash": "sha256:test123",
           "createdUtc": "2025-09-01T18:30:12Z",
           "warnings": [],
@@ -113,7 +113,7 @@ public class FileSeriesReaderTests
         var indexJson = """
         {
           "schemaVersion": 1,
-          "grid": { "bins": 4, "binMinutes": 60, "timezone": "UTC" },
+          "grid": { "bins": 4, "binSize": 1, "binUnit": "hours", "timezone": "UTC" },
           "series": [
             {
               "id": "demand@COMP_A",

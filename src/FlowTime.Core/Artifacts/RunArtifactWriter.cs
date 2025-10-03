@@ -138,7 +138,7 @@ public static class RunArtifactWriter
             RunId = runId,
             EngineVersion = "0.1.0", // TODO: derive from assembly
             Source = "engine",
-            Grid = new GridJson { Bins = gridDto.Bins, BinMinutes = gridDto.BinMinutes, Timezone = "UTC", Align = "left" },
+            Grid = new GridJson { Bins = gridDto.Bins, BinSize = gridDto.BinSize, BinUnit = gridDto.BinUnit.ToString().ToLowerInvariant(), Timezone = "UTC", Align = "left" },
             ScenarioHash = scenarioHash,
             ModelHash = scenarioHash, // engine MAY emit modelHash; using same canonical hash for now
             Warnings = Array.Empty<string>(),
@@ -152,7 +152,7 @@ public static class RunArtifactWriter
         var index = new SeriesIndexJson
         {
             SchemaVersion = 1,
-            Grid = new IndexGridJson { Bins = gridDto.Bins, BinMinutes = gridDto.BinMinutes, Timezone = "UTC" },
+            Grid = new IndexGridJson { Bins = gridDto.Bins, BinSize = gridDto.BinSize, BinUnit = gridDto.BinUnit.ToString().ToLowerInvariant(), Timezone = "UTC" },
             Series = seriesMetas,
             Formats = new FormatsJson { GoldTable = new GoldTableJson { Path = "gold/node_time_bin.parquet", Dimensions = new[]{"time_bin","component_id","class"}, Measures = new[]{"arrivals","served","errors"} } }
         };
@@ -228,7 +228,7 @@ file sealed record RunJson
     public List<RunSeriesEntry> Series { get; set; } = new();
 }
 
-file sealed record GridJson { public int Bins { get; set; } public int BinMinutes { get; set; } public string Timezone { get; set; } = "UTC"; public string Align { get; set; } = "left"; }
+file sealed record GridJson { public int Bins { get; set; } public int BinSize { get; set; } public string BinUnit { get; set; } = "minutes"; public string Timezone { get; set; } = "UTC"; public string Align { get; set; } = "left"; }
 file sealed record RunSeriesEntry { public string Id { get; set; } = ""; public string Path { get; set; } = ""; public string Unit { get; set; } = ""; }
 file sealed record ManifestJson 
 { 
@@ -253,7 +253,7 @@ file sealed record ProvenanceRef
     [System.Text.Json.Serialization.JsonPropertyName("templateId")] public string? TemplateId { get; set; }
 }
 file sealed record SeriesIndexJson { public int SchemaVersion { get; set; } public IndexGridJson Grid { get; set; } = new(); public List<SeriesMeta> Series { get; set; } = new(); public FormatsJson Formats { get; set; } = new(); }
-file sealed record IndexGridJson { public int Bins { get; set; } public int BinMinutes { get; set; } public string Timezone { get; set; } = "UTC"; }
+file sealed record IndexGridJson { public int Bins { get; set; } public int BinSize { get; set; } public string BinUnit { get; set; } = "minutes"; public string Timezone { get; set; } = "UTC"; }
 file sealed record SeriesMeta { public string Id { get; set; } = ""; public string Kind { get; set; } = "flow"; public string Path { get; set; } = ""; public string Unit { get; set; } = ""; public string ComponentId { get; set; } = ""; public string Class { get; set; } = "DEFAULT"; public int Points { get; set; } public string Hash { get; set; } = ""; }
 file sealed record FormatsJson { public GoldTableJson GoldTable { get; set; } = new(); }
 file sealed record GoldTableJson { public string Path { get; set; } = "gold/node_time_bin.parquet"; public string[] Dimensions { get; set; } = Array.Empty<string>(); public string[] Measures { get; set; } = Array.Empty<string>(); }

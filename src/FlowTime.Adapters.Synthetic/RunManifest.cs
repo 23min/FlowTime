@@ -53,4 +53,16 @@ public sealed class SeriesReference
 /// <summary>
 /// Time grid specification
 /// </summary>
-public readonly record struct TimeGrid(int Bins, int BinMinutes, string Timezone, string Align);
+public readonly record struct TimeGrid(int Bins, int BinSize, string BinUnit, string Timezone, string Align)
+{
+    /// <summary>
+    /// Computed bin duration in minutes (for backward compatibility)
+    /// </summary>
+    public int BinMinutes => BinUnit.ToLowerInvariant() switch
+    {
+        "minutes" => BinSize,
+        "hours" => BinSize * 60,
+        "days" => BinSize * 1440,
+        _ => throw new ArgumentException($"Unknown time unit: {BinUnit}")
+    };
+}
