@@ -2,6 +2,53 @@
 
 Purpose: give AI agents the minimum context to be productive and safe in this repo.
 
+## Serena
+# Copilot Instructions for FlowTime Project
+
+## Code Navigation and Editing Rules
+
+**ALWAYS use Serena MCP tools for code operations:**
+
+### Before any implementation:
+1. Use `serena__find_symbol` to locate relevant existing code
+2. Use `serena__get_symbols_overview` to understand file structure
+3. Use `serena__find_referencing_symbols` to see how code is used
+
+### When writing new code:
+1. Use `serena__find_symbol` to find similar patterns in the codebase
+2. Look for existing base classes, interfaces, or patterns to follow
+3. Use `serena__insert_after_symbol` or `serena__replace_symbol_body` for precise placement
+
+### When modifying code:
+- NEVER read entire files unless absolutely necessary
+- Use `serena__read_file` for targeted file reading
+- Use `serena__replace_symbol_body` to modify specific methods/classes
+- Use `serena__insert_after_symbol` to add new code near existing symbols
+
+### When writing tests:
+1. Use `serena__find_symbol` to locate the class being tested
+2. Find existing test patterns with `serena__find_symbol` (e.g., "Test")
+3. Understand test structure before generating new tests
+
+### Examples:
+- ❌ "Read OrderService.cs and modify the CalculateTotal method"
+- ✅ "Use serena__find_symbol to locate CalculateTotal, then serena__replace_symbol_body to update it"
+
+- ❌ "Show me all the files in src/"
+- ✅ "Use serena__find_symbol to find all classes in the Services namespace"
+
+## Project Structure
+- API is in `src/FlowTime.Api/`
+- CLI is in `src/FlowTime.CLI/`
+- Core logic (Engine) is in `src/FlowTime.Core/`
+
+- Tests follow pattern: `ClassName` → `ClassNameTests`
+- Most test locations follow this pattern `tests/` + name of the project + `Tests` (e.g., `tests/FlowTime.Core.Tests/`)
+- Some tests are located simply in `tests/FlowTime.Tests` (for cross-cutting tests)
+
+Prefer semantic, symbol-level operations over file-level operations whenever possible.
+
+
 ## Guardrails
 - Don't push (no `git push`) or make network calls unless explicitly requested.
 - Don't commit or stage changes without explicit user approval. Propose edits first; commit only after the user says to.
