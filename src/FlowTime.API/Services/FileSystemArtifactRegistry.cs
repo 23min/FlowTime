@@ -225,8 +225,42 @@ public class FileSystemArtifactRegistry : IArtifactRegistry
             index.LastUpdated = DateTime.UtcNow;
             
             // Save index without internal locking since we already hold the lock
+            // Use atomic write with safety checks:
+            // 1. Serialize to JSON
             var updatedJson = JsonSerializer.Serialize(index, this.jsonOptions);
-            await File.WriteAllTextAsync(this.indexFilePath, updatedJson);
+            
+            // 2. Write to temp file with explicit flush to disk
+            var tempPath = this.indexFilePath + ".tmp";
+            await using (var fileStream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
+            await using (var writer = new StreamWriter(fileStream, System.Text.Encoding.UTF8))
+            {
+                await writer.WriteAsync(updatedJson);
+                await writer.FlushAsync();
+                await fileStream.FlushAsync();
+                fileStream.Flush(flushToDisk: true); // Force OS to sync to disk
+            }
+            
+            // 3. Validate the temp file is valid JSON before moving
+            try
+            {
+                var testJson = await File.ReadAllTextAsync(tempPath);
+                JsonDocument.Parse(testJson).Dispose(); // Throws if invalid
+            }
+            catch (Exception ex)
+            {
+                File.Delete(tempPath); // Clean up bad temp file
+                throw new InvalidOperationException("Failed to write valid registry index - serialization produced invalid JSON", ex);
+            }
+            
+            // 4. Backup existing file before overwriting (keep last good version)
+            var backupPath = this.indexFilePath + ".backup";
+            if (File.Exists(this.indexFilePath))
+            {
+                File.Copy(this.indexFilePath, backupPath, overwrite: true);
+            }
+            
+            // 5. Atomic rename (this is atomic on Linux/Unix for same filesystem)
+            File.Move(tempPath, this.indexFilePath, overwrite: true);
         }
         finally
         {
@@ -255,8 +289,42 @@ public class FileSystemArtifactRegistry : IArtifactRegistry
             index.LastUpdated = DateTime.UtcNow;
             
             // Save index without internal locking since we already hold the lock
+            // Use atomic write with safety checks:
+            // 1. Serialize to JSON
             var updatedJson = JsonSerializer.Serialize(index, this.jsonOptions);
-            await File.WriteAllTextAsync(this.indexFilePath, updatedJson);
+            
+            // 2. Write to temp file with explicit flush to disk
+            var tempPath = this.indexFilePath + ".tmp";
+            await using (var fileStream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
+            await using (var writer = new StreamWriter(fileStream, System.Text.Encoding.UTF8))
+            {
+                await writer.WriteAsync(updatedJson);
+                await writer.FlushAsync();
+                await fileStream.FlushAsync();
+                fileStream.Flush(flushToDisk: true); // Force OS to sync to disk
+            }
+            
+            // 3. Validate the temp file is valid JSON before moving
+            try
+            {
+                var testJson = await File.ReadAllTextAsync(tempPath);
+                JsonDocument.Parse(testJson).Dispose(); // Throws if invalid
+            }
+            catch (Exception ex)
+            {
+                File.Delete(tempPath); // Clean up bad temp file
+                throw new InvalidOperationException("Failed to write valid registry index - serialization produced invalid JSON", ex);
+            }
+            
+            // 4. Backup existing file before overwriting (keep last good version)
+            var backupPath = this.indexFilePath + ".backup";
+            if (File.Exists(this.indexFilePath))
+            {
+                File.Copy(this.indexFilePath, backupPath, overwrite: true);
+            }
+            
+            // 5. Atomic rename (this is atomic on Linux/Unix for same filesystem)
+            File.Move(tempPath, this.indexFilePath, overwrite: true);
         }
         finally
         {
