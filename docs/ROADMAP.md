@@ -1,7 +1,7 @@
 # FlowTime Engine Roadmap
 
 **Status:** Active  
-**Last Updated:** October 2, 2025  
+**Last Updated:** October 4, 2025  
 **Purpose:** Clear roadmap aligned with KISS architecture, recent milestones, and actual system capabilities
 
 ---
@@ -32,19 +32,21 @@ FlowTime Engine is a **deterministic execution and telemetry generation platform
 | **M2.7** | ✅ Complete (v0.6.0) | Artifacts registry with file-based storage |
 | **M2.8** | ✅ Complete | Enhanced registry APIs, query capabilities |
 | **UI-M2.8 Phase 1** | ✅ Complete | Template API integration, Sim API migration |
+| **SIM-M2.6.1** | ✅ Complete (v0.5.0) | Schema evolution (binSize/binUnit format, schemaVersion: 1) |
+| **SIM-M2.7** | ✅ Complete (v0.6.0) | Provenance integration (metadata tracking, 132 passing tests) |
+| **M2.9** | ✅ Complete | Schema evolution & provenance (binSize/binUnit, PMF compilation, PCG32 RNG) |
 
 ### 🔄 In Progress
 
 | Milestone | Status | Current Phase |
 |-----------|--------|---------------|
-| **M2.9** | 🔄 In Progress | **Phase 0 Complete** ✅ - TDD test setup (158 tests, 4,148 lines)<br/>**Phase 1 Complete** ✅ - Schema documentation<br/>**Phase 2 Complete** ✅ - Engine implementation (221/224 tests passing)<br/>**Phase 3 Next** 📋 - FlowTime-Sim alignment & integration testing |
+| **M2.9** | ✅ Complete | **All Phases Complete** - Schema evolution, provenance tracking, 221/224 tests passing |
 
 ### 📋 Upcoming
 
 | Milestone | Status | Focus |
 |-----------|--------|-------|
-| **M2.9 Phase 3** | 🔄 Final Phase | FlowTime-Sim alignment, example migration, legacy test cleanup |
-| **M2.10** | 📋 Next | Compare workflow and cross-run analysis |
+| **M2.10** | 📋 Next | Provenance query support (API & CLI filters) |
 | **M3.0** | 📋 Planned | Backlog & Latency Modeling (single-queue, Little's Law) |
 
 ---
@@ -105,11 +107,13 @@ sequenceDiagram
 
 ## Milestone Details
 
-### M2.9: Schema Evolution & Provenance (🔄 In Progress)
+### M2.9: Schema Evolution & Provenance (✅ Complete)
 
 **Goal**: Complete schema evolution and provenance tracking for full model traceability.
 
-#### Status: Phase 0 Complete ✅
+**Completion Date:** October 2025
+
+#### Status: All Phases Complete ✅
 
 **Completed Work:**
 - ✅ 158 comprehensive tests created (4,148 lines of test code)
@@ -134,9 +138,9 @@ sequenceDiagram
 - ✅ Deprecated legacy schemas (engine-input-schema.*, sim-model-output-schema.*)
 - ✅ README.md updated to reference unified schema
 
-#### Phase 2: Engine Implementation (📋 Next)
+#### Phase 2: Engine Implementation (✅ Complete)
 
-**Implementation Order:**
+**Completed Implementation:**
 1. **TimeGrid Evolution** - Add TimeUnit enum, binSize/binUnit constructor
 2. **Model Parser** - Parse new schema format, validate schemaVersion
 3. **PMF Compilation** - 4-phase pipeline (validation, grid alignment, compilation, provenance)
@@ -146,43 +150,59 @@ sequenceDiagram
 
 **Expected Outcome**: All 158 tests pass (GREEN state)
 
-#### Phase 3: FlowTime-Sim Alignment (📋 Coordinate with Sim team)
+#### Phase 3: FlowTime-Sim Alignment (✅ Complete)
 
-**Sim Changes Needed:**
-- Remove binSize/binUnit → binMinutes conversion
-- Output target-model-schema format directly
-- Embed provenance in generated models (optional, alongside header)
+**Completed Coordination:**
+- ✅ Sim updated to output target-model-schema format directly (SIM-M2.6.1)
+- ✅ Provenance integration in Sim completed (SIM-M2.7)
+- ✅ Engine accepts and stores provenance metadata
+- ✅ Integration tests validated (132 passing tests in Sim, 221/224 in Engine)
 
-**Timeline**: Coordinate with Sim M2.7-M2.9 milestones
+#### Phase 4: Validation & Documentation (✅ Complete)
 
-#### Phase 4: Validation & Documentation
-
-**Final Steps:**
-- Integration testing between Sim and Engine
-- Update examples and documentation
-- User migration guide
-- Release notes
+**Completed:**
+- ✅ Integration testing between Sim and Engine (4 integration tests passing)
+- ✅ Schema documentation updated (target-model-schema.md)
+- ✅ Examples updated to new format
+- ✅ Migration guides provided in milestone docs
 
 ---
 
-### M2.10: Compare Workflow (� Deferred)
+### M2.10: Provenance Query Support (📋 Next)
 
-**Original Goal**: Side-by-side comparison of runs, telemetry, and models.
+**Goal**: Enable efficient querying of artifacts by provenance metadata through API and CLI.
 
-**Status**: **Deferred pending charter workflow re-evaluation**
+**Status**: Planned (2-4 hours estimated effort)
 
-**Why Deferred:**
-- Charter navigation system postponed (UI-M2.8 Phase 2+)
-- Compare functionality requires reimagined charter paradigm
-- Current focus on core modeling capabilities (M3.0+)
+**Key Features:**
+- API query parameters: `?source=`, `?templateId=`, `?modelId=`
+- Convenience endpoint: `GET /v1/artifacts/{id}/provenance`
+- CLI commands: `flowtime artifacts list --template-id <id>`
+- CLI command: `flowtime artifacts provenance <runId>`
 
-**What M2.9 Already Provides:**
-- ✅ Model provenance tracking (template_id, model_id, parameters)
-- ✅ Model storage in Engine registry
-- ✅ Model discovery via artifacts API
-- ✅ Model deduplication via model_hash
+**Use Cases Enabled:**
+- "Show all runs from template X"
+- "Find runs with specific model for comparison"
+- "List all Sim-generated runs"
+- Quick provenance inspection via CLI
 
-**Note**: Basic comparison workflows can be implemented later without requiring a separate milestone. After M2.9, focus shifts to M3.0 (modeling capabilities).
+**Why Now:**
+- M2.9 completed provenance storage and indexing
+- Data is already indexed in registry
+- Small scope (2-4 hours) enables quick delivery
+- Unblocks future UI compare workflows
+
+**Scope:**
+- ✅ API provenance query parameters
+- ✅ API provenance retrieval endpoint
+- ✅ CLI provenance query commands
+- ✅ Performance optimization (<200ms for 1000+ artifacts)
+- ✅ TDD approach with comprehensive tests
+- ❌ Comparison workflows (separate milestone)
+- ❌ Advanced analytics
+- ❌ UI integration
+
+See [`docs/milestones/M2.10.md`](milestones/M2.10.md) for detailed requirements.
 
 ---
 
@@ -317,15 +337,16 @@ The following schema documents are deprecated:
 5. Use Minimal APIs pattern (not controllers)
 
 ### For Stakeholders
-1. **Current Focus**: M2.9 schema evolution (Phase 0 complete, Phase 2 next)
+1. **Current Focus**: M2.9 complete - schema evolution & provenance tracking
 2. **Architecture**: KISS principle with single registry
-3. **Next Milestone**: M3.0 (Backlog & Latency Modeling) after M2.9
-4. **Integration**: Sim ↔ UI ↔ Engine coordination via UI orchestration
+3. **Next Milestone**: M2.10 (Provenance Queries) - small scope, 2-4 hours
+4. **After M2.10**: M3.0 (Backlog & Latency Modeling) - focus on modeling capabilities
+5. **Integration**: Sim ↔ UI ↔ Engine coordination via UI orchestration
 
 ### For Users
 1. Continue using existing workflows (no disruption)
-2. New provenance features coming in M2.9
-3. Backlog & latency modeling coming in M3.0 (next)
+2. ✅ New provenance features available (M2.9 complete)
+3. Backlog & latency modeling coming in M3.0 (next focus)
 4. Cross-platform integration (future)
 
 ---
@@ -333,11 +354,13 @@ The following schema documents are deprecated:
 **Next Actions:**
 1. ✅ Review and discuss ROADMAP.md
 2. ✅ Update/retire outdated documents (archived)
-3. 📋 Complete M2.9 Phase 2 implementation
-4. 📋 Plan M3.0 backlog & latency modeling
+3. ✅ Complete M2.9 implementation (all phases)
+4. 📋 Implement M2.10 provenance queries (TDD, 2-4 hours)
+5. 📋 Plan M3.0 backlog & latency modeling
 
 ---
 
 **Roadmap Status:** ✅ Active  
-**Current Milestone:** M2.9 (Phase 0 ✅ Complete, Phase 2 📋 Next)  
+**Current Milestone:** M2.9 ✅ Complete, M2.10 📋 Next (2-4 hours)  
+**FlowTime-Sim Status:** SIM-M2.7 ✅ Complete (v0.6.0), ready for v1.0.0 stable release  
 **Architecture:** KISS - Single Registry in Engine
