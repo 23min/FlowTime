@@ -1,4 +1,5 @@
 using FlowTime.Cli.Configuration;
+using FlowTime.Cli.Formatting;
 using FlowTime.Core;
 using FlowTime.Core.Artifacts;
 using FlowTime.Core.Models;
@@ -205,30 +206,7 @@ static async Task<int> HandleArtifactsCommand(string[] args)
 	var result = await registry.GetArtifactsAsync(options);
 
 	// Display results as table
-	if (result.Artifacts.Count == 0)
-	{
-		Console.WriteLine("No artifacts found.");
-		return 0;
-	}
-
-	// Print table header
-	Console.WriteLine($"{"ID",-40} {"Type",-8} {"Created",-20} {"Title"}");
-	Console.WriteLine(new string('-', 100));
-
-	// Print each artifact
-	foreach (var artifact in result.Artifacts)
-	{
-		var createdAt = artifact.Created.ToString("yyyy-MM-dd HH:mm:ss");
-		var title = artifact.Title ?? string.Empty;
-		if (title.Length > 30)
-			title = title.Substring(0, 27) + "...";
-
-		Console.WriteLine($"{artifact.Id,-40} {artifact.Type,-8} {createdAt,-20} {title}");
-	}
-
-	// Print footer
-	Console.WriteLine();
-	Console.WriteLine($"Total: {result.Total} artifacts (showing {result.Artifacts.Count})");
+	ArtifactTableFormatter.PrintTable(result.Artifacts, result.Total);
 
 	return 0;
 }
