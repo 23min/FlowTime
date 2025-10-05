@@ -216,24 +216,24 @@ public class FileSystemArtifactRegistry : IArtifactRegistry
             });
         }
 
-        // Enhanced sorting with new fields
+        // Enhanced sorting with new fields (with stable secondary sort by ID)
         artifacts = options.SortBy.ToLowerInvariant() switch
         {
             "title" => options.SortOrder.ToLowerInvariant() == "asc" 
-                ? artifacts.OrderBy(a => a.Title) 
-                : artifacts.OrderByDescending(a => a.Title),
+                ? artifacts.OrderBy(a => a.Title).ThenBy(a => a.Id)
+                : artifacts.OrderByDescending(a => a.Title).ThenByDescending(a => a.Id),
             "id" => options.SortOrder.ToLowerInvariant() == "asc" 
                 ? artifacts.OrderBy(a => a.Id) 
                 : artifacts.OrderByDescending(a => a.Id),
             "size" => options.SortOrder.ToLowerInvariant() == "asc" 
-                ? artifacts.OrderBy(a => a.TotalSize) 
-                : artifacts.OrderByDescending(a => a.TotalSize),
+                ? artifacts.OrderBy(a => a.TotalSize).ThenBy(a => a.Id)
+                : artifacts.OrderByDescending(a => a.TotalSize).ThenByDescending(a => a.Id),
             "modified" => options.SortOrder.ToLowerInvariant() == "asc" 
-                ? artifacts.OrderBy(a => a.LastModified) 
-                : artifacts.OrderByDescending(a => a.LastModified),
+                ? artifacts.OrderBy(a => a.LastModified).ThenBy(a => a.Id)
+                : artifacts.OrderByDescending(a => a.LastModified).ThenByDescending(a => a.Id),
             _ => options.SortOrder.ToLowerInvariant() == "asc" 
-                ? artifacts.OrderBy(a => a.Created) 
-                : artifacts.OrderByDescending(a => a.Created)
+                ? artifacts.OrderBy(a => a.Created).ThenBy(a => a.Id)
+                : artifacts.OrderByDescending(a => a.Created).ThenByDescending(a => a.Id)
         };
 
         var totalCount = artifacts.Count();

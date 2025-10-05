@@ -183,7 +183,7 @@ public class ProvenanceQueryTests : IClassFixture<TestWebApplicationFactory>
             runIds.Add(await CreateTestRunWithProvenance(templateId: "test7-template-1", modelId: $"test7-model_{i}"));
             // Rebuild index after each creation to ensure distinct timestamps
             await RebuildIndex();
-            await Task.Delay(50); // Small delay between runs
+            await Task.Delay(1100); // Ensure distinct second-level timestamps (run_YYYYMMDDTHHMMSSZ format)
         }
 
         // Act: Query with sorting by created descending
@@ -307,5 +307,136 @@ public class ProvenanceQueryTests : IClassFixture<TestWebApplicationFactory>
         // This is necessary because run registration is fire-and-forget in the API
         var response = await client.PostAsync("/v1/artifacts/index", null);
         response.EnsureSuccessStatusCode();
+    }
+
+    // M2.10: Stable sort tests - verify secondary sort key (Id) provides deterministic ordering
+    
+    [Fact]
+    public async Task GetArtifacts_WithIdenticalTimestamps_SortsStablyById()
+    {
+        // Arrange: Create artifacts with identical timestamps by using very fast operations
+        // All will be created within the same second, resulting in identical Created timestamps
+        var runIds = new List<string>();
+        for (int i = 0; i < 5; i++)
+        {
+            runIds.Add(await CreateTestRunWithProvenance(templateId: "test-stable-1", modelId: $"model_{i}"));
+        }
+        await RebuildIndex();
+
+        // Act: Query sorted by created descending
+        var response = await client.GetAsync("/v1/artifacts?templateId=test-stable-1&sortBy=created&sortOrder=desc");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        
+        var responseJson = await response.Content.ReadAsStringAsync();
+        var result = JsonSerializer.Deserialize<JsonElement>(responseJson);
+        var artifacts = result.GetProperty("artifacts");
+        
+        // All artifacts should have identical Created timestamps (same second)
+        // But order should be stable and consistent (sorted by ID as secondary key)
+        var artifactIds = new List<string>();
+        for (int i = 0; i < artifacts.GetArrayLength(); i++)
+        {
+            artifactIds.Add(artifacts[i].GetProperty("id").GetString()!);
+        }
+        
+        // Verify we got all 5 artifacts
+        Assert.Equal(5, artifactIds.Count);
+        
+        // Verify IDs are in descending order (stable secondary sort)
+        var sortedIds = artifactIds.OrderByDescending(id => id).ToList();
+        Assert.Equal(sortedIds, artifactIds);
+        
+        // Run query again to verify consistency (should get same order)
+        var response2 = await client.GetAsync("/v1/artifacts?templateId=test-stable-1&sortBy=created&sortOrder=desc");
+        var responseJson2 = await response2.Content.ReadAsStringAsync();
+        var result2 = JsonSerializer.Deserialize<JsonElement>(responseJson2);
+        var artifacts2 = result2.GetProperty("artifacts");
+        
+        var artifactIds2 = new List<string>();
+        for (int i = 0; i < artifacts2.GetArrayLength(); i++)
+        {
+            artifactIds2.Add(artifacts2[i].GetProperty("id").GetString()!);
+        }
+        
+        // Order should be identical on repeated query
+        Assert.Equal(artifactIds, artifactIds2);
+    }
+
+    [Fact]
+    public async Task GetArtifacts_SortByCreated_AscendingIsStable()
+    {
+        // Arrange: Create artifacts with same timestamp
+        var runIds = new List<string>();
+        for (int i = 0; i < 3; i++)
+        {
+            runIds.Add(await CreateTestRunWithProvenance(templateId: "test-stable-asc", modelId: $"model_{i}"));
+        }
+        await RebuildIndex();
+
+        // Act: Query sorted by created ascending (oldest first)
+        var response = await client.GetAsync("/v1/artifacts?templateId=test-stable-asc&sortBy=created&sortOrder=asc");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        
+        var responseJson = await response.Content.ReadAsStringAsync();
+        var result = JsonSerializer.Deserialize<JsonElement>(responseJson);
+        var artifacts = result.GetProperty("artifacts");
+        
+        var artifactIds = new List<string>();
+        for (int i = 0; i < artifacts.GetArrayLength(); i++)
+        {
+            artifactIds.Add(artifacts[i].GetProperty("id").GetString()!);
+        }
+        
+        // Verify IDs are in ascending order (stable secondary sort)
+        var sortedIds = artifactIds.OrderBy(id => id).ToList();
+        Assert.Equal(sortedIds, artifactIds);
+    }
+
+    [Fact]
+    public async Task GetArtifacts_SortBySizeWithEqualValues_IsStable()
+    {
+        // Arrange: Create multiple runs (they'll likely have same size since same model)
+        var runIds = new List<string>();
+        for (int i = 0; i < 4; i++)
+        {
+            runIds.Add(await CreateTestRunWithProvenance(templateId: "test-stable-size", modelId: $"model_{i}"));
+        }
+        await RebuildIndex();
+
+        // Act: Query sorted by size descending
+        var response = await client.GetAsync("/v1/artifacts?templateId=test-stable-size&sortBy=size&sortOrder=desc");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        
+        var responseJson = await response.Content.ReadAsStringAsync();
+        var result = JsonSerializer.Deserialize<JsonElement>(responseJson);
+        var artifacts = result.GetProperty("artifacts");
+        
+        // Multiple queries should return same order
+        var firstOrderIds = new List<string>();
+        for (int i = 0; i < artifacts.GetArrayLength(); i++)
+        {
+            firstOrderIds.Add(artifacts[i].GetProperty("id").GetString()!);
+        }
+        
+        // Query again
+        var response2 = await client.GetAsync("/v1/artifacts?templateId=test-stable-size&sortBy=size&sortOrder=desc");
+        var responseJson2 = await response2.Content.ReadAsStringAsync();
+        var result2 = JsonSerializer.Deserialize<JsonElement>(responseJson2);
+        var artifacts2 = result2.GetProperty("artifacts");
+        
+        var secondOrderIds = new List<string>();
+        for (int i = 0; i < artifacts2.GetArrayLength(); i++)
+        {
+            secondOrderIds.Add(artifacts2[i].GetProperty("id").GetString()!);
+        }
+        
+        // Order must be identical (stable sort)
+        Assert.Equal(firstOrderIds, secondOrderIds);
     }
 }
