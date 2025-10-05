@@ -78,6 +78,46 @@ public class FileSystemArtifactRegistry : IArtifactRegistry
         return index;
     }
 
+    /// <summary>
+    /// Filters artifacts by a specific provenance field value.
+    /// </summary>
+    /// <param name="artifacts">Artifacts to filter</param>
+    /// <param name="fieldName">Provenance field name (e.g., "templateId", "modelId")</param>
+    /// <param name="expectedValue">Expected field value</param>
+    /// <returns>Filtered artifacts containing matching provenance field value</returns>
+    private static IEnumerable<Artifact> FilterByProvenanceField(
+        IEnumerable<Artifact> artifacts,
+        string fieldName,
+        string expectedValue)
+    {
+        return artifacts.Where(artifact =>
+        {
+            if (artifact.Metadata == null || !artifact.Metadata.ContainsKey("provenance"))
+            {
+                return false;
+            }
+
+            try
+            {
+                var provenanceObj = artifact.Metadata["provenance"];
+                
+                // If it's already a JsonElement, use it directly
+                if (provenanceObj is System.Text.Json.JsonElement provenance)
+                {
+                    if (provenance.TryGetProperty(fieldName, out var fieldValue))
+                    {
+                        return fieldValue.GetString() == expectedValue;
+                    }
+                }
+                return false;
+            }
+            catch
+            {
+                return false;
+            }
+        });
+    }
+
     public async Task<ArtifactListResponse> GetArtifactsAsync(ArtifactQueryOptions? options = null)
     {
         options ??= new ArtifactQueryOptions();
@@ -158,62 +198,12 @@ public class FileSystemArtifactRegistry : IArtifactRegistry
         // M2.10: Provenance filtering
         if (!string.IsNullOrEmpty(options.TemplateId))
         {
-            artifacts = artifacts.Where(a => 
-            {
-                if (a.Metadata == null || !a.Metadata.ContainsKey("provenance"))
-                {
-                    return false;
-                }
-
-                try
-                {
-                    var provenanceObj = a.Metadata["provenance"];
-                    
-                    // If it's already a JsonElement, use it directly
-                    if (provenanceObj is System.Text.Json.JsonElement provenance)
-                    {
-                        if (provenance.TryGetProperty("templateId", out var templateId))
-                        {
-                            return templateId.GetString() == options.TemplateId;
-                        }
-                    }
-                    return false;
-                }
-                catch
-                {
-                    return false;
-                }
-            });
+            artifacts = FilterByProvenanceField(artifacts, "templateId", options.TemplateId);
         }
 
         if (!string.IsNullOrEmpty(options.ModelId))
         {
-            artifacts = artifacts.Where(a => 
-            {
-                if (a.Metadata == null || !a.Metadata.ContainsKey("provenance"))
-                {
-                    return false;
-                }
-
-                try
-                {
-                    var provenanceObj = a.Metadata["provenance"];
-                    
-                    // If it's already a JsonElement, use it directly
-                    if (provenanceObj is System.Text.Json.JsonElement provenance)
-                    {
-                        if (provenance.TryGetProperty("modelId", out var modelId))
-                        {
-                            return modelId.GetString() == options.ModelId;
-                        }
-                    }
-                    return false;
-                }
-                catch
-                {
-                    return false;
-                }
-            });
+            artifacts = FilterByProvenanceField(artifacts, "modelId", options.ModelId);
         }
 
         // Enhanced sorting with new fields (with stable secondary sort by ID)
