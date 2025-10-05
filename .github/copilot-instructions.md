@@ -5,6 +5,14 @@ Purpose: give AI agents the minimum context to be productive and safe in this re
 ## Serena
 # Copilot Instructions for FlowTime Project
 
+## Code Style Rules (Apply to ALL code generation, including Serena)
+
+**Private Field Naming Convention (STRICT):**
+- ✅ Use **camelCase** WITHOUT underscore prefix: `dataDirectory`, `indexLock`, `registry`
+- ❌ NEVER use underscore prefix: `_dataDirectory`, `_indexLock`, `_registry`
+- This prevents analyzer warnings in test projects
+- Example: `private readonly string dataDirectory;` NOT `private readonly string _dataDirectory;`
+
 ## Code Navigation and Editing Rules
 
 **ALWAYS use Serena MCP tools for code operations:**
@@ -121,7 +129,10 @@ Prefer semantic, symbol-level operations over file-level operations whenever pos
 
 ## Coding patterns and style
 - .NET 9, C# nullable + implicit usings enabled.
-- Avoid private field names starting with `_` (analyzers may flag them in tests).
+- **Private field naming convention**: Use **camelCase** WITHOUT underscore prefix (e.g., `dataDirectory`, `indexLock`, NOT `_dataDirectory`)
+  - This is a strict project convention to avoid analyzer warnings in test projects
+  - Exception: Legacy code like `Pcg32.cs` has underscore prefixes - do NOT replicate this pattern in new code
+  - Examples: `private readonly string dataDirectory;`, `private static readonly SemaphoreSlim indexLock;`
 - For API changes, update `.http` examples and API tests together.
 
 ## Roadmap-driven areas (reference docs, don’t hard-code here)
