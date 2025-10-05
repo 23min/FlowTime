@@ -119,6 +119,16 @@ Console.WriteLine($"Wrote artifacts to {result.RunDirectory}");
 
 return 0;
 
+/// <summary>
+/// Handles the 'artifacts list' command to query and display artifacts from the local registry.
+/// </summary>
+/// <param name="args">Command arguments including subcommand and options</param>
+/// <returns>Exit code: 0 for success, 1 for validation errors, 2 for usage errors</returns>
+/// <remarks>
+/// M2.10: Supports provenance filtering via --template-id and --model-id flags.
+/// Works offline by querying the local FileSystemArtifactRegistry.
+/// Example: flowtime artifacts list --template-id my-template --limit 10
+/// </remarks>
 static async Task<int> HandleArtifactsCommand(string[] args)
 {
 	if (args.Length < 2 || args[1] != "list")

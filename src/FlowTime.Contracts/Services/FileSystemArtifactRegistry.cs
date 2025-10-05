@@ -118,6 +118,16 @@ public class FileSystemArtifactRegistry : IArtifactRegistry
         });
     }
 
+    /// <summary>
+    /// Retrieves artifacts from the registry with optional filtering, sorting, and pagination.
+    /// </summary>
+    /// <param name="options">Query options including provenance filters (TemplateId, ModelId), pagination, and sorting</param>
+    /// <returns>Response containing matching artifacts, total count, and page count</returns>
+    /// <remarks>
+    /// M2.10: Supports provenance-based filtering via TemplateId and ModelId.
+    /// Artifacts are filtered based on their metadata["provenance"] field.
+    /// All sorting uses stable secondary sort by ID to ensure deterministic ordering.
+    /// </remarks>
     public async Task<ArtifactListResponse> GetArtifactsAsync(ArtifactQueryOptions? options = null)
     {
         options ??= new ArtifactQueryOptions();
