@@ -117,7 +117,11 @@ v1.MapGet("/artifacts", async (IArtifactRegistry registry, HttpContext context, 
         MaxFileSize = long.TryParse(query["maxSize"].FirstOrDefault(), out var maxSize) ? maxSize : null,
         FullTextSearch = query["fullText"].FirstOrDefault(),
         RelatedToArtifact = query["relatedTo"].FirstOrDefault(),
-        IncludeArchived = bool.TryParse(query["includeArchived"].FirstOrDefault(), out var includeArchived) ? includeArchived : false
+        IncludeArchived = bool.TryParse(query["includeArchived"].FirstOrDefault(), out var includeArchived) ? includeArchived : false,
+        
+        // M2.10 Provenance options
+        TemplateId = query["templateId"].FirstOrDefault(),
+        ModelId = query["modelId"].FirstOrDefault()
     };
     
     try

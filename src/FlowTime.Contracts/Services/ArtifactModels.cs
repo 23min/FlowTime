@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace FlowTime.API.Models;
+namespace FlowTime.Contracts.Services;
 
 /// <summary>
 /// Represents an artifact in the registry
@@ -148,7 +148,7 @@ public class ArtifactReference
     public required string Title { get; set; }
 
     /// <summary>
-    /// Type of relationship
+    /// Relationship type (e.g., "derived_from", "uses_model")
     /// </summary>
-    public required string RelationshipType { get; set; }
+    public string? RelationshipType { get; set; }
 }

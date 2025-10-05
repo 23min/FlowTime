@@ -23,7 +23,6 @@ bool verbose = false;
 bool deterministicRunId = false;
 int? rngSeed = null;
 double? startTimeBias = null;
-string? viaApi = null;
 for (int i = 2; i < args.Length; i++)
 {
 	if (args[i] == "--out" && i + 1 < args.Length) { outDir = args[++i]; }
@@ -34,7 +33,6 @@ for (int i = 2; i < args.Length; i++)
 		if (int.TryParse(args[++i], out var seed)) rngSeed = seed;
 		else throw new ArgumentException($"Invalid seed value: {args[i]}");
 	}
-	else if (args[i] == "--via-api" && i + 1 < args.Length) { viaApi = args[++i]; }
 }
 Directory.CreateDirectory(outDir);
 
@@ -71,11 +69,6 @@ catch (Exception ex)
 {
 	Console.Error.WriteLine($"Error processing model file: {ex.Message}");
 	return 1;
-}
-
-if (!string.IsNullOrWhiteSpace(viaApi))
-{
-	Console.WriteLine($"--via-api is specified ({viaApi}), but HTTP mode isn't implemented yet. Running locally for now to preserve parity and offline support.");
 }
 
 var order = graph.TopologicalOrder();
@@ -133,13 +126,12 @@ static void PrintUsage()
 {
 	Console.WriteLine("FlowTime CLI (M0)\n");
 	Console.WriteLine("Usage:");
-	Console.WriteLine("  flowtime run <model.yaml> [--out <dir>] [--verbose] [--deterministic-run-id] [--seed <n>] [--via-api <url>]\n");
+	Console.WriteLine("  flowtime run <model.yaml> [--out <dir>] [--verbose] [--deterministic-run-id] [--seed <n>]\n");
 	Console.WriteLine("Options:");
 	Console.WriteLine("  --out <dir>             Output directory (default: ./data, or $FLOWTIME_DATA_DIR)");
 	Console.WriteLine("  --verbose               Print grid/topology/output summary");
 	Console.WriteLine("  --deterministic-run-id  Generate deterministic runId based on scenario hash (for testing/CI)");
-	Console.WriteLine("  --seed <n>              RNG seed for reproducible results (default: random)");
-	Console.WriteLine("  --via-api <url>         Route run via API for parity (falls back to local until SVC-M0)\n");
+	Console.WriteLine("  --seed <n>              RNG seed for reproducible results (default: random)\n");
 	Console.WriteLine("Help:");
 	Console.WriteLine("  -h | --help | /?        Print this help and exit");
 	Console.WriteLine();

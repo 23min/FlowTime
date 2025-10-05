@@ -27,6 +27,7 @@ public class ProvenanceQueryTests : IClassFixture<TestWebApplicationFactory>
         var runA = await CreateTestRunWithProvenance(templateId: "transportation-basic", modelId: "model_123");
         var runB = await CreateTestRunWithProvenance(templateId: "manufacturing-line", modelId: "model_456");
         var runC = await CreateTestRunWithoutProvenance();
+        await RebuildIndex();
 
         // Act: Query by templateId
         var response = await client.GetAsync("/v1/artifacts?templateId=transportation-basic");
@@ -49,11 +50,12 @@ public class ProvenanceQueryTests : IClassFixture<TestWebApplicationFactory>
     public async Task GetArtifacts_WithModelId_ReturnsExactMatch()
     {
         // Arrange: Create test artifacts with different modelIds
-        var runA = await CreateTestRunWithProvenance(templateId: "template-1", modelId: "model_123");
-        var runB = await CreateTestRunWithProvenance(templateId: "template-2", modelId: "model_456");
+        var runA = await CreateTestRunWithProvenance(templateId: "test2-template-1", modelId: "test2-model_123");
+        var runB = await CreateTestRunWithProvenance(templateId: "test2-template-2", modelId: "test2-model_456");
+        await RebuildIndex();
 
         // Act: Query by modelId
-        var response = await client.GetAsync("/v1/artifacts?modelId=model_123");
+        var response = await client.GetAsync("/v1/artifacts?modelId=test2-model_123");
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -73,12 +75,13 @@ public class ProvenanceQueryTests : IClassFixture<TestWebApplicationFactory>
     public async Task GetArtifacts_WithTemplateIdAndModelId_ReturnsBothMatches()
     {
         // Arrange: Create test artifacts with different combinations
-        var runA = await CreateTestRunWithProvenance(templateId: "template-1", modelId: "model_123");
-        var runB = await CreateTestRunWithProvenance(templateId: "template-2", modelId: "model_123");
-        var runC = await CreateTestRunWithProvenance(templateId: "template-1", modelId: "model_456");
+        var runA = await CreateTestRunWithProvenance(templateId: "test3-template-1", modelId: "test3-model_123");
+        var runB = await CreateTestRunWithProvenance(templateId: "test3-template-2", modelId: "test3-model_123");
+        var runC = await CreateTestRunWithProvenance(templateId: "test3-template-1", modelId: "test3-model_456");
+        await RebuildIndex();
 
         // Act: Query by both templateId and modelId
-        var response = await client.GetAsync("/v1/artifacts?templateId=template-1&modelId=model_123");
+        var response = await client.GetAsync("/v1/artifacts?templateId=test3-template-1&modelId=test3-model_123");
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -98,11 +101,12 @@ public class ProvenanceQueryTests : IClassFixture<TestWebApplicationFactory>
     public async Task GetArtifacts_WithNonExistentTemplateId_ReturnsEmptyResult()
     {
         // Arrange: Create test artifacts with different templateIds
-        await CreateTestRunWithProvenance(templateId: "template-1", modelId: "model_123");
-        await CreateTestRunWithProvenance(templateId: "template-2", modelId: "model_456");
+        await CreateTestRunWithProvenance(templateId: "test4-template-1", modelId: "test4-model_123");
+        await CreateTestRunWithProvenance(templateId: "test4-template-2", modelId: "test4-model_456");
+        await RebuildIndex();
 
         // Act: Query for non-existent templateId
-        var response = await client.GetAsync("/v1/artifacts?templateId=non-existent");
+        var response = await client.GetAsync("/v1/artifacts?templateId=test4-non-existent");
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -122,10 +126,11 @@ public class ProvenanceQueryTests : IClassFixture<TestWebApplicationFactory>
     public async Task GetArtifacts_TemplateIdCaseSensitive_NoMatch()
     {
         // Arrange: Run with specific templateId casing
-        await CreateTestRunWithProvenance(templateId: "Transportation-Basic", modelId: "model_123");
+        await CreateTestRunWithProvenance(templateId: "test5-Transportation-Basic", modelId: "test5-model_123");
+        await RebuildIndex();
 
         // Act: Query with different casing
-        var response = await client.GetAsync("/v1/artifacts?templateId=transportation-basic");
+        var response = await client.GetAsync("/v1/artifacts?templateId=test5-transportation-basic");
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -145,13 +150,14 @@ public class ProvenanceQueryTests : IClassFixture<TestWebApplicationFactory>
         // Arrange: Create 5 runs with same templateId
         for (int i = 0; i < 5; i++)
         {
-            await CreateTestRunWithProvenance(templateId: "template-1", modelId: $"model_{i}");
+            await CreateTestRunWithProvenance(templateId: "test6-template-1", modelId: $"test6-model_{i}");
             // Small delay to ensure different timestamps
             await Task.Delay(10);
         }
+        await RebuildIndex();
 
         // Act: Query with pagination
-        var response = await client.GetAsync("/v1/artifacts?templateId=template-1&limit=2&skip=0");
+        var response = await client.GetAsync("/v1/artifacts?templateId=test6-template-1&limit=2&skip=0");
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -174,12 +180,14 @@ public class ProvenanceQueryTests : IClassFixture<TestWebApplicationFactory>
         var runIds = new List<string>();
         for (int i = 0; i < 3; i++)
         {
-            runIds.Add(await CreateTestRunWithProvenance(templateId: "template-1", modelId: $"model_{i}"));
-            await Task.Delay(100); // Ensure different timestamps
+            runIds.Add(await CreateTestRunWithProvenance(templateId: "test7-template-1", modelId: $"test7-model_{i}"));
+            // Rebuild index after each creation to ensure distinct timestamps
+            await RebuildIndex();
+            await Task.Delay(50); // Small delay between runs
         }
 
         // Act: Query with sorting by created descending
-        var response = await client.GetAsync("/v1/artifacts?templateId=template-1&sortBy=created&sortOrder=desc");
+        var response = await client.GetAsync("/v1/artifacts?templateId=test7-template-1&sortBy=created&sortOrder=desc");
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -199,14 +207,14 @@ public class ProvenanceQueryTests : IClassFixture<TestWebApplicationFactory>
     public async Task GetArtifacts_WithTemplateId_ExcludesArtifactsWithoutProvenance()
     {
         // Arrange: Mix of artifacts with and without provenance
-        var runA = await CreateTestRunWithProvenance(templateId: "template-1", modelId: "model_123");
+        var runA = await CreateTestRunWithProvenance(templateId: "test8-template-1", modelId: "test8-model_123");
         var runB = await CreateTestRunWithoutProvenance();
         
         // Also test artifact with provenance.json but no templateId field (malformed)
-        var runC = await CreateTestRunWithProvenance(templateId: null, modelId: "model_456");
+        var runC = await CreateTestRunWithProvenance(templateId: null, modelId: "test8-model_456");
 
         // Act: Query by templateId
-        var response = await client.GetAsync("/v1/artifacts?templateId=template-1");
+        var response = await client.GetAsync("/v1/artifacts?templateId=test8-template-1");
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -291,5 +299,13 @@ public class ProvenanceQueryTests : IClassFixture<TestWebApplicationFactory>
         var responseJson = await response.Content.ReadAsStringAsync();
         var result = JsonSerializer.Deserialize<JsonElement>(responseJson);
         return result.GetProperty("runId").GetString()!;
+    }
+
+    private async Task RebuildIndex()
+    {
+        // Rebuild artifact registry index to ensure all runs are registered
+        // This is necessary because run registration is fire-and-forget in the API
+        var response = await client.PostAsync("/v1/artifacts/index", null);
+        response.EnsureSuccessStatusCode();
     }
 }

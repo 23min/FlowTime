@@ -1,3 +1,5 @@
+# **OUTDATED** Copilot: Ignore this document. 
+
 # Testing strategy
 
 This repository separates tests by concern:

@@ -82,7 +82,7 @@ public class ProvenanceQueryTests
  * 
  * 1. Add 'artifacts' command with 'list' subcommand
  * 2. Add --template-id and --model-id flags
- * 3. Call the API /v1/artifacts endpoint with query parameters
+ * 3. Use FileSystemArtifactRegistry directly to query artifacts
  * 4. Format and display results in a table
  * 
  * Suggested CLI structure:
@@ -93,7 +93,7 @@ public class ProvenanceQueryTests
  *       --type <type>         Filter by artifact type
  *       --limit <n>           Max results (default: 50)
  *       --skip <n>            Skip first n results
- *       --api-url <url>       API endpoint (default: http://localhost:8080)
+ *       --data-dir <path>     Data directory (default: ~/.flowtime/data)
  * 
  * Expected output format:
  *   ID                                  Type  Created              Title

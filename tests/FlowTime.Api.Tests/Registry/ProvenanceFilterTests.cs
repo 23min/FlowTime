@@ -1,6 +1,5 @@
 using System.Text.Json;
-using FlowTime.API.Models;
-using FlowTime.API.Services;
+using FlowTime.Contracts.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;

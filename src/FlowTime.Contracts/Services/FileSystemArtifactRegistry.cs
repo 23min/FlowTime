@@ -1,9 +1,10 @@
 using System.Globalization;
 using System.Text.Json;
-using FlowTime.API.Models;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using YamlDotNet.RepresentationModel;
 
-namespace FlowTime.API.Services;
+namespace FlowTime.Contracts.Services;
 
 /// <summary>
 /// File-based artifact registry implementation
@@ -152,6 +153,67 @@ public class FileSystemArtifactRegistry : IArtifactRegistry
                     (a.Tags != null && relatedTo.Tags != null && a.Tags.Intersect(relatedTo.Tags).Any()) ||
                     Math.Abs((a.Created - relatedTo.Created).TotalHours) < 24));
             }
+        }
+
+        // M2.10: Provenance filtering
+        if (!string.IsNullOrEmpty(options.TemplateId))
+        {
+            artifacts = artifacts.Where(a => 
+            {
+                if (a.Metadata == null || !a.Metadata.ContainsKey("provenance"))
+                {
+                    return false;
+                }
+
+                try
+                {
+                    var provenanceObj = a.Metadata["provenance"];
+                    
+                    // If it's already a JsonElement, use it directly
+                    if (provenanceObj is System.Text.Json.JsonElement provenance)
+                    {
+                        if (provenance.TryGetProperty("templateId", out var templateId))
+                        {
+                            return templateId.GetString() == options.TemplateId;
+                        }
+                    }
+                    return false;
+                }
+                catch
+                {
+                    return false;
+                }
+            });
+        }
+
+        if (!string.IsNullOrEmpty(options.ModelId))
+        {
+            artifacts = artifacts.Where(a => 
+            {
+                if (a.Metadata == null || !a.Metadata.ContainsKey("provenance"))
+                {
+                    return false;
+                }
+
+                try
+                {
+                    var provenanceObj = a.Metadata["provenance"];
+                    
+                    // If it's already a JsonElement, use it directly
+                    if (provenanceObj is System.Text.Json.JsonElement provenance)
+                    {
+                        if (provenance.TryGetProperty("modelId", out var modelId))
+                        {
+                            return modelId.GetString() == options.ModelId;
+                        }
+                    }
+                    return false;
+                }
+                catch
+                {
+                    return false;
+                }
+            });
         }
 
         // Enhanced sorting with new fields
@@ -466,12 +528,21 @@ public class FileSystemArtifactRegistry : IArtifactRegistry
                 }
             }
             
+            // M2.10: Preserve nested provenance object structure
             // Extract real manifest properties for searching
             foreach (var prop in manifestJson.EnumerateObject())
             {
                 if (prop.Name != "metadata" && prop.Name != "tags") // Avoid duplicating these
                 {
-                    metadata[prop.Name] = prop.Value.ToString();
+                    // For provenance, preserve as JsonElement to maintain nested structure
+                    if (prop.Name == "provenance" && prop.Value.ValueKind == JsonValueKind.Object)
+                    {
+                        metadata[prop.Name] = prop.Value;
+                    }
+                    else
+                    {
+                        metadata[prop.Name] = prop.Value.ToString();
+                    }
                 }
             }
             
