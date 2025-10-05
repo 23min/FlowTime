@@ -1,14 +1,21 @@
-﻿using FlowTime.Cli.Configuration;
+using FlowTime.Cli.Configuration;
 using FlowTime.Core;
 using FlowTime.Core.Artifacts;
 using FlowTime.Core.Models;
 using FlowTime.Contracts.Services;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using System.Text.Json;
 
 if (args.Length == 0 || IsHelp(args[0]))
 {
 	PrintUsage();
 	return 0;
+}
+
+if (args[0] == "artifacts")
+{
+	return await HandleArtifactsCommand(args);
 }
 
 if (args[0] != "run")
@@ -110,6 +117,118 @@ if (verbose) Console.WriteLine($"  RNG seed: {result.FinalSeed} ({(rngSeed.HasVa
 Console.WriteLine($"Wrote artifacts to {result.RunDirectory}");
 
 return 0;
+
+static async Task<int> HandleArtifactsCommand(string[] args)
+{
+	if (args.Length < 2 || args[1] != "list")
+	{
+		Console.Error.WriteLine("Unknown artifacts subcommand. Usage: flowtime artifacts list [options]");
+		return 2;
+	}
+
+	// Parse flags
+	string? templateId = null;
+	string? modelId = null;
+	string dataDir = OutputDirectoryProvider.GetDefaultOutputDirectory();
+	int limit = 50;
+	int skip = 0;
+
+	for (int i = 2; i < args.Length; i++)
+	{
+		if (args[i] == "--template-id" && i + 1 < args.Length)
+		{
+			templateId = args[++i];
+		}
+		else if (args[i] == "--model-id" && i + 1 < args.Length)
+		{
+			modelId = args[++i];
+		}
+		else if (args[i] == "--data-dir" && i + 1 < args.Length)
+		{
+			dataDir = args[++i];
+		}
+		else if (args[i] == "--limit" && i + 1 < args.Length)
+		{
+			if (int.TryParse(args[++i], out var l))
+				limit = l;
+			else
+			{
+				Console.Error.WriteLine($"Invalid --limit value: {args[i]}");
+				return 2;
+			}
+		}
+		else if (args[i] == "--skip" && i + 1 < args.Length)
+		{
+			if (int.TryParse(args[++i], out var s))
+				skip = s;
+			else
+			{
+				Console.Error.WriteLine($"Invalid --skip value: {args[i]}");
+				return 2;
+			}
+		}
+		else
+		{
+			Console.Error.WriteLine($"Unknown option: {args[i]}");
+			return 2;
+		}
+	}
+
+	// Validate data directory exists
+	if (!Directory.Exists(dataDir))
+	{
+		Console.Error.WriteLine($"Data directory does not exist: {dataDir}");
+		return 1;
+	}
+
+	// Create registry using shared FileSystemArtifactRegistry
+	var config = new ConfigurationBuilder()
+		.AddInMemoryCollection(new Dictionary<string, string?> { ["DataDirectory"] = dataDir })
+		.Build();
+
+	var loggerFactory = LoggerFactory.Create(builder => builder.SetMinimumLevel(LogLevel.Warning));
+	var logger = loggerFactory.CreateLogger<FileSystemArtifactRegistry>();
+	var registry = new FileSystemArtifactRegistry(config, logger);
+
+	// Query artifacts with provenance filters
+	var options = new ArtifactQueryOptions
+	{
+		TemplateId = templateId,
+		ModelId = modelId,
+		Limit = limit,
+		Skip = skip
+	};
+
+	var result = await registry.GetArtifactsAsync(options);
+
+	// Display results as table
+	if (result.Artifacts.Count == 0)
+	{
+		Console.WriteLine("No artifacts found.");
+		return 0;
+	}
+
+	// Print table header
+	Console.WriteLine($"{"ID",-40} {"Type",-8} {"Created",-20} {"Title"}");
+	Console.WriteLine(new string('-', 100));
+
+	// Print each artifact
+	foreach (var artifact in result.Artifacts)
+	{
+		var createdAt = artifact.Created.ToString("yyyy-MM-dd HH:mm:ss");
+		var title = artifact.Title ?? string.Empty;
+		if (title.Length > 30)
+			title = title.Substring(0, 27) + "...";
+
+		Console.WriteLine($"{artifact.Id,-40} {artifact.Type,-8} {createdAt,-20} {title}");
+	}
+
+	// Print footer
+	Console.WriteLine();
+	Console.WriteLine($"Total: {result.Total} artifacts (showing {result.Artifacts.Count})");
+
+	return 0;
+}
 
 static bool IsHelp(string? s)
 {
