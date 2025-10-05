@@ -77,19 +77,45 @@ Prefer semantic, symbol-level operations over file-level operations whenever pos
 - See `docs/development/branching-strategy.md` for the full workflow.
 
 ## Versioning strategy
-- **Milestone-driven versioning**: Major.Minor reflects capability level, not arbitrary breaking changes
+- **Milestone-driven versioning**: Version reflects capability progression, not arbitrary changes
 - **Version format**: `<Major>.<Minor>.<Patch>[-<PreRelease>]`
-  - **Patch**: Bug fixes, CLI improvements, documentation updates within milestone scope
-  - **Minor**: Milestone completion, new capabilities, API additions
-  - **Major**: Reserved for fundamental architecture changes or major breaking changes
+- **0.x Phase (Pre-Production)**: API may change, 0.x can go beyond 0.9 (e.g., 0.10.0, 0.11.0, 0.50.0)
+  - **Patch (0.6.x)**: Small milestones, features, bug fixes within current major milestone series
+  - **Minor (0.x.0)**: Major milestone completions, new subsystems, significant capabilities
+  - **Major (1.0.0)**: Reserved for production-ready release with API stability commitment
   - **PreRelease**: `-preview`, `-rc` during development cycles
-- **Pre-merge review**: Before merging to main (release), evaluate:
-  - Does this complete a milestone? → Minor bump
-  - Is this a bug fix or improvement within current milestone? → Patch bump
-  - Does this break existing APIs or fundamentally change architecture? → Major bump
-  - Is this work-in-progress toward next milestone? → PreRelease suffix
+
+- **Pre-merge review**: Before merging to main, evaluate:
+  - Is this a major milestone (M3.0, M4.0, etc.)? → Minor bump (0.6.0 → 0.7.0)
+  - Is this a small milestone or feature addition? → Patch bump (0.6.0 → 0.6.1)
+  - Bug fix only? → Patch bump (0.6.0 → 0.6.1)
+  - Production-ready with API stability? → Major bump (0.x.y → 1.0.0)
+
+- **Examples**: M2.10 → 0.6.1, M3.0 → 0.7.0, M4.0 → 0.8.0, M6.0 → 0.10.0, v1.0 → 1.0.0
 - **Version consistency**: Update `<VersionPrefix>` in all `.csproj` files together
 - **No hardcoded automation**: Version decisions made during merge review, not automated based on branch names
+
+## Post-merge ceremony (after merging to main)
+**Complete ceremony required** - See `docs/development/release-ceremony.md` for full details
+
+Quick checklist:
+1. **Decide version**: Minor (major milestone M3.0+), Patch (small milestone/features), Major (1.0 stable)
+2. **Update all .csproj files**: Change `<VersionPrefix>` in all 5 projects
+3. **Commit version bump**: `git commit -m "chore(release): bump version to X.Y.Z"`
+4. **Create release doc**: `docs/releases/M<X>.<Y>-vX.Y.Z.md` (use template from ceremony doc)
+5. **Commit release doc**: `git commit -m "docs(release): add M<X>.<Y> release notes"`
+6. **Create git tag**: `git tag -a vX.Y.Z -m "Release vX.Y.Z - [description]"`
+7. **Push tag**: `git push origin vX.Y.Z`
+8. **Push main**: `git push origin main`
+9. **Clean up branches**: Delete feature/milestone branches
+10. **Verify**: Check tag exists, tests pass, version consistent
+
+**Files to update for version bump:**
+- `src/FlowTime.API/FlowTime.API.csproj`
+- `src/FlowTime.Core/FlowTime.Core.csproj`
+- `src/FlowTime.Cli/FlowTime.Cli.csproj`
+- `src/FlowTime.Contracts/FlowTime.Contracts.csproj`
+- `src/FlowTime.Adapters.Synthetic/FlowTime.Adapters.Synthetic.csproj`
 
 ## Documentation conventions
 - **Release documents**: Use milestone-based naming pattern `M<X>.<Y>-v<major>.<minor>.<patch>.md` (e.g., `M2.0-v0.4.0.md`)
