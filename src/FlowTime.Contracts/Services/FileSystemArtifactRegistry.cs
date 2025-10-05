@@ -18,6 +18,11 @@ public class FileSystemArtifactRegistry : IArtifactRegistry
     private readonly JsonSerializerOptions jsonOptions;
     private static readonly SemaphoreSlim indexLock = new(1, 1);
 
+    // Provenance-related constants (M2.10)
+    private const string provenanceMetadataKey = "provenance";
+    private const string templateIdFieldName = "templateId";
+    private const string modelIdFieldName = "modelId";
+
     public FileSystemArtifactRegistry(IConfiguration configuration, ILogger<FileSystemArtifactRegistry> logger)
     {
         this.dataDirectory = configuration.GetValue<string>("ArtifactsDirectory") ?? configuration.GetValue<string>("DataDirectory") ?? "data";
@@ -92,14 +97,14 @@ public class FileSystemArtifactRegistry : IArtifactRegistry
     {
         return artifacts.Where(artifact =>
         {
-            if (artifact.Metadata == null || !artifact.Metadata.ContainsKey("provenance"))
+            if (artifact.Metadata == null || !artifact.Metadata.ContainsKey(provenanceMetadataKey))
             {
                 return false;
             }
 
             try
             {
-                var provenanceObj = artifact.Metadata["provenance"];
+                var provenanceObj = artifact.Metadata[provenanceMetadataKey];
                 
                 // If it's already a JsonElement, use it directly
                 if (provenanceObj is System.Text.Json.JsonElement provenance)
@@ -208,12 +213,12 @@ public class FileSystemArtifactRegistry : IArtifactRegistry
         // M2.10: Provenance filtering
         if (!string.IsNullOrEmpty(options.TemplateId))
         {
-            artifacts = FilterByProvenanceField(artifacts, "templateId", options.TemplateId);
+            artifacts = FilterByProvenanceField(artifacts, templateIdFieldName, options.TemplateId);
         }
 
         if (!string.IsNullOrEmpty(options.ModelId))
         {
-            artifacts = FilterByProvenanceField(artifacts, "modelId", options.ModelId);
+            artifacts = FilterByProvenanceField(artifacts, modelIdFieldName, options.ModelId);
         }
 
         // Enhanced sorting with new fields (with stable secondary sort by ID)
