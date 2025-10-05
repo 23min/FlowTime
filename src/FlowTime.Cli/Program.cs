@@ -190,6 +190,9 @@ static async Task<int> HandleArtifactsCommand(string[] args)
 	var logger = loggerFactory.CreateLogger<FileSystemArtifactRegistry>();
 	var registry = new FileSystemArtifactRegistry(config, logger);
 
+	// Rebuild index to ensure all artifacts are discovered
+	await registry.RebuildIndexAsync();
+
 	// Query artifacts with provenance filters
 	var options = new ArtifactQueryOptions
 	{
