@@ -3,7 +3,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Xunit;
 using System.Net;
-using FlowTime.API.Models;
+using FlowTime.Contracts.Services;
 
 namespace FlowTime.Api.Tests;
 

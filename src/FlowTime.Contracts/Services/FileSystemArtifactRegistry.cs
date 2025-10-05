@@ -1,9 +1,10 @@
 using System.Globalization;
 using System.Text.Json;
-using FlowTime.API.Models;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using YamlDotNet.RepresentationModel;
 
-namespace FlowTime.API.Services;
+namespace FlowTime.Contracts.Services;
 
 /// <summary>
 /// File-based artifact registry implementation
@@ -16,6 +17,11 @@ public class FileSystemArtifactRegistry : IArtifactRegistry
     private readonly ILogger<FileSystemArtifactRegistry> logger;
     private readonly JsonSerializerOptions jsonOptions;
     private static readonly SemaphoreSlim indexLock = new(1, 1);
+
+    // Provenance-related constants (M2.10)
+    private const string provenanceMetadataKey = "provenance";
+    private const string templateIdFieldName = "templateId";
+    private const string modelIdFieldName = "modelId";
 
     public FileSystemArtifactRegistry(IConfiguration configuration, ILogger<FileSystemArtifactRegistry> logger)
     {
@@ -77,6 +83,56 @@ public class FileSystemArtifactRegistry : IArtifactRegistry
         return index;
     }
 
+    /// <summary>
+    /// Filters artifacts by a specific provenance field value.
+    /// </summary>
+    /// <param name="artifacts">Artifacts to filter</param>
+    /// <param name="fieldName">Provenance field name (e.g., "templateId", "modelId")</param>
+    /// <param name="expectedValue">Expected field value</param>
+    /// <returns>Filtered artifacts containing matching provenance field value</returns>
+    private static IEnumerable<Artifact> FilterByProvenanceField(
+        IEnumerable<Artifact> artifacts,
+        string fieldName,
+        string expectedValue)
+    {
+        return artifacts.Where(artifact =>
+        {
+            if (artifact.Metadata == null || !artifact.Metadata.ContainsKey(provenanceMetadataKey))
+            {
+                return false;
+            }
+
+            try
+            {
+                var provenanceObj = artifact.Metadata[provenanceMetadataKey];
+                
+                // If it's already a JsonElement, use it directly
+                if (provenanceObj is System.Text.Json.JsonElement provenance)
+                {
+                    if (provenance.TryGetProperty(fieldName, out var fieldValue))
+                    {
+                        return fieldValue.GetString() == expectedValue;
+                    }
+                }
+                return false;
+            }
+            catch
+            {
+                return false;
+            }
+        });
+    }
+
+    /// <summary>
+    /// Retrieves artifacts from the registry with optional filtering, sorting, and pagination.
+    /// </summary>
+    /// <param name="options">Query options including provenance filters (TemplateId, ModelId), pagination, and sorting</param>
+    /// <returns>Response containing matching artifacts, total count, and page count</returns>
+    /// <remarks>
+    /// M2.10: Supports provenance-based filtering via TemplateId and ModelId.
+    /// Artifacts are filtered based on their metadata["provenance"] field.
+    /// All sorting uses stable secondary sort by ID to ensure deterministic ordering.
+    /// </remarks>
     public async Task<ArtifactListResponse> GetArtifactsAsync(ArtifactQueryOptions? options = null)
     {
         options ??= new ArtifactQueryOptions();
@@ -154,24 +210,35 @@ public class FileSystemArtifactRegistry : IArtifactRegistry
             }
         }
 
-        // Enhanced sorting with new fields
+        // M2.10: Provenance filtering
+        if (!string.IsNullOrEmpty(options.TemplateId))
+        {
+            artifacts = FilterByProvenanceField(artifacts, templateIdFieldName, options.TemplateId);
+        }
+
+        if (!string.IsNullOrEmpty(options.ModelId))
+        {
+            artifacts = FilterByProvenanceField(artifacts, modelIdFieldName, options.ModelId);
+        }
+
+        // Enhanced sorting with new fields (with stable secondary sort by ID)
         artifacts = options.SortBy.ToLowerInvariant() switch
         {
             "title" => options.SortOrder.ToLowerInvariant() == "asc" 
-                ? artifacts.OrderBy(a => a.Title) 
-                : artifacts.OrderByDescending(a => a.Title),
+                ? artifacts.OrderBy(a => a.Title).ThenBy(a => a.Id)
+                : artifacts.OrderByDescending(a => a.Title).ThenByDescending(a => a.Id),
             "id" => options.SortOrder.ToLowerInvariant() == "asc" 
                 ? artifacts.OrderBy(a => a.Id) 
                 : artifacts.OrderByDescending(a => a.Id),
             "size" => options.SortOrder.ToLowerInvariant() == "asc" 
-                ? artifacts.OrderBy(a => a.TotalSize) 
-                : artifacts.OrderByDescending(a => a.TotalSize),
+                ? artifacts.OrderBy(a => a.TotalSize).ThenBy(a => a.Id)
+                : artifacts.OrderByDescending(a => a.TotalSize).ThenByDescending(a => a.Id),
             "modified" => options.SortOrder.ToLowerInvariant() == "asc" 
-                ? artifacts.OrderBy(a => a.LastModified) 
-                : artifacts.OrderByDescending(a => a.LastModified),
+                ? artifacts.OrderBy(a => a.LastModified).ThenBy(a => a.Id)
+                : artifacts.OrderByDescending(a => a.LastModified).ThenByDescending(a => a.Id),
             _ => options.SortOrder.ToLowerInvariant() == "asc" 
-                ? artifacts.OrderBy(a => a.Created) 
-                : artifacts.OrderByDescending(a => a.Created)
+                ? artifacts.OrderBy(a => a.Created).ThenBy(a => a.Id)
+                : artifacts.OrderByDescending(a => a.Created).ThenByDescending(a => a.Id)
         };
 
         var totalCount = artifacts.Count();
@@ -466,12 +533,21 @@ public class FileSystemArtifactRegistry : IArtifactRegistry
                 }
             }
             
+            // M2.10: Preserve nested provenance object structure
             // Extract real manifest properties for searching
             foreach (var prop in manifestJson.EnumerateObject())
             {
                 if (prop.Name != "metadata" && prop.Name != "tags") // Avoid duplicating these
                 {
-                    metadata[prop.Name] = prop.Value.ToString();
+                    // For provenance, preserve as JsonElement to maintain nested structure
+                    if (prop.Name == "provenance" && prop.Value.ValueKind == JsonValueKind.Object)
+                    {
+                        metadata[prop.Name] = prop.Value;
+                    }
+                    else
+                    {
+                        metadata[prop.Name] = prop.Value.ToString();
+                    }
                 }
             }
             

@@ -46,8 +46,8 @@ FlowTime Engine is a **deterministic execution and telemetry generation platform
 
 | Milestone | Status | Focus |
 |-----------|--------|-------|
-| **M2.10** | 📋 Next | Provenance query support (API & CLI filters) |
-| **M3.0** | 📋 Planned | Backlog & Latency Modeling (single-queue, Little's Law) |
+| **M2.10** | ✅ Complete | Provenance query support (API & CLI filters) |
+| **M3.0** | 📋 Next | Backlog & Latency Modeling (single-queue, Little's Law) |
 
 ---
 
@@ -168,11 +168,11 @@ sequenceDiagram
 
 ---
 
-### M2.10: Provenance Query Support (📋 Next)
+### M2.10: Provenance Query Support (✅ Complete)
 
 **Goal**: Enable efficient querying of artifacts by provenance metadata through API and CLI.
 
-**Status**: Planned (2-4 hours estimated effort)
+**Status**: Complete
 
 **Key Features:**
 - API query parameters: `?source=`, `?templateId=`, `?modelId=`
@@ -337,10 +337,10 @@ The following schema documents are deprecated:
 5. Use Minimal APIs pattern (not controllers)
 
 ### For Stakeholders
-1. **Current Focus**: M2.9 complete - schema evolution & provenance tracking
+1. **Current Focus**: M2.10 complete - provenance query support
 2. **Architecture**: KISS principle with single registry
-3. **Next Milestone**: M2.10 (Provenance Queries) - small scope, 2-4 hours
-4. **After M2.10**: M3.0 (Backlog & Latency Modeling) - focus on modeling capabilities
+3. **Next Milestone**: M3.0 (Backlog & Latency Modeling) - focus on modeling capabilities
+4. **Integration**: Sim ↔ UI ↔ Engine coordination via UI orchestration
 5. **Integration**: Sim ↔ UI ↔ Engine coordination via UI orchestration
 
 ### For Users
@@ -355,12 +355,12 @@ The following schema documents are deprecated:
 1. ✅ Review and discuss ROADMAP.md
 2. ✅ Update/retire outdated documents (archived)
 3. ✅ Complete M2.9 implementation (all phases)
-4. 📋 Implement M2.10 provenance queries (TDD, 2-4 hours)
+4. ✅ Implement M2.10 provenance queries
 5. 📋 Plan M3.0 backlog & latency modeling
 
 ---
 
 **Roadmap Status:** ✅ Active  
-**Current Milestone:** M2.9 ✅ Complete, M2.10 📋 Next (2-4 hours)  
+**Current Milestone:** M2.10 ✅ Complete, M3.0 📋 Next  
 **FlowTime-Sim Status:** SIM-M2.7 ✅ Complete (v0.6.0), ready for v1.0.0 stable release  
 **Architecture:** KISS - Single Registry in Engine

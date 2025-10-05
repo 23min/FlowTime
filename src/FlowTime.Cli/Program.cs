@@ -1,14 +1,22 @@
-﻿using FlowTime.Cli.Configuration;
+using FlowTime.Cli.Configuration;
+using FlowTime.Cli.Formatting;
 using FlowTime.Core;
 using FlowTime.Core.Artifacts;
 using FlowTime.Core.Models;
 using FlowTime.Contracts.Services;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using System.Text.Json;
 
 if (args.Length == 0 || IsHelp(args[0]))
 {
 	PrintUsage();
 	return 0;
+}
+
+if (args[0] == "artifacts")
+{
+	return await HandleArtifactsCommand(args);
 }
 
 if (args[0] != "run")
@@ -23,7 +31,6 @@ bool verbose = false;
 bool deterministicRunId = false;
 int? rngSeed = null;
 double? startTimeBias = null;
-string? viaApi = null;
 for (int i = 2; i < args.Length; i++)
 {
 	if (args[i] == "--out" && i + 1 < args.Length) { outDir = args[++i]; }
@@ -34,7 +41,6 @@ for (int i = 2; i < args.Length; i++)
 		if (int.TryParse(args[++i], out var seed)) rngSeed = seed;
 		else throw new ArgumentException($"Invalid seed value: {args[i]}");
 	}
-	else if (args[i] == "--via-api" && i + 1 < args.Length) { viaApi = args[++i]; }
 }
 Directory.CreateDirectory(outDir);
 
@@ -71,11 +77,6 @@ catch (Exception ex)
 {
 	Console.Error.WriteLine($"Error processing model file: {ex.Message}");
 	return 1;
-}
-
-if (!string.IsNullOrWhiteSpace(viaApi))
-{
-	Console.WriteLine($"--via-api is specified ({viaApi}), but HTTP mode isn't implemented yet. Running locally for now to preserve parity and offline support.");
 }
 
 var order = graph.TopologicalOrder();
@@ -118,6 +119,108 @@ Console.WriteLine($"Wrote artifacts to {result.RunDirectory}");
 
 return 0;
 
+/// <summary>
+/// Handles the 'artifacts list' command to query and display artifacts from the local registry.
+/// </summary>
+/// <param name="args">Command arguments including subcommand and options</param>
+/// <returns>Exit code: 0 for success, 1 for validation errors, 2 for usage errors</returns>
+/// <remarks>
+/// M2.10: Supports provenance filtering via --template-id and --model-id flags.
+/// Works offline by querying the local FileSystemArtifactRegistry.
+/// Example: flowtime artifacts list --template-id my-template --limit 10
+/// </remarks>
+static async Task<int> HandleArtifactsCommand(string[] args)
+{
+	if (args.Length < 2 || args[1] != "list")
+	{
+		Console.Error.WriteLine("Unknown artifacts subcommand. Usage: flowtime artifacts list [options]");
+		return 2;
+	}
+
+	// Parse flags
+	string? templateId = null;
+	string? modelId = null;
+	string dataDir = OutputDirectoryProvider.GetDefaultOutputDirectory();
+	int limit = 50;
+	int skip = 0;
+
+	for (int i = 2; i < args.Length; i++)
+	{
+		if (args[i] == "--template-id" && i + 1 < args.Length)
+		{
+			templateId = args[++i];
+		}
+		else if (args[i] == "--model-id" && i + 1 < args.Length)
+		{
+			modelId = args[++i];
+		}
+		else if (args[i] == "--data-dir" && i + 1 < args.Length)
+		{
+			dataDir = args[++i];
+		}
+		else if (args[i] == "--limit" && i + 1 < args.Length)
+		{
+			if (int.TryParse(args[++i], out var l))
+				limit = l;
+			else
+			{
+				Console.Error.WriteLine($"Invalid --limit value: {args[i]}");
+				return 2;
+			}
+		}
+		else if (args[i] == "--skip" && i + 1 < args.Length)
+		{
+			if (int.TryParse(args[++i], out var s))
+				skip = s;
+			else
+			{
+				Console.Error.WriteLine($"Invalid --skip value: {args[i]}");
+				return 2;
+			}
+		}
+		else
+		{
+			Console.Error.WriteLine($"Unknown option: {args[i]}");
+			return 2;
+		}
+	}
+
+	// Validate data directory exists
+	if (!Directory.Exists(dataDir))
+	{
+		Console.Error.WriteLine($"Data directory does not exist: {dataDir}");
+		return 1;
+	}
+
+	// Create registry using shared FileSystemArtifactRegistry
+	var config = new ConfigurationBuilder()
+		.AddInMemoryCollection(new Dictionary<string, string?> { ["DataDirectory"] = dataDir })
+		.Build();
+
+	var loggerFactory = LoggerFactory.Create(builder => builder.SetMinimumLevel(LogLevel.Warning));
+	var logger = loggerFactory.CreateLogger<FileSystemArtifactRegistry>();
+	var registry = new FileSystemArtifactRegistry(config, logger);
+
+	// Rebuild index to ensure all artifacts are discovered
+	await registry.RebuildIndexAsync();
+
+	// Query artifacts with provenance filters
+	var options = new ArtifactQueryOptions
+	{
+		TemplateId = templateId,
+		ModelId = modelId,
+		Limit = limit,
+		Skip = skip
+	};
+
+	var result = await registry.GetArtifactsAsync(options);
+
+	// Display results as table
+	ArtifactTableFormatter.PrintTable(result.Artifacts, result.Total);
+
+	return 0;
+}
+
 static bool IsHelp(string? s)
 {
 	if (string.IsNullOrWhiteSpace(s)) return true;
@@ -133,13 +236,12 @@ static void PrintUsage()
 {
 	Console.WriteLine("FlowTime CLI (M0)\n");
 	Console.WriteLine("Usage:");
-	Console.WriteLine("  flowtime run <model.yaml> [--out <dir>] [--verbose] [--deterministic-run-id] [--seed <n>] [--via-api <url>]\n");
+	Console.WriteLine("  flowtime run <model.yaml> [--out <dir>] [--verbose] [--deterministic-run-id] [--seed <n>]\n");
 	Console.WriteLine("Options:");
 	Console.WriteLine("  --out <dir>             Output directory (default: ./data, or $FLOWTIME_DATA_DIR)");
 	Console.WriteLine("  --verbose               Print grid/topology/output summary");
 	Console.WriteLine("  --deterministic-run-id  Generate deterministic runId based on scenario hash (for testing/CI)");
-	Console.WriteLine("  --seed <n>              RNG seed for reproducible results (default: random)");
-	Console.WriteLine("  --via-api <url>         Route run via API for parity (falls back to local until SVC-M0)\n");
+	Console.WriteLine("  --seed <n>              RNG seed for reproducible results (default: random)\n");
 	Console.WriteLine("Help:");
 	Console.WriteLine("  -h | --help | /?        Print this help and exit");
 	Console.WriteLine();

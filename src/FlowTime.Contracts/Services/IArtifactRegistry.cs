@@ -1,6 +1,4 @@
-using FlowTime.API.Models;
-
-namespace FlowTime.API.Services;
+namespace FlowTime.Contracts.Services;
 
 /// <summary>
 /// Interface for artifact registry operations
@@ -116,6 +114,18 @@ public class ArtifactQueryOptions
     /// Find artifacts related to the specified artifact ID
     /// </summary>
     public string? RelatedToArtifact { get; set; }
+
+    // Provenance filtering options for M2.10
+
+    /// <summary>
+    /// Filter by template ID from provenance metadata (exact match, case-sensitive)
+    /// </summary>
+    public string? TemplateId { get; set; }
+
+    /// <summary>
+    /// Filter by model ID from provenance metadata (exact match, case-sensitive)
+    /// </summary>
+    public string? ModelId { get; set; }
 
     /// <summary>
     /// Whether to include archived artifacts in results (default: false)
