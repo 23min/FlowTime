@@ -14,7 +14,7 @@
 
 **What Sim Provides**: Model YAML + provenance metadata (JSON)  
 **What Engine Needs (M2.9)**: Accept provenance, store with run artifacts  
-**What Engine Needs (M2.10)**: Enable provenance queries  
+**What Engine May Need (Future)**: Enable provenance queries (not yet planned)  
 **Integration Point**: UI orchestrates (calls Sim, then Engine)
 
 ---
@@ -127,10 +127,9 @@ sequenceDiagram
 - ✅ Store provenance.json with run artifacts
 - ✅ Update registry index with basic provenance reference
 
-**M2.10 (Future):**
-- ⏳ Query by source, templateId, modelId parameters
-- ⏳ Dedicated `/v1/artifacts/{runId}/provenance` endpoint
-- ⏳ Enhanced registry index with provenance metadata
+**Future Enhancements (Not Currently Planned):**
+- Query capabilities may be added later if needed
+- Provenance queries not on current roadmap
 
 ---
 
@@ -219,7 +218,7 @@ Engine extracts `provenance` section before execution.
 
 **M2.9 Scope:** Store provenance.json file with run artifacts (no registry index changes yet)
 
-**M2.10 Scope (Future):** Enhance `registry-index.json` to include provenance metadata for queries:
+**Future Consideration (not planned):** Registry index could potentially include provenance metadata if querying becomes needed:
 
 ```json
 {
@@ -255,14 +254,14 @@ Engine extracts `provenance` section before execution.
 
 ---
 
-### 4. Support Provenance Queries (M2.10 - Future Enhancement)
+### 4. Support Provenance Queries (Not Currently Planned)
 
-**API Endpoints** (M2.10 planned enhancements):
+**Potential API Endpoints** (if provenance queries become needed in future):
 
-**Note:** These query capabilities are planned for Engine M2.10. In M2.9, use the existing `/v1/artifacts` endpoint with general search/filter parameters.
+**Note:** These query capabilities are not currently planned. For M2.9, use the existing `/v1/artifacts` endpoint with general search/filter parameters to locate runs.
 
 ```bash
-# Get all Sim-generated runs (M2.10)
+# Get all Sim-generated runs (if query support added)
 GET /v1/artifacts?source=flowtime-sim
 
 # Get runs from specific template
@@ -309,8 +308,8 @@ curl -X POST http://localhost:8080/v1/run \
 # Extract runId for subsequent queries
 RUN_ID=$(jq -r '.runId' response.json)
 
-# 3. Verify provenance was stored (M2.10 - future endpoint)
-# curl http://localhost:8080/v1/artifacts/$RUN_ID/provenance
+# 3. Verify provenance was stored (M2.9 - manual verification)
+# Future: could add dedicated endpoint if needed
 # M2.9: Check artifacts directory directly
 ls /data/$RUN_ID/provenance.json
 ```
@@ -334,12 +333,12 @@ RUN_ID=$(jq -r '.runId' response.json)
 
 # 3. Verify Engine extracted and stored provenance (M2.9)
 ls /data/$RUN_ID/provenance.json
-# M2.10 will have: curl http://localhost:8080/v1/artifacts/$RUN_ID/provenance
+# Future: could add dedicated endpoint for provenance retrieval if needed
 ```
 
-### Test Scenario 3: Query by Template (M2.10 - Future)
+### Test Scenario 3: Query by Template (Not Yet Supported)
 
-**Note:** This test scenario requires M2.10 query endpoints. Included here for completeness.
+**Note:** This test scenario would require provenance query endpoints (not currently planned). Included here for reference only.
 
 ```bash
 # Generate and run multiple models from same template with different parameters
@@ -357,9 +356,9 @@ for BINS in 6 12 24; do
     --data-binary "$MODEL"
 done
 
-# M2.10: Query all runs from this template
+# If query support added: Get all runs from this template
 # curl "http://localhost:8080/v1/artifacts?templateId=transportation-basic"
-# Should return 3 runs with different parameters
+# Would return 3 runs with different parameters (not currently supported)
 ```
 
 ---
@@ -378,7 +377,7 @@ done
 - [ ] Include `templateTitle` field in ProvenanceMetadata model
 - [ ] Log warning when both header and embedded provenance present (use header)
 
-### Engine M2.10 Implementation (Future Milestone)
+### Future Enhancements (Not Currently Planned)
 
 - [ ] Update registry index with full provenance metadata
 - [ ] Support query by `source=flowtime-sim`
@@ -528,9 +527,9 @@ route:
 └── series/
 ```
 
-### 4. UI Queries Results (M2.10 - Future)
+### 4. UI Queries Results (Future Enhancement - Not Planned)
 
-**M2.10 will add:**
+**If provenance queries are added later:**
 ```http
 GET /v1/artifacts/run_20251002T104530Z_b2c4d6e8/provenance
 ```
@@ -560,11 +559,11 @@ GET /v1/artifacts/run_20251002T104530Z_b2c4d6e8/provenance
 - Use camelCase field naming throughout
 - Handle missing provenance (backward compatible)
 
-**What Engine Needs (M2.10 - Future)** 🔮:
-- Update registry index with provenance metadata
-- Support provenance queries (by template, model ID, etc.)
-- Add dedicated `/v1/artifacts/{runId}/provenance` endpoint
-- Enable traceability: runId → modelId → templateId → parameters
+**What Engine May Need (Future - Not Currently Planned)** 🔮:
+- Provenance queries (by template, model ID, etc.) not on roadmap
+- Dedicated endpoints for provenance retrieval not planned
+- Registry index enhancements not planned
+- Additional query capabilities can be considered if users request them
 
 **Benefits** 🎯:
 - Complete traceability from template to run

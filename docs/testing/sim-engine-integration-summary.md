@@ -297,10 +297,10 @@ After running tests, verify:
 
 ### Future Enhancements
 
-**M2.10 Testing** (Query Endpoints):
-- Add Chapter 7: Provenance Query API
-- Test `GET /provenance/{modelId}`
-- Test provenance search/filter
+**Future Testing** (if query features added):
+- Could add Chapter 7: Provenance Query API
+- Query features not currently planned
+- Can be added if users request query capabilities
 
 **Performance Testing**:
 - Add Chapter 8: Performance & Scale
@@ -379,6 +379,6 @@ This comprehensive integration testing infrastructure ensures:
 ✅ **Multiple Interfaces**: Automated script + manual HTTP + detailed docs  
 ✅ **Feature in Context**: Provenance (M2.9) tested within full integration  
 ✅ **CI/CD Ready**: Exit codes, automation-friendly output  
-✅ **Future-Proof**: Structure scales with new features (M2.10+)
+✅ **Future-Proof**: Structure scales with new features as needed
 
 **Key Insight**: Integration testing validates that services work **together**, not just that individual features work in isolation. The 6-chapter structure reflects this philosophy.

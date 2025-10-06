@@ -75,22 +75,22 @@ Updated sequence diagram and "Example: Complete Provenance Flow" section with ac
 
 ---
 
-## Task 4: Mark Query Endpoints as M2.10 ✅
+## Task 4: Mark Query Endpoints as Future Enhancements ✅
 
 **Status:** ✅ COMPLETE  
 **Actual:** 20 min  
 **File:** `docs/guides/engine-m2.9-provenance-spec.md`
 
 **Action Items:**
-- [x] Add clear milestone marker: "## M2.9 Scope" and "## M2.10 Future"
-- [x] Move "Support Provenance Queries" section to M2.10
-- [x] Move "Query by templateId/modelId" examples to M2.10
+- [x] Add clear milestone marker: "## M2.9 Scope" and "## Future Enhancements"
+- [x] Mark "Support Provenance Queries" as not currently planned
+- [x] Mark "Query by templateId/modelId" examples as future reference only
 - [x] Update "What Engine Needs to Implement" section (remove queries)
-- [x] Update "Validation Checklist" (separate M2.9 vs M2.10 items)
+- [x] Update "Validation Checklist" (separate M2.9 vs future items)
 - [x] Keep focus on M2.9: accept, store, retrieve single artifact
 
 **Completed:**
-Separated milestone scope throughout document. Updated executive summary, validation checklist, test scenarios, and summary with clear M2.9/M2.10 distinctions.
+Separated milestone scope throughout document. Updated executive summary, validation checklist, test scenarios, and summary with clear M2.9/future distinctions. Query features marked as not currently planned.
 
 ---
 
@@ -106,8 +106,8 @@ Separated milestone scope throughout document. Updated executive summary, valida
 - Quick win
 
 ### Step 3: Execute Task 4 (Milestone Markers)
-- Restructure document with M2.9 / M2.10 sections
-- Move query content to future section
+- Restructure document with M2.9 / Future sections
+- Mark query content as not currently planned
 - Sets clear scope
 
 ### Step 4: Execute Task 2 (Header Format)
@@ -151,7 +151,7 @@ After completing Sim documentation tasks:
 ✅ **Task 1:** All field names consistently camelCase - COMPLETE  
 ✅ **Task 2:** Header format clearly documented (full JSON string) - COMPLETE  
 ✅ **Task 3:** Engine response format accurately documented - COMPLETE  
-✅ **Task 4:** M2.9 vs M2.10 scope clearly separated - COMPLETE  
+✅ **Task 4:** M2.9 vs future enhancements clearly separated - COMPLETE  
 ✅ **All tests passing:** 128 tests (11 unit + 10 API + 10 CLI + 97 existing)  
 ✅ **No code changes:** Documentation updates only  
 ✅ **Ready for Engine team:** Spec updated and validated  
@@ -164,4 +164,4 @@ After completing Sim documentation tasks:
 - Documentation updates ensure alignment with Engine team
 - Engine team doing parallel work on their side
 - Integration testing planned after Engine Phase 1 complete
-- M2.10 query features deferred to future milestone
+- Query features marked as not currently planned (removed M2.10 references)
