@@ -1,310 +1,504 @@
-# UI-M2.9 — New Template Schema Migration
+# UI-M2.9 — Schema Migration for UI
 
 **Status:** 📋 Planned  
-**Dependencies:** FlowTime-Sim new template schema implementation  
-**Target:** Complete migration to DAG-based template system  
-**Date:** 2025-10-07
+**Dependencies:** ✅ M2.9 (Engine Schema Evolution Complete), ✅ SIM-M2.6 (Sim Schema Evolution Complete)  
+**Target:** Update UI to parse new schema format (binSize/binUnit) from Engine and Sim services
 
 ---
 
 ## Overview
-Complete migration to the new DAG-based template schema for FlowTime-Sim integration. This milestone replaces the current mustache-style template system with a structured JSON/YAML format supporting formal parameters, node types (const, pmf, expr), and explicit outputs.
 
-**Breaking Change**: No backwards compatibility with existing template endpoints, schemas, or artifacts.
+Update FlowTime UI to correctly parse the new schema format (`binSize`/`binUnit`) introduced in M2.9. The UI currently expects the OLD schema format (`binMinutes`) and **cannot function** with Engine v0.6.1+ or Sim v0.6.0+.
 
-## Strategic Context
-- **Motivation**: Enable advanced simulation capabilities with DAG computation models, formal parameter validation, and structured outputs
-- **Impact**: Complete overhaul of template system from simple string substitution to rich computational modeling
-- **Dependencies**: FlowTime-Sim service must implement new schema support first
+**CRITICAL**: The UI is currently **completely broken** - all API calls fail due to schema mismatch. See [`docs/ui/UI-CURRENT-STATE-ANALYSIS.md`](../ui/UI-CURRENT-STATE-ANALYSIS.md) for comprehensive analysis.
 
-## Schema Architecture
+### Strategic Context
+- **Motivation**: Engine M2.9 completed schema evolution from `binMinutes` to `binSize`/`binUnit` format
+- **Impact**: UI must be updated to parse new schema or remains non-functional
+- **Dependencies**: Engine and Sim have already completed their migrations - UI is the last component needing update
 
-**Important**: This migration involves **two different schema formats**:
+### Current State
 
-### 1. Template Schema (FlowTime-Sim Input)
-```yaml
-grid:
-  bins: 24
-  binSize: 60        # ← New flexible format
-  binUnit: "minutes" # ← Supports minutes, hours, days
+**Engine API (`/v1/run`)** returns:
+```json
+{
+  "grid": {
+    "bins": 8,
+    "binSize": 1,
+    "binUnit": "hours"
+  }
+}
 ```
 
-### 2. Engine Schema (FlowTime Engine Input)  
-```yaml
-grid:
-  bins: 24
-  binMinutes: 60     # ← Engine still uses binMinutes internally
+**UI expects** (OLD schema):
+```csharp
+public record GridInfo(
+    int Bins,
+    int BinMinutes);  // ⬅️ MISSING in Engine response
 ```
 
-**FlowTime-Sim Responsibility**: Convert between these formats during model generation.
+**Result:** Deserialization exception → UI cannot execute models or browse artifacts
 
-### Migration Scope
-- **Template Schema**: Full migration to `binSize`/`binUnit` format ✅
-- **Engine Schema**: Remains `binMinutes` (no engine changes needed)
-- **UI Template Forms**: Support new `binSize`/`binUnit` parameters
-- **Translation Logic**: FlowTime-Sim handles schema conversion
+## Scope
 
-## Five-Phase Migration Plan
+### In Scope ✅
 
-### Phase 0: Test-Driven Development Setup
-**Goal**: Establish comprehensive test coverage before migration to ensure safe refactoring
+1. **UI Response Models Update**
+   - Update `GridInfo` record to parse `binSize`/`binUnit`
+   - Update `SimGridInfo` class to parse `binSize`/`binUnit`
+   - Add computed `BinMinutes` properties for backward compatibility with UI pages
 
-**TDD Strategy**: Write tests first, then implement changes to ensure nothing breaks during the migration.
+2. **Service Layer Updates**
+   - Update `FlowTimeApiClient` to handle new schema from Engine
+   - Update `FlowTimeSimApiClient` to handle new schema from Sim
+   - Update `ApiRunClient` business logic to preserve schema information
 
-#### 0.1 Legacy Test Isolation
-**Approach**: Move existing UI tests to `.Legacy` namespaces before building new test suite.
+3. **UI Page Updates**
+   - Update `TemplateRunner.razor` to display semantic units (e.g., "1 hour" not "60 minutes")
+   - Update `Simulate.razor` to display grid info correctly
+   - Update `Artifacts.razor` to browse artifacts with new schema
 
-**Namespace Migration:**
-- `FlowTime.UI.Tests` → `FlowTime.UI.Tests.Legacy`
-- `FlowTime.UI.Services.Tests` → `FlowTime.UI.Services.Tests.Legacy`
+4. **Testing**
+   - Unit tests for schema parsing
+   - Integration tests for API client
+   - Manual E2E testing of all workflows
 
-**Benefits:**
-- **Clear Separation**: Old vs new UI tests clearly distinguished
-- **Preservation**: Legacy tests remain functional during UI migration
-- **Clean Architecture**: New tests start with proper structure for new template schema
+### Out of Scope ❌
 
-#### 0.2 New UI Test Implementation
-**Focus**: Write tests for new template schema UI integration before implementing changes.
+- ❌ Template system restructuring (separate milestone)
+- ❌ Demo template updates (handled separately)
+- ❌ Advanced template validation
+- ❌ UI redesign or new features
+- ❌ Performance optimization
 
-**New Test Structure:**
-```
-FlowTime.UI.Tests/
-├── Services/
-│   ├── TemplateServiceTests.cs      # New template API integration
-│   └── FlowTimeSimApiClientTests.cs # New API client tests
-├── Components/
-│   └── TemplateFormTests.cs         # New parameter form tests
-├── Schema/
-│   └── TemplateValidationTests.cs   # New schema validation tests
-└── Legacy/                          # Moved legacy tests
-    └── [existing test files]
-```
+### Dependencies
 
-#### 0.3 Test-First UI Development
-**Goal**: Write failing tests that define UI success criteria before implementation.
+**External (Complete):**
+- ✅ M2.9: Engine schema evolution complete
+- ✅ SIM-M2.6: Sim schema evolution complete
 
-**UI TDD Focus:**
-- Template form generation from new schema
-- API client integration with new endpoints
-- Parameter validation and error handling
-- Schema compatibility during M2.9 evolution
+**Internal:**
+- Comprehensive UI state analysis ([`docs/ui/UI-CURRENT-STATE-ANALYSIS.md`](../ui/UI-CURRENT-STATE-ANALYSIS.md))
 
-**Benefits of TDD Approach:**
-- ✅ **Safe Refactoring**: Tests ensure no functionality is lost
-- ✅ **Clear Requirements**: Tests define exactly what new system should do
-- ✅ **Confidence**: Green tests mean migration is successful
-- ✅ **Documentation**: Tests serve as living specification
+---
 
-### Phase 1: Core Infrastructure & Schema Support
-**Goal**: Establish foundation for new template format without breaking existing functionality
+## Implementation Plan
 
-#### 1.1 FlowTime-Sim Schema Support (Blocking Dependency)
-**Requirement**: FlowTime-Sim service must implement the new template schema as defined in `docs/schemas/template-schema.md`.
+### Phase 1: Critical Schema Fixes
 
-**Expected API Endpoints:**
+**Goal**: Restore basic UI functionality by fixing deserialization failures
 
-```http
-GET /api/templates
-→ Returns list with new metadata structure
+#### Task 1.1: Update SimGridInfo Model
 
-GET /api/templates/{id}  
-Accept: application/json       # Default - returns JSON
-Accept: application/x-yaml     # Returns YAML
+**File:** `ui/FlowTime.UI/Services/FlowTimeSimApiClient.cs`
 
-POST /api/templates/{id}/generate
-→ Uses structured parameters
-
-POST /api/templates/{id}/validate (NEW)
-→ Template validation endpoint
+**Current (BROKEN):**
+```csharp
+public class SimGridInfo
+{
+    public int Bins { get; set; }
+    public int BinMinutes { get; set; }  // ⬅️ Engine doesn't send this
+    public string Timezone { get; set; } = "UTC";
+    public string Align { get; set; } = "left";
+}
 ```
 
-#### 1.2 UI Type Definitions
-**Goal**: Define corresponding types in FlowTime UI to match the new schema.
+**Fixed:**
+```csharp
+public class SimGridInfo
+{
+    public int Bins { get; set; }
+    public int BinSize { get; set; }
+    public string BinUnit { get; set; } = "minutes";
+    public string Timezone { get; set; } = "UTC";
+    public string Align { get; set; } = "left";
+    
+    // INTERNAL ONLY: Computed property for UI display convenience
+    // NOT serialized to/from JSON (binMinutes removed from all external schemas)
+    [JsonIgnore]
+    public int BinMinutes => BinUnit.ToLowerInvariant() switch
+    {
+        "seconds" => BinSize / 60,
+        "minutes" => BinSize,
+        "hours" => BinSize * 60,
+        "days" => BinSize * 1440,
+        _ => BinSize
+    };
+}
+```
 
-### Phase 2: UI API Integration & Service Updates
-**Goal**: Update FlowTime UI to consume new template API format and support FlowTime Engine schema evolution
+**Success Criteria:**
+- [ ] UI can deserialize `series/index.json` from artifacts
+- [ ] Artifact browsing page loads without exceptions
 
-**Note**: This phase runs in parallel with M2.9 (FlowTime Engine Schema Migration). The engine migration is handled separately in M2.9.
-- **Reduced Complexity**: No translation layer needed
+#### Task 1.2: Update GridInfo Model
 
-#### 2.1 API Client Updates
-**Goal**: Update FlowTime UI to consume new template API format and support engine schema evolution.
+**File:** `ui/FlowTime.UI/Services/FlowTimeApiModels.cs`
 
-**Files to Update:**
-- `ui/FlowTime.UI/Services/FlowTimeSimApiClient.cs` → Major restructure for new API
-- `ui/FlowTime.UI/Services/TemplateServices.cs` → Interface updates
-- `ui/FlowTime.UI/Services/TemplateServiceImplementations.cs` → Schema support updates
+**Current (BROKEN):**
+```csharp
+public record GridInfo(
+    [property: JsonPropertyName("bins")] int Bins,
+    [property: JsonPropertyName("binMinutes")] int BinMinutes);
+```
 
-**API Integration Updates:**
-- Support new structured template metadata and parameters
-- Handle both `binSize`/`binUnit` (template) and `binMinutes` (engine) formats during transition
-- Update template generation request/response handling
-- Implement new template validation endpoints
+**Fixed:**
+```csharp
+public record GridInfo(
+    [property: JsonPropertyName("bins")] int Bins,
+    [property: JsonPropertyName("binSize")] int BinSize,
+    [property: JsonPropertyName("binUnit")] string BinUnit)
+{
+    // INTERNAL ONLY: Computed property for UI display convenience
+    // NOT serialized to/from JSON (binMinutes removed from all external schemas)
+    [JsonIgnore]
+    public int BinMinutes => BinUnit.ToLowerInvariant() switch
+    {
+        "seconds" => BinSize / 60,
+        "minutes" => BinSize,
+        "hours" => BinSize * 60,
+        "days" => BinSize * 1440,
+        _ => BinSize
+    };
+}
+```
 
-#### 2.2 Schema Format Support
-**Goal**: Update UI forms and validation to support both schema formats during engine migration.
+**Success Criteria:**
+- [ ] UI can deserialize Engine `/v1/run` responses
+- [ ] Model execution completes without exceptions
 
-**Template Form Updates:**
-- Update grid parameter forms to use `binSize`/`binUnit` format
-- Add time unit selection (minutes, hours, days)
-- Maintain backward compatibility during M2.9 engine migration
-- Update validation logic for new parameter types
+#### Task 1.3: Update GraphRunResult
 
-#### 2.3 Engine Integration Strategy
-**Goal**: Ensure UI leverages new engine capabilities when M2.9 completes.
+**File:** `ui/FlowTime.UI/Services/RunClientContracts.cs`
 
-**Integration Strategy:**
-- UI templates use `binSize`/`binUnit` format (already implemented)
-- FlowTime-Sim produces Template Schema format (current capability)
-- M2.9 will evolve engine to accept Template Schema directly
-- Clean integration when M2.9 engine evolution completes
+**Current (DATA LOSS):**
+```csharp
+public sealed record GraphRunResult(
+    int Bins,
+    int BinMinutes,  // ⬅️ Loses semantic info
+    ...);
+```
 
-### Phase 3: Template Form & Validation Updates
+**Fixed:**
+```csharp
+public sealed record GraphRunResult(
+    int Bins,
+    int BinSize,
+    string BinUnit,
+    IReadOnlyList<string> Order,
+    IReadOnlyDictionary<string, double[]> Series,
+    string? RunId = null)
+{
+    // INTERNAL ONLY: Computed property for UI display convenience
+    // NOT for serialization (binMinutes removed from all external schemas)
+    public int BinMinutes => BinUnit.ToLowerInvariant() switch
+    {
+        "seconds" => BinSize / 60,
+        "minutes" => BinSize,
+        "hours" => BinSize * 60,
+        "days" => BinSize * 1440,
+        _ => BinSize
+    };
+}
+```
 
-#### 3.2 Template Service Overhaul (flowtime-vnext)
-**Files to Update:**
-- `ui/FlowTime.UI/Services/TemplateServiceImplementations.cs` → Complete rewrite
+**Update:** `ui/FlowTime.UI/Services/ApiRunClient.cs`
+```csharp
+// Change from:
+var gr = new GraphRunResult(r.Grid.Bins, r.Grid.BinMinutes, r.Order, r.Series, r.RunId);
 
-**Key Changes:**
-- Remove `ConvertTemplateInfoToTemplate()` - no longer needed
-- Remove `CreateParameterSchemaForTemplate()` - parameters come from API
-- **Deprecate demo templates** - new schema requires API integration; demo mode becomes API-only for UI testing
-- Simplify template loading logic to be purely API-driven
+// To:
+var gr = new GraphRunResult(r.Grid.Bins, r.Grid.BinSize, r.Grid.BinUnit, r.Order, r.Series, r.RunId);
+```
 
-#### 3.3 Parameter Form Generation Updates
-**Files to Analyze/Update:**
-- `ui/FlowTime.UI/Components/Templates/DynamicParameterForm.razor` (if exists)
-- Any parameter form generation logic
+**Success Criteria:**
+- [ ] UI preserves semantic information (binSize/binUnit)
+- [ ] Pages can display "1 hour" instead of "60 minutes"
 
-**Changes Needed:**
-- Handle new parameter types (integer, number, boolean, string, array)
-- Support min/max validation from parameter metadata
-- Handle array parameter types properly
+### Phase 2: UI Page Display Updates
 
-### Phase 4: Final Integration & Documentation
-**Goal**: Complete UI integration, comprehensive testing, and documentation updates
+**Goal**: Update UI pages to display semantic grid information
 
-#### 4.1 Template Runner Updates
-**Files to Update**:
-- `ui/FlowTime.UI/Pages/TemplateRunner.razor` → Parameter handling updates
-- Template selection and execution workflows
+#### Task 2.1: Update TemplateRunner Display
 
-**Key Changes:**
-- Parameter forms now driven by API metadata
-- Enhanced validation feedback
-- Support for new parameter types
+**File:** `ui/FlowTime.UI/Pages/TemplateRunner.razor`
 
-#### 4.2 Documentation Updates
-**Files to Update:**
+**Changes:**
+- Display grid as `{BinSize} {BinUnit}` instead of `{BinMinutes} minutes`
+- Example: "24 bins × 1 hour" not "24 bins × 60 minutes"
 
-**Major Updates Required:**
-- `docs/ui/template-integration-spec.md` → Complete rewrite
-- `docs/guides/template-api-integration.md` → Update API examples
+**Success Criteria:**
+- [ ] Template results show semantic units
+- [ ] User sees original parameter values preserved
 
-**Minor Updates Required:**
-- `docs/guides/template-categories.md` → Update examples
-- `docs/reference/data-formats.md` → Document new JSON schema
-- `docs/reference/contracts.md` → Update template contracts
+#### Task 2.2: Update Simulate Display
 
-**New Documentation:**
-- `docs/schemas/template-schema.md` → Already created
-- `docs/migration/template-schema-migration.md` → Migration guide
+**File:** `ui/FlowTime.UI/Pages/Simulate.razor`
 
-#### 4.3 Comprehensive Testing
-**Test Areas:**
-1. **Unit Tests**: New template types, validation logic
-2. **Integration Tests**: API client with new endpoints
-3. **E2E Tests**: Full template workflow in UI
-4. **Validation Tests**: PMF probability sums, circular dependency detection
-5. **Content Negotiation Tests**: YAML vs JSON responses
-6. **Engine Schema Tests**: New binSize/binUnit format validation
+**Changes:**
+- Display execution results with semantic units
+- Handle both user-provided schemas gracefully
 
-### Post-M2.9 Documentation Cleanup
-**Goal**: Address remaining documentation inconsistencies and legacy references
+**Success Criteria:**
+- [ ] Direct execution shows correct grid format
+- [ ] Results display semantic time units
 
-#### Broader Documentation Updates
-- **Legacy schema references** → Update remaining `binMinutes` references in examples and documentation (separate from schema migration)
-- **API documentation** → Ensure all FlowTime-Sim API endpoints are properly documented
-- **Integration guide updates** → Update guides to reflect new template workflow
+#### Task 2.3: Update Artifacts Display
 
-**Note**: The core schema migration from `binMinutes` to `binSize`/`binUnit` is completed within M2.9 scope.
+**File:** `ui/FlowTime.UI/Pages/Artifacts.razor`
 
-## Migration Risks & Mitigation
+**Changes:**
+- Display artifact grid info with new schema
+- Show `{BinSize} {BinUnit}` format in artifact list
 
-### High-Risk Areas
-1. **Complete API Contract Change**: Templates API response format changes entirely
-2. **Parameter System Overhaul**: From simple key-value to structured objects
-3. **UI Form Generation**: Parameter forms need complete revision
+**Success Criteria:**
+- [ ] Artifact browsing shows correct grid format
+- [ ] Users see semantic time units in artifact metadata
 
-### Mitigation Strategies
-1. **Parallel Development**: Implement new system alongside old (temporarily)
-2. **Feature Flags**: Enable gradual rollout of new template system
-3. **Comprehensive Testing**: Extensive validation before deprecating old system
-4. **Documentation First**: Update specs before implementation
+### Phase 3: Testing & Validation
 
-## Dependencies & Prerequisites
+**Goal**: Ensure all workflows work end-to-end
 
-### External Dependencies
-1. **FlowTime-Sim Service**: Must implement new template schema first
-2. **Engine Compatibility**: Engine must support new template format
+#### Test Case 1: Template Workflow
+1. Select template with `binSize: 1, binUnit: hours`
+2. Generate model
+3. Execute in Engine
+4. Verify UI displays "1 hour" NOT "60 minutes"
 
-### Internal Dependencies
-1. **Feature Flags**: For gradual rollout
-2. **Testing Infrastructure**: For validation of new format
+#### Test Case 2: Direct Execution
+1. Paste NEW schema YAML
+2. Execute
+3. Verify UI parses and displays correctly
+
+#### Test Case 3: Artifact Browsing
+1. View run created by Engine v0.6.1+
+2. Fetch `series/index.json`
+3. Verify grid info displays correctly
+4. Fetch series CSV
+
+#### Test Case 4: Error Handling
+1. Attempt to paste OLD schema YAML (`binMinutes` only) if user has legacy examples
+2. Engine should reject with clear error message
+3. Verify UI displays error appropriately
+
+---
+
+## Test Plan
+
+### Test-Driven Development Approach
+
+**Strategy:** Write failing tests first, then implement fixes
+
+### Phase 1 Tests (Unit Tests)
+
+#### Test: SimGridInfo Deserialization
+```csharp
+[Fact]
+public void SimGridInfo_Deserializes_NewSchema()
+{
+    var json = @"{
+        ""bins"": 288,
+        ""binSize"": 5,
+        ""binUnit"": ""minutes"",
+        ""timezone"": ""UTC""
+    }";
+    
+    var grid = JsonSerializer.Deserialize<SimGridInfo>(json);
+    
+    Assert.Equal(288, grid.Bins);
+    Assert.Equal(5, grid.BinSize);
+    Assert.Equal("minutes", grid.BinUnit);
+    Assert.Equal(5, grid.BinMinutes); // Computed property
+}
+```
+
+#### Test: GridInfo Deserialization
+```csharp
+[Fact]
+public void GridInfo_Deserializes_NewSchema()
+{
+    var json = @"{
+        ""bins"": 8,
+        ""binSize"": 1,
+        ""binUnit"": ""hours""
+    }";
+    
+    var grid = JsonSerializer.Deserialize<GridInfo>(json);
+    
+    Assert.Equal(8, grid.Bins);
+    Assert.Equal(1, grid.BinSize);
+    Assert.Equal("hours", grid.BinUnit);
+    Assert.Equal(60, grid.BinMinutes); // 1 hour = 60 minutes
+}
+```
+
+#### Test: BinMinutes Computation
+```csharp
+[Theory]
+[InlineData("seconds", 60, 1)]     // 60 seconds = 1 minute
+[InlineData("minutes", 5, 5)]      // 5 minutes = 5 minutes
+[InlineData("hours", 1, 60)]       // 1 hour = 60 minutes
+[InlineData("days", 1, 1440)]      // 1 day = 1440 minutes
+public void BinMinutes_ComputedInternally_ForDisplayOnly(string unit, int size, int expectedMinutes)
+{
+    var grid = new SimGridInfo
+    {
+        Bins = 10,
+        BinSize = size,
+        BinUnit = unit
+    };
+    
+    Assert.Equal(expectedMinutes, grid.BinMinutes);
+}
+```
+
+### Phase 2 Tests (Integration Tests)
+
+#### Test: Engine API Client
+```csharp
+[Fact]
+public async Task FlowTimeApiClient_ParsesNewSchema()
+{
+    // Arrange: Start test server with Engine
+    var client = _factory.CreateClient();
+    
+    // Act: Call /v1/run endpoint
+    var response = await client.PostAsync("/v1/run", yamlContent);
+    var result = await response.Content.ReadFromJsonAsync<RunResponse>();
+    
+    // Assert: New schema parsed correctly
+    Assert.Equal(8, result.Grid.Bins);
+    Assert.Equal(1, result.Grid.BinSize);
+    Assert.Equal("hours", result.Grid.BinUnit);
+}
+```
+
+### Phase 3 Tests (E2E Manual Tests)
+
+See "Phase 3: Testing & Validation" section above for manual test cases
 
 ## Success Criteria
 
-### Phase 1 Complete ✅
-- [x] New template types defined and validated
-- [x] FlowTime-Sim service supports new schema  
-- [x] Basic API endpoints functional
-- [x] Template validation logic implemented
+### Milestone Complete When:
+- [ ] All UI response models parse new schema (binSize/binUnit)
+- [ ] All tests passing (unit + integration)
+- [ ] UI can execute models via Engine
+- [ ] UI can browse artifacts with new schema
+- [ ] UI displays semantic time units (e.g., "1 hour")
+- [ ] No deserialization exceptions
+- [ ] Documentation updated
 
-### Phase 2 Complete 📋 PLANNED
-- [ ] FlowTime UI API client updated
-- [ ] Template service supports new format
-- [ ] UI prepared for M2.9 engine evolution
-- [ ] Clean integration path established
+### Phase 1 Complete (Critical Fixes)
+- [ ] `SimGridInfo` updated with binSize/binUnit
+- [ ] `GridInfo` updated with binSize/binUnit
+- [ ] `GraphRunResult` preserves semantic information
+- [ ] `ApiRunClient` passes through schema fields
+- [ ] Unit tests passing for schema parsing
 
-### Phase 3 Complete 📋 PLANNED  
-- [ ] Parameter forms support new schema types
-- [ ] Template selection and execution workflows updated
-- [ ] Enhanced validation feedback implemented
-- [ ] Demo templates updated for new API
+### Phase 2 Complete (Display Updates)
+- [ ] TemplateRunner displays semantic units
+- [ ] Simulate page displays grid correctly
+- [ ] Artifacts page displays grid correctly
+- [ ] All UI pages use new schema
 
-### Phase 4 Complete 📋 PLANNED
-- [ ] Full UI integration working
-- [ ] All UI documentation updated
-- [ ] Comprehensive UI test coverage
-- [ ] Template workflow guide published
+### Phase 3 Complete (Validation)
+- [ ] Template workflow tested end-to-end
+- [ ] Direct execution tested
+- [ ] Artifact browsing tested
+- [ ] Backward compatibility verified (if Engine accepts OLD schema)
 
-### UI-M2.9 Complete
-- [ ] **UI Schema Support**: FlowTime UI fully supports new template schema
-- [ ] **API Integration**: New FlowTime-Sim API fully integrated
-- [ ] **Template Workflows**: All template workflows use new structured format
-- [ ] **Documentation**: UI integration documentation complete
-- [ ] **M2.9 Ready**: UI prepared to leverage M2.9 engine evolution
-
-**Note**: Engine evolution (schema, PMF, RNG) is handled separately in M2.9 milestone.
+---
 
 ## File Impact Summary
 
-### Files to Replace Completely
-- `ui/FlowTime.UI/Services/TemplateServiceImplementations.cs`
+### Files to Modify (Critical - Phase 1)
 
-### Files Requiring Major Updates
+**Priority: P0 (Blocking)**
 - `ui/FlowTime.UI/Services/FlowTimeSimApiClient.cs`
-- `docs/ui/template-integration-spec.md`
+  - Line 256-264: Update `SimGridInfo` class
+  - Add computed `BinMinutes` property
+  
+- `ui/FlowTime.UI/Services/FlowTimeApiModels.cs`
+  - Line 94-96: Update `GridInfo` record
+  - Add computed `BinMinutes` property
+  
+- `ui/FlowTime.UI/Services/RunClientContracts.cs`
+  - Line 3-10: Update `GraphRunResult` record
+  - Add binSize/binUnit fields
+  - Add computed `BinMinutes` property
+  
+- `ui/FlowTime.UI/Services/ApiRunClient.cs`
+  - Line 22-27: Update `RunAsync()` method
+  - Pass binSize/binUnit to GraphRunResult
 
-### Files Requiring Minor Updates
-- `ui/FlowTime.UI/Services/TemplateServices.cs`
+### Files to Modify (Display - Phase 2)
+
+**Priority: P1 (User Experience)**
 - `ui/FlowTime.UI/Pages/TemplateRunner.razor`
-- Various documentation files
+  - Update grid display to show semantic units
+  
+- `ui/FlowTime.UI/Pages/Simulate.razor`
+  - Update results display with semantic units
+  
+- `ui/FlowTime.UI/Pages/Artifacts.razor`
+  - Update grid info display with semantic units
 
-### New Files to Create
-- `docs/migration/template-schema-migration.md`
-- Template validation tests
-- Integration tests for new API format
+### Files to Update (Documentation)
 
-This migration represents a fundamental architectural upgrade that will enable advanced simulation capabilities while providing a much more robust and extensible template system.
+**Priority: P2 (Reference)**
+- `docs/ui/UI-CURRENT-STATE-ANALYSIS.md` - Mark as resolved
+- `docs/ui/template-integration-spec.md` - Update examples
+- `README.md` - Update schema references if present
+
+### Files to Create
+
+**Priority: P1 (Tracking)**
+- `docs/milestones/tracking/UI-M2.9-tracking.md` - Implementation tracking document
+
+---
+
+## Migration Notes
+
+### NO Backward Compatibility
+
+**IMPORTANT:** The UI must NOT support OLD schema (`binMinutes`):
+- Engine M2.9 (v0.6.0+) uses NEW schema exclusively - OLD schema rejected
+- Sim SIM-M2.6 (v0.5.0+) uses NEW schema exclusively - OLD schema rejected
+- `binMinutes` removed from ALL external schemas (API, artifacts, models)
+- `binMinutes` exists ONLY internally in Engine for computation (NOT exposed)
+- No production deployments exist with OLD schema
+
+**Validation:**
+- UI must parse ONLY `binSize`/`binUnit` from JSON
+- UI must NOT accept or serialize `binMinutes` in any external format
+- UI may compute `binMinutes` internally for display convenience only
+
+### Schema Evolution Complete
+
+| Component | Version | Schema | Status |
+|-----------|---------|--------|--------|
+| **Engine** | v0.6.1+ | binSize/binUnit | ✅ Complete (M2.9) |
+| **Sim** | v0.6.0+ | binSize/binUnit | ✅ Complete (SIM-M2.6) |
+| **UI** | Current | binMinutes (OLD) | ❌ **THIS MILESTONE** |
+
+### Breaking Changes
+
+**For UI Users:**
+- Grid display changes from "60 minutes" to "1 hour" (semantic)
+- More readable time units
+- Better alignment with template parameters
+
+**For UI Developers:**
+- `GridInfo` and `SimGridInfo` models changed
+- Must use new fields or computed properties
+- All UI pages referencing grid info need updates
+
+---
+
+## Related Documents
+
+- [UI Current State Analysis](../ui/UI-CURRENT-STATE-ANALYSIS.md) - Comprehensive breakage analysis
+- [M2.9 Milestone](M2.9.md) - Engine schema evolution (complete)
+- [SIM-M2.6 Milestone](../../flowtime-sim-vnext/docs/milestones/SIM-M2.6.md) - Sim schema evolution
+- [Milestone Documentation Guide](../development/milestone-documentation-guide.md) - Documentation standards
 

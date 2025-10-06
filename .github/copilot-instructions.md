@@ -62,7 +62,7 @@ Prefer semantic, symbol-level operations over file-level operations whenever pos
 - Don't commit or stage changes without explicit user approval. Propose edits first; commit only after the user says to.
 - Prefer editor-based edits; avoid cross-project refactors without context.
 - Always build and run tests before finishing; keep solution compiling.
-- **No time estimates in documentation**: Don't write hours, days, or weeks in docs. No effort estimates in milestones, roadmaps, or planning documents.
+- **No time estimates in documentation**: Don't write hours, days, or weeks in docs. No effort estimates in milestones, roadmaps, or planning documents. See `docs/development/milestone-documentation-guide.md` for detailed rules.
 - **Repository access**: When working from flowtime-vnext container, treat flowtime-sim-vnext as read-only reference. Only commit to the flowtime-sim-vnext repository unless explicitly requested to modify flowtime-sim-vnext.
 - **Process safety**: When managing solution services, use safe process management:
   - Use `lsof -ti:PORT | xargs kill` or process name patterns like `pkill -f "ProcessName"`
@@ -152,6 +152,12 @@ Quick checklist:
 - Content type: `text/plain` with YAML body for `/run` and `/graph`.
 - Error model: return `400 Bad Request` with `{ error: "..." }` for invalid input; avoid `500` by validating early.
 - `/graph` semantics: POST in M0 (graph is compiled from request body; no server-side model). Add a GET variant when models become server resources (e.g., `GET /models/{id}/graph`).
+
+## Schema evolution and compatibility
+- **NO backward compatibility for OLD schema**: Engine, Sim, and UI must NOT support `binMinutes` in any external schema (API responses, artifacts, model files).
+- **Current schema (M2.9+)**: `{ bins, binSize, binUnit }` - OLD schema `{ bins, binMinutes }` is rejected.
+- **Internal usage only**: UI/Engine may compute `binMinutes` internally for display or calculations, but it must NEVER be serialized to/from JSON or YAML.
+- **Breaking changes**: Schema changes are breaking and require coordinated updates across Engine, Sim, and UI.
 
 ## Coding patterns and style
 - .NET 9, C# nullable + implicit usings enabled.
