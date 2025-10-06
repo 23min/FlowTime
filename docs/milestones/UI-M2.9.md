@@ -1,6 +1,6 @@
 # UI-M2.9 — Schema Migration for UI
 
-**Status:** 📋 Planned  
+**Status:** � In Progress  
 **Dependencies:** ✅ M2.9 (Engine Schema Evolution Complete), ✅ SIM-M2.6 (Sim Schema Evolution Complete)  
 **Target:** Update UI to parse new schema format (binSize/binUnit) from Engine and Sim services
 

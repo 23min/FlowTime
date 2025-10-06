@@ -40,7 +40,7 @@ FlowTime Engine is a **deterministic execution and telemetry generation platform
 
 | Milestone | Status | Current Phase |
 |-----------|--------|---------------|
-| **M2.9** | ✅ Complete | **All Phases Complete** - Schema evolution, provenance tracking, 221/224 tests passing |
+| **UI-M2.9** | 🔄 In Progress | UI schema migration for binSize/binUnit format |
 
 ### 📋 Upcoming
 

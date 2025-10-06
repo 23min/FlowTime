@@ -335,7 +335,8 @@ graph TD
 +-------+     +-------+
 |  UI   | --> |  API  |
 +-------+     +-------+
-```
+
+
 
 ✅ **Use Mermaid instead** - easier to read and maintain
 
@@ -351,43 +352,79 @@ graph TD
 **Created by:** Developer starting the milestone work  
 **Template:** [`docs/development/TEMPLATE-tracking.md`](TEMPLATE-tracking.md)
 
-**Structure:**
-```markdown
-# [Milestone ID] Implementation Tracking
+**IMPORTANT RULES for Tracking Documents:**
 
-**Started:** [Date]  
+✅ **DO:**
+- Copy phase/task structure from milestone document
+- Use actual milestone content (no placeholders like `[Phase Name]`)
+- Status indicators: ⏳ Not Started, 🔄 In Progress, ✅ Complete
+- Track actual progress with commits and test results
+- Update after meaningful progress
+
+❌ **DON'T:**
+- Include template instructions or notes in the final document
+- Use placeholder text like `[YYYY-MM-DD]` or `[Task Name]`
+- Add date headers until you actually work on that date
+- Include "Assignee" field (Git tracks this)
+- Copy the template's help text into tracking document
+
+**Clean Structure Example:**
+```markdown
+# UI-M2.9 Implementation Tracking
+
+**Milestone:** UI-M2.9 — Schema Migration for UI  
 **Status:** 🔄 In Progress  
-**Branch:** `feature/[branch-name]`
+**Branch:** `feature/ui-m2.9/schema-migration`
+
+---
+
+## Quick Links
+
+- **Milestone Document:** [`docs/milestones/UI-M2.9.md`](../UI-M2.9.md)
+- **Related Analysis:** [`docs/ui/UI-CURRENT-STATE-ANALYSIS.md`](../../ui/UI-CURRENT-STATE-ANALYSIS.md)
+
+---
+
+## Current Status
+
+### Overall Progress
+- [ ] Phase 1: Critical Schema Fixes (0/3 tasks)
+- [ ] Phase 2: UI Page Display Updates (0/3 tasks)
+
+### Test Status
+- **Unit Tests:** 0 passing / 0 total (TBD)
+- **Integration Tests:** 0 passing / 0 total (TBD)
 
 ---
 
 ## Progress Log
 
-### [Date] - Commit [hash]
+### Session: Milestone Setup
 
-**Changes:**
-- [What was done]
-- [What was done]
-
-**Tests:**
-- ✅ [Tests passing]
-- ❌ [Tests failing] (if any)
+**Preparation:**
+- [x] Read milestone document
+- [x] Create feature branch
+- [x] Create tracking document
 
 **Next Steps:**
-- [ ] [What's next]
+- [ ] Begin Phase 1: Critical Schema Fixes
 
 ---
 
-## Checklist
+## Phase 1: Critical Schema Fixes
 
-### Phase 1
-- [x] Task 1 (commit abc123)
-- [x] Task 2 (commit def456)
-- [ ] Task 3
+**Goal:** Restore basic UI functionality by fixing deserialization failures
 
-### Phase 2
-- [ ] Task 1
-- [ ] Task 2
+### Task 1.1: Update SimGridInfo Model
+
+**File:** `ui/FlowTime.UI/Services/FlowTimeSimApiClient.cs`
+
+**Checklist:**
+- [ ] Update SimGridInfo class definition
+- [ ] Add computed BinMinutes property
+- [ ] Write unit test: `Test_SimGridInfo_Deserializes_NewSchema`
+
+**Status:** ⏳ Not Started
 ```
 
 ### Update Frequency
@@ -448,6 +485,11 @@ When starting implementation:
 
 - [ ] Create feature branch following naming convention
 - [ ] Create tracking document from template [`docs/development/TEMPLATE-tracking.md`](TEMPLATE-tracking.md) → `docs/milestones/tracking/[MILESTONE-ID]-tracking.md` (first commit)
+  - **IMPORTANT:** Remove all template instructions and placeholders
+  - Use actual phase/task names from milestone document
+  - NO dates until you actually work on them
+  - NO "Assignee" field (Git tracks this)
+  - See updated tracking document rules above
 - [ ] Create TDD plan in tracking document (based on test plan from milestone)
 - [ ] Write failing tests (RED state) based on TDD plan
 - [ ] Update milestone status to "🔄 In Progress"
