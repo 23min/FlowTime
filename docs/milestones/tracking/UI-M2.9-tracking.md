@@ -192,11 +192,15 @@
 - Add computed `BinMinutes` property for UI display
 
 **Checklist:**
-- [ ] Write unit test: `Test_GraphRunResult_PreservesSemanticInfo` (RED - failing)
-- [ ] Update GraphRunResult record definition (GREEN - make tests pass)
-- [ ] Add computed BinMinutes property (GREEN - make tests pass)
-- [ ] Update `ApiRunClient.cs` to pass binSize/binUnit (GREEN - make tests pass)
-- [ ] Verify model execution completes without exceptions
+- [x] Write unit tests (RED - 10 failing tests) - commit e0e1650
+- [x] Update GraphRunResult record definition (GREEN - make tests pass) - commit e0e1650
+- [x] Add computed BinMinutes property with fail-fast validation - commit e0e1650
+- [x] Update `ApiRunClient.cs` to pass binSize/binUnit - commit e0e1650
+- [x] Update `SimulationRunClient.cs` to use new schema - commit e0e1650
+- [x] All 10 tests passing - commit e0e1650
+- [ ] Verify model execution completes without exceptions (deferred to Phase 3)
+
+**Status:** ✅ Complete
 
 **Status:** ⏳ Not Started
 
