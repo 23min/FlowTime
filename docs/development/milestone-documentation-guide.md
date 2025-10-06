@@ -360,6 +360,7 @@ graph TD
 - Status indicators: ⏳ Not Started, 🔄 In Progress, ✅ Complete
 - Track actual progress with commits and test results
 - Update after meaningful progress
+- **Follow TDD order:** List tests FIRST in task checklists
 
 ❌ **DON'T:**
 - Include template instructions or notes in the final document
@@ -367,6 +368,29 @@ graph TD
 - Add date headers until you actually work on that date
 - Include "Assignee" field (Git tracks this)
 - Copy the template's help text into tracking document
+- **List implementation before tests** in task checklists
+
+**TDD Workflow (Critical):**
+
+All task checklists MUST follow this order:
+
+1. ✅ **Write unit tests FIRST** (RED - failing tests)
+2. ✅ **Implement code** (GREEN - make tests pass)
+3. ✅ **Verify functionality**
+
+❌ **WRONG Order:**
+```markdown
+- [ ] Update class definition
+- [ ] Add computed property
+- [ ] Write unit test  ← TOO LATE!
+```
+
+✅ **CORRECT Order:**
+```markdown
+- [ ] Write unit test: `Test_Feature` (RED - failing)
+- [ ] Update class definition (GREEN - make test pass)
+- [ ] Add computed property (GREEN - make test pass)
+```
 
 **Clean Structure Example:**
 ```markdown
@@ -489,9 +513,11 @@ When starting implementation:
   - Use actual phase/task names from milestone document
   - NO dates until you actually work on them
   - NO "Assignee" field (Git tracks this)
+  - **TDD Order:** Task checklists must list tests FIRST, then implementation
   - See updated tracking document rules above
 - [ ] Create TDD plan in tracking document (based on test plan from milestone)
-- [ ] Write failing tests (RED state) based on TDD plan
+- [ ] Write failing tests (RED state) based on TDD plan **BEFORE any implementation code**
+- [ ] Implement code to make tests pass (GREEN state)
 - [ ] Update milestone status to "🔄 In Progress"
 - [ ] Update ROADMAP.md status to "🔄 In Progress"
 

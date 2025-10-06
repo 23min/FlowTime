@@ -80,10 +80,9 @@
 ### Task 1.1: [Task Name]
 **File(s):** `path/to/file.ext`
 
-**Checklist:**
-- [ ] [Specific subtask]
-- [ ] [Specific subtask]
-- [ ] Write unit test: `Test_[Scenario]`
+**Checklist (TDD Order - Tests FIRST):**
+- [ ] Write unit test: `Test_[Scenario]` (RED - failing test)
+- [ ] [Implement specific subtask] (GREEN - make test pass)
 - [ ] Commit: `[type]([scope]): [description]`
 
 **Commits:**
