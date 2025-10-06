@@ -60,10 +60,14 @@ public class ProvenanceQueryTests : IDisposable
 
     private async Task<(int exitCode, string output, string error)> RunCliCommand(string args)
     {
+        // Determine build configuration (Debug or Release) from current test assembly location
+        var testAssemblyPath = typeof(ProvenanceQueryTests).Assembly.Location;
+        var buildConfig = testAssemblyPath.Contains("/Release/") || testAssemblyPath.Contains("\\Release\\") ? "Release" : "Debug";
+        
         var cliPath = Path.Combine(
             Directory.GetCurrentDirectory(),
             "..", "..", "..", "..", "..",
-            "src", "FlowTime.Cli", "bin", "Debug", "net9.0", "FlowTime.Cli.dll"
+            "src", "FlowTime.Cli", "bin", buildConfig, "net9.0", "FlowTime.Cli.dll"
         );
 
         var psi = new ProcessStartInfo
