@@ -15,7 +15,8 @@ public class TemplateServiceParameterConversionTests
             Parameters = new Dictionary<string, object>
             {
                 ["bins"] = 6,
-                ["binMinutes"] = 60,
+                ["binSize"] = 60,
+                ["binUnit"] = "minutes",
                 ["demandPattern"] = new List<string> { "10", "15", "20", "25", "18", "12" },  // String array from UI form
                 ["capacityPattern"] = new List<string> { "15", "18", "25", "30", "22", "16" }  // String array from UI form
             }
@@ -26,7 +27,8 @@ public class TemplateServiceParameterConversionTests
 
         // Assert - Fixed behavior: string arrays are converted to double arrays
         Assert.Equal(6, result["bins"]);
-        Assert.Equal(60, result["binMinutes"]);
+        Assert.Equal(60, result["binSize"]);
+        Assert.Equal("minutes", result["binUnit"]);
         
         // Fixed behavior: number array parameters are converted to double arrays
         Assert.IsType<double[]>(result["demandPattern"]);
@@ -49,7 +51,8 @@ public class TemplateServiceParameterConversionTests
             Parameters = new Dictionary<string, object>
             {
                 ["bins"] = 6,
-                ["binMinutes"] = 60,
+                ["binSize"] = 60,
+                ["binUnit"] = "minutes",
                 ["demandPattern"] = new List<string> { "10", "15", "20", "25", "18", "12" }, // String array from UI form
                 ["capacityPattern"] = new List<string> { "15", "18", "25", "30", "22", "16" }  // String array from UI form
             }
@@ -60,7 +63,8 @@ public class TemplateServiceParameterConversionTests
 
         // Assert - After fix: should convert string arrays to number arrays for numberArray parameters
         Assert.Equal(6, result["bins"]);
-        Assert.Equal(60, result["binMinutes"]);
+        Assert.Equal(60, result["binSize"]);
+        Assert.Equal("minutes", result["binUnit"]);
         
         // TODO: After implementing the fix, these should be double arrays, not string arrays
         // Expected behavior after fix:
@@ -84,7 +88,8 @@ public class TemplateServiceParameterConversionTests
             Parameters = new Dictionary<string, object>
             {
                 ["bins"] = 12,                                              // number
-                ["binMinutes"] = 60,                                        // number
+                ["binSize"] = 60,                                           // number
+                ["binUnit"] = "minutes",                                    // string
                 ["rawMaterialSchedule"] = new List<string> { "100", "80", "120" }, // numberArray (should convert)
                 ["qualityRate"] = 0.95,                                     // number (double)
                 ["assemblyCapacity"] = new List<string> { "90", "85", "95" }       // numberArray (should convert)
@@ -96,7 +101,8 @@ public class TemplateServiceParameterConversionTests
 
         // Assert - Numbers should remain as-is, arrays should be converted to double arrays  
         Assert.Equal(12, result["bins"]);
-        Assert.Equal(60, result["binMinutes"]);
+        Assert.Equal(60, result["binSize"]);
+        Assert.Equal("minutes", result["binUnit"]);
         Assert.Equal(0.95, result["qualityRate"]);
         
         // Fixed behavior: number array parameters are converted to double arrays
@@ -119,7 +125,8 @@ public class TemplateServiceParameterConversionTests
             Parameters = new Dictionary<string, object>
             {
                 ["bins"] = 6,
-                ["binMinutes"] = 60
+                ["binSize"] = 60,
+                ["binUnit"] = "minutes"
             }
         };
 
@@ -129,7 +136,8 @@ public class TemplateServiceParameterConversionTests
         // Assert
         Assert.Equal("demo-catalog", result["catalogId"]);
         Assert.Equal(6, result["bins"]);
-        Assert.Equal(60, result["binMinutes"]);
+        Assert.Equal(60, result["binSize"]);
+        Assert.Equal("minutes", result["binUnit"]);
     }
 
     /// <summary>
