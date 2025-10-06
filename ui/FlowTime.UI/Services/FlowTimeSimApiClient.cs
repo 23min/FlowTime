@@ -93,6 +93,8 @@ public class FlowTimeSimApiClient : IFlowTimeSimApiClient
         }
     }
 
+    // TODO: This method calls /sim/run which was removed from Sim API on Oct 1, 2025.
+    // SIMULATE tab functionality is broken in API mode. Consider refactoring to call Engine API instead.
     public async Task<Result<SimRunResponse>> RunAsync(string yaml, CancellationToken ct = default)
     {
         try
@@ -123,6 +125,7 @@ public class FlowTimeSimApiClient : IFlowTimeSimApiClient
         }
     }
 
+    // TODO: Sim API doesn't have /sim/runs/{id}/index endpoint. This should call Engine API instead.
     public async Task<Result<SeriesIndex>> GetIndexAsync(string runId, CancellationToken ct = default)
     {
         try
@@ -152,6 +155,7 @@ public class FlowTimeSimApiClient : IFlowTimeSimApiClient
         }
     }
 
+    // TODO: Sim API doesn't have /sim/runs/{id}/series/{id} endpoint. This should call Engine API instead.
     public async Task<Result<Stream>> GetSeriesAsync(string runId, string seriesId, CancellationToken ct = default)
     {
         try
@@ -178,7 +182,7 @@ public class FlowTimeSimApiClient : IFlowTimeSimApiClient
     {
         try
         {
-            var response = await httpClient.GetAsync($"/{apiVersion}/sim/templates", ct);
+            var response = await httpClient.GetAsync($"/api/{apiVersion}/templates", ct);
             
             if (!response.IsSuccessStatusCode)
             {
@@ -212,7 +216,7 @@ public class FlowTimeSimApiClient : IFlowTimeSimApiClient
             var json = JsonSerializer.Serialize(parameters, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
             var content = new StringContent(json, Encoding.UTF8, "application/json");
             
-            var response = await httpClient.PostAsync($"/{apiVersion}/sim/templates/{templateId}/generate", content, ct);
+            var response = await httpClient.PostAsync($"/api/{apiVersion}/templates/{templateId}/generate", content, ct);
             
             if (!response.IsSuccessStatusCode)
             {
