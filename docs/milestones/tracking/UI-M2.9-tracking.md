@@ -17,12 +17,12 @@
 ## Current Status
 
 ### Overall Progress
-- [x] Phase 1: Critical Schema Fixes (1/3 tasks) ✅ Task 1.1 complete
+- [x] Phase 1: Critical Schema Fixes (2/3 tasks) ✅ Tasks 1.1, 1.2 complete
 - [ ] Phase 2: UI Page Display Updates (0/3 tasks)
 - [ ] Phase 3: Testing & Validation (0/4 test cases)
 
 ### Test Status
-- **Unit Tests:** 8 passing / 8 total (SimGridInfo schema tests)
+- **Unit Tests:** 18 passing / 18 total (8 SimGridInfo + 10 GridInfo)
 - **Integration Tests:** 0 passing / 0 total (TBD)
 - **E2E Tests:** 0 passing / 4 planned
 
@@ -67,7 +67,33 @@
 - Invalid units indicate Engine bug, not expected scenario
 
 **Next Steps:**
-- [ ] Task 1.2: Update GridInfo Model
+- [x] Task 1.2: Update GridInfo Model
+
+---
+
+### Session: Phase 1, Task 1.2 - GridInfo Schema Migration
+
+**Changes:**
+- Created `GridInfoSchemaTests.cs` with 10 comprehensive tests
+- Updated `GridInfo` record from (Bins, BinMinutes) to (Bins, BinSize, BinUnit)
+- Added computed BinMinutes property with fail-fast validation
+- Matches SimGridInfo implementation pattern
+
+**Tests (10 passing):**
+- ✅ Deserialization of new schema from Engine
+- ✅ BinMinutes computation (5 theory cases)
+- ✅ Exception on invalid units  
+- ✅ JsonIgnore prevents binMinutes in output
+- ✅ Record equality comparison
+- ✅ Real-world Engine response deserialization
+
+**Commits:**
+- `2f53584` - feat(ui): update GridInfo to new schema (binSize/binUnit)
+
+**Total Tests:** 18/18 passing (8 SimGridInfo + 10 GridInfo)
+
+**Next Steps:**
+- [ ] Task 1.3: Update GraphRunResult and ApiRunClient
 
 ---
 
@@ -105,13 +131,13 @@
 - Add computed `BinMinutes` property with `[JsonIgnore]`
 
 **Checklist:**
-- [ ] Write unit test: `Test_GridInfo_Deserializes_NewSchema` (RED - failing)
-- [ ] Write unit test: `Test_GridInfo_BinMinutes_AllUnits` (RED - failing)
-- [ ] Update GridInfo record definition (GREEN - make tests pass)
-- [ ] Add computed BinMinutes property (GREEN - make tests pass)
-- [ ] Verify Engine `/v1/run` responses deserialize correctly
+- [x] Write unit tests (RED - 10 failing tests) - commit 2f53584
+- [x] Update GridInfo record definition (GREEN - make tests pass) - commit 2f53584
+- [x] Add computed BinMinutes property with fail-fast validation - commit 2f53584
+- [x] All 10 tests passing - commit 2f53584
+- [x] Engine `/v1/run` responses deserialize correctly (tested) - commit 2f53584
 
-**Status:** ⏳ Not Started
+**Status:** ✅ Complete
 
 ---
 
