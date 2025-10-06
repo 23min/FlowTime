@@ -433,7 +433,18 @@ Engine 0.5.0 + Sim 0.5.0 = ✅ Works (new format)
 - Integration tests validate Engine accepts new format
 - Old schema (arrivals/route with binMinutes) correctly rejected by Engine
 
-**Status**: Complete and validated  
+### Follow-Up Schema Consistency Fix
+
+**Note**: Initial completion (October 3, 2025) left template parameter names as `binMinutes` for backward compatibility during transition. Follow-up fix (October 6, 2025) completed full schema convergence:
+
+- ✅ All 4 template files: renamed parameter `binMinutes` → `binSize` (matches field name)
+- ✅ Test files: updated to use `binSize` parameter and current node-based schema
+- ✅ JSON Schema: updated `run.schema.json` to define new `binSize`/`binUnit` format
+- ✅ All 128 tests passing after schema consistency updates
+
+The two-phase approach allowed Engine integration to proceed while templates used temporary parameter name mappings. Full consistency achieved in schema fix commit.
+
+**Status**: Complete and validated (including schema consistency)  
 **Priority**: High (enabled SIM-M2.7)  
 **Effort**: Completed as part of provenance integration work  
 **Impact**: Breaking change (major output format change) - coordinated with Engine M2.9

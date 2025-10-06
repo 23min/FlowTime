@@ -9,10 +9,11 @@
     "engineVersion": {"type":"string"},
     "grid": {
       "type":"object",
-      "required":["bins","binMinutes","timezone","align"],
+      "required":["bins","binSize","binUnit","timezone","align"],
       "properties": {
         "bins": {"type":"integer","minimum":1},
-        "binMinutes": {"type":"integer","minimum":1},
+        "binSize": {"type":"integer","minimum":1},
+        "binUnit": {"type":"string","enum":["minutes","hours","days"]},
         "timezone": {"type":"string"},
         "align": {"type":"string","enum":["left"]}
       },

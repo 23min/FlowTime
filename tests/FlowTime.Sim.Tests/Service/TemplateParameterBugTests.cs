@@ -51,8 +51,10 @@ public class TemplateParameterBugTests
         var service = new NodeBasedTemplateService(preloaded, NullLogger<NodeBasedTemplateService>.Instance);
         var parameters = new Dictionary<string, object>
         {
-            {"bins", 4},
-            {"binMinutes", 60}
+            {"bins", 3},
+            {"binSize", 60},
+            {"demandPattern", new[] {10, 20, 30}},
+            {"capacityPattern", new[] {15, 25, 35}}
         };
 
         foreach (var templateId in templateIds)

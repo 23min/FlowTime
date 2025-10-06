@@ -181,18 +181,18 @@ public class NodeBasedTemplateService : INodeBasedTemplateService
                 }
                 catch (Templates.Exceptions.TemplateParsingException ex)
                 {
-                    // Keep header-only version in cache
-                    logger.LogWarning("Strict parse failed for {FilePath}: {Message}. Using header-only for template id '{TemplateId}'. Generation will substitute parameters before engine conversion.", filePath, ex.Message, header.Metadata.Id);
+                    // Keep header-only version in cache - this is expected for templates with parameter placeholders
+                    logger.LogDebug("Strict parse failed for {FilePath}: {Message}. Using header-only for template id '{TemplateId}'. Generation will substitute parameters before engine conversion.", filePath, ex.Message, header.Metadata.Id);
                 }
                 catch (Templates.Exceptions.TemplateValidationException ex)
                 {
-                    // Keep header-only version in cache
-                    logger.LogWarning("Validation failed for {FilePath}: {Message}. Using header-only for template id '{TemplateId}'. Generation will proceed with parameter substitution.", filePath, ex.Message, header.Metadata.Id);
+                    // Keep header-only version in cache - this is expected for templates with parameters
+                    logger.LogDebug("Validation failed for {FilePath}: {Message}. Using header-only for template id '{TemplateId}'. Generation will proceed with parameter substitution.", filePath, ex.Message, header.Metadata.Id);
                 }
                 catch (Exception ex)
                 {
-                    // Keep header-only version in cache
-                    logger.LogWarning("Generic parse error for {FilePath}: {Message}. Using header-only for template id '{TemplateId}'.", filePath, ex.Message, header.Metadata.Id);
+                    // Keep header-only version in cache - unexpected error type
+                    logger.LogWarning("Unexpected parse error for {FilePath}: {Message}. Using header-only for template id '{TemplateId}'.", filePath, ex.Message, header.Metadata.Id);
                 }
             }
             catch (Exception ex)
