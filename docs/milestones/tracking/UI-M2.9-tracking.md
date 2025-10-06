@@ -58,10 +58,10 @@
 - Implement unit conversion logic (seconds/minutes/hours/days)
 
 **Checklist:**
-- [ ] Update SimGridInfo class definition
-- [ ] Add computed BinMinutes property
-- [ ] Write unit test: `Test_SimGridInfo_Deserializes_NewSchema`
-- [ ] Write unit test: `Test_SimGridInfo_BinMinutes_Computation`
+- [ ] Write unit test: `Test_SimGridInfo_Deserializes_NewSchema` (RED - failing)
+- [ ] Write unit test: `Test_SimGridInfo_BinMinutes_Computation` (RED - failing)
+- [ ] Update SimGridInfo class definition (GREEN - make tests pass)
+- [ ] Add computed BinMinutes property (GREEN - make tests pass)
 - [ ] Verify artifact browsing loads without exceptions
 
 **Status:** ⏳ Not Started
@@ -78,10 +78,10 @@
 - Add computed `BinMinutes` property with `[JsonIgnore]`
 
 **Checklist:**
-- [ ] Update GridInfo record definition
-- [ ] Add computed BinMinutes property
-- [ ] Write unit test: `Test_GridInfo_Deserializes_NewSchema`
-- [ ] Write unit test: `Test_GridInfo_BinMinutes_AllUnits`
+- [ ] Write unit test: `Test_GridInfo_Deserializes_NewSchema` (RED - failing)
+- [ ] Write unit test: `Test_GridInfo_BinMinutes_AllUnits` (RED - failing)
+- [ ] Update GridInfo record definition (GREEN - make tests pass)
+- [ ] Add computed BinMinutes property (GREEN - make tests pass)
 - [ ] Verify Engine `/v1/run` responses deserialize correctly
 
 **Status:** ⏳ Not Started
@@ -98,10 +98,10 @@
 - Add computed `BinMinutes` property for UI display
 
 **Checklist:**
-- [ ] Update GraphRunResult record definition
-- [ ] Add computed BinMinutes property
-- [ ] Update `ApiRunClient.cs` to pass binSize/binUnit
-- [ ] Write unit test: `Test_GraphRunResult_PreservesSemanticInfo`
+- [ ] Write unit test: `Test_GraphRunResult_PreservesSemanticInfo` (RED - failing)
+- [ ] Update GraphRunResult record definition (GREEN - make tests pass)
+- [ ] Add computed BinMinutes property (GREEN - make tests pass)
+- [ ] Update `ApiRunClient.cs` to pass binSize/binUnit (GREEN - make tests pass)
 - [ ] Verify model execution completes without exceptions
 
 **Status:** ⏳ Not Started
