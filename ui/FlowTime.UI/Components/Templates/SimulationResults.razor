@@ -79,7 +79,7 @@
                                     @simulationData.Series.Count series
                                 </MudChip>
                                 <MudChip T="string" Size="Size.Small" Color="Color.Secondary">
-                                    @simulationData.Bins time bins (@simulationData.BinMinutes min each)
+                                    @simulationData.Bins time bins (@simulationData.BinSize @simulationData.BinUnit each)
                                 </MudChip>
                             </MudStack>
                             
@@ -105,8 +105,8 @@
                         <MudAlert Severity="Severity.Info" Class="mb-3">
                             <MudText Typo="Typo.caption">
                                 <strong>Data represents:</strong> @(isITTemplate ? "IT system microservices telemetry" : "Simulation time series"). 
-                                Each series shows throughput (requests/transactions per time bin) over @simulationData.Bins hours.
-                                Values are cumulative counts for each @simulationData.BinMinutes-minute time window.
+                                Each series shows throughput (requests/transactions per time bin) over @FormatTotalTime(simulationData.Bins, simulationData.BinSize, simulationData.BinUnit).
+                                Values are cumulative counts for each @FormatBinSize(simulationData.BinSize, simulationData.BinUnit) time window.
                             </MudText>
                         </MudAlert>
                         
@@ -186,11 +186,11 @@
                                 {
                                     <tr>
                                         <td><strong>Grid Configuration</strong></td>
-                                        <td>@simulationData.Bins bins × @simulationData.BinMinutes minutes each</td>
+                                        <td>@simulationData.Bins bins × @simulationData.BinSize @simulationData.BinUnit each</td>
                                     </tr>
                                     <tr>
                                         <td><strong>Time Coverage</strong></td>
-                                        <td>@(simulationData.Bins * simulationData.BinMinutes / 60.0) hours total</td>
+                                        <td>@FormatTotalTime(simulationData.Bins, simulationData.BinSize, simulationData.BinUnit)</td>
                                     </tr>
                                     <tr>
                                         <td><strong>Series Count</strong></td>
@@ -354,6 +354,32 @@
         // For Sim mode: Only show basic metadata - artifacts are authoritative for actual data
         // For API mode: Show all rich metadata
         return key is not ("source"); // Hide internal source field
+    }
+
+    private string FormatBinSize(int binSize, string binUnit)
+    {
+        // Format bin size with unit (e.g., "1 hour", "60 minutes", "2 days")
+        var unit = binSize == 1 ? binUnit.TrimEnd('s') : binUnit; // Singular if size is 1
+        return $"{binSize} {unit}";
+    }
+
+    private string FormatTotalTime(int bins, int binSize, string binUnit)
+    {
+        // Calculate total time and format in the most appropriate unit
+        var totalMinutes = bins * (binUnit.ToLowerInvariant() switch
+        {
+            "minutes" => binSize,
+            "hours" => binSize * 60,
+            "days" => binSize * 1440,
+            "weeks" => binSize * 10080,
+            _ => binSize
+        });
+
+        // Choose most appropriate display unit
+        if (totalMinutes < 60) return $"{totalMinutes} minutes";
+        if (totalMinutes < 1440) return $"{totalMinutes / 60.0:F1} hours";
+        if (totalMinutes < 10080) return $"{totalMinutes / 1440.0:F1} days";
+        return $"{totalMinutes / 10080.0:F1} weeks";
     }
 
     private bool IsSimMode()
