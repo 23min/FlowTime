@@ -17,14 +17,15 @@
 ## Current Status
 
 ### Overall Progress
-- [x] Phase 1: Critical Schema Fixes (2/3 tasks) ✅ Tasks 1.1, 1.2 complete
+- [x] Phase 1: Critical Schema Fixes (3/3 tasks) ✅ Complete
 - [ ] Phase 2: UI Page Display Updates (0/3 tasks)
 - [ ] Phase 3: Testing & Validation (0/4 test cases)
 
 ### Test Status
-- **Unit Tests:** 18 passing / 18 total (8 SimGridInfo + 10 GridInfo)
+- **Unit Tests:** 28 passing / 28 total (8 SimGridInfo + 10 GridInfo + 10 GraphRunResult)
 - **Integration Tests:** 0 passing / 0 total (TBD)
 - **E2E Tests:** 0 passing / 4 planned
+- **All UI Tests:** 48 passing / 48 total
 
 ---
 
@@ -93,7 +94,47 @@
 **Total Tests:** 18/18 passing (8 SimGridInfo + 10 GridInfo)
 
 **Next Steps:**
-- [ ] Task 1.3: Update GraphRunResult and ApiRunClient
+- [x] Task 1.3: Update GraphRunResult and ApiRunClient
+
+---
+
+### Session: Phase 1, Task 1.3 - GraphRunResult and ApiRunClient Schema Migration
+
+**Testing Strategy Decision:**
+- Analyzed project testing philosophy: NO mocking, only real objects
+- ApiRunClient is thin adapter (3 lines of logic) - too simple to require unit tests
+- Deleted `ApiRunClientSchemaTests.cs` (used Moq, violates project philosophy)
+- Kept `GraphRunResultSchemaTests.cs` (pure unit tests, no dependencies)
+
+**Changes:**
+- Created `GraphRunResultSchemaTests.cs` with 10 comprehensive tests (includes theory expansions)
+- Updated `GraphRunResult` record: (Bins, BinSize, BinUnit, Order, Series, RunId)
+- Added computed BinMinutes property with fail-fast validation
+- Updated `ApiRunClient.RunAsync()` to pass binSize/binUnit instead of binMinutes
+- Updated `SimulationRunClient.RunAsync()` to use new schema (60, "minutes")
+
+**Tests (10 passing):**
+- ✅ Constructor preserves semantic information
+- ✅ BinMinutes computation (5 theory cases: minutes/hours/days/weeks/case-insensitive)
+- ✅ Exception on invalid units
+- ✅ Record equality comparison
+- ✅ Immutability verification (with expressions)
+
+**Files Modified:**
+- `ui/FlowTime.UI/Services/RunClientContracts.cs` - GraphRunResult schema
+- `ui/FlowTime.UI/Services/ApiRunClient.cs` - Adapter logic
+- `ui/FlowTime.UI/Services/SimulationRunClient.cs` - Synthetic data client
+
+**Files Deleted:**
+- `ui/FlowTime.UI.Tests/ApiRunClientSchemaTests.cs` - Violated no-mocking rule
+
+**Total Tests:** 28/28 schema tests passing (8 SimGridInfo + 10 GridInfo + 10 GraphRunResult)
+**All UI Tests:** 48/48 passing
+
+**Phase 1 Status:** ✅ Complete - All critical schema migrations done
+
+**Next Steps:**
+- [ ] Begin Phase 2: UI Page Display Updates
 
 ---
 
