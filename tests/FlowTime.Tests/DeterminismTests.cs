@@ -24,14 +24,4 @@ public class DeterminismTests
         var s = g.Evaluate(grid)[new NodeId("b")];
         Assert.Equal(new[]{1.5,1.5,1.5}, s.ToArray());
     }
-
-    [Fact]
-    public void ZeroLengthGrid_AllowsEmptyOutputs()
-    {
-        var grid = new TimeGrid(0, 60, TimeUnit.Minutes);
-        var a = new ConstSeriesNode("a", Array.Empty<double>());
-        var g = new Graph(new INode[]{ a });
-        var s = g.Evaluate(grid)[new NodeId("a")];
-        Assert.Equal(0, s.Length);
-    }
 }

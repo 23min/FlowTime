@@ -39,11 +39,14 @@ public class TimeGridValidationTests
     [Fact]
     public void TimeGrid_InvalidBins_ThrowsArgumentException()
     {
-        // Act & Assert
-        var ex = Assert.Throws<ArgumentException>(() => 
+        // Act & Assert: bins must be >= 1 (zero and negative are invalid)
+        var ex1 = Assert.Throws<ArgumentException>(() => 
             new Core.TimeGrid(0, 5, Core.TimeUnit.Hours));
+        Assert.Contains("bins", ex1.Message);
         
-        Assert.Contains("bins", ex.Message);
+        var ex2 = Assert.Throws<ArgumentException>(() => 
+            new Core.TimeGrid(-1, 5, Core.TimeUnit.Hours));
+        Assert.Contains("bins", ex2.Message);
     }
     
     [Fact]
