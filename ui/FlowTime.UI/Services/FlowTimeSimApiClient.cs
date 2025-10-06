@@ -257,9 +257,23 @@ public class SeriesIndex
 public class SimGridInfo
 {
     public int Bins { get; set; }
-    public int BinMinutes { get; set; }
+    public int BinSize { get; set; }
+    public string BinUnit { get; set; } = "minutes";
     public string Timezone { get; set; } = "UTC";
     public string Align { get; set; } = "left";
+    
+    // INTERNAL ONLY: Computed property for UI display convenience
+    // NOT serialized to/from JSON (binMinutes removed from all external schemas)
+    // NOTE: Engine validates binUnit at model parse time - invalid units should never reach UI
+    [System.Text.Json.Serialization.JsonIgnore]
+    public int BinMinutes => BinUnit.ToLowerInvariant() switch
+    {
+        "minutes" => BinSize,
+        "hours" => BinSize * 60,
+        "days" => BinSize * 1440,
+        "weeks" => BinSize * 10080,
+        _ => throw new ArgumentException($"Invalid binUnit '{BinUnit}'. Engine should have validated this.")
+    };
 }
 
 public class SeriesInfo
