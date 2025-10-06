@@ -1,0 +1,11 @@
+schemaVersion: 1
+grid:
+  bins: 8
+  binMinutes: 60
+nodes:
+  - id: demand
+    kind: const
+    values: [100, 100, 100, 100, 100, 100, 100, 100]
+  - id: served
+    kind: expr
+    expr: "demand * 0.8"

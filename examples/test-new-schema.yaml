@@ -1,0 +1,15 @@
+schemaVersion: 1
+grid:
+  bins: 8
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: demand
+    kind: const
+    values: [100, 100, 100, 100, 100, 100, 100, 100]
+  - id: capacity
+    kind: const
+    values: [80, 80, 80, 80, 80, 80, 80, 80]
+  - id: served
+    kind: expr
+    expr: "min(demand, capacity)"
