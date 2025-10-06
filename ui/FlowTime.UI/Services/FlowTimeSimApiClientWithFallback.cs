@@ -93,6 +93,12 @@ public class FlowTimeSimApiClientWithFallback : IFlowTimeSimApiClient
         return await client.GetTemplatesAsync(ct);
     }
 
+    public async Task<Result<ApiTemplateInfo>> GetTemplateAsync(string templateId, CancellationToken ct = default)
+    {
+        var client = await GetActiveClientAsync();
+        return await client.GetTemplateAsync(templateId, ct);
+    }
+
     public async Task<Result<TemplateGenerationResponse>> GenerateModelAsync(string templateId, Dictionary<string, object> parameters, CancellationToken ct = default)
     {
         var client = await GetActiveClientAsync();

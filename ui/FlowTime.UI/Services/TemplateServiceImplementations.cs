@@ -50,7 +50,9 @@ public class TemplateService : ITemplateService
             logger.LogInformation("API mode: Fetching templates from FlowTime-Sim API");
 
             // Add timeout to prevent hanging when API is down (same as LED check timeout)
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10)); // Increased timeout for multiple requests
+            
+            // First, get the list of template summaries
             var templatesResult = await simClient.GetTemplatesAsync(cts.Token);
 
             if (!templatesResult.Success)
@@ -59,9 +61,28 @@ public class TemplateService : ITemplateService
                 throw new InvalidOperationException($"FlowTime-Sim API error: {templatesResult.Error}");
             }
 
-            var templates = templatesResult.Value ?? new List<ApiTemplateInfo>();
-            logger.LogInformation("Successfully fetched {Count} templates from FlowTime-Sim API", templates.Count);
-            return templates.Select(ConvertTemplateInfoToTemplate).ToList();
+            var templateSummaries = templatesResult.Value ?? new List<ApiTemplateInfo>();
+            logger.LogInformation("Successfully fetched {Count} template summaries from FlowTime-Sim API", templateSummaries.Count);
+            
+            // Now fetch full details (including parameters) for each template
+            var fullTemplates = new List<ApiTemplateInfo>();
+            foreach (var summary in templateSummaries)
+            {
+                var detailResult = await simClient.GetTemplateAsync(summary.Id, cts.Token);
+                if (detailResult.Success && detailResult.Value != null)
+                {
+                    fullTemplates.Add(detailResult.Value);
+                }
+                else
+                {
+                    logger.LogWarning("Failed to get details for template '{Id}': {Error}", summary.Id, detailResult.Error);
+                    // Fall back to summary (without parameters) if detail fetch fails
+                    fullTemplates.Add(summary);
+                }
+            }
+            
+            logger.LogInformation("Successfully fetched full details for {Count} templates", fullTemplates.Count);
+            return fullTemplates.Select(ConvertTemplateInfoToTemplate).ToList();
         }
         catch (OperationCanceledException)
         {
@@ -112,7 +133,7 @@ public class TemplateService : ITemplateService
         }
     }
 
-    private static TemplateInfo ConvertTemplateInfoToTemplate(ApiTemplateInfo templateInfo)
+    private TemplateInfo ConvertTemplateInfoToTemplate(ApiTemplateInfo templateInfo)
     {
         // Use actual API data instead of hardcoded values
         var category = string.IsNullOrEmpty(templateInfo.Category) ? "Demo Templates" :
@@ -121,6 +142,11 @@ public class TemplateService : ITemplateService
         // Combine API tags with "simulation" tag to identify as demo templates
         var tags = new List<string>(templateInfo.Tags) { "simulation" };
 
+        // Convert API parameters to JsonSchema if available, otherwise use hardcoded schema for demo mode
+        var hasApiParameters = templateInfo.Parameters != null && templateInfo.Parameters.Any();        var parameterSchema = hasApiParameters
+            ? ConvertApiParametersToJsonSchema(templateInfo.Parameters!, templateInfo.Title)
+            : CreateParameterSchemaForTemplate(templateInfo.Id);
+
         return new TemplateInfo
         {
             Id = templateInfo.Id,
@@ -128,8 +154,83 @@ public class TemplateService : ITemplateService
             Description = templateInfo.Description,
             Category = category,
             Tags = tags,
-            ParameterSchema = CreateParameterSchemaForTemplate(templateInfo.Id)
+            ParameterSchema = parameterSchema
         };
+    }
+
+    private static JsonSchema ConvertApiParametersToJsonSchema(List<ApiTemplateParameter> apiParameters, string templateTitle)
+    {
+        var schema = new JsonSchema
+        {
+            Title = $"{templateTitle} Parameters",
+            Properties = new Dictionary<string, JsonSchemaProperty>()
+        };
+
+        foreach (var param in apiParameters)
+        {
+            var property = new JsonSchemaProperty
+            {
+                Type = param.Type.ToLowerInvariant(),
+                Title = param.Title ?? param.Name,
+                Description = param.Description
+            };
+
+            // Parse default value based on type
+            if (!string.IsNullOrEmpty(param.DefaultValue))
+            {
+                property.Default = param.Type.ToLowerInvariant() switch
+                {
+                    "integer" => int.TryParse(param.DefaultValue, out var intVal) ? intVal : null,
+                    "number" => double.TryParse(param.DefaultValue, out var doubleVal) ? doubleVal : null,
+                    "array" => ParseArrayDefault(param.DefaultValue),
+                    _ => param.DefaultValue
+                };
+            }
+
+            if (param.Min.HasValue)
+            {
+                property.Minimum = param.Min.Value;
+            }
+
+            if (param.Max.HasValue)
+            {
+                property.Maximum = param.Max.Value;
+            }
+
+            schema.Properties[param.Name] = property;
+        }
+
+        return schema;
+    }
+
+    private static object? ParseArrayDefault(string arrayString)
+    {
+        try
+        {
+            // Remove brackets and split by comma
+            var cleaned = arrayString.Trim('[', ']', ' ');
+            var items = cleaned.Split(',').Select(s => s.Trim()).ToList();
+            
+            // Try to parse as numbers
+            var numbers = new List<object>();
+            foreach (var item in items)
+            {
+                if (double.TryParse(item, out var num))
+                {
+                    numbers.Add(num);
+                }
+                else
+                {
+                    // Not all numeric, return as strings
+                    return items.Cast<object>().ToList();
+                }
+            }
+            return numbers;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private static JsonSchema CreateParameterSchemaForTemplate(string templateId)

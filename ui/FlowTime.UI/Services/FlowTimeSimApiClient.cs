@@ -10,6 +10,7 @@ public interface IFlowTimeSimApiClient
     Task<Result<SeriesIndex>> GetIndexAsync(string runId, CancellationToken ct = default);
     Task<Result<Stream>> GetSeriesAsync(string runId, string seriesId, CancellationToken ct = default);
     Task<Result<List<ApiTemplateInfo>>> GetTemplatesAsync(CancellationToken ct = default);
+    Task<Result<ApiTemplateInfo>> GetTemplateAsync(string templateId, CancellationToken ct = default);
     Task<Result<TemplateGenerationResponse>> GenerateModelAsync(string templateId, Dictionary<string, object> parameters, CancellationToken ct = default);
     Task<Result<bool>> HealthAsync(CancellationToken ct = default);
     Task<Result<object>> GetDetailedHealthAsync(CancellationToken ct = default);
@@ -207,6 +208,35 @@ public class FlowTimeSimApiClient : IFlowTimeSimApiClient
         }
     }
 
+    public async Task<Result<ApiTemplateInfo>> GetTemplateAsync(string templateId, CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await httpClient.GetAsync($"/api/{apiVersion}/templates/{templateId}", ct);
+            
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorText = await response.Content.ReadAsStringAsync(ct);
+                return Result<ApiTemplateInfo>.Fail($"Failed to get template: {errorText}", (int)response.StatusCode);
+            }
+
+            var responseText = await response.Content.ReadAsStringAsync(ct);
+            var result = System.Text.Json.JsonSerializer.Deserialize<ApiTemplateInfo>(responseText, new System.Text.Json.JsonSerializerOptions
+            {
+                PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
+            });
+
+            return result != null 
+                ? Result<ApiTemplateInfo>.Ok(result, (int)response.StatusCode)
+                : Result<ApiTemplateInfo>.Fail("Failed to parse template");
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to get template '{TemplateId}'", templateId);
+            return Result<ApiTemplateInfo>.Fail($"Template error: {ex.Message}");
+        }
+    }
+
     public async Task<Result<TemplateGenerationResponse>> GenerateModelAsync(string templateId, Dictionary<string, object> parameters, CancellationToken ct = default)
     {
         try
@@ -309,7 +339,19 @@ public class ApiTemplateInfo
     public string Description { get; set; } = string.Empty;
     public string Category { get; set; } = string.Empty;
     public List<string> Tags { get; set; } = new();
+    public List<ApiTemplateParameter>? Parameters { get; set; }
     public object? Preview { get; set; }
+}
+
+public class ApiTemplateParameter
+{
+    public string Name { get; set; } = string.Empty;
+    public string Type { get; set; } = string.Empty;
+    public string? Title { get; set; }
+    public string? Description { get; set; }
+    public string? DefaultValue { get; set; }
+    public double? Min { get; set; }
+    public double? Max { get; set; }
 }
 
 public class TemplateGenerationResponse
