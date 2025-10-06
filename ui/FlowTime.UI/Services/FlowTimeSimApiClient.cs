@@ -226,10 +226,15 @@ public class FlowTimeSimApiClient : IFlowTimeSimApiClient
             }
             
             var responseContent = await response.Content.ReadAsStringAsync(ct);
+            logger.LogInformation("Raw response content length: {Length} chars, first 200 chars: {Preview}", 
+                responseContent?.Length ?? 0, 
+                responseContent?.Length > 200 ? responseContent.Substring(0, 200) : responseContent);
+            
             var result = JsonSerializer.Deserialize<TemplateGenerationResponse>(responseContent, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
             
             if (result == null)
             {
+                logger.LogWarning("Deserialization returned null for template '{TemplateId}'", templateId);
                 return Result<TemplateGenerationResponse>.Fail("Empty response from model generation API");
             }
             
@@ -309,8 +314,9 @@ public class ApiTemplateInfo
 
 public class TemplateGenerationResponse
 {
-    [System.Text.Json.Serialization.JsonPropertyName("scenario")]
+    [System.Text.Json.Serialization.JsonPropertyName("model")]
     public string Model { get; set; } = string.Empty;
-    public string TemplateId { get; set; } = string.Empty;
-    public Dictionary<string, object> Parameters { get; set; } = new();
+    
+    [System.Text.Json.Serialization.JsonPropertyName("provenance")]
+    public object? Provenance { get; set; }
 }

@@ -268,17 +268,32 @@
 
     private string GetArrayValue(string key, JsonSchemaProperty property)
     {
-        if (parameters.TryGetValue(key, out var value) && value is List<object> list)
+        if (parameters.TryGetValue(key, out var value))
         {
-            return string.Join(", ", list);
+            // Handle any enumerable type (List<double>, List<int>, List<object>, etc.)
+            if (value is System.Collections.IEnumerable enumerable and not string)
+            {
+                var items = new List<string>();
+                foreach (var item in enumerable)
+                {
+                    items.Add(item?.ToString() ?? string.Empty);
+                }
+                return string.Join(", ", items);
+            }
         }
         
         // Use default value if available
         if (property.Default != null)
         {
-            if (property.Default is List<object> defaultList)
+            // Handle enumerable default values
+            if (property.Default is System.Collections.IEnumerable defaultEnumerable and not string)
             {
-                return string.Join(", ", defaultList);
+                var items = new List<string>();
+                foreach (var item in defaultEnumerable)
+                {
+                    items.Add(item?.ToString() ?? string.Empty);
+                }
+                return string.Join(", ", items);
             }
             else
             {
