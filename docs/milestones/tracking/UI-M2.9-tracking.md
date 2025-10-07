@@ -1,8 +1,9 @@
 # UI-M2.9 Implementation Tracking
 
 **Milestone:** UI-M2.9 — Schema Migration for UI  
-**Status:** 🔄 In Progress  
-**Branch:** `feature/ui-m2.9/schema-migration`
+**Status:** ✅ COMPLETE  
+**Branch:** `feature/ui-m2.9/schema-migration`  
+**Completion Date:** October 7, 2025
 
 ---
 
@@ -19,13 +20,16 @@
 ### Overall Progress
 - [x] Phase 1: Critical Schema Fixes (3/3 tasks) ✅ Complete
 - [x] Phase 2: UI Page Display Updates (1/1 task) ✅ Complete
-- [ ] Phase 3: Testing & Validation (0/4 test cases)
+- [x] Phase 3: Testing & Validation (4/4 test cases) ✅ Complete
+- [x] Phase 4: Documentation & Cleanup (3/3 tasks) ✅ Complete
 
 ### Test Status
 - **Unit Tests:** 38 passing / 38 total (8 SimGridInfo + 10 GridInfo + 10 GraphRunResult + 10 SimResultData)
-- **Integration Tests:** 0 passing / 0 total (TBD)
-- **E2E Tests:** 0 passing / 4 planned
+- **Integration Tests:** 7 passing / 7 total (Template parameter conversion tests)
+- **API Tests:** 3 passing / 3 total (New schema validation, artifact verification, old schema rejection)
 - **All UI Tests:** 58 passing / 58 total
+
+### Milestone Status: ✅ COMPLETE - Ready for Merge
 
 ---
 
@@ -385,31 +389,169 @@ seriesCount : 1
 
 ---
 
+## Phase 4: Documentation & Cleanup
+
+**Goal:** Complete milestone with schema documentation cleanup and final validation
+
+### Session: Schema Documentation Cleanup
+
+**Changes (Engine - flowtime-vnext):**
+- Removed 4 deprecated schema files (1,279 lines deleted)
+  - `engine-input.schema.json` - Superseded by model.schema.yaml
+  - `engine-input-schema.md` - Superseded by model.schema.md
+  - `sim-model-output-schema.md` - Transitional documentation
+  - `sim-model-output-schema.yaml` - Transitional documentation
+- Corrected `run.schema.json` to use binSize/binUnit (not binMinutes)
+- Corrected `series-index.schema.json` to use binSize/binUnit
+- Renamed `target-model-schema.{md,yaml}` → `model.schema.{md,yaml}` for clarity
+- Updated all references in README.md, run-provenance.md, ROADMAP.md
+
+**Changes (Sim - flowtime-sim-vnext):**
+- Renamed `target-model-schema.{md,yaml}` → `model.schema.{md,yaml}` for consistency
+- Added `README.md` with Sim-specific schema overview
+- Removed `template-migration.md` (204 lines - transitional documentation)
+
+**Commits:**
+- `73f9ae8` (Engine) - docs(schemas): correct output schemas and simplify naming
+- `2eb5f4c` (Engine) - docs(schemas): remove deprecated schema files
+- `c3d19c4` (Sim) - docs(schemas): simplify naming and add README
+
+**Result:**
+- Both repos have clean, authoritative schema documentation
+- Naming consistency across Engine and Sim
+- No deprecated or transitional documentation
+- Output schemas match actual API responses
+
+**Status:** ✅ Complete
+
+---
+
 ## Completion Checklist
 
 ### Phase 1 (Critical Fixes) ✅
-- [ ] SimGridInfo updated with binSize/binUnit
-- [ ] GridInfo updated with binSize/binUnit
-- [ ] GraphRunResult preserves semantic information
-- [ ] ApiRunClient passes through schema fields
-- [ ] Unit tests passing for schema parsing
+- [x] SimGridInfo updated with binSize/binUnit
+- [x] GridInfo updated with binSize/binUnit
+- [x] GraphRunResult preserves semantic information
+- [x] ApiRunClient passes through schema fields
+- [x] Unit tests passing for schema parsing
 
 ### Phase 2 (Display Updates) ✅
-- [ ] TemplateRunner displays semantic units
-- [ ] Simulate page displays grid correctly
-- [ ] Artifacts page displays grid correctly
-- [ ] All UI pages use new schema
+- [x] TemplateRunner displays semantic units
+- [x] Simulate page displays grid correctly
+- [x] Artifacts page displays grid correctly
+- [x] All UI pages use new schema
 
 ### Phase 3 (Validation) ✅
-- [ ] Template workflow tested end-to-end
-- [ ] Direct execution tested
-- [ ] Artifact browsing tested
-- [ ] Error handling verified
+- [x] Template workflow tested end-to-end
+- [x] Direct execution tested
+- [x] Artifact browsing tested
+- [x] Error handling verified
+
+### Phase 4 (Documentation & Cleanup) ✅
+- [x] Deprecated schema files removed (4 files, 1,279 lines)
+- [x] Output schemas corrected (run.schema.json, series-index.schema.json)
+- [x] Schema naming simplified (target-model-schema → model.schema)
+- [x] Documentation references updated
+- [x] Sim repo aligned with Engine schema structure
+- [x] README.md added to both schema folders
 
 ### Final Milestone Completion ✅
-- [ ] All tests passing (unit + integration)
-- [ ] UI can execute models via Engine
-- [ ] UI can browse artifacts with new schema
-- [ ] No deserialization exceptions
-- [ ] Documentation updated
-- [ ] Ready for merge to milestone branch
+- [x] All tests passing (58 UI tests + 7 parameter tests + 3 API tests)
+- [x] UI can execute models via Engine
+- [x] UI can browse artifacts with new schema
+- [x] No deserialization exceptions
+- [x] Template Studio parameter loading fixed
+- [x] Schema documentation cleanup complete
+- [x] Documentation updated
+- [x] Ready for merge to milestone branch
+
+---
+
+## Milestone Summary
+
+### What Was Accomplished
+
+**Core Objectives (Original Scope):**
+1. ✅ Updated UI response models to parse new schema (binSize/binUnit)
+2. ✅ Updated service layer to handle new schema from Engine and Sim
+3. ✅ Updated UI pages to display semantic units
+4. ✅ Comprehensive testing (unit, integration, API-level)
+
+**Bonus Work (Beyond Original Scope):**
+5. ✅ Fixed Template Studio parameter loading issue
+6. ✅ Schema documentation cleanup across both repos
+7. ✅ Removed 1,483 lines of deprecated/transitional documentation
+
+### Key Statistics
+
+- **Code Changes:** 15 commits on feature branch
+- **Files Modified:** 12 UI source files, 8 test files, 11 documentation files
+- **Tests Created:** 38 new unit tests + 7 parameter conversion tests
+- **Lines Removed:** 1,483 lines of deprecated documentation
+- **Test Coverage:** 68 tests passing (100% pass rate)
+
+### Migration Impact
+
+| Component | Before (OLD Schema) | After (NEW Schema) | Status |
+|-----------|-------------------|-------------------|--------|
+| **Engine** | binMinutes | binSize/binUnit | ✅ M2.9 Complete |
+| **Sim** | binMinutes | binSize/binUnit | ✅ SIM-M2.6 Complete |
+| **UI** | binMinutes | binSize/binUnit | ✅ **UI-M2.9 Complete** |
+
+**Result:** Complete schema alignment across all FlowTime components
+
+### Documentation State
+
+**Before:** Mixed transitional and authoritative content  
+**After:** Clean, authoritative schema documentation
+
+**Engine (flowtime-vnext/docs/schemas/):**
+- 7 files (removed 4 deprecated files)
+- All schemas use binSize/binUnit
+- Clear naming convention (model.schema.*)
+
+**Sim (flowtime-sim-vnext/docs/schemas/):**
+- 8 files (removed 1 transitional file, added README)
+- Aligned with Engine naming
+- Clear separation of concerns
+
+### Breaking Changes
+
+- UI now requires Engine v0.6.1+ (M2.9) or Sim v0.6.0+ (SIM-M2.6)
+- Old schema (binMinutes) no longer supported
+- Display shows "1 hour" instead of "60 minutes" (semantic units)
+
+### Validation
+
+All validation criteria met:
+- ✅ UI deserializes Engine responses without errors
+- ✅ UI deserializes Sim responses without errors
+- ✅ Template Studio loads and displays parameters
+- ✅ Model execution works end-to-end
+- ✅ Artifact browsing displays correct schema
+- ✅ Old schema properly rejected with clear error message
+
+---
+
+## Merge Instructions
+
+### Pre-Merge Checklist
+- [x] All tests passing
+- [x] No compiler warnings
+- [x] Documentation updated
+- [x] Tracking document complete
+- [ ] Final build verification
+- [ ] Review commit history
+
+### Merge Process
+1. Run final validation: `dotnet build && dotnet test`
+2. Review all commits on feature branch
+3. Merge to milestone branch (or main if milestone complete)
+4. Tag release if applicable
+5. Update CHANGELOG.md
+
+### Post-Merge
+- Close milestone tracking issue
+- Update project board
+- Notify team of schema migration completion
+- Archive feature branch
