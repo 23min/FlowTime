@@ -15,7 +15,7 @@ public sealed class SimulationRunClient : IRunClient
             ["demand"] = Enumerable.Repeat(10d, bins).ToArray(),
             ["served"] = Enumerable.Repeat(8d, bins).ToArray()
         };
-        var result = new GraphRunResult(bins, 60, order, series, null); // No run ID for simulation mode
+        var result = new GraphRunResult(bins, 60, "minutes", order, series, null); // 60 minutes binSize
         return Task.FromResult(Result<GraphRunResult>.Ok(result));
     }
 

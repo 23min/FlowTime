@@ -2,10 +2,26 @@ namespace FlowTime.UI.Services;
 
 public sealed record GraphRunResult(
     int Bins,
-    int BinMinutes,
+    int BinSize,
+    string BinUnit,
     IReadOnlyList<string> Order,
     IReadOnlyDictionary<string, double[]> Series,
-    string? RunId = null);
+    string? RunId = null)
+{
+    /// <summary>
+    /// Computed property for backward compatibility and display purposes.
+    /// Converts binSize to minutes based on binUnit.
+    /// Throws ArgumentException for invalid binUnit (fail-fast validation).
+    /// </summary>
+    public int BinMinutes => BinUnit.ToLowerInvariant() switch
+    {
+        "minutes" => BinSize,
+        "hours" => BinSize * 60,
+        "days" => BinSize * 1440,
+        "weeks" => BinSize * 10080,
+        _ => throw new ArgumentException($"Invalid binUnit: '{BinUnit}'. Expected 'minutes', 'hours', 'days', or 'weeks'.", nameof(BinUnit))
+    };
+}
 
 // Structural graph response (no series data)
 public sealed record GraphStructureResult(

@@ -10,6 +10,7 @@ public interface IFlowTimeSimApiClient
     Task<Result<SeriesIndex>> GetIndexAsync(string runId, CancellationToken ct = default);
     Task<Result<Stream>> GetSeriesAsync(string runId, string seriesId, CancellationToken ct = default);
     Task<Result<List<ApiTemplateInfo>>> GetTemplatesAsync(CancellationToken ct = default);
+    Task<Result<ApiTemplateInfo>> GetTemplateAsync(string templateId, CancellationToken ct = default);
     Task<Result<TemplateGenerationResponse>> GenerateModelAsync(string templateId, Dictionary<string, object> parameters, CancellationToken ct = default);
     Task<Result<bool>> HealthAsync(CancellationToken ct = default);
     Task<Result<object>> GetDetailedHealthAsync(CancellationToken ct = default);
@@ -93,6 +94,8 @@ public class FlowTimeSimApiClient : IFlowTimeSimApiClient
         }
     }
 
+    // TODO: This method calls /sim/run which was removed from Sim API on Oct 1, 2025.
+    // SIMULATE tab functionality is broken in API mode. Consider refactoring to call Engine API instead.
     public async Task<Result<SimRunResponse>> RunAsync(string yaml, CancellationToken ct = default)
     {
         try
@@ -123,6 +126,7 @@ public class FlowTimeSimApiClient : IFlowTimeSimApiClient
         }
     }
 
+    // TODO: Sim API doesn't have /sim/runs/{id}/index endpoint. This should call Engine API instead.
     public async Task<Result<SeriesIndex>> GetIndexAsync(string runId, CancellationToken ct = default)
     {
         try
@@ -152,6 +156,7 @@ public class FlowTimeSimApiClient : IFlowTimeSimApiClient
         }
     }
 
+    // TODO: Sim API doesn't have /sim/runs/{id}/series/{id} endpoint. This should call Engine API instead.
     public async Task<Result<Stream>> GetSeriesAsync(string runId, string seriesId, CancellationToken ct = default)
     {
         try
@@ -178,7 +183,7 @@ public class FlowTimeSimApiClient : IFlowTimeSimApiClient
     {
         try
         {
-            var response = await httpClient.GetAsync($"/{apiVersion}/sim/templates", ct);
+            var response = await httpClient.GetAsync($"/api/{apiVersion}/templates", ct);
             
             if (!response.IsSuccessStatusCode)
             {
@@ -203,6 +208,35 @@ public class FlowTimeSimApiClient : IFlowTimeSimApiClient
         }
     }
 
+    public async Task<Result<ApiTemplateInfo>> GetTemplateAsync(string templateId, CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await httpClient.GetAsync($"/api/{apiVersion}/templates/{templateId}", ct);
+            
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorText = await response.Content.ReadAsStringAsync(ct);
+                return Result<ApiTemplateInfo>.Fail($"Failed to get template: {errorText}", (int)response.StatusCode);
+            }
+
+            var responseText = await response.Content.ReadAsStringAsync(ct);
+            var result = System.Text.Json.JsonSerializer.Deserialize<ApiTemplateInfo>(responseText, new System.Text.Json.JsonSerializerOptions
+            {
+                PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
+            });
+
+            return result != null 
+                ? Result<ApiTemplateInfo>.Ok(result, (int)response.StatusCode)
+                : Result<ApiTemplateInfo>.Fail("Failed to parse template");
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to get template '{TemplateId}'", templateId);
+            return Result<ApiTemplateInfo>.Fail($"Template error: {ex.Message}");
+        }
+    }
+
     public async Task<Result<TemplateGenerationResponse>> GenerateModelAsync(string templateId, Dictionary<string, object> parameters, CancellationToken ct = default)
     {
         try
@@ -212,7 +246,7 @@ public class FlowTimeSimApiClient : IFlowTimeSimApiClient
             var json = JsonSerializer.Serialize(parameters, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
             var content = new StringContent(json, Encoding.UTF8, "application/json");
             
-            var response = await httpClient.PostAsync($"/{apiVersion}/sim/templates/{templateId}/generate", content, ct);
+            var response = await httpClient.PostAsync($"/api/{apiVersion}/templates/{templateId}/generate", content, ct);
             
             if (!response.IsSuccessStatusCode)
             {
@@ -222,10 +256,15 @@ public class FlowTimeSimApiClient : IFlowTimeSimApiClient
             }
             
             var responseContent = await response.Content.ReadAsStringAsync(ct);
+            logger.LogInformation("Raw response content length: {Length} chars, first 200 chars: {Preview}", 
+                responseContent?.Length ?? 0, 
+                responseContent?.Length > 200 ? responseContent.Substring(0, 200) : responseContent);
+            
             var result = JsonSerializer.Deserialize<TemplateGenerationResponse>(responseContent, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
             
             if (result == null)
             {
+                logger.LogWarning("Deserialization returned null for template '{TemplateId}'", templateId);
                 return Result<TemplateGenerationResponse>.Fail("Empty response from model generation API");
             }
             
@@ -257,9 +296,23 @@ public class SeriesIndex
 public class SimGridInfo
 {
     public int Bins { get; set; }
-    public int BinMinutes { get; set; }
+    public int BinSize { get; set; }
+    public string BinUnit { get; set; } = "minutes";
     public string Timezone { get; set; } = "UTC";
     public string Align { get; set; } = "left";
+    
+    // INTERNAL ONLY: Computed property for UI display convenience
+    // NOT serialized to/from JSON (binMinutes removed from all external schemas)
+    // NOTE: Engine validates binUnit at model parse time - invalid units should never reach UI
+    [System.Text.Json.Serialization.JsonIgnore]
+    public int BinMinutes => BinUnit.ToLowerInvariant() switch
+    {
+        "minutes" => BinSize,
+        "hours" => BinSize * 60,
+        "days" => BinSize * 1440,
+        "weeks" => BinSize * 10080,
+        _ => throw new ArgumentException($"Invalid binUnit '{BinUnit}'. Engine should have validated this.")
+    };
 }
 
 public class SeriesInfo
@@ -286,13 +339,26 @@ public class ApiTemplateInfo
     public string Description { get; set; } = string.Empty;
     public string Category { get; set; } = string.Empty;
     public List<string> Tags { get; set; } = new();
+    public List<ApiTemplateParameter>? Parameters { get; set; }
     public object? Preview { get; set; }
+}
+
+public class ApiTemplateParameter
+{
+    public string Name { get; set; } = string.Empty;
+    public string Type { get; set; } = string.Empty;
+    public string? Title { get; set; }
+    public string? Description { get; set; }
+    public string? DefaultValue { get; set; }
+    public double? Min { get; set; }
+    public double? Max { get; set; }
 }
 
 public class TemplateGenerationResponse
 {
-    [System.Text.Json.Serialization.JsonPropertyName("scenario")]
+    [System.Text.Json.Serialization.JsonPropertyName("model")]
     public string Model { get; set; } = string.Empty;
-    public string TemplateId { get; set; } = string.Empty;
-    public Dictionary<string, object> Parameters { get; set; } = new();
+    
+    [System.Text.Json.Serialization.JsonPropertyName("provenance")]
+    public object? Provenance { get; set; }
 }

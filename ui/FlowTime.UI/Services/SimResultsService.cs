@@ -108,7 +108,8 @@ public class SimResultsService : ISimResultsService
             // Step 3: Create result following UI contracts
             var result = new SimResultData(
                 bins: index.Grid.Bins,
-                binMinutes: index.Grid.BinMinutes,
+                binSize: index.Grid.BinSize,
+                binUnit: index.Grid.BinUnit,
                 order: index.Series.Select(s => s.Id).ToArray(),
                 series: seriesData
             );
@@ -143,7 +144,7 @@ public class SimResultsService : ISimResultsService
 
         var order = seriesData.Keys.ToArray();
         
-        var result = new SimResultData(bins, binMinutes, order, seriesData);
+        var result = new SimResultData(bins, binMinutes, "minutes", order, seriesData);
         
         // Simulate some processing delay for realism
         await Task.Delay(100, ct);
@@ -237,14 +238,30 @@ public class SimResultsService : ISimResultsService
 public class SimResultData
 {
     public int Bins { get; }
-    public int BinMinutes { get; }
+    public int BinSize { get; }
+    public string BinUnit { get; }
     public string[] Order { get; }
     public Dictionary<string, double[]> Series { get; }
 
-    public SimResultData(int bins, int binMinutes, string[] order, Dictionary<string, double[]> series)
+    /// <summary>
+    /// Computed property for backward compatibility and display purposes.
+    /// Converts binSize to minutes based on binUnit.
+    /// Throws ArgumentException for invalid binUnit (fail-fast validation).
+    /// </summary>
+    public int BinMinutes => BinUnit.ToLowerInvariant() switch
+    {
+        "minutes" => BinSize,
+        "hours" => BinSize * 60,
+        "days" => BinSize * 1440,
+        "weeks" => BinSize * 10080,
+        _ => throw new ArgumentException($"Invalid binUnit: '{BinUnit}'. Expected 'minutes', 'hours', 'days', or 'weeks'.", nameof(BinUnit))
+    };
+
+    public SimResultData(int bins, int binSize, string binUnit, string[] order, Dictionary<string, double[]> series)
     {
         Bins = bins;
-        BinMinutes = binMinutes;
+        BinSize = binSize;
+        BinUnit = binUnit;
         Order = order;
         Series = series;
     }

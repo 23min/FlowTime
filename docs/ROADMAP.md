@@ -40,7 +40,7 @@ FlowTime Engine is a **deterministic execution and telemetry generation platform
 
 | Milestone | Status | Current Phase |
 |-----------|--------|---------------|
-| **M2.9** | ✅ Complete | **All Phases Complete** - Schema evolution, provenance tracking, 221/224 tests passing |
+| **UI-M2.9** | 🔄 In Progress | UI schema migration for binSize/binUnit format |
 
 ### 📋 Upcoming
 
@@ -118,7 +118,7 @@ sequenceDiagram
 **Completed Work:**
 - ✅ 158 comprehensive tests created (4,148 lines of test code)
 - ✅ TDD setup with RED state confirmed (tests compile, fail as expected)
-- ✅ Schema documentation updated (target-model-schema.yaml/md)
+- ✅ Schema documentation updated (model.schema.yaml/md)
 - ✅ Deprecation notices on legacy schemas
 - ✅ Architecture documents aligned with KISS
 
@@ -132,8 +132,8 @@ sequenceDiagram
 #### Phase 1: Schema Documentation ✅ Complete
 
 **Completed:**
-- ✅ target-model-schema.yaml with provenance field
-- ✅ target-model-schema.md with provenance documentation
+- ✅ model.schema.yaml with provenance field
+- ✅ model.schema.md with provenance documentation
 - ✅ manifest.schema.json with provenance reference
 - ✅ Deprecated legacy schemas (engine-input-schema.*, sim-model-output-schema.*)
 - ✅ README.md updated to reference unified schema
@@ -153,7 +153,7 @@ sequenceDiagram
 #### Phase 3: FlowTime-Sim Alignment (✅ Complete)
 
 **Completed Coordination:**
-- ✅ Sim updated to output target-model-schema format directly (SIM-M2.6.1)
+- ✅ Sim updated to output model.schema format directly (SIM-M2.6.1)
 - ✅ Provenance integration in Sim completed (SIM-M2.7)
 - ✅ Engine accepts and stores provenance metadata
 - ✅ Integration tests validated (132 passing tests in Sim, 221/224 in Engine)

@@ -24,10 +24,11 @@
         "grid": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["bins", "binMinutes", "timezone", "align"],
+            "required": ["bins", "binSize", "binUnit", "timezone", "align"],
             "properties": {
                 "bins": { "type": "integer", "minimum": 1 },
-                "binMinutes": { "type": "integer", "minimum": 1 },
+                "binSize": { "type": "integer", "minimum": 1 },
+                "binUnit": { "type": "string", "enum": ["minutes", "hours", "days", "weeks"] },
                 "timezone": { "type": "string", "pattern": "^UTC$" },
                 "align": { "type": "string", "enum": ["left"] }
             }

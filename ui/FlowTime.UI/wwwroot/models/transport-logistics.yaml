@@ -1,3 +1,5 @@
+schemaVersion: 1
+
 grid:
   bins: 24
   binSize: 1

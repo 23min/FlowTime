@@ -94,7 +94,22 @@ public record GraphEdge(
 
 public record GridInfo(
     [property: JsonPropertyName("bins")] int Bins,
-    [property: JsonPropertyName("binMinutes")] int BinMinutes);
+    [property: JsonPropertyName("binSize")] int BinSize,
+    [property: JsonPropertyName("binUnit")] string BinUnit)
+{
+    // INTERNAL ONLY: Computed property for UI display convenience
+    // NOT serialized to/from JSON (binMinutes removed from all external schemas)
+    // NOTE: Engine validates binUnit at model parse time - invalid units should never reach UI
+    [JsonIgnore]
+    public int BinMinutes => BinUnit.ToLowerInvariant() switch
+    {
+        "minutes" => BinSize,
+        "hours" => BinSize * 60,
+        "days" => BinSize * 1440,
+        "weeks" => BinSize * 10080,
+        _ => throw new ArgumentException($"Invalid binUnit '{BinUnit}'. Engine should have validated this.")
+    };
+}
 
 // Generic wrapper so the UI can surface HTTP status codes and error messages instead of silently returning null.
 public sealed record ApiCallResult<T>(T? Value, bool Success, int StatusCode, string? Error)
