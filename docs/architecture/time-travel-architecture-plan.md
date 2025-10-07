@@ -88,6 +88,9 @@ graph TB
 ```yaml
 schemaVersion: "1.0"
 modelFormat: "1.1"  # NEW: Additive schema extension (backward compatible via optional fields)
+                    # Validation modes:
+                    #   "1.1" → Strict validation (reject malformed 1.1 features)
+                    #   "1.0" or absent → Lenient validation (defaults + warnings)
 
 # NEW: Absolute time anchoring (OPTIONAL for backward compatibility)
 window:
@@ -233,6 +236,13 @@ Rules:
   - Reject if topology.nodes[*].semantics references non-existent node
   - Warn if optional semantics (errors, replicas, q0) referenced but missing
   - Warn if modelFormat missing (default to "1.0" for backward compat)
+  - **If modelFormat: "1.1" explicitly declared**: Strict validation mode
+    - Reject if window section malformed or invalid (no defaulting)
+    - Reject if topology section present but malformed
+    - Enforce all 1.1 schema constraints (no lenient fallback)
+  - **If modelFormat: "1.0" or absent**: Lenient validation mode
+    - Default missing window/topology sections (backward compat)
+    - Warn on missing fields but continue processing
   - Validate bins count matches all series lengths
   - Validate SHIFT(x, n) with n >= 1 (reject 0 or negative)
   - Compute conservation residual for queue nodes: |arrivals - served - ΔQ| and warn if > threshold
@@ -275,6 +285,9 @@ Changes:
 ```yaml
 Phase 1: Schema Validation (Structural)
   - schemaVersion present and supported
+  - modelFormat validation:
+    - If modelFormat = "1.1": Strict mode (reject malformed 1.1 features)
+    - If modelFormat = "1.0" or absent: Lenient mode (defaults + warnings)
   - grid.bins, grid.binSize, grid.binUnit valid
   - window.start valid ISO-8601 (if present)
   - window.timezone = "UTC" (if present)
@@ -496,6 +509,10 @@ sequenceDiagram
 
 **Schema Validation Tests**:
 - ✅ Accept: model with valid window + topology
+- ✅ Accept: modelFormat="1.0" with missing window (defaults to epoch, warns)
+- ✅ Accept: modelFormat absent with missing window (defaults to epoch, warns)
+- ❌ Reject: modelFormat="1.1" with malformed window.start (strict mode, no defaulting)
+- ❌ Reject: modelFormat="1.1" with missing window.timezone (strict mode, must be explicit)
 - ❌ Reject: window.start not ISO-8601
 - ❌ Reject: window.timezone != "UTC"
 - ❌ Reject: topology.nodes[*].semantics references non-existent series
