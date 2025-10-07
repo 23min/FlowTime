@@ -100,10 +100,11 @@ grid:
   binSize: 1
   binUnit: "hours"
 
+# NEW: Flow classes (top-level, sibling to topology)
+classes: ["*"]     # Single-class for P0, multi-class later
+
 # NEW: Topology + Semantics
 topology:
-  classes: ["*"]     # Single-class for P0, multi-class later
-  
   nodes:
     - id: "OrderService"           # Logical node name
       kind: "service"              # {service|queue|router|external}
@@ -131,6 +132,7 @@ topology:
         arrivals: "queue_inflow"
         served: "queue_outflow"
         queue: "queue_backlog"       # REQUIRED for queue kind
+        q0: 0                        # OPTIONAL: initial queue state (default 0, can seed from Gold)
         oldest_age_s: null           # OPTIONAL (validation/visuals)
   
   edges:
@@ -161,7 +163,12 @@ nodes:
   - id: queue_backlog
     kind: expr
     role: "queue"
-    expr: "MAX(0, queue_inflow - queue_outflow + SHIFT(queue_backlog, 1))"
+    expr: "MAX(0, SHIFT(queue_backlog, 1) + queue_inflow - billing_capacity)"
+  
+  - id: queue_outflow
+    kind: expr
+    role: "served"
+    expr: "MIN(SHIFT(queue_backlog, 1) + queue_inflow, billing_capacity)"
 
 # EXISTING: Outputs, provenance (unchanged)
 outputs:
@@ -185,11 +192,14 @@ Rules:
   - window.start MUST be ISO-8601 UTC
   - window.timezone MUST be "UTC"
   - grid.bins * grid.binSize determines window.end
+  - classes[] MUST be present (top-level, sibling to topology)
   - topology.nodes[*].semantics.* MUST reference existing nodes[*].id
   - topology.nodes[kind=service] MUST have: arrivals, capacity, served
   - topology.nodes[kind=queue] MUST have: arrivals, served, queue
+  - topology.nodes[kind=queue] MAY have: q0 (defaults to 0)
   - topology.edges[*].from/to MUST reference topology.nodes[*].id
   - No cycles in edges (DAG validation)
+  - expr nodes with SHIFT(x, n): n MUST be >= 1 (reject SHIFT(x, 0) or negative)
 ```
 
 **In flowtime-vnext (engine validation)**:
@@ -198,9 +208,13 @@ Rules:
 Rules:
   - Reject if window.start missing
   - Reject if window.timezone != "UTC"
+  - Reject if classes[] missing or empty
   - Reject if topology.nodes[*].semantics references non-existent node
-  - Warn if optional semantics (errors, replicas) referenced but missing
+  - Warn if optional semantics (errors, replicas, q0) referenced but missing
+  - Warn if modelFormat missing (default to "1.0" for backward compat)
   - Validate bins count matches all series lengths
+  - Validate SHIFT(x, n) with n >= 1 (reject 0 or negative)
+  - Compute conservation residual for queue nodes: |arrivals - served - ΔQ| and warn if > threshold
 ```
 
 ### P0.3: Engine Changes (flowtime-vnext)
@@ -294,8 +308,8 @@ After (P0):
       "end": "2025-10-14T00:00:00Z",
       "timezone": "UTC"
     },
+    "classes": ["*"],                           # NEW: Top-level flow classes
     "topology": {                                # NEW
-      "classes": ["*"],
       "nodes": [
         {
           "id": "OrderService",
@@ -449,58 +463,57 @@ sequenceDiagram
 
 ---
 
-# P1: Backlog v1 + State APIs
+# P1: Queue Expressions + State APIs
 
-**Goal**: Implement stateful queue node + time-travel state query APIs
+**Goal**: Implement queue/backlog using expressions with SHIFT + time-travel state query APIs
 
-**Why**: Core time-travel mechanic - scrub through queue/latency over time
+**Why**: Core time-travel mechanic - scrub through queue/latency over time. Using expressions avoids schema churn and leverages existing expr/SHIFT infrastructure.
 
-## P1.1: BacklogNode Implementation
+## P1.1: Queue Expressions with SHIFT
 
-**Formula**: `Q[t] = max(0, Q[t-1] + inflow[t] - capacity[t])`
+**Key Insight**: No new node kinds needed. Use existing `expr` + `SHIFT(x, 1)` to model queues.
 
-**Node Type**: Stateful (maintains queue state across bins)
+**Canonical Formulas**:
 
-**YAML Usage**:
+**Queue level (backlog)**:
+```yaml
+Q[t] = MAX(0, SHIFT(Q, 1) + inflow[t] - downstream_capacity[t])
+```
+
+**Served (actual completions)**:
+```yaml
+served[t] = MIN(SHIFT(Q, 1) + inflow[t], downstream_capacity[t])
+```
+
+**YAML Patterns**:
 
 ```yaml
+# Pattern 1: Queue with separate inflow and downstream capacity
 nodes:
+  - id: queue_inflow
+    kind: const
+    role: arrivals
+    values: [150, 145, 160, ...]
+  
+  - id: billing_capacity
+    kind: const
+    role: capacity
+    values: [140, 140, 140, ...]  # Downstream service capacity
+  
   - id: queue_backlog
-    kind: backlog            # NEW node kind
-    inflowNode: queue_inflow
-    capacityNode: queue_outflow
+    kind: expr
+    role: queue
+    expr: "MAX(0, SHIFT(queue_backlog, 1) + queue_inflow - billing_capacity)"
+  
+  - id: queue_outflow
+    kind: expr
+    role: served
+    expr: "MIN(SHIFT(queue_backlog, 1) + queue_inflow, billing_capacity)"
 ```
 
-**Evaluation Behavior**:
+**Initialization**: `SHIFT(queue_backlog, 1)` at t=0 returns 0 (or `q0` from semantics if provided).
 
-```yaml
-Inputs:
-  - inflow[t]: arrivals to queue at time t
-  - capacity[t]: service capacity (max outflow) at time t
-
-State:
-  - Q[t-1]: queue level from previous bin (initialized to 0)
-
-Output:
-  - Q[t] = max(0, Q[t-1] + inflow[t] - capacity[t])
-
-Side Effect:
-  - served[t] = min(inflow[t] + Q[t-1], capacity[t])
-  - Can optionally emit as second output series
-```
-
-**Schema Extension**:
-
-```yaml
-nodes:
-  - id: queue_backlog
-    kind: backlog
-    inflowNode: "queue_inflow"      # NEW property
-    capacityNode: "queue_outflow"   # NEW property
-    outputs:                         # OPTIONAL: multi-output
-      - queue                        # Primary output (queue level)
-      - served                       # Secondary output (actual served)
-```
+**Critical Wiring**: The `capacity` input must be the **downstream service capacity**, not the queue's outflow (which is derived). This avoids circular dependencies.
 
 ## P1.2: State API - Single Bin
 
@@ -508,11 +521,18 @@ nodes:
 
 **Query Parameter**: `ts` = ISO-8601 timestamp (e.g., `2025-10-07T14:00:00Z`)
 
+**Timestamp Semantics**: `ts` **MUST equal a bin start timestamp**. Reject if `ts` doesn't align with `window.start + (k × binMinutes)` for some integer k.
+
 **Logic**:
 1. Parse timestamp → find bin index via `(ts - window.start) / binMinutes`
-2. For each topology.node, read semantic series at that bin index
-3. Derive latency if not provided: `queue[t] / max(0.001, served[t]) * binMinutes`
-4. Derive utilization: `served[t] / capacity[t]`
+2. Validate: `ts == window.start + (binIndex × binMinutes)`
+3. For each topology.node, read semantic series at that bin index
+4. Derive latency for queue nodes only: `queue[t] / max(0.001, served[t]) * binMinutes` (minutes)
+5. Derive utilization: `served[t] / capacity[t]`
+6. Apply capacity inference if capacity series missing:
+   - If `Q[t-1] > 0`: `capacity[t] = served[t]` (binding constraint)
+   - Else: `capacity[t] = smooth_envelope(served)` (piecewise max with smoothing)
+7. Derive `utilization_band`: "green" (<0.7), "yellow" (0.7-0.9), "red" (≥0.9)
 
 **Request Example**:
 
@@ -526,8 +546,23 @@ Accept: application/json
 ```json
 {
   "runId": "run_20251007T143000Z_abc123",
+  "grid": {
+    "bins": 168,
+    "binSize": 1,
+    "binUnit": "hours",
+    "binMinutes": 60
+  },
+  "window": {
+    "start": "2025-10-07T00:00:00Z",
+    "end": "2025-10-14T00:00:00Z",
+    "timezone": "UTC"
+  },
+  "bin": {
+    "index": 14,
+    "startUtc": "2025-10-07T14:00:00Z",
+    "endUtc": "2025-10-07T15:00:00Z"
+  },
   "timestamp": "2025-10-07T14:00:00Z",
-  "binIndex": 14,
   "nodes": {
     "OrderService": {
       "kind": "service",
@@ -559,7 +594,8 @@ Accept: application/json
 400 Bad Request:
   - ts parameter missing
   - ts not ISO-8601
-  - ts outside window range
+  - ts not aligned to bin start (must equal window.start + k×binMinutes)
+  - ts outside window range [window.start, window.end)
 
 404 Not Found:
   - runId does not exist
@@ -573,13 +609,17 @@ Accept: application/json
 **Endpoint**: `GET /v1/runs/{runId}/state_window?start={timestamp}&end={timestamp}`
 
 **Query Parameters**:
-- `start` = ISO-8601 timestamp (inclusive)
-- `end` = ISO-8601 timestamp (inclusive)
+- `start` = ISO-8601 timestamp (inclusive, must be bin start)
+- `end` = ISO-8601 timestamp (**exclusive**, must be bin start)
+
+**Range Semantics**: [start, end) - **start inclusive, end exclusive**. This matches Kusto `bin()` and Gold binning.
 
 **Logic**:
-1. Parse timestamps → find bin range [startIdx, endIdx]
-2. For each topology.node, read semantic series slice [startIdx:endIdx+1]
-3. Return arrays for each metric
+1. Parse timestamps → validate both align to bin starts
+2. Calculate bin range: `binCount = (end - start) / binMinutes`
+3. For each topology.node, read semantic series slice [startIdx : startIdx + binCount]
+4. Return arrays for each metric (timestamps, arrivals, served, queue, latency, utilization, etc.)
+5. Apply capacity inference and derive `utilization_band` for each bin
 
 **Request Example**:
 
@@ -593,10 +633,17 @@ Accept: application/json
 ```json
 {
   "runId": "run_20251007T143000Z_abc123",
+  "grid": {
+    "bins": 168,
+    "binSize": 1,
+    "binUnit": "hours",
+    "binMinutes": 60
+  },
   "window": {
     "start": "2025-10-07T10:00:00Z",
     "end": "2025-10-07T16:00:00Z",
-    "binCount": 7
+    "binCount": 6,
+    "timezone": "UTC"
   },
   "nodes": {
     "OrderService": {
@@ -607,14 +654,14 @@ Accept: application/json
         "2025-10-07T12:00:00Z",
         "2025-10-07T13:00:00Z",
         "2025-10-07T14:00:00Z",
-        "2025-10-07T15:00:00Z",
-        "2025-10-07T16:00:00Z"
+        "2025-10-07T15:00:00Z"
       ],
-      "arrivals": [120, 135, 150, 165, 150, 140, 130],
-      "served": [120, 135, 145, 145, 145, 140, 130],
-      "capacity": [200, 200, 200, 200, 200, 200, 200],
-      "utilization": [0.60, 0.675, 0.725, 0.725, 0.725, 0.70, 0.65],
-      "latency_min": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      "arrivals": [120, 135, 150, 165, 150, 140],
+      "served": [120, 135, 145, 145, 145, 140],
+      "capacity": [200, 200, 200, 200, 200, 200],
+      "utilization": [0.60, 0.675, 0.725, 0.725, 0.725, 0.70],
+      "utilization_band": ["green", "green", "yellow", "yellow", "yellow", "yellow"],
+      "latency_min": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
     },
     "OrderQueue": {
       "kind": "queue",
@@ -624,13 +671,12 @@ Accept: application/json
         "2025-10-07T12:00:00Z",
         "2025-10-07T13:00:00Z",
         "2025-10-07T14:00:00Z",
-        "2025-10-07T15:00:00Z",
-        "2025-10-07T16:00:00Z"
+        "2025-10-07T15:00:00Z"
       ],
-      "arrivals": [120, 135, 145, 145, 145, 140, 130],
-      "served": [115, 130, 140, 140, 140, 135, 128],
-      "queue": [0, 5, 10, 15, 20, 25, 27],
-      "latency_min": [0.0, 0.038, 0.071, 0.107, 0.143, 0.185, 0.211]
+      "arrivals": [120, 135, 145, 145, 145, 140],
+      "served": [115, 130, 140, 140, 140, 135],
+      "queue": [0, 5, 10, 15, 20, 25],
+      "latency_min": [0.0, 0.038, 0.071, 0.107, 0.143, 0.185]
     }
   }
 }
@@ -673,105 +719,153 @@ sequenceDiagram
 
 ## P1.5: Success Criteria
 
-- [ ] BacklogNode evaluates Q[t] formula correctly (unit tests)
-- [ ] BacklogNode maintains state across bins (integration tests)
-- [ ] GET /v1/runs/{id}/state?ts={timestamp} returns per-node state
-- [ ] GET /v1/runs/{id}/state_window returns time-series arrays
-- [ ] Timestamp → bin index conversion accurate (edge cases: start, end)
-- [ ] Derived metrics (latency, utilization) match manual calculations
-- [ ] 400 errors on invalid timestamps
+- [ ] Queue expressions with SHIFT evaluate correctly (Q[t] = MAX(0, SHIFT(Q,1) + inflow - capacity))
+- [ ] Served expressions evaluate correctly (served[t] = MIN(SHIFT(Q,1) + inflow, capacity))
+- [ ] SHIFT(x, 1) at t=0 returns 0 or q0 from semantics
+- [ ] GET /v1/runs/{id}/state?ts={timestamp} returns per-node state with grid/binMinutes
+- [ ] GET /v1/runs/{id}/state_window returns time-series arrays with grid/binMinutes
+- [ ] Timestamp → bin index conversion accurate (edge cases: start, end-exclusive)
+- [ ] ts validation: must equal bin start (window.start + k×binMinutes)
+- [ ] Derived metrics (latency, utilization, utilization_band) match manual calculations
+- [ ] Latency only derived for queue nodes (not services)
+- [ ] Capacity inference applied when capacity series missing
+- [ ] Conservation residual computed and warnings logged
+- [ ] 400 errors on invalid/misaligned timestamps
 - [ ] 404 errors on missing runId
 
 ## P1.6: Test Cases
 
-**BacklogNode Tests**:
-- ✅ Q[0] = 0 (initial state)
-- ✅ Q[t] = Q[t-1] + inflow - capacity (basic accumulation)
-- ✅ Q[t] >= 0 (no negative queues)
-- ✅ Capacity > inflow → Q[t] decreases
-- ✅ Capacity < inflow → Q[t] increases
-- ✅ Multi-bin evaluation preserves state
+**Queue Expression Tests**:
+- ✅ SHIFT(queue_backlog, 1) at t=0 returns 0 (or q0 if specified)
+- ✅ Q[t] = MAX(0, SHIFT(Q,1) + inflow - capacity) evaluates correctly
+- ✅ served[t] = MIN(SHIFT(Q,1) + inflow, capacity) evaluates correctly
+- ✅ Q[t] >= 0 (no negative queues with MAX(0, ...))
+- ✅ Capacity > inflow → Q[t] decreases (queue drains)
+- ✅ Capacity < inflow → Q[t] increases (queue builds)
+- ✅ Multi-bin evaluation with SHIFT maintains correct state
+- ❌ SHIFT(x, 0) or SHIFT(x, -1) rejected by validator
+
+**Conservation Tests**:
+- ✅ Residual = |arrivals - served - ΔQ| < threshold for queue nodes
+- ✅ Warning logged in run.json when residual exceeds threshold
+- ✅ Conservation holds over multi-bin window
 
 **State API Tests**:
-- ✅ GET /state?ts={valid} returns 200 with correct binIndex
-- ✅ Latency derived correctly when not provided in semantics
+- ✅ GET /state?ts={bin-start} returns 200 with correct binIndex + bin bounds
+- ✅ Response includes grid { binMinutes, ... } and window { timezone, ... }
+- ✅ Latency derived correctly for queue nodes only
 - ✅ Utilization = served / capacity
+- ✅ utilization_band derived: green/yellow/red
+- ✅ Capacity inference: Q[t-1] > 0 → capacity = served
+- ❌ GET /state?ts={not-bin-start} returns 400
 - ❌ GET /state (missing ts) returns 400
 - ❌ GET /state?ts={invalid-format} returns 400
 - ❌ GET /state?ts={out-of-window} returns 400
 - ❌ GET /state with missing runId returns 404
 
 **State Window API Tests**:
-- ✅ GET /state_window?start={t1}&end={t2} returns array of length (t2-t1)+1
-- ✅ Timestamps array matches requested range
-- ✅ Array values match individual /state calls
-- ❌ Missing start or end returns 400
-- ❌ start > end returns 400
+- ✅ GET /state_window?start={s}&end={e} returns [start, end) bins
+- ✅ binCount = (end - start) / binMinutes
+- ✅ Response includes grid with binMinutes
+- ✅ Arrays have correct length (binCount elements)
+- ❌ end <= start returns 400
+- ❌ start/end not aligned to bin starts returns 400
 
 ---
 
-# P2: Latency + Capacity
+# P2: Latency + Capacity (Expressions Only)
 
-**Goal**: Add latency derivation and capacity constraint nodes
+**Goal**: Add latency derivation (queue nodes only) and capacity inference fallback
 
-**Why**: SLA breach detection and saturation analysis
+**Why**: SLA breach detection, saturation analysis, robust handling of incomplete telemetry
 
-## P2.1: Latency Computation
+## P2.1: Latency Computation (Queue Nodes Only)
 
-**Two Options**:
+**Key Rule**: Latency represents **waiting time in queues**. Only compute for queue nodes, never for services.
 
-### Option A: LatencyNode (explicit)
+**State API Logic**:
 
 ```yaml
+For each topology node:
+  If node.kind == "queue":
+    If semantics.latency_min exists:
+      latency = read series[binIndex]
+    Else if semantics.queue and semantics.served exist:
+      latency = queue[t] / max(0.001, served[t]) * binMinutes
+    Else:
+      latency = null
+  Else:  # service, router, external
+    latency = null  # Don't derive latency for non-queue nodes
+```
+
+**Rationale**: Service "arrivals/capacity" ratio isn't latency. Latency = time spent waiting, which only applies to queues (Little's Law: L = λW, so W = L/λ).
+
+## P2.2: Capacity Clamp (Expression Pattern)
+
+**Purpose**: Clamp inflow by capacity, track overflow/saturation
+
+**Expression Patterns** (no new node kind needed):
+
+```yaml
+# Pattern: Service capacity clamp (no explicit queue)
 nodes:
-  - id: order_latency
-    kind: latency
-    queueNode: "queue_backlog"
-    throughputNode: "orders_served"
-    epsilon: 0.001  # Avoid division by zero
+  - id: service_arrivals
+    kind: const
+    role: arrivals
+    values: [250, 300, 280, ...]  # Spiky demand
+  
+  - id: service_capacity
+    kind: const
+    role: capacity
+    values: [200, 200, 200, ...]  # Fixed capacity
+  
+  - id: service_served
+    kind: expr
+    role: served
+    expr: "MIN(service_arrivals, service_capacity)"
+  
+  - id: service_overflow
+    kind: expr
+    role: overflow
+    expr: "MAX(0, service_arrivals - service_capacity)"
 ```
 
-**Formula**: `latency_min[t] = queue[t] / max(epsilon, throughput[t]) * binMinutes`
+**Use Cases**:
+- Service saturates → `overflow` represents dropped requests or forwarded to queue
+- Utilization = `served / capacity` shows saturation bands
 
-### Option B: Derive in State API (implicit)
+**Alternative**: If overflow feeds a queue, use queue expressions from P1
 
-**No new node type needed**. State API computes:
+## P2.3: Capacity Inference Fallback
+
+**Problem**: Real telemetry often lacks clean capacity series (no replica count, no explicit limits)
+
+**Solution**: Infer effective capacity from observed behavior
+
+**Algorithm**:
 
 ```yaml
-If semantics.latency_min exists:
-  latency = read series[binIndex]
-Else if semantics.queue and semantics.served exist:
-  latency = queue / max(0.001, served) * binMinutes
-Else:
-  latency = null
+For each service/queue node with missing capacity series:
+  For each bin t:
+    If Q[t-1] > 0:  # Queue was non-empty
+      capacity[t] = served[t]  # Binding constraint (saturated)
+    Else:  # Queue was empty
+      capacity[t] = smooth_envelope(served, window)  # Piecewise max with smoothing
 ```
 
-**Recommendation**: Start with **Option B** (simpler, no new node). Add LatencyNode in P3+ if users want latency as a series for further expressions.
+**Envelope Smoothing** (simple version for P2):
 
-## P2.2: Capacity Constraint Node
-
-**Purpose**: Clamp inflow by capacity, track overflow
-
-**YAML Usage**:
-
-```yaml
-nodes:
-  - id: service_actual_served
-    kind: capacity
-    inflowNode: "service_arrivals"
-    capacityNode: "service_capacity"
-    outputs:
-      - served     # min(inflow, capacity)
-      - overflow   # max(0, inflow - capacity)
+```python
+max_served = max(served[t-5:t+5])  # 11-bin rolling max
+capacity[t] = max(max_served, served[t])  # Envelope
 ```
 
-**Formula**:
-- `served[t] = min(inflow[t], capacity[t])`
-- `overflow[t] = max(0, inflow[t] - capacity[t])`
+**Benefits**:
+- Derived utilization/latency stay stable even without explicit capacity
+- Saturation detection works (when Q > 0, we know capacity was binding)
+- Warnings logged in run.json when inference is used
 
-**Use Case**: Service saturates → overflow goes to queue or gets dropped
-
-## P2.3: SLA Breach Detection
+## P2.4: SLA Breach Detection
 
 **In State API response**:
 
@@ -820,49 +914,44 @@ graph LR
 
 ---
 
-# P3: Routing + Conservation
+# P3: Routing + Conservation + Metrics API
 
-**Goal**: Multi-path routing and flow conservation validation
+**Goal**: Multi-path routing (via expressions), flow conservation validation, SLA metrics aggregation API
 
-**Why**: Distributed systems split traffic; need to validate totals match
+**Why**: Distributed systems split traffic; need to validate totals match; UI needs SLA summary
 
-## P3.1: RouterNode
+## P3.1: Routing via Expressions
 
-**Purpose**: Split input flow by ratios to multiple outputs
+**Key Insight**: No RouterNode needed. Use expressions to split flows.
 
-**YAML Usage**:
+**Expression Patterns**:
 
 ```yaml
-topology:
-  nodes:
-    - id: LoadBalancer
-      kind: router
-      semantics:
-        arrivals: "lb_arrivals"
-      routing:
-        splits:
-          - target: "ServiceA"
-            ratio: 0.6
-          - target: "ServiceB"
-            ratio: 0.4
-
+# Pattern: Load balancer with ratio-based routing
 nodes:
   - id: lb_arrivals
     kind: const
+    role: arrivals
     values: [100, 150, 120, ...]
   
   - id: to_service_a
     kind: expr
-    expr: "lb_arrivals * 0.6"
+    role: arrivals
+    expr: "lb_arrivals * 0.6"  # 60% to ServiceA
   
   - id: to_service_b
     kind: expr
-    expr: "lb_arrivals * 0.4"
+    role: arrivals
+    expr: "lb_arrivals * 0.4"  # 40% to ServiceB
 ```
 
-**Validation**: `sum(ratios) = 1.0` (enforce in parser)
+**Future**: For conditional routing (e.g., IF/ELSE), add when expression language supports it. For P3 demo, use simple ratio splits.
 
-## P3.2: Conservation Check
+**Validation** (optional for P3):
+- Can add lint rule: if multiple series reference same parent with `* <ratio>`, check sum(ratios) ≈ 1.0
+- Warning (not error) if sum deviates significantly
+
+## P3.2: Conservation Check (Already in P1)
 
 **Formula**: `arrivals[t] - served[t] - ΔQ[t] ≈ 0`
 
@@ -872,42 +961,82 @@ Where: `ΔQ[t] = queue[t] - queue[t-1]`
 
 **Tolerance**: `|residual[t]| < 0.01` (configurable)
 
-**YAML Usage**:
+**Implementation** (from P1):
+- Engine computes residual for all queue nodes automatically
+- Warnings logged in `run.json` when `|residual| > threshold`
+- Optional: Include `conservation.residual` in `/state` response for debugging
 
-```yaml
-topology:
-  nodes:
-    - id: OrderQueue
-      kind: queue
-      semantics:
-        arrivals: "queue_inflow"
-        served: "queue_outflow"
-        queue: "queue_backlog"
-      validation:
-        conservation: true        # NEW: Enable conservation check
-        tolerance: 0.01
+**P3 Focus**: Validate conservation holds across **multiple flows** in routing scenarios (e.g., LB splits to A+B, check that `lb_arrivals = to_service_a + to_service_b`)
+
+## P3.3: Metrics API (SLA Aggregates)
+
+**Endpoint**: `GET /v1/runs/{runId}/metrics?start={timestamp}&end={timestamp}`
+
+**Purpose**: Aggregate SLA metrics per flow over a time window (for SLA Dashboard UI)
+
+**Query Parameters**:
+- `start` = ISO-8601 timestamp (inclusive, bin start)
+- `end` = ISO-8601 timestamp (exclusive, bin start)
+
+**Logic**:
+1. For each flow (from `classes`), aggregate SLA compliance across [start, end)
+2. Compute: bins_meeting_sla, bins_total, sla_pct, worst_latency, avg_latency, total_errors
+
+**Request Example**:
+
+```http
+GET /v1/runs/run_20251007T143000Z_abc123/metrics?start=2025-10-07T00:00:00Z&end=2025-10-08T00:00:00Z
+Accept: application/json
 ```
 
-**In State API**:
+**Response Example**:
 
 ```json
 {
-  "nodes": {
-    "OrderQueue": {
-      "queue": 25.0,
-      "arrivals": 145.0,
-      "served": 140.0,
-      "conservation": {
-        "residual": 0.0,
-        "valid": true,
-        "tolerance": 0.01
-      }
+  "runId": "run_20251007T143000Z_abc123",
+  "grid": {
+    "bins": 168,
+    "binSize": 1,
+    "binUnit": "hours",
+    "binMinutes": 60
+  },
+  "window": {
+    "start": "2025-10-07T00:00:00Z",
+    "end": "2025-10-08T00:00:00Z",
+    "binCount": 24,
+    "timezone": "UTC"
+  },
+  "flows": {
+    "Orders": {
+      "sla_min": 5.0,
+      "bins_meeting_sla": 23,
+      "bins_total": 24,
+      "sla_pct": 95.8,
+      "worst_latency_min": 6.2,
+      "avg_latency_min": 1.4,
+      "total_errors": 12
+    },
+    "Billing": {
+      "sla_min": 3.0,
+      "bins_meeting_sla": 21,
+      "bins_total": 24,
+      "sla_pct": 87.5,
+      "worst_latency_min": 4.5,
+      "avg_latency_min": 2.1,
+      "total_errors": 8
     }
   }
 }
 ```
 
-## P3.3: Data Flow
+**Aggregation Rules**:
+- `bins_meeting_sla`: count bins where `latency_min <= sla_min` for queue nodes in flow
+- `sla_pct = 100.0 * bins_meeting_sla / bins_total`
+- `worst_latency_min = max(latency_min)` across all queue nodes in flow
+- `avg_latency_min = mean(latency_min)` across all queue nodes in flow
+- `total_errors = sum(errors)` across all nodes in flow
+
+## P3.4: Data Flow
 
 ```mermaid
 graph TB
@@ -924,13 +1053,16 @@ graph TB
     style CHECK2 fill:#9f9,stroke:#333,stroke-width:2px
 ```
 
-## P3.4: Success Criteria
+## P3.5: Success Criteria
 
-- [ ] RouterNode splits by ratio correctly
-- [ ] sum(ratios) validation enforced
-- [ ] Conservation residuals computed per bin
+- [ ] Routing via expressions works (e.g., `lb_arrivals * 0.6`)
+- [ ] Optional validation: warn if routing ratios don't sum to ~1.0
+- [ ] Conservation residuals computed per bin for all queue nodes
 - [ ] Warnings logged when |residual| > tolerance
-- [ ] State API exposes conservation validation results
+- [ ] GET /v1/runs/{id}/metrics returns SLA aggregates per flow
+- [ ] /metrics response includes grid/binMinutes and bin bounds
+- [ ] bins_meeting_sla and sla_pct calculated correctly
+- [ ] worst_latency_min and avg_latency_min aggregated correctly
 
 ---
 
@@ -1036,51 +1168,64 @@ topology:
     - { id: "e2", from: "OrderQueue:out", to: "BillingService:in" }
 
 nodes:
-  # Demand with spike
+  # Demand with spike (const vector - no t/AND operators needed)
   - id: orders_demand
-    kind: expr
-    expr: "100 + (t >= 50 AND t < 60) * 200"  # Spike at t=50-59
+    kind: const
+    role: arrivals
+    # 168 hourly bins: bins 0-49 = 100, bins 50-59 = 300 (spike), bins 60-167 = 100
+    values: >-
+      [100]*50 + [300]*10 + [100]*108
+    # Note: flowtime-sim generator can expand this notation, or emit full array
   
   # Service capacity
   - id: orders_capacity
     kind: const
-    values: [150] * 168
+    role: capacity
+    values: >-
+      [150]*168
   
-  # Served = min(demand, capacity)
+  # Served = min(demand, capacity) - using expr, not capacity node
   - id: orders_served
-    kind: capacity
-    inflowNode: "orders_demand"
-    capacityNode: "orders_capacity"
+    kind: expr
+    role: served
+    expr: "MIN(orders_demand, orders_capacity)"
   
   # Queue inflow = overflow from OrderService
   - id: queue_inflow
     kind: expr
+    role: arrivals
     expr: "MAX(0, orders_demand - orders_capacity)"
   
-  # Queue outflow = billing capacity
+  # Billing capacity (downstream capacity for queue)
   - id: billing_capacity
     kind: const
-    values: [120] * 168
+    role: capacity
+    values: >-
+      [120]*168
   
+  # Queue backlog (stateful) - using expr with SHIFT
+  - id: queue_backlog
+    kind: expr
+    role: queue
+    expr: "MAX(0, SHIFT(queue_backlog, 1) + queue_inflow - billing_capacity)"
+  
+  # Queue outflow (derived from backlog + inflow, clamped by downstream capacity)
   - id: queue_outflow
     kind: expr
-    expr: "MIN(queue_backlog + queue_inflow, billing_capacity)"
-  
-  # Queue backlog (stateful)
-  - id: queue_backlog
-    kind: backlog
-    inflowNode: "queue_inflow"
-    capacityNode: "queue_outflow"
+    role: served
+    expr: "MIN(SHIFT(queue_backlog, 1) + queue_inflow, billing_capacity)"
   
   # Billing receives queue outflow
   - id: billing_arrivals
     kind: expr
+    role: arrivals
     expr: "queue_outflow"
   
+  # Billing served (clamped by capacity)
   - id: billing_served
-    kind: capacity
-    inflowNode: "billing_arrivals"
-    capacityNode: "billing_capacity"
+    kind: expr
+    role: served
+    expr: "MIN(billing_arrivals, billing_capacity)"
 
 outputs:
   - orders_demand
@@ -1146,12 +1291,15 @@ curl "http://localhost:8080/v1/runs/{runId}/state_window?start=2025-10-07T45:00:
 
 ## P4.4: Success Criteria
 
-- [ ] Demo model generates without errors
-- [ ] Spike at t=50 causes queue buildup
-- [ ] /state?ts={spike} shows saturation + SLA breach
-- [ ] /state_window shows queue ramp-up and drain-down
-- [ ] Conservation residuals near zero throughout
-- [ ] Latency correlates with queue depth
+- [ ] Demo model generates without errors (no t/AND operators, only const vectors)
+- [ ] Spike at bins 50-59 causes queue buildup (using expr with SHIFT)
+- [ ] /state?ts={spike-time} shows saturation + SLA breach + utilization_band=red
+- [ ] /state_window shows queue ramp-up and drain-down over [45, 85)
+- [ ] Conservation residuals near zero throughout (validated automatically)
+- [ ] Latency correlates with queue depth (Little's Law)
+- [ ] /metrics aggregates SLA correctly over spike window
+- [ ] All API responses include grid.binMinutes
+- [ ] Capacity inference applied where capacity series missing (warnings logged)
 - [ ] UI can render graph + scrub timeline (manual verification)
 
 ---
@@ -1170,40 +1318,53 @@ curl "http://localhost:8080/v1/runs/{runId}/state_window?start=2025-10-07T45:00:
 - [ ] **Tests**: Schema validation (10 tests)
 - [ ] **Tests**: API responses (5 tests)
 
-### P1: Backlog + State
-- [ ] **flowtime-vnext**: Implement BacklogNode
-- [ ] **flowtime-vnext**: Add backlog parser to ModelParser
-- [ ] **flowtime-vnext**: Implement GET /v1/runs/{id}/state
-- [ ] **flowtime-vnext**: Implement GET /v1/runs/{id}/state_window
-- [ ] **flowtime-vnext**: Timestamp → bin index conversion
-- [ ] **flowtime-vnext**: Derive latency in state API
-- [ ] **Tests**: BacklogNode unit tests (6 tests)
-- [ ] **Tests**: State API integration tests (8 tests)
-- [ ] **Tests**: State window API tests (5 tests)
+### P1: Queue Expressions + State
+- [ ] **flowtime-vnext**: Support SHIFT(x, n) in expressions (n > 0)
+- [ ] **flowtime-vnext**: Validate SHIFT self-references (reject n <= 0)
+- [ ] **flowtime-vnext**: Parse and evaluate expr nodes with SHIFT
+- [ ] **flowtime-vnext**: Implement q0 (initial queue state) semantics
+- [ ] **flowtime-vnext**: Implement GET /v1/runs/{id}/state (with grid, bin bounds)
+- [ ] **flowtime-vnext**: Implement GET /v1/runs/{id}/state_window (with grid)
+- [ ] **flowtime-vnext**: Timestamp → bin index conversion (validate ts = bin start)
+- [ ] **flowtime-vnext**: Derive latency for queue nodes in state API
+- [ ] **flowtime-vnext**: Add utilization_band calculation (green/yellow/red)
+- [ ] **flowtime-vnext**: Implement conservation check (arrivals - served - ΔQ)
+- [ ] **Tests**: SHIFT expression tests (self-ref, reject n<=0) (4 tests)
+- [ ] **Tests**: Conservation residual tests (3 tests)
+- [ ] **Tests**: State API integration tests (grid, bin bounds, ts validation) (10 tests)
+- [ ] **Tests**: State window API tests (end-exclusive ranges, binCount) (6 tests)
+- [ ] **Tests**: Bin alignment edge cases (2 tests)
 
-### P2: Latency + Capacity
-- [ ] **flowtime-vnext**: Implement CapacityNode
+### P2: Latency Derivation + Capacity Inference
+- [ ] **flowtime-vnext**: Implement capacity inference (Q[t-1] > 0 → capacity = served)
+- [ ] **flowtime-vnext**: Implement smooth envelope fallback (piecewise max)
+- [ ] **flowtime-vnext**: Clarify latency only for queue nodes (not service nodes)
 - [ ] **flowtime-vnext**: Add SLA breach detection to state API
 - [ ] **flowtime-vnext**: Add sla_headroom calculation
-- [ ] **Tests**: CapacityNode tests (4 tests)
+- [ ] **flowtime-vnext**: Add sla_min to node metadata
+- [ ] **Tests**: Capacity inference tests (binding constraint, envelope) (5 tests)
 - [ ] **Tests**: SLA breach tests (3 tests)
+- [ ] **Tests**: Latency derivation for queues only (2 tests)
 
-### P3: Routing + Conservation
-- [ ] **flowtime-vnext**: Implement RouterNode
-- [ ] **flowtime-vnext**: Add routing ratio validation
-- [ ] **flowtime-vnext**: Implement conservation check
-- [ ] **flowtime-vnext**: Add conservation to state API response
-- [ ] **Tests**: RouterNode tests (5 tests)
-- [ ] **Tests**: Conservation tests (4 tests)
+### P3: Routing Expressions + Conservation
+- [ ] **flowtime-vnext**: Validate routing expr patterns (arrivals * ratio)
+- [ ] **flowtime-vnext**: Add routing ratio validation (sum of ratios = 1)
+- [ ] **flowtime-vnext**: Add conservation residual to state API response
+- [ ] **flowtime-vnext**: Implement GET /v1/runs/{id}/metrics (SLA aggregates)
+- [ ] **flowtime-vnext**: Add per-flow and per-node SLA% calculation
+- [ ] **Tests**: Routing expression tests (5 tests)
+- [ ] **Tests**: Conservation residual in API response (4 tests)
+- [ ] **Tests**: /metrics API tests (aggregates, per-flow) (6 tests)
 
 ### P4: Demo
-- [ ] **flowtime-sim**: Create demo-time-travel.yaml template
-- [ ] **flowtime-sim**: Generate spike scenario model
+- [ ] **flowtime-sim**: Create demo-time-travel.yaml template (expr-based nodes)
+- [ ] **flowtime-sim**: Generate spike scenario model (const vector, no t/AND)
 - [ ] **flowtime-vnext**: Run demo model end-to-end
-- [ ] **Manual**: Verify /state at spike shows saturation
-- [ ] **Manual**: Verify /state_window shows queue dynamics
-- [ ] **Manual**: Verify conservation residuals
-- [ ] **Docs**: Write demo README with curl commands
+- [ ] **Manual**: Verify /state at spike (bins 50-59) shows saturation
+- [ ] **Manual**: Verify /state_window shows queue dynamics (end-exclusive ranges)
+- [ ] **Manual**: Verify conservation residuals logged
+- [ ] **Manual**: Verify capacity inference triggers during spike
+- [ ] **Docs**: Write demo README with curl commands (include /metrics)
 
 ---
 
@@ -1700,9 +1861,9 @@ nodes:
     expr: "MIN(demand_baseline, capacity_scenario)"  # No saturation
   
   - id: queue_scenario
-    kind: backlog
-    inflowNode: demand_baseline
-    capacityNode: served_scenario
+    kind: expr
+    expr: "MAX(0, SHIFT(queue_scenario, 1) + demand_baseline - served_scenario)"
+    q0: 0  # Initial queue state
   
   - id: latency_scenario
     kind: expr
@@ -1846,12 +2007,14 @@ Once adapters prove the architecture, add these to engine (as new node kinds):
 ### flowtime-vnext
 - `src/FlowTime.Core/TimeGrid.cs` - Add StartTimeUtc property
 - `src/FlowTime.Core/Models/Topology.cs` - NEW: Topology model classes
-- `src/FlowTime.Core/Models/ModelParser.cs` - Parse window + topology
-- `src/FlowTime.Core/Nodes/BacklogNode.cs` - NEW: Stateful queue node
-- `src/FlowTime.Core/Nodes/CapacityNode.cs` - NEW: Capacity constraint
-- `src/FlowTime.Core/Nodes/RouterNode.cs` - NEW: Traffic splitter
-- `src/FlowTime.API/Program.cs` - Add /state and /state_window endpoints
-- `tests/FlowTime.Core.Tests/Nodes/BacklogNodeTests.cs` - NEW
+- `src/FlowTime.Core/Models/ModelParser.cs` - Parse window + topology + classes
+- `src/FlowTime.Core/Expressions/ShiftFunction.cs` - NEW: SHIFT(x, n) support
+- `src/FlowTime.Core/Expressions/ExpressionValidator.cs` - Validate SHIFT self-refs
+- `src/FlowTime.Core/Evaluation/ConservationCheck.cs` - NEW: Residual calculation
+- `src/FlowTime.Core/Evaluation/CapacityInference.cs` - NEW: Infer capacity from binding
+- `src/FlowTime.API/Program.cs` - Add /state, /state_window, /metrics endpoints
+- `tests/FlowTime.Core.Tests/Expressions/ShiftTests.cs` - NEW
+- `tests/FlowTime.Core.Tests/Evaluation/ConservationTests.cs` - NEW
 - `tests/FlowTime.API.Tests/StateApiTests.cs` - NEW
 
 ---
