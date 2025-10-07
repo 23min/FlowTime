@@ -87,12 +87,12 @@ graph TB
 
 ```yaml
 schemaVersion: "1.0"
-modelFormat: "1.1"  # NEW: semantic versioning for model evolution
+modelFormat: "1.1"  # NEW: Additive schema extension (backward compatible via optional fields)
 
-# NEW: Absolute time anchoring
+# NEW: Absolute time anchoring (OPTIONAL for backward compatibility)
 window:
   start: "2025-10-07T00:00:00Z"  # ISO-8601 UTC (bin 0 timestamp)
-  timezone: "UTC"                 # MUST be UTC
+  timezone: "UTC"                 # MUST be "UTC" when present
 
 # EXISTING (unchanged)
 grid:
@@ -143,7 +143,7 @@ topology:
       from: "OrderQueue:out"
       to: "BillingService:in"
 
-# EXISTING: Series nodes (unchanged)
+# EXISTING: Series nodes (PMF support added in M2.9)
 nodes:
   - id: orders_arrivals
     kind: const
@@ -154,6 +154,14 @@ nodes:
     kind: const
     role: "capacity"
     values: [20, 20, 20, ...]
+  
+  - id: stochastic_arrivals
+    kind: pmf                    # PMF support (implemented in M2.9)
+    role: "arrivals"
+    pmf:
+      values: [50, 100, 150, 200]
+      probabilities: [0.1, 0.4, 0.4, 0.1]
+    # Evaluates to expected value series: E[X] = 125 in all bins
   
   - id: orders_served
     kind: expr
@@ -181,6 +189,11 @@ provenance:
   generator: "flowtime-sim"
   version: "0.8.0"
   template: "demo-system"
+
+# OPTIONAL: RNG configuration (for PMF sampling - implemented in M2.9)
+rng:
+  kind: "pcg32"      # PCG-XSH-RR algorithm
+  seed: 42           # Deterministic seed for reproducibility
 ```
 
 ### P0.2: Validation Rules
@@ -200,15 +213,23 @@ Rules:
   - topology.edges[*].from/to MUST reference topology.nodes[*].id
   - No cycles in edges (DAG validation)
   - expr nodes with SHIFT(x, n): n MUST be >= 1 (reject SHIFT(x, 0) or negative)
+  - pmf nodes: values and probabilities arrays must have same length, probabilities sum to 1.0±0.0001
 ```
+
+**Note on PMF/RNG**: PMF and RNG support already implemented in M2.9. See:
+- Implementation: `src/FlowTime.Core/Pmf/` (Pmf.cs, PmfNode.cs, PmfCompiler.cs)
+- RNG: `src/FlowTime.Core/Rng/Pcg32.cs` (PCG-XSH-RR algorithm for reproducibility)
+- Documentation: `docs/concepts/pmf-modeling.md`, `docs/architecture/rng-algorithm.md`
+- Schema: `docs/schemas/model.schema.md` (section 3.3)
 
 **In flowtime-vnext (engine validation)**:
 
 ```yaml
 Rules:
-  - Reject if window.start missing
-  - Reject if window.timezone != "UTC"
-  - Reject if classes[] missing or empty
+  - If window section present: Reject if window.start missing or window.timezone != "UTC"
+  - If window section absent: Default to epoch time (1970-01-01T00:00:00Z) for bin 0 (legacy mode)
+  - If classes[] absent: Default to ["*"] (single-class)
+  - If topology section absent: Operate in legacy mode (series-only, no time-travel APIs)
   - Reject if topology.nodes[*].semantics references non-existent node
   - Warn if optional semantics (errors, replicas, q0) referenced but missing
   - Warn if modelFormat missing (default to "1.0" for backward compat)
@@ -247,6 +268,41 @@ Changes:
   - Parse topology section → build Topology graph
   - Validate semantic mappings against nodes[*].id
   - Store Topology alongside Graph for API access
+```
+
+**Validation Phase Ordering**:
+
+```yaml
+Phase 1: Schema Validation (Structural)
+  - schemaVersion present and supported
+  - grid.bins, grid.binSize, grid.binUnit valid
+  - window.start valid ISO-8601 (if present)
+  - window.timezone = "UTC" (if present)
+  - All required fields present per node kind (const: values, expr: expr, pmf: pmf)
+
+Phase 2: Semantic Validation (References)
+  - topology.nodes[*].semantics.* reference existing nodes[*].id
+  - topology.edges[*].from/to reference existing topology.nodes[*].id
+  - expr nodes reference existing node IDs
+  - SHIFT(...) references are valid (lag >= 1, stateful series only)
+  - pmf nodes have matching values/probabilities array lengths
+
+Phase 3: Graph Validation (Structure)
+  - No cycles in topology.edges (DAG check)
+  - No cycles in series dependencies (except via SHIFT)
+  - Topological sort possible for evaluation order
+
+Phase 4: Compilation
+  - Build TimeGrid from grid + window
+  - Build Topology from topology section
+  - Build series DAG from nodes
+  - Compile expressions and PMFs to evaluators
+
+Phase 5: Execution
+  - Evaluate nodes in topological order
+  - Handle SHIFT initial conditions (q0 or default 0)
+  - Apply error semantics (NaN, Inf, division by zero)
+  - Compute conservation residuals for validation
 ```
 
 ### P0.4: API Changes (flowtime-vnext)
@@ -432,8 +488,9 @@ sequenceDiagram
 - [ ] TimeGrid.GetBinTimeUtc(42) returns correct UTC timestamp
 - [ ] `binMinutes` correctly derived for all binUnit values (minutes/hours/days/weeks)
 - [ ] All API responses include `binMinutes` in grid objects
-- [ ] Validation rejects missing window.start or invalid semantic refs
-- [ ] Existing P0 models without window/topology still work (backward compat)
+- [ ] Validation rejects invalid window.start (if present) or invalid semantic refs
+- [ ] Models without window/topology still work with defaults (backward compat)
+- [ ] Models with window.start trigger time-travel mode, models without use legacy mode
 
 ### P0.8: Test Cases
 
@@ -513,7 +570,105 @@ nodes:
 
 **Initialization**: `SHIFT(queue_backlog, 1)` at t=0 returns 0 (or `q0` from semantics if provided).
 
+**SHIFT Initial Condition Semantics** (Formal Specification):
+
+```yaml
+SHIFT(series_id, k)[t] behavior:
+  - If t-k >= 0: Return series_id[t-k] (normal time shift)
+  - If t-k < 0: Return initial_value (before simulation start)
+  
+initial_value resolution order:
+  1. If series_id references a topology node with semantics.q0: Use q0 value
+  2. Else if series_id is self-referencing (stateful series like queue): Use 0
+  3. Else: Validation error (cannot shift non-stateful series before t=0)
+
+Examples:
+  - SHIFT(queue_backlog, 1)[0] with q0=5 → 5
+  - SHIFT(queue_backlog, 1)[0] without q0 → 0 (default for stateful)
+  - SHIFT(queue_backlog, 2)[1] with q0=5 → 5 (t=1, lag=2, so t-k=-1, still uses q0)
+  - SHIFT(arrivals, 1)[0] → ERROR (arrivals is not stateful, cannot shift before t=0)
+  - SHIFT(x, 0) → ERROR (lag must be >= 1)
+  - SHIFT(x, -5) → ERROR (lag must be >= 1)
+
+Validation Rules:
+  - SHIFT with k < 1 → reject at parse time
+  - SHIFT of non-stateful series used at t < k → reject at validation time
+  - Self-referencing SHIFT (x references x) → stateful, requires initial condition
+```
+
 **Critical Wiring**: The `capacity` input must be the **downstream service capacity**, not the queue's outflow (which is derived). This avoids circular dependencies.
+
+## P1.1.1: Expression Error Handling
+
+**Goal**: Comprehensive error semantics for expression evaluation
+
+### Division by Zero
+
+```yaml
+Behavior: Return ±Infinity (preserves sign)
+Examples:
+  - 10 / 0 → +Inf
+  - -10 / 0 → -Inf
+  - 0 / 0 → NaN
+Rationale: IEEE 754 semantics, allows NaN propagation downstream
+```
+
+### NaN Propagation
+
+```yaml
+Behavior: Any operation with NaN produces NaN
+Examples:
+  - NaN + 5 → NaN
+  - MIN(NaN, 10) → NaN
+  - MAX(NaN, 100) → NaN
+  - NaN * 0 → NaN
+Rationale: Standard floating-point semantics, signals invalid computation
+```
+
+### Overflow
+
+```yaml
+Behavior: Return ±Infinity
+Examples:
+  - 1e308 * 1e308 → +Inf
+  - -1e308 * 1e308 → -Inf
+Rationale: Prevents silent wraparound, makes saturation explicit
+```
+
+### Invalid Node Reference
+
+```yaml
+Behavior: Validation error at parse time (fail-fast)
+Example: expr: "MIN(nonexistent_node, capacity)"
+  → ERROR: "Node 'nonexistent_node' not found in model"
+Rationale: Catch typos/errors early, prevent runtime failures
+```
+
+### Invalid SHIFT Usage
+
+```yaml
+Behavior: Validation error at parse time
+Examples:
+  - SHIFT(x, 0) → ERROR: "SHIFT lag must be >= 1"
+  - SHIFT(x, -5) → ERROR: "SHIFT lag must be >= 1"
+  - SHIFT(const_series, 1) at t=0 → ERROR: "Cannot SHIFT non-stateful series before t=0"
+Rationale: Prevent ambiguous semantics, enforce statefulness discipline
+```
+
+### Safe Division Pattern
+
+**For derived metrics** (latency, utilization) where zero denominator is expected:
+
+```yaml
+Pattern: numerator / max(ε, denominator)
+where ε = 1e-9 (epsilon for numerical stability)
+
+Examples:
+  - latency_min = queue[t] / max(1e-9, served[t]) * binMinutes
+  - utilization = served[t] / max(1e-9, capacity[t])
+
+Rationale: Avoids Inf when denominator is exactly zero but still very small
+```
 
 ## P1.2: State API - Single Bin
 
@@ -521,7 +676,40 @@ nodes:
 
 **Query Parameter**: `ts` = ISO-8601 timestamp (e.g., `2025-10-07T14:00:00Z`)
 
-**Timestamp Semantics**: `ts` **MUST equal a bin start timestamp**. Reject if `ts` doesn't align with `window.start + (k × binMinutes)` for some integer k.
+**Timestamp Semantics**: `ts` **MUST align to a bin start timestamp** within tolerance.
+
+**Alignment Logic**:
+```yaml
+1. Parse ts to DateTime
+2. Compute binIndex = floor((ts - window.start).TotalMinutes / binMinutes)
+3. Compute expected bin_start = window.start + (binIndex × binMinutes)
+4. Check alignment: |ts - bin_start| <= tolerance
+5. tolerance = 1 second (accounts for floating-point rounding, client clock skew, timezone artifacts)
+6. If aligned: Use binIndex for series lookup
+7. If not aligned: Return 400 with error message suggesting nearest bin_start
+```
+
+**Error Response Example** (misaligned timestamp):
+```json
+{
+  "error": "Timestamp does not align to bin start",
+  "timestamp": "2025-10-07T14:00:03.456Z",
+  "nearestBinStart": "2025-10-07T14:00:00Z",
+  "tolerance": "1s"
+}
+```
+
+**Response includes actual bin timestamp** (canonical, not just echoing request):
+```json
+{
+  "bin": {
+    "index": 14,
+    "startUtc": "2025-10-07T14:00:00Z",    // Canonical bin start
+    "endUtc": "2025-10-07T15:00:00Z"
+  },
+  "timestamp": "2025-10-07T14:00:00.123Z"   // Original request (within tolerance)
+}
+```
 
 **Logic**:
 1. Parse timestamp → find bin index via `(ts - window.start) / binMinutes`
@@ -749,6 +937,7 @@ sequenceDiagram
 - ✅ Residual = |arrivals - served - ΔQ| < threshold for queue nodes
 - ✅ Warning logged in run.json when residual exceeds threshold
 - ✅ Conservation holds over multi-bin window
+- ✅ Edge case: t=0 uses SHIFT initial condition (q0), not previous bin (see P1.3 spec)
 
 **State API Tests**:
 - ✅ GET /state?ts={bin-start} returns 200 with correct binIndex + bin bounds
@@ -840,30 +1029,36 @@ nodes:
 
 **Problem**: Real telemetry often lacks clean capacity series (no replica count, no explicit limits)
 
-**Solution**: Infer effective capacity from observed behavior
+**Solution**: Use node capacity attribute if present; otherwise no per-node capacity constraints
 
 **Algorithm**:
 
 ```yaml
-For each service/queue node with missing capacity series:
-  For each bin t:
-    If Q[t-1] > 0:  # Queue was non-empty
-      capacity[t] = served[t]  # Binding constraint (saturated)
-    Else:  # Queue was empty
-      capacity[t] = smooth_envelope(served, window)  # Piecewise max with smoothing
+For each service/queue node:
+  If node has capacity attribute:
+    capacity[t] = node.capacity (constant or expression)
+    Enforce capacity[t] as hard constraint during simulation
+  Else:
+    No capacity constraint for this node
+    Queue depth/delay emerge from queuing behavior, not capacity limit
+    Utilization metric not available (no denominator)
 ```
 
-**Envelope Smoothing** (simple version for P2):
-
-```python
-max_served = max(served[t-5:t+5])  # 11-bin rolling max
-capacity[t] = max(max_served, served[t])  # Envelope
-```
+**Why No Inference**:
+- Little's Law (L = λW) describes observed behavior, not capacity
+- Capacity is a hard constraint (max processing rate), not a derived metric
+- "Inferring" capacity from served[t] is circular: it just renames served[t]
+- If capacity unknown, model behavior without capacity constraint (unbounded server)
 
 **Benefits**:
-- Derived utilization/latency stay stable even without explicit capacity
-- Saturation detection works (when Q > 0, we know capacity was binding)
-- Warnings logged in run.json when inference is used
+- Clear semantics: capacity = explicit attribute, not algorithmic guess
+- No spurious "saturation" warnings when capacity doesn't exist
+- Models can represent both capacity-constrained and unconstrained nodes
+
+**Implementation Note**: 
+- P0-P1: Ignore capacity (not in schema yet)
+- P2: Add capacity attribute to node schema
+- No "inference fallback" needed
 
 ## P2.4: SLA Breach Detection
 
