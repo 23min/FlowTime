@@ -18,7 +18,9 @@ namespace FlowTime.Sim.Cli
         string Format, // yaml | json
         bool Verbose,
         string? TemplatesDir,
-        string? ModelsDir
+        string? ModelsDir,
+        string? ProvenancePath,  // SIM-M2.7: Path to save provenance JSON
+        bool EmbedProvenance     // SIM-M2.7: Embed provenance in model YAML
     )
     {
         public static CliOptions Defaults => new(
@@ -30,7 +32,9 @@ namespace FlowTime.Sim.Cli
             "yaml",
             false,
             null,
-            null); // Don't set default - let config system handle it
+            null,
+            null,  // ProvenancePath
+            false); // EmbedProvenance
     }
 
     internal static class Program
@@ -222,11 +226,18 @@ namespace FlowTime.Sim.Cli
             return 0;
         }
 
-        static async Task<int> ExecuteGenerateCommand(INodeBasedTemplateService service, CliOptions opts, CancellationToken ct)
+        internal static async Task<int> ExecuteGenerateCommand(INodeBasedTemplateService service, CliOptions opts, CancellationToken ct)
         {
             if (string.IsNullOrWhiteSpace(opts.TemplateId))
             {
                 Console.Error.WriteLine("Error: --id required for 'generate' command");
+                return 2;
+            }
+
+            // SIM-M2.7: Validate mutual exclusivity of provenance options
+            if (!string.IsNullOrWhiteSpace(opts.ProvenancePath) && opts.EmbedProvenance)
+            {
+                Console.Error.WriteLine("Error: --provenance and --embed-provenance are mutually exclusive");
                 return 2;
             }
 
@@ -260,7 +271,34 @@ namespace FlowTime.Sim.Cli
             // Generate model
             var model = await service.GenerateEngineModelAsync(opts.TemplateId, parameters);
             
-            // Write output
+            // SIM-M2.7: Generate provenance if requested
+            Core.Models.ProvenanceMetadata? provenance = null;
+            if (!string.IsNullOrWhiteSpace(opts.ProvenancePath) || opts.EmbedProvenance)
+            {
+                // Get template metadata for provenance
+                var template = await service.GetTemplateAsync(opts.TemplateId);
+                if (template == null)
+                {
+                    Console.Error.WriteLine($"Error: Template '{opts.TemplateId}' not found");
+                    return 2;
+                }
+
+                // Create provenance service and generate metadata
+                var provenanceService = new Core.Services.ProvenanceService();
+                provenance = provenanceService.CreateProvenance(
+                    template.Metadata.Id,
+                    "1.0", // Template version (hardcoded for M2.7)
+                    template.Metadata.Title,
+                    parameters);
+
+                // If embed mode, embed provenance in model YAML
+                if (opts.EmbedProvenance)
+                {
+                    model = Core.Services.ProvenanceEmbedder.EmbedProvenance(model, provenance);
+                }
+            }
+            
+            // Write model output
             if (string.IsNullOrWhiteSpace(opts.OutputPath))
             {
                 Console.WriteLine(model);
@@ -276,6 +314,26 @@ namespace FlowTime.Sim.Cli
                 
                 if (opts.Verbose)
                     Console.WriteLine($"Model written to: {outputPath}");
+            }
+
+            // SIM-M2.7: Write separate provenance file if requested
+            if (!string.IsNullOrWhiteSpace(opts.ProvenancePath) && provenance != null)
+            {
+                var provenancePath = Path.GetFullPath(opts.ProvenancePath);
+                var dir = Path.GetDirectoryName(provenancePath);
+                if (!string.IsNullOrEmpty(dir))
+                    Directory.CreateDirectory(dir);
+
+                var provenanceJson = JsonSerializer.Serialize(provenance, new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                    WriteIndented = true
+                });
+                
+                await File.WriteAllTextAsync(provenancePath, provenanceJson, Encoding.UTF8, ct);
+                
+                if (opts.Verbose)
+                    Console.WriteLine($"Provenance written to: {provenancePath}");
             }
 
             return 0;
@@ -552,6 +610,9 @@ namespace FlowTime.Sim.Cli
             Console.WriteLine("  --format yaml|json       Output format (default: yaml)");
             Console.WriteLine("  --templates-dir <path>   Templates directory (default: ./templates)");
             Console.WriteLine("  --models-dir <path>      Models directory (default: ./data/models)");
+            Console.WriteLine("  --provenance <file>      Save provenance metadata to separate JSON file");
+            Console.WriteLine("  --embed-provenance       Embed provenance metadata in model YAML");
+            Console.WriteLine("                           NOTE: --provenance and --embed-provenance are mutually exclusive");
             Console.WriteLine("  --verbose, -v            Verbose output");
             Console.WriteLine("  --help, -h               Show this help\n");
             Console.WriteLine("Examples:");
@@ -563,12 +624,20 @@ namespace FlowTime.Sim.Cli
             Console.WriteLine("                                             # Generate with defaults");
             Console.WriteLine("  flow-sim generate --id transportation-basic --params overrides.json");
             Console.WriteLine("                                             # Override specific params");
+            Console.WriteLine("  flow-sim generate --id transportation-basic --out model.yaml --provenance provenance.json");
+            Console.WriteLine("                                             # Generate with separate provenance file");
+            Console.WriteLine("  flow-sim generate --id transportation-basic --out model.yaml --embed-provenance");
+            Console.WriteLine("                                             # Generate with embedded provenance");
         }
     }
 
     public static class ProgramWrapper
     {
         public static Task<int> InvokeMain(string[] args) => Program.Main(args);
+        
+        // SIM-M2.7: Expose ExecuteGenerateCommand for testing
+        public static Task<int> ExecuteGenerate(INodeBasedTemplateService service, CliOptions opts, CancellationToken ct = default)
+            => Program.ExecuteGenerateCommand(service, opts, ct);
     }
 
     public static class ArgParser
@@ -598,6 +667,8 @@ namespace FlowTime.Sim.Cli
                 else if (a is "--format") opts = opts with { Format = ArgValue(args, ref i) };
                 else if (a is "--templates-dir") opts = opts with { TemplatesDir = ArgValue(args, ref i) };
                 else if (a is "--models-dir") opts = opts with { ModelsDir = ArgValue(args, ref i) };
+                else if (a is "--provenance") opts = opts with { ProvenancePath = ArgValue(args, ref i) };  // SIM-M2.7
+                else if (a is "--embed-provenance") opts = opts with { EmbedProvenance = true };  // SIM-M2.7
                 else if (a is "--verbose" or "-v") opts = opts with { Verbose = true };
                 else if (a is "--help" or "-h")
                 {

@@ -6,11 +6,15 @@ namespace FlowTime.Sim.Tests;
 public class ArtifactHashingTests
 {
     private const string BaseYaml = @"schemaVersion: 1
-grid: { bins: 3, binMinutes: 60 }
-arrivals:
-  kind: const
-  values: [1,2,3]
-route: { id: main }
+grid: { bins: 3, binSize: 1, binUnit: hours }
+nodes:
+  - id: source
+    kind: const
+    values: [1,2,3]
+outputs:
+  - id: result
+    source: source
+    filename: output.csv
 ";
 
     [Fact]
@@ -41,7 +45,7 @@ route: { id: main }
     [Fact]
     public void InvalidYaml_Throws()
     {
-        var invalid = "grid: { bins: 3, binMinutes: 60  # missing closing brace";
+        var invalid = "grid: { bins: 3, binSize: 60  # missing closing brace";
         Assert.Throws<InvalidOperationException>(() => ModelHasher.ComputeModelHash(invalid));
     }
 }

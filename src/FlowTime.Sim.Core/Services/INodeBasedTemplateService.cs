@@ -20,8 +20,8 @@ public interface INodeBasedTemplateService
 
     /// <summary>
     /// Generate an Engine-compatible model from a template with parameter substitution.
-    /// Converts binSize/binUnit to binMinutes, substitutes ${parameter} placeholders,
-    /// removes template-specific metadata, and preserves PMF nodes for Engine compilation.
+    /// Substitutes ${parameter} placeholders, removes template-specific metadata,
+    /// and preserves PMF nodes for Engine compilation.
     /// </summary>
     /// <param name="templateId">Template identifier</param>
     /// <param name="parameters">Parameter values for substitution</param>

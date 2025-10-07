@@ -17,8 +17,8 @@ parameters:
     maximum: 48
   - name: binSize
     type: integer
-    title: "Minutes per Period"
-    description: "Duration of each time period"
+    title: "Period Duration"
+    description: "Duration of each time period in minutes"
     default: 60
     minimum: 15
     maximum: 480

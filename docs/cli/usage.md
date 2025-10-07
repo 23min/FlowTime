@@ -223,8 +223,110 @@ See [`docs/cli/configuration.md`](configuration.md) for details on configuration
 | `--format yaml\|json` | Output format | yaml |
 | `--templates-dir <path>` | Templates directory | `./templates` |
 | `--models-dir <path>` | Models directory | `./data/models` |
+| `--provenance <file>` | Save provenance metadata to separate JSON file | None |
+| `--embed-provenance` | Embed provenance metadata in model YAML | false |
 | `--verbose, -v` | Verbose output | false |
 | `--help, -h` | Show help | - |
+
+**Provenance Options** (SIM-M2.7):
+- `--provenance` and `--embed-provenance` are **mutually exclusive**
+- Use `--provenance` to save metadata in a separate JSON file for Engine storage
+- Use `--embed-provenance` to include metadata as structured YAML comments in the model
+- Without either flag, no provenance metadata is generated (backward compatibility)
+
+## Model Provenance (SIM-M2.7)
+
+FlowTime-Sim can generate **provenance metadata** that tracks the origin and parameters of generated models. This enables traceability from template to execution run.
+
+### Provenance Metadata Structure
+
+```json
+{
+  "source": "flowtime-sim",
+  "modelId": "model_20250925T103045Z_a3f8c2d1",
+  "templateId": "transportation-basic",
+  "templateVersion": "1.0",
+  "templateTitle": "Transportation Network",
+  "parameters": {
+    "bins": 12,
+    "binMinutes": 60,
+    "demandPattern": [20, 30, 40, 35, 25, 15]
+  },
+  "generatedAt": "2025-09-25T10:30:45.1234567Z",
+  "generator": "flowtime-sim/0.5.0",
+  "schemaVersion": "1"
+}
+```
+
+### Separate Provenance File Mode
+
+Save provenance metadata to a separate JSON file:
+
+```bash
+flow-sim generate --id transportation-basic \
+  --out model.yaml \
+  --provenance provenance.json
+```
+
+**Output files:**
+- `model.yaml` - Clean YAML model for Engine
+- `provenance.json` - Metadata for Engine storage
+
+**Use case**: When Engine needs to store provenance separately (recommended for M2.9 integration)
+
+### Embedded Provenance Mode
+
+Embed provenance metadata directly in the model YAML:
+
+```bash
+flow-sim generate --id transportation-basic \
+  --out model.yaml \
+  --embed-provenance
+```
+
+**Output:** Single YAML file with provenance as structured comments:
+
+```yaml
+schemaVersion: 1
+
+# === Model Provenance (flowtime-sim) ===
+# Generated: 2025-09-25T10:30:45.1234567Z
+# Model ID: model_20250925T103045Z_a3f8c2d1
+# Template: transportation-basic (v1.0) - Transportation Network
+# Generator: flowtime-sim/0.5.0
+provenance:
+  source: flowtime-sim
+  modelId: model_20250925T103045Z_a3f8c2d1
+  templateId: transportation-basic
+  # ... full provenance structure ...
+
+grid:
+  bins: 12
+  binMinutes: 60
+# ... rest of model ...
+```
+
+**Use case**: When UI needs to display provenance inline or for debugging
+
+### Provenance Best Practices
+
+1. **Mutual Exclusivity**: Cannot use both `--provenance` and `--embed-provenance` together
+2. **Model ID Format**: `model_{timestamp}_{hash}` ensures uniqueness and determinism
+3. **Deterministic Hashing**: Same template + parameters = same hash portion
+4. **Timestamp Precision**: UTC ISO8601 format with subsecond precision
+5. **Engine Integration**: Use `--provenance` mode for clean separation (recommended)
+
+### Provenance Without Parameters
+
+If generating with all template defaults (no `--params`), provenance captures an empty parameters object:
+
+```bash
+flow-sim generate --id transportation-basic \
+  --out model.yaml \
+  --provenance provenance.json
+```
+
+Provenance will show: `"parameters": {}`
 
 ## Typical Workflows
 

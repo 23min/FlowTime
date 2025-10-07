@@ -32,6 +32,7 @@ builder.Services.AddSingleton<FlowTime.Sim.Core.Services.INodeBasedTemplateServi
 	var templatesDirectory = ServiceHelpers.TemplatesRoot(builder.Configuration);
 	return new FlowTime.Sim.Core.Services.NodeBasedTemplateService(templatesDirectory, logger);
 });
+builder.Services.AddSingleton<FlowTime.Sim.Core.Services.IProvenanceService, FlowTime.Sim.Core.Services.ProvenanceService>();
 
 var app = builder.Build();
 app.UseCors();
@@ -224,7 +225,8 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 		});
 
 		// API: POST /api/v1/templates/{id}/generate  (generate model from template with parameter substitution)
-		api.MapPost("/templates/{id}/generate", async (string id, HttpRequest req, IConfiguration config, FlowTime.Sim.Core.Services.INodeBasedTemplateService templateService) =>
+		// SIM-M2.7: Enhanced to return provenance metadata
+		api.MapPost("/templates/{id}/generate", async (string id, HttpRequest req, IConfiguration config, FlowTime.Sim.Core.Services.INodeBasedTemplateService templateService, FlowTime.Sim.Core.Services.IProvenanceService provenanceService) =>
 		{
 			try
 			{
@@ -252,8 +254,30 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 
 				var modelYaml = await templateService.GenerateEngineModelAsync(id, parameters);
 
-				// Compute canonical model hash for integrity/cross-system compatibility
-				var modelHash = ModelHasher.ComputeModelHash(modelYaml);
+				// SIM-M2.7: Get template metadata for provenance
+				var template = await templateService.GetTemplateAsync(id);
+				if (template == null)
+			{
+				return Results.BadRequest(new { error = $"Template '{id}' not found" });
+			}
+
+			// SIM-M2.7: Create provenance metadata
+			var provenance = provenanceService.CreateProvenance(
+				template.Metadata.Id,
+				"1.0", // Template schema version (templates don't currently have a version field)
+				template.Metadata.Title,
+				parameters);
+
+			// SIM-M2.7: Check if provenance should be embedded in YAML
+			var embedProvenance = req.Query.ContainsKey("embed_provenance") &&
+								  req.Query["embed_provenance"].ToString().ToLowerInvariant() != "false";
+
+			string finalModelYaml = modelYaml;
+			if (embedProvenance)
+			{
+				finalModelYaml = FlowTime.Sim.Core.Services.ProvenanceEmbedder.EmbedProvenance(modelYaml, provenance);
+			}				// Compute canonical model hash for integrity/cross-system compatibility
+				var modelHash = ModelHasher.ComputeModelHash(finalModelYaml);
 
 				// Use hash prefix for directory naming to prevent parameter collisions
 				// Format: data/models/{templateId}/{hashPrefix8}/
@@ -262,9 +286,19 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 				var templateModelsDir = Path.Combine(modelsRoot, id, hashPrefix);
 				Directory.CreateDirectory(templateModelsDir);
 				var modelPath = Path.Combine(templateModelsDir, "model.yaml");
-				await File.WriteAllTextAsync(modelPath, modelYaml, System.Text.Encoding.UTF8);
+				await File.WriteAllTextAsync(modelPath, finalModelYaml, System.Text.Encoding.UTF8);
 
-				// Persist metadata with hash, parameters, and timestamp
+				// SIM-M2.7: Persist provenance metadata alongside model
+				var provenancePath = Path.Combine(templateModelsDir, "provenance.json");
+				await File.WriteAllTextAsync(provenancePath, 
+					JsonSerializer.Serialize(provenance, new JsonSerializerOptions 
+					{ 
+						WriteIndented = true,
+						PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+					}), 
+					System.Text.Encoding.UTF8);
+
+				// Persist legacy metadata with hash, parameters, and timestamp
 				var metadataPath = Path.Combine(templateModelsDir, "metadata.json");
 				var metadata = new
 				{
@@ -275,14 +309,9 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 				};
 				await File.WriteAllTextAsync(metadataPath, JsonSerializer.Serialize(metadata, new JsonSerializerOptions { WriteIndented = true }), System.Text.Encoding.UTF8);
 
-				// Default to YAML response unless JSON explicitly requested via Content-Type
-				var contentType = req.ContentType ?? string.Empty;
-				if (contentType.Contains("application/json", StringComparison.OrdinalIgnoreCase))
-				{
-					return Results.Ok(new { model = modelYaml, templateId = id, parameters, modelHash, path = modelPath });
-				}
-				// Default: return YAML
-				return Results.Text(modelYaml, "application/x-yaml");
+				// SIM-M2.7: Always return JSON with model + provenance
+				// Backward compatible: clients can ignore provenance field
+				return Results.Ok(new { model = finalModelYaml, provenance });
 			}
 			catch (ArgumentException ex)
 			{

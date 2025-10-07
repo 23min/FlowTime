@@ -2,6 +2,48 @@
 
 Purpose: give AI agents the minimum context to be productive and safe in this repo.
 
+## Code Navigation and Editing Rules
+
+**ALWAYS use Serena MCP tools for code operations:**
+
+### Before any implementation:
+1. Use `serena__find_symbol` to locate relevant existing code
+2. Use `serena__get_symbols_overview` to understand file structure
+3. Use `serena__find_referencing_symbols` to see how code is used
+
+### When writing new code:
+1. Use `serena__find_symbol` to find similar patterns in the codebase
+2. Look for existing base classes, interfaces, or patterns to follow
+3. Use `serena__insert_after_symbol` or `serena__replace_symbol_body` for precise placement
+
+### When modifying code:
+- NEVER read entire files unless absolutely necessary
+- Use `serena__read_file` for targeted file reading
+- Use `serena__replace_symbol_body` to modify specific methods/classes
+- Use `serena__insert_after_symbol` to add new code near existing symbols
+
+### When writing tests:
+1. Use `serena__find_symbol` to locate the class being tested
+2. Find existing test patterns with `serena__find_symbol` (e.g., "Test")
+3. Understand test structure before generating new tests
+
+### Examples:
+- ❌ "Read OrderService.cs and modify the CalculateTotal method"
+- ✅ "Use serena__find_symbol to locate CalculateTotal, then serena__replace_symbol_body to update it"
+
+- ❌ "Show me all the files in src/"
+- ✅ "Use serena__find_symbol to find all classes in the Services namespace"
+
+## Project Structure
+- CLI is in `src/FlowTime.Sim.Cli/`
+- Core logic (Engine) is in `src/FlowTime.Sim.Core/`
+- Service (API) is in `src/FlowTime.Sim.Service/`
+
+- Tests follow pattern: `ClassName` → `ClassNameTests`
+- Test location: `tests/FlowTime.Sim.Tests/` (single test project for all components)
+
+Prefer semantic, symbol-level operations over file-level operations whenever possible.
+
 ## Guardrails
 - Don’t push (no `git push`) or make network calls unless explicitly requested.
 - Don’t commit or stage changes without explicit user approval. Propose edits first; commit only after the user says to.
@@ -36,7 +78,7 @@ Purpose: give AI agents the minimum context to be productive and safe in this re
 ### Production Phase (1.x.x+)  
 - **1.0.0**: First stable release with API/contract stability commitments
 - **1.x.0**: New capabilities with backward compatibility promises
-- **x.0.0**: Breaking changes only for fundamental architecture evolution (rare)
+- **x.0.0**: Breaking changes only for fundamental architecture evolution
 
 ### Pre-merge review guidance:
 - **Development phase**: Does this complete a milestone? → 0.x.0 bump | Bug fix/improvement? → 0.x.y bump

@@ -108,10 +108,7 @@ public class NodeBasedTemplateService : INodeBasedTemplateService
             // 1. Substitute ${parameter} placeholders
             yaml = SubstituteParameters(yaml, parameters, cached.template);
 
-            // 2. Convert binSize/binUnit to binMinutes (if present)
-            yaml = ConvertGridToEngineFormat(yaml);
-
-            // 3. Remove template-specific sections (parameters, metadata)
+            // 2. Remove template-specific sections (parameters, metadata) and ensure schemaVersion
             yaml = ConvertToEngineSchema(yaml);
 
             logger.LogDebug("Generated Engine model for {TemplateId}, output length: {Length} chars", 
@@ -184,18 +181,18 @@ public class NodeBasedTemplateService : INodeBasedTemplateService
                 }
                 catch (Templates.Exceptions.TemplateParsingException ex)
                 {
-                    // Keep header-only version in cache
-                    logger.LogWarning("Strict parse failed for {FilePath}: {Message}. Using header-only for template id '{TemplateId}'. Generation will substitute parameters before engine conversion.", filePath, ex.Message, header.Metadata.Id);
+                    // Keep header-only version in cache - this is expected for templates with parameter placeholders
+                    logger.LogDebug("Strict parse failed for {FilePath}: {Message}. Using header-only for template id '{TemplateId}'. Generation will substitute parameters before engine conversion.", filePath, ex.Message, header.Metadata.Id);
                 }
                 catch (Templates.Exceptions.TemplateValidationException ex)
                 {
-                    // Keep header-only version in cache
-                    logger.LogWarning("Validation failed for {FilePath}: {Message}. Using header-only for template id '{TemplateId}'. Generation will proceed with parameter substitution.", filePath, ex.Message, header.Metadata.Id);
+                    // Keep header-only version in cache - this is expected for templates with parameters
+                    logger.LogDebug("Validation failed for {FilePath}: {Message}. Using header-only for template id '{TemplateId}'. Generation will proceed with parameter substitution.", filePath, ex.Message, header.Metadata.Id);
                 }
                 catch (Exception ex)
                 {
-                    // Keep header-only version in cache
-                    logger.LogWarning("Generic parse error for {FilePath}: {Message}. Using header-only for template id '{TemplateId}'.", filePath, ex.Message, header.Metadata.Id);
+                    // Keep header-only version in cache - unexpected error type
+                    logger.LogWarning("Unexpected parse error for {FilePath}: {Message}. Using header-only for template id '{TemplateId}'.", filePath, ex.Message, header.Metadata.Id);
                 }
             }
             catch (Exception ex)
@@ -266,70 +263,6 @@ public class NodeBasedTemplateService : INodeBasedTemplateService
         };
     }
 
-    private string ConvertGridToEngineFormat(string yaml)
-    {
-        // Parse grid section and convert binSize + binUnit → binMinutes
-        var lines = yaml.Split('\n');
-        var result = new List<string>();
-        bool inGridSection = false;
-        int? binSize = null;
-        string? binUnit = null;
-        int gridIndentLevel = 0;
-
-        for (int i = 0; i < lines.Length; i++)
-        {
-            var line = lines[i];
-            var trimmed = line.Trim();
-            var indentLevel = GetIndentLevel(line);
-
-            if (trimmed == "grid:")
-            {
-                inGridSection = true;
-                gridIndentLevel = indentLevel;
-                result.Add(line);
-                continue;
-            }
-
-            if (inGridSection)
-            {
-                // Check if we've exited the grid section
-                if (!string.IsNullOrWhiteSpace(line) && indentLevel <= gridIndentLevel)
-                {
-                    // Insert binMinutes if we collected binSize and binUnit
-                    if (binSize.HasValue && !string.IsNullOrWhiteSpace(binUnit))
-                    {
-                        var binMinutes = ConvertToBinMinutes(binSize.Value, binUnit);
-                        result.Add($"  binMinutes: {binMinutes}");
-                    }
-                    inGridSection = false;
-                    binSize = null;
-                    binUnit = null;
-                }
-                else if (trimmed.StartsWith("binSize:"))
-                {
-                    binSize = int.Parse(trimmed.Substring("binSize:".Length).Trim());
-                    continue; // Skip this line, we'll add binMinutes later
-                }
-                else if (trimmed.StartsWith("binUnit:"))
-                {
-                    binUnit = trimmed.Substring("binUnit:".Length).Trim();
-                    continue; // Skip this line
-                }
-            }
-
-            result.Add(line);
-        }
-
-        // Handle case where grid is the last section
-        if (inGridSection && binSize.HasValue && !string.IsNullOrWhiteSpace(binUnit))
-        {
-            var binMinutes = ConvertToBinMinutes(binSize.Value, binUnit);
-            result.Add($"  binMinutes: {binMinutes}");
-        }
-
-        return string.Join('\n', result);
-    }
-
     private int GetIndentLevel(string line)
     {
         int count = 0;
@@ -341,17 +274,6 @@ public class NodeBasedTemplateService : INodeBasedTemplateService
         return count;
     }
 
-    private int ConvertToBinMinutes(int binSize, string binUnit)
-    {
-        return binUnit.ToLowerInvariant() switch
-        {
-            "minutes" or "minute" or "min" => binSize,
-            "hours" or "hour" or "h" => binSize * 60,
-            "days" or "day" => binSize * 24 * 60,
-            _ => throw new ArgumentException($"Unsupported binUnit: {binUnit}")
-        };
-    }
-
     private string ConvertToEngineSchema(string yaml)
     {
         var lines = yaml.Split('\n').ToList();
@@ -360,6 +282,7 @@ public class NodeBasedTemplateService : INodeBasedTemplateService
         var inMetadataSection = false;
         var inOutputsSection = false;
         var sectionIndentLevel = 0;
+        var hasSchemaVersion = yaml.TrimStart().StartsWith("schemaVersion:");
 
         for (int i = 0; i < lines.Count; i++)
         {
