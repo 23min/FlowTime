@@ -1,0 +1,57 @@
+window:
+  bins: 144
+  binSize: 10
+  binUnit: minutes
+  startTimeUtc: "2025-10-07T00:00:00Z"
+
+topology:
+  nodes:
+    - id: "API_Gateway"
+      semantics:
+        arrivals: "file:API_Gateway_arrivals.csv"
+        served: "file:API_Gateway_served.csv"
+        errors: "file:API_Gateway_errors.csv"
+    - id: "AuthService"
+      semantics:
+        arrivals: "file:AuthService_arrivals.csv"
+        served: "file:AuthService_served.csv"
+        errors: "file:AuthService_errors.csv"
+    - id: "OrderService"
+      semantics:
+        arrivals: "file:OrderService_arrivals.csv"
+        served: "file:OrderService_served.csv"
+        errors: "file:OrderService_errors.csv"
+    - id: "PaymentService"
+      semantics:
+        arrivals: "file:PaymentService_arrivals.csv"
+        served: "file:PaymentService_served.csv"
+        errors: "file:PaymentService_errors.csv"
+    - id: "InventoryService"
+      semantics:
+        arrivals: "file:InventoryService_arrivals.csv"
+        served: "file:InventoryService_served.csv"
+        errors: "file:InventoryService_errors.csv"
+    - id: "ShippingService"
+      semantics:
+        arrivals: "file:ShippingService_arrivals.csv"
+        served: "file:ShippingService_served.csv"
+        errors: "file:ShippingService_errors.csv"
+  edges:
+    - source: "API_Gateway"
+      target: "AuthService"
+      weight: 1.0
+    - source: "API_Gateway"
+      target: "OrderService"
+      weight: 0.7
+    - source: "OrderService"
+      target: "PaymentService"
+      weight: 0.9
+    - source: "OrderService"
+      target: "InventoryService"
+      weight: 0.8
+    - source: "OrderService"
+      target: "ShippingService"
+      weight: 0.6
+
+variables: []
+constraints: []
