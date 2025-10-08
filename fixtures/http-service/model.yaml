@@ -1,0 +1,17 @@
+window:
+  bins: 96
+  binSize: 15
+  binUnit: minutes
+  startTimeUtc: "2025-10-07T00:00:00Z"
+
+topology:
+  nodes:
+    - id: "HttpService"
+      semantics:
+        arrivals: "file:HttpService_arrivals.csv"
+        served: "file:HttpService_served.csv"
+        errors: "file:HttpService_errors.csv"
+  edges: []
+
+variables: []
+constraints: []
