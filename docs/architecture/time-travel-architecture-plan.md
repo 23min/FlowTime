@@ -136,7 +136,10 @@ topology:
         served: "queue_outflow"
         queue: "queue_backlog"       # REQUIRED for queue kind
         q0: 0                        # OPTIONAL: initial queue state (default 0, can seed from Gold)
-        oldest_age_s: null           # OPTIONAL (validation/visuals)
+        oldest_age_s: null           # OPTIONAL (deferred - not implemented in M3.0)
+                                     # NOTE: M3.0 only tracks queue depth, not age.
+                                     # Latency uses Little's Law: latency_min = (queue / served) × binMinutes
+                                     # oldest_age_s reserved for future enhancement when age tracking added
   
   edges:
     - id: "e1"
@@ -150,17 +153,14 @@ topology:
 nodes:
   - id: orders_arrivals
     kind: const
-    role: "arrivals"     # NEW: Optional hint for linting
     values: [10, 15, 12, ...]
   
   - id: orders_capacity
     kind: const
-    role: "capacity"
     values: [20, 20, 20, ...]
   
   - id: stochastic_arrivals
     kind: pmf                    # PMF support (implemented in M2.9)
-    role: "arrivals"
     pmf:
       values: [50, 100, 150, 200]
       probabilities: [0.1, 0.4, 0.4, 0.1]
@@ -168,17 +168,14 @@ nodes:
   
   - id: orders_served
     kind: expr
-    role: "served"
     expr: "MIN(orders_arrivals, orders_capacity)"
   
   - id: queue_backlog
     kind: expr
-    role: "queue"
     expr: "MAX(0, SHIFT(queue_backlog, 1) + queue_inflow - billing_capacity)"
   
   - id: queue_outflow
     kind: expr
-    role: "served"
     expr: "MIN(SHIFT(queue_backlog, 1) + queue_inflow, billing_capacity)"
 
 # EXISTING: Outputs, provenance (unchanged)
@@ -339,10 +336,9 @@ After (P0):
       "bins": 168, 
       "binSize": 1, 
       "binUnit": "hours",
-      "binMinutes": 60,                         # NEW: Derived (1 hour = 60 minutes)
-      "startTimeUtc": "2025-10-07T00:00:00Z"  # NEW
+      "binMinutes": 60  # NEW: Derived (1 hour = 60 minutes)
     },
-    "window": {                                  # NEW
+    "window": {         # NEW: Absolute time bounds
       "start": "2025-10-07T00:00:00Z",
       "end": "2025-10-14T00:00:00Z",
       "timezone": "UTC"
@@ -369,16 +365,15 @@ After (P0):
       "bins": 168, 
       "binSize": 1, 
       "binUnit": "hours",
-      "binMinutes": 60,                         # NEW: Derived for client ergonomics
-      "startTimeUtc": "2025-10-07T00:00:00Z"
+      "binMinutes": 60  # NEW: Derived for client ergonomics
     },
-    "window": {
+    "window": {         # NEW: Absolute time bounds (start is source of truth)
       "start": "2025-10-07T00:00:00Z",
       "end": "2025-10-14T00:00:00Z",
       "timezone": "UTC"
     },
-    "classes": ["*"],                           # NEW: Top-level flow classes
-    "topology": {                                # NEW
+    "classes": ["*"],   # NEW: Top-level flow classes
+    "topology": {       # NEW
       "nodes": [
         {
           "id": "OrderService",
@@ -527,10 +522,11 @@ sequenceDiagram
 - ✅ binSize=1, binUnit="weeks" → binMinutes=10080
 
 **API Tests**:
-- ✅ POST /v1/run returns window + grid.startTimeUtc + grid.binMinutes
+- ✅ POST /v1/run returns window + grid.binMinutes
 - ✅ GET /v1/graph returns topology with nodes/edges/semantics
 - ✅ GET /v1/graph returns grid.binMinutes
-- ✅ GET /v1/graph.window.start + (binIndex × binMinutes) = correct timestamp
+- ✅ GET /v1/graph returns window with start/end
+- ✅ window.start + (binIndex × binMinutes) = correct timestamp
 
 **Backward Compatibility**:
 - ✅ Models without window/topology sections still evaluate (warn + default behavior)
@@ -566,23 +562,19 @@ served[t] = MIN(SHIFT(Q, 1) + inflow[t], downstream_capacity[t])
 nodes:
   - id: queue_inflow
     kind: const
-    role: arrivals
     values: [150, 145, 160, ...]
   
   - id: billing_capacity
     kind: const
-    role: capacity
     values: [140, 140, 140, ...]  # Downstream service capacity
   
   - id: queue_backlog
     kind: expr
-    role: queue
     expr: "MAX(0, SHIFT(queue_backlog, 1) + queue_inflow - billing_capacity)"
   
   - id: queue_outflow
     kind: expr
-    role: served
-    expr: "MIN(SHIFT(queue_backlog, 1) + queue_inflow, billing_capacity)"
+    expr: "MIN(SHIFT(queue_outflow, 1) + queue_inflow, billing_capacity)"
 ```
 
 **Initialization**: `SHIFT(queue_backlog, 1)` at t=0 returns 0 (or `q0` from semantics if provided).
@@ -787,7 +779,7 @@ Accept: application/json
       "queue": 8.0,
       "capacity": 150.0,
       "latency_min": 0.057,
-      "oldest_age_s": null
+      "oldest_age_s": null  # Always null in M3.0 (not implemented)
     }
   }
 }
@@ -1017,22 +1009,18 @@ For each topology node:
 nodes:
   - id: service_arrivals
     kind: const
-    role: arrivals
     values: [250, 300, 280, ...]  # Spiky demand
   
   - id: service_capacity
     kind: const
-    role: capacity
     values: [200, 200, 200, ...]  # Fixed capacity
   
   - id: service_served
     kind: expr
-    role: served
     expr: "MIN(service_arrivals, service_capacity)"
   
   - id: service_overflow
     kind: expr
-    role: overflow
     expr: "MAX(0, service_arrivals - service_capacity)"
 ```
 
@@ -1143,17 +1131,14 @@ graph LR
 nodes:
   - id: lb_arrivals
     kind: const
-    role: arrivals
     values: [100, 150, 120, ...]
   
   - id: to_service_a
     kind: expr
-    role: arrivals
     expr: "lb_arrivals * 0.6"  # 60% to ServiceA
   
   - id: to_service_b
     kind: expr
-    role: arrivals
     expr: "lb_arrivals * 0.4"  # 40% to ServiceB
 ```
 
@@ -1383,7 +1368,6 @@ nodes:
   # Demand with spike (const vector - no t/AND operators needed)
   - id: orders_demand
     kind: const
-    role: arrivals
     # 168 hourly bins: bins 0-49 = 100, bins 50-59 = 300 (spike), bins 60-167 = 100
     values: >-
       [100]*50 + [300]*10 + [100]*108
@@ -1392,51 +1376,43 @@ nodes:
   # Service capacity
   - id: orders_capacity
     kind: const
-    role: capacity
     values: >-
       [150]*168
   
   # Served = min(demand, capacity) - using expr, not capacity node
   - id: orders_served
     kind: expr
-    role: served
     expr: "MIN(orders_demand, orders_capacity)"
   
   # Queue inflow = overflow from OrderService
   - id: queue_inflow
     kind: expr
-    role: arrivals
     expr: "MAX(0, orders_demand - orders_capacity)"
   
   # Billing capacity (downstream capacity for queue)
   - id: billing_capacity
     kind: const
-    role: capacity
     values: >-
       [120]*168
   
   # Queue backlog (stateful) - using expr with SHIFT
   - id: queue_backlog
     kind: expr
-    role: queue
     expr: "MAX(0, SHIFT(queue_backlog, 1) + queue_inflow - billing_capacity)"
   
   # Queue outflow (derived from backlog + inflow, clamped by downstream capacity)
   - id: queue_outflow
     kind: expr
-    role: served
     expr: "MIN(SHIFT(queue_backlog, 1) + queue_inflow, billing_capacity)"
   
   # Billing receives queue outflow
   - id: billing_arrivals
     kind: expr
-    role: arrivals
     expr: "queue_outflow"
   
   # Billing served (clamped by capacity)
   - id: billing_served
     kind: expr
-    role: served
     expr: "MIN(billing_arrivals, billing_capacity)"
 
 outputs:
@@ -1963,28 +1939,23 @@ nodes:
   # From Gold columns (const nodes)
   - id: orders_svc_arrivals_gold
     kind: const
-    role: "arrivals"
     values: [120, 135, ...]  # From Gold.arrivals
   
   - id: orders_svc_served_gold
     kind: const
-    role: "served"
     values: [115, 130, ...]  # From Gold.served
   
   - id: orders_svc_capacity_gold
     kind: const
-    role: "capacity"
     values: [200, 200, ...]  # From Gold.capacity_proxy
   
   - id: orders_svc_queue_gold
     kind: const
-    role: "queue"
     values: [5, 10, ...]  # From Gold.backlog_est
   
   # Derived by engine (expr nodes) - SPREADSHEET-LIKE!
   - id: orders_svc_latency_derived
     kind: expr
-    role: "latency"
     expr: "orders_svc_queue_gold / MAX(0.001, orders_svc_served_gold) * 60"
   
   - id: orders_svc_utilization
