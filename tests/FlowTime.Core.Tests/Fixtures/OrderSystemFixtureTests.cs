@@ -11,14 +11,13 @@ public class OrderSystemFixtureTests
     [Fact]
     public void ModelYamlExists()
     {
-        var path = Path.Combine("fixtures", "order-system", "model.yaml");
+        var path = GetFixturePath("model.yaml");
         Assert.True(File.Exists(path), $"Fixture model missing: {path}");
     }
 
     [Fact]
     public void SeriesCsvsHaveExpectedRowCount()
     {
-        var fixtureDir = Path.Combine("fixtures", "order-system");
         var files = new[]
         {
             "OrderService_arrivals.csv",
@@ -31,12 +30,18 @@ public class OrderSystemFixtureTests
 
         foreach (var file in files)
         {
-            var path = Path.Combine(fixtureDir, file);
+            var path = GetFixturePath(file);
             Assert.True(File.Exists(path), $"Fixture file missing: {path}");
 
             var lines = File.ReadAllLines(path);
             Assert.True(lines.Length > 0, $"Fixture CSV empty: {path}");
             Assert.Equal(ExpectedBins, lines.Length - 1); // subtract header
         }
+    }
+
+    private static string GetFixturePath(string relative)
+    {
+        var root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+        return Path.Combine(root, "fixtures", "order-system", relative);
     }
 }
