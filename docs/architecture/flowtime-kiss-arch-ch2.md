@@ -279,8 +279,8 @@ topology:
 - id: orders_arrivals
   kind: const
   source: "file://telemetry/OrderService_arrivals.csv"
-  # File format: single column of numbers, no header
-  # Length MUST equal grid.bins
+  # File format: CSV with header "bin_index,value"
+  # Length MUST equal grid.bins and bin_index increments from 0
 ```
 
 **Const Node (Inline):**
@@ -393,19 +393,19 @@ outputs:
 
 **File Structure:**
 ```
-# Single-column format (no header)
-120
-135
-140
+bin_index,value
+0,120
+1,135
+2,140
 ...
 ```
 
 **Requirements:**
-- One value per line
-- No header row
-- Length MUST equal `grid.bins`
-- Values are float64
-- Missing values represented as empty line or `NaN`
+- Header row is REQUIRED and must contain `bin_index,value`
+- `bin_index` is zero-based, increases by exactly 1 per row, and the final row index MUST equal `grid.bins - 1`
+- Total row count (excluding header) MUST equal `grid.bins`
+- `value` is parsed as float64
+- Missing values represented as blank field or `NaN` (retains alignment through `bin_index`)
 
 **Filename Convention:**
 ```
