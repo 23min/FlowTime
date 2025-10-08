@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Linq;
 
 namespace FlowTime.Core.Models;
 
@@ -31,7 +32,101 @@ public static class ModelParser
         
         return (grid, graph);
     }
-    
+
+    public static ModelMetadata ParseMetadata(ModelDefinition model, string? modelDirectory = null)
+    {
+        if (model.Grid == null)
+            throw new ModelParseException("Model must have a grid definition");
+        if (model.Grid.BinSize <= 0 || string.IsNullOrEmpty(model.Grid.BinUnit))
+            throw new ModelParseException("Grid must specify binSize and binUnit");
+
+        var unit = TimeUnitExtensions.Parse(model.Grid.BinUnit);
+        var window = new Window
+        {
+            Bins = model.Grid.Bins,
+            BinSize = model.Grid.BinSize,
+            BinUnit = unit,
+            StartTime = ParseStartTime(model.Grid.StartTimeUtc)
+        };
+
+        Topology? topology = null;
+        if (model.Topology != null)
+        {
+            var nodeList = model.Topology.Nodes.Select(ConvertNode).ToList();
+            var edgeList = model.Topology.Edges.Select(ConvertEdge).ToList();
+            topology = new Topology
+            {
+                Nodes = nodeList,
+                Edges = edgeList
+            };
+        }
+
+        return new ModelMetadata
+        {
+            Window = window,
+            Topology = topology
+        };
+
+        Node ConvertNode(TopologyNodeDefinition definition)
+        {
+            if (string.IsNullOrWhiteSpace(definition.Id))
+                throw new ModelParseException("Topology nodes must specify an id");
+
+            if (definition.Semantics == null)
+                throw new ModelParseException($"Topology node '{definition.Id}' must include semantics");
+
+            return new Node
+            {
+                Id = definition.Id,
+                Semantics = new NodeSemantics
+                {
+                    Arrivals = RequireSemantic(definition.Semantics.Arrivals, definition.Id, "arrivals"),
+                    Served = RequireSemantic(definition.Semantics.Served, definition.Id, "served"),
+                    Errors = RequireSemantic(definition.Semantics.Errors, definition.Id, "errors"),
+                    ExternalDemand = definition.Semantics.ExternalDemand,
+                    QueueDepth = definition.Semantics.QueueDepth
+                },
+                InitialCondition = definition.InitialCondition != null
+                    ? new InitialCondition { QueueDepth = definition.InitialCondition.QueueDepth }
+                    : null
+            };
+        }
+
+        Edge ConvertEdge(TopologyEdgeDefinition definition)
+        {
+            if (string.IsNullOrWhiteSpace(definition.Source) || string.IsNullOrWhiteSpace(definition.Target))
+                throw new ModelParseException("Topology edges must specify source and target");
+
+            return new Edge
+            {
+                Source = definition.Source,
+                Target = definition.Target,
+                Weight = definition.Weight
+            };
+        }
+
+        static string RequireSemantic(string value, string nodeId, string name)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                throw new ModelParseException($"Topology node '{nodeId}' must specify semantics.{name}");
+            return value;
+        }
+    }
+
+    private static DateTime? ParseStartTime(string? startTime)
+    {
+        if (string.IsNullOrWhiteSpace(startTime))
+            return null;
+
+        if (!DateTime.TryParse(startTime, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var parsed))
+            throw new ModelParseException($"Invalid startTime value: '{startTime}'");
+
+        if (parsed.Kind != DateTimeKind.Utc)
+            parsed = DateTime.SpecifyKind(parsed, DateTimeKind.Utc);
+
+        return parsed;
+    }
+
     /// <summary>
     /// Parse node definitions into INode objects.
     /// </summary>
@@ -143,6 +238,7 @@ public class ModelDefinition
     public GridDefinition? Grid { get; set; }
     public List<NodeDefinition> Nodes { get; set; } = new();
     public List<OutputDefinition> Outputs { get; set; } = new();
+    public TopologyDefinition? Topology { get; set; }
 }
 
 public class GridDefinition
@@ -150,6 +246,7 @@ public class GridDefinition
     public int Bins { get; set; }
     public int BinSize { get; set; }
     public string BinUnit { get; set; } = "minutes";
+    public string? StartTimeUtc { get; set; }
 }
 
 public class NodeDefinition
@@ -165,4 +262,44 @@ public class OutputDefinition
 {
     public string Series { get; set; } = "";
     public string As { get; set; } = "";
+}
+
+public class TopologyDefinition
+{
+    public List<TopologyNodeDefinition> Nodes { get; set; } = new();
+    public List<TopologyEdgeDefinition> Edges { get; set; } = new();
+}
+
+public class TopologyNodeDefinition
+{
+    public string Id { get; set; } = string.Empty;
+    public TopologyNodeSemanticsDefinition Semantics { get; set; } = new();
+    public InitialConditionDefinition? InitialCondition { get; set; }
+}
+
+public class TopologyNodeSemanticsDefinition
+{
+    public string Arrivals { get; set; } = string.Empty;
+    public string Served { get; set; } = string.Empty;
+    public string Errors { get; set; } = string.Empty;
+    public string? ExternalDemand { get; set; }
+    public string? QueueDepth { get; set; }
+}
+
+public class TopologyEdgeDefinition
+{
+    public string Source { get; set; } = string.Empty;
+    public string Target { get; set; } = string.Empty;
+    public double Weight { get; set; } = 1.0;
+}
+
+public class InitialConditionDefinition
+{
+    public double QueueDepth { get; set; }
+}
+
+public sealed record ModelMetadata
+{
+    public required Window Window { get; init; }
+    public Topology? Topology { get; init; }
 }
