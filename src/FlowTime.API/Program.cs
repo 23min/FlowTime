@@ -462,7 +462,7 @@ v1.MapPost("/run", async (HttpRequest req, IArtifactRegistry registry, ILogger<P
         }
 
         // Convert API DTO to Core model definition and parse using shared ModelParser
-        FlowTime.Core.TimeGrid grid;
+        FlowTime.Core.Models.TimeGrid grid;
         Graph graph;
         FlowTime.Core.Models.ModelDefinition coreModel;
         try

@@ -1,4 +1,4 @@
-namespace FlowTime.Core;
+namespace FlowTime.Core.Models;
 
 /// <summary>
 /// Time unit for bin specifications

@@ -1,7 +1,8 @@
 using System.Collections.Concurrent;
+using FlowTime.Core.Models;
 using FlowTime.Core.Nodes;
 
-namespace FlowTime.Core;
+namespace FlowTime.Core.Execution;
 
 public sealed class Graph
 {

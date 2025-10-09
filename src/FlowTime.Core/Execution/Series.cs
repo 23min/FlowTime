@@ -1,4 +1,4 @@
-namespace FlowTime.Core;
+namespace FlowTime.Core.Execution;
 
 /// <summary>
 /// Immutable numeric series aligned to a TimeGrid.

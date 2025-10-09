@@ -59,7 +59,7 @@ if (!validationResult.IsValid)
 }
 
 // Convert YAML to Core model definition and parse using shared ModelParser
-FlowTime.Core.TimeGrid grid;
+FlowTime.Core.Models.TimeGrid grid;
 Graph graph;
 FlowTime.Core.Models.ModelDefinition coreModel;
 try

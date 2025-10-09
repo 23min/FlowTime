@@ -1,4 +1,4 @@
-using FlowTime.Core;
+using FlowTime.Core.Models;
 
 namespace FlowTime.Adapters.Synthetic;
 
@@ -164,9 +164,9 @@ public sealed class RunArtifactAdapter
     }
 
     /// <summary>
-    /// Get a FlowTime.Core.TimeGrid from the run artifacts
+    /// Get a FlowTime.Core.Models.TimeGrid from the run artifacts
     /// </summary>
-    public async Task<FlowTime.Core.TimeGrid> GetCoreTimeGridAsync()
+    public async Task<FlowTime.Core.Models.TimeGrid> GetCoreTimeGridAsync()
     {
         var manifest = await GetManifestAsync();
         var binUnit = manifest.Grid.BinUnit.ToLowerInvariant() switch
@@ -176,7 +176,7 @@ public sealed class RunArtifactAdapter
             "days" => FlowTime.Core.TimeUnit.Days,
             _ => throw new ArgumentException($"Unknown time unit: {manifest.Grid.BinUnit}")
         };
-        return new FlowTime.Core.TimeGrid(manifest.Grid.Bins, manifest.Grid.BinSize, binUnit);
+        return new FlowTime.Core.Models.TimeGrid(manifest.Grid.Bins, manifest.Grid.BinSize, binUnit);
     }
 }
 
