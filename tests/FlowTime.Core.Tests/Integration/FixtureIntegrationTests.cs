@@ -1,5 +1,4 @@
 using FlowTime.Core.Fixtures;
-using FlowTime.Core.Models;
 using Xunit;
 
 namespace FlowTime.Core.Tests.Integration;
@@ -10,12 +9,19 @@ public class FixtureIntegrationTests
     [InlineData("order-system", 288)]
     [InlineData("microservices", 144)]
     [InlineData("http-service", 96)]
-    public void FixtureMetadata_ParsesWindowAndTopology(string fixtureName, int expectedBins)
+    public void FixtureRunBuilder_GeneratesNodeData(string fixtureName, int expectedBins)
     {
-        var metadata = FixtureModelLoader.LoadMetadata(fixtureName);
+        var run = FixtureRunBuilder.Build(fixtureName);
 
-        Assert.Equal(expectedBins, metadata.Window.Bins);
-        Assert.NotNull(metadata.Topology);
-        Assert.NotEmpty(metadata.Topology!.Nodes);
+        Assert.Equal(expectedBins, run.Metadata.Window.Bins);
+        Assert.NotNull(run.Metadata.Topology);
+        Assert.Equal(run.Metadata.Topology!.Nodes.Count, run.Nodes.Count);
+
+        foreach (var node in run.Nodes.Values)
+        {
+            Assert.Equal(expectedBins, node.Arrivals.Length);
+            Assert.Equal(expectedBins, node.Served.Length);
+            Assert.Equal(expectedBins, node.Errors.Length);
+        }
     }
 }
