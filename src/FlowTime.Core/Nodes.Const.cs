@@ -1,4 +1,6 @@
-namespace FlowTime.Core;
+using FlowTime.Core;
+
+namespace FlowTime.Core.Nodes;
 
 public sealed class ConstSeriesNode : INode
 {

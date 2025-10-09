@@ -1,3 +1,5 @@
+using FlowTime.Core.Nodes;
+
 namespace FlowTime.Core.Expressions;
 
 /// <summary>

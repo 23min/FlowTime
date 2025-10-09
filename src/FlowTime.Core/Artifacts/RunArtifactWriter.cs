@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using FlowTime.Core;
+using FlowTime.Core.Nodes;
 
 #pragma warning disable CS8602 // Dereference of a possibly null reference - suppressed for dynamic access patterns
 
