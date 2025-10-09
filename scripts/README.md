@@ -22,6 +22,10 @@ This directory contains development and testing scripts for FlowTime.
 
 ## Usage
 
+## Legacy Notice
+
+These scripts target the pre-fixture API workflow. They are kept for reference but are no longer part of the core M3.0 validation path. Use the new fixture-driven tests under `tests/FlowTime.Core.Tests` for day-to-day verification.
+
 Make scripts executable:
 ```bash
 chmod +x scripts/*.sh

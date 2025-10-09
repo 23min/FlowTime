@@ -1,27 +1,18 @@
 grid:
-  bins: 4
-  binSize: 1
-  binUnit: hours
+  bins: 6
+  binSize: 10
+  binUnit: minutes
+  startTimeUtc: "2025-10-07T00:00:00Z"
 nodes:
-  - id: a
+  - id: demand
     kind: const
-    values: [10, 30, 15, 25]
-  - id: b
+    values: [10, 20, 30, 40, 50, 60]
+  - id: capacity
     kind: const
-    values: [20, 10, 25, 15]
-  - id: test_min
+    values: [15, 15, 15, 15, 15, 15]
+  - id: queue
     kind: expr
-    expr: "MIN(a, b)"
-  - id: test_max
+    expr: "MAX(0, demand - capacity)"
+  - id: served
     kind: expr
-    expr: "MAX(a, b)"
-  - id: test_clamp
-    kind: expr
-    expr: "CLAMP(a, 12, 22)"
-outputs:
-  - series: test_min
-    as: min_result
-  - series: test_max
-    as: max_result
-  - series: test_clamp
-    as: clamp_result
+    expr: "MIN(demand, capacity)"

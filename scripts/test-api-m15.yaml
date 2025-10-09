@@ -1,21 +1,12 @@
 grid:
-  bins: 5
-  binSize: 1
-  binUnit: hours
+  bins: 3
+  binSize: 60
+  binUnit: minutes
+  startTimeUtc: "2025-10-07T00:00:00Z"
 nodes:
   - id: demand
     kind: const
-    values: [10, 20, 30, 40, 50]
-  - id: shifted
+    values: [10, 20, 30]
+  - id: served
     kind: expr
-    expr: "SHIFT(demand, 1)"
-  - id: combined
-    kind: expr
-    expr: "demand + SHIFT(demand, 1)"
-outputs:
-  - series: demand
-    as: demand
-  - series: shifted
-    as: shifted
-  - series: combined
-    as: combined
+    expr: "demand * 0.8"

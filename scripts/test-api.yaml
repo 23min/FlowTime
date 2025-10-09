@@ -1,14 +1,12 @@
 grid:
   bins: 3
-  binSize: 1
-  binUnit: hours
+  binSize: 60
+  binUnit: minutes
+  startTimeUtc: "2025-10-07T00:00:00Z"
 nodes:
   - id: demand
     kind: const
     values: [10, 20, 30]
-  - id: capacity
-    kind: const
-    values: [25, 25, 25]
-  - id: flow
+  - id: served
     kind: expr
-    expression: min(demand, capacity)
+    expr: "demand * 0.8"
