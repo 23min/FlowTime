@@ -1,65 +1,20 @@
 # Development Scripts
 
-This directory contains development and testing scripts for FlowTime.
+This directory now splits the tooling into two tracks:
 
-## Integration Test Scripts
+- `legacy/m2.10/` – archived API smoke-tests and YAML payloads from the M2.10 workflow (manual use).
+- `m3/` – fixture-driven utilities that run the modern integration suite.
 
-- `test-api-integration.sh` - Tests the FlowTime API endpoints (`/run`, `/runs/{id}/index`)
-- `test-download.sh` - Tests artifact download functionality via series endpoints
+## Running Fixture Tests (M3)
 
-## Test YAML Files
-
-### Basic Test Models
-- `test-api.yaml` - Simple FlowTime engine model for API testing (may have encoding issues, use inline YAML instead)
-- `test-ui-yaml.yaml` - UI-specific test model  
-- `test.yaml` - FlowTime-Sim compatible model for simulation testing
-
-### Milestone Feature Tests  
-- `test-api-m15.yaml` - M1.5 SHIFT expression testing
-- `test-complex-m15.yaml` - Complex expression combinations
-- `test-min-max-clamp.yaml` - MIN/MAX/CLAMP function testing
-- `test-pmf-example.yaml` - Probability Mass Function (PMF) testing
-
-## Usage
-
-## Legacy Notice
-
-These scripts target the pre-fixture API workflow. They are kept for reference but are no longer part of the core M3.0 validation path. Use the new fixture-driven tests under `tests/FlowTime.Core.Tests` for day-to-day verification.
-
-Make scripts executable:
-```bash
-chmod +x scripts/*.sh
+```
+cd scripts/m3
+chmod +x run-fixture-tests.sh
+./run-fixture-tests.sh
 ```
 
-Run integration tests:
-```bash
-# Test API endpoints (handles starting/stopping API automatically)
-./scripts/test-api-integration.sh
+This script simply invokes the `FixtureIntegrationTests` inside `tests/FlowTime.Core.Tests`.
 
-# Test download functionality (requires API to be running)
-./scripts/test-download.sh
-```
+## Legacy Smoke Tests (M2.10)
 
-Test individual models with inline YAML (recommended):
-```bash
-# Engine API - simple model
-curl -X POST http://localhost:8080/run -H "Content-Type: text/plain" -d 'grid:
-  bins: 3
-  binMinutes: 60
-nodes:
-  - id: demand
-    kind: const
-    values: [10, 20, 30]
-  - id: served
-    kind: expr
-    expr: "demand * 0.8"'
-
-# FlowTime-Sim (if running on port 8081)
-curl -X POST http://localhost:8081/v1/sim/run -H "Content-Type: text/plain" -d @scripts/test.yaml
-```
-
-## Current Status
-
-✅ `test-api-integration.sh` - Working, tests `/run` and `/runs/{id}/index` endpoints  
-✅ `test-download.sh` - Working, tests series download endpoints  
-⚠️ YAML files may have encoding issues, prefer inline YAML for testing
+The legacy scripts are still available for manual API verification if you need them (`test-api-integration.sh`, `test-download.sh`, associated YAML models). They may require additional setup and are not part of the automated M3 validation pipeline.
