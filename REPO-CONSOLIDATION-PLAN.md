@@ -605,6 +605,10 @@ git commit -m "test: add integration test project for Sim ↔ Engine workflows
 - ✅ Basic README updated with consolidation notice
 - ✅ **Documentation migration deferred to Phase 5**
 
+### Deferred TODO (Sim follow-up)
+- [ ] Reintroduce Template `Window`/`Classes`/`Topology` support from FlowTime-Sim and remove temporary dynamic shims in `tests/FlowTime.Sim.Tests/NodeBased/TemplateParserTests.cs:383` and `tests/FlowTime.Sim.Tests/NodeBased/ParameterSubstitutionTests.cs:336`.
+- [ ] Re-enable the example conformance skips and PMF grid-size performance thresholds once the consolidated sim engine regains expression support (`tests/FlowTime.Sim.Tests/NodeBased/ExamplesConformanceTests.cs:25`, `tests/FlowTime.Tests/Performance/M2PerformanceTests.cs:114`).
+
 ---
 
 ## Phase 4: Cleanup & Release (2 hours)
