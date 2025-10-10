@@ -3,10 +3,6 @@
   "image": "mcr.microsoft.com/devcontainers/dotnet:1-9.0",
   "workspaceFolder": "/workspaces/flowtime-vnext",
   "workspaceMount": "source=${localWorkspaceFolder}/..,target=/workspaces,type=bind,consistency=cached",
-  // Optional: also expose the sibling at a second path (not required since parent is mounted)
-  "mounts": [
-    "source=${localWorkspaceFolder}/../flowtime-sim-vnext,target=/opt/flowtime-sim-vnext,type=bind,consistency=cached,ro"
-  ],
   "features": {
     "ghcr.io/devcontainers/features/powershell:1": {},
     "ghcr.io/devcontainers/features/github-cli:1": {},
