@@ -466,7 +466,7 @@ flowtime list --catalog test-system
 - [SIM-M2.6 Milestone Specification](../milestones/SIM-M2.6.md) - FlowTime-Sim catalog integration  
 - [UI-M2.6 Milestone Specification](../milestones/UI-M2.6.md) - UI artifacts and catalog display
 - [Artifact Schema Specification](./artifact-schema.md) - Detailed catalog.json schema
-- [Integration Specification](./integration-spec.md) - Cross-component integration patterns
+- [Integration Specification (archived)](../archive/flowtime-sim-integration-spec-legacy.md) - Historical sim/engine integration notes
 
 ## Revision History
 

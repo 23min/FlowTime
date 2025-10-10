@@ -6,11 +6,11 @@ Use this template when asking Codex to create or update a milestone. It captures
 I need a milestone spec for <Milestone ID> — <Title>.
 Use docs/development/milestone-documentation-guide.md and docs/development/milestone-rules-quick-ref.md for structure and rules.
 Scope, acceptance criteria, and test coverage should come from:
-- docs/architecture/gold-first-kiss-roadmap.md
-- docs/architecture/gold-first-kiss-decisions.md
+- docs/architecture/time-travel/time-travel-planning-roadmap.md
+- docs/architecture/time-travel/time-travel-planning-decisions.md
 If additional architectural detail is needed, reference:
-- docs/architecture/flowtime-kiss-arch-ch3.md
-- docs/architecture/flowtime-kiss-arch-ch5.md
+- docs/architecture/time-travel/time-travel-architecture-ch3-components.md
+- docs/architecture/time-travel/time-travel-architecture-ch5-implementation-roadmap.md
 Create the milestone document at docs/milestones/<Milestone ID>.md following the standard outline.
 ```
 

@@ -321,7 +321,7 @@ The results display must read from `series/index.json` rather than custom metada
 ## Dependencies
 
 ### FlowTime-Sim Service Integration Spec Compliance
-- **Critical**: Current UI-M1 mock violates sim-integration-spec.md
+- **Critical**: Current UI-M1 mock violates [`flowtime-sim-integration-spec-legacy.md`](../archive/flowtime-sim-integration-spec-legacy.md)
 - **Required**: Mock must write canonical run artifacts (`runs/<runId>/...`)
 - **Required**: UI must read from `series/index.json` and stream CSVs
 - **Architecture**: Artifact-first pattern, not custom JSON blobs

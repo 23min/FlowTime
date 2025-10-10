@@ -101,7 +101,7 @@ layoutHints:
 
 For detailed architectural guidance including artifact-first integration patterns, schema contracts, and FlowTime-Sim integration specifications, see:
 
-- [Integration Architecture](architecture/integration-spec.md)
+- [Integration Architecture (archived)](flowtime-sim-integration-spec-legacy.md)
 
 Key principles:
 - **Artifact-first:** All integration through canonical run artifacts, not custom JSON blobs

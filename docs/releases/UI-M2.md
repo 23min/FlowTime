@@ -55,7 +55,7 @@ UI-M2 delivers a comprehensive enhancement to the FlowTime Template Runner, comb
 
 ### Integration Compliance
 - **Artifact-First**: No custom JSON blobs, only canonical run artifacts
-- **Endpoint Standards**: Follows `docs/architecture/integration-spec.md` patterns
+- **Endpoint Standards**: Follows archived `docs/archive/flowtime-sim-integration-spec-legacy.md` patterns
 - **Series Discovery**: Dynamic loading via `series/index.json` parsing
 
 ---
@@ -81,7 +81,7 @@ GET  /healthz                          # Service health
 
 ## Commit History
 
-1. **docs(integration)**: Align UI-M2 with sim-integration-spec requirements
+1. **docs(integration)**: Align UI-M2 with archived sim-integration-spec requirements
 2. **docs**: Reorganize architecture documentation
 3. **feat(ui)**: Implement UI-M2 Real API Integration
 4. **feat(ui)**: Complete UI-M2 mode toggle and UX enhancement milestone
@@ -196,7 +196,7 @@ No user migration required. All existing functionality works with enhanced relia
 - Root `README.md`: Updated status and usage instructions
 
 ### Architecture Documentation
-- `docs/architecture/integration-spec.md`: Integration patterns validated
+- `docs/archive/flowtime-sim-integration-spec-legacy.md`: Historical integration patterns validated
 - Artifact-first principles confirmed and implemented
 - Schema compliance documented and tested
 

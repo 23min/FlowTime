@@ -1,4 +1,6 @@
 # FlowTime Time-Travel Architecture Plan
+
+> **Archived:** Superseded by the time-travel architecture chapters and planning roadmap in `docs/architecture/time-travel/`. Retained here for historical reference.
 **Date**: October 7, 2025  
 **Goal**: Ship working time-travel demo in 5 incremental steps  
 **Constraint**: Each step must be TDD-complete and shippable in ~1 day

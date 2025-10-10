@@ -1,5 +1,7 @@
 # FlowTime-Sim ↔ FlowTime Integration — Working Spec (v1.1)
 
+> **Archived:** This document reflects early M0/M1 integration assumptions and is no longer maintained. See `docs/architecture/time-travel/` for current architecture and planning material.
+
 > **📋 Charter Alignment**: This integration specification aligns well with the [FlowTime-Engine Charter](../flowtime-engine-charter.md) artifacts-centric paradigm. The "artifact-first" principle described here directly supports the charter workflow: [Models] → [Runs] → [Artifacts] → [Learn].
 
 **Scope:** Early milestones (UI-M0/1, SVC-M0/1, M0–M3).  

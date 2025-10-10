@@ -20,13 +20,13 @@ This document defines the concrete implementation plan for FlowTime time-travel 
 
 ## Design Principles
 
-- **Keep It Simple, Stupid (KISS):** Favor explicit files and declarative templates over adapters or inference so each milestone stays reviewable and low risk (see `flowtime-kiss-arch-ch1.md`).
-- **Telemetry Is Just File Input:** Treat historical telemetry exactly like synthetic fixtures; the engine never needs to know the origin of a series (`flowtime-kiss-arch-ch1.md` §1.2).
-- **Synthetic-First, Self-Hosted:** Ship curated fixture systems before wiring real ADX data so APIs and UI can integrate without external dependencies (`gold-first-kiss-decisions.md` Q5).
-- **UTC-Anchored Grid:** Every run is anchored to an absolute start timestamp with fixed bin size/unit to eliminate timezone drift (`flowtime-kiss-arch-ch2.md`).
-- **Deterministic Single Mode:** One evaluation path powers both simulation and telemetry playback, keeping derived metrics predictable (`flowtime-kiss-arch-ch1.md`).
-- **Mode-Based Validation:** Telemetry runs surface warnings, simulation runs fail fast on errors—simplicity with clear operator feedback (`gold-first-kiss-decisions.md` Q3).
-- **Incremental Delivery:** Milestones M3.0–M3.3 are sequenced so each step is independently demoable and testable before layering the next capability (`flowtime-kiss-arch-ch5.md`).
+- **Keep It Simple, Stupid (KISS):** Favor explicit files and declarative templates over adapters or inference so each milestone stays reviewable and low risk (see `time-travel-architecture-ch1-overview.md`).
+- **Telemetry Is Just File Input:** Treat historical telemetry exactly like synthetic fixtures; the engine never needs to know the origin of a series (`time-travel-architecture-ch1-overview.md` §1.2).
+- **Synthetic-First, Self-Hosted:** Ship curated fixture systems before wiring real ADX data so APIs and UI can integrate without external dependencies (`time-travel-planning-decisions.md` Q5).
+- **UTC-Anchored Grid:** Every run is anchored to an absolute start timestamp with fixed bin size/unit to eliminate timezone drift (`time-travel-architecture-ch2-data-contracts.md`).
+- **Deterministic Single Mode:** One evaluation path powers both simulation and telemetry playback, keeping derived metrics predictable (`time-travel-architecture-ch1-overview.md`).
+- **Mode-Based Validation:** Telemetry runs surface warnings, simulation runs fail fast on errors—simplicity with clear operator feedback (`time-travel-planning-decisions.md` Q3).
+- **Incremental Delivery:** Milestones M3.0–M3.3 are sequenced so each step is independently demoable and testable before layering the next capability (`time-travel-architecture-ch5-implementation-roadmap.md`).
 
 ---
 
@@ -47,9 +47,9 @@ This document defines the concrete implementation plan for FlowTime time-travel 
 Extend model schema and engine to support window, topology, file sources, and explicit initial conditions. Create synthetic gold telemetry fixtures for testing.
 
 ### Why This Matters
-- Anchors every run to real-world time so `/state` can translate bin indices into UTC timestamps (`flowtime-kiss-arch-ch2.md`).
-- Establishes topology semantics and fixtures that unblock API and UI development without waiting on production telemetry (`gold-first-kiss-decisions.md` Q5).
-- Forces explicit initial conditions so stateful expressions behave deterministically across simulation and telemetry runs (`flowtime-kiss-arch-ch3.md`).
+- Anchors every run to real-world time so `/state` can translate bin indices into UTC timestamps (`time-travel-architecture-ch2-data-contracts.md`).
+- Establishes topology semantics and fixtures that unblock API and UI development without waiting on production telemetry (`time-travel-planning-decisions.md` Q5).
+- Forces explicit initial conditions so stateful expressions behave deterministically across simulation and telemetry runs (`time-travel-architecture-ch3-components.md`).
 
 ### Deliverables
 
@@ -189,9 +189,9 @@ Assert.Equal("2025-10-07T02:30:00Z", binTimestamp);
 Implement /state and /state_window endpoints for bin-level querying with derived metrics. Enable UI time-travel integration.
 
 ### Why This Matters
-- Provides the UI with per-bin snapshots and slices so time-travel scrubbing is possible without additional data services (`flowtime-kiss-arch-ch4.md`).
-- Computes utilization and latency centrally, ensuring consistent business logic for both telemetry replay and simulation comparisons (`gold-first-kiss-decisions.md` Q1/Q5).
-- Establishes the node-coloring contract that communicates saturation and SLA breaches directly from backend to visualization (`flowtime-kiss-arch-ch4.md`).
+- Provides the UI with per-bin snapshots and slices so time-travel scrubbing is possible without additional data services (`time-travel-architecture-ch4-data-flows.md`).
+- Computes utilization and latency centrally, ensuring consistent business logic for both telemetry replay and simulation comparisons (`time-travel-planning-decisions.md` Q1/Q5).
+- Establishes the node-coloring contract that communicates saturation and SLA breaches directly from backend to visualization (`time-travel-architecture-ch4-data-flows.md`).
 
 ### Deliverables
 
@@ -385,9 +385,9 @@ latency_min = null  // Can't compute
 Implement TelemetryLoader to extract from ADX/CSV and Template system to instantiate models.
 
 ### Why This Matters
-- Gives the team a repeatable way to turn production telemetry or simulation output into engine-ready CSVs (`flowtime-kiss-arch-ch3.md`).
-- Puts topology and semantic intent under version control, enabling safe reviews and reuse across runs (`gold-first-kiss-decisions.md` Q2).
-- Synthetic gold generation keeps the UI, APIs, and fixtures in sync so demos do not depend on external data availability (`gold-first-kiss-decisions.md` Q5).
+- Gives the team a repeatable way to turn production telemetry or simulation output into engine-ready CSVs (`time-travel-architecture-ch3-components.md`).
+- Puts topology and semantic intent under version control, enabling safe reviews and reuse across runs (`time-travel-planning-decisions.md` Q2).
+- Synthetic gold generation keeps the UI, APIs, and fixtures in sync so demos do not depend on external data availability (`time-travel-planning-decisions.md` Q5).
 
 ### Deliverables
 
@@ -521,7 +521,7 @@ dotnet run --project tools/SyntheticGold -- \
 
 ## UI Contract: Time-Travel Visualization APIs
 
-The M3.x milestones provide the backend surface required for the time-travel UI described in `flowtime-kiss-arch-ch4.md`.
+The M3.x milestones provide the backend surface required for the time-travel UI described in `time-travel-architecture-ch4-data-flows.md`.
 
 ### Required UI Views
 - **Flow Graph:** Renders the topology using node colors supplied by `/state`.
@@ -553,9 +553,9 @@ The M3.x milestones provide the backend surface required for the time-travel UI 
 Add post-evaluation validation, observability, and production-ready polish.
 
 ### Why This Matters
-- Establishes trust signals—warnings vs. errors—so operators know whether telemetry irregularities block investigations (`gold-first-kiss-decisions.md` Q3).
-- Captures structured metrics and logs that the UI and operations dashboards rely on to explain run health (`flowtime-kiss-arch-ch4.md`).
-- Documents the full workflow so onboarding engineers can reproduce time-travel flows without tribal knowledge (`flowtime-kiss-arch-ch6.md`).
+- Establishes trust signals—warnings vs. errors—so operators know whether telemetry irregularities block investigations (`time-travel-planning-decisions.md` Q3).
+- Captures structured metrics and logs that the UI and operations dashboards rely on to explain run health (`time-travel-architecture-ch4-data-flows.md`).
+- Documents the full workflow so onboarding engineers can reproduce time-travel flows without tribal knowledge (`time-travel-architecture-ch6-decision-log.md`).
 
 ### Deliverables
 
