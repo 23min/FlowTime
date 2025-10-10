@@ -24,7 +24,7 @@ FlowTime API can now serve previously generated run artifacts, enabling external
 * **Configurable Storage**: `ArtifactsDirectory` setting (defaults to "out")  
 * **Robust Error Handling**: Proper 404s for missing runs/series, detailed error messages
 * **Standard Content Types**: JSON for indexes, CSV for series data
-* **SYN-M0 Integration**: Leverages existing file adapters for consistent data access
+* **SYN-M00.00 Integration**: Leverages existing file adapters for consistent data access
 
 ## 🔧 Technical Implementation
 
@@ -92,8 +92,8 @@ curl "http://localhost:8080/runs/hello/run_TIMESTAMP_HASH/series/served@SERVED@D
 
 ### Dependencies Satisfied
 * ✅ **M0**: Core engine functionality  
-* ✅ **SVC-M0**: Base API with /run, /graph endpoints
-* ✅ **SYN-M0**: File adapters for artifact reading
+* ✅ **SVC-M00.00**: Base API with /run, /graph endpoints
+* ✅ **SYN-M00.00**: File adapters for artifact reading
 
 ### Next Milestones Unlocked
 * **UI-M2**: Enhanced UI with real artifact data
@@ -103,4 +103,4 @@ curl "http://localhost:8080/runs/hello/run_TIMESTAMP_HASH/series/served@SERVED@D
 
 **Contributors**: GitHub Copilot  
 **Test Results**: 33/33 tests passing  
-**Documentation**: `/docs/milestones/SVC-M01.00.md`
+**Documentation**: `/docs/milestones/SVC-M00.001.00.md`

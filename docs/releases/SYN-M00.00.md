@@ -1,6 +1,6 @@
-# SYN-M0 Implementation Summary
+# SYN-M00.00 Implementation Summary
 
-## ✅ COMPLETED: SYN-M0 — Synthetic Adapter (File)
+## ✅ COMPLETED: SYN-M00.00 — Synthetic Adapter (File)
 
 **Goal:** Enable FlowTime to read the stable artifacts from FlowTime-Sim and FlowTime CLI.
 
@@ -81,12 +81,12 @@ This completes **Step 3** of the critical path:
 
 1. ~~SIM-M2 — Contracts v1.1~~ ✅ **COMPLETED** 
 2. ~~SIM-SVC-M2 — Minimal Sim Service/API~~ ✅ **COMPLETED**
-3. ~~**FlowTime — SYN-M0 (File Adapter)**~~ ✅ **COMPLETED** ← **WE ARE HERE**
+3. ~~**FlowTime — SYN-M00.00 (File Adapter)**~~ ✅ **COMPLETED** ← **WE ARE HERE**
 4. **SIM-CAT-M2 — Catalog.v1** ← **NEXT STEP**
 
 ### Ready For Next Steps
 
-With SYN-M0 complete, FlowTime can now:
+With SYN-M00.00 complete, FlowTime can now:
 - Read artifacts from both FlowTime-Sim and FlowTime CLI
 - Enable UI integration testing (step 5 in critical path)
 - Support M1 contracts parity validation

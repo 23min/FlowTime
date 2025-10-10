@@ -1,4 +1,4 @@
-# Release Notes — UI-M1
+# Release Notes — UI-M01.00
 
 Date: 2025-09-04
 
@@ -58,7 +58,7 @@ Date: 2025-09-04
 - **Accessibility**: Screen reader support and keyboard navigation
 
 ### Architecture
-- **Service Layer**: Clean separation with mock implementations for UI-M1 phase
+- **Service Layer**: Clean separation with mock implementations for UI-M01.00 phase
 - **Component Design**: Reusable, testable components with clear responsibilities  
 - **Future-Ready**: Structure prepared for real API integration in next milestone
 
@@ -86,7 +86,7 @@ dotnet run --project ui/FlowTime.UI --urls http://localhost:5000
 5. **Results**: Statistical analysis, time series data, performance metrics
 
 ## Mock Data
-For UI-M1, services return realistic mock data that demonstrates the expected data structure:
+For UI-M01.00, services return realistic mock data that demonstrates the expected data structure:
 - Template definitions with JSON schemas
 - Catalog information with node counts and capabilities
 - Simulation results with FlowTime-style metadata and statistics
@@ -114,7 +114,7 @@ For UI-M1, services return realistic mock data that demonstrates the expected da
 - System.Text.Json for schema processing
 
 ## Breaking Changes
-None. UI-M1 is additive to existing UI-M0 functionality.
+None. UI-M01.00 is additive to existing UI-M00.00 functionality.
 
 ## Known Limitations
 - Mock data only - not connected to real simulation engine

@@ -1,15 +1,15 @@
-# UI-M2.1 Release: API Versioning & Storage Location Enhancement
+# UI-M02.01 Release: API Versioning & Storage Location Enhancement
 
 > **Release Date:** September 8, 2025  
 > **Branch:** feature/ui-m2/sim-api-versioning  
 > **Status:** COMPLETED ✅
-> **Base Release:** UI-M2 (September 5, 2025)
+> **Base Release:** UI-M02.00 (September 5, 2025)
 
 ---
 
 ## Overview
 
-UI-M2.1 provides critical enhancements to the FlowTime API health monitoring and storage location information, completing the API versioning work for UI-M2 milestone. This patch release ensures full visibility of storage configurations across both FlowTime API and FlowTime-Sim services.
+UI-M02.01 provides critical enhancements to the FlowTime API health monitoring and storage location information, completing the API versioning work for the UI-M02 milestone. This patch release ensures full visibility of storage configurations across both FlowTime API and FlowTime-Sim services.
 
 ## Key Features
 
@@ -124,7 +124,7 @@ Storage location configuration uses this precedence:
 
 ## Next Steps
 
-With UI-M2.1 complete, the recommended next milestone is **FlowTime Core M1** (Expression Parser) to implement spreadsheet-style formulas and SHIFT operations, building on the solid foundation established by the UI and API versioning work.
+With UI-M02.01 complete, the recommended next milestone is **FlowTime Core M1** (Expression Parser) to implement spreadsheet-style formulas and SHIFT operations, building on the solid foundation established by the UI and API versioning work.
 
 ---
 

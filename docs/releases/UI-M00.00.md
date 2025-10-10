@@ -1,4 +1,4 @@
-# Release Notes — UI-M0
+# Release Notes — UI-M00.00
 
 Date: 2025-08-30
 
@@ -62,5 +62,5 @@ Date: 2025-08-30
 - Deterministic simulation stub for offline development
 
 ## Next
-- UI-M1: Editor basics with YAML schema validation and run button
+- UI-M01.00: Editor basics with YAML schema validation and run button
 - M3: Enhanced visualization for backlog and latency metrics

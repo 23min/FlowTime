@@ -1,4 +1,4 @@
-# Release Notes — SVC-M0
+# Release Notes — SVC-M00.00
 
 Date: 2025-08-25
 
@@ -48,5 +48,5 @@ Response: 200 OK for service health
 ```
 
 ## Next
-- UI-M0: Blazor WASM integration with API backend
+- UI-M00.00: Blazor WASM integration with API backend
 - M1: Contracts parity and artifact alignment

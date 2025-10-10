@@ -1,4 +1,4 @@
-# UI-M2.7 — Artifacts Registry UI — v0.4.0
+# UI-M02.07 — Artifacts Registry UI — v0.4.0
 
 **Release Date:** September 24, 2025  
 **Branch:** `feature/ui-m2.7/artifacts-registry-ui`  
@@ -9,7 +9,7 @@
 
 ## 🎯 Milestone Summary
 
-UI-M2.7 delivers the **Artifacts Registry UI**, creating the foundation for the charter's "never forget" principle by making all FlowTime artifacts discoverable and manageable through intuitive interfaces.
+UI-M02.07 delivers the **Artifacts Registry UI**, creating the foundation for the charter's "never forget" principle by making all FlowTime artifacts discoverable and manageable through intuitive interfaces.
 
 ### ✅ Core Deliverables
 
@@ -28,7 +28,7 @@ UI-M2.7 delivers the **Artifacts Registry UI**, creating the foundation for the 
 - Back navigation to registry browser
 
 **API Integration**
-- Full integration with M2.7/M2.8 artifacts registry endpoints
+- Full integration with M02.07/M02.08 artifacts registry endpoints
 - Consumes `/v1/artifacts` for listing with query parameters
 - Consumes `/v1/artifacts/{id}` for individual artifact details
 - Bulk operations via `/v1/artifacts/archive` and `/v1/artifacts/bulk-delete`
@@ -84,7 +84,7 @@ UI-M2.7 delivers the **Artifacts Registry UI**, creating the foundation for the 
 
 ## 🚀 Ready for Next Steps
 
-**UI-M2.8 Prerequisites Met**
+**UI-M02.08 Prerequisites Met**
 - Charter navigation structure in place
 - Artifacts accessible via main navigation
 - Foundation for charter tab system prepared
@@ -105,7 +105,7 @@ UI-M2.7 delivers the **Artifacts Registry UI**, creating the foundation for the 
 - ✅ Mobile-responsive design using MudBlazor components
 
 **Technical Integration**
-- ✅ M2.7/M2.8 registry API endpoints consumed (except relationships UI)
+- ✅ M02.07/M02.08 registry API endpoints consumed (except relationships UI)
 - ✅ Error states provide clear user guidance
 - ✅ Clean integration with existing MudBlazor design system
 - ✅ All tests passing (167 total, 0 failed)
@@ -119,7 +119,7 @@ UI-M2.7 delivers the **Artifacts Registry UI**, creating the foundation for the 
 
 ## 🔄 Migration Notes
 
-**For UI-M2.8 Development**
+**For UI-M02.08 Development**
 - Relationships deferral documented in milestone scope
 - Charter navigation structure ready for tab system migration
 - Artifact selector components prepared for cross-workflow use
@@ -129,4 +129,4 @@ UI-M2.7 delivers the **Artifacts Registry UI**, creating the foundation for the 
 - Compare action patterns established in bulk operations
 - Detail view structure ready for relationships panel addition
 
-This release successfully completes UI-M2.7 with strategic scope management, ensuring quality delivery while maintaining clear roadmap progression.
+This release successfully completes UI-M02.07 with strategic scope management, ensuring quality delivery while maintaining clear roadmap progression.

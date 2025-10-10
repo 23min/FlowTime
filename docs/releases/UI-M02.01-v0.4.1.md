@@ -1,12 +1,12 @@
-# UI-M2.1-v0.4.1 Release Notes
+# UI-M02.01-v0.4.1 Release Notes
 
 **Released:** September 18, 2025  
-**Milestone:** UI-M2.1 - Template Studio UX Enhancements  
+**Milestone:** UI-M02.01 - Template Studio UX Enhancements  
 **Version:** 0.4.1  
 
 ## Overview
 
-UI-M2.1 delivers significant user experience enhancements to the Template Studio, implementing wizard-style navigation, fixing UI inconsistencies, and modernizing the CSS architecture. These improvements build upon the solid foundation of UI-M2's real API integration to provide a more intuitive and maintainable user interface.
+UI-M02.01 delivers significant user experience enhancements to the Template Studio, implementing wizard-style navigation, fixing UI inconsistencies, and modernizing the CSS architecture. These improvements build upon the solid foundation of UI-M2's real API integration to provide a more intuitive and maintainable user interface.
 
 ## 🎯 Key Features
 
@@ -75,7 +75,7 @@ For developers working on UI components:
 
 ## 🎯 Next Steps
 
-UI-M2.1 sets the foundation for future enhancements:
+UI-M02.01 sets the foundation for future enhancements:
 - Potential for more sophisticated wizard validation
 - Enhanced visual feedback during operations
 - Additional CSS isolation opportunities

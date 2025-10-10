@@ -1,4 +1,4 @@
-# UI-M2 Release: Mode Toggle, UX Enhancement & Real API Integration
+# UI-M02.00 Release: Mode Toggle, UX Enhancement & Real API Integration
 
 > **Release Date:** September 5, 2025  
 > **Branch:** feature/ui-m2/api-integration  
@@ -44,7 +44,7 @@ UI-M2 delivers a comprehensive enhancement to the FlowTime Template Runner, comb
 ## Technical Achievements
 
 ### Service Layer Implementation
-- **Real HTTP Services**: Complete replacement of UI-M1 mocks with actual API calls
+- **Real HTTP Services**: Complete replacement of UI-M01.00 mocks with actual API calls
 - **Error Resilience**: Graceful fallbacks and proper 404 handling for missing artifacts
 - **Timeout Configuration**: Robust network handling with configurable timeouts
 
@@ -92,7 +92,7 @@ GET  /healthz                          # Service health
 ## Breaking Changes
 
 ### None for End Users
-- All UI-M1 functionality preserved
+- All UI-M01.00 functionality preserved
 - Mode switching is additive enhancement
 - Backward compatibility maintained
 
@@ -105,7 +105,7 @@ GET  /healthz                          # Service health
 
 ## Migration Guide
 
-### From UI-M1
+### From UI-M01.00
 No user migration required. All existing functionality works with enhanced reliability and real API integration.
 
 ### For Developers
