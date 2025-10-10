@@ -1,0 +1,40 @@
+metadata:
+  id: topology-baseline
+  title: Time Travel Baseline
+  description: Template exercising window and topology support
+parameters:
+  - name: startTimestamp
+    type: string
+    title: Start Timestamp
+    default: "2030-01-01T00:00:00Z"
+grid:
+  bins: 24
+  binSize: 60
+  binUnit: minutes
+window:
+  start: "${startTimestamp}"
+nodes:
+  - id: arrivals
+    kind: const
+    values: [10, 12, 8]
+  - id: capacity
+    kind: const
+    values: [15, 15, 15]
+  - id: served
+    kind: expr
+    expression: "min(arrivals, capacity)"
+    dependencies: [arrivals, capacity]
+outputs:
+  - id: arrivals_out
+    source: arrivals
+  - id: served_out
+    source: served
+topology:
+  nodes:
+    - id: "OrderService"
+      kind: "service"
+      semantics:
+        arrivals: "arrivals"
+        served: "served"
+        capacity: "capacity"
+  edges: []

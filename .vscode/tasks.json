@@ -6,7 +6,26 @@
       "type": "shell",
       "command": "dotnet build",
       "group": "build",
-      "problemMatcher": ["$msCompile"],
+      "problemMatcher": [
+        "$msCompile"
+      ],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": false,
+        "clear": false
+      }
+    },
+    {
+      "label": "build-sim",
+      "type": "shell",
+      "command": "dotnet build src/FlowTime.Sim.Core/FlowTime.Sim.Core.csproj && dotnet build src/FlowTime.Sim.Service/FlowTime.Sim.Service.csproj && dotnet build src/FlowTime.Sim.Cli/FlowTime.Sim.Cli.csproj",
+      "group": "build",
+      "problemMatcher": [
+        "$msCompile"
+      ],
       "presentation": {
         "echo": true,
         "reveal": "always",
@@ -21,7 +40,26 @@
       "type": "shell",
       "command": "dotnet test --nologo",
       "group": "test",
-      "problemMatcher": ["$msCompile"],
+      "problemMatcher": [
+        "$msCompile"
+      ],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": false,
+        "clear": false
+      }
+    },
+    {
+      "label": "test-sim",
+      "type": "shell",
+      "command": "dotnet test tests/FlowTime.Sim.Tests/FlowTime.Sim.Tests.csproj --nologo",
+      "group": "test",
+      "problemMatcher": [
+        "$msCompile"
+      ],
       "presentation": {
         "echo": true,
         "reveal": "always",
@@ -49,6 +87,39 @@
       "label": "stop-api",
       "type": "shell",
       "command": "pkill -f 'FlowTime.API' || echo 'No API process found'",
+      "problemMatcher": [],
+      "presentation": {
+        "echo": false,
+        "reveal": "silent",
+        "focus": false,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": true
+      }
+    },
+    {
+      "label": "start-sim-api",
+      "type": "shell",
+      "command": "dotnet run --project src/FlowTime.Sim.Service",
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated",
+        "showReuseMessage": false
+      },
+      "options": {
+        "env": {
+          "ASPNETCORE_URLS": "http://0.0.0.0:8090"
+        }
+      }
+    },
+    {
+      "label": "stop-sim-api",
+      "type": "shell",
+      "command": "pkill -f 'FlowTime.Sim.Service' || echo 'No Sim API process found'",
       "problemMatcher": [],
       "presentation": {
         "echo": false,

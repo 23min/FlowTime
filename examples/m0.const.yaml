@@ -1,0 +1,23 @@
+metadata:
+  id: m0.const
+  title: M0 Constant + Expr (node-based)
+  description: Constant demand with a derived expression node
+schemaVersion: 1
+grid:
+  bins: 8
+  binSize: 60
+  binUnit: minutes
+nodes:
+  - id: demand
+    kind: const
+    values: [10, 10, 10, 10, 10, 10, 10, 10]
+  - id: served
+    kind: expr
+    expression: demand * 0.8
+    dependencies: [demand]
+rng:
+  kind: pcg32
+  seed: 111
+outputs:
+  - id: served
+    source: served

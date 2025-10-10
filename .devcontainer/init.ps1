@@ -1,6 +1,6 @@
 param([switch]$PostCreate)
 
-Write-Host "➡️ FlowTime base init"
+Write-Host "➡️ FlowTime consolidated init"
 $dotnet = & dotnet --info 2>$null
 if ($LASTEXITCODE -ne 0) {
   Write-Host "dotnet SDK not found"; exit 1
@@ -18,13 +18,13 @@ if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
 Write-Host "Restoring solution..."
 & dotnet restore | Out-Null
 
-# Install Razor/Blazor workloads if needed
+# Install Razor/Blazor workloads if needed for UI project
 Write-Host "Checking Razor workloads..."
 & dotnet workload restore
 
 if ($PostCreate) {
   Write-Host "✅ Ready. Try:"
-  Write-Host "  dotnet build"
-  Write-Host "  dotnet test"
-  Write-Host "  dotnet run --project src/FlowTime.Cli -- --help"
+  Write-Host "  dotnet build FlowTime.sln"
+  Write-Host "  dotnet test FlowTime.sln"
+  Write-Host "  dotnet run --project src/FlowTime.Sim.Service --urls http://0.0.0.0:8090"
 }

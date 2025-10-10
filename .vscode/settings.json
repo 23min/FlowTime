@@ -1,4 +1,5 @@
 {
+    "github.useLocalServer": false,
     "github.authentication.scopes": [
         "read:user",
         "repo",
@@ -12,7 +13,6 @@
         "markdown": false,
         "csharp": true
     },
-    "github.useLocalServer": false,
     "http.proxy": "",
     "http.proxySupport": "off",
     "http.systemCertificates": true,

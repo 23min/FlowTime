@@ -39,6 +39,7 @@
         "redhat.vscode-yaml",
         "GitHub.copilot",
         "github.copilot-chat",
+        "openai.chatgpt",
         "humao.rest-client",
         "shd101wyy.markdown-preview-enhanced"
       ],
@@ -68,8 +69,15 @@
     "--name",
     "flowtime-api"
   ],
+  "containerEnv": {
+    "MSBUILDNOINPROCNODE": "1",
+    "FLOWTIME_API_BASEURL": "http://flowtime-api:8080",
+    "FLOWTIME_API_VERSION": "v1"
+  },
   "forwardPorts": [
-    8080
+    8080,
+    8090,
+    8091
   ],
   "remoteEnv": {
     "NODE_OPTIONS": "--dns-result-order=ipv4first",

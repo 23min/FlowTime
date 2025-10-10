@@ -1,0 +1,124 @@
+# Multi-Tier Supply Chain - Template
+# Complex supply chain with suppliers, distributors, retailers, and demand variability
+
+metadata:
+  id: 'supply-chain-multi-tier'
+  title: 'Multi-Tier Supply Chain'
+  description: 'Complex supply chain with suppliers, distributors, retailers, and demand variability'
+  tags: [advanced, supply-chain, multi-tier, variability, logistics]
+
+parameters:
+  - name: bins
+    type: integer
+    title: "Time Periods"
+    description: "Number of time periods to simulate"
+    default: 6
+    minimum: 3
+    maximum: 48
+  - name: binSize
+    type: integer
+    title: "Period Duration"
+    description: "Duration of each time period in minutes"
+    default: 60
+    minimum: 15
+    maximum: 480
+  - name: demandPattern
+    type: array
+    title: "Customer Demand Pattern"
+    description: "Customer demand volume per time period"
+    default: [80, 120, 160, 140, 100, 60]
+    minimum: 0
+    maximum: 5000
+  - name: supplierCapacity
+    type: array
+    title: "Supplier Capacity"
+    description: "Supplier production capacity per time period"
+    default: [200, 200, 200, 200, 200, 200]
+    minimum: 1
+    maximum: 5000
+  - name: distributorCapacity
+    type: array
+    title: "Distributor Capacity"
+    description: "Distribution center capacity per time period"
+    default: [150, 150, 150, 150, 150, 150]
+    minimum: 1
+    maximum: 5000
+  - name: retailerCapacity
+    type: array
+    title: "Retailer Capacity"
+    description: "Retail outlet capacity per time period"
+    default: [120, 120, 120, 120, 120, 120]
+    minimum: 1
+    maximum: 5000
+  - name: bufferSize
+    type: number
+    title: "Buffer Size Multiplier"
+    description: "Safety stock buffer as multiplier of demand"
+    default: 1.2
+    minimum: 1.0
+    maximum: 3.0
+
+grid:
+  bins: ${bins}
+  binSize: ${binSize}
+  binUnit: minutes
+
+nodes:
+  # Customer demand (variable)
+  - id: customer_demand
+    kind: const
+    values: ${demandPattern}
+
+  # Supplier capacity
+  - id: supplier_capacity
+    kind: const
+    values: ${supplierCapacity}
+
+  # Distributor capacity
+  - id: distributor_capacity
+    kind: const
+    values: ${distributorCapacity}
+
+  # Retailer capacity
+  - id: retailer_capacity
+    kind: const
+    values: ${retailerCapacity}
+
+  # Items supplied
+  - id: supplied_items
+    kind: expr
+    expression: "MIN(customer_demand * ${bufferSize}, supplier_capacity)"
+
+  # Items distributed
+  - id: distributed_items
+    kind: expr
+    expression: "MIN(supplied_items, distributor_capacity)"
+
+  # Items sold at retail
+  - id: retail_sales
+    kind: expr
+    expression: "MIN(distributed_items, retailer_capacity)"
+
+  # Unmet demand
+  - id: unmet_demand
+    kind: expr
+    expression: "MAX(0, customer_demand - retail_sales)"
+
+  # Supply chain efficiency
+  - id: supply_efficiency
+    kind: expr
+    expression: "retail_sales / customer_demand"
+
+outputs:
+  - id: customer_demand
+    source: customer_demand
+    filename: demand.csv
+  - id: retail_sales
+    source: retail_sales
+    filename: sales.csv
+  - id: unmet_demand
+    source: unmet_demand
+    filename: stockouts.csv
+  - id: supply_efficiency
+    source: supply_efficiency
+    filename: efficiency.csv

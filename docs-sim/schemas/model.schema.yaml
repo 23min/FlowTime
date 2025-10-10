@@ -1,0 +1,543 @@
+# FlowTime Model Schema (Target) - JSON Schema Definition
+# This is the unified schema that FlowTime-Sim will output and FlowTime Engine will execute
+# Replaces legacy binMinutes format with binSize/binUnit for M2.9
+
+$schema: "https://json-schema.org/draft-07/schema#"
+$id: "https://flowtime.dev/schemas/target-model.schema.yaml"
+title: "FlowTime Model Schema (Target)"
+description: |
+  Unified schema for FlowTime models. This is the convergence point for M2.9 schema evolution.
+  - FlowTime-Sim generates models in this format
+  - FlowTime Engine executes models in this format
+  - Replaces legacy binMinutes format with binSize/binUnit
+
+type: object
+required:
+  - schemaVersion
+  - grid
+  - nodes
+
+properties:
+  schemaVersion:
+    type: integer
+    const: 1
+    description: "Schema version identifier for evolution tracking. Always 1 for current version."
+
+  grid:
+    type: object
+    description: "Time grid definition with flexible time unit support"
+    required:
+      - bins
+      - binSize
+      - binUnit
+    properties:
+      bins:
+        type: integer
+        minimum: 1
+        maximum: 10000
+        description: "Number of time periods in the simulation"
+        examples:
+          - 24      # 24 periods
+          - 168     # 1 week worth
+          - 365     # 1 year of daily data
+          - 8760    # 1 year of hourly data
+
+      binSize:
+        type: integer
+        minimum: 1
+        maximum: 1000
+        description: "Duration of each time period (magnitude)"
+        examples:
+          - 1       # Single unit
+          - 5       # 5-minute or 5-hour bins
+          - 15      # Quarter-hour bins
+          - 2       # Two-day bins
+
+      binUnit:
+        type: string
+        enum:
+          - minutes
+          - hours
+          - days
+          - weeks
+        description: "Time unit for binSize duration"
+        examples:
+          - "hours"    # Most common
+          - "minutes"  # High resolution
+          - "days"     # Daily simulations
+          - "weeks"    # Long-term planning
+
+    additionalProperties: false
+
+  nodes:
+    type: array
+    description: "Array of computation nodes defining the model structure"
+    minItems: 1
+    items:
+      type: object
+      required:
+        - id
+        - kind
+      properties:
+        id:
+          type: string
+          pattern: "^[a-zA-Z_][a-zA-Z0-9_]*$"
+          description: "Unique node identifier, must be valid variable name"
+          examples:
+            - "demand"
+            - "capacity"
+            - "served_customers"
+            - "avg_latency_ms"
+
+        kind:
+          type: string
+          enum:
+            - const
+            - expr
+            - pmf
+          description: "Node type: constant values, expression, or probability mass function"
+
+        # Properties for 'const' nodes
+        values:
+          type: array
+          description: "Array of constant values (required for const nodes, length must equal grid.bins)"
+          items:
+            type: number
+          examples:
+            - [100, 120, 150, 130]
+            - [50.5, 60.2, 75.8, 80.0]
+
+        # Properties for 'expr' nodes
+        expr:
+          type: string
+          description: "Expression formula (required for expr nodes)"
+          examples:
+            - "MIN(demand, capacity)"
+            - "MAX(0, arrivals - served + SHIFT(backlog, 1))"
+            - "served / capacity * 100"
+            - "demand * 0.95"
+
+        # Properties for 'pmf' nodes
+        pmf:
+          type: object
+          description: "Probability mass function definition (required for pmf nodes)"
+          required:
+            - values
+            - probabilities
+          properties:
+            values:
+              type: array
+              description: "Possible outcome values"
+              items:
+                type: number
+              minItems: 1
+              examples:
+                - [0, 1, 2, 3]
+                - [50, 100, 150, 200]
+                - [0.0, 0.5, 1.0]
+
+            probabilities:
+              type: array
+              description: "Probability for each value (must sum to 1.0)"
+              items:
+                type: number
+                minimum: 0
+                maximum: 1
+              minItems: 1
+              examples:
+                - [0.7, 0.2, 0.08, 0.02]
+                - [0.25, 0.25, 0.25, 0.25]
+                - [0.1, 0.6, 0.3]
+
+          additionalProperties: false
+
+      # Validation rules based on 'kind'
+      allOf:
+        # const nodes must have 'values', not 'expr' or 'pmf'
+        - if:
+            properties:
+              kind:
+                const: const
+          then:
+            required:
+              - values
+            not:
+              anyOf:
+                - required: [expr]
+                - required: [pmf]
+
+        # expr nodes must have 'expr', not 'values' or 'pmf'
+        - if:
+            properties:
+              kind:
+                const: expr
+          then:
+            required:
+              - expr
+            not:
+              anyOf:
+                - required: [values]
+                - required: [pmf]
+
+        # pmf nodes must have 'pmf', not 'values' or 'expr'
+        - if:
+            properties:
+              kind:
+                const: pmf
+          then:
+            required:
+              - pmf
+            not:
+              anyOf:
+                - required: [values]
+                - required: [expr]
+
+      additionalProperties: false
+
+  outputs:
+    type: array
+    description: "Optional output definitions for CSV export (may be ignored in API mode)"
+    items:
+      type: object
+      required:
+        - series
+        - as
+      properties:
+        series:
+          type: string
+          description: "Node ID to output"
+          examples:
+            - "demand"
+            - "served"
+            - "utilization"
+
+        as:
+          type: string
+          description: "Output filename (typically .csv)"
+          pattern: "^[a-zA-Z0-9_-]+\\.(csv|txt)$"
+          examples:
+            - "demand.csv"
+            - "served.csv"
+            - "metrics.csv"
+
+      additionalProperties: false
+
+  rng:
+    type: object
+    description: "Optional random number generator configuration for reproducibility"
+    properties:
+      kind:
+        type: string
+        description: "RNG algorithm name"
+        enum:
+          - pcg32
+          - mt19937
+          - xoshiro256
+        examples:
+          - "pcg32"
+
+      seed:
+        type: integer
+        description: "Random seed for deterministic execution"
+        minimum: 0
+        maximum: 2147483647
+        examples:
+          - 12345
+          - 42
+          - 987654321
+
+    additionalProperties: false
+
+additionalProperties: false
+
+# Example valid models demonstrating schema capabilities
+examples:
+  # Minimal model with constant and expression nodes
+  - schemaVersion: 1
+    grid:
+      bins: 4
+      binSize: 1
+      binUnit: hours
+    nodes:
+      - id: demand
+        kind: const
+        values: [100, 120, 150, 130]
+      - id: served
+        kind: expr
+        expr: "demand * 0.8"
+
+  # Complete model with all node types
+  - schemaVersion: 1
+    grid:
+      bins: 8
+      binSize: 1
+      binUnit: hours
+    nodes:
+      - id: demand
+        kind: const
+        values: [100, 120, 150, 180, 160, 140, 110, 100]
+      - id: capacity
+        kind: const
+        values: [200, 200, 200, 200, 200, 200, 200, 200]
+      - id: failures
+        kind: pmf
+        pmf:
+          values: [0, 1, 2]
+          probabilities: [0.8, 0.15, 0.05]
+      - id: effective_capacity
+        kind: expr
+        expr: "capacity - failures"
+      - id: served
+        kind: expr
+        expr: "MIN(demand, effective_capacity)"
+      - id: utilization
+        kind: expr
+        expr: "served / capacity * 100"
+    outputs:
+      - series: served
+        as: served.csv
+      - series: utilization
+        as: utilization.csv
+    rng:
+      kind: pcg32
+      seed: 42
+
+  # Model with feedback loop using SHIFT
+  - schemaVersion: 1
+    grid:
+      bins: 24
+      binSize: 1
+      binUnit: hours
+    nodes:
+      - id: arrivals
+        kind: const
+        values:
+          [
+            100, 120, 130, 140, 150, 160, 170, 180,
+            190, 180, 170, 160, 150, 140, 130, 120,
+            110, 100, 90, 80, 70, 60, 50, 40
+          ]
+      - id: capacity
+        kind: const
+        values:
+          [
+            150, 150, 150, 150, 150, 150, 150, 150,
+            150, 150, 150, 150, 150, 150, 150, 150,
+            150, 150, 150, 150, 150, 150, 150, 150
+          ]
+      - id: served
+        kind: expr
+        expr: "MIN(arrivals, capacity)"
+      - id: backlog
+        kind: expr
+        expr: "MAX(0, arrivals - served + SHIFT(backlog, 1))"
+    outputs:
+      - series: served
+        as: served.csv
+      - series: backlog
+        as: backlog.csv
+
+  # Daily simulation for a year
+  - schemaVersion: 1
+    grid:
+      bins: 365
+      binSize: 1
+      binUnit: days
+    nodes:
+      - id: daily_demand
+        kind: pmf
+        pmf:
+          values: [800, 1000, 1200, 1400]
+          probabilities: [0.2, 0.3, 0.3, 0.2]
+      - id: daily_capacity
+        kind: const
+        values: [1500]  # Note: This would need 365 values in practice
+      - id: served
+        kind: expr
+        expr: "MIN(daily_demand, daily_capacity)"
+
+  # High-resolution 15-minute bins
+  - schemaVersion: 1
+    grid:
+      bins: 96  # 24 hours * 4 (15-min intervals)
+      binSize: 15
+      binUnit: minutes
+    nodes:
+      - id: request_rate
+        kind: pmf
+        pmf:
+          values: [10, 20, 30, 40]
+          probabilities: [0.4, 0.3, 0.2, 0.1]
+      - id: response_time
+        kind: expr
+        expr: "100 / MAX(request_rate, 1)"
+
+  # Weekly planning for a year
+  - schemaVersion: 1
+    grid:
+      bins: 52
+      binSize: 1
+      binUnit: weeks
+    nodes:
+      - id: weekly_orders
+        kind: const
+        values: [1000]  # Note: Would need 52 values in practice
+      - id: weekly_production
+        kind: const
+        values: [1100]
+      - id: inventory
+        kind: expr
+        expr: "weekly_production - weekly_orders + SHIFT(inventory, 1)"
+
+# Schema validation notes and migration guidance
+notes:
+  migration_from_binMinutes: |
+    Old format (current Engine input):
+      grid:
+        bins: 24
+        binMinutes: 60
+    
+    New format (target schema):
+      grid:
+        bins: 24
+        binSize: 1
+        binUnit: hours
+    
+    Conversion table:
+      binMinutes: 1     → binSize: 1,  binUnit: minutes
+      binMinutes: 5     → binSize: 5,  binUnit: minutes
+      binMinutes: 15    → binSize: 15, binUnit: minutes
+      binMinutes: 60    → binSize: 1,  binUnit: hours
+      binMinutes: 120   → binSize: 2,  binUnit: hours
+      binMinutes: 1440  → binSize: 1,  binUnit: days
+      binMinutes: 10080 → binSize: 1,  binUnit: weeks
+
+  validation_rules: |
+    Additional semantic validation performed by FlowTime Engine:
+    
+    1. Node ID Uniqueness: All node IDs must be unique across the model
+    2. Const Node Length: values array length must equal grid.bins exactly
+    3. PMF Probabilities: Must sum to 1.0 (tolerance: ±0.0001)
+    4. Expression References: All node IDs in expr strings must exist
+    5. Dependency Order: No circular dependencies except through SHIFT function
+    6. Output References: All series fields must reference existing node IDs
+    7. Time Grid Sanity: bins × binSize × unit_multiplier should be reasonable
+    
+    The schema validator checks structural correctness; the Engine checks semantic correctness.
+
+  expression_syntax: |
+    Supported expression operators and functions:
+    
+    Arithmetic:
+      +, -, *, /
+    
+    Functions:
+      MIN(a, b)        - Minimum of two values
+      MAX(a, b)        - Maximum of two values
+      SHIFT(series, n) - Time-shifted reference (lag n bins)
+      ABS(a)           - Absolute value
+      SQRT(a)          - Square root
+      POW(a, b)        - Power (a^b)
+    
+    References:
+      Use node IDs directly (e.g., demand, capacity)
+    
+    Literals:
+      Numeric constants (e.g., 100, 0.5, -10)
+    
+    Future extensions:
+      SUM(series)      - Sum across all bins
+      AVG(series)      - Average across all bins
+      CUMSUM(series)   - Cumulative sum
+      IF(cond, a, b)   - Conditional expression
+
+  time_unit_conversion: |
+    Engine internal conversion to minutes:
+    
+    minutes → × 1
+    hours   → × 60
+    days    → × 1440
+    weeks   → × 10080
+    
+    Future extensions:
+    months  → × ~43200 (30 days average)
+    years   → × ~525600 (365 days)
+
+  breaking_changes_from_current: |
+    This schema introduces breaking changes from current Engine input format:
+    
+    1. grid.binMinutes → grid.binSize + grid.binUnit (REQUIRED)
+    2. schemaVersion field now REQUIRED (was optional)
+    3. Stricter validation on node types and required fields
+    4. PMF probabilities must sum exactly to 1.0 (tighter tolerance)
+    
+    Migration required for:
+    - FlowTime-Sim: Remove binMinutes conversion, output binSize/binUnit
+    - FlowTime Engine: Add binSize/binUnit parsing, internal conversion
+    - All examples: Update to new format
+    - All tests: Update assertions and fixtures
+
+  implementation_phases: |
+    M2.9 Implementation Plan:
+    
+    Phase 0: Test-Driven Setup
+      - Isolate legacy tests to .Legacy namespaces
+      - Write failing tests for new schema format
+      - Establish test architecture for TDD cycle
+    
+    Phase 1: Documentation (COMPLETED)
+      - ✅ Create target-model-schema.md
+      - ✅ Create target-model-schema.yaml
+      - ✅ Update M2.9 milestone document
+    
+    Phase 2: FlowTime Engine Evolution
+      - Add TimeUnit enum and conversion logic
+      - Update model parser for binSize/binUnit
+      - Update validation rules
+      - Implement new node types (PMF, RNG)
+      - Pass all new tests
+    
+    Phase 3: FlowTime-Sim Updates
+      - Remove binMinutes conversion logic
+      - Update output format to binSize/binUnit
+      - Update tests and examples
+      - Coordinate with Engine changes
+    
+    Phase 4: Integration & Validation
+      - End-to-end testing
+      - Update all documentation
+      - Version bump (Engine 0.5.0, Sim 0.4.0)
+
+  design_rationale: |
+    Key design decisions:
+    
+    1. binSize/binUnit over binMinutes:
+       - More human-readable ("1 hour" vs "60 minutes")
+       - Supports diverse time scales natively
+       - Easier to extend (months, years, quarters)
+       - Matches user mental model
+    
+    2. expr not expression:
+       - Shorter, more concise
+       - Common in DSLs (SQL, GraphQL)
+       - Clearly signals executable code
+       - Easier to parse and distinguish
+    
+    3. series/as in outputs:
+       - Clear source (series) vs destination (as)
+       - Flexible naming independent of node IDs
+       - Room for future output options
+    
+    4. schemaVersion required:
+       - Explicit versioning enables evolution
+       - Clear compatibility checking
+       - Better error messages for version mismatches
+    
+    5. Separate PMF from const:
+       - Clear semantic distinction
+       - Engine can optimize sampling
+       - Enables future distribution types
+       - Makes stochastic behavior explicit
+
+version: 1.0.0
+lastModified: "2025-10-01"

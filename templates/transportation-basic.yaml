@@ -1,0 +1,83 @@
+# Transportation Network - Template
+# Simple transportation flow with demand and capacity constraints, ideal for logistics learning
+
+metadata:
+  id: 'transportation-basic'
+  title: 'Transportation Network'
+  description: 'Simple transportation flow with demand and capacity constraints, ideal for logistics learning'
+  tags: [beginner, transportation, logistics, capacity]
+
+parameters:
+  - name: bins
+    type: integer
+    title: "Time Periods"
+    description: "Number of time periods to simulate"
+    default: 6
+    minimum: 3
+    maximum: 48
+  - name: binSize
+    type: integer
+    title: "Period Duration"
+    description: "Duration of each time period in minutes"
+    default: 60
+    minimum: 15
+    maximum: 480
+  - name: demandPattern
+    type: array
+    title: "Passenger Demand Pattern"
+    description: "Number of passengers wanting to travel in each time period"
+    default: [10, 15, 20, 25, 18, 12]
+    minimum: 0
+    maximum: 1000
+  - name: capacityPattern
+    type: array
+    title: "Vehicle Capacity Pattern"
+    description: "Number of available seats/spaces in each time period"
+    default: [15, 18, 25, 30, 22, 16]
+    minimum: 1
+    maximum: 1000
+
+grid:
+  bins: ${bins}
+  binSize: ${binSize}
+  binUnit: minutes
+
+nodes:
+  # Passenger demand (varies by time of day)
+  - id: passenger_demand
+    kind: const
+    values: ${demandPattern}
+
+  # Available vehicle capacity
+  - id: vehicle_capacity
+    kind: const
+    values: ${capacityPattern}
+
+  # Passengers successfully transported
+  - id: passengers_served
+    kind: expr
+    expression: "MIN(passenger_demand, vehicle_capacity)"
+
+  # Unmet demand (overcrowding situations)
+  - id: unmet_demand
+    kind: expr
+    expression: "MAX(0, passenger_demand - vehicle_capacity)"
+
+  # System utilization rate
+  - id: utilization
+    kind: expr
+    expression: "passengers_served / vehicle_capacity"
+
+outputs:
+  - id: passenger_demand
+    source: passenger_demand
+    filename: demand.csv
+  - id: passengers_served
+    source: passengers_served
+    filename: served.csv
+  - id: unmet_demand
+    source: unmet_demand
+    filename: overcrowding.csv
+  - id: utilization
+    source: utilization
+    filename: utilization.csv

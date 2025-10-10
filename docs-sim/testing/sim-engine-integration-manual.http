@@ -1,0 +1,441 @@
+################################################################################
+# FlowTime Sim ↔ Engine Integration Test Suite
+# Manual HTTP Test Scenarios
+#
+# Use this file with VS Code REST Client extension for interactive testing
+# of all integration chapters.
+#
+# Prerequisites:
+# - FlowTime Engine running on http://localhost:8080
+# - FlowTime-Sim API running on http://localhost:8090
+#
+# Usage:
+# - Click "Send Request" above each request
+# - Verify responses match expected results
+# - Use variables to chain requests together
+################################################################################
+
+@engineUrl = http://localhost:8080
+@simUrl = http://localhost:8090
+
+################################################################################
+# Pre-Test: Health Checks
+################################################################################
+
+### Check Engine health
+GET {{engineUrl}}/healthz
+
+### Check Sim health
+GET {{simUrl}}/healthz
+
+################################################################################
+# Chapter 1: Basic Workflow
+################################################################################
+
+### 1.1 Simple model generation (Sim)
+# @name generateBasicModel
+POST {{simUrl}}/api/v1/templates/transportation-basic/generate
+Content-Type: application/json
+
+{
+  "bins": 3,
+  "binSize": 1,
+  "binUnit": "hours"
+}
+
+### 1.1b Execute model (Engine) - copy model from above response
+POST {{engineUrl}}/v1/run
+Content-Type: application/x-yaml
+
+schemaVersion: 1
+grid:
+  bins: 3
+  binSize: 1
+  binUnit: hours
+arrivals:
+  kind: const
+  values: [100, 150, 200]
+route:
+  id: ROUTE_A
+  stations:
+    - id: STATION_1
+      service:
+        kind: const
+        values: [0.5]
+
+### Expected Response: HTTP 200
+# - grid: { bins: 3, binSize: 1, binUnit: hours }
+# - order: array of 3 elements
+# - series: array with station data
+# - artifactsPath: path to run artifacts
+# - modelHash: hash of the model
+
+### 1.2 Different time units - Minutes
+POST {{simUrl}}/api/v1/templates/transportation-basic/generate
+Content-Type: application/json
+
+{
+  "bins": 6,
+  "binSize": 30,
+  "binUnit": "minutes"
+}
+
+### Expected: binUnit: minutes in response
+
+### 1.2b Different time units - Hours
+POST {{simUrl}}/api/v1/templates/transportation-basic/generate
+Content-Type: application/json
+
+{
+  "bins": 4,
+  "binSize": 2,
+  "binUnit": "hours"
+}
+
+### Expected: binUnit: hours in response
+
+### 1.3 Multiple template types - Manufacturing Line
+POST {{simUrl}}/api/v1/templates/manufacturing-line/generate
+Content-Type: application/json
+
+{
+  "numStations": 5,
+  "cycleTimeMinutes": 15
+}
+
+### 1.3b Multiple template types - IT System
+POST {{simUrl}}/api/v1/templates/it-system-microservices/generate
+Content-Type: application/json
+
+{}
+
+### 1.3c Multiple template types - Network Reliability
+POST {{simUrl}}/api/v1/templates/network-reliability/generate
+Content-Type: application/json
+
+{}
+
+################################################################################
+# Chapter 2: Template System
+################################################################################
+
+### 2.1 Template discovery - List all templates
+GET {{simUrl}}/api/v1/templates
+
+### Expected Response: Array of templates
+# Each with: id, title, description, version, parameters
+
+### 2.2 Template metadata - Get specific template
+GET {{simUrl}}/api/v1/templates/transportation-basic
+
+### Expected Response:
+# - id: "transportation-basic"
+# - title: descriptive title
+# - description: what the template models
+# - version: semantic version
+# - parameters: array of parameter definitions
+
+### 2.3 Default parameters - Generate without params
+POST {{simUrl}}/api/v1/templates/transportation-basic/generate
+Content-Type: application/json
+
+{}
+
+### Expected Response: Model generated with default parameter values
+# Check provenance.parameters for defaults applied
+
+### 2.4 Parameter validation - Invalid value
+POST {{simUrl}}/api/v1/templates/transportation-basic/generate
+Content-Type: application/json
+
+{
+  "bins": -5
+}
+
+### Expected: HTTP 400 (negative bins invalid)
+
+### 2.5 Parameter validation - Unknown parameter
+POST {{simUrl}}/api/v1/templates/transportation-basic/generate
+Content-Type: application/json
+
+{
+  "unknownParam": "value"
+}
+
+### Expected: HTTP 400 or ignored (depending on validation strategy)
+
+################################################################################
+# Chapter 3: Model Hashing & Reproducibility
+################################################################################
+
+### 3.1 Determinism - First generation
+# @name hashGen1
+POST {{simUrl}}/api/v1/templates/transportation-basic/generate
+Content-Type: application/json
+
+{
+  "bins": 6,
+  "binSize": 1,
+  "binUnit": "hours"
+}
+
+### 3.1b Determinism - Second generation (same params)
+# @name hashGen2
+POST {{simUrl}}/api/v1/templates/transportation-basic/generate
+Content-Type: application/json
+
+{
+  "bins": 6,
+  "binSize": 1,
+  "binUnit": "hours"
+}
+
+### Verification: Compare provenance.modelId from both responses
+# The hash portions (last segment after _) should be IDENTICAL
+
+### 3.2 Uniqueness - Different parameter
+# @name hashDiff
+POST {{simUrl}}/api/v1/templates/transportation-basic/generate
+Content-Type: application/json
+
+{
+  "bins": 12,
+  "binSize": 1,
+  "binUnit": "hours"
+}
+
+### Verification: Compare provenance.modelId to previous
+# The hash portions should be DIFFERENT
+
+################################################################################
+# Chapter 4: Provenance Metadata (M2.9)
+################################################################################
+
+### 4.1 Header-based provenance - Generate model
+# @name provenanceGen
+POST {{simUrl}}/api/v1/templates/transportation-basic/generate
+Content-Type: application/json
+
+{
+  "bins": 6,
+  "binSize": 1,
+  "binUnit": "hours"
+}
+
+### 4.1b Header-based provenance - Execute with header
+# Copy the 'model' and 'provenance' from above response
+POST {{engineUrl}}/v1/run
+Content-Type: application/x-yaml
+X-Model-Provenance: {"schemaVersion":1,"modelId":"transportation_basic_20250101T120000Z_abc123","templateId":"transportation-basic","templateVersion":"1.0.0","templateTitle":"Transportation (Basic)","source":"template-generator","generator":{"name":"FlowTime-Sim","version":"0.2.0"},"generatedAt":"2025-01-01T12:00:00Z","parameters":{"bins":6,"binSize":1,"binUnit":"hours"}}
+
+schemaVersion: 1
+grid:
+  bins: 6
+  binSize: 1
+  binUnit: hours
+arrivals:
+  kind: const
+  values: [100, 150, 200, 180, 220, 190]
+route:
+  id: ROUTE_A
+  stations:
+    - id: STATION_1
+      service:
+        kind: const
+        values: [0.5]
+
+### Expected Response: HTTP 200
+# - artifactsPath points to run directory
+# - Check: {artifactsPath}/provenance.json exists
+# - Contents match X-Model-Provenance header
+
+### 4.2 Embedded provenance - Generate with embed flag
+POST {{simUrl}}/api/v1/templates/transportation-basic/generate?embed_provenance=true
+Content-Type: application/json
+
+{
+  "bins": 12
+}
+
+### Expected Response:
+# - model contains x-provenance metadata section at top
+# - Can execute model directly without header
+
+### 4.3 Backward compatibility - Model without provenance
+POST {{engineUrl}}/v1/run
+Content-Type: application/x-yaml
+
+schemaVersion: 1
+grid:
+  bins: 3
+  binSize: 1
+  binUnit: hours
+arrivals:
+  kind: const
+  values: [10, 20, 30]
+route:
+  id: TEST_NODE
+
+### Expected Response: HTTP 200 (works without provenance)
+
+### 4.4 Field validation - Check provenance structure
+# @name provenanceFields
+POST {{simUrl}}/api/v1/templates/transportation-basic/generate
+Content-Type: application/json
+
+{}
+
+### Verification:
+# Check provenance object has ALL these fields (camelCase):
+# - schemaVersion (number)
+# - modelId (string)
+# - templateId (string)
+# - templateVersion (string)
+# - templateTitle (string)
+# - source (string)
+# - generator.name (string)
+# - generator.version (string)
+# - generatedAt (ISO 8601 timestamp)
+# - parameters (object)
+
+################################################################################
+# Chapter 5: Error Handling
+################################################################################
+
+### 5.1 Invalid template ID
+POST {{simUrl}}/api/v1/templates/nonexistent-template-id/generate
+Content-Type: application/json
+
+{}
+
+### Expected: HTTP 400 or 404 with error message
+
+### 5.2 Malformed model YAML (Engine validation)
+POST {{engineUrl}}/v1/run
+Content-Type: application/x-yaml
+
+schemaVersion: 1
+grid:
+  bins: abc
+  binSize: 1
+  binUnit: invalid
+arrivals:
+  kind: unknown
+  values: [1, 2, 3]
+route:
+  id: TEST
+
+### Expected: HTTP 400 with validation error
+
+### 5.3 Missing required fields
+POST {{engineUrl}}/v1/run
+Content-Type: application/x-yaml
+
+schemaVersion: 1
+grid:
+  bins: 3
+arrivals:
+  kind: const
+  values: [10, 20, 30]
+
+### Expected: HTTP 400 (missing required grid fields or route)
+
+### 5.4 Invalid provenance JSON in header
+POST {{engineUrl}}/v1/run
+Content-Type: application/x-yaml
+X-Model-Provenance: {"invalid": "missing required fields"}
+
+schemaVersion: 1
+grid:
+  bins: 3
+  binSize: 1
+  binUnit: hours
+arrivals:
+  kind: const
+  values: [10, 20, 30]
+route:
+  id: TEST
+
+### Expected: HTTP 400 or ignored (Engine's choice for M2.9)
+
+################################################################################
+# Chapter 6: Data Format Validation
+################################################################################
+
+### 6.1 Schema version compatibility
+# @name schemaCheck
+POST {{simUrl}}/api/v1/templates/transportation-basic/generate
+Content-Type: application/json
+
+{}
+
+### Verification:
+# - Check model starts with "schemaVersion: 1"
+# - Provenance has schemaVersion: 1
+
+### 6.2 YAML field naming (camelCase)
+# @name yamlFieldCheck
+POST {{simUrl}}/api/v1/templates/transportation-basic/generate
+Content-Type: application/json
+
+{
+  "bins": 6
+}
+
+### Verification:
+# Check model YAML uses camelCase:
+# - binSize (not bin_size)
+# - binUnit (not bin_unit)
+# - schemaVersion (not schema_version)
+
+### 6.3 JSON provenance format (camelCase)
+# @name jsonFieldCheck
+POST {{simUrl}}/api/v1/templates/transportation-basic/generate
+Content-Type: application/json
+
+{}
+
+### Verification:
+# Check provenance JSON uses camelCase:
+# - modelId (not model_id)
+# - templateId (not template_id)
+# - templateVersion (not template_version)
+# - templateTitle (not template_title)
+# - generatedAt (not generated_at)
+# - schemaVersion (not schema_version)
+
+### 6.4 Complete workflow with format validation
+# @name completeWorkflow
+POST {{simUrl}}/api/v1/templates/transportation-basic/generate
+Content-Type: application/json
+
+{
+  "bins": 6,
+  "binSize": 1,
+  "binUnit": "hours"
+}
+
+### 6.4b Execute with provenance
+# Copy model and provenance from above, then execute
+POST {{engineUrl}}/v1/run
+Content-Type: application/x-yaml
+X-Model-Provenance: <PASTE_PROVENANCE_JSON_HERE>
+
+<PASTE_MODEL_YAML_HERE>
+
+### Expected Response: HTTP 200
+# - All fields present
+# - All naming conventions correct (camelCase)
+# - Provenance stored correctly
+# - Model executes successfully
+
+################################################################################
+# End of Test Suite
+################################################################################
+
+### Notes:
+# 1. Replace <PASTE_...> placeholders with actual data from previous responses
+# 2. Verify all expected responses match actual behavior
+# 3. Check Engine's data/ directory for stored artifacts
+# 4. Confirm provenance.json files match sent metadata
+# 5. Test both header-based and embedded provenance modes
