@@ -36,6 +36,7 @@
         "redhat.vscode-yaml",
         "GitHub.copilot",
         "github.copilot-chat",
+        "openai.chatgpt",
         "humao.rest-client",
         "shd101wyy.markdown-preview-enhanced"
       ],
@@ -63,6 +64,7 @@
     8091
   ],
   "containerEnv": {
+    "MSBUILDNOINPROCNODE": "1", // for codex sandbox
     "FLOWTIME_API_BASEURL": "http://flowtime-api:8080",
     "FLOWTIME_API_VERSION": "v1"
   },

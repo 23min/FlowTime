@@ -1,3 +1,4 @@
+using System.IO;
 using FlowTime.Sim.Core.Templates;
 using FlowTime.Sim.Core.Templates.Exceptions;
 using Xunit;
@@ -372,5 +373,36 @@ rng:
 """;
 
         Assert.Throws<TemplateValidationException>(() => TemplateParser.ParseFromYaml(yaml));
+    }
+
+    [Fact]
+    public void Template_With_Window_And_Topology_Parses_Successfully()
+    {
+        var yaml = File.ReadAllText("fixtures/templates/time-travel/topology_baseline.yaml");
+
+        var template = TemplateParser.ParseFromYaml(yaml);
+
+        Assert.NotNull(template.Window);
+        Assert.Equal("2030-01-01T00:00:00Z", template.Window!.Start);
+        Assert.Equal("UTC", template.Window.Timezone);
+
+        Assert.NotNull(template.Classes);
+        Assert.Single(template.Classes);
+        Assert.Equal("*", template.Classes[0]);
+
+        Assert.NotNull(template.Topology);
+        Assert.Single(template.Topology!.Nodes);
+        var node = template.Topology.Nodes[0];
+        Assert.Equal("OrderService", node.Id);
+        Assert.Equal("service", node.Kind);
+        Assert.True(node.Semantics.TryGetValue("arrivals", out var arrivalsSeries));
+        Assert.Equal("arrivals", arrivalsSeries);
+        Assert.True(node.Semantics.TryGetValue("served", out var servedSeries));
+        Assert.Equal("served", servedSeries);
+        Assert.True(node.Semantics.TryGetValue("capacity", out var capacitySeries));
+        Assert.Equal("capacity", capacitySeries);
+
+        Assert.NotNull(template.Topology.Edges);
+        Assert.Empty(template.Topology.Edges);
     }
 }

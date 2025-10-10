@@ -1,3 +1,4 @@
+using System.IO;
 using FlowTime.Sim.Core.Templates;
 using FlowTime.Sim.Core.Templates.Exceptions;
 using Xunit;
@@ -321,5 +322,23 @@ outputs:
         
         var output = substitutedTemplate.Outputs.First(o => o.Id == "arrival_series");
         Assert.Equal("Load for staging-worker system", output.Description);
+    }
+
+    [Fact]
+    public void ParameterSubstitution_NestedObjects_Applies_To_Window_Start()
+    {
+        var yaml = File.ReadAllText("fixtures/templates/time-travel/topology_baseline.yaml");
+        var parameterValues = new Dictionary<string, object>
+        {
+            ["startTimestamp"] = "2045-03-15T12:30:00Z"
+        };
+
+        var substitutedTemplate = ParameterSubstitution.ParseWithSubstitution(yaml, parameterValues);
+
+        Assert.NotNull(substitutedTemplate.Window);
+        Assert.Equal("2045-03-15T12:30:00Z", substitutedTemplate.Window!.Start);
+        Assert.Equal("UTC", substitutedTemplate.Window.Timezone);
+        Assert.Single(substitutedTemplate.Classes);
+        Assert.Equal("*", substitutedTemplate.Classes[0]);
     }
 }

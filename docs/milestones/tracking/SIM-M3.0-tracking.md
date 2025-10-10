@@ -17,7 +17,7 @@
 | Step | Description | Evidence / Notes | Status |
 |------|-------------|------------------|--------|
 | 0 | Tracking document created and baseline plan captured | This file added on `feature/time-travel-m3` | ✅ |
-| 1 | TDD plan confirmed (tests enumerated and ordered) | See TDD Plan section | 🔄 |
+| 1 | TDD plan confirmed (tests enumerated and ordered) | Tests added (`TemplateParser_With_Window_...`, `ParameterSubstitution_NestedObjects_...`); initial `dotnet test` blocked by sandbox (named pipe permission) | ✅ |
 | 2 | Schema/DTO extensions implemented under test | Pending | ☐ |
 | 3 | Generation + manifest updates implemented under test | Pending | ☐ |
 | 4 | Validation enhancements implemented under test | Pending | ☐ |
