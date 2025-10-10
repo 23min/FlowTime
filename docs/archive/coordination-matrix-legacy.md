@@ -1,3 +1,7 @@
+# M2.x Coordination Matrix (Legacy)
+
+> **Archived:** Coordination snapshot for M2.6–M2.9 charter work. Refer to current roadmap and time-travel planning docs for up-to-date status.
+
 # M2.x Coordination Matrix
 
 **Purpose:** Coordinate current M2.x milestone development across Engine, Sim, and UI  

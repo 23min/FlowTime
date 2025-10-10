@@ -1,3 +1,9 @@
+# FlowTime Capability Matrix (Legacy)
+
+> **Archived:** This capability snapshot reflects the post-M2.6 charter foundation state. Superseded by the time-travel planning documents and current roadmap.
+
+<!-- original content below -->
+
 # FlowTime Capability Matrix
 
 **Current Status:** Post-M2.6 Charter Foundation  

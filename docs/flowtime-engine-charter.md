@@ -1,7 +1,11 @@
-# FlowTime-Engine Charter (v1.0)
+# FlowTime-Engine Charter (v1.0) — To Be Reviewed Post-M3
+
+> **Note:** This charter predates the M3 delivery scope. We will review and update it after the M3 milestones to define future direction. For current M3 planning, rely on the time-travel architecture/planning docs.
 
 **Date:** 2025-09-20
-**Audience:** Engineers, architects, UI developers, and contribu## Current Implementation Status
+**Audience:** Engineers, architects, UI developers, and contributors
+
+## Current Implementation Status
 
 ### ✅ Implemented
 * **Deterministic execution**: DAG evaluation on canonical time grid
