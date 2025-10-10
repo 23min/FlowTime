@@ -9,7 +9,7 @@
 
 ## Quick Links
 
-- **Milestone Document:** [`docs/milestones/UI-M2.9.md`](../UI-M2.9.md)
+- **Milestone Document:** [`docs/milestones/UI-M02.09.md`](../UI-M02.09.md)
 - **Related Analysis:** [`docs/ui/UI-CURRENT-STATE-ANALYSIS.md`](../../ui/UI-CURRENT-STATE-ANALYSIS.md)
 - **Milestone Guide:** [`docs/development/milestone-documentation-guide.md`](../../development/milestone-documentation-guide.md)
 

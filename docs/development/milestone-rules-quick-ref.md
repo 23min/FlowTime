@@ -130,9 +130,9 @@ Before marking milestone as "📋 Planned":
 
 ## Examples
 
-**Good:** `docs/milestones/M2.9.md` (remove time estimate)
-**Good:** `docs/milestones/M2.10.md` (remove "1-2 hours")
-**Updated:** `docs/milestones/UI-M2.9.md` (now follows rules)
+**Good:** `docs/milestones/M02.09.md` (remove time estimate)
+**Good:** `docs/milestones/M02.10.md` (remove "1-2 hours")
+**Updated:** `docs/milestones/UI-M02.09.md` (now follows rules)
 
 ---
 

@@ -122,7 +122,7 @@ Implement clear Engine vs Sim navigation structure that reinforces architectural
 ## Files Modified
 
 ```
-docs/milestones/UI-M2.5.md                    # This milestone document
+docs/milestones/UI-M02.05.md                    # This milestone document
 docs/ui/design-specification.md               # Updated navigation section
 docs/ui/route-architecture.md                 # Updated route structure
 ```

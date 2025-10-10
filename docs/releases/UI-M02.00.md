@@ -190,7 +190,7 @@ No user migration required. All existing functionality works with enhanced relia
 ## Documentation Updates
 
 ### Updated Documents
-- `docs/milestones/UI-M2.md`: Reflects actual implementation
+- `docs/milestones/UI-M02.00.md`: Reflects actual implementation
 - `docs/ROADMAP.md`: Marks UI-M2 as completed
 - `scripts/README.md`: Comprehensive development guide
 - Root `README.md`: Updated status and usage instructions

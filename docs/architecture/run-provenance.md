@@ -473,7 +473,7 @@ Both failures are documented known limitations, not critical defects preventing 
 - **Sim-Side Implementation**: FlowTime-Sim generates provenance and provides temporary storage (SIM-M2.7)
 - **Engine-Side Implementation**: FlowTime Engine accepts and stores provenance permanently (M2.9 section 2.6)
 - **Target Schema**: See `docs/schemas/model.schema.md` (provenance schema definition)
-- **Artifact Registry**: See `docs/milestones/M2.7.md` (registry architecture)
+- **Artifact Registry**: See `docs/milestones/M02.07.md` (registry architecture)
 - **UI Orchestration**: UI retrieves models from Sim and sends to Engine (UI-M3.x)
 
 ## Architecture Principles (KISS)

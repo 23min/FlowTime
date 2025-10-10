@@ -453,7 +453,7 @@ See "Phase 3: Testing & Validation" section above for manual test cases
 ### Files to Create
 
 **Priority: P1 (Tracking)**
-- `docs/milestones/tracking/UI-M2.9-tracking.md` - Implementation tracking document
+- `docs/milestones/tracking/UI-M02.09-tracking.md` - Implementation tracking document
 
 ---
 
@@ -498,7 +498,7 @@ See "Phase 3: Testing & Validation" section above for manual test cases
 ## Related Documents
 
 - [UI Current State Analysis](../ui/UI-CURRENT-STATE-ANALYSIS.md) - Comprehensive breakage analysis
-- [M2.9 Milestone](M2.9.md) - Engine schema evolution (complete)
-- [SIM-M2.6 Milestone](../../flowtime-sim-vnext/docs/milestones/SIM-M2.6.md) - Sim schema evolution
+- [M2.9 Milestone](M02.09.md) - Engine schema evolution (complete)
+- [SIM-M2.6 Milestone](../../flowtime-sim-vnext/docs/milestones/SIM-M02.06.md) - Sim schema evolution
 - [Milestone Documentation Guide](../development/milestone-documentation-guide.md) - Documentation standards
 

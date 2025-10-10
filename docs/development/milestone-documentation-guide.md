@@ -404,7 +404,7 @@ All task checklists MUST follow this order:
 
 ## Quick Links
 
-- **Milestone Document:** [`docs/milestones/UI-M2.9.md`](../UI-M2.9.md)
+- **Milestone Document:** [`docs/milestones/UI-M02.09.md`](../UI-M02.09.md)
 - **Related Analysis:** [`docs/ui/UI-CURRENT-STATE-ANALYSIS.md`](../../ui/UI-CURRENT-STATE-ANALYSIS.md)
 
 ---
@@ -468,21 +468,21 @@ All task checklists MUST follow this order:
 ## Examples of Good Milestones
 
 ### Simple Milestone
-See: [`docs/milestones/M2.10.md`](../milestones/M2.10.md)
+See: [`docs/milestones/M02.10.md`](../milestones/M02.10.md)
 - ✅ Clear scope (provenance queries)
 - ✅ Specific API/CLI requirements
 - ✅ Test cases included
 - ⚠️ Remove time estimate (violates rule)
 
 ### Complex Milestone
-See: [`docs/milestones/M2.9.md`](../milestones/M2.9.md)
+See: [`docs/milestones/M02.09.md`](../milestones/M02.09.md)
 - ✅ Multi-phase implementation
 - ✅ TDD approach documented
 - ✅ Comprehensive test plan
 - ✅ Architecture decisions
 
 ### UI Milestone
-See: [`docs/milestones/UI-M2.9.md`](../milestones/UI-M2.9.md)
+See: [`docs/milestones/UI-M02.09.md`](../milestones/UI-M02.09.md)
 - ⚠️ Needs update (outdated schema assumptions)
 - ⚠️ Remove date stamp
 - ⚠️ Remove time estimates

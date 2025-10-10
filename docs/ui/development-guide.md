@@ -1,6 +1,6 @@
 # FlowTime UI Development Guide
 
-> **📋 Charter Development**: UI development follows charter-aligned patterns. See [M2.8](../milestones/M2.8.md) for backend APIs and [UI-M2.8.md](../milestones/UI-M2.8.md) for UI implementation. This guide covers setup for [Models|Runs|Artifacts|Learn] charter development.
+> **📋 Charter Development**: UI development follows charter-aligned patterns. See [M2.8](../milestones/M02.08.md) for backend APIs and [UI-M02.08.md](../milestones/UI-M02.08.md) for UI implementation. This guide covers setup for [Models|Runs|Artifacts|Learn] charter development.
 
 **Version:** 2.0 (Charter-Aligned)  
 **Audience:** UI developers, frontend engineers  

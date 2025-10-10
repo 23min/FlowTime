@@ -103,4 +103,4 @@ curl "http://localhost:8080/runs/hello/run_TIMESTAMP_HASH/series/served@SERVED@D
 
 **Contributors**: GitHub Copilot  
 **Test Results**: 33/33 tests passing  
-**Documentation**: `/docs/milestones/SVC-M1.md`
+**Documentation**: `/docs/milestones/SVC-M01.00.md`

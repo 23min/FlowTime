@@ -1,6 +1,6 @@
 # FlowTime UI API Integration Guide
 
-> **📋 Charter Integration**: This guide covers charter-aligned API integration patterns for [M2.8](../milestones/M2.8.md) registry workflows and [M2.7](../milestones/M2.7.md) artifacts system. All patterns support the [Models|Runs|Artifacts|Learn] paradigm with registry-centric state management.
+> **📋 Charter Integration**: This guide covers charter-aligned API integration patterns for [M2.8](../milestones/M02.08.md) registry workflows and [M2.7](../milestones/M02.07.md) artifacts system. All patterns support the [Models|Runs|Artifacts|Learn] paradigm with registry-centric state management.
 
 **Version:** 2.0 (Charter-Aligned)  
 **Audience:** UI developers, integration engineers  

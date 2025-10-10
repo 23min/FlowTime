@@ -806,8 +806,8 @@ parameters:
 ### 6.8 Related Documents
 
 **Internal:**
-- M1 Implementation Plan: `docs/milestones/M1.md`
-- M2 Implementation Plan: `docs/milestones/M2.md`
+- M1 Implementation Plan: `docs/milestones/M01.00.md`
+- M2 Implementation Plan: `docs/milestones/M02.00.md`
 - M3 Implementation Plan: `docs/milestones/M3.md`
 - M4 Implementation Plan: `docs/milestones/M4.md`
 - API Reference: `docs/api/openapi.yaml`
