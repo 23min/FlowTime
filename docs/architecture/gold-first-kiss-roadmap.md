@@ -54,9 +54,9 @@ Extend model schema and engine to support window, topology, file sources, and ex
 ### Deliverables
 
 **Schema Extensions:**
-1. Window section in model schema (start, timezone)
-2. Topology section (nodes with kind/semantics, edges)
-3. File source support for const nodes (`source: "file://path"`)
+1. Window section in model schema (`startTimeUtc`, timezone)
+2. Topology section (nodes with semantics → `file:` URIs, edges)
+3. File-based telemetry wiring via topology semantics
 4. Initial condition enforcement for self-referencing SHIFT
 
 **Engine Changes:**
@@ -530,7 +530,8 @@ The M3.x milestones provide the backend surface required for the time-travel UI 
 - **Health Banner:** Surface validation warnings (telemetry mode) and errors (simulation mode) inline with the playback experience.
 
 ### Backend Support Delivered in M3.x
-- `POST /v1/runs` (existing) returns `runId`, run manifest, topology, and series artifacts the UI can cache for layout.
+- `POST /v1/graph` (existing) parses model metadata and returns topology + semantics aligned to the KISS schema; the UI can reuse this response for graph layout previews.
+- `POST /v1/runs` returns `runId`, run manifest, topology, and series artifacts the UI can cache for layout.
 - `GET /v1/runs/{runId}/state?binIndex={idx}` provides:
   - Window metadata (`start`, `timezone`, `binMinutes`)
   - Per-node semantics (arrivals, served, queue, capacity) plus derived metrics

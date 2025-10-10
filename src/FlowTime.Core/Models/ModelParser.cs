@@ -1,5 +1,8 @@
+using System;
+using System.Collections.Generic;
 using System.Globalization;
 using FlowTime.Core.Execution;
+using FlowTime.Core.Expressions;
 using FlowTime.Core.Nodes;
 using System.Linq;
 
@@ -19,6 +22,8 @@ public static class ModelParser
     /// <exception cref="ModelParseException">Thrown when parsing fails</exception>
     public static (TimeGrid Grid, Graph Graph) ParseModel(ModelDefinition model)
     {
+        ValidateInitialConditions(model);
+
         if (model.Grid == null)
             throw new ModelParseException("Model must have a grid definition");
         
@@ -37,6 +42,8 @@ public static class ModelParser
 
     public static ModelMetadata ParseMetadata(ModelDefinition model, string? modelDirectory = null)
     {
+        ValidateInitialConditions(model);
+
         if (model.Grid == null)
             throw new ModelParseException("Model must have a grid definition");
         if (model.Grid.BinSize <= 0 || string.IsNullOrEmpty(model.Grid.BinUnit))
@@ -127,6 +134,117 @@ public static class ModelParser
             parsed = DateTime.SpecifyKind(parsed, DateTimeKind.Utc);
 
         return parsed;
+    }
+
+    private static void ValidateInitialConditions(ModelDefinition model)
+    {
+        ArgumentNullException.ThrowIfNull(model);
+
+        if (model.Nodes == null || model.Nodes.Count == 0)
+            return;
+
+        var topologyInitials = new Dictionary<string, bool>(StringComparer.Ordinal);
+        if (model.Topology?.Nodes != null)
+        {
+            foreach (var topoNode in model.Topology.Nodes)
+            {
+                if (string.IsNullOrWhiteSpace(topoNode.Id))
+                    continue;
+
+                topologyInitials[topoNode.Id] = topoNode.InitialCondition != null;
+            }
+        }
+
+        foreach (var node in model.Nodes)
+        {
+            if (!string.Equals(node.Kind, "expr", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            if (string.IsNullOrWhiteSpace(node.Id) || string.IsNullOrWhiteSpace(node.Expr))
+                continue;
+
+            ExpressionNode ast;
+            try
+            {
+                var parser = new ExpressionParser(node.Expr);
+                ast = parser.Parse();
+            }
+            catch
+            {
+                // Expression parse errors are handled later when nodes are compiled.
+                continue;
+            }
+
+            if (SelfShiftDetector.HasSelfReferencingShift(ast, node.Id))
+            {
+                if (!topologyInitials.TryGetValue(node.Id, out var hasInitial) || !hasInitial)
+                {
+                    throw new ModelParseException($"Expression node '{node.Id}' uses SHIFT on itself and requires an initial condition (topology.nodes[].initialCondition.queueDepth).");
+                }
+            }
+        }
+    }
+
+    private sealed class SelfShiftDetector : IExpressionVisitor<object?>
+    {
+        private readonly string nodeId;
+
+        private SelfShiftDetector(string nodeId)
+        {
+            this.nodeId = nodeId;
+        }
+
+        public bool HasSelfShift { get; private set; }
+
+        public static bool HasSelfReferencingShift(ExpressionNode ast, string nodeId)
+        {
+            var detector = new SelfShiftDetector(nodeId);
+            ast.Accept(detector);
+            return detector.HasSelfShift;
+        }
+
+        public object? VisitBinaryOp(Expressions.BinaryOpNode node)
+        {
+            if (HasSelfShift) return null;
+            node.Left.Accept(this);
+            node.Right.Accept(this);
+            return null;
+        }
+
+        public object? VisitFunctionCall(Expressions.FunctionCallNode node)
+        {
+            if (HasSelfShift) return null;
+
+            if (string.Equals(node.FunctionName, "SHIFT", StringComparison.OrdinalIgnoreCase) &&
+                node.Arguments.Count == 2 &&
+                node.Arguments[0] is Expressions.NodeReferenceNode referenceNode &&
+                string.Equals(referenceNode.NodeId, nodeId, StringComparison.Ordinal))
+            {
+                if (node.Arguments[1] is Expressions.LiteralNode literal && literal.Value > 0)
+                {
+                    HasSelfShift = true;
+                    return null;
+                }
+            }
+
+            foreach (var argument in node.Arguments)
+            {
+                if (HasSelfShift) break;
+                argument.Accept(this);
+            }
+
+            return null;
+        }
+
+        public object? VisitNodeReference(Expressions.NodeReferenceNode node)
+        {
+            return null;
+        }
+
+        public object? VisitLiteral(Expressions.LiteralNode node)
+        {
+            return null;
+        }
     }
 
     /// <summary>
