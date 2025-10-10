@@ -1,0 +1,155 @@
+### FlowTime-Sim API: Model Generation and Retrieval Workflow
+### This file documents and tests the complete workflow for:
+### 1. Template discovery
+### 2. Model generation with hash computation
+### 3. Model retrieval and verification
+
+@baseUrl = http://localhost:8090
+@templateId = it-system-microservices
+
+###############################################################################
+# Health Check
+###############################################################################
+
+### Check service health
+GET {{baseUrl}}/healthz HTTP/1.1
+
+### Check health with endpoint details
+GET {{baseUrl}}/healthz?include-details=1 HTTP/1.1
+
+###############################################################################
+# Template Discovery
+###############################################################################
+
+### List all available templates
+GET {{baseUrl}}/api/v1/templates HTTP/1.1
+
+### Get specific template metadata
+GET {{baseUrl}}/api/v1/templates/{{templateId}} HTTP/1.1
+
+###############################################################################
+# Model Generation (with modelHash computation)
+###############################################################################
+
+### Generate model from template (no parameters)
+# Expected response includes:
+# - model: YAML content
+# - templateId: "it-system-microservices"
+# - parameters: {}
+# - modelHash: "sha256:..." (computed via ModelHasher)
+# - path: file system location
+# Side effects:
+# - Creates data/models/{templateId}/model.yaml
+# - Creates data/models/{templateId}/metadata.json with hash
+POST {{baseUrl}}/api/v1/templates/{{templateId}}/generate HTTP/1.1
+Content-Type: application/json
+
+{}
+
+### Generate model with custom parameters
+# Note: it-system-microservices template doesn't use parameters
+# Use this as a template for other parameterized templates
+POST {{baseUrl}}/api/v1/templates/manufacturing-line/generate HTTP/1.1
+Content-Type: application/json
+
+{
+  "numStations": 5,
+  "cycleTimeMinutes": 15
+}
+
+###############################################################################
+# Model Retrieval (includes modelHash from metadata.json)
+###############################################################################
+
+### List all generated models
+# Returns array with modelHash for each model
+GET {{baseUrl}}/api/v1/models HTTP/1.1
+
+### Get specific model by templateId
+# Returns:
+# - templateId: source template identifier
+# - model: full YAML content
+# - path: file system location
+# - size: file size in bytes
+# - modifiedUtc: last modification timestamp
+# - modelHash: "sha256:..." (read from metadata.json)
+GET {{baseUrl}}/api/v1/models/{{templateId}} HTTP/1.1
+
+###############################################################################
+# Catalog Operations (for reference)
+###############################################################################
+
+### List all catalogs
+GET {{baseUrl}}/api/v1/catalogs HTTP/1.1
+
+### Get specific catalog
+GET {{baseUrl}}/api/v1/catalogs/demo-system HTTP/1.1
+
+### Create/update catalog
+PUT {{baseUrl}}/api/v1/catalogs/test-catalog HTTP/1.1
+Content-Type: application/x-yaml
+
+name: test-catalog
+description: Test catalog for verification
+version: 1.0.0
+nodes:
+  - id: test_node
+    kind: const
+    values: [1, 2, 3]
+
+###############################################################################
+# Verification Workflow
+###############################################################################
+
+### Step 1: Generate a fresh model
+POST {{baseUrl}}/api/v1/templates/it-system-microservices/generate HTTP/1.1
+Content-Type: application/json
+
+{}
+
+# Copy the modelHash from the response above
+# Expected format: sha256:ab4586517323e9774824c63ea80a8ee6290f97aa7053a703589dc88ba2268e81
+
+### Step 2: Retrieve the model and verify hash matches
+GET {{baseUrl}}/api/v1/models/it-system-microservices HTTP/1.1
+
+# Compare the modelHash in this response with Step 1
+# They should be identical
+
+### Step 3: List all models and verify hash appears
+GET {{baseUrl}}/api/v1/models HTTP/1.1
+
+# Find it-system-microservices in the array
+# Verify modelHash matches Steps 1 and 2
+
+###############################################################################
+# Expected Hash Values (for reference)
+###############################################################################
+
+# it-system-microservices (default parameters):
+#   sha256:ab4586517323e9774824c63ea80a8ee6290f97aa7053a703589dc88ba2268e81
+#
+# Hash computation:
+# - Canonical JSON normalization of model YAML
+# - SHA256 digest
+# - Formatted as "sha256:{hex}"
+# - Deterministic and reproducible
+
+###############################################################################
+# Error Cases (for testing)
+###############################################################################
+
+### Generate with invalid template ID
+POST {{baseUrl}}/api/v1/templates/nonexistent-template/generate HTTP/1.1
+Content-Type: application/json
+
+{}
+
+### Get model that doesn't exist
+GET {{baseUrl}}/api/v1/models/nonexistent-model HTTP/1.1
+
+### Generate with malformed JSON
+POST {{baseUrl}}/api/v1/templates/{{templateId}}/generate HTTP/1.1
+Content-Type: application/json
+
+{ invalid json }

@@ -1,0 +1,25 @@
+metadata:
+  id: m2.pmf
+  title: SIM-M2.1 PMF example (node-based)
+  description: Basic PMF discrete arrivals represented as a node
+schemaVersion: 1
+rng:
+  kind: pcg32
+  seed: 42
+grid:
+  bins: 10
+  binSize: 60
+  binUnit: minutes
+nodes:
+  - id: arrivals
+    kind: pmf
+    pmf:
+      values: [1, 2, 3]
+      probabilities: [0.2, 0.5, 0.3]
+  - id: COMP_A
+    kind: expr
+    expression: arrivals
+    dependencies: [arrivals]
+outputs:
+  - id: events
+    source: COMP_A

@@ -1,0 +1,121 @@
+# Manufacturing Production Line - Template
+# Production line with workstations, quality control, and bottleneck identification
+
+metadata:
+  id: 'manufacturing-line'
+  title: 'Manufacturing Production Line'
+  description: 'Production line with workstations, quality control, and bottleneck identification'
+  tags: [intermediate, manufacturing, production, bottleneck, quality]
+
+parameters:
+  - name: bins
+    type: integer
+    title: "Time Periods"
+    description: "Number of time periods to simulate"
+    default: 6
+    minimum: 3
+    maximum: 48
+  - name: binSize
+    type: integer
+    title: "Period Duration"
+    description: "Duration of each time period in minutes"
+    default: 60
+    minimum: 15
+    maximum: 480
+  - name: rawMaterialSchedule
+    type: array
+    title: "Raw Material Schedule"
+    description: "Amount of raw materials available in each time period"
+    default: [100, 100, 80, 120, 100, 90]
+    minimum: 0
+    maximum: 500
+  - name: assemblyCapacity
+    type: array
+    title: "Assembly Line Capacity"
+    description: "Maximum items that can be assembled per time period"
+    default: [90, 90, 90, 90, 90, 90]
+    minimum: 1
+    maximum: 200
+  - name: qualityCapacity
+    type: array
+    title: "Quality Control Capacity"
+    description: "Maximum items that can be quality checked per time period"
+    default: [80, 80, 80, 80, 80, 80]
+    minimum: 1
+    maximum: 200
+  - name: qualityRate
+    type: number
+    title: "Quality Pass Rate"
+    description: "Percentage of items that pass quality control (0.0-1.0)"
+    default: 0.95
+    minimum: 0.1
+    maximum: 1.0
+  - name: productionRate
+    type: number
+    title: "Production Rate"
+    description: "Base production rate per time period"
+    default: 12
+    minimum: 1
+    maximum: 100
+  - name: defectRate
+    type: number
+    title: "Defect Rate"
+    description: "Percentage of items that become defective (0.0-1.0)"
+    default: 0.05
+    minimum: 0.0
+    maximum: 0.5
+
+grid:
+  bins: ${bins}
+  binSize: ${binSize}
+  binUnit: minutes
+
+nodes:
+  # Raw material availability
+  - id: raw_materials
+    kind: const
+    values: ${rawMaterialSchedule}
+
+  # Assembly line capacity
+  - id: assembly_capacity
+    kind: const
+    values: ${assemblyCapacity}
+
+  # Quality control capacity
+  - id: quality_control_capacity
+    kind: const
+    values: ${qualityCapacity}
+
+  # Items assembled
+  - id: assembly
+    kind: expr
+    expression: "MIN(raw_materials, assembly_capacity)"
+
+  # Items passing quality control
+  - id: quality_control
+    kind: expr
+    expression: "assembly * ${qualityRate}"
+
+  # Final packaged products
+  - id: packaging
+    kind: expr
+    expression: "MIN(quality_control, ${productionRate} * 0.9)"
+
+  # Defective items (waste)
+  - id: defects
+    kind: expr
+    expression: "assembly * ${defectRate}"
+
+outputs:
+  - id: raw_materials
+    source: raw_materials
+    filename: raw_materials.csv
+  - id: packaging
+    source: packaging
+    filename: finished_goods.csv
+  - id: defects
+    source: defects
+    filename: defects.csv
+  - id: quality_control
+    source: quality_control
+    filename: quality_passed.csv

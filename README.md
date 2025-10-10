@@ -3,274 +3,147 @@
 [![Build](https://github.com/23min/FlowTime/actions/workflows/build.yml/badge.svg)](https://github.com/23min/FlowTime/actions/workflows/build.yml)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
-> **FlowTime** is a deterministic, discrete-time, graph-based engine that models flows (entities) across services and queues, producing explainable time-series for backlog, latency, and throughput—useful for **what-if** (simulation) and **what-is/what-was** (time-travel observability). It feels **spreadsheet-like**, with a lightweight **SPA UI** for interactive analysis.
+FlowTime is a unified platform for modelling, simulating, and exploring service flows. It combines:
 
-All features are callable via the **HTTP API** first; CLI and UI consume the same surface.
+- **FlowTime Engine** – a deterministic, discrete-time execution engine and API for “what-is/what-was” time-travel observability.
+- **FlowTime Sim** – a template-driven simulation toolkit for “what-if” scenario generation and model authoring.
 
----
-
-## Table of contents
-
-- Overview
-- Repository layout  
-- Quickstart
-- Current status
-- Usage
-- Docs & roadmap
-- Contributing
-- License
+Together they let you design flows, generate synthetic demand, execute models, and inspect artifacts from a single mono-repository.
 
 ---
 
-## Overview
+## ⚠️ Repository Consolidation Notice
 
-FlowTime provides **explainable flow modeling** and **time-travel observability** without heavyweight simulation tooling. Designed for SREs, platform engineers, data/ops analysts, and product owners who want "spreadsheet-like" clarity with reproducible runs and CSV outputs.
+As of v0.7.0 the FlowTime-Sim codebase lives inside this repository alongside the Engine surface.
 
-### Key features
+**Sim projects now in-scope**
+- `src/FlowTime.Sim.Core`
+- `src/FlowTime.Sim.Service` (API on :8090)
+- `src/FlowTime.Sim.Cli`
+- `tests/FlowTime.Sim.Tests`
 
-* **What-if**: model scenarios like outages, surges, reroutes, retry storms
-* **What-is/what-was**: visualize system state and history for incident forensics, SLA monitoring, and business flow impact
-* **Unification**: single source of truth that maps technical telemetry into business-relevant flows
-* **Scalability**: run in seconds on 100+ nodes × months of telemetry, suitable for interactive analysis
-* **Ownership**: lightweight codebase, no costly DES licenses, extensible by your team
+**Unified build/run workflow**
+```bash
+dotnet build              # Builds Engine + Sim + UI
+dotnet test               # Runs all test projects
 
-### Architecture
+# Engine API (http://localhost:8080)
+dotnet run --project src/FlowTime.API
 
-**Artifacts-centric execution core** within **Engine+Sim ecosystem**:
+# Sim API (http://localhost:8090)
+dotnet run --project src/FlowTime.Sim.Service
+```
 
-* **FlowTime.Core** — the engine: canonical time grid, series math, DAG, nodes/evaluation
-* **FlowTime.API** — HTTP API for graph/run operations with health monitoring
-* **FlowTime.Cli** — CLI that evaluates YAML models and writes CSV artifacts  
-* **FlowTime.UI** — Charter-aligned SPA for artifact-centric analysis and visualization
-
-**Workflow**: [Models] → [Runs] → [Artifacts] → [Learn] with file-based registry for artifact organization.
-  * [Real‑time](#real-time)
-  * [CLI reference (M0)](#cli-reference-m0)
-* [Milestone M0 scope](#milestone-m0-scope)
-* [What’s next (milestone ladder)](#whats-next-milestone-ladder)
-* [CI/CD & deployment](#cicd--deployment)
-* [Data & formats](#data--formats)
-* [Concepts](docs/concepts/nodes-and-expressions.md)
-* [CLI Guide](docs/CLI.md)
-* [Docs & roadmap](#docs--roadmap)
-* [Contributing](#contributing)
-* [License](#license)
-* [Trademark](#trademark)
+Documentation parity is still in progress; simulation docs remain under `docs-sim/` until the Phase 5 migration wraps.
 
 ---
 
-## Who is this for?
+## At a Glance
 
-Teams who need **explainable flow modeling** and **time-travel observability**—without heavyweight simulation tooling. SREs, platform eng, data/ops analysts, and product owners who want “spreadsheet-like” clarity with reproducible runs and CSV outputs.
+| Surface | Purpose | Key Projects |
+|---------|---------|--------------|
+| **Engine** | Deterministic execution, artifact registry, REST API, Blazor UI | `src/FlowTime.Core`, `src/FlowTime.API`, `src/FlowTime.CLI`, `ui/FlowTime.UI`, `tests/FlowTime.*` |
+| **Sim** | Template-based model authoring, provenance, synthetic data APIs | `src/FlowTime.Sim.Core`, `src/FlowTime.Sim.Service`, `src/FlowTime.Sim.Cli`, `tests/FlowTime.Sim.Tests` |
 
-## Design principles
-
-### API‑First
-
-* All features are callable via the **HTTP API** first.
-* CLI, UI, and automation layers consume the same API surface.
-* Ensures end‑to‑end validation from day one. *(Initial hosting may use **Azure Functions**, but the API is host‑agnostic and swappable.)*
-
-### Spreadsheet Metaphor
-
-* Deterministic, **grid‑aligned** evaluation.
-* Cells ≈ time‑bins; formulas = **expressions**, **PMFs**, and built‑ins.
-* Graph nodes reference each other like spreadsheet cells.
-
-### Visualization Early
-
-* UI is introduced early, not deferred.
-* Basic charts validate the model, aid debugging, and improve adoption.
-
-### Expressions as Core
-
-* `expr:` fields make FlowTime “spreadsheet‑y”.
-* Roles: **modeling** dependencies & math; **lineage** across nodes; **teaching/demo** for non‑experts.
-
-### Probabilistic Mass Functions (PMFs)
-
-* Optional approximation for arrivals/attempts.
-* Replaceable by real telemetry; telemetry can also be reduced to PMFs.
-* Scope: start with **expected‑value series**; later add **convolution/propagation**.
+Why FlowTime:
+- Explainable flow modelling with spreadsheet-like graphs and expressions.
+- Side-by-side “what-if” (Sim) and “what-is” (Engine) validation.
+- Shared schemas/contracts to keep downstream consumers aligned.
+- Lightweight .NET 9 stack with CLI, API, and UI entry points.
 
 ---
 
-## Architecture
-
-> **📋 Charter Notice**: For complete architecture details and current development roadmap, see [FlowTime-Engine Charter](docs/charter/flowtime-engine.md) and [Roadmap](docs/ROADMAP.md).
-
-**FlowTime-Engine** operates as an **artifacts-centric execution core** within the broader **Engine+Sim ecosystem**:
-
-### Core Workflow
-**[Models]** → **[Runs]** → **[Artifacts]** → **[Learn]**
-
-1. **Models**: YAML definitions of flow systems 
-2. **Runs**: Deterministic execution producing time-series data
-3. **Artifacts**: Structured outputs (CSV, exports, metadata) stored in file-based registry
-4. **Learn**: Analysis, visualization, and insight extraction from artifact collections
-
-### Engine+Sim Ecosystem
-
-* **FlowTime-Engine** — execution core with artifacts-centric workflow *(this repository)*
-* **FlowTime-Sim** — specialized simulation extensions and advanced modeling *(separate repository)*
-
-### FlowTime-Engine Components
-
-* **FlowTime.Core** — canonical time grid, series math, DAG, nodes/evaluation
-* **FlowTime.API** — HTTP API for graph/run operations with health monitoring  
-* **FlowTime.Cli** — CLI that evaluates YAML models and writes CSV artifacts
-* **FlowTime.UI** — Charter-aligned SPA for incremental artifact-centric analysis
-
-### Charter Milestones (Current)
-
-* **M2.7**: KISS File-Based Registry - Simple artifact organization and discovery
-* **M2.8**: Incremental Charter UI - Artifact-centric interface aligned with charter workflow
-* **M2.9**: Contextual Compare - Cross-run analysis within artifact collections
-
-See [Roadmap](docs/ROADMAP.md) for comprehensive development roadmap and [FlowTime-Engine Charter](docs/charter/flowtime-engine.md) for architecture principles.
-
----
-
-## Repository layout
+## Repository Layout
 
 ```
 flowtime-vnext/
-├─ src/FlowTime.API/              # HTTP API with health monitoring
-├─ src/FlowTime.Core/             # Engine (grid, graph, nodes)
-├─ src/FlowTime.Cli/              # CLI driver
-├─ ui/FlowTime.UI/                # Blazor WASM SPA
-├─ tests/                         # Core + API tests
-├─ docs/                          # Roadmap, contracts, schemas, concepts
-├─ examples/hello/                # Sample model
-└─ FlowTime.sln
+├─ src/
+│  ├─ FlowTime.Core/             # Engine execution core
+│  ├─ FlowTime.API/              # Engine HTTP API (:8080)
+│  ├─ FlowTime.CLI/              # Engine CLI
+│  ├─ FlowTime.Contracts/        # Shared models/schemas
+│  ├─ FlowTime.Adapters.Synthetic/ # Engine synthetic adapters
+│  ├─ FlowTime.Sim.Core/         # Simulation templates + provenance
+│  ├─ FlowTime.Sim.Service/      # Simulation HTTP API (:8090)
+│  └─ FlowTime.Sim.Cli/          # Simulation CLI utilities
+├─ ui/FlowTime.UI/               # Blazor WebAssembly UI (:5219)
+├─ tests/                        # Engine + Sim test projects
+├─ docs/                         # Engine + shared documentation
+├─ docs-sim/                     # Simulation documentation (Phase 5 merge)
+├─ templates/                    # Simulation templates
+├─ examples/                     # Example models
+├─ .devcontainer/                # Unified dev container setup
+├─ .github/                      # CI workflows and Copilot instructions
+└─ FlowTime.sln                  # Unified solution file
 ```
 
 ---
 
 ## Quickstart
 
-### Local development
+### Prerequisites
 
-**Prereqs**: .NET **9** SDK, Git.
+- .NET 9 SDK
+- Git
+- Optional: VS Code with Dev Containers for a ready-to-run environment (`.devcontainer/`).
 
-```powershell
-# restore & build
+### Build & Test Everything
+
+```bash
 dotnet restore
-dotnet build
-
-# run unit tests
-dotnet test
-
-# run the example model (writes out/hello/served.csv)
-dotnet run --project src/FlowTime.Cli -- run examples/hello/model.yaml --out out/hello
-
-# peek at the CSV (first lines)
-Get-Content out/hello/served.csv | Select-Object -First 5
+dotnet build FlowTime.sln
+dotnet test FlowTime.sln
 ```
 
-Bash equivalent:
+Or use VS Code tasks: `build`, `build-sim`, `test`, `test-sim`.
+
+### Run the Engine Surface
 
 ```bash
-head -n 5 out/hello/served.csv
+# Start the Engine API on http://localhost:8080
+dotnet run --project src/FlowTime.API --urls http://0.0.0.0:8080
+
+# Launch the Blazor UI (default http://localhost:5219)
+dotnet run --project ui/FlowTime.UI
+
+# Execute a model via CLI (writes CSV artifacts under out/)
+dotnet run --project src/FlowTime.CLI -- run examples/m0.const.yaml --out out/m0
 ```
 
-## Running and calling the API
-
-You can run the minimal API locally from this repo and call it over HTTP.
-
-- VS Code: Run and Debug → "FlowTime.API" (F5). It binds to `http://0.0.0.0:8080` inside the container or `http://localhost:5091` per launch settings when run on the host.
-- CLI: from the repo root:
-  - `dotnet run --project src/FlowTime.API --urls http://0.0.0.0:8080`
-  - or hot reload: `dotnet watch --project src/FlowTime.API run --urls http://0.0.0.0:8080`
-
-Call the API (examples use the shared network name `flowtime-api`; use `localhost:8080` from host):
+### Run the Simulation Surface
 
 ```bash
-curl -s http://flowtime-api:8080/healthz
+# Start the Sim API on http://localhost:8090
+ASPNETCORE_URLS=http://0.0.0.0:8090 dotnet run --project src/FlowTime.Sim.Service
 
-cat > /tmp/model.yaml << 'YAML'
-grid: { bins: 4, binMinutes: 60 }
-nodes:
-  - id: demand
-    kind: const
-    values: [10,20,30,40]
-  - id: served
-    kind: expr
-    expr: "demand * 0.8"
-outputs:
-  - series: served
-    as: served.csv
-YAML
+# Generate a model from a template
+dotnet run --project src/FlowTime.Sim.Cli -- generate --id transportation-basic --out out/model.yaml
 
-curl -s -X POST http://localhost:8080/v1/run \
-  -H "Content-Type: text/plain" \
-  --data-binary @/tmp/model.yaml | jq .
+# Execute Sim unit tests only
+dotnet test tests/FlowTime.Sim.Tests/FlowTime.Sim.Tests.csproj
 ```
 
-### Model YAML Compatibility
+---
 
-FlowTime uses the same YAML model format as [FlowTime-Sim](https://github.com/23min/FlowTime-Sim) but handles determinism differently:
+## Documentation
 
-- **FlowTime**: Always deterministic - ignores `seed` and `rng` fields if present
-- **FlowTime-Sim**: Requires `seed` and `rng` fields for deterministic synthetic data generation
+- Engine + shared docs: `docs/` (roadmap, architecture, schemas, onboarding).
+- Simulation docs: `docs-sim/` (templates, CLI guides, milestone history) – slated for Phase 5 consolidation.
+- Consolidation plan: [`REPO-CONSOLIDATION-PLAN.md`](REPO-CONSOLIDATION-PLAN.md).
 
-This means you can share models between both engines.
-
-## Current status
-
-| Milestone | Description | Status |
-|-----------|-------------|--------|
-| **M0** | Minimal deterministic engine with CLI and CSV export | ✅ Completed |
-| **M1** | Contracts parity with structured artifacts and schema validation | ✅ Completed |
-| **M1.5** | Expression language with SHIFT operator, MIN/MAX/CLAMP functions | ✅ Completed |
-| **M1.6** | BenchmarkDotNet infrastructure for professional performance testing | ✅ Completed |
-| **M2** | PMF Support - Probability Mass Functions for uncertainty modeling | ✅ Completed |
-| **SVC-M0** | HTTP API with `/run`, `/graph`, `/healthz` endpoints | ✅ Completed |
-| **SVC-M1** | Artifact serving API with run data access endpoints | ✅ Completed |
-| **SYN-M0** | Synthetic adapter for reading FlowTime-Sim and CLI artifacts | ✅ Completed |
-| **UI-M0** | Blazor WASM SPA with API integration and simulation mode | ✅ Completed |
-| **UI-M1** | Template-based simulation runner with dynamic forms | ✅ Completed |
-| **UI-M2** | Health monitoring, API versioning, and real API integration | ✅ Completed |
-
-**Current Release**: v0.4.0 - PMF Support complete with comprehensive testing and performance validation.
-
-## Usage
-
-### CLI
-
-```bash
-# Evaluate a YAML model and generate artifact set
-dotnet run --project src/FlowTime.Cli -- run <path/to/model.yaml> --out out/<name> --verbose
-
-# Options
-# --out out/run1                    # output directory
-# --verbose                         # print evaluation summary + schema validation results
-# --deterministic-run-id            # stable runId for testing/CI (based on scenario hash)
-# --seed 42                         # RNG seed for reproducible results
-```
-
-## Docs & roadmap
-
-- **CLI Guide**: [`docs/CLI.md`](docs/CLI.md) - Complete command-line usage and examples
-- **UI Documentation**: [`docs/UI.md`](docs/UI.md) - UI setup, configuration, and usage
-- **Deployment Guide**: [`docs/deployment.md`](docs/deployment.md) - Production deployment options
-- **Roadmap**: [`docs/ROADMAP.md`](docs/ROADMAP.md) - Comprehensive project roadmap with charter vision and development phases
-- **Development Setup**: [`docs/development-setup.md`](docs/development-setup.md) - Development environment setup
-- **Configuration**: [`docs/configuration.md`](docs/configuration.md) - Configuration reference
-- **Testing Strategy**: [`docs/testing.md`](docs/testing.md) - Testing approach and guidelines
-- **Concepts**: [`docs/concepts/nodes-and-expressions.md`](docs/concepts/nodes-and-expressions.md) - Core modeling concepts
-- **Contracts**: [`docs/contracts.md`](docs/contracts.md) - API contracts and specifications
+---
 
 ## Contributing
 
-We welcome issues and PRs.
+1. Branch from the appropriate milestone branch (e.g., `feature/<surface>-mX/<desc>` aligned with the active milestone).
+2. Keep builds/tests passing (`dotnet build`, `dotnet test`).
+3. Follow Conventional Commits (`feat(sim): ...`, `fix(api): ...`, `docs: ...`).
+4. Update docs/tests alongside code changes.
 
-1. Create a topic branch from `main`.
-2. `dotnet test` must pass; keep analyzers/formatting clean.
-3. Follow Conventional Commits (`feat:`, `fix:`, `docs:`, ...).
-4. For larger changes, open an issue first to align on direction.
+Issues and pull requests are welcome—open a discussion first for large changes to align with the roadmap.
+
+---
 
 ## License
 
-**MIT** — permissive and simple. See [`LICENSE`](LICENSE).
-
+MIT. See [`LICENSE`](LICENSE).

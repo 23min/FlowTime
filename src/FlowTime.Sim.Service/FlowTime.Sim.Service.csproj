@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <VersionPrefix>0.6.0</VersionPrefix>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Embed git commit hash at build time -->
+    <SourceRevisionId Condition="'$(SourceRevisionId)' == ''">$([System.DateTime]::UtcNow.ToString(yyyyMMddHHmmss))</SourceRevisionId>
+  </PropertyGroup>
+
+  <Target Name="GetGitHash" BeforeTargets="GetAssemblyVersion">
+    <Exec Command="git rev-parse --short HEAD" ContinueOnError="true" ConsoleToMSBuild="true" Condition="Exists('.git')">
+      <Output TaskParameter="ConsoleOutput" PropertyName="GitHash" />
+    </Exec>
+    <PropertyGroup>
+      <GitHash Condition="'$(GitHash)' == ''">unknown</GitHash>
+    </PropertyGroup>
+    <ItemGroup>
+      <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+        <_Parameter1>GitCommitHash</_Parameter1>
+        <_Parameter2>$(GitHash)</_Parameter2>
+      </AssemblyAttribute>
+      <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+        <_Parameter1>BuildTime</_Parameter1>
+        <_Parameter2>$([System.DateTime]::UtcNow.ToString(yyyy-MM-ddTHH:mm:ssZ))</_Parameter2>
+      </AssemblyAttribute>
+    </ItemGroup>
+  </Target>
+
+  <ItemGroup>
+    <ProjectReference Include="../FlowTime.Sim.Core/FlowTime.Sim.Core.csproj" />
+    <ProjectReference Include="../FlowTime.Sim.Cli/FlowTime.Sim.Cli.csproj" />
+  </ItemGroup>
+
+  <!-- Exclude legacy files from compilation (pending physical deletion) -->
+  <ItemGroup>
+    <Compile Remove="FileSystemTemplateRepository.cs" />
+    <Compile Remove="ITemplateRepository.cs" />
+    <Compile Remove="NodeBasedTemplateRepositoryAdapter.cs" />
+    <Compile Remove="TemplateRegistry.cs" />
+  </ItemGroup>
+
+</Project>

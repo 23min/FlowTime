@@ -3,10 +3,6 @@
     {
       "name": "flowtime-vnext",
       "path": "."
-    },
-    {
-      "name": "flowtime-sim-vnext",
-      "path": "../flowtime-sim-vnext"
     }
   ],
   "settings": {
