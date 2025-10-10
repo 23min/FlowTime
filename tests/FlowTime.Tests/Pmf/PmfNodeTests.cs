@@ -1,5 +1,7 @@
-using FlowTime.Core;
+using FlowTime.Core.Models;
+using FlowTime.Core.Nodes;
 using FlowTime.Core.Pmf;
+using CorePmf = FlowTime.Core.Pmf;
 
 namespace FlowTime.Tests.Pmf;
 
@@ -10,7 +12,7 @@ public class PmfNodeTests
     {
         // Arrange
         var nodeId = new NodeId("test");
-        var pmf = new Core.Pmf.Pmf(new Dictionary<double, double> { { 10, 0.5 }, { 20, 0.5 } });
+        var pmf = new CorePmf.Pmf(new Dictionary<double, double> { { 10, 0.5 }, { 20, 0.5 } });
 
         // Act
         var node = new PmfNode(nodeId, pmf);
@@ -35,7 +37,7 @@ public class PmfNodeTests
     {
         // Arrange
         var node = new PmfNode(new NodeId("test"), 
-            new Core.Pmf.Pmf(new Dictionary<double, double> { { 1, 1.0 } }));
+            new CorePmf.Pmf(new Dictionary<double, double> { { 1, 1.0 } }));
 
         // Act
         var inputs = node.Inputs.ToList();
@@ -49,7 +51,7 @@ public class PmfNodeTests
     {
         // Arrange
         var nodeId = new NodeId("demand");
-        var pmf = new Core.Pmf.Pmf(new Dictionary<double, double> { { 10, 0.2 }, { 20, 0.3 }, { 30, 0.5 } });
+        var pmf = new CorePmf.Pmf(new Dictionary<double, double> { { 10, 0.2 }, { 20, 0.3 }, { 30, 0.5 } });
         var node = new PmfNode(nodeId, pmf);
         var grid = new TimeGrid(4, 60, TimeUnit.Minutes); // 4 bins, 60 minutes each
         
@@ -69,7 +71,7 @@ public class PmfNodeTests
     public void Evaluate_DifferentGridSizes_ProducesCorrectSizedSeries()
     {
         // Arrange
-        var pmf = new Core.Pmf.Pmf(new Dictionary<double, double> { { 42, 1.0 } });
+        var pmf = new CorePmf.Pmf(new Dictionary<double, double> { { 42, 1.0 } });
         var node = new PmfNode(new NodeId("test"), pmf);
 
         // Act & Assert for various grid sizes
@@ -94,7 +96,7 @@ public class PmfNodeTests
         {
             { 0, 0.05 }, { 50, 0.25 }, { 100, 0.4 }, { 150, 0.25 }, { 200, 0.05 }
         };
-        var pmf = new Core.Pmf.Pmf(distribution);
+        var pmf = new CorePmf.Pmf(distribution);
         var node = new PmfNode(new NodeId("demand"), pmf);
         var grid = new TimeGrid(3, 60, TimeUnit.Minutes);
 
@@ -115,7 +117,7 @@ public class PmfNodeTests
     {
         // Arrange
         var nodeId = new NodeId("test_node");
-        var pmf = new Core.Pmf.Pmf(new Dictionary<double, double> { { 10, 1.0 } });
+        var pmf = new CorePmf.Pmf(new Dictionary<double, double> { { 10, 1.0 } });
         var node = new PmfNode(nodeId, pmf);
 
         // Act
@@ -132,7 +134,7 @@ public class PmfNodeTests
     {
         // Arrange
         var nodeId = new NodeId("test");
-        var pmf = new Core.Pmf.Pmf(new Dictionary<double, double> { { 10, 0.5 }, { 20, 0.5 } });
+        var pmf = new CorePmf.Pmf(new Dictionary<double, double> { { 10, 0.5 }, { 20, 0.5 } });
         var node1 = new PmfNode(nodeId, pmf);
         var node2 = new PmfNode(nodeId, pmf);
 
@@ -145,7 +147,7 @@ public class PmfNodeTests
     public void Equals_DifferentNodeId_ReturnsFalse()
     {
         // Arrange
-        var pmf = new Core.Pmf.Pmf(new Dictionary<double, double> { { 10, 1.0 } });
+        var pmf = new CorePmf.Pmf(new Dictionary<double, double> { { 10, 1.0 } });
         var node1 = new PmfNode(new NodeId("node1"), pmf);
         var node2 = new PmfNode(new NodeId("node2"), pmf);
 
@@ -158,8 +160,8 @@ public class PmfNodeTests
     {
         // Arrange
         var nodeId = new NodeId("test");
-        var pmf1 = new Core.Pmf.Pmf(new Dictionary<double, double> { { 10, 1.0 } });
-        var pmf2 = new Core.Pmf.Pmf(new Dictionary<double, double> { { 20, 1.0 } });
+        var pmf1 = new CorePmf.Pmf(new Dictionary<double, double> { { 10, 1.0 } });
+        var pmf2 = new CorePmf.Pmf(new Dictionary<double, double> { { 20, 1.0 } });
         var node1 = new PmfNode(nodeId, pmf1);
         var node2 = new PmfNode(nodeId, pmf2);
 

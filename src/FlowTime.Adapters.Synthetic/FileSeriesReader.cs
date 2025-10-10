@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
-using FlowTime.Core;
+using FlowTime.Core.Execution;
+using FlowTime.Core.Models;
 
 namespace FlowTime.Adapters.Synthetic;
 

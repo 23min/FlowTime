@@ -13,26 +13,26 @@ This chapter provides detailed milestones with acceptance criteria, dependencies
 **Team Size:** 2-3 engineers (1 senior, 1-2 mid-level)
 
 **Milestones:**
-- M1 (2 days): Foundation - File sources and initial conditions
-- M2 (3 days): TelemetryLoader - ADX integration
-- M3 (3 days): Templates - System and instantiation
-- M4 (2 days): Polish - Validation, observability, documentation
+- M3.0 (2 days): Foundation + Fixtures
+- M3.1 (3 days): Time-Travel APIs
+- M3.2 (3 days): TelemetryLoader + Templates
+- M3.3 (2 days): Validation + Polish
 
 **Dependencies:**
-- M1 has no dependencies (can start immediately)
-- M2 requires M1 (file source support needed)
-- M3 requires M1 (templates reference file sources)
-- M4 requires M2+M3 (integrates all components)
+- M3.0 has no dependencies (can start immediately)
+- M3.1 requires M3.0 (fixtures + schema)
+- M3.2 requires M3.0 (schema) and informs M3.1 consumers
+- M3.3 requires M3.1+M3.2 (integrates all components)
 
 ---
 
-### 5.2 Milestone 1: Foundation (2 days)
+### 5.2 Milestone M3.0: Foundation (2 days)
 
-#### M1.1 Goal
+#### M3.0.1 Goal
 
 Extend Engine to support file sources for const nodes and enforce explicit initial conditions for self-referencing expressions.
 
-#### M1.2 Scope
+#### M3.0.2 Scope
 
 **Deliverables:**
 1. File source support for const nodes
@@ -42,11 +42,11 @@ Extend Engine to support file sources for const nodes and enforce explicit initi
 5. Documentation updates
 
 **Non-Goals:**
-- Template system (M3)
-- Telemetry integration (M2)
-- API changes (M4)
+- Template system (M3.2)
+- Telemetry integration (M3.1)
+- API changes (M3.3)
 
-#### M1.3 Acceptance Criteria
+#### M3.0.3 Acceptance Criteria
 
 **AC1: File Source Support**
 ```
@@ -119,7 +119,7 @@ When: initial: "q0_from_telemetry"
 Then: Initial value is q0_from_telemetry[0]
 ```
 
-#### M1.4 Technical Design
+#### M3.0.4 Technical Design
 
 **File Source Implementation:**
 
@@ -169,7 +169,7 @@ Evaluator Changes:
   2. Store initial conditions in evaluation context
 ```
 
-#### M1.5 Testing Strategy
+#### M3.0.5 Testing Strategy
 
 **Unit Tests (15 tests):**
 
@@ -219,7 +219,7 @@ Test_FileSourceRegression_FixedInput_ConsistentOutput
   - Compare artifacts to golden artifacts (byte-for-byte)
 ```
 
-#### M1.6 Risks and Mitigation
+#### M3.0.6 Risks and Mitigation
 
 | Risk | Probability | Impact | Mitigation |
 |------|-------------|--------|------------|
@@ -228,7 +228,7 @@ Test_FileSourceRegression_FixedInput_ConsistentOutput
 | Large file memory usage | Low | Medium | Stream CSVs row-by-row, don't load entire file at once |
 | Initial condition type confusion | Medium | Low | Clear error messages, add examples to docs |
 
-#### M1.7 Deliverables Checklist
+#### M3.0.7 Deliverables Checklist
 
 - [ ] File source parsing (ConstNode.source field)
 - [ ] File path resolution (relative and absolute)
@@ -247,128 +247,330 @@ Test_FileSourceRegression_FixedInput_ConsistentOutput
 
 ---
 
-### 5.3 Milestone 2: TelemetryLoader (3 days)
+### 5.3 Milestone M3.1: Time-Travel APIs (3 days)
 
-#### M2.1 Goal
+#### M3.1.1 Goal
 
-Implement TelemetryLoader to extract telemetry from Azure Data Explorer and write to CSV files.
+Deliver `/state` and `/state_window` endpoints that expose bin-level snapshots, derived metrics, and node coloring so the UI can ship the first time-travel experience.
 
-#### M2.2 Scope
+#### M3.1.2 Scope
 
 **Deliverables:**
-1. TelemetryLoader class with Load() method
-2. ADX connection and query execution
-3. Dense bin filling (zero-fill or NaN)
-4. CSV file writing
-5. Manifest generation
-6. Warning collection
-7. Configuration system
-8. Unit and integration tests
+1. `GET /v1/runs/{runId}/state?binIndex={idx}` single-bin snapshot endpoint
+2. `GET /v1/runs/{runId}/state_window?startBin={s}&endBin={e}` range endpoint
+3. Derived metrics pipeline (utilization, latency_min, throughput ratio)
+4. Node coloring engine (service utilization, queue latency bands, fallback)
+5. API contract types (`StateResponse`, `StateWindowResponse`)
+6. Provenance + window metadata surfaced in responses
+7. Instrumentation (structured logging, duration metrics) for the new endpoints
+8. Comprehensive tests (unit, integration, golden) covering success and failure modes
 
 **Non-Goals:**
-- Template system (M3)
-- API integration (M4)
-- Advanced gap detection (post-M4)
+- Telemetry ingestion (TelemetryLoader lives in M3.2)
+- Template system enhancements (M3.2)
+- Validation severity changes or observability polish (M3.3)
+- Aggregation or rollup endpoints beyond the base `/state_window`
 
-#### M2.3 Acceptance Criteria
+#### M3.1.3 Acceptance Criteria
 
-**AC1: ADX Connection**
+**AC1: /state Single Bin**
 ```
-Given: Valid ADX connection string in config
+GET /v1/runs/run_abc123/state?binIndex=42
+
+Response:
+{
+  "runId": "run_abc123",
+  "mode": "simulation",
+  "window": {
+    "start": "2025-10-07T00:00:00Z",
+    "timezone": "UTC"
+  },
+  "grid": {
+    "bins": 288,
+    "binSize": 5,
+    "binUnit": "minutes",
+    "binMinutes": 5
+  },
+  "bin": {
+    "index": 42,
+    "startUtc": "2025-10-07T03:30:00Z",
+    "endUtc": "2025-10-07T03:35:00Z"
+  },
+  "nodes": {
+    "OrderService": {
+      "kind": "service",
+      "arrivals": 150,
+      "served": 145,
+      "errors": 5,
+      "capacity": null,
+      "utilization": null,
+      "throughputRatio": 0.97,
+      "color": "gray"
+    },
+    "OrderQueue": {
+      "kind": "queue",
+      "arrivals": 145,
+      "served": 140,
+      "queue": 8,
+      "latency_min": 0.286,
+      "sla_min": 5.0,
+      "color": "green"
+    }
+  }
+}
+```
+
+**AC2: /state_window Time Series**
+```
+GET /v1/runs/run_abc123/state_window?startBin=0&endBin=144
+
+Response:
+{
+  "runId": "run_abc123",
+  "window": {...},
+  "grid": {...},
+  "slice": {
+    "startBin": 0,
+    "endBin": 144,
+    "bins": 144
+  },
+  "timestamps": [
+    "2025-10-07T00:00:00Z",
+    "2025-10-07T00:05:00Z",
+    ...
+  ],
+  "nodes": {
+    "OrderService": {
+      "kind": "service",
+      "series": {
+        "arrivals": [...],
+        "served": [...],
+        "errors": [...],
+        "utilization": [...]
+      }
+    }
+  }
+}
+```
+
+**AC3: Derived Metrics**
+- Utilization = `served / capacity` (null when capacity missing)
+- Latency_min = `queue / served × binMinutes` (zero or null when denominator zero)
+- Throughput ratio = `served / arrivals` (null when arrivals zero)
+- Metrics respect bin window (start exclusive, end exclusive)
+
+**AC4: Node Coloring**
+- Services: green <0.7, yellow 0.7–0.9, red ≥0.9 utilization
+- Queues: compare latency_min against SLA (green ≤1×, yellow ≤1.5×, red otherwise)
+- No capacity → gray, missing SLA → teal, errors escalate to warning header
+
+**AC5: Performance**
+- `/state` completes in <50 ms for 288-bin runs on dev hardware
+- `/state_window` (≤144 bins) completes in <200 ms
+- Responses include `Cache-Control: no-store` and structured timing logs
+
+#### M3.1.4 Technical Design
+
+**API Surface:**
+- Add two minimal GET handlers in `FlowTime.API` using endpoint routing
+- Input validation: `binIndex >= 0`, `startBin < endBin`, both ≤ `grid.bins`
+- Shared pipeline for loading run manifests, window metadata, and series slices
+
+**Derived Metric Pipeline:**
+- Introduce `FlowTime.Core.Metrics` namespace with `StateMetricComputer`
+- Compute metrics lazily per node kind, using shared helpers for safe division
+- Store intermediate results in `StateSnapshot` domain model for reuse across endpoints
+
+**Node Coloring Engine:**
+- Move thresholds into `NodeColoringRules` with mode-based configuration (telemetry vs simulation)
+- Support fallback colors (`gray`, `teal`) when inputs missing
+- Return both `color` and `colorReason` to help UI debugging
+
+**Data Access:**
+- Reuse existing run artifact reader to hydrate baseline series
+- Provide lightweight caching layer (in-memory dictionary scoped to request) to avoid duplicate CSV reads
+- Expose provenance + schema_version from run manifest in responses
+
+**Observability:**
+- Structured logs (`StateRequestStarted`, `StateRequestCompleted`)
+- Metrics: `flowtime_api_state_duration_ms`, `flowtime_api_state_window_duration_ms`
+- Include warning headers when derived metrics fall back (e.g., division by zero)
+
+#### M3.1.5 Testing Strategy
+
+**Unit Tests (approximately 15):**
+- `StateMetricComputerTests` (utilization, latency, throughput, null handling)
+- `NodeColoringRulesTests` (service/queue thresholds, fallbacks)
+- `StateRequestValidatorTests` (bin ranges, negative indices, window bounds)
+- `StateResponseBuilderTests` (metadata population, provenance propagation)
+
+**Integration Tests (8):**
+- `StateEndpoint_ReturnsSingleBinSnapshot`
+- `StateEndpoint_InvalidBin_Returns400`
+- `StateWindowEndpoint_ReturnsDenseSlice`
+- `StateWindowEndpoint_InvalidRange_Returns400`
+- `StateEndpoint_ComputesDerivedMetrics`
+- `StateEndpoint_MissingCapacity_UsesNullsAndGray`
+- `StateWindowEndpoint_PartialNodes_FiltersUnavailableSeries`
+- `StateEndpoint_PerformanceWithinBudget` (measured via test harness)
+
+**Golden Tests (2):**
+- Fixed run + bin index → compare serialized JSON to golden artifact
+- Fixed run + window slice → compare JSON (stable ordering, tolerances for floats)
+
+**Performance / Load Checks:**
+- Benchmark for 10 concurrent `/state` requests (target <75 ms p95)
+- Smoke test for `/state_window` with 500-bin slice to verify graceful error (413/400)
+
+#### M3.1.6 Risks and Mitigation
+
+| Risk | Probability | Impact | Mitigation |
+|------|-------------|--------|------------|
+| UI contract drift | Medium | High | Pair with UI mocks, publish OpenAPI spec, add contract tests |
+| Derived metric correctness | Medium | High | Double-entry unit tests with hand-computed fixtures |
+| Large run artifacts | Low | Medium | Stream CSV slices, limit requested window size |
+| Missing capacity/SLA data | High | Medium | Clear null semantics, fallback colors, surface warnings |
+| Performance regressions | Medium | Medium | Add benchmark gate, profile serialization hotspots |
+
+#### M3.1.7 Deliverables Checklist
+
+- [ ] `/v1/runs/{id}/state` endpoint implemented with validation
+- [ ] `/v1/runs/{id}/state_window` endpoint implemented with validation
+- [ ] Derived metric helpers (utilization, latency, throughput)
+- [ ] Node coloring rules with configuration hooks
+- [ ] Response contracts (`StateResponse`, `StateWindowResponse`) documented
+- [ ] Structured logging + duration metrics in place
+- [ ] 15+ unit tests passing for metrics/validation
+- [ ] 8 integration tests exercising HTTP surface
+- [ ] Golden snapshots checked in for regression coverage
+- [ ] API reference updated (docs/api/state-endpoints.md)
+- [ ] UI contract review completed
+- [ ] Code review complete / merged to main
+
+---
+
+### 5.4 Milestone M3.2: TelemetryLoader + Templates (3 days)
+
+#### M3.2.1 Goal
+
+Ship the telemetry ingestion pipeline (TelemetryLoader) and reusable template system so telemetry-first runs can be generated from ADX data and fed into the engine consistently.
+
+#### M3.2.2 Scope
+
+**Deliverables:**
+- **TelemetryLoader**
+  1. ADX connection + KQL query builder
+  2. Dense bin filling with zero/NaN strategies
+  3. CSV writer for arrivals/served/errors/queue_depth/external_demand
+  4. Manifest generator (window, grid, files[], warnings[], provenance, checksums)
+  5. Warning collection + configuration surface
+  6. CLI command / SDK hook to run the loader from dev machines
+- **Template System**
+  1. Template schema + authoring guide
+  2. Template parser with include resolution and cycle detection
+  3. Parameter validation + substitution pipeline
+  4. Template instantiation producing canonical `model.yaml`
+  5. Example templates (order-system, microservices, http-service)
+  6. CLI command for template instantiation
+- **Integration glue** between loader output directories and template parameters
+
+**Non-Goals:**
+- Public API endpoints (`/state`, `/state_window`) – completed in M3.1
+- Validation / observability polish – deferred to M3.3
+- Advanced templating constructs (conditionals, loops) – out of scope
+- Full production ADX deployment automation – tracked separately
+
+#### M3.2.3 Acceptance Criteria
+
+**TelemetryLoader**
+
+**AC-TL1: ADX Connectivity**
+```
+Given: Valid ADX connection settings
 When: TelemetryLoader initializes
-Then: Connection is established successfully
+Then: Connection succeeds
 
 Given: Invalid connection string
-When: TelemetryLoader.Load() is called
-Then: Error is raised with clear message
+When: TelemetryLoader.Load() executes
+Then: Clear error is raised and retried per policy
 ```
 
-**AC2: KQL Query Construction**
+**AC-TL2: Dense Bin Filling**
 ```
-Given: Request with window and node selection
-When: TelemetryLoader builds query
-Then: Query has correct time bounds and node filter
+Given: Results missing bins [12, 13]
+When: zeroFill=true
+Then: Missing bins are filled with 0 and warning recorded
 
-Example:
-  Input: window = [2025-10-07 00:00, 2025-10-08 00:00), nodes = ["OrderService"]
-  Expected KQL:
-    NodeTimeBin
-    | where ts >= datetime(2025-10-07T00:00:00Z) and ts < datetime(2025-10-08T00:00:00Z)
-    | where node in ("OrderService")
-    | order by node asc, ts asc
+Given: zeroFill=false
+Then: Missing bins use NaN and warning recorded
 ```
 
-**AC3: Dense Bin Filling**
-```
-Given: Query results missing bins [12, 13]
-When: TelemetryLoader performs dense filling
-Then: Output arrays have values at all bins 0..287
-
-Expected behavior:
-  If zeroFill=true:
-    Missing bins filled with 0
-    Warning added: "Zero-filled bins: 12-13"
-  
-  If zeroFill=false:
-    Missing bins filled with NaN
-    Warning added: "Missing bins: 12-13"
-```
-
-**AC4: CSV File Writing**
+**AC-TL3: CSV + Manifest Output**
 ```
 Given: Telemetry data for OrderService
-When: Loader writes files
-Then: Files are created:
-  - OrderService_arrivals.csv (288 lines, one number per line)
-  - OrderService_served.csv
-  - OrderService_errors.csv
-  - OrderService_demand.csv (if external_demand present)
-  - OrderService_queue.csv (if queue_depth present)
-
-File format:
-  120
-  135
-  140
-  ...
+When: Loader finishes
+Then: CSV files exist (arrivals/served/errors/queue/external_demand if present)
+And: manifest.json includes window, grid, files[], warnings[], provenance
 ```
 
-**AC5: Manifest Generation**
+**AC-TL4: Error Handling**
 ```
-Given: Successful telemetry load
-When: Loader completes
-Then: manifest.json is created with:
-  - window (start, end, timezone)
-  - grid (bins, binSize, binUnit)
-  - files[] (node, metric, path, rows, checksum)
-  - warnings[] (data gaps, quality issues)
-  - provenance (extraction_ts, source, loader_version)
+Given: ADX throttling or timeout
+When: Query executes
+Then: Loader retries with exponential backoff and surfaces failure after retry limit
 ```
 
-**AC6: Error Handling**
+**Template System**
+
+**AC-TPL1: Template Parsing**
 ```
-Given: ADX query timeout
-When: Loader executes query
-Then: Retry 3 times with exponential backoff
-And: If all retries fail, raise error with details
+Given: Valid template YAML
+When: TemplateParser.Parse(path) is called
+Then: Template object matches schema
 
-Given: Node not found in Gold
-When: Loader processes results
-Then: Warning added: "Node '{name}' not found in Gold"
-And: Process continues with available nodes
+Given: Invalid YAML
+Then: Parser raises error with line and column details
 ```
 
-#### M2.4 Technical Design
+**AC-TPL2: Parameter Validation + Substitution**
+```
+Given: Required parameter missing
+When: Instantiate(template, parameters) executes
+Then: Error: "Required parameter 'q0' missing"
 
-**Class Structure:**
+Given: "{{telemetry_dir}}" placeholder
+Then: Instantiated model resolves to provided path
+```
+
+**AC-TPL3: Include Resolution**
+```
+Given: Template includes shared/common.yaml
+When: Parser loads template
+Then: Nodes/edges from include merged, template overrides win
+
+Given: Circular include
+Then: Error: "Circular include detected: A → B → A"
+```
+
+**AC-TPL4: Model Generation**
+```
+Given: order-system template + parameters
+When: Instantiate runs
+Then: Output model.yaml contains window, topology, nodes, provenance, validation rules
+```
+
+#### M3.2.4 Technical Design
+
+**TelemetryLoader Architecture**
 
 ```
 TelemetryLoader
   + Load(request: LoadRequest): LoadResult
-  - ValidateRequest(request): void
+  - ValidateRequest(request)
   - BuildQuery(request): string
   - ExecuteQuery(query): QueryResult
   - DenseFill(results, grid): DenseArrays
-  - WriteCSV(node, metric, data, outputDir): string
+  - WriteCsv(node, metric, data, outputDir): string
   - GenerateManifest(files, warnings): Manifest
 
 LoadRequest
@@ -376,12 +578,6 @@ LoadRequest
   + selection: NodeSelection
   + outputDir: string
   + options: LoadOptions
-
-LoadResult
-  + success: boolean
-  + manifest: TelemetryManifest
-  + warnings: Warning[]
-  + errors: Error[]
 
 TelemetryManifest
   + window: TimeWindow
@@ -391,246 +587,12 @@ TelemetryManifest
   + provenance: Provenance
 ```
 
-**Configuration:**
+- Configurable via `appsettings.json` (zeroFill, maxBins, retryCount, queryTimeout, gapWarningThreshold).
+- Supports Managed Identity, Service Principal, or AAD token auth.
+- Streams ADX query results row-by-row to avoid large allocations.
+- Warning system captures gaps, missing nodes, and schema mismatches for M3.3 validation.
 
-```
-appsettings.json:
-{
-  "adx": {
-    "cluster": "https://cluster.region.kusto.windows.net",
-    "database": "Telemetry",
-    "auth": {
-      "type": "ManagedIdentity"
-    }
-  },
-  "telemetryLoader": {
-    "zeroFill": true,
-    "checksums": true,
-    "maxBins": 10000,
-    "queryTimeout": 30,
-    "retryCount": 3,
-    "gapWarningThreshold": 15
-  }
-}
-```
-
-#### M2.5 Testing Strategy
-
-**Unit Tests (20 tests):**
-
-```
-# Validation
-Test_ValidateRequest_ValidInput_Passes
-Test_ValidateRequest_NonUTC_Throws
-Test_ValidateRequest_MisalignedStart_Throws
-Test_ValidateRequest_EmptyNodes_Throws
-
-# Query Construction
-Test_BuildQuery_SingleNode_CorrectKQL
-Test_BuildQuery_MultipleNodes_CorrectKQL
-Test_BuildQuery_TimeWindow_CorrectBounds
-
-# Dense Filling
-Test_DenseFill_NoGaps_ReturnsOriginal
-Test_DenseFill_WithGaps_FillsWithZeros
-Test_DenseFill_LargeGap_AddsWarning
-Test_DenseFill_NaNOption_FillsWithNaN
-
-# CSV Writing
-Test_WriteCSV_ValidData_CreatesFile
-Test_WriteCSV_Checksum_MatchesExpected
-
-# Manifest
-Test_GenerateManifest_AllFields_Present
-Test_GenerateManifest_Warnings_Included
-
-# Error Handling
-Test_ExecuteQuery_Timeout_RetriesAndFails
-Test_ExecuteQuery_NodeNotFound_ContinuesWithWarning
-Test_ExecuteQuery_ConnectionFailed_Throws
-
-# Configuration
-Test_LoadConfig_ValidFile_ReturnsConfig
-Test_LoadConfig_MissingFile_UsesDefaults
-```
-
-**Integration Tests (5 tests):**
-
-```
-Test_LoadFromMockADX_ValidWindow_ProducesFiles
-  - Mock ADX with fixture data (288 bins)
-  - Request OrderService
-  - Verify all files created with correct rows
-
-Test_LoadFromMockADX_WithGaps_FillsAndWarns
-  - Mock ADX missing bins 12-13
-  - Verify zero-filled
-  - Verify warning in manifest
-
-Test_LoadFromMockADX_MultipleNodes_AllProcessed
-  - Mock ADX with OrderService and BillingService
-  - Request both
-  - Verify all files for both nodes
-
-Test_LoadFromMockADX_NodeNotFound_ContinuesGracefully
-  - Mock ADX has OrderService only
-  - Request OrderService + NonExistent
-  - Verify OrderService files created
-  - Verify warning for NonExistent
-
-Test_LoadFromMockADX_LargeWindow_HandlesCorrectly
-  - Request 10,000 bins
-  - Verify performance acceptable (<5s)
-```
-
-**Mock ADX Setup:**
-
-```
-Use in-memory data structure mimicking ADX results:
-  - Fixture data with known timestamps and values
-  - Ability to simulate gaps
-  - Ability to simulate timeouts or errors
-  - Configurable delay for performance testing
-```
-
-#### M2.6 Risks and Mitigation
-
-| Risk | Probability | Impact | Mitigation |
-|------|-------------|--------|------------|
-| ADX authentication issues | Medium | High | Test with multiple auth methods (MI, SP, Azure CLI), clear error messages |
-| Query throttling | Medium | Medium | Implement exponential backoff, add rate limit config |
-| Large result sets (memory) | Low | Medium | Stream results, process row-by-row |
-| CSV write failures (disk full) | Low | High | Check disk space before writing, atomic writes |
-| Time zone confusion | Medium | High | Enforce UTC everywhere, validate in parser |
-
-#### M2.7 Deliverables Checklist
-
-- [ ] TelemetryLoader class implemented
-- [ ] ADX connection handling (with auth)
-- [ ] KQL query construction
-- [ ] Query execution with retry logic
-- [ ] Dense bin filling (zero-fill and NaN options)
-- [ ] CSV file writing (single-column format)
-- [ ] Manifest generation (JSON format)
-- [ ] Warning collection system
-- [ ] Configuration system (appsettings.json)
-- [ ] 20 unit tests passing
-- [ ] 5 integration tests passing
-- [ ] Mock ADX infrastructure for tests
-- [ ] Documentation: TelemetryLoader API
-- [ ] Documentation: Configuration options
-- [ ] Code review completed
-- [ ] Merged to main branch
-
----
-
-### 5.4 Milestone 3: Templates (3 days)
-
-#### M3.1 Goal
-
-Implement template system for reusable topology definitions and expression formulas.
-
-#### M3.2 Scope
-
-**Deliverables:**
-1. Template schema definition
-2. Template parser and validator
-3. Parameter system (types, defaults, validation)
-4. Template instantiation (parameter substitution)
-5. Include mechanism (shared templates)
-6. Template library (2-3 example templates)
-7. Documentation and examples
-
-**Non-Goals:**
-- Advanced templating (conditionals, loops) - M4+
-- Template versioning system - M4+
-- Template marketplace - Post-M4
-
-#### M3.3 Acceptance Criteria
-
-**AC1: Template Parsing**
-```
-Given: Valid template YAML file
-When: TemplateParser.Parse() is called
-Then: Template object is returned with all fields populated
-
-Given: Invalid YAML syntax
-When: TemplateParser.Parse() is called
-Then: Error is raised with line number and description
-```
-
-**AC2: Parameter Validation**
-```
-Given: Template with required parameter "q0"
-When: Instantiation called without "q0"
-Then: Error is raised: "Required parameter 'q0' missing"
-
-Given: Template with number parameter "q0"
-When: Instantiation called with q0="text"
-Then: Error is raised: "Parameter 'q0' must be number, got string"
-
-Given: Template with enum parameter "mode"
-When: Instantiation called with mode="invalid"
-Then: Error is raised: "Parameter 'mode' must be one of [telemetry, simulation]"
-```
-
-**AC3: Parameter Substitution**
-```
-Given: Template with "{{q0}}" in expression
-When: Instantiation called with q0=5
-Then: Generated model has "initial: 5" (substituted)
-
-Given: Template with nested reference "{{params.q0}}"
-When: Instantiation called with q0=10
-Then: Substitution resolves to 10
-
-Given: Template with "{{window.start}}"
-When: Instantiation called with window.start="2025-10-07T00:00:00Z"
-Then: Substitution resolves to "2025-10-07T00:00:00Z"
-```
-
-**AC4: Include Mechanism**
-```
-Given: Template A includes "shared/common.yaml"
-When: Template A is loaded
-Then: Nodes and edges from common.yaml are merged into Template A
-
-Given: Template A and common.yaml define overlapping node IDs
-When: Template A is loaded
-Then: Template A definitions override common.yaml (later wins)
-```
-
-**AC5: Template Instantiation**
-```
-Given: Template "order-system.yaml" with parameters
-When: ModelBuilder.Instantiate(template, parameters)
-Then: Complete model.yaml is generated with:
-  - schemaVersion: 1
-  - window (from parameters)
-  - grid (from parameters)
-  - topology (from template)
-  - nodes (from template expressions)
-  - provenance (template name, version, parameters)
-```
-
-**AC6: Validation**
-```
-Given: Template with topology referencing non-existent series
-When: Template is validated
-Then: Error is raised: "Semantic 'arrivals' references unknown series 'orders_arrivals'"
-
-Given: Template with circular include (A includes B, B includes A)
-When: Template is loaded
-Then: Error is raised: "Circular include detected: A → B → A"
-
-Given: Template with self-referencing expression without initial
-When: Template is validated
-Then: Error is raised per M1 validation rules
-```
-
-#### M3.4 Technical Design
-
-**Class Structure:**
+**Template System Architecture**
 
 ```
 Template
@@ -640,180 +602,115 @@ Template
   + parameters: ParameterDefinition[]
   + includes: Include[]
   + topology: TopologyDefinition
-  + expressions: ExpressionDefinition[]
+  + nodes: NodeDefinition[]
   + validation: ValidationRule[]
-  + outputs: OutputDefinition[]
-
-ParameterDefinition
-  + name: string
-  + type: ParameterType (string | number | boolean | enum)
-  + required: boolean
-  + default: any
-  + allowedValues: any[] (for enum)
-  + min: number (for number)
-  + max: number (for number)
 
 TemplateParser
   + Parse(filePath): Template
-  - LoadYaml(filePath): object
-  - ResolveIncludes(template): Template
-  - ValidateSyntax(template): ValidationResult
-  - ValidateSemantics(template): ValidationResult
+  - LoadYaml(filePath)
+  - ResolveIncludes(template)
+  - ValidateSyntax(template)
+  - ValidateSemantics(template)
 
-ModelBuilder
-  + Instantiate(template, parameters, grid, window): Model
-  - ValidateParameters(template.parameters, providedParams): void
-  - SubstituteParameters(template, params): Template
-  - GenerateModel(template): Model
+TemplateInstantiator
+  + Instantiate(template, parameters): Model
+  - ValidateParameters(template.parameters, input)
+  - SubstitutePlaceholders(template, parameterSet)
+  - BuildModel(template, substitutions)
+
+IncludeResolver
+  + Resolve(basePath, include): TemplateFragment
+  - DetectCircularIncludes(pathStack)
 ```
 
-**Parameter Substitution Algorithm:**
+- Include resolution allows shared topology fragments with override semantics.
+- Double-curly substitution supports escaping (`{{{{` → `{`).
+- Provenance recorded in output model (`template.name`, `template.version`, `parameters`).
+- CLI command (`flowtime template instantiate`) drives instantiation end-to-end.
 
+#### M3.2.5 Testing Strategy
+
+**TelemetryLoader Unit Tests (≈20):**
 ```
-1. Walk template tree (topology, expressions, outputs)
-2. For each string value:
-   a. Check if contains "{{...}}"
-   b. Extract parameter name
-   c. Validate parameter exists
-   d. Replace with value
-   e. Convert to target type if needed
-3. Return substituted template
-```
-
-#### M3.5 Testing Strategy
-
-**Unit Tests (25 tests):**
-
-```
-# Parsing
-Test_Parse_ValidTemplate_ReturnsObject
-Test_Parse_InvalidYAML_ThrowsError
-Test_Parse_MissingRequiredField_ThrowsError
-
-# Parameters
-Test_ValidateParameters_AllPresent_Passes
-Test_ValidateParameters_MissingRequired_Throws
-Test_ValidateParameters_WrongType_Throws
-Test_ValidateParameters_OutOfRange_Throws
-Test_ValidateParameters_InvalidEnum_Throws
-Test_ApplyDefaults_MissingOptional_UsesDefault
-
-# Substitution
-Test_Substitute_ScalarParameter_Replaces
-Test_Substitute_NestedParameter_Replaces
-Test_Substitute_MultipleOccurrences_ReplacesAll
-Test_Substitute_NoParameters_NoChange
-
-# Includes
-Test_ResolveIncludes_SingleInclude_Merges
-Test_ResolveIncludes_MultipleIncludes_MergesAll
-Test_ResolveIncludes_OverlappingNodes_LatestWins
-Test_ResolveIncludes_CircularReference_Throws
-
-# Validation
-Test_ValidateSemantics_AllRefsExist_Passes
-Test_ValidateSemantics_MissingRef_Throws
-Test_ValidateSemantics_DuplicateNodeId_Throws
-
-# Instantiation
-Test_Instantiate_ValidTemplate_GeneratesModel
-Test_Instantiate_WithIncludes_MergesCorrectly
-Test_Instantiate_Provenance_Included
-
-# Edge Cases
-Test_Substitute_SpecialCharacters_HandlesCorrectly
-Test_Substitute_NumberAsString_ConvertsCorrectly
-Test_Parse_LargeTemplate_Succeeds
+Test_ValidateRequest_ValidInput_Passes
+Test_ValidateRequest_NonUtc_Throws
+Test_BuildQuery_SingleNode_CorrectKql
+Test_BuildQuery_TimeWindow_CorrectBounds
+Test_DenseFill_WithGaps_FillsWithZeros
+Test_DenseFill_NaNOption_FillsWithNaN
+Test_WriteCsv_ChecksumMatchesExpected
+Test_GenerateManifest_IncludesWarnings
+Test_ExecuteQuery_Timeout_RetriesThenFails
+Test_ExecuteQuery_NodeNotFound_AddsWarning
 ```
 
-**Integration Tests (5 tests):**
-
+**TelemetryLoader Integration Tests (5):**
 ```
-Test_EndToEnd_TelemetryTemplate_GeneratesValidModel
-  - Load order-system.yaml template
-  - Instantiate with telemetry parameters
-  - Validate generated model.yaml
-  - Engine can parse and evaluate
-
-Test_EndToEnd_SimulationTemplate_GeneratesValidModel
-  - Load microservices.yaml template
-  - Instantiate with simulation parameters
-  - Validate generated model.yaml
-
-Test_EndToEnd_TemplateWithIncludes_ProducesExpectedModel
-  - Template includes shared topology
-  - Instantiate
-  - Verify merged nodes and edges
-
-Test_EndToEnd_ParameterizedTemplate_DifferentParams_DifferentModels
-  - Instantiate same template with q0=0
-  - Instantiate same template with q0=10
-  - Verify models differ only in initial value
-
-Test_EndToEnd_ComplexTemplate_AllFeatures_Success
-  - Template with parameters, includes, validation, outputs
-  - Instantiate
-  - Engine evaluates successfully
+Test_LoadFromMockAdx_ProducesFiles
+Test_LoadFromMockAdx_WithGaps_AddsWarning
+Test_LoadFromMockAdx_MultipleNodes_AllProcessed
+Test_LoadFromMockAdx_NodeNotFound_Continues
+Test_LoadFromMockAdx_LargeWindow_PerformanceOk
 ```
 
-#### M3.6 Template Library
+**Template System Unit Tests (≈25):**
+```
+Test_TemplateParser_ValidTemplate_Parses
+Test_TemplateParser_InvalidYaml_Throws
+Test_ParameterValidator_MissingRequired_Throws
+Test_ParameterValidator_InvalidType_Throws
+Test_TemplateInstantiator_SubstitutesParameters
+Test_TemplateInstantiator_IncludesMerged
+Test_TemplateValidator_SemanticsMissingSeries_Throws
+Test_TemplateValidator_SelfRefWithoutInitial_Throws
+Test_TemplateCli_InstantiateCommand_GeneratesModel
+Test_TemplateRegression_OrderSystem
+Test_TemplateRegression_Microservices
+```
 
-**Templates to Create:**
+**Template Integration Tests (6):**
+```
+Test_TemplateToModel_EndToEnd_OrderSystem
+Test_TemplateToModel_EndToEnd_Microservices
+Test_TemplateCli_Workflow_GeneratesAndRunsModel
+Test_TemplateValidation_WarningsCaptured
+Test_TemplateInclude_SharedNodesMerged
+Test_TelemetryTemplate_WithLoaderOutput
+```
 
-1. **order-system.yaml** (Telemetry, queue-based service)
-   - OrderService node
-   - OrderQueue node
-   - Expression for queue depth
-   - Capacity inference
-   - Conservation validation
-
-2. **http-service.yaml** (Telemetry, request-response)
-   - API service node
-   - No queue (stateless)
-   - Utilization computation
-   - SLA tracking
-
-3. **microservices.yaml** (Simulation, stochastic)
-   - Multiple services
-   - PMF-based arrivals
-   - Fixed capacities
-   - Routing between services
-
-#### M3.7 Risks and Mitigation
+#### M3.2.6 Risks and Mitigation
 
 | Risk | Probability | Impact | Mitigation |
 |------|-------------|--------|------------|
-| Parameter substitution edge cases | Medium | Medium | Extensive test coverage, clear error messages |
-| Include resolution complexity | Medium | Medium | Limit include depth (max 3 levels), detect cycles |
-| Template versioning conflicts | Low | High | Version in filename, validate compatibility |
-| User confusion about parameters | High | Low | Good documentation, examples, UI help text |
+| ADX authentication or throttling issues | Medium | High | Support multiple auth modes, exponential backoff, smoke scripts |
+| Large result sets (memory/IO pressure) | Medium | Medium | Stream results, cap `maxBins`, warn when limits exceeded |
+| CSV formatting inconsistencies | Medium | Medium | Strict validation, golden loader outputs, checksum verification |
+| Template complexity overwhelms authors | Medium | Medium | Keep syntax minimal, ship curated examples, provide docs |
+| Parameter substitution bugs | Medium | Medium | Extensive unit + golden tests, clear escaping rules |
+| Include resolution errors | Low | Medium | Cycle detection, max depth guard, clear error messages |
 
-#### M3.8 Deliverables Checklist
+#### M3.2.7 Deliverables Checklist
 
-- [ ] Template schema documentation
-- [ ] TemplateParser class implemented
-- [ ] Parameter validation system
-- [ ] Parameter substitution engine
-- [ ] Include resolution mechanism
-- [ ] ModelBuilder.Instantiate() method
-- [ ] Template validation (syntax and semantics)
-- [ ] 25 unit tests passing
-- [ ] 5 integration tests passing
-- [ ] 3 example templates (order-system, http-service, microservices)
-- [ ] Documentation: Template authoring guide
-- [ ] Documentation: Parameter reference
-- [ ] Code review completed
-- [ ] Merged to main branch
+- [ ] TelemetryLoader class + configuration committed
+- [ ] ADX retry + dense-fill logic implemented
+- [ ] CSV + manifest outputs validated with golden fixtures
+- [ ] Warning collection + provenance recorded
+- [ ] Template schema + authoring guide published
+- [ ] TemplateParser, IncludeResolver, ParameterValidator implemented
+- [ ] TemplateInstantiator + CLI command delivered
+- [ ] Example templates (order-system, microservices, http-service) checked in
+- [ ] Loader ↔ template glue documented (how to wire telemetry_dir parameters)
+- [ ] 20 TelemetryLoader unit tests + 5 integration tests passing
+- [ ] 25 Template unit tests + 6 integration tests + 2 golden tests passing
+- [ ] Code reviews complete / merged to main
 
----
+### 5.5 Milestone M3.3: Polish (2 days)
 
-### 5.5 Milestone 4: Polish (2 days)
-
-#### M4.1 Goal
+#### M3.3.1 Goal
 
 Integrate all components, add observability, complete documentation, and prepare for production.
 
-#### M4.2 Scope
+#### M3.3.2 Scope
 
 **Deliverables:**
 1. API orchestration (POST /v1/runs telemetry mode)
@@ -827,9 +724,9 @@ Integrate all components, add observability, complete documentation, and prepare
 **Non-Goals:**
 - UI implementation (separate project)
 - Advanced features (overlays, capacity prediction)
-- Multi-tenancy (post-M4)
+- Multi-tenancy (post-M3.3)
 
-#### M4.3 Acceptance Criteria
+#### M3.3.3 Acceptance Criteria
 
 **AC1: End-to-End Telemetry Flow**
 ```
@@ -910,7 +807,7 @@ And: Error responses include:
   - suggested action (if applicable)
 ```
 
-#### M4.4 Technical Design
+#### M3.3.4 Technical Design
 
 **API Orchestration:**
 
@@ -963,7 +860,7 @@ EvaluateValidation(validation, series):
   Return result
 ```
 
-#### M4.5 Testing Strategy
+#### M3.3.5 Testing Strategy
 
 **Integration Tests (10 tests):**
 
@@ -1038,7 +935,7 @@ Test_RepeatedRequests_NoLeaks
   - Verify no memory leaks
 ```
 
-#### M4.6 Observability Configuration
+#### M3.3.6 Observability Configuration
 
 **Metrics (Prometheus format):**
 
@@ -1092,7 +989,7 @@ Span: POST /v1/runs
     - Write Artifacts (duration: 300ms)
 ```
 
-#### M4.7 Documentation Deliverables
+#### M3.3.7 Documentation Deliverables
 
 **Architecture Documentation:**
 - This document (all 6 chapters)
@@ -1119,7 +1016,7 @@ Span: POST /v1/runs
 - Common workflows (time-travel, what-if)
 - FAQ
 
-#### M4.8 Deliverables Checklist
+#### M3.3.8 Deliverables Checklist
 
 - [ ] API orchestration implemented
 - [ ] POST /v1/runs telemetry mode working end-to-end
@@ -1148,19 +1045,19 @@ Span: POST /v1/runs
 
 | Risk | Probability | Impact | Mitigation |
 |------|-------------|--------|------------|
-| ADX integration complexity | Medium | High | Early M2 spike, fallback to mock for development |
+| ADX integration complexity | Medium | High | Early M3.1 spike, fallback to mock for development |
 | Parameter substitution bugs | Medium | Medium | Comprehensive test coverage, fuzzing |
-| Performance issues with large models | Low | Medium | Load testing in M4, optimization if needed |
+| Performance issues with large models | Low | Medium | Load testing in M3.3, optimization if needed |
 | Team member unavailability | Medium | Medium | Clear documentation, pair programming |
-| Scope creep (advanced features) | High | Medium | Strict milestone boundaries, defer to post-M4 |
+| Scope creep (advanced features) | High | Medium | Strict milestone boundaries, defer to post-M3.3 |
 
 **Mitigation Strategies:**
 
-1. **Early Integration:** Test end-to-end flow early in M2
+1. **Early Integration:** Test end-to-end flow early in M3.1
 2. **Automated Testing:** High test coverage (target >80%)
 3. **Documentation:** Document as we build, not after
 4. **Code Review:** All PRs require review before merge
-5. **Demo Early:** Show working system after M2 and M3
+5. **Demo Early:** Show working system after M3.1 and M3.2
 
 ---
 

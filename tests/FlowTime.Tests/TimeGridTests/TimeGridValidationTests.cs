@@ -1,4 +1,4 @@
-using FlowTime.Core;
+using FlowTime.Core.Models;
 
 namespace FlowTime.Tests.TimeGridTests;
 
@@ -14,10 +14,10 @@ public class TimeGridValidationTests
         // Arrange
         int bins = 100;
         int binSize = 5;
-        var binUnit = Core.TimeUnit.Hours;
+        var binUnit = TimeUnit.Hours;
         
         // Act
-        var grid = new Core.TimeGrid(bins, binSize, binUnit);
+        var grid = new TimeGrid(bins, binSize, binUnit);
         
         // Assert
         Assert.Equal(bins, grid.Bins);
@@ -31,7 +31,7 @@ public class TimeGridValidationTests
     {
         // Act & Assert
         var ex = Assert.Throws<ArgumentException>(() => 
-            new Core.TimeGrid(100, 0, Core.TimeUnit.Hours));
+            new TimeGrid(100, 0, TimeUnit.Hours));
         
         Assert.Contains("binSize", ex.Message);
     }
@@ -41,11 +41,11 @@ public class TimeGridValidationTests
     {
         // Act & Assert: bins must be >= 1 (zero and negative are invalid)
         var ex1 = Assert.Throws<ArgumentException>(() => 
-            new Core.TimeGrid(0, 5, Core.TimeUnit.Hours));
+            new TimeGrid(0, 5, TimeUnit.Hours));
         Assert.Contains("bins", ex1.Message);
         
         var ex2 = Assert.Throws<ArgumentException>(() => 
-            new Core.TimeGrid(-1, 5, Core.TimeUnit.Hours));
+            new TimeGrid(-1, 5, TimeUnit.Hours));
         Assert.Contains("bins", ex2.Message);
     }
     
@@ -54,7 +54,7 @@ public class TimeGridValidationTests
     {
         // Act & Assert
         var ex = Assert.Throws<ArgumentException>(() => 
-            new Core.TimeGrid(100, 1001, Core.TimeUnit.Hours));
+            new TimeGrid(100, 1001, TimeUnit.Hours));
         
         Assert.Contains("binSize", ex.Message);
         Assert.Contains("1000", ex.Message);
@@ -65,7 +65,7 @@ public class TimeGridValidationTests
     {
         // Act & Assert
         var ex = Assert.Throws<ArgumentException>(() => 
-            new Core.TimeGrid(10001, 5, Core.TimeUnit.Hours));
+            new TimeGrid(10001, 5, TimeUnit.Hours));
         
         Assert.Contains("bins", ex.Message);
         Assert.Contains("10000", ex.Message);
@@ -80,28 +80,28 @@ public class TimeGridValidationTests
         int bins, int binSize, int expectedMinutes)
     {
         // Note: Can't use enum in InlineData, so separate test per unit
-        var grid = new Core.TimeGrid(bins, binSize, Core.TimeUnit.Hours);
+        var grid = new TimeGrid(bins, binSize, TimeUnit.Hours);
         Assert.Equal(expectedMinutes, grid.TotalMinutes);
     }
     
     [Fact]
     public void TimeGrid_TotalDuration_Days()
     {
-        var grid = new Core.TimeGrid(7, 1, Core.TimeUnit.Days);
+        var grid = new TimeGrid(7, 1, TimeUnit.Days);
         Assert.Equal(10080, grid.TotalMinutes); // 7 days = 10080 minutes
     }
     
     [Fact]
     public void TimeGrid_TotalDuration_Weeks()
     {
-        var grid = new Core.TimeGrid(52, 1, Core.TimeUnit.Weeks);
+        var grid = new TimeGrid(52, 1, TimeUnit.Weeks);
         Assert.Equal(524160, grid.TotalMinutes); // 52 weeks
     }
     
     [Fact]
     public void TimeGrid_TotalDuration_Minutes()
     {
-        var grid = new Core.TimeGrid(100, 5, Core.TimeUnit.Minutes);
+        var grid = new TimeGrid(100, 5, TimeUnit.Minutes);
         Assert.Equal(500, grid.TotalMinutes); // 100 × 5 minutes
     }
 }

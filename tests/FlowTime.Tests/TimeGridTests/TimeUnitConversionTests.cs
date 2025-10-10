@@ -1,4 +1,4 @@
-using FlowTime.Core;
+using FlowTime.Core.Models;
 
 namespace FlowTime.Tests.TimeGridTests;
 
@@ -15,7 +15,7 @@ public class TimeUnitConversionTests
     public void ToMinutes_Minutes_ConvertsCorrectly(int binSize, int expectedMinutes)
     {
         // Act
-        var minutes = Core.TimeUnit.Minutes.ToMinutes(binSize);
+        var minutes = TimeUnit.Minutes.ToMinutes(binSize);
         
         // Assert
         Assert.Equal(expectedMinutes, minutes);
@@ -28,7 +28,7 @@ public class TimeUnitConversionTests
     public void ToMinutes_Hours_ConvertsCorrectly(int binSize, int expectedMinutes)
     {
         // Act
-        var minutes = Core.TimeUnit.Hours.ToMinutes(binSize);
+        var minutes = TimeUnit.Hours.ToMinutes(binSize);
         
         // Assert
         Assert.Equal(expectedMinutes, minutes);
@@ -40,7 +40,7 @@ public class TimeUnitConversionTests
     public void ToMinutes_Days_ConvertsCorrectly(int binSize, int expectedMinutes)
     {
         // Act
-        var minutes = Core.TimeUnit.Days.ToMinutes(binSize);
+        var minutes = TimeUnit.Days.ToMinutes(binSize);
         
         // Assert
         Assert.Equal(expectedMinutes, minutes);
@@ -52,7 +52,7 @@ public class TimeUnitConversionTests
     public void ToMinutes_Weeks_ConvertsCorrectly(int binSize, int expectedMinutes)
     {
         // Act
-        var minutes = Core.TimeUnit.Weeks.ToMinutes(binSize);
+        var minutes = TimeUnit.Weeks.ToMinutes(binSize);
         
         // Assert
         Assert.Equal(expectedMinutes, minutes);
@@ -63,7 +63,7 @@ public class TimeUnitConversionTests
     {
         // Act & Assert
         var ex = Assert.Throws<ArgumentException>(() => 
-            Core.TimeUnit.Hours.ToMinutes(0));
+            TimeUnit.Hours.ToMinutes(0));
         
         Assert.Contains("binSize", ex.Message);
     }
@@ -73,7 +73,7 @@ public class TimeUnitConversionTests
     {
         // Act & Assert
         var ex = Assert.Throws<ArgumentException>(() => 
-            Core.TimeUnit.Days.ToMinutes(-5));
+            TimeUnit.Days.ToMinutes(-5));
         
         Assert.Contains("binSize", ex.Message);
     }
@@ -84,8 +84,8 @@ public class TimeUnitConversionTests
     [InlineData("MINUTES")]
     public void Parse_Minutes_CaseInsensitive(string input)
     {
-        var result = Core.TimeUnitExtensions.Parse(input);
-        Assert.Equal(Core.TimeUnit.Minutes, result);
+        var result = TimeUnitExtensions.Parse(input);
+        Assert.Equal(TimeUnit.Minutes, result);
     }
     
     [Theory]
@@ -94,8 +94,8 @@ public class TimeUnitConversionTests
     [InlineData("HOURS")]
     public void Parse_Hours_CaseInsensitive(string input)
     {
-        var result = Core.TimeUnitExtensions.Parse(input);
-        Assert.Equal(Core.TimeUnit.Hours, result);
+        var result = TimeUnitExtensions.Parse(input);
+        Assert.Equal(TimeUnit.Hours, result);
     }
     
     [Theory]
@@ -104,8 +104,8 @@ public class TimeUnitConversionTests
     [InlineData("DAYS")]
     public void Parse_Days_CaseInsensitive(string input)
     {
-        var result = Core.TimeUnitExtensions.Parse(input);
-        Assert.Equal(Core.TimeUnit.Days, result);
+        var result = TimeUnitExtensions.Parse(input);
+        Assert.Equal(TimeUnit.Days, result);
     }
     
     [Theory]
@@ -114,8 +114,8 @@ public class TimeUnitConversionTests
     [InlineData("WEEKS")]
     public void Parse_Weeks_CaseInsensitive(string input)
     {
-        var result = Core.TimeUnitExtensions.Parse(input);
-        Assert.Equal(Core.TimeUnit.Weeks, result);
+        var result = TimeUnitExtensions.Parse(input);
+        Assert.Equal(TimeUnit.Weeks, result);
     }
     
     [Fact]
@@ -123,7 +123,7 @@ public class TimeUnitConversionTests
     {
         // Act & Assert
         var ex = Assert.Throws<ArgumentException>(() => 
-            Core.TimeUnitExtensions.Parse("invalid"));
+            TimeUnitExtensions.Parse("invalid"));
         
         Assert.Contains("invalid", ex.Message);
         Assert.Contains("TimeUnit", ex.Message);
@@ -134,7 +134,7 @@ public class TimeUnitConversionTests
     {
         // Act & Assert
         Assert.Throws<ArgumentException>(() => 
-            Core.TimeUnitExtensions.Parse(""));
+            TimeUnitExtensions.Parse(""));
     }
     
     [Fact]
@@ -142,16 +142,16 @@ public class TimeUnitConversionTests
     {
         // Act & Assert
         Assert.Throws<ArgumentNullException>(() => 
-            Core.TimeUnitExtensions.Parse(null!));
+            TimeUnitExtensions.Parse(null!));
     }
     
     [Fact]
     public void ToString_ReturnsLowercaseNames()
     {
-        Assert.Equal("minutes", Core.TimeUnit.Minutes.ToString().ToLowerInvariant());
-        Assert.Equal("hours", Core.TimeUnit.Hours.ToString().ToLowerInvariant());
-        Assert.Equal("days", Core.TimeUnit.Days.ToString().ToLowerInvariant());
-        Assert.Equal("weeks", Core.TimeUnit.Weeks.ToString().ToLowerInvariant());
+        Assert.Equal("minutes", TimeUnit.Minutes.ToString().ToLowerInvariant());
+        Assert.Equal("hours", TimeUnit.Hours.ToString().ToLowerInvariant());
+        Assert.Equal("days", TimeUnit.Days.ToString().ToLowerInvariant());
+        Assert.Equal("weeks", TimeUnit.Weeks.ToString().ToLowerInvariant());
     }
     
     [Fact]
@@ -160,10 +160,10 @@ public class TimeUnitConversionTests
         // Arrange
         var allUnits = new[] 
         { 
-            Core.TimeUnit.Minutes, 
-            Core.TimeUnit.Hours, 
-            Core.TimeUnit.Days, 
-            Core.TimeUnit.Weeks 
+            TimeUnit.Minutes, 
+            TimeUnit.Hours, 
+            TimeUnit.Days, 
+            TimeUnit.Weeks 
         };
         
         // Act & Assert
@@ -178,10 +178,10 @@ public class TimeUnitConversionTests
     public void TimeUnits_Ordering_IsCorrect()
     {
         // Verify that conversion maintains ordering
-        var minute = Core.TimeUnit.Minutes.ToMinutes(1);
-        var hour = Core.TimeUnit.Hours.ToMinutes(1);
-        var day = Core.TimeUnit.Days.ToMinutes(1);
-        var week = Core.TimeUnit.Weeks.ToMinutes(1);
+        var minute = TimeUnit.Minutes.ToMinutes(1);
+        var hour = TimeUnit.Hours.ToMinutes(1);
+        var day = TimeUnit.Days.ToMinutes(1);
+        var week = TimeUnit.Weeks.ToMinutes(1);
         
         Assert.True(minute < hour);
         Assert.True(hour < day);

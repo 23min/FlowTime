@@ -1,5 +1,5 @@
-using FlowTime.Core;
 using FlowTime.Core.Pmf;
+using CorePmf = FlowTime.Core.Pmf;
 
 namespace FlowTime.Tests.Pmf;
 
@@ -17,7 +17,7 @@ public class PmfTests
         };
 
         // Act
-        var pmf = new Core.Pmf.Pmf(distribution);
+        var pmf = new CorePmf.Pmf(distribution);
 
         // Assert
         Assert.Equal(distribution, pmf.Distribution);
@@ -34,7 +34,7 @@ public class PmfTests
         };
 
         // Act
-        var pmf = new Core.Pmf.Pmf(distribution);
+        var pmf = new CorePmf.Pmf(distribution);
 
         // Assert
         var expectedDistribution = new Dictionary<double, double>
@@ -52,7 +52,7 @@ public class PmfTests
         var distribution = new Dictionary<double, double>();
 
         // Act & Assert
-        var ex = Assert.Throws<ArgumentException>(() => new Core.Pmf.Pmf(distribution));
+        var ex = Assert.Throws<ArgumentException>(() => new CorePmf.Pmf(distribution));
         Assert.Contains("at least one", ex.Message);
     }
 
@@ -66,7 +66,7 @@ public class PmfTests
         };
 
         // Act & Assert
-        var ex = Assert.Throws<ArgumentException>(() => new Core.Pmf.Pmf(distribution));
+        var ex = Assert.Throws<ArgumentException>(() => new CorePmf.Pmf(distribution));
         Assert.Contains("non-negative", ex.Message);
     }
 
@@ -80,7 +80,7 @@ public class PmfTests
         };
 
         // Act & Assert
-        var ex = Assert.Throws<ArgumentException>(() => new Core.Pmf.Pmf(distribution));
+        var ex = Assert.Throws<ArgumentException>(() => new CorePmf.Pmf(distribution));
         Assert.Contains("sum to zero", ex.Message);
     }
 
@@ -91,7 +91,7 @@ public class PmfTests
         var distribution = new Dictionary<double, double> { { 42, 1.0 } };
 
         // Act
-        var pmf = new Core.Pmf.Pmf(distribution);
+        var pmf = new CorePmf.Pmf(distribution);
 
         // Assert
         Assert.Equal(42.0, pmf.ExpectedValue);
@@ -107,7 +107,7 @@ public class PmfTests
         };
 
         // Act
-        var pmf = new Core.Pmf.Pmf(distribution);
+        var pmf = new CorePmf.Pmf(distribution);
 
         // Assert
         var expected = 0*0.1 + 10*0.4 + 50*0.3 + 100*0.15 + 200*0.05; // = 44
@@ -122,8 +122,8 @@ public class PmfTests
         {
             { 1, 0.3 }, { 2, 0.4 }, { 3, 0.3 }
         };
-        var pmf1 = new Core.Pmf.Pmf(distribution);
-        var pmf2 = new Core.Pmf.Pmf(distribution);
+        var pmf1 = new CorePmf.Pmf(distribution);
+        var pmf2 = new CorePmf.Pmf(distribution);
 
         // Act & Assert
         Assert.True(pmf1.Equals(pmf2));
@@ -135,8 +135,8 @@ public class PmfTests
     public void Equals_DifferentValues_ReturnsFalse()
     {
         // Arrange
-        var pmf1 = new Core.Pmf.Pmf(new Dictionary<double, double> { { 1, 0.5 }, { 2, 0.5 } });
-        var pmf2 = new Core.Pmf.Pmf(new Dictionary<double, double> { { 1, 0.5 }, { 3, 0.5 } });
+        var pmf1 = new CorePmf.Pmf(new Dictionary<double, double> { { 1, 0.5 }, { 2, 0.5 } });
+        var pmf2 = new CorePmf.Pmf(new Dictionary<double, double> { { 1, 0.5 }, { 3, 0.5 } });
 
         // Act & Assert
         Assert.False(pmf1.Equals(pmf2));
@@ -146,8 +146,8 @@ public class PmfTests
     public void Equals_DifferentProbabilities_ReturnsFalse()
     {
         // Arrange
-        var pmf1 = new Core.Pmf.Pmf(new Dictionary<double, double> { { 1, 0.3 }, { 2, 0.7 } });
-        var pmf2 = new Core.Pmf.Pmf(new Dictionary<double, double> { { 1, 0.4 }, { 2, 0.6 } });
+        var pmf1 = new CorePmf.Pmf(new Dictionary<double, double> { { 1, 0.3 }, { 2, 0.7 } });
+        var pmf2 = new CorePmf.Pmf(new Dictionary<double, double> { { 1, 0.4 }, { 2, 0.6 } });
 
         // Act & Assert
         Assert.False(pmf1.Equals(pmf2));
@@ -157,7 +157,7 @@ public class PmfTests
     public void ToString_ReturnsReadableFormat()
     {
         // Arrange
-        var pmf = new Core.Pmf.Pmf(new Dictionary<double, double> { { 10, 0.3 }, { 20, 0.7 } });
+        var pmf = new CorePmf.Pmf(new Dictionary<double, double> { { 10, 0.3 }, { 20, 0.7 } });
 
         // Act
         var result = pmf.ToString();

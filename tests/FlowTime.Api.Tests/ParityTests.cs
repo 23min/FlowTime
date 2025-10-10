@@ -1,11 +1,13 @@
 using System.Net.Http.Json;
 using System.Text;
 using System.Linq;
-using FlowTime.Core;
 using FlowTime.Api.Tests;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.AspNetCore.Hosting;
+using FlowTime.Core.Models;
+using FlowTime.Core.Nodes;
+using FlowTime.Core.Execution;
 
 public class ParityTests : IClassFixture<TestWebApplicationFactory>
 {
@@ -77,4 +79,3 @@ public class ParityTests : IClassFixture<TestWebApplicationFactory>
 	}
 	public sealed class Grid { public int bins { get; init; } public int binSize { get; init; } public string binUnit { get; init; } = ""; }
 }
-

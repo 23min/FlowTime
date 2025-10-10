@@ -1,14 +1,17 @@
 using System.Text;
 using FlowTime.Core;
+using FlowTime.Core.Artifacts;
+using FlowTime.Core.Execution;
 using FlowTime.Core.Configuration;
 using FlowTime.Core.Models;
 using FlowTime.Core.Services;
-using FlowTime.Adapters.Synthetic;
+using FlowTime.Core.Nodes;
 using FlowTime.API.Models;
 using FlowTime.API.Services;
 using FlowTime.Contracts.Services;
 using Microsoft.AspNetCore.HttpLogging;
 using System.Diagnostics;
+using Synthetic = FlowTime.Adapters.Synthetic;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -462,9 +465,9 @@ v1.MapPost("/run", async (HttpRequest req, IArtifactRegistry registry, ILogger<P
         }
 
         // Convert API DTO to Core model definition and parse using shared ModelParser
-        FlowTime.Core.Models.TimeGrid grid;
+        TimeGrid grid;
         Graph graph;
-        FlowTime.Core.Models.ModelDefinition coreModel;
+        ModelDefinition coreModel;
         try
         {
             coreModel = ModelService.ParseAndConvert(cleanYaml);
@@ -491,7 +494,7 @@ v1.MapPost("/run", async (HttpRequest req, IArtifactRegistry registry, ILogger<P
         }
 
         // Use shared artifact writer
-        var writeRequest = new FlowTime.Core.Artifacts.RunArtifactWriter.WriteRequest
+        var writeRequest = new RunArtifactWriter.WriteRequest
         {
             Model = coreModel,
             Grid = grid,
@@ -505,7 +508,7 @@ v1.MapPost("/run", async (HttpRequest req, IArtifactRegistry registry, ILogger<P
             ProvenanceJson = provenanceJson // Include provenance if present
         };
 
-        var artifactResult = await FlowTime.Core.Artifacts.RunArtifactWriter.WriteArtifactsAsync(writeRequest);
+        var artifactResult = await RunArtifactWriter.WriteArtifactsAsync(writeRequest);
         logger.LogInformation("Created artifacts at {RunDirectory}", artifactResult.RunDirectory);
 
         // Automatically add new run to artifact registry (fire-and-forget to avoid blocking response)
@@ -601,7 +604,7 @@ v1.MapGet("/runs/{runId}/index", async (string runId, ILogger<Program> logger) =
     try
     {
         var artifactsDirectory = Program.GetArtifactsDirectory(builder.Configuration);
-        var reader = new FileSeriesReader();
+        var reader = new Synthetic.FileSeriesReader();
         var runPath = Path.Combine(artifactsDirectory, runId);
         
         if (!Directory.Exists(runPath))
@@ -609,7 +612,7 @@ v1.MapGet("/runs/{runId}/index", async (string runId, ILogger<Program> logger) =
             return Results.NotFound(new { error = $"Run {runId} not found" });
         }
 
-        var adapter = new RunArtifactAdapter(reader, runPath);
+        var adapter = new Synthetic.RunArtifactAdapter(reader, runPath);
         var index = await adapter.GetIndexAsync();
         
         return Results.Ok(index);
@@ -626,7 +629,7 @@ v1.MapGet("/runs/{runId}/series/{seriesId}", async (string runId, string seriesI
     try
     {
         var artifactsDirectory = Program.GetArtifactsDirectory(builder.Configuration);
-        var reader = new FileSeriesReader();
+        var reader = new Synthetic.FileSeriesReader();
         var runPath = Path.Combine(artifactsDirectory, runId);
         
         if (!Directory.Exists(runPath))
@@ -641,7 +644,7 @@ v1.MapGet("/runs/{runId}/series/{seriesId}", async (string runId, string seriesI
             // Try to find matching series by simple name (e.g., "demand" -> "demand@DEMAND@DEFAULT")
             try
             {
-                var adapter = new RunArtifactAdapter(reader, runPath);
+                var adapter = new Synthetic.RunArtifactAdapter(reader, runPath);
                 var index = await adapter.GetIndexAsync();
                 var matchingSeries = index.Series.FirstOrDefault(s => s.Id.StartsWith(seriesId + "@"));
                 

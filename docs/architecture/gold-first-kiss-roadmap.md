@@ -18,6 +18,18 @@ This document defines the concrete implementation plan for FlowTime time-travel 
 
 ---
 
+## Design Principles
+
+- **Keep It Simple, Stupid (KISS):** Favor explicit files and declarative templates over adapters or inference so each milestone stays reviewable and low risk (see `flowtime-kiss-arch-ch1.md`).
+- **Telemetry Is Just File Input:** Treat historical telemetry exactly like synthetic fixtures; the engine never needs to know the origin of a series (`flowtime-kiss-arch-ch1.md` §1.2).
+- **Synthetic-First, Self-Hosted:** Ship curated fixture systems before wiring real ADX data so APIs and UI can integrate without external dependencies (`gold-first-kiss-decisions.md` Q5).
+- **UTC-Anchored Grid:** Every run is anchored to an absolute start timestamp with fixed bin size/unit to eliminate timezone drift (`flowtime-kiss-arch-ch2.md`).
+- **Deterministic Single Mode:** One evaluation path powers both simulation and telemetry playback, keeping derived metrics predictable (`flowtime-kiss-arch-ch1.md`).
+- **Mode-Based Validation:** Telemetry runs surface warnings, simulation runs fail fast on errors—simplicity with clear operator feedback (`gold-first-kiss-decisions.md` Q3).
+- **Incremental Delivery:** Milestones M3.0–M3.3 are sequenced so each step is independently demoable and testable before layering the next capability (`flowtime-kiss-arch-ch5.md`).
+
+---
+
 ## Milestone Overview
 
 | Milestone | Description | Dependencies |
@@ -33,6 +45,11 @@ This document defines the concrete implementation plan for FlowTime time-travel 
 
 ### Goal
 Extend model schema and engine to support window, topology, file sources, and explicit initial conditions. Create synthetic gold telemetry fixtures for testing.
+
+### Why This Matters
+- Anchors every run to real-world time so `/state` can translate bin indices into UTC timestamps (`flowtime-kiss-arch-ch2.md`).
+- Establishes topology semantics and fixtures that unblock API and UI development without waiting on production telemetry (`gold-first-kiss-decisions.md` Q5).
+- Forces explicit initial conditions so stateful expressions behave deterministically across simulation and telemetry runs (`flowtime-kiss-arch-ch3.md`).
 
 ### Deliverables
 
@@ -170,6 +187,11 @@ Assert.Equal("2025-10-07T02:30:00Z", binTimestamp);
 
 ### Goal
 Implement /state and /state_window endpoints for bin-level querying with derived metrics. Enable UI time-travel integration.
+
+### Why This Matters
+- Provides the UI with per-bin snapshots and slices so time-travel scrubbing is possible without additional data services (`flowtime-kiss-arch-ch4.md`).
+- Computes utilization and latency centrally, ensuring consistent business logic for both telemetry replay and simulation comparisons (`gold-first-kiss-decisions.md` Q1/Q5).
+- Establishes the node-coloring contract that communicates saturation and SLA breaches directly from backend to visualization (`flowtime-kiss-arch-ch4.md`).
 
 ### Deliverables
 
@@ -362,6 +384,11 @@ latency_min = null  // Can't compute
 ### Goal
 Implement TelemetryLoader to extract from ADX/CSV and Template system to instantiate models.
 
+### Why This Matters
+- Gives the team a repeatable way to turn production telemetry or simulation output into engine-ready CSVs (`flowtime-kiss-arch-ch3.md`).
+- Puts topology and semantic intent under version control, enabling safe reviews and reuse across runs (`gold-first-kiss-decisions.md` Q2).
+- Synthetic gold generation keeps the UI, APIs, and fixtures in sync so demos do not depend on external data availability (`gold-first-kiss-decisions.md` Q5).
+
 ### Deliverables
 
 **TelemetryLoader:**
@@ -492,10 +519,42 @@ dotnet run --project tools/SyntheticGold -- \
 
 ---
 
+## UI Contract: Time-Travel Visualization APIs
+
+The M3.x milestones provide the backend surface required for the time-travel UI described in `flowtime-kiss-arch-ch4.md`.
+
+### Required UI Views
+- **Flow Graph:** Renders the topology using node colors supplied by `/state`.
+- **Time Scrubber & Sparklines:** Drive bin selection with `/state` (single-bin) and `/state_window` (range) responses.
+- **Node Details:** Display arrivals, served, queue depth, latency, utilization, and errors for the focused bin.
+- **Health Banner:** Surface validation warnings (telemetry mode) and errors (simulation mode) inline with the playback experience.
+
+### Backend Support Delivered in M3.x
+- `POST /v1/runs` (existing) returns `runId`, run manifest, topology, and series artifacts the UI can cache for layout.
+- `GET /v1/runs/{runId}/state?binIndex={idx}` provides:
+  - Window metadata (`start`, `timezone`, `binMinutes`)
+  - Per-node semantics (arrivals, served, queue, capacity) plus derived metrics
+  - Node coloring and `colorReason` matched to the thresholds defined in M3.1
+- `GET /v1/runs/{runId}/state_window?startBin={s}&endBin={e}` supplies dense series for sparklines and aggregate charts.
+- Validation warnings/errors are returned with every response so the UI can annotate issues without polling other services (see M3.3 deliverables).
+
+### Integration Checklist
+- Respect backend-provided timestamps; compute client timelines as `start + binIndex × binMinutes`.
+- Gray nodes indicate missing capacity—display throughput ratio or helper messaging rather than hiding the node.
+- Telemetry warnings should present as non-blocking notices; simulation errors must halt playback per mode-based validation rules.
+- Aggregated metrics endpoints (e.g., `/metrics`) and advanced overlays remain future work (see Post-M3 section).
+
+---
+
 ## M3.3: Validation + Polish
 
 ### Goal
 Add post-evaluation validation, observability, and production-ready polish.
+
+### Why This Matters
+- Establishes trust signals—warnings vs. errors—so operators know whether telemetry irregularities block investigations (`gold-first-kiss-decisions.md` Q3).
+- Captures structured metrics and logs that the UI and operations dashboards rely on to explain run health (`flowtime-kiss-arch-ch4.md`).
+- Documents the full workflow so onboarding engineers can reproduce time-travel flows without tribal knowledge (`flowtime-kiss-arch-ch6.md`).
 
 ### Deliverables
 
@@ -668,14 +727,46 @@ Benchmark: 288-bin order-system model
 - ✅ Documentation complete
 - ✅ Performance benchmarks met
 
-### Demo Scenario (End of M3.3):
-1. Generate synthetic gold telemetry from simulation
-2. Create template for order-system
-3. Instantiate template with telemetry
-4. POST /v1/runs → create run
-5. GET /v1/state?binIndex=42 → see snapshot
-6. GET /v1/state_window → see time series
-7. UI displays time-travel scrubber
+### Demo Scenario (End of M3.3)
+1. **Generate synthetic gold telemetry**
+   ```bash
+   dotnet run --project tools/SyntheticGold -- \
+     --simulation examples/order-system.yaml \
+     --output fixtures/gold-telemetry/ \
+     --bins 288
+   ```
+   - Produces `fixtures/gold-telemetry/*.csv` plus `manifest.json` (M3.2 deliverable).
+2. **Instantiate the telemetry template**
+   ```bash
+   dotnet run --project FlowTime.Cli template instantiate \
+     --template templates/telemetry/order-system.yaml \
+     --param telemetry_dir=fixtures/gold-telemetry \
+     --param window_start=2025-10-07T00:00:00Z
+   ```
+   - Yields `runs/order-system/model.yaml` with topology + provenance (M3.2).
+3. **Execute the run**
+   ```bash
+   curl -X POST https://localhost:5001/v1/runs \
+     -H "Content-Type: application/json" \
+     -d @runs/order-system/request.json
+   ```
+   - Response returns `runId`, warnings (if any), and artifact locations (M3.3).
+4. **Scrub a specific bin**
+   ```bash
+   curl "https://localhost:5001/v1/runs/${runId}/state?binIndex=42"
+   ```
+   - UI reads derived metrics + node colors to highlight hotspots (M3.1).
+5. **Show trend window**
+   ```bash
+   curl "https://localhost:5001/v1/runs/${runId}/state_window?startBin=0&endBin=144"
+   ```
+   - Supplies sparklines and SLA trends for the visualization (M3.1).
+6. **Surface health signals**
+   - Any telemetry gaps appear as warnings (M3.3 mode-based validation).
+   - Structured logs and performance metrics corroborate the UI view.
+7. **UI presentation**
+   - Topology graph colored by utilization/latency.
+   - Time scrubber and detail panel update from API responses.
 
 ---
 

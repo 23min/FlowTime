@@ -680,7 +680,7 @@ source: "file:///absolute/path.csv"
   → Use absolute path (three slashes)
 
 source: "https://storage.blob.core.windows.net/..."
-  → Future: HTTP source (not M1)
+  → Future: HTTP source (not M3.0)
 ```
 
 #### 3.3.2 Initial Condition Enforcement
