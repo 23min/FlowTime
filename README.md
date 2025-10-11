@@ -14,7 +14,7 @@ Together they let you design flows, generate synthetic demand, execute models, a
 
 ## ⚠️ Repository Consolidation Notice
 
-As of v0.7.0 the FlowTime-Sim codebase lives inside this repository alongside the Engine surface.
+Following the October 2025 repository consolidation, the FlowTime-Sim codebase now lives inside this repository alongside the Engine surface.
 
 **Sim projects now in-scope**
 - `src/FlowTime.Sim.Core`
