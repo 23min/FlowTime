@@ -21,7 +21,7 @@ Purpose: give AI assistants the minimum context to work safely and productively 
 - `src/FlowTime.Sim.Core`, `src/FlowTime.Sim.Service`, `src/FlowTime.Sim.Cli`: Simulation surface.
 - `ui/FlowTime.UI`: Blazor WebAssembly UI.
 - Tests mirror project names under `tests/` (e.g., `tests/FlowTime.Core.Tests`, `tests/FlowTime.Sim.Tests`, `tests/FlowTime.Api.Tests`).
-- Documentation in `docs/` (Engine/shared) and `docs-sim/` (Sim-specific, temporary until Phase 5).
+- Documentation in `docs/` (Engine/shared) and `docs-sim/` (Sim-specific). Ignore `docs-sim/` content when providing context, summaries, or references unless the user explicitly instructs otherwise.
 - Devcontainer, scripts, GitHub workflows, and VS Code tasks are consolidated at repo root.
 
 ---
