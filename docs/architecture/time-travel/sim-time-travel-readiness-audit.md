@@ -104,7 +104,7 @@
    - **Implications:** Templates/interface should allow UI-provided hints or overrides; Sim focuses on semantics rather than visualization geometry.
 
 8. **Template versioning**  
-   - **Decision:** Templates will declare a semantic version under `TemplateMetadata.version`, and provenance must surface the same value.  
+   - **Decision:** Templates will declare a semantic version under `TemplateMetadata.version`, and provenance must surface the same value. This addition tracks template revisions without bumping the global schema version.  
    - **Implications:** Generation code, CLI/service responses, and tests must require the version field so consumers can track template evolution alongside schema changes.
 
 ---
