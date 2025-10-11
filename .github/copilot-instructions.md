@@ -64,6 +64,7 @@ Purpose: give AI assistants the minimum context to work safely and productively 
 ## 7. Documentation & Schema Notes
 - Engine + shared docs remain in `docs/`; Sim docs temporarily reside in `docs-sim/` until documentation migration.
 - Shared schema files live in `docs/schemas/`; Sim-specific schema mirrors exist under `docs-sim/schemas/`.
+- When inserting inline code that contains `|` inside Markdown tables, escape the pipe as `\|` so the table renders correctly.
 - Never reintroduce deprecated schema fields (e.g., `binMinutes`); current schema uses `{ bins, binSize, binUnit }`.
 
 Keep these conventions in mind when generating or modifying code, docs, or configuration so FlowTime Engine and FlowTime-Sim remain aligned in the mono-repo.***

@@ -825,6 +825,15 @@ M3.3: Validation + Polish (depends on M3.1, M3.2)
 
 ---
 
+## Post-M3.0 Follow-Ups
+
+1. **Shared expression validation library**
+   - **Goal:** Extract the Engine expression parser/AST and semantic checks into a neutral assembly (`FlowTime.Expressions`), with matching unit tests, so Engine and FlowTime.Sim consume the same validation logic.
+   - **Timing:** Execute immediately after M3.0 deliverables land and before kicking off Engine M3.1.
+   - **Hand-off:** Once the library is published, FlowTime.Sim’s M3 adoption work will replace its legacy expression checks with the shared package to keep both surfaces aligned.
+
+---
+
 ## Next Actions
 
 1. **Review and Approve:** Validate this roadmap
