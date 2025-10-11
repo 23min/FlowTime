@@ -6,8 +6,9 @@
 - **M-02.06.md** - ✅ Export System Implementation (Completed)
 - **M-02.07.md** - ✅ Artifacts Registry (Completed)
 - **M-02.08.md** - ✅ Registry Integration & API Enhancement (Completed)
-- **M-02.09.md** - � Schema Evolution & Documentation (In Progress - Phase 0 Complete)
+- **M-02.09.md** - 🚧 Schema Evolution & Documentation (In Progress - Phase 0 Complete)
   - **M-02.09.01.md** - Detailed implementation plan
+- **M-03.00.01.md** - 📋 Shared Expression Validation Library (Post-M-03.00 follow-up)
 
 ### **UI Implementation Milestones**
 - **UI-M-02.07.md** - 📋 Artifacts Registry UI (Planned)

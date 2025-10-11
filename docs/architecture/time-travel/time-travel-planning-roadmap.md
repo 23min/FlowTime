@@ -827,7 +827,7 @@ M-03.03: Validation + Polish (depends on M-03.01, M-03.02)
 
 ## Post-M-03.00 Follow-Ups
 
-1. **Shared expression validation library**
+1. **Shared expression validation library (Milestone M-03.00.01)**
    - **Goal:** Extract the Engine expression parser/AST and semantic checks into a neutral assembly (`FlowTime.Expressions`), with matching unit tests, so Engine and FlowTime.Sim consume the same validation logic.
    - **Timing:** Execute immediately after M-03.00 deliverables land and before kicking off Engine M-03.01.
    - **Hand-off:** Once the library is published, FlowTime.Sim’s M-3 adoption work will replace its legacy expression checks with the shared package to keep both surfaces aligned.
