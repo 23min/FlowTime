@@ -1,6 +1,6 @@
-# SYN-M00.00 Implementation Summary
+# SYN-M-00.00 Implementation Summary
 
-## ✅ COMPLETED: SYN-M00.00 — Synthetic Adapter (File)
+## ✅ COMPLETED: SYN-M-00.00 — Synthetic Adapter (File)
 
 **Goal:** Enable FlowTime to read the stable artifacts from FlowTime-Sim and FlowTime CLI.
 
@@ -79,17 +79,17 @@ var coreGrid = await adapter.GetCoreTimeGridAsync();
 
 This completes **Step 3** of the critical path:
 
-1. ~~SIM-M2 — Contracts v1.1~~ ✅ **COMPLETED** 
-2. ~~SIM-SVC-M2 — Minimal Sim Service/API~~ ✅ **COMPLETED**
-3. ~~**FlowTime — SYN-M00.00 (File Adapter)**~~ ✅ **COMPLETED** ← **WE ARE HERE**
-4. **SIM-CAT-M2 — Catalog.v1** ← **NEXT STEP**
+1. ~~SIM-M-2 — Contracts v1.1~~ ✅ **COMPLETED** 
+2. ~~SIM-SVC-M-2 — Minimal Sim Service/API~~ ✅ **COMPLETED**
+3. ~~**FlowTime — SYN-M-00.00 (File Adapter)**~~ ✅ **COMPLETED** ← **WE ARE HERE**
+4. **SIM-CAT-M-2 — Catalog.v1** ← **NEXT STEP**
 
 ### Ready For Next Steps
 
-With SYN-M00.00 complete, FlowTime can now:
+With SYN-M-00.00 complete, FlowTime can now:
 - Read artifacts from both FlowTime-Sim and FlowTime CLI
 - Enable UI integration testing (step 5 in critical path)
-- Support M1 contracts parity validation
-- Provide foundation for SVC-M1 artifact endpoints
+- Support M-1 contracts parity validation
+- Provide foundation for SVC-M-1 artifact endpoints
 
 The adapter is production-ready and follows all the determinism and contract requirements from the shared contracts.md specification.

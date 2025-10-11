@@ -1,6 +1,6 @@
 # Devcontainer
 
-This repo ships a minimal devcontainer for M0–M1 to keep startup fast and diffs clean. Optional tooling (Node, Azure CLI, Azurite) will be added per milestone.
+This repo ships a minimal devcontainer for M-0–M-1 to keep startup fast and diffs clean. Optional tooling (Node, Azure CLI, Azurite) will be added per milestone.
 
 # Dev Container Setup
 

@@ -1,12 +1,12 @@
 # FlowTime Model Schema (Target) - JSON Schema Definition
 # This is the unified schema that FlowTime-Sim will output and FlowTime Engine will execute
-# Replaces legacy binMinutes format with binSize/binUnit for M2.9
+# Replaces legacy binMinutes format with binSize/binUnit for M-02.09
 
 $schema: "https://json-schema.org/draft-07/schema#"
 $id: "https://flowtime.dev/schemas/target-model.schema.yaml"
 title: "FlowTime Model Schema (Target)"
 description: |
-  Unified schema for FlowTime models. This is the convergence point for M2.9 schema evolution.
+  Unified schema for FlowTime models. This is the convergence point for M-02.09 schema evolution.
   - FlowTime-Sim generates models in this format
   - FlowTime Engine executes models in this format
   - Replaces legacy binMinutes format with binSize/binUnit
@@ -578,7 +578,7 @@ notes:
     - All tests: Update assertions and fixtures
 
   implementation_phases: |
-    M2.9 Implementation Plan:
+    M-02.09 Implementation Plan:
     
     Phase 0: Test-Driven Setup
       - Isolate legacy tests to .Legacy namespaces
@@ -588,7 +588,7 @@ notes:
     Phase 1: Documentation (COMPLETED)
       - ✅ Create target-model-schema.md
       - ✅ Create target-model-schema.yaml
-      - ✅ Update M2.9 milestone document
+      - ✅ Update M-02.09 milestone document
     
     Phase 2: FlowTime Engine Evolution
       - Add TimeUnit enum and conversion logic

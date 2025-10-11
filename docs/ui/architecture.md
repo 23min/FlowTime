@@ -3,7 +3,7 @@
 **Version:** 2.0 (Charter-Aligned)  
 **Audience:** UI architects, senior developers, technical leads  
 **Purpose:** Define architectural patterns, component structure, and design principles for FlowTime UI following the [Models|Runs|Artifacts|Learn] charter paradigm  
-**Charter Status:** Updated for M2.8 charter-aligned development  
+**Charter Status:** Updated for M-02.08 charter-aligned development  
 
 ---
 

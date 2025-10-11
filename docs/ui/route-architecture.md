@@ -3,7 +3,7 @@
 **Version:** 2.0 (Charter-Aligned)  
 **Audience:** UI architects, Blazor developers, DevOps engineers  
 **Purpose:** Technical specification for implementing charter-aligned [Models|Runs|Artifacts|Learn] architecture using route-based separation  
-**Charter Status:** Updated for M2.8 charter workflows and M2.7 registry integration  
+**Charter Status:** Updated for M-02.08 charter workflows and M-02.07 registry integration  
 
 ---
 

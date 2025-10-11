@@ -1,6 +1,6 @@
 # RNG Algorithm Selection: PCG-XSH-RR
 
-**Status**: Implemented (M2.9.1)  
+**Status**: Implemented (M-02.09.1)  
 **Decision Date**: October 2025  
 **Implementation**: `src/FlowTime.Core/Rng/Pcg32.cs`
 
@@ -355,12 +355,12 @@ FlowTime implementation: MIT License (consistent with project license)
 
 ## Version History
 
-- **v0.4.0** (M2.9.1): Initial PCG-XSH-RR implementation
+- **v0.4.0** (M-02.09.1): Initial PCG-XSH-RR implementation
   - Single-threaded support
   - Basic state management
   - PMF sampling integration
 
-- **Future** (M3.x): Enhanced features
+- **Future** (M-03.x): Enhanced features
   - Parallel stream support
   - PCG64 for extended precision
   - Jump-ahead functions for advanced use cases

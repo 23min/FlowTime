@@ -2,12 +2,12 @@
 
 **Document Version**: 1.0  
 **Created**: September 9, 2025  
-**Implementation**: M1.5 Expression Language Foundation  
-**Branch**: `feature/M1.5-expression-language`
+**Implementation**: M-01.05 Expression Language Foundation  
+**Branch**: `feature/M-01.05-expression-language`
 
 ## Overview
 
-This document captures the key architectural decisions made during the implementation of FlowTime's M1.5 expression language foundation. The expression system enables users to write mathematical expressions like `(a + b) * 2 + SHIFT(c, 1)` that are parsed, compiled, and evaluated against time-series data.
+This document captures the key architectural decisions made during the implementation of FlowTime's M-01.05 expression language foundation. The expression system enables users to write mathematical expressions like `(a + b) * 2 + SHIFT(c, 1)` that are parsed, compiled, and evaluated against time-series data.
 
 ## System Architecture
 
@@ -276,7 +276,7 @@ private INode CompileShiftFunction(FunctionCallExpressionNode funcNode,
 ```
 
 **Rationale**:
-- **YAGNI Principle**: Only implement what M1.5 requires (4 functions)
+- **YAGNI Principle**: Only implement what M-01.05 requires (4 functions)
 - **Performance**: Direct compilation, no registry lookup overhead at runtime
 - **Type Safety**: Compile-time validation of function signatures and argument counts
 - **Simplicity**: No complex registration/discovery mechanisms needed
@@ -285,7 +285,7 @@ private INode CompileShiftFunction(FunctionCallExpressionNode funcNode,
 
 | Alternative | Why Not Chosen |
 |-------------|----------------|
-| **Plugin Architecture** | Overkill for M1.5; can add later when we have 20+ functions |
+| **Plugin Architecture** | Overkill for M-01.05; can add later when we have 20+ functions |
 | **Reflection-based Discovery** | Runtime overhead, less type safety, harder to optimize |
 | **External Function Registry** | Additional complexity without current benefit |
 
@@ -312,7 +312,7 @@ private INode CompileShiftFunction(FunctionCallExpressionNode funcNode,
 
 ## Extension Points for Future Development
 
-### M9.5 Retry Modeling Support
+### M-09.05 Retry Modeling Support
 The architecture anticipates future retry modeling requirements:
 
 ```csharp
@@ -369,7 +369,7 @@ public interface IFunctionRegistry
 4. **Performance Focus**: Sub-millisecond evaluation for typical use cases
 
 ### Software Engineering Principles
-1. **YAGNI**: Only implement features required for M1.5
+1. **YAGNI**: Only implement features required for M-01.05
 2. **SOLID**: Single responsibility, open/closed, dependency inversion
 3. **Fail Fast**: Parse errors throw immediately with rich context
 4. **Composability**: Expressions can be nested and combined arbitrarily
@@ -387,11 +387,11 @@ public interface IFunctionRegistry
 
 ## Future Evolution Strategy
 
-The M1.5 implementation provides a solid foundation for future enhancements while avoiding over-engineering. Key evolution paths:
+The M-01.05 implementation provides a solid foundation for future enhancements while avoiding over-engineering. Key evolution paths:
 
-1. **M9.5 Integration**: Add CONV operator and retry modeling functions
+1. **M-09.05 Integration**: Add CONV operator and retry modeling functions
 2. **Performance Scaling**: Add JIT compilation when expressions become performance bottlenecks
 3. **Function Extensibility**: Add registry pattern when we reach 20+ built-in functions
 4. **Advanced Features**: Add when-if conditional expressions, statistical functions
 
-The architecture intentionally balances immediate M1.5 needs with long-term extensibility, following the principle of "make it work, make it right, make it fast" - focusing on correctness and simplicity first.
+The architecture intentionally balances immediate M-01.05 needs with long-term extensibility, following the principle of "make it work, make it right, make it fast" - focusing on correctness and simplicity first.

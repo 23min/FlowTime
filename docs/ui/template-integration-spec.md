@@ -4,7 +4,7 @@
 > This document contains legacy `binMinutes` references.  
 > **Current Implementation**: Use `grid: { bins, binSize, binUnit }` format.  
 > **See**: `docs/schemas/template-schema.md` for authoritative schema.  
-> **Status**: Documentation update pending post-UI-M2.9.
+> **Status**: Documentation update pending post-UI-M-02.09.
 
 ## Overview
 

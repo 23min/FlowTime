@@ -1,4 +1,4 @@
-# SYN‑M0 — Synthetic Adapter (Local Synthetic “Gold” Ingest)
+# SYN‑M-0 — Synthetic Adapter (Local Synthetic “Gold” Ingest)
 
 **Goal**
 Run FlowTime end‑to‑end entirely offline using small, fixed synthetic datasets (NDJSON/Parquet) that mimic the normalized “Gold event” schema. No Azure/App Insights deps. This also gives CI a stable dataset for golden tests.
@@ -96,7 +96,7 @@ public sealed class ParquetEventSource : IEventSource { /* Parquet.Net reader */
 
 ---
 
-## CLI (M0)
+## CLI (M-0)
 
 Add/extend a top‑level `ingest` verb:
 
@@ -177,9 +177,9 @@ validation_report.json
 
 ---
 
-## Metrics (minimum set for SYN‑M0)
+## Metrics (minimum set for SYN‑M-0)
 
-* Per edge key (from/to pair) and **global** (no grouping for M0):
+* Per edge key (from/to pair) and **global** (no grouping for M-0):
 
   * count, throughput (events/hour)
   * duration: p50, p90, p95, p99
@@ -212,7 +212,7 @@ validation_report.json
 * **Parquet**: favor **Parquet.Net**; if JSON maps are awkward, store `attrs` as JSON string (UTF8) and parse lazily.
 * **Streaming**: use `IAsyncEnumerable` + backpressure (buffered channel) so large files don’t blow memory.
 * **Time**: normalize all timestamps to `DateTimeKind.Utc` immediately; reject local times.
-* **Perf**: batch stitching by entity using a `Dictionary<string, List<EventRecord>>` with periodic spill if memory is tight (M0 datasets are small; simple list is fine).
+* **Perf**: batch stitching by entity using a `Dictionary<string, List<EventRecord>>` with periodic spill if memory is tight (M-0 datasets are small; simple list is fine).
 * **Logs**: summarize counts; write a compact `run_manifest.json` with timings and adapter version.
 * **Determinism**: not applicable to adapter; determinism is a property of the generator. Preserve input order where provided.
 
@@ -250,4 +250,4 @@ validation_report.json
 
 ---
 
-With SYN‑M0 landed, anyone can: clone repo → run one command → see stitched edges and metrics. Later, a separate **flow‑sim** project can publish bigger datasets that the same adapter consumes without any FlowTime changes.
+With SYN‑M-0 landed, anyone can: clone repo → run one command → see stitched edges and metrics. Later, a separate **flow‑sim** project can publish bigger datasets that the same adapter consumes without any FlowTime changes.

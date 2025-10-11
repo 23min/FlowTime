@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-FlowTime Engine is a **deterministic, discrete-time, graph-based engine** at post-M2.6 maturity. Core evaluation works reliably. **Time-travel API endpoints (`/state`, `/state_window`) are NOT implemented**. The system produces excellent artifacts but lacks runtime state query capabilities needed for 5-day time-travel demo.
+FlowTime Engine is a **deterministic, discrete-time, graph-based engine** at post-M-02.06 maturity. Core evaluation works reliably. **Time-travel API endpoints (`/state`, `/state_window`) are NOT implemented**. The system produces excellent artifacts but lacks runtime state query capabilities needed for 5-day time-travel demo.
 
 **Critical Gap**: No backlog/queue/capacity node types exist. Only stateless const/expr/pmf nodes + stateful SHIFT.
 
@@ -46,7 +46,7 @@ FlowTime Engine is a **deterministic, discrete-time, graph-based engine** at pos
 **Build Status**: ✅ `dotnet build` succeeds (0 warnings, 0 errors)
 
 **Test Status**: 🚧 393 tests total, **390 passing, 3 failing** (performance benchmarks only)
-- Failed tests are M2/M15 performance threshold tests (non-blocking)
+- Failed tests are M-2/M-15 performance threshold tests (non-blocking)
 - Core functionality tests: 100% pass rate
 - Test files: 79 .cs files across 5 test projects
 
@@ -69,7 +69,7 @@ public readonly record struct TimeGrid {
 
 **Features**:
 - ✅ Supports `binSize` + `binUnit` (NEW schema): src/FlowTime.Core/TimeGrid.cs:63-74
-- ❌ NO support for legacy `binMinutes` (correctly rejected per M2.9 schema policy)
+- ❌ NO support for legacy `binMinutes` (correctly rejected per M-02.09 schema policy)
 - ✅ Validation: bins ∈ [1, 10000], binSize ∈ [1, 1000]
 - ✅ Units: minutes, hours, days, weeks (TimeUnit enum)
 
@@ -232,7 +232,7 @@ public class PmfNode : INode {
 - ✅ Accepts PMF dictionary: `{ "value": probability }`
 - ✅ Computes expected value: Σ(value × prob)
 - ✅ Returns **constant series** (all bins = expected value)
-- ⚠️ NO per-bin sampling yet (M2+ feature)
+- ⚠️ NO per-bin sampling yet (M-2+ feature)
 - ✅ RNG support exists: src/FlowTime.Core/Rng/Pcg32.cs (PCG32 PRNG)
 - ⚠️ RNG not yet wired into PmfNode evaluation
 
@@ -477,7 +477,7 @@ data/
       served@SERVED@DEFAULT.csv
       backlog@BACKLOG@DEFAULT.csv
       ...
-    gold/                  # Export formats (M2.6)
+    gold/                  # Export formats (M-02.06)
       export.csv           # Wide-format CSV (all series)
       export.ndjson        # Newline-delimited JSON
       export.parquet       # Parquet columnar format
@@ -624,7 +624,7 @@ var grid = new TimeGrid(model.Grid.Bins, model.Grid.BinSize, unit);
 - ✅ Seeded initialization
 - ✅ `NextDouble()`, `NextGaussian()` methods
 - ✅ Seed written to `run.json`
-- ⚠️ NOT yet used by PmfNode (M2+ feature)
+- ⚠️ NOT yet used by PmfNode (M-2+ feature)
 
 ### Provenance Support ✅
 **Location**: src/FlowTime.API/Services/ProvenanceService.cs:1-135
@@ -647,9 +647,9 @@ var grid = new TimeGrid(model.Grid.Bins, model.Grid.BinSize, unit);
 **Pass Rate**: 390/393 passing (99.2%)
 
 **Failing Tests (3)**:
-1. `FlowTime.Tests.Performance.M2PerformanceTests.Test_PMF_Grid_Size_Scaling` - performance threshold
-2. `FlowTime.Tests.Performance.M2PerformanceTests.Test_PMF_Complexity_Scaling` - performance threshold
-3. `FlowTime.Tests.Performance.M15PerformanceTests.Test_SmallScale_Performance` - performance threshold
+1. `FlowTime.Tests.Performance.M-2PerformanceTests.Test_PMF_Grid_Size_Scaling` - performance threshold
+2. `FlowTime.Tests.Performance.M-2PerformanceTests.Test_PMF_Complexity_Scaling` - performance threshold
+3. `FlowTime.Tests.Performance.M-15PerformanceTests.Test_SmallScale_Performance` - performance threshold
 
 **Status**: ✅ All functional tests passing; only perf benchmarks failing (non-blocking)
 
@@ -933,7 +933,7 @@ EngineVersion = "0.1.0", // TODO: derive from assembly
 **Strengths**:
 - ✅ Rock-solid deterministic evaluation engine
 - ✅ Clean expression language with SHIFT
-- ✅ Excellent artifact system (M1/M2.6 compliant)
+- ✅ Excellent artifact system (M-1/M-02.06 compliant)
 - ✅ Comprehensive test coverage
 - ✅ API-first architecture
 - ✅ NEW schema enforcement (binSize/binUnit)

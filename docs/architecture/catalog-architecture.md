@@ -335,7 +335,7 @@ DELETE /v1/catalogs/{id}                 # Remove system catalog
 POST   /v1/catalogs/{id}/validate        # Validate catalog structure
 POST   /v1/catalogs/{id}/compare/{id2}   # Compare two catalog versions
 
-# Artifact catalog queries (existing M2.6 API)
+# Artifact catalog queries (existing M-02.06 API)
 GET    /v1/artifacts                     # Search artifacts (includes catalog data)
 GET    /v1/artifacts/{id}                # Get artifact with enhanced catalog
 ```
@@ -429,17 +429,17 @@ flowtime list --catalog test-system
 
 ## Migration Strategy
 
-### **Phase 1: System Catalog Foundation (M2.6)**
+### **Phase 1: System Catalog Foundation (M-02.06)**
 - Implement basic system catalog registry
 - Add catalog references to artifact catalog.json
 - Support manual catalog creation and import
 
-### **Phase 2: Enhanced Integration (M3)**  
+### **Phase 2: Enhanced Integration (M-3)**  
 - Add catalog validation during artifact creation
 - Implement catalog comparison and versioning
 - Enterprise architecture tool connectors
 
-### **Phase 3: Advanced Features (M4+)**
+### **Phase 3: Advanced Features (M-4+)**
 - Automatic catalog discovery from telemetry
 - Catalog-driven UI generation  
 - Advanced analytics across catalog lineage
@@ -462,9 +462,9 @@ flowtime list --catalog test-system
 
 ## Related Documentation
 
-- [M2.6 Milestone Specification](../milestones/M02.06.md) - Artifacts registry implementation
-- [SIM-M2.6 Milestone Specification](../milestones/SIM-M02.06.md) - FlowTime-Sim catalog integration  
-- [UI-M2.6 Milestone Specification](../milestones/UI-M02.06.md) - UI artifacts and catalog display
+- [M-02.06 Milestone Specification](../milestones/M-02.06.md) - Artifacts registry implementation
+- [SIM-M-02.06 Milestone Specification](../milestones/SIM-M-02.06.md) - FlowTime-Sim catalog integration  
+- [UI-M-02.06 Milestone Specification](../milestones/UI-M-02.06.md) - UI artifacts and catalog display
 - [Artifact Schema Specification](./artifact-schema.md) - Detailed catalog.json schema
 - [Integration Specification (archived)](../archive/flowtime-sim-integration-spec-legacy.md) - Historical sim/engine integration notes
 

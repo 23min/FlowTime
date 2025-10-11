@@ -3,7 +3,7 @@
 **Status:** Draft (reflects post-audit plan)  
 **Last Updated:** 2025-10-11
 
-This chapter specifies the KISS-aligned schema and validation rules FlowTime.Sim must implement to participate in time-travel milestones. It replaces the legacy SIM-M2.6 schema assumptions and serves as the contract for template authors, CLI/service maintainers, and test writers.
+This chapter specifies the KISS-aligned schema and validation rules FlowTime.Sim must implement to participate in time-travel milestones. It replaces the legacy SIM-M-02.06 schema assumptions and serves as the contract for template authors, CLI/service maintainers, and test writers.
 
 ---
 
@@ -98,7 +98,7 @@ Required changes:
 
 ### 3.1 Shared Expression Library
 
-- Consume the shared `FlowTime.Expressions` assembly (post Engine M3.0 follow-up).
+- Consume the shared `FlowTime.Expressions` assembly (post Engine M-03.00 follow-up).
 - Validate expressions during template parsing:
   - Unknown identifiers/functions → error.
   - SHIFT self-reference without `initial` → error.

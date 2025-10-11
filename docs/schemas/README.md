@@ -21,7 +21,7 @@ nodes:               # Required: Array of node definitions
     expr: "demand * 0.8"  # For expr: expression string
 ```
 
-**⚠️ Schema Evolution**: FlowTime M2.9 uses `binSize`/`binUnit` format (not legacy `binMinutes`). See [model.schema.md](model.schema.md) for complete specification.
+**⚠️ Schema Evolution**: FlowTime M-02.09 uses `binSize`/`binUnit` format (not legacy `binMinutes`). See [model.schema.md](model.schema.md) for complete specification.
 
 ## Content Format
 
@@ -38,7 +38,7 @@ nodes:               # Required: Array of node definitions
 
 ## Schema Validation
 
-- **Current Schema (M2.9)**: [`model.schema.yaml`](model.schema.yaml) - Unified format with `binSize`/`binUnit`
+- **Current Schema (M-02.09)**: [`model.schema.yaml`](model.schema.yaml) - Unified format with `binSize`/`binUnit`
 - **Documentation**: [`model.schema.md`](model.schema.md) - Complete specification
 - **Legacy Schemas**: `engine-input.schema.json` and `engine-input-schema.md` are **deprecated** (use model.schema instead)
 - **Examples**: [`/examples/`](/examples/) directory

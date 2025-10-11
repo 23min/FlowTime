@@ -6,7 +6,7 @@ This document outlines potential performance optimizations for FlowTime, focusin
 
 ## Current Performance Baseline
 
-Based on M1.6 benchmarking results:
+Based on M-01.06 benchmarking results:
 - **Small models** (10 nodes): ~52μs evaluation, ~18μs parsing
 - **Medium models** (100 nodes): ~976μs evaluation, ~250μs parsing  
 - **Large models** (1000 nodes): ~67ms evaluation, ~23ms parsing

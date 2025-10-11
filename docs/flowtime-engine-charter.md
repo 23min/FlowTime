@@ -1,6 +1,6 @@
-# FlowTime-Engine Charter (v1.0) — To Be Reviewed Post-M3
+# FlowTime-Engine Charter (v1.0) — To Be Reviewed Post-M-3
 
-> **Note:** This charter predates the M3 delivery scope. We will review and update it after the M3 milestones to define future direction. For current M3 planning, rely on the time-travel architecture/planning docs.
+> **Note:** This charter predates the M-3 delivery scope. We will review and update it after the M-3 milestones to define future direction. For current M-3 planning, rely on the time-travel architecture/planning docs.
 
 **Date:** 2025-09-20
 **Audience:** Engineers, architects, UI developers, and contributors
@@ -12,14 +12,14 @@
 * **Telemetry generation**: Binned CSV/NDJSON/Parquet exports with catalog.json
 * **API-first runtime**: REST endpoints (`/v1/run`, `/v1/graph`, `/v1/artifacts`)
 * **Artifacts registry**: Persistent storage and discovery of runs and models
-* **Export system**: Multiple format support (M2.6)
-* **Registry integration**: Enhanced API with query capabilities (M2.7, M2.8)
+* **Export system**: Multiple format support (M-02.06)
+* **Registry integration**: Enhanced API with query capabilities (M-02.07, M-02.08)
 
 ### 🔄 In Progress
-* **Schema evolution**: binSize/binUnit time specifications, provenance tracking (M2.9)
+* **Schema evolution**: binSize/binUnit time specifications, provenance tracking (M-02.09)
 
 ### 📋 Planned
-* **Backlog & Latency primitives**: Single-queue backlog tracking, Little's Law calculations (M3.0)
+* **Backlog & Latency primitives**: Single-queue backlog tracking, Little's Law calculations (M-03.00)
 * **Telemetry import (Replay Mode)**: Hydrate runs from Gold telemetry
 * **Scenario execution (Overlay)**: Apply overlays to baseline runs
 * **Compare workflow**: Side-by-side comparison of runs and models (Deferred)
@@ -195,8 +195,8 @@ FlowTime-Engine is the **execution core** of FlowTime. It evaluates models deter
 
 This charter is explicit enough to **anchor milestones**:
 
-* M2.5: close the loop (model → run → export → import → compare).
-* M4: overlays and scenario runs.
-* M7: backlog + latency primitives.
-* M9: telemetry import & fitting.
-* M14: calibration & drift detection.
+* M-02.05: close the loop (model → run → export → import → compare).
+* M-4: overlays and scenario runs.
+* M-7: backlog + latency primitives.
+* M-9: telemetry import & fitting.
+* M-14: calibration & drift detection.

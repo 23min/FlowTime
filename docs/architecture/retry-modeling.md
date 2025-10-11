@@ -611,23 +611,23 @@ public class HistoryBuffer
 
 ## Implementation Roadmap Alignment
 
-### Phase 1: Foundation (M1.5 - M3)
+### Phase 1: Foundation (M-01.05 - M-3)
 - Basic expression language with SHIFT operator
 - Simple stateful node architecture
 - Conservation law validation
 
-### Phase 2: Temporal Operators (M9.5)
+### Phase 2: Temporal Operators (M-09.05)
 - CONV operator for retry convolution
 - DELAY operator for arbitrary time shifting  
 - EMA operator for smoothed metrics
 - Comprehensive retry modeling
 
-### Phase 3: Advanced Analysis (M10+)
+### Phase 3: Advanced Analysis (M-10+)
 - Multi-class retry behavior
 - Cross-system integration validation
 - Performance optimization for large-scale models
 
-### Phase 4: Research Topics (M15+)
+### Phase 4: Research Topics (M-15+)
 - Algebraic loop investigation (if practical need emerges)
 - Advanced iterative solvers (very low priority)
 - Real-time streaming analysis capabilities

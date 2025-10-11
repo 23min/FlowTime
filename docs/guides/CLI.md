@@ -1,8 +1,8 @@
-# FlowTime CLI Guide (M0 → M1)
+# FlowTime CLI Guide (M-00.00 → M-01.00)
 
 > **📋 Charter Context**: CLI capabilities described here remain core to the [FlowTime-Engine Charter](../flowtime-engine-charter.md). The CLI provides the foundational execution engine supporting the artifacts-centric workflow. See [ROADMAP.md](../ROADMAP.md) for current development direction.
 
-This guide shows how to build, test, and run the FlowTime CLI with M1 (Contracts Parity) features.
+This guide shows how to build, test, and run the FlowTime CLI with M-01 (Contracts Parity) features.
 Examples use PowerShell by default (Windows-first), with Bash equivalents where syntax differs.
 
 ## Prerequisites
@@ -23,7 +23,7 @@ Dotnet test --nologo
 ## Run the example model
 
 ```powershell
-# Evaluate the example YAML and write M1 artifact set to out/hello
+# Evaluate the example YAML and write M-01 artifact set to out/hello
 Dotnet run --project src/FlowTime.Cli -- run examples/hello/model.yaml --out out/hello --verbose
 
 # Peek at the generated artifacts
@@ -34,7 +34,7 @@ Get-Content out/hello/run_*/series/served@SERVED@DEFAULT.csv | Select-Object -Fi
 Bash equivalents:
 
 ```bash
-# Evaluate the example YAML and write M1 artifact set to out/hello
+# Evaluate the example YAML and write M-01 artifact set to out/hello
 dotnet run --project src/FlowTime.Cli -- run examples/hello/model.yaml --out out/hello --verbose
 
 # Peek at the generated artifacts
@@ -42,7 +42,7 @@ find out/hello/run_* -type f
 head -n 5 out/hello/run_*/series/served@SERVED@DEFAULT.csv
 ```
 
-Beginning in M1 (Contracts Parity), all runs emit a structured artifact set under `runs/<runId>/` including `spec.yaml`, `run.json`, `manifest.json`, `series/index.json`, per‑series CSV files, and placeholder directory for `gold/`.
+Beginning in M-01 (Contracts Parity), all runs emit a structured artifact set under `runs/<runId>/` including `spec.yaml`, `run.json`, `manifest.json`, `series/index.json`, per‑series CSV files, and placeholder directory for `gold/`.
 
 ## Usage
 
@@ -58,7 +58,7 @@ Options:
 
 Help: `-h`, `--help`, `/?`, `/h` — print usage and exit 0.
 
-## M1 Artifact Structure
+## M-01 Artifact Structure
 
 Each run generates a complete artifact set under `out/<dir>/<runId>/`:
 
@@ -79,7 +79,7 @@ run_20250903T133923Z_e60c400a/
 - **Schema validation**: Automatic JSON Schema validation against [docs/schemas/](schemas/) files
 - **Determinism**: `--deterministic-run-id` + `--seed` enable reproducible artifacts for CI/testing
 
-## Model Artifact Format (M2.x)
+## Model Artifact Format (M-02.x)
 
 Unified Model artifact structure that works with both FlowTime and FlowTime-Sim:
 
@@ -137,19 +137,19 @@ Tip: In Bash shells, the dotnet commands are identical; only shell utilities (li
 
 ## What’s next
 
-✅ **Milestone M1 (Contracts Parity)**: COMPLETED
+✅ **Milestone M-1 (Contracts Parity)**: COMPLETED
 * Deterministic artifact set (`spec.yaml`, `run.json`, `manifest.json`, `series/index.json`, per‑series CSVs, placeholder for `gold/`).
 * Per-series and scenario hashing (SHA-256) with canonical YAML normalization.
 * Implemented flags `--deterministic-run-id`, `--seed`.
 * JSON Schema validation for all artifacts.
 
 **Next Milestones:**
-* M2: Expression grammar expansion, advanced node types
-* SVC-M0: FlowTime.API HTTP surface (POST /run, GET /graph, GET /healthz)
+* M-2: Expression grammar expansion, advanced node types
+* SVC-M-0: FlowTime.API HTTP surface (POST /run, GET /graph, GET /healthz)
 
-## M2.9 CLI Evolution
+## M-02.09 CLI Evolution
 
-Starting in M2.9, the CLI evolves to become the primary developer tool with enhanced capabilities:
+Starting in M-02.09, the CLI evolves to become the primary developer tool with enhanced capabilities:
 
 ### Architecture Changes
 - **Direct Core Access**: CLI operates directly on FlowTime.Core, no API dependency
@@ -214,7 +214,7 @@ flowtime registry remove <model-id>
 - User preferences and tool behavior customization
 - Environment-specific settings and profiles
 
-### M2.9 Implementation Plan
+### M-02.09 Implementation Plan
 
 **Phase 1**: Core CLI Architecture
 - Migrate from API-dependent to direct Core access

@@ -4,7 +4,7 @@
 > **See instead**: [`NEW-ROADMAP.md`](NEW-ROADMAP.md) for current, accurate roadmap aligned with KISS architecture.
 
 **Vision:** Transform FlowTime into a comprehensive **model authoring and analysis platform** with artifacts-centric workflow  
-**Status:** Charter Implementation Revised (UI-M2.8 Phase 2+ Postponed)  
+**Status:** Charter Implementation Revised (UI-M-02.08 Phase 2+ Postponed)  
 **Last Updated:** January 27, 2025
 
 ---
@@ -32,17 +32,17 @@ FlowTime is evolving from a simulation demonstration tool into a **professional 
 
 ## Development Phases
 
-### **Phase 1: Charter Foundation (M2.6-M2.9) - Current Focus**
+### **Phase 1: Charter Foundation (M-02.06-M-02.09) - Current Focus**
 
 **Timeframe:** September 2025 - Q1 2026  
 **Goal:** Establish artifacts-centric infrastructure and charter UI
 
-#### **✅ M2.6 Export System (Completed)**
+#### **✅ M-02.06 Export System (Completed)**
 - **Achievement:** Export functionality with CSV, NDJSON, Parquet formats
 - **Charter Impact:** Provides foundation for artifact generation in charter workflow
 - **Status:** Complete - enables transition to artifacts-centric paradigm
 
-#### **📋 M2.7 Artifacts Registry (Planned)**
+#### **📋 M-02.07 Artifacts Registry (Planned)**
 - **Goal:** Persistent artifact storage and discovery system
 - **Key Features:**
   - File-based artifact storage with JSON metadata
@@ -50,9 +50,9 @@ FlowTime is evolving from a simulation demonstration tool into a **professional 
   - Search and filtering capabilities across artifact types
   - Auto-generation of artifacts from existing runs
 - **Charter Impact:** Core infrastructure enabling "Never Forget" principle
-- **Dependencies:** M2.6 (Export System)
+- **Dependencies:** M-02.06 (Export System)
 
-#### **📋 M2.8 Registry Integration & API Enhancement (Planned)**
+#### **📋 M-02.08 Registry Integration & API Enhancement (Planned)**
 - **Goal:** Enhanced API integration with artifacts registry and service-level charter support
 - **Key Features:**
   - Registry integration throughout existing APIs
@@ -60,9 +60,9 @@ FlowTime is evolving from a simulation demonstration tool into a **professional 
   - Background services for artifact management
   - API preparation for UI charter implementation
 - **Charter Impact:** Enables seamless integration between existing functionality and new charter workflow
-- **Dependencies:** M2.7 (Artifacts Registry)
+- **Dependencies:** M-02.07 (Artifacts Registry)
 
-#### **📋 M2.9 Compare Workflow (Planned)**
+#### **📋 M-02.09 Compare Workflow (Planned)**
 - **Goal:** Implement charter Compare functionality using artifacts registry
 - **Key Features:**
   - Contextual comparison launched from artifacts and results
@@ -70,14 +70,14 @@ FlowTime is evolving from a simulation demonstration tool into a **professional 
   - Flexible comparison inputs (Run vs Run, Run vs Telemetry, Model vs Run)
   - Comparison results stored as artifacts
 - **Charter Impact:** Completes core charter workflow enabling comprehensive analysis
-- **Dependencies:** M2.8 (Registry Integration)
+- **Dependencies:** M-02.08 (Registry Integration)
 
-### **Phase 2: Charter User Experience (UI-M2.7+) - Revised Scope**
+### **Phase 2: Charter User Experience (UI-M-02.07+) - Revised Scope**
 
 **Timeframe:** October 2025 - Q2 2026 (Revised: Jan 2026+)  
 **Revised Goal:** Implement artifacts registry UI; charter navigation postponed pending reimplementation
 
-#### **📋 UI-M2.7 Artifacts Registry UI**
+#### **📋 UI-M-02.07 Artifacts Registry UI**
 - **Goal:** Comprehensive artifacts browsing and management interface
 - **Key Features:**
   - Artifacts browser with search, filtering, and metadata display
@@ -86,26 +86,26 @@ FlowTime is evolving from a simulation demonstration tool into a **professional 
   - Performance optimized for 1000+ artifacts
 - **User Impact:** Enables discovery and navigation of all preserved work
 
-#### **� UI-M2.8 Charter Navigation & Tab Structure**
+#### **� UI-M-02.08 Charter Navigation & Tab Structure**
 - **Status:** ✅ **PHASE 1 COMPLETE** (Jan 2025) - ❌ **PHASES 2+ POSTPONED**
 - **Completed:** Template API Integration with FlowTime-Sim API migration and demo mode preservation
 - **Postponed:** Charter workflow navigation system (stepper-based context bar, workflow state management)
 - **Reason:** Charter workflow approach requires reimplementation with clearer user value proposition
 - **Impact:** Template Studio functionality enhanced through API integration; charter navigation deferred pending architectural review
 
-#### **❌ UI-M2.9 Compare Workflow UI Integration**
+#### **❌ UI-M-02.09 Compare Workflow UI Integration**
 - **Status:** **POSTPONED** pending charter workflow reimplementation
 - **Original Goal:** Visual comparison interfaces integrated into charter navigation
-- **Postponement Reason:** Depends on UI-M2.8 charter navigation system which has been postponed
-- **Dependencies:** UI-M2.8 Phase 2+ (postponed), M2.9 Compare Workflow
+- **Postponement Reason:** Depends on UI-M-02.08 charter navigation system which has been postponed
+- **Dependencies:** UI-M-02.08 Phase 2+ (postponed), M-02.09 Compare Workflow
 - **Future Consideration:** Will be reconsidered when charter workflow approach is reimagined
 
-### **Phase 3: Cross-Platform Integration (UI-M3.0 - SIM-M3.0) - Future**
+### **Phase 3: Cross-Platform Integration (UI-M-03.00 - SIM-M-03.00) - Future**
 
 **Timeframe:** Q2-Q3 2026  
 **Goal:** Unified charter experience spanning Engine and Simulation platforms
 
-#### **📋 UI-M3.0 Cross-Platform Charter Integration**
+#### **📋 UI-M-03.00 Cross-Platform Charter Integration**
 - **Goal:** Unified charter UI spanning Engine and Simulation platforms
 - **Key Features:**
   - Charter navigation extended to include simulation capabilities
@@ -113,7 +113,7 @@ FlowTime is evolving from a simulation demonstration tool into a **professional 
   - Cross-platform workflow integration and state management
   - Clear communication of cross-platform connectivity and capabilities
 
-#### **📋 SIM-M3.0 Charter Alignment**
+#### **📋 SIM-M-03.00 Charter Alignment**
 - **Goal:** Full charter integration between Engine and Simulation platforms
 - **Key Features:**
   - Model artifacts created in Sim discoverable in Engine charter
@@ -121,12 +121,12 @@ FlowTime is evolving from a simulation demonstration tool into a **professional 
   - Cross-platform comparison capabilities (Engine vs Simulation)
   - Unified artifact registry spanning both platforms
 
-### **Phase 4: Advanced Engine Capabilities (M3.0+) - Future**
+### **Phase 4: Advanced Engine Capabilities (M-03.00+) - Future**
 
 **Timeframe:** Q4 2026 - 2027  
 **Goal:** Expand FlowTime engine with advanced modeling and analysis capabilities
 
-#### **📋 M3.0 Backlog & Latency Modeling**
+#### **📋 M-03.00 Backlog & Latency Modeling**
 - **Goal:** Advanced queueing theory with backlog tracking and latency computation
 - **Key Features:**
   - Single-queue backlog modeling with Little's Law latency calculations
@@ -135,7 +135,7 @@ FlowTime is evolving from a simulation demonstration tool into a **professional 
   - Service time distribution modeling
 - **Charter Impact:** Enables sophisticated capacity planning and performance analysis workflows
 
-#### **📋 M4.0 Scenarios & Advanced Compare**
+#### **📋 M-04.00 Scenarios & Advanced Compare**
 - **Goal:** Multi-scenario modeling with comprehensive comparison capabilities
 - **Key Features:**
   - Scenario management and batch execution
@@ -144,7 +144,7 @@ FlowTime is evolving from a simulation demonstration tool into a **professional 
   - Confidence intervals and distribution analysis
 - **Charter Impact:** Transforms charter Compare into professional scenario analysis platform
 
-#### **📋 M5.0 Routing & Network Modeling**
+#### **📋 M-05.00 Routing & Network Modeling**
 - **Goal:** Multi-path routing with fan-out and capacity constraints
 - **Key Features:**
   - Dynamic routing with load balancing algorithms
@@ -153,7 +153,7 @@ FlowTime is evolving from a simulation demonstration tool into a **professional 
   - Network topology modeling and visualization
 - **Charter Impact:** Enables complex system architecture modeling within charter workflow
 
-#### **📋 M6.0 Batch Processing & Temporal Windows**
+#### **📋 M-06.00 Batch Processing & Temporal Windows**
 - **Goal:** Batch window processing with lag/shift operations
 - **Key Features:**
   - Configurable batch windows with time alignment
@@ -162,12 +162,12 @@ FlowTime is evolving from a simulation demonstration tool into a **professional 
   - Window-based aggregation functions
 - **Charter Impact:** Advanced temporal modeling for batch processing systems
 
-### **Phase 5: Enterprise & Integration (M7.0+) - Long-term Vision**
+### **Phase 5: Enterprise & Integration (M-07.00+) - Long-term Vision**
 
 **Timeframe:** 2028+  
 **Goal:** Enterprise-grade capabilities and external system integration
 
-#### **📋 M7.0 Advanced Queueing Systems**
+#### **📋 M-07.00 Advanced Queueing Systems**
 - **Goal:** Multi-queue systems with buffers and spillover
 - **Key Features:**
   - Finite buffer queues with capacity limits
@@ -176,7 +176,7 @@ FlowTime is evolving from a simulation demonstration tool into a **professional 
   - Resource contention modeling
 - **Charter Impact:** Professional queueing analysis with enterprise-grade modeling
 
-#### **📋 M8.0 Real-Time Data Integration**
+#### **📋 M-08.00 Real-Time Data Integration**
 - **Goal:** Live data feeds and real-time model updates
 - **Key Features:**
   - Streaming data ingestion from external systems
@@ -185,7 +185,7 @@ FlowTime is evolving from a simulation demonstration tool into a **professional 
   - Event-driven model execution triggers
 - **Charter Impact:** Charter workflow extended to live operational systems
 
-#### **📋 M9.0 Machine Learning Integration**
+#### **📋 M-09.00 Machine Learning Integration**
 - **Goal:** ML-powered model optimization and pattern recognition
 - **Key Features:**
   - Automated parameter tuning using ML algorithms
@@ -194,7 +194,7 @@ FlowTime is evolving from a simulation demonstration tool into a **professional 
   - Anomaly detection in model behavior
 - **Charter Impact:** AI-enhanced charter workflows with intelligent insights
 
-#### **📋 M10.0+ Platform Ecosystem**
+#### **📋 M-10.00+ Platform Ecosystem**
 - **Goal:** Comprehensive modeling platform with ecosystem integration
 - **Key Features:**
   - Plugin architecture for custom modeling components
@@ -205,35 +205,35 @@ FlowTime is evolving from a simulation demonstration tool into a **professional 
 
 ---
 
-## Historical Context: The M2.6 Charter Transition
+## Historical Context: The M-02.06 Charter Transition
 
-### **Pre-Charter Era (M0-M2.5)**
+### **Pre-Charter Era (M-0-M-02.05)**
 **Characteristics:** Demo-focused development with individual feature milestones
-- **M0-M1:** Core engine and basic UI implementation
-- **M2.0-M2.5:** Individual features (templates, analysis pipeline, UI components)
+- **M-0-M-1:** Core engine and basic UI implementation
+- **M-02.00-M-02.05:** Individual features (templates, analysis pipeline, UI components)
 - **Approach:** Feature-driven development without unified workflow vision
 
-### **Charter Transition (M2.6)**
+### **Charter Transition (M-02.06)**
 **Catalyst:** Recognition that FlowTime needed transformation from demo tool to professional platform  
 **Key Insight:** Users needed persistent workflow and artifact management, not just individual features
 
-**M2.6 as Turning Point:**
+**M-02.06 as Turning Point:**
 - **Last Pre-Charter Milestone:** Completed export functionality using traditional approach
 - **Charter Foundation:** Export system provided infrastructure patterns for artifact generation
 - **Paradigm Shift:** Transitioned from export-focused to artifacts-centric thinking
-- **Architecture Alignment:** M2.6 work preserved and enhanced to support charter vision
+- **Architecture Alignment:** M-02.06 work preserved and enhanced to support charter vision
 
-### **Post-Charter Era (M2.7+)**
+### **Post-Charter Era (M-02.07+)**
 **Characteristics:** Artifacts-centric development with unified workflow vision
 - **Unified Vision:** All development aligned with charter workflow paradigm
 - **User Focus:** Professional workflows that preserve and build upon all work
-- **Architecture:** Separation of concerns between backend services (M2.x) and UI implementation (UI-M2.x)
+- **Architecture:** Separation of concerns between backend services (M-02.x) and UI implementation (UI-M-02.x)
 
 ---
 
 ## Platform Architecture Evolution
 
-### **Current Architecture (Post-M2.6)**
+### **Current Architecture (Post-M-02.06)**
 ```
 ┌─────────────────┬─────────────────┬─────────────────┐
 │   UI Layer      │  Service Layer  │  Storage Layer  │
@@ -246,9 +246,9 @@ FlowTime is evolving from a simulation demonstration tool into a **professional 
 ```
 
 ### **Milestone Architecture Alignment**
-- **Backend Milestones (M2.x):** API services, data management, business logic
-- **UI Milestones (UI-M2.x):** User interfaces, navigation, user experience
-- **Cross-Platform Milestones (SIM-M2.x):** Integration between Engine and Simulation
+- **Backend Milestones (M-02.x):** API services, data management, business logic
+- **UI Milestones (UI-M-02.x):** User interfaces, navigation, user experience
+- **Cross-Platform Milestones (SIM-M-02.x):** Integration between Engine and Simulation
 - **Clear Separation:** Enables parallel development and independent evolution
 
 ---
@@ -279,9 +279,9 @@ FlowTime is evolving from a simulation demonstration tool into a **professional 
 
 ### **Development Approach**
 - **Incremental Migration:** Preserve existing functionality while adding charter capabilities
-- **Parallel Development:** Backend (M2.x) and UI (UI-M2.x) milestones can develop simultaneously
+- **Parallel Development:** Backend (M-02.x) and UI (UI-M-02.x) milestones can develop simultaneously
 - **User-Centric:** No disruption to established workflows during transition
-- **Charter Alignment:** All new development follows charter principles from M2.7 forward
+- **Charter Alignment:** All new development follows charter principles from M-02.07 forward
 
 ### **Technical Stack**
 - **Backend:** .NET 9, ASP.NET Core APIs, file-based artifact storage
@@ -299,13 +299,13 @@ FlowTime is evolving from a simulation demonstration tool into a **professional 
 
 ## Future Vision: Long-Term Platform Evolution
 
-### **Advanced Modeling Capabilities (Phase 4: M3.0-M6.0)**
+### **Advanced Modeling Capabilities (Phase 4: M-03.00-M-06.00)**
 - **Queueing Theory:** Advanced backlog modeling, latency computation, and Little's Law applications
 - **Scenario Analysis:** Multi-scenario execution with statistical comparison and what-if analysis
 - **Network Modeling:** Routing, fan-out patterns, capacity constraints, and topology visualization
 - **Temporal Processing:** Batch windows, lag compensation, and temporal shift operations
 
-### **Enterprise Integration (Phase 5: M7.0-M10.0)**
+### **Enterprise Integration (Phase 5: M-07.00-M-10.00)**
 - **Advanced Queueing:** Multi-queue systems, buffer management, priority queues, and SLA modeling
 - **Real-Time Integration:** Live data feeds, streaming ingestion, and event-driven execution
 - **Machine Learning:** AI-powered optimization, pattern recognition, and predictive modeling
@@ -324,28 +324,28 @@ The charter paradigm scales naturally to accommodate advanced capabilities:
 ## Getting Started
 
 ### **For Developers**
-1. **Current Development:** Focus on M2.7 Artifacts Registry implementation
+1. **Current Development:** Focus on M-02.07 Artifacts Registry implementation
 2. **Architecture Understanding:** Review [Charter Document](charter/flowtime-engine.md) for vision alignment
 3. **Milestone Planning:** See [Charter Roadmap](milestones/CHARTER-ROADMAP.md) for detailed implementation sequence
 4. **Code Standards:** Follow charter architectural principles in all new development
 
 ### **For Users**
 1. **Current Features:** Continue using existing export and analysis functionality
-2. **Charter Preview:** Look for new charter features as M2.7-M2.9 milestones complete
+2. **Charter Preview:** Look for new charter features as M-02.07-M-02.09 milestones complete
 3. **Workflow Transition:** Expect gradual introduction of charter navigation and artifact management
 4. **Feedback:** Provide input on charter workflow patterns and feature priorities
 
 ### **For Stakeholders**
 1. **Charter Benefits:** Persistent workflows, comprehensive artifact management, professional analysis platform
 2. **Development Timeline:** 
-   - **2026:** Core charter functionality (M2.7-M2.9) and cross-platform integration (UI-M3.0-SIM-M3.0)
-   - **2027:** Advanced engine capabilities (M3.0-M6.0) with queueing, scenarios, and network modeling
-   - **2028+:** Enterprise features (M7.0-M10.0) with real-time integration and ML capabilities
+   - **2026:** Core charter functionality (M-02.07-M-02.09) and cross-platform integration (UI-M-03.00-SIM-M-03.00)
+   - **2027:** Advanced engine capabilities (M-03.00-M-06.00) with queueing, scenarios, and network modeling
+   - **2028+:** Enterprise features (M-07.00-M-10.00) with real-time integration and ML capabilities
 3. **Investment Value:** Evolution from demo tool → professional platform → enterprise modeling ecosystem
 4. **Competitive Position:** Comprehensive modeling platform spanning basic workflows to advanced enterprise capabilities
 
 ---
 
 **Charter Status:** 🔄 Implementation in Progress  
-**Next Milestone:** 📋 M2.7 Artifacts Registry  
+**Next Milestone:** 📋 M-02.07 Artifacts Registry  
 **Charter Vision:** ✅ Established and Aligned

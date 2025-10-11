@@ -1,4 +1,4 @@
-# Service Milestone SVC-M0 — Minimal API (FlowTime.API)
+# Service Milestone SVC-M-0 — Minimal API (FlowTime.API)
 
 ## Lighthouse scenario
 
@@ -31,7 +31,7 @@
 
 ## Why now (early)
 
-- Enables UI-M0 to use the API path immediately (or fall back to local CSV).
+- Enables UI-M-0 to use the API path immediately (or fall back to local CSV).
 - Makes scripted runs (pipelines, notebooks) trivial via HTTP.
 - Keeps surface minimal and stable while core evolves.
 
@@ -45,14 +45,14 @@ FlowTime.API is host-agnostic. The initial host can be Azure Functions or ASP.NE
 
 Keep domain logic in Core/App/Handlers; hosts are thin adapters.
 
-## Endpoints (SVC‑M0)
+## Endpoints (SVC‑M-0)
 
 - GET `/healthz` — health check
 - POST `/graph` — compiled node graph (nodes, edges) from request YAML; GET may be added later when models become server resources
-- POST `/run` — accepts model YAML (Content-Type: text/plain in M0) and returns results as JSON
+- POST `/run` — accepts model YAML (Content-Type: text/plain in M-0) and returns results as JSON
 - Optional: POST `/negotiate` — placeholder for future real‑time
 
-Error contract (M0):
+Error contract (M-0):
 - On invalid input or parse errors, return `400 Bad Request` with JSON payload `{ "error": "..." }`.
 - Use invariant-culture numbers; do not return stack traces.
 
@@ -96,7 +96,7 @@ Keep the HTTP host thin and swappable by separating concerns:
 - Routes, DTOs, and status codes live in Contracts + Handlers.
 - Adding or removing a host does not touch Core/App/Contracts — it's just another adapter.
 
-### First implementation (SVC‑M0)
+### First implementation (SVC‑M-0)
 
 - Choose one host to start (e.g., Azure Functions) and keep it in a host-specific project (FlowTime.API.Functions).
 - If/when adding ASP.NET Core, create FlowTime.API.AspNetCore and reuse Contracts + Handlers unchanged.

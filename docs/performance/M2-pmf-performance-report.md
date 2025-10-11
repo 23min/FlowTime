@@ -1,8 +1,8 @@
-# M2 Probability Mass Function (PMF) Performance Report
+# M-2 Probability Mass Function (PMF) Performance Report
 
 **Generated:** September 11, 2025  
-**Version:** M2 PMF Implementation  
-**Branch:** `feature/M2-pmf-support`  
+**Version:** M-2 PMF Implementation  
+**Branch:** `feature/M-2-pmf-support`  
 **Test Environment:** .NET 9, Linux dev container
 
 ---
@@ -21,12 +21,12 @@
 
 ## Executive Summary
 
-The M2 PMF implementation introduces **significant new probabilistic modeling capabilities** to FlowTime. However, **performance analysis is currently blocked by unreliable measurement methodology** that produces contradictory and implausible results.
+The M-2 PMF implementation introduces **significant new probabilistic modeling capabilities** to FlowTime. However, **performance analysis is currently blocked by unreliable measurement methodology** that produces contradictory and implausible results.
 
 **Methodology Findings:**
 - ❌ **Measurement Reliability**: Performance tests use fundamentally flawed methodology
 - ❌ **Result Validity**: Counterintuitive results suggest measurement artifacts
-- ❌ **Comparison Accuracy**: M1.5 vs M2 comparisons are unreliable
+- ❌ **Comparison Accuracy**: M-01.05 vs M-2 comparisons are unreliable
 - ❌ **Performance Conclusions**: Cannot make definitive performance assessments
 
 **Verdict:** **Performance analysis must be redone with proper benchmarking methodology** before any production readiness assessment can be made.
@@ -95,7 +95,7 @@ The M2 PMF implementation introduces **significant new probabilistic modeling ca
 | Finding | Reported Result | Why This Is Suspicious |
 |---------|----------------|------------------------|
 | "PMF parsing 33x faster than const" | Parse=15.89ms vs 517.54ms | Fundamentally implausible - simpler operations should be faster |
-| "6x baseline regression" | M1.5: 35ms → M2: 241ms | Could be JIT/warmup differences between different test suites |
+| "6x baseline regression" | M-01.05: 35ms → M-2: 241ms | Could be JIT/warmup differences between different test suites |
 | "12.6x performance cliff" | 50→200 buckets | Single measurement variance could explain this |
 | "30x mixed workload overhead" | - | Likely GC timing or measurement order effects |
 
@@ -127,7 +127,7 @@ PMF vs CONST BASELINE COMPARISON (100 nodes, 1000 bins):
 
 ### High Priority (Before Any Performance Conclusions)
 1. **Implement BenchmarkDotNet** - Replace current ad-hoc timing with proper benchmarking
-2. **Establish Baseline** - Re-measure M1.5 performance with reliable methodology  
+2. **Establish Baseline** - Re-measure M-01.05 performance with reliable methodology  
 3. **Validate Test Environment** - Ensure consistent, controlled measurement conditions
 4. **Statistical Rigor** - Multiple iterations, statistical analysis, confidence intervals
 
@@ -141,7 +141,7 @@ PMF vs CONST BASELINE COMPARISON (100 nodes, 1000 bins):
 
 ## Revised Conclusion
 
-**The M2 PMF implementation cannot be properly evaluated for performance until reliable benchmarking methodology is implemented.** 
+**The M-2 PMF implementation cannot be properly evaluated for performance until reliable benchmarking methodology is implemented.** 
 
 Current performance test results show clear signs of measurement artifacts:
 - Implausible comparative results (PMF faster than const)
@@ -152,7 +152,7 @@ Current performance test results show clear signs of measurement artifacts:
 1. **Do not make production decisions** based on current performance data
 2. **Implement proper benchmarking** using BenchmarkDotNet or similar tools
 3. **Re-test all performance characteristics** with reliable methodology
-4. **Establish performance baselines** for both M1.5 and M2 with proper measurements
+4. **Establish performance baselines** for both M-01.05 and M-2 with proper measurements
 
 **Performance Grade: Incomplete ⏸️** *(Cannot assess until measurement methodology is fixed)*
 
@@ -245,7 +245,7 @@ Current performance test results show clear signs of measurement artifacts:
    - **High priority for investigation**
 
 3. **Expression Language Parse Overhead** (all models)
-   - 6x slower parsing than M1.5 baseline
+   - 6x slower parsing than M-01.05 baseline
    - Infrastructure overhead affects all scenarios
    - **Optimization opportunity**
 
@@ -263,16 +263,16 @@ Current performance test results show clear signs of measurement artifacts:
 
 #### ❌ **Avoid:**
 - **Ultra-complex PMFs** (200+ buckets) - performance cliff
-- **Performance-critical small models** (M1.5 was significantly faster)
+- **Performance-critical small models** (M-01.05 was significantly faster)
 - **Parse-heavy workflows** (frequent model recompilation)
 
 ---
 
-## Performance vs M1.5 Feature Comparison
+## Performance vs M-01.05 Feature Comparison
 
 ### Capability Trade-offs
 
-| Feature | M1.5 | M2 | Performance Impact |
+| Feature | M-01.05 | M-2 | Performance Impact |
 |---------|------|----|--------------------|
 | **Deterministic Modeling** | Excellent | Good | -583% total time |
 | **Probabilistic Modeling** | None | Good | New capability |
@@ -280,18 +280,18 @@ Current performance test results show clear signs of measurement artifacts:
 | **Parse Performance** | Excellent | Poor | +627% parse time |
 | **Evaluation Performance** | Excellent | Fair | +268% eval time |
 
-**Strategic Assessment:** M2 delivers significant new probabilistic capabilities at the cost of baseline performance. The trade-off is reasonable for probabilistic use cases but represents a **significant regression** for deterministic modeling scenarios.
+**Strategic Assessment:** M-2 delivers significant new probabilistic capabilities at the cost of baseline performance. The trade-off is reasonable for probabilistic use cases but represents a **significant regression** for deterministic modeling scenarios.
 
 ---
 
 ## Optimization Roadmap
 
-### High Priority (M2.1)
+### High Priority (M-02.01)
 1. **PMF Complexity Algorithm** - Address 12.6x performance cliff
 2. **Mixed Workload Evaluation** - Investigate 30x overhead cause
 3. **Parse Performance** - Reduce expression language overhead
 
-### Medium Priority (M2.2)  
+### Medium Priority (M-02.02)  
 1. **Grid Scaling Optimization** - Improve per-bin evaluation costs
 2. **Memory Usage Optimization** - Reduce baseline memory footprint
 3. **PMF Normalization Caching** - Cache normalized distributions
@@ -313,7 +313,7 @@ Current performance test results show clear signs of measurement artifacts:
 
 ### For Development:
 1. **Address performance cliffs** - PMF complexity and mixed workload issues
-2. **Baseline performance recovery** - M1.5 regression is significant  
+2. **Baseline performance recovery** - M-01.05 regression is significant  
 3. **Performance testing integration** - Prevent future regressions
 4. **Algorithm analysis** - Investigate O(n²) scaling in PMF complexity
 
@@ -338,13 +338,13 @@ Current performance test results show clear signs of measurement artifacts:
 
 ## Conclusion
 
-The M2 PMF implementation successfully delivers **advanced probabilistic modeling capabilities** while maintaining reasonable performance for most use cases. However, the implementation reveals several **significant performance concerns**:
+The M-2 PMF implementation successfully delivers **advanced probabilistic modeling capabilities** while maintaining reasonable performance for most use cases. However, the implementation reveals several **significant performance concerns**:
 
-1. **Baseline Performance Regression**: 6x slower than M1.5 for simple scenarios
+1. **Baseline Performance Regression**: 6x slower than M-01.05 for simple scenarios
 2. **PMF Complexity Cliff**: Catastrophic performance degradation beyond 50 buckets
 3. **Mixed Workload Penalties**: 30x overhead in heterogeneous models
 
-**The PMF functionality is production-ready** for probabilistic modeling scenarios, but users must carefully consider performance implications. The **significant baseline regression** suggests architectural review is needed to restore M1.5 performance levels for deterministic scenarios.
+**The PMF functionality is production-ready** for probabilistic modeling scenarios, but users must carefully consider performance implications. The **significant baseline regression** suggests architectural review is needed to restore M-01.05 performance levels for deterministic scenarios.
 
 **Performance Grade: B- 📊** *(Good probabilistic capabilities, concerning baseline regressions)*
 
@@ -393,7 +393,7 @@ PMF NORMALIZATION PERFORMANCE (100 nodes, 1000 bins):
 
 ---
 
-## Change Summary vs M1.5
+## Change Summary vs M-01.05
 
 ### New Capabilities Added ✅
 - **PMF Node Support** - Full probability mass function modeling
@@ -412,4 +412,4 @@ PMF NORMALIZATION PERFORMANCE (100 nodes, 1000 bins):
 - **Mixed Workloads**: 30x evaluation overhead in heterogeneous models
 - **Grid Scaling**: 0.85ms per bin exceeds performance budgets
 
-The M2 implementation successfully delivers the target probabilistic capabilities but at significant performance cost to baseline scenarios. Optimization efforts should focus on algorithmic improvements and baseline performance recovery.
+The M-2 implementation successfully delivers the target probabilistic capabilities but at significant performance cost to baseline scenarios. Optimization efforts should focus on algorithmic improvements and baseline performance recovery.

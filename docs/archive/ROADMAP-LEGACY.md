@@ -5,12 +5,12 @@
 > **👉 See [Charter Roadmap](milestones/CHARTER-ROADMAP.md)** for current milestone sequence and artifacts-centric paradigm.  
 > **👉 See [FlowTime-Engine Charter](flowtime-engine-charter.md)** for the new architectural vision.  
 >  
-> This document remains for **historical reference and M0-M2.6 completed milestones**.  
-> **New development follows charter milestones: M2.7 (Registry) → M2.8 (Charter UI) → M2.9 (Compare) → SIM-M3.0.**
+> This document remains for **historical reference and M-0-M-02.06 completed milestones**.  
+> **New development follows charter milestones: M-02.07 (Registry) → M-02.08 (Charter UI) → M-02.09 (Compare) → SIM-M-03.00.**
 
 > **Version:** 1.0 (Legacy - Charter Superseded)
 > **Audience:** Engineers and architects implementing FlowTime.
-> **Purpose:** Defines a sequenced, detailed roadmap with milestones M0–M15, interleaving Core/Engine, UI, Service/API, data adapters, scenarios, and calibration. Each milestone includes requirements, inputs/outputs, new code/files, and acceptance criteria.
+> **Purpose:** Defines a sequenced, detailed roadmap with milestones M-0–M-15, interleaving Core/Engine, UI, Service/API, data adapters, scenarios, and calibration. Each milestone includes requirements, inputs/outputs, new code/files, and acceptance criteria.
 
 ---
 
@@ -24,7 +24,7 @@ FlowTime behaves like a **spreadsheet for flows**:
 - Cells = time-bins, formulas = expressions, PMFs, built-ins.
 - Graph nodes reference each other like spreadsheet cells.
 
-## UI-M0 — Minimal Observer UI (Completed / Expanded)
+## UI-M-0 — Minimal Observer UI (Completed / Expanded)
 
 ### Visualization Early
 
@@ -114,7 +114,7 @@ Key principles:
 
 ---
 
-## M0 — Foundation: Canonical Grid, Series, Graph Skeleton
+## M-0 — Foundation: Canonical Grid, Series, Graph Skeleton
 
 ### Goal
 
@@ -123,14 +123,14 @@ This is the “Hello World” of FlowTime.
 
 ### Functional Requirements
 
-- **FR-M0-1:** Fixed canonical grid (`bins`, `bin_minutes`).
-- **FR-M0-2:** `Series<T>` = contiguous numeric vector aligned to grid.
-- **FR-M0-3:** Graph with nodes/edges, topological sort, deterministic `Evaluate()`.
-- **FR-M0-4:** Node kinds:
+- **FR-M-0-1:** Fixed canonical grid (`bins`, `bin_minutes`).
+- **FR-M-0-2:** `Series<T>` = contiguous numeric vector aligned to grid.
+- **FR-M-0-3:** Graph with nodes/edges, topological sort, deterministic `Evaluate()`.
+- **FR-M-0-4:** Node kinds:
 
   - `ConstSeriesNode(id, values[])`
-  - `BinaryOpNode(id, left, right, op)` where op ∈ {Add, Mul}. In M0 YAML, scalar RHS is supported (e.g., "name \* 0.8"); a full expression parser is planned for M1.
-- **FR-M0-5:** CLI `run` command: load YAML model → emit CSV.
+  - `BinaryOpNode(id, left, right, op)` where op ∈ {Add, Mul}. In M-0 YAML, scalar RHS is supported (e.g., "name \* 0.8"); a full expression parser is planned for M-01.
+- **FR-M-0-5:** CLI `run` command: load YAML model → emit CSV.
 
 ### Nonfunctional Requirements
 
@@ -165,7 +165,7 @@ outputs:
 
 - `out/<run>/served.csv` with schema: `t,value`
 - Optional stdout run summary when `--verbose` is used.
-- CSV from the CLI is the canonical reference artifact in M0; later API JSON/CSV must match it byte-for-byte (content-wise) for the same model.
+- CSV from the CLI is the canonical reference artifact in M-0; later API JSON/CSV must match it byte-for-byte (content-wise) for the same model.
 
 ### New Code/Files
 
@@ -199,7 +199,7 @@ dotnet run --project src/FlowTime.Cli -- run examples/hello/model.yaml --out out
 
 ---
 
-## SVC-M0 — Minimal API (FlowTime.API) ✅ COMPLETED
+## SVC-M-0 — Minimal API (FlowTime.API) ✅ COMPLETED
 
 ### Goal
 
@@ -216,7 +216,7 @@ Introduce a thin, stateless HTTP surface so everything can be driven via API ear
 
 ### Inputs
 
-- Same YAML as M0 (camelCase), including the minimal `expr` support already accepted in M0.
+- Same YAML as M-0 (camelCase), including the minimal `expr` support already accepted in M-00.
 
 ### Outputs
 
@@ -272,11 +272,11 @@ CLI/API parity; artifacts normalized; unified logs/auth.
 
 ---
 
-## UI-M0 — Minimal Observer UI ✅ COMPLETED
+## UI-M-0 — Minimal Observer UI ✅ COMPLETED
 
 ### Goal
 
-Provide a first, minimal visualization: plot CSV outputs in a SPA (planned for a later milestone; not part of M0).
+Provide a first, minimal visualization: plot CSV outputs in a SPA (planned for a later milestone; not part of M-0).
 
 **Status**: All functional requirements implemented and verified.
 
@@ -288,7 +288,7 @@ Provide a first, minimal visualization: plot CSV outputs in a SPA (planned for a
 
 ### Inputs
 
-- Prefer API (SVC-M0) when available; fallback to a local CSV file produced by the CLI. Outputs must be identical for the same model.
+- Prefer API (SVC-M-0) when available; fallback to a local CSV file produced by the CLI. Outputs must be identical for the same model.
 
 ### Outputs
 
@@ -311,7 +311,7 @@ ui/FlowTime.UI/
 
 ---
 
-## SYN-M0 — Synthetic Adapter (File) ✅ COMPLETED
+## SYN-M-0 — Synthetic Adapter (File) ✅ COMPLETED
 
 ### Acceptance criteria
 
@@ -344,7 +344,7 @@ public interface ISeriesReader {
 
 ---
 
-## M1 — Contracts Parity (Artifacts Alignment) ✅ COMPLETED
+## M-1 — Contracts Parity (Artifacts Alignment) ✅ COMPLETED
 
 ### Goal
 
@@ -356,8 +356,8 @@ Lock the core run artifact contract in parity with the simulator (FlowTime-Sim) 
 
 ### Functional Requirements
 
-- **FR-M1-1:** Persist spec.yaml verbatim (normalized line endings, original content) alongside artifacts for reproducibility and overlay derivations.
-- **FR-M1-2:** Dual-write run artifact directory: `out/<runId>/` containing:
+- **FR-M-1-1:** Persist spec.yaml verbatim (normalized line endings, original content) alongside artifacts for reproducibility and overlay derivations.
+- **FR-M-1-2:** Dual-write run artifact directory: `out/<runId>/` containing:
 
   - `spec.yaml` (original submitted/derived simulation spec)
   - `run.json` (high-level summary + series listing)
@@ -365,32 +365,32 @@ Lock the core run artifact contract in parity with the simulator (FlowTime-Sim) 
   - `series/index.json` (series index for quick discovery)
   - Per-series CSV: `series/<seriesId>.csv` (schema: `t,value`)
   - Placeholder directories for `gold/` (future analytics formats)
-- **FR-M1-3:** run.json per authoritative contracts.md schema:
+- **FR-M-1-3:** run.json per authoritative contracts.md schema:
 
   - Add `source` field = "engine"
   - Add `engineVersion` (current version string)
   - Expand `grid` with `timezone: "UTC"` and `align: "left"`
   - Include `warnings` array for normalization notes
   - Optional `modelHash` (engine may include)
-- **FR-M1-4:** manifest.json per authoritative schema:
+- **FR-M-1-4:** manifest.json per authoritative schema:
 
   - Remove required `modelHash` (optional for engine)
   - Use `rng` object: `{kind: "pcg32", seed: 12345}` instead of separate fields
   - Include `scenarioHash`, `seriesHashes`, `eventCount`, `createdUtc`
-- **FR-M1-5:** series/index.json per authoritative schema:
+- **FR-M-1-5:** series/index.json per authoritative schema:
 
   - Include full series metadata: `componentId`, `class`, `kind`, `unit`, `points`, `hash`
   - Add `formats.goldTable` placeholder (path, dimensions, measures) even if not producing Parquet yet
   - Use canonical units: **entities/bin** for flows, **entities** for levels, **minutes** for latency
-- **FR-M1-6:** Adopt seriesId naming convention `measure@componentId[@class]`; for M1 temporary mapping: use node IDs as componentId namespace until component modeling exists.
-- **FR-M1-7:** Enhanced deterministic hashing with full normalization (trim trailing whitespace, collapse consecutive blank lines, ignore YAML key ordering recursively).
-- **FR-M1-8:** JSON Schema validation: schemas under `docs/schemas/` (run.schema.json, manifest.schema.json, series-index.schema.json); CI tests validate artifacts against schemas.
-- **FR-M1-9:** CLI flags: `--no-manifest` (skips manifest only), `--deterministic-run-id <id>`, optional placeholders for `--no-gold`, `--no-events`.
-- **FR-M1-10:** Backward compatibility: existing single CSV output behavior preserved; dual-write artifacts are authoritative for downstream tooling.
+- **FR-M-1-6:** Adopt seriesId naming convention `measure@componentId[@class]`; for M-1 temporary mapping: use node IDs as componentId namespace until component modeling exists.
+- **FR-M-1-7:** Enhanced deterministic hashing with full normalization (trim trailing whitespace, collapse consecutive blank lines, ignore YAML key ordering recursively).
+- **FR-M-1-8:** JSON Schema validation: schemas under `docs/schemas/` (run.schema.json, manifest.schema.json, series-index.schema.json); CI tests validate artifacts against schemas.
+- **FR-M-1-9:** CLI flags: `--no-manifest` (skips manifest only), `--deterministic-run-id <id>`, optional placeholders for `--no-gold`, `--no-events`.
+- **FR-M-1-10:** Backward compatibility: existing single CSV output behavior preserved; dual-write artifacts are authoritative for downstream tooling.
 
 ### Inputs
 
-- Existing M0 YAML models (no new schema fields required).
+- Existing M-0 YAML models (no new schema fields required).
 - Optional flag toggles: `--no-manifest` (tests verify absence), `--deterministic-run-id <seed>` (optional explicit override for reproducible directory name; if omitted derives from modelHash+seed).
 
 ### Outputs
@@ -513,7 +513,7 @@ docs/contracts.md (updated with new artifact shapes and field glossary)
 - simulator vs engine artifact parity test passes (structural & hash equivalence where expected).
 - Hash stability: reordering YAML keys does not change `modelHash`; changing a numeric literal does.
 - `--no-manifest` suppresses `manifest.json` only; other artifacts still emitted.
-- All prior tests remain green; no expression parser added ahead of original M1.
+- All prior tests remain green; no expression parser added ahead of original M-01.
 
 ### Notes
 
@@ -523,7 +523,7 @@ docs/contracts.md (updated with new artifact shapes and field glossary)
 
 ---
 
-## M1.5 — Focused Expression Language ✅ COMPLETED
+## M-01.05 — Focused Expression Language ✅ COMPLETED
 
 ### Goal
 
@@ -533,12 +533,12 @@ Add basic expression language with SHIFT operator only. Deliberately focused to 
 
 ### Functional Requirements
 
-- **FR-M1-1:** Expression parser (`+ - * /`, MIN, MAX, CLAMP).
-- **FR-M1-2:** Node reference resolution (`expr: "demand * 0.8 + SHIFT(demand,-1)"`).
-- **FR-M1-3:** Built-in function: `SHIFT(series, k)` for time-series offsetting.
-- **FR-M1-4:** Basic stateful node interface (minimal, for SHIFT only).
+- **FR-M-1-1:** Expression parser (`+ - * /`, MIN, MAX, CLAMP).
+- **FR-M-1-2:** Node reference resolution (`expr: "demand * 0.8 + SHIFT(demand,-1)"`).
+- **FR-M-1-3:** Built-in function: `SHIFT(series, k)` for time-series offsetting.
+- **FR-M-1-4:** Basic stateful node interface (minimal, for SHIFT only).
 
-**Scope Limitation:** Advanced retry modeling capabilities deferred to M9.5. YAGNI principle applied.
+**Scope Limitation:** Advanced retry modeling capabilities deferred to M-09.05. YAGNI principle applied.
 
 ### Inputs
 
@@ -579,7 +579,7 @@ tests/FlowTime.Tests/ExpressionTests.cs
 
 ---
 
-## UI-M1 — Template-Based Simulation Runner (Completed)
+## UI-M-1 — Template-Based Simulation Runner (Completed)
 
 ### Goal
 
@@ -587,11 +587,11 @@ Enable template-based simulation workflow with parameter configuration and catal
 
 ### Functional Requirements (Achieved)
 
-- **FR-UI-M1-1:** Template gallery with search and categorization ✅
-- **FR-UI-M1-2:** Dynamic parameter forms generated from JSON schemas ✅
-- **FR-UI-M1-3:** System catalog selection with detailed information ✅
-- **FR-UI-M1-4:** Complete simulation workflow execution ✅
-- **FR-UI-M1-5:** Realistic simulation results display ✅
+- **FR-UI-M-1-1:** Template gallery with search and categorization ✅
+- **FR-UI-M-1-2:** Dynamic parameter forms generated from JSON schemas ✅
+- **FR-UI-M-1-3:** System catalog selection with detailed information ✅
+- **FR-UI-M-1-4:** Complete simulation workflow execution ✅
+- **FR-UI-M-1-5:** Realistic simulation results display ✅
 
 ### Inputs
 
@@ -629,14 +629,14 @@ ui/FlowTime.UI/wwwroot/css/app.css (enhanced)
 
 ### Implementation Notes
 
-- Used mock services for UI-M1 to enable independent UI development
+- Used mock services for UI-M-1 to enable independent UI development
 - Template Runner accessible at `/template-runner` route
 - Professional MudBlazor components with consistent theming
 - Fixed critical infinite loop bug and improved dropdown UX
 
 ---
 
-## M2 — PMF Support
+## M-2 — PMF Support
 
 ### Goal
 
@@ -644,9 +644,9 @@ Introduce PMF nodes for probabilistic modeling.
 
 ### Functional Requirements
 
-- **FR-M2-1:** Parse `{ value: prob }`, normalize.
+- **FR-M-2-1:** Parse `{ value: prob }`, normalize.
 
-- **FR-M2-2:** Emit expected value series.
+- **FR-M-2-2:** Emit expected value series.
 
 ### Inputs
 
@@ -678,7 +678,7 @@ tests/FlowTime.Tests/PmfTests.cs
 
 ---
 
-## UI-M2 — Real API Integration ✅
+## UI-M-2 — Real API Integration ✅
 
 ### Goal
 
@@ -686,16 +686,16 @@ Replace mock services with real FlowTime-Sim API integration, implementing artif
 
 ### Functional Requirements
 
-- **FR-UI-M2-1:** Replace mock services with real FlowTime-Sim API calls ✅
-- **FR-UI-M2-2:** Implement artifact-first result loading via series/index.json ✅
-- **FR-UI-M2-3:** Add FlowTimeSimApiClient for /sim/run execution and CSV streaming ✅
-- **FR-UI-M2-4:** Enhance mode switching with reliable component state management ✅
-- **FR-UI-M2-5:** Add comprehensive error handling and graceful API fallbacks ✅
-- **FR-UI-M2-6:** Expand test coverage for critical artifact endpoints ✅
+- **FR-UI-M-2-1:** Replace mock services with real FlowTime-Sim API calls ✅
+- **FR-UI-M-2-2:** Implement artifact-first result loading via series/index.json ✅
+- **FR-UI-M-2-3:** Add FlowTimeSimApiClient for /sim/run execution and CSV streaming ✅
+- **FR-UI-M-2-4:** Enhance mode switching with reliable component state management ✅
+- **FR-UI-M-2-5:** Add comprehensive error handling and graceful API fallbacks ✅
+- **FR-UI-M-2-6:** Expand test coverage for critical artifact endpoints ✅
 
 ### Inputs
 
-- UI-M1 Template Runner with mock service layer
+- UI-M-1 Template Runner with mock service layer
 - FlowTime-Sim service endpoints (/sim/run, /sim/runs/{id}/index, /sim/scenarios)
 - Integration specification for artifact-first communication patterns
 
@@ -740,7 +740,7 @@ scripts/
 
 ---
 
-## **M3 — Backlog v1 + Latency + Artifact Endpoints**
+## **M-3 — Backlog v1 + Latency + Artifact Endpoints**
 
 ### Goal
 
@@ -761,13 +761,13 @@ Users ask “what’s pending and how long?” early; the cost is modest (single
   - derived latency: **minutes**
 - Per-series CSVs under `runs/<runId>/series/*.csv` (InvariantCulture formatting)
 
-### Functional Requirements (Service/API) — **SVC-M1** ✅
+### Functional Requirements (Service/API) — **SVC-M-1** ✅
 
 - `GET /runs/{runId}/index` → returns `runs/<runId>/series/index.json` ✅
 - `GET /runs/{runId}/series/{seriesId}` → streams CSV ✅
 - (optional) `POST /compare` returns minimal deltas for common series
 
-**Status**: COMPLETED - Artifact endpoints implemented with SYN-M0 adapters, full test coverage.
+**Status**: COMPLETED - Artifact endpoints implemented with SYN-M-0 adapters, full test coverage.
 
 ### Inputs
 
@@ -789,7 +789,7 @@ Existing models; no schema change required.
 
 ---
 
-## UI-M3 — Run Metadata Viewer
+## UI-M-3 — Run Metadata Viewer
 
 ### Goal
 
@@ -803,7 +803,7 @@ UI shows run metadata.
 
 ---
 
-## M4 — Scenarios & Compare
+## M-4 — Scenarios & Compare
 
 ### Goal
 
@@ -838,7 +838,7 @@ src/FlowTime.Cli/CompareCommand.cs
 
 ---
 
-## UI-M4 — Scenario Runner
+## UI-M-4 — Scenario Runner
 
 ### Goal
 
@@ -852,7 +852,7 @@ UI can run scenarios and compare results.
 
 ---
 
-## **SYN-M1 — Synthetic Adapter (Stream)**
+## **SYN-M-1 — Synthetic Adapter (Stream)**
 
 ### Goal
 
@@ -873,7 +873,7 @@ src/FlowTime.Adapters.Synthetic/Stream/*
 
 ---
 
-## M5 — Routing, Fan-out, Capacity Caps
+## M-5 — Routing, Fan-out, Capacity Caps
 
 ### Goal
 
@@ -897,7 +897,7 @@ Model flows across multiple paths and capacity limits.
 
 ---
 
-## UI-M5 — Routing Visualizer
+## UI-M-5 — Routing Visualizer
 
 ### Goal
 
@@ -911,7 +911,7 @@ Visual graph view.
 
 ---
 
-## M6 — Lag/Shift (Batch Windows)
+## M-6 — Lag/Shift (Batch Windows)
 
 ### Goal
 
@@ -931,7 +931,7 @@ Model periodic batch processing.
 
 ---
 
-## UI-M6 — Batch Indicators
+## UI-M-6 — Batch Indicators
 
 ### Goal
 
@@ -939,7 +939,7 @@ UI overlays shaded regions for batch windows.
 
 ---
 
-## M6.5 — Cross-System Integration
+## M-06.05 — Cross-System Integration
 
 ### Goal
 
@@ -947,11 +947,11 @@ Validate FlowTime artifacts can be consumed by FlowTime-Sim and vice versa.
 
 ### Functional Requirements
 
-- **FR-M6.5-1:** Artifact schema compatibility tests
-- **FR-M6.5-2:** Series index interoperability validation  
-- **FR-M6.5-3:** Joint scenario execution (FlowTime model → FlowTime-Sim validation)
-- **FR-M6.5-4:** Grid alignment validation between systems
-- **FR-M6.5-5:** RNG determinism compatibility (PCG32 seeding)
+- **FR-M-06.05-1:** Artifact schema compatibility tests
+- **FR-M-06.05-2:** Series index interoperability validation  
+- **FR-M-06.05-3:** Joint scenario execution (FlowTime model → FlowTime-Sim validation)
+- **FR-M-06.05-4:** Grid alignment validation between systems
+- **FR-M-06.05-5:** RNG determinism compatibility (PCG32 seeding)
 
 ### Inputs
 
@@ -991,7 +991,7 @@ scripts/
 
 ---
 
-## M7 — Backlog v2 (Buffers & Spill)
+## M-7 — Backlog v2 (Buffers & Spill)
 
 ### Goal
 
@@ -999,11 +999,11 @@ Advanced queue semantics with finite buffers and overflow handling.
 
 ### Functional Requirements
 
-- **FR-M7-1:** Finite buffer queues with capacity limits
-- **FR-M7-2:** Overflow/spill handling when buffers exceed capacity
-- **FR-M7-3:** Buffer utilization metrics and reporting
-- **FR-M7-4:** Dead letter queue (DLQ) for dropped items
-- **FR-M7-5:** Enhanced conservation validation with spill accounting
+- **FR-M-7-1:** Finite buffer queues with capacity limits
+- **FR-M-7-2:** Overflow/spill handling when buffers exceed capacity
+- **FR-M-7-3:** Buffer utilization metrics and reporting
+- **FR-M-7-4:** Dead letter queue (DLQ) for dropped items
+- **FR-M-7-5:** Enhanced conservation validation with spill accounting
 
 ### Inputs
 
@@ -1046,7 +1046,7 @@ src/FlowTime.Core/Metrics/
 
 ---
 
-## UI-M7 — Buffer & Spill Visualization
+## UI-M-7 — Buffer & Spill Visualization
 
 ### Goal
 
@@ -1067,7 +1067,7 @@ Show buffer utilization and spill indicators in queue visualizations.
 
 ---
 
-## M8 — Multi-Class + Priority/Fairness
+## M-8 — Multi-Class + Priority/Fairness
 
 ### Goal
 
@@ -1075,10 +1075,10 @@ Support multiple flow classes with capacity sharing policies.
 
 ### Functional Requirements
 
-- **FR-M8-1:** Class-aware series (`arrivals@serviceA@VIP`, `arrivals@serviceA@STANDARD`).
-- **FR-M8-2:** Weighted-fair capacity sharing when capacity binds.
-- **FR-M8-3:** Strict priority with overflow to lower classes.
-- **FR-M8-4:** Foundation for per-class retry behavior (implementation in M9.5).
+- **FR-M-8-1:** Class-aware series (`arrivals@serviceA@VIP`, `arrivals@serviceA@STANDARD`).
+- **FR-M-8-2:** Weighted-fair capacity sharing when capacity binds.
+- **FR-M-8-3:** Strict priority with overflow to lower classes.
+- **FR-M-8-4:** Foundation for per-class retry behavior (implementation in M-09.05).
 
 ### Inputs
 
@@ -1099,11 +1099,11 @@ nodes:
 
 - Multi-class conservation holds per class and in aggregate
 - Priority/fairness policies respected under capacity constraints
-- Foundation established for per-class retry behavior (full implementation in M9.5)
+- Foundation established for per-class retry behavior (full implementation in M-09.05)
 
 ---
 
-## M8.5 — Multi-Class + Priority/Fairness (UI)
+## M-08.05 — Multi-Class + Priority/Fairness (UI)
 
 ### Goal
 
@@ -1121,7 +1121,7 @@ Support multiple classes with fairness/priority.
 
 ---
 
-## UI-M8 — Class Segmentation
+## UI-M-8 — Class Segmentation
 
 ### Goal
 
@@ -1129,7 +1129,7 @@ Color-series by class.
 
 ---
 
-## M9 — Data Import & Fitting
+## M-9 — Data Import & Fitting
 
 ### Goal
 
@@ -1149,7 +1149,7 @@ Run models against real telemetry.
 
 ---
 
-## UI-M9 — Telemetry Overlay
+## UI-M-9 — Telemetry Overlay
 
 ### Goal
 
@@ -1157,22 +1157,22 @@ Overlay real telemetry vs model.
 
 ---
 
-## M9.5 — Retry & Feedback Modeling
+## M-09.05 — Retry & Feedback Modeling
 
 ### Goal
 
 Enable temporal feedback loops through causal delay operators.
 
-**Note:** Deferred from original M4.5 position to align with FlowTime-Sim SIM-M6 timeline and avoid over-engineering early milestones.
+**Note:** Deferred from original M-04.05 position to align with FlowTime-Sim SIM-M-6 timeline and avoid over-engineering early milestones.
 
 ### Functional Requirements
 
-- **FR-M9.5-1:** CONV operator (`retries := CONV(errors, [0.0, 0.6, 0.3, 0.1])`).
-- **FR-M9.5-2:** DELAY operator for arbitrary time shifting.
-- **FR-M9.5-3:** RETRY built-in function with attempt limits and DLQ.
-- **FR-M9.5-4:** EMA operator for smoothed feedback signals.
-- **FR-M9.5-5:** Conservation validation (arrivals + retries - served - ΔQ - dlq ≈ 0).
-- **FR-M9.5-6:** Integration with FlowTime-Sim retry pattern generation.
+- **FR-M-09.05-1:** CONV operator (`retries := CONV(errors, [0.0, 0.6, 0.3, 0.1])`).
+- **FR-M-09.05-2:** DELAY operator for arbitrary time shifting.
+- **FR-M-09.05-3:** RETRY built-in function with attempt limits and DLQ.
+- **FR-M-09.05-4:** EMA operator for smoothed feedback signals.
+- **FR-M-09.05-5:** Conservation validation (arrivals + retries - served - ΔQ - dlq ≈ 0).
+- **FR-M-09.05-6:** Integration with FlowTime-Sim retry pattern generation.
 
 ### Inputs
 
@@ -1216,18 +1216,18 @@ tests/FlowTime.Tests/
 - Single-pass evaluation maintained (no algebraic loops)
 - Retry volumes match convolution kernel exactly
 - Conservation laws verified for complex retry scenarios
-- Integration validated with FlowTime-Sim SIM-M6+ retry patterns
+- Integration validated with FlowTime-Sim SIM-M-6+ retry patterns
 - Performance maintained despite temporal complexity
 
 ### Dependencies
 
-- **Prerequisite:** M6.5 (Cross-System Integration) for FlowTime-Sim compatibility
-- **Prerequisite:** M8 (Multi-Class) for per-class retry behavior
-- **Aligned with:** FlowTime-Sim SIM-M6 retry pattern generation
+- **Prerequisite:** M-06.05 (Cross-System Integration) for FlowTime-Sim compatibility
+- **Prerequisite:** M-8 (Multi-Class) for per-class retry behavior
+- **Aligned with:** FlowTime-Sim SIM-M-6 retry pattern generation
 
 ---
 
-## M10 — Scenario Sweeps
+## M-10 — Scenario Sweeps
 
 ### Goal
 
@@ -1247,7 +1247,7 @@ Sensitivity analysis across parameter ranges.
 
 ---
 
-## UI-M10 — Sweep Explorer
+## UI-M-10 — Sweep Explorer
 
 ### Goal
 
@@ -1255,7 +1255,7 @@ Interactive parameter sweeps viewer.
 
 ---
 
-## M11 — Headless Runner (CLI/API)
+## M-11 — Headless Runner (CLI/API)
 
 ### Goal
 
@@ -1273,7 +1273,7 @@ Enable automation.
 
 ---
 
-## UI-M11 — API Integration
+## UI-M-11 — API Integration
 
 ### Goal
 
@@ -1281,7 +1281,7 @@ UI consumes real API instead of local stub.
 
 ---
 
-## **UI-SIM-M1 — Scenario Browser & Sim Runner (targets FlowTime-Sim SIM-SVC-M2)**
+## **UI-SIM-M-1 — Scenario Browser & Sim Runner (targets FlowTime-Sim SIM-SVC-M-2)**
 
 ### Goal
 
@@ -1296,11 +1296,11 @@ From FlowTime UI, list FlowTime-Sim presets, tweak parameters, start a **Sim run
 
 ### Acceptance Criteria
 
-Sim artifacts render via SYN-M0; compare works between Sim ↔ engine.
+Sim artifacts render via SYN-M-0; compare works between Sim ↔ engine.
 
 ---
 
-## **UI-SIM-M2 — Live Stream Viewer (targets FlowTime-Sim SIM-SVC-M5)**
+## **UI-SIM-M-2 — Live Stream Viewer (targets FlowTime-Sim SIM-SVC-M-5)**
 
 ### Goal
 
@@ -1316,7 +1316,7 @@ Incremental view stable; final snapshot equals file-generated pack for same seed
 
 ---
 
-## M12 — Templating v2
+## M-12 — Templating v2
 
 ### Goal
 
@@ -1330,7 +1330,7 @@ Reusable model templates.
 
 ---
 
-## UI-M12 — Template Explorer
+## UI-M-12 — Template Explorer
 
 ### Goal
 
@@ -1338,7 +1338,7 @@ List and instantiate templates in UI.
 
 ---
 
-## M13 — Backlog v3 (Priority Spill & Class Depth)
+## M-13 — Backlog v3 (Priority Spill & Class Depth)
 
 ### Goal
 
@@ -1346,11 +1346,11 @@ Multi-class queue management with priority-based spill policies and per-class de
 
 ### Functional Requirements
 
-- **FR-M13-1:** Per-class queue depth tracking and reporting
-- **FR-M13-2:** Priority-based spill policies (VIP items spill last)
-- **FR-M13-3:** Class-aware buffer allocation and sharing
-- **FR-M13-4:** Advanced DLQ routing based on class and priority
-- **FR-M13-5:** Multi-class conservation validation with priority accounting
+- **FR-M-13-1:** Per-class queue depth tracking and reporting
+- **FR-M-13-2:** Priority-based spill policies (VIP items spill last)
+- **FR-M-13-3:** Class-aware buffer allocation and sharing
+- **FR-M-13-4:** Advanced DLQ routing based on class and priority
+- **FR-M-13-5:** Multi-class conservation validation with priority accounting
 
 ### Inputs
 
@@ -1396,12 +1396,12 @@ src/FlowTime.Core/Metrics/
 
 ### Dependencies
 
-- **Prerequisite:** M8 (Multi-Class + Priority/Fairness) for class infrastructure
-- **Prerequisite:** M7 (Backlog v2) for buffer and spill foundation
+- **Prerequisite:** M-8 (Multi-Class + Priority/Fairness) for class infrastructure
+- **Prerequisite:** M-7 (Backlog v2) for buffer and spill foundation
 
 ---
 
-## UI-M13 — Multi-Class Queue Visualization
+## UI-M-13 — Multi-Class Queue Visualization
 
 ### Goal
 
@@ -1423,7 +1423,7 @@ Visualize per-class queue depths and priority spill behavior.
 
 ---
 
-## M14 — Calibration & Drift
+## M-14 — Calibration & Drift
 
 ### Goal
 
@@ -1432,13 +1432,13 @@ Close loop with telemetry.
 ### Functional Requirements
 
 - Learn routing patterns from telemetry.
-- Calibrate retry kernels against observed behavior (building on M9.5 retry modeling).
+- Calibrate retry kernels against observed behavior (building on M-09.05 retry modeling).
 - Detect model drift in retry rates, latency distributions.
 - Drift report with statistical confidence intervals.
 
 ---
 
-## UI-M14 — Drift Dashboard
+## UI-M-14 — Drift Dashboard
 
 ### Goal
 
@@ -1446,7 +1446,7 @@ UI shows model vs real error metrics.
 
 ---
 
-## M15 — Uncertainty Bands
+## M-15 — Uncertainty Bands
 
 ### Goal
 
@@ -1460,7 +1460,7 @@ Model risk ranges.
 
 ---
 
-## UI-M15 — Uncertainty Viewer
+## UI-M-15 — Uncertainty Viewer
 
 ### Goal
 
@@ -1480,7 +1480,7 @@ Shade percentile bands on charts.
 
 ---
 
-## M16 — WASM engine (browser-run) — Future
+## M-16 — WASM engine (browser-run) — Future
 
 Goal: Run the engine in the browser for interactive what-if modeling and offline demos; keep outputs identical to server runs.
 

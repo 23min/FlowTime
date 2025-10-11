@@ -10,7 +10,7 @@
 
 ## Executive Summary
 
-- **Status:** 🔴 **Not ready for M3.x time-travel milestones.** FlowTime.Sim continues to target the legacy SIM-M2.6 node-based schema and cannot emit models that satisfy the KISS time-travel contract (window/topology/semantics, template metadata, telemetry sources, or mode-aware validation).
+- **Status:** 🔴 **Not ready for M-03.x time-travel milestones.** FlowTime.Sim continues to target the legacy SIM-M-02.06 node-based schema and cannot emit models that satisfy the KISS time-travel contract (window/topology/semantics, template metadata, telemetry sources, or mode-aware validation).
 - **Key blockers:** Missing `window` anchoring, topology & semantics mapping, telemetry file binding, template classification, and validation pathways. The current generation pipeline deliberately strips metadata that KISS treats as required.
 - **Opportunities:** Core pieces—template parsing, deterministic provenance, service/CLI surfaces, and parameter substitution—are solid foundations that can be extended. Tests already cover many edge cases and can be evolved to protect the new schema.
 
@@ -24,7 +24,7 @@
 | **Generation pipeline** | `NodeBasedTemplateService` caches YAML, substitutes `${param}`, then `ConvertToEngineSchema` strips `metadata`/`parameters`, rewrites `expression→expr`, converts `source→series`, and ensures `schemaVersion: 1`. No additions for new sections. | `src/FlowTime.Sim.Core/Services/NodeBasedTemplateService.cs:277-360` |
 | **Templates shipped** | Sample templates (e.g. `transportation-basic`) use inline arrays for const nodes, lack time anchoring, topology, semantics, or node kinds; comments reference SIM charter. | `templates/transportation-basic.yaml:1-83` |
 | **Service & CLI** | `/api/v1/templates/*` and CLI verbs wrap the node-based service, optionally embedding provenance. Responses and stored models remain legacy schema; inputs allow arbitrary parameters but no mode selection. | `src/FlowTime.Sim.Service/Program.cs:240-315`, `src/FlowTime.Sim.Cli/Program.cs:252-305` |
-| **Provenance** | `ProvenanceService` emits `source: flowtime-sim`, `generator: flowtime-sim/{version}`, hash-based `modelId`. Embedding injects comment `# Model provenance (SIM-M2.7)` after `schemaVersion`. | `src/FlowTime.Sim.Core/Services/ProvenanceService.cs:19-63`, `ProvenanceEmbedder.cs:17-66` |
+| **Provenance** | `ProvenanceService` emits `source: flowtime-sim`, `generator: flowtime-sim/{version}`, hash-based `modelId`. Embedding injects comment `# Model provenance (SIM-M-02.07)` after `schemaVersion`. | `src/FlowTime.Sim.Core/Services/ProvenanceService.cs:19-63`, `ProvenanceEmbedder.cs:17-66` |
 | **Tests** | Unit tests assert legacy expectations (nodes require `values`/`dependencies`, metadata removed in engine model). No coverage for `window`, topology validation, or telemetry-driven const nodes. | `tests/FlowTime.Sim.Tests/NodeBased/TemplateParserTests.cs:7-118`, `ModelGenerationTests.cs` (legacy assertions) |
 
 ---
@@ -57,7 +57,7 @@
 ### 2. Template Authoring & Generation Pipeline
 
 - **Metadata stripped deliberately:** `ConvertToEngineSchema` removes `metadata:` and `parameters:` sections entirely; KISS expects to retain provenance and descriptive fields for review. (`NodeBasedTemplateService.cs:299-337`)
-- **No template versioning/features:** Comments in `NodeBasedTemplateService` still reference "SIM-M2.6-CORRECTIVE". There is no branching or opt-in path for the KISS schema, so telemetry-driven templates cannot be authored.
+- **No template versioning/features:** Comments in `NodeBasedTemplateService` still reference "SIM-M-02.06-CORRECTIVE". There is no branching or opt-in path for the KISS schema, so telemetry-driven templates cannot be authored.
 - **Parameter substitution limited to string interpolation:** Works for arrays/numbers but cannot introduce new sections; hence authors cannot add `topology:` via placeholders without extending the object model. (`ParameterSubstitution.cs`)
 
 ### 3. Service & CLI Surfaces
@@ -80,7 +80,7 @@
    - **Implications:** Aggressive schema evolution is allowed as long as accompanying tests catch regressions before integration. Migration effort focuses on new schema rather than shims.
 
 2. **Template authoring workflow**  
-   - **Decision:** Long term, UI and FlowTime.Sim will collaborate to generate templates so authors do not handcraft YAML. For now, AI assist produces templates that are committed to source control. Shared `includes/` style composition is deferred until after the M3/time-travel milestone.  
+   - **Decision:** Long term, UI and FlowTime.Sim will collaborate to generate templates so authors do not handcraft YAML. For now, AI assist produces templates that are committed to source control. Shared `includes/` style composition is deferred until after the M-3/time-travel milestone.  
    - **Implications:** Current work should enable programmatic template creation while keeping files reviewable; refactor for includes later.
 
 3. **Telemetry binding integration**  
@@ -116,7 +116,7 @@
 3. **Introduce mode awareness** (simulation vs telemetry) in services/CLI, including stricter validation for simulation and warning surfaces for telemetry.
 4. **Extend templates & fixtures** under `templates/` to demonstrate time-travel-ready authoring; migrate tests to assert new schema pieces and prevent regressions.
 5. **Plan synthetic telemetry tooling integration**, deciding whether FlowTime.Sim will ship CSV export/gold manifests or delegate to Engine utilities.
-6. **Document migration strategy** for existing users (CLI/service endpoints) so they understand the schema change, provenance updates, and new validation flow ahead of M3.0.
+6. **Document migration strategy** for existing users (CLI/service endpoints) so they understand the schema change, provenance updates, and new validation flow ahead of M-03.00.
 
 With these steps FlowTime.Sim can align with the authoritative KISS architecture and provide the simulation side of the time-travel experience without reintroducing the complexity the consolidation set out to remove.
 

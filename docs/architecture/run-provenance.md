@@ -8,7 +8,7 @@ This document defines how FlowTime Engine accepts and stores model provenance me
 
 ## The Provenance Gap
 
-### Current State (M2.7)
+### Current State (M-02.07)
 
 **Engine receives:**
 ```yaml
@@ -372,15 +372,15 @@ grid:
 
 ### Migration Strategy
 
-1. **Phase 1**: Engine accepts provenance (optional, non-breaking) - **M2.9 or M3.0**
-2. **Phase 2**: UI starts sending provenance for new runs - **UI-M3.x**
+1. **Phase 1**: Engine accepts provenance (optional, non-breaking) - **M-02.09 or M-03.00**
+2. **Phase 2**: UI starts sending provenance for new runs - **UI-M-03.x**
 3. **Phase 3**: All new runs have provenance (old runs grandfathered) - **Standard practice**
 
 ## Benefits
 
 ### Complete Traceability
 
-**Before (M2.7):**
+**Before (M-02.07):**
 ```
 User sees run → ??? → No idea which template or parameters
 ```
@@ -470,11 +470,11 @@ Both failures are documented known limitations, not critical defects preventing 
 ## Related Documentation
 
 - **KISS Architecture**: See `flowtime-sim-vnext/docs/architecture/registry-integration.md` (**SUPERSEDES** old model-provenance.md dual-registry approach)
-- **Sim-Side Implementation**: FlowTime-Sim generates provenance and provides temporary storage (SIM-M2.7)
-- **Engine-Side Implementation**: FlowTime Engine accepts and stores provenance permanently (M2.9 section 2.6)
+- **Sim-Side Implementation**: FlowTime-Sim generates provenance and provides temporary storage (SIM-M-02.07)
+- **Engine-Side Implementation**: FlowTime Engine accepts and stores provenance permanently (M-02.09 section 2.6)
 - **Target Schema**: See `docs/schemas/model.schema.md` (provenance schema definition)
-- **Artifact Registry**: See `docs/milestones/M02.07.md` (registry architecture)
-- **UI Orchestration**: UI retrieves models from Sim and sends to Engine (UI-M3.x)
+- **Artifact Registry**: See `docs/milestones/M-02.07.md` (registry architecture)
+- **UI Orchestration**: UI retrieves models from Sim and sends to Engine (UI-M-03.x)
 
 ## Architecture Principles (KISS)
 
@@ -486,4 +486,4 @@ Both failures are documented known limitations, not critical defects preventing 
 
 ---
 
-**Status**: Architecture defined per KISS principles, Engine-side implementation in M2.9 section 2.6 at 94% completion (33/35 provenance tests passing)
+**Status**: Architecture defined per KISS principles, Engine-side implementation in M-02.09 section 2.6 at 94% completion (33/35 provenance tests passing)

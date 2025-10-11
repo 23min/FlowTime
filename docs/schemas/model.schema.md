@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document defines the **target schema** for FlowTime models - the unified format that both FlowTime-Sim will generate and FlowTime Engine will execute. This schema is the convergence point for M2.9 schema evolution.
+This document defines the **target schema** for FlowTime models - the unified format that both FlowTime-Sim will generate and FlowTime Engine will execute. This schema is the convergence point for M-02.09 schema evolution.
 
 **Key Principles**:
 - **Engine-First**: Optimized for execution, not authoring
@@ -87,7 +87,7 @@ schemaVersion: 1
 - Future versions may add/change fields
 
 **Version History:**
-- `1`: Initial unified schema with `binSize`/`binUnit` format (M2.9)
+- `1`: Initial unified schema with `binSize`/`binUnit` format (M-02.09)
 
 ---
 
@@ -721,7 +721,7 @@ var binMinutes = binUnit.ToMinutes(binSize);
 
 ## Future Extensions
 
-### Planned Enhancements (Post-M2.9)
+### Planned Enhancements (Post-M-02.09)
 
 1. **Additional Time Units**:
    - `months` - Calendar months (28-31 days)
@@ -841,7 +841,7 @@ var binMinutes = binUnit.ToMinutes(binSize);
 
 ## Changelog
 
-### 2025-10-01 - Initial Target Schema (M2.9)
+### 2025-10-01 - Initial Target Schema (M-02.09)
 - Defined unified model schema for Engine and Sim convergence
 - Specified `binSize`/`binUnit` format replacing `binMinutes`
 - Documented three node types: `const`, `expr`, `pmf`

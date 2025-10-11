@@ -1,16 +1,16 @@
 # FlowTime-Sim ↔ FlowTime Integration — Working Spec (v1.1)
 
-> **Archived:** This document reflects early M0/M1 integration assumptions and is no longer maintained. See `docs/architecture/time-travel/` for current architecture and planning material.
+> **Archived:** This document reflects early M-0/M-1 integration assumptions and is no longer maintained. See `docs/architecture/time-travel/` for current architecture and planning material.
 
 > **📋 Charter Alignment**: This integration specification aligns well with the [FlowTime-Engine Charter](../flowtime-engine-charter.md) artifacts-centric paradigm. The "artifact-first" principle described here directly supports the charter workflow: [Models] → [Runs] → [Artifacts] → [Learn].
 
-**Scope:** Early milestones (UI-M0/1, SVC-M0/1, M0–M3).  
+**Scope:** Early milestones (UI-M-0/1, SVC-M-0/1, M-0–M-3).  
 **Principle:** *Artifact-first*. Services are stateless post-run. UI/adapters load artifacts, not ad-hoc JSON.  
 **Charter Connection:** Implements Engine+Sim ecosystem with shared artifact contracts supporting registry-based analysis.
 
 # FlowTime-Sim ↔ FlowTime Integration — Working Spec (v1.1)
 
-**Scope:** Early milestones (UI-M0/1, SVC-M0/1, M0–M3).
+**Scope:** Early milestones (UI-M-0/1, SVC-M-0/1, M-0–M-3).
 **Principle:** *Artifact-first*. Services are stateless post-run. UI/adapters load artifacts, not ad-hoc JSON.
 
 ---
@@ -132,7 +132,7 @@ Even when returning mock data, the simulator **must write the artifact pack.** R
 
 ---
 
-## 5) UI behavior (UI-M0/M1) — “Analyze” vs “Simulate”
+## 5) UI behavior (UI-M-0/M-1) — “Analyze” vs “Simulate”
 
 * **Mode toggle:** *Analyze (Engine)* vs *Simulate (Sim)*.
 * In **Simulate** mode:
@@ -180,7 +180,7 @@ Even when returning mock data, the simulator **must write the artifact pack.** R
   "served":   { "kind": "fractionOf", "of": "arrivals", "fraction": 0.85 },
   "catalogId": null,                  // optional
   "templateId": "hello",              // optional
-  "notes": "UI-M0 smoke"
+  "notes": "UI-M-0 smoke"
 }
 ```
 
@@ -245,7 +245,7 @@ Even when returning mock data, the simulator **must write the artifact pack.** R
 
 ## 11) Future Considerations (Beyond Early Milestones)
 
-The spec above covers early milestones (UI-M0/1, SVC-M0/1, M0–M3), but several areas warrant future specification:
+The spec above covers early milestones (UI-M-0/1, SVC-M-0/1, M-0–M-3), but several areas warrant future specification:
 
 ### Error Handling & Artifact Integrity
 * **Incomplete artifacts:** What happens when artifacts are partially written or corrupted?

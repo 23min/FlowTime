@@ -132,7 +132,7 @@ Use hand-authored templates in Git, not generated from Catalog_Nodes.
 
 1. **Generate from Catalog_Nodes** - Rejected: Loses review process, tight coupling
 2. **Hybrid (generate base, manual refinement)** - Rejected: Complexity, unclear ownership
-3. **UI-based template editor** - Deferred: Post-M4, doesn't replace version control
+3. **UI-based template editor** - Deferred: Post-M-4, doesn't replace version control
 
 **Implementation:**
 
@@ -266,7 +266,7 @@ Validation runs post-evaluation and produces warnings, not errors.
 **Alternatives Considered:**
 
 1. **Pre-evaluation validation** - Rejected: Too strict for telemetry
-2. **Configurable (strict mode)** - Deferred: Post-M4 if needed
+2. **Configurable (strict mode)** - Deferred: Post-M-4 if needed
 3. **No validation** - Rejected: Miss data quality issues
 
 **Implementation:**
@@ -778,7 +778,7 @@ parameters:
 
 ---
 
-### 6.7 Future Enhancements (Post-M4)
+### 6.7 Future Enhancements (Post-M-4)
 
 **Priority 1 (Next 3 Months):**
 
@@ -806,10 +806,10 @@ parameters:
 ### 6.8 Related Documents
 
 **Internal:**
-- M1 Implementation Plan: `docs/milestones/M01.00.md`
-- M2 Implementation Plan: `docs/milestones/M02.00.md`
-- M3 Implementation Plan: `docs/milestones/M3.md`
-- M4 Implementation Plan: `docs/milestones/M4.md`
+- M-1 Implementation Plan: `docs/milestones/M-01.00.md`
+- M-2 Implementation Plan: `docs/milestones/M-02.00.md`
+- M-3 Implementation Plan: `docs/milestones/M-03.00.md`
+- M-4 Implementation Plan: `docs/milestones/M-04.00.md`
 - API Reference: `docs/api/openapi.yaml`
 - Template Reference: `docs/templates/README.md`
 

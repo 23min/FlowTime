@@ -79,7 +79,7 @@ No adapters, no mode switching, no semantic inference. Just data + formulas = re
                          │
                          ▼
 ┌────────────────────────────────────────────────────────────────┐
-│ ENGINE (Pure, Unchanged from M2.10)                           │
+│ ENGINE (Pure, Unchanged from M-02.10)                           │
 │ • Load const series from files                                │
 │ • Evaluate expressions                                         │
 │ • Compute stateful dynamics (SHIFT)                           │
@@ -116,7 +116,7 @@ No adapters, no mode switching, no semantic inference. Just data + formulas = re
 4. **Data Flows** - End-to-end examples with real telemetry
 5. **Implementation Roadmap** - 4 milestones, 10 days total
 6. **Decision Log** - Why capacity-free, why templates, tradeoffs
-7. **Migration Path** - From M2.10 to production-ready
+7. **Migration Path** - From M-02.10 to production-ready
 
 #### Success Criteria
 

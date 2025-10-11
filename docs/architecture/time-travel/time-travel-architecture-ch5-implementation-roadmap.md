@@ -13,26 +13,26 @@ This chapter provides detailed milestones with acceptance criteria, dependencies
 **Team Size:** 2-3 engineers (1 senior, 1-2 mid-level)
 
 **Milestones:**
-- M3.0 (2 days): Foundation + Fixtures
-- M3.1 (3 days): Time-Travel APIs
-- M3.2 (3 days): TelemetryLoader + Templates
-- M3.3 (2 days): Validation + Polish
+- M-03.00 (2 days): Foundation + Fixtures
+- M-03.01 (3 days): Time-Travel APIs
+- M-03.02 (3 days): TelemetryLoader + Templates
+- M-03.03 (2 days): Validation + Polish
 
 **Dependencies:**
-- M3.0 has no dependencies (can start immediately)
-- M3.1 requires M3.0 (fixtures + schema)
-- M3.2 requires M3.0 (schema) and informs M3.1 consumers
-- M3.3 requires M3.1+M3.2 (integrates all components)
+- M-03.00 has no dependencies (can start immediately)
+- M-03.01 requires M-03.00 (fixtures + schema)
+- M-03.02 requires M-03.00 (schema) and informs M-03.01 consumers
+- M-03.03 requires M-03.01+M-03.02 (integrates all components)
 
 ---
 
-### 5.2 Milestone M3.0: Foundation (2 days)
+### 5.2 Milestone M-03.00: Foundation (2 days)
 
-#### M3.0.1 Goal
+#### M-03.00.1 Goal
 
 Extend Engine to support file sources for const nodes and enforce explicit initial conditions for self-referencing expressions.
 
-#### M3.0.2 Scope
+#### M-03.00.2 Scope
 
 **Deliverables:**
 1. File source support for const nodes
@@ -42,11 +42,11 @@ Extend Engine to support file sources for const nodes and enforce explicit initi
 5. Documentation updates
 
 **Non-Goals:**
-- Template system (M3.2)
-- Telemetry integration (M3.1)
-- API changes (M3.3)
+- Template system (M-03.02)
+- Telemetry integration (M-03.01)
+- API changes (M-03.03)
 
-#### M3.0.3 Acceptance Criteria
+#### M-03.00.3 Acceptance Criteria
 
 **AC1: File Source Support**
 ```
@@ -119,7 +119,7 @@ When: initial: "q0_from_telemetry"
 Then: Initial value is q0_from_telemetry[0]
 ```
 
-#### M3.0.4 Technical Design
+#### M-03.00.4 Technical Design
 
 **File Source Implementation:**
 
@@ -169,7 +169,7 @@ Evaluator Changes:
   2. Store initial conditions in evaluation context
 ```
 
-#### M3.0.5 Testing Strategy
+#### M-03.00.5 Testing Strategy
 
 **Unit Tests (15 tests):**
 
@@ -219,7 +219,7 @@ Test_FileSourceRegression_FixedInput_ConsistentOutput
   - Compare artifacts to golden artifacts (byte-for-byte)
 ```
 
-#### M3.0.6 Risks and Mitigation
+#### M-03.00.6 Risks and Mitigation
 
 | Risk | Probability | Impact | Mitigation |
 |------|-------------|--------|------------|
@@ -228,7 +228,7 @@ Test_FileSourceRegression_FixedInput_ConsistentOutput
 | Large file memory usage | Low | Medium | Stream CSVs row-by-row, don't load entire file at once |
 | Initial condition type confusion | Medium | Low | Clear error messages, add examples to docs |
 
-#### M3.0.7 Deliverables Checklist
+#### M-03.00.7 Deliverables Checklist
 
 - [ ] File source parsing (ConstNode.source field)
 - [ ] File path resolution (relative and absolute)
@@ -247,13 +247,13 @@ Test_FileSourceRegression_FixedInput_ConsistentOutput
 
 ---
 
-### 5.3 Milestone M3.1: Time-Travel APIs (3 days)
+### 5.3 Milestone M-03.01: Time-Travel APIs (3 days)
 
-#### M3.1.1 Goal
+#### M-03.01.1 Goal
 
 Deliver `/state` and `/state_window` endpoints that expose bin-level snapshots, derived metrics, and node coloring so the UI can ship the first time-travel experience.
 
-#### M3.1.2 Scope
+#### M-03.01.2 Scope
 
 **Deliverables:**
 1. `GET /v1/runs/{runId}/state?binIndex={idx}` single-bin snapshot endpoint
@@ -266,12 +266,12 @@ Deliver `/state` and `/state_window` endpoints that expose bin-level snapshots, 
 8. Comprehensive tests (unit, integration, golden) covering success and failure modes
 
 **Non-Goals:**
-- Telemetry ingestion (TelemetryLoader lives in M3.2)
-- Template system enhancements (M3.2)
-- Validation severity changes or observability polish (M3.3)
+- Telemetry ingestion (TelemetryLoader lives in M-03.02)
+- Template system enhancements (M-03.02)
+- Validation severity changes or observability polish (M-03.03)
 - Aggregation or rollup endpoints beyond the base `/state_window`
 
-#### M3.1.3 Acceptance Criteria
+#### M-03.01.3 Acceptance Criteria
 
 **AC1: /state Single Bin**
 ```
@@ -369,7 +369,7 @@ Response:
 - `/state_window` (≤144 bins) completes in <200 ms
 - Responses include `Cache-Control: no-store` and structured timing logs
 
-#### M3.1.4 Technical Design
+#### M-03.01.4 Technical Design
 
 **API Surface:**
 - Add two minimal GET handlers in `FlowTime.API` using endpoint routing
@@ -396,7 +396,7 @@ Response:
 - Metrics: `flowtime_api_state_duration_ms`, `flowtime_api_state_window_duration_ms`
 - Include warning headers when derived metrics fall back (e.g., division by zero)
 
-#### M3.1.5 Testing Strategy
+#### M-03.01.5 Testing Strategy
 
 **Unit Tests (approximately 15):**
 - `StateMetricComputerTests` (utilization, latency, throughput, null handling)
@@ -422,7 +422,7 @@ Response:
 - Benchmark for 10 concurrent `/state` requests (target <75 ms p95)
 - Smoke test for `/state_window` with 500-bin slice to verify graceful error (413/400)
 
-#### M3.1.6 Risks and Mitigation
+#### M-03.01.6 Risks and Mitigation
 
 | Risk | Probability | Impact | Mitigation |
 |------|-------------|--------|------------|
@@ -432,7 +432,7 @@ Response:
 | Missing capacity/SLA data | High | Medium | Clear null semantics, fallback colors, surface warnings |
 | Performance regressions | Medium | Medium | Add benchmark gate, profile serialization hotspots |
 
-#### M3.1.7 Deliverables Checklist
+#### M-03.01.7 Deliverables Checklist
 
 - [ ] `/v1/runs/{id}/state` endpoint implemented with validation
 - [ ] `/v1/runs/{id}/state_window` endpoint implemented with validation
@@ -449,13 +449,13 @@ Response:
 
 ---
 
-### 5.4 Milestone M3.2: TelemetryLoader + Templates (3 days)
+### 5.4 Milestone M-03.02: TelemetryLoader + Templates (3 days)
 
-#### M3.2.1 Goal
+#### M-03.02.1 Goal
 
 Ship the telemetry ingestion pipeline (TelemetryLoader) and reusable template system so telemetry-first runs can be generated from ADX data and fed into the engine consistently.
 
-#### M3.2.2 Scope
+#### M-03.02.2 Scope
 
 **Deliverables:**
 - **TelemetryLoader**
@@ -475,12 +475,12 @@ Ship the telemetry ingestion pipeline (TelemetryLoader) and reusable template sy
 - **Integration glue** between loader output directories and template parameters
 
 **Non-Goals:**
-- Public API endpoints (`/state`, `/state_window`) – completed in M3.1
-- Validation / observability polish – deferred to M3.3
+- Public API endpoints (`/state`, `/state_window`) – completed in M-03.01
+- Validation / observability polish – deferred to M-03.03
 - Advanced templating constructs (conditionals, loops) – out of scope
 - Full production ADX deployment automation – tracked separately
 
-#### M3.2.3 Acceptance Criteria
+#### M-03.02.3 Acceptance Criteria
 
 **TelemetryLoader**
 
@@ -559,7 +559,7 @@ When: Instantiate runs
 Then: Output model.yaml contains window, topology, nodes, provenance, validation rules
 ```
 
-#### M3.2.4 Technical Design
+#### M-03.02.4 Technical Design
 
 **TelemetryLoader Architecture**
 
@@ -590,7 +590,7 @@ TelemetryManifest
 - Configurable via `appsettings.json` (zeroFill, maxBins, retryCount, queryTimeout, gapWarningThreshold).
 - Supports Managed Identity, Service Principal, or AAD token auth.
 - Streams ADX query results row-by-row to avoid large allocations.
-- Warning system captures gaps, missing nodes, and schema mismatches for M3.3 validation.
+- Warning system captures gaps, missing nodes, and schema mismatches for M-03.03 validation.
 
 **Template System Architecture**
 
@@ -628,7 +628,7 @@ IncludeResolver
 - Provenance recorded in output model (`template.name`, `template.version`, `parameters`).
 - CLI command (`flowtime template instantiate`) drives instantiation end-to-end.
 
-#### M3.2.5 Testing Strategy
+#### M-03.02.5 Testing Strategy
 
 **TelemetryLoader Unit Tests (≈20):**
 ```
@@ -678,7 +678,7 @@ Test_TemplateInclude_SharedNodesMerged
 Test_TelemetryTemplate_WithLoaderOutput
 ```
 
-#### M3.2.6 Risks and Mitigation
+#### M-03.02.6 Risks and Mitigation
 
 | Risk | Probability | Impact | Mitigation |
 |------|-------------|--------|------------|
@@ -689,7 +689,7 @@ Test_TelemetryTemplate_WithLoaderOutput
 | Parameter substitution bugs | Medium | Medium | Extensive unit + golden tests, clear escaping rules |
 | Include resolution errors | Low | Medium | Cycle detection, max depth guard, clear error messages |
 
-#### M3.2.7 Deliverables Checklist
+#### M-03.02.7 Deliverables Checklist
 
 - [ ] TelemetryLoader class + configuration committed
 - [ ] ADX retry + dense-fill logic implemented
@@ -704,13 +704,13 @@ Test_TelemetryTemplate_WithLoaderOutput
 - [ ] 25 Template unit tests + 6 integration tests + 2 golden tests passing
 - [ ] Code reviews complete / merged to main
 
-### 5.5 Milestone M3.3: Polish (2 days)
+### 5.5 Milestone M-03.03: Polish (2 days)
 
-#### M3.3.1 Goal
+#### M-03.03.1 Goal
 
 Integrate all components, add observability, complete documentation, and prepare for production.
 
-#### M3.3.2 Scope
+#### M-03.03.2 Scope
 
 **Deliverables:**
 1. API orchestration (POST /v1/runs telemetry mode)
@@ -724,9 +724,9 @@ Integrate all components, add observability, complete documentation, and prepare
 **Non-Goals:**
 - UI implementation (separate project)
 - Advanced features (overlays, capacity prediction)
-- Multi-tenancy (post-M3.3)
+- Multi-tenancy (post-M-03.03)
 
-#### M3.3.3 Acceptance Criteria
+#### M-03.03.3 Acceptance Criteria
 
 **AC1: End-to-End Telemetry Flow**
 ```
@@ -807,7 +807,7 @@ And: Error responses include:
   - suggested action (if applicable)
 ```
 
-#### M3.3.4 Technical Design
+#### M-03.03.4 Technical Design
 
 **API Orchestration:**
 
@@ -860,7 +860,7 @@ EvaluateValidation(validation, series):
   Return result
 ```
 
-#### M3.3.5 Testing Strategy
+#### M-03.03.5 Testing Strategy
 
 **Integration Tests (10 tests):**
 
@@ -935,7 +935,7 @@ Test_RepeatedRequests_NoLeaks
   - Verify no memory leaks
 ```
 
-#### M3.3.6 Observability Configuration
+#### M-03.03.6 Observability Configuration
 
 **Metrics (Prometheus format):**
 
@@ -989,7 +989,7 @@ Span: POST /v1/runs
     - Write Artifacts (duration: 300ms)
 ```
 
-#### M3.3.7 Documentation Deliverables
+#### M-03.03.7 Documentation Deliverables
 
 **Architecture Documentation:**
 - This document (all 6 chapters)
@@ -1016,7 +1016,7 @@ Span: POST /v1/runs
 - Common workflows (time-travel, what-if)
 - FAQ
 
-#### M3.3.8 Deliverables Checklist
+#### M-03.03.8 Deliverables Checklist
 
 - [ ] API orchestration implemented
 - [ ] POST /v1/runs telemetry mode working end-to-end
@@ -1045,19 +1045,19 @@ Span: POST /v1/runs
 
 | Risk | Probability | Impact | Mitigation |
 |------|-------------|--------|------------|
-| ADX integration complexity | Medium | High | Early M3.1 spike, fallback to mock for development |
+| ADX integration complexity | Medium | High | Early M-03.01 spike, fallback to mock for development |
 | Parameter substitution bugs | Medium | Medium | Comprehensive test coverage, fuzzing |
-| Performance issues with large models | Low | Medium | Load testing in M3.3, optimization if needed |
+| Performance issues with large models | Low | Medium | Load testing in M-03.03, optimization if needed |
 | Team member unavailability | Medium | Medium | Clear documentation, pair programming |
-| Scope creep (advanced features) | High | Medium | Strict milestone boundaries, defer to post-M3.3 |
+| Scope creep (advanced features) | High | Medium | Strict milestone boundaries, defer to post-M-03.03 |
 
 **Mitigation Strategies:**
 
-1. **Early Integration:** Test end-to-end flow early in M3.1
+1. **Early Integration:** Test end-to-end flow early in M-03.01
 2. **Automated Testing:** High test coverage (target >80%)
 3. **Documentation:** Document as we build, not after
 4. **Code Review:** All PRs require review before merge
-5. **Demo Early:** Show working system after M3.1 and M3.2
+5. **Demo Early:** Show working system after M-03.01 and M-03.02
 
 ---
 

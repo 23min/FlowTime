@@ -4,7 +4,7 @@
 
 This document explains how FlowTime represents models internally (nodes and graphs), how expressions map to nodes, and how evaluation executes deterministically on a canonical time grid. These capabilities form the execution core of the charter paradigm: **[Models] → [Runs] → [Artifacts] → [Learn]**.
 
-This document explains how FlowTime represents models internally (nodes and graphs), how expressions map to nodes, and how evaluation executes deterministically on a canonical time grid. It also shows how today’s M0 implementation works and how it evolves per the roadmap.
+This document explains how FlowTime represents models internally (nodes and graphs), how expressions map to nodes, and how evaluation executes deterministically on a canonical time grid. It also shows how today’s M-0 implementation works and how it evolves per the roadmap.
 
 ## Mental model
 
@@ -27,7 +27,7 @@ Think of FlowTime as a spreadsheet for flows:
 - Graph
   - Manages nodes, checks for cycles, derives a topological order, and memoizes evaluation results.
 
-## Current nodes (M0)
+## Current nodes (M-0)
 
 - ConstSeriesNode
   - Emits a fixed series of doubles with length == grid.Bins.
@@ -40,7 +40,7 @@ These form the minimal set to enable simple what-if scenarios right away.
 
 ## Expressions and compilation
 
-Expressions are the authoring surface. Behind the scenes, FlowTime compiles expressions to node graphs. In M0, we support tiny inline exprs that translate to a BinaryOpNode with scalar RHS. In later milestones (M1+), a real parser will support:
+Expressions are the authoring surface. Behind the scenes, FlowTime compiles expressions to node graphs. In M-0, we support tiny inline exprs that translate to a BinaryOpNode with scalar RHS. In later milestones (M-1+), a real parser will support:
 - Arithmetic: +, -, *, /
 - Functions: SHIFT, DELAY, RESAMPLE, CLAMP, MIN, MAX, etc.
 - References: identifiers for other nodes
@@ -100,7 +100,7 @@ This yields deterministic, repeatable results with no hidden state.
 
 ## Examples in practice
 
-### Minimal Model Artifact (M2.x)
+### Minimal Model Artifact (M-02.x)
 ```yaml
 kind: Model
 schemaVersion: 1
@@ -150,9 +150,9 @@ Today, you can build the same in code/tests by composing nodes directly.
 
 ## Roadmap alignment
 
-- M0: grid + series + DAG + minimal nodes + CLI. Tiny exprs translate to BinaryOpNode with scalar RHS.
-- M1: expression parser, SHIFT built-in, general references → compiled nodes under the hood.
-- M2+: add DELAY/RESAMPLE/CLAMP, backlog/queues/routing, API/SPA, real-time, storage providers.
+- M-0: grid + series + DAG + minimal nodes + CLI. Tiny exprs translate to BinaryOpNode with scalar RHS.
+- M-1: expression parser, SHIFT built-in, general references → compiled nodes under the hood.
+- M-2+: add DELAY/RESAMPLE/CLAMP, backlog/queues/routing, API/SPA, real-time, storage providers.
 
 ## Why nodes (even with expressions)?
 
@@ -201,13 +201,13 @@ spec:
 
 ### Benefits of Unified Format
 - **Single Model Definition**: No need for separate Engine vs Sim model files
-- **Registry Integration**: Clear artifact identity with `kind: Model` for M2.7+ registry
+- **Registry Integration**: Clear artifact identity with `kind: Model` for M-02.07+ registry
 - **Metadata Support**: Rich metadata for discovery, organization, and UI display
 - **Future Extensions**: Easy to add tags, descriptions, version info as needed
 
 ## FAQs
 
 - Do expressions replace nodes? No—expressions compile to nodes. Nodes remain the execution plan.
-- Can I do series × series operations? Yes. The node supports it; the YAML parser will cover it in M1+. For now, tests show the behavior.
+- Can I do series × series operations? Yes. The node supports it; the YAML parser will cover it in M-1+. For now, tests show the behavior.
 - How are cycles handled? The graph rejects cycles at construction.
 - How do I see what was evaluated? Use `--verbose` to print topo order and outputs.

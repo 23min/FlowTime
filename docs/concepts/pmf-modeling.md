@@ -414,10 +414,10 @@ function renderPmfChart(pmf: PmfDefinition) {
 - **Fitted PMFs**: Automatic fitting from historical data
 
 ### Integration Roadmap
-- **M3+**: PMF convolution for complex uncertainty propagation
-- **M5+**: PMF-aware routing and capacity allocation
-- **M7+**: Dynamic PMFs adapting to real-time conditions
-- **UI-M3+**: Visual PMF editors and validation tools
+- **M-3+**: PMF convolution for complex uncertainty propagation
+- **M-5+**: PMF-aware routing and capacity allocation
+- **M-7+**: Dynamic PMFs adapting to real-time conditions
+- **UI-M-3+**: Visual PMF editors and validation tools
 
 ---
 

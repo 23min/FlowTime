@@ -31,11 +31,11 @@ Use the **Versioning Strategy** to determine the new version.
 **Decision Tree:**
 
 ```
-Is this a MAJOR milestone (M3.0, M4.0, M5.0, etc.)?
+Is this a MAJOR milestone (M-03.00, M-04.00, M-05.00, etc.)?
   → YES: Minor bump (0.6.0 → 0.7.0, 0.9.0 → 0.10.0, 0.11.0 → 0.12.0)
        Note: 0.x can go beyond 0.9! Use 0.10, 0.11, 0.50, etc.
 
-Is this a SMALL milestone or feature addition (M2.10, M2.11, etc.)?
+Is this a SMALL milestone or feature addition (M-02.10, M-02.11, etc.)?
   → YES: Patch bump (0.6.0 → 0.6.1)
 
 Is this only bug fixes within current milestone?
@@ -49,10 +49,10 @@ Is this work-in-progress toward next milestone?
 ```
 
 **Examples:**
-- M2.10 (small milestone, provenance queries) → `0.6.0` → `0.6.1` ✅
-- M3.0 (major milestone, Graph API) → `0.6.1` → `0.7.0` ✅
-- M4.0 (major milestone, Simulation) → `0.7.0` → `0.8.0` ✅
-- M6.0 (major milestone) → `0.9.0` → `0.10.0` ✅
+- M-02.10 (small milestone, provenance queries) → `0.6.0` → `0.6.1` ✅
+- M-03.00 (major milestone, Graph API) → `0.6.1` → `0.7.0` ✅
+- M-04.00 (major milestone, Simulation) → `0.7.0` → `0.8.0` ✅
+- M-06.00 (major milestone) → `0.9.0` → `0.10.0` ✅
 - Bug fix in registry → `0.6.0` → `0.6.1` ✅
 - Production v1.0 launch → `0.x.y` → `1.0.0` ✅
 
@@ -93,14 +93,14 @@ grep -r "VersionPrefix" src/**/*.csproj
 
 ```bash
 git add src/**/*.csproj
-git commit -m "chore(release): bump version to 0.7.0 for M2.10"
+git commit -m "chore(release): bump version to 0.7.0 for M-02.10"
 ```
 
 ### Step 4: Create Release Document
 
 **Location:** `docs/releases/M<X>.<Y>-v<version>.md`
 
-**Naming Pattern:** `M2.10-v0.7.0.md` (milestone + semantic version)
+**Naming Pattern:** `M-02.10-v0.7.0.md` (milestone + semantic version)
 
 **Template:**
 
@@ -164,8 +164,8 @@ git commit -m "chore(release): bump version to 0.7.0 for M2.10"
 ### Step 5: Commit Release Document
 
 ```bash
-git add docs/releases/M2.10-v0.7.0.md
-git commit -m "docs(release): add M2.10-v0.7.0 release notes"
+git add docs/releases/M-02.10-v0.7.0.md
+git commit -m "docs(release): add M-02.10-v0.7.0 release notes"
 ```
 
 ### Step 6: Create and Push Git Tag
@@ -174,7 +174,7 @@ git commit -m "docs(release): add M2.10-v0.7.0 release notes"
 
 **Create annotated tag:**
 ```bash
-git tag -a v0.7.0 -m "Release v0.7.0 - M2.10 Provenance Query Support
+git tag -a v0.7.0 -m "Release v0.7.0 - M-02.10 Provenance Query Support
 
 - API query parameters for templateId and modelId
 - CLI artifacts list command with provenance filters
@@ -230,21 +230,21 @@ Verify the release is complete:
 
 ## Quick Reference Commands
 
-**For M2.10 → v0.7.0 example:**
+**For M-02.10 → v0.7.0 example:**
 
 ```bash
 # Step 2-3: Version bump
 # (Edit .csproj files manually or with sed)
 git add src/**/*.csproj
-git commit -m "chore(release): bump version to 0.7.0 for M2.10"
+git commit -m "chore(release): bump version to 0.7.0 for M-02.10"
 
 # Step 4-5: Release doc
-# (Create docs/releases/M2.10-v0.7.0.md)
-git add docs/releases/M2.10-v0.7.0.md
-git commit -m "docs(release): add M2.10-v0.7.0 release notes"
+# (Create docs/releases/M-02.10-v0.7.0.md)
+git add docs/releases/M-02.10-v0.7.0.md
+git commit -m "docs(release): add M-02.10-v0.7.0 release notes"
 
 # Step 6: Tag
-git tag -a v0.7.0 -m "Release v0.7.0 - M2.10 Provenance Query Support"
+git tag -a v0.7.0 -m "Release v0.7.0 - M-02.10 Provenance Query Support"
 git push origin v0.7.0
 
 # Step 7: Push main
@@ -287,7 +287,7 @@ dotnet test
 ### Scenario 1: Milestone Completion (Most Common)
 - **Trigger:** Merged feature branch completing a milestone
 - **Action:** Minor bump + release doc + tag
-- **Example:** M2.10 complete → 0.6.0 → 0.7.0
+- **Example:** M-02.10 complete → 0.6.0 → 0.7.0
 
 ### Scenario 2: Bug Fix
 - **Trigger:** Hotfix merged to main
@@ -297,7 +297,7 @@ dotnet test
 ### Scenario 3: Multiple Features in Same Milestone
 - **Trigger:** Several PRs merged before milestone complete
 - **Action:** Patch bumps during development, minor bump at completion
-- **Example:** M3.0 feature 1 → 0.7.1, feature 2 → 0.7.2, completion → 0.8.0
+- **Example:** M-03.00 feature 1 → 0.7.1, feature 2 → 0.7.2, completion → 0.8.0
 
 ### Scenario 4: Breaking Change (Rare in 0.x)
 - **Trigger:** API contract change requiring consumer updates
@@ -330,8 +330,8 @@ git commit --amend --no-edit
 **Q: Need to update release doc after tagging**
 ```bash
 # Just edit and commit - tags point to commits, not files
-git add docs/releases/M2.10-v0.7.0.md
-git commit -m "docs(release): update M2.10 release notes"
+git add docs/releases/M-02.10-v0.7.0.md
+git commit -m "docs(release): update M-02.10 release notes"
 git push origin main
 ```
 

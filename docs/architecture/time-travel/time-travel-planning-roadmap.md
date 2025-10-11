@@ -26,7 +26,7 @@ This document defines the concrete implementation plan for FlowTime time-travel 
 - **UTC-Anchored Grid:** Every run is anchored to an absolute start timestamp with fixed bin size/unit to eliminate timezone drift (`time-travel-architecture-ch2-data-contracts.md`).
 - **Deterministic Single Mode:** One evaluation path powers both simulation and telemetry playback, keeping derived metrics predictable (`time-travel-architecture-ch1-overview.md`).
 - **Mode-Based Validation:** Telemetry runs surface warnings, simulation runs fail fast on errors—simplicity with clear operator feedback (`time-travel-planning-decisions.md` Q3).
-- **Incremental Delivery:** Milestones M3.0–M3.3 are sequenced so each step is independently demoable and testable before layering the next capability (`time-travel-architecture-ch5-implementation-roadmap.md`).
+- **Incremental Delivery:** Milestones M-03.00–M-03.03 are sequenced so each step is independently demoable and testable before layering the next capability (`time-travel-architecture-ch5-implementation-roadmap.md`).
 
 ---
 
@@ -34,14 +34,14 @@ This document defines the concrete implementation plan for FlowTime time-travel 
 
 | Milestone | Description | Dependencies |
 |-----------|-------------|--------------|
-| M3.0 | Foundation + Fixtures | None |
-| M3.1 | Time-Travel APIs | M3.0 |
-| M3.2 | TelemetryLoader + Templates | M3.0 |
-| M3.3 | Validation + Polish | M3.1, M3.2 |
+| M-03.00 | Foundation + Fixtures | None |
+| M-03.01 | Time-Travel APIs | M-03.00 |
+| M-03.02 | TelemetryLoader + Templates | M-03.00 |
+| M-03.03 | Validation + Polish | M-03.01, M-03.02 |
 
 ---
 
-## M3.0: Foundation + Fixtures
+## M-03.00: Foundation + Fixtures
 
 ### Goal
 Extend model schema and engine to support window, topology, file sources, and explicit initial conditions. Create synthetic gold telemetry fixtures for testing.
@@ -140,7 +140,7 @@ Assert.Equal("2025-10-07T02:30:00Z", binTimestamp);
 - End-to-end: model with window + topology → artifacts
 - File sources load correctly from fixture directory
 - Self-referencing SHIFT evaluates with initial condition
-- Backward compatibility: M2.10 model still works
+- Backward compatibility: M-02.10 model still works
 
 **Golden Tests (2 tests):**
 - Fixed model with window/topology → consistent artifacts
@@ -179,11 +179,11 @@ Assert.Equal("2025-10-07T02:30:00Z", binTimestamp);
 | File path security (directory traversal) | Validate no "..", restrict to model directory |
 | CSV parsing edge cases | Use CsvHelper library, test CRLF/LF |
 | Initial condition type confusion | Clear error messages, examples in docs |
-| Backward compatibility breaks | Add tests for M2.10 models |
+| Backward compatibility breaks | Add tests for M-02.10 models |
 
 ---
 
-## M3.1: Time-Travel APIs
+## M-03.01: Time-Travel APIs
 
 ### Goal
 Implement /state and /state_window endpoints for bin-level querying with derived metrics. Enable UI time-travel integration.
@@ -366,8 +366,8 @@ latency_min = null  // Can't compute
 - `tests/FlowTime.Core.Tests/MetricsTests.cs` (NEW)
 
 ### Dependencies
-- M3.0 (requires window and topology in model)
-- Fixtures from M3.0 (for integration testing)
+- M-03.00 (requires window and topology in model)
+- Fixtures from M-03.00 (for integration testing)
 
 ### Risks and Mitigation
 
@@ -379,7 +379,7 @@ latency_min = null  // Can't compute
 
 ---
 
-## M3.2: TelemetryLoader + Templates
+## M-03.02: TelemetryLoader + Templates
 
 ### Goal
 Implement TelemetryLoader to extract from ADX/CSV and Template system to instantiate models.
@@ -507,7 +507,7 @@ dotnet run --project tools/SyntheticGold -- \
 - `tests/FlowTime.Templates.Tests/`
 
 ### Dependencies
-- M3.0 (requires file source support)
+- M-03.00 (requires file source support)
 
 ### Risks and Mitigation
 
@@ -521,7 +521,7 @@ dotnet run --project tools/SyntheticGold -- \
 
 ## UI Contract: Time-Travel Visualization APIs
 
-The M3.x milestones provide the backend surface required for the time-travel UI described in `time-travel-architecture-ch4-data-flows.md`.
+The M-03.x milestones provide the backend surface required for the time-travel UI described in `time-travel-architecture-ch4-data-flows.md`.
 
 ### Required UI Views
 - **Flow Graph:** Renders the topology using node colors supplied by `/state`.
@@ -529,25 +529,25 @@ The M3.x milestones provide the backend surface required for the time-travel UI 
 - **Node Details:** Display arrivals, served, queue depth, latency, utilization, and errors for the focused bin.
 - **Health Banner:** Surface validation warnings (telemetry mode) and errors (simulation mode) inline with the playback experience.
 
-### Backend Support Delivered in M3.x
+### Backend Support Delivered in M-03.x
 - `POST /v1/graph` (existing) parses model metadata and returns topology + semantics aligned to the KISS schema; the UI can reuse this response for graph layout previews.
 - `POST /v1/runs` returns `runId`, run manifest, topology, and series artifacts the UI can cache for layout.
 - `GET /v1/runs/{runId}/state?binIndex={idx}` provides:
   - Window metadata (`start`, `timezone`, `binMinutes`)
   - Per-node semantics (arrivals, served, queue, capacity) plus derived metrics
-  - Node coloring and `colorReason` matched to the thresholds defined in M3.1
+  - Node coloring and `colorReason` matched to the thresholds defined in M-03.01
 - `GET /v1/runs/{runId}/state_window?startBin={s}&endBin={e}` supplies dense series for sparklines and aggregate charts.
-- Validation warnings/errors are returned with every response so the UI can annotate issues without polling other services (see M3.3 deliverables).
+- Validation warnings/errors are returned with every response so the UI can annotate issues without polling other services (see M-03.03 deliverables).
 
 ### Integration Checklist
 - Respect backend-provided timestamps; compute client timelines as `start + binIndex × binMinutes`.
 - Gray nodes indicate missing capacity—display throughput ratio or helper messaging rather than hiding the node.
 - Telemetry warnings should present as non-blocking notices; simulation errors must halt playback per mode-based validation rules.
-- Aggregated metrics endpoints (e.g., `/metrics`) and advanced overlays remain future work (see Post-M3 section).
+- Aggregated metrics endpoints (e.g., `/metrics`) and advanced overlays remain future work (see Post-M-3 section).
 
 ---
 
-## M3.3: Validation + Polish
+## M-03.03: Validation + Polish
 
 ### Goal
 Add post-evaluation validation, observability, and production-ready polish.
@@ -665,13 +665,13 @@ Benchmark: 288-bin order-system model
 - `tests/FlowTime.API.Tests/PerformanceTests.cs` (NEW)
 
 ### Dependencies
-- M3.0, M3.1, M3.2 (integrates all)
+- M-03.00, M-03.01, M-03.02 (integrates all)
 
 ---
 
-## Post-M3 (Future Work)
+## Post-M-3 (Future Work)
 
-### M3.4: Capacity Inference + Overlay Scenarios (P1)
+### M-03.04: Capacity Inference + Overlay Scenarios (P1)
 
 **Deliverables:**
 1. Capacity inference in API layer (saturation method)
@@ -679,9 +679,9 @@ Benchmark: 288-bin order-system model
 3. Overlay scenario support (Gold baseline + modeled changes)
 4. Template overlays (modify semantics at instantiation)
 
-**Not Blocking:** Can ship M3.0-M3.3 without this.
+**Not Blocking:** Can ship M-03.00-M-03.03 without this.
 
-### M4.0: Catalog_Nodes Integration (P2)
+### M-04.00: Catalog_Nodes Integration (P2)
 
 **Deliverables:**
 1. Query Catalog_Nodes for topology
@@ -718,7 +718,7 @@ Benchmark: 288-bin order-system model
 
 ## Success Criteria
 
-### M3.0-M3.3 Complete When:
+### M-03.00-M-03.03 Complete When:
 - ✅ All 60+ tests passing
 - ✅ 3 fixture systems working (order, microservices, HTTP)
 - ✅ /state and /state_window returning correct data
@@ -728,7 +728,7 @@ Benchmark: 288-bin order-system model
 - ✅ Documentation complete
 - ✅ Performance benchmarks met
 
-### Demo Scenario (End of M3.3)
+### Demo Scenario (End of M-03.03)
 1. **Generate synthetic gold telemetry**
    ```bash
    dotnet run --project tools/SyntheticGold -- \
@@ -736,7 +736,7 @@ Benchmark: 288-bin order-system model
      --output fixtures/gold-telemetry/ \
      --bins 288
    ```
-   - Produces `fixtures/gold-telemetry/*.csv` plus `manifest.json` (M3.2 deliverable).
+   - Produces `fixtures/gold-telemetry/*.csv` plus `manifest.json` (M-03.02 deliverable).
 2. **Instantiate the telemetry template**
    ```bash
    dotnet run --project FlowTime.Cli template instantiate \
@@ -744,26 +744,26 @@ Benchmark: 288-bin order-system model
      --param telemetry_dir=fixtures/gold-telemetry \
      --param window_start=2025-10-07T00:00:00Z
    ```
-   - Yields `runs/order-system/model.yaml` with topology + provenance (M3.2).
+   - Yields `runs/order-system/model.yaml` with topology + provenance (M-03.02).
 3. **Execute the run**
    ```bash
    curl -X POST https://localhost:5001/v1/runs \
      -H "Content-Type: application/json" \
      -d @runs/order-system/request.json
    ```
-   - Response returns `runId`, warnings (if any), and artifact locations (M3.3).
+   - Response returns `runId`, warnings (if any), and artifact locations (M-03.03).
 4. **Scrub a specific bin**
    ```bash
    curl "https://localhost:5001/v1/runs/${runId}/state?binIndex=42"
    ```
-   - UI reads derived metrics + node colors to highlight hotspots (M3.1).
+   - UI reads derived metrics + node colors to highlight hotspots (M-03.01).
 5. **Show trend window**
    ```bash
    curl "https://localhost:5001/v1/runs/${runId}/state_window?startBin=0&endBin=144"
    ```
-   - Supplies sparklines and SLA trends for the visualization (M3.1).
+   - Supplies sparklines and SLA trends for the visualization (M-03.01).
 6. **Surface health signals**
-   - Any telemetry gaps appear as warnings (M3.3 mode-based validation).
+   - Any telemetry gaps appear as warnings (M-03.03 mode-based validation).
    - Structured logs and performance metrics corroborate the UI view.
 7. **UI presentation**
    - Topology graph colored by utilization/latency.
@@ -790,7 +790,7 @@ Benchmark: 288-bin order-system model
 ### Low Risk
 | Risk | Probability | Impact | Mitigation |
 |------|-------------|--------|------------|
-| Backward compatibility issues | Low | Medium | Test M2.10 models, graceful degradation |
+| Backward compatibility issues | Low | Medium | Test M-02.10 models, graceful degradation |
 | Security (directory traversal) | Low | High | Path validation, restrict to model directory |
 
 ---
@@ -798,25 +798,25 @@ Benchmark: 288-bin order-system model
 ## Implementation Sequence
 
 ```
-M3.0: Foundation + Fixtures
+M-03.00: Foundation + Fixtures
   ├─ Schema extensions (window, topology)
   ├─ File sources
   ├─ Initial conditions
   └─ Create 3 fixture systems
 
-M3.1: Time-Travel APIs (depends on M3.0)
+M-03.01: Time-Travel APIs (depends on M-03.00)
   ├─ /state endpoint
   ├─ /state_window endpoint
   ├─ Derived metrics
   └─ UI can integrate (parallel work)
 
-M3.2: TelemetryLoader + Templates (depends on M3.0)
+M-03.02: TelemetryLoader + Templates (depends on M-03.00)
   ├─ CSV loader
   ├─ Template parser
   ├─ Synthetic gold generator
   └─ Example templates
 
-M3.3: Validation + Polish (depends on M3.1, M3.2)
+M-03.03: Validation + Polish (depends on M-03.01, M-03.02)
   ├─ Validation framework
   ├─ Structured logging
   ├─ Documentation
@@ -825,21 +825,21 @@ M3.3: Validation + Polish (depends on M3.1, M3.2)
 
 ---
 
-## Post-M3.0 Follow-Ups
+## Post-M-03.00 Follow-Ups
 
 1. **Shared expression validation library**
    - **Goal:** Extract the Engine expression parser/AST and semantic checks into a neutral assembly (`FlowTime.Expressions`), with matching unit tests, so Engine and FlowTime.Sim consume the same validation logic.
-   - **Timing:** Execute immediately after M3.0 deliverables land and before kicking off Engine M3.1.
-   - **Hand-off:** Once the library is published, FlowTime.Sim’s M3 adoption work will replace its legacy expression checks with the shared package to keep both surfaces aligned.
+   - **Timing:** Execute immediately after M-03.00 deliverables land and before kicking off Engine M-03.01.
+   - **Hand-off:** Once the library is published, FlowTime.Sim’s M-3 adoption work will replace its legacy expression checks with the shared package to keep both surfaces aligned.
 
 ---
 
 ## Next Actions
 
 1. **Review and Approve:** Validate this roadmap
-2. **Create M3.0 Spec:** Detailed implementation spec
+2. **Create M-03.00 Spec:** Detailed implementation spec
 3. **Set Up Environment:** Dev containers, test data
-4. **Begin M3.0:** Start with schema extensions
+4. **Begin M-03.00:** Start with schema extensions
 
 **Ready to proceed?**
 

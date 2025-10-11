@@ -1,8 +1,8 @@
-# SVC-M1 Release Notes
+# SVC-M-1 Release Notes
 
 **FlowTime API Artifact Endpoints**  
 **Release Date**: September 3, 2025  
-**Milestone**: SVC-M1  
+**Milestone**: SVC-M-1  
 
 ## 🎯 What's New
 
@@ -24,7 +24,7 @@ FlowTime API can now serve previously generated run artifacts, enabling external
 * **Configurable Storage**: `ArtifactsDirectory` setting (defaults to "out")  
 * **Robust Error Handling**: Proper 404s for missing runs/series, detailed error messages
 * **Standard Content Types**: JSON for indexes, CSV for series data
-* **SYN-M00.00 Integration**: Leverages existing file adapters for consistent data access
+* **SYN-M-00.00 Integration**: Leverages existing file adapters for consistent data access
 
 ## 🔧 Technical Implementation
 
@@ -62,7 +62,7 @@ curl "http://localhost:8080/runs/hello/run_TIMESTAMP_HASH/series/served@SERVED@D
 
 ## 🚀 What This Enables
 
-### For UI Development (UI-M2)
+### For UI Development (UI-M-02)
 * UI can now read real artifact data instead of simulation-only mode
 * Enables true end-to-end workflows: CLI → API → UI
 
@@ -82,25 +82,25 @@ curl "http://localhost:8080/runs/hello/run_TIMESTAMP_HASH/series/served@SERVED@D
 
 ## 📋 Known Limitations
 
-* No run discovery endpoint yet (planned for SVC-M2)
+* No run discovery endpoint yet (planned for SVC-M-2)
 * No caching of frequently accessed artifacts
 * Requires file system access to artifact directory
 
 ## 🎉 Milestone Status
 
-**SVC-M1: COMPLETED** ✅
+**SVC-M-1: COMPLETED** ✅
 
 ### Dependencies Satisfied
-* ✅ **M0**: Core engine functionality  
-* ✅ **SVC-M00.00**: Base API with /run, /graph endpoints
-* ✅ **SYN-M00.00**: File adapters for artifact reading
+* ✅ **M-0**: Core engine functionality  
+* ✅ **SVC-M-00.00**: Base API with /run, /graph endpoints
+* ✅ **SYN-M-00.00**: File adapters for artifact reading
 
 ### Next Milestones Unlocked
-* **UI-M2**: Enhanced UI with real artifact data
-* **SVC-M2**: Run discovery and listing endpoints
+* **UI-M-02**: Enhanced UI with real artifact data
+* **SVC-M-2**: Run discovery and listing endpoints
 
 ---
 
 **Contributors**: GitHub Copilot  
 **Test Results**: 33/33 tests passing  
-**Documentation**: `/docs/milestones/SVC-M00.001.00.md`
+**Documentation**: `/docs/milestones/SVC-M-00.001.00.md`

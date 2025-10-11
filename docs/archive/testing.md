@@ -38,9 +38,9 @@ These scripts test the actual HTTP API with real models and validate the complet
 - Keep API tests resilient by asserting on contract, not incidental formatting.
 - When public behavior changes intentionally, update tests and document why in the PR.
 
-### Upcoming (M1 / M1.5) Additions
+### Upcoming (M-1 / M-01.05) Additions
 
-Artifact & contract tests (Contracts Parity milestone M1):
+Artifact & contract tests (Contracts Parity milestone M-1):
 
 * JSON Schema validation for `run.json`, `manifest.json`, `series/index.json`.
 * Canonical model hashing: verify `spec.yaml` canonicalization (strip comments, normalize LF, trim trailing whitespace, collapse blank lines, key-order insensitive) produces stable `scenarioHash` / `modelHash`.
@@ -50,15 +50,15 @@ Artifact & contract tests (Contracts Parity milestone M1):
 * RNG object: validate `rng.kind` and `rng.seed` presence and that varying seed changes scenarioHash only when model content identical.
 * Negative: corrupt a CSV then run an integrity check expecting mismatch detection (future CLI command or test helper).
 
-Expression tests (M1.5):
+Expression tests (M-01.05):
 - Parser correctness (precedence, associativity, references).
 - Built-ins (e.g., SHIFT) with boundary cases (shift beyond range → zeros or clamp as specified).
 
-Backlog & latency tests (future M7):
+Backlog & latency tests (future M-7):
 - Conservation: cumulative(inflow) - cumulative(served) == backlog[last].
 - Latency zero-division handling (served[t] == 0). Warning emission captured in manifest.
 
-Synthetic adapter tests (SYN-M0):
+Synthetic adapter tests (SYN-M-0):
 - Round-trip: read artifacts → reconstruct series → byte-equal to originals.
 - Hash agreement when adapter regenerates manifest.
 

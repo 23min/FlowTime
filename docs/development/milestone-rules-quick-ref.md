@@ -22,7 +22,13 @@
 - Must enable TDD plan creation before coding
 - Self-contained and authoritative
 
-### 4. Separate Tracking During Implementation 🔄
+### 4. Milestone ID Format 📛
+- Engine milestones use `M-XX.XX` (e.g., `M-02.10`).
+- FlowTime.Sim milestones use `SIM-M-XX.XX`.
+- FlowTime.UI milestones use `UI-M-XX.XX`.
+- Additional prefixes require architecture approval; CLI/tooling work typically falls under Engine or Sim milestones.
+
+### 5. Separate Tracking During Implementation 🔄
 - Create `docs/milestones/tracking/[MILESTONE-ID]-tracking.md` when work starts on work branch
 - Update tracking doc with each commit
 - Keep milestone doc stable, tracking doc dynamic
@@ -130,9 +136,9 @@ Before marking milestone as "📋 Planned":
 
 ## Examples
 
-**Good:** `docs/milestones/M02.09.md` (remove time estimate)
-**Good:** `docs/milestones/M02.10.md` (remove "1-2 hours")
-**Updated:** `docs/milestones/UI-M02.09.md` (now follows rules)
+**Good:** `docs/milestones/M-02.09.md` (remove time estimate)
+**Good:** `docs/milestones/M-02.10.md` (remove "1-2 hours")
+**Updated:** `docs/milestones/UI-M-02.09.md` (now follows rules)
 
 ---
 

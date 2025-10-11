@@ -21,7 +21,7 @@ FlowTime implements a milestone-driven versioning strategy that aligns with proj
 
 All projects are currently set to version **0.3.1**:
 
-- `0.3.x` represents completion of UI-M02.01 milestone capabilities
+- `0.3.x` represents completion of UI-M-02.01 milestone capabilities
 - `.1` represents the versioning infrastructure patch addition
 
 ## Implementation Details

@@ -15,6 +15,6 @@ Create the milestone document at docs/milestones/<Milestone ID>.md following the
 ```
 
 ### Notes
-- Replace `<Milestone ID>` and `<Title>` with the specific milestone (e.g., `M3.1 — Time-Travel APIs`).
+- Replace `<Milestone ID>` and `<Title>` with the specific milestone (e.g., `M-03.01 — Time-Travel APIs`).
 - Add any milestone-specific context (e.g., dependencies, known constraints) after the template block if needed.
 - When executing a milestone (updating status or tracking progress), point Codex to the existing milestone doc and corresponding tracking file instead of creating a new spec.

@@ -23,13 +23,13 @@
 - Engine: Works without capacity (uses observed served)
 - API responses: Flag when capacity unavailable or inferred
 - Templates: Can specify capacity assumptions for what-if scenarios
-- Future (M3.4+): Consider hybrid approach with inference
+- Future (M-03.04+): Consider hybrid approach with inference
 
 **Impact on Milestones:**
-- M3.0: Schema allows NULL capacity
-- M3.1: /state API handles missing capacity gracefully
-- M3.2: TelemetryLoader doesn't require capacity column
-- M3.3: Validation warnings if capacity missing but referenced
+- M-03.00: Schema allows NULL capacity
+- M-03.01: /state API handles missing capacity gracefully
+- M-03.02: TelemetryLoader doesn't require capacity column
+- M-03.03: Validation warnings if capacity missing but referenced
 
 ---
 
@@ -42,7 +42,7 @@
 - Version control with full git history
 - Code review for topology changes
 - Sufficient for demo (2-3 example templates)
-- Clear path to add Catalog_Nodes later (M4.0+)
+- Clear path to add Catalog_Nodes later (M-04.00+)
 
 **Implementation Notes:**
 - Templates stored in `flowtime-vnext/templates/`
@@ -52,13 +52,13 @@
   - `templates/examples/` - Demo/tutorial templates
 - Template format: YAML with {{parameter}} substitution
 - Template versioning via git tags
-- Future (M4.0+): Add Catalog_Nodes discovery mode
+- Future (M-04.00+): Add Catalog_Nodes discovery mode
 
 **Impact on Milestones:**
-- M3.0: Define template schema format
-- M3.2: Implement template parser and parameter substitution
-- M3.2: Create 2-3 example templates (order-system, microservices)
-- M3.3: Template validation and error messages
+- M-03.00: Define template schema format
+- M-03.02: Implement template parser and parameter substitution
+- M-03.02: Create 2-3 example templates (order-system, microservices)
+- M-03.03: Template validation and error messages
 
 ---
 
@@ -79,34 +79,34 @@
   - `"manual"` → permissive (warnings)
 - In **permissive mode**: ALL violations are warnings (including negative queue, malformed CSV, length mismatch)
 - In **strict mode**: ALL violations are errors
-- No per-rule configuration in M3.3 (keep simple)
-- Future (post-M3): Add configurable validation rules if needed
+- No per-rule configuration in M-03.03 (keep simple)
+- Future (post-M-3): Add configurable validation rules if needed
 
 **Impact on Milestones:**
-- M3.0: No validation yet (parser errors only)
-- M3.1: Basic validation (conservation, gaps)
-- M3.3: Full validation framework with mode-based severity
-- M3.3: Clear error messages and warnings in API responses
+- M-03.00: No validation yet (parser errors only)
+- M-03.01: Basic validation (conservation, gaps)
+- M-03.03: Full validation framework with mode-based severity
+- M-03.03: Clear error messages and warnings in API responses
 
 ---
 
 ### Q4: Inference Algorithm Location ✅
 
-**Decision:** **Option D - Defer to M3.4+**
+**Decision:** **Option D - Defer to M-03.04+**
 
 **Rationale:**
-- Ship M3.0-M3.3 faster without inference complexity
+- Ship M-03.00-M-03.03 faster without inference complexity
 - Focus on core time-travel capability (window, topology, APIs, telemetry)
 - Inference is nice-to-have, not blocking
 - Need user feedback to design algorithm correctly
-- Can iterate in M3.4 without blocking initial delivery
+- Can iterate in M-03.04 without blocking initial delivery
 
 **Implementation Notes:**
-- M3.0-M3.3: No capacity inference
+- M-03.00-M-03.03: No capacity inference
 - API responses: `capacity: null` when unavailable
 - UI handling: Show "capacity: unknown" or hide utilization bar
 - UI optional: Show `served/arrivals` ratio as proxy (with clear label: "throughput ratio, not utilization")
-- M3.4+: Implement in API layer (Option B from analysis)
+- M-03.04+: Implement in API layer (Option B from analysis)
 - Future algorithm: Saturation method (~200 LOC in API layer)
 
 **Clarification on Metrics:**
@@ -116,17 +116,17 @@
 - UI ratio: `served/arrivals` (what % of incoming work was completed)
 
 **Impact on Milestones:**
-- M3.0: Schema allows null capacity
-- M3.1: /state API handles null capacity gracefully
-- M3.2: TelemetryLoader doesn't require capacity
-- M3.3: No inference implementation
-- M3.4: Add API-layer inference (post-P0)
+- M-03.00: Schema allows null capacity
+- M-03.01: /state API handles null capacity gracefully
+- M-03.02: TelemetryLoader doesn't require capacity
+- M-03.03: No inference implementation
+- M-03.04: Add API-layer inference (post-P0)
 
 ---
 
 ### Q5: /state Endpoint Priority ✅
 
-**Decision:** **Option A - /state in M3.1 (Before TelemetryLoader), UI-First**
+**Decision:** **Option A - /state in M-03.01 (Before TelemetryLoader), UI-First**
 
 **Rationale:**
 - Enable parallel work (UI integrates while backend builds telemetry)
@@ -142,26 +142,26 @@
 - Self-hosting: FlowTime generates data that FlowTime then analyzes
 
 **Implementation Notes:**
-- M3.0: Create test fixtures (3-4 example systems with CSV telemetry)
-- M3.0: Fixtures include: order-system, microservices, queue-heavy
-- M3.1: Implement /state and /state_window using fixtures
-- M3.1: UI integrates against fixture data
-- M3.2: TelemetryLoader (may initially load from FlowTime-generated CSVs, not ADX)
+- M-03.00: Create test fixtures (3-4 example systems with CSV telemetry)
+- M-03.00: Fixtures include: order-system, microservices, queue-heavy
+- M-03.01: Implement /state and /state_window using fixtures
+- M-03.01: UI integrates against fixture data
+- M-03.02: TelemetryLoader (may initially load from FlowTime-generated CSVs, not ADX)
 - Future: Helper tool to generate synthetic gold telemetry from simulation runs
 
 **Milestone Sequence:**
 ```
-M3.0: Foundation + Fixtures
-M3.1: Time-Travel APIs (/state, /state_window)
-M3.2: TelemetryLoader + Templates
-M3.3: Validation + Polish
+M-03.00: Foundation + Fixtures
+M-03.01: Time-Travel APIs (/state, /state_window)
+M-03.02: TelemetryLoader + Templates
+M-03.03: Validation + Polish
 ```
 
 **Impact on Milestones:**
-- M3.0: Include fixture generation as deliverable
-- M3.1: Test with fixtures, not real ADX
-- M3.2: TelemetryLoader may load from files initially (ADX optional)
-- Post-M3: Create synthetic gold telemetry generator tool
+- M-03.00: Include fixture generation as deliverable
+- M-03.01: Test with fixtures, not real ADX
+- M-03.02: TelemetryLoader may load from files initially (ADX optional)
+- Post-M-3: Create synthetic gold telemetry generator tool
 
 ---
 
@@ -197,33 +197,33 @@ NodeTimeBin (Minimal + Pragmatic):
 - Hybrid: Service Bus queue feeds into App Insights service
 
 **Implementation Notes:**
-- M3.0: Define schema spec document
-- M3.0: Create synthetic gold generator (FlowTime simulation → Gold CSV)
-- M3.2: TelemetryLoader handles both Service Bus and App Insights sources
-- M3.2: Loader gracefully handles missing external_demand (common for HTTP)
+- M-03.00: Define schema spec document
+- M-03.00: Create synthetic gold generator (FlowTime simulation → Gold CSV)
+- M-03.02: TelemetryLoader handles both Service Bus and App Insights sources
+- M-03.02: Loader gracefully handles missing external_demand (common for HTTP)
 - Future: Add new optional columns as new buffer types discovered
 
 **Impact on Milestones:**
-- M3.0: Schema specification document + synthetic generator
-- M3.2: TelemetryLoader with flexible column handling
-- M3.3: Validation warns if external_demand missing (not error)
+- M-03.00: Schema specification document + synthetic generator
+- M-03.02: TelemetryLoader with flexible column handling
+- M-03.03: Validation warns if external_demand missing (not error)
 
 ---
 
 ## Summary: All Decisions Complete ✅
 
-**Milestones:** M3.0 through M3.3
+**Milestones:** M-03.00 through M-03.03
 
 **Key Decisions:**
 1. ✅ Capacity: Optional (Q1)
 2. ✅ Templates: Git-based in flowtime-vnext/templates/ (Q2)
 3. ✅ Validation: Mode-based (warnings for telemetry, errors for simulation) (Q3)
-4. ✅ Inference: Defer to M3.4+ (Q4)
-5. ✅ /state Priority: M3.1 before TelemetryLoader, with fixtures in M3.0 (Q5)
+4. ✅ Inference: Defer to M-03.04+ (Q4)
+5. ✅ /state Priority: M-03.01 before TelemetryLoader, with fixtures in M-03.00 (Q5)
 6. ✅ Gold Schema: Simplified with flexible loader (Q6)
 
 **Next Steps:**
-1. Create detailed M3.0 specification
+1. Create detailed M-03.00 specification
 2. Generate synthetic gold telemetry fixtures
 3. Begin implementation
 

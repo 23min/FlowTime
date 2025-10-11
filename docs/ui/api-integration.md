@@ -1,11 +1,11 @@
 # FlowTime UI API Integration Guide
 
-> **📋 Charter Integration**: This guide covers charter-aligned API integration patterns for [M2.8](../milestones/M02.08.md) registry workflows and [M2.7](../milestones/M02.07.md) artifacts system. All patterns support the [Models|Runs|Artifacts|Learn] paradigm with registry-centric state management.
+> **📋 Charter Integration**: This guide covers charter-aligned API integration patterns for [M-02.08](../milestones/M-02.08.md) registry workflows and [M-02.07](../milestones/M-02.07.md) artifacts system. All patterns support the [Models|Runs|Artifacts|Learn] paradigm with registry-centric state management.
 
 **Version:** 2.0 (Charter-Aligned)  
 **Audience:** UI developers, integration engineers  
 **Purpose:** Detailed guide for integrating FlowTime UI with FlowTime API endpoints using charter workflows and registry services  
-**Charter Status:** Updated for M2.8 charter workflows and M2.7 registry integration
+**Charter Status:** Updated for M-02.08 charter workflows and M-02.07 registry integration
 
 ---
 
@@ -42,7 +42,7 @@ builder.Services.AddScoped<IModelsService, ModelsService>();
 builder.Services.AddScoped<IRunsService, RunsService>();
 builder.Services.AddScoped<ICompareService, CompareService>();
 
-// Registry configuration for M2.7 artifacts
+// Registry configuration for M-02.07 artifacts
 builder.Services.Configure<RegistryConfiguration>(options =>
 {
     options.BasePath = builder.Configuration["Registry:BasePath"] ?? "./data/artifacts";
@@ -55,7 +55,7 @@ builder.Services.Configure<RegistryConfiguration>(options =>
 
 ## 2. Charter API Integration Patterns
 
-### 2.1 Artifacts Registry Service (M2.7)
+### 2.1 Artifacts Registry Service (M-02.07)
 ```csharp
 public interface IArtifactRegistryService
 {

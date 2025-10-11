@@ -12,7 +12,7 @@ This document translates the KISS time-travel architecture into FlowTime.Sim res
 
 Focus areas:
 
-1. Schema alignment — Templates produced by FlowTime.Sim must emit the exact window/topology/semantics contract consumed by Engine M3.x APIs.
+1. Schema alignment — Templates produced by FlowTime.Sim must emit the exact window/topology/semantics contract consumed by Engine M-03.x APIs.
 2. Validation — FlowTime.Sim should fail fast on invalid models using the same expression and topology rules as Engine, preventing drift between surfaces.
 3. Provenance & observability — Generated artifacts must embed provenance that cross-SKU tooling can inspect.
 4. Authoring experience — Templates should remain deterministic, reviewable artifacts in source control even while the UI/AI assist experiences mature.
@@ -21,11 +21,11 @@ Focus areas:
 
 ## 2. Current Baseline
 
-FlowTime.Sim currently targets the SIM-M2.6 node-based schema:
+FlowTime.Sim currently targets the SIM-M-02.06 node-based schema:
 
 - Templates comprise `metadata`, `parameters`, `grid`, `nodes`, and `outputs`.
 - Expressions are validated syntactically (non-empty string), not semantically.
-- Model generation strips metadata and outputs only the minimal YAML needed for Engine M2.10.
+- Model generation strips metadata and outputs only the minimal YAML needed for Engine M-02.10.
 - Provenance is optional and stored externally, with an embed flag for consumers.
 
 The readiness audit (2025-10-11) highlighted critical gaps for time-travel:
@@ -53,7 +53,7 @@ The readiness audit (2025-10-11) highlighted critical gaps for time-travel:
 
 ```
 +----------------------+        +----------------------------+
-| FlowTime.Sim CLI/API |        | FlowTime Engine (M3.x)     |
+| FlowTime.Sim CLI/API |        | FlowTime Engine (M-03.x)     |
 |  - Template registry |        |  - /v1/runs                |
 |  - Provenance        |        |  - /state, /state_window   |
 |  - Validation        |        |  - Shared expression lib   |
@@ -95,16 +95,16 @@ Key touchpoints:
 
 4. **Test suite upgrades**
    - Expand unit tests to cover window/topology serialization.
-   - Add integration tests verifying generated models run through Engine M3.x fixtures.
+   - Add integration tests verifying generated models run through Engine M-03.x fixtures.
    - Introduce regression suites leveraging shared expression tests.
 
 ---
 
 ## 6. Interaction with Engine Roadmap
 
-- **Post-M3.0 follow-up:** Engine extracts the shared expression library and publishes it for reuse (`time-travel-planning-roadmap.md`, Post-M3.0 follow-up #1). FlowTime.Sim cannot finalize validation upgrades until this artifact exists.
-- **M3.1 Engine APIs:** FlowTime.Sim schemas must be ready so that fixtures used by `/state` and `/state_window` rely on accurate semantics.
-- **Telemetry loader (M3.2):** FlowTime.Sim templates will be consumed by tooling that binds telemetry constants; ensuring template flexibility now avoids rework later.
+- **Post-M-03.00 follow-up:** Engine extracts the shared expression library and publishes it for reuse (`time-travel-planning-roadmap.md`, Post-M-03.00 follow-up #1). FlowTime.Sim cannot finalize validation upgrades until this artifact exists.
+- **M-03.01 Engine APIs:** FlowTime.Sim schemas must be ready so that fixtures used by `/state` and `/state_window` rely on accurate semantics.
+- **Telemetry loader (M-03.02):** FlowTime.Sim templates will be consumed by tooling that binds telemetry constants; ensuring template flexibility now avoids rework later.
 
 ---
 

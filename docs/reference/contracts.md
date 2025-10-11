@@ -4,7 +4,7 @@
 > This document contains legacy `binMinutes` references.  
 > **Current Implementation**: Use `grid: { bins, binSize, binUnit }` format.  
 > **See**: `docs/schemas/template-schema.md` for authoritative schema.  
-> **Status**: Documentation update pending post-UI-M2.9.
+> **Status**: Documentation update pending post-UI-M-02.09.
 
 > **📋 Charter Alignment**: This artifact-first contract specification directly supports the [FlowTime-Engine Charter](../flowtime-engine-charter.md) paradigm. The "artifacts are source of truth" principle here implements the charter's artifacts-centric workflow: [Models] → [Runs] → [Artifacts] → [Learn].
 
@@ -12,7 +12,7 @@
 > **Applies to:** FlowTime (engine) and FlowTime-Sim (simulator)
 > **Scope:** Canonical **artifacts**, **service/API** surfaces, **streaming**, and **catalog**. Readers and UIs must rely on these contracts. Services are stateless after a run completes—artifacts are the source of truth.
 >
-> **Charter Context**: This document defines the artifact contracts that enable the M2.7 KISS Registry and support charter workflow integration across the Engine+Sim ecosystem.
+> **Charter Context**: This document defines the artifact contracts that enable the M-02.07 KISS Registry and support charter workflow integration across the Engine+Sim ecosystem.
 
 ## Vocabulary (domain-neutral)
 
@@ -332,4 +332,3 @@ layoutHints:
 
 - Legacy single-file `gold.csv` is deprecated. Prefer **per-series CSVs** and the Parquet **gold** table.
 - Replace any domain-colored reserved keys (e.g., `routeId`, `stepId`) with **domain-neutral** ones (`connectionId`).
-

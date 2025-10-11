@@ -49,12 +49,18 @@ Milestones evolve through these states:
 ---
 ```
 
+**Milestone ID Format:**
+- Engine: `M-XX.XX` (e.g., `M-02.10`)
+- FlowTime.Sim: `SIM-M-XX.XX` (e.g., `SIM-M-03.00`)
+- FlowTime.UI: `UI-M-XX.XX` (e.g., `UI-M-02.09`)
+- Other surfaces (CLI, tooling) inherit the Engine or Sim prefix that owns the work; avoid creating new prefixes unless coordinated with architecture.
+
 **Example:**
 ```markdown
-# UI-M2.9 — Schema Migration for UI
+# UI-M-02.09 — Schema Migration for UI
 
 **Status:** 📋 Planned  
-**Dependencies:** ✅ M2.9 (Engine Schema Evolution)  
+**Dependencies:** ✅ M-02.09 (Engine Schema Evolution)  
 **Target:** Update UI to parse new schema format (binSize/binUnit)
 
 ---
@@ -394,9 +400,9 @@ All task checklists MUST follow this order:
 
 **Clean Structure Example:**
 ```markdown
-# UI-M2.9 Implementation Tracking
+# UI-M-02.09 Implementation Tracking
 
-**Milestone:** UI-M2.9 — Schema Migration for UI  
+**Milestone:** UI-M-02.09 — Schema Migration for UI  
 **Status:** 🔄 In Progress  
 **Branch:** `feature/ui-m2.9/schema-migration`
 
@@ -404,7 +410,7 @@ All task checklists MUST follow this order:
 
 ## Quick Links
 
-- **Milestone Document:** [`docs/milestones/UI-M02.09.md`](../UI-M02.09.md)
+- **Milestone Document:** [`docs/milestones/UI-M-02.09.md`](../UI-M-02.09.md)
 - **Related Analysis:** [`docs/ui/UI-CURRENT-STATE-ANALYSIS.md`](../../ui/UI-CURRENT-STATE-ANALYSIS.md)
 
 ---
@@ -468,21 +474,21 @@ All task checklists MUST follow this order:
 ## Examples of Good Milestones
 
 ### Simple Milestone
-See: [`docs/milestones/M02.10.md`](../milestones/M02.10.md)
+See: [`docs/milestones/M-02.10.md`](../milestones/M-02.10.md)
 - ✅ Clear scope (provenance queries)
 - ✅ Specific API/CLI requirements
 - ✅ Test cases included
 - ⚠️ Remove time estimate (violates rule)
 
 ### Complex Milestone
-See: [`docs/milestones/M02.09.md`](../milestones/M02.09.md)
+See: [`docs/milestones/M-02.09.md`](../milestones/M-02.09.md)
 - ✅ Multi-phase implementation
 - ✅ TDD approach documented
 - ✅ Comprehensive test plan
 - ✅ Architecture decisions
 
 ### UI Milestone
-See: [`docs/milestones/UI-M02.09.md`](../milestones/UI-M02.09.md)
+See: [`docs/milestones/UI-M-02.09.md`](../milestones/UI-M-02.09.md)
 - ⚠️ Needs update (outdated schema assumptions)
 - ⚠️ Remove date stamp
 - ⚠️ Remove time estimates

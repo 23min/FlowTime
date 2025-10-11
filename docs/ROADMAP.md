@@ -27,27 +27,27 @@ FlowTime Engine is a **deterministic execution and telemetry generation platform
 
 | Milestone | Status | Key Achievements |
 |-----------|--------|------------------|
-| **M0-M2.0** | ✅ Complete | Core engine, expression evaluation, basic UI |
-| **M2.6** | ✅ Complete (v0.6.0) | Export system (CSV, NDJSON, Parquet) |
-| **M2.7** | ✅ Complete (v0.6.0) | Artifacts registry with file-based storage |
-| **M2.8** | ✅ Complete | Enhanced registry APIs, query capabilities |
-| **UI-M2.8 Phase 1** | ✅ Complete | Template API integration, Sim API migration |
-| **SIM-M2.6.1** | ✅ Complete (v0.5.0) | Schema evolution (binSize/binUnit format, schemaVersion: 1) |
-| **SIM-M2.7** | ✅ Complete (v0.6.0) | Provenance integration (metadata tracking, 132 passing tests) |
-| **M2.9** | ✅ Complete | Schema evolution & provenance (binSize/binUnit, PMF compilation, PCG32 RNG) |
+| **M-00.00–M-02.00** | ✅ Complete | Core engine, expression evaluation, basic UI |
+| **M-02.06** | ✅ Complete (v0.6.0) | Export system (CSV, NDJSON, Parquet) |
+| **M-02.07** | ✅ Complete (v0.6.0) | Artifacts registry with file-based storage |
+| **M-02.08** | ✅ Complete | Enhanced registry APIs, query capabilities |
+| **UI-M-02.08 Phase 1** | ✅ Complete | Template API integration, Sim API migration |
+| **SIM-M-02.06.1** | ✅ Complete (v0.5.0) | Schema evolution (binSize/binUnit format, schemaVersion: 1) |
+| **SIM-M-02.07** | ✅ Complete (v0.6.0) | Provenance integration (metadata tracking, 132 passing tests) |
+| **M-02.09** | ✅ Complete | Schema evolution & provenance (binSize/binUnit, PMF compilation, PCG32 RNG) |
 
 ### 🔄 In Progress
 
 | Milestone | Status | Current Phase |
 |-----------|--------|---------------|
-| **UI-M2.9** | 🔄 In Progress | UI schema migration for binSize/binUnit format |
+| **UI-M-02.09** | 🔄 In Progress | UI schema migration for binSize/binUnit format |
 
 ### 📋 Upcoming
 
 | Milestone | Status | Focus |
 |-----------|--------|-------|
-| **M2.10** | ✅ Complete | Provenance query support (API & CLI filters) |
-| **M3.0** | 📋 Next | Backlog & Latency Modeling (single-queue, Little's Law) |
+| **M-02.10** | ✅ Complete | Provenance query support (API & CLI filters) |
+| **M-03.00** | 📋 Next | Backlog & Latency Modeling (single-queue, Little's Law) |
 
 ---
 
@@ -107,7 +107,7 @@ sequenceDiagram
 
 ## Milestone Details
 
-### M2.9: Schema Evolution & Provenance (✅ Complete)
+### M-02.09: Schema Evolution & Provenance (✅ Complete)
 
 **Goal**: Complete schema evolution and provenance tracking for full model traceability.
 
@@ -153,8 +153,8 @@ sequenceDiagram
 #### Phase 3: FlowTime-Sim Alignment (✅ Complete)
 
 **Completed Coordination:**
-- ✅ Sim updated to output model.schema format directly (SIM-M2.6.1)
-- ✅ Provenance integration in Sim completed (SIM-M2.7)
+- ✅ Sim updated to output model.schema format directly (SIM-M-02.06.1)
+- ✅ Provenance integration in Sim completed (SIM-M-02.07)
 - ✅ Engine accepts and stores provenance metadata
 - ✅ Integration tests validated (132 passing tests in Sim, 221/224 in Engine)
 
@@ -168,7 +168,7 @@ sequenceDiagram
 
 ---
 
-### M2.10: Provenance Query Support (✅ Complete)
+### M-02.10: Provenance Query Support (✅ Complete)
 
 **Goal**: Enable efficient querying of artifacts by provenance metadata through API and CLI.
 
@@ -187,7 +187,7 @@ sequenceDiagram
 - Quick provenance inspection via CLI
 
 **Why Now:**
-- M2.9 completed provenance storage and indexing
+- M-02.09 completed provenance storage and indexing
 - Data is already indexed in registry
 - Small scope (2-4 hours) enables quick delivery
 - Unblocks future UI compare workflows
@@ -202,7 +202,7 @@ sequenceDiagram
 - ❌ Advanced analytics
 - ❌ UI integration
 
-See [`docs/milestones/M02.10.md`](milestones/M02.10.md) for detailed requirements.
+See [`docs/milestones/M-02.10.md`](milestones/M-02.10.md) for detailed requirements.
 
 ---
 
@@ -210,35 +210,35 @@ See [`docs/milestones/M02.10.md`](milestones/M02.10.md) for detailed requirement
 
 ### Advanced Engine Capabilities
 
-**M3.0: Backlog & Latency Modeling**
+**M-03.00: Backlog & Latency Modeling**
 - Single-queue backlog tracking
 - Little's Law latency calculations
 - Service time distribution modeling
 
-**M3.1: Scenarios & Parameter Sweeps**
+**M-03.01: Scenarios & Parameter Sweeps**
 - Multi-scenario execution
 - Parameter sweep workflows
 - Statistical comparison
 
 ### Cross-Platform Integration
 
-**UI-M3.0: Cross-Platform Charter**
+**UI-M-03.00: Cross-Platform Charter**
 - Unified UI spanning Engine and Sim
 - Embedded model authoring
 - Cross-platform workflows
 
-**SIM-M3.0: Charter Alignment**
+**SIM-M-03.00: Charter Alignment**
 - Model artifacts integration
 - Seamless Engine ↔ Sim workflows
 
 ### Advanced Capabilities (Future)
 
-**M4.0+: Advanced Modeling**
+**M-04.00+: Advanced Modeling**
 - Routing & network modeling
 - Multi-queue systems
 - Batch processing & temporal windows
 
-**M5.0+: Enterprise Features**
+**M-05.00+: Enterprise Features**
 - Real-time data integration
 - Machine learning integration
 - Cloud-native deployment
@@ -331,22 +331,22 @@ The following schema documents are deprecated:
 
 ### For Developers
 1. Review this ROADMAP.md for current direction
-2. Check M2.9 milestone document for detailed implementation plan
+2. Check M-02.09 milestone document for detailed implementation plan
 3. See tests in tests/FlowTime.Tests/ and tests/FlowTime.Api.Tests/Provenance/
 4. Follow TDD: tests exist, make them pass
 5. Use Minimal APIs pattern (not controllers)
 
 ### For Stakeholders
-1. **Current Focus**: M2.10 complete - provenance query support
+1. **Current Focus**: M-02.10 complete - provenance query support
 2. **Architecture**: KISS principle with single registry
-3. **Next Milestone**: M3.0 (Backlog & Latency Modeling) - focus on modeling capabilities
+3. **Next Milestone**: M-03.00 (Backlog & Latency Modeling) - focus on modeling capabilities
 4. **Integration**: Sim ↔ UI ↔ Engine coordination via UI orchestration
 5. **Integration**: Sim ↔ UI ↔ Engine coordination via UI orchestration
 
 ### For Users
 1. Continue using existing workflows (no disruption)
-2. ✅ New provenance features available (M2.9 complete)
-3. Backlog & latency modeling coming in M3.0 (next focus)
+2. ✅ New provenance features available (M-02.09 complete)
+3. Backlog & latency modeling coming in M-03.00 (next focus)
 4. Cross-platform integration (future)
 
 ---
@@ -354,13 +354,13 @@ The following schema documents are deprecated:
 **Next Actions:**
 1. ✅ Review and discuss ROADMAP.md
 2. ✅ Update/retire outdated documents (archived)
-3. ✅ Complete M2.9 implementation (all phases)
-4. ✅ Implement M2.10 provenance queries
-5. 📋 Plan M3.0 backlog & latency modeling
+3. ✅ Complete M-02.09 implementation (all phases)
+4. ✅ Implement M-02.10 provenance queries
+5. 📋 Plan M-03.00 backlog & latency modeling
 
 ---
 
 **Roadmap Status:** ✅ Active  
-**Current Milestone:** M2.10 ✅ Complete, M3.0 📋 Next  
-**FlowTime-Sim Status:** SIM-M2.7 ✅ Complete (v0.6.0), ready for v1.0.0 stable release  
+**Current Milestone:** M-02.10 ✅ Complete, M-03.00 📋 Next  
+**FlowTime-Sim Status:** SIM-M-02.07 ✅ Complete (v0.6.0), ready for v1.0.0 stable release  
 **Architecture:** KISS - Single Registry in Engine
