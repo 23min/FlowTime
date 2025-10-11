@@ -1,8 +1,8 @@
-# SVC-M-1 Release Notes
+# SVC-M-01.00 Release Notes
 
 **FlowTime API Artifact Endpoints**  
 **Release Date**: September 3, 2025  
-**Milestone**: SVC-M-1  
+**Milestone**: SVC-M-01.00  
 
 ## 🎯 What's New
 
@@ -88,7 +88,7 @@ curl "http://localhost:8080/runs/hello/run_TIMESTAMP_HASH/series/served@SERVED@D
 
 ## 🎉 Milestone Status
 
-**SVC-M-1: COMPLETED** ✅
+**SVC-M-01.00: COMPLETED** ✅
 
 ### Dependencies Satisfied
 * ✅ **M-0**: Core engine functionality  

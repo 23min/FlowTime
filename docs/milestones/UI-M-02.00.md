@@ -3,7 +3,7 @@
 > **📋 Charter Notice**: This completed milestone predates the [FlowTime-Engine Charter](../flowtime-engine-charter.md). The artifact-first architecture implemented here aligns with charter principles. See [ROADMAP.md](../ROADMAP.md) for current development direction.
 
 > **Target Project:** FlowTime UI  
-> **Prerequisites:** UI-M-1 ✅, SVC-M-1 ✅, SYN-M-0 ✅  
+> **Prerequisites:** UI-M-1 ✅, SVC-M-1 ✅, SYN-M-00.00 ✅  
 > **Status:** COMPLETED ✅ *(Pre-Charter)*
 
 ---

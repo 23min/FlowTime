@@ -199,7 +199,7 @@ dotnet run --project src/FlowTime.Cli -- run examples/hello/model.yaml --out out
 
 ---
 
-## SVC-M-0 — Minimal API (FlowTime.API) ✅ COMPLETED
+## SVC-M-00.00 — Minimal API (FlowTime.API) ✅ COMPLETED
 
 ### Goal
 
@@ -288,7 +288,7 @@ Provide a first, minimal visualization: plot CSV outputs in a SPA (planned for a
 
 ### Inputs
 
-- Prefer API (SVC-M-0) when available; fallback to a local CSV file produced by the CLI. Outputs must be identical for the same model.
+- Prefer API (SVC-M-00.00) when available; fallback to a local CSV file produced by the CLI. Outputs must be identical for the same model.
 
 ### Outputs
 
@@ -311,7 +311,7 @@ ui/FlowTime.UI/
 
 ---
 
-## SYN-M-0 — Synthetic Adapter (File) ✅ COMPLETED
+## SYN-M-00.00 — Synthetic Adapter (File) ✅ COMPLETED
 
 ### Acceptance criteria
 
@@ -761,13 +761,13 @@ Users ask “what’s pending and how long?” early; the cost is modest (single
   - derived latency: **minutes**
 - Per-series CSVs under `runs/<runId>/series/*.csv` (InvariantCulture formatting)
 
-### Functional Requirements (Service/API) — **SVC-M-1** ✅
+### Functional Requirements (Service/API) — **SVC-M-01.00** ✅
 
 - `GET /runs/{runId}/index` → returns `runs/<runId>/series/index.json` ✅
 - `GET /runs/{runId}/series/{seriesId}` → streams CSV ✅
 - (optional) `POST /compare` returns minimal deltas for common series
 
-**Status**: COMPLETED - Artifact endpoints implemented with SYN-M-0 adapters, full test coverage.
+**Status**: COMPLETED - Artifact endpoints implemented with SYN-M-00.00 adapters, full test coverage.
 
 ### Inputs
 
@@ -852,7 +852,7 @@ UI can run scenarios and compare results.
 
 ---
 
-## **SYN-M-1 — Synthetic Adapter (Stream)**
+## **SYN-M-01.00 — Synthetic Adapter (Stream)**
 
 ### Goal
 
@@ -1296,7 +1296,7 @@ From FlowTime UI, list FlowTime-Sim presets, tweak parameters, start a **Sim run
 
 ### Acceptance Criteria
 
-Sim artifacts render via SYN-M-0; compare works between Sim ↔ engine.
+Sim artifacts render via SYN-M-00.00; compare works between Sim ↔ engine.
 
 ---
 

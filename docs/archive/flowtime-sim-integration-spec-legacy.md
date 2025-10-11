@@ -4,13 +4,13 @@
 
 > **📋 Charter Alignment**: This integration specification aligns well with the [FlowTime-Engine Charter](../flowtime-engine-charter.md) artifacts-centric paradigm. The "artifact-first" principle described here directly supports the charter workflow: [Models] → [Runs] → [Artifacts] → [Learn].
 
-**Scope:** Early milestones (UI-M-0/1, SVC-M-0/1, M-0–M-3).  
+**Scope:** Early milestones (UI-M-0/1, SVC-M-00.00/SVC-M-01.00, M-0–M-3).  
 **Principle:** *Artifact-first*. Services are stateless post-run. UI/adapters load artifacts, not ad-hoc JSON.  
 **Charter Connection:** Implements Engine+Sim ecosystem with shared artifact contracts supporting registry-based analysis.
 
 # FlowTime-Sim ↔ FlowTime Integration — Working Spec (v1.1)
 
-**Scope:** Early milestones (UI-M-0/1, SVC-M-0/1, M-0–M-3).
+**Scope:** Early milestones (UI-M-0/1, SVC-M-00.00/SVC-M-01.00, M-0–M-3).
 **Principle:** *Artifact-first*. Services are stateless post-run. UI/adapters load artifacts, not ad-hoc JSON.
 
 ---
@@ -245,7 +245,7 @@ Even when returning mock data, the simulator **must write the artifact pack.** R
 
 ## 11) Future Considerations (Beyond Early Milestones)
 
-The spec above covers early milestones (UI-M-0/1, SVC-M-0/1, M-0–M-3), but several areas warrant future specification:
+The spec above covers early milestones (UI-M-0/1, SVC-M-00.00/SVC-M-01.00, M-0–M-3), but several areas warrant future specification:
 
 ### Error Handling & Artifact Integrity
 * **Incomplete artifacts:** What happens when artifacts are partially written or corrupted?

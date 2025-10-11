@@ -2,7 +2,7 @@
 
 > **Status:** COMPLETED (2025-09-04)  
 > **Target Project:** FlowTime UI  
-> **Prerequisites:** SVC-M-1 ✅, SYN-M-0 ✅, UI-M-0 ✅  
+> **Prerequisites:** SVC-M-01.00 ✅, SYN-M-00.00 ✅, UI-M-0 ✅  
 > **FlowTime-Sim Dependencies:** SIM-SVC-M-2 ✅, SIM-CAT-M-2 ✅  
 
 ---
@@ -365,7 +365,7 @@ interface SimulationState {
 - **Layout:** Integrate template runner into existing page structure
 - **Navigation:** Add "Run Simulation" section to navigation
 
-### FlowTime Service (SVC-M-1)
+### FlowTime Service (SVC-M-01.00)
 - **Results Consumption:** Use existing `/runs/{id}/index` and `/runs/{id}/series/{seriesId}` endpoints
 - **Run Management:** Leverage existing run storage and retrieval
 

@@ -145,7 +145,7 @@ Tip: In Bash shells, the dotnet commands are identical; only shell utilities (li
 
 **Next Milestones:**
 * M-2: Expression grammar expansion, advanced node types
-* SVC-M-0: FlowTime.API HTTP surface (POST /run, GET /graph, GET /healthz)
+* SVC-M-00.00: FlowTime.API HTTP surface (POST /run, GET /graph, GET /healthz)
 
 ## M-02.09 CLI Evolution
 

@@ -8,7 +8,7 @@ Enable the API to serve previously generated run artifacts, allowing UI and exte
 * Add **artifact serving endpoints** that read from the file system where CLI writes artifacts
 * Provide **GET /runs/{runId}/index** to return the series index for a completed run
 * Provide **GET /runs/{runId}/series/{seriesId}** to stream CSV data for specific series
-* Leverage existing **SYN-M-0 file adapters** for consistent artifact reading
+* Leverage existing **SYN-M-00.00 file adapters** for consistent artifact reading
 * Maintain **API-first architecture** with proper error handling and content types
 
 ## Functional Requirements
@@ -103,5 +103,5 @@ curl -s "http://localhost:8080/runs/hello/run_20250903T201653Z_7c81c6e2/series/s
 
 **Status**: ✅ **COMPLETED**
 **Milestone**: SVC-M-1 (Service/API Artifact Endpoints)
-**Dependencies**: SYN-M-0 (File Adapters), SVC-M-0 (Base API)
+**Dependencies**: SYN-M-00.00 (File Adapters), SVC-M-00.00 (Base API)
 **Test Count**: 4 new tests, 33 total tests passing

@@ -21,7 +21,7 @@ Legend: Done / Prototype / Partial / Planned.
 | UI Real API Integration | HTTP services, real simulation execution, artifact-first patterns | Done (UI-M-02.00) ✅ | Complete FlowTime-Sim integration with series streaming |
 | UI Graph | Structural table (order, degrees, roles) | Done | Visual DAG planned for later |
 | Simulation Mode | Deterministic synthetic run + graph | Done | Toggle persisted (flag + query) |
-| Synthetic Adapter (SYN-M-0) | Read artifacts & produce series | Done (SYN-M-0) | FileSeriesReader, RunArtifactAdapter complete |
+| Synthetic Adapter (SYN-M-00.00) | Read artifacts & produce series | Done (SYN-M-00.00) | FileSeriesReader, RunArtifactAdapter complete |
 | Backlog & Latency | Single-queue backlog + Little's Law latency | Planned (M-7) | Not pulled forward in current roadmap |
 | Testing | Core unit tests & API slice + CLI parity + artifact endpoints | Done | 35/35 tests passing including enhanced artifact validation |
 | Docs | README, roadmap, node concepts, releases | Done | Complete documentation for all milestones |
