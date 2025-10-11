@@ -70,7 +70,7 @@ provenance:
 | Section | Requirements | Notes |
 |---------|--------------|-------|
 | `schemaVersion` | Always `1` until Engine bumps. | FlowTime.Sim must track Engine agreement. |
-| `metadata` | Must include `id`, human-readable `title`, and semantic version `version`. | `version` is mirrored in provenance (`templateVersion`) and tracks template evolution without bumping `schemaVersion`. |
+| `metadata` | Must include `id`, human-readable `title`, and semantic version `version`. | `version` is mirrored in provenance (`templateVersion`). |
 | `window` | Required. `start` in UTC ISO 8601, timezone fixed to `UTC`. | Drives `/state` timestamps. |
 | `topology.nodes` | Required. Each node must define `kind`, `semantics`, and optional `ui`. | Semantics map to `nodes[*].id`. |
 | `topology.edges` | Required when more than one node exists. | DAG validation applies. |
@@ -89,7 +89,7 @@ Required changes:
 - **`TemplateWindow`, `TemplateTopology`, `TopologyNode`, `TopologyEdge`, `NodeSemantics`, `InitialCondition`, `UIHint`** classes.
 - **`TemplateNode` enhancements:** new `Source`, `Initial`, `SemanticRole` (if needed), `Kind`.
 - **`TemplateOutput`** should distinguish between wildcard exports and explicit enumerations.
-- **`TemplateMetadata`** preserved into generated models (no stripping) and extended with a required `Version` property (semantic version string) that surfaces in provenance (no schemaVersion bump required).
+- **`TemplateMetadata`** preserved into generated models (no stripping) and extended with a required `Version` property (semantic version string) that surfaces in provenance.
 - Introduce `TemplateMode` enumeration (`simulation`, `telemetry`) used for validation severity.
 
 ---

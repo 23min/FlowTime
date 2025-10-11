@@ -25,7 +25,7 @@ This plan decomposes the work required to align FlowTime.Sim with the time-trave
 ### WS1 — Schema Foundations
 
 1. Introduce new template classes (`TemplateWindow`, `TemplateTopology`, etc.) and update YAML parsing.
-2. Add a required `version` field to `TemplateMetadata`; populate it with semantic versions (no schemaVersion bump) and ensure provenance/CLI/service surfaces expose it.
+2. Add a required `version` field to `TemplateMetadata`; ensure provenance and CLI/service surfaces expose it.
 3. Modify `NodeBasedTemplateService` to retain metadata, parameters, and outputs, and to emit canonical schema fields.
 4. Add `Source` and `Initial` properties to `TemplateNode`; ensure parameter substitution handles nested paths.
 5. Update serialization tests (`tests/FlowTime.Sim.Tests/NodeBased/*`) to cover new classes and metadata versioning.

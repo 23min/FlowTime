@@ -81,7 +81,7 @@ Key touchpoints:
 1. **Schema support inside `Template` model**
    - Add `Window`, `Topology`, `Semantic` classes (mirror Engine contract).
    - Extend `TemplateNode` with `Source`, `Initial`, and `Kind` semantics and accept `file://` telemetry bindings (per DP-003).
-   - Preserve metadata and parameters when exporting Engine-ready YAML, including a required `TemplateMetadata.version` (DP-009) so template revisions are traceable without bumping the global schema version.
+   - Preserve metadata and parameters when exporting Engine-ready YAML, including a required `TemplateMetadata.version` (DP-009).
 
 2. **Validation overhaul**
    - Use shared expression parser to detect self-referential SHIFT, invalid functions, etc.
