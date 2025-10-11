@@ -1,4 +1,4 @@
-namespace FlowTime.Core.Expressions;
+namespace FlowTime.Expressions;
 
 /// <summary>
 /// Base class for all expression AST nodes.

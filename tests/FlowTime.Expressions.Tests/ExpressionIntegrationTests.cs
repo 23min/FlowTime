@@ -2,8 +2,9 @@ using FlowTime.Core.Execution;
 using FlowTime.Core.Models;
 using FlowTime.Core.Expressions;
 using FlowTime.Core.Nodes;
+using FlowTime.Expressions;
 
-namespace FlowTime.Tests.Expressions;
+namespace FlowTime.Expressions.Tests;
 
 public class ExpressionIntegrationTests
 {

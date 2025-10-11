@@ -1,6 +1,6 @@
-using FlowTime.Core.Expressions;
+using FlowTime.Expressions;
 
-namespace FlowTime.Tests.Expressions;
+namespace FlowTime.Expressions.Tests;
 
 public class DebugParserTests
 {

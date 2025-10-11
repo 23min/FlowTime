@@ -1,4 +1,9 @@
 using FlowTime.Core.Nodes;
+using FlowTime.Expressions;
+using BinaryOpNode = FlowTime.Expressions.BinaryOpNode;
+using FunctionCallNode = FlowTime.Expressions.FunctionCallNode;
+using NodeReferenceNode = FlowTime.Expressions.NodeReferenceNode;
+using LiteralNode = FlowTime.Expressions.LiteralNode;
 
 namespace FlowTime.Core.Expressions;
 

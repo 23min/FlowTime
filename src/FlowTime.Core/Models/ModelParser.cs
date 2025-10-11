@@ -1,10 +1,15 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using FlowTime.Core.Execution;
-using FlowTime.Core.Expressions;
-using FlowTime.Core.Nodes;
 using System.Linq;
+using FlowTime.Core.Execution;
+using FlowTime.Core.Nodes;
+using FlowTime.Core.Expressions;
+using FlowTime.Expressions;
+using BinaryOpNode = FlowTime.Expressions.BinaryOpNode;
+using FunctionCallNode = FlowTime.Expressions.FunctionCallNode;
+using LiteralNode = FlowTime.Expressions.LiteralNode;
+using NodeReferenceNode = FlowTime.Expressions.NodeReferenceNode;
 
 namespace FlowTime.Core.Models;
 
@@ -203,7 +208,7 @@ public static class ModelParser
             return detector.HasSelfShift;
         }
 
-        public object? VisitBinaryOp(Expressions.BinaryOpNode node)
+        public object? VisitBinaryOp(BinaryOpNode node)
         {
             if (HasSelfShift) return null;
             node.Left.Accept(this);
@@ -211,16 +216,16 @@ public static class ModelParser
             return null;
         }
 
-        public object? VisitFunctionCall(Expressions.FunctionCallNode node)
+        public object? VisitFunctionCall(FunctionCallNode node)
         {
             if (HasSelfShift) return null;
 
             if (string.Equals(node.FunctionName, "SHIFT", StringComparison.OrdinalIgnoreCase) &&
                 node.Arguments.Count == 2 &&
-                node.Arguments[0] is Expressions.NodeReferenceNode referenceNode &&
+                node.Arguments[0] is NodeReferenceNode referenceNode &&
                 string.Equals(referenceNode.NodeId, nodeId, StringComparison.Ordinal))
             {
-                if (node.Arguments[1] is Expressions.LiteralNode literal && literal.Value > 0)
+                if (node.Arguments[1] is LiteralNode literal && literal.Value > 0)
                 {
                     HasSelfShift = true;
                     return null;
@@ -236,12 +241,12 @@ public static class ModelParser
             return null;
         }
 
-        public object? VisitNodeReference(Expressions.NodeReferenceNode node)
+        public object? VisitNodeReference(NodeReferenceNode node)
         {
             return null;
         }
 
-        public object? VisitLiteral(Expressions.LiteralNode node)
+        public object? VisitLiteral(LiteralNode node)
         {
             return null;
         }
@@ -295,9 +300,9 @@ public static class ModelParser
             
         try
         {
-            var parser = new Expressions.ExpressionParser(nodeDef.Expr);
+            var parser = new ExpressionParser(nodeDef.Expr);
             var ast = parser.Parse();
-            var exprNode = Expressions.ExpressionCompiler.Compile(ast, nodeDef.Id);
+            var exprNode = ExpressionCompiler.Compile(ast, nodeDef.Id);
             return exprNode;
         }
         catch (Exception ex)

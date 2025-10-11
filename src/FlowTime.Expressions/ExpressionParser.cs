@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace FlowTime.Core.Expressions;
+namespace FlowTime.Expressions;
 
 /// <summary>
 /// Exception thrown when expression parsing fails.
