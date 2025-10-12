@@ -99,10 +99,13 @@ This plan decomposes the work required to align FlowTime.Sim with the time-trave
 | SIM-M-03.WS1-01 | Implement window/topology classes | Sim Core | Not Started |
 | SIM-M-03.WS1-02 | Preserve metadata during generation | Sim Service | Not Started |
 | SIM-M-03.WS1-03 | Add TemplateMetadata.version and propagate to provenance | Sim Core | Not Started |
-| SIM-M-03.WS2-01 | Integrate shared expression validator | Sim Core | Blocked (Engine follow-up) |
+| SIM-M-03.WS2-01 | Integrate shared expression validator | Sim Core | In Progress (shared lib published; smoke test wired) |
 | SIM-M-03.WS3-01 | Embed provenance by default | Sim Service | Not Started |
 | SIM-M-03.WS4-01 | Upgrade curated templates | Sim Core | Not Started |
 | SIM-M-03.WS5-01 | Add integration tests using Engine fixtures | Sim Tests | Not Started |
+| SIM-M-03.WS2-02 | Add FlowTime.Expressions smoke test in Sim Tests | Sim Tests | Complete |
+
+*Note:* WS1 and broader WS2 work remain unscheduled; schema and full validation refactors are **not started** despite library availability.
 
 Update this table as work progresses.
 
