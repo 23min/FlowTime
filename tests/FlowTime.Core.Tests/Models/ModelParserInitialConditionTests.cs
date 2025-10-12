@@ -58,7 +58,9 @@ public class ModelParserInitialConditionTests
         };
 
         var ex = Assert.Throws<ModelParseException>(() => ModelParser.ParseMetadata(model));
-        Assert.Contains("requires an initial condition", ex.Message);
+        Assert.Equal(
+            "Expression node 'queue_depth' uses SHIFT on itself and requires an initial condition (topology.nodes[].initialCondition.queueDepth).",
+            ex.Message);
     }
 
     [Fact]

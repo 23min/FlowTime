@@ -99,6 +99,7 @@ Required changes:
 ### 3.1 Shared Expression Library
 
 - Consume the shared `FlowTime.Expressions` assembly (post Engine M-03.00 follow-up).
+- FlowTime.Sim projects (service, CLI, tests) reference `FlowTime.Expressions`; a smoke test (`tests/FlowTime.Sim.Tests/Expressions/ExpressionLibrarySmokeTests.cs`) ensures the parser is wired until full adoption lands in SIM-M-03.
 - Validate expressions during template parsing:
   - Unknown identifiers/functions → error.
   - SHIFT self-reference without `initial` → error.

@@ -96,3 +96,33 @@ Accept: application/json
 ### 6. (Optional) Download a raw series for verification
 GET {{host}}/v1/runs/{{createRun.response.body.$.runId}}/series/service_arrivals@SERVICE_ARRIVALS@DEFAULT
 Accept: text/csv
+
+### 7. Validation failure example (SHIFT without initial condition)
+POST {{host}}/v1/run
+Content-Type: text/plain
+
+schemaVersion: 1
+
+grid:
+  bins: 4
+  binSize: 5
+  binUnit: minutes
+  startTimeUtc: "2025-01-01T00:00:00Z"
+
+nodes:
+  - id: "SupportQueue"
+    kind: "expr"
+    expr: "SHIFT(SupportQueue, 1)"
+
+topology:
+  nodes:
+    - id: "SupportQueue"
+      kind: "queue"
+      semantics:
+        arrivals: "file:{{fixturesRoot}}/SupportQueue_arrivals.csv"
+        served: "file:{{fixturesRoot}}/SupportQueue_served.csv"
+        errors: "file:{{fixturesRoot}}/SupportQueue_errors.csv"
+        queue: "file:{{fixturesRoot}}/SupportQueue_queue.csv"
+        capacity: null
+        slaMin: 6
+  edges: []

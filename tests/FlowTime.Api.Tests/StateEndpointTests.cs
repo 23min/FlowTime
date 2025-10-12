@@ -12,6 +12,7 @@ namespace FlowTime.Api.Tests;
 public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDisposable
 {
     private const string runId = "run_state_fixture";
+    private const string invalidRunId = "run_state_invalid";
     private const int binCount = 4;
     private const int binSizeMinutes = 5;
     private static readonly DateTime startTimeUtc = new(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -24,6 +25,7 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         artifactsRoot = Path.Combine(Path.GetTempPath(), $"flowtime_state_fixture_{Guid.NewGuid():N}");
         Directory.CreateDirectory(artifactsRoot);
         CreateFixtureRun();
+        CreateInvalidRun();
 
         client = factory.WithWebHostBuilder(builder =>
         {
@@ -119,12 +121,41 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         Assert.True(error.TryGetProperty("error", out _));
     }
 
+    [Fact]
+    public async Task GetState_WithSelfShiftMissingInitial_ReturnsConflict()
+    {
+        var response = await client.GetAsync($"/v1/runs/{invalidRunId}/state?binIndex=0");
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+
+        var error = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var message = error.GetProperty("error").GetString();
+        Assert.Contains("Model metadata for run", message);
+        Assert.Contains("uses SHIFT on itself and requires an initial condition", message);
+    }
+
     private void CreateFixtureRun()
     {
-        var runDir = Path.Combine(artifactsRoot, runId);
+        CreateRun(runId, BuildValidModelYaml());
+    }
+
+    private void CreateInvalidRun()
+    {
+        CreateRun(invalidRunId, BuildInvalidModelYaml());
+    }
+
+    private void CreateRun(string runIdentifier, string modelYaml)
+    {
+        var runDir = Path.Combine(artifactsRoot, runIdentifier);
         var modelDir = Path.Combine(runDir, "model");
         Directory.CreateDirectory(modelDir);
 
+        WriteBaseSeries(modelDir);
+        File.WriteAllText(Path.Combine(modelDir, "model.yaml"), modelYaml, System.Text.Encoding.UTF8);
+        File.WriteAllText(Path.Combine(runDir, "run.json"), BuildRunJson(runIdentifier), System.Text.Encoding.UTF8);
+    }
+
+    private static void WriteBaseSeries(string modelDir)
+    {
         WriteSeries(modelDir, "OrderService_arrivals.csv", new double[] { 10, 10, 10, 10 });
         WriteSeries(modelDir, "OrderService_served.csv", new double[] { 9, 6, 9, 4 });
         WriteSeries(modelDir, "OrderService_errors.csv", new double[] { 1, 1, 1, 1 });
@@ -134,9 +165,6 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         WriteSeries(modelDir, "SupportQueue_served.csv", new double[] { 9, 6, 9, 4 });
         WriteSeries(modelDir, "SupportQueue_errors.csv", new double[] { 0, 0, 0, 0 });
         WriteSeries(modelDir, "SupportQueue_queue.csv", new double[] { 2, 10, 20, 0 });
-
-        File.WriteAllText(Path.Combine(modelDir, "model.yaml"), BuildModelYaml(), System.Text.Encoding.UTF8);
-        File.WriteAllText(Path.Combine(runDir, "run.json"), BuildRunJson(), System.Text.Encoding.UTF8);
     }
 
     private static void WriteSeries(string directory, string fileName, IReadOnlyList<double> values)
@@ -151,7 +179,7 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         }
     }
 
-    private static string BuildRunJson()
+    private static string BuildRunJson(string runIdentifier)
     {
         var grid = new
         {
@@ -166,7 +194,7 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         var manifest = new
         {
             schemaVersion = 1,
-            runId,
+            runId = runIdentifier,
             engineVersion = "0.0-test",
             source = "engine",
             grid,
@@ -180,7 +208,7 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         return JsonSerializer.Serialize(manifest, new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true });
     }
 
-    private static string BuildModelYaml()
+    private static string BuildValidModelYaml()
     {
         return $"""
 schemaVersion: 1
@@ -190,6 +218,49 @@ grid:
   binSize: {binSizeMinutes}
   binUnit: minutes
   startTimeUtc: "{startTimeUtc:O}"
+
+topology:
+  nodes:
+    - id: "OrderService"
+      kind: "service"
+      semantics:
+        arrivals: "file:OrderService_arrivals.csv"
+        served: "file:OrderService_served.csv"
+        errors: "file:OrderService_errors.csv"
+        externalDemand: null
+        queueDepth: null
+        capacity: "file:OrderService_capacity.csv"
+        slaMin: null
+    - id: "SupportQueue"
+      kind: "queue"
+      semantics:
+        arrivals: "file:SupportQueue_arrivals.csv"
+        served: "file:SupportQueue_served.csv"
+        errors: "file:SupportQueue_errors.csv"
+        externalDemand: null
+        queue: "file:SupportQueue_queue.csv"
+        capacity: null
+        slaMin: 5
+  edges: []
+
+""";
+    }
+
+    private static string BuildInvalidModelYaml()
+    {
+        return $"""
+schemaVersion: 1
+
+grid:
+  bins: {binCount}
+  binSize: {binSizeMinutes}
+  binUnit: minutes
+  startTimeUtc: "{startTimeUtc:O}"
+
+nodes:
+  - id: "SupportQueue"
+    kind: "expr"
+    expr: "SHIFT(SupportQueue, 1)"
 
 topology:
   nodes:
