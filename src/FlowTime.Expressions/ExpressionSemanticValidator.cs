@@ -21,6 +21,30 @@ public static class ExpressionSemanticValidator
         return detector.HasSelfShift;
     }
 
+    /// <summary>
+    /// Validate semantic rules that must hold for the supplied expression AST.
+    /// </summary>
+    public static ExpressionValidationResult Validate(ExpressionNode ast, string nodeId)
+    {
+        ArgumentNullException.ThrowIfNull(ast);
+        if (string.IsNullOrWhiteSpace(nodeId))
+        {
+            throw new ArgumentException("Node id must be provided.", nameof(nodeId));
+        }
+
+        if (!HasSelfReferencingShift(ast, nodeId))
+        {
+            return ExpressionValidationResult.Success;
+        }
+
+        var error = new ExpressionValidationError(
+            ExpressionValidationErrorCodes.SelfShiftRequiresInitialCondition,
+            $"Expression node '{nodeId}' uses SHIFT on itself and requires an initial condition (topology.nodes[].initialCondition.queueDepth).",
+            nodeId);
+
+        return ExpressionValidationResult.FromErrors(new[] { error });
+    }
+
     private sealed class SelfShiftDetector : IExpressionVisitor<object?>
     {
         private readonly string nodeId;
@@ -72,4 +96,57 @@ public static class ExpressionSemanticValidator
 
         public object? VisitLiteral(LiteralNode node) => null;
     }
+}
+
+/// <summary>
+/// Represents the outcome of evaluating semantic validation rules.
+/// </summary>
+public sealed class ExpressionValidationResult
+{
+    private static readonly ExpressionValidationResult success = new(Array.Empty<ExpressionValidationError>());
+
+    private ExpressionValidationResult(IReadOnlyList<ExpressionValidationError> errors)
+    {
+        Errors = errors;
+    }
+
+    /// <summary>
+    /// Indicates whether the expression passed all validation checks.
+    /// </summary>
+    public bool IsValid => Errors.Count == 0;
+
+    /// <summary>
+    /// Collection of validation errors (empty when <see cref="IsValid"/> is true).
+    /// </summary>
+    public IReadOnlyList<ExpressionValidationError> Errors { get; }
+
+    /// <summary>
+    /// Reusable success instance.
+    /// </summary>
+    public static ExpressionValidationResult Success => success;
+
+    /// <summary>
+    /// Create a result from the provided error set.
+    /// </summary>
+    public static ExpressionValidationResult FromErrors(IReadOnlyList<ExpressionValidationError> errors)
+    {
+        ArgumentNullException.ThrowIfNull(errors);
+        return errors.Count == 0 ? success : new ExpressionValidationResult(errors);
+    }
+}
+
+/// <summary>
+/// Represents a specific semantic validation failure.
+/// </summary>
+public sealed record ExpressionValidationError(string Code, string Message, string NodeId);
+
+/// <summary>
+/// Constants describing validation error codes.
+/// </summary>
+public static class ExpressionValidationErrorCodes
+{
+    /// <summary>
+    /// Indicates an expression uses SHIFT on itself without guaranteeing initialization.
+    /// </summary>
+    public const string SelfShiftRequiresInitialCondition = "SELF_SHIFT_REQUIRES_INITIAL_CONDITION";
 }

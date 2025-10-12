@@ -182,11 +182,15 @@ public static class ModelParser
                 continue;
             }
 
-            if (ExpressionSemanticValidator.HasSelfReferencingShift(ast, node.Id))
+            var validation = ExpressionSemanticValidator.Validate(ast, node.Id);
+            var selfShiftError = validation.Errors.FirstOrDefault(
+                e => e.Code == ExpressionValidationErrorCodes.SelfShiftRequiresInitialCondition);
+
+            if (selfShiftError != null)
             {
                 if (!topologyInitials.TryGetValue(node.Id, out var hasInitial) || !hasInitial)
                 {
-                    throw new ModelParseException($"Expression node '{node.Id}' uses SHIFT on itself and requires an initial condition (topology.nodes[].initialCondition.queueDepth).");
+                    throw new ModelParseException(selfShiftError.Message);
                 }
             }
         }

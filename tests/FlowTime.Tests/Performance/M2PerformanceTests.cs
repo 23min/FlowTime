@@ -12,10 +12,13 @@ namespace FlowTime.Tests.Performance;
 public class M2PerformanceTests
 {
     private readonly ITestOutputHelper output;
+    private static readonly object warmupLock = new();
+    private static bool warmupCompleted;
 
     public M2PerformanceTests(ITestOutputHelper output)
     {
         this.output = output;
+        EnsureWarmup();
     }
 
     [Fact]
@@ -191,6 +194,31 @@ public class M2PerformanceTests
         // Normalization should not add significant overhead (relaxed for dev container)
         Assert.True(parseRatio < 5.0, $"Unnormalized PMF parsing {parseRatio:F2}x slower than normalized");
         Assert.True(evalRatio < 2.0, $"Unnormalized PMF evaluation {evalRatio:F2}x slower than normalized");
+    }
+
+    private void EnsureWarmup()
+    {
+        if (warmupCompleted)
+        {
+            return;
+        }
+
+        lock (warmupLock)
+        {
+            if (warmupCompleted)
+            {
+                return;
+            }
+
+            // Prime JIT/GC paths with representative workloads to remove cold-start variance.
+            RunPmfNodesTest(50, 1000, CreateSmallPmf);
+            RunPmfNodesTest(50, 1000, CreateMediumPmf);
+            RunPmfNodesTest(50, 1000, CreateLargePmf);
+            RunPmfNodesTest(50, 1000, CreateHugePmf);
+            RunPmfNodesTest(100, 1000, CreateUnnormalizedPmf);
+
+            warmupCompleted = true;
+        }
     }
 
     #region Helper Methods
