@@ -35,13 +35,14 @@ public static class ModelService
     /// </summary>
     public static ModelDefinition ConvertToModelDefinition(ModelDto model)
     {
-        return new ModelDefinition
+        var definition = new ModelDefinition
         {
             Grid = new GridDefinition 
             { 
                 Bins = model.Grid.Bins, 
                 BinSize = model.Grid.BinSize,
-                BinUnit = model.Grid.BinUnit
+                BinUnit = model.Grid.BinUnit,
+                StartTimeUtc = model.Grid.StartTimeUtc
             },
             Nodes = model.Nodes.Select(n => new NodeDefinition 
             { 
@@ -57,6 +58,42 @@ public static class ModelService
                 As = o.As 
             }).ToList()
         };
+
+        if (model.Topology is not null)
+        {
+            definition.Topology = new TopologyDefinition
+            {
+                Nodes = model.Topology.Nodes.Select(node => new TopologyNodeDefinition
+                {
+                    Id = node.Id,
+                    Kind = node.Kind,
+                    Group = node.Group,
+                    Ui = node.Ui != null ? new UiHintsDefinition { X = node.Ui.X, Y = node.Ui.Y } : null,
+                    Semantics = new TopologyNodeSemanticsDefinition
+                    {
+                        Arrivals = node.Semantics.Arrivals,
+                        Served = node.Semantics.Served,
+                        Errors = node.Semantics.Errors,
+                        ExternalDemand = node.Semantics.ExternalDemand,
+                        QueueDepth = node.Semantics.Queue,
+                        Capacity = node.Semantics.Capacity,
+                        SlaMin = node.Semantics.SlaMin
+                    },
+                    InitialCondition = node.InitialCondition != null
+                        ? new InitialConditionDefinition { QueueDepth = node.InitialCondition.QueueDepth }
+                        : null
+                }).ToList(),
+                Edges = model.Topology.Edges.Select(edge => new TopologyEdgeDefinition
+                {
+                    Id = edge.Id,
+                    Source = edge.From,
+                    Target = edge.To,
+                    Weight = edge.Weight ?? 1.0
+                }).ToList()
+            };
+        }
+
+        return definition;
     }
 
     /// <summary>

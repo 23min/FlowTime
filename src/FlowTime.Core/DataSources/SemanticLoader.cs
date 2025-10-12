@@ -33,6 +33,10 @@ public sealed class SemanticLoader
             ? LoadSeries(semantics.QueueDepth, bins)
             : null;
 
+        double[]? capacity = semantics.Capacity != null
+            ? LoadSeries(semantics.Capacity, bins)
+            : null;
+
         return new NodeData
         {
             NodeId = node.Id,
@@ -40,7 +44,8 @@ public sealed class SemanticLoader
             Served = served,
             Errors = errors,
             ExternalDemand = externalDemand,
-            QueueDepth = queueDepth
+            QueueDepth = queueDepth,
+            Capacity = capacity
         };
     }
 

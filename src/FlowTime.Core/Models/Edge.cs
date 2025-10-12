@@ -5,4 +5,5 @@ public sealed record Edge
     public required string Source { get; init; }
     public required string Target { get; init; }
     public double Weight { get; init; } = 1.0;
+    public string? Id { get; init; }
 }

@@ -6,10 +6,6 @@ using FlowTime.Core.Execution;
 using FlowTime.Core.Nodes;
 using FlowTime.Core.Expressions;
 using FlowTime.Expressions;
-using BinaryOpNode = FlowTime.Expressions.BinaryOpNode;
-using FunctionCallNode = FlowTime.Expressions.FunctionCallNode;
-using LiteralNode = FlowTime.Expressions.LiteralNode;
-using NodeReferenceNode = FlowTime.Expressions.NodeReferenceNode;
 
 namespace FlowTime.Core.Models;
 
@@ -92,13 +88,18 @@ public static class ModelParser
             return new Node
             {
                 Id = definition.Id,
+                Kind = string.IsNullOrWhiteSpace(definition.Kind) ? "service" : definition.Kind,
+                Group = definition.Group,
+                Ui = definition.Ui != null ? new UiHints { X = definition.Ui.X, Y = definition.Ui.Y } : null,
                 Semantics = new NodeSemantics
                 {
                     Arrivals = RequireSemantic(definition.Semantics.Arrivals, definition.Id, "arrivals"),
                     Served = RequireSemantic(definition.Semantics.Served, definition.Id, "served"),
                     Errors = RequireSemantic(definition.Semantics.Errors, definition.Id, "errors"),
                     ExternalDemand = definition.Semantics.ExternalDemand,
-                    QueueDepth = definition.Semantics.QueueDepth
+                    QueueDepth = definition.Semantics.QueueDepth,
+                    Capacity = definition.Semantics.Capacity,
+                    SlaMinutes = definition.Semantics.SlaMin
                 },
                 InitialCondition = definition.InitialCondition != null
                     ? new InitialCondition { QueueDepth = definition.InitialCondition.QueueDepth }
@@ -115,7 +116,8 @@ public static class ModelParser
             {
                 Source = definition.Source,
                 Target = definition.Target,
-                Weight = definition.Weight
+                Weight = definition.Weight,
+                Id = definition.Id
             };
         }
 
@@ -180,75 +182,13 @@ public static class ModelParser
                 continue;
             }
 
-            if (SelfShiftDetector.HasSelfReferencingShift(ast, node.Id))
+            if (ExpressionSemanticValidator.HasSelfReferencingShift(ast, node.Id))
             {
                 if (!topologyInitials.TryGetValue(node.Id, out var hasInitial) || !hasInitial)
                 {
                     throw new ModelParseException($"Expression node '{node.Id}' uses SHIFT on itself and requires an initial condition (topology.nodes[].initialCondition.queueDepth).");
                 }
             }
-        }
-    }
-
-    private sealed class SelfShiftDetector : IExpressionVisitor<object?>
-    {
-        private readonly string nodeId;
-
-        private SelfShiftDetector(string nodeId)
-        {
-            this.nodeId = nodeId;
-        }
-
-        public bool HasSelfShift { get; private set; }
-
-        public static bool HasSelfReferencingShift(ExpressionNode ast, string nodeId)
-        {
-            var detector = new SelfShiftDetector(nodeId);
-            ast.Accept(detector);
-            return detector.HasSelfShift;
-        }
-
-        public object? VisitBinaryOp(BinaryOpNode node)
-        {
-            if (HasSelfShift) return null;
-            node.Left.Accept(this);
-            node.Right.Accept(this);
-            return null;
-        }
-
-        public object? VisitFunctionCall(FunctionCallNode node)
-        {
-            if (HasSelfShift) return null;
-
-            if (string.Equals(node.FunctionName, "SHIFT", StringComparison.OrdinalIgnoreCase) &&
-                node.Arguments.Count == 2 &&
-                node.Arguments[0] is NodeReferenceNode referenceNode &&
-                string.Equals(referenceNode.NodeId, nodeId, StringComparison.Ordinal))
-            {
-                if (node.Arguments[1] is LiteralNode literal && literal.Value > 0)
-                {
-                    HasSelfShift = true;
-                    return null;
-                }
-            }
-
-            foreach (var argument in node.Arguments)
-            {
-                if (HasSelfShift) break;
-                argument.Accept(this);
-            }
-
-            return null;
-        }
-
-        public object? VisitNodeReference(NodeReferenceNode node)
-        {
-            return null;
-        }
-
-        public object? VisitLiteral(LiteralNode node)
-        {
-            return null;
         }
     }
 
@@ -398,6 +338,9 @@ public class TopologyDefinition
 public class TopologyNodeDefinition
 {
     public string Id { get; set; } = string.Empty;
+    public string? Kind { get; set; }
+    public string? Group { get; set; }
+    public UiHintsDefinition? Ui { get; set; }
     public TopologyNodeSemanticsDefinition Semantics { get; set; } = new();
     public InitialConditionDefinition? InitialCondition { get; set; }
 }
@@ -409,6 +352,8 @@ public class TopologyNodeSemanticsDefinition
     public string Errors { get; set; } = string.Empty;
     public string? ExternalDemand { get; set; }
     public string? QueueDepth { get; set; }
+    public string? Capacity { get; set; }
+    public double? SlaMin { get; set; }
 }
 
 public class TopologyEdgeDefinition
@@ -416,11 +361,18 @@ public class TopologyEdgeDefinition
     public string Source { get; set; } = string.Empty;
     public string Target { get; set; } = string.Empty;
     public double Weight { get; set; } = 1.0;
+    public string? Id { get; set; }
 }
 
 public class InitialConditionDefinition
 {
     public double QueueDepth { get; set; }
+}
+
+public class UiHintsDefinition
+{
+    public double? X { get; set; }
+    public double? Y { get; set; }
 }
 
 public sealed record ModelMetadata

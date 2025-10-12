@@ -197,140 +197,165 @@ public class M2PerformanceTests
 
     private (double parseTime, double evalTime, double memoryMB) RunConstNodesTest(int nodeCount, int bins)
     {
-        var model = new ModelDefinition
+        ModelDefinition BuildModel()
         {
-            Grid = new GridDefinition { Bins = bins, BinSize = 1, BinUnit = "hours" },
-            Nodes = new List<NodeDefinition>(),
-            Outputs = new List<OutputDefinition>()
-        };
-
-        // Create const nodes
-        for (int i = 0; i < nodeCount; i++)
-        {
-            var values = new double[bins];
-            for (int b = 0; b < bins; b++)
+            var model = new ModelDefinition
             {
-                values[b] = 10 + i + (b * 0.1);
+                Grid = new GridDefinition { Bins = bins, BinSize = 1, BinUnit = "hours" },
+                Nodes = new List<NodeDefinition>(),
+                Outputs = new List<OutputDefinition>()
+            };
+
+            // Create const nodes
+            for (int i = 0; i < nodeCount; i++)
+            {
+                var values = new double[bins];
+                for (int b = 0; b < bins; b++)
+                {
+                    values[b] = 10 + i + (b * 0.1);
+                }
+
+                model.Nodes.Add(new NodeDefinition
+                {
+                    Id = $"const_{i}",
+                    Kind = "const",
+                    Values = values
+                });
             }
 
-            model.Nodes.Add(new NodeDefinition
+            // Add outputs
+            for (int i = 0; i < Math.Min(5, nodeCount); i++)
             {
-                Id = $"const_{i}",
-                Kind = "const", 
-                Values = values
-            });
+                model.Outputs.Add(new OutputDefinition
+                {
+                    Series = $"const_{i}",
+                    As = $"output_{i}"
+                });
+            }
+
+            return model;
         }
 
-        // Add outputs
-        for (int i = 0; i < Math.Min(5, nodeCount); i++)
-        {
-            model.Outputs.Add(new OutputDefinition
-            {
-                Series = $"const_{i}",
-                As = $"output_{i}"
-            });
-        }
-
-        return MeasurePerformance(model);
+        // Warm-up to eliminate JIT/GC noise
+        MeasurePerformance(BuildModel());
+        return MeasurePerformance(BuildModel());
     }
 
     private (double parseTime, double evalTime, double memoryMB) RunPmfNodesTest(int nodeCount, int bins, Func<int, Dictionary<string, double>> pmfGenerator)
     {
-        var model = new ModelDefinition
+        ModelDefinition BuildModel()
         {
-            Grid = new GridDefinition { Bins = bins, BinSize = 1, BinUnit = "hours" },
-            Nodes = new List<NodeDefinition>(),
-            Outputs = new List<OutputDefinition>()
-        };
-
-        // Create PMF nodes
-        for (int i = 0; i < nodeCount; i++)
-        {
-            model.Nodes.Add(new NodeDefinition
+            var model = new ModelDefinition
             {
-                Id = $"pmf_{i}",
-                Kind = "pmf",
-                Pmf = pmfGenerator(i)
-            });
+                Grid = new GridDefinition { Bins = bins, BinSize = 1, BinUnit = "hours" },
+                Nodes = new List<NodeDefinition>(),
+                Outputs = new List<OutputDefinition>()
+            };
+
+            // Create PMF nodes
+            for (int i = 0; i < nodeCount; i++)
+            {
+                model.Nodes.Add(new NodeDefinition
+                {
+                    Id = $"pmf_{i}",
+                    Kind = "pmf",
+                    Pmf = pmfGenerator(i)
+                });
+            }
+
+            // Add outputs
+            for (int i = 0; i < Math.Min(5, nodeCount); i++)
+            {
+                model.Outputs.Add(new OutputDefinition
+                {
+                    Series = $"pmf_{i}",
+                    As = $"output_{i}"
+                });
+            }
+
+            return model;
         }
 
-        // Add outputs
-        for (int i = 0; i < Math.Min(5, nodeCount); i++)
-        {
-            model.Outputs.Add(new OutputDefinition
-            {
-                Series = $"pmf_{i}",
-                As = $"output_{i}"
-            });
-        }
-
-        return MeasurePerformance(model);
+        MeasurePerformance(BuildModel());
+        return MeasurePerformance(BuildModel());
     }
 
     private (double parseTime, double evalTime, double memoryMB) RunMixedWorkloadTest(int pmfCount, int constCount, int exprCount, int bins)
     {
-        var model = new ModelDefinition
+        ModelDefinition BuildModel()
         {
-            Grid = new GridDefinition { Bins = bins, BinSize = 1, BinUnit = "hours" },
-            Nodes = new List<NodeDefinition>(),
-            Outputs = new List<OutputDefinition>()
-        };
-
-        // Add PMF nodes
-        for (int i = 0; i < pmfCount; i++)
-        {
-            model.Nodes.Add(new NodeDefinition
+            var model = new ModelDefinition
             {
-                Id = $"pmf_{i}",
-                Kind = "pmf",
-                Pmf = CreateMediumPmf(i)
-            });
-        }
+                Grid = new GridDefinition { Bins = bins, BinSize = 1, BinUnit = "hours" },
+                Nodes = new List<NodeDefinition>(),
+                Outputs = new List<OutputDefinition>()
+            };
 
-        // Add const nodes  
-        for (int i = 0; i < constCount; i++)
-        {
-            var values = new double[bins];
-            for (int b = 0; b < bins; b++)
+            // Add PMF nodes
+            for (int i = 0; i < pmfCount; i++)
             {
-                values[b] = 10 + i + (b * 0.1);
+                model.Nodes.Add(new NodeDefinition
+                {
+                    Id = $"pmf_{i}",
+                    Kind = "pmf",
+                    Pmf = CreateMediumPmf(i)
+                });
             }
 
-            model.Nodes.Add(new NodeDefinition
+            // Add const nodes
+            for (int i = 0; i < constCount; i++)
             {
-                Id = $"const_{i}",
-                Kind = "const",
-                Values = values
-            });
-        }
+                var values = new double[bins];
+                for (int b = 0; b < bins; b++)
+                {
+                    values[b] = 10 + i + (b * 0.1);
+                }
 
-        // Add expr nodes that reference PMF and const nodes
-        for (int i = 0; i < exprCount; i++)
-        {
-            var pmfRef = $"pmf_{i % pmfCount}";
-            var constRef = $"const_{i % constCount}";
-            
-            model.Nodes.Add(new NodeDefinition
+                model.Nodes.Add(new NodeDefinition
+                {
+                    Id = $"const_{i}",
+                    Kind = "const",
+                    Values = values
+                });
+            }
+
+            // Add expr nodes that reference PMF and const nodes
+            for (int i = 0; i < exprCount; i++)
             {
-                Id = $"expr_{i}",
-                Kind = "expr",
-                Expr = $"{pmfRef} + {constRef} * 1.5"
-            });
+                var pmfRef = $"pmf_{i % pmfCount}";
+                var constRef = $"const_{i % constCount}";
+
+                model.Nodes.Add(new NodeDefinition
+                {
+                    Id = $"expr_{i}",
+                    Kind = "expr",
+                    Expr = $"{pmfRef} + {constRef} * 1.5"
+                });
+            }
+
+            // Add outputs
+            var totalNodes = pmfCount + constCount + exprCount;
+            for (int i = 0; i < Math.Min(5, totalNodes); i++)
+            {
+                if (i < pmfCount)
+                {
+                    model.Outputs.Add(new OutputDefinition { Series = $"pmf_{i}", As = $"pmf_out_{i}" });
+                }
+                else if (i < pmfCount + constCount)
+                {
+                    model.Outputs.Add(new OutputDefinition { Series = $"const_{i - pmfCount}", As = $"const_out_{i}" });
+                }
+                else
+                {
+                    model.Outputs.Add(new OutputDefinition { Series = $"expr_{i - pmfCount - constCount}", As = $"expr_out_{i}" });
+                }
+            }
+
+            return model;
         }
 
-        // Add outputs
-        var totalNodes = pmfCount + constCount + exprCount;
-        for (int i = 0; i < Math.Min(5, totalNodes); i++)
-        {
-            if (i < pmfCount)
-                model.Outputs.Add(new OutputDefinition { Series = $"pmf_{i}", As = $"pmf_out_{i}" });
-            else if (i < pmfCount + constCount)
-                model.Outputs.Add(new OutputDefinition { Series = $"const_{i - pmfCount}", As = $"const_out_{i}" });
-            else
-                model.Outputs.Add(new OutputDefinition { Series = $"expr_{i - pmfCount - constCount}", As = $"expr_out_{i}" });
-        }
-
-        return MeasurePerformance(model);
+        MeasurePerformance(BuildModel());
+        return MeasurePerformance(BuildModel());
     }
 
     private (double parseTime, double evalTime, double memoryMB) MeasurePerformance(ModelDefinition model)

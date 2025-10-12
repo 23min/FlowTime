@@ -1,42 +1,98 @@
 @host = http://localhost:8080
+@fixturesRoot = /workspaces/flowtime-vnext/fixtures/time-travel/http-demo
 
-### Health
-GET {{host}}/healthz
+### 1. Service health (confirm API is reachable)
+GET {{host}}/v1/healthz
 Accept: application/json
 
-### Run a model (YAML body)
-POST {{host}}/run
+### 2. Submit a canonical time-travel model (writes artifacts + topology metadata)
+# @name createRun
+POST {{host}}/v1/run
 Content-Type: text/plain
 
-# API note (M0): The API returns JSON arrays for series and ignores `outputs`/`as`.
-# `outputs: { as: served.csv }` is a CLI concern for CSV file naming.
+schemaVersion: 1
+
 grid:
-  bins: 3
-  binMinutes: 60
+  bins: 4
+  binSize: 5
+  binUnit: minutes
+  startTimeUtc: "2025-01-01T00:00:00Z"
+
 nodes:
-  - id: demand
+  - id: service_arrivals
     kind: const
-    values: [10,10,10]
-  - id: served
-    kind: expr
-    expr: "demand * 0.8"
+    values: [10, 12, 11, 13]
+  - id: service_served
+    kind: const
+    values: [9, 11, 10, 12]
+  - id: service_errors
+    kind: const
+    values: [1, 1, 1, 1]
+  - id: service_capacity
+    kind: const
+    values: [12, 12, 12, 12]
+  - id: queue_arrivals
+    kind: const
+    values: [9, 11, 10, 12]
+  - id: queue_served
+    kind: const
+    values: [8, 10, 9, 11]
+  - id: queue_errors
+    kind: const
+    values: [0, 0, 0, 0]
+  - id: queue_depth
+    kind: const
+    values: [2, 4, 5, 3]
+
 outputs:
-  # API ignores `outputs` in M0; kept here to mirror CLI model shape.
-  - series: served
-    as: served.csv
+  - series: service_arrivals
+  - series: service_served
+  - series: service_errors
+  - series: service_capacity
+  - series: queue_arrivals
+  - series: queue_served
+  - series: queue_errors
+  - series: queue_depth
 
-### Graph of a model (YAML body)
-POST {{host}}/graph
-Content-Type: text/plain
+topology:
+  nodes:
+    - id: "OrderService"
+      kind: "service"
+      semantics:
+        arrivals: "file:{{fixturesRoot}}/OrderService_arrivals.csv"
+        served: "file:{{fixturesRoot}}/OrderService_served.csv"
+        errors: "file:{{fixturesRoot}}/OrderService_errors.csv"
+        externalDemand: null
+        queueDepth: null
+        capacity: "file:{{fixturesRoot}}/OrderService_capacity.csv"
+        slaMin: null
+    - id: "SupportQueue"
+      kind: "queue"
+      semantics:
+        arrivals: "file:{{fixturesRoot}}/SupportQueue_arrivals.csv"
+        served: "file:{{fixturesRoot}}/SupportQueue_served.csv"
+        errors: "file:{{fixturesRoot}}/SupportQueue_errors.csv"
+        externalDemand: null
+        queue: "file:{{fixturesRoot}}/SupportQueue_queue.csv"
+        capacity: null
+        slaMin: 6
+  edges:
+    - from: "OrderService"
+      to: "SupportQueue"
+      weight: 1.0
 
-# API note (M0): `/graph` compiles from the request body; it does not produce artifacts.
-grid:
-  bins: 3
-  binMinutes: 60
-nodes:
-  - id: demand
-    kind: const
-    values: [10,10,10]
-  - id: served
-    kind: expr
-    expr: "demand * 0.8"
+### 3. Enumerate the generated series metadata
+GET {{host}}/v1/runs/{{createRun.response.body.$.runId}}/index
+Accept: application/json
+
+### 4. Inspect a single-bin snapshot with derived metrics + colouring
+GET {{host}}/v1/runs/{{createRun.response.body.$.runId}}/state?binIndex=1
+Accept: application/json
+
+### 5. Retrieve a bin window for scrubber/series views
+GET {{host}}/v1/runs/{{createRun.response.body.$.runId}}/state_window?startBin=0&endBin=3
+Accept: application/json
+
+### 6. (Optional) Download a raw series for verification
+GET {{host}}/v1/runs/{{createRun.response.body.$.runId}}/series/service_arrivals@SERVICE_ARRIVALS@DEFAULT
+Accept: text/csv

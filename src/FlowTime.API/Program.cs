@@ -20,6 +20,7 @@ builder.Services.AddOpenApi();
 builder.Services.AddSingleton<IServiceInfoProvider, ServiceInfoProvider>();
 builder.Services.AddSingleton<IArtifactRegistry, FileSystemArtifactRegistry>();
 builder.Services.AddSingleton<IArtifactRegistry, FileSystemArtifactRegistry>();
+builder.Services.AddSingleton<StateQueryService>();
 builder.Services.AddHttpLogging(o =>
 {
     o.LoggingFields =
@@ -599,6 +600,47 @@ v1.MapPost("/graph", async (HttpRequest req, ILogger<Program> logger) =>
 });
 
 // V1: Artifact endpoints
+v1.MapGet("/runs/{runId}/state", async (string runId, HttpContext context, StateQueryService stateQueryService) =>
+{
+    if (!int.TryParse(context.Request.Query["binIndex"], out var binIndex))
+    {
+        return Results.BadRequest(new { error = "binIndex query parameter is required and must be an integer." });
+    }
+
+    try
+    {
+        var response = await stateQueryService.GetStateAsync(runId, binIndex, context.RequestAborted);
+        return Results.Ok(response);
+    }
+    catch (StateQueryException ex)
+    {
+        return Results.Json(new { error = ex.Message }, statusCode: ex.StatusCode);
+    }
+});
+
+v1.MapGet("/runs/{runId}/state_window", async (string runId, HttpContext context, StateQueryService stateQueryService) =>
+{
+    if (!int.TryParse(context.Request.Query["startBin"], out var startBin))
+    {
+        return Results.BadRequest(new { error = "startBin query parameter is required and must be an integer." });
+    }
+
+    if (!int.TryParse(context.Request.Query["endBin"], out var endBin))
+    {
+        return Results.BadRequest(new { error = "endBin query parameter is required and must be an integer." });
+    }
+
+    try
+    {
+        var response = await stateQueryService.GetStateWindowAsync(runId, startBin, endBin, context.RequestAborted);
+        return Results.Ok(response);
+    }
+    catch (StateQueryException ex)
+    {
+        return Results.Json(new { error = ex.Message }, statusCode: ex.StatusCode);
+    }
+});
+
 v1.MapGet("/runs/{runId}/index", async (string runId, ILogger<Program> logger) =>
 {
     try

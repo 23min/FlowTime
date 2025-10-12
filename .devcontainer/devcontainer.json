@@ -61,9 +61,7 @@
     "net.ipv6.conf.all.disable_ipv6=1",
     "--sysctl",
     "net.ipv6.conf.default.disable_ipv6=1",
-    "--network=flowtime-dev",
-    "--name",
-    "flowtime-api"
+    "--network=flowtime-dev"
   ],
   "containerEnv": {
     "MSBUILDNOINPROCNODE": "1",
@@ -71,10 +69,16 @@
     "FLOWTIME_API_VERSION": "v1"
   },
   "forwardPorts": [
+    1455,
     8080,
     8090,
     8091
   ],
+  "portsAttributes": {
+    "1455": {
+      "label": "Codex OAuth callback"
+    }
+  },
   "remoteEnv": {
     "NODE_OPTIONS": "--dns-result-order=ipv4first",
     "PATH": "${containerEnv:HOME}/.local/bin:${containerEnv:PATH}"

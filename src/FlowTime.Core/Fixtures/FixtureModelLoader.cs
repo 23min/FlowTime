@@ -83,13 +83,18 @@ internal sealed class FixtureDocument
         return new TopologyNodeDefinition
         {
             Id = node.Id ?? throw new InvalidOperationException("Fixture node missing id."),
+            Kind = string.IsNullOrWhiteSpace(node.Kind) ? null : node.Kind,
+            Group = string.IsNullOrWhiteSpace(node.Group) ? null : node.Group,
+            Ui = node.Ui != null ? new UiHintsDefinition { X = node.Ui.X, Y = node.Ui.Y } : null,
             Semantics = new TopologyNodeSemanticsDefinition
             {
                 Arrivals = Require(node.Semantics.Arrivals, node.Id, "arrivals"),
                 Served = Require(node.Semantics.Served, node.Id, "served"),
                 Errors = Require(node.Semantics.Errors, node.Id, "errors"),
                 ExternalDemand = node.Semantics.ExternalDemand,
-                QueueDepth = node.Semantics.QueueDepth
+                QueueDepth = node.Semantics.QueueDepth,
+                Capacity = node.Semantics.Capacity,
+                SlaMin = node.Semantics.SlaMinutes
             },
             InitialCondition = node.InitialCondition != null
                 ? new InitialConditionDefinition { QueueDepth = node.InitialCondition.QueueDepth }
@@ -129,8 +134,11 @@ internal sealed class FixtureTopology
 internal sealed class FixtureNode
 {
     public string? Id { get; init; }
+    public string? Kind { get; init; }
+    public string? Group { get; init; }
     public FixtureSemantics? Semantics { get; init; }
     public FixtureInitialCondition? InitialCondition { get; init; }
+    public FixtureUiHints? Ui { get; init; }
 }
 
 internal sealed class FixtureSemantics
@@ -140,11 +148,19 @@ internal sealed class FixtureSemantics
     public string? Errors { get; init; }
     public string? ExternalDemand { get; init; }
     public string? QueueDepth { get; init; }
+    public string? Capacity { get; init; }
+    public double? SlaMinutes { get; init; }
 }
 
 internal sealed class FixtureInitialCondition
 {
     public double QueueDepth { get; init; }
+}
+
+internal sealed class FixtureUiHints
+{
+    public double? X { get; init; }
+    public double? Y { get; init; }
 }
 
 internal sealed class FixtureEdge

@@ -19,6 +19,7 @@ public sealed class ModelDto
     public List<NodeDto> Nodes { get; set; } = new();
     public List<OutputDto> Outputs { get; set; } = new();
     public RngDto? Rng { get; set; }
+    public TopologyDto? Topology { get; set; }
 }
 
 /// <summary>
@@ -29,6 +30,7 @@ public sealed class GridDto
     public int Bins { get; set; }
     public int BinSize { get; set; }
     public string BinUnit { get; set; } = "minutes";
+    public string? StartTimeUtc { get; set; }
 }
 
 /// <summary>
@@ -50,4 +52,50 @@ public sealed class OutputDto
 {
     public string Series { get; set; } = "";
     public string As { get; set; } = "out.csv";
+}
+
+public sealed class TopologyDto
+{
+    public List<TopologyNodeDto> Nodes { get; set; } = new();
+    public List<TopologyEdgeDto> Edges { get; set; } = new();
+}
+
+public sealed class TopologyNodeDto
+{
+    public string Id { get; set; } = string.Empty;
+    public string Kind { get; set; } = "service";
+    public string? Group { get; set; }
+    public UiHintsDto? Ui { get; set; }
+    public TopologySemanticsDto Semantics { get; set; } = new();
+    public TopologyInitialConditionDto? InitialCondition { get; set; }
+}
+
+public sealed class TopologySemanticsDto
+{
+    public string Arrivals { get; set; } = string.Empty;
+    public string Served { get; set; } = string.Empty;
+    public string Errors { get; set; } = string.Empty;
+    public string? ExternalDemand { get; set; }
+    public string? Queue { get; set; }
+    public string? Capacity { get; set; }
+    public double? SlaMin { get; set; }
+}
+
+public sealed class TopologyInitialConditionDto
+{
+    public double QueueDepth { get; set; }
+}
+
+public sealed class TopologyEdgeDto
+{
+    public string Id { get; set; } = string.Empty;
+    public string From { get; set; } = string.Empty;
+    public string To { get; set; } = string.Empty;
+    public double? Weight { get; set; }
+}
+
+public sealed class UiHintsDto
+{
+    public double? X { get; set; }
+    public double? Y { get; set; }
 }

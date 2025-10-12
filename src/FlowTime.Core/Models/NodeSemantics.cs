@@ -7,4 +7,6 @@ public sealed record NodeSemantics
     public required string Errors { get; init; }
     public string? ExternalDemand { get; init; }
     public string? QueueDepth { get; init; }
+    public string? Capacity { get; init; }
+    public double? SlaMinutes { get; init; }
 }

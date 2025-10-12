@@ -123,78 +123,85 @@ public class M15PerformanceTests
 
     private (double parseTime, double evalTime, double memoryMB) RunExpressionTypeTest(int nodeCount, int bins, Func<int, string> exprGenerator)
     {
-        // Create a model with many nodes
-        var model = new ModelDefinition
+        ModelDefinition BuildModel()
         {
-            Grid = new GridDefinition { Bins = bins, BinSize = 1, BinUnit = "hours" },
-            Nodes = new List<NodeDefinition>(),
-            Outputs = new List<OutputDefinition>()
-        };
-
-        // Create base const nodes (10 of them)
-        for (int i = 0; i < 10; i++)
-        {
-            var values = new double[bins];
-            for (int b = 0; b < bins; b++)
+            var model = new ModelDefinition
             {
-                values[b] = 10 + i + (b * 0.1);
+                Grid = new GridDefinition { Bins = bins, BinSize = 1, BinUnit = "hours" },
+                Nodes = new List<NodeDefinition>(),
+                Outputs = new List<OutputDefinition>()
+            };
+
+            // Create base const nodes (10 of them)
+            for (int i = 0; i < 10; i++)
+            {
+                var values = new double[bins];
+                for (int b = 0; b < bins; b++)
+                {
+                    values[b] = 10 + i + (b * 0.1);
+                }
+
+                model.Nodes.Add(new NodeDefinition
+                {
+                    Id = $"base_{i}",
+                    Kind = "const",
+                    Values = values
+                });
             }
-            
-            model.Nodes.Add(new NodeDefinition
+
+            // Create many expression nodes that reference the base nodes
+            for (int i = 0; i < nodeCount; i++)
             {
-                Id = $"base_{i}",
-                Kind = "const",
-                Values = values
-            });
+                model.Nodes.Add(new NodeDefinition
+                {
+                    Id = $"expr_{i}",
+                    Kind = "expr",
+                    Expr = exprGenerator(i)
+                });
+            }
+
+            // Add a few outputs
+            for (int i = 0; i < Math.Min(5, nodeCount); i++)
+            {
+                model.Outputs.Add(new OutputDefinition
+                {
+                    Series = $"expr_{i}",
+                    As = $"output_{i}"
+                });
+            }
+
+            return model;
         }
 
-        // Create many expression nodes that reference the base nodes
-        for (int i = 0; i < nodeCount; i++)
+        (double parseTime, double evalTime, double memoryMB) Measure(ModelDefinition model)
         {
-            model.Nodes.Add(new NodeDefinition
-            {
-                Id = $"expr_{i}",
-                Kind = "expr",
-                Expr = exprGenerator(i)
-            });
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+            var memoryBefore = GC.GetTotalMemory(false);
+
+            var parseStopwatch = Stopwatch.StartNew();
+            var (grid, graph) = ModelParser.ParseModel(model);
+            parseStopwatch.Stop();
+
+            var evalStopwatch = Stopwatch.StartNew();
+            var order = graph.TopologicalOrder();
+            var results = graph.Evaluate(grid);
+            evalStopwatch.Stop();
+
+            var memoryAfter = GC.GetTotalMemory(false);
+            var memoryUsedMB = (memoryAfter - memoryBefore) / (1024.0 * 1024.0);
+
+            return (
+                parseStopwatch.Elapsed.TotalMilliseconds,
+                evalStopwatch.Elapsed.TotalMilliseconds,
+                memoryUsedMB
+            );
         }
 
-        // Add a few outputs
-        for (int i = 0; i < Math.Min(5, nodeCount); i++)
-        {
-            model.Outputs.Add(new OutputDefinition
-            {
-                Series = $"expr_{i}",
-                As = $"output_{i}"
-            });
-        }
-
-        // Measure memory before
-        GC.Collect();
-        GC.WaitForPendingFinalizers();
-        GC.Collect();
-        var memoryBefore = GC.GetTotalMemory(false);
-
-        // Measure parse time
-        var parseStopwatch = Stopwatch.StartNew();
-        var (grid, graph) = ModelParser.ParseModel(model);
-        parseStopwatch.Stop();
-
-        // Measure evaluation time
-        var evalStopwatch = Stopwatch.StartNew();
-        var order = graph.TopologicalOrder();
-        var results = graph.Evaluate(grid);
-        evalStopwatch.Stop();
-
-        // Measure memory after
-        var memoryAfter = GC.GetTotalMemory(false);
-        var memoryUsedMB = (memoryAfter - memoryBefore) / (1024.0 * 1024.0);
-
-        return (
-            parseStopwatch.Elapsed.TotalMilliseconds,
-            evalStopwatch.Elapsed.TotalMilliseconds,
-            memoryUsedMB
-        );
+        // Warm-up to reduce JIT/GC noise
+        Measure(BuildModel());
+        return Measure(BuildModel());
     }
 
     [Fact]
