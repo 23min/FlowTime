@@ -8,14 +8,14 @@ namespace FlowTime.Integration.Tests;
 
 public class SimToEngineWorkflowTests
 {
-    private static NodeBasedTemplateService CreateService(string templateId, string yaml)
+    private static TemplateService CreateService(string templateId, string yaml)
     {
         var preloaded = new Dictionary<string, string>
         {
             [templateId] = yaml
         };
 
-        return new NodeBasedTemplateService(preloaded, NullLogger<NodeBasedTemplateService>.Instance);
+        return new TemplateService(preloaded, NullLogger<TemplateService>.Instance);
     }
 
     private static string GetRepoPath(params string[] segments)

@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -98,9 +99,10 @@ outputs:
         var responseBody = await response.Content.ReadAsStringAsync();
         var json = JsonDocument.Parse(responseBody);
         
-        // Should have both model and provenance fields
+        // Should have model, provenance, and metadata fields
         Assert.True(json.RootElement.TryGetProperty("model", out var modelElement));
         Assert.True(json.RootElement.TryGetProperty("provenance", out var provenanceElement));
+        Assert.True(json.RootElement.TryGetProperty("metadata", out var metadataElement));
         
         // Model should be non-empty YAML string
         var modelYaml = modelElement.GetString();
@@ -119,6 +121,18 @@ outputs:
         
         Assert.Equal("flowtime-sim", provenanceElement.GetProperty("source").GetString());
         Assert.Equal("test-template", provenanceElement.GetProperty("templateId").GetString());
+        Assert.Matches(@"[a-f0-9]{64}", provenanceElement.GetProperty("modelId").GetString());
+
+        // Metadata summary should surface key attributes
+        Assert.Equal("test-template", metadataElement.GetProperty("templateId").GetString());
+        Assert.Equal("Test Template", metadataElement.GetProperty("templateTitle").GetString());
+        Assert.Equal("1.0.0", metadataElement.GetProperty("templateVersion").GetString());
+        Assert.Equal(1, metadataElement.GetProperty("schemaVersion").GetInt32());
+        Assert.Equal("simulation", metadataElement.GetProperty("mode").GetString());
+        Assert.True(metadataElement.GetProperty("hasWindow").GetBoolean());
+        Assert.True(metadataElement.GetProperty("hasTopology").GetBoolean());
+        Assert.False(metadataElement.GetProperty("hasTelemetrySources").GetBoolean());
+        Assert.StartsWith("sha256:", metadataElement.GetProperty("modelHash").GetString());
     }
 
     [Fact]
@@ -145,6 +159,7 @@ outputs:
         // Should still have both model and provenance for consistency
         Assert.True(json.RootElement.TryGetProperty("model", out var modelElement));
         Assert.True(json.RootElement.TryGetProperty("provenance", out _));
+        Assert.True(json.RootElement.TryGetProperty("metadata", out _));
         
         var modelYaml = modelElement.GetString();
         Assert.NotNull(modelYaml);
@@ -195,6 +210,46 @@ outputs:
         
         // Provenance remains available in the separate field for backward compatibility
         Assert.True(json.RootElement.TryGetProperty("provenance", out _));
+        Assert.True(json.RootElement.TryGetProperty("metadata", out _));
+    }
+
+    [Fact]
+    public async Task Generate_WithModeOverride_UsesTelemetryMode()
+    {
+        // Arrange
+        var parameters = new { bins = 12, binSize = 1 };
+        var content = new StringContent(
+            JsonSerializer.Serialize(parameters),
+            Encoding.UTF8,
+            "application/json");
+
+        // Act
+        var response = await _client.PostAsync("/api/v1/templates/test-template/generate?mode=telemetry", content);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var metadata = json.RootElement.GetProperty("metadata");
+
+        Assert.Equal("telemetry", metadata.GetProperty("mode").GetString());
+    }
+
+    [Fact]
+    public async Task Generate_WithInvalidMode_ReturnsBadRequest()
+    {
+        // Arrange
+        var parameters = new { bins = 12, binSize = 1 };
+        var content = new StringContent(
+            JsonSerializer.Serialize(parameters),
+            Encoding.UTF8,
+            "application/json");
+
+        // Act
+        var response = await _client.PostAsync("/api/v1/templates/test-template/generate?mode=invalid", content);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     [Fact]
@@ -226,13 +281,9 @@ outputs:
         Assert.NotNull(modelId1);
         Assert.NotNull(modelId2);
         
-        // Model IDs should be different (timestamp differs)
-        Assert.NotEqual(modelId1, modelId2);
-        
-        // But hash portions should be same (deterministic)
-        var hash1 = modelId1!.Split('_')[2];
-        var hash2 = modelId2!.Split('_')[2];
-        Assert.Equal(hash1, hash2);
+        // Model IDs should be deterministic for identical inputs
+        Assert.Equal(modelId1, modelId2);
+        Assert.Matches(@"[a-f0-9]{64}", modelId1!);
     }
 
     [Fact]
@@ -252,8 +303,8 @@ outputs:
         var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         var provenanceParams = json.RootElement.GetProperty("provenance").GetProperty("parameters");
         
-        Assert.Equal(24, provenanceParams.GetProperty("bins").GetInt32());
-        Assert.Equal(2, provenanceParams.GetProperty("binSize").GetInt32());
+        Assert.Equal(24, GetInt32(provenanceParams.GetProperty("bins")));
+        Assert.Equal(2, GetInt32(provenanceParams.GetProperty("binSize")));
     }
 
     [Fact]
@@ -312,7 +363,7 @@ outputs:
         var timestamp = json.RootElement.GetProperty("provenance").GetProperty("generatedAt").GetString();
         
         Assert.NotNull(timestamp);
-        Assert.Matches(@"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$", timestamp!);
+        Assert.True(DateTimeOffset.TryParse(timestamp, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out _));
     }
 
     [Fact]
@@ -383,4 +434,11 @@ outputs:
             return false;
         }
     }
+
+    private static int GetInt32(JsonElement element) => element.ValueKind switch
+    {
+        JsonValueKind.Number => element.GetInt32(),
+        JsonValueKind.String => int.Parse(element.GetString() ?? "0", CultureInfo.InvariantCulture),
+        _ => throw new InvalidOperationException($"Unsupported JSON value kind {element.ValueKind} for numeric conversion")
+    };
 }

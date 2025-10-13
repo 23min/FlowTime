@@ -151,7 +151,7 @@ Fixtures in `templates/` must be upgraded to the time-travel template format (wi
 ## 6. Migration Strategy
 
 1. **Introduce new template classes alongside legacy ones** to keep compilation green, then migrate nodes/services.
-2. **Update NodeBasedTemplateService** to stop stripping metadata and to write the full schema.
+2. **Update TemplateService** to stop stripping metadata and to write the full schema.
 3. **Deprecate legacy templates** by emitting warnings when schema v1.0 artifacts are generated; remove support in a later milestone.
 4. **Document conversion guides** for teams with existing simulation templates (CLI command or script to upgrade YAML).
 
@@ -170,6 +170,6 @@ Fixtures in `templates/` must be upgraded to the time-travel template format (wi
 - `TemplateParser` now materialises the full KISS schema through the new template classes; legacy fields are rejected with actionable errors.
 - `TemplateValidator` enforces expression/topology rules with simulation/telemetry mode awareness, leveraging `FlowTime.Expressions.ExpressionSemanticValidator`.
 - `SimModelBuilder`/`SimModelArtifact` drive YAML emission, preserving metadata and embedding provenance (including deterministic `modelId` hashes).
-- `NodeBasedTemplateService` parameter substitution handles scalars, arrays, and strings safely while retaining provenance metadata.
+- `TemplateService` parameter substitution handles scalars, arrays, and strings safely while retaining provenance metadata.
 - Curated templates (`templates/`) and integration examples (`examples/`) now follow the time-travel template format (window/topology/provenance) while emitted models remain `schemaVersion: 1`; invalid legacy templates fail validation early.
 - CLI/service default to embedded provenance, with separate provenance JSON retained for compatibility; response payload refinements continue under WS3.

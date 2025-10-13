@@ -2,14 +2,25 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text.Json;
+using System.Linq;
 using FlowTime.Sim.Core;
+using FlowTime.Sim.Core.Services;
+using FlowTime.Sim.Core.Templates;
+using FlowTime.Sim.Core.Templates.Exceptions;
 using FlowTime.Sim.Service; // TemplateRegistry
 using FlowTime.Sim.Service.Services; // ServiceInfoProvider
 using FlowTime.Sim.Service.Extensions; // TemplateValidationExtensions
+using YamlDotNet.Serialization;
+using YamlDotNet.Serialization.NamingConventions;
 
 // Explicit Program class for integration tests & clear structure
 public partial class Program
 {
+	private static readonly IDeserializer ArtifactDeserializer = new DeserializerBuilder()
+		.WithNamingConvention(CamelCaseNamingConvention.Instance)
+		.IgnoreUnmatchedProperties()
+		.Build();
+
 	public static async Task Main(string[] args)
 	{
 		var builder = WebApplication.CreateBuilder(args);
@@ -26,13 +37,12 @@ builder.Services.AddCors(p => p.AddDefaultPolicy(policy => policy.AllowAnyOrigin
 builder.Services.AddSingleton<IServiceInfoProvider, ServiceInfoProvider>();
 builder.Services.AddSingleton<IEndpointDiscoveryService, EndpointDiscoveryService>();
 builder.Services.AddSingleton<ICapabilitiesDetectionService, CapabilitiesDetectionService>();
-builder.Services.AddSingleton<FlowTime.Sim.Core.Services.INodeBasedTemplateService>(provider =>
+builder.Services.AddSingleton<ITemplateService>(provider =>
 {
-	var logger = provider.GetRequiredService<ILogger<FlowTime.Sim.Core.Services.NodeBasedTemplateService>>();
+	var logger = provider.GetRequiredService<ILogger<TemplateService>>();
 	var templatesDirectory = ServiceHelpers.TemplatesRoot(builder.Configuration);
-	return new FlowTime.Sim.Core.Services.NodeBasedTemplateService(templatesDirectory, logger);
+	return new TemplateService(templatesDirectory, logger);
 });
-builder.Services.AddSingleton<FlowTime.Sim.Core.Services.IProvenanceService, FlowTime.Sim.Core.Services.ProvenanceService>();
 
 var app = builder.Build();
 app.UseCors();
@@ -156,7 +166,7 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 		var api = app.MapGroup("/api/v1");
 
 		// API: GET /api/v1/templates  (list all templates)
-		api.MapGet("/templates", async (FlowTime.Sim.Core.Services.INodeBasedTemplateService templateService, string? category) =>
+		api.MapGet("/templates", async (ITemplateService templateService, string? category) =>
 		{
 			var items = await templateService.GetAllTemplatesAsync();
 			
@@ -177,7 +187,7 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 		});
 
 		// API: GET /api/v1/templates/{id}  (get template details with parameters)
-		api.MapGet("/templates/{id}", async (string id, FlowTime.Sim.Core.Services.INodeBasedTemplateService templateService) =>
+		api.MapGet("/templates/{id}", async (string id, ITemplateService templateService) =>
 		{
 			try
 			{
@@ -226,7 +236,7 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 
 		// API: POST /api/v1/templates/{id}/generate  (generate model from template with parameter substitution)
 		// SIM-M2.7: Enhanced to return provenance metadata
-		api.MapPost("/templates/{id}/generate", async (string id, HttpRequest req, IConfiguration config, FlowTime.Sim.Core.Services.INodeBasedTemplateService templateService, FlowTime.Sim.Core.Services.IProvenanceService provenanceService) =>
+		api.MapPost("/templates/{id}/generate", async (string id, HttpRequest req, IConfiguration config, ITemplateService templateService) =>
 		{
 			try
 			{
@@ -252,39 +262,45 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 					}
 				}
 
-				var modelYaml = await templateService.GenerateEngineModelAsync(id, parameters);
+				TemplateMode? modeOverride = null;
+				if (req.Query.TryGetValue("mode", out var modeValues))
+				{
+					var modeText = modeValues.ToString();
+					if (!string.IsNullOrWhiteSpace(modeText))
+					{
+						try
+						{
+							modeOverride = TemplateModeExtensions.Parse(modeText);
+						}
+						catch (TemplateValidationException)
+						{
+							return Results.BadRequest(new { error = $"Invalid mode '{modeText}'. Expected 'simulation' or 'telemetry'." });
+						}
+					}
+				}
 
-				// SIM-M2.7: Get template metadata for provenance
-				var template = await templateService.GetTemplateAsync(id);
-				if (template == null)
-			{
-				return Results.BadRequest(new { error = $"Template '{id}' not found" });
-			}
+				var modelYaml = await templateService.GenerateEngineModelAsync(id, parameters, modeOverride);
 
-			// SIM-M2.7: Create provenance metadata
-			var provenance = provenanceService.CreateProvenance(
-				template.Metadata.Id,
-				"1.0", // Template schema version (templates don't currently have a version field)
-				template.Metadata.Title,
-				parameters);
+				var finalModelYaml = modelYaml;
+				// Compute canonical model hash for integrity/cross-system compatibility
+				var modelHash = ModelHasher.ComputeModelHash(finalModelYaml);
 
-			// SIM-M2.7: Check if provenance should be embedded in YAML
-			var embedProvenance = req.Query.ContainsKey("embed_provenance") &&
-								  req.Query["embed_provenance"].ToString().ToLowerInvariant() != "false";
-
-			string finalModelYaml = modelYaml;
-			if (embedProvenance && !ModelContainsProvenanceBlock(modelYaml))
-			{
-				finalModelYaml = FlowTime.Sim.Core.Services.ProvenanceEmbedder.EmbedProvenance(modelYaml, provenance);
-			}
-			// Compute canonical model hash for integrity/cross-system compatibility
-			var modelHash = ModelHasher.ComputeModelHash(finalModelYaml);
+				// Deserialize artifact for metadata summary
+				var artifact = ArtifactDeserializer.Deserialize<SimModelArtifact>(finalModelYaml);
+				var hasWindow = !string.IsNullOrWhiteSpace(artifact.Window?.Start);
+				var hasTopology = artifact.Topology?.Nodes?.Count > 0;
+				var hasTelemetrySources = artifact.Nodes.Any(n => !string.IsNullOrWhiteSpace(n.Source));
 
 				// Use hash prefix for directory naming to prevent parameter collisions
-				// Format: data/models/{templateId}/{hashPrefix8}/
-				var hashPrefix = modelHash.Substring(7, 8); // Skip "sha256:" prefix, take first 8 hex chars
+				// Format: data/models/{templateId}/schema-{schemaVersion}/mode-{mode}/{hashPrefix8}/
+				const string hashPrefixLabel = "sha256:";
+				var hashPrefix = modelHash.StartsWith(hashPrefixLabel, StringComparison.OrdinalIgnoreCase)
+					? modelHash.Substring(hashPrefixLabel.Length, Math.Min(8, modelHash.Length - hashPrefixLabel.Length))
+					: modelHash[..Math.Min(8, modelHash.Length)];
 				var modelsRoot = ServiceHelpers.ModelsRoot(config);
-				var templateModelsDir = Path.Combine(modelsRoot, id, hashPrefix);
+				var schemaSegment = $"schema-{artifact.SchemaVersion}";
+				var modeSegment = $"mode-{artifact.Mode}";
+				var templateModelsDir = Path.Combine(modelsRoot, id, schemaSegment, modeSegment, hashPrefix);
 				Directory.CreateDirectory(templateModelsDir);
 				var modelPath = Path.Combine(templateModelsDir, "model.yaml");
 				await File.WriteAllTextAsync(modelPath, finalModelYaml, System.Text.Encoding.UTF8);
@@ -292,7 +308,7 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 				// SIM-M2.7: Persist provenance metadata alongside model
 				var provenancePath = Path.Combine(templateModelsDir, "provenance.json");
 				await File.WriteAllTextAsync(provenancePath, 
-					JsonSerializer.Serialize(provenance, new JsonSerializerOptions 
+					JsonSerializer.Serialize(artifact.Provenance, new JsonSerializerOptions 
 					{ 
 						WriteIndented = true,
 						PropertyNamingPolicy = JsonNamingPolicy.CamelCase
@@ -303,16 +319,37 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 				var metadataPath = Path.Combine(templateModelsDir, "metadata.json");
 				var metadata = new
 				{
-					templateId = id,
-					parameters,
+					templateId = artifact.Metadata.Id,
+					templateTitle = artifact.Metadata.Title,
+					templateVersion = artifact.Metadata.Version,
+					schemaVersion = artifact.SchemaVersion,
+					mode = artifact.Mode,
+					hasWindow,
+					hasTopology,
+					hasTelemetrySources,
 					modelHash,
+					parameters = artifact.Provenance.Parameters,
 					generatedAtUtc = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture)
 				};
 				await File.WriteAllTextAsync(metadataPath, JsonSerializer.Serialize(metadata, new JsonSerializerOptions { WriteIndented = true }), System.Text.Encoding.UTF8);
 
 				// SIM-M2.7: Always return JSON with model + provenance
 				// Backward compatible: clients can ignore provenance field
-				return Results.Ok(new { model = finalModelYaml, provenance });
+				var metadataSummary = new
+				{
+					templateId = artifact.Metadata.Id,
+					templateTitle = artifact.Metadata.Title,
+					templateVersion = artifact.Metadata.Version,
+					schemaVersion = artifact.SchemaVersion,
+					generator = artifact.Generator,
+					mode = artifact.Mode,
+					hasWindow,
+					hasTopology,
+					hasTelemetrySources,
+					modelHash
+				};
+
+				return Results.Ok(new { model = finalModelYaml, provenance = artifact.Provenance, metadata = metadataSummary });
 			}
 			catch (ArgumentException ex)
 			{
@@ -630,13 +667,6 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 		await app.ValidateTemplatesAsync();
 
 		app.Run();
-	}
-
-	static bool ModelContainsProvenanceBlock(string modelYaml)
-	{
-		return modelYaml
-			.Split('\n')
-			.Any(line => line.TrimStart().StartsWith("provenance:"));
 	}
 
 	// Helper utilities

@@ -37,14 +37,32 @@ GET {{baseUrl}}/api/v1/templates/{{templateId}} HTTP/1.1
 # - templateId: "it-system-microservices"
 # - parameters: {}
 # - modelHash: "sha256:..." (computed via ModelHasher)
-# - path: file system location
+# Response body:
+# {
+#   "model": "... YAML with embedded provenance ...",
+#   "provenance": { ... },
+#   "metadata": {
+#      "templateId": "...",
+#      "schemaVersion": 1,
+#      "mode": "simulation",
+#      "hasWindow": true,
+#      "hasTopology": true,
+#      "hasTelemetrySources": false,
+#      "modelHash": "sha256:..."
+#   }
+# }
 # Side effects:
-# - Creates data/models/{templateId}/model.yaml
-# - Creates data/models/{templateId}/metadata.json with hash
+# - Creates data/models/{templateId}/schema-{schemaVersion}/mode-{mode}/{hashPrefix}/model.yaml
+# - Creates .../metadata.json (same fields as metadata summary)
+# - Creates .../provenance.json (camelCase)
 POST {{baseUrl}}/api/v1/templates/{{templateId}}/generate HTTP/1.1
 Content-Type: application/json
 
 {}
+
+# Optional query parameters:
+# - ?mode=telemetry : overrides template mode before validation/generation (metadata.mode reflects override)
+# - ?embed_provenance=true : legacy shim; embedded provenance is always included
 
 ### Generate model with custom parameters
 # Note: it-system-microservices template doesn't use parameters

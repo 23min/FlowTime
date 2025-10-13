@@ -26,7 +26,7 @@ This plan decomposes the work required to align FlowTime.Sim with the time-trave
 
 1. ✅ Introduce new template classes (`TemplateWindow`, `TemplateTopology`, etc.) and update YAML parsing. *(2025-10-13)*
 2. ✅ Add required `TemplateMetadata.version` and propagate to provenance/service layers. *(2025-10-13)*
-3. ✅ Refactor `NodeBasedTemplateService` to retain metadata/parameters/outputs and emit canonical schema. *(2025-10-13)*
+3. ✅ Refactor `TemplateService` to retain metadata/parameters/outputs and emit canonical schema. *(2025-10-13)*
 4. ✅ Add `Source`/`Initial` handling to `TemplateNode`; parameter substitution now supports arrays/strings safely. *(2025-10-13)*
 5. ✅ Refresh node-based tests to cover new classes and metadata versioning. *(2025-10-13)*
 
@@ -43,10 +43,11 @@ This plan decomposes the work required to align FlowTime.Sim with the time-trave
 
 ### WS3 — Service & CLI Enhancements
 
-1. Default `/api/v1/templates/{id}/generate` to embed provenance; remove legacy stripping of metadata.
-2. Add API fields for window/topology coverage (e.g., `hasTopology`, `mode`).
-3. Update CLI commands to write new schema by default and surface validation warnings/errors.
-4. Refresh storage layout (hash directories) to include schema version and mode metadata.
+1. ✅ Default `/api/v1/templates/{id}/generate` to embed provenance and retain the legacy `embed_provenance` query flag as a no-op compatibility shim.
+2. ✅ Include metadata summary fields (`schemaVersion`, `mode`, `hasWindow`, `hasTopology`, `hasTelemetrySources`, `modelHash`) in every service response alongside the persisted JSON sidecars.
+3. ✅ Document CLI mode overrides (`--mode simulation|telemetry`), keep verbose output surfacing window/topology/telemetry coverage, and clearly mark `--embed-provenance` as legacy.
+4. ✅ Refresh storage layout to `data/models/{templateId}/schema-{schemaVersion}/mode-{mode}/{hashPrefix}/` with embedded provenance plus `metadata.json` and `provenance.json`.
+5. 🔄 Follow-up: refresh `.http` samples and user-facing walkthroughs to match the new response contract.
 
 **Exit Criteria:** CLI and service responses showcase the new schema, provenance, and validation behavior; manual smoke tests confirm compatibility with Engine M-3 fixtures.
 
@@ -100,7 +101,7 @@ This plan decomposes the work required to align FlowTime.Sim with the time-trave
 | SIM-M-03.WS1-02 | Preserve metadata during generation | Sim Service | ✅ Complete |
 | SIM-M-03.WS1-03 | Add TemplateMetadata.version and propagate to provenance | Sim Core | ✅ Complete |
 | SIM-M-03.WS2-01 | Integrate shared expression validator | Sim Core | ✅ Complete |
-| SIM-M-03.WS3-01 | Embed provenance defaults & response formatting | Sim Service | 🔄 In Progress |
+| SIM-M-03.WS3-01 | Embed provenance defaults & response formatting | Sim Service | ✅ Complete (docs refresh tracked under WS3 follow-up) |
 | SIM-M-03.WS4-01 | Upgrade curated templates | Sim Core | 🛠 Partial (core templates migrated) |
 | SIM-M-03.WS5-01 | Add integration tests using Engine fixtures | Sim Tests | 🛠 Partial (Sim ↔ Engine smoke test live) |
 | SIM-M-03.WS2-02 | Add FlowTime.Expressions smoke test in Sim Tests | Sim Tests | ✅ Complete |

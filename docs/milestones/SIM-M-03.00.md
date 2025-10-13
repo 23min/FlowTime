@@ -71,7 +71,7 @@ FlowTime.Sim currently emits the legacy SIM-M-02.06 schema. SIM-M-03.00 delivers
 ## Technical Design
 
 - **Template Model:** Introduce new classes mirroring Engine contracts (`TemplateWindow`, `TemplateTopology`, etc.) under `FlowTime.Sim.Core/Templates`.
-- **Generation Pipeline:** Refactor `NodeBasedTemplateService` to populate new sections, preserve metadata, and embed provenance (mode/version hashes).
+- **Generation Pipeline:** Refactor `TemplateService` to populate new sections, preserve metadata, and embed provenance (mode/version hashes).
 - **Validation:** Implement validators that use shared expression results plus topology semantics checks; expose mode-aware messages.
 - **Telemetry Sources:** Handle `file://` URIs for telemetry-bound const nodes while retaining inline `values` for synthetic use.
 - **Testing:** Extend `tests/FlowTime.Sim.Tests/NodeBased/*` and validator suites; add FlowTime.Expressions smoke tests (already wired) plus expression-specific assertions.
@@ -117,9 +117,10 @@ FlowTime.Sim currently emits the legacy SIM-M-02.06 schema. SIM-M-03.00 delivers
 
 ## Remaining Work
 
-- WS3: Update FlowTime.Sim Service & CLI responses (embedded metadata, mode toggles, storage hashes) and refresh user-facing docs/walkthroughs.
-- WS4: Finalize telemetry template migrations, fixtures, and migration tooling for legacy schema users.
+- WS3: Publish updated `.http` samples + walkthroughs reflecting metadata summaries/mode overrides and plan the deprecation path for the legacy `embed_provenance` flag.
+- WS4: Finalize telemetry template migrations and fixtures (legacy schema path no longer required).
 - WS5: Define telemetry-mode warning policy, scope synthetic Gold automation, and broaden integration/contract regression coverage.
+- Testing: Until the performance suite stabilises, prefer `dotnet test FlowTime.Tests --filter Category!=Benchmark` instead of the full solution run; re-run `dotnet test FlowTime.sln` when WS3 wraps.
 
 ---
 
@@ -136,7 +137,7 @@ FlowTime.Sim currently emits the legacy SIM-M-02.06 schema. SIM-M-03.00 delivers
 
 ### Files to Modify
 - `src/FlowTime.Sim.Core/Templates/**`
-- `src/FlowTime.Sim.Core/Services/NodeBasedTemplateService.cs`
+- `src/FlowTime.Sim.Core/Services/TemplateService.cs`
 - `src/FlowTime.Sim.Core/Services/ProvenanceService.cs` / embedder
 - `src/FlowTime.Sim.Core/Validation/**`
 - `src/FlowTime.Sim.Core/FlowTime.Sim.Core.csproj` (references)

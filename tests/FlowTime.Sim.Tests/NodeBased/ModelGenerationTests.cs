@@ -213,14 +213,14 @@ outputs:
         Assert.Equal(0.9, Convert.ToDouble(efficiency, System.Globalization.CultureInfo.InvariantCulture));
     }
 
-    private static NodeBasedTemplateService CreateTestService(string templateYaml, string templateId)
+    private static TemplateService CreateTestService(string templateYaml, string templateId)
     {
         var templates = new Dictionary<string, string>
         {
             { templateId, templateYaml }
         };
 
-        return new NodeBasedTemplateService(templates, NullLogger<NodeBasedTemplateService>.Instance);
+        return new TemplateService(templates, NullLogger<TemplateService>.Instance);
     }
 
     private static SimModelArtifact DeserializeArtifact(string yaml)

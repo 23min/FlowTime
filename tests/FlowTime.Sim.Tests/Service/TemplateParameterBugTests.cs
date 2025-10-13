@@ -22,7 +22,7 @@ public class TemplateParameterBugTests
             preloaded[id] = await File.ReadAllTextAsync(path);
         }
 
-        var service = new NodeBasedTemplateService(preloaded, NullLogger<NodeBasedTemplateService>.Instance);
+        var service = new TemplateService(preloaded, NullLogger<TemplateService>.Instance);
         var parameters = new Dictionary<string, object>
         {
             {"bins", 3},
@@ -86,7 +86,7 @@ public class TemplateParameterBugTests
             preloaded[id] = await File.ReadAllTextAsync(path);
         }
 
-        var service = new NodeBasedTemplateService(preloaded, NullLogger<NodeBasedTemplateService>.Instance);
+        var service = new TemplateService(preloaded, NullLogger<TemplateService>.Instance);
 
         // Act
         var templates = await service.GetAllTemplatesAsync();

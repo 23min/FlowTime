@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using FlowTime.Sim.Cli;
@@ -16,7 +17,7 @@ public class GenerateProvenanceTests : IDisposable
 {
     private readonly string _testDir;
     private readonly string _templatesDir;
-    private readonly INodeBasedTemplateService _templateService;
+    private readonly ITemplateService _templateService;
 
     public GenerateProvenanceTests()
     {
@@ -81,7 +82,7 @@ outputs:
         File.WriteAllText(Path.Combine(_templatesDir, "test-template.yaml"), testTemplateYaml);
 
         // Create template service (provenance service will be used by CLI command handler)
-        _templateService = new NodeBasedTemplateService(_templatesDir, NullLogger<NodeBasedTemplateService>.Instance);
+        _templateService = new TemplateService(_templatesDir, NullLogger<TemplateService>.Instance);
     }
 
     public void Dispose()
@@ -160,6 +161,7 @@ outputs:
             false,
             _templatesDir,
             null,
+            null,
             provenancePath,  // ProvenancePath
             false);          // EmbedProvenance
 
@@ -177,7 +179,7 @@ outputs:
         
         Assert.Equal("flowtime-sim", provenance.RootElement.GetProperty("source").GetString());
         Assert.Equal("test-template", provenance.RootElement.GetProperty("templateId").GetString());
-        Assert.StartsWith("model_", provenance.RootElement.GetProperty("modelId").GetString());
+        Assert.Matches(@"[a-f0-9]{64}", provenance.RootElement.GetProperty("modelId").GetString());
     }
 
     [Fact]
@@ -199,6 +201,7 @@ outputs:
             false,
             _templatesDir,
             null,
+            null,
             provenancePath,
             false);
 
@@ -213,8 +216,8 @@ outputs:
         var provenance = JsonDocument.Parse(provenanceJson);
         
         var parameters = provenance.RootElement.GetProperty("parameters");
-        Assert.Equal(12, parameters.GetProperty("bins").GetInt32());
-        Assert.Equal(2, parameters.GetProperty("binSize").GetInt32());
+        Assert.Equal(12, GetInt32(parameters.GetProperty("bins")));
+        Assert.Equal(2, GetInt32(parameters.GetProperty("binSize")));
     }
 
     [Fact]
@@ -232,6 +235,7 @@ outputs:
             "yaml",
             false,
             _templatesDir,
+            null,
             null,
             null,  // No provenance path
             false);
@@ -263,6 +267,7 @@ outputs:
             "yaml",
             false,
             _templatesDir,
+            null,
             null,
             null,
             true);  // EmbedProvenance = true
@@ -309,6 +314,7 @@ outputs:
             _templatesDir,
             null,
             null,
+            null,
             true);  // EmbedProvenance = true
 
         // Act
@@ -340,6 +346,7 @@ outputs:
             false,
             _templatesDir,
             null,
+            null,
             provenancePath,  // ProvenancePath set
             true);           // EmbedProvenance also set
 
@@ -352,6 +359,61 @@ outputs:
         // Model should not be created when there's an error
         Assert.False(File.Exists(modelPath), "Model should not be created on error");
         Assert.False(File.Exists(provenancePath), "Provenance should not be created on error");
+    }
+
+    [Fact]
+    public async Task Generate_WithModeOverride_WritesTelemetryMode()
+    {
+        // Arrange
+        var modelPath = Path.Combine(_testDir, "model.yaml");
+        var opts = new CliOptions(
+            "generate",
+            null,
+            "test-template",
+            null,
+            modelPath,
+            "yaml",
+            false,
+            _templatesDir,
+            null,
+            "telemetry",
+            null,
+            false);
+
+        // Act
+        var exitCode = await ExecuteGenerateWithProvenance(_templateService, opts);
+
+        // Assert
+        Assert.Equal(0, exitCode);
+        var modelYaml = await File.ReadAllTextAsync(modelPath);
+        Assert.Contains("mode: telemetry", modelYaml);
+    }
+
+    [Fact]
+    public async Task Generate_WithInvalidMode_ReturnsError()
+    {
+        // Arrange
+        var modelPath = Path.Combine(_testDir, "model.yaml");
+        var opts = new CliOptions(
+            "generate",
+            null,
+            "test-template",
+            null,
+            modelPath,
+            "yaml",
+            false,
+            _templatesDir,
+            null,
+            "invalid",
+            null,
+            false);
+
+        // Act
+        var exitCode = await ExecuteGenerateWithProvenance(_templateService, opts);
+
+        // Assert
+        Assert.NotEqual(0, exitCode);
+        Assert.False(File.Exists(modelPath));
     }
 
     #endregion
@@ -372,6 +434,7 @@ outputs:
             "yaml",
             false,
             _templatesDir,
+            null,
             null,
             null,  // No provenance options
             false);
@@ -401,11 +464,18 @@ outputs:
     /// <summary>
     /// Calls the actual ExecuteGenerateCommand with provenance support.
     /// </summary>
-    private Task<int> ExecuteGenerateWithProvenance(INodeBasedTemplateService service, CliOptions opts)
+    private Task<int> ExecuteGenerateWithProvenance(ITemplateService service, CliOptions opts)
     {
         // Call the actual Program.ExecuteGenerateCommand via ProgramWrapper
         return ProgramWrapper.ExecuteGenerate(service, opts, CancellationToken.None);
     }
+
+    private static int GetInt32(JsonElement element) => element.ValueKind switch
+    {
+        JsonValueKind.Number => element.GetInt32(),
+        JsonValueKind.String => int.Parse(element.GetString() ?? "0", CultureInfo.InvariantCulture),
+        _ => throw new InvalidOperationException($"Unsupported JSON value kind {element.ValueKind} for numeric conversion")
+    };
 
     #endregion
 }

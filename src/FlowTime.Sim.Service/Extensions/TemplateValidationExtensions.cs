@@ -1,3 +1,4 @@
+using FlowTime.Sim.Core.Services;
 using FlowTime.Sim.Service;
 
 namespace FlowTime.Sim.Service.Extensions;
@@ -21,8 +22,7 @@ public static class TemplateValidationExtensions
         try
         {
             logger.LogInformation("Validating templates at startup...");
-            // Use the node-based core service
-            var templateService = app.Services.GetRequiredService<FlowTime.Sim.Core.Services.INodeBasedTemplateService>();
+            var templateService = app.Services.GetRequiredService<ITemplateService>();
             var templates = await templateService.GetAllTemplatesAsync();
             
             if (templates.Count == 0)
