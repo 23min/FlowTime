@@ -213,6 +213,59 @@ outputs:
         Assert.Equal(0.9, Convert.ToDouble(efficiency, System.Globalization.CultureInfo.InvariantCulture));
     }
 
+    [Fact]
+    public async Task GenerateModelAsync_WithTelemetryMode_PopulatesSourcesAndTelemetryMetadata()
+    {
+        var templateYaml = """
+metadata:
+  id: telemetry-model-test
+  title: Telemetry Model Test
+  version: 1.0.0
+window:
+  start: 2025-01-01T00:00:00Z
+  timezone: UTC
+grid:
+  bins: 2
+  binSize: 5
+  binUnit: minutes
+topology:
+  nodes:
+    - id: OrderService
+      kind: service
+      semantics:
+        arrivals: arrivals
+        served: served
+  edges: []
+nodes:
+  - id: arrivals
+    kind: const
+    values: [120, 130]
+    source: file://telemetry/order-service_arrivals.csv
+  - id: served
+    kind: const
+    values: [110, 115]
+outputs:
+  - series: "*"
+""";
+
+        var service = CreateTestService(templateYaml, "telemetry-model-test");
+
+        var generatedYaml = await service.GenerateEngineModelAsync(
+            "telemetry-model-test",
+            new Dictionary<string, object>(),
+            TemplateMode.Telemetry);
+
+        var model = DeserializeArtifact(generatedYaml);
+
+        Assert.Equal("telemetry", model.Mode);
+        Assert.Equal("telemetry", model.Provenance.Mode);
+        Assert.Contains(model.Nodes, n =>
+            n.Id == "arrivals" &&
+            n.Source == "file://telemetry/order-service_arrivals.csv");
+        Assert.Contains(model.Nodes, n => n.Id == "served" && n.Values is { Length: 2 });
+        Assert.Empty(model.Provenance.Parameters);
+    }
+
     private static TemplateService CreateTestService(string templateYaml, string templateId)
     {
         var templates = new Dictionary<string, string>
