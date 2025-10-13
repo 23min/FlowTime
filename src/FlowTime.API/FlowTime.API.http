@@ -1,6 +1,7 @@
 @host = http://localhost:8080
-@fixturesRoot = file:///workspaces/flowtime-vnext/data/models/http-demo/fixtures
-@telemetryRoot = file:///workspaces/flowtime-vnext/data/telemetry/http-demo
+@fixturesRoot = file:///workspaces/flowtime-vnext/examples/http-demo
+@telemetryRoot = file:///workspaces/flowtime-vnext/examples/http-demo
+# CSV fixtures live under examples/http-demo/ (see repo) so the sample runs end-to-end.
 
 ### 1. Service health (confirm API is reachable)
 GET {{host}}/v1/healthz
@@ -123,17 +124,17 @@ topology:
     - id: OrderService
       kind: service
       semantics:
-        arrivals: service_arrivals
-        served: service_served
-        errors: service_errors
-        capacity: service_capacity
+        arrivals: "{{telemetryRoot}}/order-service_arrivals.csv"
+        served: "{{telemetryRoot}}/order-service_served.csv"
+        errors: "{{telemetryRoot}}/order-service_errors.csv"
+        capacity: "{{telemetryRoot}}/order-service_capacity.csv"
     - id: SupportQueue
       kind: queue
       semantics:
-        arrivals: queue_arrivals
-        served: queue_served
-        errors: queue_errors
-        queue: queue_depth
+        arrivals: "{{telemetryRoot}}/support-queue_arrivals.csv"
+        served: "{{telemetryRoot}}/support-queue_served.csv"
+        errors: "{{telemetryRoot}}/support-queue_errors.csv"
+        queue: "{{telemetryRoot}}/support-queue_queue.csv"
   edges:
     - id: edge1
       from: OrderService:out
@@ -191,7 +192,8 @@ GET {{host}}/v1/runs/{{createRunSimulation.response.body.$.runId}}/state_window?
 Accept: application/json
 
 ### 7. (Optional) Download a raw series for verification
-GET {{host}}/v1/runs/{{createRunSimulation.response.body.$.runId}}/series/service_arrivals@SERVICE_ARRIVALS@DEFAULT
+# Replace SERIES_ID with the exact value returned in step 4's index (e.g. service_arrivals@OrderService@DEFAULT)
+GET {{host}}/v1/runs/{{createRunSimulation.response.body.$.runId}}/series/SERIES_ID
 Accept: text/csv
 
 ### 8. Validation failure example (SHIFT without initial condition)
