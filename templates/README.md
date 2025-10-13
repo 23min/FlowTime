@@ -3,7 +3,7 @@
 ## it-system-microservices
 
 - `telemetryRequestsSource`: optional `file://` URI for observed request arrivals. Leave blank for simulation (inline `values` remain authoritative).
-- Telemetry example payload:
+- Telemetry example payload (synthetic files under `data/telemetry/` by default):
   ```json
   {
     "telemetryRequestsSource": "file:///workspaces/flowtime-vnext/data/telemetry/order-service_arrivals.csv"
