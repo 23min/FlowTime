@@ -1,11 +1,14 @@
-# Multi-Tier Supply Chain - Template
-# Complex supply chain with suppliers, distributors, retailers, and demand variability
-
+schemaVersion: 1
+generator: flowtime-sim
 metadata:
   id: 'supply-chain-multi-tier'
   title: 'Multi-Tier Supply Chain'
   description: 'Complex supply chain with suppliers, distributors, retailers, and demand variability'
+  version: 1.0.0
   tags: [advanced, supply-chain, multi-tier, variability, logistics]
+window:
+  start: 2025-01-01T00:00:00Z
+  timezone: UTC
 
 parameters:
   - name: bins
@@ -63,62 +66,75 @@ grid:
   binSize: ${binSize}
   binUnit: minutes
 
+topology:
+  nodes:
+    - id: Supplier
+      kind: service
+      semantics:
+        arrivals: customer_demand
+        served: supplied_items
+    - id: Distributor
+      kind: service
+      semantics:
+        arrivals: supplied_items
+        served: distributed_items
+    - id: Retailer
+      kind: service
+      semantics:
+        arrivals: distributed_items
+        served: retail_sales
+        errors: unmet_demand
+  edges:
+    - id: edge1
+      from: Supplier:out
+      to: Distributor:in
+    - id: edge2
+      from: Distributor:out
+      to: Retailer:in
+
 nodes:
-  # Customer demand (variable)
   - id: customer_demand
     kind: const
     values: ${demandPattern}
 
-  # Supplier capacity
   - id: supplier_capacity
     kind: const
     values: ${supplierCapacity}
 
-  # Distributor capacity
   - id: distributor_capacity
     kind: const
     values: ${distributorCapacity}
 
-  # Retailer capacity
   - id: retailer_capacity
     kind: const
     values: ${retailerCapacity}
 
-  # Items supplied
   - id: supplied_items
     kind: expr
-    expression: "MIN(customer_demand * ${bufferSize}, supplier_capacity)"
+    expr: "MIN(customer_demand * ${bufferSize}, supplier_capacity)"
 
-  # Items distributed
   - id: distributed_items
     kind: expr
-    expression: "MIN(supplied_items, distributor_capacity)"
+    expr: "MIN(supplied_items, distributor_capacity)"
 
-  # Items sold at retail
   - id: retail_sales
     kind: expr
-    expression: "MIN(distributed_items, retailer_capacity)"
+    expr: "MIN(distributed_items, retailer_capacity)"
 
-  # Unmet demand
   - id: unmet_demand
     kind: expr
-    expression: "MAX(0, customer_demand - retail_sales)"
+    expr: "MAX(0, customer_demand - retail_sales)"
 
-  # Supply chain efficiency
   - id: supply_efficiency
     kind: expr
-    expression: "retail_sales / customer_demand"
+    expr: "retail_sales / customer_demand"
 
 outputs:
-  - id: customer_demand
-    source: customer_demand
-    filename: demand.csv
-  - id: retail_sales
-    source: retail_sales
-    filename: sales.csv
-  - id: unmet_demand
-    source: unmet_demand
-    filename: stockouts.csv
-  - id: supply_efficiency
-    source: supply_efficiency
-    filename: efficiency.csv
+  - series: customer_demand
+    as: demand.csv
+  - series: retail_sales
+    as: sales.csv
+  - series: unmet_demand
+    as: stockouts.csv
+  - series: supply_efficiency
+    as: efficiency.csv

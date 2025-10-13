@@ -5,7 +5,7 @@
 
 # Template directory
 templates:
-  directory: /workspaces/flowtime-sim-vnext/templates
+  directory: /workspaces/flowtime-vnext/templates
 
 # Data storage
 data:

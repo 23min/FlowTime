@@ -1,16 +1,18 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text.Json;
 using FlowTime.Sim.Core.Templates;
 using FlowTime.Sim.Core.Templates.Exceptions;
 using Microsoft.Extensions.Logging;
-using System.Text.Json;
-using System.Text.RegularExpressions;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
 namespace FlowTime.Sim.Core.Services;
 
 /// <summary>
-/// Charter-compliant template service implementing the SIM-M2.6-CORRECTIVE node-based schema.
-/// Generates Engine-compatible models with proper parameter substitution and schema conversion.
+/// Provides parameterised generation for FlowTime.Sim templates, producing KISS time-travel schema artifacts with embedded provenance.
 /// </summary>
 public class NodeBasedTemplateService : INodeBasedTemplateService
 {
@@ -92,30 +94,45 @@ public class NodeBasedTemplateService : INodeBasedTemplateService
     {
         await LoadTemplatesIfNeededAsync();
         
+        (Template template, string originalYaml) cached;
+
         lock (cacheLock)
         {
-            if (!templateCache.TryGetValue(templateId, out var cached))
+            if (!templateCache.TryGetValue(templateId, out cached))
             {
                 throw new ArgumentException($"Template not found: {templateId}");
             }
-
-            logger.LogInformation("Generating Engine-compatible model for template {TemplateId} with {ParamCount} parameters", 
-                templateId, parameters.Count);
-
-            // Start with original template YAML
-            var yaml = cached.originalYaml;
-
-            // 1. Substitute ${parameter} placeholders
-            yaml = SubstituteParameters(yaml, parameters, cached.template);
-
-            // 2. Remove template-specific sections (parameters, metadata) and ensure schemaVersion
-            yaml = ConvertToEngineSchema(yaml);
-
-            logger.LogDebug("Generated Engine model for {TemplateId}, output length: {Length} chars", 
-                templateId, yaml.Length);
-
-            return yaml;
         }
+
+        logger.LogInformation("Generating KISS schema model for template {TemplateId} with {ParamCount} parameters", 
+            templateId, parameters.Count);
+
+        var mergedParameters = MergeParameterValues(cached.template, parameters);
+        var substitutionValues = BuildSubstitutionValues(mergedParameters);
+        var substitutedYaml = SubstituteParameters(cached.originalYaml, substitutionValues);
+
+        Template parsedTemplate;
+        try
+        {
+            parsedTemplate = TemplateParser.ParseFromYaml(substitutedYaml);
+        }
+        catch (TemplateParsingException ex)
+        {
+            logger.LogError(ex, "Template parsing failed after parameter substitution for {TemplateId}", templateId);
+            throw;
+        }
+        catch (TemplateValidationException ex)
+        {
+            logger.LogError(ex, "Template validation failed for {TemplateId}: {Message}", templateId, ex.Message);
+            throw;
+        }
+
+        var artifact = SimModelBuilder.Build(parsedTemplate, mergedParameters, substitutedYaml);
+        var yaml = yamlSerializer.Serialize(artifact);
+
+        logger.LogDebug("Generated model for {TemplateId}, output length: {Length} chars", templateId, yaml.Length);
+
+        return yaml;
     }
 
     public Task<ValidationResult> ValidateParametersAsync(string templateId, Dictionary<string, object> parameters)
@@ -208,45 +225,113 @@ public class NodeBasedTemplateService : INodeBasedTemplateService
         }
     }
 
-    private string SubstituteParameters(string yaml, Dictionary<string, object> parameters, Template template)
+    private Dictionary<string, object?> MergeParameterValues(Template template, Dictionary<string, object> parameterOverrides)
     {
-        var result = yaml;
+        var merged = new Dictionary<string, object?>(StringComparer.Ordinal);
 
-        // Substitute provided parameters
-        foreach (var kvp in parameters)
+        foreach (var parameter in template.Parameters)
         {
-            var placeholder = $"${{{kvp.Key}}}";
-            var value = FormatParameterValue(kvp.Value);
-            result = result.Replace(placeholder, value);
-        }
-
-        // Substitute default values for remaining placeholders
-        foreach (var param in template.Parameters)
-        {
-            if (!parameters.ContainsKey(param.Name) && param.Default != null)
+            if (string.IsNullOrWhiteSpace(parameter.Name))
             {
-                var placeholder = $"${{{param.Name}}}";
-                if (result.Contains(placeholder))
-                {
-                    var value = FormatParameterValue(param.Default);
-                    result = result.Replace(placeholder, value);
-                }
+                continue;
+            }
+
+            if (parameter.Default != null)
+            {
+                merged[parameter.Name] = NormalizeParameterValue(parameter.Default);
             }
         }
 
+        foreach (var kvp in parameterOverrides)
+        {
+            merged[kvp.Key] = NormalizeParameterValue(kvp.Value);
+        }
+
+        return merged;
+    }
+
+    private static object? NormalizeParameterValue(object? value)
+    {
+        if (value is JsonElement element)
+        {
+            return element.ValueKind switch
+            {
+                JsonValueKind.Number => element.TryGetInt64(out var integer) ? integer : element.GetDouble(),
+                JsonValueKind.String => element.GetString(),
+                JsonValueKind.True => true,
+                JsonValueKind.False => false,
+                JsonValueKind.Null => null,
+                JsonValueKind.Array => element.GetRawText(),
+                JsonValueKind.Object => element.GetRawText(),
+                _ => element.GetRawText()
+            };
+        }
+
+        return value;
+    }
+
+    private Dictionary<string, string> BuildSubstitutionValues(Dictionary<string, object?> parameterValues)
+    {
+        var substitutions = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        foreach (var kvp in parameterValues)
+        {
+            substitutions[kvp.Key] = FormatParameterValueForSubstitution(kvp.Value);
+        }
+
+        return substitutions;
+    }
+
+    private string SubstituteParameters(string yaml, Dictionary<string, string> substitutions)
+    {
+        var result = yaml;
+        foreach (var kvp in substitutions)
+        {
+            var placeholder = $"${{{kvp.Key}}}";
+            result = result.Replace(placeholder, kvp.Value);
+        }
         return result;
     }
 
-    private string FormatParameterValue(object value)
+    private string FormatParameterValueForSubstitution(object? value)
     {
         return value switch
         {
-            JsonElement element => FormatJsonElement(element),
-            string s => s,
-            bool b => b.ToString().ToLowerInvariant(),
             null => "null",
-            _ => Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture) ?? ""
+            bool b => b.ToString().ToLowerInvariant(),
+            double or float or decimal => Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty,
+            int or long or short or byte or sbyte => Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty,
+            JsonElement element => FormatJsonElement(element),
+            string s => ShouldQuoteString(s) ? $"\"{s}\"" : s,
+            IEnumerable enumerable when value is not string => FormatEnumerable(enumerable),
+            _ => value.ToString() ?? string.Empty
         };
+    }
+
+    private string FormatEnumerable(IEnumerable enumerable)
+    {
+        var items = new List<string>();
+        foreach (var item in enumerable)
+        {
+            items.Add(FormatParameterValueForSubstitution(item));
+        }
+
+        return $"[{string.Join(", ", items)}]";
+    }
+
+    private static bool ShouldQuoteString(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return true;
+        }
+
+        if (value.StartsWith("[") || value.StartsWith("{") || (value.StartsWith("\"") && value.EndsWith("\"")))
+        {
+            return false;
+        }
+
+        return value.Any(char.IsWhiteSpace) || value.Contains(':') || value.Contains('#');
     }
 
     private string FormatJsonElement(JsonElement element)
@@ -254,127 +339,14 @@ public class NodeBasedTemplateService : INodeBasedTemplateService
         return element.ValueKind switch
         {
             JsonValueKind.Number => element.GetRawText(),
-            JsonValueKind.String => element.GetString() ?? "",
+            JsonValueKind.String => element.GetString() ?? string.Empty,
             JsonValueKind.True => "true",
             JsonValueKind.False => "false",
             JsonValueKind.Array => element.GetRawText(),
             JsonValueKind.Object => element.GetRawText(),
+            JsonValueKind.Null => "null",
             _ => element.GetRawText()
         };
-    }
-
-    private int GetIndentLevel(string line)
-    {
-        int count = 0;
-        foreach (char c in line)
-        {
-            if (c == ' ') count++;
-            else break;
-        }
-        return count;
-    }
-
-    private string ConvertToEngineSchema(string yaml)
-    {
-        var lines = yaml.Split('\n').ToList();
-        var result = new List<string>();
-        var inParametersSection = false;
-        var inMetadataSection = false;
-        var inOutputsSection = false;
-        var sectionIndentLevel = 0;
-        var hasSchemaVersion = yaml.TrimStart().StartsWith("schemaVersion:");
-
-        for (int i = 0; i < lines.Count; i++)
-        {
-            var line = lines[i];
-            var trimmed = line.Trim();
-            var indentLevel = GetIndentLevel(line);
-
-            // Skip comments
-            if (trimmed.StartsWith("#"))
-            {
-                continue;
-            }
-
-            // Detect section starts
-            if (trimmed == "parameters:")
-            {
-                inParametersSection = true;
-                sectionIndentLevel = indentLevel;
-                continue; // Skip entire parameters section
-            }
-
-            if (trimmed == "metadata:")
-            {
-                inMetadataSection = true;
-                sectionIndentLevel = indentLevel;
-                continue; // Skip entire metadata section
-            }
-
-            if (trimmed == "outputs:")
-            {
-                inOutputsSection = true;
-                sectionIndentLevel = indentLevel;
-                result.Add(line); // Keep the outputs: header
-                continue;
-            }
-
-            // Detect section end
-            if ((inParametersSection || inMetadataSection || inOutputsSection) && !string.IsNullOrWhiteSpace(line))
-            {
-                if (indentLevel <= sectionIndentLevel)
-                {
-                    inParametersSection = false;
-                    inMetadataSection = false;
-                    inOutputsSection = false;
-                }
-            }
-
-            // Skip parameters/metadata content entirely
-            if (inParametersSection || inMetadataSection)
-            {
-                continue;
-            }
-
-            // Convert outputs section from template format to engine format
-            if (inOutputsSection && indentLevel > sectionIndentLevel)
-            {
-                // Convert template format to engine format:
-                // Template: source: node_id, filename: file.csv
-                // Engine: series: node_id, as: file.csv
-                if (trimmed.StartsWith("source:"))
-                {
-                    var value = trimmed.Substring("source:".Length).Trim();
-                    result.Add($"{new string(' ', indentLevel)}series: {value}");
-                    continue;
-                }
-                if (trimmed.StartsWith("filename:"))
-                {
-                    var value = trimmed.Substring("filename:".Length).Trim();
-                    result.Add($"{new string(' ', indentLevel)}as: {value}");
-                    continue;
-                }
-            }
-
-            // Convert expression format: Template uses 'expression:', Engine uses 'expr:'
-            if (trimmed.StartsWith("expression:"))
-            {
-                var value = trimmed.Substring("expression:".Length).Trim();
-                result.Add($"{new string(' ', indentLevel)}expr: {value}");
-                continue;
-            }
-
-            result.Add(line);
-        }
-
-        // Ensure schemaVersion is present
-        if (!result.Any(l => l.Trim().StartsWith("schemaVersion:")))
-        {
-            result.Insert(0, "schemaVersion: 1");
-            result.Insert(1, "");
-        }
-
-        return string.Join('\n', result);
     }
 
     // Line-based parser to extract template metadata without full YAML parsing
@@ -450,6 +422,11 @@ public class NodeBasedTemplateService : INodeBasedTemplateService
                 {
                     var desc = trimmed.Substring("description:".Length).Trim().Trim('"', '\'');
                     if (!string.IsNullOrWhiteSpace(desc)) template.Metadata.Description = desc;
+                }
+                else if (trimmed.StartsWith("version:"))
+                {
+                    var version = trimmed.Substring("version:".Length).Trim().Trim('"', '\'');
+                    if (!string.IsNullOrWhiteSpace(version)) template.Metadata.Version = version;
                 }
                 else if (trimmed.StartsWith("tags:"))
                 {

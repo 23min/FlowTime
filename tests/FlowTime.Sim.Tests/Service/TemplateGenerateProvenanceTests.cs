@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using FlowTime.Sim.Core.Models;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Xunit;
@@ -32,12 +33,16 @@ public class TemplateGenerateProvenanceTests : IClassFixture<WebApplicationFacto
         _client = _factory.CreateClient();
         
         // Create a simple test template
-        var testTemplateYaml = @"version: 1
+        var testTemplateYaml = @"schemaVersion: 1
+generator: flowtime-sim
 metadata:
   id: test-template
   title: Test Template
   description: Simple test template
-  version: 1.0
+  version: 1.0.0
+window:
+  start: 2025-01-01T00:00:00Z
+  timezone: UTC
 parameters:
   - name: bins
     type: integer
@@ -49,16 +54,27 @@ parameters:
     type: integer
     description: Size of each bin
     default: 1
+grid:
+  bins: ${bins}
+  binSize: ${binSize}
+  binUnit: minutes
+topology:
+  nodes:
+    - id: TestService
+      kind: service
+      semantics:
+        arrivals: arrivals
+        served: served
+  edges: []
 nodes:
-  - id: SOURCE
-    type: source
-    expression: ""constant(100)""
-  - id: SINK
-    type: sink
-edges:
-  - from: SOURCE
-    to: SINK
-    expression: ""constant(5)""
+  - id: arrivals
+    kind: const
+    values: [100, 100, 100]
+  - id: served
+    kind: expr
+    expr: ""arrivals""
+outputs:
+  - series: ""*""
 ";
         File.WriteAllText(Path.Combine(templatesDir, "test-template.yaml"), testTemplateYaml);
     }
@@ -136,17 +152,18 @@ edges:
         // Model YAML should contain embedded provenance section
         Assert.Contains("provenance:", modelYaml);
         Assert.Contains("source: flowtime-sim", modelYaml);
-        Assert.Contains("modelId:", modelYaml);
+        Assert.Matches(@"modelId: [a-f0-9]{64}", modelYaml);
         Assert.Contains("templateId: test-template", modelYaml);
         
         // Provenance should appear AFTER schemaVersion but BEFORE grid/nodes
         var schemaVersionIndex = modelYaml.IndexOf("schemaVersion:");
         var provenanceIndex = modelYaml.IndexOf("provenance:");
-        var gridIndex = modelYaml.IndexOf("grid:");
-        
+        var outputsIndex = modelYaml.IndexOf("outputs:");
+
         Assert.True(schemaVersionIndex >= 0);
         Assert.True(provenanceIndex > schemaVersionIndex);
-        Assert.True(gridIndex > provenanceIndex || gridIndex == -1); // grid might not exist in all templates
+        Assert.True(outputsIndex >= 0);
+        Assert.True(provenanceIndex > outputsIndex);
     }
 
     [Fact]
@@ -173,10 +190,10 @@ edges:
         var modelYaml = json.RootElement.GetProperty("model").GetString();
         Assert.NotNull(modelYaml);
         
-        // Model YAML should NOT contain embedded provenance
-        Assert.DoesNotContain("provenance:", modelYaml);
+        // Model YAML includes embedded provenance by default for observability
+        Assert.Contains("provenance:", modelYaml);
         
-        // But provenance should be in separate field
+        // Provenance remains available in the separate field for backward compatibility
         Assert.True(json.RootElement.TryGetProperty("provenance", out _));
     }
 

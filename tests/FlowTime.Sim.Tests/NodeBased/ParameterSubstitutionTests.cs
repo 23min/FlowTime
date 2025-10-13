@@ -1,4 +1,5 @@
-using System.IO;
+using System.Collections.Generic;
+using System.Linq;
 using FlowTime.Sim.Core.Templates;
 using FlowTime.Sim.Core.Templates.Exceptions;
 using Xunit;
@@ -14,23 +15,37 @@ public class ParameterSubstitutionTests
 metadata:
   id: param-test
   title: Parameter Substitution Test
+  version: 1.0.0
+window:
+  start: 2025-01-01T00:00:00Z
+  timezone: UTC
 parameters:
   - name: systemName
     type: string
     title: System Name
-    description: Name of the system component
     default: "ProductionSystem"
 grid:
   bins: 3
   binSize: 60
   binUnit: minutes
+topology:
+  nodes:
+    - id: ServiceNode
+      kind: service
+      semantics:
+        arrivals: arrivals
+        served: served
+  edges: []
 nodes:
   - id: arrivals
     kind: const
     values: [100, 150, 200]
+  - id: served
+    kind: const
+    values: [90, 120, 180]
 outputs:
   - id: arrival_series
-    source: arrivals
+    series: arrivals
     description: "Arrivals for ${systemName}"
 """;
 
@@ -40,7 +55,7 @@ outputs:
         };
 
         var substitutedTemplate = ParameterSubstitution.ParseWithSubstitution(yaml, parameterValues);
-        
+
         var output = substitutedTemplate.Outputs.First(o => o.Id == "arrival_series");
         Assert.Equal("Arrivals for TestSystem", output.Description);
     }
@@ -52,25 +67,37 @@ outputs:
 metadata:
   id: param-test
   title: Parameter Substitution Test
+  version: 1.0.0
+window:
+  start: 2025-01-01T00:00:00Z
+  timezone: UTC
 parameters:
   - name: binCount
     type: integer
     title: Number of Bins
-    description: Number of time bins
     default: 5
-    min: 1
-    max: 100
 grid:
   bins: ${binCount}
   binSize: 60
   binUnit: minutes
+topology:
+  nodes:
+    - id: ServiceNode
+      kind: service
+      semantics:
+        arrivals: arrivals
+        served: served
+  edges: []
 nodes:
   - id: arrivals
     kind: const
-    values: [100, 150, 200]
+    values: [100, 150, 200, 250, 275]
+  - id: served
+    kind: const
+    values: [90, 120, 180, 210, 240]
 outputs:
   - id: arrival_series
-    source: arrivals
+    series: arrivals
 """;
 
         var parameterValues = new Dictionary<string, object>
@@ -79,7 +106,7 @@ outputs:
         };
 
         var substitutedTemplate = ParameterSubstitution.ParseWithSubstitution(yaml, parameterValues);
-        
+
         Assert.Equal(10, substitutedTemplate.Grid.Bins);
     }
 
@@ -90,25 +117,39 @@ outputs:
 metadata:
   id: param-test
   title: Parameter Substitution Test
+  version: 1.0.0
+window:
+  start: 2025-01-01T00:00:00Z
+  timezone: UTC
 parameters:
   - name: baseValue
     type: number
     title: Base Value
-    description: Base value for PMF
     default: 100.0
 grid:
   bins: 3
   binSize: 60
   binUnit: minutes
+topology:
+  nodes:
+    - id: ServiceNode
+      kind: service
+      semantics:
+        arrivals: arrivals
+        served: served
+  edges: []
 nodes:
   - id: arrivals
     kind: pmf
     pmf:
       values: [${baseValue}, 150.0, 200.0]
       probabilities: [0.5, 0.3, 0.2]
+  - id: served
+    kind: const
+    values: [80, 90, 100]
 outputs:
   - id: arrival_series
-    source: arrivals
+    series: arrivals
 """;
 
         var parameterValues = new Dictionary<string, object>
@@ -117,10 +158,10 @@ outputs:
         };
 
         var substitutedTemplate = ParameterSubstitution.ParseWithSubstitution(yaml, parameterValues);
-        
+
         var pmfNode = substitutedTemplate.Nodes.First(n => n.Id == "arrivals");
         Assert.NotNull(pmfNode.Pmf);
-        Assert.Equal(75.0, pmfNode.Pmf.Values[0]);
+        Assert.Equal(75.0, pmfNode.Pmf!.Values[0]);
         Assert.Equal(150.0, pmfNode.Pmf.Values[1]);
         Assert.Equal(200.0, pmfNode.Pmf.Values[2]);
     }
@@ -132,27 +173,37 @@ outputs:
 metadata:
   id: param-test
   title: Parameter Substitution Test
+  version: 1.0.0
+window:
+  start: 2025-01-01T00:00:00Z
+  timezone: UTC
 parameters:
   - name: multiplier
     type: number
     title: Multiplier Factor
-    description: Factor to multiply base values
     default: 1.5
 grid:
   bins: 3
   binSize: 60
   binUnit: minutes
+topology:
+  nodes:
+    - id: ServiceNode
+      kind: service
+      semantics:
+        arrivals: base_load
+        served: adjusted_load
+  edges: []
 nodes:
   - id: base_load
     kind: const
     values: [100, 150, 200]
   - id: adjusted_load
     kind: expr
-    expression: "base_load * ${multiplier}"
-    dependencies: ["base_load"]
+    expr: "base_load * ${multiplier}"
 outputs:
   - id: load_series
-    source: adjusted_load
+    series: adjusted_load
 """;
 
         var parameterValues = new Dictionary<string, object>
@@ -161,9 +212,9 @@ outputs:
         };
 
         var substitutedTemplate = ParameterSubstitution.ParseWithSubstitution(yaml, parameterValues);
-        
+
         var exprNode = substitutedTemplate.Nodes.First(n => n.Id == "adjusted_load");
-        Assert.Equal("base_load * 2", exprNode.Expression);
+        Assert.Equal("base_load * 2", exprNode.Expr);
     }
 
     [Fact]
@@ -173,25 +224,37 @@ outputs:
 metadata:
   id: param-test
   title: Parameter Substitution Test
+  version: 1.0.0
+window:
+  start: 2025-01-01T00:00:00Z
+  timezone: UTC
 parameters:
   - name: randomSeed
     type: integer
     title: Random Seed
-    description: Seed for deterministic random generation
     default: 42
-    min: 1
-    max: 2147483647
 grid:
   bins: 3
   binSize: 60
   binUnit: minutes
+topology:
+  nodes:
+    - id: ServiceNode
+      kind: service
+      semantics:
+        arrivals: arrivals
+        served: served
+  edges: []
 nodes:
   - id: arrivals
     kind: const
     values: [100, 150, 200]
+  - id: served
+    kind: const
+    values: [90, 140, 180]
 outputs:
   - id: arrival_series
-    source: arrivals
+    series: arrivals
 rng:
   kind: pcg32
   seed: "${randomSeed}"
@@ -203,9 +266,9 @@ rng:
         };
 
         var substitutedTemplate = ParameterSubstitution.ParseWithSubstitution(yaml, parameterValues);
-        
+
         Assert.NotNull(substitutedTemplate.Rng);
-        Assert.Equal("12345", substitutedTemplate.Rng.Seed);
+        Assert.Equal("12345", substitutedTemplate.Rng!.Seed);
     }
 
     [Fact]
@@ -215,6 +278,10 @@ rng:
 metadata:
   id: param-test
   title: Parameter Substitution Test
+  version: 1.0.0
+window:
+  start: 2025-01-01T00:00:00Z
+  timezone: UTC
 parameters:
   - name: systemName
     type: string
@@ -224,13 +291,24 @@ grid:
   bins: 3
   binSize: 60
   binUnit: minutes
+topology:
+  nodes:
+    - id: ServiceNode
+      kind: service
+      semantics:
+        arrivals: arrivals
+        served: served
+  edges: []
 nodes:
   - id: arrivals
     kind: const
     values: [100, 150, 200]
+  - id: served
+    kind: const
+    values: [90, 120, 140]
 outputs:
   - id: arrival_series
-    source: arrivals
+    series: arrivals
     description: "Arrivals for ${missingParam}"
 """;
 
@@ -239,7 +317,7 @@ outputs:
             ["systemName"] = "TestSystem"
         };
 
-        Assert.Throws<ParameterSubstitutionException>(() => 
+        Assert.Throws<ParameterSubstitutionException>(() =>
             ParameterSubstitution.ParseWithSubstitution(yaml, parameterValues));
     }
 
@@ -250,6 +328,10 @@ outputs:
 metadata:
   id: param-test
   title: Parameter Substitution Test
+  version: 1.0.0
+window:
+  start: 2025-01-01T00:00:00Z
+  timezone: UTC
 parameters:
   - name: systemName
     type: string
@@ -263,20 +345,31 @@ grid:
   bins: ${binCount}
   binSize: 60
   binUnit: minutes
+topology:
+  nodes:
+    - id: ServiceNode
+      kind: service
+      semantics:
+        arrivals: arrivals
+        served: served
+  edges: []
 nodes:
   - id: arrivals
     kind: const
-    values: [100, 150, 200]
+    values: [100, 150, 200, 250, 300]
+  - id: served
+    kind: const
+    values: [90, 120, 180, 210, 240]
 outputs:
   - id: arrival_series
-    source: arrivals
+    series: arrivals
     description: "Arrivals for ${systemName}"
 """;
 
         var parameterValues = new Dictionary<string, object>(); // Empty - should use defaults
 
         var substitutedTemplate = ParameterSubstitution.ParseWithSubstitution(yaml, parameterValues);
-        
+
         Assert.Equal(5, substitutedTemplate.Grid.Bins);
         var output = substitutedTemplate.Outputs.First(o => o.Id == "arrival_series");
         Assert.Equal("Arrivals for DefaultSystem", output.Description);
@@ -289,26 +382,39 @@ outputs:
 metadata:
   id: param-test
   title: Parameter Substitution Test
+  version: 1.0.0
+window:
+  start: 2025-01-01T00:00:00Z
+  timezone: UTC
 parameters:
   - name: environment
     type: string
-    title: Environment
     default: "prod"
   - name: component
     type: string
-    title: Component
     default: "api"
 grid:
   bins: 3
   binSize: 60
   binUnit: minutes
+topology:
+  nodes:
+    - id: ServiceNode
+      kind: service
+      semantics:
+        arrivals: arrivals
+        served: served
+  edges: []
 nodes:
   - id: arrivals
     kind: const
     values: [100, 150, 200]
+  - id: served
+    kind: const
+    values: [90, 130, 180]
 outputs:
   - id: arrival_series
-    source: arrivals
+    series: arrivals
     description: "Load for ${environment}-${component} system"
 """;
 
@@ -319,26 +425,8 @@ outputs:
         };
 
         var substitutedTemplate = ParameterSubstitution.ParseWithSubstitution(yaml, parameterValues);
-        
+
         var output = substitutedTemplate.Outputs.First(o => o.Id == "arrival_series");
         Assert.Equal("Load for staging-worker system", output.Description);
-    }
-
-    [Fact(Skip = "Pending time-travel template fields (Window/Classes) integration into FlowTime.Sim.Core")]
-    public void ParameterSubstitution_NestedObjects_Applies_To_Window_Start()
-    {
-        var yaml = File.ReadAllText("fixtures/templates/time-travel/topology_baseline.yaml");
-        var parameterValues = new Dictionary<string, object>
-        {
-            ["startTimestamp"] = "2045-03-15T12:30:00Z"
-        };
-
-        dynamic substitutedTemplate = ParameterSubstitution.ParseWithSubstitution(yaml, parameterValues);
-
-        Assert.NotNull(substitutedTemplate.Window);
-        Assert.Equal("2045-03-15T12:30:00Z", substitutedTemplate.Window.Start);
-        Assert.Equal("UTC", substitutedTemplate.Window.Timezone);
-        Assert.Single(substitutedTemplate.Classes);
-        Assert.Equal("*", substitutedTemplate.Classes[0]);
     }
 }

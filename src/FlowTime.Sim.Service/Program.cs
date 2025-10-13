@@ -273,11 +273,12 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 								  req.Query["embed_provenance"].ToString().ToLowerInvariant() != "false";
 
 			string finalModelYaml = modelYaml;
-			if (embedProvenance)
+			if (embedProvenance && !ModelContainsProvenanceBlock(modelYaml))
 			{
 				finalModelYaml = FlowTime.Sim.Core.Services.ProvenanceEmbedder.EmbedProvenance(modelYaml, provenance);
-			}				// Compute canonical model hash for integrity/cross-system compatibility
-				var modelHash = ModelHasher.ComputeModelHash(finalModelYaml);
+			}
+			// Compute canonical model hash for integrity/cross-system compatibility
+			var modelHash = ModelHasher.ComputeModelHash(finalModelYaml);
 
 				// Use hash prefix for directory naming to prevent parameter collisions
 				// Format: data/models/{templateId}/{hashPrefix8}/
@@ -629,6 +630,13 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 		await app.ValidateTemplatesAsync();
 
 		app.Run();
+	}
+
+	static bool ModelContainsProvenanceBlock(string modelYaml)
+	{
+		return modelYaml
+			.Split('\n')
+			.Any(line => line.TrimStart().StartsWith("provenance:"));
 	}
 
 	// Helper utilities

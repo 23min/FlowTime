@@ -1,7 +1,7 @@
 # FlowTime.Sim Time-Travel Implementation Plan
 
-**Status:** Draft**  
-**Last Updated:** 2025-10-11  
+**Status:** 🚧 In Progress (WS1 complete, WS2 validation live)**  
+**Last Updated:** 2025-10-13  
 **Scope:** FlowTime.Sim Core, Service, CLI, Templates, Tests
 
 This plan decomposes the work required to align FlowTime.Sim with the time-travel roadmap. It complements the end-to-end milestone sequencing in `time-travel-planning-roadmap.md` by detailing the simulation-specific backlog.
@@ -12,10 +12,10 @@ This plan decomposes the work required to align FlowTime.Sim with the time-trave
 
 | Workstream | Goals | Dependencies |
 |------------|-------|--------------|
-| **WS1: Schema Foundations** | Extend template model (window/topology/semantics), preserve metadata, upgrade generation pipeline. | None (internal refactor). |
-| **WS2: Shared Validation** | Adopt shared expression parser, enforce topology/semantic rules, add mode awareness. | Engine follow-up: shared expression library. |
+| **WS1: Schema Foundations** | ✅ Complete — Template model extended (window/topology/semantics/provenance) and generation pipeline emits canonical KISS schema. | None (internal refactor). |
+| **WS2: Shared Validation** | ✅ Complete — Shared FlowTime.Expressions validator integrated; topology & mode-aware validation enforced. | Engine follow-up: shared expression library. |
 | **WS3: Service & CLI Enhancements** | Embed provenance, expose schema metadata, update storage layout, add mode toggles. | WS1, WS2. |
-| **WS4: Template & Fixture Upgrade** | Convert curated templates to schema v1.1, add M-3 fixtures, align examples with KISS rules. | WS1. |
+| **WS4: Template & Fixture Upgrade** | 🛠 In Progress — Curated templates/examples migrated; fixtures & migration tooling pending. | WS1. |
 | **WS5: Testing & Tooling** | Expand unit/integration tests, add regression suites, update documentation and examples. | WS1–WS4. |
 
 ---
@@ -24,22 +24,22 @@ This plan decomposes the work required to align FlowTime.Sim with the time-trave
 
 ### WS1 — Schema Foundations
 
-1. Introduce new template classes (`TemplateWindow`, `TemplateTopology`, etc.) and update YAML parsing.
-2. Add a required `version` field to `TemplateMetadata`; ensure provenance and CLI/service surfaces expose it.
-3. Modify `NodeBasedTemplateService` to retain metadata, parameters, and outputs, and to emit canonical schema fields.
-4. Add `Source` and `Initial` properties to `TemplateNode`; ensure parameter substitution handles nested paths.
-5. Update serialization tests (`tests/FlowTime.Sim.Tests/NodeBased/*`) to cover new classes and metadata versioning.
+1. ✅ Introduce new template classes (`TemplateWindow`, `TemplateTopology`, etc.) and update YAML parsing. *(2025-10-13)*
+2. ✅ Add required `TemplateMetadata.version` and propagate to provenance/service layers. *(2025-10-13)*
+3. ✅ Refactor `NodeBasedTemplateService` to retain metadata/parameters/outputs and emit canonical schema. *(2025-10-13)*
+4. ✅ Add `Source`/`Initial` handling to `TemplateNode`; parameter substitution now supports arrays/strings safely. *(2025-10-13)*
+5. ✅ Refresh node-based tests to cover new classes and metadata versioning. *(2025-10-13)*
 
-**Exit Criteria:** Generating a model from an updated template yields window/topology sections and passes basic Engine parsing (no semantic validation yet).
+**Exit Criteria:** **Met** — Generated models include window/topology semantics and pass Engine parsing smoke test.
 
 ### WS2 — Shared Validation
 
-1. Consume the shared `FlowTime.Expressions` package once Engine publishes it (see Post-M-03.00 follow-up #1).
-2. Replace manual expression checks with shared parser/AST; surface errors with actionable messages.
-3. Implement topology/semantics validator following `sim-schema-and-validation.md`.
-4. Introduce `TemplateMode` and propagate to provenance.
+1. ✅ Consume shared `FlowTime.Expressions` package (ExpressionSemanticValidator) and wire smoke tests. *(Complete)*
+2. ✅ Replace bespoke expression checks with shared parser/AST; surfaced deterministic errors. *(Complete)*
+3. ✅ Implement topology/semantics validator per schema spec (node kinds, edges, queue initials). *(Complete)*
+4. ✅ Introduce `TemplateMode` (simulation/telemetry) and propagate to provenance + mode-aware validation. *(Complete)*
 
-**Exit Criteria:** Invalid templates fail generation with deterministic errors; unit tests cover expression and topology edge cases.
+**Exit Criteria:** **Met** — Invalid templates fail fast with shared validation errors covered by unit/integration tests.
 
 ### WS3 — Service & CLI Enhancements
 
@@ -52,20 +52,20 @@ This plan decomposes the work required to align FlowTime.Sim with the time-trave
 
 ### WS4 — Template & Fixture Upgrade
 
-1. Convert curated templates in `templates/` to schema v1.1 (window, topology, semantics, provenance).
-2. Add M-3 ready fixtures mirroring Engine scenarios used by the UI.
-3. Provide migration notes or CLI script to upgrade existing schema v1.0 templates.
+1. ✅ Curated templates in `templates/` migrated to the time-travel template format (adds window/topology/provenance while emitted models still use `schemaVersion: 1`).
+2. 🛠 Add M-3 fixtures mirroring Engine scenarios (pending UI alignment).
+3. 🛠 Author migration guidance/automation for legacy templates (pending).
 
-**Exit Criteria:** All shipping templates pass validation in WS2 and run end-to-end with Engine M-03.x; changelog documents the upgrade.
+**Exit Criteria:** Pending fixtures + migration tooling; current curated templates validate successfully against WS2 rules.
 
 ### WS5 — Testing & Tooling
 
-1. Expand unit tests (Template serialization, validator rules, provenance embedder).
-2. Add integration tests that generate models and run them through Engine test harness or fixtures.
-3. Update `.http` examples and CLI walkthroughs to demonstrate new schema capabilities.
-4. Refresh documentation (`sim` architecture package) as tasks complete.
+1. ✅ Expanded unit tests for template serialization, validator rules, provenance embedder.
+2. 🛠 Integration tests updated for new schema (Sim ↔ Engine regression harness partially in place).
+3. 🛠 CLI/service docs & `.http` samples queued after WS3 adjustments.
+4. ✅ Documentation refreshed (`sim-implementation-plan`, `sim-schema-and-validation`).
 
-**Exit Criteria:** CI suites prevent regression on schema/validation; documentation reflects final state.
+**Exit Criteria:** CI largely covers schema/validation; remaining CLI/service docs tracked under WS3.
 
 ---
 
@@ -96,14 +96,14 @@ This plan decomposes the work required to align FlowTime.Sim with the time-trave
 
 | ID | Description | Owner | Status |
 |----|-------------|-------|--------|
-| SIM-M-03.WS1-01 | Implement window/topology classes | Sim Core | Not Started |
-| SIM-M-03.WS1-02 | Preserve metadata during generation | Sim Service | Not Started |
-| SIM-M-03.WS1-03 | Add TemplateMetadata.version and propagate to provenance | Sim Core | Not Started |
-| SIM-M-03.WS2-01 | Integrate shared expression validator | Sim Core | In Progress (shared lib published; smoke test wired) |
-| SIM-M-03.WS3-01 | Embed provenance by default | Sim Service | Not Started |
-| SIM-M-03.WS4-01 | Upgrade curated templates | Sim Core | Not Started |
-| SIM-M-03.WS5-01 | Add integration tests using Engine fixtures | Sim Tests | Not Started |
-| SIM-M-03.WS2-02 | Add FlowTime.Expressions smoke test in Sim Tests | Sim Tests | Complete |
+| SIM-M-03.WS1-01 | Implement window/topology classes | Sim Core | ✅ Complete |
+| SIM-M-03.WS1-02 | Preserve metadata during generation | Sim Service | ✅ Complete |
+| SIM-M-03.WS1-03 | Add TemplateMetadata.version and propagate to provenance | Sim Core | ✅ Complete |
+| SIM-M-03.WS2-01 | Integrate shared expression validator | Sim Core | ✅ Complete |
+| SIM-M-03.WS3-01 | Embed provenance defaults & response formatting | Sim Service | 🔄 In Progress |
+| SIM-M-03.WS4-01 | Upgrade curated templates | Sim Core | 🛠 Partial (core templates migrated) |
+| SIM-M-03.WS5-01 | Add integration tests using Engine fixtures | Sim Tests | 🛠 Partial (Sim ↔ Engine smoke test live) |
+| SIM-M-03.WS2-02 | Add FlowTime.Expressions smoke test in Sim Tests | Sim Tests | ✅ Complete |
 
 *Note:* WS1 and broader WS2 work remain unscheduled; schema and full validation refactors are **not started** despite library availability.
 

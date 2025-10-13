@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using FlowTime.Sim.Cli;
 using FlowTime.Sim.Core.Services;
 using FlowTime.Sim.Core.Templates;
@@ -31,10 +32,15 @@ public class GenerateProvenanceTests : IDisposable
         // Create test template
         var testTemplateYaml = @"
 schemaVersion: 1
+generator: flowtime-sim
 metadata:
   id: test-template
   title: Test Template
   description: Test template for provenance CLI tests
+  version: 1.0.0
+window:
+  start: 2025-01-01T00:00:00Z
+  timezone: UTC
 parameters:
   - name: bins
     type: integer
@@ -43,13 +49,33 @@ parameters:
     type: integer
     default: 1
 grid:
-  bins: {{bins}}
-  binSize: {{binSize}}
-  binUnit: hours
+  bins: ${bins}
+  binSize: ${binSize}
+  binUnit: minutes
+topology:
+  nodes:
+    - id: TestQueue
+      kind: service
+      semantics:
+        arrivals: arrivals
+        served: served
+        queue: queue_depth
+      initialCondition:
+        queueDepth: 0
+  edges: []
 nodes:
-  - id: NODE_A
-    type: queue
-    capacity: 100
+  - id: arrivals
+    kind: const
+    values: [50, 50, 50]
+  - id: served
+    kind: expr
+    expr: ""arrivals""
+  - id: queue_depth
+    kind: expr
+    expr: ""SHIFT(queue_depth, 1) + arrivals - served""
+    initial: 0
+outputs:
+  - series: ""*""
 ".Trim();
 
         File.WriteAllText(Path.Combine(_templatesDir, "test-template.yaml"), testTemplateYaml);
@@ -254,15 +280,16 @@ nodes:
         Assert.Contains("provenance:", modelYaml);
         Assert.Contains("source: flowtime-sim", modelYaml);
         Assert.Contains("templateId: test-template", modelYaml);
-        Assert.Contains("modelId: model_", modelYaml);
+        Assert.Matches(@"modelId: [a-f0-9]{64}", modelYaml);
         
         // Verify provenance comes after schemaVersion but before grid
         var schemaVersionPos = modelYaml.IndexOf("schemaVersion:");
         var provenancePos = modelYaml.IndexOf("provenance:");
-        var gridPos = modelYaml.IndexOf("grid:");
+        var outputsPos = modelYaml.IndexOf("outputs:");
         
         Assert.True(schemaVersionPos < provenancePos, "provenance should come after schemaVersion");
-        Assert.True(provenancePos < gridPos, "provenance should come before grid");
+        Assert.True(outputsPos >= 0, "outputs section should be present");
+        Assert.True(provenancePos > outputsPos, "provenance should follow outputs");
     }
 
     [Fact]
@@ -358,8 +385,8 @@ nodes:
 
         var modelYaml = await File.ReadAllTextAsync(modelPath);
         
-        // Should NOT contain provenance
-        Assert.DoesNotContain("provenance:", modelYaml);
+        // Embedded provenance is now included by default in generated models
+        Assert.Contains("provenance:", modelYaml);
         
         // Should contain expected model structure
         Assert.Contains("schemaVersion: 1", modelYaml);

@@ -59,7 +59,7 @@ The readiness audit (2025-10-11) highlighted critical gaps for time-travel:
 |  - Validation        |        |  - Shared expression lib   |
 +----------+-----------+        +--------------+-------------+
            |                                      ^
-           | model.yaml (schema v1.1)             |
+| model.yaml (schemaVersion: 1, time-travel format) |
            v                                      |
 +----------------------+        +----------------------------+
 | Source Control       | <----> | Time-Travel UI / Tooling   |

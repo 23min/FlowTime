@@ -1,13 +1,25 @@
+schemaVersion: 1
+generator: flowtime-sim
 metadata:
   id: m0.const.sim
   title: SIM-M0 const arrivals (node-based)
   description: Simple constant arrivals expressed as nodes
-schemaVersion: 1
+  version: 1.0.0
+window:
+  start: 2025-01-01T00:00:00Z
+  timezone: UTC
 grid:
   bins: 4
   binSize: 60
   binUnit: minutes
-  start: 2025-01-01T00:00:00Z
+topology:
+  nodes:
+    - id: ConstFlow
+      kind: service
+      semantics:
+        arrivals: arrivals
+        served: nodeA
+  edges: []
 rng:
   kind: pcg32
   seed: 12345
@@ -17,8 +29,7 @@ nodes:
     values: [5, 5, 5, 5]
   - id: nodeA
     kind: expr
-    expression: arrivals
-    dependencies: [arrivals]
+    expr: arrivals
 outputs:
-  - id: events
-    source: nodeA
+  - series: nodeA
+    as: events.csv

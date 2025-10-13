@@ -1,7 +1,7 @@
 # FlowTime.Sim Schema & Validation Requirements
 
-**Status:** Draft (reflects post-audit plan)  
-**Last Updated:** 2025-10-11
+**Status:** ✅ Implemented (SIM-M-03.00)  
+**Last Updated:** 2025-10-13
 
 This chapter specifies the KISS-aligned schema and validation rules FlowTime.Sim must implement to participate in time-travel milestones. It replaces the legacy SIM-M-02.06 schema assumptions and serves as the contract for template authors, CLI/service maintainers, and test writers.
 
@@ -82,15 +82,15 @@ provenance:
 
 ## 2. Template Representation (`Template` Classes)
 
-The internal template model must surface the same information, not strip metadata before conversion.
+The internal template model now surfaces the same information that Engine consumes — metadata is preserved and emitted without stripping.
 
-Required changes:
+Implemented changes:
 
-- **`TemplateWindow`, `TemplateTopology`, `TopologyNode`, `TopologyEdge`, `NodeSemantics`, `InitialCondition`, `UIHint`** classes.
-- **`TemplateNode` enhancements:** new `Source`, `Initial`, `SemanticRole` (if needed), `Kind`.
-- **`TemplateOutput`** should distinguish between wildcard exports and explicit enumerations.
-- **`TemplateMetadata`** preserved into generated models (no stripping) and extended with a required `Version` property (semantic version string) that surfaces in provenance.
-- Introduce `TemplateMode` enumeration (`simulation`, `telemetry`) used for validation severity.
+- ✅ `TemplateWindow`, `TemplateTopology`, `TopologyNode`, `TopologyEdge`, `TemplateNodeSemantics`, `TemplateInitialCondition`, and `TemplateUiHint` classes.
+- ✅ `TemplateNode` supports `source`, `values`, `initial`, and consolidated `kind` handling (const/pmf/expr).
+- ✅ `TemplateOutput` differentiates wildcard exports vs explicit enumerations (`series`, `exclude`, `as`).
+- ✅ `TemplateMetadata` includes semantic `version` and flows into provenance/CLI outputs.
+- ✅ `TemplateMode` enum (`simulation`, `telemetry`) drives mode-aware validation and provenance.
 
 ---
 
@@ -98,13 +98,12 @@ Required changes:
 
 ### 3.1 Shared Expression Library
 
-- Consume the shared `FlowTime.Expressions` assembly (post Engine M-03.00 follow-up).
-- FlowTime.Sim projects (service, CLI, tests) reference `FlowTime.Expressions`; a smoke test (`tests/FlowTime.Sim.Tests/Expressions/ExpressionLibrarySmokeTests.cs`) ensures the parser is wired until full adoption lands in SIM-M-03.
-- Validate expressions during template parsing:
-  - Unknown identifiers/functions → error.
-  - SHIFT self-reference without `initial` → error.
-  - Division by zero, negative SHIFT lag, etc. (as provided by shared rules).
-- Ensure `dependencies` list (if retained) matches parsed references.
+- ✅ FlowTime.Sim references the shared `FlowTime.Expressions` assembly (SIM-M-03.00.01) with smoke tests guarding linkage.
+- ✅ Expression validation occurs during template parsing:
+  - Unknown identifiers/functions → deterministic error.
+  - Self-referential `SHIFT` without `initial` → deterministic error.
+  - Negative lags, division-by-zero, etc. surfaced via shared rules.
+- ✅ Dependencies (when present) are cross-checked against parsed references.
 
 ### 3.2 Topology & Semantics
 
@@ -145,7 +144,7 @@ FlowTime.Sim should not attempt to infer layout or capacity; it only verifies st
 | Integration tests | Generate model → run through Engine fixtures → verify `/state` responses align with expectations. |
 | Property tests (optional) | Randomized expressions/topologies to ensure validator catches invalid combinations. |
 
-Fixtures in `templates/` must be upgraded to schema v1.1 and accompanied by matching `.http` or CLI scripts demonstrating generation.
+Fixtures in `templates/` must be upgraded to the time-travel template format (window/topology/provenance) and accompanied by matching `.http` or CLI scripts demonstrating generation. Generated models continue to declare `schemaVersion: 1`.
 
 ---
 
@@ -164,3 +163,13 @@ Fixtures in `templates/` must be upgraded to schema v1.1 and accompanied by matc
 - `docs/architecture/time-travel/time-travel-architecture-ch3-components.md`
 - `docs/architecture/time-travel/sim/sim-architecture-overview.md`
 - FlowTime.Sim readiness audit (`sim-time-travel-readiness-audit.md`)
+---
+
+## 8. Implementation Notes (2025-10-13)
+
+- `TemplateParser` now materialises the full KISS schema through the new template classes; legacy fields are rejected with actionable errors.
+- `TemplateValidator` enforces expression/topology rules with simulation/telemetry mode awareness, leveraging `FlowTime.Expressions.ExpressionSemanticValidator`.
+- `SimModelBuilder`/`SimModelArtifact` drive YAML emission, preserving metadata and embedding provenance (including deterministic `modelId` hashes).
+- `NodeBasedTemplateService` parameter substitution handles scalars, arrays, and strings safely while retaining provenance metadata.
+- Curated templates (`templates/`) and integration examples (`examples/`) now follow the time-travel template format (window/topology/provenance) while emitted models remain `schemaVersion: 1`; invalid legacy templates fail validation early.
+- CLI/service default to embedded provenance, with separate provenance JSON retained for compatibility; response payload refinements continue under WS3.

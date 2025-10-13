@@ -1,11 +1,14 @@
-# Network Reliability with Stochastic Failures - Template
-# Demonstrates PMF nodes and RNG for probabilistic network behavior modeling
-
+schemaVersion: 1
+generator: flowtime-sim
 metadata:
   id: 'network-reliability'
   title: 'Network Reliability with Stochastic Failures'
   description: 'Demonstrates PMF nodes and RNG for probabilistic network behavior modeling'
+  version: 1.0.0
   tags: [advanced, probabilistic, rng, network, stochastic]
+window:
+  start: 2025-01-01T00:00:00Z
+  timezone: UTC
 
 parameters:
   - name: bins
@@ -53,6 +56,25 @@ rng:
   kind: pcg32
   seed: ${rngSeed}
 
+topology:
+  nodes:
+    - id: EdgeGateway
+      kind: service
+      semantics:
+        arrivals: base_requests
+        served: network_requests
+        errors: network_failures
+    - id: CorePlatform
+      kind: service
+      semantics:
+        arrivals: network_requests
+        served: successful_requests
+        errors: database_failures
+  edges:
+    - id: edge1
+      from: EdgeGateway:out
+      to: CorePlatform:in
+
 nodes:
   # Base request load (deterministic pattern)
   - id: base_requests
@@ -70,8 +92,8 @@ nodes:
   - id: server_performance
     kind: pmf  
     pmf:
-      values: [0.8, 0.9, 1.0, 1.1, 1.2]
-      probabilities: [0.05, 0.15, 0.6, 0.15, 0.05]
+      values: [0.8, 1.0, 1.2]
+      probabilities: [0.1, 0.8, 0.1]
       
   # Database connection reliability
   - id: database_reliability
@@ -83,65 +105,59 @@ nodes:
   # Requests that reach the server (after network failures)
   - id: network_requests
     kind: expr
-    expression: "base_requests * network_reliability"
+    expr: "base_requests * network_reliability"
     
   # Available server capacity (with performance variations)
   - id: server_capacity
     kind: expr
-    expression: "${serverBaseCapacity} * server_performance"
+    expr: "${serverBaseCapacity} * server_performance"
     
   # Requests that can be processed by server
   - id: server_processed
     kind: expr
-    expression: "MIN(network_requests, server_capacity)"
+    expr: "MIN(network_requests, server_capacity)"
     
   # Requests that successfully complete (after database failures)
   - id: successful_requests
     kind: expr
-    expression: "server_processed * database_reliability"
+    expr: "server_processed * database_reliability"
     
   # Failed requests due to network issues
   - id: network_failures
     kind: expr
-    expression: "base_requests - network_requests"
+    expr: "base_requests - network_requests"
     
   # Failed requests due to server capacity
   - id: server_failures
     kind: expr
-    expression: "network_requests - server_processed"
+    expr: "network_requests - server_processed"
     
   # Failed requests due to database issues
   - id: database_failures
     kind: expr
-    expression: "server_processed - successful_requests"
+    expr: "server_processed - successful_requests"
     
   # Overall system reliability
   - id: system_reliability
     kind: expr
-    expression: "successful_requests / base_requests"
+    expr: "successful_requests / base_requests"
 
 outputs:
-  - id: base_requests
-    source: base_requests
-    filename: base_requests.csv
+  - series: base_requests
+    as: base_requests.csv
     description: "Original incoming requests"
-  - id: successful_requests
-    source: successful_requests
-    filename: successful_requests.csv
+  - series: successful_requests
+    as: successful_requests.csv
     description: "Successfully processed requests"
-  - id: network_failures
-    source: network_failures
-    filename: network_failures.csv
+  - series: network_failures
+    as: network_failures.csv
     description: "Requests lost due to network issues"
-  - id: server_failures
-    source: server_failures
-    filename: server_failures.csv
+  - series: server_failures
+    as: server_failures.csv
     description: "Requests lost due to server capacity"
-  - id: database_failures
-    source: database_failures
-    filename: database_failures.csv
+  - series: database_failures
+    as: database_failures.csv
     description: "Requests lost due to database issues"
-  - id: system_reliability
-    source: system_reliability
-    filename: system_reliability.csv
+  - series: system_reliability
+    as: system_reliability.csv
     description: "Overall system success rate"

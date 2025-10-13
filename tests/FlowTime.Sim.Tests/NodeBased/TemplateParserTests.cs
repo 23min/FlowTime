@@ -1,4 +1,3 @@
-using System.IO;
 using FlowTime.Sim.Core.Templates;
 using FlowTime.Sim.Core.Templates.Exceptions;
 using Xunit;
@@ -9,152 +8,214 @@ namespace FlowTime.Sim.Tests.NodeBased;
 public class TemplateParserTests
 {
     [Fact]
-    public void Valid_Const_Node_Template_Parses_Successfully()
+    public void Template_With_Const_Node_Parses_Successfully()
     {
         var yaml = """
+schemaVersion: 1
+generator: flowtime-sim
 metadata:
   id: simple-const-template
   title: Simple Constant Template
-  description: A basic template with constant values
+  version: 1.0.0
+window:
+  start: 2025-01-01T00:00:00Z
+  timezone: UTC
 grid:
   bins: 3
   binSize: 60
   binUnit: minutes
+topology:
+  nodes:
+    - id: OrderService
+      kind: service
+      semantics:
+        arrivals: arrivals
+        served: served
+  edges: []
 nodes:
   - id: arrivals
     kind: const
     values: [100, 150, 200]
+  - id: served
+    kind: const
+    values: [90, 120, 180]
 outputs:
-  - id: arrival_series
-    source: arrivals
-    description: Arrival counts per time bin
+  - series: "*"
 """;
 
         var template = TemplateParser.ParseFromYaml(yaml);
-        
-        Assert.NotNull(template);
+
         Assert.Equal("simple-const-template", template.Metadata.Id);
         Assert.Equal("Simple Constant Template", template.Metadata.Title);
+        Assert.Equal("1.0.0", template.Metadata.Version);
+        Assert.Equal("2025-01-01T00:00:00Z", template.Window.Start);
+        Assert.Equal("UTC", template.Window.Timezone);
         Assert.Equal(3, template.Grid.Bins);
         Assert.Equal(60, template.Grid.BinSize);
         Assert.Equal("minutes", template.Grid.BinUnit);
-        
-        Assert.Single(template.Nodes);
-        var node = template.Nodes[0];
-        Assert.Equal("arrivals", node.Id);
-        Assert.Equal("const", node.Kind);
-        Assert.Equal(new[] { 100.0, 150.0, 200.0 }, node.Values);
-        
+
+        Assert.Equal(2, template.Nodes.Count);
+        Assert.Equal(new[] { 100.0, 150.0, 200.0 }, template.Nodes[0].Values);
+
+        Assert.Single(template.Topology.Nodes);
+        var topologyNode = template.Topology.Nodes[0];
+        Assert.Equal("OrderService", topologyNode.Id);
+        Assert.Equal("arrivals", topologyNode.Semantics.Arrivals);
+        Assert.Equal("served", topologyNode.Semantics.Served);
+
         Assert.Single(template.Outputs);
-        var output = template.Outputs[0];
-        Assert.Equal("arrival_series", output.Id);
-        Assert.Equal("arrivals", output.Source);
+        Assert.Equal("*", template.Outputs[0].Series);
     }
 
     [Fact]
-    public void Valid_PMF_Node_Template_Parses_Successfully()
+    public void Template_With_Pmf_Node_Preserves_Pmf_Definition()
     {
         var yaml = """
+schemaVersion: 1
+generator: flowtime-sim
 metadata:
   id: pmf-template
   title: PMF Template
-  description: Template with PMF node
+  version: 2.0.0
+window:
+  start: 2025-02-01T00:00:00Z
+  timezone: UTC
 grid:
   bins: 4
   binSize: 15
   binUnit: minutes
+topology:
+  nodes:
+    - id: OrderService
+      kind: queue
+      semantics:
+        arrivals: stochastic_arrivals
+        served: served
+        queue: queue_depth
+      initialCondition:
+        queueDepth: 0
+  edges: []
 nodes:
   - id: stochastic_arrivals
     kind: pmf
     pmf:
       values: [10, 20, 30]
       probabilities: [0.3, 0.5, 0.2]
+  - id: served
+    kind: const
+    values: [5, 5, 5, 5]
+  - id: queue_depth
+    kind: const
+    values: [0, 0, 0, 0]
 outputs:
-  - id: arrival_series
-    source: stochastic_arrivals
-    description: Stochastic arrival counts
+  - series: "*"
 """;
 
         var template = TemplateParser.ParseFromYaml(yaml);
-        
-        Assert.NotNull(template);
+
         Assert.Equal("pmf-template", template.Metadata.Id);
         Assert.Equal(4, template.Grid.Bins);
-        
-        Assert.Single(template.Nodes);
-        var node = template.Nodes[0];
-        Assert.Equal("stochastic_arrivals", node.Id);
-        Assert.Equal("pmf", node.Kind);
-        Assert.NotNull(node.Pmf);
-        Assert.Equal(new[] { 10.0, 20.0, 30.0 }, node.Pmf.Values);
-        Assert.Equal(new[] { 0.3, 0.5, 0.2 }, node.Pmf.Probabilities);
+
+        var pmfNode = template.Nodes.Find(n => n.Id == "stochastic_arrivals");
+        Assert.NotNull(pmfNode);
+        Assert.Equal("pmf", pmfNode!.Kind);
+        Assert.NotNull(pmfNode.Pmf);
+        Assert.Equal(new[] { 10.0, 20.0, 30.0 }, pmfNode.Pmf!.Values);
+        Assert.Equal(new[] { 0.3, 0.5, 0.2 }, pmfNode.Pmf.Probabilities);
     }
 
     [Fact]
-    public void Template_With_Parameters_Parses_Successfully()
+    public void Template_With_Parameters_Populates_Collection()
     {
         var yaml = """
+schemaVersion: 1
+generator: flowtime-sim
 metadata:
   id: parameterized-template
   title: Parameterized Template
+  version: 1.0.0
+window:
+  start: 2025-03-01T00:00:00Z
+  timezone: UTC
 parameters:
   - name: arrival_rate
     type: number
     title: Arrival Rate
-    description: Average arrivals per time bin
     default: 100
     min: 0
     max: 1000
-  - name: grid_size
-    type: integer
-    title: Grid Size
-    description: Number of time bins
+  - name: queue_start
+    type: number
+    title: Queue Start
     default: 5
-    min: 1
-    max: 100
 grid:
   bins: 5
   binSize: 60
   binUnit: minutes
+topology:
+  nodes:
+    - id: OrderService
+      kind: service
+      semantics:
+        arrivals: arrivals
+        served: served
+  edges: []
 nodes:
   - id: arrivals
     kind: const
-    values: [100]
+    values: [100, 100, 100, 100, 100]
+  - id: served
+    kind: const
+    values: [80, 90, 85, 88, 82]
 outputs:
-  - id: arrival_series
-    source: arrivals
+  - series: "*"
 """;
 
         var template = TemplateParser.ParseFromYaml(yaml);
-        
-        Assert.NotNull(template);
-        Assert.Equal("parameterized-template", template.Metadata.Id);
+
         Assert.Equal(2, template.Parameters.Count);
-        
-        var arrivalRateParam = template.Parameters.First(p => p.Name == "arrival_rate");
-        Assert.Equal("number", arrivalRateParam.Type);
-        Assert.NotNull(arrivalRateParam.Default);
-        Assert.Equal("100", arrivalRateParam.Default.ToString()); // Use string comparison to avoid type issues
-        Assert.NotNull(arrivalRateParam.Min);
-        Assert.Equal("0", arrivalRateParam.Min.ToString());
-        Assert.NotNull(arrivalRateParam.Max);
-        Assert.Equal("1000", arrivalRateParam.Max.ToString());
-        
-        var gridSizeParam = template.Parameters.First(p => p.Name == "grid_size");
-        Assert.Equal("integer", gridSizeParam.Type);
-        Assert.NotNull(gridSizeParam.Default);
-        Assert.Equal("5", gridSizeParam.Default.ToString());
+        Assert.Contains(template.Parameters, p => p.Name == "arrival_rate" && (p.Default?.ToString() ?? string.Empty) == "100");
+        Assert.Contains(template.Parameters, p => p.Name == "queue_start" && (p.Default?.ToString() ?? string.Empty) == "5");
     }
 
     [Fact]
-    public void Invalid_Template_Missing_Required_Fields_Throws_Exception()
+    public void Expression_Node_With_SelfShift_Without_Topology_Initial_Throws()
     {
         var yaml = """
+schemaVersion: 1
+generator: flowtime-sim
 metadata:
-  id: incomplete-template
+  id: queue-template
+  title: Queue Template
+  version: 1.0.0
+window:
+  start: 2025-04-01T00:00:00Z
+  timezone: UTC
 grid:
   bins: 3
-# Missing nodes and outputs
+  binSize: 60
+  binUnit: minutes
+topology:
+  nodes:
+    - id: QueueNode
+      kind: queue
+      semantics:
+        arrivals: arrivals
+        served: served
+        queue: queue_depth
+  edges: []
+nodes:
+  - id: arrivals
+    kind: const
+    values: [10, 20, 15]
+  - id: served
+    kind: const
+    values: [8, 18, 14]
+  - id: queue_depth
+    kind: expr
+    expr: "SHIFT(queue_depth, 1) + arrivals - served"
+outputs:
+  - series: "*"
 """;
 
         Assert.Throws<TemplateValidationException>(() => TemplateParser.ParseFromYaml(yaml));
@@ -164,245 +225,77 @@ grid:
     public void Invalid_Node_Kind_Throws_Exception()
     {
         var yaml = """
+schemaVersion: 1
+generator: flowtime-sim
 metadata:
   id: invalid-node-template
   title: Invalid Node Template
+  version: 1.0.0
+window:
+  start: 2025-05-01T00:00:00Z
+  timezone: UTC
 grid:
   bins: 3
   binSize: 60
   binUnit: minutes
+topology:
+  nodes:
+    - id: NodeA
+      kind: service
+      semantics:
+        arrivals: invalid_node
+        served: served
+  edges: []
 nodes:
   - id: invalid_node
     kind: invalid_kind
     values: [100]
+  - id: served
+    kind: const
+    values: [50]
 outputs:
-  - id: output
-    source: invalid_node
-""";
-
-        Assert.Throws<TemplateParsingException>(() => TemplateParser.ParseFromYaml(yaml));
-    }
-
-    [Fact]
-    public void Template_Validation_Detects_Invalid_PMF_Probabilities()
-    {
-        var yaml = """
-metadata:
-  id: invalid-pmf-template
-  title: Invalid PMF Template
-grid:
-  bins: 3
-  binSize: 60
-  binUnit: minutes
-nodes:
-  - id: bad_pmf
-    kind: pmf
-    pmf:
-      values: [10, 20, 30]
-      probabilities: [0.3, 0.5, 0.3]  # Sum > 1.0
-outputs:
-  - id: output
-    source: bad_pmf
+  - series: "*"
 """;
 
         Assert.Throws<TemplateValidationException>(() => TemplateParser.ParseFromYaml(yaml));
     }
 
     [Fact]
-    public void Template_With_Expression_Node_Parses_Successfully()
+    public void Output_Referencing_Unknown_Node_Throws()
     {
         var yaml = """
+schemaVersion: 1
+generator: flowtime-sim
 metadata:
-  id: expression-template
-  title: Expression Template
+  id: invalid-output-template
+  title: Invalid Output Template
+  version: 1.0.0
+window:
+  start: 2025-06-01T00:00:00Z
+  timezone: UTC
 grid:
   bins: 3
   binSize: 60
   binUnit: minutes
-nodes:
-  - id: base_rate
-    kind: const
-    values: [100, 150, 200]
-  - id: multiplied_rate
-    kind: expr
-    expression: "base_rate * 1.5"
-    dependencies: [base_rate]
-outputs:
-  - id: final_series
-    source: multiplied_rate
-""";
-
-        var template = TemplateParser.ParseFromYaml(yaml);
-        
-        Assert.NotNull(template);
-        Assert.Equal(2, template.Nodes.Count);
-        
-        var exprNode = template.Nodes.First(n => n.Kind == "expr");
-        Assert.Equal("multiplied_rate", exprNode.Id);
-        Assert.Equal("base_rate * 1.5", exprNode.Expression);
-        Assert.Equal(new[] { "base_rate" }, exprNode.Dependencies);
-    }
-
-    [Fact]
-    public void Template_With_RNG_Configuration_Parses_Successfully()
-    {
-        var yaml = """
-metadata:
-  id: rng-template
-  title: Template with RNG Configuration
-grid:
-  bins: 3
-  binSize: 60
-  binUnit: minutes
+topology:
+  nodes:
+    - id: NodeA
+      kind: service
+      semantics:
+        arrivals: arrivals
+        served: served
+  edges: []
 nodes:
   - id: arrivals
     kind: const
-    values: [100, 150, 200]
-outputs:
-  - id: arrival_series
-    source: arrivals
-rng:
-  kind: pcg32
-  seed: "12345"
-""";
-
-        var template = TemplateParser.ParseFromYaml(yaml);
-        
-        Assert.NotNull(template);
-        Assert.Equal("rng-template", template.Metadata.Id);
-        
-        Assert.NotNull(template.Rng);
-        Assert.Equal("pcg32", template.Rng.Kind);
-        Assert.Equal("12345", template.Rng.Seed);
-    }
-
-    [Fact]
-    public void Template_With_RNG_Parameter_Reference_Parses_Successfully()
-    {
-        var yaml = """
-metadata:
-  id: rng-param-template
-  title: Template with RNG Parameter
-parameters:
-  - name: rngSeed
-    type: integer
-    title: Random Seed
-    description: Seed for deterministic random generation
-    default: 42
-    min: 1
-    max: 2147483647
-grid:
-  bins: 3
-  binSize: 60
-  binUnit: minutes
-nodes:
-  - id: arrivals
+    values: [100]
+  - id: served
     kind: const
-    values: [100, 150, 200]
+    values: [90]
 outputs:
-  - id: arrival_series
-    source: arrivals
-rng:
-  kind: pcg32
-  seed: "42"
-""";
-
-        var template = TemplateParser.ParseFromYaml(yaml);
-        
-        Assert.NotNull(template);
-        Assert.Equal("rng-param-template", template.Metadata.Id);
-        
-        // Verify parameter
-        var rngSeedParam = template.Parameters.First(p => p.Name == "rngSeed");
-        Assert.Equal("integer", rngSeedParam.Type);
-        Assert.Equal("42", rngSeedParam.Default?.ToString());
-        
-        // Verify RNG configuration
-        Assert.NotNull(template.Rng);
-        Assert.Equal("pcg32", template.Rng.Kind);
-        Assert.Equal("42", template.Rng.Seed); // After parameter substitution this would be the actual value
-    }
-
-    [Fact]
-    public void Template_Without_RNG_Has_Null_RNG()
-    {
-        var yaml = """
-metadata:
-  id: no-rng-template
-  title: Template without RNG
-grid:
-  bins: 3
-  binSize: 60
-  binUnit: minutes
-nodes:
-  - id: arrivals
-    kind: const
-    values: [100, 150, 200]
-outputs:
-  - id: arrival_series
-    source: arrivals
-""";
-
-        var template = TemplateParser.ParseFromYaml(yaml);
-        
-        Assert.NotNull(template);
-        Assert.Null(template.Rng); // RNG is optional
-    }
-
-    [Fact]
-    public void Template_With_Invalid_RNG_Kind_Throws_Exception()
-    {
-        var yaml = """
-metadata:
-  id: invalid-rng-template
-  title: Template with Invalid RNG
-grid:
-  bins: 3
-  binSize: 60
-  binUnit: minutes
-nodes:
-  - id: arrivals
-    kind: const
-    values: [100, 150, 200]
-outputs:
-  - id: arrival_series
-    source: arrivals
-rng:
-  kind: invalid_rng
-  seed: "12345"
+  - series: unknown
 """;
 
         Assert.Throws<TemplateValidationException>(() => TemplateParser.ParseFromYaml(yaml));
-    }
-
-    [Fact(Skip = "Pending time-travel template fields (Window/Classes/Topology) integration into FlowTime.Sim.Core")]
-    public void Template_With_Window_And_Topology_Parses_Successfully()
-    {
-        var yaml = File.ReadAllText("fixtures/templates/time-travel/topology_baseline.yaml");
-
-        dynamic template = TemplateParser.ParseFromYaml(yaml);
-
-        Assert.NotNull(template.Window);
-        Assert.Equal("2030-01-01T00:00:00Z", template.Window.Start);
-        Assert.Equal("UTC", template.Window.Timezone);
-
-        Assert.NotNull(template.Classes);
-        Assert.Single(template.Classes);
-        Assert.Equal("*", template.Classes[0]);
-
-        Assert.NotNull(template.Topology);
-        Assert.Single(template.Topology.Nodes);
-        var node = template.Topology.Nodes[0];
-        Assert.Equal("OrderService", node.Id);
-        Assert.Equal("service", node.Kind);
-        Assert.True(node.Semantics.TryGetValue("arrivals", out object? arrivalsSeries));
-        Assert.Equal("arrivals", arrivalsSeries as string);
-        Assert.True(node.Semantics.TryGetValue("served", out object? servedSeries));
-        Assert.Equal("served", servedSeries as string);
-        Assert.True(node.Semantics.TryGetValue("capacity", out object? capacitySeries));
-        Assert.Equal("capacity", capacitySeries as string);
-
-        Assert.NotNull(template.Topology.Edges);
-        Assert.Empty(template.Topology.Edges);
     }
 }

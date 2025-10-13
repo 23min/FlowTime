@@ -1,11 +1,14 @@
-# Transportation Network - Template
-# Simple transportation flow with demand and capacity constraints, ideal for logistics learning
-
+schemaVersion: 1
+generator: flowtime-sim
 metadata:
   id: 'transportation-basic'
   title: 'Transportation Network'
   description: 'Simple transportation flow with demand and capacity constraints, ideal for logistics learning'
+  version: 1.0.0
   tags: [beginner, transportation, logistics, capacity]
+window:
+  start: 2025-01-01T00:00:00Z
+  timezone: UTC
 
 parameters:
   - name: bins
@@ -42,42 +45,43 @@ grid:
   binSize: ${binSize}
   binUnit: minutes
 
+topology:
+  nodes:
+    - id: TransitLine
+      kind: service
+      semantics:
+        arrivals: passenger_demand
+        served: passengers_served
+        errors: unmet_demand
+  edges: []
+
 nodes:
-  # Passenger demand (varies by time of day)
   - id: passenger_demand
     kind: const
     values: ${demandPattern}
 
-  # Available vehicle capacity
   - id: vehicle_capacity
     kind: const
     values: ${capacityPattern}
 
-  # Passengers successfully transported
   - id: passengers_served
     kind: expr
-    expression: "MIN(passenger_demand, vehicle_capacity)"
+    expr: "MIN(passenger_demand, vehicle_capacity)"
 
-  # Unmet demand (overcrowding situations)
   - id: unmet_demand
     kind: expr
-    expression: "MAX(0, passenger_demand - vehicle_capacity)"
+    expr: "MAX(0, passenger_demand - vehicle_capacity)"
 
-  # System utilization rate
   - id: utilization
     kind: expr
-    expression: "passengers_served / vehicle_capacity"
+    expr: "passengers_served / vehicle_capacity"
 
 outputs:
-  - id: passenger_demand
-    source: passenger_demand
-    filename: demand.csv
-  - id: passengers_served
-    source: passengers_served
-    filename: served.csv
-  - id: unmet_demand
-    source: unmet_demand
-    filename: overcrowding.csv
-  - id: utilization
-    source: utilization
-    filename: utilization.csv
+  - series: passenger_demand
+    as: demand.csv
+  - series: passengers_served
+    as: served.csv
+  - series: unmet_demand
+    as: overcrowding.csv
+  - series: utilization
+    as: utilization.csv

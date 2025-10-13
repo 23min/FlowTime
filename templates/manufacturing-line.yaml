@@ -1,11 +1,14 @@
-# Manufacturing Production Line - Template
-# Production line with workstations, quality control, and bottleneck identification
-
+schemaVersion: 1
+generator: flowtime-sim
 metadata:
   id: 'manufacturing-line'
   title: 'Manufacturing Production Line'
   description: 'Production line with workstations, quality control, and bottleneck identification'
+  version: 1.0.0
   tags: [intermediate, manufacturing, production, bottleneck, quality]
+window:
+  start: 2025-01-01T00:00:00Z
+  timezone: UTC
 
 parameters:
   - name: bins
@@ -70,52 +73,67 @@ grid:
   binSize: ${binSize}
   binUnit: minutes
 
+topology:
+  nodes:
+    - id: AssemblyLine
+      kind: service
+      semantics:
+        arrivals: raw_materials
+        served: assembly
+        errors: defects
+    - id: QualityControl
+      kind: service
+      semantics:
+        arrivals: assembly
+        served: quality_control
+    - id: PackagingStation
+      kind: service
+      semantics:
+        arrivals: quality_control
+        served: packaging
+  edges:
+    - id: edge1
+      from: AssemblyLine:out
+      to: QualityControl:in
+    - id: edge2
+      from: QualityControl:out
+      to: PackagingStation:in
+
 nodes:
-  # Raw material availability
   - id: raw_materials
     kind: const
     values: ${rawMaterialSchedule}
 
-  # Assembly line capacity
   - id: assembly_capacity
     kind: const
     values: ${assemblyCapacity}
 
-  # Quality control capacity
   - id: quality_control_capacity
     kind: const
     values: ${qualityCapacity}
 
-  # Items assembled
   - id: assembly
     kind: expr
-    expression: "MIN(raw_materials, assembly_capacity)"
+    expr: "MIN(raw_materials, assembly_capacity)"
 
-  # Items passing quality control
   - id: quality_control
     kind: expr
-    expression: "assembly * ${qualityRate}"
+    expr: "MIN(assembly * ${qualityRate}, quality_control_capacity)"
 
-  # Final packaged products
   - id: packaging
     kind: expr
-    expression: "MIN(quality_control, ${productionRate} * 0.9)"
+    expr: "MIN(quality_control, ${productionRate} * 0.9)"
 
-  # Defective items (waste)
   - id: defects
     kind: expr
-    expression: "assembly * ${defectRate}"
+    expr: "assembly * ${defectRate}"
 
 outputs:
-  - id: raw_materials
-    source: raw_materials
-    filename: raw_materials.csv
-  - id: packaging
-    source: packaging
-    filename: finished_goods.csv
-  - id: defects
-    source: defects
-    filename: defects.csv
-  - id: quality_control
-    source: quality_control
-    filename: quality_passed.csv
+  - series: raw_materials
+    as: raw_materials.csv
+  - series: packaging
+    as: finished_goods.csv
+  - series: defects
+    as: defects.csv
+  - series: quality_control
+    as: quality_passed.csv

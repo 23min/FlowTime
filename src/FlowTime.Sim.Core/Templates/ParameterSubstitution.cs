@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using System.Text.RegularExpressions;
 using FlowTime.Sim.Core.Templates.Exceptions;
 using YamlDotNet.Serialization;
@@ -48,7 +50,7 @@ public static class ParameterSubstitution
         var allValues = GetMergedParameterValues(template, parameterValues);
         
         // Substitute parameters in the raw YAML string
-        return SubstituteInString(yamlContent, allValues);
+        return SubstituteInString(yamlContent, allValues) ?? yamlContent;
     }
 
     /// <summary>
@@ -82,7 +84,7 @@ public static class ParameterSubstitution
         }
 
         // Substitute parameters in raw YAML
-        var substitutedYaml = SubstituteInString(yamlContent, allValues);
+        var substitutedYaml = SubstituteInString(yamlContent, allValues) ?? yamlContent;
         
         // Parse the substituted YAML
         return TemplateParser.ParseFromYaml(substitutedYaml);
@@ -179,13 +181,48 @@ public static class ParameterSubstitution
 
     private static void SubstituteInTemplate(Template template, Dictionary<string, object> values)
     {
+        template.Generator = SubstituteInString(template.Generator, values) ?? template.Generator;
         // Substitute in metadata
-        template.Metadata.Id = SubstituteInString(template.Metadata.Id, values);
-        template.Metadata.Title = SubstituteInString(template.Metadata.Title, values);
-        template.Metadata.Description = SubstituteInString(template.Metadata.Description, values);
+        template.Metadata.Id = SubstituteInString(template.Metadata.Id, values) ?? template.Metadata.Id;
+        template.Metadata.Title = SubstituteInString(template.Metadata.Title, values) ?? template.Metadata.Title;
+        template.Metadata.Description = SubstituteInString(template.Metadata.Description, values) ?? template.Metadata.Description;
+        template.Metadata.Version = SubstituteInString(template.Metadata.Version, values) ?? template.Metadata.Version;
+
+        template.Window.Start = SubstituteInString(template.Window.Start, values) ?? template.Window.Start;
+        template.Window.Timezone = SubstituteInString(template.Window.Timezone, values) ?? template.Window.Timezone;
 
         // Substitute in grid
-        template.Grid.BinUnit = SubstituteInString(template.Grid.BinUnit, values);
+        template.Grid.BinUnit = SubstituteInString(template.Grid.BinUnit, values) ?? template.Grid.BinUnit;
+
+        if (template.Topology != null)
+        {
+            foreach (var topologyNode in template.Topology.Nodes)
+            {
+                topologyNode.Id = SubstituteInString(topologyNode.Id, values) ?? topologyNode.Id;
+                topologyNode.Kind = SubstituteInString(topologyNode.Kind, values) ?? topologyNode.Kind;
+                topologyNode.Group = SubstituteInString(topologyNode.Group, values) ?? topologyNode.Group;
+
+                if (topologyNode.Semantics != null)
+                {
+                    topologyNode.Semantics.Arrivals = SubstituteInString(topologyNode.Semantics.Arrivals, values) ?? topologyNode.Semantics.Arrivals;
+                    topologyNode.Semantics.Served = SubstituteInString(topologyNode.Semantics.Served, values) ?? topologyNode.Semantics.Served;
+                    topologyNode.Semantics.Errors = SubstituteInString(topologyNode.Semantics.Errors, values) ?? topologyNode.Semantics.Errors;
+                    topologyNode.Semantics.Queue = SubstituteInString(topologyNode.Semantics.Queue, values) ?? topologyNode.Semantics.Queue;
+                    topologyNode.Semantics.Capacity = SubstituteInString(topologyNode.Semantics.Capacity, values) ?? topologyNode.Semantics.Capacity;
+                    topologyNode.Semantics.ExternalDemand = SubstituteInString(topologyNode.Semantics.ExternalDemand, values) ?? topologyNode.Semantics.ExternalDemand;
+                }
+            }
+
+            if (template.Topology.Edges != null)
+            {
+                foreach (var edge in template.Topology.Edges)
+                {
+                    edge.Id = SubstituteInString(edge.Id, values) ?? edge.Id;
+                    edge.From = SubstituteInString(edge.From, values) ?? edge.From;
+                    edge.To = SubstituteInString(edge.To, values) ?? edge.To;
+                }
+            }
+        }
 
         // Substitute in nodes
         foreach (var node in template.Nodes)
@@ -196,36 +233,73 @@ public static class ParameterSubstitution
         // Substitute in outputs
         foreach (var output in template.Outputs)
         {
-            output.Id = SubstituteInString(output.Id, values);
-            output.Source = SubstituteInString(output.Source, values);
-            output.Description = SubstituteInString(output.Description, values);
+            output.Id = SubstituteInString(output.Id, values) ?? output.Id;
+            output.Series = SubstituteInString(output.Series, values) ?? output.Series;
+            output.As = SubstituteInString(output.As, values) ?? output.As;
+            output.Description = SubstituteInString(output.Description, values) ?? output.Description;
         }
 
         // Substitute in RNG
         if (template.Rng != null)
         {
-            template.Rng.Kind = SubstituteInString(template.Rng.Kind, values);
-            template.Rng.Seed = SubstituteInString(template.Rng.Seed, values);
+            template.Rng.Kind = SubstituteInString(template.Rng.Kind, values) ?? template.Rng.Kind;
+            template.Rng.Seed = SubstituteInString(template.Rng.Seed, values) ?? template.Rng.Seed;
+        }
+
+        if (template.Provenance != null)
+        {
+            template.Provenance.Source = SubstituteInString(template.Provenance.Source, values) ?? template.Provenance.Source;
+            template.Provenance.Generator = SubstituteInString(template.Provenance.Generator, values) ?? template.Provenance.Generator;
+            template.Provenance.GeneratedAt = SubstituteInString(template.Provenance.GeneratedAt, values) ?? template.Provenance.GeneratedAt;
+            template.Provenance.TemplateId = SubstituteInString(template.Provenance.TemplateId, values) ?? template.Provenance.TemplateId;
+            template.Provenance.TemplateVersion = SubstituteInString(template.Provenance.TemplateVersion, values) ?? template.Provenance.TemplateVersion;
+            template.Provenance.Mode = SubstituteInString(template.Provenance.Mode, values) ?? template.Provenance.Mode;
+            template.Provenance.ModelId = SubstituteInString(template.Provenance.ModelId, values) ?? template.Provenance.ModelId;
+
+            if (template.Provenance.Parameters.Count > 0)
+            {
+                foreach (var key in template.Provenance.Parameters.Keys.ToList())
+                {
+                    if (template.Provenance.Parameters[key] is string s)
+                    {
+                        var substituted = SubstituteInString(s, values);
+                        if (substituted != null)
+                        {
+                            template.Provenance.Parameters[key] = substituted;
+                        }
+                    }
+                }
+            }
         }
     }
 
     private static void SubstituteInNode(TemplateNode node, Dictionary<string, object> values)
     {
-        node.Id = SubstituteInString(node.Id, values);
-        node.Kind = SubstituteInString(node.Kind, values);
+        node.Id = SubstituteInString(node.Id, values) ?? node.Id;
+        node.Kind = SubstituteInString(node.Kind, values) ?? node.Kind;
 
         // Substitute in expression
-        if (!string.IsNullOrEmpty(node.Expression))
+        if (!string.IsNullOrEmpty(node.Expr))
         {
-            node.Expression = SubstituteInString(node.Expression, values);
+            var substitutedExpr = SubstituteInString(node.Expr, values);
+            if (substitutedExpr != null)
+            {
+                node.Expr = substitutedExpr;
+            }
         }
+
+        node.Source = SubstituteInString(node.Source, values) ?? node.Source;
 
         // Substitute in dependencies
         if (node.Dependencies != null)
         {
-            for (int i = 0; i < node.Dependencies.Length; i++)
+            for (int i = 0; i < node.Dependencies.Count; i++)
             {
-                node.Dependencies[i] = SubstituteInString(node.Dependencies[i], values);
+                var substitutedDependency = SubstituteInString(node.Dependencies[i], values);
+                if (substitutedDependency != null)
+                {
+                    node.Dependencies[i] = substitutedDependency;
+                }
             }
         }
 
@@ -233,7 +307,7 @@ public static class ParameterSubstitution
         // since numeric array substitution is complex at the object level
     }
 
-    private static string SubstituteInString(string input, Dictionary<string, object> values)
+    private static string? SubstituteInString(string? input, Dictionary<string, object> values)
     {
         if (string.IsNullOrEmpty(input))
             return input;

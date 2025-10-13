@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using FlowTime.Sim.Core.Templates;
 using FlowTime.Sim.Core.Templates.Exceptions;
 using Xunit;
@@ -14,11 +17,25 @@ public class RngValidationTests
 metadata:
   id: valid-rng
   title: Valid RNG Template
+  version: 1.0.0
+
+window:
+  start: 2025-01-01T00:00:00Z
+  timezone: UTC
 
 grid:
   bins: 3
   binSize: 60
   binUnit: minutes
+
+topology:
+  nodes:
+    - id: ServiceNode
+      kind: service
+      semantics:
+        arrivals: test_node
+        served: test_node
+  edges: []
 
 rng:
   kind: pcg32
@@ -30,9 +47,8 @@ nodes:
     values: [1, 2, 3]
 
 outputs:
-  - id: test_output
-    source: test_node
-    filename: test.csv
+  - series: test_node
+    as: test.csv
 ";
 
         // Act
@@ -52,11 +68,25 @@ outputs:
 metadata:
   id: string-seed-rng
   title: String Seed RNG Template
+  version: 1.0.0
+
+window:
+  start: 2025-01-01T00:00:00Z
+  timezone: UTC
 
 grid:
   bins: 3
   binSize: 60
   binUnit: minutes
+
+topology:
+  nodes:
+    - id: ServiceNode
+      kind: service
+      semantics:
+        arrivals: test_node
+        served: test_node
+  edges: []
 
 rng:
   kind: pcg32
@@ -68,9 +98,8 @@ nodes:
     values: [1, 2, 3]
 
 outputs:
-  - id: test_output
-    source: test_node
-    filename: test.csv
+  - series: test_node
+    as: test.csv
 ";
 
         // Act
@@ -90,11 +119,25 @@ outputs:
 metadata:
   id: no-rng
   title: No RNG Template
+  version: 1.0.0
+
+window:
+  start: 2025-01-01T00:00:00Z
+  timezone: UTC
 
 grid:
   bins: 3
   binSize: 60
   binUnit: minutes
+
+topology:
+  nodes:
+    - id: ServiceNode
+      kind: service
+      semantics:
+        arrivals: test_node
+        served: test_node
+  edges: []
 
 nodes:
   - id: test_node
@@ -102,9 +145,8 @@ nodes:
     values: [1, 2, 3]
 
 outputs:
-  - id: test_output
-    source: test_node
-    filename: test.csv
+  - series: test_node
+    as: test.csv
 ";
 
         // Act
@@ -122,16 +164,30 @@ outputs:
 metadata:
   id: param-rng
   title: Parameterized RNG Template
+  version: 1.0.0
 
 parameters:
   - name: mySeed
     type: integer
     default: 999
 
+window:
+  start: 2025-01-01T00:00:00Z
+  timezone: UTC
+
 grid:
   bins: 3
   binSize: 60
   binUnit: minutes
+
+topology:
+  nodes:
+    - id: ServiceNode
+      kind: service
+      semantics:
+        arrivals: test_node
+        served: test_node
+  edges: []
 
 rng:
   kind: pcg32
@@ -143,9 +199,8 @@ nodes:
     values: [1, 2, 3]
 
 outputs:
-  - id: test_output
-    source: test_node
-    filename: test.csv
+  - series: test_node
+    as: test.csv
 ";
         var parameters = new Dictionary<string, object> { ["mySeed"] = 777 };
 
@@ -166,16 +221,30 @@ outputs:
 metadata:
   id: default-rng
   title: Default RNG Template
+  version: 1.0.0
 
 parameters:
   - name: defaultSeed
     type: integer
     default: 555
 
+window:
+  start: 2025-01-01T00:00:00Z
+  timezone: UTC
+
 grid:
   bins: 3
   binSize: 60
   binUnit: minutes
+
+topology:
+  nodes:
+    - id: ServiceNode
+      kind: service
+      semantics:
+        arrivals: test_node
+        served: test_node
+  edges: []
 
 rng:
   kind: pcg32
@@ -187,9 +256,8 @@ nodes:
     values: [1, 2, 3]
 
 outputs:
-  - id: test_output
-    source: test_node
-    filename: test.csv
+  - series: test_node
+    as: test.csv
 ";
         var parameters = new Dictionary<string, object>(); // Empty - should use default
 
@@ -210,11 +278,25 @@ outputs:
 metadata:
   id: multi-pmf-rng
   title: Multiple PMF with RNG Template
+  version: 1.0.0
+
+window:
+  start: 2025-01-01T00:00:00Z
+  timezone: UTC
 
 grid:
   bins: 3
   binSize: 60
   binUnit: minutes
+
+topology:
+  nodes:
+    - id: CapacityNode
+      kind: service
+      semantics:
+        arrivals: base_capacity
+        served: effective_capacity
+  edges: []
 
 rng:
   kind: pcg32
@@ -236,16 +318,15 @@ nodes:
   - id: base_capacity
     kind: const
     values: [100, 120, 110]
-    
+
   - id: effective_capacity
     kind: expr
-    expression: ""base_capacity * reliability_factor * performance_factor""
+    expr: ""base_capacity * reliability_factor * performance_factor""
     dependencies: [base_capacity, reliability_factor, performance_factor]
 
 outputs:
-  - id: effective_capacity
-    source: effective_capacity
-    filename: capacity.csv
+  - series: effective_capacity
+    as: capacity.csv
 ";
 
         // Act
@@ -277,11 +358,26 @@ outputs:
 metadata:
   id: pmf-expr-rng
   title: PMF Expression RNG Integration
+  version: 1.0.0
+
+window:
+  start: 2025-01-01T00:00:00Z
+  timezone: UTC
 
 grid:
   bins: 4
   binSize: 30
   binUnit: minutes
+
+topology:
+  nodes:
+    - id: SupplyChain
+      kind: service
+      semantics:
+        arrivals: market_demand
+        served: actual_supply
+        errors: unmet_demand
+  edges: []
 
 rng:
   kind: pcg32
@@ -306,34 +402,31 @@ nodes:
       
   - id: actual_supply
     kind: expr
-    expression: ""demand * supply_variability""
+    expr: ""demand * supply_variability""
     dependencies: [demand, supply_variability]
-    
+
   - id: market_demand
     kind: expr
-    expression: ""demand * market_factor""
+    expr: ""demand * market_factor""
     dependencies: [demand, market_factor]
-    
+
   - id: unmet_demand
     kind: expr
-    expression: ""MAX(0, market_demand - actual_supply)""
+    expr: ""MAX(0, market_demand - actual_supply)""
     dependencies: [market_demand, actual_supply]
-    
+
   - id: surplus
     kind: expr
-    expression: ""MAX(0, actual_supply - market_demand)""
+    expr: ""MAX(0, actual_supply - market_demand)""
     dependencies: [actual_supply, market_demand]
 
 outputs:
-  - id: actual_supply
-    source: actual_supply
-    filename: supply.csv
-  - id: unmet_demand
-    source: unmet_demand
-    filename: unmet.csv
-  - id: surplus
-    source: surplus
-    filename: surplus.csv
+  - series: actual_supply
+    as: supply.csv
+  - series: unmet_demand
+    as: unmet.csv
+  - series: surplus
+    as: surplus.csv
 ";
 
         // Act
@@ -353,10 +446,10 @@ outputs:
         Assert.Equal(4, exprNodes.Count);
         
         var actualSupplyNode = exprNodes.First(n => n.Id == "actual_supply");
-        Assert.Contains("supply_variability", actualSupplyNode.Expression);
+        Assert.Contains("supply_variability", actualSupplyNode.Expr);
         
         var marketDemandNode = exprNodes.First(n => n.Id == "market_demand");
-        Assert.Contains("market_factor", marketDemandNode.Expression);
+        Assert.Contains("market_factor", marketDemandNode.Expr);
     }
 
     [Fact]
@@ -367,11 +460,25 @@ outputs:
 metadata:
   id: valid-pmf-sum
   title: Valid PMF Sum
+  version: 1.0.0
+
+window:
+  start: 2025-01-01T00:00:00Z
+  timezone: UTC
 
 grid:
   bins: 2
   binSize: 60
   binUnit: minutes
+
+topology:
+  nodes:
+    - id: PmfNode
+      kind: service
+      semantics:
+        arrivals: test_pmf
+        served: test_pmf
+  edges: []
 
 rng:
   kind: pcg32
@@ -385,9 +492,8 @@ nodes:
       probabilities: [0.3, 0.3, 0.4]
 
 outputs:
-  - id: test_output
-    source: test_pmf
-    filename: test.csv
+  - series: test_pmf
+    as: test.csv
 ";
 
         // Act & Assert

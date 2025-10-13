@@ -1,11 +1,14 @@
-# IT System with Microservices - Template
-# Modern web application with request queues, load balancer, auth service, and database bottlenecks
-
+schemaVersion: 1
+generator: flowtime-sim
 metadata:
   id: 'it-system-microservices'
   title: 'IT System with Microservices'
   description: 'Modern web application with request queues, load balancer, auth service, and database bottlenecks'
+  version: 1.0.0
   tags: [intermediate, microservices, web-scale, modern, it-systems]
+window:
+  start: 2025-01-01T00:00:00Z
+  timezone: UTC
 
 parameters:
   - name: bins
@@ -56,62 +59,76 @@ grid:
   binSize: ${binSize}
   binUnit: minutes
 
+topology:
+  nodes:
+    - id: LoadBalancer
+      kind: service
+      semantics:
+        arrivals: user_requests
+        served: load_balanced_requests
+        errors: failed_requests
+    - id: AuthService
+      kind: service
+      semantics:
+        arrivals: load_balanced_requests
+        served: authenticated_requests
+    - id: Database
+      kind: service
+      semantics:
+        arrivals: authenticated_requests
+        served: processed_requests
+        errors: failed_requests
+  edges:
+    - id: edge1
+      from: LoadBalancer:out
+      to: AuthService:in
+    - id: edge2
+      from: AuthService:out
+      to: Database:in
+
 nodes:
-  # Incoming user requests (varies by time of day)
   - id: user_requests
     kind: const
     values: ${requestPattern}
 
-  # Load balancer processing capacity
   - id: load_balancer_capacity
     kind: const
     values: ${loadBalancerCapacity}
 
-  # Authentication service capacity
   - id: auth_capacity
     kind: const
     values: ${authCapacity}
 
-  # Database capacity
   - id: database_capacity
     kind: const
     values: ${databaseCapacity}
 
-  # Requests processed by load balancer
   - id: load_balanced_requests
     kind: expr
-    expression: "MIN(user_requests, load_balancer_capacity)"
+    expr: "MIN(user_requests, load_balancer_capacity)"
 
-  # Requests processed by auth service
   - id: authenticated_requests
     kind: expr
-    expression: "MIN(load_balanced_requests, auth_capacity)"
+    expr: "MIN(load_balanced_requests, auth_capacity)"
 
-  # Requests processed by database
   - id: processed_requests
     kind: expr
-    expression: "MIN(authenticated_requests, database_capacity)"
+    expr: "MIN(authenticated_requests, database_capacity)"
 
-  # Failed requests (bottlenecked)
   - id: failed_requests
     kind: expr
-    expression: "user_requests - processed_requests"
+    expr: "user_requests - processed_requests"
 
-  # System utilization
   - id: system_utilization
     kind: expr
-    expression: "processed_requests / user_requests"
+    expr: "processed_requests / user_requests"
 
 outputs:
-  - id: user_requests
-    source: user_requests
-    filename: requests.csv
-  - id: processed_requests
-    source: processed_requests
-    filename: processed.csv
-  - id: failed_requests
-    source: failed_requests
-    filename: failures.csv
-  - id: system_utilization
-    source: system_utilization
-    filename: utilization.csv
+  - series: user_requests
+    as: requests.csv
+  - series: processed_requests
+    as: processed.csv
+  - series: failed_requests
+    as: failures.csv
+  - series: system_utilization
+    as: utilization.csv

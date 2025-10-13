@@ -10,11 +10,17 @@ public class NetworkReliabilityTemplateTests
     {
         // Arrange
         var yaml = @"
+schemaVersion: 1
+generator: flowtime-sim
 metadata:
   id: 'network-reliability'
   title: 'Network Reliability Test'
   description: 'Test template for RNG functionality'
+  version: 1.0.0
   tags: [test, rng]
+window:
+  start: 2025-01-01T00:00:00Z
+  timezone: UTC
 
 parameters:
   - name: bins
@@ -33,6 +39,16 @@ rng:
   kind: pcg32
   seed: ${rngSeed}
 
+topology:
+  nodes:
+    - id: ReliabilityNode
+      kind: service
+      semantics:
+        arrivals: base_requests
+        served: base_requests
+        errors: null
+  edges: []
+
 nodes:
   - id: base_requests
     kind: const
@@ -45,9 +61,8 @@ nodes:
       probabilities: [0.7, 0.2, 0.1]
 
 outputs:
-  - id: base_requests
-    source: base_requests
-    filename: requests.csv
+  - series: base_requests
+    as: requests.csv
 ";
         var parameters = new Dictionary<string, object>
         {
@@ -79,9 +94,15 @@ outputs:
     {
         // Arrange
         var yaml = @"
+schemaVersion: 1
+generator: flowtime-sim
 metadata:
   id: 'pmf-test'
   title: 'PMF Test'
+  version: 1.0.0
+window:
+  start: 2025-01-01T00:00:00Z
+  timezone: UTC
 
 grid:
   bins: 3
@@ -92,6 +113,15 @@ rng:
   kind: pcg32
   seed: 42
 
+topology:
+  nodes:
+    - id: PmfNode
+      kind: service
+      semantics:
+        arrivals: pmf_node
+        served: pmf_node
+  edges: []
+
 nodes:
   - id: pmf_node
     kind: pmf
@@ -100,9 +130,8 @@ nodes:
       probabilities: [0.6, 0.3, 0.1]
 
 outputs:
-  - id: pmf_node
-    source: pmf_node
-    filename: pmf.csv
+  - series: pmf_node
+    as: pmf.csv
 ";
         var parameters = new Dictionary<string, object>();
 

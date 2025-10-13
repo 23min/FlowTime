@@ -1,3 +1,4 @@
+using System.IO;
 using FlowTime.Sim.Core.Services;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
@@ -10,34 +11,7 @@ public class TemplateParameterBugTests
     public async Task GenerateModelAsync_ShouldStripParametersFromMetadata()
     {
         // Arrange
-        var currentDir = Directory.GetCurrentDirectory();
-        
-        // Try multiple path combinations to find templates directory
-        var possiblePaths = new[]
-        {
-            // From /workspaces/flowtime-sim-vnext/tests/FlowTime.Sim.Tests/bin/Debug/net9.0 to /workspaces/flowtime-sim-vnext/templates
-            Path.GetFullPath(Path.Combine(currentDir, "..", "..", "..", "..", "..", "templates")),
-            Path.GetFullPath(Path.Combine(currentDir, "..", "..", "..", "..", "templates")),
-            Path.GetFullPath(Path.Combine(currentDir, "..", "..", "..", "templates")),
-            Path.GetFullPath(Path.Combine(currentDir, "..", "..", "templates")),
-            Path.GetFullPath(Path.Combine(currentDir, "..", "templates")),
-            Path.GetFullPath(Path.Combine(currentDir, "templates"))
-        };
-        
-        string templatesDirectory = "";
-        foreach (var path in possiblePaths)
-        {
-            if (Directory.Exists(path))
-            {
-                templatesDirectory = path;
-                break;
-            }
-        }
-        
-        if (string.IsNullOrEmpty(templatesDirectory))
-        {
-            throw new DirectoryNotFoundException($"Templates directory not found. Current directory: {currentDir}. Tried paths: {string.Join(", ", possiblePaths)}");
-        }
+        var templatesDirectory = ResolveTemplatesDirectory();
         // Preload templates explicitly to avoid directory scanning variability
         var templateIds = new[] { "it-system-microservices", "supply-chain-multi-tier", "manufacturing-line", "transportation-basic" };
         var preloaded = new Dictionary<string, string>();
@@ -64,8 +38,7 @@ public class TemplateParameterBugTests
 
             // Assert
             Assert.NotNull(generatedModel);
-            Assert.DoesNotContain("  parameters:", generatedModel);
-            
+
             // Additional check - ensure parameters section is not present in the output (engine schema)
             var lines = generatedModel.Split('\n');
             var inMetadataSection = false;
@@ -102,34 +75,7 @@ public class TemplateParameterBugTests
     public async Task GetAllTemplatesAsync_ShouldReturnTemplatesWithParameters()
     {
         // Arrange
-        var currentDir = Directory.GetCurrentDirectory();
-        
-        // Try multiple path combinations to find templates directory
-        var possiblePaths = new[]
-        {
-            // From /workspaces/flowtime-sim-vnext/tests/FlowTime.Sim.Tests/bin/Debug/net9.0 to /workspaces/flowtime-sim-vnext/templates
-            Path.GetFullPath(Path.Combine(currentDir, "..", "..", "..", "..", "..", "templates")),
-            Path.GetFullPath(Path.Combine(currentDir, "..", "..", "..", "..", "templates")),
-            Path.GetFullPath(Path.Combine(currentDir, "..", "..", "..", "templates")),
-            Path.GetFullPath(Path.Combine(currentDir, "..", "..", "templates")),
-            Path.GetFullPath(Path.Combine(currentDir, "..", "templates")),
-            Path.GetFullPath(Path.Combine(currentDir, "templates"))
-        };
-        
-        string templatesDirectory = "";
-        foreach (var path in possiblePaths)
-        {
-            if (Directory.Exists(path))
-            {
-                templatesDirectory = path;
-                break;
-            }
-        }
-        
-        if (string.IsNullOrEmpty(templatesDirectory))
-        {
-            throw new DirectoryNotFoundException($"Templates directory not found. Current directory: {currentDir}. Tried paths: {string.Join(", ", possiblePaths)}");
-        }
+        var templatesDirectory = ResolveTemplatesDirectory();
         // Preload specific templates explicitly
         var templateIds = new[] { "it-system-microservices", "supply-chain-multi-tier", "manufacturing-line", "transportation-basic" };
         var preloaded = new Dictionary<string, string>();
@@ -159,5 +105,27 @@ public class TemplateParameterBugTests
             Assert.NotNull(template!.Parameters);
             Assert.NotEmpty(template.Parameters);
         }
+    }
+
+    private static string ResolveTemplatesDirectory()
+    {
+        var directory = Directory.GetCurrentDirectory();
+
+        while (!string.IsNullOrEmpty(directory))
+        {
+            var solutionPath = Path.Combine(directory, "FlowTime.sln");
+            if (File.Exists(solutionPath))
+            {
+                var templatesPath = Path.Combine(directory, "templates");
+                if (Directory.Exists(templatesPath))
+                {
+                    return templatesPath;
+                }
+            }
+
+            directory = Path.GetDirectoryName(directory);
+        }
+
+        throw new DirectoryNotFoundException("Unable to resolve templates directory relative to solution root.");
     }
 }

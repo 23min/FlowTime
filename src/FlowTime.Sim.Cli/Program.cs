@@ -292,7 +292,7 @@ namespace FlowTime.Sim.Cli
                     parameters);
 
                 // If embed mode, embed provenance in model YAML
-                if (opts.EmbedProvenance)
+                if (opts.EmbedProvenance && !ModelContainsProvenanceBlock(model))
                 {
                     model = Core.Services.ProvenanceEmbedder.EmbedProvenance(model, provenance);
                 }
@@ -337,6 +337,13 @@ namespace FlowTime.Sim.Cli
             }
 
             return 0;
+        }
+
+        private static bool ModelContainsProvenanceBlock(string modelYaml)
+        {
+            return modelYaml
+                .Split('\n')
+                .Any(line => line.TrimStart().StartsWith("provenance:"));
         }
 
         static async Task<int> ExecuteValidateCommand(INodeBasedTemplateService service, CliOptions opts, CancellationToken ct)
