@@ -1,6 +1,6 @@
 @host = http://localhost:8080
-@fixturesRoot = file:///workspaces/flowtime-vnext/data/models/http-demo/fixtures
-@telemetryRoot = file:///workspaces/flowtime-vnext/data/telemetry/http-demo
+@fixturesRoot = file:///workspaces/flowtime-vnext/examples/http-demo
+@telemetryRoot = file:///workspaces/flowtime-vnext/examples/http-demo
 
 ### 1. Service health (confirm API is reachable)
 GET {{host}}/v1/healthz
@@ -42,17 +42,17 @@ topology:
     - id: OrderService
       kind: service
       semantics:
-        arrivals: service_arrivals
-        served: service_served
-        errors: service_errors
-        capacity: service_capacity
+        arrivals: "{{fixturesRoot}}/OrderService_arrivals.csv"
+        served: "{{fixturesRoot}}/OrderService_served.csv"
+        errors: "{{fixturesRoot}}/OrderService_errors.csv"
+        capacity: "{{fixturesRoot}}/OrderService_capacity.csv"
     - id: SupportQueue
       kind: queue
       semantics:
-        arrivals: queue_arrivals
-        served: queue_served
-        errors: queue_errors
-        queue: queue_depth
+        arrivals: "{{fixturesRoot}}/SupportQueue_arrivals.csv"
+        served: "{{fixturesRoot}}/SupportQueue_served.csv"
+        errors: "{{fixturesRoot}}/SupportQueue_errors.csv"
+        queue: "{{fixturesRoot}}/SupportQueue_queue.csv"
   edges:
     - id: edge1
       from: OrderService:out
@@ -191,7 +191,7 @@ GET {{host}}/v1/runs/{{createRunSimulation.response.body.$.runId}}/state_window?
 Accept: application/json
 
 ### 7. (Optional) Download a raw series for verification
-GET {{host}}/v1/runs/{{createRunSimulation.response.body.$.runId}}/series/service_arrivals@SERVICE_ARRIVALS@DEFAULT
+GET {{host}}/v1/runs/{{createRunSimulation.response.body.$.runId}}/series/service_arrivals@ORDERSERVICE@DEFAULT
 Accept: text/csv
 
 ### 8. Validation failure example (SHIFT without initial condition)
