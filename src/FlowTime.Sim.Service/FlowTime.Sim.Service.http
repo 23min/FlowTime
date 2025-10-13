@@ -86,6 +86,8 @@ GET {{baseUrl}}/api/v1/models HTTP/1.1
 ### Get specific model by templateId
 # Returns:
 # - templateId: source template identifier
+# - schema: directory bucket (e.g. schema-1)
+# - mode: generation mode (simulation|telemetry)
 # - model: full YAML content
 # - path: file system location
 # - size: file size in bytes

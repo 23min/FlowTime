@@ -376,42 +376,52 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 				foreach (var templateDir in Directory.GetDirectories(modelsRoot))
 				{
 					var templateId = Path.GetFileName(templateDir);
-					
-					// Check for hash-based subdirectories
-					foreach (var hashDir in Directory.GetDirectories(templateDir))
+
+					foreach (var schemaDir in Directory.GetDirectories(templateDir))
 					{
-						var modelPath = Path.Combine(hashDir, "model.yaml");
-						var metadataPath = Path.Combine(hashDir, "metadata.json");
-						
-						if (File.Exists(modelPath))
+						var schemaSegment = Path.GetFileName(schemaDir);
+						foreach (var modeDir in Directory.GetDirectories(schemaDir))
 						{
-							var fileInfo = new FileInfo(modelPath);
-							string? modelHash = null;
-							
-							// Read modelHash from metadata.json if it exists
-							if (File.Exists(metadataPath))
+							var modeSegment = Path.GetFileName(modeDir);
+							foreach (var hashDir in Directory.GetDirectories(modeDir))
 							{
-								try
+								var modelPath = Path.Combine(hashDir, "model.yaml");
+								var metadataPath = Path.Combine(hashDir, "metadata.json");
+
+								if (!File.Exists(modelPath))
 								{
-									var metadataJson = File.ReadAllText(metadataPath);
-									var metadataDoc = JsonDocument.Parse(metadataJson);
-									if (metadataDoc.RootElement.TryGetProperty("modelHash", out var hashElement))
-									{
-										modelHash = hashElement.GetString();
-									}
+									continue;
 								}
-								catch { /* ignore metadata read errors */ }
+
+								var fileInfo = new FileInfo(modelPath);
+								string? modelHash = null;
+
+								if (File.Exists(metadataPath))
+								{
+									try
+									{
+										var metadataJson = File.ReadAllText(metadataPath);
+										var metadataDoc = JsonDocument.Parse(metadataJson);
+										if (metadataDoc.RootElement.TryGetProperty("modelHash", out var hashElement))
+										{
+											modelHash = hashElement.GetString();
+										}
+									}
+									catch { /* ignore metadata read errors */ }
+								}
+
+								models.Add(new
+								{
+									templateId,
+									schema = schemaSegment,
+									mode = modeSegment,
+									path = modelPath,
+									size = fileInfo.Length,
+									modifiedUtc = fileInfo.LastWriteTimeUtc,
+									contentType = "application/x-yaml",
+									modelHash
+								});
 							}
-							
-							models.Add(new
-							{
-								templateId,
-								path = modelPath,
-								size = fileInfo.Length,
-								modifiedUtc = fileInfo.LastWriteTimeUtc,
-								contentType = "application/x-yaml",
-								modelHash
-							});
 						}
 					}
 				}
@@ -437,21 +447,26 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 					return Results.NotFound(new { error = $"No models found for template '{templateId}'" });
 				}
 
-				// Find the most recent model (newest hash directory)
-				var hashDirs = Directory.GetDirectories(templateDir);
-				if (hashDirs.Length == 0)
+				var bestCandidate = Directory.GetDirectories(templateDir)
+					.SelectMany(schemaDir => Directory.GetDirectories(schemaDir)
+						.SelectMany(modeDir => Directory.GetDirectories(modeDir)
+							.Select(hashDir => new
+							{
+								Schema = Path.GetFileName(schemaDir),
+								Mode = Path.GetFileName(modeDir),
+								Dir = hashDir,
+								Time = Directory.GetLastWriteTimeUtc(hashDir)
+							})))
+					.OrderByDescending(x => x.Time)
+					.FirstOrDefault();
+
+				if (bestCandidate is null)
 				{
 					return Results.NotFound(new { error = $"No models found for template '{templateId}'" });
 				}
 
-				// Get the most recently modified model
-				var latestHashDir = hashDirs
-					.Select(d => new { Dir = d, Time = Directory.GetLastWriteTimeUtc(d) })
-					.OrderByDescending(x => x.Time)
-					.First().Dir;
-
-				var modelPath = Path.Combine(latestHashDir, "model.yaml");
-				var metadataPath = Path.Combine(latestHashDir, "metadata.json");
+				var modelPath = Path.Combine(bestCandidate.Dir, "model.yaml");
+				var metadataPath = Path.Combine(bestCandidate.Dir, "metadata.json");
 				
 				if (!File.Exists(modelPath))
 				{
@@ -480,6 +495,8 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 				return Results.Ok(new
 				{
 					templateId,
+					schema = bestCandidate.Schema,
+					mode = bestCandidate.Mode,
 					model = modelYaml,
 					path = modelPath,
 					size = fileInfo.Length,

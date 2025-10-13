@@ -43,17 +43,17 @@ topology:
     - id: OrderService
       kind: service
       semantics:
-        arrivals: service_arrivals
-        served: service_served
-        errors: service_errors
-        capacity: service_capacity
+        arrivals: "{{fixturesRoot}}/OrderService_arrivals.csv"
+        served: "{{fixturesRoot}}/OrderService_served.csv"
+        errors: "{{fixturesRoot}}/OrderService_errors.csv"
+        capacity: "{{fixturesRoot}}/OrderService_capacity.csv"
     - id: SupportQueue
       kind: queue
       semantics:
-        arrivals: queue_arrivals
-        served: queue_served
-        errors: queue_errors
-        queue: queue_depth
+        arrivals: "{{fixturesRoot}}/SupportQueue_arrivals.csv"
+        served: "{{fixturesRoot}}/SupportQueue_served.csv"
+        errors: "{{fixturesRoot}}/SupportQueue_errors.csv"
+        queue: "{{fixturesRoot}}/SupportQueue_queue.csv"
   edges:
     - id: edge1
       from: OrderService:out
@@ -179,12 +179,14 @@ outputs:
 ################################################################################
 # Follow-up requests (applies to whichever run ID you care about)
 ################################################################################
-### 4. Enumerate the generated series metadata (simulation run by default)
-GET {{host}}/v1/runs/{{createRunSimulation.response.body.$.runId}}/index
+# Optional: wait for evaluation to complete (state call triggers computation within the response)
+GET {{host}}/v1/runs/{{createRunSimulation.response.body.$.runId}}/state?binIndex=1
 Accept: application/json
 
-### 5. Inspect a single-bin snapshot with derived metrics + colouring
-GET {{host}}/v1/runs/{{createRunSimulation.response.body.$.runId}}/state?binIndex=1
+### 5. Enumerate the generated series metadata (after evaluation)
+@sleep = 1
+# state call triggers evaluation; give it a moment then fetch series list
+GET {{host}}/v1/runs/{{createRunSimulation.response.body.$.runId}}/index
 Accept: application/json
 
 ### 6. Retrieve a bin window for scrubber/series views
@@ -192,8 +194,8 @@ GET {{host}}/v1/runs/{{createRunSimulation.response.body.$.runId}}/state_window?
 Accept: application/json
 
 ### 7. (Optional) Download a raw series for verification
-# Replace SERIES_ID with the exact value returned in step 4's index (e.g. service_arrivals@OrderService@DEFAULT)
-GET {{host}}/v1/runs/{{createRunSimulation.response.body.$.runId}}/series/SERIES_ID
+# Use a seriesId returned in step 5 (e.g. service_arrivals@OrderService@DEFAULT)
+GET {{host}}/v1/runs/{{createRunSimulation.response.body.$.runId}}/series/service_arrivals@OrderService@DEFAULT
 Accept: text/csv
 
 ### 8. Validation failure example (SHIFT without initial condition)
