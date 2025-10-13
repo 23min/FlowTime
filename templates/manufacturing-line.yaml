@@ -67,6 +67,11 @@ parameters:
     default: 0.05
     minimum: 0.0
     maximum: 0.5
+  - name: telemetryRawMaterialsSource
+    type: string
+    title: "Telemetry raw materials source"
+    description: "Optional file:// URI for raw material arrivals when replaying telemetry"
+    default: ""
 
 grid:
   bins: ${bins}
@@ -103,6 +108,7 @@ nodes:
   - id: raw_materials
     kind: const
     values: ${rawMaterialSchedule}
+    source: ${telemetryRawMaterialsSource}
 
   - id: assembly_capacity
     kind: const

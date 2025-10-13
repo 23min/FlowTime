@@ -60,6 +60,11 @@ parameters:
     default: 1.2
     minimum: 1.0
     maximum: 3.0
+  - name: telemetryDemandSource
+    type: string
+    title: "Telemetry customer demand source"
+    description: "Optional file:// URI for customer demand when replaying telemetry"
+    default: ""
 
 grid:
   bins: ${bins}
@@ -96,6 +101,7 @@ nodes:
   - id: customer_demand
     kind: const
     values: ${demandPattern}
+    source: ${telemetryDemandSource}
 
   - id: supplier_capacity
     kind: const

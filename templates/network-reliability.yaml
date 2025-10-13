@@ -46,6 +46,11 @@ parameters:
     default: 150
     minimum: 50
     maximum: 500
+  - name: telemetryBaseLoadSource
+    type: string
+    title: "Telemetry base load source"
+    description: "Optional file:// URI for observed request load when replaying telemetry"
+    default: ""
 
 grid:
   bins: ${bins}
@@ -80,6 +85,7 @@ nodes:
   - id: base_requests
     kind: const
     values: ${baseLoad}
+    source: ${telemetryBaseLoadSource}
     
   # Network reliability (stochastic failures)
   - id: network_reliability
