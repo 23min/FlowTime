@@ -2,6 +2,7 @@ using FlowTime.Contracts.Services;
 using FlowTime.Core;
 using FlowTime.Core.Models;
 using FlowTime.Sim.Core.Services;
+using FlowTime.Sim.Core.Templates;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace FlowTime.Integration.Tests;
@@ -59,5 +60,30 @@ public class SimToEngineWorkflowTests
         Assert.NotNull(exprNode);
         Assert.Equal("expr", exprNode!.Kind);
         Assert.Equal("arrivals", exprNode.Expr);
+    }
+
+    [Fact]
+    public async Task Telemetry_Mode_Model_Parses_WithFileSources()
+    {
+        var templateId = "it-system-microservices";
+        var templateYaml = await File.ReadAllTextAsync(GetRepoPath("templates", $"{templateId}.yaml"));
+        var service = CreateService(templateId, templateYaml);
+
+        var parameters = new Dictionary<string, object?>
+        {
+            ["telemetryRequestsSource"] = "file://telemetry/order-service_arrivals.csv"
+        };
+
+        var engineYaml = await service.GenerateEngineModelAsync(templateId, parameters!, TemplateMode.Telemetry);
+
+        var validation = ModelValidator.Validate(engineYaml);
+        Assert.True(validation.IsValid, $"Telemetry model invalid: {string.Join("; ", validation.Errors)}");
+        Assert.Contains("mode: telemetry", engineYaml);
+        Assert.Contains("source: file://telemetry/order-service_arrivals.csv", engineYaml);
+
+        var modelDefinition = ModelService.ParseAndConvert(engineYaml);
+        var (grid, graph) = ModelParser.ParseModel(modelDefinition);
+        Assert.True(grid.Bins > 0);
+        Assert.NotEmpty(graph.TopologicalOrder());
     }
 }
