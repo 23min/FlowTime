@@ -15,8 +15,8 @@ This plan decomposes the work required to align FlowTime.Sim with the time-trave
 | **WS1: Schema Foundations** | ✅ Complete — Template model extended (window/topology/semantics/provenance) and generation pipeline emits canonical KISS schema. | None (internal refactor). |
 | **WS2: Shared Validation** | ✅ Complete — Shared FlowTime.Expressions validator integrated; topology & mode-aware validation enforced. | Engine follow-up: shared expression library. |
 | **WS3: Service & CLI Enhancements** | Embed provenance, expose schema metadata, update storage layout, add mode toggles. | WS1, WS2. |
-| **WS4: Template & Fixture Upgrade** | 🛠 In Progress — Curated templates/examples migrated; fixtures & migration tooling pending. | WS1. |
-| **WS5: Testing & Tooling** | Expand unit/integration tests, add regression suites, update documentation and examples. | WS1–WS4. |
+| **WS4: Template & Fixture Upgrade** | ✅ Complete — Templates accept optional telemetry bindings; fixtures + docs refreshed. | WS1. |
+| **WS5: Testing & Tooling** | 🛠 In Progress — Telemetry warning policy & synthetic Gold automation pending; regression coverage expanding. | WS1–WS4. |
 
 ---
 
@@ -53,20 +53,19 @@ This plan decomposes the work required to align FlowTime.Sim with the time-trave
 
 ### WS4 — Template & Fixture Upgrade
 
-1. ✅ Curated templates in `templates/` migrated to the time-travel template format (adds window/topology/provenance while emitted models still use `schemaVersion: 1`).
-2. 🛠 Add M-3 fixtures mirroring Engine scenarios (pending UI alignment).
-3. 🛠 Author migration guidance/automation for legacy templates (pending).
+1. ✅ Curated templates in `templates/` migrated to the time-travel format with optional telemetry `file://` bindings (simulation defaults retained).
+2. ✅ Telemetry fixtures/documentation captured (`templates/README.md`, `templates/fixtures.md`, synthetic CSV examples) and walkthroughs refreshed.
 
-**Exit Criteria:** Pending fixtures + migration tooling; current curated templates validate successfully against WS2 rules.
+**Exit Criteria:** Templates validate with/without telemetry sources; telemetry-mode tests/fixtures documented for Engine M-03.02.
 
 ### WS5 — Testing & Tooling
 
 1. ✅ Expanded unit tests for template serialization, validator rules, provenance embedder.
-2. 🛠 Integration tests updated for new schema (Sim ↔ Engine regression harness partially in place).
-3. 🛠 CLI/service docs & `.http` samples queued after WS3 adjustments.
-4. ✅ Documentation refreshed (`sim-implementation-plan`, `sim-schema-and-validation`).
+2. ✅ Integration tests include telemetry-mode Sim→Engine coverage.
+3. ✅ CLI/service `.http` samples refreshed post-WS3 updates.
+4. 🛠 Define telemetry-mode warning policy and scope synthetic Gold automation.
 
-**Exit Criteria:** CI largely covers schema/validation; remaining CLI/service docs tracked under WS3.
+**Exit Criteria:** Regression coverage aligned with time-travel schema; telemetry warning policy + synthetic Gold plan documented.
 
 ---
 
