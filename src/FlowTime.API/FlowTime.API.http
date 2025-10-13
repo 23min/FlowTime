@@ -1,23 +1,63 @@
 @host = http://localhost:8080
-@fixturesRoot = /workspaces/flowtime-vnext/fixtures/time-travel/http-demo
+@fixturesRoot = file:///workspaces/flowtime-vnext/data/models/http-demo/fixtures
+@telemetryRoot = file:///workspaces/flowtime-vnext/data/telemetry/http-demo
 
 ### 1. Service health (confirm API is reachable)
 GET {{host}}/v1/healthz
 Accept: application/json
 
-### 2. Submit a canonical time-travel model (writes artifacts + topology metadata)
-# @name createRun
+################################################################################
+# Simulation example – canonical time-travel model (embedded provenance)
+################################################################################
+### 2. Submit simulation-mode model (writes artifacts + topology metadata)
+# @name createRunSimulation
 POST {{host}}/v1/run
 Content-Type: text/plain
 
 schemaVersion: 1
-
+provenance:
+  source: flowtime-sim
+  generator: flowtime-sim/http-demo
+  generatedAt: "2025-10-20T00:00:00Z"
+  templateId: http-demo
+  templateVersion: 1.0.0
+  mode: simulation
+  modelId: http-demo-simulation-demo
+  schemaVersion: 1
+  parameters: {}
+metadata:
+  id: http-demo
+  title: HTTP Demo Model (Simulation)
+  description: Synthetic values for API walkthrough
+  version: 1.0.0
+window:
+  start: 2025-01-01T00:00:00Z
+  timezone: UTC
 grid:
   bins: 4
   binSize: 5
   binUnit: minutes
-  startTimeUtc: "2025-01-01T00:00:00Z"
-
+topology:
+  nodes:
+    - id: OrderService
+      kind: service
+      semantics:
+        arrivals: service_arrivals
+        served: service_served
+        errors: service_errors
+        capacity: service_capacity
+    - id: SupportQueue
+      kind: queue
+      semantics:
+        arrivals: queue_arrivals
+        served: queue_served
+        errors: queue_errors
+        queue: queue_depth
+  edges:
+    - id: edge1
+      from: OrderService:out
+      to: SupportQueue:in
+      weight: 1.0
 nodes:
   - id: service_arrivals
     kind: const
@@ -43,86 +83,140 @@ nodes:
   - id: queue_depth
     kind: const
     values: [2, 4, 5, 3]
-
 outputs:
-  - series: service_arrivals
-  - series: service_served
-  - series: service_errors
-  - series: service_capacity
-  - series: queue_arrivals
-  - series: queue_served
-  - series: queue_errors
-  - series: queue_depth
+  - series: "*"
 
+################################################################################
+# Telemetry example – model referencing file-backed telemetry
+################################################################################
+### 3. Submit telemetry-mode model (const nodes reference file:// sources)
+# @name createRunTelemetry
+POST {{host}}/v1/run
+Content-Type: text/plain
+
+schemaVersion: 1
+provenance:
+  source: flowtime-sim
+  generator: flowtime-sim/http-demo
+  generatedAt: "2025-10-20T00:00:00Z"
+  templateId: http-demo
+  templateVersion: 1.0.0
+  mode: telemetry
+  modelId: http-demo-telemetry-demo
+  schemaVersion: 1
+  parameters:
+    telemetryRequestsSource: "{{telemetryRoot}}/order-service_arrivals.csv"
+metadata:
+  id: http-demo
+  title: HTTP Demo Model (Telemetry)
+  description: Telemetry run referencing synthetic CSVs
+  version: 1.0.0
+window:
+  start: 2025-01-01T00:00:00Z
+  timezone: UTC
+grid:
+  bins: 4
+  binSize: 5
+  binUnit: minutes
 topology:
   nodes:
-    - id: "OrderService"
-      kind: "service"
+    - id: OrderService
+      kind: service
       semantics:
-        arrivals: "file:{{fixturesRoot}}/OrderService_arrivals.csv"
-        served: "file:{{fixturesRoot}}/OrderService_served.csv"
-        errors: "file:{{fixturesRoot}}/OrderService_errors.csv"
-        externalDemand: null
-        queueDepth: null
-        capacity: "file:{{fixturesRoot}}/OrderService_capacity.csv"
-        slaMin: null
-    - id: "SupportQueue"
-      kind: "queue"
+        arrivals: service_arrivals
+        served: service_served
+        errors: service_errors
+        capacity: service_capacity
+    - id: SupportQueue
+      kind: queue
       semantics:
-        arrivals: "file:{{fixturesRoot}}/SupportQueue_arrivals.csv"
-        served: "file:{{fixturesRoot}}/SupportQueue_served.csv"
-        errors: "file:{{fixturesRoot}}/SupportQueue_errors.csv"
-        externalDemand: null
-        queue: "file:{{fixturesRoot}}/SupportQueue_queue.csv"
-        capacity: null
-        slaMin: 6
+        arrivals: queue_arrivals
+        served: queue_served
+        errors: queue_errors
+        queue: queue_depth
   edges:
-    - from: "OrderService"
-      to: "SupportQueue"
+    - id: edge1
+      from: OrderService:out
+      to: SupportQueue:in
       weight: 1.0
+nodes:
+  - id: service_arrivals
+    kind: const
+    values: [10, 12, 11, 13]
+    source: "{{telemetryRoot}}/order-service_arrivals.csv"
+  - id: service_served
+    kind: const
+    values: [9, 11, 10, 12]
+    source: "{{telemetryRoot}}/order-service_served.csv"
+  - id: service_errors
+    kind: const
+    values: [1, 1, 1, 1]
+    source: "{{telemetryRoot}}/order-service_errors.csv"
+  - id: service_capacity
+    kind: const
+    values: [12, 12, 12, 12]
+    source: "{{telemetryRoot}}/order-service_capacity.csv"
+  - id: queue_arrivals
+    kind: const
+    values: [9, 11, 10, 12]
+    source: "{{telemetryRoot}}/support-queue_arrivals.csv"
+  - id: queue_served
+    kind: const
+    values: [8, 10, 9, 11]
+    source: "{{telemetryRoot}}/support-queue_served.csv"
+  - id: queue_errors
+    kind: const
+    values: [0, 0, 0, 0]
+    source: "{{telemetryRoot}}/support-queue_errors.csv"
+  - id: queue_depth
+    kind: const
+    values: [2, 4, 5, 3]
+    source: "{{telemetryRoot}}/support-queue_queue.csv"
+outputs:
+  - series: "*"
 
-### 3. Enumerate the generated series metadata
-GET {{host}}/v1/runs/{{createRun.response.body.$.runId}}/index
+################################################################################
+# Follow-up requests (applies to whichever run ID you care about)
+################################################################################
+### 4. Enumerate the generated series metadata (simulation run by default)
+GET {{host}}/v1/runs/{{createRunSimulation.response.body.$.runId}}/index
 Accept: application/json
 
-### 4. Inspect a single-bin snapshot with derived metrics + colouring
-GET {{host}}/v1/runs/{{createRun.response.body.$.runId}}/state?binIndex=1
+### 5. Inspect a single-bin snapshot with derived metrics + colouring
+GET {{host}}/v1/runs/{{createRunSimulation.response.body.$.runId}}/state?binIndex=1
 Accept: application/json
 
-### 5. Retrieve a bin window for scrubber/series views
-GET {{host}}/v1/runs/{{createRun.response.body.$.runId}}/state_window?startBin=0&endBin=3
+### 6. Retrieve a bin window for scrubber/series views
+GET {{host}}/v1/runs/{{createRunSimulation.response.body.$.runId}}/state_window?startBin=0&endBin=3
 Accept: application/json
 
-### 6. (Optional) Download a raw series for verification
-GET {{host}}/v1/runs/{{createRun.response.body.$.runId}}/series/service_arrivals@SERVICE_ARRIVALS@DEFAULT
+### 7. (Optional) Download a raw series for verification
+GET {{host}}/v1/runs/{{createRunSimulation.response.body.$.runId}}/series/service_arrivals@SERVICE_ARRIVALS@DEFAULT
 Accept: text/csv
 
-### 7. Validation failure example (SHIFT without initial condition)
+### 8. Validation failure example (SHIFT without initial condition)
 POST {{host}}/v1/run
 Content-Type: text/plain
 
 schemaVersion: 1
 
+window:
+  start: 2025-01-01T00:00:00Z
+  timezone: UTC
 grid:
   bins: 4
   binSize: 5
   binUnit: minutes
-  startTimeUtc: "2025-01-01T00:00:00Z"
 
 nodes:
-  - id: "SupportQueue"
-    kind: "expr"
-    expr: "SHIFT(SupportQueue, 1)"
+  - id: queue_depth
+    kind: expr
+    expr: "SHIFT(queue_depth, 1)"
 
 topology:
   nodes:
-    - id: "SupportQueue"
-      kind: "queue"
+    - id: SupportQueue
+      kind: queue
       semantics:
-        arrivals: "file:{{fixturesRoot}}/SupportQueue_arrivals.csv"
-        served: "file:{{fixturesRoot}}/SupportQueue_served.csv"
-        errors: "file:{{fixturesRoot}}/SupportQueue_errors.csv"
-        queue: "file:{{fixturesRoot}}/SupportQueue_queue.csv"
-        capacity: null
-        slaMin: 6
+        queue: queue_depth
   edges: []
