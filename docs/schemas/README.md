@@ -42,6 +42,7 @@ nodes:               # Required: Array of node definitions
 - **Documentation**: [`model.schema.md`](model.schema.md) - Complete specification
 - **Legacy Schemas**: `engine-input.schema.json` and `engine-input-schema.md` are **deprecated** (use model.schema instead)
 - **Examples**: [`/examples/`](/examples/) directory
+- **Time-Travel Responses**: [`time-travel-state.schema.json`](time-travel-state.schema.json) — canonical JSON schema for `/v1/runs/{id}/state` and `/state_window` payloads (validated in `StateResponseSchemaTests`)
 
 ## Integration with FlowTime-Sim
 
