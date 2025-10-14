@@ -360,6 +360,12 @@ public class ProvenanceEmbeddedTests : IClassFixture<TestWebApplicationFactory>
 
     private string GetProvenanceFilePath(string runId)
     {
+        var canonicalPath = Path.Combine(_factory.TestDataDirectory, runId, "model", "provenance.json");
+        if (File.Exists(canonicalPath))
+        {
+            return canonicalPath;
+        }
+
         return Path.Combine(_factory.TestDataDirectory, runId, "provenance.json");
     }
 }

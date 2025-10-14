@@ -45,6 +45,8 @@ public class RunArtifactWriterTests
         Assert.True(File.Exists(Path.Combine(result1.RunDirectory, "run.json")));
         Assert.True(File.Exists(Path.Combine(result1.RunDirectory, "manifest.json")));
         Assert.True(File.Exists(Path.Combine(result1.RunDirectory, "series", "index.json")));
+        Assert.True(File.Exists(Path.Combine(result1.RunDirectory, "model", "model.yaml")));
+        Assert.True(File.Exists(Path.Combine(result1.RunDirectory, "model", "metadata.json")));
 
         // Cleanup
         Directory.Delete(tempDir, true);
@@ -84,18 +86,32 @@ public class RunArtifactWriterTests
         var runJsonPath = Path.Combine(result.RunDirectory, "run.json");
         Assert.True(File.Exists(runJsonPath));
 
-        var runContent = await File.ReadAllTextAsync(runJsonPath);
-        var runJson = JsonDocument.Parse(runContent);
+        using var runJson = JsonDocument.Parse(await File.ReadAllTextAsync(runJsonPath));
         Assert.True(runJson.RootElement.TryGetProperty("runId", out _));
         Assert.True(runJson.RootElement.TryGetProperty("scenarioHash", out _));
         Assert.True(runJson.RootElement.TryGetProperty("series", out _));
+        var runModelHash = runJson.RootElement.TryGetProperty("modelHash", out var modelHashElement)
+            ? modelHashElement.GetString()
+            : null;
+        Assert.False(string.IsNullOrWhiteSpace(runModelHash));
+
+        var metadataPath = Path.Combine(result.RunDirectory, "model", "metadata.json");
+        Assert.True(File.Exists(metadataPath));
+        using var metadataJson = JsonDocument.Parse(await File.ReadAllTextAsync(metadataPath));
+        var metadataModelHash = metadataJson.RootElement.GetProperty("modelHash").GetString();
+        Assert.False(string.IsNullOrWhiteSpace(metadataModelHash));
+        Assert.Equal(runModelHash, metadataModelHash);
+
+        var manifestPath = Path.Combine(result.RunDirectory, "manifest.json");
+        Assert.True(File.Exists(manifestPath));
+        using var manifestJson = JsonDocument.Parse(await File.ReadAllTextAsync(manifestPath));
+        Assert.Equal(runModelHash, manifestJson.RootElement.GetProperty("modelHash").GetString());
 
         // Verify index.json structure
         var indexPath = Path.Combine(result.RunDirectory, "series", "index.json");
         Assert.True(File.Exists(indexPath));
 
-        var indexContent = await File.ReadAllTextAsync(indexPath);
-        var indexJson = JsonDocument.Parse(indexContent);
+        using var indexJson = JsonDocument.Parse(await File.ReadAllTextAsync(indexPath));
         Assert.True(indexJson.RootElement.TryGetProperty("series", out _));
         Assert.True(indexJson.RootElement.TryGetProperty("grid", out _));
 
@@ -179,6 +195,7 @@ public class RunArtifactWriterTests
         Assert.True(File.Exists(Path.Combine(result.RunDirectory, "run.json")));
         Assert.True(File.Exists(Path.Combine(result.RunDirectory, "manifest.json")));
         Assert.True(File.Exists(Path.Combine(result.RunDirectory, "series", "index.json")));
+        Assert.True(File.Exists(Path.Combine(result.RunDirectory, "model", "metadata.json")));
         Assert.True(File.Exists(Path.Combine(result.RunDirectory, "spec.yaml")));
 
         // Should generate CSV file for the demand series
@@ -217,6 +234,58 @@ public class RunArtifactWriterTests
         Assert.True(File.Exists(Path.Combine(result.RunDirectory, "run.json")));
         Assert.True(File.Exists(Path.Combine(result.RunDirectory, "manifest.json")));
         Assert.True(File.Exists(Path.Combine(result.RunDirectory, "series", "index.json")));
+        Assert.True(File.Exists(Path.Combine(result.RunDirectory, "model", "metadata.json")));
+
+        // Cleanup
+        Directory.Delete(tempDir, true);
+    }
+
+    [Fact]
+    public async Task WriteArtifacts_WildcardOutputs_IncludesAllSeries()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), "test_artifacts_wildcard");
+        Directory.CreateDirectory(tempDir);
+
+        var model = new TestModelDto
+        {
+            Grid = new TestGridDto { Bins = 2, BinMinutes = 5 },
+            Nodes = new List<TestNodeDto>
+            {
+                new() { Id = "demand", Values = new[] { 1.0, 2.0 } },
+                new() { Id = "served", Values = new[] { 0.5, 1.5 } }
+            },
+            Outputs = new List<TestOutputDto>
+            {
+                new() { Series = "*" }
+            }
+        };
+
+        var context = new Dictionary<NodeId, double[]>
+        {
+            [new NodeId("demand")] = new[] { 1.0, 2.0 },
+            [new NodeId("served")] = new[] { 0.5, 1.5 }
+        };
+
+        var request = new RunArtifactWriter.WriteRequest
+        {
+            Model = model,
+            Grid = new TimeGrid(2, 5, TimeUnit.Minutes),
+            Context = context,
+            SpecText = """
+schemaVersion: 1
+grid:
+  bins: 2
+  binSize: 5
+  binUnit: minutes
+outputs:
+  - series: "*"
+""",
+            OutputDirectory = tempDir
+        };
+
+        var result = await RunArtifactWriter.WriteArtifactsAsync(request);
+        var csvFiles = Directory.GetFiles(Path.Combine(result.RunDirectory, "series"), "*.csv");
+        Assert.Equal(2, csvFiles.Length);
 
         // Cleanup
         Directory.Delete(tempDir, true);
