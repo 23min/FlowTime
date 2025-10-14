@@ -1,9 +1,10 @@
 using FlowTime.Adapters.Synthetic;
-using FlowTime.Contracts;
 using FlowTime.Contracts.Services;
+using FlowTime.Contracts.TimeTravel;
 using FlowTime.Core.DataSources;
 using FlowTime.Core.Metrics;
 using FlowTime.Core.Models;
+using FlowTime.Core.TimeTravel;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
@@ -14,14 +15,22 @@ public sealed class StateQueryService
     private const int maxWindowBins = 500;
     private readonly IConfiguration configuration;
     private readonly ILogger<StateQueryService> logger;
+    private readonly RunManifestReader manifestReader;
+    private readonly ModeValidator modeValidator;
 
-    public StateQueryService(IConfiguration configuration, ILogger<StateQueryService> logger)
+    public StateQueryService(
+        IConfiguration configuration,
+        ILogger<StateQueryService> logger,
+        RunManifestReader manifestReader,
+        ModeValidator modeValidator)
     {
         this.configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        this.manifestReader = manifestReader ?? throw new ArgumentNullException(nameof(manifestReader));
+        this.modeValidator = modeValidator ?? throw new ArgumentNullException(nameof(modeValidator));
     }
 
-    public async Task<StateResponse> GetStateAsync(string runId, int binIndex, CancellationToken cancellationToken = default)
+    public async Task<StateSnapshotResponse> GetStateAsync(string runId, int binIndex, CancellationToken cancellationToken = default)
     {
         var context = await LoadContextAsync(runId, cancellationToken);
 
@@ -33,7 +42,13 @@ public sealed class StateQueryService
         var binStart = context.Window.GetBinStartTime(binIndex);
         var binEnd = binStart?.Add(context.Window.BinDuration);
 
-        var nodes = new Dictionary<string, NodeState>(StringComparer.Ordinal);
+        var validation = ValidateContext(context);
+        if (validation.HasErrors)
+        {
+            throw new StateQueryException(422, validation.ErrorMessage ?? "Mode validation failed.", validation.ErrorCode ?? "mode_validation_failed");
+        }
+
+        var nodeSnapshots = new List<NodeSnapshot>(capacity: context.Topology.Nodes.Count);
         foreach (var topologyNode in context.Topology.Nodes)
         {
             if (!context.NodeData.TryGetValue(topologyNode.Id, out var data))
@@ -41,38 +56,33 @@ public sealed class StateQueryService
                 throw new StateQueryException(500, $"Data for node '{topologyNode.Id}' was not loaded. Available nodes: {string.Join(", ", context.NodeData.Keys)}");
             }
 
-            nodes[topologyNode.Id] = BuildNodeState(topologyNode, data, context, binIndex);
+            nodeSnapshots.Add(BuildNodeSnapshot(topologyNode, data, context, binIndex, GetNodeWarnings(validation, topologyNode.Id)));
         }
 
-        return new StateResponse
+        return new StateSnapshotResponse
         {
-            RunId = context.Manifest.RunId,
-            Mode = MapRunSourceToMode(context.Manifest.Source),
-            Window = new StateWindowInfo
-            {
-                Start = context.Window.StartTime,
-                Timezone = context.Manifest.Grid.Timezone
-            },
-            Grid = new StateGridInfo
-            {
-                Bins = context.Window.Bins,
-                BinSize = context.Window.BinSize,
-                BinUnit = context.Window.BinUnit.ToString().ToLowerInvariant(),
-                BinMinutes = context.Window.BinDuration.TotalMinutes
-            },
-            Bin = new StateBinInfo
+            Metadata = BuildMetadata(context),
+            Bin = new BinDetail
             {
                 Index = binIndex,
-                StartUtc = binStart,
-                EndUtc = binEnd
+                StartUtc = ToOffset(binStart),
+                EndUtc = ToOffset(binEnd),
+                DurationMinutes = context.Window.BinDuration.TotalMinutes
             },
-            Nodes = nodes
+            Nodes = nodeSnapshots,
+            Warnings = BuildWarnings(context, validation.Warnings)
         };
     }
 
     public async Task<StateWindowResponse> GetStateWindowAsync(string runId, int startBin, int endBin, CancellationToken cancellationToken = default)
     {
         var context = await LoadContextAsync(runId, cancellationToken);
+
+        var validation = ValidateContext(context);
+        if (validation.HasErrors)
+        {
+            throw new StateQueryException(422, validation.ErrorMessage ?? "Mode validation failed.", validation.ErrorCode ?? "mode_validation_failed");
+        }
 
         if (startBin < 0 || startBin >= context.Window.Bins)
         {
@@ -95,13 +105,19 @@ public sealed class StateQueryService
             throw new StateQueryException(413, $"Requested bin range {count} exceeds maximum supported window size of {maxWindowBins}.");
         }
 
-        var timestamps = new List<DateTime?>(count);
+        var timestamps = new List<DateTimeOffset>(count);
         for (var idx = startBin; idx <= endBin; idx++)
         {
-            timestamps.Add(context.Window.GetBinStartTime(idx));
+            var timestamp = context.Window.GetBinStartTime(idx);
+            if (!timestamp.HasValue)
+            {
+                throw new StateQueryException(409, "Run is missing window.startTimeUtc required for time-travel responses.");
+            }
+
+            timestamps.Add(ToOffset(timestamp)!.Value);
         }
 
-        var nodes = new Dictionary<string, NodeWindowSeries>(StringComparer.Ordinal);
+        var seriesList = new List<NodeSeries>(capacity: context.Topology.Nodes.Count);
         foreach (var topologyNode in context.Topology.Nodes)
         {
             if (!context.NodeData.TryGetValue(topologyNode.Id, out var data))
@@ -109,34 +125,21 @@ public sealed class StateQueryService
                 throw new StateQueryException(500, $"Data for node '{topologyNode.Id}' was not loaded. Available nodes: {string.Join(", ", context.NodeData.Keys)}");
             }
 
-            var series = BuildNodeSeries(topologyNode, data, context, startBin, count);
-            nodes[topologyNode.Id] = series;
+            seriesList.Add(BuildNodeSeries(topologyNode, data, context, startBin, count, GetNodeWarnings(validation, topologyNode.Id)));
         }
 
         return new StateWindowResponse
         {
-            RunId = context.Manifest.RunId,
-            Mode = MapRunSourceToMode(context.Manifest.Source),
-            Window = new StateWindowInfo
-            {
-                Start = context.Window.StartTime,
-                Timezone = context.Manifest.Grid.Timezone
-            },
-            Grid = new StateGridInfo
-            {
-                Bins = context.Window.Bins,
-                BinSize = context.Window.BinSize,
-                BinUnit = context.Window.BinUnit.ToString().ToLowerInvariant(),
-                BinMinutes = context.Window.BinDuration.TotalMinutes
-            },
-            Slice = new StateSliceInfo
+            Metadata = BuildMetadata(context),
+            Window = new WindowSlice
             {
                 StartBin = startBin,
                 EndBin = endBin,
-                Bins = count
+                BinCount = count
             },
-            Timestamps = timestamps,
-            Nodes = nodes
+            TimestampsUtc = timestamps,
+            Nodes = seriesList,
+            Warnings = BuildWarnings(context, validation.Warnings)
         };
     }
 
@@ -191,7 +194,32 @@ public sealed class StateQueryService
                 throw new StateQueryException(412, $"Run '{runId}' does not include topology information required for state queries.");
             }
 
-            var modelDirectory = Path.GetDirectoryName(modelPath);
+            var modelDirectory = Path.GetDirectoryName(modelPath) ?? throw new InvalidOperationException("model.yaml directory could not be determined.");
+            RunManifestMetadata manifestMetadata;
+            try
+            {
+                manifestMetadata = await manifestReader.ReadAsync(modelDirectory, cancellationToken);
+            }
+            catch (InvalidOperationException ex)
+            {
+                logger.LogError(ex, "Manifest metadata missing for run {RunId}", runId);
+                throw new StateQueryException(409, $"Manifest metadata for run '{runId}' is incomplete: {ex.Message}");
+            }
+            catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
+            {
+                logger.LogError(ex, "Manifest metadata files missing for run {RunId}", runId);
+                throw new StateQueryException(404, $"Manifest metadata for run '{runId}' not found: {ex.Message}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(manifest.ModelHash) &&
+                !string.IsNullOrWhiteSpace(manifestMetadata.ProvenanceHash) &&
+                !string.Equals(manifest.ModelHash, manifestMetadata.ProvenanceHash, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new StateQueryException(409,
+                    $"Provenance hash mismatch for run '{runId}'. Expected '{manifest.ModelHash}' but storage reported '{manifestMetadata.ProvenanceHash}'.",
+                    "provenance_mismatch");
+            }
+
             var loader = new SemanticLoader(modelDirectory);
             var nodeData = new Dictionary<string, NodeData>(StringComparer.Ordinal);
 
@@ -209,7 +237,7 @@ public sealed class StateQueryService
                 }
             }
 
-            return new StateRunContext(manifest, metadata.Window, metadata.Topology, nodeData);
+            return new StateRunContext(manifest, manifestMetadata, metadata.Window, metadata.Topology, nodeData);
         }
         catch (StateQueryException)
         {
@@ -227,7 +255,7 @@ public sealed class StateQueryService
         }
     }
 
-    private static NodeState BuildNodeState(Node node, NodeData data, StateRunContext context, int binIndex)
+    private static NodeSnapshot BuildNodeSnapshot(Node node, NodeData data, StateRunContext context, int binIndex, IReadOnlyList<ModeValidationWarning> nodeWarnings)
     {
         var kind = NormalizeKind(node.Kind);
         var arrivals = GetValue(data.Arrivals, binIndex);
@@ -237,43 +265,50 @@ public sealed class StateQueryService
         var queue = GetOptionalValue(data.QueueDepth, binIndex);
         var capacity = GetOptionalValue(data.Capacity, binIndex);
 
-        double? utilization = null;
+        var rawUtilization = served.HasValue
+            ? UtilizationComputer.Calculate(served.Value, capacity)
+            : null;
+        var utilization = rawUtilization.HasValue ? Normalize(rawUtilization.Value) : null;
+
         double? latencyMinutes = null;
-
-        if (served.HasValue)
+        if (string.Equals(kind, "queue", StringComparison.OrdinalIgnoreCase) && queue.HasValue && served.HasValue)
         {
-            utilization = UtilizationComputer.Calculate(served.Value, capacity);
-
-            if (string.Equals(kind, "queue", StringComparison.OrdinalIgnoreCase))
-            {
-                if (queue.HasValue)
-                {
-                    latencyMinutes = LatencyComputer.Calculate(queue.Value, served.Value, context.Window.BinDuration.TotalMinutes);
-                }
-            }
+            var rawLatency = LatencyComputer.Calculate(queue.Value, served.Value, context.Window.BinDuration.TotalMinutes);
+            latencyMinutes = rawLatency.HasValue ? Normalize(rawLatency.Value) : null;
         }
 
-        string color = string.Equals(kind, "queue", StringComparison.OrdinalIgnoreCase)
+        var throughputRatioValue = ComputeThroughputRatio(arrivals, served);
+        var throughputRatio = throughputRatioValue.HasValue ? Normalize(throughputRatioValue.Value) : null;
+
+        var color = string.Equals(kind, "queue", StringComparison.OrdinalIgnoreCase)
             ? ColoringRules.PickQueueColor(latencyMinutes, node.Semantics.SlaMinutes)
             : ColoringRules.PickServiceColor(utilization);
 
-        return new NodeState
+        return new NodeSnapshot
         {
+            Id = node.Id,
             Kind = kind,
-            Arrivals = arrivals,
-            Served = served,
-            Errors = errors,
-            Queue = queue,
-            ExternalDemand = externalDemand,
-            Capacity = capacity,
-            Utilization = utilization,
-            LatencyMinutes = latencyMinutes,
-            SlaMinutes = node.Semantics.SlaMinutes,
-            Color = color
+            Metrics = new NodeMetrics
+            {
+                Arrivals = arrivals,
+                Served = served,
+                Errors = errors,
+                Queue = queue,
+                Capacity = capacity,
+                ExternalDemand = externalDemand
+            },
+            Derived = new NodeDerivedMetrics
+            {
+                Utilization = utilization,
+                LatencyMinutes = latencyMinutes,
+                ThroughputRatio = throughputRatio,
+                Color = color
+            },
+            Telemetry = BuildTelemetryInfo(node, context.ManifestMetadata, nodeWarnings)
         };
     }
 
-    private static NodeWindowSeries BuildNodeSeries(Node node, NodeData data, StateRunContext context, int startBin, int count)
+    private static NodeSeries BuildNodeSeries(Node node, NodeData data, StateRunContext context, int startBin, int count, IReadOnlyList<ModeValidationWarning> nodeWarnings)
     {
         var kind = NormalizeKind(node.Kind);
         var series = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase)
@@ -312,10 +347,69 @@ public sealed class StateQueryService
             }
         }
 
-        return new NodeWindowSeries
+        var throughputSeries = ComputeThroughputSeries(data, startBin, count);
+        if (throughputSeries != null)
         {
+            series["throughputRatio"] = throughputSeries;
+        }
+
+        return new NodeSeries
+        {
+            Id = node.Id,
             Kind = kind,
-            Series = series
+            Series = series,
+            Telemetry = BuildTelemetryInfo(node, context.ManifestMetadata, nodeWarnings)
+        };
+    }
+
+    private static NodeTelemetryInfo BuildTelemetryInfo(Node node, RunManifestMetadata manifestMetadata, IReadOnlyList<ModeValidationWarning> nodeWarnings)
+    {
+        var sources = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        void TryAdd(string? seriesId)
+        {
+            if (string.IsNullOrWhiteSpace(seriesId))
+            {
+                return;
+            }
+
+            var identifier = seriesId.Trim();
+
+            if (manifestMetadata.NodeSources.TryGetValue(identifier, out var source) && !string.IsNullOrWhiteSpace(source))
+            {
+                sources.Add(source);
+                return;
+            }
+
+            if (identifier.StartsWith("file:", StringComparison.OrdinalIgnoreCase))
+            {
+                sources.Add(identifier);
+            }
+        }
+
+        TryAdd(node.Semantics.Arrivals);
+        TryAdd(node.Semantics.Served);
+        TryAdd(node.Semantics.Errors);
+        TryAdd(node.Semantics.ExternalDemand);
+        TryAdd(node.Semantics.QueueDepth);
+        TryAdd(node.Semantics.Capacity);
+
+        if (manifestMetadata.TelemetrySources.Count > 0)
+        {
+            for (var i = 0; i < manifestMetadata.TelemetrySources.Count; i++)
+            {
+                var globalSource = manifestMetadata.TelemetrySources[i];
+                if (!string.IsNullOrWhiteSpace(globalSource))
+                {
+                    sources.Add(globalSource.Trim());
+                }
+            }
+        }
+
+        return new NodeTelemetryInfo
+        {
+            Sources = sources.Count == 0 ? Array.Empty<string>() : sources.ToArray(),
+            Warnings = ConvertNodeWarnings(nodeWarnings)
         };
     }
 
@@ -324,7 +418,7 @@ public sealed class StateQueryService
         var result = new double?[count];
         for (var i = 0; i < count; i++)
         {
-            result[i] = source[start + i];
+            result[i] = Normalize(source[start + i]);
         }
         return result;
     }
@@ -341,7 +435,8 @@ public sealed class StateQueryService
         {
             var served = data.Served[start + i];
             var capacity = data.Capacity[start + i];
-            result[i] = UtilizationComputer.Calculate(served, capacity);
+            var raw = UtilizationComputer.Calculate(served, capacity);
+            result[i] = raw.HasValue ? Normalize(raw.Value) : null;
         }
 
         return result;
@@ -360,10 +455,150 @@ public sealed class StateQueryService
         {
             var queue = data.QueueDepth[start + i];
             var served = data.Served[start + i];
-            result[i] = LatencyComputer.Calculate(queue, served, binMinutes);
+            var raw = LatencyComputer.Calculate(queue, served, binMinutes);
+            result[i] = raw.HasValue ? Normalize(raw.Value) : null;
         }
 
         return result;
+    }
+
+    private static double?[]? ComputeThroughputSeries(NodeData data, int start, int count)
+    {
+        if (data.Arrivals == null || data.Arrivals.Length == 0)
+        {
+            return null;
+        }
+
+        var result = new double?[count];
+        for (var i = 0; i < count; i++)
+        {
+            var arrivals = data.Arrivals[start + i];
+            var served = data.Served[start + i];
+            var ratio = ComputeThroughputRatio(arrivals, served);
+            result[i] = ratio.HasValue ? Normalize(ratio.Value) : null;
+        }
+
+        return result;
+    }
+
+    private static double? ComputeThroughputRatio(double? arrivals, double? served)
+    {
+        if (!arrivals.HasValue || !served.HasValue)
+        {
+            return null;
+        }
+
+        if (Math.Abs(arrivals.Value) < double.Epsilon)
+        {
+            return null;
+        }
+
+        return served.Value / arrivals.Value;
+    }
+
+    private ModeValidationResult ValidateContext(StateRunContext context) =>
+        modeValidator.Validate(new ModeValidationContext(context.ManifestMetadata, context.Window, context.Topology, context.NodeData));
+
+    private static IReadOnlyList<ModeValidationWarning> GetNodeWarnings(ModeValidationResult validation, string nodeId) =>
+        validation.NodeWarnings.TryGetValue(nodeId, out var warnings)
+            ? warnings
+            : Array.Empty<ModeValidationWarning>();
+
+    private static IReadOnlyList<NodeTelemetryWarning> ConvertNodeWarnings(IReadOnlyList<ModeValidationWarning> warnings)
+    {
+        if (warnings.Count == 0)
+        {
+            return Array.Empty<NodeTelemetryWarning>();
+        }
+
+        var result = new NodeTelemetryWarning[warnings.Count];
+        for (var i = 0; i < warnings.Count; i++)
+        {
+            result[i] = new NodeTelemetryWarning
+            {
+                Code = warnings[i].Code,
+                Message = warnings[i].Message,
+                Severity = "warning"
+            };
+        }
+
+        return result;
+    }
+
+    private static StateMetadata BuildMetadata(StateRunContext context)
+    {
+        var metadata = context.ManifestMetadata;
+        return new StateMetadata
+        {
+            RunId = context.Manifest.RunId,
+            TemplateId = metadata.TemplateId,
+            TemplateTitle = metadata.TemplateTitle,
+            TemplateVersion = metadata.TemplateVersion,
+            Mode = metadata.Mode,
+            ProvenanceHash = metadata.ProvenanceHash,
+            TelemetrySourcesResolved = metadata.TelemetrySources.Count > 0,
+            Schema = new SchemaMetadata
+            {
+                Id = metadata.Schema.Id,
+                Version = metadata.Schema.Version,
+                Hash = metadata.Schema.Hash
+            },
+            Storage = new StorageDescriptor
+            {
+                ModelPath = metadata.Storage.ModelPath,
+                MetadataPath = metadata.Storage.MetadataPath,
+                ProvenancePath = metadata.Storage.ProvenancePath
+            }
+        };
+    }
+
+    private static IReadOnlyList<StateWarning> BuildWarnings(StateRunContext context, IReadOnlyList<ModeValidationWarning> additionalWarnings)
+    {
+        var warnings = new List<StateWarning>();
+
+        if (context.Manifest.Warnings != null)
+        {
+            for (var i = 0; i < context.Manifest.Warnings.Length; i++)
+            {
+                warnings.Add(new StateWarning
+                {
+                    Code = "run_warning",
+                    Message = context.Manifest.Warnings[i],
+                    Severity = "info"
+                });
+            }
+        }
+
+        if (additionalWarnings.Count > 0)
+        {
+            foreach (var warning in additionalWarnings)
+            {
+                warnings.Add(new StateWarning
+                {
+                    Code = warning.Code,
+                    Message = warning.Message,
+                    NodeId = warning.NodeId
+                });
+            }
+        }
+
+        return warnings.Count == 0 ? Array.Empty<StateWarning>() : warnings;
+    }
+
+    private static DateTimeOffset? ToOffset(DateTime? timestamp)
+    {
+        if (!timestamp.HasValue)
+        {
+            return null;
+        }
+
+        var value = timestamp.Value;
+        if (value.Kind == DateTimeKind.Unspecified)
+        {
+            value = DateTime.SpecifyKind(value, DateTimeKind.Utc);
+        }
+
+        return new DateTimeOffset(value);
     }
 
     private static string ResolveModelPath(string runDirectory)
@@ -400,7 +635,7 @@ public sealed class StateQueryService
             return null;
         }
 
-        return source[index];
+        return Normalize(source[index]);
     }
 
     private static double? GetOptionalValue(double[]? source, int index)
@@ -415,30 +650,25 @@ public sealed class StateQueryService
             return null;
         }
 
-        return source[index];
+        return Normalize(source[index]);
     }
 
-    private static string? MapRunSourceToMode(string? source)
+    private static double? Normalize(double value)
     {
-        if (string.IsNullOrWhiteSpace(source))
+        if (double.IsNaN(value) || double.IsInfinity(value))
         {
             return null;
         }
 
-        if (source.Equals("simulation", StringComparison.OrdinalIgnoreCase))
-        {
-            return "simulation";
-        }
-
-        if (source.Equals("engine", StringComparison.OrdinalIgnoreCase) || source.Equals("telemetry", StringComparison.OrdinalIgnoreCase))
-        {
-            return "telemetry";
-        }
-
-        return source.ToLowerInvariant();
+        return value;
     }
 
-    private sealed record StateRunContext(RunManifest Manifest, Window Window, Topology Topology, IReadOnlyDictionary<string, NodeData> NodeData)
+    private sealed record StateRunContext(
+        RunManifest Manifest,
+        RunManifestMetadata ManifestMetadata,
+        Window Window,
+        Topology Topology,
+        IReadOnlyDictionary<string, NodeData> NodeData)
     {
         public double BinMinutes => Window.BinDuration.TotalMinutes;
     }
@@ -447,10 +677,12 @@ public sealed class StateQueryService
 public sealed class StateQueryException : Exception
 {
     public int StatusCode { get; }
+    public string? ErrorCode { get; }
 
-    public StateQueryException(int statusCode, string message)
+    public StateQueryException(int statusCode, string message, string? errorCode = null)
         : base(message)
     {
         StatusCode = statusCode;
+        ErrorCode = errorCode;
     }
 }

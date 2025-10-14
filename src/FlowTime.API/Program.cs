@@ -9,6 +9,7 @@ using FlowTime.Core.Nodes;
 using FlowTime.API.Models;
 using FlowTime.API.Services;
 using FlowTime.Contracts.Services;
+using FlowTime.Core.TimeTravel;
 using Microsoft.AspNetCore.HttpLogging;
 using System.Diagnostics;
 using Synthetic = FlowTime.Adapters.Synthetic;
@@ -20,6 +21,8 @@ builder.Services.AddOpenApi();
 builder.Services.AddSingleton<IServiceInfoProvider, ServiceInfoProvider>();
 builder.Services.AddSingleton<IArtifactRegistry, FileSystemArtifactRegistry>();
 builder.Services.AddSingleton<IArtifactRegistry, FileSystemArtifactRegistry>();
+builder.Services.AddSingleton<RunManifestReader>();
+builder.Services.AddSingleton<ModeValidator>();
 builder.Services.AddSingleton<StateQueryService>();
 builder.Services.AddHttpLogging(o =>
 {
@@ -614,7 +617,7 @@ v1.MapGet("/runs/{runId}/state", async (string runId, HttpContext context, State
     }
     catch (StateQueryException ex)
     {
-        return Results.Json(new { error = ex.Message }, statusCode: ex.StatusCode);
+        return Results.Json(new { error = ex.Message, code = ex.ErrorCode }, statusCode: ex.StatusCode);
     }
 });
 
@@ -637,7 +640,7 @@ v1.MapGet("/runs/{runId}/state_window", async (string runId, HttpContext context
     }
     catch (StateQueryException ex)
     {
-        return Results.Json(new { error = ex.Message }, statusCode: ex.StatusCode);
+        return Results.Json(new { error = ex.Message, code = ex.ErrorCode }, statusCode: ex.StatusCode);
     }
 });
 

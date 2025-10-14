@@ -22,6 +22,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\FlowTime.Core\FlowTime.Core.csproj" />
     <ProjectReference Include="..\..\src\FlowTime.Expressions\FlowTime.Expressions.csproj" />
+    <ProjectReference Include="..\..\src\FlowTime.Contracts\FlowTime.Contracts.csproj" />
   </ItemGroup>
 
 </Project>
