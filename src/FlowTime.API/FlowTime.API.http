@@ -38,6 +38,7 @@ grid:
   bins: 4
   binSize: 5
   binUnit: minutes
+  startTimeUtc: "2025-01-01T00:00:00Z"
 topology:
   nodes:
     - id: OrderService
@@ -119,6 +120,7 @@ grid:
   bins: 4
   binSize: 5
   binUnit: minutes
+  startTimeUtc: "2025-01-01T00:00:00Z"
 topology:
   nodes:
     - id: OrderService
@@ -278,8 +280,8 @@ Accept: application/json
 # }
 
 ### 7. (Optional) Download a raw series for verification
-# Use a seriesId returned in step 5 (e.g. service_arrivals@OrderService@DEFAULT)
-GET {{host}}/v1/runs/{{createRunSimulation.response.body.$.runId}}/series/service_arrivals@OrderService@DEFAULT
+# Use a seriesId returned in step 5 (e.g. service_arrivals@SERVICE_ARRIVALS@DEFAULT)
+GET {{host}}/v1/runs/{{createRunSimulation.response.body.$.runId}}/series/service_arrivals@SERVICE_ARRIVALS@DEFAULT
 Accept: text/csv
 
 ### 8. Validation failure example (SHIFT without initial condition)
