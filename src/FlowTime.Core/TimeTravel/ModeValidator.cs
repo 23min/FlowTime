@@ -12,8 +12,11 @@ public sealed class ModeValidator
         var isSimulation = string.Equals(mode, "simulation", StringComparison.OrdinalIgnoreCase);
         var isTelemetry = string.Equals(mode, "telemetry", StringComparison.OrdinalIgnoreCase);
 
-        var warnings = new List<ModeValidationWarning>();
-        var nodeWarnings = new Dictionary<string, IReadOnlyList<ModeValidationWarning>>(StringComparer.Ordinal);
+        var warnings = new List<ModeValidationWarning>(context.InitialWarnings);
+        var nodeWarnings = context.InitialNodeWarnings.ToDictionary(
+            kvp => kvp.Key,
+            kvp => kvp.Value.ToList(),
+            StringComparer.Ordinal);
 
         if (isTelemetry && context.ManifestMetadata.TelemetrySources.Count == 0)
         {
@@ -96,15 +99,18 @@ public sealed class ModeValidator
                         messages.Add($"invalid values in {string.Join(", ", invalidSeries)}");
                     }
 
-                    nodeWarnings[node.Id] = new[]
+                    if (!nodeWarnings.TryGetValue(node.Id, out var nodeList))
                     {
-                        new ModeValidationWarning
-                        {
-                            Code = unresolvedSources.Count > 0 ? "telemetry_sources_unresolved" : "telemetry_series_invalid",
-                            Message = $"Telemetry mode detected {(string.Join(" and ", messages))}.",
-                            NodeId = node.Id
-                        }
-                    };
+                        nodeList = new List<ModeValidationWarning>();
+                        nodeWarnings[node.Id] = nodeList;
+                    }
+
+                    nodeList.Add(new ModeValidationWarning
+                    {
+                        Code = unresolvedSources.Count > 0 ? "telemetry_sources_unresolved" : "telemetry_series_invalid",
+                        Message = $"Telemetry mode detected {(string.Join(" and ", messages))}.",
+                        NodeId = node.Id
+                    });
                 }
             }
         }
@@ -114,7 +120,12 @@ public sealed class ModeValidator
             return ModeValidationResult.WithError(errorCode, errorMessage ?? "Mode validation failed.");
         }
 
-        return ModeValidationResult.Success(warnings, nodeWarnings);
+        var readonlyNodeWarnings = nodeWarnings.ToDictionary(
+            kvp => kvp.Key,
+            kvp => (IReadOnlyList<ModeValidationWarning>)kvp.Value,
+            StringComparer.OrdinalIgnoreCase);
+
+        return ModeValidationResult.Success(warnings, readonlyNodeWarnings);
 
         IReadOnlyList<string> CollectUnresolvedSources(NodeSemantics semantics)
         {
@@ -165,12 +176,16 @@ public sealed class ModeValidationContext
         RunManifestMetadata manifestMetadata,
         Window window,
         Topology topology,
-        IReadOnlyDictionary<string, NodeData> nodeData)
+        IReadOnlyDictionary<string, NodeData> nodeData,
+        IReadOnlyList<ModeValidationWarning> initialWarnings,
+        IReadOnlyDictionary<string, IReadOnlyList<ModeValidationWarning>> initialNodeWarnings)
     {
         ManifestMetadata = manifestMetadata ?? throw new ArgumentNullException(nameof(manifestMetadata));
         Window = window ?? throw new ArgumentNullException(nameof(window));
         Topology = topology ?? throw new ArgumentNullException(nameof(topology));
         NodeData = nodeData ?? throw new ArgumentNullException(nameof(nodeData));
+        InitialWarnings = initialWarnings ?? Array.Empty<ModeValidationWarning>();
+        InitialNodeWarnings = initialNodeWarnings ?? new Dictionary<string, IReadOnlyList<ModeValidationWarning>>();
     }
 
     public RunManifestMetadata ManifestMetadata { get; }
@@ -178,6 +193,8 @@ public sealed class ModeValidationContext
     public Topology Topology { get; }
     public IReadOnlyDictionary<string, NodeData> NodeData { get; }
     public string Mode => ManifestMetadata.Mode;
+    public IReadOnlyList<ModeValidationWarning> InitialWarnings { get; }
+    public IReadOnlyDictionary<string, IReadOnlyList<ModeValidationWarning>> InitialNodeWarnings { get; }
 }
 
 public sealed class ModeValidationResult

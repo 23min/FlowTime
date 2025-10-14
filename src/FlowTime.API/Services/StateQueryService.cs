@@ -222,6 +222,9 @@ public sealed class StateQueryService
 
             var loader = new SemanticLoader(modelDirectory);
             var nodeData = new Dictionary<string, NodeData>(StringComparer.Ordinal);
+            var preValidationWarnings = new List<ModeValidationWarning>();
+            var preValidationNodeWarnings = new Dictionary<string, List<ModeValidationWarning>>(StringComparer.OrdinalIgnoreCase);
+            var appendedGlobalMissingWarning = false;
 
             foreach (var node in metadata.Topology.Nodes)
             {
@@ -232,12 +235,50 @@ public sealed class StateQueryService
                 }
                 catch (Exception ex)
                 {
+                    if (manifestMetadata.Mode.Equals("telemetry", StringComparison.OrdinalIgnoreCase) &&
+                        ex is FileNotFoundException or DirectoryNotFoundException)
+                    {
+                        logger.LogWarning(ex, "Telemetry source missing for node {NodeId} in run {RunId}", node.Id, runId);
+
+                        nodeData[node.Id] = CreateEmptyNodeData(node, metadata.Window.Bins);
+
+                        if (!preValidationNodeWarnings.TryGetValue(node.Id, out var nodeList))
+                        {
+                            nodeList = new List<ModeValidationWarning>();
+                            preValidationNodeWarnings[node.Id] = nodeList;
+                        }
+
+                        nodeList.Add(new ModeValidationWarning
+                        {
+                            Code = "telemetry_sources_unresolved",
+                            Message = $"Telemetry source '{node.Semantics.Served}' could not be resolved for node '{node.Id}'.",
+                            NodeId = node.Id
+                        });
+
+                        if (!appendedGlobalMissingWarning)
+                        {
+                            preValidationWarnings.Add(new ModeValidationWarning
+                            {
+                                Code = "telemetry_sources_missing",
+                                Message = "One or more telemetry sources could not be resolved for this run."
+                            });
+                            appendedGlobalMissingWarning = true;
+                        }
+
+                        continue;
+                    }
+
                     logger.LogError(ex, "Failed to load series for node {NodeId} in run {RunId}", node.Id, runId);
                     throw new StateQueryException(500, $"Failed to load data for node '{node.Id}' in run '{runId}': {ex.Message}");
                 }
             }
 
-            return new StateRunContext(manifest, manifestMetadata, metadata.Window, metadata.Topology, nodeData);
+            var readonlyNodeWarnings = preValidationNodeWarnings.ToDictionary(
+                kvp => kvp.Key,
+                kvp => (IReadOnlyList<ModeValidationWarning>)kvp.Value,
+                StringComparer.OrdinalIgnoreCase);
+
+            return new StateRunContext(manifest, manifestMetadata, metadata.Window, metadata.Topology, nodeData, preValidationWarnings, readonlyNodeWarnings);
         }
         catch (StateQueryException)
         {
@@ -305,6 +346,22 @@ public sealed class StateQueryService
                 Color = color
             },
             Telemetry = BuildTelemetryInfo(node, context.ManifestMetadata, nodeWarnings)
+        };
+    }
+
+    private static NodeData CreateEmptyNodeData(Node node, int bins)
+    {
+        double[] CreateSeries() => new double[bins];
+
+        return new NodeData
+        {
+            NodeId = node.Id,
+            Arrivals = CreateSeries(),
+            Served = CreateSeries(),
+            Errors = CreateSeries(),
+            ExternalDemand = node.Semantics.ExternalDemand != null ? CreateSeries() : null,
+            QueueDepth = node.Semantics.QueueDepth != null ? CreateSeries() : null,
+            Capacity = node.Semantics.Capacity != null ? CreateSeries() : null
         };
     }
 
@@ -393,6 +450,15 @@ public sealed class StateQueryService
         TryAdd(node.Semantics.ExternalDemand);
         TryAdd(node.Semantics.QueueDepth);
         TryAdd(node.Semantics.Capacity);
+
+        if (nodeWarnings.Count > 0)
+        {
+            return new NodeTelemetryInfo
+            {
+                Sources = Array.Empty<string>(),
+                Warnings = ConvertNodeWarnings(nodeWarnings)
+            };
+        }
 
         if (manifestMetadata.TelemetrySources.Count > 0)
         {
@@ -497,7 +563,13 @@ public sealed class StateQueryService
     }
 
     private ModeValidationResult ValidateContext(StateRunContext context) =>
-        modeValidator.Validate(new ModeValidationContext(context.ManifestMetadata, context.Window, context.Topology, context.NodeData));
+        modeValidator.Validate(new ModeValidationContext(
+            context.ManifestMetadata,
+            context.Window,
+            context.Topology,
+            context.NodeData,
+            context.InitialWarnings,
+            context.InitialNodeWarnings));
 
     private static IReadOnlyList<ModeValidationWarning> GetNodeWarnings(ModeValidationResult validation, string nodeId) =>
         validation.NodeWarnings.TryGetValue(nodeId, out var warnings)
@@ -668,7 +740,9 @@ public sealed class StateQueryService
         RunManifestMetadata ManifestMetadata,
         Window Window,
         Topology Topology,
-        IReadOnlyDictionary<string, NodeData> NodeData)
+        IReadOnlyDictionary<string, NodeData> NodeData,
+        IReadOnlyList<ModeValidationWarning> InitialWarnings,
+        IReadOnlyDictionary<string, IReadOnlyList<ModeValidationWarning>> InitialNodeWarnings)
     {
         public double BinMinutes => Window.BinDuration.TotalMinutes;
     }

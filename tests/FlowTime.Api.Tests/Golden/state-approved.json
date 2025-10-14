@@ -1,0 +1,86 @@
+{
+  "metadata": {
+    "runId": "run_state_fixture",
+    "templateId": "order-system",
+    "templateTitle": "Order System Fixture",
+    "templateVersion": "1.0.0",
+    "mode": "telemetry",
+    "provenanceHash": "sha256:run_state_fixture",
+    "telemetrySourcesResolved": true,
+    "schema": {
+      "id": "time-travel/v1",
+      "version": "1",
+      "hash": "sha256:run_state_fixture"
+    },
+    "storage": {
+      "modelPath": "<dynamic>",
+      "metadataPath": "<dynamic>",
+      "provenancePath": "<dynamic>"
+    }
+  },
+  "bin": {
+    "index": 1,
+    "startUtc": "2025-01-01T00:05:00+00:00",
+    "endUtc": "2025-01-01T00:10:00+00:00",
+    "durationMinutes": 5
+  },
+  "nodes": [
+    {
+      "id": "OrderService",
+      "kind": "service",
+      "metrics": {
+        "arrivals": 10,
+        "served": 6,
+        "errors": 1,
+        "capacity": 7
+      },
+      "derived": {
+        "utilization": 0.8571428571428571,
+        "throughputRatio": 0.6,
+        "color": "yellow"
+      },
+      "telemetry": {
+        "sources": [
+          "file:OrderService_arrivals.csv",
+          "file:OrderService_served.csv",
+          "file:OrderService_errors.csv",
+          "file:OrderService_capacity.csv",
+          "file:SupportQueue_arrivals.csv",
+          "file:SupportQueue_served.csv",
+          "file:SupportQueue_errors.csv",
+          "file:SupportQueue_queue.csv"
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "id": "SupportQueue",
+      "kind": "queue",
+      "metrics": {
+        "arrivals": 7,
+        "served": 6,
+        "errors": 0,
+        "queue": 10
+      },
+      "derived": {
+        "latencyMinutes": 8.333333333333334,
+        "throughputRatio": 0.8571428571428571,
+        "color": "red"
+      },
+      "telemetry": {
+        "sources": [
+          "file:SupportQueue_arrivals.csv",
+          "file:SupportQueue_served.csv",
+          "file:SupportQueue_errors.csv",
+          "file:SupportQueue_queue.csv",
+          "file:OrderService_arrivals.csv",
+          "file:OrderService_served.csv",
+          "file:OrderService_errors.csv",
+          "file:OrderService_capacity.csv"
+        ],
+        "warnings": []
+      }
+    }
+  ],
+  "warnings": []
+}

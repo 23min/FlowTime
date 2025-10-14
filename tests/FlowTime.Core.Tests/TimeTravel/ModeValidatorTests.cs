@@ -51,7 +51,13 @@ public sealed class ModeValidatorTests
 
         var manifestMetadata = CreateMetadata(mode: "simulation");
 
-        var context = new ModeValidationContext(manifestMetadata, TestWindow, TestTopology, nodeData);
+        var context = new ModeValidationContext(
+            manifestMetadata,
+            TestWindow,
+            TestTopology,
+            nodeData,
+            Array.Empty<ModeValidationWarning>(),
+            new Dictionary<string, IReadOnlyList<ModeValidationWarning>>());
         var validator = new ModeValidator();
 
         var result = validator.Validate(context);
@@ -78,7 +84,13 @@ public sealed class ModeValidatorTests
 
         var manifestMetadata = CreateMetadata(mode: "telemetry");
 
-        var context = new ModeValidationContext(manifestMetadata, TestWindow, TestTopology, nodeData);
+        var context = new ModeValidationContext(
+            manifestMetadata,
+            TestWindow,
+            TestTopology,
+            nodeData,
+            Array.Empty<ModeValidationWarning>(),
+            new Dictionary<string, IReadOnlyList<ModeValidationWarning>>());
         var validator = new ModeValidator();
 
         var result = validator.Validate(context);
