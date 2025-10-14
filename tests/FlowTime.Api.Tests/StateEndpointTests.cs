@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -6,9 +7,13 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Encodings.Web;
+using FlowTime.API.Services;
+using FlowTime.Api.Tests.Infrastructure;
 using FlowTime.Contracts.TimeTravel;
 using FlowTime.Core.TimeTravel;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Xunit;
 using Xunit.Sdk;
 
@@ -34,6 +39,7 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
 
     private readonly string artifactsRoot;
     private readonly HttpClient client;
+    private readonly TestLogCollector logCollector;
 
     public StateEndpointTests(TestWebApplicationFactory factory)
     {
@@ -45,9 +51,14 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         CreateSimulationInvalidRun();
         CreateTelemetryMissingSourceRun();
 
+        logCollector = new TestLogCollector();
         client = factory.WithWebHostBuilder(builder =>
         {
             builder.UseSetting("ArtifactsDirectory", artifactsRoot);
+            builder.ConfigureServices(services =>
+            {
+                services.AddSingleton<ILoggerProvider>(_ => logCollector);
+            });
         }).CreateClient();
     }
 
@@ -140,6 +151,50 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         Assert.Equal(1.11111, latency[0]!.Value, 5);
         Assert.Equal(8.33333, latency[1]!.Value, 5);
         Assert.Empty(queueSeries.Telemetry.Warnings);
+    }
+
+    [Fact]
+    public async Task GetState_EmitsStructuredObservabilityLog()
+    {
+        logCollector.Clear();
+
+        var response = await client.GetAsync($"/v1/runs/{runId}/state?binIndex=1");
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync();
+            throw new XunitException($"Expected 200 OK but got {(int)response.StatusCode}: {errorBody}");
+        }
+
+        var entry = GetObservabilityEntry(new EventId(3001, "StateSnapshotObservability"));
+        var state = ExtractState(entry);
+
+        Assert.Equal(runId, AssertEntryValue(state, "RunId"));
+        Assert.Equal("telemetry", AssertEntryValue(state, "Mode"));
+        Assert.Equal(1, Convert.ToInt32(AssertEntryValue(state, "BinIndex")));
+        Assert.Equal(binCount, Convert.ToInt32(AssertEntryValue(state, "TotalBins")));
+    }
+
+    [Fact]
+    public async Task GetStateWindow_EmitsStructuredObservabilityLog()
+    {
+        logCollector.Clear();
+
+        var response = await client.GetAsync($"/v1/runs/{runId}/state_window?startBin=0&endBin=2");
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync();
+            throw new XunitException($"Expected 200 OK but got {(int)response.StatusCode}: {errorBody}");
+        }
+
+        var entry = GetObservabilityEntry(new EventId(3002, "StateWindowObservability"));
+        var state = ExtractState(entry);
+
+        Assert.Equal(runId, AssertEntryValue(state, "RunId"));
+        Assert.Equal("telemetry", AssertEntryValue(state, "Mode"));
+        Assert.Equal(0, Convert.ToInt32(AssertEntryValue(state, "StartBin")));
+        Assert.Equal(2, Convert.ToInt32(AssertEntryValue(state, "EndBin")));
+        Assert.Equal(3, Convert.ToInt32(AssertEntryValue(state, "RequestedBins")));
+        Assert.Equal(binCount, Convert.ToInt32(AssertEntryValue(state, "TotalBins")));
     }
 
     [Fact]
@@ -536,9 +591,44 @@ topology:
     public void Dispose()
     {
         client.Dispose();
+        logCollector.Dispose();
         if (Directory.Exists(artifactsRoot))
         {
             Directory.Delete(artifactsRoot, recursive: true);
         }
+    }
+
+    private TestLogEntry GetObservabilityEntry(EventId expectedEvent)
+    {
+        var entry = logCollector.Entries.LastOrDefault(e =>
+            e.Category == typeof(StateQueryService).FullName &&
+            e.EventId.Id == expectedEvent.Id &&
+            string.Equals(e.EventId.Name, expectedEvent.Name, StringComparison.Ordinal));
+
+        if (entry == null)
+        {
+            var available = string.Join(Environment.NewLine, logCollector.Entries.Select(e =>
+                $"{e.Category} | {e.EventId.Id}:{e.EventId.Name} | {e.Message}"));
+            throw new XunitException($"Expected to find log {expectedEvent.Id}:{expectedEvent.Name} but none were captured. Logs:{Environment.NewLine}{available}");
+        }
+
+        return entry;
+    }
+
+    private static Dictionary<string, object?> ExtractState(TestLogEntry entry)
+    {
+        return entry.State
+            .Where(kvp => !string.Equals(kvp.Key, "{OriginalFormat}", StringComparison.Ordinal))
+            .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+    }
+
+    private static object AssertEntryValue(Dictionary<string, object?> state, string key)
+    {
+        if (!state.TryGetValue(key, out var value))
+        {
+            throw new XunitException($"Expected structured log state to contain '{key}'. Keys: {string.Join(", ", state.Keys)}");
+        }
+
+        return value ?? throw new XunitException($"Structured log value '{key}' was null.");
     }
 }

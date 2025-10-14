@@ -182,6 +182,55 @@ outputs:
 # Optional: wait for evaluation to complete (state call triggers computation within the response)
 GET {{host}}/v1/runs/{{createRunSimulation.response.body.$.runId}}/state?binIndex=1
 Accept: application/json
+# Sample response (enriched envelope):
+# {
+#   "metadata": {
+#     "runId": "http-demo-simulation-demo",
+#     "mode": "simulation",
+#     "telemetrySourcesResolved": false,
+#     "schema": {
+#       "id": "time-travel/v1",
+#       "version": "1",
+#       "hash": "sha256:..."
+#     },
+#     "storage": {
+#       "modelPath": ".../model/model.yaml",
+#       "metadataPath": ".../model/metadata.json",
+#       "provenancePath": ".../model/provenance.json"
+#     }
+#   },
+#   "bin": {
+#     "index": 1,
+#     "startUtc": "2025-01-01T00:05:00Z",
+#     "endUtc": "2025-01-01T00:10:00Z",
+#     "durationMinutes": 5
+#   },
+#   "nodes": [
+#     {
+#       "id": "OrderService",
+#       "kind": "service",
+#       "metrics": {
+#         "arrivals": 10,
+#         "served": 6,
+#         "errors": 1,
+#         "capacity": 12
+#       },
+#       "derived": {
+#         "utilization": 0.5,
+#         "throughputRatio": 0.6,
+#         "color": "yellow"
+#       },
+#       "telemetry": {
+#         "sources": [
+#           "file:OrderService_arrivals.csv",
+#           "file:OrderService_served.csv"
+#         ],
+#         "warnings": []
+#       }
+#     }
+#   ],
+#   "warnings": []
+# }
 
 ### 5. Enumerate the generated series metadata (after evaluation)
 @sleep = 1
@@ -192,6 +241,41 @@ Accept: application/json
 ### 6. Retrieve a bin window for scrubber/series views
 GET {{host}}/v1/runs/{{createRunSimulation.response.body.$.runId}}/state_window?startBin=0&endBin=3
 Accept: application/json
+# Sample response slice:
+# {
+#   "metadata": { "...": "..." },
+#   "window": {
+#     "startBin": 0,
+#     "endBin": 3,
+#     "binCount": 4
+#   },
+#   "timestampsUtc": [
+#     "2025-01-01T00:00:00Z",
+#     "2025-01-01T00:05:00Z",
+#     "2025-01-01T00:10:00Z",
+#     "2025-01-01T00:15:00Z"
+#   ],
+#   "nodes": [
+#     {
+#       "id": "OrderService",
+#       "kind": "service",
+#       "series": {
+#         "arrivals": [10, 12, 11, 13],
+#         "served": [9, 11, 10, 12],
+#         "errors": [1, 1, 1, 1],
+#         "utilization": [0.75, 0.92, 0.83, 1.0]
+#       },
+#       "telemetry": {
+#         "sources": [
+#           "file:OrderService_arrivals.csv",
+#           "file:OrderService_served.csv"
+#         ],
+#         "warnings": []
+#       }
+#     }
+#   ],
+#   "warnings": []
+# }
 
 ### 7. (Optional) Download a raw series for verification
 # Use a seriesId returned in step 5 (e.g. service_arrivals@OrderService@DEFAULT)

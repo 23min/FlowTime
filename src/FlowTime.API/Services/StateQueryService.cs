@@ -13,6 +13,8 @@ namespace FlowTime.API.Services;
 public sealed class StateQueryService
 {
     private const int maxWindowBins = 500;
+    private static readonly EventId stateSnapshotEvent = new(3001, "StateSnapshotObservability");
+    private static readonly EventId stateWindowEvent = new(3002, "StateWindowObservability");
     private readonly IConfiguration configuration;
     private readonly ILogger<StateQueryService> logger;
     private readonly RunManifestReader manifestReader;
@@ -58,6 +60,14 @@ public sealed class StateQueryService
 
             nodeSnapshots.Add(BuildNodeSnapshot(topologyNode, data, context, binIndex, GetNodeWarnings(validation, topologyNode.Id)));
         }
+
+        logger.LogInformation(
+            stateSnapshotEvent,
+            "Resolved state snapshot for run {RunId} (mode={Mode}) at bin {BinIndex} of {TotalBins}",
+            runId,
+            context.ManifestMetadata.Mode,
+            binIndex,
+            context.Window.Bins);
 
         return new StateSnapshotResponse
         {
@@ -127,6 +137,16 @@ public sealed class StateQueryService
 
             seriesList.Add(BuildNodeSeries(topologyNode, data, context, startBin, count, GetNodeWarnings(validation, topologyNode.Id)));
         }
+
+        logger.LogInformation(
+            stateWindowEvent,
+            "Resolved state window for run {RunId} (mode={Mode}) from bin {StartBin} to {EndBin} ({RequestedBins} of {TotalBins})",
+            runId,
+            context.ManifestMetadata.Mode,
+            startBin,
+            endBin,
+            count,
+            context.Window.Bins);
 
         return new StateWindowResponse
         {

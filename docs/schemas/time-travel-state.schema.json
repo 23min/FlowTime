@@ -1,0 +1,203 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "https://flowtime.dev/schemas/time-travel-state.schema.json",
+    "title": "FlowTime Time-Travel State Responses",
+    "description": "Schema for FlowTime Engine time-travel state responses returned by /v1/runs/{runId}/state and /v1/runs/{runId}/state_window.",
+    "oneOf": [
+        { "$ref": "#/$defs/stateSnapshotResponse" },
+        { "$ref": "#/$defs/stateWindowResponse" }
+    ],
+    "$defs": {
+        "stateSnapshotResponse": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["metadata", "bin", "nodes", "warnings"],
+            "properties": {
+                "metadata": { "$ref": "#/$defs/stateMetadata" },
+                "bin": { "$ref": "#/$defs/binDetail" },
+                "nodes": {
+                    "type": "array",
+                    "items": { "$ref": "#/$defs/nodeSnapshot" },
+                    "default": []
+                },
+                "warnings": { "$ref": "#/$defs/stateWarnings" }
+            }
+        },
+        "stateWindowResponse": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["metadata", "window", "timestampsUtc", "nodes", "warnings"],
+            "properties": {
+                "metadata": { "$ref": "#/$defs/stateMetadata" },
+                "window": { "$ref": "#/$defs/windowSlice" },
+                "timestampsUtc": {
+                    "type": "array",
+                    "items": { "type": "string", "format": "date-time" }
+                },
+                "nodes": {
+                    "type": "array",
+                    "items": { "$ref": "#/$defs/nodeSeries" },
+                    "default": []
+                },
+                "warnings": { "$ref": "#/$defs/stateWarnings" }
+            }
+        },
+        "stateMetadata": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["runId", "templateId", "mode", "schema", "storage"],
+            "properties": {
+                "runId": { "type": "string", "minLength": 1 },
+                "templateId": { "type": "string", "minLength": 1 },
+                "templateTitle": { "type": "string", "minLength": 1 },
+                "templateVersion": { "type": "string", "minLength": 1 },
+                "mode": { "type": "string", "enum": ["simulation", "telemetry"] },
+                "provenanceHash": { "$ref": "#/$defs/hash" },
+                "telemetrySourcesResolved": { "type": "boolean" },
+                "schema": { "$ref": "#/$defs/schemaMetadata" },
+                "storage": { "$ref": "#/$defs/storageDescriptor" }
+            }
+        },
+        "schemaMetadata": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "version", "hash"],
+            "properties": {
+                "id": { "type": "string", "minLength": 1 },
+                "version": { "type": "string", "minLength": 1 },
+                "hash": { "$ref": "#/$defs/hash" }
+            }
+        },
+        "storageDescriptor": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["modelPath"],
+            "properties": {
+                "modelPath": { "type": "string", "minLength": 1 },
+                "metadataPath": { "type": "string", "minLength": 1 },
+                "provenancePath": { "type": "string", "minLength": 1 }
+            }
+        },
+        "binDetail": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["index", "durationMinutes"],
+            "properties": {
+                "index": { "type": "integer", "minimum": 0 },
+                "startUtc": { "type": ["string", "null"], "format": "date-time" },
+                "endUtc": { "type": ["string", "null"], "format": "date-time" },
+                "durationMinutes": { "type": "number", "minimum": 0 }
+            }
+        },
+        "windowSlice": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["startBin", "endBin", "binCount"],
+            "properties": {
+                "startBin": { "type": "integer", "minimum": 0 },
+                "endBin": { "type": "integer", "minimum": 0 },
+                "binCount": { "type": "integer", "minimum": 1 }
+            }
+        },
+        "nodeSnapshot": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "kind", "metrics", "derived", "telemetry"],
+            "properties": {
+                "id": { "$ref": "#/$defs/nodeId" },
+                "kind": { "type": "string", "minLength": 1 },
+                "metrics": { "$ref": "#/$defs/nodeMetrics" },
+                "derived": { "$ref": "#/$defs/nodeDerivedMetrics" },
+                "telemetry": { "$ref": "#/$defs/nodeTelemetryInfo" }
+            }
+        },
+        "nodeSeries": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "kind", "series", "telemetry"],
+            "properties": {
+                "id": { "$ref": "#/$defs/nodeId" },
+                "kind": { "type": "string", "minLength": 1 },
+                "series": {
+                    "type": "object",
+                    "minProperties": 1,
+                    "additionalProperties": { "$ref": "#/$defs/numericSeries" }
+                },
+                "telemetry": { "$ref": "#/$defs/nodeTelemetryInfo" }
+            }
+        },
+        "nodeMetrics": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "arrivals": { "$ref": "#/$defs/nullableNumber" },
+                "served": { "$ref": "#/$defs/nullableNumber" },
+                "errors": { "$ref": "#/$defs/nullableNumber" },
+                "queue": { "$ref": "#/$defs/nullableNumber" },
+                "capacity": { "$ref": "#/$defs/nullableNumber" },
+                "externalDemand": { "$ref": "#/$defs/nullableNumber" }
+            }
+        },
+        "nodeDerivedMetrics": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "utilization": { "$ref": "#/$defs/nullableNumber" },
+                "latencyMinutes": { "$ref": "#/$defs/nullableNumber" },
+                "throughputRatio": { "$ref": "#/$defs/nullableNumber" },
+                "color": { "type": ["string", "null"], "minLength": 1 }
+            }
+        },
+        "nodeTelemetryInfo": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["sources", "warnings"],
+            "properties": {
+                "sources": {
+                    "type": "array",
+                    "items": { "type": "string", "minLength": 1 },
+                    "default": [],
+                    "uniqueItems": true
+                },
+                "warnings": {
+                    "type": "array",
+                    "items": { "$ref": "#/$defs/nodeTelemetryWarning" },
+                    "default": []
+                }
+            }
+        },
+        "nodeTelemetryWarning": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["code", "message"],
+            "properties": {
+                "code": { "type": "string", "minLength": 1 },
+                "message": { "type": "string", "minLength": 1 },
+                "severity": { "type": ["string", "null"], "minLength": 1 }
+            }
+        },
+        "stateWarnings": {
+            "type": "array",
+            "items": { "$ref": "#/$defs/stateWarning" },
+            "default": []
+        },
+        "stateWarning": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["code", "message"],
+            "properties": {
+                "code": { "type": "string", "minLength": 1 },
+                "message": { "type": "string", "minLength": 1 },
+                "severity": { "type": "string", "minLength": 1 },
+                "nodeId": { "$ref": "#/$defs/nodeId" }
+            }
+        },
+        "numericSeries": {
+            "type": "array",
+            "items": { "$ref": "#/$defs/nullableNumber" }
+        },
+        "nullableNumber": { "type": ["number", "null"] },
+        "nodeId": { "type": "string", "minLength": 1 },
+        "hash": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
+    }
+}
