@@ -38,6 +38,7 @@ Purpose: give AI assistants the minimum context to work safely and productively 
 ## 4. Branching, Versioning, Releases
 - Branches follow milestone-driven flow: `milestone/mX` for integration, `feature/<surface>-mX/<desc>` per feature.
 - Conventional commits (`feat(api):`, `fix(sim):`, `docs:`, etc.).
+- Commit messages: keep the conventional prefix, avoid icons/emoji, and include a descriptive subject plus a short bullet list body that captures (a) the milestone or tracking doc being advanced and (b) the key work completed/tests touched.
 - Version format `<major>.<minor>.<patch>[-pre]`; milestone completions typically bump the minor version (e.g., `0.6.0 → 0.7.0`).
 - Release notes live in `docs/releases/` with milestone-based naming (e.g., `SIM-M2.7-v0.6.0.md`).
 
