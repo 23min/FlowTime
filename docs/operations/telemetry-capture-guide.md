@@ -101,3 +101,13 @@ Once the bundle is written, the run is ready for `/state` queries and UI inspect
 
 - Extend integration tests to replay captured bundles through `StateQueryService` (tracked under M-03.02).
 - When ADX-based loaders arrive, keep this CLI as a regression aid to produce deterministic telemetry fixtures.
+
+## Observability & Troubleshooting
+
+Telemetry capture and bundling surface their status in three places:
+
+- **CLI output** – `flowtime telemetry capture` prints every planned CSV along with any structured warning codes (for example `nan_detected`, `data_gap`). When warnings appear, check `manifest.json` for the same entries so downstream systems can reason about them.
+- **Bundle manifest** – `manifest.json` includes `warnings[]` and per-file hashes. A quick `jq '.warnings' manifest.json` should be part of your runbook; if the array is non-empty, `/state` will echo the underlying issues.
+- **State API** – `/state` responses mirror telemetry provenance. `metadata.telemetrySourcesResolved` reports whether all sources were found, while each `node.telemetry.warnings[]` contains the warnings generated during capture. The new golden tests (`TelemetryStateGoldenTests`) confirm that these flags stay aligned with the manifest.
+
+If a capture fails, re-run with `--dry-run --verbose` to see the planned operations without deleting any files. Missing CSVs or mismatched hashes typically indicate an inconsistent engine run; regenerate the canonical artifacts before capturing again.

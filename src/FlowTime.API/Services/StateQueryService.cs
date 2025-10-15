@@ -1,3 +1,4 @@
+using System.Linq;
 using FlowTime.Adapters.Synthetic;
 using FlowTime.Contracts.Services;
 using FlowTime.Contracts.TimeTravel;
@@ -620,6 +621,8 @@ public sealed class StateQueryService
     private static StateMetadata BuildMetadata(StateRunContext context)
     {
         var metadata = context.ManifestMetadata;
+        var telemetryResolved = metadata.TelemetrySources.Count > 0 &&
+            !context.InitialWarnings.Any(w => string.Equals(w.Code, "telemetry_sources_missing", StringComparison.OrdinalIgnoreCase));
         return new StateMetadata
         {
             RunId = context.Manifest.RunId,
@@ -628,7 +631,7 @@ public sealed class StateQueryService
             TemplateVersion = metadata.TemplateVersion,
             Mode = metadata.Mode,
             ProvenanceHash = metadata.ProvenanceHash,
-            TelemetrySourcesResolved = metadata.TelemetrySources.Count > 0,
+            TelemetrySourcesResolved = telemetryResolved,
             Schema = new SchemaMetadata
             {
                 Id = metadata.Schema.Id,
