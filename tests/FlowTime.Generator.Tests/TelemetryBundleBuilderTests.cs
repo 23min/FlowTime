@@ -74,6 +74,27 @@ public sealed class TelemetryBundleBuilderTests
         Assert.Equal("file://telemetry/OrderService_served.csv", orderNode.Semantics.Served);
         Assert.Equal("file://telemetry/OrderService_errors.csv", orderNode.Semantics.Errors);
 
+        var metadataPath = Path.Combine(modelDir, "metadata.json");
+        Assert.True(File.Exists(metadataPath));
+        using (var metadataDoc = JsonDocument.Parse(await File.ReadAllTextAsync(metadataPath)))
+        {
+            var metadataRoot = metadataDoc.RootElement;
+            Assert.Equal("telemetry-order", metadataRoot.GetProperty("templateId").GetString());
+            Assert.Equal("Telemetry Order System", metadataRoot.GetProperty("templateTitle").GetString());
+            Assert.Equal("1.0.0", metadataRoot.GetProperty("templateVersion").GetString());
+            Assert.Equal("telemetry", metadataRoot.GetProperty("mode").GetString());
+        }
+
+        var canonicalManifestPath = Path.Combine(modelDir, "telemetry", "telemetry-manifest.json");
+        Assert.True(File.Exists(canonicalManifestPath));
+        using (var canonicalManifest = JsonDocument.Parse(await File.ReadAllTextAsync(canonicalManifestPath)))
+        {
+            var canonicalRoot = canonicalManifest.RootElement;
+            Assert.Equal(captureManifest.Provenance.RunId, canonicalRoot.GetProperty("provenance").GetProperty("runId").GetString());
+            Assert.Equal(captureManifest.Provenance.ScenarioHash, canonicalRoot.GetProperty("provenance").GetProperty("scenarioHash").GetString());
+            Assert.Equal(captureManifest.Files!.Count, canonicalRoot.GetProperty("files").GetArrayLength());
+        }
+
         var manifestReader = new RunManifestReader();
         var manifestMetadata = await manifestReader.ReadAsync(modelDir, CancellationToken.None);
         Assert.Equal("telemetry-order", manifestMetadata.TemplateId);
