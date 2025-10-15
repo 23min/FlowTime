@@ -2,8 +2,8 @@
 
 This index lists the active schemas maintained across FlowTime Engine and FlowTime-Sim. Use the sub-sections below to jump to engine vs. sim artefacts.
 
-````{tab-set}
-```{tab-item} Engine
+## Engine Schemas
+
 | Schema | File | Introduced | Notes |
 |--------|------|------------|-------|
 | Model definition | [model.schema.yaml](model.schema.yaml) / [model.schema.md](model.schema.md) | M-02.09 | Canonical `POST /v1/run` payload (grid, nodes, topology, provenance) |
@@ -51,20 +51,17 @@ graph TD
     ModelYaml -->|RunArtifactWriter| Manifest(manifest.json)
     ModelYaml -->|RunArtifactWriter| SeriesIndex(series/index.json)
     SeriesIndex --> CSVs(series/*.csv)
-    RunJson --> State[/state, /state_window]
+    RunJson --> State[/state & /state_window/]
 ```
 
-```
+## FlowTime-Sim Schemas
 
-```{tab-item} FlowTime-Sim
 | Schema | File | Introduced | Notes |
 |--------|------|------------|-------|
 | Template generation | [flowtime-sim-vnext/docs/schemas/template-schema.yaml](../../flowtime-sim-vnext/docs/schemas/template-schema.yaml) | SIM-M-03.00 | Template definition (window, topology, parameters) |
 | Template docs | [template-schema.md](template-schema.md) | SIM-M-03.00 | Overview of template fields and generation rules |
 
 FlowTime-Sim emits the same model schema consumed by Engine. Its provenance output feeds directly into `model/provenance.json` once Engine executes the run.
-```
-````
 
 ## Error Handling
 
