@@ -402,140 +402,133 @@ runs/<runId>/
 ## M-03.02: TelemetryLoader + Templates
 
 ### Goal
-Implement TelemetryLoader to extract from ADX/CSV and Template system to instantiate models.
+Deliver a telemetry capture pipeline and FlowTime-Sim orchestration flow that replays deterministic run outputs as canonical bundles consumable by `/state` without manual edits.
 
 ### Why This Matters
-- Gives the team a repeatable way to turn production telemetry or simulation output into engine-ready CSVs (`time-travel-architecture-ch3-components.md`).
-- Puts topology and semantic intent under version control, enabling safe reviews and reuse across runs (`time-travel-planning-decisions.md` Q2).
-- Synthetic gold generation keeps the UI, APIs, and fixtures in sync so demos do not depend on external data availability (`time-travel-planning-decisions.md` Q5).
+- Unlocks telemetry-first runs by emitting the canonical artifact layout required by the `/state` APIs shipped in M-03.01 (`docs/releases/M-03.01.md`).
+- Moves template authoring from ad-hoc YAML edits to validated, reviewable assets with provenance tracking (`time-travel-planning-decisions.md` Q2).
+- Harmonises synthetic and telemetry workflows so demos and regression tests rely on the same pipeline (`time-travel-planning-decisions.md` Q5).
+- Provides a bootstrap path until live telemetry (ADX/catalog loaders) is available, after which the capture tooling can remain as a regression harness while the ingestion pipeline swaps to real sources without contract changes.
 
 ### Deliverables
 
-**TelemetryLoader:**
-1. Load from CSV files (simpler than ADX, use for development)
-2. Load from Azure Data Explorer (future production)
-3. Dense bin filling (zero-fill with warnings for gaps)
-4. Manifest generation (provenance, warnings, checksums)
+**Telemetry Capture Pipeline:**
+1. Capture CLI (`flowtime telemetry capture`) that reads canonical run outputs and normalises telemetry bundles.
+2. Optional gap injection (zero-fill, NaN) with warning capture for telemetry-mode validation.
+3. Manifest builder aligning run metadata with canonical telemetry manifest structure.
+4. Documentation outlining how captured bundles map to future ADX manifests.
 
-**Template System:**
-1. Template parser (YAML with {{parameter}} substitution)
-2. Parameter validation (types, defaults)
-3. Template instantiation (resolve parameters → model.yaml)
-4. Example templates (order-system, microservices)
+**Template Orchestration (via FlowTime-Sim):**
+1. Template schema reference and authoring guidance synced from FlowTime-Sim.
+2. Scripts/CLI helpers that call Sim `/templates/{id}/generate` (or CLI) with parameter payloads referencing captured bundles.
+3. Parameter mapping docs covering Sim-supported parameter primitives (scalar values and arrays) and provenance expectations.
+4. Canonical bundle emission via `RunArtifactWriter` using Sim-generated `model.yaml`.
+5. Guidance noting that once ADX ingestion is live, Sim remains the template authority while telemetry bundles may come directly from loaders instead of capture.
 
-**Synthetic Gold Generator:**
-1. Tool: FlowTime simulation run → Gold CSV files
-2. Converts series artifacts to NodeTimeBin format
-3. Adds provenance metadata
-4. Creates manifest.json
+**Workflow Integration:**
+1. Example templates (order-system, microservices, http-service) wired to consume captured bundles.
+2. End-to-end docs + integration tests covering capture → Sim `/generate` → `/state`.
+3. Golden bundles for capture output, template instantiation, and `/state` responses to guard regressions.
 
 ### Acceptance Criteria
 
-**AC1: Load from CSV**
-```csharp
-var loader = new TelemetryLoader();
-var result = loader.LoadFromCsv(new LoadRequest {
-    Directory = "fixtures/gold-telemetry/",
-    Window = new Window { Start = "2025-10-07T00:00:00Z", ... },
-    Nodes = ["OrderService", "OrderQueue"]
-});
-
-Assert.Equal(288, result.Files.Count);
-Assert.Contains("OrderService_arrivals.csv", result.Files);
-```
-
-**AC2: Dense Fill with Warnings**
-```csharp
-// Input: Bins [0,1,2,...,11, 14,15,...] (missing 12,13)
-// Output: Bins [0,1,2,...,287] (filled with zeros)
-// Warnings: [{ type: "data_gap", bins: [12,13] }]
-```
-
-**AC3: Template Instantiation**
-```yaml
-# templates/telemetry/order-system.yaml
-parameters:
-  - name: telemetry_dir
-    type: string
-  - name: window_start
-    type: timestamp
-  - name: q0
-    type: number
-    default: 0
-
-topology:
-  nodes:
-    - id: "OrderService"
-      semantics:
-        arrivals: "{{telemetry_dir}}/OrderService_arrivals.csv"
-
-# Instantiate with: {telemetry_dir: "fixtures/", window_start: "..."}
-# Result: arrivals: "fixtures/OrderService_arrivals.csv"
-```
-
-**AC4: Synthetic Gold Generation**
+**AC1: Telemetry Capture Execution**
 ```bash
-# Generate gold telemetry from simulation
-dotnet run --project tools/SyntheticGold -- \
-  --simulation examples/order-system.yaml \
-  --output fixtures/gold-telemetry/ \
-  --bins 288
-  
-# Output:
-# fixtures/gold-telemetry/OrderService_arrivals.csv
-# fixtures/gold-telemetry/OrderService_served.csv
-# fixtures/gold-telemetry/manifest.json
+flowtime telemetry capture \
+  --run-dir data/runs/order-system \
+  --output data/telemetry/order-system \
+  --dry-run
+```
+*Dry-run lists planned outputs; full run writes CSV files and `manifest.json` with captured run provenance + checksum fields.*
+
+**AC2: Dense Fill & Warning Propagation**
+```json
+{
+  "warnings": [
+    {
+      "code": "data_gap",
+      "nodeId": "OrderService",
+      "bins": [12, 13],
+      "fill": "zero"
+    }
+  ],
+  "files": [
+    { "metric": "arrivals", "path": "OrderService_arrivals.csv", "checksum": "sha256-..." }
+  ]
+}
+```
+
+**AC3: Template Instantiation Workflow**
+```bash
+curl -X POST http://localhost:8090/api/v1/templates/order-system/generate \
+  -H "Content-Type: application/json" \
+  -d @params/order-system.dev.json > out/order-system/model.yaml
+
+flowtime artifacts write \
+  --model out/order-system/model.yaml \
+  --series-root data/telemetry/order-system \
+  --out data/models/order-system/telemetry-dev
+```
+*Produces `model.yaml`, `metadata.json`, and `provenance.json` referencing captured manifest + template parameters.*
+
+**AC4: End-to-End Replay**
+```csharp
+// Captured bundle + Sim-generated model replay through StateQueryService
+var snapshot = await stateQuery.GetStateAsync(runId: "order-system-telemetry", binIndex: 42);
+Assert.Equal("telemetry", snapshot.Metadata.Mode);
+Assert.Contains("data_gap", snapshot.Warnings.Select(w => w.Code));
 ```
 
 ### Test Coverage
 
-**Unit Tests (20 tests):**
-- CSV loading (valid, missing file, wrong row count)
-- Dense fill (gaps at start, middle, end)
-- Template parsing (valid, invalid syntax, missing parameters)
-- Parameter substitution (string, number, timestamp)
-- Synthetic gold generation (simulation → CSV)
+**Unit Tests (~30 tests total):**
+- Capture parsing/validation, CSV normalisation, gap injection, manifest writing.
+- Parameter binder serialisation for Sim `/templates/{id}/generate`.
+- CLI argument binding and configuration overrides for the capture command.
 
-**Integration Tests (5 tests):**
-- End-to-end: CSV → Template → Model → Engine → /state
-- Multiple nodes loaded correctly
-- Warnings propagated to API response
+**Integration Tests (≥8 tests):**
+- Capture outputs consumed by Sim `/generate` for each example system.
+- `/state` replay of captured bundles covering telemetry warnings and provenance hashes.
+- Determinism checks ensuring identical checksum output for repeated captures.
+
+**Golden / Contract Tests (≥4 tests):**
+- Approved capture bundle (CSV + manifest) for order-system run.
+- Approved instantiated template bundle per example.
+- Schema validation for `template.schema.json` and `telemetry-manifest.schema.json`.
 
 ### Files to Create/Modify
 
-**TelemetryLoader:**
-- `src/FlowTime.Adapters.Telemetry/` (NEW project)
-- `src/FlowTime.Adapters.Telemetry/TelemetryLoader.cs`
-- `src/FlowTime.Adapters.Telemetry/CsvReader.cs`
-- `src/FlowTime.Adapters.Telemetry/DenseFiller.cs`
-- `src/FlowTime.Adapters.Telemetry/ManifestWriter.cs`
+- `src/FlowTime.Generator/TelemetryCapture.cs`
+- `src/FlowTime.Generator/Capture/RunArtifactReader.cs`
+- `src/FlowTime.Generator/Processing/GapInjector.cs`
+- `src/FlowTime.Generator/Artifacts/CaptureManifestWriter.cs`
+- `src/FlowTime.CLI/Commands/TelemetryCaptureCommand.cs`
+- `scripts/time-travel/run-sim-template.sh` (Sim orchestration helper)
 
-**Templates:**
-- `src/FlowTime.Templates/` (NEW project)
-- `src/FlowTime.Templates/TemplateParser.cs`
-- `src/FlowTime.Templates/ParameterResolver.cs`
-- `templates/telemetry/order-system.yaml`
-- `templates/telemetry/microservices.yaml`
-
-**Synthetic Gold:**
-- `tools/SyntheticGold/` (NEW project)
-- `tools/SyntheticGold/Program.cs`
-- `tools/SyntheticGold/GoldConverter.cs`
+**Schemas & Docs:**
+- `docs/schemas/template.schema.json` (sync from Sim)
+- `docs/schemas/telemetry-manifest.schema.json` (NEW)
+- `docs/operations/telemetry-capture-guide.md` (NEW)
+- `docs/templates/README.md` (UPDATE with Sim integration workflow)
 
 **Tests:**
-- `tests/FlowTime.Adapters.Telemetry.Tests/`
-- `tests/FlowTime.Templates.Tests/`
+- `tests/FlowTime.Generator.Tests/` (unit + integration)
+- `tests/FlowTime.Api.Tests/TelemetryIntegrationTests.cs`
+- `tests/FlowTime.Api.Tests/Golden/telemetry-capture/*.json`
 
 ### Dependencies
-- M-03.00 (requires file source support)
+- M-03.00 (fixture topology/window conventions)
+- M-03.01 (canonical writer + schema validation for `/state`)
 
 ### Risks and Mitigation
 
 | Risk | Mitigation |
 |------|------------|
-| Template syntax gets complex | Keep simple (only {{param}} substitution, no logic) |
-| CSV format variations | Document format strictly, validate on load |
-| Large telemetry files (memory) | Stream CSV row-by-row |
+| Captured telemetry bundles diverge from eventual ADX output shape | Keep capture schema aligned with planned ADX manifests, document mapping assumptions, and plan validation once ADX access exists. |
+| Sim `/generate` contract or schema shifts | Track Sim template schema version, add smoke tests against Sim service, and coordinate releases. |
+| Capture bundles drift from canonical layout | Reuse canonical writer utilities, validate against schemas, add `/state` integration tests. |
+| Warning volume overwhelms users | Categorise warnings with severity + codes, document remediation guidance. |
+| Orchestration scripts become brittle | Ship sensible defaults, dry-run mode, and provide troubleshooting docs for capture + Sim integration. |
 
 ---
 
