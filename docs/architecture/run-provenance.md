@@ -6,6 +6,24 @@ This document defines how FlowTime Engine accepts and stores model provenance me
 
 **Architecture Note:** Engine is the single source of truth for all artifacts (models + runs + telemetry). FlowTime-Sim provides temporary storage for UI workflows, but Engine stores everything permanently. UI orchestrates the workflow - Sim and Engine do NOT communicate directly. See [Registry Integration Architecture](../../flowtime-sim-vnext/docs/architecture/registry-integration.md) for complete system design.
 
+## Canonical Artifact Layout (Post M-03.01)
+
+```
+run_<timestamp>/
+  model/
+    model.yaml        # canonical model (execution spec)
+    metadata.json     # template id/title/version, mode, schema version, modelHash
+    provenance.json   # provenance metadata (source, template, modelId, generatedAt)
+  series/
+    index.json        # list of series ids + hashes per node
+    *.csv             # per-series data (expanded from outputs / wildcards)
+  run.json            # run summary (grid, status, schema metadata)
+  manifest.json       # deterministic hash + provenance reference
+  gold/               # (placeholder for aggregated outputs)
+```
+
+`RunArtifactWriter` is responsible for emitting this structure for both Engine-triggered runs and CLI executions. Canonical metadata (hashes, template identifiers, mode) is synthesised even when provenance is embedded in the incoming YAML. This ensures `/state`/`/state_window` have a consistent storage contract regardless of run origin.
+
 ## The Provenance Gap
 
 ### Current State (M-02.07)

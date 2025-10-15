@@ -1,61 +1,74 @@
-# FlowTime Engine API Schema Reference
+# FlowTime Schema Reference
 
-## Quick Reference
+This index lists the active schemas maintained across FlowTime Engine and FlowTime-Sim. Use the sub-sections below to jump to engine vs. sim artefacts.
 
-**FlowTime Engine** expects **YAML** input on `POST /run` with the following structure:
+````{tab-set}
+```{tab-item} Engine
+| Schema | File | Introduced | Notes |
+|--------|------|------------|-------|
+| Model definition | [model.schema.yaml](model.schema.yaml) / [model.schema.md](model.schema.md) | M-02.09 | Canonical `POST /v1/run` payload (grid, nodes, topology, provenance) |
+| Manifest | [manifest.schema.json](manifest.schema.json) | M-02.09 | Run metadata (hashes, RNG, provenance ref) |
+| Series index | [series-index.schema.json](series-index.schema.json) | M-02.09 | Per-series metadata (id, component, hash) |
+| Time-travel responses | [time-travel-state.schema.json](time-travel-state.schema.json) | M-03.01 | `/state` & `/state_window` JSON envelope |
+| Legacy input | [engine-input.schema.json](engine-input.schema.json) | Deprecated | Kept for backward compatibility tests |
+
+**Quick Reference – Model Schema Snippet**
 
 ```yaml
-schemaVersion: 1    # Required: Schema version (always 1 for current)
-
-grid:                # Required: Time grid definition
-  bins: 24           # Required: Number of time periods
-  binSize: 1         # Required: Duration magnitude
-  binUnit: hours     # Required: minutes|hours|days|weeks
-
-nodes:               # Required: Array of node definitions
-  - id: demand       # Required: Unique identifier
-    kind: const      # Required: const|expr|pmf
-    values: [...]    # For const: array of numbers
-  - id: served
-    kind: expr
-    expr: "demand * 0.8"  # For expr: expression string
+schemaVersion: 1
+grid:
+  bins: 24
+  binSize: 5
+  binUnit: minutes
+  startTimeUtc: "2025-01-01T00:00:00Z"
+nodes:
+  - id: demand
+    kind: const
+    values: [120, 118, 122]
+topology:
+  nodes:
+    - id: OrderService
+      semantics:
+        arrivals: "file:OrderService_arrivals.csv"
+        served: "file:OrderService_served.csv"
+provenance:
+  source: flowtime-sim
+  templateId: order-system
 ```
 
-**⚠️ Schema Evolution**: FlowTime M-02.09 uses `binSize`/`binUnit` format (not legacy `binMinutes`). See [model.schema.md](model.schema.md) for complete specification.
+**Schema Validation**
 
-## Content Format
+- Engine responses are validated by integration tests (see `StateEndpointTests` and `StateResponseSchemaTests`).
+- Canonical run artefacts written by `RunArtifactWriter` are structured as:
 
-- **Input**: `POST /run` with `Content-Type: text/plain`
-- **Body**: YAML document (not JSON)
-- **Response**: JSON with run results and telemetry data
+```mermaid
+graph TD
+    Template[FlowTime-Sim Template]
+    Template -->|instantiate| ModelYaml(model/model.yaml)
+    ModelYaml -->|RunArtifactWriter| Metadata(metadata.json)
+    ModelYaml -->|RunArtifactWriter| Provenance(provenance.json)
+    ModelYaml -->|RunArtifactWriter| RunJson(run.json)
+    ModelYaml -->|RunArtifactWriter| Manifest(manifest.json)
+    ModelYaml -->|RunArtifactWriter| SeriesIndex(series/index.json)
+    SeriesIndex --> CSVs(series/*.csv)
+    RunJson --> State[/state, /state_window]
+```
 
-## Why YAML?
+```
 
-1. **Human Readable**: YAML is more readable for model definitions
-2. **Industry Standard**: Common for configuration and model specs
-3. **FlowTime-Sim Integration**: Maintains compatibility with Sim service
-4. **Expression Clarity**: Expressions like `"MIN(demand, capacity)"` are clearer in YAML
+```{tab-item} FlowTime-Sim
+| Schema | File | Introduced | Notes |
+|--------|------|------------|-------|
+| Template generation | [flowtime-sim-vnext/docs/schemas/template-schema.yaml](../../flowtime-sim-vnext/docs/schemas/template-schema.yaml) | SIM-M-03.00 | Template definition (window, topology, parameters) |
+| Template docs | [template-schema.md](template-schema.md) | SIM-M-03.00 | Overview of template fields and generation rules |
 
-## Schema Validation
-
-- **Current Schema (M-02.09)**: [`model.schema.yaml`](model.schema.yaml) - Unified format with `binSize`/`binUnit`
-- **Documentation**: [`model.schema.md`](model.schema.md) - Complete specification
-- **Legacy Schemas**: `engine-input.schema.json` and `engine-input-schema.md` are **deprecated** (use model.schema instead)
-- **Examples**: [`/examples/`](/examples/) directory
-- **Time-Travel Responses**: [`time-travel-state.schema.json`](time-travel-state.schema.json) — canonical JSON schema for `/v1/runs/{id}/state` and `/state_window` payloads (validated in `StateResponseSchemaTests`)
-
-## Integration with FlowTime-Sim
-
-FlowTime-Sim **generates** this YAML format from template parameters:
-
-1. **Template Input** (JSON/YAML) → FlowTime-Sim
-2. **Model Generation** → Produces engine-compatible YAML
-3. **Engine Execution** → FlowTime Engine processes the model
-4. **Telemetry Output** → CSV results for analysis
+FlowTime-Sim emits the same model schema consumed by Engine. Its provenance output feeds directly into `model/provenance.json` once Engine executes the run.
+```
+````
 
 ## Error Handling
 
-Invalid YAML returns `400 Bad Request` with JSON error:
+Invalid model YAML submitted to Engine returns `400 Bad Request`, for example:
 
 ```json
 {
@@ -65,6 +78,6 @@ Invalid YAML returns `400 Bad Request` with JSON error:
 
 ## See Also
 
-- [Complete Engine Schema](engine-input-schema.md) - Full schema documentation
-- [Template Schema](template-schema.md) - FlowTime-Sim template format  
-- [API Reference](/docs/api/) - Complete API documentation
+- [Run Provenance Architecture](../architecture/run-provenance.md)
+- [Template Schema Reference](template-schema.md)
+- [API Reference](/docs/api/)
