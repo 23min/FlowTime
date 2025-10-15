@@ -58,8 +58,7 @@ graph TD
 
 | Schema | File | Introduced | Notes |
 |--------|------|------------|-------|
-| Template generation | [flowtime-sim-vnext/docs/schemas/template-schema.yaml](../../flowtime-sim-vnext/docs/schemas/template-schema.yaml) | SIM-M-03.00 | Template definition (window, topology, parameters) |
-| Template docs | [template-schema.md](template-schema.md) | SIM-M-03.00 | Overview of template fields and generation rules |
+| Template generation | [template-schema.md](template-schema.md) | SIM-M-03.00 | Reference copy of FlowTime-Sim template schema (window, topology, parameters) |
 
 FlowTime-Sim emits the same model schema consumed by Engine. Its provenance output feeds directly into `model/provenance.json` once Engine executes the run.
 

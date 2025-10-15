@@ -31,15 +31,15 @@
       "description": "Reference to model provenance metadata",
       "additionalProperties": false,
       "properties": {
-        "has_provenance": { "type": "boolean" },
-        "model_id": { "type": "string" },
-        "template_id": { "type": "string" },
+        "hasProvenance": { "type": "boolean" },
+        "modelId": { "type": "string" },
+        "templateId": { "type": "string" },
         "source": { "type": "string" }
       }
     }
   },
   "$defs": {
     "hash": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
-  "seriesId": { "type": "string", "pattern": "^[A-Za-z0-9._@-]+$", "minLength": 1 }
+    "seriesId": { "type": "string", "pattern": "^[A-Za-z0-9._@-]+$", "minLength": 1 }
   }
 }
