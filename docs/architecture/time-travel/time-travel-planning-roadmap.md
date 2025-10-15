@@ -200,6 +200,11 @@ Implement /state and /state_window endpoints for bin-level querying with derived
 2. GET /v1/runs/{runId}/state_window?startBin={idx}&endBin={idx}
 3. Response includes window, bin timestamps, node values
 
+**Artifact Persistence:**
+1. Engine `/v1/run` execution writes canonical bundles (`model/model.yaml`, `metadata.json`, `provenance.json`) alongside series artifacts so `/state` consumers can rely on SIM-style storage.
+2. Metadata builder normalises hashes/template identifiers and records canonical storage paths for schema validation.
+3. Wildcard (`*`, `prefix/*`) output expansion ensures specs don’t need exhaustive series lists before time-travel APIs are called.
+
 **Derived Metrics:**
 1. Utilization: `served / capacity` (if capacity present, else null)
 2. Latency (Little's Law): `queue / served × binMinutes`
@@ -323,6 +328,21 @@ latency_min = 0.0  // Not division by zero
 // If served is 0:
 latency_min = null  // Can't compute
 ```
+
+**AC5: Canonical Run Artifacts**
+```
+runs/<runId>/
+  model/
+    model.yaml
+    metadata.json
+    provenance.json
+  series/
+    index.json
+    *.csv
+```
+- `/v1/run` emits the canonical structure above, including the SHA-256 `modelHash` shared across `metadata.json`, `run.json`, and `manifest.json`.
+- Wildcard output expansion populates the `series/` directory without manually enumerating every node in the spec.
+- Schema validation for `/state`/`/state_window` responses passes against `docs/schemas/time-travel-state.schema.json`.
 
 ### Test Coverage
 
