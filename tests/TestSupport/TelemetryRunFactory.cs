@@ -364,7 +364,7 @@ internal sealed record FixtureEdge(
 
 public static class TestStateQueryServiceFactory
 {
-    public static StateQueryService Create(string runDirectory)
+    public static StateQueryService Create(string runDirectory, ILogger<StateQueryService>? logger = null)
     {
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
@@ -375,8 +375,11 @@ public static class TestStateQueryServiceFactory
 
         var manifestReader = new RunManifestReader();
         var modeValidator = new ModeValidator();
-        var loggerFactory = LoggerFactory.Create(builder => builder.SetMinimumLevel(LogLevel.Error));
-        var logger = loggerFactory.CreateLogger<StateQueryService>();
+        if (logger is null)
+        {
+            var loggerFactory = LoggerFactory.Create(builder => builder.SetMinimumLevel(LogLevel.Error));
+            logger = loggerFactory.CreateLogger<StateQueryService>();
+        }
 
         return new StateQueryService(configuration, logger, manifestReader, modeValidator);
     }

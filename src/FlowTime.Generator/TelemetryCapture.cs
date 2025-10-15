@@ -8,6 +8,8 @@ using FlowTime.Generator.Artifacts;
 using FlowTime.Generator.Capture;
 using FlowTime.Generator.Models;
 using FlowTime.Generator.Processing;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace FlowTime.Generator;
 
@@ -16,11 +18,18 @@ namespace FlowTime.Generator;
 /// </summary>
 public sealed class TelemetryCapture
 {
-    private readonly RunArtifactReader artifactReader;
+    private static readonly EventId CaptureStartEvent = new(2001, "TelemetryCaptureStart");
+    private static readonly EventId CaptureFileEvent = new(2002, "TelemetryCaptureFile");
+    private static readonly EventId CaptureCompletedEvent = new(2003, "TelemetryCaptureCompleted");
+    private static readonly EventId CaptureWarningEvent = new(2004, "TelemetryCaptureWarning");
 
-    public TelemetryCapture(RunArtifactReader? artifactReader = null)
+    private readonly RunArtifactReader artifactReader;
+    private readonly ILogger<TelemetryCapture> logger;
+
+    public TelemetryCapture(RunArtifactReader? artifactReader = null, ILogger<TelemetryCapture>? logger = null)
     {
         this.artifactReader = artifactReader ?? new RunArtifactReader();
+        this.logger = logger ?? NullLogger<TelemetryCapture>.Instance;
     }
 
     public async Task<TelemetryCapturePlan> ExecuteAsync(TelemetryCaptureOptions options, CancellationToken cancellationToken = default)
@@ -37,14 +46,40 @@ public sealed class TelemetryCapture
         var captureItems = new List<CapturedSeries>();
         var injector = new GapInjector(options.GapOptions);
 
+        logger.LogInformation(
+            CaptureStartEvent,
+            "Telemetry capture started for run {RunId} (output={OutputDirectory})",
+            context.Manifest.RunId,
+            outputDirectory);
+
         foreach (var binding in context.SeriesBindings)
         {
             var sourcePath = Path.Combine(context.RunDirectory, NormalizeRelativePath(binding.SourcePath));
             var (series, readWarnings) = await ReadSeriesAsync(sourcePath, binding.Points, cancellationToken).ConfigureAwait(false);
             warnings.AddRange(readWarnings);
+            foreach (var warning in readWarnings)
+            {
+                logger.LogWarning(
+                    CaptureWarningEvent,
+                    "Capture warning {Code} for {NodeId}:{Metric} - {Message}",
+                    warning.Code,
+                    binding.NodeId,
+                    binding.Metric,
+                    warning.Message);
+            }
 
             var gapResult = injector.Process(binding.NodeId, binding.Metric, series);
             warnings.AddRange(gapResult.Warnings);
+            foreach (var warning in gapResult.Warnings)
+            {
+                logger.LogWarning(
+                    CaptureWarningEvent,
+                    "Capture warning {Code} for {NodeId}:{Metric} - {Message}",
+                    warning.Code,
+                    binding.NodeId,
+                    binding.Metric,
+                    warning.Message);
+            }
 
             plannedFiles.Add(new PlannedCaptureFile(
                 binding.NodeId,
@@ -53,6 +88,13 @@ public sealed class TelemetryCapture
                 binding.TargetFileName));
 
             captureItems.Add(new CapturedSeries(binding, gapResult.Series));
+
+            logger.LogInformation(
+                CaptureFileEvent,
+                "Captured {NodeId}:{Metric} -> {TargetFile}",
+                binding.NodeId,
+                binding.Metric,
+                binding.TargetFileName);
         }
 
         var plan = new TelemetryCapturePlan(
@@ -63,6 +105,12 @@ public sealed class TelemetryCapture
 
         if (options.DryRun)
         {
+            logger.LogInformation(
+                CaptureCompletedEvent,
+                "Telemetry capture dry-run complete for run {RunId} (files={FileCount}, warnings={WarningCount})",
+                context.Manifest.RunId,
+                plannedFiles.Count,
+                warnings.Count);
             return plan;
         }
 
@@ -103,6 +151,13 @@ public sealed class TelemetryCapture
 
         var manifestPath = Path.Combine(outputDirectory, "manifest.json");
         await CaptureManifestWriter.WriteAsync(manifestPath, manifest, cancellationToken).ConfigureAwait(false);
+
+        logger.LogInformation(
+            CaptureCompletedEvent,
+            "Telemetry capture completed for run {RunId} (files={FileCount}, warnings={WarningCount})",
+            context.Manifest.RunId,
+            plannedFiles.Count,
+            warnings.Count);
 
         return plan;
     }

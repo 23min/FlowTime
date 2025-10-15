@@ -27,6 +27,7 @@
 
   <ItemGroup>
     <Compile Include="..\TestSupport\TelemetryRunFactory.cs" Link="Support\TelemetryRunFactory.cs" />
+    <Compile Include="..\TestSupport\ListLogger.cs" Link="Support\ListLogger.cs" />
   </ItemGroup>
 
 </Project>

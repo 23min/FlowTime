@@ -6,6 +6,7 @@ using FlowTime.Generator.Models;
 using FlowTime.Generator.Processing;
 using FlowTime.Tests.Support;
 using Json.Schema;
+using Microsoft.Extensions.Logging;
 using Xunit.Sdk;
 
 namespace FlowTime.Generator.Tests;
@@ -19,7 +20,8 @@ public sealed class TelemetryCaptureTests
         var runDir = TelemetryRunFactory.CreateRunArtifacts(temp.Path, "run_test_capture", includeTopology: true);
         var outputDir = System.IO.Path.Combine(temp.Path, "capture-out");
 
-        var capture = new TelemetryCapture();
+        var logger = new ListLogger<TelemetryCapture>();
+        var capture = new TelemetryCapture(logger: logger);
         var options = new TelemetryCaptureOptions
         {
             RunDirectory = runDir,
@@ -29,6 +31,11 @@ public sealed class TelemetryCaptureTests
         };
 
         var plan = await capture.ExecuteAsync(options);
+
+        Assert.Contains(logger.Entries, e => e.EventId.Id == 2001);
+        Assert.Contains(logger.Entries, e => e.EventId.Id == 2003);
+        var fileLogs = logger.Entries.Where(e => e.EventId.Id == 2002).ToArray();
+        Assert.Equal(plan.Files.Count, fileLogs.Length);
 
         Assert.Equal("run_test_capture", plan.RunId);
         Assert.Equal(6, plan.Files.Count);
@@ -84,7 +91,8 @@ public sealed class TelemetryCaptureTests
         await InjectNanAsync(Path.Combine(runDir, "series", "order_served@ORDER_SERVED@DEFAULT.csv"), binIndex: 1);
         await InjectNanAsync(Path.Combine(runDir, "series", "payment_served@PAYMENT_SERVED@DEFAULT.csv"), binIndex: 2);
 
-        var capture = new TelemetryCapture();
+        var logger = new ListLogger<TelemetryCapture>();
+        var capture = new TelemetryCapture(logger: logger);
         var options = new TelemetryCaptureOptions
         {
             RunDirectory = runDir,
@@ -97,6 +105,8 @@ public sealed class TelemetryCaptureTests
 
         var nanWarnings = plan.Warnings.Where(w => w.Code == "nan_fill").ToArray();
         Assert.Equal(2, nanWarnings.Length);
+
+        Assert.Contains(logger.Entries, e => e.EventId.Id == 2004 && e.Level == LogLevel.Warning);
 
         var manifestPath = System.IO.Path.Combine(options.OutputDirectory, "manifest.json");
         using var doc = JsonDocument.Parse(await File.ReadAllTextAsync(manifestPath));
@@ -115,7 +125,8 @@ public sealed class TelemetryCaptureTests
         lines.RemoveAt(lines.Count - 1); // remove final data row
         await File.WriteAllLinesAsync(seriesPath, lines);
 
-        var capture = new TelemetryCapture();
+        var logger = new ListLogger<TelemetryCapture>();
+        var capture = new TelemetryCapture(logger: logger);
         var options = new TelemetryCaptureOptions
         {
             RunDirectory = runDir,
@@ -127,6 +138,8 @@ public sealed class TelemetryCaptureTests
         var plan = await capture.ExecuteAsync(options);
 
         Assert.Contains(plan.Warnings, w => w.Code == "length_mismatch");
+
+        Assert.Contains(logger.Entries, e => e.EventId.Id == 2004 && e.Message.Contains("length_mismatch"));
 
         var manifestPath = Path.Combine(options.OutputDirectory, "manifest.json");
         using var doc = JsonDocument.Parse(await File.ReadAllTextAsync(manifestPath));
@@ -142,7 +155,8 @@ public sealed class TelemetryCaptureTests
 
         await InjectGapAsync(Path.Combine(runDir, "series", "order_arrivals@ORDER_ARRIVALS@DEFAULT.csv"), binIndex: 2);
 
-        var capture = new TelemetryCapture();
+        var logger = new ListLogger<TelemetryCapture>();
+        var capture = new TelemetryCapture(logger: logger);
         var options = new TelemetryCaptureOptions
         {
             RunDirectory = runDir,
@@ -153,6 +167,8 @@ public sealed class TelemetryCaptureTests
         var plan = await capture.ExecuteAsync(options);
 
         Assert.Contains(plan.Warnings, w => w.Code == "data_gap" && w.NodeId == "OrderService" && w.Bins!.Contains(2));
+
+        Assert.Contains(logger.Entries, e => e.EventId.Id == 2004 && e.Message.Contains("data_gap"));
 
         var manifestPath = Path.Combine(options.OutputDirectory, "manifest.json");
         using var doc = JsonDocument.Parse(await File.ReadAllTextAsync(manifestPath));
@@ -168,7 +184,8 @@ public sealed class TelemetryCaptureTests
 
         await InjectGapAsync(Path.Combine(runDir, "series", "order_served@ORDER_SERVED@DEFAULT.csv"), binIndex: 1);
 
-        var capture = new TelemetryCapture();
+        var logger = new ListLogger<TelemetryCapture>();
+        var capture = new TelemetryCapture(logger: logger);
         var options = new TelemetryCaptureOptions
         {
             RunDirectory = runDir,
@@ -179,6 +196,8 @@ public sealed class TelemetryCaptureTests
         var plan = await capture.ExecuteAsync(options);
 
         Assert.Contains(plan.Warnings, w => w.Code == "data_gap" && w.NodeId == "OrderService");
+
+        Assert.Contains(logger.Entries, e => e.EventId.Id == 2004 && e.Message.Contains("data_gap"));
 
         var csvPath = Path.Combine(options.OutputDirectory, "OrderService_served.csv");
         var lines = await File.ReadAllLinesAsync(csvPath);

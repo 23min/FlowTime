@@ -1,8 +1,10 @@
 using System.Globalization;
 using System.Linq;
+using FlowTime.API.Services;
 using FlowTime.Generator;
 using FlowTime.Generator.Models;
 using FlowTime.Tests.Support;
+using Microsoft.Extensions.Logging;
 using Xunit.Abstractions;
 
 namespace FlowTime.Generator.Tests;
@@ -53,7 +55,8 @@ public sealed class TelemetryStateGoldenTests
             DeterministicRunId = true
         });
 
-        var stateService = TestStateQueryServiceFactory.Create(bundleResult.RunDirectory);
+        var logger = new ListLogger<StateQueryService>();
+        var stateService = TestStateQueryServiceFactory.Create(bundleResult.RunDirectory, logger);
         var snapshot = await stateService.GetStateAsync(bundleResult.RunId, binIndex: 0, CancellationToken.None);
 
         Assert.Equal("telemetry", snapshot.Metadata.Mode);
@@ -97,7 +100,12 @@ public sealed class TelemetryStateGoldenTests
             Assert.All(node.Telemetry.Sources, source => Assert.StartsWith("file://telemetry/", source, StringComparison.OrdinalIgnoreCase));
         }
 
+        Assert.Contains(logger.Entries, e => e.EventId.Id == 3001 && e.Level == LogLevel.Information);
+
         var window = await stateService.GetStateWindowAsync(bundleResult.RunId, startBin: 0, endBin: definition.Bins - 1, CancellationToken.None);
+
+        Assert.Contains(logger.Entries, e => e.EventId.Id == 3002 && e.Level == LogLevel.Information);
+
         Assert.Equal("telemetry", window.Metadata.Mode);
         Assert.Equal(definition.Bins, window.Window.BinCount);
 
@@ -171,7 +179,8 @@ public sealed class TelemetryStateGoldenTests
         var missingPath = Path.Combine(bundle.RunDirectory, "model", "telemetry", "OrderService_arrivals.csv");
         File.Delete(missingPath);
 
-        var stateService = TestStateQueryServiceFactory.Create(bundle.RunDirectory);
+        var logger = new ListLogger<StateQueryService>();
+        var stateService = TestStateQueryServiceFactory.Create(bundle.RunDirectory, logger);
         var snapshot = await stateService.GetStateAsync(bundle.RunId, binIndex: 0, CancellationToken.None);
 
         Assert.False(snapshot.Metadata.TelemetrySourcesResolved);
@@ -183,6 +192,8 @@ public sealed class TelemetryStateGoldenTests
         var window = await stateService.GetStateWindowAsync(bundle.RunId, 0, definition.Bins - 1, CancellationToken.None);
         var orderSeries = window.Nodes.Single(n => n.Id == "OrderService");
         Assert.Contains(orderSeries.Telemetry.Warnings, w => w.Code == "telemetry_sources_unresolved");
+
+        Assert.Contains(logger.Entries, e => e.Level == LogLevel.Warning && e.Message.Contains("Telemetry source missing"));
     }
 
     private static string BuildTemplateYaml(string captureDir, FixtureDefinition definition)
