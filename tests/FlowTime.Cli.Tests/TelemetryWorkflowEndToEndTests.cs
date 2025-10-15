@@ -4,8 +4,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using FlowTime.Cli.Commands;
-using FlowTime.Generator;
-using FlowTime.Generator.Models;
 using FlowTime.Tests.Support;
 using Xunit;
 
@@ -33,25 +31,30 @@ public sealed class TelemetryWorkflowEndToEndTests
         var templatePath = Path.Combine(temp.Path, "sim-model.yaml");
         await File.WriteAllTextAsync(templatePath, BuildTelemetryModelYaml(captureDir));
 
-        var builder = new TelemetryBundleBuilder();
         var outputRoot = Path.Combine(temp.Path, "runs");
         Directory.CreateDirectory(outputRoot);
 
-        var result = await builder.BuildAsync(new TelemetryBundleOptions
+        var bundleExit = await TelemetryBundleCommand.ExecuteAsync(new[]
         {
-            CaptureDirectory = captureDir,
-            ModelPath = templatePath,
-            OutputRoot = outputRoot,
-            DeterministicRunId = true
+            "bundle",
+            "--capture-dir", captureDir,
+            "--model", templatePath,
+            "--output", outputRoot,
+            "--deterministic-run-id"
         });
 
-        var canonicalModelPath = Path.Combine(result.RunDirectory, "model", "model.yaml");
+        Assert.Equal(0, bundleExit);
+
+        var runDir = Directory.GetDirectories(outputRoot).Single();
+        var runId = Path.GetFileName(runDir);
+
+        var canonicalModelPath = Path.Combine(runDir, "model", "model.yaml");
         Assert.True(File.Exists(canonicalModelPath));
         var canonicalYaml = await File.ReadAllTextAsync(canonicalModelPath);
         Assert.Contains("file://telemetry/OrderService_arrivals.csv", canonicalYaml);
 
-        var stateService = TestStateQueryServiceFactory.Create(result.RunDirectory);
-        var snapshot = await stateService.GetStateAsync(result.RunId, binIndex: 0, CancellationToken.None);
+        var stateService = TestStateQueryServiceFactory.Create(runDir);
+        var snapshot = await stateService.GetStateAsync(runId, binIndex: 0, CancellationToken.None);
         Assert.Equal("telemetry", snapshot.Metadata.Mode);
         Assert.Equal(10, snapshot.Nodes.First(n => n.Id == "OrderService").Metrics.Arrivals);
     }

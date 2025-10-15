@@ -25,7 +25,26 @@ if (args[0] == "artifacts")
 if (args[0] == "telemetry")
 {
     var telemetryArgs = args.Length > 1 ? args[1..] : Array.Empty<string>();
-    return await TelemetryCaptureCommand.ExecuteAsync(telemetryArgs);
+    if (telemetryArgs.Length == 0)
+    {
+        PrintTelemetryUsage();
+        return 2;
+    }
+
+    var subcommand = telemetryArgs[0];
+    if (string.Equals(subcommand, "capture", StringComparison.OrdinalIgnoreCase))
+    {
+        return await TelemetryCaptureCommand.ExecuteAsync(telemetryArgs);
+    }
+
+    if (string.Equals(subcommand, "bundle", StringComparison.OrdinalIgnoreCase))
+    {
+        return await TelemetryBundleCommand.ExecuteAsync(telemetryArgs);
+    }
+
+    Console.Error.WriteLine($"Unknown telemetry subcommand: {subcommand}");
+    PrintTelemetryUsage();
+    return 2;
 }
 
 if (args[0] != "run")
@@ -258,6 +277,16 @@ static void PrintUsage()
 	Console.WriteLine("  flowtime run examples/hello/model.yaml --out out/hello --verbose");
 	Console.WriteLine("  flowtime run examples/hello/model.yaml --deterministic-run-id --out out/deterministic");
 	Console.WriteLine("  flowtime run examples/hello/model.yaml --seed 42 --verbose");
+}
+
+static void PrintTelemetryUsage()
+{
+	Console.WriteLine("Telemetry Commands");
+	Console.WriteLine();
+	Console.WriteLine("  flowtime telemetry capture --run-dir <path> [options]");
+	Console.WriteLine("  flowtime telemetry bundle --capture-dir <path> --model <model.yaml> [options]");
+	Console.WriteLine();
+	Console.WriteLine("Run with --help after each subcommand for detailed options.");
 }
 
 static class JsonOpts
