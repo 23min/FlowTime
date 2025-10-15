@@ -27,6 +27,7 @@ public static class TelemetryCaptureCommand
         string? outputDir = null;
         var dryRun = false;
         var fillNan = false;
+        var gapHandling = GapHandlingMode.Ignore;
 
         for (var i = 1; i < args.Length; i++)
         {
@@ -73,6 +74,18 @@ public static class TelemetryCaptureCommand
                 continue;
             }
 
+            if (string.Equals(arg, "--gap-detect", StringComparison.OrdinalIgnoreCase))
+            {
+                gapHandling = GapHandlingMode.WarnOnly;
+                continue;
+            }
+
+            if (string.Equals(arg, "--gap-fill-gaps", StringComparison.OrdinalIgnoreCase))
+            {
+                gapHandling = GapHandlingMode.FillWithZero;
+                continue;
+            }
+
             Console.Error.WriteLine($"Unknown option: {arg}");
             PrintUsage();
             return 2;
@@ -110,7 +123,9 @@ public static class TelemetryCaptureCommand
                 RunDirectory = runDir,
                 OutputDirectory = outputDir,
                 DryRun = dryRun,
-                GapOptions = fillNan ? new GapInjectorOptions(FillNaNWithZero: true) : GapInjectorOptions.Default
+                GapOptions = new GapInjectorOptions(
+                    FillNaNWithZero: fillNan,
+                    MissingValueHandling: gapHandling)
             };
 
             var plan = await capture.ExecuteAsync(options).ConfigureAwait(false);
@@ -182,5 +197,7 @@ public static class TelemetryCaptureCommand
         Console.WriteLine("                       --out is accepted as an alias.");
         Console.WriteLine("  --dry-run            Describe the capture without writing files.");
         Console.WriteLine("  --gap-fill-nan       Replace NaN/∞ values with zero and record a warning.");
+        Console.WriteLine("  --gap-detect         Emit data_gap warnings for missing bins while preserving gaps.");
+        Console.WriteLine("  --gap-fill-gaps      Fill missing bins with zero and emit data_gap warnings.");
     }
 }

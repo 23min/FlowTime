@@ -134,6 +134,57 @@ public sealed class TelemetryCaptureTests
         Assert.Contains(warnings.EnumerateArray(), w => w.GetProperty("code").GetString() == "length_mismatch");
     }
 
+    [Fact]
+    public async Task ExecuteAsync_WithGapDetection_RecordsWarnings()
+    {
+        using var temp = new TempDirectory();
+        var runDir = TelemetryRunFactory.CreateRunArtifacts(temp.Path, "run_gap_detect", includeTopology: true);
+
+        await InjectGapAsync(Path.Combine(runDir, "series", "order_arrivals@ORDER_ARRIVALS@DEFAULT.csv"), binIndex: 2);
+
+        var capture = new TelemetryCapture();
+        var options = new TelemetryCaptureOptions
+        {
+            RunDirectory = runDir,
+            OutputDirectory = Path.Combine(temp.Path, "gap-detect"),
+            GapOptions = new GapInjectorOptions(MissingValueHandling: GapHandlingMode.WarnOnly)
+        };
+
+        var plan = await capture.ExecuteAsync(options);
+
+        Assert.Contains(plan.Warnings, w => w.Code == "data_gap" && w.NodeId == "OrderService" && w.Bins!.Contains(2));
+
+        var manifestPath = Path.Combine(options.OutputDirectory, "manifest.json");
+        using var doc = JsonDocument.Parse(await File.ReadAllTextAsync(manifestPath));
+        var warningCodes = doc.RootElement.GetProperty("warnings").EnumerateArray().Select(w => w.GetProperty("code").GetString()).ToArray();
+        Assert.Contains("data_gap", warningCodes);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithGapFillZeros_PatchesSeries()
+    {
+        using var temp = new TempDirectory();
+        var runDir = TelemetryRunFactory.CreateRunArtifacts(temp.Path, "run_gap_fill_zero", includeTopology: true);
+
+        await InjectGapAsync(Path.Combine(runDir, "series", "order_served@ORDER_SERVED@DEFAULT.csv"), binIndex: 1);
+
+        var capture = new TelemetryCapture();
+        var options = new TelemetryCaptureOptions
+        {
+            RunDirectory = runDir,
+            OutputDirectory = Path.Combine(temp.Path, "gap-fill-zero"),
+            GapOptions = new GapInjectorOptions(MissingValueHandling: GapHandlingMode.FillWithZero)
+        };
+
+        var plan = await capture.ExecuteAsync(options);
+
+        Assert.Contains(plan.Warnings, w => w.Code == "data_gap" && w.NodeId == "OrderService");
+
+        var csvPath = Path.Combine(options.OutputDirectory, "OrderService_served.csv");
+        var lines = await File.ReadAllLinesAsync(csvPath);
+        Assert.Equal("1,0", lines[2]); // header + index 0 + index 1
+    }
+
     private static JsonSchema LoadTelemetryManifestSchema()
     {
         var schemaPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "docs", "schemas", "telemetry-manifest.schema.json"));
@@ -152,6 +203,15 @@ public sealed class TelemetryCaptureTests
         var lines = await File.ReadAllLinesAsync(filePath);
         var parts = lines[binIndex + 1].Split(',');
         parts[1] = "NaN";
+        lines[binIndex + 1] = string.Join(',', parts);
+        await File.WriteAllLinesAsync(filePath, lines);
+    }
+
+    private static async Task InjectGapAsync(string filePath, int binIndex)
+    {
+        var lines = await File.ReadAllLinesAsync(filePath);
+        var parts = lines[binIndex + 1].Split(',');
+        parts[1] = string.Empty;
         lines[binIndex + 1] = string.Join(',', parts);
         await File.WriteAllLinesAsync(filePath, lines);
     }

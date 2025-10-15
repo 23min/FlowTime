@@ -43,6 +43,11 @@ flowtime telemetry capture \
 
 Without the flag the CLI surfaces `nan_detected` warnings but preserves the original values.
 
+Additional gap tooling:
+
+- `--gap-detect` emits `data_gap` warnings for empty bins while preserving the gap (CSV writes an empty value).
+- `--gap-fill-gaps` both records `data_gap` warnings and fills empty bins with `0`, keeping downstream consumers aligned with canonical series length.
+
 ## Output Layout
 
 ```

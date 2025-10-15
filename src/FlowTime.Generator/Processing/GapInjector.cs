@@ -30,7 +30,23 @@ public sealed class GapInjector
         for (var i = 0; i < series.Count; i++)
         {
             var value = series[i];
-            if (value is null || double.IsNaN(value.Value) || double.IsInfinity(value.Value))
+
+            if (!value.HasValue)
+            {
+                if (options.MissingValueHandling != GapHandlingMode.Ignore)
+                {
+                    warnings.Add(new CaptureWarning(
+                        Code: "data_gap",
+                        Message: $"Missing value at bin {i} for {nodeId}:{metric}.",
+                        NodeId: nodeId,
+                        Bins: new[] { i }));
+                }
+
+                data[i] = options.MissingValueHandling == GapHandlingMode.FillWithZero ? 0d : null;
+                continue;
+            }
+
+            if (double.IsNaN(value.Value) || double.IsInfinity(value.Value))
             {
                 if (options.FillNaNWithZero)
                 {
