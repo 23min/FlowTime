@@ -1,5 +1,9 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using FlowTime.API.Services;
+using FlowTime.Core.TimeTravel;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace FlowTime.Tests.Support;
 
@@ -237,5 +241,25 @@ public sealed class TempDirectory : IDisposable
         {
             // best effort cleanup
         }
+    }
+}
+
+public static class TestStateQueryServiceFactory
+{
+    public static StateQueryService Create(string runDirectory)
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["ArtifactsDirectory"] = Path.GetDirectoryName(runDirectory) ?? string.Empty
+            })
+            .Build();
+
+        var manifestReader = new RunManifestReader();
+        var modeValidator = new ModeValidator();
+        var loggerFactory = LoggerFactory.Create(builder => builder.SetMinimumLevel(LogLevel.Error));
+        var logger = loggerFactory.CreateLogger<StateQueryService>();
+
+        return new StateQueryService(configuration, logger, manifestReader, modeValidator);
     }
 }

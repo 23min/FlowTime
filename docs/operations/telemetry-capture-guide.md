@@ -73,6 +73,25 @@ Key notes:
 - Use `--literal-param` for string overrides and `--json-param` for arrays/numeric values when templates need additional inputs.
 - The script writes `model.yaml` and `provenance.json` to the chosen output directory; pass `--verbose` to surface Sim CLI diagnostics.
 
+## Bundle for Engine
+
+Use the generator to combine the capture bundle and Sim model into a canonical engine run:
+
+```csharp
+var builder = new TelemetryBundleBuilder();
+var result = await builder.BuildAsync(new TelemetryBundleOptions
+{
+    CaptureDirectory = "data/telemetry/run_deterministic_72ca609c",
+    ModelPath = "out/templates/it-system-microservices/model.yaml",
+    OutputRoot = "data/runs",
+    DeterministicRunId = true
+});
+```
+
+This produces `data/runs/<runId>/model/model.yaml` where every telemetry binding is normalised to `file://telemetry/<file>.csv`. The generator copies the captured CSVs into `model/telemetry/` and emits `telemetry-manifest.json` alongside the canonical model so `StateQueryService` can replay the bundle without touching the original capture directory.
+
+Once the bundle is written, the run is ready for `/state` queries and UI inspection just like any engine-produced run.
+
 ## Next Steps
 
 - Extend integration tests to replay captured bundles through `StateQueryService` (tracked under M-03.02).

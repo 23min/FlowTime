@@ -21,6 +21,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\FlowTime.Generator\FlowTime.Generator.csproj" />
+    <ProjectReference Include="..\..\src\FlowTime.Sim.Core\FlowTime.Sim.Core.csproj" />
+    <ProjectReference Include="..\..\src\FlowTime.API\FlowTime.API.csproj" />
   </ItemGroup>
 
   <ItemGroup>
