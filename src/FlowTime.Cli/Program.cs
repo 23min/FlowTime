@@ -1,3 +1,4 @@
+using FlowTime.Cli.Commands;
 using FlowTime.Cli.Configuration;
 using FlowTime.Cli.Formatting;
 using FlowTime.Core;
@@ -18,13 +19,19 @@ if (args.Length == 0 || IsHelp(args[0]))
 
 if (args[0] == "artifacts")
 {
-	return await HandleArtifactsCommand(args);
+    return await HandleArtifactsCommand(args);
+}
+
+if (args[0] == "telemetry")
+{
+    var telemetryArgs = args.Length > 1 ? args[1..] : Array.Empty<string>();
+    return await TelemetryCaptureCommand.ExecuteAsync(telemetryArgs);
 }
 
 if (args[0] != "run")
 {
-	PrintUsage();
-	return 2;
+    PrintUsage();
+    return 2;
 }
 
 string modelPath = args.Length > 1 ? args[1] : throw new ArgumentException("Missing model.yaml path");

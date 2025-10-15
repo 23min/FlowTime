@@ -8,6 +8,7 @@ This index lists the active schemas maintained across FlowTime Engine and FlowTi
 |--------|------|------------|-------|
 | Model definition | [model.schema.yaml](model.schema.yaml) / [model.schema.md](model.schema.md) | M-02.09 | Canonical `POST /v1/run` payload (grid, nodes, topology, provenance) |
 | Manifest | [manifest.schema.json](manifest.schema.json) | M-02.09 | Run metadata (hashes, RNG, provenance ref) |
+| Telemetry manifest | [telemetry-manifest.schema.json](telemetry-manifest.schema.json) | M-03.02 | Capture bundles (grid info, file inventory, provenance checks) |
 | Series index | [series-index.schema.json](series-index.schema.json) | M-02.09 | Per-series metadata (id, component, hash) |
 | Time-travel responses | [time-travel-state.schema.json](time-travel-state.schema.json) | M-03.01 | `/state` & `/state_window` JSON envelope |
 | Legacy input | [engine-input.schema.json](engine-input.schema.json) | Deprecated | Kept for backward compatibility tests |

@@ -1,0 +1,138 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://flowtime.dev/schemas/telemetry-manifest.schema.json",
+  "title": "Telemetry Capture Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "grid", "files", "provenance"],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "window": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "startTimeUtc": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "durationMinutes": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "grid": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bins", "binSize", "binUnit"],
+      "properties": {
+        "bins": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "binSize": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "binUnit": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["nodeId", "metric", "path", "hash", "points"],
+        "properties": {
+          "nodeId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "metric": {
+            "type": "string",
+            "enum": [
+              "Arrivals",
+              "Served",
+              "Errors",
+              "ExternalDemand",
+              "QueueDepth",
+              "Capacity"
+            ]
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "points": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "message"],
+        "properties": {
+          "code": {
+            "type": "string",
+            "minLength": 1
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1
+          },
+          "nodeId": {
+            "type": "string"
+          },
+          "bins": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["runId", "scenarioHash", "capturedAtUtc"],
+      "properties": {
+        "runId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scenarioHash": {
+          "$ref": "#/$defs/hash"
+        },
+        "modelHash": {
+          "$ref": "#/$defs/hash"
+        },
+        "capturedAtUtc": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "hash": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    }
+  }
+}
