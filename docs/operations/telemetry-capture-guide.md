@@ -55,8 +55,25 @@ telemetry/<runId>/
 
 Each CSV follows the capture schema (`bin_index,value`) and the manifest lists the full file inventory plus provenance (run id, scenario hash, captured timestamp).
 
+## Template Generation
+
+Use the helper script to call FlowTime-Sim with parameters that reference the captured bundle:
+
+```bash
+scripts/time-travel/run-sim-template.sh \
+  --template-id it-system-microservices \
+  --telemetry-dir data/telemetry/run_deterministic_72ca609c \
+  --telemetry-param telemetryRequestsSource=OrderService_arrivals.csv \
+  --out-dir out/templates/it-system-microservices
+```
+
+Key notes:
+
+- `--telemetry-param` resolves relative paths inside the capture directory and applies the required `file://` prefix.
+- Use `--literal-param` for string overrides and `--json-param` for arrays/numeric values when templates need additional inputs.
+- The script writes `model.yaml` and `provenance.json` to the chosen output directory; pass `--verbose` to surface Sim CLI diagnostics.
+
 ## Next Steps
 
-- Feed the captured bundle into FlowTime-Sim via `/templates/{id}/generate` for telemetry-mode model authoring.
 - Extend integration tests to replay captured bundles through `StateQueryService` (tracked under M-03.02).
 - When ADX-based loaders arrive, keep this CLI as a regression aid to produce deterministic telemetry fixtures.

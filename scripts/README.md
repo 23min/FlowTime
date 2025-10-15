@@ -15,6 +15,12 @@ chmod +x run-fixture-tests.sh
 
 This script simply invokes the `FixtureIntegrationTests` inside `tests/FlowTime.Core.Tests`.
 
+## Time-Travel Helpers
+
+Telemetry capture and template orchestration live under `scripts/time-travel/`:
+
+- `run-sim-template.sh` — wraps FlowTime-Sim CLI (`generate`) to produce `model.yaml` / `provenance.json` for a captured telemetry bundle. Supports `--telemetry-param`, `--literal-param`, and `--json-param` overrides when building the parameter payload.
+
 ## Legacy Smoke Tests (M2.10)
 
 The legacy scripts are still available for manual API verification if you need them (`test-api-integration.sh`, `test-download.sh`, associated YAML models). They may require additional setup and are not part of the automated M3 validation pipeline.
