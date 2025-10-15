@@ -59,6 +59,7 @@ graph TD
 
 | Schema | File | Introduced | Notes |
 |--------|------|------------|-------|
+| Template definition | [template.schema.json](template.schema.json) | M-03.02 | JSON schema for FlowTime templates (metadata, parameters, grid, nodes, outputs) |
 | Template generation | [template-schema.md](template-schema.md) | SIM-M-03.00 | Reference copy of FlowTime-Sim template schema (window, topology, parameters) |
 
 FlowTime-Sim emits the same model schema consumed by Engine. Its provenance output feeds directly into `model/provenance.json` once Engine executes the run.
