@@ -131,6 +131,7 @@ Content-Type: application/json
 - `GET /v1/runs/{runId}` mirrors the metadata envelope returned by `/state`, making it safe for operators or UI clients to validate provenance before replaying a run.
 - If the capture directory is missing `manifest.json`, the service returns `422` with a helpful error describing the missing artifact.
 - `/v1/runs/{runId}/state` validates the generated model; the bundled it-system template includes the required semantics, but a custom template without `semantics.errors` on `service` nodes still triggers `409 Conflict`.
+- Run orchestration emits `run_created` / `run_failed` structured logs (template id, run id, mode) so you can wire the API into existing monitoring pipelines.
 
 ### CLI parity
 

@@ -31,4 +31,8 @@
     <Compile Include="..\TestSupport\TelemetryRunFactory.cs" Link="Support\TelemetryRunFactory.cs" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="Golden\*.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

@@ -1,0 +1,25 @@
+{
+  "isDryRun": false,
+  "metadata": {
+    "runId": "RUN_ID",
+    "templateId": "test-order",
+    "templateTitle": "Test Order System",
+    "templateVersion": "1.0.0",
+    "mode": "telemetry",
+    "provenanceHash": "PROVENANCE_HASH",
+    "telemetrySourcesResolved": true,
+    "schema": {
+      "id": "time-travel/v1",
+      "version": "1",
+      "hash": "SCHEMA_HASH"
+    },
+    "storage": {
+      "modelPath": "MODEL_PATH",
+      "metadataPath": "METADATA_PATH",
+      "provenancePath": null
+    }
+  },
+  "plan": null,
+  "warnings": [],
+  "canReplay": true
+}

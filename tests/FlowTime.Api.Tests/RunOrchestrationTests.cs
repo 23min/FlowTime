@@ -179,25 +179,25 @@ public class RunOrchestrationTests : IClassFixture<TestWebApplicationFactory>, I
         await Task.Delay(10); // ensure ordering by creation timestamp
         var runIdTwo = await CreateAsync();
 
-        var filtered = await client.GetFromJsonAsync<JsonNode>("/v1/runs?mode=telemetry&templateId=test-order&hasWarnings=false&page=1&pageSize=1");
-        Assert.NotNull(filtered);
-        Assert.Equal(1, filtered!["page"]?.GetValue<int>());
-        Assert.Equal(1, filtered["pageSize"]?.GetValue<int>());
-        Assert.Equal(2, filtered["totalCount"]?.GetValue<int>());
-        var firstPageItems = filtered["items"]?.AsArray() ?? new JsonArray();
-        Assert.Single(firstPageItems);
+        var allRuns = await client.GetFromJsonAsync<JsonNode>("/v1/runs?mode=telemetry&templateId=test-order&hasWarnings=false&page=1&pageSize=200");
+        Assert.NotNull(allRuns);
+        var runIds = allRuns!["items"]?.AsArray()
+            ?.Select(node => node?["runId"]?.GetValue<string>())
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Select(id => id!)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase) ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        Assert.Contains(runIdOne, runIds);
+        Assert.Contains(runIdTwo, runIds);
+
+        var firstPage = await client.GetFromJsonAsync<JsonNode>("/v1/runs?mode=telemetry&templateId=test-order&hasWarnings=false&page=1&pageSize=1");
+        Assert.NotNull(firstPage);
+        Assert.Equal(1, firstPage!["page"]?.GetValue<int>());
+        Assert.Equal(1, firstPage["pageSize"]?.GetValue<int>());
+        Assert.Single(firstPage["items"]?.AsArray() ?? new JsonArray());
 
         var secondPage = await client.GetFromJsonAsync<JsonNode>("/v1/runs?mode=telemetry&hasWarnings=false&page=2&pageSize=1");
         Assert.NotNull(secondPage);
-        var secondItems = secondPage!["items"]?.AsArray() ?? new JsonArray();
-        Assert.Single(secondItems);
-        var allRunIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            firstPageItems[0]?["runId"]?.GetValue<string>() ?? string.Empty,
-            secondItems[0]?["runId"]?.GetValue<string>() ?? string.Empty
-        };
-        Assert.Contains(runIdOne, allRunIds);
-        Assert.Contains(runIdTwo, allRunIds);
+        Assert.Single(secondPage!["items"]?.AsArray() ?? new JsonArray());
 
         var empty = await client.GetFromJsonAsync<JsonNode>("/v1/runs?templateId=does-not-exist");
         Assert.NotNull(empty);

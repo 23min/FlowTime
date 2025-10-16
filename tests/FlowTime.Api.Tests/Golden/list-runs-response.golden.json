@@ -1,0 +1,16 @@
+{
+  "items": [
+    {
+      "runId": "RUN_ID",
+      "templateId": "test-order",
+      "templateTitle": "Test Order System",
+      "templateVersion": "1.0.0",
+      "mode": "telemetry",
+      "createdUtc": null,
+      "warningCount": 0
+    }
+  ],
+  "totalCount": 1,
+  "page": 1,
+  "pageSize": 10
+}

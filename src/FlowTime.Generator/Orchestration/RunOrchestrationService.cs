@@ -97,6 +97,7 @@ public sealed class RunOrchestrationService
             };
 
             var bundleResult = await bundleBuilder.BuildAsync(bundleOptions, cancellationToken).ConfigureAwait(false);
+            logger.LogInformation("run_created {TemplateId} {RunId} {Mode}", templateId, bundleResult.RunId, mode);
             var runDirectory = bundleResult.RunDirectory;
             var modelDirectory = Path.Combine(runDirectory, "model");
 
@@ -116,6 +117,11 @@ public sealed class RunOrchestrationService
                 bundleResult.TelemetryManifest);
 
             return new RunOrchestrationOutcome(false, result, null);
+       }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "run_failed {TemplateId} {Mode}", templateId, mode);
+            throw;
         }
         finally
         {
