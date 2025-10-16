@@ -23,7 +23,6 @@ public class RunOrchestrationTests : IClassFixture<TestWebApplicationFactory>, I
     {
         this.factory = factory;
         dataRoot = factory.TestDataDirectory;
-        Environment.SetEnvironmentVariable("FLOWTIME_DATA_DIR", dataRoot);
 
         templateDirectory = Path.Combine(dataRoot, "templates");
         Directory.CreateDirectory(templateDirectory);
@@ -224,11 +223,7 @@ public class RunOrchestrationTests : IClassFixture<TestWebApplicationFactory>, I
         return captureDir;
     }
 
-    public void Dispose()
-    {
-        Environment.SetEnvironmentVariable("FLOWTIME_DATA_DIR", null);
-        client.Dispose();
-    }
+    public void Dispose() => client.Dispose();
 
     private const string TestTemplateYaml = """
 schemaVersion: 1

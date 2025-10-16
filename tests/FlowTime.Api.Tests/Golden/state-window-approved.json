@@ -76,11 +76,7 @@
           "file:OrderService_arrivals.csv",
           "file:OrderService_served.csv",
           "file:OrderService_errors.csv",
-          "file:OrderService_capacity.csv",
-          "file:SupportQueue_arrivals.csv",
-          "file:SupportQueue_served.csv",
-          "file:SupportQueue_errors.csv",
-          "file:SupportQueue_queue.csv"
+          "file:OrderService_capacity.csv"
         ],
         "warnings": []
       }
@@ -131,11 +127,7 @@
           "file:SupportQueue_arrivals.csv",
           "file:SupportQueue_served.csv",
           "file:SupportQueue_errors.csv",
-          "file:SupportQueue_queue.csv",
-          "file:OrderService_arrivals.csv",
-          "file:OrderService_served.csv",
-          "file:OrderService_errors.csv",
-          "file:OrderService_capacity.csv"
+          "file:SupportQueue_queue.csv"
         ],
         "warnings": []
       }

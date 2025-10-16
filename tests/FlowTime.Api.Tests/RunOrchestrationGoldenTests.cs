@@ -25,8 +25,6 @@ public class RunOrchestrationGoldenTests : IClassFixture<TestWebApplicationFacto
     {
         this.factory = factory;
         dataRoot = factory.TestDataDirectory;
-        Environment.SetEnvironmentVariable("FLOWTIME_DATA_DIR", dataRoot);
-
         templateDirectory = Path.Combine(dataRoot, "templates");
         Directory.CreateDirectory(templateDirectory);
         File.WriteAllText(Path.Combine(templateDirectory, "test-order.yaml"), TestTemplateYaml);
@@ -181,7 +179,6 @@ public class RunOrchestrationGoldenTests : IClassFixture<TestWebApplicationFacto
 
     public void Dispose()
     {
-        Environment.SetEnvironmentVariable("FLOWTIME_DATA_DIR", null);
         client.Dispose();
     }
 
