@@ -127,6 +127,11 @@ Accept: application/json
 #   "totalCount": 1
 # }
 
+### 4b. Filtered listing with pagination (mode + warnings)
+GET {{host}}/v1/runs?mode=telemetry&hasWarnings=false&page=1&pageSize=10
+Accept: application/json
+# 200 OK (first page, filtered by telemetry runs without warnings)
+
 ### 5. Inspect run metadata (mirrors /state envelope)
 GET {{host}}/v1/runs/{{createTelemetryRun.response.body.$.metadata.runId}}
 Accept: application/json

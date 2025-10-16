@@ -79,19 +79,22 @@ internal static class RunOrchestrationEndpoints
                 {
                     IsDryRun = true,
                     Plan = BuildPlan(plan),
-                    Warnings = Array.Empty<StateWarning>()
+                    Warnings = Array.Empty<StateWarning>(),
+                    CanReplay = false
                 });
             }
 
             var result = outcome.Result ?? throw new InvalidOperationException("Run outcome missing result payload.");
             var metadata = BuildStateMetadata(result);
             var warnings = BuildStateWarnings(result.TelemetryManifest);
+            var canReplay = DetermineCanReplay(result);
 
             return Results.Created($"/v1/runs/{metadata.RunId}", new RunCreateResponse
             {
                 IsDryRun = false,
                 Metadata = metadata,
-                Warnings = warnings
+                Warnings = warnings,
+                CanReplay = canReplay
             });
         }
         catch (FileNotFoundException ex)
@@ -110,6 +113,7 @@ internal static class RunOrchestrationEndpoints
     }
 
     private static async Task<IResult> HandleListRunsAsync(
+        HttpContext context,
         RunOrchestrationService orchestration,
         IConfiguration configuration,
         CancellationToken cancellationToken)
@@ -118,6 +122,47 @@ internal static class RunOrchestrationEndpoints
         if (!Directory.Exists(runsRoot))
         {
             return Results.Ok(new RunSummaryResponse());
+        }
+
+        var query = context.Request.Query;
+        var modeFilter = query.TryGetValue("mode", out var modeValues) ? modeValues.ToString() : null;
+        var templateFilter = query.TryGetValue("templateId", out var templateValues) ? templateValues.ToString() : null;
+
+        bool? hasWarningsFilter = null;
+        if (query.TryGetValue("hasWarnings", out var warningsValues) && warningsValues.Count > 0)
+        {
+            if (bool.TryParse(warningsValues.ToString(), out var parsedWarnings))
+            {
+                hasWarningsFilter = parsedWarnings;
+            }
+            else
+            {
+                return Results.BadRequest(new { error = "hasWarnings must be 'true' or 'false'." });
+            }
+        }
+
+        const int defaultPage = 1;
+        const int defaultPageSize = 50;
+        const int maxPageSize = 200;
+
+        var page = defaultPage;
+        if (query.TryGetValue("page", out var pageValues) && pageValues.Count > 0)
+        {
+            if (!int.TryParse(pageValues.ToString(), out page) || page < 1)
+            {
+                return Results.BadRequest(new { error = "page must be an integer greater than 0." });
+            }
+        }
+
+        var pageSize = defaultPageSize;
+        if (query.TryGetValue("pageSize", out var pageSizeValues) && pageSizeValues.Count > 0)
+        {
+            if (!int.TryParse(pageSizeValues.ToString(), out pageSize) || pageSize < 1)
+            {
+                return Results.BadRequest(new { error = "pageSize must be an integer greater than 0." });
+            }
+
+            pageSize = Math.Min(pageSize, maxPageSize);
         }
 
         var items = new List<RunSummary>();
@@ -140,7 +185,48 @@ internal static class RunOrchestrationEndpoints
         }
 
         items.Sort((a, b) => Nullable.Compare(b.CreatedUtc, a.CreatedUtc));
-        return Results.Ok(new RunSummaryResponse { Items = items, TotalCount = items.Count });
+
+        IEnumerable<RunSummary> filtered = items;
+
+        if (!string.IsNullOrWhiteSpace(modeFilter))
+        {
+            filtered = filtered.Where(item => string.Equals(item.Mode, modeFilter, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (!string.IsNullOrWhiteSpace(templateFilter))
+        {
+            filtered = filtered.Where(item => string.Equals(item.TemplateId, templateFilter, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (hasWarningsFilter.HasValue)
+        {
+            filtered = filtered.Where(item => (item.WarningCount > 0) == hasWarningsFilter.Value);
+        }
+
+        var filteredList = filtered.ToList();
+        var totalCount = filteredList.Count;
+
+        var skip = (page - 1) * pageSize;
+        if (skip >= totalCount)
+        {
+            filteredList = new List<RunSummary>();
+        }
+        else if (skip > 0)
+        {
+            filteredList = filteredList.Skip(skip).Take(pageSize).ToList();
+        }
+        else
+        {
+            filteredList = filteredList.Take(pageSize).ToList();
+        }
+
+        return Results.Ok(new RunSummaryResponse
+        {
+            Items = filteredList,
+            TotalCount = totalCount,
+            Page = page,
+            PageSize = pageSize
+        });
     }
 
     private static async Task<IResult> HandleGetRunAsync(
@@ -165,7 +251,8 @@ internal static class RunOrchestrationEndpoints
 
         var metadata = BuildStateMetadata(result);
         var warnings = BuildStateWarnings(result.TelemetryManifest);
-        return Results.Ok(new RunCreateResponse { IsDryRun = false, Metadata = metadata, Warnings = warnings });
+        var canReplay = DetermineCanReplay(result);
+        return Results.Ok(new RunCreateResponse { IsDryRun = false, Metadata = metadata, Warnings = warnings, CanReplay = canReplay });
     }
 
     private static Dictionary<string, object?> ConvertParameters(Dictionary<string, JsonElement>? source)
@@ -291,6 +378,23 @@ internal static class RunOrchestrationEndpoints
             Files = files,
             Warnings = warnings
         };
+    }
+
+    private static bool DetermineCanReplay(RunOrchestrationResult result)
+    {
+        var storage = result.ManifestMetadata.Storage;
+        var modelPath = storage.ModelPath;
+        var metadataPath = storage.MetadataPath;
+        var modelDirectory = Path.GetDirectoryName(modelPath);
+        var hasModel = !string.IsNullOrWhiteSpace(modelPath) && File.Exists(modelPath);
+        var hasMetadata = !string.IsNullOrWhiteSpace(metadataPath) && File.Exists(metadataPath);
+
+        var telemetryManifestPath = modelDirectory is null
+            ? null
+            : Path.Combine(modelDirectory, "telemetry", "telemetry-manifest.json");
+        var hasTelemetryManifest = telemetryManifestPath is not null && File.Exists(telemetryManifestPath);
+
+        return hasModel && hasMetadata && hasTelemetryManifest && result.TelemetrySourcesResolved;
     }
 
     private static DateTimeOffset? ParseCreated(string? value)

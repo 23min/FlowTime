@@ -127,6 +127,7 @@ Content-Type: application/json
 
 - Set `options.dryRun = true` to surface a plan without writing to disk. The response includes the resolved telemetry bindings (converted to `file://` URIs), the planned run directory, and any manifest warnings.
 - `GET /v1/runs` returns the canonical summary list (run id, template metadata, creation timestamp, warning count).
+- Add `mode`, `templateId`, `hasWarnings`, `page`, and `pageSize` query parameters to slice the listing (defaults: `page=1`, `pageSize=50`, capped at 200).
 - `GET /v1/runs/{runId}` mirrors the metadata envelope returned by `/state`, making it safe for operators or UI clients to validate provenance before replaying a run.
 - If the capture directory is missing `manifest.json`, the service returns `422` with a helpful error describing the missing artifact.
 - `/v1/runs/{runId}/state` validates the generated model; the bundled it-system template includes the required semantics, but a custom template without `semantics.errors` on `service` nodes still triggers `409 Conflict`.

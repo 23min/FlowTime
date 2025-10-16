@@ -80,6 +80,7 @@ public class RunOrchestrationTests : IClassFixture<TestWebApplicationFactory>, I
 
         var payload = JsonNode.Parse(body) ?? throw new InvalidOperationException("Response was not valid JSON.");
         Assert.False(payload["isDryRun"]?.GetValue<bool>() ?? true);
+        Assert.True(payload["canReplay"]?.GetValue<bool>() ?? false);
         var metadata = payload["metadata"] ?? throw new InvalidOperationException("Metadata is missing from response.");
         var runId = metadata["runId"]?.GetValue<string>();
         Assert.False(string.IsNullOrWhiteSpace(runId));
@@ -93,11 +94,15 @@ public class RunOrchestrationTests : IClassFixture<TestWebApplicationFactory>, I
         Assert.Equal(runId, detail!["metadata"]?["runId"]?.GetValue<string>());
         Assert.Equal("telemetry", detail["metadata"]?["mode"]?.GetValue<string>());
         Assert.True(detail["metadata"]?["telemetrySourcesResolved"]?.GetValue<bool?>());
+        Assert.True(detail["canReplay"]?.GetValue<bool>() ?? false);
 
         var listing = await client.GetFromJsonAsync<JsonNode>("/v1/runs");
         Assert.NotNull(listing);
         var items = listing!["items"]?.AsArray() ?? new JsonArray();
         Assert.Contains(items, node => string.Equals(node?["runId"]?.GetValue<string>(), runId, StringComparison.OrdinalIgnoreCase));
+        Assert.Equal(1, listing["page"]?.GetValue<int>());
+        Assert.Equal(50, listing["pageSize"]?.GetValue<int>());
+        Assert.True((listing["totalCount"]?.GetValue<int>() ?? 0) >= 1);
     }
 
     [Fact]
@@ -135,9 +140,69 @@ public class RunOrchestrationTests : IClassFixture<TestWebApplicationFactory>, I
         Assert.Equal("telemetry", plan["mode"]?.GetValue<string>());
         var files = plan["files"]?.AsArray() ?? new JsonArray();
         Assert.NotEmpty(files);
+        Assert.False(payload["canReplay"]?.GetValue<bool>() ?? true);
 
         var runsRoot = Path.Combine(dataRoot, "runs");
         Assert.False(Directory.Exists(runsRoot));
+    }
+
+    [Fact]
+    public async Task ListRuns_AppliesFiltersAndPagination()
+    {
+        var captureDir = await CreateTelemetryCaptureAsync();
+
+        async Task<string> CreateAsync()
+        {
+            var requestPayload = new
+            {
+                templateId,
+                mode = "telemetry",
+                telemetry = new
+                {
+                    captureDirectory = captureDir,
+                    bindings = new Dictionary<string, string>
+                    {
+                        ["telemetryArrivals"] = "OrderService_arrivals.csv",
+                        ["telemetryServed"] = "OrderService_served.csv"
+                    }
+                }
+            };
+
+            var response = await client.PostAsJsonAsync("/v1/runs", requestPayload);
+            var body = await response.Content.ReadAsStringAsync();
+            Assert.True(response.IsSuccessStatusCode, $"Run creation failed. Status={response.StatusCode}; Body={body}");
+            var payload = JsonNode.Parse(body) ?? throw new InvalidOperationException("Response was not valid JSON.");
+            return payload["metadata"]?["runId"]?.GetValue<string>() ?? throw new InvalidOperationException("runId missing");
+        }
+
+        var runIdOne = await CreateAsync();
+        await Task.Delay(10); // ensure ordering by creation timestamp
+        var runIdTwo = await CreateAsync();
+
+        var filtered = await client.GetFromJsonAsync<JsonNode>("/v1/runs?mode=telemetry&templateId=test-order&hasWarnings=false&page=1&pageSize=1");
+        Assert.NotNull(filtered);
+        Assert.Equal(1, filtered!["page"]?.GetValue<int>());
+        Assert.Equal(1, filtered["pageSize"]?.GetValue<int>());
+        Assert.Equal(2, filtered["totalCount"]?.GetValue<int>());
+        var firstPageItems = filtered["items"]?.AsArray() ?? new JsonArray();
+        Assert.Single(firstPageItems);
+
+        var secondPage = await client.GetFromJsonAsync<JsonNode>("/v1/runs?mode=telemetry&hasWarnings=false&page=2&pageSize=1");
+        Assert.NotNull(secondPage);
+        var secondItems = secondPage!["items"]?.AsArray() ?? new JsonArray();
+        Assert.Single(secondItems);
+        var allRunIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            firstPageItems[0]?["runId"]?.GetValue<string>() ?? string.Empty,
+            secondItems[0]?["runId"]?.GetValue<string>() ?? string.Empty
+        };
+        Assert.Contains(runIdOne, allRunIds);
+        Assert.Contains(runIdTwo, allRunIds);
+
+        var empty = await client.GetFromJsonAsync<JsonNode>("/v1/runs?templateId=does-not-exist");
+        Assert.NotNull(empty);
+        Assert.Equal(0, empty!["totalCount"]?.GetValue<int>());
+        Assert.Empty(empty["items"]?.AsArray() ?? new JsonArray());
     }
 
     private async Task<string> CreateTelemetryCaptureAsync()

@@ -32,12 +32,15 @@ public sealed class RunCreateResponse
     public StateMetadata? Metadata { get; init; }
     public RunCreatePlan? Plan { get; init; }
     public IReadOnlyList<StateWarning> Warnings { get; init; } = Array.Empty<StateWarning>();
+    public bool? CanReplay { get; init; }
 }
 
 public sealed class RunSummaryResponse
 {
     public IReadOnlyList<RunSummary> Items { get; init; } = Array.Empty<RunSummary>();
     public int TotalCount { get; init; }
+    public int Page { get; init; } = 1;
+    public int PageSize { get; init; } = 50;
 }
 
 public sealed class RunSummary
