@@ -42,6 +42,11 @@ if (args[0] == "telemetry")
         return await TelemetryBundleCommand.ExecuteAsync(telemetryArgs);
     }
 
+    if (string.Equals(subcommand, "run", StringComparison.OrdinalIgnoreCase))
+    {
+        return await TelemetryRunCommand.ExecuteAsync(telemetryArgs);
+    }
+
     Console.Error.WriteLine($"Unknown telemetry subcommand: {subcommand}");
     PrintTelemetryUsage();
     return 2;
@@ -281,12 +286,13 @@ static void PrintUsage()
 
 static void PrintTelemetryUsage()
 {
-	Console.WriteLine("Telemetry Commands");
-	Console.WriteLine();
-	Console.WriteLine("  flowtime telemetry capture --run-dir <path> [options]");
-	Console.WriteLine("  flowtime telemetry bundle --capture-dir <path> --model <model.yaml> [options]");
-	Console.WriteLine();
-	Console.WriteLine("Run with --help after each subcommand for detailed options.");
+    Console.WriteLine("Telemetry Commands");
+    Console.WriteLine();
+    Console.WriteLine("  flowtime telemetry capture --run-dir <path> [options]");
+    Console.WriteLine("  flowtime telemetry bundle --capture-dir <path> --model <model.yaml> [options]");
+    Console.WriteLine("  flowtime telemetry run --template-id <id> --capture-dir <path> [options]");
+    Console.WriteLine();
+    Console.WriteLine("Run with --help after each subcommand for detailed options.");
 }
 
 static class JsonOpts
