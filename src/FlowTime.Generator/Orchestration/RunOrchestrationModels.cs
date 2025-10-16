@@ -18,12 +18,28 @@ public sealed record RunOrchestrationRequest
     public bool OverwriteExisting { get; init; }
 }
 
+public sealed record RunOrchestrationOutcome(
+    bool IsDryRun,
+    RunOrchestrationResult? Result,
+    RunOrchestrationPlan? Plan);
+
 public sealed record RunOrchestrationResult(
     string RunDirectory,
     string RunId,
     RunManifestMetadata ManifestMetadata,
     RunDocument RunDocument,
     bool TelemetrySourcesResolved,
+    TelemetryManifest TelemetryManifest);
+
+public sealed record RunOrchestrationPlan(
+    string TemplateId,
+    string Mode,
+    string OutputRoot,
+    string? CaptureDirectory,
+    bool DeterministicRunId,
+    string? RequestedRunId,
+    IReadOnlyDictionary<string, object?> Parameters,
+    IReadOnlyDictionary<string, string> TelemetryBindings,
     TelemetryManifest TelemetryManifest);
 
 public sealed record RunDocument

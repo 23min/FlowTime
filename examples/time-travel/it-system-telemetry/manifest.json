@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "window": {
+    "startTimeUtc": "2025-10-01T00:00:00Z",
+    "durationMinutes": 360
+  },
+  "grid": {
+    "bins": 6,
+    "binSize": 60,
+    "binUnit": "minutes"
+  },
+  "files": [
+    { "nodeId": "LoadBalancer", "metric": "Arrivals", "path": "LoadBalancer_arrivals.csv", "hash": "b0ff21c1c2f109f18daeff14d620242f3b0d5613a8263cd1333ff6cfd9a1b434", "points": 6 },
+    { "nodeId": "LoadBalancer", "metric": "Served", "path": "LoadBalancer_served.csv", "hash": "b511fefecdd9e0e7615ca251bffd6d9345c73b4a62df64f92f27591615511efa", "points": 6 },
+    { "nodeId": "LoadBalancer", "metric": "Errors", "path": "LoadBalancer_errors.csv", "hash": "98512699d7cb03262f8fab92ebfea687fb344e9f3eeeb773ddc5ea6382f29770", "points": 6 },
+    { "nodeId": "AuthService", "metric": "Arrivals", "path": "AuthService_arrivals.csv", "hash": "b511fefecdd9e0e7615ca251bffd6d9345c73b4a62df64f92f27591615511efa", "points": 6 },
+    { "nodeId": "AuthService", "metric": "Served", "path": "AuthService_served.csv", "hash": "d39146713169597bac85d335c8393c82e62741309cd5fef2022e4ff69ebf19db", "points": 6 },
+    { "nodeId": "AuthService", "metric": "Errors", "path": "AuthService_errors.csv", "hash": "7d170895bc12227c0f0814c23efb38878afd56c9e75a7ab1fd817c09cb43c32d", "points": 6 },
+    { "nodeId": "Database", "metric": "Arrivals", "path": "Database_arrivals.csv", "hash": "d39146713169597bac85d335c8393c82e62741309cd5fef2022e4ff69ebf19db", "points": 6 },
+    { "nodeId": "Database", "metric": "Served", "path": "Database_served.csv", "hash": "806dad854305d29d026f6e048fadfa26f8b00b2cce2086eda77bbb6fac588238", "points": 6 },
+    { "nodeId": "Database", "metric": "Errors", "path": "Database_errors.csv", "hash": "1cc321d0fa789a707ac63ebf8defee8d4ee7361ed9585f150982f023c821870d", "points": 6 }
+  ],
+  "warnings": [],
+  "provenance": {
+    "runId": "time_travel_demo",
+    "scenarioHash": "sha256:demo",
+    "modelHash": "sha256:demo-model",
+    "capturedAtUtc": "2025-10-15T00:00:00Z"
+  }
+}

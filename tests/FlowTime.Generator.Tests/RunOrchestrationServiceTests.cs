@@ -54,13 +54,77 @@ public class RunOrchestrationServiceTests
             OverwriteExisting = false
         };
 
-        var result = await orchestration.CreateRunAsync(request);
+        var outcome = await orchestration.CreateRunAsync(request);
 
-        Assert.NotNull(result);
+        Assert.NotNull(outcome);
+        Assert.False(outcome.IsDryRun);
+        Assert.NotNull(outcome.Result);
+        var result = outcome.Result!;
         Assert.True(result.TelemetrySourcesResolved);
         Assert.True(Directory.Exists(result.RunDirectory));
         Assert.True(File.Exists(Path.Combine(result.RunDirectory, "model", "model.yaml")));
         Assert.Equal("telemetry", result.ManifestMetadata.Mode);
+        Assert.Null(outcome.Plan);
+    }
+
+    [Fact]
+    public async Task CreateRunAsync_DryRun_ReturnsPlan()
+    {
+        using var temp = new TempDirectory();
+        var templatesDir = Path.Combine(temp.Path, "templates");
+        Directory.CreateDirectory(templatesDir);
+
+        var templatePath = Path.Combine(templatesDir, "test-order.yaml");
+        await File.WriteAllTextAsync(templatePath, TestTemplate);
+
+        var sourceRunDir = TelemetryRunFactory.CreateRunArtifacts(temp.Path, "source_run", includeTopology: true);
+        var captureDir = Path.Combine(temp.Path, "capture");
+        Directory.CreateDirectory(captureDir);
+
+        var capture = new TelemetryCapture();
+        await capture.ExecuteAsync(new TelemetryCaptureOptions
+        {
+            RunDirectory = sourceRunDir,
+            OutputDirectory = captureDir
+        });
+
+        var templateService = new TemplateService(templatesDir, NullLogger<TemplateService>.Instance);
+        var bundleBuilder = new TelemetryBundleBuilder();
+        var orchestration = new RunOrchestrationService(templateService, bundleBuilder, NullLogger<RunOrchestrationService>.Instance);
+
+        var request = new RunOrchestrationRequest
+        {
+            TemplateId = "test-order",
+            Mode = "telemetry",
+            CaptureDirectory = captureDir,
+            TelemetryBindings = new Dictionary<string, string>
+            {
+                ["telemetryArrivals"] = "OrderService_arrivals.csv",
+                ["telemetryServed"] = "OrderService_served.csv"
+            },
+            Parameters = new Dictionary<string, object?>
+            {
+                ["bins"] = 4,
+                ["binSize"] = 5
+            },
+            OutputRoot = Path.Combine(temp.Path, "runs"),
+            DeterministicRunId = true,
+            DryRun = true,
+            OverwriteExisting = false
+        };
+
+        var outcome = await orchestration.CreateRunAsync(request);
+
+        Assert.True(outcome.IsDryRun);
+        Assert.Null(outcome.Result);
+        Assert.NotNull(outcome.Plan);
+        var plan = outcome.Plan!;
+        Assert.Equal("test-order", plan.TemplateId);
+        Assert.Equal("telemetry", plan.Mode);
+        Assert.Equal(Path.Combine(temp.Path, "runs"), plan.OutputRoot);
+        Assert.Equal(captureDir, plan.CaptureDirectory);
+        Assert.True(plan.Files.Count > 0);
+    }
     }
 
     [Fact]

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json.Nodes;
@@ -78,6 +79,7 @@ public class RunOrchestrationTests : IClassFixture<TestWebApplicationFactory>, I
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
 
         var payload = JsonNode.Parse(body) ?? throw new InvalidOperationException("Response was not valid JSON.");
+        Assert.False(payload["isDryRun"]?.GetValue<bool>() ?? true);
         var metadata = payload["metadata"] ?? throw new InvalidOperationException("Metadata is missing from response.");
         var runId = metadata["runId"]?.GetValue<string>();
         Assert.False(string.IsNullOrWhiteSpace(runId));
@@ -96,6 +98,46 @@ public class RunOrchestrationTests : IClassFixture<TestWebApplicationFactory>, I
         Assert.NotNull(listing);
         var items = listing!["items"]?.AsArray() ?? new JsonArray();
         Assert.Contains(items, node => string.Equals(node?["runId"]?.GetValue<string>(), runId, StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task CreateTelemetryRunDryRun_ReturnsPlan()
+    {
+        var captureDir = await CreateTelemetryCaptureAsync();
+
+        var requestPayload = new
+        {
+            templateId,
+            mode = "telemetry",
+            telemetry = new
+            {
+                captureDirectory = captureDir,
+                bindings = new Dictionary<string, string>
+                {
+                    ["telemetryArrivals"] = "OrderService_arrivals.csv",
+                    ["telemetryServed"] = "OrderService_served.csv"
+                }
+            },
+            options = new
+            {
+                dryRun = true
+            }
+        };
+
+        var response = await client.PostAsJsonAsync("/v1/runs", requestPayload);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var payload = JsonNode.Parse(body) ?? throw new InvalidOperationException("Response was not valid JSON.");
+        Assert.True(payload["isDryRun"]?.GetValue<bool>() ?? false);
+        var plan = payload["plan"] ?? throw new InvalidOperationException("Plan is missing from dry-run response.");
+        Assert.Equal(templateId, plan["templateId"]?.GetValue<string>());
+        Assert.Equal("telemetry", plan["mode"]?.GetValue<string>());
+        var files = plan["files"]?.AsArray() ?? new JsonArray();
+        Assert.NotEmpty(files);
+
+        var runsRoot = Path.Combine(dataRoot, "runs");
+        Assert.False(Directory.Exists(runsRoot));
     }
 
     private async Task<string> CreateTelemetryCaptureAsync()

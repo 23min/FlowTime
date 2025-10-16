@@ -481,7 +481,7 @@ public sealed class StateQueryService
             };
         }
 
-        if (manifestMetadata.TelemetrySources.Count > 0)
+        if (sources.Count == 0 && manifestMetadata.TelemetrySources.Count > 0)
         {
             for (var i = 0; i < manifestMetadata.TelemetrySources.Count; i++)
             {

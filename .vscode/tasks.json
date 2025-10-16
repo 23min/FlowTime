@@ -84,6 +84,26 @@
       }
     },
     {
+      "label": "start-api-integration",
+      "type": "shell",
+      "command": "dotnet run --project src/FlowTime.API",
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated",
+        "showReuseMessage": false
+      },
+      "options": {
+        "env": {
+          "ASPNETCORE_URLS": "http://0.0.0.0:8080",
+          "FLOWTIME_DATA_DIR": "/workspaces/flowtime-vnext/data"
+        }
+      }
+    },
+    {
       "label": "stop-api",
       "type": "shell",
       "command": "pkill -f 'FlowTime.API' || echo 'No API process found'",

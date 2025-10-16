@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text.Json;
 using FlowTime.Contracts.TimeTravel;
@@ -69,15 +70,37 @@ internal static class RunOrchestrationEndpoints
 
         try
         {
-            var result = await orchestration.CreateRunAsync(orchestrationRequest, cancellationToken).ConfigureAwait(false);
-            var metadata = Program.BuildStateMetadata(result);
-            var warnings = Program.BuildStateWarnings(result.TelemetryManifest);
+            var outcome = await orchestration.CreateRunAsync(orchestrationRequest, cancellationToken).ConfigureAwait(false);
+
+            if (outcome.IsDryRun)
+            {
+                var plan = outcome.Plan ?? throw new InvalidOperationException("Dry-run outcome missing plan details.");
+                return Results.Ok(new RunCreateResponse
+                {
+                    IsDryRun = true,
+                    Plan = BuildPlan(plan),
+                    Warnings = Array.Empty<StateWarning>()
+                });
+            }
+
+            var result = outcome.Result ?? throw new InvalidOperationException("Run outcome missing result payload.");
+            var metadata = BuildStateMetadata(result);
+            var warnings = BuildStateWarnings(result.TelemetryManifest);
 
             return Results.Created($"/v1/runs/{metadata.RunId}", new RunCreateResponse
             {
+                IsDryRun = false,
                 Metadata = metadata,
                 Warnings = warnings
             });
+        }
+        catch (FileNotFoundException ex)
+        {
+            logger.LogWarning(ex, "Missing capture artifact for template {TemplateId}", request.TemplateId);
+            return Results.Problem(
+                title: "Capture artifacts missing",
+                detail: ex.Message,
+                statusCode: StatusCodes.Status422UnprocessableEntity);
         }
         catch (Exception ex)
         {
@@ -142,7 +165,7 @@ internal static class RunOrchestrationEndpoints
 
         var metadata = BuildStateMetadata(result);
         var warnings = BuildStateWarnings(result.TelemetryManifest);
-        return Results.Ok(new RunCreateResponse { Metadata = metadata, Warnings = warnings });
+        return Results.Ok(new RunCreateResponse { IsDryRun = false, Metadata = metadata, Warnings = warnings });
     }
 
     private static Dictionary<string, object?> ConvertParameters(Dictionary<string, JsonElement>? source)
@@ -231,6 +254,42 @@ internal static class RunOrchestrationEndpoints
             Mode = result.ManifestMetadata.Mode,
             CreatedUtc = created,
             WarningCount = result.TelemetryManifest.Warnings?.Count ?? 0
+        };
+    }
+
+    private static RunCreatePlan BuildPlan(RunOrchestrationPlan plan)
+    {
+        var files = plan.TelemetryManifest.Files is { Count: > 0 }
+            ? plan.TelemetryManifest.Files.Select(file => new RunCreatePlanFile
+            {
+                NodeId = file.NodeId,
+                Metric = file.Metric.ToString(),
+                Path = file.Path
+            }).ToArray()
+            : Array.Empty<RunCreatePlanFile>();
+
+        var warnings = plan.TelemetryManifest.Warnings is { Count: > 0 }
+            ? plan.TelemetryManifest.Warnings.Select(w => new RunCreatePlanWarning
+            {
+                Code = w.Code,
+                Message = w.Message,
+                NodeId = w.NodeId,
+                Bins = w.Bins is null ? null : w.Bins.ToArray()
+            }).ToArray()
+            : Array.Empty<RunCreatePlanWarning>();
+
+        return new RunCreatePlan
+        {
+            TemplateId = plan.TemplateId,
+            Mode = plan.Mode,
+            OutputRoot = plan.OutputRoot,
+            CaptureDirectory = plan.CaptureDirectory,
+            DeterministicRunId = plan.DeterministicRunId,
+            RequestedRunId = plan.RequestedRunId,
+            Parameters = plan.Parameters,
+            TelemetryBindings = plan.TelemetryBindings,
+            Files = files,
+            Warnings = warnings
         };
     }
 

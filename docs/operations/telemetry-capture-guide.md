@@ -97,6 +97,63 @@ This produces `data/runs/<runId>/model/model.yaml` where every telemetry binding
 
 Once the bundle is written, the run is ready for `/state` queries and UI inspection just like any engine-produced run.
 
+## Run Orchestration (API + CLI)
+
+Milestone M-03.04 layers the capture + bundling steps behind a shared `RunOrchestrationService`. Operators can now create canonical runs directly through the API or the CLI wrapper without scripting the intermediate steps.
+
+### API workflow
+
+`POST /v1/runs` accepts a template id, optional parameter overrides, telemetry bindings, and orchestration options. The example below replays the `it-system-microservices` template against the deterministic capture bundle checked into `examples/time-travel/it-system-telemetry/` (includes `manifest.json` plus the 9 CSVs required by the topology semantics):
+
+```http
+POST http://localhost:8080/v1/runs
+Content-Type: application/json
+
+{
+  "templateId": "it-system-microservices",
+  "mode": "telemetry",
+  "telemetry": {
+    "captureDirectory": "/workspaces/flowtime-vnext/examples/time-travel/it-system-telemetry",
+    "bindings": {
+      "telemetryRequestsSource": "LoadBalancer_arrivals.csv"
+    }
+  },
+  "options": {
+    "deterministicRunId": true,
+    "overwriteExisting": true
+  }
+}
+```
+
+- Set `options.dryRun = true` to surface a plan without writing to disk. The response includes the resolved telemetry bindings (converted to `file://` URIs), the planned run directory, and any manifest warnings.
+- `GET /v1/runs` returns the canonical summary list (run id, template metadata, creation timestamp, warning count).
+- `GET /v1/runs/{runId}` mirrors the metadata envelope returned by `/state`, making it safe for operators or UI clients to validate provenance before replaying a run.
+- If the capture directory is missing `manifest.json`, the service returns `422` with a helpful error describing the missing artifact.
+- `/v1/runs/{runId}/state` validates the generated model; the bundled it-system template includes the required semantics, but a custom template without `semantics.errors` on `service` nodes still triggers `409 Conflict`.
+
+### CLI parity
+
+`flowtime telemetry run` delegates to the same orchestration service, so flags map directly to the JSON payload above:
+
+```bash
+# Preview the plan (no filesystem changes)
+flowtime telemetry run \
+  --template-id it-system-microservices \
+  --capture-dir examples/time-travel/it-system-telemetry \
+  --bind telemetryRequestsSource=LoadBalancer_arrivals.csv \
+  --dry-run
+
+# Create the canonical bundle with deterministic run id
+flowtime telemetry run \
+  --template-id it-system-microservices \
+  --capture-dir examples/time-travel/it-system-telemetry \
+  --bind telemetryRequestsSource=LoadBalancer_arrivals.csv \
+  --deterministic-run-id \
+  --overwrite
+```
+
+When `--dry-run` is omitted the command prints the created run id, run directory, and telemetry resolution flag. Supply `--run-id` (optionally with `--overwrite`) to control the folder name, matching the `options.runId`/`options.overwriteExisting` fields on the API.
+
 ## Next Steps
 
 - Extend integration tests to replay captured bundles through `StateQueryService` (tracked under M-03.02).

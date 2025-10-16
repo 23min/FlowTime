@@ -26,16 +26,11 @@ public sealed class RunOrchestrationService
         this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    public async Task<RunOrchestrationResult> CreateRunAsync(RunOrchestrationRequest request, CancellationToken cancellationToken = default)
+    public async Task<RunOrchestrationOutcome> CreateRunAsync(RunOrchestrationRequest request, CancellationToken cancellationToken = default)
     {
         if (request is null)
         {
             throw new ArgumentNullException(nameof(request));
-        }
-
-        if (request.DryRun)
-        {
-            throw new NotSupportedException("Dry-run execution is not yet implemented.");
         }
 
         var templateId = request.TemplateId ?? throw new ArgumentException("TemplateId must be provided.", nameof(request));
@@ -45,27 +40,54 @@ public sealed class RunOrchestrationService
         }
 
         var outputRoot = Path.GetFullPath(request.OutputRoot);
-        Directory.CreateDirectory(outputRoot);
 
         var effectiveParameters = BuildParameters(request);
 
         var mode = TemplateModeExtensions.Parse(request.Mode ?? "telemetry");
-        logger.LogInformation("Creating {Mode} run for template {TemplateId}", mode, templateId);
+        logger.LogInformation("{Operation} {Mode} run for template {TemplateId}", request.DryRun ? "Planning" : "Creating", mode, templateId);
 
         var modelYaml = await templateService.GenerateEngineModelAsync(templateId, effectiveParameters, mode).ConfigureAwait(false);
+        var captureDirectory = request.CaptureDirectory is null ? null : Path.GetFullPath(request.CaptureDirectory);
+
+        if (string.Equals(mode.ToSerializedValue(), "telemetry", StringComparison.OrdinalIgnoreCase) && captureDirectory is null)
+        {
+            throw new InvalidOperationException("Capture directory must be provided for telemetry runs.");
+        }
+
+        if (request.DryRun)
+        {
+            var telemetryManifest = captureDirectory is not null
+                ? await ReadCaptureManifestAsync(captureDirectory, cancellationToken).ConfigureAwait(false)
+                : new TelemetryManifest(
+                    SchemaVersion: 1,
+                    Window: new TelemetryManifestWindow(null, null),
+                    Grid: new TelemetryManifestGrid(0, 0, "minutes"),
+                    Files: Array.Empty<TelemetryManifestFile>(),
+                    Warnings: Array.Empty<CaptureWarning>(),
+                    Provenance: new TelemetryManifestProvenance(string.Empty, string.Empty, null, DateTime.UtcNow.ToString("O")));
+
+            var plan = new RunOrchestrationPlan(
+                templateId,
+                mode.ToSerializedValue(),
+                outputRoot,
+                captureDirectory,
+                request.DeterministicRunId,
+                request.RunId,
+                new Dictionary<string, object?>(effectiveParameters, StringComparer.OrdinalIgnoreCase),
+                new Dictionary<string, string>(request.TelemetryBindings ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase), StringComparer.OrdinalIgnoreCase),
+                telemetryManifest);
+
+            return new RunOrchestrationOutcome(true, null, plan);
+        }
+
+        Directory.CreateDirectory(outputRoot);
         var tempModelPath = await WriteTemporaryModelAsync(modelYaml, cancellationToken).ConfigureAwait(false);
 
         try
         {
-            var captureDirectory = request.CaptureDirectory is null ? null : Path.GetFullPath(request.CaptureDirectory);
-            if (captureDirectory is null)
-            {
-                throw new InvalidOperationException("Capture directory must be provided for run orchestration.");
-            }
-
             var bundleOptions = new TelemetryBundleOptions
             {
-                CaptureDirectory = captureDirectory,
+                CaptureDirectory = captureDirectory!,
                 ModelPath = tempModelPath,
                 OutputRoot = outputRoot,
                 ProvenancePath = null,
@@ -85,13 +107,15 @@ public sealed class RunOrchestrationService
                 (bundleResult.TelemetryManifest.Warnings is null ||
                  bundleResult.TelemetryManifest.Warnings.All(w => !string.Equals(w.Code, "telemetry_sources_missing", StringComparison.OrdinalIgnoreCase)));
 
-            return new RunOrchestrationResult(
+            var result = new RunOrchestrationResult(
                 bundleResult.RunDirectory,
                 bundleResult.RunId,
                 manifestMetadata,
                 runDocument,
                 telemetryResolved,
                 bundleResult.TelemetryManifest);
+
+            return new RunOrchestrationOutcome(false, result, null);
         }
         finally
         {
@@ -176,6 +200,22 @@ public sealed class RunOrchestrationService
         return parameters;
     }
 
+    private static async Task<TelemetryManifest> ReadCaptureManifestAsync(string captureDir, CancellationToken cancellationToken)
+    {
+        var manifestPath = Path.Combine(captureDir, "manifest.json");
+        if (!File.Exists(manifestPath))
+        {
+            throw new FileNotFoundException($"Telemetry manifest not found: {manifestPath}");
+        }
+
+        await using var stream = File.OpenRead(manifestPath);
+        var manifest = await JsonSerializer.DeserializeAsync<TelemetryManifest>(
+            stream,
+            new JsonSerializerOptions(JsonSerializerDefaults.Web),
+            cancellationToken).ConfigureAwait(false);
+        return manifest ?? throw new InvalidOperationException($"Telemetry manifest at '{manifestPath}' was empty.");
+    }
+
     private static async Task<TelemetryManifest> LoadTelemetryManifestAsync(string runDirectory, CancellationToken cancellationToken)
     {
         var manifestPath = Path.Combine(runDirectory, "model", "telemetry", "telemetry-manifest.json");
@@ -191,7 +231,10 @@ public sealed class RunOrchestrationService
         }
 
         await using var stream = File.OpenRead(manifestPath);
-        var manifest = await JsonSerializer.DeserializeAsync<TelemetryManifest>(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
+        var manifest = await JsonSerializer.DeserializeAsync<TelemetryManifest>(
+            stream,
+            new JsonSerializerOptions(JsonSerializerDefaults.Web),
+            cancellationToken).ConfigureAwait(false);
         return manifest ?? new TelemetryManifest(
             SchemaVersion: 1,
             Window: new TelemetryManifestWindow(null, null),

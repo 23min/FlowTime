@@ -1,312 +1,139 @@
 @host = http://localhost:8080
-@fixturesRoot = file:///workspaces/flowtime-vnext/examples/http-demo
-@telemetryRoot = file:///workspaces/flowtime-vnext/examples/http-demo
-# CSV fixtures live under examples/http-demo/ (see repo) so the sample runs end-to-end.
+@captureDir = /workspaces/flowtime-vnext/examples/time-travel/it-system-telemetry
+@runsRoot = /workspaces/flowtime-vnext/data/runs
+# Ensure FlowTime.API is running with FLOWTIME_DATA_DIR=/workspaces/flowtime-vnext/data.
+# The samples below use the it-system-microservices template plus the deterministic capture bundle under examples/time-travel/it-system-telemetry (manifest included).
 
 ### 1. Service health (confirm API is reachable)
 GET {{host}}/v1/healthz
 Accept: application/json
 
 ################################################################################
-# Simulation example – canonical time-travel model (embedded provenance)
+# Run orchestration workflows
 ################################################################################
-### 2. Submit simulation-mode model (writes artifacts + topology metadata)
-# @name createRunSimulation
-POST {{host}}/v1/run
-Content-Type: text/plain
+### 2. Dry-run telemetry orchestration (no files written)
+# @name dryRunTelemetry
+POST {{host}}/v1/runs
+Content-Type: application/json
 
-schemaVersion: 1
-provenance:
-  source: flowtime-sim
-  generator: flowtime-sim/http-demo
-  generatedAt: "2025-10-20T00:00:00Z"
-  templateId: http-demo
-  templateVersion: 1.0.0
-  mode: simulation
-  modelId: http-demo-simulation-demo
-  schemaVersion: 1
-  parameters: {}
-metadata:
-  id: http-demo
-  title: HTTP Demo Model (Simulation)
-  description: Synthetic values for API walkthrough
-  version: 1.0.0
-window:
-  start: 2025-01-01T00:00:00Z
-  timezone: UTC
-grid:
-  bins: 4
-  binSize: 5
-  binUnit: minutes
-  startTimeUtc: "2025-01-01T00:00:00Z"
-topology:
-  nodes:
-    - id: OrderService
-      kind: service
-      semantics:
-        arrivals: "{{fixturesRoot}}/OrderService_arrivals.csv"
-        served: "{{fixturesRoot}}/OrderService_served.csv"
-        errors: "{{fixturesRoot}}/OrderService_errors.csv"
-        capacity: "{{fixturesRoot}}/OrderService_capacity.csv"
-    - id: SupportQueue
-      kind: queue
-      semantics:
-        arrivals: "{{fixturesRoot}}/SupportQueue_arrivals.csv"
-        served: "{{fixturesRoot}}/SupportQueue_served.csv"
-        errors: "{{fixturesRoot}}/SupportQueue_errors.csv"
-        queue: "{{fixturesRoot}}/SupportQueue_queue.csv"
-  edges:
-    - id: edge1
-      from: OrderService:out
-      to: SupportQueue:in
-      weight: 1.0
-nodes:
-  - id: service_arrivals
-    kind: const
-    values: [10, 12, 11, 13]
-  - id: service_served
-    kind: const
-    values: [9, 11, 10, 12]
-  - id: service_errors
-    kind: const
-    values: [1, 1, 1, 1]
-  - id: service_capacity
-    kind: const
-    values: [12, 12, 12, 12]
-  - id: queue_arrivals
-    kind: const
-    values: [9, 11, 10, 12]
-  - id: queue_served
-    kind: const
-    values: [8, 10, 9, 11]
-  - id: queue_errors
-    kind: const
-    values: [0, 0, 0, 0]
-  - id: queue_depth
-    kind: const
-    values: [2, 4, 5, 3]
-outputs:
-  - series: "*"
-
-################################################################################
-# Telemetry example – model referencing file-backed telemetry
-################################################################################
-### 3. Submit telemetry-mode model (const nodes reference file:// sources)
-# @name createRunTelemetry
-POST {{host}}/v1/run
-Content-Type: text/plain
-
-schemaVersion: 1
-provenance:
-  source: flowtime-sim
-  generator: flowtime-sim/http-demo
-  generatedAt: "2025-10-20T00:00:00Z"
-  templateId: http-demo
-  templateVersion: 1.0.0
-  mode: telemetry
-  modelId: http-demo-telemetry-demo
-  schemaVersion: 1
-  parameters:
-    telemetryRequestsSource: "{{telemetryRoot}}/order-service_arrivals.csv"
-metadata:
-  id: http-demo
-  title: HTTP Demo Model (Telemetry)
-  description: Telemetry run referencing synthetic CSVs
-  version: 1.0.0
-window:
-  start: 2025-01-01T00:00:00Z
-  timezone: UTC
-grid:
-  bins: 4
-  binSize: 5
-  binUnit: minutes
-  startTimeUtc: "2025-01-01T00:00:00Z"
-topology:
-  nodes:
-    - id: OrderService
-      kind: service
-      semantics:
-        arrivals: "{{telemetryRoot}}/order-service_arrivals.csv"
-        served: "{{telemetryRoot}}/order-service_served.csv"
-        errors: "{{telemetryRoot}}/order-service_errors.csv"
-        capacity: "{{telemetryRoot}}/order-service_capacity.csv"
-    - id: SupportQueue
-      kind: queue
-      semantics:
-        arrivals: "{{telemetryRoot}}/support-queue_arrivals.csv"
-        served: "{{telemetryRoot}}/support-queue_served.csv"
-        errors: "{{telemetryRoot}}/support-queue_errors.csv"
-        queue: "{{telemetryRoot}}/support-queue_queue.csv"
-  edges:
-    - id: edge1
-      from: OrderService:out
-      to: SupportQueue:in
-      weight: 1.0
-nodes:
-  - id: service_arrivals
-    kind: const
-    values: [10, 12, 11, 13]
-    source: "{{telemetryRoot}}/order-service_arrivals.csv"
-  - id: service_served
-    kind: const
-    values: [9, 11, 10, 12]
-    source: "{{telemetryRoot}}/order-service_served.csv"
-  - id: service_errors
-    kind: const
-    values: [1, 1, 1, 1]
-    source: "{{telemetryRoot}}/order-service_errors.csv"
-  - id: service_capacity
-    kind: const
-    values: [12, 12, 12, 12]
-    source: "{{telemetryRoot}}/order-service_capacity.csv"
-  - id: queue_arrivals
-    kind: const
-    values: [9, 11, 10, 12]
-    source: "{{telemetryRoot}}/support-queue_arrivals.csv"
-  - id: queue_served
-    kind: const
-    values: [8, 10, 9, 11]
-    source: "{{telemetryRoot}}/support-queue_served.csv"
-  - id: queue_errors
-    kind: const
-    values: [0, 0, 0, 0]
-    source: "{{telemetryRoot}}/support-queue_errors.csv"
-  - id: queue_depth
-    kind: const
-    values: [2, 4, 5, 3]
-    source: "{{telemetryRoot}}/support-queue_queue.csv"
-outputs:
-  - series: "*"
-
-################################################################################
-# Follow-up requests (applies to whichever run ID you care about)
-################################################################################
-# Optional: wait for evaluation to complete (state call triggers computation within the response)
-GET {{host}}/v1/runs/{{createRunSimulation.response.body.$.runId}}/state?binIndex=1
-Accept: application/json
-# Sample response (enriched envelope):
+{
+  "templateId": "it-system-microservices",
+  "mode": "telemetry",
+  "telemetry": {
+    "captureDirectory": "{{captureDir}}",
+    "bindings": {
+      "telemetryRequestsSource": "LoadBalancer_arrivals.csv"
+    }
+  },
+  "options": {
+    "dryRun": true,
+    "deterministicRunId": true
+  }
+}
+# 200 OK
 # {
+#   "isDryRun": true,
+#   "plan": {
+#     "templateId": "it-system-microservices",
+#     "mode": "telemetry",
+#     "outputRoot": "/workspaces/flowtime-vnext/data/runs",
+#     "captureDirectory": "/workspaces/flowtime-vnext/examples/time-travel/it-system-telemetry",
+#     "deterministicRunId": true,
+#     "requestedRunId": null,
+#     "parameters": {
+#       "telemetryRequestsSource": "file:///workspaces/flowtime-vnext/examples/time-travel/it-system-telemetry/LoadBalancer_arrivals.csv"
+#     },
+#     "telemetryBindings": {
+#       "telemetryRequestsSource": "OrderService_arrivals.csv"
+#     },
+#     "files": [
+#       {
+#         "nodeId": "OrderService",
+#         "metric": "Arrivals",
+#         "path": "OrderService_arrivals.csv"
+#       },
+#       {
+#         "nodeId": "PaymentService",
+#         "metric": "Served",
+#         "path": "PaymentService_served.csv"
+#       },
+#       ...
+#     ],
+#     "warnings": []
+#   },
+#   "warnings": []
+# }
+
+### 3. Create telemetry run (writes canonical bundle)
+# @name createTelemetryRun
+POST {{host}}/v1/runs
+Content-Type: application/json
+
+{
+  "templateId": "it-system-microservices",
+  "mode": "telemetry",
+  "telemetry": {
+    "captureDirectory": "{{captureDir}}",
+    "bindings": {
+      "telemetryRequestsSource": "LoadBalancer_arrivals.csv"
+    }
+  },
+  "options": {
+    "deterministicRunId": true,
+    "overwriteExisting": true
+  }
+}
+# 201 Created
+# {
+#   "isDryRun": false,
 #   "metadata": {
-#     "runId": "http-demo-simulation-demo",
-#     "mode": "simulation",
-#     "telemetrySourcesResolved": false,
+#     "runId": "run_it-system-microservices_17d0f0c6",
+#     "templateId": "it-system-microservices",
+#     "templateTitle": "IT System with Microservices",
+#     "templateVersion": "1.0.0",
+#     "mode": "telemetry",
+#     "provenanceHash": "sha256:...",
+#     "telemetrySourcesResolved": true,
 #     "schema": {
 #       "id": "time-travel/v1",
 #       "version": "1",
 #       "hash": "sha256:..."
 #     },
 #     "storage": {
-#       "modelPath": ".../model/model.yaml",
-#       "metadataPath": ".../model/metadata.json",
-#       "provenancePath": ".../model/provenance.json"
+#       "modelPath": "/workspaces/flowtime-vnext/data/runs/run_it-system-microservices_17d0f0c6/model/model.yaml",
+#       "metadataPath": "/workspaces/flowtime-vnext/data/runs/run_it-system-microservices_17d0f0c6/model/metadata.json",
+#       "provenancePath": "/workspaces/flowtime-vnext/data/runs/run_it-system-microservices_17d0f0c6/model/provenance.json"
 #     }
 #   },
-#   "bin": {
-#     "index": 1,
-#     "startUtc": "2025-01-01T00:05:00Z",
-#     "endUtc": "2025-01-01T00:10:00Z",
-#     "durationMinutes": 5
-#   },
-#   "nodes": [
-#     {
-#       "id": "OrderService",
-#       "kind": "service",
-#       "metrics": {
-#         "arrivals": 10,
-#         "served": 6,
-#         "errors": 1,
-#         "capacity": 12
-#       },
-#       "derived": {
-#         "utilization": 0.5,
-#         "throughputRatio": 0.6,
-#         "color": "yellow"
-#       },
-#       "telemetry": {
-#         "sources": [
-#           "file:OrderService_arrivals.csv",
-#           "file:OrderService_served.csv"
-#         ],
-#         "warnings": []
-#       }
-#     }
-#   ],
 #   "warnings": []
 # }
 
-### 5. Enumerate the generated series metadata (after evaluation)
-@sleep = 1
-# state call triggers evaluation; give it a moment then fetch series list
-GET {{host}}/v1/runs/{{createRunSimulation.response.body.$.runId}}/index
+### 4. List available runs (created via API or CLI)
+GET {{host}}/v1/runs
 Accept: application/json
-
-### 6. Retrieve a bin window for scrubber/series views
-GET {{host}}/v1/runs/{{createRunSimulation.response.body.$.runId}}/state_window?startBin=0&endBin=3
-Accept: application/json
-# Sample response slice:
+# 200 OK
 # {
-#   "metadata": { "...": "..." },
-#   "window": {
-#     "startBin": 0,
-#     "endBin": 3,
-#     "binCount": 4
-#   },
-#   "timestampsUtc": [
-#     "2025-01-01T00:00:00Z",
-#     "2025-01-01T00:05:00Z",
-#     "2025-01-01T00:10:00Z",
-#     "2025-01-01T00:15:00Z"
-#   ],
-#   "nodes": [
+#   "items": [
 #     {
-#       "id": "OrderService",
-#       "kind": "service",
-#       "series": {
-#         "arrivals": [10, 12, 11, 13],
-#         "served": [9, 11, 10, 12],
-#         "errors": [1, 1, 1, 1],
-#         "utilization": [0.75, 0.92, 0.83, 1.0]
-#       },
-#       "telemetry": {
-#         "sources": [
-#           "file:OrderService_arrivals.csv",
-#           "file:OrderService_served.csv"
-#         ],
-#         "warnings": []
-#       }
+#       "runId": "run_it-system-microservices_17d0f0c6",
+#       "templateId": "it-system-microservices",
+#       "templateTitle": "IT System with Microservices",
+#       "templateVersion": "1.0.0",
+#       "mode": "telemetry",
+#       "createdUtc": "2025-10-20T12:34:56.0000000Z",
+#       "warningCount": 0
 #     }
 #   ],
-#   "warnings": []
+#   "totalCount": 1
 # }
 
-### 7. (Optional) Download a raw series for verification
-# Use a seriesId returned in step 5 (e.g. service_arrivals@SERVICE_ARRIVALS@DEFAULT)
-GET {{host}}/v1/runs/{{createRunSimulation.response.body.$.runId}}/series/service_arrivals@SERVICE_ARRIVALS@DEFAULT
-Accept: text/csv
+### 5. Inspect run metadata (mirrors /state envelope)
+GET {{host}}/v1/runs/{{createTelemetryRun.response.body.$.metadata.runId}}
+Accept: application/json
+# 200 OK (same shape as create response without isDryRun)
 
-### 8. Validation failure example (SHIFT without initial condition)
-POST {{host}}/v1/run
-Content-Type: text/plain
-
-schemaVersion: 1
-
-window:
-  start: 2025-01-01T00:00:00Z
-  timezone: UTC
-grid:
-  bins: 4
-  binSize: 5
-  binUnit: minutes
-
-nodes:
-  - id: queue_depth
-    kind: expr
-    expr: "SHIFT(queue_depth, 1)"
-
-topology:
-  nodes:
-    - id: SupportQueue
-      kind: queue
-      semantics:
-        queue: queue_depth
-  edges: []
+### 6. Optional: trigger state playback (run must exist)
+GET {{host}}/v1/runs/{{createTelemetryRun.response.body.$.metadata.runId}}/state?binIndex=0
+Accept: application/json
+# 200 OK (the bundled it-system template now includes complete semantics).
+# 409 Conflict only appears when custom templates omit required bindings (for example, a `service` node without `semantics.errors`).

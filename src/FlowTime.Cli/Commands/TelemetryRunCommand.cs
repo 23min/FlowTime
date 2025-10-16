@@ -1,6 +1,9 @@
 using System.Text.Json;
 using FlowTime.Cli.Configuration;
+using FlowTime.Core.Configuration;
 using FlowTime.Generator;
+using FlowTime.Generator.Artifacts;
+using FlowTime.Generator.Models;
 using FlowTime.Generator.Orchestration;
 using FlowTime.Sim.Core.Services;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -32,6 +35,7 @@ public static class TelemetryRunCommand
         var telemetryBindings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         bool deterministicRunId = false;
         bool overwrite = false;
+        bool dryRun = false;
         string? runId = null;
 
         for (var i = 1; i < args.Length; i++)
@@ -82,6 +86,9 @@ public static class TelemetryRunCommand
                     break;
                 case "--overwrite":
                     overwrite = true;
+                    break;
+                case "--dry-run":
+                    dryRun = true;
                     break;
                 default:
                     Console.Error.WriteLine($"Unknown option: {arg}");
@@ -137,7 +144,7 @@ public static class TelemetryRunCommand
 
         Directory.CreateDirectory(templatesDir!);
 
-        var templateService = new SimTemplateService(templatesDir!, NullLogger<SimTemplateService>.Instance);
+        var templateService = new TemplateService(templatesDir!, NullLogger<TemplateService>.Instance);
         var bundleBuilder = new TelemetryBundleBuilder();
         var orchestration = new RunOrchestrationService(templateService, bundleBuilder, NullLogger<RunOrchestrationService>.Instance);
 
@@ -151,13 +158,68 @@ public static class TelemetryRunCommand
             OutputRoot = runsRoot,
             DeterministicRunId = deterministicRunId,
             RunId = runId,
-            DryRun = false,
+            DryRun = dryRun,
             OverwriteExisting = overwrite
         };
 
         try
         {
-            var result = await orchestration.CreateRunAsync(request).ConfigureAwait(false);
+            var outcome = await orchestration.CreateRunAsync(request).ConfigureAwait(false);
+            if (outcome.IsDryRun)
+            {
+                var plan = outcome.Plan ?? throw new InvalidOperationException("Dry-run outcome missing plan details.");
+                Console.WriteLine("Dry run completed. No files were written.");
+                Console.WriteLine($"Template: {plan.TemplateId} (mode: {plan.Mode})");
+                Console.WriteLine($"Output root: {plan.OutputRoot}");
+                if (!string.IsNullOrWhiteSpace(plan.CaptureDirectory))
+                {
+                    Console.WriteLine($"Capture directory: {plan.CaptureDirectory}");
+                }
+
+                if (plan.Parameters.Count > 0)
+                {
+                    Console.WriteLine("Parameters:");
+                    foreach (var kvp in plan.Parameters)
+                    {
+                        Console.WriteLine($"  {kvp.Key}: {kvp.Value}");
+                    }
+                }
+
+                if (plan.TelemetryBindings.Count > 0)
+                {
+                    Console.WriteLine("Telemetry bindings:");
+                    foreach (var kvp in plan.TelemetryBindings)
+                    {
+                        Console.WriteLine($"  {kvp.Key} -> {kvp.Value}");
+                    }
+                }
+
+                var files = plan.TelemetryManifest.Files;
+                if (files is { Count: > 0 })
+                {
+                    Console.WriteLine("Planned telemetry files:");
+                    foreach (var file in files)
+                    {
+                        Console.WriteLine($"  {file.NodeId}:{file.Metric} => {file.Path}");
+                    }
+                }
+
+                var warnings = plan.TelemetryManifest.Warnings;
+                if (warnings is { Count: > 0 })
+                {
+                    Console.WriteLine("Warnings:");
+                    foreach (var warning in warnings)
+                    {
+                        var bins = warning.Bins is { Count: > 0 } ? $" [bins: {string.Join(",", warning.Bins)}]" : string.Empty;
+                        var node = string.IsNullOrWhiteSpace(warning.NodeId) ? string.Empty : $" (node {warning.NodeId})";
+                        Console.WriteLine($"  - {warning.Code}: {warning.Message}{node}{bins}");
+                    }
+                }
+
+                return 0;
+            }
+
+            var result = outcome.Result ?? throw new InvalidOperationException("Run outcome missing result payload.");
             Console.WriteLine($"Run created: {result.RunId}");
             Console.WriteLine($"Directory: {result.RunDirectory}");
             Console.WriteLine($"Mode: {result.ManifestMetadata.Mode}");
@@ -195,6 +257,7 @@ public static class TelemetryRunCommand
         Console.WriteLine("  --deterministic-run-id   Generate deterministic run id based on model hash.");
         Console.WriteLine("  --run-id <value>         Explicit run directory name.");
         Console.WriteLine("  --overwrite              Overwrite existing run directory when --run-id is supplied.");
+        Console.WriteLine("  --dry-run                Plan the run without writing files (report planned operations).");
     }
 
     private static object? ConvertJsonElement(JsonElement element) => element.ValueKind switch
