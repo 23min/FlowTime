@@ -10,6 +10,7 @@
     <ProjectReference Include="../FlowTime.Contracts/FlowTime.Contracts.csproj" />
     <ProjectReference Include="../FlowTime.Core/FlowTime.Core.csproj" />
     <ProjectReference Include="../FlowTime.Adapters.Synthetic/FlowTime.Adapters.Synthetic.csproj" />
+    <ProjectReference Include="../FlowTime.Sim.Core/FlowTime.Sim.Core.csproj" />
   </ItemGroup>
 
 </Project>

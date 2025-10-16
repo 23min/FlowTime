@@ -1,4 +1,6 @@
 using System.Text;
+using System.IO;
+using System.Linq;
 using FlowTime.Core;
 using FlowTime.Core.Artifacts;
 using FlowTime.Core.Execution;
@@ -8,6 +10,14 @@ using FlowTime.Core.Services;
 using FlowTime.Core.Nodes;
 using FlowTime.API.Models;
 using FlowTime.API.Services;
+using FlowTime.API.Endpoints;
+using FlowTime.Contracts.TimeTravel;
+using FlowTime.Generator.Artifacts;
+using FlowTime.Generator.Orchestration;
+using System.Text.Json;
+using FlowTime.Generator;
+using SimTemplateService = FlowTime.Sim.Core.Services.TemplateService;
+using SimITemplateService = FlowTime.Sim.Core.Services.ITemplateService;
 using FlowTime.Contracts.Services;
 using FlowTime.Core.TimeTravel;
 using Microsoft.AspNetCore.HttpLogging;
@@ -23,6 +33,24 @@ builder.Services.AddSingleton<IArtifactRegistry, FileSystemArtifactRegistry>();
 builder.Services.AddSingleton<IArtifactRegistry, FileSystemArtifactRegistry>();
 builder.Services.AddSingleton<RunManifestReader>();
 builder.Services.AddSingleton<ModeValidator>();
+builder.Services.AddSingleton<SimITemplateService>(sp =>
+{
+    var configuration = sp.GetRequiredService<IConfiguration>();
+    var logger = sp.GetRequiredService<ILogger<SimTemplateService>>();
+    var templatesDir = configuration["TemplatesDirectory"];
+    if (string.IsNullOrWhiteSpace(templatesDir))
+    {
+        var solutionRoot = DirectoryProvider.FindSolutionRoot();
+        templatesDir = solutionRoot is not null
+            ? Path.Combine(solutionRoot, "templates")
+            : Path.Combine(AppContext.BaseDirectory, "templates");
+    }
+
+    Directory.CreateDirectory(templatesDir!);
+    return new SimTemplateService(templatesDir!, logger);
+});
+builder.Services.AddSingleton<TelemetryBundleBuilder>();
+builder.Services.AddSingleton<RunOrchestrationService>();
 builder.Services.AddSingleton<StateQueryService>();
 builder.Services.AddHttpLogging(o =>
 {
@@ -94,6 +122,7 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider) =>
 
 // V1 API Group
 var v1 = app.MapGroup("/v1");
+v1.MapRunOrchestrationEndpoints();
 
 // Artifacts registry endpoints
 v1.MapPost("/artifacts/index", async (IArtifactRegistry registry, ILogger<Program> logger) =>
@@ -165,6 +194,123 @@ v1.MapGet("/artifacts/{id}/relationships", async (string id, IArtifactRegistry r
         return Results.NotFound(new { error = "Registry index not found. Try rebuilding with POST /v1/artifacts/index" });
     }
 });
+// Run orchestration endpoints
+v1.MapPost("/runs", async (RunCreateRequest request, RunOrchestrationService orchestration, IConfiguration configuration, ILogger<Program> logger, CancellationToken cancellationToken) =>
+{
+    if (request is null)
+    {
+        return Results.BadRequest(new { error = "Request body is required." });
+    }
+
+    if (string.IsNullOrWhiteSpace(request.TemplateId))
+    {
+        return Results.BadRequest(new { error = "templateId is required." });
+    }
+
+    var mode = string.IsNullOrWhiteSpace(request.Mode) ? "telemetry" : request.Mode.Trim().ToLowerInvariant();
+    if (mode is not ("telemetry" or "simulation"))
+    {
+        return Results.BadRequest(new { error = "mode must be 'telemetry' or 'simulation'." });
+    }
+
+    if (mode == "telemetry" && (request.Telemetry?.CaptureDirectory is null || string.IsNullOrWhiteSpace(request.Telemetry.CaptureDirectory)))
+    {
+        return Results.BadRequest(new { error = "telemetry.captureDirectory is required for telemetry runs." });
+    }
+
+    logger.LogInformation("Received run creation request for template {TemplateId}", request.TemplateId);
+
+    var runsRoot = Program.ServiceHelpers.RunsRoot(configuration);
+    var parameters = Program.ConvertParameters(request.Parameters);
+    var telemetryBindings = request.Telemetry?.Bindings is not null
+        ? new Dictionary<string, string>(request.Telemetry.Bindings, StringComparer.OrdinalIgnoreCase)
+        : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+    var orchestrationRequest = new RunOrchestrationRequest
+    {
+        TemplateId = request.TemplateId,
+        Mode = mode,
+        CaptureDirectory = request.Telemetry?.CaptureDirectory,
+        TelemetryBindings = telemetryBindings,
+        Parameters = parameters,
+        OutputRoot = runsRoot,
+        DeterministicRunId = request.Options?.DeterministicRunId ?? false,
+        RunId = request.Options?.RunId,
+        DryRun = request.Options?.DryRun ?? false,
+        OverwriteExisting = request.Options?.OverwriteExisting ?? false
+    };
+
+    try
+    {
+        var result = await orchestration.CreateRunAsync(orchestrationRequest, cancellationToken).ConfigureAwait(false);
+        var metadata = Program.BuildStateMetadata(result);
+        var warnings = Program.BuildStateWarnings(result.TelemetryManifest);
+        return Results.Created($"/v1/runs/{metadata.RunId}", new RunCreateResponse
+        {
+            Metadata = metadata,
+            Warnings = warnings
+        });
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Failed to create run for template {TemplateId}", request.TemplateId);
+        return Results.Problem(title: "Run creation failed", detail: ex.Message, statusCode: StatusCodes.Status500InternalServerError);
+    }
+});
+
+v1.MapGet("/runs", async (RunOrchestrationService orchestration, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+    var runsRoot = Program.ServiceHelpers.RunsRoot(configuration);
+    if (!Directory.Exists(runsRoot))
+    {
+        return Results.Ok(new RunSummaryResponse());
+    }
+
+    var items = new List<RunSummary>();
+    foreach (var directory in Directory.EnumerateDirectories(runsRoot))
+    {
+        try
+        {
+            var result = await orchestration.TryLoadRunAsync(directory, cancellationToken).ConfigureAwait(false);
+            if (result is null)
+            {
+                continue;
+            }
+
+            items.Add(Program.BuildRunSummary(result));
+        }
+        catch
+        {
+            // ignore invalid runs
+        }
+    }
+
+    items.Sort((a, b) => Nullable.Compare(b.CreatedUtc, a.CreatedUtc));
+    return Results.Ok(new RunSummaryResponse { Items = items, TotalCount = items.Count });
+});
+
+v1.MapGet("/runs/{runId}", async (string runId, RunOrchestrationService orchestration, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+    if (string.IsNullOrWhiteSpace(runId))
+    {
+        return Results.BadRequest(new { error = "runId is required." });
+    }
+
+    var runsRoot = Program.ServiceHelpers.RunsRoot(configuration);
+    var runDirectory = Path.Combine(runsRoot, runId);
+
+    var result = await orchestration.TryLoadRunAsync(runDirectory, cancellationToken).ConfigureAwait(false);
+    if (result is null)
+    {
+        return Results.NotFound(new { error = $"Run '{runId}' not found." });
+    }
+
+    var metadata = Program.BuildStateMetadata(result);
+    var warnings = Program.BuildStateWarnings(result.TelemetryManifest);
+    return Results.Ok(new RunCreateResponse { Metadata = metadata, Warnings = warnings });
+});
+
+
 
 // Get individual artifact details
 v1.MapGet("/artifacts/{id}", async (string id, IArtifactRegistry registry, ILogger<Program> logger) =>
@@ -974,4 +1120,6 @@ public partial class Program
             return DataRoot(configuration);
         }
     }
+
+
 }

@@ -40,4 +40,9 @@
     <ProjectReference Include="..\..\src\FlowTime.Contracts\FlowTime.Contracts.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\FlowTime.Generator\FlowTime.Generator.csproj" />
+    <ProjectReference Include="..\..\src\FlowTime.Sim.Core\FlowTime.Sim.Core.csproj" />
+  </ItemGroup>
+
 </Project>

@@ -23,7 +23,12 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\FlowTime.API\FlowTime.API.csproj" />
-  <ProjectReference Include="..\..\src\FlowTime.Core\FlowTime.Core.csproj" />
+    <ProjectReference Include="..\..\src\FlowTime.Core\FlowTime.Core.csproj" />
+    <ProjectReference Include="..\..\src\FlowTime.Generator\FlowTime.Generator.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\TestSupport\TelemetryRunFactory.cs" Link="Support\TelemetryRunFactory.cs" />
   </ItemGroup>
 
 </Project>

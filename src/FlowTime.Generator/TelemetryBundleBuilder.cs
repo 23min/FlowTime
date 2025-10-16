@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
@@ -43,6 +44,7 @@ public sealed class TelemetryBundleBuilder
         var sourceModel = ModelService.ParseAndConvert(normalizedYaml);
         var normalizedWithSemantics = NormalizeTelemetrySemantics(normalizedYaml, telemetryManifest, sourceModel);
         var canonicalModel = ModelService.ParseAndConvert(normalizedWithSemantics);
+        var context = await LoadTelemetrySeriesAsync(captureDir, telemetryManifest, canonicalModel, cancellationToken).ConfigureAwait(false);
         var (grid, _) = ModelParser.ParseModel(canonicalModel);
 
         var outputDirectory = outputRoot;
@@ -60,8 +62,6 @@ public sealed class TelemetryBundleBuilder
             }
             outputDirectory = outputRoot;
         }
-
-        var context = await BuildContextAsync(captureDir, telemetryManifest, sourceModel, cancellationToken).ConfigureAwait(false);
 
         var writeRequest = new RunArtifactWriter.WriteRequest
         {
@@ -213,7 +213,7 @@ public sealed class TelemetryBundleBuilder
         return normalized;
     }
 
-    private async Task<Dictionary<NodeId, double[]>> BuildContextAsync(
+    private async Task<Dictionary<NodeId, double[]>> LoadTelemetrySeriesAsync(
         string captureDir,
         TelemetryManifest manifest,
         ModelDefinition modelDefinition,
@@ -241,6 +241,12 @@ public sealed class TelemetryBundleBuilder
             var csvPath = Path.Combine(captureDir, file.Path);
             var values = await ReadTelemetrySeriesAsync(csvPath, manifest.Grid.Bins, cancellationToken).ConfigureAwait(false);
             context[new NodeId(seriesNodeId)] = values;
+
+            var nodeDefinition = modelDefinition.Nodes.FirstOrDefault(n => string.Equals(n.Id, seriesNodeId, StringComparison.OrdinalIgnoreCase));
+            if (nodeDefinition is not null)
+            {
+                nodeDefinition.Values = values.ToArray();
+            }
         }
 
         return context;
