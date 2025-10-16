@@ -84,12 +84,26 @@
       "required": ["bins", "binSize", "binUnit"],
       "properties": {
         "bins": {
-          "type": "integer",
-          "minimum": 1
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "type": "string"
+            }
+          ]
         },
         "binSize": {
-          "type": "integer",
-          "minimum": 1
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "type": "string"
+            }
+          ]
         },
         "binUnit": {
           "type": "string",
@@ -120,10 +134,20 @@
             "type": "string"
           },
           "values": {
-            "type": ["number", "array"],
-            "items": {
-              "type": "number"
-            }
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                }
+              },
+              {
+                "type": "string"
+              }
+            ]
           },
           "pmf": {
             "type": "object",

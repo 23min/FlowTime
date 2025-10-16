@@ -40,15 +40,15 @@ public static class TelemetryRunFactory
             BinSize: 5,
             Series: new[]
             {
-                new FixtureSeries("api_gateway_arrivals", "api_gateway_arrivals.csv", "ApiGateway_arrivals.csv", "API_GATEWAY_ARRIVALS", new[] { 50d, 60d, 55d, 65d }),
-                new FixtureSeries("api_gateway_served", "api_gateway_served.csv", "ApiGateway_served.csv", "API_GATEWAY_SERVED", new[] { 48d, 58d, 54d, 62d }),
-                new FixtureSeries("api_gateway_errors", "api_gateway_errors.csv", "ApiGateway_errors.csv", "API_GATEWAY_ERRORS", new[] { 2d, 2d, 1d, 3d }),
-                new FixtureSeries("auth_arrivals", "auth_arrivals.csv", "AuthService_arrivals.csv", "AUTH_SERVICE_ARRIVALS", new[] { 48d, 58d, 54d, 62d }),
-                new FixtureSeries("auth_served", "auth_served.csv", "AuthService_served.csv", "AUTH_SERVICE_SERVED", new[] { 45d, 55d, 52d, 60d }),
-                new FixtureSeries("auth_errors", "auth_errors.csv", "AuthService_errors.csv", "AUTH_SERVICE_ERRORS", new[] { 1d, 1d, 2d, 1d }),
-                new FixtureSeries("inventory_arrivals", "inventory_arrivals.csv", "InventoryService_arrivals.csv", "INVENTORY_SERVICE_ARRIVALS", new[] { 45d, 55d, 52d, 60d }),
-                new FixtureSeries("inventory_served", "inventory_served.csv", "InventoryService_served.csv", "INVENTORY_SERVICE_SERVED", new[] { 44d, 53d, 50d, 58d }),
-                new FixtureSeries("inventory_errors", "inventory_errors.csv", "InventoryService_errors.csv", "INVENTORY_SERVICE_ERRORS", new[] { 1d, 2d, 2d, 2d })
+                new FixtureSeries("api_gateway_arrivals", "api_gateway_arrivals@API_GATEWAY@DEFAULT.csv", "ApiGateway_arrivals.csv", "API_GATEWAY_ARRIVALS", new[] { 50d, 60d, 55d, 65d }),
+                new FixtureSeries("api_gateway_served", "api_gateway_served@API_GATEWAY@DEFAULT.csv", "ApiGateway_served.csv", "API_GATEWAY_SERVED", new[] { 48d, 58d, 54d, 62d }),
+                new FixtureSeries("api_gateway_errors", "api_gateway_errors@API_GATEWAY@DEFAULT.csv", "ApiGateway_errors.csv", "API_GATEWAY_ERRORS", new[] { 2d, 2d, 1d, 3d }),
+                new FixtureSeries("auth_arrivals", "auth_arrivals@AUTH_SERVICE@DEFAULT.csv", "AuthService_arrivals.csv", "AUTH_SERVICE_ARRIVALS", new[] { 48d, 58d, 54d, 62d }),
+                new FixtureSeries("auth_served", "auth_served@AUTH_SERVICE@DEFAULT.csv", "AuthService_served.csv", "AUTH_SERVICE_SERVED", new[] { 45d, 55d, 52d, 60d }),
+                new FixtureSeries("auth_errors", "auth_errors@AUTH_SERVICE@DEFAULT.csv", "AuthService_errors.csv", "AUTH_SERVICE_ERRORS", new[] { 1d, 1d, 2d, 1d }),
+                new FixtureSeries("inventory_arrivals", "inventory_arrivals@INVENTORY_SERVICE@DEFAULT.csv", "InventoryService_arrivals.csv", "INVENTORY_SERVICE_ARRIVALS", new[] { 45d, 55d, 52d, 60d }),
+                new FixtureSeries("inventory_served", "inventory_served@INVENTORY_SERVICE@DEFAULT.csv", "InventoryService_served.csv", "INVENTORY_SERVICE_SERVED", new[] { 44d, 53d, 50d, 58d }),
+                new FixtureSeries("inventory_errors", "inventory_errors@INVENTORY_SERVICE@DEFAULT.csv", "InventoryService_errors.csv", "INVENTORY_SERVICE_ERRORS", new[] { 1d, 2d, 2d, 2d })
             },
             Services: new[]
             {
