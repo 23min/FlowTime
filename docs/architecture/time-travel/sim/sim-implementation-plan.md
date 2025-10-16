@@ -1,10 +1,10 @@
 # FlowTime.Sim Time-Travel Implementation Plan
 
-**Status:** 🚧 In Progress (WS1 complete, WS2 validation live)**  
-**Last Updated:** 2025-10-13  
+**Status:** ✅ Core delivered (WS1–WS4 complete; WS5 refinements ongoing)**  
+**Last Updated:** 2025-10-16  
 **Scope:** FlowTime.Sim Core, Service, CLI, Templates, Tests
 
-This plan decomposes the work required to align FlowTime.Sim with the time-travel roadmap. It complements the end-to-end milestone sequencing in `time-travel-planning-roadmap.md` by detailing the simulation-specific backlog.
+This plan decomposes the work required to align FlowTime.Sim with the time-travel roadmap. It complements the end-to-end milestone sequencing in `time-travel-planning-roadmap.md` by detailing the simulation-specific backlog. Live ADX ingestion remains deferred; the telemetry capture/bundle flow is the supported path until that follow-up is prioritised.
 
 ---
 
@@ -14,7 +14,7 @@ This plan decomposes the work required to align FlowTime.Sim with the time-trave
 |------------|-------|--------------|
 | **WS1: Schema Foundations** | ✅ Complete — Template model extended (window/topology/semantics/provenance) and generation pipeline emits canonical KISS schema. | None (internal refactor). |
 | **WS2: Shared Validation** | ✅ Complete — Shared FlowTime.Expressions validator integrated; topology & mode-aware validation enforced. | Engine follow-up: shared expression library. |
-| **WS3: Service & CLI Enhancements** | Embed provenance, expose schema metadata, update storage layout, add mode toggles. | WS1, WS2. |
+| **WS3: Service & CLI Enhancements** | ✅ Complete — Service/CLI surface schema metadata, provenance defaults, mode toggles; `.http` refresh tracked under WS5. | WS1, WS2. |
 | **WS4: Template & Fixture Upgrade** | ✅ Complete — Templates accept optional telemetry bindings; fixtures + docs refreshed. | WS1. |
 | **WS5: Testing & Tooling** | 🛠 In Progress — Telemetry warning policy & synthetic Gold automation pending; regression coverage expanding. | WS1–WS4. |
 
@@ -101,11 +101,9 @@ This plan decomposes the work required to align FlowTime.Sim with the time-trave
 | SIM-M-03.WS1-03 | Add TemplateMetadata.version and propagate to provenance | Sim Core | ✅ Complete |
 | SIM-M-03.WS2-01 | Integrate shared expression validator | Sim Core | ✅ Complete |
 | SIM-M-03.WS3-01 | Embed provenance defaults & response formatting | Sim Service | ✅ Complete (docs refresh tracked under WS3 follow-up) |
-| SIM-M-03.WS4-01 | Upgrade curated templates | Sim Core | 🛠 Partial (core templates migrated) |
-| SIM-M-03.WS5-01 | Add integration tests using Engine fixtures | Sim Tests | 🛠 Partial (Sim ↔ Engine smoke test live) |
+| SIM-M-03.WS4-01 | Upgrade curated templates | Sim Core | ✅ Complete |
+| SIM-M-03.WS5-01 | Add integration tests using Engine fixtures | Sim Tests | 🛠 Partial (Sim ↔ Engine smoke test live; telemetry warning policy pending) |
 | SIM-M-03.WS2-02 | Add FlowTime.Expressions smoke test in Sim Tests | Sim Tests | ✅ Complete |
-
-*Note:* WS1 and broader WS2 work remain unscheduled; schema and full validation refactors are **not started** despite library availability.
 
 Update this table as work progresses.
 

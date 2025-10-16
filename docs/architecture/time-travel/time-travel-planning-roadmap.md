@@ -544,18 +544,20 @@ The M-03.x milestones provide the backend surface required for the time-travel U
 
 ### Backend Support Delivered in M-03.x
 - `POST /v1/graph` (existing) parses model metadata and returns topology + semantics aligned to the KISS schema; the UI can reuse this response for graph layout previews.
-- `POST /v1/runs` returns `runId`, run manifest, topology, and series artifacts the UI can cache for layout.
-- `GET /v1/runs/{runId}/state?binIndex={idx}` provides:
+- `GET /v1/runs/{runId}/state` provides:
   - Window metadata (`start`, `timezone`, `binMinutes`)
   - Per-node semantics (arrivals, served, queue, capacity) plus derived metrics
   - Node coloring and `colorReason` matched to the thresholds defined in M-03.01
 - `GET /v1/runs/{runId}/state_window?startBin={s}&endBin={e}` supplies dense series for sparklines and aggregate charts.
 - Validation warnings/errors are returned with every response so the UI can annotate issues without polling other services (see M-03.03 deliverables).
+- Live ADX ingestion is deferred; telemetry capture + bundling tooling from M-03.02 remain the canonical path until a future milestone prioritises direct adapters.
+- Dedicated run-orchestration APIs (`POST /v1/runs`, listings) are still pending; UI teams currently rely on canonical run bundles produced by CLI workflows or pre-generated fixtures.
 
 ### Integration Checklist
 - Respect backend-provided timestamps; compute client timelines as `start + binIndex × binMinutes`.
 - Gray nodes indicate missing capacity—display throughput ratio or helper messaging rather than hiding the node.
 - Telemetry warnings should present as non-blocking notices; simulation errors must halt playback per mode-based validation rules.
+- Initial visuals can use built-in chart components or standard chart libraries; full topology graph layout will be handled by a future milestone (TBD) using an external layout engine/post-processing step rather than bespoke UI code.
 - Aggregated metrics endpoints (e.g., `/metrics`) and advanced overlays remain future work (see Post-M-3 section).
 
 ---

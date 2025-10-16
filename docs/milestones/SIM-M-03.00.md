@@ -1,6 +1,6 @@
 # SIM-M-03.00 — Schema Foundations & Shared Validation
 
-**Status:** 🚧 In Progress (WS1 & WS2 delivered)  
+**Status:** ✅ Complete (WS1–WS4 shipped; WS5 follow-ups ongoing)  
 **Dependencies:** M-03.00 (Engine Schema & Fixtures), M-03.00.01 (Shared Expression Validation Library)  
 **Target:** Upgrade FlowTime.Sim templates, generation pipeline, and validation to emit the KISS time-travel schema (window, topology, semantics, provenance) while consuming the shared FlowTime.Expressions library for deterministic validation.
 
@@ -8,7 +8,7 @@
 
 ## Overview
 
-FlowTime.Sim currently emits the legacy SIM-M-02.06 schema. SIM-M-03.00 delivers the foundational refactors needed for time-travel milestones: templates capture window/topology semantics, provenance is preserved, telemetry-friendly nodes are supported, and validation aligns with Engine behaviour via the shared FlowTime.Expressions library. This milestone covers WS1 and WS2 of the Sim implementation plan so later workstreams (service/CLI updates, fixture upgrades) can build on a compliant schema.
+SIM-M-03.00 delivered the foundational refactors needed for time-travel milestones: templates now capture window/topology semantics, provenance is preserved, telemetry-friendly nodes are supported, and validation aligns with Engine behaviour via the shared FlowTime.Expressions library. These changes unlock downstream workstreams (service/CLI updates, fixture upgrades) that build on the compliant schema emitted by FlowTime.Sim.
 
 ### Strategic Context
 - **Motivation:** Time-travel APIs (Engine M-03.01+) require consistent schema/validation across Engine and Sim. Without this upgrade, Sim-generated models cannot participate in `/state` workflows.
@@ -115,12 +115,10 @@ FlowTime.Sim currently emits the legacy SIM-M-02.06 schema. SIM-M-03.00 delivers
 
 ---
 
-## Remaining Work
+## Follow-Up Work
 
-- WS3: Publish updated `.http` samples + walkthroughs reflecting metadata summaries/mode overrides and plan the deprecation path for the legacy `embed_provenance` flag.
-- WS4: Finalize telemetry template migrations and fixtures (legacy schema path no longer required).
-- WS5: Define telemetry-mode warning policy, scope synthetic Gold automation, and broaden integration/contract regression coverage.
-- Testing: Until the performance suite stabilises, prefer `dotnet test FlowTime.Tests --filter Category!=Benchmark` instead of the full solution run; re-run `dotnet test FlowTime.sln` when WS3 wraps.
+- WS5 (ongoing): Define telemetry-mode warning policy, scope synthetic Gold automation, and broaden integration/contract regression coverage.
+- Testing: Until the performance suite stabilises, prefer `dotnet test FlowTime.Tests --filter Category!=Benchmark` instead of the full solution run; re-run `dotnet test FlowTime.sln` when performance flake mitigation lands.
 
 ---
 

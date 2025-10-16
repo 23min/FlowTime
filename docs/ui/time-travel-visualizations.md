@@ -13,6 +13,11 @@
 4. **Progressive Disclosure**: Summary → Detail on demand
 5. **Data Density**: Show trends (mini graphs) without overwhelming
 
+### Implementation Notes — October 2025
+- Live ADX ingestion is deferred; UX demos should rely on canonical run bundles produced by the telemetry capture + bundling workflow from M-03.02.
+- Run creation currently happens through CLI orchestration (`flowtime telemetry capture` / `bundle` + `flowtime run`); UI-facing run APIs will be introduced in a future milestone.
+- Initial visualisations can use built-in chart components or off-the-shelf chart libraries. Full topology graph layout will depend on an external layout engine in a future milestone (TBD) rather than bespoke client-side positioning.
+
 ---
 
 ## View 1: SLA Dashboard
