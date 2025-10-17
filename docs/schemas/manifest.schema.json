@@ -31,9 +31,9 @@
       "description": "Reference to model provenance metadata",
       "additionalProperties": false,
       "properties": {
-        "hasProvenance": { "type": "boolean" },
-        "modelId": { "type": "string" },
-        "templateId": { "type": "string" },
+        "has_provenance": { "type": "boolean" },
+        "model_id": { "type": "string" },
+        "template_id": { "type": "string" },
         "source": { "type": "string" }
       }
     }

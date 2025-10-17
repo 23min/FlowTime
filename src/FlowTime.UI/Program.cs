@@ -6,6 +6,7 @@ using MudBlazor.Services;
 using Microsoft.Extensions.DependencyInjection; // for AddHttpClient
 using Microsoft.Extensions.Logging;
 using FlowTime.UI.Services;
+using System.Reflection;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
@@ -124,4 +125,11 @@ builder.Services.AddScoped<ISimResultsService>(sp =>
 builder.Services.AddScoped<IGraphAnalysisService, GraphAnalysisService>();
 builder.Services.AddScoped<ISimulationResultsService, SimulationResultsService>();
 
-await builder.Build().RunAsync();
+var host = builder.Build();
+var informationalVersion = typeof(App).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+var version = informationalVersion?.Split('+')[0]
+    ?? typeof(App).Assembly.GetName().Version?.ToString()
+    ?? "0.0.0";
+Console.WriteLine($"FlowTime.UI started v{version}");
+
+await host.RunAsync();

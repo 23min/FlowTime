@@ -23,19 +23,21 @@ internal sealed class FlowTimeApiClient : IFlowTimeApiClient
     private readonly HttpClient http;
     private readonly JsonSerializerOptions json;
     private readonly string apiVersion;
+    private readonly string apiBasePath;
 
     public FlowTimeApiClient(HttpClient http, FlowTimeApiOptions opts)
     {
         // HttpClient is pre-configured with BaseAddress in DI. Respect that to avoid clobbering static client base.
         this.http = http;
         this.apiVersion = opts.ApiVersion;
+        apiBasePath = $"api/{apiVersion}";
         json = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
     }
 
     public string? BaseAddress => http.BaseAddress?.ToString();
 
     public Task<ApiCallResult<HealthResponse>> HealthAsync(CancellationToken ct = default)
-        => GetJson<HealthResponse>("v1/healthz", ct);
+        => GetJson<HealthResponse>($"{apiBasePath}/healthz", ct);
 
     public Task<ApiCallResult<HealthResponse>> LegacyHealthAsync(CancellationToken ct = default)
         => GetJson<HealthResponse>("healthz", ct);
@@ -44,7 +46,7 @@ internal sealed class FlowTimeApiClient : IFlowTimeApiClient
     {
         try
         {
-            var response = await http.GetAsync($"{apiVersion}/healthz", ct);
+            var response = await http.GetAsync($"{apiBasePath}/healthz", ct);
             
             if (response.IsSuccessStatusCode)
             {
@@ -77,23 +79,23 @@ internal sealed class FlowTimeApiClient : IFlowTimeApiClient
     public Task<ApiCallResult<RunResponse>> RunAsync(string yaml, CancellationToken ct = default)
     {
         var content = new StringContent(yaml, Encoding.UTF8, "text/plain");
-        Console.WriteLine($"[FlowTimeApiClient] POST /{apiVersion}/run len={yaml.Length} preview='{yaml.Substring(0, Math.Min(60, yaml.Length)).Replace("\n", "\\n")}'");
-        return PostJson<RunResponse>($"{apiVersion}/run", content, ct);
+        Console.WriteLine($"[FlowTimeApiClient] POST /{apiBasePath}/run len={yaml.Length} preview='{yaml.Substring(0, Math.Min(60, yaml.Length)).Replace("\n", "\\n")}'");
+        return PostJson<RunResponse>($"{apiBasePath}/run", content, ct);
     }
 
     public Task<ApiCallResult<GraphResponse>> GraphAsync(string yaml, CancellationToken ct = default)
     {
         var content = new StringContent(yaml, Encoding.UTF8, "text/plain");
-        Console.WriteLine($"[FlowTimeApiClient] POST /{apiVersion}/graph len={yaml.Length} preview='{yaml.Substring(0, Math.Min(60, yaml.Length)).Replace("\n", "\\n")}'");
-        return PostJson<GraphResponse>($"{apiVersion}/graph", content, ct);
+        Console.WriteLine($"[FlowTimeApiClient] POST /{apiBasePath}/graph len={yaml.Length} preview='{yaml.Substring(0, Math.Min(60, yaml.Length)).Replace("\n", "\\n")}'");
+        return PostJson<GraphResponse>($"{apiBasePath}/graph", content, ct);
     }
 
     public Task<ApiCallResult<SeriesIndex>> GetRunIndexAsync(string runId, CancellationToken ct = default)
-        => GetJson<SeriesIndex>($"{apiVersion}/runs/{runId}/index", ct);
+        => GetJson<SeriesIndex>($"{apiBasePath}/runs/{runId}/index", ct);
 
     public async Task<ApiCallResult<Stream>> GetRunSeriesAsync(string runId, string seriesId, CancellationToken ct = default)
     {
-        var res = await http.GetAsync($"{apiVersion}/runs/{runId}/series/{seriesId}", HttpCompletionOption.ResponseHeadersRead, ct);
+        var res = await http.GetAsync($"{apiBasePath}/runs/{runId}/series/{seriesId}", HttpCompletionOption.ResponseHeadersRead, ct);
         try
         {
             if (!res.IsSuccessStatusCode)

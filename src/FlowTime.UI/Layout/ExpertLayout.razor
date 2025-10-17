@@ -54,16 +54,21 @@
         <MudNavMenu>
             <MudNavLink Href="/" Icon="@Icons.Material.Filled.Home" Match="NavLinkMatch.All">Home</MudNavLink>
             
-            <!-- ANALYZE Section -->
-            <MudNavLink Href="/analyze" Icon="@Icons.Material.Filled.Analytics" Class="nav-section-header">
-                ANALYZE
-            </MudNavLink>
-            <MudNavLink Href="/features" Icon="@Icons.Material.Filled.AccountTree" Class="nav-submenu ps-6">
-                Features
-            </MudNavLink>
-            <MudNavLink Href="/api-demo" Icon="@Icons.Material.Filled.Api" Class="nav-submenu ps-6">
-                API Testing
-            </MudNavLink>
+            <!-- TIME-TRAVEL Section -->
+            <MudNavGroup Icon="@Icons.Material.Filled.AutoAwesomeMotion" Title="Time-Travel" Expanded="true" Class="nav-section-header">
+                <MudNavLink Href="/time-travel/dashboard" Icon="@Icons.Material.Filled.Dashboard" Class="nav-submenu ps-6">
+                    Dashboard
+                </MudNavLink>
+                <MudNavLink Href="/time-travel/topology" Icon="@Icons.Material.Filled.AccountTree" Class="nav-submenu ps-6">
+                    Topology
+                </MudNavLink>
+                <MudNavLink Href="/time-travel/run" Icon="@Icons.Material.Filled.PlayArrow" Class="nav-submenu ps-6">
+                    Run Orchestration
+                </MudNavLink>
+                <MudNavLink Href="/time-travel/artifacts" Icon="@Icons.Material.Filled.Archive" Class="nav-submenu ps-6">
+                    Artifacts
+                </MudNavLink>
+            </MudNavGroup>
             
             <!-- SIMULATE Section -->
             <MudNavLink Href="/simulate" Icon="@Icons.Material.Filled.ShowChart" Class="nav-section-header">
@@ -73,17 +78,18 @@
                 Template Studio
             </MudNavLink>
             
-            <!-- ARTIFACTS Section -->
-            <MudNavLink Href="/artifacts" Icon="@Icons.Material.Filled.Archive" Class="nav-section-header">
-                ARTIFACTS
-            </MudNavLink>
-            
             <!-- TOOLS Section -->
             <MudNavLink Href="/tools" Icon="@Icons.Material.Filled.Build" Class="nav-section-header">
                 TOOLS
             </MudNavLink>
             <MudNavLink Href="/health" Icon="@Icons.Material.Filled.HealthAndSafety" Class="nav-submenu ps-6">
                 System Health
+            </MudNavLink>
+            <MudNavLink Href="/features" Icon="@Icons.Material.Filled.AccountTree" Class="nav-submenu ps-6">
+                Features
+            </MudNavLink>
+            <MudNavLink Href="/api-demo" Icon="@Icons.Material.Filled.Api" Class="nav-submenu ps-6">
+                API Testing
             </MudNavLink>
             
             <MudDivider Class="my-2" />

@@ -49,7 +49,7 @@ public class PortDiscoveryService : IPortDiscoveryService
             client.Timeout = TimeSpan.FromSeconds(2); // Quick timeout for discovery
             
             // Try the versioned health check endpoint
-            var uri = new Uri(baseUrl.TrimEnd('/') + "/v1/healthz");
+            var uri = new Uri(baseUrl.TrimEnd('/') + "/api/v1/healthz");
             var response = await client.GetAsync(uri);
             
             return response.IsSuccessStatusCode;

@@ -198,7 +198,7 @@
         {
             Logger.LogInformation("Loading artifact details for: {ArtifactId}", ArtifactId);
             using var httpClient = HttpClientFactory.CreateClient("FlowTimeAPI");
-            var response = await httpClient.GetAsync($"v1/artifacts/{ArtifactId}");
+            var response = await httpClient.GetAsync($"api/v1/artifacts/{ArtifactId}");
             
             if (response.IsSuccessStatusCode)
             {
@@ -251,7 +251,7 @@
         {
             Logger.LogInformation("Downloading artifact: {ArtifactId}", ArtifactId);
             using var httpClient = HttpClientFactory.CreateClient("FlowTimeAPI");
-            var response = await httpClient.GetAsync($"v1/artifacts/{ArtifactId}/download");
+            var response = await httpClient.GetAsync($"api/v1/artifacts/{ArtifactId}/download");
             
             if (response.IsSuccessStatusCode)
             {

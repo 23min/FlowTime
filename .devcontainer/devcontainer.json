@@ -77,6 +77,14 @@
   "portsAttributes": {
     "1455": {
       "label": "Codex OAuth callback"
+    },
+    "8080": {
+      "label": "FlowTime API",
+      "requireLocalPort": true
+    },
+    "8090": {
+      "label": "FlowTime Sim API",
+      "requireLocalPort": true
     }
   },
   "remoteEnv": {

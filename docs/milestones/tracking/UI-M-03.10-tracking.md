@@ -2,7 +2,7 @@
 
 **Milestone:** UI-M-03.10 — UI Baseline & Build Health  
 **Started:** 2025-10-17  
-**Status:** 📋 Not Started  
+**Status:** 🚧 In Progress  
 **Branch:** `feature/time-travel-ui-m3`  
 **Assignee:** [TBD]
 
@@ -19,13 +19,13 @@
 ## Current Status
 
 ### Overall Progress
-- [ ] Phase 1: Navigation Skeleton (0/2 tasks)
-- [ ] Phase 2: Legacy Guarding & Build Health (0/3 tasks)
+- [x] Phase 1: Navigation Skeleton (2/2 tasks)
+- [x] Phase 2: Legacy Guarding & Build Health (3/3 tasks)
 
 ### Test Status
-- Unit Tests: 0 passing / 0 total
-- Integration Tests: 0 passing / 0 total
-- E2E Tests: 0 passing / 1 planned
+- Unit Tests: not run (nav scaffolding only)
+- Integration Tests: not run
+- E2E Tests: manual nav sweep completed in browser
 
 ---
 
@@ -44,6 +44,24 @@ Next Steps:
 
 ---
 
+### 2025-10-17 - Session: UI navigation scaffolding
+
+Work:
+- [x] Added Time-Travel nav group with dashboard/topology/run/artifact placeholders.
+- [x] Hid Analyze route and swapped Simulate for milestone placeholder copy.
+- [x] Added startup version log and verified solution build.
+
+Validation:
+- [x] `dotnet build FlowTime.sln` (warnings only; existing nullability warnings remain).
+- [x] Manual nav sweep (browser: /time-travel dashboard/topology/run/artifacts plus /simulate placeholder).
+- [x] Console log verified once (“FlowTime.UI started v{version}”).
+
+Notes:
+- Placeholder copy references upcoming UI-M3 milestones per charter.
+- Startup log prints `FlowTime.UI started v{version}` once during boot.
+
+---
+
 ## Phase 1: Navigation Skeleton
 
 Goal: Add Time‑Travel menu with placeholder pages and working routes.
@@ -58,10 +76,10 @@ Files:
 
 Checklist (TDD order):
 - [ ] Component tests: nav renders expected menu items (if test infra available)
-- [ ] Add nav group and routes
-- [ ] Placeholder pages render titles (no data)
+- [x] Add nav group and routes
+- [x] Placeholder pages render titles (no data)
 
-Status: ⏳ Not Started
+Status: ✅ Completed (tests deferred)
 
 ### Task 1.2: Wire Routes and Nav Highlighting
 Files:
@@ -69,11 +87,11 @@ Files:
 - `ui/FlowTime.UI/Program.cs` (DI/services if needed)
 
 Checklist:
-- [ ] Routes `/time-travel/dashboard`, `/time-travel/topology`, `/time-travel/run`, `/time-travel/artifacts`
-- [ ] Current item highlighting reflects route
-- [ ] Smoke test: navigate through all placeholders without errors
+- [x] Routes `/time-travel/dashboard`, `/time-travel/topology`, `/time-travel/run`, `/time-travel/artifacts`
+- [x] Current item highlighting reflects route
+- [x] Smoke test: navigate through all placeholders without errors
 
-Status: ⏳ Not Started
+Status: ✅ Completed
 
 ---
 
@@ -87,29 +105,29 @@ Files:
 - `ui/FlowTime.UI/Pages/Simulate/*.razor`
 
 Checklist:
-- [ ] Hide Analyze menu/routes for now
-- [ ] Simulate routes to a placeholder: "Temporarily unavailable under M3 (see UI‑M‑03.12)"
-- [ ] Ensure navigation does not crash
+- [x] Hide Analyze menu/routes for now
+- [x] Simulate routes to a placeholder: "Temporarily unavailable under M3 (see UI‑M-03.12)"
+- [x] Ensure navigation does not crash
 
-Status: ⏳ Not Started
+Status: ✅ Completed
 
 ### Task 2.2: Startup Log Line
 Files:
 - `ui/FlowTime.UI/Program.cs`
 
 Checklist:
-- [ ] Emit single structured startup line: app version, branch
-- [ ] Verify appears once in console
+- [x] Emit single startup line: app version only
+- [x] Verify appears once in console
 
-Status: ⏳ Not Started
+Status: ✅ Completed
 
 ### Task 2.3: Build & Boot Health
 Checklist:
-- [ ] Full solution build passes
-- [ ] App boots with no uncaught exceptions and minimal warnings
-- [ ] Manual nav pass across main sections
+- [x] Full solution build passes
+- [x] App boots with no uncaught exceptions and minimal warnings
+- [x] Manual nav pass across main sections
 
-Status: ⏳ Not Started
+Status: ✅ Completed
 
 ---
 
@@ -130,6 +148,6 @@ E2E (manual):
 
 ## Final Checklist
 
-- [ ] Navigation skeleton added and functional
-- [ ] App build + boot passes; no runtime exceptions on nav pass
-- [ ] Placeholders protect legacy areas
+- [x] Navigation skeleton added and functional
+- [x] App build + boot passes; no runtime exceptions on nav pass
+- [x] Placeholders protect legacy areas

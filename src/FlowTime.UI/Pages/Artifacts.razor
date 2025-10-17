@@ -297,7 +297,7 @@
             }
             
             var queryString = queryParams.Any() ? "?" + string.Join("&", queryParams) : "";
-            var response = await httpClient.GetAsync($"v1/artifacts{queryString}");
+            var response = await httpClient.GetAsync($"api/v1/artifacts{queryString}");
             
             if (response.IsSuccessStatusCode)
             {
@@ -518,7 +518,7 @@
             var json = System.Text.Json.JsonSerializer.Serialize(artifactIds);
             var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
             
-            var response = await httpClient.PostAsync("v1/artifacts/archive", content);
+            var response = await httpClient.PostAsync("api/v1/artifacts/archive", content);
             
             if (response.IsSuccessStatusCode)
             {
@@ -559,7 +559,7 @@
             var json = System.Text.Json.JsonSerializer.Serialize(artifactIds);
             var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
             
-            var response = await httpClient.PostAsync("v1/artifacts/bulk-delete", content);
+            var response = await httpClient.PostAsync("api/v1/artifacts/bulk-delete", content);
             
             if (response.IsSuccessStatusCode)
             {
@@ -592,7 +592,7 @@
         {
             Logger.LogInformation("Downloading artifact: {ArtifactId}", artifactId);
             using var httpClient = HttpClientFactory.CreateClient("FlowTimeAPI");
-            var response = await httpClient.GetAsync($"v1/artifacts/{artifactId}/download");
+            var response = await httpClient.GetAsync($"api/v1/artifacts/{artifactId}/download");
             
             if (response.IsSuccessStatusCode)
             {
