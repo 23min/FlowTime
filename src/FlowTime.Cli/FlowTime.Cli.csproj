@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\FlowTime.Generator\FlowTime.Generator.csproj" />
     <ProjectReference Include="..\FlowTime.Core\FlowTime.Core.csproj" />
     <ProjectReference Include="..\FlowTime.Contracts\FlowTime.Contracts.csproj" />
   </ItemGroup>

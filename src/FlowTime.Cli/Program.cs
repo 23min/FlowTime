@@ -1,4 +1,3 @@
-using FlowTime.Cli.Commands;
 using FlowTime.Cli.Configuration;
 using FlowTime.Cli.Formatting;
 using FlowTime.Core;
@@ -19,43 +18,13 @@ if (args.Length == 0 || IsHelp(args[0]))
 
 if (args[0] == "artifacts")
 {
-    return await HandleArtifactsCommand(args);
-}
-
-if (args[0] == "telemetry")
-{
-    var telemetryArgs = args.Length > 1 ? args[1..] : Array.Empty<string>();
-    if (telemetryArgs.Length == 0)
-    {
-        PrintTelemetryUsage();
-        return 2;
-    }
-
-    var subcommand = telemetryArgs[0];
-    if (string.Equals(subcommand, "capture", StringComparison.OrdinalIgnoreCase))
-    {
-        return await TelemetryCaptureCommand.ExecuteAsync(telemetryArgs);
-    }
-
-    if (string.Equals(subcommand, "bundle", StringComparison.OrdinalIgnoreCase))
-    {
-        return await TelemetryBundleCommand.ExecuteAsync(telemetryArgs);
-    }
-
-    if (string.Equals(subcommand, "run", StringComparison.OrdinalIgnoreCase))
-    {
-        return await TelemetryRunCommand.ExecuteAsync(telemetryArgs);
-    }
-
-    Console.Error.WriteLine($"Unknown telemetry subcommand: {subcommand}");
-    PrintTelemetryUsage();
-    return 2;
+	return await HandleArtifactsCommand(args);
 }
 
 if (args[0] != "run")
 {
-    PrintUsage();
-    return 2;
+	PrintUsage();
+	return 2;
 }
 
 string modelPath = args.Length > 1 ? args[1] : throw new ArgumentException("Missing model.yaml path");
@@ -282,17 +251,6 @@ static void PrintUsage()
 	Console.WriteLine("  flowtime run examples/hello/model.yaml --out out/hello --verbose");
 	Console.WriteLine("  flowtime run examples/hello/model.yaml --deterministic-run-id --out out/deterministic");
 	Console.WriteLine("  flowtime run examples/hello/model.yaml --seed 42 --verbose");
-}
-
-static void PrintTelemetryUsage()
-{
-    Console.WriteLine("Telemetry Commands");
-    Console.WriteLine();
-    Console.WriteLine("  flowtime telemetry capture --run-dir <path> [options]");
-    Console.WriteLine("  flowtime telemetry bundle --capture-dir <path> --model <model.yaml> [options]");
-    Console.WriteLine("  flowtime telemetry run --template-id <id> --capture-dir <path> [options]");
-    Console.WriteLine();
-    Console.WriteLine("Run with --help after each subcommand for detailed options.");
 }
 
 static class JsonOpts
