@@ -23,7 +23,7 @@ This milestone restores the UI to a healthy baseline post‑M3 refactors. It int
 1. Left‑nav structure with a new “Time‑Travel” group and placeholder pages: Dashboard, Topology, Run Orchestration, Artifacts.
 2. Hide or disable legacy/broken pages in Analyze/Simulate that are incompatible with M3.
 3. App boot health: no startup exceptions, no critical console errors, minimal warnings.
-4. Shared top bar layout visible (range/scrubber placeholders are acceptable for now).
+4. Shared top bar layout visible (range/scrubber placeholders are acceptable for now). Use `/time-travel` as the base route prefix.
 
 ### Out of Scope ❌
 - ❌ Data loading from gold artifacts (deferred to later milestones).
@@ -49,7 +49,7 @@ This milestone restores the UI to a healthy baseline post‑M3 refactors. It int
 - [ ] Current section is visually highlighted in the left nav.
 
 #### FR2: Legacy Page Hygiene
-**Description:** Disable or hide legacy routes known to break under M3 changes (Analyze API stubs, outdated Simulate pages) and replace with a neutral placeholder or “Temporarily unavailable” message.
+**Description:** Hide Analyze for now. Keep Simulate visible but route it to a simple “Temporarily unavailable under M3 (see UI‑M‑03.12)” placeholder page.
 
 **Acceptance Criteria:**
 - [ ] App boots without exceptions.
@@ -71,7 +71,7 @@ This milestone restores the UI to a healthy baseline post‑M3 refactors. It int
 **Validation:** Manual pass; check focus ring and aria‑labels on the nav container.
 
 #### NFR2: Observability
-**Target:** Console emits a single startup line including app version and branch information.
+**Target:** Console emits a single startup line with app version only (no branch).
 **Validation:** Manual inspection.
 
 ---
@@ -81,10 +81,10 @@ This milestone restores the UI to a healthy baseline post‑M3 refactors. It int
 ### Route & Nav Linking
 ```mermaid
 flowchart LR
-  A[Left Nav: Time-Travel] --> B[Route /tt/dashboard]
-  A --> C[Route /tt/topology]
-  A --> D[Route /tt/run]
-  A --> E[Route /tt/artifacts]
+  A[Left Nav: Time-Travel] --> B[Route /time-travel/dashboard]
+  A --> C[Route /time-travel/topology]
+  A --> D[Route /time-travel/run]
+  A --> E[Route /time-travel/artifacts]
 
   subgraph Pages
     B --> B1[Placeholder: SLA Dashboard]
@@ -150,17 +150,17 @@ flowchart LR
 ## File Impact Summary
 
 ### Files to Modify (Major)
-- `ui/FlowTime.UI/Layout/ExpertLayout.razor` — Add Time‑Travel menu group and children (placeholders)
+- `src/FlowTime.UI/Layout/ExpertLayout.razor` — Add Time‑Travel menu group and children (placeholders) with order: Dashboard → Topology → Run Orchestration → Artifacts (placeholder)
 
 ### Files to Create (Placeholders)
-- `ui/FlowTime.UI/Pages/TimeTravel/Dashboard.razor`
-- `ui/FlowTime.UI/Pages/TimeTravel/Topology.razor`
-- `ui/FlowTime.UI/Pages/TimeTravel/RunOrchestration.razor`
-- `ui/FlowTime.UI/Pages/TimeTravel/Artifacts.razor`
+- `src/FlowTime.UI/Pages/TimeTravel/Dashboard.razor` (@page "/time-travel/dashboard")
+- `src/FlowTime.UI/Pages/TimeTravel/Topology.razor` (@page "/time-travel/topology")
+- `src/FlowTime.UI/Pages/TimeTravel/RunOrchestration.razor` (@page "/time-travel/run")
+- `src/FlowTime.UI/Pages/TimeTravel/Artifacts.razor` (@page "/time-travel/artifacts")
 
 ### Files to Modify (Minor)
-- `ui/FlowTime.UI/Pages/Analyze/*.razor` — hide/guard
-- `ui/FlowTime.UI/Pages/Simulate/*.razor` — hide/guard
+- `src/FlowTime.UI/Pages/Analyze/*.razor` — hide
+- `src/FlowTime.UI/Pages/Simulate/*.razor` — guard with “Temporarily unavailable under M3 (see UI‑M‑03.12)” placeholder
 
 ---
 

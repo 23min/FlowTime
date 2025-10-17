@@ -111,7 +111,7 @@ Files:
 - `ui/FlowTime.UI/Pages/Artifacts/ArtifactsPage.razor`
 
 Checklist:
-- [ ] Integration test: clicking Open routes to `/tt/dashboard?runId=...`
+- [ ] Integration test: clicking Open routes to `/time-travel/dashboard?runId=...`
 - [ ] Error path: if target view cannot bind run, show inline error + back link
 
 Status: ⏳ Not Started

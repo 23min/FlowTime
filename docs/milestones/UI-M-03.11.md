@@ -59,7 +59,7 @@ This milestone re-enables the Artifacts experience in the UI by reading canonica
 **Description:** Allow opening a selected run into the Time‑Travel area (Dashboard/Topology).
 
 **Acceptance Criteria:**
-- [ ] Clicking Open navigates to `/tt/dashboard?runId=<id>` (or Topology) with run context available.
+- [ ] Clicking Open navigates to `/time-travel/dashboard?runId=<id>` (or Topology) with run context available.
 - [ ] If the target page cannot find required artifacts, show an inline error with a “Back to Artifacts” link.
 
 #### FR4: Error/Empty States

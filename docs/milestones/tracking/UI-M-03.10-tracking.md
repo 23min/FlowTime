@@ -69,7 +69,7 @@ Files:
 - `ui/FlowTime.UI/Program.cs` (DI/services if needed)
 
 Checklist:
-- [ ] Routes `/tt/dashboard`, `/tt/topology`, `/tt/run`, `/tt/artifacts`
+- [ ] Routes `/time-travel/dashboard`, `/time-travel/topology`, `/time-travel/run`, `/time-travel/artifacts`
 - [ ] Current item highlighting reflects route
 - [ ] Smoke test: navigate through all placeholders without errors
 
@@ -87,7 +87,8 @@ Files:
 - `ui/FlowTime.UI/Pages/Simulate/*.razor`
 
 Checklist:
-- [ ] Replace broken content with placeholders (temporarily unavailable)
+- [ ] Hide Analyze menu/routes for now
+- [ ] Simulate routes to a placeholder: "Temporarily unavailable under M3 (see UI‑M‑03.12)"
 - [ ] Ensure navigation does not crash
 
 Status: ⏳ Not Started
@@ -132,4 +133,3 @@ E2E (manual):
 - [ ] Navigation skeleton added and functional
 - [ ] App build + boot passes; no runtime exceptions on nav pass
 - [ ] Placeholders protect legacy areas
-

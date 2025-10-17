@@ -64,7 +64,7 @@ This milestone connects the Simulate experience to the M3 time‑travel workflow
 #### FR4: Completion Actions
 - Description: Provide immediate navigation hooks.
 - Acceptance Criteria:
-  - [ ] “Open in Time‑Travel” navigates to `/tt/dashboard?runId=<runId>`.
+  - [ ] “Open in Time‑Travel” navigates to `/time-travel/dashboard?runId=<runId>`.
   - [ ] “View in Artifacts” navigates to Artifacts with the run highlighted; Artifacts refreshes to include the new run.
 
 #### FR5: Error Paths
