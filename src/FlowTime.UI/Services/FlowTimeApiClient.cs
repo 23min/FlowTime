@@ -37,7 +37,7 @@ internal sealed class FlowTimeApiClient : IFlowTimeApiClient
     public string? BaseAddress => http.BaseAddress?.ToString();
 
     public Task<ApiCallResult<HealthResponse>> HealthAsync(CancellationToken ct = default)
-        => GetJson<HealthResponse>($"{apiBasePath}/healthz", ct);
+        => GetJson<HealthResponse>($"{apiVersion}/healthz", ct);
 
     public Task<ApiCallResult<HealthResponse>> LegacyHealthAsync(CancellationToken ct = default)
         => GetJson<HealthResponse>("healthz", ct);
@@ -46,7 +46,7 @@ internal sealed class FlowTimeApiClient : IFlowTimeApiClient
     {
         try
         {
-            var response = await http.GetAsync($"{apiBasePath}/healthz", ct);
+            var response = await http.GetAsync($"{apiVersion}/healthz", ct);
             
             if (response.IsSuccessStatusCode)
             {

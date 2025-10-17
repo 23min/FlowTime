@@ -37,7 +37,7 @@ public class FlowTimeSimApiClient : IFlowTimeSimApiClient
     {
         try
         {
-            var response = await httpClient.GetAsync($"{apiBasePath}/healthz", ct);
+            var response = await httpClient.GetAsync($"{apiVersion}/healthz", ct);
             return response.IsSuccessStatusCode 
                 ? Result<bool>.Ok(true, (int)response.StatusCode)
                 : Result<bool>.Fail($"Health check failed: {response.StatusCode}", (int)response.StatusCode);
@@ -54,7 +54,7 @@ public class FlowTimeSimApiClient : IFlowTimeSimApiClient
         try
         {
             // Call with detailed parameter to get full health information including endpoints and storage
-            var response = await httpClient.GetAsync($"{apiBasePath}/healthz?detailed=true", ct);
+            var response = await httpClient.GetAsync($"{apiVersion}/healthz?detailed=true", ct);
             response.EnsureSuccessStatusCode();
             
             var content = await response.Content.ReadAsStringAsync(ct);
@@ -96,14 +96,14 @@ public class FlowTimeSimApiClient : IFlowTimeSimApiClient
         }
     }
 
-    // TODO: This method calls /api/v1/sim/run which was removed from Sim API on Oct 1, 2025.
+    // TODO: This method calls /api/v1/run which was removed from Sim API on Oct 1, 2025.
     // SIMULATE tab functionality is broken in API mode. Consider refactoring to call Engine API instead.
     public async Task<Result<SimRunResponse>> RunAsync(string yaml, CancellationToken ct = default)
     {
         try
         {
             var content = new StringContent(yaml, Encoding.UTF8, "text/plain");
-            var response = await httpClient.PostAsync($"{apiBasePath}/sim/run", content, ct);
+            var response = await httpClient.PostAsync($"{apiBasePath}/run", content, ct);
             
             if (!response.IsSuccessStatusCode)
             {
@@ -128,12 +128,12 @@ public class FlowTimeSimApiClient : IFlowTimeSimApiClient
         }
     }
 
-    // TODO: Sim API doesn't have /api/v1/sim/runs/{id}/index endpoint. This should call Engine API instead.
+    // TODO: Sim API doesn't have /api/v1/runs/{id}/index endpoint. This should call Engine API instead.
     public async Task<Result<SeriesIndex>> GetIndexAsync(string runId, CancellationToken ct = default)
     {
         try
         {
-            var response = await httpClient.GetAsync($"{apiBasePath}/sim/runs/{runId}/index", ct);
+            var response = await httpClient.GetAsync($"{apiBasePath}/runs/{runId}/index", ct);
             
             if (!response.IsSuccessStatusCode)
             {
@@ -158,12 +158,12 @@ public class FlowTimeSimApiClient : IFlowTimeSimApiClient
         }
     }
 
-    // TODO: Sim API doesn't have /api/v1/sim/runs/{id}/series/{id} endpoint. This should call Engine API instead.
+    // TODO: Sim API doesn't have /api/v1/runs/{id}/series/{id} endpoint. This should call Engine API instead.
     public async Task<Result<Stream>> GetSeriesAsync(string runId, string seriesId, CancellationToken ct = default)
     {
         try
         {
-            var response = await httpClient.GetAsync($"{apiBasePath}/sim/runs/{runId}/series/{seriesId}", ct);
+            var response = await httpClient.GetAsync($"{apiBasePath}/runs/{runId}/series/{seriesId}", ct);
             
             if (!response.IsSuccessStatusCode)
             {
