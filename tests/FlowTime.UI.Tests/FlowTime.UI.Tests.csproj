@@ -12,12 +12,7 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
     <PackageReference Include="YamlDotNet" Version="16.1.3" />
   </ItemGroup>
-  <!-- Exclude legacy nested folder moved from ui/ to avoid duplicate assembly attributes from its obj/bin -->
-  <ItemGroup>
-    <Compile Remove="FlowTime.UI.Tests/**" />
-    <EmbeddedResource Remove="FlowTime.UI.Tests/**" />
-    <None Remove="FlowTime.UI.Tests/**" />
-  </ItemGroup>
+  <!-- No custom excludes; rely on SDK defaults (obj/bin ignored) -->
   <ItemGroup>
     <Using Include="Xunit" />
   </ItemGroup>
