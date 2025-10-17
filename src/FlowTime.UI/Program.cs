@@ -124,6 +124,7 @@ builder.Services.AddScoped<ISimResultsService>(sp =>
 // Shared services for graph analysis and simulation results
 builder.Services.AddScoped<IGraphAnalysisService, GraphAnalysisService>();
 builder.Services.AddScoped<ISimulationResultsService, SimulationResultsService>();
+builder.Services.AddScoped<IRunDiscoveryService, RunDiscoveryService>();
 
 var host = builder.Build();
 var informationalVersion = typeof(App).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;

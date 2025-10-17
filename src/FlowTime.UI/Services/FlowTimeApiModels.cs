@@ -126,3 +126,52 @@ public record SimpleHealthInfo
     public string? Status { get; init; }
     public TimeSpan? Uptime { get; init; }
 }
+
+// Run listing models
+public sealed record RunSummaryResponseDto(
+    [property: JsonPropertyName("items")] IReadOnlyList<RunSummaryDto>? Items,
+    [property: JsonPropertyName("totalCount")] int TotalCount,
+    [property: JsonPropertyName("page")] int Page,
+    [property: JsonPropertyName("pageSize")] int PageSize);
+
+public sealed record RunSummaryDto(
+    [property: JsonPropertyName("runId")] string RunId,
+    [property: JsonPropertyName("templateId")] string TemplateId,
+    [property: JsonPropertyName("templateTitle")] string? TemplateTitle,
+    [property: JsonPropertyName("templateVersion")] string? TemplateVersion,
+    [property: JsonPropertyName("mode")] string Mode,
+    [property: JsonPropertyName("createdUtc")] DateTimeOffset? CreatedUtc,
+    [property: JsonPropertyName("warningCount")] int WarningCount);
+
+public sealed record RunCreateResponseDto(
+    [property: JsonPropertyName("isDryRun")] bool IsDryRun,
+    [property: JsonPropertyName("metadata")] RunMetadataDto? Metadata,
+    [property: JsonPropertyName("warnings")] IReadOnlyList<StateWarningDto>? Warnings,
+    [property: JsonPropertyName("canReplay")] bool? CanReplay);
+
+public sealed record RunMetadataDto(
+    [property: JsonPropertyName("runId")] string RunId,
+    [property: JsonPropertyName("templateId")] string TemplateId,
+    [property: JsonPropertyName("templateTitle")] string? TemplateTitle,
+    [property: JsonPropertyName("templateVersion")] string? TemplateVersion,
+    [property: JsonPropertyName("mode")] string Mode,
+    [property: JsonPropertyName("provenanceHash")] string? ProvenanceHash,
+    [property: JsonPropertyName("telemetrySourcesResolved")] bool TelemetrySourcesResolved,
+    [property: JsonPropertyName("schema")] SchemaMetadataDto Schema,
+    [property: JsonPropertyName("storage")] StorageDescriptorDto Storage);
+
+public sealed record SchemaMetadataDto(
+    [property: JsonPropertyName("id")] string Id,
+    [property: JsonPropertyName("version")] string Version,
+    [property: JsonPropertyName("hash")] string Hash);
+
+public sealed record StorageDescriptorDto(
+    [property: JsonPropertyName("modelPath")] string? ModelPath,
+    [property: JsonPropertyName("metadataPath")] string? MetadataPath,
+    [property: JsonPropertyName("provenancePath")] string? ProvenancePath);
+
+public sealed record StateWarningDto(
+    [property: JsonPropertyName("code")] string Code,
+    [property: JsonPropertyName("message")] string Message,
+    [property: JsonPropertyName("severity")] string? Severity,
+    [property: JsonPropertyName("nodeId")] string? NodeId);

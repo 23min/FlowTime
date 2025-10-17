@@ -1,11 +1,44 @@
 @page "/time-travel/run"
 @using MudBlazor
+@using Microsoft.AspNetCore.Components
+@inject NavigationManager Navigation
 
 <PageTitle>Time-Travel Run Orchestration</PageTitle>
 
 <MudPaper Class="pa-6" Elevation="2">
     <MudText Typo="Typo.h4" GutterBottom="true">Run Orchestration</MudText>
-    <MudText Typo="Typo.body1" Color="Color.Secondary">
-        Queue orchestration flows activate with UI-M-03.12. UI-M-03.10 ships this placeholder instead of wiring actions.
-    </MudText>
+    @if (!string.IsNullOrWhiteSpace(_errorMessage))
+    {
+        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-4">
+            <MudText Typo="Typo.body1">@_errorMessage</MudText>
+            <MudButton Variant="Variant.Text"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.ArrowBack"
+                       OnClick="NavigateBack">
+                Back to Artifacts
+            </MudButton>
+        </MudAlert>
+    }
+    else
+    {
+        <MudText Typo="Typo.body1" Color="Color.Secondary">
+            Orchestration controls for run <MudText Typo="Typo.subtitle2" Inline="true">@RunId</MudText> unlock as execution APIs land in UI-M-03.12.
+        </MudText>
+    }
 </MudPaper>
+
+@code {
+    [Parameter, SupplyParameterFromQuery(Name = "runId")]
+    public string? RunId { get; set; }
+
+    private string? _errorMessage;
+
+    protected override void OnParametersSet()
+    {
+        _errorMessage = string.IsNullOrWhiteSpace(RunId)
+            ? "Select a run in Artifacts to orchestrate playback."
+            : null;
+    }
+
+    private void NavigateBack() => Navigation.NavigateTo("/artifacts");
+}

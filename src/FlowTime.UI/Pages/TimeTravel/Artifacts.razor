@@ -1,11 +1,44 @@
 @page "/time-travel/artifacts"
 @using MudBlazor
+@using Microsoft.AspNetCore.Components
+@inject NavigationManager Navigation
 
 <PageTitle>Time-Travel Artifacts</PageTitle>
 
 <MudPaper Class="pa-6" Elevation="2">
     <MudText Typo="Typo.h4" GutterBottom="true">Time-Travel Artifacts</MudText>
-    <MudText Typo="Typo.body1" Color="Color.Secondary">
-        Artifact rollups move in with UI-M-03.12. UI-M-03.10 keeps this placeholder visible under Time-Travel.
-    </MudText>
+    @if (!string.IsNullOrWhiteSpace(_errorMessage))
+    {
+        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-4">
+            <MudText Typo="Typo.body1">@_errorMessage</MudText>
+            <MudButton Variant="Variant.Text"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.ArrowBack"
+                       OnClick="NavigateBack">
+                Back to Artifacts
+            </MudButton>
+        </MudAlert>
+    }
+    else
+    {
+        <MudText Typo="Typo.body1" Color="Color.Secondary">
+            Artifact summaries for run <MudText Typo="Typo.subtitle2" Inline="true">@RunId</MudText> will surface alongside replay widgets in a later milestone.
+        </MudText>
+    }
 </MudPaper>
+
+@code {
+    [Parameter, SupplyParameterFromQuery(Name = "runId")]
+    public string? RunId { get; set; }
+
+    private string? _errorMessage;
+
+    protected override void OnParametersSet()
+    {
+        _errorMessage = string.IsNullOrWhiteSpace(RunId)
+            ? "Select a run to review its artifact rollups."
+            : null;
+    }
+
+    private void NavigateBack() => Navigation.NavigateTo("/artifacts");
+}

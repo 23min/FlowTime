@@ -1,11 +1,44 @@
 @page "/time-travel/topology"
 @using MudBlazor
+@using Microsoft.AspNetCore.Components
+@inject NavigationManager Navigation
 
 <PageTitle>Time-Travel Topology</PageTitle>
 
 <MudPaper Class="pa-6" Elevation="2">
     <MudText Typo="Typo.h4" GutterBottom="true">Time-Travel Topology</MudText>
-    <MudText Typo="Typo.body1" Color="Color.Secondary">
-        System topology planning lands in UI-M-03.11. This placeholder keeps routing alive in UI-M-03.10.
-    </MudText>
+    @if (!string.IsNullOrWhiteSpace(_errorMessage))
+    {
+        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-4">
+            <MudText Typo="Typo.body1">@_errorMessage</MudText>
+            <MudButton Variant="Variant.Text"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.ArrowBack"
+                       OnClick="NavigateBack">
+                Back to Artifacts
+            </MudButton>
+        </MudAlert>
+    }
+    else
+    {
+        <MudText Typo="Typo.body1" Color="Color.Secondary">
+            Topology layers for run <MudText Typo="Typo.subtitle2" Inline="true">@RunId</MudText> will render once graph bricks land in UI-M-03.12.
+        </MudText>
+    }
 </MudPaper>
+
+@code {
+    [Parameter, SupplyParameterFromQuery(Name = "runId")]
+    public string? RunId { get; set; }
+
+    private string? _errorMessage;
+
+    protected override void OnParametersSet()
+    {
+        _errorMessage = string.IsNullOrWhiteSpace(RunId)
+            ? "Run context missing. Select a run from the Artifacts list to inspect topology."
+            : null;
+    }
+
+    private void NavigateBack() => Navigation.NavigateTo("/artifacts");
+}

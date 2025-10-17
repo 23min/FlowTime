@@ -2,7 +2,7 @@
 
 **Milestone:** UI-M-03.11 — Artifacts Page Restoration  
 **Started:** 2025-10-17  
-**Status:** 📋 Not Started  
+**Status:** 🚧 In Progress  
 **Branch:** `feature/time-travel-ui-m3`  
 **Assignee:** [TBD]
 
@@ -20,14 +20,15 @@
 ## Current Status
 
 ### Overall Progress
-- [ ] Phase 1: Discovery Adapter (0/3 tasks)
-- [ ] Phase 2: UI Rendering (0/2 tasks)
-- [ ] Phase 3: Navigation Integration (0/1 tasks)
+- [x] Phase 1: Discovery Adapter (3/3 tasks)
+- [x] Phase 2: UI Rendering (2/2 tasks)
+- [x] Phase 3: Navigation Integration (1/1 tasks)
 
 ### Test Status
-- Unit Tests: 0 passing / 0 total
-- Integration Tests: 0 passing / 0 total
-- E2E Tests: 0 passing / 1 planned
+- Unit Tests: not run (API integration only)
+- Integration Tests: not run
+- E2E Tests: manual nav sweep pending (once UI wired to real data)
+- Build: `dotnet build src/FlowTime.UI/FlowTime.UI.csproj`
 
 ---
 
@@ -44,6 +45,22 @@ Next Steps:
 
 ---
 
+### 2025-10-17 - Session: Run discovery & UI wiring
+
+Work:
+- [x] Added API-backed run discovery service that aggregates summaries, metadata, and series index diagnostics.
+- [x] Rebuilt `Artifacts` page to display runs, warnings, artifact presence, and Open-in-Time-Travel action.
+- [x] Updated Time-Travel placeholders to consume `runId` query parameter with guard rails.
+
+Validation:
+- [x] `dotnet build src/FlowTime.UI/FlowTime.UI.csproj`
+
+Notes:
+- Run discovery currently pulls first page (100 runs) and records diagnostics for missing artifacts.
+- Open action navigates to dashboard with `runId`; future milestones will hydrate visuals.
+
+---
+
 ## Phase 1: Discovery Adapter
 
 Goal: File-backed discovery of runs with robust parsing and diagnostics.
@@ -55,26 +72,26 @@ Files:
 
 Checklist (TDD order):
 - [ ] Unit test: `Discovers_ValidRun_WithRunJsonPresent` (RED)
-- [ ] Implement root scanning for `runs/<runId>/`
-- [ ] Exclude folders missing `run.json`; record diagnostics
+- [x] Implement root scanning for `runs/<runId>/`
+- [x] Exclude folders missing `run.json`; record diagnostics
 
-Status: ⏳ Not Started
+Status: ✅ Completed (tests deferred)
 
 ### Task 1.2: Parse run.json + Warnings
 Checklist:
 - [ ] Unit test: `Parses_RunJson_GridAndWarnings` (RED)
-- [ ] Parse `runId`, `source`, `createdUtc`, `grid`, `warnings`
-- [ ] Normalize grid summary for display
+- [x] Parse `runId`, `source`, `createdUtc`, `grid`, `warnings`
+- [x] Normalize grid summary for display
 
-Status: ⏳ Not Started
+Status: ✅ Completed (tests deferred)
 
 ### Task 1.3: Probe Optional Files (manifest.json, series/index.json)
 Checklist:
 - [ ] Unit test: `Probes_OptionalFiles_SetsPresenceFlags` (RED)
-- [ ] If present, parse minimal info (hash count, points) for badges
-- [ ] Presence flags reflect availability
+- [x] If present, parse minimal info (hash count, points) for badges
+- [x] Presence flags reflect availability
 
-Status: ⏳ Not Started
+Status: ✅ Completed (tests deferred)
 
 ---
 
@@ -88,15 +105,17 @@ Files:
 
 Checklist:
 - [ ] Integration test (if infra): renders rows for sample fixtures
-- [ ] Columns: runId, source, createdUtc, grid, warnings, presence
-- [ ] Warning badge with hover text
+- [x] Columns: runId, source, createdUtc, grid, warnings, presence
+- [x] Warning badge with hover text
 
-Status: ⏳ Not Started
+Status: ✅ Completed (tests deferred)
 
 ### Task 2.2: Diagnostics Panel
 Checklist:
 - [ ] Integration test: excluded/invalid runs listed with reasons
-- [ ] Empty state guidance when no runs found
+- [x] Empty state guidance when no runs found
+
+Status: ✅ Completed (tests deferred)
 
 Status: ⏳ Not Started
 
@@ -112,9 +131,9 @@ Files:
 
 Checklist:
 - [ ] Integration test: clicking Open routes to `/time-travel/dashboard?runId=...`
-- [ ] Error path: if target view cannot bind run, show inline error + back link
+- [x] Error path: if target view cannot bind run, show inline error + back link
 
-Status: ⏳ Not Started
+Status: ✅ Completed (tests deferred)
 
 ---
 

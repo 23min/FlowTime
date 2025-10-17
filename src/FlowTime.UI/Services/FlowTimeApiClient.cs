@@ -14,6 +14,8 @@ public interface IFlowTimeApiClient
     Task<ApiCallResult<object>> GetDetailedHealthAsync(CancellationToken ct = default);
     Task<ApiCallResult<RunResponse>> RunAsync(string yaml, CancellationToken ct = default);
     Task<ApiCallResult<GraphResponse>> GraphAsync(string yaml, CancellationToken ct = default);
+    Task<ApiCallResult<RunSummaryResponseDto>> GetRunSummariesAsync(int page = 1, int pageSize = 50, CancellationToken ct = default);
+    Task<ApiCallResult<RunCreateResponseDto>> GetRunAsync(string runId, CancellationToken ct = default);
     Task<ApiCallResult<SeriesIndex>> GetRunIndexAsync(string runId, CancellationToken ct = default);
     Task<ApiCallResult<Stream>> GetRunSeriesAsync(string runId, string seriesId, CancellationToken ct = default);
 }
@@ -30,7 +32,7 @@ internal sealed class FlowTimeApiClient : IFlowTimeApiClient
         // HttpClient is pre-configured with BaseAddress in DI. Respect that to avoid clobbering static client base.
         this.http = http;
         this.apiVersion = opts.ApiVersion;
-        apiBasePath = $"api/{apiVersion}";
+        apiBasePath = $"{apiVersion}";
         json = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
     }
 
@@ -56,14 +58,30 @@ internal sealed class FlowTimeApiClient : IFlowTimeApiClient
                 try
                 {
                     var detailedHealth = JsonSerializer.Deserialize<DetailedHealthResponse>(content, json);
-                    return ApiCallResult<object>.Ok(detailedHealth, (int)response.StatusCode);
+                    if (detailedHealth is not null)
+                    {
+                        return ApiCallResult<object>.Ok(detailedHealth, (int)response.StatusCode);
+                    }
                 }
                 catch
                 {
-                    // Fall back to simple health response
-                    var simpleHealth = JsonSerializer.Deserialize<SimpleHealthResponse>(content, json);
-                    return ApiCallResult<object>.Ok(simpleHealth, (int)response.StatusCode);
+                    // ignore and try fallback
                 }
+
+                try
+                {
+                    var simpleHealth = JsonSerializer.Deserialize<SimpleHealthResponse>(content, json);
+                    if (simpleHealth is not null)
+                    {
+                        return ApiCallResult<object>.Ok(simpleHealth, (int)response.StatusCode);
+                    }
+                }
+                catch
+                {
+                    // ignore and drop to failure below
+                }
+
+                return ApiCallResult<object>.Fail((int)response.StatusCode, "Health response could not be parsed.");
             }
             else
             {
@@ -90,12 +108,23 @@ internal sealed class FlowTimeApiClient : IFlowTimeApiClient
         return PostJson<GraphResponse>($"{apiBasePath}/graph", content, ct);
     }
 
+    public Task<ApiCallResult<RunSummaryResponseDto>> GetRunSummariesAsync(int page = 1, int pageSize = 50, CancellationToken ct = default)
+    {
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 1, 200);
+        var path = $"{apiBasePath}/runs?page={page}&pageSize={pageSize}";
+        return GetJson<RunSummaryResponseDto>(path, ct);
+    }
+
+    public Task<ApiCallResult<RunCreateResponseDto>> GetRunAsync(string runId, CancellationToken ct = default)
+        => GetJson<RunCreateResponseDto>($"{apiBasePath}/runs/{Uri.EscapeDataString(runId)}", ct);
+
     public Task<ApiCallResult<SeriesIndex>> GetRunIndexAsync(string runId, CancellationToken ct = default)
-        => GetJson<SeriesIndex>($"{apiBasePath}/runs/{runId}/index", ct);
+        => GetJson<SeriesIndex>($"{apiBasePath}/runs/{Uri.EscapeDataString(runId)}/index", ct);
 
     public async Task<ApiCallResult<Stream>> GetRunSeriesAsync(string runId, string seriesId, CancellationToken ct = default)
     {
-        var res = await http.GetAsync($"{apiBasePath}/runs/{runId}/series/{seriesId}", HttpCompletionOption.ResponseHeadersRead, ct);
+        var res = await http.GetAsync($"{apiBasePath}/runs/{Uri.EscapeDataString(runId)}/series/{Uri.EscapeDataString(seriesId)}", HttpCompletionOption.ResponseHeadersRead, ct);
         try
         {
             if (!res.IsSuccessStatusCode)
