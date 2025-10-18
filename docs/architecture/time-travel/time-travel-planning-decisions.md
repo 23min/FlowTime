@@ -154,6 +154,7 @@
 M-03.00: Foundation + Fixtures
 M-03.01: Time-Travel APIs (/state, /state_window)
 M-03.02: TelemetryLoader + Templates
+M-03.02.01: Simulation Run Orchestration
 M-03.03: Validation + Polish
 ```
 
@@ -161,6 +162,7 @@ M-03.03: Validation + Polish
 - M-03.00: Include fixture generation as deliverable
 - M-03.01: Test with fixtures, not real ADX
 - M-03.02: TelemetryLoader may load from files initially (ADX optional)
+- M-03.02.01: Simulation orchestration ensures `/v1/runs` can create synthetic bundles without CLI involvement
 - Post-M-3: Create synthetic gold telemetry generator tool
 
 ---
@@ -212,7 +214,7 @@ NodeTimeBin (Minimal + Pragmatic):
 
 ## Summary: All Decisions Complete ✅
 
-**Milestones:** M-03.00 through M-03.03
+**Milestones:** M-03.00 through M-03.03 (with M-03.02.01 covering simulation orchestration)
 
 **Key Decisions:**
 1. ✅ Capacity: Optional (Q1)

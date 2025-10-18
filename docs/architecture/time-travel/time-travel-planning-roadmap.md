@@ -26,7 +26,7 @@ This document defines the concrete implementation plan for FlowTime time-travel 
 - **UTC-Anchored Grid:** Every run is anchored to an absolute start timestamp with fixed bin size/unit to eliminate timezone drift (`time-travel-architecture-ch2-data-contracts.md`).
 - **Deterministic Single Mode:** One evaluation path powers both simulation and telemetry playback, keeping derived metrics predictable (`time-travel-architecture-ch1-overview.md`).
 - **Mode-Based Validation:** Telemetry runs surface warnings, simulation runs fail fast on errors—simplicity with clear operator feedback (`time-travel-planning-decisions.md` Q3).
-- **Incremental Delivery:** Milestones M-03.00–M-03.03 are sequenced so each step is independently demoable and testable before layering the next capability (`time-travel-architecture-ch5-implementation-roadmap.md`).
+- **Incremental Delivery:** Milestones M-03.00 → M-03.02 → M-03.02.01 → M-03.03 are sequenced so each step is independently demoable and testable before layering the next capability (`time-travel-architecture-ch5-implementation-roadmap.md`).
 
 ---
 
@@ -37,7 +37,8 @@ This document defines the concrete implementation plan for FlowTime time-travel 
 | M-03.00 | Foundation + Fixtures | None |
 | M-03.01 | Time-Travel APIs | M-03.00 |
 | M-03.02 | TelemetryLoader + Templates | M-03.00 |
-| M-03.03 | Validation + Polish | M-03.01, M-03.02 |
+| M-03.02.01 | Simulation Run Orchestration | M-03.00, M-03.01, M-03.02 |
+| M-03.03 | Validation + Polish | M-03.01, M-03.02, M-03.02.01 |
 
 ---
 
@@ -520,6 +521,46 @@ Assert.Contains("data_gap", snapshot.Warnings.Select(w => w.Code));
 - M-03.00 (fixture topology/window conventions)
 - M-03.01 (canonical writer + schema validation for `/state`)
 
+---
+
+## M-03.02.01: Simulation Run Orchestration
+
+### Goal
+Expose simulation-mode orchestration so `/v1/runs` can generate canonical gold bundles without telemetry capture inputs. The milestone refactors the orchestration service to branch on mode while reusing FlowTime.Sim to populate run artifacts (`run.json`, `manifest.json`, `series/index.json`).
+
+### Why This Matters
+- UI-M-03.12 requires a REST surface for synthetic runs; currently operators must fall back to the CLI.
+- Keeps simulation the default path for model iteration, aligning validation/provenance across API and CLI workflows.
+- Provides the simulation foundation needed for M-03.03 validation and observability polish.
+
+### Deliverables
+
+**Orchestration Refactor:**
+1. `RunOrchestrationService` handles simulation mode (no telemetry bindings) and writes canonical artifacts.
+2. API response mirrors telemetry metadata envelope (warning counts, grid summary, artifact presence flags, `canReplay`).
+3. Mode-aware validation: simulation failures are surfaced as errors; telemetry behaviour unchanged.
+
+**CLI/API Alignment:**
+1. CLI (`flowtime run --mode simulation`) reuses the shared orchestration pipeline.
+2. Integration tests covering simulation API responses and artifact emission.
+3. Structured logs/metrics for simulation runs.
+
+**Documentation & Samples:**
+1. `.http` walkthrough demonstrating simulation run creation.
+2. Operator guidance contrasting simulation vs telemetry paths.
+3. Milestone spec + tracking (M-03.02.01) with acceptance criteria and test plan.
+
+### Acceptance Criteria
+- `POST /v1/runs` with `mode=simulation` succeeds without telemetry inputs and produces canonical run artifacts.
+- Response includes warning count, grid summary, and artifact presence flags enabling `/state` replay.
+- CLI simulation runs mirror API behaviour (deterministic ids, warnings, artifact layout).
+- Structured logs/metrics emitted for simulation orchestration.
+
+### Dependencies
+- M-03.00, M-03.01, M-03.02
+
+---
+
 ### Risks and Mitigation
 
 | Risk | Mitigation |
@@ -551,7 +592,9 @@ The M-03.x milestones provide the backend surface required for the time-travel U
 - `GET /v1/runs/{runId}/state_window?startBin={s}&endBin={e}` supplies dense series for sparklines and aggregate charts.
 - Validation warnings/errors are returned with every response so the UI can annotate issues without polling other services (see M-03.03 deliverables).
 - Live ADX ingestion is deferred; telemetry capture + bundling tooling from M-03.02 remain the canonical path until a future milestone prioritises direct adapters.
-- Dedicated run-orchestration APIs (`POST /v1/runs`, listings) are still pending; UI teams currently rely on canonical run bundles produced by CLI workflows or pre-generated fixtures.
+- Dedicated run-orchestration APIs (`POST /v1/runs`, listings) land across two milestones:
+  - M-03.02.01 adds simulation-mode orchestration so synthetic runs can be generated without telemetry inputs.
+  - M-03.04 adds the telemetry-mode path and run listings. Until both ship, UI teams rely on CLI workflows or pre-generated fixtures.
 
 ### Integration Checklist
 - Respect backend-provided timestamps; compute client timelines as `start + binIndex × binMinutes`.
@@ -733,7 +776,7 @@ Benchmark: 288-bin order-system model
 
 ## Success Criteria
 
-### M-03.00-M-03.03 Complete When:
+### M-03.00–M-03.03 (incl. M-03.02.01) Complete When:
 - ✅ All 60+ tests passing
 - ✅ 3 fixture systems working (order, microservices, HTTP)
 - ✅ /state and /state_window returning correct data
