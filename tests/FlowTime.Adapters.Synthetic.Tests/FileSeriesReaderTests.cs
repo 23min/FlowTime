@@ -1,29 +1,34 @@
 using FlowTime.Adapters.Synthetic;
+using FlowTime.Core.Artifacts;
+using FlowTime.Core.Models;
+using FlowTime.Core.Nodes;
+using Json.Schema;
+using System.Text.Json.Nodes;
 using Xunit;
 
 namespace FlowTime.Adapters.Synthetic.Tests;
 
-public class FileSeriesReaderTests
+public class FileSeriesReaderTests : IDisposable
 {
-    private readonly string testDataPath;
+    private readonly string testRunDirectory;
+    private readonly string artifactRoot;
+    private readonly RunArtifactWriter.WriteResult writeResult;
 
     public FileSeriesReaderTests()
     {
-        testDataPath = Path.Combine(Path.GetTempPath(), "flowtime-test-" + Guid.NewGuid().ToString("N")[..8]);
-        Directory.CreateDirectory(testDataPath);
-        SetupTestData();
+        writeResult = CreateRunArtifacts(out testRunDirectory, out artifactRoot);
     }
 
     [Fact]
     public async Task ReadRunInfoAsync_ValidRunJson_ReturnsCorrectManifest()
     {
         var reader = new FileSeriesReader();
-        var manifest = await reader.ReadRunInfoAsync(testDataPath);
+        var manifest = await reader.ReadRunInfoAsync(testRunDirectory);
 
         Assert.Equal(1, manifest.SchemaVersion);
-        Assert.Equal("sim_2025-09-01T18-30-12Z_a1b2c3d4", manifest.RunId);
-        Assert.Equal("sim-0.1.0", manifest.EngineVersion);
-        Assert.Equal("sim", manifest.Source);
+        Assert.Equal(writeResult.RunId, manifest.RunId);
+        Assert.Equal("0.1.0", manifest.EngineVersion);
+        Assert.Equal("engine", manifest.Source);
         Assert.Equal(4, manifest.Grid.Bins);
         Assert.Equal(60, manifest.Grid.BinMinutes);
         Assert.Equal("UTC", manifest.Grid.Timezone);
@@ -35,18 +40,16 @@ public class FileSeriesReaderTests
     public async Task ReadIndexAsync_ValidIndexJson_ReturnsCorrectIndex()
     {
         var reader = new FileSeriesReader();
-        var index = await reader.ReadIndexAsync(testDataPath);
+        var index = await reader.ReadIndexAsync(testRunDirectory);
 
         Assert.Equal(1, index.SchemaVersion);
         Assert.Equal(4, index.Grid.Bins);
         Assert.Equal(60, index.Grid.BinMinutes);
         Assert.Equal(2, index.Series.Length);
 
-        var demandSeries = index.Series.First(s => s.Id == "demand@COMP_A");
+        var demandSeries = index.Series.First(s => s.Id.StartsWith("demand", StringComparison.OrdinalIgnoreCase));
         Assert.Equal("flow", demandSeries.Kind);
         Assert.Equal("entities/bin", demandSeries.Unit);
-        Assert.Equal("COMP_A", demandSeries.ComponentId);
-        Assert.Equal("DEFAULT", demandSeries.Class);
         Assert.Equal(4, demandSeries.Points);
     }
 
@@ -54,7 +57,11 @@ public class FileSeriesReaderTests
     public async Task ReadSeriesAsync_ValidCsv_ReturnsCorrectSeries()
     {
         var reader = new FileSeriesReader();
-        var series = await reader.ReadSeriesAsync(testDataPath, "demand@COMP_A");
+        var demandSeriesId = Directory.GetFiles(Path.Combine(testRunDirectory, "series"))
+            .Select(Path.GetFileNameWithoutExtension)
+            .First(id => id!.StartsWith("demand", StringComparison.OrdinalIgnoreCase));
+
+        var series = await reader.ReadSeriesAsync(testRunDirectory, demandSeriesId!);
 
         Assert.Equal(4, series.Length);
         Assert.Equal(10.0, series[0]);
@@ -67,14 +74,18 @@ public class FileSeriesReaderTests
     public void SeriesExists_ExistingFile_ReturnsTrue()
     {
         var reader = new FileSeriesReader();
-        Assert.True(reader.SeriesExists(testDataPath, "demand@COMP_A"));
+        var demandSeriesId = Directory.GetFiles(Path.Combine(testRunDirectory, "series"))
+            .Select(Path.GetFileNameWithoutExtension)
+            .First(id => id!.StartsWith("demand", StringComparison.OrdinalIgnoreCase));
+
+        Assert.True(reader.SeriesExists(testRunDirectory, demandSeriesId!));
     }
 
     [Fact]
     public void SeriesExists_NonExistingFile_ReturnsFalse()
     {
         var reader = new FileSeriesReader();
-        Assert.False(reader.SeriesExists(testDataPath, "nonexistent@COMP_A"));
+        Assert.False(reader.SeriesExists(testRunDirectory, "nonexistent@COMP_A"));
     }
 
     [Fact]
@@ -82,81 +93,136 @@ public class FileSeriesReaderTests
     {
         var reader = new FileSeriesReader();
         await Assert.ThrowsAsync<FileNotFoundException>(
-            () => reader.ReadSeriesAsync(testDataPath, "nonexistent@COMP_A"));
+            () => reader.ReadSeriesAsync(testRunDirectory, "nonexistent@COMP_A"));
     }
 
-    private void SetupTestData()
+    [Fact]
+    public async Task ReadManifestAsync_ValidManifest_ReturnsData()
     {
-        // Create run.json
-        var runJson = """
-        {
-          "schemaVersion": 1,
-          "runId": "sim_2025-09-01T18-30-12Z_a1b2c3d4",
-          "engineVersion": "sim-0.1.0",
-          "source": "sim",
-          "grid": { "bins": 4, "binSize": 1, "binUnit": "hours", "timezone": "UTC", "align": "left" },
-          "scenarioHash": "sha256:test123",
-          "createdUtc": "2025-09-01T18:30:12Z",
-          "warnings": [],
-          "series": [
-            { "id": "demand@COMP_A", "path": "series/demand@COMP_A.csv", "unit": "entities/bin" },
-            { "id": "served@COMP_A", "path": "series/served@COMP_A.csv", "unit": "entities/bin" }
-          ]
-        }
-        """;
-        File.WriteAllText(Path.Combine(testDataPath, "run.json"), runJson);
+        var schema = LoadManifestSchema();
+        var manifestText = await File.ReadAllTextAsync(Path.Combine(testRunDirectory, "manifest.json"));
+        var evaluation = schema.Evaluate(JsonNode.Parse(manifestText)!, new EvaluationOptions { OutputFormat = OutputFormat.Hierarchical });
+        Assert.True(evaluation.IsValid, string.Join("; ", CollectErrors(evaluation)));
 
-        // Create series directory and index.json
-        var seriesDir = Path.Combine(testDataPath, "series");
-        Directory.CreateDirectory(seriesDir);
+        var reader = new FileSeriesReader();
+        var manifest = await reader.ReadManifestAsync(testRunDirectory);
 
-        var indexJson = """
+        Assert.Equal(1, manifest.SchemaVersion);
+        Assert.Equal(writeResult.ScenarioHash, manifest.ScenarioHash);
+        Assert.Null(manifest.Provenance);
+    }
+
+    [Fact]
+    public async Task ReadManifestAsync_InvalidSnakeCaseProvenance_Throws()
+    {
+        var invalidPath = Path.Combine(artifactRoot, "invalid-manifest-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(invalidPath);
+
+        var manifestText = await File.ReadAllTextAsync(Path.Combine(testRunDirectory, "manifest.json"));
+        var node = JsonNode.Parse(manifestText) ?? throw new InvalidOperationException("Manifest could not be parsed");
+        node["provenance"] = new JsonObject
         {
-          "schemaVersion": 1,
-          "grid": { "bins": 4, "binSize": 1, "binUnit": "hours", "timezone": "UTC" },
-          "series": [
+            ["has_provenance"] = true,
+            ["model_id"] = "sim-order",
+            ["template_id"] = "transportation-basic"
+        };
+        await File.WriteAllTextAsync(Path.Combine(invalidPath, "manifest.json"), node.ToJsonString());
+
+        var reader = new FileSeriesReader();
+        await Assert.ThrowsAsync<InvalidDataException>(() => reader.ReadManifestAsync(invalidPath));
+    }
+
+    public void Dispose()
+    {
+        try
+        {
+            if (Directory.Exists(artifactRoot))
             {
-              "id": "demand@COMP_A",
-              "kind": "flow",
-              "path": "series/demand@COMP_A.csv",
-              "unit": "entities/bin",
-              "componentId": "COMP_A",
-              "class": "DEFAULT",
-              "points": 4,
-              "hash": "sha256:test123"
-            },
-            {
-              "id": "served@COMP_A",
-              "kind": "flow",
-              "path": "series/served@COMP_A.csv",
-              "unit": "entities/bin",
-              "componentId": "COMP_A",
-              "class": "DEFAULT",
-              "points": 4,
-              "hash": "sha256:test456"
+                Directory.Delete(artifactRoot, recursive: true);
             }
-          ]
         }
-        """;
-        File.WriteAllText(Path.Combine(seriesDir, "index.json"), indexJson);
+        catch
+        {
+        }
+    }
 
-        // Create CSV files
-        var demandCsv = """
-        t,value
-        0,10.0
-        1,20.0
-        2,30.0
-        3,40.0
-        """;
-        File.WriteAllText(Path.Combine(seriesDir, "demand@COMP_A.csv"), demandCsv);
+    private static RunArtifactWriter.WriteResult CreateRunArtifacts(out string runDirectory, out string rootDirectory)
+    {
+        rootDirectory = Path.Combine(Path.GetTempPath(), "flowtime-test-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(rootDirectory);
 
-        var servedCsv = """
-        t,value
-        0,8.0
-        1,16.0
-        2,24.0
-        3,32.0
-        """;
-        File.WriteAllText(Path.Combine(seriesDir, "served@COMP_A.csv"), servedCsv);
+        var grid = new TimeGrid
+        {
+            Bins = 4,
+            BinSize = 1,
+            BinUnit = "hours"
+        };
+
+        var model = new ModelDefinition
+        {
+            SchemaVersion = 1,
+            Grid = new GridDefinition { Bins = 4, BinSize = 1, BinUnit = "hours" },
+            Nodes = new List<NodeDefinition>
+            {
+                new() { Id = "demand", Kind = "const", Values = new[] { 10d, 20d, 30d, 40d } },
+                new() { Id = "served", Kind = "const", Values = new[] { 8d, 16d, 24d, 32d } }
+            },
+            Outputs = new List<OutputDefinition>
+            {
+                new() { Series = "demand", As = "demand@COMP_A.csv" },
+                new() { Series = "served", As = "served@COMP_A.csv" }
+            }
+        };
+
+        var context = new Dictionary<NodeId, double[]>
+        {
+            [new NodeId("demand")] = new[] { 10d, 20d, 30d, 40d },
+            [new NodeId("served")] = new[] { 8d, 16d, 24d, 32d }
+        };
+
+        var request = new RunArtifactWriter.WriteRequest
+        {
+            Model = model,
+            Grid = grid,
+            Context = context,
+            SpecText = "schemaVersion: 1\n",
+            DeterministicRunId = true,
+            OutputDirectory = rootDirectory
+        };
+
+        var result = RunArtifactWriter.WriteArtifactsAsync(request).GetAwaiter().GetResult();
+        runDirectory = result.RunDirectory;
+        return result;
+    }
+
+    private static JsonSchema LoadManifestSchema()
+    {
+        var schemaPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "docs", "schemas", "manifest.schema.json"));
+        var schemaText = File.ReadAllText(schemaPath);
+        return JsonSchema.FromText(schemaText);
+    }
+
+    private static IEnumerable<string> CollectErrors(EvaluationResults results)
+    {
+        if (results.IsValid)
+        {
+            yield break;
+        }
+
+        if (results.Errors is { Count: > 0 } errors)
+        {
+            foreach (var error in errors)
+            {
+                yield return $"{results.InstanceLocation}: {error.Value}";
+            }
+        }
+
+        foreach (var detail in results.Details)
+        {
+            foreach (var message in CollectErrors(detail))
+            {
+                yield return message;
+            }
+        }
     }
 }

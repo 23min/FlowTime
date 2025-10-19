@@ -10,8 +10,8 @@
 ## Blocker Summary
 
 - Backend milestone **M-03.02.01 — Simulation Run Orchestration** must ship before the Simulate UI can generate runs via `/v1/runs`.
-- Current `/v1/runs` implementation only supports telemetry mode and requires a capture directory; simulation mode fails with "Telemetry bindings were supplied but capture directory is missing." (see CLI/API logs 2025-10-18).
-- UI work is paused; changes were stashed (`ui simulate experiment`) pending backend delivery.
+- Backend branch now has simulation orchestration in progress (2025-10-19) with updated `/v1/runs` + CLI samples; merge to main pending validation/docs sign-off.
+- UI work remains paused; changes were stashed (`ui simulate experiment`) pending backend delivery.
 
 ---
 
@@ -29,4 +29,3 @@
 - `docs/milestones/M-03.02.01.md`
 - `docs/architecture/time-travel/time-travel-planning-roadmap.md`
 - Simulation API payloads/logs (2025-10-18 Dev Journal)
-

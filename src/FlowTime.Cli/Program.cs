@@ -19,43 +19,18 @@ if (args.Length == 0 || IsHelp(args[0]))
 
 if (args[0] == "artifacts")
 {
-    return await HandleArtifactsCommand(args);
+	return await HandleArtifactsCommand(args);
 }
 
-if (args[0] == "telemetry")
+if (!string.Equals(args[0], "run", StringComparison.OrdinalIgnoreCase))
 {
-    var telemetryArgs = args.Length > 1 ? args[1..] : Array.Empty<string>();
-    if (telemetryArgs.Length == 0)
-    {
-        PrintTelemetryUsage();
-        return 2;
-    }
-
-    var subcommand = telemetryArgs[0];
-    if (string.Equals(subcommand, "capture", StringComparison.OrdinalIgnoreCase))
-    {
-        return await TelemetryCaptureCommand.ExecuteAsync(telemetryArgs);
-    }
-
-    if (string.Equals(subcommand, "bundle", StringComparison.OrdinalIgnoreCase))
-    {
-        return await TelemetryBundleCommand.ExecuteAsync(telemetryArgs);
-    }
-
-    if (string.Equals(subcommand, "run", StringComparison.OrdinalIgnoreCase))
-    {
-        return await TelemetryRunCommand.ExecuteAsync(telemetryArgs);
-    }
-
-    Console.Error.WriteLine($"Unknown telemetry subcommand: {subcommand}");
-    PrintTelemetryUsage();
-    return 2;
+	PrintUsage();
+	return 2;
 }
 
-if (args[0] != "run")
+if (ShouldUseOrchestration(args))
 {
-    PrintUsage();
-    return 2;
+	return await TelemetryRunCommand.ExecuteAsync(args);
 }
 
 string modelPath = args.Length > 1 ? args[1] : throw new ArgumentException("Missing model.yaml path");
@@ -254,6 +229,32 @@ static async Task<int> HandleArtifactsCommand(string[] args)
 	return 0;
 }
 
+static bool ShouldUseOrchestration(string[] arguments)
+{
+	if (arguments.Length <= 1)
+	{
+		return false;
+	}
+
+	for (int i = 1; i < arguments.Length; i++)
+	{
+		var arg = arguments[i];
+		if (string.Equals(arg, "--template-id", StringComparison.OrdinalIgnoreCase) ||
+		    string.Equals(arg, "--mode", StringComparison.OrdinalIgnoreCase) ||
+		    string.Equals(arg, "--capture-dir", StringComparison.OrdinalIgnoreCase) ||
+		    string.Equals(arg, "--bind", StringComparison.OrdinalIgnoreCase) ||
+		    string.Equals(arg, "--param-file", StringComparison.OrdinalIgnoreCase) ||
+		    string.Equals(arg, "--dry-run", StringComparison.OrdinalIgnoreCase) ||
+		    string.Equals(arg, "--run-id", StringComparison.OrdinalIgnoreCase) ||
+		    string.Equals(arg, "--overwrite", StringComparison.OrdinalIgnoreCase))
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
 static bool IsHelp(string? s)
 {
 	if (string.IsNullOrWhiteSpace(s)) return true;
@@ -269,30 +270,29 @@ static void PrintUsage()
 {
 	Console.WriteLine("FlowTime CLI (M0)\n");
 	Console.WriteLine("Usage:");
-	Console.WriteLine("  flowtime run <model.yaml> [--out <dir>] [--verbose] [--deterministic-run-id] [--seed <n>]\n");
+	Console.WriteLine("  flowtime run <model.yaml> [--out <dir>] [--verbose] [--deterministic-run-id] [--seed <n>]");
+	Console.WriteLine("  flowtime run --template-id <id> --mode simulation [--param-file <path>] [--out <dir>] [--deterministic-run-id] [--run-id <value>] [--overwrite] [--dry-run]");
+	Console.WriteLine("  flowtime run --template-id <id> --mode telemetry --capture-dir <path> [--bind key=file] [--param-file <path>] [--out <dir>] [--deterministic-run-id]\n");
 	Console.WriteLine("Options:");
 	Console.WriteLine("  --out <dir>             Output directory (default: ./data, or $FLOWTIME_DATA_DIR)");
-	Console.WriteLine("  --verbose               Print grid/topology/output summary");
-	Console.WriteLine("  --deterministic-run-id  Generate deterministic runId based on scenario hash (for testing/CI)");
-	Console.WriteLine("  --seed <n>              RNG seed for reproducible results (default: random)\n");
+	Console.WriteLine("  --verbose               Print grid/topology/output summary (legacy model path runs)");
+	Console.WriteLine("  --deterministic-run-id  Generate deterministic runId based on scenario hash");
+	Console.WriteLine("  --seed <n>              RNG seed for reproducible results (legacy model path runs)");
+	Console.WriteLine("  --template-id <id>      Template identifier for orchestrated runs (required for --mode simulation|telemetry)");
+	Console.WriteLine("  --mode <mode>           Run mode (simulation|telemetry, default telemetry for orchestrated runs)");
+	Console.WriteLine("  --param-file <path>     JSON file with template parameter overrides");
+	Console.WriteLine("  --capture-dir <path>    Telemetry capture directory (required for telemetry mode)");
+	Console.WriteLine("  --bind key=file         Bind telemetry parameter to CSV file within capture directory");
+	Console.WriteLine("  --run-id <value>        Explicit run directory name (orchestrated runs)");
+	Console.WriteLine("  --overwrite             Overwrite existing run directory when --run-id is supplied");
+	Console.WriteLine("  --dry-run               Plan the run without writing files\n");
 	Console.WriteLine("Help:");
 	Console.WriteLine("  -h | --help | /?        Print this help and exit");
 	Console.WriteLine();
 	Console.WriteLine("Examples:");
 	Console.WriteLine("  flowtime run examples/hello/model.yaml --out out/hello --verbose");
 	Console.WriteLine("  flowtime run examples/hello/model.yaml --deterministic-run-id --out out/deterministic");
-	Console.WriteLine("  flowtime run examples/hello/model.yaml --seed 42 --verbose");
-}
-
-static void PrintTelemetryUsage()
-{
-    Console.WriteLine("Telemetry Commands");
-    Console.WriteLine();
-    Console.WriteLine("  flowtime telemetry capture --run-dir <path> [options]");
-    Console.WriteLine("  flowtime telemetry bundle --capture-dir <path> --model <model.yaml> [options]");
-    Console.WriteLine("  flowtime telemetry run --template-id <id> --capture-dir <path> [options]");
-    Console.WriteLine();
-    Console.WriteLine("Run with --help after each subcommand for detailed options.");
+	Console.WriteLine("  flowtime run --template-id order-system --mode simulation --param-file params.json --out ./data/runs");
 }
 
 static class JsonOpts

@@ -60,6 +60,57 @@ public class TelemetryRunCommandTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_SimulationMode_CreatesRunSuccessfully()
+    {
+        using var temp = new TempDirectory();
+        var originalDataDir = Environment.GetEnvironmentVariable("FLOWTIME_DATA_DIR");
+        var originalTemplatesDir = Environment.GetEnvironmentVariable("FLOWTIME_TEMPLATES_DIR");
+        Environment.SetEnvironmentVariable("FLOWTIME_DATA_DIR", temp.Path);
+
+        var templatesDir = Path.Combine(temp.Path, "templates");
+        Directory.CreateDirectory(templatesDir);
+        var templatePath = Path.Combine(templatesDir, "sim-order.yaml");
+        await File.WriteAllTextAsync(templatePath, SimulationTemplate);
+        Environment.SetEnvironmentVariable("FLOWTIME_TEMPLATES_DIR", templatesDir);
+
+        var args = new[]
+        {
+            "run",
+            "--template-id", "sim-order",
+            "--mode", "simulation",
+            "--deterministic-run-id"
+        };
+
+        var errorWriter = new StringWriter();
+        var originalError = Console.Error;
+        Console.SetError(errorWriter);
+
+        try
+        {
+            var exitCode = await TelemetryRunCommand.ExecuteAsync(args);
+            Console.SetError(originalError);
+
+            if (exitCode != 0)
+            {
+                throw new Xunit.Sdk.XunitException($"CLI simulation run failed: {errorWriter}");
+            }
+
+            Assert.Equal(0, exitCode);
+            var runsRoot = Path.Combine(temp.Path, "runs");
+            Assert.True(Directory.Exists(runsRoot));
+            var runDir = Directory.GetDirectories(runsRoot).Single();
+            Assert.True(File.Exists(Path.Combine(runDir, "model", "telemetry", "telemetry-manifest.json")));
+            Assert.Equal("simulation", await ReadModeAsync(Path.Combine(runDir, "model", "metadata.json")));
+        }
+        finally
+        {
+            Console.SetError(originalError);
+            Environment.SetEnvironmentVariable("FLOWTIME_DATA_DIR", originalDataDir);
+            Environment.SetEnvironmentVariable("FLOWTIME_TEMPLATES_DIR", originalTemplatesDir);
+        }
+    }
+
+    [Fact]
     public async Task ExecuteAsync_DryRun_PrintsPlanWithoutCreatingRun()
     {
         using var temp = new TempDirectory();
@@ -173,4 +224,60 @@ outputs:
   - series: order_errors
     as: OrderService_errors.csv
 """;
+
+    private const string SimulationTemplate = """
+schemaVersion: 1
+generator: flowtime-sim
+metadata:
+  id: sim-order
+  title: Simulation CLI Template
+  version: 1.0.0
+window:
+  start: 2025-01-01T00:00:00Z
+  timezone: UTC
+
+parameters:
+  - name: bins
+    type: integer
+    default: 4
+  - name: binSize
+    type: integer
+    default: 5
+
+grid:
+  bins: ${bins}
+  binSize: ${binSize}
+  binUnit: minutes
+
+topology:
+  nodes:
+    - id: OrderService
+      kind: service
+      semantics:
+        arrivals: arrivals
+        served: served
+        errors: errors
+  edges: []
+
+nodes:
+  - id: arrivals
+    kind: const
+    values: [10, 12, 14, 16]
+  - id: served
+    kind: const
+    values: [8, 11, 13, 15]
+  - id: errors
+    kind: const
+    values: [1, 0, 0, 0]
+
+outputs:
+  - series: "*"
+""";
+
+    private static async Task<string> ReadModeAsync(string metadataPath)
+    {
+        using var stream = File.OpenRead(metadataPath);
+        using var document = await System.Text.Json.JsonDocument.ParseAsync(stream);
+        return document.RootElement.GetProperty("mode").GetString() ?? string.Empty;
+    }
 }

@@ -29,6 +29,15 @@ public sealed class DeterministicManifest
     public required int EventCount { get; init; }
     public required DateTime CreatedUtc { get; init; }
     public string? ModelHash { get; init; }
+    public ManifestProvenance? Provenance { get; init; }
+}
+
+public sealed class ManifestProvenance
+{
+    public bool? HasProvenance { get; init; }
+    public string? ModelId { get; init; }
+    public string? TemplateId { get; init; }
+    public string? Source { get; init; }
 }
 
 /// <summary>

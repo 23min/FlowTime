@@ -13,6 +13,7 @@ namespace FlowTime.Api.Tests;
 public class RunOrchestrationTests : IClassFixture<TestWebApplicationFactory>, IDisposable
 {
     private const string templateId = "test-order";
+    private const string simulationTemplateId = "sim-order";
 
     private readonly TestWebApplicationFactory factory;
     private readonly HttpClient client;
@@ -27,6 +28,7 @@ public class RunOrchestrationTests : IClassFixture<TestWebApplicationFactory>, I
         templateDirectory = Path.Combine(dataRoot, "templates");
         Directory.CreateDirectory(templateDirectory);
         File.WriteAllText(Path.Combine(templateDirectory, $"{templateId}.yaml"), TestTemplateYaml);
+        File.WriteAllText(Path.Combine(templateDirectory, $"{simulationTemplateId}.yaml"), SimulationTemplateYaml);
 
         var customizedFactory = factory.WithWebHostBuilder(builder =>
         {
@@ -42,6 +44,64 @@ public class RunOrchestrationTests : IClassFixture<TestWebApplicationFactory>, I
         });
 
         client = customizedFactory.CreateClient();
+    }
+
+    [Fact]
+    public async Task CreateSimulationRun_ReturnsMetadataAndCreatesRun()
+    {
+        var requestPayload = new
+        {
+            templateId = simulationTemplateId,
+            mode = "simulation",
+            parameters = new
+            {
+                bins = 4,
+                binSize = 5
+            },
+            options = new
+            {
+                deterministicRunId = true
+            }
+        };
+
+        var response = await client.PostAsJsonAsync("/v1/runs", requestPayload);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+        var payload = JsonNode.Parse(body) ?? throw new InvalidOperationException("Response was not valid JSON.");
+        Assert.False(payload["isDryRun"]?.GetValue<bool>() ?? true);
+        var metadata = payload["metadata"] ?? throw new InvalidOperationException("Metadata missing from simulation response.");
+        Assert.Equal("simulation", metadata["mode"]?.GetValue<string>());
+        Assert.True(payload["canReplay"]?.GetValue<bool>() ?? false);
+
+        var runId = metadata["runId"]?.GetValue<string>() ?? throw new InvalidOperationException("runId missing");
+        var runPath = Path.Combine(dataRoot, runId);
+        Assert.True(Directory.Exists(runPath));
+        Assert.True(File.Exists(Path.Combine(runPath, "model", "telemetry", "telemetry-manifest.json")), "Telemetry manifest should be written for simulation runs.");
+
+        var detail = await client.GetFromJsonAsync<JsonNode>($"/v1/runs/{runId}");
+        Assert.NotNull(detail);
+        Assert.Equal("simulation", detail!["metadata"]?["mode"]?.GetValue<string>());
+        Assert.True(detail["canReplay"]?.GetValue<bool>() ?? false);
+        Assert.Equal(0, detail["warnings"]?.AsArray()?.Count ?? 0);
+    }
+
+    [Fact]
+    public async Task CreateSimulationRun_MissingWindow_ReturnsBadRequest()
+    {
+        var invalidTemplatePath = Path.Combine(templateDirectory, "sim-invalid.yaml");
+        await File.WriteAllTextAsync(invalidTemplatePath, SimulationTemplateMissingWindow);
+
+        var requestPayload = new
+        {
+            templateId = "sim-invalid",
+            mode = "simulation"
+        };
+
+        var response = await client.PostAsJsonAsync("/v1/runs", requestPayload);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Contains("window", body, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -284,5 +344,91 @@ outputs:
     as: OrderService_served.csv
   - series: order_errors
     as: OrderService_errors.csv
+""";
+
+    private const string SimulationTemplateYaml = """
+schemaVersion: 1
+generator: flowtime-sim
+metadata:
+  id: sim-order
+  title: Simulation Order Template
+  description: Template for simulation-mode orchestration tests
+  version: 1.0.0
+window:
+  start: 2025-01-01T00:00:00Z
+  timezone: UTC
+
+parameters:
+  - name: bins
+    type: integer
+    default: 4
+  - name: binSize
+    type: integer
+    default: 5
+
+grid:
+  bins: ${bins}
+  binSize: ${binSize}
+  binUnit: minutes
+
+topology:
+  nodes:
+    - id: OrderService
+      kind: service
+      semantics:
+        arrivals: arrivals
+        served: served
+        errors: errors
+  edges: []
+
+nodes:
+  - id: arrivals
+    kind: const
+    values: [10, 12, 14, 16]
+  - id: served
+    kind: const
+    values: [8, 11, 13, 15]
+  - id: errors
+    kind: const
+    values: [1, 0, 0, 0]
+
+outputs:
+  - series: "*"
+""";
+
+    private const string SimulationTemplateMissingWindow = """
+schemaVersion: 1
+generator: flowtime-sim
+metadata:
+  id: sim-invalid
+  title: Simulation Invalid Template
+  description: Missing window for validation failure
+  version: 1.0.0
+
+grid:
+  bins: 4
+  binSize: 5
+  binUnit: minutes
+
+topology:
+  nodes:
+    - id: OrderService
+      kind: service
+      semantics:
+        arrivals: arrivals
+        served: served
+        errors: errors
+  edges: []
+
+nodes:
+  - id: arrivals
+    kind: const
+    values: [10, 12, 14, 16]
+  - id: served
+    kind: const
+    values: [8, 11, 13, 15]
+  - id: errors
+    kind: const
+    values: [1, 0, 0, 0]
 """;
 }

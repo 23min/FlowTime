@@ -591,7 +591,9 @@ file sealed record ManifestJson
     [System.Text.Json.Serialization.JsonPropertyName("eventCount")] public int EventCount { get; set; }
     [System.Text.Json.Serialization.JsonPropertyName("createdUtc")] public string CreatedUtc { get; set; } = "";
     [System.Text.Json.Serialization.JsonPropertyName("modelHash")] public string? ModelHash { get; set; }
-    [System.Text.Json.Serialization.JsonPropertyName("provenance")] public ProvenanceRef? Provenance { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("provenance")]
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public ProvenanceRef? Provenance { get; set; }
 }
 file sealed record RngJson 
 { 
