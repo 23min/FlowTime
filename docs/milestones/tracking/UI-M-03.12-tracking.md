@@ -1,7 +1,7 @@
 # UI-M-03.12 Implementation Tracking
 
 **Milestone:** UI-M-03.12 — Simulate → Gold Run Integration  
-**Status:** ⛔ Blocked (awaiting backend M-03.02.01)  
+**Status:** 🚧 In Progress (backend landing)  
 **Branch:** `feature/time-travel-ui-m3`  
 **Assignee:** [TBD]
 
@@ -10,17 +10,16 @@
 ## Blocker Summary
 
 - Backend milestone **M-03.02.01 — Simulation Run Orchestration** must ship before the Simulate UI can generate runs via `/v1/runs`.
-- Backend branch now has simulation orchestration in progress (2025-10-19) with updated `/v1/runs` + CLI samples; merge to main pending validation/docs sign-off.
+- Backend branch now includes simulation orchestration, manifest schema validation, observability coverage, and published release notes (2025-10-20); merge to main pending.
 - UI work remains paused; changes were stashed (`ui simulate experiment`) pending backend delivery.
 
 ---
 
 ## Next Steps
 
-1. Backend team completes M-03.02.01 (simulation orchestration and canonical artifact emission).
-2. Rebase/restore UI branch once backend APIs are available.
-3. Re-run UI-M-03.12 tasks (Simulate form, logs, validation) against updated `/v1/runs`.
-4. Update this tracker when backend milestone ships; transition status to 🚧 In Progress.
+1. Merge M-03.02.01 to mainline and update Simulate UI branch.
+2. Rebase/restore UI work and re-run Simulate flow against `/v1/runs` simulation mode.
+3. Update this tracker with UI progress once backend deployment is confirmed.
 
 ---
 

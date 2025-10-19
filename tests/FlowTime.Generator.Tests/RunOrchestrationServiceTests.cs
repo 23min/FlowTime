@@ -1,7 +1,9 @@
+using System.Diagnostics.Metrics;
 using FlowTime.Generator.Models;
 using FlowTime.Generator.Orchestration;
 using FlowTime.Sim.Core.Services;
 using FlowTime.Tests.Support;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace FlowTime.Generator.Tests;
@@ -172,6 +174,59 @@ public class RunOrchestrationServiceTests
         Assert.Equal("simulation", result.ManifestMetadata.Mode);
         Assert.Equal(0, doc.RootElement.GetProperty("files").GetArrayLength());
         Assert.Equal("sim-order", result.ManifestMetadata.TemplateId);
+    }
+
+    [Fact]
+    public async Task CreateRunAsync_SimulationMode_EmitsMetricsAndLogs()
+    {
+        using var temp = new TempDirectory();
+        var templatesDir = Path.Combine(temp.Path, "templates");
+        Directory.CreateDirectory(templatesDir);
+        await File.WriteAllTextAsync(Path.Combine(templatesDir, "sim-order.yaml"), SimulationTemplate);
+
+        var templateService = new TemplateService(templatesDir, NullLogger<TemplateService>.Instance);
+        var bundleBuilder = new TelemetryBundleBuilder();
+        var logger = new TestLogger<RunOrchestrationService>();
+        var orchestration = new RunOrchestrationService(templateService, bundleBuilder, logger);
+
+        var metrics = new List<(string Name, double Value)>();
+        var counters = new List<(string Name, long Value)>();
+        using var listener = new MeterListener();
+        listener.InstrumentPublished = (instrument, listenerHandle) =>
+        {
+            if (instrument.Meter.Name == "FlowTime.RunOrchestration")
+            {
+                listenerHandle.EnableMeasurementEvents(instrument);
+            }
+        };
+        listener.SetMeasurementEventCallback<long>((instrument, measurement, tags, state) =>
+        {
+            counters.Add((instrument.Name, measurement));
+        });
+        listener.SetMeasurementEventCallback<double>((instrument, measurement, tags, state) =>
+        {
+            metrics.Add((instrument.Name, measurement));
+        });
+        listener.Start();
+
+        var request = new RunOrchestrationRequest
+        {
+            TemplateId = "sim-order",
+            Mode = "simulation",
+            Parameters = new Dictionary<string, object?>(),
+            OutputRoot = Path.Combine(temp.Path, "runs"),
+            DeterministicRunId = true
+        };
+
+        var outcome = await orchestration.CreateRunAsync(request);
+
+        listener.RecordObservableInstruments();
+        listener.Dispose();
+
+        Assert.False(outcome.IsDryRun);
+        Assert.Contains(counters, c => c.Name == "run_created_total" && c.Value == 1);
+        Assert.Contains(metrics, m => m.Name == "simulation_evaluation_duration_ms" && m.Value > 0);
+        Assert.Contains(logger.Entries, entry => entry.EventId.Name == "RunOrchestrationCompleted" && entry.Message.Contains("Completed simulation run"));
     }
 
     [Fact]
@@ -357,4 +412,26 @@ nodes:
     kind: const
     values: [1, 0, 0, 0]
 """;
+
+    private sealed class TestLogger<T> : ILogger<T>
+    {
+        public List<(EventId EventId, LogLevel LogLevel, string Message)> Entries { get; } = new();
+
+        public IDisposable BeginScope<TState>(TState state) where TState : notnull => NullScope.Instance;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+        {
+            Entries.Add((eventId, logLevel, formatter(state, exception)));
+        }
+
+        private sealed class NullScope : IDisposable
+        {
+            public static readonly NullScope Instance = new();
+            public void Dispose()
+            {
+            }
+        }
+    }
 }
