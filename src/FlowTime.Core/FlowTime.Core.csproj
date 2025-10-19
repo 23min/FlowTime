@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <PackageReference Include="YamlDotNet" Version="15.1.6" />
+    <PackageReference Include="JsonSchema.Net" Version="5.5.1" />
   </ItemGroup>
 
   <ItemGroup>

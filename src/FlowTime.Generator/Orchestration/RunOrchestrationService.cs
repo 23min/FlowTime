@@ -1,20 +1,46 @@
-using System.Text.Json;
+using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using System.Linq;
+using System.Text.Json;
+using FlowTime.Contracts.Services;
+using FlowTime.Core.Execution;
+using FlowTime.Core.Artifacts;
+using FlowTime.Core.Models;
+using FlowTime.Core.Nodes;
 using FlowTime.Core.TimeTravel;
 using FlowTime.Generator.Artifacts;
 using FlowTime.Generator.Models;
 using FlowTime.Sim.Core.Services;
 using FlowTime.Sim.Core.Templates;
+using FlowTime.Sim.Core.Templates.Exceptions;
 using Microsoft.Extensions.Logging;
+using YamlDotNet.Serialization;
+using YamlDotNet.Serialization.NamingConventions;
 
 namespace FlowTime.Generator.Orchestration;
 
 public sealed class RunOrchestrationService
 {
+    private static readonly Meter meter = new("FlowTime.RunOrchestration", "1.0.0");
+    private static readonly Counter<long> runsCreatedCounter = meter.CreateCounter<long>("run_created_total");
+    private static readonly Counter<long> runsFailedCounter = meter.CreateCounter<long>("run_failed_total");
+    private static readonly Histogram<double> simulationEvaluationDuration = meter.CreateHistogram<double>("simulation_evaluation_duration_ms");
+
+    private static readonly EventId runStartEvent = new(4001, "RunOrchestrationStart");
+    private static readonly EventId runValidationEvent = new(4002, "RunOrchestrationValidation");
+    private static readonly EventId runEvaluationEvent = new(4003, "RunOrchestrationEvaluation");
+    private static readonly EventId runArtifactsEvent = new(4004, "RunOrchestrationArtifacts");
+    private static readonly EventId runCompletedEvent = new(4005, "RunOrchestrationCompleted");
+    private static readonly EventId runFailedEvent = new(4500, "RunOrchestrationFailed");
+
     private readonly ITemplateService templateService;
     private readonly TelemetryBundleBuilder bundleBuilder;
     private readonly ILogger<RunOrchestrationService> logger;
     private readonly RunManifestReader manifestReader = new();
+    private readonly IDeserializer simModelDeserializer = new DeserializerBuilder()
+        .IgnoreUnmatchedProperties()
+        .WithNamingConvention(CamelCaseNamingConvention.Instance)
+        .Build();
 
     public RunOrchestrationService(
         ITemplateService templateService,
@@ -40,93 +66,23 @@ public sealed class RunOrchestrationService
         }
 
         var outputRoot = Path.GetFullPath(request.OutputRoot);
-
         var effectiveParameters = BuildParameters(request);
-
         var mode = TemplateModeExtensions.Parse(request.Mode ?? "telemetry");
-        logger.LogInformation("{Operation} {Mode} run for template {TemplateId}", request.DryRun ? "Planning" : "Creating", mode, templateId);
+        var modeValue = mode.ToSerializedValue();
 
-        var modelYaml = await templateService.GenerateEngineModelAsync(templateId, effectiveParameters, mode).ConfigureAwait(false);
-        var captureDirectory = request.CaptureDirectory is null ? null : Path.GetFullPath(request.CaptureDirectory);
+        logger.LogInformation(
+            runStartEvent,
+            "Starting run orchestration for template {TemplateId} (mode={Mode}, dryRun={DryRun})",
+            templateId,
+            modeValue,
+            request.DryRun);
 
-        if (string.Equals(mode.ToSerializedValue(), "telemetry", StringComparison.OrdinalIgnoreCase) && captureDirectory is null)
+        return mode switch
         {
-            throw new InvalidOperationException("Capture directory must be provided for telemetry runs.");
-        }
-
-        if (request.DryRun)
-        {
-            var telemetryManifest = captureDirectory is not null
-                ? await ReadCaptureManifestAsync(captureDirectory, cancellationToken).ConfigureAwait(false)
-                : new TelemetryManifest(
-                    SchemaVersion: 1,
-                    Window: new TelemetryManifestWindow(null, null),
-                    Grid: new TelemetryManifestGrid(0, 0, "minutes"),
-                    Files: Array.Empty<TelemetryManifestFile>(),
-                    Warnings: Array.Empty<CaptureWarning>(),
-                    Provenance: new TelemetryManifestProvenance(string.Empty, string.Empty, null, DateTime.UtcNow.ToString("O")));
-
-            var plan = new RunOrchestrationPlan(
-                templateId,
-                mode.ToSerializedValue(),
-                outputRoot,
-                captureDirectory,
-                request.DeterministicRunId,
-                request.RunId,
-                new Dictionary<string, object?>(effectiveParameters, StringComparer.OrdinalIgnoreCase),
-                new Dictionary<string, string>(request.TelemetryBindings ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase), StringComparer.OrdinalIgnoreCase),
-                telemetryManifest);
-
-            return new RunOrchestrationOutcome(true, null, plan);
-        }
-
-        Directory.CreateDirectory(outputRoot);
-        var tempModelPath = await WriteTemporaryModelAsync(modelYaml, cancellationToken).ConfigureAwait(false);
-
-        try
-        {
-            var bundleOptions = new TelemetryBundleOptions
-            {
-                CaptureDirectory = captureDirectory!,
-                ModelPath = tempModelPath,
-                OutputRoot = outputRoot,
-                ProvenancePath = null,
-                RunId = request.RunId,
-                DeterministicRunId = request.DeterministicRunId,
-                Overwrite = request.OverwriteExisting
-            };
-
-            var bundleResult = await bundleBuilder.BuildAsync(bundleOptions, cancellationToken).ConfigureAwait(false);
-            logger.LogInformation("run_created {TemplateId} {RunId} {Mode}", templateId, bundleResult.RunId, mode);
-            var runDirectory = bundleResult.RunDirectory;
-            var modelDirectory = Path.Combine(runDirectory, "model");
-
-            var manifestMetadata = await manifestReader.ReadAsync(modelDirectory, cancellationToken).ConfigureAwait(false);
-            var runDocument = await RunDirectoryUtilities.LoadRunDocumentAsync(runDirectory, cancellationToken).ConfigureAwait(false);
-
-            var telemetryResolved = manifestMetadata.TelemetrySources.Count > 0 &&
-                (bundleResult.TelemetryManifest.Warnings is null ||
-                 bundleResult.TelemetryManifest.Warnings.All(w => !string.Equals(w.Code, "telemetry_sources_missing", StringComparison.OrdinalIgnoreCase)));
-
-            var result = new RunOrchestrationResult(
-                bundleResult.RunDirectory,
-                bundleResult.RunId,
-                manifestMetadata,
-                runDocument,
-                telemetryResolved,
-                bundleResult.TelemetryManifest);
-
-            return new RunOrchestrationOutcome(false, result, null);
-       }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "run_failed {TemplateId} {Mode}", templateId, mode);
-            throw;
-        }
-        finally
-        {
-            TryDeleteTemporaryFile(tempModelPath);
-        }
+            TemplateMode.Telemetry => await CreateTelemetryRunAsync(request, templateId, outputRoot, modeValue, effectiveParameters, cancellationToken).ConfigureAwait(false),
+            TemplateMode.Simulation => await CreateSimulationRunAsync(request, templateId, outputRoot, effectiveParameters, cancellationToken).ConfigureAwait(false),
+            _ => throw new InvalidOperationException($"Unsupported template mode '{modeValue}'.")
+        };
     }
 
     public async Task<RunOrchestrationResult?> TryLoadRunAsync(string runDirectory, CancellationToken cancellationToken = default)
@@ -146,8 +102,10 @@ public sealed class RunOrchestrationService
         var runDocument = await RunDirectoryUtilities.LoadRunDocumentAsync(runDirectory, cancellationToken).ConfigureAwait(false);
         var telemetryManifest = await LoadTelemetryManifestAsync(runDirectory, cancellationToken).ConfigureAwait(false);
 
-        var telemetryResolved = manifestMetadata.TelemetrySources.Count > 0 &&
-            (telemetryManifest.Warnings is null || telemetryManifest.Warnings.All(w => !string.Equals(w.Code, "telemetry_sources_missing", StringComparison.OrdinalIgnoreCase)));
+        var isSimulation = string.Equals(manifestMetadata.Mode, TemplateMode.Simulation.ToSerializedValue(), StringComparison.OrdinalIgnoreCase);
+        var telemetryResolved = isSimulation ||
+            (manifestMetadata.TelemetrySources.Count > 0 &&
+             (telemetryManifest.Warnings is null || telemetryManifest.Warnings.All(w => !string.Equals(w.Code, "telemetry_sources_missing", StringComparison.OrdinalIgnoreCase))));
 
         var runId = runDocument.RunId ?? Path.GetFileName(runDirectory);
         if (string.IsNullOrWhiteSpace(runId))
@@ -271,4 +229,399 @@ public sealed class RunOrchestrationService
             // best effort
         }
     }
+
+    private async Task<RunOrchestrationOutcome> CreateTelemetryRunAsync(
+        RunOrchestrationRequest request,
+        string templateId,
+        string outputRoot,
+        string modeValue,
+        Dictionary<string, object> effectiveParameters,
+        CancellationToken cancellationToken)
+    {
+        var captureDirectory = request.CaptureDirectory is null ? null : Path.GetFullPath(request.CaptureDirectory);
+        if (captureDirectory is null)
+        {
+            logger.LogWarning(runValidationEvent, "Telemetry run requested without capture directory for template {TemplateId}", templateId);
+            throw new InvalidOperationException("Capture directory must be provided for telemetry runs.");
+        }
+
+        logger.LogInformation(
+            runValidationEvent,
+            "Validated telemetry inputs for template {TemplateId} (captureDir={CaptureDir})",
+            templateId,
+            captureDirectory);
+
+        if (request.DryRun)
+        {
+            var telemetryManifest = await ReadCaptureManifestAsync(captureDirectory, cancellationToken).ConfigureAwait(false);
+            var plan = new RunOrchestrationPlan(
+                templateId,
+                modeValue,
+                outputRoot,
+                captureDirectory,
+                request.DeterministicRunId,
+                request.RunId,
+                CloneParameters(effectiveParameters),
+                new Dictionary<string, string>(request.TelemetryBindings ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase), StringComparer.OrdinalIgnoreCase),
+                telemetryManifest);
+
+            logger.LogInformation(
+                runCompletedEvent,
+                "Telemetry dry-run planned for template {TemplateId}; files={FileCount}, warnings={WarningCount}",
+                templateId,
+                telemetryManifest.Files?.Count ?? 0,
+                telemetryManifest.Warnings?.Count ?? 0);
+
+            return new RunOrchestrationOutcome(true, null, plan);
+        }
+
+        Directory.CreateDirectory(outputRoot);
+        var modelYaml = await templateService.GenerateEngineModelAsync(templateId, effectiveParameters, TemplateMode.Telemetry).ConfigureAwait(false);
+        var tempModelPath = await WriteTemporaryModelAsync(modelYaml, cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            logger.LogInformation(
+                runEvaluationEvent,
+                "Building telemetry bundle for template {TemplateId} (mode={Mode})",
+                templateId,
+                modeValue);
+
+            var bundleOptions = new TelemetryBundleOptions
+            {
+                CaptureDirectory = captureDirectory,
+                ModelPath = tempModelPath,
+                OutputRoot = outputRoot,
+                ProvenancePath = null,
+                RunId = request.RunId,
+                DeterministicRunId = request.DeterministicRunId,
+                Overwrite = request.OverwriteExisting
+            };
+
+            var bundleResult = await bundleBuilder.BuildAsync(bundleOptions, cancellationToken).ConfigureAwait(false);
+            var modelDirectory = Path.Combine(bundleResult.RunDirectory, "model");
+
+            var manifestMetadata = await manifestReader.ReadAsync(modelDirectory, cancellationToken).ConfigureAwait(false);
+            var runDocument = await RunDirectoryUtilities.LoadRunDocumentAsync(bundleResult.RunDirectory, cancellationToken).ConfigureAwait(false);
+            var telemetryResolved = manifestMetadata.TelemetrySources.Count > 0 &&
+                (bundleResult.TelemetryManifest.Warnings is null ||
+                 bundleResult.TelemetryManifest.Warnings.All(w => !string.Equals(w.Code, "telemetry_sources_missing", StringComparison.OrdinalIgnoreCase)));
+
+            logger.LogInformation(
+                runArtifactsEvent,
+                "Telemetry artifacts written for run {RunId} (template {TemplateId})",
+                bundleResult.RunId,
+                templateId);
+
+            runsCreatedCounter.Add(1, CreateMetricTags(templateId, modeValue));
+
+            logger.LogInformation(
+                runCompletedEvent,
+                "Completed telemetry run {RunId} for template {TemplateId}",
+                bundleResult.RunId,
+                templateId);
+
+            var result = new RunOrchestrationResult(
+                bundleResult.RunDirectory,
+                bundleResult.RunId,
+                manifestMetadata,
+                runDocument,
+                telemetryResolved,
+                bundleResult.TelemetryManifest);
+
+            return new RunOrchestrationOutcome(false, result, null);
+        }
+        catch (FileNotFoundException ex)
+        {
+            runsFailedCounter.Add(1, CreateMetricTags(templateId, modeValue));
+            logger.LogWarning(runFailedEvent, ex, "Telemetry capture missing for template {TemplateId}", templateId);
+            throw;
+        }
+        catch (Exception ex)
+        {
+            runsFailedCounter.Add(1, CreateMetricTags(templateId, modeValue));
+            logger.LogError(runFailedEvent, ex, "Telemetry run creation failed for template {TemplateId}", templateId);
+            throw;
+        }
+        finally
+        {
+            TryDeleteTemporaryFile(tempModelPath);
+        }
+    }
+
+    private async Task<RunOrchestrationOutcome> CreateSimulationRunAsync(
+        RunOrchestrationRequest request,
+        string templateId,
+        string outputRoot,
+        Dictionary<string, object> effectiveParameters,
+        CancellationToken cancellationToken)
+    {
+        var modelYaml = await templateService.GenerateEngineModelAsync(templateId, effectiveParameters, TemplateMode.Simulation).ConfigureAwait(false);
+        var simArtifact = simModelDeserializer.Deserialize<SimModelArtifact>(modelYaml) ?? throw new InvalidOperationException("Generated simulation model artifact could not be deserialized.");
+
+        ValidateSimulationArtifact(simArtifact, templateId);
+
+        if (request.DryRun)
+        {
+            var planManifest = BuildSimulationPlanManifest(simArtifact);
+            var plan = new RunOrchestrationPlan(
+                templateId,
+                TemplateMode.Simulation.ToSerializedValue(),
+                outputRoot,
+                null,
+                request.DeterministicRunId,
+                request.RunId,
+                CloneParameters(effectiveParameters),
+                new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
+                planManifest);
+
+            logger.LogInformation(
+                runCompletedEvent,
+                "Simulation dry-run planned for template {TemplateId}; bins={Bins}, warnings={WarningCount}",
+                templateId,
+                planManifest.Grid.Bins,
+                planManifest.Warnings.Count);
+
+            return new RunOrchestrationOutcome(true, null, plan);
+        }
+
+        try
+        {
+            Directory.CreateDirectory(outputRoot);
+            var canonicalModel = ModelService.ParseAndConvert(modelYaml);
+            var (grid, graph) = ModelParser.ParseModel(canonicalModel);
+
+            logger.LogInformation(
+                runEvaluationEvent,
+                "Evaluating simulation model for template {TemplateId} (bins={Bins}, binSize={BinSize})",
+                templateId,
+                grid.Bins,
+                grid.BinSize);
+
+            var evaluationStopwatch = Stopwatch.StartNew();
+            var evaluationContext = graph.Evaluate(grid);
+            evaluationStopwatch.Stop();
+
+            var evaluationDurationMs = evaluationStopwatch.Elapsed.TotalMilliseconds;
+            simulationEvaluationDuration.Record(evaluationDurationMs, CreateMetricTags(templateId, TemplateMode.Simulation.ToSerializedValue()));
+
+            logger.LogInformation(
+                runEvaluationEvent,
+                "Simulation evaluation completed for template {TemplateId} in {ElapsedMs:F2} ms",
+                templateId,
+                evaluationDurationMs);
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var context = new Dictionary<NodeId, double[]>(evaluationContext.Count);
+            foreach (var (nodeId, series) in evaluationContext)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                context[nodeId] = series.ToArray();
+            }
+
+            var writeRequest = new RunArtifactWriter.WriteRequest
+            {
+                Model = canonicalModel,
+                Grid = grid,
+                Context = context,
+                SpecText = modelYaml,
+                RngSeed = null,
+                StartTimeBias = null,
+                DeterministicRunId = request.DeterministicRunId,
+                OutputDirectory = outputRoot,
+                Verbose = false,
+                ProvenanceJson = null
+            };
+
+            logger.LogInformation(
+                runArtifactsEvent,
+                "Writing simulation artifacts for template {TemplateId}",
+                templateId);
+
+            var writeResult = await RunArtifactWriter.WriteArtifactsAsync(writeRequest).ConfigureAwait(false);
+            var finalRunId = writeResult.RunId;
+            var finalRunDirectory = writeResult.RunDirectory;
+
+            if (!string.IsNullOrWhiteSpace(request.RunId))
+            {
+                var explicitDirectory = Path.Combine(outputRoot, request.RunId);
+                if (Directory.Exists(explicitDirectory))
+                {
+                    if (!request.OverwriteExisting)
+                    {
+                        throw new InvalidOperationException($"Run directory '{explicitDirectory}' already exists. Enable Overwrite to replace it.");
+                    }
+
+                    Directory.Delete(explicitDirectory, recursive: true);
+                }
+
+                Directory.Move(writeResult.RunDirectory, explicitDirectory);
+                finalRunDirectory = explicitDirectory;
+                finalRunId = request.RunId!;
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var modelDirectory = Path.Combine(finalRunDirectory, "model");
+            var manifestMetadata = await manifestReader.ReadAsync(modelDirectory, cancellationToken).ConfigureAwait(false);
+            var telemetryManifest = BuildSimulationTelemetryManifest(simArtifact, manifestMetadata, finalRunId, writeResult.ScenarioHash);
+            await WriteSimulationTelemetryManifestAsync(finalRunDirectory, telemetryManifest, cancellationToken).ConfigureAwait(false);
+            var runDocument = await RunDirectoryUtilities.LoadRunDocumentAsync(finalRunDirectory, cancellationToken).ConfigureAwait(false);
+
+            runsCreatedCounter.Add(1, CreateMetricTags(templateId, TemplateMode.Simulation.ToSerializedValue()));
+
+            logger.LogInformation(
+                runCompletedEvent,
+                "Completed simulation run {RunId} for template {TemplateId}",
+                finalRunId,
+                templateId);
+
+            var result = new RunOrchestrationResult(
+                finalRunDirectory,
+                finalRunId,
+                manifestMetadata,
+                runDocument,
+                true,
+                telemetryManifest);
+
+            return new RunOrchestrationOutcome(false, result, null);
+        }
+        catch (TemplateValidationException ex)
+        {
+            runsFailedCounter.Add(1, CreateMetricTags(templateId, TemplateMode.Simulation.ToSerializedValue()));
+            logger.LogWarning(runFailedEvent, ex, "Simulation template validation failed for {TemplateId}", templateId);
+            throw;
+        }
+        catch (Exception ex)
+        {
+            runsFailedCounter.Add(1, CreateMetricTags(templateId, TemplateMode.Simulation.ToSerializedValue()));
+            logger.LogError(runFailedEvent, ex, "Simulation run creation failed for template {TemplateId}", templateId);
+            throw;
+        }
+    }
+
+    private void ValidateSimulationArtifact(SimModelArtifact artifact, string templateId)
+    {
+        if (artifact.Window is null || string.IsNullOrWhiteSpace(artifact.Window.Start) || string.IsNullOrWhiteSpace(artifact.Window.Timezone))
+        {
+            throw new TemplateValidationException($"Simulation template '{templateId}' must define window.start and window.timezone.");
+        }
+
+        if (artifact.Grid is null || artifact.Grid.Bins <= 0 || artifact.Grid.BinSize <= 0)
+        {
+            throw new TemplateValidationException($"Simulation template '{templateId}' must define grid.bins and grid.binSize greater than zero.");
+        }
+
+        if (artifact.Topology?.Nodes is null || artifact.Topology.Nodes.Count == 0)
+        {
+            throw new TemplateValidationException($"Simulation template '{templateId}' must define at least one topology node.");
+        }
+
+        logger.LogInformation(
+            runValidationEvent,
+            "Simulation template {TemplateId} validated (windowStart={WindowStart}, topologyNodes={NodeCount})",
+            templateId,
+            artifact.Window.Start,
+            artifact.Topology.Nodes.Count);
+    }
+
+    private static TelemetryManifest BuildSimulationPlanManifest(SimModelArtifact artifact)
+    {
+        var durationMinutes = TryComputeDurationMinutes(artifact.Grid);
+
+        return new TelemetryManifest(
+            SchemaVersion: 1,
+            Window: new TelemetryManifestWindow(
+                artifact.Window?.Start,
+                durationMinutes),
+            Grid: new TelemetryManifestGrid(
+                artifact.Grid?.Bins ?? 0,
+                artifact.Grid?.BinSize ?? 0,
+                NormalizeBinUnit(artifact.Grid?.BinUnit)),
+            Files: Array.Empty<TelemetryManifestFile>(),
+            Warnings: Array.Empty<CaptureWarning>(),
+            Provenance: new TelemetryManifestProvenance(
+                string.Empty,
+                "pending",
+                null,
+                DateTime.UtcNow.ToString("O")));
+    }
+
+    private static TelemetryManifest BuildSimulationTelemetryManifest(
+        SimModelArtifact artifact,
+        RunManifestMetadata manifestMetadata,
+        string runId,
+        string scenarioHash)
+    {
+        var durationMinutes = TryComputeDurationMinutes(artifact.Grid);
+
+        return new TelemetryManifest(
+            SchemaVersion: 1,
+            Window: new TelemetryManifestWindow(
+                artifact.Window?.Start,
+                durationMinutes),
+            Grid: new TelemetryManifestGrid(
+                artifact.Grid?.Bins ?? 0,
+                artifact.Grid?.BinSize ?? 0,
+                NormalizeBinUnit(artifact.Grid?.BinUnit)),
+            Files: Array.Empty<TelemetryManifestFile>(),
+            Warnings: Array.Empty<CaptureWarning>(),
+            Provenance: new TelemetryManifestProvenance(
+                runId,
+                scenarioHash,
+                manifestMetadata.Schema.Hash,
+                DateTime.UtcNow.ToString("O")));
+    }
+
+    private static async Task WriteSimulationTelemetryManifestAsync(string runDirectory, TelemetryManifest manifest, CancellationToken cancellationToken)
+    {
+        var manifestPath = Path.Combine(runDirectory, "model", "telemetry", "telemetry-manifest.json");
+        await CaptureManifestWriter.WriteAsync(manifestPath, manifest, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static int? TryComputeDurationMinutes(TemplateGrid? grid)
+    {
+        if (grid is null || grid.Bins <= 0 || grid.BinSize <= 0)
+        {
+            return null;
+        }
+
+        try
+        {
+            checked
+            {
+                return grid.Bins * grid.BinSize;
+            }
+        }
+        catch (OverflowException)
+        {
+            return null;
+        }
+    }
+
+    private static string NormalizeBinUnit(string? binUnit)
+    {
+        return string.IsNullOrWhiteSpace(binUnit) ? "minutes" : binUnit!;
+    }
+
+    private static KeyValuePair<string, object?>[] CreateMetricTags(string templateId, string mode) =>
+        new[]
+        {
+            new KeyValuePair<string, object?>("templateId", templateId),
+            new KeyValuePair<string, object?>("mode", mode)
+        };
+
+    private static Dictionary<string, object?> CloneParameters(Dictionary<string, object> source)
+    {
+        var clone = new Dictionary<string, object?>(source.Count, StringComparer.OrdinalIgnoreCase);
+        foreach (var pair in source)
+        {
+            clone[pair.Key] = pair.Value;
+        }
+
+        return clone;
+    }
+
+
 }

@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using FlowTime.Core.Execution;
 using FlowTime.Core.Models;
+using FlowTime.Core.TimeTravel;
 
 namespace FlowTime.Adapters.Synthetic;
 
@@ -60,8 +61,21 @@ public sealed class FileSeriesReader : ISeriesReader
         }
 
         var json = await File.ReadAllTextAsync(manifestPath);
+        ManifestSchemaValidator.EnsureValid(json);
         var manifestDoc = JsonDocument.Parse(json);
         var root = manifestDoc.RootElement;
+
+        ManifestProvenance? provenance = null;
+        if (root.TryGetProperty("provenance", out var provenanceElement) && provenanceElement.ValueKind == JsonValueKind.Object)
+        {
+            provenance = new ManifestProvenance
+            {
+                HasProvenance = provenanceElement.TryGetProperty("hasProvenance", out var hasProv) ? hasProv.GetBoolean() : null,
+                ModelId = provenanceElement.TryGetProperty("modelId", out var modelId) ? modelId.GetString() : null,
+                TemplateId = provenanceElement.TryGetProperty("templateId", out var templateId) ? templateId.GetString() : null,
+                Source = provenanceElement.TryGetProperty("source", out var source) ? source.GetString() : null
+            };
+        }
 
         return new DeterministicManifest
         {
@@ -75,7 +89,8 @@ public sealed class FileSeriesReader : ISeriesReader
                 null, DateTimeStyles.RoundtripKind),
             ModelHash = root.TryGetProperty("modelHash", out var modelHashProp) 
                 ? modelHashProp.GetString() 
-                : null
+                : null,
+            Provenance = provenance
         };
     }
 

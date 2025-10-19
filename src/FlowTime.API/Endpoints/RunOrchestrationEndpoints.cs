@@ -5,6 +5,7 @@ using System.Text.Json;
 using FlowTime.Contracts.TimeTravel;
 using FlowTime.Generator.Artifacts;
 using FlowTime.Generator.Orchestration;
+using FlowTime.Sim.Core.Templates.Exceptions;
 
 namespace FlowTime.API.Endpoints;
 
@@ -46,13 +47,13 @@ internal static class RunOrchestrationEndpoints
             return Results.BadRequest(new { error = "telemetry.captureDirectory is required for telemetry runs." });
         }
 
-        logger.LogInformation("Received run creation request for template {TemplateId}", request.TemplateId);
+        logger.LogInformation("Received {Mode} run creation request for template {TemplateId}", mode, request.TemplateId);
 
         var runsRoot = Program.ServiceHelpers.RunsRoot(configuration);
         var parameters = ConvertParameters(request.Parameters);
         var telemetryBindings = request.Telemetry?.Bindings is not null
             ? new Dictionary<string, string>(request.Telemetry.Bindings, StringComparer.OrdinalIgnoreCase)
-            : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            : null;
 
         var orchestrationRequest = new RunOrchestrationRequest
         {
@@ -96,6 +97,16 @@ internal static class RunOrchestrationEndpoints
                 Warnings = warnings,
                 CanReplay = canReplay
             });
+        }
+        catch (TemplateValidationException ex)
+        {
+            logger.LogWarning(ex, "Template validation failed for template {TemplateId}", request.TemplateId);
+            return Results.BadRequest(new { error = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            logger.LogWarning(ex, "Run validation failed for template {TemplateId}", request.TemplateId);
+            return Results.BadRequest(new { error = ex.Message });
         }
         catch (FileNotFoundException ex)
         {

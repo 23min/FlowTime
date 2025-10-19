@@ -108,6 +108,41 @@ Content-Type: application/json
 #   "warnings": []
 # }
 
+### 3b. Create simulation run (no telemetry capture required)
+# Uses the built-in transportation template to generate synthetic series via FlowTime.Sim
+POST {{host}}/v1/runs
+Content-Type: application/json
+
+{
+  "templateId": "transportation-basic",
+  "mode": "simulation",
+  "parameters": {
+    "bins": 6,
+    "binSize": 60
+  },
+  "options": {
+    "deterministicRunId": true,
+    "overwriteExisting": true
+  }
+}
+# 201 Created
+# {
+#   "isDryRun": false,
+#   "metadata": {
+#     "runId": "run_deterministic_...",
+#     "templateId": "transportation-basic",
+#     "mode": "simulation",
+#     "telemetrySourcesResolved": true,
+#     "storage": {
+#       "modelPath": "{{runsRoot}}/run_deterministic_.../model/model.yaml",
+#       "metadataPath": "{{runsRoot}}/run_deterministic_.../model/metadata.json",
+#       "provenancePath": null
+#     }
+#   },
+#   "warnings": [],
+#   "canReplay": true
+# }
+
 ### 4. List available runs (created via API or CLI)
 GET {{host}}/v1/runs
 Accept: application/json

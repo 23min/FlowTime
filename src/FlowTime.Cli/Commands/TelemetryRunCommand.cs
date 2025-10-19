@@ -153,7 +153,7 @@ public static class TelemetryRunCommand
             TemplateId = templateId,
             Mode = mode,
             CaptureDirectory = captureDir,
-            TelemetryBindings = telemetryBindings,
+            TelemetryBindings = telemetryBindings.Count == 0 ? null : telemetryBindings,
             Parameters = parameters,
             OutputRoot = runsRoot,
             DeterministicRunId = deterministicRunId,

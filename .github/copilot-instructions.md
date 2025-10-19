@@ -67,5 +67,6 @@ Purpose: give AI assistants the minimum context to work safely and productively 
 - Shared schema files live in `docs/schemas/`; Sim-specific schema mirrors exist under `docs-sim/schemas/`.
 - When inserting inline code that contains `|` inside Markdown tables, escape the pipe as `\|` so the table renders correctly.
 - Never reintroduce deprecated schema fields (e.g., `binMinutes`); current schema uses `{ bins, binSize, binUnit }`.
+- JSON payloads and schemas use camelCase property names—do not introduce snake_case fields.
 
 Keep these conventions in mind when generating or modifying code, docs, or configuration so FlowTime Engine and FlowTime-Sim remain aligned in the mono-repo.***

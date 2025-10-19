@@ -28,6 +28,7 @@ public class RunOrchestrationGoldenTests : IClassFixture<TestWebApplicationFacto
         templateDirectory = Path.Combine(dataRoot, "templates");
         Directory.CreateDirectory(templateDirectory);
         File.WriteAllText(Path.Combine(templateDirectory, "test-order.yaml"), TestTemplateYaml);
+        File.WriteAllText(Path.Combine(templateDirectory, "sim-order.yaml"), SimulationTemplateYaml);
 
         var customizedFactory = factory.WithWebHostBuilder(builder =>
         {
@@ -36,6 +37,39 @@ public class RunOrchestrationGoldenTests : IClassFixture<TestWebApplicationFacto
         });
 
         client = customizedFactory.CreateClient();
+    }
+
+    [Fact]
+    public async Task CreateSimulationRun_ResponseMatchesGolden()
+    {
+        var payload = new
+        {
+            templateId = "sim-order",
+            mode = "simulation",
+            parameters = new
+            {
+                bins = 4,
+                binSize = 5
+            },
+            options = new
+            {
+                deterministicRunId = true
+            }
+        };
+
+        var response = await client.PostAsJsonAsync("/v1/runs", payload);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.True(response.IsSuccessStatusCode, $"Simulation run failed: {body}");
+
+        var createNode = JsonNode.Parse(body) ?? throw new InvalidOperationException("Response was not valid JSON.");
+        var runId = createNode["metadata"]?["runId"]?.GetValue<string>() ?? throw new InvalidOperationException("runId missing.");
+
+        var sanitizedCreate = SanitizeCreateResponse(createNode);
+        AssertGolden("simulation-create-run-response.golden.json", sanitizedCreate);
+
+        var detailNode = (await client.GetFromJsonAsync<JsonNode>($"/v1/runs/{runId}")) ?? throw new InvalidOperationException("Detail response missing.");
+        var sanitizedDetail = SanitizeCreateResponse(detailNode);
+        AssertGolden("simulation-get-run-response.golden.json", sanitizedDetail);
     }
 
     [Fact]
@@ -235,5 +269,55 @@ outputs:
     as: OrderService_served.csv
   - series: order_errors
     as: OrderService_errors.csv
+""";
+
+    private const string SimulationTemplateYaml = """
+schemaVersion: 1
+generator: flowtime-sim
+metadata:
+  id: sim-order
+  title: Simulation Order Template
+  description: Simulation golden template
+  version: 1.0.0
+window:
+  start: 2025-01-01T00:00:00Z
+  timezone: UTC
+
+parameters:
+  - name: bins
+    type: integer
+    default: 4
+  - name: binSize
+    type: integer
+    default: 5
+
+grid:
+  bins: ${bins}
+  binSize: ${binSize}
+  binUnit: minutes
+
+topology:
+  nodes:
+    - id: OrderService
+      kind: service
+      semantics:
+        arrivals: arrivals
+        served: served
+        errors: errors
+  edges: []
+
+nodes:
+  - id: arrivals
+    kind: const
+    values: [10, 12, 14, 16]
+  - id: served
+    kind: const
+    values: [8, 11, 13, 15]
+  - id: errors
+    kind: const
+    values: [1, 0, 0, 0]
+
+outputs:
+  - series: "*"
 """;
 }
