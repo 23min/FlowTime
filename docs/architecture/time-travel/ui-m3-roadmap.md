@@ -10,7 +10,7 @@
 - Phase 1 — Align With M3 (Refactor and Restore)
   - Bring the existing UI in sync with M3 engine/sim changes.
   - Review and rationalize navigation. Restore Artifacts. Rework Simulate to feed time‑travel runs. Decide fate of Analyze.
-  - Establish data access adapters for gold bundles (file‑backed now, API‑ready later).
+  - Establish REST data access services for gold bundles so UI surfaces can consume `/v1/runs` endpoints.
 - Phase 2 — Minimal Time-Travel Visualizations (from docs/ui/time-travel-visualizations-3.md)
   - SLA Dashboard tiles with mini bars (no forecasting).
   - Flow Topology (entire graph) with global scrubber and heat‑map node coloring.
@@ -151,8 +151,8 @@ We use UI-M-XX.XX with bands per phase to keep sessions small and reviewable.
   - UI-M-03.11 — Restore Artifacts Page
   - UI-M-03.12 — Simulate → Gold Run Integration
   - UI-M-03.13 — Analyze Section Decision (complete — Option A “Hide Analyze for now”)
-  - UI-M-03.14 — Time‑Travel Nav & Routes (skeleton)
-  - UI-M-03.15 — Gold Data Access Adapter (file‑backed)
+  - UI-M-03.14 — Time‑Travel Nav & Routes (skeleton) (complete — nav group + placeholders live)
+  - UI-M-03.15 — Gold Data Access Service (REST)
   - UI-M-03.16 — Run Orchestration Page (skeleton)
   - UI-M-03.17 — QA & Docs Pass
 

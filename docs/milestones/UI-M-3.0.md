@@ -25,7 +25,7 @@ Phase 1 — Align With M3 (Refactor and Restore)
 - [ ] UI-M-03.12 — Simulate → Gold Run Integration (see: docs/milestones/UI-M-03.12.md)
 - [ ] UI-M-03.13 — Analyze Section Decision (planned)
 - [ ] UI-M-03.14 — Time‑Travel Nav & Routes (skeleton) (planned)
-- [ ] UI-M-03.15 — Gold Data Access Adapter (file‑backed) (planned)
+- [ ] UI-M-03.15 — Gold Data Access Service (REST) (planned)
 - [ ] UI-M-03.16 — Run Orchestration Page (skeleton) (planned)
 - [ ] UI-M-03.17 — QA & Docs Pass (planned)
 
@@ -50,14 +50,14 @@ Refer to the roadmap for phase scope and sequencing: docs/architecture/time-trav
 3. Topology canvas rendering for entire graph with heat‑map node coloring at current bin.
 4. Global top bar with range presets and scrubber; keyboard controls.
 5. Node Detail Panel with simple line charts; defaults by node type.
-6. Data access adapter for gold bundles (file‑backed) matching future REST shapes.
+6. Time-Travel data service that consumes the `/v1/runs` REST endpoints and shapes responses for UI use.
 7. Run Orchestration page (skeleton) to drive telemetry capture + bundling and register runs.
 8. Artifacts page restoration (list bundles, open actions, link to Time‑Travel).
 
 ### Out of Scope ❌
 - ❌ Forecasting, anomaly detection, wave propagation heatmaps, path analysis boards.
 - ❌ Transactional/customer drilldown and per‑class segmentation.
-- ❌ Full API endpoint implementation for `/flow` and `/metrics` (UI remains file‑backed for M3).
+- ❌ Full API endpoint implementation for `/flow` and `/metrics` (handled by backend milestones).
 
 ### Future Work (Follow‑ups)
 - Compare runs overlays; advanced charts (heatmaps); alert markers.

@@ -33,11 +33,11 @@ We previously removed the Analyze nav item in code (Expert layout + home hero). 
 
 ### Out of Scope ❌
 - Building dashboards or charts (belongs to Phase 2).
-- Implementing full gold adapters (handled by UI-M-03.15).
+- Implementing the Time-Travel data service (handled by UI-M-03.15).
 - Updating CLI docs.
 
 ### Future Work
-- UI-M-03.15 introduces a reusable gold data adapter—if Option B was chosen, migrate the diagnostics to use that service.
+- UI-M-03.15 introduces a reusable REST Time-Travel data service—if Option B was chosen, migrate the diagnostics to use that surface.
 - Phase 2 milestones will replace the placeholder with real time-travel visualizations.
 
 ---
