@@ -230,12 +230,14 @@
         if (parameters is null && !string.IsNullOrWhiteSpace(_parametersText))
         {
             _validationError = "Parameters must be a valid JSON object.";
+            AddLog(_validationError, "error");
             return;
         }
 
         if (string.IsNullOrWhiteSpace(_templateId))
         {
             _validationError = "Template ID is required.";
+            AddLog(_validationError, "error");
             return;
         }
 
@@ -267,8 +269,9 @@
             {
                 _status = RunExecutionStatus.Failed;
                 var error = result.Error ?? "Run orchestration failed.";
-                _statusMessage = error;
-                AddLog(error, "error");
+                var statusPrefix = result.StatusCode > 0 ? $"HTTP {result.StatusCode}: " : string.Empty;
+                _statusMessage = statusPrefix + error;
+                AddLog(_statusMessage, "error");
                 return;
             }
 

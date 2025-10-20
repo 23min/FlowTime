@@ -21,13 +21,18 @@
 - Wired navigation actions for Time-Travel and Artifacts; logs currently synthetic.
 - Validation: `dotnet build src/FlowTime.UI/FlowTime.UI.csproj` (tests deferred to later phases).
 
+### 2025-10-20 — Error Handling & Client Tests
+- Surfaced API error codes/status messages in `/simulate` logs (e.g., template not found).
+- Added unit tests (`FlowTimeApiClientTests`) for success and 404 scenarios to ensure friendly messaging.
+- Validation: `dotnet test tests/FlowTime.UI.Tests/FlowTime.UI.Tests.csproj --no-build`.
+
 ---
 
 ## Current Status
 
 ### Overall Progress
 - [x] Phase 1: Orchestrator Adapter (3/3 tasks) — tests pending
-- [x] Phase 2: Simulate UI Integration (3/3 tasks) — tests pending
+- [x] Phase 2: Simulate UI Integration (3/3 tasks) — basic API client tests added; UI tests pending
 - [ ] Phase 3: Diagnostics & Refresh (0/2 tasks)
 
 ### Test Status
