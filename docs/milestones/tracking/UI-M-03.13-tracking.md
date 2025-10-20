@@ -1,7 +1,7 @@
 # UI-M-03.13 Implementation Tracking
 
 **Milestone:** UI-M-03.13 — Analyze Section Decision  
-**Status:** 📋 Not Started  
+**Status:** ✅ Complete  
 **Branch:** `feature/time-travel-ui-m3`  
 **Assignee:** [TBD]
 
@@ -20,28 +20,28 @@
 ## Current Status
 
 ### Overall Progress
-- [ ] Decision recorded (hide vs repurpose)
-- [ ] Navigation updated to match decision
-- [ ] Home page CTAs updated
-- [ ] Minimal diagnostic (if repurposed)
+- [x] Decision recorded (“Hide Analyze for now”)
+- [x] Navigation updated to match decision (Analyze remains hidden)
+- [x] Home page hero updated to Time-Travel
+- [ ] Minimal diagnostic (not applicable; option A chosen)
 
 ### Test Status
-- Manual smoke tests pending decision
+- Manual smoke tests complete (nav + home)
 
 ---
 
 ## Progress Log
 
-_No work started yet._
+### 2025-10-20 — Decision Recorded  
+- Confirmed Analyze nav entry remains hidden (“Hide Analyze for now,” Option A).  
+- Updated home hero panel to introduce Time-Travel instead of Analyze.  
+- Roadmap/milestone docs updated with decision.
 
 ---
 
 ## Next Steps
 
-1. Audit the existing Analyze page and home page references.
-2. Decide on Option A (hide) or Option B (repurpose) per milestone spec.
-3. Implement navigation/content updates and smoke-test.
-4. Update roadmap/milestone documents with the outcome.
+1. None for this milestone — proceed to UI-M-03.14.
 
 ---
 

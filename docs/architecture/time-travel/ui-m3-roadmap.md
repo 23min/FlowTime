@@ -27,7 +27,7 @@
   - Artifacts (link to restored page)
 - Existing
   - Simulate: rework to emit gold runs compatible with time‑travel
-  - Analyze: either hide or update to test time‑travel data access
+  - Analyze: hidden for now (UI-M-03.13 Option A); revisit with Phase 2 analytics
 
 Note: Implementation will touch `ui/FlowTime.UI/Layout/ExpertLayout.razor` (menu structure) and add routes/pages for the three views plus orchestration.
 
@@ -150,7 +150,7 @@ We use UI-M-XX.XX with bands per phase to keep sessions small and reviewable.
   - UI-M-03.10 — UI Baseline & Build Health
   - UI-M-03.11 — Restore Artifacts Page
   - UI-M-03.12 — Simulate → Gold Run Integration
-  - UI-M-03.13 — Analyze Section Decision (hide or repurpose)
+  - UI-M-03.13 — Analyze Section Decision (complete — Option A “Hide Analyze for now”)
   - UI-M-03.14 — Time‑Travel Nav & Routes (skeleton)
   - UI-M-03.15 — Gold Data Access Adapter (file‑backed)
   - UI-M-03.16 — Run Orchestration Page (skeleton)
