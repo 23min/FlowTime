@@ -152,7 +152,7 @@ We use UI-M-XX.XX with bands per phase to keep sessions small and reviewable.
   - UI-M-03.12 — Simulate → Gold Run Integration
   - UI-M-03.13 — Analyze Section Decision (complete — Option A “Hide Analyze for now”)
   - UI-M-03.14 — Time‑Travel Nav & Routes (skeleton) (complete — nav group + placeholders live)
-  - UI-M-03.15 — Gold Data Access Service (REST)
+  - UI-M-03.15 — Gold Data Access Service (REST) (complete — REST client + data service)
   - UI-M-03.16 — Run Orchestration Page (skeleton)
   - UI-M-03.17 — QA & Docs Pass
 

@@ -28,6 +28,10 @@ internal static class SimModelBuilder
             Nodes = BuildNodes(template.Nodes),
             Outputs = BuildOutputs(template.Outputs)
         };
+        if (artifact.Grid != null && string.IsNullOrWhiteSpace(artifact.Grid.Start))
+        {
+            artifact.Grid.Start = artifact.Window?.Start;
+        }
 
         artifact.Provenance = BuildProvenance(template, parameterValues, substitutedYaml);
         return artifact;

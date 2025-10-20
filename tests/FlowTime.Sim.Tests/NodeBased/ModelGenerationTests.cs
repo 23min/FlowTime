@@ -71,6 +71,7 @@ outputs:
         Assert.Equal(4, model.Grid.Bins);
         Assert.Equal(30, model.Grid.BinSize);
         Assert.Equal("minutes", model.Grid.BinUnit);
+        Assert.Equal("2025-01-01T00:00:00Z", model.Grid.Start);
 
         Assert.Contains(model.Nodes, n => n.Id == "arrivals" && n.Values![0] == 80);
         Assert.Single(model.Outputs);
@@ -151,6 +152,7 @@ outputs:
 
         Assert.Equal("simulation", model.Mode);
         Assert.Equal("pmf-model-test", model.Metadata.Id);
+        Assert.Equal("2025-02-01T00:00:00Z", model.Grid.Start);
         Assert.True(model.Provenance.Parameters.TryGetValue("high_prob", out var highProb));
         Assert.Equal(0.2, Convert.ToDouble(highProb, System.Globalization.CultureInfo.InvariantCulture));
     }

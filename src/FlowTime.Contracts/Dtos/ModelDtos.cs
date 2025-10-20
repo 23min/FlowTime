@@ -1,3 +1,5 @@
+using YamlDotNet.Serialization;
+
 namespace FlowTime.Contracts.Dtos;
 
 /// <summary>
@@ -31,6 +33,15 @@ public sealed class GridDto
     public int BinSize { get; set; }
     public string BinUnit { get; set; } = "minutes";
     public string? StartTimeUtc { get; set; }
+
+    [YamlMember(Alias = "start", ApplyNamingConventions = false)]
+    public string? LegacyStart
+    {
+        get => StartTimeUtc;
+        set => StartTimeUtc = value;
+    }
+
+    public bool ShouldSerializeLegacyStart() => false;
 }
 
 /// <summary>

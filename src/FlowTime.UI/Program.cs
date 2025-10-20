@@ -125,6 +125,7 @@ builder.Services.AddScoped<ISimResultsService>(sp =>
 builder.Services.AddScoped<IGraphAnalysisService, GraphAnalysisService>();
 builder.Services.AddScoped<ISimulationResultsService, SimulationResultsService>();
 builder.Services.AddScoped<IRunDiscoveryService, RunDiscoveryService>();
+builder.Services.AddScoped<ITimeTravelDataService, TimeTravelDataService>();
 
 var host = builder.Build();
 var informationalVersion = typeof(App).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;

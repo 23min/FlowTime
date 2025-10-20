@@ -177,3 +177,9 @@ GET {{host}}/v1/runs/{{createTelemetryRun.response.body.$.metadata.runId}}/state
 Accept: application/json
 # 200 OK (the bundled it-system template now includes complete semantics).
 # 409 Conflict only appears when custom templates omit required bindings (for example, a `service` node without `semantics.errors`).
+
+### 6b. Optional: retrieve a state window (bin range inclusive)
+GET {{host}}/v1/runs/{{createTelemetryRun.response.body.$.metadata.runId}}/state_window?startBin=0&endBin=5
+Accept: application/json
+# 200 OK (returns `metadata`, requested window slice, timestamps, and per-node series arrays).
+# 413 Payload Too Large when range exceeds server-side limits (see StateQueryService.maxWindowBins).

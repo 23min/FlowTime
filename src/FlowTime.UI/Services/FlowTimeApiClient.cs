@@ -18,6 +18,8 @@ public interface IFlowTimeApiClient
     Task<ApiCallResult<RunSummaryResponseDto>> GetRunSummariesAsync(int page = 1, int pageSize = 50, CancellationToken ct = default);
     Task<ApiCallResult<RunCreateResponseDto>> CreateRunAsync(RunCreateRequestDto request, CancellationToken ct = default);
     Task<ApiCallResult<RunCreateResponseDto>> GetRunAsync(string runId, CancellationToken ct = default);
+    Task<ApiCallResult<TimeTravelStateSnapshotDto>> GetRunStateAsync(string runId, int binIndex, CancellationToken ct = default);
+    Task<ApiCallResult<TimeTravelStateWindowDto>> GetRunStateWindowAsync(string runId, int startBin, int endBin, CancellationToken ct = default);
     Task<ApiCallResult<SeriesIndex>> GetRunIndexAsync(string runId, CancellationToken ct = default);
     Task<ApiCallResult<Stream>> GetRunSeriesAsync(string runId, string seriesId, CancellationToken ct = default);
 }
@@ -127,6 +129,18 @@ internal sealed class FlowTimeApiClient : IFlowTimeApiClient
 
     public Task<ApiCallResult<RunCreateResponseDto>> GetRunAsync(string runId, CancellationToken ct = default)
         => GetJson<RunCreateResponseDto>($"{apiBasePath}/runs/{Uri.EscapeDataString(runId)}", ct);
+
+    public Task<ApiCallResult<TimeTravelStateSnapshotDto>> GetRunStateAsync(string runId, int binIndex, CancellationToken ct = default)
+    {
+        var path = $"{apiBasePath}/runs/{Uri.EscapeDataString(runId)}/state?binIndex={binIndex}";
+        return GetJson<TimeTravelStateSnapshotDto>(path, ct);
+    }
+
+    public Task<ApiCallResult<TimeTravelStateWindowDto>> GetRunStateWindowAsync(string runId, int startBin, int endBin, CancellationToken ct = default)
+    {
+        var path = $"{apiBasePath}/runs/{Uri.EscapeDataString(runId)}/state_window?startBin={startBin}&endBin={endBin}";
+        return GetJson<TimeTravelStateWindowDto>(path, ct);
+    }
 
     public Task<ApiCallResult<SeriesIndex>> GetRunIndexAsync(string runId, CancellationToken ct = default)
         => GetJson<SeriesIndex>($"{apiBasePath}/runs/{Uri.EscapeDataString(runId)}/index", ct);
