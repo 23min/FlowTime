@@ -178,6 +178,8 @@ Milestones evolve through these states:
 
 **Purpose:** Phase-by-phase breakdown of work
 
+**Critical TDD Reminder:** Each phase must make it obvious which tests are written first (RED), followed by implementation (GREEN) and refactor steps. Call out the RED → GREEN → REFACTOR cadence explicitly so implementers can follow it.
+
 **Structure:**
 ```markdown
 ## Implementation Plan

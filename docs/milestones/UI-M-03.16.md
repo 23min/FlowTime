@@ -85,6 +85,11 @@ Operators currently jump between CLI commands and the Simulate tab to orchestrat
 
 ## Implementation Plan
 
+### TDD Approach
+- Establish a short TDD plan in the tracking doc before writing implementation code (list tests first, then implementation tasks).
+- For each phase below, write failing tests (RED) before introducing the corresponding feature code, then iterate to GREEN and REFACTOR.
+- Document RED/GREEN transitions in `docs/milestones/tracking/UI-M-03.16-tracking.md` as tests are added/passing.
+
 ### Phase 1: Form & Inputs
 - Goal: Build the basic form with template selection, mode toggle, parameter/binding fields.
 - Tasks:
@@ -119,9 +124,9 @@ Operators currently jump between CLI commands and the Simulate tab to orchestrat
 ## Test Plan
 
 - **Unit / Component Tests**
-  - Validate form serialization (parameters, telemetry bindings) into `RunCreateRequestDto`.
-  - Mock `IFlowTimeApiClient` to confirm dry-run vs live-run flows surface correct status messages.
-  - Ensure validation prevents submission with missing required fields.
+  - Validate form serialization (parameters, telemetry bindings) into `RunCreateRequestDto` (RED before implementation).
+  - Mock `IFlowTimeApiClient` to confirm dry-run vs live-run flows surface correct status messages (RED before wiring API logic).
+  - Ensure validation prevents submission with missing required fields (RED before validation implementation).
 - **Manual**
   - Orchestrate a simulation run via the new page; confirm run appears under Artifacts and `/state` works.
   - Navigate away mid-run and return—ensure the stored status is surfaced until the request finishes.

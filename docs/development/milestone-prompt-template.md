@@ -18,6 +18,7 @@ If additional architectural detail is needed, reference docs/architecture docume
 - docs/architecture/time-travel/time-travel-architecture-ch3-components.md
 - docs/architecture/time-travel/time-travel-architecture-ch5-implementation-roadmap.md
 Create the milestone document at docs/milestones/`<Milestone ID>`.md following the standard outline.
+- Ensure the milestone explicitly documents a TDD strategy (RED → GREEN → REFACTOR) and that tests are listed before implementation tasks.
 
 ### Notes
 - Replace `<Milestone ID>` and `<Title>` with the specific milestone (e.g., `M-03.01 — Time-Travel APIs`).
@@ -38,4 +39,3 @@ Create the milestone document at docs/milestones/`<Milestone ID>`.md following t
 - Use bash -lc with a workdir on every shell call; rely on rg for searches.
 - Prefer targeted diffs/patches; avoid unnecessary whole-file reads.
 - Run dotnet test FlowTime.sln (or narrower suites) after meaningful code changes; you may skip rebuilds with --no-build.
-
