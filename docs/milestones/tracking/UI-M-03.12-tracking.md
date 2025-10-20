@@ -25,6 +25,7 @@
 - Surfaced API error codes/status messages in `/simulate` logs (e.g., template not found).
 - Added unit tests (`FlowTimeApiClientTests`) for success and 404 scenarios to ensure friendly messaging.
 - Validation: `dotnet test tests/FlowTime.UI.Tests/FlowTime.UI.Tests.csproj --no-build`.
+- Highlighted partial runs in the Artifacts list and added a manual "Refresh Artifacts" action after successful runs.
 
 ---
 
@@ -88,9 +89,9 @@ Status: not started (awaiting backend merge + telemetry).
 ---
 
 ## Next Actions
-1. Verify backend deployment; re-run simulate flow end-to-end.
-2. Add unit tests for adapter and UI state handling.
-3. Implement Phase 3 diagnostics/refresh tasks.
+1. Re-test against the merged backend once deployed; adjust diagnostics as real log streaming becomes available.
+2. Add UI/E2E coverage for partial-run workflows (Artifacts delete guidance, failure alerts).
+3. Track future enhancement for live log streaming once backend support lands.
 
 ## References
 - `docs/milestones/UI-M-03.12.md`

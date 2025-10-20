@@ -66,12 +66,22 @@
                     </HeaderContent>
                     <RowTemplate>
                         <MudTd DataLabel="Run">
-                            <MudText Typo="Typo.subtitle2">@context.RunId</MudText>
-                            <MudText Typo="Typo.caption" Color="Color.Secondary">
-                                @context.TemplateId
-                            </MudText>
-                        </MudTd>
-                        <MudTd DataLabel="Template">
+                        <MudText Typo="Typo.subtitle2">@context.RunId</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                            @context.TemplateId
+                        </MudText>
+                        @if (context.WarningCount > 0)
+                        {
+                            <MudChip T="string"
+                                     Size="Size.Small"
+                                     Color="Color.Warning"
+                                     Variant="Variant.Outlined"
+                                     Icon="@Icons.Material.Filled.WarningAmber">
+                                Partial
+                            </MudChip>
+                        }
+                    </MudTd>
+                    <MudTd DataLabel="Template">
                             <MudText Typo="Typo.body2">
                                 @(!string.IsNullOrWhiteSpace(context.TemplateTitle) ? context.TemplateTitle : "—")
                             </MudText>
@@ -85,7 +95,7 @@
                         <MudTd DataLabel="Source">
                             <MudChip T="string"
                                      Size="Size.Small"
-                                     Color="Color.Info"
+                                     Color="@(context.WarningCount > 0 ? Color.Warning : Color.Info)"
                                      Variant="Variant.Outlined">
                                 @context.Source.ToUpperInvariant()
                             </MudChip>
@@ -142,7 +152,7 @@
                                              Color="Color.Warning"
                                              Variant="Variant.Outlined"
                                              Icon="@Icons.Material.Filled.WarningAmber">
-                                        @context.WarningCount
+                                        @($"Partial ({context.WarningCount})")
                                     </MudChip>
                                 </MudTooltip>
                             }

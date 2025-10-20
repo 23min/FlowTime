@@ -1,6 +1,5 @@
 @page "/simulate"
 @using System.Text.Json
-@using System.Text.Json.Serialization
 @using MudBlazor
 @using FlowTime.UI.Services
 @inject IFlowTimeApiClient ApiClient
@@ -83,14 +82,6 @@
                                StartIcon="@Icons.Material.Filled.Cancel">
                         Cancel
                     </MudButton>
-                    <MudSpacer />
-                    <MudButton Variant="Variant.Text"
-                               Color="Color.Secondary"
-                               Disabled="_logs.Count == 0"
-                               OnClick="ClearLogs"
-                               StartIcon="@Icons.Material.Filled.DeleteSweep">
-                        Clear Logs
-                    </MudButton>
                 </MudStack>
             </MudForm>
         </MudPaper>
@@ -109,27 +100,37 @@
                 }
             </MudStack>
 
-            <MudDivider Class="my-3" />
-
-            <MudPaper Class="pa-2 log-surface" Elevation="0" Style="max-height: 260px; overflow-y: auto;">
-                @if (_logs.Count == 0)
-                {
+            @if (_status == RunExecutionStatus.Failed)
+            {
+                <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mt-2">
+                    <MudText Typo="Typo.subtitle2">Run failed</MudText>
+                    <MudText Typo="Typo.body2">@(_statusMessage ?? "Run orchestration failed.")</MudText>
                     <MudText Typo="Typo.caption" Color="Color.Secondary">
-                        Logs will appear here once the orchestration starts.
+                        Check the template id and parameters, then try again. Partial artifacts (if any) will appear under Artifacts until deleted.
                     </MudText>
-                }
-                else
-                {
-                    @foreach (var entry in _logs)
+                </MudAlert>
+            }
+            else if (_status == RunExecutionStatus.Partial)
+            {
+                <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mt-2">
+                    <MudText Typo="Typo.subtitle2">Run completed with warnings</MudText>
+                    <MudText Typo="Typo.body2">Review the warnings below; the run can be opened but may be incomplete.</MudText>
+                    @if (_warningMessages.Count > 0)
                     {
-                        <MudText Typo="Typo.caption" Class="d-block">
-                            <span style="color:@GetLogColor(entry.Level)">
-                                [@entry.Timestamp:HH:mm:ss] [@entry.Level.ToUpperInvariant()] @entry.Message
-                            </span>
-                        </MudText>
+                        <MudList T="string" Dense="true">
+                            @foreach (var warn in _warningMessages)
+                            {
+                                <MudListItem T="string">@warn</MudListItem>
+                            }
+                        </MudList>
                     }
-                }
-            </MudPaper>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                        Use the Artifacts page to inspect or delete the run if you want to retry.
+                    </MudText>
+                </MudAlert>
+            }
+
+            <MudDivider Class="my-3" />
         </MudPaper>
 
         @if (_resultSummary is not null)
@@ -193,6 +194,12 @@
                                    OnClick="() => ViewInArtifacts(_resultSummary.RunId)">
                             View in Artifacts
                         </MudButton>
+                        <MudButton Variant="Variant.Text"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.Refresh"
+                                   OnClick="RefreshArtifacts">
+                            Refresh Artifacts
+                        </MudButton>
                     </MudStack>
                 </MudStack>
             </MudPaper>
@@ -212,9 +219,9 @@
     private bool _isRunning;
     private string? _statusMessage;
     private RunExecutionStatus _status = RunExecutionStatus.Idle;
-    private readonly List<RunLogEntry> _logs = new();
     private RunResultSummary? _resultSummary;
     private CancellationTokenSource? _cts;
+    private readonly List<string> _warningMessages = new();
 
     private async Task StartRunAsync()
     {
@@ -230,22 +237,23 @@
         if (parameters is null && !string.IsNullOrWhiteSpace(_parametersText))
         {
             _validationError = "Parameters must be a valid JSON object.";
-            AddLog(_validationError, "error");
+            _status = RunExecutionStatus.Failed;
+            _statusMessage = _validationError;
             return;
         }
 
         if (string.IsNullOrWhiteSpace(_templateId))
         {
             _validationError = "Template ID is required.";
-            AddLog(_validationError, "error");
+            _status = RunExecutionStatus.Failed;
+            _statusMessage = _validationError;
             return;
         }
 
         _isRunning = true;
         _status = RunExecutionStatus.Queued;
         _statusMessage = null;
-        _logs.Clear();
-        AddLog("Queued run request.", "info");
+        _warningMessages.Clear();
 
         _cts = new CancellationTokenSource();
 
@@ -254,15 +262,8 @@
             await Task.Yield(); // allow UI to update
 
             _status = RunExecutionStatus.Running;
-            AddLog("Submitting run to orchestrator…", "info");
 
             var request = BuildRunRequest(parameters);
-            var payloadPreview = JsonSerializer.Serialize(request, new JsonSerializerOptions(JsonSerializerDefaults.Web)
-            {
-                WriteIndented = true,
-                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-            });
-            AddLog($"Payload preview:\n{payloadPreview}", "info");
             var result = await ApiClient.CreateRunAsync(request, _cts.Token);
 
             if (!result.Success || result.Value?.Metadata?.RunId is null)
@@ -271,38 +272,51 @@
                 var error = result.Error ?? "Run orchestration failed.";
                 var statusPrefix = result.StatusCode > 0 ? $"HTTP {result.StatusCode}: " : string.Empty;
                 _statusMessage = statusPrefix + error;
-                AddLog(_statusMessage, "error");
                 return;
             }
 
             var runId = result.Value.Metadata.RunId;
-            AddLog($"Run {runId} completed. Validating artifacts…", "info");
-
             _resultSummary = await BuildSummaryAsync(runId, result.Value, _cts.Token);
 
-            _status = RunExecutionStatus.Succeeded;
-            _statusMessage = $"Run {runId} is ready.";
-            AddLog("Artifacts validated. You can open the run in Time-Travel or view it in Artifacts.", "success");
+            _warningMessages.Clear();
+            if (result.Value.Warnings is { Count: > 0 })
+            {
+                foreach (var warning in result.Value.Warnings)
+                {
+                    _warningMessages.Add(string.IsNullOrWhiteSpace(warning.NodeId)
+                        ? $"{warning.Code}: {warning.Message}"
+                        : $"{warning.Code} ({warning.NodeId}): {warning.Message}");
+                }
+            }
+
+            if (_resultSummary?.HasWarnings == true || _warningMessages.Count > 0)
+            {
+                _status = RunExecutionStatus.Partial;
+                _statusMessage = $"Run {runId} completed with warnings.";
+            }
+            else
+            {
+                _status = RunExecutionStatus.Succeeded;
+                _statusMessage = $"Run {runId} is ready.";
+            }
         }
         catch (OperationCanceledException)
         {
             _status = RunExecutionStatus.Canceled;
             _statusMessage = "Run canceled.";
-            AddLog("Run canceled by user.", "warn");
         }
         catch (Exception ex)
         {
             _status = RunExecutionStatus.Failed;
             _statusMessage = ex.Message;
-            AddLog($"Unexpected error: {ex.Message}", "error");
             Logger.LogError(ex, "Unexpected error during simulation orchestration.");
         }
         finally
         {
-            _cts?.Dispose();
-            _cts = null;
-            _isRunning = false;
-            StateHasChanged();
+        _cts?.Dispose();
+        _cts = null;
+        _isRunning = false;
+        StateHasChanged();
         }
     }
 
@@ -413,7 +427,8 @@
             GridBinMinutes: binMinutes,
             WarningCount: warningCount,
             HasManifest: hasManifest,
-            HasSeriesIndex: hasSeriesIndex);
+            HasSeriesIndex: hasSeriesIndex,
+            HasWarnings: warningCount > 0);
     }
 
     private void OpenInTimeTravel(string runId)
@@ -426,22 +441,12 @@
         Navigation.NavigateTo($"/artifacts?focus={Uri.EscapeDataString(runId)}");
     }
 
-    private void ClearLogs()
-    {
-        _logs.Clear();
-    }
-
-    private void AddLog(string message, string level)
-    {
-        _logs.Add(new RunLogEntry(DateTimeOffset.UtcNow, level, message));
-        StateHasChanged();
-    }
-
     private string GetStatusText() => _status switch
     {
         RunExecutionStatus.Idle => "Idle",
         RunExecutionStatus.Queued => "Queued",
         RunExecutionStatus.Running => "Running…",
+        RunExecutionStatus.Partial => "Partial",
         RunExecutionStatus.Succeeded => "Succeeded",
         RunExecutionStatus.Failed => "Failed",
         RunExecutionStatus.Canceled => "Canceled",
@@ -453,6 +458,7 @@
         RunExecutionStatus.Idle => Icons.Material.Filled.HourglassEmpty,
         RunExecutionStatus.Queued => Icons.Material.Filled.Schedule,
         RunExecutionStatus.Running => Icons.Material.Filled.Autorenew,
+        RunExecutionStatus.Partial => Icons.Material.Filled.WarningAmber,
         RunExecutionStatus.Succeeded => Icons.Material.Filled.CheckCircle,
         RunExecutionStatus.Canceled => Icons.Material.Filled.Cancel,
         RunExecutionStatus.Failed => Icons.Material.Filled.Error,
@@ -461,6 +467,7 @@
 
     private Color GetStatusColor() => _status switch
     {
+        RunExecutionStatus.Partial => Color.Warning,
         RunExecutionStatus.Succeeded => Color.Success,
         RunExecutionStatus.Failed => Color.Error,
         RunExecutionStatus.Canceled => Color.Warning,
@@ -469,27 +476,16 @@
         _ => Color.Default
     };
 
-    private string GetLogColor(string level) => level.ToLowerInvariant() switch
-    {
-        "success" => "#2e7d32",
-        "info" => "#1e88e5",
-        "warn" => "#f9a825",
-        "warning" => "#f9a825",
-        "error" => "#c62828",
-        _ => "var(--mud-palette-text-primary)"
-    };
-
     private enum RunExecutionStatus
     {
         Idle,
         Queued,
         Running,
+        Partial,
         Succeeded,
         Failed,
         Canceled
     }
-
-    private sealed record RunLogEntry(DateTimeOffset Timestamp, string Level, string Message);
 
     private sealed record RunResultSummary(
         string RunId,
@@ -499,5 +495,11 @@
         int? GridBinMinutes,
         int WarningCount,
         bool HasManifest,
-        bool HasSeriesIndex);
+        bool HasSeriesIndex,
+        bool HasWarnings);
+
+    private void RefreshArtifacts()
+    {
+        Navigation.NavigateTo($"/artifacts?refresh={DateTime.UtcNow.Ticks}", forceLoad: true);
+    }
 }
