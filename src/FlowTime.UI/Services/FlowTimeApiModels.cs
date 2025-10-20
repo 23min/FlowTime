@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace FlowTime.UI.Services;
@@ -175,3 +176,20 @@ public sealed record StateWarningDto(
     [property: JsonPropertyName("message")] string Message,
     [property: JsonPropertyName("severity")] string? Severity,
     [property: JsonPropertyName("nodeId")] string? NodeId);
+
+public sealed record RunCreateRequestDto(
+    [property: JsonPropertyName("templateId")] string TemplateId,
+    [property: JsonPropertyName("mode")] string? Mode,
+    [property: JsonPropertyName("parameters")] Dictionary<string, JsonElement>? Parameters,
+    [property: JsonPropertyName("telemetry")] RunTelemetryOptionsDto? Telemetry,
+    [property: JsonPropertyName("options")] RunCreationOptionsDto? Options);
+
+public sealed record RunTelemetryOptionsDto(
+    [property: JsonPropertyName("captureDirectory")] string? CaptureDirectory,
+    [property: JsonPropertyName("bindings")] Dictionary<string, string>? Bindings);
+
+public sealed record RunCreationOptionsDto(
+    [property: JsonPropertyName("deterministicRunId")] bool DeterministicRunId,
+    [property: JsonPropertyName("runId")] string? RunId,
+    [property: JsonPropertyName("dryRun")] bool DryRun,
+    [property: JsonPropertyName("overwriteExisting")] bool OverwriteExisting);

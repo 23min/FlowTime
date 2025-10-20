@@ -103,6 +103,11 @@ internal static class RunOrchestrationEndpoints
             logger.LogWarning(ex, "Template validation failed for template {TemplateId}", request.TemplateId);
             return Results.BadRequest(new { error = ex.Message });
         }
+        catch (ArgumentException ex) when (ex.Message.Contains("Template not found", StringComparison.OrdinalIgnoreCase))
+        {
+            logger.LogWarning(ex, "Template {TemplateId} was not found", request.TemplateId);
+            return Results.NotFound(new { error = ex.Message });
+        }
         catch (InvalidOperationException ex)
         {
             logger.LogWarning(ex, "Run validation failed for template {TemplateId}", request.TemplateId);

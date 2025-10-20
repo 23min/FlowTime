@@ -2,6 +2,7 @@ using System.Net.Http.Headers;
 using System.IO; // for Stream
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using FlowTime.UI.Configuration;
 
 namespace FlowTime.UI.Services;
@@ -15,6 +16,7 @@ public interface IFlowTimeApiClient
     Task<ApiCallResult<RunResponse>> RunAsync(string yaml, CancellationToken ct = default);
     Task<ApiCallResult<GraphResponse>> GraphAsync(string yaml, CancellationToken ct = default);
     Task<ApiCallResult<RunSummaryResponseDto>> GetRunSummariesAsync(int page = 1, int pageSize = 50, CancellationToken ct = default);
+    Task<ApiCallResult<RunCreateResponseDto>> CreateRunAsync(RunCreateRequestDto request, CancellationToken ct = default);
     Task<ApiCallResult<RunCreateResponseDto>> GetRunAsync(string runId, CancellationToken ct = default);
     Task<ApiCallResult<SeriesIndex>> GetRunIndexAsync(string runId, CancellationToken ct = default);
     Task<ApiCallResult<Stream>> GetRunSeriesAsync(string runId, string seriesId, CancellationToken ct = default);
@@ -33,7 +35,11 @@ internal sealed class FlowTimeApiClient : IFlowTimeApiClient
         this.http = http;
         this.apiVersion = opts.ApiVersion;
         apiBasePath = $"{apiVersion}";
-        json = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+        json = new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            PropertyNameCaseInsensitive = true,
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+        };
     }
 
     public string? BaseAddress => http.BaseAddress?.ToString();
@@ -116,6 +122,9 @@ internal sealed class FlowTimeApiClient : IFlowTimeApiClient
         return GetJson<RunSummaryResponseDto>(path, ct);
     }
 
+    public Task<ApiCallResult<RunCreateResponseDto>> CreateRunAsync(RunCreateRequestDto request, CancellationToken ct = default)
+        => PostJson<RunCreateResponseDto>($"{apiBasePath}/runs", request, ct);
+
     public Task<ApiCallResult<RunCreateResponseDto>> GetRunAsync(string runId, CancellationToken ct = default)
         => GetJson<RunCreateResponseDto>($"{apiBasePath}/runs/{Uri.EscapeDataString(runId)}", ct);
 
@@ -170,6 +179,13 @@ internal sealed class FlowTimeApiClient : IFlowTimeApiClient
         await using var s = await res.Content.ReadAsStreamAsync(ct);
         var val = await JsonSerializer.DeserializeAsync<T>(s, json, ct);
         return ApiCallResult<T>.Ok(val!, (int)res.StatusCode);
+    }
+
+    private Task<ApiCallResult<TResponse>> PostJson<TResponse>(string path, object payload, CancellationToken ct)
+    {
+        var jsonPayload = JsonSerializer.Serialize(payload, json);
+        var content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
+        return PostJson<TResponse>(path, content, ct);
     }
 
     private static async Task<string?> SafeReadError(HttpResponseMessage res, CancellationToken ct)

@@ -264,6 +264,23 @@ public class RunOrchestrationTests : IClassFixture<TestWebApplicationFactory>, I
         Assert.Empty(empty["items"]?.AsArray() ?? new JsonArray());
     }
 
+    [Fact]
+    public async Task CreateSimulationRun_MissingTemplate_ReturnsNotFound()
+    {
+        var requestPayload = new
+        {
+            templateId = "does-not-exist",
+            mode = "simulation",
+            parameters = new { bins = 4 }
+        };
+
+        var response = await client.PostAsJsonAsync("/v1/runs", requestPayload);
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+
+        var json = JsonNode.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal("Template not found: does-not-exist", json? ["error"]?.GetValue<string>());
+    }
+
     private async Task<string> CreateTelemetryCaptureAsync()
     {
         var sourceRoot = Path.Combine(dataRoot, $"source_{Guid.NewGuid():N}");
