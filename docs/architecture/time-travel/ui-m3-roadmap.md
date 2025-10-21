@@ -154,7 +154,8 @@ We use UI-M-XX.XX with bands per phase to keep sessions small and reviewable.
   - UI-M-03.14 — Time‑Travel Nav & Routes (skeleton) (complete — nav group + placeholders live)
   - UI-M-03.15 — Gold Data Access Service (REST) (complete — REST client + data service)
   - UI-M-03.16 — Run Orchestration Page (skeleton)
-  - UI-M-03.17 — QA & Docs Pass
+  - TT-M-03.17 — Telemetry Auto-Capture Orchestration (auto-generate capture bundles when missing)
+  - UI-M-03.18 — QA & Docs Pass
 
 - Phase 2 — Minimal Time‑Travel Visualizations
   - UI-M-03.20 — SLA Dashboard (tiles + mini bars)

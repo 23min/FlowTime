@@ -27,7 +27,8 @@ Phase 1 — Align With M3 (Refactor and Restore)
 - [x] UI-M-03.14 — Time‑Travel Nav & Routes (skeleton) (complete — nav group + placeholders live)
 - [x] UI-M-03.15 — Gold Data Access Service (REST) (complete — REST client & data service)
 - [ ] UI-M-03.16 — Run Orchestration Page (skeleton) (planned)
-- [ ] UI-M-03.17 — QA & Docs Pass (planned)
+- [ ] TT-M-03.17 — Telemetry Auto-Capture Orchestration (planned)
+- [ ] UI-M-03.18 — QA & Docs Pass (planned)
 
 Phase 2 — Minimal Time‑Travel Visualizations
 - [ ] UI-M-03.20 — SLA Dashboard (tiles + mini bars) (planned)
