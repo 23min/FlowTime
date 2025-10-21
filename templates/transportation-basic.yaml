@@ -5,6 +5,7 @@ metadata:
   title: 'Transportation Network'
   description: 'Simple transportation flow with demand and capacity constraints, ideal for logistics learning'
   version: 1.0.0
+  captureKey: transportation-basic-telemetry
   tags: [beginner, transportation, logistics, capacity]
 window:
   start: 2025-01-01T00:00:00Z

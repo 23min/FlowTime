@@ -46,6 +46,7 @@ public class TemplateMetadata
     public string Description { get; set; } = string.Empty;
     public string Version { get; set; } = string.Empty;
     public List<string> Tags { get; set; } = new();
+    public string? CaptureKey { get; set; }
 }
 
 /// <summary>

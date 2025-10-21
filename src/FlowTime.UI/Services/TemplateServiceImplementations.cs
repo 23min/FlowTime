@@ -154,7 +154,8 @@ public class TemplateService : ITemplateService
             Description = templateInfo.Description,
             Category = category,
             Tags = tags,
-            ParameterSchema = parameterSchema
+            ParameterSchema = parameterSchema,
+            TelemetryCaptureKey = templateInfo.CaptureKey
         };
     }
 

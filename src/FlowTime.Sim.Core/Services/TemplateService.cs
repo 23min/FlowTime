@@ -418,6 +418,11 @@ public class TemplateService : ITemplateService
                     var id = trimmed.Substring("id:".Length).Trim().Trim('"', '\'');
                     if (!string.IsNullOrWhiteSpace(id)) template.Metadata.Id = id;
                 }
+                else if (trimmed.StartsWith("captureKey:", StringComparison.OrdinalIgnoreCase))
+                {
+                    var captureKey = trimmed.Substring(trimmed.IndexOf(':') + 1).Trim().Trim('"', '\'');
+                    if (!string.IsNullOrWhiteSpace(captureKey)) template.Metadata.CaptureKey = captureKey;
+                }
                 else if (trimmed.StartsWith("title:"))
                 {
                     var title = trimmed.Substring("title:".Length).Trim().Trim('"', '\'');

@@ -103,7 +103,7 @@ Milestone M-03.04 layers the capture + bundling steps behind a shared `RunOrches
 
 ### API workflow
 
-`POST /v1/runs` accepts a template id, optional parameter overrides, telemetry bindings, and orchestration options. The example below replays the `it-system-microservices` template against the deterministic capture bundle checked into `examples/time-travel/it-system-telemetry/` (includes `manifest.json` plus the 9 CSVs required by the topology semantics):
+`POST /v1/runs` accepts a template id, optional parameter overrides, telemetry bindings, and orchestration options. The capture directory can be supplied as a **capture key** relative to the API’s configured `TelemetryRoot` (defaults to `<solution-root>/examples/time-travel` in development) or as a fully qualified path. The example below replays the `it-system-microservices` template against the deterministic capture bundle checked into `examples/time-travel/it-system-telemetry/`:
 
 ```http
 POST http://localhost:8080/v1/runs
@@ -113,7 +113,7 @@ Content-Type: application/json
   "templateId": "it-system-microservices",
   "mode": "telemetry",
   "telemetry": {
-    "captureDirectory": "/workspaces/flowtime-vnext/examples/time-travel/it-system-telemetry",
+    "captureDirectory": "it-system-telemetry",
     "bindings": {
       "telemetryRequestsSource": "LoadBalancer_arrivals.csv"
     }
@@ -132,16 +132,17 @@ Content-Type: application/json
 - If the capture directory is missing `manifest.json`, the service returns `422` with a helpful error describing the missing artifact.
 - `/v1/runs/{runId}/state` validates the generated model; the bundled it-system template includes the required semantics, but a custom template without `semantics.errors` on `service` nodes still triggers `409 Conflict`.
 - Run orchestration emits `run_created` / `run_failed` structured logs (template id, run id, mode) so you can wire the API into existing monitoring pipelines.
+- Configure the telemetry root via `TelemetryRoot` in `appsettings.json` (or environment). When unspecified the service falls back to `<solution-root>/examples/time-travel`, allowing local development to use the checked-in capture bundles immediately.
 
 ### CLI parity
 
-`flowtime telemetry run` delegates to the same orchestration service, so flags map directly to the JSON payload above:
+`flowtime telemetry run` delegates to the same orchestration service, so flags map directly to the JSON payload above. The `--capture-dir` flag accepts either a capture key (relative to the configured telemetry root) or an absolute path.
 
 ```bash
 # Preview the plan (no filesystem changes)
 flowtime telemetry run \
   --template-id it-system-microservices \
-  --capture-dir examples/time-travel/it-system-telemetry \
+  --capture-dir it-system-telemetry \
   --bind telemetryRequestsSource=LoadBalancer_arrivals.csv \
   --dry-run
 

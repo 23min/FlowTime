@@ -19,6 +19,7 @@ public class RunOrchestrationTests : IClassFixture<TestWebApplicationFactory>, I
     private readonly HttpClient client;
     private readonly string dataRoot;
     private readonly string templateDirectory;
+    private readonly string telemetryRoot;
 
     public RunOrchestrationTests(TestWebApplicationFactory factory)
     {
@@ -29,6 +30,8 @@ public class RunOrchestrationTests : IClassFixture<TestWebApplicationFactory>, I
         Directory.CreateDirectory(templateDirectory);
         File.WriteAllText(Path.Combine(templateDirectory, $"{templateId}.yaml"), TestTemplateYaml);
         File.WriteAllText(Path.Combine(templateDirectory, $"{simulationTemplateId}.yaml"), SimulationTemplateYaml);
+        telemetryRoot = Path.Combine(dataRoot, "telemetry-root");
+        Directory.CreateDirectory(telemetryRoot);
 
         var customizedFactory = factory.WithWebHostBuilder(builder =>
         {
@@ -37,7 +40,8 @@ public class RunOrchestrationTests : IClassFixture<TestWebApplicationFactory>, I
                 var settings = new Dictionary<string, string?>
                 {
                     ["TemplatesDirectory"] = templateDirectory,
-                    ["ArtifactsDirectory"] = dataRoot
+                    ["ArtifactsDirectory"] = dataRoot,
+                    ["TelemetryRoot"] = telemetryRoot
                 };
                 config.AddInMemoryCollection(settings!);
             });
@@ -107,7 +111,7 @@ public class RunOrchestrationTests : IClassFixture<TestWebApplicationFactory>, I
     [Fact]
     public async Task CreateTelemetryRun_ReturnsMetadataAndCreatesRun()
     {
-        var captureDir = await CreateTelemetryCaptureAsync();
+        var captureDir = await CreateTelemetryCaptureAsync(asRelative: true);
 
         var requestPayload = new
         {
@@ -167,7 +171,7 @@ public class RunOrchestrationTests : IClassFixture<TestWebApplicationFactory>, I
     [Fact]
     public async Task CreateTelemetryRunDryRun_ReturnsPlan()
     {
-        var captureDir = await CreateTelemetryCaptureAsync();
+        var captureDir = await CreateTelemetryCaptureAsync(asRelative: true);
 
         var requestPayload = new
         {
@@ -206,9 +210,39 @@ public class RunOrchestrationTests : IClassFixture<TestWebApplicationFactory>, I
     }
 
     [Fact]
-    public async Task ListRuns_AppliesFiltersAndPagination()
+    public async Task CreateTelemetryRun_WithAbsoluteCaptureDirectoryStillSupported()
     {
         var captureDir = await CreateTelemetryCaptureAsync();
+
+        var requestPayload = new
+        {
+            templateId,
+            mode = "telemetry",
+            telemetry = new
+            {
+                captureDirectory = captureDir,
+                bindings = new Dictionary<string, string>
+                {
+                    ["telemetryArrivals"] = "OrderService_arrivals.csv",
+                    ["telemetryServed"] = "OrderService_served.csv"
+                }
+            },
+            options = new
+            {
+                deterministicRunId = true
+            }
+        };
+
+        var response = await client.PostAsJsonAsync("/v1/runs", requestPayload);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        Assert.Contains("\"metadata\"", body);
+    }
+
+    [Fact]
+    public async Task ListRuns_AppliesFiltersAndPagination()
+    {
+        var captureDir = await CreateTelemetryCaptureAsync(asRelative: true);
 
         async Task<string> CreateAsync()
         {
@@ -281,13 +315,14 @@ public class RunOrchestrationTests : IClassFixture<TestWebApplicationFactory>, I
         Assert.Equal("Template not found: does-not-exist", json? ["error"]?.GetValue<string>());
     }
 
-    private async Task<string> CreateTelemetryCaptureAsync()
+    private async Task<string> CreateTelemetryCaptureAsync(bool asRelative = false)
     {
         var sourceRoot = Path.Combine(dataRoot, $"source_{Guid.NewGuid():N}");
         Directory.CreateDirectory(sourceRoot);
 
         var sourceRun = TelemetryRunFactory.CreateRunArtifacts(sourceRoot, "run_capture", includeTopology: true);
-        var captureDir = Path.Combine(sourceRoot, "capture");
+        var captureKey = $"capture_{Guid.NewGuid():N}";
+        var captureDir = Path.Combine(telemetryRoot, captureKey);
         Directory.CreateDirectory(captureDir);
 
         var capture = new TelemetryCapture();
@@ -297,7 +332,7 @@ public class RunOrchestrationTests : IClassFixture<TestWebApplicationFactory>, I
             OutputDirectory = captureDir
         });
 
-        return captureDir;
+        return asRelative ? captureKey : captureDir;
     }
 
     public void Dispose() => client.Dispose();

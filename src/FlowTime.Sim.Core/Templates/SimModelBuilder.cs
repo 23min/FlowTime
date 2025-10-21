@@ -45,7 +45,8 @@ internal static class SimModelBuilder
             Title = metadata.Title,
             Description = metadata.Description,
             Version = metadata.Version,
-            Tags = new List<string>(metadata.Tags)
+            Tags = new List<string>(metadata.Tags),
+            CaptureKey = metadata.CaptureKey
         };
     }
 

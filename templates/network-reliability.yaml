@@ -5,6 +5,7 @@ metadata:
   title: 'Network Reliability with Stochastic Failures'
   description: 'Demonstrates PMF nodes and RNG for probabilistic network behavior modeling'
   version: 1.0.0
+  captureKey: network-reliability-telemetry
   tags: [advanced, probabilistic, rng, network, stochastic]
 window:
   start: 2025-01-01T00:00:00Z

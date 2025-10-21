@@ -29,6 +29,7 @@ public class TemplateInfo
     public List<string> Tags { get; set; } = new();
     public string Version { get; set; } = "1.0";
     public JsonSchema? ParameterSchema { get; set; }
+    public string? TelemetryCaptureKey { get; set; }
 }
 
 public class CatalogInfo

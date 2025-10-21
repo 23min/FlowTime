@@ -176,7 +176,8 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 				title = t.Metadata.Title ?? t.Metadata.Id,
 				description = t.Metadata.Description ?? string.Empty,
 				category = "general", // node-based templates don't carry category yet
-				tags = t.Metadata.Tags
+				tags = t.Metadata.Tags,
+				captureKey = t.Metadata.CaptureKey
 			});
 			
 			if (!string.IsNullOrEmpty(category))
@@ -204,6 +205,7 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 					description = template.Metadata.Description ?? string.Empty,
 					category = "general",
 					tags = template.Metadata.Tags,
+					captureKey = template.Metadata.CaptureKey,
 					parameters = template.Parameters?.Select(p => new
 					{
 						name = p.Name,

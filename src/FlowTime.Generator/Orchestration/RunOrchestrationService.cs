@@ -3,6 +3,7 @@ using System.Diagnostics.Metrics;
 using System.Linq;
 using System.Text.Json;
 using FlowTime.Contracts.Services;
+using FlowTime.Core.Configuration;
 using FlowTime.Core.Execution;
 using FlowTime.Core.Artifacts;
 using FlowTime.Core.Models;
@@ -13,6 +14,7 @@ using FlowTime.Generator.Models;
 using FlowTime.Sim.Core.Services;
 using FlowTime.Sim.Core.Templates;
 using FlowTime.Sim.Core.Templates.Exceptions;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
@@ -36,6 +38,7 @@ public sealed class RunOrchestrationService
     private readonly ITemplateService templateService;
     private readonly TelemetryBundleBuilder bundleBuilder;
     private readonly ILogger<RunOrchestrationService> logger;
+    private readonly string? telemetryRoot;
     private readonly RunManifestReader manifestReader = new();
     private readonly IDeserializer simModelDeserializer = new DeserializerBuilder()
         .IgnoreUnmatchedProperties()
@@ -45,11 +48,36 @@ public sealed class RunOrchestrationService
     public RunOrchestrationService(
         ITemplateService templateService,
         TelemetryBundleBuilder bundleBuilder,
-        ILogger<RunOrchestrationService> logger)
+        ILogger<RunOrchestrationService> logger,
+        IConfiguration? configuration = null)
     {
         this.templateService = templateService ?? throw new ArgumentNullException(nameof(templateService));
         this.bundleBuilder = bundleBuilder ?? throw new ArgumentNullException(nameof(bundleBuilder));
         this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
+
+        var configuredRoot = configuration?["TelemetryRoot"];
+        if (string.IsNullOrWhiteSpace(configuredRoot))
+        {
+            var solutionRoot = DirectoryProvider.FindSolutionRoot();
+            if (solutionRoot is not null)
+            {
+                configuredRoot = Path.Combine(solutionRoot, "examples", "time-travel");
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(configuredRoot))
+        {
+            try
+            {
+                telemetryRoot = Path.GetFullPath(configuredRoot);
+                Directory.CreateDirectory(telemetryRoot);
+            }
+            catch (Exception ex)
+            {
+                this.logger.LogWarning(ex, "Failed to initialize telemetry root from {ConfiguredRoot}. Falling back to legacy absolute path handling.", configuredRoot);
+                telemetryRoot = null;
+            }
+        }
     }
 
     public async Task<RunOrchestrationOutcome> CreateRunAsync(RunOrchestrationRequest request, CancellationToken cancellationToken = default)
@@ -65,10 +93,17 @@ public sealed class RunOrchestrationService
             throw new ArgumentException("Output root must be provided.", nameof(request));
         }
 
-        var outputRoot = Path.GetFullPath(request.OutputRoot);
-        var effectiveParameters = BuildParameters(request);
         var mode = TemplateModeExtensions.Parse(request.Mode ?? "telemetry");
         var modeValue = mode.ToSerializedValue();
+        var captureDirectory = mode == TemplateMode.Telemetry
+            ? ResolveCaptureDirectory(request.CaptureDirectory, templateId)
+            : null;
+        if (mode == TemplateMode.Telemetry && string.IsNullOrWhiteSpace(captureDirectory))
+        {
+            throw new InvalidOperationException("Capture directory must be provided for telemetry runs.");
+        }
+        var outputRoot = Path.GetFullPath(request.OutputRoot);
+        var effectiveParameters = BuildParameters(request, captureDirectory);
 
         logger.LogInformation(
             runStartEvent,
@@ -79,7 +114,7 @@ public sealed class RunOrchestrationService
 
         return mode switch
         {
-            TemplateMode.Telemetry => await CreateTelemetryRunAsync(request, templateId, outputRoot, modeValue, effectiveParameters, cancellationToken).ConfigureAwait(false),
+            TemplateMode.Telemetry => await CreateTelemetryRunAsync(request, templateId, outputRoot, modeValue, effectiveParameters, captureDirectory!, cancellationToken).ConfigureAwait(false),
             TemplateMode.Simulation => await CreateSimulationRunAsync(request, templateId, outputRoot, effectiveParameters, cancellationToken).ConfigureAwait(false),
             _ => throw new InvalidOperationException($"Unsupported template mode '{modeValue}'.")
         };
@@ -122,7 +157,7 @@ public sealed class RunOrchestrationService
             telemetryManifest);
     }
 
-    private Dictionary<string, object> BuildParameters(RunOrchestrationRequest request)
+    private Dictionary<string, object> BuildParameters(RunOrchestrationRequest request, string? resolvedCaptureDirectory)
     {
         var parameters = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
 
@@ -139,12 +174,12 @@ public sealed class RunOrchestrationService
 
         if (request.TelemetryBindings is not null)
         {
-            if (string.IsNullOrWhiteSpace(request.CaptureDirectory))
+            if (string.IsNullOrWhiteSpace(resolvedCaptureDirectory))
             {
                 throw new InvalidOperationException("Telemetry bindings were supplied but capture directory is missing.");
             }
 
-            var captureRoot = Path.GetFullPath(request.CaptureDirectory);
+            var captureRoot = resolvedCaptureDirectory;
             foreach (var binding in request.TelemetryBindings)
             {
                 var parameterName = binding.Key;
@@ -236,20 +271,16 @@ public sealed class RunOrchestrationService
         string outputRoot,
         string modeValue,
         Dictionary<string, object> effectiveParameters,
+        string captureDirectory,
         CancellationToken cancellationToken)
     {
-        var captureDirectory = request.CaptureDirectory is null ? null : Path.GetFullPath(request.CaptureDirectory);
-        if (captureDirectory is null)
-        {
-            logger.LogWarning(runValidationEvent, "Telemetry run requested without capture directory for template {TemplateId}", templateId);
-            throw new InvalidOperationException("Capture directory must be provided for telemetry runs.");
-        }
-
         logger.LogInformation(
             runValidationEvent,
-            "Validated telemetry inputs for template {TemplateId} (captureDir={CaptureDir})",
+            "Validated telemetry inputs for template {TemplateId} (captureDir={CaptureDir}, captureKey={CaptureKey}, root={TelemetryRoot})",
             templateId,
-            captureDirectory);
+            captureDirectory,
+            request.CaptureDirectory,
+            telemetryRoot);
 
         if (request.DryRun)
         {
@@ -347,6 +378,28 @@ public sealed class RunOrchestrationService
         {
             TryDeleteTemporaryFile(tempModelPath);
         }
+    }
+
+    private string? ResolveCaptureDirectory(string? captureDirectory, string templateId)
+    {
+        if (string.IsNullOrWhiteSpace(captureDirectory))
+        {
+            logger.LogWarning(runValidationEvent, "Telemetry run requested without capture directory for template {TemplateId}", templateId);
+            return null;
+        }
+
+        if (Path.IsPathFullyQualified(captureDirectory))
+        {
+            return Path.GetFullPath(captureDirectory);
+        }
+
+        if (!string.IsNullOrWhiteSpace(telemetryRoot))
+        {
+            var combined = Path.Combine(telemetryRoot, captureDirectory);
+            return Path.GetFullPath(combined);
+        }
+
+        return Path.GetFullPath(captureDirectory);
     }
 
     private async Task<RunOrchestrationOutcome> CreateSimulationRunAsync(

@@ -5,6 +5,7 @@ metadata:
   title: 'Manufacturing Production Line'
   description: 'Production line with workstations, quality control, and bottleneck identification'
   version: 1.0.0
+  captureKey: manufacturing-line-telemetry
   tags: [intermediate, manufacturing, production, bottleneck, quality]
 window:
   start: 2025-01-01T00:00:00Z

@@ -5,6 +5,7 @@ metadata:
   title: 'IT System with Microservices'
   description: 'Modern web application with request queues, load balancer, auth service, and database bottlenecks'
   version: 1.0.0
+  captureKey: it-system-telemetry
   tags: [intermediate, microservices, web-scale, modern, it-systems]
 window:
   start: 2025-01-01T00:00:00Z

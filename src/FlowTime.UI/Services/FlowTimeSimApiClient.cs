@@ -343,6 +343,8 @@ public class ApiTemplateInfo
     public List<string> Tags { get; set; } = new();
     public List<ApiTemplateParameter>? Parameters { get; set; }
     public object? Preview { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("captureKey")]
+    public string? CaptureKey { get; set; }
 }
 
 public class ApiTemplateParameter

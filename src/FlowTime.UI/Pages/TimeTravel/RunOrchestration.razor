@@ -1,44 +1,694 @@
 @page "/time-travel/run"
 @using MudBlazor
 @using Microsoft.AspNetCore.Components
+@using System.Linq
+@using FlowTime.UI.Services
+@inject ITemplateService TemplateService
+@inject IFlowTimeApiClient ApiClient
+@inject INotificationService NotificationService
 @inject NavigationManager Navigation
+@inject IRunDiscoveryService RunDiscoveryService
+@inject ILogger<RunOrchestration> Logger
+@inject IJSRuntime JSRuntime
+
+@implements IAsyncDisposable
 
 <PageTitle>Time-Travel Run Orchestration</PageTitle>
 
 <MudPaper Class="pa-6" Elevation="2">
-    <MudText Typo="Typo.h4" GutterBottom="true">Run Orchestration</MudText>
-    @if (!string.IsNullOrWhiteSpace(_errorMessage))
-    {
-        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-4">
-            <MudText Typo="Typo.body1">@_errorMessage</MudText>
-            <MudButton Variant="Variant.Text"
-                       Color="Color.Primary"
-                       StartIcon="@Icons.Material.Filled.ArrowBack"
-                       OnClick="NavigateBack">
-                Back to Artifacts
-            </MudButton>
-        </MudAlert>
-    }
-    else
-    {
-        <MudText Typo="Typo.body1" Color="Color.Secondary">
-            Orchestration controls for run <MudText Typo="Typo.subtitle2" Inline="true">@RunId</MudText> unlock as execution APIs land in UI-M-03.12.
-        </MudText>
-    }
+    <MudStack Spacing="2">
+        <MudText Typo="Typo.h4">Run Orchestration</MudText>
+
+        @if (_templateLoadError is not null)
+        {
+            <MudAlert Severity="Severity.Error">@_templateLoadError</MudAlert>
+        }
+        else if (_loadingTemplates)
+        {
+            <MudProgressLinear Indeterminate="true" Color="Color.Info" />
+            <MudText Typo="Typo.body2">Loading templates…</MudText>
+        }
+        else
+        {
+            <MudPaper Class="pa-4" Elevation="1">
+                <MudGrid Spacing="3">
+                    <MudItem xs="12" md="6">
+                        <MudSelect T="string" Label="Template"
+                                   @bind-Value="SelectedTemplateId"
+                                   Required="true"
+                                   Disabled="_state.IsBusy">
+                            @foreach (var template in _templates)
+                            {
+                                <MudSelectItem Value="@template.Id">
+                                    @template.Name (@template.Version)
+                                </MudSelectItem>
+                            }
+                        </MudSelect>
+                        @if (_templates.Count == 0)
+                        {
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">No templates available.</MudText>
+                        }
+                    </MudItem>
+                    <MudItem xs="12" md="6">
+                        <MudText Typo="Typo.subtitle2">Mode</MudText>
+                        <MudRadioGroup T="OrchestrationMode"
+                                       @bind-Value="Mode"
+                                       Disabled="_state.IsBusy">
+                            <MudRadio Value="OrchestrationMode.Simulation">Simulation</MudRadio>
+                            <MudRadio Value="OrchestrationMode.Telemetry">Telemetry</MudRadio>
+                        </MudRadioGroup>
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudTextField @bind-Value="_parameterText"
+                                      Label="Parameters (JSON or key=value)"
+                                      Lines="6"
+                                      Placeholder="@ParametersPlaceholder"
+                                      Disabled="_state.IsBusy"
+                                      Immediate="true"
+                                      TextUpdateSuppression="true"
+                                      Variant="Variant.Outlined" />
+                    </MudItem>
+                    @if (_mode == OrchestrationMode.Telemetry)
+                    {
+                        <MudItem xs="12">
+                            @if (string.IsNullOrWhiteSpace(_selectedCaptureKey))
+                            {
+                                <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">
+                                    Selected template does not declare a telemetry capture bundle. Configure a `captureKey` in the template metadata or update the backend `TelemetryRoot` to proceed.
+                                </MudAlert>
+                            }
+                            else
+                            {
+                                <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+                                    Using capture bundle <MudText Typo="Typo.subtitle2" Inline="true">@_selectedCaptureKey</MudText>. See the
+                                    <MudLink Href="/docs/operations/telemetry-capture-guide.html" Target="_blank">
+                                        telemetry capture guide
+                                    </MudLink>
+                                    for provisioning steps.
+                                </MudAlert>
+                            }
+                        </MudItem>
+                        <MudItem xs="12" md="6">
+                            <MudTextField @bind-Value="_telemetryBindingsText"
+                                          Label="Bindings (key=value)"
+                                          Lines="4"
+                                          Disabled="_state.IsBusy"
+                                          Variant="Variant.Outlined"
+                                          Placeholder="sensor=pressure-node"/>
+                        </MudItem>
+                    }
+                </MudGrid>
+
+                <MudStack Row="true" Spacing="2" Class="mt-4">
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Secondary"
+                               Disabled="_state.IsBusy || !CanSubmit"
+                               OnClick="@(() => SubmitAsync(dryRun: true))">
+                        Plan Run
+                    </MudButton>
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               Disabled="_state.IsBusy || !CanSubmit"
+                               OnClick="@(() => SubmitAsync(dryRun: false))">
+                        Start Run
+                    </MudButton>
+                    <MudSpacer />
+                    <MudButton Variant="Variant.Text"
+                               Color="Color.Default"
+                               Disabled="_state.IsBusy && _state.Phase != RunOrchestrationPhase.Failure"
+                               OnClick="ResetStateAsync">
+                        Reset
+                    </MudButton>
+                </MudStack>
+            </MudPaper>
+        }
+
+        @if (_state.Phase is RunOrchestrationPhase.Planning or RunOrchestrationPhase.Running)
+        {
+            <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+                <MudText Typo="Typo.subtitle2">
+                    @_statusMessage
+                </MudText>
+                @if (_state.PendingSubmission is not null)
+                {
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                        Submitted @_state.PendingSubmission.SubmittedAtUtc.ToLocalTime():g • @_state.PendingSubmission.TemplateId • @_state.PendingSubmission.Mode.ToApiString()
+                    </MudText>
+                }
+            </MudAlert>
+        }
+        else if (!string.IsNullOrWhiteSpace(_statusMessage))
+        {
+            <MudAlert Severity="Severity.Success" Variant="Variant.Outlined">
+                @_statusMessage
+            </MudAlert>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(_errorMessage))
+        {
+            <MudAlert Severity="Severity.Error" Variant="Variant.Filled">
+                @_errorMessage
+            </MudAlert>
+        }
+
+        @if (_lastPlan is not null)
+        {
+            <MudPaper Class="pa-4 mt-4" Elevation="1">
+                <MudText Typo="Typo.h6">Dry-Run Plan</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    Template: @_lastPlan.TemplateId · Mode: @_lastPlan.Mode · Output: @_lastPlan.OutputRoot
+                </MudText>
+                @if (!string.IsNullOrWhiteSpace(_lastPlan.CaptureDirectory))
+                {
+                    <MudText Typo="Typo.caption">Capture directory: @_lastPlan.CaptureDirectory</MudText>
+                }
+                <MudDivider Class="my-3" />
+                <MudText Typo="Typo.subtitle2">Files</MudText>
+                @if (_lastPlan.Files is { Count: > 0 })
+                {
+                    <MudList T="RunCreatePlanFileDto" Dense="true">
+                        @foreach (var file in _lastPlan.Files)
+                        {
+                            <MudListItem Value="@file">
+                                <MudText>@file.Path</MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">@($"{file.NodeId} · {file.Metric}")</MudText>
+                            </MudListItem>
+                        }
+                    </MudList>
+                }
+                else
+                {
+                    <MudText Typo="Typo.caption">No files scheduled for this plan.</MudText>
+                }
+                <MudDivider Class="my-3" />
+                <MudText Typo="Typo.subtitle2">Warnings</MudText>
+                @if (_lastPlan.Warnings is { Count: > 0 })
+                {
+                    <MudList T="RunCreatePlanWarningDto" Dense="true">
+                        @foreach (var warning in _lastPlan.Warnings)
+                        {
+                            <MudListItem Value="@warning">
+                                <MudText>@($"{warning.Code}: {warning.Message}")</MudText>
+                                @if (!string.IsNullOrWhiteSpace(warning.NodeId) || (warning.Bins?.Count ?? 0) > 0)
+                                {
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                        @FormatPlanWarningMeta(warning)
+                                    </MudText>
+                                }
+                            </MudListItem>
+                        }
+                    </MudList>
+                }
+                else
+                {
+                    <MudText Typo="Typo.caption">No warnings reported.</MudText>
+                }
+            </MudPaper>
+        }
+
+        @if (_state.Phase == RunOrchestrationPhase.Success && _lastMetadata is not null)
+        {
+            <MudPaper Class="pa-4 mt-4" Elevation="1">
+                <MudText Typo="Typo.h6">Run Summary</MudText>
+                <MudStack Spacing="1">
+                    <MudText>Run Id: @_lastMetadata.RunId</MudText>
+                    <MudText>
+                        Template: @(_lastMetadata.TemplateTitle ?? _lastMetadata.TemplateId) (@_lastMetadata.TemplateVersion)
+                    </MudText>
+                    <MudText>Mode: @_lastMetadata.Mode</MudText>
+                    <MudText>Telemetry resolved: @(_lastMetadata.TelemetrySourcesResolved ? "Yes" : "No")</MudText>
+                </MudStack>
+                <MudDivider Class="my-3" />
+                <MudText Typo="Typo.subtitle2">Warnings</MudText>
+                @if (_runWarnings.Count > 0)
+                {
+                    <MudList T="StateWarningDto" Dense="true">
+                        @foreach (var warning in _runWarnings)
+                        {
+                            <MudListItem Value="@warning">
+                                <MudText>@($"{warning.Code}: {warning.Message}")</MudText>
+                                @if (!string.IsNullOrWhiteSpace(warning.NodeId))
+                                {
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">@warning.NodeId</MudText>
+                                }
+                            </MudListItem>
+                        }
+                    </MudList>
+                }
+                else
+                {
+                    <MudText Typo="Typo.caption">No warnings reported.</MudText>
+                }
+                <MudStack Row="true" Spacing="2" Class="mt-3">
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               OnClick="@(() => Navigation.NavigateTo($"/time-travel/dashboard?runId={_lastMetadata.RunId}"))">
+                        Open Dashboard
+                    </MudButton>
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Secondary"
+                               OnClick="@(() => Navigation.NavigateTo($"/time-travel/artifacts?runId={_lastMetadata.RunId}"))">
+                        View Artifacts
+                    </MudButton>
+                </MudStack>
+            </MudPaper>
+        }
+        else if (_state.Phase == RunOrchestrationPhase.Idle && _recentSuccess is not null)
+        {
+            <MudPaper Class="pa-4 mt-4" Elevation="1">
+                <MudText Typo="Typo.h6">Most Recent Run</MudText>
+                <MudStack Spacing="1">
+                    <MudText>Run Id: @_recentSuccess.RunId</MudText>
+                    <MudText>
+                        Template: @(_recentSuccess.TemplateTitle ?? _recentSuccess.TemplateId) (@_recentSuccess.TemplateVersion ?? "latest")
+                    </MudText>
+                    <MudText>Mode: @_recentSuccess.Mode</MudText>
+                    <MudText>Telemetry resolved: @(_recentSuccess.TelemetryResolved ? "Yes" : "No")</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                        Completed @_recentSuccess.CompletedAtUtc.ToLocalTime():g
+                    </MudText>
+                </MudStack>
+                <MudDivider Class="my-3" />
+                <MudText Typo="Typo.subtitle2">Warnings</MudText>
+                @if (_recentSuccess.Warnings is { Count: > 0 })
+                {
+                    <MudList T="RunSuccessWarning" Dense="true">
+                        @foreach (var warning in _recentSuccess.Warnings)
+                        {
+                            <MudListItem Value="@warning">
+                                <MudText>@($"{warning.Code}: {warning.Message}")</MudText>
+                                @if (!string.IsNullOrWhiteSpace(warning.NodeId))
+                                {
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">@($"Node {warning.NodeId}")</MudText>
+                                }
+                            </MudListItem>
+                        }
+                    </MudList>
+                }
+                else
+                {
+                    <MudText Typo="Typo.caption">No warnings reported.</MudText>
+                }
+                <MudStack Row="true" Spacing="2" Class="mt-3">
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               OnClick="@(() => Navigation.NavigateTo($"/time-travel/dashboard?runId={_recentSuccess.RunId}"))">
+                        Open Dashboard
+                    </MudButton>
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Secondary"
+                               OnClick="@(() => Navigation.NavigateTo($"/time-travel/artifacts?runId={_recentSuccess.RunId}"))">
+                        View Artifacts
+                    </MudButton>
+                </MudStack>
+            </MudPaper>
+        }
+    </MudStack>
 </MudPaper>
 
 @code {
-    [Parameter, SupplyParameterFromQuery(Name = "runId")]
-    public string? RunId { get; set; }
+    private const string PendingStorageKey = "ft.time-travel.pending-run";
+    private const string LastRunStorageKey = "ft.time-travel.last-run";
 
+    private readonly RunOrchestrationStateMachine _state = new();
+    private List<TemplateInfo> _templates = new();
+    private string? _selectedTemplateId;
+    private OrchestrationMode _mode = OrchestrationMode.Simulation;
+    private string? _parameterText;
+    private string? _telemetryBindingsText;
+    private bool _loadingTemplates;
+    private string? _templateLoadError;
+    private string? _statusMessage;
     private string? _errorMessage;
+    private RunCreatePlanDto? _lastPlan;
+    private RunMetadataDto? _lastMetadata;
+    private IReadOnlyList<StateWarningDto> _runWarnings = Array.Empty<StateWarningDto>();
+    private CancellationTokenSource? _submissionCts;
+    private const string ParametersPlaceholder = "{ \"seed\": 42 } or key=value per line";
+    private RunSuccessSnapshot? _recentSuccess;
+    private string? _selectedCaptureKey;
 
-    protected override void OnParametersSet()
+    private OrchestrationMode Mode
     {
-        _errorMessage = string.IsNullOrWhiteSpace(RunId)
-            ? "Select a run in Artifacts to orchestrate playback."
-            : null;
+        get => _mode;
+        set
+        {
+            if (_mode == value)
+            {
+                return;
+            }
+
+            _mode = value;
+            if (_mode == OrchestrationMode.Telemetry && string.IsNullOrWhiteSpace(_selectedCaptureKey))
+            {
+                _selectedCaptureKey = GetTemplateCaptureKey(_selectedTemplateId);
+            }
+        }
     }
 
-    private void NavigateBack() => Navigation.NavigateTo("/artifacts");
+    private string? SelectedTemplateId
+    {
+        get => _selectedTemplateId;
+        set
+        {
+            if (_selectedTemplateId == value) return;
+            _selectedTemplateId = value;
+            _selectedCaptureKey = GetTemplateCaptureKey(value);
+            EnsureCaptureKey();
+        }
+    }
+
+    private bool CanSubmit =>
+        !string.IsNullOrWhiteSpace(_selectedTemplateId) &&
+        (_mode != OrchestrationMode.Telemetry || !string.IsNullOrWhiteSpace(_selectedCaptureKey));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTemplatesAsync().ConfigureAwait(false);
+        await RestorePendingSubmissionAsync().ConfigureAwait(false);
+        await LoadRecentSuccessAsync().ConfigureAwait(false);
+    }
+
+    private async Task LoadTemplatesAsync()
+    {
+        try
+        {
+            _loadingTemplates = true;
+            _templates = await TemplateService.GetTemplatesAsync().ConfigureAwait(false);
+            if (_templates.Count > 0 && string.IsNullOrWhiteSpace(_selectedTemplateId))
+            {
+                SelectedTemplateId = _templates[0].Id;
+            }
+            EnsureCaptureKey();
+        }
+        catch (Exception ex)
+        {
+            _templateLoadError = $"Failed to load templates: {ex.Message}";
+            Logger.LogError(ex, "Failed to load templates for orchestration.");
+            NotificationService.Add(_templateLoadError, Severity.Error);
+        }
+        finally
+        {
+            _loadingTemplates = false;
+        }
+    }
+
+    private string? GetTemplateCaptureKey(string? templateId)
+    {
+        if (string.IsNullOrWhiteSpace(templateId)) return null;
+        var template = _templates.FirstOrDefault(t => string.Equals(t.Id, templateId, StringComparison.OrdinalIgnoreCase));
+        return template?.TelemetryCaptureKey;
+    }
+
+    private void EnsureCaptureKey()
+    {
+        if (_mode == OrchestrationMode.Telemetry && string.IsNullOrWhiteSpace(_selectedCaptureKey))
+        {
+            _selectedCaptureKey = GetTemplateCaptureKey(_selectedTemplateId);
+        }
+    }
+
+    private async Task RestorePendingSubmissionAsync()
+    {
+        try
+        {
+            var json = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", PendingStorageKey);
+            var snapshot = RunSubmissionSnapshotStorage.TryDeserialize(json);
+            if (snapshot is null)
+            {
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(_selectedTemplateId))
+            {
+                SelectedTemplateId = snapshot.TemplateId;
+            }
+            _selectedCaptureKey = snapshot.CaptureDirectory ?? GetTemplateCaptureKey(_selectedTemplateId);
+            Mode = snapshot.Mode;
+            _parameterText = snapshot.ParameterText;
+            _telemetryBindingsText = snapshot.TelemetryBindingsText;
+            EnsureCaptureKey();
+
+            _state.RestorePending(snapshot, RunOrchestrationPhase.Planning);
+            _statusMessage = "Submission pending backend response…";
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to restore pending run submission from storage.");
+        }
+    }
+
+    private async Task LoadRecentSuccessAsync()
+    {
+        try
+        {
+            var json = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", LastRunStorageKey);
+            _recentSuccess = RunSuccessSnapshotStorage.TryDeserialize(json);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to restore last run snapshot.");
+        }
+    }
+
+    private async Task SubmitAsync(bool dryRun)
+    {
+        if (_state.IsBusy)
+        {
+            NotificationService.Add("An orchestration request is already in progress.", Severity.Warning);
+            return;
+        }
+
+        EnsureCaptureKey();
+
+        _errorMessage = null;
+        _statusMessage = dryRun ? "Planning run…" : "Starting orchestration…";
+        _lastPlan = null;
+        _lastMetadata = null;
+        _runWarnings = Array.Empty<StateWarningDto>();
+
+        var form = new RunOrchestrationFormModel
+        {
+            TemplateId = _selectedTemplateId,
+            Mode = _mode,
+            ParameterText = _parameterText,
+            CaptureDirectory = _selectedCaptureKey,
+            TelemetryBindingsText = _telemetryBindingsText
+        };
+
+        if (!RunOrchestrationRequestBuilder.TryBuild(form, dryRun, out var request, out var validationError))
+        {
+            _errorMessage = validationError ?? "Invalid form input.";
+            NotificationService.Add(_errorMessage, Severity.Warning);
+            return;
+        }
+
+        var snapshot = new RunSubmissionSnapshot(
+            TemplateId: request!.TemplateId,
+            Mode: _mode,
+            SubmittedAtUtc: DateTimeOffset.UtcNow,
+            IsDryRun: dryRun)
+        {
+            ParameterText = _parameterText,
+            TelemetryBindingsText = _telemetryBindingsText,
+            CaptureDirectory = _selectedCaptureKey
+        };
+
+        if (!_state.TryBeginPlanning(snapshot))
+        {
+            NotificationService.Add("Unable to start orchestration — state machine busy.", Severity.Warning);
+            return;
+        }
+
+        await PersistSnapshotAsync(snapshot).ConfigureAwait(false);
+        _submissionCts?.Cancel();
+        _submissionCts?.Dispose();
+        _submissionCts = new CancellationTokenSource();
+
+        try
+        {
+            if (!dryRun)
+            {
+                _state.PromoteToRunning();
+            }
+
+            var result = await ApiClient.CreateRunAsync(request, _submissionCts.Token).ConfigureAwait(false);
+            await ClearSnapshotAsync().ConfigureAwait(false);
+
+            if (!result.Success || result.Value is null)
+            {
+                var message = BuildErrorMessage(result.StatusCode, result.Error);
+                _state.CompleteFailure(message);
+                _errorMessage = message;
+                NotificationService.Add(message, Severity.Error);
+                Logger.LogWarning("Run orchestration failed: {Status} {Error}", result.StatusCode, result.Error ?? "unknown");
+                return;
+            }
+
+            var payload = result.Value;
+            if (payload.IsDryRun)
+            {
+                _lastPlan = payload.Plan;
+                _state.CompleteSuccess(new RunOrchestrationSuccess("(plan)"));
+                _statusMessage = "Orchestration plan ready.";
+                NotificationService.Add("Plan generated successfully.", Severity.Success);
+            }
+            else
+            {
+                var runId = payload.Metadata?.RunId;
+                if (string.IsNullOrWhiteSpace(runId))
+                {
+                    var missing = "Run completed but runId was not returned.";
+                    _state.CompleteFailure(missing);
+                    _errorMessage = missing;
+                    NotificationService.Add(missing, Severity.Error);
+                    return;
+                }
+
+                _lastMetadata = payload.Metadata;
+                _runWarnings = payload.Warnings ?? Array.Empty<StateWarningDto>();
+                _state.CompleteSuccess(new RunOrchestrationSuccess(runId));
+                _statusMessage = $"Run {runId} created.";
+                NotificationService.Add($"Run {runId} created.", Severity.Success);
+
+                if (_lastMetadata is not null)
+                {
+                    var successSnapshot = new RunSuccessSnapshot(
+                        RunId: runId,
+                        TemplateId: _lastMetadata.TemplateId,
+                        TemplateTitle: _lastMetadata.TemplateTitle,
+                        TemplateVersion: _lastMetadata.TemplateVersion,
+                        Mode: _lastMetadata.Mode,
+                        TelemetryResolved: _lastMetadata.TelemetrySourcesResolved,
+                        CompletedAtUtc: DateTimeOffset.UtcNow,
+                        Warnings: _runWarnings.Count == 0
+                            ? Array.Empty<RunSuccessWarning>()
+                            : _runWarnings.Select(w => new RunSuccessWarning(w.Code, w.Message, w.NodeId)).ToArray());
+
+                    await PersistRecentSuccessAsync(successSnapshot).ConfigureAwait(false);
+                }
+
+                try
+                {
+                    await RunDiscoveryService.LoadRunsAsync(_submissionCts.Token).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogWarning(ex, "Run discovery refresh failed after orchestration.");
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            await ClearSnapshotAsync().ConfigureAwait(false);
+            _state.CompleteFailure("Submission canceled.");
+            _errorMessage = "Submission canceled.";
+        }
+        catch (Exception ex)
+        {
+            await ClearSnapshotAsync().ConfigureAwait(false);
+            Logger.LogError(ex, "Run orchestration failed unexpectedly.");
+            var message = $"Run orchestration failed: {ex.Message}";
+            _state.CompleteFailure(message);
+            _errorMessage = message;
+            NotificationService.Add(message, Severity.Error);
+        }
+        finally
+        {
+            _submissionCts?.Dispose();
+            _submissionCts = null;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task PersistSnapshotAsync(RunSubmissionSnapshot snapshot)
+    {
+        try
+        {
+            var json = RunSubmissionSnapshotStorage.Serialize(snapshot);
+            await JSRuntime.InvokeVoidAsync("localStorage.setItem", PendingStorageKey, json);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to persist orchestration snapshot.");
+        }
+    }
+
+    private async Task ClearSnapshotAsync()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("localStorage.removeItem", PendingStorageKey);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to clear orchestration snapshot.");
+        }
+        finally
+        {
+            _state.ClearPending();
+        }
+    }
+
+    private async Task ResetStateAsync()
+    {
+        _submissionCts?.Cancel();
+        _state.Reset();
+        _statusMessage = null;
+        _errorMessage = null;
+        _lastPlan = null;
+        _lastMetadata = null;
+        _runWarnings = Array.Empty<StateWarningDto>();
+        await ClearSnapshotAsync().ConfigureAwait(false);
+    }
+
+    private async Task PersistRecentSuccessAsync(RunSuccessSnapshot snapshot)
+    {
+        try
+        {
+            var json = RunSuccessSnapshotStorage.Serialize(snapshot);
+            await JSRuntime.InvokeVoidAsync("localStorage.setItem", LastRunStorageKey, json);
+            _recentSuccess = snapshot;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to persist last run snapshot.");
+        }
+    }
+
+    private static string BuildErrorMessage(int statusCode, string? error)
+    {
+        if (statusCode <= 0)
+        {
+            return error ?? "Run orchestration failed.";
+        }
+
+        return string.IsNullOrWhiteSpace(error)
+            ? $"HTTP {statusCode}: Run orchestration failed."
+            : $"HTTP {statusCode}: {error}";
+    }
+
+    private static string FormatPlanWarningMeta(RunCreatePlanWarningDto warning)
+    {
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(warning.NodeId))
+        {
+            parts.Add($"Node {warning.NodeId}");
+        }
+
+        if (warning.Bins is { Count: > 0 })
+        {
+            parts.Add($"bins {string.Join(",", warning.Bins)}");
+        }
+
+        return parts.Count == 0 ? string.Empty : string.Join(" • ", parts);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _submissionCts?.Cancel();
+        _submissionCts?.Dispose();
+        await Task.CompletedTask;
+    }
 }

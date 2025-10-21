@@ -5,6 +5,7 @@ metadata:
   title: 'Multi-Tier Supply Chain'
   description: 'Complex supply chain with suppliers, distributors, retailers, and demand variability'
   version: 1.0.0
+  captureKey: supply-chain-multi-tier-telemetry
   tags: [advanced, supply-chain, multi-tier, variability, logistics]
 window:
   start: 2025-01-01T00:00:00Z

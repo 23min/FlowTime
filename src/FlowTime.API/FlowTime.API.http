@@ -1,5 +1,5 @@
 @host = http://localhost:8080
-@captureDir = /workspaces/flowtime-vnext/examples/time-travel/it-system-telemetry
+@captureDir = it-system-telemetry
 @runsRoot = /workspaces/flowtime-vnext/data/runs
 # Ensure FlowTime.API is running with FLOWTIME_DATA_DIR=/workspaces/flowtime-vnext/data.
 # The samples below use the it-system-microservices template plus the deterministic capture bundle under examples/time-travel/it-system-telemetry (manifest included).

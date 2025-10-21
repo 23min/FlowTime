@@ -147,6 +147,7 @@ public sealed record RunSummaryDto(
 public sealed record RunCreateResponseDto(
     [property: JsonPropertyName("isDryRun")] bool IsDryRun,
     [property: JsonPropertyName("metadata")] RunMetadataDto? Metadata,
+    [property: JsonPropertyName("plan")] RunCreatePlanDto? Plan,
     [property: JsonPropertyName("warnings")] IReadOnlyList<StateWarningDto>? Warnings,
     [property: JsonPropertyName("canReplay")] bool? CanReplay);
 
@@ -176,6 +177,29 @@ public sealed record StateWarningDto(
     [property: JsonPropertyName("message")] string Message,
     [property: JsonPropertyName("severity")] string? Severity,
     [property: JsonPropertyName("nodeId")] string? NodeId);
+
+public sealed record RunCreatePlanDto(
+    [property: JsonPropertyName("templateId")] string TemplateId,
+    [property: JsonPropertyName("mode")] string Mode,
+    [property: JsonPropertyName("outputRoot")] string OutputRoot,
+    [property: JsonPropertyName("captureDirectory")] string? CaptureDirectory,
+    [property: JsonPropertyName("deterministicRunId")] bool DeterministicRunId,
+    [property: JsonPropertyName("requestedRunId")] string? RequestedRunId,
+    [property: JsonPropertyName("parameters")] IReadOnlyDictionary<string, object?> Parameters,
+    [property: JsonPropertyName("telemetryBindings")] IReadOnlyDictionary<string, string> TelemetryBindings,
+    [property: JsonPropertyName("files")] IReadOnlyList<RunCreatePlanFileDto> Files,
+    [property: JsonPropertyName("warnings")] IReadOnlyList<RunCreatePlanWarningDto> Warnings);
+
+public sealed record RunCreatePlanFileDto(
+    [property: JsonPropertyName("nodeId")] string NodeId,
+    [property: JsonPropertyName("metric")] string Metric,
+    [property: JsonPropertyName("path")] string Path);
+
+public sealed record RunCreatePlanWarningDto(
+    [property: JsonPropertyName("code")] string Code,
+    [property: JsonPropertyName("message")] string Message,
+    [property: JsonPropertyName("nodeId")] string? NodeId,
+    [property: JsonPropertyName("bins")] IReadOnlyList<int>? Bins);
 
 public sealed record RunCreateRequestDto(
     [property: JsonPropertyName("templateId")] string TemplateId,
