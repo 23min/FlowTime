@@ -28,6 +28,7 @@ Phase 1 — Align With M3 (Refactor and Restore)
 - [x] UI-M-03.15 — Gold Data Access Service (REST) (complete — REST client & data service)
 - [ ] UI-M-03.16 — Run Orchestration Page (skeleton) (planned)
 - [ ] TT-M-03.17 — Telemetry Auto-Capture Orchestration (planned)
+- [ ] TT-M-03.18 — Telemetry Auto-Capture (Seeded RNG Support) (planned)
 - [ ] UI-M-03.18 — QA & Docs Pass (planned)
 
 Phase 2 — Minimal Time‑Travel Visualizations

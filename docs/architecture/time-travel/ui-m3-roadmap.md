@@ -81,6 +81,10 @@ Session 8: QA + Docs
 - Outcome: Pass through basic flows; update inline help; capture known gaps.
 - Checks: Regression pass on Simulate/Artifacts/Time‑Travel routing.
 
+Session 9: Seeded Telemetry Loop (RNG Templates)
+- Outcome: Auto-capture handles templates with PMF/RNG nodes by storing deterministic seeds; telemetry bundles become reproducible.
+- Checks: Seed logged in metadata, UI surfaces seed info, replay uses generated bundle without reseeding.
+
 ---
 
 ## Phase 2 — Minimal Time-Travel Visualizations
@@ -155,6 +159,7 @@ We use UI-M-XX.XX with bands per phase to keep sessions small and reviewable.
   - UI-M-03.15 — Gold Data Access Service (REST) (complete — REST client + data service)
   - UI-M-03.16 — Run Orchestration Page (skeleton)
   - TT-M-03.17 — Telemetry Auto-Capture Orchestration (auto-generate capture bundles when missing)
+  - TT-M-03.18 — Telemetry Auto-Capture (Seeded RNG Support)
   - UI-M-03.18 — QA & Docs Pass
 
 - Phase 2 — Minimal Time‑Travel Visualizations
