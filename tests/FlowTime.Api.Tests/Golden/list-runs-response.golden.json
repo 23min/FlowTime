@@ -7,7 +7,13 @@
       "templateVersion": "1.0.0",
       "mode": "telemetry",
       "createdUtc": null,
-      "warningCount": 0
+      "warningCount": 0,
+      "telemetry": {
+        "available": true,
+        "generatedAtUtc": "GENERATED_AT_UTC",
+        "warningCount": 0,
+        "sourceRunId": "CAPTURE_SOURCE_RUN_ID"
+      }
     }
   ],
   "totalCount": 1,

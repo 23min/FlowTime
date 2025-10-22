@@ -138,6 +138,23 @@ public class RunOrchestrationGoldenTests : IClassFixture<TestWebApplicationFacto
         {
             obj["warnings"] = obj["warnings"] ?? new JsonArray();
             obj["canReplay"] = obj["canReplay"] is null ? JsonValue.Create<bool?>(null) : obj["canReplay"];
+            if (obj["telemetry"] is JsonObject telemetry)
+            {
+                var available = telemetry["available"]?.GetValue<bool?>() ?? false;
+                telemetry["available"] = available;
+                telemetry["generatedAtUtc"] = telemetry["generatedAtUtc"] is null ? null : "GENERATED_AT_UTC";
+                telemetry["warningCount"] = telemetry["warningCount"] ?? JsonValue.Create(0);
+                if (!available)
+                {
+                    telemetry["sourceRunId"] = null;
+                }
+                else
+                {
+                    var sourceNode = telemetry["sourceRunId"];
+                    var sourceValue = sourceNode?.GetValue<string?>();
+                    telemetry["sourceRunId"] = string.IsNullOrWhiteSpace(sourceValue) ? null : "CAPTURE_SOURCE_RUN_ID";
+                }
+            }
         }
 
         if (clone["metadata"] is JsonObject metadata)
@@ -174,6 +191,23 @@ public class RunOrchestrationGoldenTests : IClassFixture<TestWebApplicationFacto
                     if (item["createdUtc"] is not null)
                     {
                         item["createdUtc"] = "CREATED_UTC";
+                    }
+                    if (item["telemetry"] is JsonObject telemetry)
+                    {
+                        var available = telemetry["available"]?.GetValue<bool?>() ?? false;
+                        telemetry["available"] = available;
+                        telemetry["generatedAtUtc"] = telemetry["generatedAtUtc"] is null ? null : "GENERATED_AT_UTC";
+                        telemetry["warningCount"] = telemetry["warningCount"] ?? JsonValue.Create(0);
+                        if (!available)
+                        {
+                            telemetry["sourceRunId"] = null;
+                        }
+                        else
+                        {
+                            var sourceNode = telemetry["sourceRunId"];
+                            var sourceValue = sourceNode?.GetValue<string?>();
+                            telemetry["sourceRunId"] = string.IsNullOrWhiteSpace(sourceValue) ? null : "CAPTURE_SOURCE_RUN_ID";
+                        }
                     }
                     firstClone ??= item.DeepClone();
                 }

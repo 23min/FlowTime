@@ -1,7 +1,7 @@
 # TT-M-03.17 Implementation Tracking
 
 **Milestone:** TT-M-03.17 — Telemetry Auto-Capture Orchestration  
-**Status:** 📋 Planned  
+**Status:** 🚧 In Progress  
 **Branch:** `feature/time-travel-telemetry-autocapture`  
 **Assignee:** [TBD]
 
@@ -11,23 +11,24 @@
 
 > Add dated entries as implementation proceeds (design notes, PRs, manual validation).
 
-### YYYY-MM-DD — Milestone Kickoff
-- Reviewed TT-M-03.17 spec; aligned on API/UI scope.
-- TDD plan drafted (unit + integration + UI tests).
+### 2025-10-21 — Plan realignment: Explicit generation
+- Replaced auto-generation approach with explicit telemetry generation endpoint plan.
+- Drafted `telemetry-generation-explicit.md` and updated roadmap/milestones.
+- Next: implement endpoint + run metadata summary; realign UI to Artifacts/Run detail.
 
 ---
 
 ## Current Status
 
 ### Overall Progress
-- [ ] Backend auto-capture helper implemented
-- [ ] `/v1/runs` API extended with auto-capture flow
-- [ ] UI orchestration messaging updated
-- [ ] Documentation refreshed (guide + roadmap)
+- [ ] Telemetry generation endpoint implemented
+- [ ] Run metadata telemetry summary added
+- [ ] Artifacts/Run detail UI updated (generate + replay selection)
+- [x] Documentation updated (working plan + roadmap)
 
 ### Test Status
-- Backend unit tests: pending
-- API integration tests: pending
+- Endpoint tests: pending
+- Run metadata summary tests: pending
 - UI tests: pending
 - Manual verification: pending
 
@@ -41,11 +42,10 @@
 ---
 
 ## Next Steps
-1. Add failing unit tests for auto-capture detection/generation.
-2. Add failing `/v1/runs` integration tests covering generate/reuse/error paths.
-3. Implement backend helpers and wiring until tests pass.
-4. Update UI messaging/tests.
-5. Refresh docs and perform manual validation checklist.
+1. Implement `POST /v1/telemetry/captures` and tests.
+2. Add telemetry availability summary to run detail/list.
+3. Update UI (Run detail) with generation action and replay gating.
+4. Refresh capture guide and screenshots.
 
 ---
 

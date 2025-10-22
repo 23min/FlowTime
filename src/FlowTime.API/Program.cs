@@ -51,6 +51,7 @@ builder.Services.AddSingleton<SimITemplateService>(sp =>
 });
 builder.Services.AddSingleton<TelemetryBundleBuilder>();
 builder.Services.AddSingleton<RunOrchestrationService>();
+builder.Services.AddSingleton<TelemetryGenerationService>();
 builder.Services.AddSingleton<StateQueryService>();
 builder.Services.AddHttpLogging(o =>
 {
@@ -123,6 +124,7 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider) =>
 // V1 API Group
 var v1 = app.MapGroup("/v1");
 v1.MapRunOrchestrationEndpoints();
+v1.MapTelemetryCaptureEndpoints();
 
 // Artifacts registry endpoints
 v1.MapPost("/artifacts/index", async (IArtifactRegistry registry, ILogger<Program> logger) =>
@@ -1000,6 +1002,30 @@ public partial class Program
         {
             // For FlowTime API, runs are stored directly in the data directory
             return DataRoot(configuration);
+        }
+
+        public static string? TelemetryRoot(IConfiguration? configuration = null)
+        {
+            var configured = configuration?["TelemetryRoot"];
+            if (!string.IsNullOrWhiteSpace(configured))
+            {
+                var path = Path.IsPathRooted(configured)
+                    ? configured
+                    : Path.Combine(DirectoryProvider.FindSolutionRoot() ?? Directory.GetCurrentDirectory(), configured);
+
+                Directory.CreateDirectory(path);
+                return path;
+            }
+
+            var solutionRoot = DirectoryProvider.FindSolutionRoot();
+            if (solutionRoot is null)
+            {
+                return null;
+            }
+
+            var fallback = Path.Combine(solutionRoot, "examples", "time-travel");
+            Directory.CreateDirectory(fallback);
+            return fallback;
         }
     }
 

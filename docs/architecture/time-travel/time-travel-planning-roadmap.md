@@ -595,6 +595,7 @@ The M-03.x milestones provide the backend surface required for the time-travel U
 - Dedicated run-orchestration APIs (`POST /v1/runs`, listings) land across two milestones:
   - M-03.02.01 adds simulation-mode orchestration so synthetic runs can be generated without telemetry inputs.
   - M-03.04 adds the telemetry-mode path and run listings. Until both ship, UI teams rely on CLI workflows or pre-generated fixtures.
+  - TT-M-03.17 adds an explicit telemetry generation endpoint (`POST /v1/telemetry/captures`) so operators can create bundles from simulation runs; `/v1/runs` does not auto-generate.
 
 ### Integration Checklist
 - Respect backend-provided timestamps; compute client timelines as `start + binIndex × binMinutes`.

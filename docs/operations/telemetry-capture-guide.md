@@ -129,10 +129,27 @@ Content-Type: application/json
 - `GET /v1/runs` returns the canonical summary list (run id, template metadata, creation timestamp, warning count).
 - Add `mode`, `templateId`, `hasWarnings`, `page`, and `pageSize` query parameters to slice the listing (defaults: `page=1`, `pageSize=50`, capped at 200).
 - `GET /v1/runs/{runId}` mirrors the metadata envelope returned by `/state`, making it safe for operators or UI clients to validate provenance before replaying a run.
-- If the capture directory is missing `manifest.json`, the service returns `422` with a helpful error describing the missing artifact.
 - `/v1/runs/{runId}/state` validates the generated model; the bundled it-system template includes the required semantics, but a custom template without `semantics.errors` on `service` nodes still triggers `409 Conflict`.
 - Run orchestration emits `run_created` / `run_failed` structured logs (template id, run id, mode) so you can wire the API into existing monitoring pipelines.
 - Configure the telemetry root via `TelemetryRoot` in `appsettings.json` (or environment). When unspecified the service falls back to `<solution-root>/examples/time-travel`, allowing local development to use the checked-in capture bundles immediately.
+
+#### Generating telemetry explicitly (new)
+
+Use the dedicated endpoint to create a telemetry bundle from an existing simulation run:
+
+```http
+POST /v1/telemetry/captures
+Content-Type: application/json
+
+{
+  "source": { "type": "run", "runId": "RUN_123" },
+  "output": { "captureKey": "it-system-telemetry", "overwrite": false }
+}
+```
+
+- On success, the response includes a capture status object (generated vs already exists) and a warning list.
+- If a bundle already exists and `overwrite=false`, the endpoint returns `409 Conflict`.
+- The UI surfaces telemetry availability (yes/no), generated‑at timestamp, and warning count; it does not display filesystem paths.
 
 ### CLI parity
 

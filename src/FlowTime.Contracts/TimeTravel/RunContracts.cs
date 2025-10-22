@@ -33,6 +33,7 @@ public sealed class RunCreateResponse
     public RunCreatePlan? Plan { get; init; }
     public IReadOnlyList<StateWarning> Warnings { get; init; } = Array.Empty<StateWarning>();
     public bool? CanReplay { get; init; }
+    public RunTelemetrySummary? Telemetry { get; init; }
 }
 
 public sealed class RunSummaryResponse
@@ -52,6 +53,7 @@ public sealed class RunSummary
     public string Mode { get; init; } = "telemetry";
     public DateTimeOffset? CreatedUtc { get; init; }
     public int WarningCount { get; init; }
+    public RunTelemetrySummary? Telemetry { get; init; }
 }
 
 public sealed class RunCreatePlan
@@ -81,4 +83,45 @@ public sealed class RunCreatePlanWarning
     public required string Message { get; init; }
     public string? NodeId { get; init; }
     public IReadOnlyList<int>? Bins { get; init; }
+}
+
+public sealed class RunTelemetrySummary
+{
+    public bool Available { get; init; }
+    public string? GeneratedAtUtc { get; init; }
+    public int WarningCount { get; init; }
+    public string? SourceRunId { get; init; }
+}
+
+public sealed class TelemetryCaptureRequest
+{
+    public TelemetryCaptureSource Source { get; init; } = new();
+    public TelemetryCaptureOutput Output { get; init; } = new();
+}
+
+public sealed class TelemetryCaptureSource
+{
+    public string Type { get; init; } = "run";
+    public string? RunId { get; init; }
+}
+
+public sealed class TelemetryCaptureOutput
+{
+    public string? CaptureKey { get; init; }
+    public string? Directory { get; init; }
+    public bool Overwrite { get; init; }
+}
+
+public sealed class TelemetryCaptureResponse
+{
+    public required TelemetryCaptureSummary Capture { get; init; }
+}
+
+public sealed class TelemetryCaptureSummary
+{
+    public bool Generated { get; init; }
+    public bool AlreadyExists { get; init; }
+    public string? GeneratedAtUtc { get; init; }
+    public string? SourceRunId { get; init; }
+    public IReadOnlyList<StateWarning> Warnings { get; init; } = Array.Empty<StateWarning>();
 }

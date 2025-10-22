@@ -1,104 +1,75 @@
-# TT-M-03.17 — Telemetry Auto-Capture Orchestration
+# TT-M-03.17 — Explicit Telemetry Generation
 
-**Status:** 📋 Proposed  
+**Status:** 🚧 In Progress  
 **Dependencies:** ✅ UI-M-03.16 (Run Orchestration Page), ✅ M-03.04 (/v1/runs API), ✅ M-03.02 (Simulation orchestration)  
 **Owners:** Time-Travel Platform / UI Core  
-**Target Outcome:** End-to-end "simulate → capture → replay" loop that can be initiated from the existing Run Orchestration page without requiring manual telemetry bundle creation.
+**Target Outcome:** Add a separate endpoint to generate telemetry bundles from existing simulation runs, surface minimal availability metadata, and keep `/v1/runs` free of auto-generation.
 
 ---
 
 ## Overview
 
-UI-M-03.16 delivered the Run Orchestration surface, but telemetry replays still depend on a capture bundle pre-existing under the API's `TelemetryRoot`. TT-M-03.17 fills that gap by automating the capture generation flow whenever a request targets a template that exposes `metadata.captureKey` but lacks a corresponding bundle. The milestone is intentionally narrow: extend the orchestration backend, surface the auto-capture state in the UI, and document the behaviour so operators have a predictable loop.
+Telemetry replay requires a capture bundle. TT‑M‑03.17 introduces an explicit, operator‑initiated telemetry generation step exposed via a new API. Operators trigger telemetry generation from the run detail view; the UI then enables telemetry replay once the bundle is available. No auto‑generation occurs within run creation.
 
 ### Goals
-- Remove the manual "seed capture bundle" prerequisite for templates that advertise a capture key.
-- Keep orchestration idempotent: if a bundle already exists, reuse it without re-running simulation.
-- Preserve the UI contract: operators still select template + mode + bindings; the extra work happens server-side.
-- Maintain test-first discipline (unit + integration) so the new workflow is protected from regressions.
+- Make telemetry generation explicit and separable from run creation.
+- Provide a minimal telemetry availability summary in run detail/list responses (available, generatedAt, warningCount, optional sourceRunId).
+- Keep paths internal; UI does not surface directories.
+- CLI parity via a thin wrapper that calls the same endpoint.
 
 ### Non Goals
-- Building a general-purpose telemetry generation UI. The existing page only gains status messaging.
-- Supporting stochastic templates whose models rely on RNG/PMF. Such templates remain blocked and must surface a clear warning.
-- Changing template metadata format beyond the already adopted `metadata.captureKey`.
+- Auto‑generation inside `/v1/runs`.
+- RNG/PMF seed management (moved to TT‑M‑03.19).
+- UI exposure of filesystem paths.
 
 ---
 
 ## Scope
 
 ### In Scope ✅
-1. **Backend orchestration changes**
-   - Extend `RunOrchestrationService` (and related endpoints) to detect missing capture bundles when `captureKey` is provided.
-   - Automatically run a simulation (if needed), then execute telemetry capture into `TelemetryRoot/<captureKey>`.
-   - Cache the capture result so subsequent telemetry runs reuse the bundle without recreating it.
-2. **API contract tweaks**
-   - Add an optional flag in the orchestration request (`options.autoCapture` default `true`) to control the behaviour.
-   - Emit progress metadata in the response (e.g., `captureGenerated`, `captureWarnings`).
-3. **UI updates**
-   - Display in-progress messaging while auto-capture runs (e.g., "Generating telemetry bundle...").
-   - Report success or warning states if capture creation was skipped or blocked.
-4. **Documentation & operational notes**
-   - Update `telemetry-capture-guide.md` and the roadmap to reflect the new automated loop.
-5. **Automated tests**
-   - Unit tests around orchestration state machine.
-   - Integration tests hitting `/v1/runs` covering the new paths (capture exists, capture generated, capture blocked).
+1. **New endpoint**: `POST /v1/telemetry/captures` (from existing simulation run)
+2. **Service**: capture from canonical run, write `manifest.json` and `autocapture.json` (templateId, captureKey, sourceRunId, generatedAtUtc, parametersHash)
+3. **Run metadata**: telemetry summary in detail/list responses (available, generatedAtUtc, warningCount, optional sourceRunId)
+4. **UI**: run detail actions — Generate telemetry; Replay from model; Replay from telemetry (when available)
+5. **Docs & tests**: capture guide, roadmap updates; endpoint + UI tests
 
 ### Out of Scope ❌
-- UI-driven configuration of capture destinations or custom parameter overrides.
-- Auto-generation of captures for templates marked stochastic (RNG or PMF nodes).
-- Telemetry bundle cleanup or eviction policies.
+- Auto‑generation inside `/v1/runs`.
+- RNG/PMF seed management.
+- Telemetry bundle cleanup/retention policies.
 
 ---
 
 ## Functional Requirements
 
-1. **FR1 — Auto-capture trigger**  
-   When a telemetry run is requested, the backend must determine whether the associated capture bundle exists. If not, it generates it automatically before proceeding with the telemetry replay.
-
-2. **FR2 — Idempotency**  
-   Repeated telemetry runs for the same template/capture key should not regenerate the bundle unless explicitly forced.
-
-3. **FR3 — Status transparency**  
-   API responses and UI notifications must indicate whether a bundle was generated, reused, or skipped (with reason).
-
-4. **FR4 — Failure handling**  
-   If auto-capture fails (e.g., stochastic template), return a structured error (`code`, `message`, `details`) and ensure the UI surfaces it clearly.
-
-5. **FR5 — Opt-out**  
-   Operators should be able to set `options.autoCapture = false` for advanced scenarios (e.g., manual bundle injection) without altering existing contracts.
+1. **FR1 — Explicit trigger**: Generation only via `POST /v1/telemetry/captures`.
+2. **FR2 — Preconditions**: v1 accepts `source: { type: "run", runId }`.
+3. **FR3 — Idempotency**: 409 on existing bundle unless `overwrite=true`.
+4. **FR4 — Provenance summary**: Run detail/list include telemetry availability summary (no filesystem paths).
+5. **FR5 — Failure handling**: Structured errors on invalid source/outputs.
 
 ### Non-Functional Requirements
-- **NFR1 — Observability:** Log autocapture lifecycle events (start, reuse, success, failure) with template/capture identifiers.
-- **NFR2 — Performance:** Auto-capture must reuse deterministic runs where possible to avoid unnecessary rework; long-running steps should stream progress to logs.
-- **NFR3 — Testability:** Provide deterministic integration tests by seeding templates and verifying filesystem results under temporary directories.
-- **NFR4 — Security:** Do not loosen filesystem sandboxing; only operate under configured roots (`TelemetryRoot`, `RunsRoot`).
+- **NFR1 — Observability:** Log generation lifecycle events with template/capture identifiers.
+- **NFR2 — Performance:** Avoid unnecessary work; reuse bundles via 409/overwrite.
+- **NFR3 — Testability:** Endpoint + UI tests; temp directories for isolation.
+- **NFR4 — Security:** Operate only under configured roots (`TelemetryRoot`, `RunsRoot`).
 
 ---
 
 ## Implementation Plan (High Level)
 
-1. **Backend orchestration enhancement**
-   - Inject telemetry bundle resolver into `RunOrchestrationService`.
-   - Add helper that checks for existing bundle and either reuses or creates it (simulation + capture).
-   - Update API endpoint (`RunOrchestrationEndpoints`) to include `autoCapture` flag and propagate capture status in the response DTO.
-2. **File-system helpers**
-   - Normalize capture paths to `TelemetryRoot/<captureKey>`.
-   - Write simple metadata (e.g., `bundle.json`) tracking creation timestamp and source runId for auditing.
-3. **UI adjustments**
-   - Extend `RunOrchestrationModels` to reflect new response fields.
-   - Show progress indicator while capture is in-flight; present alerts for skip/failure states.
-4. **Documentation & roadmap**
-   - Update architecture docs to note the automated loop.
-   - Add operational guidance (how to disable auto-capture, known limitations).
-5. **Testing**
-   - Unit tests for new helper functions.
-   - Integration tests in `FlowTime.Api.Tests` simulating capture generation and reuse scenarios.
+1. Endpoint + service to capture from an existing run.
+2. Run metadata summary fields for telemetry availability.
+3. UI actions in run detail (generate / replay selection).
+4. Docs updated (guide + roadmap).
+5. Tests for endpoint + UI provenance.
 
 ### Deliverables
-- Updated backend service + endpoint.
-- Enhanced UI run orchestration flow (progress + messaging).
-- Revised docs (milestone tracker, telemetry capture guide, roadmap).
-- Automated tests demonstrating auto-capture success, reuse, and failure handling.
+- `POST /v1/telemetry/captures` + service implementation.
+- Run metadata telemetry summary.
+- Run detail UI with generation action and replay gating.
+- Updated docs (guide, roadmap, trackers).
+- Automated tests for generate/reuse/errors and UI.
 
 ---
 
@@ -122,29 +93,28 @@ Each test should fail prior to implementation, then pass once the feature code i
 - **UI tests:** Extend existing component/service tests to assert status messaging flows.
 
 ### Manual Verification
-1. Kick off telemetry run for a template without an existing bundle; observe auto-capture progress and ensure the run completes.
-2. Repeat the same telemetry run; confirm capture is reused (no long-running regeneration).
-3. Attempt telemetry run for a stochastic template; ensure UI surfaces a clear error.
-4. Toggle `autoCapture = false` via dev tools and verify that the API rejects missing bundles (documented behaviour).
+1. Open run detail for a simulation run → telemetry unavailable.
+2. Click “Generate telemetry” → endpoint returns success; availability turns true with timestamp.
+3. Click “Replay from telemetry” → run created successfully.
+4. Retry generation without overwrite → 409; with overwrite → success.
 
 ---
 
 ## Risks & Mitigations
-- **Long-running simulations:** Mitigate via progress logging and UI messaging.
-- **Filesystem errors:** Validate permissions and root paths early; fail fast with actionable error details.
-- **Template misconfiguration:** If capture key is missing, fall back to the current behaviour (require manual bundle) and inform the user.
+- **Long-running work:** Keep capture logs visible; don’t block `/v1/runs` requests.
+- **Filesystem errors:** Validate roots early; return actionable errors.
+- **Template misconfig:** If `captureKey` missing, allow explicit directory override.
 
 ---
 
 ## Open Questions
-1. Should auto-capture results be cached beyond the filesystem (e.g., database metadata)? (Default: filesystem metadata only.)
-2. Do we need throttling to prevent concurrent auto-capture for the same template? (Likely yes; guard with simple lock.)
-3. What retention policy, if any, should be applied to generated canonical runs used only for capture? (Documented as follow-up if needed.)
+1. Should `/v1/telemetry/captures` support `source: { type:"simulate", templateId, parameters }` later? (Out of scope.)
+2. Do we expose warning details in the summary or only counts? (Proposed: counts only.)
+3. Retention policy for generated bundles? (Deferred.)
 
 ---
 
 ## References
 - `docs/operations/telemetry-capture-guide.md`
 - `docs/milestones/UI-M-03.16.md`
-- `src/FlowTime.Generator/TelemetryCapture.cs`
-- `src/FlowTime.Generator/Orchestration/RunOrchestrationService.cs`
+- `docs/architecture/time-travel/telemetry-generation-explicit.md`

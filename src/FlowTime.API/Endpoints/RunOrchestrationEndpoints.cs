@@ -81,7 +81,8 @@ internal static class RunOrchestrationEndpoints
                     IsDryRun = true,
                     Plan = BuildPlan(plan),
                     Warnings = Array.Empty<StateWarning>(),
-                    CanReplay = false
+                    CanReplay = false,
+                    Telemetry = null
                 });
             }
 
@@ -95,7 +96,8 @@ internal static class RunOrchestrationEndpoints
                 IsDryRun = false,
                 Metadata = metadata,
                 Warnings = warnings,
-                CanReplay = canReplay
+                CanReplay = canReplay,
+                Telemetry = BuildTelemetrySummary(result)
             });
         }
         catch (TemplateValidationException ex)
@@ -268,7 +270,7 @@ internal static class RunOrchestrationEndpoints
         var metadata = BuildStateMetadata(result);
         var warnings = BuildStateWarnings(result.TelemetryManifest);
         var canReplay = DetermineCanReplay(result);
-        return Results.Ok(new RunCreateResponse { IsDryRun = false, Metadata = metadata, Warnings = warnings, CanReplay = canReplay });
+        return Results.Ok(new RunCreateResponse { IsDryRun = false, Metadata = metadata, Warnings = warnings, CanReplay = canReplay, Telemetry = BuildTelemetrySummary(result) });
     }
 
     private static Dictionary<string, object?> ConvertParameters(Dictionary<string, JsonElement>? source)
@@ -356,7 +358,25 @@ internal static class RunOrchestrationEndpoints
             TemplateVersion = result.ManifestMetadata.TemplateVersion,
             Mode = result.ManifestMetadata.Mode,
             CreatedUtc = created,
-            WarningCount = result.TelemetryManifest.Warnings?.Count ?? 0
+            WarningCount = result.TelemetryManifest.Warnings?.Count ?? 0,
+            Telemetry = BuildTelemetrySummary(result)
+        };
+    }
+
+    private static RunTelemetrySummary BuildTelemetrySummary(RunOrchestrationResult result)
+    {
+        var manifest = result.TelemetryManifest;
+        var available = manifest.Files is { Count: > 0 };
+        var warnings = manifest.Warnings?.Count ?? 0;
+        var generatedAtUtc = manifest.Provenance?.CapturedAtUtc;
+        var sourceRunId = manifest.Provenance?.RunId;
+
+        return new RunTelemetrySummary
+        {
+            Available = available,
+            GeneratedAtUtc = generatedAtUtc,
+            WarningCount = warnings,
+            SourceRunId = string.IsNullOrWhiteSpace(sourceRunId) ? null : sourceRunId
         };
     }
 

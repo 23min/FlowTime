@@ -212,9 +212,36 @@ NodeTimeBin (Minimal + Pragmatic):
 
 ---
 
+### Q7: Telemetry Generation Trigger ✅
+
+**Decision:** **Option B - Explicit Generation Endpoint (No Auto-Capture)**
+
+**Rationale:**
+- Keeps simulation and telemetry replay concerns separated; no hidden side effects
+- Operators choose when to create telemetry, matching future real-data flows
+- Prevents filesystem path leakage in API responses by surfacing metadata only
+- Easier to remove once live telemetry ingestion lands (isolated endpoint/UI action)
+- Aligns with provenance goals: capture summary recorded alongside run metadata
+
+**Implementation Notes:**
+- Introduce `POST /v1/telemetry/captures`:
+  - Accepts `{ source: { type: "run", runId }, output: { captureKey?|directory?, overwrite } }`
+  - Runs `TelemetryGenerationService` to read canonical artifacts and emit bundle + `autocapture.json`
+  - Enforces overwrite semantics (`overwrite: false` → 409 if bundle exists)
+- `/v1/runs` remains focused on run creation (simulation or telemetry replay); **no** auto-generation path or `autoCapture` flag
+- Run metadata now exposes telemetry summary block (available, generatedAtUtc, warningCount, optional sourceRunId) without directory paths
+- Telemetry bundles always store `manifest.json` + metadata (`templateId`, `captureKey`, `sourceRunId`, `generatedAtUtc`, `parametersHash`)
+
+**Impact on Milestones:**
+- TT-M-03.17: Backend endpoint + service finalized; run metadata summary populated; golden responses updated
+- TT-M-03.18: UI consumes telemetry summary to enable "Generate telemetry / Replay model / Replay telemetry" actions
+- Ongoing: Telemetry capture guide, architecture docs, and decision log aligned to explicit trigger model
+
+---
+
 ## Summary: All Decisions Complete ✅
 
-**Milestones:** M-03.00 through M-03.03 (with M-03.02.01 covering simulation orchestration)
+**Milestones:** M-03.00 through M-03.03 (with M-03.02.01 covering simulation orchestration). TT‑M‑03.17 adds explicit telemetry generation; TT‑M‑03.18 polishes replay selection UI.
 
 **Key Decisions:**
 1. ✅ Capacity: Optional (Q1)
@@ -223,6 +250,7 @@ NodeTimeBin (Minimal + Pragmatic):
 4. ✅ Inference: Defer to M-03.04+ (Q4)
 5. ✅ /state Priority: M-03.01 before TelemetryLoader, with fixtures in M-03.00 (Q5)
 6. ✅ Gold Schema: Simplified with flexible loader (Q6)
+7. ✅ Telemetry Generation Trigger: Explicit endpoint (no auto-generation in `/v1/runs`) (Q7)
 
 **Next Steps:**
 1. Create detailed M-03.00 specification

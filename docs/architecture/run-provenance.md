@@ -274,6 +274,26 @@ nodes:
 }
 ```
 
+### Telemetry Availability Summary (Run Detail)
+
+To allow the UI to choose between replaying the model or telemetry without exposing filesystem paths, run detail/list responses should include a minimal telemetry summary alongside existing metadata:
+
+```json
+{
+  "metadata": { /* … */ },
+  "telemetry": {
+    "available": true,
+    "generatedAtUtc": "2025-10-21T12:34:56Z",
+    "warningCount": 2,
+    "sourceRunId": "RUN_123"
+  }
+}
+```
+
+Notes:
+- This mirrors information captured on disk (e.g., telemetry metadata files) but avoids surfacing directories/paths.
+- The UI should rely on this summary for affordances and keep paths internal to the service.
+
 ### New Query Endpoints
 
 **Filter runs by provenance:**

@@ -132,9 +132,10 @@ Session 7: Documentation + Stabilization
 ---
 
 ## Deliverables Summary
-- Restored Artifacts page and Time‑Travel navigation.
+- Restored Artifacts page and Time-Travel navigation.
 - Minimal SLA Dashboard, Topology with scrubber, Node Detail panel.
 - Run Orchestration page (skeleton) that executes bundling/ingest workflow and registers runs.
+- Explicit telemetry generation: operator-initiated action and API endpoint to create telemetry bundles; UI surfaces availability (not paths) and generated-at/ warning count.
 - Data adapter for gold files (`graph.json`, `state_window.json`, `metrics.json`).
 
 ---

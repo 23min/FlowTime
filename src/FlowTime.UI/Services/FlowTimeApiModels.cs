@@ -142,14 +142,16 @@ public sealed record RunSummaryDto(
     [property: JsonPropertyName("templateVersion")] string? TemplateVersion,
     [property: JsonPropertyName("mode")] string Mode,
     [property: JsonPropertyName("createdUtc")] DateTimeOffset? CreatedUtc,
-    [property: JsonPropertyName("warningCount")] int WarningCount);
+    [property: JsonPropertyName("warningCount")] int WarningCount,
+    [property: JsonPropertyName("telemetry")] RunTelemetrySummaryDto? Telemetry);
 
 public sealed record RunCreateResponseDto(
     [property: JsonPropertyName("isDryRun")] bool IsDryRun,
     [property: JsonPropertyName("metadata")] RunMetadataDto? Metadata,
     [property: JsonPropertyName("plan")] RunCreatePlanDto? Plan,
     [property: JsonPropertyName("warnings")] IReadOnlyList<StateWarningDto>? Warnings,
-    [property: JsonPropertyName("canReplay")] bool? CanReplay);
+    [property: JsonPropertyName("canReplay")] bool? CanReplay,
+    [property: JsonPropertyName("telemetry")] RunTelemetrySummaryDto? Telemetry);
 
 public sealed record RunMetadataDto(
     [property: JsonPropertyName("runId")] string RunId,
@@ -217,3 +219,9 @@ public sealed record RunCreationOptionsDto(
     [property: JsonPropertyName("runId")] string? RunId,
     [property: JsonPropertyName("dryRun")] bool DryRun,
     [property: JsonPropertyName("overwriteExisting")] bool OverwriteExisting);
+
+public sealed record RunTelemetrySummaryDto(
+    [property: JsonPropertyName("available")] bool Available,
+    [property: JsonPropertyName("generatedAtUtc")] string? GeneratedAtUtc,
+    [property: JsonPropertyName("warningCount")] int WarningCount,
+    [property: JsonPropertyName("sourceRunId")] string? SourceRunId);
