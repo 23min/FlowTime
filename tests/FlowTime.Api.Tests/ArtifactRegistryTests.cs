@@ -279,7 +279,7 @@ public class ArtifactRegistryTests : IClassFixture<TestWebApplicationFactory>
         var runPath = Path.Combine(artifactsDir, runId);
         Directory.CreateDirectory(runPath);
         Directory.CreateDirectory(Path.Combine(runPath, "series"));
-        Directory.CreateDirectory(Path.Combine(runPath, "gold"));
+        Directory.CreateDirectory(Path.Combine(runPath, "aggregates"));
 
         // Create manifest.json (current structure)
         var manifest = new
@@ -327,7 +327,7 @@ public class ArtifactRegistryTests : IClassFixture<TestWebApplicationFactory>
         var runPath = Path.Combine(artifactsDir, runId);
         Directory.CreateDirectory(runPath);
         Directory.CreateDirectory(Path.Combine(runPath, "series"));
-        Directory.CreateDirectory(Path.Combine(runPath, "gold"));
+        Directory.CreateDirectory(Path.Combine(runPath, "aggregates"));
 
         // Real manifest.json structure
         var manifest = @"{

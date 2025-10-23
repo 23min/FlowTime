@@ -138,7 +138,7 @@
 **Key Insight:**
 - Real ADX telemetry won't exist for a long time
 - FlowTime itself will generate synthetic "Gold" telemetry from simulation
-- Need synthetic gold telemetry fixtures for development and testing
+- Need synthetic gold (generated telemetry) fixtures for development and testing
 - Self-hosting: FlowTime generates data that FlowTime then analyzes
 
 **Implementation Notes:**

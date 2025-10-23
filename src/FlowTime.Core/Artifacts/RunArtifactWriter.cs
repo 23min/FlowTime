@@ -66,6 +66,8 @@ public static class RunArtifactWriter
         public Dictionary<string, object?> Parameters { get; set; } = new(StringComparer.Ordinal);
     }
 
+    private const string AggregatesDirectoryName = "aggregates";
+
     public static async Task<WriteResult> WriteArtifactsAsync(WriteRequest request)
     {
         var scenarioHash = ComputeScenarioHash(request.SpecText, request.RngSeed, request.StartTimeBias);
@@ -77,12 +79,12 @@ public static class RunArtifactWriter
         var runDir = Path.Combine(request.OutputDirectory, runId);
         var seriesDir = Path.Combine(runDir, "series");
         var modelDir = Path.Combine(runDir, "model");
-        var goldDir = Path.Combine(runDir, "gold");
+        var aggregatesDir = Path.Combine(runDir, AggregatesDirectoryName);
 
         Directory.CreateDirectory(runDir);
         Directory.CreateDirectory(seriesDir);
         Directory.CreateDirectory(modelDir);
-        Directory.CreateDirectory(goldDir);
+        Directory.CreateDirectory(aggregatesDir);
 
         var jsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true };
 
@@ -187,9 +189,9 @@ public static class RunArtifactWriter
             Series = seriesMetas,
             Formats = new FormatsJson
             {
-                GoldTable = new GoldTableJson
+                AggregatesTable = new AggregatesTableJson
                 {
-                    Path = "gold/node_time_bin.parquet",
+                    Path = "aggregates/node_time_bin.parquet",
                     Dimensions = new[] { "time_bin", "component_id", "class" },
                     Measures = new[] { "arrivals", "served", "errors" }
                 }
@@ -609,5 +611,5 @@ file sealed record ProvenanceRef
 file sealed record SeriesIndexJson { public int SchemaVersion { get; set; } public IndexGridJson Grid { get; set; } = new(); public List<SeriesMeta> Series { get; set; } = new(); public FormatsJson Formats { get; set; } = new(); }
 file sealed record IndexGridJson { public int Bins { get; set; } public int BinSize { get; set; } public string BinUnit { get; set; } = "minutes"; public string Timezone { get; set; } = "UTC"; }
 file sealed record SeriesMeta { public string Id { get; set; } = ""; public string Kind { get; set; } = "flow"; public string Path { get; set; } = ""; public string Unit { get; set; } = ""; public string ComponentId { get; set; } = ""; public string Class { get; set; } = "DEFAULT"; public int Points { get; set; } public string Hash { get; set; } = ""; }
-file sealed record FormatsJson { public GoldTableJson GoldTable { get; set; } = new(); }
-file sealed record GoldTableJson { public string Path { get; set; } = "gold/node_time_bin.parquet"; public string[] Dimensions { get; set; } = Array.Empty<string>(); public string[] Measures { get; set; } = Array.Empty<string>(); }
+file sealed record FormatsJson { public AggregatesTableJson AggregatesTable { get; set; } = new(); }
+file sealed record AggregatesTableJson { public string Path { get; set; } = "aggregates/node_time_bin.parquet"; public string[] Dimensions { get; set; } = Array.Empty<string>(); public string[] Measures { get; set; } = Array.Empty<string>(); }

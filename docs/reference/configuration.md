@@ -46,8 +46,13 @@ FLOWTIME_DATA_DIR/
     ├── manifest.json
     ├── run.json
     ├── spec.yaml
-    ├── gold/
-    │   └── *.csv
+    ├── model/
+    │   ├── model.yaml
+    │   ├── metadata.json
+    │   └── telemetry/
+    │       ├── manifest.json
+    │       └── *.csv
+    ├── aggregates/             # optional derived analytics outputs
     └── series/
         ├── index.json
         └── *.csv

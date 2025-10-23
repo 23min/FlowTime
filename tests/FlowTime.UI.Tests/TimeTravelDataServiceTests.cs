@@ -173,6 +173,8 @@ public class TimeTravelDataServiceTests
 
         public Task<ApiCallResult<RunCreateResponseDto>> GetRunAsync(string runId, CancellationToken ct = default) => throw new NotImplementedException();
 
+        public Task<ApiCallResult<TelemetryCaptureResponseDto>> GenerateTelemetryCaptureAsync(TelemetryCaptureRequestDto request, CancellationToken ct = default) => throw new NotImplementedException();
+
         public Task<ApiCallResult<TimeTravelStateSnapshotDto>> GetRunStateAsync(string runId, int binIndex, CancellationToken ct = default)
             => OnGetRunStateAsync(runId, binIndex, ct);
 

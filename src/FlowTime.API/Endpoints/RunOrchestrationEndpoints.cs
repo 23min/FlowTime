@@ -366,16 +366,54 @@ internal static class RunOrchestrationEndpoints
     private static RunTelemetrySummary BuildTelemetrySummary(RunOrchestrationResult result)
     {
         var manifest = result.TelemetryManifest;
+
         var available = manifest.Files is { Count: > 0 };
-        var warnings = manifest.Warnings?.Count ?? 0;
-        var generatedAtUtc = manifest.Provenance?.CapturedAtUtc;
-        var sourceRunId = manifest.Provenance?.RunId;
+        string? generatedAtUtc = available ? manifest.Provenance?.CapturedAtUtc : null;
+        string? sourceRunId = available && !string.IsNullOrWhiteSpace(manifest.Provenance?.RunId)
+            ? manifest.Provenance!.RunId
+            : null;
+
+        // Fallback: if manifest has no files (older runs), infer from directory contents and autocapture.json
+        if (!available)
+        {
+            try
+            {
+                var telemetryDir = Path.Combine(result.RunDirectory, "model", "telemetry");
+                if (Directory.Exists(telemetryDir))
+                {
+                    var hasCsvs = Directory.EnumerateFiles(telemetryDir, "*.csv").Any();
+                    if (hasCsvs)
+                    {
+                        available = true;
+                        var autoPath = Path.Combine(telemetryDir, "autocapture.json");
+                        if (File.Exists(autoPath))
+                        {
+                            var json = File.ReadAllText(autoPath);
+                            using var doc = System.Text.Json.JsonDocument.Parse(json);
+                            var root = doc.RootElement;
+                            if (generatedAtUtc is null && root.TryGetProperty("generatedAtUtc", out var genProp))
+                            {
+                                generatedAtUtc = genProp.GetString();
+                            }
+                            if (sourceRunId is null && root.TryGetProperty("sourceRunId", out var srcProp))
+                            {
+                                sourceRunId = srcProp.GetString();
+                            }
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // Ignore fallback errors
+            }
+        }
 
         return new RunTelemetrySummary
         {
             Available = available,
             GeneratedAtUtc = generatedAtUtc,
-            WarningCount = warnings,
+            WarningCount = manifest.Warnings?.Count ?? 0,
             SourceRunId = string.IsNullOrWhiteSpace(sourceRunId) ? null : sourceRunId
         };
     }

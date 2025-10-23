@@ -308,11 +308,11 @@ public class ArtifactEndpointTests : IClassFixture<TestWebApplicationFactory>
         Assert.NotNull(jsonResponse);
 
         // Verify export files were created
-        var goldDir = Path.Combine(runPath, "gold");
-        Assert.True(Directory.Exists(goldDir));
-        Assert.True(File.Exists(Path.Combine(goldDir, "export.csv")));
-        Assert.True(File.Exists(Path.Combine(goldDir, "export.ndjson")));
-        Assert.True(File.Exists(Path.Combine(goldDir, "export.parquet")));
+        var aggregatesDir = Path.Combine(runPath, "aggregates");
+        Assert.True(Directory.Exists(aggregatesDir));
+        Assert.True(File.Exists(Path.Combine(aggregatesDir, "export.csv")));
+        Assert.True(File.Exists(Path.Combine(aggregatesDir, "export.ndjson")));
+        Assert.True(File.Exists(Path.Combine(aggregatesDir, "export.parquet")));
 
         // Cleanup
         Directory.Delete(runDir, true);
@@ -328,12 +328,12 @@ public class ArtifactEndpointTests : IClassFixture<TestWebApplicationFactory>
 
         var runId = "test_run_csv_456";
         var runPath = Path.Combine(runDir, runId);
-        var goldDir = Path.Combine(runPath, "gold");
-        Directory.CreateDirectory(goldDir);
+        var aggregatesDir = Path.Combine(runPath, "aggregates");
+        Directory.CreateDirectory(aggregatesDir);
 
         // Create export.csv file directly (simulating POST export already happened)
         var csvContent = "time_bin,component_id,measure,value\n0,DEMAND,flow,100\n1,DEMAND,flow,150\n2,DEMAND,flow,200\n";
-        await File.WriteAllTextAsync(Path.Combine(goldDir, "export.csv"), csvContent);
+        await File.WriteAllTextAsync(Path.Combine(aggregatesDir, "export.csv"), csvContent);
 
         // Configure the factory
         var clientWithConfig = factory.WithWebHostBuilder(builder =>
@@ -368,15 +368,15 @@ public class ArtifactEndpointTests : IClassFixture<TestWebApplicationFactory>
 
         var runId = "test_run_ndjson_789";
         var runPath = Path.Combine(runDir, runId);
-        var goldDir = Path.Combine(runPath, "gold");
-        Directory.CreateDirectory(goldDir);
+        var aggregatesDir = Path.Combine(runPath, "aggregates");
+        Directory.CreateDirectory(aggregatesDir);
 
         // Create export.ndjson file directly
         var ndjsonContent = @"{""time_bin"":0,""component_id"":""DEMAND"",""measure"":""flow"",""value"":100}
 {""time_bin"":1,""component_id"":""DEMAND"",""measure"":""flow"",""value"":150}
 {""time_bin"":2,""component_id"":""DEMAND"",""measure"":""flow"",""value"":200}
 ";
-        await File.WriteAllTextAsync(Path.Combine(goldDir, "export.ndjson"), ndjsonContent);
+        await File.WriteAllTextAsync(Path.Combine(aggregatesDir, "export.ndjson"), ndjsonContent);
 
         // Configure the factory
         var clientWithConfig = factory.WithWebHostBuilder(builder =>
@@ -411,12 +411,12 @@ public class ArtifactEndpointTests : IClassFixture<TestWebApplicationFactory>
 
         var runId = "test_run_parquet_101";
         var runPath = Path.Combine(runDir, runId);
-        var goldDir = Path.Combine(runPath, "gold");
-        Directory.CreateDirectory(goldDir);
+        var aggregatesDir = Path.Combine(runPath, "aggregates");
+        Directory.CreateDirectory(aggregatesDir);
 
         // Create a minimal parquet file (we'll create a dummy binary file for this test)
         var parquetBytes = new byte[] { 0x50, 0x41, 0x52, 0x31 }; // "PAR1" magic bytes
-        await File.WriteAllBytesAsync(Path.Combine(goldDir, "export.parquet"), parquetBytes);
+        await File.WriteAllBytesAsync(Path.Combine(aggregatesDir, "export.parquet"), parquetBytes);
 
         // Configure the factory
         var clientWithConfig = factory.WithWebHostBuilder(builder =>
@@ -472,8 +472,8 @@ public class ArtifactEndpointTests : IClassFixture<TestWebApplicationFactory>
 
         var runId = "test_run_invalid_format";
         var runPath = Path.Combine(runDir, runId);
-        var goldDir = Path.Combine(runPath, "gold");
-        Directory.CreateDirectory(goldDir);
+        var aggregatesDir = Path.Combine(runPath, "aggregates");
+        Directory.CreateDirectory(aggregatesDir);
 
         var clientWithConfig = factory.WithWebHostBuilder(builder =>
         {

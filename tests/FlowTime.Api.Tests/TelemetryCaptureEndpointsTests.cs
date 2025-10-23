@@ -47,13 +47,19 @@ public class TelemetryCaptureEndpointsTests : IClassFixture<TestWebApplicationFa
         var captureRequest = new
         {
             source = new { type = "run", runId },
-            output = new { captureKey = $"capture-{Guid.NewGuid():N}", overwrite = false }
+            output = new { overwrite = false }
         };
 
         var captureResponse = await client.PostAsJsonAsync("/v1/telemetry/captures", captureRequest);
         captureResponse.EnsureSuccessStatusCode();
         var captureJson = await captureResponse.Content.ReadFromJsonAsync<JsonNode>() ?? throw new InvalidOperationException("Capture response invalid");
         Assert.True(captureJson["capture"]?["generated"]?.GetValue<bool>() ?? false);
+
+        var customizedTestFactory = customizedFactory as TestWebApplicationFactory ?? factory;
+        var runDirectory = Path.Combine(customizedTestFactory.TestDataDirectory, runId);
+        var telemetryDir = Path.Combine(runDirectory, "model", "telemetry");
+        Assert.True(Directory.Exists(telemetryDir));
+        Assert.True(File.Exists(Path.Combine(telemetryDir, "manifest.json")));
 
         // Second call without overwrite should conflict
         var conflictResponse = await client.PostAsJsonAsync("/v1/telemetry/captures", captureRequest);
@@ -63,7 +69,7 @@ public class TelemetryCaptureEndpointsTests : IClassFixture<TestWebApplicationFa
         var overwriteRequest = new
         {
             source = new { type = "run", runId },
-            output = new { captureKey = captureRequest.output.captureKey, overwrite = true }
+            output = new { overwrite = true }
         };
 
         var overwriteResponse = await client.PostAsJsonAsync("/v1/telemetry/captures", overwriteRequest);

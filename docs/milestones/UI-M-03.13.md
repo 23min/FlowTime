@@ -16,7 +16,7 @@ We previously removed the Analyze nav item in code (Expert layout + home hero). 
 ### Strategic Context
 - Motivation: Avoid confusing users with stale Engine references while we focus on gold-first workflows.
 - Impact: Clean nav, accurate messaging; optionally provide a minimal diagnostic if we keep the page.
-- Dependencies: Gold bundles now exist (UI-M-03.12); nav group already created (UI-M-03.14 was pre-satisfied).
+- Dependencies: Run bundles now exist (UI-M-03.12); nav group already created (UI-M-03.14 was pre-satisfied).
 
 ---
 
@@ -59,7 +59,7 @@ We previously removed the Analyze nav item in code (Expert layout + home hero). 
   - **Option B:** rename nav entry + route, set a new page title/description, and ensure links go to the updated diagnostic page.
 
 #### FR3: Minimal Diagnostic (Option B only)
-- Description: If repurposed, render a concise gold bundle health check.
+- Description: If repurposed, render a concise run bundle health check.
 - Acceptance:
   - [ ] Accept a runId (query param or picker) and read basic metadata (`run.json`, optional warnings) using existing utilities. *(N/A — Option A chosen)*
   - [ ] Display status (OK / warnings / missing files) as text; no charts/tables required at this stage. *(N/A — Option A chosen)*
@@ -101,7 +101,7 @@ We previously removed the Analyze nav item in code (Expert layout + home hero). 
 
 - Navigation aligns with the chosen direction (no stale Engine marketing).
 - Home page hero/CTA reflects the decision and no longer directs users to outdated flows.
-- (Option B) Diagnostic page provides a truthful gold bundle summary without graphics.
+- (Option B) Diagnostic page provides a truthful run bundle summary without graphics.
 - Roadmap + milestone docs updated with the outcome.
 
 ---

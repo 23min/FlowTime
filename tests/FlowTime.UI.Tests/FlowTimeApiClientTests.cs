@@ -202,6 +202,58 @@ public class FlowTimeApiClientTests
         Assert.Equal("/v1/runs/run_xyz/state_window?startBin=10&endBin=12", captured?.RequestUri?.PathAndQuery);
     }
 
+    [Fact]
+    public async Task GenerateTelemetryCaptureAsync_PostsRequestAndParsesResponse()
+    {
+        HttpRequestMessage? captured = null;
+        string? capturedBody = null;
+        var handler = new StubHandler(request =>
+        {
+            captured = request;
+            capturedBody = request.Content is null ? null : request.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+            const string payload = """
+            {
+              "capture": {
+                "generated": true,
+                "alreadyExists": false,
+                "generatedAtUtc": "2025-10-22T01:23:45Z",
+                "sourceRunId": "RUN_ABC",
+                "warnings": []
+              }
+            }
+            """;
+
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(payload, Encoding.UTF8, "application/json")
+            };
+        });
+
+        using var http = new HttpClient(handler)
+        {
+            BaseAddress = new Uri("http://localhost:8080/")
+        };
+        var opts = Options.Create(new FlowTimeApiOptions { ApiVersion = "v1" });
+        var client = new FlowTimeApiClient(http, opts.Value);
+
+        var requestDto = new TelemetryCaptureRequestDto(
+            Source: new TelemetryCaptureSourceDto("run", "RUN_ABC"),
+            Output: new TelemetryCaptureOutputDto("capture-key", null, false));
+
+        var response = await client.GenerateTelemetryCaptureAsync(requestDto, CancellationToken.None);
+
+        Assert.True(response.Success);
+        Assert.True(response.Value?.Capture.Generated);
+        Assert.Equal("/v1/telemetry/captures", captured?.RequestUri?.PathAndQuery);
+
+        Assert.False(string.IsNullOrWhiteSpace(capturedBody));
+        using var doc = JsonDocument.Parse(capturedBody!);
+        Assert.Equal("run", doc.RootElement.GetProperty("source").GetProperty("type").GetString());
+        Assert.Equal("RUN_ABC", doc.RootElement.GetProperty("source").GetProperty("runId").GetString());
+        Assert.Equal("capture-key", doc.RootElement.GetProperty("output").GetProperty("captureKey").GetString());
+        Assert.False(doc.RootElement.GetProperty("output").GetProperty("overwrite").GetBoolean());
+    }
+
     private sealed class StubHandler : HttpMessageHandler
     {
         private readonly Func<HttpRequestMessage, HttpResponseMessage> responder;

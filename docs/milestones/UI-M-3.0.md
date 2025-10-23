@@ -2,17 +2,17 @@
 
 **Status:** 📋 Planned  
 **Dependencies:** ✅ M-03.00 (Time-Travel foundations), ✅ M-03.02 (Telemetry capture + bundle), ✅ M-03.04 (Run packaging, state window)  
-**Target:** Deliver a minimal, reliable time‑travel UI: SLA Dashboard, Topology with scrubber, and Node Detail lines, operating on gold bundles.
+**Target:** Deliver a minimal, reliable time‑travel UI: SLA Dashboard, Topology with scrubber, and Node Detail lines, operating on run bundles.
 
 ---
 
 ## Overview
 
-This milestone delivers the first usable Time‑Travel UI on top of gold data bundles. It restores core UI surfaces broken by M3 refactors, rationalizes navigation, and introduces three focused visualizations: (1) SLA Dashboard tiles; (2) Flow Topology (entire graph) with global scrubber and heat‑map node coloring; (3) Node Detail Panel with simple line charts. The goal is clarity and responsiveness without transactional drilldown.
+This milestone delivers the first usable Time‑Travel UI on top of run bundles (formerly called "gold" data). It restores core UI surfaces broken by M3 refactors, rationalizes navigation, and introduces three focused visualizations: (1) SLA Dashboard tiles; (2) Flow Topology (entire graph) with global scrubber and heat‑map node coloring; (3) Node Detail Panel with simple line charts. The goal is clarity and responsiveness without transactional drilldown.
 
 ### Strategic Context
 - Motivation: Executives and operators need at‑a‑glance SLA and topology health during time‑scrub playback while the API layer stabilizes.
-- Impact: Establishes a stable navigation area “Time‑Travel”, restores Artifacts, and creates reproducible analysis over gold bundles.
+- Impact: Establishes a stable navigation area “Time‑Travel”, restores Artifacts, and creates reproducible analysis over run bundles.
 - Dependencies: Engine/sim telemetry bundling and run packaging must be available (M‑03.x line). UI consumes the generated artifacts directly.
 
 ---
@@ -22,10 +22,10 @@ This milestone delivers the first usable Time‑Travel UI on top of gold data bu
 Phase 1 — Align With M3 (Refactor and Restore)
 - [ ] UI-M-03.10 — UI Baseline & Build Health (see: docs/milestones/UI-M-03.10.md)
 - [ ] UI-M-03.11 — Artifacts Page Restoration (see: docs/milestones/UI-M-03.11.md)
-- [ ] UI-M-03.12 — Simulate → Gold Run Integration (see: docs/milestones/UI-M-03.12.md)
+- [ ] UI-M-03.12 — Simulate → Run Bundle Integration (see: docs/milestones/UI-M-03.12.md)
 - [x] UI-M-03.13 — Analyze Section Decision (complete — nav hide documented)
 - [x] UI-M-03.14 — Time‑Travel Nav & Routes (skeleton) (complete — nav group + placeholders live)
-- [x] UI-M-03.15 — Gold Data Access Service (REST) (complete — REST client & data service)
+- [x] UI-M-03.15 — Run Bundle Data Access Service (REST) (complete — REST client & data service)
 - [ ] UI-M-03.16 — Run Orchestration Page (skeleton) (planned)
 - [ ] TT-M-03.17 — Telemetry Auto-Capture Orchestration (planned)
 - [ ] TT-M-03.18 — Telemetry Auto-Capture (Seeded RNG Support) (planned)
@@ -112,7 +112,7 @@ Refer to the roadmap for phase scope and sequencing: docs/architecture/time-trav
   - [ ] New run appears in Artifacts and is openable in Time‑Travel pages.
 
 #### FR7: Artifacts Restoration
-- Description: Page lists available gold bundles with basic metadata.
+- Description: Page lists available run bundles with basic metadata.
 - Acceptance Criteria:
   - [ ] Shows run id, time range, bundle location; open action navigates into Time‑Travel.
 
@@ -180,7 +180,7 @@ Mapping to future endpoints (later): `/v1/runs/{id}/graph`, `/state_window`, `/m
   4. Node Detail Panel with line charts by node type; series sliced to range.
   5. SLA↔Topology linking; selection persists across pages.
   6. Performance and accessibility pass; documentation.
-- Deliverables: Three working views wired to gold bundles; minimal documentation.
+- Deliverables: Three working views wired to run bundles; minimal documentation.
 - Success Criteria:
   - [ ] SLA tiles, Topology, and Node Detail render correctly and respond to scrubber; performance ≤ 200 ms update budget.
 
@@ -227,7 +227,7 @@ Mapping to future endpoints (later): `/v1/runs/{id}/graph`, `/state_window`, `/m
 - `ui/FlowTime.UI/Pages/TimeTravel/Dashboard.razor` — SLA tiles view (gold adapter backed)
 - `ui/FlowTime.UI/Pages/TimeTravel/Topology.razor` — Canvas topology view + node detail panel
 - `ui/FlowTime.UI/Pages/TimeTravel/RunOrchestration.razor` — Orchestration skeleton (initiate bundling, show runId)
-- `ui/FlowTime.UI/Services/TimeTravelGoldAdapter.cs` — Gold bundle reader abstraction
+- `ui/FlowTime.UI/Services/TimeTravelGoldAdapter.cs` — Run bundle reader abstraction
 - `ui/FlowTime.UI/State/TimeTravelState.cs` — Range + scrubber shared state
 
 ### Files to Modify (Major)

@@ -5,10 +5,10 @@ using FlowTime.Adapters.Synthetic;
 namespace FlowTime.API.Services;
 
 /// <summary>
-/// Exports FlowTime run data to Gold CSV format for external analysis.
-/// Gold CSV Format: time_bin,component_id,measure,value
+/// Exports FlowTime run data to aggregates CSV format for external analysis.
+/// Aggregates CSV Format: time_bin,component_id,measure,value
 /// </summary>
-public static class GoldCsvExporter
+public static class AggregatesCsvExporter
 {
     public record ExportOptions
     {
@@ -42,7 +42,7 @@ public static class GoldCsvExporter
     }
     
     /// <summary>
-    /// Export run data from artifact directory to Gold CSV format
+    /// Export run data from artifact directory to aggregates CSV format
     /// </summary>
     public static async Task<ExportResult> ExportFromRunDirectoryAsync(
         string runDirectory, 

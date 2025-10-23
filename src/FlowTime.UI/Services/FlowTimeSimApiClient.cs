@@ -331,7 +331,7 @@ public class SeriesInfo
 
 public class FormatsInfo
 {
-    public string GoldTable { get; set; } = string.Empty;
+    public string AggregatesTable { get; set; } = string.Empty;
 }
 
 public class ApiTemplateInfo

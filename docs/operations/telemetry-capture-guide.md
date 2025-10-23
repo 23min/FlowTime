@@ -7,6 +7,32 @@ The telemetry capture CLI converts canonical engine runs into telemetry bundles 
 - A deterministic engine run directory produced by `flowtime run` (for example `data/runs/run_deterministic_72ca609c`).
 - `.NET 9.0` SDK (already required for the FlowTime CLI).
 - Optional: set `FLOWTIME_DATA_DIR` to override the default data root (`./data`).
+- API deployments can configure `TelemetryRoot` when they want to maintain a shared library of telemetry bundles; by default, generated bundles live alongside the source run under `data/run_<id>/model/telemetry/`.
+
+## Explicit API Flow (Recommended)
+
+Milestone TT-M-03.17 introduces a first-class API for telemetry generation. Operators (or the UI) request a bundle by calling `POST /v1/telemetry/captures` with a source run id and an output target:
+
+```http
+POST /v1/telemetry/captures
+Content-Type: application/json
+
+{
+  "source": { "type": "run", "runId": "RUN_123" },
+  "output": {
+    "overwrite": false
+  }
+}
+```
+
+- When `captureKey` and `directory` are omitted, the service writes into the run's own `model/telemetry/` folder. Provide either field only if you want to copy the bundle to a shared library (for example, a curated directory managed by `TelemetryRoot`).
+- If a bundle already exists and `overwrite` is `false`, the endpoint returns `409 Conflict` and surfaces the previously recorded metadata.
+- Successful requests emit two files next to the generated CSVs inside `model/telemetry/`:
+  - `manifest.json` — bundle inventory + warning list (unchanged from earlier tooling).
+  - `autocapture.json` — `{ templateId, captureKey?, sourceRunId, generatedAtUtc, parametersHash }` for provenance.
+- The response includes a telemetry summary (`generated`, `alreadyExists`, `generatedAtUtc`, `warningCount`, `sourceRunId`) that is mirrored in `/v1/runs` and UI summaries. No filesystem paths are ever exposed.
+
+The explicit endpoint is now the primary integration point for UI flows. The CLI command described below remains available for local capture or regression scripts. The repository still ships sample bundles under `examples/time-travel/` for templates and documentation, but newly generated telemetry defaults to each run's `model/telemetry/` directory.
 
 ## Basic Command
 
@@ -17,7 +43,7 @@ flowtime telemetry capture \
 
 Key behaviour:
 
-- If `--output` is omitted, the tool writes to `$FLOWTIME_DATA_DIR/telemetry/<runId>/`.
+- If `--output` is omitted, the tool writes directly into `<run-dir>/model/telemetry/`.
 - `manifest.json` is emitted using [`docs/schemas/telemetry-manifest.schema.json`](../schemas/telemetry-manifest.schema.json).
 - Per-node CSVs are converted to the `bin_index,value` shape expected by FlowTime-Sim telemetry bindings.
 
@@ -67,7 +93,7 @@ Use the helper script to call FlowTime-Sim with parameters that reference the ca
 ```bash
 scripts/time-travel/run-sim-template.sh \
   --template-id it-system-microservices \
-  --telemetry-dir data/telemetry/run_deterministic_72ca609c \
+  --telemetry-dir data/runs/run_deterministic_72ca609c/model/telemetry \
   --telemetry-param telemetryRequestsSource=OrderService_arrivals.csv \
   --out-dir out/templates/it-system-microservices
 ```
@@ -86,7 +112,7 @@ Use the generator to combine the capture bundle and Sim model into a canonical e
 var builder = new TelemetryBundleBuilder();
 var result = await builder.BuildAsync(new TelemetryBundleOptions
 {
-    CaptureDirectory = "data/telemetry/run_deterministic_72ca609c",
+    CaptureDirectory = "data/runs/run_deterministic_72ca609c/model/telemetry",
     ModelPath = "out/templates/it-system-microservices/model.yaml",
     OutputRoot = "data/runs",
     DeterministicRunId = true
@@ -97,13 +123,13 @@ This produces `data/runs/<runId>/model/model.yaml` where every telemetry binding
 
 Once the bundle is written, the run is ready for `/state` queries and UI inspection just like any engine-produced run.
 
-## Run Orchestration (API + CLI)
+## Run Orchestration (Replay)
 
-Milestone M-03.04 layers the capture + bundling steps behind a shared `RunOrchestrationService`. Operators can now create canonical runs directly through the API or the CLI wrapper without scripting the intermediate steps.
+With explicit telemetry generation in place, `/v1/runs` no longer creates capture bundles. Telemetry runs must reference an existing bundle — either one generated via the API flow above or a hand-produced directory that follows the bundle contract.
 
 ### API workflow
 
-`POST /v1/runs` accepts a template id, optional parameter overrides, telemetry bindings, and orchestration options. The capture directory can be supplied as a **capture key** relative to the API’s configured `TelemetryRoot` (defaults to `<solution-root>/examples/time-travel` in development) or as a fully qualified path. The example below replays the `it-system-microservices` template against the deterministic capture bundle checked into `examples/time-travel/it-system-telemetry/`:
+`POST /v1/runs` accepts a template id, parameter overrides, telemetry bindings, and orchestration options. For telemetry mode, provide a `captureDirectory` that resolves to an existing bundle (relative capture key or absolute path):
 
 ```http
 POST http://localhost:8080/v1/runs
@@ -113,7 +139,7 @@ Content-Type: application/json
   "templateId": "it-system-microservices",
   "mode": "telemetry",
   "telemetry": {
-    "captureDirectory": "it-system-telemetry",
+    "captureDirectory": "data/runs/run_deterministic_72ca609c/model/telemetry",
     "bindings": {
       "telemetryRequestsSource": "LoadBalancer_arrivals.csv"
     }
@@ -125,54 +151,39 @@ Content-Type: application/json
 }
 ```
 
-- Set `options.dryRun = true` to surface a plan without writing to disk. The response includes the resolved telemetry bindings (converted to `file://` URIs), the planned run directory, and any manifest warnings.
-- `GET /v1/runs` returns the canonical summary list (run id, template metadata, creation timestamp, warning count).
-- Add `mode`, `templateId`, `hasWarnings`, `page`, and `pageSize` query parameters to slice the listing (defaults: `page=1`, `pageSize=50`, capped at 200).
-- `GET /v1/runs/{runId}` mirrors the metadata envelope returned by `/state`, making it safe for operators or UI clients to validate provenance before replaying a run.
-- `/v1/runs/{runId}/state` validates the generated model; the bundled it-system template includes the required semantics, but a custom template without `semantics.errors` on `service` nodes still triggers `409 Conflict`.
-- Run orchestration emits `run_created` / `run_failed` structured logs (template id, run id, mode) so you can wire the API into existing monitoring pipelines.
-- Configure the telemetry root via `TelemetryRoot` in `appsettings.json` (or environment). When unspecified the service falls back to `<solution-root>/examples/time-travel`, allowing local development to use the checked-in capture bundles immediately.
+- Omit `telemetry.captureDirectory` → `422 Unprocessable Entity` (bundle must exist first).
+- `options.dryRun = true` returns a plan without filesystem changes (resolved bindings, warnings, run directory).
+- `GET /v1/runs` and `GET /v1/runs/{runId}` now include a `telemetry` block summarising availability (`available`, `generatedAtUtc`, `warningCount`, `sourceRunId`). The UI relies on this metadata to toggle replay actions without revealing directories.
+- Configure `TelemetryRoot` in `appsettings.json` (or via environment) only if you want to maintain a shared library of capture bundles. When unset, absolute `captureDirectory` paths (such as the run-local path above) continue to work.
 
-#### Generating telemetry explicitly (new)
+### Telemetry availability metadata
 
-Use the dedicated endpoint to create a telemetry bundle from an existing simulation run:
-
-```http
-POST /v1/telemetry/captures
-Content-Type: application/json
-
-{
-  "source": { "type": "run", "runId": "RUN_123" },
-  "output": { "captureKey": "it-system-telemetry", "overwrite": false }
-}
-```
-
-- On success, the response includes a capture status object (generated vs already exists) and a warning list.
-- If a bundle already exists and `overwrite=false`, the endpoint returns `409 Conflict`.
-- The UI surfaces telemetry availability (yes/no), generated‑at timestamp, and warning count; it does not display filesystem paths.
+`/v1/runs` responses surface the telemetry summary generated alongside bundles. When the capture endpoint creates a bundle it writes `autocapture.json`; the API mirrors the relevant fields (timestamp, warning count, sourceRunId) and sets `available=true`. If a bundle is deleted out-of-band, the summary reverts to `available=false` the next time the run is scanned.
 
 ### CLI parity
 
-`flowtime telemetry run` delegates to the same orchestration service, so flags map directly to the JSON payload above. The `--capture-dir` flag accepts either a capture key (relative to the configured telemetry root) or an absolute path.
+`flowtime telemetry run` still shells into the orchestration service, but it now assumes bundles already exist. Use `flowtime telemetry capture` (local CLI) or `POST /v1/telemetry/captures` (API) first, then point the CLI at the capture directory:
 
 ```bash
-# Preview the plan (no filesystem changes)
+# Preview with an existing bundle (no writes)
 flowtime telemetry run \
   --template-id it-system-microservices \
-  --capture-dir it-system-telemetry \
+  --capture-dir data/runs/run_deterministic_72ca609c/model/telemetry \
   --bind telemetryRequestsSource=LoadBalancer_arrivals.csv \
   --dry-run
 
-# Create the canonical bundle with deterministic run id
+# Replay using a generated bundle
 flowtime telemetry run \
   --template-id it-system-microservices \
-  --capture-dir examples/time-travel/it-system-telemetry \
+  --capture-dir data/runs/run_deterministic_72ca609c/model/telemetry \
   --bind telemetryRequestsSource=LoadBalancer_arrivals.csv \
   --deterministic-run-id \
   --overwrite
 ```
 
 When `--dry-run` is omitted the command prints the created run id, run directory, and telemetry resolution flag. Supply `--run-id` (optionally with `--overwrite`) to control the folder name, matching the `options.runId`/`options.overwriteExisting` fields on the API.
+
+> **Shared bundles:** If you maintain a curated library, point `--capture-dir` at a path under your configured `TelemetryRoot` (or supply `output.captureKey` on the API). Otherwise, the run-local path shown above keeps capture artifacts self-contained.
 
 ## Next Steps
 

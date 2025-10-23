@@ -1,4 +1,5 @@
 @page "/artifacts"
+@page "/time-travel/artifacts"
 @using FlowTime.UI.Services
 @inject IRunDiscoveryService RunDiscovery
 @inject NavigationManager Navigation
@@ -60,6 +61,7 @@
                         <MudTh>Source</MudTh>
                         <MudTh>Created (UTC)</MudTh>
                         <MudTh>Grid</MudTh>
+                        <MudTh>Telemetry</MudTh>
                         <MudTh>Artifacts</MudTh>
                         <MudTh>Warnings</MudTh>
                         <MudTh></MudTh>
@@ -88,7 +90,7 @@
                             @if (!string.IsNullOrWhiteSpace(context.TemplateVersion))
                             {
                                 <MudText Typo="Typo.caption" Color="Color.Secondary">
-                                    v@context.TemplateVersion
+                                    @($"v{context.TemplateVersion}")
                                 </MudText>
                             }
                         </MudTd>
@@ -119,6 +121,18 @@
                             else
                             {
                                 <MudText Typo="Typo.caption" Color="Color.Secondary">n/a</MudText>
+                            }
+                        </MudTd>
+                        <MudTd DataLabel="Telemetry">
+                            @if (context.Telemetry?.Available == true)
+                            {
+                                <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.CheckCircle">
+                                    Yes
+                                </MudChip>
+                            }
+                            else
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">No</MudText>
                             }
                         </MudTd>
                         <MudTd DataLabel="Artifacts">
@@ -264,7 +278,7 @@
 
     private void OpenRun(string runId)
     {
-        var target = $"/time-travel/dashboard?runId={Uri.EscapeDataString(runId)}";
+        var target = $"/time-travel/artifacts/{Uri.EscapeDataString(runId)}";
         Navigation.NavigateTo(target);
     }
 

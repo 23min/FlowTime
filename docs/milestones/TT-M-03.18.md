@@ -93,7 +93,7 @@ TT‑M‑03.17 provides an explicit telemetry generation endpoint. TT‑M‑03.1
 ---
 
 ## Open Questions
-1. Where to store `generatedAtUtc` for summary: reuse `autocapture.json` and mirror in run metadata.
+1. Confirm copy for telemetry summary fields (`available`, `generatedAtUtc`, `warningCount`, `sourceRunId`) now surfaced by TT-M-03.17.
 2. Do we need rollbacks for overwritten telemetry? (Out of scope.)
 
 ---

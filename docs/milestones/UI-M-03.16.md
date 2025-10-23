@@ -8,7 +8,7 @@
 
 ## Overview
 
-Operators currently jump between CLI commands and the Simulate tab to orchestrate gold bundles. M-03.04 exposed a unified `/v1/runs` API, and UI-M-03.12 wired Simulate to produce canonical runs. This milestone brings those orchestration controls into the Time-Travel workspace so the entire capture→bundle→open loop is visible from the nav group introduced in UI-M-03.14. The page focuses on the core flow (select template, choose mode, provide telemetry bindings or simulation parameters, monitor status, and reveal the resulting `runId`) while deferring advanced UX polish to later milestones.
+Operators currently jump between CLI commands and the Simulate tab to orchestrate run bundles. M-03.04 exposed a unified `/v1/runs` API, and UI-M-03.12 wired Simulate to produce canonical runs. This milestone brings those orchestration controls into the Time-Travel workspace so the entire capture→bundle→open loop is visible from the nav group introduced in UI-M-03.14. The page focuses on the core flow (select template, choose mode, provide telemetry bindings or simulation parameters, monitor status, and reveal the resulting `runId`) while deferring advanced UX polish to later milestones.
 
 ### Strategic Context
 - Motivation: Provide a dedicated orchestration surface under Time-Travel so operators don’t rely on Simulate placeholders or CLI scripts for telemetry replays.

@@ -24,7 +24,7 @@
   "canReplay": true,
   "telemetry": {
     "available": false,
-    "generatedAtUtc": "GENERATED_AT_UTC",
+    "generatedAtUtc": null,
     "warningCount": 0,
     "sourceRunId": null
   }

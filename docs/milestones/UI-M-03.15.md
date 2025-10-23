@@ -8,12 +8,12 @@
 
 ## Overview
 
-M-03.01 shipped REST APIs that expose gold bundle data to clients. UI-M-03.15 wires the FlowTime UI into those endpoints so future milestones can build visuals on top of real data without touching disk. We will extend the existing `FlowTimeApiClient` (or introduce a focused companion) to fetch state snapshots, window slices, and series metadata, and we will wrap those calls in a Time-Travel data service that downstream components can consume. The contract mirrors `docs/schemas/time-travel-state.schema.json`, ensuring a smooth hand-off when the backend evolves.
+M-03.01 shipped REST APIs that expose run bundle data to clients. UI-M-03.15 wires the FlowTime UI into those endpoints so future milestones can build visuals on top of real data without touching disk. We will extend the existing `FlowTimeApiClient` (or introduce a focused companion) to fetch state snapshots, window slices, and series metadata, and we will wrap those calls in a Time-Travel data service that downstream components can consume. The contract mirrors `docs/schemas/time-travel-state.schema.json`, ensuring a smooth hand-off when the backend evolves.
 
 ### Strategic Context
 - Motivation: Keep the UI sandboxed from the file system and validate the REST pipeline before investing in visualization work.
 - Impact: Centralizes Time-Travel data access, error handling, and range translation so dashboard/topology milestones can focus on UX.
-- Dependencies: Artifacts and Simulate flows already surface `runId` context, and the Run orchestration APIs can produce new gold bundles for testing.
+- Dependencies: Artifacts and Simulate flows already surface `runId` context, and the Run orchestration APIs can produce new run bundles for testing.
 
 ---
 

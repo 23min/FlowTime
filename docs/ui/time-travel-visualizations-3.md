@@ -22,7 +22,7 @@ Scope: Minimal set to ship quickly with gold data. This spec narrows the UI to t
 ```
 
 Controls
-- Run selector: choose a gold bundle.
+- Run selector: choose a run bundle.
 - Time range selector: presets (1h, 6h, 24h, 7d) or absolute Start/End. Used to scope queries to `startTimeUtc`/`endTimeUtc` (or bin range).
 - Filter: text (node id contains), optional status/type filters.
 - Scrubber: global time cursor; playback (▶) and step (←/→) control.

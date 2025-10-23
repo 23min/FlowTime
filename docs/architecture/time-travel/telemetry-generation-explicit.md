@@ -45,21 +45,21 @@ Request (v1: from existing simulation run):
 {
   "source": { "type": "run", "runId": "RUN_123" },
   "output": {
-    "captureKey": "template-telemetry",  
     "overwrite": false
   }
 }
 ```
 
-- If `captureKey` is supplied and `TelemetryRoot` is configured, writes to `TelemetryRoot/<captureKey>/`.
-- (Optional) Alternate: `output.directory` (absolute path) instead of `captureKey`.
+- By default (no `captureKey`/`directory`), the bundle is written under `data/run_<id>/model/telemetry/`.
+- Supplying `captureKey` continues to target `TelemetryRoot/<captureKey>/` when teams want a shared library.
+- `output.directory` accepts an absolute path override for bespoke workflows.
 
 Response:
 
 ```json
 {
   "capture": {
-    "captureDirectory": "examples/time-travel/template-telemetry",
+    "captureDirectory": "data/runs/run_20251023T064510Z_4e7f9c1f/model/telemetry",
     "generated": true,
     "alreadyExists": false,
     "manifestPath": ".../manifest.json",

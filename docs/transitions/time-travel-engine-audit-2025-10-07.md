@@ -477,7 +477,7 @@ data/
       served@SERVED@DEFAULT.csv
       backlog@BACKLOG@DEFAULT.csv
       ...
-    gold/                  # Export formats (M-02.06)
+    aggregates/                  # Export formats (M-02.06)
       export.csv           # Wide-format CSV (all series)
       export.ndjson        # Newline-delimited JSON
       export.parquet       # Parquet columnar format
@@ -529,9 +529,9 @@ data/
     }
   ],
   "formats": {
-    "gold": { "path": "gold/export.csv" },
-    "ndjson": { "path": "gold/export.ndjson" },
-    "parquet": { "path": "gold/export.parquet" }
+    "aggregates": { "path": "aggregates/export.csv" },
+    "ndjson": { "path": "aggregates/export.ndjson" },
+    "parquet": { "path": "aggregates/export.parquet" }
   }
 }
 ```
@@ -559,7 +559,7 @@ t,value
 **Features**:
 - ✅ Columnar format with schema
 - ✅ All series as columns, bins as rows
-- ✅ Written to `gold/export.parquet`
+- ✅ Written to `aggregates/export.parquet`
 - ✅ Accessible via `GET /v1/runs/{id}/export/parquet`
 
 ---

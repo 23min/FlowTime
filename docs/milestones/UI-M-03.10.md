@@ -31,7 +31,7 @@ This milestone restores the UI to a healthy baseline post‑M3 refactors. It int
 - ❌ Restoring Artifacts listing logic (handled by UI‑M‑03.11).
 
 ### Future Work (linked)
-- UI‑M‑03.11: Restore Artifacts Page (gold bundle listing/open).
+- UI‑M‑03.11: Restore Artifacts Page (run bundle listing/open).
 - UI‑M‑03.14: Time‑Travel routes with basic skeleton components.
 - UI‑M‑03.15: Gold data access adapter.
 

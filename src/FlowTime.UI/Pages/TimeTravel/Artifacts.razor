@@ -1,44 +1,544 @@
-@page "/time-travel/artifacts"
+@page "/time-travel/artifacts/{RunId}"
 @using MudBlazor
 @using Microsoft.AspNetCore.Components
+@using FlowTime.UI.Services
+@using System.Linq
+@using System.Text.Json
 @inject NavigationManager Navigation
+@inject IFlowTimeApiClient ApiClient
+@inject IRunDiscoveryService RunDiscovery
+@inject ITemplateService TemplateService
+@inject INotificationService NotificationService
+@inject ILogger<Artifacts> Logger
 
-<PageTitle>Time-Travel Artifacts</PageTitle>
+<PageTitle>Run Artifacts</PageTitle>
 
-<MudPaper Class="pa-6" Elevation="2">
-    <MudText Typo="Typo.h4" GutterBottom="true">Time-Travel Artifacts</MudText>
-    @if (!string.IsNullOrWhiteSpace(_errorMessage))
-    {
-        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-4">
-            <MudText Typo="Typo.body1">@_errorMessage</MudText>
-            <MudButton Variant="Variant.Text"
-                       Color="Color.Primary"
-                       StartIcon="@Icons.Material.Filled.ArrowBack"
-                       OnClick="NavigateBack">
-                Back to Artifacts
-            </MudButton>
-        </MudAlert>
-    }
-    else
-    {
-        <MudText Typo="Typo.body1" Color="Color.Secondary">
-            Artifact summaries for run <MudText Typo="Typo.subtitle2" Inline="true">@RunId</MudText> will surface alongside replay widgets in a later milestone.
-        </MudText>
-    }
-</MudPaper>
+<MudContainer MaxWidth="MaxWidth.False">
+    <MudStack Spacing="3">
+        <MudPaper Class="pa-4" Elevation="2">
+            <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                    <MudButton Variant="Variant.Text"
+                               StartIcon="@Icons.Material.Filled.ArrowBack"
+                               OnClick="NavigateBack"
+                               Color="Color.Primary">
+                        Back to Artifacts
+                    </MudButton>
+                    <MudDivider Vertical="true" FlexItem="true" />
+                    <MudStack>
+                        <MudText Typo="Typo.h4">Run Artifacts</MudText>
+                        @if (!string.IsNullOrWhiteSpace(RunId))
+                        {
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                Run <MudText Typo="Typo.subtitle2" Inline="true">@RunId</MudText>
+                            </MudText>
+                        }
+                    </MudStack>
+                </MudStack>
+                <MudStack Row Spacing="1" AlignItems="AlignItems.Center">
+                    @if (_telemetrySummary is not null)
+                    {
+                        <MudChip T="string"
+                                 Size="Size.Small"
+                                 Variant="Variant.Outlined"
+                                 Color="@(_telemetrySummary.Available ? Color.Success : Color.Secondary)"
+                                 Icon="@(_telemetrySummary.Available ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Schedule)">
+                            Telemetry: @(_telemetrySummary.Available ? "Available" : "Not available")
+                        </MudChip>
+                    }
+                </MudStack>
+            </MudStack>
+        </MudPaper>
+
+        @if (string.IsNullOrWhiteSpace(RunId))
+        {
+            <MudPaper Class="pa-4" Elevation="1">
+                <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+                    <MudText Typo="Typo.subtitle1">Select a run</MudText>
+                    <MudText Typo="Typo.body2">Choose a run from the Artifacts list to review metadata, generate telemetry, or trigger replay.</MudText>
+                </MudAlert>
+            </MudPaper>
+        }
+        else if (_isLoading)
+        {
+            <MudPaper Class="pa-4" Elevation="1">
+                <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                    <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+                    <MudText Typo="Typo.body2">Loading run metadata…</MudText>
+                </MudStack>
+            </MudPaper>
+        }
+        else if (!string.IsNullOrWhiteSpace(_errorMessage))
+        {
+            <MudPaper Class="pa-4" Elevation="1">
+                <MudAlert Severity="Severity.Error" Variant="Variant.Filled" Icon="@Icons.Material.Filled.ErrorOutline">
+                    <MudText Typo="Typo.subtitle1">Unable to load run</MudText>
+                    <MudText Typo="Typo.body2">@_errorMessage</MudText>
+                </MudAlert>
+            </MudPaper>
+        }
+        else if (_runEntry is not null && _runDetail is not null)
+        {
+            <MudStack Spacing="3">
+                <MudPaper Class="pa-4" Elevation="1">
+                    <MudText Typo="Typo.h6" Class="mb-3">Run Summary</MudText>
+                    <MudGrid Spacing="2">
+                        <MudItem xs="12" md="6">
+                            <MudStack Spacing="1">
+                                <MudText Typo="Typo.subtitle2">Template</MudText>
+                                <MudText Typo="Typo.body1">@(_runEntry.TemplateTitle ?? _runEntry.TemplateId)</MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">@_runEntry.TemplateId</MudText>
+                                @if (!string.IsNullOrWhiteSpace(_runEntry.TemplateVersion))
+                                {
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">@($"v{_runEntry.TemplateVersion}")</MudText>
+                                }
+                            </MudStack>
+                        </MudItem>
+                        <MudItem xs="12" md="3">
+                            <MudStack Spacing="1">
+                                <MudText Typo="Typo.subtitle2">Mode</MudText>
+                                <MudChip T="string"
+                                         Size="Size.Small"
+                                         Color="@(_runDetail.Metadata?.Mode?.Equals("telemetry", StringComparison.OrdinalIgnoreCase) == true ? Color.Info : Color.Secondary)"
+                                         Variant="Variant.Outlined">
+                                    @_runDetail.Metadata?.Mode?.ToUpperInvariant()
+                                </MudChip>
+                            </MudStack>
+                        </MudItem>
+                        <MudItem xs="12" md="3">
+                            <MudStack Spacing="1">
+                                <MudText Typo="Typo.subtitle2">Created (UTC)</MudText>
+                                <MudText Typo="Typo.body2">@FormatTimestamp(_runEntry.CreatedUtc)</MudText>
+                            </MudStack>
+                        </MudItem>
+                        <MudItem xs="12" md="3">
+                            <MudStack Spacing="1">
+                                <MudText Typo="Typo.subtitle2">Grid</MudText>
+                                <MudText Typo="Typo.body2">
+                                    @(_runEntry.Grid.IsAvailable
+                                        ? $"{_runEntry.Grid.Bins} bins · {_runEntry.Grid.BinMinutes} min"
+                                        : "Not reported")
+                                </MudText>
+                            </MudStack>
+                        </MudItem>
+                        <MudItem xs="12" md="3">
+                            <MudStack Spacing="1">
+                                <MudText Typo="Typo.subtitle2">Warnings</MudText>
+                                @if (_runEntry.WarningCount > 0)
+                                {
+                                    <MudChip T="string"
+                                             Size="Size.Small"
+                                             Color="Color.Warning"
+                                             Variant="Variant.Outlined"
+                                             Icon="@Icons.Material.Filled.WarningAmber">
+                                        @_runEntry.WarningCount
+                                    </MudChip>
+                                }
+                                else
+                                {
+                                    <MudText Typo="Typo.body2">None</MudText>
+                                }
+                            </MudStack>
+                        </MudItem>
+                        <MudItem xs="12" md="3">
+                            <MudStack Spacing="1">
+                                <MudText Typo="Typo.subtitle2">Telemetry</MudText>
+                                <MudChip T="string"
+                                         Size="Size.Small"
+                                         Color="@(_telemetrySummary?.Available == true ? Color.Success : Color.Secondary)"
+                                         Variant="Variant.Outlined"
+                                         Icon="@(_telemetrySummary?.Available == true ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.HourglassTop)">
+                                    @(_telemetrySummary?.Available == true ? "Available" : "Not available")
+                                </MudChip>
+                            </MudStack>
+                        </MudItem>
+                    </MudGrid>
+                </MudPaper>
+
+                <MudPaper Class="pa-4" Elevation="1">
+                    <MudStack Spacing="2">
+                        <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                            <MudText Typo="Typo.h6">Telemetry Generation</MudText>
+                            <MudChip T="string"
+                                     Size="Size.Small"
+                                     Variant="Variant.Outlined"
+                                     Color="@(CurrentWarningCount > 0 ? Color.Warning : Color.Secondary)"
+                                     Icon="@(CurrentWarningCount > 0 ? Icons.Material.Filled.WarningAmber : Icons.Material.Filled.Info)">
+                                Warnings: @CurrentWarningCount
+                            </MudChip>
+                        </MudStack>
+
+                        <MudGrid Spacing="2">
+                            <MudItem xs="12" md="4">
+                                <MudStack Spacing="1">
+                                    <MudText Typo="Typo.subtitle2">Generated At (UTC)</MudText>
+                                    <MudText Typo="Typo.body2">@FormatInstant(_lastCaptureSummary?.GeneratedAtUtc ?? _telemetrySummary?.GeneratedAtUtc)</MudText>
+                                </MudStack>
+                            </MudItem>
+                        </MudGrid>
+
+                        <MudGrid Spacing="2">
+                            @if (!string.IsNullOrWhiteSpace(_templateCaptureKey))
+                            {
+                                <MudItem xs="12">
+                                    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.Info" Dense="true">
+                                        Template metadata suggests the capture key <MudText Typo="Typo.subtitle2" Inline="true">@_templateCaptureKey</MudText>.
+                                        <MudButton Variant="Variant.Text"
+                                                   Color="Color.Primary"
+                                                   Disabled="_isGenerating"
+                                                   OnClick="ApplyTemplateCaptureKey">
+                                            Use capture key
+                                        </MudButton>
+                                    </MudAlert>
+                                </MudItem>
+                            }
+                            else
+                            {
+                                <MudItem xs="12">
+                                    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.Info" Dense="true">
+                                        Leave the capture key blank to store telemetry with this run (`model/telemetry/`). Provide a key only when copying into a shared library.
+                                    </MudAlert>
+                                </MudItem>
+                            }
+                            <MudItem xs="12" md="6">
+                                <MudTextField @bind-Value="_captureKeyInput"
+                                              Label="Capture key"
+                                              Variant="Variant.Outlined"
+                                              Placeholder="template-telemetry"
+                                              Disabled="_isGenerating"
+                                              Immediate="true"
+                                              HelperText="Leave blank to store telemetry under this run. Provide a key or directory to copy into a shared library." />
+                            </MudItem>
+                            <MudItem xs="12" md="6">
+                            <MudSwitch T="bool" @bind-Value="_overwrite"
+                                           Disabled="_isGenerating"
+                                           Color="Color.Primary"
+                                           Class="mt-4"
+                                           Label="Overwrite existing bundle when generating" />
+                            </MudItem>
+                        </MudGrid>
+
+                        <MudStack Row Spacing="2">
+                            <MudButton Variant="Variant.Filled"
+                                       Color="Color.Primary"
+                                       Disabled="!CanGenerateTelemetry"
+                                       StartIcon="@Icons.Material.Filled.AutoFixHigh"
+                                       OnClick="GenerateTelemetryAsync">
+                                @(_telemetrySummary?.Available == true && !_overwrite ? "Generate telemetry bundle" : _overwrite ? "Regenerate telemetry bundle" : "Generate telemetry bundle")
+                            </MudButton>
+                            <MudButton Variant="Variant.Outlined"
+                                       Color="Color.Secondary"
+                                       Disabled="!CanLoadModel"
+                                       StartIcon="@Icons.Material.Filled.Dataset"
+                                       OnClick="@(() => NavigateToLoad(OrchestrationMode.Simulation))">
+                                Load model results
+                            </MudButton>
+                            <MudButton Variant="Variant.Outlined"
+                                       Color="Color.Success"
+                                       Disabled="!CanLoadTelemetry"
+                                       StartIcon="@Icons.Material.Filled.CloudDownload"
+                                       OnClick="@(() => NavigateToLoad(OrchestrationMode.Telemetry))">
+                                Load telemetry results
+                            </MudButton>
+                        </MudStack>
+
+                        @if (_lastCaptureSummary?.Warnings is { Count: > 0 })
+                        {
+                            <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.WarningAmber">
+                                <MudText Typo="Typo.subtitle2">Warnings captured during generation</MudText>
+                                <MudDivider Class="my-2" />
+                                <MudList T="StateWarningDto" Dense="true">
+                                    @foreach (var warning in _lastCaptureSummary.Warnings)
+                                    {
+                                        <MudListItem Value="@warning">
+                                            <MudStack>
+                                                <MudText Typo="Typo.body2">@($"{warning.Code}: {warning.Message}")</MudText>
+                                                @if (!string.IsNullOrWhiteSpace(warning.NodeId))
+                                                {
+                                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Node: @warning.NodeId</MudText>
+                                                }
+                                            </MudStack>
+                                        </MudListItem>
+                                    }
+                                </MudList>
+                            </MudAlert>
+                        }
+                        else if (_lastCaptureSummary is not null)
+                        {
+                            <MudAlert Severity="Severity.Success" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.CheckCircle">
+                                <MudText Typo="Typo.body2">
+                                    @(_lastCaptureSummary.Generated
+                                        ? "Telemetry bundle generated successfully."
+                                        : "Capture directory already existed; overwrite not requested.")
+                                </MudText>
+                            </MudAlert>
+                        }
+                    </MudStack>
+                </MudPaper>
+
+                @if (_runEntry.Warnings.Count > 0)
+                {
+                    <MudPaper Class="pa-4" Elevation="1">
+                        <MudText Typo="Typo.h6" Class="mb-2">Run Warnings</MudText>
+                        <MudList T="RunWarningInfo" Dense="true">
+                            @foreach (var warning in _runEntry.Warnings)
+                            {
+                                <MudListItem Value="@warning">
+                                    <MudStack>
+                                        <MudText Typo="Typo.body2">@($"{warning.Code}: {warning.Message}")</MudText>
+                                        @if (!string.IsNullOrWhiteSpace(warning.NodeId))
+                                        {
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">Node: @warning.NodeId</MudText>
+                                        }
+                                    </MudStack>
+                                </MudListItem>
+                            }
+                        </MudList>
+                    </MudPaper>
+                }
+            </MudStack>
+        }
+    </MudStack>
+</MudContainer>
 
 @code {
-    [Parameter, SupplyParameterFromQuery(Name = "runId")]
+    [Parameter]
     public string? RunId { get; set; }
 
-    private string? _errorMessage;
+    [SupplyParameterFromQuery(Name = "runId")]
+    public string? RunIdQuery { get; set; }
 
-    protected override void OnParametersSet()
+    private RunListEntry? _runEntry;
+    private RunCreateResponseDto? _runDetail;
+    private RunTelemetrySummaryDto? _telemetrySummary;
+    private TelemetryCaptureSummaryDto? _lastCaptureSummary;
+    private TemplateInfo? _template;
+    private string? _templateCaptureKey;
+    private string? _currentRunId;
+    private bool _isLoading;
+    private string? _errorMessage;
+    private bool _isGenerating;
+    private string _captureKeyInput = string.Empty;
+    private bool _overwrite;
+    private static readonly JsonSerializerOptions CaptureSerializerOptions = new(JsonSerializerDefaults.Web);
+
+    private bool CanLoadModel => (_runDetail?.CanReplay ?? _runEntry?.CanReplay) == true;
+    private bool CanLoadTelemetry => _telemetrySummary?.Available == true && (_runDetail?.CanReplay ?? _runEntry?.CanReplay) == true;
+    private bool CanGenerateTelemetry =>
+        !_isGenerating &&
+        _runEntry is not null &&
+        !string.IsNullOrWhiteSpace(RunId);
+
+    protected override async Task OnParametersSetAsync()
     {
-        _errorMessage = string.IsNullOrWhiteSpace(RunId)
-            ? "Select a run to review its artifact rollups."
-            : null;
+        if (string.IsNullOrWhiteSpace(RunId) && !string.IsNullOrWhiteSpace(RunIdQuery))
+        {
+            RunId = RunIdQuery;
+        }
+        await LoadAsync().ConfigureAwait(false);
     }
 
-    private void NavigateBack() => Navigation.NavigateTo("/artifacts");
+    private async Task LoadAsync()
+    {
+        if (string.IsNullOrWhiteSpace(RunId))
+        {
+            _runEntry = null;
+            _runDetail = null;
+            _telemetrySummary = null;
+            _template = null;
+            _errorMessage = null;
+            return;
+        }
+
+        if (!string.Equals(_currentRunId, RunId, StringComparison.OrdinalIgnoreCase))
+        {
+            _lastCaptureSummary = null;
+        }
+
+        var changedRun = !string.Equals(_currentRunId, RunId, StringComparison.OrdinalIgnoreCase);
+
+        try
+        {
+            _isLoading = true;
+            _errorMessage = null;
+            StateHasChanged();
+
+            var discovery = await RunDiscovery.LoadRunsAsync().ConfigureAwait(false);
+            if (!discovery.Success)
+            {
+                _errorMessage = discovery.ErrorMessage ?? "Failed to load run list.";
+                return;
+            }
+
+            var entry = discovery.Runs.FirstOrDefault(r => string.Equals(r.RunId, RunId, StringComparison.OrdinalIgnoreCase));
+            if (entry is null)
+            {
+                _errorMessage = $"Run '{RunId}' was not found on this instance.";
+                return;
+            }
+
+            _runEntry = entry;
+            _currentRunId = RunId;
+
+            var detailResult = await ApiClient.GetRunAsync(RunId).ConfigureAwait(false);
+            if (!detailResult.Success || detailResult.Value is null)
+            {
+                _errorMessage = detailResult.Error ?? $"Failed to load run metadata (status {detailResult.StatusCode}).";
+                return;
+            }
+
+            _runDetail = detailResult.Value;
+            _telemetrySummary = _runDetail.Telemetry ?? _runEntry.Telemetry;
+
+            _template = await TemplateService.GetTemplateAsync(_runEntry.TemplateId).ConfigureAwait(false);
+            _templateCaptureKey = _template?.TelemetryCaptureKey;
+
+            if (changedRun)
+            {
+                _captureKeyInput = string.Empty;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load run artifacts for {RunId}", RunId);
+            _errorMessage = ex.Message;
+            NotificationService.Add($"Failed to load run: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private int CurrentWarningCount => _lastCaptureSummary?.Warnings?.Count ?? _telemetrySummary?.WarningCount ?? 0;
+
+    private async Task GenerateTelemetryAsync()
+    {
+        if (!CanGenerateTelemetry || string.IsNullOrWhiteSpace(RunId) || _runEntry is null)
+        {
+            return;
+        }
+
+        _isGenerating = true;
+        _lastCaptureSummary = null;
+        StateHasChanged();
+
+        try
+        {
+            var request = new TelemetryCaptureRequestDto(
+                Source: new TelemetryCaptureSourceDto("run", RunId),
+                Output: new TelemetryCaptureOutputDto(
+                    CaptureKey: string.IsNullOrWhiteSpace(_captureKeyInput) ? null : _captureKeyInput.Trim(),
+                    Directory: null,
+                    Overwrite: _overwrite));
+
+            var result = await ApiClient.GenerateTelemetryCaptureAsync(request).ConfigureAwait(false);
+                if (!result.Success || result.Value is null)
+            {
+                if (result.StatusCode == 409)
+                {
+                    TelemetryCaptureSummaryDto? summary = null;
+                    if (!string.IsNullOrWhiteSpace(result.Error))
+                    {
+                        try
+                        {
+                            var parsed = JsonSerializer.Deserialize<TelemetryCaptureResponseDto>(result.Error, CaptureSerializerOptions);
+                            summary = parsed?.Capture;
+                        }
+                        catch (JsonException ex)
+                        {
+                            Logger.LogDebug(ex, "Failed to parse telemetry capture conflict payload.");
+                        }
+                    }
+
+                    _lastCaptureSummary = summary;
+                    NotificationService.Add("Telemetry bundle already exists. Enable overwrite to regenerate or choose a new capture key.", Severity.Info);
+                    _errorMessage = null;
+                    await LoadAsync().ConfigureAwait(false);
+                    return;
+                }
+
+                var message = result.Error ?? $"Telemetry generation failed (status {result.StatusCode}).";
+                NotificationService.Add(message, Severity.Error);
+                _errorMessage = message;
+                return;
+            }
+
+            _lastCaptureSummary = result.Value.Capture;
+            if (_lastCaptureSummary.Generated)
+            {
+                NotificationService.Add("Telemetry bundle generated successfully.", Severity.Success);
+            }
+            else
+            {
+                NotificationService.Add("Telemetry bundle already existed. Enable overwrite to regenerate.", Severity.Info);
+            }
+
+            await LoadAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Telemetry generation failed for run {RunId}", RunId);
+            NotificationService.Add($"Telemetry generation failed: {ex.Message}", Severity.Error);
+            _errorMessage = ex.Message;
+        }
+        finally
+        {
+            _isGenerating = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void ApplyTemplateCaptureKey()
+    {
+        if (!string.IsNullOrWhiteSpace(_templateCaptureKey))
+        {
+            _captureKeyInput = _templateCaptureKey;
+        }
+    }
+
+    private void NavigateBack() => Navigation.NavigateTo("/time-travel/artifacts");
+
+    private void NavigateToLoad(OrchestrationMode mode)
+    {
+        if (_runEntry is null)
+        {
+            return;
+        }
+
+        var templateId = _runEntry.TemplateId;
+        var modeString = mode == OrchestrationMode.Telemetry ? "telemetry" : "simulation";
+        var query = new Dictionary<string, string?>
+        {
+            ["templateId"] = templateId,
+            ["mode"] = modeString
+        };
+
+        if (mode == OrchestrationMode.Telemetry && !string.IsNullOrWhiteSpace(_captureKeyInput))
+        {
+            query["captureDir"] = _captureKeyInput.Trim();
+        }
+
+        var qs = string.Join("&", query
+            .Where(kvp => !string.IsNullOrWhiteSpace(kvp.Value))
+            .Select(kvp => $"{Uri.EscapeDataString(kvp.Key)}={Uri.EscapeDataString(kvp.Value!)}"));
+
+        Navigation.NavigateTo($"/time-travel/run?{qs}");
+    }
+
+    private static string FormatTimestamp(DateTimeOffset? timestamp) =>
+        timestamp.HasValue ? timestamp.Value.ToString("yyyy-MM-dd HH:mm:ss") : "—";
+
+    private static string FormatInstant(string? isoTimestamp)
+    {
+        if (string.IsNullOrWhiteSpace(isoTimestamp))
+        {
+            return "—";
+        }
+
+        return DateTimeOffset.TryParse(isoTimestamp, out var parsed)
+            ? parsed.ToString("yyyy-MM-dd HH:mm:ss")
+            : isoTimestamp;
+    }
 }

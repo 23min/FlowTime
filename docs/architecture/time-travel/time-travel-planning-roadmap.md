@@ -526,7 +526,7 @@ Assert.Contains("data_gap", snapshot.Warnings.Select(w => w.Code));
 ## M-03.02.01: Simulation Run Orchestration
 
 ### Goal
-Expose simulation-mode orchestration so `/v1/runs` can generate canonical gold bundles without telemetry capture inputs. The milestone refactors the orchestration service to branch on mode while reusing FlowTime.Sim to populate run artifacts (`run.json`, `manifest.json`, `series/index.json`).
+Expose simulation-mode orchestration so `/v1/runs` can generate canonical run bundles without telemetry capture inputs. The milestone refactors the orchestration service to branch on mode while reusing FlowTime.Sim to populate run artifacts (`run.json`, `manifest.json`, `series/index.json`).
 
 ### Why This Matters
 - UI-M-03.12 requires a REST surface for synthetic runs; currently operators must fall back to the CLI.

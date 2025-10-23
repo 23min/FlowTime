@@ -140,8 +140,8 @@ public class AdapterExampleTests
             }
           ],
           "formats": {
-            "goldTable": {
-              "path": "gold/node_time_bin.parquet",
+            "aggregatesTable": {
+                "path": "aggregates/node_time_bin.parquet",
               "dimensions": ["time_bin", "component_id", "class"],
               "measures": ["arrivals", "served", "errors"]
             }

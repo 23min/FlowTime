@@ -13,11 +13,11 @@
 
 @implements IAsyncDisposable
 
-<PageTitle>Time-Travel Run Orchestration</PageTitle>
+<PageTitle>Time-Travel Run Model</PageTitle>
 
 <MudPaper Class="pa-6" Elevation="2">
     <MudStack Spacing="2">
-        <MudText Typo="Typo.h4">Run Orchestration</MudText>
+        <MudText Typo="Typo.h4">Run Model</MudText>
 
         @if (_templateLoadError is not null)
         {
@@ -49,15 +49,6 @@
                             <MudText Typo="Typo.caption" Color="Color.Secondary">No templates available.</MudText>
                         }
                     </MudItem>
-                    <MudItem xs="12" md="6">
-                        <MudText Typo="Typo.subtitle2">Mode</MudText>
-                        <MudRadioGroup T="OrchestrationMode"
-                                       @bind-Value="Mode"
-                                       Disabled="_state.IsBusy">
-                            <MudRadio Value="OrchestrationMode.Simulation">Simulation</MudRadio>
-                            <MudRadio Value="OrchestrationMode.Telemetry">Telemetry</MudRadio>
-                        </MudRadioGroup>
-                    </MudItem>
                     <MudItem xs="12">
                         <MudTextField @bind-Value="_parameterText"
                                       Label="Parameters (JSON or key=value)"
@@ -68,35 +59,6 @@
                                       TextUpdateSuppression="true"
                                       Variant="Variant.Outlined" />
                     </MudItem>
-                    @if (_mode == OrchestrationMode.Telemetry)
-                    {
-                        <MudItem xs="12">
-                            @if (string.IsNullOrWhiteSpace(_selectedCaptureKey))
-                            {
-                                <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">
-                                    Selected template does not declare a telemetry capture bundle. Configure a `captureKey` in the template metadata or update the backend `TelemetryRoot` to proceed.
-                                </MudAlert>
-                            }
-                            else
-                            {
-                                <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
-                                    Using capture bundle <MudText Typo="Typo.subtitle2" Inline="true">@_selectedCaptureKey</MudText>. See the
-                                    <MudLink Href="/docs/operations/telemetry-capture-guide.html" Target="_blank">
-                                        telemetry capture guide
-                                    </MudLink>
-                                    for provisioning steps.
-                                </MudAlert>
-                            }
-                        </MudItem>
-                        <MudItem xs="12" md="6">
-                            <MudTextField @bind-Value="_telemetryBindingsText"
-                                          Label="Bindings (key=value)"
-                                          Lines="4"
-                                          Disabled="_state.IsBusy"
-                                          Variant="Variant.Outlined"
-                                          Placeholder="sensor=pressure-node"/>
-                        </MudItem>
-                    }
                 </MudGrid>
 
                 <MudStack Row="true" Spacing="2" Class="mt-4">
@@ -104,13 +66,13 @@
                                Color="Color.Secondary"
                                Disabled="_state.IsBusy || !CanSubmit"
                                OnClick="@(() => SubmitAsync(dryRun: true))">
-                        Plan Run
+                        Plan model
                     </MudButton>
                     <MudButton Variant="Variant.Filled"
                                Color="Color.Primary"
                                Disabled="_state.IsBusy || !CanSubmit"
                                OnClick="@(() => SubmitAsync(dryRun: false))">
-                        Start Run
+                        Run model
                     </MudButton>
                     <MudSpacer />
                     <MudButton Variant="Variant.Text"
@@ -216,7 +178,10 @@
                         Template: @(_lastMetadata.TemplateTitle ?? _lastMetadata.TemplateId) (@_lastMetadata.TemplateVersion)
                     </MudText>
                     <MudText>Mode: @_lastMetadata.Mode</MudText>
-                    <MudText>Telemetry resolved: @(_lastMetadata.TelemetrySourcesResolved ? "Yes" : "No")</MudText>
+                    @if (string.Equals(_lastMetadata.Mode, "telemetry", StringComparison.OrdinalIgnoreCase))
+                    {
+                        <MudText>Telemetry sources resolved: @(_lastMetadata.TelemetrySourcesResolved ? "Yes" : "No")</MudText>
+                    }
                 </MudStack>
                 <MudDivider Class="my-3" />
                 <MudText Typo="Typo.subtitle2">Warnings</MudText>
@@ -247,7 +212,7 @@
                     </MudButton>
                     <MudButton Variant="Variant.Outlined"
                                Color="Color.Secondary"
-                               OnClick="@(() => Navigation.NavigateTo($"/time-travel/artifacts?runId={_lastMetadata.RunId}"))">
+                               OnClick="@(() => Navigation.NavigateTo($"/time-travel/artifacts/{Uri.EscapeDataString(_lastMetadata.RunId)}"))">
                         View Artifacts
                     </MudButton>
                 </MudStack>
@@ -263,7 +228,10 @@
                         Template: @(_recentSuccess.TemplateTitle ?? _recentSuccess.TemplateId) (@_recentSuccess.TemplateVersion ?? "latest")
                     </MudText>
                     <MudText>Mode: @_recentSuccess.Mode</MudText>
-                    <MudText>Telemetry resolved: @(_recentSuccess.TelemetryResolved ? "Yes" : "No")</MudText>
+                    @if (string.Equals(_recentSuccess.Mode, "telemetry", StringComparison.OrdinalIgnoreCase))
+                    {
+                        <MudText>Telemetry sources resolved: @(_recentSuccess.TelemetryResolved ? "Yes" : "No")</MudText>
+                    }
                     <MudText Typo="Typo.caption" Color="Color.Secondary">
                         Completed @_recentSuccess.CompletedAtUtc.ToLocalTime():g
                     </MudText>
@@ -297,7 +265,7 @@
                     </MudButton>
                     <MudButton Variant="Variant.Outlined"
                                Color="Color.Secondary"
-                               OnClick="@(() => Navigation.NavigateTo($"/time-travel/artifacts?runId={_recentSuccess.RunId}"))">
+                               OnClick="@(() => Navigation.NavigateTo($"/time-travel/artifacts/{Uri.EscapeDataString(_recentSuccess.RunId)}"))">
                         View Artifacts
                     </MudButton>
                 </MudStack>
@@ -309,6 +277,9 @@
 @code {
     private const string PendingStorageKey = "ft.time-travel.pending-run";
     private const string LastRunStorageKey = "ft.time-travel.last-run";
+
+    [Parameter, SupplyParameterFromQuery(Name = "templateId")]
+    public string? PrefillTemplateId { get; set; }
 
     private readonly RunOrchestrationStateMachine _state = new();
     private List<TemplateInfo> _templates = new();
@@ -327,23 +298,12 @@
     private const string ParametersPlaceholder = "{ \"seed\": 42 } or key=value per line";
     private RunSuccessSnapshot? _recentSuccess;
     private string? _selectedCaptureKey;
+    private bool _prefillPending = true;
 
     private OrchestrationMode Mode
     {
-        get => _mode;
-        set
-        {
-            if (_mode == value)
-            {
-                return;
-            }
-
-            _mode = value;
-            if (_mode == OrchestrationMode.Telemetry && string.IsNullOrWhiteSpace(_selectedCaptureKey))
-            {
-                _selectedCaptureKey = GetTemplateCaptureKey(_selectedTemplateId);
-            }
-        }
+        get => OrchestrationMode.Simulation;
+        set => _mode = OrchestrationMode.Simulation;
     }
 
     private string? SelectedTemplateId
@@ -365,8 +325,21 @@
     protected override async Task OnInitializedAsync()
     {
         await LoadTemplatesAsync().ConfigureAwait(false);
-        await RestorePendingSubmissionAsync().ConfigureAwait(false);
+
+        var hasPrefill = !string.IsNullOrWhiteSpace(PrefillTemplateId);
+
+        if (!hasPrefill)
+        {
+            await RestorePendingSubmissionAsync().ConfigureAwait(false);
+        }
+
         await LoadRecentSuccessAsync().ConfigureAwait(false);
+    }
+
+    protected override void OnParametersSet()
+    {
+        _prefillPending = true;
+        ApplyPrefillFromQueryIfNeeded();
     }
 
     private async Task LoadTemplatesAsync()
@@ -380,6 +353,7 @@
                 SelectedTemplateId = _templates[0].Id;
             }
             EnsureCaptureKey();
+            ApplyPrefillFromQueryIfNeeded();
         }
         catch (Exception ex)
         {
@@ -405,6 +379,39 @@
         if (_mode == OrchestrationMode.Telemetry && string.IsNullOrWhiteSpace(_selectedCaptureKey))
         {
             _selectedCaptureKey = GetTemplateCaptureKey(_selectedTemplateId);
+        }
+    }
+
+    private void ApplyPrefillFromQueryIfNeeded()
+    {
+        if (!_prefillPending)
+        {
+            return;
+        }
+
+        if (_templates.Count == 0)
+        {
+            return;
+        }
+
+        var applied = false;
+
+        if (!string.IsNullOrWhiteSpace(PrefillTemplateId))
+        {
+            var match = _templates.FirstOrDefault(t => string.Equals(t.Id, PrefillTemplateId, StringComparison.OrdinalIgnoreCase));
+            if (match is not null)
+            {
+                SelectedTemplateId = match.Id;
+                applied = true;
+            }
+        }
+
+        EnsureCaptureKey();
+        _prefillPending = false;
+
+        if (applied)
+        {
+            StateHasChanged();
         }
     }
 
@@ -456,14 +463,14 @@
     {
         if (_state.IsBusy)
         {
-            NotificationService.Add("An orchestration request is already in progress.", Severity.Warning);
+            NotificationService.Add("A model run request is already in progress.", Severity.Warning);
             return;
         }
 
         EnsureCaptureKey();
 
         _errorMessage = null;
-        _statusMessage = dryRun ? "Planning run…" : "Starting orchestration…";
+        _statusMessage = dryRun ? "Planning model…" : "Starting model run…";
         _lastPlan = null;
         _lastMetadata = null;
         _runWarnings = Array.Empty<StateWarningDto>();
@@ -497,7 +504,7 @@
 
         if (!_state.TryBeginPlanning(snapshot))
         {
-            NotificationService.Add("Unable to start orchestration — state machine busy.", Severity.Warning);
+            NotificationService.Add("Unable to start model run — state machine busy.", Severity.Warning);
             return;
         }
 
@@ -522,7 +529,7 @@
                 _state.CompleteFailure(message);
                 _errorMessage = message;
                 NotificationService.Add(message, Severity.Error);
-                Logger.LogWarning("Run orchestration failed: {Status} {Error}", result.StatusCode, result.Error ?? "unknown");
+                Logger.LogWarning("Model run failed: {Status} {Error}", result.StatusCode, result.Error ?? "unknown");
                 return;
             }
 
@@ -575,7 +582,7 @@
                 }
                 catch (Exception ex)
                 {
-                    Logger.LogWarning(ex, "Run discovery refresh failed after orchestration.");
+                Logger.LogWarning(ex, "Run discovery refresh failed after model run.");
                 }
             }
         }
@@ -588,8 +595,8 @@
         catch (Exception ex)
         {
             await ClearSnapshotAsync().ConfigureAwait(false);
-            Logger.LogError(ex, "Run orchestration failed unexpectedly.");
-            var message = $"Run orchestration failed: {ex.Message}";
+            Logger.LogError(ex, "Model run failed unexpectedly.");
+            var message = $"Model run failed: {ex.Message}";
             _state.CompleteFailure(message);
             _errorMessage = message;
             NotificationService.Add(message, Severity.Error);
@@ -611,7 +618,7 @@
         }
         catch (Exception ex)
         {
-            Logger.LogWarning(ex, "Failed to persist orchestration snapshot.");
+            Logger.LogWarning(ex, "Failed to persist run snapshot.");
         }
     }
 
@@ -623,7 +630,7 @@
         }
         catch (Exception ex)
         {
-            Logger.LogWarning(ex, "Failed to clear orchestration snapshot.");
+            Logger.LogWarning(ex, "Failed to clear run snapshot.");
         }
         finally
         {
@@ -661,11 +668,11 @@
     {
         if (statusCode <= 0)
         {
-            return error ?? "Run orchestration failed.";
+        return error ?? "Model run failed.";
         }
 
         return string.IsNullOrWhiteSpace(error)
-            ? $"HTTP {statusCode}: Run orchestration failed."
+            ? $"HTTP {statusCode}: Model run failed."
             : $"HTTP {statusCode}: {error}";
     }
 

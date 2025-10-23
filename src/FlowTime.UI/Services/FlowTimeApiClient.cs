@@ -18,6 +18,7 @@ public interface IFlowTimeApiClient
     Task<ApiCallResult<RunSummaryResponseDto>> GetRunSummariesAsync(int page = 1, int pageSize = 50, CancellationToken ct = default);
     Task<ApiCallResult<RunCreateResponseDto>> CreateRunAsync(RunCreateRequestDto request, CancellationToken ct = default);
     Task<ApiCallResult<RunCreateResponseDto>> GetRunAsync(string runId, CancellationToken ct = default);
+    Task<ApiCallResult<TelemetryCaptureResponseDto>> GenerateTelemetryCaptureAsync(TelemetryCaptureRequestDto request, CancellationToken ct = default);
     Task<ApiCallResult<TimeTravelStateSnapshotDto>> GetRunStateAsync(string runId, int binIndex, CancellationToken ct = default);
     Task<ApiCallResult<TimeTravelStateWindowDto>> GetRunStateWindowAsync(string runId, int startBin, int endBin, CancellationToken ct = default);
     Task<ApiCallResult<SeriesIndex>> GetRunIndexAsync(string runId, CancellationToken ct = default);
@@ -129,6 +130,9 @@ internal sealed class FlowTimeApiClient : IFlowTimeApiClient
 
     public Task<ApiCallResult<RunCreateResponseDto>> GetRunAsync(string runId, CancellationToken ct = default)
         => GetJson<RunCreateResponseDto>($"{apiBasePath}/runs/{Uri.EscapeDataString(runId)}", ct);
+
+    public Task<ApiCallResult<TelemetryCaptureResponseDto>> GenerateTelemetryCaptureAsync(TelemetryCaptureRequestDto request, CancellationToken ct = default)
+        => PostJson<TelemetryCaptureResponseDto>($"{apiBasePath}/telemetry/captures", request, ct);
 
     public Task<ApiCallResult<TimeTravelStateSnapshotDto>> GetRunStateAsync(string runId, int binIndex, CancellationToken ct = default)
     {

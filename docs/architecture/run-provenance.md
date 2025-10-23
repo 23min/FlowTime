@@ -19,7 +19,7 @@ run_<timestamp>/
     *.csv             # per-series data (expanded from outputs / wildcards)
   run.json            # run summary (grid, status, schema metadata)
   manifest.json       # deterministic hash + provenance reference
-  gold/               # (placeholder for aggregated outputs)
+  aggregates/         # (placeholder for aggregated outputs)
 ```
 
 `RunArtifactWriter` is responsible for emitting this structure for both Engine-triggered runs and CLI executions. Canonical metadata (hashes, template identifiers, mode) is synthesised even when provenance is embedded in the incoming YAML. This ensures `/state`/`/state_window` have a consistent storage contract regardless of run origin.

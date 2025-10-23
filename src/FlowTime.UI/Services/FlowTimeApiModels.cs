@@ -22,14 +22,7 @@ public record BuildInfo(
 
 public record CapabilitiesInfo(
     [property: JsonPropertyName("supportedFormats")] string[]? SupportedFormats,
-    [property: JsonPropertyName("features")] string[]? Features,
-    [property: JsonPropertyName("limits")] LimitsInfo? Limits);
-
-public record LimitsInfo(
-    [property: JsonPropertyName("maxBins")] int? MaxBins,
-    [property: JsonPropertyName("maxSeed")] int? MaxSeed,
-    [property: JsonPropertyName("supportedArrivalKinds")] string[]? SupportedArrivalKinds,
-    [property: JsonPropertyName("supportedRngTypes")] string[]? SupportedRngTypes);
+    [property: JsonPropertyName("features")] string[]? Features);
 
 public record RuntimeInfo(
     [property: JsonPropertyName("startTime")] string? StartTime,
@@ -57,13 +50,7 @@ public record SimpleHealthResponse(
     [property: JsonPropertyName("uptime")] string? Uptime,
     [property: JsonPropertyName("environment")] string? Environment,
     [property: JsonPropertyName("dataDirectory")] string? DataDirectory,
-    [property: JsonPropertyName("system")] SystemInfo? System,
     [property: JsonPropertyName("availableEndpoints")] string[]? AvailableEndpoints);
-
-public record SystemInfo(
-    [property: JsonPropertyName("workingSetMB")] double? WorkingSetMB,
-    [property: JsonPropertyName("platform")] string? Platform,
-    [property: JsonPropertyName("architecture")] string? Architecture);
 
 // FlowTime-Sim specific detailed health response format
 public record FlowTimeSimDetailedHealthResponse(
@@ -74,7 +61,6 @@ public record FlowTimeSimDetailedHealthResponse(
     [property: JsonPropertyName("uptime")] string? Uptime,
     [property: JsonPropertyName("environment")] string? Environment,
     [property: JsonPropertyName("dataDirectory")] string? DataDirectory,
-    [property: JsonPropertyName("system")] SystemInfo? System,
     [property: JsonPropertyName("availableEndpoints")] string[]? AvailableEndpoints);
 
 public record RunResponse(
@@ -117,15 +103,6 @@ public sealed record ApiCallResult<T>(T? Value, bool Success, int StatusCode, st
 {
     public static ApiCallResult<T> Ok(T value, int status) => new(value, true, status, null);
     public static ApiCallResult<T> Fail(int status, string? error) => new(default, false, status, error);
-}
-
-// Basic health info for FlowTime API
-public record SimpleHealthInfo
-{
-    public string? ServiceName { get; init; }
-    public string? ApiVersion { get; init; }
-    public string? Status { get; init; }
-    public TimeSpan? Uptime { get; init; }
 }
 
 // Run listing models
@@ -225,3 +202,26 @@ public sealed record RunTelemetrySummaryDto(
     [property: JsonPropertyName("generatedAtUtc")] string? GeneratedAtUtc,
     [property: JsonPropertyName("warningCount")] int WarningCount,
     [property: JsonPropertyName("sourceRunId")] string? SourceRunId);
+
+public sealed record TelemetryCaptureRequestDto(
+    [property: JsonPropertyName("source")] TelemetryCaptureSourceDto Source,
+    [property: JsonPropertyName("output")] TelemetryCaptureOutputDto Output);
+
+public sealed record TelemetryCaptureSourceDto(
+    [property: JsonPropertyName("type")] string Type,
+    [property: JsonPropertyName("runId")] string? RunId);
+
+public sealed record TelemetryCaptureOutputDto(
+    [property: JsonPropertyName("captureKey")] string? CaptureKey,
+    [property: JsonPropertyName("directory")] string? Directory,
+    [property: JsonPropertyName("overwrite")] bool Overwrite);
+
+public sealed record TelemetryCaptureResponseDto(
+    [property: JsonPropertyName("capture")] TelemetryCaptureSummaryDto Capture);
+
+public sealed record TelemetryCaptureSummaryDto(
+    [property: JsonPropertyName("generated")] bool Generated,
+    [property: JsonPropertyName("alreadyExists")] bool AlreadyExists,
+    [property: JsonPropertyName("generatedAtUtc")] string? GeneratedAtUtc,
+    [property: JsonPropertyName("sourceRunId")] string? SourceRunId,
+    [property: JsonPropertyName("warnings")] IReadOnlyList<StateWarningDto>? Warnings);

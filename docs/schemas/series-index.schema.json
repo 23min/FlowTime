@@ -26,9 +26,9 @@
     "formats": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["goldTable"],
+      "required": ["aggregatesTable"],
       "properties": {
-        "goldTable": {
+        "aggregatesTable": {
           "type": "object",
           "additionalProperties": false,
           "required": ["path", "dimensions", "measures"],

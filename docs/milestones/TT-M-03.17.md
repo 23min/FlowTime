@@ -1,6 +1,6 @@
 # TT-M-03.17 — Explicit Telemetry Generation
 
-**Status:** 🚧 In Progress  
+**Status:** ✅ Completed (manual verification + tests updated)  
 **Dependencies:** ✅ UI-M-03.16 (Run Orchestration Page), ✅ M-03.04 (/v1/runs API), ✅ M-03.02 (Simulation orchestration)  
 **Owners:** Time-Travel Platform / UI Core  
 **Target Outcome:** Add a separate endpoint to generate telemetry bundles from existing simulation runs, surface minimal availability metadata, and keep `/v1/runs` free of auto-generation.
@@ -61,15 +61,29 @@ Telemetry replay requires a capture bundle. TT‑M‑03.17 introduces an explici
 1. Endpoint + service to capture from an existing run.
 2. Run metadata summary fields for telemetry availability.
 3. UI actions in run detail (generate / replay selection).
-4. Docs updated (guide + roadmap).
-5. Tests for endpoint + UI provenance.
+4. Telemetry bundles default to each run's `model/telemetry/`; shared libraries become optional configuration.
+5. Placeholder `gold/` directory renamed to `aggregates/` across docs/contracts.
+6. Docs updated (guide + roadmap).
+7. Tests for endpoint + UI provenance.
 
 ### Deliverables
-- `POST /v1/telemetry/captures` + service implementation.
-- Run metadata telemetry summary.
-- Run detail UI with generation action and replay gating.
-- Updated docs (guide, roadmap, trackers).
-- Automated tests for generate/reuse/errors and UI.
+- ✅ `POST /v1/telemetry/captures` + service implementation.
+- ✅ Run metadata telemetry summary (available, generatedAtUtc, warningCount, sourceRunId).
+- ✅ Run detail UI with generation action and replay gating.
+- ✅ Telemetry generation defaults to run‑scoped `model/telemetry/`; `TelemetryRoot` used only for optional shared libraries.
+- ✅ Docs/contracts updated to refer to `aggregates/` instead of `gold/` placeholders (archives may still reference `gold`).
+- ✅ Updated docs (capture guide, roadmap) and manual verification notes.
+- ✅ UI tests pass with availability chip and actions wired (no replay viewer yet by design).
+
+---
+
+## Progress
+
+- ✅ Backend endpoint + service merged with contract/golden updates.
+- ✅ Run summary now includes telemetry availability metadata (available, generatedAtUtc, warningCount, sourceRunId).
+- ✅ Run detail surfaces telemetry availability with generate/replay actions.
+- ✅ Telemetry capture defaults to run‑scoped storage; shared bundles optional via TelemetryRoot.
+- ✅ Docs updated; manual verification completed; screenshots to be refreshed in a later doc polish PR.
 
 ---
 
@@ -103,7 +117,8 @@ Each test should fail prior to implementation, then pass once the feature code i
 ## Risks & Mitigations
 - **Long-running work:** Keep capture logs visible; don’t block `/v1/runs` requests.
 - **Filesystem errors:** Validate roots early; return actionable errors.
-- **Template misconfig:** If `captureKey` missing, allow explicit directory override.
+- **Template misconfig:** If `captureKey` missing, allow explicit directory override (UI now auto-generates run-scoped capture keys).
+- **Path churn:** Moving bundles under runs requires doc/test updates; track via new deliverables above.
 
 ---
 
@@ -111,6 +126,7 @@ Each test should fail prior to implementation, then pass once the feature code i
 1. Should `/v1/telemetry/captures` support `source: { type:"simulate", templateId, parameters }` later? (Out of scope.)
 2. Do we expose warning details in the summary or only counts? (Proposed: counts only.)
 3. Retention policy for generated bundles? (Deferred.)
+4. Should we provide a CLI helper to promote run-local bundles into a shared telemetry library? (Deferred.)
 
 ---
 

@@ -1,7 +1,9 @@
 <!-- moved from docs/time-travel/UI-M3-roadmap.md -->
 # UI M3 Roadmap — Time-Travel UI (Minimal First)
 
-**Purpose:** Pragmatic two-phase plan to modernize the MudBlazor UI for M3 and ship a minimal, reliable time‑travel experience based on gold data. No transactional/customer drilldown; focus on stability and clarity.
+**Purpose:** Pragmatic two-phase plan to modernize the MudBlazor UI for M3 and ship a minimal, reliable time‑travel experience based on run bundles (formerly referred to as “gold data”). No transactional/customer drilldown; focus on stability and clarity.
+
+> **Terminology note:** Historical references to “gold bundles/data” map to the canonical run bundle (per-series CSVs plus the `aggregates/` placeholder).
 
 ---
 
@@ -10,7 +12,7 @@
 - Phase 1 — Align With M3 (Refactor and Restore)
   - Bring the existing UI in sync with M3 engine/sim changes.
   - Review and rationalize navigation. Restore Artifacts. Rework Simulate to feed time‑travel runs. Decide fate of Analyze.
-  - Establish REST data access services for gold bundles so UI surfaces can consume `/v1/runs` endpoints.
+  - Establish REST data access services for run bundles so UI surfaces can consume `/v1/runs` endpoints.
 - Phase 2 — Minimal Time-Travel Visualizations (from docs/ui/time-travel-visualizations-3.md)
   - SLA Dashboard tiles with mini bars (no forecasting).
   - Flow Topology (entire graph) with global scrubber and heat‑map node coloring.
@@ -51,11 +53,11 @@ Session 1: Baseline + Build Health
 
 Session 2: Artifacts Page Restoration
 - Outcome: “Artifacts” lists available run bundles, basic metadata (runId, time range), and open actions.
-- Data: read from local gold bundle folder(s); no API required.
+- Data: read from local run bundle folder(s); no API required.
 - Checks: Open action deep‑links to Time‑Travel pages with the selected `runId`.
 
 Session 3: Simulate → Gold Run Integration
-- Outcome: Simulate workflows output gold bundles discoverable by Artifacts and Time‑Travel pages.
+- Outcome: Simulate workflows output run bundles discoverable by Artifacts and Time‑Travel pages.
 - Data: reuse CLI/engine workflow described in `docs/operations/telemetry-capture-guide.md`.
 - Checks: After simulation, new run appears under Artifacts; Topology/SLA can open it.
 

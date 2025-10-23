@@ -7,6 +7,11 @@ out/
 data/
 runs/
 
+# Local scratch data created during manual validation/tests
+tmpdata*/
+tmpdata_*/
+tmpdata-*/
+
 # Deprecated/removed directories - DO NOT RECREATE
 apis/
  

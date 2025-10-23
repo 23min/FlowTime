@@ -75,7 +75,7 @@ After Contracts Parity (M-01.00) the UI consumes `series/index.json` (see [contr
 * Enumerate series (id, kind, unit, componentId, class)
 * Lazy load individual CSVs via `path`
 
-Planned optional formats (gold table, events) are referenced but safely ignored if absent.
+Planned optional formats (aggregates table, events) are referenced but safely ignored if absent.
 
 ## Keeping Concerns Separate
 No build-time copy of UI into API. Integration for single-domain hosting can be added later via an opt-in MSBuild target or reverse proxy rules.

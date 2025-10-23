@@ -8,7 +8,7 @@ Legend: Done / Prototype / Partial / Planned.
 |------|------------|--------|-------|
 | Core Engine | Deterministic grid, Series<T>, DAG topo order | Done (M-00.00) | Cycle detection present |
 | Nodes | const, basic expr (series * scalar, + scalar) | Done | Series-series & advanced built-ins in M-01.50 |
-| Artifacts (Contracts Parity) | spec.yaml, run.json(source,grid+tz,align), manifest.json(rng), series/index.json, per-series hashes, placeholders (events, gold) | Done (M-01.00) | Deterministic hashing + JSON Schema validation |
+| Artifacts (Contracts Parity) | spec.yaml, run.json(source,grid+tz,align), manifest.json(rng), series/index.json, per-series hashes, placeholders (events, aggregates) | Done (M-01.00) | Deterministic hashing + JSON Schema validation |
 | Expressions | Parser + refs + built-ins | ✅ Complete (M-01.50) | Full expression language with SHIFT, MIN, MAX, CLAMP |
 | CLI | Evaluate YAML -> CSV + structured artifacts | Done (M-01.00) | Deterministic artifacts with hashing |
 | CLI Flags | --deterministic-run-id, --seed, determinism | Done (M-01.00) | Full determinism support |

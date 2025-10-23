@@ -2,7 +2,7 @@
 
 **Status:** 📋 Planned  
 **Dependencies:** ✅ UI-M-03.10 (UI Baseline & Build Health), ✅ UI-M-03.11 (Artifacts Page Restoration), ✅ M-03.02 (Telemetry capture + bundling), ✅ M-03.04 (Run packaging, state window)  
-**Target:** From the Simulate section, run an orchestration that produces a canonical gold run bundle under `runs/<runId>/` so the new run immediately appears in Artifacts and can be opened in Time‑Travel views.
+**Target:** From the Simulate section, run an orchestration that produces a canonical run bundle under `runs/<runId>/` (including the aggregates placeholder) so the new run immediately appears in Artifacts and can be opened in Time‑Travel views.
 
 ---
 
@@ -11,7 +11,7 @@
 This milestone connects the Simulate experience to the M3 time‑travel workflow. Operators can choose a template (and optional options), kick off an orchestration that generates artifacts, watch progress logs, and finish with a discoverable `runId`. The output follows the contracts required by the Artifacts page and the minimal time‑travel UI, enabling a tight iterate → view loop without depending on REST endpoints.
 
 ### Strategic Context
-- Motivation: Unify “simulate” and “time‑travel” by emitting the same gold bundle used by analysis UIs.
+- Motivation: Unify “simulate” and “time‑travel” by emitting the same bundle used by analysis UIs (per-series CSVs plus future aggregates).
 - Impact: One‑click path from Simulate → Artifacts → Time‑Travel; reduces friction and demos well.
 - Dependencies: The engine/CLI orchestration (capture + bundling + run) completes locally and writes canonical artifacts.
 
@@ -96,7 +96,7 @@ runs/<runId>/
   manifest.json
   series/
     <seriesId>.csv
-  gold/                 # optional for analytics (not required by this milestone)
+  aggregates/           # optional for analytics (not required by this milestone)
 ```
 
 ### run.json (required)

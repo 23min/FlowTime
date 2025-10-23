@@ -118,11 +118,13 @@ runs/<runId>/
   manifest.json
   series/
     <seriesId>.csv
-  gold/
+  aggregates/
     node_time_bin.parquet       # analytics table (CSV optional via flag)
 ```
 
-> **Per-series CSVs** are the UI/adapters’ canonical inputs. The Parquet **gold** table is for analytics. Services must stream the same files over HTTP.
+> **Per-series CSVs** are the UI/adapters’ canonical inputs. The Parquet **aggregates** table is for analytics. Services must stream the same files over HTTP.
+
+> **Terminology note:** Earlier milestones and docs refer to "run bundles". That term now maps to the canonical run bundle described above (per-series CSVs + optional `aggregates/`).
 
 ### run.json (summary, series listing)
 
@@ -184,8 +186,8 @@ runs/<runId>/
     }
   ],
   "formats": {
-    "goldTable": {
-      "path": "gold/node_time_bin.parquet",
+    "aggregatesTable": {
+      "path": "aggregates/node_time_bin.parquet",
       "dimensions": ["time_bin", "component_id", "class"],
       "measures": ["arrivals", "served", "errors"]
     }
@@ -208,9 +210,9 @@ runs/<runId>/
 t,value    # t = 0..(bins-1), LF newlines, InvariantCulture floats
 ```
 
-### Gold table (analytics, dense rows policy in v1)
+### Aggregates table (analytics, dense rows policy in v1)
 
-- Path: `gold/node_time_bin.parquet` (CSV optional via `--csv`).
+- Path: `aggregates/node_time_bin.parquet` (CSV optional via `--csv`).
 - Shape:
 
   ```
@@ -306,7 +308,7 @@ layoutHints:
   rankDir: LR
 ```
 
-- `components[].id` is the stable join key to `series[].componentId` and `gold.component_id`.
+- `components[].id` is the stable join key to `series[].componentId` and `aggregates.component_id`.
 - A catalog can be passed inline to `POST /sim/run` or referenced by `catalogId`.
 
 ---
@@ -330,5 +332,5 @@ layoutHints:
 
 ## Deprecations
 
-- Legacy single-file `gold.csv` is deprecated. Prefer **per-series CSVs** and the Parquet **gold** table.
+- Legacy single-file exports are deprecated. Prefer **per-series CSVs** and the Parquet **aggregates** table.
 - Replace any domain-colored reserved keys (e.g., `routeId`, `stepId`) with **domain-neutral** ones (`connectionId`).

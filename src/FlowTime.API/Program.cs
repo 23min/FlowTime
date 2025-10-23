@@ -777,12 +777,12 @@ v1.MapPost("/runs/{runId}/export", async (string runId, ILogger<Program> logger)
         // Save all available export formats to disk
         await SaveAllExportFormatsAsync(runPath, logger);
         
-        var goldDirectory = Path.Combine(runPath, "gold");
+        var aggregatesDirectory = Path.Combine(runPath, "aggregates");
         return Results.Ok(new { 
             message = "Export completed successfully",
             runId = runId,
             formats = new[] { "csv", "ndjson", "parquet" },
-            artifactsPath = goldDirectory,
+            artifactsPath = aggregatesDirectory,
             files = new[] {
                 "export.csv",
                 "export.ndjson", 
@@ -813,10 +813,10 @@ v1.MapGet("/runs/{runId}/export/{format}", async (string runId, string format, I
         // Return the requested format (no side effects)
         return format.ToLowerInvariant() switch
         {
-            "gold" or "csv" => await GetGoldCsvResponse(runPath, runId, logger),
+            "aggregates" or "csv" or "gold" => await GetAggregatesCsvResponse(runPath, runId, logger),
             "ndjson" => await GetNdjsonResponse(runPath, runId, logger),
             "parquet" => await GetParquetResponse(runPath, runId, logger),
-            _ => Results.BadRequest(new { error = $"Unsupported export format: {format}. Supported formats: gold, csv, ndjson, parquet" })
+            _ => Results.BadRequest(new { error = $"Unsupported export format: {format}. Supported formats: aggregates, csv, ndjson, parquet" })
         };
     }
     catch (Exception ex)
@@ -827,22 +827,22 @@ v1.MapGet("/runs/{runId}/export/{format}", async (string runId, string format, I
 });
 
 // Helper methods for format-specific responses
-static async Task<IResult> GetGoldCsvResponse(string runPath, string runId, ILogger logger)
+static async Task<IResult> GetAggregatesCsvResponse(string runPath, string runId, ILogger logger)
 {
-    var goldCsvPath = Path.Combine(runPath, "gold", "export.csv");
-    if (!File.Exists(goldCsvPath))
+    var aggregatesCsvPath = Path.Combine(runPath, "aggregates", "export.csv");
+    if (!File.Exists(aggregatesCsvPath))
     {
         return Results.NotFound(new { error = $"Export CSV file not found for run {runId}. Run POST /export to create it first." });
     }
     
-    var csvContent = await File.ReadAllTextAsync(goldCsvPath);
-    logger.LogInformation("Retrieved Gold CSV export for run {RunId}: {Size} bytes", runId, csvContent.Length);
+    var csvContent = await File.ReadAllTextAsync(aggregatesCsvPath);
+    logger.LogInformation("Retrieved aggregates CSV export for run {RunId}: {Size} bytes", runId, csvContent.Length);
     return Results.Text(csvContent, "text/csv", Encoding.UTF8);
 }
 
 static async Task<IResult> GetNdjsonResponse(string runPath, string runId, ILogger logger)
 {
-    var ndjsonPath = Path.Combine(runPath, "gold", "export.ndjson");
+    var ndjsonPath = Path.Combine(runPath, "aggregates", "export.ndjson");
     if (!File.Exists(ndjsonPath))
     {
         return Results.NotFound(new { error = $"Export NDJSON file not found for run {runId}. Run POST /export to create it first." });
@@ -855,7 +855,7 @@ static async Task<IResult> GetNdjsonResponse(string runPath, string runId, ILogg
 
 static async Task<IResult> GetParquetResponse(string runPath, string runId, ILogger logger)
 {
-    var parquetPath = Path.Combine(runPath, "gold", "export.parquet");
+    var parquetPath = Path.Combine(runPath, "aggregates", "export.parquet");
     if (!File.Exists(parquetPath))
     {
         return Results.NotFound(new { error = $"Export Parquet file not found for run {runId}. Run POST /export to create it first." });
@@ -869,25 +869,25 @@ static async Task<IResult> GetParquetResponse(string runPath, string runId, ILog
 // Helper method to save all export formats to disk
 static async Task SaveAllExportFormatsAsync(string runPath, ILogger logger)
 {
-    var goldDirectory = Path.Combine(runPath, "gold");
-    Directory.CreateDirectory(goldDirectory); // Ensure gold directory exists
+    var aggregatesDirectory = Path.Combine(runPath, "aggregates");
+    Directory.CreateDirectory(aggregatesDirectory); // Ensure aggregates directory exists
     
     try
     {
-        // Save Gold CSV format
-        var goldCsvPath = Path.Combine(goldDirectory, "export.csv");
-        var csvResult = await GoldCsvExporter.ExportToFileAsync(runPath, goldCsvPath);
-        logger.LogInformation("Saved Gold CSV export: {FilePath} ({RowCount} rows, {SeriesCount} series)", 
-            goldCsvPath, csvResult.RowCount, csvResult.SeriesCount);
-        
+        // Save aggregates CSV format
+        var aggregatesCsvPath = Path.Combine(aggregatesDirectory, "export.csv");
+        var csvResult = await AggregatesCsvExporter.ExportToFileAsync(runPath, aggregatesCsvPath);
+        logger.LogInformation("Saved aggregates CSV export: {FilePath} ({RowCount} rows, {SeriesCount} series)", 
+            aggregatesCsvPath, csvResult.RowCount, csvResult.SeriesCount);
+
         // Save NDJSON format
-        var ndjsonPath = Path.Combine(goldDirectory, "export.ndjson");
+        var ndjsonPath = Path.Combine(aggregatesDirectory, "export.ndjson");
         var ndjsonResult = await NdjsonExporter.ExportToFileAsync(runPath, ndjsonPath);
         logger.LogInformation("Saved NDJSON export: {FilePath} ({RowCount} rows, {SeriesCount} series)", 
             ndjsonPath, ndjsonResult.RowCount, ndjsonResult.SeriesCount);
         
         // Save Parquet format  
-        var parquetPath = Path.Combine(goldDirectory, "export.parquet");
+        var parquetPath = Path.Combine(aggregatesDirectory, "export.parquet");
         var parquetResult = await ParquetExporter.ExportToFileAsync(runPath, parquetPath);
         logger.LogInformation("Saved Parquet export: {FilePath} ({RowCount} rows, {SeriesCount} series)", 
             parquetPath, parquetResult.RowCount, parquetResult.SeriesCount);

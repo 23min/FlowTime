@@ -68,7 +68,7 @@ public sealed record Catalog
             }
         }
 
-        // Validate component ID format (must match Gold component_id requirements)
+        // Validate component ID format (must match aggregates component_id requirements)
         foreach (var component in Components)
         {
             if (!IsValidComponentId(component.Id))
@@ -88,7 +88,7 @@ public sealed record Catalog
     {
         if (string.IsNullOrWhiteSpace(id)) return false;
         
-        // Component IDs must match Gold component_id requirements
+        // Component IDs must match aggregates component_id requirements
         // Allowed characters: A-Z a-z 0-9 _ - .
         return id.All(c => char.IsLetterOrDigit(c) || c == '_' || c == '-' || c == '.');
     }

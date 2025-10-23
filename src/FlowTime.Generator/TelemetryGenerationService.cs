@@ -54,7 +54,12 @@ public sealed class TelemetryGenerationService
             throw new DirectoryNotFoundException($"Run directory '{runDirectory}' was not found.");
         }
 
-        var captureDirectory = ResolveCaptureDirectory(output, telemetryRoot);
+        var captureDirectory = ResolveCaptureDirectory(output, runDirectory, telemetryRoot);
+        var runScopedDirectory = Path.Combine(runDirectory, "model", "telemetry");
+        var isRunScopedCapture = string.Equals(
+            Path.GetFullPath(captureDirectory),
+            Path.GetFullPath(runScopedDirectory),
+            StringComparison.OrdinalIgnoreCase);
         var manifestPath = Path.Combine(captureDirectory, "manifest.json");
 
         if (File.Exists(manifestPath) && !output.Overwrite)
@@ -63,12 +68,21 @@ public sealed class TelemetryGenerationService
             return TelemetryGenerationResult.CreateAlreadyExists(runId, await TryReadMetadataAsync(captureDirectory, cancellationToken).ConfigureAwait(false));
         }
 
-        if (Directory.Exists(captureDirectory))
-        {
-            Directory.Delete(captureDirectory, recursive: true);
-        }
-
         Directory.CreateDirectory(captureDirectory);
+
+        if (output.Overwrite)
+        {
+            foreach (var file in Directory.EnumerateFiles(captureDirectory))
+            {
+                var name = Path.GetFileName(file);
+                if (isRunScopedCapture && string.Equals(name, "telemetry-manifest.json", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                File.Delete(file);
+            }
+        }
 
         logger.LogInformation("Generating telemetry bundle for run {RunId} into {CaptureDirectory}", runId, captureDirectory);
 
@@ -96,14 +110,36 @@ public sealed class TelemetryGenerationService
         var metadataJson = JsonSerializer.Serialize(metadata, metadataSerializerOptions);
         await File.WriteAllTextAsync(metadataPath, metadataJson, cancellationToken).ConfigureAwait(false);
 
+        // Update the canonical telemetry manifest under model/telemetry so API/UI can reflect availability
+        var captureManifestPath = Path.Combine(captureDirectory, "manifest.json");
+        if (File.Exists(captureManifestPath))
+        {
+            await using var stream = File.OpenRead(captureManifestPath);
+            var captureManifest = await JsonSerializer.DeserializeAsync<TelemetryManifest>(
+                stream,
+                new JsonSerializerOptions(JsonSerializerDefaults.Web),
+                cancellationToken).ConfigureAwait(false);
+            if (captureManifest is not null)
+            {
+                var telemetryManifestPath = Path.Combine(modelDirectory, "telemetry", "telemetry-manifest.json");
+                Directory.CreateDirectory(Path.GetDirectoryName(telemetryManifestPath)!);
+                await CaptureManifestWriter.WriteAsync(telemetryManifestPath, captureManifest, cancellationToken).ConfigureAwait(false);
+            }
+        }
+
         return TelemetryGenerationResult.CreateGenerated(
             runId,
             generatedAtUtc,
             warnings);
     }
 
-    private static string ResolveCaptureDirectory(TelemetryGenerationOutput output, string? telemetryRoot)
+    private static string ResolveCaptureDirectory(TelemetryGenerationOutput output, string runDirectory, string? telemetryRoot)
     {
+        if (!string.IsNullOrWhiteSpace(output.Directory))
+        {
+            return Path.GetFullPath(output.Directory);
+        }
+
         if (!string.IsNullOrWhiteSpace(output.CaptureKey))
         {
             if (string.IsNullOrWhiteSpace(telemetryRoot))
@@ -115,13 +151,7 @@ public sealed class TelemetryGenerationService
             return Path.GetFullPath(directory);
         }
 
-        if (!string.IsNullOrWhiteSpace(output.Directory))
-        {
-            var full = Path.GetFullPath(output.Directory);
-            return full;
-        }
-
-        throw new InvalidOperationException("Either output.captureKey or output.directory must be provided.");
+        return Path.Combine(runDirectory, "model", "telemetry");
     }
 
     private static async Task<TelemetryGenerationMetadata?> TryReadMetadataAsync(string captureDirectory, CancellationToken cancellationToken)

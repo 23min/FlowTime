@@ -2,7 +2,7 @@
 
 **Status:** 📋 Planned  
 **Dependencies:** ✅ UI-M-03.10 (UI Baseline & Build Health), ✅ M-02.07 (Artifacts Registry), ✅ M-03.04 (run packaging/state window)  
-**Target:** Restore the Artifacts page to list available runs (gold bundles) and open them into Time‑Travel views. Operates on local file artifacts; no REST dependency.
+**Target:** Restore the Artifacts page to list available runs (canonical bundles with per-series CSVs and aggregates placeholders) and open them into Time‑Travel views. Operates on local file artifacts; no REST dependency.
 
 ---
 

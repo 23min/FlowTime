@@ -91,6 +91,7 @@ public sealed class RunDiscoveryService : IRunDiscoveryService
 
             bool hasIndex = indexResult.Success && indexResult.Value is not null;
             bool hasSeries = hasIndex && indexResult.Value!.Series.Count > 0;
+            var telemetrySummary = detailResult.Value?.Telemetry ?? summary.Telemetry;
 
             if (!detailResult.Success)
             {
@@ -107,14 +108,17 @@ public sealed class RunDiscoveryService : IRunDiscoveryService
                 diagnostics.Add(new RunDiagnostic(summary.RunId, "manifest.json not reported by API; run may be incomplete."));
             }
 
+            var created = summary.CreatedUtc ?? TryInferCreatedFromRunId(summary.RunId);
+
             var entry = new RunListEntry(
                 RunId: summary.RunId,
                 TemplateId: summary.TemplateId,
                 TemplateTitle: detailResult.Value?.Metadata?.TemplateTitle ?? summary.TemplateTitle,
                 TemplateVersion: detailResult.Value?.Metadata?.TemplateVersion ?? summary.TemplateVersion,
                 Source: summary.Mode,
-                CreatedUtc: summary.CreatedUtc,
+                CreatedUtc: created,
                 WarningCount: summary.WarningCount,
+                Telemetry: telemetrySummary,
                 FirstWarningMessage: firstWarning,
                 Warnings: warnings,
                 Grid: gridSummary,
@@ -172,6 +176,40 @@ public sealed class RunDiscoveryService : IRunDiscoveryService
             return GridSummary.Missing;
         }
     }
+
+    private static DateTimeOffset? TryInferCreatedFromRunId(string runId)
+    {
+        // Supports run_YYYYMMDDTHHMMSSZ_* style ids
+        if (!runId.StartsWith("run_", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var parts = runId.Split('_', 3);
+        if (parts.Length < 2)
+        {
+            return null;
+        }
+
+        var ts = parts[1];
+        // Expect format like 20251023T144831Z
+        if (ts.Length == 16 && ts.EndsWith("Z", StringComparison.OrdinalIgnoreCase))
+        {
+            var yyyy = ts.Substring(0, 4);
+            var MM = ts.Substring(4, 2);
+            var dd = ts.Substring(6, 2);
+            var HH = ts.Substring(9, 2);
+            var mm = ts.Substring(11, 2);
+            var ss = ts.Substring(13, 2);
+            var iso = $"{yyyy}-{MM}-{dd}T{HH}:{mm}:{ss}Z";
+            if (DateTimeOffset.TryParse(iso, out var dto))
+            {
+                return dto;
+            }
+        }
+
+        return null;
+    }
 }
 
 public sealed record RunDiscoveryResult(
@@ -197,6 +235,7 @@ public sealed record RunListEntry(
     string Source,
     DateTimeOffset? CreatedUtc,
     int WarningCount,
+    RunTelemetrySummaryDto? Telemetry,
     string? FirstWarningMessage,
     IReadOnlyList<RunWarningInfo> Warnings,
     GridSummary Grid,
