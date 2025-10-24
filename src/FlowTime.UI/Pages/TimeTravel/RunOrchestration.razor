@@ -2,6 +2,7 @@
 @using MudBlazor
 @using Microsoft.AspNetCore.Components
 @using System.Linq
+@using System.Globalization
 @using FlowTime.UI.Services
 @inject ITemplateService TemplateService
 @inject IFlowTimeApiClient ApiClient
@@ -58,6 +59,16 @@
                                       Immediate="true"
                                       TextUpdateSuppression="true"
                                       Variant="Variant.Outlined" />
+                    </MudItem>
+                    <MudItem xs="12" md="3">
+                        <MudTextField @bind-Value="_rngSeedText"
+                                      Label="RNG Seed"
+                                      Variant="Variant.Outlined"
+                                      Placeholder="123"
+                                      Disabled="_state.IsBusy"
+                                      Immediate="true"
+                                      InputType="InputType.Number"
+                                      HelperText="Defaults to 123 unless overridden." />
                     </MudItem>
                 </MudGrid>
 
@@ -178,6 +189,7 @@
                         Template: @(_lastMetadata.TemplateTitle ?? _lastMetadata.TemplateId) (@_lastMetadata.TemplateVersion)
                     </MudText>
                     <MudText>Mode: @_lastMetadata.Mode</MudText>
+                    <MudText>RNG Seed: @FormatSeed(_lastMetadata.Rng?.Seed)</MudText>
                     @if (string.Equals(_lastMetadata.Mode, "telemetry", StringComparison.OrdinalIgnoreCase))
                     {
                         <MudText>Telemetry sources resolved: @(_lastMetadata.TelemetrySourcesResolved ? "Yes" : "No")</MudText>
@@ -228,6 +240,7 @@
                         Template: @(_recentSuccess.TemplateTitle ?? _recentSuccess.TemplateId) (@_recentSuccess.TemplateVersion ?? "latest")
                     </MudText>
                     <MudText>Mode: @_recentSuccess.Mode</MudText>
+                    <MudText>RNG Seed: @FormatSeed(_recentSuccess.RngSeed)</MudText>
                     @if (string.Equals(_recentSuccess.Mode, "telemetry", StringComparison.OrdinalIgnoreCase))
                     {
                         <MudText>Telemetry sources resolved: @(_recentSuccess.TelemetryResolved ? "Yes" : "No")</MudText>
@@ -277,6 +290,7 @@
 @code {
     private const string PendingStorageKey = "ft.time-travel.pending-run";
     private const string LastRunStorageKey = "ft.time-travel.last-run";
+    private const string DefaultSeedText = "123";
 
     [Parameter, SupplyParameterFromQuery(Name = "templateId")]
     public string? PrefillTemplateId { get; set; }
@@ -299,6 +313,7 @@
     private RunSuccessSnapshot? _recentSuccess;
     private string? _selectedCaptureKey;
     private bool _prefillPending = true;
+    private string _rngSeedText = DefaultSeedText;
 
     private OrchestrationMode Mode
     {
@@ -434,6 +449,7 @@
             Mode = snapshot.Mode;
             _parameterText = snapshot.ParameterText;
             _telemetryBindingsText = snapshot.TelemetryBindingsText;
+            _rngSeedText = string.IsNullOrWhiteSpace(snapshot.RngSeedText) ? DefaultSeedText : snapshot.RngSeedText!;
             EnsureCaptureKey();
 
             _state.RestorePending(snapshot, RunOrchestrationPhase.Planning);
@@ -481,7 +497,8 @@
             Mode = _mode,
             ParameterText = _parameterText,
             CaptureDirectory = _selectedCaptureKey,
-            TelemetryBindingsText = _telemetryBindingsText
+            TelemetryBindingsText = _telemetryBindingsText,
+            RngSeedText = _rngSeedText
         };
 
         if (!RunOrchestrationRequestBuilder.TryBuild(form, dryRun, out var request, out var validationError))
@@ -499,7 +516,8 @@
         {
             ParameterText = _parameterText,
             TelemetryBindingsText = _telemetryBindingsText,
-            CaptureDirectory = _selectedCaptureKey
+            CaptureDirectory = _selectedCaptureKey,
+            RngSeedText = _rngSeedText
         };
 
         if (!_state.TryBeginPlanning(snapshot))
@@ -571,7 +589,8 @@
                         CompletedAtUtc: DateTimeOffset.UtcNow,
                         Warnings: _runWarnings.Count == 0
                             ? Array.Empty<RunSuccessWarning>()
-                            : _runWarnings.Select(w => new RunSuccessWarning(w.Code, w.Message, w.NodeId)).ToArray());
+                            : _runWarnings.Select(w => new RunSuccessWarning(w.Code, w.Message, w.NodeId)).ToArray(),
+                        RngSeed: _lastMetadata.Rng?.Seed);
 
                     await PersistRecentSuccessAsync(successSnapshot).ConfigureAwait(false);
                 }
@@ -647,6 +666,7 @@
         _lastPlan = null;
         _lastMetadata = null;
         _runWarnings = Array.Empty<StateWarningDto>();
+        _rngSeedText = DefaultSeedText;
         await ClearSnapshotAsync().ConfigureAwait(false);
     }
 
@@ -663,6 +683,10 @@
             Logger.LogWarning(ex, "Failed to persist last run snapshot.");
         }
     }
+
+    private static string FormatSeed(int? seed) => seed.HasValue
+        ? seed.Value.ToString(CultureInfo.InvariantCulture)
+        : "—";
 
     private static string BuildErrorMessage(int statusCode, string? error)
     {

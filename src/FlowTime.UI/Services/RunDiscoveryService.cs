@@ -110,6 +110,8 @@ public sealed class RunDiscoveryService : IRunDiscoveryService
 
             var created = summary.CreatedUtc ?? TryInferCreatedFromRunId(summary.RunId);
 
+            var rng = detailResult.Value?.Metadata?.Rng ?? summary.Rng;
+
             var entry = new RunListEntry(
                 RunId: summary.RunId,
                 TemplateId: summary.TemplateId,
@@ -119,6 +121,7 @@ public sealed class RunDiscoveryService : IRunDiscoveryService
                 CreatedUtc: created,
                 WarningCount: summary.WarningCount,
                 Telemetry: telemetrySummary,
+                Rng: rng,
                 FirstWarningMessage: firstWarning,
                 Warnings: warnings,
                 Grid: gridSummary,
@@ -236,6 +239,7 @@ public sealed record RunListEntry(
     DateTimeOffset? CreatedUtc,
     int WarningCount,
     RunTelemetrySummaryDto? Telemetry,
+    RunRngOptionsDto? Rng,
     string? FirstWarningMessage,
     IReadOnlyList<RunWarningInfo> Warnings,
     GridSummary Grid,

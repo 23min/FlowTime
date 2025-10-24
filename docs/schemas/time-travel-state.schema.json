@@ -55,7 +55,13 @@
                 "provenanceHash": { "$ref": "#/$defs/hash" },
                 "telemetrySourcesResolved": { "type": "boolean" },
                 "schema": { "$ref": "#/$defs/schemaMetadata" },
-                "storage": { "$ref": "#/$defs/storageDescriptor" }
+                "storage": { "$ref": "#/$defs/storageDescriptor" },
+                "rng": {
+                    "anyOf": [
+                        { "type": "null" },
+                        { "$ref": "#/$defs/rngMetadata" }
+                    ]
+                }
             }
         },
         "schemaMetadata": {
@@ -190,6 +196,15 @@
                 "message": { "type": "string", "minLength": 1 },
                 "severity": { "type": "string", "minLength": 1 },
                 "nodeId": { "$ref": "#/$defs/nodeId" }
+            }
+        },
+        "rngMetadata": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind", "seed"],
+            "properties": {
+                "kind": { "type": "string", "minLength": 1 },
+                "seed": { "type": "integer" }
             }
         },
         "numericSeries": {

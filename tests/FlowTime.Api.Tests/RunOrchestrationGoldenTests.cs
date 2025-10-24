@@ -123,12 +123,12 @@ public class RunOrchestrationGoldenTests : IClassFixture<TestWebApplicationFacto
             throw new FileNotFoundException($"Golden file not found at {expectedPath}. Actual sanitized payload:\n{actual.ToJsonString(SerializerOptions)}");
         }
 
-        var expectedJson = File.ReadAllText(expectedPath);
-        var expectedNode = JsonNode.Parse(expectedJson) ?? throw new InvalidOperationException($"Golden file '{fileName}' did not contain valid JSON.");
+        var expectedJsonText = File.ReadAllText(expectedPath);
+        var expectedNode = JsonNode.Parse(expectedJsonText) ?? throw new InvalidOperationException($"Golden file '{fileName}' did not contain valid JSON.");
 
-        Assert.Equal(
-            expectedNode.ToJsonString(SerializerOptions),
-            actual.ToJsonString(SerializerOptions));
+        var expectedJson = expectedNode.ToJsonString(SerializerOptions);
+        var actualJson = actual.ToJsonString(SerializerOptions);
+        Assert.Equal(expectedJson, actualJson);
     }
 
     private static JsonNode SanitizeCreateResponse(JsonNode node)
@@ -172,6 +172,19 @@ public class RunOrchestrationGoldenTests : IClassFixture<TestWebApplicationFacto
             {
                 schema["hash"] = "SCHEMA_HASH";
             }
+
+            if (metadata["rng"] is JsonObject rng)
+            {
+                rng["kind"] = rng["kind"] ?? "pcg32";
+                if (rng["seed"] is JsonValue seedValue && seedValue.TryGetValue(out int seed))
+                {
+                    rng["seed"] = JsonValue.Create(seed);
+                }
+                else
+                {
+                    rng["seed"] = JsonValue.Create(123);
+                }
+            }
         }
 
         return clone;
@@ -207,6 +220,19 @@ public class RunOrchestrationGoldenTests : IClassFixture<TestWebApplicationFacto
                             var sourceNode = telemetry["sourceRunId"];
                             var sourceValue = sourceNode?.GetValue<string?>();
                             telemetry["sourceRunId"] = string.IsNullOrWhiteSpace(sourceValue) ? null : "CAPTURE_SOURCE_RUN_ID";
+                        }
+                    }
+
+                    if (item["rng"] is JsonObject rng)
+                    {
+                        rng["kind"] = rng["kind"] ?? "pcg32";
+                        if (rng["seed"] is JsonValue seedValue && seedValue.TryGetValue(out int seed))
+                        {
+                            rng["seed"] = JsonValue.Create(seed);
+                        }
+                        else
+                        {
+                            rng["seed"] = JsonValue.Create(123);
                         }
                     }
                     firstClone ??= item.DeepClone();

@@ -85,7 +85,7 @@ Session 8: QA + Docs
 
 Session 9: Seeded Telemetry Loop (RNG Templates)
 - Outcome: Auto-capture handles templates with PMF/RNG nodes by storing deterministic seeds; telemetry bundles become reproducible.
-- Checks: Seed logged in metadata, UI surfaces seed info, replay uses generated bundle without reseeding.
+- Checks: Seed logged in metadata, UI surfaces seed info, replay uses generated bundle without reseeding. (TT-M-03.19 now provides default seed=123, optional override, and exposes the value in run detail views.)
 
 ---
 
@@ -161,8 +161,9 @@ We use UI-M-XX.XX with bands per phase to keep sessions small and reviewable.
   - UI-M-03.14 — Time‑Travel Nav & Routes (skeleton) (complete — nav group + placeholders live)
   - UI-M-03.15 — Gold Data Access Service (REST) (complete — REST client + data service)
   - UI-M-03.16 — Run Orchestration Page (skeleton)
-  - TT-M-03.17 — Telemetry Auto-Capture Orchestration (auto-generate capture bundles when missing)
-  - TT-M-03.18 — Telemetry Auto-Capture (Seeded RNG Support)
+  - TT-M-03.17 — Explicit Telemetry Generation + Availability (complete)
+  - TT-M-03.18 — Phase 1 Closeout (docs/roadmap alignment; no replay UI changes)
+  - TT-M-03.19 — Seeded RNG & Provenance (in progress)
   - UI-M-03.18 — QA & Docs Pass
 
 - Phase 2 — Minimal Time‑Travel Visualizations

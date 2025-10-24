@@ -14,6 +14,7 @@ public class RunOrchestrationTests : IClassFixture<TestWebApplicationFactory>, I
 {
     private const string templateId = "test-order";
     private const string simulationTemplateId = "sim-order";
+    private const string simulationTemplateWithRngId = "sim-order-rng";
 
     private readonly TestWebApplicationFactory factory;
     private readonly HttpClient client;
@@ -30,6 +31,7 @@ public class RunOrchestrationTests : IClassFixture<TestWebApplicationFactory>, I
         Directory.CreateDirectory(templateDirectory);
         File.WriteAllText(Path.Combine(templateDirectory, $"{templateId}.yaml"), TestTemplateYaml);
         File.WriteAllText(Path.Combine(templateDirectory, $"{simulationTemplateId}.yaml"), SimulationTemplateYaml);
+        File.WriteAllText(Path.Combine(templateDirectory, $"{simulationTemplateWithRngId}.yaml"), SimulationTemplateWithRngYaml);
         telemetryRoot = Path.Combine(dataRoot, "telemetry-root");
         Directory.CreateDirectory(telemetryRoot);
 
@@ -48,6 +50,46 @@ public class RunOrchestrationTests : IClassFixture<TestWebApplicationFactory>, I
         });
 
         client = customizedFactory.CreateClient();
+    }
+
+    [Fact]
+    public async Task CreateSimulationRun_WithRngSeed_EchoesSeedInResponse()
+    {
+        var requestPayload = new
+        {
+            templateId = simulationTemplateWithRngId,
+            mode = "simulation",
+            rng = new
+            {
+                kind = "pcg32",
+                seed = 777
+            }
+        };
+
+        var response = await client.PostAsJsonAsync("/v1/runs", requestPayload);
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+        var payload = JsonNode.Parse(body) ?? throw new InvalidOperationException("Response was not valid JSON.");
+        var metadata = payload["metadata"] ?? throw new InvalidOperationException("Metadata missing from response.");
+        Assert.Equal(777, metadata["rng"]?["seed"]?.GetValue<int>());
+    }
+
+    [Fact]
+    public async Task CreateSimulationRun_WithTemplateRngAndNoSeed_ReturnsBadRequest()
+    {
+        var requestPayload = new
+        {
+            templateId = simulationTemplateWithRngId,
+            mode = "simulation"
+        };
+
+        var response = await client.PostAsJsonAsync("/v1/runs", requestPayload);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Contains("rng.seed", body, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -406,6 +448,59 @@ metadata:
   title: Simulation Order Template
   description: Template for simulation-mode orchestration tests
   version: 1.0.0
+window:
+  start: 2025-01-01T00:00:00Z
+  timezone: UTC
+
+parameters:
+  - name: bins
+    type: integer
+    default: 4
+  - name: binSize
+    type: integer
+    default: 5
+
+grid:
+  bins: ${bins}
+  binSize: ${binSize}
+  binUnit: minutes
+
+topology:
+  nodes:
+    - id: OrderService
+      kind: service
+      semantics:
+        arrivals: arrivals
+        served: served
+        errors: errors
+  edges: []
+
+nodes:
+  - id: arrivals
+    kind: const
+    values: [10, 12, 14, 16]
+  - id: served
+    kind: const
+    values: [8, 11, 13, 15]
+  - id: errors
+    kind: const
+    values: [1, 0, 0, 0]
+
+outputs:
+  - series: "*"
+""";
+
+    private const string SimulationTemplateWithRngYaml = """
+schemaVersion: 1
+generator: flowtime-sim
+metadata:
+  id: sim-order-rng
+  title: Simulation Order Template (RNG)
+  description: Template for RNG seeding tests
+  version: 1.0.0
+rng:
+  kind: pcg32
+  seed: "123"
 window:
   start: 2025-01-01T00:00:00Z
   timezone: UTC

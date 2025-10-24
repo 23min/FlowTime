@@ -120,7 +120,8 @@ public sealed record RunSummaryDto(
     [property: JsonPropertyName("mode")] string Mode,
     [property: JsonPropertyName("createdUtc")] DateTimeOffset? CreatedUtc,
     [property: JsonPropertyName("warningCount")] int WarningCount,
-    [property: JsonPropertyName("telemetry")] RunTelemetrySummaryDto? Telemetry);
+    [property: JsonPropertyName("telemetry")] RunTelemetrySummaryDto? Telemetry,
+    [property: JsonPropertyName("rng")] RunRngOptionsDto? Rng);
 
 public sealed record RunCreateResponseDto(
     [property: JsonPropertyName("isDryRun")] bool IsDryRun,
@@ -139,7 +140,8 @@ public sealed record RunMetadataDto(
     [property: JsonPropertyName("provenanceHash")] string? ProvenanceHash,
     [property: JsonPropertyName("telemetrySourcesResolved")] bool TelemetrySourcesResolved,
     [property: JsonPropertyName("schema")] SchemaMetadataDto Schema,
-    [property: JsonPropertyName("storage")] StorageDescriptorDto Storage);
+    [property: JsonPropertyName("storage")] StorageDescriptorDto Storage,
+    [property: JsonPropertyName("rng")] RunRngOptionsDto? Rng);
 
 public sealed record SchemaMetadataDto(
     [property: JsonPropertyName("id")] string Id,
@@ -185,7 +187,8 @@ public sealed record RunCreateRequestDto(
     [property: JsonPropertyName("mode")] string? Mode,
     [property: JsonPropertyName("parameters")] Dictionary<string, JsonElement>? Parameters,
     [property: JsonPropertyName("telemetry")] RunTelemetryOptionsDto? Telemetry,
-    [property: JsonPropertyName("options")] RunCreationOptionsDto? Options);
+    [property: JsonPropertyName("options")] RunCreationOptionsDto? Options,
+    [property: JsonPropertyName("rng")] RunRngOptionsDto? Rng = null);
 
 public sealed record RunTelemetryOptionsDto(
     [property: JsonPropertyName("captureDirectory")] string? CaptureDirectory,
@@ -196,6 +199,10 @@ public sealed record RunCreationOptionsDto(
     [property: JsonPropertyName("runId")] string? RunId,
     [property: JsonPropertyName("dryRun")] bool DryRun,
     [property: JsonPropertyName("overwriteExisting")] bool OverwriteExisting);
+
+public sealed record RunRngOptionsDto(
+    [property: JsonPropertyName("kind")] string Kind,
+    [property: JsonPropertyName("seed")] int Seed);
 
 public sealed record RunTelemetrySummaryDto(
     [property: JsonPropertyName("available")] bool Available,

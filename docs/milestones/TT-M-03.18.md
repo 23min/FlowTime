@@ -1,103 +1,63 @@
-# TT-M-03.18 — Replay Selection & Provenance (UI)
+# TT-M-03.18 — Phase 1 Closeout (Ready for Minimal Visualizations)
 
-**Status:** 📋 Proposed  
-**Dependencies:** ✅ TT-M-03.17 (Explicit Telemetry Generation), ✅ M-03.04 (/v1/runs API)  
-**Owners:** Time-Travel Platform / UI Core  
-**Target Outcome:** Polish the UI around choosing replay mode (model vs telemetry), display telemetry availability and generated‑at/warning count, and streamline the operator flow from Artifacts/Run detail. Seeded RNG support moves to TT‑M‑03.19.
-
----
-
-## Overview
-
-TT‑M‑03.17 provides an explicit telemetry generation endpoint. TT‑M‑03.18 focuses on the UI: make the decision to replay from the model or telemetry clear and fast, and present telemetry availability succinctly (no filesystem paths). This milestone is UI‑only; RNG/PMF seed support is deferred.
-
-### Goals
-- Simple, discoverable replay choice (model vs telemetry).
-- Show telemetry availability, generated‑at timestamp, and warning count.
-- “Generate telemetry” action available from run detail; enable “Replay from telemetry” only when available.
-- Do not show filesystem paths in UI.
-
-### Non Goals
-- Seeded RNG/PMF handling (TT‑M‑03.19).
-- Telemetry diff tooling (future).
-- Surfacing directories/paths.
+Status: In review  
+Dependencies: ✅ TT‑M‑03.17 (Explicit Telemetry Generation), ✅ UI‑M‑03.10..03.16  
+Owners: Time‑Travel Platform / UI Core  
+Intent: Replace the previous “replay selection polish” scope with a Phase 1 closeout that confirms readiness to start Phase 2 (Minimal Time‑Travel Visualizations).
 
 ---
 
-## Scope
+## Summary
 
-### In Scope ✅
-1. **Artifacts/Run detail UX** — Present availability, generated‑at, warning count (no paths); add buttons: Generate telemetry, Replay from model, Replay from telemetry.
-2. **Gate actions** — Disable Replay from telemetry until availability is true.
-3. **Copy** — Tight UI copy to make the choice obvious; hover help to define “replay via telemetry”.
-4. **Docs** — Update UI help text and operator guide screenshots.
+TT‑M‑03.17 delivered explicit telemetry generation, availability surfacing, and UI actions/gating. The run detail view already exposes telemetry availability, generated‑at timestamp, and warning counts without showing filesystem paths, and the replay actions are correctly gated by availability. As such, no additional UI polish is required here.
 
-### Out of Scope ❌
-- Seeds, versioning, archival, and user‑provided seeds.
+This milestone finalizes Phase 1 by aligning docs/roadmap and confirming test coverage, so we can begin Phase 2 work (SLA tiles, scrubber, topology, node panels).
 
 ---
 
-## Functional Requirements
+## What’s Complete (Phase 1)
 
-1. **FR1 — Replay selection** — Operator can choose model vs telemetry from run detail.
-2. **FR2 — Availability display** — Show availability, generated‑at, warning count; no paths.
-3. **FR3 — Action gating** — Telemetry replay disabled until available.
-4. **FR4 — Failure handling** — Clear messages when generation fails or telemetry missing.
-
-### Non-Functional Requirements
-- **NFR1 — Observability:** Log operator actions (generate, replay selection) with run id.
-- **NFR2 — Accessibility:** Keyboard navigable buttons, concise labels.
-- **NFR3 — Testability:** UI tests to assert gating and copy.
+- Explicit generation endpoint + service: `POST /v1/telemetry/captures` (409 on collision; overwrite supported).
+- API responses include minimal telemetry summary on run list/detail: `available`, `generatedAtUtc`, `warningCount`, `sourceRunId` (no paths).
+- UI run detail: telemetry chip, generated‑at, warning count; actions to Generate, Replay from model, Replay from telemetry; gating enforced by availability and `canReplay`.
+- Artifacts list: Telemetry column (Yes/No) and Created (UTC) inferred from runId when needed.
+- Tests: API + UI suites passing; manual verification checklist exercised.
 
 ---
 
-## Implementation Plan (High Level)
+## Remaining Before Phase 2
 
-1. Run detail UI — inject new panel for telemetry availability + actions.
-2. Call generation endpoint; refresh availability on success.
-3. Gate buttons and copy; add minimal toasts for success/error.
-4. Update docs and screenshots.
-5. UI tests for gating and copy.
+- Roadmap alignment: update the UI M3 milestone mapping to reflect explicit capture (TT‑M‑03.17 complete) and mark TT‑M‑03.18 as Phase 1 Closeout; move seeded RNG to TT‑M‑03.19.
+- Documentation sync: ensure capture guide and architecture notes consistently refer to explicit generation and telemetry summary fields; remove stale “auto‑capture” language where present.
+- Phase 2 data contracts and access plan:
+  - Decide REST vs file adapter for `graph` and `metrics`; today we expose `/v1/runs/{id}/index`, `/state`, `/state_window`, and `series/*`.
+  - If REST: add `GET /v1/runs/{id}/graph` (derive from model.yaml) and a minimal `GET /v1/runs/{id}/metrics` (SLA aggregates/mini‑bars).
+  - If file adapter: document required files (`graph.json`, `state_window.json`, `metrics.json`) and how they’re produced.
+- UI scaffolding for Phase 2: global scrubber state, data plumbing to Dashboard/Topology/Node panel pages.
 
-### Deliverables
-- Run detail UI for replay selection and telemetry availability.
-- Integration with generation endpoint.
-- Updated documentation and automated UI tests.
-
----
-
-## TDD Approach
-
-1. **UI tests (RED)** — Assert gating and copy.
-2. Implement UI and wire to endpoint (GREEN).
-3. Refactor and keep tests green; update docs.
+None of these items require additional Phase 1 implementation work beyond docs/roadmap updates; they are entry points for Phase 2.
 
 ---
 
-## Test Plan
+## Acceptance Criteria (Phase 1 Closeout)
 
-### Automated
-- UI tests: gating + copy; integration test to validate availability refresh after endpoint call.
-
-### Manual
-1. Open run detail for a simulation run with no telemetry → replay from telemetry disabled.
-2. Generate telemetry → availability updated; warning count shown.
-3. Replay from telemetry succeeds; model replay still available.
-
----
-
-## Risks & Mitigations
-- **UI confusion:** Keep copy concise, avoid leaking filesystem details.
-- **State drift:** Refresh availability after generation; show clear errors on failure.
+- Docs reflect explicit capture flow and telemetry summary; roadmap milestone mapping updated (TT‑M‑03.18 = closeout; TT‑M‑03.19 = seeded RNG, deferred).
+- API and UI tests green; manual flows validated:
+  - Simulation run shows telemetry unavailable; replay‑from‑telemetry disabled.
+  - After generation, availability flips to available; timestamp and warnings surface; replay‑from‑telemetry enabled.
+  - Re‑generate without overwrite returns 409 and is surfaced by the UI; overwrite succeeds.
+- No filesystem paths shown in run list/detail; internal directories remain hidden.
 
 ---
 
-## Open Questions
-1. Confirm copy for telemetry summary fields (`available`, `generatedAtUtc`, `warningCount`, `sourceRunId`) now surfaced by TT-M-03.17.
-2. Do we need rollbacks for overwritten telemetry? (Out of scope.)
+## Notes
+
+- Viewer route remains out of scope for Phase 1; Phase 2 will implement Dashboard/Topology/Node detail views.
+- Seeded RNG support is tracked under TT‑M‑03.19 and does not block Phase 2 visualizations.
 
 ---
 
 ## References
 - docs/milestones/TT-M-03.17.md
+- docs/architecture/time-travel/ui-m3-roadmap.md
 - docs/operations/telemetry-capture-guide.md

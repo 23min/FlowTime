@@ -1,7 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using FlowTime.Core.TimeTravel;
 using FlowTime.Generator.Artifacts;
 using FlowTime.Generator.Models;
@@ -15,6 +19,8 @@ public sealed class TelemetryGenerationService
     {
         WriteIndented = true
     };
+
+    private const int DefaultSeed = 123;
 
     private readonly ILogger<TelemetryGenerationService> logger;
     private readonly TelemetryCapture telemetryCapture;
@@ -99,12 +105,19 @@ public sealed class TelemetryGenerationService
         var manifestMetadata = await manifestReader.ReadAsync(modelDirectory, cancellationToken).ConfigureAwait(false);
         var generatedAtUtc = DateTime.UtcNow.ToString("O");
 
+        var executionSeed = await TryReadRunSeedAsync(runDirectory, cancellationToken).ConfigureAwait(false) ?? DefaultSeed;
+        var parameters = await ReadRunParametersAsync(modelDirectory, cancellationToken).ConfigureAwait(false);
+        var parametersHash = ComputeParametersHash(manifestMetadata.TemplateId, manifestMetadata.TemplateVersion, parameters, executionSeed);
+        var scenarioHash = await TryReadScenarioHashAsync(runDirectory, cancellationToken).ConfigureAwait(false) ?? string.Empty;
+
         var metadata = new TelemetryGenerationMetadata(
             TemplateId: manifestMetadata.TemplateId,
             CaptureKey: output.CaptureKey,
             SourceRunId: runId,
             GeneratedAtUtc: generatedAtUtc,
-            ParametersHash: string.Empty);
+            RngSeed: executionSeed,
+            ParametersHash: parametersHash,
+            ScenarioHash: scenarioHash);
 
         var metadataPath = Path.Combine(captureDirectory, "autocapture.json");
         var metadataJson = JsonSerializer.Serialize(metadata, metadataSerializerOptions);
@@ -154,6 +167,106 @@ public sealed class TelemetryGenerationService
         return Path.Combine(runDirectory, "model", "telemetry");
     }
 
+    private static async Task<int?> TryReadRunSeedAsync(string runDirectory, CancellationToken cancellationToken)
+    {
+        var manifestPath = Path.Combine(runDirectory, "manifest.json");
+        if (!File.Exists(manifestPath))
+        {
+            return null;
+        }
+
+        await using var stream = File.OpenRead(manifestPath);
+        using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
+        if (doc.RootElement.TryGetProperty("rng", out var rngElement) &&
+            rngElement.ValueKind == JsonValueKind.Object &&
+            rngElement.TryGetProperty("seed", out var seedElement) &&
+            seedElement.TryGetInt32(out var seed))
+        {
+            return seed;
+        }
+
+        return null;
+    }
+
+    private static async Task<IDictionary<string, JsonNode?>> ReadRunParametersAsync(string modelDirectory, CancellationToken cancellationToken)
+    {
+        var metadataPath = Path.Combine(modelDirectory, "metadata.json");
+        if (!File.Exists(metadataPath))
+        {
+            return new Dictionary<string, JsonNode?>(StringComparer.Ordinal);
+        }
+
+        await using var stream = File.OpenRead(metadataPath);
+        using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
+        if (!doc.RootElement.TryGetProperty("parameters", out var parametersElement) || parametersElement.ValueKind != JsonValueKind.Object)
+        {
+            return new Dictionary<string, JsonNode?>(StringComparer.Ordinal);
+        }
+
+        var parameters = new Dictionary<string, JsonNode?>(StringComparer.Ordinal);
+        foreach (var property in parametersElement.EnumerateObject())
+        {
+            parameters[property.Name] = ConvertJsonElement(property.Value);
+        }
+
+        return parameters;
+    }
+
+    private static string ComputeParametersHash(string templateId, string templateVersion, IDictionary<string, JsonNode?> parameters, int rngSeed)
+    {
+        var root = new JsonObject
+        {
+            ["templateId"] = templateId,
+            ["templateVersion"] = templateVersion,
+            ["rngSeed"] = rngSeed
+        };
+
+        var parametersObject = new JsonObject();
+        foreach (var kvp in parameters.OrderBy(kvp => kvp.Key, StringComparer.Ordinal))
+        {
+            parametersObject[kvp.Key] = kvp.Value?.DeepClone();
+        }
+
+        root["parameters"] = parametersObject;
+
+        var json = root.ToJsonString();
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(json));
+        return "sha256:" + Convert.ToHexString(hash).ToLowerInvariant();
+    }
+
+    private static async Task<string?> TryReadScenarioHashAsync(string runDirectory, CancellationToken cancellationToken)
+    {
+        var manifestPath = Path.Combine(runDirectory, "manifest.json");
+        if (!File.Exists(manifestPath))
+        {
+            return null;
+        }
+
+        await using var stream = File.OpenRead(manifestPath);
+        using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
+        if (doc.RootElement.TryGetProperty("scenarioHash", out var scenarioElement) && scenarioElement.ValueKind == JsonValueKind.String)
+        {
+            return scenarioElement.GetString();
+        }
+
+        return null;
+    }
+
+    private static JsonNode? ConvertJsonElement(JsonElement element)
+    {
+        return element.ValueKind switch
+        {
+            JsonValueKind.String => JsonValue.Create(element.GetString()),
+            JsonValueKind.Number when element.TryGetInt64(out var l) => JsonValue.Create(l),
+            JsonValueKind.Number => JsonValue.Create(element.GetDouble()),
+            JsonValueKind.True => JsonValue.Create(true),
+            JsonValueKind.False => JsonValue.Create(false),
+            JsonValueKind.Null => null,
+            JsonValueKind.Array or JsonValueKind.Object => JsonNode.Parse(element.GetRawText()),
+            _ => JsonValue.Create(element.GetRawText())
+        };
+    }
+
     private static async Task<TelemetryGenerationMetadata?> TryReadMetadataAsync(string captureDirectory, CancellationToken cancellationToken)
     {
         var metadataPath = Path.Combine(captureDirectory, "autocapture.json");
@@ -183,4 +296,6 @@ public sealed record TelemetryGenerationMetadata(
     string? CaptureKey,
     string SourceRunId,
     string GeneratedAtUtc,
-    string ParametersHash);
+    int? RngSeed,
+    string ParametersHash,
+    string ScenarioHash);

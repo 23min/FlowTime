@@ -29,7 +29,8 @@ Content-Type: application/json
 - If a bundle already exists and `overwrite` is `false`, the endpoint returns `409 Conflict` and surfaces the previously recorded metadata.
 - Successful requests emit two files next to the generated CSVs inside `model/telemetry/`:
   - `manifest.json` — bundle inventory + warning list (unchanged from earlier tooling).
-  - `autocapture.json` — `{ templateId, captureKey?, sourceRunId, generatedAtUtc, parametersHash }` for provenance.
+  - `autocapture.json` — `{ templateId, captureKey?, sourceRunId, generatedAtUtc, rngSeed, parametersHash, scenarioHash }` for provenance.
+- When `rng` is not provided, simulation runs default to seed `123`. The UI exposes an “RNG Seed” input so operators can supply a deterministic override.
 - The response includes a telemetry summary (`generated`, `alreadyExists`, `generatedAtUtc`, `warningCount`, `sourceRunId`) that is mirrored in `/v1/runs` and UI summaries. No filesystem paths are ever exposed.
 
 The explicit endpoint is now the primary integration point for UI flows. The CLI command described below remains available for local capture or regression scripts. The repository still ships sample bundles under `examples/time-travel/` for templates and documentation, but newly generated telemetry defaults to each run's `model/telemetry/` directory.
@@ -158,7 +159,7 @@ Content-Type: application/json
 
 ### Telemetry availability metadata
 
-`/v1/runs` responses surface the telemetry summary generated alongside bundles. When the capture endpoint creates a bundle it writes `autocapture.json`; the API mirrors the relevant fields (timestamp, warning count, sourceRunId) and sets `available=true`. If a bundle is deleted out-of-band, the summary reverts to `available=false` the next time the run is scanned.
+`/v1/runs` responses surface the telemetry summary generated alongside bundles. When the capture endpoint creates a bundle it writes `autocapture.json`; the API mirrors the relevant fields (timestamp, warning count, sourceRunId, rngSeed) and sets `available=true`. If a bundle is deleted out-of-band, the summary reverts to `available=false` the next time the run is scanned.
 
 ### CLI parity
 

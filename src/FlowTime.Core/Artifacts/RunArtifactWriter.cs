@@ -16,6 +16,8 @@ public static class RunArtifactWriter
         .IgnoreUnmatchedProperties()
         .Build();
 
+    private const int DefaultSeed = 123;
+
     public record WriteRequest
     {
         public required object Model { get; init; }
@@ -200,7 +202,7 @@ public static class RunArtifactWriter
 
         await File.WriteAllTextAsync(Path.Combine(seriesDir, "index.json"), JsonSerializer.Serialize(index, jsonOptions), Encoding.UTF8);
 
-        var finalSeed = request.RngSeed ?? Random.Shared.Next(0, int.MaxValue);
+        var finalSeed = request.RngSeed ?? DefaultSeed;
 
         ProvenanceRef? provenanceRef = null;
         if (!string.IsNullOrWhiteSpace(request.ProvenanceJson))

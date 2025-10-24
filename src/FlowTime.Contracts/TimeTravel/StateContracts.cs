@@ -28,6 +28,7 @@ public sealed class StateMetadata
     public bool TelemetrySourcesResolved { get; init; }
     public required SchemaMetadata Schema { get; init; }
     public required StorageDescriptor Storage { get; init; }
+    public RunRngOptions? Rng { get; init; }
 }
 
 public sealed class SchemaMetadata

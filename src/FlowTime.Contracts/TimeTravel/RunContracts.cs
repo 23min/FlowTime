@@ -9,7 +9,14 @@ public sealed class RunCreateRequest
     public string Mode { get; init; } = "telemetry";
     public Dictionary<string, JsonElement>? Parameters { get; init; }
     public RunTelemetryOptions? Telemetry { get; init; }
+    public RunRngOptions? Rng { get; init; }
     public RunCreationOptions? Options { get; init; }
+}
+
+public sealed class RunRngOptions
+{
+    public string Kind { get; init; } = "pcg32";
+    public int Seed { get; init; }
 }
 
 public sealed class RunTelemetryOptions
@@ -54,6 +61,7 @@ public sealed class RunSummary
     public DateTimeOffset? CreatedUtc { get; init; }
     public int WarningCount { get; init; }
     public RunTelemetrySummary? Telemetry { get; init; }
+    public RunRngOptions? Rng { get; init; }
 }
 
 public sealed class RunCreatePlan

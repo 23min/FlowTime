@@ -52,4 +52,46 @@ public sealed class RunOrchestrationRequestBuilderTests
         Assert.NotNull(error);
         Assert.Contains("capture", error, StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public void BuildSimulationRequest_DefaultSeedApplied()
+    {
+        var model = new RunOrchestrationFormModel
+        {
+            TemplateId = "order-system",
+            Mode = OrchestrationMode.Simulation,
+            ParameterText = null,
+            RngSeedText = null
+        };
+
+        var success = RunOrchestrationRequestBuilder.TryBuild(model, dryRun: false, out var request, out var error);
+
+        Assert.True(success);
+        Assert.Null(error);
+        Assert.NotNull(request);
+        Assert.NotNull(request!.Rng);
+        Assert.Equal("pcg32", request.Rng!.Kind, ignoreCase: true);
+        Assert.Equal(123, request.Rng.Seed);
+    }
+
+    [Fact]
+    public void BuildSimulationRequest_CustomSeedOverridesDefault()
+    {
+        var model = new RunOrchestrationFormModel
+        {
+            TemplateId = "order-system",
+            Mode = OrchestrationMode.Simulation,
+            ParameterText = null,
+            RngSeedText = "777"
+        };
+
+        var success = RunOrchestrationRequestBuilder.TryBuild(model, dryRun: false, out var request, out var error);
+
+        Assert.True(success);
+        Assert.Null(error);
+        Assert.NotNull(request);
+        Assert.NotNull(request!.Rng);
+        Assert.Equal("pcg32", request.Rng!.Kind, ignoreCase: true);
+        Assert.Equal(777, request.Rng.Seed);
+    }
 }

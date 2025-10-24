@@ -1,3 +1,4 @@
+using FlowTime.Contracts.TimeTravel;
 using FlowTime.Core.TimeTravel;
 using FlowTime.Generator.Artifacts;
 using FlowTime.Generator.Models;
@@ -16,6 +17,7 @@ public sealed record RunOrchestrationRequest
     public string? RunId { get; init; }
     public bool DryRun { get; init; }
     public bool OverwriteExisting { get; init; }
+    public RunRngOptions? Rng { get; init; }
 }
 
 public sealed record RunOrchestrationOutcome(
@@ -29,7 +31,8 @@ public sealed record RunOrchestrationResult(
     RunManifestMetadata ManifestMetadata,
     RunDocument RunDocument,
     bool TelemetrySourcesResolved,
-    TelemetryManifest TelemetryManifest);
+    TelemetryManifest TelemetryManifest,
+    int RngSeed);
 
 public sealed record RunOrchestrationPlan(
     string TemplateId,

@@ -39,6 +39,7 @@ public sealed record RunOrchestrationFormModel
     public string? ParameterText { get; init; }
     public string? TelemetryBindingsText { get; init; }
     public string? CaptureDirectory { get; init; }
+    public string? RngSeedText { get; init; }
 }
 
 public sealed record RunSubmissionSnapshot(
@@ -50,12 +51,15 @@ public sealed record RunSubmissionSnapshot(
     public string? ParameterText { get; init; }
     public string? TelemetryBindingsText { get; init; }
     public string? CaptureDirectory { get; init; }
+    public string? RngSeedText { get; init; }
 }
 
 public sealed record RunOrchestrationSuccess(string RunId);
 
 public static class RunOrchestrationRequestBuilder
 {
+    private const int DefaultRngSeed = 123;
+
     public static bool TryBuild(
         RunOrchestrationFormModel model,
         bool dryRun,
@@ -107,13 +111,44 @@ public static class RunOrchestrationRequestBuilder
             DryRun: dryRun,
             OverwriteExisting: !dryRun);
 
+        if (!TryResolveRng(model.RngSeedText, out var rng, out error))
+        {
+            return false;
+        }
+
         request = new RunCreateRequestDto(
             TemplateId: model.TemplateId.Trim(),
             Mode: model.Mode.ToApiString(),
             Parameters: parameters,
             Telemetry: telemetry,
-            Options: options);
+            Options: options,
+            Rng: rng);
 
+        return true;
+    }
+
+    private static bool TryResolveRng(string? seedText, out RunRngOptionsDto rng, out string? error)
+    {
+        error = null;
+        rng = default!;
+
+        var seedValue = DefaultRngSeed;
+        if (!string.IsNullOrWhiteSpace(seedText))
+        {
+            if (!int.TryParse(seedText.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out seedValue))
+            {
+                error = "RNG seed must be an integer.";
+                return false;
+            }
+
+            if (seedValue < 0)
+            {
+                error = "RNG seed must be non-negative.";
+                return false;
+            }
+        }
+
+        rng = new RunRngOptionsDto("pcg32", seedValue);
         return true;
     }
 
@@ -297,6 +332,7 @@ public static class RunSubmissionSnapshotStorage
         public string? ParameterText { get; init; }
         public string? TelemetryBindingsText { get; init; }
         public string? CaptureDirectory { get; init; }
+        public string? RngSeedText { get; init; }
     }
 
     public static string Serialize(RunSubmissionSnapshot snapshot)
@@ -311,7 +347,8 @@ public static class RunSubmissionSnapshotStorage
         {
             ParameterText = snapshot.ParameterText,
             TelemetryBindingsText = snapshot.TelemetryBindingsText,
-            CaptureDirectory = snapshot.CaptureDirectory
+            CaptureDirectory = snapshot.CaptureDirectory,
+            RngSeedText = snapshot.RngSeedText
         };
 
         return JsonSerializer.Serialize(payload, SerializerOptions);
@@ -341,7 +378,8 @@ public static class RunSubmissionSnapshotStorage
             {
                 ParameterText = payload.ParameterText,
                 TelemetryBindingsText = payload.TelemetryBindingsText,
-                CaptureDirectory = payload.CaptureDirectory
+                CaptureDirectory = payload.CaptureDirectory,
+                RngSeedText = payload.RngSeedText
             };
 
             return snapshot;
@@ -363,7 +401,8 @@ public sealed record RunSuccessSnapshot(
     string Mode,
     bool TelemetryResolved,
     DateTimeOffset CompletedAtUtc,
-    IReadOnlyList<RunSuccessWarning> Warnings);
+    IReadOnlyList<RunSuccessWarning> Warnings,
+    int? RngSeed);
 
 public static class RunSuccessSnapshotStorage
 {
@@ -382,7 +421,8 @@ public static class RunSuccessSnapshotStorage
         string Mode,
         bool TelemetryResolved,
         DateTimeOffset CompletedAtUtc,
-        IReadOnlyList<WarningPayload>? Warnings);
+        IReadOnlyList<WarningPayload>? Warnings,
+        int? RngSeed);
 
     public static string Serialize(RunSuccessSnapshot snapshot)
     {
@@ -400,7 +440,8 @@ public static class RunSuccessSnapshotStorage
             Mode: snapshot.Mode,
             TelemetryResolved: snapshot.TelemetryResolved,
             CompletedAtUtc: snapshot.CompletedAtUtc,
-            Warnings: warnings);
+            Warnings: warnings,
+            RngSeed: snapshot.RngSeed);
 
         return JsonSerializer.Serialize(payload, SerializerOptions);
     }
@@ -433,7 +474,8 @@ public static class RunSuccessSnapshotStorage
                 Mode: payload.Mode,
                 TelemetryResolved: payload.TelemetryResolved,
                 CompletedAtUtc: payload.CompletedAtUtc,
-                Warnings: warnings);
+                Warnings: warnings,
+                RngSeed: payload.RngSeed);
         }
         catch (JsonException)
         {

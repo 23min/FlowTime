@@ -3,6 +3,7 @@ using System.Diagnostics.Metrics;
 using System.Linq;
 using System.Text.Json;
 using FlowTime.Contracts.Services;
+using FlowTime.Contracts.TimeTravel;
 using FlowTime.Core.Configuration;
 using FlowTime.Core.Execution;
 using FlowTime.Core.Artifacts;
@@ -34,6 +35,8 @@ public sealed class RunOrchestrationService
     private static readonly EventId runArtifactsEvent = new(4004, "RunOrchestrationArtifacts");
     private static readonly EventId runCompletedEvent = new(4005, "RunOrchestrationCompleted");
     private static readonly EventId runFailedEvent = new(4500, "RunOrchestrationFailed");
+
+    private const int DefaultSeed = 123;
 
     private readonly ITemplateService templateService;
     private readonly TelemetryBundleBuilder bundleBuilder;
@@ -105,6 +108,9 @@ public sealed class RunOrchestrationService
         var outputRoot = Path.GetFullPath(request.OutputRoot);
         var effectiveParameters = BuildParameters(request, captureDirectory);
 
+        var resolvedRng = await ResolveRngOptionsAsync(templateId, request.Rng, cancellationToken).ConfigureAwait(false);
+        request = request with { Rng = resolvedRng };
+
         logger.LogInformation(
             runStartEvent,
             "Starting run orchestration for template {TemplateId} (mode={Mode}, dryRun={DryRun})",
@@ -136,6 +142,7 @@ public sealed class RunOrchestrationService
         var manifestMetadata = await manifestReader.ReadAsync(modelDirectory, cancellationToken).ConfigureAwait(false);
         var runDocument = await RunDirectoryUtilities.LoadRunDocumentAsync(runDirectory, cancellationToken).ConfigureAwait(false);
         var telemetryManifest = await LoadTelemetryManifestAsync(runDirectory, cancellationToken).ConfigureAwait(false);
+        var rngSeed = await TryReadRngSeedAsync(runDirectory, cancellationToken).ConfigureAwait(false);
 
         var isSimulation = string.Equals(manifestMetadata.Mode, TemplateMode.Simulation.ToSerializedValue(), StringComparison.OrdinalIgnoreCase);
         var telemetryResolved = isSimulation ||
@@ -154,7 +161,8 @@ public sealed class RunOrchestrationService
             manifestMetadata,
             runDocument,
             telemetryResolved,
-            telemetryManifest);
+            telemetryManifest,
+            rngSeed);
     }
 
     private Dictionary<string, object> BuildParameters(RunOrchestrationRequest request, string? resolvedCaptureDirectory)
@@ -358,7 +366,8 @@ public sealed class RunOrchestrationService
                 manifestMetadata,
                 runDocument,
                 telemetryResolved,
-                bundleResult.TelemetryManifest);
+                bundleResult.TelemetryManifest,
+                request.Rng?.Seed ?? DefaultSeed);
 
             return new RunOrchestrationOutcome(false, result, null);
         }
@@ -400,6 +409,73 @@ public sealed class RunOrchestrationService
         }
 
         return Path.GetFullPath(captureDirectory);
+    }
+
+    private async Task<RunRngOptions> ResolveRngOptionsAsync(string templateId, RunRngOptions? requestedRng, CancellationToken cancellationToken)
+    {
+        const string expectedKind = "pcg32";
+
+        var template = await templateService.GetTemplateAsync(templateId).ConfigureAwait(false)
+            ?? throw new ArgumentException($"Template not found: {templateId}");
+        logger.LogInformation("Template {TemplateId} rng info: kind={Kind}, seed={Seed}", templateId, template.Rng?.Kind, template.Rng?.Seed);
+        var templateRequiresRng = template.Rng is not null &&
+            (!string.IsNullOrWhiteSpace(template.Rng.Kind) || !string.IsNullOrWhiteSpace(template.Rng.Seed));
+
+        if (requestedRng is null)
+        {
+            logger.LogDebug("Template {TemplateId} rng requirement: {Requires}", templateId, templateRequiresRng);
+            if (templateRequiresRng)
+            {
+                throw new TemplateValidationException($"Template '{templateId}' declares an rng block; provide rng.seed in the run request.");
+            }
+
+            var defaultOptions = new RunRngOptions { Kind = expectedKind, Seed = DefaultSeed };
+            logger.LogInformation("Resolved rng for template {TemplateId}: kind={Kind}, seed={Seed}", templateId, defaultOptions.Kind, defaultOptions.Seed);
+            return defaultOptions;
+        }
+
+        logger.LogDebug("Template {TemplateId} rng request received. Requested seed={Seed}", templateId, requestedRng.Seed);
+        if (string.IsNullOrWhiteSpace(requestedRng.Kind))
+        {
+            throw new TemplateValidationException("rng.kind must be provided when rng is specified.");
+        }
+
+        if (!string.Equals(requestedRng.Kind, expectedKind, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new TemplateValidationException($"Unsupported rng.kind '{requestedRng.Kind}'. Expected '{expectedKind}'.");
+        }
+
+        var resolved = new RunRngOptions { Kind = expectedKind, Seed = requestedRng.Seed };
+        logger.LogInformation("Resolved rng for template {TemplateId}: kind={Kind}, seed={Seed}", templateId, resolved.Kind, resolved.Seed);
+        return resolved;
+    }
+
+    private static async Task<int> TryReadRngSeedAsync(string runDirectory, CancellationToken cancellationToken)
+    {
+        var manifestPath = Path.Combine(runDirectory, "manifest.json");
+        if (!File.Exists(manifestPath))
+        {
+            return 0;
+        }
+
+        try
+        {
+            await using var stream = File.OpenRead(manifestPath);
+            using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
+            if (doc.RootElement.TryGetProperty("rng", out var rngElement) &&
+                rngElement.ValueKind == JsonValueKind.Object &&
+                rngElement.TryGetProperty("seed", out var seedElement) &&
+                seedElement.TryGetInt32(out var seed))
+            {
+                return seed;
+            }
+        }
+        catch
+        {
+            // ignore malformed manifest; default to zero
+        }
+
+        return 0;
     }
 
     private async Task<RunOrchestrationOutcome> CreateSimulationRunAsync(
@@ -479,13 +555,19 @@ public sealed class RunOrchestrationService
                 Grid = grid,
                 Context = context,
                 SpecText = modelYaml,
-                RngSeed = null,
+                RngSeed = request.Rng?.Seed ?? DefaultSeed,
                 StartTimeBias = null,
                 DeterministicRunId = request.DeterministicRunId,
                 OutputDirectory = outputRoot,
                 Verbose = false,
                 ProvenanceJson = null
             };
+
+            logger.LogInformation(
+                runArtifactsEvent,
+                "Using rng seed {Seed} for simulation run {TemplateId}",
+                writeRequest.RngSeed,
+                templateId);
 
             logger.LogInformation(
                 runArtifactsEvent,
@@ -536,7 +618,14 @@ public sealed class RunOrchestrationService
                 manifestMetadata,
                 runDocument,
                 true,
-                telemetryManifest);
+                telemetryManifest,
+                writeResult.FinalSeed);
+
+            logger.LogInformation(
+                runCompletedEvent,
+                "Simulation run {RunId} resolved rng seed {Seed}",
+                finalRunId,
+                result.RngSeed);
 
             return new RunOrchestrationOutcome(false, result, null);
         }

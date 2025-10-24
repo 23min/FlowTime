@@ -389,6 +389,20 @@ public class TemplateService : ITemplateService
                 currentSection = "metadata";
                 continue;
             }
+            if (trimmed.StartsWith("rng:"))
+            {
+                if (currentSection == "parameters")
+                {
+                    if (currentParam != null)
+                    {
+                        template.Parameters.Add(currentParam);
+                        currentParam = null;
+                    }
+                }
+                currentSection = "rng";
+                template.Rng ??= new TemplateRng();
+                continue;
+            }
             if (trimmed.StartsWith("parameters:"))
             {
                 currentSection = "parameters";
@@ -397,7 +411,7 @@ public class TemplateService : ITemplateService
 
             // If a new top-level section begins, exit current section
             var isTopLevel = line.Length > 0 && line[0] != ' ';
-            if (isTopLevel && trimmed.EndsWith(":") && trimmed != "metadata:" && trimmed != "parameters:")
+            if (isTopLevel && trimmed.EndsWith(":") && trimmed != "metadata:" && trimmed != "parameters:" && trimmed != "rng:")
             {
                 if (currentSection == "parameters")
                 {
@@ -448,6 +462,20 @@ public class TemplateService : ITemplateService
                         var tags = tagsStr.Split(',').Select(t => t.Trim().Trim('"', '\'', ' ')).Where(t => !string.IsNullOrWhiteSpace(t));
                         template.Metadata.Tags.AddRange(tags);
                     }
+                }
+                continue;
+            }
+            else if (currentSection == "rng" && template.Rng is not null)
+            {
+                if (trimmed.StartsWith("kind:"))
+                {
+                    var kind = trimmed.Substring("kind:".Length).Trim().Trim('"', '\'');
+                    if (!string.IsNullOrWhiteSpace(kind)) template.Rng.Kind = kind;
+                }
+                else if (trimmed.StartsWith("seed:"))
+                {
+                    var seed = trimmed.Substring("seed:".Length).Trim().Trim('"', '\'');
+                    if (!string.IsNullOrWhiteSpace(seed)) template.Rng.Seed = seed;
                 }
                 continue;
             }

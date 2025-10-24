@@ -66,7 +66,8 @@ internal static class RunOrchestrationEndpoints
             DeterministicRunId = request.Options?.DeterministicRunId ?? false,
             RunId = request.Options?.RunId,
             DryRun = request.Options?.DryRun ?? false,
-            OverwriteExisting = request.Options?.OverwriteExisting ?? false
+            OverwriteExisting = request.Options?.OverwriteExisting ?? false,
+            Rng = request.Rng
         };
 
         try
@@ -327,7 +328,8 @@ internal static class RunOrchestrationEndpoints
                 ModelPath = manifest.Storage.ModelPath,
                 MetadataPath = manifest.Storage.MetadataPath,
                 ProvenancePath = manifest.Storage.ProvenancePath
-            }
+            },
+            Rng = new RunRngOptions { Kind = "pcg32", Seed = result.RngSeed }
         };
     }
 
@@ -359,7 +361,8 @@ internal static class RunOrchestrationEndpoints
             Mode = result.ManifestMetadata.Mode,
             CreatedUtc = created,
             WarningCount = result.TelemetryManifest.Warnings?.Count ?? 0,
-            Telemetry = BuildTelemetrySummary(result)
+            Telemetry = BuildTelemetrySummary(result),
+            Rng = new RunRngOptions { Kind = "pcg32", Seed = result.RngSeed }
         };
     }
 

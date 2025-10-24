@@ -4,6 +4,7 @@
 @using FlowTime.UI.Services
 @using System.Linq
 @using System.Text.Json
+@using System.Globalization
 @inject NavigationManager Navigation
 @inject IFlowTimeApiClient ApiClient
 @inject IRunDiscoveryService RunDiscovery
@@ -103,6 +104,12 @@
                                          Variant="Variant.Outlined">
                                     @_runDetail.Metadata?.Mode?.ToUpperInvariant()
                                 </MudChip>
+                            </MudStack>
+                        </MudItem>
+                        <MudItem xs="12" md="3">
+                            <MudStack Spacing="1">
+                                <MudText Typo="Typo.subtitle2">RNG Seed</MudText>
+                                <MudText Typo="Typo.body2">@FormatSeed(_runDetail.Metadata?.Rng?.Seed ?? _runEntry.Rng?.Seed)</MudText>
                             </MudStack>
                         </MudItem>
                         <MudItem xs="12" md="3">
@@ -529,6 +536,10 @@
 
     private static string FormatTimestamp(DateTimeOffset? timestamp) =>
         timestamp.HasValue ? timestamp.Value.ToString("yyyy-MM-dd HH:mm:ss") : "—";
+
+    private static string FormatSeed(int? seed) => seed.HasValue
+        ? seed.Value.ToString(CultureInfo.InvariantCulture)
+        : "—";
 
     private static string FormatInstant(string? isoTimestamp)
     {
