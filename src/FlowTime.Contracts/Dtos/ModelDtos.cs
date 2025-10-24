@@ -53,7 +53,13 @@ public sealed class NodeDto
     public string Kind { get; set; } = "const";
     public double[]? Values { get; set; }
     public string? Expr { get; set; }
-    public Dictionary<string, double>? Pmf { get; set; }
+    public PmfDto? Pmf { get; set; }
+}
+
+public sealed class PmfDto
+{
+    public double[] Values { get; set; } = Array.Empty<double>();
+    public double[] Probabilities { get; set; } = Array.Empty<double>();
 }
 
 /// <summary>

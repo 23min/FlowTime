@@ -117,11 +117,19 @@ internal static class SimModelBuilder
 
     private static List<SimNode> BuildNodes(List<TemplateNode> nodes)
     {
-        return nodes.Select(node => new SimNode
+        return nodes.Select(node =>
         {
-            Id = node.Id,
-            Kind = node.Kind,
-            Values = node.Values?.ToArray(),
+            var kind = node.Kind?.Trim().ToLowerInvariant();
+            return new SimNode
+            {
+                Id = node.Id,
+                Kind = node.Kind,
+                Values = kind switch
+                {
+                    "pmf" => null,
+                    "expr" => null,
+                    _ => node.Values?.ToArray()
+                },
             Expr = node.Expr,
             Source = node.Source,
             Pmf = node.Pmf == null ? null : new PmfSpec
@@ -129,7 +137,8 @@ internal static class SimModelBuilder
                 Values = node.Pmf.Values?.ToArray() ?? Array.Empty<double>(),
                 Probabilities = node.Pmf.Probabilities?.ToArray() ?? Array.Empty<double>()
             },
-            Initial = node.Initial
+                Initial = node.Initial
+            };
         }).ToList();
     }
 

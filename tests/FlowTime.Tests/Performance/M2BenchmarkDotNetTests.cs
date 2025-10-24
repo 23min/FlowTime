@@ -223,13 +223,13 @@ public class M2BenchmarkDotNetTests
         {
             var pmfString = pmfGenerator();
             // Parse the PMF string to extract values and probabilities
-            var pmfDict = ParsePmfString(pmfString);
+            var pmfDefinition = ParsePmfString(pmfString);
             
             nodes.Add(new NodeDefinition
             {
                 Id = $"base_{i}",
                 Kind = "pmf", 
-                Pmf = pmfDict
+                Pmf = pmfDefinition
             });
         }
 
@@ -271,10 +271,11 @@ public class M2BenchmarkDotNetTests
         return sb.ToString();
     }
 
-    private static Dictionary<string, double> ParsePmfString(string pmfString)
+    private static PmfDefinition ParsePmfString(string pmfString)
     {
         // Simple parser for PMF(value1: prob1, value2: prob2, ...)
-        var result = new Dictionary<string, double>();
+        var values = new List<double>();
+        var probabilities = new List<double>();
         
         // Remove "PMF(" prefix and ")" suffix
         var content = pmfString.Substring(4, pmfString.Length - 5);
@@ -286,12 +287,17 @@ public class M2BenchmarkDotNetTests
             var parts = pair.Split(':');
             if (parts.Length == 2)
             {
-                var value = parts[0].Trim();
+                var value = double.Parse(parts[0].Trim());
                 var prob = double.Parse(parts[1].Trim());
-                result[value] = prob;
+                values.Add(value);
+                probabilities.Add(prob);
             }
         }
-        
-        return result;
+
+        return new PmfDefinition
+        {
+            Values = values.ToArray(),
+            Probabilities = probabilities.ToArray()
+        };
     }
 }

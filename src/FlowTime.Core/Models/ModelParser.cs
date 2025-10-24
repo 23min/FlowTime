@@ -257,22 +257,24 @@ public static class ModelParser
 
     private static INode ParsePmfNode(NodeDefinition nodeDef)
     {
-        if (nodeDef.Pmf == null || nodeDef.Pmf.Count == 0)
-            throw new ModelParseException($"Node {nodeDef.Id}: pmf nodes require pmf property with at least one value");
+        if (nodeDef.Pmf == null || nodeDef.Pmf.Values.Length == 0)
+            throw new ModelParseException($"Node {nodeDef.Id}: pmf nodes require pmf.values to contain at least one entry");
+
+        if (nodeDef.Pmf.Probabilities.Length != nodeDef.Pmf.Values.Length)
+            throw new ModelParseException($"Node {nodeDef.Id}: pmf probabilities length must match values length");
 
         try
         {
-            // Parse PMF dictionary from string keys to double values
             var distribution = new Dictionary<double, double>();
-            foreach (var kvp in nodeDef.Pmf)
+            for (int i = 0; i < nodeDef.Pmf.Values.Length; i++)
             {
-                if (!double.TryParse(kvp.Key, NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
-                    throw new ModelParseException($"Node {nodeDef.Id}: invalid PMF value '{kvp.Key}' - must be a valid number");
-                
+                var value = nodeDef.Pmf.Values[i];
+                var probability = nodeDef.Pmf.Probabilities[i];
+
                 if (distribution.ContainsKey(value))
                     throw new ModelParseException($"Node {nodeDef.Id}: duplicate PMF value '{value}'");
                     
-                distribution[value] = kvp.Value;
+                distribution[value] = probability;
             }
 
             var pmf = new Pmf.Pmf(distribution);
@@ -324,7 +326,13 @@ public class NodeDefinition
     public string Kind { get; set; } = "const";
     public double[]? Values { get; set; }
     public string? Expr { get; set; }
-    public Dictionary<string, double>? Pmf { get; set; }
+    public PmfDefinition? Pmf { get; set; }
+}
+
+public class PmfDefinition
+{
+    public double[] Values { get; set; } = Array.Empty<double>();
+    public double[] Probabilities { get; set; } = Array.Empty<double>();
 }
 
 public class OutputDefinition

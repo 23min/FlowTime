@@ -317,7 +317,7 @@ public static class ParameterSubstitution
             var paramName = match.Groups[1].Value;
             if (values.TryGetValue(paramName, out var value))
             {
-                return value.ToString() ?? string.Empty;
+                return TemplateParameterFormatter.FormatForSubstitution(value);
             }
 
             throw new ParameterSubstitutionException($"Parameter '${{{paramName}}}' was not found in provided values");

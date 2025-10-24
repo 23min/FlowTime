@@ -50,7 +50,11 @@ public static class ModelService
                 Kind = n.Kind, 
                 Values = n.Values, 
                 Expr = n.Expr,
-                Pmf = n.Pmf
+                Pmf = n.Pmf == null ? null : new PmfDefinition
+                {
+                    Values = n.Pmf.Values ?? Array.Empty<double>(),
+                    Probabilities = n.Pmf.Probabilities ?? Array.Empty<double>()
+                }
             }).ToList(),
             Outputs = model.Outputs.Select(o => new OutputDefinition 
             { 

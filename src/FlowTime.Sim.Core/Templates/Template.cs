@@ -70,6 +70,7 @@ public class TemplateParameter
     public object? Default { get; set; }
     public double? Min { get; set; }
     public double? Max { get; set; }
+    public string? ArrayOf { get; set; }
 
     // Accept alternative YAML keys used in some templates
     // Map 'minimum'/'maximum' onto canonical Min/Max

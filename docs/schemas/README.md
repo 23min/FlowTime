@@ -64,6 +64,8 @@ graph TD
 
 FlowTime-Sim emits the same model schema consumed by Engine. Its provenance output feeds directly into `model/provenance.json` once Engine executes the run.
 
+- Array parameters declare element type via `arrayOf` (`double` default, `int` supported). Length and per-element min/max constraints are enforced when arrays drive const nodes.
+
 ## Error Handling
 
 Invalid model YAML submitted to Engine returns `400 Bad Request`, for example:

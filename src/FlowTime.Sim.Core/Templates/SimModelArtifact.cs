@@ -37,6 +37,7 @@ public class SimNode
 {
     public string Id { get; set; } = string.Empty;
     public string Kind { get; set; } = string.Empty;
+    [YamlMember(DefaultValuesHandling = DefaultValuesHandling.OmitNull | DefaultValuesHandling.OmitDefaults)]
     public double[]? Values { get; set; }
 
     [YamlMember(Alias = "expr")]
@@ -47,6 +48,8 @@ public class SimNode
     public PmfSpec? Pmf { get; set; }
 
     public double? Initial { get; set; }
+
+    public bool ShouldSerializeValues() => Values is { Length: > 0 };
 }
 
 /// <summary>

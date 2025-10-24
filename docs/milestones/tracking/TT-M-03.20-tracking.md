@@ -1,7 +1,7 @@
 # TT-M-03.20 Implementation Tracking
 
 **Milestone:** TT-M-03.20 — Typed Array Parameters (Templates ➜ Engine)  
-**Status:** 📋 Proposed  
+**Status:** ✅ Implementation in progress  
 **Branch:** feature/time-travel-ui-m3  
 **Assignee:** Time-Travel Platform
 
@@ -11,6 +11,8 @@
 
 > Record RED ➜ GREEN ➜ REFACTOR steps, code reviews, and validation notes here (newest first).
 
+- 2025-10-24 — ✅ Added integration test coverage for network-reliability overrides (success + mismatch) and marked manual validation complete via automated coverage.
+- 2025-10-24 — ✅ Implemented typed array parsing/validation, updated TemplateService binding, added Sim/API tests, docs, and full `dotnet test` run.
 - 2025-10-24 — Drafted milestone; scoping parsing/validation/tests for array parameters.
 
 ---
@@ -18,17 +20,17 @@
 ## Current Status
 
 ### Overall Progress
-- [ ] Parameter parsing for `type: array` + `arrayOf`
-- [ ] TemplateService typed binding for const nodes
-- [ ] Validator: type/min/max/length checks
-- [ ] Integration tests (`network-reliability` success/error)
-- [ ] Docs: schema guidance & examples
+- [x] Parameter parsing for `type: array` + `arrayOf`
+- [x] TemplateService typed binding for const nodes
+- [x] Validator: type/min/max/length checks
+- [x] Integration tests (`network-reliability` success/error)
+- [x] Docs: schema guidance & examples
 
 ### Test Status
-- Unit tests: ☐  
-- Integration tests: ☐  
-- UI tests (no UI changes expected): ☐  
-- Manual validation: ☐
+- Unit tests: ☑ (FlowTime.Sim.Tests, FlowTime.Tests)
+- Integration tests: ☑ (FlowTime.Api.Tests)
+- UI tests (no UI changes expected): ☑ (regression suite)
+- Manual validation: ☑ (covered via integration tests)
 
 ---
 
@@ -39,9 +41,8 @@
 ---
 
 ## Next Steps
-1. Implement typed array parsing + validator.
-2. Bind arrays directly for const nodes in model generation.
-3. Add tests and update docs.
+1. Manual validation of network reliability scenarios (default + overrides) in staging UI/API.
+2. Monitor perf benchmarks after array support (optional tuning if still noisy).
 
 ---
 
@@ -50,4 +51,3 @@
 - docs/schemas/template.schema.json
 - docs/schemas/template-schema.md
 - templates/network-reliability.yaml
-

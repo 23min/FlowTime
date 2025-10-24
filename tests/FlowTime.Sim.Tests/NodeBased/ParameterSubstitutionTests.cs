@@ -376,6 +376,53 @@ outputs:
     }
 
     [Fact]
+    public void Array_Parameter_Substitution_Produces_Json_Array_Literals()
+    {
+        var yaml = """
+metadata:
+  id: array-substitution
+  title: Array Substitution Test
+  version: 1.0.0
+window:
+  start: 2025-01-01T00:00:00Z
+  timezone: UTC
+parameters:
+  - name: baseLoad
+    type: array
+    arrayOf: double
+grid:
+  bins: 3
+  binSize: 60
+  binUnit: minutes
+topology:
+  nodes:
+    - id: service
+      kind: service
+      semantics:
+        arrivals: base_requests
+        served: base_requests
+  edges: []
+nodes:
+  - id: base_requests
+    kind: const
+    values: ${baseLoad}
+outputs:
+  - id: base_series
+    series: base_requests
+""";
+
+        var parameterValues = new Dictionary<string, object>
+        {
+            ["baseLoad"] = new[] { 10d, 20d, 30d }
+        };
+
+        var substitutedTemplate = ParameterSubstitution.ParseWithSubstitution(yaml, parameterValues);
+
+        var constNode = substitutedTemplate.Nodes.First(n => n.Id == "base_requests");
+        Assert.Equal(new[] { 10d, 20d, 30d }, constNode.Values);
+    }
+
+    [Fact]
     public void Template_With_Multiple_Parameter_References_In_Same_String_Substitutes_All()
     {
         var yaml = """

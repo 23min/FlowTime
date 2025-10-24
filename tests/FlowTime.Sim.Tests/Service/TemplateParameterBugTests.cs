@@ -25,10 +25,16 @@ public class TemplateParameterBugTests
         var service = new TemplateService(preloaded, NullLogger<TemplateService>.Instance);
         var parameters = new Dictionary<string, object>
         {
-            {"bins", 3},
+            {"bins", 6},
             {"binSize", 60},
-            {"demandPattern", new[] {10, 20, 30}},
-            {"capacityPattern", new[] {15, 25, 35}}
+            {"requestPattern", new[] {100, 120, 140, 130, 110, 100}},
+            {"loadBalancerCapacity", new[] {150, 150, 150, 150, 150, 150}},
+            {"authCapacity", new[] {140, 140, 140, 140, 140, 140}},
+            {"databaseCapacity", new[] {130, 130, 130, 130, 130, 130}},
+            {"demandPattern", new[] {10, 20, 30, 40, 30, 20}},
+            {"capacityPattern", new[] {15, 25, 35, 45, 35, 25}},
+            {"supplierCapacity", new[] {50, 55, 60, 65, 70, 75}},
+            {"plantCapacity", new[] {45, 50, 55, 60, 55, 50}}
         };
 
         foreach (var templateId in templateIds)

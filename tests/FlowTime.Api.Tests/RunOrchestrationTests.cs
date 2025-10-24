@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json.Nodes;
@@ -7,6 +8,15 @@ using FlowTime.Generator;
 using FlowTime.Generator.Models;
 using FlowTime.Tests.Support;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using FlowTime.Sim.Core.Services;
+using Microsoft.AspNetCore.Mvc.Testing;
+using FlowTime.Sim.Core.Templates;
+using YamlDotNet.Serialization;
+using YamlDotNet.Serialization.NamingConventions;
+using FlowTime.Generator.Orchestration;
+using FlowTime.Contracts.TimeTravel;
+using FlowTime.Contracts.Services;
 
 namespace FlowTime.Api.Tests;
 
@@ -15,8 +25,10 @@ public class RunOrchestrationTests : IClassFixture<TestWebApplicationFactory>, I
     private const string templateId = "test-order";
     private const string simulationTemplateId = "sim-order";
     private const string simulationTemplateWithRngId = "sim-order-rng";
+    private const string networkReliabilityTemplateId = "network-reliability";
 
     private readonly TestWebApplicationFactory factory;
+    private readonly WebApplicationFactory<Program> serverFactory;
     private readonly HttpClient client;
     private readonly string dataRoot;
     private readonly string templateDirectory;
@@ -34,8 +46,10 @@ public class RunOrchestrationTests : IClassFixture<TestWebApplicationFactory>, I
         File.WriteAllText(Path.Combine(templateDirectory, $"{simulationTemplateWithRngId}.yaml"), SimulationTemplateWithRngYaml);
         telemetryRoot = Path.Combine(dataRoot, "telemetry-root");
         Directory.CreateDirectory(telemetryRoot);
+        var networkTemplateSource = ResolveTemplatePath($"{networkReliabilityTemplateId}.yaml");
+        File.Copy(networkTemplateSource, Path.Combine(templateDirectory, $"{networkReliabilityTemplateId}.yaml"), overwrite: true);
 
-        var customizedFactory = factory.WithWebHostBuilder(builder =>
+        serverFactory = factory.WithWebHostBuilder(builder =>
         {
             builder.ConfigureAppConfiguration((context, config) =>
             {
@@ -49,7 +63,7 @@ public class RunOrchestrationTests : IClassFixture<TestWebApplicationFactory>, I
             });
         });
 
-        client = customizedFactory.CreateClient();
+        client = serverFactory.CreateClient();
     }
 
     [Fact]
@@ -86,9 +100,8 @@ public class RunOrchestrationTests : IClassFixture<TestWebApplicationFactory>, I
         };
 
         var response = await client.PostAsJsonAsync("/v1/runs", requestPayload);
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         var body = await response.Content.ReadAsStringAsync();
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Contains("rng.seed", body, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -130,6 +143,155 @@ public class RunOrchestrationTests : IClassFixture<TestWebApplicationFactory>, I
         Assert.Equal("simulation", detail!["metadata"]?["mode"]?.GetValue<string>());
         Assert.True(detail["canReplay"]?.GetValue<bool>() ?? false);
         Assert.Equal(0, detail["warnings"]?.AsArray()?.Count ?? 0);
+    }
+
+    [Fact]
+    public async Task CreateSimulationRun_NetworkReliabilityDefaults_Succeeds()
+    {
+        var requestPayload = new
+        {
+            templateId = networkReliabilityTemplateId,
+            mode = "simulation",
+            rng = new
+            {
+                kind = "pcg32",
+                seed = 42
+            },
+            parameters = new
+            {
+                rngSeed = 42
+            }
+        };
+
+        var response = await client.PostAsJsonAsync("/v1/runs", requestPayload);
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.True(response.StatusCode == HttpStatusCode.Created, body);
+    }
+
+    [Fact]
+    public async Task CreateSimulationRun_NetworkReliabilityArrayOverride_BindsValues()
+    {
+        var baseLoadOverride = Enumerable.Range(0, 12).Select(i => 80d + i * 5d).ToArray();
+
+        var requestPayload = new
+        {
+            templateId = networkReliabilityTemplateId,
+            mode = "simulation",
+            rng = new
+            {
+                kind = "pcg32",
+                seed = 42
+            },
+            parameters = new
+            {
+                baseLoad = baseLoadOverride,
+                rngSeed = 42
+            },
+            options = new
+            {
+                deterministicRunId = true
+            }
+        };
+
+        var response = await client.PostAsJsonAsync("/v1/runs", requestPayload);
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+        var payload = JsonNode.Parse(body) ?? throw new InvalidOperationException("Response was not valid JSON.");
+        var runId = payload["metadata"]?["runId"]?.GetValue<string>() ?? throw new InvalidOperationException("runId missing from response.");
+
+        var modelPath = Path.Combine(dataRoot, runId, "model", "model.yaml");
+        Assert.True(File.Exists(modelPath), $"Expected generated model at {modelPath}");
+
+        var modelContent = await File.ReadAllTextAsync(modelPath);
+        foreach (var value in baseLoadOverride)
+        {
+            Assert.Contains($"- {value.ToString(System.Globalization.CultureInfo.InvariantCulture)}", modelContent);
+        }
+    }
+
+    [Fact]
+    public async Task CreateSimulationRun_NetworkReliabilityArrayLengthMismatch_ReturnsBadRequest()
+    {
+        var requestPayload = new
+        {
+            templateId = networkReliabilityTemplateId,
+            mode = "simulation",
+            rng = new
+            {
+                kind = "pcg32",
+                seed = 42
+            },
+            parameters = new
+            {
+                baseLoad = new[] { 100, 110, 120, 130, 140, 150, 160, 170, 180, 190 },
+                rngSeed = 42
+            }
+        };
+
+        var response = await client.PostAsJsonAsync("/v1/runs", requestPayload);
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("baseLoad", body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("length", body, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task TemplateService_NetworkReliability_GeneratesModel()
+    {
+        await using var scope = serverFactory.Services.CreateAsyncScope();
+        var templateService = scope.ServiceProvider.GetRequiredService<ITemplateService>();
+
+        var model = await templateService.GenerateEngineModelAsync(networkReliabilityTemplateId, new Dictionary<string, object>());
+
+        Assert.False(string.IsNullOrWhiteSpace(model));
+
+        var deserializer = new DeserializerBuilder()
+            .WithNamingConvention(CamelCaseNamingConvention.Instance)
+            .IgnoreUnmatchedProperties()
+            .Build();
+
+        var artifact = deserializer.Deserialize<SimModelArtifact>(model);
+        Assert.NotNull(artifact);
+        Assert.Null(artifact.Nodes.First(n => n.Id == "network_reliability").Values);
+        Assert.Null(artifact.Nodes.First(n => n.Id == "network_requests").Values);
+
+        var definition = ModelService.ParseAndConvert(model);
+        Assert.NotNull(definition);
+    }
+
+    [Fact]
+    public async Task RunOrchestrationService_NetworkReliabilitySimulation_Succeeds()
+    {
+        await using var scope = serverFactory.Services.CreateAsyncScope();
+        var orchestration = scope.ServiceProvider.GetRequiredService<RunOrchestrationService>();
+        var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+        var runsRoot = Program.ServiceHelpers.RunsRoot(configuration);
+
+        var request = new RunOrchestrationRequest
+        {
+            TemplateId = networkReliabilityTemplateId,
+            Mode = "simulation",
+            OutputRoot = runsRoot,
+            Parameters = new Dictionary<string, object?>
+            {
+                ["rngSeed"] = 42
+            },
+            Rng = new RunRngOptions
+            {
+                Kind = "pcg32",
+                Seed = 42
+            },
+            DeterministicRunId = true
+        };
+
+        var outcome = await orchestration.CreateRunAsync(request);
+
+        Assert.False(outcome.IsDryRun);
+        Assert.NotNull(outcome.Result);
     }
 
     [Fact]
@@ -377,7 +539,34 @@ public class RunOrchestrationTests : IClassFixture<TestWebApplicationFactory>, I
         return asRelative ? captureKey : captureDir;
     }
 
-    public void Dispose() => client.Dispose();
+    private static string ResolveTemplatePath(string templateFileName)
+    {
+        var directory = Directory.GetCurrentDirectory();
+        while (!string.IsNullOrEmpty(directory))
+        {
+            var solutionPath = Path.Combine(directory, "FlowTime.sln");
+            if (File.Exists(solutionPath))
+            {
+                var templatePath = Path.Combine(directory, "templates", templateFileName);
+                if (File.Exists(templatePath))
+                {
+                    return templatePath;
+                }
+
+                throw new FileNotFoundException($"Template file '{templateFileName}' was not found under templates directory.");
+            }
+
+            directory = Directory.GetParent(directory)?.FullName ?? string.Empty;
+        }
+
+        throw new DirectoryNotFoundException("Unable to locate templates directory relative to solution root.");
+    }
+
+    public void Dispose()
+    {
+        client.Dispose();
+        serverFactory.Dispose();
+    }
 
     private const string TestTemplateYaml = """
 schemaVersion: 1

@@ -1,8 +1,10 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Text.Json;
 using FlowTime.Expressions;
 using FlowTime.Sim.Core.Templates.Exceptions;
 
@@ -14,6 +16,7 @@ namespace FlowTime.Sim.Core.Templates;
 internal static class TemplateValidator
 {
     private const double ProbabilityTolerance = 1e-10;
+    private const double IntegerTolerance = 1e-9;
     private static readonly Regex SemanticVersionPattern = new("^\\d+\\.\\d+\\.\\d+(-[0-9A-Za-z\\.-]+)?$", RegexOptions.Compiled);
 
     public static void Validate(Template template)
@@ -469,6 +472,152 @@ internal static class TemplateValidator
                 throw new TemplateValidationException($"Expression node '{nodeId}' requires an initial condition (topology.nodes[].initialCondition.queueDepth).");
             }
         }
+    }
+
+    internal static void ValidateArrayParameters(Template template, Dictionary<string, object?> parameterValues)
+    {
+        ArgumentNullException.ThrowIfNull(template);
+        ArgumentNullException.ThrowIfNull(parameterValues);
+
+        foreach (var parameter in template.Parameters)
+        {
+            if (!IsArrayParameter(parameter))
+            {
+                continue;
+            }
+
+            if (!parameterValues.TryGetValue(parameter.Name, out var value) || value is null)
+            {
+                throw new TemplateValidationException($"Parameter '{parameter.Name}' requires an array value.");
+            }
+
+            ValidateArrayParameterValue(parameter, value);
+        }
+    }
+
+    private static void ValidateArrayParameterValue(TemplateParameter parameter, object value)
+    {
+        if (value is string)
+        {
+            throw new TemplateValidationException($"Parameter '{parameter.Name}' expects an array value.");
+        }
+
+        if (value is JsonElement element)
+        {
+            if (element.ValueKind != JsonValueKind.Array)
+            {
+                throw new TemplateValidationException($"Parameter '{parameter.Name}' expects an array value.");
+            }
+
+            var index = 0;
+            foreach (var item in element.EnumerateArray())
+            {
+                ValidateArrayElement(parameter, item, index);
+                index++;
+            }
+            return;
+        }
+
+        if (value is IEnumerable enumerable)
+        {
+            var index = 0;
+            foreach (var item in enumerable)
+            {
+                ValidateArrayElement(parameter, item, index);
+                index++;
+            }
+            return;
+        }
+
+        throw new TemplateValidationException($"Parameter '{parameter.Name}' expects an array value.");
+    }
+
+    private static void ValidateArrayElement(TemplateParameter parameter, object? element, int index)
+    {
+        var kind = ResolveArrayElementKind(parameter);
+        double numericValue;
+
+        switch (kind)
+        {
+            case ArrayElementKind.Int:
+                var intValue = ConvertToInt(parameter, element, index);
+                numericValue = intValue;
+                break;
+            default:
+                numericValue = ConvertToDouble(parameter, element, index);
+                break;
+        }
+
+        if (parameter.Min.HasValue && numericValue < parameter.Min.Value)
+        {
+            throw new TemplateValidationException(
+                $"Parameter '{parameter.Name}' element at index {index} ({numericValue.ToString(CultureInfo.InvariantCulture)}) is below minimum {parameter.Min.Value.ToString(CultureInfo.InvariantCulture)}.");
+        }
+
+        if (parameter.Max.HasValue && numericValue > parameter.Max.Value)
+        {
+            throw new TemplateValidationException(
+                $"Parameter '{parameter.Name}' element at index {index} ({numericValue.ToString(CultureInfo.InvariantCulture)}) exceeds maximum {parameter.Max.Value.ToString(CultureInfo.InvariantCulture)}.");
+        }
+    }
+
+    private static double ConvertToDouble(TemplateParameter parameter, object? element, int index)
+    {
+        return element switch
+        {
+            null => throw new TemplateValidationException($"Parameter '{parameter.Name}' element at index {index} is null."),
+            double d => d,
+            float f => f,
+            decimal m => (double)m,
+            int i => i,
+            long l => l,
+            JsonElement json when json.ValueKind == JsonValueKind.Number => json.GetDouble(),
+            JsonElement json when json.ValueKind == JsonValueKind.String && double.TryParse(json.GetString(), NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out var parsed) => parsed,
+            _ => throw new TemplateValidationException($"Parameter '{parameter.Name}' element at index {index} must be a number.")
+        };
+    }
+
+    private static int ConvertToInt(TemplateParameter parameter, object? element, int index)
+    {
+        return element switch
+        {
+            null => throw new TemplateValidationException($"Parameter '{parameter.Name}' element at index {index} is null."),
+            int i => i,
+            long l when l >= int.MinValue && l <= int.MaxValue => (int)l,
+            double d when Math.Abs(d - Math.Round(d)) <= IntegerTolerance => (int)Math.Round(d),
+            float f when Math.Abs(f - Math.Round(f)) <= IntegerTolerance => (int)Math.Round(f),
+            decimal m when Math.Abs((double)m - Math.Round((double)m)) <= IntegerTolerance => (int)Math.Round((double)m),
+            JsonElement json when json.ValueKind == JsonValueKind.Number && json.TryGetInt64(out var integer) => checked((int)integer),
+            JsonElement json when json.ValueKind == JsonValueKind.Number => ConvertDoubleToInt(parameter, json.GetDouble(), index),
+            JsonElement json when json.ValueKind == JsonValueKind.String && int.TryParse(json.GetString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedInt) => parsedInt,
+            JsonElement json when json.ValueKind == JsonValueKind.String && double.TryParse(json.GetString(), NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out var parsedDouble) => ConvertDoubleToInt(parameter, parsedDouble, index),
+            _ => throw new TemplateValidationException($"Parameter '{parameter.Name}' element at index {index} must be an integer.")
+        };
+    }
+
+    private static int ConvertDoubleToInt(TemplateParameter parameter, double value, int index)
+    {
+        var rounded = Math.Round(value);
+        if (Math.Abs(value - rounded) > IntegerTolerance)
+        {
+            throw new TemplateValidationException($"Parameter '{parameter.Name}' element at index {index} must be an integer.");
+        }
+
+        return checked((int)rounded);
+    }
+
+    private static bool IsArrayParameter(TemplateParameter parameter) =>
+        parameter.Type.Equals("array", StringComparison.OrdinalIgnoreCase);
+
+    private static ArrayElementKind ResolveArrayElementKind(TemplateParameter parameter) =>
+        parameter.ArrayOf != null && parameter.ArrayOf.Equals("int", StringComparison.OrdinalIgnoreCase)
+            ? ArrayElementKind.Int
+            : ArrayElementKind.Double;
+
+    private enum ArrayElementKind
+    {
+        Double,
+        Int
     }
 
     private static void ValidateRng(TemplateRng? rng)

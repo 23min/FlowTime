@@ -74,6 +74,10 @@ properties:
           type: number
         max:
           type: number
+        arrayOf:
+          type: string
+          enum: [double, int]
+          description: "Element type enforced for array parameters (default: double)."
 
   grid:
     type: object
@@ -348,6 +352,41 @@ outputs:
 rng:
   kind: pcg32
   seed: ${rngSeed}     # Deterministic seed for reproducible results
+```
+
+### Array Parameters
+
+- Declare array parameters with `type: array`. Set `arrayOf` to either `double` or `int` to enforce element type (defaults to `double`).
+- Element values honour `min` / `max` constraints on the parameter definition.
+- When a parameter feeds a full-series const node (e.g., `values: ${baseLoad}`), the provided array **must** match `grid.bins`. A mismatch raises `400 Bad Request` with a descriptive error.
+- Examples:
+
+```yaml
+parameters:
+  - name: baseLoad
+    type: array
+    arrayOf: double
+    minimum: 0
+    maximum: 1000
+    default: [100, 120, 150, 180]
+
+nodes:
+  - id: base_requests
+    kind: const
+    values: ${baseLoad}
+```
+
+```yaml
+# Invalid override (length mismatch when bins = 4)
+POST /v1/runs
+{
+  "parameters": {
+    "baseLoad": [100, 110, 120]
+  }
+}
+-->
+400 Bad Request
+"Parameter 'baseLoad' provides 3 values but grid.bins is 4; const node 'base_requests' requires matching length."
 ```
 
 ## Node Types

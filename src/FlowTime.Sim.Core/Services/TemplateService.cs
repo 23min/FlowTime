@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using FlowTime.Sim.Core.Templates;
 using FlowTime.Sim.Core.Templates.Exceptions;
 using Microsoft.Extensions.Logging;
@@ -21,6 +22,7 @@ public class TemplateService : ITemplateService
     private readonly Dictionary<string, (Template template, string originalYaml)> templateCache = new();
     private readonly object cacheLock = new();
     private readonly ISerializer yamlSerializer;
+    private static readonly Regex ParameterPlaceholderRegex = new(@"\$\{([^}]+)\}", RegexOptions.Compiled);
 
     public TemplateService(string templatesDirectory, ILogger<TemplateService> logger)
     {
@@ -29,6 +31,8 @@ public class TemplateService : ITemplateService
         
         yamlSerializer = new SerializerBuilder()
             .WithNamingConvention(CamelCaseNamingConvention.Instance)
+            .WithEventEmitter(next => new FlowSequenceEventEmitter(next))
+            .ConfigureDefaultValuesHandling(DefaultValuesHandling.OmitNull | DefaultValuesHandling.OmitDefaults)
             .Build();
     }
 
@@ -48,6 +52,8 @@ public class TemplateService : ITemplateService
         
         yamlSerializer = new SerializerBuilder()
             .WithNamingConvention(CamelCaseNamingConvention.Instance)
+            .WithEventEmitter(next => new FlowSequenceEventEmitter(next))
+            .ConfigureDefaultValuesHandling(DefaultValuesHandling.OmitNull | DefaultValuesHandling.OmitDefaults)
             .Build();
     }
 
@@ -67,6 +73,8 @@ public class TemplateService : ITemplateService
 
         yamlSerializer = new SerializerBuilder()
             .WithNamingConvention(CamelCaseNamingConvention.Instance)
+            .WithEventEmitter(next => new FlowSequenceEventEmitter(next))
+            .ConfigureDefaultValuesHandling(DefaultValuesHandling.OmitNull | DefaultValuesHandling.OmitDefaults)
             .Build();
     }
 
@@ -107,9 +115,11 @@ public class TemplateService : ITemplateService
         logger.LogInformation("Generating KISS schema model for template {TemplateId} with {ParamCount} parameters", 
             templateId, parameters.Count);
 
+        var parameterizedConstNodes = FindConstNodeParameterBindings(cached.originalYaml);
         var mergedParameters = MergeParameterValues(cached.template, parameters);
         var substitutionValues = BuildSubstitutionValues(mergedParameters);
-        var substitutedYaml = SubstituteParameters(cached.originalYaml, substitutionValues);
+        var structuredParameters = IdentifyStructuredParameters(mergedParameters);
+        var substitutedYaml = SubstituteParameters(cached.originalYaml, substitutionValues, structuredParameters);
 
         Template parsedTemplate;
         try
@@ -126,6 +136,9 @@ public class TemplateService : ITemplateService
             logger.LogError(ex, "Template validation failed for {TemplateId}: {Message}", templateId, ex.Message);
             throw;
         }
+
+        TemplateValidator.ValidateArrayParameters(parsedTemplate, mergedParameters);
+        ValidateConstNodeLengths(parsedTemplate, mergedParameters, parameterizedConstNodes);
 
         if (modeOverride.HasValue)
         {
@@ -233,6 +246,7 @@ public class TemplateService : ITemplateService
     private Dictionary<string, object?> MergeParameterValues(Template template, Dictionary<string, object> parameterOverrides)
     {
         var merged = new Dictionary<string, object?>(StringComparer.Ordinal);
+        var parameterDefinitions = new Dictionary<string, TemplateParameter>(StringComparer.Ordinal);
 
         foreach (var parameter in template.Parameters)
         {
@@ -241,38 +255,21 @@ public class TemplateService : ITemplateService
                 continue;
             }
 
+            parameterDefinitions[parameter.Name] = parameter;
+
             if (parameter.Default != null)
             {
-                merged[parameter.Name] = NormalizeParameterValue(parameter.Default);
+                merged[parameter.Name] = TemplateParameterValueConverter.Normalize(parameter, parameter.Default);
             }
         }
 
         foreach (var kvp in parameterOverrides)
         {
-            merged[kvp.Key] = NormalizeParameterValue(kvp.Value);
+            parameterDefinitions.TryGetValue(kvp.Key, out var definition);
+            merged[kvp.Key] = TemplateParameterValueConverter.Normalize(definition, kvp.Value);
         }
 
         return merged;
-    }
-
-    private static object? NormalizeParameterValue(object? value)
-    {
-        if (value is JsonElement element)
-        {
-            return element.ValueKind switch
-            {
-                JsonValueKind.Number => element.TryGetInt64(out var integer) ? integer : element.GetDouble(),
-                JsonValueKind.String => element.GetString(),
-                JsonValueKind.True => true,
-                JsonValueKind.False => false,
-                JsonValueKind.Null => null,
-                JsonValueKind.Array => element.GetRawText(),
-                JsonValueKind.Object => element.GetRawText(),
-                _ => element.GetRawText()
-            };
-        }
-
-        return value;
     }
 
     private Dictionary<string, string> BuildSubstitutionValues(Dictionary<string, object?> parameterValues)
@@ -281,76 +278,199 @@ public class TemplateService : ITemplateService
 
         foreach (var kvp in parameterValues)
         {
-            substitutions[kvp.Key] = FormatParameterValueForSubstitution(kvp.Value);
+            substitutions[kvp.Key] = TemplateParameterFormatter.FormatForSubstitution(kvp.Value);
         }
 
         return substitutions;
     }
 
-    private string SubstituteParameters(string yaml, Dictionary<string, string> substitutions)
+    private static HashSet<string> IdentifyStructuredParameters(Dictionary<string, object?> parameterValues)
+    {
+        var structured = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var kvp in parameterValues)
+        {
+            if (kvp.Value is null)
+            {
+                continue;
+            }
+
+            if (kvp.Value is string)
+            {
+                continue;
+            }
+
+            if (kvp.Value is IEnumerable)
+            {
+                structured.Add(kvp.Key);
+                continue;
+            }
+
+            if (kvp.Value is JsonElement element &&
+                (element.ValueKind == JsonValueKind.Array || element.ValueKind == JsonValueKind.Object))
+            {
+                structured.Add(kvp.Key);
+            }
+        }
+
+        return structured;
+    }
+
+    private string SubstituteParameters(string yaml, Dictionary<string, string> substitutions, ISet<string> structuredParameters)
     {
         var result = yaml;
         foreach (var kvp in substitutions)
         {
             var placeholder = $"${{{kvp.Key}}}";
+            if (structuredParameters.Contains(kvp.Key))
+            {
+                result = result.Replace($"\"{placeholder}\"", kvp.Value);
+                result = result.Replace($"'{placeholder}'", kvp.Value);
+            }
             result = result.Replace(placeholder, kvp.Value);
         }
         return result;
     }
 
-    private string FormatParameterValueForSubstitution(object? value)
+    private static Dictionary<string, string> FindConstNodeParameterBindings(string originalYaml)
+    {
+        var bindings = new Dictionary<string, string>(StringComparer.Ordinal);
+        if (string.IsNullOrEmpty(originalYaml))
+        {
+            return bindings;
+        }
+
+        var lines = originalYaml.Split('\n');
+        var inNodesSection = false;
+        string? currentNodeId = null;
+        bool currentNodeIsConst = false;
+        var currentNodeIndent = 0;
+
+        foreach (var rawLine in lines)
+        {
+            var line = rawLine.TrimEnd();
+            var trimmed = line.TrimStart();
+            var indent = rawLine.Length - rawLine.TrimStart().Length;
+
+            if (trimmed.Length == 0 || trimmed.StartsWith("#", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (!inNodesSection)
+            {
+                if (line.Equals("nodes:", StringComparison.Ordinal))
+                {
+                    inNodesSection = true;
+                }
+                continue;
+            }
+
+            if (indent <= 0 && !trimmed.StartsWith("- ", StringComparison.Ordinal))
+            {
+                inNodesSection = false;
+                currentNodeId = null;
+                currentNodeIsConst = false;
+                continue;
+            }
+
+            if (trimmed.StartsWith("- ", StringComparison.Ordinal))
+            {
+                currentNodeId = null;
+                currentNodeIsConst = false;
+                currentNodeIndent = indent;
+
+                var afterDash = trimmed.Substring(2).TrimStart();
+                if (afterDash.StartsWith("id:", StringComparison.Ordinal))
+                {
+                    currentNodeId = afterDash.Substring(3).Trim().Trim('\'', '"');
+                }
+                else if (afterDash.StartsWith("kind:", StringComparison.Ordinal))
+                {
+                    currentNodeIsConst = afterDash.Substring(5).Trim().Trim('\'', '"')
+                        .Equals("const", StringComparison.OrdinalIgnoreCase);
+                }
+
+                continue;
+            }
+
+            if (indent <= currentNodeIndent)
+            {
+                currentNodeId = null;
+                currentNodeIsConst = false;
+                continue;
+            }
+
+            if (trimmed.StartsWith("id:", StringComparison.Ordinal))
+            {
+                currentNodeId = trimmed.Substring(3).Trim().Trim('\'', '"');
+                continue;
+            }
+
+            if (trimmed.StartsWith("kind:", StringComparison.Ordinal))
+            {
+                currentNodeIsConst = trimmed.Substring(5).Trim().Trim('\'', '"')
+                    .Equals("const", StringComparison.OrdinalIgnoreCase);
+                continue;
+            }
+
+            if (!currentNodeIsConst || string.IsNullOrEmpty(currentNodeId))
+            {
+                continue;
+            }
+
+            if (trimmed.StartsWith("values:", StringComparison.Ordinal))
+            {
+                var valueText = trimmed.Substring("values:".Length).Trim();
+                var match = ParameterPlaceholderRegex.Match(valueText);
+                if (match.Success)
+                {
+                    bindings[currentNodeId] = match.Groups[1].Value;
+                }
+            }
+        }
+
+        return bindings;
+    }
+
+    private static void ValidateConstNodeLengths(
+        Template template,
+        Dictionary<string, object?> parameterValues,
+        Dictionary<string, string> nodeBindings)
+    {
+        if (template.Grid == null || template.Grid.Bins <= 0 || nodeBindings.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var binding in nodeBindings)
+        {
+            if (!parameterValues.TryGetValue(binding.Value, out var value) || value is null)
+            {
+                continue;
+            }
+
+            var length = GetSequenceLength(value);
+            if (!length.HasValue)
+            {
+                continue;
+            }
+
+            if (length.Value != template.Grid.Bins)
+            {
+                throw new TemplateValidationException(
+                    $"Parameter '{binding.Value}' provides {length.Value} values but grid.bins is {template.Grid.Bins}; const node '{binding.Key}' requires matching length.");
+            }
+        }
+    }
+
+    private static int? GetSequenceLength(object value)
     {
         return value switch
         {
-            null => "null",
-            bool b => b.ToString().ToLowerInvariant(),
-            double or float or decimal => Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty,
-            int or long or short or byte or sbyte => Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty,
-            JsonElement element => FormatJsonElement(element),
-            string s => ShouldQuoteString(s) ? $"\"{s}\"" : s,
-            IEnumerable enumerable when value is not string => FormatEnumerable(enumerable),
-            _ => value.ToString() ?? string.Empty
-        };
-    }
-
-    private string FormatEnumerable(IEnumerable enumerable)
-    {
-        var items = new List<string>();
-        foreach (var item in enumerable)
-        {
-            items.Add(FormatParameterValueForSubstitution(item));
-        }
-
-        return $"[{string.Join(", ", items)}]";
-    }
-
-    private static bool ShouldQuoteString(string value)
-    {
-        if (string.IsNullOrEmpty(value))
-        {
-            return true;
-        }
-
-        if (value.StartsWith("[") || value.StartsWith("{") || (value.StartsWith("\"") && value.EndsWith("\"")))
-        {
-            return false;
-        }
-
-        return value.Any(char.IsWhiteSpace) || value.Contains(':') || value.Contains('#');
-    }
-
-    private string FormatJsonElement(JsonElement element)
-    {
-        return element.ValueKind switch
-        {
-            JsonValueKind.Number => element.GetRawText(),
-            JsonValueKind.String => element.GetString() ?? string.Empty,
-            JsonValueKind.True => "true",
-            JsonValueKind.False => "false",
-            JsonValueKind.Array => element.GetRawText(),
-            JsonValueKind.Object => element.GetRawText(),
-            JsonValueKind.Null => "null",
-            _ => element.GetRawText()
+            Array array => array.Length,
+            ICollection collection => collection.Count,
+            JsonElement element when element.ValueKind == JsonValueKind.Array => element.GetArrayLength(),
+            _ => null
         };
     }
 
