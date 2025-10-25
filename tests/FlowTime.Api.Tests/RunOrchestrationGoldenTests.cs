@@ -65,11 +65,11 @@ public class RunOrchestrationGoldenTests : IClassFixture<TestWebApplicationFacto
         var runId = createNode["metadata"]?["runId"]?.GetValue<string>() ?? throw new InvalidOperationException("runId missing.");
 
         var sanitizedCreate = SanitizeCreateResponse(createNode);
-        AssertGolden("simulation-create-run-response.golden.json", sanitizedCreate);
+        GoldenTestUtils.AssertMatchesGolden("simulation-create-run-response.golden.json", sanitizedCreate);
 
         var detailNode = (await client.GetFromJsonAsync<JsonNode>($"/v1/runs/{runId}")) ?? throw new InvalidOperationException("Detail response missing.");
         var sanitizedDetail = SanitizeCreateResponse(detailNode);
-        AssertGolden("simulation-get-run-response.golden.json", sanitizedDetail);
+        GoldenTestUtils.AssertMatchesGolden("simulation-get-run-response.golden.json", sanitizedDetail);
     }
 
     [Fact]
@@ -104,31 +104,15 @@ public class RunOrchestrationGoldenTests : IClassFixture<TestWebApplicationFacto
         var runId = createNode["metadata"]?["runId"]?.GetValue<string>() ?? throw new InvalidOperationException("runId missing.");
 
         var sanitizedCreate = SanitizeCreateResponse(createNode);
-        AssertGolden("create-run-response.golden.json", sanitizedCreate);
+        GoldenTestUtils.AssertMatchesGolden("create-run-response.golden.json", sanitizedCreate);
 
         var detailNode = (await client.GetFromJsonAsync<JsonNode>($"/v1/runs/{runId}")) ?? throw new InvalidOperationException("Detail response missing.");
         var sanitizedDetail = SanitizeCreateResponse(detailNode);
-        AssertGolden("get-run-response.golden.json", sanitizedDetail);
+        GoldenTestUtils.AssertMatchesGolden("get-run-response.golden.json", sanitizedDetail);
 
         var listNode = (await client.GetFromJsonAsync<JsonNode>("/v1/runs?mode=telemetry&hasWarnings=false&page=1&pageSize=10")) ?? throw new InvalidOperationException("List response missing.");
         var sanitizedList = SanitizeListResponse(listNode);
-        AssertGolden("list-runs-response.golden.json", sanitizedList);
-    }
-
-    private static void AssertGolden(string fileName, JsonNode actual)
-    {
-        var expectedPath = Path.Combine(AppContext.BaseDirectory, "Golden", fileName);
-        if (!File.Exists(expectedPath))
-        {
-            throw new FileNotFoundException($"Golden file not found at {expectedPath}. Actual sanitized payload:\n{actual.ToJsonString(SerializerOptions)}");
-        }
-
-        var expectedJsonText = File.ReadAllText(expectedPath);
-        var expectedNode = JsonNode.Parse(expectedJsonText) ?? throw new InvalidOperationException($"Golden file '{fileName}' did not contain valid JSON.");
-
-        var expectedJson = expectedNode.ToJsonString(SerializerOptions);
-        var actualJson = actual.ToJsonString(SerializerOptions);
-        Assert.Equal(expectedJson, actualJson);
+        GoldenTestUtils.AssertMatchesGolden("list-runs-response.golden.json", sanitizedList);
     }
 
     private static JsonNode SanitizeCreateResponse(JsonNode node)

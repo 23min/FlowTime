@@ -37,11 +37,11 @@ Note: Implementation will touch `ui/FlowTime.UI/Layout/ExpertLayout.razor` (menu
 
 ## Data Contracts (Gold, Minimal)
 
-- `runs/{runId}/graph.json` — nodes (`id`, `type`), edges (`from`, `to`), optional SLA thresholds
-- `runs/{runId}/state_window.json` — `binMinutes`, `bins[]` with per‑node metrics per bin
-- `runs/{runId}/metrics.json` — per‑flow SLA aggregates and normalized mini spark values
+- `GET /v1/runs/{runId}/graph` — nodes (`id`, `kind`, `semantics`, optional `ui`) plus edges (`from`, `to`, `weight`)
+- `GET /v1/runs/{runId}/state_window` — `binMinutes`, aligned timestamps, per-node series payload
+- `GET /v1/runs/{runId}/metrics` — per-service SLA aggregates and normalized mini sparkline values
 
-Future API Mapping (for later): `/v1/runs/{id}/graph`, `/state_window`, `/metrics`.
+Fallback (when UI runs against raw bundles): `runs/{runId}/graph.json`, `state_window.json`, `metrics.json` retain the same shapes. The API writes `metrics.json` during run creation so offline consumers stay in sync without recomputing SLA aggregates.
 
 ---
 

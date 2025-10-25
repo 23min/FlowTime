@@ -206,9 +206,14 @@ public class RunOrchestrationTests : IClassFixture<TestWebApplicationFactory>, I
         Assert.True(File.Exists(modelPath), $"Expected generated model at {modelPath}");
 
         var modelContent = await File.ReadAllTextAsync(modelPath);
-        foreach (var value in baseLoadOverride)
+        var inlineSequence = $"[{string.Join(", ", baseLoadOverride.Select(v => v.ToString(System.Globalization.CultureInfo.InvariantCulture)))}]";
+
+        if (!modelContent.Contains(inlineSequence, StringComparison.Ordinal))
         {
-            Assert.Contains($"- {value.ToString(System.Globalization.CultureInfo.InvariantCulture)}", modelContent);
+            foreach (var value in baseLoadOverride)
+            {
+                Assert.Contains($"- {value.ToString(System.Globalization.CultureInfo.InvariantCulture)}", modelContent);
+            }
         }
     }
 

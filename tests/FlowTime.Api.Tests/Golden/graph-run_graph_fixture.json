@@ -1,0 +1,35 @@
+{
+  "nodes": [
+    {
+      "id": "LoadBalancer",
+      "kind": "service",
+      "semantics": {
+        "arrivals": "series:incoming",
+        "served": "series:routed",
+        "errors": "series:errors"
+      }
+    },
+    {
+      "id": "Database",
+      "kind": "store",
+      "semantics": {
+        "arrivals": "series:routed",
+        "served": "series:served",
+        "errors": "series:errors",
+        "capacity": "series:capacity"
+      },
+      "ui": {
+        "x": 160,
+        "y": 48
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge_lb_db",
+      "from": "LoadBalancer:out",
+      "to": "Database:in",
+      "weight": 1
+    }
+  ]
+}

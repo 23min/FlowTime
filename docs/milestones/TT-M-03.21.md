@@ -1,5 +1,9 @@
 # TT‑M‑03.21 — Graph + Metrics endpoints (UI Phase 2 enablement)
 
+**Status:** Completed (2025-10-24)  
+**Reach:** FlowTime API v1 — time-travel helpers for UI Phase 2  
+**Branch:** feature/time-travel-ui-m3
+
 Purpose
 - Provide small, focused backend support that unblocks UI M3 Phase 2 with minimal friction: a graph endpoint that derives topology from canonical artifacts, and a minimal metrics endpoint (or artifact) used by the SLA dashboard.
 
@@ -47,6 +51,26 @@ Files to Modify
 - `docs/architecture/time-travel/time-travel-architecture-ch2-data-contracts.md` — add response shapes.
 - `docs/architecture/time-travel/ui-m3-roadmap.md` — reference endpoints and confirm Phase 2 wiring.
 
+## Implementation Summary
+
+- Added dedicated `GraphService` that reads `model/model.yaml`, maps semantics (including `queueDepth ⇒ queue`) and returns the concise node/edge contract consumed by the UI.
+- Added `MetricsService` that reuses `StateQueryService` windows, applies the documented SLA rule (`served / arrivals ≥ 0.95`), and emits normalized mini-bar arrays.
+- Registered both services/endpoints in `Program.cs` (`GET /v1/runs/{runId}/graph`, `GET /v1/runs/{runId}/metrics`) with consistent 4xx handling for missing runs and malformed queries.
+- Persisted `metrics.json` alongside each run (same shape as the metrics endpoint) so file-based adapters remain in sync without recomputing SLA aggregates.
+- Added a resolver that evaluates the stored model when semantics reference other node ids, enabling `/metrics` (and the emitted `metrics.json`) for simulation-only runs that do not expose `file:` URIs.
+- Extended API integration coverage with new tests for graph happy-path/404 and metrics happy-path/query validation.
+- Updated architecture docs and the Phase 2 roadmap to reference the new contracts, and added `.http` samples for manual verification.
+
+## Test & Validation Notes
+
+- `dotnet test FlowTime.sln --nologo --verbosity:minimal` (local) — full suite passes after standard warm-up; new integration tests (including golden snapshots) run in ~9s.
+- Golden snapshots (`tests/FlowTime.Api.Tests/Golden/*.json`) now lock the graph and metrics contracts to catch accidental schema drift.
+- `metrics.json` artifacts mirror the endpoint payload and are written during run creation for offline consumers.
+
+## Follow-ups
+
+- Monitor `metrics.json` size/shape as Phase 2 adds more services; consider lightweight downsampling if responses grow beyond UI needs.
+
 Risks & Mitigations
 - Ambiguous SLA rules → document simple defaults; keep overridable later.
 - Large ranges → cap `endBin-startBin` to a reasonable size or downsample for `mini`.
@@ -54,8 +78,7 @@ Risks & Mitigations
 
 Out of Scope
 - Advanced overlays, forecasts, or flow grouping across multiple runs.
-- Persisted `metrics.json` if the live endpoint suffices (optional fallback).
+- Advanced overlays, forecasts, or flow grouping across multiple runs.
 
 Timeline
 - Duration: 2–3 days of focused backend work with tests and docs.
-

@@ -642,67 +642,58 @@ nodes: [ ... ]
 
 #### 2.4.3 GET /v1/runs/{runId}/graph
 
-**Purpose:** Retrieve topology and series DAG for visualization
+**Purpose:** Retrieve the canonical topology (nodes, edges, semantics) for a completed run without requiring clients to parse YAML.
+
+**Request:**
+```
+GET /v1/runs/run_abc123/graph
+```
 
 **Response:**
 ```json
 {
-  "runId": "run_abc123",
-  "grid": { "bins": 288, "binSize": 5, "binUnit": "minutes", "binMinutes": 5 },
-  "window": { "start": "...", "end": "...", "timezone": "UTC" },
-  
-  "topology": {
-    "nodes": [
-      {
-        "id": "OrderService",
-        "kind": "service",
-        "group": "Orders",
-        "ui": { "x": 120, "y": 260 },
-        "semantics": {
-          "arrivals": "orders_arrivals",
-          "served": "orders_served",
-          "capacity": "capacity_inferred"
-        }
+  "nodes": [
+    {
+      "id": "OrderService",
+      "kind": "service",
+      "semantics": {
+        "arrivals": "file:OrderService_arrivals.csv",
+        "served": "file:OrderService_served.csv",
+        "errors": "file:OrderService_errors.csv",
+        "queue": null,
+        "capacity": "file:OrderService_capacity.csv"
       },
-      {
-        "id": "OrderQueue",
-        "kind": "queue",
-        "group": "Orders",
-        "ui": { "x": 340, "y": 260 },
-        "semantics": {
-          "arrivals": "queue_inflow",
-          "served": "queue_outflow",
-          "queue": "queue_depth"
-        }
+      "ui": { "x": 120, "y": 260 }
+    },
+    {
+      "id": "OrderQueue",
+      "kind": "queue",
+      "semantics": {
+        "arrivals": "file:OrderQueue_arrivals.csv",
+        "served": "file:OrderQueue_served.csv",
+        "errors": "file:OrderQueue_errors.csv",
+        "queue": "file:OrderQueue_queue.csv",
+        "capacity": null
       }
-    ],
-    "edges": [
-      {
-        "id": "e1",
-        "from": "OrderService:out",
-        "to": "OrderQueue:in"
-      }
-    ]
-  },
-  
-  "seriesDag": {
-    "nodes": [
-      "orders_arrivals",
-      "orders_served",
-      "orders_errors",
-      "queue_inflow",
-      "queue_outflow",
-      "queue_depth",
-      "capacity_inferred"
-    ],
-    "edges": [
-      { "from": "orders_arrivals", "to": "orders_served" },
-      { "from": "queue_inflow", "to": "queue_depth" },
-      { "from": "queue_depth", "to": "queue_depth" }  // Self-loop via SHIFT
-    ]
-  }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge_orders_queue",
+      "from": "OrderService:out",
+      "to": "OrderQueue:in",
+      "weight": 1.0
+    }
+  ]
 }
 ```
+
+**Notes:**
+- Semantics map 1:1 with the topology definition. `queue` is sourced from `queueDepth` in the YAML model.
+- `ui` hints are optional and omitted when not present in the model.
+- Errors:
+  - `404` when the run folder or model is missing.
+  - `412` when the run did not record topology metadata.
 
 #### 2.4.4 GET /v1/runs/{runId}/state?ts={timestamp}
 
@@ -867,64 +858,64 @@ GET /v1/runs/run_abc123/state_window?start=2025-10-07T00:00:00Z&end=2025-10-07T1
 
 #### 2.4.6 GET /v1/runs/{runId}/metrics
 
-**Purpose:** Aggregated SLA metrics
+**Purpose:** Provide lightweight SLA aggregates and normalized sparklines for Phase 2 dashboards.
 
 **Request:**
 ```
-GET /v1/runs/run_abc123/metrics?start=2025-10-07T00:00:00Z&end=2025-10-08T00:00:00Z
+GET /v1/runs/run_abc123/metrics?startBin=72&endBin=95
 ```
+
+**Query Parameters:**
+- `startBin` (optional, inclusive) – zero-based bin index. When omitted, the service defaults to the last configured window (12 bins, capped to the run length).
+- `endBin` (optional, inclusive) – zero-based bin index. Defaults to the final bin when omitted.
 
 **Response:**
 ```json
 {
-  "runId": "run_abc123",
-  "mode": "telemetry",
-  "window": { "start": "...", "end": "..." },
-  
-  "aggregates": {
-    "bins_total": 288,
-    "bins_with_gaps": 2,
-    "data_completeness": 0.993
+  "window": {
+    "start": "2025-10-07T13:00:00Z",
+    "timezone": "UTC"
   },
-  
-  "nodes": {
-    "OrderService": {
-      "totals": {
-        "arrivals": 43200,
-        "served": 42500,
-        "errors": 700
-      },
-      "success_rate": 0.984,
-      "avg_demand_gap": 2.3
+  "grid": {
+    "binMinutes": 5,
+    "bins": 12
+  },
+  "services": [
+    {
+      "id": "OrderService",
+      "slaPct": 0.83,
+      "binsMet": 10,
+      "binsTotal": 12,
+      "mini": [1.0, 0.84, 0.92, 0.71, 1.0, 0.88, 0.76, 0.69, 1.0, 0.95, 0.82, 0.73]
     },
-    
-    "OrderQueue": {
-      "totals": {
-        "arrivals": 42500,
-        "served": 41800
-      },
-      "sla": {
-        "target_min": 5.0,
-        "bins_meeting_sla": 275,
-        "bins_total": 288,
-        "sla_pct": 95.5
-      },
-      "latency": {
-        "avg_min": 1.4,
-        "p50_min": 0.8,
-        "p95_min": 4.2,
-        "p99_min": 8.7,
-        "worst_min": 12.3
-      },
-      "queue": {
-        "avg_depth": 250,
-        "max_depth": 450,
-        "bins_over_threshold": 15
-      }
+    {
+      "id": "OrderQueue",
+      "slaPct": 0.58,
+      "binsMet": 7,
+      "binsTotal": 12,
+      "mini": [0.96, 0.74, 0.88, 0.62, 0.91, 0.79, 0.68, 0.55, 0.83, 0.69, 0.57, 0.48]
     }
-  }
+  ]
 }
 ```
+
+**Computation Notes:**
+- SLA threshold (M3 baseline) is `served / arrivals ≥ 0.95`. Bins with zero or missing arrivals count as compliant.
+- `mini` represents the served/arrivals ratio per bin, normalized to `[0, 1]` by dividing by the maximum ratio in the requested window.
+- `binsTotal` counts only bins with numeric data; `slaPct = binsMet / binsTotal`.
+- Simulation runs may reference other model nodes in topology semantics (for example `arrivals: base_requests`). The API re-evaluates the stored model to resolve those node ids when no `file:` URI is provided, so the contract works for both telemetry and simulation bundles.
+
+**Errors:**
+- `400` for malformed query parameters or inverted ranges.
+- `404` when the run or required artifacts are missing.
+
+**Artifact:** The API writes the same payload to `runs/{runId}/metrics.json` during run creation so offline adapters can consume the SLA snapshot without calling the endpoint.
+
+### Golden Snapshots
+
+- Integration tests keep small JSON snapshots in `tests/FlowTime.Api.Tests/Golden/`. These lock response contracts for `/v1/runs/{id}/graph`, `/metrics`, and related APIs.
+- When a schema change is intentional, regenerate or edit the corresponding snapshot so it co-evolves with the contract.
+- When a snapshot changes unexpectedly, treat it as a signal to review the contract change before checking in.
 
 ---
 

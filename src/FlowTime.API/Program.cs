@@ -23,6 +23,7 @@ using FlowTime.Core.TimeTravel;
 using Microsoft.AspNetCore.HttpLogging;
 using System.Diagnostics;
 using Synthetic = FlowTime.Adapters.Synthetic;
+using Microsoft.Extensions.Primitives;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -53,6 +54,8 @@ builder.Services.AddSingleton<TelemetryBundleBuilder>();
 builder.Services.AddSingleton<RunOrchestrationService>();
 builder.Services.AddSingleton<TelemetryGenerationService>();
 builder.Services.AddSingleton<StateQueryService>();
+builder.Services.AddSingleton<GraphService>();
+builder.Services.AddSingleton<MetricsService>();
 builder.Services.AddHttpLogging(o =>
 {
     o.LoggingFields =
@@ -454,7 +457,7 @@ v1.MapPost("/artifacts/archive", async (string[] artifactIds, IArtifactRegistry 
 });
 
 // V1: POST /v1/run — body: YAML model
-v1.MapPost("/run", async (HttpRequest req, IArtifactRegistry registry, ILogger<Program> logger) =>
+v1.MapPost("/run", async (HttpRequest req, IArtifactRegistry registry, ILogger<Program> logger, MetricsService metricsService) =>
 {
     string yaml = string.Empty;
     try
@@ -564,6 +567,8 @@ v1.MapPost("/run", async (HttpRequest req, IArtifactRegistry registry, ILogger<P
             }
         });
 
+        await MetricsArtifactWriter.TryWriteAsync(metricsService, artifactResult.RunId, artifactResult.RunDirectory, logger, req.HttpContext.RequestAborted);
+
         var series = order.ToDictionary(id => id.Value, id => ctx[id].ToArray());
         var response = new
         {
@@ -633,6 +638,55 @@ v1.MapPost("/graph", async (HttpRequest req, ILogger<Program> logger) =>
 });
 
 // V1: Artifact endpoints
+v1.MapGet("/runs/{runId}/graph", async (string runId, GraphService graphService, HttpContext context) =>
+{
+    try
+    {
+        var response = await graphService.GetGraphAsync(runId, context.RequestAborted);
+        return Results.Ok(response);
+    }
+    catch (GraphQueryException ex)
+    {
+        return Results.Json(new { error = ex.Message }, statusCode: ex.StatusCode);
+    }
+});
+
+v1.MapGet("/runs/{runId}/metrics", async (string runId, HttpContext context, MetricsService metricsService) =>
+{
+    int? startBin = null;
+    int? endBin = null;
+
+    if (context.Request.Query.TryGetValue("startBin", out var startValues) && !StringValues.IsNullOrEmpty(startValues))
+    {
+        if (!int.TryParse(startValues[0], out var parsedStart))
+        {
+            return Results.BadRequest(new { error = "startBin must be an integer." });
+        }
+
+        startBin = parsedStart;
+    }
+
+    if (context.Request.Query.TryGetValue("endBin", out var endValues) && !StringValues.IsNullOrEmpty(endValues))
+    {
+        if (!int.TryParse(endValues[0], out var parsedEnd))
+        {
+            return Results.BadRequest(new { error = "endBin must be an integer." });
+        }
+
+        endBin = parsedEnd;
+    }
+
+    try
+    {
+        var metrics = await metricsService.GetMetricsAsync(runId, startBin, endBin, context.RequestAborted);
+        return Results.Ok(metrics);
+    }
+    catch (MetricsQueryException ex)
+    {
+        return Results.Json(new { error = ex.Message }, statusCode: ex.StatusCode);
+    }
+});
+
 v1.MapGet("/runs/{runId}/state", async (string runId, HttpContext context, StateQueryService stateQueryService) =>
 {
     if (!int.TryParse(context.Request.Query["binIndex"], out var binIndex))

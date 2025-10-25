@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using FlowTime.API.Services;
 using FlowTime.Contracts.TimeTravel;
 using FlowTime.Generator.Artifacts;
 using FlowTime.Generator.Orchestration;
@@ -23,6 +24,7 @@ internal static class RunOrchestrationEndpoints
         RunCreateRequest request,
         RunOrchestrationService orchestration,
         IConfiguration configuration,
+        MetricsService metricsService,
         ILogger<Program> logger,
         CancellationToken cancellationToken)
     {
@@ -91,6 +93,8 @@ internal static class RunOrchestrationEndpoints
             var metadata = BuildStateMetadata(result);
             var warnings = BuildStateWarnings(result.TelemetryManifest);
             var canReplay = DetermineCanReplay(result);
+
+            await MetricsArtifactWriter.TryWriteAsync(metricsService, result.RunId, result.RunDirectory, logger, cancellationToken);
 
             return Results.Created($"/v1/runs/{metadata.RunId}", new RunCreateResponse
             {

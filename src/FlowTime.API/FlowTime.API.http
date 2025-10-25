@@ -183,3 +183,29 @@ GET {{host}}/v1/runs/{{createTelemetryRun.response.body.$.metadata.runId}}/state
 Accept: application/json
 # 200 OK (returns `metadata`, requested window slice, timestamps, and per-node series arrays).
 # 413 Payload Too Large when range exceeds server-side limits (see StateQueryService.maxWindowBins).
+
+### 6c. Retrieve topology graph for UI rendering
+GET {{host}}/v1/runs/{{createTelemetryRun.response.body.$.metadata.runId}}/graph
+Accept: application/json
+# 200 OK
+# {
+#   "nodes": [
+#     { "id": "LoadBalancer", "kind": "service", "semantics": { "arrivals": "...", "served": "...", "errors": "..." } },
+#     { "id": "Database", "kind": "service", "semantics": { "arrivals": "...", "served": "...", "errors": "...", "queue": null }, "ui": { "x": 160, "y": 48 } }
+#   ],
+#   "edges": [
+#     { "id": "edge_lb_db", "from": "LoadBalancer:out", "to": "Database:in", "weight": 1.0 }
+#   ]
+# }
+
+### 6d. Fetch SLA metrics with normalized mini-bars
+GET {{host}}/v1/runs/{{createTelemetryRun.response.body.$.metadata.runId}}/metrics?startBin=0&endBin=11
+Accept: application/json
+# 200 OK
+# {
+#   "window": { "start": "2025-10-24T12:17:19Z", "timezone": "UTC" },
+#   "grid": { "binMinutes": 5, "bins": 12 },
+#   "services": [
+#     { "id": "LoadBalancer", "slaPct": 0.92, "binsMet": 11, "binsTotal": 12, "mini": [1.0, 0.88, 0.95, ...] }
+#   ]
+# }

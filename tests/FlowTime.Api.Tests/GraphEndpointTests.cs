@@ -1,0 +1,207 @@
+using System;
+using System.IO;
+using System.Net;
+using System.Net.Http.Json;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using FlowTime.Api.Tests.Infrastructure;
+using FlowTime.Contracts.TimeTravel;
+using Xunit;
+
+namespace FlowTime.Api.Tests;
+
+public sealed class GraphEndpointTests : IClassFixture<TestWebApplicationFactory>, IDisposable
+{
+    private const string runId = "run_graph_fixture";
+    private const string runIdNoTopology = "run_graph_notopology";
+    private readonly string artifactsRoot;
+    private readonly HttpClient client;
+
+    public GraphEndpointTests(TestWebApplicationFactory factory)
+    {
+        artifactsRoot = Path.Combine(Path.GetTempPath(), $"flowtime_graph_fixture_{Guid.NewGuid():N}");
+        Directory.CreateDirectory(artifactsRoot);
+
+        CreateGraphRun();
+
+        client = factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseSetting("ArtifactsDirectory", artifactsRoot);
+            builder.UseSetting("DataDirectory", artifactsRoot);
+        }).CreateClient();
+    }
+
+    [Fact]
+    public async Task GetGraph_ReturnsTopology()
+    {
+        var response = await client.GetAsync($"/v1/runs/{runId}/graph");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var payload = await response.Content.ReadFromJsonAsync<GraphResponse>(new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            PropertyNameCaseInsensitive = true
+        });
+
+        Assert.NotNull(payload);
+        Assert.Collection(payload!.Nodes,
+            node =>
+            {
+                Assert.Equal("LoadBalancer", node.Id);
+                Assert.Equal("service", node.Kind);
+                Assert.Equal("series:incoming", node.Semantics.Arrivals);
+                Assert.Equal("series:routed", node.Semantics.Served);
+                Assert.Null(node.Ui);
+            },
+            node =>
+            {
+                Assert.Equal("Database", node.Id);
+                Assert.Equal("store", node.Kind);
+                Assert.Equal("series:routed", node.Semantics.Arrivals);
+                Assert.Equal("series:served", node.Semantics.Served);
+                Assert.NotNull(node.Ui);
+                Assert.Equal(160, node.Ui!.X);
+                Assert.Equal(48, node.Ui.Y);
+            });
+
+        Assert.Collection(payload.Edges,
+            edge =>
+            {
+                Assert.Equal("edge_lb_db", edge.Id);
+                Assert.Equal("LoadBalancer:out", edge.From);
+                Assert.Equal("Database:in", edge.To);
+                Assert.Equal(1.0, edge.Weight);
+            });
+
+        var sanitized = SanitizeGraphResponse(payload);
+        GoldenTestUtils.AssertMatchesGolden("graph-run_graph_fixture.json", sanitized);
+    }
+
+    [Fact]
+    public async Task GetGraph_MissingRunReturns404()
+    {
+        var response = await client.GetAsync("/v1/runs/unknown_run/graph");
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        var json = await response.Content.ReadAsStringAsync();
+        Assert.Contains("Run 'unknown_run' not found", json, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task GetGraph_NoTopologyReturns412()
+    {
+        CreateRunWithoutTopology();
+        var response = await client.GetAsync($"/v1/runs/{runIdNoTopology}/graph");
+        Assert.Equal((HttpStatusCode)412, response.StatusCode);
+    }
+
+    public void Dispose()
+    {
+        try
+        {
+            if (Directory.Exists(artifactsRoot))
+            {
+                Directory.Delete(artifactsRoot, recursive: true);
+            }
+        }
+        catch
+        {
+            // best effort cleanup
+        }
+    }
+
+    private void CreateGraphRun()
+    {
+        var runDir = Path.Combine(artifactsRoot, runId, "model");
+        Directory.CreateDirectory(runDir);
+
+        const string yaml = """
+schemaVersion: 1
+
+grid:
+  bins: 4
+  binSize: 15
+  binUnit: minutes
+
+topology:
+  nodes:
+    - id: LoadBalancer
+      kind: service
+      semantics:
+        arrivals: series:incoming
+        served: series:routed
+        errors: series:errors
+    - id: Database
+      kind: store
+      ui:
+        x: 160
+        y: 48
+      semantics:
+        arrivals: series:routed
+        served: series:served
+        errors: series:errors
+        capacity: series:capacity
+  edges:
+    - id: edge_lb_db
+      from: LoadBalancer:out
+      to: Database:in
+      weight: 1
+""";
+
+        File.WriteAllText(Path.Combine(runDir, "model.yaml"), yaml, Encoding.UTF8);
+    }
+
+    private void CreateRunWithoutTopology()
+    {
+        var runDir = Path.Combine(artifactsRoot, runIdNoTopology, "model");
+        if (Directory.Exists(runDir))
+        {
+            return;
+        }
+
+        Directory.CreateDirectory(runDir);
+        const string yaml = """
+schemaVersion: 1
+
+grid:
+  bins: 4
+  binSize: 15
+  binUnit: minutes
+
+nodes:
+  - id: demand
+    kind: const
+    values: [1, 1, 1, 1]
+""";
+        File.WriteAllText(Path.Combine(runDir, "model.yaml"), yaml, Encoding.UTF8);
+    }
+
+    private static JsonNode SanitizeGraphResponse(GraphResponse response)
+    {
+        var node = JsonSerializer.SerializeToNode(response, GoldenTestUtils.SerializerOptions)
+                   ?? throw new InvalidOperationException("Graph response serialization failed.");
+
+        if (node is JsonObject obj && obj["nodes"] is JsonArray nodes)
+        {
+            foreach (var element in nodes.OfType<JsonObject>())
+            {
+                RemoveNullProperty(element, "ui");
+
+                if (element.TryGetPropertyValue("semantics", out var semanticsNode) && semanticsNode is JsonObject semantics)
+                {
+                    RemoveNullProperty(semantics, "queue");
+                    RemoveNullProperty(semantics, "capacity");
+                }
+            }
+        }
+
+        return node;
+
+        static void RemoveNullProperty(JsonObject obj, string propertyName)
+        {
+            if (obj.TryGetPropertyValue(propertyName, out var value) && value is null)
+            {
+                obj.Remove(propertyName);
+            }
+        }
+    }
+}
