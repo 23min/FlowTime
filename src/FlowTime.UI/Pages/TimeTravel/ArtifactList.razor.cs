@@ -1,0 +1,654 @@
+using System.Linq;
+using System.Text.Json;
+using FlowTime.UI.Services;
+using Microsoft.AspNetCore.Components;
+using Microsoft.JSInterop;
+using Microsoft.Extensions.Logging;
+using MudBlazor;
+
+namespace FlowTime.UI.Pages.TimeTravel;
+
+public sealed partial class ArtifactList : ComponentBase
+{
+    internal const string LocalStorageKey = "time-travel:artifacts:state";
+    internal const int DefaultPageSize = 100;
+
+    private readonly Dictionary<string, RunCreateResponseDto> detailCache = new(StringComparer.OrdinalIgnoreCase);
+
+    private ArtifactListState _state = new(Array.Empty<RunListEntry>()) { PageSize = DefaultPageSize };
+    private ArtifactListResult _view = new(Array.Empty<RunListEntry>(), 0, 1, 1);
+    private IReadOnlyList<RunListEntry> _runs = Array.Empty<RunListEntry>();
+    private IReadOnlyList<RunDiagnostic> _discoveryDiagnostics = Array.Empty<RunDiagnostic>();
+    private RunDiscoveryResult? _discoveryResult;
+
+    private bool _isLoading;
+    private string? _errorMessage;
+    private string _searchInput = string.Empty;
+    private Dictionary<ArtifactRunStatus, int> _statusFacets = new();
+    private Dictionary<string, int> _modeFacets = new(StringComparer.OrdinalIgnoreCase);
+    private int _warningsWithIssues;
+    private int _warningsClear;
+    private bool _hasActiveFilters;
+
+    private bool _isDrawerOpen;
+    private RunListEntry? _selectedRun;
+    private RunCreateResponseDto? _selectedDetail;
+    private bool _isDetailLoading;
+    private string? _detailError;
+    private TelemetryCaptureSummaryDto? _captureSummary;
+    private bool _isGeneratingTelemetry;
+    private string _captureKeyInput = string.Empty;
+    private bool _overwriteCapture;
+
+    internal bool IsDrawerOpen => _isDrawerOpen;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync().ConfigureAwait(false);
+    }
+
+    internal static string GetShortRunId(string runId)
+    {
+        if (string.IsNullOrWhiteSpace(runId))
+        {
+            return string.Empty;
+        }
+
+        var trimmed = runId.Trim();
+        var underscoreIndex = trimmed.LastIndexOf('_');
+        if (underscoreIndex >= 0 && underscoreIndex < trimmed.Length - 1)
+        {
+            return trimmed[(underscoreIndex + 1)..];
+        }
+
+        return trimmed.Length > 8 ? trimmed[^8..] : trimmed;
+    }
+
+    private int TotalRuns => _discoveryResult?.TotalCount ?? _runs.Count;
+
+    private async Task LoadAsync(bool forceRefresh = false)
+    {
+        _isLoading = true;
+        _errorMessage = null;
+        await InvokeAsync(StateHasChanged);
+
+        try
+        {
+            _discoveryResult = await RunDiscovery.LoadRunsAsync().ConfigureAwait(false);
+            if (_discoveryResult.Success)
+            {
+                _runs = _discoveryResult.Runs;
+                _discoveryDiagnostics = _discoveryResult.Diagnostics;
+            }
+            else
+            {
+                _runs = Array.Empty<RunListEntry>();
+                _discoveryDiagnostics = Array.Empty<RunDiagnostic>();
+                _errorMessage = _discoveryResult.ErrorMessage ?? "Failed to load runs.";
+            }
+
+            var query = ReadQueryParameters();
+            _state = ArtifactListState.FromQuery(_runs, query);
+            _state.PageSize = DefaultPageSize;
+            _searchInput = _state.SearchText;
+
+            if (!HasFilterQuery(query) && !forceRefresh)
+            {
+                var persisted = await LoadPersistedStateAsync().ConfigureAwait(false);
+                if (persisted is not null)
+                {
+                    _state = ArtifactListState.FromQuery(_runs, persisted);
+                    _state.PageSize = DefaultPageSize;
+                    _searchInput = _state.SearchText;
+                }
+            }
+
+            ApplyState();
+            await EnsureDeepLinkAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load run discovery for artifacts.");
+            _runs = Array.Empty<RunListEntry>();
+            _discoveryDiagnostics = Array.Empty<RunDiagnostic>();
+            _errorMessage = ex.Message;
+            _state = new ArtifactListState(_runs) { PageSize = DefaultPageSize };
+            ApplyState();
+        }
+        finally
+        {
+            _isLoading = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task RefreshAsync()
+    {
+        detailCache.Clear();
+        await LoadAsync(forceRefresh: true).ConfigureAwait(false);
+    }
+
+    private void ApplyState()
+    {
+        _state.PageSize = DefaultPageSize;
+        _view = _state.Apply();
+        BuildFacets();
+        _hasActiveFilters = _state.SelectedModes.Any() ||
+                            _state.SelectedStatuses.Any() ||
+                            _state.WarningFilter != ArtifactWarningFilter.All ||
+                            !string.IsNullOrWhiteSpace(_state.SearchText) ||
+                            _state.SortOption != ArtifactSortOption.Created;
+    }
+
+    private void BuildFacets()
+    {
+        _statusFacets = _runs
+            .GroupBy(ArtifactListState.DetermineStatus)
+            .ToDictionary(g => g.Key, g => g.Count());
+
+        foreach (ArtifactRunStatus status in Enum.GetValues<ArtifactRunStatus>())
+        {
+            if (!_statusFacets.ContainsKey(status))
+            {
+                _statusFacets[status] = 0;
+            }
+        }
+
+        _modeFacets = _runs
+            .GroupBy(r => r.Source ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Count(),
+                StringComparer.OrdinalIgnoreCase);
+
+        _warningsWithIssues = _runs.Count(r => r.WarningCount > 0);
+        _warningsClear = _runs.Count - _warningsWithIssues;
+    }
+
+    private int GetStatusCount(ArtifactRunStatus status) =>
+        _statusFacets.TryGetValue(status, out var count) ? count : 0;
+
+    private static string GetModeKey(string mode) =>
+        mode.Replace(' ', '-').ToLowerInvariant();
+
+    private static string GetModeLabel(string mode)
+    {
+        if (string.IsNullOrWhiteSpace(mode))
+        {
+            return "Unknown";
+        }
+
+        if (mode.Length == 1)
+        {
+            return mode.ToUpperInvariant();
+        }
+
+        return char.ToUpperInvariant(mode[0]) + mode[1..].ToLowerInvariant();
+    }
+
+    private async Task ToggleStatusAsync(ArtifactRunStatus status)
+    {
+        _state.ToggleStatus(status);
+        _state.PageIndex = 1;
+        ApplyState();
+        await UpdateQueryAsync(includeRunId: true).ConfigureAwait(false);
+    }
+
+    private async Task ToggleModeAsync(string mode)
+    {
+        _state.ToggleMode(mode);
+        _state.PageIndex = 1;
+        ApplyState();
+        await UpdateQueryAsync(includeRunId: true).ConfigureAwait(false);
+    }
+
+    private async Task SetWarningFilterAsync(ArtifactWarningFilter filter)
+    {
+        _state.WarningFilter = _state.WarningFilter == filter ? ArtifactWarningFilter.All : filter;
+        _state.PageIndex = 1;
+        ApplyState();
+        await UpdateQueryAsync(includeRunId: true).ConfigureAwait(false);
+    }
+
+    private async Task OnSortChanged(ArtifactSortOption option)
+    {
+        _state.SortOption = option;
+        _state.PageIndex = 1;
+        ApplyState();
+        await UpdateQueryAsync(includeRunId: true).ConfigureAwait(false);
+    }
+    private async Task OnSearchChanged(string value)
+    {
+        _searchInput = value ?? string.Empty;
+        _state.SearchText = _searchInput;
+        _state.PageIndex = 1;
+        ApplyState();
+        await UpdateQueryAsync(includeRunId: true).ConfigureAwait(false);
+    }
+
+    private async Task ResetFiltersAsync()
+    {
+        _state = new ArtifactListState(_runs)
+        {
+            PageIndex = 1,
+            PageSize = DefaultPageSize,
+            SortOption = ArtifactSortOption.Created,
+            WarningFilter = ArtifactWarningFilter.All,
+            SearchText = string.Empty
+        };
+        _searchInput = string.Empty;
+        ApplyState();
+        await UpdateQueryAsync(includeRunId: true).ConfigureAwait(false);
+    }
+
+    private async Task PreviousPageAsync()
+    {
+        if (_state.PageIndex <= 1)
+        {
+            return;
+        }
+
+        _state.PageIndex -= 1;
+        ApplyState();
+        await UpdateQueryAsync(includeRunId: true).ConfigureAwait(false);
+    }
+
+    private async Task NextPageAsync()
+    {
+        if (_view.PageIndex >= _view.TotalPages)
+        {
+            return;
+        }
+
+        _state.PageIndex += 1;
+        ApplyState();
+        await UpdateQueryAsync(includeRunId: true).ConfigureAwait(false);
+    }
+
+    private async Task OpenDrawerAsync(RunListEntry run)
+    {
+        _selectedRun = run;
+        _isDrawerOpen = true;
+        _detailError = null;
+        _captureSummary = null;
+        _captureKeyInput = string.Empty;
+        _overwriteCapture = false;
+
+        await UpdateQueryAsync(includeRunId: true).ConfigureAwait(false);
+
+        if (detailCache.TryGetValue(run.RunId, out var cached))
+        {
+            _selectedDetail = cached;
+            await InvokeAsync(StateHasChanged);
+        }
+        else
+        {
+            await LoadDetailAsync(run, forceReload: false).ConfigureAwait(false);
+        }
+    }
+
+    private bool IsSelected(RunListEntry run) =>
+        _selectedRun is not null &&
+        string.Equals(_selectedRun.RunId, run.RunId, StringComparison.OrdinalIgnoreCase);
+
+    internal async Task CloseDrawerAsync()
+    {
+        _isDrawerOpen = false;
+        _selectedRun = null;
+        _selectedDetail = null;
+        _detailError = null;
+        _captureSummary = null;
+        _captureKeyInput = string.Empty;
+        _overwriteCapture = false;
+        await UpdateQueryAsync(includeRunId: false).ConfigureAwait(false);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ReloadDetailAsync()
+    {
+        if (_selectedRun is null)
+        {
+            return;
+        }
+
+        await LoadDetailAsync(_selectedRun, forceReload: true).ConfigureAwait(false);
+    }
+
+    private async Task LoadDetailAsync(RunListEntry run, bool forceReload)
+    {
+        if (!forceReload && detailCache.TryGetValue(run.RunId, out var cached))
+        {
+            _selectedDetail = cached;
+            return;
+        }
+
+        _isDetailLoading = true;
+        _detailError = null;
+        await InvokeAsync(StateHasChanged);
+
+        try
+        {
+            var result = await ApiClient.GetRunAsync(run.RunId).ConfigureAwait(false);
+            if (result.Success && result.Value is not null)
+            {
+                _selectedDetail = result.Value;
+                detailCache[run.RunId] = result.Value;
+            }
+            else
+            {
+                _selectedDetail = null;
+                _detailError = result.Error ?? $"Unable to load run {run.RunId}.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load detail for run {RunId}", run.RunId);
+            _selectedDetail = null;
+            _detailError = ex.Message;
+        }
+        finally
+        {
+            _isDetailLoading = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task GenerateTelemetryAsync()
+    {
+        if (_selectedRun is null || _isGeneratingTelemetry)
+        {
+            return;
+        }
+
+        _isGeneratingTelemetry = true;
+        _detailError = null;
+        _captureSummary = null;
+        await InvokeAsync(StateHasChanged);
+
+        try
+        {
+            var request = new TelemetryCaptureRequestDto(
+                new TelemetryCaptureSourceDto("run", _selectedRun.RunId),
+                new TelemetryCaptureOutputDto(
+                    string.IsNullOrWhiteSpace(_captureKeyInput) ? null : _captureKeyInput.Trim(),
+                    null,
+                    _overwriteCapture));
+
+            var result = await ApiClient.GenerateTelemetryCaptureAsync(request).ConfigureAwait(false);
+            if (!result.Success || result.Value?.Capture is null)
+            {
+                if (result.StatusCode == 409)
+                {
+                    _captureSummary = TryParseCapture(result.Error);
+                    NotificationService.Add("Telemetry bundle already exists. Enable overwrite to regenerate or choose another capture key.", Severity.Info);
+                }
+                else
+                {
+                    var message = result.Error ?? $"Telemetry generation failed (status {result.StatusCode}).";
+                    NotificationService.Add(message, Severity.Error);
+                    _detailError = message;
+                }
+                return;
+            }
+
+            _captureSummary = result.Value.Capture;
+            if (_captureSummary.Generated)
+            {
+                NotificationService.Add("Telemetry bundle generated successfully.", Severity.Success);
+            }
+            else
+            {
+                NotificationService.Add("Telemetry bundle already existed. Enable overwrite to regenerate.", Severity.Info);
+            }
+
+            await ReloadSelectedRunAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Telemetry generation failed for {RunId}", _selectedRun.RunId);
+            _detailError = ex.Message;
+            NotificationService.Add($"Telemetry generation failed: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isGeneratingTelemetry = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task ReloadSelectedRunAsync()
+    {
+        if (_selectedRun is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var result = await ApiClient.GetRunAsync(_selectedRun.RunId).ConfigureAwait(false);
+            if (result.Success && result.Value is not null)
+            {
+                _selectedDetail = result.Value;
+                detailCache[_selectedRun.RunId] = result.Value;
+
+                var telemetry = result.Value.Telemetry ?? _selectedRun.Telemetry;
+                var updated = _selectedRun with
+                {
+                    Telemetry = telemetry,
+                    WarningCount = result.Value.Warnings?.Count ?? _selectedRun.WarningCount
+                };
+
+                UpdateRunEntry(updated);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to refresh run after telemetry generation for {RunId}", _selectedRun.RunId);
+        }
+    }
+
+    private void UpdateRunEntry(RunListEntry updated)
+    {
+        var list = _runs.ToList();
+        var index = list.FindIndex(r => string.Equals(r.RunId, updated.RunId, StringComparison.OrdinalIgnoreCase));
+        if (index < 0)
+        {
+            return;
+        }
+
+        list[index] = updated;
+        _runs = list;
+        _state = _state.CloneForRuns(_runs);
+        ApplyState();
+
+        if (_selectedRun is not null && string.Equals(_selectedRun.RunId, updated.RunId, StringComparison.OrdinalIgnoreCase))
+        {
+            _selectedRun = updated;
+        }
+    }
+
+    private TelemetryCaptureSummaryDto? TryParseCapture(string? payload)
+    {
+        if (string.IsNullOrWhiteSpace(payload))
+        {
+            return null;
+        }
+
+        try
+        {
+            var parsed = JsonSerializer.Deserialize<TelemetryCaptureResponseDto>(payload, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+            return parsed?.Capture;
+        }
+        catch (JsonException ex)
+        {
+            Logger.LogDebug(ex, "Failed to parse telemetry capture payload: {Payload}", payload);
+            return null;
+        }
+    }
+
+    private async Task NavigateToDashboardAsync(RunListEntry run)
+    {
+        await CloseDrawerIfDifferentAsync(run).ConfigureAwait(false);
+        Navigation.NavigateTo($"/time-travel/dashboard?runId={Uri.EscapeDataString(run.RunId)}");
+    }
+
+    private async Task NavigateToTopologyAsync(RunListEntry run)
+    {
+        await CloseDrawerIfDifferentAsync(run).ConfigureAwait(false);
+        Navigation.NavigateTo($"/time-travel/topology?runId={Uri.EscapeDataString(run.RunId)}");
+    }
+
+    private Task CloseDrawerIfDifferentAsync(RunListEntry run)
+    {
+        if (_selectedRun is not null && string.Equals(_selectedRun.RunId, run.RunId, StringComparison.OrdinalIgnoreCase))
+        {
+            return Task.CompletedTask;
+        }
+
+        return CloseDrawerAsync();
+    }
+
+    private Dictionary<string, string?> ReadQueryParameters() =>
+        ParseQueryString(new Uri(Navigation.Uri).Query);
+
+    private static bool HasFilterQuery(IReadOnlyDictionary<string, string?> query)
+    {
+        foreach (var key in new[] { "status", "mode", "warnings", "search", "sort", "page" })
+        {
+            if (query.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static Dictionary<string, string?> ParseQueryString(string query)
+    {
+        var dict = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+        if (string.IsNullOrEmpty(query))
+        {
+            return dict;
+        }
+
+        var trimmed = query[0] == '?' ? query[1..] : query;
+        if (string.IsNullOrEmpty(trimmed))
+        {
+            return dict;
+        }
+
+        var pairs = trimmed.Split('&', StringSplitOptions.RemoveEmptyEntries);
+        foreach (var pair in pairs)
+        {
+            var separator = pair.IndexOf('=');
+            if (separator > -1)
+            {
+                var key = Uri.UnescapeDataString(pair[..separator]);
+                var value = Uri.UnescapeDataString(pair[(separator + 1)..]);
+                dict[key] = value;
+            }
+            else
+            {
+                var key = Uri.UnescapeDataString(pair);
+                dict[key] = string.Empty;
+            }
+        }
+
+        return dict;
+    }
+
+    private async Task<IReadOnlyDictionary<string, string?>?> LoadPersistedStateAsync()
+    {
+        try
+        {
+            var json = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", LocalStorageKey).ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                return null;
+            }
+
+            var dictionary = JsonSerializer.Deserialize<Dictionary<string, string>>(json);
+            return dictionary is null
+                ? null
+                : dictionary.ToDictionary(kvp => kvp.Key, kvp => (string?)kvp.Value, StringComparer.OrdinalIgnoreCase);
+        }
+        catch (JSException ex)
+        {
+            Logger.LogDebug(ex, "Unable to read artifacts state from localStorage.");
+            return null;
+        }
+        catch (JsonException ex)
+        {
+            Logger.LogDebug(ex, "Unable to deserialize stored artifacts state.");
+            return null;
+        }
+    }
+
+    private async Task PersistStateAsync(IDictionary<string, string> queryWithoutRunId)
+    {
+        try
+        {
+            var json = JsonSerializer.Serialize(queryWithoutRunId);
+            await JSRuntime.InvokeVoidAsync("localStorage.setItem", LocalStorageKey, json).ConfigureAwait(false);
+        }
+        catch (JSException ex)
+        {
+            Logger.LogDebug(ex, "Unable to write artifacts state to localStorage.");
+        }
+    }
+
+    private async Task UpdateQueryAsync(bool includeRunId)
+    {
+        var query = _state.ToQueryParameters();
+        var navQuery = query.ToDictionary(kvp => kvp.Key, kvp => (object?)kvp.Value, StringComparer.OrdinalIgnoreCase);
+
+        if (includeRunId && _selectedRun is not null)
+        {
+            query["runId"] = _selectedRun.RunId;
+            navQuery["runId"] = _selectedRun.RunId;
+        }
+
+        var targetUri = Navigation.GetUriWithQueryParameters(navQuery);
+        if (!string.Equals(targetUri, Navigation.Uri, StringComparison.Ordinal))
+        {
+            Navigation.NavigateTo(targetUri, replace: true);
+        }
+
+        if (includeRunId)
+        {
+            query.Remove("runId");
+        }
+
+        await PersistStateAsync(query).ConfigureAwait(false);
+    }
+
+    private async Task EnsureDeepLinkAsync()
+    {
+        var query = ReadQueryParameters();
+        if (!query.TryGetValue("runId", out var runId) || string.IsNullOrWhiteSpace(runId))
+        {
+            return;
+        }
+
+        var match = _runs.FirstOrDefault(r => string.Equals(r.RunId, runId, StringComparison.OrdinalIgnoreCase));
+        if (match is null)
+        {
+            return;
+        }
+
+        await OpenDrawerAsync(match).ConfigureAwait(false);
+    }
+
+    private Task OnCaptureKeyChanged(string value)
+    {
+        _captureKeyInput = value;
+        return Task.CompletedTask;
+    }
+
+    private Task OnOverwriteChanged(bool value)
+    {
+        _overwriteCapture = value;
+        return Task.CompletedTask;
+    }
+}

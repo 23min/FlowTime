@@ -1,0 +1,285 @@
+@using System.Globalization
+@using System.Text
+@using System.Linq
+@using FlowTime.UI.Pages.TimeTravel
+@using FlowTime.UI.Services
+@using MudBlazor
+@inherits MudComponentBase
+
+<MudPaper Class="@CssClass"
+          Elevation="2"
+          role="button"
+          tabindex="0"
+          data-testid="artifact-card"
+          aria-label="@AriaLabel"
+          @onclick="HandleClick"
+          @onkeydown="HandleKeyDown">
+    <div class="artifact-card-body">
+        <div class="artifact-card-header">
+            <div class="artifact-card-title">
+                @if (!string.IsNullOrWhiteSpace(TemplateIcon))
+                {
+                    <MudAvatar Size="Size.Medium"
+                               Class="artifact-card-avatar"
+                               Color="@IconAvatarColor"
+                               Icon="@TemplateIcon" />
+                }
+                else
+                {
+                    <MudAvatar Size="Size.Medium"
+                               Class="artifact-card-avatar artifact-card-avatar--initials"
+                               Color="@AvatarColor">
+                        <span class="artifact-avatar-text" style="@AvatarTextStyle">@AvatarLabel</span>
+                    </MudAvatar>
+                }
+                <div class="artifact-card-title-texts">
+                    <MudTooltip Text="@DisplayTitle">
+                        <MudText Typo="Typo.subtitle2" Class="artifact-card-title-text">@DisplayTitle</MudText>
+                    </MudTooltip>
+                    <MudText Typo="Typo.caption" Class="artifact-card-meta">@MetadataText</MudText>
+                </div>
+            </div>
+            <MudStack Spacing="1" Class="artifact-card-chips">
+                <MudChip T="string"
+                         Variant="Variant.Outlined"
+                         Size="Size.Small"
+                         Color="Color.Info"
+                         Class="artifact-card-chip">
+                    @ModeLabel
+                </MudChip>
+                @if (TelemetryAvailable)
+                {
+                    <MudChip T="string"
+                             Variant="Variant.Outlined"
+                             Size="Size.Small"
+                             Color="Color.Success"
+                             Class="artifact-card-chip">
+                        @TelemetryStatusLabel
+                    </MudChip>
+                }
+            </MudStack>
+        </div>
+
+        <div class="artifact-card-content">
+            <MudStack Row Spacing="1" Class="artifact-card-gridchips">
+                <MudChip T="string"
+                         Variant="Variant.Outlined"
+                         Size="Size.Small">
+                    @($"{Run.Grid.Bins} bins")
+                </MudChip>
+                <MudChip T="string"
+                         Variant="Variant.Outlined"
+                         Size="Size.Small">
+                    @($"{Run.Grid.BinMinutes} min")
+                </MudChip>
+            </MudStack>
+
+            <MudText Typo="Typo.caption" Class="artifact-card-textline">@WarningsText</MudText>
+
+            @if (!string.IsNullOrEmpty(TelemetryDetailLine))
+            {
+                <MudText Typo="Typo.caption" Class="artifact-card-textline">@TelemetryDetailLine</MudText>
+            }
+        </div>
+
+        <div class="artifact-card-footer">
+            <MudTooltip Text="@Run.RunId">
+                <MudText Typo="Typo.caption" Class="artifact-card-runid">@Run.RunId</MudText>
+            </MudTooltip>
+            <MudStack Row Spacing="1">
+                <MudTooltip Text="Open dashboard">
+                    <MudIconButton Icon="@Icons.Material.Filled.Dashboard"
+                                   Color="Color.Primary"
+                                   Size="Size.Small"
+                                   AriaLabel="Open dashboard"
+                                   OnClick="HandleDashboard"
+                                   OnClick:stopPropagation="true" />
+                </MudTooltip>
+                <MudTooltip Text="Open topology">
+                    <MudIconButton Icon="@Icons.Material.Filled.AccountTree"
+                                   Color="Color.Secondary"
+                                   Size="Size.Small"
+                                   AriaLabel="Open topology"
+                                   OnClick="HandleTopology"
+                                   OnClick:stopPropagation="true" />
+                </MudTooltip>
+            </MudStack>
+        </div>
+    </div>
+</MudPaper>
+
+@code {
+    [Parameter] public RunListEntry Run { get; set; } = default!;
+    [Parameter] public ArtifactRunStatus Status { get; set; }
+    [Parameter] public EventCallback<RunListEntry> OnActivate { get; set; }
+    [Parameter] public EventCallback<RunListEntry> OnDashboard { get; set; }
+    [Parameter] public EventCallback<RunListEntry> OnTopology { get; set; }
+    [Parameter] public bool IsSelected { get; set; }
+    [Parameter] public string? TemplateIcon { get; set; }
+
+    private string CssClass => IsSelected ? "artifact-card artifact-card--active" : "artifact-card";
+
+    private string DisplayTitle => string.IsNullOrWhiteSpace(Run.TemplateTitle) ? Run.TemplateId : Run.TemplateTitle!;
+
+    private string CreatedShortLabel => Run.CreatedUtc is null
+        ? "Unknown"
+        : Run.CreatedUtc.Value.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);
+
+    private string ModeLabel => string.IsNullOrWhiteSpace(Run.Source)
+        ? "UNKNOWN"
+        : Run.Source.ToUpperInvariant();
+
+    private string MetadataText => CreatedShortLabel;
+
+    private string WarningsText => Run.WarningCount > 0
+        ? $"Warnings: {Run.WarningCount}"
+        : "Warnings: None";
+
+    private bool TelemetryAvailable => Run.Telemetry?.Available == true;
+
+    private string TelemetryStatusLabel => TelemetryAvailable ? "Telemetry ready" : string.Empty;
+
+    private string TelemetryDetailLine
+    {
+        get
+        {
+            if (TelemetryAvailable)
+            {
+                return !string.IsNullOrWhiteSpace(Run.Telemetry!.GeneratedAtUtc)
+                    ? $"Captured {Run.Telemetry.GeneratedAtUtc}"
+                    : string.Empty;
+            }
+
+            return string.Empty;
+        }
+    }
+
+    private static readonly Color[] AvatarPalette =
+    {
+        Color.Primary,
+        Color.Info,
+        Color.Success,
+        Color.Secondary,
+        Color.Tertiary,
+        Color.Warning,
+        Color.Dark,
+        Color.Surface
+    };
+
+    private Color IconAvatarColor => Color.Primary;
+
+    private Color AvatarColor
+    {
+        get
+        {
+            var key = Run.TemplateId ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                key = Run.TemplateTitle ?? Run.RunId ?? "default";
+            }
+
+            var hash = 0;
+            foreach (var ch in key)
+            {
+                hash = ((hash << 5) - hash) + ch;
+            }
+
+            var index = Math.Abs(hash) % AvatarPalette.Length;
+            return AvatarPalette[index];
+        }
+    }
+
+    private string AvatarLabel
+    {
+        get
+        {
+            var source = !string.IsNullOrWhiteSpace(Run.TemplateTitle)
+                ? Run.TemplateTitle!
+                : Run.TemplateId;
+
+            if (string.IsNullOrWhiteSpace(source))
+            {
+                return string.IsNullOrWhiteSpace(Run.RunId)
+                    ? "?"
+                    : new string(Run.RunId.Trim().Take(2).ToArray()).ToUpperInvariant();
+            }
+
+            var separators = new[] { ' ', '-', '_', '.' };
+            var parts = source.Split(separators, StringSplitOptions.RemoveEmptyEntries);
+
+            if (parts.Length == 0)
+            {
+                return source[..Math.Min(2, source.Length)].ToUpperInvariant();
+            }
+
+            if (parts.Length == 1)
+            {
+                var segment = parts[0];
+                return segment[..Math.Min(2, segment.Length)].ToUpperInvariant();
+            }
+
+            var initials = new[] { parts[0][0], parts[1][0] };
+            return new string(initials).ToUpperInvariant();
+        }
+    }
+
+    private string AvatarTextStyle => AvatarColor switch
+    {
+        Color.Warning or Color.Surface => "color: rgba(0, 0, 0, 0.8); font-weight:600;",
+        _ => "color: rgba(255,255,255,0.95); font-weight:600;"
+    };
+
+    private string AriaLabel
+    {
+        get
+        {
+            var builder = new StringBuilder();
+            builder.Append(DisplayTitle);
+            builder.Append(", run ");
+            builder.Append(Run.RunId);
+            builder.Append(". ");
+            builder.Append("Mode ");
+            builder.Append(ModeLabel);
+            if (TelemetryAvailable)
+            {
+                builder.Append(". Telemetry ready.");
+            }
+            builder.Append(" ");
+            builder.Append(WarningsText);
+
+            return builder.ToString();
+        }
+    }
+
+    private async Task HandleClick()
+    {
+        if (OnActivate.HasDelegate)
+        {
+            await OnActivate.InvokeAsync(Run);
+        }
+    }
+
+    private async Task HandleDashboard()
+    {
+        if (OnDashboard.HasDelegate)
+        {
+            await OnDashboard.InvokeAsync(Run);
+        }
+    }
+
+    private async Task HandleTopology()
+    {
+        if (OnTopology.HasDelegate)
+        {
+            await OnTopology.InvokeAsync(Run);
+        }
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key is "Enter" or " " or "Spacebar")
+        {
+            await HandleClick();
+        }
+    }
+}

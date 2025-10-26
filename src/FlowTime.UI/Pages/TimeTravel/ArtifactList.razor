@@ -1,0 +1,279 @@
+@page "/time-travel/artifacts"
+@using FlowTime.UI.Components.Artifacts
+@using FlowTime.UI.Services
+@using MudBlazor
+
+@inject IRunDiscoveryService RunDiscovery
+@inject IFlowTimeApiClient ApiClient
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+@inject INotificationService NotificationService
+@inject ILogger<ArtifactList> Logger
+
+<PageTitle>Artifacts</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.False" Class="pa-0">
+    <MudStack Spacing="3">
+        <MudPaper Class="pa-4" Elevation="2">
+            <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                <MudStack>
+                    <MudText Typo="Typo.h5">Artifacts</MudText>
+                    <MudText Typo="Typo.body1" Color="Color.Secondary">
+                        Review captured runs, open dashboards, and manage telemetry bundles.
+                    </MudText>
+                </MudStack>
+                <MudStack Row Spacing="1" AlignItems="AlignItems.Center">
+                    <MudChip T="string"
+                             Variant="Variant.Outlined"
+                             Color="Color.Primary"
+                             Icon="@Icons.Material.Filled.Folder">
+                        @($"{TotalRuns} runs")
+                    </MudChip>
+                    <MudButton Variant="Variant.Outlined"
+                               Disabled="@_isLoading"
+                               OnClick="RefreshAsync"
+                               StartIcon="@Icons.Material.Filled.Refresh">
+                        Refresh
+                    </MudButton>
+                </MudStack>
+            </MudStack>
+        </MudPaper>
+
+        <MudPaper Class="pa-4" Elevation="1">
+            <MudGrid Spacing="2">
+                <MudItem xs="12" md="7">
+                    <MudStack Spacing="2">
+                        <MudStack Row Spacing="1" AlignItems="AlignItems.Center">
+                            <MudText Typo="Typo.subtitle2">Modes</MudText>
+                            <MudStack Row Spacing="1" Wrap="Wrap.Wrap">
+                                        @foreach (var mode in _modeFacets.Keys.OrderBy(m => m, StringComparer.OrdinalIgnoreCase))
+                                        {
+                                            var modeKey = GetModeKey(mode);
+                                            <MudChip T="string"
+                                                     Variant="Variant.Outlined"
+                                                     Size="Size.Small"
+                                                     Color="Color.Secondary"
+                                                     Selected="@_state.IsModeSelected(mode)"
+                                                     data-testid="@($"filter-mode-{modeKey}")"
+                                                     OnClick="@(() => ToggleModeAsync(mode))">
+                                        @($"{GetModeLabel(mode)} ({_modeFacets[mode]})")
+                                    </MudChip>
+                                }
+                            </MudStack>
+                        </MudStack>
+
+                        <MudStack Row Spacing="1" AlignItems="AlignItems.Center">
+                            <MudText Typo="Typo.subtitle2">Warnings</MudText>
+                            <MudStack Row Spacing="1" Wrap="Wrap.Wrap">
+                                <MudChip T="string"
+                                         Variant="Variant.Outlined"
+                                         Size="Size.Small"
+                                         Color="Color.Info"
+                                         Selected="@(_state.WarningFilter == ArtifactWarningFilter.All)"
+                                         data-testid="filter-warnings-all"
+                                         OnClick="@(() => SetWarningFilterAsync(ArtifactWarningFilter.All))">
+                                    All
+                                </MudChip>
+                                <MudChip T="string"
+                                         Variant="Variant.Outlined"
+                                         Size="Size.Small"
+                                         Color="Color.Warning"
+                                         Selected="@(_state.WarningFilter == ArtifactWarningFilter.HasWarnings)"
+                                         data-testid="filter-warnings-present"
+                                         OnClick="@(() => SetWarningFilterAsync(ArtifactWarningFilter.HasWarnings))">
+                                    Warnings (@_warningsWithIssues)
+                                </MudChip>
+                                <MudChip T="string"
+                                         Variant="Variant.Outlined"
+                                         Size="Size.Small"
+                                         Color="Color.Success"
+                                         Selected="@(_state.WarningFilter == ArtifactWarningFilter.NoWarnings)"
+                                         data-testid="filter-warnings-none"
+                                         OnClick="@(() => SetWarningFilterAsync(ArtifactWarningFilter.NoWarnings))">
+                                    None (@_warningsClear)
+                                </MudChip>
+                            </MudStack>
+                        </MudStack>
+
+                        <MudStack Row Spacing="1" AlignItems="AlignItems.Center">
+                            <MudText Typo="Typo.subtitle2">Sort By</MudText>
+                            <MudStack Row Spacing="1" Wrap="Wrap.Wrap">
+                                <MudChip T="ArtifactSortOption"
+                                         Variant="Variant.Outlined"
+                                         Size="Size.Small"
+                                         Color="Color.Primary"
+                                         Selected="@(_state.SortOption == ArtifactSortOption.Created)"
+                                         data-testid="sort-created"
+                                         OnClick="@(async () => await OnSortChanged(ArtifactSortOption.Created))">
+                                    Created
+                                </MudChip>
+                                <MudChip T="ArtifactSortOption"
+                                         Variant="Variant.Outlined"
+                                         Size="Size.Small"
+                                         Color="Color.Primary"
+                                         Selected="@(_state.SortOption == ArtifactSortOption.Status)"
+                                         data-testid="sort-status"
+                                         OnClick="@(async () => await OnSortChanged(ArtifactSortOption.Status))">
+                                    Status
+                                </MudChip>
+                                <MudChip T="ArtifactSortOption"
+                                         Variant="Variant.Outlined"
+                                         Size="Size.Small"
+                                         Color="Color.Primary"
+                                         Selected="@(_state.SortOption == ArtifactSortOption.Template)"
+                                         data-testid="sort-template"
+                                         OnClick="@(async () => await OnSortChanged(ArtifactSortOption.Template))">
+                                    Template
+                                </MudChip>
+                            </MudStack>
+                        </MudStack>
+                    </MudStack>
+                </MudItem>
+
+                <MudItem xs="12" md="4">
+                    <MudStack Spacing="1">
+                        <MudTextField Value="_searchInput"
+                                      ValueChanged="@(async (string value) => await OnSearchChanged(value))"
+                                      Label="Search"
+                                      Variant="Variant.Outlined"
+                                      Margin="Margin.Dense"
+                                      Dense="true"
+                                      Adornment="Adornment.End"
+                                      AdornmentIcon="@Icons.Material.Filled.Search"
+                                      AdornmentColor="Color.Secondary"
+                                      FullWidth="true" />
+                    </MudStack>
+                </MudItem>
+
+                <MudItem xs="12" md="1" Class="artifact-filter-actions">
+                    <MudTooltip Text="Reset filters">
+                        <MudIconButton Icon="@Icons.Material.Filled.Close"
+                                       Color="Color.Secondary"
+                                       Disabled="@(!_hasActiveFilters)"
+                                       AriaLabel="Reset filters"
+                                       OnClick="ResetFiltersAsync" />
+                    </MudTooltip>
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+
+        @if (_discoveryDiagnostics.Count > 0)
+        {
+            <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.Info">
+                <MudText Typo="Typo.subtitle2">Diagnostics</MudText>
+                <MudList T="RunDiagnostic" Dense="true">
+                    @foreach (var diagnostic in _discoveryDiagnostics)
+                    {
+                        <MudListItem T="RunDiagnostic" Value="diagnostic">
+                            <MudText Typo="Typo.body2">@($"{diagnostic.RunId}: {diagnostic.Message}")</MudText>
+                        </MudListItem>
+                    }
+                </MudList>
+            </MudAlert>
+        }
+
+        @if (_discoveryDiagnostics.Count > 0)
+                {
+                    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.Info">
+                        <MudText Typo="Typo.subtitle2">Diagnostics</MudText>
+                        <MudList T="RunDiagnostic" Dense="true">
+                            @foreach (var diagnostic in _discoveryDiagnostics)
+                            {
+                                <MudListItem T="RunDiagnostic" Value="diagnostic">
+                                    <MudText Typo="Typo.body2">@($"{diagnostic.RunId}: {diagnostic.Message}")</MudText>
+                                </MudListItem>
+                            }
+                        </MudList>
+                    </MudAlert>
+                }
+
+                @if (_isLoading)
+                {
+                    <MudPaper Class="pa-6" Elevation="1">
+                        <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                            <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+                            <MudText Typo="Typo.body2">Loading runs…</MudText>
+                        </MudStack>
+                    </MudPaper>
+                }
+                else if (!string.IsNullOrWhiteSpace(_errorMessage))
+                {
+                    <MudPaper Class="pa-4" Elevation="1">
+                        <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.ErrorOutline">
+                            <MudText Typo="Typo.subtitle1">Unable to load runs</MudText>
+                            <MudText Typo="Typo.body2">@_errorMessage</MudText>
+                            <MudButton Variant="Variant.Text"
+                                       Color="Color.Primary"
+                                       StartIcon="@Icons.Material.Filled.Refresh"
+                                       OnClick="RefreshAsync">
+                                Retry
+                            </MudButton>
+                        </MudAlert>
+                    </MudPaper>
+                }
+                else if (_view.TotalItems == 0)
+                {
+                    <MudPaper Class="pa-6" Elevation="1">
+                        <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                            <MudIcon Icon="@Icons.Material.Filled.Inbox" Color="Color.Secondary" Size="Size.Large" />
+                            <MudText Typo="Typo.subtitle1">No runs match your filters</MudText>
+                            <MudText Typo="Typo.body2" Align="Align.Center" Color="Color.Secondary">
+                                Adjust filters or refresh to discover new runs.
+                            </MudText>
+                        </MudStack>
+                    </MudPaper>
+                }
+                else
+                {
+                    <MudStack Row Class="artifact-content-row" Spacing="2">
+                        <MudStack Class="artifact-list-column" Spacing="2">
+                            <MudPaper Class="pa-4" Elevation="1">
+                                <div class="artifact-cards-grid">
+                                    @foreach (var run in _view.Items)
+                                    {
+                                        <RunCard Run="run"
+                                                 Status="@ArtifactListState.DetermineStatus(run)"
+                                                 OnActivate="@(async () => await OpenDrawerAsync(run))"
+                                                 OnDashboard="@(async () => await NavigateToDashboardAsync(run))"
+                                                 OnTopology="@(async () => await NavigateToTopologyAsync(run))"
+                                                 IsSelected="@IsSelected(run)" />
+                                    }
+                                </div>
+                            </MudPaper>
+
+                            <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                    Showing @_view.Items.Count of @_view.TotalItems runs (page @_view.PageIndex / @_view.TotalPages)
+                                </MudText>
+                                <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                                    <MudIconButton Icon="@Icons.Material.Filled.NavigateBefore"
+                                                   Disabled="@(_state.PageIndex <= 1)"
+                                                   OnClick="PreviousPageAsync"
+                                                   AriaLabel="Previous page" />
+                                    <MudText Typo="Typo.body2">@_view.PageIndex</MudText>
+                                    <MudIconButton Icon="@Icons.Material.Filled.NavigateNext"
+                                                   Disabled="@(_view.PageIndex >= _view.TotalPages)"
+                                                   OnClick="NextPageAsync"
+                                                   AriaLabel="Next page" />
+                                </MudStack>
+                            </MudStack>
+                        </MudStack>
+
+                        <RunDetailsDrawer Open="_isDrawerOpen"
+                                          Run="_selectedRun"
+                                          Detail="_selectedDetail"
+                                          IsLoading="_isDetailLoading"
+                                          IsGeneratingTelemetry="_isGeneratingTelemetry"
+                                          ErrorMessage="@_detailError"
+                                          LastCaptureSummary="_captureSummary"
+                                          CaptureKey="_captureKeyInput"
+                                          CaptureKeyChanged="OnCaptureKeyChanged"
+                                          OverwriteTelemetry="_overwriteCapture"
+                                          OverwriteTelemetryChanged="OnOverwriteChanged"
+                                          OnClose="CloseDrawerAsync"
+                                          OnReload="ReloadDetailAsync"
+                                          OnGenerateTelemetry="GenerateTelemetryAsync" />
+                    </MudStack>
+                }
+            </MudStack>
+</MudContainer>

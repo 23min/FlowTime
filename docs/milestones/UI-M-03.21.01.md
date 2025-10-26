@@ -1,6 +1,6 @@
 # UI‑M‑03.21.01 — Artifacts UX Refresh
 
-**Status:** Proposed  
+**Status:** Completed (2025-11-02)  
 **Owner:** UI Team  
 **Prerequisites:** UI‑M‑03.20 (SLA Dashboard)
 
@@ -15,9 +15,9 @@
 
 ## Deliverables
 1. Card layout (Standard density)
-   - Fields: template title, runId (shortened), created time (UTC), status (warnings/health), mode, grid summary.
-   - Visuals: initials avatar fallback; use template-provided icon when available.
-   - Grid: auto; min card width 260–280px; 12–16px gaps.
+   - Fields: template title, short runId, created (UTC), warnings summary, mode, grid snapshot.
+   - Visuals: deterministic initials avatar fallback; template-provided icon when available.
+   - Grid: auto; min card width 300px; 12–16px gaps; cards stay side-by-side with the details drawer on narrow viewports.
 2. Details drawer (desktop)
    - Sections: telemetry summary + manifest/provenance; actions; warnings.
    - Activation: clicking a card (Enter/Space via keyboard) opens the drawer; ESC closes.
@@ -26,8 +26,8 @@
    - Buttons: Dashboard, Topology (visible). Optional third action if space allows (e.g., Open Artifact).
    - Telemetry generation remains available inside the drawer; overwrite default OFF; no extra confirmation.
 4. Filter/sort/search/persistence
-   - Filters: chips for status, mode, warnings; text search (template name/runId).
-   - Sorting: select for Created (desc by default), Status, Template.
+   - Filters: chips for mode and warnings; text search (template name/runId).
+   - Sorting: chip group for Created (desc by default), Status, Template.
    - Persistence: encode current state in query params; on first load, read defaults from localStorage.
 5. Deep links
    - Opening /artifacts?runId=… auto-opens drawer for that run; filters/sort state recovered from query params.
@@ -53,9 +53,9 @@
 2. Scaling: Pagination (start with 50–100/page; default 100).
 3. Details: Drawer on desktop; no separate mobile track.
 4. Actions: Visible Dashboard/Topology buttons on cards; telemetry generation in drawer; overwrite OFF; no confirm dialog.
-5. Filters: Chips + search; persist to query params; read defaults from localStorage.
+5. Filters: Mode & warnings chips plus search; persist to query params; read defaults from localStorage.
 6. Iconography: Initials avatar fallback; use template icon when available (optional metadata field).
-7. Grid: CSS auto grid; min 260–280px; 12–16px gaps.
+7. Grid: CSS auto grid; min 300px; 12–16px gaps.
 8. A11y: card-as-button; labelled drawer; ESC close; focus trap not required on desktop.
 9. Performance: No special caching; lazy-load details on drawer open.
 10. Loading/Empty: Friendly loader/empty states (no skeletons).

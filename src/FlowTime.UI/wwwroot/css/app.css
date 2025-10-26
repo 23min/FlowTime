@@ -198,6 +198,282 @@ code {
     /* thinner consistent visual weight */
 }
 
+.artifact-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1rem;
+    min-width: 300px;
+}
+
+.artifact-card {
+    cursor: pointer;
+    transition: box-shadow 0.2s ease, background-color 0.2s ease;
+    outline: none;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background-color: var(--mud-palette-surface);
+}
+
+.artifact-card:hover {
+    background-color: rgba(0, 0, 0, 0.04);
+}
+
+.artifact-card:focus-visible {
+    box-shadow: 0 0 0 2px var(--mud-palette-primary);
+}
+
+.artifact-card--active {
+    border: 2px solid var(--mud-palette-info);
+    background-color: rgba(3, 169, 244, 0.18) !important;
+    color: inherit;
+}
+
+.artifact-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    height: 100%;
+}
+
+.artifact-card-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: flex-start;
+}
+
+.artifact-card-title {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    min-width: 0;
+}
+
+.artifact-card-title-texts {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.artifact-card-title-text {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 600;
+}
+
+.artifact-card-meta {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--mud-palette-text-primary);
+}
+
+.artifact-card-chips {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+}
+
+.artifact-card-chip {
+    white-space: nowrap;
+}
+
+.artifact-card-content {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex-grow: 1;
+    min-height: 0;
+}
+
+.artifact-card-gridchips {
+    flex-wrap: nowrap;
+}
+
+.artifact-card-gridchips .mud-chip {
+    white-space: nowrap;
+}
+
+.artifact-card-textline {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.artifact-card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-top: auto;
+}
+
+.artifact-card-runid {
+    max-width: 220px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--mud-palette-text-secondary);
+    font-weight: 500;
+}
+.artifact-card--active .artifact-card-title-text,
+.artifact-card--active .artifact-card-meta,
+.artifact-card--active .artifact-card-textline,
+.artifact-card--active .artifact-card-runid {
+    color: var(--mud-palette-text-primary);
+}
+
+.artifact-card--active .mud-chip {
+    border-color: rgba(3, 169, 244, 0.6);
+    color: #0277bd;
+    background-color: rgba(3, 169, 244, 0.12);
+}
+
+.artifact-card--active .mud-icon-button,
+.artifact-card--active .mud-icon-button .mud-icon-root {
+    color: #0277bd !important;
+}
+
+.artifact-card-avatar {
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+}
+
+.artifact-card-avatar--initials {
+    font-size: 0.9rem;
+}
+
+.artifact-avatar-text {
+    display: block;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.artifact-content-row {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: flex-start;
+    gap: 16px;
+    overflow-x: auto;
+}
+
+.artifact-list-column {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+.artifact-details-container {
+    flex: 0 0 0;
+    width: 0;
+    overflow: hidden;
+    transition: flex-basis 0.2s ease, width 0.2s ease;
+}
+
+.artifact-details-container.is-open {
+    flex: 0 0 340px;
+    width: 340px;
+}
+
+@media (max-width: 1199.98px) {
+}
+
+.artifact-details-drawer {
+    width: 340px;
+    max-width: 100%;
+    height: 100%;
+}
+
+.artifact-details-scroll {
+    max-height: calc(100vh - 128px);
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.artifact-details-empty {
+    min-height: 200px;
+    text-align: center;
+}
+
+.artifact-details-header {
+    margin-bottom: 12px;
+}
+
+.artifact-details-title {
+    color: var(--mud-palette-text-primary);
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.artifact-details-presence {
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.artifact-details-label {
+    color: var(--mud-palette-text-secondary);
+    font-weight: 500;
+}
+
+.artifact-details-value {
+    color: var(--mud-palette-text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: block;
+    padding-right: 8px;
+}
+
+.artifact-filter-actions {
+    display: flex;
+    justify-content: flex-end;
+    align-items: flex-start;
+    height: 100%;
+}
+
+.artifact-filter-actions .mud-icon-button {
+    margin-left: auto;
+}
+
+.artifact-details-table {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.artifact-details-row {
+    display: grid;
+    grid-template-columns: 120px 1fr;
+    gap: 12px;
+    align-items: center;
+}
+
+.artifact-details-row .artifact-details-label {
+    color: var(--mud-palette-text-secondary);
+    font-weight: 500;
+}
+
+.artifact-details-row .artifact-details-value {
+    color: var(--mud-palette-text-primary);
+}
+
+.artifact-details-section {
+    padding-bottom: 8px;
+}
+
+.artifact-details-divider {
+    margin: 12px 0;
+}
+
 /* Optional: improve hit area without changing visual line thickness */
 .mud-charts-line-series path:hover {
     filter: brightness(1.15);
