@@ -157,6 +157,9 @@ public class TimeTravelDataServiceTests
         public Func<string, string, CancellationToken, Task<ApiCallResult<Stream>>> OnGetRunSeriesAsync { get; set; } =
             (_, _, _) => throw new NotImplementedException();
 
+        public Func<string, CancellationToken, Task<ApiCallResult<TimeTravelMetricsResponseDto>>> OnGetRunMetricsAsync { get; set; } =
+            (_, _) => throw new NotImplementedException();
+
         public Task<ApiCallResult<HealthResponse>> HealthAsync(CancellationToken ct = default) => throw new NotImplementedException();
 
         public Task<ApiCallResult<HealthResponse>> LegacyHealthAsync(CancellationToken ct = default) => throw new NotImplementedException();
@@ -186,5 +189,8 @@ public class TimeTravelDataServiceTests
 
         public Task<ApiCallResult<Stream>> GetRunSeriesAsync(string runId, string seriesId, CancellationToken ct = default)
             => OnGetRunSeriesAsync(runId, seriesId, ct);
+
+        public Task<ApiCallResult<TimeTravelMetricsResponseDto>> GetRunMetricsAsync(string runId, CancellationToken ct = default)
+            => OnGetRunMetricsAsync(runId, ct);
     }
 }

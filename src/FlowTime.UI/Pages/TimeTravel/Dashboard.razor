@@ -1,45 +1,221 @@
 @page "/time-travel/dashboard"
-@using MudBlazor
+@using System.Globalization
+@using System.Linq
 @using Microsoft.AspNetCore.Components
-@inject NavigationManager Navigation
+@using Microsoft.AspNetCore.Components.Web
+@using MudBlazor
+@using FlowTime.UI.Services
 
 <PageTitle>Time-Travel Dashboard</PageTitle>
 
-<MudPaper Class="pa-6" Elevation="2">
-    <MudText Typo="Typo.h4" GutterBottom="true">Time-Travel Dashboard</MudText>
+<MudContainer MaxWidth="MaxWidth.False">
+    <MudStack Spacing="3">
+        <MudPaper Class="pa-4" Elevation="2">
+            <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                <MudStack Spacing="1">
+                    <MudText Typo="Typo.h5">SLA Dashboard</MudText>
+                    <MudText Typo="Typo.subtitle2" Color="Color.Secondary">
+                        Track service health for the selected run and drill into topology.
+                    </MudText>
+                    @if (_context is not null)
+                    {
+                        <MudStack Row Spacing="1" AlignItems="AlignItems.Center" Class="sla-header-meta">
+                            <MudChip T="string" Variant="Variant.Outlined" Color="Color.Info" Size="Size.Small" Class="sla-header-chip">
+                                @GetTemplateSummary()
+                            </MudChip>
+                            <MudChip T="string" Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" Class="sla-header-chip">
+                                @GetWindowSummary()
+                            </MudChip>
+                        </MudStack>
+                    }
+                </MudStack>
+                <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                    @if (!string.IsNullOrWhiteSpace(RunId))
+                    {
+                        <MudChip T="string"
+                                 Variant="Variant.Outlined"
+                                 Size="Size.Small"
+                                 Icon="@Icons.Material.Filled.Flip"
+                                 Color="Color.Info"
+                                 Class="sla-header-chip">
+                            @RunId
+                        </MudChip>
+                    }
+                    @if (_metricsResult?.Source == TimeTravelMetricsSource.StateWindowFallback)
+                    {
+                        <MudChip T="string"
+                                 Variant="Variant.Outlined"
+                                 Size="Size.Small"
+                                 Color="Color.Warning"
+                                 Icon="@Icons.Material.Filled.Autorenew"
+                                 Class="sla-header-chip"
+                                 aria-label="Metrics computed from state window fallback">
+                            Fallback in use
+                        </MudChip>
+                    }
+                </MudStack>
+            </MudStack>
+        </MudPaper>
 
-    @if (!string.IsNullOrWhiteSpace(_errorMessage))
-    {
-        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-4">
-            <MudText Typo="Typo.body1">@_errorMessage</MudText>
-            <MudButton Variant="Variant.Text"
-                       Color="Color.Primary"
-                       StartIcon="@Icons.Material.Filled.ArrowBack"
-                       OnClick="NavigateBack">
-                Back to Artifacts
-            </MudButton>
-        </MudAlert>
-    }
-    else
-    {
-        <MudText Typo="Typo.body1" Color="Color.Secondary">
-            Run <MudText Typo="Typo.subtitle2" Inline="true">@RunId</MudText> will populate dashboard visuals in upcoming milestones.
-        </MudText>
-    }
-</MudPaper>
+        @if (string.IsNullOrWhiteSpace(RunId))
+        {
+            <MudPaper Class="pa-4" Elevation="1">
+                <MudStack Spacing="2">
+                    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+                        <MudText Typo="Typo.subtitle1">Select a run to view metrics.</MudText>
+                        <MudText Typo="Typo.body2">
+                            Choose a run from the Artifacts list and reopen the dashboard with the run context.
+                        </MudText>
+                    </MudAlert>
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.ArrowBack"
+                               OnClick="NavigateToArtifacts">
+                        Browse Artifacts
+                    </MudButton>
+                </MudStack>
+            </MudPaper>
+        }
+        else if (_isLoading)
+        {
+            <MudPaper Class="pa-4" Elevation="1">
+                <MudStack Spacing="2">
+                    <MudStack Row Spacing="2" AlignItems="AlignItems.Center">
+                        <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Medium" />
+                        <MudText Typo="Typo.subtitle1">Loading metrics…</MudText>
+                    </MudStack>
+                    <MudSkeleton Height="140px" Width="100%" Animation="Animation.Wave" />
+                </MudStack>
+            </MudPaper>
+        }
+        else if (!string.IsNullOrWhiteSpace(_errorMessage))
+        {
+            <MudPaper Class="pa-4" Elevation="1">
+                <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.ErrorOutline">
+                    <MudStack Spacing="2">
+                        <MudText Typo="Typo.subtitle1">Unable to load metrics.</MudText>
+                        <MudText Typo="Typo.body2">@_errorMessage</MudText>
+                        <MudStack Row Spacing="1">
+                            <MudButton Variant="Variant.Filled"
+                                       Color="Color.Primary"
+                                       StartIcon="@Icons.Material.Filled.Refresh"
+                                       Disabled="_isLoading"
+                                       OnClick="ReloadAsync">
+                                Retry
+                            </MudButton>
+                            <MudButton Variant="Variant.Text"
+                                       Color="Color.Primary"
+                                       StartIcon="@Icons.Material.Filled.ArrowBack"
+                                       OnClick="NavigateToArtifacts">
+                                Back to Artifacts
+                            </MudButton>
+                        </MudStack>
+                    </MudStack>
+                </MudAlert>
+            </MudPaper>
+        }
+        else
+        {
+            <MudStack Spacing="1">
+                <MudPaper Class="sla-panel" Elevation="1">
+                    <MudStack Spacing="1">
+                        <MudStack Row Spacing="1" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                            <MudStack Row Spacing="1" AlignItems="AlignItems.Center">
+                                <MudText Typo="Typo.subtitle2">Sort by</MudText>
+                                <MudSelect T="SortOption"
+                                           @bind-Value="SortOrder"
+                                           Dense="true"
+                                           Class="dashboard-sort"
+                                           aria-label="Sort tiles">
+                                    <MudSelectItem Value="SortOption.WorstFirst">Lowest SLA first</MudSelectItem>
+                                    <MudSelectItem Value="SortOption.BestFirst">Highest SLA first</MudSelectItem>
+                                    <MudSelectItem Value="SortOption.Name">Name A-Z</MudSelectItem>
+                                </MudSelect>
+                            </MudStack>
+                            <MudStack Row Spacing="1" AlignItems="AlignItems.Center" Class="sla-filter-group">
+                                @foreach (var option in statusOptions)
+                                {
+                                    <MudChip T="SlaStatus"
+                                             OnClick="@(() => ToggleStatus(option.Status))"
+                                             Variant="@(_activeStatuses.Contains(option.Status) ? Variant.Filled : Variant.Outlined)"
+                                             Color="@option.Color"
+                                             Icon="@option.Icon"
+                                             Size="Size.Small"
+                                             Class="sla-filter-chip"
+                                             aria-label="@option.AccessibleLabel">
+                                        @option.Label
+                                    </MudChip>
+                                }
+                                <MudButton Variant="Variant.Text"
+                                           Color="Color.Primary"
+                                           Disabled="@(_activeStatuses.Count == statusOptions.Length)"
+                                           OnClick="ResetFilters"
+                                           aria-label="Reset filters">
+                                    Reset
+                                </MudButton>
+                            </MudStack>
+                        </MudStack>
 
-@code {
-    [Parameter, SupplyParameterFromQuery(Name = "runId")]
-    public string? RunId { get; set; }
-
-    private string? _errorMessage;
-
-    protected override void OnParametersSet()
-    {
-        _errorMessage = string.IsNullOrWhiteSpace(RunId)
-            ? "No run selected. Choose a run from the Artifacts page to explore dashboard metrics."
-            : null;
-    }
-
-    private void NavigateBack() => Navigation.NavigateTo("/time-travel/artifacts");
-}
+                        @if (_tiles.Count == 0)
+                        {
+                            <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+                                <MudText Typo="Typo.body2">
+                                    No services reported SLA metrics for this window.
+                                </MudText>
+                                </MudAlert>
+                        }
+                        else if (_visibleTiles.Count == 0)
+                        {
+                            <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+                                <MudText Typo="Typo.body2">
+                                    No tiles match the current filters.
+                                </MudText>
+                            </MudAlert>
+                        }
+                        else
+                        {
+                            <div class="sla-tiles-grid" role="list">
+                                @foreach (var tile in _visibleTiles)
+                                {
+                                    <div class="sla-tile"
+                                         role="button"
+                                         tabindex="0"
+                                         style="@GetTileAccentStyle(tile.Status)"
+                                         @onclick="() => NavigateToTopology(tile)"
+                                         @onkeydown="(KeyboardEventArgs args) => HandleTileKeyDown(args, tile)"
+                                         aria-label="@tile.AriaLabel">
+                                            <MudStack Spacing="1">
+                                                <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                                                    <MudTooltip Text="@tile.Id">
+                                                        <MudText Typo="Typo.subtitle2" Class="sla-tile__title">@tile.Id</MudText>
+                                                    </MudTooltip>
+                                                    <MudTooltip Text="@tile.StatusLabel">
+                                                        <MudIcon Icon="@GetStatusIcon(tile.Status)"
+                                                                 Class="sla-status-icon"
+                                                                 Style="@GetStatusIconStyle(tile.Status)"
+                                                                 aria-label="@tile.StatusLabel" />
+                                                    </MudTooltip>
+                                                </MudStack>
+                                                <MudText Typo="Typo.h6" Class="sla-value-text">@tile.SlaText</MudText>
+                                                <MudText Typo="Typo.caption" Class="sla-summary-text" Color="Color.Secondary">
+                                                    @tile.BinsSummary
+                                                </MudText>
+                                        </MudStack>
+                                        <div class="sla-mini" role="img" aria-label="@tile.SparklineLabel">
+                                            @for (var i = 0; i < tile.Mini.Count; i++)
+                                            {
+                                                <div class="sla-mini__bar"
+                                                     style="@FormatMiniBarStyle(tile.Mini[i])"
+                                                     aria-hidden="true"></div>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </MudStack>
+                </MudPaper>
+            </MudStack>
+        }
+    </MudStack>
+</MudContainer>

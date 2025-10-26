@@ -27,7 +27,7 @@
                     </MudButton>
                     <MudDivider Vertical="true" FlexItem="true" />
                     <MudStack>
-                        <MudText Typo="Typo.h4">Run Artifacts</MudText>
+                        <MudText Typo="Typo.h5">Run Artifacts</MudText>
                         @if (!string.IsNullOrWhiteSpace(RunId))
                         {
                             <MudText Typo="Typo.body2" Color="Color.Secondary">
@@ -82,7 +82,27 @@
         {
             <MudStack Spacing="3">
                 <MudPaper Class="pa-4" Elevation="1">
-                    <MudText Typo="Typo.h6" Class="mb-3">Run Summary</MudText>
+                    <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
+                        <MudText Typo="Typo.h6">Run Summary</MudText>
+                        <MudStack Row Spacing="1">
+                            <MudButton Variant="Variant.Outlined"
+                                       Color="Color.Primary"
+                                       Size="Size.Small"
+                                       StartIcon="@Icons.Material.Filled.Dashboard"
+                                       Disabled="string.IsNullOrWhiteSpace(RunId)"
+                                       OnClick="NavigateToDashboard">
+                                Dashboard
+                            </MudButton>
+                            <MudButton Variant="Variant.Outlined"
+                                       Color="Color.Secondary"
+                                       Size="Size.Small"
+                                       StartIcon="@Icons.Material.Filled.AccountTree"
+                                       Disabled="string.IsNullOrWhiteSpace(RunId)"
+                                       OnClick="NavigateToTopology">
+                                Topology
+                            </MudButton>
+                        </MudStack>
+                    </MudStack>
                     <MudGrid Spacing="2">
                         <MudItem xs="12" md="6">
                             <MudStack Spacing="1">
@@ -506,6 +526,26 @@
     }
 
     private void NavigateBack() => Navigation.NavigateTo("/time-travel/artifacts");
+
+    private void NavigateToDashboard()
+    {
+        if (string.IsNullOrWhiteSpace(RunId))
+        {
+            return;
+        }
+
+        Navigation.NavigateTo($"/time-travel/dashboard?runId={Uri.EscapeDataString(RunId)}");
+    }
+
+    private void NavigateToTopology()
+    {
+        if (string.IsNullOrWhiteSpace(RunId))
+        {
+            return;
+        }
+
+        Navigation.NavigateTo($"/time-travel/topology?runId={Uri.EscapeDataString(RunId)}");
+    }
 
     private void NavigateToLoad(OrchestrationMode mode)
     {

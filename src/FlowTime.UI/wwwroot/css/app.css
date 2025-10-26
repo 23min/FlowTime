@@ -334,3 +334,115 @@ code {
     padding-top: 2px !important;
     padding-bottom: 2px !important;
 }
+
+.sla-panel {
+    padding: 12px !important;
+}
+
+.sla-tiles-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+}
+
+.sla-tile {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 12px;
+    border: 1px solid var(--tile-accent-color, var(--mud-palette-divider));
+    border-radius: 10px;
+    cursor: pointer;
+    outline: none;
+    background-color: var(--mud-palette-surface);
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.sla-tile:hover {
+    box-shadow: var(--mud-elevation-4);
+    transform: translateY(-1px);
+}
+
+.sla-tile:focus-visible {
+    box-shadow: 0 0 0 2px var(--mud-palette-primary);
+}
+
+.sla-tile__title {
+    max-width: 100%;
+    word-break: break-word;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sla-mini {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 32px;
+    margin-top: 4px;
+}
+
+.sla-mini__bar {
+    flex: 1;
+    background-color: var(--tile-accent-color, var(--mud-palette-primary));
+    border-radius: 2px 2px 0 0;
+}
+
+.sla-filter-chip.mud-chip,
+.sla-header-chip.mud-chip {
+    --sla-chip-height: 20px;
+    min-height: var(--sla-chip-height) !important;
+    height: var(--sla-chip-height) !important;
+    padding: 0 6px !important;
+    font-size: 12px;
+    font-weight: 400;
+    line-height: calc(var(--sla-chip-height) - 4px);
+    display: inline-flex;
+    align-items: center;
+}
+
+.sla-filter-chip .mud-chip-content,
+.sla-header-chip .mud-chip-content {
+    padding: 0 !important;
+    min-height: inherit;
+}
+
+.sla-filter-group {
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.sla-filter-group .mud-button-root {
+    min-height: 20px;
+    height: 20px;
+    font-size: 0.7rem;
+    padding: 0 6px;
+}
+
+.sla-header-meta {
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 4px;
+}
+
+.sla-header-meta .mud-chip {
+    margin-right: 4px;
+}
+
+.sla-value-text {
+    font-weight: 600;
+}
+
+.sla-summary-text {
+    margin-top: -2px;
+}
+
+.sla-status-icon {
+    font-size: 18px;
+}
+
+.dashboard-sort {
+    min-width: 160px;
+}

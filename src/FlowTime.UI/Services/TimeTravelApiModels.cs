@@ -222,3 +222,51 @@ public sealed record TimeTravelStateWarningDto
     [JsonPropertyName("nodeId")]
     public string? NodeId { get; init; }
 }
+
+public sealed record TimeTravelMetricsResponseDto
+{
+    [JsonPropertyName("window")]
+    public required TimeTravelMetricsWindowDto Window { get; init; }
+
+    [JsonPropertyName("grid")]
+    public required TimeTravelMetricsGridDto Grid { get; init; }
+
+    [JsonPropertyName("services")]
+    public IReadOnlyList<TimeTravelServiceMetricsDto> Services { get; init; } = Array.Empty<TimeTravelServiceMetricsDto>();
+}
+
+public sealed record TimeTravelMetricsWindowDto
+{
+    [JsonPropertyName("start")]
+    public DateTimeOffset? Start { get; init; }
+
+    [JsonPropertyName("timezone")]
+    public string? Timezone { get; init; }
+}
+
+public sealed record TimeTravelMetricsGridDto
+{
+    [JsonPropertyName("binMinutes")]
+    public int BinMinutes { get; init; }
+
+    [JsonPropertyName("bins")]
+    public int Bins { get; init; }
+}
+
+public sealed record TimeTravelServiceMetricsDto
+{
+    [JsonPropertyName("id")]
+    public required string Id { get; init; }
+
+    [JsonPropertyName("slaPct")]
+    public double SlaPct { get; init; }
+
+    [JsonPropertyName("binsMet")]
+    public int BinsMet { get; init; }
+
+    [JsonPropertyName("binsTotal")]
+    public int BinsTotal { get; init; }
+
+    [JsonPropertyName("mini")]
+    public IReadOnlyList<double> Mini { get; init; } = Array.Empty<double>();
+}

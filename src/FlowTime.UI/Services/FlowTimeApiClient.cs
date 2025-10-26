@@ -23,6 +23,7 @@ public interface IFlowTimeApiClient
     Task<ApiCallResult<TimeTravelStateWindowDto>> GetRunStateWindowAsync(string runId, int startBin, int endBin, CancellationToken ct = default);
     Task<ApiCallResult<SeriesIndex>> GetRunIndexAsync(string runId, CancellationToken ct = default);
     Task<ApiCallResult<Stream>> GetRunSeriesAsync(string runId, string seriesId, CancellationToken ct = default);
+    Task<ApiCallResult<TimeTravelMetricsResponseDto>> GetRunMetricsAsync(string runId, CancellationToken ct = default);
 }
 
 internal sealed class FlowTimeApiClient : IFlowTimeApiClient
@@ -169,6 +170,12 @@ internal sealed class FlowTimeApiClient : IFlowTimeApiClient
         {
             res.Dispose();
         }
+    }
+
+    public Task<ApiCallResult<TimeTravelMetricsResponseDto>> GetRunMetricsAsync(string runId, CancellationToken ct = default)
+    {
+        var path = $"{apiBasePath}/runs/{Uri.EscapeDataString(runId)}/metrics";
+        return GetJson<TimeTravelMetricsResponseDto>(path, ct);
     }
 
     private async Task<ApiCallResult<T>> GetJson<T>(string path, CancellationToken ct)
