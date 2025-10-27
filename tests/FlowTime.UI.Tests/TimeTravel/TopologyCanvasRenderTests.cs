@@ -1,0 +1,169 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using Bunit;
+using FlowTime.UI.Components.Topology;
+using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
+using Xunit;
+
+namespace FlowTime.UI.Tests.TimeTravel;
+
+public sealed class TopologyCanvasRenderTests : TestContext
+{
+    public TopologyCanvasRenderTests()
+    {
+        JSInterop.Mode = JSRuntimeMode.Strict;
+    }
+
+    [Fact]
+    public void RenderRequestsCanvasDraw()
+    {
+        var graph = CreateGraph();
+        var metrics = CreateMetrics();
+
+        var renderCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.render", _ => true);
+
+        RenderComponent<TopologyCanvas>(parameters => parameters
+            .Add(p => p.Graph, graph)
+            .Add(p => p.NodeMetrics, metrics));
+
+        Assert.Single(renderCall.Invocations);
+
+        var invocation = renderCall.Invocations.Single();
+        Assert.Equal(2, invocation.Arguments.Count);
+        Assert.True(invocation.Arguments[0] is ElementReference);
+        Assert.IsType<CanvasRenderRequest>(invocation.Arguments[1]);
+
+        var payload = (CanvasRenderRequest)invocation.Arguments[1]!;
+        Assert.Equal(graph.Nodes.Count, payload.Nodes.Count);
+    }
+
+    [Fact]
+    public void UpdatesMetricsTriggerAdditionalRender()
+    {
+        var graph = CreateGraph();
+        var initialMetrics = CreateMetrics();
+        var renderCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.render", _ => true);
+
+        var cut = RenderComponent<TopologyCanvas>(parameters => parameters
+            .Add(p => p.Graph, graph)
+            .Add(p => p.NodeMetrics, initialMetrics));
+
+        Assert.Single(renderCall.Invocations);
+
+        var updatedMetrics = new Dictionary<string, NodeBinMetrics>(initialMetrics, StringComparer.OrdinalIgnoreCase)
+        {
+            ["processor"] = new NodeBinMetrics(0.65, 0.95, 0.12, 18, 7.1, DateTimeOffset.UtcNow)
+        };
+
+        cut.SetParametersAndRender(p => p.Add(x => x.NodeMetrics, updatedMetrics));
+
+        Assert.Equal(2, renderCall.Invocations.Count);
+    }
+
+    [Fact]
+    public void RendersPlaceholderWhenGraphMissing()
+    {
+        var cut = RenderComponent<TopologyCanvas>();
+
+        Assert.Contains("Select a run", cut.Markup, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void FocusDisplaysTooltipWithMetrics()
+    {
+        var graph = CreateGraph();
+        var metrics = CreateMetrics();
+        JSInterop.SetupVoid("FlowTime.TopologyCanvas.render", _ => true);
+
+        var cut = RenderComponent<TopologyCanvas>(parameters => parameters
+            .Add(p => p.Graph, graph)
+            .Add(p => p.NodeMetrics, metrics));
+
+        var target = cut.Find("[data-node-id='processor']");
+        target.Focus();
+
+        cut.WaitForAssertion(() =>
+        {
+            var tooltip = cut.Find("[data-testid='topology-tooltip']");
+            Assert.Contains("SLA 88.0%", tooltip.InnerHtml);
+            Assert.Contains("Utilization 80%", tooltip.InnerHtml);
+        });
+    }
+
+    [Fact]
+    public void EscapeKeyHidesTooltip()
+    {
+        var graph = CreateGraph();
+        var metrics = CreateMetrics();
+        JSInterop.SetupVoid("FlowTime.TopologyCanvas.render", _ => true);
+
+        var cut = RenderComponent<TopologyCanvas>(parameters => parameters
+            .Add(p => p.Graph, graph)
+            .Add(p => p.NodeMetrics, metrics));
+
+        var target = cut.Find("[data-node-id='processor']");
+        target.Focus();
+        cut.WaitForAssertion(() => cut.Find("[data-testid='topology-tooltip']"));
+
+        target.KeyDown(new KeyboardEventArgs { Key = "Escape", Code = "Escape" });
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Throws<ElementNotFoundException>(() => cut.Find("[data-testid='topology-tooltip']"));
+        });
+    }
+
+    [Fact]
+    public void ArrowNavigationMovesFocusToNeighbor()
+    {
+        var graph = CreateGraph();
+        var metrics = CreateMetrics();
+        JSInterop.SetupVoid("FlowTime.TopologyCanvas.render", _ => true);
+
+        var cut = RenderComponent<TopologyCanvas>(parameters => parameters
+            .Add(p => p.Graph, graph)
+            .Add(p => p.NodeMetrics, metrics));
+
+        var ingress = cut.Find("[data-node-id='ingress']");
+        ingress.Focus();
+        cut.WaitForAssertion(() => Assert.Equal("true", ingress.GetAttribute("data-focused")));
+
+        ingress.KeyDown(new KeyboardEventArgs { Key = "ArrowRight", Code = "ArrowRight" });
+
+        cut.WaitForAssertion(() =>
+        {
+            var processor = cut.Find("[data-node-id='processor']");
+            Assert.Equal("true", processor.GetAttribute("data-focused"));
+        });
+    }
+
+    private static TopologyGraph CreateGraph()
+    {
+        var nodes = new[]
+        {
+            new TopologyNode("ingress", "service", Array.Empty<string>(), new[] { "processor" }, 0, 0, 0, 0, false),
+            new TopologyNode("processor", "service", new[] { "ingress" }, new[] { "egress" }, 1, 0, 240, 140, false),
+            new TopologyNode("egress", "queue", new[] { "processor" }, Array.Empty<string>(), 2, 0, 480, 280, false)
+        };
+
+        var edges = new[]
+        {
+            new TopologyEdge("edge_ingress_processor", "ingress", "processor", 1),
+            new TopologyEdge("edge_processor_egress", "processor", "egress", 1)
+        };
+
+        return new TopologyGraph(nodes, edges);
+    }
+
+    private static IReadOnlyDictionary<string, NodeBinMetrics> CreateMetrics()
+    {
+        return new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["ingress"] = new NodeBinMetrics(0.96, 0.70, 0.01, 5, 2.3, DateTimeOffset.UtcNow),
+            ["processor"] = new NodeBinMetrics(0.88, 0.80, 0.02, 8, 3.2, DateTimeOffset.UtcNow),
+            ["egress"] = new NodeBinMetrics(0.75, 0.92, 0.04, 12, 5.8, DateTimeOffset.UtcNow)
+        };
+    }
+}

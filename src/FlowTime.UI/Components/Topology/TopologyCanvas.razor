@@ -1,0 +1,60 @@
+@using System.Collections.Generic
+@using FlowTime.UI.Components.Topology
+@inherits TopologyCanvasBase
+
+@if (HasGraphData)
+{
+    <div class="topology-canvas-host">
+        <canvas @ref="canvasRef"
+                width="@CanvasWidth"
+                height="@CanvasHeight"
+                class="topology-canvas"
+                role="presentation">
+        </canvas>
+        <div class="topology-node-layer">
+            @foreach (var proxy in NodeProxies)
+            {
+                <button type="button"
+                        class="topology-node-proxy"
+                        data-node-id="@proxy.Id"
+                        data-focused="@(proxy.IsFocused ? "true" : "false")"
+                        style="@proxy.Style"
+                        aria-label="@proxy.AriaLabel"
+                        @onclick="() => FocusNode(proxy.Id)"
+                        @onfocus="() => FocusNode(proxy.Id)"
+                        @onblur="OnNodeBlur"
+                        @onkeydown="(args) => OnNodeKeyDown(args, proxy.Id)"
+                        @onkeydown:preventDefault
+                        >
+                    <span class="visually-hidden">@proxy.AriaLabel</span>
+                </button>
+            }
+        </div>
+        @if (ActiveTooltip is not null)
+        {
+            <div class="topology-tooltip"
+                 data-testid="topology-tooltip"
+                 style="@ActiveTooltip.PositionStyle">
+                <div class="topology-tooltip-title">@ActiveTooltip.Content.Title</div>
+                <div class="topology-tooltip-subtitle">@ActiveTooltip.Content.Subtitle</div>
+                <ul>
+                    @foreach (var line in ActiveTooltip.Content.Lines)
+                    {
+                        <li>@line</li>
+                    }
+                </ul>
+            </div>
+        }
+    </div>
+}
+else
+{
+    <div class="topology-empty-state" data-testid="topology-empty">
+        <p>
+            Select a run to render its topology and live bin metrics.
+        </p>
+    </div>
+}
+
+@code {
+}

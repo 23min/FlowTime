@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using FlowTime.UI.Pages.TimeTravel;
 using FlowTime.UI.Services;
 using Microsoft.Extensions.Logging.Abstractions;
+using FlowTime.UI.Components.Topology;
 
 namespace FlowTime.UI.Tests.TimeTravel;
 
@@ -229,6 +230,9 @@ public class DashboardTests
         public Func<string, int, int, CancellationToken, Task<ApiCallResult<TimeTravelStateWindowDto>>> StateWindowHandler { get; set; } =
             (_, _, _, _) => Task.FromResult(ApiCallResult<TimeTravelStateWindowDto>.Fail(404, "not implemented"));
 
+        public Func<string, CancellationToken, Task<ApiCallResult<GraphResponseModel>>> GraphHandler { get; set; } =
+            (_, _) => Task.FromResult(ApiCallResult<GraphResponseModel>.Fail(404, "not implemented"));
+
         public Func<string, CancellationToken, Task<ApiCallResult<RunCreateResponseDto>>> RunHandler { get; set; } =
             (_, _) => Task.FromResult(ApiCallResult<RunCreateResponseDto>.Fail(404, "not implemented"));
 
@@ -240,6 +244,9 @@ public class DashboardTests
 
         public Task<ApiCallResult<TimeTravelStateWindowDto>> GetRunStateWindowAsync(string runId, int startBin, int endBin, CancellationToken ct = default)
             => StateWindowHandler(runId, startBin, endBin, ct);
+
+        public Task<ApiCallResult<GraphResponseModel>> GetRunGraphAsync(string runId, CancellationToken ct = default)
+            => GraphHandler(runId, ct);
 
         public Task<ApiCallResult<RunCreateResponseDto>> GetRunAsync(string runId, CancellationToken ct = default)
             => RunHandler(runId, ct);
@@ -261,8 +268,14 @@ public class DashboardTests
         public Func<string, int, int, CancellationToken, Task<ApiCallResult<TimeTravelStateWindowDto>>> StateWindowHandler { get; set; } =
             (_, _, _, _) => Task.FromResult(ApiCallResult<TimeTravelStateWindowDto>.Fail(404, "not implemented"));
 
+        public Func<string, CancellationToken, Task<ApiCallResult<GraphResponseModel>>> GraphHandler { get; set; } =
+            (_, _) => Task.FromResult(ApiCallResult<GraphResponseModel>.Fail(404, "not implemented"));
+
         public Task<ApiCallResult<TimeTravelStateWindowDto>> GetStateWindowAsync(string runId, int startBin, int endBin, CancellationToken ct = default)
             => StateWindowHandler(runId, startBin, endBin, ct);
+
+        public Task<ApiCallResult<GraphResponseModel>> GetGraphAsync(string runId, CancellationToken ct = default)
+            => GraphHandler(runId, ct);
 
         public Task<ApiCallResult<TimeTravelStateSnapshotDto>> GetStateAsync(string runId, int binIndex, CancellationToken ct = default)
             => throw new NotImplementedException();

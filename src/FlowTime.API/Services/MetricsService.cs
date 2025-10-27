@@ -406,10 +406,9 @@ public sealed class MetricsService
             }
 
             var binCount = resolution.BinCount;
-            var rawRatios = new double[binCount];
+            var ratios = new double[binCount];
             var binsMet = 0;
             var binsEvaluated = 0;
-            var ratioMax = 0d;
 
             for (var i = 0; i < binCount; i++)
             {
@@ -418,33 +417,24 @@ public sealed class MetricsService
 
                 if (!arrivals.HasValue || !served.HasValue)
                 {
-                    rawRatios[i] = 0d;
+                    ratios[i] = 0d;
                     continue;
                 }
 
                 double ratio = arrivals.Value <= 0 ? 1d : served.Value / arrivals.Value;
-                ratio = Math.Max(0d, ratio);
+                ratio = Math.Max(0d, double.IsFinite(ratio) ? ratio : 0d);
+                ratio = Math.Min(ratio, 1d);
 
-                rawRatios[i] = ratio;
+                ratios[i] = ratio;
                 binsEvaluated++;
 
                 if (ratio >= slaThreshold)
                 {
                     binsMet++;
                 }
-
-                ratioMax = Math.Max(ratioMax, ratio);
             }
 
-            IReadOnlyList<double> mini;
-            if (binsEvaluated == 0 || ratioMax <= 0)
-            {
-                mini = Enumerable.Repeat(0d, binCount).ToArray();
-            }
-            else
-            {
-                mini = rawRatios.Select(value => Math.Clamp(value / ratioMax, 0d, 1d)).ToArray();
-            }
+            IReadOnlyList<double> mini = ratios;
 
             var slaPct = binsEvaluated > 0 ? binsMet / (double)binsEvaluated : 1d;
             services.Add(new ServiceMetrics

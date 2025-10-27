@@ -92,11 +92,13 @@ topology:
       semantics:
         arrivals: assembly
         served: quality_control
+        errors: quality_rejects
     - id: PackagingStation
       kind: service
       semantics:
         arrivals: quality_control
         served: packaging
+        errors: packaging_rejects
   edges:
     - id: edge1
       from: AssemblyLine:out
@@ -127,9 +129,17 @@ nodes:
     kind: expr
     expr: "MIN(assembly * ${qualityRate}, quality_control_capacity)"
 
+  - id: quality_rejects
+    kind: expr
+    expr: "MAX(assembly - quality_control, 0)"
+
   - id: packaging
     kind: expr
     expr: "MIN(quality_control, ${productionRate} * 0.9)"
+
+  - id: packaging_rejects
+    kind: expr
+    expr: "MAX(quality_control - packaging, 0)"
 
   - id: defects
     kind: expr
@@ -144,3 +154,7 @@ outputs:
     as: defects.csv
   - series: quality_control
     as: quality_passed.csv
+  - series: packaging_rejects
+    as: packaging_rejects.csv
+  - series: quality_rejects
+    as: quality_rejects.csv

@@ -1,44 +1,335 @@
 @page "/time-travel/topology"
 @using MudBlazor
-@using Microsoft.AspNetCore.Components
+@using FlowTime.UI.Components.Topology
+@using FlowTime.UI.Services
+@using System.Collections.Generic
+@using System.Globalization
+@using System.Linq
+@inject ITimeTravelDataService DataService
 @inject NavigationManager Navigation
+@implements IDisposable
 
 <PageTitle>Time-Travel Topology</PageTitle>
 
-<MudPaper Class="pa-6" Elevation="2">
-    <MudText Typo="Typo.h5" GutterBottom="true">Time-Travel Topology</MudText>
-    @if (!string.IsNullOrWhiteSpace(_errorMessage))
-    {
-        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-4">
-            <MudText Typo="Typo.body1">@_errorMessage</MudText>
+<MudPaper Class="pa-5 topology-page" Elevation="1">
+    <MudStack Spacing="3">
+        <MudStack Row="true" AlignItems="@AlignItems.Center" Justify="@Justify.SpaceBetween">
+            <MudText Typo="Typo.h5">Time-Travel Topology</MudText>
             <MudButton Variant="Variant.Text"
                        Color="Color.Primary"
                        StartIcon="@Icons.Material.Filled.ArrowBack"
                        OnClick="NavigateBack">
-                Back to Artifacts
+                Artifacts
             </MudButton>
-        </MudAlert>
-    }
-    else
-    {
-        <MudText Typo="Typo.body1" Color="Color.Secondary">
-            Topology layers for run <MudText Typo="Typo.subtitle2" Inline="true">@RunId</MudText> will render once graph bricks land in UI-M-03.12.
-        </MudText>
-    }
+        </MudStack>
+
+        @if (string.IsNullOrWhiteSpace(RunId))
+        {
+            <MudAlert Severity="Severity.Info">
+                Select a run from the Artifacts list to inspect its topology.
+            </MudAlert>
+        }
+        else if (!string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <MudAlert Severity="Severity.Error" Variant="Variant.Outlined">
+                <MudText Typo="Typo.body1">@errorMessage</MudText>
+            </MudAlert>
+        }
+        else if (isLoading)
+        {
+            <MudPaper Class="pa-6 d-flex flex-column align-center justify-center" Elevation="0">
+                <MudProgressCircular Color="Color.Primary" Diameter="64" Indeterminate="true" />
+                <MudText Typo="Typo.caption" Class="mt-2">Loading topology…</MudText>
+            </MudPaper>
+        }
+        else if (topologyGraph is null)
+        {
+            <MudAlert Severity="Severity.Warning">
+                Topology data was not available for run <strong>@RunId</strong>.
+            </MudAlert>
+        }
+        else
+        {
+            <MudStack Spacing="2">
+                <MudStack Row="true" Spacing="2" AlignItems="@AlignItems.Center">
+                    <MudText Typo="Typo.subtitle1">@runDisplayName</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Info">Run @RunId</MudText>
+                </MudStack>
+
+                <MudPaper Class="pa-3" Elevation="0">
+                    <MudStack Row="true" AlignItems="@AlignItems.Center" Spacing="2">
+                        <MudText Typo="Typo.caption">Bin @selectedBinLabel</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">@selectedTimestampLabel</MudText>
+                    </MudStack>
+                    <MudSlider T="int"
+                               Class="mt-2"
+                               Min="@visibleStartBin"
+                               Max="@visibleEndBin"
+                               Step="1"
+                               Disabled="@(visibleStartBin == visibleEndBin)"
+                               Value="@selectedBin"
+                               ValueChanged="OnBinChanged"
+                               Immediate="true" />
+                </MudPaper>
+
+                <div class="topology-legend">
+                    <span class="legend-item">
+                        <span class="legend-swatch success"></span>
+                        Healthy
+                    </span>
+                    <span class="legend-item">
+                        <span class="legend-swatch warning"></span>
+                        Warning
+                    </span>
+                    <span class="legend-item">
+                        <span class="legend-swatch error"></span>
+                        Error
+                    </span>
+                    <span class="legend-item">
+                        <span class="legend-swatch neutral"></span>
+                        No data
+                    </span>
+                </div>
+
+                <TopologyCanvas Graph="topologyGraph"
+                                NodeMetrics="activeMetrics"
+                                CanvasWidth="1180"
+                                CanvasHeight="720" />
+            </MudStack>
+        }
+    </MudStack>
 </MudPaper>
 
 @code {
     [Parameter, SupplyParameterFromQuery(Name = "runId")]
     public string? RunId { get; set; }
 
-    private string? _errorMessage;
+    private string? currentRunId;
+    private string? runDisplayName;
+    private string? errorMessage;
+    private bool isLoading;
+    private bool hasLoaded;
+    private CancellationTokenSource? loadCts;
 
-    protected override void OnParametersSet()
+    private TopologyGraph? topologyGraph;
+    private IReadOnlyDictionary<string, NodeBinMetrics> activeMetrics = new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase);
+    private TimeTravelStateWindowDto? windowData;
+    private SeriesIndex? seriesIndex;
+    private IReadOnlyList<DateTimeOffset> timestamps = Array.Empty<DateTimeOffset>();
+
+    private int selectedBin;
+    private int visibleStartBin;
+    private int visibleEndBin;
+    private string selectedBinLabel = string.Empty;
+    private string selectedTimestampLabel = string.Empty;
+
+    protected override async Task OnParametersSetAsync()
     {
-        _errorMessage = string.IsNullOrWhiteSpace(RunId)
-            ? "Run context missing. Select a run from the Artifacts list to inspect topology."
-            : null;
+        if (string.IsNullOrWhiteSpace(RunId))
+        {
+            ResetState();
+            return;
+        }
+
+        if (string.Equals(RunId, currentRunId, StringComparison.OrdinalIgnoreCase) && hasLoaded)
+        {
+            return;
+        }
+
+        currentRunId = RunId;
+        await LoadAsync(RunId);
+    }
+
+    private async Task LoadAsync(string runId)
+    {
+        loadCts?.Cancel();
+        loadCts?.Dispose();
+        loadCts = new CancellationTokenSource();
+
+        isLoading = true;
+        errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var ct = loadCts.Token;
+
+            var graphTask = DataService.GetGraphAsync(runId, ct);
+            var indexTask = DataService.GetSeriesIndexAsync(runId, ct);
+
+            await Task.WhenAll(graphTask, indexTask);
+
+            var graphResult = await graphTask;
+            if (!graphResult.Success || graphResult.Value is null)
+            {
+                errorMessage = graphResult.Error ?? "Topology graph is unavailable.";
+                return;
+            }
+
+            var indexResult = await indexTask;
+            if (!indexResult.Success || indexResult.Value is null)
+            {
+                errorMessage = indexResult.Error ?? "Run index metadata could not be retrieved.";
+                return;
+            }
+
+            topologyGraph = GraphMapper.Map(graphResult.Value);
+            seriesIndex = indexResult.Value;
+
+            var totalBins = Math.Max(1, seriesIndex.Grid.Bins);
+            var sliceEnd = totalBins - 1;
+            var sliceStart = Math.Max(0, sliceEnd - 499);
+            visibleStartBin = sliceStart;
+            visibleEndBin = sliceEnd;
+
+            var windowResult = await DataService.GetStateWindowAsync(runId, sliceStart, sliceEnd, ct);
+            if (!windowResult.Success || windowResult.Value is null)
+            {
+                errorMessage = windowResult.Error ?? "Failed to load run state window.";
+                return;
+            }
+
+            windowData = windowResult.Value;
+            timestamps = windowData.TimestampsUtc.ToList();
+            runDisplayName = windowData.Metadata.TemplateTitle ?? windowData.Metadata.TemplateId ?? runId;
+
+            selectedBin = visibleEndBin;
+            UpdateActiveMetrics(selectedBin);
+
+            hasLoaded = true;
+        }
+        catch (OperationCanceledException)
+        {
+            // ignored; a new load started
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load topology: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void UpdateActiveMetrics(int bin)
+    {
+        if (windowData is null)
+        {
+            activeMetrics = new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase);
+            selectedBinLabel = bin.ToString(CultureInfo.InvariantCulture);
+            selectedTimestampLabel = string.Empty;
+            return;
+        }
+
+        var spanStart = windowData.Window.StartBin;
+        var localIndex = bin - spanStart;
+        if (localIndex < 0 || localIndex >= windowData.Window.BinCount)
+        {
+            activeMetrics = new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase);
+            selectedBinLabel = bin.ToString(CultureInfo.InvariantCulture);
+            selectedTimestampLabel = string.Empty;
+            return;
+        }
+
+        var metrics = new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase);
+        foreach (var node in windowData.Nodes)
+        {
+            double? Get(string key)
+            {
+                if (node.Series.TryGetValue(key, out var values) && localIndex < values.Length)
+                {
+                    return values[localIndex];
+                }
+                return null;
+            }
+
+            var arrivals = Get("arrivals");
+            var served = Get("served");
+            var errors = Get("errors");
+            var throughput = Get("throughputRatio");
+            var utilization = Get("utilization");
+            var queue = Get("queue");
+            var latency = Get("latencyMinutes");
+
+            double? successRate = throughput;
+            if (successRate is null && arrivals.HasValue && arrivals.Value > 0 && served.HasValue)
+            {
+                successRate = served.Value / arrivals.Value;
+            }
+
+            double? errorRate = null;
+            var denominator = arrivals ?? served;
+            if (errors.HasValue && denominator.HasValue && denominator.Value > 0)
+            {
+                errorRate = errors.Value / denominator.Value;
+            }
+
+            var timestamp = localIndex < timestamps.Count ? timestamps[localIndex] : (DateTimeOffset?)null;
+
+            metrics[node.Id] = new NodeBinMetrics(
+                successRate,
+                utilization,
+                errorRate,
+                queue,
+                latency,
+                timestamp);
+        }
+
+        activeMetrics = metrics;
+        selectedBin = bin;
+        selectedBinLabel = bin.ToString(CultureInfo.InvariantCulture);
+        selectedTimestampLabel = FormatTimestamp(localIndex);
+    }
+
+    private string FormatTimestamp(int localIndex)
+    {
+        if (localIndex < 0 || localIndex >= timestamps.Count)
+        {
+            return string.Empty;
+        }
+
+        var ts = timestamps[localIndex];
+        return ts.ToString("dd MMM yyyy HH:mm 'UTC'", CultureInfo.InvariantCulture);
+    }
+
+    private Task OnBinChanged(int value)
+    {
+        if (value == selectedBin)
+        {
+            return Task.CompletedTask;
+        }
+
+        UpdateActiveMetrics(value);
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private void ResetState()
+    {
+        loadCts?.Cancel();
+        topologyGraph = null;
+        windowData = null;
+        seriesIndex = null;
+        runDisplayName = null;
+        timestamps = Array.Empty<DateTimeOffset>();
+        activeMetrics = new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase);
+        selectedBin = 0;
+        visibleStartBin = 0;
+        visibleEndBin = 0;
+        selectedBinLabel = string.Empty;
+        selectedTimestampLabel = string.Empty;
+        errorMessage = null;
+        hasLoaded = false;
+        isLoading = false;
     }
 
     private void NavigateBack() => Navigation.NavigateTo("/time-travel/artifacts");
+
+    public void Dispose()
+    {
+        loadCts?.Cancel();
+        loadCts?.Dispose();
+    }
 }

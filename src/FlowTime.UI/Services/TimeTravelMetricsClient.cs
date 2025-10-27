@@ -174,10 +174,9 @@ public sealed class TimeTravelMetricsClient : ITimeTravelMetricsClient
             return null;
         }
 
-        var rawRatios = new double[clampCount];
+        var ratios = new double[clampCount];
         var binsMet = 0;
         var binsEvaluated = 0;
-        var ratioMax = 0d;
 
         for (var i = 0; i < clampCount; i++)
         {
@@ -186,33 +185,24 @@ public sealed class TimeTravelMetricsClient : ITimeTravelMetricsClient
 
             if (!arrivalsValue.HasValue || !servedValue.HasValue)
             {
-                rawRatios[i] = 0d;
+                ratios[i] = 0d;
                 continue;
             }
 
             var ratio = arrivalsValue.Value <= 0 ? 1d : servedValue.Value / arrivalsValue.Value;
             ratio = Math.Max(0d, double.IsFinite(ratio) ? ratio : 0d);
+            ratio = Math.Min(ratio, 1d);
 
-            rawRatios[i] = ratio;
+            ratios[i] = ratio;
             binsEvaluated++;
 
             if (ratio >= slaThreshold)
             {
                 binsMet++;
             }
-
-            ratioMax = Math.Max(ratioMax, ratio);
         }
 
-        IReadOnlyList<double> mini;
-        if (binsEvaluated == 0 || ratioMax <= 0d)
-        {
-            mini = Enumerable.Repeat(0d, clampCount).ToArray();
-        }
-        else
-        {
-            mini = rawRatios.Select(value => Math.Clamp(ratioMax == 0d ? 0d : value / ratioMax, 0d, 1d)).ToArray();
-        }
+        IReadOnlyList<double> mini = ratios;
 
         var slaPct = binsEvaluated > 0 ? binsMet / (double)binsEvaluated : 1d;
 

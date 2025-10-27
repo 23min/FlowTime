@@ -1,10 +1,13 @@
 using System.Globalization;
+using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using FlowTime.Core;
 using FlowTime.Core.Nodes;
 using YamlDotNet.Serialization;
+using YamlDotNet.RepresentationModel;
 
 #pragma warning disable CS8602 // Dereference of a possibly null reference - suppressed for dynamic access patterns
 
@@ -72,7 +75,24 @@ public static class RunArtifactWriter
 
     public static async Task<WriteResult> WriteArtifactsAsync(WriteRequest request)
     {
-        var scenarioHash = ComputeScenarioHash(request.SpecText, request.RngSeed, request.StartTimeBias);
+        ArgumentNullException.ThrowIfNull(request);
+
+        var modelDto = (dynamic)request.Model;
+        var gridDto = (dynamic)request.Grid;
+
+        var resolvedSeries = ResolveSeries((object?)modelDto.Outputs, request.Context);
+        var seriesDescriptorMap = new Dictionary<string, SeriesDescriptor>(StringComparer.OrdinalIgnoreCase);
+        var seriesDescriptorList = new List<SeriesDescriptor>();
+        foreach (var descriptor in resolvedSeries.Select(CreateSeriesDescriptor))
+        {
+            if (seriesDescriptorMap.TryAdd(descriptor.NodeId.Value, descriptor))
+            {
+                seriesDescriptorList.Add(descriptor);
+            }
+        }
+
+        var normalizedSpecText = NormalizeTopologySemantics(request.SpecText, seriesDescriptorMap, seriesDescriptorList, request.Context);
+        var scenarioHash = ComputeScenarioHash(normalizedSpecText, request.RngSeed, request.StartTimeBias);
 
         var runId = request.DeterministicRunId
             ? $"run_deterministic_{scenarioHash[7..15]}"
@@ -90,11 +110,11 @@ public static class RunArtifactWriter
 
         var jsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true };
 
-        await File.WriteAllTextAsync(Path.Combine(runDir, "spec.yaml"), request.SpecText, Encoding.UTF8);
+        await File.WriteAllTextAsync(Path.Combine(runDir, "spec.yaml"), normalizedSpecText, Encoding.UTF8);
         var canonicalModelPath = Path.Combine(modelDir, "model.yaml");
-        await File.WriteAllTextAsync(canonicalModelPath, request.SpecText, Encoding.UTF8);
+        await File.WriteAllTextAsync(canonicalModelPath, normalizedSpecText, Encoding.UTF8);
 
-        var metadataContext = ExtractMetadataContext(request.SpecText, request.ProvenanceJson);
+        var metadataContext = ExtractMetadataContext(normalizedSpecText, request.ProvenanceJson);
         var modelHash = await ComputeFileHashAsync(canonicalModelPath);
         await WriteMetadataAsync(Path.Combine(modelDir, "metadata.json"), metadataContext, modelHash, jsonOptions);
 
@@ -106,26 +126,19 @@ public static class RunArtifactWriter
         var seriesMetas = new List<SeriesMeta>();
         var seriesHashes = new Dictionary<string, string>(StringComparer.Ordinal);
 
-        var modelDto = (dynamic)request.Model;
-        var resolvedSeries = ResolveSeries(modelDto.Outputs, request.Context);
-
-        foreach (var nodeId in resolvedSeries)
+        foreach (var descriptor in seriesDescriptorList)
         {
-            if (!request.Context.TryGetValue(nodeId, out double[] seriesData))
+            if (!request.Context.TryGetValue(descriptor.NodeId, out var seriesData))
             {
-                continue;
+                throw new InvalidOperationException($"Series '{descriptor.NodeId.Value}' referenced by topology semantics was not present in the run context.");
             }
 
-            var measure = nodeId.Value;
-            var componentId = nodeId.Value.ToUpperInvariant();
-            var seriesId = $"{measure}@{componentId}@DEFAULT";
-            var csvName = $"{seriesId}.csv";
-            var path = Path.Combine(seriesDir, csvName);
+            var path = Path.Combine(seriesDir, descriptor.CsvFileName);
 
             await using (var writer = new StreamWriter(path, false, Encoding.UTF8, 4096))
             {
                 writer.NewLine = "\n";
-                await writer.WriteLineAsync("t,value");
+                await writer.WriteLineAsync("bin_index,value");
                 for (var t = 0; t < seriesData.Length; t++)
                 {
                     await writer.WriteAsync(t.ToString(CultureInfo.InvariantCulture));
@@ -136,14 +149,14 @@ public static class RunArtifactWriter
             }
 
             var hash = await ComputeFileHashAsync(path);
-            seriesHashes[seriesId] = hash;
+            seriesHashes[descriptor.SeriesId] = hash;
             seriesMetas.Add(new SeriesMeta
             {
-                Id = seriesId,
+                Id = descriptor.SeriesId,
                 Kind = "flow",
-                Path = $"series/{csvName}",
+                Path = descriptor.RootRelativePath,
                 Unit = "entities/bin",
-                ComponentId = componentId,
+                ComponentId = descriptor.ComponentId,
                 Class = "DEFAULT",
                 Points = seriesData.Length,
                 Hash = hash
@@ -151,11 +164,10 @@ public static class RunArtifactWriter
 
             if (request.Verbose)
             {
-                Console.WriteLine($"  Wrote {csvName} ({seriesData.Length} rows)");
+                Console.WriteLine($"  Wrote {descriptor.CsvFileName} ({seriesData.Length} rows)");
             }
         }
 
-        var gridDto = (dynamic)request.Grid;
         var runJson = new RunJson
         {
             SchemaVersion = 1,
@@ -251,6 +263,25 @@ public static class RunArtifactWriter
         await using var stream = File.OpenRead(path);
         var hash = await SHA256.HashDataAsync(stream, CancellationToken.None);
         return "sha256:" + Convert.ToHexString(hash).ToLowerInvariant();
+    }
+
+    private sealed record SeriesDescriptor(
+        NodeId NodeId,
+        string SeriesId,
+        string ComponentId,
+        string CsvFileName,
+        string RootRelativePath,
+        string ModelRelativePath);
+
+    private static SeriesDescriptor CreateSeriesDescriptor(NodeId nodeId)
+    {
+        var measure = nodeId.Value;
+        var componentId = measure.ToUpperInvariant();
+        var seriesId = $"{measure}@{componentId}@DEFAULT";
+        var csvName = $"{seriesId}.csv";
+        var relativePath = $"series/{csvName}";
+        var modelRelativePath = $"../series/{csvName}";
+        return new SeriesDescriptor(nodeId, seriesId, componentId, csvName, relativePath, modelRelativePath);
     }
 
     private static IReadOnlyList<NodeId> ResolveSeries(object? outputsObj, IReadOnlyDictionary<NodeId, double[]> context)
@@ -558,6 +589,186 @@ public static class RunArtifactWriter
         };
 
         await File.WriteAllTextAsync(metadataPath, JsonSerializer.Serialize(document, options), Encoding.UTF8);
+    }
+
+    private static string NormalizeTopologySemantics(
+        string specText,
+        Dictionary<string, SeriesDescriptor> descriptorMap,
+        List<SeriesDescriptor> descriptorList,
+        IReadOnlyDictionary<NodeId, double[]> context)
+    {
+        if (string.IsNullOrWhiteSpace(specText))
+        {
+            return specText;
+        }
+
+        var yaml = new YamlStream();
+        try
+        {
+            yaml.Load(new StringReader(specText));
+        }
+        catch
+        {
+            // If the YAML cannot be parsed we fall back to the original text.
+            return specText;
+        }
+
+        if (yaml.Documents.Count == 0 || yaml.Documents[0].RootNode is not YamlMappingNode root)
+        {
+            return specText;
+        }
+
+        var topologyKey = new YamlScalarNode("topology");
+        if (!root.Children.TryGetValue(topologyKey, out var topologyNode) || topologyNode is not YamlMappingNode topologyMap)
+        {
+            return specText;
+        }
+
+        if (!topologyMap.Children.TryGetValue(new YamlScalarNode("nodes"), out var nodesNode) || nodesNode is not YamlSequenceNode nodesSequence)
+        {
+            return specText;
+        }
+
+        var semanticsKey = new YamlScalarNode("semantics");
+        var idKey = new YamlScalarNode("id");
+        var modified = false;
+
+        foreach (var node in nodesSequence.Children.OfType<YamlMappingNode>())
+        {
+            if (!node.Children.TryGetValue(idKey, out var idNode) || idNode is not YamlScalarNode idScalar || string.IsNullOrWhiteSpace(idScalar.Value))
+            {
+                continue;
+            }
+
+            var nodeId = idScalar.Value.Trim();
+
+            if (!node.Children.TryGetValue(semanticsKey, out var semanticsNode) || semanticsNode is not YamlMappingNode semanticsMap)
+            {
+                throw new InvalidOperationException($"Topology node '{nodeId}' must include semantics.");
+            }
+
+            modified |= NormalizeSemanticsField(semanticsMap, nodeId, "arrivals", required: true, descriptorMap, descriptorList, context);
+            modified |= NormalizeSemanticsField(semanticsMap, nodeId, "served", required: true, descriptorMap, descriptorList, context);
+            modified |= NormalizeSemanticsField(semanticsMap, nodeId, "errors", required: true, descriptorMap, descriptorList, context);
+            modified |= NormalizeSemanticsField(semanticsMap, nodeId, "externalDemand", required: false, descriptorMap, descriptorList, context);
+            modified |= NormalizeSemanticsField(semanticsMap, nodeId, "queueDepth", required: false, descriptorMap, descriptorList, context);
+            modified |= NormalizeSemanticsField(semanticsMap, nodeId, "capacity", required: false, descriptorMap, descriptorList, context);
+        }
+
+        if (!modified)
+        {
+            return specText;
+        }
+
+        var writer = new StringWriter();
+        yaml.Save(writer, assignAnchors: false);
+        return writer.ToString();
+    }
+
+    private static bool NormalizeSemanticsField(
+        YamlMappingNode semanticsMap,
+        string nodeId,
+        string field,
+        bool required,
+        Dictionary<string, SeriesDescriptor> descriptorMap,
+        List<SeriesDescriptor> descriptorList,
+        IReadOnlyDictionary<NodeId, double[]> context)
+    {
+        var keyNode = new YamlScalarNode(field);
+        if (!semanticsMap.Children.TryGetValue(keyNode, out var valueNode))
+        {
+            if (required)
+            {
+                throw new InvalidOperationException($"Topology node '{nodeId}' must specify semantics.{field}");
+            }
+            return false;
+        }
+
+        if (valueNode is not YamlScalarNode scalar)
+        {
+            if (required)
+            {
+                throw new InvalidOperationException($"Topology node '{nodeId}' must specify semantics.{field}");
+            }
+
+            semanticsMap.Children.Remove(keyNode);
+            return true;
+        }
+
+        var normalized = NormalizeSemanticsValue(scalar.Value, nodeId, field, required, descriptorMap, descriptorList, context);
+        if (normalized is null)
+        {
+            if (semanticsMap.Children.Remove(keyNode))
+            {
+                return true;
+            }
+            return false;
+        }
+
+        if (!string.Equals(normalized, scalar.Value, StringComparison.Ordinal))
+        {
+            scalar.Value = normalized;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static string? NormalizeSemanticsValue(
+        string? raw,
+        string nodeId,
+        string field,
+        bool required,
+        Dictionary<string, SeriesDescriptor> descriptorMap,
+        List<SeriesDescriptor> descriptorList,
+        IReadOnlyDictionary<NodeId, double[]> context)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            if (required)
+            {
+                throw new InvalidOperationException($"Topology node '{nodeId}' must specify semantics.{field}");
+            }
+            return null;
+        }
+
+        var trimmed = raw.Trim();
+        if (trimmed.StartsWith("file:", StringComparison.OrdinalIgnoreCase))
+        {
+            return trimmed;
+        }
+
+        if (trimmed.Contains("://", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException($"Topology node '{nodeId}' semantics.{field} must use file: URIs (value '{trimmed}').");
+        }
+
+        var descriptor = GetOrCreateDescriptor(trimmed, nodeId, descriptorMap, descriptorList, context);
+        return $"file:{descriptor.ModelRelativePath}";
+    }
+
+    private static SeriesDescriptor GetOrCreateDescriptor(
+        string seriesId,
+        string topologyNodeId,
+        Dictionary<string, SeriesDescriptor> descriptorMap,
+        List<SeriesDescriptor> descriptorList,
+        IReadOnlyDictionary<NodeId, double[]> context)
+    {
+        if (descriptorMap.TryGetValue(seriesId, out var existing))
+        {
+            return existing;
+        }
+
+        var seriesNodeId = new NodeId(seriesId);
+        if (!context.TryGetValue(seriesNodeId, out _))
+        {
+            throw new InvalidOperationException($"Topology node '{topologyNodeId}' semantics references unknown series '{seriesId}'.");
+        }
+
+        var descriptor = CreateSeriesDescriptor(seriesNodeId);
+        descriptorMap[seriesId] = descriptor;
+        descriptorList.Add(descriptor);
+        return descriptor;
     }
 
     private static string ComputeScenarioHash(string modelText, int? seed, double? startTimeBias)

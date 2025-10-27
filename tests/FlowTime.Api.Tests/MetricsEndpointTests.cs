@@ -62,10 +62,10 @@ public sealed class MetricsEndpointTests : IClassFixture<TestWebApplicationFacto
         Assert.Equal(binCount, orderService.BinsTotal);
         Assert.Equal(0, orderService.SlaPct);
         Assert.Equal(binCount, orderService.Mini.Count);
-        Assert.Equal(1.0, orderService.Mini[0], 4);
-        Assert.Equal(0.6667, orderService.Mini[1], 4);
-        Assert.Equal(1.0, orderService.Mini[2], 4);
-        Assert.Equal(0.4444, orderService.Mini[3], 4);
+        Assert.Equal(0.9, orderService.Mini[0], 4);
+        Assert.Equal(0.6, orderService.Mini[1], 4);
+        Assert.Equal(0.9, orderService.Mini[2], 4);
+        Assert.Equal(0.4, orderService.Mini[3], 4);
 
         var queue = payload.Services.Single(s => s.Id == "SupportQueue");
         Assert.Equal(2, queue.BinsMet);

@@ -8,6 +8,7 @@ using Bunit;
 using FlowTime.UI.Components.Artifacts;
 using FlowTime.UI.Pages.TimeTravel;
 using FlowTime.UI.Services;
+using FlowTime.UI.Components.Topology;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
@@ -279,6 +280,9 @@ public sealed class ArtifactListRenderTests : TestContext
 
         public Task<ApiCallResult<TimeTravelMetricsResponseDto>> GetRunMetricsAsync(string runId, CancellationToken ct = default)
             => Task.FromResult(ApiCallResult<TimeTravelMetricsResponseDto>.Fail(404, "not implemented"));
+
+        public Task<ApiCallResult<GraphResponseModel>> GetRunGraphAsync(string runId, CancellationToken ct = default)
+            => Task.FromResult(ApiCallResult<GraphResponseModel>.Fail(404, "not implemented"));
 
         public Task<ApiCallResult<RunResponse>> RunAsync(string yaml, CancellationToken ct = default)
             => Task.FromResult(ApiCallResult<RunResponse>.Fail(400, "not implemented"));

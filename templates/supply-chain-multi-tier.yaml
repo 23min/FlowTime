@@ -79,11 +79,13 @@ topology:
       semantics:
         arrivals: customer_demand
         served: supplied_items
+        errors: supplier_shortage
     - id: Distributor
       kind: service
       semantics:
         arrivals: supplied_items
         served: distributed_items
+        errors: distributor_backlog
     - id: Retailer
       kind: service
       semantics:
@@ -128,6 +130,14 @@ nodes:
     kind: expr
     expr: "MIN(distributed_items, retailer_capacity)"
 
+  - id: supplier_shortage
+    kind: expr
+    expr: "MAX(0, customer_demand - supplied_items)"
+
+  - id: distributor_backlog
+    kind: expr
+    expr: "MAX(0, supplied_items - distributed_items)"
+
   - id: unmet_demand
     kind: expr
     expr: "MAX(0, customer_demand - retail_sales)"
@@ -143,5 +153,9 @@ outputs:
     as: sales.csv
   - series: unmet_demand
     as: stockouts.csv
+  - series: supplier_shortage
+    as: supplier_shortage.csv
+  - series: distributor_backlog
+    as: distributor_backlog.csv
   - series: supply_efficiency
     as: efficiency.csv

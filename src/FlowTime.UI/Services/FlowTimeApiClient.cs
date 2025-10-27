@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using FlowTime.UI.Configuration;
+using FlowTime.UI.Components.Topology;
 
 namespace FlowTime.UI.Services;
 
@@ -21,6 +22,7 @@ public interface IFlowTimeApiClient
     Task<ApiCallResult<TelemetryCaptureResponseDto>> GenerateTelemetryCaptureAsync(TelemetryCaptureRequestDto request, CancellationToken ct = default);
     Task<ApiCallResult<TimeTravelStateSnapshotDto>> GetRunStateAsync(string runId, int binIndex, CancellationToken ct = default);
     Task<ApiCallResult<TimeTravelStateWindowDto>> GetRunStateWindowAsync(string runId, int startBin, int endBin, CancellationToken ct = default);
+    Task<ApiCallResult<GraphResponseModel>> GetRunGraphAsync(string runId, CancellationToken ct = default);
     Task<ApiCallResult<SeriesIndex>> GetRunIndexAsync(string runId, CancellationToken ct = default);
     Task<ApiCallResult<Stream>> GetRunSeriesAsync(string runId, string seriesId, CancellationToken ct = default);
     Task<ApiCallResult<TimeTravelMetricsResponseDto>> GetRunMetricsAsync(string runId, CancellationToken ct = default);
@@ -145,6 +147,12 @@ internal sealed class FlowTimeApiClient : IFlowTimeApiClient
     {
         var path = $"{apiBasePath}/runs/{Uri.EscapeDataString(runId)}/state_window?startBin={startBin}&endBin={endBin}";
         return GetJson<TimeTravelStateWindowDto>(path, ct);
+    }
+
+    public Task<ApiCallResult<GraphResponseModel>> GetRunGraphAsync(string runId, CancellationToken ct = default)
+    {
+        var path = $"{apiBasePath}/runs/{Uri.EscapeDataString(runId)}/graph";
+        return GetJson<GraphResponseModel>(path, ct);
     }
 
     public Task<ApiCallResult<SeriesIndex>> GetRunIndexAsync(string runId, CancellationToken ct = default)

@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Linq;
 using FlowTime.UI.Configuration;
 using FlowTime.UI.Services;
+using FlowTime.UI.Components.Topology;
 using Microsoft.Extensions.Options;
 
 namespace FlowTime.UI.Tests;
@@ -200,6 +201,45 @@ public class FlowTimeApiClientTests
         Assert.Equal(3, response.Value?.Window.BinCount);
         Assert.Equal(3, response.Value?.Nodes.Single().Series["lat"].Length);
         Assert.Equal("/v1/runs/run_xyz/state_window?startBin=10&endBin=12", captured?.RequestUri?.PathAndQuery);
+    }
+
+    [Fact]
+    public async Task GetRunGraphAsync_ParsesResponse()
+    {
+        HttpRequestMessage? captured = null;
+        var handler = new StubHandler(request =>
+        {
+            captured = request;
+            const string json = """
+            {
+              "nodes": [
+                { "id": "source", "kind": "service", "semantics": { "arrivals": "series:arr", "served": "series:srv" } },
+                { "id": "target", "kind": "queue", "semantics": { "arrivals": "series:arr", "served": "series:srv" } }
+              ],
+              "edges": [
+                { "id": "edge_source_target", "from": "source:out", "to": "target:in", "weight": 1 }
+              ]
+            }
+            """;
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(json, Encoding.UTF8, "application/json")
+            };
+        });
+
+        using var http = new HttpClient(handler)
+        {
+            BaseAddress = new Uri("http://localhost:8080/")
+        };
+        var opts = Options.Create(new FlowTimeApiOptions { ApiVersion = "v1" });
+        var client = new FlowTimeApiClient(http, opts.Value);
+
+        var response = await client.GetRunGraphAsync("run_graph", CancellationToken.None);
+
+        Assert.True(response.Success);
+        Assert.Equal(2, response.Value?.Nodes.Count);
+        Assert.Single(response.Value?.Edges);
+        Assert.Equal("/v1/runs/run_graph/graph", captured?.RequestUri?.PathAndQuery);
     }
 
     [Fact]
