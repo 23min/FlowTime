@@ -30,6 +30,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
 
     [Parameter] public TopologyGraph? Graph { get; set; }
     [Parameter] public IReadOnlyDictionary<string, NodeBinMetrics>? NodeMetrics { get; set; }
+    [Parameter] public TopologyOverlaySettings OverlaySettings { get; set; } = TopologyOverlaySettings.Default;
     [Parameter] public double CanvasWidth { get; set; } = 960;
     [Parameter] public double CanvasHeight { get; set; } = 640;
 
@@ -63,7 +64,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         }
 
         NodeProxies = BuildNodeProxies(Graph!, NodeMetrics, focusedNodeId);
-        pendingRequest = BuildRenderRequest(Graph!, NodeMetrics, focusedNodeId);
+        pendingRequest = BuildRenderRequest(Graph!, NodeMetrics, focusedNodeId, OverlaySettings);
         renderScheduled = true;
     }
 
@@ -146,7 +147,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             return;
         }
 
-        pendingRequest = BuildRenderRequest(Graph!, NodeMetrics, focusedNodeId);
+        pendingRequest = BuildRenderRequest(Graph!, NodeMetrics, focusedNodeId, OverlaySettings);
         renderScheduled = true;
     }
 
@@ -283,7 +284,8 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
     private static CanvasRenderRequest BuildRenderRequest(
         TopologyGraph graph,
         IReadOnlyDictionary<string, NodeBinMetrics>? metrics,
-        string? focusedNode)
+        string? focusedNode,
+        TopologyOverlaySettings overlays)
     {
         var nodeDtos = graph.Nodes
             .Select(node =>
@@ -349,7 +351,25 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         var maxY = graph.Nodes.Max(node => node.Y + halfHeight);
 
         var viewport = new CanvasViewport(minX, minY, maxX, maxY, ViewportPadding);
-        return new CanvasRenderRequest(nodeDtos, edges, viewport);
+
+        var overlayPayload = new OverlaySettingsPayload(
+            overlays.Labels,
+            overlays.EdgeArrows,
+            overlays.EdgeShares,
+            overlays.Sparklines,
+            overlays.AutoLod,
+            overlays.ZoomLowThreshold,
+            overlays.ZoomMidThreshold,
+            overlays.ColorBasis,
+            overlays.SlaWarningThreshold,
+            overlays.UtilizationWarningThreshold,
+            overlays.ErrorRateAlertThreshold,
+            overlays.NeighborEmphasis,
+            overlays.IncludeServiceNodes,
+            overlays.IncludeExpressionNodes,
+            overlays.IncludeConstNodes);
+
+        return new CanvasRenderRequest(nodeDtos, edges, viewport, overlayPayload);
     }
 
     public virtual void Dispose()

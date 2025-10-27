@@ -1,4 +1,5 @@
 @using MudBlazor
+@using FlowTime.UI.Components.Topology
 
 <MudStack Class="topology-feature-bar" Spacing="2">
     <MudStack Row="true" AlignItems="@AlignItems.Center" Justify="@Justify.SpaceBetween">
@@ -11,30 +12,50 @@
 
     <MudStack Spacing="2">
         <MudText Typo="Typo.caption" Class="mb-1">Overlays</MudText>
-        <MudSwitch T="bool"
-                   Checked="@workingSettings.ShowLabels"
-                   CheckedChanged="OnLabelsChanged"
-                   Color="Color.Primary"
-                   Class="mb-1"
-                   Label="Show labels" />
-        <MudSwitch T="bool"
-                   Checked="@workingSettings.ShowEdgeArrows"
-                   CheckedChanged="OnEdgeArrowsChanged"
-                   Color="Color.Primary"
-                   Class="mb-1"
-                   Label="Show edge arrows" />
-        <MudSwitch T="bool"
-                   Checked="@workingSettings.ShowEdgeShares"
-                   Disabled="true"
-                   Color="Color.Primary"
-                   Class="mb-1"
-                   Label="Edge shares (coming soon)" />
-        <MudSwitch T="bool"
-                   Checked="@workingSettings.ShowSparklines"
-                   Disabled="true"
-                   Color="Color.Primary"
-                   Class="mb-1"
-                   Label="Sparklines (coming soon)" />
+        <MudSelect T="OverlayMode"
+                   Dense="true"
+                   Variant="Variant.Outlined"
+                   Value="@workingSettings.Labels"
+                   ValueChanged="OnLabelsModeChanged"
+                   Label="Node labels">
+            @foreach (var option in overlayModeOptions)
+            {
+                <MudSelectItem Value="@option.mode">@option.label</MudSelectItem>
+            }
+        </MudSelect>
+        <MudSelect T="OverlayMode"
+                   Dense="true"
+                   Variant="Variant.Outlined"
+                   Value="@workingSettings.EdgeArrows"
+                   ValueChanged="OnEdgeArrowsModeChanged"
+                   Label="Edge arrows">
+            @foreach (var option in overlayModeOptions)
+            {
+                <MudSelectItem Value="@option.mode">@option.label</MudSelectItem>
+            }
+        </MudSelect>
+        <MudSelect T="OverlayMode"
+                   Dense="true"
+                   Variant="Variant.Outlined"
+                   Value="@workingSettings.EdgeShares"
+                   ValueChanged="OnEdgeSharesModeChanged"
+                   Label="Edge shares">
+            @foreach (var option in overlayModeOptions)
+            {
+                <MudSelectItem Value="@option.mode">@option.label</MudSelectItem>
+            }
+        </MudSelect>
+        <MudSelect T="OverlayMode"
+                   Dense="true"
+                   Variant="Variant.Outlined"
+                   Value="@workingSettings.Sparklines"
+                   ValueChanged="OnSparklinesModeChanged"
+                   Label="Sparklines">
+            @foreach (var option in overlayModeOptions)
+            {
+                <MudSelectItem Value="@option.mode">@option.label</MudSelectItem>
+            }
+        </MudSelect>
     </MudStack>
 
     <MudStack Spacing="2" Class="mt-2">
@@ -44,6 +65,105 @@
                    CheckedChanged="OnFullDagChanged"
                    Color="Color.Primary"
                    Label="Full DAG mode" />
+        <MudCheckBox T="bool"
+                     Checked="@workingSettings.IncludeServiceNodes"
+                     CheckedChanged="OnIncludeServiceChanged"
+                     Color="Color.Primary"
+                     Label="Include service nodes" />
+        <MudCheckBox T="bool"
+                     Checked="@workingSettings.IncludeExpressionNodes"
+                     CheckedChanged="OnIncludeExpressionChanged"
+                     Color="Color.Primary"
+                     Label="Include expression nodes" />
+        <MudCheckBox T="bool"
+                     Checked="@workingSettings.IncludeConstNodes"
+                     CheckedChanged="OnIncludeConstChanged"
+                     Color="Color.Primary"
+                     Label="Include constant nodes" />
+        <MudCheckBox T="bool"
+                     Checked="@workingSettings.NeighborEmphasis"
+                     CheckedChanged="OnNeighborEmphasisChanged"
+                     Color="Color.Primary"
+                     Label="Neighbor emphasis on focus" />
+    </MudStack>
+
+    <MudStack Spacing="2" Class="mt-2">
+        <MudText Typo="Typo.caption" Class="mb-1">Level of detail</MudText>
+        <MudSwitch T="bool"
+                   Checked="@workingSettings.AutoLod"
+                   CheckedChanged="OnAutoLodChanged"
+                   Color="Color.Primary"
+                   Label="Auto adjust overlays by zoom" />
+        <MudNumericField T="double"
+                         Dense="true"
+                         Variant="Variant.Outlined"
+                         Value="@workingSettings.ZoomLowThreshold"
+                         ValueChanged="OnZoomLowChanged"
+                         Label="Labels appear at scale ≥"
+                         Immediate="true"
+                         Adornment="Adornment.End"
+                         AdornmentText="x" />
+        <MudNumericField T="double"
+                         Dense="true"
+                         Variant="Variant.Outlined"
+                         Value="@workingSettings.ZoomMidThreshold"
+                         ValueChanged="OnZoomMidChanged"
+                         Label="Detail overlays at scale ≥"
+                         Immediate="true"
+                         Adornment="Adornment.End"
+                         AdornmentText="x" />
+    </MudStack>
+
+    <MudStack Spacing="2" Class="mt-2">
+        <MudText Typo="Typo.caption" Class="mb-1">Color basis</MudText>
+        <MudRadioGroup T="TopologyColorBasis"
+                       Value="@workingSettings.ColorBasis"
+                       ValueChanged="OnColorBasisChanged">
+            <MudRadio T="TopologyColorBasis" Value="TopologyColorBasis.Sla" Color="Color.Primary">SLA (success ratio)</MudRadio>
+            <MudRadio T="TopologyColorBasis" Value="TopologyColorBasis.Utilization" Color="Color.Primary">Utilization</MudRadio>
+            <MudRadio T="TopologyColorBasis" Value="TopologyColorBasis.Errors" Color="Color.Primary">Error rate</MudRadio>
+            <MudRadio T="TopologyColorBasis" Value="TopologyColorBasis.Queue" Color="Color.Primary">Queue depth</MudRadio>
+        </MudRadioGroup>
+
+        <MudNumericField T="double"
+                         Dense="true"
+                         Variant="Variant.Outlined"
+                         Value="@workingSettings.SlaWarningThreshold"
+                         ValueChanged="OnSlaThresholdChanged"
+                         Label="SLA warning ≥"
+                         Immediate="true"
+                         Adornment="Adornment.End"
+                         AdornmentText="ratio" />
+        <MudNumericField T="double"
+                         Dense="true"
+                         Variant="Variant.Outlined"
+                         Value="@workingSettings.UtilizationWarningThreshold"
+                         ValueChanged="OnUtilThresholdChanged"
+                         Label="Utilization warn ≥"
+                         Immediate="true"
+                         Adornment="Adornment.End"
+                         AdornmentText="ratio" />
+        <MudNumericField T="double"
+                         Dense="true"
+                         Variant="Variant.Outlined"
+                         Value="@workingSettings.ErrorRateAlertThreshold"
+                         ValueChanged="OnErrorThresholdChanged"
+                         Label="Error alert ≥"
+                         Immediate="true"
+                         Adornment="Adornment.End"
+                         AdornmentText="ratio" />
+    </MudStack>
+
+    <MudStack Spacing="2" Class="mt-2">
+        <MudText Typo="Typo.caption">
+            Edge shares, sparklines, and full DAG filtering follow these settings. “Auto” picks sensible defaults based on zoom level.
+        </MudText>
+        <MudButton Variant="Variant.Outlined"
+                   Color="Color.Secondary"
+                   Size="Size.Small"
+                   OnClick="ResetSettings">
+            Reset to defaults
+        </MudButton>
     </MudStack>
 </MudStack>
 
@@ -59,6 +179,13 @@
 
     private TopologyOverlaySettings workingSettings = TopologyOverlaySettings.Default;
 
+    private readonly (OverlayMode mode, string label)[] overlayModeOptions =
+    {
+        (OverlayMode.Auto, "Auto"),
+        (OverlayMode.On, "On"),
+        (OverlayMode.Off, "Off")
+    };
+
     protected override void OnParametersSet()
     {
         workingSettings = Settings.Clone();
@@ -69,21 +196,110 @@
         return CloseRequested.InvokeAsync();
     }
 
-    private Task OnLabelsChanged(bool value)
+    private Task OnLabelsModeChanged(OverlayMode value)
     {
-        workingSettings.ShowLabels = value;
-        return SettingsChanged.InvokeAsync(workingSettings.Clone());
+        workingSettings.Labels = value;
+        return NotifyChange();
     }
 
-    private Task OnEdgeArrowsChanged(bool value)
+    private Task OnEdgeArrowsModeChanged(OverlayMode value)
     {
-        workingSettings.ShowEdgeArrows = value;
-        return SettingsChanged.InvokeAsync(workingSettings.Clone());
+        workingSettings.EdgeArrows = value;
+        return NotifyChange();
+    }
+
+    private Task OnEdgeSharesModeChanged(OverlayMode value)
+    {
+        workingSettings.EdgeShares = value;
+        return NotifyChange();
+    }
+
+    private Task OnSparklinesModeChanged(OverlayMode value)
+    {
+        workingSettings.Sparklines = value;
+        return NotifyChange();
     }
 
     private Task OnFullDagChanged(bool value)
     {
         workingSettings.EnableFullDag = value;
+        return NotifyChange();
+    }
+
+    private Task OnIncludeServiceChanged(bool value)
+    {
+        workingSettings.IncludeServiceNodes = value;
+        return NotifyChange();
+    }
+
+    private Task OnIncludeExpressionChanged(bool value)
+    {
+        workingSettings.IncludeExpressionNodes = value;
+        return NotifyChange();
+    }
+
+    private Task OnIncludeConstChanged(bool value)
+    {
+        workingSettings.IncludeConstNodes = value;
+        return NotifyChange();
+    }
+
+    private Task OnNeighborEmphasisChanged(bool value)
+    {
+        workingSettings.NeighborEmphasis = value;
+        return NotifyChange();
+    }
+
+    private Task OnAutoLodChanged(bool value)
+    {
+        workingSettings.AutoLod = value;
+        return NotifyChange();
+    }
+
+    private Task OnZoomLowChanged(double value)
+    {
+        workingSettings.ZoomLowThreshold = value;
+        return NotifyChange();
+    }
+
+    private Task OnZoomMidChanged(double value)
+    {
+        workingSettings.ZoomMidThreshold = value;
+        return NotifyChange();
+    }
+
+    private Task OnColorBasisChanged(TopologyColorBasis value)
+    {
+        workingSettings.ColorBasis = value;
+        return NotifyChange();
+    }
+
+    private Task OnSlaThresholdChanged(double value)
+    {
+        workingSettings.SlaWarningThreshold = value;
+        return NotifyChange();
+    }
+
+    private Task OnUtilThresholdChanged(double value)
+    {
+        workingSettings.UtilizationWarningThreshold = value;
+        return NotifyChange();
+    }
+
+    private Task OnErrorThresholdChanged(double value)
+    {
+        workingSettings.ErrorRateAlertThreshold = value;
+        return NotifyChange();
+    }
+
+    private Task ResetSettings()
+    {
+        workingSettings = TopologyOverlaySettings.Default.Clone();
+        return NotifyChange();
+    }
+
+    private Task NotifyChange()
+    {
         return SettingsChanged.InvokeAsync(workingSettings.Clone());
     }
 }

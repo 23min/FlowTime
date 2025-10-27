@@ -371,6 +371,64 @@
         ctx.fillText(finalText, Math.round(x), Math.round(y));
     }
 
+    function parseOverlaySettings(raw, scale) {
+        const modeLabels = normalizeMode(raw.labels ?? raw.Labels);
+        const modeEdgeArrows = normalizeMode(raw.edgeArrows ?? raw.EdgeArrows ?? 1);
+        const modeEdgeShares = normalizeMode(raw.edgeShares ?? raw.EdgeShares);
+        const modeSparklines = normalizeMode(raw.sparklines ?? raw.Sparklines);
+
+        const autoLod = !!(raw.autoLod ?? raw.AutoLod ?? true);
+        const zoomLow = Number(raw.zoomLowThreshold ?? raw.ZoomLowThreshold ?? 0.5) || 0.5;
+        const zoomMid = Number(raw.zoomMidThreshold ?? raw.ZoomMidThreshold ?? 1.0) || 1.0;
+
+        const defaultLabels = autoLod ? scale >= zoomLow : true;
+        const defaultEdgeArrows = autoLod ? scale >= zoomLow : true;
+        const defaultEdgeShares = autoLod ? scale >= zoomMid : false;
+        const defaultSparklines = autoLod ? scale >= zoomMid : false;
+
+        return {
+            showLabels: resolveOverlay(modeLabels, defaultLabels),
+            showEdgeArrows: resolveOverlay(modeEdgeArrows, defaultEdgeArrows),
+            showEdgeShares: resolveOverlay(modeEdgeShares, defaultEdgeShares),
+            showSparklines: resolveOverlay(modeSparklines, defaultSparklines),
+            autoLod,
+            zoomLowThreshold: zoomLow,
+            zoomMidThreshold: zoomMid,
+            colorBasis: raw.colorBasis ?? raw.ColorBasis ?? 0,
+            neighborEmphasis: !!(raw.neighborEmphasis ?? raw.NeighborEmphasis ?? true),
+            includeServiceNodes: !!(raw.includeServiceNodes ?? raw.IncludeServiceNodes ?? true),
+            includeExpressionNodes: !!(raw.includeExpressionNodes ?? raw.IncludeExpressionNodes ?? false),
+            includeConstNodes: !!(raw.includeConstNodes ?? raw.IncludeConstNodes ?? false)
+        };
+    }
+
+    function normalizeMode(value) {
+        if (value === null || value === undefined) {
+            return 0;
+        }
+        const num = Number(value);
+        if (!Number.isFinite(num)) {
+            return 0;
+        }
+        if (num === 1) {
+            return 1;
+        }
+        if (num === 2) {
+            return 2;
+        }
+        return 0;
+    }
+
+    function resolveOverlay(mode, autoDefault) {
+        if (mode === 1) {
+            return true;
+        }
+        if (mode === 2) {
+            return false;
+        }
+        return !!autoDefault;
+    }
+
     window.FlowTime = window.FlowTime || {};
     window.FlowTime.TopologyCanvas = {
         render,
