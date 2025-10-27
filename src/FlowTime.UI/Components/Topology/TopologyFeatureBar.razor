@@ -1,0 +1,89 @@
+@using MudBlazor
+
+<MudStack Class="topology-feature-bar" Spacing="2">
+    <MudStack Row="true" AlignItems="@AlignItems.Center" Justify="@Justify.SpaceBetween">
+        <MudText Typo="Typo.subtitle2">Topology Features</MudText>
+        <MudIconButton Icon="@Icons.Material.Filled.Close"
+                       Size="Size.Small"
+                       AriaLabel="Close topology feature bar"
+                       OnClick="Close" />
+    </MudStack>
+
+    <MudStack Spacing="2">
+        <MudText Typo="Typo.caption" Class="mb-1">Overlays</MudText>
+        <MudSwitch T="bool"
+                   Checked="@workingSettings.ShowLabels"
+                   CheckedChanged="OnLabelsChanged"
+                   Color="Color.Primary"
+                   Class="mb-1"
+                   Label="Show labels" />
+        <MudSwitch T="bool"
+                   Checked="@workingSettings.ShowEdgeArrows"
+                   CheckedChanged="OnEdgeArrowsChanged"
+                   Color="Color.Primary"
+                   Class="mb-1"
+                   Label="Show edge arrows" />
+        <MudSwitch T="bool"
+                   Checked="@workingSettings.ShowEdgeShares"
+                   Disabled="true"
+                   Color="Color.Primary"
+                   Class="mb-1"
+                   Label="Edge shares (coming soon)" />
+        <MudSwitch T="bool"
+                   Checked="@workingSettings.ShowSparklines"
+                   Disabled="true"
+                   Color="Color.Primary"
+                   Class="mb-1"
+                   Label="Sparklines (coming soon)" />
+    </MudStack>
+
+    <MudStack Spacing="2" Class="mt-2">
+        <MudText Typo="Typo.caption" Class="mb-1">Topology</MudText>
+        <MudSwitch T="bool"
+                   Checked="@workingSettings.EnableFullDag"
+                   CheckedChanged="OnFullDagChanged"
+                   Color="Color.Primary"
+                   Label="Full DAG mode" />
+    </MudStack>
+</MudStack>
+
+@code {
+    [Parameter]
+    public TopologyOverlaySettings Settings { get; set; } = TopologyOverlaySettings.Default;
+
+    [Parameter]
+    public EventCallback<TopologyOverlaySettings> SettingsChanged { get; set; }
+
+    [Parameter]
+    public EventCallback CloseRequested { get; set; }
+
+    private TopologyOverlaySettings workingSettings = TopologyOverlaySettings.Default;
+
+    protected override void OnParametersSet()
+    {
+        workingSettings = Settings.Clone();
+    }
+
+    private Task Close()
+    {
+        return CloseRequested.InvokeAsync();
+    }
+
+    private Task OnLabelsChanged(bool value)
+    {
+        workingSettings.ShowLabels = value;
+        return SettingsChanged.InvokeAsync(workingSettings.Clone());
+    }
+
+    private Task OnEdgeArrowsChanged(bool value)
+    {
+        workingSettings.ShowEdgeArrows = value;
+        return SettingsChanged.InvokeAsync(workingSettings.Clone());
+    }
+
+    private Task OnFullDagChanged(bool value)
+    {
+        workingSettings.EnableFullDag = value;
+        return SettingsChanged.InvokeAsync(workingSettings.Clone());
+    }
+}

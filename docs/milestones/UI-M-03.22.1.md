@@ -16,6 +16,11 @@ A known bug with tooltips is also tracked and fixed here so keyboard/pointer ins
 
 ## UX Design
 
+- Component naming & scope
+  - Introduce a dedicated `TopologyFeatureBar` component scoped to the topology page.
+  - Other areas (dashboards, SLA views, etc.) may adopt their own feature bars later; keep the foundation adaptable but avoid premature generalization.
+  - Initial pass focuses solely on topology overlays; cross-page reuse is deferred until requirements surface.
+
 - Feature Bar (secondary Mud bar)
   - Vertical bar that appears immediately to the right of the primary left menu bar; it spans the same height as the main menu.
   - Component: `MudDrawer` (left‑side, clipped under app layout). Fixed width ~320 px.
@@ -32,6 +37,8 @@ A known bug with tooltips is also tracked and fixed here so keyboard/pointer ins
   - Sparklines render above nodes when enabled and at appropriate zoom levels.
   - Edge share labels appear near the edge midpoint when enabled.
   - Neighbor emphasis on focus (fade non‑neighbors).
+
+**Validation plan:** Finalize the `TopologyFeatureBar` layout (sections, toggles, defaults) before implementing LOD logic. Stakeholders sign off on UX (labels, grouping, persistence) prior to wiring Auto/On/Off behaviors.
 
 ---
 
@@ -169,4 +176,3 @@ Each overlay supports Auto/On/Off. Auto follows LOD rules above; On forces displ
 - `src/FlowTime.UI/wwwroot/js/topologyCanvas.js` — LOD handling, labels/sparklines/edge shares rendering.
 - `src/FlowTime.UI/Services/*` — optional series fetch helpers for non‑service nodes.
 - Docs and legend updates under `docs/milestones` and page help.
-

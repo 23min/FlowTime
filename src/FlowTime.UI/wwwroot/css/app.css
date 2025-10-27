@@ -225,6 +225,33 @@ code {
 .legend-swatch.error { background-color: #D55E00; }
 .legend-swatch.neutral { background-color: #7A7A7A; }
 
+.topology-layout {
+    display: flex;
+    gap: 1.5rem;
+    align-items: stretch;
+}
+
+.topology-feature-panel {
+    width: 320px;
+    padding: 1.5rem;
+    display: flex;
+}
+
+.topology-feature-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    flex: 1 1 auto;
+}
+
+.topology-feature-bar .mud-switch {
+    width: 100%;
+}
+
+.topology-layout .topology-page {
+    flex: 1 1 auto;
+}
+
 .topology-canvas-host {
     position: relative;
     background: var(--mud-palette-surface);

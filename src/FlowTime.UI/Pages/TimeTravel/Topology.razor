@@ -7,98 +7,117 @@
 @using System.Linq
 @inject ITimeTravelDataService DataService
 @inject NavigationManager Navigation
+@inject IJSRuntime JS
 @implements IDisposable
 
 <PageTitle>Time-Travel Topology</PageTitle>
 
-<MudPaper Class="pa-5 topology-page" Elevation="1">
-    <MudStack Spacing="3">
-        <MudStack Row="true" AlignItems="@AlignItems.Center" Justify="@Justify.SpaceBetween">
-            <MudText Typo="Typo.h5">Time-Travel Topology</MudText>
-            <MudButton Variant="Variant.Text"
-                       Color="Color.Primary"
-                       StartIcon="@Icons.Material.Filled.ArrowBack"
-                       OnClick="NavigateBack">
-                Artifacts
-            </MudButton>
-        </MudStack>
+<MudStack Row="true" Class="topology-layout" AlignItems="@AlignItems.Stretch" Spacing="2">
+    @if (featureBarOpen)
+    {
+        <MudPaper Class="topology-feature-panel" Elevation="1">
+            <TopologyFeatureBar Settings="overlaySettings"
+                                 SettingsChanged="OnOverlaySettingsChanged"
+                                 CloseRequested="CloseFeatureBar" />
+        </MudPaper>
+    }
 
-        @if (string.IsNullOrWhiteSpace(RunId))
-        {
-            <MudAlert Severity="Severity.Info">
-                Select a run from the Artifacts list to inspect its topology.
-            </MudAlert>
-        }
-        else if (!string.IsNullOrWhiteSpace(errorMessage))
-        {
-            <MudAlert Severity="Severity.Error" Variant="Variant.Outlined">
-                <MudText Typo="Typo.body1">@errorMessage</MudText>
-            </MudAlert>
-        }
-        else if (isLoading)
-        {
-            <MudPaper Class="pa-6 d-flex flex-column align-center justify-center" Elevation="0">
-                <MudProgressCircular Color="Color.Primary" Diameter="64" Indeterminate="true" />
-                <MudText Typo="Typo.caption" Class="mt-2">Loading topology…</MudText>
-            </MudPaper>
-        }
-        else if (topologyGraph is null)
-        {
-            <MudAlert Severity="Severity.Warning">
-                Topology data was not available for run <strong>@RunId</strong>.
-            </MudAlert>
-        }
-        else
-        {
-            <MudStack Spacing="2">
-                <MudStack Row="true" Spacing="2" AlignItems="@AlignItems.Center">
-                    <MudText Typo="Typo.subtitle1">@runDisplayName</MudText>
-                    <MudText Typo="Typo.caption" Color="Color.Info">Run @RunId</MudText>
+    <MudPaper Class="pa-5 topology-page" Elevation="1">
+        <MudStack Spacing="3">
+            <MudStack Row="true" AlignItems="@AlignItems.Center" Justify="@Justify.SpaceBetween">
+                <MudStack Row="true" AlignItems="@AlignItems.Center" Spacing="2">
+                    <MudText Typo="Typo.h5">Time-Travel Topology</MudText>
+                    <MudIconButton Icon="@Icons.Material.Filled.Tune"
+                                   Color="Color.Primary"
+                                   Size="Size.Medium"
+                                   AriaLabel="Open topology feature bar"
+                                   OnClick="OpenFeatureBar" />
                 </MudStack>
-
-                <MudPaper Class="pa-3" Elevation="0">
-                    <MudStack Row="true" AlignItems="@AlignItems.Center" Spacing="2">
-                        <MudText Typo="Typo.caption">Bin @selectedBinLabel</MudText>
-                        <MudText Typo="Typo.caption" Color="Color.Secondary">@selectedTimestampLabel</MudText>
-                    </MudStack>
-                    <MudSlider T="int"
-                               Class="mt-2"
-                               Min="@visibleStartBin"
-                               Max="@visibleEndBin"
-                               Step="1"
-                               Disabled="@(visibleStartBin == visibleEndBin)"
-                               Value="@selectedBin"
-                               ValueChanged="OnBinChanged"
-                               Immediate="true" />
-                </MudPaper>
-
-                <div class="topology-legend">
-                    <span class="legend-item">
-                        <span class="legend-swatch success"></span>
-                        Healthy
-                    </span>
-                    <span class="legend-item">
-                        <span class="legend-swatch warning"></span>
-                        Warning
-                    </span>
-                    <span class="legend-item">
-                        <span class="legend-swatch error"></span>
-                        Error
-                    </span>
-                    <span class="legend-item">
-                        <span class="legend-swatch neutral"></span>
-                        No data
-                    </span>
-                </div>
-
-                <TopologyCanvas Graph="topologyGraph"
-                                NodeMetrics="activeMetrics"
-                                CanvasWidth="1180"
-                                CanvasHeight="720" />
+                <MudButton Variant="Variant.Text"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.ArrowBack"
+                           OnClick="NavigateBack">
+                    Artifacts
+                </MudButton>
             </MudStack>
-        }
-    </MudStack>
-</MudPaper>
+
+            @if (string.IsNullOrWhiteSpace(RunId))
+            {
+                <MudAlert Severity="Severity.Info">
+                    Select a run from the Artifacts list to inspect its topology.
+                </MudAlert>
+            }
+            else if (!string.IsNullOrWhiteSpace(errorMessage))
+            {
+                <MudAlert Severity="Severity.Error" Variant="Variant.Outlined">
+                    <MudText Typo="Typo.body1">@errorMessage</MudText>
+                </MudAlert>
+            }
+            else if (isLoading)
+            {
+                <MudPaper Class="pa-6 d-flex flex-column align-center justify-center" Elevation="0">
+                    <MudProgressCircular Color="Color.Primary" Diameter="64" Indeterminate="true" />
+                    <MudText Typo="Typo.caption" Class="mt-2">Loading topology…</MudText>
+                </MudPaper>
+            }
+            else if (topologyGraph is null)
+            {
+                <MudAlert Severity="Severity.Warning">
+                    Topology data was not available for run <strong>@RunId</strong>.
+                </MudAlert>
+            }
+            else
+            {
+                <MudStack Spacing="2">
+                    <MudStack Row="true" Spacing="2" AlignItems="@AlignItems.Center">
+                        <MudText Typo="Typo.subtitle1">@runDisplayName</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Info">Run @RunId</MudText>
+                    </MudStack>
+
+                    <MudPaper Class="pa-3" Elevation="0">
+                        <MudStack Row="true" AlignItems="@AlignItems.Center" Spacing="2">
+                            <MudText Typo="Typo.caption">Bin @selectedBinLabel</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">@selectedTimestampLabel</MudText>
+                        </MudStack>
+                        <MudSlider T="int"
+                                   Class="mt-2"
+                                   Min="@visibleStartBin"
+                                   Max="@visibleEndBin"
+                                   Step="1"
+                                   Disabled="@(visibleStartBin == visibleEndBin)"
+                                   Value="@selectedBin"
+                                   ValueChanged="OnBinChanged"
+                                   Immediate="true" />
+                    </MudPaper>
+
+                    <div class="topology-legend">
+                        <span class="legend-item">
+                            <span class="legend-swatch success"></span>
+                            Healthy
+                        </span>
+                        <span class="legend-item">
+                            <span class="legend-swatch warning"></span>
+                            Warning
+                        </span>
+                        <span class="legend-item">
+                            <span class="legend-swatch error"></span>
+                            Error
+                        </span>
+                        <span class="legend-item">
+                            <span class="legend-swatch neutral"></span>
+                            No data
+                        </span>
+                    </div>
+
+                    <TopologyCanvas Graph="topologyGraph"
+                                    NodeMetrics="activeMetrics"
+                                    CanvasWidth="1180"
+                                    CanvasHeight="720" />
+                </MudStack>
+            }
+        </MudStack>
+    </MudPaper>
+</MudStack>
 
 @code {
     [Parameter, SupplyParameterFromQuery(Name = "runId")]
@@ -110,6 +129,10 @@
     private bool isLoading;
     private bool hasLoaded;
     private CancellationTokenSource? loadCts;
+
+    private bool featureBarOpen = true;
+    private TopologyOverlaySettings overlaySettings = TopologyOverlaySettings.Default.Clone();
+    private bool attemptedRestore;
 
     private TopologyGraph? topologyGraph;
     private IReadOnlyDictionary<string, NodeBinMetrics> activeMetrics = new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase);
@@ -127,6 +150,17 @@
     {
         if (string.IsNullOrWhiteSpace(RunId))
         {
+            if (!attemptedRestore)
+            {
+                attemptedRestore = true;
+                var lastRunId = await JS.InvokeAsync<string?>("localStorage.getItem", LastRunStorageKey);
+                if (!string.IsNullOrWhiteSpace(lastRunId))
+                {
+                    Navigation.NavigateTo($"/time-travel/topology?runId={Uri.EscapeDataString(lastRunId)}");
+                    return;
+                }
+            }
+
             ResetState();
             return;
         }
@@ -193,6 +227,8 @@
             timestamps = windowData.TimestampsUtc.ToList();
             runDisplayName = windowData.Metadata.TemplateTitle ?? windowData.Metadata.TemplateId ?? runId;
 
+            await JS.InvokeVoidAsync("localStorage.setItem", LastRunStorageKey, runId);
+
             selectedBin = visibleEndBin;
             UpdateActiveMetrics(selectedBin);
 
@@ -212,6 +248,27 @@
             StateHasChanged();
         }
     }
+
+    private void OpenFeatureBar()
+    {
+        featureBarOpen = true;
+        StateHasChanged();
+    }
+
+    private Task CloseFeatureBar()
+    {
+        featureBarOpen = false;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private Task OnOverlaySettingsChanged(TopologyOverlaySettings updated)
+    {
+        overlaySettings = updated.Clone();
+        return Task.CompletedTask;
+    }
+
+    private const string LastRunStorageKey = "ft.topology.lastRunId";
 
     private void UpdateActiveMetrics(int bin)
     {
