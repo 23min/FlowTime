@@ -1,6 +1,6 @@
 # UI-M-03.22 — Topology Canvas (Graph + Coloring)
 
-**Status:** 🚧 In Progress  
+**Status:** ✅ Completed  
 **Dependencies:** UI‑M‑03.20 (SLA Dashboard), UI‑M‑03.21 (Global Top Bar + Range + Scrubber), UI‑M‑03.21.01 (Artifacts UX Refresh)  
 **Target:** Render the full run graph on a performant canvas, color nodes by live scrubbed metrics, and support smooth pan/zoom with accessible interaction.
 
@@ -51,37 +51,37 @@ This milestone delivers the first production-ready topology view for time‑trav
 #### FR1: Render Graph on Canvas
 **Description:** Draw all nodes and edges for the selected run using a canvas layer. Maintain smooth pan/zoom.
 **Acceptance Criteria:**
-- [ ] Graph displays with correct node count and connectivity.
-- [ ] Panning and zooming keep visuals crisp (no blurry text/lines).
-- [ ] Layout stays stable across redraws.
+- [x] Graph displays with correct node count and connectivity.
+- [x] Panning and zooming keep visuals crisp (no blurry text/lines).
+- [x] Layout stays stable across redraws.
 
 #### FR2: Color Nodes by Health at Current Bin
 **Description:** Apply color scale to nodes based on SLA/util thresholds derived from `state_window` at the active bin.
 **Acceptance Criteria:**
-- [ ] Healthy nodes (within SLA) display in success color.
-- [ ] Warning/near‑limit nodes display in warning color.
-- [ ] Breach nodes display in error color.
-- [ ] Nodes with no data display in neutral/gray.
+- [x] Healthy nodes (within SLA) display in success color.
+- [x] Warning/near‑limit nodes display in warning color.
+- [x] Breach nodes display in error color.
+- [x] Nodes with no data display in neutral/gray.
 
 #### FR3: Hover/Focus Tooltips
 **Description:** Show a compact tooltip with key metrics on hover and keyboard focus.
 **Acceptance Criteria:**
-- [ ] Tooltip shows node id/name, SLA%, util, time.
-- [ ] Tooltip positions near node and avoids clipping.
-- [ ] Tooltip hides on blur/esc.
+- [x] Tooltip shows node id/name, SLA%, util, time.
+- [x] Tooltip positions near node and avoids clipping.
+- [x] Tooltip hides on blur/esc.
 
 #### FR4: Keyboard Navigation + A11y
 **Description:** Users can tab/arrow between nodes; focused node has visible ring; nodes expose aria‑label with health.
 **Acceptance Criteria:**
-- [ ] Tab/Shift+Tab cycles focus; arrow keys move to nearest neighbor.
-- [ ] Enter selects node; Esc clears selection.
-- [ ] A11y audit: role/presentation for canvas + fallback labels on nodes.
+- [x] Tab/Shift+Tab cycles focus; arrow keys move to nearest neighbor.
+- [x] Enter selects node; Esc clears selection.
+- [x] A11y audit: role/presentation for canvas + fallback labels on nodes.
 
 #### FR5: Scrubber Redraw Integration
 **Description:** On scrubber bin change, recolor nodes efficiently.
 **Acceptance Criteria:**
-- [ ] Update completes in ≤200 ms for 20‑node flow.
-- [ ] No frame jank while scrubbing.
+- [x] Update completes in ≤200 ms for 20‑node flow.
+- [x] No frame jank while scrubbing.
 
 ### Non‑Functional Requirements
 
@@ -187,11 +187,11 @@ Strategy: Write unit/render tests first (RED), implement minimal code to pass (G
 ## Success Criteria
 
 ### Milestone Complete When:
-- [ ] FR1–FR5 implemented and validated
-- [ ] All unit and render tests passing
-- [ ] Docs updated (milestone + tracker)
-- [ ] Example graph loads from a real run
-- [ ] No regressions to dashboard/scrubber behavior
+- [x] FR1–FR5 implemented and validated
+- [x] All unit and render tests passing
+- [x] Docs updated (milestone + tracker)
+- [x] Example graph loads from a real run
+- [x] No regressions to dashboard/scrubber behavior
 
 ### Per‑Phase Criteria
 - Phase 1: all helper tests green
