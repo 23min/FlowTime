@@ -246,10 +246,10 @@ code {
 
 .topology-node-proxy {
     position: absolute;
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    border: 2px solid transparent;
+    width: var(--topology-node-width, 64px);
+    height: var(--topology-node-height, 40px);
+    border-radius: 8px;
+    border: 1.5px solid transparent;
     background: transparent;
     pointer-events: auto;
     cursor: pointer;

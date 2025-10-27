@@ -9,6 +9,7 @@
 ## Quick Links
 - Milestone: `docs/milestones/UI-M-03.22.md`
 - Roadmap: `docs/architecture/time-travel/ui-m3-roadmap.md`
+- Follow‑up: `docs/milestones/UI-M-03.22.1.md` (LOD + Feature Bar)
 
 ---
 
@@ -22,7 +23,7 @@
 
 ### Test Status
 - Unit: 9 passing / 9 total (TopologyHelpers)
-- Render: 6 passing / 6 total (TopologyCanvas)
+- Render: 7 passing / 7 total (TopologyCanvas)
 
 ---
 
@@ -34,6 +35,13 @@
 - [x] Create tracking document
 
 **Next:** Polish docs + regression run; prep for review.
+
+---
+
+### Session: Layout Polish (Rectangles + Centering)
+- [x] Recentered canvas using viewport bounds + padding
+- [x] Swapped node glyphs to rounded rectangles with matching focus/aria proxies
+- [ ] Overlay/callout exploration deferred (track for next iteration)
 
 ---
 
@@ -84,8 +92,20 @@
 
 ---
 
+## Phase 5: Layout Polish
+
+**Goal:** Balance topology footprint, prep for overlay affordances.
+
+### Tasks
+- [x] Auto-center layout within canvas viewport
+- [x] Rectangular glyphs + focus alignment
+- [ ] Prototype label/overlay toggle (deferred)
+
+---
+
 ## Notes / Blockers
-- N/A
+- Overlay + badge treatments pushed to follow-up; design input needed.
+ - Tooltips bug tracked in follow‑up milestone UI‑M‑03.22.1 (hover/focus not showing/placed correctly).
 
 ---
 

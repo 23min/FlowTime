@@ -12,7 +12,10 @@ namespace FlowTime.UI.Components.Topology;
 
 public abstract class TopologyCanvasBase : ComponentBase, IDisposable
 {
-    private const double NodeRadius = 18;
+    private const double NodeWidth = 56;
+    private const double NodeHeight = 36;
+    private const double NodeCornerRadius = 8;
+    private const double ViewportPadding = 48;
 
     private readonly Dictionary<string, TopologyNode> nodeLookup = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, HashSet<string>> nodeOutputs = new(StringComparer.OrdinalIgnoreCase);
@@ -170,7 +173,8 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
 
         var metrics = GetMetrics(nodeId);
         var content = TooltipFormatter.Format(nodeId, metrics);
-        var offsetY = Math.Max(node.Y - (NodeRadius * 3), 12);
+        var tooltipOffset = (NodeHeight / 2) + 72;
+        var offsetY = Math.Max(node.Y - tooltipOffset, 12);
         var style = string.Create(CultureInfo.InvariantCulture, $"left: {node.X}px; top: {offsetY}px; transform: translate(-50%, -100%);");
         return new TooltipViewModel(content, style);
     }
@@ -265,7 +269,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
 
             var style = string.Create(
                 CultureInfo.InvariantCulture,
-                $"left: {node.X}px; top: {node.Y}px; transform: translate(-50%, -50%);");
+                $"left: {node.X}px; top: {node.Y}px; transform: translate(-50%, -50%); --topology-node-width: {NodeWidth}px; --topology-node-height: {NodeHeight}px;");
 
             var isFocused = !string.IsNullOrWhiteSpace(selectedId) &&
                             node.Id.Equals(selectedId, StringComparison.OrdinalIgnoreCase);
@@ -303,7 +307,9 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                     node.Id,
                     node.X,
                     node.Y,
-                    NodeRadius,
+                    NodeWidth,
+                    NodeHeight,
+                    NodeCornerRadius,
                     fill,
                     stroke,
                     isFocused);
@@ -334,7 +340,15 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             .Cast<EdgeRenderInfo>()
             .ToImmutableArray();
 
-        var viewport = new CanvasViewport(0, 0, 1);
+        var halfWidth = NodeWidth / 2d;
+        var halfHeight = NodeHeight / 2d;
+
+        var minX = graph.Nodes.Min(node => node.X - halfWidth);
+        var maxX = graph.Nodes.Max(node => node.X + halfWidth);
+        var minY = graph.Nodes.Min(node => node.Y - halfHeight);
+        var maxY = graph.Nodes.Max(node => node.Y + halfHeight);
+
+        var viewport = new CanvasViewport(minX, minY, maxX, maxY, ViewportPadding);
         return new CanvasRenderRequest(nodeDtos, edges, viewport);
     }
 

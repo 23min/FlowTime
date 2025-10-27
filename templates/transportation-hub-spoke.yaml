@@ -1,0 +1,293 @@
+schemaVersion: 1
+generator: flowtime-sim
+metadata:
+  id: 'transportation-hub-spoke'
+  title: 'Transportation Network — Hub and Spoke'
+  description: 'Two origins feed a central hub which routes to multiple destinations.'
+  version: 1.0.0
+  captureKey: transportation-hub-spoke-telemetry
+  tags: [intermediate, transportation, transit, capacity, routing]
+window:
+  start: 2025-01-01T00:00:00Z
+  timezone: UTC
+
+parameters:
+  - name: bins
+    type: integer
+    title: "Time Periods"
+    description: "Number of time periods to simulate"
+    default: 6
+    minimum: 3
+    maximum: 48
+  - name: binSize
+    type: integer
+    title: "Period Duration"
+    description: "Duration of each time period in minutes"
+    default: 60
+    minimum: 15
+    maximum: 480
+
+  # Demand patterns (origins)
+  - name: demandNorth
+    type: array
+    title: "Northbound Demand"
+    description: "Passengers arriving from the North per period"
+    default: [10, 14, 18, 22, 16, 12]
+    minimum: 0
+    maximum: 1000
+  - name: demandSouth
+    type: array
+    title: "Southbound Demand"
+    description: "Passengers arriving from the South per period"
+    default: [8, 12, 16, 20, 14, 10]
+    minimum: 0
+    maximum: 1000
+
+  # Feeder capacities (origins to hub)
+  - name: capNorthToHub
+    type: array
+    title: "North → Hub Capacity"
+    description: "Feeder capacity from North origin to Hub"
+    default: [12, 12, 20, 24, 18, 14]
+    minimum: 1
+    maximum: 1000
+  - name: capSouthToHub
+    type: array
+    title: "South → Hub Capacity"
+    description: "Feeder capacity from South origin to Hub"
+    default: [10, 12, 18, 22, 16, 12]
+    minimum: 1
+    maximum: 1000
+
+  # Hub capacity
+  - name: capHub
+    type: array
+    title: "Hub Capacity"
+    description: "Processing capacity at the hub"
+    default: [20, 24, 32, 36, 28, 22]
+    minimum: 1
+    maximum: 2000
+
+  # Destination capacities
+  - name: capAirport
+    type: array
+    title: "Airport Line Capacity"
+    description: "Capacity of the Airport destination line"
+    default: [8, 10, 12, 14, 12, 10]
+    minimum: 1
+    maximum: 1000
+  - name: capDowntown
+    type: array
+    title: "Downtown Line Capacity"
+    description: "Capacity of the Downtown destination line"
+    default: [10, 14, 20, 22, 16, 12]
+    minimum: 1
+    maximum: 1000
+  - name: capIndustrial
+    type: array
+    title: "Industrial Park Capacity"
+    description: "Capacity of the Industrial Park destination line"
+    default: [6, 8, 10, 12, 10, 8]
+    minimum: 1
+    maximum: 1000
+
+  # Routing split ratios (must sum to <= 1)
+  - name: splitAirport
+    type: number
+    title: "Hub → Airport Split"
+    description: "Fraction of hub throughput routed to Airport"
+    default: 0.3
+    minimum: 0.0
+    maximum: 1.0
+  - name: splitIndustrial
+    type: number
+    title: "Hub → Industrial Split"
+    description: "Fraction of hub throughput routed to Industrial Park"
+    default: 0.2
+    minimum: 0.0
+    maximum: 1.0
+
+  # Optional telemetry bindings
+  - name: telemetryDemandNorthSource
+    type: string
+    title: "Telemetry North demand source"
+    description: "Optional file:// URI for North arrivals when replaying telemetry"
+    default: ""
+  - name: telemetryDemandSouthSource
+    type: string
+    title: "Telemetry South demand source"
+    description: "Optional file:// URI for South arrivals when replaying telemetry"
+    default: ""
+
+grid:
+  bins: ${bins}
+  binSize: ${binSize}
+  binUnit: minutes
+
+topology:
+  nodes:
+    - id: OriginNorth
+      kind: service
+      semantics:
+        arrivals: arrivals_north
+        served: served_north
+        errors: unmet_north
+      ui: { x: 0,   y: 0 }
+    - id: OriginSouth
+      kind: service
+      semantics:
+        arrivals: arrivals_south
+        served: served_south
+        errors: unmet_south
+      ui: { x: 0,   y: 140 }
+    - id: CentralHub
+      kind: service
+      semantics:
+        arrivals: arrivals_hub
+        served: served_hub
+        errors: unmet_hub
+        capacity: cap_hub
+      ui: { x: 240, y: 70 }
+    - id: LineAirport
+      kind: service
+      semantics:
+        arrivals: arrivals_airport
+        served: served_airport
+        errors: unmet_airport
+        capacity: cap_airport
+      ui: { x: 480, y: 0 }
+    - id: LineDowntown
+      kind: service
+      semantics:
+        arrivals: arrivals_downtown
+        served: served_downtown
+        errors: unmet_downtown
+        capacity: cap_downtown
+      ui: { x: 480, y: 140 }
+    - id: LineIndustrialPark
+      kind: service
+      semantics:
+        arrivals: arrivals_industrial
+        served: served_industrial
+        errors: unmet_industrial
+        capacity: cap_industrial
+      ui: { x: 480, y: 280 }
+  edges:
+    - id: e_north_hub
+      from: OriginNorth:out
+      to: CentralHub:in
+    - id: e_south_hub
+      from: OriginSouth:out
+      to: CentralHub:in
+    - id: e_hub_airport
+      from: CentralHub:out
+      to: LineAirport:in
+    - id: e_hub_downtown
+      from: CentralHub:out
+      to: LineDowntown:in
+    - id: e_hub_industrial
+      from: CentralHub:out
+      to: LineIndustrialPark:in
+
+nodes:
+  # Origins (arrivals and feeder capacity)
+  - id: arrivals_north
+    kind: const
+    values: ${demandNorth}
+    source: ${telemetryDemandNorthSource}
+  - id: served_north
+    kind: expr
+    expr: "MIN(arrivals_north, cap_north_to_hub)"
+  - id: unmet_north
+    kind: expr
+    expr: "MAX(0, arrivals_north - cap_north_to_hub)"
+
+  - id: arrivals_south
+    kind: const
+    values: ${demandSouth}
+    source: ${telemetryDemandSouthSource}
+  - id: served_south
+    kind: expr
+    expr: "MIN(arrivals_south, cap_south_to_hub)"
+  - id: unmet_south
+    kind: expr
+    expr: "MAX(0, arrivals_south - cap_south_to_hub)"
+
+  # Hub (fan-in)
+  - id: arrivals_hub
+    kind: expr
+    expr: "served_north + served_south"
+  - id: cap_hub
+    kind: const
+    values: ${capHub}
+  - id: served_hub
+    kind: expr
+    expr: "MIN(arrivals_hub, cap_hub)"
+  - id: unmet_hub
+    kind: expr
+    expr: "MAX(0, arrivals_hub - cap_hub)"
+
+  # Routing split from hub (fan-out)
+  - id: to_airport
+    kind: expr
+    expr: "served_hub * ${splitAirport}"
+  - id: to_industrial
+    kind: expr
+    expr: "served_hub * ${splitIndustrial}"
+  - id: to_downtown
+    kind: expr
+    expr: "served_hub * (1 - ${splitAirport} - ${splitIndustrial})"
+
+  # Airport line
+  - id: arrivals_airport
+    kind: expr
+    expr: "to_airport"
+  - id: cap_airport
+    kind: const
+    values: ${capAirport}
+  - id: served_airport
+    kind: expr
+    expr: "MIN(arrivals_airport, cap_airport)"
+  - id: unmet_airport
+    kind: expr
+    expr: "MAX(0, arrivals_airport - cap_airport)"
+
+  # Downtown line
+  - id: arrivals_downtown
+    kind: expr
+    expr: "to_downtown"
+  - id: cap_downtown
+    kind: const
+    values: ${capDowntown}
+  - id: served_downtown
+    kind: expr
+    expr: "MIN(arrivals_downtown, cap_downtown)"
+  - id: unmet_downtown
+    kind: expr
+    expr: "MAX(0, arrivals_downtown - cap_downtown)"
+
+  # Industrial line
+  - id: arrivals_industrial
+    kind: expr
+    expr: "to_industrial"
+  - id: cap_industrial
+    kind: const
+    values: ${capIndustrial}
+  - id: served_industrial
+    kind: expr
+    expr: "MIN(arrivals_industrial, cap_industrial)"
+  - id: unmet_industrial
+    kind: expr
+    expr: "MAX(0, arrivals_industrial - cap_industrial)"
+
+  # Feeder capacities
+  - id: cap_north_to_hub
+    kind: const
+    values: ${capNorthToHub}
+  - id: cap_south_to_hub
+    kind: const
+    values: ${capSouthToHub}
+
+outputs:
+  - series: "*"
+

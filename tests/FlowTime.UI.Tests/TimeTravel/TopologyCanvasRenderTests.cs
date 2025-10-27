@@ -11,6 +11,11 @@ namespace FlowTime.UI.Tests.TimeTravel;
 
 public sealed class TopologyCanvasRenderTests : TestContext
 {
+    private const double NodeWidth = 56;
+    private const double NodeHeight = 36;
+    private const double NodeCornerRadius = 8;
+    private const double ViewportPadding = 48;
+
     public TopologyCanvasRenderTests()
     {
         JSInterop.Mode = JSRuntimeMode.Strict;
@@ -137,6 +142,39 @@ public sealed class TopologyCanvasRenderTests : TestContext
             var processor = cut.Find("[data-node-id='processor']");
             Assert.Equal("true", processor.GetAttribute("data-focused"));
         });
+    }
+
+    [Fact]
+    public void RenderRequestUsesRectangularNodesAndViewport()
+    {
+        var graph = CreateGraph();
+        var metrics = CreateMetrics();
+        var renderCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.render", _ => true);
+
+        RenderComponent<TopologyCanvas>(parameters => parameters
+            .Add(p => p.Graph, graph)
+            .Add(p => p.NodeMetrics, metrics));
+
+        var invocation = renderCall.Invocations.Single();
+        var payload = Assert.IsType<CanvasRenderRequest>(invocation.Arguments[1]);
+
+        Assert.All(payload.Nodes, node =>
+        {
+            Assert.Equal(NodeWidth, node.Width);
+            Assert.Equal(NodeHeight, node.Height);
+            Assert.Equal(NodeCornerRadius, node.CornerRadius);
+        });
+
+        var expectedMinX = graph.Nodes.Min(n => n.X) - (NodeWidth / 2);
+        var expectedMaxX = graph.Nodes.Max(n => n.X) + (NodeWidth / 2);
+        var expectedMinY = graph.Nodes.Min(n => n.Y) - (NodeHeight / 2);
+        var expectedMaxY = graph.Nodes.Max(n => n.Y) + (NodeHeight / 2);
+
+        Assert.Equal(expectedMinX, payload.Viewport.MinX, 3);
+        Assert.Equal(expectedMaxX, payload.Viewport.MaxX, 3);
+        Assert.Equal(expectedMinY, payload.Viewport.MinY, 3);
+        Assert.Equal(expectedMaxY, payload.Viewport.MaxY, 3);
+        Assert.Equal(ViewportPadding, payload.Viewport.Padding);
     }
 
     private static TopologyGraph CreateGraph()

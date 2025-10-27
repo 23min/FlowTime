@@ -11,7 +11,9 @@ internal sealed record NodeRenderInfo(
     string Id,
     double X,
     double Y,
-    double Radius,
+    double Width,
+    double Height,
+    double CornerRadius,
     string Fill,
     string Stroke,
     bool IsFocused);
@@ -25,4 +27,4 @@ internal sealed record EdgeRenderInfo(
     double ToX,
     double ToY);
 
-internal sealed record CanvasViewport(double OffsetX, double OffsetY, double Scale);
+internal sealed record CanvasViewport(double MinX, double MinY, double MaxX, double MaxY, double Padding);

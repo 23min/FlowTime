@@ -1,6 +1,6 @@
 # UI-M-03.22 — Topology Canvas (Graph + Coloring)
 
-**Status:** 📋 Planned  
+**Status:** 🚧 In Progress  
 **Dependencies:** UI‑M‑03.20 (SLA Dashboard), UI‑M‑03.21 (Global Top Bar + Range + Scrubber), UI‑M‑03.21.01 (Artifacts UX Refresh)  
 **Target:** Render the full run graph on a performant canvas, color nodes by live scrubbed metrics, and support smooth pan/zoom with accessible interaction.
 
@@ -35,6 +35,12 @@ This milestone delivers the first production-ready topology view for time‑trav
 
 ### Future Work (Optional)
 - Edge thickness by flow, per‑kind icons, selection persistence across routes.
+- Optional node labels/overlays and edge badges once design ships guidance.
+
+### Follow‑up Milestone
+- See UI‑M‑03.22.1 — Topology LOD + Feature Bar: docs/milestones/UI-M-03.22.1.md
+  - Adds LOD overlays, Feature Bar, sparklines, edge shares, Full DAG mode.
+  - Tracks open bug: topology tooltips not working (hover/focus).
 
 ---
 
@@ -218,4 +224,3 @@ Strategy: Write unit/render tests first (RED), implement minimal code to pass (G
 - docs/architecture/time-travel/time-travel-architecture-ch2-data-contracts.md
 - docs/development/milestone-documentation-guide.md
 - docs/development/milestone-rules-quick-ref.md
-
