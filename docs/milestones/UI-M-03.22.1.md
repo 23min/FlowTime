@@ -1,6 +1,6 @@
 # UI‑M‑03.22.1 — Topology LOD + Feature Bar
 
-**Status:** Planned  
+**Status:** In Progress  
 **Depends on:** UI‑M‑03.22 (Topology Canvas baseline)  
 **Goal:** Add Level‑of‑Detail (LOD) rendering and a “Topology Features” bar (secondary Mud bar) to control overlays/filters without cluttering the default operator view.
 
@@ -39,6 +39,17 @@ A known bug with tooltips is also tracked and fixed here so keyboard/pointer ins
   - Neighbor emphasis on focus (fade non‑neighbors).
 
 **Validation plan:** Finalize the `TopologyFeatureBar` layout (sections, toggles, defaults) before implementing LOD logic. Stakeholders sign off on UX (labels, grouping, persistence) prior to wiring Auto/On/Off behaviors.
+
+### Progress (Mar 2025)
+- Feature bar drawer is live on the topology page with overlay, filter, LOD, and color‑basis controls.
+- Overlay settings now serialize to `localStorage` and restore on load (including Alt+T panel toggle).
+- Canvas payload honors label/edge‑arrow overlay modes with the zoom‑aware defaults defined here.
+- Debug scaffolding trimmed; layout matches the target UX.
+
+### Next Focus
+- Wire sparklines and edge share rendering into the canvas/JS pipeline.
+- Implement full DAG node filters and neighbor emphasis behaviors.
+- Restore tooltips and add render coverage for overlay payload changes.
 
 ---
 

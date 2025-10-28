@@ -17,10 +17,10 @@
 
 ### Overall Progress
 - [x] UX scaffolding: TopologyFeatureBar component + layout column
-- [ ] Overlay/LOD plumbing into canvas payload + JS
+- [x] Overlay/LOD plumbing into canvas payload + JS
 - [ ] Sparklines + edge share rendering
 - [ ] Full DAG mode (non-service nodes + filters)
-- [ ] Persistence & shortcuts (localStorage overlays, Alt+T toggle)
+- [x] Persistence & shortcuts (localStorage overlays, Alt+T toggle)
 
 ### Test Status
 - [ ] Render tests updated for overlay payload changes
@@ -35,20 +35,25 @@
 - [x] Added `TopologyOverlaySettings` basic flags
 - [x] Created `TopologyFeatureBar` with initial toggles (labels, arrows, full DAG placeholder)
 - [x] Embedded feature bar into topology layout & saved runId to localStorage
-- [ ] Persist overlay choices + Alt+T shortcut (deferred)
+- [x] Persist overlay choices + Alt+T shortcut
 
 ### Session: LOD & Overlays
 - [x] Extend settings to Auto/On/Off tri-state per overlay (+ filters, color basis controls)
-- [ ] Update `TopologyCanvas` payload/JS to honor toggles + zoom scale
+- [x] Update `TopologyCanvas` payload/JS to honor labels/edge arrows with zoom-aware defaults
 - [ ] Render service sparklines (metrics mini arrays) above nodes
 - [ ] Compute edge shares and display labels with LOD gating
 - [ ] Implement Full DAG mode & kind filters (service/expr/const)
 
 ### Session: Polish & Tests
-- [ ] Persist feature bar state + overlay preferences to localStorage
-- [ ] Add keyboard shortcut (Alt+T) to toggle bar
+- [x] Persist feature bar state + overlay preferences to localStorage
+- [x] Add keyboard shortcut (Alt+T) to toggle bar
 - [ ] Update render tests for overlay state
 - [ ] Manual/perf verification (scrub ≤200ms, pan FPS)
+
+### Session: Overlay Refinement (current)
+- [x] Switched Mud toggles to explicit handlers to ensure state changes fire reliably
+- [x] Restored clean `TopologyFeatureBar` UI (removed debug controls/logging)
+- [x] Simplified persistence path; verified overlay booleans sync with `localStorage`
 
 ---
 

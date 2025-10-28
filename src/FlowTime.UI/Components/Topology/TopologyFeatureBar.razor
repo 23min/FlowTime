@@ -61,28 +61,28 @@
     <MudStack Spacing="2" Class="mt-2">
         <MudText Typo="Typo.caption" Class="mb-1">Topology</MudText>
         <MudSwitch T="bool"
-                   Checked="@workingSettings.EnableFullDag"
-                   CheckedChanged="OnFullDagChanged"
+                   Value="@workingSettings.EnableFullDag"
+                   ValueChanged="OnEnableFullDagChanged"
                    Color="Color.Primary"
                    Label="Full DAG mode" />
         <MudCheckBox T="bool"
-                     Checked="@workingSettings.IncludeServiceNodes"
-                     CheckedChanged="OnIncludeServiceChanged"
+                     Value="@workingSettings.IncludeServiceNodes"
+                     ValueChanged="OnIncludeServiceNodesChanged"
                      Color="Color.Primary"
                      Label="Include service nodes" />
         <MudCheckBox T="bool"
-                     Checked="@workingSettings.IncludeExpressionNodes"
-                     CheckedChanged="OnIncludeExpressionChanged"
+                     Value="@workingSettings.IncludeExpressionNodes"
+                     ValueChanged="OnIncludeExpressionNodesChanged"
                      Color="Color.Primary"
                      Label="Include expression nodes" />
         <MudCheckBox T="bool"
-                     Checked="@workingSettings.IncludeConstNodes"
-                     CheckedChanged="OnIncludeConstChanged"
+                     Value="@workingSettings.IncludeConstNodes"
+                     ValueChanged="OnIncludeConstNodesChanged"
                      Color="Color.Primary"
                      Label="Include constant nodes" />
         <MudCheckBox T="bool"
-                     Checked="@workingSettings.NeighborEmphasis"
-                     CheckedChanged="OnNeighborEmphasisChanged"
+                     Value="@workingSettings.NeighborEmphasis"
+                     ValueChanged="OnNeighborEmphasisChanged"
                      Color="Color.Primary"
                      Label="Neighbor emphasis on focus" />
     </MudStack>
@@ -90,8 +90,8 @@
     <MudStack Spacing="2" Class="mt-2">
         <MudText Typo="Typo.caption" Class="mb-1">Level of detail</MudText>
         <MudSwitch T="bool"
-                   Checked="@workingSettings.AutoLod"
-                   CheckedChanged="OnAutoLodChanged"
+                   Value="@workingSettings.AutoLod"
+                   ValueChanged="OnAutoLodChanged"
                    Color="Color.Primary"
                    Label="Auto adjust overlays by zoom" />
         <MudNumericField T="double"
@@ -178,6 +178,7 @@
     public EventCallback CloseRequested { get; set; }
 
     private TopologyOverlaySettings workingSettings = TopologyOverlaySettings.Default;
+    private TopologyOverlaySettings? lastReceivedSettings;
 
     private readonly (OverlayMode mode, string label)[] overlayModeOptions =
     {
@@ -188,13 +189,14 @@
 
     protected override void OnParametersSet()
     {
-        workingSettings = Settings.Clone();
+        if (!ReferenceEquals(lastReceivedSettings, Settings))
+        {
+            workingSettings = Settings.Clone();
+            lastReceivedSettings = Settings;
+        }
     }
 
-    private Task Close()
-    {
-        return CloseRequested.InvokeAsync();
-    }
+    private Task Close() => CloseRequested.InvokeAsync();
 
     private Task OnLabelsModeChanged(OverlayMode value)
     {
@@ -220,38 +222,68 @@
         return NotifyChange();
     }
 
-    private Task OnFullDagChanged(bool value)
+    private Task OnEnableFullDagChanged(bool value)
     {
+        if (workingSettings.EnableFullDag == value)
+        {
+            return Task.CompletedTask;
+        }
+
         workingSettings.EnableFullDag = value;
         return NotifyChange();
     }
 
-    private Task OnIncludeServiceChanged(bool value)
+    private Task OnIncludeServiceNodesChanged(bool value)
     {
+        if (workingSettings.IncludeServiceNodes == value)
+        {
+            return Task.CompletedTask;
+        }
+
         workingSettings.IncludeServiceNodes = value;
         return NotifyChange();
     }
 
-    private Task OnIncludeExpressionChanged(bool value)
+    private Task OnIncludeExpressionNodesChanged(bool value)
     {
+        if (workingSettings.IncludeExpressionNodes == value)
+        {
+            return Task.CompletedTask;
+        }
+
         workingSettings.IncludeExpressionNodes = value;
         return NotifyChange();
     }
 
-    private Task OnIncludeConstChanged(bool value)
+    private Task OnIncludeConstNodesChanged(bool value)
     {
+        if (workingSettings.IncludeConstNodes == value)
+        {
+            return Task.CompletedTask;
+        }
+
         workingSettings.IncludeConstNodes = value;
         return NotifyChange();
     }
 
     private Task OnNeighborEmphasisChanged(bool value)
     {
+        if (workingSettings.NeighborEmphasis == value)
+        {
+            return Task.CompletedTask;
+        }
+
         workingSettings.NeighborEmphasis = value;
         return NotifyChange();
     }
 
     private Task OnAutoLodChanged(bool value)
     {
+        if (workingSettings.AutoLod == value)
+        {
+            return Task.CompletedTask;
+        }
+
         workingSettings.AutoLod = value;
         return NotifyChange();
     }
@@ -298,8 +330,9 @@
         return NotifyChange();
     }
 
-    private Task NotifyChange()
+    private async Task NotifyChange()
     {
-        return SettingsChanged.InvokeAsync(workingSettings.Clone());
+        await SettingsChanged.InvokeAsync(workingSettings.Clone());
+        StateHasChanged();
     }
 }

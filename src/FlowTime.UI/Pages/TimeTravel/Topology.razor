@@ -1,10 +1,12 @@
 @page "/time-travel/topology"
 @using MudBlazor
+@using Microsoft.JSInterop
 @using FlowTime.UI.Components.Topology
 @using FlowTime.UI.Services
 @using System.Collections.Generic
 @using System.Globalization
 @using System.Linq
+@using System.Text.Json
 @inject ITimeTravelDataService DataService
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
@@ -134,6 +136,9 @@
     private bool featureBarOpen = true;
     private TopologyOverlaySettings overlaySettings = TopologyOverlaySettings.Default.Clone();
     private bool attemptedRestore;
+    private bool overlaySettingsLoaded;
+    private DotNetObjectReference<Topology>? selfReference;
+    private int? hotkeyRegistrationId;
 
     private TopologyGraph? topologyGraph;
     private IReadOnlyDictionary<string, NodeBinMetrics> activeMetrics = new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase);
@@ -147,8 +152,17 @@
     private string selectedBinLabel = string.Empty;
     private string selectedTimestampLabel = string.Empty;
 
+    private static readonly JsonSerializerOptions overlaySerializerOptions = new(JsonSerializerDefaults.Web);
+    private const string OverlaySettingsStorageKey = "ft.topology.overlaySettings.v1";
+
     protected override async Task OnParametersSetAsync()
     {
+        if (!overlaySettingsLoaded)
+        {
+            await LoadOverlaySettingsAsync();
+            overlaySettingsLoaded = true;
+        }
+
         if (string.IsNullOrWhiteSpace(RunId))
         {
             if (!attemptedRestore)
@@ -173,6 +187,58 @@
 
         currentRunId = RunId;
         await LoadAsync(RunId);
+    }
+
+    private async Task LoadOverlaySettingsAsync()
+    {
+        try
+        {
+            var json = await JS.InvokeAsync<string?>("localStorage.getItem", OverlaySettingsStorageKey);
+            if (!string.IsNullOrWhiteSpace(json))
+            {
+                var stored = JsonSerializer.Deserialize<TopologyOverlaySettings>(json, overlaySerializerOptions);
+                if (stored is not null)
+                {
+                    overlaySettings = stored;
+                }
+            }
+        }
+        catch
+        {
+            // Ignore deserialization/storage errors
+        }
+
+        overlaySettingsLoaded = true;
+
+        if (selfReference is null)
+        {
+            selfReference = DotNetObjectReference.Create(this);
+        }
+
+        if (!hotkeyRegistrationId.HasValue)
+        {
+            try
+            {
+                hotkeyRegistrationId = await JS.InvokeAsync<int>("FlowTime.TopologyHotkeys.register", selfReference);
+            }
+            catch
+            {
+                hotkeyRegistrationId = null;
+            }
+        }
+    }
+
+    private async Task SaveOverlaySettingsAsync()
+    {
+        try
+        {
+            var json = JsonSerializer.Serialize(overlaySettings, overlaySerializerOptions);
+            await JS.InvokeVoidAsync("localStorage.setItem", OverlaySettingsStorageKey, json);
+        }
+        catch
+        {
+            // Ignore storage failures
+        }
     }
 
     private async Task LoadAsync(string runId)
@@ -263,11 +329,11 @@
         return Task.CompletedTask;
     }
 
-    private Task OnOverlaySettingsChanged(TopologyOverlaySettings updated)
+    private async Task OnOverlaySettingsChanged(TopologyOverlaySettings updated)
     {
         overlaySettings = updated.Clone();
+        await SaveOverlaySettingsAsync();
         StateHasChanged();
-        return Task.CompletedTask;
     }
 
     private const string LastRunStorageKey = "ft.topology.lastRunId";
@@ -365,6 +431,14 @@
         return Task.CompletedTask;
     }
 
+    [JSInvokable]
+    public Task ToggleFeatureBar()
+    {
+        featureBarOpen = !featureBarOpen;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
     private void ResetState()
     {
         loadCts?.Cancel();
@@ -390,5 +464,10 @@
     {
         loadCts?.Cancel();
         loadCts?.Dispose();
+        if (hotkeyRegistrationId.HasValue)
+        {
+            _ = JS.InvokeVoidAsync("FlowTime.TopologyHotkeys.unregister", hotkeyRegistrationId.Value);
+        }
+        selfReference?.Dispose();
     }
 }

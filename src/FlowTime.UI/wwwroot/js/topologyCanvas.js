@@ -429,9 +429,53 @@
         return !!autoDefault;
     }
 
+    const hotkeyHandlers = new Map();
+    let hotkeyCounter = 0;
+
+    function registerHotkeys(dotNetRef) {
+        if (!dotNetRef) {
+            return 0;
+        }
+
+        const handler = (event) => {
+            if (!event.altKey) {
+                return;
+            }
+
+            const key = event.key || event.code;
+            if (!key) {
+                return;
+            }
+
+            if (key.toLowerCase() === 't') {
+                event.preventDefault();
+                dotNetRef.invokeMethodAsync('ToggleFeatureBar');
+            }
+        };
+
+        const id = ++hotkeyCounter;
+        hotkeyHandlers.set(id, { handler });
+        window.addEventListener('keydown', handler, true);
+        return id;
+    }
+
+    function unregisterHotkeys(id) {
+        const entry = hotkeyHandlers.get(id);
+        if (!entry) {
+            return;
+        }
+
+        window.removeEventListener('keydown', entry.handler, true);
+        hotkeyHandlers.delete(id);
+    }
+
     window.FlowTime = window.FlowTime || {};
     window.FlowTime.TopologyCanvas = {
         render,
         dispose
+    };
+    window.FlowTime.TopologyHotkeys = {
+        register: registerHotkeys,
+        unregister: unregisterHotkeys
     };
 })();
