@@ -12,9 +12,9 @@ namespace FlowTime.UI.Components.Topology;
 
 public abstract class TopologyCanvasBase : ComponentBase, IDisposable
 {
-    private const double NodeWidth = 56;
-    private const double NodeHeight = 36;
-    private const double NodeCornerRadius = 8;
+    private const double NodeWidth = 48;
+    private const double NodeHeight = 30;
+    private const double NodeCornerRadius = 4;
     private const double ViewportPadding = 48;
 
     private readonly Dictionary<string, TopologyNode> nodeLookup = new(StringComparer.OrdinalIgnoreCase);
@@ -31,6 +31,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
     [Parameter] public TopologyGraph? Graph { get; set; }
     [Parameter] public IReadOnlyDictionary<string, NodeBinMetrics>? NodeMetrics { get; set; }
     [Parameter] public TopologyOverlaySettings OverlaySettings { get; set; } = TopologyOverlaySettings.Default;
+    [Parameter] public IReadOnlyDictionary<string, NodeSparklineData>? NodeSparklines { get; set; }
     [Parameter] public double CanvasWidth { get; set; } = 960;
     [Parameter] public double CanvasHeight { get; set; } = 640;
 
@@ -64,7 +65,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         }
 
         NodeProxies = BuildNodeProxies(Graph!, NodeMetrics, focusedNodeId);
-        pendingRequest = BuildRenderRequest(Graph!, NodeMetrics, focusedNodeId, OverlaySettings);
+        pendingRequest = BuildRenderRequest(Graph!, NodeMetrics, NodeSparklines, focusedNodeId, OverlaySettings);
         renderScheduled = true;
     }
 
@@ -147,7 +148,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             return;
         }
 
-        pendingRequest = BuildRenderRequest(Graph!, NodeMetrics, focusedNodeId, OverlaySettings);
+        pendingRequest = BuildRenderRequest(Graph!, NodeMetrics, NodeSparklines, focusedNodeId, OverlaySettings);
         renderScheduled = true;
     }
 
@@ -284,6 +285,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
     private static CanvasRenderRequest BuildRenderRequest(
         TopologyGraph graph,
         IReadOnlyDictionary<string, NodeBinMetrics>? metrics,
+        IReadOnlyDictionary<string, NodeSparklineData>? sparklines,
         string? focusedNode,
         TopologyOverlaySettings overlays)
     {
@@ -305,6 +307,17 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                 var isFocused = !string.IsNullOrWhiteSpace(focusedNode) &&
                     node.Id.Equals(focusedNode, StringComparison.OrdinalIgnoreCase);
 
+                NodeSparklineDto? sparklineDto = null;
+                if (sparklines is not null && sparklines.TryGetValue(node.Id, out var sparklineData))
+                {
+                    sparklineDto = new NodeSparklineDto(
+                        sparklineData.Values,
+                        sparklineData.Min,
+                        sparklineData.Max,
+                        sparklineData.Metric,
+                        sparklineData.IsFlat);
+                }
+
                 return new NodeRenderInfo(
                     node.Id,
                     node.X,
@@ -314,11 +327,16 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                     NodeCornerRadius,
                     fill,
                     stroke,
-                    isFocused);
+                    isFocused,
+                    sparklineDto);
             })
             .ToImmutableArray();
 
         var nodeLookup = nodeDtos.ToDictionary(n => n.Id, StringComparer.OrdinalIgnoreCase);
+
+        var outgoingTotals = graph.Edges
+            .GroupBy(edge => edge.From, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.Sum(edge => Math.Max(0d, edge.Weight)), StringComparer.OrdinalIgnoreCase);
 
         var edges = graph.Edges
             .Select(edge =>
@@ -329,6 +347,12 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                     return null;
                 }
 
+                double? share = null;
+                if (outgoingTotals.TryGetValue(edge.From, out var total) && total > 0)
+                {
+                    share = Math.Clamp(edge.Weight / total, 0d, 1d);
+                }
+
                 return new EdgeRenderInfo(
                     edge.Id,
                     edge.From,
@@ -336,7 +360,8 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                     fromNode.X,
                     fromNode.Y,
                     toNode.X,
-                    toNode.Y);
+                    toNode.Y,
+                    share);
             })
             .Where(edge => edge is not null)
             .Cast<EdgeRenderInfo>()
@@ -353,10 +378,11 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         var viewport = new CanvasViewport(minX, minY, maxX, maxY, ViewportPadding);
 
         var overlayPayload = new OverlaySettingsPayload(
-            overlays.Labels,
-            overlays.EdgeArrows,
-            overlays.EdgeShares,
-            overlays.Sparklines,
+            overlays.ShowLabels,
+            overlays.ShowEdgeArrows,
+            overlays.ShowEdgeShares,
+            overlays.ShowSparklines,
+            overlays.SparklineMode,
             overlays.AutoLod,
             overlays.ZoomLowThreshold,
             overlays.ZoomMidThreshold,

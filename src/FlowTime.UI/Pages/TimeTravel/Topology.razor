@@ -113,6 +113,7 @@
 
                     <TopologyCanvas Graph="topologyGraph"
                                     NodeMetrics="activeMetrics"
+                                    NodeSparklines="nodeSparklines"
                                     OverlaySettings="overlaySettings"
                                     CanvasWidth="1180"
                                     CanvasHeight="720" />
@@ -142,6 +143,7 @@
 
     private TopologyGraph? topologyGraph;
     private IReadOnlyDictionary<string, NodeBinMetrics> activeMetrics = new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase);
+    private IReadOnlyDictionary<string, NodeSparklineData> nodeSparklines = new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase);
     private TimeTravelStateWindowDto? windowData;
     private SeriesIndex? seriesIndex;
     private IReadOnlyList<DateTimeOffset> timestamps = Array.Empty<DateTimeOffset>();
@@ -154,6 +156,7 @@
 
     private static readonly JsonSerializerOptions overlaySerializerOptions = new(JsonSerializerDefaults.Web);
     private const string OverlaySettingsStorageKey = "ft.topology.overlaySettings.v1";
+    private const int SparklinePointLimit = 48;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -200,6 +203,7 @@
                 if (stored is not null)
                 {
                     overlaySettings = stored;
+                    ApplyLegacyOverlayFields(json, overlaySettings);
                 }
             }
         }
@@ -291,6 +295,7 @@
             }
 
             windowData = windowResult.Value;
+            BuildNodeSparklines();
             timestamps = windowData.TimestampsUtc.ToList();
             runDisplayName = windowData.Metadata.TemplateTitle ?? windowData.Metadata.TemplateId ?? runId;
 
@@ -419,6 +424,143 @@
         return ts.ToString("dd MMM yyyy HH:mm 'UTC'", CultureInfo.InvariantCulture);
     }
 
+    private void BuildNodeSparklines()
+    {
+        if (windowData is null)
+        {
+            nodeSparklines = new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase);
+            return;
+        }
+
+        var result = new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase);
+        foreach (var node in windowData.Nodes)
+        {
+            var series = BuildSuccessRateSeries(node, SparklinePointLimit);
+            if (series is null)
+            {
+                continue;
+            }
+
+            var sparkline = NodeSparklineData.Create(series, "successRate", 0d, 1d);
+            if (sparkline is not null)
+            {
+                result[node.Id] = sparkline;
+            }
+        }
+
+        nodeSparklines = result;
+    }
+
+    private static double?[]? BuildSuccessRateSeries(TimeTravelNodeSeriesDto node, int limit)
+    {
+        if (node is null)
+        {
+            return null;
+        }
+
+        var throughput = TryGetSeries(node, "throughputRatio");
+        var arrivals = TryGetSeries(node, "arrivals");
+        var served = TryGetSeries(node, "served");
+
+        var length = throughput?.Length ?? Math.Min(arrivals?.Length ?? 0, served?.Length ?? 0);
+        if (length <= 0)
+        {
+            return null;
+        }
+
+        var values = new double?[length];
+        for (var i = 0; i < length; i++)
+        {
+            double? value = null;
+
+            if (throughput is not null && i < throughput.Length)
+            {
+                value = throughput[i];
+            }
+
+            if (!value.HasValue)
+            {
+                var arrival = arrivals is not null && i < arrivals.Length ? arrivals[i] : null;
+                var serving = served is not null && i < served.Length ? served[i] : null;
+
+                if (arrival.HasValue && arrival.Value > 0 && serving.HasValue)
+                {
+                    value = serving.Value / arrival.Value;
+                }
+                else if (serving.HasValue && (!arrival.HasValue || arrival.Value <= 0))
+                {
+                    value = serving.Value > 0 ? 1d : 0d;
+                }
+            }
+
+            values[i] = value;
+        }
+
+        return TrimSeries(values, limit);
+    }
+
+    private static double?[]? TryGetSeries(TimeTravelNodeSeriesDto node, string key)
+    {
+        if (node.Series is null || string.IsNullOrWhiteSpace(key))
+        {
+            return null;
+        }
+
+        if (node.Series.TryGetValue(key, out var series) && series is not null && series.Length > 0)
+        {
+            return series;
+        }
+
+        return null;
+    }
+
+    private static double?[] TrimSeries(double?[] source, int limit)
+    {
+        if (source.Length <= limit)
+        {
+            return source.ToArray();
+        }
+
+        var start = Math.Max(0, source.Length - limit);
+        var result = new double?[limit];
+        Array.Copy(source, start, result, 0, limit);
+        return result;
+    }
+
+    private static void ApplyLegacyOverlayFields(string rawJson, TopologyOverlaySettings settings)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(rawJson);
+            var root = document.RootElement;
+
+            settings.ShowLabels = ResolveLegacyOverlay(root, "labels", settings.ShowLabels);
+            settings.ShowEdgeArrows = ResolveLegacyOverlay(root, "edgeArrows", settings.ShowEdgeArrows);
+            settings.ShowEdgeShares = ResolveLegacyOverlay(root, "edgeShares", settings.ShowEdgeShares);
+            settings.ShowSparklines = ResolveLegacyOverlay(root, "sparklines", settings.ShowSparklines);
+        }
+        catch
+        {
+            // Legacy payload parsing failure can be ignored.
+        }
+    }
+
+    private static bool ResolveLegacyOverlay(JsonElement root, string propertyName, bool currentValue)
+    {
+        if (root.TryGetProperty(propertyName, out var property) && property.ValueKind == JsonValueKind.Number)
+        {
+            var legacy = property.GetInt32();
+            return legacy switch
+            {
+                1 => true,
+                2 => false,
+                _ => currentValue
+            };
+        }
+
+        return currentValue;
+    }
+
     private Task OnBinChanged(int value)
     {
         if (value == selectedBin)
@@ -448,6 +590,7 @@
         runDisplayName = null;
         timestamps = Array.Empty<DateTimeOffset>();
         activeMetrics = new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase);
+        nodeSparklines = new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase);
         selectedBin = 0;
         visibleStartBin = 0;
         visibleEndBin = 0;

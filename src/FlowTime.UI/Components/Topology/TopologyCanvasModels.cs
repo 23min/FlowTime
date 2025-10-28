@@ -17,7 +17,8 @@ internal sealed record NodeRenderInfo(
     double CornerRadius,
     string Fill,
     string Stroke,
-    bool IsFocused);
+    bool IsFocused,
+    NodeSparklineDto? Sparkline);
 
 internal sealed record EdgeRenderInfo(
     string Id,
@@ -26,15 +27,17 @@ internal sealed record EdgeRenderInfo(
     double FromX,
     double FromY,
     double ToX,
-    double ToY);
+    double ToY,
+    double? Share);
 
 internal sealed record CanvasViewport(double MinX, double MinY, double MaxX, double MaxY, double Padding);
 
 internal sealed record OverlaySettingsPayload(
-    OverlayMode Labels,
-    OverlayMode EdgeArrows,
-    OverlayMode EdgeShares,
-    OverlayMode Sparklines,
+    bool ShowLabels,
+    bool ShowEdgeArrows,
+    bool ShowEdgeShares,
+    bool ShowSparklines,
+    SparklineRenderMode SparklineMode,
     bool AutoLod,
     double ZoomLowThreshold,
     double ZoomMidThreshold,
@@ -46,3 +49,10 @@ internal sealed record OverlaySettingsPayload(
     bool IncludeServiceNodes,
     bool IncludeExpressionNodes,
     bool IncludeConstNodes);
+
+internal sealed record NodeSparklineDto(
+    IReadOnlyList<double?> Values,
+    double Min,
+    double Max,
+    string Metric,
+    bool IsFlat);

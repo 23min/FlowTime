@@ -12,50 +12,34 @@
 
     <MudStack Spacing="2">
         <MudText Typo="Typo.caption" Class="mb-1">Overlays</MudText>
-        <MudSelect T="OverlayMode"
-                   Dense="true"
-                   Variant="Variant.Outlined"
-                   Value="@workingSettings.Labels"
-                   ValueChanged="OnLabelsModeChanged"
-                   Label="Node labels">
-            @foreach (var option in overlayModeOptions)
-            {
-                <MudSelectItem Value="@option.mode">@option.label</MudSelectItem>
-            }
-        </MudSelect>
-        <MudSelect T="OverlayMode"
-                   Dense="true"
-                   Variant="Variant.Outlined"
-                   Value="@workingSettings.EdgeArrows"
-                   ValueChanged="OnEdgeArrowsModeChanged"
-                   Label="Edge arrows">
-            @foreach (var option in overlayModeOptions)
-            {
-                <MudSelectItem Value="@option.mode">@option.label</MudSelectItem>
-            }
-        </MudSelect>
-        <MudSelect T="OverlayMode"
-                   Dense="true"
-                   Variant="Variant.Outlined"
-                   Value="@workingSettings.EdgeShares"
-                   ValueChanged="OnEdgeSharesModeChanged"
-                   Label="Edge shares">
-            @foreach (var option in overlayModeOptions)
-            {
-                <MudSelectItem Value="@option.mode">@option.label</MudSelectItem>
-            }
-        </MudSelect>
-        <MudSelect T="OverlayMode"
-                   Dense="true"
-                   Variant="Variant.Outlined"
-                   Value="@workingSettings.Sparklines"
-                   ValueChanged="OnSparklinesModeChanged"
-                   Label="Sparklines">
-            @foreach (var option in overlayModeOptions)
-            {
-                <MudSelectItem Value="@option.mode">@option.label</MudSelectItem>
-            }
-        </MudSelect>
+        <MudSwitch T="bool"
+                   Value="@workingSettings.ShowLabels"
+                   ValueChanged="OnShowLabelsChanged"
+                   Color="Color.Primary"
+                   Label="Show node labels" />
+        <MudSwitch T="bool"
+                   Value="@workingSettings.ShowEdgeArrows"
+                   ValueChanged="OnShowEdgeArrowsChanged"
+                   Color="Color.Primary"
+                   Label="Show edge arrows" />
+        <MudSwitch T="bool"
+                   Value="@workingSettings.ShowEdgeShares"
+                   ValueChanged="OnShowEdgeSharesChanged"
+                   Color="Color.Primary"
+                   Label="Show edge shares" />
+        <MudSwitch T="bool"
+                   Value="@workingSettings.ShowSparklines"
+                   ValueChanged="OnShowSparklinesChanged"
+                   Color="Color.Primary"
+                   Label="Show sparklines" />
+        <MudRadioGroup T="SparklineRenderMode"
+                       Value="@workingSettings.SparklineMode"
+                       ValueChanged="OnSparklineModeChanged"
+                       Disabled="@(!workingSettings.ShowSparklines)"
+                       Orientation="Orientation.Horizontal">
+            <MudRadio T="SparklineRenderMode" Value="SparklineRenderMode.Line" Color="Color.Primary">Line</MudRadio>
+            <MudRadio T="SparklineRenderMode" Value="SparklineRenderMode.Bar" Color="Color.Primary">Bars</MudRadio>
+        </MudRadioGroup>
     </MudStack>
 
     <MudStack Spacing="2" Class="mt-2">
@@ -180,13 +164,6 @@
     private TopologyOverlaySettings workingSettings = TopologyOverlaySettings.Default;
     private TopologyOverlaySettings? lastReceivedSettings;
 
-    private readonly (OverlayMode mode, string label)[] overlayModeOptions =
-    {
-        (OverlayMode.Auto, "Auto"),
-        (OverlayMode.On, "On"),
-        (OverlayMode.Off, "Off")
-    };
-
     protected override void OnParametersSet()
     {
         if (!ReferenceEquals(lastReceivedSettings, Settings))
@@ -198,27 +175,58 @@
 
     private Task Close() => CloseRequested.InvokeAsync();
 
-    private Task OnLabelsModeChanged(OverlayMode value)
+    private Task OnShowLabelsChanged(bool value)
     {
-        workingSettings.Labels = value;
+        if (workingSettings.ShowLabels == value)
+        {
+            return Task.CompletedTask;
+        }
+
+        workingSettings.ShowLabels = value;
         return NotifyChange();
     }
 
-    private Task OnEdgeArrowsModeChanged(OverlayMode value)
+    private Task OnShowEdgeArrowsChanged(bool value)
     {
-        workingSettings.EdgeArrows = value;
+        if (workingSettings.ShowEdgeArrows == value)
+        {
+            return Task.CompletedTask;
+        }
+
+        workingSettings.ShowEdgeArrows = value;
         return NotifyChange();
     }
 
-    private Task OnEdgeSharesModeChanged(OverlayMode value)
+    private Task OnShowEdgeSharesChanged(bool value)
     {
-        workingSettings.EdgeShares = value;
+        if (workingSettings.ShowEdgeShares == value)
+        {
+            return Task.CompletedTask;
+        }
+
+        workingSettings.ShowEdgeShares = value;
         return NotifyChange();
     }
 
-    private Task OnSparklinesModeChanged(OverlayMode value)
+    private Task OnShowSparklinesChanged(bool value)
     {
-        workingSettings.Sparklines = value;
+        if (workingSettings.ShowSparklines == value)
+        {
+            return Task.CompletedTask;
+        }
+
+        workingSettings.ShowSparklines = value;
+        return NotifyChange();
+    }
+
+    private Task OnSparklineModeChanged(SparklineRenderMode value)
+    {
+        if (workingSettings.SparklineMode == value)
+        {
+            return Task.CompletedTask;
+        }
+
+        workingSettings.SparklineMode = value;
         return NotifyChange();
     }
 

@@ -18,7 +18,7 @@
 ### Overall Progress
 - [x] UX scaffolding: TopologyFeatureBar component + layout column
 - [x] Overlay/LOD plumbing into canvas payload + JS
-- [ ] Sparklines + edge share rendering
+- [x] Sparklines + edge share rendering
 - [ ] Full DAG mode (non-service nodes + filters)
 - [x] Persistence & shortcuts (localStorage overlays, Alt+T toggle)
 
@@ -50,10 +50,16 @@
 - [ ] Update render tests for overlay state
 - [ ] Manual/perf verification (scrub ≤200ms, pan FPS)
 
-### Session: Overlay Refinement (current)
+### Session: Overlay Refinement
 - [x] Switched Mud toggles to explicit handlers to ensure state changes fire reliably
 - [x] Restored clean `TopologyFeatureBar` UI (removed debug controls/logging)
 - [x] Simplified persistence path; verified overlay booleans sync with `localStorage`
+
+### Session: Sparklines & Edge Shares
+- [x] Emit per-node success-rate sparklines from the state window and pass to canvas
+- [x] Compute normalized edge shares and surface in render payload
+- [x] JS render pipeline now honors overlay toggles for labels/arrows/shares/sparklines
+- [x] Canvas now uses elbowed edges with port markers and refined node styling
 
 ---
 

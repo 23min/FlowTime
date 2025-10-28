@@ -114,14 +114,18 @@
 
         const nodes = state.payload.nodes ?? state.payload.Nodes ?? [];
         const edges = state.payload.edges ?? state.payload.Edges ?? [];
+        const overlaySettings = parseOverlaySettings(state.payload.overlays ?? state.payload.Overlays ?? {});
+        const sparkColor = resolveSparklineColor(overlaySettings.colorBasis);
         const nodeMap = new Map();
         for (const n of nodes) {
             nodeMap.set((n.id ?? n.Id), {
                 x: n.x ?? n.X,
                 y: n.y ?? n.Y,
-                width: n.width ?? n.Width ?? 56,
-                height: n.height ?? n.Height ?? 36,
-                cornerRadius: n.cornerRadius ?? n.CornerRadius ?? 8
+                width: n.width ?? n.Width ?? 48,
+                height: n.height ?? n.Height ?? 30,
+                cornerRadius: n.cornerRadius ?? n.CornerRadius ?? 4,
+                sparkline: n.sparkline ?? n.Sparkline ?? null,
+                isFocused: !!(n.isFocused ?? n.IsFocused)
             });
         }
 
@@ -153,26 +157,25 @@
             const ex = toX - ux * endShrink;
             const ey = toY - uy * endShrink;
 
+            const path = computeElbowPath(sx, sy, ex, ey);
             ctx.beginPath();
             ctx.moveTo(sx, sy);
+            ctx.lineTo(path.elbow1.x, path.elbow1.y);
+            ctx.lineTo(path.elbow2.x, path.elbow2.y);
             ctx.lineTo(ex, ey);
             ctx.stroke();
 
-            // Arrowhead at (ex, ey)
-            const arrowLength = 8;
-            const arrowWidth = 6;
-            const baseX = ex - ux * arrowLength;
-            const baseY = ey - uy * arrowLength;
-            const perpX = -uy;
-            const perpY = ux;
+            if (overlaySettings.showEdgeArrows) {
+                drawArrowhead(ctx, path.elbow2.x, path.elbow2.y, ex, ey);
+            }
 
-            ctx.beginPath();
-            ctx.moveTo(ex, ey);
-            ctx.lineTo(baseX + perpX * (arrowWidth / 2), baseY + perpY * (arrowWidth / 2));
-            ctx.lineTo(baseX - perpX * (arrowWidth / 2), baseY - perpY * (arrowWidth / 2));
-            ctx.closePath();
-            ctx.fillStyle = ctx.strokeStyle;
-            ctx.fill();
+            drawPort(ctx, sx, sy);
+            drawPort(ctx, ex, ey);
+
+            const share = edge.share ?? edge.Share;
+            if (overlaySettings.showEdgeShares && share !== null && share !== undefined) {
+                drawEdgeShare(ctx, sx, sy, ex, ey, path, share);
+            }
         }
 
         ctx.globalAlpha = 1;
@@ -180,17 +183,18 @@
         for (const node of nodes) {
             const x = node.x ?? node.X;
             const y = node.y ?? node.Y;
-            const width = node.width ?? node.Width ?? 56;
-            const height = node.height ?? node.Height ?? 36;
-            const cornerRadius = node.cornerRadius ?? node.CornerRadius ?? 8;
+            const width = node.width ?? node.Width ?? 48;
+            const height = node.height ?? node.Height ?? 30;
+            const cornerRadius = node.cornerRadius ?? node.CornerRadius ?? 4;
             const fill = node.fill ?? node.Fill ?? '#7A7A7A';
             const stroke = node.stroke ?? node.Stroke ?? '#262626';
+            const id = node.id ?? node.Id;
 
             ctx.beginPath();
             traceRoundedRect(ctx, x, y, width, height, cornerRadius);
             ctx.fillStyle = fill;
             ctx.strokeStyle = stroke;
-            ctx.lineWidth = 1.2;
+            ctx.lineWidth = 0.9;
             ctx.fill();
             ctx.stroke();
 
@@ -204,9 +208,12 @@
                 ctx.setLineDash([]);
             }
 
-            // Label centered inside node
-            const id = node.id ?? node.Id;
-            if (id) {
+            const nodeMeta = nodeMap.get(id);
+            if (overlaySettings.showSparklines && nodeMeta?.sparkline) {
+                drawSparkline(ctx, nodeMeta, nodeMeta.sparkline, overlaySettings.sparklineMode, sparkColor);
+            }
+
+            if (overlaySettings.showLabels) {
                 ctx.save();
                 const label = String(id);
                 const textColor = isDarkColor(fill) ? '#FFFFFF' : '#111111';
@@ -371,62 +378,247 @@
         ctx.fillText(finalText, Math.round(x), Math.round(y));
     }
 
-    function parseOverlaySettings(raw, scale) {
-        const modeLabels = normalizeMode(raw.labels ?? raw.Labels);
-        const modeEdgeArrows = normalizeMode(raw.edgeArrows ?? raw.EdgeArrows ?? 1);
-        const modeEdgeShares = normalizeMode(raw.edgeShares ?? raw.EdgeShares);
-        const modeSparklines = normalizeMode(raw.sparklines ?? raw.Sparklines);
+    function parseOverlaySettings(raw) {
+        const boolOr = (value, fallback) => {
+            if (typeof value === 'boolean') {
+                return value;
+            }
+            if (typeof value === 'number') {
+                return value !== 0;
+            }
+            if (typeof value === 'string') {
+                const lowered = value.trim().toLowerCase();
+                if (lowered === 'true') return true;
+                if (lowered === 'false') return false;
+                const num = Number(value);
+                return Number.isFinite(num) ? num !== 0 : fallback;
+            }
+            return fallback;
+        };
 
-        const autoLod = !!(raw.autoLod ?? raw.AutoLod ?? true);
-        const zoomLow = Number(raw.zoomLowThreshold ?? raw.ZoomLowThreshold ?? 0.5) || 0.5;
-        const zoomMid = Number(raw.zoomMidThreshold ?? raw.ZoomMidThreshold ?? 1.0) || 1.0;
-
-        const defaultLabels = autoLod ? scale >= zoomLow : true;
-        const defaultEdgeArrows = autoLod ? scale >= zoomLow : true;
-        const defaultEdgeShares = autoLod ? scale >= zoomMid : false;
-        const defaultSparklines = autoLod ? scale >= zoomMid : false;
+        const sparkMode = Number(raw.sparklineMode ?? raw.SparklineMode ?? 0);
 
         return {
-            showLabels: resolveOverlay(modeLabels, defaultLabels),
-            showEdgeArrows: resolveOverlay(modeEdgeArrows, defaultEdgeArrows),
-            showEdgeShares: resolveOverlay(modeEdgeShares, defaultEdgeShares),
-            showSparklines: resolveOverlay(modeSparklines, defaultSparklines),
-            autoLod,
-            zoomLowThreshold: zoomLow,
-            zoomMidThreshold: zoomMid,
+            showLabels: boolOr(raw.showLabels ?? raw.ShowLabels, true),
+            showEdgeArrows: boolOr(raw.showEdgeArrows ?? raw.ShowEdgeArrows, true),
+            showEdgeShares: boolOr(raw.showEdgeShares ?? raw.ShowEdgeShares, false),
+            showSparklines: boolOr(raw.showSparklines ?? raw.ShowSparklines, true),
+            sparklineMode: sparkMode === 1 ? 'bar' : 'line',
+            autoLod: boolOr(raw.autoLod ?? raw.AutoLod, true),
+            zoomLowThreshold: Number(raw.zoomLowThreshold ?? raw.ZoomLowThreshold ?? 0.5) || 0.5,
+            zoomMidThreshold: Number(raw.zoomMidThreshold ?? raw.ZoomMidThreshold ?? 1.0) || 1.0,
             colorBasis: raw.colorBasis ?? raw.ColorBasis ?? 0,
-            neighborEmphasis: !!(raw.neighborEmphasis ?? raw.NeighborEmphasis ?? true),
-            includeServiceNodes: !!(raw.includeServiceNodes ?? raw.IncludeServiceNodes ?? true),
-            includeExpressionNodes: !!(raw.includeExpressionNodes ?? raw.IncludeExpressionNodes ?? false),
-            includeConstNodes: !!(raw.includeConstNodes ?? raw.IncludeConstNodes ?? false)
+            neighborEmphasis: boolOr(raw.neighborEmphasis ?? raw.NeighborEmphasis, true),
+            includeServiceNodes: boolOr(raw.includeServiceNodes ?? raw.IncludeServiceNodes, true),
+            includeExpressionNodes: boolOr(raw.includeExpressionNodes ?? raw.IncludeExpressionNodes, false),
+            includeConstNodes: boolOr(raw.includeConstNodes ?? raw.IncludeConstNodes, false)
         };
     }
 
-    function normalizeMode(value) {
-        if (value === null || value === undefined) {
-            return 0;
+    function resolveSparklineColor(basis) {
+        switch (basis) {
+            case 1: // Utilization
+                return '#5F3DC4';
+            case 2: // Errors
+                return '#D9480F';
+            case 3: // Queue
+                return '#2F9E44';
+            default: // SLA / fallback
+                return '#0B7285';
         }
-        const num = Number(value);
-        if (!Number.isFinite(num)) {
-            return 0;
-        }
-        if (num === 1) {
-            return 1;
-        }
-        if (num === 2) {
-            return 2;
-        }
-        return 0;
     }
 
-    function resolveOverlay(mode, autoDefault) {
-        if (mode === 1) {
-            return true;
+    function computeElbowPath(sx, sy, ex, ey) {
+        const horizontalFirst = Math.abs(ex - sx) >= Math.abs(ey - sy);
+        if (horizontalFirst) {
+            const midX = (sx + ex) / 2;
+            return {
+                elbow1: { x: midX, y: sy },
+                elbow2: { x: midX, y: ey }
+            };
         }
-        if (mode === 2) {
-            return false;
+
+        const midY = (sy + ey) / 2;
+        return {
+            elbow1: { x: sx, y: midY },
+            elbow2: { x: ex, y: midY }
+        };
+    }
+
+    function drawArrowhead(ctx, fromX, fromY, toX, toY) {
+        let dx = toX - fromX;
+        let dy = toY - fromY;
+        const len = Math.hypot(dx, dy) || 1;
+        dx /= len;
+        dy /= len;
+
+        const arrowLength = 8;
+        const arrowWidth = 6;
+        const baseX = toX - dx * arrowLength;
+        const baseY = toY - dy * arrowLength;
+        const perpX = -dy;
+        const perpY = dx;
+
+        ctx.beginPath();
+        ctx.moveTo(toX, toY);
+        ctx.lineTo(baseX + perpX * (arrowWidth / 2), baseY + perpY * (arrowWidth / 2));
+        ctx.lineTo(baseX - perpX * (arrowWidth / 2), baseY - perpY * (arrowWidth / 2));
+        ctx.closePath();
+        ctx.fillStyle = ctx.strokeStyle;
+        ctx.fill();
+    }
+
+    function drawPort(ctx, x, y) {
+        ctx.save();
+        ctx.fillStyle = '#1F2933';
+        ctx.beginPath();
+        ctx.arc(x, y, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+
+    function drawEdgeShare(ctx, sx, sy, ex, ey, path, share) {
+        const pct = Number(share);
+        if (!Number.isFinite(pct)) {
+            return;
         }
-        return !!autoDefault;
+
+        const segments = [
+            { x1: sx, y1: sy, x2: path.elbow1.x, y2: path.elbow1.y },
+            { x1: path.elbow1.x, y1: path.elbow1.y, x2: path.elbow2.x, y2: path.elbow2.y },
+            { x1: path.elbow2.x, y1: path.elbow2.y, x2: ex, y2: ey }
+        ];
+
+        const totalLength = segments.reduce((sum, seg) => {
+            const dx = seg.x2 - seg.x1;
+            const dy = seg.y2 - seg.y1;
+            return sum + Math.hypot(dx, dy);
+        }, 0);
+
+        if (!Number.isFinite(totalLength) || totalLength === 0) {
+            return;
+        }
+
+        let remaining = totalLength / 2;
+        let anchor = { x: sx, y: sy };
+        let tangent = { dx: 1, dy: 0 };
+
+        for (const seg of segments) {
+            const dx = seg.x2 - seg.x1;
+            const dy = seg.y2 - seg.y1;
+            const length = Math.hypot(dx, dy);
+            if (length === 0) {
+                continue;
+            }
+
+            if (remaining <= length) {
+                const t = remaining / length;
+                anchor = {
+                    x: seg.x1 + dx * t,
+                    y: seg.y1 + dy * t
+                };
+                tangent = {
+                    dx: dx / length,
+                    dy: dy / length
+                };
+                break;
+            }
+
+            remaining -= length;
+        }
+
+        const label = `${Math.round(pct * 100)}%`;
+        const offset = 10;
+        const perpX = -tangent.dy;
+        const perpY = tangent.dx;
+        const labelX = anchor.x + perpX * offset;
+        const labelY = anchor.y + perpY * offset;
+
+        ctx.save();
+        ctx.fillStyle = 'rgba(33, 37, 41, 0.85)';
+        ctx.font = '10px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(label, labelX, labelY);
+        ctx.restore();
+    }
+
+    function drawSparkline(ctx, nodeMeta, sparkline, mode, color) {
+        const values = sparkline.values ?? sparkline.Values;
+        if (!Array.isArray(values) || values.length < 2) {
+            return;
+        }
+
+        const min = Number(sparkline.min ?? sparkline.Min);
+        const max = Number(sparkline.max ?? sparkline.Max);
+        const isFlat = !!(sparkline.isFlat ?? sparkline.IsFlat);
+        if (!Number.isFinite(min) || !Number.isFinite(max)) {
+            return;
+        }
+
+        const width = nodeMeta.width ?? 48;
+        const nodeHeight = nodeMeta.height ?? 30;
+        const sparkWidth = Math.max(width - 8, 20);
+        const sparkHeight = mode === 'bar' ? 12 : 10;
+        const left = (nodeMeta.x ?? 0) - (sparkWidth / 2);
+        const top = (nodeMeta.y ?? 0) - (nodeHeight / 2) - sparkHeight - 6;
+
+        ctx.save();
+        ctx.translate(left, top);
+
+        const step = sparkWidth / Math.max(values.length - 1, 1);
+        const range = max - min;
+        let started = false;
+
+        const drawAsBars = mode === 'bar';
+
+        if (!drawAsBars) {
+            ctx.beginPath();
+        }
+        values.forEach((raw, index) => {
+            if (raw === null || raw === undefined) {
+                started = false;
+                return;
+            }
+
+            const numeric = Number(raw);
+            if (!Number.isFinite(numeric)) {
+                started = false;
+                return;
+            }
+
+            let normalized;
+            if (isFlat || range < 1e-6) {
+                normalized = 0.8;
+            } else {
+                normalized = clamp((numeric - min) / range, 0, 1);
+            }
+            const x = index * step;
+            const y = sparkHeight - (sparkHeight * normalized);
+
+            if (drawAsBars) {
+                const barWidth = Math.max(step * 0.6, 1.5);
+                ctx.fillStyle = color;
+                const clampedY = Math.min(Math.max(y, 0), sparkHeight);
+                ctx.fillRect(x - barWidth / 2, clampedY, barWidth, sparkHeight - clampedY);
+                started = true;
+            } else {
+                if (!started) {
+                    ctx.moveTo(x, y);
+                    started = true;
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            }
+        });
+
+        if (started && !drawAsBars) {
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 1.4;
+            ctx.stroke();
+        }
+
+        ctx.restore();
     }
 
     const hotkeyHandlers = new Map();

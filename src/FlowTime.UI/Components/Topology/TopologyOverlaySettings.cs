@@ -1,12 +1,5 @@
 namespace FlowTime.UI.Components.Topology;
 
-public enum OverlayMode
-{
-    Auto,
-    On,
-    Off
-}
-
 public enum TopologyColorBasis
 {
     Sla,
@@ -15,12 +8,19 @@ public enum TopologyColorBasis
     Queue
 }
 
+public enum SparklineRenderMode
+{
+    Line,
+    Bar
+}
+
 public sealed class TopologyOverlaySettings
 {
-    public OverlayMode Labels { get; set; } = OverlayMode.Auto;
-    public OverlayMode EdgeArrows { get; set; } = OverlayMode.On;
-    public OverlayMode EdgeShares { get; set; } = OverlayMode.Auto;
-    public OverlayMode Sparklines { get; set; } = OverlayMode.Auto;
+    public bool ShowLabels { get; set; } = true;
+    public bool ShowEdgeArrows { get; set; } = true;
+    public bool ShowEdgeShares { get; set; } = false;
+    public bool ShowSparklines { get; set; } = true;
+    public SparklineRenderMode SparklineMode { get; set; } = SparklineRenderMode.Line;
 
     public bool EnableFullDag { get; set; }
     public bool IncludeServiceNodes { get; set; } = true;
@@ -41,10 +41,11 @@ public sealed class TopologyOverlaySettings
     {
         return new TopologyOverlaySettings
         {
-            Labels = Labels,
-            EdgeArrows = EdgeArrows,
-            EdgeShares = EdgeShares,
-            Sparklines = Sparklines,
+            ShowLabels = ShowLabels,
+            ShowEdgeArrows = ShowEdgeArrows,
+            ShowEdgeShares = ShowEdgeShares,
+            ShowSparklines = ShowSparklines,
+            SparklineMode = SparklineMode,
             EnableFullDag = EnableFullDag,
             IncludeServiceNodes = IncludeServiceNodes,
             IncludeExpressionNodes = IncludeExpressionNodes,
