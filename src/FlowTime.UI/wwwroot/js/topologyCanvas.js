@@ -1046,7 +1046,7 @@
                 continue;
             }
 
-            if (overlaySettings.showComputeNodes && source.visible !== false) {
+            if (overlays.showComputeNodes && source.visible !== false) {
                 // compute node is visible on canvas; skip duplicate badge
                 continue;
             }
