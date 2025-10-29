@@ -210,8 +210,97 @@ public sealed class TopologyCanvasRenderTests : TestContext
         Assert.Equal(0.86, overlayPayload.UtilizationWarningCutoff, 3);
         Assert.Equal(0.91, overlayPayload.UtilizationCriticalCutoff, 3);
         Assert.Equal(0.032, overlayPayload.ErrorWarningCutoff, 3);
-        Assert.Equal(0.08, overlayPayload.ErrorCriticalCutoff, 3);
-        Assert.Equal(activeBin, overlayPayload.SelectedBin);
+       Assert.Equal(0.08, overlayPayload.ErrorCriticalCutoff, 3);
+       Assert.Equal(activeBin, overlayPayload.SelectedBin);
+   }
+
+    [Fact]
+    public void FullDagDisabledFiltersNonOperationalNodes()
+    {
+        var graph = CreateGraphWithFullDagNodes();
+        var overlays = TopologyOverlaySettings.Default.Clone();
+        overlays.IncludeServiceNodes = true;
+        overlays.IncludeExpressionNodes = true;
+        overlays.IncludeConstNodes = true;
+        overlays.EnableFullDag = false;
+
+        var renderCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.render", _ => true);
+        renderCall.SetVoidResult();
+
+        RenderComponent<TopologyCanvas>(parameters => parameters
+            .Add(p => p.Graph, graph)
+            .Add(p => p.OverlaySettings, overlays));
+
+        var payload = Assert.IsType<CanvasRenderRequest>(renderCall.Invocations.Single().Arguments[1]);
+
+        Assert.Single(payload.Nodes);
+        Assert.Equal("svc", payload.Nodes[0].Id);
+        Assert.Empty(payload.Edges);
+    }
+
+    [Fact]
+    public void FullDagEnabledIncludesExpressionAndConstNodes()
+    {
+        var graph = CreateGraphWithFullDagNodes();
+        var overlays = TopologyOverlaySettings.Default.Clone();
+        overlays.EnableFullDag = true;
+        overlays.IncludeServiceNodes = true;
+        overlays.IncludeExpressionNodes = true;
+        overlays.IncludeConstNodes = true;
+
+        var renderCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.render", _ => true);
+        renderCall.SetVoidResult();
+
+        RenderComponent<TopologyCanvas>(parameters => parameters
+            .Add(p => p.Graph, graph)
+            .Add(p => p.OverlaySettings, overlays));
+
+        var payload = Assert.IsType<CanvasRenderRequest>(renderCall.Invocations.Single().Arguments[1]);
+
+        Assert.Equal(3, payload.Nodes.Count);
+        Assert.Equal(2, payload.Edges.Count);
+        Assert.True(payload.Overlays.EnableFullDag);
+
+        var ids = payload.Nodes.Select(n => n.Id).OrderBy(id => id, StringComparer.OrdinalIgnoreCase).ToArray();
+        Assert.Equal(new[] { "calc", "source", "svc" }, ids);
+    }
+
+    [Fact]
+    public void ShowsFilteredEmptyStateWhenNoNodesVisible()
+    {
+        var graph = CreateGraph();
+        var overlays = TopologyOverlaySettings.Default.Clone();
+        overlays.IncludeServiceNodes = false;
+
+        JSInterop.SetupVoid("FlowTime.TopologyCanvas.render", _ => true).SetVoidResult();
+
+        var cut = RenderComponent<TopologyCanvas>(parameters => parameters
+            .Add(p => p.Graph, graph)
+            .Add(p => p.OverlaySettings, overlays));
+
+        cut.WaitForAssertion(() =>
+        {
+            var filtered = cut.Find("[data-testid='topology-filtered-empty']");
+            Assert.Contains("Adjust the feature bar filters", filtered.InnerHtml, StringComparison.OrdinalIgnoreCase);
+        });
+    }
+
+    private static TopologyGraph CreateGraphWithFullDagNodes()
+    {
+        var nodes = new[]
+        {
+            new TopologyNode("source", "const", Array.Empty<string>(), new[] { "calc" }, 0, 0, 0, 0, false),
+            new TopologyNode("calc", "expr", new[] { "source" }, new[] { "svc" }, 1, 0, 200, 120, false),
+            new TopologyNode("svc", "service", new[] { "calc" }, Array.Empty<string>(), 2, 0, 400, 240, false)
+        };
+
+        var edges = new[]
+        {
+            new TopologyEdge("edge_source_calc", "source", "calc", 1, null, null),
+            new TopologyEdge("edge_calc_svc", "calc", "svc", 1, null, null)
+        };
+
+        return new TopologyGraph(nodes, edges);
     }
 
     private static TopologyGraph CreateGraph()
@@ -225,8 +314,8 @@ public sealed class TopologyCanvasRenderTests : TestContext
 
         var edges = new[]
         {
-            new TopologyEdge("edge_ingress_processor", "ingress", "processor", 1),
-            new TopologyEdge("edge_processor_egress", "processor", "egress", 1)
+            new TopologyEdge("edge_ingress_processor", "ingress", "processor", 1, null, null),
+            new TopologyEdge("edge_processor_egress", "processor", "egress", 1, null, null)
         };
 
         return new TopologyGraph(nodes, edges);

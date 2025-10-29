@@ -7,6 +7,9 @@ out/
 data/
 runs/
 
+# Images used to prompt the AI
+/images
+
 # Local scratch data created during manual validation/tests
 tmpdata*/
 tmpdata_*/

@@ -19,8 +19,8 @@ public sealed class TopologyHelpersTests
             },
             new[]
             {
-                new GraphEdgeModel("edge_ingress_processor", "ingress:out", "processor:in", 1),
-                new GraphEdgeModel("edge_processor_egress", "processor:out", "egress:in", 1)
+                new GraphEdgeModel("edge_ingress_processor", "ingress:out", "processor:in", 1, null, null),
+                new GraphEdgeModel("edge_processor_egress", "processor:out", "egress:in", 1, null, null)
             });
 
         var graph = GraphMapper.Map(response);
@@ -54,7 +54,7 @@ public sealed class TopologyHelpersTests
             },
             new[]
             {
-                new GraphEdgeModel("edge_alpha_beta", "alpha:out", "beta:in", 1)
+                new GraphEdgeModel("edge_alpha_beta", "alpha:out", "beta:in", 1, null, null)
             });
 
         var graph = GraphMapper.Map(response);
@@ -127,5 +127,5 @@ public sealed class TopologyHelpersTests
     }
 
     private static GraphNodeSemanticsModel CreateSemantics()
-        => new("series:arrivals", "series:served", "series:errors", null, null);
+        => new("series:arrivals", "series:served", "series:errors", null, null, null);
 }

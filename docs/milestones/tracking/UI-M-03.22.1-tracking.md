@@ -20,6 +20,8 @@
 - [x] Overlay/LOD plumbing into canvas payload + JS
 - [x] Sparklines + edge share rendering
 - [ ] Full DAG mode (non-service nodes + filters)
+  - [x] API spec drafted for `GET /v1/runs/{runId}/graph?mode=full&kinds=...`
+  - [x] API implementation + UI requery on toggle (mode switch, dependency edge toggles, JS gating)
 - [x] Persistence & shortcuts (localStorage overlays, Alt+T toggle)
 
 ### Test Status
@@ -86,12 +88,24 @@
 - [x] Synced mouse-wheel canvas zoom back into feature-bar slider so values stay aligned
 - [ ] TODO: Add incident markers + auto-loop presets once timeline UX spec lands
 
+### Session: Full DAG API Wiring
+- [x] Extended `/v1/runs/{runId}/graph` to support `mode`, `kinds`, `dependencyFields`, and dependency edge metadata.
+- [x] Added Feature Bar dependency toggles (arrivals/served/errors/queue/capacity/expr) with JS gating.
+- [x] UI now re-fetches graph when Full DAG mode toggles on/off; dependency toggles persist client-side and cut server payload when subset selected.
+
+### Session: Layout & Visual Updates
+- [x] Switched layout to Top→Bottom (stable ranks; x=index, y=layer).
+- [x] Increased zoom max to 400% and added label font scaling for legibility.
+- [x] Styled non-service nodes: expr (diamond), const/pmf (capsule); queues show an inner depth bar.
+- [x] Dashed styling for dependency edges; labels remain crisp at higher zoom.
+
 ---
 
 ## Notes / Blockers
 - Tooltips bug tracked in this milestone; fix once overlay payload is wired.
 - Need to ensure JS interop remains performant as overlay options expand (watch redraw time).
 - Follow-up specs captured in `docs/milestones/UI-M-03.22.1.md` for incident markers on the dial and the node inspector panel (see `topography.md` / `image3.png`).
+- Full DAG now depends on API `mode=full`; ensure run bundles include const/expr/pmf definitions (legacy runs without them still render operational topology only).
 
 ---
 

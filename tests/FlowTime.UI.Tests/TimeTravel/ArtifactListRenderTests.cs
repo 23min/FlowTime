@@ -281,7 +281,7 @@ public sealed class ArtifactListRenderTests : TestContext
         public Task<ApiCallResult<TimeTravelMetricsResponseDto>> GetRunMetricsAsync(string runId, CancellationToken ct = default)
             => Task.FromResult(ApiCallResult<TimeTravelMetricsResponseDto>.Fail(404, "not implemented"));
 
-        public Task<ApiCallResult<GraphResponseModel>> GetRunGraphAsync(string runId, CancellationToken ct = default)
+        public Task<ApiCallResult<GraphResponseModel>> GetRunGraphAsync(string runId, GraphQueryOptions? options = null, CancellationToken ct = default)
             => Task.FromResult(ApiCallResult<GraphResponseModel>.Fail(404, "not implemented"));
 
         public Task<ApiCallResult<RunResponse>> RunAsync(string yaml, CancellationToken ct = default)

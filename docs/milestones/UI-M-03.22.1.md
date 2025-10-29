@@ -119,6 +119,68 @@ Each overlay supports Auto/On/Off. Auto follows LOD rules above; On forces displ
 
 ---
 
+### API Extension: Graph Modes and Kind Filters (Full DAG)
+
+To enable Full DAG rendering, the graph endpoint supports a mode switch and optional kind filters. Defaults maintain current behavior for existing clients.
+
+- Endpoint
+  - `GET /v1/runs/{runId}/graph?mode={operational|full}&kinds={csv}`
+    - `mode` (optional):
+      - `operational` (default) → current behavior: only operational nodes (service, queue, router, external) and their edges.
+      - `full` → include non‑operational nodes (expr, const, pmf) and dependency edges in addition to the operational topology.
+    - `kinds` (optional): comma‑separated list from `service,queue,router,external,expr,const,pmf`.
+      - When omitted:
+        - `operational` → `service,queue,router,external`
+        - `full` → `service,queue,router,external,expr,const,pmf`
+    - `dependencyFields` (optional; full mode only): csv from `arrivals,served,errors,queue,capacity`.
+      - Default: `all` (adds edges for all referenced semantics fields per your direction).
+      - Clients may restrict this to reduce clutter/payload.
+    - `edgeWeight` (optional; full mode only): `uniform|contribution`.
+      - Default: `uniform` (weight = 1.0 for dependency edges). `contribution` reserved for future when we can infer proportional influence.
+
+- Response (unchanged shape)
+  - `GraphResponseModel` with `nodes: GraphNodeModel[]` and `edges: GraphEdgeModel[]`.
+  - `GraphNodeModel.kind` uses the enumerations above.
+  - `GraphNodeModel.ui` remains optional; if missing, the UI computes layout from edges.
+  - `GraphNodeModel.semantics` for non‑operational kinds (expr, const, pmf):
+    - Add optional `series` field pointing to the canonical series identifier (normalized to `series:<id>` or `file://telemetry/<file>.csv`, per bundling rules).
+    - Existing service/queue semantics (`arrivals`, `served`, `errors`, `queue`, `capacity`) are unchanged.
+  - Edge metadata extension (non‑breaking):
+    - Add optional `edgeType` to `GraphEdgeModel`: `topology|dependency` (default `topology`).
+    - When `edgeType=dependency`, include optional `field` with values from `arrivals|served|errors|queue|capacity|expr` (where `expr` marks expression input dependencies).
+
+- Edge construction rules
+  - Preserve template topology edges as today.
+  - Add dependency edges when `mode=full` (subject to `dependencyFields`):
+    1) Expression dependencies: for each `expr` node, add an edge from every referenced node to the `expr` node.
+    2) Producers → services/queues: for each service/queue node, for each referenced semantics field in `dependencyFields`, if the bound series originates from a `const|expr|pmf` node, add an edge from that producer to the service/queue node.
+  - Direction is data‑flow (source → consumer). `weight` may be `1.0` for dependency edges; topology flow edges retain their configured weight.
+
+- Backward compatibility
+  - When `mode` is omitted, responses are identical to current production behavior.
+  - Clients unaware of `series` in semantics ignore it safely.
+
+- UI wiring (this milestone)
+  - When the user enables “Full DAG mode”, the UI requests `GET /v1/runs/{runId}/graph?mode=full` and applies the local kind filters (`service/expr/const` checkboxes) client‑side.
+  - When Full DAG is off, the UI requests `mode=operational` (or no `mode`).
+  - Non‑service node sparklines: if present, use `semantics.series` for on‑demand fetch via `/series/{seriesId}`; otherwise fall back to the existing index mapping.
+  - Add a “Dependency Edges” group under the Feature Bar with per‑field toggles (Arrivals, Served, Errors, Queue, Capacity). On full graphs, the UI hides/shows edges by `edgeType=dependency` + `field` without another roundtrip; when the server excludes some fields via `dependencyFields`, the UI toggles act as no‑ops for the missing categories.
+
+- Performance & size controls (optional, can be ignored by server if not needed)
+  - `maxNodes` (int): upper bound for nodes returned (prefer deterministic culling by depth/degree).
+  - `collapseSimpleChains` (bool): when `true`, the server may collapse 1‑in‑1‑out expression chains into a single summarized node. Default `false` for fidelity.
+  - Optional layout hints: include `ui.layer` (rank) and `ui.order` to stabilize layouts across modes; the UI will prefer provided hints but can compute layers when absent.
+
+- Acceptance notes
+  - With `mode=full`, the run used in validation should display additional `expr/const/pmf` nodes and dependency edges. The UI kind filters must hide/show these without another roundtrip.
+  - Dependency toggles hide/show edges by category; topology edges remain visible subject to kind filters.
+
+Open questions for review
+- Edge weights: keep `uniform` default; introduce `edgeWeight=contribution` later once influence metrics are defined/tested.
+- Aggregates tie‑in: future runs may include computed series under `aggregates/`. We can later surface `outputSeries` alongside `semantics.series` to distinguish raw vs. derived outputs without breaking clients. For now `semantics.series` is sufficient.
+
+---
+
 ## Accessibility
 
 - Feature Bar: focusable controls, Esc to close, `Alt+T` to toggle.
@@ -143,6 +205,27 @@ Each overlay supports Auto/On/Off. Auto follows LOD rules above; On forces displ
    - Toggle to include non‑service nodes; filter by kind; cull at low zoom.
 7) Docs + legend
    - Update legend and on‑panel help text; add a quick “What is shown?” section.
+
+### Layout & Visual Updates (extension)
+- Switch layout orientation to Top→Bottom: layer ↔ y, index ↔ x (keeps right-side inspector clear).
+- Increase zoom max to 400%; scale label font at higher zoom for readability.
+- Node shapes by kind: service (rounded rect), queue (rect + inner depth bar), expr (diamond), const/pmf (capsule).
+- Dependency edges rendered dashed and faint; per-field toggles control visibility.
+
+### Badge Rack (design spec)
+- Purpose: make semantics visible at a glance without expanding compute nodes.
+- Placement: directly above each service/queue node (same lane). Compact, no scroll when zoomed out.
+- Contents (left→right):
+  - Arrivals: tiny line/bar sparkline or last-value chip.
+  - Served: tiny line/bar sparkline or last-value chip.
+  - Errors: percentage dot (colored by thresholds).
+  - Queue: mini bar indicating current depth.
+  - Capacity: chip indicating current capacity; optional sparkline at high zoom.
+  - Expr inputs: small diamond badges referencing upstream compute; clicking highlights source edges.
+- Behavior:
+  - Visibility follows LOD and per-field dependency toggles.
+  - Hover/focus shows tooltip with series id, units, and last n values.
+  - Keyboard reachable: badges included in node proxy tab order.
 
 ---
 
@@ -208,3 +291,20 @@ Each overlay supports Auto/On/Off. Auto follows LOD rules above; On forces displ
 - `src/FlowTime.UI/wwwroot/js/topologyCanvas.js` — LOD handling, labels/sparklines/edge shares rendering.
 - `src/FlowTime.UI/Services/*` — optional series fetch helpers for non‑service nodes.
 - Docs and legend updates under `docs/milestones` and page help.
+### Layout Modes (evaluation spec)
+- Top→Bottom Layered (current default)
+  - Compute layers via longest-distance from sources (DAG). Place nodes in rows by layer, order within rows by original order (stable) or barycenter heuristic to reduce crossings. Orthogonal edges with limited bends.
+
+- Happy Path Lane Emphasis (priority)
+  - Identify a primary path (e.g., the longest path by layers or a curated sequence) and pin those nodes to a central lane. Place neighbors in side lanes with consistent spacing. This emphasizes the “happy path” while keeping offshoots tidy.
+  - Stable ranks preserved; only X positions change to accentuate the path. Works with dependency edges and badge racks.
+
+- Metro Backbone
+  - Define a small number of vertical backbone lanes (e.g., 3–5). Assign major services/queues to lanes; route branches orthogonally with stubs and consistent spacing (metro map style). Keeps a clean spine and legible branches.
+
+- Tree (indented)
+  - Treat topology as a rooted DAG and project a tree (choosing one parent per node) for a simple top-down view. Use faded edges for non-tree back edges and dashed dependencies.
+
+Implementation strategy
+- Encapsulate layout strategies behind an interface (e.g., `ILayoutStrategy`) with inputs: nodes, edges; outputs: x,y per node.
+- Add a `LayoutMode` option (Feature Bar). For now, wire ‘Top→Bottom’ and ‘Happy Path (beta)’. Keep others behind a spec flag until implemented.

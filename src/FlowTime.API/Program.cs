@@ -642,7 +642,13 @@ v1.MapGet("/runs/{runId}/graph", async (string runId, GraphService graphService,
 {
     try
     {
-        var response = await graphService.GetGraphAsync(runId, context.RequestAborted);
+        var optionsResult = TryBuildGraphQueryOptions(context.Request.Query, out var options, out var errorMessage);
+        if (!optionsResult)
+        {
+            return Results.BadRequest(new { error = errorMessage });
+        }
+
+        var response = await graphService.GetGraphAsync(runId, options!, context.RequestAborted);
         return Results.Ok(response);
     }
     catch (GraphQueryException ex)
@@ -650,6 +656,129 @@ v1.MapGet("/runs/{runId}/graph", async (string runId, GraphService graphService,
         return Results.Json(new { error = ex.Message }, statusCode: ex.StatusCode);
     }
 });
+
+static bool TryBuildGraphQueryOptions(IQueryCollection query, out GraphQueryOptions? options, out string? error)
+{
+    options = null;
+    error = null;
+
+    var modeValue = query.TryGetValue("mode", out var modeValues) && !StringValues.IsNullOrEmpty(modeValues)
+        ? modeValues[0]
+        : null;
+
+    GraphQueryMode mode = GraphQueryMode.Operational;
+    if (!string.IsNullOrWhiteSpace(modeValue))
+    {
+        if (string.Equals(modeValue, "operational", StringComparison.OrdinalIgnoreCase))
+        {
+            mode = GraphQueryMode.Operational;
+        }
+        else if (string.Equals(modeValue, "full", StringComparison.OrdinalIgnoreCase))
+        {
+            mode = GraphQueryMode.Full;
+        }
+        else
+        {
+            error = $"Invalid mode '{modeValue}'. Expected 'operational' or 'full'.";
+            return false;
+        }
+    }
+
+    var kinds = ParseCsv(query, "kinds");
+    if (kinds is not null && kinds.Count > 0)
+    {
+        foreach (var kind in kinds)
+        {
+            if (!IsSupportedKind(kind))
+            {
+                error = $"Invalid kind '{kind}'.";
+                return false;
+            }
+        }
+    }
+
+    var dependencyFields = ParseCsv(query, "dependencyFields");
+    if (dependencyFields is not null && dependencyFields.Count > 0)
+    {
+        foreach (var field in dependencyFields)
+        {
+            if (!IsSupportedDependencyField(field))
+            {
+                error = $"Invalid dependency field '{field}'.";
+                return false;
+            }
+        }
+    }
+
+    var edgeWeightValue = query.TryGetValue("edgeWeight", out var edgeWeightValues) && !StringValues.IsNullOrEmpty(edgeWeightValues)
+        ? edgeWeightValues[0]
+        : null;
+
+    GraphEdgeWeightMode edgeWeight = GraphEdgeWeightMode.Uniform;
+    if (!string.IsNullOrWhiteSpace(edgeWeightValue))
+    {
+        if (string.Equals(edgeWeightValue, "uniform", StringComparison.OrdinalIgnoreCase))
+        {
+            edgeWeight = GraphEdgeWeightMode.Uniform;
+        }
+        else if (string.Equals(edgeWeightValue, "contribution", StringComparison.OrdinalIgnoreCase))
+        {
+            edgeWeight = GraphEdgeWeightMode.Contribution;
+        }
+        else
+        {
+            error = $"Invalid edgeWeight '{edgeWeightValue}'. Expected 'uniform' or 'contribution'.";
+            return false;
+        }
+    }
+
+    options = new GraphQueryOptions
+    {
+        Mode = mode,
+        Kinds = kinds,
+        DependencyFields = dependencyFields,
+        EdgeWeight = edgeWeight
+    };
+
+    return true;
+}
+
+static IReadOnlyCollection<string>? ParseCsv(IQueryCollection query, string key)
+{
+    if (!query.TryGetValue(key, out var rawValues) || StringValues.IsNullOrEmpty(rawValues))
+    {
+        return null;
+    }
+
+    var entries = rawValues
+        .SelectMany(value => value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        .Where(value => !string.IsNullOrWhiteSpace(value))
+        .Select(value => value.Trim())
+        .ToArray();
+
+    return entries.Length == 0 ? null : entries;
+}
+
+static bool IsSupportedKind(string value)
+{
+    return value.Equals("service", StringComparison.OrdinalIgnoreCase) ||
+           value.Equals("queue", StringComparison.OrdinalIgnoreCase) ||
+           value.Equals("router", StringComparison.OrdinalIgnoreCase) ||
+           value.Equals("external", StringComparison.OrdinalIgnoreCase) ||
+           value.Equals("expr", StringComparison.OrdinalIgnoreCase) ||
+           value.Equals("const", StringComparison.OrdinalIgnoreCase) ||
+           value.Equals("pmf", StringComparison.OrdinalIgnoreCase);
+}
+
+static bool IsSupportedDependencyField(string value)
+{
+    return value.Equals("arrivals", StringComparison.OrdinalIgnoreCase) ||
+           value.Equals("served", StringComparison.OrdinalIgnoreCase) ||
+           value.Equals("errors", StringComparison.OrdinalIgnoreCase) ||
+           value.Equals("queue", StringComparison.OrdinalIgnoreCase) ||
+           value.Equals("capacity", StringComparison.OrdinalIgnoreCase) ||
+           value.Equals("expr", StringComparison.OrdinalIgnoreCase);
+}
 
 v1.MapGet("/runs/{runId}/metrics", async (string runId, HttpContext context, MetricsService metricsService) =>
 {

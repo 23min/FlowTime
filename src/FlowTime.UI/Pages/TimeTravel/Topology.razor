@@ -352,7 +352,7 @@
         {
             var ct = loadCts.Token;
 
-            var graphTask = DataService.GetGraphAsync(runId, ct);
+            var graphTask = DataService.GetGraphAsync(runId, BuildGraphQueryOptions(), ct);
             var indexTask = DataService.GetSeriesIndexAsync(runId, ct);
 
             await Task.WhenAll(graphTask, indexTask);
@@ -371,7 +371,7 @@
                 return;
             }
 
-            topologyGraph = GraphMapper.Map(graphResult.Value);
+            topologyGraph = GraphMapper.Map(graphResult.Value, overlaySettings.RespectUiPositions);
             seriesIndex = indexResult.Value;
 
             var totalBins = Math.Max(1, seriesIndex.Grid.Bins);
@@ -430,14 +430,27 @@
 
     private async Task OnOverlaySettingsChanged(TopologyOverlaySettings updated)
     {
+        var previous = overlaySettings.Clone();
+
         overlaySettings = updated.Clone();
         await SaveOverlaySettingsAsync();
-        StateHasChanged();
+
+        var requiresGraphReload = previous.EnableFullDag != overlaySettings.EnableFullDag
+            || previous.RespectUiPositions != overlaySettings.RespectUiPositions;
+
+        if (requiresGraphReload && hasLoaded)
+        {
+            await RefreshGraphAsync();
+        }
+        else
+        {
+            StateHasChanged();
+        }
     }
 
     private async Task HandleCanvasZoomChanged(double zoomPercent)
     {
-        var clamped = Math.Clamp(zoomPercent, 30d, 200d);
+        var clamped = Math.Clamp(zoomPercent, 30d, 400d);
         if (Math.Abs(overlaySettings.ZoomPercent - clamped) < 0.1d)
         {
             return;
@@ -446,6 +459,84 @@
         var updated = overlaySettings.Clone();
         updated.ZoomPercent = clamped;
         await OnOverlaySettingsChanged(updated);
+    }
+
+    private GraphQueryOptions BuildGraphQueryOptions()
+    {
+        var options = new GraphQueryOptions
+        {
+            Mode = overlaySettings.EnableFullDag ? "full" : "operational"
+        };
+
+        if (overlaySettings.EnableFullDag)
+        {
+            var dependencyFields = new List<string>(6);
+
+            if (overlaySettings.ShowArrivalsDependencies)
+            {
+                dependencyFields.Add("arrivals");
+            }
+
+            if (overlaySettings.ShowServedDependencies)
+            {
+                dependencyFields.Add("served");
+            }
+
+            if (overlaySettings.ShowErrorsDependencies)
+            {
+                dependencyFields.Add("errors");
+            }
+
+            if (overlaySettings.ShowQueueDependencies)
+            {
+                dependencyFields.Add("queue");
+            }
+
+            if (overlaySettings.ShowCapacityDependencies)
+            {
+                dependencyFields.Add("capacity");
+            }
+
+            if (overlaySettings.ShowExpressionDependencies)
+            {
+                dependencyFields.Add("expr");
+            }
+
+            if (dependencyFields.Count > 0 && dependencyFields.Count < 6)
+            {
+                options.DependencyFields = dependencyFields;
+            }
+        }
+
+        return options;
+    }
+
+    private async Task RefreshGraphAsync()
+    {
+        if (string.IsNullOrWhiteSpace(currentRunId))
+        {
+            return;
+        }
+
+        try
+        {
+            var graphResult = await DataService.GetGraphAsync(currentRunId, BuildGraphQueryOptions());
+            if (!graphResult.Success || graphResult.Value is null)
+            {
+                errorMessage = graphResult.Error ?? "Topology graph is unavailable.";
+                StateHasChanged();
+                return;
+            }
+
+            topologyGraph = GraphMapper.Map(graphResult.Value, overlaySettings.RespectUiPositions);
+            errorMessage = null;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to refresh topology: {ex.Message}";
+        }
+
+        StateHasChanged();
     }
 
     private Task OnDialInput(ChangeEventArgs args)

@@ -24,12 +24,15 @@ public sealed class GraphNodeSemantics
     public string Errors { get; init; } = string.Empty;
     public string? Queue { get; init; }
     public string? Capacity { get; init; }
+    public string? Series { get; init; }
 }
 
 public sealed class GraphNodeUi
 {
     public double? X { get; init; }
     public double? Y { get; init; }
+    public int? Layer { get; init; }
+    public int? Order { get; init; }
 }
 
 public sealed class GraphEdge
@@ -38,4 +41,6 @@ public sealed class GraphEdge
     public string From { get; init; } = string.Empty;
     public string To { get; init; } = string.Empty;
     public double Weight { get; init; }
+    public string? EdgeType { get; init; }
+    public string? Field { get; init; }
 }

@@ -11,7 +11,7 @@ public interface ITimeTravelDataService
 {
     Task<ApiCallResult<TimeTravelStateSnapshotDto>> GetStateAsync(string runId, int binIndex, CancellationToken ct = default);
     Task<ApiCallResult<TimeTravelStateWindowDto>> GetStateWindowAsync(string runId, int startBin, int endBin, CancellationToken ct = default);
-    Task<ApiCallResult<GraphResponseModel>> GetGraphAsync(string runId, CancellationToken ct = default);
+    Task<ApiCallResult<GraphResponseModel>> GetGraphAsync(string runId, GraphQueryOptions? options = null, CancellationToken ct = default);
     Task<ApiCallResult<SeriesIndex>> GetSeriesIndexAsync(string runId, CancellationToken ct = default);
     Task<ApiCallResult<Stream>> GetSeriesAsync(string runId, string seriesId, CancellationToken ct = default);
 }
@@ -69,7 +69,7 @@ public sealed class TimeTravelDataService : ITimeTravelDataService
         return SendAndInspect(runId, "state_window", () => apiClient.GetRunStateWindowAsync(runId, startBin, endBin, ct));
     }
 
-    public Task<ApiCallResult<GraphResponseModel>> GetGraphAsync(string runId, CancellationToken ct = default)
+    public Task<ApiCallResult<GraphResponseModel>> GetGraphAsync(string runId, GraphQueryOptions? options = null, CancellationToken ct = default)
     {
         var validationError = ValidateRunId(runId);
         if (validationError is not null)
@@ -77,7 +77,7 @@ public sealed class TimeTravelDataService : ITimeTravelDataService
             return Task.FromResult(ApiCallResult<GraphResponseModel>.Fail(400, validationError));
         }
 
-        return SendAndInspect(runId, "graph", () => apiClient.GetRunGraphAsync(runId, ct));
+        return SendAndInspect(runId, "graph", () => apiClient.GetRunGraphAsync(runId, options, ct));
     }
 
     public Task<ApiCallResult<SeriesIndex>> GetSeriesIndexAsync(string runId, CancellationToken ct = default)

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Net.Http.Headers;
 using System.IO; // for Stream
 using System.Text;
@@ -22,7 +23,7 @@ public interface IFlowTimeApiClient
     Task<ApiCallResult<TelemetryCaptureResponseDto>> GenerateTelemetryCaptureAsync(TelemetryCaptureRequestDto request, CancellationToken ct = default);
     Task<ApiCallResult<TimeTravelStateSnapshotDto>> GetRunStateAsync(string runId, int binIndex, CancellationToken ct = default);
     Task<ApiCallResult<TimeTravelStateWindowDto>> GetRunStateWindowAsync(string runId, int startBin, int endBin, CancellationToken ct = default);
-    Task<ApiCallResult<GraphResponseModel>> GetRunGraphAsync(string runId, CancellationToken ct = default);
+    Task<ApiCallResult<GraphResponseModel>> GetRunGraphAsync(string runId, GraphQueryOptions? options = null, CancellationToken ct = default);
     Task<ApiCallResult<SeriesIndex>> GetRunIndexAsync(string runId, CancellationToken ct = default);
     Task<ApiCallResult<Stream>> GetRunSeriesAsync(string runId, string seriesId, CancellationToken ct = default);
     Task<ApiCallResult<TimeTravelMetricsResponseDto>> GetRunMetricsAsync(string runId, CancellationToken ct = default);
@@ -149,9 +150,41 @@ internal sealed class FlowTimeApiClient : IFlowTimeApiClient
         return GetJson<TimeTravelStateWindowDto>(path, ct);
     }
 
-    public Task<ApiCallResult<GraphResponseModel>> GetRunGraphAsync(string runId, CancellationToken ct = default)
+    public Task<ApiCallResult<GraphResponseModel>> GetRunGraphAsync(string runId, GraphQueryOptions? options = null, CancellationToken ct = default)
     {
         var path = $"{apiBasePath}/runs/{Uri.EscapeDataString(runId)}/graph";
+        var querySegments = new List<string>();
+
+        if (options is not null)
+        {
+            if (!string.IsNullOrWhiteSpace(options.Mode))
+            {
+                querySegments.Add($"mode={Uri.EscapeDataString(options.Mode)}");
+            }
+
+            if (options.Kinds is not null && options.Kinds.Count > 0)
+            {
+                var kinds = string.Join(',', options.Kinds);
+                querySegments.Add($"kinds={Uri.EscapeDataString(kinds)}");
+            }
+
+            if (options.DependencyFields is not null && options.DependencyFields.Count > 0)
+            {
+                var dependencies = string.Join(',', options.DependencyFields);
+                querySegments.Add($"dependencyFields={Uri.EscapeDataString(dependencies)}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(options.EdgeWeight))
+            {
+                querySegments.Add($"edgeWeight={Uri.EscapeDataString(options.EdgeWeight)}");
+            }
+        }
+
+        if (querySegments.Count > 0)
+        {
+            path = $"{path}?{string.Join('&', querySegments)}";
+        }
+
         return GetJson<GraphResponseModel>(path, ct);
     }
 

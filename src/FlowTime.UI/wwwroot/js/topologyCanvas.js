@@ -1,5 +1,7 @@
 (function () {
     const registry = new WeakMap();
+    const EdgeTypeTopology = 'topology';
+    const EdgeTypeDependency = 'dependency';
 
     function getState(canvas) {
         let state = registry.get(canvas);
@@ -124,10 +126,10 @@
             state.userAdjusted = true;
 
             const baseScale = state.baseScale || state.scale;
-            const manual = clamp(state.scale / baseScale, 0.25, 4);
+            const manual = clamp(state.scale / baseScale, 0.25, 8);
             state.overlayScale = manual;
             state.lastOverlayZoom = manual;
-            const zoomPercent = clamp(manual * 100, 30, 200);
+            const zoomPercent = clamp(manual * 100, 30, 400);
             if (state.dotNetRef) {
                 state.dotNetRef.invokeMethodAsync('OnCanvasZoomChanged', zoomPercent);
             }
@@ -172,6 +174,10 @@
         const nodes = state.payload.nodes ?? state.payload.Nodes ?? [];
         const edges = state.payload.edges ?? state.payload.Edges ?? [];
         const overlaySettings = state.overlaySettings ?? parseOverlaySettings(state.payload.overlays ?? state.payload.Overlays ?? {});
+        const tooltip = state.payload.tooltip ?? state.payload.Tooltip ?? null;
+
+        // Sync overlay DOM (proxies + tooltip) with canvas pan/zoom so hover/focus hitboxes and callouts align
+        applyOverlayTransform(canvas, state);
         const sparkColor = resolveSparklineColor(overlaySettings.colorBasis);
         const nodeMap = new Map();
         for (const n of nodes) {
@@ -187,12 +193,22 @@
         }
 
         const portRadius = 3.5;
-        ctx.lineWidth = 1;
-        ctx.strokeStyle = '#9AA1AC';
-        ctx.globalAlpha = 0.85;
-
         const portFillColor = '#E7EBF4';
         const portStrokeColor = 'rgba(59, 72, 89, 0.55)';
+
+        let focusedId = null;
+        for (const [id, meta] of nodeMap.entries()) {
+            if (meta.isFocused) {
+                focusedId = id;
+                break;
+            }
+        }
+
+        const emphasisEnabled = overlaySettings.neighborEmphasis && focusedId;
+        const neighborNodes = emphasisEnabled ? computeNeighborNodes(edges, focusedId) : null;
+        const neighborEdges = emphasisEnabled ? computeNeighborEdges(edges, focusedId) : null;
+
+        const defaultEdgeAlpha = 0.85;
 
         for (const edge of edges) {
             const fromX = edge.fromX ?? edge.FromX;
@@ -209,14 +225,35 @@
                 continue;
             }
 
+            const edgeType = String(edge.edgeType ?? edge.EdgeType ?? EdgeTypeTopology).toLowerCase();
+            if (edgeType === EdgeTypeDependency) {
+                const field = String(edge.field ?? edge.Field ?? '').toLowerCase();
+                if (!shouldRenderDependencyEdge(field, overlaySettings)) {
+                    continue;
+                }
+            }
+
+            const edgeId = edge.id ?? edge.Id ?? `${fromId}->${toId}`;
+            const highlightEdge = !emphasisEnabled || (neighborEdges?.has(edgeId) ?? false);
+            const edgeAlpha = highlightEdge ? defaultEdgeAlpha : defaultEdgeAlpha * 0.25;
+            const strokeColor = highlightEdge ? '#9AA1AC' : 'rgba(154, 161, 172, 0.35)';
+
             const offset = edgeLaneOffset(edge);
             let pathPoints;
             let startPoint;
             let endPoint;
 
-            ctx.beginPath();
+            ctx.save();
+            ctx.globalAlpha = edgeAlpha;
+            ctx.lineWidth = 1;
+            ctx.strokeStyle = strokeColor;
+            if (edgeType === EdgeTypeDependency) {
+                ctx.setLineDash([4, 3]);
+            }
+
             if (overlaySettings.edgeStyle === 'bezier') {
                 const path = computeBezierPath(fromNode, toNode, offset, portRadius);
+                ctx.beginPath();
                 ctx.moveTo(path.start.x, path.start.y);
                 ctx.bezierCurveTo(path.cp1.x, path.cp1.y, path.cp2.x, path.cp2.y, path.end.x, path.end.y);
                 ctx.stroke();
@@ -239,6 +276,7 @@
 
                 const path = computeElbowPath(sx, sy, ex, ey, offset);
 
+                ctx.beginPath();
                 drawRoundedPolyline(ctx, path.points, 6);
                 ctx.stroke();
 
@@ -260,9 +298,17 @@
             if (overlaySettings.showEdgeShares && share !== null && share !== undefined) {
                 drawEdgeShare(ctx, pathPoints, share);
             }
+
+            if (edgeType === EdgeTypeDependency) {
+                ctx.setLineDash([]);
+            }
+
+            ctx.restore();
         }
 
         ctx.globalAlpha = 1;
+
+        const dimmedAlpha = 0.35;
 
         for (const node of nodes) {
             const x = node.x ?? node.X;
@@ -274,15 +320,45 @@
             const stroke = node.stroke ?? node.Stroke ?? '#262626';
             const id = node.id ?? node.Id;
 
+            const highlightNode = !emphasisEnabled || (neighborNodes?.has(id) ?? false);
+            const nodeAlpha = highlightNode ? 1 : dimmedAlpha;
+
+            ctx.save();
+            ctx.globalAlpha = nodeAlpha;
+
+            // Draw node shape by kind
+            const kind = String((node.kind ?? node.Kind ?? 'service')).toLowerCase();
             ctx.beginPath();
-            traceRoundedRect(ctx, x, y, width, height, cornerRadius);
+            if (kind === 'expr' || kind === 'expression') {
+                const hw = width / 2, hh = height / 2;
+                ctx.moveTo(x, y - hh);
+                ctx.lineTo(x + hw, y);
+                ctx.lineTo(x, y + hh);
+                ctx.lineTo(x - hw, y);
+                ctx.closePath();
+            } else if (kind === 'const' || kind === 'pmf') {
+                const r = Math.min(cornerRadius + 6, Math.min(width, height) / 2);
+                traceRoundedRect(ctx, x, y, width, height, r);
+            } else {
+                traceRoundedRect(ctx, x, y, width, height, cornerRadius);
+            }
             ctx.fillStyle = fill;
             ctx.strokeStyle = stroke;
             ctx.lineWidth = 0.9;
             ctx.fill();
             ctx.stroke();
+            if (kind === 'queue') {
+                // Simple inner bar to suggest buffer
+                const pad = 3;
+                ctx.save();
+                ctx.fillStyle = 'rgba(17, 17, 17, 0.08)';
+                ctx.fillRect(x - width / 2 + pad, y + height / 2 - 6 - pad, width - 2 * pad, 4);
+                ctx.restore();
+            }
 
             if (node.isFocused ?? node.IsFocused) {
+                ctx.save();
+                ctx.globalAlpha = 1;
                 ctx.beginPath();
                 traceRoundedRect(ctx, x, y, width + 10, height + 10, cornerRadius + 4);
                 ctx.strokeStyle = '#FFFFFF';
@@ -290,6 +366,7 @@
                 ctx.setLineDash([6, 4]);
                 ctx.stroke();
                 ctx.setLineDash([]);
+                ctx.restore();
             }
 
             const nodeMeta = nodeMap.get(id);
@@ -297,20 +374,123 @@
                 drawSparkline(ctx, nodeMeta, nodeMeta.sparkline, overlaySettings, sparkColor);
             }
 
+            // Badge rack for service/queue nodes (compute nodes skip badges)
+            if (kind === 'service' || kind === 'queue') {
+                drawBadges(ctx, nodeMeta, overlaySettings);
+            }
+
             if (overlaySettings.showLabels) {
                 ctx.save();
                 const label = String(id);
                 const textColor = isDarkColor(fill) ? '#FFFFFF' : '#111111';
                 ctx.fillStyle = textColor;
-                ctx.font = '10px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
+                ctx.globalAlpha = highlightNode ? 1 : 0.6;
+                const m = overlaySettings.manualScaleFactor ?? 1;
+                let fontSize = 10;
+                if (m > 2.5) fontSize = 14; else if (m > 1.25) fontSize = 12;
+                ctx.font = `${fontSize}px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 const maxWidth = Math.max(width - 12, 24);
                 drawFittedText(ctx, label, x, y, maxWidth);
                 ctx.restore();
             }
+
+            ctx.restore();
         }
 
+        // Draw vector tooltip/callout if present
+        if (tooltip) {
+            tryDrawTooltip(ctx, nodes, tooltip, state);
+        }
+
+        ctx.restore();
+    }
+
+    function applyOverlayTransform(canvas, state) {
+        const host = canvas.parentElement ?? document;
+        const transform = `translate(${state.offsetX}px, ${state.offsetY}px) scale(${state.scale})`;
+        const origin = 'top left';
+
+        const nodeLayer = host.querySelector('.topology-node-layer');
+        if (nodeLayer && nodeLayer.style) {
+            nodeLayer.style.transform = transform;
+            nodeLayer.style.transformOrigin = origin;
+        }
+
+        const tooltips = host.querySelectorAll('.topology-tooltip');
+        if (tooltips && tooltips.length) {
+            for (const t of tooltips) {
+                t.style.transform = transform;
+                t.style.transformOrigin = origin;
+            }
+        }
+    }
+
+    function tryDrawTooltip(ctx, nodes, tooltip, state) {
+        // Find focused node position
+        let focused = null;
+        for (const n of nodes) {
+            if (n.isFocused || n.IsFocused) { focused = n; break; }
+        }
+        if (!focused) return;
+
+        const x = focused.x ?? focused.X;
+        const y = focused.y ?? focused.Y;
+        const dx = 16; // constant offset to the right
+        const dy = -20; // above center
+        const padding = 8;
+        const lineHeight = 14;
+        const title = String(tooltip.title ?? tooltip.Title ?? '');
+        const subtitle = String(tooltip.subtitle ?? tooltip.Subtitle ?? '');
+        const lines = (tooltip.lines ?? tooltip.Lines ?? []).map(l => String(l));
+
+        const all = [title, subtitle, ...lines];
+        ctx.save();
+        ctx.font = '12px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
+        let width = 0;
+        for (const t of all) width = Math.max(width, ctx.measureText(t).width);
+        const height = (2 + lines.length) * lineHeight + padding * 2;
+        const boxX = x + dx;
+        const boxY = y + dy - height;
+
+        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const bg = prefersDark ? 'rgba(30, 41, 59, 0.95)' : 'rgba(255, 255, 255, 0.95)';
+        const fg = prefersDark ? '#F8FAFC' : '#111827';
+        const border = prefersDark ? 'rgba(148, 163, 184, 0.4)' : 'rgba(17, 24, 39, 0.15)';
+
+        // Callout box
+        ctx.fillStyle = bg;
+        ctx.strokeStyle = border;
+        ctx.lineWidth = 1;
+        const bw = Math.ceil(width + padding * 2);
+        const bh = Math.ceil(height);
+        const bx = Math.round(boxX);
+        const by = Math.round(boxY);
+        ctx.beginPath();
+        ctx.rect(bx, by, bw, bh);
+        ctx.fill();
+        ctx.stroke();
+
+        // Pointer triangle
+        ctx.beginPath();
+        ctx.moveTo(x + 6, y - 6);
+        ctx.lineTo(x + dx, y - 6);
+        ctx.lineTo(x + dx, y - 12);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // Text
+        ctx.fillStyle = fg;
+        let ty = by + padding + lineHeight;
+        ctx.fillText(title, bx + padding, ty);
+        ty += lineHeight;
+        ctx.fillText(subtitle, bx + padding, ty);
+        for (const line of lines) {
+            ty += lineHeight;
+            ctx.fillText(line, bx + padding, ty);
+        }
         ctx.restore();
     }
 
@@ -525,8 +705,8 @@
         const sparkMode = Number(raw.sparklineMode ?? raw.SparklineMode ?? 0);
         const edgeStyleRaw = raw.edgeStyle ?? raw.EdgeStyle ?? 0;
         const zoomPercentRaw = Number(raw.zoomPercent ?? raw.ZoomPercent ?? 100);
-        const zoomPercent = Number.isFinite(zoomPercentRaw) ? clamp(zoomPercentRaw, 30, 200) : 100;
-        const manualScaleFactor = clamp(zoomPercent / 100, 0.25, 4);
+        const zoomPercent = Number.isFinite(zoomPercentRaw) ? clamp(zoomPercentRaw, 30, 400) : 100;
+        const manualScaleFactor = clamp(zoomPercent / 100, 0.25, 8);
         const selectedBin = Number(raw.selectedBin ?? raw.SelectedBin ?? -1);
 
         const slaSuccess = clamp(Number(raw.slaSuccessThreshold ?? raw.SlaSuccessThreshold ?? 0.95), 0, 1);
@@ -560,10 +740,17 @@
             zoomPercent,
             manualScaleFactor,
             neighborEmphasis: boolOr(raw.neighborEmphasis ?? raw.NeighborEmphasis, true),
+            enableFullDag: boolOr(raw.enableFullDag ?? raw.EnableFullDag, false),
             includeServiceNodes: boolOr(raw.includeServiceNodes ?? raw.IncludeServiceNodes, true),
             includeExpressionNodes: boolOr(raw.includeExpressionNodes ?? raw.IncludeExpressionNodes, false),
             includeConstNodes: boolOr(raw.includeConstNodes ?? raw.IncludeConstNodes, false),
             selectedBin,
+            showArrivalsDependencies: boolOr(raw.showArrivalsDependencies ?? raw.ShowArrivalsDependencies, true),
+            showServedDependencies: boolOr(raw.showServedDependencies ?? raw.ShowServedDependencies, true),
+            showErrorsDependencies: boolOr(raw.showErrorsDependencies ?? raw.ShowErrorsDependencies, true),
+            showQueueDependencies: boolOr(raw.showQueueDependencies ?? raw.ShowQueueDependencies, true),
+            showCapacityDependencies: boolOr(raw.showCapacityDependencies ?? raw.ShowCapacityDependencies, true),
+            showExpressionDependencies: boolOr(raw.showExpressionDependencies ?? raw.ShowExpressionDependencies, true),
             thresholds: {
                 slaSuccess,
                 slaWarning,
@@ -674,6 +861,181 @@
         }
         const lane = (hash % 5) - 2; // -2..2
         return lane * 6;
+    }
+
+    function computeNeighborNodes(edges, focusedId) {
+        const set = new Set();
+        if (!focusedId) {
+            return set;
+        }
+
+        set.add(focusedId);
+        for (const edge of edges) {
+            const fromId = edge?.from ?? edge?.From;
+            const toId = edge?.to ?? edge?.To;
+
+            if (fromId === focusedId || toId === focusedId) {
+                if (fromId) {
+                    set.add(fromId);
+                }
+                if (toId) {
+                    set.add(toId);
+                }
+            }
+        }
+
+        return set;
+    }
+
+    function computeNeighborEdges(edges, focusedId) {
+        const set = new Set();
+        if (!focusedId) {
+            return set;
+        }
+
+        for (const edge of edges) {
+            const fromId = edge?.from ?? edge?.From;
+            const toId = edge?.to ?? edge?.To;
+
+            if (fromId === focusedId || toId === focusedId) {
+                const edgeId = edge?.id ?? edge?.Id ?? `${fromId ?? ''}->${toId ?? ''}`;
+                set.add(edgeId);
+            }
+        }
+
+        return set;
+    }
+
+    function shouldRenderDependencyEdge(field, overlays) {
+        const normalized = (field || '').toLowerCase();
+        switch (normalized) {
+            case 'arrivals':
+                return overlays.showArrivalsDependencies !== false;
+            case 'served':
+                return overlays.showServedDependencies !== false;
+            case 'errors':
+                return overlays.showErrorsDependencies !== false;
+            case 'queue':
+                return overlays.showQueueDependencies !== false;
+            case 'capacity':
+                return overlays.showCapacityDependencies !== false;
+            case 'expr':
+                return overlays.showExpressionDependencies !== false;
+            default:
+                return true;
+        }
+    }
+
+    function drawBadges(ctx, nodeMeta, overlays) {
+        if (!nodeMeta) return;
+        const x = nodeMeta.x ?? 0;
+        const y = nodeMeta.y ?? 0;
+        const width = nodeMeta.width ?? 36;
+        const nodeHeight = nodeMeta.height ?? 24;
+
+        // Compute vertical offset (above node, and above sparkline if present)
+        let top = y - (nodeHeight / 2) - 6;
+        const spark = nodeMeta.sparkline ?? null;
+        if (spark && overlays.showSparklines) {
+            const mode = overlays.sparklineMode === 'bar' ? 'bar' : 'line';
+            const sparkHeight = mode === 'bar' ? 16 : 12;
+            top -= (sparkHeight + 6);
+        }
+
+        const paddingX = 6;
+        const chipH = 12;
+        const gap = 4;
+        let cursorX = x - Math.max(width - 12, 24) / 2; // left align to label area
+
+        const thresholds = overlays.thresholds || {
+            slaSuccess: 0.95,
+            slaWarning: 0.8,
+            utilizationWarning: 0.9,
+            utilizationCritical: 0.95,
+            errorWarning: 0.02,
+            errorCritical: 0.05
+        };
+
+        // helper to get current value by selectedBin
+        function currentOf(arr, startIndex) {
+            if (!Array.isArray(arr)) return null;
+            const sb = Number(overlays.selectedBin ?? -1);
+            const idx = Number.isFinite(sb) ? sb - (Number(startIndex) || 0) : -1;
+            if (idx >= 0 && idx < arr.length) {
+                const v = arr[idx];
+                return (v === null || v === undefined) ? null : Number(v);
+            }
+            return null;
+        }
+
+        const startIndex = Number(spark?.startIndex ?? spark?.StartIndex ?? 0);
+        const success = currentOf(spark?.values ?? spark?.Values, startIndex);
+        const util = currentOf(spark?.utilization ?? spark?.Utilization, startIndex);
+        const err = currentOf(spark?.errorRate ?? spark?.ErrorRate, startIndex);
+        const q = currentOf(spark?.queueDepth ?? spark?.QueueDepth, startIndex);
+
+        ctx.save();
+        ctx.font = '10px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
+
+        // Arrivals/Served: show success ratio if available as A/S chips
+        if (success !== null && overlays.showArrivalsDependencies !== false) {
+            const label = `A ${(success * 100).toFixed(0)}%`;
+            cursorX += drawChip(ctx, cursorX, top, label, '#F3F4F6', '#111827', paddingX, chipH) + gap;
+        }
+        if (success !== null && overlays.showServedDependencies !== false) {
+            const label = `S ${(success * 100).toFixed(0)}%`;
+            cursorX += drawChip(ctx, cursorX, top, label, '#E6FFFB', '#0F172A', paddingX, chipH) + gap;
+        }
+
+        // Errors
+        if (err !== null && overlays.showErrorsDependencies !== false) {
+            let bg = '#E6FFFB';
+            if (err >= thresholds.errorCritical) bg = '#FDECEC';
+            else if (err >= thresholds.errorWarning) bg = '#FFF7E6';
+            const label = `E ${(err * 100).toFixed(1)}%`;
+            cursorX += drawChip(ctx, cursorX, top, label, bg, '#111827', paddingX, chipH) + gap;
+        }
+
+        // Queue
+        if (q !== null && overlays.showQueueDependencies !== false) {
+            const label = `Q ${Math.round(q)}`;
+            cursorX += drawChip(ctx, cursorX, top, label, '#EEF2FF', '#111827', paddingX, chipH) + gap;
+        }
+
+        // Capacity (use utilization if more relevant)
+        if (util !== null && overlays.showCapacityDependencies !== false) {
+            const label = `C ${(util * 100).toFixed(0)}%`;
+            cursorX += drawChip(ctx, cursorX, top, label, '#F0FFF4', '#111827', paddingX, chipH) + gap;
+        }
+
+        ctx.restore();
+    }
+
+    function drawChip(ctx, x, y, text, bg, fg, paddingX, h) {
+        const w = Math.ceil(ctx.measureText(text).width) + paddingX * 2;
+        ctx.save();
+        ctx.fillStyle = bg;
+        ctx.strokeStyle = 'rgba(17, 24, 39, 0.15)';
+        ctx.lineWidth = 1;
+        // rounded rect
+        const r = Math.min(6, h / 2);
+        const bx = Math.round(x);
+        const by = Math.round(y - h);
+        ctx.beginPath();
+        ctx.moveTo(bx + r, by);
+        ctx.arcTo(bx + w, by, bx + w, by + h, r);
+        ctx.arcTo(bx + w, by + h, bx, by + h, r);
+        ctx.arcTo(bx, by + h, bx, by, r);
+        ctx.arcTo(bx, by, bx + w, by, r);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = fg;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, bx + paddingX, by + h / 2);
+        ctx.restore();
+        return w;
     }
 
     function dedupePoints(points) {

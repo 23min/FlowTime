@@ -2,7 +2,7 @@
 @using FlowTime.UI.Components.Topology
 @inherits TopologyCanvasBase
 
-@if (HasGraphData)
+@if (HasVisibleNodes)
 {
     <div class="topology-canvas-host">
         <canvas @ref="canvasRef"
@@ -19,6 +19,7 @@
                         style="@proxy.Style"
                         aria-label="@proxy.AriaLabel"
                         @onclick="() => FocusNode(proxy.Id)"
+                        @onmouseenter="() => FocusNode(proxy.Id)"
                         @onfocus="() => FocusNode(proxy.Id)"
                         @onblur="OnNodeBlur"
                         @onkeydown="(args) => OnNodeKeyDown(args, proxy.Id)"
@@ -43,6 +44,14 @@
                 </ul>
             </div>
         }
+    </div>
+}
+else if (HasSourceGraph)
+{
+    <div class="topology-empty-state" data-testid="topology-filtered-empty">
+        <p>
+            Adjust the feature bar filters to include additional nodes in this view.
+        </p>
     </div>
 }
 else

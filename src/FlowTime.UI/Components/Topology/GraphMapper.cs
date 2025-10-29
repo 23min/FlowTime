@@ -10,7 +10,9 @@ internal static class GraphMapper
     private const double HorizontalSpacing = 240d;
     private const double VerticalSpacing = 140d;
 
-    public static TopologyGraph Map(GraphResponseModel response)
+    public static TopologyGraph Map(GraphResponseModel response) => Map(response, true);
+
+    public static TopologyGraph Map(GraphResponseModel response, bool respectUiPositions)
     {
         if (response is null)
         {
@@ -42,10 +44,15 @@ internal static class GraphMapper
                     continue;
                 }
 
-                fromNode.Outputs.Add(toId);
-                toNode.Inputs.Add(fromId);
+                var isDependencyEdge = string.Equals(edge.EdgeType, "dependency", StringComparison.OrdinalIgnoreCase);
 
-                edges.Add(new TopologyEdge(edge.Id, fromId, toId, edge.Weight));
+                if (!isDependencyEdge)
+                {
+                    fromNode.Outputs.Add(toId);
+                    toNode.Inputs.Add(fromId);
+                }
+
+                edges.Add(new TopologyEdge(edge.Id, fromId, toId, edge.Weight, edge.EdgeType, edge.Field));
             }
         }
 
@@ -60,13 +67,14 @@ internal static class GraphMapper
                 var layer = layerByNode.GetValueOrDefault(builder.Id);
                 var index = indexByNode.GetValueOrDefault(builder.Id);
 
-                var hasCustomPosition = builder.Ui?.X is not null && builder.Ui.Y is not null;
+                var hasCustomPosition = respectUiPositions && builder.Ui?.X is not null && builder.Ui.Y is not null;
+                // Top→Bottom orientation: y by layer, x by index
                 var x = hasCustomPosition
                     ? builder.Ui!.X!.Value
-                    : layer * HorizontalSpacing;
+                    : index * HorizontalSpacing;
                 var y = hasCustomPosition
                     ? builder.Ui!.Y!.Value
-                    : index * VerticalSpacing;
+                    : layer * VerticalSpacing;
 
                 return new TopologyNode(
                     builder.Id,
@@ -86,7 +94,9 @@ internal static class GraphMapper
                 edge.Id,
                 edge.From,
                 edge.To,
-                edge.Weight))
+                edge.Weight,
+                edge.EdgeType,
+                edge.Field))
             .ToImmutableArray();
 
         return new TopologyGraph(mappedNodes, normalizedEdges);
@@ -213,7 +223,9 @@ public sealed record TopologyEdge(
     string Id,
     string From,
     string To,
-    double Weight);
+    double Weight,
+    string? EdgeType,
+    string? Field);
 
 public sealed record GraphResponseModel(
     IReadOnlyList<GraphNodeModel> Nodes,
@@ -230,7 +242,8 @@ public sealed record GraphNodeSemanticsModel(
     string Served,
     string Errors,
     string? Queue,
-    string? Capacity);
+    string? Capacity,
+    string? Series);
 
 public sealed record GraphNodeUiModel(double? X, double? Y);
 
@@ -238,4 +251,6 @@ public sealed record GraphEdgeModel(
     string Id,
     string From,
     string To,
-    double Weight);
+    double Weight,
+    string? EdgeType,
+    string? Field);

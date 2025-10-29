@@ -25,6 +25,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
     private bool renderScheduled;
     private bool disposed;
     private string? focusedNodeId;
+    private TopologyGraph? filteredGraph;
     private DotNetObjectReference<TopologyCanvasBase>? dotNetRef;
 
     [Inject] protected IJSRuntime JS { get; set; } = default!;
@@ -37,15 +38,17 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
     [Parameter] public EventCallback<double> ZoomPercentChanged { get; set; }
     protected ElementReference canvasRef;
 
-    protected bool HasGraphData => Graph is { Nodes.Count: > 0 };
+    protected bool HasVisibleNodes => filteredGraph is { Nodes.Count: > 0 };
+    protected bool HasSourceGraph => Graph is { Nodes.Count: > 0 };
 
     protected IReadOnlyList<NodeProxyViewModel> NodeProxies { get; private set; } = Array.Empty<NodeProxyViewModel>();
     protected TooltipViewModel? ActiveTooltip { get; private set; }
 
     protected override void OnParametersSet()
     {
-        if (!HasGraphData)
+        if (!HasSourceGraph)
         {
+            filteredGraph = null;
             pendingRequest = null;
             NodeProxies = Array.Empty<NodeProxyViewModel>();
             nodeLookup.Clear();
@@ -56,7 +59,8 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             return;
         }
 
-        BuildLookup(Graph!);
+        filteredGraph = FilterGraph(Graph!, OverlaySettings);
+        BuildLookup(filteredGraph);
 
         if (focusedNodeId is not null && !nodeLookup.ContainsKey(focusedNodeId))
         {
@@ -64,8 +68,8 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             ActiveTooltip = null;
         }
 
-        NodeProxies = BuildNodeProxies(Graph!, NodeMetrics, focusedNodeId, OverlaySettings);
-        pendingRequest = BuildRenderRequest(Graph!, NodeMetrics, NodeSparklines, focusedNodeId, OverlaySettings, ActiveBin);
+        NodeProxies = BuildNodeProxies(filteredGraph, NodeMetrics, focusedNodeId, OverlaySettings);
+        pendingRequest = BuildRenderRequest(filteredGraph, NodeMetrics, NodeSparklines, focusedNodeId, OverlaySettings, ActiveBin);
         renderScheduled = true;
     }
 
@@ -78,6 +82,11 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
 
         renderScheduled = false;
 
+        if (!HasVisibleNodes)
+        {
+            return;
+        }
+
         dotNetRef ??= DotNetObjectReference.Create(this);
         await JS.InvokeVoidAsync("FlowTime.TopologyCanvas.registerHandlers", canvasRef, dotNetRef);
         await JS.InvokeVoidAsync("FlowTime.TopologyCanvas.render", canvasRef, pendingRequest);
@@ -85,14 +94,15 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
 
     protected void FocusNode(string nodeId)
     {
-        if (!HasGraphData || !nodeLookup.ContainsKey(nodeId))
+        if (!HasVisibleNodes || !nodeLookup.ContainsKey(nodeId))
         {
             return;
         }
 
         focusedNodeId = nodeId;
         ActiveTooltip = BuildTooltip(nodeId);
-        NodeProxies = BuildNodeProxies(Graph!, NodeMetrics, focusedNodeId, OverlaySettings);
+        var graph = filteredGraph ?? Graph!;
+        NodeProxies = BuildNodeProxies(graph, NodeMetrics, focusedNodeId, OverlaySettings);
         ScheduleRedraw();
         StateHasChanged();
     }
@@ -106,14 +116,15 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
 
         focusedNodeId = null;
         ActiveTooltip = null;
-        NodeProxies = BuildNodeProxies(Graph!, NodeMetrics, focusedNodeId, OverlaySettings);
+        var graph = filteredGraph ?? Graph!;
+        NodeProxies = BuildNodeProxies(graph, NodeMetrics, focusedNodeId, OverlaySettings);
         ScheduleRedraw();
         StateHasChanged();
     }
 
     protected void OnNodeKeyDown(KeyboardEventArgs args, string nodeId)
     {
-        if (!HasGraphData || !nodeLookup.TryGetValue(nodeId, out var current))
+        if (!HasVisibleNodes || !nodeLookup.TryGetValue(nodeId, out var current))
         {
             return;
         }
@@ -146,13 +157,94 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
 
     private void ScheduleRedraw()
     {
-        if (!HasGraphData)
+        if (filteredGraph is null)
         {
             return;
         }
 
-        pendingRequest = BuildRenderRequest(Graph!, NodeMetrics, NodeSparklines, focusedNodeId, OverlaySettings, ActiveBin);
+        pendingRequest = BuildRenderRequest(filteredGraph, NodeMetrics, NodeSparklines, focusedNodeId, OverlaySettings, ActiveBin);
         renderScheduled = true;
+    }
+
+    private static TopologyGraph FilterGraph(TopologyGraph graph, TopologyOverlaySettings overlays)
+    {
+        var includeServiceNodes = overlays.IncludeServiceNodes;
+        var includeExpressionNodes = overlays.EnableFullDag && overlays.IncludeExpressionNodes;
+        var includeConstNodes = overlays.EnableFullDag && overlays.IncludeConstNodes;
+
+        if (!includeServiceNodes && !includeExpressionNodes && !includeConstNodes)
+        {
+            return new TopologyGraph(Array.Empty<TopologyNode>(), Array.Empty<TopologyEdge>());
+        }
+
+        var includedIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var node in graph.Nodes)
+        {
+            var category = ClassifyNode(node.Kind);
+            var include = category switch
+            {
+                NodeCategory.Service => includeServiceNodes,
+                NodeCategory.Expression => includeExpressionNodes,
+                NodeCategory.Constant => includeConstNodes,
+                NodeCategory.Other => includeServiceNodes,
+                _ => includeServiceNodes
+            };
+
+            if (include)
+            {
+                includedIds.Add(node.Id);
+            }
+        }
+
+        if (includedIds.Count == 0)
+        {
+            return new TopologyGraph(Array.Empty<TopologyNode>(), Array.Empty<TopologyEdge>());
+        }
+
+        var filteredNodes = graph.Nodes
+            .Where(node => includedIds.Contains(node.Id))
+            .Select(node => new TopologyNode(
+                node.Id,
+                node.Kind,
+                node.Inputs.Where(id => includedIds.Contains(id)).ToImmutableArray(),
+                node.Outputs.Where(id => includedIds.Contains(id)).ToImmutableArray(),
+                node.Layer,
+                node.Index,
+                node.X,
+                node.Y,
+                node.IsPositionFixed))
+            .ToImmutableArray();
+
+        var filteredEdges = graph.Edges
+            .Where(edge => includedIds.Contains(edge.From) && includedIds.Contains(edge.To))
+            .ToImmutableArray();
+
+        return new TopologyGraph(filteredNodes, filteredEdges);
+    }
+
+    private static NodeCategory ClassifyNode(string? kind)
+    {
+        if (string.IsNullOrWhiteSpace(kind))
+        {
+            return NodeCategory.Service;
+        }
+
+        var normalized = kind.Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            "expr" or "expression" => NodeCategory.Expression,
+            "const" or "constant" or "pmf" => NodeCategory.Constant,
+            "service" or "queue" or "router" or "external" or "store" or "flow" => NodeCategory.Service,
+            _ => NodeCategory.Other
+        };
+    }
+
+    private enum NodeCategory
+    {
+        Service,
+        Expression,
+        Constant,
+        Other
     }
 
     private void BuildLookup(TopologyGraph graph)
@@ -201,21 +293,32 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             return null;
         }
 
-        // Prefer deterministic order based on graph ordering.
-        if (Graph is null)
+        var visibleNeighbors = neighbors
+            .Where(id => nodeLookup.ContainsKey(id))
+            .ToList();
+
+        if (visibleNeighbors.Count == 0)
         {
-            return neighbors.First();
+            return null;
         }
 
-        var ordered = Graph.Nodes
-            .Where(n => neighbors.Contains(n.Id))
+        // Prefer deterministic order based on graph ordering.
+        if (filteredGraph is null)
+        {
+            return visibleNeighbors[0];
+        }
+
+        var visibleSet = new HashSet<string>(visibleNeighbors, StringComparer.OrdinalIgnoreCase);
+
+        var ordered = filteredGraph.Nodes
+            .Where(n => visibleSet.Contains(n.Id))
             .OrderBy(n => n.Layer)
             .ThenBy(n => n.Index)
             .ThenBy(n => n.Id, StringComparer.OrdinalIgnoreCase)
             .Select(n => n.Id)
             .FirstOrDefault();
 
-        return ordered ?? neighbors.First();
+        return ordered ?? visibleNeighbors[0];
     }
 
     private string? FindNearest(string nodeId, Func<TopologyNode, bool> predicate)
@@ -329,6 +432,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
 
                 return new NodeRenderInfo(
                     node.Id,
+                    node.Kind,
                     node.X,
                     node.Y,
                     NodeWidth,
@@ -370,21 +474,31 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                     fromNode.Y,
                     toNode.X,
                     toNode.Y,
-                    share);
+                    share,
+                    edge.EdgeType,
+                    edge.Field);
             })
             .Where(edge => edge is not null)
             .Cast<EdgeRenderInfo>()
             .ToImmutableArray();
 
-        var halfWidth = NodeWidth / 2d;
-        var halfHeight = NodeHeight / 2d;
+        CanvasViewport viewport;
+        if (graph.Nodes.Count == 0)
+        {
+            viewport = new CanvasViewport(-ViewportPadding, -ViewportPadding, ViewportPadding, ViewportPadding, ViewportPadding);
+        }
+        else
+        {
+            var halfWidth = NodeWidth / 2d;
+            var halfHeight = NodeHeight / 2d;
 
-        var minX = graph.Nodes.Min(node => node.X - halfWidth);
-        var maxX = graph.Nodes.Max(node => node.X + halfWidth);
-        var minY = graph.Nodes.Min(node => node.Y - halfHeight);
-        var maxY = graph.Nodes.Max(node => node.Y + halfHeight);
+            var minX = graph.Nodes.Min(node => node.X - halfWidth);
+            var maxX = graph.Nodes.Max(node => node.X + halfWidth);
+            var minY = graph.Nodes.Min(node => node.Y - halfHeight);
+            var maxY = graph.Nodes.Max(node => node.Y + halfHeight);
 
-        var viewport = new CanvasViewport(minX, minY, maxX, maxY, ViewportPadding);
+            viewport = new CanvasViewport(minX, minY, maxX, maxY, ViewportPadding);
+        }
 
         var overlayPayload = new OverlaySettingsPayload(
             overlays.ShowLabels,
@@ -402,6 +516,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             overlays.UtilizationWarningThreshold,
             overlays.ErrorRateAlertThreshold,
             overlays.NeighborEmphasis,
+            overlays.EnableFullDag,
             overlays.IncludeServiceNodes,
             overlays.IncludeExpressionNodes,
             overlays.IncludeConstNodes,
@@ -411,9 +526,22 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             thresholds.UtilizationWarning,
             thresholds.UtilizationCritical,
             thresholds.ErrorWarning,
-            thresholds.ErrorCritical);
+            thresholds.ErrorCritical,
+            overlays.ShowArrivalsDependencies,
+            overlays.ShowServedDependencies,
+            overlays.ShowErrorsDependencies,
+            overlays.ShowQueueDependencies,
+            overlays.ShowCapacityDependencies,
+            overlays.ShowExpressionDependencies);
 
-        return new CanvasRenderRequest(nodeDtos, edges, viewport, overlayPayload);
+        TooltipPayload? tooltip = null;
+        if (!string.IsNullOrWhiteSpace(focusedNode))
+        {
+            var content = TooltipFormatter.Format(focusedNode!, metrics is not null && metrics.TryGetValue(focusedNode!, out var m) ? m : new NodeBinMetrics(null, null, null, null, null, null));
+            tooltip = new TooltipPayload(content.Title, content.Subtitle, content.Lines);
+        }
+
+        return new CanvasRenderRequest(nodeDtos, edges, viewport, overlayPayload, tooltip);
     }
 
     public virtual void Dispose()

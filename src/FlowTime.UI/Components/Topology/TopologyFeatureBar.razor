@@ -12,6 +12,53 @@
                        OnClick="Close" />
     </MudStack>
 
+    <MudStack Spacing="1" Class="mt-2">
+        <MudText Typo="Typo.caption" Class="topology-section-title">Dependency edges</MudText>
+        <MudSwitch T="bool"
+                   Dense="true"
+                   Class="topology-dense-control"
+                   Value="@workingSettings.ShowArrivalsDependencies"
+                   ValueChanged="OnShowArrivalsDependenciesChanged"
+                   Color="Color.Primary"
+                   Label="Arrivals" />
+        <MudSwitch T="bool"
+                   Dense="true"
+                   Class="topology-dense-control"
+                   Value="@workingSettings.ShowServedDependencies"
+                   ValueChanged="OnShowServedDependenciesChanged"
+                   Color="Color.Primary"
+                   Label="Served" />
+        <MudSwitch T="bool"
+                   Dense="true"
+                   Class="topology-dense-control"
+                   Value="@workingSettings.ShowErrorsDependencies"
+                   ValueChanged="OnShowErrorsDependenciesChanged"
+                   Color="Color.Primary"
+                   Label="Errors" />
+        <MudSwitch T="bool"
+                   Dense="true"
+                   Class="topology-dense-control"
+                   Value="@workingSettings.ShowQueueDependencies"
+                   ValueChanged="OnShowQueueDependenciesChanged"
+                   Color="Color.Primary"
+                   Label="Queue" />
+        <MudSwitch T="bool"
+                   Dense="true"
+                   Class="topology-dense-control"
+                   Value="@workingSettings.ShowCapacityDependencies"
+                   ValueChanged="OnShowCapacityDependenciesChanged"
+                   Color="Color.Primary"
+                   Label="Capacity" />
+        <MudSwitch T="bool"
+                   Dense="true"
+                   Class="topology-dense-control"
+                   Value="@workingSettings.ShowExpressionDependencies"
+                   ValueChanged="OnShowExpressionDependenciesChanged"
+                   Color="Color.Primary"
+                   Label="Expression inputs" />
+        <MudDivider Class="topology-divider" />
+    </MudStack>
+
     <MudStack Spacing="1">
         <MudText Typo="Typo.caption" Class="topology-section-title">Overlays</MudText>
         <MudSwitch T="bool"
@@ -78,6 +125,13 @@
                    ValueChanged="OnEnableFullDagChanged"
                    Color="Color.Primary"
                    Label="Full DAG mode" />
+        <MudSwitch T="bool"
+                   Dense="true"
+                   Class="topology-dense-control"
+                   Value="@workingSettings.RespectUiPositions"
+                   ValueChanged="OnRespectUiPositionsChanged"
+                   Color="Color.Primary"
+                   Label="Use template positions" />
         <MudCheckBox T="bool"
                      Dense="true"
                      Class="topology-dense-control"
@@ -90,6 +144,7 @@
                      Class="topology-dense-control"
                      Value="@workingSettings.IncludeExpressionNodes"
                      ValueChanged="OnIncludeExpressionNodesChanged"
+                     Disabled="@(!workingSettings.EnableFullDag)"
                      Color="Color.Primary"
                      Label="Include expression nodes" />
         <MudCheckBox T="bool"
@@ -97,6 +152,7 @@
                      Class="topology-dense-control"
                      Value="@workingSettings.IncludeConstNodes"
                      ValueChanged="OnIncludeConstNodesChanged"
+                     Disabled="@(!workingSettings.EnableFullDag)"
                      Color="Color.Primary"
                      Label="Include constant nodes" />
         <MudCheckBox T="bool"
@@ -117,7 +173,7 @@
                        Value="@workingSettings.ZoomPercent"
                        ValueChanged="OnZoomPercentChanged"
                        Min="30"
-                       Max="200"
+                       Max="400"
                        Step="5"
                        Immediate="true"
                        Size="Size.Small"
@@ -298,6 +354,24 @@
         }
 
         workingSettings.EnableFullDag = value;
+
+        if (value && !workingSettings.IncludeExpressionNodes && !workingSettings.IncludeConstNodes)
+        {
+            workingSettings.IncludeExpressionNodes = true;
+            workingSettings.IncludeConstNodes = true;
+        }
+
+        return NotifyChange();
+    }
+
+    private Task OnRespectUiPositionsChanged(bool value)
+    {
+        if (workingSettings.RespectUiPositions == value)
+        {
+            return Task.CompletedTask;
+        }
+
+        workingSettings.RespectUiPositions = value;
         return NotifyChange();
     }
 
@@ -331,6 +405,72 @@
         }
 
         workingSettings.IncludeConstNodes = value;
+        return NotifyChange();
+    }
+
+    private Task OnShowArrivalsDependenciesChanged(bool value)
+    {
+        if (workingSettings.ShowArrivalsDependencies == value)
+        {
+            return Task.CompletedTask;
+        }
+
+        workingSettings.ShowArrivalsDependencies = value;
+        return NotifyChange();
+    }
+
+    private Task OnShowServedDependenciesChanged(bool value)
+    {
+        if (workingSettings.ShowServedDependencies == value)
+        {
+            return Task.CompletedTask;
+        }
+
+        workingSettings.ShowServedDependencies = value;
+        return NotifyChange();
+    }
+
+    private Task OnShowErrorsDependenciesChanged(bool value)
+    {
+        if (workingSettings.ShowErrorsDependencies == value)
+        {
+            return Task.CompletedTask;
+        }
+
+        workingSettings.ShowErrorsDependencies = value;
+        return NotifyChange();
+    }
+
+    private Task OnShowQueueDependenciesChanged(bool value)
+    {
+        if (workingSettings.ShowQueueDependencies == value)
+        {
+            return Task.CompletedTask;
+        }
+
+        workingSettings.ShowQueueDependencies = value;
+        return NotifyChange();
+    }
+
+    private Task OnShowCapacityDependenciesChanged(bool value)
+    {
+        if (workingSettings.ShowCapacityDependencies == value)
+        {
+            return Task.CompletedTask;
+        }
+
+        workingSettings.ShowCapacityDependencies = value;
+        return NotifyChange();
+    }
+
+    private Task OnShowExpressionDependenciesChanged(bool value)
+    {
+        if (workingSettings.ShowExpressionDependencies == value)
+        {
+            return Task.CompletedTask;
+        }
+
+        workingSettings.ShowExpressionDependencies = value;
         return NotifyChange();
     }
 

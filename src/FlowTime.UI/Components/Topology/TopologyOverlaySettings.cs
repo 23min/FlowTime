@@ -45,6 +45,15 @@ public sealed class TopologyOverlaySettings
     public double ZoomMidThreshold { get; set; } = 1.0;
     public double ZoomPercent { get; set; } = 100;
 
+    public bool RespectUiPositions { get; set; } = false;
+
+    public bool ShowArrivalsDependencies { get; set; } = true;
+    public bool ShowServedDependencies { get; set; } = true;
+    public bool ShowErrorsDependencies { get; set; } = true;
+    public bool ShowQueueDependencies { get; set; } = true;
+    public bool ShowCapacityDependencies { get; set; } = true;
+    public bool ShowExpressionDependencies { get; set; } = true;
+
     public TopologyOverlaySettings Clone()
     {
         return new TopologyOverlaySettings
@@ -67,7 +76,14 @@ public sealed class TopologyOverlaySettings
             AutoLod = AutoLod,
             ZoomLowThreshold = ZoomLowThreshold,
             ZoomMidThreshold = ZoomMidThreshold,
-            ZoomPercent = ZoomPercent
+            ZoomPercent = ZoomPercent,
+            RespectUiPositions = RespectUiPositions,
+            ShowArrivalsDependencies = ShowArrivalsDependencies,
+            ShowServedDependencies = ShowServedDependencies,
+            ShowErrorsDependencies = ShowErrorsDependencies,
+            ShowQueueDependencies = ShowQueueDependencies,
+            ShowCapacityDependencies = ShowCapacityDependencies,
+            ShowExpressionDependencies = ShowExpressionDependencies
         };
     }
 

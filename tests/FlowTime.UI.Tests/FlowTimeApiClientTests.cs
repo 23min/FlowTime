@@ -234,7 +234,7 @@ public class FlowTimeApiClientTests
         var opts = Options.Create(new FlowTimeApiOptions { ApiVersion = "v1" });
         var client = new FlowTimeApiClient(http, opts.Value);
 
-        var response = await client.GetRunGraphAsync("run_graph", CancellationToken.None);
+        var response = await client.GetRunGraphAsync("run_graph", null, CancellationToken.None);
 
         Assert.True(response.Success);
         Assert.Equal(2, response.Value?.Nodes.Count);

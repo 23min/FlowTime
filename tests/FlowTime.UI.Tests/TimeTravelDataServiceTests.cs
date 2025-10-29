@@ -155,8 +155,8 @@ public class TimeTravelDataServiceTests
         public Func<string, CancellationToken, Task<ApiCallResult<SeriesIndex>>> OnGetRunIndexAsync { get; set; } =
             (_, _) => throw new NotImplementedException();
 
-        public Func<string, CancellationToken, Task<ApiCallResult<GraphResponseModel>>> OnGetRunGraphAsync { get; set; } =
-            (_, _) => throw new NotImplementedException();
+        public Func<string, GraphQueryOptions?, CancellationToken, Task<ApiCallResult<GraphResponseModel>>> OnGetRunGraphAsync { get; set; } =
+            (_, _, _) => throw new NotImplementedException();
 
         public Func<string, string, CancellationToken, Task<ApiCallResult<Stream>>> OnGetRunSeriesAsync { get; set; } =
             (_, _, _) => throw new NotImplementedException();
@@ -191,8 +191,8 @@ public class TimeTravelDataServiceTests
         public Task<ApiCallResult<SeriesIndex>> GetRunIndexAsync(string runId, CancellationToken ct = default)
             => OnGetRunIndexAsync(runId, ct);
 
-        public Task<ApiCallResult<GraphResponseModel>> GetRunGraphAsync(string runId, CancellationToken ct = default)
-            => OnGetRunGraphAsync(runId, ct);
+        public Task<ApiCallResult<GraphResponseModel>> GetRunGraphAsync(string runId, GraphQueryOptions? options = null, CancellationToken ct = default)
+            => OnGetRunGraphAsync(runId, options, ct);
 
         public Task<ApiCallResult<Stream>> GetRunSeriesAsync(string runId, string seriesId, CancellationToken ct = default)
             => OnGetRunSeriesAsync(runId, seriesId, ct);

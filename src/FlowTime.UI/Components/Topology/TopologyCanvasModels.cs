@@ -6,10 +6,12 @@ internal sealed record CanvasRenderRequest(
     IReadOnlyList<NodeRenderInfo> Nodes,
     IReadOnlyList<EdgeRenderInfo> Edges,
     CanvasViewport Viewport,
-    OverlaySettingsPayload Overlays);
+    OverlaySettingsPayload Overlays,
+    TooltipPayload? Tooltip);
 
 internal sealed record NodeRenderInfo(
     string Id,
+    string Kind,
     double X,
     double Y,
     double Width,
@@ -28,9 +30,16 @@ internal sealed record EdgeRenderInfo(
     double FromY,
     double ToX,
     double ToY,
-    double? Share);
+    double? Share,
+    string? EdgeType,
+    string? Field);
 
 internal sealed record CanvasViewport(double MinX, double MinY, double MaxX, double MaxY, double Padding);
+
+internal sealed record TooltipPayload(
+    string Title,
+    string Subtitle,
+    IReadOnlyList<string> Lines);
 
 internal sealed record OverlaySettingsPayload(
     bool ShowLabels,
@@ -48,6 +57,7 @@ internal sealed record OverlaySettingsPayload(
     double UtilizationWarningThreshold,
     double ErrorRateAlertThreshold,
     bool NeighborEmphasis,
+    bool EnableFullDag,
     bool IncludeServiceNodes,
     bool IncludeExpressionNodes,
     bool IncludeConstNodes,
@@ -57,7 +67,13 @@ internal sealed record OverlaySettingsPayload(
     double UtilizationWarningCutoff,
     double UtilizationCriticalCutoff,
     double ErrorWarningCutoff,
-    double ErrorCriticalCutoff);
+    double ErrorCriticalCutoff,
+    bool ShowArrivalsDependencies,
+    bool ShowServedDependencies,
+    bool ShowErrorsDependencies,
+    bool ShowQueueDependencies,
+    bool ShowCapacityDependencies,
+    bool ShowExpressionDependencies);
 
 internal sealed record NodeSparklineDto(
     IReadOnlyList<double?> Values,
