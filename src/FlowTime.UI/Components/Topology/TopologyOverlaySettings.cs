@@ -20,6 +20,12 @@ public enum EdgeRenderMode
     Bezier
 }
 
+public enum LayoutMode
+{
+    Layered,
+    HappyPath
+}
+
 public sealed class TopologyOverlaySettings
 {
     public bool ShowLabels { get; set; } = true;
@@ -53,6 +59,7 @@ public sealed class TopologyOverlaySettings
     public bool ShowQueueDependencies { get; set; } = true;
     public bool ShowCapacityDependencies { get; set; } = true;
     public bool ShowExpressionDependencies { get; set; } = true;
+    public LayoutMode Layout { get; set; } = LayoutMode.Layered;
 
     public TopologyOverlaySettings Clone()
     {
@@ -83,7 +90,8 @@ public sealed class TopologyOverlaySettings
             ShowErrorsDependencies = ShowErrorsDependencies,
             ShowQueueDependencies = ShowQueueDependencies,
             ShowCapacityDependencies = ShowCapacityDependencies,
-            ShowExpressionDependencies = ShowExpressionDependencies
+            ShowExpressionDependencies = ShowExpressionDependencies,
+            Layout = Layout
         };
     }
 

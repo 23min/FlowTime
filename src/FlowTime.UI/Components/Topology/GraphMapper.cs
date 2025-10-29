@@ -10,9 +10,9 @@ internal static class GraphMapper
     private const double HorizontalSpacing = 240d;
     private const double VerticalSpacing = 140d;
 
-    public static TopologyGraph Map(GraphResponseModel response) => Map(response, true);
+    public static TopologyGraph Map(GraphResponseModel response) => Map(response, true, LayoutMode.Layered);
 
-    public static TopologyGraph Map(GraphResponseModel response, bool respectUiPositions)
+    public static TopologyGraph Map(GraphResponseModel response, bool respectUiPositions, LayoutMode layout)
     {
         if (response is null)
         {
@@ -59,13 +59,20 @@ internal static class GraphMapper
         var layerByNode = ComputeLayers(nodeBuilders);
         var indexByNode = ComputeLayerIndices(layerByNode, nodeBuilders);
 
+        // Optional Happy Path index override (center main path)
+        Dictionary<string, int>? happyIndex = null;
+        if (!respectUiPositions && layout == LayoutMode.HappyPath)
+        {
+            happyIndex = ComputeHappyPathIndices(nodeBuilders, layerByNode, indexByNode);
+        }
+
         var mappedNodes = nodeBuilders.Values
             .OrderBy(n => layerByNode.GetValueOrDefault(n.Id))
             .ThenBy(n => indexByNode.GetValueOrDefault(n.Id))
             .Select(builder =>
             {
                 var layer = layerByNode.GetValueOrDefault(builder.Id);
-                var index = indexByNode.GetValueOrDefault(builder.Id);
+                var index = happyIndex?.GetValueOrDefault(builder.Id) ?? indexByNode.GetValueOrDefault(builder.Id);
 
                 var hasCustomPosition = respectUiPositions && builder.Ui?.X is not null && builder.Ui.Y is not null;
                 // Top→Bottom orientation: y by layer, x by index
@@ -172,6 +179,88 @@ internal static class GraphMapper
         }
 
         return indexByNode;
+    }
+
+    private static Dictionary<string, int> ComputeHappyPathIndices(
+        Dictionary<string, NodeBuilder> nodeBuilders,
+        Dictionary<string, int> layerByNode,
+        Dictionary<string, int> indexByNode)
+    {
+        // Simple longest-path reconstruction across layers
+        var inputsByNode = nodeBuilders.Values.ToDictionary(b => b.Id, b => b.Inputs.Distinct(StringComparer.OrdinalIgnoreCase).ToList(), StringComparer.OrdinalIgnoreCase);
+        var outputsByNode = nodeBuilders.Values.ToDictionary(b => b.Id, b => b.Outputs.Distinct(StringComparer.OrdinalIgnoreCase).ToList(), StringComparer.OrdinalIgnoreCase);
+
+        var nodesOrdered = nodeBuilders.Keys
+            .OrderBy(id => layerByNode.GetValueOrDefault(id))
+            .ThenBy(id => indexByNode.GetValueOrDefault(id))
+            .ToList();
+
+        var dist = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var prev = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+        foreach (var id in nodesOrdered)
+        {
+            dist[id] = 0;
+            prev[id] = null;
+        }
+
+        foreach (var id in nodesOrdered)
+        {
+            var outs = outputsByNode.GetValueOrDefault(id) ?? new List<string>();
+            foreach (var to in outs)
+            {
+                var cand = dist[id] + 1;
+                if (!dist.ContainsKey(to) || cand > dist[to])
+                {
+                    dist[to] = cand;
+                    prev[to] = id;
+                }
+            }
+        }
+
+        var end = nodesOrdered.OrderByDescending(id => dist.GetValueOrDefault(id)).FirstOrDefault();
+        var path = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var cursor = end;
+        while (!string.IsNullOrEmpty(cursor))
+        {
+            path.Add(cursor!);
+            cursor = prev.GetValueOrDefault(cursor!);
+        }
+
+        var leftCount = new Dictionary<int, int>();
+        var rightCount = new Dictionary<int, int>();
+        var result = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        // Precompute median index per layer for biasing
+        var medianByLayer = layerByNode
+            .GroupBy(kvp => kvp.Value)
+            .ToDictionary(g => g.Key, g => g.Select(k => indexByNode.GetValueOrDefault(k.Key)).DefaultIfEmpty(0).Average());
+
+        foreach (var id in nodesOrdered)
+        {
+            var layer = layerByNode.GetValueOrDefault(id);
+            if (path.Contains(id))
+            {
+                result[id] = 0;
+                continue;
+            }
+
+            var index = indexByNode.GetValueOrDefault(id);
+            var median = medianByLayer.GetValueOrDefault(layer);
+            if (index <= median)
+            {
+                var count = leftCount.GetValueOrDefault(layer);
+                result[id] = -(count + 1);
+                leftCount[layer] = count + 1;
+            }
+            else
+            {
+                var count = rightCount.GetValueOrDefault(layer);
+                result[id] = (count + 1);
+                rightCount[layer] = count + 1;
+            }
+        }
+
+        return result;
     }
 
     private static string ExtractNodeId(string value)

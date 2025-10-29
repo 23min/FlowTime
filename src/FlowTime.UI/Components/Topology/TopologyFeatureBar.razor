@@ -132,6 +132,17 @@
                    ValueChanged="OnRespectUiPositionsChanged"
                    Color="Color.Primary"
                    Label="Use template positions" />
+
+        <MudText Typo="Typo.caption" Class="mt-2">Layout mode</MudText>
+        <MudRadioGroup T="LayoutMode"
+                       Value="@workingSettings.Layout"
+                       ValueChanged="OnLayoutModeChanged"
+                       Orientation="Orientation.Horizontal"
+                       Dense="true"
+                       Class="topology-dense-control">
+            <MudRadio T="LayoutMode" Value="LayoutMode.Layered" Color="Color.Primary">Layered</MudRadio>
+            <MudRadio T="LayoutMode" Value="LayoutMode.HappyPath" Color="Color.Primary">Happy Path (beta)</MudRadio>
+        </MudRadioGroup>
         <MudCheckBox T="bool"
                      Dense="true"
                      Class="topology-dense-control"
@@ -372,6 +383,17 @@
         }
 
         workingSettings.RespectUiPositions = value;
+        return NotifyChange();
+    }
+
+    private Task OnLayoutModeChanged(LayoutMode value)
+    {
+        if (workingSettings.Layout == value)
+        {
+            return Task.CompletedTask;
+        }
+
+        workingSettings.Layout = value;
         return NotifyChange();
     }
 

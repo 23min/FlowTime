@@ -371,7 +371,7 @@
                 return;
             }
 
-            topologyGraph = GraphMapper.Map(graphResult.Value, overlaySettings.RespectUiPositions);
+            topologyGraph = GraphMapper.Map(graphResult.Value, overlaySettings.RespectUiPositions, overlaySettings.Layout);
             seriesIndex = indexResult.Value;
 
             var totalBins = Math.Max(1, seriesIndex.Grid.Bins);
@@ -528,7 +528,7 @@
                 return;
             }
 
-            topologyGraph = GraphMapper.Map(graphResult.Value, overlaySettings.RespectUiPositions);
+            topologyGraph = GraphMapper.Map(graphResult.Value, overlaySettings.RespectUiPositions, overlaySettings.Layout);
             errorMessage = null;
         }
         catch (Exception ex)
