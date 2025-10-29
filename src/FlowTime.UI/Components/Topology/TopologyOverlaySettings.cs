@@ -60,6 +60,7 @@ public sealed class TopologyOverlaySettings
     public bool ShowCapacityDependencies { get; set; } = true;
     public bool ShowExpressionDependencies { get; set; } = true;
     public LayoutMode Layout { get; set; } = LayoutMode.Layered;
+    public bool ShowComputeNodes { get; set; } = false;
 
     public TopologyOverlaySettings Clone()
     {
@@ -91,7 +92,8 @@ public sealed class TopologyOverlaySettings
             ShowQueueDependencies = ShowQueueDependencies,
             ShowCapacityDependencies = ShowCapacityDependencies,
             ShowExpressionDependencies = ShowExpressionDependencies,
-            Layout = Layout
+            Layout = Layout,
+            ShowComputeNodes = ShowComputeNodes
         };
     }
 

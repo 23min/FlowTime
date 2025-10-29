@@ -18,9 +18,9 @@
                         data-focused="@(proxy.IsFocused ? "true" : "false")"
                         style="@proxy.Style"
                         aria-label="@proxy.AriaLabel"
-                        @onclick="() => FocusNode(proxy.Id)"
-                        @onmouseenter="() => FocusNode(proxy.Id)"
-                        @onfocus="() => FocusNode(proxy.Id)"
+                        @onclick="() => SelectNode(proxy.Id)"
+                        @onmouseenter="() => HoverNode(proxy.Id)"
+                        @onfocus="() => SelectNode(proxy.Id)"
                         @onblur="OnNodeBlur"
                         @onkeydown="(args) => OnNodeKeyDown(args, proxy.Id)"
                         @onkeydown:preventDefault
@@ -29,21 +29,6 @@
                 </button>
             }
         </div>
-        @if (ActiveTooltip is not null)
-        {
-            <div class="topology-tooltip"
-                 data-testid="topology-tooltip"
-                 style="@ActiveTooltip.PositionStyle">
-                <div class="topology-tooltip-title">@ActiveTooltip.Content.Title</div>
-                <div class="topology-tooltip-subtitle">@ActiveTooltip.Content.Subtitle</div>
-                <ul>
-                    @foreach (var line in ActiveTooltip.Content.Lines)
-                    {
-                        <li>@line</li>
-                    }
-                </ul>
-            </div>
-        }
     </div>
 }
 else if (HasSourceGraph)

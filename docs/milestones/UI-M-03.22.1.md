@@ -47,6 +47,7 @@ A known bug with tooltips is also tracked and fixed here so keyboard/pointer ins
   - Clicking a node opens a right-side inspector (Mud drawer) with metrics, sparkline preview, and edge listings (see `topography.md` / `image3.png` reference).
   - Panel shows current bin metrics (SLA, utilization, errors, queue, latency) plus node metadata and call-to-action slots.
   - ESC/close returns focus to the previously focused node button; panel collapses when no node is selected.
+  - Beta: inspector drawer stub now surfaces node id + current-bin metrics; full details to expand in follow-up.
 
 **Validation plan:** Finalize the `TopologyFeatureBar` layout (sections, toggles, defaults) before implementing LOD logic. Stakeholders sign off on UX (labels, grouping, persistence) prior to wiring Auto/On/Off behaviors.
 
@@ -308,3 +309,5 @@ Open questions for review
 Implementation strategy
 - Encapsulate layout strategies behind an interface (e.g., `ILayoutStrategy`) with inputs: nodes, edges; outputs: x,y per node.
 - Add a `LayoutMode` option (Feature Bar). For now, wire ‘Top→Bottom’ and ‘Happy Path (beta)’. Keep others behind a spec flag until implemented.
+- Optionally hide compute nodes (const/expr/pmf) and instead surface them as badges feeding their consumers; expose toggle in Feature Bar.
+- Keep vector tooltip in-canvas (theme-aware) with constant offset so nodes remain visible.

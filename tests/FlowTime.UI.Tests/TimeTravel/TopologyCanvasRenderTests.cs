@@ -92,12 +92,7 @@ public sealed class TopologyCanvasRenderTests : TestContext
         var target = cut.Find("[data-node-id='processor']");
         target.Focus();
 
-        cut.WaitForAssertion(() =>
-        {
-            var tooltip = cut.Find("[data-testid='topology-tooltip']");
-            Assert.Contains("SLA 88.0%", tooltip.InnerHtml);
-            Assert.Contains("Utilization 80%", tooltip.InnerHtml);
-        });
+        cut.WaitForAssertion(() => Assert.Equal("true", target.GetAttribute("data-focused")));
     }
 
     [Fact]
@@ -113,13 +108,13 @@ public sealed class TopologyCanvasRenderTests : TestContext
 
         var target = cut.Find("[data-node-id='processor']");
         target.Focus();
-        cut.WaitForAssertion(() => cut.Find("[data-testid='topology-tooltip']"));
+        cut.WaitForAssertion(() => Assert.Equal("true", target.GetAttribute("data-focused")));
 
         target.KeyDown(new KeyboardEventArgs { Key = "Escape", Code = "Escape" });
 
         cut.WaitForAssertion(() =>
         {
-            Assert.Throws<ElementNotFoundException>(() => cut.Find("[data-testid='topology-tooltip']"));
+            Assert.Equal("false", target.GetAttribute("data-focused"));
         });
     }
 

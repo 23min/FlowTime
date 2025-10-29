@@ -20,6 +20,7 @@ internal sealed record NodeRenderInfo(
     string Fill,
     string Stroke,
     bool IsFocused,
+    bool IsVisible,
     NodeSparklineDto? Sparkline);
 
 internal sealed record EdgeRenderInfo(
@@ -73,7 +74,8 @@ internal sealed record OverlaySettingsPayload(
     bool ShowErrorsDependencies,
     bool ShowQueueDependencies,
     bool ShowCapacityDependencies,
-    bool ShowExpressionDependencies);
+    bool ShowExpressionDependencies,
+    bool ShowComputeNodes);
 
 internal sealed record NodeSparklineDto(
     IReadOnlyList<double?> Values,

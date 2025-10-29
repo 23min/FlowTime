@@ -99,6 +99,12 @@
 - [x] Styled non-service nodes: expr (diamond), const/pmf (capsule); queues show an inner depth bar.
 - [x] Dashed styling for dependency edges; labels remain crisp at higher zoom.
 
+### Session: Badges & Inspector (current)
+- [x] Added badge rack (A/S/E/Q/C) above service/queue nodes with dependency-driven compute badges; hides compute nodes by default with toggle to expand.
+- [x] Replaced DOM tooltip with in-canvas vector callout (constant offset, theme-aware background).
+- [x] Added layout mode radio (Layered vs Happy Path beta) alongside template-position toggle.
+- [x] Stubbed inspector drawer (right) showing node id + current-bin metrics via new node-focused callback.
+
 ---
 
 ## Notes / Blockers

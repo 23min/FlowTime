@@ -132,6 +132,14 @@
                    ValueChanged="OnRespectUiPositionsChanged"
                    Color="Color.Primary"
                    Label="Use template positions" />
+        <MudSwitch T="bool"
+                   Dense="true"
+                   Class="topology-dense-control"
+                   Value="@workingSettings.ShowComputeNodes"
+                   ValueChanged="OnShowComputeNodesChanged"
+                   Color="Color.Primary"
+                   Disabled="@(!workingSettings.EnableFullDag)"
+                   Label="Show compute nodes" />
 
         <MudText Typo="Typo.caption" Class="mt-2">Layout mode</MudText>
         <MudRadioGroup T="LayoutMode"
@@ -394,6 +402,17 @@
         }
 
         workingSettings.Layout = value;
+        return NotifyChange();
+    }
+
+    private Task OnShowComputeNodesChanged(bool value)
+    {
+        if (workingSettings.ShowComputeNodes == value)
+        {
+            return Task.CompletedTask;
+        }
+
+        workingSettings.ShowComputeNodes = value;
         return NotifyChange();
     }
 

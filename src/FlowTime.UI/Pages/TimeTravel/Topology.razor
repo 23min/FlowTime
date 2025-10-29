@@ -159,7 +159,37 @@
                                     NodeSparklines="nodeSparklines"
                                     OverlaySettings="overlaySettings"
                                     ActiveBin="selectedBin"
-                                    ZoomPercentChanged="HandleCanvasZoomChanged" />
+                                    ZoomPercentChanged="HandleCanvasZoomChanged"
+                                    NodeFocused="OnNodeFocused" />
+
+                    <MudDrawer Anchor="Anchor.End"
+                               Open="@inspectorOpen"
+                               Variant="DrawerVariant.Temporary"
+                               Elevation="1"
+                               Class="topology-inspector">
+                        @if (inspectorNodeId is not null)
+                        {
+                            <MudStack Class="pa-4" Spacing="1">
+                                <MudText Typo="Typo.subtitle1">Node inspector</MudText>
+                                <MudText Typo="Typo.h6">@inspectorNodeId</MudText>
+
+                                @if (activeMetrics.TryGetValue(inspectorNodeId, out var metrics))
+                                {
+                                    <MudStack Spacing="1">
+                                        <MudText Typo="Typo.body2">Success: @FormatPercent(metrics.SuccessRate)</MudText>
+                                        <MudText Typo="Typo.body2">Utilization: @FormatPercent(metrics.Utilization)</MudText>
+                                        <MudText Typo="Typo.body2">Errors: @FormatPercent(metrics.ErrorRate)</MudText>
+                                        <MudText Typo="Typo.body2">Queue: @FormatNumber(metrics.QueueDepth)</MudText>
+                                        <MudText Typo="Typo.body2">Latency (min): @FormatNumber(metrics.LatencyMinutes)</MudText>
+                                    </MudStack>
+                                }
+                                else
+                                {
+                                    <MudText Typo="Typo.body2">Metrics unavailable.</MudText>
+                                }
+                            </MudStack>
+                        }
+                    </MudDrawer>
 
                     <div class="topology-legend">
                         <span class="legend-item">
@@ -202,6 +232,8 @@
     private bool overlaySettingsLoaded;
     private DotNetObjectReference<Topology>? selfReference;
     private int? hotkeyRegistrationId;
+    private string? inspectorNodeId;
+    private bool inspectorOpen;
 
     private TopologyGraph? topologyGraph;
     private IReadOnlyDictionary<string, NodeBinMetrics> activeMetrics = new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase);
@@ -436,7 +468,9 @@
         await SaveOverlaySettingsAsync();
 
         var requiresGraphReload = previous.EnableFullDag != overlaySettings.EnableFullDag
-            || previous.RespectUiPositions != overlaySettings.RespectUiPositions;
+            || previous.RespectUiPositions != overlaySettings.RespectUiPositions
+            || previous.Layout != overlaySettings.Layout
+            || previous.ShowComputeNodes != overlaySettings.ShowComputeNodes;
 
         if (requiresGraphReload && hasLoaded)
         {
@@ -849,6 +883,28 @@
 
         var ts = timestamps[localIndex];
         return ts.ToString("dd MMM yyyy HH:mm 'UTC'", CultureInfo.InvariantCulture);
+    }
+
+    private Task OnNodeFocused(string? nodeId)
+    {
+        inspectorNodeId = nodeId;
+        inspectorOpen = !string.IsNullOrEmpty(nodeId);
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private static string FormatPercent(double? value)
+    {
+        return value.HasValue
+            ? (value.Value * 100).ToString("0.#", CultureInfo.InvariantCulture) + "%"
+            : "—";
+    }
+
+    private static string FormatNumber(double? value)
+    {
+        return value.HasValue
+            ? value.Value.ToString("0.##", CultureInfo.InvariantCulture)
+            : "—";
     }
 
     private void BuildNodeSparklines()

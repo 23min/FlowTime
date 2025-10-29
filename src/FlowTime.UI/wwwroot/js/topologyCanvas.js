@@ -188,7 +188,9 @@
                 height: n.height ?? n.Height ?? 24,
                 cornerRadius: n.cornerRadius ?? n.CornerRadius ?? 3,
                 sparkline: n.sparkline ?? n.Sparkline ?? null,
-                isFocused: !!(n.isFocused ?? n.IsFocused)
+                isFocused: !!(n.isFocused ?? n.IsFocused),
+                visible: !(n.isVisible === false || n.IsVisible === false),
+                kind: String(n.kind ?? n.Kind ?? 'service')
             });
         }
 
@@ -222,6 +224,11 @@
             const toNode = nodeMap.get(toId);
 
             if (!fromNode || !toNode) {
+                continue;
+            }
+
+            if (fromNode.visible === false && overlaySettings.showComputeNodes === false) {
+                // treat compute edges as badges only
                 continue;
             }
 
@@ -311,6 +318,14 @@
         const dimmedAlpha = 0.35;
 
         for (const node of nodes) {
+            const id = node.id ?? node.Id;
+            const meta = nodeMap.get(id);
+            const isVisible = meta?.visible !== false;
+
+            if (!isVisible && !overlaySettings.showComputeNodes) {
+                continue;
+            }
+
             const x = node.x ?? node.X;
             const y = node.y ?? node.Y;
             const width = node.width ?? node.Width ?? 36;
@@ -318,7 +333,6 @@
             const cornerRadius = node.cornerRadius ?? node.CornerRadius ?? 3;
             const fill = node.fill ?? node.Fill ?? '#7A7A7A';
             const stroke = node.stroke ?? node.Stroke ?? '#262626';
-            const id = node.id ?? node.Id;
 
             const highlightNode = !emphasisEnabled || (neighborNodes?.has(id) ?? false);
             const nodeAlpha = highlightNode ? 1 : dimmedAlpha;
@@ -327,7 +341,7 @@
             ctx.globalAlpha = nodeAlpha;
 
             // Draw node shape by kind
-            const kind = String((node.kind ?? node.Kind ?? 'service')).toLowerCase();
+            const kind = String(meta?.kind ?? node.kind ?? node.Kind ?? 'service').toLowerCase();
             ctx.beginPath();
             if (kind === 'expr' || kind === 'expression') {
                 const hw = width / 2, hh = height / 2;
@@ -376,7 +390,7 @@
 
             // Badge rack for service/queue nodes (compute nodes skip badges)
             if (kind === 'service' || kind === 'queue') {
-                drawBadges(ctx, nodeMeta, overlaySettings);
+                drawBadges(ctx, id, nodeMeta, overlaySettings, edges, nodeMap);
             }
 
             if (overlaySettings.showLabels) {
@@ -418,13 +432,6 @@
             nodeLayer.style.transformOrigin = origin;
         }
 
-        const tooltips = host.querySelectorAll('.topology-tooltip');
-        if (tooltips && tooltips.length) {
-            for (const t of tooltips) {
-                t.style.transform = transform;
-                t.style.transformOrigin = origin;
-            }
-        }
     }
 
     function tryDrawTooltip(ctx, nodes, tooltip, state) {
@@ -751,6 +758,7 @@
             showQueueDependencies: boolOr(raw.showQueueDependencies ?? raw.ShowQueueDependencies, true),
             showCapacityDependencies: boolOr(raw.showCapacityDependencies ?? raw.ShowCapacityDependencies, true),
             showExpressionDependencies: boolOr(raw.showExpressionDependencies ?? raw.ShowExpressionDependencies, true),
+            showComputeNodes: boolOr(raw.showComputeNodes ?? raw.ShowComputeNodes, false),
             thresholds: {
                 slaSuccess,
                 slaWarning,
@@ -926,7 +934,7 @@
         }
     }
 
-    function drawBadges(ctx, nodeMeta, overlays) {
+    function drawBadges(ctx, nodeId, nodeMeta, overlays, edges, nodeMap) {
         if (!nodeMeta) return;
         const x = nodeMeta.x ?? 0;
         const y = nodeMeta.y ?? 0;
@@ -945,7 +953,9 @@
         const paddingX = 6;
         const chipH = 12;
         const gap = 4;
-        let cursorX = x - Math.max(width - 12, 24) / 2; // left align to label area
+        const labelWidth = Math.max(width - 12, 24);
+        let cursorX = x - labelWidth / 2; // left align to label area
+        let leftCursor = x - labelWidth / 2 - gap; // compute badges extend to the left
 
         const thresholds = overlays.thresholds || {
             slaSuccess: 0.95,
@@ -1008,6 +1018,52 @@
             cursorX += drawChip(ctx, cursorX, top, label, '#F0FFF4', '#111827', paddingX, chipH) + gap;
         }
 
+        // Compute dependency badges (const/expr/pmf)
+        for (const edge of edges) {
+            const edgeType = String(edge.edgeType ?? edge.EdgeType ?? '').toLowerCase();
+            if (edgeType !== EdgeTypeDependency) {
+                continue;
+            }
+
+            const toId = edge.to ?? edge.To;
+            if (!toId || toId !== nodeId) {
+                continue;
+            }
+
+            const fromId = edge.from ?? edge.From;
+            if (!fromId) {
+                continue;
+            }
+
+            const source = nodeMap.get(fromId);
+            if (!source) {
+                continue;
+            }
+
+            const sourceKind = String(source.kind ?? '').toLowerCase();
+            const isCompute = sourceKind === 'expr' || sourceKind === 'expression' || sourceKind === 'const' || sourceKind === 'pmf';
+            if (!isCompute) {
+                continue;
+            }
+
+            if (overlaySettings.showComputeNodes && source.visible !== false) {
+                // compute node is visible on canvas; skip duplicate badge
+                continue;
+            }
+
+            const field = String(edge.field ?? edge.Field ?? '').toLowerCase();
+            let label = fromId;
+            if (field && field !== 'expr') {
+                label = `${field}: ${fromId}`;
+            }
+            if (label.length > 14) {
+                label = label.slice(0, 11) + '…';
+            }
+
+            const chipWidth = drawComputeBadge(ctx, leftCursor, top, label, sourceKind, paddingX, chipH);
+            leftCursor -= (chipWidth + gap);
+        }
+
         ctx.restore();
     }
 
@@ -1021,6 +1077,41 @@
         const r = Math.min(6, h / 2);
         const bx = Math.round(x);
         const by = Math.round(y - h);
+        ctx.beginPath();
+        ctx.moveTo(bx + r, by);
+        ctx.arcTo(bx + w, by, bx + w, by + h, r);
+        ctx.arcTo(bx + w, by + h, bx, by + h, r);
+        ctx.arcTo(bx, by + h, bx, by, r);
+        ctx.arcTo(bx, by, bx + w, by, r);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = fg;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, bx + paddingX, by + h / 2);
+        ctx.restore();
+        return w;
+    }
+
+    function drawComputeBadge(ctx, x, y, text, kind, paddingX, h) {
+        const palette = {
+            expr: '#E0F2FE',
+            expression: '#E0F2FE',
+            const: '#FDF6B2',
+            pmf: '#FCE7F3'
+        };
+        const bg = palette[kind] ?? '#E5E7EB';
+        const fg = '#111827';
+        const w = Math.ceil(ctx.measureText(text).width) + paddingX * 2;
+        const r = Math.min(6, h / 2);
+        const bx = Math.round(x - w);
+        const by = Math.round(y - h);
+
+        ctx.save();
+        ctx.fillStyle = bg;
+        ctx.strokeStyle = 'rgba(17, 24, 39, 0.15)';
+        ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(bx + r, by);
         ctx.arcTo(bx + w, by, bx + w, by + h, r);

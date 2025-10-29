@@ -36,13 +36,13 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
     [Parameter] public int ActiveBin { get; set; }
     [Parameter] public IReadOnlyDictionary<string, NodeSparklineData>? NodeSparklines { get; set; }
     [Parameter] public EventCallback<double> ZoomPercentChanged { get; set; }
+    [Parameter] public EventCallback<string?> NodeFocused { get; set; }
     protected ElementReference canvasRef;
 
     protected bool HasVisibleNodes => filteredGraph is { Nodes.Count: > 0 };
     protected bool HasSourceGraph => Graph is { Nodes.Count: > 0 };
 
     protected IReadOnlyList<NodeProxyViewModel> NodeProxies { get; private set; } = Array.Empty<NodeProxyViewModel>();
-    protected TooltipViewModel? ActiveTooltip { get; private set; }
 
     protected override void OnParametersSet()
     {
@@ -55,7 +55,6 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             nodeInputs.Clear();
             nodeOutputs.Clear();
             focusedNodeId = null;
-            ActiveTooltip = null;
             return;
         }
 
@@ -65,7 +64,6 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         if (focusedNodeId is not null && !nodeLookup.ContainsKey(focusedNodeId))
         {
             focusedNodeId = null;
-            ActiveTooltip = null;
         }
 
         NodeProxies = BuildNodeProxies(filteredGraph, NodeMetrics, focusedNodeId, OverlaySettings);
@@ -92,7 +90,11 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         await JS.InvokeVoidAsync("FlowTime.TopologyCanvas.render", canvasRef, pendingRequest);
     }
 
-    protected void FocusNode(string nodeId)
+    protected void SelectNode(string nodeId) => FocusNodeInternal(nodeId, true);
+
+    protected void HoverNode(string nodeId) => FocusNodeInternal(nodeId, false);
+
+    private void FocusNodeInternal(string nodeId, bool notify)
     {
         if (!HasVisibleNodes || !nodeLookup.ContainsKey(nodeId))
         {
@@ -100,11 +102,15 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         }
 
         focusedNodeId = nodeId;
-        ActiveTooltip = BuildTooltip(nodeId);
         var graph = filteredGraph ?? Graph!;
         NodeProxies = BuildNodeProxies(graph, NodeMetrics, focusedNodeId, OverlaySettings);
         ScheduleRedraw();
         StateHasChanged();
+
+        if (notify && NodeFocused.HasDelegate)
+        {
+            _ = NodeFocused.InvokeAsync(nodeId);
+        }
     }
 
     protected void OnNodeBlur()
@@ -115,11 +121,15 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         }
 
         focusedNodeId = null;
-        ActiveTooltip = null;
         var graph = filteredGraph ?? Graph!;
         NodeProxies = BuildNodeProxies(graph, NodeMetrics, focusedNodeId, OverlaySettings);
         ScheduleRedraw();
         StateHasChanged();
+
+        if (NodeFocused.HasDelegate)
+        {
+            _ = NodeFocused.InvokeAsync(null);
+        }
     }
 
     protected void OnNodeKeyDown(KeyboardEventArgs args, string nodeId)
@@ -151,7 +161,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
 
         if (!string.IsNullOrWhiteSpace(candidate))
         {
-            FocusNode(candidate);
+            FocusNodeInternal(candidate, true);
         }
     }
 
@@ -259,21 +269,6 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             nodeInputs[node.Id] = new HashSet<string>(node.Inputs, StringComparer.OrdinalIgnoreCase);
             nodeOutputs[node.Id] = new HashSet<string>(node.Outputs, StringComparer.OrdinalIgnoreCase);
         }
-    }
-
-    private TooltipViewModel? BuildTooltip(string nodeId)
-    {
-        if (!nodeLookup.TryGetValue(nodeId, out var node))
-        {
-            return null;
-        }
-
-        var metrics = GetMetrics(nodeId);
-        var content = TooltipFormatter.Format(nodeId, metrics);
-        var tooltipOffset = (NodeHeight / 2) + 72;
-        var offsetY = Math.Max(node.Y - tooltipOffset, 12);
-        var style = string.Create(CultureInfo.InvariantCulture, $"left: {node.X}px; top: {offsetY}px; transform: translate(-50%, -100%);");
-        return new TooltipViewModel(content, style);
     }
 
     private NodeBinMetrics GetMetrics(string nodeId)
@@ -430,6 +425,18 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                         sparklineData.StartIndex);
                 }
 
+                var isVisible = true;
+                if (overlays.EnableFullDag && !overlays.ShowComputeNodes)
+                {
+                    if (string.Equals(node.Kind, "expr", StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(node.Kind, "expression", StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(node.Kind, "const", StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(node.Kind, "pmf", StringComparison.OrdinalIgnoreCase))
+                    {
+                        isVisible = false;
+                    }
+                }
+
                 return new NodeRenderInfo(
                     node.Id,
                     node.Kind,
@@ -441,6 +448,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                     fill,
                     stroke,
                     isFocused,
+                    isVisible,
                     sparklineDto);
             })
             .ToImmutableArray();
@@ -532,7 +540,8 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             overlays.ShowErrorsDependencies,
             overlays.ShowQueueDependencies,
             overlays.ShowCapacityDependencies,
-            overlays.ShowExpressionDependencies);
+            overlays.ShowExpressionDependencies,
+            overlays.ShowComputeNodes);
 
         TooltipPayload? tooltip = null;
         if (!string.IsNullOrWhiteSpace(focusedNode))
@@ -558,7 +567,6 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
     }
 
     protected sealed record NodeProxyViewModel(string Id, string Style, string AriaLabel, bool IsFocused);
-    protected sealed record TooltipViewModel(TooltipContent Content, string PositionStyle);
 
     [JSInvokable]
     public Task OnCanvasZoomChanged(double zoomPercent)
