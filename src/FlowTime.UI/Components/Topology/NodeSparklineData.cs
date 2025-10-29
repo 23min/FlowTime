@@ -6,57 +6,92 @@ namespace FlowTime.UI.Components.Topology;
 
 public sealed record NodeSparklineData(
     IReadOnlyList<double?> Values,
+    IReadOnlyList<double?> Utilization,
+    IReadOnlyList<double?> ErrorRate,
+    IReadOnlyList<double?> QueueDepth,
     double Min,
     double Max,
-    string Metric,
-    bool IsFlat)
+    bool IsFlat,
+    int StartIndex)
 {
-    public static NodeSparklineData? Create(
-        IReadOnlyList<double?> sourceValues,
-        string metric,
+    public static NodeSparklineData Create(
+        IReadOnlyList<double?> values,
+        IReadOnlyList<double?> utilization,
+        IReadOnlyList<double?> errorRate,
+        IReadOnlyList<double?> queueDepth,
+        int startIndex,
         double? explicitMin = null,
         double? explicitMax = null)
     {
-        if (sourceValues is null || sourceValues.Count == 0)
+        if (values is null || values.Count == 0)
         {
-            return null;
+            throw new ArgumentException("Values are required", nameof(values));
         }
 
-        var cloned = sourceValues.ToArray();
+        var (min, max, isFlat) = ComputeBounds(values, explicitMin, explicitMax);
 
+        return new NodeSparklineData(
+            values,
+            utilization,
+            errorRate,
+            queueDepth,
+            min,
+            max,
+            isFlat,
+            startIndex);
+    }
+
+    public static (double Min, double Max, bool IsFlat) ComputeBounds(
+        IReadOnlyList<double?> values,
+        double? explicitMin,
+        double? explicitMax)
+    {
         double min = explicitMin ?? double.PositiveInfinity;
         double max = explicitMax ?? double.NegativeInfinity;
+        var hasValue = false;
 
-        if (explicitMin is null || explicitMax is null)
+        foreach (var value in values)
         {
-            foreach (var value in cloned)
+            if (!value.HasValue)
             {
-                if (!value.HasValue)
-                {
-                    continue;
-                }
+                continue;
+            }
 
-                if (value.Value < min)
-                {
-                    min = value.Value;
-                }
+            hasValue = true;
+            var sample = value.Value;
+            if (sample < min)
+            {
+                min = sample;
+            }
 
-                if (value.Value > max)
-                {
-                    max = value.Value;
-                }
+            if (sample > max)
+            {
+                max = sample;
             }
         }
 
-        if (!cloned.Any(v => v.HasValue))
+        if (!hasValue)
         {
-            return null;
+            min = explicitMin ?? 0d;
+            max = explicitMax ?? min;
         }
 
-        var finiteMin = double.IsFinite(min) ? min : 0d;
-        var finiteMax = double.IsFinite(max) ? max : finiteMin;
-        var isFlat = Math.Abs(finiteMax - finiteMin) < 1e-9;
+        if (!double.IsFinite(min))
+        {
+            min = explicitMin ?? 0d;
+        }
 
-        return new NodeSparklineData(cloned, finiteMin, finiteMax, metric, isFlat);
+        if (!double.IsFinite(max))
+        {
+            max = explicitMax ?? min;
+        }
+
+        var isFlat = Math.Abs(max - min) < 1e-6;
+        if (isFlat)
+        {
+            max = min + 0.001d;
+        }
+
+        return (min, max, isFlat);
     }
 }

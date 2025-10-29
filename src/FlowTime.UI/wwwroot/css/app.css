@@ -198,6 +198,83 @@ code {
     /* thinner consistent visual weight */
 }
 
+.topology-feature-panel {
+    min-width: 300px;
+    padding: 0.75rem 0.75rem 1rem !important;
+}
+
+.topology-feature-panel .topology-feature-bar {
+    font-size: 0.85rem;
+    line-height: 1.4;
+}
+
+.topology-feature-panel .topology-feature-bar .mud-typography {
+    font-size: inherit !important;
+}
+
+.topology-feature-panel .topology-section-title {
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 0.1rem;
+    color: var(--mud-palette-text-secondary);
+}
+
+.topology-feature-panel .mud-slider {
+    padding-inline: 0.25rem;
+}
+
+.topology-feature-panel .flex-grow-1 {
+    flex: 1 1 auto;
+}
+
+.topology-feature-panel .mud-stack {
+    gap: 0.35rem;
+}
+
+.topology-feature-panel .topology-dense-control {
+    font-size: 0.85rem;
+}
+
+.topology-feature-panel .topology-dense-control .mud-typography {
+    font-size: 0.85rem !important;
+}
+
+.topology-feature-panel .mud-radio-group {
+    gap: 0.25rem !important;
+}
+
+.topology-feature-panel .mud-checkbox-root,
+.topology-feature-panel .mud-radio-root,
+.topology-feature-panel .mud-switch-root {
+    margin: 0 !important;
+    min-height: unset !important;
+    padding: 0 !important;
+}
+
+.topology-feature-panel .mud-divider.topology-divider {
+    margin: 0.4rem 0 0.5rem;
+}
+
+.topology-feature-panel .mud-checkbox-root .mud-typography,
+.topology-feature-panel .mud-radio-root .mud-typography,
+.topology-feature-panel .mud-switch-root .mud-switch-label {
+    font-size: 0.85rem !important;
+}
+
+.topology-feature-panel .mud-switch-root,
+.topology-feature-panel .mud-checkbox-root,
+.topology-feature-panel .mud-radio-root {
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.topology-feature-panel .mud-switch,
+.topology-feature-panel .mud-checkbox,
+.topology-feature-panel .mud-radio {
+    font-size: 0.85rem;
+}
+
 .topology-page .topology-legend {
     display: flex;
     flex-wrap: wrap;
@@ -225,6 +302,177 @@ code {
 .legend-swatch.error { background-color: #D55E00; }
 .legend-swatch.neutral { background-color: #7A7A7A; }
 
+.topology-run-info {
+    white-space: nowrap;
+}
+
+.timeline-paper {
+    border-radius: 8px;
+    background: transparent;
+    border: 1px solid rgba(71, 85, 105, 0.25);
+}
+
+.timeline-dial {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.timeline-track {
+    position: relative;
+    height: 28px;
+    border-radius: 0;
+    border: 1px solid rgba(71, 85, 105, 0.35);
+    background: rgba(17, 24, 39, 0.02);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.timeline-track.is-disabled {
+    opacity: 0.45;
+}
+
+.timeline-track:focus-within {
+    border-color: var(--mud-palette-primary);
+    box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.15);
+}
+
+.timeline-svg {
+    width: 100%;
+    height: 12px;
+    display: block;
+}
+
+.timeline-track-bg {
+    fill: rgba(17, 24, 39, 0.02);
+}
+
+.timeline-tick-line {
+    stroke: rgba(71, 85, 105, 0.45);
+    stroke-width: 0.5;
+}
+
+.timeline-pointer {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: var(--mud-palette-primary);
+    border-radius: 1px;
+    pointer-events: none;
+    box-shadow: 0 0 0 1px rgba(25, 118, 210, 0.18);
+    transform: translateX(-50%);
+    transition: left var(--timeline-transition-duration, 0s) linear;
+}
+
+.timeline-pointer.is-dragging {
+    transition: none;
+}
+
+.timeline-range {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    background: transparent;
+    -webkit-appearance: none;
+    appearance: none;
+    cursor: pointer;
+}
+
+.timeline-range:focus-visible {
+    outline: none;
+}
+
+.timeline-range::-webkit-slider-runnable-track {
+    height: 100%;
+    background: transparent;
+    border: none;
+}
+
+.timeline-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 1px;
+    height: 1px;
+    background: transparent;
+    box-shadow: none;
+}
+
+.timeline-range::-moz-range-track {
+    height: 100%;
+    background: transparent;
+    border: none;
+}
+
+.timeline-range::-moz-range-thumb {
+    width: 1px;
+    height: 1px;
+    background: transparent;
+    border: none;
+}
+
+.timeline-labels {
+    position: relative;
+    margin-top: 2px;
+    min-height: 14px;
+}
+
+.timeline-label {
+    position: absolute;
+    transform: translateX(-50%);
+    font-size: 0.6rem;
+    line-height: 1.1;
+    color: var(--mud-palette-text-secondary);
+    white-space: nowrap;
+}
+
+.timeline-speed-set {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.timeline-speed-chip {
+    font-size: 0.65rem;
+    line-height: 1.2;
+    padding: 0.1rem 0.35rem;
+    min-height: 1.35rem;
+}
+
+.timeline-speed-set .mud-chip {
+    color: var(--mud-palette-text-primary);
+    border-color: rgba(71, 85, 105, 0.4);
+    background: rgba(148, 163, 184, 0.18);
+}
+
+.timeline-speed-set .mud-chip.mud-chip-selected {
+    border-color: rgba(59, 72, 89, 0.65);
+    background: rgba(59, 72, 89, 0.28);
+}
+
+.timeline-range::-ms-track {
+    height: 100%;
+    background: transparent;
+    border-color: transparent;
+    color: transparent;
+}
+
+.timeline-range::-ms-thumb {
+    width: 1px;
+    height: 1px;
+    background: transparent;
+    border: none;
+}
+
+.timeline-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.timeline-controls .mud-icon-button {
+    border-radius: 6px;
+}
 .topology-layout {
     display: flex;
     gap: 1.5rem;
@@ -250,6 +498,16 @@ code {
 
 .topology-layout .topology-page {
     flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.topology-layout .topology-page > .mud-stack {
+    flex: 1 1 auto;
+}
+
+.topology-layout .topology-page > .mud-stack .topology-canvas-host {
+    flex: 1 1 auto;
 }
 
 .topology-canvas-host {
@@ -258,17 +516,20 @@ code {
     border-radius: 12px;
     box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.05);
     overflow: hidden;
+    min-height: 420px;
+    height: clamp(360px, 60vh, 760px);
 }
 
 .topology-canvas {
     width: 100%;
-    height: auto;
+    height: 100%;
     display: block;
 }
 
 .topology-node-layer {
     position: absolute;
     inset: 0;
+    pointer-events: none;
 }
 
 .topology-node-proxy {

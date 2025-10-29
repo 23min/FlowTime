@@ -31,12 +31,22 @@ A known bug with tooltips is also tracked and fixed here so keyboard/pointer ins
     3. LOD (Auto/On/Off per overlay; zoom thresholds)
     4. Color Basis (SLA/util/errors/queue) and thresholds
     5. Help/Legend (what colors/arrows/shares mean)
+- Timeline dial ("radio tuner")
+  - Replace the thin range input with a boxed dial that carries vertical tick marks and timestamp labels.
+  - The thumb renders as a vertical tuner bar; dial header shows `Bin N` + timestamp.
+  - Playback controls live to the right (play/pause, previous/next, loop toggle, playback speed select in seconds per frame).
+  - Wheel zoom on the browser must not resize the dial; mouse drag cancels active playback.
+  - Future incident markers, annotations, and presets stack on the dial rail (captured in deferred work).
 
 - Canvas behaviors (visual)
   - Directed edges (arrowheads), thinner strokes, compact labels (10px), rounded rectangles.
   - Sparklines render above nodes when enabled and at appropriate zoom levels.
   - Edge share labels appear near the edge midpoint when enabled.
   - Neighbor emphasis on focus (fade non‑neighbors).
+- Node inspector panel
+  - Clicking a node opens a right-side inspector (Mud drawer) with metrics, sparkline preview, and edge listings (see `topography.md` / `image3.png` reference).
+  - Panel shows current bin metrics (SLA, utilization, errors, queue, latency) plus node metadata and call-to-action slots.
+  - ESC/close returns focus to the previously focused node button; panel collapses when no node is selected.
 
 **Validation plan:** Finalize the `TopologyFeatureBar` layout (sections, toggles, defaults) before implementing LOD logic. Stakeholders sign off on UX (labels, grouping, persistence) prior to wiring Auto/On/Off behaviors.
 
@@ -83,6 +93,7 @@ Each overlay supports Auto/On/Off. Auto follows LOD rules above; On forces displ
 - Full DAG Mode: Show const/expr nodes in addition to services.
 - Filters: Include/exclude kinds (service, expr, const, queue‑capable).
 - Color Basis: SLA (default), Utilization, Errors, Queue depth; adjustable thresholds.
+  - Threshold sliders influence both node fill colors and per-bin sparkline samples to keep the canvas and dial aligned.
 - Neighbor Emphasis: Fade non‑neighbors when a node is focused.
 - Reset to Defaults: Clear local preferences.
 
@@ -101,6 +112,7 @@ Each overlay supports Auto/On/Off. Auto follows LOD rules above; On forces displ
   - `overlays`: flags + color basis + thresholds + LOD mode
   - `nodeMini`: optional arrays for service sparklines
   - `edgeShares`: optional normalized shares for label rendering
+  - Derived color thresholds (SLA success/warning, utilization warn/critical, error warn/critical) accompany sliders for consistent coloring in JS.
 - Performance
   - Lazy fetch raw series only when overlay enabled and nodes are visible.
   - Cache series and mini arrays for reuse across scrubs/pans.
@@ -177,7 +189,15 @@ Each overlay supports Auto/On/Off. Auto follows LOD rules above; On forces displ
 
 - Collision‑aware label placement and edge bundling.
 - Advanced animations; dynamic edge thickness by measured flow.
-- Persisted per‑run overlay presets (future enhancement).
+- Persisted per-run overlay presets (future enhancement).
+
+---
+
+## Deferred Enhancements / Follow-up Specs
+
+- Timeline incident markers, annotations, and quick-jump controls (per `image3.png` dial reference).
+- Playback automation presets (auto-loop segments, slow/fast scrubbing modes).
+- Expanded node inspector insights (scenario deltas, dependency breadcrumbs) once the base panel ships.
 
 ---
 

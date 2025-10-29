@@ -40,8 +40,8 @@
 ### Session: LOD & Overlays
 - [x] Extend settings to Auto/On/Off tri-state per overlay (+ filters, color basis controls)
 - [x] Update `TopologyCanvas` payload/JS to honor labels/edge arrows with zoom-aware defaults
-- [ ] Render service sparklines (metrics mini arrays) above nodes
-- [ ] Compute edge shares and display labels with LOD gating
+- [x] Render service sparklines (metrics mini arrays) above nodes
+- [x] Compute edge shares and display labels with LOD gating
 - [ ] Implement Full DAG mode & kind filters (service/expr/const)
 
 ### Session: Polish & Tests
@@ -61,11 +61,37 @@
 - [x] JS render pipeline now honors overlay toggles for labels/arrows/shares/sparklines
 - [x] Canvas now uses elbowed edges with port markers and refined node styling
 
+### Session: Edge Routing Polish
+- [x] Reworked elbow routing to add lane separation and approach stubs for dense graphs
+- [x] Ports now respect node bounds + extra clearance so badges no longer overlap node edges
+- [x] Simplified routing points and rounded corners to avoid overlapping segments
+- [x] Reduced elbows to two per diagonal leg and keep aligned edges straight for clarity
+
+### Session: Canvas Zoom Controls
+- [x] Disabled scroll-wheel zoom to avoid accidental scale changes
+- [x] Added a dedicated zoom slider with live value feedback in the feature bar
+- [x] Initial zoom anchors at 100% while nodes render smaller for crisp output
+- [x] Shrunk default node size so the 100% view remains sharp without GPU scaling
+
+### Session: Routing Modes + Controls
+- [x] Added toggle for orthogonal vs. bezier edge rendering with ports centered on node sides
+- [x] Swapped numeric inputs for sliders across zoom/threshold controls for faster tuning
+- [x] Canvas now uses resize observer so window resize adjusts bounds without implicit zoom
+- [x] Removed unused LOD sliders and added section dividers/dense radio styling for clarity
+- [x] Replaced scrubber slider with “radio dial” timeline + playback controls (incident markers spec still pending)
+
+### Session: Threshold Controls & Timeline Dial
+- [x] Wired SLA/util/error sliders through to canvas + sparklines for per-bin color thresholds
+- [x] Styled timeline dial with tick marks, tuner thumb, play/pause, loop, and speed selector
+- [x] Synced mouse-wheel canvas zoom back into feature-bar slider so values stay aligned
+- [ ] TODO: Add incident markers + auto-loop presets once timeline UX spec lands
+
 ---
 
 ## Notes / Blockers
 - Tooltips bug tracked in this milestone; fix once overlay payload is wired.
 - Need to ensure JS interop remains performant as overlay options expand (watch redraw time).
+- Follow-up specs captured in `docs/milestones/UI-M-03.22.1.md` for incident markers on the dial and the node inspector panel (see `topography.md` / `image3.png`).
 
 ---
 

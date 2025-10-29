@@ -10,37 +10,54 @@ internal static class ColorScale
     public const string NeutralColor = "#7A7A7A";   // Neutral gray
     public const string FocusStrokeColor = "#262626";
 
-    private const double SuccessThreshold = 0.95;
-    private const double WarningThreshold = 0.80;
-    private const double UtilizationWarningThreshold = 0.90;
-    private const double ErrorRateCritical = 0.05;
+    private const double DefaultSlaWarningWindow = 0.15;
+    private const double DefaultUtilizationCriticalOffset = 0.05;
+    private const double DefaultErrorWarningRatio = 0.4;
 
-    public static string GetFill(NodeBinMetrics metrics)
+    public static string GetFill(NodeBinMetrics metrics) => GetFill(metrics, TopologyColorBasis.Sla, ColorThresholds.Default);
+
+    public static string GetFill(NodeBinMetrics metrics, TopologyColorBasis basis) =>
+        GetFill(metrics, basis, ColorThresholds.Default);
+
+    public static string GetFill(NodeBinMetrics metrics, TopologyColorBasis basis, ColorThresholds thresholds)
     {
         if (metrics is null)
         {
             throw new ArgumentNullException(nameof(metrics));
         }
 
-        var hasAnyData = metrics.SuccessRate.HasValue || metrics.Utilization.HasValue ||
-                         metrics.ErrorRate.HasValue || metrics.QueueDepth.HasValue ||
-                         metrics.LatencyMinutes.HasValue;
+        return basis switch
+        {
+            TopologyColorBasis.Utilization => EvaluateUtilization(metrics.Utilization, thresholds),
+            TopologyColorBasis.Errors => EvaluateErrorRate(metrics.ErrorRate, thresholds),
+            TopologyColorBasis.Queue => EvaluateQueue(metrics.QueueDepth),
+            _ => EvaluateSla(metrics.SuccessRate, metrics.Utilization, metrics.ErrorRate, thresholds)
+        };
+    }
 
-        if (!hasAnyData)
+    public static string GetStroke(NodeBinMetrics metrics)
+    {
+        _ = metrics ?? throw new ArgumentNullException(nameof(metrics));
+        return FocusStrokeColor;
+    }
+
+    private static string EvaluateSla(double? successRate, double? utilization, double? errorRate, ColorThresholds thresholds)
+    {
+        if (!successRate.HasValue && !utilization.HasValue && !errorRate.HasValue)
         {
             return NeutralColor;
         }
 
-        if (metrics.ErrorRate is double errorRate && errorRate >= ErrorRateCritical)
+        if (errorRate.HasValue && errorRate.Value >= thresholds.ErrorCritical)
         {
             return ErrorColor;
         }
 
-        if (metrics.SuccessRate is double successRate)
+        if (successRate.HasValue)
         {
-            if (successRate >= SuccessThreshold)
+            if (successRate.Value >= thresholds.SlaSuccess)
             {
-                if (metrics.Utilization is double utilization && utilization >= UtilizationWarningThreshold)
+                if (utilization.HasValue && utilization.Value >= thresholds.UtilizationWarning)
                 {
                     return WarningColor;
                 }
@@ -48,7 +65,7 @@ internal static class ColorScale
                 return SuccessColor;
             }
 
-            if (successRate >= WarningThreshold)
+            if (successRate.Value >= thresholds.SlaWarning)
             {
                 return WarningColor;
             }
@@ -56,23 +73,128 @@ internal static class ColorScale
             return ErrorColor;
         }
 
-        if (metrics.Utilization is double utilValue)
+        if (utilization.HasValue)
         {
-            if (utilValue >= UtilizationWarningThreshold)
-            {
-                return WarningColor;
-            }
-
-            return SuccessColor;
+            return utilization.Value >= thresholds.UtilizationWarning ? WarningColor : SuccessColor;
         }
 
         return NeutralColor;
     }
 
-    public static string GetStroke(NodeBinMetrics metrics)
+    private static string EvaluateUtilization(double? utilization, ColorThresholds thresholds)
     {
-        _ = metrics ?? throw new ArgumentNullException(nameof(metrics));
-        return FocusStrokeColor;
+        if (!utilization.HasValue)
+        {
+            return NeutralColor;
+        }
+
+        if (utilization.Value >= thresholds.UtilizationCritical)
+        {
+            return ErrorColor;
+        }
+
+        if (utilization.Value >= thresholds.UtilizationWarning)
+        {
+            return WarningColor;
+        }
+
+        return SuccessColor;
+    }
+
+    private static string EvaluateErrorRate(double? errorRate, ColorThresholds thresholds)
+    {
+        if (!errorRate.HasValue)
+        {
+            return NeutralColor;
+        }
+
+        if (errorRate.Value >= thresholds.ErrorCritical)
+        {
+            return ErrorColor;
+        }
+
+        if (errorRate.Value >= thresholds.ErrorWarning)
+        {
+            return WarningColor;
+        }
+
+        return SuccessColor;
+    }
+
+    private static string EvaluateQueue(double? queueDepth)
+    {
+        if (!queueDepth.HasValue)
+        {
+            return NeutralColor;
+        }
+
+        if (queueDepth.Value >= 0.8)
+        {
+            return ErrorColor;
+        }
+
+        if (queueDepth.Value >= 0.4)
+        {
+            return WarningColor;
+        }
+
+        return SuccessColor;
+    }
+
+    internal readonly struct ColorThresholds
+    {
+        public static ColorThresholds Default => new(
+            slaSuccess: 0.95,
+            slaWarning: 0.80,
+            utilizationWarning: 0.90,
+            utilizationCritical: 0.95,
+            errorWarning: 0.02,
+            errorCritical: 0.05);
+
+        public ColorThresholds(
+            double slaSuccess,
+            double slaWarning,
+            double utilizationWarning,
+            double utilizationCritical,
+            double errorWarning,
+            double errorCritical)
+        {
+            SlaSuccess = slaSuccess;
+            SlaWarning = slaWarning;
+            UtilizationWarning = utilizationWarning;
+            UtilizationCritical = utilizationCritical;
+            ErrorWarning = errorWarning;
+            ErrorCritical = errorCritical;
+        }
+
+        public double SlaSuccess { get; }
+        public double SlaWarning { get; }
+        public double UtilizationWarning { get; }
+        public double UtilizationCritical { get; }
+        public double ErrorWarning { get; }
+        public double ErrorCritical { get; }
+
+        public static ColorThresholds FromOverlay(TopologyOverlaySettings settings)
+        {
+            var slaSuccess = Clamp01(settings.SlaWarningThreshold);
+            var slaWarning = Math.Max(0, slaSuccess - DefaultSlaWarningWindow);
+
+            var utilWarn = Clamp01(settings.UtilizationWarningThreshold);
+            var utilCritical = Clamp01(Math.Max(utilWarn, utilWarn + DefaultUtilizationCriticalOffset));
+
+            var errorCritical = Math.Clamp(settings.ErrorRateAlertThreshold, 0.0001, 1);
+            var errorWarning = Math.Min(errorCritical * DefaultErrorWarningRatio, errorCritical);
+
+            return new ColorThresholds(
+                slaSuccess,
+                slaWarning,
+                utilWarn,
+                utilCritical,
+                errorWarning,
+                errorCritical);
+        }
+
+        private static double Clamp01(double value) => Math.Clamp(value, 0, 1);
     }
 }
 

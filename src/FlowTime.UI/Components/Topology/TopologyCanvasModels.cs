@@ -34,13 +34,15 @@ internal sealed record CanvasViewport(double MinX, double MinY, double MaxX, dou
 
 internal sealed record OverlaySettingsPayload(
     bool ShowLabels,
-    bool ShowEdgeArrows,
-    bool ShowEdgeShares,
-    bool ShowSparklines,
+  	bool ShowEdgeArrows,
+  	bool ShowEdgeShares,
+  	bool ShowSparklines,
     SparklineRenderMode SparklineMode,
+    EdgeRenderMode EdgeStyle,
     bool AutoLod,
     double ZoomLowThreshold,
     double ZoomMidThreshold,
+    double ZoomPercent,
     TopologyColorBasis ColorBasis,
     double SlaWarningThreshold,
     double UtilizationWarningThreshold,
@@ -48,11 +50,21 @@ internal sealed record OverlaySettingsPayload(
     bool NeighborEmphasis,
     bool IncludeServiceNodes,
     bool IncludeExpressionNodes,
-    bool IncludeConstNodes);
+    bool IncludeConstNodes,
+    int SelectedBin,
+    double SlaSuccessThreshold,
+    double SlaWarningCutoff,
+    double UtilizationWarningCutoff,
+    double UtilizationCriticalCutoff,
+    double ErrorWarningCutoff,
+    double ErrorCriticalCutoff);
 
 internal sealed record NodeSparklineDto(
     IReadOnlyList<double?> Values,
+    IReadOnlyList<double?> Utilization,
+    IReadOnlyList<double?> ErrorRate,
+    IReadOnlyList<double?> QueueDepth,
     double Min,
     double Max,
-    string Metric,
-    bool IsFlat);
+    bool IsFlat,
+    int StartIndex);

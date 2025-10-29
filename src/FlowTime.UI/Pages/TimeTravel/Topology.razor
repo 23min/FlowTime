@@ -7,6 +7,7 @@
 @using System.Globalization
 @using System.Linq
 @using System.Text.Json
+@using System.Threading
 @inject ITimeTravelDataService DataService
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
@@ -27,20 +28,14 @@
     <MudPaper Class="pa-5 topology-page" Elevation="1">
         <MudStack Spacing="3">
             <MudStack Row="true" AlignItems="@AlignItems.Center" Justify="@Justify.SpaceBetween">
-                <MudStack Row="true" AlignItems="@AlignItems.Center" Spacing="2">
-                    <MudText Typo="Typo.h5">Time-Travel Topology</MudText>
-                    <MudIconButton Icon="@Icons.Material.Filled.Tune"
-                                   Color="Color.Primary"
-                                   Size="Size.Medium"
-                                   AriaLabel="Open topology feature bar"
-                                   OnClick="OpenFeatureBar" />
+                <MudStack Row="true" AlignItems="@AlignItems.Center" Spacing="1">
+                    <MudText Typo="Typo.h5">@GetTemplateTitle()</MudText>
                 </MudStack>
-                <MudButton Variant="Variant.Text"
-                           Color="Color.Primary"
-                           StartIcon="@Icons.Material.Filled.ArrowBack"
-                           OnClick="NavigateBack">
-                    Artifacts
-                </MudButton>
+                <MudIconButton Icon="@Icons.Material.Filled.Tune"
+                               Color="Color.Primary"
+                               Size="Size.Medium"
+                               AriaLabel="Open topology feature bar"
+                               OnClick="OpenFeatureBar" />
             </MudStack>
 
             @if (string.IsNullOrWhiteSpace(RunId))
@@ -71,26 +66,100 @@
             else
             {
                 <MudStack Spacing="2">
-                    <MudStack Row="true" Spacing="2" AlignItems="@AlignItems.Center">
-                        <MudText Typo="Typo.subtitle1">@runDisplayName</MudText>
-                        <MudText Typo="Typo.caption" Color="Color.Info">Run @RunId</MudText>
-                    </MudStack>
-
-                    <MudPaper Class="pa-3" Elevation="0">
-                        <MudStack Row="true" AlignItems="@AlignItems.Center" Spacing="2">
-                            <MudText Typo="Typo.caption">Bin @selectedBinLabel</MudText>
-                            <MudText Typo="Typo.caption" Color="Color.Secondary">@selectedTimestampLabel</MudText>
+                    <MudPaper Class="pa-3 timeline-paper" Elevation="0">
+                        <MudStack Spacing="1">
+                            @{ var runInfo = GetRunInfo(); }
+                            <MudStack Row="true" AlignItems="@AlignItems.Center" Justify="@Justify.SpaceBetween">
+                                <MudText Typo="Typo.caption">@selectedTimestampLabel</MudText>
+                                <MudStack Row="true" AlignItems="@AlignItems.Center" Justify="@Justify.FlexEnd" Spacing="1">
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Run @RunId</MudText>
+                                    @if (!string.IsNullOrWhiteSpace(runInfo))
+                                    {
+                                        <MudText Typo="Typo.caption" Class="topology-run-info" Color="Color.Info">@runInfo</MudText>
+                                    }
+                                </MudStack>
+                            </MudStack>
+                            <div class="timeline-dial">
+                                <div class="timeline-track @(visibleStartBin == visibleEndBin ? "is-disabled" : string.Empty)">
+                                    <svg class="timeline-svg" viewBox="0 0 100 12" preserveAspectRatio="none">
+                                        <rect class="timeline-track-bg" x="0" y="4" width="100" height="4" />
+                                        @foreach (var tick in timelineTicks)
+                                        {
+                                            <line class="timeline-tick-line"
+                                                  x1="@tick.Percent.ToString("0.###", CultureInfo.InvariantCulture)"
+                                                  x2="@tick.Percent.ToString("0.###", CultureInfo.InvariantCulture)"
+                                                  y1="1"
+                                                  y2="11" />
+                                        }
+                                    </svg>
+                                    <div class="timeline-pointer @(isDialPointerDragging ? "is-dragging" : string.Empty)"
+                                         style="left: @DialPercent.ToString("0.###", CultureInfo.InvariantCulture)%; --timeline-transition-duration: @PointerTransitionDuration;"></div>
+                                    <input class="timeline-range"
+                                           type="range"
+                                           min="@visibleStartBin"
+                                           max="@visibleEndBin"
+                                           step="1"
+                                           value="@selectedBin"
+                                           disabled="@(visibleStartBin == visibleEndBin)"
+                                           @oninput="OnDialInput"
+                                           @onpointerdown="StartDialDrag"
+                                           @onpointerup="EndDialDrag"
+                                           @onpointercancel="EndDialDrag"
+                                           @onpointerleave="EndDialDrag" />
+                                </div>
+                                <div class="timeline-labels">
+                                    @foreach (var tick in timelineTicks)
+                                    {
+                                        <span class="timeline-label" style="left:@tick.Percent.ToString("0.###", CultureInfo.InvariantCulture)%">@tick.Label</span>
+                                    }
+                                </div>
+                                <div class="timeline-controls">
+                                    <MudIconButton Icon="@(isPlaying ? Icons.Material.Filled.Pause : Icons.Material.Filled.PlayArrow)"
+                                                   Color="Color.Primary"
+                                                   Size="Size.Small"
+                                                   Disabled="@(visibleStartBin == visibleEndBin)"
+                                                   OnClick="TogglePlaybackAsync" />
+                                    <MudIconButton Icon="@Icons.Material.Filled.SkipPrevious"
+                                                   Size="Size.Small"
+                                                   Disabled="@(selectedBin <= visibleStartBin)"
+                                                   OnClick="GoToPreviousBin" />
+                                    <MudIconButton Icon="@Icons.Material.Filled.SkipNext"
+                                                   Size="Size.Small"
+                                                   Disabled="@(selectedBin >= visibleEndBin)"
+                                                   OnClick="GoToNextBin" />
+                                    <MudIconButton Icon="@Icons.Material.Filled.Loop"
+                                                   Size="Size.Small"
+                                                   Color="@(loopPlayback ? Color.Primary : Color.Default)"
+                                                   OnClick="ToggleLoop" />
+                                    <MudChipSet T="double"
+                                                Choice="true"
+                                                SelectedValue="@playbackSecondsPerFrame"
+                                                SelectedValueChanged="OnPlaybackSpeedChipChanged"
+                                                Class="timeline-speed-set">
+                                        @foreach (var option in PlaybackSpeedOptions)
+                                        {
+                                            <MudChip T="double"
+                                                     Value="@option"
+                                                     Variant="Variant.Outlined"
+                                                     Color="Color.Default"
+                                                     DisableRipple="true"
+                                                     Size="Size.Small"
+                                                     Class="timeline-speed-chip">
+                                                @option.ToString("0.##")s
+                                            </MudChip>
+                                        }
+                                    </MudChipSet>
+                                </div>
+                            </div>
                         </MudStack>
-                        <MudSlider T="int"
-                                   Class="mt-2"
-                                   Min="@visibleStartBin"
-                                   Max="@visibleEndBin"
-                                   Step="1"
-                                   Disabled="@(visibleStartBin == visibleEndBin)"
-                                   Value="@selectedBin"
-                                   ValueChanged="OnBinChanged"
-                                   Immediate="true" />
                     </MudPaper>
+
+                    <TopologyCanvas Graph="topologyGraph"
+                                    NodeMetrics="activeMetrics"
+                                    NodeSparklines="nodeSparklines"
+                                    OverlaySettings="overlaySettings"
+                                    ActiveBin="selectedBin"
+                                    ZoomPercentChanged="HandleCanvasZoomChanged" />
 
                     <div class="topology-legend">
                         <span class="legend-item">
@@ -110,13 +179,6 @@
                             No data
                         </span>
                     </div>
-
-                    <TopologyCanvas Graph="topologyGraph"
-                                    NodeMetrics="activeMetrics"
-                                    NodeSparklines="nodeSparklines"
-                                    OverlaySettings="overlaySettings"
-                                    CanvasWidth="1180"
-                                    CanvasHeight="720" />
                 </MudStack>
             }
         </MudStack>
@@ -153,6 +215,37 @@
     private int visibleEndBin;
     private string selectedBinLabel = string.Empty;
     private string selectedTimestampLabel = string.Empty;
+    private IReadOnlyList<TimelineTick> timelineTicks = Array.Empty<TimelineTick>();
+    private bool isPlaying;
+    private bool loopPlayback;
+    private double playbackSecondsPerFrame = 1d;
+    private CancellationTokenSource? playbackCts;
+    private Task playbackTask = Task.CompletedTask;
+    private bool isDialPointerDragging;
+    private bool pointerNeedsJump;
+
+    private static readonly double[] PlaybackSpeedOptions = new[] { 0.25d, 0.5d, 1d, 2d };
+
+    private sealed record TimelineTick(int Bin, double Percent, string Label);
+
+    private double DialPercent
+    {
+        get
+        {
+            if (visibleEndBin <= visibleStartBin)
+            {
+                return 0d;
+            }
+
+            var fraction = (selectedBin - visibleStartBin) / (double)(visibleEndBin - visibleStartBin);
+            return Math.Clamp(fraction * 100d, 0d, 100d);
+        }
+    }
+
+    private string PointerTransitionDuration =>
+        (!isDialPointerDragging && isPlaying && !pointerNeedsJump)
+            ? $"{Math.Max(playbackSecondsPerFrame, 0.01):0.###}s"
+            : "0s";
 
     private static readonly JsonSerializerOptions overlaySerializerOptions = new(JsonSerializerDefaults.Web);
     private const string OverlaySettingsStorageKey = "ft.topology.overlaySettings.v1";
@@ -302,6 +395,7 @@
             await JS.InvokeVoidAsync("localStorage.setItem", LastRunStorageKey, runId);
 
             selectedBin = visibleEndBin;
+            RefreshTimelineTicks();
             UpdateActiveMetrics(selectedBin);
 
             hasLoaded = true;
@@ -339,6 +433,87 @@
         overlaySettings = updated.Clone();
         await SaveOverlaySettingsAsync();
         StateHasChanged();
+    }
+
+    private async Task HandleCanvasZoomChanged(double zoomPercent)
+    {
+        var clamped = Math.Clamp(zoomPercent, 30d, 200d);
+        if (Math.Abs(overlaySettings.ZoomPercent - clamped) < 0.1d)
+        {
+            return;
+        }
+
+        var updated = overlaySettings.Clone();
+        updated.ZoomPercent = clamped;
+        await OnOverlaySettingsChanged(updated);
+    }
+
+    private Task OnDialInput(ChangeEventArgs args)
+    {
+        StopPlayback();
+        if (int.TryParse(args.Value?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var value))
+        {
+            return OnBinChanged(value);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private Task GoToNextBin()
+    {
+        StopPlayback();
+        var next = Math.Min(selectedBin + 1, visibleEndBin);
+        return OnBinChanged(next);
+    }
+
+    private Task GoToPreviousBin()
+    {
+        StopPlayback();
+        var previous = Math.Max(selectedBin - 1, visibleStartBin);
+        return OnBinChanged(previous);
+    }
+
+    private Task TogglePlaybackAsync()
+    {
+        if (isPlaying)
+        {
+            StopPlayback();
+        }
+        else
+        {
+            StartPlayback();
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private void ToggleLoop()
+    {
+        loopPlayback = !loopPlayback;
+    }
+
+    private Task OnPlaybackSpeedChipChanged(double value)
+    {
+        playbackSecondsPerFrame = Math.Clamp(value, 0.1d, 10d);
+        return Task.CompletedTask;
+    }
+
+    private void StartDialDrag(PointerEventArgs _)
+    {
+        if (!isDialPointerDragging)
+        {
+            isDialPointerDragging = true;
+            StateHasChanged();
+        }
+    }
+
+    private void EndDialDrag(PointerEventArgs _)
+    {
+        if (isDialPointerDragging)
+        {
+            isDialPointerDragging = false;
+            StateHasChanged();
+        }
     }
 
     private const string LastRunStorageKey = "ft.topology.lastRunId";
@@ -413,6 +588,167 @@
         selectedTimestampLabel = FormatTimestamp(localIndex);
     }
 
+    private void RefreshTimelineTicks()
+    {
+        if (visibleEndBin < visibleStartBin)
+        {
+            timelineTicks = Array.Empty<TimelineTick>();
+            return;
+        }
+
+        if (visibleEndBin == visibleStartBin)
+        {
+            timelineTicks = new[]
+            {
+                new TimelineTick(visibleStartBin, 0d, BuildTickLabel(visibleStartBin))
+            };
+            return;
+        }
+
+        var span = visibleEndBin - visibleStartBin;
+        var desired = span switch
+        {
+            <= 3 => span + 1,
+            <= 12 => 4,
+            <= 48 => 6,
+            _ => 8
+        };
+        desired = Math.Max(2, desired);
+
+        var ticks = new List<TimelineTick>(desired + 2);
+        var step = span / Math.Max(1d, desired - 1d);
+        var seen = new HashSet<int>();
+
+        for (var i = 0; i <= span; i++)
+        {
+            var bin = visibleStartBin + i;
+
+            if (seen.Contains(bin))
+            {
+                continue;
+            }
+
+            var percent = ((bin - visibleStartBin) / (double)span) * 100d;
+            percent = Math.Clamp(percent, 0d, 100d);
+            ticks.Add(new TimelineTick(bin, percent, BuildTickLabel(bin)));
+            seen.Add(bin);
+        }
+
+        ticks.Sort((a, b) => a.Bin.CompareTo(b.Bin));
+        timelineTicks = ticks;
+    }
+
+    private string BuildTickLabel(int bin)
+    {
+        if (windowData is not null)
+        {
+            var spanStart = windowData.Window.StartBin;
+            var localIndex = bin - spanStart;
+            if (localIndex >= 0 && localIndex < timestamps.Count)
+            {
+                var ts = timestamps[localIndex];
+                return ts.ToString("HH:mm", CultureInfo.InvariantCulture);
+            }
+        }
+
+        return $"Bin {bin}";
+    }
+
+    private void StartPlayback()
+    {
+        if (isPlaying || visibleStartBin == visibleEndBin)
+        {
+            return;
+        }
+
+        playbackCts?.Cancel();
+        playbackCts = new CancellationTokenSource();
+        var token = playbackCts.Token;
+        isPlaying = true;
+        playbackTask = RunPlaybackLoopAsync(token);
+        StateHasChanged();
+    }
+
+    private void StopPlayback()
+    {
+        playbackCts?.Cancel();
+        pointerNeedsJump = false;
+    }
+
+    private async Task RunPlaybackLoopAsync(CancellationToken token)
+    {
+        try
+        {
+            while (!token.IsCancellationRequested)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(playbackSecondsPerFrame), token);
+
+                var shouldJumpAfterPause = false;
+                await InvokeAsync(() =>
+                {
+                    if (visibleStartBin == visibleEndBin)
+                    {
+                        StopPlayback();
+                        return;
+                    }
+
+                    var next = selectedBin + 1;
+                    if (next > visibleEndBin)
+                    {
+                        if (loopPlayback)
+                        {
+                            pointerNeedsJump = true;
+                            shouldJumpAfterPause = true;
+                            return;
+                        }
+                        else
+                        {
+                            StopPlayback();
+                            return;
+                        }
+                    }
+
+                    pointerNeedsJump = false;
+
+                    UpdateActiveMetrics(next);
+                    StateHasChanged();
+                });
+
+                if (shouldJumpAfterPause)
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(1), token);
+
+                    await InvokeAsync(() =>
+                    {
+                        if (token.IsCancellationRequested)
+                        {
+                            return;
+                        }
+
+                        pointerNeedsJump = true;
+                        UpdateActiveMetrics(visibleStartBin);
+                        StateHasChanged();
+                    });
+                }
+            }
+        }
+        catch (TaskCanceledException)
+        {
+            // expected when playback is stopped
+        }
+        finally
+        {
+            await InvokeAsync(() =>
+            {
+                playbackCts?.Dispose();
+                playbackCts = null;
+                isPlaying = false;
+                playbackTask = Task.CompletedTask;
+                StateHasChanged();
+            });
+        }
+    }
+
     private string FormatTimestamp(int localIndex)
     {
         if (localIndex < 0 || localIndex >= timestamps.Count)
@@ -435,23 +771,49 @@
         var result = new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase);
         foreach (var node in windowData.Nodes)
         {
-            var series = BuildSuccessRateSeries(node, SparklinePointLimit);
-            if (series is null)
+            var successSeries = BuildSuccessRateSeries(node);
+            if (successSeries is null)
             {
                 continue;
             }
 
-            var sparkline = NodeSparklineData.Create(series, "successRate", 0d, 1d);
-            if (sparkline is not null)
-            {
-                result[node.Id] = sparkline;
-            }
+            var trimmedSuccess = TrimSeries(successSeries, SparklinePointLimit);
+            var successStartIndex = Math.Max(0, successSeries.Length - trimmedSuccess.Count);
+            var trimmedUtilization = TrimSeries(TryGetSeries(node, "utilization"), SparklinePointLimit, trimmedSuccess.Count);
+            var trimmedErrorRate = TrimSeries(BuildErrorRateSeries(node), SparklinePointLimit, trimmedSuccess.Count);
+            var trimmedQueue = TrimSeries(TryGetSeries(node, "queue"), SparklinePointLimit, trimmedSuccess.Count);
+
+            var sparkline = NodeSparklineData.Create(
+                trimmedSuccess,
+                trimmedUtilization,
+                trimmedErrorRate,
+                trimmedQueue,
+                successStartIndex,
+                0d,
+                1d);
+
+            result[node.Id] = sparkline;
         }
 
         nodeSparklines = result;
     }
 
-    private static double?[]? BuildSuccessRateSeries(TimeTravelNodeSeriesDto node, int limit)
+    private string GetRunInfo()
+    {
+        return string.Empty;
+    }
+
+    private string GetTemplateTitle()
+    {
+        if (!string.IsNullOrWhiteSpace(runDisplayName))
+        {
+            return runDisplayName!;
+        }
+
+        return "Time-Travel Topology";
+    }
+
+    private static double?[]? BuildSuccessRateSeries(TimeTravelNodeSeriesDto node)
     {
         if (node is null)
         {
@@ -462,7 +824,10 @@
         var arrivals = TryGetSeries(node, "arrivals");
         var served = TryGetSeries(node, "served");
 
-        var length = throughput?.Length ?? Math.Min(arrivals?.Length ?? 0, served?.Length ?? 0);
+        var length = Math.Max(
+            throughput?.Length ?? 0,
+            Math.Max(arrivals?.Length ?? 0, served?.Length ?? 0));
+
         if (length <= 0)
         {
             return null;
@@ -471,32 +836,72 @@
         var values = new double?[length];
         for (var i = 0; i < length; i++)
         {
-            double? value = null;
-
-            if (throughput is not null && i < throughput.Length)
+            var throughputValue = GetValueAt(throughput, i);
+            if (throughputValue.HasValue)
             {
-                value = throughput[i];
+                values[i] = throughputValue;
+                continue;
             }
 
-            if (!value.HasValue)
+            var arrivalsValue = GetValueAt(arrivals, i);
+            var servedValue = GetValueAt(served, i);
+
+            if (arrivalsValue.HasValue && arrivalsValue.Value > 0 && servedValue.HasValue)
             {
-                var arrival = arrivals is not null && i < arrivals.Length ? arrivals[i] : null;
-                var serving = served is not null && i < served.Length ? served[i] : null;
-
-                if (arrival.HasValue && arrival.Value > 0 && serving.HasValue)
-                {
-                    value = serving.Value / arrival.Value;
-                }
-                else if (serving.HasValue && (!arrival.HasValue || arrival.Value <= 0))
-                {
-                    value = serving.Value > 0 ? 1d : 0d;
-                }
+                values[i] = servedValue.Value / arrivalsValue.Value;
             }
-
-            values[i] = value;
+            else if ((!arrivalsValue.HasValue || arrivalsValue.Value <= 0) && servedValue.HasValue)
+            {
+                values[i] = servedValue.Value > 0 ? 1d : 0d;
+            }
+            else
+            {
+                values[i] = null;
+            }
         }
 
-        return TrimSeries(values, limit);
+        return values;
+    }
+
+    private static double?[]? BuildErrorRateSeries(TimeTravelNodeSeriesDto node)
+    {
+        if (node is null)
+        {
+            return null;
+        }
+
+        var errors = TryGetSeries(node, "errors");
+        var arrivals = TryGetSeries(node, "arrivals");
+        var served = TryGetSeries(node, "served");
+
+        var length = Math.Max(errors?.Length ?? 0, Math.Max(arrivals?.Length ?? 0, served?.Length ?? 0));
+        if (length <= 0)
+        {
+            return null;
+        }
+
+        var values = new double?[length];
+        for (var i = 0; i < length; i++)
+        {
+            var errorsValue = GetValueAt(errors, i);
+            if (!errorsValue.HasValue)
+            {
+                values[i] = null;
+                continue;
+            }
+
+            var denominator = GetValueAt(arrivals, i) ?? GetValueAt(served, i);
+            if (denominator.HasValue && denominator.Value > 0)
+            {
+                values[i] = errorsValue.Value / denominator.Value;
+            }
+            else
+            {
+                values[i] = errorsValue.Value > 0 ? 1d : 0d;
+            }
+        }
+
+        return values;
     }
 
     private static double?[]? TryGetSeries(TimeTravelNodeSeriesDto node, string key)
@@ -514,8 +919,25 @@
         return null;
     }
 
-    private static double?[] TrimSeries(double?[] source, int limit)
+    private static double? GetValueAt(double?[]? series, int index)
     {
+        if (series is null || index < 0 || index >= series.Length)
+        {
+            return null;
+        }
+
+        return series[index];
+    }
+
+    private static IReadOnlyList<double?> TrimSeries(double?[]? source, int limit, int fallbackLength = 0)
+    {
+        if (source is null || source.Length == 0)
+        {
+            return fallbackLength == 0
+                ? Array.Empty<double?>()
+                : Enumerable.Repeat<double?>(null, fallbackLength).ToArray();
+        }
+
         if (source.Length <= limit)
         {
             return source.ToArray();
@@ -596,12 +1018,12 @@
         visibleEndBin = 0;
         selectedBinLabel = string.Empty;
         selectedTimestampLabel = string.Empty;
+        timelineTicks = Array.Empty<TimelineTick>();
         errorMessage = null;
         hasLoaded = false;
         isLoading = false;
+        pointerNeedsJump = false;
     }
-
-    private void NavigateBack() => Navigation.NavigateTo("/time-travel/artifacts");
 
     public void Dispose()
     {

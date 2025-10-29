@@ -14,6 +14,12 @@ public enum SparklineRenderMode
     Bar
 }
 
+public enum EdgeRenderMode
+{
+    Orthogonal,
+    Bezier
+}
+
 public sealed class TopologyOverlaySettings
 {
     public bool ShowLabels { get; set; } = true;
@@ -21,6 +27,7 @@ public sealed class TopologyOverlaySettings
     public bool ShowEdgeShares { get; set; } = false;
     public bool ShowSparklines { get; set; } = true;
     public SparklineRenderMode SparklineMode { get; set; } = SparklineRenderMode.Line;
+    public EdgeRenderMode EdgeStyle { get; set; } = EdgeRenderMode.Orthogonal;
 
     public bool EnableFullDag { get; set; }
     public bool IncludeServiceNodes { get; set; } = true;
@@ -36,6 +43,7 @@ public sealed class TopologyOverlaySettings
     public bool AutoLod { get; set; } = true;
     public double ZoomLowThreshold { get; set; } = 0.5;
     public double ZoomMidThreshold { get; set; } = 1.0;
+    public double ZoomPercent { get; set; } = 100;
 
     public TopologyOverlaySettings Clone()
     {
@@ -46,6 +54,7 @@ public sealed class TopologyOverlaySettings
             ShowEdgeShares = ShowEdgeShares,
             ShowSparklines = ShowSparklines,
             SparklineMode = SparklineMode,
+            EdgeStyle = EdgeStyle,
             EnableFullDag = EnableFullDag,
             IncludeServiceNodes = IncludeServiceNodes,
             IncludeExpressionNodes = IncludeExpressionNodes,
@@ -57,7 +66,8 @@ public sealed class TopologyOverlaySettings
             UtilizationWarningThreshold = UtilizationWarningThreshold,
             AutoLod = AutoLod,
             ZoomLowThreshold = ZoomLowThreshold,
-            ZoomMidThreshold = ZoomMidThreshold
+            ZoomMidThreshold = ZoomMidThreshold,
+            ZoomPercent = ZoomPercent
         };
     }
 

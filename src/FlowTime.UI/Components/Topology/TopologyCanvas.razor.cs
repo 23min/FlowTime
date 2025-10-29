@@ -12,9 +12,9 @@ namespace FlowTime.UI.Components.Topology;
 
 public abstract class TopologyCanvasBase : ComponentBase, IDisposable
 {
-    private const double NodeWidth = 48;
-    private const double NodeHeight = 30;
-    private const double NodeCornerRadius = 4;
+    private const double NodeWidth = 36;
+    private const double NodeHeight = 24;
+    private const double NodeCornerRadius = 3;
     private const double ViewportPadding = 48;
 
     private readonly Dictionary<string, TopologyNode> nodeLookup = new(StringComparer.OrdinalIgnoreCase);
@@ -25,16 +25,16 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
     private bool renderScheduled;
     private bool disposed;
     private string? focusedNodeId;
+    private DotNetObjectReference<TopologyCanvasBase>? dotNetRef;
 
     [Inject] protected IJSRuntime JS { get; set; } = default!;
 
     [Parameter] public TopologyGraph? Graph { get; set; }
     [Parameter] public IReadOnlyDictionary<string, NodeBinMetrics>? NodeMetrics { get; set; }
     [Parameter] public TopologyOverlaySettings OverlaySettings { get; set; } = TopologyOverlaySettings.Default;
+    [Parameter] public int ActiveBin { get; set; }
     [Parameter] public IReadOnlyDictionary<string, NodeSparklineData>? NodeSparklines { get; set; }
-    [Parameter] public double CanvasWidth { get; set; } = 960;
-    [Parameter] public double CanvasHeight { get; set; } = 640;
-
+    [Parameter] public EventCallback<double> ZoomPercentChanged { get; set; }
     protected ElementReference canvasRef;
 
     protected bool HasGraphData => Graph is { Nodes.Count: > 0 };
@@ -64,8 +64,8 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             ActiveTooltip = null;
         }
 
-        NodeProxies = BuildNodeProxies(Graph!, NodeMetrics, focusedNodeId);
-        pendingRequest = BuildRenderRequest(Graph!, NodeMetrics, NodeSparklines, focusedNodeId, OverlaySettings);
+        NodeProxies = BuildNodeProxies(Graph!, NodeMetrics, focusedNodeId, OverlaySettings);
+        pendingRequest = BuildRenderRequest(Graph!, NodeMetrics, NodeSparklines, focusedNodeId, OverlaySettings, ActiveBin);
         renderScheduled = true;
     }
 
@@ -77,6 +77,9 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         }
 
         renderScheduled = false;
+
+        dotNetRef ??= DotNetObjectReference.Create(this);
+        await JS.InvokeVoidAsync("FlowTime.TopologyCanvas.registerHandlers", canvasRef, dotNetRef);
         await JS.InvokeVoidAsync("FlowTime.TopologyCanvas.render", canvasRef, pendingRequest);
     }
 
@@ -89,7 +92,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
 
         focusedNodeId = nodeId;
         ActiveTooltip = BuildTooltip(nodeId);
-        NodeProxies = BuildNodeProxies(Graph!, NodeMetrics, focusedNodeId);
+        NodeProxies = BuildNodeProxies(Graph!, NodeMetrics, focusedNodeId, OverlaySettings);
         ScheduleRedraw();
         StateHasChanged();
     }
@@ -103,7 +106,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
 
         focusedNodeId = null;
         ActiveTooltip = null;
-        NodeProxies = BuildNodeProxies(Graph!, NodeMetrics, focusedNodeId);
+        NodeProxies = BuildNodeProxies(Graph!, NodeMetrics, focusedNodeId, OverlaySettings);
         ScheduleRedraw();
         StateHasChanged();
     }
@@ -148,7 +151,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             return;
         }
 
-        pendingRequest = BuildRenderRequest(Graph!, NodeMetrics, NodeSparklines, focusedNodeId, OverlaySettings);
+        pendingRequest = BuildRenderRequest(Graph!, NodeMetrics, NodeSparklines, focusedNodeId, OverlaySettings, ActiveBin);
         renderScheduled = true;
     }
 
@@ -251,7 +254,8 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
     private IReadOnlyList<NodeProxyViewModel> BuildNodeProxies(
         TopologyGraph graph,
         IReadOnlyDictionary<string, NodeBinMetrics>? metrics,
-        string? selectedId)
+        string? selectedId,
+        TopologyOverlaySettings overlays)
     {
         var proxies = new List<NodeProxyViewModel>(graph.Nodes.Count);
         foreach (var node in graph.Nodes)
@@ -287,8 +291,10 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         IReadOnlyDictionary<string, NodeBinMetrics>? metrics,
         IReadOnlyDictionary<string, NodeSparklineData>? sparklines,
         string? focusedNode,
-        TopologyOverlaySettings overlays)
+        TopologyOverlaySettings overlays,
+        int selectedBin)
     {
+        var thresholds = ColorScale.ColorThresholds.FromOverlay(overlays);
         var nodeDtos = graph.Nodes
             .Select(node =>
             {
@@ -302,7 +308,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                     nodeMetrics = new NodeBinMetrics(null, null, null, null, null, null);
                 }
 
-                var fill = ColorScale.GetFill(nodeMetrics);
+                var fill = ColorScale.GetFill(nodeMetrics, overlays.ColorBasis, thresholds);
                 var stroke = ColorScale.GetStroke(nodeMetrics);
                 var isFocused = !string.IsNullOrWhiteSpace(focusedNode) &&
                     node.Id.Equals(focusedNode, StringComparison.OrdinalIgnoreCase);
@@ -312,10 +318,13 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                 {
                     sparklineDto = new NodeSparklineDto(
                         sparklineData.Values,
+                        sparklineData.Utilization,
+                        sparklineData.ErrorRate,
+                        sparklineData.QueueDepth,
                         sparklineData.Min,
                         sparklineData.Max,
-                        sparklineData.Metric,
-                        sparklineData.IsFlat);
+                        sparklineData.IsFlat,
+                        sparklineData.StartIndex);
                 }
 
                 return new NodeRenderInfo(
@@ -383,9 +392,11 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             overlays.ShowEdgeShares,
             overlays.ShowSparklines,
             overlays.SparklineMode,
+            overlays.EdgeStyle,
             overlays.AutoLod,
             overlays.ZoomLowThreshold,
             overlays.ZoomMidThreshold,
+            overlays.ZoomPercent,
             overlays.ColorBasis,
             overlays.SlaWarningThreshold,
             overlays.UtilizationWarningThreshold,
@@ -393,7 +404,14 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             overlays.NeighborEmphasis,
             overlays.IncludeServiceNodes,
             overlays.IncludeExpressionNodes,
-            overlays.IncludeConstNodes);
+            overlays.IncludeConstNodes,
+            selectedBin,
+            thresholds.SlaSuccess,
+            thresholds.SlaWarning,
+            thresholds.UtilizationWarning,
+            thresholds.UtilizationCritical,
+            thresholds.ErrorWarning,
+            thresholds.ErrorCritical);
 
         return new CanvasRenderRequest(nodeDtos, edges, viewport, overlayPayload);
     }
@@ -407,8 +425,21 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
 
         disposed = true;
         _ = JS.InvokeVoidAsync("FlowTime.TopologyCanvas.dispose", canvasRef);
+        dotNetRef?.Dispose();
+        dotNetRef = null;
     }
 
     protected sealed record NodeProxyViewModel(string Id, string Style, string AriaLabel, bool IsFocused);
     protected sealed record TooltipViewModel(TooltipContent Content, string PositionStyle);
+
+    [JSInvokable]
+    public Task OnCanvasZoomChanged(double zoomPercent)
+    {
+        if (!ZoomPercentChanged.HasDelegate)
+        {
+            return Task.CompletedTask;
+        }
+
+        return ZoomPercentChanged.InvokeAsync(zoomPercent);
+    }
 }

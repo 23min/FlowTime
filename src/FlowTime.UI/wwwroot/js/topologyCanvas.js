@@ -15,8 +15,19 @@
                 dragStart: { x: 0, y: 0 },
                 panStart: { x: 0, y: 0 },
                 deviceRatio: window.devicePixelRatio || 1,
+                overlayScale: 1,
+                lastOverlayZoom: null,
+                overlaySettings: null,
                 userAdjusted: false,
-                viewportSignature: null
+                viewportSignature: null,
+                resizeObserver: null,
+                baseScale: null,
+                worldCenterX: 0,
+                worldCenterY: 0,
+                viewportApplied: false,
+                canvasWidth: null,
+                canvasHeight: null,
+                dotNetRef: null
             };
             setupCanvas(canvas, state);
             registry.set(canvas, state);
@@ -25,21 +36,54 @@
     }
 
     function setupCanvas(canvas, state) {
-        const resize = () => {
-            const rect = canvas.getBoundingClientRect();
+        const updateCanvasSize = (width, height) => {
             const ratio = state.deviceRatio;
-            canvas.width = rect.width * ratio;
-            canvas.height = rect.height * ratio;
-            state.ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-            const viewport = state.payload ? getViewport(state.payload) : null;
-            if (viewport && !state.userAdjusted) {
-                applyViewport(canvas, state, viewport);
+            const safeWidth = Math.max(1, width);
+            const safeHeight = Math.max(1, height);
+            const prevWidth = state.canvasWidth ?? safeWidth;
+            const prevHeight = state.canvasHeight ?? safeHeight;
+
+            if (state.userAdjusted || state.viewportApplied) {
+                state.offsetX += (safeWidth - prevWidth) / 2;
+                state.offsetY += (safeHeight - prevHeight) / 2;
             }
+
+            canvas.width = safeWidth * ratio;
+            canvas.height = safeHeight * ratio;
+            state.ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+            state.canvasWidth = safeWidth;
+            state.canvasHeight = safeHeight;
+
+            updateWorldCenter(state);
+
             draw(canvas, state);
+        };
+
+        const resize = () => {
+            const host = canvas.parentElement ?? canvas;
+            const rect = host.getBoundingClientRect();
+            if (rect.width > 0 && rect.height > 0) {
+                updateCanvasSize(rect.width, rect.height);
+            }
         };
 
         resize();
         window.addEventListener('resize', resize);
+
+        if (typeof ResizeObserver !== 'undefined') {
+            const observer = new ResizeObserver(entries => {
+                for (const entry of entries) {
+                    if (entry.target === (canvas.parentElement ?? canvas)) {
+                        const { width, height } = entry.contentRect;
+                        if (width > 0 && height > 0) {
+                            updateCanvasSize(width, height);
+                        }
+                    }
+                }
+            });
+            observer.observe(canvas.parentElement ?? canvas);
+            state.resizeObserver = observer;
+        }
 
         const pointerDown = (event) => {
             canvas.setPointerCapture(event.pointerId);
@@ -63,22 +107,32 @@
         const pointerUp = (event) => {
             canvas.releasePointerCapture(event.pointerId);
             state.dragging = false;
+            updateWorldCenter(state);
         };
 
         const wheel = (event) => {
             event.preventDefault();
 
-            const delta = -event.deltaY;
-            const scaleFactor = delta > 0 ? 1.1 : 0.9;
-            const { offsetX, offsetY } = event;
+            const { offsetX, offsetY, deltaY } = event;
+            const scaleFactor = deltaY < 0 ? 1.1 : 0.9;
+            const focusX = (offsetX - state.offsetX) / state.scale;
+            const focusY = (offsetY - state.offsetY) / state.scale;
 
-            const x = (offsetX - state.offsetX) / state.scale;
-            const y = (offsetY - state.offsetY) / state.scale;
-
-            state.scale = clamp(state.scale * scaleFactor, 0.2, 4);
-            state.offsetX = offsetX - x * state.scale;
-            state.offsetY = offsetY - y * state.scale;
+            state.scale = clamp(state.scale * scaleFactor, 0.2, 6);
+            state.offsetX = offsetX - focusX * state.scale;
+            state.offsetY = offsetY - focusY * state.scale;
             state.userAdjusted = true;
+
+            const baseScale = state.baseScale || state.scale;
+            const manual = clamp(state.scale / baseScale, 0.25, 4);
+            state.overlayScale = manual;
+            state.lastOverlayZoom = manual;
+            const zoomPercent = clamp(manual * 100, 30, 200);
+            if (state.dotNetRef) {
+                state.dotNetRef.invokeMethodAsync('OnCanvasZoomChanged', zoomPercent);
+            }
+
+            updateWorldCenter(state);
 
             draw(canvas, state);
         };
@@ -96,6 +150,9 @@
             canvas.removeEventListener('pointerup', pointerUp);
             canvas.removeEventListener('pointerleave', pointerUp);
             canvas.removeEventListener('wheel', wheel);
+            state.resizeObserver?.disconnect?.();
+            state.resizeObserver = null;
+            state.dotNetRef = null;
         };
     }
 
@@ -114,24 +171,28 @@
 
         const nodes = state.payload.nodes ?? state.payload.Nodes ?? [];
         const edges = state.payload.edges ?? state.payload.Edges ?? [];
-        const overlaySettings = parseOverlaySettings(state.payload.overlays ?? state.payload.Overlays ?? {});
+        const overlaySettings = state.overlaySettings ?? parseOverlaySettings(state.payload.overlays ?? state.payload.Overlays ?? {});
         const sparkColor = resolveSparklineColor(overlaySettings.colorBasis);
         const nodeMap = new Map();
         for (const n of nodes) {
             nodeMap.set((n.id ?? n.Id), {
                 x: n.x ?? n.X,
                 y: n.y ?? n.Y,
-                width: n.width ?? n.Width ?? 48,
-                height: n.height ?? n.Height ?? 30,
-                cornerRadius: n.cornerRadius ?? n.CornerRadius ?? 4,
+                width: n.width ?? n.Width ?? 36,
+                height: n.height ?? n.Height ?? 24,
+                cornerRadius: n.cornerRadius ?? n.CornerRadius ?? 3,
                 sparkline: n.sparkline ?? n.Sparkline ?? null,
                 isFocused: !!(n.isFocused ?? n.IsFocused)
             });
         }
 
+        const portRadius = 3.5;
         ctx.lineWidth = 1;
         ctx.strokeStyle = '#9AA1AC';
         ctx.globalAlpha = 0.85;
+
+        const portFillColor = '#E7EBF4';
+        const portStrokeColor = 'rgba(59, 72, 89, 0.55)';
 
         for (const edge of edges) {
             const fromX = edge.fromX ?? edge.FromX;
@@ -144,37 +205,60 @@
             const fromNode = nodeMap.get(fromId);
             const toNode = nodeMap.get(toId);
 
-            const dx = toX - fromX;
-            const dy = toY - fromY;
-            const len = Math.hypot(dx, dy) || 1;
-            const ux = dx / len;
-            const uy = dy / len;
-
-            const startShrink = fromNode ? Math.max(fromNode.width, fromNode.height) / 2 : 12;
-            const endShrink = toNode ? Math.max(toNode.width, toNode.height) / 2 + 4 : 14;
-            const sx = fromX + ux * startShrink;
-            const sy = fromY + uy * startShrink;
-            const ex = toX - ux * endShrink;
-            const ey = toY - uy * endShrink;
-
-            const path = computeElbowPath(sx, sy, ex, ey);
-            ctx.beginPath();
-            ctx.moveTo(sx, sy);
-            ctx.lineTo(path.elbow1.x, path.elbow1.y);
-            ctx.lineTo(path.elbow2.x, path.elbow2.y);
-            ctx.lineTo(ex, ey);
-            ctx.stroke();
-
-            if (overlaySettings.showEdgeArrows) {
-                drawArrowhead(ctx, path.elbow2.x, path.elbow2.y, ex, ey);
+            if (!fromNode || !toNode) {
+                continue;
             }
 
-            drawPort(ctx, sx, sy);
-            drawPort(ctx, ex, ey);
+            const offset = edgeLaneOffset(edge);
+            let pathPoints;
+            let startPoint;
+            let endPoint;
+
+            ctx.beginPath();
+            if (overlaySettings.edgeStyle === 'bezier') {
+                const path = computeBezierPath(fromNode, toNode, offset, portRadius);
+                ctx.moveTo(path.start.x, path.start.y);
+                ctx.bezierCurveTo(path.cp1.x, path.cp1.y, path.cp2.x, path.cp2.y, path.end.x, path.end.y);
+                ctx.stroke();
+                pathPoints = path.samples;
+                startPoint = path.start;
+                endPoint = path.end;
+            } else {
+                const dx = toX - fromX;
+                const dy = toY - fromY;
+                const len = Math.hypot(dx, dy) || 1;
+                const ux = dx / len;
+                const uy = dy / len;
+
+                const startShrink = computePortOffset(fromNode, ux, uy, portRadius);
+                const endShrink = computePortOffset(toNode, -ux, -uy, portRadius);
+                const sx = fromX + ux * startShrink;
+                const sy = fromY + uy * startShrink;
+                const ex = toX - ux * endShrink;
+                const ey = toY - uy * endShrink;
+
+                const path = computeElbowPath(sx, sy, ex, ey, offset);
+
+                drawRoundedPolyline(ctx, path.points, 6);
+                ctx.stroke();
+
+                pathPoints = path.points;
+                startPoint = path.points[0];
+                endPoint = path.points[path.points.length - 1];
+            }
+
+            if (overlaySettings.showEdgeArrows && pathPoints.length >= 2) {
+                const prevPoint = pathPoints[pathPoints.length - 2];
+                const endPathPoint = pathPoints[pathPoints.length - 1];
+                drawArrowhead(ctx, prevPoint.x, prevPoint.y, endPathPoint.x, endPathPoint.y);
+            }
+
+            drawPort(ctx, startPoint.x, startPoint.y, portRadius, portFillColor, portStrokeColor);
+            drawPort(ctx, endPoint.x, endPoint.y, portRadius, portFillColor, portStrokeColor);
 
             const share = edge.share ?? edge.Share;
             if (overlaySettings.showEdgeShares && share !== null && share !== undefined) {
-                drawEdgeShare(ctx, sx, sy, ex, ey, path, share);
+                drawEdgeShare(ctx, pathPoints, share);
             }
         }
 
@@ -183,9 +267,9 @@
         for (const node of nodes) {
             const x = node.x ?? node.X;
             const y = node.y ?? node.Y;
-            const width = node.width ?? node.Width ?? 48;
-            const height = node.height ?? node.Height ?? 30;
-            const cornerRadius = node.cornerRadius ?? node.CornerRadius ?? 4;
+            const width = node.width ?? node.Width ?? 36;
+            const height = node.height ?? node.Height ?? 24;
+            const cornerRadius = node.cornerRadius ?? node.CornerRadius ?? 3;
             const fill = node.fill ?? node.Fill ?? '#7A7A7A';
             const stroke = node.stroke ?? node.Stroke ?? '#262626';
             const id = node.id ?? node.Id;
@@ -210,7 +294,7 @@
 
             const nodeMeta = nodeMap.get(id);
             if (overlaySettings.showSparklines && nodeMeta?.sparkline) {
-                drawSparkline(ctx, nodeMeta, nodeMeta.sparkline, overlaySettings.sparklineMode, sparkColor);
+                drawSparkline(ctx, nodeMeta, nodeMeta.sparkline, overlaySettings, sparkColor);
             }
 
             if (overlaySettings.showLabels) {
@@ -243,10 +327,23 @@
 
     function render(canvas, payload) {
         const state = getState(canvas);
+
+        const overlaySettings = parseOverlaySettings(payload?.overlays ?? payload?.Overlays ?? {});
+        state.overlaySettings = overlaySettings;
+
+        const manualFactor = overlaySettings.manualScaleFactor ?? 1;
+        if (state.lastOverlayZoom === null || Math.abs(state.lastOverlayZoom - manualFactor) > 0.001) {
+            state.overlayScale = manualFactor;
+            state.lastOverlayZoom = manualFactor;
+            state.userAdjusted = false;
+        }
+
         const viewport = getViewport(payload);
         const signature = computeViewportSignature(viewport);
         if (signature && signature !== state.viewportSignature) {
             state.viewportSignature = signature;
+            state.viewportApplied = false;
+            state.baseScale = null;
             state.userAdjusted = false;
         }
 
@@ -265,6 +362,19 @@
         }
         state.cleanup?.();
         registry.delete(canvas);
+    }
+
+    function updateWorldCenter(state) {
+        if (!state.canvasWidth || !state.canvasHeight || !state.scale) {
+            return;
+        }
+
+        const scale = state.scale;
+        const width = state.canvasWidth;
+        const height = state.canvasHeight;
+
+        state.worldCenterX = (width / 2 - state.offsetX) / scale;
+        state.worldCenterY = (height / 2 - state.offsetY) / scale;
     }
 
     function getViewport(payload) {
@@ -287,9 +397,8 @@
             return;
         }
 
-        const rect = canvas.getBoundingClientRect();
-        const width = rect.width || canvas.width / state.deviceRatio;
-        const height = rect.height || canvas.height / state.deviceRatio;
+        const width = canvas.width / state.deviceRatio;
+        const height = canvas.height / state.deviceRatio;
 
         const minX = viewport.minX ?? viewport.MinX ?? 0;
         const minY = viewport.minY ?? viewport.MinY ?? 0;
@@ -305,12 +414,29 @@
         const desiredScale = Math.min(availableWidth / contentWidth, availableHeight / contentHeight);
         const safeScale = clamp(desiredScale, 0.2, 1.5);
 
-        const centerX = minX + (contentWidth / 2);
-        const centerY = minY + (contentHeight / 2);
+        if (!state.viewportApplied) {
+            state.baseScale = safeScale;
+            state.worldCenterX = minX + (contentWidth / 2);
+            state.worldCenterY = minY + (contentHeight / 2);
+            state.viewportApplied = true;
+        } else if (!state.userAdjusted) {
+            // Ensure stored center remains valid
+            if (!Number.isFinite(state.worldCenterX) || !Number.isFinite(state.worldCenterY)) {
+                state.worldCenterX = minX + (contentWidth / 2);
+                state.worldCenterY = minY + (contentHeight / 2);
+            }
+        }
 
-        state.scale = safeScale;
-        state.offsetX = (width / 2) - (centerX * safeScale);
-        state.offsetY = (height / 2) - (centerY * safeScale);
+        const manualFactor = clamp(state.overlayScale ?? 1, 0.25, 4);
+        const baseScale = clamp(state.baseScale ?? safeScale, 0.05, 4);
+        const finalScale = clamp(baseScale * manualFactor, 0.1, 6);
+
+        state.scale = finalScale;
+        state.offsetX = (width / 2) - (state.worldCenterX * finalScale);
+        state.offsetY = (height / 2) - (state.worldCenterY * finalScale);
+        state.userAdjusted = false;
+
+        updateWorldCenter(state);
     }
 
     function traceRoundedRect(ctx, centerX, centerY, width, height, radius) {
@@ -397,6 +523,28 @@
         };
 
         const sparkMode = Number(raw.sparklineMode ?? raw.SparklineMode ?? 0);
+        const edgeStyleRaw = raw.edgeStyle ?? raw.EdgeStyle ?? 0;
+        const zoomPercentRaw = Number(raw.zoomPercent ?? raw.ZoomPercent ?? 100);
+        const zoomPercent = Number.isFinite(zoomPercentRaw) ? clamp(zoomPercentRaw, 30, 200) : 100;
+        const manualScaleFactor = clamp(zoomPercent / 100, 0.25, 4);
+        const selectedBin = Number(raw.selectedBin ?? raw.SelectedBin ?? -1);
+
+        const slaSuccess = clamp(Number(raw.slaSuccessThreshold ?? raw.SlaSuccessThreshold ?? 0.95), 0, 1);
+        const slaWarning = clamp(Number(raw.slaWarningCutoff ?? raw.SlaWarningCutoff ?? 0.8), 0, 1);
+        const utilWarn = clamp(Number(raw.utilizationWarningCutoff ?? raw.UtilizationWarningCutoff ?? 0.9), 0, 1);
+        const utilCritical = clamp(Number(raw.utilizationCriticalCutoff ?? raw.UtilizationCriticalCutoff ?? 0.95), 0, 1);
+        const errorWarn = clamp(Number(raw.errorWarningCutoff ?? raw.ErrorWarningCutoff ?? 0.02), 0, 1);
+        const errorCritical = clamp(Number(raw.errorCriticalCutoff ?? raw.ErrorCriticalCutoff ?? 0.05), 0, 1);
+
+        let edgeStyle = 'orthogonal';
+        if (typeof edgeStyleRaw === 'string') {
+            const normalized = edgeStyleRaw.trim().toLowerCase();
+            if (normalized === 'bezier') {
+                edgeStyle = 'bezier';
+            }
+        } else {
+            edgeStyle = Number(edgeStyleRaw) === 1 ? 'bezier' : 'orthogonal';
+        }
 
         return {
             showLabels: boolOr(raw.showLabels ?? raw.ShowLabels, true),
@@ -404,14 +552,26 @@
             showEdgeShares: boolOr(raw.showEdgeShares ?? raw.ShowEdgeShares, false),
             showSparklines: boolOr(raw.showSparklines ?? raw.ShowSparklines, true),
             sparklineMode: sparkMode === 1 ? 'bar' : 'line',
+            edgeStyle,
             autoLod: boolOr(raw.autoLod ?? raw.AutoLod, true),
             zoomLowThreshold: Number(raw.zoomLowThreshold ?? raw.ZoomLowThreshold ?? 0.5) || 0.5,
             zoomMidThreshold: Number(raw.zoomMidThreshold ?? raw.ZoomMidThreshold ?? 1.0) || 1.0,
             colorBasis: raw.colorBasis ?? raw.ColorBasis ?? 0,
+            zoomPercent,
+            manualScaleFactor,
             neighborEmphasis: boolOr(raw.neighborEmphasis ?? raw.NeighborEmphasis, true),
             includeServiceNodes: boolOr(raw.includeServiceNodes ?? raw.IncludeServiceNodes, true),
             includeExpressionNodes: boolOr(raw.includeExpressionNodes ?? raw.IncludeExpressionNodes, false),
-            includeConstNodes: boolOr(raw.includeConstNodes ?? raw.IncludeConstNodes, false)
+            includeConstNodes: boolOr(raw.includeConstNodes ?? raw.IncludeConstNodes, false),
+            selectedBin,
+            thresholds: {
+                slaSuccess,
+                slaWarning,
+                utilizationWarning: utilWarn,
+                utilizationCritical: utilCritical,
+                errorWarning: errorWarn,
+                errorCritical
+            }
         };
     }
 
@@ -428,21 +588,333 @@
         }
     }
 
-    function computeElbowPath(sx, sy, ex, ey) {
-        const horizontalFirst = Math.abs(ex - sx) >= Math.abs(ey - sy);
+    function resolveSampleColor(basis, index, sparkline, thresholds, defaultColor) {
+        const value = getBasisValue(basis, index, sparkline);
+        if (value === null || value === undefined || !Number.isFinite(value)) {
+            return 'rgba(148, 163, 184, 0.55)';
+        }
+
+        switch (basis) {
+            case 1: // Utilization
+                if (value <= thresholds.utilizationWarning) return '#009E73';
+                if (value <= thresholds.utilizationCritical) return '#E69F00';
+                return '#D55E00';
+            case 2: // Errors
+                if (value >= thresholds.errorCritical) return '#D55E00';
+                if (value >= thresholds.errorWarning) return '#E69F00';
+                return '#009E73';
+            case 3: // Queue depth
+                if (value >= 0.8) return '#D55E00';
+                if (value >= 0.4) return '#E69F00';
+                return '#009E73';
+            default: // SLA success
+                if (value >= thresholds.slaSuccess) return '#009E73';
+                if (value >= thresholds.slaWarning) return '#E69F00';
+                return '#D55E00';
+        }
+    }
+
+    function getBasisValue(basis, index, sparkline) {
+        switch (basis) {
+            case 1:
+                return valueAtArray(sparkline.utilization ?? sparkline.Utilization, index);
+            case 2:
+                return valueAtArray(sparkline.errorRate ?? sparkline.ErrorRate, index);
+            case 3:
+                return valueAtArray(sparkline.queueDepth ?? sparkline.QueueDepth, index);
+            default:
+                return valueAtArray(sparkline.values ?? sparkline.Values, index);
+        }
+    }
+
+    function valueAtArray(arr, index) {
+        if (!arr || index < 0 || index >= arr.length) {
+            return null;
+        }
+        const value = Number(arr[index]);
+        return Number.isFinite(value) ? value : null;
+    }
+
+    function computePortOffset(node, ux, uy, portRadius) {
+        if (!node) {
+            return 16;
+        }
+
+        const width = node.width ?? node.Width ?? 36;
+        const height = node.height ?? node.Height ?? 24;
+        const halfW = width / 2;
+        const halfH = height / 2;
+        const absUx = Math.abs(ux);
+        const absUy = Math.abs(uy);
+        const epsilon = 1e-4;
+        const candidates = [];
+
+        if (absUx > epsilon) {
+            candidates.push(halfW / absUx);
+        }
+
+        if (absUy > epsilon) {
+            candidates.push(halfH / absUy);
+        }
+
+        if (candidates.length === 0) {
+            candidates.push(Math.max(halfW, halfH));
+        }
+
+        const boundary = Math.min(...candidates);
+        return boundary + portRadius;
+    }
+
+    function edgeLaneOffset(edge) {
+        const raw = String(edge?.id ?? edge?.Id ?? '');
+        let hash = 0;
+        for (let i = 0; i < raw.length; i++) {
+            hash = ((hash << 5) - hash) + raw.charCodeAt(i);
+            hash |= 0;
+        }
+        const lane = (hash % 5) - 2; // -2..2
+        return lane * 6;
+    }
+
+    function dedupePoints(points) {
+        const result = [];
+        let last = null;
+        for (const point of points) {
+            if (!last || Math.abs(point.x - last.x) > 0.1 || Math.abs(point.y - last.y) > 0.1) {
+                const clone = { x: point.x, y: point.y };
+                result.push(clone);
+                last = clone;
+            }
+        }
+        return result;
+    }
+
+    function drawRoundedPolyline(ctx, points, radius) {
+        if (!points || points.length < 2) {
+            return;
+        }
+
+        ctx.moveTo(points[0].x, points[0].y);
+
+        for (let i = 1; i < points.length - 1; i++) {
+            const prev = points[i - 1];
+            const curr = points[i];
+            const next = points[i + 1];
+
+            const v1x = curr.x - prev.x;
+            const v1y = curr.y - prev.y;
+            const v2x = next.x - curr.x;
+            const v2y = next.y - curr.y;
+            const len1 = Math.hypot(v1x, v1y) || 1;
+            const len2 = Math.hypot(v2x, v2y) || 1;
+
+            const r = Math.min(radius, len1 / 2, len2 / 2);
+
+            const p1x = curr.x - (v1x / len1) * r;
+            const p1y = curr.y - (v1y / len1) * r;
+            const p2x = curr.x + (v2x / len2) * r;
+            const p2y = curr.y + (v2y / len2) * r;
+
+            ctx.lineTo(p1x, p1y);
+            ctx.quadraticCurveTo(curr.x, curr.y, p2x, p2y);
+        }
+
+        const last = points[points.length - 1];
+        ctx.lineTo(last.x, last.y);
+    }
+
+    function pointAlongSegments(segments, distance) {
+        let remaining = distance;
+        for (const segment of segments) {
+            if (segment.length === 0) {
+                continue;
+            }
+
+            if (remaining <= segment.length) {
+                const t = remaining / segment.length;
+                const x = segment.x1 + (segment.x2 - segment.x1) * t;
+                const y = segment.y1 + (segment.y2 - segment.y1) * t;
+                const dx = (segment.x2 - segment.x1) / segment.length;
+                const dy = (segment.y2 - segment.y1) / segment.length;
+                return {
+                    point: { x, y },
+                    tangent: { dx, dy }
+                };
+            }
+
+            remaining -= segment.length;
+        }
+
+        return null;
+    }
+
+    function computeElbowPath(sx, sy, ex, ey, offset) {
+        const dx = ex - sx;
+        const dy = ey - sy;
+        const absDx = Math.abs(dx);
+        const absDy = Math.abs(dy);
+        const eps = 1e-3;
+        const points = [{ x: sx, y: sy }];
+
+        if (absDy < eps) {
+            points.push({ x: ex, y: ey });
+            return { points };
+        }
+
+        if (absDx < eps) {
+            points.push({ x: ex, y: ey });
+            return { points };
+        }
+
+        const baseLead = 12;
+        const laneShift = clamp(offset ?? 0, -32, 32);
+        const horizontalFirst = absDx >= absDy;
+
         if (horizontalFirst) {
-            const midX = (sx + ex) / 2;
-            return {
-                elbow1: { x: midX, y: sy },
-                elbow2: { x: midX, y: ey }
+            const dirX = dx >= 0 ? 1 : -1;
+            let stub = Math.min(baseLead, absDx / 2);
+            if (stub > 0 && stub < 6) {
+                stub = Math.min(6, absDx / 2);
+            }
+
+            const entryX = sx + dirX * stub;
+            const exitX = ex - dirX * stub;
+
+            if (Math.abs(entryX - sx) > eps) {
+                points.push({ x: entryX, y: sy });
+            }
+
+            if (laneShift !== 0) {
+                points.push({ x: entryX, y: sy + laneShift });
+            }
+
+            points.push({ x: exitX, y: laneShift !== 0 ? sy + laneShift : sy });
+            points.push({ x: exitX, y: ey });
+        } else {
+            const dirY = dy >= 0 ? 1 : -1;
+            let stub = Math.min(baseLead, absDy / 2);
+            if (stub > 0 && stub < 6) {
+                stub = Math.min(6, absDy / 2);
+            }
+
+            const entryY = sy + dirY * stub;
+            const exitY = ey - dirY * stub;
+
+            if (Math.abs(entryY - sy) > eps) {
+                points.push({ x: sx, y: entryY });
+            }
+
+            if (laneShift !== 0) {
+                points.push({ x: sx + laneShift, y: entryY });
+            }
+
+            points.push({ x: laneShift !== 0 ? sx + laneShift : sx, y: exitY });
+            points.push({ x: ex, y: exitY });
+        }
+
+        points.push({ x: ex, y: ey });
+
+        return { points: dedupePoints(points) };
+    }
+
+    function computeBezierPath(fromNode, toNode, laneOffset, portRadius) {
+        const anchorsFrom = createAnchors(fromNode);
+        const anchorsTo = createAnchors(toNode);
+
+        const fromCenterX = fromNode.x ?? fromNode.X ?? 0;
+        const fromCenterY = fromNode.y ?? fromNode.Y ?? 0;
+        const toCenterX = toNode.x ?? toNode.X ?? 0;
+        const toCenterY = toNode.y ?? toNode.Y ?? 0;
+        const dx = toCenterX - fromCenterX;
+        const dy = toCenterY - fromCenterY;
+
+        const horizontal = {
+            start: dx >= 0 ? anchorsFrom.right : anchorsFrom.left,
+            end: dx >= 0 ? anchorsTo.left : anchorsTo.right,
+            orientation: 'horizontal'
+        };
+        const vertical = {
+            start: dy >= 0 ? anchorsFrom.bottom : anchorsFrom.top,
+            end: dy >= 0 ? anchorsTo.top : anchorsTo.bottom,
+            orientation: 'vertical'
+        };
+
+        const useVertical = Math.abs(dy) > Math.abs(dx);
+        let selected = useVertical ? vertical : horizontal;
+
+        const start = offsetAnchor(selected.start, portRadius);
+        const end = offsetAnchor(selected.end, portRadius);
+
+        const span = selected.orientation === 'horizontal'
+            ? Math.abs(end.x - start.x)
+            : Math.abs(end.y - start.y);
+        const baseTension = Math.max(24, Math.min(120, span * 0.45));
+        const offset = clamp(laneOffset ?? 0, -24, 24);
+
+        let cp1, cp2;
+        if (selected.orientation === 'horizontal') {
+            cp1 = {
+                x: start.x + start.normalX * baseTension,
+                y: start.y
+            };
+            cp2 = {
+                x: end.x + end.normalX * baseTension,
+                y: end.y
+            };
+        } else {
+            cp1 = {
+                x: start.x,
+                y: start.y + start.normalY * baseTension
+            };
+            cp2 = {
+                x: end.x,
+                y: end.y + end.normalY * baseTension
             };
         }
 
-        const midY = (sy + ey) / 2;
+        const samples = sampleCubicBezier(start, cp1, cp2, end, 32);
+        return { start, end, cp1, cp2, samples };
+    }
+
+    function createAnchors(node) {
+        const cx = node.x ?? node.X ?? 0;
+        const cy = node.y ?? node.Y ?? 0;
+        const width = node.width ?? node.Width ?? 36;
+        const height = node.height ?? node.Height ?? 24;
+        const halfW = width / 2;
+        const halfH = height / 2;
+
         return {
-            elbow1: { x: sx, y: midY },
-            elbow2: { x: ex, y: midY }
+            left: { x: cx - halfW, y: cy, normalX: -1, normalY: 0 },
+            right: { x: cx + halfW, y: cy, normalX: 1, normalY: 0 },
+            top: { x: cx, y: cy - halfH, normalX: 0, normalY: -1 },
+            bottom: { x: cx, y: cy + halfH, normalX: 0, normalY: 1 }
         };
+    }
+
+    function offsetAnchor(anchor, amount) {
+        const distance = amount ?? 0;
+        return {
+            x: anchor.x + anchor.normalX * distance,
+            y: anchor.y + anchor.normalY * distance,
+            normalX: anchor.normalX,
+            normalY: anchor.normalY
+        };
+    }
+
+    function sampleCubicBezier(start, cp1, cp2, end, segments) {
+        const points = [];
+        const steps = Math.max(4, segments | 0);
+        for (let i = 0; i <= steps; i++) {
+            const t = i / steps;
+            const omt = 1 - t;
+            const omt2 = omt * omt;
+            const t2 = t * t;
+            const x = (omt2 * omt * start.x) + (3 * omt2 * t * cp1.x) + (3 * omt * t2 * cp2.x) + (t2 * t * end.x);
+            const y = (omt2 * omt * start.y) + (3 * omt2 * t * cp1.y) + (3 * omt * t2 * cp2.y) + (t2 * t * end.y);
+            points.push({ x, y });
+        }
+        return points;
     }
 
     function drawArrowhead(ctx, fromX, fromY, toX, toY) {
@@ -468,71 +940,50 @@
         ctx.fill();
     }
 
-    function drawPort(ctx, x, y) {
+    function drawPort(ctx, x, y, radius, fill, stroke) {
         ctx.save();
-        ctx.fillStyle = '#1F2933';
         ctx.beginPath();
-        ctx.arc(x, y, 2.5, 0, Math.PI * 2);
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.fillStyle = fill;
         ctx.fill();
+        ctx.lineWidth = 0.75;
+        ctx.strokeStyle = stroke;
+        ctx.stroke();
         ctx.restore();
     }
 
-    function drawEdgeShare(ctx, sx, sy, ex, ey, path, share) {
+    function drawEdgeShare(ctx, points, share) {
         const pct = Number(share);
-        if (!Number.isFinite(pct)) {
+        if (!Number.isFinite(pct) || !Array.isArray(points) || points.length < 2) {
             return;
         }
 
-        const segments = [
-            { x1: sx, y1: sy, x2: path.elbow1.x, y2: path.elbow1.y },
-            { x1: path.elbow1.x, y1: path.elbow1.y, x2: path.elbow2.x, y2: path.elbow2.y },
-            { x1: path.elbow2.x, y1: path.elbow2.y, x2: ex, y2: ey }
-        ];
+        const segments = [];
+        for (let i = 0; i < points.length - 1; i++) {
+            const start = points[i];
+            const end = points[i + 1];
+            const dx = end.x - start.x;
+            const dy = end.y - start.y;
+            const length = Math.hypot(dx, dy);
+            segments.push({ x1: start.x, y1: start.y, x2: end.x, y2: end.y, length });
+        }
 
-        const totalLength = segments.reduce((sum, seg) => {
-            const dx = seg.x2 - seg.x1;
-            const dy = seg.y2 - seg.y1;
-            return sum + Math.hypot(dx, dy);
-        }, 0);
-
+        const totalLength = segments.reduce((sum, seg) => sum + seg.length, 0);
         if (!Number.isFinite(totalLength) || totalLength === 0) {
             return;
         }
 
-        let remaining = totalLength / 2;
-        let anchor = { x: sx, y: sy };
-        let tangent = { dx: 1, dy: 0 };
-
-        for (const seg of segments) {
-            const dx = seg.x2 - seg.x1;
-            const dy = seg.y2 - seg.y1;
-            const length = Math.hypot(dx, dy);
-            if (length === 0) {
-                continue;
-            }
-
-            if (remaining <= length) {
-                const t = remaining / length;
-                anchor = {
-                    x: seg.x1 + dx * t,
-                    y: seg.y1 + dy * t
-                };
-                tangent = {
-                    dx: dx / length,
-                    dy: dy / length
-                };
-                break;
-            }
-
-            remaining -= length;
+        const midpoint = pointAlongSegments(segments, totalLength / 2);
+        if (!midpoint) {
+            return;
         }
 
         const label = `${Math.round(pct * 100)}%`;
         const offset = 10;
-        const perpX = -tangent.dy;
-        const perpY = tangent.dx;
-        const labelX = anchor.x + perpX * offset;
-        const labelY = anchor.y + perpY * offset;
+        const perpX = -midpoint.tangent.dy;
+        const perpY = midpoint.tangent.dx;
+        const labelX = midpoint.point.x + perpX * offset;
+        const labelY = midpoint.point.y + perpY * offset;
 
         ctx.save();
         ctx.fillStyle = 'rgba(33, 37, 41, 0.85)';
@@ -543,7 +994,7 @@
         ctx.restore();
     }
 
-    function drawSparkline(ctx, nodeMeta, sparkline, mode, color) {
+    function drawSparkline(ctx, nodeMeta, sparkline, overlaySettings, defaultColor) {
         const values = sparkline.values ?? sparkline.Values;
         if (!Array.isArray(values) || values.length < 2) {
             return;
@@ -556,10 +1007,25 @@
             return;
         }
 
-        const width = nodeMeta.width ?? 48;
-        const nodeHeight = nodeMeta.height ?? 30;
-        const sparkWidth = Math.max(width - 8, 20);
-        const sparkHeight = mode === 'bar' ? 12 : 10;
+        const mode = overlaySettings.sparklineMode === 'bar' ? 'bar' : 'line';
+        const basis = Number.isFinite(overlaySettings.colorBasis) ? overlaySettings.colorBasis : 0;
+        const thresholds = overlaySettings.thresholds ?? {
+            slaSuccess: 0.95,
+            slaWarning: 0.8,
+            utilizationWarning: 0.9,
+            utilizationCritical: 0.95,
+            errorWarning: 0.02,
+            errorCritical: 0.05
+        };
+        const startIndex = Number(sparkline.startIndex ?? sparkline.StartIndex ?? 0);
+        const selectedBin = Number(overlaySettings.selectedBin ?? -1);
+        const highlightIndexRaw = Number.isFinite(selectedBin) ? selectedBin - startIndex : -1;
+        const highlightIndex = (highlightIndexRaw >= 0 && highlightIndexRaw < values.length) ? highlightIndexRaw : -1;
+
+        const width = nodeMeta.width ?? 36;
+        const nodeHeight = nodeMeta.height ?? 24;
+        const sparkWidth = Math.max(width - 6, 16);
+        const sparkHeight = mode === 'bar' ? 16 : 12;
         const left = (nodeMeta.x ?? 0) - (sparkWidth / 2);
         const top = (nodeMeta.y ?? 0) - (nodeHeight / 2) - sparkHeight - 6;
 
@@ -571,19 +1037,30 @@
         let started = false;
 
         const drawAsBars = mode === 'bar';
+        let highlightPoint = null;
+        let highlightColor = defaultColor;
+        let highlightBar = null;
 
-        if (!drawAsBars) {
-            ctx.beginPath();
-        }
+        ctx.fillStyle = 'rgba(148, 163, 184, 0.12)';
+        ctx.fillRect(0, 0, sparkWidth, sparkHeight);
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.25)';
+        ctx.lineWidth = 0.5;
+        ctx.strokeRect(0, 0, sparkWidth, sparkHeight);
+
+        let previousPoint = null;
+        let previousColor = defaultColor;
+
         values.forEach((raw, index) => {
             if (raw === null || raw === undefined) {
                 started = false;
+                previousPoint = null;
                 return;
             }
 
             const numeric = Number(raw);
             if (!Number.isFinite(numeric)) {
                 started = false;
+                previousPoint = null;
                 return;
             }
 
@@ -596,25 +1073,57 @@
             const x = index * step;
             const y = sparkHeight - (sparkHeight * normalized);
 
+            const sampleColor = resolveSampleColor(basis, index, sparkline, thresholds, defaultColor);
+
             if (drawAsBars) {
                 const barWidth = Math.max(step * 0.6, 1.5);
-                ctx.fillStyle = color;
+                ctx.fillStyle = sampleColor;
                 const clampedY = Math.min(Math.max(y, 0), sparkHeight);
-                ctx.fillRect(x - barWidth / 2, clampedY, barWidth, sparkHeight - clampedY);
+                const barHeight = Math.max(sparkHeight - clampedY, 1);
+                const barTop = sparkHeight - barHeight;
+                ctx.fillRect(x - barWidth / 2, barTop, barWidth, barHeight);
+                if (index === highlightIndex) {
+                    highlightColor = sampleColor;
+                    highlightBar = {
+                        x,
+                        width: Math.max(barWidth, 3)
+                    };
+                }
                 started = true;
             } else {
-                if (!started) {
-                    ctx.moveTo(x, y);
-                    started = true;
-                } else {
+                if (previousPoint) {
+                    ctx.beginPath();
+                    ctx.strokeStyle = previousColor ?? sampleColor;
+                    ctx.lineWidth = 1.4;
+                    ctx.moveTo(previousPoint.x, previousPoint.y);
                     ctx.lineTo(x, y);
+                    ctx.stroke();
+                }
+                started = true;
+                previousPoint = { x, y };
+                previousColor = sampleColor;
+                if (index === highlightIndex) {
+                    highlightPoint = { x, y };
+                    highlightColor = sampleColor;
                 }
             }
         });
 
-        if (started && !drawAsBars) {
-            ctx.strokeStyle = color;
-            ctx.lineWidth = 1.4;
+        if (!drawAsBars && highlightPoint) {
+            ctx.beginPath();
+            ctx.fillStyle = highlightColor ?? defaultColor;
+            ctx.arc(highlightPoint.x, highlightPoint.y, 1.8, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        if (drawAsBars && highlightBar) {
+            const gap = 2;
+            const markerY = sparkHeight + gap;
+            ctx.beginPath();
+            ctx.strokeStyle = highlightColor ?? defaultColor;
+            ctx.lineWidth = 1.2;
+            ctx.moveTo(highlightBar.x - highlightBar.width / 2, markerY);
+            ctx.lineTo(highlightBar.x + highlightBar.width / 2, markerY);
             ctx.stroke();
         }
 
@@ -664,7 +1173,11 @@
     window.FlowTime = window.FlowTime || {};
     window.FlowTime.TopologyCanvas = {
         render,
-        dispose
+        dispose,
+        registerHandlers: (canvas, dotNetRef) => {
+            const state = getState(canvas);
+            state.dotNetRef = dotNetRef;
+        }
     };
     window.FlowTime.TopologyHotkeys = {
         register: registerHotkeys,
