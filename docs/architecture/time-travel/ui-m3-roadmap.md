@@ -170,6 +170,7 @@ We use UI-M-XX.XX with bands per phase to keep sessions small and reviewable.
   - UI-M-03.20 — SLA Dashboard (tiles + mini bars)
   - UI-M-03.21 — Global Top Bar + Range + Scrubber
   - UI-M-03.22 — Topology Canvas (graph + coloring)
+  - UI-M-03.22.2 — Topology Canvas Polish (expr tooltip sparkline + inspector)
   - UI-M-03.23 — Node Detail Panel (simple lines)
   - UI-M-03.24 — SLA ↔ Topology Linking
   - UI-M-03.25 — Performance + A11y Pass
