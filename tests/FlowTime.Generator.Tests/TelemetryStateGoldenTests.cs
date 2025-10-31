@@ -102,7 +102,7 @@ public sealed class TelemetryStateGoldenTests
 
         Assert.Contains(logger.Entries, e => e.EventId.Id == 3001 && e.Level == LogLevel.Information);
 
-        var window = await stateService.GetStateWindowAsync(bundleResult.RunId, startBin: 0, endBin: definition.Bins - 1, CancellationToken.None);
+        var window = await stateService.GetStateWindowAsync(bundleResult.RunId, startBin: 0, endBin: definition.Bins - 1, mode: null, ct: CancellationToken.None);
 
         Assert.Contains(logger.Entries, e => e.EventId.Id == 3002 && e.Level == LogLevel.Information);
 
@@ -189,7 +189,7 @@ public sealed class TelemetryStateGoldenTests
         var orderNode = snapshot.Nodes.Single(n => n.Id == "OrderService");
         Assert.Contains(orderNode.Telemetry.Warnings, w => w.Code == "telemetry_sources_unresolved");
 
-        var window = await stateService.GetStateWindowAsync(bundle.RunId, 0, definition.Bins - 1, CancellationToken.None);
+        var window = await stateService.GetStateWindowAsync(bundle.RunId, 0, definition.Bins - 1, mode: null, ct: CancellationToken.None);
         var orderSeries = window.Nodes.Single(n => n.Id == "OrderService");
         Assert.Contains(orderSeries.Telemetry.Warnings, w => w.Code == "telemetry_sources_unresolved");
 

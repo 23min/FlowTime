@@ -7,7 +7,9 @@ internal sealed record CanvasRenderRequest(
     IReadOnlyList<EdgeRenderInfo> Edges,
     CanvasViewport Viewport,
     OverlaySettingsPayload Overlays,
-    TooltipPayload? Tooltip);
+    TooltipPayload? Tooltip,
+    ViewportSnapshotPayload? SavedViewport,
+    bool PreserveViewport);
 
 internal sealed record NodeRenderInfo(
     string Id,
@@ -21,7 +23,23 @@ internal sealed record NodeRenderInfo(
     string Stroke,
     bool IsFocused,
     bool IsVisible,
-    NodeSparklineDto? Sparkline);
+    NodeSparklineDto? Sparkline,
+    string? FocusLabel,
+    NodeSemanticsDto? Semantics);
+
+internal sealed record NodeSemanticsDto(
+    string? Arrivals,
+    string? Served,
+    string? Errors,
+    string? Queue,
+    string? Capacity,
+    string? Series,
+    NodeDistributionDto? Distribution,
+    IReadOnlyList<double>? InlineValues);
+
+internal sealed record NodeDistributionDto(
+    IReadOnlyList<double> Values,
+    IReadOnlyList<double> Probabilities);
 
 internal sealed record EdgeRenderInfo(
     string Id,
@@ -49,9 +67,6 @@ internal sealed record OverlaySettingsPayload(
   	bool ShowSparklines,
     SparklineRenderMode SparklineMode,
     EdgeRenderMode EdgeStyle,
-    bool AutoLod,
-    double ZoomLowThreshold,
-    double ZoomMidThreshold,
     double ZoomPercent,
     TopologyColorBasis ColorBasis,
     double SlaWarningThreshold,
@@ -74,8 +89,16 @@ internal sealed record OverlaySettingsPayload(
     bool ShowErrorsDependencies,
     bool ShowQueueDependencies,
     bool ShowCapacityDependencies,
-    bool ShowExpressionDependencies,
-    bool ShowComputeNodes);
+    bool ShowExpressionDependencies);
+
+internal sealed record ViewportSnapshotPayload(
+    double Scale,
+    double OffsetX,
+    double OffsetY,
+    double WorldCenterX,
+    double WorldCenterY,
+    double OverlayScale,
+    double BaseScale);
 
 internal sealed record NodeSparklineDto(
     IReadOnlyList<double?> Values,
@@ -85,4 +108,9 @@ internal sealed record NodeSparklineDto(
     double Min,
     double Max,
     bool IsFlat,
+    int StartIndex,
+    IReadOnlyDictionary<string, SparklineSeriesSliceDto> Series);
+
+internal sealed record SparklineSeriesSliceDto(
+    IReadOnlyList<double?> Values,
     int StartIndex);

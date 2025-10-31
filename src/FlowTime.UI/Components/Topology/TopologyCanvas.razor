@@ -4,7 +4,7 @@
 
 @if (HasVisibleNodes)
 {
-    <div class="topology-canvas-host">
+    <div class="topology-canvas-host" @onpointerleave="OnNodePointerLeave">
         <canvas @ref="canvasRef"
                 class="topology-canvas"
                 role="presentation">
@@ -20,6 +20,7 @@
                         aria-label="@proxy.AriaLabel"
                         @onclick="() => SelectNode(proxy.Id)"
                         @onmouseenter="() => HoverNode(proxy.Id)"
+                        @onmouseleave="OnNodeHoverLeave"
                         @onfocus="() => SelectNode(proxy.Id)"
                         @onblur="OnNodeBlur"
                         @onkeydown="(args) => OnNodeKeyDown(args, proxy.Id)"

@@ -56,7 +56,7 @@ public sealed class GraphEndpointTests : IClassFixture<TestWebApplicationFactory
             node =>
             {
                 Assert.Equal("Database", node.Id);
-                Assert.Equal("store", node.Kind);
+                Assert.Equal("service", node.Kind);
                 Assert.Equal("series:routed", node.Semantics.Arrivals);
                 Assert.Equal("series:served", node.Semantics.Served);
                 Assert.NotNull(node.Ui);
@@ -131,7 +131,7 @@ topology:
         served: series:routed
         errors: series:errors
     - id: Database
-      kind: store
+      kind: service
       ui:
         x: 160
         y: 48

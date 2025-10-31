@@ -46,9 +46,6 @@ public sealed class TopologyOverlaySettings
     public double ErrorRateAlertThreshold { get; set; } = 0.05;
     public double UtilizationWarningThreshold { get; set; } = 0.9;
 
-    public bool AutoLod { get; set; } = true;
-    public double ZoomLowThreshold { get; set; } = 0.5;
-    public double ZoomMidThreshold { get; set; } = 1.0;
     public double ZoomPercent { get; set; } = 100;
 
     public bool RespectUiPositions { get; set; } = false;
@@ -60,7 +57,6 @@ public sealed class TopologyOverlaySettings
     public bool ShowCapacityDependencies { get; set; } = true;
     public bool ShowExpressionDependencies { get; set; } = true;
     public LayoutMode Layout { get; set; } = LayoutMode.Layered;
-    public bool ShowComputeNodes { get; set; } = false;
 
     public TopologyOverlaySettings Clone()
     {
@@ -81,9 +77,6 @@ public sealed class TopologyOverlaySettings
             SlaWarningThreshold = SlaWarningThreshold,
             ErrorRateAlertThreshold = ErrorRateAlertThreshold,
             UtilizationWarningThreshold = UtilizationWarningThreshold,
-            AutoLod = AutoLod,
-            ZoomLowThreshold = ZoomLowThreshold,
-            ZoomMidThreshold = ZoomMidThreshold,
             ZoomPercent = ZoomPercent,
             RespectUiPositions = RespectUiPositions,
             ShowArrivalsDependencies = ShowArrivalsDependencies,
@@ -92,8 +85,7 @@ public sealed class TopologyOverlaySettings
             ShowQueueDependencies = ShowQueueDependencies,
             ShowCapacityDependencies = ShowCapacityDependencies,
             ShowExpressionDependencies = ShowExpressionDependencies,
-            Layout = Layout,
-            ShowComputeNodes = ShowComputeNodes
+            Layout = Layout
         };
     }
 

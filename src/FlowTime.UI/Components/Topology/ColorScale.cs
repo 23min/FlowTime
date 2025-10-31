@@ -204,4 +204,6 @@ public sealed record NodeBinMetrics(
     double? ErrorRate,
     double? QueueDepth,
     double? LatencyMinutes,
-    DateTimeOffset? Timestamp);
+    DateTimeOffset? Timestamp,
+    double? CustomValue = null,
+    string? CustomLabel = null);

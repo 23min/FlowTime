@@ -11,7 +11,7 @@ namespace FlowTime.UI.Tests.TimeTravel;
 
 public sealed class TopologyCanvasRenderTests : TestContext
 {
-    private const double NodeWidth = 36;
+    private const double NodeWidth = 54;
     private const double NodeHeight = 24;
     private const double NodeCornerRadius = 3;
     private const double ViewportPadding = 48;
@@ -284,9 +284,9 @@ public sealed class TopologyCanvasRenderTests : TestContext
     {
         var nodes = new[]
         {
-            new TopologyNode("source", "const", Array.Empty<string>(), new[] { "calc" }, 0, 0, 0, 0, false),
-            new TopologyNode("calc", "expr", new[] { "source" }, new[] { "svc" }, 1, 0, 200, 120, false),
-            new TopologyNode("svc", "service", new[] { "calc" }, Array.Empty<string>(), 2, 0, 400, 240, false)
+            new TopologyNode("source", "const", Array.Empty<string>(), new[] { "calc" }, 0, 0, 0, 0, false, EmptySemantics()),
+            new TopologyNode("calc", "expr", new[] { "source" }, new[] { "svc" }, 1, 0, 200, 120, false, EmptySemantics()),
+            new TopologyNode("svc", "service", new[] { "calc" }, Array.Empty<string>(), 2, 0, 400, 240, false, EmptySemantics())
         };
 
         var edges = new[]
@@ -302,9 +302,9 @@ public sealed class TopologyCanvasRenderTests : TestContext
     {
         var nodes = new[]
         {
-            new TopologyNode("ingress", "service", Array.Empty<string>(), new[] { "processor" }, 0, 0, 0, 0, false),
-            new TopologyNode("processor", "service", new[] { "ingress" }, new[] { "egress" }, 1, 0, 240, 140, false),
-            new TopologyNode("egress", "queue", new[] { "processor" }, Array.Empty<string>(), 2, 0, 480, 280, false)
+            new TopologyNode("ingress", "service", Array.Empty<string>(), new[] { "processor" }, 0, 0, 0, 0, false, EmptySemantics()),
+            new TopologyNode("processor", "service", new[] { "ingress" }, new[] { "egress" }, 1, 0, 240, 140, false, EmptySemantics()),
+            new TopologyNode("egress", "queue", new[] { "processor" }, Array.Empty<string>(), 2, 0, 480, 280, false, EmptySemantics())
         };
 
         var edges = new[]
@@ -325,4 +325,6 @@ public sealed class TopologyCanvasRenderTests : TestContext
             ["egress"] = new NodeBinMetrics(0.75, 0.92, 0.04, 12, 5.8, DateTimeOffset.UtcNow)
         };
     }
+
+    private static TopologyNodeSemantics EmptySemantics() => new(null, null, null, null, null, null, null, null);
 }

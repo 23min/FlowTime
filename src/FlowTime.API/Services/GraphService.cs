@@ -188,9 +188,27 @@ public sealed class GraphService
                     continue; // already added via topology
                 }
 
+                GraphNodeDistribution? distribution = null;
+                if (string.Equals(kind, "pmf", StringComparison.OrdinalIgnoreCase) && nodeDef.Pmf is { } pmfDef)
+                {
+                    distribution = new GraphNodeDistribution
+                    {
+                        Values = pmfDef.Values ?? Array.Empty<double>(),
+                        Probabilities = pmfDef.Probabilities ?? Array.Empty<double>()
+                    };
+                }
+
+                double[]? inlineValues = null;
+                if (string.Equals(kind, "const", StringComparison.OrdinalIgnoreCase) && nodeDef.Values is { Length: > 0 })
+                {
+                    inlineValues = nodeDef.Values;
+                }
+
                 var semantics = new GraphNodeSemantics
                 {
-                    Series = $"series:{nodeDef.Id}"
+                    Series = $"series:{nodeDef.Id}",
+                    Distribution = distribution,
+                    InlineValues = inlineValues
                 };
 
                 AddOrReplaceNode(new GraphNode

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Globalization;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
@@ -12,7 +13,7 @@ namespace FlowTime.UI.Components.Topology;
 
 public abstract class TopologyCanvasBase : ComponentBase, IDisposable
 {
-    private const double NodeWidth = 36;
+    private const double NodeWidth = 54;
     private const double NodeHeight = 24;
     private const double NodeCornerRadius = 3;
     private const double ViewportPadding = 48;
@@ -25,8 +26,17 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
     private bool renderScheduled;
     private bool disposed;
     private string? focusedNodeId;
+    private string? tooltipNodeId;
+    private string? selectedNodeId;
     private TopologyGraph? filteredGraph;
     private DotNetObjectReference<TopologyCanvasBase>? dotNetRef;
+    private CancellationTokenSource? tooltipDismissCts;
+    private bool hasRendered;
+    private TopologyGraph? lastSourceGraph;
+    private ViewportSnapshot? pendingViewportSnapshot;
+    private string? pendingViewportSignature;
+    private bool preserveViewportHint;
+    private ViewportSnapshot? lastViewportSnapshot;
 
     [Inject] protected IJSRuntime JS { get; set; } = default!;
 
@@ -36,7 +46,10 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
     [Parameter] public int ActiveBin { get; set; }
     [Parameter] public IReadOnlyDictionary<string, NodeSparklineData>? NodeSparklines { get; set; }
     [Parameter] public EventCallback<double> ZoomPercentChanged { get; set; }
+    [Parameter] public EventCallback<ViewportSnapshot> ViewportChanged { get; set; }
     [Parameter] public EventCallback<string?> NodeFocused { get; set; }
+    [Parameter] public ViewportSnapshot? RequestedViewport { get; set; }
+    [Parameter] public EventCallback ViewportRequestConsumed { get; set; }
     protected ElementReference canvasRef;
 
     protected bool HasVisibleNodes => filteredGraph is { Nodes.Count: > 0 };
@@ -46,6 +59,8 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
 
     protected override void OnParametersSet()
     {
+        CaptureRequestedViewport();
+
         if (!HasSourceGraph)
         {
             filteredGraph = null;
@@ -55,6 +70,11 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             nodeInputs.Clear();
             nodeOutputs.Clear();
             focusedNodeId = null;
+            selectedNodeId = null;
+            lastSourceGraph = null;
+            hasRendered = false;
+            preserveViewportHint = pendingViewportSnapshot is not null;
+            lastViewportSnapshot = null;
             return;
         }
 
@@ -66,8 +86,25 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             focusedNodeId = null;
         }
 
+        if (selectedNodeId is not null && !nodeLookup.ContainsKey(selectedNodeId))
+        {
+            selectedNodeId = null;
+        }
+
+        if (focusedNodeId is null && selectedNodeId is not null)
+        {
+            focusedNodeId = selectedNodeId;
+        }
+
         NodeProxies = BuildNodeProxies(filteredGraph, NodeMetrics, focusedNodeId, OverlaySettings);
-        pendingRequest = BuildRenderRequest(filteredGraph, NodeMetrics, NodeSparklines, focusedNodeId, OverlaySettings, ActiveBin);
+        var snapshotForRender = pendingViewportSnapshot ?? RequestedViewport;
+        var preserveViewport = snapshotForRender is not null;
+        if (preserveViewport)
+        {
+            preserveViewportHint = true;
+        }
+        pendingRequest = BuildRenderRequest(filteredGraph, NodeMetrics, NodeSparklines, focusedNodeId, tooltipNodeId, OverlaySettings, ActiveBin, snapshotForRender, preserveViewport);
+        lastSourceGraph = Graph;
         renderScheduled = true;
     }
 
@@ -87,14 +124,37 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
 
         dotNetRef ??= DotNetObjectReference.Create(this);
         await JS.InvokeVoidAsync("FlowTime.TopologyCanvas.registerHandlers", canvasRef, dotNetRef);
+
+        if (pendingViewportSnapshot is not null)
+        {
+            var snapshot = pendingViewportSnapshot;
+            pendingViewportSnapshot = null;
+            await JS.InvokeVoidAsync("FlowTime.TopologyCanvas.restoreViewport", canvasRef, snapshot);
+            pendingViewportSignature = null;
+            lastViewportSnapshot = snapshot;
+            if (ViewportRequestConsumed.HasDelegate)
+            {
+                await ViewportRequestConsumed.InvokeAsync();
+            }
+        }
+
         await JS.InvokeVoidAsync("FlowTime.TopologyCanvas.render", canvasRef, pendingRequest);
+        hasRendered = true;
     }
 
-    protected void SelectNode(string nodeId) => FocusNodeInternal(nodeId, true);
+    protected void SelectNode(string nodeId)
+    {
+        CancelPendingTooltipDismiss();
+        FocusNodeInternal(nodeId, notify: true, isSelection: true);
+    }
 
-    protected void HoverNode(string nodeId) => FocusNodeInternal(nodeId, false);
+    protected void HoverNode(string nodeId)
+    {
+        CancelPendingTooltipDismiss();
+        FocusNodeInternal(nodeId, notify: false, isSelection: false);
+    }
 
-    private void FocusNodeInternal(string nodeId, bool notify)
+    private void FocusNodeInternal(string nodeId, bool notify, bool isSelection)
     {
         if (!HasVisibleNodes || !nodeLookup.ContainsKey(nodeId))
         {
@@ -102,12 +162,18 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         }
 
         focusedNodeId = nodeId;
+        if (isSelection)
+        {
+            selectedNodeId = nodeId;
+        }
+
+        tooltipNodeId = nodeId;
         var graph = filteredGraph ?? Graph!;
         NodeProxies = BuildNodeProxies(graph, NodeMetrics, focusedNodeId, OverlaySettings);
         ScheduleRedraw();
         StateHasChanged();
 
-        if (notify && NodeFocused.HasDelegate)
+        if (isSelection && notify && NodeFocused.HasDelegate)
         {
             _ = NodeFocused.InvokeAsync(nodeId);
         }
@@ -115,12 +181,10 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
 
     protected void OnNodeBlur()
     {
-        if (focusedNodeId is null)
-        {
-            return;
-        }
-
+        CancelPendingTooltipDismiss();
         focusedNodeId = null;
+        selectedNodeId = null;
+        tooltipNodeId = null;
         var graph = filteredGraph ?? Graph!;
         NodeProxies = BuildNodeProxies(graph, NodeMetrics, focusedNodeId, OverlaySettings);
         ScheduleRedraw();
@@ -131,6 +195,8 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             _ = NodeFocused.InvokeAsync(null);
         }
     }
+
+    public void ClearFocus() => OnNodeBlur();
 
     protected void OnNodeKeyDown(KeyboardEventArgs args, string nodeId)
     {
@@ -161,7 +227,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
 
         if (!string.IsNullOrWhiteSpace(candidate))
         {
-            FocusNodeInternal(candidate, true);
+            FocusNodeInternal(candidate, notify: true, isSelection: true);
         }
     }
 
@@ -172,7 +238,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             return;
         }
 
-        pendingRequest = BuildRenderRequest(filteredGraph, NodeMetrics, NodeSparklines, focusedNodeId, OverlaySettings, ActiveBin);
+        pendingRequest = BuildRenderRequest(filteredGraph, NodeMetrics, NodeSparklines, focusedNodeId, tooltipNodeId, OverlaySettings, ActiveBin, snapshot: pendingViewportSnapshot ?? RequestedViewport, preserveViewport: preserveViewportHint);
         renderScheduled = true;
     }
 
@@ -206,6 +272,17 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             }
         }
 
+        if (includedIds.Count == 0 && includeServiceNodes)
+        {
+            foreach (var node in graph.Nodes)
+            {
+                if (ClassifyNode(node.Kind) == NodeCategory.Service)
+                {
+                    includedIds.Add(node.Id);
+                }
+            }
+        }
+
         if (includedIds.Count == 0)
         {
             return new TopologyGraph(Array.Empty<TopologyNode>(), Array.Empty<TopologyEdge>());
@@ -222,7 +299,8 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                 node.Index,
                 node.X,
                 node.Y,
-                node.IsPositionFixed))
+                node.IsPositionFixed,
+                node.Semantics))
             .ToImmutableArray();
 
         var filteredEdges = graph.Edges
@@ -244,7 +322,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         {
             "expr" or "expression" => NodeCategory.Expression,
             "const" or "constant" or "pmf" => NodeCategory.Constant,
-            "service" or "queue" or "router" or "external" or "store" or "flow" => NodeCategory.Service,
+            "service" or "queue" or "router" or "external" or "flow" => NodeCategory.Service,
             _ => NodeCategory.Other
         };
     }
@@ -389,8 +467,11 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         IReadOnlyDictionary<string, NodeBinMetrics>? metrics,
         IReadOnlyDictionary<string, NodeSparklineData>? sparklines,
         string? focusedNode,
+        string? tooltipNode,
         TopologyOverlaySettings overlays,
-        int selectedBin)
+        int selectedBin,
+        ViewportSnapshot? snapshot,
+        bool preserveViewport)
     {
         var thresholds = ColorScale.ColorThresholds.FromOverlay(overlays);
         var nodeDtos = graph.Nodes
@@ -406,14 +487,11 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                     nodeMetrics = new NodeBinMetrics(null, null, null, null, null, null);
                 }
 
-                var fill = ColorScale.GetFill(nodeMetrics, overlays.ColorBasis, thresholds);
-                var stroke = ColorScale.GetStroke(nodeMetrics);
-                var isFocused = !string.IsNullOrWhiteSpace(focusedNode) &&
-                    node.Id.Equals(focusedNode, StringComparison.OrdinalIgnoreCase);
-
+                NodeSparklineData? rawSparkline = null;
                 NodeSparklineDto? sparklineDto = null;
                 if (sparklines is not null && sparklines.TryGetValue(node.Id, out var sparklineData))
                 {
+                    rawSparkline = sparklineData;
                     sparklineDto = new NodeSparklineDto(
                         sparklineData.Values,
                         sparklineData.Utilization,
@@ -422,20 +500,54 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                         sparklineData.Min,
                         sparklineData.Max,
                         sparklineData.IsFlat,
-                        sparklineData.StartIndex);
+                        sparklineData.StartIndex,
+                        sparklineData.Series.ToDictionary(
+                            pair => pair.Key,
+                            pair => new SparklineSeriesSliceDto(pair.Value.Values, pair.Value.StartIndex),
+                            StringComparer.OrdinalIgnoreCase));
+                }
+
+                var fill = DetermineFillColor(node, nodeMetrics, overlays, thresholds, rawSparkline, selectedBin);
+                var stroke = ColorScale.GetStroke(nodeMetrics);
+                var isFocused = !string.IsNullOrWhiteSpace(focusedNode) &&
+                    node.Id.Equals(focusedNode, StringComparison.OrdinalIgnoreCase);
+
+                var focusLabel = FormatFocusLabel(nodeMetrics, rawSparkline, overlays.ColorBasis, selectedBin);
+
+                var semantics = node.Semantics;
+                NodeSemanticsDto? semanticsDto = null;
+                if (semantics is not null)
+                {
+                    NodeDistributionDto? distributionDto = null;
+                    if (semantics.Distribution is not null && semantics.Distribution.Values.Count > 0)
+                    {
+                        distributionDto = new NodeDistributionDto(semantics.Distribution.Values, semantics.Distribution.Probabilities);
+                    }
+
+                    semanticsDto = new NodeSemanticsDto(
+                        semantics.Arrivals,
+                        semantics.Served,
+                        semantics.Errors,
+                        semantics.Queue,
+                        semantics.Capacity,
+                        semantics.Series,
+                        distributionDto,
+                        semantics.InlineValues);
+
+                    if (distributionDto is null &&
+                        string.IsNullOrWhiteSpace(semanticsDto.Arrivals) &&
+                        string.IsNullOrWhiteSpace(semanticsDto.Served) &&
+                        string.IsNullOrWhiteSpace(semanticsDto.Errors) &&
+                        string.IsNullOrWhiteSpace(semanticsDto.Queue) &&
+                        string.IsNullOrWhiteSpace(semanticsDto.Capacity) &&
+                        string.IsNullOrWhiteSpace(semanticsDto.Series) &&
+                        (semanticsDto.InlineValues is null || semanticsDto.InlineValues.Count == 0))
+                    {
+                        semanticsDto = null;
+                    }
                 }
 
                 var isVisible = true;
-                if (overlays.EnableFullDag && !overlays.ShowComputeNodes)
-                {
-                    if (string.Equals(node.Kind, "expr", StringComparison.OrdinalIgnoreCase) ||
-                        string.Equals(node.Kind, "expression", StringComparison.OrdinalIgnoreCase) ||
-                        string.Equals(node.Kind, "const", StringComparison.OrdinalIgnoreCase) ||
-                        string.Equals(node.Kind, "pmf", StringComparison.OrdinalIgnoreCase))
-                    {
-                        isVisible = false;
-                    }
-                }
 
                 return new NodeRenderInfo(
                     node.Id,
@@ -449,7 +561,9 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                     stroke,
                     isFocused,
                     isVisible,
-                    sparklineDto);
+                    sparklineDto,
+                    focusLabel,
+                    semanticsDto);
             })
             .ToImmutableArray();
 
@@ -515,9 +629,6 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             overlays.ShowSparklines,
             overlays.SparklineMode,
             overlays.EdgeStyle,
-            overlays.AutoLod,
-            overlays.ZoomLowThreshold,
-            overlays.ZoomMidThreshold,
             overlays.ZoomPercent,
             overlays.ColorBasis,
             overlays.SlaWarningThreshold,
@@ -540,17 +651,220 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             overlays.ShowErrorsDependencies,
             overlays.ShowQueueDependencies,
             overlays.ShowCapacityDependencies,
-            overlays.ShowExpressionDependencies,
-            overlays.ShowComputeNodes);
+            overlays.ShowExpressionDependencies);
 
         TooltipPayload? tooltip = null;
-        if (!string.IsNullOrWhiteSpace(focusedNode))
+        if (!string.IsNullOrWhiteSpace(tooltipNode))
         {
-            var content = TooltipFormatter.Format(focusedNode!, metrics is not null && metrics.TryGetValue(focusedNode!, out var m) ? m : new NodeBinMetrics(null, null, null, null, null, null));
+            var content = TooltipFormatter.Format(tooltipNode!, metrics is not null && metrics.TryGetValue(tooltipNode!, out var m) ? m : new NodeBinMetrics(null, null, null, null, null, null));
             tooltip = new TooltipPayload(content.Title, content.Subtitle, content.Lines);
         }
 
-        return new CanvasRenderRequest(nodeDtos, edges, viewport, overlayPayload, tooltip);
+        var snapshotPayload = preserveViewport ? CreateSnapshotPayload(snapshot) : null;
+
+        return new CanvasRenderRequest(nodeDtos, edges, viewport, overlayPayload, tooltip, snapshotPayload, preserveViewport);
+    }
+
+    private static string DetermineFillColor(
+        TopologyNode node,
+        NodeBinMetrics metrics,
+        TopologyOverlaySettings overlays,
+        ColorScale.ColorThresholds thresholds,
+        NodeSparklineData? sparkline,
+        int selectedBin)
+    {
+        var fill = ColorScale.GetFill(metrics, overlays.ColorBasis, thresholds);
+
+        var sampled = SampleSparklineValue(sparkline, overlays.ColorBasis, selectedBin);
+        if (sampled.HasValue)
+        {
+            var sampledMetrics = overlays.ColorBasis switch
+            {
+                TopologyColorBasis.Utilization => new NodeBinMetrics(null, sampled, null, null, null, null),
+                TopologyColorBasis.Errors => new NodeBinMetrics(null, null, sampled, null, null, null),
+                TopologyColorBasis.Queue => new NodeBinMetrics(null, null, null, sampled, null, null),
+                _ => new NodeBinMetrics(sampled, null, null, null, null, null)
+            };
+
+            fill = ColorScale.GetFill(sampledMetrics, overlays.ColorBasis, thresholds);
+        }
+
+        var kindNormalized = node.Kind?.ToLowerInvariant();
+        if (kindNormalized is "const" or "constant" or "pmf")
+        {
+            return "#60A5FA"; // lighter blue for inputs
+        }
+
+        if (kindNormalized is "expr" or "expression")
+        {
+            return "#E2E8F0";
+        }
+
+        if (node.Inputs.Count == 0 && kindNormalized is "service" or "queue" or "router" or "external" or null)
+        {
+            return ColorScale.SuccessColor;
+        }
+
+        return fill;
+    }
+
+    private static double? SampleSparklineValue(
+        NodeSparklineData? sparkline,
+        TopologyColorBasis basis,
+        int selectedBin)
+    {
+        if (sparkline is null || selectedBin < 0)
+        {
+            return null;
+        }
+
+        var index = selectedBin - sparkline.StartIndex;
+        if (index < 0)
+        {
+            return null;
+        }
+
+        static double? ValueAt(IReadOnlyList<double?>? series, int position)
+        {
+            if (series is null || position < 0 || position >= series.Count)
+            {
+                return null;
+            }
+
+            var value = series[position];
+            return value.HasValue ? value.Value : null;
+        }
+
+        return basis switch
+        {
+            TopologyColorBasis.Utilization => ValueAt(sparkline.Utilization, index),
+            TopologyColorBasis.Errors => ValueAt(sparkline.ErrorRate, index),
+            TopologyColorBasis.Queue => ValueAt(sparkline.QueueDepth, index),
+            _ => ValueAt(sparkline.Values, index)
+        };
+    }
+
+    private void CaptureRequestedViewport()
+    {
+        if (RequestedViewport is null)
+        {
+            if (pendingViewportSnapshot is null)
+            {
+                pendingViewportSignature = null;
+            }
+            return;
+        }
+
+        var signature = BuildViewportSignature(RequestedViewport);
+        if (pendingViewportSignature == signature)
+        {
+            return;
+        }
+
+        pendingViewportSnapshot = CloneViewport(RequestedViewport);
+        pendingViewportSignature = signature;
+        preserveViewportHint = true;
+    }
+
+    private static ViewportSnapshot CloneViewport(ViewportSnapshot snapshot)
+    {
+        return new ViewportSnapshot
+        {
+            Scale = snapshot.Scale,
+            OffsetX = snapshot.OffsetX,
+            OffsetY = snapshot.OffsetY,
+            WorldCenterX = snapshot.WorldCenterX,
+            WorldCenterY = snapshot.WorldCenterY,
+            OverlayScale = snapshot.OverlayScale,
+            BaseScale = snapshot.BaseScale
+        };
+    }
+
+    private static string BuildViewportSignature(ViewportSnapshot snapshot)
+    {
+        return FormattableString.Invariant(
+            $"{snapshot.Scale:0.####}|{snapshot.OffsetX:0.##}|{snapshot.OffsetY:0.##}|{snapshot.WorldCenterX:0.####}|{snapshot.WorldCenterY:0.####}|{snapshot.OverlayScale:0.####}|{snapshot.BaseScale:0.####}");
+    }
+
+    private static string? TryGetSparklineColor(
+        NodeSparklineData sparkline,
+        TopologyColorBasis basis,
+        int selectedBin,
+        ColorScale.ColorThresholds thresholds)
+    {
+        var value = SampleSparklineValue(sparkline, basis, selectedBin);
+
+        if (!value.HasValue)
+        {
+            return null;
+        }
+
+        var metrics = basis switch
+        {
+            TopologyColorBasis.Utilization => new NodeBinMetrics(null, value, null, null, null, null),
+            TopologyColorBasis.Errors => new NodeBinMetrics(null, null, value, null, null, null),
+            TopologyColorBasis.Queue => new NodeBinMetrics(null, null, null, value, null, null),
+            _ => new NodeBinMetrics(value, null, null, null, null, null)
+        };
+
+        return ColorScale.GetFill(metrics, basis, thresholds);
+    }
+
+    private static string? FormatFocusLabel(
+        NodeBinMetrics metrics,
+        NodeSparklineData? sparkline,
+        TopologyColorBasis basis,
+        int selectedBin)
+    {
+        var invariant = CultureInfo.InvariantCulture;
+
+        if (metrics.CustomValue.HasValue)
+        {
+            return metrics.CustomValue.Value.ToString("0.###", invariant);
+        }
+
+        double? sample = SampleSparklineValue(sparkline, basis, selectedBin);
+        if (!sample.HasValue)
+        {
+            sample = basis switch
+            {
+                TopologyColorBasis.Utilization => metrics.Utilization,
+                TopologyColorBasis.Errors => metrics.ErrorRate,
+                TopologyColorBasis.Queue => metrics.QueueDepth,
+                _ => metrics.SuccessRate
+            };
+        }
+
+        if (!sample.HasValue)
+        {
+            return null;
+        }
+
+        if (basis == TopologyColorBasis.Queue)
+        {
+            return sample.Value.ToString("0.#", invariant);
+        }
+
+        var percentValue = sample.Value * 100d;
+        var format = basis == TopologyColorBasis.Errors && sample.Value < 0.1 ? "0.0#" : "0.#";
+        return $"{percentValue.ToString(format, invariant)}%";
+    }
+
+    private static ViewportSnapshotPayload? CreateSnapshotPayload(ViewportSnapshot? snapshot)
+    {
+        if (snapshot is null)
+        {
+            return null;
+        }
+
+        return new ViewportSnapshotPayload(
+            snapshot.Scale,
+            snapshot.OffsetX,
+            snapshot.OffsetY,
+            snapshot.WorldCenterX,
+            snapshot.WorldCenterY,
+            snapshot.OverlayScale,
+            snapshot.BaseScale);
     }
 
     public virtual void Dispose()
@@ -561,6 +875,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         }
 
         disposed = true;
+        CancelPendingTooltipDismiss();
         _ = JS.InvokeVoidAsync("FlowTime.TopologyCanvas.dispose", canvasRef);
         dotNetRef?.Dispose();
         dotNetRef = null;
@@ -577,5 +892,104 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         }
 
         return ZoomPercentChanged.InvokeAsync(zoomPercent);
+    }
+
+    [JSInvokable]
+    public Task OnViewportChanged(ViewportSnapshot snapshot)
+    {
+        if (!ViewportChanged.HasDelegate || snapshot is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        lastViewportSnapshot = snapshot;
+        preserveViewportHint = true;
+        return ViewportChanged.InvokeAsync(snapshot);
+    }
+
+    public ValueTask RestoreViewportAsync(ViewportSnapshot snapshot)
+    {
+        if (snapshot is null)
+        {
+            return ValueTask.CompletedTask;
+        }
+
+        return JS.InvokeVoidAsync("FlowTime.TopologyCanvas.restoreViewport", canvasRef, snapshot);
+    }
+
+    protected Task OnNodePointerLeave()
+    {
+        ScheduleTooltipDismiss();
+        return Task.CompletedTask;
+    }
+
+    protected void OnNodeHoverLeave()
+    {
+        ScheduleTooltipDismiss();
+
+        var targetFocus = selectedNodeId;
+        if (string.Equals(focusedNodeId, targetFocus, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        focusedNodeId = targetFocus;
+
+        var graph = filteredGraph ?? Graph!;
+        NodeProxies = BuildNodeProxies(graph, NodeMetrics, focusedNodeId, OverlaySettings);
+        ScheduleRedraw();
+        StateHasChanged();
+    }
+
+    private void ScheduleTooltipDismiss()
+    {
+        CancelPendingTooltipDismiss();
+
+        tooltipDismissCts = new CancellationTokenSource();
+        var token = tooltipDismissCts.Token;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(2), token);
+                if (token.IsCancellationRequested)
+                {
+                    return;
+                }
+
+                await InvokeAsync(() =>
+                {
+                    if (tooltipDismissCts?.IsCancellationRequested == false)
+                    {
+                        tooltipDismissCts?.Dispose();
+                        tooltipDismissCts = null;
+                        tooltipNodeId = null;
+                        ScheduleRedraw();
+                        StateHasChanged();
+                    }
+                });
+            }
+            catch (OperationCanceledException)
+            {
+                // expected when pointer re-enters
+            }
+        }, token);
+    }
+
+    private void CancelPendingTooltipDismiss()
+    {
+        if (tooltipDismissCts is null)
+        {
+            return;
+        }
+
+        if (!tooltipDismissCts.IsCancellationRequested)
+        {
+            tooltipDismissCts.Cancel();
+        }
+
+        tooltipDismissCts.Dispose();
+        tooltipDismissCts = null;
     }
 }

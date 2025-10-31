@@ -22,7 +22,7 @@ public interface IFlowTimeApiClient
     Task<ApiCallResult<RunCreateResponseDto>> GetRunAsync(string runId, CancellationToken ct = default);
     Task<ApiCallResult<TelemetryCaptureResponseDto>> GenerateTelemetryCaptureAsync(TelemetryCaptureRequestDto request, CancellationToken ct = default);
     Task<ApiCallResult<TimeTravelStateSnapshotDto>> GetRunStateAsync(string runId, int binIndex, CancellationToken ct = default);
-    Task<ApiCallResult<TimeTravelStateWindowDto>> GetRunStateWindowAsync(string runId, int startBin, int endBin, CancellationToken ct = default);
+    Task<ApiCallResult<TimeTravelStateWindowDto>> GetRunStateWindowAsync(string runId, int startBin, int endBin, string? mode = null, CancellationToken ct = default);
     Task<ApiCallResult<GraphResponseModel>> GetRunGraphAsync(string runId, GraphQueryOptions? options = null, CancellationToken ct = default);
     Task<ApiCallResult<SeriesIndex>> GetRunIndexAsync(string runId, CancellationToken ct = default);
     Task<ApiCallResult<Stream>> GetRunSeriesAsync(string runId, string seriesId, CancellationToken ct = default);
@@ -144,9 +144,20 @@ internal sealed class FlowTimeApiClient : IFlowTimeApiClient
         return GetJson<TimeTravelStateSnapshotDto>(path, ct);
     }
 
-    public Task<ApiCallResult<TimeTravelStateWindowDto>> GetRunStateWindowAsync(string runId, int startBin, int endBin, CancellationToken ct = default)
+    public Task<ApiCallResult<TimeTravelStateWindowDto>> GetRunStateWindowAsync(string runId, int startBin, int endBin, string? mode = null, CancellationToken ct = default)
     {
-        var path = $"{apiBasePath}/runs/{Uri.EscapeDataString(runId)}/state_window?startBin={startBin}&endBin={endBin}";
+        var query = new List<string>
+        {
+            $"startBin={startBin}",
+            $"endBin={endBin}"
+        };
+
+        if (!string.IsNullOrWhiteSpace(mode))
+        {
+            query.Add($"mode={Uri.EscapeDataString(mode)}");
+        }
+
+        var path = $"{apiBasePath}/runs/{Uri.EscapeDataString(runId)}/state_window?{string.Join('&', query)}";
         return GetJson<TimeTravelStateWindowDto>(path, ct);
     }
 

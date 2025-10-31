@@ -25,6 +25,10 @@ public sealed class GraphNodeSemantics
     public string? Queue { get; init; }
     public string? Capacity { get; init; }
     public string? Series { get; init; }
+    public GraphNodeDistribution? Distribution { get; init; }
+
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<double>? InlineValues { get; init; }
 }
 
 public sealed class GraphNodeUi
@@ -43,4 +47,10 @@ public sealed class GraphEdge
     public double Weight { get; init; }
     public string? EdgeType { get; init; }
     public string? Field { get; init; }
+}
+
+public sealed class GraphNodeDistribution
+{
+    public IReadOnlyList<double> Values { get; init; } = Array.Empty<double>();
+    public IReadOnlyList<double> Probabilities { get; init; } = Array.Empty<double>();
 }

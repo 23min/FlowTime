@@ -275,7 +275,7 @@ public sealed class ArtifactListRenderTests : TestContext
         public Task<ApiCallResult<TimeTravelStateSnapshotDto>> GetRunStateAsync(string runId, int binIndex, CancellationToken ct = default)
             => Task.FromResult(ApiCallResult<TimeTravelStateSnapshotDto>.Fail(404, "not implemented"));
 
-        public Task<ApiCallResult<TimeTravelStateWindowDto>> GetRunStateWindowAsync(string runId, int startBin, int endBin, CancellationToken ct = default)
+        public Task<ApiCallResult<TimeTravelStateWindowDto>> GetRunStateWindowAsync(string runId, int startBin, int endBin, string? mode = null, CancellationToken ct = default)
             => Task.FromResult(ApiCallResult<TimeTravelStateWindowDto>.Fail(404, "not implemented"));
 
         public Task<ApiCallResult<TimeTravelMetricsResponseDto>> GetRunMetricsAsync(string runId, CancellationToken ct = default)

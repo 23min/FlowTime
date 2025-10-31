@@ -21,7 +21,9 @@
         <MudPaper Class="topology-feature-panel" Elevation="1">
             <TopologyFeatureBar Settings="overlaySettings"
                                  SettingsChanged="OnOverlaySettingsChanged"
-                                 CloseRequested="CloseFeatureBar" />
+                                 CloseRequested="CloseFeatureBar"
+                                 ExpandedSections="sectionExpansionState"
+                                 SectionExpansionChanged="OnFeatureSectionExpansionChanged" />
         </MudPaper>
     }
 
@@ -149,31 +151,101 @@
                                             </MudChip>
                                         }
                                     </MudChipSet>
+                                    <MudStack Row="true" AlignItems="@AlignItems.Center" Class="timeline-focus-group">
+                                        <MudStack Row="true" AlignItems="@AlignItems.Center" Spacing="1" Class="timeline-focus-controls">
+                                            <MudText Typo="Typo.caption" Class="timeline-focus-label">Focus metric:</MudText>
+                                            <MudChipSet T="TopologyColorBasis"
+                                                        Choice="true"
+                                                        SelectedValue="@overlaySettings.ColorBasis"
+                                                        SelectedValueChanged="OnFocusMetricChanged"
+                                                        Class="timeline-focus-set">
+                                                <MudChip T="TopologyColorBasis"
+                                                         Value="TopologyColorBasis.Sla"
+                                                         Variant="Variant.Outlined"
+                                                         DisableRipple="true"
+                                                         Size="Size.Small"
+                                                         Class="timeline-focus-chip">
+                                                    SLA
+                                                </MudChip>
+                                                <MudChip T="TopologyColorBasis"
+                                                         Value="TopologyColorBasis.Utilization"
+                                                         Variant="Variant.Outlined"
+                                                         DisableRipple="true"
+                                                         Size="Size.Small"
+                                                         Class="timeline-focus-chip">
+                                                    Utilization
+                                                </MudChip>
+                                                <MudChip T="TopologyColorBasis"
+                                                         Value="TopologyColorBasis.Errors"
+                                                         Variant="Variant.Outlined"
+                                                         DisableRipple="true"
+                                                         Size="Size.Small"
+                                                         Class="timeline-focus-chip">
+                                                    Error rate
+                                                </MudChip>
+                                                <MudChip T="TopologyColorBasis"
+                                                         Value="TopologyColorBasis.Queue"
+                                                         Variant="Variant.Outlined"
+                                                         DisableRipple="true"
+                                                         Size="Size.Small"
+                                                         Class="timeline-focus-chip">
+                                                    Queue depth
+                                                </MudChip>
+                                            </MudChipSet>
+                                        </MudStack>
+                                        <MudChip T="string"
+                                                 Value="@("Reset")"
+                                                 Variant="Variant.Outlined"
+                                                 Color="Color.Primary"
+                                                 DisableRipple="true"
+                                                 Size="Size.Small"
+                                                 Class="timeline-reset-zoom-chip"
+                                                 OnClick="ResetZoom"
+                                                 Title="Reset zoom">
+                                            100%
+                                        </MudChip>
+                                    </MudStack>
                                 </div>
                             </div>
                         </MudStack>
                     </MudPaper>
 
-                    <TopologyCanvas Graph="topologyGraph"
+                    <TopologyCanvas @ref="canvasComponent"
+                                    Graph="topologyGraph"
                                     NodeMetrics="activeMetrics"
                                     NodeSparklines="nodeSparklines"
                                     OverlaySettings="overlaySettings"
                                     ActiveBin="selectedBin"
                                     ZoomPercentChanged="HandleCanvasZoomChanged"
-                                    NodeFocused="OnNodeFocused" />
+                                    ViewportChanged="OnCanvasViewportChanged"
+                                    NodeFocused="OnNodeFocused"
+                                    RequestedViewport="pendingViewportSnapshot"
+                                    ViewportRequestConsumed="OnRequestedViewportConsumed" />
 
                     <MudDrawer Anchor="Anchor.End"
                                Open="@inspectorOpen"
                                Variant="DrawerVariant.Temporary"
                                Elevation="1"
+                               Width="360px"
+                               DisableOverlayClick="true"
                                Class="topology-inspector">
                         @if (inspectorNodeId is not null)
                         {
-                            <MudStack Class="pa-4" Spacing="1">
-                                <MudText Typo="Typo.subtitle1">Node inspector</MudText>
-                                <MudText Typo="Typo.h6">@inspectorNodeId</MudText>
+                            var nodeId = inspectorNodeId;
+                            var pmfChart = BuildPmfChart(nodeId);
+                            var metricCharts = BuildMetricCharts(nodeId);
 
-                                @if (activeMetrics.TryGetValue(inspectorNodeId, out var metrics))
+                            <MudStack Class="pa-4" Spacing="2">
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                                    <MudText Typo="Typo.subtitle1">Node inspector</MudText>
+                                    <MudIconButton Icon="@Icons.Material.Filled.Close"
+                                                   Color="Color.Secondary"
+                                                   Size="Size.Small"
+                                                   OnClick="CloseInspector" />
+                                </MudStack>
+                                <MudText Typo="Typo.h6">@nodeId</MudText>
+
+                                @if (activeMetrics.TryGetValue(nodeId, out var metrics))
                                 {
                                     <MudStack Spacing="1">
                                         <MudText Typo="Typo.body2">Success: @FormatPercent(metrics.SuccessRate)</MudText>
@@ -181,11 +253,44 @@
                                         <MudText Typo="Typo.body2">Errors: @FormatPercent(metrics.ErrorRate)</MudText>
                                         <MudText Typo="Typo.body2">Queue: @FormatNumber(metrics.QueueDepth)</MudText>
                                         <MudText Typo="Typo.body2">Latency (min): @FormatNumber(metrics.LatencyMinutes)</MudText>
+                                        @if (metrics.CustomValue.HasValue)
+                                        {
+                                            var label = string.IsNullOrWhiteSpace(metrics.CustomLabel) ? "Value" : metrics.CustomLabel!;
+                                            <MudText Typo="Typo.body2">@label: @FormatNumber(metrics.CustomValue)</MudText>
+                                        }
                                     </MudStack>
                                 }
                                 else
                                 {
                                     <MudText Typo="Typo.body2">Metrics unavailable.</MudText>
+                                }
+
+                                @if (pmfChart is not null)
+                                {
+                                    <MudChart ChartType="ChartType.Bar"
+                                              XAxisLabels="@pmfChart.Value.Labels"
+                                              ChartSeries="@pmfChart.Value.Series.ToList()"
+                                              ChartOptions="@CreateInspectorChartOptions()"
+                                              Height="160px"
+                                              Class="node-inspector-chart"
+                                              @key="@($"pmf-{nodeId}")" />
+                                }
+
+                                @if (metricCharts.Count > 0)
+                                {
+                                    @foreach (var chart in metricCharts)
+                                    {
+                                        <MudStack Spacing="1" @key="@($"metric-stack-{nodeId}-{chart.Title}")">
+                                            <MudText Typo="Typo.subtitle2">@chart.Title</MudText>
+                                            <MudChart ChartType="@chart.Type"
+                                                      XAxisLabels="@chart.Labels"
+                                                      ChartSeries="@chart.Series.ToList()"
+                                                      ChartOptions="@CreateInspectorChartOptions()"
+                                                      Height="160px"
+                                                      Class="node-inspector-chart"
+                                                      @key="@($"metric-chart-{nodeId}-{chart.Title}")" />
+                                        </MudStack>
+                                    }
                                 }
                             </MudStack>
                         }
@@ -225,15 +330,21 @@
     private bool isLoading;
     private bool hasLoaded;
     private CancellationTokenSource? loadCts;
+    private CancellationTokenSource? windowReloadCts;
+    private TopologyCanvas? canvasComponent;
 
     private bool featureBarOpen = true;
     private TopologyOverlaySettings overlaySettings = TopologyOverlaySettings.Default.Clone();
+    private Dictionary<TopologyFeatureSection, bool> sectionExpansionState = CreateDefaultSectionState();
+    private ViewportSnapshot? currentViewportSnapshot;
+    private ViewportSnapshot? pendingViewportSnapshot;
+    private bool isRestoringViewport;
     private bool attemptedRestore;
-    private bool overlaySettingsLoaded;
     private DotNetObjectReference<Topology>? selfReference;
     private int? hotkeyRegistrationId;
     private string? inspectorNodeId;
     private bool inspectorOpen;
+    private CancellationTokenSource? saveRunStateDebounceCts;
 
     private TopologyGraph? topologyGraph;
     private IReadOnlyDictionary<string, NodeBinMetrics> activeMetrics = new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase);
@@ -280,17 +391,12 @@
             : "0s";
 
     private static readonly JsonSerializerOptions overlaySerializerOptions = new(JsonSerializerDefaults.Web);
-    private const string OverlaySettingsStorageKey = "ft.topology.overlaySettings.v1";
+    private const string RunStateStoragePrefix = "ft.topology.state.v2";
+    private const string LegacyOverlayStorageKey = "ft.topology.overlaySettings.v1";
     private const int SparklinePointLimit = 48;
 
     protected override async Task OnParametersSetAsync()
     {
-        if (!overlaySettingsLoaded)
-        {
-            await LoadOverlaySettingsAsync();
-            overlaySettingsLoaded = true;
-        }
-
         if (string.IsNullOrWhiteSpace(RunId))
         {
             if (!attemptedRestore)
@@ -308,37 +414,24 @@
             return;
         }
 
-        if (string.Equals(RunId, currentRunId, StringComparison.OrdinalIgnoreCase) && hasLoaded)
+        if (!string.Equals(RunId, currentRunId, StringComparison.OrdinalIgnoreCase))
         {
+            ResetState();
+            currentRunId = RunId;
+            await EnsureHotkeysRegisteredAsync();
+            await LoadRunStateAsync(currentRunId);
+            await LoadAsync(currentRunId);
             return;
         }
 
-        currentRunId = RunId;
-        await LoadAsync(RunId);
+        if (!hasLoaded && !isLoading && currentRunId is not null)
+        {
+            await LoadAsync(currentRunId);
+        }
     }
 
-    private async Task LoadOverlaySettingsAsync()
+    private async Task EnsureHotkeysRegisteredAsync()
     {
-        try
-        {
-            var json = await JS.InvokeAsync<string?>("localStorage.getItem", OverlaySettingsStorageKey);
-            if (!string.IsNullOrWhiteSpace(json))
-            {
-                var stored = JsonSerializer.Deserialize<TopologyOverlaySettings>(json, overlaySerializerOptions);
-                if (stored is not null)
-                {
-                    overlaySettings = stored;
-                    ApplyLegacyOverlayFields(json, overlaySettings);
-                }
-            }
-        }
-        catch
-        {
-            // Ignore deserialization/storage errors
-        }
-
-        overlaySettingsLoaded = true;
-
         if (selfReference is null)
         {
             selfReference = DotNetObjectReference.Create(this);
@@ -357,17 +450,171 @@
         }
     }
 
-    private async Task SaveOverlaySettingsAsync()
+    private async Task LoadRunStateAsync(string runId)
+    {
+        overlaySettings = TopologyOverlaySettings.Default.Clone();
+        sectionExpansionState = CreateDefaultSectionState();
+        featureBarOpen = true;
+        currentViewportSnapshot = null;
+        pendingViewportSnapshot = null;
+
+        try
+        {
+            var key = BuildRunStateKey(runId);
+            var json = await JS.InvokeAsync<string?>("localStorage.getItem", key);
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                await LoadLegacyOverlayFallbackAsync();
+                return;
+            }
+
+            var stored = JsonSerializer.Deserialize<StoredTopologyRunState>(json, overlaySerializerOptions);
+            if (stored?.Overlay is not null)
+            {
+                overlaySettings = stored.Overlay.Clone();
+            }
+            else
+            {
+                await LoadLegacyOverlayFallbackAsync();
+            }
+
+            if (stored?.Sections is { Count: > 0 })
+            {
+                var defaults = CreateDefaultSectionState();
+                foreach (var pair in stored.Sections)
+                {
+                    if (Enum.TryParse<TopologyFeatureSection>(pair.Key, true, out var section))
+                    {
+                        defaults[section] = pair.Value;
+                    }
+                }
+                sectionExpansionState = defaults;
+            }
+            else
+            {
+                sectionExpansionState = CreateDefaultSectionState();
+            }
+
+            featureBarOpen = stored?.FeatureBarOpen ?? true;
+
+            if (stored?.Viewport is not null)
+            {
+                currentViewportSnapshot = stored.Viewport.ToSnapshot();
+                pendingViewportSnapshot = currentViewportSnapshot;
+                isRestoringViewport = true;
+                pointerNeedsJump = true;
+            }
+        }
+        catch
+        {
+            await LoadLegacyOverlayFallbackAsync();
+        }
+
+        await SaveRunStateAsync();
+    }
+
+    private async Task LoadLegacyOverlayFallbackAsync()
     {
         try
         {
-            var json = JsonSerializer.Serialize(overlaySettings, overlaySerializerOptions);
-            await JS.InvokeVoidAsync("localStorage.setItem", OverlaySettingsStorageKey, json);
+            var json = await JS.InvokeAsync<string?>("localStorage.getItem", LegacyOverlayStorageKey);
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                return;
+            }
+
+            var stored = JsonSerializer.Deserialize<TopologyOverlaySettings>(json, overlaySerializerOptions);
+            if (stored is not null)
+            {
+                overlaySettings = stored.Clone();
+                ApplyLegacyOverlayFields(json, overlaySettings);
+            }
         }
         catch
         {
             // Ignore storage failures
         }
+    }
+
+    private async Task SaveRunStateAsync()
+    {
+        if (string.IsNullOrWhiteSpace(currentRunId))
+        {
+            return;
+        }
+
+        saveRunStateDebounceCts?.Cancel();
+        saveRunStateDebounceCts?.Dispose();
+        saveRunStateDebounceCts = null;
+
+        try
+        {
+            var state = new StoredTopologyRunState
+            {
+                Overlay = overlaySettings.Clone(),
+                FeatureBarOpen = featureBarOpen,
+                Sections = sectionExpansionState.ToDictionary(
+                    pair => pair.Key.ToString(),
+                    pair => pair.Value,
+                    StringComparer.Ordinal)
+            };
+
+            if (currentViewportSnapshot is not null)
+            {
+                state.Viewport = StoredViewportState.FromSnapshot(currentViewportSnapshot);
+            }
+
+            var json = JsonSerializer.Serialize(state, overlaySerializerOptions);
+            await JS.InvokeVoidAsync("localStorage.setItem", BuildRunStateKey(currentRunId), json);
+        }
+        catch
+        {
+            // Ignore persistence errors
+        }
+    }
+
+    private static Dictionary<TopologyFeatureSection, bool> CreateDefaultSectionState()
+    {
+        var result = new Dictionary<TopologyFeatureSection, bool>();
+        foreach (var section in Enum.GetValues<TopologyFeatureSection>())
+        {
+            result[section] = true;
+        }
+        return result;
+    }
+
+    private static string BuildRunStateKey(string runId) => $"{RunStateStoragePrefix}:{runId}";
+
+    private void ScheduleRunStateSave()
+    {
+        saveRunStateDebounceCts?.Cancel();
+        saveRunStateDebounceCts?.Dispose();
+
+        var cts = new CancellationTokenSource();
+        saveRunStateDebounceCts = cts;
+        var token = cts.Token;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(300), token);
+                if (token.IsCancellationRequested)
+                {
+                    return;
+                }
+
+                await InvokeAsync(async () => await SaveRunStateAsync());
+            }
+            catch (TaskCanceledException)
+            {
+                // ignored
+            }
+            catch
+            {
+                // storage errors ignored
+            }
+        }, token);
     }
 
     private async Task LoadAsync(string runId)
@@ -412,7 +659,8 @@
             visibleStartBin = sliceStart;
             visibleEndBin = sliceEnd;
 
-            var windowResult = await DataService.GetStateWindowAsync(runId, sliceStart, sliceEnd, ct);
+            var stateMode = overlaySettings.EnableFullDag ? "full" : null;
+            var windowResult = await DataService.GetStateWindowAsync(runId, sliceStart, sliceEnd, stateMode, ct);
             if (!windowResult.Success || windowResult.Value is null)
             {
                 errorMessage = windowResult.Error ?? "Failed to load run state window.";
@@ -447,17 +695,69 @@
         }
     }
 
-    private void OpenFeatureBar()
+    private async Task OpenFeatureBar()
     {
+        if (featureBarOpen)
+        {
+            return;
+        }
+
         featureBarOpen = true;
         StateHasChanged();
+        await SaveRunStateAsync();
     }
 
-    private Task CloseFeatureBar()
+    private async Task CloseFeatureBar()
     {
+        if (!featureBarOpen)
+        {
+            return;
+        }
+
         featureBarOpen = false;
         StateHasChanged();
-        return Task.CompletedTask;
+        await SaveRunStateAsync();
+    }
+
+    private sealed class StoredTopologyRunState
+    {
+        public TopologyOverlaySettings? Overlay { get; set; }
+        public StoredViewportState? Viewport { get; set; }
+        public Dictionary<string, bool>? Sections { get; set; }
+        public bool? FeatureBarOpen { get; set; }
+    }
+
+    private sealed class StoredViewportState
+    {
+        public double Scale { get; set; }
+        public double OffsetX { get; set; }
+        public double OffsetY { get; set; }
+        public double WorldCenterX { get; set; }
+        public double WorldCenterY { get; set; }
+        public double OverlayScale { get; set; }
+        public double BaseScale { get; set; }
+
+        public ViewportSnapshot ToSnapshot() => new()
+        {
+            Scale = Scale,
+            OffsetX = OffsetX,
+            OffsetY = OffsetY,
+            WorldCenterX = WorldCenterX,
+            WorldCenterY = WorldCenterY,
+            OverlayScale = OverlayScale,
+            BaseScale = BaseScale
+        };
+
+        public static StoredViewportState FromSnapshot(ViewportSnapshot snapshot) => new()
+        {
+            Scale = snapshot.Scale,
+            OffsetX = snapshot.OffsetX,
+            OffsetY = snapshot.OffsetY,
+            WorldCenterX = snapshot.WorldCenterX,
+            WorldCenterY = snapshot.WorldCenterY,
+            OverlayScale = snapshot.OverlayScale,
+            BaseScale = snapshot.BaseScale
+        };
     }
 
     private async Task OnOverlaySettingsChanged(TopologyOverlaySettings updated)
@@ -465,16 +765,17 @@
         var previous = overlaySettings.Clone();
 
         overlaySettings = updated.Clone();
-        await SaveOverlaySettingsAsync();
+        await SaveRunStateAsync();
 
         var requiresGraphReload = previous.EnableFullDag != overlaySettings.EnableFullDag
             || previous.RespectUiPositions != overlaySettings.RespectUiPositions
-            || previous.Layout != overlaySettings.Layout
-            || previous.ShowComputeNodes != overlaySettings.ShowComputeNodes;
+            || previous.Layout != overlaySettings.Layout;
 
         if (requiresGraphReload && hasLoaded)
         {
             await RefreshGraphAsync();
+            await ReloadWindowAsync();
+            StateHasChanged();
         }
         else
         {
@@ -484,7 +785,7 @@
 
     private async Task HandleCanvasZoomChanged(double zoomPercent)
     {
-        var clamped = Math.Clamp(zoomPercent, 30d, 400d);
+        var clamped = Math.Clamp(zoomPercent, 25d, 200d);
         if (Math.Abs(overlaySettings.ZoomPercent - clamped) < 0.1d)
         {
             return;
@@ -493,6 +794,66 @@
         var updated = overlaySettings.Clone();
         updated.ZoomPercent = clamped;
         await OnOverlaySettingsChanged(updated);
+    }
+
+    private async Task ResetZoom()
+    {
+        var updated = overlaySettings.Clone();
+        updated.ZoomPercent = 100d;
+        await OnOverlaySettingsChanged(updated);
+        pointerNeedsJump = true;
+        pendingViewportSnapshot = currentViewportSnapshot?.CloneWithScale(1d);
+    }
+
+    private async Task OnFocusMetricChanged(TopologyColorBasis basis)
+    {
+        if (overlaySettings.ColorBasis == basis)
+        {
+            return;
+        }
+
+        var updated = overlaySettings.Clone();
+        updated.ColorBasis = basis;
+        await OnOverlaySettingsChanged(updated);
+    }
+
+    private async Task OnFeatureSectionExpansionChanged(SectionExpansionChangedArgs args)
+    {
+        sectionExpansionState[args.Section] = args.IsExpanded;
+        await SaveRunStateAsync();
+    }
+
+    private async Task OnCanvasViewportChanged(ViewportSnapshot snapshot)
+    {
+        if (snapshot is null)
+        {
+            return;
+        }
+
+        currentViewportSnapshot = snapshot;
+        if (isRestoringViewport)
+        {
+            return;
+        }
+
+        if (hasLoaded && !string.IsNullOrWhiteSpace(currentRunId))
+        {
+            ScheduleRunStateSave();
+        }
+    }
+
+    private Task OnRequestedViewportConsumed()
+    {
+        pendingViewportSnapshot = null;
+        if (isRestoringViewport)
+        {
+            isRestoringViewport = false;
+            if (hasLoaded && !string.IsNullOrWhiteSpace(currentRunId))
+            {
+                ScheduleRunStateSave();
+            }
+        }
+        return Task.CompletedTask;
     }
 
     private GraphQueryOptions BuildGraphQueryOptions()
@@ -571,6 +932,56 @@
         }
 
         StateHasChanged();
+    }
+
+    private async Task ReloadWindowAsync()
+    {
+        if (!hasLoaded || string.IsNullOrWhiteSpace(currentRunId))
+        {
+            return;
+        }
+
+        var sliceStart = Math.Max(0, visibleStartBin);
+        var sliceEnd = Math.Max(sliceStart, visibleEndBin);
+
+        var cts = new CancellationTokenSource();
+        windowReloadCts?.Cancel();
+        windowReloadCts?.Dispose();
+        windowReloadCts = cts;
+
+        try
+        {
+            var mode = overlaySettings.EnableFullDag ? "full" : null;
+            var windowResult = await DataService.GetStateWindowAsync(currentRunId!, sliceStart, sliceEnd, mode, cts.Token);
+            if (!windowResult.Success || windowResult.Value is null)
+            {
+                return;
+            }
+
+            windowData = windowResult.Value;
+            timestamps = windowData.TimestampsUtc.ToList();
+            BuildNodeSparklines();
+
+            var clampedSelection = Math.Clamp(selectedBin, sliceStart, sliceEnd);
+            UpdateActiveMetrics(clampedSelection);
+        }
+        catch (OperationCanceledException)
+        {
+            // Ignored
+        }
+        catch
+        {
+            // Non-fatal; retain previous window data
+        }
+        finally
+        {
+            if (ReferenceEquals(windowReloadCts, cts))
+            {
+                windowReloadCts = null;
+            }
+
+            cts.Dispose();
+        }
     }
 
     private Task OnDialInput(ChangeEventArgs args)
@@ -664,6 +1075,10 @@
         }
 
         var metrics = new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase);
+        var selectionTimestamp = localIndex >= 0 && localIndex < timestamps.Count
+            ? timestamps[localIndex]
+            : (DateTimeOffset?)null;
+
         foreach (var node in windowData.Nodes)
         {
             double? Get(string key)
@@ -696,15 +1111,63 @@
                 errorRate = errors.Value / denominator.Value;
             }
 
-            var timestamp = localIndex < timestamps.Count ? timestamps[localIndex] : (DateTimeOffset?)null;
-
             metrics[node.Id] = new NodeBinMetrics(
                 successRate,
                 utilization,
                 errorRate,
                 queue,
                 latency,
-                timestamp);
+                selectionTimestamp);
+        }
+
+        if (topologyGraph is not null)
+        {
+            foreach (var topoNode in topologyGraph.Nodes)
+            {
+                if (metrics.ContainsKey(topoNode.Id))
+                {
+                    continue;
+                }
+
+                var inline = topoNode.Semantics?.InlineValues;
+                double? inlineValue = null;
+
+                if (nodeSparklines is not null && nodeSparklines.TryGetValue(topoNode.Id, out var sparkline))
+                {
+                    var index = bin - sparkline.StartIndex;
+                    if (index >= 0 && index < sparkline.Values.Count)
+                    {
+                        inlineValue = sparkline.Values[index];
+                    }
+                }
+
+                if (!inlineValue.HasValue && inline is { Count: > 0 })
+                {
+                    if (bin >= 0 && bin < inline.Count)
+                    {
+                        inlineValue = inline[bin];
+                    }
+                    else if (localIndex >= 0 && localIndex < inline.Count)
+                    {
+                        inlineValue = inline[localIndex];
+                    }
+                }
+
+                if (!inlineValue.HasValue || double.IsNaN(inlineValue.Value) || double.IsInfinity(inlineValue.Value))
+                {
+                    continue;
+                }
+
+                metrics[topoNode.Id] = new NodeBinMetrics(
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    selectionTimestamp,
+                    inlineValue,
+                    "Value");
+            }
         }
 
         activeMetrics = metrics;
@@ -918,31 +1381,361 @@
         var result = new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase);
         foreach (var node in windowData.Nodes)
         {
+            var series = node.Series ?? new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase);
             var successSeries = BuildSuccessRateSeries(node);
-            if (successSeries is null)
+            var primarySeries = successSeries ?? SelectPrimarySeries(series);
+
+            if (primarySeries is null || primarySeries.Length == 0)
             {
                 continue;
             }
 
-            var trimmedSuccess = TrimSeries(successSeries, SparklinePointLimit);
-            var successStartIndex = Math.Max(0, successSeries.Length - trimmedSuccess.Count);
-            var trimmedUtilization = TrimSeries(TryGetSeries(node, "utilization"), SparklinePointLimit, trimmedSuccess.Count);
-            var trimmedErrorRate = TrimSeries(BuildErrorRateSeries(node), SparklinePointLimit, trimmedSuccess.Count);
-            var trimmedQueue = TrimSeries(TryGetSeries(node, "queue"), SparklinePointLimit, trimmedSuccess.Count);
+            var trimmedPrimary = TrimSeries(primarySeries, SparklinePointLimit);
+            if (trimmedPrimary.Count == 0)
+            {
+                continue;
+            }
+
+            var primaryStartIndex = Math.Max(0, primarySeries.Length - trimmedPrimary.Count);
+            var trimmedUtilization = TrimSeries(TryGetSeries(node, "utilization"), SparklinePointLimit, trimmedPrimary.Count);
+            var trimmedErrorRate = TrimSeries(BuildErrorRateSeries(node), SparklinePointLimit, trimmedPrimary.Count);
+            var trimmedQueue = TrimSeries(TryGetSeries(node, "queue"), SparklinePointLimit, trimmedPrimary.Count);
+
+            var additional = new Dictionary<string, SparklineSeriesSlice>(StringComparer.OrdinalIgnoreCase);
+            foreach (var pair in series)
+            {
+                var trimmed = TrimSeries(pair.Value, SparklinePointLimit, trimmedPrimary.Count);
+                var startIndex = pair.Value is null || pair.Value.Length == 0
+                    ? primaryStartIndex
+                    : Math.Max(0, pair.Value.Length - trimmed.Count);
+                additional[pair.Key] = new SparklineSeriesSlice(trimmed, startIndex);
+            }
+
+            if (successSeries is not null)
+            {
+                additional["successRate"] = new SparklineSeriesSlice(trimmedPrimary, primaryStartIndex);
+            }
+
+            if (trimmedUtilization.Count > 0)
+            {
+                additional["utilization"] = new SparklineSeriesSlice(trimmedUtilization, primaryStartIndex);
+            }
+
+            if (trimmedErrorRate.Count > 0)
+            {
+                additional["errorRate"] = new SparklineSeriesSlice(trimmedErrorRate, primaryStartIndex);
+            }
+
+            if (trimmedQueue.Count > 0)
+            {
+                additional["queue"] = new SparklineSeriesSlice(trimmedQueue, primaryStartIndex);
+            }
 
             var sparkline = NodeSparklineData.Create(
-                trimmedSuccess,
+                trimmedPrimary,
                 trimmedUtilization,
                 trimmedErrorRate,
                 trimmedQueue,
-                successStartIndex,
-                0d,
-                1d);
+                primaryStartIndex,
+                successSeries is not null ? 0d : null,
+                successSeries is not null ? 1d : null,
+                additional);
 
             result[node.Id] = sparkline;
         }
 
+        if (topologyGraph is not null)
+        {
+            foreach (var topoNode in topologyGraph.Nodes)
+            {
+                if (result.ContainsKey(topoNode.Id))
+                {
+                    continue;
+                }
+
+                var inlineValues = topoNode.Semantics?.InlineValues;
+                if (inlineValues is null || inlineValues.Count == 0)
+                {
+                    continue;
+                }
+
+                var nullableSeries = inlineValues.Select(value => (double?)value).ToArray();
+                var trimmedInline = TrimSeries(nullableSeries, SparklinePointLimit);
+                if (trimmedInline.Count == 0)
+                {
+                    continue;
+                }
+
+                var startIndex = Math.Max(0, nullableSeries.Length - trimmedInline.Count);
+                var additional = new Dictionary<string, SparklineSeriesSlice>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["values"] = new SparklineSeriesSlice(trimmedInline, startIndex),
+                    [topoNode.Id] = new SparklineSeriesSlice(trimmedInline, startIndex),
+                    [$"series:{topoNode.Id}"] = new SparklineSeriesSlice(trimmedInline, startIndex)
+                };
+
+                var sparkline = NodeSparklineData.Create(
+                    trimmedInline,
+                    Array.Empty<double?>(),
+                    Array.Empty<double?>(),
+                    Array.Empty<double?>(),
+                    startIndex,
+                    explicitMin: null,
+                    explicitMax: null,
+                    additionalSeries: additional);
+
+                result[topoNode.Id] = sparkline;
+            }
+        }
+
         nodeSparklines = result;
+    }
+
+    private sealed record MetricChartViewModel(string Title, ChartSeries[] Series, string[] Labels, ChartType Type);
+
+    private static ChartOptions CreateInspectorChartOptions() => new()
+    {
+        ShowLegend = false,
+        ShowLegendLabels = false,
+        MaxNumYAxisTicks = 2
+    };
+
+    private static readonly (string Title, string Key, bool IsPercent, ChartType Type)[] MetricDefinitions =
+    {
+        ("SLA", "successRate", true, ChartType.Bar),
+        ("Utilization", "utilization", true, ChartType.Bar),
+        ("Error rate", "errorRate", true, ChartType.Bar),
+        ("Queue depth", "queue", false, ChartType.Bar)
+    };
+
+    private IReadOnlyList<MetricChartViewModel> BuildMetricCharts(string nodeId)
+    {
+        if (string.IsNullOrWhiteSpace(nodeId) || nodeSparklines is null || !nodeSparklines.TryGetValue(nodeId, out var sparkline))
+        {
+            return Array.Empty<MetricChartViewModel>();
+        }
+
+        var charts = new List<MetricChartViewModel>();
+
+        foreach (var (title, key, isPercent, chartType) in MetricDefinitions)
+        {
+            var chart = BuildMetricChart(sparkline, title, key, isPercent, chartType);
+            if (chart is not null)
+            {
+                charts.Add(chart);
+            }
+        }
+
+        // Fallback chart for raw values (e.g., const nodes)
+        var valuesChart = BuildMetricChart(sparkline, "Values", "values", false, ChartType.Bar);
+        if (valuesChart is not null)
+        {
+            charts.Add(valuesChart);
+        }
+
+        return charts;
+    }
+
+    private MetricChartViewModel? BuildMetricChart(NodeSparklineData sparkline, string title, string primaryKey, bool isPercent, ChartType chartType)
+    {
+        var slice = ResolveMetricSeriesSlice(sparkline, primaryKey);
+        IReadOnlyList<double?>? values;
+        var startIndex = sparkline.StartIndex;
+
+        if (slice is not null && slice.Values.Count > 0)
+        {
+            values = slice.Values;
+            startIndex = slice.StartIndex;
+        }
+        else
+        {
+            values = primaryKey switch
+            {
+                "successRate" => sparkline.Values,
+                "utilization" => sparkline.Utilization,
+                "errorRate" => sparkline.ErrorRate,
+                "queue" => sparkline.QueueDepth,
+                _ => null
+            };
+        }
+
+        if (values is null || values.Count == 0)
+        {
+            return null;
+        }
+
+        var data = new double[values.Count];
+        var hasValue = false;
+        var lastValue = 0d;
+        var lastSet = false;
+
+        for (var i = 0; i < values.Count; i++)
+        {
+            var sample = values[i];
+            if (sample.HasValue && double.IsFinite(sample.Value))
+            {
+                var numeric = isPercent ? sample.Value * 100d : sample.Value;
+                data[i] = numeric;
+                hasValue = true;
+                lastValue = numeric;
+                lastSet = true;
+            }
+            else
+            {
+                data[i] = double.NaN;
+            }
+        }
+
+        if (!hasValue)
+        {
+            return null;
+        }
+
+        for (var i = 0; i < data.Length; i++)
+        {
+            if (double.IsNaN(data[i]))
+            {
+                data[i] = lastSet ? lastValue : 0d;
+            }
+            else
+            {
+                lastValue = data[i];
+                lastSet = true;
+            }
+        }
+
+        var labels = new string[data.Length];
+        for (var i = 0; i < data.Length; i++)
+        {
+            labels[i] = (startIndex + i).ToString(CultureInfo.InvariantCulture);
+        }
+
+        var seriesName = string.Empty;
+        var series = new[]
+        {
+            new ChartSeries
+            {
+                Name = seriesName,
+                Data = data
+            }
+        };
+
+        return new MetricChartViewModel(title, series, labels, chartType);
+    }
+
+    private static SparklineSeriesSlice? ResolveMetricSeriesSlice(NodeSparklineData sparkline, string primaryKey)
+    {
+        if (sparkline.Series.TryGetValue(primaryKey, out var slice))
+        {
+            return slice;
+        }
+
+        return primaryKey switch
+        {
+            "queue" when sparkline.Series.TryGetValue("queueDepth", out var queueSlice) => queueSlice,
+            _ => null
+        };
+    }
+
+    private (ChartSeries[] Series, string[] Labels)? BuildPmfChart(string nodeId)
+    {
+        if (string.IsNullOrWhiteSpace(nodeId) || topologyGraph is null)
+        {
+            return null;
+        }
+
+        var node = topologyGraph.Nodes.FirstOrDefault(n => string.Equals(n.Id, nodeId, StringComparison.OrdinalIgnoreCase));
+        var distribution = node?.Semantics?.Distribution;
+        if (distribution is null || distribution.Values.Count == 0 || distribution.Probabilities.Count == 0)
+        {
+            return null;
+        }
+
+        var length = Math.Min(distribution.Values.Count, distribution.Probabilities.Count);
+        if (length == 0)
+        {
+            return null;
+        }
+
+        var labels = new string[length];
+        var data = new double[length];
+        var hasValue = false;
+
+        for (var i = 0; i < length; i++)
+        {
+            var probability = distribution.Probabilities[i];
+            if (!double.IsFinite(probability) || probability < 0)
+            {
+                data[i] = 0d;
+            }
+            else
+            {
+                data[i] = probability;
+                if (probability > 0)
+                {
+                    hasValue = true;
+                }
+            }
+
+            labels[i] = distribution.Values[i].ToString("0.###", CultureInfo.InvariantCulture);
+        }
+
+        if (!hasValue)
+        {
+            return null;
+        }
+
+        var series = new[]
+        {
+            new ChartSeries
+            {
+                Name = string.Empty,
+                Data = data
+            }
+        };
+
+        return (series, labels);
+    }
+
+    private void CloseInspector()
+    {
+        inspectorOpen = false;
+        inspectorNodeId = null;
+        canvasComponent?.ClearFocus();
+        StateHasChanged();
+    }
+
+    private static double?[]? SelectPrimarySeries(IReadOnlyDictionary<string, double?[]> series)
+    {
+        if (series is null || series.Count == 0)
+        {
+            return null;
+        }
+
+        static double?[]? Resolve(IReadOnlyDictionary<string, double?[]> dict, string key)
+            => dict.TryGetValue(key, out var value) && value is { Length: > 0 } ? value : null;
+
+        var preferredKeys = new[]
+        {
+            "values",
+            "demand",
+            "arrivals",
+            "served",
+            "capacity",
+            "output",
+            "utilization"
+        };
+
+        foreach (var key in preferredKeys)
+        {
+            var candidate = Resolve(series, key);
+            if (candidate is not null)
+            {
+                return candidate;
+            }
+        }
+
+        return series.Values.FirstOrDefault(value => value is { Length: > 0 });
     }
 
     private string GetRunInfo()
@@ -1153,6 +1946,11 @@
     private void ResetState()
     {
         loadCts?.Cancel();
+        loadCts?.Dispose();
+        loadCts = null;
+        windowReloadCts?.Cancel();
+        windowReloadCts?.Dispose();
+        windowReloadCts = null;
         topologyGraph = null;
         windowData = null;
         seriesIndex = null;
@@ -1170,16 +1968,29 @@
         hasLoaded = false;
         isLoading = false;
         pointerNeedsJump = false;
+        featureBarOpen = true;
+        sectionExpansionState = CreateDefaultSectionState();
+        currentViewportSnapshot = null;
+        pendingViewportSnapshot = null;
+        saveRunStateDebounceCts?.Cancel();
+        saveRunStateDebounceCts?.Dispose();
+        saveRunStateDebounceCts = null;
     }
 
     public void Dispose()
     {
         loadCts?.Cancel();
         loadCts?.Dispose();
+        windowReloadCts?.Cancel();
+        windowReloadCts?.Dispose();
+        windowReloadCts = null;
         if (hotkeyRegistrationId.HasValue)
         {
             _ = JS.InvokeVoidAsync("FlowTime.TopologyHotkeys.unregister", hotkeyRegistrationId.Value);
         }
         selfReference?.Dispose();
+        saveRunStateDebounceCts?.Cancel();
+        saveRunStateDebounceCts?.Dispose();
+        saveRunStateDebounceCts = null;
     }
 }

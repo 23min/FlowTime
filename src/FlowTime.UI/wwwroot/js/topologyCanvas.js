@@ -2,6 +2,10 @@
     const registry = new WeakMap();
     const EdgeTypeTopology = 'topology';
     const EdgeTypeDependency = 'dependency';
+    const MIN_ZOOM_PERCENT = 25;
+    const MAX_ZOOM_PERCENT = 200;
+    const MIN_SCALE = MIN_ZOOM_PERCENT / 100;
+    const MAX_SCALE = MAX_ZOOM_PERCENT / 100;
 
     function getState(canvas) {
         let state = registry.get(canvas);
@@ -29,7 +33,11 @@
                 viewportApplied: false,
                 canvasWidth: null,
                 canvasHeight: null,
-                dotNetRef: null
+                dotNetRef: null,
+                lastViewportSignature: null,
+                chipHitboxes: [],
+                hoveredChipId: null,
+                hoveredChip: null
             };
             setupCanvas(canvas, state);
             registry.set(canvas, state);
@@ -59,6 +67,8 @@
             updateWorldCenter(state);
 
             draw(canvas, state);
+
+            emitViewportChanged(canvas, state);
         };
 
         const resize = () => {
@@ -87,16 +97,50 @@
             state.resizeObserver = observer;
         }
 
+        const clearHover = () => {
+            if (state.hoveredChipId !== null || state.hoveredChip !== null) {
+                state.hoveredChipId = null;
+                state.hoveredChip = null;
+                draw(canvas, state);
+            }
+        };
+
+        const updateHover = (event) => {
+            if (!state.payload || !state.chipHitboxes || state.chipHitboxes.length === 0) {
+                if (state.hoveredChipId !== null || state.hoveredChip !== null) {
+                    state.hoveredChipId = null;
+                    state.hoveredChip = null;
+                    draw(canvas, state);
+                }
+                return;
+            }
+
+            const rect = canvas.getBoundingClientRect();
+            const clientX = event.clientX - rect.left;
+            const clientY = event.clientY - rect.top;
+            const worldX = (clientX - state.offsetX) / state.scale;
+            const worldY = (clientY - state.offsetY) / state.scale;
+            const hit = hitTestChip(state, worldX, worldY);
+            const nextId = hit ? hit.id : null;
+
+            if (nextId !== state.hoveredChipId) {
+                state.hoveredChipId = nextId;
+                draw(canvas, state);
+            }
+        };
+
         const pointerDown = (event) => {
             canvas.setPointerCapture(event.pointerId);
             state.dragging = true;
             state.dragStart = { x: event.clientX, y: event.clientY };
             state.panStart = { x: state.offsetX, y: state.offsetY };
             state.userAdjusted = true;
+            clearHover();
         };
 
         const pointerMove = (event) => {
             if (!state.dragging) {
+                updateHover(event);
                 return;
             }
             const dx = event.clientX - state.dragStart.x;
@@ -110,6 +154,21 @@
             canvas.releasePointerCapture(event.pointerId);
             state.dragging = false;
             updateWorldCenter(state);
+            emitViewportChanged(canvas, state);
+            updateHover(event);
+        };
+
+        const pointerLeave = (event) => {
+            if (canvas.hasPointerCapture?.(event.pointerId)) {
+                canvas.releasePointerCapture(event.pointerId);
+            }
+            const wasDragging = state.dragging;
+            state.dragging = false;
+            if (wasDragging) {
+                updateWorldCenter(state);
+                emitViewportChanged(canvas, state);
+            }
+            clearHover();
         };
 
         const wheel = (event) => {
@@ -120,16 +179,16 @@
             const focusX = (offsetX - state.offsetX) / state.scale;
             const focusY = (offsetY - state.offsetY) / state.scale;
 
-            state.scale = clamp(state.scale * scaleFactor, 0.2, 6);
+            const newScale = clamp(state.scale * scaleFactor, MIN_SCALE, MAX_SCALE);
+            const previousScale = state.scale;
+            state.scale = newScale;
             state.offsetX = offsetX - focusX * state.scale;
             state.offsetY = offsetY - focusY * state.scale;
             state.userAdjusted = true;
 
-            const baseScale = state.baseScale || state.scale;
-            const manual = clamp(state.scale / baseScale, 0.25, 8);
-            state.overlayScale = manual;
-            state.lastOverlayZoom = manual;
-            const zoomPercent = clamp(manual * 100, 30, 400);
+            state.overlayScale = newScale;
+            state.lastOverlayZoom = newScale;
+            const zoomPercent = clamp(newScale * 100, MIN_ZOOM_PERCENT, MAX_ZOOM_PERCENT);
             if (state.dotNetRef) {
                 state.dotNetRef.invokeMethodAsync('OnCanvasZoomChanged', zoomPercent);
             }
@@ -137,12 +196,13 @@
             updateWorldCenter(state);
 
             draw(canvas, state);
+            updateHover(event);
         };
 
         canvas.addEventListener('pointerdown', pointerDown);
         canvas.addEventListener('pointermove', pointerMove);
         canvas.addEventListener('pointerup', pointerUp);
-        canvas.addEventListener('pointerleave', pointerUp);
+        canvas.addEventListener('pointerleave', pointerLeave);
         canvas.addEventListener('wheel', wheel, { passive: false });
 
         state.cleanup = () => {
@@ -150,7 +210,7 @@
             canvas.removeEventListener('pointerdown', pointerDown);
             canvas.removeEventListener('pointermove', pointerMove);
             canvas.removeEventListener('pointerup', pointerUp);
-            canvas.removeEventListener('pointerleave', pointerUp);
+            canvas.removeEventListener('pointerleave', pointerLeave);
             canvas.removeEventListener('wheel', wheel);
             state.resizeObserver?.disconnect?.();
             state.resizeObserver = null;
@@ -161,15 +221,15 @@
     function draw(canvas, state) {
         if (!state.payload) {
             clear(state);
+            state.chipHitboxes = [];
+            state.hoveredChipId = null;
+            state.hoveredChip = null;
             return;
         }
 
         const ctx = state.ctx;
         clear(state);
-
-        ctx.save();
-        ctx.translate(state.offsetX, state.offsetY);
-        ctx.scale(state.scale, state.scale);
+        state.chipHitboxes = [];
 
         const nodes = state.payload.nodes ?? state.payload.Nodes ?? [];
         const edges = state.payload.edges ?? state.payload.Edges ?? [];
@@ -178,23 +238,54 @@
 
         // Sync overlay DOM (proxies + tooltip) with canvas pan/zoom so hover/focus hitboxes and callouts align
         applyOverlayTransform(canvas, state);
-        const sparkColor = resolveSparklineColor(overlaySettings.colorBasis);
+
         const nodeMap = new Map();
         for (const n of nodes) {
-            nodeMap.set((n.id ?? n.Id), {
+            const identifier = n.id ?? n.Id;
+            nodeMap.set(identifier, {
+                id: identifier,
                 x: n.x ?? n.X,
                 y: n.y ?? n.Y,
-                width: n.width ?? n.Width ?? 36,
+                width: n.width ?? n.Width ?? 54,
                 height: n.height ?? n.Height ?? 24,
                 cornerRadius: n.cornerRadius ?? n.CornerRadius ?? 3,
                 sparkline: n.sparkline ?? n.Sparkline ?? null,
                 isFocused: !!(n.isFocused ?? n.IsFocused),
                 visible: !(n.isVisible === false || n.IsVisible === false),
-                kind: String(n.kind ?? n.Kind ?? 'service')
+                kind: String(n.kind ?? n.Kind ?? 'service'),
+                fill: n.fill ?? n.Fill ?? '#7A7A7A',
+                focusLabel: n.focusLabel ?? n.FocusLabel ?? '',
+                semantics: n.semantics ?? n.Semantics ?? null,
+                distribution: n.distribution ?? n.Distribution ?? (n.semantics?.distribution ?? n.Semantics?.Distribution ?? null)
             });
         }
 
-        const portRadius = 3.5;
+        // Synthesize sparklines from inline values for const nodes when not provided
+        for (const [id, meta] of nodeMap.entries()) {
+            const kind = String(meta.kind || '').toLowerCase();
+            if ((kind === 'const' || kind === 'constant') && !meta.sparkline) {
+                const inline = meta.semantics?.inline;
+                if (inline && Array.isArray(inline) && inline.length > 0) {
+                    const slice = { values: inline.slice(), startIndex: 0 };
+                    meta.sparkline = {
+                        values: inline.slice(),
+                        utilization: [],
+                        errorRate: [],
+                        queueDepth: [],
+                        startIndex: 0,
+                        series: { values: slice }
+                    };
+                }
+            }
+        }
+
+        ctx.save();
+        ctx.translate(state.offsetX, state.offsetY);
+        ctx.scale(state.scale, state.scale);
+
+        const sparkColor = resolveSparklineColor(overlaySettings.colorBasis);
+
+        const portRadius = 4.5;
         const portFillColor = '#E7EBF4';
         const portStrokeColor = 'rgba(59, 72, 89, 0.55)';
 
@@ -227,7 +318,7 @@
                 continue;
             }
 
-            if (fromNode.visible === false && overlaySettings.showComputeNodes === false) {
+            if (fromNode.visible === false) {
                 // treat compute edges as badges only
                 continue;
             }
@@ -250,13 +341,14 @@
             let startPoint;
             let endPoint;
 
-            ctx.save();
-            ctx.globalAlpha = edgeAlpha;
-            ctx.lineWidth = 1;
-            ctx.strokeStyle = strokeColor;
-            if (edgeType === EdgeTypeDependency) {
-                ctx.setLineDash([4, 3]);
-            }
+        ctx.save();
+        ctx.globalAlpha = edgeAlpha;
+        const isDependency = edgeType === EdgeTypeDependency;
+        ctx.lineWidth = isDependency ? 1.4 : 3;
+        ctx.strokeStyle = strokeColor;
+        if (isDependency) {
+            ctx.setLineDash([4, 3]);
+        }
 
             if (overlaySettings.edgeStyle === 'bezier') {
                 const path = computeBezierPath(fromNode, toNode, offset, portRadius);
@@ -306,7 +398,7 @@
                 drawEdgeShare(ctx, pathPoints, share);
             }
 
-            if (edgeType === EdgeTypeDependency) {
+            if (isDependency) {
                 ctx.setLineDash([]);
             }
 
@@ -322,13 +414,13 @@
             const meta = nodeMap.get(id);
             const isVisible = meta?.visible !== false;
 
-            if (!isVisible && !overlaySettings.showComputeNodes) {
+            if (!isVisible) {
                 continue;
             }
 
             const x = node.x ?? node.X;
             const y = node.y ?? node.Y;
-            const width = node.width ?? node.Width ?? 36;
+            const width = node.width ?? node.Width ?? 54;
             const height = node.height ?? node.Height ?? 24;
             const cornerRadius = node.cornerRadius ?? node.CornerRadius ?? 3;
             const fill = node.fill ?? node.Fill ?? '#7A7A7A';
@@ -354,7 +446,8 @@
                 const r = Math.min(cornerRadius + 6, Math.min(width, height) / 2);
                 traceRoundedRect(ctx, x, y, width, height, r);
             } else {
-                traceRoundedRect(ctx, x, y, width, height, cornerRadius);
+                const r = Math.min(cornerRadius + 6, Math.min(width, height) / 2);
+                traceRoundedRect(ctx, x, y, width, height, r);
             }
             ctx.fillStyle = fill;
             ctx.strokeStyle = stroke;
@@ -370,55 +463,110 @@
                 ctx.restore();
             }
 
-            if (node.isFocused ?? node.IsFocused) {
-                ctx.save();
-                ctx.globalAlpha = 1;
-                ctx.beginPath();
-                traceRoundedRect(ctx, x, y, width + 10, height + 10, cornerRadius + 4);
-                ctx.strokeStyle = '#FFFFFF';
-                ctx.lineWidth = 2;
-                ctx.setLineDash([6, 4]);
-                ctx.stroke();
-                ctx.setLineDash([]);
-                ctx.restore();
-            }
-
             const nodeMeta = nodeMap.get(id);
-            if (overlaySettings.showSparklines && nodeMeta?.sparkline) {
-                drawSparkline(ctx, nodeMeta, nodeMeta.sparkline, overlaySettings, sparkColor);
+            if (nodeMeta) {
+                nodeMeta.fill = fill;
+            }
+            if (kind === 'service' || kind === 'queue') {
+                drawServiceDecorations(ctx, nodeMeta, overlaySettings, state);
+            } else if (kind === 'pmf' && nodeMeta?.distribution) {
+                drawPmfDistribution(ctx, nodeMeta, nodeMeta.distribution);
+            } else if ((kind === 'const' || kind === 'constant') && overlaySettings.showSparklines && nodeMeta?.sparkline) {
+                drawInputSparkline(ctx, nodeMeta, overlaySettings);
             }
 
-            // Badge rack for service/queue nodes (compute nodes skip badges)
-            if (kind === 'service' || kind === 'queue') {
-                drawBadges(ctx, id, nodeMeta, overlaySettings, edges, nodeMap);
+            if (kind === 'pmf') {
+                ctx.save();
+                ctx.fillStyle = isDarkColor(fill) ? '#FFFFFF' : '#0F172A';
+                ctx.font = '600 11px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('PMF', x, y);
+                ctx.restore();
             }
 
             if (overlaySettings.showLabels) {
                 ctx.save();
                 const label = String(id);
-                const textColor = isDarkColor(fill) ? '#FFFFFF' : '#111111';
-                ctx.fillStyle = textColor;
-                ctx.globalAlpha = highlightNode ? 1 : 0.6;
-                const m = overlaySettings.manualScaleFactor ?? 1;
-                let fontSize = 10;
-                if (m > 2.5) fontSize = 14; else if (m > 1.25) fontSize = 12;
-                ctx.font = `${fontSize}px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif`;
+                ctx.fillStyle = '#0F172A';
+                ctx.globalAlpha = highlightNode ? 1 : 0.75;
+                ctx.font = '10px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'middle';
+                const labelX = x - (width / 2) - 8;
+                const maxWidth = 140;
+                drawFittedText(ctx, label, labelX, y, maxWidth);
+                ctx.restore();
+            }
+
+            const focusLabel = String(nodeMeta?.focusLabel ?? '').trim();
+            if (focusLabel) {
+                ctx.save();
+                ctx.fillStyle = isDarkColor(fill) ? '#FFFFFF' : '#0F172A';
+                ctx.globalAlpha = highlightNode ? 1 : 0.85;
+                ctx.font = '600 12px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                const maxWidth = Math.max(width - 12, 24);
-                drawFittedText(ctx, label, x, y, maxWidth);
+                drawFittedText(ctx, focusLabel, x, y + 1, Math.max(width - 14, 18));
                 ctx.restore();
             }
 
             ctx.restore();
         }
 
-        // Draw vector tooltip/callout if present
-        if (tooltip) {
-            tryDrawTooltip(ctx, nodes, tooltip, state);
+        let hoveredChip = null;
+        if (state.hoveredChipId) {
+            hoveredChip = state.chipHitboxes.find(chip => chip.id === state.hoveredChipId) ?? null;
+        }
+
+        if (hoveredChip) {
+            state.hoveredChip = hoveredChip;
+        } else {
+            state.hoveredChip = null;
+            if (state.hoveredChipId !== null) {
+                state.hoveredChipId = null;
+            }
         }
 
         ctx.restore();
+
+        if (tooltip) {
+            tryDrawTooltip(ctx, nodeMap, tooltip, state);
+        }
+
+        if (state.hoveredChip) {
+            drawChipTooltip(ctx, state);
+        }
+    }
+
+    function hitTestChip(state, worldX, worldY) {
+        if (!state || !Array.isArray(state.chipHitboxes) || state.chipHitboxes.length === 0) {
+            return null;
+        }
+
+        for (let i = state.chipHitboxes.length - 1; i >= 0; i--) {
+            const chip = state.chipHitboxes[i];
+            if (!chip) {
+                continue;
+            }
+
+            const left = Number(chip.x);
+            const top = Number(chip.y);
+            const width = Number(chip.width);
+            const height = Number(chip.height);
+
+            if (!Number.isFinite(left) || !Number.isFinite(top) || !Number.isFinite(width) || !Number.isFinite(height)) {
+                continue;
+            }
+
+            const right = left + width;
+            const bottom = top + height;
+            if (worldX >= left && worldX <= right && worldY >= top && worldY <= bottom) {
+                return chip;
+            }
+        }
+
+        return null;
     }
 
     function applyOverlayTransform(canvas, state) {
@@ -434,71 +582,269 @@
 
     }
 
-    function tryDrawTooltip(ctx, nodes, tooltip, state) {
-        // Find focused node position
-        let focused = null;
-        for (const n of nodes) {
-            if (n.isFocused || n.IsFocused) { focused = n; break; }
+    function tryDrawTooltip(ctx, nodeMap, tooltip, state) {
+        if (!tooltip || !nodeMap || nodeMap.size === 0) {
+            return;
         }
-        if (!focused) return;
 
-        const x = focused.x ?? focused.X;
-        const y = focused.y ?? focused.Y;
-        const dx = 16; // constant offset to the right
-        const dy = -20; // above center
-        const padding = 8;
-        const lineHeight = 14;
+        let focusedId = null;
+        let focusedMeta = null;
+        for (const [id, meta] of nodeMap.entries()) {
+            if (meta.isFocused) {
+                focusedId = id;
+                focusedMeta = meta;
+                break;
+            }
+        }
+
+        if (!focusedMeta) {
+            return;
+        }
+
         const title = String(tooltip.title ?? tooltip.Title ?? '');
-        const subtitle = String(tooltip.subtitle ?? tooltip.Subtitle ?? '');
-        const lines = (tooltip.lines ?? tooltip.Lines ?? []).map(l => String(l));
+        const subtitleRaw = String(tooltip.subtitle ?? tooltip.Subtitle ?? '');
+        const subtitle = subtitleRaw.trim().length > 0 ? subtitleRaw : '';
+        const lines = (tooltip.lines ?? tooltip.Lines ?? [])
+            .map(line => String(line).trim())
+            .filter(line => line.length > 0);
 
-        const all = [title, subtitle, ...lines];
+        const ratio = Number(state.deviceRatio ?? window.devicePixelRatio ?? 1) || 1;
+        const toDevice = (value) => Math.round(value * ratio * 1000) / 1000;
+        const paddingX = toDevice(12);
+        const paddingY = toDevice(6);
+        const lineHeight = toDevice(16);
+        const fontSizePx = 12 * ratio;
+        const fontRegular = `${fontSizePx}px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif`;
+        const fontStrong = `600 ${fontSizePx}px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif`;
+
         ctx.save();
-        ctx.font = '12px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+
         let width = 0;
-        for (const t of all) width = Math.max(width, ctx.measureText(t).width);
-        const height = (2 + lines.length) * lineHeight + padding * 2;
-        const boxX = x + dx;
-        const boxY = y + dy - height;
+        ctx.font = fontStrong;
+        width = Math.max(width, ctx.measureText(title).width);
+        ctx.font = fontRegular;
+        if (subtitle) {
+            width = Math.max(width, ctx.measureText(subtitle).width);
+        }
+        for (const line of lines) {
+            width = Math.max(width, ctx.measureText(line).width);
+        }
+
+        const textLineCount = 1 + (subtitle ? 1 : 0) + lines.length;
+        const boxWidth = Math.ceil(width + paddingX * 2);
+        const boxHeight = Math.ceil(paddingY * 2 + textLineCount * lineHeight);
+
+        const scale = Number(state.scale ?? 1);
+        const offsetX = Number(state.offsetX ?? 0);
+        const offsetY = Number(state.offsetY ?? 0);
+        const overlays = state.overlaySettings ?? {};
+
+        const nodeWidth = Number(focusedMeta.width ?? 54);
+        const nodeHeight = Number(focusedMeta.height ?? 24);
+        const nodeX = Number(focusedMeta.x ?? 0);
+        const nodeY = Number(focusedMeta.y ?? 0);
+        const nodeCenterScreenX = toDevice(offsetX + scale * nodeX);
+        const halfWidthScreen = toDevice((nodeWidth * scale) / 2);
+
+        let badgeBottomWorld = nodeY - (nodeHeight / 2) - 6;
+        const spark = focusedMeta.sparkline ?? null;
+        if (spark && overlays.showSparklines) {
+            const mode = overlays.sparklineMode === 'bar' ? 'bar' : 'line';
+            const sparkHeight = mode === 'bar' ? 16 : 12;
+            badgeBottomWorld -= (sparkHeight + 6);
+        }
+
+        // Position tooltip at constant screen distance to the left of the node, vertically centered
+        const nodeCenterScreenY = toDevice(offsetY + scale * nodeY);
+        const tooltipTop = Math.round(nodeCenterScreenY - (boxHeight / 2));
+        const gap = toDevice(8); // constant px gap from node edge
+        let tooltipX = Math.round((nodeCenterScreenX - halfWidthScreen - gap) - boxWidth);
+        if (!Number.isFinite(tooltipX)) {
+            tooltipX = 0;
+        }
+        const minMargin = toDevice(12);
+        if (tooltipX < minMargin) {
+            tooltipX = minMargin;
+        }
 
         const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-        const bg = prefersDark ? 'rgba(30, 41, 59, 0.95)' : 'rgba(255, 255, 255, 0.95)';
-        const fg = prefersDark ? '#F8FAFC' : '#111827';
-        const border = prefersDark ? 'rgba(148, 163, 184, 0.4)' : 'rgba(17, 24, 39, 0.15)';
+        const bg = prefersDark ? 'rgba(15, 23, 42, 0.96)' : 'rgba(255, 255, 255, 0.97)';
+        const fg = prefersDark ? '#F8FAFC' : '#0F172A';
+        const subtitleColor = prefersDark ? '#94A3B8' : '#4B5563';
+        const border = prefersDark ? 'rgba(148, 163, 184, 0.35)' : 'rgba(15, 23, 42, 0.12)';
 
-        // Callout box
+        ctx.lineWidth = Math.max(1, ratio);
         ctx.fillStyle = bg;
         ctx.strokeStyle = border;
-        ctx.lineWidth = 1;
-        const bw = Math.ceil(width + padding * 2);
-        const bh = Math.ceil(height);
-        const bx = Math.round(boxX);
-        const by = Math.round(boxY);
+
+        const radius = 6;
         ctx.beginPath();
-        ctx.rect(bx, by, bw, bh);
+        roundedRectPath(ctx, tooltipX, tooltipTop, boxWidth, boxHeight, radius);
         ctx.fill();
         ctx.stroke();
 
-        // Pointer triangle
+        ctx.textBaseline = 'top';
+        let textY = tooltipTop + paddingY;
+        ctx.fillStyle = fg;
+        ctx.font = fontStrong;
+        ctx.fillText(title, tooltipX + paddingX, textY);
+
+        ctx.font = fontRegular;
+        if (subtitle) {
+            textY += lineHeight;
+            ctx.fillStyle = subtitleColor;
+            ctx.fillText(subtitle, tooltipX + paddingX, textY);
+            ctx.fillStyle = fg;
+        }
+
+        for (const line of lines) {
+            textY += lineHeight;
+            ctx.fillText(line, tooltipX + paddingX, textY);
+        }
+
+        ctx.restore();
+    }
+
+    function drawChipTooltip(ctx, state) {
+        const chip = state?.hoveredChip ?? null;
+        if (!chip) {
+            return;
+        }
+
+        const rawText = typeof chip.tooltip === 'string' ? chip.tooltip.trim() : '';
+        if (!rawText) {
+            return;
+        }
+
+        const ratio = Number(state.deviceRatio ?? window.devicePixelRatio ?? 1) || 1;
+        const paddingX = 8 * ratio;
+        const paddingY = 4 * ratio;
+        const fontSize = 11 * ratio;
+        const pointerSize = 6 * ratio;
+        const pointerWidth = 12 * ratio;
+        const margin = 8 * ratio;
+        const radius = 6 * ratio;
+
+        const scale = Number(state.scale ?? 1) || 1;
+        const offsetX = Number(state.offsetX ?? 0);
+        const offsetY = Number(state.offsetY ?? 0);
+
+        const chipLeftCss = offsetX + scale * Number(chip.x ?? 0);
+        const chipTopCss = offsetY + scale * Number(chip.y ?? 0);
+        const chipWidthCss = scale * Number(chip.width ?? 0);
+        const chipHeightCss = scale * Number(chip.height ?? 0);
+
+        const canvasWidthDevice = Number.isFinite(state.canvasWidth) ? state.canvasWidth * ratio : ctx.canvas.width;
+        const canvasHeightDevice = Number.isFinite(state.canvasHeight) ? state.canvasHeight * ratio : ctx.canvas.height;
+
+        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const background = prefersDark ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.97)';
+        const foreground = prefersDark ? '#F8FAFC' : '#0F172A';
+        const border = prefersDark ? 'rgba(148, 163, 184, 0.45)' : 'rgba(15, 23, 42, 0.18)';
+
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.font = `500 ${fontSize}px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif`;
+        ctx.textBaseline = 'middle';
+        ctx.textAlign = 'left';
+
+        const textWidth = ctx.measureText(rawText).width;
+        const boxWidth = Math.ceil(textWidth + paddingX * 2);
+        const boxHeight = Math.ceil(fontSize + paddingY * 2);
+
+        const placement = String(chip.placement ?? 'top');
+        let bubbleAbove = placement.startsWith('top');
+
+        const anchorCssX = chipLeftCss + chipWidthCss / 2;
+        const anchorCssY = bubbleAbove ? chipTopCss : chipTopCss + chipHeightCss;
+        const anchorX = anchorCssX * ratio;
+        const anchorY = anchorCssY * ratio;
+
+        let bubbleX = anchorX - boxWidth / 2;
+        const minX = margin;
+        const maxX = canvasWidthDevice - boxWidth - margin;
+        if (bubbleX < minX) {
+            bubbleX = minX;
+        }
+        if (bubbleX > maxX) {
+            bubbleX = Math.max(minX, maxX);
+        }
+
+        let bubbleY;
+        if (bubbleAbove) {
+            bubbleY = anchorY - pointerSize - boxHeight;
+            if (bubbleY < margin) {
+                bubbleAbove = false;
+            }
+        }
+
+        if (!bubbleAbove) {
+            bubbleY = anchorY + pointerSize;
+            if (bubbleY + boxHeight + margin > canvasHeightDevice) {
+                bubbleY = canvasHeightDevice - boxHeight - margin;
+            }
+        }
+
+        ctx.lineWidth = Math.max(1, ratio);
+        ctx.fillStyle = background;
+        ctx.strokeStyle = border;
+
         ctx.beginPath();
-        ctx.moveTo(x + 6, y - 6);
-        ctx.lineTo(x + dx, y - 6);
-        ctx.lineTo(x + dx, y - 12);
+        ctx.moveTo(bubbleX + radius, bubbleY);
+        ctx.lineTo(bubbleX + boxWidth - radius, bubbleY);
+        ctx.quadraticCurveTo(bubbleX + boxWidth, bubbleY, bubbleX + boxWidth, bubbleY + radius);
+        ctx.lineTo(bubbleX + boxWidth, bubbleY + boxHeight - radius);
+        ctx.quadraticCurveTo(bubbleX + boxWidth, bubbleY + boxHeight, bubbleX + boxWidth - radius, bubbleY + boxHeight);
+        ctx.lineTo(bubbleX + radius, bubbleY + boxHeight);
+        ctx.quadraticCurveTo(bubbleX, bubbleY + boxHeight, bubbleX, bubbleY + boxHeight - radius);
+        ctx.lineTo(bubbleX, bubbleY + radius);
+        ctx.quadraticCurveTo(bubbleX, bubbleY, bubbleX + radius, bubbleY);
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
 
-        // Text
-        ctx.fillStyle = fg;
-        let ty = by + padding + lineHeight;
-        ctx.fillText(title, bx + padding, ty);
-        ty += lineHeight;
-        ctx.fillText(subtitle, bx + padding, ty);
-        for (const line of lines) {
-            ty += lineHeight;
-            ctx.fillText(line, bx + padding, ty);
+        const pointerCenter = Math.max(bubbleX + radius, Math.min(bubbleX + boxWidth - radius, anchorX));
+        if (bubbleAbove) {
+            const baseY = bubbleY + boxHeight;
+            ctx.beginPath();
+            ctx.moveTo(pointerCenter - pointerWidth / 2, baseY);
+            ctx.lineTo(pointerCenter + pointerWidth / 2, baseY);
+            ctx.lineTo(anchorX, anchorY);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+        } else {
+            const baseY = bubbleY;
+            ctx.beginPath();
+            ctx.moveTo(pointerCenter - pointerWidth / 2, baseY);
+            ctx.lineTo(anchorX, anchorY);
+            ctx.lineTo(pointerCenter + pointerWidth / 2, baseY);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
         }
+
+        ctx.fillStyle = foreground;
+        ctx.fillText(rawText, bubbleX + paddingX, bubbleY + boxHeight / 2);
+
         ctx.restore();
+    }
+
+    function roundedRectPath(ctx, x, y, width, height, radius) {
+        const r = Math.max(0, Math.min(radius, Math.min(width, height) / 2));
+        const right = x + width;
+        const bottom = y + height;
+
+        ctx.moveTo(x + r, y);
+        ctx.lineTo(right - r, y);
+        ctx.quadraticCurveTo(right, y, right, y + r);
+        ctx.lineTo(right, bottom - r);
+        ctx.quadraticCurveTo(right, bottom, right - r, bottom);
+        ctx.lineTo(x + r, bottom);
+        ctx.quadraticCurveTo(x, bottom, x, bottom - r);
+        ctx.lineTo(x, y + r);
+        ctx.quadraticCurveTo(x, y, x + r, y);
     }
 
     function clear(state) {
@@ -512,34 +858,152 @@
         return Math.min(Math.max(value, min), max);
     }
 
+    function computeAdaptiveWidth(length, baseWidth, overrides) {
+        const opts = overrides || {};
+        const count = Math.max(Number(length) || 0, 1);
+        const scale = Number.isFinite(opts.scale) ? opts.scale : 9;
+        const base = Number.isFinite(baseWidth) ? baseWidth : 24;
+        const min = Number.isFinite(opts.min) ? opts.min : Math.max(base, 20);
+        const max = Number.isFinite(opts.max) ? opts.max : 140;
+        const dynamic = Math.sqrt(count) * scale;
+        return clamp(Math.max(base, dynamic), min, max);
+    }
+
+    function applyScaleAroundCenter(state) {
+        if (!state) {
+            return;
+        }
+
+        const scale = Number.isFinite(state.overlayScale) && state.overlayScale > 0
+            ? state.overlayScale
+            : state.scale ?? 1;
+
+        state.scale = scale;
+
+        const width = Number(state.canvasWidth ?? 0);
+        const height = Number(state.canvasHeight ?? 0);
+        const centerX = Number(state.worldCenterX ?? 0);
+        const centerY = Number(state.worldCenterY ?? 0);
+
+        if (Number.isFinite(width) && width > 0 && Number.isFinite(height) && height > 0 &&
+            Number.isFinite(centerX) && Number.isFinite(centerY)) {
+            state.offsetX = (width / 2) - centerX * state.scale;
+            state.offsetY = (height / 2) - centerY * state.scale;
+        }
+
+        state.userAdjusted = true;
+    }
+
+    function applyViewportSnapshot(state, snapshot) {
+        if (!state || !snapshot) {
+            return;
+        }
+
+        const scale = Number(snapshot.scale ?? snapshot.Scale);
+        const overlayScale = Number(snapshot.overlayScale ?? snapshot.OverlayScale);
+        const baseScale = Number(snapshot.baseScale ?? snapshot.BaseScale);
+        const offsetX = Number(snapshot.offsetX ?? snapshot.OffsetX);
+        const offsetY = Number(snapshot.offsetY ?? snapshot.OffsetY);
+        const worldCenterX = Number(snapshot.worldCenterX ?? snapshot.WorldCenterX);
+        const worldCenterY = Number(snapshot.worldCenterY ?? snapshot.WorldCenterY);
+
+        if (Number.isFinite(scale) && scale > 0) {
+            state.scale = scale;
+        }
+
+        if (Number.isFinite(overlayScale) && overlayScale > 0) {
+            state.overlayScale = overlayScale;
+        } else if (Number.isFinite(state.scale) && state.scale > 0) {
+            state.overlayScale = state.scale;
+        }
+
+        if (Number.isFinite(baseScale) && baseScale > 0) {
+            state.baseScale = baseScale;
+        }
+
+        if (Number.isFinite(worldCenterX)) {
+            state.worldCenterX = worldCenterX;
+        }
+
+        if (Number.isFinite(worldCenterY)) {
+            state.worldCenterY = worldCenterY;
+        }
+
+        const width = Number(state.canvasWidth ?? 0);
+        const height = Number(state.canvasHeight ?? 0);
+
+        if (Number.isFinite(width) && width > 0 && Number.isFinite(state.worldCenterX)) {
+            state.offsetX = (width / 2) - state.worldCenterX * state.scale;
+        } else if (Number.isFinite(offsetX)) {
+            state.offsetX = offsetX;
+        }
+
+        if (Number.isFinite(height) && height > 0 && Number.isFinite(state.worldCenterY)) {
+            state.offsetY = (height / 2) - state.worldCenterY * state.scale;
+        } else if (Number.isFinite(offsetY)) {
+            state.offsetY = offsetY;
+        }
+
+        state.userAdjusted = true;
+        state.viewportApplied = true;
+    }
+
     function render(canvas, payload) {
         const state = getState(canvas);
 
+        const preserveViewport = !!(payload?.preserveViewport ?? payload?.PreserveViewport);
         const overlaySettings = parseOverlaySettings(payload?.overlays ?? payload?.Overlays ?? {});
         state.overlaySettings = overlaySettings;
 
-        const manualFactor = overlaySettings.manualScaleFactor ?? 1;
-        if (state.lastOverlayZoom === null || Math.abs(state.lastOverlayZoom - manualFactor) > 0.001) {
-            state.overlayScale = manualFactor;
-            state.lastOverlayZoom = manualFactor;
-            state.userAdjusted = false;
+        const savedViewport = payload?.savedViewport ?? payload?.SavedViewport ?? null;
+        if (preserveViewport && savedViewport) {
+            applyViewportSnapshot(state, savedViewport);
+        }
+
+        const desiredScale = overlaySettings.manualScale ?? state.overlayScale ?? 1;
+        let manualScaleChanged = state.lastOverlayZoom === null || Math.abs(state.lastOverlayZoom - desiredScale) > 0.001;
+        if (state.lastOverlayZoom === null) {
+            state.overlayScale = clamp(desiredScale, MIN_SCALE, MAX_SCALE);
+            state.lastOverlayZoom = state.overlayScale;
+            manualScaleChanged = false;
+        } else if (manualScaleChanged) {
+            state.overlayScale = clamp(desiredScale, MIN_SCALE, MAX_SCALE);
+            state.lastOverlayZoom = state.overlayScale;
+            if (state.viewportApplied) {
+                applyScaleAroundCenter(state);
+            } else if (!preserveViewport) {
+                state.userAdjusted = false;
+            }
         }
 
         const viewport = getViewport(payload);
         const signature = computeViewportSignature(viewport);
         if (signature && signature !== state.viewportSignature) {
             state.viewportSignature = signature;
-            state.viewportApplied = false;
-            state.baseScale = null;
-            state.userAdjusted = false;
+            if (!preserveViewport) {
+                const needAutoFit = !state.viewportApplied || !state.userAdjusted;
+                state.viewportApplied = false;
+                state.baseScale = null;
+                if (needAutoFit) {
+                    state.userAdjusted = false;
+                }
+            }
         }
 
-        if (viewport && !state.userAdjusted) {
+        if (preserveViewport) {
+            state.payload = payload;
+            draw(canvas, state);
+            emitViewportChanged(canvas, state);
+            return;
+        }
+
+        if (viewport && (!state.userAdjusted || !state.viewportApplied)) {
             applyViewport(canvas, state, viewport);
         }
 
         state.payload = payload;
         draw(canvas, state);
+        emitViewportChanged(canvas, state);
     }
 
     function dispose(canvas) {
@@ -614,13 +1078,15 @@
             }
         }
 
-        const manualFactor = clamp(state.overlayScale ?? 1, 0.25, 4);
-        const baseScale = clamp(state.baseScale ?? safeScale, 0.05, 4);
-        const finalScale = clamp(baseScale * manualFactor, 0.1, 6);
+        const baseScale = clamp(state.baseScale ?? safeScale, 0.05, MAX_SCALE);
+        const targetScale = clamp(state.overlayScale ?? baseScale ?? safeScale, MIN_SCALE, MAX_SCALE);
 
-        state.scale = finalScale;
-        state.offsetX = (width / 2) - (state.worldCenterX * finalScale);
-        state.offsetY = (height / 2) - (state.worldCenterY * finalScale);
+        state.baseScale = baseScale;
+        state.scale = targetScale;
+        state.overlayScale = targetScale;
+        state.lastOverlayZoom = targetScale;
+        state.offsetX = (width / 2) - (state.worldCenterX * targetScale);
+        state.offsetY = (height / 2) - (state.worldCenterY * targetScale);
         state.userAdjusted = false;
 
         updateWorldCenter(state);
@@ -712,8 +1178,10 @@
         const sparkMode = Number(raw.sparklineMode ?? raw.SparklineMode ?? 0);
         const edgeStyleRaw = raw.edgeStyle ?? raw.EdgeStyle ?? 0;
         const zoomPercentRaw = Number(raw.zoomPercent ?? raw.ZoomPercent ?? 100);
-        const zoomPercent = Number.isFinite(zoomPercentRaw) ? clamp(zoomPercentRaw, 30, 400) : 100;
-        const manualScaleFactor = clamp(zoomPercent / 100, 0.25, 8);
+        const zoomPercent = Number.isFinite(zoomPercentRaw)
+            ? clamp(zoomPercentRaw, MIN_ZOOM_PERCENT, MAX_ZOOM_PERCENT)
+            : 100;
+        const manualScale = clamp(zoomPercent / 100, MIN_SCALE, MAX_SCALE);
         const selectedBin = Number(raw.selectedBin ?? raw.SelectedBin ?? -1);
 
         const slaSuccess = clamp(Number(raw.slaSuccessThreshold ?? raw.SlaSuccessThreshold ?? 0.95), 0, 1);
@@ -740,12 +1208,9 @@
             showSparklines: boolOr(raw.showSparklines ?? raw.ShowSparklines, true),
             sparklineMode: sparkMode === 1 ? 'bar' : 'line',
             edgeStyle,
-            autoLod: boolOr(raw.autoLod ?? raw.AutoLod, true),
-            zoomLowThreshold: Number(raw.zoomLowThreshold ?? raw.ZoomLowThreshold ?? 0.5) || 0.5,
-            zoomMidThreshold: Number(raw.zoomMidThreshold ?? raw.ZoomMidThreshold ?? 1.0) || 1.0,
             colorBasis: raw.colorBasis ?? raw.ColorBasis ?? 0,
             zoomPercent,
-            manualScaleFactor,
+            manualScale,
             neighborEmphasis: boolOr(raw.neighborEmphasis ?? raw.NeighborEmphasis, true),
             enableFullDag: boolOr(raw.enableFullDag ?? raw.EnableFullDag, false),
             includeServiceNodes: boolOr(raw.includeServiceNodes ?? raw.IncludeServiceNodes, true),
@@ -758,7 +1223,6 @@
             showQueueDependencies: boolOr(raw.showQueueDependencies ?? raw.ShowQueueDependencies, true),
             showCapacityDependencies: boolOr(raw.showCapacityDependencies ?? raw.ShowCapacityDependencies, true),
             showExpressionDependencies: boolOr(raw.showExpressionDependencies ?? raw.ShowExpressionDependencies, true),
-            showComputeNodes: boolOr(raw.showComputeNodes ?? raw.ShowComputeNodes, false),
             thresholds: {
                 slaSuccess,
                 slaWarning,
@@ -810,15 +1274,24 @@
     }
 
     function getBasisValue(basis, index, sparkline) {
+        const sliceValue = (key) => {
+            const slice = getSeriesSlice(sparkline, key);
+            const values = slice?.values ?? slice?.Values;
+            if (Array.isArray(values)) {
+                return valueAtArray(values, index);
+            }
+            return null;
+        };
+
         switch (basis) {
             case 1:
-                return valueAtArray(sparkline.utilization ?? sparkline.Utilization, index);
+                return sliceValue('utilization') ?? valueAtArray(sparkline.utilization ?? sparkline.Utilization, index);
             case 2:
-                return valueAtArray(sparkline.errorRate ?? sparkline.ErrorRate, index);
+                return sliceValue('errorRate') ?? valueAtArray(sparkline.errorRate ?? sparkline.ErrorRate, index);
             case 3:
-                return valueAtArray(sparkline.queueDepth ?? sparkline.QueueDepth, index);
+                return sliceValue('queue') ?? sliceValue('queueDepth') ?? valueAtArray(sparkline.queueDepth ?? sparkline.QueueDepth, index);
             default:
-                return valueAtArray(sparkline.values ?? sparkline.Values, index);
+                return sliceValue('successRate') ?? valueAtArray(sparkline.values ?? sparkline.Values, index);
         }
     }
 
@@ -835,7 +1308,7 @@
             return 16;
         }
 
-        const width = node.width ?? node.Width ?? 36;
+        const width = node.width ?? node.Width ?? 54;
         const height = node.height ?? node.Height ?? 24;
         const halfW = width / 2;
         const halfH = height / 2;
@@ -934,28 +1407,32 @@
         }
     }
 
-    function drawBadges(ctx, nodeId, nodeMeta, overlays, edges, nodeMap) {
+    function drawServiceDecorations(ctx, nodeMeta, overlaySettings, state) {
         if (!nodeMeta) return;
-        const x = nodeMeta.x ?? 0;
-        const y = nodeMeta.y ?? 0;
-        const width = nodeMeta.width ?? 36;
-        const nodeHeight = nodeMeta.height ?? 24;
 
-        // Compute vertical offset (above node, and above sparkline if present)
-        let top = y - (nodeHeight / 2) - 6;
+        const overlays = overlaySettings ?? {};
+        const semanticsRaw = nodeMeta.semantics ?? null;
         const spark = nodeMeta.sparkline ?? null;
-        if (spark && overlays.showSparklines) {
-            const mode = overlays.sparklineMode === 'bar' ? 'bar' : 'line';
-            const sparkHeight = mode === 'bar' ? 16 : 12;
-            top -= (sparkHeight + 6);
+
+        const semantics = normalizeSemantics(semanticsRaw);
+        const hasSemantics = Object.values(semantics).some(value => value);
+        const hasSpark = spark !== null;
+        const shouldDrawSparkline = overlays.showSparklines && spark;
+
+        if (!hasSemantics && !hasSpark) {
+            return;
         }
 
-        const paddingX = 6;
-        const chipH = 12;
-        const gap = 4;
-        const labelWidth = Math.max(width - 12, 24);
-        let cursorX = x - labelWidth / 2; // left align to label area
-        let leftCursor = x - labelWidth / 2 - gap; // compute badges extend to the left
+        const x = nodeMeta.x ?? 0;
+        const y = nodeMeta.y ?? 0;
+        const nodeWidth = nodeMeta.width ?? 54;
+        const nodeHeight = nodeMeta.height ?? 24;
+        const gap = 6;
+        const chipH = 16;
+        const paddingX = 8;
+
+        const topRowTop = y - (nodeHeight / 2) - chipH - gap;
+        const bottomRowTop = y + (nodeHeight / 2) + gap;
 
         const thresholds = overlays.thresholds || {
             slaSuccess: 0.95,
@@ -966,115 +1443,770 @@
             errorCritical: 0.05
         };
 
-        // helper to get current value by selectedBin
-        function currentOf(arr, startIndex) {
-            if (!Array.isArray(arr)) return null;
-            const sb = Number(overlays.selectedBin ?? -1);
-            const idx = Number.isFinite(sb) ? sb - (Number(startIndex) || 0) : -1;
-            if (idx >= 0 && idx < arr.length) {
-                const v = arr[idx];
-                return (v === null || v === undefined) ? null : Number(v);
+        const selectedBin = Number(overlays.selectedBin ?? -1);
+        const hasSelectedBin = Number.isFinite(selectedBin) && selectedBin >= 0;
+
+        const sampleValueFor = (defaultKey, semanticEntry, extraKeys) => {
+            if (!spark || !hasSelectedBin) {
+                return null;
             }
+
+            const keys = [];
+            const pushKey = (candidate) => {
+                if (candidate === null || candidate === undefined) {
+                    return;
+                }
+
+                const text = String(candidate).trim();
+                if (text.length === 0) {
+                    return;
+                }
+
+                if (!keys.includes(text)) {
+                    keys.push(text);
+                }
+            };
+
+            pushKey(defaultKey);
+
+            if (semanticEntry) {
+                pushKey(semanticEntry.key);
+                pushKey(semanticEntry.canonical);
+                pushKey(semanticEntry.reference);
+                pushKey(semanticEntry.label);
+            }
+
+            if (Array.isArray(extraKeys)) {
+                for (const candidate of extraKeys) {
+                    pushKey(candidate);
+                }
+            }
+
+            for (const candidate of keys) {
+                const value = sampleSeriesValueAt(spark, candidate, selectedBin);
+                if (value !== null && value !== undefined) {
+                    return value;
+                }
+            }
+
             return null;
+        };
+
+        const fallbackLabel = (entry) => entry?.label ?? null;
+
+        if (shouldDrawSparkline) {
+            const defaultSpark = (nodeMeta.fill ?? resolveSparklineColor(overlays.colorBasis));
+            drawSparkline(ctx, nodeMeta, spark, overlays, defaultSpark, {
+                top: topRowTop,
+                height: chipH,
+                right: (x - (nodeWidth / 2) - 8)
+            });
         }
 
-        const startIndex = Number(spark?.startIndex ?? spark?.StartIndex ?? 0);
-        const success = currentOf(spark?.values ?? spark?.Values, startIndex);
-        const util = currentOf(spark?.utilization ?? spark?.Utilization, startIndex);
-        const err = currentOf(spark?.errorRate ?? spark?.ErrorRate, startIndex);
-        const q = currentOf(spark?.queueDepth ?? spark?.QueueDepth, startIndex);
+        if (!hasSemantics) {
+            return;
+        }
 
         ctx.save();
-        ctx.font = '10px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
+        ctx.font = '11px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
 
-        // Arrivals/Served: show success ratio if available as A/S chips
-        if (success !== null && overlays.showArrivalsDependencies !== false) {
-            const label = `A ${(success * 100).toFixed(0)}%`;
-            cursorX += drawChip(ctx, cursorX, top, label, '#F3F4F6', '#111827', paddingX, chipH) + gap;
-        }
-        if (success !== null && overlays.showServedDependencies !== false) {
-            const label = `S ${(success * 100).toFixed(0)}%`;
-            cursorX += drawChip(ctx, cursorX, top, label, '#E6FFFB', '#0F172A', paddingX, chipH) + gap;
-        }
+        let topLeft = x - (nodeWidth / 2) + gap;
+        let topRight = x + (nodeWidth / 2) + gap;
+        let bottomLeft = topLeft;
+        let bottomRight = topRight;
 
-        // Errors
-        if (err !== null && overlays.showErrorsDependencies !== false) {
-            let bg = '#E6FFFB';
-            if (err >= thresholds.errorCritical) bg = '#FDECEC';
-            else if (err >= thresholds.errorWarning) bg = '#FFF7E6';
-            const label = `E ${(err * 100).toFixed(1)}%`;
-            cursorX += drawChip(ctx, cursorX, top, label, bg, '#111827', paddingX, chipH) + gap;
-        }
-
-        // Queue
-        if (q !== null && overlays.showQueueDependencies !== false) {
-            const label = `Q ${Math.round(q)}`;
-            cursorX += drawChip(ctx, cursorX, top, label, '#EEF2FF', '#111827', paddingX, chipH) + gap;
-        }
-
-        // Capacity (use utilization if more relevant)
-        if (util !== null && overlays.showCapacityDependencies !== false) {
-            const label = `C ${(util * 100).toFixed(0)}%`;
-            cursorX += drawChip(ctx, cursorX, top, label, '#F0FFF4', '#111827', paddingX, chipH) + gap;
+        if (overlays.showArrivalsDependencies !== false) {
+            const arrivalValue = sampleValueFor('arrivals', semantics.arrivals);
+            const arrivalLabel = arrivalValue !== null ? formatMetricValue(arrivalValue) : fallbackLabel(semantics.arrivals);
+            if (arrivalLabel) {
+                const drawn = drawChip(ctx, topLeft, topRowTop + chipH, arrivalLabel, '#1976D2', '#FFFFFF', paddingX, chipH);
+                registerChipHitbox(state, {
+                    nodeId: nodeMeta.id ?? null,
+                    metric: 'arrivals',
+                    placement: 'top',
+                    tooltip: semantics.arrivals?.label ?? toPascal('arrivals'),
+                    x: topLeft,
+                    y: topRowTop,
+                    width: drawn,
+                    height: chipH
+                });
+                topLeft += drawn + gap;
+            }
         }
 
-        // Compute dependency badges (const/expr/pmf)
-        for (const edge of edges) {
-            const edgeType = String(edge.edgeType ?? edge.EdgeType ?? '').toLowerCase();
-            if (edgeType !== EdgeTypeDependency) {
-                continue;
+        if (semantics.series) {
+            const outValue = sampleValueFor('series', semantics.series);
+            const outLabel = outValue !== null ? formatMetricValue(outValue) : fallbackLabel(semantics.series);
+            if (outLabel) {
+                const drawn = drawChip(ctx, topLeft, topRowTop + chipH, outLabel, '#5C6BC0', '#FFFFFF', paddingX, chipH);
+                registerChipHitbox(state, {
+                    nodeId: nodeMeta.id ?? null,
+                    metric: 'series',
+                    placement: 'top',
+                    tooltip: semantics.series?.label ?? toPascal('series'),
+                    x: topLeft,
+                    y: topRowTop,
+                    width: drawn,
+                    height: chipH
+                });
+                topLeft += drawn + gap;
+            }
+        }
+
+        if (overlays.showServedDependencies !== false) {
+            const servedValue = sampleValueFor('served', semantics.served);
+            const servedLabel = servedValue !== null ? formatMetricValue(servedValue) : fallbackLabel(semantics.served);
+            if (servedLabel) {
+                const drawn = drawChip(ctx, bottomLeft, bottomRowTop + chipH, servedLabel, '#2E7D32', '#FFFFFF', paddingX, chipH);
+                registerChipHitbox(state, {
+                    nodeId: nodeMeta.id ?? null,
+                    metric: 'served',
+                    placement: 'bottom-left',
+                    tooltip: semantics.served?.label ?? toPascal('served'),
+                    x: bottomLeft,
+                    y: bottomRowTop,
+                    width: drawn,
+                    height: chipH
+                });
+                bottomLeft += drawn + gap;
+            }
+        }
+
+        if (overlays.showCapacityDependencies !== false) {
+            const capacityValue = sampleValueFor('capacity', semantics.capacity, ['cap']);
+            const capacityLabel = capacityValue !== null ? formatMetricValue(capacityValue) : fallbackLabel(semantics.capacity);
+            if (capacityLabel) {
+                const drawn = drawChip(ctx, bottomLeft, bottomRowTop + chipH, capacityLabel, '#FFB300', '#1F2937', paddingX, chipH);
+                registerChipHitbox(state, {
+                    nodeId: nodeMeta.id ?? null,
+                    metric: 'capacity',
+                    placement: 'bottom-left',
+                    tooltip: semantics.capacity?.label ?? toPascal('capacity'),
+                    x: bottomLeft,
+                    y: bottomRowTop,
+                    width: drawn,
+                    height: chipH
+                });
+                bottomLeft += drawn + gap;
+            }
+        }
+
+        if (overlays.showErrorsDependencies !== false) {
+            const errorRateValue = sampleValueFor('errorRate', semantics.errors, ['error_rate']);
+            let errorLabel = null;
+            let bg = '#C62828';
+            let fg = '#FFFFFF';
+
+            if (errorRateValue !== null) {
+                if (errorRateValue <= 0) {
+                    bg = '#E5E7EB';
+                    fg = '#1F2937';
+                } else if (errorRateValue >= thresholds.errorCritical) {
+                    bg = '#B71C1C';
+                } else if (errorRateValue >= thresholds.errorWarning) {
+                    bg = '#FB8C00';
+                    fg = '#1F2937';
+                }
+
+                errorLabel = formatPercent(errorRateValue);
+            } else {
+                const errorCount = sampleValueFor('errors', semantics.errors);
+                if (errorCount !== null) {
+                    if (errorCount <= 0) {
+                        bg = '#E5E7EB';
+                        fg = '#1F2937';
+                    }
+
+                    errorLabel = formatMetricValue(errorCount);
+                } else {
+                    errorLabel = fallbackLabel(semantics.errors);
+                }
             }
 
-            const toId = edge.to ?? edge.To;
-            if (!toId || toId !== nodeId) {
-                continue;
+            if (errorLabel) {
+                const drawn = drawChip(ctx, bottomLeft, bottomRowTop + chipH, errorLabel, bg, fg, paddingX, chipH);
+                registerChipHitbox(state, {
+                    nodeId: nodeMeta.id ?? null,
+                    metric: 'errors',
+                    placement: 'bottom-left',
+                    tooltip: semantics.errors?.label ?? toPascal('errors'),
+                    x: bottomLeft,
+                    y: bottomRowTop,
+                    width: drawn,
+                    height: chipH
+                });
+                bottomLeft += drawn + gap;
             }
+        }
 
-            const fromId = edge.from ?? edge.From;
-            if (!fromId) {
-                continue;
+        if (overlays.showQueueDependencies !== false) {
+            const queueValue = sampleValueFor('queue', semantics.queue);
+            const queueLabel = queueValue !== null ? formatMetricValue(queueValue) : fallbackLabel(semantics.queue);
+            if (queueLabel) {
+                const drawn = drawChip(ctx, bottomRight, bottomRowTop + chipH, queueLabel, '#8E24AA', '#FFFFFF', paddingX, chipH);
+                registerChipHitbox(state, {
+                    nodeId: nodeMeta.id ?? null,
+                    metric: 'queue',
+                    placement: 'bottom-right',
+                    tooltip: semantics.queue?.label ?? toPascal('queue'),
+                    x: bottomRight,
+                    y: bottomRowTop,
+                    width: drawn,
+                    height: chipH
+                });
+                bottomRight += drawn + gap;
             }
-
-            const source = nodeMap.get(fromId);
-            if (!source) {
-                continue;
-            }
-
-            const sourceKind = String(source.kind ?? '').toLowerCase();
-            const isCompute = sourceKind === 'expr' || sourceKind === 'expression' || sourceKind === 'const' || sourceKind === 'pmf';
-            if (!isCompute) {
-                continue;
-            }
-
-            if (overlays.showComputeNodes && source.visible !== false) {
-                // compute node is visible on canvas; skip duplicate badge
-                continue;
-            }
-
-            const field = String(edge.field ?? edge.Field ?? '').toLowerCase();
-            let label = fromId;
-            if (field && field !== 'expr') {
-                label = `${field}: ${fromId}`;
-            }
-            if (label.length > 14) {
-                label = label.slice(0, 11) + '…';
-            }
-
-            const chipWidth = drawComputeBadge(ctx, leftCursor, top, label, sourceKind, paddingX, chipH);
-            leftCursor -= (chipWidth + gap);
         }
 
         ctx.restore();
+    }
+
+    function drawInputSparkline(ctx, nodeMeta, overlaySettings) {
+        const spark = nodeMeta.sparkline ?? null;
+        if (!spark) {
+            return;
+        }
+
+        const mode = overlaySettings.sparklineMode === 'bar' ? 'bar' : 'line';
+        const chipH = mode === 'bar' ? 14 : 12;
+        const gap = 6;
+        const nodeHeight = nodeMeta.height ?? 24;
+        const nodeWidth = nodeMeta.width ?? 54;
+        const top = (nodeMeta.y ?? 0) - (nodeHeight / 2) - chipH - gap;
+        const seriesLength = (spark.values ?? spark.Values ?? []).length;
+        const desiredWidth = computeAdaptiveWidth(seriesLength, nodeWidth, {
+            min: 32,
+            max: 140,
+            scale: mode === 'bar' ? 11 : 10
+        });
+        const center = nodeMeta.x ?? 0;
+
+        drawSparkline(ctx, nodeMeta, spark, overlaySettings, '#3B82F6', {
+            top,
+            height: chipH,
+            left: center - desiredWidth / 2,
+            minWidth: desiredWidth,
+            maxWidth: desiredWidth
+        });
+    }
+
+    function drawPmfDistribution(ctx, nodeMeta, distribution) {
+        if (!distribution) {
+            return;
+        }
+
+        const values = distribution.values ?? distribution.Values;
+        const probabilities = distribution.probabilities ?? distribution.Probabilities;
+        if (!Array.isArray(values) || !Array.isArray(probabilities)) {
+            return;
+        }
+
+        const count = Math.min(values.length, probabilities.length);
+        if (!count) {
+            return;
+        }
+
+        const nodeHeight = nodeMeta.height ?? 24;
+        const nodeWidth = nodeMeta.width ?? 54;
+        const chartHeight = 14;
+        const gap = 6;
+        const top = (nodeMeta.y ?? 0) - (nodeHeight / 2) - chartHeight - gap;
+        const chartWidth = computeAdaptiveWidth(count, nodeWidth, {
+            min: 36,
+            max: 150,
+            scale: 8
+        });
+        const left = (nodeMeta.x ?? 0) - chartWidth / 2;
+
+        ctx.save();
+        ctx.translate(left, top);
+
+        ctx.fillStyle = 'rgba(148, 163, 184, 0.12)';
+        ctx.fillRect(0, 0, chartWidth, chartHeight);
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.35)';
+        ctx.lineWidth = 0.6;
+        ctx.strokeRect(0, 0, chartWidth, chartHeight);
+
+        const maxProbability = probabilities.reduce((max, value) => {
+            const numeric = Number(value);
+            if (!Number.isFinite(numeric) || numeric < 0) {
+                return max;
+            }
+            return Math.max(max, numeric);
+        }, 0);
+
+        const safeMax = maxProbability > 0 ? maxProbability : 1;
+        const barWidth = chartWidth / count;
+
+        for (let i = 0; i < count; i++) {
+            const probability = Number(probabilities[i]);
+            if (!Number.isFinite(probability) || probability < 0) {
+                continue;
+            }
+
+            const normalized = probability / safeMax;
+            const barHeight = Math.max(normalized * (chartHeight - 4), 1);
+            const barLeft = i * barWidth + barWidth * 0.15;
+            const barTop = chartHeight - barHeight - 2;
+
+            ctx.fillStyle = '#2563EB';
+            ctx.fillRect(barLeft, barTop, barWidth * 0.7, barHeight);
+        }
+
+        ctx.restore();
+    }
+
+    function normalizeSemantics(raw) {
+        if (!raw) {
+            return {
+                arrivals: null,
+                served: null,
+                errors: null,
+                queue: null,
+                capacity: null,
+                series: null,
+                distribution: null
+            };
+        }
+
+        return {
+            arrivals: normalizeSemanticValue(raw.arrivals ?? raw.Arrivals),
+            served: normalizeSemanticValue(raw.served ?? raw.Served),
+            errors: normalizeSemanticValue(raw.errors ?? raw.Errors),
+            queue: normalizeSemanticValue(raw.queue ?? raw.Queue),
+            capacity: normalizeSemanticValue(raw.capacity ?? raw.Capacity),
+            series: normalizeSemanticValue(raw.series ?? raw.Series),
+            distribution: normalizeDistribution(raw.distribution ?? raw.Distribution),
+            inline: normalizeInlineSeries(raw.inlineValues ?? raw.InlineValues)
+        };
+    }
+
+    function normalizeSemanticValue(raw) {
+        if (raw === null || raw === undefined) {
+            return null;
+        }
+
+        const text = String(raw).trim();
+        if (text.length === 0) {
+            return null;
+        }
+
+        const seriesMatch = text.match(/^series:(.+)$/i);
+        const fileMatch = text.match(/^file:(.+)$/i);
+        const rawIdentifier = (seriesMatch ?? fileMatch)?.[1]?.trim() ?? text;
+        const canonical = canonicalizeSeriesKey(rawIdentifier);
+        const key = extractSeriesKey(rawIdentifier);
+        const label = simplifySemanticLabel(rawIdentifier);
+
+        return {
+            key,
+            label,
+            reference: rawIdentifier,
+            canonical
+        };
+    }
+
+    function canonicalizeSeriesKey(identifier) {
+        if (identifier === null || identifier === undefined) {
+            return null;
+        }
+
+        let text = String(identifier).trim();
+        if (text.length === 0) {
+            return null;
+        }
+
+        text = text.replace(/^(\.{1,2}\/)+/g, '');
+        text = text.replace(/^file:/i, '');
+        text = text.replace(/^series:/i, '');
+        text = text.replace(/^[\\/]+/g, '');
+        text = text.replace(/\\/g, '/');
+
+        const parts = text.split('/');
+        text = parts.length > 0 ? parts[parts.length - 1] : text;
+        text = text.replace(/\.[^.]+$/, '');
+        text = text.replace(/@.+$/, '');
+
+        return text.trim();
+    }
+
+    function normalizeKeyForComparison(value) {
+        if (value === null || value === undefined) {
+            return '';
+        }
+
+        const canonical = canonicalizeSeriesKey(value);
+        if (!canonical) {
+            return '';
+        }
+
+        return canonical.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+    }
+
+    function collectSeriesKeyCandidates(value) {
+        const candidates = new Set();
+        const push = (candidate) =>
+        {
+            if (typeof candidate !== 'string') {
+                return;
+            }
+
+            const trimmed = candidate.trim();
+            if (trimmed.length > 0) {
+                candidates.add(trimmed);
+            }
+        };
+
+        const base = typeof value === 'string' ? value : String(value ?? '');
+        push(base);
+
+        const canonical = canonicalizeSeriesKey(base);
+        push(canonical);
+
+        if (canonical) {
+            push(canonical.toLowerCase());
+            push(canonical.toUpperCase());
+            push(canonical.replace(/[\s]+/g, '_'));
+            push(canonical.replace(/[\s]+/g, '-').toLowerCase());
+
+            const segments = canonical.replace(/[_-]+/g, ' ').split(' ').filter(part => part.length > 0);
+            if (segments.length > 0) {
+                const pascal = segments.map(capitalize).join('');
+                if (pascal.length > 0) {
+                    push(pascal);
+                    push(pascal.charAt(0).toLowerCase() + pascal.slice(1));
+                }
+            }
+        }
+
+        return Array.from(candidates.values());
+    }
+
+    function capitalize(text) {
+        if (typeof text !== 'string' || text.length === 0) {
+            return text;
+        }
+
+        return text.charAt(0).toUpperCase() + text.slice(1);
+    }
+
+    function normalizeDistribution(raw) {
+        if (!raw) {
+            return null;
+        }
+
+        const values = raw.values ?? raw.Values;
+        const probabilities = raw.probabilities ?? raw.Probabilities;
+        if (!Array.isArray(values) || !Array.isArray(probabilities)) {
+            return null;
+        }
+
+        const count = Math.min(values.length, probabilities.length);
+        if (count <= 0) {
+            return null;
+        }
+
+        const normalizedValues = new Array(count);
+        const normalizedProbabilities = new Array(count);
+        for (let i = 0; i < count; i++) {
+            normalizedValues[i] = Number(values[i]);
+            normalizedProbabilities[i] = Number(probabilities[i]);
+        }
+
+        return {
+            values: normalizedValues,
+            probabilities: normalizedProbabilities
+        };
+    }
+
+    function normalizeInlineSeries(raw) {
+        if (!raw) {
+            return null;
+        }
+
+        const values = Array.isArray(raw) ? raw : null;
+        if (!values || values.length === 0) {
+            return null;
+        }
+
+        const numericValues = new Array(values.length);
+        for (let i = 0; i < values.length; i++) {
+            const numeric = Number(values[i]);
+            numericValues[i] = Number.isFinite(numeric) ? numeric : null;
+        }
+
+        return numericValues;
+    }
+
+    function extractSeriesKey(identifier) {
+        if (typeof identifier !== 'string' || identifier.length === 0) {
+            return null;
+        }
+
+        const trimmed = identifier.trim();
+        if (trimmed.length === 0) {
+            return null;
+        }
+
+        const withoutDirs = trimmed.replace(/^(\.{1,2}\/)+/g, '').split(/[\\/]/).pop() ?? trimmed;
+        const withoutSuffix = withoutDirs.replace(/\.[^.]+$/, '');
+        const withoutVariant = withoutSuffix.replace(/@.+$/, '');
+        return withoutVariant;
+    }
+
+    function simplifySemanticLabel(identifier) {
+        if (typeof identifier !== 'string') {
+            return null;
+        }
+
+        let label = identifier.trim();
+        if (label.length === 0) {
+            return null;
+        }
+
+        label = label.replace(/^file:/i, '')
+            .replace(/^series:/i, '');
+
+        label = label.replace(/^(\.{1,2}\/)+/g, '')
+            .split(/[\\/]/).pop() ?? label;
+
+        label = label.replace(/\.[^.]+$/, '');
+        label = label.replace(/@.+$/, '');
+        label = label.replace(/[_-]+/g, ' ');
+        label = label.replace(/\s+/g, ' ').trim();
+
+        return label.length > 0 ? label : null;
+    }
+
+    function sampleSeriesValueAt(sparkline, key, selectedBin) {
+        const slice = getSeriesSlice(sparkline, key);
+        let values = slice?.values ?? slice?.Values ?? null;
+        let startIndex = Number(slice?.startIndex ?? slice?.StartIndex ?? sparkline.startIndex ?? sparkline.StartIndex ?? 0);
+
+        if (!Array.isArray(values) || values.length === 0) {
+            return null;
+        }
+
+        const index = selectedBin - startIndex;
+        if (index < 0 || index >= values.length) {
+            return null;
+        }
+
+        const sample = values[index];
+        if (sample === null || sample === undefined) {
+            return null;
+        }
+
+        const numeric = Number(sample);
+        return Number.isFinite(numeric) ? numeric : null;
+    }
+
+    function getSeriesSlice(sparkline, key) {
+        if (!sparkline || key === null || key === undefined) {
+            return null;
+        }
+
+        const map = sparkline.series ?? sparkline.Series;
+        if (!map) {
+            return null;
+        }
+
+        const candidates = collectSeriesKeyCandidates(key);
+        for (const candidate of candidates) {
+            if (candidate && map[candidate]) {
+                return map[candidate];
+            }
+        }
+
+        for (const candidate of candidates) {
+            if (!candidate) {
+                continue;
+            }
+
+            if (typeof candidate === 'string') {
+                const lowerKey = candidate.toLowerCase();
+                if (lowerKey && map[lowerKey]) {
+                    return map[lowerKey];
+                }
+
+                const upperKey = candidate.toUpperCase();
+                if (upperKey && map[upperKey]) {
+                    return map[upperKey];
+                }
+            }
+
+            const pascal = map[toPascal(candidate)];
+            if (pascal) {
+                return pascal;
+            }
+        }
+
+        const target = normalizeKeyForComparison(key);
+        if (!target) {
+            return null;
+        }
+
+        const entries = Object.keys(map);
+        for (const name of entries) {
+            if (normalizeKeyForComparison(name) === target) {
+                return map[name];
+            }
+        }
+
+        return null;
+    }
+
+    function sampleSparklineAt(sparkline, property, selectedBin) {
+        if (!sparkline || selectedBin < 0 || !property) {
+            return null;
+        }
+
+        const slice = getSeriesSlice(sparkline, property);
+        let values = slice?.values ?? slice?.Values ?? sparkline[property] ?? sparkline[toPascal(property)];
+        let startIndex = Number(slice?.startIndex ?? slice?.StartIndex ?? sparkline.startIndex ?? sparkline.StartIndex ?? 0);
+
+        if (!Array.isArray(values) || values.length === 0) {
+            return null;
+        }
+
+        const index = selectedBin - startIndex;
+        if (index < 0 || index >= values.length) {
+            return null;
+        }
+
+        const sample = values[index];
+        if (sample === null || sample === undefined) {
+            return null;
+        }
+
+        const numeric = Number(sample);
+        return Number.isFinite(numeric) ? numeric : null;
+    }
+
+    function formatMetricValue(value) {
+        if (value === null || value === undefined) {
+            return null;
+        }
+
+        if (!Number.isFinite(value)) {
+            return null;
+        }
+
+        const abs = Math.abs(value);
+        if (abs >= 1_000_000) {
+            return `${(value / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
+        }
+
+        if (abs >= 1_000) {
+            return `${(value / 1_000).toFixed(1).replace(/\.0$/, '')}k`;
+        }
+
+        if (abs >= 10) {
+            return value.toFixed(0);
+        }
+
+        if (abs >= 1) {
+            return value.toFixed(1).replace(/\.0$/, '');
+        }
+
+        if (abs >= 0.1) {
+            return value.toFixed(2).replace(/0$/, '').replace(/\.$/, '');
+        }
+
+        return value.toPrecision(2);
+    }
+
+    function formatPercent(value) {
+        if (value === null || value === undefined) {
+            return null;
+        }
+
+        if (!Number.isFinite(value)) {
+            return null;
+        }
+
+        const pct = value * 100;
+        const abs = Math.abs(pct);
+        if (abs >= 100) {
+            return `${pct.toFixed(0)}%`;
+        }
+
+        if (abs >= 10) {
+            return `${pct.toFixed(1).replace(/\.0$/, '')}%`;
+        }
+
+        if (abs >= 1) {
+            return `${pct.toFixed(1)}%`;
+        }
+
+        return `${pct.toFixed(2).replace(/0$/, '').replace(/\.$/, '')}%`;
+    }
+
+    function toPascal(name) {
+        if (typeof name !== 'string' || name.length === 0) {
+            return name;
+        }
+        return name.charAt(0).toUpperCase() + name.slice(1);
+    }
+
+    function registerChipHitbox(state, chip) {
+        if (!state) {
+            return;
+        }
+
+        if (!Array.isArray(state.chipHitboxes)) {
+            state.chipHitboxes = [];
+        }
+
+        const width = Number(chip?.width);
+        const height = Number(chip?.height);
+        const left = Number(chip?.x);
+        const top = Number(chip?.y);
+
+        if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) {
+            return;
+        }
+
+        if (!Number.isFinite(left) || !Number.isFinite(top)) {
+            return;
+        }
+
+        const placement = typeof chip?.placement === 'string' && chip.placement.length > 0 ? chip.placement : 'top';
+        const tooltip = typeof chip?.tooltip === 'string' && chip.tooltip.trim().length > 0
+            ? chip.tooltip.trim()
+            : toPascal(chip?.metric ?? 'metric');
+
+        const nodeId = chip?.nodeId ?? null;
+        const keyParts = [
+            nodeId ?? 'node',
+            chip?.metric ?? 'metric',
+            placement,
+            Math.round(left * 10),
+            Math.round(top * 10),
+            Math.round(width * 10)
+        ];
+
+        state.chipHitboxes.push({
+            id: keyParts.join('|'),
+            nodeId,
+            metric: chip?.metric ?? null,
+            placement,
+            tooltip,
+            x: left,
+            y: top,
+            width,
+            height
+        });
     }
 
     function drawChip(ctx, x, y, text, bg, fg, paddingX, h) {
         const w = Math.ceil(ctx.measureText(text).width) + paddingX * 2;
         ctx.save();
         ctx.fillStyle = bg;
-        ctx.strokeStyle = 'rgba(17, 24, 39, 0.15)';
+        ctx.strokeStyle = 'rgba(15, 23, 42, 0.35)';
         ctx.lineWidth = 1;
         // rounded rect
-        const r = Math.min(6, h / 2);
+        const r = h / 2;
         const bx = Math.round(x);
         const by = Math.round(y - h);
         ctx.beginPath();
@@ -1089,42 +2221,8 @@
         ctx.fillStyle = fg;
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
-        ctx.fillText(text, bx + paddingX, by + h / 2);
-        ctx.restore();
-        return w;
-    }
-
-    function drawComputeBadge(ctx, x, y, text, kind, paddingX, h) {
-        const palette = {
-            expr: '#E0F2FE',
-            expression: '#E0F2FE',
-            const: '#FDF6B2',
-            pmf: '#FCE7F3'
-        };
-        const bg = palette[kind] ?? '#E5E7EB';
-        const fg = '#111827';
-        const w = Math.ceil(ctx.measureText(text).width) + paddingX * 2;
-        const r = Math.min(6, h / 2);
-        const bx = Math.round(x - w);
-        const by = Math.round(y - h);
-
-        ctx.save();
-        ctx.fillStyle = bg;
-        ctx.strokeStyle = 'rgba(17, 24, 39, 0.15)';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(bx + r, by);
-        ctx.arcTo(bx + w, by, bx + w, by + h, r);
-        ctx.arcTo(bx + w, by + h, bx, by + h, r);
-        ctx.arcTo(bx, by + h, bx, by, r);
-        ctx.arcTo(bx, by, bx + w, by, r);
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
-        ctx.fillStyle = fg;
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(text, bx + paddingX, by + h / 2);
+        const textY = by + (h / 2) + 0.5;
+        ctx.fillText(text, bx + paddingX, textY);
         ctx.restore();
         return w;
     }
@@ -1332,7 +2430,7 @@
     function createAnchors(node) {
         const cx = node.x ?? node.X ?? 0;
         const cy = node.y ?? node.Y ?? 0;
-        const width = node.width ?? node.Width ?? 36;
+        const width = node.width ?? node.Width ?? 54;
         const height = node.height ?? node.Height ?? 24;
         const halfW = width / 2;
         const halfH = height / 2;
@@ -1377,8 +2475,8 @@
         dx /= len;
         dy /= len;
 
-        const arrowLength = 8;
-        const arrowWidth = 6;
+        const arrowLength = 9;
+        const arrowWidth = 7;
         const baseX = toX - dx * arrowLength;
         const baseY = toY - dy * arrowLength;
         const perpX = -dy;
@@ -1447,21 +2545,20 @@
         ctx.restore();
     }
 
-    function drawSparkline(ctx, nodeMeta, sparkline, overlaySettings, defaultColor) {
-        const values = sparkline.values ?? sparkline.Values;
-        if (!Array.isArray(values) || values.length < 2) {
+    function drawSparkline(ctx, nodeMeta, sparkline, overlaySettings, defaultColor, overrides) {
+        const opts = overrides ?? {};
+        const basis = Number(overlaySettings.colorBasis ?? 0);
+        const series = selectSeriesForBasis(sparkline, basis);
+        if (!Array.isArray(series) || series.length < 2) {
             return;
         }
 
-        const min = Number(sparkline.min ?? sparkline.Min);
-        const max = Number(sparkline.max ?? sparkline.Max);
-        const isFlat = !!(sparkline.isFlat ?? sparkline.IsFlat);
+        const { min, max, isFlat } = computeSeriesBounds(series);
         if (!Number.isFinite(min) || !Number.isFinite(max)) {
             return;
         }
 
         const mode = overlaySettings.sparklineMode === 'bar' ? 'bar' : 'line';
-        const basis = Number.isFinite(overlaySettings.colorBasis) ? overlaySettings.colorBasis : 0;
         const thresholds = overlaySettings.thresholds ?? {
             slaSuccess: 0.95,
             slaWarning: 0.8,
@@ -1473,59 +2570,65 @@
         const startIndex = Number(sparkline.startIndex ?? sparkline.StartIndex ?? 0);
         const selectedBin = Number(overlaySettings.selectedBin ?? -1);
         const highlightIndexRaw = Number.isFinite(selectedBin) ? selectedBin - startIndex : -1;
-        const highlightIndex = (highlightIndexRaw >= 0 && highlightIndexRaw < values.length) ? highlightIndexRaw : -1;
+        const highlightIndex = (highlightIndexRaw >= 0 && highlightIndexRaw < series.length) ? highlightIndexRaw : -1;
 
-        const width = nodeMeta.width ?? 36;
-        const nodeHeight = nodeMeta.height ?? 24;
-        const sparkWidth = Math.max(width - 6, 16);
-        const sparkHeight = mode === 'bar' ? 16 : 12;
-        const left = (nodeMeta.x ?? 0) - (sparkWidth / 2);
-        const top = (nodeMeta.y ?? 0) - (nodeHeight / 2) - sparkHeight - 6;
+        const width = nodeMeta.width ?? 54;
+        const portCenterX = (nodeMeta.x ?? 0) - (width / 2);
+        const labelRightX = portCenterX - 8;
+        const defaultSparkWidth = Math.max(width - 6, 16);
+        const defaultSparkHeight = mode === 'bar' ? 12 : 10;
+        const baseWidth = Number.isFinite(opts.width) ? opts.width : defaultSparkWidth;
+        const sparkWidth = computeAdaptiveWidth(
+            series.length,
+            baseWidth,
+            {
+                min: Number.isFinite(opts.minWidth) ? opts.minWidth : Math.max(baseWidth, 20),
+                max: Number.isFinite(opts.maxWidth) ? opts.maxWidth : 140,
+                scale: Number.isFinite(opts.scale) ? opts.scale : (mode === 'bar' ? 11 : 9)
+            });
+        const sparkHeight = Math.max(opts.height ?? defaultSparkHeight, 6);
+        const rightEdge = typeof opts.right === 'number' ? opts.right : labelRightX;
+        const left = typeof opts.left === 'number' ? opts.left : (rightEdge - sparkWidth);
+        const top = opts.top ?? ((nodeMeta.y ?? 0) - sparkHeight - 10);
 
         ctx.save();
         ctx.translate(left, top);
 
-        const step = sparkWidth / Math.max(values.length - 1, 1);
-        const range = max - min;
-        let started = false;
+        const step = sparkWidth / Math.max(series.length - 1, 1);
+        const range = Math.max(max - min, 1e-6);
 
         const drawAsBars = mode === 'bar';
         let highlightPoint = null;
         let highlightColor = defaultColor;
         let highlightBar = null;
+        let previousPoint = null;
+        let previousColor = defaultColor;
 
-        ctx.fillStyle = 'rgba(148, 163, 184, 0.12)';
+        ctx.fillStyle = 'rgba(148, 163, 184, 0.08)';
         ctx.fillRect(0, 0, sparkWidth, sparkHeight);
         ctx.strokeStyle = 'rgba(148, 163, 184, 0.25)';
         ctx.lineWidth = 0.5;
         ctx.strokeRect(0, 0, sparkWidth, sparkHeight);
 
-        let previousPoint = null;
-        let previousColor = defaultColor;
-
-        values.forEach((raw, index) => {
+        series.forEach((raw, index) => {
             if (raw === null || raw === undefined) {
-                started = false;
                 previousPoint = null;
                 return;
             }
 
             const numeric = Number(raw);
             if (!Number.isFinite(numeric)) {
-                started = false;
                 previousPoint = null;
                 return;
             }
 
-            let normalized;
-            if (isFlat || range < 1e-6) {
-                normalized = 0.8;
-            } else {
-                normalized = clamp((numeric - min) / range, 0, 1);
+            let normalized = clamp((numeric - min) / range, 0, 1);
+            if (isFlat) {
+                normalized = numeric >= min ? 1 : 0;
             }
+
             const x = index * step;
             const y = sparkHeight - (sparkHeight * normalized);
-
             const sampleColor = resolveSampleColor(basis, index, sparkline, thresholds, defaultColor);
 
             if (drawAsBars) {
@@ -1542,7 +2645,6 @@
                         width: Math.max(barWidth, 3)
                     };
                 }
-                started = true;
             } else {
                 if (previousPoint) {
                     ctx.beginPath();
@@ -1552,7 +2654,6 @@
                     ctx.lineTo(x, y);
                     ctx.stroke();
                 }
-                started = true;
                 previousPoint = { x, y };
                 previousColor = sampleColor;
                 if (index === highlightIndex) {
@@ -1570,17 +2671,186 @@
         }
 
         if (drawAsBars && highlightBar) {
-            const gap = 2;
-            const markerY = sparkHeight + gap;
+            const apexY = sparkHeight + 1;
+            const baseY = apexY + 5;
+            const pointerWidth = Math.max(highlightBar.width + 4, 8);
+            const halfWidth = pointerWidth / 2;
+
             ctx.beginPath();
-            ctx.strokeStyle = highlightColor ?? defaultColor;
-            ctx.lineWidth = 1.2;
-            ctx.moveTo(highlightBar.x - highlightBar.width / 2, markerY);
-            ctx.lineTo(highlightBar.x + highlightBar.width / 2, markerY);
-            ctx.stroke();
+            ctx.moveTo(highlightBar.x, apexY);
+            ctx.lineTo(highlightBar.x - halfWidth, baseY);
+            ctx.lineTo(highlightBar.x + halfWidth, baseY);
+            ctx.closePath();
+            ctx.fillStyle = highlightColor ?? defaultColor;
+            ctx.fill();
         }
 
         ctx.restore();
+    }
+
+    function selectSeriesForBasis(sparkline, basis) {
+        if (!sparkline) {
+            return [];
+        }
+
+        const keyCandidates = basis === 1
+            ? ['utilization']
+            : basis === 2
+                ? ['errorRate']
+                : basis === 3
+                    ? ['queue', 'queueDepth']
+                    : [];
+
+        for (const candidate of keyCandidates) {
+            const slice = getSeriesSlice(sparkline, candidate);
+            const values = slice?.values ?? slice?.Values;
+            if (Array.isArray(values) && values.length > 0) {
+                return values;
+            }
+        }
+
+        switch (basis) {
+            case 1:
+                return sparkline.utilization ?? sparkline.Utilization ?? sparkline.values ?? sparkline.Values ?? [];
+            case 2:
+                return sparkline.errorRate ?? sparkline.ErrorRate ?? sparkline.values ?? sparkline.Values ?? [];
+            case 3:
+                return sparkline.queueDepth ?? sparkline.QueueDepth ?? sparkline.values ?? sparkline.Values ?? [];
+            default:
+                return sparkline.values ?? sparkline.Values ?? [];
+        }
+    }
+
+    function computeSeriesBounds(series) {
+        let min = Number.POSITIVE_INFINITY;
+        let max = Number.NEGATIVE_INFINITY;
+        let hasValue = false;
+
+        for (const sample of series) {
+            if (sample === null || sample === undefined) {
+                continue;
+            }
+            const numeric = Number(sample);
+            if (!Number.isFinite(numeric)) {
+                continue;
+            }
+            hasValue = true;
+            if (numeric < min) min = numeric;
+            if (numeric > max) max = numeric;
+        }
+
+        if (!hasValue) {
+            min = 0;
+            max = 1;
+        }
+
+        if (!Number.isFinite(min)) {
+            min = 0;
+        }
+        if (!Number.isFinite(max)) {
+            max = min + 1;
+        }
+
+        let isFlat = Math.abs(max - min) < 1e-6;
+        if (isFlat) {
+            max = min + 0.001;
+        }
+
+        return { min, max, isFlat };
+    }
+
+    function emitViewportChanged(canvas, state) {
+        if (!state?.dotNetRef) {
+            return;
+        }
+
+        const baseScale = Number.isFinite(state.baseScale) && state.baseScale > 0
+            ? state.baseScale
+            : (Number.isFinite(state.overlayScale) && state.overlayScale > 0
+                ? state.scale / state.overlayScale
+                : state.scale);
+
+        const payload = {
+            Scale: Number(state.scale ?? 1),
+            OffsetX: Number(state.offsetX ?? 0),
+            OffsetY: Number(state.offsetY ?? 0),
+            WorldCenterX: Number(state.worldCenterX ?? 0),
+            WorldCenterY: Number(state.worldCenterY ?? 0),
+            OverlayScale: Number(state.overlayScale ?? 1),
+            BaseScale: Number(baseScale ?? state.scale ?? 1)
+        };
+
+        const signature = [
+            payload.Scale.toFixed(4),
+            payload.OffsetX.toFixed(2),
+            payload.OffsetY.toFixed(2),
+            payload.WorldCenterX.toFixed(4),
+            payload.WorldCenterY.toFixed(4),
+            payload.OverlayScale.toFixed(4),
+            payload.BaseScale.toFixed(4)
+        ].join('|');
+
+        if (signature === state.lastViewportSignature) {
+            return;
+        }
+
+        state.lastViewportSignature = signature;
+        state.dotNetRef.invokeMethodAsync('OnViewportChanged', payload);
+    }
+
+    function restoreViewport(canvas, snapshot) {
+        if (!canvas || !snapshot) {
+            return;
+        }
+
+        const state = getState(canvas);
+        const scale = Number(snapshot.Scale ?? snapshot.scale);
+        const overlayScale = Number(snapshot.OverlayScale ?? snapshot.overlayScale);
+        const baseScale = Number(snapshot.BaseScale ?? snapshot.baseScale);
+
+        if (Number.isFinite(scale) && scale > 0) {
+            state.scale = scale;
+        }
+
+        if (Number.isFinite(overlayScale) && overlayScale > 0) {
+            state.overlayScale = overlayScale;
+        }
+
+        if (Number.isFinite(baseScale) && baseScale > 0) {
+            state.baseScale = baseScale;
+        } else if (Number.isFinite(state.overlayScale) && state.overlayScale > 0) {
+            state.baseScale = state.scale / state.overlayScale;
+        }
+
+        const width = state.canvasWidth ?? (canvas.width / state.deviceRatio);
+        const height = state.canvasHeight ?? (canvas.height / state.deviceRatio);
+
+        const worldCenterX = Number(snapshot.WorldCenterX ?? snapshot.worldCenterX);
+        const worldCenterY = Number(snapshot.WorldCenterY ?? snapshot.worldCenterY);
+
+        if (Number.isFinite(worldCenterX) && Number.isFinite(worldCenterY) && Number.isFinite(width) && Number.isFinite(height)) {
+            state.worldCenterX = worldCenterX;
+            state.worldCenterY = worldCenterY;
+            state.offsetX = (width / 2) - worldCenterX * state.scale;
+            state.offsetY = (height / 2) - worldCenterY * state.scale;
+        } else {
+            const offsetX = Number(snapshot.OffsetX ?? snapshot.offsetX);
+            const offsetY = Number(snapshot.OffsetY ?? snapshot.offsetY);
+            if (Number.isFinite(offsetX)) {
+                state.offsetX = offsetX;
+            }
+            if (Number.isFinite(offsetY)) {
+                state.offsetY = offsetY;
+            }
+            updateWorldCenter(state);
+        }
+
+        state.userAdjusted = true;
+        state.viewportApplied = true;
+        state.lastViewportSignature = null;
+
+        draw(canvas, state);
+        emitViewportChanged(canvas, state);
     }
 
     const hotkeyHandlers = new Map();
@@ -1627,6 +2897,7 @@
     window.FlowTime.TopologyCanvas = {
         render,
         dispose,
+        restoreViewport,
         registerHandlers: (canvas, dotNetRef) => {
             const state = getState(canvas);
             state.dotNetRef = dotNetRef;

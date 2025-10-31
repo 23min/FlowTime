@@ -95,7 +95,7 @@ public class DashboardTests
 
         var data = new StubTimeTravelDataService
         {
-            StateWindowHandler = (_, _, _, _) => Task.FromResult(ApiCallResult<TimeTravelStateWindowDto>.Ok(stateWindow, 200))
+            StateWindowHandler = (_, _, _, _, _) => Task.FromResult(ApiCallResult<TimeTravelStateWindowDto>.Ok(stateWindow, 200))
         };
 
         var client = new TimeTravelMetricsClient(api, data, NullLogger<TimeTravelMetricsClient>.Instance);
@@ -227,8 +227,8 @@ public class DashboardTests
         public Func<string, CancellationToken, Task<ApiCallResult<SeriesIndex>>> IndexHandler { get; set; } =
             (_, _) => Task.FromResult(ApiCallResult<SeriesIndex>.Fail(404, "not implemented"));
 
-        public Func<string, int, int, CancellationToken, Task<ApiCallResult<TimeTravelStateWindowDto>>> StateWindowHandler { get; set; } =
-            (_, _, _, _) => Task.FromResult(ApiCallResult<TimeTravelStateWindowDto>.Fail(404, "not implemented"));
+        public Func<string, int, int, string?, CancellationToken, Task<ApiCallResult<TimeTravelStateWindowDto>>> StateWindowHandler { get; set; } =
+            (_, _, _, _, _) => Task.FromResult(ApiCallResult<TimeTravelStateWindowDto>.Fail(404, "not implemented"));
 
         public Func<string, GraphQueryOptions?, CancellationToken, Task<ApiCallResult<GraphResponseModel>>> GraphHandler { get; set; } =
             (_, _, _) => Task.FromResult(ApiCallResult<GraphResponseModel>.Fail(404, "not implemented"));
@@ -242,8 +242,8 @@ public class DashboardTests
         public Task<ApiCallResult<SeriesIndex>> GetRunIndexAsync(string runId, CancellationToken ct = default)
             => IndexHandler(runId, ct);
 
-        public Task<ApiCallResult<TimeTravelStateWindowDto>> GetRunStateWindowAsync(string runId, int startBin, int endBin, CancellationToken ct = default)
-            => StateWindowHandler(runId, startBin, endBin, ct);
+        public Task<ApiCallResult<TimeTravelStateWindowDto>> GetRunStateWindowAsync(string runId, int startBin, int endBin, string? mode = null, CancellationToken ct = default)
+            => StateWindowHandler(runId, startBin, endBin, mode, ct);
 
         public Task<ApiCallResult<GraphResponseModel>> GetRunGraphAsync(string runId, GraphQueryOptions? options = null, CancellationToken ct = default)
             => GraphHandler(runId, options, ct);
@@ -265,14 +265,14 @@ public class DashboardTests
 
     private sealed class StubTimeTravelDataService : ITimeTravelDataService
     {
-        public Func<string, int, int, CancellationToken, Task<ApiCallResult<TimeTravelStateWindowDto>>> StateWindowHandler { get; set; } =
-            (_, _, _, _) => Task.FromResult(ApiCallResult<TimeTravelStateWindowDto>.Fail(404, "not implemented"));
+        public Func<string, int, int, string?, CancellationToken, Task<ApiCallResult<TimeTravelStateWindowDto>>> StateWindowHandler { get; set; } =
+            (_, _, _, _, _) => Task.FromResult(ApiCallResult<TimeTravelStateWindowDto>.Fail(404, "not implemented"));
 
         public Func<string, GraphQueryOptions?, CancellationToken, Task<ApiCallResult<GraphResponseModel>>> GraphHandler { get; set; } =
             (_, _, _) => Task.FromResult(ApiCallResult<GraphResponseModel>.Fail(404, "not implemented"));
 
-        public Task<ApiCallResult<TimeTravelStateWindowDto>> GetStateWindowAsync(string runId, int startBin, int endBin, CancellationToken ct = default)
-            => StateWindowHandler(runId, startBin, endBin, ct);
+        public Task<ApiCallResult<TimeTravelStateWindowDto>> GetStateWindowAsync(string runId, int startBin, int endBin, string? mode = null, CancellationToken ct = default)
+            => StateWindowHandler(runId, startBin, endBin, mode, ct);
 
         public Task<ApiCallResult<GraphResponseModel>> GetGraphAsync(string runId, GraphQueryOptions? options = null, CancellationToken ct = default)
             => GraphHandler(runId, options, ct);

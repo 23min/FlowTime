@@ -1,7 +1,7 @@
 # UI‑M‑03.22.1 Implementation Tracking — Topology LOD + Feature Bar
 
 **Milestone:** UI‑M‑03.22.1 — Topology LOD + Feature Bar  
-**Status:** 🚧 In Progress  
+**Status:** ✅ Completed  
 **Branch:** `feature/ui-m-0322-topology-canvas`
 
 ---
@@ -15,19 +15,19 @@
 
 ## Current Status
 
-### Overall Progress
-- [x] UX scaffolding: TopologyFeatureBar component + layout column
-- [x] Overlay/LOD plumbing into canvas payload + JS
-- [x] Sparklines + edge share rendering
-- [ ] Full DAG mode (non-service nodes + filters)
-  - [x] API spec drafted for `GET /v1/runs/{runId}/graph?mode=full&kinds=...`
-  - [x] API implementation + UI requery on toggle (mode switch, dependency edge toggles, JS gating)
-- [x] Persistence & shortcuts (localStorage overlays, Alt+T toggle)
+### Completion Highlights
+- Canvas pan/zoom now persists per run (localStorage) and restores without auto-centering; wheel + slider + 100 % chip stay in sync.
+- Tooltip alignment fixed (8 px left, vertically centered), blank padding removed, hover outline suppressed.
+- Node inspector charts render bar series with tick-only X-axis, min/max Y labels, grey background, and sparkline parity across node kinds.
+- Mud chip badges retain numeric values with canvas tooltips for semantics (arrivals/served/errors/queue/capacity); capacity chip repositioned; PMF/const formatting corrected.
+- Feature bar persistence + section collapse, scrollable panel, right-aligned reset chip, focus metric spacing, and unified toggle set (compute toggle removed).
+- Canvas visuals refreshed: triangular sparkline footer, capsule badge corners, operational nodes share rounded capsule shape, Happy Path layout polished.
+- API/UI wiring for Full DAG + dependency filters complete; tests/gateway fixtures updated.
 
 ### Test Status
-- [ ] Render tests updated for overlay payload changes
-- [ ] JS smoke verified for overlays/LOD
-- [ ] Accessibility checks (feature bar focus order, keyboard toggle)
+- [x] Updated topology canvas render + helper tests (per-run viewport snapshots, feature bar wiring).
+- [x] Golden API fixtures refreshed for dependency payload updates.
+- [ ] Accessibility sweep (feature bar keyboard order) deferred to follow-up milestone.
 
 ---
 
@@ -70,10 +70,9 @@
 - [x] Reduced elbows to two per diagonal leg and keep aligned edges straight for clarity
 
 ### Session: Canvas Zoom Controls
-- [x] Disabled scroll-wheel zoom to avoid accidental scale changes
-- [x] Added a dedicated zoom slider with live value feedback in the feature bar
-- [x] Initial zoom anchors at 100% while nodes render smaller for crisp output
-- [x] Shrunk default node size so the 100% view remains sharp without GPU scaling
+- [x] Added dedicated zoom slider with live value feedback in the feature bar + 100 % reset chip
+- [x] Wheel zoom reinstated with viewport persistence; slider and chip stay synchronized
+- [x] Resize observer keeps canvas bounds current without forcing re-center or scale jumps
 
 ### Session: Routing Modes + Controls
 - [x] Added toggle for orthogonal vs. bezier edge rendering with ports centered on node sides
@@ -99,19 +98,22 @@
 - [x] Styled non-service nodes: expr (diamond), const/pmf (capsule); queues show an inner depth bar.
 - [x] Dashed styling for dependency edges; labels remain crisp at higher zoom.
 
-### Session: Badges & Inspector (current)
-- [x] Added badge rack (A/S/E/Q/C) above service/queue nodes with dependency-driven compute badges; hides compute nodes by default with toggle to expand.
-- [x] Replaced DOM tooltip with in-canvas vector callout (constant offset, theme-aware background).
-- [x] Added layout mode radio (Layered vs Happy Path beta) alongside template-position toggle.
-- [x] Stubbed inspector drawer (right) showing node id + current-bin metrics via new node-focused callback.
+### Session: Happy Path & Inspector polish
+- [x] Happy Path layout now stages expr/const/pmf nodes vertically relative to their consumers with compressed lateral lanes; upstream inputs sit just left of the backbone for readability.
+- [x] Badge rack now stays semantics-only (Arrivals top-left, Served bottom-left, Errors/Queue/Capacity arranged outboard) with a brighter palette; compute nodes surface via inspector rather than crowding the main canvas.
+- [x] Replaced DOM tooltip with theme-aware canvas card (fixed pixel size, constant offset, auto-dismiss 2s after pointer leave).
+- [x] Preserved canvas pan/zoom when toggling feature-bar filters so the viewport stays where the user left it.
+- [x] Moved node labels outside the node (left, right-aligned) so the distinct shapes stay visually uncluttered and typography matches edge annotations.
+- [x] Mini sparkline now tracks the active color basis (SLA/util/errors/queue), moves above the input port, and shares the node’s fill color so the bar highlight matches the node body.
+- [x] Added layout mode radio (Layered vs Happy Path beta) alongside template-position toggle; fallback ensures service nodes remain visible when compute filters adjust.
+- [x] Stubbed inspector drawer (right) showing node id + current-bin metrics via new node-focused callback (awaiting extended detail pass).
 
 ---
 
-## Notes / Blockers
-- Tooltips bug tracked in this milestone; fix once overlay payload is wired.
-- Need to ensure JS interop remains performant as overlay options expand (watch redraw time).
-- Follow-up specs captured in `docs/milestones/UI-M-03.22.1.md` for incident markers on the dial and the node inspector panel (see `topography.md` / `image3.png`).
-- Full DAG now depends on API `mode=full`; ensure run bundles include const/expr/pmf definitions (legacy runs without them still render operational topology only).
+## Notes / Hand-off
+- Incident markers for the timeline dial and playback presets are deferred to UI‑M‑03.22.2 (`docs/milestones/UI-M-03.22.1.md`).
+- Full DAG rendering depends on new graph payloads that surface const/expr/pmf semantics; legacy runs continue to show operational topology only.
+- Inspector deep-dive (lazy-loaded CSV detail for compute nodes) moves to UI‑M‑03.22.2 alongside accessibility verification of the feature bar.
 
 ---
 

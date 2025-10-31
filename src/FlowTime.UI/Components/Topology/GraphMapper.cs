@@ -9,6 +9,7 @@ internal static class GraphMapper
 {
     private const double HorizontalSpacing = 240d;
     private const double VerticalSpacing = 140d;
+    private const int MaxComputeLaneIndex = 3;
 
     public static TopologyGraph Map(GraphResponseModel response) => Map(response, true, LayoutMode.Layered);
 
@@ -59,11 +60,19 @@ internal static class GraphMapper
         var layerByNode = ComputeLayers(nodeBuilders);
         var indexByNode = ComputeLayerIndices(layerByNode, nodeBuilders);
 
+        var laneOffsetByNode = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        var verticalOffsetByNode = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+
         // Optional Happy Path index override (center main path)
         Dictionary<string, int>? happyIndex = null;
         if (!respectUiPositions && layout == LayoutMode.HappyPath)
         {
             happyIndex = ComputeHappyPathIndices(nodeBuilders, layerByNode, indexByNode);
+            AdjustComputeNodesForHappyPath(nodeBuilders, layerByNode, indexByNode, happyIndex, edges, laneOffsetByNode, verticalOffsetByNode);
+        }
+        else
+        {
+            NormalizeLayers(layerByNode);
         }
 
         var mappedNodes = nodeBuilders.Values
@@ -75,13 +84,16 @@ internal static class GraphMapper
                 var index = happyIndex?.GetValueOrDefault(builder.Id) ?? indexByNode.GetValueOrDefault(builder.Id);
 
                 var hasCustomPosition = respectUiPositions && builder.Ui?.X is not null && builder.Ui.Y is not null;
+                var spacing = ResolveHorizontalSpacing(builder, layout);
+                var laneOffset = laneOffsetByNode.TryGetValue(builder.Id, out var lane) ? lane : 0d;
+                var verticalOffset = verticalOffsetByNode.TryGetValue(builder.Id, out var vy) ? vy : 0d;
                 // Top→Bottom orientation: y by layer, x by index
                 var x = hasCustomPosition
                     ? builder.Ui!.X!.Value
-                    : index * HorizontalSpacing;
+                    : index * spacing + laneOffset;
                 var y = hasCustomPosition
                     ? builder.Ui!.Y!.Value
-                    : layer * VerticalSpacing;
+                    : layer * VerticalSpacing + verticalOffset;
 
                 return new TopologyNode(
                     builder.Id,
@@ -92,7 +104,8 @@ internal static class GraphMapper
                     index,
                     Math.Round(x, 3, MidpointRounding.AwayFromZero),
                     Math.Round(y, 3, MidpointRounding.AwayFromZero),
-                    hasCustomPosition);
+                    hasCustomPosition,
+                    builder.Semantics);
             })
             .ToImmutableArray();
 
@@ -107,6 +120,208 @@ internal static class GraphMapper
             .ToImmutableArray();
 
         return new TopologyGraph(mappedNodes, normalizedEdges);
+    }
+
+    private static void AdjustComputeNodesForHappyPath(
+        Dictionary<string, NodeBuilder> nodeBuilders,
+        Dictionary<string, int> layerByNode,
+        Dictionary<string, int> indexByNode,
+        Dictionary<string, int> happyIndex,
+        IReadOnlyList<TopologyEdge> edges,
+        IDictionary<string, double> laneOffsetByNode,
+        IDictionary<string, double> verticalOffsetByNode)
+    {
+        if (happyIndex is null)
+        {
+            return;
+        }
+
+        var categoryById = nodeBuilders.Values.ToDictionary(builder => builder.Id, builder => Classify(builder.Kind), StringComparer.OrdinalIgnoreCase);
+
+        var outgoing = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        var incoming = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var edge in edges)
+        {
+            if (!string.IsNullOrWhiteSpace(edge.From))
+            {
+                if (!outgoing.TryGetValue(edge.From, out var list))
+                {
+                    list = new List<string>();
+                    outgoing[edge.From] = list;
+                }
+
+                if (!string.IsNullOrWhiteSpace(edge.To))
+                {
+                    list.Add(edge.To);
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(edge.To))
+            {
+                if (!incoming.TryGetValue(edge.To, out var list))
+                {
+                    list = new List<string>();
+                    incoming[edge.To] = list;
+                }
+
+                if (!string.IsNullOrWhiteSpace(edge.From))
+                {
+                    list.Add(edge.From);
+                }
+            }
+        }
+
+        var computeIds = nodeBuilders.Keys
+            .Where(id =>
+            {
+                var category = categoryById.GetValueOrDefault(id, NodeCategory.Service);
+                return category is NodeCategory.Expression or NodeCategory.Constant;
+            })
+            .ToList();
+
+        // Iteratively pull compute nodes toward their consumers to achieve top->bottom flow.
+        const int maxIterations = 6;
+        for (var iteration = 0; iteration < maxIterations; iteration++)
+        {
+            var changed = false;
+            foreach (var id in computeIds)
+            {
+                var current = layerByNode.GetValueOrDefault(id);
+
+                var downLayers = outgoing.GetValueOrDefault(id)?.Select(target => layerByNode.GetValueOrDefault(target)).ToList()
+                                ?? new List<int>();
+                var upLayers = incoming.GetValueOrDefault(id)?.Select(source => layerByNode.GetValueOrDefault(source)).ToList()
+                              ?? new List<int>();
+
+                int? candidate = null;
+                if (downLayers.Count > 0)
+                {
+                    var minDown = downLayers.Min();
+                    candidate = minDown - 1;
+                }
+                else if (upLayers.Count > 0)
+                {
+                    var maxUp = upLayers.Max();
+                    candidate = maxUp + 1;
+                }
+
+                if (candidate.HasValue && candidate.Value != current)
+                {
+                    layerByNode[id] = candidate.Value;
+                    changed = true;
+                }
+            }
+
+            if (!changed)
+            {
+                break;
+            }
+        }
+
+        NormalizeLayers(layerByNode);
+
+        var slotByLayerAndSide = new Dictionary<(int Layer, int Side), int>();
+
+        var orderedCompute = computeIds
+            .OrderByDescending(id => layerByNode.GetValueOrDefault(id))
+            .ThenBy(id => nodeBuilders[id].Order)
+            .ToList();
+
+        foreach (var id in orderedCompute)
+        {
+            var category = categoryById.GetValueOrDefault(id, NodeCategory.Service);
+            var layer = layerByNode.GetValueOrDefault(id);
+            var side = category == NodeCategory.Expression ? 1 : -1;
+
+            var referenceIndices = new List<int>();
+
+            if (outgoing.TryGetValue(id, out var outs))
+            {
+                foreach (var target in outs)
+                {
+                    if (happyIndex.TryGetValue(target, out var idx))
+                    {
+                        referenceIndices.Add(idx);
+                    }
+                    else if (indexByNode.TryGetValue(target, out var fallback))
+                    {
+                        referenceIndices.Add(fallback);
+                    }
+                }
+            }
+
+            if (referenceIndices.Count == 0 && incoming.TryGetValue(id, out var ins))
+            {
+                foreach (var source in ins)
+                {
+                    if (happyIndex.TryGetValue(source, out var idx))
+                    {
+                        referenceIndices.Add(idx);
+                    }
+                    else if (indexByNode.TryGetValue(source, out var fallback))
+                    {
+                        referenceIndices.Add(fallback);
+                    }
+                }
+            }
+
+            var reference = referenceIndices.Count == 0
+                ? 0
+                : side > 0
+                    ? referenceIndices.Max()
+                    : referenceIndices.Min();
+
+            var key = (layer, side);
+            var offset = slotByLayerAndSide.TryGetValue(key, out var value) ? value : 0;
+            slotByLayerAndSide[key] = offset + 1;
+
+            var assignedIndex = side > 0
+                ? reference + offset + 1
+                : reference - offset - 1;
+
+            assignedIndex = Math.Max(-MaxComputeLaneIndex, Math.Min(MaxComputeLaneIndex, assignedIndex));
+
+            happyIndex[id] = assignedIndex;
+            indexByNode[id] = assignedIndex;
+
+            var laneMagnitude = offset + 1;
+            var horizontalStep = HorizontalSpacing * 0.32;
+            var verticalStep = VerticalSpacing * 0.25;
+            laneOffsetByNode[id] = side > 0 ? laneMagnitude * horizontalStep : -laneMagnitude * horizontalStep;
+            verticalOffsetByNode[id] = side > 0 ? laneMagnitude * verticalStep : -laneMagnitude * verticalStep;
+        }
+    }
+
+    private static double ResolveHorizontalSpacing(NodeBuilder builder, LayoutMode layout)
+    {
+        var category = Classify(builder.Kind);
+        if (category == NodeCategory.Expression || category == NodeCategory.Constant)
+        {
+            return layout == LayoutMode.HappyPath
+                ? HorizontalSpacing * 0.55
+                : HorizontalSpacing * 0.7;
+        }
+
+        return HorizontalSpacing;
+    }
+
+    private static void NormalizeLayers(Dictionary<string, int> layerByNode)
+    {
+        if (layerByNode.Count == 0)
+        {
+            return;
+        }
+
+        var minLayer = layerByNode.Values.Min();
+        if (minLayer >= 0)
+        {
+            return;
+        }
+
+        foreach (var key in layerByNode.Keys.ToList())
+        {
+            layerByNode[key] = layerByNode[key] - minLayer;
+        }
     }
 
     private static Dictionary<string, int> ComputeLayers(Dictionary<string, NodeBuilder> nodeBuilders)
@@ -157,6 +372,21 @@ internal static class GraphMapper
         }
 
         return layerByNode;
+    }
+
+    private static NodeCategory Classify(string? kind)
+    {
+        if (string.IsNullOrWhiteSpace(kind))
+        {
+            return NodeCategory.Service;
+        }
+
+        return kind.Trim().ToLowerInvariant() switch
+        {
+            "expr" or "expression" => NodeCategory.Expression,
+            "const" or "constant" or "pmf" => NodeCategory.Constant,
+            _ => NodeCategory.Service
+        };
     }
 
     private static Dictionary<string, int> ComputeLayerIndices(
@@ -282,6 +512,7 @@ internal static class GraphMapper
         public GraphNodeUiModel? Ui { get; }
         public List<string> Inputs { get; } = new();
         public List<string> Outputs { get; } = new();
+        public TopologyNodeSemantics Semantics { get; }
 
         public NodeBuilder(GraphNodeModel node, int order)
         {
@@ -289,8 +520,40 @@ internal static class GraphMapper
             Kind = node.Kind ?? "unknown";
             Ui = node.Ui;
             Order = order;
+            var semantics = node.Semantics;
+            if (semantics is null)
+            {
+                Semantics = new TopologyNodeSemantics(null, null, null, null, null, null, null, null);
+            }
+            else
+            {
+                TopologyNodeDistribution? distribution = null;
+                if (semantics.Distribution is not null)
+                {
+                    distribution = new TopologyNodeDistribution(
+                        semantics.Distribution.Values,
+                        semantics.Distribution.Probabilities);
+                }
+
+                Semantics = new TopologyNodeSemantics(
+                    semantics.Arrivals,
+                    semantics.Served,
+                    semantics.Errors,
+                    semantics.Queue,
+                    semantics.Capacity,
+                    semantics.Series,
+                    distribution,
+                    semantics.InlineValues);
+            }
         }
     }
+}
+
+internal enum NodeCategory
+{
+    Service,
+    Expression,
+    Constant
 }
 
 public sealed record TopologyGraph(
@@ -306,7 +569,8 @@ public sealed record TopologyNode(
     int Index,
     double X,
     double Y,
-    bool IsPositionFixed);
+    bool IsPositionFixed,
+    TopologyNodeSemantics Semantics);
 
 public sealed record TopologyEdge(
     string Id,
@@ -332,7 +596,9 @@ public sealed record GraphNodeSemanticsModel(
     string Errors,
     string? Queue,
     string? Capacity,
-    string? Series);
+    string? Series,
+    GraphDistributionModel? Distribution,
+    IReadOnlyList<double>? InlineValues);
 
 public sealed record GraphNodeUiModel(double? X, double? Y);
 
@@ -343,3 +609,21 @@ public sealed record GraphEdgeModel(
     double Weight,
     string? EdgeType,
     string? Field);
+
+public sealed record TopologyNodeSemantics(
+    string? Arrivals,
+    string? Served,
+    string? Errors,
+    string? Queue,
+    string? Capacity,
+    string? Series,
+    TopologyNodeDistribution? Distribution,
+    IReadOnlyList<double>? InlineValues);
+
+public sealed record GraphDistributionModel(
+    IReadOnlyList<double> Values,
+    IReadOnlyList<double> Probabilities);
+
+public sealed record TopologyNodeDistribution(
+    IReadOnlyList<double> Values,
+    IReadOnlyList<double> Probabilities);

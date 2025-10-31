@@ -1,6 +1,7 @@
 @using MudBlazor
 @using FlowTime.UI.Components.Topology
 @using System
+@using System.Collections.Generic
 @using System.Globalization
 
 <MudStack Class="topology-feature-bar" Spacing="1">
@@ -12,267 +13,261 @@
                        OnClick="Close" />
     </MudStack>
 
-    <MudStack Spacing="1" Class="mt-2">
-        <MudText Typo="Typo.caption" Class="topology-section-title">Dependency edges</MudText>
-        <MudSwitch T="bool"
-                   Dense="true"
-                   Class="topology-dense-control"
-                   Value="@workingSettings.ShowArrivalsDependencies"
-                   ValueChanged="OnShowArrivalsDependenciesChanged"
-                   Color="Color.Primary"
-                   Label="Arrivals" />
-        <MudSwitch T="bool"
-                   Dense="true"
-                   Class="topology-dense-control"
-                   Value="@workingSettings.ShowServedDependencies"
-                   ValueChanged="OnShowServedDependenciesChanged"
-                   Color="Color.Primary"
-                   Label="Served" />
-        <MudSwitch T="bool"
-                   Dense="true"
-                   Class="topology-dense-control"
-                   Value="@workingSettings.ShowErrorsDependencies"
-                   ValueChanged="OnShowErrorsDependenciesChanged"
-                   Color="Color.Primary"
-                   Label="Errors" />
-        <MudSwitch T="bool"
-                   Dense="true"
-                   Class="topology-dense-control"
-                   Value="@workingSettings.ShowQueueDependencies"
-                   ValueChanged="OnShowQueueDependenciesChanged"
-                   Color="Color.Primary"
-                   Label="Queue" />
-        <MudSwitch T="bool"
-                   Dense="true"
-                   Class="topology-dense-control"
-                   Value="@workingSettings.ShowCapacityDependencies"
-                   ValueChanged="OnShowCapacityDependenciesChanged"
-                   Color="Color.Primary"
-                   Label="Capacity" />
-        <MudSwitch T="bool"
-                   Dense="true"
-                   Class="topology-dense-control"
-                   Value="@workingSettings.ShowExpressionDependencies"
-                   ValueChanged="OnShowExpressionDependenciesChanged"
-                   Color="Color.Primary"
-                   Label="Expression inputs" />
-        <MudDivider Class="topology-divider" />
-    </MudStack>
+    <div class="topology-feature-scroll">
+        <MudExpansionPanels Dense="true" MultiExpansion="true" Class="topology-feature-panels">
+            <MudExpansionPanel Text="Dependency edges"
+                               Expanded="@IsExpanded(TopologyFeatureSection.DependencyEdges)"
+                               ExpandedChanged="expanded => SetSectionExpanded(TopologyFeatureSection.DependencyEdges, expanded)">
+                <MudStack Spacing="1" Class="topology-section-body">
+                    <MudSwitch T="bool"
+                               Dense="true"
+                               Class="topology-dense-control"
+                               Value="@workingSettings.ShowArrivalsDependencies"
+                               ValueChanged="OnShowArrivalsDependenciesChanged"
+                               Color="Color.Primary"
+                               Label="Arrivals" />
+                    <MudSwitch T="bool"
+                               Dense="true"
+                               Class="topology-dense-control"
+                               Value="@workingSettings.ShowServedDependencies"
+                               ValueChanged="OnShowServedDependenciesChanged"
+                               Color="Color.Primary"
+                               Label="Served" />
+                    <MudSwitch T="bool"
+                               Dense="true"
+                               Class="topology-dense-control"
+                               Value="@workingSettings.ShowErrorsDependencies"
+                               ValueChanged="OnShowErrorsDependenciesChanged"
+                               Color="Color.Primary"
+                               Label="Errors" />
+                    <MudSwitch T="bool"
+                               Dense="true"
+                               Class="topology-dense-control"
+                               Value="@workingSettings.ShowQueueDependencies"
+                               ValueChanged="OnShowQueueDependenciesChanged"
+                               Color="Color.Primary"
+                               Label="Queue" />
+                    <MudSwitch T="bool"
+                               Dense="true"
+                               Class="topology-dense-control"
+                               Value="@workingSettings.ShowCapacityDependencies"
+                               ValueChanged="OnShowCapacityDependenciesChanged"
+                               Color="Color.Primary"
+                               Label="Capacity" />
+                    <MudSwitch T="bool"
+                               Dense="true"
+                               Class="topology-dense-control"
+                               Value="@workingSettings.ShowExpressionDependencies"
+                               ValueChanged="OnShowExpressionDependenciesChanged"
+                               Color="Color.Primary"
+                               Label="Expression inputs" />
+                </MudStack>
+            </MudExpansionPanel>
 
-    <MudStack Spacing="1">
-        <MudText Typo="Typo.caption" Class="topology-section-title">Overlays</MudText>
-        <MudSwitch T="bool"
-                   Dense="true"
-                   Class="topology-dense-control"
-                   Value="@workingSettings.ShowLabels"
-                   ValueChanged="OnShowLabelsChanged"
-                   Color="Color.Primary"
-                   Label="Show node labels" />
-        <MudSwitch T="bool"
-                   Dense="true"
-                   Class="topology-dense-control"
-                   Value="@workingSettings.ShowEdgeArrows"
-                   ValueChanged="OnShowEdgeArrowsChanged"
-                   Color="Color.Primary"
-                   Label="Show edge arrows" />
-        <MudSwitch T="bool"
-                   Dense="true"
-                   Class="topology-dense-control"
-                   Value="@workingSettings.ShowEdgeShares"
-                   ValueChanged="OnShowEdgeSharesChanged"
-                   Color="Color.Primary"
-                   Label="Show edge shares" />
-        <MudSwitch T="bool"
-                   Dense="true"
-                   Class="topology-dense-control"
-                   Value="@workingSettings.ShowSparklines"
-                   ValueChanged="OnShowSparklinesChanged"
-                   Color="Color.Primary"
-                   Label="Show sparklines" />
-        <MudRadioGroup T="SparklineRenderMode"
-                       Value="@workingSettings.SparklineMode"
-                       ValueChanged="OnSparklineModeChanged"
-                       Disabled="@(!workingSettings.ShowSparklines)"
-                       Orientation="Orientation.Horizontal"
-                       Dense="true"
-                       Class="topology-dense-control">
-            <MudRadio T="SparklineRenderMode" Value="SparklineRenderMode.Line" Color="Color.Primary">Line</MudRadio>
-            <MudRadio T="SparklineRenderMode" Value="SparklineRenderMode.Bar" Color="Color.Primary">Bars</MudRadio>
-        </MudRadioGroup>
-        <MudDivider Class="topology-divider" />
-    </MudStack>
+            <MudExpansionPanel Text="Overlays"
+                               Expanded="@IsExpanded(TopologyFeatureSection.Overlays)"
+                               ExpandedChanged="expanded => SetSectionExpanded(TopologyFeatureSection.Overlays, expanded)">
+                <MudStack Spacing="1" Class="topology-section-body">
+                    <MudSwitch T="bool"
+                               Dense="true"
+                               Class="topology-dense-control"
+                               Value="@workingSettings.ShowLabels"
+                               ValueChanged="OnShowLabelsChanged"
+                               Color="Color.Primary"
+                               Label="Show node labels" />
+                    <MudSwitch T="bool"
+                               Dense="true"
+                               Class="topology-dense-control"
+                               Value="@workingSettings.ShowEdgeArrows"
+                               ValueChanged="OnShowEdgeArrowsChanged"
+                               Color="Color.Primary"
+                               Label="Show edge arrows" />
+                    <MudSwitch T="bool"
+                               Dense="true"
+                               Class="topology-dense-control"
+                               Value="@workingSettings.ShowEdgeShares"
+                               ValueChanged="OnShowEdgeSharesChanged"
+                               Color="Color.Primary"
+                               Label="Show edge shares" />
+                    <MudSwitch T="bool"
+                               Dense="true"
+                               Class="topology-dense-control"
+                               Value="@workingSettings.ShowSparklines"
+                               ValueChanged="OnShowSparklinesChanged"
+                               Color="Color.Primary"
+                               Label="Show sparklines" />
+                    <MudRadioGroup T="SparklineRenderMode"
+                                   Value="@workingSettings.SparklineMode"
+                                   ValueChanged="OnSparklineModeChanged"
+                                   Disabled="@(!workingSettings.ShowSparklines)"
+                                   Orientation="Orientation.Horizontal"
+                                   Dense="true"
+                                   Class="topology-dense-control">
+                        <MudRadio T="SparklineRenderMode" Value="SparklineRenderMode.Line" Color="Color.Primary">Line</MudRadio>
+                        <MudRadio T="SparklineRenderMode" Value="SparklineRenderMode.Bar" Color="Color.Primary">Bars</MudRadio>
+                    </MudRadioGroup>
+                </MudStack>
+            </MudExpansionPanel>
 
-    <MudStack Spacing="1" Class="mt-2">
-        <MudText Typo="Typo.caption" Class="topology-section-title">Edge routing</MudText>
-        <MudRadioGroup T="EdgeRenderMode"
-                       Value="@workingSettings.EdgeStyle"
-                       ValueChanged="OnEdgeStyleChanged"
-                       Orientation="Orientation.Horizontal"
-                       Dense="true"
-                       Class="topology-dense-control">
-            <MudRadio T="EdgeRenderMode" Value="EdgeRenderMode.Orthogonal" Color="Color.Primary">Orthogonal</MudRadio>
-            <MudRadio T="EdgeRenderMode" Value="EdgeRenderMode.Bezier" Color="Color.Primary">Bezier</MudRadio>
-        </MudRadioGroup>
-        <MudDivider Class="topology-divider" />
-    </MudStack>
+            <MudExpansionPanel Text="Edge routing"
+                               Expanded="@IsExpanded(TopologyFeatureSection.EdgeRouting)"
+                               ExpandedChanged="expanded => SetSectionExpanded(TopologyFeatureSection.EdgeRouting, expanded)">
+                <MudStack Spacing="1" Class="topology-section-body">
+                    <MudRadioGroup T="EdgeRenderMode"
+                                   Value="@workingSettings.EdgeStyle"
+                                   ValueChanged="OnEdgeStyleChanged"
+                                   Orientation="Orientation.Horizontal"
+                                   Dense="true"
+                                   Class="topology-dense-control">
+                        <MudRadio T="EdgeRenderMode" Value="EdgeRenderMode.Orthogonal" Color="Color.Primary">Orthogonal</MudRadio>
+                        <MudRadio T="EdgeRenderMode" Value="EdgeRenderMode.Bezier" Color="Color.Primary">Bezier</MudRadio>
+                    </MudRadioGroup>
+                </MudStack>
+            </MudExpansionPanel>
 
-    <MudStack Spacing="1" Class="mt-2">
-        <MudText Typo="Typo.caption" Class="topology-section-title">Topology</MudText>
-        <MudSwitch T="bool"
-                   Dense="true"
-                   Class="topology-dense-control"
-                   Value="@workingSettings.EnableFullDag"
-                   ValueChanged="OnEnableFullDagChanged"
-                   Color="Color.Primary"
-                   Label="Full DAG mode" />
-        <MudSwitch T="bool"
-                   Dense="true"
-                   Class="topology-dense-control"
-                   Value="@workingSettings.RespectUiPositions"
-                   ValueChanged="OnRespectUiPositionsChanged"
-                   Color="Color.Primary"
-                   Label="Use template positions" />
-        <MudSwitch T="bool"
-                   Dense="true"
-                   Class="topology-dense-control"
-                   Value="@workingSettings.ShowComputeNodes"
-                   ValueChanged="OnShowComputeNodesChanged"
-                   Color="Color.Primary"
-                   Disabled="@(!workingSettings.EnableFullDag)"
-                   Label="Show compute nodes" />
+            <MudExpansionPanel Text="Topology"
+                               Expanded="@IsExpanded(TopologyFeatureSection.Topology)"
+                               ExpandedChanged="expanded => SetSectionExpanded(TopologyFeatureSection.Topology, expanded)">
+                <MudStack Spacing="1" Class="topology-section-body">
+                    <MudSwitch T="bool"
+                               Dense="true"
+                               Class="topology-dense-control"
+                               Value="@workingSettings.EnableFullDag"
+                               ValueChanged="OnEnableFullDagChanged"
+                               Color="Color.Primary"
+                               Label="Full DAG mode" />
+                    <MudSwitch T="bool"
+                               Dense="true"
+                               Class="topology-dense-control"
+                               Value="@workingSettings.RespectUiPositions"
+                               ValueChanged="OnRespectUiPositionsChanged"
+                               Color="Color.Primary"
+                               Label="Use template positions" />
+                    <MudText Typo="Typo.caption">Layout mode</MudText>
+                    <MudRadioGroup T="LayoutMode"
+                                   Value="@workingSettings.Layout"
+                                   ValueChanged="OnLayoutModeChanged"
+                                   Orientation="Orientation.Horizontal"
+                                   Dense="true"
+                                   Class="topology-dense-control">
+                        <MudRadio T="LayoutMode" Value="LayoutMode.Layered" Color="Color.Primary">Layered</MudRadio>
+                        <MudRadio T="LayoutMode" Value="LayoutMode.HappyPath" Color="Color.Primary">Happy Path (beta)</MudRadio>
+                    </MudRadioGroup>
+                    <MudCheckBox T="bool"
+                                 Dense="true"
+                                 Class="topology-dense-control"
+                                 Value="@workingSettings.IncludeServiceNodes"
+                                 ValueChanged="OnIncludeServiceNodesChanged"
+                                 Color="Color.Primary"
+                                 Label="Include service nodes" />
+                    <MudCheckBox T="bool"
+                                 Dense="true"
+                                 Class="topology-dense-control"
+                                 Value="@workingSettings.IncludeExpressionNodes"
+                                 ValueChanged="OnIncludeExpressionNodesChanged"
+                                 Disabled="@(!workingSettings.EnableFullDag)"
+                                 Color="Color.Primary"
+                                 Label="Include expression nodes" />
+                    <MudCheckBox T="bool"
+                                 Dense="true"
+                                 Class="topology-dense-control"
+                                 Value="@workingSettings.IncludeConstNodes"
+                                 ValueChanged="OnIncludeConstNodesChanged"
+                                 Disabled="@(!workingSettings.EnableFullDag)"
+                                 Color="Color.Primary"
+                                 Label="Include constant nodes" />
+                    <MudCheckBox T="bool"
+                                 Dense="true"
+                                 Class="topology-dense-control"
+                                 Value="@workingSettings.NeighborEmphasis"
+                                 ValueChanged="OnNeighborEmphasisChanged"
+                                 Color="Color.Primary"
+                                 Label="Neighbor emphasis on focus" />
+                </MudStack>
+            </MudExpansionPanel>
 
-        <MudText Typo="Typo.caption" Class="mt-2">Layout mode</MudText>
-        <MudRadioGroup T="LayoutMode"
-                       Value="@workingSettings.Layout"
-                       ValueChanged="OnLayoutModeChanged"
-                       Orientation="Orientation.Horizontal"
-                       Dense="true"
-                       Class="topology-dense-control">
-            <MudRadio T="LayoutMode" Value="LayoutMode.Layered" Color="Color.Primary">Layered</MudRadio>
-            <MudRadio T="LayoutMode" Value="LayoutMode.HappyPath" Color="Color.Primary">Happy Path (beta)</MudRadio>
-        </MudRadioGroup>
-        <MudCheckBox T="bool"
-                     Dense="true"
-                     Class="topology-dense-control"
-                     Value="@workingSettings.IncludeServiceNodes"
-                     ValueChanged="OnIncludeServiceNodesChanged"
-                     Color="Color.Primary"
-                     Label="Include service nodes" />
-        <MudCheckBox T="bool"
-                     Dense="true"
-                     Class="topology-dense-control"
-                     Value="@workingSettings.IncludeExpressionNodes"
-                     ValueChanged="OnIncludeExpressionNodesChanged"
-                     Disabled="@(!workingSettings.EnableFullDag)"
-                     Color="Color.Primary"
-                     Label="Include expression nodes" />
-        <MudCheckBox T="bool"
-                     Dense="true"
-                     Class="topology-dense-control"
-                     Value="@workingSettings.IncludeConstNodes"
-                     ValueChanged="OnIncludeConstNodesChanged"
-                     Disabled="@(!workingSettings.EnableFullDag)"
-                     Color="Color.Primary"
-                     Label="Include constant nodes" />
-        <MudCheckBox T="bool"
-                     Dense="true"
-                     Class="topology-dense-control"
-                     Value="@workingSettings.NeighborEmphasis"
-                     ValueChanged="OnNeighborEmphasisChanged"
-                     Color="Color.Primary"
-                     Label="Neighbor emphasis on focus" />
-        <MudDivider Class="topology-divider" />
-    </MudStack>
+            <MudExpansionPanel Text="Canvas zoom"
+                               Expanded="@IsExpanded(TopologyFeatureSection.CanvasZoom)"
+                               ExpandedChanged="expanded => SetSectionExpanded(TopologyFeatureSection.CanvasZoom, expanded)">
+                <MudStack Spacing="1" Class="topology-section-body">
+                    <MudStack Row="true" AlignItems="@AlignItems.Center" Spacing="1">
+                        <MudSlider T="double"
+                                   Class="flex-grow-1"
+                                   Value="@workingSettings.ZoomPercent"
+                                   ValueChanged="OnZoomPercentChanged"
+                                   Min="25"
+                                   Max="200"
+                                   Step="5"
+                                   Immediate="true"
+                                   Size="Size.Small"
+                                   ValueLabel="false" />
+                        <MudText Typo="Typo.caption">@workingSettings.ZoomPercent.ToString("0")%</MudText>
+                    </MudStack>
+                </MudStack>
+            </MudExpansionPanel>
 
-    <MudStack Spacing="1" Class="mt-2">
-        <MudText Typo="Typo.caption" Class="topology-section-title">Canvas zoom</MudText>
-        <MudStack Row="true" AlignItems="@AlignItems.Center" Spacing="1">
-            <MudSlider T="double"
-                       Class="flex-grow-1"
-                       Value="@workingSettings.ZoomPercent"
-                       ValueChanged="OnZoomPercentChanged"
-                       Min="30"
-                       Max="400"
-                       Step="5"
-                       Immediate="true"
+            <MudExpansionPanel Text="Focus metric thresholds"
+                               Expanded="@IsExpanded(TopologyFeatureSection.FocusThresholds)"
+                               ExpandedChanged="expanded => SetSectionExpanded(TopologyFeatureSection.FocusThresholds, expanded)">
+                <MudStack Spacing="1" Class="topology-section-body">
+                    <MudText Typo="Typo.caption">SLA warning threshold</MudText>
+                    <MudStack Row="true" AlignItems="@AlignItems.Center" Spacing="1">
+                        <MudSlider T="double"
+                                   Class="flex-grow-1"
+                                   Value="@workingSettings.SlaWarningThreshold"
+                                   ValueChanged="OnSlaThresholdChanged"
+                                   Min="0"
+                                   Max="1"
+                                   Step="0.01"
+                                   Immediate="true"
+                                   Size="Size.Small"
+                                   ValueLabel="false" />
+                        <MudText Typo="Typo.caption">@workingSettings.SlaWarningThreshold.ToString("0%", CultureInfo.InvariantCulture)</MudText>
+                    </MudStack>
+                    <MudText Typo="Typo.caption">Utilization warning threshold</MudText>
+                    <MudStack Row="true" AlignItems="@AlignItems.Center" Spacing="1">
+                        <MudSlider T="double"
+                                   Class="flex-grow-1"
+                                   Value="@workingSettings.UtilizationWarningThreshold"
+                                   ValueChanged="OnUtilThresholdChanged"
+                                   Min="0"
+                                   Max="1"
+                                   Step="0.01"
+                                   Immediate="true"
+                                   Size="Size.Small"
+                                   ValueLabel="false" />
+                        <MudText Typo="Typo.caption">@workingSettings.UtilizationWarningThreshold.ToString("0%", CultureInfo.InvariantCulture)</MudText>
+                    </MudStack>
+                    <MudText Typo="Typo.caption">Error alert threshold</MudText>
+                    <MudStack Row="true" AlignItems="@AlignItems.Center" Spacing="1">
+                        <MudSlider T="double"
+                                   Class="flex-grow-1"
+                                   Value="@workingSettings.ErrorRateAlertThreshold"
+                                   ValueChanged="OnErrorThresholdChanged"
+                                   Min="0"
+                                   Max="0.5"
+                                   Step="0.01"
+                                   Immediate="true"
+                                   Size="Size.Small"
+                                   ValueLabel="false" />
+                        <MudText Typo="Typo.caption">@workingSettings.ErrorRateAlertThreshold.ToString("0.0%", CultureInfo.InvariantCulture)</MudText>
+                    </MudStack>
+                </MudStack>
+            </MudExpansionPanel>
+        </MudExpansionPanels>
+
+        <MudStack Spacing="1" Class="topology-footnote">
+            <MudText Typo="Typo.caption">
+                Edge shares, sparklines, and full DAG filtering follow these settings. “Auto” picks sensible defaults based on zoom level.
+            </MudText>
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Secondary"
                        Size="Size.Small"
-                       ValueLabel="false" />
-            <MudText Typo="Typo.caption">@workingSettings.ZoomPercent.ToString("0")%</MudText>
+                       OnClick="ResetSettings">
+                Reset to defaults
+            </MudButton>
         </MudStack>
-        <MudDivider Class="topology-divider" />
-    </MudStack>
-
-    <MudStack Spacing="1" Class="mt-2">
-        <MudText Typo="Typo.caption" Class="topology-section-title">Color basis</MudText>
-        <MudRadioGroup T="TopologyColorBasis"
-                       Value="@workingSettings.ColorBasis"
-                       ValueChanged="OnColorBasisChanged"
-                       Dense="true"
-                       Class="topology-dense-control">
-            <MudRadio T="TopologyColorBasis" Value="TopologyColorBasis.Sla" Color="Color.Primary" Dense="true">SLA (success ratio)</MudRadio>
-            <MudRadio T="TopologyColorBasis" Value="TopologyColorBasis.Utilization" Color="Color.Primary" Dense="true">Utilization</MudRadio>
-            <MudRadio T="TopologyColorBasis" Value="TopologyColorBasis.Errors" Color="Color.Primary" Dense="true">Error rate</MudRadio>
-            <MudRadio T="TopologyColorBasis" Value="TopologyColorBasis.Queue" Color="Color.Primary" Dense="true">Queue depth</MudRadio>
-        </MudRadioGroup>
-
-        <MudText Typo="Typo.caption">SLA warning threshold</MudText>
-        <MudStack Row="true" AlignItems="@AlignItems.Center" Spacing="1">
-            <MudSlider T="double"
-                       Class="flex-grow-1"
-                       Value="@workingSettings.SlaWarningThreshold"
-                       ValueChanged="OnSlaThresholdChanged"
-                       Min="0"
-                       Max="1"
-                       Step="0.01"
-                       Immediate="true"
-                       Size="Size.Small"
-                       ValueLabel="false" />
-            <MudText Typo="Typo.caption">@workingSettings.SlaWarningThreshold.ToString("0%", CultureInfo.InvariantCulture)</MudText>
-        </MudStack>
-
-        <MudText Typo="Typo.caption">Utilization warning threshold</MudText>
-        <MudStack Row="true" AlignItems="@AlignItems.Center" Spacing="1">
-            <MudSlider T="double"
-                       Class="flex-grow-1"
-                       Value="@workingSettings.UtilizationWarningThreshold"
-                       ValueChanged="OnUtilThresholdChanged"
-                       Min="0"
-                       Max="1"
-                       Step="0.01"
-                       Immediate="true"
-                       Size="Size.Small"
-                       ValueLabel="false" />
-            <MudText Typo="Typo.caption">@workingSettings.UtilizationWarningThreshold.ToString("0%", CultureInfo.InvariantCulture)</MudText>
-        </MudStack>
-
-        <MudText Typo="Typo.caption">Error alert threshold</MudText>
-        <MudStack Row="true" AlignItems="@AlignItems.Center" Spacing="1">
-            <MudSlider T="double"
-                       Class="flex-grow-1"
-                       Value="@workingSettings.ErrorRateAlertThreshold"
-                       ValueChanged="OnErrorThresholdChanged"
-                       Min="0"
-                       Max="0.5"
-                       Step="0.01"
-                       Immediate="true"
-                       Size="Size.Small"
-                       ValueLabel="false" />
-            <MudText Typo="Typo.caption">@workingSettings.ErrorRateAlertThreshold.ToString("0.0%", CultureInfo.InvariantCulture)</MudText>
-        </MudStack>
-        <MudDivider Class="topology-divider" />
-    </MudStack>
-
-    <MudStack Spacing="1" Class="mt-2">
-        <MudText Typo="Typo.caption">
-            Edge shares, sparklines, and full DAG filtering follow these settings. “Auto” picks sensible defaults based on zoom level.
-        </MudText>
-        <MudButton Variant="Variant.Outlined"
-                   Color="Color.Secondary"
-                   Size="Size.Small"
-                   OnClick="ResetSettings">
-            Reset to defaults
-        </MudButton>
-    </MudStack>
+    </div>
 </MudStack>
 
 @code {
@@ -285,8 +280,16 @@
     [Parameter]
     public EventCallback CloseRequested { get; set; }
 
+    [Parameter]
+    public IReadOnlyDictionary<TopologyFeatureSection, bool>? ExpandedSections { get; set; }
+
+    [Parameter]
+    public EventCallback<SectionExpansionChangedArgs> SectionExpansionChanged { get; set; }
+
     private TopologyOverlaySettings workingSettings = TopologyOverlaySettings.Default;
     private TopologyOverlaySettings? lastReceivedSettings;
+    private IReadOnlyDictionary<TopologyFeatureSection, bool>? lastExpandedSections;
+    private Dictionary<TopologyFeatureSection, bool> sectionExpansion = new();
 
     protected override void OnParametersSet()
     {
@@ -295,9 +298,35 @@
             workingSettings = Settings.Clone();
             lastReceivedSettings = Settings;
         }
+
+        if (!ReferenceEquals(lastExpandedSections, ExpandedSections))
+        {
+            sectionExpansion = ExpandedSections is null
+                ? new Dictionary<TopologyFeatureSection, bool>()
+                : new Dictionary<TopologyFeatureSection, bool>(ExpandedSections);
+            lastExpandedSections = ExpandedSections;
+        }
     }
 
     private Task Close() => CloseRequested.InvokeAsync();
+
+    private bool IsExpanded(TopologyFeatureSection section)
+        => sectionExpansion.TryGetValue(section, out var expanded) ? expanded : true;
+
+    private async Task SetSectionExpanded(TopologyFeatureSection section, bool expanded)
+    {
+        if (IsExpanded(section) == expanded)
+        {
+            return;
+        }
+
+        sectionExpansion[section] = expanded;
+        StateHasChanged();
+        if (SectionExpansionChanged.HasDelegate)
+        {
+            await SectionExpansionChanged.InvokeAsync(new SectionExpansionChangedArgs(section, expanded));
+        }
+    }
 
     private Task OnShowLabelsChanged(bool value)
     {
@@ -405,17 +434,6 @@
         return NotifyChange();
     }
 
-    private Task OnShowComputeNodesChanged(bool value)
-    {
-        if (workingSettings.ShowComputeNodes == value)
-        {
-            return Task.CompletedTask;
-        }
-
-        workingSettings.ShowComputeNodes = value;
-        return NotifyChange();
-    }
-
     private Task OnIncludeServiceNodesChanged(bool value)
     {
         if (workingSettings.IncludeServiceNodes == value)
@@ -446,6 +464,65 @@
         }
 
         workingSettings.IncludeConstNodes = value;
+        return NotifyChange();
+    }
+
+    private Task OnNeighborEmphasisChanged(bool value)
+    {
+        if (workingSettings.NeighborEmphasis == value)
+        {
+            return Task.CompletedTask;
+        }
+
+        workingSettings.NeighborEmphasis = value;
+        return NotifyChange();
+    }
+
+    private Task OnZoomPercentChanged(double value)
+    {
+        var clamped = Math.Clamp(value, 25d, 200d);
+        if (Math.Abs(workingSettings.ZoomPercent - clamped) < 0.01d)
+        {
+            return Task.CompletedTask;
+        }
+
+        workingSettings.ZoomPercent = clamped;
+        return NotifyChange();
+    }
+
+    private Task OnSlaThresholdChanged(double value)
+    {
+        var clamped = Math.Clamp(value, 0d, 1d);
+        if (Math.Abs(workingSettings.SlaWarningThreshold - clamped) < 0.001d)
+        {
+            return Task.CompletedTask;
+        }
+
+        workingSettings.SlaWarningThreshold = clamped;
+        return NotifyChange();
+    }
+
+    private Task OnUtilThresholdChanged(double value)
+    {
+        var clamped = Math.Clamp(value, 0d, 1d);
+        if (Math.Abs(workingSettings.UtilizationWarningThreshold - clamped) < 0.001d)
+        {
+            return Task.CompletedTask;
+        }
+
+        workingSettings.UtilizationWarningThreshold = clamped;
+        return NotifyChange();
+    }
+
+    private Task OnErrorThresholdChanged(double value)
+    {
+        var clamped = Math.Clamp(value, 0d, 0.5d);
+        if (Math.Abs(workingSettings.ErrorRateAlertThreshold - clamped) < 0.001d)
+        {
+            return Task.CompletedTask;
+        }
+
+        workingSettings.ErrorRateAlertThreshold = clamped;
         return NotifyChange();
     }
 
@@ -512,106 +589,6 @@
         }
 
         workingSettings.ShowExpressionDependencies = value;
-        return NotifyChange();
-    }
-
-    private Task OnNeighborEmphasisChanged(bool value)
-    {
-        if (workingSettings.NeighborEmphasis == value)
-        {
-            return Task.CompletedTask;
-        }
-
-        workingSettings.NeighborEmphasis = value;
-        return NotifyChange();
-    }
-
-    private Task OnAutoLodChanged(bool value)
-    {
-        if (workingSettings.AutoLod == value)
-        {
-            return Task.CompletedTask;
-        }
-
-        workingSettings.AutoLod = value;
-        return NotifyChange();
-    }
-
-    private Task OnZoomLowChanged(double value)
-    {
-        var clamped = Math.Clamp(value, 0.1d, 4d);
-        if (Math.Abs(workingSettings.ZoomLowThreshold - clamped) < 0.01d)
-        {
-            return Task.CompletedTask;
-        }
-
-        workingSettings.ZoomLowThreshold = clamped;
-        return NotifyChange();
-    }
-
-    private Task OnZoomMidChanged(double value)
-    {
-        var clamped = Math.Clamp(value, 0.1d, 4d);
-        if (Math.Abs(workingSettings.ZoomMidThreshold - clamped) < 0.01d)
-        {
-            return Task.CompletedTask;
-        }
-
-        workingSettings.ZoomMidThreshold = clamped;
-        return NotifyChange();
-    }
-
-    private Task OnZoomPercentChanged(double value)
-    {
-        var clamped = Math.Clamp(value, 30d, 200d);
-        if (Math.Abs(workingSettings.ZoomPercent - clamped) < 0.01d)
-        {
-            return Task.CompletedTask;
-        }
-
-        workingSettings.ZoomPercent = clamped;
-        return NotifyChange();
-    }
-
-    private Task OnColorBasisChanged(TopologyColorBasis value)
-    {
-        workingSettings.ColorBasis = value;
-        return NotifyChange();
-    }
-
-    private Task OnSlaThresholdChanged(double value)
-    {
-        var clamped = Math.Clamp(value, 0d, 1d);
-        if (Math.Abs(workingSettings.SlaWarningThreshold - clamped) < 0.001d)
-        {
-            return Task.CompletedTask;
-        }
-
-        workingSettings.SlaWarningThreshold = clamped;
-        return NotifyChange();
-    }
-
-    private Task OnUtilThresholdChanged(double value)
-    {
-        var clamped = Math.Clamp(value, 0d, 1d);
-        if (Math.Abs(workingSettings.UtilizationWarningThreshold - clamped) < 0.001d)
-        {
-            return Task.CompletedTask;
-        }
-
-        workingSettings.UtilizationWarningThreshold = clamped;
-        return NotifyChange();
-    }
-
-    private Task OnErrorThresholdChanged(double value)
-    {
-        var clamped = Math.Clamp(value, 0d, 0.5d);
-        if (Math.Abs(workingSettings.ErrorRateAlertThreshold - clamped) < 0.001d)
-        {
-            return Task.CompletedTask;
-        }
-
-        workingSettings.ErrorRateAlertThreshold = clamped;
         return NotifyChange();
     }
 

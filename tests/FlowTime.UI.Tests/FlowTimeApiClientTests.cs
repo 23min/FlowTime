@@ -143,7 +143,7 @@ public class FlowTimeApiClientTests
         var opts = Options.Create(new FlowTimeApiOptions { ApiVersion = "v1" });
         var client = new FlowTimeApiClient(http, opts.Value);
 
-        var response = await client.GetRunStateWindowAsync("missing", 0, 10, CancellationToken.None);
+        var response = await client.GetRunStateWindowAsync("missing", 0, 10, mode: null, ct: CancellationToken.None);
 
         Assert.False(response.Success);
         Assert.Equal(404, response.StatusCode);
@@ -195,7 +195,7 @@ public class FlowTimeApiClientTests
         var opts = Options.Create(new FlowTimeApiOptions { ApiVersion = "v1" });
         var client = new FlowTimeApiClient(http, opts.Value);
 
-        var response = await client.GetRunStateWindowAsync("run_xyz", 10, 12, CancellationToken.None);
+        var response = await client.GetRunStateWindowAsync("run_xyz", 10, 12, mode: null, ct: CancellationToken.None);
 
         Assert.True(response.Success);
         Assert.Equal(3, response.Value?.Window.BinCount);

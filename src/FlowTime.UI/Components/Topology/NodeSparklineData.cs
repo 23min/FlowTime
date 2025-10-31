@@ -12,7 +12,8 @@ public sealed record NodeSparklineData(
     double Min,
     double Max,
     bool IsFlat,
-    int StartIndex)
+    int StartIndex,
+    IReadOnlyDictionary<string, SparklineSeriesSlice> Series)
 {
     public static NodeSparklineData Create(
         IReadOnlyList<double?> values,
@@ -21,7 +22,8 @@ public sealed record NodeSparklineData(
         IReadOnlyList<double?> queueDepth,
         int startIndex,
         double? explicitMin = null,
-        double? explicitMax = null)
+        double? explicitMax = null,
+        IReadOnlyDictionary<string, SparklineSeriesSlice>? additionalSeries = null)
     {
         if (values is null || values.Count == 0)
         {
@@ -38,7 +40,8 @@ public sealed record NodeSparklineData(
             min,
             max,
             isFlat,
-            startIndex);
+            startIndex,
+            additionalSeries ?? new Dictionary<string, SparklineSeriesSlice>(StringComparer.OrdinalIgnoreCase));
     }
 
     public static (double Min, double Max, bool IsFlat) ComputeBounds(
@@ -95,3 +98,7 @@ public sealed record NodeSparklineData(
         return (min, max, isFlat);
     }
 }
+
+public sealed record SparklineSeriesSlice(
+    IReadOnlyList<double?> Values,
+    int StartIndex);

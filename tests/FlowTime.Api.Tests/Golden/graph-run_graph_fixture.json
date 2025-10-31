@@ -6,21 +6,27 @@
       "semantics": {
         "arrivals": "series:incoming",
         "served": "series:routed",
-        "errors": "series:errors"
+        "errors": "series:errors",
+        "series": null,
+        "distribution": null
       }
     },
     {
       "id": "Database",
-      "kind": "store",
+      "kind": "service",
       "semantics": {
         "arrivals": "series:routed",
         "served": "series:served",
         "errors": "series:errors",
-        "capacity": "series:capacity"
+        "capacity": "series:capacity",
+        "series": null,
+        "distribution": null
       },
       "ui": {
         "x": 160,
-        "y": 48
+        "y": 48,
+        "layer": null,
+        "order": null
       }
     }
   ],
@@ -29,7 +35,9 @@
       "id": "edge_lb_db",
       "from": "LoadBalancer:out",
       "to": "Database:in",
-      "weight": 1
+      "weight": 1,
+      "edgeType": "topology",
+      "field": null
     }
   ]
 }
