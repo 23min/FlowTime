@@ -1637,6 +1637,64 @@
                     continue;
                 }
 
+                var distribution = topoNode.Semantics?.Distribution;
+                if (distribution is not null &&
+                    distribution.Values is { Count: > 0 } &&
+                    distribution.Probabilities is { Count: > 0 })
+                {
+                    var length = Math.Min(distribution.Values.Count, distribution.Probabilities.Count);
+                    if (length > 0)
+                    {
+                        var probabilities = new double?[length];
+                        var hasValue = false;
+                        for (var i = 0; i < length; i++)
+                        {
+                            var probability = distribution.Probabilities[i];
+                            if (!double.IsFinite(probability) || probability < 0)
+                            {
+                                probabilities[i] = 0d;
+                                continue;
+                            }
+
+                            probabilities[i] = probability;
+                            if (probability > 0)
+                            {
+                                hasValue = true;
+                            }
+                        }
+
+                        if (hasValue)
+                        {
+                            var trimmedDistribution = TrimSeries(probabilities, SparklinePointLimit);
+                            if (trimmedDistribution.Count > 0)
+                            {
+                                var seriesArray = trimmedDistribution as double?[] ?? trimmedDistribution.ToArray();
+                                var slice = new SparklineSeriesSlice(seriesArray, 0);
+                                var additional = new Dictionary<string, SparklineSeriesSlice>(StringComparer.OrdinalIgnoreCase)
+                                {
+                                    ["distribution"] = slice,
+                                    ["values"] = new SparklineSeriesSlice(seriesArray, 0),
+                                    [topoNode.Id] = new SparklineSeriesSlice(seriesArray, 0),
+                                    [$"series:{topoNode.Id}"] = new SparklineSeriesSlice(seriesArray, 0)
+                                };
+
+                                var sparkline = NodeSparklineData.Create(
+                                    seriesArray,
+                                    Array.Empty<double?>(),
+                                    Array.Empty<double?>(),
+                                    Array.Empty<double?>(),
+                                    0,
+                                    explicitMin: 0d,
+                                    explicitMax: 1d,
+                                    additionalSeries: additional);
+
+                                result[topoNode.Id] = sparkline;
+                                continue;
+                            }
+                        }
+                    }
+                }
+
                 if (IsExpressionKind(topoNode.Kind))
                 {
                     missing.Add(topoNode.Id);

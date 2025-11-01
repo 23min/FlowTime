@@ -120,11 +120,12 @@ This micro‑milestone polishes the Topology experience by adding a mini sparkli
 - Contracts/API/UI mapping now carry `semantics.expression` for expression nodes end-to-end.
 - Window sparkline builder includes expression nodes and tracks missing-series warnings for graceful degradation.
 - Tooltip renders a basis-colored mini sparkline for expression nodes (with bin highlight and fallback when data is absent).
-- Canvas skips lollipop ports on const/expr/pmf edges and displays computed `bin(t)` values inside nodes.
+- Canvas skips lollipop ports on const/expr/pmf edges and displays computed `bin(t)` values inside nodes (when the series is present in the window payload).
 - Inspector surfaces expression text in a monospace block and shows an SVG sparkline panel with min/max labels.
+- Added unit coverage for the inspector sparkline baseline handling and PMF distribution fallback (FlowTime.UI.Tests).
 
 ### Next Focus
-- Add automated coverage (tooltip draw + inspector rendering) and run topology-focused UI tests.
+- Expand automated checks to cover tooltip sparkline wiring and computed-node focus labels against synthetic data.
 - Polish empty-series messaging across tooltip/inspector once real data is exercised.
 - Update release notes once verification passes.
 
