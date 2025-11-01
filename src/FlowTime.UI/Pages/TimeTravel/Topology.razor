@@ -234,7 +234,6 @@
                         @if (inspectorNodeId is not null)
                         {
                             var nodeId = inspectorNodeId;
-                            var pmfChart = BuildPmfChart(nodeId);
                             var metricCharts = BuildMetricCharts(nodeId);
                             NodeSparklineData? inspectorSparkline = null;
                             if (nodeSparklines.TryGetValue(nodeId, out var sparklineCandidate))
@@ -246,8 +245,38 @@
                             var expressionText = topoNodeInfo?.Semantics?.Expression;
                             var hasExpressionText = !string.IsNullOrWhiteSpace(expressionText);
                             var showExpressionSection = IsExpressionKind(nodeKind);
+                            var isComputedNode = IsComputedKind(nodeKind);
                             var hasInspectorSparkline = inspectorSparkline is not null && inspectorSparkline.Values.Count > 0;
                             var sparklineStroke = ResolveInspectorSparklineStroke(inspectorSparkline);
+                            NodeSparklineData? slaSparkline = null;
+                            NodeSparklineData? errorSparkline = null;
+                            NodeSparklineData? valuesSparkline = null;
+                            NodeSparklineData? pmfSparkline = null;
+                            string slaStroke = "#475569";
+                            string errorStroke = "#475569";
+                            string valuesStroke = "#475569";
+                            if (inspectorSparkline is not null)
+                            {
+                                slaSparkline = BuildInspectorSparkline(inspectorSparkline, "successRate", explicitMin: 0d, explicitMax: 1d);
+                                errorSparkline = BuildInspectorSparkline(inspectorSparkline, "errorRate", explicitMin: 0d, explicitMax: 1d);
+                                valuesSparkline = BuildInspectorSparkline(inspectorSparkline, "values");
+                                pmfSparkline = BuildPmfSparkline(topoNodeInfo, inspectorSparkline);
+
+                                if (slaSparkline is not null)
+                                {
+                                    slaStroke = ResolveInspectorSparklineStroke(slaSparkline);
+                                }
+
+                                if (errorSparkline is not null)
+                                {
+                                    errorStroke = ResolveInspectorSparklineStroke(errorSparkline);
+                                }
+
+                                if (valuesSparkline is not null)
+                                {
+                                    valuesStroke = ResolveInspectorSparklineStroke(valuesSparkline);
+                                }
+                            }
 
                             <MudStack Class="pa-4" Spacing="2">
                                 <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
@@ -279,9 +308,25 @@
                                         }
                                     </MudStack>
                                 }
-                                else
+                                else if (!isComputedNode)
                                 {
                                     <MudText Typo="Typo.body2">Metrics unavailable.</MudText>
+                                }
+
+                                @if (!isComputedNode && slaSparkline is not null)
+                                {
+                                    <MudStack Spacing="1">
+                                        <MudText Typo="Typo.subtitle2">SLA</MudText>
+                                        <TopologyInspectorSparkline Data="@slaSparkline" SelectedBin="@selectedBin" Stroke="@slaStroke" />
+                                    </MudStack>
+                                }
+
+                                @if (!isComputedNode && errorSparkline is not null)
+                                {
+                                    <MudStack Spacing="1">
+                                        <MudText Typo="Typo.subtitle2">Error rate</MudText>
+                                        <TopologyInspectorSparkline Data="@errorSparkline" SelectedBin="@selectedBin" Stroke="@errorStroke" />
+                                    </MudStack>
                                 }
 
                                 @if (showExpressionSection)
@@ -296,45 +341,23 @@
                                         {
                                             <MudText Typo="Typo.caption" Class="topology-muted-text">Expression unavailable.</MudText>
                                         }
-
-                                        <MudText Typo="Typo.subtitle2">Sparkline</MudText>
-                                        @if (hasInspectorSparkline && inspectorSparkline is not null)
-                                        {
-                                            <TopologyInspectorSparkline Data="@inspectorSparkline" SelectedBin="@selectedBin" Stroke="@sparklineStroke" />
-                                        }
-                                        else
-                                        {
-                                            <MudText Typo="Typo.caption" Class="topology-muted-text">@MissingSeriesMessage</MudText>
-                                        }
                                     </MudStack>
                                 }
 
-                                @if (pmfChart is not null)
+                                @if (valuesSparkline is not null)
                                 {
-                                    <MudChart ChartType="ChartType.Bar"
-                                              XAxisLabels="@pmfChart.Value.Labels"
-                                              ChartSeries="@pmfChart.Value.Series.ToList()"
-                                              ChartOptions="@CreateInspectorChartOptions()"
-                                              Height="160px"
-                                              Class="node-inspector-chart"
-                                              @key="@($"pmf-{nodeId}")" />
+                                    <MudStack Spacing="1">
+                                        <MudText Typo="Typo.subtitle2">@(isComputedNode ? "Output" : "Values")</MudText>
+                                        <TopologyInspectorSparkline Data="@valuesSparkline" SelectedBin="@selectedBin" Stroke="@valuesStroke" />
+                                    </MudStack>
                                 }
 
-                                @if (metricCharts.Count > 0)
+                                @if (pmfSparkline is not null)
                                 {
-                                    @foreach (var chart in metricCharts)
-                                    {
-                                        <MudStack Spacing="1" @key="@($"metric-stack-{nodeId}-{chart.Title}")">
-                                            <MudText Typo="Typo.subtitle2">@chart.Title</MudText>
-                                            <MudChart ChartType="@chart.Type"
-                                                      XAxisLabels="@chart.Labels"
-                                                      ChartSeries="@chart.Series.ToList()"
-                                                      ChartOptions="@CreateInspectorChartOptions()"
-                                                      Height="160px"
-                                                      Class="node-inspector-chart"
-                                                      @key="@($"metric-chart-{nodeId}-{chart.Title}")" />
-                                        </MudStack>
-                                    }
+                                    <MudStack Spacing="1">
+                                        <MudText Typo="Typo.subtitle2">Distribution</MudText>
+                                        <TopologyInspectorSparkline Data="@pmfSparkline" SelectedBin="@selectedBin" Stroke="#0F172A" />
+                                    </MudStack>
                                 }
                             </MudStack>
                         }
@@ -1648,7 +1671,6 @@
 
     private static readonly (string Title, string Key, bool IsPercent, ChartType Type)[] MetricDefinitions =
     {
-        ("SLA", "successRate", true, ChartType.Bar),
         ("Utilization", "utilization", true, ChartType.Bar),
         ("Error rate", "errorRate", true, ChartType.Bar),
         ("Queue depth", "queue", false, ChartType.Bar)
@@ -1670,13 +1692,6 @@
             {
                 charts.Add(chart);
             }
-        }
-
-        // Fallback chart for raw values (e.g., const nodes)
-        var valuesChart = BuildMetricChart(sparkline, "Values", "values", false, ChartType.Bar);
-        if (valuesChart is not null)
-        {
-            charts.Add(valuesChart);
         }
 
         return charts;
@@ -1769,6 +1784,63 @@
         return new MetricChartViewModel(title, series, labels, chartType);
     }
 
+    private NodeSparklineData? BuildInspectorSparkline(NodeSparklineData sparkline, string primaryKey, double? explicitMin = null, double? explicitMax = null)
+    {
+        if (sparkline is null)
+        {
+            return null;
+        }
+
+        var slice = ResolveMetricSeriesSlice(sparkline, primaryKey);
+        IReadOnlyList<double?>? seriesValues = null;
+        var startIndex = sparkline.StartIndex;
+
+        if (slice is not null && slice.Values.Count > 0)
+        {
+            seriesValues = slice.Values;
+            startIndex = slice.StartIndex;
+        }
+        else
+        {
+            seriesValues = primaryKey switch
+            {
+                "successRate" => sparkline.Values,
+                "values" when sparkline.Series.TryGetValue(primaryKey, out var valuesSlice) => valuesSlice.Values,
+                "values" => sparkline.Values,
+                "errorRate" when sparkline.Series.TryGetValue(primaryKey, out var errorSlice) => errorSlice.Values,
+                "errorRate" => sparkline.ErrorRate,
+                _ => null
+            };
+        }
+
+        if (seriesValues is null || seriesValues.Count == 0)
+        {
+            return null;
+        }
+
+        if (!seriesValues.Any(v => v.HasValue && double.IsFinite(v.Value)))
+        {
+            return null;
+        }
+
+        var array = seriesValues as double?[] ?? seriesValues.ToArray();
+
+        var additional = new Dictionary<string, SparklineSeriesSlice>(StringComparer.OrdinalIgnoreCase)
+        {
+            [primaryKey] = new SparklineSeriesSlice(array, startIndex)
+        };
+
+        return NodeSparklineData.Create(
+            array,
+            Array.Empty<double?>(),
+            Array.Empty<double?>(),
+            Array.Empty<double?>(),
+            startIndex,
+            explicitMin,
+            explicitMax,
+            additionalSeries: additional);
+    }
+
     private static SparklineSeriesSlice? ResolveMetricSeriesSlice(NodeSparklineData sparkline, string primaryKey)
     {
         if (sparkline.Series.TryGetValue(primaryKey, out var slice))
@@ -1783,15 +1855,14 @@
         };
     }
 
-    private (ChartSeries[] Series, string[] Labels)? BuildPmfChart(string nodeId)
+    private NodeSparklineData? BuildPmfSparkline(TopologyNode? node, NodeSparklineData? inspectorSparkline)
     {
-        if (string.IsNullOrWhiteSpace(nodeId) || topologyGraph is null)
+        if (node is null)
         {
             return null;
         }
 
-        var node = topologyGraph.Nodes.FirstOrDefault(n => string.Equals(n.Id, nodeId, StringComparison.OrdinalIgnoreCase));
-        var distribution = node?.Semantics?.Distribution;
+        var distribution = node.Semantics?.Distribution;
         if (distribution is null || distribution.Values.Count == 0 || distribution.Probabilities.Count == 0)
         {
             return null;
@@ -1803,27 +1874,23 @@
             return null;
         }
 
-        var labels = new string[length];
-        var data = new double[length];
+        var series = new double?[length];
         var hasValue = false;
-
         for (var i = 0; i < length; i++)
         {
             var probability = distribution.Probabilities[i];
             if (!double.IsFinite(probability) || probability < 0)
             {
-                data[i] = 0d;
+                series[i] = 0d;
             }
             else
             {
-                data[i] = probability;
+                series[i] = probability;
                 if (probability > 0)
                 {
                     hasValue = true;
                 }
             }
-
-            labels[i] = distribution.Values[i].ToString("0.###", CultureInfo.InvariantCulture);
         }
 
         if (!hasValue)
@@ -1831,16 +1898,18 @@
             return null;
         }
 
-        var series = new[]
-        {
-            new ChartSeries
+        return NodeSparklineData.Create(
+            series,
+            Array.Empty<double?>(),
+            Array.Empty<double?>(),
+            Array.Empty<double?>(),
+            inspectorSparkline?.StartIndex ?? 0,
+            explicitMin: 0d,
+            explicitMax: 1d,
+            additionalSeries: new Dictionary<string, SparklineSeriesSlice>(StringComparer.OrdinalIgnoreCase)
             {
-                Name = string.Empty,
-                Data = data
-            }
-        };
-
-        return (series, labels);
+                ["distribution"] = new SparklineSeriesSlice(series, inspectorSparkline?.StartIndex ?? 0)
+            });
     }
 
     private void CloseInspector()

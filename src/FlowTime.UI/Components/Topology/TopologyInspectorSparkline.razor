@@ -129,6 +129,8 @@ else
         var scaleMax = Data.Max;
         if (!double.IsFinite(scaleMin)) scaleMin = actualMin;
         if (!double.IsFinite(scaleMax)) scaleMax = actualMax;
+        scaleMin = Math.Min(scaleMin, 0d);
+        scaleMax = Math.Max(scaleMax, 0d);
         if (Math.Abs(scaleMax - scaleMin) < 1e-9)
         {
             scaleMax = scaleMin + 0.001d;
@@ -136,7 +138,9 @@ else
 
         var plotWidth = SvgWidth - LeftPadding - RightPadding;
         var plotHeight = SvgHeight - TopPadding - BottomPadding;
-        baseLineY = SvgHeight - BottomPadding;
+        var zeroFraction = (0d - scaleMin) / (scaleMax - scaleMin);
+        zeroFraction = double.IsFinite(zeroFraction) ? Math.Clamp(zeroFraction, 0d, 1d) : 0d;
+        baseLineY = TopPadding + (1 - zeroFraction) * plotHeight;
 
         var builder = new StringBuilder();
         var movePending = true;
