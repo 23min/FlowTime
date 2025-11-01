@@ -8,6 +8,7 @@
         "served": "series:routed",
         "errors": "series:errors",
         "series": null,
+        "expression": null,
         "distribution": null
       }
     },
@@ -20,6 +21,7 @@
         "errors": "series:errors",
         "capacity": "series:capacity",
         "series": null,
+        "expression": null,
         "distribution": null
       },
       "ui": {

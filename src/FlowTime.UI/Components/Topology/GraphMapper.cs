@@ -523,7 +523,7 @@ internal static class GraphMapper
             var semantics = node.Semantics;
             if (semantics is null)
             {
-                Semantics = new TopologyNodeSemantics(null, null, null, null, null, null, null, null);
+                Semantics = new TopologyNodeSemantics(null, null, null, null, null, null, null, null, null);
             }
             else
             {
@@ -542,6 +542,7 @@ internal static class GraphMapper
                     semantics.Queue,
                     semantics.Capacity,
                     semantics.Series,
+                    semantics.Expression,
                     distribution,
                     semantics.InlineValues);
             }
@@ -597,6 +598,7 @@ public sealed record GraphNodeSemanticsModel(
     string? Queue,
     string? Capacity,
     string? Series,
+    string? Expression,
     GraphDistributionModel? Distribution,
     IReadOnlyList<double>? InlineValues);
 
@@ -617,6 +619,7 @@ public sealed record TopologyNodeSemantics(
     string? Queue,
     string? Capacity,
     string? Series,
+    string? Expression,
     TopologyNodeDistribution? Distribution,
     IReadOnlyList<double>? InlineValues);
 

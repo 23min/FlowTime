@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Linq;
 using FlowTime.Adapters.Synthetic;
 using FlowTime.Contracts.Services;
@@ -35,7 +36,7 @@ public sealed class StateQueryService
 
     public async Task<StateSnapshotResponse> GetStateAsync(string runId, int binIndex, CancellationToken cancellationToken = default)
     {
-        var context = await LoadContextAsync(runId, cancellationToken);
+        var context = await LoadContextAsync(runId, loadComputedValues: false, cancellationToken);
 
         if (binIndex < 0 || binIndex >= context.Window.Bins)
         {
@@ -85,9 +86,15 @@ public sealed class StateQueryService
         };
     }
 
-    public async Task<StateWindowResponse> GetStateWindowAsync(string runId, int startBin, int endBin, CancellationToken cancellationToken = default)
+    public async Task<StateWindowResponse> GetStateWindowAsync(
+        string runId,
+        int startBin,
+        int endBin,
+        GraphQueryMode mode = GraphQueryMode.Operational,
+        CancellationToken cancellationToken = default)
     {
-        var context = await LoadContextAsync(runId, cancellationToken);
+        var includeComputed = mode == GraphQueryMode.Full;
+        var context = await LoadContextAsync(runId, loadComputedValues: includeComputed, cancellationToken);
 
         var validation = ValidateContext(context);
         if (validation.HasErrors)
@@ -128,8 +135,12 @@ public sealed class StateQueryService
             timestamps.Add(ToOffset(timestamp)!.Value);
         }
 
-        var seriesList = new List<NodeSeries>(capacity: context.Topology.Nodes.Count);
-        foreach (var topologyNode in context.Topology.Nodes)
+        var topologyNodes = includeComputed
+            ? context.Topology.Nodes
+            : context.Topology.Nodes.Where(node => !IsComputedKind(node.Kind)).ToList();
+
+        var seriesList = new List<NodeSeries>(capacity: topologyNodes.Count);
+        foreach (var topologyNode in topologyNodes)
         {
             if (!context.NodeData.TryGetValue(topologyNode.Id, out var data))
             {
@@ -139,11 +150,42 @@ public sealed class StateQueryService
             seriesList.Add(BuildNodeSeries(topologyNode, data, context, startBin, count, GetNodeWarnings(validation, topologyNode.Id)));
         }
 
+        if (includeComputed)
+        {
+            foreach (var kvp in context.ModelNodes)
+            {
+                var modelNode = kvp.Value;
+                var nodeId = modelNode.Id ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(nodeId))
+                {
+                    continue;
+                }
+
+                var kind = NormalizeKind(modelNode.Kind);
+                if (!IsComputedKind(kind))
+                {
+                    continue;
+                }
+
+                if (!context.NodeData.TryGetValue(nodeId, out var data) || data.Values is null)
+                {
+                    continue;
+                }
+
+                var series = BuildComputedNodeSeries(nodeId, kind, data, context, startBin, count, GetNodeWarnings(validation, nodeId));
+                if (series is not null)
+                {
+                    seriesList.Add(series);
+                }
+            }
+        }
+
         logger.LogInformation(
             stateWindowEvent,
-            "Resolved state window for run {RunId} (mode={Mode}) from bin {StartBin} to {EndBin} ({RequestedBins} of {TotalBins})",
+            "Resolved state window for run {RunId} (mode={Mode}, windowMode={WindowMode}) from bin {StartBin} to {EndBin} ({RequestedBins} of {TotalBins})",
             runId,
             context.ManifestMetadata.Mode,
+            mode,
             startBin,
             endBin,
             count,
@@ -164,7 +206,7 @@ public sealed class StateQueryService
         };
     }
 
-    private async Task<StateRunContext> LoadContextAsync(string runId, CancellationToken cancellationToken)
+    private async Task<StateRunContext> LoadContextAsync(string runId, bool loadComputedValues, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(runId))
         {
@@ -184,6 +226,7 @@ public sealed class StateQueryService
             var reader = new FileSeriesReader();
             var adapter = new RunArtifactAdapter(reader, runDirectory);
             var manifest = await adapter.GetManifestAsync();
+            var seriesIndex = await adapter.GetIndexAsync();
 
             var modelPath = ResolveModelPath(runDirectory);
             var modelYaml = await File.ReadAllTextAsync(modelPath, cancellationToken);
@@ -242,6 +285,13 @@ public sealed class StateQueryService
             }
 
             var loader = new SemanticLoader(modelDirectory);
+            var bins = metadata.Window.Bins;
+            var valueSeriesLookup = loadComputedValues
+                ? BuildSeriesLookup(manifest.Series)
+                : new Dictionary<string, SeriesReference>(StringComparer.OrdinalIgnoreCase);
+            var modelNodeDefinitions = modelDefinition.Nodes
+                .Where(n => !string.IsNullOrWhiteSpace(n.Id))
+                .ToDictionary(n => n.Id!, StringComparer.OrdinalIgnoreCase);
             var nodeData = new Dictionary<string, NodeData>(StringComparer.Ordinal);
             var preValidationWarnings = new List<ModeValidationWarning>();
             var preValidationNodeWarnings = new Dictionary<string, List<ModeValidationWarning>>(StringComparer.OrdinalIgnoreCase);
@@ -251,7 +301,7 @@ public sealed class StateQueryService
             {
                 try
                 {
-                    var data = loader.LoadNodeData(node, metadata.Window.Bins);
+                    var data = loader.LoadNodeData(node, bins);
                     nodeData[node.Id] = data;
                 }
                 catch (Exception ex)
@@ -294,12 +344,71 @@ public sealed class StateQueryService
                 }
             }
 
+            if (loadComputedValues)
+            {
+                foreach (var nodeDef in modelNodeDefinitions.Values)
+                {
+                    var nodeId = nodeDef.Id!;
+                    var kind = NormalizeKind(string.IsNullOrWhiteSpace(nodeDef.Kind) ? "const" : nodeDef.Kind);
+                    if (!IsComputedKind(kind))
+                    {
+                        continue;
+                    }
+
+                    double[]? values = null;
+                    if (nodeDef.Values is { Length: > 0 })
+                    {
+                        values = NormalizeInlineValues(nodeDef.Values, bins);
+                    }
+                    else if (valueSeriesLookup.TryGetValue(nodeId, out var seriesRef))
+                    {
+                        var seriesPath = Path.Combine(runDirectory, seriesRef.Path.Replace('/', Path.DirectorySeparatorChar));
+                        try
+                        {
+                            values = CsvReader.ReadTimeSeries(seriesPath, bins);
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.LogWarning(ex, "Failed to load series {SeriesId} for computed node {NodeId} in run {RunId}", seriesRef.Id, nodeId, runId);
+                            AppendNodeWarning(preValidationNodeWarnings, nodeId, "value_series_missing", $"Series '{seriesRef.Id}' could not be loaded for computed node '{nodeId}'.");
+                        }
+                    }
+                    else
+                    {
+                        AppendNodeWarning(preValidationNodeWarnings, nodeId, "value_series_missing", $"No output series was found for computed node '{nodeId}'.");
+                    }
+
+                    if (values is null)
+                    {
+                        continue;
+                    }
+
+                    if (nodeData.TryGetValue(nodeId, out var existing))
+                    {
+                        nodeData[nodeId] = existing with { Values = values };
+                    }
+                    else
+                    {
+                        nodeData[nodeId] = CreateValuesOnlyNodeData(nodeId, bins, values);
+                    }
+                }
+            }
+
             var readonlyNodeWarnings = preValidationNodeWarnings.ToDictionary(
                 kvp => kvp.Key,
                 kvp => (IReadOnlyList<ModeValidationWarning>)kvp.Value,
                 StringComparer.OrdinalIgnoreCase);
 
-            return new StateRunContext(manifest, manifestMetadata, metadata.Window, metadata.Topology, nodeData, preValidationWarnings, readonlyNodeWarnings);
+            return new StateRunContext(
+                manifest,
+                manifestMetadata,
+                metadata.Window,
+                metadata.Topology,
+                nodeData,
+                preValidationWarnings,
+                readonlyNodeWarnings,
+                new ReadOnlyDictionary<string, NodeDefinition>(modelNodeDefinitions),
+                seriesIndex);
         }
         catch (StateQueryException)
         {
@@ -429,6 +538,13 @@ public sealed class StateQueryService
         if (throughputSeries != null)
         {
             series["throughputRatio"] = throughputSeries;
+        }
+
+        if (data.Values is not null)
+        {
+            var valuesSlice = ExtractSlice(data.Values, startBin, count);
+            series["values"] = valuesSlice;
+            series[$"series:{node.Id}"] = valuesSlice;
         }
 
         return new NodeSeries
@@ -583,6 +699,141 @@ public sealed class StateQueryService
         return served.Value / arrivals.Value;
     }
 
+    private static Dictionary<string, SeriesReference> BuildSeriesLookup(IEnumerable<SeriesReference> seriesReferences)
+    {
+        var lookup = new Dictionary<string, SeriesReference>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var reference in seriesReferences)
+        {
+            if (string.IsNullOrWhiteSpace(reference.Id))
+            {
+                continue;
+            }
+
+            var key = reference.Id;
+            var atIndex = key.IndexOf('@');
+            if (atIndex >= 0)
+            {
+                key = key[..atIndex];
+            }
+
+            if (!lookup.ContainsKey(key))
+            {
+                lookup[key] = reference;
+            }
+        }
+
+        return lookup;
+    }
+
+    private static NodeSeries? BuildComputedNodeSeries(
+        string nodeId,
+        string kind,
+        NodeData data,
+        StateRunContext context,
+        int start,
+        int count,
+        IReadOnlyList<ModeValidationWarning> nodeWarnings)
+    {
+        if (data.Values is null)
+        {
+            return null;
+        }
+
+        var valuesSlice = ExtractSlice(data.Values, start, count);
+
+        var series = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["values"] = valuesSlice,
+            [$"series:{nodeId}"] = valuesSlice
+        };
+
+        return new NodeSeries
+        {
+            Id = nodeId,
+            Kind = kind,
+            Series = series,
+            Telemetry = new NodeTelemetryInfo
+            {
+                Sources = Array.Empty<string>(),
+                Warnings = ConvertNodeWarnings(nodeWarnings)
+            }
+        };
+    }
+
+    private static NodeData CreateValuesOnlyNodeData(string nodeId, int bins, double[] values)
+    {
+        return new NodeData
+        {
+            NodeId = nodeId,
+            Arrivals = CreateNaNSeries(bins),
+            Served = CreateNaNSeries(bins),
+            Errors = CreateNaNSeries(bins),
+            ExternalDemand = null,
+            QueueDepth = null,
+            Capacity = null,
+            Values = values
+        };
+    }
+
+    private static double[] CreateNaNSeries(int bins)
+    {
+        var result = new double[bins];
+        for (var i = 0; i < bins; i++)
+        {
+            result[i] = double.NaN;
+        }
+        return result;
+    }
+
+    private static double[] NormalizeInlineValues(double[] source, int bins)
+    {
+        var result = new double[bins];
+        var length = Math.Min(source.Length, bins);
+        Array.Copy(source, result, length);
+
+        if (length < bins)
+        {
+            for (var i = length; i < bins; i++)
+            {
+                result[i] = double.NaN;
+            }
+        }
+
+        return result;
+    }
+
+    private static void AppendNodeWarning(
+        IDictionary<string, List<ModeValidationWarning>> warnings,
+        string nodeId,
+        string code,
+        string message)
+    {
+        if (!warnings.TryGetValue(nodeId, out var list))
+        {
+            list = new List<ModeValidationWarning>();
+            warnings[nodeId] = list;
+        }
+
+        list.Add(new ModeValidationWarning
+        {
+            Code = code,
+            Message = message,
+            NodeId = nodeId
+        });
+    }
+
+    private static bool IsComputedKind(string? kind)
+    {
+        if (string.IsNullOrWhiteSpace(kind))
+        {
+            return false;
+        }
+
+        var normalized = NormalizeKind(kind);
+        return normalized is "const" or "expression" or "expr" or "pmf";
+    }
+
     private ModeValidationResult ValidateContext(StateRunContext context) =>
         modeValidator.Validate(new ModeValidationContext(
             context.ManifestMetadata,
@@ -720,7 +971,7 @@ public sealed class StateQueryService
             return "service";
         }
 
-        return kind.Trim();
+        return kind.Trim().ToLowerInvariant();
     }
 
     private static double? GetValue(double[] source, int index)
@@ -765,7 +1016,9 @@ public sealed class StateQueryService
         Topology Topology,
         IReadOnlyDictionary<string, NodeData> NodeData,
         IReadOnlyList<ModeValidationWarning> InitialWarnings,
-        IReadOnlyDictionary<string, IReadOnlyList<ModeValidationWarning>> InitialNodeWarnings)
+        IReadOnlyDictionary<string, IReadOnlyList<ModeValidationWarning>> InitialNodeWarnings,
+        IReadOnlyDictionary<string, NodeDefinition> ModelNodes,
+        SeriesIndex SeriesIndex)
     {
         public double BinMinutes => Window.BinDuration.TotalMinutes;
     }

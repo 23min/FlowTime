@@ -34,6 +34,7 @@ internal sealed record NodeSemanticsDto(
     string? Queue,
     string? Capacity,
     string? Series,
+    string? Expression,
     NodeDistributionDto? Distribution,
     IReadOnlyList<double>? InlineValues);
 

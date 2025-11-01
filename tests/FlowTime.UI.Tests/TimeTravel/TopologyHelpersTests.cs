@@ -127,5 +127,5 @@ public sealed class TopologyHelpersTests
     }
 
     private static GraphNodeSemanticsModel CreateSemantics()
-        => new("series:arrivals", "series:served", "series:errors", null, null, null, null, null);
+        => new("series:arrivals", "series:served", "series:errors", null, null, null, null, null, null);
 }

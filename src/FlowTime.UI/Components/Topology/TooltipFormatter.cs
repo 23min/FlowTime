@@ -20,10 +20,14 @@ internal static class TooltipFormatter
 
         var lines = new List<string>();
 
-        if (metrics.CustomValue is double customValue)
+        if (metrics.CustomValue.HasValue)
         {
             var label = string.IsNullOrWhiteSpace(metrics.CustomLabel) ? "Value" : metrics.CustomLabel!;
-            lines.Add($"{label} {customValue.ToString("0.###", CultureInfo.InvariantCulture)}");
+            lines.Add($"{label} {metrics.CustomValue.Value.ToString("0.###", CultureInfo.InvariantCulture)}");
+        }
+        else if (!string.IsNullOrWhiteSpace(metrics.CustomLabel))
+        {
+            lines.Add(metrics.CustomLabel!);
         }
 
         if (metrics.SuccessRate is double successRate)

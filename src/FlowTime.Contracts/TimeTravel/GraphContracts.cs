@@ -25,6 +25,7 @@ public sealed class GraphNodeSemantics
     public string? Queue { get; init; }
     public string? Capacity { get; init; }
     public string? Series { get; init; }
+    public string? Expression { get; init; }
     public GraphNodeDistribution? Distribution { get; init; }
 
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]

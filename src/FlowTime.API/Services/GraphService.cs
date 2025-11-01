@@ -204,9 +204,16 @@ public sealed class GraphService
                     inlineValues = nodeDef.Values;
                 }
 
+                string? expression = null;
+                if (string.Equals(kind, "expr", StringComparison.OrdinalIgnoreCase))
+                {
+                    expression = nodeDef.Expr;
+                }
+
                 var semantics = new GraphNodeSemantics
                 {
                     Series = $"series:{nodeDef.Id}",
+                    Expression = string.IsNullOrWhiteSpace(expression) ? null : expression,
                     Distribution = distribution,
                     InlineValues = inlineValues
                 };

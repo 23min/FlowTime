@@ -326,5 +326,5 @@ public sealed class TopologyCanvasRenderTests : TestContext
         };
     }
 
-    private static TopologyNodeSemantics EmptySemantics() => new(null, null, null, null, null, null, null, null);
+    private static TopologyNodeSemantics EmptySemantics() => new(null, null, null, null, null, null, null, null, null);
 }

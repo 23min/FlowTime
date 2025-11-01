@@ -9,4 +9,5 @@ public sealed record NodeData
     public double[]? ExternalDemand { get; init; }
     public double[]? QueueDepth { get; init; }
     public double[]? Capacity { get; init; }
+    public double[]? Values { get; init; }
 }

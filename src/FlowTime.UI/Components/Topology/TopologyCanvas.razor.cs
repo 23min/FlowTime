@@ -16,6 +16,8 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
     private const double NodeWidth = 54;
     private const double NodeHeight = 24;
     private const double NodeCornerRadius = 3;
+    private const double LeafCircleScale = 1.5;
+    private const double LeafCircleProxyPadding = 6;
     private const double ViewportPadding = 48;
 
     private readonly Dictionary<string, TopologyNode> nodeLookup = new(StringComparer.OrdinalIgnoreCase);
@@ -449,9 +451,14 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             var tooltip = TooltipFormatter.Format(node.Id, nodeMetrics);
             var aria = $"{tooltip.Title}. {string.Join(", ", tooltip.Lines)}.";
 
+            var isLeafComputed = node.Outputs.Count == 0 && IsComputedKind(node.Kind);
+            var proxyHeight = isLeafComputed
+                ? (NodeHeight * LeafCircleScale) + LeafCircleProxyPadding
+                : NodeHeight;
+
             var style = string.Create(
                 CultureInfo.InvariantCulture,
-                $"left: {node.X}px; top: {node.Y}px; transform: translate(-50%, -50%); --topology-node-width: {NodeWidth}px; --topology-node-height: {NodeHeight}px;");
+                $"left: {node.X}px; top: {node.Y}px; transform: translate(-50%, -50%); --topology-node-width: {NodeWidth}px; --topology-node-height: {proxyHeight}px;");
 
             var isFocused = !string.IsNullOrWhiteSpace(selectedId) &&
                             node.Id.Equals(selectedId, StringComparison.OrdinalIgnoreCase);
@@ -531,6 +538,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                         semantics.Queue,
                         semantics.Capacity,
                         semantics.Series,
+                        semantics.Expression,
                         distributionDto,
                         semantics.InlineValues);
 
@@ -541,6 +549,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                         string.IsNullOrWhiteSpace(semanticsDto.Queue) &&
                         string.IsNullOrWhiteSpace(semanticsDto.Capacity) &&
                         string.IsNullOrWhiteSpace(semanticsDto.Series) &&
+                        string.IsNullOrWhiteSpace(semanticsDto.Expression) &&
                         (semanticsDto.InlineValues is null || semanticsDto.InlineValues.Count == 0))
                     {
                         semanticsDto = null;
@@ -663,6 +672,20 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         var snapshotPayload = preserveViewport ? CreateSnapshotPayload(snapshot) : null;
 
         return new CanvasRenderRequest(nodeDtos, edges, viewport, overlayPayload, tooltip, snapshotPayload, preserveViewport);
+    }
+
+    private static bool IsComputedKind(string? kind)
+    {
+        if (string.IsNullOrWhiteSpace(kind))
+        {
+            return false;
+        }
+
+        return string.Equals(kind, "expr", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(kind, "expression", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(kind, "const", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(kind, "constant", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(kind, "pmf", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string DetermineFillColor(
@@ -820,7 +843,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
 
         if (metrics.CustomValue.HasValue)
         {
-            return metrics.CustomValue.Value.ToString("0.###", invariant);
+            return metrics.CustomValue.Value.ToString("0.#", invariant);
         }
 
         double? sample = SampleSparklineValue(sparkline, basis, selectedBin);

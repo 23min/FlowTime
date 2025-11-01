@@ -6,6 +6,11 @@
     const MAX_ZOOM_PERCENT = 200;
     const MIN_SCALE = MIN_ZOOM_PERCENT / 100;
     const MAX_SCALE = MAX_ZOOM_PERCENT / 100;
+    const LEAF_CIRCLE_SCALE = 1.5;
+    const LEAF_CIRCLE_RING_WIDTH = 3;
+    const LEAF_CIRCLE_GUTTER = 2;
+    const LEAF_CIRCLE_FILL = '#E2E8F0';
+    const LEAF_CIRCLE_STROKE = '#1F2937';
 
     function getState(canvas) {
         let state = registry.get(canvas);
@@ -35,6 +40,7 @@
                 canvasHeight: null,
                 dotNetRef: null,
                 lastViewportSignature: null,
+                lastViewportPayload: null,
                 chipHitboxes: [],
                 hoveredChipId: null,
                 hoveredChip: null
@@ -220,6 +226,7 @@
 
     function draw(canvas, state) {
         if (!state.payload) {
+            console.info('[TopologyCanvas] draw skipped (no payload)');
             clear(state);
             state.chipHitboxes = [];
             state.hoveredChipId = null;
@@ -233,15 +240,33 @@
 
         const nodes = state.payload.nodes ?? state.payload.Nodes ?? [];
         const edges = state.payload.edges ?? state.payload.Edges ?? [];
+        console.info('[TopologyCanvas] draw', { nodes: nodes.length, edges: edges.length });
         const overlaySettings = state.overlaySettings ?? parseOverlaySettings(state.payload.overlays ?? state.payload.Overlays ?? {});
         const tooltip = state.payload.tooltip ?? state.payload.Tooltip ?? null;
 
         // Sync overlay DOM (proxies + tooltip) with canvas pan/zoom so hover/focus hitboxes and callouts align
         applyOverlayTransform(canvas, state);
 
+        const outgoingCounts = new Map();
+        for (const edge of edges) {
+            const type = String(edge.edgeType ?? edge.EdgeType ?? EdgeTypeTopology).toLowerCase();
+            if (type !== EdgeTypeTopology) {
+                continue;
+            }
+
+            const fromId = edge.from ?? edge.From;
+            if (!fromId) {
+                continue;
+            }
+
+            outgoingCounts.set(fromId, (outgoingCounts.get(fromId) ?? 0) + 1);
+        }
+
         const nodeMap = new Map();
         for (const n of nodes) {
             const identifier = n.id ?? n.Id;
+            const outgoing = outgoingCounts.get(identifier) ?? 0;
+
             nodeMap.set(identifier, {
                 id: identifier,
                 x: n.x ?? n.X,
@@ -256,7 +281,8 @@
                 fill: n.fill ?? n.Fill ?? '#7A7A7A',
                 focusLabel: n.focusLabel ?? n.FocusLabel ?? '',
                 semantics: n.semantics ?? n.Semantics ?? null,
-                distribution: n.distribution ?? n.Distribution ?? (n.semantics?.distribution ?? n.Semantics?.Distribution ?? null)
+                distribution: n.distribution ?? n.Distribution ?? (n.semantics?.distribution ?? n.Semantics?.Distribution ?? null),
+                leaf: outgoing === 0
             });
         }
 
@@ -285,9 +311,7 @@
 
         const sparkColor = resolveSparklineColor(overlaySettings.colorBasis);
 
-        const portRadius = 4.5;
-        const portFillColor = '#E7EBF4';
-        const portStrokeColor = 'rgba(59, 72, 89, 0.55)';
+        const portPadding = 0;
 
         let focusedId = null;
         for (const [id, meta] of nodeMap.entries()) {
@@ -351,7 +375,7 @@
         }
 
             if (overlaySettings.edgeStyle === 'bezier') {
-                const path = computeBezierPath(fromNode, toNode, offset, portRadius);
+                const path = computeBezierPath(fromNode, toNode, offset, portPadding);
                 ctx.beginPath();
                 ctx.moveTo(path.start.x, path.start.y);
                 ctx.bezierCurveTo(path.cp1.x, path.cp1.y, path.cp2.x, path.cp2.y, path.end.x, path.end.y);
@@ -366,8 +390,8 @@
                 const ux = dx / len;
                 const uy = dy / len;
 
-                const startShrink = computePortOffset(fromNode, ux, uy, portRadius);
-                const endShrink = computePortOffset(toNode, -ux, -uy, portRadius);
+                const startShrink = computePortOffset(fromNode, ux, uy, portPadding);
+                const endShrink = computePortOffset(toNode, -ux, -uy, portPadding);
                 const sx = fromX + ux * startShrink;
                 const sy = fromY + uy * startShrink;
                 const ex = toX - ux * endShrink;
@@ -389,9 +413,6 @@
                 const endPathPoint = pathPoints[pathPoints.length - 1];
                 drawArrowhead(ctx, prevPoint.x, prevPoint.y, endPathPoint.x, endPathPoint.y);
             }
-
-            drawPort(ctx, startPoint.x, startPoint.y, portRadius, portFillColor, portStrokeColor);
-            drawPort(ctx, endPoint.x, endPoint.y, portRadius, portFillColor, portStrokeColor);
 
             const share = edge.share ?? edge.Share;
             if (overlaySettings.showEdgeShares && share !== null && share !== undefined) {
@@ -432,50 +453,84 @@
             ctx.save();
             ctx.globalAlpha = nodeAlpha;
 
-            // Draw node shape by kind
+            const nodeMeta = nodeMap.get(id);
             const kind = String(meta?.kind ?? node.kind ?? node.Kind ?? 'service').toLowerCase();
-            ctx.beginPath();
-            if (kind === 'expr' || kind === 'expression') {
-                const hw = width / 2, hh = height / 2;
-                ctx.moveTo(x, y - hh);
-                ctx.lineTo(x + hw, y);
-                ctx.lineTo(x, y + hh);
-                ctx.lineTo(x - hw, y);
-                ctx.closePath();
-            } else if (kind === 'const' || kind === 'pmf') {
-                const r = Math.min(cornerRadius + 6, Math.min(width, height) / 2);
-                traceRoundedRect(ctx, x, y, width, height, r);
-            } else {
-                const r = Math.min(cornerRadius + 6, Math.min(width, height) / 2);
-                traceRoundedRect(ctx, x, y, width, height, r);
-            }
-            ctx.fillStyle = fill;
-            ctx.strokeStyle = stroke;
-            ctx.lineWidth = 0.9;
-            ctx.fill();
-            ctx.stroke();
-            if (kind === 'queue') {
-                // Simple inner bar to suggest buffer
-                const pad = 3;
+            const isLeafNode = !!nodeMeta?.leaf;
+            const isComputedNode = isComputedKind(kind);
+            const drawCircle = isLeafNode && isComputedNode;
+
+            let focusLabelWidth = Math.max(width - 14, 18);
+            let fillForText = fill;
+
+            if (drawCircle) {
+                const baseRadius = Math.min(width, height) / 2;
+                const outerRadius = baseRadius * LEAF_CIRCLE_SCALE;
+                const ringWidth = LEAF_CIRCLE_RING_WIDTH;
+                const gutter = LEAF_CIRCLE_GUTTER;
+                const innerRadius = Math.max(outerRadius - ringWidth - gutter, outerRadius * 0.6);
+
                 ctx.save();
-                ctx.fillStyle = 'rgba(17, 17, 17, 0.08)';
-                ctx.fillRect(x - width / 2 + pad, y + height / 2 - 6 - pad, width - 2 * pad, 4);
+                ctx.lineWidth = ringWidth;
+                ctx.strokeStyle = LEAF_CIRCLE_STROKE;
+                ctx.beginPath();
+                ctx.arc(x, y, outerRadius - (ringWidth / 2), 0, Math.PI * 2);
+                ctx.stroke();
                 ctx.restore();
+
+                ctx.beginPath();
+                ctx.fillStyle = LEAF_CIRCLE_FILL;
+                ctx.arc(x, y, innerRadius, 0, Math.PI * 2);
+                ctx.fill();
+
+                if (nodeMeta) {
+                    nodeMeta.fill = LEAF_CIRCLE_FILL;
+                    nodeMeta.outerRadius = outerRadius;
+                    nodeMeta.innerRadius = innerRadius;
+                }
+
+                focusLabelWidth = Math.max((innerRadius * 2) - 10, 18);
+                fillForText = LEAF_CIRCLE_FILL;
+            } else {
+                ctx.beginPath();
+                if (kind === 'expr' || kind === 'expression') {
+                    const hw = width / 2;
+                    const hh = height / 2;
+                    ctx.moveTo(x, y - hh);
+                    ctx.lineTo(x + hw, y);
+                    ctx.lineTo(x, y + hh);
+                    ctx.lineTo(x - hw, y);
+                    ctx.closePath();
+                } else {
+                    const r = Math.min(cornerRadius + 6, Math.min(width, height) / 2);
+                    traceRoundedRect(ctx, x, y, width, height, r);
+                }
+                ctx.fillStyle = fill;
+                ctx.strokeStyle = stroke;
+                ctx.lineWidth = 0.9;
+                ctx.fill();
+                ctx.stroke();
+                if (kind === 'queue') {
+                    const pad = 3;
+                    ctx.save();
+                    ctx.fillStyle = 'rgba(17, 17, 17, 0.08)';
+                    ctx.fillRect(x - width / 2 + pad, y + height / 2 - 6 - pad, width - 2 * pad, 4);
+                    ctx.restore();
+                }
+
+                if (nodeMeta) {
+                    nodeMeta.fill = fill;
+                }
             }
 
-            const nodeMeta = nodeMap.get(id);
-            if (nodeMeta) {
-                nodeMeta.fill = fill;
-            }
-            if (kind === 'service' || kind === 'queue') {
+            if (!drawCircle && (kind === 'service' || kind === 'queue')) {
                 drawServiceDecorations(ctx, nodeMeta, overlaySettings, state);
-            } else if (kind === 'pmf' && nodeMeta?.distribution) {
+            } else if (!drawCircle && kind === 'pmf' && nodeMeta?.distribution) {
                 drawPmfDistribution(ctx, nodeMeta, nodeMeta.distribution);
-            } else if ((kind === 'const' || kind === 'constant') && overlaySettings.showSparklines && nodeMeta?.sparkline) {
+            } else if (!drawCircle && (kind === 'const' || kind === 'constant') && overlaySettings.showSparklines && nodeMeta?.sparkline) {
                 drawInputSparkline(ctx, nodeMeta, overlaySettings);
             }
 
-            if (kind === 'pmf') {
+            if (!drawCircle && kind === 'pmf') {
                 ctx.save();
                 ctx.fillStyle = isDarkColor(fill) ? '#FFFFFF' : '#0F172A';
                 ctx.font = '600 11px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
@@ -502,12 +557,12 @@
             const focusLabel = String(nodeMeta?.focusLabel ?? '').trim();
             if (focusLabel) {
                 ctx.save();
-                ctx.fillStyle = isDarkColor(fill) ? '#FFFFFF' : '#0F172A';
+                ctx.fillStyle = isDarkColor(fillForText) ? '#FFFFFF' : '#0F172A';
                 ctx.globalAlpha = highlightNode ? 1 : 0.85;
                 ctx.font = '600 12px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                drawFittedText(ctx, focusLabel, x, y + 1, Math.max(width - 14, 18));
+                drawFittedText(ctx, focusLabel, x, y + 1, focusLabelWidth);
                 ctx.restore();
             }
 
@@ -616,6 +671,18 @@
         const fontSizePx = 12 * ratio;
         const fontRegular = `${fontSizePx}px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif`;
         const fontStrong = `600 ${fontSizePx}px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif`;
+        const overlays = state.overlaySettings ?? {};
+        const kind = String(focusedMeta.kind ?? '').toLowerCase();
+        const rawSparkline = focusedMeta.sparkline ?? null;
+        const preparedSparkline = kind === 'expr' || kind === 'expression'
+            ? prepareTooltipSparklineData(rawSparkline)
+            : null;
+        const hasSparkline = preparedSparkline !== null;
+        const sparklineWidth = hasSparkline ? toDevice(90) : 0;
+        const sparklineHeight = hasSparkline ? toDevice(26) : 0;
+        const sparklineMarginTop = hasSparkline ? toDevice(6) : 0;
+        const sparklineMarginBottom = hasSparkline ? toDevice(4) : 0;
+        const sparklineBlockHeight = hasSparkline ? sparklineHeight + sparklineMarginTop + sparklineMarginBottom : 0;
 
         ctx.save();
         ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -630,15 +697,17 @@
         for (const line of lines) {
             width = Math.max(width, ctx.measureText(line).width);
         }
+        if (hasSparkline) {
+            width = Math.max(width, sparklineWidth);
+        }
 
         const textLineCount = 1 + (subtitle ? 1 : 0) + lines.length;
         const boxWidth = Math.ceil(width + paddingX * 2);
-        const boxHeight = Math.ceil(paddingY * 2 + textLineCount * lineHeight);
+        const boxHeight = Math.ceil(paddingY * 2 + textLineCount * lineHeight + sparklineBlockHeight);
 
         const scale = Number(state.scale ?? 1);
         const offsetX = Number(state.offsetX ?? 0);
         const offsetY = Number(state.offsetY ?? 0);
-        const overlays = state.overlaySettings ?? {};
 
         const nodeWidth = Number(focusedMeta.width ?? 54);
         const nodeHeight = Number(focusedMeta.height ?? 24);
@@ -698,12 +767,158 @@
             ctx.fillStyle = fg;
         }
 
+        if (hasSparkline) {
+            const baselineStart = textY + lineHeight;
+            const sparkTop = baselineStart + sparklineMarginTop;
+            const sparkDrawn = drawTooltipSparkline(ctx, preparedSparkline, overlays, tooltipX + paddingX, sparkTop, sparklineWidth, sparklineHeight);
+            if (sparkDrawn) {
+                textY = sparkTop + sparklineHeight + sparklineMarginBottom - lineHeight;
+            }
+        }
+
         for (const line of lines) {
             textY += lineHeight;
             ctx.fillText(line, tooltipX + paddingX, textY);
         }
 
         ctx.restore();
+    }
+
+    function prepareTooltipSparklineData(sparkline) {
+        if (!sparkline) {
+            return null;
+        }
+
+        const rawValues = sparkline.values ?? sparkline.Values;
+        if (!Array.isArray(rawValues) || rawValues.length === 0) {
+            return null;
+        }
+
+        const values = new Array(rawValues.length);
+        let min = Infinity;
+        let max = -Infinity;
+        let hasValue = false;
+
+        for (let i = 0; i < rawValues.length; i++) {
+            const sample = rawValues[i];
+            if (sample === null || sample === undefined) {
+                values[i] = null;
+                continue;
+            }
+
+            const numeric = Number(sample);
+            if (!Number.isFinite(numeric)) {
+                values[i] = null;
+                continue;
+            }
+
+            values[i] = numeric;
+            hasValue = true;
+            if (numeric < min) {
+                min = numeric;
+            }
+            if (numeric > max) {
+                max = numeric;
+            }
+        }
+
+        if (!hasValue || !Number.isFinite(min) || !Number.isFinite(max)) {
+            return null;
+        }
+
+        if (Math.abs(max - min) < 1e-9) {
+            max = min + 0.001;
+        }
+
+        return {
+            values,
+            min,
+            max,
+            length: values.length,
+            startIndex: Number(sparkline.startIndex ?? sparkline.StartIndex ?? 0),
+            raw: sparkline
+        };
+    }
+
+    function drawTooltipSparkline(ctx, sparklineData, overlays, x, y, width, height) {
+        if (!sparklineData) {
+            return false;
+        }
+
+        const { values, min, max, length, startIndex, raw } = sparklineData;
+        if (!Array.isArray(values) || length === 0) {
+            return false;
+        }
+
+        const defaultColor = resolveSparklineColor(overlays.colorBasis ?? 0);
+        const thresholds = overlays.thresholds ?? {};
+        const lastIndex = length - 1;
+        const range = max - min;
+
+        ctx.save();
+        ctx.translate(x, y);
+
+        ctx.fillStyle = 'rgba(148, 163, 184, 0.08)';
+        ctx.fillRect(0, 0, width, height);
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.25)';
+        ctx.lineWidth = 0.75;
+        ctx.strokeRect(0, 0, width, height);
+
+        ctx.beginPath();
+        ctx.strokeStyle = defaultColor;
+        ctx.lineWidth = 1.4;
+        let segmentActive = false;
+
+        for (let i = 0; i < length; i++) {
+            const sample = values[i];
+            if (sample === null || sample === undefined) {
+                segmentActive = false;
+                continue;
+            }
+
+            const fraction = lastIndex <= 0 ? 0 : i / lastIndex;
+            const xPos = fraction * width;
+            const normalized = range <= 0 ? 0.5 : clamp((sample - min) / range, 0, 1);
+            const yPos = height - (normalized * height);
+
+            if (!segmentActive) {
+                ctx.moveTo(xPos, yPos);
+                segmentActive = true;
+            } else {
+                ctx.lineTo(xPos, yPos);
+            }
+        }
+
+        if (!segmentActive && length === 1 && values[0] !== null && values[0] !== undefined) {
+            const yPos = height / 2;
+            ctx.moveTo(0, yPos);
+            ctx.lineTo(width, yPos);
+        }
+
+        ctx.stroke();
+
+        const selectedBin = overlays.selectedBin ?? -1;
+        const highlightIndex = selectedBin - startIndex;
+        if (Number.isInteger(highlightIndex) && highlightIndex >= 0 && highlightIndex < length) {
+            const highlightValue = values[highlightIndex];
+            if (highlightValue !== null && highlightValue !== undefined) {
+                const fraction = lastIndex <= 0 ? 0 : highlightIndex / lastIndex;
+                const xPos = fraction * width;
+                const normalized = range <= 0 ? 0.5 : clamp((highlightValue - min) / range, 0, 1);
+                const yPos = height - (normalized * height);
+                const highlightColor = resolveSampleColor(overlays.colorBasis ?? 0, highlightIndex, raw, thresholds, defaultColor);
+                ctx.beginPath();
+                ctx.fillStyle = highlightColor;
+                ctx.strokeStyle = '#FFFFFF';
+                ctx.lineWidth = 1;
+                ctx.arc(xPos, yPos, 3, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+            }
+        }
+
+        ctx.restore();
+        return true;
     }
 
     function drawChipTooltip(ctx, state) {
@@ -951,6 +1166,14 @@
     function render(canvas, payload) {
         const state = getState(canvas);
 
+        try {
+            const nodeCount = payload?.nodes?.length ?? payload?.Nodes?.length ?? 0;
+            const edgeCount = payload?.edges?.length ?? payload?.Edges?.length ?? 0;
+            console.info('[TopologyCanvas] render start', { nodeCount, edgeCount });
+        } catch (logError) {
+            console.warn('[TopologyCanvas] render logging failed', logError);
+        }
+
         const preserveViewport = !!(payload?.preserveViewport ?? payload?.PreserveViewport);
         const overlaySettings = parseOverlaySettings(payload?.overlays ?? payload?.Overlays ?? {});
         state.overlaySettings = overlaySettings;
@@ -994,6 +1217,7 @@
             state.payload = payload;
             draw(canvas, state);
             emitViewportChanged(canvas, state);
+            console.info('[TopologyCanvas] render finished (preserve viewport)');
             return;
         }
 
@@ -1004,6 +1228,7 @@
         state.payload = payload;
         draw(canvas, state);
         emitViewportChanged(canvas, state);
+        console.info('[TopologyCanvas] render finished');
     }
 
     function dispose(canvas) {
@@ -1247,6 +1472,15 @@
         }
     }
 
+    function isComputedKind(kind) {
+        if (typeof kind !== 'string') {
+            return false;
+        }
+
+        const normalized = kind.trim().toLowerCase();
+        return normalized === 'expr' || normalized === 'expression' || normalized === 'const' || normalized === 'constant' || normalized === 'pmf';
+    }
+
     function resolveSampleColor(basis, index, sparkline, thresholds, defaultColor) {
         const value = getBasisValue(basis, index, sparkline);
         if (value === null || value === undefined || !Number.isFinite(value)) {
@@ -1303,34 +1537,50 @@
         return Number.isFinite(value) ? value : null;
     }
 
-    function computePortOffset(node, ux, uy, portRadius) {
+    function computePortOffset(node, ux, uy, padding) {
         if (!node) {
             return 16;
         }
 
-        const width = node.width ?? node.Width ?? 54;
-        const height = node.height ?? node.Height ?? 24;
-        const halfW = width / 2;
-        const halfH = height / 2;
+        const width = Number(node.width ?? node.Width ?? 54);
+        const height = Number(node.height ?? node.Height ?? 24);
         const absUx = Math.abs(ux);
         const absUy = Math.abs(uy);
-        const epsilon = 1e-4;
-        const candidates = [];
+        const epsilon = 1e-6;
+        const kind = String(node.kind ?? node.Kind ?? 'service').toLowerCase();
+        const isLeafNode = !!(node.leaf ?? node.Leaf);
+        let boundary;
 
-        if (absUx > epsilon) {
-            candidates.push(halfW / absUx);
+        if (isLeafNode && isComputedKind(kind)) {
+            const baseRadius = Math.min(width, height) / 2;
+            boundary = baseRadius * LEAF_CIRCLE_SCALE;
+        } else if (kind === 'expr' || kind === 'expression') {
+            const halfW = width / 2;
+            const halfH = height / 2;
+            const denom = (absUx / halfW) + (absUy / halfH);
+            boundary = denom < epsilon ? Math.max(halfW, halfH) : 1 / denom;
+        } else {
+            const halfW = width / 2;
+            const halfH = height / 2;
+            const candidates = [];
+
+            if (absUx > epsilon) {
+                candidates.push(halfW / absUx);
+            }
+
+            if (absUy > epsilon) {
+                candidates.push(halfH / absUy);
+            }
+
+            if (candidates.length === 0) {
+                boundary = Math.max(halfW, halfH);
+            } else {
+                boundary = Math.min(...candidates);
+            }
         }
 
-        if (absUy > epsilon) {
-            candidates.push(halfH / absUy);
-        }
-
-        if (candidates.length === 0) {
-            candidates.push(Math.max(halfW, halfH));
-        }
-
-        const boundary = Math.min(...candidates);
-        return boundary + portRadius;
+        const extra = Number.isFinite(padding) ? padding : 0;
+        return boundary + extra;
     }
 
     function edgeLaneOffset(edge) {
@@ -2368,7 +2618,7 @@
         return { points: dedupePoints(points) };
     }
 
-    function computeBezierPath(fromNode, toNode, laneOffset, portRadius) {
+    function computeBezierPath(fromNode, toNode, laneOffset, padding) {
         const anchorsFrom = createAnchors(fromNode);
         const anchorsTo = createAnchors(toNode);
 
@@ -2393,8 +2643,21 @@
         const useVertical = Math.abs(dy) > Math.abs(dx);
         let selected = useVertical ? vertical : horizontal;
 
-        const start = offsetAnchor(selected.start, portRadius);
-        const end = offsetAnchor(selected.end, portRadius);
+        const startDistance = computePortOffset(fromNode, selected.start.normalX, selected.start.normalY, padding);
+        const endDistance = computePortOffset(toNode, selected.end.normalX, selected.end.normalY, padding);
+
+        const start = {
+            x: fromCenterX + selected.start.normalX * startDistance,
+            y: fromCenterY + selected.start.normalY * startDistance,
+            normalX: selected.start.normalX,
+            normalY: selected.start.normalY
+        };
+        const end = {
+            x: toCenterX + selected.end.normalX * endDistance,
+            y: toCenterY + selected.end.normalY * endDistance,
+            normalX: selected.end.normalX,
+            normalY: selected.end.normalY
+        };
 
         const span = selected.orientation === 'horizontal'
             ? Math.abs(end.x - start.x)
@@ -2443,16 +2706,6 @@
         };
     }
 
-    function offsetAnchor(anchor, amount) {
-        const distance = amount ?? 0;
-        return {
-            x: anchor.x + anchor.normalX * distance,
-            y: anchor.y + anchor.normalY * distance,
-            normalX: anchor.normalX,
-            normalY: anchor.normalY
-        };
-    }
-
     function sampleCubicBezier(start, cp1, cp2, end, segments) {
         const points = [];
         const steps = Math.max(4, segments | 0);
@@ -2489,18 +2742,6 @@
         ctx.closePath();
         ctx.fillStyle = ctx.strokeStyle;
         ctx.fill();
-    }
-
-    function drawPort(ctx, x, y, radius, fill, stroke) {
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(x, y, radius, 0, Math.PI * 2);
-        ctx.fillStyle = fill;
-        ctx.fill();
-        ctx.lineWidth = 0.75;
-        ctx.strokeStyle = stroke;
-        ctx.stroke();
-        ctx.restore();
     }
 
     function drawEdgeShare(ctx, points, share) {
@@ -2790,11 +3031,38 @@
             payload.BaseScale.toFixed(4)
         ].join('|');
 
-        if (signature === state.lastViewportSignature) {
+        const prev = state.lastViewportPayload;
+        const scaleTolerance = 0.001;
+        const offsetTolerance = 0.5;
+        const centerTolerance = 0.5;
+
+        let isWithinTolerance = false;
+        if (prev) {
+            const deltaScale = Math.abs(payload.Scale - prev.Scale);
+            const deltaOffsetX = Math.abs(payload.OffsetX - prev.OffsetX);
+            const deltaOffsetY = Math.abs(payload.OffsetY - prev.OffsetY);
+            const deltaCenterX = Math.abs(payload.WorldCenterX - prev.WorldCenterX);
+            const deltaCenterY = Math.abs(payload.WorldCenterY - prev.WorldCenterY);
+            const deltaOverlay = Math.abs(payload.OverlayScale - prev.OverlayScale);
+            const deltaBase = Math.abs(payload.BaseScale - prev.BaseScale);
+            isWithinTolerance =
+                deltaScale < scaleTolerance &&
+                deltaOverlay < scaleTolerance &&
+                deltaBase < scaleTolerance &&
+                deltaOffsetX < offsetTolerance &&
+                deltaOffsetY < offsetTolerance &&
+                deltaCenterX < centerTolerance &&
+                deltaCenterY < centerTolerance;
+        }
+
+        if (signature === state.lastViewportSignature || isWithinTolerance) {
+            console.info('[TopologyCanvas] viewport unchanged (tolerance)', signature);
             return;
         }
 
         state.lastViewportSignature = signature;
+        state.lastViewportPayload = payload;
+        console.info('[TopologyCanvas] viewport changed', signature);
         state.dotNetRef.invokeMethodAsync('OnViewportChanged', payload);
     }
 
@@ -2848,6 +3116,7 @@
         state.userAdjusted = true;
         state.viewportApplied = true;
         state.lastViewportSignature = null;
+        state.lastViewportPayload = null;
 
         draw(canvas, state);
         emitViewportChanged(canvas, state);

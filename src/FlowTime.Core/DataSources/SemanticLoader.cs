@@ -45,7 +45,8 @@ public sealed class SemanticLoader
             Errors = errors,
             ExternalDemand = externalDemand,
             QueueDepth = queueDepth,
-            Capacity = capacity
+            Capacity = capacity,
+            Values = null
         };
     }
 

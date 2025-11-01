@@ -26,6 +26,7 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
     private const string telemetryWarningRunId = "run_state_warning";
     private const string simulationInvalidRunId = "run_state_sim_invalid";
     private const string telemetryMissingSourceRunId = "run_state_missing_source";
+    private const string fullModeRunId = "run_state_full";
     private const int binCount = 4;
     private const int binSizeMinutes = 5;
     private static readonly DateTime startTimeUtc = new(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -50,6 +51,7 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         CreateTelemetryWarningRun();
         CreateSimulationInvalidRun();
         CreateTelemetryMissingSourceRun();
+        CreateFullModeRun();
 
         logCollector = new TestLogCollector();
         client = factory.WithWebHostBuilder(builder =>
@@ -151,6 +153,34 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         Assert.Equal(1.11111, latency[0]!.Value, 5);
         Assert.Equal(8.33333, latency[1]!.Value, 5);
         Assert.Empty(queueSeries.Telemetry.Warnings);
+    }
+
+    [Fact]
+    public async Task GetStateWindow_FullMode_IncludesComputedNodes()
+    {
+        var response = await client.GetAsync($"/v1/runs/{fullModeRunId}/state_window?startBin=0&endBin=3&mode=full");
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync();
+            throw new XunitException($"Expected 200 OK but got {(int)response.StatusCode}: {errorBody}");
+        }
+
+        var payload = await response.Content.ReadFromJsonAsync<StateWindowResponse>(new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            PropertyNameCaseInsensitive = true
+        });
+        Assert.NotNull(payload);
+
+        var computed = Assert.Single(payload!.Nodes, n => n.Id == "expr_output");
+        Assert.Equal("expr", computed.Kind);
+        Assert.True(computed.Series.TryGetValue("values", out var values));
+        Assert.Equal(new double?[] { 2.0, 4.0, 6.0, 8.0 }, values);
+        Assert.True(computed.Series.ContainsKey("series:expr_output"));
+
+        var constantNode = Assert.Single(payload.Nodes, n => n.Id == "base_input");
+        Assert.Equal("const", constantNode.Kind);
+        Assert.True(constantNode.Series.TryGetValue("values", out var baseValues));
+        Assert.Equal(new double?[] { 1.0, 2.0, 3.0, 4.0 }, baseValues);
     }
 
     [Fact]
@@ -331,11 +361,42 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         CreateRun(telemetryMissingSourceRunId, BuildValidModelYamlWithMissingServeTelemetry(), mode: "telemetry");
     }
 
-    private void CreateRun(string runIdentifier, string modelYaml, string mode, Dictionary<string, double[]>? overrides = null)
+    private void CreateFullModeRun()
+    {
+        var seriesOutputs = new Dictionary<string, double[]>
+        {
+            ["base_input@BASE_INPUT@DEFAULT.csv"] = new double[] { 1, 2, 3, 4 },
+            ["expr_output@EXPR_OUTPUT@DEFAULT.csv"] = new double[] { 2, 4, 6, 8 }
+        };
+
+        var manifestSeries = new (string id, string path, string unit)[]
+        {
+            ("base_input@BASE_INPUT@DEFAULT", "series/base_input@BASE_INPUT@DEFAULT.csv", "units"),
+            ("expr_output@EXPR_OUTPUT@DEFAULT", "series/expr_output@EXPR_OUTPUT@DEFAULT.csv", "units")
+        };
+
+        CreateRun(
+            fullModeRunId,
+            BuildFullModeModelYaml(),
+            mode: "telemetry",
+            overrides: null,
+            seriesOutputs: seriesOutputs,
+            manifestSeries: manifestSeries);
+    }
+
+    private void CreateRun(
+        string runIdentifier,
+        string modelYaml,
+        string mode,
+        Dictionary<string, double[]>? overrides = null,
+        Dictionary<string, double[]>? seriesOutputs = null,
+        IReadOnlyCollection<(string id, string path, string unit)>? manifestSeries = null)
     {
         var runDir = Path.Combine(artifactsRoot, runIdentifier);
         var modelDir = Path.Combine(runDir, "model");
+        var seriesDir = Path.Combine(runDir, "series");
         Directory.CreateDirectory(modelDir);
+        Directory.CreateDirectory(seriesDir);
 
         WriteBaseSeries(modelDir);
         if (overrides != null)
@@ -345,9 +406,17 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
                 WriteSeries(modelDir, fileName, values);
             }
         }
+        if (seriesOutputs != null)
+        {
+            foreach (var (fileName, values) in seriesOutputs)
+            {
+                WriteSeries(seriesDir, fileName, values);
+            }
+        }
         File.WriteAllText(Path.Combine(modelDir, "model.yaml"), modelYaml, System.Text.Encoding.UTF8);
         WriteMetadata(modelDir, runIdentifier, mode);
-        File.WriteAllText(Path.Combine(runDir, "run.json"), BuildRunJson(runIdentifier, mode), System.Text.Encoding.UTF8);
+        WriteSeriesIndex(seriesDir, manifestSeries);
+        File.WriteAllText(Path.Combine(runDir, "run.json"), BuildRunJson(runIdentifier, mode, manifestSeries), System.Text.Encoding.UTF8);
     }
 
     private static void WriteBaseSeries(string modelDir)
@@ -401,16 +470,63 @@ topology:
 """;
     }
 
-    private static void WriteSeries(string directory, string fileName, IReadOnlyList<double> values)
-    {
-        var path = Path.Combine(directory, fileName);
-        using var writer = new StreamWriter(path);
-        writer.NewLine = "\n";
+private static void WriteSeries(string directory, string fileName, IReadOnlyList<double> values)
+{
+    var path = Path.Combine(directory, fileName);
+    using var writer = new StreamWriter(path);
+    writer.NewLine = "\n";
         writer.WriteLine("bin_index,value");
         for (var i = 0; i < values.Count; i++)
         {
-            writer.WriteLine(FormattableString.Invariant($"{i},{values[i]}"));
+        writer.WriteLine(FormattableString.Invariant($"{i},{values[i]}"));
+    }
+}
+
+    private static void WriteSeriesIndex(string seriesDirectory, IReadOnlyCollection<(string id, string path, string unit)>? entries)
+    {
+        Directory.CreateDirectory(seriesDirectory);
+
+        var payload = new
+        {
+            schemaVersion = 1,
+            grid = new
+            {
+                bins = binCount,
+                binSize = binSizeMinutes,
+                binUnit = "minutes"
+            },
+            series = (entries ?? Array.Empty<(string id, string path, string unit)>()).Select(entry => new
+            {
+                id = entry.id,
+                kind = "derived",
+                path = entry.path,
+                unit = entry.unit,
+                componentId = ExtractComponentId(entry.id),
+                @class = "DEFAULT",
+                points = binCount,
+                hash = $"sha256:{entry.id}"
+            }).ToArray()
+        };
+
+        var json = JsonSerializer.Serialize(payload, new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            WriteIndented = true
+        });
+
+        File.WriteAllText(Path.Combine(seriesDirectory, "index.json"), json);
+    }
+
+    private static string ExtractComponentId(string id)
+    {
+        var firstAt = id.IndexOf('@');
+        if (firstAt < 0 || firstAt == id.Length - 1)
+        {
+            return id;
         }
+
+        var remainder = id[(firstAt + 1)..];
+        var secondAt = remainder.IndexOf('@');
+        return secondAt < 0 ? remainder : remainder[..secondAt];
     }
 
     private static void AssertGoldenResponse<T>(string fileName, T payload)
@@ -478,7 +594,7 @@ topology:
         File.WriteAllText(Path.Combine(modelDirectory, "provenance.json"), provenanceJson, System.Text.Encoding.UTF8);
     }
 
-    private static string BuildRunJson(string runIdentifier, string mode)
+    private static string BuildRunJson(string runIdentifier, string mode, IReadOnlyCollection<(string id, string path, string unit)>? seriesEntries)
     {
         var grid = new
         {
@@ -501,7 +617,14 @@ topology:
             scenarioHash = "sha256:test",
             createdUtc = startTimeUtc.ToString("o", CultureInfo.InvariantCulture),
             warnings = Array.Empty<string>(),
-            series = Array.Empty<object>()
+            series = (seriesEntries ?? Array.Empty<(string id, string path, string unit)>())
+                .Select(entry => new
+                {
+                    id = entry.id,
+                    path = entry.path,
+                    unit = entry.unit
+                })
+                .ToArray()
         };
 
         return JsonSerializer.Serialize(manifest, new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true });
@@ -541,6 +664,59 @@ topology:
         capacity: null
         slaMin: 5
   edges: []
+
+""";
+    }
+
+    private static string BuildFullModeModelYaml()
+    {
+        return $"""
+schemaVersion: 1
+
+grid:
+  bins: {binCount}
+  binSize: {binSizeMinutes}
+  binUnit: minutes
+  startTimeUtc: "{startTimeUtc:O}"
+
+topology:
+  nodes:
+    - id: "OrderService"
+      kind: "service"
+      semantics:
+        arrivals: "file:OrderService_arrivals.csv"
+        served: "file:OrderService_served.csv"
+        errors: "file:OrderService_errors.csv"
+        externalDemand: null
+        queueDepth: null
+        capacity: "file:OrderService_capacity.csv"
+        slaMin: null
+    - id: "SupportQueue"
+      kind: "queue"
+      semantics:
+        arrivals: "file:SupportQueue_arrivals.csv"
+        served: "file:SupportQueue_served.csv"
+        errors: "file:SupportQueue_errors.csv"
+        externalDemand: null
+        queue: "file:SupportQueue_queue.csv"
+        capacity: null
+        slaMin: 5
+  edges: []
+
+nodes:
+  - id: "base_input"
+    kind: "const"
+    values: [1, 2, 3, 4]
+    source: ""
+  - id: "expr_output"
+    kind: "expr"
+    expr: "base_input * 2"
+
+outputs:
+  - series: base_input
+    as: base_input.csv
+  - series: expr_output
+    as: expr_output.csv
 
 """;
     }

@@ -995,6 +995,83 @@ code {
     fill: var(--mud-palette-text-primary) !important;
 }
 
+.node-inspector-expression {
+    font-family: 'JetBrains Mono', 'Consolas', 'Monaco', 'Menlo', 'Courier New', monospace !important;
+    font-size: 0.85rem;
+    line-height: 1.45;
+    background-color: #F4F6FB;
+    color: #1F2937;
+    border: 1px solid #D4D9E3;
+    border-radius: 6px;
+    padding: 0.5rem 0.75rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-x: auto;
+}
+
+body.dark-mode .node-inspector-expression {
+    background-color: rgba(15, 23, 42, 0.7);
+    color: #E2E8F0;
+    border-color: rgba(148, 163, 184, 0.45);
+}
+
+.node-inspector-sparkline {
+    background-color: #F8FAFC;
+    border: 1px solid #E2E8F0;
+    border-radius: 8px;
+    padding: 12px 20px;
+}
+
+.node-inspector-sparkline.empty {
+    padding: 0;
+    min-height: 0;
+    border: none;
+    background: transparent;
+}
+
+.node-inspector-sparkline-chart {
+    width: 100%;
+    height: 140px;
+}
+
+.node-inspector-sparkline-axis {
+    stroke: rgba(148, 163, 184, 0.6);
+    stroke-width: 1;
+}
+
+.node-inspector-sparkline-tick {
+    stroke: rgba(148, 163, 184, 0.6);
+    stroke-width: 1;
+}
+
+.node-inspector-sparkline-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    fill: #1F2937;
+}
+
+body.dark-mode .node-inspector-sparkline {
+    background-color: rgba(30, 41, 59, 0.55);
+    border-color: rgba(148, 163, 184, 0.4);
+}
+
+body.dark-mode .node-inspector-sparkline-axis,
+body.dark-mode .node-inspector-sparkline-tick {
+    stroke: rgba(148, 163, 184, 0.55);
+}
+
+body.dark-mode .node-inspector-sparkline-label {
+    fill: #F8FAFC;
+}
+
+.topology-muted-text {
+    color: rgba(71, 85, 105, 0.75);
+}
+
+body.dark-mode .topology-muted-text {
+    color: rgba(203, 213, 225, 0.75);
+}
+
 /* Navigation hierarchy styles - using multiple selectors for higher specificity */
 .mud-nav-link.nav-section-header,
 .mud-drawer .mud-nav-link.nav-section-header,

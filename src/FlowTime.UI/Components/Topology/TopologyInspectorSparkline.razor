@@ -1,0 +1,225 @@
+@using System.Globalization
+@using System.Text
+
+@if (!hasData)
+{
+    <div class="node-inspector-sparkline empty" />
+}
+else
+{
+    <div class="node-inspector-sparkline" role="img" aria-label="@resolvedAriaLabel">
+        <svg class="node-inspector-sparkline-chart" viewBox="0 0 @SvgWidth @SvgHeight" preserveAspectRatio="none">
+            <line class="node-inspector-sparkline-axis"
+                  x1="@FormatCoord(LeftPadding)"
+                  y1="@FormatCoord(baseLineY)"
+                  x2="@FormatCoord(SvgWidth - RightPadding)"
+                  y2="@FormatCoord(baseLineY)" />
+
+            @foreach (var tick in tickPositions)
+            {
+                <line class="node-inspector-sparkline-tick"
+                      x1="@FormatCoord(tick)"
+                      y1="@FormatCoord(baseLineY)"
+                      x2="@FormatCoord(tick)"
+                      y2="@FormatCoord(baseLineY - TickHeight)" />
+            }
+
+            <path d="@pathData"
+                  stroke="@Stroke"
+                  fill="none"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round" />
+
+            @if (hasHighlight)
+            {
+                <circle cx="@FormatCoord(highlightX)"
+                        cy="@FormatCoord(highlightY)"
+                        r="3.5"
+                        fill="@Stroke"
+                        stroke="white"
+                        stroke-width="1" />
+            }
+
+            <text x="@FormatCoord(LeftPadding)"
+                  y="@FormatCoord(TopPadding - 4)"
+                  class="node-inspector-sparkline-label">@maxLabel</text>
+
+            <text x="@FormatCoord(LeftPadding)"
+                  y="@FormatCoord(baseLineY + 18)"
+                  class="node-inspector-sparkline-label">@minLabel</text>
+        </svg>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public NodeSparklineData Data { get; set; } = default!;
+
+    [Parameter]
+    public int SelectedBin { get; set; }
+
+    [Parameter]
+    public string Stroke { get; set; } = "#475569";
+
+    [Parameter]
+    public string? AriaLabel { get; set; }
+
+    private const double SvgWidth = 360;
+    private const double SvgHeight = 140;
+    private const double LeftPadding = 24;
+    private const double RightPadding = 24;
+    private const double TopPadding = 18;
+    private const double BottomPadding = 28;
+    private const double TickHeight = 10;
+
+    private readonly CultureInfo invariant = CultureInfo.InvariantCulture;
+    private string pathData = string.Empty;
+    private string minLabel = string.Empty;
+    private string maxLabel = string.Empty;
+    private string resolvedAriaLabel = "Node sparkline preview";
+    private bool hasData;
+    private bool hasHighlight;
+    private double highlightX;
+    private double highlightY;
+    private double baseLineY;
+    private IReadOnlyList<double> tickPositions = Array.Empty<double>();
+
+    protected override void OnParametersSet()
+    {
+        if (Data is null || Data.Values.Count == 0)
+        {
+            hasData = false;
+            pathData = string.Empty;
+            tickPositions = Array.Empty<double>();
+            hasHighlight = false;
+            resolvedAriaLabel = string.IsNullOrWhiteSpace(AriaLabel) ? "Node sparkline preview unavailable" : AriaLabel!;
+            return;
+        }
+
+        var samples = new List<(int Index, double Value)>(Data.Values.Count);
+        for (var i = 0; i < Data.Values.Count; i++)
+        {
+            var sample = Data.Values[i];
+            if (sample.HasValue && double.IsFinite(sample.Value))
+            {
+                samples.Add((i, sample.Value));
+            }
+        }
+
+        if (samples.Count == 0)
+        {
+            hasData = false;
+            pathData = string.Empty;
+            tickPositions = Array.Empty<double>();
+            hasHighlight = false;
+            resolvedAriaLabel = string.IsNullOrWhiteSpace(AriaLabel) ? "Node sparkline preview unavailable" : AriaLabel!;
+            return;
+        }
+
+        hasData = true;
+        resolvedAriaLabel = string.IsNullOrWhiteSpace(AriaLabel) ? "Node sparkline preview" : AriaLabel!;
+
+        var actualMin = samples.Min(s => s.Value);
+        var actualMax = samples.Max(s => s.Value);
+        minLabel = FormatSample(actualMin);
+        maxLabel = FormatSample(actualMax);
+
+        var scaleMin = Data.Min;
+        var scaleMax = Data.Max;
+        if (!double.IsFinite(scaleMin)) scaleMin = actualMin;
+        if (!double.IsFinite(scaleMax)) scaleMax = actualMax;
+        if (Math.Abs(scaleMax - scaleMin) < 1e-9)
+        {
+            scaleMax = scaleMin + 0.001d;
+        }
+
+        var plotWidth = SvgWidth - LeftPadding - RightPadding;
+        var plotHeight = SvgHeight - TopPadding - BottomPadding;
+        baseLineY = SvgHeight - BottomPadding;
+
+        var builder = new StringBuilder();
+        var movePending = true;
+        var count = Data.Values.Count;
+
+        for (var i = 0; i < count; i++)
+        {
+            var sample = Data.Values[i];
+            if (!sample.HasValue || !double.IsFinite(sample.Value))
+            {
+                movePending = true;
+                continue;
+            }
+
+            var xFraction = count <= 1 ? 0d : (double)i / (count - 1);
+            var yFraction = (sample.Value - scaleMin) / (scaleMax - scaleMin);
+
+            var x = LeftPadding + xFraction * plotWidth;
+            var y = TopPadding + (1 - yFraction) * plotHeight;
+
+            if (movePending)
+            {
+                builder.Append('M');
+                builder.Append(FormatCoord(x));
+                builder.Append(' ');
+                builder.Append(FormatCoord(y));
+                movePending = false;
+            }
+            else
+            {
+                builder.Append('L');
+                builder.Append(FormatCoord(x));
+                builder.Append(' ');
+                builder.Append(FormatCoord(y));
+            }
+        }
+
+        pathData = builder.ToString();
+
+        var highlightIndex = SelectedBin - Data.StartIndex;
+        if (highlightIndex >= 0 && highlightIndex < count)
+        {
+            var highlightValue = Data.Values[highlightIndex];
+            if (highlightValue.HasValue && double.IsFinite(highlightValue.Value))
+            {
+                var xFraction = count <= 1 ? 0d : (double)highlightIndex / (count - 1);
+                var yFraction = (highlightValue.Value - scaleMin) / (scaleMax - scaleMin);
+                highlightX = LeftPadding + xFraction * plotWidth;
+                highlightY = TopPadding + (1 - yFraction) * plotHeight;
+                hasHighlight = true;
+            }
+            else
+            {
+                hasHighlight = false;
+            }
+        }
+        else
+        {
+            hasHighlight = false;
+        }
+
+        var ticks = new List<double>(5);
+        const int desiredTicks = 4;
+        for (var i = 0; i <= desiredTicks; i++)
+        {
+            var fraction = desiredTicks == 0 ? 0d : i / (double)desiredTicks;
+            var x = LeftPadding + fraction * plotWidth;
+            ticks.Add(x);
+        }
+
+        tickPositions = ticks;
+    }
+
+    private string FormatSample(double value)
+    {
+        var abs = Math.Abs(value);
+        if (abs >= 1000 || (abs > 0 && abs < 0.01))
+        {
+            return value.ToString("0.###E+0", invariant);
+        }
+
+        return value.ToString(abs >= 100 ? "0" : "0.###", invariant);
+    }
+
+    private string FormatCoord(double value) => value.ToString("0.###", invariant);
+}

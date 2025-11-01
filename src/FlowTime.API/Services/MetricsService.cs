@@ -192,7 +192,12 @@ public sealed class MetricsService
         {
             try
             {
-                var window = await stateQueryService.GetStateWindowAsync(runId, startBin, endBin, cancellationToken).ConfigureAwait(false);
+                var window = await stateQueryService.GetStateWindowAsync(
+                    runId,
+                    startBin,
+                    endBin,
+                    GraphQueryMode.Operational,
+                    cancellationToken).ConfigureAwait(false);
                 return ConvertFromStateWindow(window, manifest, binCount);
             }
             catch (StateQueryException ex)

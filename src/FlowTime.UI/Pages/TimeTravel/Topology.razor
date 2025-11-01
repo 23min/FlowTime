@@ -1,6 +1,7 @@
 @page "/time-travel/topology"
 @using MudBlazor
 @using Microsoft.JSInterop
+@using Microsoft.Extensions.Logging
 @using FlowTime.UI.Components.Topology
 @using FlowTime.UI.Services
 @using System.Collections.Generic
@@ -11,6 +12,7 @@
 @inject ITimeTravelDataService DataService
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
+@inject ILogger<Topology> Logger
 @implements IDisposable
 
 <PageTitle>Time-Travel Topology</PageTitle>
@@ -234,6 +236,18 @@
                             var nodeId = inspectorNodeId;
                             var pmfChart = BuildPmfChart(nodeId);
                             var metricCharts = BuildMetricCharts(nodeId);
+                            NodeSparklineData? inspectorSparkline = null;
+                            if (nodeSparklines.TryGetValue(nodeId, out var sparklineCandidate))
+                            {
+                                inspectorSparkline = sparklineCandidate;
+                            }
+                            var topoNodeInfo = FindTopologyNode(nodeId);
+                            var nodeKind = topoNodeInfo?.Kind;
+                            var expressionText = topoNodeInfo?.Semantics?.Expression;
+                            var hasExpressionText = !string.IsNullOrWhiteSpace(expressionText);
+                            var showExpressionSection = IsExpressionKind(nodeKind);
+                            var hasInspectorSparkline = inspectorSparkline is not null && inspectorSparkline.Values.Count > 0;
+                            var sparklineStroke = ResolveInspectorSparklineStroke(inspectorSparkline);
 
                             <MudStack Class="pa-4" Spacing="2">
                                 <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
@@ -258,11 +272,41 @@
                                             var label = string.IsNullOrWhiteSpace(metrics.CustomLabel) ? "Value" : metrics.CustomLabel!;
                                             <MudText Typo="Typo.body2">@label: @FormatNumber(metrics.CustomValue)</MudText>
                                         }
+                                        else if (!string.IsNullOrWhiteSpace(metrics.CustomLabel) &&
+                                                 string.Equals(metrics.CustomLabel, MissingSeriesMessage, System.StringComparison.Ordinal))
+                                        {
+                                            <MudText Typo="Typo.body2" Class="topology-muted-text">@metrics.CustomLabel</MudText>
+                                        }
                                     </MudStack>
                                 }
                                 else
                                 {
                                     <MudText Typo="Typo.body2">Metrics unavailable.</MudText>
+                                }
+
+                                @if (showExpressionSection)
+                                {
+                                    <MudStack Spacing="1">
+                                        <MudText Typo="Typo.subtitle2">Expression</MudText>
+                                        @if (hasExpressionText)
+                                        {
+                                            <pre class="node-inspector-expression">@expressionText</pre>
+                                        }
+                                        else
+                                        {
+                                            <MudText Typo="Typo.caption" Class="topology-muted-text">Expression unavailable.</MudText>
+                                        }
+
+                                        <MudText Typo="Typo.subtitle2">Sparkline</MudText>
+                                        @if (hasInspectorSparkline && inspectorSparkline is not null)
+                                        {
+                                            <TopologyInspectorSparkline Data="@inspectorSparkline" SelectedBin="@selectedBin" Stroke="@sparklineStroke" />
+                                        }
+                                        else
+                                        {
+                                            <MudText Typo="Typo.caption" Class="topology-muted-text">@MissingSeriesMessage</MudText>
+                                        }
+                                    </MudStack>
                                 }
 
                                 @if (pmfChart is not null)
@@ -349,6 +393,8 @@
     private TopologyGraph? topologyGraph;
     private IReadOnlyDictionary<string, NodeBinMetrics> activeMetrics = new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase);
     private IReadOnlyDictionary<string, NodeSparklineData> nodeSparklines = new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase);
+    private HashSet<string> nodesMissingSparkline = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> loggedMissingExpressionSeries = new(StringComparer.OrdinalIgnoreCase);
     private TimeTravelStateWindowDto? windowData;
     private SeriesIndex? seriesIndex;
     private IReadOnlyList<DateTimeOffset> timestamps = Array.Empty<DateTimeOffset>();
@@ -394,6 +440,8 @@
     private const string RunStateStoragePrefix = "ft.topology.state.v2";
     private const string LegacyOverlayStorageKey = "ft.topology.overlaySettings.v1";
     private const int SparklinePointLimit = 48;
+    private const string MissingSeriesMessage = "No series for selected range.";
+    private const string BinValueLabel = "bin(t)";
 
     protected override async Task OnParametersSetAsync()
     {
@@ -631,6 +679,8 @@
         {
             var ct = loadCts.Token;
 
+            Logger?.LogInformation("Topology load start for run {RunId}", runId);
+
             var graphTask = DataService.GetGraphAsync(runId, BuildGraphQueryOptions(), ct);
             var indexTask = DataService.GetSeriesIndexAsync(runId, ct);
 
@@ -639,6 +689,7 @@
             var graphResult = await graphTask;
             if (!graphResult.Success || graphResult.Value is null)
             {
+                Logger?.LogWarning("Graph load failed for run {RunId}: {Error}", runId, graphResult.Error ?? "unknown error");
                 errorMessage = graphResult.Error ?? "Topology graph is unavailable.";
                 return;
             }
@@ -646,9 +697,16 @@
             var indexResult = await indexTask;
             if (!indexResult.Success || indexResult.Value is null)
             {
+                Logger?.LogWarning("Series index load failed for run {RunId}: {Error}", runId, indexResult.Error ?? "unknown error");
                 errorMessage = indexResult.Error ?? "Run index metadata could not be retrieved.";
                 return;
             }
+
+            Logger?.LogInformation("Topology graph + index loaded for run {RunId}: nodes={NodeCount}, edges={EdgeCount}, bins={Bins}",
+                runId,
+                graphResult.Value.Nodes?.Count ?? 0,
+                graphResult.Value.Edges?.Count ?? 0,
+                indexResult.Value.Grid.Bins);
 
             topologyGraph = GraphMapper.Map(graphResult.Value, overlaySettings.RespectUiPositions, overlaySettings.Layout);
             seriesIndex = indexResult.Value;
@@ -660,15 +718,25 @@
             visibleEndBin = sliceEnd;
 
             var stateMode = overlaySettings.EnableFullDag ? "full" : null;
+            Logger?.LogInformation("Requesting state window for run {RunId} bins {Start}-{End} (mode={Mode})", runId, sliceStart, sliceEnd, stateMode ?? "operational");
             var windowResult = await DataService.GetStateWindowAsync(runId, sliceStart, sliceEnd, stateMode, ct);
             if (!windowResult.Success || windowResult.Value is null)
             {
+                Logger?.LogWarning("State window load failed for run {RunId}: {Error}", runId, windowResult.Error ?? "unknown error");
                 errorMessage = windowResult.Error ?? "Failed to load run state window.";
                 return;
             }
 
             windowData = windowResult.Value;
+            Logger?.LogInformation("State window loaded for run {RunId}: nodeSeries={NodeSeriesCount}, timestamps={TimestampCount}",
+                runId,
+                windowData.Nodes.Count,
+                windowData.TimestampsUtc.Count);
             BuildNodeSparklines();
+            Logger?.LogInformation("Sparkline map built for run {RunId}: sparklines={SparklineCount}, missing={MissingCount}",
+                runId,
+                nodeSparklines?.Count ?? 0,
+                nodesMissingSparkline?.Count ?? 0);
             timestamps = windowData.TimestampsUtc.ToList();
             runDisplayName = windowData.Metadata.TemplateTitle ?? windowData.Metadata.TemplateId ?? runId;
 
@@ -686,10 +754,12 @@
         }
         catch (Exception ex)
         {
+            Logger?.LogError(ex, "Failed to load topology for run {RunId}", runId);
             errorMessage = $"Failed to load topology: {ex.Message}";
         }
         finally
         {
+            Logger?.LogInformation("Topology load finished for run {RunId}", runId);
             isLoading = false;
             StateHasChanged();
         }
@@ -1111,13 +1181,35 @@
                 errorRate = errors.Value / denominator.Value;
             }
 
+            double? customValue = null;
+            string? customLabel = null;
+            if (IsComputedKind(node.Kind))
+            {
+                if (nodeSparklines is not null && nodeSparklines.TryGetValue(node.Id, out var sparkline))
+                {
+                    var sampled = SampleSparklineAt(sparkline, bin);
+                    if (sampled.HasValue)
+                    {
+                        customValue = sampled;
+                        customLabel = BinValueLabel;
+                    }
+                }
+
+                if (!customValue.HasValue && IsExpressionKind(node.Kind) && nodesMissingSparkline.Contains(node.Id))
+                {
+                    customLabel = MissingSeriesMessage;
+                }
+            }
+
             metrics[node.Id] = new NodeBinMetrics(
                 successRate,
                 utilization,
                 errorRate,
                 queue,
                 latency,
-                selectionTimestamp);
+                selectionTimestamp,
+                customValue,
+                customLabel);
         }
 
         if (topologyGraph is not null)
@@ -1129,19 +1221,11 @@
                     continue;
                 }
 
-                var inline = topoNode.Semantics?.InlineValues;
+                nodeSparklines.TryGetValue(topoNode.Id, out var sparkline);
+
                 double? inlineValue = null;
-
-                if (nodeSparklines is not null && nodeSparklines.TryGetValue(topoNode.Id, out var sparkline))
-                {
-                    var index = bin - sparkline.StartIndex;
-                    if (index >= 0 && index < sparkline.Values.Count)
-                    {
-                        inlineValue = sparkline.Values[index];
-                    }
-                }
-
-                if (!inlineValue.HasValue && inline is { Count: > 0 })
+                var inline = topoNode.Semantics?.InlineValues;
+                if (inline is { Count: > 0 })
                 {
                     if (bin >= 0 && bin < inline.Count)
                     {
@@ -1151,9 +1235,26 @@
                     {
                         inlineValue = inline[localIndex];
                     }
+
+                    if (inlineValue.HasValue && (!double.IsFinite(inlineValue.Value)))
+                    {
+                        inlineValue = null;
+                    }
                 }
 
-                if (!inlineValue.HasValue || double.IsNaN(inlineValue.Value) || double.IsInfinity(inlineValue.Value))
+                var customValue = SampleSparklineAt(sparkline, bin) ?? inlineValue;
+                string? customLabel = null;
+
+                if (customValue.HasValue)
+                {
+                    customLabel = BinValueLabel;
+                }
+                else if (IsExpressionKind(topoNode.Kind) && nodesMissingSparkline.Contains(topoNode.Id))
+                {
+                    customLabel = MissingSeriesMessage;
+                }
+
+                if (!customValue.HasValue && string.IsNullOrWhiteSpace(customLabel))
                 {
                     continue;
                 }
@@ -1165,8 +1266,8 @@
                     null,
                     null,
                     selectionTimestamp,
-                    inlineValue,
-                    "Value");
+                    customValue,
+                    customLabel);
             }
         }
 
@@ -1372,9 +1473,12 @@
 
     private void BuildNodeSparklines()
     {
+        var missing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
         if (windowData is null)
         {
             nodeSparklines = new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase);
+            nodesMissingSparkline = missing;
             return;
         }
 
@@ -1387,12 +1491,22 @@
 
             if (primarySeries is null || primarySeries.Length == 0)
             {
+                if (IsExpressionKind(node.Kind))
+                {
+                    missing.Add(node.Id);
+                }
+
                 continue;
             }
 
             var trimmedPrimary = TrimSeries(primarySeries, SparklinePointLimit);
             if (trimmedPrimary.Count == 0)
             {
+                if (IsExpressionKind(node.Kind))
+                {
+                    missing.Add(node.Id);
+                }
+
                 continue;
             }
 
@@ -1454,37 +1568,54 @@
                 }
 
                 var inlineValues = topoNode.Semantics?.InlineValues;
-                if (inlineValues is null || inlineValues.Count == 0)
+                if (inlineValues is not null && inlineValues.Count > 0)
                 {
+                    var nullableSeries = inlineValues.Select(value => (double?)value).ToArray();
+                    var trimmedInline = TrimSeries(nullableSeries, SparklinePointLimit);
+                    if (trimmedInline.Count == 0)
+                    {
+                        continue;
+                    }
+
+                    var startIndex = Math.Max(0, nullableSeries.Length - trimmedInline.Count);
+                    var additional = new Dictionary<string, SparklineSeriesSlice>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["values"] = new SparklineSeriesSlice(trimmedInline, startIndex),
+                        [topoNode.Id] = new SparklineSeriesSlice(trimmedInline, startIndex),
+                        [$"series:{topoNode.Id}"] = new SparklineSeriesSlice(trimmedInline, startIndex)
+                    };
+
+                    var sparkline = NodeSparklineData.Create(
+                        trimmedInline,
+                        Array.Empty<double?>(),
+                        Array.Empty<double?>(),
+                        Array.Empty<double?>(),
+                        startIndex,
+                        explicitMin: null,
+                        explicitMax: null,
+                        additionalSeries: additional);
+
+                    result[topoNode.Id] = sparkline;
                     continue;
                 }
 
-                var nullableSeries = inlineValues.Select(value => (double?)value).ToArray();
-                var trimmedInline = TrimSeries(nullableSeries, SparklinePointLimit);
-                if (trimmedInline.Count == 0)
+                if (IsExpressionKind(topoNode.Kind))
                 {
-                    continue;
+                    missing.Add(topoNode.Id);
                 }
+            }
+        }
 
-                var startIndex = Math.Max(0, nullableSeries.Length - trimmedInline.Count);
-                var additional = new Dictionary<string, SparklineSeriesSlice>(StringComparer.OrdinalIgnoreCase)
+        nodesMissingSparkline = missing;
+
+        if (Logger is not null)
+        {
+            foreach (var nodeId in missing)
+            {
+                if (IsExpressionKind(GetNodeKind(nodeId)) && loggedMissingExpressionSeries.Add(nodeId))
                 {
-                    ["values"] = new SparklineSeriesSlice(trimmedInline, startIndex),
-                    [topoNode.Id] = new SparklineSeriesSlice(trimmedInline, startIndex),
-                    [$"series:{topoNode.Id}"] = new SparklineSeriesSlice(trimmedInline, startIndex)
-                };
-
-                var sparkline = NodeSparklineData.Create(
-                    trimmedInline,
-                    Array.Empty<double?>(),
-                    Array.Empty<double?>(),
-                    Array.Empty<double?>(),
-                    startIndex,
-                    explicitMin: null,
-                    explicitMax: null,
-                    additionalSeries: additional);
-
-                result[topoNode.Id] = sparkline;
+                    Logger.LogWarning("Expression node {NodeId} has no series for selected range.", nodeId);
+                }
             }
         }
 
@@ -1736,6 +1867,84 @@
         }
 
         return series.Values.FirstOrDefault(value => value is { Length: > 0 });
+    }
+
+    private static bool IsExpressionKind(string? kind) =>
+        !string.IsNullOrWhiteSpace(kind) &&
+        (string.Equals(kind, "expr", StringComparison.OrdinalIgnoreCase) ||
+         string.Equals(kind, "expression", StringComparison.OrdinalIgnoreCase));
+
+    private static bool IsConstKind(string? kind) =>
+        !string.IsNullOrWhiteSpace(kind) &&
+        string.Equals(kind, "const", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsPmfKind(string? kind) =>
+        !string.IsNullOrWhiteSpace(kind) &&
+        string.Equals(kind, "pmf", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsComputedKind(string? kind) =>
+        IsExpressionKind(kind) || IsConstKind(kind) || IsPmfKind(kind);
+
+    private TopologyNode? FindTopologyNode(string nodeId)
+    {
+        if (topologyGraph is null || string.IsNullOrWhiteSpace(nodeId))
+        {
+            return null;
+        }
+
+        return topologyGraph.Nodes.FirstOrDefault(n => string.Equals(n.Id, nodeId, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private string? GetNodeKind(string nodeId) => FindTopologyNode(nodeId)?.Kind;
+
+    private static double? SampleSparklineAt(NodeSparklineData? sparkline, int bin)
+    {
+        if (sparkline is null)
+        {
+            return null;
+        }
+
+        var index = bin - sparkline.StartIndex;
+        if (index < 0 || index >= sparkline.Values.Count)
+        {
+            return null;
+        }
+
+        var value = sparkline.Values[index];
+        if (!value.HasValue)
+        {
+            return null;
+        }
+
+        var sample = value.Value;
+        return double.IsNaN(sample) || double.IsInfinity(sample) ? null : sample;
+    }
+
+    private string ResolveInspectorSparklineStroke(NodeSparklineData? sparkline)
+    {
+        if (sparkline is null)
+        {
+            return "#475569";
+        }
+
+        var sample = SampleSparklineAt(sparkline, selectedBin);
+        if (!sample.HasValue)
+        {
+            return "#475569";
+        }
+
+        var thresholds = ColorScale.ColorThresholds.FromOverlay(overlaySettings);
+        var basis = overlaySettings.ColorBasis;
+        var metrics = basis switch
+        {
+            TopologyColorBasis.Utilization => new NodeBinMetrics(null, sample, null, null, null, null),
+            TopologyColorBasis.Errors => new NodeBinMetrics(null, null, sample, null, null, null),
+            TopologyColorBasis.Queue => new NodeBinMetrics(null, null, null, sample, null, null),
+            _ => new NodeBinMetrics(sample, null, null, null, null, null)
+        };
+
+        var color = ColorScale.GetFill(metrics, basis, thresholds);
+        return string.IsNullOrWhiteSpace(color) ? "#475569" : color;
     }
 
     private string GetRunInfo()

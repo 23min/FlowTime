@@ -73,6 +73,11 @@ public class StateResponseSchemaTests : IClassFixture<TestWebApplicationFactory>
                     File.WriteAllText(modelPath, BuildValidModelYaml(), System.Text.Encoding.UTF8);
                     var modelHash = ComputeFileHash(modelPath);
                     WriteMetadata(modelDir, schemaRunId, "telemetry", modelHash);
+
+                    var seriesDir = Path.Combine(runDir, "series");
+                    Directory.CreateDirectory(seriesDir);
+                    WriteSeriesIndex(seriesDir);
+
                     File.WriteAllText(Path.Combine(runDir, "run.json"), BuildRunJson(schemaRunId, "telemetry", modelHash), System.Text.Encoding.UTF8);
                 }
 
@@ -188,6 +193,28 @@ public class StateResponseSchemaTests : IClassFixture<TestWebApplicationFactory>
         };
 
         return JsonSerializer.Serialize(manifest, new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true });
+    }
+
+    private static void WriteSeriesIndex(string seriesDirectory)
+    {
+        var payload = new
+        {
+            schemaVersion = 1,
+            grid = new
+            {
+                bins = binCount,
+                binSize = binSizeMinutes,
+                binUnit = "minutes"
+            },
+            series = Array.Empty<object>()
+        };
+
+        var json = JsonSerializer.Serialize(payload, new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            WriteIndented = true
+        });
+
+        File.WriteAllText(Path.Combine(seriesDirectory, "index.json"), json, System.Text.Encoding.UTF8);
     }
 
     private static string BuildValidModelYaml()

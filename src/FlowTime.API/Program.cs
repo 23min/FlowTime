@@ -743,6 +743,33 @@ static bool TryBuildGraphQueryOptions(IQueryCollection query, out GraphQueryOpti
     return true;
 }
 
+static bool TryParseGraphMode(IQueryCollection query, out GraphQueryMode mode, out string? error)
+{
+    mode = GraphQueryMode.Operational;
+    error = null;
+
+    if (!query.TryGetValue("mode", out var modeValues) || StringValues.IsNullOrEmpty(modeValues))
+    {
+        return true;
+    }
+
+    var modeValue = modeValues[0];
+    if (string.Equals(modeValue, "operational", StringComparison.OrdinalIgnoreCase))
+    {
+        mode = GraphQueryMode.Operational;
+        return true;
+    }
+
+    if (string.Equals(modeValue, "full", StringComparison.OrdinalIgnoreCase))
+    {
+        mode = GraphQueryMode.Full;
+        return true;
+    }
+
+    error = $"Invalid mode '{modeValue}'. Expected 'operational' or 'full'.";
+    return false;
+}
+
 static IReadOnlyCollection<string>? ParseCsv(IQueryCollection query, string key)
 {
     if (!query.TryGetValue(key, out var rawValues) || StringValues.IsNullOrEmpty(rawValues))
@@ -846,9 +873,14 @@ v1.MapGet("/runs/{runId}/state_window", async (string runId, HttpContext context
         return Results.BadRequest(new { error = "endBin query parameter is required and must be an integer." });
     }
 
+    if (!TryParseGraphMode(context.Request.Query, out var mode, out var modeError))
+    {
+        return Results.BadRequest(new { error = modeError });
+    }
+
     try
     {
-        var response = await stateQueryService.GetStateWindowAsync(runId, startBin, endBin, context.RequestAborted);
+        var response = await stateQueryService.GetStateWindowAsync(runId, startBin, endBin, mode, context.RequestAborted);
         return Results.Ok(response);
     }
     catch (StateQueryException ex)
