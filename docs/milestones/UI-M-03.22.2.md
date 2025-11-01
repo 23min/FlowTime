@@ -1,6 +1,6 @@
 # UI‑M‑03.22.2 — Topology Canvas Polish (Expr Tooltip + Inspector Sparkline)
 
-**Status:** 📋 Planned  
+**Status:** 🔄 In Progress  
 **Dependencies:** ✅ UI‑M‑03.22 (Topology Canvas), ✅ UI‑M‑03.22.1 (LOD + Feature Bar)  
 **Target:** Enhance expression/computed node usability with inline sparklines and expression text while reducing visual clutter on computed nodes.
 
@@ -115,6 +115,18 @@ This micro‑milestone polishes the Topology experience by adding a mini sparkli
 - Update render tests for tooltip sparkline and port marker gating.
 - Add inspector render checks for expression text and SVG sparkline.
 - Document behavior and limitations.
+
+### Progress (Apr 2025)
+- Contracts/API/UI mapping now carry `semantics.expression` for expression nodes end-to-end.
+- Window sparkline builder includes expression nodes and tracks missing-series warnings for graceful degradation.
+- Tooltip renders a basis-colored mini sparkline for expression nodes (with bin highlight and fallback when data is absent).
+- Canvas skips lollipop ports on const/expr/pmf edges and displays computed `bin(t)` values inside nodes.
+- Inspector surfaces expression text in a monospace block and shows an SVG sparkline panel with min/max labels.
+
+### Next Focus
+- Add automated coverage (tooltip draw + inspector rendering) and run topology-focused UI tests.
+- Polish empty-series messaging across tooltip/inspector once real data is exercised.
+- Update release notes once verification passes.
 
 ---
 

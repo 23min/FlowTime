@@ -2,21 +2,21 @@
 
 **Branch:** `feature/ui-m-0322-topology-canvas`  
 **Owner:** UI  
-**Status:** 📋 Planned
+**Status:** 🔄 In Progress
 
 ---
 
 ## TODOs
 
-- [ ] Contracts: add `semantics.expression` for expr nodes; pass through API → UI mapper.
-- [ ] Window data: include expr nodes in `BuildNodeSparklines`.
-- [ ] Canvas tooltip: draw mini sparkline under subtitle for expr nodes.
-- [ ] Canvas ports: skip `drawPort` for edges touching expr/const/pmf nodes.
-- [ ] In‑node metric: sample bin(t) for computed nodes and render in node body.
-- [ ] Inspector: add expression code block (mono, dark‑grey on very light grey).
-- [ ] Inspector: add SVG sparkline with min/max Y labels; X axis tick marks only; ≥20px side padding.
+- [x] Contracts: add `semantics.expression` for expr nodes; pass through API → UI mapper.
+- [x] Window data: include expr nodes in `BuildNodeSparklines`.
+- [x] Canvas tooltip: draw mini sparkline under subtitle for expr nodes.
+- [x] Canvas ports: skip `drawPort` for edges touching expr/const/pmf nodes.
+- [x] In‑node metric: sample bin(t) for computed nodes and render in node body.
+- [x] Inspector: add expression code block (mono, dark‑grey on very light grey).
+- [x] Inspector: add SVG sparkline with min/max Y labels; X axis tick marks only; ≥20px side padding.
 - [ ] Tests: update render tests; add inspector sparkline + expression text checks.
-- [ ] Docs: milestone notes updated per guidelines.
+- [x] Docs: milestone notes updated per guidelines.
 
 ## Validation
 
@@ -28,3 +28,6 @@
 ## Notes
 - Degrade gracefully if expr series missing (muted message + warn log). No hard error.
 - No new network calls for expression content or sparklines.
+
+## Progress Log
+- 2025-04 — Mapped expression semantics through contracts, added tooltip sparkline plus computed-node bin labels, refreshed inspector UI/SVG implementation, and updated milestone docs; tests still pending.
