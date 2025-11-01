@@ -30,15 +30,15 @@ public sealed class TopologyOverlaySettings
 {
     public bool ShowLabels { get; set; } = true;
     public bool ShowEdgeArrows { get; set; } = true;
-    public bool ShowEdgeShares { get; set; } = false;
+    public bool ShowEdgeShares { get; set; } = true;
     public bool ShowSparklines { get; set; } = true;
     public SparklineRenderMode SparklineMode { get; set; } = SparklineRenderMode.Line;
-    public EdgeRenderMode EdgeStyle { get; set; } = EdgeRenderMode.Orthogonal;
+    public EdgeRenderMode EdgeStyle { get; set; } = EdgeRenderMode.Bezier;
 
-    public bool EnableFullDag { get; set; }
+    public bool EnableFullDag { get; set; } = true;
     public bool IncludeServiceNodes { get; set; } = true;
-    public bool IncludeExpressionNodes { get; set; }
-    public bool IncludeConstNodes { get; set; }
+    public bool IncludeExpressionNodes { get; set; } = true;
+    public bool IncludeConstNodes { get; set; } = true;
     public bool NeighborEmphasis { get; set; } = true;
 
     public TopologyColorBasis ColorBasis { get; set; } = TopologyColorBasis.Sla;

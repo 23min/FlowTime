@@ -25,6 +25,7 @@ internal sealed record NodeRenderInfo(
     bool IsVisible,
     NodeSparklineDto? Sparkline,
     string? FocusLabel,
+    bool IsLeaf,
     NodeSemanticsDto? Semantics);
 
 internal sealed record NodeSemanticsDto(

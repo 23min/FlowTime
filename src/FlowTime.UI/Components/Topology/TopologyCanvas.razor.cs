@@ -481,6 +481,10 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         bool preserveViewport)
     {
         var thresholds = ColorScale.ColorThresholds.FromOverlay(overlays);
+        var outgoingGroups = graph.Edges
+            .GroupBy(edge => edge.From, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.ToList(), StringComparer.OrdinalIgnoreCase);
+
         var nodeDtos = graph.Nodes
             .Select(node =>
             {
@@ -557,6 +561,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                 }
 
                 var isVisible = true;
+                var isLeaf = !outgoingGroups.ContainsKey(node.Id);
 
                 return new NodeRenderInfo(
                     node.Id,
@@ -572,15 +577,17 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                     isVisible,
                     sparklineDto,
                     focusLabel,
+                    isLeaf,
                     semanticsDto);
             })
             .ToImmutableArray();
 
         var nodeLookup = nodeDtos.ToDictionary(n => n.Id, StringComparer.OrdinalIgnoreCase);
 
-        var outgoingTotals = graph.Edges
-            .GroupBy(edge => edge.From, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(group => group.Key, group => group.Sum(edge => Math.Max(0d, edge.Weight)), StringComparer.OrdinalIgnoreCase);
+        var outgoingTotals = outgoingGroups.ToDictionary(
+            kvp => kvp.Key,
+            kvp => kvp.Value.Sum(edge => Math.Max(0d, edge.Weight)),
+            StringComparer.OrdinalIgnoreCase);
 
         var edges = graph.Edges
             .Select(edge =>

@@ -1201,6 +1201,21 @@
                 }
             }
 
+            if (!customValue.HasValue)
+            {
+                double? direct = Get("values");
+                if (!direct.HasValue)
+                {
+                    direct = Get($"series:{node.Id}") ?? Get(node.Id);
+                }
+
+                if (direct.HasValue && double.IsFinite(direct.Value))
+                {
+                    customValue = direct;
+                    customLabel = BinValueLabel;
+                }
+            }
+
             metrics[node.Id] = new NodeBinMetrics(
                 successRate,
                 utilization,

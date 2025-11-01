@@ -247,25 +247,9 @@
         // Sync overlay DOM (proxies + tooltip) with canvas pan/zoom so hover/focus hitboxes and callouts align
         applyOverlayTransform(canvas, state);
 
-        const outgoingCounts = new Map();
-        for (const edge of edges) {
-            const type = String(edge.edgeType ?? edge.EdgeType ?? EdgeTypeTopology).toLowerCase();
-            if (type !== EdgeTypeTopology) {
-                continue;
-            }
-
-            const fromId = edge.from ?? edge.From;
-            if (!fromId) {
-                continue;
-            }
-
-            outgoingCounts.set(fromId, (outgoingCounts.get(fromId) ?? 0) + 1);
-        }
-
         const nodeMap = new Map();
         for (const n of nodes) {
             const identifier = n.id ?? n.Id;
-            const outgoing = outgoingCounts.get(identifier) ?? 0;
 
             nodeMap.set(identifier, {
                 id: identifier,
@@ -282,7 +266,7 @@
                 focusLabel: n.focusLabel ?? n.FocusLabel ?? '',
                 semantics: n.semantics ?? n.Semantics ?? null,
                 distribution: n.distribution ?? n.Distribution ?? (n.semantics?.distribution ?? n.Semantics?.Distribution ?? null),
-                leaf: outgoing === 0
+                leaf: Boolean(n.isLeaf ?? n.IsLeaf)
             });
         }
 
@@ -310,7 +294,9 @@
         ctx.scale(state.scale, state.scale);
 
         const sparkColor = resolveSparklineColor(overlaySettings.colorBasis);
-
+        const portRadius = 4.5;
+        const portFillColor = '#E7EBF4';
+        const portStrokeColor = 'rgba(59, 72, 89, 0.55)';
         const portPadding = 0;
 
         let focusedId = null;
@@ -414,6 +400,14 @@
                 drawArrowhead(ctx, prevPoint.x, prevPoint.y, endPathPoint.x, endPathPoint.y);
             }
 
+            const fromKind = String(fromNode.kind ?? '').toLowerCase();
+            const toKind = String(toNode.kind ?? '').toLowerCase();
+            const skipPorts = isComputedKind(fromKind) || isComputedKind(toKind);
+            if (!skipPorts) {
+                drawPort(ctx, startPoint.x, startPoint.y, portRadius, portFillColor, portStrokeColor);
+                drawPort(ctx, endPoint.x, endPoint.y, portRadius, portFillColor, portStrokeColor);
+            }
+
             const share = edge.share ?? edge.Share;
             if (overlaySettings.showEdgeShares && share !== null && share !== undefined) {
                 drawEdgeShare(ctx, pathPoints, share);
@@ -455,19 +449,16 @@
 
             const nodeMeta = nodeMap.get(id);
             const kind = String(meta?.kind ?? node.kind ?? node.Kind ?? 'service').toLowerCase();
-            const isLeafNode = !!nodeMeta?.leaf;
-            const isComputedNode = isComputedKind(kind);
-            const drawCircle = isLeafNode && isComputedNode;
+            const isLeafComputed = !!nodeMeta?.leaf && isComputedKind(kind);
 
             let focusLabelWidth = Math.max(width - 14, 18);
             let fillForText = fill;
 
-            if (drawCircle) {
+            if (isLeafComputed) {
                 const baseRadius = Math.min(width, height) / 2;
                 const outerRadius = baseRadius * LEAF_CIRCLE_SCALE;
                 const ringWidth = LEAF_CIRCLE_RING_WIDTH;
-                const gutter = LEAF_CIRCLE_GUTTER;
-                const innerRadius = Math.max(outerRadius - ringWidth - gutter, outerRadius * 0.6);
+                const innerRadius = Math.max(outerRadius - ringWidth - LEAF_CIRCLE_GUTTER, outerRadius * 0.6);
 
                 ctx.save();
                 ctx.lineWidth = ringWidth;
@@ -520,24 +511,24 @@
                 if (nodeMeta) {
                     nodeMeta.fill = fill;
                 }
-            }
 
-            if (!drawCircle && (kind === 'service' || kind === 'queue')) {
-                drawServiceDecorations(ctx, nodeMeta, overlaySettings, state);
-            } else if (!drawCircle && kind === 'pmf' && nodeMeta?.distribution) {
-                drawPmfDistribution(ctx, nodeMeta, nodeMeta.distribution);
-            } else if (!drawCircle && (kind === 'const' || kind === 'constant') && overlaySettings.showSparklines && nodeMeta?.sparkline) {
-                drawInputSparkline(ctx, nodeMeta, overlaySettings);
-            }
+                if (kind === 'service' || kind === 'queue') {
+                    drawServiceDecorations(ctx, nodeMeta, overlaySettings, state);
+                } else if (kind === 'pmf' && nodeMeta?.distribution) {
+                    drawPmfDistribution(ctx, nodeMeta, nodeMeta.distribution);
+                } else if ((kind === 'const' || kind === 'constant') && overlaySettings.showSparklines && nodeMeta?.sparkline) {
+                    drawInputSparkline(ctx, nodeMeta, overlaySettings);
+                }
 
-            if (!drawCircle && kind === 'pmf') {
-                ctx.save();
-                ctx.fillStyle = isDarkColor(fill) ? '#FFFFFF' : '#0F172A';
-                ctx.font = '600 11px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText('PMF', x, y);
-                ctx.restore();
+                if (kind === 'pmf') {
+                    ctx.save();
+                    ctx.fillStyle = isDarkColor(fill) ? '#FFFFFF' : '#0F172A';
+                    ctx.font = '600 11px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('PMF', x, y);
+                    ctx.restore();
+                }
             }
 
             if (overlaySettings.showLabels) {
@@ -1548,10 +1539,10 @@
         const absUy = Math.abs(uy);
         const epsilon = 1e-6;
         const kind = String(node.kind ?? node.Kind ?? 'service').toLowerCase();
-        const isLeafNode = !!(node.leaf ?? node.Leaf);
-        let boundary;
+        const isLeafComputed = !!(node.leaf ?? node.Leaf) && isComputedKind(kind);
 
-        if (isLeafNode && isComputedKind(kind)) {
+        let boundary;
+        if (isLeafComputed) {
             const baseRadius = Math.min(width, height) / 2;
             boundary = baseRadius * LEAF_CIRCLE_SCALE;
         } else if (kind === 'expr' || kind === 'expression') {
@@ -2742,6 +2733,18 @@
         ctx.closePath();
         ctx.fillStyle = ctx.strokeStyle;
         ctx.fill();
+    }
+
+    function drawPort(ctx, x, y, radius, fill, stroke) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.fillStyle = fill;
+        ctx.fill();
+        ctx.lineWidth = 0.75;
+        ctx.strokeStyle = stroke;
+        ctx.stroke();
+        ctx.restore();
     }
 
     function drawEdgeShare(ctx, points, share) {
