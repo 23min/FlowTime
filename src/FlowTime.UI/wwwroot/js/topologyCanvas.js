@@ -553,15 +553,6 @@
                     drawInputSparkline(ctx, nodeMeta, overlaySettings);
                 }
 
-                if (kind === 'pmf') {
-                    ctx.save();
-                    ctx.fillStyle = isDarkColor(fill) ? '#FFFFFF' : '#0F172A';
-                    ctx.font = '600 11px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText('PMF', x, y);
-                    ctx.restore();
-                }
             }
 
             if (overlaySettings.showLabels) {

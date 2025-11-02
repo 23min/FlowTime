@@ -1233,11 +1233,7 @@
         {
             foreach (var topoNode in topologyGraph.Nodes)
             {
-                if (metrics.ContainsKey(topoNode.Id))
-                {
-                    continue;
-                }
-
+                metrics.TryGetValue(topoNode.Id, out var existingMetrics);
                 nodeSparklines.TryGetValue(topoNode.Id, out var sparkline);
 
                 double? inlineValue = null;
@@ -1259,7 +1255,8 @@
                     }
                 }
 
-                var customValue = SampleSparklineAt(sparkline, bin) ?? inlineValue;
+                var sampleValue = SampleSparklineAt(sparkline, bin);
+                var customValue = sampleValue ?? inlineValue;
                 string? customLabel = null;
 
                 if (customValue.HasValue)
@@ -1273,6 +1270,32 @@
 
                 if (!customValue.HasValue && string.IsNullOrWhiteSpace(customLabel))
                 {
+                    continue;
+                }
+
+                if (existingMetrics is not null)
+                {
+                    var newCustomValue = customValue ?? existingMetrics.CustomValue;
+                    var newCustomLabel = customLabel ?? existingMetrics.CustomLabel;
+                    if (customValue.HasValue && string.IsNullOrWhiteSpace(customLabel))
+                    {
+                        newCustomLabel = BinValueLabel;
+                    }
+
+                    if (!Equals(newCustomValue, existingMetrics.CustomValue) ||
+                        !string.Equals(newCustomLabel, existingMetrics.CustomLabel, StringComparison.Ordinal))
+                    {
+                        metrics[topoNode.Id] = new NodeBinMetrics(
+                            existingMetrics.SuccessRate,
+                            existingMetrics.Utilization,
+                            existingMetrics.ErrorRate,
+                            existingMetrics.QueueDepth,
+                            existingMetrics.LatencyMinutes,
+                            existingMetrics.Timestamp,
+                            newCustomValue,
+                            newCustomLabel);
+                    }
+
                     continue;
                 }
 
