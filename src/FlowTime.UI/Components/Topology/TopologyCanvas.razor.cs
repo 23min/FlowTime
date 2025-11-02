@@ -878,6 +878,17 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             return metrics.CustomValue.Value.ToString("0.#", invariant);
         }
 
+        double? valuesSample = null;
+        if (sparkline is not null && sparkline.Series.TryGetValue("values", out var valuesSlice))
+        {
+            valuesSample = SampleSliceValue(valuesSlice, selectedBin);
+        }
+
+        if (valuesSample.HasValue)
+        {
+            return valuesSample.Value.ToString("0.#", invariant);
+        }
+
         double? sample = SampleSparklineValue(sparkline, basis, selectedBin);
         if (!sample.HasValue)
         {
@@ -903,6 +914,34 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         var percentValue = sample.Value * 100d;
         var format = basis == TopologyColorBasis.Errors && sample.Value < 0.1 ? "0.0#" : "0.#";
         return $"{percentValue.ToString(format, invariant)}%";
+    }
+
+    private static double? SampleSliceValue(SparklineSeriesSlice slice, int selectedBin)
+    {
+        if (slice.Values is null)
+        {
+            return null;
+        }
+
+        var index = selectedBin - slice.StartIndex;
+        if (index < 0 || index >= slice.Values.Count)
+        {
+            return null;
+        }
+
+        var sample = slice.Values[index];
+        if (!sample.HasValue)
+        {
+            return null;
+        }
+
+        var value = sample.Value;
+        if (!double.IsFinite(value))
+        {
+            return null;
+        }
+
+        return value;
     }
 
     private static ViewportSnapshotPayload? CreateSnapshotPayload(ViewportSnapshot? snapshot)
