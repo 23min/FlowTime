@@ -212,156 +212,130 @@
                         </MudStack>
                     </MudPaper>
 
-                    <TopologyCanvas @ref="canvasComponent"
-                                    Graph="topologyGraph"
-                                    NodeMetrics="activeMetrics"
-                                    NodeSparklines="nodeSparklines"
-                                    OverlaySettings="overlaySettings"
-                                    ActiveBin="selectedBin"
-                                    ZoomPercentChanged="HandleCanvasZoomChanged"
-                                    ViewportChanged="OnCanvasViewportChanged"
-                                    NodeFocused="OnNodeFocused"
-                                    RequestedViewport="pendingViewportSnapshot"
-                                    ViewportRequestConsumed="OnRequestedViewportConsumed" />
+                    <MudStack Row="true" AlignItems="AlignItems.Stretch" Spacing="2" Class="topology-stage">
+                        <div class="topology-canvas-region" style="flex: 1 1 auto; min-width: 0;">
+                            <TopologyCanvas @ref="canvasComponent"
+                                            Graph="topologyGraph"
+                                            NodeMetrics="activeMetrics"
+                                            NodeSparklines="nodeSparklines"
+                                            OverlaySettings="overlaySettings"
+                                            ActiveBin="selectedBin"
+                                            ZoomPercentChanged="HandleCanvasZoomChanged"
+                                            ViewportChanged="OnCanvasViewportChanged"
+                                            NodeFocused="OnNodeFocused"
+                                            RequestedViewport="pendingViewportSnapshot"
+                                            ViewportRequestConsumed="OnRequestedViewportConsumed" />
+                        </div>
 
-                    <MudDrawer Anchor="Anchor.End"
-                               Open="@inspectorOpen"
-                               Variant="DrawerVariant.Temporary"
-                               Elevation="1"
-                               Width="360px"
-                               DisableOverlayClick="true"
-                               Class="topology-inspector">
-                        @if (inspectorNodeId is not null)
+                        @if (inspectorOpen && inspectorNodeId is not null)
                         {
                             var nodeId = inspectorNodeId;
-                            var metricCharts = BuildMetricCharts(nodeId);
-                            NodeSparklineData? inspectorSparkline = null;
-                            if (nodeSparklines.TryGetValue(nodeId, out var sparklineCandidate))
-                            {
-                                inspectorSparkline = sparklineCandidate;
-                            }
+                            var metricBlocks = BuildInspectorMetricBlocks(nodeId);
                             var topoNodeInfo = FindTopologyNode(nodeId);
                             var nodeKind = topoNodeInfo?.Kind;
                             var expressionText = topoNodeInfo?.Semantics?.Expression;
                             var hasExpressionText = !string.IsNullOrWhiteSpace(expressionText);
                             var showExpressionSection = IsExpressionKind(nodeKind);
                             var isComputedNode = IsComputedKind(nodeKind);
-                            var hasInspectorSparkline = inspectorSparkline is not null && inspectorSparkline.Values.Count > 0;
-                            var sparklineStroke = ResolveInspectorSparklineStroke(inspectorSparkline);
-                            NodeSparklineData? slaSparkline = null;
-                            NodeSparklineData? errorSparkline = null;
-                            NodeSparklineData? valuesSparkline = null;
-                            NodeSparklineData? pmfSparkline = null;
-                            string slaStroke = "#475569";
-                            string errorStroke = "#475569";
-                            string valuesStroke = "#475569";
-                            if (inspectorSparkline is not null)
-                            {
-                                slaSparkline = BuildInspectorSparkline(inspectorSparkline, "successRate", explicitMin: 0d, explicitMax: 1d);
-                                errorSparkline = BuildInspectorSparkline(inspectorSparkline, "errorRate", explicitMin: 0d, explicitMax: 1d);
-                                valuesSparkline = BuildInspectorSparkline(inspectorSparkline, "values");
-                                pmfSparkline = BuildPmfSparkline(topoNodeInfo, inspectorSparkline);
 
-                                if (slaSparkline is not null)
-                                {
-                                    slaStroke = ResolveInspectorSparklineStroke(slaSparkline);
-                                }
+                            <MudPaper Class="topology-inspector topology-inspector-panel" Elevation="1" Style="width: 360px; flex: 0 0 360px;">
+                                <MudStack Class="pa-4" Spacing="2">
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                                        <MudText Typo="Typo.h6">@nodeId</MudText>
+                                        <MudIconButton Icon="@Icons.Material.Filled.Close"
+                                                       Color="Color.Secondary"
+                                                       Size="Size.Small"
+                                                       OnClick="CloseInspector" />
+                                    </MudStack>
 
-                                if (errorSparkline is not null)
-                                {
-                                    errorStroke = ResolveInspectorSparklineStroke(errorSparkline);
-                                }
+                                    @if (activeMetrics.TryGetValue(nodeId, out var metrics))
+                                    {
+                                        var summaryRendered = false;
+                                        <MudStack Spacing="1">
+                                            @if (!isComputedNode && metrics.SuccessRate.HasValue)
+                                            {
+                                                summaryRendered = true;
+                                                <MudText Typo="Typo.body2">Success: @FormatPercent(metrics.SuccessRate)</MudText>
+                                            }
+                                            @if (!isComputedNode && metrics.Utilization.HasValue)
+                                            {
+                                                summaryRendered = true;
+                                                <MudText Typo="Typo.body2">Utilization: @FormatPercent(metrics.Utilization)</MudText>
+                                            }
+                                            @if (!isComputedNode && metrics.ErrorRate.HasValue)
+                                            {
+                                                summaryRendered = true;
+                                                <MudText Typo="Typo.body2">Errors: @FormatPercent(metrics.ErrorRate)</MudText>
+                                            }
+                                            @if (!isComputedNode && metrics.QueueDepth.HasValue)
+                                            {
+                                                summaryRendered = true;
+                                                <MudText Typo="Typo.body2">Queue: @FormatNumber(metrics.QueueDepth)</MudText>
+                                            }
+                                            @if (!isComputedNode && metrics.LatencyMinutes.HasValue)
+                                            {
+                                                summaryRendered = true;
+                                                <MudText Typo="Typo.body2">Latency (min): @FormatNumber(metrics.LatencyMinutes)</MudText>
+                                            }
+                                            @if (metrics.CustomValue.HasValue)
+                                            {
+                                                var label = string.IsNullOrWhiteSpace(metrics.CustomLabel) ? "Value" : metrics.CustomLabel!;
+                                                summaryRendered = true;
+                                                <MudText Typo="Typo.body2">@label: @FormatNumber(metrics.CustomValue)</MudText>
+                                            }
+                                            else if (!string.IsNullOrWhiteSpace(metrics.CustomLabel) &&
+                                                     string.Equals(metrics.CustomLabel, MissingSeriesMessage, System.StringComparison.Ordinal))
+                                            {
+                                                summaryRendered = true;
+                                                <MudText Typo="Typo.body2" Class="topology-muted-text">@metrics.CustomLabel</MudText>
+                                            }
+                                        </MudStack>
+                                        @if (!summaryRendered && !isComputedNode)
+                                        {
+                                            <MudText Typo="Typo.body2">Metrics unavailable.</MudText>
+                                        }
+                                    }
+                                    else if (!isComputedNode)
+                                    {
+                                        <MudText Typo="Typo.body2">Metrics unavailable.</MudText>
+                                    }
 
-                                if (valuesSparkline is not null)
-                                {
-                                    valuesStroke = ResolveInspectorSparklineStroke(valuesSparkline);
-                                }
-                            }
+                                    @if (showExpressionSection)
+                                    {
+                                        <MudStack Spacing="1">
+                                            <MudText Typo="Typo.subtitle2">Expression</MudText>
+                                            @if (hasExpressionText)
+                                            {
+                                                <pre class="node-inspector-expression">@expressionText</pre>
+                                            }
+                                            else
+                                            {
+                                                <MudText Typo="Typo.caption" Class="topology-muted-text">Expression unavailable.</MudText>
+                                            }
+                                        </MudStack>
+                                    }
 
-                            <MudStack Class="pa-4" Spacing="2">
-                                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
-                                    <MudText Typo="Typo.subtitle1">Node inspector</MudText>
-                                    <MudIconButton Icon="@Icons.Material.Filled.Close"
-                                                   Color="Color.Secondary"
-                                                   Size="Size.Small"
-                                                   OnClick="CloseInspector" />
+                                    @foreach (var block in metricBlocks)
+                                    {
+                                        <MudStack Spacing="1">
+                                            <MudText Typo="Typo.subtitle2">@block.Title</MudText>
+                                            @if (block.IsPlaceholder)
+                                            {
+                                                <MudText Typo="Typo.caption" Class="topology-muted-text">@block.Placeholder</MudText>
+                                            }
+                                            else if (block.Sparkline is not null)
+                                            {
+                                                <TopologyInspectorSparkline Data="@block.Sparkline"
+                                                                             SelectedBin="@selectedBin"
+                                                                             Stroke="@block.Stroke"
+                                                                             AriaLabel="@block.AriaLabel" />
+                                            }
+                                        </MudStack>
+                                    }
                                 </MudStack>
-                                <MudText Typo="Typo.h6">@nodeId</MudText>
-
-                                @if (activeMetrics.TryGetValue(nodeId, out var metrics))
-                                {
-                                    <MudStack Spacing="1">
-                                        <MudText Typo="Typo.body2">Success: @FormatPercent(metrics.SuccessRate)</MudText>
-                                        <MudText Typo="Typo.body2">Utilization: @FormatPercent(metrics.Utilization)</MudText>
-                                        <MudText Typo="Typo.body2">Errors: @FormatPercent(metrics.ErrorRate)</MudText>
-                                        <MudText Typo="Typo.body2">Queue: @FormatNumber(metrics.QueueDepth)</MudText>
-                                        <MudText Typo="Typo.body2">Latency (min): @FormatNumber(metrics.LatencyMinutes)</MudText>
-                                        @if (metrics.CustomValue.HasValue)
-                                        {
-                                            var label = string.IsNullOrWhiteSpace(metrics.CustomLabel) ? "Value" : metrics.CustomLabel!;
-                                            <MudText Typo="Typo.body2">@label: @FormatNumber(metrics.CustomValue)</MudText>
-                                        }
-                                        else if (!string.IsNullOrWhiteSpace(metrics.CustomLabel) &&
-                                                 string.Equals(metrics.CustomLabel, MissingSeriesMessage, System.StringComparison.Ordinal))
-                                        {
-                                            <MudText Typo="Typo.body2" Class="topology-muted-text">@metrics.CustomLabel</MudText>
-                                        }
-                                    </MudStack>
-                                }
-                                else if (!isComputedNode)
-                                {
-                                    <MudText Typo="Typo.body2">Metrics unavailable.</MudText>
-                                }
-
-                                @if (!isComputedNode && slaSparkline is not null)
-                                {
-                                    <MudStack Spacing="1">
-                                        <MudText Typo="Typo.subtitle2">SLA</MudText>
-                                        <TopologyInspectorSparkline Data="@slaSparkline" SelectedBin="@selectedBin" Stroke="@slaStroke" />
-                                    </MudStack>
-                                }
-
-                                @if (!isComputedNode && errorSparkline is not null)
-                                {
-                                    <MudStack Spacing="1">
-                                        <MudText Typo="Typo.subtitle2">Error rate</MudText>
-                                        <TopologyInspectorSparkline Data="@errorSparkline" SelectedBin="@selectedBin" Stroke="@errorStroke" />
-                                    </MudStack>
-                                }
-
-                                @if (showExpressionSection)
-                                {
-                                    <MudStack Spacing="1">
-                                        <MudText Typo="Typo.subtitle2">Expression</MudText>
-                                        @if (hasExpressionText)
-                                        {
-                                            <pre class="node-inspector-expression">@expressionText</pre>
-                                        }
-                                        else
-                                        {
-                                            <MudText Typo="Typo.caption" Class="topology-muted-text">Expression unavailable.</MudText>
-                                        }
-                                    </MudStack>
-                                }
-
-                                @if (valuesSparkline is not null)
-                                {
-                                    <MudStack Spacing="1">
-                                        <MudText Typo="Typo.subtitle2">@(isComputedNode ? "Output" : "Values")</MudText>
-                                        <TopologyInspectorSparkline Data="@valuesSparkline" SelectedBin="@selectedBin" Stroke="@valuesStroke" />
-                                    </MudStack>
-                                }
-
-                                @if (pmfSparkline is not null)
-                                {
-                                    <MudStack Spacing="1">
-                                        <MudText Typo="Typo.subtitle2">Distribution</MudText>
-                                        <TopologyInspectorSparkline Data="@pmfSparkline" SelectedBin="@selectedBin" Stroke="#0F172A" />
-                                    </MudStack>
-                                }
-                            </MudStack>
+                            </MudPaper>
                         }
-                    </MudDrawer>
+                    </MudStack>
 
                     <div class="topology-legend">
                         <span class="legend-item">
@@ -411,6 +385,7 @@
     private int? hotkeyRegistrationId;
     private string? inspectorNodeId;
     private bool inspectorOpen;
+    private bool inspectorPinned;
     private CancellationTokenSource? saveRunStateDebounceCts;
 
     private TopologyGraph? topologyGraph;
@@ -418,6 +393,7 @@
     private IReadOnlyDictionary<string, NodeSparklineData> nodeSparklines = new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase);
     private HashSet<string> nodesMissingSparkline = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> loggedMissingExpressionSeries = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> loggedMissingMetricKinds = new(StringComparer.OrdinalIgnoreCase);
     private TimeTravelStateWindowDto? windowData;
     private SeriesIndex? seriesIndex;
     private IReadOnlyList<DateTimeOffset> timestamps = Array.Empty<DateTimeOffset>();
@@ -464,6 +440,7 @@
     private const string LegacyOverlayStorageKey = "ft.topology.overlaySettings.v1";
     private const int SparklinePointLimit = 48;
     private const string MissingSeriesMessage = "No series for selected range.";
+    internal const string InspectorMissingSeriesMessage = "Model does not include series data";
     private const string BinValueLabel = "bin(t)";
 
     protected override async Task OnParametersSetAsync()
@@ -1154,6 +1131,7 @@
             activeMetrics = new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase);
             selectedBinLabel = bin.ToString(CultureInfo.InvariantCulture);
             selectedTimestampLabel = string.Empty;
+            EnsureInspectorVisibility();
             return;
         }
 
@@ -1164,6 +1142,7 @@
             activeMetrics = new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase);
             selectedBinLabel = bin.ToString(CultureInfo.InvariantCulture);
             selectedTimestampLabel = string.Empty;
+            EnsureInspectorVisibility();
             return;
         }
 
@@ -1313,6 +1292,7 @@
         selectedBin = bin;
         selectedBinLabel = bin.ToString(CultureInfo.InvariantCulture);
         selectedTimestampLabel = FormatTimestamp(localIndex);
+        EnsureInspectorVisibility();
     }
 
     private void RefreshTimelineTicks()
@@ -1489,10 +1469,29 @@
 
     private Task OnNodeFocused(string? nodeId)
     {
-        inspectorNodeId = nodeId;
-        inspectorOpen = !string.IsNullOrEmpty(nodeId);
+        if (string.IsNullOrWhiteSpace(nodeId))
+        {
+            inspectorPinned = false;
+            inspectorOpen = false;
+            inspectorNodeId = null;
+        }
+        else
+        {
+            inspectorNodeId = nodeId;
+            inspectorOpen = true;
+            inspectorPinned = true;
+        }
+
         StateHasChanged();
         return Task.CompletedTask;
+    }
+
+    private void EnsureInspectorVisibility()
+    {
+        if (inspectorPinned && !string.IsNullOrWhiteSpace(inspectorNodeId))
+        {
+            inspectorOpen = true;
+        }
     }
 
     private static string FormatPercent(double? value)
@@ -1512,6 +1511,7 @@
     private void BuildNodeSparklines()
     {
         var missing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        loggedMissingMetricKinds.Clear();
 
         if (windowData is null)
         {
@@ -1716,130 +1716,127 @@
         }
 
         nodeSparklines = result;
+        EnsureInspectorVisibility();
     }
 
-    private sealed record MetricChartViewModel(string Title, ChartSeries[] Series, string[] Labels, ChartType Type);
-
-    private static ChartOptions CreateInspectorChartOptions() => new()
+    internal sealed record InspectorMetricBlock(
+        string Title,
+        NodeSparklineData? Sparkline,
+        string Stroke,
+        bool IsPlaceholder,
+        string? Placeholder,
+        string? AriaLabel)
     {
-        ShowLegend = false,
-        ShowLegendLabels = false,
-        MaxNumYAxisTicks = 2
-    };
+        public static InspectorMetricBlock FromSparkline(string title, NodeSparklineData data, string stroke, string? ariaLabel = null) =>
+            new(title, data, stroke, false, null, ariaLabel);
 
-    private static readonly (string Title, string Key, bool IsPercent, ChartType Type)[] MetricDefinitions =
-    {
-        ("Utilization", "utilization", true, ChartType.Bar),
-        ("Error rate", "errorRate", true, ChartType.Bar),
-        ("Queue depth", "queue", false, ChartType.Bar)
-    };
+        public static InspectorMetricBlock CreatePlaceholder(string title, string message) =>
+            new(title, null, "#94A3B8", true, message, null);
+    }
 
-    private IReadOnlyList<MetricChartViewModel> BuildMetricCharts(string nodeId)
+    private IReadOnlyList<InspectorMetricBlock> BuildInspectorMetricBlocks(string? nodeId)
     {
-        if (string.IsNullOrWhiteSpace(nodeId) || nodeSparklines is null || !nodeSparklines.TryGetValue(nodeId, out var sparkline))
+        if (string.IsNullOrWhiteSpace(nodeId))
         {
-            return Array.Empty<MetricChartViewModel>();
+            return Array.Empty<InspectorMetricBlock>();
         }
 
-        var charts = new List<MetricChartViewModel>();
+        nodeSparklines.TryGetValue(nodeId, out var baseSparkline);
+        var topoNode = FindTopologyNode(nodeId);
+        var nodeKind = topoNode?.Kind;
+        var kindKey = string.IsNullOrWhiteSpace(nodeKind) ? "unknown" : nodeKind!;
 
-        foreach (var (title, key, isPercent, chartType) in MetricDefinitions)
+        var blocks = new List<InspectorMetricBlock>();
+
+        InspectorMetricBlock CreatePlaceholder(string title)
         {
-            var chart = BuildMetricChart(sparkline, title, key, isPercent, chartType);
-            if (chart is not null)
+            if (Logger is not null && loggedMissingMetricKinds.Add(kindKey))
             {
-                charts.Add(chart);
+                Logger.LogWarning("Model does not include required series data for {NodeKind} inspector metrics (missing {Metric}).", kindKey, title);
             }
+
+            return InspectorMetricBlock.CreatePlaceholder(title, InspectorMissingSeriesMessage);
         }
 
-        return charts;
-    }
+        InspectorMetricBlock CreateSparkline(string title, NodeSparklineData data, string? ariaLabel = null)
+            => InspectorMetricBlock.FromSparkline(title, data, ResolveInspectorSparklineStroke(data), ariaLabel ?? $"{title} sparkline");
 
-    private MetricChartViewModel? BuildMetricChart(NodeSparklineData sparkline, string title, string primaryKey, bool isPercent, ChartType chartType)
-    {
-        var slice = ResolveMetricSeriesSlice(sparkline, primaryKey);
-        IReadOnlyList<double?>? values;
-        var startIndex = sparkline.StartIndex;
-
-        if (slice is not null && slice.Values.Count > 0)
+        void AddRequired(string title, string key, double? min = null, double? max = null, string? ariaLabel = null)
         {
-            values = slice.Values;
-            startIndex = slice.StartIndex;
-        }
-        else
-        {
-            values = primaryKey switch
+            if (baseSparkline is null)
             {
-                "successRate" => sparkline.Values,
-                "utilization" => sparkline.Utilization,
-                "errorRate" => sparkline.ErrorRate,
-                "queue" => sparkline.QueueDepth,
-                _ => null
-            };
-        }
+                blocks.Add(CreatePlaceholder(title));
+                return;
+            }
 
-        if (values is null || values.Count == 0)
-        {
-            return null;
-        }
-
-        var data = new double[values.Count];
-        var hasValue = false;
-        var lastValue = 0d;
-        var lastSet = false;
-
-        for (var i = 0; i < values.Count; i++)
-        {
-            var sample = values[i];
-            if (sample.HasValue && double.IsFinite(sample.Value))
+            var sparkline = BuildInspectorSparkline(baseSparkline, key, min, max);
+            if (sparkline is null)
             {
-                var numeric = isPercent ? sample.Value * 100d : sample.Value;
-                data[i] = numeric;
-                hasValue = true;
-                lastValue = numeric;
-                lastSet = true;
+                blocks.Add(CreatePlaceholder(title));
+                return;
+            }
+
+            blocks.Add(CreateSparkline(title, sparkline, ariaLabel));
+        }
+
+        void AddOptional(string title, string key, double? min = null, double? max = null, string? ariaLabel = null)
+        {
+            if (baseSparkline is null)
+            {
+                return;
+            }
+
+            var sparkline = BuildInspectorSparkline(baseSparkline, key, min, max);
+            if (sparkline is null)
+            {
+                return;
+            }
+
+            blocks.Add(CreateSparkline(title, sparkline, ariaLabel));
+        }
+
+        if (IsComputedKind(nodeKind))
+        {
+            var distributionSparkline = BuildPmfSparkline(topoNode, baseSparkline);
+            if (distributionSparkline is not null)
+            {
+                blocks.Add(InspectorMetricBlock.FromSparkline("Distribution", distributionSparkline, "#0F172A"));
+            }
+            else if (topoNode is not null && IsPmfKind(topoNode.Kind))
+            {
+                blocks.Add(CreatePlaceholder("Distribution"));
+            }
+
+            if (baseSparkline is not null)
+            {
+                var outputSparkline = BuildInspectorSparkline(baseSparkline, "values");
+                blocks.Add(outputSparkline is not null ? CreateSparkline("Output", outputSparkline) : CreatePlaceholder("Output"));
             }
             else
             {
-                data[i] = double.NaN;
+                blocks.Add(CreatePlaceholder("Output"));
             }
+
+            AddOptional("Error rate", "errorRate", 0d, 1d);
+
+            return blocks;
         }
 
-        if (!hasValue)
+        if (IsQueueKind(nodeKind))
         {
-            return null;
+            AddRequired("Queue depth", "queue", 0d);
+            AddRequired("Latency", "latencyMinutes", 0d);
+            AddRequired("Arrivals", "arrivals", 0d);
+            AddRequired("Served", "served", 0d);
+            return blocks;
         }
 
-        for (var i = 0; i < data.Length; i++)
-        {
-            if (double.IsNaN(data[i]))
-            {
-                data[i] = lastSet ? lastValue : 0d;
-            }
-            else
-            {
-                lastValue = data[i];
-                lastSet = true;
-            }
-        }
+        AddRequired("Success rate", "successRate", 0d, 1d);
+        AddRequired("Utilization", "utilization", 0d, 1d);
+        AddRequired("Latency", "latencyMinutes", 0d);
+        AddRequired("Error rate", "errorRate", 0d, 1d);
 
-        var labels = new string[data.Length];
-        for (var i = 0; i < data.Length; i++)
-        {
-            labels[i] = (startIndex + i).ToString(CultureInfo.InvariantCulture);
-        }
-
-        var seriesName = string.Empty;
-        var series = new[]
-        {
-            new ChartSeries
-            {
-                Name = seriesName,
-                Data = data
-            }
-        };
-
-        return new MetricChartViewModel(title, series, labels, chartType);
+        return blocks;
     }
 
     private NodeSparklineData? BuildInspectorSparkline(NodeSparklineData sparkline, string primaryKey, double? explicitMin = null, double? explicitMax = null)
@@ -1850,50 +1847,28 @@
         }
 
         var slice = ResolveMetricSeriesSlice(sparkline, primaryKey);
-        IReadOnlyList<double?>? seriesValues = null;
-        var startIndex = sparkline.StartIndex;
-
-        if (slice is not null && slice.Values.Count > 0)
+        if (slice is null && AllowsFallback(primaryKey))
         {
-            seriesValues = slice.Values;
-            startIndex = slice.StartIndex;
+            slice = ResolveFallbackSlice(sparkline, primaryKey);
         }
-        else
-        {
-            seriesValues = primaryKey switch
-            {
-                "successRate" => sparkline.Values,
-                "values" when sparkline.Series.TryGetValue(primaryKey, out var valuesSlice) => valuesSlice.Values,
-                "values" => sparkline.Values,
-                "errorRate" when sparkline.Series.TryGetValue(primaryKey, out var errorSlice) => errorSlice.Values,
-                "errorRate" => sparkline.ErrorRate,
-                _ => null
-            };
-        }
-
-        if (seriesValues is null || seriesValues.Count == 0)
+        if (slice is null || slice.Values.Count == 0 || !slice.Values.Any(v => v.HasValue && double.IsFinite(v.Value)))
         {
             return null;
         }
 
-        if (!seriesValues.Any(v => v.HasValue && double.IsFinite(v.Value)))
-        {
-            return null;
-        }
-
-        var array = seriesValues as double?[] ?? seriesValues.ToArray();
+        var values = slice.Values as double?[] ?? slice.Values.ToArray();
 
         var additional = new Dictionary<string, SparklineSeriesSlice>(StringComparer.OrdinalIgnoreCase)
         {
-            [primaryKey] = new SparklineSeriesSlice(array, startIndex)
+            [primaryKey] = new SparklineSeriesSlice(values, slice.StartIndex)
         };
 
         return NodeSparklineData.Create(
-            array,
+            values,
             Array.Empty<double?>(),
             Array.Empty<double?>(),
             Array.Empty<double?>(),
-            startIndex,
+            slice.StartIndex,
             explicitMin,
             explicitMax,
             additionalSeries: additional);
@@ -1909,8 +1884,52 @@
         return primaryKey switch
         {
             "queue" when sparkline.Series.TryGetValue("queueDepth", out var queueSlice) => queueSlice,
+            "queueDepth" when sparkline.Series.TryGetValue("queue", out var queueAlt) => queueAlt,
+            "latency" when sparkline.Series.TryGetValue("latencyMinutes", out var latencySlice) => latencySlice,
+            "latencyMinutes" when sparkline.Series.TryGetValue("latency", out var latencyAlt) => latencyAlt,
+            "values" when sparkline.Series.TryGetValue("output", out var outputSlice) => outputSlice,
+            "output" when sparkline.Series.TryGetValue("values", out var valuesSlice) => valuesSlice,
             _ => null
         };
+    }
+
+    private static SparklineSeriesSlice? ResolveFallbackSlice(NodeSparklineData sparkline, string primaryKey)
+    {
+        return primaryKey switch
+        {
+            "values" => CreateSlice(sparkline.Values, sparkline.StartIndex),
+            "utilization" => CreateSlice(sparkline.Utilization, sparkline.StartIndex),
+            "errorRate" => CreateSlice(sparkline.ErrorRate, sparkline.StartIndex),
+            "queue" or "queueDepth" => CreateSlice(sparkline.QueueDepth, sparkline.StartIndex),
+            _ => null
+        };
+    }
+
+    private static bool AllowsFallback(string key)
+    {
+        return key switch
+        {
+            "values" => true,
+            "utilization" => true,
+            "errorRate" => true,
+            "queue" => true,
+            "queueDepth" => true,
+            "latency" => true,
+            "latencyMinutes" => true,
+            "arrivals" => true,
+            "served" => true,
+            _ => false
+        };
+    }
+
+    private static SparklineSeriesSlice? CreateSlice(IReadOnlyList<double?> values, int startIndex)
+    {
+        if (values is null || values.Count == 0)
+        {
+            return null;
+        }
+
+        return new SparklineSeriesSlice(values, startIndex);
     }
 
     private NodeSparklineData? BuildPmfSparkline(TopologyNode? node, NodeSparklineData? inspectorSparkline)
@@ -1974,6 +1993,7 @@
     {
         inspectorOpen = false;
         inspectorNodeId = null;
+        inspectorPinned = false;
         canvasComponent?.ClearFocus();
         StateHasChanged();
     }
@@ -2026,6 +2046,10 @@
 
     private static bool IsComputedKind(string? kind) =>
         IsExpressionKind(kind) || IsConstKind(kind) || IsPmfKind(kind);
+
+    private static bool IsQueueKind(string? kind) =>
+        !string.IsNullOrWhiteSpace(kind) &&
+        string.Equals(kind, "queue", StringComparison.OrdinalIgnoreCase);
 
     private TopologyNode? FindTopologyNode(string nodeId)
     {
@@ -2307,8 +2331,13 @@
         seriesIndex = null;
         runDisplayName = null;
         timestamps = Array.Empty<DateTimeOffset>();
+        inspectorOpen = false;
+        inspectorPinned = false;
+        inspectorNodeId = null;
+        loggedMissingMetricKinds.Clear();
         activeMetrics = new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase);
         nodeSparklines = new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase);
+        nodesMissingSparkline = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         selectedBin = 0;
         visibleStartBin = 0;
         visibleEndBin = 0;

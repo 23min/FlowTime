@@ -11,6 +11,7 @@
     const LEAF_CIRCLE_GUTTER = 2;
     const LEAF_CIRCLE_FILL = '#E2E8F0';
     const LEAF_CIRCLE_STROKE = '#1F2937';
+    const POINTER_CLICK_DISTANCE = 4;
 
     function getState(canvas) {
         let state = registry.get(canvas);
@@ -43,7 +44,9 @@
                 lastViewportPayload: null,
                 chipHitboxes: [],
                 hoveredChipId: null,
-                hoveredChip: null
+                hoveredChip: null,
+                pointerDownPoint: null,
+                pointerMoved: false
             };
             setupCanvas(canvas, state);
             registry.set(canvas, state);
@@ -136,11 +139,16 @@
         };
 
         const pointerDown = (event) => {
+            if (event.button !== 0) {
+                return;
+            }
             canvas.setPointerCapture(event.pointerId);
             state.dragging = true;
             state.dragStart = { x: event.clientX, y: event.clientY };
             state.panStart = { x: state.offsetX, y: state.offsetY };
             state.userAdjusted = true;
+            state.pointerDownPoint = { x: event.clientX, y: event.clientY };
+            state.pointerMoved = false;
             clearHover();
         };
 
@@ -151,17 +159,40 @@
             }
             const dx = event.clientX - state.dragStart.x;
             const dy = event.clientY - state.dragStart.y;
+            if (!state.pointerMoved && state.pointerDownPoint) {
+                const deltaX = event.clientX - state.pointerDownPoint.x;
+                const deltaY = event.clientY - state.pointerDownPoint.y;
+                if (Math.abs(deltaX) > POINTER_CLICK_DISTANCE || Math.abs(deltaY) > POINTER_CLICK_DISTANCE) {
+                    state.pointerMoved = true;
+                }
+            }
             state.offsetX = state.panStart.x + dx;
             state.offsetY = state.panStart.y + dy;
             draw(canvas, state);
         };
 
         const pointerUp = (event) => {
+            if (event.button !== 0) {
+                return;
+            }
             canvas.releasePointerCapture(event.pointerId);
             state.dragging = false;
             updateWorldCenter(state);
             emitViewportChanged(canvas, state);
             updateHover(event);
+            if (!state.pointerMoved && state.pointerDownPoint) {
+                const rect = canvas.getBoundingClientRect();
+                const clientX = event.clientX - rect.left;
+                const clientY = event.clientY - rect.top;
+                const worldX = (clientX - state.offsetX) / state.scale;
+                const worldY = (clientY - state.offsetY) / state.scale;
+                const hit = hitTestChip(state, worldX, worldY);
+                if (!hit && state.dotNetRef) {
+                    state.dotNetRef.invokeMethodAsync('OnCanvasBackgroundClicked');
+                }
+            }
+            state.pointerDownPoint = null;
+            state.pointerMoved = false;
         };
 
         const pointerLeave = (event) => {
@@ -170,6 +201,8 @@
             }
             const wasDragging = state.dragging;
             state.dragging = false;
+            state.pointerDownPoint = null;
+            state.pointerMoved = false;
             if (wasDragging) {
                 updateWorldCenter(state);
                 emitViewportChanged(canvas, state);

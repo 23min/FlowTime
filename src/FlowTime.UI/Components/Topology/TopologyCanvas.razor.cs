@@ -183,22 +183,13 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
 
     protected void OnNodeBlur()
     {
-        CancelPendingTooltipDismiss();
-        focusedNodeId = null;
-        selectedNodeId = null;
-        tooltipNodeId = null;
-        var graph = filteredGraph ?? Graph!;
-        NodeProxies = BuildNodeProxies(graph, NodeMetrics, focusedNodeId, OverlaySettings);
-        ScheduleRedraw();
-        StateHasChanged();
-
-        if (NodeFocused.HasDelegate)
-        {
-            _ = NodeFocused.InvokeAsync(null);
-        }
+        HandleNodeBlur(clearSelection: false, notify: false);
     }
 
-    public void ClearFocus() => OnNodeBlur();
+    public void ClearFocus()
+    {
+        HandleNodeBlur(clearSelection: true, notify: true);
+    }
 
     protected void OnNodeKeyDown(KeyboardEventArgs args, string nodeId)
     {
@@ -210,7 +201,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         switch (args.Key)
         {
             case "Escape":
-                OnNodeBlur();
+                HandleNodeBlur(clearSelection: true, notify: true);
                 return;
             case "Enter":
             case " ":
@@ -230,6 +221,40 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         if (!string.IsNullOrWhiteSpace(candidate))
         {
             FocusNodeInternal(candidate, notify: true, isSelection: true);
+        }
+    }
+
+    private void HandleNodeBlur(bool clearSelection, bool notify)
+    {
+        CancelPendingTooltipDismiss();
+        tooltipNodeId = null;
+
+        if (clearSelection)
+        {
+            focusedNodeId = null;
+            selectedNodeId = null;
+        }
+        else if (!string.IsNullOrEmpty(selectedNodeId))
+        {
+            focusedNodeId = selectedNodeId;
+        }
+
+        var graph = filteredGraph ?? Graph;
+        if (graph is not null)
+        {
+            NodeProxies = BuildNodeProxies(graph, NodeMetrics, focusedNodeId, OverlaySettings);
+        }
+        else
+        {
+            NodeProxies = Array.Empty<NodeProxyViewModel>();
+        }
+
+        ScheduleRedraw();
+        StateHasChanged();
+
+        if (notify && NodeFocused.HasDelegate)
+        {
+            _ = NodeFocused.InvokeAsync(clearSelection ? null : selectedNodeId);
         }
     }
 
@@ -945,6 +970,17 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         }
 
         return JS.InvokeVoidAsync("FlowTime.TopologyCanvas.restoreViewport", canvasRef, snapshot);
+    }
+
+    [JSInvokable]
+    public Task OnCanvasBackgroundClicked()
+    {
+        if (HasVisibleNodes)
+        {
+            ClearFocus();
+        }
+
+        return Task.CompletedTask;
     }
 
     protected Task OnNodePointerLeave()
