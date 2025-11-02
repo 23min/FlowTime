@@ -908,7 +908,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
 
         return basis switch
         {
-            TopologyColorBasis.Queue => sample.Value.ToString("0.0", invariant),
+            TopologyColorBasis.Queue => FormatFocusNumber(sample.Value, invariant),
             TopologyColorBasis.Utilization => FormatFocusPercent(sample.Value, invariant),
             TopologyColorBasis.Errors => FormatFocusPercent(sample.Value, invariant, allowFractional: sample.Value < 0.1),
             TopologyColorBasis.Sla => FormatFocusPercent(sample.Value, invariant),
@@ -918,9 +918,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
 
     private static string FormatFocusNumber(double value, CultureInfo culture)
     {
-        var abs = Math.Abs(value);
-        var format = abs >= 10 ? "0.0" : "0.00";
-        return value.ToString(format, culture);
+        return value.ToString("0.0", culture);
     }
 
     private static string FormatFocusPercent(double value, CultureInfo culture, bool allowFractional = false)

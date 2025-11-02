@@ -1615,9 +1615,7 @@
             return "—";
         }
 
-        var absolute = Math.Abs(value.Value);
-        var format = absolute >= 10 ? "0.0" : "0.00";
-        return value.Value.ToString(format, CultureInfo.InvariantCulture);
+        return value.Value.ToString("0.0", CultureInfo.InvariantCulture);
     }
 
     private void BuildNodeSparklines()
@@ -2336,13 +2334,13 @@
     {
         if (sparkline is null)
         {
-            return "#475569";
+            return "#94A3B8";
         }
 
         var sample = SampleSparklineAt(sparkline, selectedBin);
         if (!sample.HasValue)
         {
-            return "#475569";
+            return "#94A3B8";
         }
 
         var thresholds = ColorScale.ColorThresholds.FromOverlay(overlaySettings);
@@ -2356,7 +2354,7 @@
         };
 
         var color = ColorScale.GetFill(metrics, basis, thresholds);
-        return string.IsNullOrWhiteSpace(color) ? "#475569" : color;
+        return string.IsNullOrWhiteSpace(color) ? "#94A3B8" : color;
     }
 
     private string GetRunInfo()

@@ -6,7 +6,7 @@
     const MAX_ZOOM_PERCENT = 200;
     const MIN_SCALE = MIN_ZOOM_PERCENT / 100;
     const MAX_SCALE = MAX_ZOOM_PERCENT / 100;
-    const LEAF_CIRCLE_SCALE = 1.5;
+    const LEAF_CIRCLE_SCALE = 2.25;
     const LEAF_CIRCLE_RING_WIDTH = 3;
     const LEAF_CIRCLE_GUTTER = 2;
     const LEAF_CIRCLE_FILL = '#E2E8F0';
