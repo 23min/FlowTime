@@ -470,7 +470,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             }
             else
             {
-                nodeMetrics = new NodeBinMetrics(null, null, null, null, null, null);
+            nodeMetrics = new NodeBinMetrics(null, null, null, null, null, null, NodeKind: node.Kind);
             }
 
             var tooltip = TooltipFormatter.Format(node.Id, nodeMetrics);
@@ -520,7 +520,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                 }
                 else
                 {
-                    nodeMetrics = new NodeBinMetrics(null, null, null, null, null, null);
+                    nodeMetrics = new NodeBinMetrics(null, null, null, null, null, null, NodeKind: node.Kind);
                 }
 
                 NodeSparklineData? rawSparkline = null;
@@ -735,10 +735,10 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         {
             var sampledMetrics = overlays.ColorBasis switch
             {
-                TopologyColorBasis.Utilization => new NodeBinMetrics(null, sampled, null, null, null, null),
-                TopologyColorBasis.Errors => new NodeBinMetrics(null, null, sampled, null, null, null),
-                TopologyColorBasis.Queue => new NodeBinMetrics(null, null, null, sampled, null, null),
-                _ => new NodeBinMetrics(sampled, null, null, null, null, null)
+                TopologyColorBasis.Utilization => new NodeBinMetrics(null, sampled, null, null, null, null, NodeKind: node.Kind),
+                TopologyColorBasis.Errors => new NodeBinMetrics(null, null, sampled, null, null, null, NodeKind: node.Kind),
+                TopologyColorBasis.Queue => new NodeBinMetrics(null, null, null, sampled, null, null, NodeKind: node.Kind),
+                _ => new NodeBinMetrics(sampled, null, null, null, null, null, NodeKind: node.Kind)
             };
 
             fill = ColorScale.GetFill(sampledMetrics, overlays.ColorBasis, thresholds);

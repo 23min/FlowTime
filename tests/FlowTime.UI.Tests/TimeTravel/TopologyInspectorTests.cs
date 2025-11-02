@@ -234,9 +234,9 @@ public sealed class TopologyInspectorTests
 
         var sparkline = CreateSparkline(new Dictionary<string, double?[]>
         {
-            ["values"] = new double?[] { 1.0, 1.1, 1.2 },
-            ["successRate"] = new double?[] { 0.9, 0.92, 0.94 },
-            ["errorRate"] = new double?[] { 0.05, 0.04, 0.03 }
+            ["probability"] = new double?[] { 0.2, 0.3, 0.5 },
+            ["values"] = new double?[] { 1.0, 2.0, 3.0 },
+            ["expectation"] = new double?[] { 2.3, 2.3, 2.3 }
         });
 
         topology.TestSetNodeSparklines(new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase)
@@ -247,9 +247,9 @@ public sealed class TopologyInspectorTests
         var metrics = topology.TestBuildInspectorMetrics("pmf-1");
 
         Assert.Collection(metrics,
-            block => Assert.Equal("Distribution", block.Title),
-            block => Assert.Equal("Output", block.Title),
-            block => Assert.Equal("Error rate", block.Title));
+            block => Assert.Equal("Probability", block.Title),
+            block => Assert.Equal("Values", block.Title),
+            block => Assert.Equal("E[Output]", block.Title));
         Assert.All(metrics, block => Assert.False(block.IsPlaceholder));
     }
 
@@ -258,12 +258,22 @@ public sealed class TopologyInspectorTests
 
     private static NodeSparklineData CreateSparkline(IDictionary<string, double?[]> seriesMap)
     {
-        if (!seriesMap.TryGetValue("values", out var baseSeries) || baseSeries is null || baseSeries.Length == 0)
+        double?[]? baseSeries = null;
+
+        if (seriesMap.TryGetValue("probability", out var probabilitySeries) && probabilitySeries is { Length: > 0 })
         {
-            baseSeries = seriesMap.TryGetValue("successRate", out var success) && success is { Length: > 0 }
-                ? success
-                : seriesMap.Values.First(value => value is { Length: > 0 });
+            baseSeries = probabilitySeries;
         }
+        else if (seriesMap.TryGetValue("values", out var valueSeries) && valueSeries is { Length: > 0 })
+        {
+            baseSeries = valueSeries;
+        }
+        else if (seriesMap.TryGetValue("successRate", out var successSeries) && successSeries is { Length: > 0 })
+        {
+            baseSeries = successSeries;
+        }
+
+        baseSeries ??= seriesMap.Values.First(value => value is { Length: > 0 });
 
         var values = ToNullableList(baseSeries);
         var utilization = seriesMap.TryGetValue("utilization", out var util) ? ToNullableList(util) : Array.Empty<double?>();

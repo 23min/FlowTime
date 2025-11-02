@@ -20,40 +20,65 @@ internal static class TooltipFormatter
 
         var lines = new List<string>();
 
-        if (metrics.CustomValue.HasValue)
-        {
-            var label = string.IsNullOrWhiteSpace(metrics.CustomLabel) ? "Value" : metrics.CustomLabel!;
-            lines.Add($"{label} {metrics.CustomValue.Value.ToString("0.###", CultureInfo.InvariantCulture)}");
-        }
-        else if (!string.IsNullOrWhiteSpace(metrics.CustomLabel))
-        {
-            lines.Add(metrics.CustomLabel!);
-        }
+        var kindLabel = FormatKind(metrics.NodeKind);
 
-        if (metrics.SuccessRate is double successRate)
+        if (metrics.PmfProbability.HasValue || metrics.PmfValue.HasValue)
         {
-            lines.Add($"SLA {successRate * 100:F1}%");
-        }
+            lines.Add($"Kind: {kindLabel}");
+            if (metrics.PmfProbability is double probability)
+            {
+                lines.Add($"Probability {probability.ToString("0.###", CultureInfo.InvariantCulture)}");
+            }
 
-        if (metrics.Utilization is double utilization)
-        {
-            var rounded = Math.Round(utilization * 100, MidpointRounding.AwayFromZero);
-            lines.Add($"Utilization {rounded:0}%");
-        }
+            if (metrics.PmfValue is double pmfValue)
+            {
+                lines.Add($"Value {pmfValue.ToString("0.###", CultureInfo.InvariantCulture)}");
+            }
 
-        if (metrics.ErrorRate is double errorRate)
-        {
-            lines.Add($"Errors {errorRate * 100:F1}%");
+            if (metrics.CustomValue.HasValue)
+            {
+                var expectationLabel = string.IsNullOrWhiteSpace(metrics.CustomLabel) ? "Expectation" : metrics.CustomLabel!;
+                lines.Add($"{expectationLabel} {metrics.CustomValue.Value.ToString("0.###", CultureInfo.InvariantCulture)}");
+            }
         }
-
-        if (metrics.QueueDepth is double queueDepth)
+        else
         {
-            lines.Add($"Queue {Math.Round(queueDepth, MidpointRounding.AwayFromZero):0}");
-        }
+            lines.Add($"Kind: {kindLabel}");
+            if (metrics.CustomValue.HasValue && !string.Equals(metrics.CustomLabel, "bin(t)", StringComparison.Ordinal))
+            {
+                var label = string.IsNullOrWhiteSpace(metrics.CustomLabel) ? "Value" : metrics.CustomLabel!;
+                lines.Add($"{label} {metrics.CustomValue.Value.ToString("0.###", CultureInfo.InvariantCulture)}");
+            }
+            else if (!string.IsNullOrWhiteSpace(metrics.CustomLabel) && !string.Equals(metrics.CustomLabel, "bin(t)", StringComparison.Ordinal))
+            {
+                lines.Add(metrics.CustomLabel!);
+            }
 
-        if (metrics.LatencyMinutes is double latencyMinutes)
-        {
-            lines.Add($"Latency {latencyMinutes:F1} min");
+            if (metrics.SuccessRate is double successRate)
+            {
+                lines.Add($"SLA {successRate * 100:F1}%");
+            }
+
+            if (metrics.Utilization is double utilization)
+            {
+                var rounded = Math.Round(utilization * 100, MidpointRounding.AwayFromZero);
+                lines.Add($"Utilization {rounded:0}%");
+            }
+
+            if (metrics.ErrorRate is double errorRate)
+            {
+                lines.Add($"Errors {errorRate * 100:F1}%");
+            }
+
+            if (metrics.QueueDepth is double queueDepth)
+            {
+                lines.Add($"Queue {Math.Round(queueDepth, MidpointRounding.AwayFromZero):0}");
+            }
+
+            if (metrics.LatencyMinutes is double latencyMinutes)
+            {
+                lines.Add($"Latency {latencyMinutes:F1} min");
+            }
         }
 
         if (lines.Count == 0)
@@ -66,6 +91,22 @@ internal static class TooltipFormatter
             : "Latest metrics unavailable";
 
         return new TooltipContent(nodeId, subtitle, lines.ToArray());
+    }
+
+    private static string FormatKind(string? kind)
+    {
+        if (string.IsNullOrWhiteSpace(kind))
+        {
+            return "Unknown";
+        }
+
+        return kind.ToLowerInvariant() switch
+        {
+            "expr" or "expression" => "Expression",
+            "const" or "constant" => "Const",
+            "pmf" => "PMF",
+            _ => CultureInfo.InvariantCulture.TextInfo.ToTitleCase(kind)
+        };
     }
 }
 

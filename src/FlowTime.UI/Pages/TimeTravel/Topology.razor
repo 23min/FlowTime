@@ -247,6 +247,7 @@
                                                        Size="Size.Small"
                                                        OnClick="CloseInspector" />
                                     </MudStack>
+                                    <MudText Typo="Typo.caption" Class="topology-muted-text">Kind: @FormatNodeKindLabel(nodeKind)</MudText>
 
                                     @if (activeMetrics.TryGetValue(nodeId, out var metrics))
                                     {
@@ -442,6 +443,7 @@
     private const string MissingSeriesMessage = "No series for selected range.";
     internal const string InspectorMissingSeriesMessage = "Model does not include series data";
     private const string BinValueLabel = "bin(t)";
+    private const string PmfExpectationLabel = "E[output]";
 
     protected override async Task OnParametersSetAsync()
     {
@@ -1162,6 +1164,10 @@
                 return null;
             }
 
+            var topoNode = FindTopologyNode(node.Id);
+            var isPmf = IsPmfKind(node.Kind);
+            var distribution = topoNode?.Semantics?.Distribution;
+            var (modeProbability, modeValue) = ComputePmfMode(distribution);
             var arrivals = Get("arrivals");
             var served = Get("served");
             var errors = Get("errors");
@@ -1185,7 +1191,10 @@
 
             double? customValue = null;
             string? customLabel = null;
-            if (IsComputedKind(node.Kind))
+            double? pmfProbability = null;
+            double? pmfSupportValue = null;
+
+            if (IsComputedKind(node.Kind) && !isPmf)
             {
                 if (nodeSparklines is not null && nodeSparklines.TryGetValue(node.Id, out var sparkline))
                 {
@@ -1203,6 +1212,24 @@
                 }
             }
 
+            if (isPmf)
+            {
+                var expectation = ComputePmfExpectation(distribution);
+                if (expectation.HasValue)
+                {
+                    customValue = expectation;
+                    customLabel = PmfExpectationLabel;
+                }
+
+                pmfProbability = modeProbability;
+                pmfSupportValue = modeValue ?? expectation;
+
+                if (string.IsNullOrWhiteSpace(customLabel) && nodesMissingSparkline.Contains(node.Id))
+                {
+                    customLabel = MissingSeriesMessage;
+                }
+            }
+
             if (!customValue.HasValue)
             {
                 double? direct = Get("values");
@@ -1214,7 +1241,7 @@
                 if (direct.HasValue && double.IsFinite(direct.Value))
                 {
                     customValue = direct;
-                    customLabel = BinValueLabel;
+                    customLabel = isPmf ? PmfExpectationLabel : BinValueLabel;
                 }
             }
 
@@ -1226,19 +1253,32 @@
                 latency,
                 selectionTimestamp,
                 customValue,
-                customLabel);
+                customLabel,
+                pmfProbability,
+                pmfSupportValue,
+                node.Kind);
         }
 
         if (topologyGraph is not null)
         {
             foreach (var topoNode in topologyGraph.Nodes)
             {
-                metrics.TryGetValue(topoNode.Id, out var existingMetrics);
-                nodeSparklines.TryGetValue(topoNode.Id, out var sparkline);
+                if (topoNode is null)
+                {
+                    continue;
+                }
+
+                var topoNodeId = topoNode.Id;
+                if (string.IsNullOrWhiteSpace(topoNodeId))
+                {
+                    continue;
+                }
+                metrics.TryGetValue(topoNodeId, out var existingMetrics);
+                nodeSparklines.TryGetValue(topoNodeId, out var sparkline);
 
                 double? inlineValue = null;
                 var inline = topoNode.Semantics?.InlineValues;
-                if (inline is { Count: > 0 })
+                if (inline != null && inline.Count > 0)
                 {
                     if (bin >= 0 && bin < inline.Count)
                     {
@@ -1255,17 +1295,53 @@
                     }
                 }
 
-                var sampleValue = SampleSparklineAt(sparkline, bin);
-                var customValue = sampleValue ?? inlineValue;
+                var isPmfNode = IsPmfKind(topoNode.Kind);
+                double? pmfProbability = null;
+                double? pmfSupportValue = null;
+                double? customValue = null;
                 string? customLabel = null;
 
-                if (customValue.HasValue)
+                if (isPmfNode)
                 {
-                    customLabel = BinValueLabel;
+                    var distribution = topoNode.Semantics?.Distribution;
+                    var expectation = ComputePmfExpectation(distribution);
+                    var (modeProbability, modeValue) = ComputePmfMode(distribution);
+
+                    pmfProbability = modeProbability;
+                    pmfSupportValue = modeValue ?? expectation ?? inlineValue;
+
+                    if (expectation.HasValue)
+                    {
+                        customValue = expectation;
+                        customLabel = PmfExpectationLabel;
+                    }
+                    else if (pmfSupportValue.HasValue)
+                    {
+                        customValue = pmfSupportValue;
+                        customLabel = PmfExpectationLabel;
+                    }
+                    else if (inlineValue.HasValue)
+                    {
+                        customValue = inlineValue;
+                        customLabel = PmfExpectationLabel;
+                    }
+                    else if (nodesMissingSparkline.Contains(topoNode.Id))
+                    {
+                        customLabel = MissingSeriesMessage;
+                    }
                 }
-                else if (IsExpressionKind(topoNode.Kind) && nodesMissingSparkline.Contains(topoNode.Id))
+                else
                 {
-                    customLabel = MissingSeriesMessage;
+                    var sampleValue = SampleSparklineAt(sparkline, bin);
+                    customValue = sampleValue ?? inlineValue;
+                    if (customValue.HasValue)
+                    {
+                        customLabel = BinValueLabel;
+                    }
+                    else if (IsExpressionKind(topoNode.Kind) && nodesMissingSparkline.Contains(topoNode.Id))
+                    {
+                        customLabel = MissingSeriesMessage;
+                    }
                 }
 
                 if (!customValue.HasValue && string.IsNullOrWhiteSpace(customLabel))
@@ -1279,13 +1355,15 @@
                     var newCustomLabel = customLabel ?? existingMetrics.CustomLabel;
                     if (customValue.HasValue && string.IsNullOrWhiteSpace(customLabel))
                     {
-                        newCustomLabel = BinValueLabel;
+                        newCustomLabel = isPmfNode ? PmfExpectationLabel : BinValueLabel;
                     }
 
                     if (!Equals(newCustomValue, existingMetrics.CustomValue) ||
-                        !string.Equals(newCustomLabel, existingMetrics.CustomLabel, StringComparison.Ordinal))
+                        !string.Equals(newCustomLabel, existingMetrics.CustomLabel, StringComparison.Ordinal) ||
+                        !Equals(pmfProbability, existingMetrics.PmfProbability) ||
+                        !Equals(pmfSupportValue, existingMetrics.PmfValue))
                     {
-                        metrics[topoNode.Id] = new NodeBinMetrics(
+                        metrics[topoNodeId] = new NodeBinMetrics(
                             existingMetrics.SuccessRate,
                             existingMetrics.Utilization,
                             existingMetrics.ErrorRate,
@@ -1293,13 +1371,16 @@
                             existingMetrics.LatencyMinutes,
                             existingMetrics.Timestamp,
                             newCustomValue,
-                            newCustomLabel);
+                            newCustomLabel,
+                            pmfProbability ?? existingMetrics.PmfProbability,
+                            pmfSupportValue ?? existingMetrics.PmfValue,
+                            existingMetrics.NodeKind ?? topoNode.Kind);
                     }
 
                     continue;
                 }
 
-                metrics[topoNode.Id] = new NodeBinMetrics(
+                metrics[topoNodeId] = new NodeBinMetrics(
                     null,
                     null,
                     null,
@@ -1307,7 +1388,10 @@
                     null,
                     selectionTimestamp,
                     customValue,
-                    customLabel);
+                    customLabel,
+                    pmfProbability,
+                    pmfSupportValue,
+                    topoNode.Kind);
             }
         }
 
@@ -1520,14 +1604,14 @@
     private static string FormatPercent(double? value)
     {
         return value.HasValue
-            ? (value.Value * 100).ToString("0.#", CultureInfo.InvariantCulture) + "%"
+            ? (value.Value * 100).ToString("0.0", CultureInfo.InvariantCulture) + "%"
             : "—";
     }
 
     private static string FormatNumber(double? value)
     {
         return value.HasValue
-            ? value.Value.ToString("0.##", CultureInfo.InvariantCulture)
+            ? value.Value.ToString("0.0", CultureInfo.InvariantCulture)
             : "—";
     }
 
@@ -1669,40 +1753,60 @@
                     if (length > 0)
                     {
                         var probabilities = new double?[length];
-                        var hasValue = false;
+                        var supportValues = new double?[length];
+                        var hasProbability = false;
                         for (var i = 0; i < length; i++)
                         {
                             var probability = distribution.Probabilities[i];
+                            var support = distribution.Values[i];
+
                             if (!double.IsFinite(probability) || probability < 0)
                             {
                                 probabilities[i] = 0d;
-                                continue;
+                            }
+                            else
+                            {
+                                probabilities[i] = probability;
+                                if (probability > 0)
+                                {
+                                    hasProbability = true;
+                                }
                             }
 
-                            probabilities[i] = probability;
-                            if (probability > 0)
-                            {
-                                hasValue = true;
-                            }
+                            supportValues[i] = double.IsFinite(support) ? support : null;
                         }
 
-                        if (hasValue)
+                        if (hasProbability)
                         {
-                            var trimmedDistribution = TrimSeries(probabilities, SparklinePointLimit);
-                            if (trimmedDistribution.Count > 0)
+                            var trimmedProbabilities = TrimSeries(probabilities, SparklinePointLimit);
+                            if (trimmedProbabilities.Count > 0)
                             {
-                                var seriesArray = trimmedDistribution as double?[] ?? trimmedDistribution.ToArray();
-                                var slice = new SparklineSeriesSlice(seriesArray, 0);
+                                var trimmedValues = TrimSeries(supportValues, SparklinePointLimit, trimmedProbabilities.Count);
+                                var probabilityArray = trimmedProbabilities as double?[] ?? trimmedProbabilities.ToArray();
+                                var valueArray = trimmedValues as double?[] ?? trimmedValues.ToArray();
                                 var additional = new Dictionary<string, SparklineSeriesSlice>(StringComparer.OrdinalIgnoreCase)
                                 {
-                                    ["distribution"] = slice,
-                                    ["values"] = new SparklineSeriesSlice(seriesArray, 0),
-                                    [topoNode.Id] = new SparklineSeriesSlice(seriesArray, 0),
-                                    [$"series:{topoNode.Id}"] = new SparklineSeriesSlice(seriesArray, 0)
+                                    ["distribution"] = new SparklineSeriesSlice(probabilityArray, 0),
+                                    ["probability"] = new SparklineSeriesSlice(probabilityArray, 0)
                                 };
 
+                                if (valueArray.Length > 0)
+                                {
+                                    additional["values"] = new SparklineSeriesSlice(valueArray, 0);
+                                }
+
+                                var expectation = ComputePmfExpectation(distribution);
+                                if (expectation.HasValue)
+                                {
+                                    var expectationSeries = Enumerable.Repeat((double?)expectation.Value, probabilityArray.Length).ToArray();
+                                    additional["expectation"] = new SparklineSeriesSlice(expectationSeries, 0);
+                                }
+
+                                additional[topoNode.Id] = new SparklineSeriesSlice(probabilityArray, 0);
+                                additional[$"series:{topoNode.Id}"] = new SparklineSeriesSlice(probabilityArray, 0);
+
                                 var sparkline = NodeSparklineData.Create(
-                                    seriesArray,
+                                    probabilityArray,
                                     Array.Empty<double?>(),
                                     Array.Empty<double?>(),
                                     Array.Empty<double?>(),
@@ -1781,10 +1885,10 @@
             return InspectorMetricBlock.CreatePlaceholder(title, InspectorMissingSeriesMessage);
         }
 
-        InspectorMetricBlock CreateSparkline(string title, NodeSparklineData data, string? ariaLabel = null)
-            => InspectorMetricBlock.FromSparkline(title, data, ResolveInspectorSparklineStroke(data), ariaLabel ?? $"{title} sparkline");
+        InspectorMetricBlock CreateSparkline(string title, NodeSparklineData data, string? ariaLabel = null, string? strokeOverride = null)
+            => InspectorMetricBlock.FromSparkline(title, data, strokeOverride ?? ResolveInspectorSparklineStroke(data), ariaLabel ?? $"{title} sparkline");
 
-        void AddRequired(string title, string key, double? min = null, double? max = null, string? ariaLabel = null)
+        void AddRequired(string title, string key, double? min = null, double? max = null, string? ariaLabel = null, string? strokeOverride = null)
         {
             if (baseSparkline is null)
             {
@@ -1799,10 +1903,10 @@
                 return;
             }
 
-            blocks.Add(CreateSparkline(title, sparkline, ariaLabel));
+            blocks.Add(CreateSparkline(title, sparkline, ariaLabel, strokeOverride));
         }
 
-        void AddOptional(string title, string key, double? min = null, double? max = null, string? ariaLabel = null)
+        void AddOptional(string title, string key, double? min = null, double? max = null, string? ariaLabel = null, string? strokeOverride = null)
         {
             if (baseSparkline is null)
             {
@@ -1815,19 +1919,30 @@
                 return;
             }
 
-            blocks.Add(CreateSparkline(title, sparkline, ariaLabel));
+            blocks.Add(CreateSparkline(title, sparkline, ariaLabel, strokeOverride));
         }
 
         if (IsComputedKind(nodeKind))
         {
-            var distributionSparkline = BuildPmfSparkline(topoNode, baseSparkline);
-            if (distributionSparkline is not null)
+            if (IsPmfKind(nodeKind))
             {
-                blocks.Add(InspectorMetricBlock.FromSparkline("Distribution", distributionSparkline, "#0F172A"));
-            }
-            else if (topoNode is not null && IsPmfKind(topoNode.Kind))
-            {
-                blocks.Add(CreatePlaceholder("Distribution"));
+                var probabilitySparkline = BuildPmfSparkline(topoNode, baseSparkline);
+                if (probabilitySparkline is not null)
+                {
+                    blocks.Add(InspectorMetricBlock.FromSparkline("Probability", probabilitySparkline, "#1F2937"));
+                }
+                else
+                {
+                    blocks.Add(CreatePlaceholder("Probability"));
+                }
+
+                var valueSparkline = baseSparkline is not null ? BuildInspectorSparkline(baseSparkline, "values") : null;
+                blocks.Add(valueSparkline is not null ? CreateSparkline("Values", valueSparkline, strokeOverride: "#1F2937") : CreatePlaceholder("Values"));
+
+                var expectationSparkline = baseSparkline is not null ? BuildInspectorSparkline(baseSparkline, "expectation") : null;
+                blocks.Add(expectationSparkline is not null ? CreateSparkline("E[Output]", expectationSparkline, strokeOverride: "#1F2937") : CreatePlaceholder("E[Output]"));
+
+                return blocks;
             }
 
             if (baseSparkline is not null)
@@ -1957,6 +2072,24 @@
 
     private NodeSparklineData? BuildPmfSparkline(TopologyNode? node, NodeSparklineData? inspectorSparkline)
     {
+        if (inspectorSparkline is not null && inspectorSparkline.Series.TryGetValue("probability", out var probabilitySlice))
+        {
+            if (probabilitySlice.Values.Count == 0)
+            {
+                return null;
+            }
+
+            var array = probabilitySlice.Values as double?[] ?? probabilitySlice.Values.ToArray();
+            return NodeSparklineData.Create(
+                array,
+                Array.Empty<double?>(),
+                Array.Empty<double?>(),
+                Array.Empty<double?>(),
+                probabilitySlice.StartIndex,
+                explicitMin: 0d,
+                explicitMax: 1d);
+        }
+
         if (node is null)
         {
             return null;
@@ -2074,6 +2207,22 @@
         !string.IsNullOrWhiteSpace(kind) &&
         string.Equals(kind, "queue", StringComparison.OrdinalIgnoreCase);
 
+    private static string FormatNodeKindLabel(string? kind)
+    {
+        if (string.IsNullOrWhiteSpace(kind))
+        {
+            return "Unknown";
+        }
+
+        return kind.ToLowerInvariant() switch
+        {
+            "expr" or "expression" => "Expression",
+            "const" or "constant" => "Const",
+            "pmf" => "PMF",
+            _ => CultureInfo.InvariantCulture.TextInfo.ToTitleCase(kind)
+        };
+    }
+
     private TopologyNode? FindTopologyNode(string nodeId)
     {
         if (topologyGraph is null || string.IsNullOrWhiteSpace(nodeId))
@@ -2107,6 +2256,75 @@
 
         var sample = value.Value;
         return double.IsNaN(sample) || double.IsInfinity(sample) ? null : sample;
+    }
+
+    private static double? ComputePmfExpectation(TopologyNodeDistribution? distribution)
+    {
+        if (distribution is null || distribution.Values.Count == 0 || distribution.Probabilities.Count == 0)
+        {
+            return null;
+        }
+
+        var length = Math.Min(distribution.Values.Count, distribution.Probabilities.Count);
+        double total = 0d;
+        double totalProbability = 0d;
+
+        for (var i = 0; i < length; i++)
+        {
+            var value = distribution.Values[i];
+            var probability = distribution.Probabilities[i];
+
+            if (!double.IsFinite(value) || !double.IsFinite(probability) || probability < 0d)
+            {
+                continue;
+            }
+
+            total += value * probability;
+            totalProbability += probability;
+        }
+
+        if (totalProbability <= 0d)
+        {
+            return null;
+        }
+
+        return total / totalProbability;
+    }
+
+    private static (double? Probability, double? Value) ComputePmfMode(TopologyNodeDistribution? distribution)
+    {
+        if (distribution is null || distribution.Values.Count == 0 || distribution.Probabilities.Count == 0)
+        {
+            return (null, null);
+        }
+
+        var length = Math.Min(distribution.Values.Count, distribution.Probabilities.Count);
+        var maxProbability = double.NegativeInfinity;
+        double? modeValue = null;
+
+        for (var i = 0; i < length; i++)
+        {
+            var probability = distribution.Probabilities[i];
+            var value = distribution.Values[i];
+
+            if (!double.IsFinite(probability) || probability < 0)
+            {
+                continue;
+            }
+
+            if (probability > maxProbability)
+            {
+                maxProbability = probability;
+                modeValue = double.IsFinite(value) ? value : null;
+            }
+        }
+
+        if (!double.IsFinite(maxProbability) || maxProbability < 0)
+        {
+            return (null, null);
+        }
+
+        return (maxProbability, modeValue);
     }
 
     private string ResolveInspectorSparklineStroke(NodeSparklineData? sparkline)

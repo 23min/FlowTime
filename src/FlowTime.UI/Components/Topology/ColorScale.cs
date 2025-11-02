@@ -206,4 +206,7 @@ public sealed record NodeBinMetrics(
     double? LatencyMinutes,
     DateTimeOffset? Timestamp,
     double? CustomValue = null,
-    string? CustomLabel = null);
+    string? CustomLabel = null,
+    double? PmfProbability = null,
+    double? PmfValue = null,
+    string? NodeKind = null);
