@@ -16,7 +16,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
     private const double NodeWidth = 54;
     private const double NodeHeight = 24;
     private const double NodeCornerRadius = 3;
-    private const double LeafCircleScale = 1.5;
+    private const double LeafCircleScale = 1.25;
     private const double LeafCircleProxyPadding = 6;
     private const double ViewportPadding = 48;
 
@@ -773,29 +773,88 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             return null;
         }
 
-        var index = selectedBin - sparkline.StartIndex;
-        if (index < 0)
+        double? FromPrimarySeries(IReadOnlyList<double?>? series, int startIndex)
         {
-            return null;
-        }
-
-        static double? ValueAt(IReadOnlyList<double?>? series, int position)
-        {
-            if (series is null || position < 0 || position >= series.Count)
+            if (series is null)
             {
                 return null;
             }
 
-            var value = series[position];
-            return value.HasValue ? value.Value : null;
+            var offset = selectedBin - startIndex;
+            if (offset < 0 || offset >= series.Count)
+            {
+                return null;
+            }
+
+            var raw = series[offset];
+            if (!raw.HasValue)
+            {
+                return null;
+            }
+
+            var value = raw.Value;
+            return double.IsFinite(value) ? value : null;
+        }
+
+        double? FromSlice(SparklineSeriesSlice slice)
+        {
+            var offset = selectedBin - slice.StartIndex;
+            if (offset < 0 || offset >= slice.Values.Count)
+            {
+                return null;
+            }
+
+            var raw = slice.Values[offset];
+            if (!raw.HasValue)
+            {
+                return null;
+            }
+
+            var value = raw.Value;
+            return double.IsFinite(value) ? value : null;
+        }
+
+        double? FromSeries(params string[] keys)
+        {
+            if (sparkline.Series is null || sparkline.Series.Count == 0)
+            {
+                return null;
+            }
+
+            foreach (var key in keys)
+            {
+                if (string.IsNullOrWhiteSpace(key))
+                {
+                    continue;
+                }
+
+                if (sparkline.Series.TryGetValue(key, out var slice))
+                {
+                    var sample = FromSlice(slice);
+                    if (sample.HasValue)
+                    {
+                        return sample;
+                    }
+                }
+            }
+
+            return null;
         }
 
         return basis switch
         {
-            TopologyColorBasis.Utilization => ValueAt(sparkline.Utilization, index),
-            TopologyColorBasis.Errors => ValueAt(sparkline.ErrorRate, index),
-            TopologyColorBasis.Queue => ValueAt(sparkline.QueueDepth, index),
-            _ => ValueAt(sparkline.Values, index)
+            TopologyColorBasis.Utilization =>
+                FromPrimarySeries(sparkline.Utilization, sparkline.StartIndex) ??
+                FromSeries("utilization"),
+            TopologyColorBasis.Errors =>
+                FromPrimarySeries(sparkline.ErrorRate, sparkline.StartIndex) ??
+                FromSeries("errorRate", "errors"),
+            TopologyColorBasis.Queue =>
+                FromPrimarySeries(sparkline.QueueDepth, sparkline.StartIndex) ??
+                FromSeries("queue", "queueDepth"),
+            _ =>
+                FromSeries("successRate", "expectation", "values", "output") ??
+                FromPrimarySeries(sparkline.Values, sparkline.StartIndex)
         };
     }
 
@@ -873,20 +932,12 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
     {
         var invariant = CultureInfo.InvariantCulture;
 
-        if (metrics.CustomValue.HasValue)
+        var nodeCategory = ClassifyNode(metrics.NodeKind);
+        var isOperationalNode = nodeCategory == NodeCategory.Service;
+
+        if (metrics.CustomValue.HasValue && !isOperationalNode)
         {
             return FormatFocusNumber(metrics.CustomValue.Value, invariant);
-        }
-
-        double? valuesSample = null;
-        if (sparkline is not null && sparkline.Series.TryGetValue("values", out var valuesSlice))
-        {
-            valuesSample = SampleSliceValue(valuesSlice, selectedBin);
-        }
-
-        if (valuesSample.HasValue)
-        {
-            return FormatFocusNumber(valuesSample.Value, invariant);
         }
 
         double? sample = SampleSparklineValue(sparkline, basis, selectedBin);
@@ -903,6 +954,15 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
 
         if (!sample.HasValue)
         {
+            if (sparkline is not null && sparkline.Series.TryGetValue("values", out var valuesSlice))
+            {
+                var valuesSample = SampleSliceValue(valuesSlice, selectedBin);
+                if (valuesSample.HasValue)
+                {
+                    return FormatFocusNumber(valuesSample.Value, invariant);
+                }
+            }
+
             return null;
         }
 
@@ -928,7 +988,10 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         return percent.ToString(format, culture) + "%";
     }
 
-    private static double? SampleSliceValue(SparklineSeriesSlice slice, int selectedBin)
+    private static double? SampleSliceValue(SparklineSeriesSlice slice, int selectedBin) =>
+        SampleSliceValueInternal(slice, selectedBin);
+
+    private static double? SampleSliceValueInternal(SparklineSeriesSlice slice, int selectedBin)
     {
         if (slice.Values is null)
         {
@@ -948,12 +1011,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         }
 
         var value = sample.Value;
-        if (!double.IsFinite(value))
-        {
-            return null;
-        }
-
-        return value;
+        return double.IsFinite(value) ? value : null;
     }
 
     private static ViewportSnapshotPayload? CreateSnapshotPayload(ViewportSnapshot? snapshot)

@@ -329,7 +329,10 @@
                                                 <TopologyInspectorSparkline Data="@block.Sparkline"
                                                                              SelectedBin="@selectedBin"
                                                                              Stroke="@block.Stroke"
-                                                                             AriaLabel="@block.AriaLabel" />
+                                                                             AriaLabel="@block.AriaLabel"
+                                                                             ValueFormat="@block.ValueFormat"
+                                                                             OverlaySettings="overlaySettings"
+                                                                             SeriesKey="@block.SeriesKey" />
                                             }
                                         </MudStack>
                                     }
@@ -1855,13 +1858,21 @@
         string Stroke,
         bool IsPlaceholder,
         string? Placeholder,
-        string? AriaLabel)
+        string? AriaLabel,
+        InspectorValueFormat ValueFormat,
+        string? SeriesKey)
     {
-        public static InspectorMetricBlock FromSparkline(string title, NodeSparklineData data, string stroke, string? ariaLabel = null) =>
-            new(title, data, stroke, false, null, ariaLabel);
+        public static InspectorMetricBlock FromSparkline(
+            string title,
+            NodeSparklineData data,
+            string stroke,
+            string? ariaLabel = null,
+            InspectorValueFormat valueFormat = InspectorValueFormat.Number,
+            string? seriesKey = null) =>
+            new(title, data, stroke, false, null, ariaLabel, valueFormat, seriesKey);
 
-        public static InspectorMetricBlock CreatePlaceholder(string title, string message) =>
-            new(title, null, "#94A3B8", true, message, null);
+        public static InspectorMetricBlock CreatePlaceholder(string title, string message, InspectorValueFormat valueFormat = InspectorValueFormat.Number, string? seriesKey = null) =>
+            new(title, null, "#CBD5E1", true, message, null, valueFormat, seriesKey);
     }
 
     private IReadOnlyList<InspectorMetricBlock> BuildInspectorMetricBlocks(string? nodeId)
@@ -1878,38 +1889,69 @@
 
         var blocks = new List<InspectorMetricBlock>();
 
-        InspectorMetricBlock CreatePlaceholder(string title)
+        InspectorMetricBlock CreatePlaceholder(string title, InspectorValueFormat valueFormat = InspectorValueFormat.Number, string? seriesKey = null)
         {
             if (Logger is not null && loggedMissingMetricKinds.Add(kindKey))
             {
                 Logger.LogWarning("Model does not include required series data for {NodeKind} inspector metrics (missing {Metric}).", kindKey, title);
             }
 
-            return InspectorMetricBlock.CreatePlaceholder(title, InspectorMissingSeriesMessage);
+            return InspectorMetricBlock.CreatePlaceholder(title, InspectorMissingSeriesMessage, valueFormat, seriesKey);
         }
 
-        InspectorMetricBlock CreateSparkline(string title, NodeSparklineData data, string? ariaLabel = null, string? strokeOverride = null)
-            => InspectorMetricBlock.FromSparkline(title, data, strokeOverride ?? ResolveInspectorSparklineStroke(data), ariaLabel ?? $"{title} sparkline");
+        InspectorMetricBlock CreateSparkline(
+            string title,
+            NodeSparklineData data,
+            string? ariaLabel = null,
+            string? strokeOverride = null,
+            InspectorValueFormat valueFormat = InspectorValueFormat.Number,
+            string? seriesKey = null)
+            => InspectorMetricBlock.FromSparkline(
+                title,
+                data,
+                strokeOverride ?? ResolveInspectorSparklineStroke(data),
+                ariaLabel ?? $"{title} sparkline",
+                valueFormat,
+                seriesKey);
 
-        void AddRequired(string title, string key, double? min = null, double? max = null, string? ariaLabel = null, string? strokeOverride = null)
+        void AddRequired(
+            string title,
+            string key,
+            double? min = null,
+            double? max = null,
+            string? ariaLabel = null,
+            string? strokeOverride = null,
+            InspectorValueFormat valueFormat = InspectorValueFormat.Number,
+            string? seriesKeyOverride = null)
         {
             if (baseSparkline is null)
             {
-                blocks.Add(CreatePlaceholder(title));
+                var seriesKey = seriesKeyOverride ?? key;
+                blocks.Add(CreatePlaceholder(title, valueFormat, seriesKey));
                 return;
             }
 
             var sparkline = BuildInspectorSparkline(baseSparkline, key, min, max);
             if (sparkline is null)
             {
-                blocks.Add(CreatePlaceholder(title));
+                var seriesKey = seriesKeyOverride ?? key;
+                blocks.Add(CreatePlaceholder(title, valueFormat, seriesKey));
                 return;
             }
 
-            blocks.Add(CreateSparkline(title, sparkline, ariaLabel, strokeOverride));
+            var resolvedSeriesKey = seriesKeyOverride ?? key;
+            blocks.Add(CreateSparkline(title, sparkline, ariaLabel, strokeOverride, valueFormat, resolvedSeriesKey));
         }
 
-        void AddOptional(string title, string key, double? min = null, double? max = null, string? ariaLabel = null, string? strokeOverride = null)
+        void AddOptional(
+            string title,
+            string key,
+            double? min = null,
+            double? max = null,
+            string? ariaLabel = null,
+            string? strokeOverride = null,
+            InspectorValueFormat valueFormat = InspectorValueFormat.Number,
+            string? seriesKeyOverride = null)
         {
             if (baseSparkline is null)
             {
@@ -1922,7 +1964,8 @@
                 return;
             }
 
-            blocks.Add(CreateSparkline(title, sparkline, ariaLabel, strokeOverride));
+            var seriesKey = seriesKeyOverride ?? key;
+            blocks.Add(CreateSparkline(title, sparkline, ariaLabel, strokeOverride, valueFormat, seriesKey));
         }
 
         if (IsComputedKind(nodeKind))
@@ -1932,18 +1975,18 @@
                 var probabilitySparkline = BuildPmfSparkline(topoNode, baseSparkline);
                 if (probabilitySparkline is not null)
                 {
-                    blocks.Add(InspectorMetricBlock.FromSparkline("Probability", probabilitySparkline, "#1F2937"));
+                    blocks.Add(InspectorMetricBlock.FromSparkline("Probability", probabilitySparkline, "#94A3B8", seriesKey: "probability"));
                 }
                 else
                 {
-                    blocks.Add(CreatePlaceholder("Probability"));
+                    blocks.Add(CreatePlaceholder("Probability", seriesKey: "probability"));
                 }
 
                 var valueSparkline = baseSparkline is not null ? BuildInspectorSparkline(baseSparkline, "values") : null;
-                blocks.Add(valueSparkline is not null ? CreateSparkline("Values", valueSparkline, strokeOverride: "#1F2937") : CreatePlaceholder("Values"));
+                blocks.Add(valueSparkline is not null ? CreateSparkline("Values", valueSparkline, strokeOverride: "#94A3B8", seriesKey: "values") : CreatePlaceholder("Values", seriesKey: "values"));
 
                 var expectationSparkline = baseSparkline is not null ? BuildInspectorSparkline(baseSparkline, "expectation") : null;
-                blocks.Add(expectationSparkline is not null ? CreateSparkline("E[Output]", expectationSparkline, strokeOverride: "#1F2937") : CreatePlaceholder("E[Output]"));
+                blocks.Add(expectationSparkline is not null ? CreateSparkline("E[Output]", expectationSparkline, strokeOverride: "#94A3B8", seriesKey: "expectation") : CreatePlaceholder("E[Output]", seriesKey: "expectation"));
 
                 return blocks;
             }
@@ -1951,14 +1994,14 @@
             if (baseSparkline is not null)
             {
                 var outputSparkline = BuildInspectorSparkline(baseSparkline, "values");
-                blocks.Add(outputSparkline is not null ? CreateSparkline("Output", outputSparkline) : CreatePlaceholder("Output"));
+                blocks.Add(outputSparkline is not null ? CreateSparkline("Output", outputSparkline, strokeOverride: "#94A3B8", seriesKey: "values") : CreatePlaceholder("Output", seriesKey: "values"));
             }
             else
             {
-                blocks.Add(CreatePlaceholder("Output"));
+                blocks.Add(CreatePlaceholder("Output", seriesKey: "values"));
             }
 
-            AddOptional("Error rate", "errorRate", 0d, 1d);
+            AddOptional("Error rate", "errorRate", 0d, 1d, valueFormat: InspectorValueFormat.Percent, seriesKeyOverride: "errorRate");
 
             return blocks;
         }
@@ -1972,10 +2015,10 @@
             return blocks;
         }
 
-        AddRequired("Success rate", "successRate", 0d, 1d);
-        AddRequired("Utilization", "utilization", 0d, 1d);
+        AddRequired("Success rate", "successRate", 0d, 1d, valueFormat: InspectorValueFormat.Percent);
+        AddRequired("Utilization", "utilization", 0d, 1d, valueFormat: InspectorValueFormat.Percent);
         AddRequired("Latency", "latencyMinutes", 0d);
-        AddRequired("Error rate", "errorRate", 0d, 1d);
+        AddRequired("Error rate", "errorRate", 0d, 1d, valueFormat: InspectorValueFormat.Percent);
 
         return blocks;
     }
@@ -2334,13 +2377,13 @@
     {
         if (sparkline is null)
         {
-            return "#94A3B8";
+            return "#CBD5E1";
         }
 
         var sample = SampleSparklineAt(sparkline, selectedBin);
         if (!sample.HasValue)
         {
-            return "#94A3B8";
+            return "#CBD5E1";
         }
 
         var thresholds = ColorScale.ColorThresholds.FromOverlay(overlaySettings);
@@ -2354,7 +2397,7 @@
         };
 
         var color = ColorScale.GetFill(metrics, basis, thresholds);
-        return string.IsNullOrWhiteSpace(color) ? "#94A3B8" : color;
+        return string.IsNullOrWhiteSpace(color) ? "#CBD5E1" : color;
     }
 
     private string GetRunInfo()

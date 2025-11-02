@@ -1,6 +1,6 @@
 # UI-M-03.23 — Node Detail Panel Refresh
 
-**Status:** 📋 Planned  
+**Status:** ✅ Completed  
 **Dependencies:** ✅ UI-M-03.22.2 (Topology Canvas Polish), ✅ UI-M-03.21 (Global Top Bar & Scrubber)  
 **Target:** Replace the legacy multi-chart inspector with the new sparkline-based node detail panel that stays open until dismissed, surfaces all relevant node metrics, and remains scrubber-synchronized.
 
@@ -49,35 +49,35 @@ UI-M-03.23 modernizes the node inspector drawer in the Time-Travel topology view
 **Description:** The node detail drawer stays open while the user interacts with the canvas, timeline, or scrubber until the user dismisses it.
 
 **Acceptance Criteria:**
-- [ ] Clicking the scrubber, zoom controls, or canvas should not close the drawer.
-- [ ] The drawer dismisses only via explicit close action (icon button, Escape) or selecting a different node (which swaps content, not dismissal).
-- [ ] State remains consistent after viewport restore or mode toggles.
+- [x] Clicking the scrubber, zoom controls, or canvas should not close the drawer.
+- [x] The drawer dismisses only via explicit close action (icon button, Escape) or selecting a different node (which swaps content, not dismissal).
+- [x] State remains consistent after viewport restore or mode toggles.
 
 #### FR2: Sparkline Metric Stack by Node Type
 **Description:** The panel renders a stack of SVG sparkline charts (with increased side padding) for the correct metric set per node category.
 
 **Acceptance Criteria:**
-- [ ] Service nodes show success rate, utilization, latency, error rate sparklines simultaneously.
-- [ ] Queue nodes show queue depth, latency, arrivals, served sparklines simultaneously.
-- [ ] Computed nodes show output/values (or distribution) plus any additional series available (e.g., success rate, error rate) in the panel.
-- [ ] Each sparkline uses the updated padding (≥28 px left/right) and shows the selected bin highlight dot.
-- [ ] Titles and ordering follow the spec; no legends are rendered.
+- [x] Service nodes show success rate, utilization, latency, error rate sparklines simultaneously.
+- [x] Queue nodes show queue depth, latency, arrivals, served sparklines simultaneously.
+- [x] Computed nodes show output/values (or distribution) plus any additional series available (e.g., success rate, error rate) in the panel.
+- [x] Each sparkline uses the updated padding (≥28 px left/right) and shows the selected bin highlight dot.
+- [x] Titles and ordering follow the spec; no legends are rendered.
 
 #### FR3: Graceful Missing-Series Messaging
 **Description:** When a required series is absent from `state_window`, show a muted notice instead of omitting the chart.
 
 **Acceptance Criteria:**
-- [ ] Each missing metric renders a placeholder line reading “Model does not include series data.”
-- [ ] Placeholder respects spacing and does not collapse adjacent charts.
-- [ ] Warning is logged once per node kind for missing expected series.
+- [x] Each missing metric renders a placeholder line reading “Model does not include series data.”
+- [x] Placeholder respects spacing and does not collapse adjacent charts.
+- [x] Warning is logged once per node kind for missing expected series.
 
 #### FR4: Computed Node Value Context
 **Description:** Computed nodes (expr/const/pmf) include all available series in the inspector to clarify their meaning beyond the canvas glyphs.
 
 **Acceptance Criteria:**
-- [ ] Expression/const nodes show output, success rate/error rate if available.
-- [ ] PMF nodes show distribution sparkline plus any scalar series, along with the bin(t) value label.
-- [ ] Tooltip text / inspector labels remain synchronized with sparkline data.
+- [x] Expression/const nodes show output, success rate/error rate if available.
+- [x] PMF nodes show distribution sparkline plus any scalar series, along with the bin(t) value label.
+- [x] Tooltip text / inspector labels remain synchronized with sparkline data.
 
 ### Non-Functional Requirements
 
@@ -88,6 +88,16 @@ UI-M-03.23 modernizes the node inspector drawer in the Time-Travel topology view
 #### NFR2: Accessibility
 **Target:** Drawer remains keyboard accessible with tab order preserved; sparkline titles and placeholders exposed to screen readers.  
 **Validation:** Keyboard walkthrough + aria-label verification.
+
+---
+
+## Completion Summary (2025-11-02)
+
+- Implemented persistent inspector state so canvas and scrubber interactions no longer dismiss the drawer; explicit close/Escape still works.
+- Replaced the MudChart stack with reusable SVG sparklines for each node category and added dynamic stroke coloring that respects overlay thresholds.
+- Added placeholder messaging and once-per-kind logging for missing series, plus clearer PMF value/expectation context in both canvas chips and the inspector.
+- Polished styling (neutral sparkline palette, computed leaf node rings) to align with UI-M-03.22.2 visuals.
+- Tests: `dotnet build FlowTime.sln -c Release`; `dotnet test FlowTime.sln -c Release` (passes aside from known FlowTime.Api golden response diffs under investigation).
 
 ---
 

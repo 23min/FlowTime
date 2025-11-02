@@ -1,3 +1,4 @@
+@using System.Collections.Generic
 @using System.Globalization
 @using System.Text
 
@@ -24,19 +25,22 @@ else
                       y2="@FormatCoord(baseLineY - TickHeight)" />
             }
 
-            <path d="@pathData"
-                  stroke="@Stroke"
-                  fill="none"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round" />
+            @foreach (var segment in pathSegments)
+            {
+                <path d="@segment.Path"
+                      stroke="@segment.Color"
+                      fill="none"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round" />
+            }
 
             @if (hasHighlight)
             {
                 <circle cx="@FormatCoord(highlightX)"
                         cy="@FormatCoord(highlightY)"
                         r="3.5"
-                        fill="@Stroke"
+                        fill="@highlightColor"
                         stroke="white"
                         stroke-width="1" />
             }
@@ -60,10 +64,19 @@ else
     public int SelectedBin { get; set; }
 
     [Parameter]
-    public string Stroke { get; set; } = "#94A3B8";
+    public string Stroke { get; set; } = "#CBD5E1";
 
     [Parameter]
     public string? AriaLabel { get; set; }
+
+    [Parameter]
+    public InspectorValueFormat ValueFormat { get; set; } = InspectorValueFormat.Number;
+
+    [Parameter]
+    public TopologyOverlaySettings? OverlaySettings { get; set; }
+
+    [Parameter]
+    public string? SeriesKey { get; set; }
 
     private const double SvgWidth = 360;
     private const double SvgHeight = 140;
@@ -74,7 +87,7 @@ else
     private const double TickHeight = 10;
 
     private readonly CultureInfo invariant = CultureInfo.InvariantCulture;
-    private string pathData = string.Empty;
+    private IReadOnlyList<PathSegment> pathSegments = Array.Empty<PathSegment>();
     private string minLabel = string.Empty;
     private string maxLabel = string.Empty;
     private string resolvedAriaLabel = "Node sparkline preview";
@@ -82,6 +95,7 @@ else
     private bool hasHighlight;
     private double highlightX;
     private double highlightY;
+    private string highlightColor = "#CBD5E1";
     private double baseLineY;
     private IReadOnlyList<double> tickPositions = Array.Empty<double>();
 
@@ -90,7 +104,7 @@ else
         if (Data is null || Data.Values.Count == 0)
         {
             hasData = false;
-            pathData = string.Empty;
+            pathSegments = Array.Empty<PathSegment>();
             tickPositions = Array.Empty<double>();
             hasHighlight = false;
             resolvedAriaLabel = string.IsNullOrWhiteSpace(AriaLabel) ? "Node sparkline preview unavailable" : AriaLabel!;
@@ -110,7 +124,7 @@ else
         if (samples.Count == 0)
         {
             hasData = false;
-            pathData = string.Empty;
+            pathSegments = Array.Empty<PathSegment>();
             tickPositions = Array.Empty<double>();
             hasHighlight = false;
             resolvedAriaLabel = string.IsNullOrWhiteSpace(AriaLabel) ? "Node sparkline preview unavailable" : AriaLabel!;
@@ -118,6 +132,7 @@ else
         }
 
         hasData = true;
+        highlightColor = Stroke;
         resolvedAriaLabel = string.IsNullOrWhiteSpace(AriaLabel) ? "Node sparkline preview" : AriaLabel!;
 
         var actualMin = samples.Min(s => s.Value);
@@ -142,9 +157,17 @@ else
         zeroFraction = double.IsFinite(zeroFraction) ? Math.Clamp(zeroFraction, 0d, 1d) : 0d;
         baseLineY = TopPadding + (1 - zeroFraction) * plotHeight;
 
-        var builder = new StringBuilder();
+        var segments = new List<PathSegmentBuilder>();
+        PathSegmentBuilder? currentSegment = null;
         var movePending = true;
         var count = Data.Values.Count;
+        double previousX = 0;
+        double previousY = 0;
+        string previousColor = Stroke;
+        var thresholds = OverlaySettings is not null
+            ? ColorScale.ColorThresholds.FromOverlay(OverlaySettings)
+            : ColorScale.ColorThresholds.Default;
+        var basis = ResolveBasisFromSeries();
 
         for (var i = 0; i < count; i++)
         {
@@ -160,25 +183,44 @@ else
 
             var x = LeftPadding + xFraction * plotWidth;
             var y = TopPadding + (1 - yFraction) * plotHeight;
+            var segmentColor = ResolveSampleColor(sample.Value, basis, thresholds);
 
             if (movePending)
             {
-                builder.Append('M');
-                builder.Append(FormatCoord(x));
-                builder.Append(' ');
-                builder.Append(FormatCoord(y));
+                currentSegment = new PathSegmentBuilder(segmentColor, Stroke);
+                segments.Add(currentSegment);
+                currentSegment.Builder.Append('M');
+                currentSegment.Builder.Append(FormatCoord(x));
+                currentSegment.Builder.Append(' ');
+                currentSegment.Builder.Append(FormatCoord(y));
                 movePending = false;
             }
             else
             {
-                builder.Append('L');
-                builder.Append(FormatCoord(x));
-                builder.Append(' ');
-                builder.Append(FormatCoord(y));
+                if (currentSegment is null || !segmentColor.Equals(previousColor, StringComparison.OrdinalIgnoreCase))
+                {
+                    currentSegment = new PathSegmentBuilder(segmentColor, Stroke);
+                    segments.Add(currentSegment);
+                    currentSegment.Builder.Append('M');
+                    currentSegment.Builder.Append(FormatCoord(previousX));
+                    currentSegment.Builder.Append(' ');
+                    currentSegment.Builder.Append(FormatCoord(previousY));
+                }
+
+                currentSegment.Builder.Append('L');
+                currentSegment.Builder.Append(FormatCoord(x));
+                currentSegment.Builder.Append(' ');
+                currentSegment.Builder.Append(FormatCoord(y));
             }
+
+            previousX = x;
+            previousY = y;
+            previousColor = currentSegment?.Color ?? Stroke;
         }
 
-        pathData = builder.ToString();
+        pathSegments = segments.Count > 0
+            ? segments.ConvertAll(segment => new PathSegment(segment.Builder.ToString(), segment.Color))
+            : Array.Empty<PathSegment>();
 
         var highlightIndex = SelectedBin - Data.StartIndex;
         if (highlightIndex >= 0 && highlightIndex < count)
@@ -190,6 +232,7 @@ else
                 var yFraction = (highlightValue.Value - scaleMin) / (scaleMax - scaleMin);
                 highlightX = LeftPadding + xFraction * plotWidth;
                 highlightY = TopPadding + (1 - yFraction) * plotHeight;
+                highlightColor = ResolveSampleColor(highlightValue.Value, basis, thresholds);
                 hasHighlight = true;
             }
             else
@@ -216,6 +259,14 @@ else
 
     private string FormatSample(double value)
     {
+        if (ValueFormat == InspectorValueFormat.Percent)
+        {
+            var percent = value * 100d;
+            var absPercent = Math.Abs(percent);
+            var format = absPercent < 1 ? "0.0#" : "0";
+            return percent.ToString(format, invariant) + "%";
+        }
+
         var abs = Math.Abs(value);
         if (abs >= 1000 || (abs > 0 && abs < 0.01))
         {
@@ -226,4 +277,60 @@ else
     }
 
     private string FormatCoord(double value) => value.ToString("0.###", invariant);
+
+    private TopologyColorBasis? ResolveBasisFromSeries()
+    {
+        if (string.IsNullOrWhiteSpace(SeriesKey))
+        {
+            return null;
+        }
+
+        return SeriesKey.Trim().ToLowerInvariant() switch
+        {
+            "successrate" => TopologyColorBasis.Sla,
+            "utilization" => TopologyColorBasis.Utilization,
+            "errorrate" or "errors" => TopologyColorBasis.Errors,
+            "queue" or "queuedepth" => TopologyColorBasis.Queue,
+            _ => null
+        };
+    }
+
+    private string ResolveSampleColor(double value, TopologyColorBasis? basis, ColorScale.ColorThresholds thresholds)
+    {
+        if (!basis.HasValue)
+        {
+            return Stroke;
+        }
+
+        var metrics = basis.Value switch
+        {
+            TopologyColorBasis.Utilization => new NodeBinMetrics(null, value, null, null, null, null),
+            TopologyColorBasis.Errors => new NodeBinMetrics(null, null, value, null, null, null),
+            TopologyColorBasis.Queue => new NodeBinMetrics(null, null, null, value, null, null),
+            _ => new NodeBinMetrics(value, null, null, null, null, null)
+        };
+
+        var color = ColorScale.GetFill(metrics, basis.Value, thresholds);
+        if (string.IsNullOrWhiteSpace(color) || string.Equals(color, ColorScale.NeutralColor, StringComparison.OrdinalIgnoreCase))
+        {
+            return Stroke;
+        }
+
+        return color;
+    }
+
+    private sealed record PathSegment(string Path, string Color);
+
+    private sealed class PathSegmentBuilder
+    {
+        public PathSegmentBuilder(string color, string defaultColor)
+        {
+            Color = string.IsNullOrWhiteSpace(color) ? defaultColor : color;
+            Builder = new StringBuilder();
+        }
+
+        public StringBuilder Builder { get; }
+
+        public string Color { get; }
+    }
 }

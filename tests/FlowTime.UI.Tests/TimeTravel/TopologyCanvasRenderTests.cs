@@ -205,9 +205,44 @@ public sealed class TopologyCanvasRenderTests : TestContext
         Assert.Equal(0.86, overlayPayload.UtilizationWarningCutoff, 3);
         Assert.Equal(0.91, overlayPayload.UtilizationCriticalCutoff, 3);
         Assert.Equal(0.032, overlayPayload.ErrorWarningCutoff, 3);
-       Assert.Equal(0.08, overlayPayload.ErrorCriticalCutoff, 3);
-       Assert.Equal(activeBin, overlayPayload.SelectedBin);
-   }
+        Assert.Equal(0.08, overlayPayload.ErrorCriticalCutoff, 3);
+        Assert.Equal(activeBin, overlayPayload.SelectedBin);
+    }
+
+    [Fact]
+    public void FocusLabelUsesOverlaySeriesFromSlices()
+    {
+        var graph = CreateGraph();
+        var metrics = CreateMetrics();
+
+        var overlays = TopologyOverlaySettings.Default.Clone();
+        overlays.ColorBasis = TopologyColorBasis.Utilization;
+
+        var sparklines = new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["processor"] = CreateSparklineWithSlices(
+                new double?[] { 0.90, 0.91, 0.92 },
+                new double?[] { 0.75, 0.81, 0.82 },
+                startIndex: 0)
+        };
+
+        var renderCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.render", _ => true);
+        renderCall.SetVoidResult();
+
+        const int activeBin = 2;
+
+        RenderComponent<TopologyCanvas>(parameters => parameters
+            .Add(p => p.Graph, graph)
+            .Add(p => p.NodeMetrics, metrics)
+            .Add(p => p.NodeSparklines, sparklines)
+            .Add(p => p.OverlaySettings, overlays)
+            .Add(p => p.ActiveBin, activeBin));
+
+        var payload = Assert.IsType<CanvasRenderRequest>(renderCall.Invocations.Single().Arguments[1]);
+        var processor = Assert.Single(payload.Nodes, node => node.Id == "processor");
+
+        Assert.Equal("82%", processor.FocusLabel);
+    }
 
     [Fact]
     public void FullDagDisabledFiltersNonOperationalNodes()
@@ -324,6 +359,23 @@ public sealed class TopologyCanvasRenderTests : TestContext
             ["processor"] = new NodeBinMetrics(0.88, 0.80, 0.02, 8, 3.2, DateTimeOffset.UtcNow),
             ["egress"] = new NodeBinMetrics(0.75, 0.92, 0.04, 12, 5.8, DateTimeOffset.UtcNow)
         };
+    }
+
+    private static NodeSparklineData CreateSparklineWithSlices(double?[] successRate, double?[] utilization, int startIndex)
+    {
+        var additional = new Dictionary<string, SparklineSeriesSlice>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["successRate"] = new SparklineSeriesSlice(successRate, startIndex),
+            ["utilization"] = new SparklineSeriesSlice(utilization, startIndex)
+        };
+
+        return NodeSparklineData.Create(
+            successRate,
+            Array.Empty<double?>(),
+            Array.Empty<double?>(),
+            Array.Empty<double?>(),
+            startIndex,
+            additionalSeries: additional);
     }
 
     private static TopologyNodeSemantics EmptySemantics() => new(null, null, null, null, null, null, null, null, null);

@@ -7,10 +7,10 @@
     const MIN_SCALE = MIN_ZOOM_PERCENT / 100;
     const MAX_SCALE = MAX_ZOOM_PERCENT / 100;
     const LEAF_CIRCLE_SCALE = 2.25;
-    const LEAF_CIRCLE_RING_WIDTH = 3;
-    const LEAF_CIRCLE_GUTTER = 2;
+    const LEAF_CIRCLE_RING_WIDTH = 4;
+    const LEAF_CIRCLE_GUTTER = 3;
     const LEAF_CIRCLE_FILL = '#E2E8F0';
-    const LEAF_CIRCLE_STROKE = '#1F2937';
+    const LEAF_CIRCLE_STROKE = '#64748B';
     const POINTER_CLICK_DISTANCE = 4;
 
     function getState(canvas) {
@@ -1499,7 +1499,7 @@
     function resolveSampleColor(basis, index, sparkline, thresholds, defaultColor) {
         const value = getBasisValue(basis, index, sparkline);
         if (value === null || value === undefined || !Number.isFinite(value)) {
-            return 'rgba(148, 163, 184, 0.55)';
+            return 'rgba(203, 213, 225, 0.75)';
         }
 
         switch (basis) {
@@ -1760,11 +1760,14 @@
         const fallbackLabel = (entry) => entry?.label ?? null;
 
         if (shouldDrawSparkline) {
-            const defaultSpark = (nodeMeta.fill ?? resolveSparklineColor(overlays.colorBasis));
+            const neutralSpark = '#94A3B8';
+            const isComputedNode = isComputedKind(nodeMeta.kind);
+            const defaultSpark = isComputedNode ? neutralSpark : (nodeMeta.fill ?? resolveSparklineColor(overlays.colorBasis));
             drawSparkline(ctx, nodeMeta, spark, overlays, defaultSpark, {
                 top: topRowTop,
                 height: chipH,
-                right: (x - (nodeWidth / 2) - 8)
+                right: (x - (nodeWidth / 2) - 8),
+                neutralize: isComputedNode
             });
         }
 
@@ -1946,12 +1949,13 @@
         });
         const center = nodeMeta.x ?? 0;
 
-        drawSparkline(ctx, nodeMeta, spark, overlaySettings, '#3B82F6', {
+        drawSparkline(ctx, nodeMeta, spark, overlaySettings, '#94A3B8', {
             top,
             height: chipH,
             left: center - desiredWidth / 2,
             minWidth: desiredWidth,
-            maxWidth: desiredWidth
+            maxWidth: desiredWidth,
+            neutralize: true
         });
     }
 
@@ -2815,6 +2819,7 @@
 
     function drawSparkline(ctx, nodeMeta, sparkline, overlaySettings, defaultColor, overrides) {
         const opts = overrides ?? {};
+        const neutralize = Boolean(opts.neutralize);
         const basis = Number(overlaySettings.colorBasis ?? 0);
         const series = selectSeriesForBasis(sparkline, basis);
         if (!Array.isArray(series) || series.length < 2) {
@@ -2872,9 +2877,9 @@
         let previousPoint = null;
         let previousColor = defaultColor;
 
-        ctx.fillStyle = 'rgba(148, 163, 184, 0.08)';
+        ctx.fillStyle = 'rgba(203, 213, 225, 0.12)';
         ctx.fillRect(0, 0, sparkWidth, sparkHeight);
-        ctx.strokeStyle = 'rgba(148, 163, 184, 0.25)';
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.22)';
         ctx.lineWidth = 0.5;
         ctx.strokeRect(0, 0, sparkWidth, sparkHeight);
 
@@ -2897,7 +2902,7 @@
 
             const x = index * step;
             const y = sparkHeight - (sparkHeight * normalized);
-            const sampleColor = resolveSampleColor(basis, index, sparkline, thresholds, defaultColor);
+            const sampleColor = neutralize ? defaultColor : resolveSampleColor(basis, index, sparkline, thresholds, defaultColor);
 
             if (drawAsBars) {
                 const barWidth = Math.max(step * 0.6, 1.5);
@@ -2907,7 +2912,7 @@
                 const barTop = sparkHeight - barHeight;
                 ctx.fillRect(x - barWidth / 2, barTop, barWidth, barHeight);
                 if (index === highlightIndex) {
-                    highlightColor = sampleColor;
+                    highlightColor = neutralize ? defaultColor : sampleColor;
                     highlightBar = {
                         x,
                         width: Math.max(barWidth, 3)
@@ -2923,10 +2928,10 @@
                     ctx.stroke();
                 }
                 previousPoint = { x, y };
-                previousColor = sampleColor;
+                previousColor = neutralize ? defaultColor : sampleColor;
                 if (index === highlightIndex) {
                     highlightPoint = { x, y };
-                    highlightColor = sampleColor;
+                    highlightColor = neutralize ? defaultColor : sampleColor;
                 }
             }
         });

@@ -23,7 +23,8 @@ public sealed class TopologyInspectorSparklineTests : TestContext
         var cut = RenderComponent<TopologyInspectorSparkline>(parameters => parameters
             .Add(p => p.Data, sparkline)
             .Add(p => p.SelectedBin, 2)
-            .Add(p => p.Stroke, "#123456"));
+            .Add(p => p.Stroke, "#123456")
+            .Add(p => p.OverlaySettings, new TopologyOverlaySettings()));
 
         var axis = cut.Find("line.node-inspector-sparkline-axis");
         var y1 = double.Parse(axis.GetAttribute("y1")!, CultureInfo.InvariantCulture);
@@ -49,7 +50,8 @@ public sealed class TopologyInspectorSparklineTests : TestContext
 
         var cut = RenderComponent<TopologyInspectorSparkline>(parameters => parameters
             .Add(p => p.Data, sparkline)
-            .Add(p => p.SelectedBin, 3));
+            .Add(p => p.SelectedBin, 3)
+            .Add(p => p.OverlaySettings, new TopologyOverlaySettings()));
 
         Assert.Contains("0.1", cut.Markup);
         Assert.Contains("0.9", cut.Markup);
