@@ -875,7 +875,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
 
         if (metrics.CustomValue.HasValue)
         {
-            return metrics.CustomValue.Value.ToString("0.#", invariant);
+            return FormatFocusNumber(metrics.CustomValue.Value, invariant);
         }
 
         double? valuesSample = null;
@@ -886,7 +886,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
 
         if (valuesSample.HasValue)
         {
-            return valuesSample.Value.ToString("0.#", invariant);
+            return FormatFocusNumber(valuesSample.Value, invariant);
         }
 
         double? sample = SampleSparklineValue(sparkline, basis, selectedBin);
@@ -906,14 +906,28 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             return null;
         }
 
-        if (basis == TopologyColorBasis.Queue)
+        return basis switch
         {
-            return sample.Value.ToString("0.#", invariant);
-        }
+            TopologyColorBasis.Queue => sample.Value.ToString("0.0", invariant),
+            TopologyColorBasis.Utilization => FormatFocusPercent(sample.Value, invariant),
+            TopologyColorBasis.Errors => FormatFocusPercent(sample.Value, invariant, allowFractional: sample.Value < 0.1),
+            TopologyColorBasis.Sla => FormatFocusPercent(sample.Value, invariant),
+            _ => FormatFocusNumber(sample.Value, invariant)
+        };
+    }
 
-        var percentValue = sample.Value * 100d;
-        var format = basis == TopologyColorBasis.Errors && sample.Value < 0.1 ? "0.0#" : "0.#";
-        return $"{percentValue.ToString(format, invariant)}%";
+    private static string FormatFocusNumber(double value, CultureInfo culture)
+    {
+        var abs = Math.Abs(value);
+        var format = abs >= 10 ? "0.0" : "0.00";
+        return value.ToString(format, culture);
+    }
+
+    private static string FormatFocusPercent(double value, CultureInfo culture, bool allowFractional = false)
+    {
+        var percent = value * 100d;
+        var format = allowFractional ? "0.0#" : "0";
+        return percent.ToString(format, culture) + "%";
     }
 
     private static double? SampleSliceValue(SparklineSeriesSlice slice, int selectedBin)
