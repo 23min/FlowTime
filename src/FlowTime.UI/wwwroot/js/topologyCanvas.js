@@ -1769,6 +1769,43 @@
                 right: (x - (nodeWidth / 2) - 8),
                 neutralize: isComputedNode
             });
+
+            // Tiny label positioned directly above the sparkline (left-aligned)
+            try {
+                const basis = overlays.colorBasis ?? 0;
+                const label = (function () {
+                    switch (basis) {
+                        case 1: return 'Util';
+                        case 2: return 'Errors';
+                        case 3: return 'Queue';
+                        default: return 'SLA';
+                    }
+                })();
+
+                // Recompute sparkline geometry to determine its left edge
+                const mode = overlays.sparklineMode === 'bar' ? 'bar' : 'line';
+                const nodeWidth = nodeMeta.width ?? 54;
+                const defaultSparkWidth = Math.max(nodeWidth - 6, 16);
+                const baseWidth = defaultSparkWidth;
+                const series = selectSeriesForBasis(spark, Number(basis)) ?? [];
+                const sparkWidth = computeAdaptiveWidth(series.length, baseWidth, {
+                    min: Math.max(baseWidth, 20),
+                    max: 140,
+                    scale: mode === 'bar' ? 11 : 9
+                });
+                const rightEdge = (x - (nodeWidth / 2) - 8);
+                const leftEdge = rightEdge - sparkWidth;
+
+                ctx.save();
+                ctx.fillStyle = '#64748B'; // slate-500
+                ctx.globalAlpha = 0.9;
+                ctx.font = '10px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'alphabetic';
+                // place just above the sparkline row, aligned to its left edge
+                ctx.fillText(label, leftEdge, topRowTop - 2);
+                ctx.restore();
+            } catch { /* draw label is best-effort */ }
         }
 
         if (!hasSemantics) {

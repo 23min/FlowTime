@@ -272,6 +272,98 @@
 
 ---
 
+## Bugs and Follow‑Ups (post‑completion)
+
+- SLA > 100% observed on legacy run
+  - Symptom: Supplier node shows SLA 120% for run `data/run_20251027T121926Z_6b41d4fb` where `customer_demand=60`, `supplied_items=72`.
+  - Root cause: The legacy model defined `supplied_items := MIN(customer_demand * 1.2, supplier_capacity)` and wired Supplier `served := supplied_items`, so `served > arrivals` by design.
+  - Architecture note: See docs/architecture/time-travel/time-travel-architecture-ch3-components.md ("served > arrivals (conservation violation)") — oversupply should not appear on SLA channels. Either clamp `served <= arrivals` or route surplus to an explicit buffer/inventory node.
+  - Resolution: Base template `templates/supply-chain-multi-tier.yaml` now conserves flow: `supplied_items := MIN(customer_demand, supplier_capacity)`; `bufferSize` deprecated. For explicit buffers, use the warehouse variant below.
+
+- Warehouse variant: backlog/shortage visibility
+  - Context: `templates/supply-chain-multi-tier-warehouse(-1d5m).yaml` models planned overproduction into a Warehouse and pulls by downstream demand.
+  - Symptom: In run `data/run_20251103T082050Z_d43be1ec`, `distributor_backlog@DISTRIBUTOR_BACKLOG@DEFAULT.csv` is all zeros; inspector charts show flat 0 for computed nodes.
+  - Root cause: That run’s spec gated `requested_shipments := MIN(customer_demand, downstream_cap)` where `downstream_cap := MIN(distributor_capacity, retailer_capacity)`. This pre‑limits Warehouse outflow by Distributor capacity, making `warehouse_shipments <= distributor_capacity` and backlog always 0.
+  - Resolution: Templates in repo already use `requested_shipments := MIN(customer_demand, retailer_capacity)` (no distributor cap). Regenerate the run to surface non‑zero backlog during distributor bottleneck bins. Supplier shortage in the 1d/5m variant was also zero by construction (`supplier_shipments := planned_production`); this is intentional for planned build‑ahead. If needed, model true shortages by capping `planned_production` against supply shocks.
+
+- Computed nodes showing 0.0 value and flat inspector sparkline
+  - Root cause (UI): When Full DAG/expr nodes are visible, the state window must be requested in `mode=full`. Also, chips fell back to labels when sparkline slices weren’t rebuilt on selection/playback.
+  - Fixes (UI):
+    - Request `state_window` with `mode=full` when Full DAG or expression/const nodes are included.
+    - Anchor mini‑sparklines to the current selection and rebuild on scrub/playback so chips show numbers, not labels.
+    - Ensure initial post‑load selection updates metrics before first paint.
+  - Action: Already implemented in `src/FlowTime.UI/Pages/TimeTravel/Topology.razor` and `wwwroot/js/topologyCanvas.js`. Validate after regenerating the run.
+
+- Scrubber labels/ticks overcrowded at 288 bins
+  - Symptom: All 288 labels render; unreadable at typical widths.
+  - Interim fix: Limit to ~12 "nice" labels based on `binMinutes` (e.g., hour multiples); always include endpoints.
+  - Follow‑up: Improve overlap avoidance by measuring text width and add minor ticks without labels. Track under this milestone polish list.
+
+- Playback shows text instead of values in chips
+  - Root cause: Sparklines not re‑anchored to moving selection; chips fell back to labels.
+  - Resolution: Rebuild sparkline slices on each playback tick and after loop jumps. Implemented.
+
+- Tiny metric label above node sparkline
+  - Added neutral label (“SLA/Util/Errors/Queue”) above node mini sparkline to clarify basis. Implemented in `topologyCanvas.js`.
+
+---
+
+## Feature Proposal: Inspector Overview (Horizon Chart)
+
+- Goal: Provide a compact overview of the full window beneath each sparkline in the inspector to give global context without scrubbing.
+- Component: `TopologyHorizonChart` (small canvas, ~16–20px height)
+  - Inputs: `double?[] data`, `min`, `max?`, `bands = 3`, `height = 18`, `normalizeAcrossNodes = false`, `globalCap?`.
+  - Behavior: Quantize values into N bands, fill single‑hue bands with increasing intensity; auto‑scale per series unless a global cap is set (see below).
+  - Accessibility: `aria-label` like “{metric} overview”. No tooltips.
+- Defaults & placement:
+  - Render directly under each inspector sparkline block (“Output/Success rate/Utilization/Errors/Queue”).
+  - Default 3 bands; allow 3–5 via settings. Counts auto‑scale per series by default.
+- Normalization options:
+  - Per‑series auto‑scale (default) keeps each overview comparable to its own sparkline range.
+  - Global cap (e.g., 95th percentile across comparable nodes) avoids band flicker when scanning multiple nodes; off by default.
+- Settings:
+  - Overlay toggles: `ShowInspectorOverview` (default on), `HorizonBands` (3–5), `NormalizeInspectorHorizonCounts` (off), `InspectorHorizonGlobalCap` (optional value).
+
+---
+
+## Validation: SLA Conservation
+
+- Base template conserves flow by construction:
+  - Supplier semantics wire `served := supplied_items` and `arrivals := customer_demand` (templates/supply-chain-multi-tier.yaml:80 and templates/supply-chain-multi-tier.yaml:81).
+  - `supplied_items := MIN(customer_demand, supplier_capacity)` (templates/supply-chain-multi-tier.yaml:123) ⇒ per bin `served <= arrivals`.
+  - Downstream: `distributed_items := MIN(supplied_items, distributor_capacity)` (templates/supply-chain-multi-tier.yaml:127) and `retail_sales := MIN(distributed_items, retailer_capacity)` (templates/supply-chain-multi-tier.yaml:131) ⇒ conservation holds at each stage.
+- Warehouse 1d/5m variant preserves SLA semantics:
+  - Warehouse `served := warehouse_shipments` (templates/supply-chain-multi-tier-warehouse-1d5m.yaml:31) with `warehouse_shipments := MIN(supplier_shipments, requested_shipments)` (templates/supply-chain-multi-tier-warehouse-1d5m.yaml:248).
+  - Distributor `served := distributed_items` with `distributed_items := MIN(warehouse_shipments, distributor_capacity)` (templates/supply-chain-multi-tier-warehouse-1d5m.yaml:258).
+  - Retailer `served := retail_sales` with `retail_sales := MIN(distributed_items, retailer_capacity)` (templates/supply-chain-multi-tier-warehouse-1d5m.yaml:262).
+  - Surplus is modeled explicitly via `inventory_build := MAX(0, supplier_shipments - warehouse_shipments)` (templates/supply-chain-multi-tier-warehouse-1d5m.yaml:253) and does not inflate SLA.
+
+Status: After regenerating runs from these templates, no node should display SLA > 100%. Manual CSV spot‑checks and UI review recommended.
+
+---
+
+## Next Steps (Execution Order)
+
+1) Regenerate warehouse 1d/5m run and visually validate:
+   - Non‑zero `distributor_backlog` during distributor bottlenecks
+   - Warehouse overstock via `inventory_build` (Errors chip)
+   - No SLA > 100% on any stage
+
+2) Scrubber polish:
+   - Enhance label overlap avoidance; add minor unlabeled ticks (src/FlowTime.UI/Pages/TimeTravel/Topology.razor:1411–1478)
+
+3) Inspector overview (horizon charts):
+   - Add component + JS helper; wire under each inspector sparkline; add overlay toggles
+
+4) Tests:
+   - Fix PMF slice expectation; add tests for mode=full, color‑basis stroke changes, scrubber labels, and playback chips
+
+5) API goldens:
+   - Coordinate RNG metadata refresh; re‑run full test suite
+
+
+---
+
 ## Final Checklist
 
 ### Code Complete

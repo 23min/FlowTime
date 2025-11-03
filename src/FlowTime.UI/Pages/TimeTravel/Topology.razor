@@ -750,7 +750,9 @@
             selectedBin = visibleEndBin;
             RefreshTimelineTicks();
             UpdateActiveMetrics(selectedBin);
-
+            // Ensure node sparkline slices are built for the initial selection so chips show values, not labels.
+            BuildNodeSparklines();
+            
             hasLoaded = true;
         }
         catch (OperationCanceledException)
@@ -1433,7 +1435,7 @@
         // If we know bin minutes, try to align to nice hour multiples
         try
         {
-            var binMinutes = seriesIndex?.Grid?.BinMinutes ?? windowData?.Window?.BinMinutes ?? 0;
+            var binMinutes = seriesIndex?.Grid?.BinMinutes ?? 0;
             if (binMinutes > 0)
             {
                 var niceMinutes = new[] { 60, 120, 180, 240, 360, 720 };
