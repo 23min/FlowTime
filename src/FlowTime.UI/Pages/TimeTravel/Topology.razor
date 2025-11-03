@@ -1424,35 +1424,50 @@
         }
 
         var span = visibleEndBin - visibleStartBin;
-        var desired = span switch
+        var totalBins = span + 1;
+
+        // Aim for ~12 labels; adjust step accordingly
+        var targetLabels = 12;
+        var step = Math.Max(1, (int)Math.Ceiling(totalBins / (double)targetLabels));
+
+        // If we know bin minutes, try to align to nice hour multiples
+        try
         {
-            <= 3 => span + 1,
-            <= 12 => 4,
-            <= 48 => 6,
-            _ => 8
-        };
-        desired = Math.Max(2, desired);
-
-        var ticks = new List<TimelineTick>(desired + 2);
-        var step = span / Math.Max(1d, desired - 1d);
-        var seen = new HashSet<int>();
-
-        for (var i = 0; i <= span; i++)
-        {
-            var bin = visibleStartBin + i;
-
-            if (seen.Contains(bin))
+            var binMinutes = seriesIndex?.Grid?.BinMinutes ?? windowData?.Window?.BinMinutes ?? 0;
+            if (binMinutes > 0)
             {
-                continue;
+                var niceMinutes = new[] { 60, 120, 180, 240, 360, 720 };
+                foreach (var minutes in niceMinutes)
+                {
+                    var candidate = Math.Max(1, (int)Math.Round(minutes / (double)binMinutes));
+                    var count = Math.Max(1, (int)Math.Ceiling(totalBins / (double)candidate));
+                    if (count <= targetLabels)
+                    {
+                        step = candidate;
+                        break;
+                    }
+                }
             }
+        }
+        catch
+        {
+            // ignore and use computed step
+        }
 
+        var ticks = new List<TimelineTick>(Math.Min(totalBins, targetLabels) + 2);
+        for (var bin = visibleStartBin; bin <= visibleEndBin; bin += step)
+        {
             var percent = ((bin - visibleStartBin) / (double)span) * 100d;
             percent = Math.Clamp(percent, 0d, 100d);
             ticks.Add(new TimelineTick(bin, percent, BuildTickLabel(bin)));
-            seen.Add(bin);
         }
 
-        ticks.Sort((a, b) => a.Bin.CompareTo(b.Bin));
+        // Ensure last label is included
+        if (ticks.Count == 0 || ticks[^1].Bin != visibleEndBin)
+        {
+            ticks.Add(new TimelineTick(visibleEndBin, 100d, BuildTickLabel(visibleEndBin)));
+        }
+
         timelineTicks = ticks;
     }
 
@@ -1529,6 +1544,8 @@
                     pointerNeedsJump = false;
 
                     UpdateActiveMetrics(next);
+                    // Ensure sparkline slices are anchored at the new selection during playback
+                    BuildNodeSparklines();
                     StateHasChanged();
                 });
 
@@ -1545,6 +1562,7 @@
 
                         pointerNeedsJump = true;
                         UpdateActiveMetrics(visibleStartBin);
+                        BuildNodeSparklines();
                         StateHasChanged();
                     });
                 }

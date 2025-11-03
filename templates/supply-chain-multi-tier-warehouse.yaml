@@ -150,7 +150,7 @@ nodes:
 
   - id: requested_shipments
     kind: expr
-    expr: "MIN(customer_demand, downstream_cap)"
+    expr: "MIN(customer_demand, retailer_capacity)"
 
   - id: warehouse_shipments
     kind: expr
@@ -173,7 +173,7 @@ nodes:
   # Diagnostics
   - id: supplier_shortage
     kind: expr
-    expr: "MAX(0, planned_production - supplier_shipments)"
+    expr: "MAX(0, customer_demand - supplier_shipments)"
 
   - id: distributor_backlog
     kind: expr
