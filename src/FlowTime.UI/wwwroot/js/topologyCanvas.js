@@ -699,6 +699,9 @@
         const sparklineMarginBottom = hasSparkline ? toDevice(4) : 0;
         const sparklineBlockHeight = hasSparkline ? sparklineHeight + sparklineMarginTop + sparklineMarginBottom : 0;
 
+        const canvasWidthDevice = Number.isFinite(state.canvasWidth) ? state.canvasWidth * ratio : ctx.canvas.width;
+        const canvasHeightDevice = Number.isFinite(state.canvasHeight) ? state.canvasHeight * ratio : ctx.canvas.height;
+
         ctx.save();
         ctx.setTransform(1, 0, 0, 1, 0, 0);
 
@@ -741,13 +744,24 @@
 
         // Position tooltip at constant screen distance to the left of the node, vertically centered
         const nodeCenterScreenY = toDevice(offsetY + scale * nodeY);
-        const tooltipTop = Math.round(nodeCenterScreenY - (boxHeight / 2));
         const gap = toDevice(8); // constant px gap from node edge
-        let tooltipX = Math.round((nodeCenterScreenX - halfWidthScreen - gap) - boxWidth);
+        const minMargin = toDevice(12);
+        let tooltipTop = Math.round(nodeCenterScreenY - (boxHeight / 2));
+        tooltipTop = Math.max(minMargin, Math.min(canvasHeightDevice - boxHeight - minMargin, tooltipTop));
+
+        const leftCandidate = Math.round((nodeCenterScreenX - halfWidthScreen - gap) - boxWidth);
+        const rightCandidate = Math.round(nodeCenterScreenX + halfWidthScreen + gap);
+        let tooltipX = leftCandidate;
         if (!Number.isFinite(tooltipX)) {
             tooltipX = 0;
         }
-        const minMargin = toDevice(12);
+        if (tooltipX < minMargin) {
+            tooltipX = rightCandidate;
+        }
+        const maxX = canvasWidthDevice - boxWidth - minMargin;
+        if (tooltipX > maxX) {
+            tooltipX = maxX;
+        }
         if (tooltipX < minMargin) {
             tooltipX = minMargin;
         }
