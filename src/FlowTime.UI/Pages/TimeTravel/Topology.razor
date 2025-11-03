@@ -434,6 +434,7 @@
     private int selectedBin;
     private int visibleStartBin;
     private int visibleEndBin;
+    private int? restoredSelectedBin;
     private string selectedBinLabel = string.Empty;
     private string selectedTimestampLabel = string.Empty;
     private IReadOnlyList<TimelineTick> timelineTicks = Array.Empty<TimelineTick>();
@@ -578,6 +579,7 @@
             }
 
             featureBarOpen = stored?.FeatureBarOpen ?? true;
+            restoredSelectedBin = stored?.SelectedBin;
 
             if (stored?.Viewport is not null)
             {
@@ -640,6 +642,13 @@
                     pair => pair.Value,
                     StringComparer.Ordinal)
             };
+
+            if (hasLoaded)
+            {
+                state.SelectedBin = selectedBin;
+                state.VisibleStartBin = visibleStartBin;
+                state.VisibleEndBin = visibleEndBin;
+            }
 
             if (currentViewportSnapshot is not null)
             {
@@ -746,8 +755,25 @@
             seriesIndex = indexResult.Value;
 
             var totalBins = Math.Max(1, seriesIndex.Grid.Bins);
+            var span = Math.Min(totalBins, 500);
             var sliceEnd = totalBins - 1;
-            var sliceStart = Math.Max(0, sliceEnd - 499);
+            var sliceStart = Math.Max(0, sliceEnd - (span - 1));
+
+            if (restoredSelectedBin.HasValue)
+            {
+                var desired = Math.Clamp(restoredSelectedBin.Value, 0, totalBins - 1);
+                if (desired < sliceStart)
+                {
+                    sliceStart = Math.Max(0, Math.Min(desired, totalBins - span));
+                    sliceEnd = Math.Min(totalBins - 1, sliceStart + span - 1);
+                }
+                else if (desired > sliceEnd)
+                {
+                    sliceEnd = desired;
+                    sliceStart = Math.Max(0, sliceEnd - (span - 1));
+                }
+            }
+
             visibleStartBin = sliceStart;
             visibleEndBin = sliceEnd;
 
@@ -776,13 +802,21 @@
 
             await JS.InvokeVoidAsync("localStorage.setItem", LastRunStorageKey, runId);
 
-            selectedBin = visibleEndBin;
+            var initialSelected = visibleEndBin;
+            if (restoredSelectedBin.HasValue)
+            {
+                initialSelected = Math.Clamp(restoredSelectedBin.Value, visibleStartBin, visibleEndBin);
+            }
+
+            selectedBin = initialSelected;
+            restoredSelectedBin = null;
             RefreshTimelineTicks();
             UpdateActiveMetrics(selectedBin);
             // Ensure node sparkline slices are built for the initial selection so chips show values, not labels.
             BuildNodeSparklines();
-            
+
             hasLoaded = true;
+            ScheduleRunStateSave();
         }
         catch (OperationCanceledException)
         {
@@ -831,6 +865,9 @@
         public StoredViewportState? Viewport { get; set; }
         public Dictionary<string, bool>? Sections { get; set; }
         public bool? FeatureBarOpen { get; set; }
+        public int? SelectedBin { get; set; }
+        public int? VisibleStartBin { get; set; }
+        public int? VisibleEndBin { get; set; }
     }
 
     private sealed class StoredViewportState
@@ -1435,6 +1472,11 @@
         selectedBinLabel = bin.ToString(CultureInfo.InvariantCulture);
         selectedTimestampLabel = FormatTimestamp(localIndex);
         EnsureInspectorVisibility();
+
+        if (hasLoaded && !isPlaying)
+        {
+            ScheduleRunStateSave();
+        }
     }
 
     private void RefreshTimelineTicks()
@@ -2724,24 +2766,33 @@
         return result;
     }
 
-    private static IReadOnlyList<double?> TrimSeriesAt(double?[]? source, int limit, int anchorIndex, int fallbackLength = 0)
+private static IReadOnlyList<double?> TrimSeriesAt(double?[]? source, int limit, int anchorIndex, int fallbackLength = 0)
+{
+    var effectiveLength = Math.Max(limit, fallbackLength);
+    if (effectiveLength <= 0)
     {
-        if (source is null || source.Length == 0)
-        {
-            return fallbackLength == 0
-                ? Array.Empty<double?>()
-                : Enumerable.Repeat<double?>(null, fallbackLength).ToArray();
-        }
+        return Array.Empty<double?>();
+    }
 
-        var length = source.Length;
-        var anchor = Math.Clamp(anchorIndex, 0, length - 1);
-        var count = Math.Min(limit, anchor + 1);
-        var start = anchor - count + 1;
+    var result = new double?[effectiveLength];
 
-        var result = new double?[count];
-        Array.Copy(source, start, result, 0, count);
+    if (source is null || source.Length == 0)
+    {
         return result;
     }
+
+    var length = source.Length;
+    var anchor = Math.Clamp(anchorIndex, 0, length - 1);
+    var copyCount = Math.Min(effectiveLength, anchor + 1);
+    if (copyCount <= 0)
+    {
+        return result;
+    }
+
+    var sourceStart = anchor - copyCount + 1;
+    Array.Copy(source, sourceStart, result, effectiveLength - copyCount, copyCount);
+    return result;
+}
 
     private static void ApplyLegacyOverlayFields(string rawJson, TopologyOverlaySettings settings)
     {
@@ -2833,6 +2884,7 @@
         sectionExpansionState = CreateDefaultSectionState();
         currentViewportSnapshot = null;
         pendingViewportSnapshot = null;
+        restoredSelectedBin = null;
         saveRunStateDebounceCts?.Cancel();
         saveRunStateDebounceCts?.Dispose();
         saveRunStateDebounceCts = null;

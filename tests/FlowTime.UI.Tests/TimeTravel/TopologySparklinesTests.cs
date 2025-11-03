@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using FlowTime.UI.Components.Topology;
 using FlowTime.UI.Pages.TimeTravel;
 using FlowTime.UI.Services;
@@ -68,9 +69,9 @@ public sealed class TopologySparklinesTests
         Assert.Equal(0d, sparkline.Min);
         Assert.Equal(1d, sparkline.Max);
         Assert.True(sparkline.Series.ContainsKey("distribution"));
-        // With current trimming anchored to the selected bin (default 0),
-        // only the first probability remains in the slice.
-        Assert.Equal(1, sparkline.Values.Count);
+        Assert.True(sparkline.Values.Count > 0);
+        Assert.True(sparkline.Values[^1].HasValue);
+        Assert.All(sparkline.Values.Take(sparkline.Values.Count - 1), value => Assert.False(value.HasValue));
 
         var missing = topology.TestGetNodesMissingSparkline();
         Assert.Empty(missing);
