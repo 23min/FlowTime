@@ -253,6 +253,57 @@ public sealed class TopologyInspectorTests
         Assert.All(metrics, block => Assert.False(block.IsPlaceholder));
     }
 
+    [Fact]
+    public void InspectorSparklineStroke_FollowsColorBasis()
+    {
+        var topology = new Topology();
+
+        // Service node with a single metric slice; select Utilization basis
+        topology.TestSetTopologyGraph(new TopologyGraph(
+            new[] { new TopologyNode("svc-x", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics()) },
+            Array.Empty<TopologyEdge>()));
+
+        var series = new Dictionary<string, double?[]>
+        {
+            ["successRate"] = new double?[] { 0.95 },
+            ["utilization"] = new double?[] { 0.96 }
+        };
+
+        var sparkline = CreateSparkline(series);
+        topology.TestSetNodeSparklines(new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["svc-x"] = sparkline
+        });
+
+        // First, with SLA basis expect green for success rate
+        var settingsSla = new TopologyOverlaySettings
+        {
+            ColorBasis = TopologyColorBasis.Sla,
+            UtilizationWarningThreshold = 0.90,
+            ErrorRateAlertThreshold = 0.05,
+            SlaWarningThreshold = 0.95
+        };
+        topology.TestSetOverlaySettings(settingsSla);
+        var blocksSla = topology.TestBuildInspectorMetrics("svc-x");
+        Assert.NotEmpty(blocksSla);
+        Assert.Equal("#009E73", blocksSla[0].Stroke); // Success rate under SLA basis
+
+        // Now switch to Utilization basis; color should not be green and not neutral
+        var settingsUtil = new TopologyOverlaySettings
+        {
+            ColorBasis = TopologyColorBasis.Utilization,
+            UtilizationWarningThreshold = 0.90,
+            ErrorRateAlertThreshold = 0.05,
+            SlaWarningThreshold = 0.95
+        };
+        topology.TestSetOverlaySettings(settingsUtil);
+        var blocksUtil = topology.TestBuildInspectorMetrics("svc-x");
+        Assert.NotEmpty(blocksUtil);
+        var stroke = blocksUtil[1].Stroke; // Utilization block
+        Assert.NotEqual("#009E73", stroke); // not success green
+        Assert.NotEqual("#CBD5E1", stroke); // not neutral gray
+    }
+
     private static TopologyNodeSemantics EmptySemantics() =>
         new(null, null, null, null, null, null, null, null, null);
 

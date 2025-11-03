@@ -80,6 +80,11 @@ public partial class Topology
         Logger = logger;
     }
 
+    internal void TestSetOverlaySettings(TopologyOverlaySettings settings)
+    {
+        overlaySettings = settings.Clone();
+    }
+
     internal void TestUpdateActiveMetrics(int bin)
     {
         UpdateActiveMetrics(bin);

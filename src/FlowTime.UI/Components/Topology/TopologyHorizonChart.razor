@@ -1,0 +1,225 @@
+@using Microsoft.JSInterop
+@using System.Globalization
+@using FlowTime.UI.Components.Topology
+
+@if (dataLength == 0)
+{
+    <div class="topology-horizon empty" />
+}
+else
+{
+    <canvas @ref="canvasRef"
+            class="topology-horizon"
+            width="360"
+            height="@Height"
+            role="img"
+            aria-label="@resolvedAriaLabel"></canvas>
+}
+
+@code {
+    [Inject] private IJSRuntime JS { get; set; } = default!;
+
+    [Parameter]
+    public double?[]? Data { get; set; }
+
+    [Parameter]
+    public double? Min { get; set; }
+
+    [Parameter]
+    public double? Max { get; set; }
+
+    [Parameter]
+    public int Bands { get; set; } = 3;
+
+    [Parameter]
+    public int Height { get; set; } = 24;
+
+    [Parameter]
+    public bool NormalizeAcrossNodes { get; set; } = false;
+
+    [Parameter]
+    public double? GlobalCap { get; set; }
+
+    [Parameter]
+    public string? AriaLabel { get; set; }
+
+    [Parameter]
+    public TopologyOverlaySettings? OverlaySettings { get; set; }
+
+    [Parameter]
+    public string? SeriesKey { get; set; }
+
+    [Parameter]
+    public int? HighlightStartIndex { get; set; }
+
+    [Parameter]
+    public int? HighlightEndIndex { get; set; }
+
+    private ElementReference canvasRef;
+    private int dataLength;
+    private string resolvedAriaLabel = "Horizon overview";
+    private double? lastMin;
+    private double? lastMax;
+    private int lastBands;
+    private int lastHeight;
+    private int? lastHighlightStart;
+    private int? lastHighlightEnd;
+    private int renderSeq;
+
+    protected override void OnParametersSet()
+    {
+        dataLength = Data?.Length ?? 0;
+        resolvedAriaLabel = string.IsNullOrWhiteSpace(AriaLabel) ? "Horizon overview" : AriaLabel!;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (dataLength == 0)
+        {
+            return;
+        }
+
+        var effectiveMin = NormalizeAcrossNodes ? 0d : (Min ?? ComputeMin(Data));
+        var effectiveMax = NormalizeAcrossNodes
+            ? (GlobalCap ?? Max ?? ComputeMax(Data))
+            : (Max ?? ComputeMax(Data));
+
+        if (effectiveMin.HasValue && effectiveMax.HasValue && Math.Abs(effectiveMax.Value - effectiveMin.Value) < 1e-6)
+        {
+            var baseline = effectiveMin.Value;
+            var adjustedMin = baseline - 0.001d;
+            if (NormalizeAcrossNodes && adjustedMin < 0d)
+            {
+                adjustedMin = 0d;
+                effectiveMax = 0.001d;
+            }
+            else
+            {
+                effectiveMin = adjustedMin;
+                effectiveMax = baseline + 0.001d;
+            }
+        }
+
+        if (!effectiveMin.HasValue || !effectiveMax.HasValue)
+        {
+            return;
+        }
+
+        if (!double.IsFinite(effectiveMin.Value) || !double.IsFinite(effectiveMax.Value))
+        {
+            return;
+        }
+
+        // Avoid redundant renders when nothing material changed
+        var highlightStart = HighlightStartIndex ?? -1;
+        var highlightEnd = HighlightEndIndex ?? -1;
+
+        var shouldRender = firstRender
+                           || lastMin != effectiveMin
+                           || lastMax != effectiveMax
+                           || lastBands != Bands
+                           || lastHeight != Height
+                           || highlightStart != lastHighlightStart
+                           || highlightEnd != lastHighlightEnd;
+
+        if (!shouldRender)
+        {
+            return;
+        }
+
+        lastMin = effectiveMin;
+        lastMax = effectiveMax;
+        lastBands = Bands;
+        lastHeight = Height;
+        lastHighlightStart = highlightStart;
+        lastHighlightEnd = highlightEnd;
+        renderSeq++;
+
+        var basis = ResolveBasisFromSeries();
+        var thresholds = OverlaySettings is not null
+            ? ColorScale.ColorThresholds.FromOverlay(OverlaySettings)
+            : ColorScale.ColorThresholds.Default;
+
+        await JS.InvokeVoidAsync(
+            "FlowTime.HorizonChart.renderHorizon",
+            canvasRef,
+            new
+            {
+                data = Data,
+                min = effectiveMin.Value,
+                max = effectiveMax.Value,
+                bands = Math.Clamp(Bands, 1, 6),
+                basis = basis,
+                thresholds = new
+                {
+                    slaSuccess = thresholds.SlaSuccess,
+                    slaWarning = thresholds.SlaWarning,
+                    utilWarning = thresholds.UtilizationWarning,
+                    utilCritical = thresholds.UtilizationCritical,
+                    errorWarning = thresholds.ErrorWarning,
+                    errorCritical = thresholds.ErrorCritical
+                },
+                height = Height,
+                highlightStart = highlightStart >= 0 ? highlightStart : (int?)null,
+                highlightEnd = highlightEnd >= 0 ? highlightEnd : (int?)null,
+                _seq = renderSeq
+            });
+    }
+
+    private string ResolveBasisFromSeries()
+    {
+        if (string.IsNullOrWhiteSpace(SeriesKey))
+        {
+            return OverlaySettings is null ? "sla" : OverlaySettings.ColorBasis.ToString().ToLowerInvariant();
+        }
+
+        return SeriesKey.Trim().ToLowerInvariant() switch
+        {
+            "successrate" => "sla",
+            "utilization" => "utilization",
+            "errorrate" or "errors" => "errors",
+            "queue" or "queuedepth" => "queue",
+            _ => OverlaySettings is null ? "sla" : OverlaySettings.ColorBasis.ToString().ToLowerInvariant()
+        };
+    }
+
+    private static double? ComputeMin(double?[]? values)
+    {
+        if (values is null || values.Length == 0)
+        {
+            return null;
+        }
+
+        var min = double.PositiveInfinity;
+        var any = false;
+        foreach (var v in values)
+        {
+            if (v.HasValue && double.IsFinite(v.Value))
+            {
+                any = true;
+                if (v.Value < min) min = v.Value;
+            }
+        }
+        return any ? min : 0d;
+    }
+
+    private static double? ComputeMax(double?[]? values)
+    {
+        if (values is null || values.Length == 0)
+        {
+            return null;
+        }
+
+        var max = double.NegativeInfinity;
+        var any = false;
+        foreach (var v in values)
+        {
+            if (v.HasValue && double.IsFinite(v.Value))
+            {
+                any = true;
+                if (v.Value > max) max = v.Value;
+            }
+        }
+        return any ? max : 0d;
+    }
+}

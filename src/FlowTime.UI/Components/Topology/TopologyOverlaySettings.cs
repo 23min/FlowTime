@@ -58,6 +58,12 @@ public sealed class TopologyOverlaySettings
     public bool ShowExpressionDependencies { get; set; } = true;
     public LayoutMode Layout { get; set; } = LayoutMode.HappyPath;
 
+    // Inspector overview (Horizon chart)
+    public bool ShowInspectorOverview { get; set; } = true;
+    public int HorizonBands { get; set; } = 3; // Allow 3–5
+    public bool NormalizeInspectorHorizonCounts { get; set; } = false;
+    public double? InspectorHorizonGlobalCap { get; set; } = null;
+
     public TopologyOverlaySettings Clone()
     {
         return new TopologyOverlaySettings
@@ -85,7 +91,11 @@ public sealed class TopologyOverlaySettings
             ShowQueueDependencies = ShowQueueDependencies,
             ShowCapacityDependencies = ShowCapacityDependencies,
             ShowExpressionDependencies = ShowExpressionDependencies,
-            Layout = Layout
+            Layout = Layout,
+            ShowInspectorOverview = ShowInspectorOverview,
+            HorizonBands = HorizonBands,
+            NormalizeInspectorHorizonCounts = NormalizeInspectorHorizonCounts,
+            InspectorHorizonGlobalCap = InspectorHorizonGlobalCap
         };
     }
 

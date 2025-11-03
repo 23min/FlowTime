@@ -68,7 +68,9 @@ public sealed class TopologySparklinesTests
         Assert.Equal(0d, sparkline.Min);
         Assert.Equal(1d, sparkline.Max);
         Assert.True(sparkline.Series.ContainsKey("distribution"));
-        Assert.Equal(3, sparkline.Values.Count);
+        // With current trimming anchored to the selected bin (default 0),
+        // only the first probability remains in the slice.
+        Assert.Equal(1, sparkline.Values.Count);
 
         var missing = topology.TestGetNodesMissingSparkline();
         Assert.Empty(missing);

@@ -9,7 +9,8 @@ public enum TopologyFeatureSection
     EdgeRouting,
     Topology,
     CanvasZoom,
-    FocusThresholds
+    FocusThresholds,
+    InspectorOverview
 }
 
 public readonly record struct SectionExpansionChangedArgs(TopologyFeatureSection Section, bool IsExpanded);

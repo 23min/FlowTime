@@ -96,6 +96,14 @@
                                                   y2="11" />
                                         }
                                     </svg>
+                                    @{
+                                        var totalSpan = Math.Max(1, visibleEndBin - visibleStartBin);
+                                        var winStart = Math.Max(visibleStartBin, selectedBin - SparklinePointLimit + 1);
+                                        var winEnd = Math.Max(winStart, Math.Min(selectedBin, visibleEndBin));
+                                        var xPct = (winStart - visibleStartBin) * 100.0 / totalSpan;
+                                        var wPct = (winEnd - winStart + 1) * 100.0 / totalSpan;
+                                    }
+                                    <div class="timeline-window" style="left: @xPct.ToString("0.###", CultureInfo.InvariantCulture)%; width: @wPct.ToString("0.###", CultureInfo.InvariantCulture)%;"></div>
                                     <div class="timeline-pointer @(isDialPointerDragging ? "is-dragging" : string.Empty)"
                                          style="left: @DialPercent.ToString("0.###", CultureInfo.InvariantCulture)%; --timeline-transition-duration: @PointerTransitionDuration;"></div>
                                     <input class="timeline-range"
@@ -333,6 +341,27 @@
                                                                              ValueFormat="@block.ValueFormat"
                                                                              OverlaySettings="overlaySettings"
                                                                              SeriesKey="@block.SeriesKey" />
+
+                                                @if (overlaySettings.ShowInspectorOverview)
+                                                {
+                                                    var (hData, hMin, hMax, hStart, hEnd) = ResolveHorizonSeries(inspectorNodeId!, block.SeriesKey, block.Sparkline);
+                                                    var horizonMin = overlaySettings.NormalizeInspectorHorizonCounts ? 0d : hMin;
+                                                    var horizonMax = overlaySettings.NormalizeInspectorHorizonCounts
+                                                        ? (overlaySettings.InspectorHorizonGlobalCap ?? hMax)
+                                                        : hMax;
+                                                    <TopologyHorizonChart Data="@hData"
+                                                                          Min="@horizonMin"
+                                                                          Max="@horizonMax"
+                                                                          Bands="@overlaySettings.HorizonBands"
+                                                                          Height="24"
+                                                                          NormalizeAcrossNodes="@overlaySettings.NormalizeInspectorHorizonCounts"
+                                                                          GlobalCap="@overlaySettings.InspectorHorizonGlobalCap"
+                                                                          OverlaySettings="overlaySettings"
+                                                                          SeriesKey="@block.SeriesKey"
+                                                                          HighlightStartIndex="@hStart"
+                                                                          HighlightEndIndex="@hEnd"
+                                                                          AriaLabel="@(block.AriaLabel is null ? null : $"{block.AriaLabel} horizon overview")" />
+                                                }
                                             }
                                         </MudStack>
                                     }
@@ -1487,6 +1516,125 @@
         }
 
         return $"Bin {bin}";
+    }
+
+    private (double?[]? Data, double Min, double Max, int HighlightStart, int HighlightEnd) ResolveHorizonSeries(string nodeId, string? seriesKey, NodeSparklineData? fallback)
+    {
+        double?[]? data = null;
+        double min = 0d, max = 0d;
+        int hStart = 0, hEnd = 0;
+
+        if (windowData is not null)
+        {
+            var node = windowData.Nodes.FirstOrDefault(n => string.Equals(n.Id, nodeId, StringComparison.OrdinalIgnoreCase));
+            if (node is not null)
+            {
+                data = ResolveFullSeries(node, seriesKey);
+            }
+
+            var startBin = windowData.Window.StartBin;
+            var endBin = windowData.Window.EndBin;
+            var totalBins = Math.Max(1, endBin - startBin + 1);
+            var winStart = Math.Max(startBin, selectedBin - SparklinePointLimit + 1);
+            var winEnd = Math.Max(winStart, Math.Min(selectedBin, endBin));
+            hStart = Math.Clamp(winStart - startBin, 0, totalBins - 1);
+            hEnd = Math.Clamp(winEnd - startBin, 0, totalBins - 1);
+        }
+
+        if (data is null || data.Length == 0)
+        {
+            // Fallback to trimmed values to avoid empty charts
+            if (fallback is not null)
+            {
+                data = fallback.Values as double?[] ?? fallback.Values.ToArray();
+                hStart = 0;
+                hEnd = data.Length - 1;
+            }
+            else
+            {
+                data = Array.Empty<double?>();
+                hStart = 0;
+                hEnd = 0;
+            }
+        }
+
+        (min, max) = ComputeSeriesMinMax(data);
+        return (data, min, max, hStart, hEnd);
+    }
+
+    private static (double Min, double Max) ComputeSeriesMinMax(double?[]? data)
+    {
+        if (data is null || data.Length == 0)
+        {
+            return (0d, 0d);
+        }
+
+        var min = double.PositiveInfinity;
+        var max = double.NegativeInfinity;
+        var any = false;
+        foreach (var v in data)
+        {
+            if (v.HasValue && double.IsFinite(v.Value))
+            {
+                any = true;
+                if (v.Value < min) min = v.Value;
+                if (v.Value > max) max = v.Value;
+            }
+        }
+
+        if (!any)
+        {
+            return (0d, 0d);
+        }
+
+        if (Math.Abs(max - min) < 1e-9)
+        {
+            var baseline = min;
+            var epsilon = Math.Max(Math.Abs(baseline) * 0.001d, 0.001d);
+            var adjustedMin = baseline - epsilon;
+            if (baseline >= 0d && adjustedMin < 0d)
+            {
+                min = 0d;
+                max = epsilon;
+            }
+            else
+            {
+                min = adjustedMin;
+                max = baseline + epsilon;
+            }
+        }
+
+        return (min, max);
+    }
+
+    private double?[]? ResolveFullSeries(TimeTravelNodeSeriesDto node, string? key)
+    {
+        var k = (key ?? string.Empty).Trim().ToLowerInvariant();
+        switch (k)
+        {
+            case "successrate":
+                return BuildSuccessRateSeries(node);
+            case "errorrate":
+                return BuildErrorRateSeries(node);
+            case "latency":
+            case "latencyminutes":
+                return TryGetSeries(node, "latencyMinutes") ?? TryGetSeries(node, "latency");
+            case "queue":
+            case "queuedepth":
+                return TryGetSeries(node, "queue") ?? TryGetSeries(node, "queueDepth");
+            case "values":
+            case "output":
+                return TryGetSeries(node, "values") ?? TryGetSeries(node, "output") ?? TryGetSeries(node, node.Id) ?? TryGetSeries(node, $"series:{node.Id}");
+            case "errors":
+                return TryGetSeries(node, "errors");
+            case "served":
+                return TryGetSeries(node, "served");
+            case "arrivals":
+                return TryGetSeries(node, "arrivals");
+            default:
+                // Unknown series key; try direct lookup
+                return string.IsNullOrWhiteSpace(key) ? null : TryGetSeries(node, key);
+        }
     }
 
     private void StartPlayback()

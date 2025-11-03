@@ -109,6 +109,51 @@
                 </MudStack>
             </MudExpansionPanel>
 
+            <MudExpansionPanel Text="Inspector overview"
+                               Expanded="@IsExpanded(TopologyFeatureSection.InspectorOverview)"
+                               ExpandedChanged="expanded => SetSectionExpanded(TopologyFeatureSection.InspectorOverview, expanded)">
+                <MudStack Spacing="1" Class="topology-section-body">
+                    <MudSwitch T="bool"
+                               Dense="true"
+                               Class="topology-dense-control"
+                               Value="@workingSettings.ShowInspectorOverview"
+                               ValueChanged="OnShowInspectorOverviewChanged"
+                               Color="Color.Primary"
+                               Label="Show horizon under sparklines" />
+                    <MudStack Row="true" AlignItems="@AlignItems.Center" Spacing="1">
+                        <MudText Typo="Typo.caption">Bands</MudText>
+                        <MudSlider T="int"
+                                   Class="flex-grow-1"
+                                   Value="@workingSettings.HorizonBands"
+                                   ValueChanged="OnHorizonBandsChanged"
+                                   Min="3"
+                                   Max="5"
+                                   Step="1"
+                                   Immediate="true"
+                                   Size="Size.Small"
+                                   ValueLabel="false" />
+                        <MudText Typo="Typo.caption">@workingSettings.HorizonBands</MudText>
+                    </MudStack>
+                    <MudCheckBox T="bool"
+                                 Dense="true"
+                                 Class="topology-dense-control"
+                                 Value="@workingSettings.NormalizeInspectorHorizonCounts"
+                                 ValueChanged="OnNormalizeHorizonChanged"
+                                 Color="Color.Primary"
+                                 Label="Normalize across nodes (use global cap)" />
+                    <MudNumericField T="double?"
+                                     Dense="true"
+                                     Class="topology-dense-control"
+                                     Label="Global cap (optional)"
+                                     Culture="@CultureInfo.InvariantCulture"
+                                     Value="@workingSettings.InspectorHorizonGlobalCap"
+                                     ValueChanged="OnInspectorHorizonGlobalCapChanged"
+                                     Disabled="@(!workingSettings.NormalizeInspectorHorizonCounts)"
+                                     Min="0"
+                                     Immediate="true" />
+                </MudStack>
+            </MudExpansionPanel>
+
             <MudExpansionPanel Text="Edge routing"
                                Expanded="@IsExpanded(TopologyFeatureSection.EdgeRouting)"
                                ExpandedChanged="expanded => SetSectionExpanded(TopologyFeatureSection.EdgeRouting, expanded)">
@@ -589,6 +634,52 @@
         }
 
         workingSettings.ShowExpressionDependencies = value;
+        return NotifyChange();
+    }
+
+    private Task OnShowInspectorOverviewChanged(bool value)
+    {
+        if (workingSettings.ShowInspectorOverview == value)
+        {
+            return Task.CompletedTask;
+        }
+
+        workingSettings.ShowInspectorOverview = value;
+        return NotifyChange();
+    }
+
+    private Task OnHorizonBandsChanged(int value)
+    {
+        var clamped = Math.Clamp(value, 1, 6);
+        if (workingSettings.HorizonBands == clamped)
+        {
+            return Task.CompletedTask;
+        }
+
+        workingSettings.HorizonBands = clamped;
+        return NotifyChange();
+    }
+
+    private Task OnNormalizeHorizonChanged(bool value)
+    {
+        if (workingSettings.NormalizeInspectorHorizonCounts == value)
+        {
+            return Task.CompletedTask;
+        }
+
+        workingSettings.NormalizeInspectorHorizonCounts = value;
+        return NotifyChange();
+    }
+
+    private Task OnInspectorHorizonGlobalCapChanged(double? value)
+    {
+        if (Nullable.Equals(workingSettings.InspectorHorizonGlobalCap, value))
+        {
+            return Task.CompletedTask;
+        }
+
+        if (value.HasValue && value.Value < 0) value = 0;
+        workingSettings.InspectorHorizonGlobalCap = value;
         return NotifyChange();
     }
 

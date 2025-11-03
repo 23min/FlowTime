@@ -401,6 +401,14 @@ code {
     transition: left var(--timeline-transition-duration, 0s) linear;
 }
 
+.timeline-window {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    background: rgba(71, 85, 105, 0.12); /* slightly darker than track bg, lighter than tick marks */
+    pointer-events: none;
+}
+
 .timeline-pointer.is-dragging {
     transition: none;
 }
