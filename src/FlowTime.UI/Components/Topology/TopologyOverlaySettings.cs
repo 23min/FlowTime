@@ -56,7 +56,7 @@ public sealed class TopologyOverlaySettings
     public bool ShowQueueDependencies { get; set; } = true;
     public bool ShowCapacityDependencies { get; set; } = true;
     public bool ShowExpressionDependencies { get; set; } = true;
-    public LayoutMode Layout { get; set; } = LayoutMode.Layered;
+    public LayoutMode Layout { get; set; } = LayoutMode.HappyPath;
 
     public TopologyOverlaySettings Clone()
     {

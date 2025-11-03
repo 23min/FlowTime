@@ -545,7 +545,7 @@
                     nodeMeta.fill = fill;
                 }
 
-                if (kind === 'service' || kind === 'queue') {
+                if (kind === 'service' || kind === 'queue' || kind === 'router') {
                     drawServiceDecorations(ctx, nodeMeta, overlaySettings, state);
                 } else if (kind === 'pmf' && nodeMeta?.distribution) {
                     drawPmfDistribution(ctx, nodeMeta, nodeMeta.distribution);

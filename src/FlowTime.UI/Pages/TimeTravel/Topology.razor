@@ -722,7 +722,7 @@
             visibleStartBin = sliceStart;
             visibleEndBin = sliceEnd;
 
-            var stateMode = overlaySettings.EnableFullDag ? "full" : null;
+            var stateMode = (overlaySettings.EnableFullDag || overlaySettings.IncludeExpressionNodes || overlaySettings.IncludeConstNodes) ? "full" : null;
             Logger?.LogInformation("Requesting state window for run {RunId} bins {Start}-{End} (mode={Mode})", runId, sliceStart, sliceEnd, stateMode ?? "operational");
             var windowResult = await DataService.GetStateWindowAsync(runId, sliceStart, sliceEnd, stateMode, ct);
             if (!windowResult.Success || windowResult.Value is null)
@@ -1027,7 +1027,8 @@
         try
         {
             var mode = overlaySettings.EnableFullDag ? "full" : null;
-            var windowResult = await DataService.GetStateWindowAsync(currentRunId!, sliceStart, sliceEnd, mode, cts.Token);
+            var fullMode = (overlaySettings.EnableFullDag || overlaySettings.IncludeExpressionNodes || overlaySettings.IncludeConstNodes) ? "full" : mode;
+            var windowResult = await DataService.GetStateWindowAsync(currentRunId!, sliceStart, sliceEnd, fullMode, cts.Token);
             if (!windowResult.Success || windowResult.Value is null)
             {
                 return;
@@ -1650,7 +1651,8 @@
                 continue;
             }
 
-            var trimmedPrimary = TrimSeries(primarySeries, SparklinePointLimit);
+            var anchor = Math.Clamp(selectedBin, 0, (primarySeries?.Length ?? 1) - 1);
+            var trimmedPrimary = TrimSeriesAt(primarySeries, SparklinePointLimit, anchor);
             if (trimmedPrimary.Count == 0)
             {
                 if (IsExpressionKind(node.Kind))
@@ -1661,18 +1663,18 @@
                 continue;
             }
 
-            var primaryStartIndex = Math.Max(0, primarySeries.Length - trimmedPrimary.Count);
-            var trimmedUtilization = TrimSeries(TryGetSeries(node, "utilization"), SparklinePointLimit, trimmedPrimary.Count);
-            var trimmedErrorRate = TrimSeries(BuildErrorRateSeries(node), SparklinePointLimit, trimmedPrimary.Count);
-            var trimmedQueue = TrimSeries(TryGetSeries(node, "queue"), SparklinePointLimit, trimmedPrimary.Count);
+            var primaryStartIndex = Math.Max(0, anchor - trimmedPrimary.Count + 1);
+            var trimmedUtilization = TrimSeriesAt(TryGetSeries(node, "utilization"), SparklinePointLimit, anchor, trimmedPrimary.Count);
+            var trimmedErrorRate = TrimSeriesAt(BuildErrorRateSeries(node), SparklinePointLimit, anchor, trimmedPrimary.Count);
+            var trimmedQueue = TrimSeriesAt(TryGetSeries(node, "queue"), SparklinePointLimit, anchor, trimmedPrimary.Count);
 
             var additional = new Dictionary<string, SparklineSeriesSlice>(StringComparer.OrdinalIgnoreCase);
             foreach (var pair in series)
             {
-                var trimmed = TrimSeries(pair.Value, SparklinePointLimit, trimmedPrimary.Count);
+                var trimmed = TrimSeriesAt(pair.Value, SparklinePointLimit, anchor, trimmedPrimary.Count);
                 var startIndex = pair.Value is null || pair.Value.Length == 0
                     ? primaryStartIndex
-                    : Math.Max(0, pair.Value.Length - trimmed.Count);
+                    : Math.Max(0, anchor - trimmed.Count + 1);
                 additional[pair.Key] = new SparklineSeriesSlice(trimmed, startIndex);
             }
 
@@ -1722,7 +1724,8 @@
                 if (inlineValues is not null && inlineValues.Count > 0)
                 {
                     var nullableSeries = inlineValues.Select(value => (double?)value).ToArray();
-                    var trimmedInline = TrimSeries(nullableSeries, SparklinePointLimit);
+                    var anchor = Math.Clamp(selectedBin, 0, nullableSeries.Length - 1);
+                    var trimmedInline = TrimSeriesAt(nullableSeries, SparklinePointLimit, anchor);
                     if (trimmedInline.Count == 0)
                     {
                         continue;
@@ -1784,10 +1787,11 @@
 
                         if (hasProbability)
                         {
-                            var trimmedProbabilities = TrimSeries(probabilities, SparklinePointLimit);
+                            var anchor = Math.Clamp(selectedBin, 0, probabilities.Length - 1);
+                            var trimmedProbabilities = TrimSeriesAt(probabilities, SparklinePointLimit, anchor);
                             if (trimmedProbabilities.Count > 0)
                             {
-                                var trimmedValues = TrimSeries(supportValues, SparklinePointLimit, trimmedProbabilities.Count);
+                                var trimmedValues = TrimSeriesAt(supportValues, SparklinePointLimit, anchor, trimmedProbabilities.Count);
                                 var probabilityArray = trimmedProbabilities as double?[] ?? trimmedProbabilities.ToArray();
                                 var valueArray = trimmedValues as double?[] ?? trimmedValues.ToArray();
                                 var additional = new Dictionary<string, SparklineSeriesSlice>(StringComparer.OrdinalIgnoreCase)
@@ -2019,6 +2023,7 @@
         AddRequired("Utilization", "utilization", 0d, 1d, valueFormat: InspectorValueFormat.Percent);
         AddRequired("Latency", "latencyMinutes", 0d);
         AddRequired("Error rate", "errorRate", 0d, 1d, valueFormat: InspectorValueFormat.Percent);
+        AddOptional("Errors", "errors", 0d, ariaLabel: "Errors sparkline");
 
         return blocks;
     }
@@ -2551,6 +2556,25 @@
         return result;
     }
 
+    private static IReadOnlyList<double?> TrimSeriesAt(double?[]? source, int limit, int anchorIndex, int fallbackLength = 0)
+    {
+        if (source is null || source.Length == 0)
+        {
+            return fallbackLength == 0
+                ? Array.Empty<double?>()
+                : Enumerable.Repeat<double?>(null, fallbackLength).ToArray();
+        }
+
+        var length = source.Length;
+        var anchor = Math.Clamp(anchorIndex, 0, length - 1);
+        var count = Math.Min(limit, anchor + 1);
+        var start = anchor - count + 1;
+
+        var result = new double?[count];
+        Array.Copy(source, start, result, 0, count);
+        return result;
+    }
+
     private static void ApplyLegacyOverlayFields(string rawJson, TopologyOverlaySettings settings)
     {
         try
@@ -2593,6 +2617,8 @@
         }
 
         UpdateActiveMetrics(value);
+        // Rebuild sparklines anchored at the new selection so sampling works across the whole day.
+        BuildNodeSparklines();
         StateHasChanged();
         return Task.CompletedTask;
     }

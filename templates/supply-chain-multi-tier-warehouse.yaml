@@ -1,12 +1,12 @@
 schemaVersion: 1
 generator: flowtime-sim
 metadata:
-  id: 'supply-chain-multi-tier'
-  title: 'Multi-Tier Supply Chain'
-  description: 'Complex supply chain with suppliers, distributors, retailers, and demand variability'
+  id: 'supply-chain-multi-tier-warehouse'
+  title: 'Multi-Tier Supply Chain with Warehouse'
+  description: 'Supply chain with explicit warehouse buffer (stock build and drawdown), conserving flow on SLA channels'
   version: 1.0.0
-  captureKey: supply-chain-multi-tier-telemetry
-  tags: [advanced, supply-chain, multi-tier, variability, logistics]
+  captureKey: supply-chain-multi-tier-warehouse-telemetry
+  tags: [advanced, supply-chain, multi-tier, warehouse, inventory, logistics]
 window:
   start: 2025-01-01T00:00:00Z
   timezone: UTC
@@ -57,10 +57,17 @@ parameters:
   - name: bufferSize
     type: number
     title: "Buffer Size Multiplier"
-    description: "Safety stock buffer as multiplier of demand (deprecated in this base template; use the warehouse variant to model buffers)"
-    default: 1.0
+    description: "Planned production multiplier (e.g., 1.2 = 20% build-ahead into warehouse)"
+    default: 1.2
     minimum: 1.0
     maximum: 3.0
+  - name: initialStock
+    type: number
+    title: "Initial Warehouse Stock"
+    description: "Initial inventory units available in the warehouse (bin 0)"
+    default: 0
+    minimum: 0
+    maximum: 100000
   - name: telemetryDemandSource
     type: string
     title: "Telemetry customer demand source"
@@ -77,13 +84,19 @@ topology:
     - id: Supplier
       kind: service
       semantics:
-        arrivals: customer_demand
-        served: supplied_items
+        arrivals: planned_production
+        served: supplier_shipments
         errors: supplier_shortage
+    - id: Warehouse
+      kind: service
+      semantics:
+        arrivals: supplier_shipments
+        served: warehouse_shipments
+        errors: inventory_build
     - id: Distributor
       kind: service
       semantics:
-        arrivals: supplied_items
+        arrivals: warehouse_shipments
         served: distributed_items
         errors: distributor_backlog
     - id: Retailer
@@ -93,50 +106,78 @@ topology:
         served: retail_sales
         errors: unmet_demand
   edges:
-    - id: edge1
+    - id: e1
       from: Supplier:out
+      to: Warehouse:in
+    - id: e2
+      from: Warehouse:out
       to: Distributor:in
-    - id: edge2
+    - id: e3
       from: Distributor:out
       to: Retailer:in
 
 nodes:
+  # External demand
   - id: customer_demand
     kind: const
     values: ${demandPattern}
     source: ${telemetryDemandSource}
 
+  # Capacities
   - id: supplier_capacity
     kind: const
     values: ${supplierCapacity}
-
   - id: distributor_capacity
     kind: const
     values: ${distributorCapacity}
-
   - id: retailer_capacity
     kind: const
     values: ${retailerCapacity}
 
-  - id: supplied_items
+  # Planning and shipments
+  - id: planned_production
     kind: expr
-    expr: "MIN(customer_demand, supplier_capacity)"
+    expr: "MIN(customer_demand * ${bufferSize}, supplier_capacity)"
 
+  - id: supplier_shipments
+    kind: expr
+    expr: "planned_production"
+
+  # Downstream pull and availability
+  - id: downstream_cap
+    kind: expr
+    expr: "MIN(distributor_capacity, retailer_capacity)"
+
+  - id: requested_shipments
+    kind: expr
+    expr: "MIN(customer_demand, downstream_cap)"
+
+  - id: warehouse_shipments
+    kind: expr
+    expr: "MIN(supplier_shipments, requested_shipments)"
+
+  # Per-bin inventory delta (build-ahead not yet shipped this bin)
+  - id: warehouse_stock_delta
+    kind: expr
+    expr: "MAX(0, supplier_shipments - warehouse_shipments)"
+
+  # Downstream flows
   - id: distributed_items
     kind: expr
-    expr: "MIN(supplied_items, distributor_capacity)"
+    expr: "MIN(warehouse_shipments, distributor_capacity)"
 
   - id: retail_sales
     kind: expr
     expr: "MIN(distributed_items, retailer_capacity)"
 
+  # Diagnostics
   - id: supplier_shortage
     kind: expr
-    expr: "MAX(0, customer_demand - supplied_items)"
+    expr: "MAX(0, planned_production - supplier_shipments)"
 
   - id: distributor_backlog
     kind: expr
-    expr: "MAX(0, supplied_items - distributed_items)"
+    expr: "MAX(0, warehouse_shipments - distributed_items)"
 
   - id: unmet_demand
     kind: expr
@@ -146,16 +187,32 @@ nodes:
     kind: expr
     expr: "retail_sales / customer_demand"
 
+  - id: inventory_build
+    kind: expr
+    expr: "MAX(0, supplier_shipments - warehouse_shipments)"
+
+  - id: warehouse_overflow
+    kind: expr
+    expr: "0"
+
 outputs:
   - series: customer_demand
     as: demand.csv
+  - series: planned_production
+    as: planned_production.csv
+  - series: supplier_shipments
+    as: supplier_shipments.csv
+  - series: warehouse_stock_delta
+    as: warehouse_stock_delta.csv
+  - series: warehouse_shipments
+    as: warehouse_shipments.csv
+  - series: distributed_items
+    as: distributed.csv
   - series: retail_sales
     as: sales.csv
   - series: unmet_demand
     as: stockouts.csv
-  - series: supplier_shortage
-    as: supplier_shortage.csv
-  - series: distributor_backlog
-    as: distributor_backlog.csv
   - series: supply_efficiency
     as: efficiency.csv
+  - series: inventory_build
+    as: inventory_build.csv

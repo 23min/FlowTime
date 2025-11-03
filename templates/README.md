@@ -78,7 +78,7 @@ Telemetry JSON example:
 | `supplierCapacity` | array&lt;number&gt; | `[200, 200, 200, 200, 200, 200]` | Supplier production capacity. |
 | `distributorCapacity` | array&lt;number&gt; | `[150, 150, 150, 150, 150, 150]` | Distribution centre capacity. |
 | `retailerCapacity` | array&lt;number&gt; | `[120, 120, 120, 120, 120, 120]` | Retail capacity per bin. |
-| `bufferSize` | number | `1.2` | Safety stock multiplier applied to demand. |
+| — | — | — | This base template models direct flow without explicit buffers (served is capped at demand). For buffer modeling, see the warehouse variant below. |
 | `telemetryDemandSource` | string | `""` | Optional telemetry CSV for `customer_demand`. |
 
 ```json
@@ -114,3 +114,39 @@ When FlowTime-Sim runs in a different environment than Engine:
 4. Share the resulting `data/runs/<runId>` directory with any consumers that call `/state`.
 
 This keeps template ownership with Sim while ensuring Engine always consumes canonical bundles.
+
+## supply-chain-multi-tier-warehouse
+
+This variant introduces an explicit warehouse buffer between Supplier and Distributor. The Supplier plans production with a buffer multiplier (e.g., 20% build-ahead), ships to the Warehouse, and downstream pulls from inventory subject to Distributor and Retailer capacities. SLA channels remain conservative: per-node `served` values are capped by the corresponding `arrivals`/pull, so ratios never exceed 1.0.
+
+| Parameter | Type | Default | Notes |
+|-----------|------|---------|-------|
+| `bins` | integer | `6` | Time periods to simulate. |
+| `binSize` | integer | `60` | Minutes per bin. |
+| `demandPattern` | array<number> | `[80, 120, 160, 140, 100, 60]` | Customer demand for `customer_demand`. |
+| `supplierCapacity` | array<number> | `[200, 200, 200, 200, 200, 200]` | Supplier production capacity. |
+| `distributorCapacity` | array<number> | `[150, 150, 150, 150, 150, 150]` | Distribution capacity. |
+| `retailerCapacity` | array<number> | `[120, 120, 120, 120, 120, 120]` | Retail capacity. |
+| `bufferSize` | number | `1.2` | Planned production multiplier feeding the warehouse. |
+| `initialStock` | number | `0` | Initial warehouse inventory (bin 0). |
+| `telemetryDemandSource` | string | `""` | Optional telemetry CSV for `customer_demand`. |
+
+Key series:
+- `planned_production` and `supplier_shipments` feed the warehouse.
+- `warehouse_stock` maintains inventory via `SHIFT(warehouse_stock, 1) + inflow - outflow`.
+- `warehouse_shipments` respects both inventory availability and downstream pull (`customer_demand` capped by distributor/retailer capacity).
+
+Topology nodes: Supplier (service) → Warehouse (router) → Distributor (service) → Retailer (service).
+
+Notes:
+- Arrays for demand/capacity parameters must contain exactly `grid.bins` values. If you raise `bins`, provide matching-length arrays or the engine throws at evaluation time.
+
+## supply-chain-multi-tier-warehouse-1d5m
+
+Fixed 24-hour variant of the warehouse template preconfigured for a 1‑day window with 5‑minute bins (288). Demand is shaped by hour and expanded to 5‑minute bins; capacities are constant across the day. No parameters — ready to run.
+
+Metadata:
+- Title: "Multi-Tier Supply Chain with Warehouse (1day, 5m)"
+- Grid: `bins: 288`, `binSize: 5`, `binUnit: minutes`
+
+Topology nodes: Supplier (service) → Warehouse (service) → Distributor (service) → Retailer (service).
