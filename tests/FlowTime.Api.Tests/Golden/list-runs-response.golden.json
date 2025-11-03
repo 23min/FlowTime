@@ -13,6 +13,10 @@
         "generatedAtUtc": "GENERATED_AT_UTC",
         "warningCount": 0,
         "sourceRunId": "CAPTURE_SOURCE_RUN_ID"
+      },
+      "rng": {
+        "kind": "pcg32",
+        "seed": 123
       }
     }
   ],

@@ -17,6 +17,10 @@
       "modelPath": "MODEL_PATH",
       "metadataPath": "METADATA_PATH",
       "provenancePath": null
+    },
+    "rng": {
+      "kind": "pcg32",
+      "seed": 123
     }
   },
   "plan": null,

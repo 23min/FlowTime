@@ -87,6 +87,14 @@
                                 <div class="timeline-track @(visibleStartBin == visibleEndBin ? "is-disabled" : string.Empty)">
                                     <svg class="timeline-svg" viewBox="0 0 100 12" preserveAspectRatio="none">
                                         <rect class="timeline-track-bg" x="0" y="4" width="100" height="4" />
+                                        @foreach (var minor in timelineMinorTicks)
+                                        {
+                                            <line class="timeline-tick-line timeline-tick-line--minor"
+                                                  x1="@minor.ToString("0.###", CultureInfo.InvariantCulture)"
+                                                  x2="@minor.ToString("0.###", CultureInfo.InvariantCulture)"
+                                                  y1="3"
+                                                  y2="9" />
+                                        }
                                         @foreach (var tick in timelineTicks)
                                         {
                                             <line class="timeline-tick-line"
@@ -438,6 +446,7 @@
     private string selectedBinLabel = string.Empty;
     private string selectedTimestampLabel = string.Empty;
     private IReadOnlyList<TimelineTick> timelineTicks = Array.Empty<TimelineTick>();
+    private IReadOnlyList<double> timelineMinorTicks = Array.Empty<double>();
     private bool isPlaying;
     private bool loopPlayback;
     private double playbackSecondsPerFrame = 1d;
@@ -1484,6 +1493,7 @@
         if (visibleEndBin < visibleStartBin)
         {
             timelineTicks = Array.Empty<TimelineTick>();
+            timelineMinorTicks = Array.Empty<double>();
             return;
         }
 
@@ -1493,6 +1503,7 @@
             {
                 new TimelineTick(visibleStartBin, 0d, BuildTickLabel(visibleStartBin))
             };
+            timelineMinorTicks = Array.Empty<double>();
             return;
         }
 
@@ -1542,6 +1553,25 @@
         }
 
         timelineTicks = ticks;
+
+        var minorTicks = new List<double>();
+        for (var i = 0; i < ticks.Count - 1; i++)
+        {
+            var current = ticks[i];
+            var next = ticks[i + 1];
+            if (next.Bin - current.Bin <= 1)
+            {
+                continue;
+            }
+
+            var midPercent = (current.Percent + next.Percent) / 2d;
+            if (midPercent > current.Percent && midPercent < next.Percent)
+            {
+                minorTicks.Add(midPercent);
+            }
+        }
+
+        timelineMinorTicks = minorTicks;
     }
 
     private string BuildTickLabel(int bin)
