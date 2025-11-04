@@ -177,3 +177,34 @@ We use UI-M-XX.XX with bands per phase to keep sessions small and reviewable.
   - UI-M-03.26 — Documentation & Stabilization
 
 Future extensions can continue at UI-M-03.30+.
+
+---
+
+## Epic — Retry + Service Time (TT‑M‑03.28..31)
+
+Purpose: make retries and service time first‑class, end‑to‑end. Start with contracts and fixtures, then add UI overlays and stabilization.
+
+- TT‑M‑03.28 — Retries Foundations (Attempts/Success/Failure + Retry Rate)
+  - Templates: add dependency retry series in example system(s).
+  - API: add `edges` section to `/state_window` carrying attempts/success/failure and derived `retryRate` with guards.
+  - UI: inspector shows outgoing dependency retry rates for focused node; click highlights edge.
+  - Doc: contract snippet and examples.
+
+- TT‑M‑03.29 — Service Time (S) Derivation (Processing Time Sum)
+  - Templates/fixtures: add per‑bin `processingTimeMsSum` and `servedCount`.
+  - API: derive `serviceTimeMs`; include in `/state` and `/state_window` for services.
+  - UI: inspector Service Time chart; color basis adds “Service Time”.
+
+- TT‑M‑03.30 — UI Overlays (Retries + Service Time)
+  - Edge overlays: color by RetryRate or Attempts; legend and toggles in Feature Bar; persistence.
+  - Node basis: allow coloring by Service Time; tooltip includes S at current bin.
+  - Inspector ↔ canvas: hover/selection linking between retry list and edges.
+
+- TT‑M‑03.31 — E2E Fixtures, Goldens, Docs (Closeout)
+  - Reproducible fixtures; API golden snapshots; UI tests for overlays/basis; operator docs and demo script.
+
+References
+- docs/milestones/TT-M-03.28.md
+- docs/milestones/TT-M-03.29.md
+- docs/milestones/TT-M-03.30.md
+- docs/milestones/TT-M-03.31.md

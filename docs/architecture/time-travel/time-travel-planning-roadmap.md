@@ -893,6 +893,19 @@ M-03.03: Validation + Polish (depends on M-03.01, M-03.02)
 
 ---
 
+## Deferred (TT‑M‑03.27 Context)
+
+The following items are intentionally deferred from TT‑M‑03.27 — Queues First‑Class (Backlog + Latency; No Retries) to keep scope focused and deliverable. They remain on the roadmap and will be sequenced after TT‑M‑03.27 lands.
+
+- Retries and backoff modeling (dependency attempts, retry rates, effect on throughput)
+- Service time S derivation (requires processing_time_sum + served_count or in_service_count)
+- Oldest age telemetry and visuals for queues
+- Edge overlays (attempt/success/latency heat on edges)
+
+Reference: `docs/milestones/TT-M-03.27.md`
+
+---
+
 ## Next Actions
 
 1. **Review and Approve:** Validate this roadmap
