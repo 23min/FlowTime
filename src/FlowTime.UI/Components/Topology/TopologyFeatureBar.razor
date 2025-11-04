@@ -106,6 +106,13 @@
                         <MudRadio T="SparklineRenderMode" Value="SparklineRenderMode.Line" Color="Color.Primary">Line</MudRadio>
                         <MudRadio T="SparklineRenderMode" Value="SparklineRenderMode.Bar" Color="Color.Primary">Bars</MudRadio>
                     </MudRadioGroup>
+                    <MudSwitch T="bool"
+                               Dense="true"
+                               Class="topology-dense-control"
+                               Value="@workingSettings.ShowQueueScalarBadge"
+                               ValueChanged="OnShowQueueScalarBadgeChanged"
+                               Color="Color.Primary"
+                               Label="Queue depth badge (queue nodes)" />
                 </MudStack>
             </MudExpansionPanel>
 
@@ -414,6 +421,17 @@
         }
 
         workingSettings.ShowSparklines = value;
+        return NotifyChange();
+    }
+
+    private Task OnShowQueueScalarBadgeChanged(bool value)
+    {
+        if (workingSettings.ShowQueueScalarBadge == value)
+        {
+            return Task.CompletedTask;
+        }
+
+        workingSettings.ShowQueueScalarBadge = value;
         return NotifyChange();
     }
 

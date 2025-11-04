@@ -205,7 +205,7 @@ code {
     flex-direction: column;
     max-height: calc(100vh - 96px);
     min-height: 0;
-    overflow: hidden;
+    overflow-y: auto;
 }
 
 .topology-feature-panel .topology-feature-bar {
@@ -227,7 +227,6 @@ code {
 
 .topology-feature-scroll {
     flex: 1 1 auto;
-    overflow-y: auto;
     margin-top: 0.6rem;
     padding-right: 0.4rem;
 }

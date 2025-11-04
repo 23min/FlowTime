@@ -651,6 +651,7 @@ public static class RunArtifactWriter
             modified |= NormalizeSemanticsField(semanticsMap, nodeId, "served", required: true, descriptorMap, descriptorList, context);
             modified |= NormalizeSemanticsField(semanticsMap, nodeId, "errors", required: true, descriptorMap, descriptorList, context);
             modified |= NormalizeSemanticsField(semanticsMap, nodeId, "externalDemand", required: false, descriptorMap, descriptorList, context);
+            modified |= NormalizeSemanticsField(semanticsMap, nodeId, "queue", required: false, descriptorMap, descriptorList, context);
             modified |= NormalizeSemanticsField(semanticsMap, nodeId, "queueDepth", required: false, descriptorMap, descriptorList, context);
             modified |= NormalizeSemanticsField(semanticsMap, nodeId, "capacity", required: false, descriptorMap, descriptorList, context);
         }

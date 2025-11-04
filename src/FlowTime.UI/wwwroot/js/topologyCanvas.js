@@ -1460,6 +1460,7 @@
             showEdgeArrows: boolOr(raw.showEdgeArrows ?? raw.ShowEdgeArrows, true),
             showEdgeShares: boolOr(raw.showEdgeShares ?? raw.ShowEdgeShares, false),
             showSparklines: boolOr(raw.showSparklines ?? raw.ShowSparklines, true),
+            showQueueBadge: boolOr(raw.showQueueScalarBadge ?? raw.ShowQueueScalarBadge, true),
             sparklineMode: sparkMode === 1 ? 'bar' : 'line',
             edgeStyle,
             colorBasis: raw.colorBasis ?? raw.ColorBasis ?? 0,
@@ -1910,6 +1911,40 @@
             }
         }
 
+        let pendingQueueChip = null;
+        let queueTooltip = null;
+
+        if (overlays.showQueueDependencies !== false) {
+            const nodeKind = String(nodeMeta.kind ?? nodeMeta.Kind ?? '').trim().toLowerCase();
+            const isQueueNode = nodeKind === 'queue';
+            const queueValue = sampleValueFor('queue', semantics.queue);
+            const queueLabel = queueValue !== null ? formatMetricValue(queueValue) : fallbackLabel(semantics.queue);
+            const allowed = !isQueueNode || overlays.showQueueBadge !== false;
+            queueTooltip = semantics.queue?.label ?? toPascal('queue');
+
+            if (queueLabel && allowed) {
+                if (isQueueNode) {
+                    const drawn = drawChip(ctx, bottomLeft, bottomRowTop + chipH, queueLabel, '#8E24AA', '#FFFFFF', paddingX, chipH);
+                    registerChipHitbox(state, {
+                        nodeId: nodeMeta.id ?? null,
+                        metric: 'queue',
+                        placement: 'bottom-left',
+                        tooltip: queueTooltip,
+                        x: bottomLeft,
+                        y: bottomRowTop,
+                        width: drawn,
+                        height: chipH
+                    });
+                    bottomLeft += drawn + gap;
+                } else {
+                    pendingQueueChip = {
+                        label: queueLabel,
+                        tooltip: queueTooltip
+                    };
+                }
+            }
+        }
+
         if (overlays.showErrorsDependencies !== false) {
             const errorRateValue = sampleValueFor('errorRate', semantics.errors, ['error_rate']);
             let errorLabel = null;
@@ -1958,23 +1993,19 @@
             }
         }
 
-        if (overlays.showQueueDependencies !== false) {
-            const queueValue = sampleValueFor('queue', semantics.queue);
-            const queueLabel = queueValue !== null ? formatMetricValue(queueValue) : fallbackLabel(semantics.queue);
-            if (queueLabel) {
-                const drawn = drawChip(ctx, bottomRight, bottomRowTop + chipH, queueLabel, '#8E24AA', '#FFFFFF', paddingX, chipH);
-                registerChipHitbox(state, {
-                    nodeId: nodeMeta.id ?? null,
-                    metric: 'queue',
-                    placement: 'bottom-right',
-                    tooltip: semantics.queue?.label ?? toPascal('queue'),
-                    x: bottomRight,
-                    y: bottomRowTop,
-                    width: drawn,
-                    height: chipH
-                });
-                bottomRight += drawn + gap;
-            }
+        if (pendingQueueChip) {
+            const drawn = drawChip(ctx, bottomRight, bottomRowTop + chipH, pendingQueueChip.label, '#8E24AA', '#FFFFFF', paddingX, chipH);
+            registerChipHitbox(state, {
+                nodeId: nodeMeta.id ?? null,
+                metric: 'queue',
+                placement: 'bottom-right',
+                tooltip: queueTooltip ?? toPascal('queue'),
+                x: bottomRight,
+                y: bottomRowTop,
+                width: drawn,
+                height: chipH
+            });
+            bottomRight += drawn + gap;
         }
 
         ctx.restore();

@@ -32,6 +32,8 @@ public sealed class TopologyOverlaySettings
     public bool ShowEdgeArrows { get; set; } = true;
     public bool ShowEdgeShares { get; set; } = true;
     public bool ShowSparklines { get; set; } = true;
+    // When true, draw a scalar queue-depth badge on queue nodes
+    public bool ShowQueueScalarBadge { get; set; } = true;
     public SparklineRenderMode SparklineMode { get; set; } = SparklineRenderMode.Line;
     public EdgeRenderMode EdgeStyle { get; set; } = EdgeRenderMode.Bezier;
 
@@ -72,6 +74,7 @@ public sealed class TopologyOverlaySettings
             ShowEdgeArrows = ShowEdgeArrows,
             ShowEdgeShares = ShowEdgeShares,
             ShowSparklines = ShowSparklines,
+            ShowQueueScalarBadge = ShowQueueScalarBadge,
             SparklineMode = SparklineMode,
             EdgeStyle = EdgeStyle,
             EnableFullDag = EnableFullDag,

@@ -64,9 +64,10 @@ internal sealed record TooltipPayload(
 
 internal sealed record OverlaySettingsPayload(
     bool ShowLabels,
-  	bool ShowEdgeArrows,
-  	bool ShowEdgeShares,
-  	bool ShowSparklines,
+	bool ShowEdgeArrows,
+	bool ShowEdgeShares,
+	bool ShowSparklines,
+    bool ShowQueueScalarBadge,
     SparklineRenderMode SparklineMode,
     EdgeRenderMode EdgeStyle,
     double ZoomPercent,

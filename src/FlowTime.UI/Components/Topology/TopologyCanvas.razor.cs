@@ -668,6 +668,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             overlays.ShowEdgeArrows,
             overlays.ShowEdgeShares,
             overlays.ShowSparklines,
+            overlays.ShowQueueScalarBadge,
             overlays.SparklineMode,
             overlays.EdgeStyle,
             overlays.ZoomPercent,
