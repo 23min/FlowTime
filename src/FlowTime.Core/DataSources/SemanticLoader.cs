@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using FlowTime.Core.Models;
 
 namespace FlowTime.Core.DataSources;
@@ -25,6 +26,20 @@ public sealed class SemanticLoader
         var served = LoadSeries(semantics.Served, bins);
         var errors = LoadSeries(semantics.Errors, bins);
 
+        double[]? attempts = semantics.Attempts != null
+            ? LoadSeries(semantics.Attempts, bins)
+            : null;
+
+        double[]? failures = semantics.Failures != null
+            ? LoadSeries(semantics.Failures, bins)
+            : null;
+
+        double[]? retryEcho = semantics.RetryEcho != null
+            ? LoadSeries(semantics.RetryEcho, bins)
+            : null;
+
+        var retryKernel = semantics.RetryKernel?.ToArray();
+
         double[]? externalDemand = semantics.ExternalDemand != null
             ? LoadSeries(semantics.ExternalDemand, bins)
             : null;
@@ -43,6 +58,10 @@ public sealed class SemanticLoader
             Arrivals = arrivals,
             Served = served,
             Errors = errors,
+            Attempts = attempts,
+            Failures = failures ?? errors,
+            RetryEcho = retryEcho,
+            RetryKernel = retryKernel,
             ExternalDemand = externalDemand,
             QueueDepth = queueDepth,
             Capacity = capacity,

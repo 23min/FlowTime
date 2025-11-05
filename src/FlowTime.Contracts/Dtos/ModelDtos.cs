@@ -92,6 +92,10 @@ public sealed class TopologySemanticsDto
     public string Arrivals { get; set; } = string.Empty;
     public string Served { get; set; } = string.Empty;
     public string Errors { get; set; } = string.Empty;
+    public string? Attempts { get; set; }
+    public string? Failures { get; set; }
+    public string? RetryEcho { get; set; }
+    public double[]? RetryKernel { get; set; }
     public string? ExternalDemand { get; set; }
     public string? Queue { get; set; }
     public string? Capacity { get; set; }
@@ -109,6 +113,10 @@ public sealed class TopologyEdgeDto
     public string From { get; set; } = string.Empty;
     public string To { get; set; } = string.Empty;
     public double? Weight { get; set; }
+    public string? Type { get; set; }
+    public string? Measure { get; set; }
+    public double? Multiplier { get; set; }
+    public int? Lag { get; set; }
 }
 
 public sealed class UiHintsDto

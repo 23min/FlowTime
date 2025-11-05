@@ -22,6 +22,9 @@ public sealed class GraphNodeSemantics
     public string Arrivals { get; init; } = string.Empty;
     public string Served { get; init; } = string.Empty;
     public string Errors { get; init; } = string.Empty;
+    public string? Attempts { get; init; }
+    public string? Failures { get; init; }
+    public string? RetryEcho { get; init; }
     public string? Queue { get; init; }
     public string? Capacity { get; init; }
     public string? Series { get; init; }
@@ -48,6 +51,8 @@ public sealed class GraphEdge
     public double Weight { get; init; }
     public string? EdgeType { get; init; }
     public string? Field { get; init; }
+    public double? Multiplier { get; init; }
+    public int? Lag { get; init; }
 }
 
 public sealed class GraphNodeDistribution

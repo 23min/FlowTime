@@ -139,6 +139,9 @@
                 "arrivals": { "$ref": "#/$defs/nullableNumber" },
                 "served": { "$ref": "#/$defs/nullableNumber" },
                 "errors": { "$ref": "#/$defs/nullableNumber" },
+                "attempts": { "$ref": "#/$defs/nullableNumber" },
+                "failures": { "$ref": "#/$defs/nullableNumber" },
+                "retryEcho": { "$ref": "#/$defs/nullableNumber" },
                 "queue": { "$ref": "#/$defs/nullableNumber" },
                 "capacity": { "$ref": "#/$defs/nullableNumber" },
                 "externalDemand": { "$ref": "#/$defs/nullableNumber" }

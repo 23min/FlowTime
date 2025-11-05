@@ -98,6 +98,74 @@ topology:
     }
 
     [Fact]
+    public async Task GetGraphAsync_IncludesRetrySemanticsAndEdgeTypes()
+    {
+        const string runId = "run_graph_retry";
+        CreateRun(runId, """
+schemaVersion: 1
+
+grid:
+  bins: 4
+  binSize: 5
+  binUnit: minutes
+
+topology:
+  nodes:
+    - id: ServiceA
+      kind: service
+      semantics:
+        arrivals: series:arrivals
+        served: series:served
+        errors: series:errors
+        attempts: series:attempts
+        failures: series:failures
+        retryEcho: series:retry_echo
+    - id: QueueB
+      kind: queue
+      semantics:
+        arrivals: series:q_arrivals
+        served: series:q_served
+        errors: series:q_errors
+    - id: DatabaseC
+      kind: service
+      semantics:
+        arrivals: series:db_arrivals
+        served: series:db_served
+        errors: series:db_errors
+  edges:
+    - id: edge-throughput
+      from: ServiceA:served
+      to: QueueB:arrivals
+      type: throughput
+      measure: served
+      lag: 1
+    - id: edge-effort
+      from: ServiceA:attempts
+      to: DatabaseC:arrivals
+      type: effort
+      measure: attempts
+      multiplier: 2.5
+""");
+
+        var response = await service.GetGraphAsync(runId);
+
+        var serviceNode = Assert.Single(response.Nodes, n => n.Id == "ServiceA");
+        Assert.Equal("series:attempts", serviceNode.Semantics.Attempts);
+        Assert.Equal("series:failures", serviceNode.Semantics.Failures);
+        Assert.Equal("series:retry_echo", serviceNode.Semantics.RetryEcho);
+
+        var throughputEdge = Assert.Single(response.Edges, e => e.Id == "edge-throughput");
+        Assert.Equal("throughput", throughputEdge.EdgeType);
+        Assert.Equal("served", throughputEdge.Field);
+        Assert.Equal(1, throughputEdge.Lag);
+
+        var effortEdge = Assert.Single(response.Edges, e => e.Id == "edge-effort");
+        Assert.Equal("effort", effortEdge.EdgeType);
+        Assert.Equal("attempts", effortEdge.Field);
+        Assert.Equal(2.5, effortEdge.Multiplier);
+    }
+
+    [Fact]
     public async Task GetGraphAsync_MissingRunThrowsNotFound()
     {
         var ex = await Assert.ThrowsAsync<GraphQueryException>(() => service.GetGraphAsync("missing-run"));

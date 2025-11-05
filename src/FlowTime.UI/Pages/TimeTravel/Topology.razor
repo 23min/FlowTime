@@ -2259,6 +2259,31 @@
             return blocks;
         }
 
+        var hasAttemptsSeries = baseSparkline?.Series.ContainsKey("attempts") == true;
+        var hasFailuresSeries = baseSparkline?.Series.ContainsKey("failures") == true;
+        var hasRetryEchoSeries = baseSparkline?.Series.ContainsKey("retryEcho") == true;
+        var hasServedSeries = baseSparkline?.Series.ContainsKey("served") == true || AllowsFallback("served");
+
+        if (hasAttemptsSeries)
+        {
+            AddRequired("Attempts", "attempts", 0d, seriesKeyOverride: "attempts");
+        }
+
+        if (hasServedSeries)
+        {
+            AddRequired("Served", "served", 0d, seriesKeyOverride: "served");
+        }
+
+        if (hasFailuresSeries)
+        {
+            AddRequired("Failures", "failures", 0d, seriesKeyOverride: "failures");
+        }
+
+        if (hasRetryEchoSeries)
+        {
+            AddRequired("Retry echo", "retryEcho", 0d, seriesKeyOverride: "retryEcho");
+        }
+
         AddRequired("Success rate", "successRate", 0d, 1d, valueFormat: InspectorValueFormat.Percent);
         AddRequired("Utilization", "utilization", 0d, 1d, valueFormat: InspectorValueFormat.Percent);
         AddRequired("Latency", "latencyMinutes", 0d);

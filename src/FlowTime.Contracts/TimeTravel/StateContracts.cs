@@ -82,6 +82,9 @@ public sealed class NodeMetrics
     public double? Arrivals { get; init; }
     public double? Served { get; init; }
     public double? Errors { get; init; }
+    public double? Attempts { get; init; }
+    public double? Failures { get; init; }
+    public double? RetryEcho { get; init; }
     public double? Queue { get; init; }
     public double? Capacity { get; init; }
     public double? ExternalDemand { get; init; }

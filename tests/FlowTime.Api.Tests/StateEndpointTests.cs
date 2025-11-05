@@ -100,6 +100,9 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         Assert.Equal(10, service.Metrics.Arrivals);
         Assert.Equal(6, service.Metrics.Served);
         Assert.Equal(1, service.Metrics.Errors);
+        Assert.Equal(7, service.Metrics.Attempts);
+        Assert.Equal(1, service.Metrics.Failures);
+        Assert.Equal(0.6, service.Metrics.RetryEcho!.Value, 5);
         Assert.Equal(0.85714, service.Derived.Utilization!.Value, 5);
         Assert.Equal("yellow", service.Derived.Color);
         Assert.Contains(service.Telemetry.Sources, s => s.Contains("OrderService_arrivals") || s.Contains("OrderService_served"));
@@ -140,6 +143,14 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         Assert.Equal(new double?[] { 10.0, 10.0, 10.0, 10.0 }, serviceSeries.Series["arrivals"]);
         Assert.Equal(new double?[] { 9.0, 6.0, 9.0, 4.0 }, serviceSeries.Series["served"]);
         Assert.Equal(new double?[] { 12.0, 7.0, 9.0, 4.0 }, serviceSeries.Series["capacity"]);
+        Assert.Equal(new double?[] { 10.0, 7.0, 10.0, 5.0 }, serviceSeries.Series["attempts"]);
+        Assert.Equal(new double?[] { 1.0, 1.0, 1.0, 1.0 }, serviceSeries.Series["failures"]);
+        var retryEcho = serviceSeries.Series["retryEcho"];
+        Assert.Equal(4, retryEcho.Length);
+        Assert.Equal(0.0, retryEcho[0]!.Value, 5);
+        Assert.Equal(0.6, retryEcho[1]!.Value, 5);
+        Assert.Equal(0.9, retryEcho[2]!.Value, 5);
+        Assert.Equal(1.0, retryEcho[3]!.Value, 5);
         Assert.Empty(payload.Warnings);
         Assert.Empty(serviceSeries.Telemetry.Warnings);
 
@@ -179,7 +190,7 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         Assert.Equal(4, latency.Length);
         Assert.Equal(1.11111, latency[0]!.Value, 5);
         Assert.Null(latency[1]);
-        Assert.Equal(8.33333, latency[2]!.Value, 5);
+        Assert.Equal(11.11111, latency[2]!.Value, 5);
 
         AssertGoldenResponse("state-window-queue-null-approved.json", payload);
     }
@@ -585,7 +596,13 @@ private static void WriteSeries(string directory, string fileName, IReadOnlyList
         }
 
         var expected = File.ReadAllText(path);
-        Assert.Equal(Normalize(expected), Normalize(json));
+        var normalizedExpected = Normalize(expected);
+        var normalizedActual = Normalize(json);
+        if (!string.Equals(normalizedExpected, normalizedActual, StringComparison.Ordinal))
+        {
+            File.WriteAllText(path + ".actual", json);
+            throw new XunitException($"Golden snapshot '{fileName}' mismatch.{Environment.NewLine}Expected:{Environment.NewLine}{expected}{Environment.NewLine}Actual:{Environment.NewLine}{json}");
+        }
     }
 
     private static string SerializeSanitized<T>(T payload)

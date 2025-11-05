@@ -32,6 +32,9 @@
         "arrivals": 10,
         "served": 6,
         "errors": 1,
+        "attempts": 7,
+        "failures": 1,
+        "retryEcho": 0.6,
         "capacity": 7
       },
       "derived": {
@@ -56,6 +59,9 @@
         "arrivals": 7,
         "served": 6,
         "errors": 0,
+        "attempts": 6,
+        "failures": 0,
+        "retryEcho": 0,
         "queue": 10
       },
       "derived": {

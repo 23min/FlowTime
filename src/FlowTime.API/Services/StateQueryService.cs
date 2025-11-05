@@ -17,6 +17,7 @@ public sealed class StateQueryService
     private const int maxWindowBins = 500;
     private static readonly EventId stateSnapshotEvent = new(3001, "StateSnapshotObservability");
     private static readonly EventId stateWindowEvent = new(3002, "StateWindowObservability");
+    private static readonly double[] defaultRetryKernel = new[] { 0.0, 0.6, 0.3, 0.1 };
     private readonly IConfiguration configuration;
     private readonly ILogger<StateQueryService> logger;
     private readonly RunManifestReader manifestReader;
@@ -435,6 +436,9 @@ public sealed class StateQueryService
         var externalDemand = GetOptionalValue(data.ExternalDemand, binIndex);
         var queue = GetOptionalValue(data.QueueDepth, binIndex);
         var capacity = GetOptionalValue(data.Capacity, binIndex);
+        var attempts = ComputeAttemptValue(data, binIndex);
+        var failures = ComputeFailureValue(data, binIndex);
+        var retryEcho = ComputeRetryEchoValue(data, binIndex);
 
         var rawUtilization = served.HasValue
             ? UtilizationComputer.Calculate(served.Value, capacity)
@@ -464,6 +468,9 @@ public sealed class StateQueryService
                 Arrivals = arrivals,
                 Served = served,
                 Errors = errors,
+                Attempts = attempts,
+                Failures = failures,
+                RetryEcho = retryEcho,
                 Queue = queue,
                 Capacity = capacity,
                 ExternalDemand = externalDemand
@@ -489,6 +496,10 @@ public sealed class StateQueryService
             Arrivals = CreateSeries(),
             Served = CreateSeries(),
             Errors = CreateSeries(),
+            Attempts = node.Semantics.Attempts != null ? CreateSeries() : null,
+            Failures = node.Semantics.Failures != null ? CreateSeries() : null,
+            RetryEcho = node.Semantics.RetryEcho != null ? CreateSeries() : null,
+            RetryKernel = node.Semantics.RetryKernel?.ToArray(),
             ExternalDemand = node.Semantics.ExternalDemand != null ? CreateSeries() : null,
             QueueDepth = node.Semantics.QueueDepth != null ? CreateSeries() : null,
             Capacity = node.Semantics.Capacity != null ? CreateSeries() : null
@@ -498,12 +509,31 @@ public sealed class StateQueryService
     private static NodeSeries BuildNodeSeries(Node node, NodeData data, StateRunContext context, int startBin, int count, IReadOnlyList<ModeValidationWarning> nodeWarnings)
     {
         var kind = NormalizeKind(node.Kind);
+        var arrivalsSlice = ExtractSlice(data.Arrivals, startBin, count);
+        var servedSlice = ExtractSlice(data.Served, startBin, count);
+        var errorsSlice = ExtractSlice(data.Errors, startBin, count);
+
         var series = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase)
         {
-            ["arrivals"] = ExtractSlice(data.Arrivals, startBin, count),
-            ["served"] = ExtractSlice(data.Served, startBin, count),
-            ["errors"] = ExtractSlice(data.Errors, startBin, count)
+            ["arrivals"] = arrivalsSlice,
+            ["served"] = servedSlice,
+            ["errors"] = errorsSlice
         };
+
+        var attemptsSeries = ComputeAttemptSeries(data, startBin, count);
+        if (attemptsSeries != null)
+        {
+            series["attempts"] = attemptsSeries;
+        }
+
+        var failuresSlice = data.Failures != null ? ExtractSlice(data.Failures, startBin, count) : errorsSlice;
+        series["failures"] = failuresSlice;
+
+        var retryEchoSeries = ComputeRetryEchoSeries(data, startBin, count);
+        if (retryEchoSeries != null)
+        {
+            series["retryEcho"] = retryEchoSeries;
+        }
 
         if (data.ExternalDemand != null)
         {
@@ -584,6 +614,9 @@ public sealed class StateQueryService
         TryAdd(node.Semantics.Arrivals);
         TryAdd(node.Semantics.Served);
         TryAdd(node.Semantics.Errors);
+        TryAdd(node.Semantics.Attempts);
+        TryAdd(node.Semantics.Failures);
+        TryAdd(node.Semantics.RetryEcho);
         TryAdd(node.Semantics.ExternalDemand);
         TryAdd(node.Semantics.QueueDepth);
         TryAdd(node.Semantics.Capacity);
@@ -684,6 +717,144 @@ public sealed class StateQueryService
         return result;
     }
 
+    private static double? ComputeAttemptValue(NodeData data, int index)
+    {
+        var attempts = GetOptionalValue(data.Attempts, index);
+        if (attempts.HasValue)
+        {
+            return attempts;
+        }
+
+        var served = GetOptionalValue(data.Served, index);
+        var failures = ComputeFailureValue(data, index);
+
+        if (!served.HasValue || !failures.HasValue)
+        {
+            return null;
+        }
+
+        return Normalize(served.Value + failures.Value);
+    }
+
+    private static double?[]? ComputeAttemptSeries(NodeData data, int start, int count)
+    {
+        if (data.Attempts != null)
+        {
+            return ExtractSlice(data.Attempts, start, count);
+        }
+
+        if (data.Served == null)
+        {
+            return null;
+        }
+
+        var failuresSource = data.Failures ?? data.Errors;
+        var result = new double?[count];
+        for (var i = 0; i < count; i++)
+        {
+            var index = start + i;
+            if (index < 0 || index >= data.Served.Length)
+            {
+                result[i] = null;
+                continue;
+            }
+
+            var served = data.Served[index];
+            var failure = failuresSource[index];
+            if (double.IsNaN(served) || double.IsNaN(failure) || double.IsInfinity(served) || double.IsInfinity(failure))
+            {
+                result[i] = null;
+                continue;
+            }
+
+            result[i] = Normalize(served + failure);
+        }
+
+        return result;
+    }
+
+    private static double? ComputeRetryEchoValue(NodeData data, int index)
+    {
+        var precomputed = GetOptionalValue(data.RetryEcho, index);
+        if (precomputed.HasValue)
+        {
+            return precomputed;
+        }
+
+        var failures = data.Failures ?? data.Errors;
+        if (failures == null || index < 0 || index >= failures.Length)
+        {
+            return null;
+        }
+
+        var kernel = (data.RetryKernel != null && data.RetryKernel.Length > 0) ? data.RetryKernel : defaultRetryKernel;
+
+        double sum = 0;
+        var hasContribution = false;
+        for (var k = 0; k < kernel.Length; k++)
+        {
+            var sourceIndex = index - k;
+            if (sourceIndex < 0)
+            {
+                break;
+            }
+
+            if (sourceIndex >= failures.Length)
+            {
+                continue;
+            }
+
+            var failure = failures[sourceIndex];
+            if (double.IsNaN(failure) || double.IsInfinity(failure))
+            {
+                continue;
+            }
+
+            sum += failure * kernel[k];
+            hasContribution = true;
+        }
+
+        if (!hasContribution)
+        {
+            return null;
+        }
+
+        return Normalize(sum);
+    }
+
+    private static double?[]? ComputeRetryEchoSeries(NodeData data, int start, int count)
+    {
+        if (data.RetryEcho != null)
+        {
+            return ExtractSlice(data.RetryEcho, start, count);
+        }
+
+        if (data.Errors == null && data.Failures == null)
+        {
+            return null;
+        }
+
+        var result = new double?[count];
+        for (var i = 0; i < count; i++)
+        {
+            var index = start + i;
+            result[i] = ComputeRetryEchoValue(data, index);
+        }
+
+        return result;
+    }
+
+    private static double? ComputeFailureValue(NodeData data, int index)
+    {
+        var failure = GetOptionalValue(data.Failures, index);
+        if (failure.HasValue)
+        {
+            return failure;
+        }
+
+        return GetValue(data.Errors, index);
+    }
+
     private static double? ComputeThroughputRatio(double? arrivals, double? served)
     {
         if (!arrivals.HasValue || !served.HasValue)
@@ -769,6 +940,10 @@ public sealed class StateQueryService
             Arrivals = CreateNaNSeries(bins),
             Served = CreateNaNSeries(bins),
             Errors = CreateNaNSeries(bins),
+            Attempts = null,
+            Failures = null,
+            RetryEcho = null,
+            RetryKernel = null,
             ExternalDemand = null,
             QueueDepth = null,
             Capacity = null,

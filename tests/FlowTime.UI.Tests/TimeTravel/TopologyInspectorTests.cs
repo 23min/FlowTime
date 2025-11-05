@@ -120,7 +120,11 @@ public sealed class TopologyInspectorTests
             ["successRate"] = new double?[] { 0.95, 0.97, 0.99 },
             ["utilization"] = new double?[] { 0.42, 0.58, 0.61 },
             ["latencyMinutes"] = new double?[] { 1.2, 1.1, 1.0 },
-            ["errorRate"] = new double?[] { 0.01, 0.02, 0.03 }
+            ["errorRate"] = new double?[] { 0.01, 0.02, 0.03 },
+            ["attempts"] = new double?[] { 12, 11, 10 },
+            ["served"] = new double?[] { 10, 9, 8 },
+            ["failures"] = new double?[] { 2, 2, 2 },
+            ["retryEcho"] = new double?[] { 0.0, 0.4, 0.2 }
         });
 
         topology.TestSetNodeSparklines(new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase)
@@ -128,9 +132,33 @@ public sealed class TopologyInspectorTests
             ["svc"] = sparkline
         });
 
+        var sparklineData = topology.TestGetNodeSparklines()["svc"];
+        Assert.Contains("attempts", sparklineData.Series.Keys, StringComparer.OrdinalIgnoreCase);
+        Assert.Contains("retryEcho", sparklineData.Series.Keys, StringComparer.OrdinalIgnoreCase);
+
         var metrics = topology.TestBuildInspectorMetrics("svc");
 
         Assert.Collection(metrics,
+            block =>
+            {
+                Assert.Equal("Attempts", block.Title);
+                Assert.False(block.IsPlaceholder);
+            },
+            block =>
+            {
+                Assert.Equal("Served", block.Title);
+                Assert.False(block.IsPlaceholder);
+            },
+            block =>
+            {
+                Assert.Equal("Failures", block.Title);
+                Assert.False(block.IsPlaceholder);
+            },
+            block =>
+            {
+                Assert.Equal("Retry echo", block.Title);
+                Assert.False(block.IsPlaceholder);
+            },
             block =>
             {
                 Assert.Equal("Success rate", block.Title);

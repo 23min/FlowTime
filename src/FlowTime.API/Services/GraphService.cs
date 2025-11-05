@@ -28,7 +28,7 @@ public sealed class GraphService
 
     private static readonly string[] DefaultOperationalKinds = { "service", "queue", "router", "external" };
     private static readonly string[] DefaultFullKinds = { "service", "queue", "router", "external", "expr", "const", "pmf" };
-    private static readonly string[] DefaultDependencyFields = { "arrivals", "served", "errors", "queue", "capacity", "expr" };
+    private static readonly string[] DefaultDependencyFields = { "arrivals", "served", "errors", "attempts", "failures", "retryEcho", "queue", "capacity", "expr" };
 
     private const string EdgeTypeTopology = "topology";
     private const string EdgeTypeDependency = "dependency";
@@ -119,6 +119,9 @@ public sealed class GraphService
                 Arrivals = topoNode.Semantics?.Arrivals ?? string.Empty,
                 Served = topoNode.Semantics?.Served ?? string.Empty,
                 Errors = topoNode.Semantics?.Errors ?? string.Empty,
+                Attempts = topoNode.Semantics?.Attempts,
+                Failures = topoNode.Semantics?.Failures,
+                RetryEcho = topoNode.Semantics?.RetryEcho,
                 Queue = topoNode.Semantics?.QueueDepth,
                 Capacity = topoNode.Semantics?.Capacity
             };
@@ -155,13 +158,20 @@ public sealed class GraphService
                 ? $"{topoEdge.Source}->{topoEdge.Target}"
                 : topoEdge.Id!;
 
+            var edgeType = string.IsNullOrWhiteSpace(topoEdge.Type)
+                ? EdgeTypeTopology
+                : topoEdge.Type!;
+
             TryAddEdge(new GraphEdge
             {
                 Id = edgeId,
                 From = topoEdge.Source,
                 To = topoEdge.Target,
                 Weight = topoEdge.Weight,
-                EdgeType = EdgeTypeTopology
+                EdgeType = edgeType,
+                Field = topoEdge.Measure,
+                Multiplier = topoEdge.Multiplier,
+                Lag = topoEdge.Lag
             });
         }
 
@@ -277,6 +287,9 @@ public sealed class GraphService
                 AddSemanticsDependencyEdge(topoNode.Id, topoNode.Semantics?.Arrivals, "arrivals");
                 AddSemanticsDependencyEdge(topoNode.Id, topoNode.Semantics?.Served, "served");
                 AddSemanticsDependencyEdge(topoNode.Id, topoNode.Semantics?.Errors, "errors");
+                AddSemanticsDependencyEdge(topoNode.Id, topoNode.Semantics?.Attempts, "attempts");
+                AddSemanticsDependencyEdge(topoNode.Id, topoNode.Semantics?.Failures, "failures");
+                AddSemanticsDependencyEdge(topoNode.Id, topoNode.Semantics?.RetryEcho, "retryEcho");
                 AddSemanticsDependencyEdge(topoNode.Id, topoNode.Semantics?.QueueDepth, "queue");
                 AddSemanticsDependencyEdge(topoNode.Id, topoNode.Semantics?.Capacity, "capacity");
             }

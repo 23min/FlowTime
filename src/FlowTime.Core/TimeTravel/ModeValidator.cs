@@ -68,6 +68,9 @@ public sealed class ModeValidator
             ProcessSeries(node.Semantics.Arrivals, data.Arrivals, "arrivals", required: true);
             ProcessSeries(node.Semantics.Served, data.Served, "served", required: IsServiceNode(node));
             ProcessSeries(node.Semantics.QueueDepth, data.QueueDepth, "queue", required: IsQueueNode(node));
+            ProcessSeries(node.Semantics.Attempts, data.Attempts, "attempts", required: false);
+            ProcessSeries(node.Semantics.Failures, data.Failures, "failures", required: false);
+            ProcessSeries(node.Semantics.RetryEcho, data.RetryEcho, "retryEcho", required: false);
 
             if (isSimulation && invalidSeries.Count > 0)
             {
@@ -134,6 +137,9 @@ public sealed class ModeValidator
             Assess(semantics.Arrivals, "arrivals");
             Assess(semantics.Served, "served");
             Assess(semantics.Errors, "errors");
+            Assess(semantics.Attempts, "attempts");
+            Assess(semantics.Failures, "failures");
+            Assess(semantics.RetryEcho, "retryEcho");
             Assess(semantics.QueueDepth, "queue");
             Assess(semantics.Capacity, "capacity");
             Assess(semantics.ExternalDemand, "external_demand");

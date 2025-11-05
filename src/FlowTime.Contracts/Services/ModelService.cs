@@ -78,6 +78,10 @@ public static class ModelService
                         Arrivals = node.Semantics.Arrivals,
                         Served = node.Semantics.Served,
                         Errors = node.Semantics.Errors,
+                        Attempts = node.Semantics.Attempts,
+                        Failures = node.Semantics.Failures,
+                        RetryEcho = node.Semantics.RetryEcho,
+                        RetryKernel = node.Semantics.RetryKernel,
                         ExternalDemand = node.Semantics.ExternalDemand,
                         QueueDepth = node.Semantics.Queue,
                         Capacity = node.Semantics.Capacity,
@@ -92,7 +96,11 @@ public static class ModelService
                     Id = edge.Id,
                     Source = edge.From,
                     Target = edge.To,
-                    Weight = edge.Weight ?? 1.0
+                    Weight = edge.Weight ?? 1.0,
+                    Type = edge.Type,
+                    Measure = edge.Measure,
+                    Multiplier = edge.Multiplier,
+                    Lag = edge.Lag
                 }).ToList()
             };
         }

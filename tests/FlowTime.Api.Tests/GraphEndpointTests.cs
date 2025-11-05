@@ -190,7 +190,20 @@ nodes:
                 {
                     RemoveNullProperty(semantics, "queue");
                     RemoveNullProperty(semantics, "capacity");
+                    RemoveNullProperty(semantics, "attempts");
+                    RemoveNullProperty(semantics, "failures");
+                    RemoveNullProperty(semantics, "retryEcho");
                 }
+            }
+        }
+
+        if (node is JsonObject root && root["edges"] is JsonArray edges)
+        {
+            foreach (var edge in edges.OfType<JsonObject>())
+            {
+                RemoveNullProperty(edge, "field");
+                RemoveNullProperty(edge, "multiplier");
+                RemoveNullProperty(edge, "lag");
             }
         }
 

@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace FlowTime.Core.Models;
 
 public sealed record NodeSemantics
@@ -5,6 +7,10 @@ public sealed record NodeSemantics
     public required string Arrivals { get; init; }
     public required string Served { get; init; }
     public required string Errors { get; init; }
+    public string? Attempts { get; init; }
+    public string? Failures { get; init; }
+    public string? RetryEcho { get; init; }
+    public IReadOnlyList<double>? RetryKernel { get; init; }
     public string? ExternalDemand { get; init; }
     public string? QueueDepth { get; init; }
     public string? Capacity { get; init; }

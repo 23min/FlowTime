@@ -96,6 +96,10 @@ public static class ModelParser
                     Arrivals = RequireSemantic(definition.Semantics.Arrivals, definition.Id, "arrivals"),
                     Served = RequireSemantic(definition.Semantics.Served, definition.Id, "served"),
                     Errors = RequireSemantic(definition.Semantics.Errors, definition.Id, "errors"),
+                    Attempts = definition.Semantics.Attempts,
+                    Failures = definition.Semantics.Failures,
+                    RetryEcho = definition.Semantics.RetryEcho,
+                    RetryKernel = definition.Semantics.RetryKernel,
                     ExternalDemand = definition.Semantics.ExternalDemand,
                     QueueDepth = definition.Semantics.QueueDepth,
                     Capacity = definition.Semantics.Capacity,
@@ -117,7 +121,11 @@ public static class ModelParser
                 Source = definition.Source,
                 Target = definition.Target,
                 Weight = definition.Weight,
-                Id = definition.Id
+                Id = definition.Id,
+                EdgeType = definition.Type,
+                Field = definition.Measure,
+                Multiplier = definition.Multiplier,
+                Lag = definition.Lag
             };
         }
 
@@ -362,6 +370,10 @@ public class TopologyNodeSemanticsDefinition
     public string Arrivals { get; set; } = string.Empty;
     public string Served { get; set; } = string.Empty;
     public string Errors { get; set; } = string.Empty;
+    public string? Attempts { get; set; }
+    public string? Failures { get; set; }
+    public string? RetryEcho { get; set; }
+    public double[]? RetryKernel { get; set; }
     public string? ExternalDemand { get; set; }
     public string? QueueDepth { get; set; }
     public string? Capacity { get; set; }
@@ -374,6 +386,10 @@ public class TopologyEdgeDefinition
     public string Target { get; set; } = string.Empty;
     public double Weight { get; set; } = 1.0;
     public string? Id { get; set; }
+    public string? Type { get; set; }
+    public string? Measure { get; set; }
+    public double? Multiplier { get; set; }
+    public int? Lag { get; set; }
 }
 
 public class InitialConditionDefinition

@@ -38,8 +38,7 @@
       "from": "LoadBalancer:out",
       "to": "Database:in",
       "weight": 1,
-      "edgeType": "topology",
-      "field": null
+      "edgeType": "topology"
     }
   ]
 }
