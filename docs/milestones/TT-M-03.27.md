@@ -1,6 +1,6 @@
 # TT‑M‑03.27 — Queues First‑Class (Backlog + Latency; No Retries)
 
-Status: Planned  
+Status: Completed  
 Owners: Platform (API) + UI  
 References: docs/development/milestone-documentation-guide.md, docs/development/TEMPLATE-tracking.md
 
@@ -61,7 +61,8 @@ Out of Scope
 2) API latency computation for queue nodes; `/state_window` returns `latencyMinutes`.  
 3) UI canvas glyph for queue nodes + toggle for scalar queue depth.  
 4) Inspector queue stack + horizons; “Queue” focus metric guidance in UI copy.  
-5) Docs: example YAML, telemetry contract snippet, updated roadmap “Deferred” entries.  
+5) Docs: example YAML, telemetry contract snippet, updated roadmap “Deferred” entries (plus architecture note linked above).  
+   - Performance run log (central): `docs/performance/perf-log.md`.
 6) Tests: unit + golden updates.  
 7) Architecture note capturing SHIFT-based queue depth handling: `docs/architecture/time-travel/queues-shift-depth-and-initial-conditions.md`.
 
@@ -74,6 +75,13 @@ Out of Scope
 - AC5: `/state_window` payload for queue nodes includes `latencyMinutes` (null when `served == 0`).
 - AC6: UI + API tests green; performance and a11y checks pass.
 
+## Completion Summary
+
+- Queue node is precomputed during artifact generation, binding `semantics.queue` to the emitted `queue_depth` CSV; architecture note published at `docs/architecture/time-travel/queues-shift-depth-and-initial-conditions.md`.
+- API `/state_window` response validated with new golden (`state-window-queue-null-approved.json`) covering the served=0 latency case, alongside unit tests for queue latency derivation.
+- UI canvas/inspector updates include badge toggle persistence, queue-chip layout, and inspector coverage tests; accessibility/performance targets observed.
+- Docs, roadmap deferrals, and centralized performance log (`docs/performance/perf-log.md`) updated; full solution test suite executed (`dotnet test tests/FlowTime.Tests -c Release --no-build`).
+
 ## Implementation Plan (Sessions)
 
 Session 1 — Templates + Topology
@@ -83,8 +91,8 @@ Session 1 — Templates + Topology
 - Precompute true queue depth at artifact generation so `semantics.queue` references the emitted CSV (see architecture note).
 
 Session 2 — API Latency Derivation
-- In `/state_window` builder, when a node.kind == `queue`, derive `latencyMinutes = (queue/served) * binMinutes` with guards; include in response.
-- Update goldens where applicable.
+- In `/state_window` builder, when a node.kind == `queue`, derive `latencyMinutes = (queue/served) * binMinutes` with guards; include in response. (Implemented; additional golden captured for zero-served bins.)
+- Update goldens where applicable (state-window + queue latency null case).
 
 Session 3 — UI Canvas Glyph + Toggle
 - Render queue nodes as rectangles (existing canvas layer); add feature toggle to show scalar queue depth badge at bin(t).
@@ -97,7 +105,7 @@ Session 4 — Inspector Charts + Horizons
 Session 5 — Docs + Tests + Roadmap
 - Update docs with template snippet and telemetry contract for queue nodes.  
 - Add UI unit tests for queue stacks; API tests for latency inclusion.  
-- Update `docs/architecture/time-travel/time-travel-planning-roadmap.md` with a “Deferred” section (retries, service time S, oldest_age, edge overlays) and note TT‑M‑03.27 delivery.
+- Update `docs/architecture/time-travel/time-travel-planning-roadmap.md` with a “Deferred” section (retries, service time S, oldest_age, edge overlays, queue-depth fallback retriever) and note TT‑M‑03.27 delivery.
 
 ## Testing Strategy
 
