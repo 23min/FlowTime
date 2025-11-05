@@ -1,0 +1,114 @@
+schemaVersion: 1
+generator: flowtime-sim
+metadata:
+  id: supply-chain-incident-retry
+  title: Incident Workflow With Retries (IT Ops)
+  description: 24-hour incident intake with retries, queue buffering, and analytics effort edges.
+  version: 1.0.0
+  tags: [it-operations, retries, queue, analytics]
+window:
+  start: 2025-03-01T00:00:00Z
+  timezone: UTC
+
+grid:
+  bins: 24
+  binSize: 60
+  binUnit: minutes
+
+topology:
+  nodes:
+    - id: IncidentIntake
+      kind: service
+      semantics:
+        arrivals: incident_arrivals
+        served: incident_served
+        errors: incident_failures
+        attempts: incident_attempts
+        failures: incident_failures
+        retryEcho: incident_retry_echo
+        retryKernel: [0.0, 0.6, 0.3, 0.1]
+        capacity: incident_capacity
+    - id: IncidentQueue
+      kind: queue
+      semantics:
+        arrivals: incident_attempts
+        served: support_queue_served
+        errors: support_queue_errors
+        queue: support_queue_depth
+      initialCondition:
+        queueDepth: 6
+    - id: SupportAnalytics
+      kind: service
+      semantics:
+        arrivals: support_analytics_load
+        served: support_analytics_load
+        errors: support_analytics_errors
+        capacity: null
+  edges:
+    - id: throughput_incident
+      from: IncidentIntake:out
+      to: IncidentQueue:in
+      type: throughput
+      measure: served
+    - id: effort_analytics
+      from: IncidentIntake:out
+      to: SupportAnalytics:in
+      type: effort
+      measure: load
+      multiplier: 0.4
+      lag: 1
+
+nodes:
+  - id: incident_arrivals
+    kind: const
+    values: [18, 20, 21, 23, 23, 24, 24, 23, 23, 21, 20, 18, 16, 15, 13, 13, 12, 12, 13, 13, 15, 16, 18, 20]
+
+  - id: incident_served
+    kind: const
+    values: [19, 23, 24, 25, 26, 28, 25, 25, 27, 23, 23, 22, 16, 18, 17, 15, 15, 15, 14, 16, 19, 18, 20, 24]
+
+  - id: incident_failures
+    kind: const
+    values: [2, 1, 2, 1, 1, 1, 2, 2, 1, 1, 1, 1, 3, 1, 1, 1, 1, 2, 2, 1, 1, 1, 2, 1]
+
+  - id: incident_attempts
+    kind: expr
+    expr: incident_served + incident_failures
+
+  - id: incident_retry_echo
+    kind: expr
+    expr: CONV(incident_failures, [0.0, 0.6, 0.3, 0.1])
+
+  - id: incident_capacity
+    kind: const
+    values: [22, 26, 27, 28, 29, 31, 28, 28, 30, 26, 26, 25, 19, 21, 20, 18, 18, 18, 17, 19, 22, 21, 23, 27]
+
+  - id: support_queue_served
+    kind: const
+    values: [19, 22, 22, 22, 26, 27, 23, 22, 27, 22, 21, 19, 16, 17, 15, 12, 15, 14, 12, 13, 19, 17, 18, 21]
+
+  - id: support_queue_errors
+    kind: const
+    values: [2, 2, 4, 4, 1, 2, 4, 5, 1, 2, 3, 4, 3, 2, 3, 4, 1, 3, 4, 4, 1, 2, 4, 4]
+
+  - id: support_queue_depth
+    kind: const
+    values: [8, 10, 14, 18, 19, 21, 25, 30, 31, 33, 36, 40, 43, 45, 48, 52, 53, 56, 60, 64, 65, 67, 71, 75]
+
+  - id: support_analytics_load
+    kind: expr
+    expr: 0.4 * incident_attempts + 0.25 * incident_failures
+
+  - id: support_analytics_errors
+    kind: const
+    values: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+outputs:
+  - series: incident_arrivals
+    as: IncidentIntake_arrivals.csv
+  - series: incident_attempts
+    as: IncidentIntake_attempts.csv
+  - series: support_queue_depth
+    as: IncidentQueue_queueDepth.csv
+  - series: support_analytics_load
+    as: SupportAnalytics_load.csv

@@ -2259,12 +2259,13 @@
             return blocks;
         }
 
+        var showRetryMetrics = overlaySettings.ShowRetryMetrics;
         var hasAttemptsSeries = baseSparkline?.Series.ContainsKey("attempts") == true;
         var hasFailuresSeries = baseSparkline?.Series.ContainsKey("failures") == true;
         var hasRetryEchoSeries = baseSparkline?.Series.ContainsKey("retryEcho") == true;
         var hasServedSeries = baseSparkline?.Series.ContainsKey("served") == true || AllowsFallback("served");
 
-        if (hasAttemptsSeries)
+        if (showRetryMetrics && (hasAttemptsSeries || !string.IsNullOrWhiteSpace(topoNode?.Semantics?.Attempts)))
         {
             AddRequired("Attempts", "attempts", 0d, seriesKeyOverride: "attempts");
         }
@@ -2274,12 +2275,12 @@
             AddRequired("Served", "served", 0d, seriesKeyOverride: "served");
         }
 
-        if (hasFailuresSeries)
+        if (showRetryMetrics && (hasFailuresSeries || !string.IsNullOrWhiteSpace(topoNode?.Semantics?.Failures)))
         {
             AddRequired("Failures", "failures", 0d, seriesKeyOverride: "failures");
         }
 
-        if (hasRetryEchoSeries)
+        if (showRetryMetrics && (hasRetryEchoSeries || !string.IsNullOrWhiteSpace(topoNode?.Semantics?.RetryEcho)))
         {
             AddRequired("Retry echo", "retryEcho", 0d, seriesKeyOverride: "retryEcho");
         }
@@ -2653,7 +2654,15 @@
         var sample = SampleSparklineAt(sparkline, selectedBin);
         if (!sample.HasValue)
         {
-            return "#CBD5E1";
+            var fallbackSample = sparkline.Values.FirstOrDefault(static v => v.HasValue);
+            if (fallbackSample.HasValue)
+            {
+                sample = fallbackSample;
+            }
+            else
+            {
+                return "#CBD5E1";
+            }
         }
 
         var thresholds = ColorScale.ColorThresholds.FromOverlay(overlaySettings);

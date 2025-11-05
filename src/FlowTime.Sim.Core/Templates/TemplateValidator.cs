@@ -682,5 +682,7 @@ internal static class TemplateValidator
         }
 
         public object? VisitLiteral(LiteralNode node) => null;
+
+        public object? VisitArrayLiteral(ArrayLiteralNode node) => null;
     }
 }

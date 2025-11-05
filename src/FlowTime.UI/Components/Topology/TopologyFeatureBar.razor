@@ -92,10 +92,24 @@
                     <MudSwitch T="bool"
                                Dense="true"
                                Class="topology-dense-control"
+                               Value="@workingSettings.ShowEdgeMultipliers"
+                               ValueChanged="OnShowEdgeMultipliersChanged"
+                               Color="Color.Primary"
+                               Label="Show edge multipliers" />
+                    <MudSwitch T="bool"
+                               Dense="true"
+                               Class="topology-dense-control"
                                Value="@workingSettings.ShowSparklines"
                                ValueChanged="OnShowSparklinesChanged"
                                Color="Color.Primary"
                                Label="Show sparklines" />
+                    <MudSwitch T="bool"
+                               Dense="true"
+                               Class="topology-dense-control"
+                               Value="@workingSettings.ShowRetryMetrics"
+                               ValueChanged="OnShowRetryMetricsChanged"
+                               Color="Color.Primary"
+                               Label="Show retry chips" />
                     <MudRadioGroup T="SparklineRenderMode"
                                    Value="@workingSettings.SparklineMode"
                                    ValueChanged="OnSparklineModeChanged"
@@ -413,6 +427,17 @@
         return NotifyChange();
     }
 
+    private Task OnShowEdgeMultipliersChanged(bool value)
+    {
+        if (workingSettings.ShowEdgeMultipliers == value)
+        {
+            return Task.CompletedTask;
+        }
+
+        workingSettings.ShowEdgeMultipliers = value;
+        return NotifyChange();
+    }
+
     private Task OnShowSparklinesChanged(bool value)
     {
         if (workingSettings.ShowSparklines == value)
@@ -421,6 +446,17 @@
         }
 
         workingSettings.ShowSparklines = value;
+        return NotifyChange();
+    }
+
+    private Task OnShowRetryMetricsChanged(bool value)
+    {
+        if (workingSettings.ShowRetryMetrics == value)
+        {
+            return Task.CompletedTask;
+        }
+
+        workingSettings.ShowRetryMetrics = value;
         return NotifyChange();
     }
 

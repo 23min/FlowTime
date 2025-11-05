@@ -19,8 +19,8 @@ public sealed class TopologyHelpersTests
             },
             new[]
             {
-                new GraphEdgeModel("edge_ingress_processor", "ingress:out", "processor:in", 1, null, null),
-                new GraphEdgeModel("edge_processor_egress", "processor:out", "egress:in", 1, null, null)
+                new GraphEdgeModel("edge_ingress_processor", "ingress:out", "processor:in", 1, null, null, null, null),
+                new GraphEdgeModel("edge_processor_egress", "processor:out", "egress:in", 1, null, null, null, null)
             });
 
         var graph = GraphMapper.Map(response);
@@ -54,7 +54,7 @@ public sealed class TopologyHelpersTests
             },
             new[]
             {
-                new GraphEdgeModel("edge_alpha_beta", "alpha:out", "beta:in", 1, null, null)
+                new GraphEdgeModel("edge_alpha_beta", "alpha:out", "beta:in", 1, null, null, null, null)
             });
 
         var graph = GraphMapper.Map(response);
@@ -66,6 +66,32 @@ public sealed class TopologyHelpersTests
         Assert.True(beta.IsPositionFixed);
         Assert.Equal(160, beta.X);
         Assert.Equal(48, beta.Y);
+    }
+
+    [Fact]
+    public void GraphMapperPreservesEdgeMetadata()
+    {
+        var response = new GraphResponseModel(
+            new[]
+            {
+                new GraphNodeModel("svc", "service", CreateSemantics(), null),
+                new GraphNodeModel("analytics", "service", CreateSemantics(), null)
+            },
+            new[]
+            {
+                new GraphEdgeModel("edge_svc_analytics", "svc:out", "analytics:in", 1, "effort", "load", 0.5, 1)
+            });
+
+        var graph = GraphMapper.Map(response);
+        var edge = Assert.Single(graph.Edges);
+
+        Assert.Equal("edge_svc_analytics", edge.Id);
+        Assert.Equal("svc", edge.From);
+        Assert.Equal("analytics", edge.To);
+        Assert.Equal("effort", edge.EdgeType);
+        Assert.Equal("load", edge.Field);
+        Assert.Equal(0.5, edge.Multiplier);
+        Assert.Equal(1, edge.Lag);
     }
 
     [Fact]
@@ -127,5 +153,17 @@ public sealed class TopologyHelpersTests
     }
 
     private static GraphNodeSemanticsModel CreateSemantics()
-        => new("series:arrivals", "series:served", "series:errors", null, null, null, null, null, null);
+        => new(
+            Arrivals: "series:arrivals",
+            Served: "series:served",
+            Errors: "series:errors",
+            Attempts: null,
+            Failures: null,
+            RetryEcho: null,
+            Queue: null,
+            Capacity: null,
+            Series: null,
+            Expression: null,
+            Distribution: null,
+            InlineValues: null);
 }

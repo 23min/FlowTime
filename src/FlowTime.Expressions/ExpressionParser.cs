@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Globalization;
 
 namespace FlowTime.Expressions;
@@ -23,9 +24,10 @@ public class ExpressionParseException : Exception
 /// Implements the grammar:
 /// Expression  = Term (('+' | '-') Term)*
 /// Term        = Factor (('*' | '/') Factor)*  
-/// Factor      = Number | NodeRef | FunctionCall | '(' Expression ')'
+/// Factor      = Number | Array | NodeRef | FunctionCall | '(' Expression ')'
 /// FunctionCall = Identifier '(' (Expression (',' Expression)*)? ')'
 /// NodeRef     = Identifier
+/// Array       = '[' (Number (',' Number)*)? ']'
 /// </summary>
 public class ExpressionParser
 {
@@ -134,6 +136,12 @@ public class ExpressionParser
             SkipWhitespace();
             return expr;
         }
+
+        // Array literal
+        if (CurrentChar == '[')
+        {
+            return ParseArrayLiteral();
+        }
         
         // Number
         if (char.IsDigit(CurrentChar))
@@ -148,6 +156,59 @@ public class ExpressionParser
         }
         
         throw new ExpressionParseException($"Unexpected character '{CurrentChar}'", position, expression);
+    }
+
+    private ExpressionNode ParseArrayLiteral()
+    {
+        var startPos = position;
+        Advance(); // consume '['
+        SkipWhitespace();
+
+        var values = new List<double>();
+
+        if (CurrentChar == ']')
+        {
+            Advance();
+            SkipWhitespace();
+            return new ArrayLiteralNode
+            {
+                Values = values,
+                Position = startPos
+            };
+        }
+
+        while (true)
+        {
+            var element = ParseNumber();
+            if (element is not LiteralNode literal)
+            {
+                throw new ExpressionParseException("Array elements must be numeric literals", element.Position, expression);
+            }
+
+            values.Add(literal.Value);
+
+            if (CurrentChar == ',')
+            {
+                Advance();
+                SkipWhitespace();
+                continue;
+            }
+
+            if (CurrentChar == ']')
+            {
+                Advance();
+                SkipWhitespace();
+                break;
+            }
+
+            throw new ExpressionParseException("Expected ',' or ']'", position, expression);
+        }
+
+        return new ArrayLiteralNode
+        {
+            Values = values,
+            Position = startPos
+        };
     }
     
     private ExpressionNode ParseNumber()

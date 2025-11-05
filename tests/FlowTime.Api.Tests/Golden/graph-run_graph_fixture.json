@@ -30,6 +30,18 @@
         "layer": null,
         "order": null
       }
+    },
+    {
+      "id": "Analytics",
+      "kind": "service",
+      "semantics": {
+        "arrivals": "series:analytics_load",
+        "served": "series:analytics_served",
+        "errors": "series:analytics_errors",
+        "series": null,
+        "expression": null,
+        "distribution": null
+      }
     }
   ],
   "edges": [
@@ -38,7 +50,18 @@
       "from": "LoadBalancer:out",
       "to": "Database:in",
       "weight": 1,
-      "edgeType": "topology"
+      "edgeType": "throughput",
+      "field": "served"
+    },
+    {
+      "id": "edge_lb_analytics",
+      "from": "LoadBalancer:out",
+      "to": "Analytics:in",
+      "weight": 1,
+      "edgeType": "effort",
+      "field": "load",
+      "multiplier": 0.5,
+      "lag": 1
     }
   ]
 }

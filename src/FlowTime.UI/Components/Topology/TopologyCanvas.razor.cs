@@ -564,6 +564,9 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                         semantics.Arrivals,
                         semantics.Served,
                         semantics.Errors,
+                        semantics.Attempts,
+                        semantics.Failures,
+                        semantics.RetryEcho,
                         semantics.Queue,
                         semantics.Capacity,
                         semantics.Series,
@@ -639,7 +642,9 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                     toNode.Y,
                     share,
                     edge.EdgeType,
-                    edge.Field);
+                    edge.Field,
+                    edge.Multiplier,
+                    edge.Lag);
             })
             .Where(edge => edge is not null)
             .Cast<EdgeRenderInfo>()
@@ -693,7 +698,9 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             overlays.ShowErrorsDependencies,
             overlays.ShowQueueDependencies,
             overlays.ShowCapacityDependencies,
-            overlays.ShowExpressionDependencies);
+            overlays.ShowExpressionDependencies,
+            overlays.ShowRetryMetrics,
+            overlays.ShowEdgeMultipliers);
 
         TooltipPayload? tooltip = null;
         if (!string.IsNullOrWhiteSpace(tooltipNode))

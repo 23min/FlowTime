@@ -245,7 +245,19 @@ public sealed class TopologyInspectorTests
                     0,
                     0,
                     false,
-                    new TopologyNodeSemantics("queue_in", "queue_out", "queue_err", "queue_depth", null, null, null, null, null))
+                    new TopologyNodeSemantics(
+                        Arrivals: "queue_in",
+                        Served: "queue_out",
+                        Errors: "queue_err",
+                        Attempts: null,
+                        Failures: null,
+                        RetryEcho: null,
+                        Queue: "queue_depth",
+                        Capacity: null,
+                        Series: null,
+                        Expression: null,
+                        Distribution: null,
+                        InlineValues: null))
             },
             Array.Empty<TopologyEdge>()));
 
@@ -314,6 +326,9 @@ public sealed class TopologyInspectorTests
                         Arrivals: null,
                         Served: null,
                         Errors: null,
+                        Attempts: null,
+                        Failures: null,
+                        RetryEcho: null,
                         Queue: null,
                         Capacity: null,
                         Series: null,
@@ -358,7 +373,7 @@ public sealed class TopologyInspectorTests
 
         var series = new Dictionary<string, double?[]>
         {
-            ["successRate"] = new double?[] { 0.95 },
+            ["successRate"] = new double?[] { 0.97 },
             ["utilization"] = new double?[] { 0.96 }
         };
 
@@ -367,6 +382,8 @@ public sealed class TopologyInspectorTests
         {
             ["svc-x"] = sparkline
         });
+
+        topology.TestUpdateActiveMetrics(0);
 
         // First, with SLA basis expect green for success rate
         var settingsSla = new TopologyOverlaySettings
@@ -379,7 +396,15 @@ public sealed class TopologyInspectorTests
         topology.TestSetOverlaySettings(settingsSla);
         var blocksSla = topology.TestBuildInspectorMetrics("svc-x");
         Assert.NotEmpty(blocksSla);
-        Assert.Equal("#009E73", blocksSla[0].Stroke); // Success rate under SLA basis
+        var successBlock = Assert.Single(blocksSla.Where(b => string.Equals(b.Title, "Success rate", StringComparison.OrdinalIgnoreCase)));
+        Assert.False(successBlock.IsPlaceholder);
+        Assert.NotNull(successBlock.Sparkline);
+        Assert.Equal(0.97, successBlock.Sparkline!.Values[0]);
+        Assert.Equal(0, successBlock.Sparkline.StartIndex);
+        var thresholds = ColorScale.ColorThresholds.FromOverlay(settingsSla);
+        var expectedColor = ColorScale.GetFill(new NodeBinMetrics(0.97, null, null, null, null, null), TopologyColorBasis.Sla, thresholds);
+        Assert.Equal("#009E73", expectedColor);
+        Assert.Equal("#009E73", successBlock.Stroke); // Success rate under SLA basis
 
         // Now switch to Utilization basis; color should not be green and not neutral
         var settingsUtil = new TopologyOverlaySettings
@@ -392,13 +417,76 @@ public sealed class TopologyInspectorTests
         topology.TestSetOverlaySettings(settingsUtil);
         var blocksUtil = topology.TestBuildInspectorMetrics("svc-x");
         Assert.NotEmpty(blocksUtil);
-        var stroke = blocksUtil[1].Stroke; // Utilization block
-        Assert.NotEqual("#009E73", stroke); // not success green
-        Assert.NotEqual("#CBD5E1", stroke); // not neutral gray
+        var utilizationBlock = Assert.Single(blocksUtil.Where(b => string.Equals(b.Title, "Utilization", StringComparison.OrdinalIgnoreCase)));
+        Assert.NotEqual("#009E73", utilizationBlock.Stroke); // not success green
+        Assert.NotEqual("#CBD5E1", utilizationBlock.Stroke); // not neutral gray
+    }
+
+    [Fact]
+    public void BuildInspectorMetrics_HonorsRetryToggle()
+    {
+        var topology = new Topology();
+
+        var semantics = new TopologyNodeSemantics(
+            Arrivals: "arrivals",
+            Served: "served",
+            Errors: "errors",
+            Attempts: "attempts",
+            Failures: "failures",
+            RetryEcho: "retryEcho",
+            Queue: null,
+            Capacity: null,
+            Series: null,
+            Expression: null,
+            Distribution: null,
+            InlineValues: null);
+
+        topology.TestSetTopologyGraph(new TopologyGraph(
+            new[] { new TopologyNode("svc-retry", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, semantics) },
+            Array.Empty<TopologyEdge>()));
+
+        var series = new Dictionary<string, double?[]>
+        {
+            ["successRate"] = new double?[] { 0.9 },
+            ["served"] = new double?[] { 10.0 },
+            ["attempts"] = new double?[] { 12.0 },
+            ["failures"] = new double?[] { 2.0 },
+            ["retryEcho"] = new double?[] { 1.0 }
+        };
+
+        var sparkline = CreateSparkline(series);
+        topology.TestSetNodeSparklines(new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["svc-retry"] = sparkline
+        });
+
+        topology.TestSetOverlaySettings(TopologyOverlaySettings.Default.Clone());
+        var defaultBlocks = topology.TestBuildInspectorMetrics("svc-retry");
+        Assert.Contains(defaultBlocks, block => string.Equals(block.Title, "Attempts", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(defaultBlocks, block => string.Equals(block.Title, "Failures", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(defaultBlocks, block => string.Equals(block.Title, "Retry echo", StringComparison.OrdinalIgnoreCase));
+
+        topology.TestSetOverlaySettings(new TopologyOverlaySettings { ShowRetryMetrics = false });
+        var hiddenBlocks = topology.TestBuildInspectorMetrics("svc-retry");
+        Assert.DoesNotContain(hiddenBlocks, block => string.Equals(block.Title, "Attempts", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(hiddenBlocks, block => string.Equals(block.Title, "Failures", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(hiddenBlocks, block => string.Equals(block.Title, "Retry echo", StringComparison.OrdinalIgnoreCase));
     }
 
     private static TopologyNodeSemantics EmptySemantics() =>
-        new(null, null, null, null, null, null, null, null, null);
+        new(
+            Arrivals: null,
+            Served: null,
+            Errors: null,
+            Attempts: null,
+            Failures: null,
+            RetryEcho: null,
+            Queue: null,
+            Capacity: null,
+            Series: null,
+            Expression: null,
+            Distribution: null,
+            InlineValues: null);
 
     private static NodeSparklineData CreateSparkline(IDictionary<string, double?[]> seriesMap)
     {

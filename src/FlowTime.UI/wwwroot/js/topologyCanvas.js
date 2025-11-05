@@ -2,6 +2,8 @@
     const registry = new WeakMap();
     const EdgeTypeTopology = 'topology';
     const EdgeTypeDependency = 'dependency';
+    const EdgeTypeThroughput = 'throughput';
+    const EdgeTypeEffort = 'effort';
     const MIN_ZOOM_PERCENT = 25;
     const MAX_ZOOM_PERCENT = 200;
     const MIN_SCALE = MIN_ZOOM_PERCENT / 100;
@@ -366,8 +368,12 @@
                 continue;
             }
 
-            const edgeType = String(edge.edgeType ?? edge.EdgeType ?? EdgeTypeTopology).toLowerCase();
-            if (edgeType === EdgeTypeDependency) {
+            const rawEdgeType = String(edge.edgeType ?? edge.EdgeType ?? EdgeTypeTopology).toLowerCase();
+            const isEffortEdge = rawEdgeType === EdgeTypeEffort;
+            const isThroughputEdge = rawEdgeType === EdgeTypeThroughput;
+            const isDependency = rawEdgeType === EdgeTypeDependency;
+
+            if (isDependency) {
                 const field = String(edge.field ?? edge.Field ?? '').toLowerCase();
                 if (!shouldRenderDependencyEdge(field, overlaySettings)) {
                     continue;
@@ -377,21 +383,28 @@
             const edgeId = edge.id ?? edge.Id ?? `${fromId}->${toId}`;
             const highlightEdge = !emphasisEnabled || (neighborEdges?.has(edgeId) ?? false);
             const edgeAlpha = highlightEdge ? defaultEdgeAlpha : defaultEdgeAlpha * 0.25;
-            const strokeColor = highlightEdge ? '#9AA1AC' : 'rgba(154, 161, 172, 0.35)';
+
+            const baseStrokeColor = isEffortEdge
+                ? '#DC2626'
+                : isThroughputEdge
+                    ? '#2563EB'
+                    : '#9AA1AC';
+
+            const dashPattern = isDependency ? [4, 3] : (isEffortEdge ? [8, 4] : null);
+            const lineWidth = isDependency ? 1.4 : (isEffortEdge ? 3.2 : 3);
 
             const offset = edgeLaneOffset(edge);
             let pathPoints;
             let startPoint;
             let endPoint;
 
-        ctx.save();
-        ctx.globalAlpha = edgeAlpha;
-        const isDependency = edgeType === EdgeTypeDependency;
-        ctx.lineWidth = isDependency ? 1.4 : 3;
-        ctx.strokeStyle = strokeColor;
-        if (isDependency) {
-            ctx.setLineDash([4, 3]);
-        }
+            ctx.save();
+            ctx.globalAlpha = edgeAlpha;
+            ctx.lineWidth = lineWidth;
+            ctx.strokeStyle = baseStrokeColor;
+            if (dashPattern) {
+                ctx.setLineDash(dashPattern);
+            }
 
             if (overlaySettings.edgeStyle === 'bezier') {
                 const path = computeBezierPath(fromNode, toNode, offset, portPadding);
@@ -446,7 +459,19 @@
                 drawEdgeShare(ctx, pathPoints, share);
             }
 
-            if (isDependency) {
+            const showEdgeMultipliers = overlaySettings.showEdgeMultipliers !== false;
+            if (isEffortEdge && showEdgeMultipliers) {
+                const multiplierRaw = edge.multiplier ?? edge.Multiplier;
+                const lagRaw = edge.lag ?? edge.Lag;
+                const multiplier = Number(multiplierRaw);
+                const lagValue = Number(lagRaw);
+                if (Number.isFinite(multiplier) && multiplier > 0 && pathPoints.length > 0) {
+                    const label = formatMultiplierLabel(multiplier, Number.isFinite(lagValue) ? lagValue : 0);
+                    drawEdgeMultiplier(ctx, pathPoints, label, baseStrokeColor);
+                }
+            }
+
+            if (dashPattern) {
                 ctx.setLineDash([]);
             }
 
@@ -1459,7 +1484,9 @@
             showLabels: boolOr(raw.showLabels ?? raw.ShowLabels, true),
             showEdgeArrows: boolOr(raw.showEdgeArrows ?? raw.ShowEdgeArrows, true),
             showEdgeShares: boolOr(raw.showEdgeShares ?? raw.ShowEdgeShares, false),
+            showEdgeMultipliers: boolOr(raw.showEdgeMultipliers ?? raw.ShowEdgeMultipliers, true),
             showSparklines: boolOr(raw.showSparklines ?? raw.ShowSparklines, true),
+            showRetryMetrics: boolOr(raw.showRetryMetrics ?? raw.ShowRetryMetrics, true),
             showQueueBadge: boolOr(raw.showQueueScalarBadge ?? raw.ShowQueueScalarBadge, true),
             sparklineMode: sparkMode === 1 ? 'bar' : 'line',
             edgeStyle,
@@ -1698,6 +1725,7 @@
         const hasSemantics = Object.values(semantics).some(value => value);
         const hasSpark = spark !== null;
         const shouldDrawSparkline = overlays.showSparklines && spark;
+        const showRetryMetrics = overlays.showRetryMetrics !== false;
 
         if (!hasSemantics && !hasSpark) {
             return;
@@ -1835,6 +1863,28 @@
         let bottomLeft = topLeft;
         let bottomRight = topRight;
 
+        if (showRetryMetrics) {
+            const attemptsValue = sampleValueFor('attempts', semantics.attempts, ['attempt']);
+            const attemptsTooltip = semantics.attempts?.label ?? 'Attempts';
+            if (attemptsValue !== null || semantics.attempts) {
+                const attemptsLabel = attemptsValue !== null ? formatMetricValue(attemptsValue) : attemptsTooltip;
+                if (attemptsLabel) {
+                    const drawn = drawChip(ctx, topLeft, topRowTop + chipH, attemptsLabel, '#0EA5E9', '#0F172A', paddingX, chipH);
+                    registerChipHitbox(state, {
+                        nodeId: nodeMeta.id ?? null,
+                        metric: 'attempts',
+                        placement: 'top',
+                        tooltip: attemptsTooltip,
+                        x: topLeft,
+                        y: topRowTop,
+                        width: drawn,
+                        height: chipH
+                    });
+                    topLeft += drawn + gap;
+                }
+            }
+        }
+
         if (overlays.showArrivalsDependencies !== false) {
             const arrivalValue = sampleValueFor('arrivals', semantics.arrivals);
             const arrivalLabel = arrivalValue !== null ? formatMetricValue(arrivalValue) : fallbackLabel(semantics.arrivals);
@@ -1889,6 +1939,62 @@
                     height: chipH
                 });
                 bottomLeft += drawn + gap;
+            }
+        }
+
+        if (showRetryMetrics) {
+            const failureValue = sampleValueFor('failures', semantics.failures, ['failure']);
+            const failuresTooltip = semantics.failures?.label ?? 'Failures';
+            if (failureValue !== null || semantics.failures) {
+                const failureLabel = failureValue !== null ? formatMetricValue(failureValue) : failuresTooltip;
+                if (failureLabel) {
+                    let failureBg = '#DC2626';
+                    let failureFg = '#FFFFFF';
+                    if (failureValue !== null && failureValue <= 0) {
+                        failureBg = '#E5E7EB';
+                        failureFg = '#1F2937';
+                    }
+
+                    const drawn = drawChip(ctx, bottomLeft, bottomRowTop + chipH, failureLabel, failureBg, failureFg, paddingX, chipH);
+                    registerChipHitbox(state, {
+                        nodeId: nodeMeta.id ?? null,
+                        metric: 'failures',
+                        placement: 'bottom-left',
+                        tooltip: failuresTooltip,
+                        x: bottomLeft,
+                        y: bottomRowTop,
+                        width: drawn,
+                        height: chipH
+                    });
+                    bottomLeft += drawn + gap;
+                }
+            }
+
+            const retryValue = sampleValueFor('retryEcho', semantics.retry, ['retry', 'retry_echo']);
+            const retryTooltip = semantics.retry?.label ?? 'Retry';
+            if (retryValue !== null || semantics.retry) {
+                const retryLabel = retryValue !== null ? formatMetricValue(retryValue) : retryTooltip;
+                if (retryLabel) {
+                    let retryBg = '#7C3AED';
+                    let retryFg = '#FFFFFF';
+                    if (retryValue !== null && retryValue <= 0) {
+                        retryBg = '#EDE9FE';
+                        retryFg = '#4C1D95';
+                    }
+
+                    const drawn = drawChip(ctx, bottomLeft, bottomRowTop + chipH, retryLabel, retryBg, retryFg, paddingX, chipH);
+                    registerChipHitbox(state, {
+                        nodeId: nodeMeta.id ?? null,
+                        metric: 'retryEcho',
+                        placement: 'bottom-left',
+                        tooltip: retryTooltip,
+                        x: bottomLeft,
+                        y: bottomRowTop,
+                        width: drawn,
+                        height: chipH
+                    });
+                    bottomLeft += drawn + gap;
+                }
             }
         }
 
@@ -2113,10 +2219,15 @@
                 arrivals: null,
                 served: null,
                 errors: null,
+                attempts: null,
+                failures: null,
+                retry: null,
                 queue: null,
                 capacity: null,
                 series: null,
-                distribution: null
+                distribution: null,
+                inline: null,
+                retryEcho: null
             };
         }
 
@@ -2124,11 +2235,15 @@
             arrivals: normalizeSemanticValue(raw.arrivals ?? raw.Arrivals),
             served: normalizeSemanticValue(raw.served ?? raw.Served),
             errors: normalizeSemanticValue(raw.errors ?? raw.Errors),
+            attempts: normalizeSemanticValue(raw.attempts ?? raw.Attempts),
+            failures: normalizeSemanticValue(raw.failures ?? raw.Failures),
+            retry: normalizeSemanticValue(raw.retry ?? raw.Retry ?? raw.retryEcho ?? raw.RetryEcho),
             queue: normalizeSemanticValue(raw.queue ?? raw.Queue),
             capacity: normalizeSemanticValue(raw.capacity ?? raw.Capacity),
             series: normalizeSemanticValue(raw.series ?? raw.Series),
             distribution: normalizeDistribution(raw.distribution ?? raw.Distribution),
-            inline: normalizeInlineSeries(raw.inlineValues ?? raw.InlineValues)
+            inline: normalizeInlineSeries(raw.inlineValues ?? raw.InlineValues),
+            retryEcho: normalizeSemanticValue(raw.retryEcho ?? raw.RetryEcho)
         };
     }
 
@@ -2491,6 +2606,29 @@
         }
 
         return `${pct.toFixed(2).replace(/0$/, '').replace(/\.$/, '')}%`;
+    }
+
+    function formatMultiplierLabel(multiplier, lag) {
+        if (!Number.isFinite(multiplier) || multiplier <= 0) {
+            return null;
+        }
+
+        let magnitude;
+        if (multiplier >= 10) {
+            magnitude = multiplier.toFixed(0);
+        } else if (multiplier >= 3) {
+            magnitude = multiplier.toFixed(1).replace(/\.0$/, '');
+        } else {
+            magnitude = multiplier.toFixed(2).replace(/0$/, '').replace(/\.$/, '');
+        }
+
+        let label = `×${magnitude}`;
+        if (Number.isFinite(lag) && lag > 0) {
+            const lagInt = Math.round(lag);
+            label += ` • +${lagInt}`;
+        }
+
+        return label;
     }
 
     function toPascal(name) {
@@ -2895,7 +3033,30 @@
         ctx.font = '10px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(label, labelX, labelY);
+    ctx.fillText(label, labelX, labelY);
+    ctx.restore();
+}
+
+    function drawEdgeMultiplier(ctx, points, label, strokeColor) {
+        if (!Array.isArray(points) || points.length === 0 || typeof label !== 'string' || label.length === 0) {
+            return;
+        }
+
+        const index = Math.floor(points.length / 2);
+        const anchor = points[Math.max(0, Math.min(points.length - 1, index))];
+        if (!anchor) {
+            return;
+        }
+
+        ctx.save();
+        ctx.font = '10px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
+        const paddingX = 6;
+        const chipHeight = 14;
+        const textWidth = Math.ceil(ctx.measureText(label).width);
+        const chipWidth = textWidth + paddingX * 2;
+        const left = anchor.x - chipWidth / 2;
+        const baseline = anchor.y - 8;
+        drawChip(ctx, left, baseline, label, 'rgba(255, 255, 255, 0.92)', strokeColor, paddingX, chipHeight);
         ctx.restore();
     }
 

@@ -32,6 +32,9 @@ internal sealed record NodeSemanticsDto(
     string? Arrivals,
     string? Served,
     string? Errors,
+    string? Attempts,
+    string? Failures,
+    string? RetryEcho,
     string? Queue,
     string? Capacity,
     string? Series,
@@ -53,7 +56,9 @@ internal sealed record EdgeRenderInfo(
     double ToY,
     double? Share,
     string? EdgeType,
-    string? Field);
+    string? Field,
+    double? Multiplier,
+    int? Lag);
 
 internal sealed record CanvasViewport(double MinX, double MinY, double MaxX, double MaxY, double Padding);
 
@@ -92,7 +97,9 @@ internal sealed record OverlaySettingsPayload(
     bool ShowErrorsDependencies,
     bool ShowQueueDependencies,
     bool ShowCapacityDependencies,
-    bool ShowExpressionDependencies);
+    bool ShowExpressionDependencies,
+    bool ShowRetryMetrics,
+    bool ShowEdgeMultipliers);
 
 internal sealed record ViewportSnapshotPayload(
     double Scale,

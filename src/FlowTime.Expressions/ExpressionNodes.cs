@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace FlowTime.Expressions;
 
 /// <summary>
@@ -25,6 +27,7 @@ public interface IExpressionVisitor<T>
     T VisitFunctionCall(FunctionCallNode node);
     T VisitNodeReference(NodeReferenceNode node);
     T VisitLiteral(LiteralNode node);
+    T VisitArrayLiteral(ArrayLiteralNode node);
 }
 
 /// <summary>
@@ -68,6 +71,16 @@ public class LiteralNode : ExpressionNode
     public double Value { get; set; }
     
     public override T Accept<T>(IExpressionVisitor<T> visitor) => visitor.VisitLiteral(this);
+}
+
+/// <summary>
+/// Literal array of numeric values (e.g., kernel definitions for CONV).
+/// </summary>
+public class ArrayLiteralNode : ExpressionNode
+{
+    public IReadOnlyList<double> Values { get; set; } = Array.Empty<double>();
+
+    public override T Accept<T>(IExpressionVisitor<T> visitor) => visitor.VisitArrayLiteral(this);
 }
 
 /// <summary>

@@ -18,6 +18,16 @@ FlowTime maintains **deterministic, single-pass evaluation** while handling comp
 - **Conservative flow accounting** that tracks attempts, successes, failures, and retry echoes
 - **Forward-only DAG evaluation** with explicit handling of temporal dependencies
 
+> **Implementation update (Mar 2025):** The expression engine now ships `CONV` with inline kernel literals (e.g., `CONV(failures, [0.0, 0.6, 0.3, 0.1])`). The template `templates/supply-chain-incident-retry.yaml` demonstrates end-to-end wiring—throughput vs effort edges, attempts/failures/retryEcho series, and UI toggles.
+
+---
+
+## Reference Assets
+
+- **Template:** `templates/supply-chain-incident-retry.yaml` (24-bin IT ops incident workflow with deterministic kernel)
+- **API Goldens:** `tests/FlowTime.Api.Tests/Golden/state-window-*.json`, `graph-run_graph_fixture.json`
+- **UI Tests:** `tests/FlowTime.UI.Tests/TimeTravel/*` covering chips, edge payloads, and inspector toggles
+
 ---
 
 ## Core Retry Modeling Concepts

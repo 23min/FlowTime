@@ -95,6 +95,8 @@ public static class ExpressionSemanticValidator
         public object? VisitNodeReference(NodeReferenceNode node) => null;
 
         public object? VisitLiteral(LiteralNode node) => null;
+
+        public object? VisitArrayLiteral(ArrayLiteralNode node) => null;
     }
 }
 

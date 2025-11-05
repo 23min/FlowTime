@@ -36,6 +36,7 @@ public sealed class TopologyOverlaySettings
     public bool ShowQueueScalarBadge { get; set; } = true;
     public SparklineRenderMode SparklineMode { get; set; } = SparklineRenderMode.Line;
     public EdgeRenderMode EdgeStyle { get; set; } = EdgeRenderMode.Bezier;
+    public bool ShowEdgeMultipliers { get; set; } = true;
 
     public bool EnableFullDag { get; set; } = true;
     public bool IncludeServiceNodes { get; set; } = true;
@@ -59,6 +60,7 @@ public sealed class TopologyOverlaySettings
     public bool ShowCapacityDependencies { get; set; } = true;
     public bool ShowExpressionDependencies { get; set; } = true;
     public LayoutMode Layout { get; set; } = LayoutMode.HappyPath;
+    public bool ShowRetryMetrics { get; set; } = true;
 
     // Inspector overview (Horizon chart)
     public bool ShowInspectorOverview { get; set; } = true;
@@ -77,6 +79,7 @@ public sealed class TopologyOverlaySettings
             ShowQueueScalarBadge = ShowQueueScalarBadge,
             SparklineMode = SparklineMode,
             EdgeStyle = EdgeStyle,
+            ShowEdgeMultipliers = ShowEdgeMultipliers,
             EnableFullDag = EnableFullDag,
             IncludeServiceNodes = IncludeServiceNodes,
             IncludeExpressionNodes = IncludeExpressionNodes,
@@ -95,6 +98,7 @@ public sealed class TopologyOverlaySettings
             ShowCapacityDependencies = ShowCapacityDependencies,
             ShowExpressionDependencies = ShowExpressionDependencies,
             Layout = Layout,
+            ShowRetryMetrics = ShowRetryMetrics,
             ShowInspectorOverview = ShowInspectorOverview,
             HorizonBands = HorizonBands,
             NormalizeInspectorHorizonCounts = NormalizeInspectorHorizonCounts,

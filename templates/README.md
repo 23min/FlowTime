@@ -119,6 +119,15 @@ This keeps template ownership with Sim while ensuring Engine always consumes can
 
 This variant introduces an explicit warehouse buffer between Supplier and Distributor. The Supplier plans production with a buffer multiplier (e.g., 20% build-ahead), ships to the Warehouse, and downstream pulls from inventory subject to Distributor and Retailer capacities. SLA channels remain conservative: per-node `served` values are capped by the corresponding `arrivals`/pull, so ratios never exceed 1.0.
 
+## supply-chain-incident-retry
+
+Deterministic 24-hour IT operations incident workflow demonstrating retry semantics:
+
+- Static example (no parameters); see `templates/supply-chain-incident-retry.yaml`.
+- Service node exposes `arrivals`, `served`, `failures`, `attempts`, and computed `retryEcho` via `CONV(failures, [0.0, 0.6, 0.3, 0.1])`.
+- Topology includes both throughput (served-driven queue inflow) and effort edges (attempt-driven analytics load with multiplier/lag).
+- Useful for validating retry chips, inspector stacks, and effort edge rendering across API/UI layers.
+
 | Parameter | Type | Default | Notes |
 |-----------|------|---------|-------|
 | `bins` | integer | `6` | Time periods to simulate. |

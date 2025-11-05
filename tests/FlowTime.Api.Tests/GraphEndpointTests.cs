@@ -62,6 +62,15 @@ public sealed class GraphEndpointTests : IClassFixture<TestWebApplicationFactory
                 Assert.NotNull(node.Ui);
                 Assert.Equal(160, node.Ui!.X);
                 Assert.Equal(48, node.Ui.Y);
+            },
+            node =>
+            {
+                Assert.Equal("Analytics", node.Id);
+                Assert.Equal("service", node.Kind);
+                Assert.Equal("series:analytics_load", node.Semantics.Arrivals);
+                Assert.Equal("series:analytics_served", node.Semantics.Served);
+                Assert.Equal("series:analytics_errors", node.Semantics.Errors);
+                Assert.Null(node.Ui);
             });
 
         Assert.Collection(payload.Edges,
@@ -71,6 +80,20 @@ public sealed class GraphEndpointTests : IClassFixture<TestWebApplicationFactory
                 Assert.Equal("LoadBalancer:out", edge.From);
                 Assert.Equal("Database:in", edge.To);
                 Assert.Equal(1.0, edge.Weight);
+                Assert.Equal("throughput", edge.EdgeType);
+                Assert.Equal("served", edge.Field);
+                Assert.Null(edge.Multiplier);
+                Assert.Null(edge.Lag);
+            },
+            edge =>
+            {
+                Assert.Equal("edge_lb_analytics", edge.Id);
+                Assert.Equal("LoadBalancer:out", edge.From);
+                Assert.Equal("Analytics:in", edge.To);
+                Assert.Equal("effort", edge.EdgeType);
+                Assert.Equal("load", edge.Field);
+                Assert.Equal(0.5, edge.Multiplier);
+                Assert.Equal(1, edge.Lag);
             });
 
         var sanitized = SanitizeGraphResponse(payload);
@@ -140,11 +163,27 @@ topology:
         served: series:served
         errors: series:errors
         capacity: series:capacity
+    - id: Analytics
+      kind: service
+      semantics:
+        arrivals: series:analytics_load
+        served: series:analytics_served
+        errors: series:analytics_errors
   edges:
     - id: edge_lb_db
       from: LoadBalancer:out
       to: Database:in
       weight: 1
+      type: throughput
+      measure: served
+    - id: edge_lb_analytics
+      from: LoadBalancer:out
+      to: Analytics:in
+      weight: 1
+      type: effort
+      measure: load
+      multiplier: 0.5
+      lag: 1
 """;
 
         File.WriteAllText(Path.Combine(runDir, "model.yaml"), yaml, Encoding.UTF8);

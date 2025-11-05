@@ -1,6 +1,6 @@
 # TT‑M‑03.28 — Retries First‑Class (Attempts/Failures, Effort vs Throughput Edges, Temporal Echoes)
 
-Status: Planned  
+Status: 🚧 In Progress (Docs/telemetry updates underway; roadmap follow-up pending)  
 Owners: Platform (API/Sim) + UI  
 References: docs/architecture/retry-modeling.md, docs/architecture/time-travel/queues-shift-depth-and-initial-conditions.md, docs/performance/perf-log.md
 
@@ -65,17 +65,49 @@ Out of Scope (deferred)
 
 ## Implementation Plan (Sessions)
 
-Session 1 — Templates/Precompute
-- Add retries to a focused example; implement artifact‑time precompute of retryEcho.
+### Implementation Snapshot
+- ✅ **Retry template**: `templates/supply-chain-incident-retry.yaml` models attempts/failures with a deterministic `[0.0, 0.6, 0.3, 0.1]` kernel and both throughput/effort edges.
+- ✅ **Expression engine**: `CONV` now available (array literal kernels) with unit coverage.
+- ✅ **API**: `/graph` surfaces `edgeType`, multipliers, and lags; `/state_window` returns attempts/failures/retryEcho (derived when absent).
+- ✅ **UI**: Canvas renders effort edges with dashed styling/multipliers; chips + inspector stacks respect retry toggles; tests cover payloads and toggles.
+- ✅ **Docs + perf**: Milestone/tracker refreshed, replay contract snippet captured, perf log documents latest full-suite run.
+- ⏳ **Kernel governance/precompute** tracked for follow-up (warnings + artifact-time caching still outstanding).
 
-Session 2 — API Contracts
-- Extend `/graph` and `/state_window` additively; add unit/golden tests.
+### Execution Plan (Revised)
 
-Session 3 — UI Rendering
-- Add edge styles and chips; inspector stacks + horizons; UI tests.
+- [x] **Session 1 — Templates & Operators**
+  - [x] Add retry-enabled example with deterministic kernel
+  - [ ] Artifact-time retryEcho precompute (pending governance work)
+- [x] **Session 2 — API Contracts**
+  - [x] Extend `/graph` with edge types + metadata
+  - [x] Include attempts/failures/retryEcho in `/state_window` with goldens
+- [x] **Session 3 — UI Rendering**
+  - [x] Edge styles, multiplier overlays, chips, inspector stack tests
+- [ ] **Session 4 — Docs & Perf**
+  - [x] Docs sweep + telemetry contract snippet
+  - [x] Full-suite perf run captured in perf log
+  - [ ] Roadmap/deferrals update
 
-Session 4 — Docs/Perf
-- Update docs/contract; add perf log entry after full run.
+### Telemetry Contract Snippet (Retry-Enabled Node)
+
+```yaml
+nodes:
+  - id: IncidentIntake
+    metrics:
+      arrivals: file://telemetry/IncidentIntake_arrivals.csv
+      served: file://telemetry/IncidentIntake_served.csv
+      attempts: file://telemetry/IncidentIntake_attempts.csv
+      failures: file://telemetry/IncidentIntake_failures.csv
+      retryEcho: file://telemetry/IncidentIntake_retryEcho.csv  # optional; derived if omitted
+    semantics:
+      edges:
+        - type: throughput   # downstream arrivals driven by served
+          measure: served
+        - type: effort       # dependency load driven by attempts
+          measure: attempts
+          multiplier: 0.4
+          lag: 1
+```
 
 ## Telemetry Contract (Draft)
 
@@ -86,4 +118,3 @@ Per retry‑enabled node per bin:
 ## Risks & Mitigations
 
 See “Built‑In Mitigations” above and docs/architecture/retry-modeling.md (causal operators, bounded history, conservation).
-

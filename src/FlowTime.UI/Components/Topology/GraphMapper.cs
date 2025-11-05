@@ -53,7 +53,7 @@ internal static class GraphMapper
                     toNode.Inputs.Add(fromId);
                 }
 
-                edges.Add(new TopologyEdge(edge.Id, fromId, toId, edge.Weight, edge.EdgeType, edge.Field));
+                edges.Add(new TopologyEdge(edge.Id, fromId, toId, edge.Weight, edge.EdgeType, edge.Field, edge.Multiplier, edge.Lag));
             }
         }
 
@@ -116,7 +116,9 @@ internal static class GraphMapper
                 edge.To,
                 edge.Weight,
                 edge.EdgeType,
-                edge.Field))
+                edge.Field,
+                edge.Multiplier,
+                edge.Lag))
             .ToImmutableArray();
 
         return new TopologyGraph(mappedNodes, normalizedEdges);
@@ -523,7 +525,7 @@ internal static class GraphMapper
             var semantics = node.Semantics;
             if (semantics is null)
             {
-                Semantics = new TopologyNodeSemantics(null, null, null, null, null, null, null, null, null);
+                Semantics = new TopologyNodeSemantics(null, null, null, null, null, null, null, null, null, null, null, null);
             }
             else
             {
@@ -539,6 +541,9 @@ internal static class GraphMapper
                     semantics.Arrivals,
                     semantics.Served,
                     semantics.Errors,
+                    semantics.Attempts,
+                    semantics.Failures,
+                    semantics.RetryEcho,
                     semantics.Queue,
                     semantics.Capacity,
                     semantics.Series,
@@ -579,7 +584,9 @@ public sealed record TopologyEdge(
     string To,
     double Weight,
     string? EdgeType,
-    string? Field);
+    string? Field,
+    double? Multiplier = null,
+    int? Lag = null);
 
 public sealed record GraphResponseModel(
     IReadOnlyList<GraphNodeModel> Nodes,
@@ -595,6 +602,9 @@ public sealed record GraphNodeSemanticsModel(
     string Arrivals,
     string Served,
     string Errors,
+    string? Attempts,
+    string? Failures,
+    string? RetryEcho,
     string? Queue,
     string? Capacity,
     string? Series,
@@ -610,12 +620,17 @@ public sealed record GraphEdgeModel(
     string To,
     double Weight,
     string? EdgeType,
-    string? Field);
+    string? Field,
+    double? Multiplier = null,
+    int? Lag = null);
 
 public sealed record TopologyNodeSemantics(
     string? Arrivals,
     string? Served,
     string? Errors,
+    string? Attempts,
+    string? Failures,
+    string? RetryEcho,
     string? Queue,
     string? Capacity,
     string? Series,

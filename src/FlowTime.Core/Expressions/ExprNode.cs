@@ -1,10 +1,12 @@
 using FlowTime.Core.Execution;
 using FlowTime.Core.Models;
 using FlowTime.Core.Nodes;
+using System.Linq;
 using FlowTime.Expressions;
 using BinaryOpNode = FlowTime.Expressions.BinaryOpNode;
 using FunctionCallNode = FlowTime.Expressions.FunctionCallNode;
 using LiteralNode = FlowTime.Expressions.LiteralNode;
+using ArrayLiteralNode = FlowTime.Expressions.ArrayLiteralNode;
 
 namespace FlowTime.Core.Expressions;
 
@@ -78,6 +80,7 @@ public class ExprNode : INode
         return node.FunctionName.ToUpperInvariant() switch
         {
             "SHIFT" => EvaluateShiftFunction(node, grid, getInput),
+            "CONV" => EvaluateConvolutionFunction(node, grid, getInput),
             "MIN" => EvaluateMinFunction(node, grid, getInput),
             "MAX" => EvaluateMaxFunction(node, grid, getInput),
             "CLAMP" => EvaluateClampFunction(node, grid, getInput),
@@ -120,6 +123,63 @@ public class ExprNode : INode
         }
         
         return new Series(result);
+    }
+
+    private Series EvaluateConvolutionFunction(FunctionCallNode node, TimeGrid grid, Func<NodeId, Series> getInput)
+    {
+        if (node.Arguments.Count != 2)
+        {
+            throw new ArgumentException("CONV function requires exactly 2 arguments: CONV(series, [kernel...])");
+        }
+
+        var sourceSeries = EvaluateExpression(node.Arguments[0], grid, getInput);
+        var kernel = ExtractKernel(node.Arguments[1]);
+        var result = new double[grid.Bins];
+
+        if (kernel.Length == 0)
+        {
+            return new Series(result);
+        }
+
+        for (var t = 0; t < grid.Bins; t++)
+        {
+            double sum = 0;
+            for (var k = 0; k < kernel.Length; k++)
+            {
+                var sourceIndex = t - k;
+                if (sourceIndex < 0)
+                {
+                    break; // kernel is causal
+                }
+
+                if (sourceIndex >= sourceSeries.Length)
+                {
+                    continue;
+                }
+
+                var sample = sourceSeries[sourceIndex];
+                if (!double.IsFinite(sample))
+                {
+                    continue;
+                }
+
+                sum += sample * kernel[k];
+            }
+
+            result[t] = sum;
+        }
+
+        return new Series(result);
+    }
+
+    private static double[] ExtractKernel(ExpressionNode kernelNode)
+    {
+        return kernelNode switch
+        {
+            ArrayLiteralNode array => array.Values.ToArray(),
+            LiteralNode literal => new[] { literal.Value },
+            _ => throw new ArgumentException("CONV kernel argument must be an array literal (e.g., [0.0, 0.6, 0.3, 0.1]).")
+        };
     }
     
     private Series EvaluateMinFunction(FunctionCallNode node, TimeGrid grid, Func<NodeId, Series> getInput)

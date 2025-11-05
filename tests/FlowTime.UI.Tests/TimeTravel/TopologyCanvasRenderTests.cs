@@ -47,6 +47,74 @@ public sealed class TopologyCanvasRenderTests : TestContext
     }
 
     [Fact]
+    public void RenderIncludesEffortEdgeMetadata()
+    {
+        var nodes = new[]
+        {
+            new TopologyNode("source", "service", Array.Empty<string>(), new[] { "downstream" }, 0, 0, 0, 0, false, EmptySemantics()),
+            new TopologyNode("downstream", "service", new[] { "source" }, Array.Empty<string>(), 1, 0, 200, 120, false, EmptySemantics()),
+            new TopologyNode("analytics", "service", new[] { "source" }, Array.Empty<string>(), 1, 1, 220, 160, false, EmptySemantics())
+        };
+
+        var edges = new[]
+        {
+            new TopologyEdge("edge_source_downstream", "source", "downstream", 1, "throughput", "served", null, null),
+            new TopologyEdge("edge_source_analytics", "source", "analytics", 1, "effort", "load", 0.4, 2)
+        };
+
+        var graph = new TopologyGraph(nodes, edges);
+        var metrics = CreateMetrics();
+
+        var renderCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.render", _ => true);
+        renderCall.SetVoidResult();
+
+        RenderComponent<TopologyCanvas>(parameters => parameters
+            .Add(p => p.Graph, graph)
+            .Add(p => p.NodeMetrics, metrics));
+
+        var invocation = renderCall.Invocations.Single();
+        var payload = Assert.IsType<CanvasRenderRequest>(invocation.Arguments[1]);
+
+        var effortEdge = Assert.Single(payload.Edges.Where(e => e.Id == "edge_source_analytics"));
+        Assert.Equal("effort", effortEdge.EdgeType);
+        Assert.Equal("load", effortEdge.Field);
+        Assert.Equal(0.4, effortEdge.Multiplier);
+        Assert.Equal(2, effortEdge.Lag);
+
+        var throughputEdge = Assert.Single(payload.Edges.Where(e => e.Id == "edge_source_downstream"));
+        Assert.Equal("throughput", throughputEdge.EdgeType);
+        Assert.Equal("served", throughputEdge.Field);
+        Assert.Null(throughputEdge.Multiplier);
+        Assert.Null(throughputEdge.Lag);
+    }
+
+    [Fact]
+    public void OverlayPayloadReflectsRetryToggles()
+    {
+        var graph = CreateGraph();
+        var metrics = CreateMetrics();
+        var overlay = new TopologyOverlaySettings
+        {
+            ShowRetryMetrics = false,
+            ShowEdgeMultipliers = false
+        };
+
+        var renderCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.render", _ => true);
+        renderCall.SetVoidResult();
+
+        RenderComponent<TopologyCanvas>(parameters => parameters
+            .Add(p => p.Graph, graph)
+            .Add(p => p.NodeMetrics, metrics)
+            .Add(p => p.OverlaySettings, overlay));
+
+        var invocation = renderCall.Invocations.Single();
+        var payload = Assert.IsType<CanvasRenderRequest>(invocation.Arguments[1]);
+
+        Assert.False(payload.Overlays.ShowRetryMetrics);
+        Assert.False(payload.Overlays.ShowEdgeMultipliers);
+    }
+
+    [Fact]
     public void UpdatesMetricsTriggerAdditionalRender()
     {
         var graph = CreateGraph();
@@ -326,8 +394,8 @@ public sealed class TopologyCanvasRenderTests : TestContext
 
         var edges = new[]
         {
-            new TopologyEdge("edge_source_calc", "source", "calc", 1, null, null),
-            new TopologyEdge("edge_calc_svc", "calc", "svc", 1, null, null)
+            new TopologyEdge("edge_source_calc", "source", "calc", 1, null, null, null, null),
+            new TopologyEdge("edge_calc_svc", "calc", "svc", 1, null, null, null, null)
         };
 
         return new TopologyGraph(nodes, edges);
@@ -344,8 +412,8 @@ public sealed class TopologyCanvasRenderTests : TestContext
 
         var edges = new[]
         {
-            new TopologyEdge("edge_ingress_processor", "ingress", "processor", 1, null, null),
-            new TopologyEdge("edge_processor_egress", "processor", "egress", 1, null, null)
+            new TopologyEdge("edge_ingress_processor", "ingress", "processor", 1, null, null, null, null),
+            new TopologyEdge("edge_processor_egress", "processor", "egress", 1, null, null, null, null)
         };
 
         return new TopologyGraph(nodes, edges);
@@ -378,5 +446,17 @@ public sealed class TopologyCanvasRenderTests : TestContext
             additionalSeries: additional);
     }
 
-    private static TopologyNodeSemantics EmptySemantics() => new(null, null, null, null, null, null, null, null, null);
+    private static TopologyNodeSemantics EmptySemantics() => new(
+        Arrivals: null,
+        Served: null,
+        Errors: null,
+        Attempts: null,
+        Failures: null,
+        RetryEcho: null,
+        Queue: null,
+        Capacity: null,
+        Series: null,
+        Expression: null,
+        Distribution: null,
+        InlineValues: null);
 }

@@ -4,6 +4,7 @@ using BinaryOpNode = FlowTime.Expressions.BinaryOpNode;
 using FunctionCallNode = FlowTime.Expressions.FunctionCallNode;
 using NodeReferenceNode = FlowTime.Expressions.NodeReferenceNode;
 using LiteralNode = FlowTime.Expressions.LiteralNode;
+using ArrayLiteralNode = FlowTime.Expressions.ArrayLiteralNode;
 
 namespace FlowTime.Core.Expressions;
 
@@ -63,6 +64,12 @@ public class ExpressionCompiler
         public object? VisitLiteral(LiteralNode node)
         {
             // Literals don't reference nodes
+            return null;
+        }
+
+        public object? VisitArrayLiteral(ArrayLiteralNode node)
+        {
+            // Array literals do not introduce references
             return null;
         }
     }
