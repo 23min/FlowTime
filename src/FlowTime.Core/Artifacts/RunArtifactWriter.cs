@@ -80,7 +80,11 @@ public static class RunArtifactWriter
         var modelDto = (dynamic)request.Model;
         var gridDto = (dynamic)request.Grid;
 
-        var resolvedSeries = ResolveSeries((object?)modelDto.Outputs, request.Context);
+        // Build a mutable context and precompute any derived series (e.g., true SHIFT-based queue depth)
+        var effectiveContext = new Dictionary<NodeId, double[]>(request.Context);
+        TryPrecomputeQueueDepthSeries(request.SpecText, effectiveContext);
+
+        var resolvedSeries = ResolveSeries((object?)modelDto.Outputs, effectiveContext);
         var seriesDescriptorMap = new Dictionary<string, SeriesDescriptor>(StringComparer.OrdinalIgnoreCase);
         var seriesDescriptorList = new List<SeriesDescriptor>();
         foreach (var descriptor in resolvedSeries.Select(CreateSeriesDescriptor))
@@ -91,7 +95,7 @@ public static class RunArtifactWriter
             }
         }
 
-        var normalizedSpecText = NormalizeTopologySemantics(request.SpecText, seriesDescriptorMap, seriesDescriptorList, request.Context);
+        var normalizedSpecText = NormalizeTopologySemantics(request.SpecText, seriesDescriptorMap, seriesDescriptorList, effectiveContext);
         var scenarioHash = ComputeScenarioHash(normalizedSpecText, request.RngSeed, request.StartTimeBias);
 
         var runId = request.DeterministicRunId
@@ -128,7 +132,7 @@ public static class RunArtifactWriter
 
         foreach (var descriptor in seriesDescriptorList)
         {
-            if (!request.Context.TryGetValue(descriptor.NodeId, out var seriesData))
+            if (!effectiveContext.TryGetValue(descriptor.NodeId, out var seriesData))
             {
                 throw new InvalidOperationException($"Series '{descriptor.NodeId.Value}' referenced by topology semantics was not present in the run context.");
             }
@@ -263,6 +267,129 @@ public static class RunArtifactWriter
         await using var stream = File.OpenRead(path);
         var hash = await SHA256.HashDataAsync(stream, CancellationToken.None);
         return "sha256:" + Convert.ToHexString(hash).ToLowerInvariant();
+    }
+
+    /// <summary>
+    /// Precompute true SHIFT-based queue depth series at artifact time.
+    /// If a topology node has semantics.queue mapped to a logical series name that
+    /// does not exist in the evaluation context, and arrivals/served exist, compute
+    /// q(t) = max(0, q(t-1) + a(t) - s(t)) with initialCondition.queueDepth as q0.
+    /// </summary>
+    private static void TryPrecomputeQueueDepthSeries(string specText, Dictionary<NodeId, double[]> context)
+    {
+        if (string.IsNullOrWhiteSpace(specText))
+        {
+            return;
+        }
+
+        try
+        {
+            var yaml = new YamlStream();
+            yaml.Load(new StringReader(specText));
+            if (yaml.Documents.Count == 0 || yaml.Documents[0].RootNode is not YamlMappingNode root)
+            {
+                return;
+            }
+
+            if (!root.Children.TryGetValue(new YamlScalarNode("topology"), out var topologyNode) || topologyNode is not YamlMappingNode topologyMap)
+            {
+                return;
+            }
+
+            if (!topologyMap.Children.TryGetValue(new YamlScalarNode("nodes"), out var nodesNode) || nodesNode is not YamlSequenceNode nodesSequence)
+            {
+                return;
+            }
+
+            var idKey = new YamlScalarNode("id");
+            var semanticsKey = new YamlScalarNode("semantics");
+            var initialKey = new YamlScalarNode("initialCondition");
+
+            foreach (var node in nodesSequence.Children.OfType<YamlMappingNode>())
+            {
+                if (!node.Children.TryGetValue(idKey, out var idNode) || idNode is not YamlScalarNode idScalar || string.IsNullOrWhiteSpace(idScalar.Value))
+                {
+                    continue;
+                }
+
+                // Only proceed if semantics present
+                if (!node.Children.TryGetValue(semanticsKey, out var semanticsNode) || semanticsNode is not YamlMappingNode semanticsMap)
+                {
+                    continue;
+                }
+
+                // Extract potential queue series id
+                if (!semanticsMap.Children.TryGetValue(new YamlScalarNode("queue"), out var queueNode) || queueNode is not YamlScalarNode queueScalar)
+                {
+                    continue;
+                }
+
+                var queueSeries = (queueScalar.Value ?? string.Empty).Trim();
+                if (string.IsNullOrWhiteSpace(queueSeries) || queueSeries.StartsWith("file:", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue; // already bound to file or not present
+                }
+
+                var qId = new NodeId(queueSeries);
+                if (context.ContainsKey(qId))
+                {
+                    continue; // already produced by evaluation
+                }
+
+                // Need arrivals and served series ids from this queue node's semantics
+                if (!semanticsMap.Children.TryGetValue(new YamlScalarNode("arrivals"), out var arrivalsNode) || arrivalsNode is not YamlScalarNode arrivalsScalar)
+                {
+                    continue;
+                }
+                if (!semanticsMap.Children.TryGetValue(new YamlScalarNode("served"), out var servedNode) || servedNode is not YamlScalarNode servedScalar)
+                {
+                    continue;
+                }
+
+                var aId = new NodeId((arrivalsScalar.Value ?? string.Empty).Trim());
+                var sId = new NodeId((servedScalar.Value ?? string.Empty).Trim());
+                if (!context.TryGetValue(aId, out var a) || !context.TryGetValue(sId, out var s))
+                {
+                    continue; // dependencies not present; cannot precompute
+                }
+
+                var bins = Math.Min(a.Length, s.Length);
+                if (bins <= 0)
+                {
+                    continue;
+                }
+
+                // initialCondition.queueDepth
+                double q0 = 0d;
+                if (node.Children.TryGetValue(initialKey, out var initialNode) && initialNode is YamlMappingNode initialMap)
+                {
+                    if (initialMap.Children.TryGetValue(new YamlScalarNode("queueDepth"), out var q0Node) && q0Node is YamlScalarNode q0Scalar)
+                    {
+                        if (double.TryParse(q0Scalar.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed))
+                        {
+                            q0 = parsed;
+                        }
+                    }
+                }
+
+                var q = new double[bins];
+                var prev = q0;
+                for (var t = 0; t < bins; t++)
+                {
+                    var next = prev + a[t] - s[t];
+                    if (!double.IsFinite(next)) next = 0d;
+                    if (next < 0) next = 0d;
+                    q[t] = next;
+                    prev = next;
+                }
+
+                context[qId] = q;
+            }
+        }
+        catch
+        {
+            // best-effort only; do not fail the run on precompute issues
+        }
     }
 
     private sealed record SeriesDescriptor(
