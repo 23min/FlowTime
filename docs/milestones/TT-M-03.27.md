@@ -62,7 +62,8 @@ Out of Scope
 3) UI canvas glyph for queue nodes + toggle for scalar queue depth.  
 4) Inspector queue stack + horizons; “Queue” focus metric guidance in UI copy.  
 5) Docs: example YAML, telemetry contract snippet, updated roadmap “Deferred” entries.  
-6) Tests: unit + golden updates.
+6) Tests: unit + golden updates.  
+7) Architecture note capturing SHIFT-based queue depth handling: `docs/architecture/time-travel/queues-shift-depth-and-initial-conditions.md`.
 
 ## Acceptance Criteria
 
@@ -79,6 +80,7 @@ Session 1 — Templates + Topology
 - Add `queue_inflow`, `queue_outflow`, `queue_depth` (with `initial`) and `DistributorQueue` node to `templates/supply-chain-multi-tier-warehouse-1d5m.yaml`.
 - Reroute edges Warehouse→DistributorQueue→Distributor.
 - Provide sample run artifacts; validate conservation (served ≤ arrivals) still holds.
+- Precompute true queue depth at artifact generation so `semantics.queue` references the emitted CSV (see architecture note).
 
 Session 2 — API Latency Derivation
 - In `/state_window` builder, when a node.kind == `queue`, derive `latencyMinutes = (queue/served) * binMinutes` with guards; include in response.
@@ -138,4 +140,3 @@ Not included (deferred):
 - docs/architecture/time-travel/time-travel-architecture-ch1-overview.md  
 - docs/architecture/time-travel/time-travel-architecture-ch2-data-contracts.md  
 - docs/architecture/time-travel/time-travel-architecture-ch3-components.md
-

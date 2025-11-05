@@ -22,9 +22,9 @@
 
 ### Overall Progress
 - [x] Phase 1: Templates + Topology (2/3 tasks complete; latency expr deferred)
-- [ ] Phase 2: API Latency Derivation (0/3 tasks)
-- [ ] Phase 3: UI Canvas + Inspector (1/4 tasks complete; others pending validation)
-- [ ] Phase 4: Docs + Tests + Roadmap (0/4 tasks)
+- [ ] Phase 2: API Latency Derivation (1/3 tasks complete; tests in progress)
+- [ ] Phase 3: UI Canvas + Inspector (2/4 tasks complete; inspector UI tests in progress)
+- [ ] Phase 4: Docs + Tests + Roadmap (1/4 tasks complete; roadmap/doc updates underway)
 
 ### Test Status
 - Build: ✅ `dotnet build FlowTime.sln -c Release`
@@ -46,9 +46,10 @@
 
 **Updates:**
 - Inserted `DistributorQueue` between Warehouse and Distributor with `queue_inflow/outflow/depth` series and rerouted edges.
-- Extended template outputs for queue series; adjusted depth expr to avoid cyclic SHIFT while keeping non-negative depth proxy.
+- Artifact writer now precomputes true SHIFT-based queue depth and normalizes `semantics.queue` to emitted CSV URIs.
 - Added persisted overlay toggle for queue scalar badge; queue chips now render left-aligned ahead of errors on queue nodes; feature panel scrollability fixed.
-- Confirmed API already emits `latencyMinutes`; validated via run regeneration after artifact normalization fix.
+- Confirmed API already emits `latencyMinutes` (Little’s Law) and added coverage for zero-served bins.
+- Authored architecture note: `docs/architecture/time-travel/queues-shift-depth-and-initial-conditions.md` (shift, initial conditions, telemetry expectations).
 
 **Next Steps:**
 - [ ] Phase 2 — Add explicit `latencyMinutes` tests and contract coverage
@@ -91,16 +92,16 @@ Checklist:
 **File(s):** `src/FlowTime.API/**` (state_window assembler)
 
 Checklist:
-- [ ] Detect `node.kind == queue`
-- [ ] Derive `latencyMinutes = (queue/served) * binMinutes` with guards
-- [ ] Include in response shape
+- [x] Detect `node.kind == queue`
+- [x] Derive `latencyMinutes = (queue/served) * binMinutes` with guards
+- [x] Include in response shape
 
 ### Task 2.2: Unit + golden tests
 **File(s):** `tests/FlowTime.Api.Tests/**`
 
 Checklist:
-- [ ] Unit tests for derivation and nulling
-- [ ] Golden contract update for queue nodes
+- [x] Unit tests for derivation and nulling (telemetry run with zero served bin)
+- [ ] Golden contract update for queue nodes *(Existing goldens cover Little’s Law; consider update if scenario changes)*
 
 ### Task 2.3: Docs
 **File(s):** `docs/milestones/TT-M-03.27.md`
@@ -132,8 +133,8 @@ Checklist:
 **File(s):** `src/FlowTime.UI/Pages/TimeTravel/Topology.razor`
 
 Checklist:
-- [ ] Bind 4 series for queue nodes (Queue, Latency, Arrivals, Served)
-- [ ] Horizons show highlight window
+- [x] Bind 4 series for queue nodes (Queue, Latency, Arrivals, Served)
+- [ ] Horizons show highlight window *(visual check pending dedicated UI test)*
 
 ### Task 3.4: A11y and performance
 **File(s):** `src/FlowTime.UI/**`

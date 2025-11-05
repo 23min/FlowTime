@@ -27,6 +27,7 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
     private const string simulationInvalidRunId = "run_state_sim_invalid";
     private const string telemetryMissingSourceRunId = "run_state_missing_source";
     private const string fullModeRunId = "run_state_full";
+    private const string queueLatencyNullRunId = "run_state_queue_zero_served";
     private const int binCount = 4;
     private const int binSizeMinutes = 5;
     private static readonly DateTime startTimeUtc = new(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -52,6 +53,7 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         CreateSimulationInvalidRun();
         CreateTelemetryMissingSourceRun();
         CreateFullModeRun();
+        CreateQueueLatencyNullRun();
 
         logCollector = new TestLogCollector();
         client = factory.WithWebHostBuilder(builder =>
@@ -153,6 +155,31 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         Assert.Equal(1.11111, latency[0]!.Value, 5);
         Assert.Equal(8.33333, latency[1]!.Value, 5);
         Assert.Empty(queueSeries.Telemetry.Warnings);
+    }
+
+    [Fact]
+    public async Task GetStateWindow_NullsQueueLatencyWhenServedIsZero()
+    {
+        var response = await client.GetAsync($"/v1/runs/{queueLatencyNullRunId}/state_window?startBin=0&endBin=3");
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync();
+            throw new XunitException($"Expected 200 OK but got {(int)response.StatusCode}: {errorBody}");
+        }
+
+        var payload = await response.Content.ReadFromJsonAsync<StateWindowResponse>(new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            PropertyNameCaseInsensitive = true
+        });
+
+        Assert.NotNull(payload);
+        var queueSeries = Assert.Single(payload!.Nodes, n => n.Id == "SupportQueue");
+        Assert.True(queueSeries.Series.TryGetValue("latencyMinutes", out var latency));
+
+        Assert.Equal(4, latency.Length);
+        Assert.Equal(1.11111, latency[0]!.Value, 5);
+        Assert.Null(latency[1]);
+        Assert.Equal(8.33333, latency[2]!.Value, 5);
     }
 
     [Fact]
@@ -359,6 +386,17 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
     private void CreateTelemetryMissingSourceRun()
     {
         CreateRun(telemetryMissingSourceRunId, BuildValidModelYamlWithMissingServeTelemetry(), mode: "telemetry");
+    }
+
+    private void CreateQueueLatencyNullRun()
+    {
+        var overrides = new Dictionary<string, double[]>
+        {
+            ["SupportQueue_served.csv"] = new double[] { 9, 0, 9, 4 },
+            ["SupportQueue_queue.csv"] = new double[] { 2, 15, 20, 0 }
+        };
+
+        CreateRun(queueLatencyNullRunId, BuildValidModelYaml(), mode: "telemetry", overrides);
     }
 
     private void CreateFullModeRun()

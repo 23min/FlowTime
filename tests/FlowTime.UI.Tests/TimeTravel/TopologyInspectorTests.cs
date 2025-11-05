@@ -200,6 +200,71 @@ public sealed class TopologyInspectorTests
     }
 
     [Fact]
+    public void BuildInspectorMetrics_QueueNode_ReturnsQueueLatencyArrivalsServed()
+    {
+        var topology = new Topology();
+
+        topology.TestSetTopologyGraph(new TopologyGraph(
+            new[]
+            {
+                new TopologyNode(
+                    "queue-good",
+                    "queue",
+                    Array.Empty<string>(),
+                    Array.Empty<string>(),
+                    0,
+                    0,
+                    0,
+                    0,
+                    false,
+                    new TopologyNodeSemantics("queue_in", "queue_out", "queue_err", "queue_depth", null, null, null, null, null))
+            },
+            Array.Empty<TopologyEdge>()));
+
+        var sparkline = CreateSparkline(new Dictionary<string, double?[]>
+        {
+            ["queue"] = new double?[] { 12, 15, 10 },
+            ["latencyMinutes"] = new double?[] { 6, null, 5 },
+            ["arrivals"] = new double?[] { 10, 12, 8 },
+            ["served"] = new double?[] { 8, 0, 9 }
+        });
+
+        topology.TestSetNodeSparklines(new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["queue-good"] = sparkline
+        });
+
+        var blocks = topology.TestBuildInspectorMetrics("queue-good");
+        Assert.Equal(4, blocks.Count);
+
+        Assert.Collection(blocks,
+            block =>
+            {
+                Assert.Equal("Queue depth", block.Title);
+                Assert.False(block.IsPlaceholder);
+                Assert.Equal("queue", block.SeriesKey);
+            },
+            block =>
+            {
+                Assert.Equal("Latency", block.Title);
+                Assert.False(block.IsPlaceholder);
+                Assert.Equal("latencyMinutes", block.SeriesKey);
+            },
+            block =>
+            {
+                Assert.Equal("Arrivals", block.Title);
+                Assert.False(block.IsPlaceholder);
+                Assert.Equal("arrivals", block.SeriesKey);
+            },
+            block =>
+            {
+                Assert.Equal("Served", block.Title);
+                Assert.False(block.IsPlaceholder);
+                Assert.Equal("served", block.SeriesKey);
+            });
+    }
+
+    [Fact]
     public void BuildInspectorMetrics_PmfNode_IncludesDistribution()
     {
         var topology = new Topology();
