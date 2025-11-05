@@ -1,0 +1,137 @@
+{
+  "metadata": {
+    "runId": "run_state_queue_zero_served",
+    "templateId": "order-system",
+    "templateTitle": "Order System Fixture",
+    "templateVersion": "1.0.0",
+    "mode": "telemetry",
+    "provenanceHash": "sha256:run_state_queue_zero_served",
+    "telemetrySourcesResolved": true,
+    "schema": {
+      "id": "time-travel/v1",
+      "version": "1",
+      "hash": "sha256:run_state_queue_zero_served"
+    },
+    "storage": {
+      "modelPath": "<dynamic>",
+      "metadataPath": "<dynamic>",
+      "provenancePath": "<dynamic>"
+    }
+  },
+  "window": {
+    "startBin": 0,
+    "endBin": 3,
+    "binCount": 4
+  },
+  "timestampsUtc": [
+    "2025-01-01T00:00:00+00:00",
+    "2025-01-01T00:05:00+00:00",
+    "2025-01-01T00:10:00+00:00",
+    "2025-01-01T00:15:00+00:00"
+  ],
+  "nodes": [
+    {
+      "id": "OrderService",
+      "kind": "service",
+      "series": {
+        "arrivals": [
+          10,
+          10,
+          10,
+          10
+        ],
+        "served": [
+          9,
+          6,
+          9,
+          4
+        ],
+        "errors": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          12,
+          7,
+          9,
+          4
+        ],
+        "utilization": [
+          0.75,
+          0.8571428571428571,
+          1,
+          1
+        ],
+        "throughputRatio": [
+          0.9,
+          0.6,
+          0.9,
+          0.4
+        ]
+      },
+      "telemetry": {
+        "sources": [
+          "file:OrderService_arrivals.csv",
+          "file:OrderService_served.csv",
+          "file:OrderService_errors.csv",
+          "file:OrderService_capacity.csv"
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "id": "SupportQueue",
+      "kind": "queue",
+      "series": {
+        "arrivals": [
+          9,
+          7,
+          9,
+          5
+        ],
+        "served": [
+          9,
+          0,
+          9,
+          4
+        ],
+        "errors": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "queue": [
+          2,
+          15,
+          20,
+          0
+        ],
+        "latencyMinutes": [
+          1.1111111111111112,
+          null,
+          11.11111111111111,
+          0
+        ],
+        "throughputRatio": [
+          1,
+          null,
+          1,
+          0.8
+        ]
+      },
+      "telemetry": {
+        "sources": [
+          "file:SupportQueue_arrivals.csv",
+          "file:SupportQueue_served.csv",
+          "file:SupportQueue_errors.csv",
+          "file:SupportQueue_queue.csv"
+        ],
+        "warnings": []
+      }
+    }
+  ],
+  "warnings": []
+}

@@ -180,6 +180,8 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         Assert.Equal(1.11111, latency[0]!.Value, 5);
         Assert.Null(latency[1]);
         Assert.Equal(8.33333, latency[2]!.Value, 5);
+
+        AssertGoldenResponse("state-window-queue-null-approved.json", payload);
     }
 
     [Fact]

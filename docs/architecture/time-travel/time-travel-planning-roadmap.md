@@ -901,6 +901,7 @@ The following items are intentionally deferred from TT‑M‑03.27 — Queues Fi
 - Service time S derivation (requires processing_time_sum + served_count or in_service_count)
 - Oldest age telemetry and visuals for queues
 - Edge overlays (attempt/success/latency heat on edges)
+- API fallback to reconstruct queue depth from arrivals/served when telemetry omits depth (requires q0 policy and provenance flag)
 
 Reference: `docs/milestones/TT-M-03.27.md`
 
