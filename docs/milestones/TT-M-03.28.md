@@ -1,109 +1,89 @@
-# TT‑M‑03.28 — Retries Foundations (Attempts/Success/Failure + Retry Rate)
+# TT‑M‑03.28 — Retries First‑Class (Attempts/Failures, Effort vs Throughput Edges, Temporal Echoes)
 
 Status: Planned  
-Owners: Platform (API) + UI  
-References: docs/development/milestone-documentation-guide.md, docs/development/TEMPLATE-tracking.md
+Owners: Platform (API/Sim) + UI  
+References: docs/architecture/retry-modeling.md, docs/architecture/time-travel/queues-shift-depth-and-initial-conditions.md, docs/performance/perf-log.md
 
 ## Overview
 
-Introduce first‑class retry observability. Extend contracts and examples so dependency attempts, successes, and failures are captured (or derived), and expose a simple retry rate for visualization. This milestone lays API/template groundwork and a minimal UI readout; edge heatmaps and service time land in follow‑ups.
+Introduce retries as first‑class concepts: explicitly model attempts/successes/failures, differentiate throughput vs effort edges, and support retry‑induced temporal echoes via causal operators (e.g., CONV/SHIFT/DELAY) while preserving forward‑only evaluation and bounded history.
 
 ## Goals
 
-- Add dependency attempt/success/failure series to example templates (synthetic).  
-- Include retry metrics in API responses (per window) with a minimal, stable shape.  
-- UI reads and displays retry rate in inspector (per node and dependency) without advanced overlays yet.  
+- Add attempts/failures (and optional retryEcho) series and edge semantics to the model, API, and UI.
+- Keep evaluation causal and performant (bounded history, precompute where pragmatic).
+- Provide clear visuals (chips, edges, inspector stacks) distinct from throughput.
 
 ## Scope
 
 In Scope
-- Templates: add per‑dependency `dep_attempts`, `dep_success`, `dep_failure` series for at least one example system (microservices).  
-- API: extend `/v1/runs/{id}/state_window` with an `edges` section that carries retry series (attempts, success, failure) and a derived `retryRate` (`(attempts - success)/attempts` with guards).  
-- UI: Inspector shows a compact Retry chart for the focused node’s outgoing dependencies (stacked mini-bars or list), and a simple numeric retry rate.
+- Template example with attempts/served/failures + retry echo kernel; edge typing (throughput/effort).
+- API graph/state_window additions for attempts/failures/retryEcho (additive only).
+- UI edge styles for effort vs throughput; chips and inspector stacks for retry series.
+- Tests (unit/golden/UI) and docs; perf log entry after full run.
 
-Out of Scope
-- Edge coloring/heat overlays on topology (TT‑M‑03.30).  
-- Service time and processing time (TT‑M‑03.29).  
-- Backoff visualization.
+Out of Scope (deferred)
+- Advanced effort heatmap overlays; service‑time S metrics; oldest‑age telemetry.
 
 ## Requirements
 
 ### Functional
-- RF1 — Template series
-  - For a chosen example (e.g., `microservices`), add per‑edge series:  
-    - `dep_{A}_to_{B}_attempts`, `dep_{A}_to_{B}_success`, `dep_{A}_to_{B}_failure` (bins length).  
-  - Optional parameters to vary retry probability.
-- RF2 — API window payload
-  - `/v1/runs/{id}/state_window` adds an `edges` object:  
-    - `edges["A→B"]: { attempts: number[], success: number[], failure: number[], retryRate: number[] }`  
-  - Guard division by zero: `retryRate[i] = null` if `attempts[i] == 0`.
-- RF3 — UI inspector
-  - For the focused node, list outgoing dependencies with a small bar for `retryRate` and a numeric %; clicking an item highlights the edge.
+- Throughput edges: downstream arrivals = upstream served (optional lag).
+- Effort edges: dependency load = upstream attempts × multiplier (optional lag).
+- Retry echo: `retryEcho = CONV(failures, kernel)` (causal kernel; bounded length).
 
 ### Non‑Functional
-- Stable contract: shape of `edges` must remain consistent (golden tests).  
-- Performance: window payload growth bounded (cap to visible range; no global 288‑bin dump unless requested).  
-- Accessibility: inspector labels readable; color independence (text also conveys rate).
+- Bounded history and kernel length; perf budgets enforced.
+- Additive API changes; guard missing telemetry with structured warnings.
+
+## Built‑In Mitigations (Must‑Do)
+
+- Kernel governance: validate kernel length and sum; warn/clamp when out of policy (recommend Σ≤1.0; length cap configurable).
+- Precompute retryEcho for simulation at artifact time (like SHIFT queue depth) to avoid runtime cost; telemetry remains authoritative.
+- Conservation checks: helper to assert `attempts = successes + failures`; sanity check temporal mass for kernel on fixtures.
+- Causal enforcement: only past references allowed; keep DAG forward‑only, precompute where necessary to avoid cycles.
+- Null‑guarding: consistent behaviour for missing series; emit `telemetry_sources_unresolved` warnings.
+- Schema/additive contracts: no breaking changes; document fields and defaults.
+- UI toggles + A11y: feature toggles for retry chips; distinct edge styles; aria labels; contrast checks.
+- Rounding/precision: standardize decimal precision in builders and goldens to reduce flakiness.
 
 ## Deliverables
-1) Example template update (microservices) with dependency retry series.  
-2) API: `edges` section on `/state_window` with retry metrics + guards.  
-3) UI: inspector retry list for focused node; navigation highlights selected edge.  
-4) Docs: contract snippet and example YAML.  
-5) Tests: golden API payload and UI snapshot/unit for retry list.
+
+1) Template(s) with retries and edge typing (throughput/effort) and a deterministic kernel.  
+2) API: `/graph` edge types + `/state_window` attempts/failures/retryEcho series (additive).  
+3) UI: edge styles; chips (Attempts/Failures/Retry); inspector stacks + horizons.  
+4) Tests: unit + golden updates for API; UI tests for inspector/edges.  
+5) Docs: milestone + tracking; telemetry contract snippet; perf log update.  
 
 ## Acceptance Criteria
-- AC1: `/state_window` includes `edges` with attempts/success/failure and `retryRate`.  
-- AC2: Inspector renders retry rates for the focused node’s outgoing dependencies.  
-- AC3: Division‑by‑zero handled (nulls for retryRate where attempts == 0).  
-- AC4: Golden tests pin `edges` response shape.
+
+- AC1: Example run loads; `/graph` includes effort and throughput edges; `/state_window` includes attempts/failures/(retryEcho).  
+- AC2: Effort edges render distinctly from throughput; chips for Attempts/Failures/Retry visible (toggled).  
+- AC3: Inspector stack for retry‑enabled nodes includes Attempts/Failures/RetryEcho/Served with horizons.  
+- AC4: Kernel governance warnings fire on out‑of‑policy kernels; bounded history enforced.  
+- AC5: Tests (API/UI/golden) pass; perf budget respected; no regressions.
 
 ## Implementation Plan (Sessions)
 
-Session 1 — Template + Fixtures  
-- Add retry series to microservices example; document naming conventions.  
-- Verify bins length and conservation (attempts = success + failure + canceled?).
+Session 1 — Templates/Precompute
+- Add retries to a focused example; implement artifact‑time precompute of retryEcho.
 
-Session 2 — API Window Contract  
-- Extend builder to collect dependency series; build `edges` map; derive `retryRate`.  
-- Add unit + golden tests.
+Session 2 — API Contracts
+- Extend `/graph` and `/state_window` additively; add unit/golden tests.
 
-Session 3 — UI Inspector Retry View  
-- Add a small panel in node inspector to list outgoing deps with retry % and tiny bars.  
-- Edge highlight on click; no canvas overlays yet.
+Session 3 — UI Rendering
+- Add edge styles and chips; inspector stacks + horizons; UI tests.
 
-Session 4 — Docs + Validation  
-- Update milestone and contracts; add `.http` samples; confirm null handling.
+Session 4 — Docs/Perf
+- Update docs/contract; add perf log entry after full run.
 
-## Testing Strategy
-- API unit: retryRate guards, shape correctness, partial data tolerances.  
-- API golden: fixed run → known edges payload.  
-- UI: render list, accessibility labels, edge highlight event.  
-- Perf: slice same as visible window.
+## Telemetry Contract (Draft)
 
-## Telemetry Contract Addendum (Window)
-```json
-{
-  "edges": {
-    "ServiceA→ServiceB": {
-      "attempts": [10, 9, ...],
-      "success": [9, 9, ...],
-      "failure": [1, 0, ...],
-      "retryRate": [0.1, 0.0, ...]
-    }
-  }
-}
-```
+Per retry‑enabled node per bin:
+- attempts, served (=successes), failures; optional retryEcho.
+- Edge metadata: throughput vs effort (multiplier, lag optional).
 
 ## Risks & Mitigations
-- Payload size: limit to requested slice; lazy‑load if many edges.  
-- Ambiguous semantics: document attempts vs success/failure mapping; examples.
 
-## Open Questions
-- Should edges carry latency in this milestone or in TT‑M‑03.30 with overlays? (Default: TT‑M‑03.30.)
-
-## References
-- docs/architecture/time-travel/time-travel-architecture-ch2-data-contracts.md  
-- docs/architecture/time-travel/ui-m3-roadmap.md  
-- docs/development/milestone-documentation-guide.md
+See “Built‑In Mitigations” above and docs/architecture/retry-modeling.md (causal operators, bounded history, conservation).
 
