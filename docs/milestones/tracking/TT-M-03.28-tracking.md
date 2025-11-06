@@ -74,6 +74,7 @@
 - [x] Document kernel policy (default caps, warnings)
 - [x] Confirm fallback policy when retryEcho is not provided (template default vs required)
 - [ ] Domain terminology mapping deferred to TT‑M‑03.30.1 (aliases for template-specific labels)
+- [x] Gap: telemetry replay controls only exist on legacy /artifacts route; expose capture/replay actions in the RunDetailsDrawer for parity.
 - Note: RetryEcho currently derived in API when kernel present; artifact-time precompute still pending for simulation path.
 
 ---

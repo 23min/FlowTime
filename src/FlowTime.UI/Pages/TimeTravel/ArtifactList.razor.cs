@@ -42,6 +42,23 @@ public sealed partial class ArtifactList : ComponentBase
 
     internal bool IsDrawerOpen => _isDrawerOpen;
 
+    private bool CanLoadModel =>
+        (_selectedDetail?.CanReplay ?? _selectedRun?.CanReplay) == true;
+
+    private bool CanLoadTelemetry
+    {
+        get
+        {
+            if (!CanLoadModel)
+            {
+                return false;
+            }
+
+            var telemetry = _selectedDetail?.Telemetry ?? _selectedRun?.Telemetry;
+            return telemetry?.Available == true;
+        }
+    }
+
     protected override async Task OnInitializedAsync()
     {
         await LoadAsync().ConfigureAwait(false);
@@ -467,6 +484,41 @@ public sealed partial class ArtifactList : ComponentBase
         }
     }
 
+    private void LoadRun(OrchestrationMode mode)
+    {
+        if (_selectedRun is null)
+        {
+            return;
+        }
+
+        var templateId = _selectedRun.TemplateId;
+        if (string.IsNullOrWhiteSpace(templateId))
+        {
+            return;
+        }
+
+        var query = new Dictionary<string, string?>
+        {
+            ["templateId"] = templateId,
+            ["mode"] = mode.ToApiString()
+        };
+
+        if (mode == OrchestrationMode.Telemetry)
+        {
+            var captureDir = string.IsNullOrWhiteSpace(_captureKeyInput) ? null : _captureKeyInput.Trim();
+            if (!string.IsNullOrWhiteSpace(captureDir))
+            {
+                query["captureDir"] = captureDir;
+            }
+        }
+
+        var qs = string.Join("&", query
+            .Where(kvp => !string.IsNullOrWhiteSpace(kvp.Value))
+            .Select(kvp => $"{Uri.EscapeDataString(kvp.Key)}={Uri.EscapeDataString(kvp.Value!)}"));
+
+        Navigation.NavigateTo($"/time-travel/run?{qs}");
+    }
+
     private TelemetryCaptureSummaryDto? TryParseCapture(string? payload)
     {
         if (string.IsNullOrWhiteSpace(payload))
@@ -486,16 +538,41 @@ public sealed partial class ArtifactList : ComponentBase
         }
     }
 
-    private async Task NavigateToDashboardAsync(RunListEntry run)
+    private Task NavigateToDashboardAsync(RunListEntry run) =>
+        NavigateToModeAsync(run, OrchestrationMode.Simulation, "/time-travel/dashboard");
+
+    private Task NavigateToTopologyAsync(RunListEntry run) =>
+        NavigateToModeAsync(run, OrchestrationMode.Simulation, "/time-travel/topology");
+
+    private Task NavigateToTelemetryDashboardAsync(RunListEntry run) =>
+        NavigateToModeAsync(run, OrchestrationMode.Telemetry, "/time-travel/dashboard");
+
+    private Task NavigateToTelemetryTopologyAsync(RunListEntry run) =>
+        NavigateToModeAsync(run, OrchestrationMode.Telemetry, "/time-travel/topology");
+
+    private async Task NavigateToModeAsync(RunListEntry run, OrchestrationMode mode, string path)
     {
         await CloseDrawerIfDifferentAsync(run).ConfigureAwait(false);
-        Navigation.NavigateTo($"/time-travel/dashboard?runId={Uri.EscapeDataString(run.RunId)}");
+
+        var uri = new UriBuilder(Navigation.Uri)
+        {
+            Path = path,
+            Query = BuildModeQuery(run.RunId, mode)
+        };
+
+        Navigation.NavigateTo(uri.Uri.PathAndQuery);
     }
 
-    private async Task NavigateToTopologyAsync(RunListEntry run)
+    private static string BuildModeQuery(string runId, OrchestrationMode mode)
     {
-        await CloseDrawerIfDifferentAsync(run).ConfigureAwait(false);
-        Navigation.NavigateTo($"/time-travel/topology?runId={Uri.EscapeDataString(run.RunId)}");
+        var qs = new Dictionary<string, string?>
+        {
+            ["runId"] = runId,
+            ["mode"] = mode.ToApiString()
+        };
+
+        return string.Join("&", qs.Where(kvp => !string.IsNullOrWhiteSpace(kvp.Value))
+            .Select(kvp => $"{Uri.EscapeDataString(kvp.Key)}={Uri.EscapeDataString(kvp.Value!)}"));
     }
 
     private Task CloseDrawerIfDifferentAsync(RunListEntry run)

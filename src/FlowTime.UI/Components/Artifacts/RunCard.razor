@@ -86,23 +86,58 @@
             <MudTooltip Text="@Run.RunId">
                 <MudText Typo="Typo.caption" Class="artifact-card-runid">@Run.RunId</MudText>
             </MudTooltip>
-            <MudStack Row Spacing="1">
-                <MudTooltip Text="Open dashboard">
-                    <MudIconButton Icon="@Icons.Material.Filled.Dashboard"
-                                   Color="Color.Primary"
-                                   Size="Size.Small"
-                                   AriaLabel="Open dashboard"
-                                   OnClick="HandleDashboard"
-                                   OnClick:stopPropagation="true" />
-                </MudTooltip>
-                <MudTooltip Text="Open topology">
-                    <MudIconButton Icon="@Icons.Material.Filled.AccountTree"
-                                   Color="Color.Secondary"
-                                   Size="Size.Small"
-                                   AriaLabel="Open topology"
-                                   OnClick="HandleTopology"
-                                   OnClick:stopPropagation="true" />
-                </MudTooltip>
+            <MudStack Row Spacing="1" AlignItems="AlignItems.Center">
+                <MudStack Row Spacing="0" AlignItems="AlignItems.Center">
+                    <MudTooltip Text="Open dashboard">
+                        <MudIconButton Icon="@Icons.Material.Filled.Dashboard"
+                                       Color="Color.Primary"
+                                       Size="Size.Small"
+                                       AriaLabel="Open dashboard"
+                                       OnClick="HandleDashboard"
+                                       OnClick:stopPropagation="true" />
+                    </MudTooltip>
+                    @if (TelemetryQuickActionsEnabled && TelemetryAvailable && CanReplay)
+                    {
+                        <MudTooltip Text="Open dashboard (telemetry)">
+                            <div class="artifact-card-telemetry-icon">
+                                <MudIconButton Icon="@Icons.Material.Filled.Dashboard"
+                                               Color="Color.Primary"
+                                               Size="Size.Small"
+                                               AriaLabel="Open dashboard telemetry"
+                                               Disabled="!TelemetryAvailable || !CanReplay"
+                                               OnClick="HandleTelemetryDashboard"
+                                               OnClick:stopPropagation="true" />
+                                <span class="artifact-card-telemetry-dot"></span>
+                            </div>
+                        </MudTooltip>
+                    }
+                </MudStack>
+
+                <MudStack Row Spacing="0" AlignItems="AlignItems.Center">
+                    <MudTooltip Text="Open topology">
+                        <MudIconButton Icon="@Icons.Material.Filled.AccountTree"
+                                       Color="Color.Secondary"
+                                       Size="Size.Small"
+                                       AriaLabel="Open topology"
+                                       OnClick="HandleTopology"
+                                       OnClick:stopPropagation="true" />
+                    </MudTooltip>
+                    @if (TelemetryQuickActionsEnabled && TelemetryAvailable && CanReplay)
+                    {
+                        <MudTooltip Text="Open topology (telemetry)">
+                            <div class="artifact-card-telemetry-icon">
+                                <MudIconButton Icon="@Icons.Material.Filled.AccountTree"
+                                               Color="Color.Secondary"
+                                               Size="Size.Small"
+                                               AriaLabel="Open telemetry topology"
+                                               Disabled="!TelemetryAvailable || !CanReplay"
+                                               OnClick="HandleTelemetryTopology"
+                                               OnClick:stopPropagation="true" />
+                                <span class="artifact-card-telemetry-dot"></span>
+                            </div>
+                        </MudTooltip>
+                    }
+                </MudStack>
             </MudStack>
         </div>
     </div>
@@ -114,6 +149,7 @@
     [Parameter] public EventCallback<RunListEntry> OnActivate { get; set; }
     [Parameter] public EventCallback<RunListEntry> OnDashboard { get; set; }
     [Parameter] public EventCallback<RunListEntry> OnTopology { get; set; }
+    [Parameter] public bool TelemetryQuickActionsEnabled { get; set; } = true;
     [Parameter] public bool IsSelected { get; set; }
     [Parameter] public string? TemplateIcon { get; set; }
 
@@ -136,6 +172,7 @@
         : "Warnings: None";
 
     private bool TelemetryAvailable => Run.Telemetry?.Available == true;
+    private bool CanReplay => Run.CanReplay;
 
     private string TelemetryStatusLabel => TelemetryAvailable ? "Telemetry ready" : string.Empty;
 
@@ -273,6 +310,32 @@
         {
             await OnTopology.InvokeAsync(Run);
         }
+    }
+
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    private Task HandleTelemetryDashboard()
+    {
+        if (string.IsNullOrWhiteSpace(Run.RunId))
+        {
+            return Task.CompletedTask;
+        }
+
+        var uri = $"/time-travel/dashboard?runId={Uri.EscapeDataString(Run.RunId)}&mode=telemetry";
+        Navigation.NavigateTo(uri);
+        return Task.CompletedTask;
+    }
+
+    private Task HandleTelemetryTopology()
+    {
+        if (string.IsNullOrWhiteSpace(Run.RunId))
+        {
+            return Task.CompletedTask;
+        }
+
+        var uri = $"/time-travel/topology?runId={Uri.EscapeDataString(Run.RunId)}&mode=telemetry";
+        Navigation.NavigateTo(uri);
+        return Task.CompletedTask;
     }
 
     private async Task HandleKeyDown(KeyboardEventArgs args)
