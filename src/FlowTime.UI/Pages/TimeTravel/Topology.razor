@@ -165,7 +165,7 @@
                                                      DisableRipple="true"
                                                      Size="Size.Small"
                                                      Class="timeline-speed-chip">
-                                                @option.ToString("0.##")s
+                                                @FormatPlaybackSpeedLabel(option)
                                             </MudChip>
                                         }
                                     </MudChipSet>
@@ -455,7 +455,12 @@
     private bool isDialPointerDragging;
     private bool pointerNeedsJump;
 
-    private static readonly double[] PlaybackSpeedOptions = new[] { 0.25d, 0.5d, 1d, 2d };
+    private const double MinPlaybackDelay = 0.02d;
+    private const double MaxPlaybackDelay = 120d;
+    private const double BasePlaybackTotalSeconds = 30d;
+    private static readonly double[] PlaybackSpeedFactors = new[] { 1d, 2d, 4d, 8d };
+    private List<double> playbackSpeedOptions = new() { 1d, 0.5d, 0.25d, 0.125d };
+    private IReadOnlyList<double> PlaybackSpeedOptions => playbackSpeedOptions;
 
     private sealed record TimelineTick(int Bin, double Percent, string Label);
 
@@ -1183,7 +1188,7 @@
 
     private Task OnPlaybackSpeedChipChanged(double value)
     {
-        playbackSecondsPerFrame = Math.Clamp(value, 0.1d, 10d);
+        playbackSecondsPerFrame = AlignPlaybackSelection(value);
         return Task.CompletedTask;
     }
 
@@ -1497,6 +1502,8 @@
             return;
         }
 
+        RecomputePlaybackSpeedOptions(Math.Max(1, visibleEndBin - visibleStartBin + 1));
+
         if (visibleEndBin == visibleStartBin)
         {
             timelineTicks = new[]
@@ -1572,6 +1579,94 @@
         }
 
         timelineMinorTicks = minorTicks;
+    }
+
+    private void RecomputePlaybackSpeedOptions(int totalBins)
+    {
+        totalBins = Math.Max(1, totalBins);
+        var baseSeconds = BasePlaybackTotalSeconds / totalBins;
+        baseSeconds = Math.Clamp(baseSeconds, MinPlaybackDelay, MaxPlaybackDelay);
+
+        var options = new List<double>(PlaybackSpeedFactors.Length);
+        foreach (var factor in PlaybackSpeedFactors)
+        {
+            var seconds = baseSeconds / factor;
+            if (seconds < MinPlaybackDelay)
+            {
+                seconds = MinPlaybackDelay;
+            }
+
+            options.Add(seconds);
+        }
+
+        playbackSpeedOptions = options;
+        playbackSecondsPerFrame = AlignPlaybackSelection(playbackSecondsPerFrame);
+    }
+
+    private double AlignPlaybackSelection(double value)
+    {
+        if (playbackSpeedOptions.Count == 0)
+        {
+            playbackSpeedOptions.Add(Math.Clamp(value, MinPlaybackDelay, MaxPlaybackDelay));
+        }
+
+        var clamped = Math.Clamp(value, MinPlaybackDelay, MaxPlaybackDelay);
+        var closest = playbackSpeedOptions[0];
+        var smallestDelta = Math.Abs(playbackSpeedOptions[0] - clamped);
+
+        for (var i = 1; i < playbackSpeedOptions.Count; i++)
+        {
+            var option = playbackSpeedOptions[i];
+            var delta = Math.Abs(option - clamped);
+            if (delta < smallestDelta)
+            {
+                smallestDelta = delta;
+                closest = option;
+            }
+        }
+
+        return closest;
+    }
+
+    private string FormatPlaybackSpeedLabel(double seconds)
+    {
+        if (seconds <= 0)
+        {
+            return "—";
+        }
+
+        if (playbackSpeedOptions.Count == 0)
+        {
+            return "1x";
+        }
+
+        var baseline = playbackSpeedOptions[0];
+        if (baseline <= 0)
+        {
+            return "1x";
+        }
+
+        var factor = baseline / seconds;
+        if (factor <= 0)
+        {
+            return "1x";
+        }
+
+        var roundedPower = Math.Round(Math.Log(factor, 2));
+        if (double.IsNaN(roundedPower))
+        {
+            roundedPower = 0;
+        }
+
+        var normalized = Math.Pow(2, roundedPower);
+        normalized = Math.Clamp(normalized, 1d, 8d);
+
+        if (Math.Abs(normalized - 1d) < 0.05)
+        {
+            return "1x";
+        }
+
+        return $"{normalized:0.#}x";
     }
 
     private string BuildTickLabel(int bin)
