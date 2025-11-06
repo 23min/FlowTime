@@ -99,6 +99,16 @@
                 LEARN
             </MudNavLink>
         </MudNavMenu>
+
+        <div class="drawer-status-footer">
+            <FlowTime.UI.Components.StatusBar.ExpertStatusBar
+                @ref="statusBar"
+                Compact="true"
+                UseDemoMode="@useDemoMode"
+                OnDemoModeChanged="@OnDemoModeChanged"
+                FlowTimeApiColor="@GetApiStatusColor(flowTimeApiStatus)"
+                FlowTimeSimApiColor="@GetApiStatusColor(flowTimeSimApiStatus)" />
+        </div>
     </MudDrawer>
 
     <MudMainContent Class="expert-main-content">
@@ -107,16 +117,6 @@
         </MudContainer>
     </MudMainContent>
 </MudLayout>
-
-<!-- Expert Status Bar - Outside MudLayout to span full width -->
-<FlowTime.UI.Components.StatusBar.ExpertStatusBar 
-    @ref="statusBar"
-    UseDemoMode="@useDemoMode"
-    OnDemoModeChanged="@OnDemoModeChanged"
-    FlowTimeApiColor="@GetApiStatusColor(flowTimeApiStatus)"
-    FlowTimeSimApiColor="@GetApiStatusColor(flowTimeSimApiStatus)" />
-
-
 
 @code {
     private bool drawerOpen = true;

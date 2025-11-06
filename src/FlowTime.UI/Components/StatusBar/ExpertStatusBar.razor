@@ -4,13 +4,24 @@
 @inject ISnackbar Snackbar
 @inject ThemeService Theme
 
-<div class="expert-status-bar" style="background-color: @GetStatusBarBackgroundColor()">
+@{
+    var statusBarClasses = "expert-status-bar";
+    if (Compact)
+    {
+        statusBarClasses += " compact";
+    }
+    var backgroundStyle = Compact ? null : $"background-color: {GetStatusBarBackgroundColor()}";
+}
+
+<div class="@statusBarClasses" style="@backgroundStyle">
     <!-- Left side: Reserved for user actions, modeling status -->
-    
-    <MudSpacer />
+    @if (!Compact)
+    {
+        <MudSpacer />
+    }
     
     <!-- Right side: Mode, API Status, Notifications -->
-    <div class="status-bar-section">
+    <div class="status-bar-section mode-toggle">
         <!-- Mode Toggle -->
         <span class="mud-typography-caption mr-2">Mode:</span>
         <MudChip T="string" Color="@(UseDemoMode ? Color.Warning : Color.Success)" 
@@ -26,14 +37,16 @@
         <MudTooltip Text="FlowTime API">
             <MudIcon Icon="@Icons.Material.Filled.Circle" 
                      Color="@FlowTimeApiColor" 
-                     Class="mr-1 small-led" />
+                     Class="mr-1 small-led"
+                     Style="width:10px;height:10px;font-size:10px;vertical-align:middle;margin-bottom:3px;" />
         </MudTooltip>
         <MudText Typo="Typo.caption" Class="mr-2">Engine</MudText>
         
         <MudTooltip Text="FlowTime-Sim API">
             <MudIcon Icon="@Icons.Material.Filled.Circle" 
                      Color="@FlowTimeSimApiColor" 
-                     Class="mr-1 small-led" />
+                     Class="mr-1 small-led"
+                     Style="width:10px;height:10px;font-size:10px;vertical-align:middle;margin-bottom:3px;" />
         </MudTooltip>
         <MudText Typo="Typo.caption" Class="mr-3">Sim</MudText>
     </div>
@@ -92,6 +105,7 @@
     [Parameter] public EventCallback<bool> OnDemoModeChanged { get; set; }
     [Parameter] public Color FlowTimeApiColor { get; set; } = Color.Default;
     [Parameter] public Color FlowTimeSimApiColor { get; set; } = Color.Default;
+    [Parameter] public bool Compact { get; set; }
     
     // Notification system
     private readonly List<NotificationItem> notifications = new();

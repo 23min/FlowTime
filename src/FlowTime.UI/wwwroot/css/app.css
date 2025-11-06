@@ -625,6 +625,18 @@ code {
     flex: 1 1 auto;
 }
 
+.drawer-status-footer {
+    margin-top: auto;
+    padding: 0;
+    border-top: 1px solid var(--mud-palette-divider);
+    display: flex;
+}
+
+.drawer-status-footer .expert-status-bar.compact {
+    width: 100%;
+    min-height: 32px;
+}
+
 .topology-layout .topology-page > .mud-stack .topology-canvas-host {
     flex: 1 1 auto;
 }

@@ -1,24 +1,4 @@
-/* OPTION 1: Force Info color in both light and dark mode (COMMENTED OUT) */
-/*
-.expert-status-bar,
-.mud-theme-dark .expert-status-bar {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 32px;
-    background-color: var(--mud-palette-info) !important;
-    border-top: 1px solid var(--mud-palette-divider);
-    display: flex;
-    align-items: center;
-    padding: 0 16px;
-    z-index: 1200;
-    font-size: 0.75rem;
-    box-shadow: 0 -1px 3px rgba(0,0,0,0.1);
-}
-*/
-
-/* Dynamic background color applied via inline style */
+/* Optional fixed placement styles retained for non-compact usage */
 .expert-status-bar {
     position: fixed;
     bottom: 0;
@@ -31,7 +11,23 @@
     padding: 0 16px;
     z-index: 1200;
     font-size: 0.75rem;
-    box-shadow: 0 -1px 3px rgba(0,0,0,0.1);
+    box-shadow: 0 -1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.expert-status-bar.compact {
+    position: static;
+    bottom: auto;
+    left: auto;
+    right: auto;
+    height: auto;
+    border-top: none;
+    box-shadow: none;
+    padding: 0.25rem 0.5rem;
+    background: transparent !important;
+    z-index: 1;
+    gap: 0.75rem;
+    justify-content: flex-start;
+    color: inherit;
 }
 
 .status-bar-section {
@@ -45,57 +41,57 @@
     margin-right: 0;
 }
 
-/* Light mode: white text on Info background */
-.mud-theme-light .expert-status-bar .mud-icon {
+.expert-status-bar.compact .status-bar-section {
+    margin-right: 12px;
+    color: inherit;
+}
+
+.expert-status-bar.compact .status-bar-section:last-child {
+    margin-right: 0;
+}
+
+.expert-status-bar.compact .mode-toggle {
+    display: none;
+}
+
+/* Light mode */
+.mud-theme-light .expert-status-bar:not(.compact) .mud-icon {
     opacity: 0.9;
     color: white !important;
 }
 
-.mud-theme-light .expert-status-bar .mud-typography {
+.mud-theme-light .expert-status-bar:not(.compact) .mud-typography {
     font-size: 0.75rem;
     font-weight: 500;
     color: white !important;
 }
 
-.mud-theme-light .status-bar-section {
-    display: flex;
-    align-items: center;
-    margin-right: 24px;
+.mud-theme-light .expert-status-bar:not(.compact) .status-bar-section {
     color: white;
 }
 
-.mud-theme-light .white-icon {
+.mud-theme-light .expert-status-bar:not(.compact) .white-icon {
     color: white !important;
 }
 
-/* Dark mode: theme text colors on dark background */
-.mud-theme-dark .expert-status-bar .mud-icon {
+/* Dark mode */
+.mud-theme-dark .expert-status-bar:not(.compact) .mud-icon {
     opacity: 0.9;
     color: var(--mud-palette-text-primary) !important;
 }
 
-.mud-theme-dark .expert-status-bar .mud-typography {
+.mud-theme-dark .expert-status-bar:not(.compact) .mud-typography {
     font-size: 0.75rem;
     font-weight: 500;
     color: var(--mud-palette-text-primary) !important;
 }
 
-.mud-theme-dark .status-bar-section {
-    display: flex;
-    align-items: center;
-    margin-right: 24px;
+.mud-theme-dark .expert-status-bar:not(.compact) .status-bar-section {
     color: var(--mud-palette-text-primary);
 }
 
-.mud-theme-dark .white-icon {
+.mud-theme-dark .expert-status-bar:not(.compact) .white-icon {
     color: var(--mud-palette-text-primary) !important;
-}
-
-/* Base styles (fallback) */
-.status-bar-section {
-    display: flex;
-    align-items: center;
-    margin-right: 24px;
 }
 
 .notification-button {
@@ -108,6 +104,10 @@
     color: white !important;
 }
 
+.expert-status-bar.compact .white-icon {
+    color: inherit !important;
+}
+
 .compact-chip {
     background-color: white !important;
     color: var(--mud-palette-text-primary) !important;
@@ -115,7 +115,7 @@
 
 .white-bg-chip {
     background-color: white !important;
-    color: #212529 !important; /* Always dark text */
+    color: #212529 !important;
     height: 16px !important;
     font-size: 0.65rem !important;
     padding: 0 6px !important;
@@ -128,6 +128,8 @@
     font-size: 10px !important;
     width: 10px !important;
     height: 10px !important;
+    --mud-icon-size: 10px;
+    vertical-align: middle;
 }
 
 .notification-popup {
@@ -139,7 +141,7 @@
     background: white;
     border: 1px solid #ddd;
     border-radius: 6px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     z-index: 9999;
     overflow: hidden;
 }
@@ -199,60 +201,16 @@
     border-left: 3px solid #ffc107;
 }
 
-.notification-item.info {
-    border-left: 3px solid #0dcaf0;
-}
-
-.notification-icon {
-    font-size: 16px;
-    margin-top: 2px;
-}
-
-.notification-item.error .notification-icon {
-    color: #dc3545;
-}
-
-.notification-item.warning .notification-icon {
-    color: #ffc107;
-}
-
-.notification-item.info .notification-icon {
-    color: #0dcaf0;
-}
-
-.notification-content {
-    flex: 1;
-}
-
-.notification-message {
-    font-size: 14px;
-    color: #212529;
-    margin-bottom: 4px;
-    line-height: 1.4;
-}
-
-.notification-time {
-    font-size: 12px;
-    color: #6c757d;
-}
-
 .notification-popup-footer {
-    padding: 12px 16px;
+    padding: 10px 16px;
     background: #f8f9fa;
     border-top: 1px solid #e9ecef;
-    text-align: center;
+    text-align: right;
 }
 
 .clear-btn {
-    background: #6c757d;
-    color: white;
+    background: none;
     border: none;
-    padding: 6px 16px;
-    border-radius: 4px;
+    color: #0d6efd;
     cursor: pointer;
-    font-size: 13px;
-}
-
-.clear-btn:hover {
-    background: #5a6268;
 }
