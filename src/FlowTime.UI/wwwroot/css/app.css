@@ -619,10 +619,12 @@ code {
     flex: 1 1 auto;
     display: flex;
     flex-direction: column;
+    min-height: 0;
 }
 
 .topology-layout .topology-page > .mud-stack {
     flex: 1 1 auto;
+    min-height: 0;
 }
 
 .drawer-status-footer {
@@ -639,6 +641,7 @@ code {
 
 .topology-layout .topology-page > .mud-stack .topology-canvas-host {
     flex: 1 1 auto;
+    min-height: 0;
 }
 
 .topology-stage .topology-canvas-region {
