@@ -17,8 +17,11 @@
 }
 
 .expert-main-content {
-    padding-bottom: 32px; /* Make room for status bar */
-    max-height: calc(100vh - 64px - 32px); /* Maximum height to prevent overflow */
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    padding-bottom: 0;
 }
 
 .drawer-surface {

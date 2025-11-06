@@ -29,8 +29,8 @@
         </MudPaper>
     }
 
-        <MudPaper Class="pa-3 topology-page" Elevation="1">
-        <MudStack Spacing="3">
+        <MudPaper Class="topology-page" Elevation="1">
+        <MudStack Spacing="3" Class="topology-content">
             @if (string.IsNullOrWhiteSpace(RunId))
             {
                 <MudAlert Severity="Severity.Info">
@@ -58,9 +58,9 @@
             }
             else
             {
-                <MudStack Spacing="2">
+                <MudStack Spacing="2" Class="topology-main-stack">
                     <MudPaper Class="pa-3 timeline-paper" Elevation="0">
-                        <MudStack Spacing="1">
+                        <MudStack Spacing="1" Class="topology-header">
                             @{ var runInfo = GetRunInfo(); }
                             <MudStack Row="true" AlignItems="@AlignItems.Center" Justify="@Justify.SpaceBetween">
                                 <MudText Typo="Typo.caption">@selectedTimestampLabel</MudText>
