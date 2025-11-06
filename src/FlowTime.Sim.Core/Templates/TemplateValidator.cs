@@ -398,6 +398,9 @@ internal static class TemplateValidator
             ("arrivals", semantics.Arrivals),
             ("served", semantics.Served),
             ("errors", semantics.Errors),
+            ("attempts", semantics.Attempts),
+            ("failures", semantics.Failures),
+            ("retryEcho", semantics.RetryEcho),
             ("queue", semantics.Queue),
             ("capacity", semantics.Capacity),
             ("external_demand", semantics.ExternalDemand)
@@ -413,6 +416,18 @@ internal static class TemplateValidator
             if (!nodeIds.Contains(value))
             {
                 throw new TemplateValidationException($"Topology node '{topologyNode.Id}' semantics.{name} references unknown series '{value}'.");
+            }
+        }
+
+        if (semantics.RetryKernel is { Length: > 0 })
+        {
+            for (var i = 0; i < semantics.RetryKernel.Length; i++)
+            {
+                var value = semantics.RetryKernel[i];
+                if (!double.IsFinite(value))
+                {
+                    throw new TemplateValidationException($"Topology node '{topologyNode.Id}' semantics.retryKernel contains non-finite value at index {i}.");
+                }
             }
         }
 

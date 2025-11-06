@@ -1903,7 +1903,7 @@
                 continue;
             }
 
-            var primaryStartIndex = Math.Max(0, anchor - trimmedPrimary.Count + 1);
+            var primaryStartIndex = anchor + 1 - trimmedPrimary.Count;
             var trimmedUtilization = TrimSeriesAt(TryGetSeries(node, "utilization"), SparklinePointLimit, anchor, trimmedPrimary.Count);
             var trimmedErrorRate = TrimSeriesAt(BuildErrorRateSeries(node), SparklinePointLimit, anchor, trimmedPrimary.Count);
             var trimmedQueue = TrimSeriesAt(TryGetSeries(node, "queue"), SparklinePointLimit, anchor, trimmedPrimary.Count);
@@ -1914,7 +1914,7 @@
                 var trimmed = TrimSeriesAt(pair.Value, SparklinePointLimit, anchor, trimmedPrimary.Count);
                 var startIndex = pair.Value is null || pair.Value.Length == 0
                     ? primaryStartIndex
-                    : Math.Max(0, anchor - trimmed.Count + 1);
+                    : anchor + 1 - trimmed.Count;
                 additional[pair.Key] = new SparklineSeriesSlice(trimmed, startIndex);
             }
 
@@ -1971,7 +1971,7 @@
                         continue;
                     }
 
-                    var startIndex = Math.Max(0, nullableSeries.Length - trimmedInline.Count);
+                    var startIndex = anchor + 1 - trimmedInline.Count;
                     var additional = new Dictionary<string, SparklineSeriesSlice>(StringComparer.OrdinalIgnoreCase)
                     {
                         ["values"] = new SparklineSeriesSlice(trimmedInline, startIndex),
@@ -2034,33 +2034,35 @@
                                 var trimmedValues = TrimSeriesAt(supportValues, SparklinePointLimit, anchor, trimmedProbabilities.Count);
                                 var probabilityArray = trimmedProbabilities as double?[] ?? trimmedProbabilities.ToArray();
                                 var valueArray = trimmedValues as double?[] ?? trimmedValues.ToArray();
+                                var probabilityStartIndex = anchor + 1 - probabilityArray.Length;
                                 var additional = new Dictionary<string, SparklineSeriesSlice>(StringComparer.OrdinalIgnoreCase)
                                 {
-                                    ["distribution"] = new SparklineSeriesSlice(probabilityArray, 0),
-                                    ["probability"] = new SparklineSeriesSlice(probabilityArray, 0)
+                                    ["distribution"] = new SparklineSeriesSlice(probabilityArray, probabilityStartIndex),
+                                    ["probability"] = new SparklineSeriesSlice(probabilityArray, probabilityStartIndex)
                                 };
 
                                 if (valueArray.Length > 0)
                                 {
-                                    additional["values"] = new SparklineSeriesSlice(valueArray, 0);
+                                    var valueStartIndex = anchor + 1 - valueArray.Length;
+                                    additional["values"] = new SparklineSeriesSlice(valueArray, valueStartIndex);
                                 }
 
                                 var expectation = ComputePmfExpectation(distribution);
                                 if (expectation.HasValue)
                                 {
                                     var expectationSeries = Enumerable.Repeat((double?)expectation.Value, probabilityArray.Length).ToArray();
-                                    additional["expectation"] = new SparklineSeriesSlice(expectationSeries, 0);
+                                    additional["expectation"] = new SparklineSeriesSlice(expectationSeries, probabilityStartIndex);
                                 }
 
-                                additional[topoNode.Id] = new SparklineSeriesSlice(probabilityArray, 0);
-                                additional[$"series:{topoNode.Id}"] = new SparklineSeriesSlice(probabilityArray, 0);
+                                additional[topoNode.Id] = new SparklineSeriesSlice(probabilityArray, probabilityStartIndex);
+                                additional[$"series:{topoNode.Id}"] = new SparklineSeriesSlice(probabilityArray, probabilityStartIndex);
 
                                 var sparkline = NodeSparklineData.Create(
                                     probabilityArray,
                                     Array.Empty<double?>(),
                                     Array.Empty<double?>(),
                                     Array.Empty<double?>(),
-                                    0,
+                                    probabilityStartIndex,
                                     explicitMin: 0d,
                                     explicitMax: 1d,
                                     additionalSeries: additional);

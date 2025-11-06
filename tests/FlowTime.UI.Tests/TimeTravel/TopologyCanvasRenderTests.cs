@@ -75,13 +75,13 @@ public sealed class TopologyCanvasRenderTests : TestContext
         var invocation = renderCall.Invocations.Single();
         var payload = Assert.IsType<CanvasRenderRequest>(invocation.Arguments[1]);
 
-        var effortEdge = Assert.Single(payload.Edges.Where(e => e.Id == "edge_source_analytics"));
+        var effortEdge = Assert.Single(payload.Edges, e => e.Id == "edge_source_analytics");
         Assert.Equal("effort", effortEdge.EdgeType);
         Assert.Equal("load", effortEdge.Field);
         Assert.Equal(0.4, effortEdge.Multiplier);
         Assert.Equal(2, effortEdge.Lag);
 
-        var throughputEdge = Assert.Single(payload.Edges.Where(e => e.Id == "edge_source_downstream"));
+        var throughputEdge = Assert.Single(payload.Edges, e => e.Id == "edge_source_downstream");
         Assert.Equal("throughput", throughputEdge.EdgeType);
         Assert.Equal("served", throughputEdge.Field);
         Assert.Null(throughputEdge.Multiplier);

@@ -28,6 +28,84 @@ FlowTime maintains **deterministic, single-pass evaluation** while handling comp
 - **API Goldens:** `tests/FlowTime.Api.Tests/Golden/state-window-*.json`, `graph-run_graph_fixture.json`
 - **UI Tests:** `tests/FlowTime.UI.Tests/TimeTravel/*` covering chips, edge payloads, and inspector toggles
 
+### Kernel Governance & Artifact Precompute
+
+- Retry kernels are subject to lightweight policy checks during load:
+  - Maximum length: `32` coefficients (longer kernels are trimmed with a warning).
+  - Maximum mass: coefficients are scaled to keep ∑coefficients ≤ `1.0`.
+  - Negative or non-finite values are clamped to `0`.
+- Warnings surface through `/state`/`/state_window` as `retry_kernel_policy` telemetry messages so UI surfaces can reflect policy adjustments.
+- Simulation artifacts automatically precompute retry echo series when `semantics.retryEcho` is mapped but no series is present, mirroring the queue depth precompute path. This keeps runtime evaluation causal and removes the need for ad-hoc CONV nodes in generated models.
+- When templates reference retry metrics but the underlying telemetry is absent, the API surfaces structured warnings (`attempts_series_missing`, `failures_series_missing`, `retry_echo_series_missing`). `retryEcho` is derived on the fly via the configured kernel when missing, but the warning remains so operators can backfill telemetry if needed.
+
+### Retry Governance & Terminal Disposition
+
+Retries require explicit guardrails so models capture both the **retry pressure** and the **failure termination path**. We distinguish three layers of governance:
+
+1. **Attempt Budget** – Maximum number of retries permitted per work item (including the initial attempt).  
+2. **Decision Strategy** – What happens when an attempt fails (retry immediately, backoff, escalate).  
+3. **Terminal Disposition** – Where permanently failed work lands after exhausting the budget.
+
+#### Modeling Max-Attempt Budgets
+
+- Templates MAY introduce `maxAttempts` on service nodes.  
+- The simulation engine should track per-item attempt counts and divert failures that reach the limit into an `exhaustedFailures` series.  
+- `attempts = served + failures`, but once `attemptCount >= maxAttempts`, additional failures increment both `failures` and `exhaustedFailures` while **no longer feeding the retry kernel**.  
+- Effort edges use total attempts; throughput edges continue to reflect only successful work.
+
+```yaml
+nodes:
+  - id: incident_intake
+    kind: service
+    semantics:
+      attempts: series:incident_attempts
+      failures: series:incident_failures
+      retryEcho: series:incident_retry_echo
+      exhaustedFailures: series:incident_exhausted
+      maxAttempts: 4
+```
+
+#### Terminal Disposition (DLQ / Escalation)
+
+- Exhausted items MUST be routed to a dedicated node (e.g., `incident_dlq`) via a **terminal edge**:
+  - `type: terminal`
+  - `measure: exhaustedFailures`
+  - Optional `lag` to delay escalation.
+- The terminal node can be modeled as:
+  - A queue (async DLQ) with depth/latency metrics.
+  - A service that represents an escalation team.  
+- APIs should surface `exhaustedFailures` (count) and optional `escalated` series (success downstream of DLQ).
+- UI chips/inspector blocks mirror this by adding “Exhausted” and “Escalated” metrics.
+
+```yaml
+edges:
+  - from: incident_intake
+    to: incident_dlq
+    type: terminal
+    measure: exhaustedFailures
+    lag: 0
+```
+
+#### Contract Implications
+
+- `/v1/runs/{id}/graph` adds `terminal` to `EdgeType`.  
+- `/v1/runs/{id}/state_window` includes:
+  - `exhaustedFailures(t)` (service node)  
+  - `escalated(t)` or `dlqDepth(t)` for downstream node  
+  - Optional `retryBudgetRemaining(t)` for visualization.  
+- Telemetry schema must document the new series plus governance metadata:
+  - `maxAttempts`
+  - `backoffStrategy` (optional descriptive enum/string)
+  - `exhaustedPolicy` (e.g., `escalate`, `drop`, `dead-letter`).
+
+#### UI Considerations
+
+- Canvas: terminal edges use a distinct stroke (e.g., dotted crimson) and badges display retry budget.  
+- Inspector: service stack shows Attempts, Served, Failures, Retry Echo, **Exhausted**, and, if present, **Budget Remaining**.  
+- Feature bar gains toggles for “Show Retry Budget” and “Show Terminal Edges”.
+
+> **Gap (TT‑M‑03.28)**: Current milestone implements attempts/failures/retryEcho but does not yet enforce max-attempt budgets or terminal destinations. Governance support is slated for a follow-up milestone (recommended TT‑M‑03.30 or TT‑M‑03.31 depending on backlog). See _Delivery Roadmap_ for scheduling guidance.
+
 ---
 
 ## Core Retry Modeling Concepts

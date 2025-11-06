@@ -47,6 +47,9 @@
           "file:OrderService_arrivals.csv",
           "file:OrderService_served.csv",
           "file:OrderService_errors.csv",
+          "file:OrderService_attempts.csv",
+          "file:OrderService_failures.csv",
+          "file:OrderService_retryEcho.csv",
           "file:OrderService_capacity.csv"
         ],
         "warnings": []

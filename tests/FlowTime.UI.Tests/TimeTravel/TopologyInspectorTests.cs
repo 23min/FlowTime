@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using FlowTime.UI.Components.Topology;
 using FlowTime.UI.Pages.TimeTravel;
+using FlowTime.UI.Services;
 using Microsoft.Extensions.Logging;
 using Xunit;
 
@@ -396,7 +397,7 @@ public sealed class TopologyInspectorTests
         topology.TestSetOverlaySettings(settingsSla);
         var blocksSla = topology.TestBuildInspectorMetrics("svc-x");
         Assert.NotEmpty(blocksSla);
-        var successBlock = Assert.Single(blocksSla.Where(b => string.Equals(b.Title, "Success rate", StringComparison.OrdinalIgnoreCase)));
+        var successBlock = Assert.Single(blocksSla, b => string.Equals(b.Title, "Success rate", StringComparison.OrdinalIgnoreCase));
         Assert.False(successBlock.IsPlaceholder);
         Assert.NotNull(successBlock.Sparkline);
         Assert.Equal(0.97, successBlock.Sparkline!.Values[0]);
@@ -417,7 +418,7 @@ public sealed class TopologyInspectorTests
         topology.TestSetOverlaySettings(settingsUtil);
         var blocksUtil = topology.TestBuildInspectorMetrics("svc-x");
         Assert.NotEmpty(blocksUtil);
-        var utilizationBlock = Assert.Single(blocksUtil.Where(b => string.Equals(b.Title, "Utilization", StringComparison.OrdinalIgnoreCase)));
+        var utilizationBlock = Assert.Single(blocksUtil, b => string.Equals(b.Title, "Utilization", StringComparison.OrdinalIgnoreCase));
         Assert.NotEqual("#009E73", utilizationBlock.Stroke); // not success green
         Assert.NotEqual("#CBD5E1", utilizationBlock.Stroke); // not neutral gray
     }
@@ -471,6 +472,108 @@ public sealed class TopologyInspectorTests
         Assert.DoesNotContain(hiddenBlocks, block => string.Equals(block.Title, "Attempts", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(hiddenBlocks, block => string.Equals(block.Title, "Failures", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(hiddenBlocks, block => string.Equals(block.Title, "Retry echo", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void BuildInspectorMetrics_UsesRetryValuesForEarlyBins()
+    {
+        var topology = new Topology();
+
+        var semantics = new TopologyNodeSemantics(
+            Arrivals: "arrivals",
+            Served: "served",
+            Errors: "errors",
+            Attempts: "attempts",
+            Failures: "failures",
+            RetryEcho: "retryEcho",
+            Queue: null,
+            Capacity: null,
+            Series: null,
+            Expression: null,
+            Distribution: null,
+            InlineValues: null);
+
+        topology.TestSetTopologyGraph(new TopologyGraph(
+            new[]
+            {
+                new TopologyNode("svc-retry", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, semantics)
+            },
+            Array.Empty<TopologyEdge>()));
+
+        var attemptsSeries = Enumerable.Range(0, 24).Select(i => (double?)(14 + i)).ToArray();
+        var arrivalsSeries = Enumerable.Range(0, 24).Select(i => (double?)(18 + i)).ToArray();
+        var servedSeries = Enumerable.Range(0, 24).Select(i => (double?)(17 + i)).ToArray();
+        var failuresSeries = Enumerable.Range(0, 24).Select(i => (double?)(i % 3)).ToArray();
+        var retryEchoSeries = Enumerable.Range(0, 24).Select(i => (double?)(i * 0.4)).ToArray();
+
+        var stateSeries = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["arrivals"] = arrivalsSeries,
+            ["served"] = servedSeries,
+            ["attempts"] = attemptsSeries,
+            ["failures"] = failuresSeries,
+            ["retryEcho"] = retryEchoSeries
+        };
+
+        var baseTimestamp = new DateTimeOffset(2025, 3, 1, 0, 0, 0, TimeSpan.Zero);
+        var timestamps = Enumerable.Range(0, 24)
+            .Select(i => baseTimestamp.AddHours(i))
+            .ToArray();
+
+        var windowData = new TimeTravelStateWindowDto
+        {
+            Metadata = new TimeTravelStateMetadataDto
+            {
+                RunId = "run_id",
+                TemplateId = "template_id",
+                Mode = "simulation",
+                Schema = new TimeTravelSchemaMetadataDto
+                {
+                    Id = "time-travel/v1",
+                    Version = "1",
+                    Hash = "dummy-hash"
+                },
+                Storage = new TimeTravelStorageDescriptorDto()
+            },
+            Window = new TimeTravelWindowSliceDto
+            {
+                StartBin = 0,
+                EndBin = 23,
+                BinCount = 24
+            },
+            TimestampsUtc = timestamps,
+            Nodes = new[]
+            {
+                new TimeTravelNodeSeriesDto
+                {
+                    Id = "svc-retry",
+                    Kind = "service",
+                    Series = stateSeries
+                }
+            }
+        };
+
+        topology.TestSetWindowData(windowData);
+        topology.TestUpdateActiveMetrics(0);
+        topology.TestBuildNodeSparklines();
+        topology.TestUpdateActiveMetrics(0);
+
+        var sparklines = topology.TestGetNodeSparklines();
+        var sparkline = Assert.Single(sparklines).Value;
+        Assert.Equal(-47, sparkline.StartIndex);
+        Assert.True(sparkline.Series.TryGetValue("attempts", out var attemptsSlice));
+        Assert.NotNull(attemptsSlice);
+        Assert.Equal(-47, attemptsSlice!.StartIndex);
+        Assert.Equal(48, attemptsSlice.Values.Count);
+        Assert.Equal(attemptsSeries[0], attemptsSlice.Values[47]);
+
+        var inspectorBlocks = topology.TestBuildInspectorMetrics("svc-retry");
+        var attemptsBlock = Assert.Single(inspectorBlocks, block => string.Equals(block.Title, "Attempts", StringComparison.OrdinalIgnoreCase));
+        Assert.False(attemptsBlock.IsPlaceholder);
+        Assert.NotNull(attemptsBlock.Sparkline);
+        var offset = 0 - attemptsBlock.Sparkline!.StartIndex;
+        Assert.InRange(offset, 0, attemptsBlock.Sparkline.Values.Count - 1);
+        Assert.Equal(attemptsSeries[0], attemptsBlock.Sparkline.Values[offset]);
     }
 
     private static TopologyNodeSemantics EmptySemantics() =>

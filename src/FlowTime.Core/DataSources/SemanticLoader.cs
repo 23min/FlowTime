@@ -26,30 +26,30 @@ public sealed class SemanticLoader
         var served = LoadSeries(semantics.Served, bins);
         var errors = LoadSeries(semantics.Errors, bins);
 
-        double[]? attempts = semantics.Attempts != null
-            ? LoadSeries(semantics.Attempts, bins)
+        double[]? attempts = IsFileUri(semantics.Attempts)
+            ? LoadSeries(semantics.Attempts!, bins)
             : null;
 
-        double[]? failures = semantics.Failures != null
-            ? LoadSeries(semantics.Failures, bins)
+        double[]? failures = IsFileUri(semantics.Failures)
+            ? LoadSeries(semantics.Failures!, bins)
             : null;
 
-        double[]? retryEcho = semantics.RetryEcho != null
-            ? LoadSeries(semantics.RetryEcho, bins)
+        double[]? retryEcho = IsFileUri(semantics.RetryEcho)
+            ? LoadSeries(semantics.RetryEcho!, bins)
             : null;
 
         var retryKernel = semantics.RetryKernel?.ToArray();
 
-        double[]? externalDemand = semantics.ExternalDemand != null
-            ? LoadSeries(semantics.ExternalDemand, bins)
+        double[]? externalDemand = IsFileUri(semantics.ExternalDemand)
+            ? LoadSeries(semantics.ExternalDemand!, bins)
             : null;
 
-        double[]? queueDepth = semantics.QueueDepth != null
-            ? LoadSeries(semantics.QueueDepth, bins)
+        double[]? queueDepth = IsFileUri(semantics.QueueDepth)
+            ? LoadSeries(semantics.QueueDepth!, bins)
             : null;
 
-        double[]? capacity = semantics.Capacity != null
-            ? LoadSeries(semantics.Capacity, bins)
+        double[]? capacity = IsFileUri(semantics.Capacity)
+            ? LoadSeries(semantics.Capacity!, bins)
             : null;
 
         return new NodeData
@@ -74,4 +74,7 @@ public sealed class SemanticLoader
         var path = UriResolver.ResolveFilePath(uri, modelDirectory);
         return CsvReader.ReadTimeSeries(path, bins);
     }
+
+    private static bool IsFileUri(string? value) =>
+        !string.IsNullOrWhiteSpace(value) && value.Trim().StartsWith("file:", StringComparison.OrdinalIgnoreCase);
 }

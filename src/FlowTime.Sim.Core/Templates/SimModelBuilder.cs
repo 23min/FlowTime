@@ -98,7 +98,11 @@ internal static class SimModelBuilder
                 Id = edge.Id,
                 From = edge.From,
                 To = edge.To,
-                Weight = edge.Weight
+                Weight = edge.Weight,
+                Type = edge.Type,
+                Measure = edge.Measure,
+                Multiplier = edge.Multiplier,
+                Lag = edge.Lag
             });
         }
 
@@ -112,6 +116,10 @@ internal static class SimModelBuilder
         Errors = semantics.Errors,
         Queue = semantics.Queue,
         Capacity = semantics.Capacity,
+        Attempts = semantics.Attempts,
+        Failures = semantics.Failures,
+        RetryEcho = semantics.RetryEcho,
+        RetryKernel = semantics.RetryKernel?.ToArray(),
         ExternalDemand = semantics.ExternalDemand
     };
 

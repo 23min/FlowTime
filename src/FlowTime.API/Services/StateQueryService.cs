@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
 using FlowTime.Adapters.Synthetic;
 using FlowTime.Contracts.Services;
@@ -17,7 +18,7 @@ public sealed class StateQueryService
     private const int maxWindowBins = 500;
     private static readonly EventId stateSnapshotEvent = new(3001, "StateSnapshotObservability");
     private static readonly EventId stateWindowEvent = new(3002, "StateWindowObservability");
-    private static readonly double[] defaultRetryKernel = new[] { 0.0, 0.6, 0.3, 0.1 };
+    private static readonly double[] fallbackRetryKernel = RetryKernelPolicy.DefaultKernel;
     private readonly IConfiguration configuration;
     private readonly ILogger<StateQueryService> logger;
     private readonly RunManifestReader manifestReader;
@@ -303,6 +304,28 @@ public sealed class StateQueryService
                 try
                 {
                     var data = loader.LoadNodeData(node, bins);
+                    data = AugmentNodeDataFromManifest(
+                        node,
+                        data,
+                        runDirectory,
+                        bins,
+                        valueSeriesLookup);
+                    var kernelResult = RetryKernelPolicy.Apply(data.RetryKernel);
+                    if (!ReferenceEquals(data.RetryKernel, kernelResult.Kernel))
+                    {
+                        data = data with { RetryKernel = kernelResult.Kernel };
+                    }
+                    if (kernelResult.HasMessages)
+                    {
+                        foreach (var message in kernelResult.Messages)
+                        {
+                            AppendNodeWarning(preValidationNodeWarnings, node.Id, "retry_kernel_policy", message);
+                        }
+                    }
+
+                    EnsureSeriesPresence(node, data, bins, preValidationNodeWarnings);
+                    ValidateAttemptConservation(node, data, preValidationNodeWarnings);
+
                     nodeData[node.Id] = data;
                 }
                 catch (Exception ex)
@@ -489,6 +512,7 @@ public sealed class StateQueryService
     private static NodeData CreateEmptyNodeData(Node node, int bins)
     {
         double[] CreateSeries() => new double[bins];
+        var kernelResult = RetryKernelPolicy.Apply(node.Semantics.RetryKernel?.ToArray());
 
         return new NodeData
         {
@@ -499,7 +523,7 @@ public sealed class StateQueryService
             Attempts = node.Semantics.Attempts != null ? CreateSeries() : null,
             Failures = node.Semantics.Failures != null ? CreateSeries() : null,
             RetryEcho = node.Semantics.RetryEcho != null ? CreateSeries() : null,
-            RetryKernel = node.Semantics.RetryKernel?.ToArray(),
+            RetryKernel = kernelResult.Kernel,
             ExternalDemand = node.Semantics.ExternalDemand != null ? CreateSeries() : null,
             QueueDepth = node.Semantics.QueueDepth != null ? CreateSeries() : null,
             Capacity = node.Semantics.Capacity != null ? CreateSeries() : null
@@ -787,7 +811,7 @@ public sealed class StateQueryService
             return null;
         }
 
-        var kernel = (data.RetryKernel != null && data.RetryKernel.Length > 0) ? data.RetryKernel : defaultRetryKernel;
+        var kernel = (data.RetryKernel != null && data.RetryKernel.Length > 0) ? data.RetryKernel : fallbackRetryKernel;
 
         double sum = 0;
         var hasContribution = false;
@@ -978,6 +1002,93 @@ public sealed class StateQueryService
         return result;
     }
 
+    private static void EnsureSeriesPresence(
+        Node node,
+        NodeData data,
+        int bins,
+        IDictionary<string, List<ModeValidationWarning>> warnings)
+    {
+        void CheckSeries(string? identifier, double[]? series, string code, string description)
+        {
+            if (string.IsNullOrWhiteSpace(identifier))
+            {
+                return;
+            }
+
+            if (series is null || series.Length == 0)
+            {
+                AppendNodeWarning(warnings, node.Id, code, description);
+                return;
+            }
+
+            var hasFinite = false;
+            for (var i = 0; i < Math.Min(series.Length, bins); i++)
+            {
+                var sample = series[i];
+                if (!double.IsNaN(sample) && !double.IsInfinity(sample))
+                {
+                    hasFinite = true;
+                    break;
+                }
+            }
+
+            if (!hasFinite)
+            {
+                AppendNodeWarning(warnings, node.Id, code, description);
+            }
+        }
+
+        var semantics = node.Semantics;
+        CheckSeries(semantics.Attempts, data.Attempts, "attempts_series_missing", "Attempts series was expected but could not be resolved.");
+        CheckSeries(semantics.Failures, data.Failures, "failures_series_missing", "Failures series was expected but could not be resolved.");
+        CheckSeries(semantics.RetryEcho, data.RetryEcho, "retry_echo_series_missing", "Retry echo series was expected but could not be resolved.");
+    }
+
+    private static void ValidateAttemptConservation(
+        Node node,
+        NodeData data,
+        IDictionary<string, List<ModeValidationWarning>> warnings)
+    {
+        if (data.Attempts is null || data.Served is null)
+        {
+            return;
+        }
+
+        var failures = data.Failures ?? data.Errors;
+        if (failures is null)
+        {
+            return;
+        }
+
+        var bins = Math.Min(data.Attempts.Length, Math.Min(data.Served.Length, failures.Length));
+        const double tolerance = 1e-4;
+
+        for (var i = 0; i < bins; i++)
+        {
+            var attempt = data.Attempts[i];
+            var served = data.Served[i];
+            var failure = failures[i];
+
+            if (double.IsNaN(attempt) || double.IsNaN(served) || double.IsNaN(failure) ||
+                double.IsInfinity(attempt) || double.IsInfinity(served) || double.IsInfinity(failure))
+            {
+                continue;
+            }
+
+            var expected = served + failure;
+            var delta = Math.Abs(attempt - expected);
+            if (delta > tolerance)
+            {
+                AppendNodeWarning(
+                    warnings,
+                    node.Id,
+                    "attempts_conservation_mismatch",
+                    $"Attempts do not equal served + failures for node '{node.Id}' at bin {i} (attempts={attempt:0.######}, served={served:0.######}, failures={failure:0.######}).");
+                break;
+            }
+        }
+    }
+
     private static void AppendNodeWarning(
         IDictionary<string, List<ModeValidationWarning>> warnings,
         string nodeId,
@@ -1042,6 +1153,66 @@ public sealed class StateQueryService
         }
 
         return result;
+    }
+
+    private static NodeData AugmentNodeDataFromManifest(
+        Node node,
+        NodeData data,
+        string runDirectory,
+        int bins,
+        IReadOnlyDictionary<string, SeriesReference> seriesLookup)
+    {
+        double[]? Resolve(string? id, double[]? current)
+        {
+            if (current != null)
+            {
+                return current;
+            }
+
+            if (string.IsNullOrWhiteSpace(id))
+            {
+                return null;
+            }
+
+            if (!seriesLookup.TryGetValue(id, out var reference) || string.IsNullOrWhiteSpace(reference.Path))
+            {
+                return null;
+            }
+
+            var relative = reference.Path.Replace('/', Path.DirectorySeparatorChar);
+            var path = Path.Combine(runDirectory, relative);
+            if (!File.Exists(path))
+            {
+                return null;
+            }
+
+            return CsvReader.ReadTimeSeries(path, bins);
+        }
+
+        var semantics = node.Semantics;
+
+        var arrivals = Resolve(semantics.Arrivals, data.Arrivals);
+        var served = Resolve(semantics.Served, data.Served);
+        var errors = Resolve(semantics.Errors, data.Errors);
+        var attempts = Resolve(semantics.Attempts, data.Attempts);
+        var failures = Resolve(semantics.Failures, data.Failures);
+        var retryEcho = Resolve(semantics.RetryEcho, data.RetryEcho);
+        var queue = Resolve(semantics.QueueDepth, data.QueueDepth);
+        var capacity = Resolve(semantics.Capacity, data.Capacity);
+        var external = Resolve(semantics.ExternalDemand, data.ExternalDemand);
+
+        return data with
+        {
+            Arrivals = arrivals ?? data.Arrivals,
+            Served = served ?? data.Served,
+            Errors = errors ?? data.Errors,
+            Attempts = attempts,
+            Failures = failures ?? data.Failures,
+            RetryEcho = retryEcho,
+            QueueDepth = queue,
+            Capacity = capacity,
+            ExternalDemand = external
+        };
     }
 
     private static StateMetadata BuildMetadata(StateRunContext context)
@@ -1181,7 +1352,19 @@ public sealed class StateQueryService
             return null;
         }
 
-        return value;
+        const double epsilon = 1e-9;
+        if (Math.Abs(value) < epsilon)
+        {
+            return 0d;
+        }
+
+        var rounded = Math.Round(value, 6, MidpointRounding.AwayFromZero);
+        if (Math.Abs(rounded) < epsilon)
+        {
+            rounded = 0d;
+        }
+
+        return rounded;
     }
 
     private sealed record StateRunContext(

@@ -1,0 +1,38 @@
+@host = http://localhost:8080
+@runsRoot = /workspaces/flowtime-vnext/data/runs
+
+##########################################################################
+# Quick scratchpad for /state and /state_window exploration.
+# 1. List runs and copy the runId you want to inspect.
+# 2. Set @runId below (or use REST Client "Request Variables").
+# 3. Adjust @startBin / @endBin and fire off the requests.
+##########################################################################
+
+### 0. Health check (optional sanity)
+GET {{host}}/v1/healthz
+Accept: application/json
+
+### 1. List available runs (filter as needed)
+GET {{host}}/v1/runs?mode=telemetry&hasWarnings=false&page=1&pageSize=25
+Accept: application/json
+
+### Configure the run/bin window you want to inspect
+@runId = run_20251105T225851Z_c6bbd21f
+@startBin = 0
+@endBin = 23
+
+### 2. Snapshot: single bin at @startBin
+GET {{host}}/v1/runs/{{runId}}/state?binIndex={{startBin}}
+Accept: application/json
+
+### 3. Window: inclusive range [@startBin, @endBin]
+GET {{host}}/v1/runs/{{runId}}/state_window?startBin={{startBin}}&endBin={{endBin}}
+Accept: application/json
+
+### 4. Window with explicit mode=full (includes computed nodes)
+GET {{host}}/v1/runs/{{runId}}/state_window?startBin={{startBin}}&endBin={{endBin}}&mode=full
+Accept: application/json
+
+### 5. Topology graph (handy alongside state payloads)
+GET {{host}}/v1/runs/{{runId}}/graph
+Accept: application/json

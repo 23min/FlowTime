@@ -28,6 +28,7 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
     private const string telemetryMissingSourceRunId = "run_state_missing_source";
     private const string fullModeRunId = "run_state_full";
     private const string queueLatencyNullRunId = "run_state_queue_zero_served";
+    private const string kernelPolicyRunId = "run_state_retry_kernel_policy";
     private const int binCount = 4;
     private const int binSizeMinutes = 5;
     private static readonly DateTime startTimeUtc = new(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -54,6 +55,7 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         CreateTelemetryMissingSourceRun();
         CreateFullModeRun();
         CreateQueueLatencyNullRun();
+        CreateKernelPolicyRun();
 
         logCollector = new TestLogCollector();
         client = factory.WithWebHostBuilder(builder =>
@@ -169,6 +171,61 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
     }
 
     [Fact]
+    public async Task GetStateWindow_PreservesAttemptConservation()
+    {
+        var response = await client.GetAsync($"/v1/runs/{runId}/state_window?startBin=0&endBin=3");
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync();
+            throw new XunitException($"Expected 200 OK but got {(int)response.StatusCode}: {errorBody}");
+        }
+
+        var payload = await response.Content.ReadFromJsonAsync<StateWindowResponse>(new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            PropertyNameCaseInsensitive = true
+        });
+
+        Assert.NotNull(payload);
+        const double tolerance = 1e-4;
+
+        foreach (var node in payload!.Nodes)
+        {
+            if (!node.Series.TryGetValue("attempts", out var attempts))
+            {
+                continue;
+            }
+
+            if (!node.Series.TryGetValue("served", out var served))
+            {
+                continue;
+            }
+
+            if (!node.Series.TryGetValue("failures", out var failures) &&
+                !node.Series.TryGetValue("errors", out failures))
+            {
+                continue;
+            }
+
+            var binCount = Math.Min(attempts.Length, Math.Min(served.Length, failures.Length));
+            for (var i = 0; i < binCount; i++)
+            {
+                var attempt = attempts[i];
+                var success = served[i];
+                var failure = failures[i];
+
+                if (!attempt.HasValue || !success.HasValue || !failure.HasValue)
+                {
+                    continue;
+                }
+
+                var expected = success.Value + failure.Value;
+                var delta = Math.Abs(attempt.Value - expected);
+                Assert.True(delta <= tolerance, $"Attempts were not conserved for node '{node.Id}' at bin {i}: attempts={attempt.Value}, served={success.Value}, failures={failure.Value}");
+            }
+        }
+    }
+
+    [Fact]
     public async Task GetStateWindow_NullsQueueLatencyWhenServedIsZero()
     {
         var response = await client.GetAsync($"/v1/runs/{queueLatencyNullRunId}/state_window?startBin=0&endBin=3");
@@ -193,6 +250,32 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         Assert.Equal(11.11111, latency[2]!.Value, 5);
 
         AssertGoldenResponse("state-window-queue-null-approved.json", payload);
+    }
+
+    [Fact]
+    public async Task GetStateWindow_RetryKernelViolationsEmitWarnings()
+    {
+        var response = await client.GetAsync($"/v1/runs/{kernelPolicyRunId}/state_window?startBin=0&endBin=3");
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync();
+            throw new XunitException($"Expected 200 OK but got {(int)response.StatusCode}: {errorBody}");
+        }
+
+        var payload = await response.Content.ReadFromJsonAsync<StateWindowResponse>(new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            PropertyNameCaseInsensitive = true
+        });
+
+        Assert.NotNull(payload);
+        var orderNode = Assert.Single(payload!.Nodes, n => n.Id == "OrderService");
+        var kernelWarnings = orderNode.Telemetry.Warnings
+            .Where(w => string.Equals(w.Code, "retry_kernel_policy", StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+
+        Assert.Equal(2, kernelWarnings.Length);
+        Assert.Contains(kernelWarnings, w => w.Message.Contains("trimmed", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(kernelWarnings, w => w.Message.Contains("scaled", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -412,6 +495,11 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         CreateRun(queueLatencyNullRunId, BuildValidModelYaml(), mode: "telemetry", overrides);
     }
 
+    private void CreateKernelPolicyRun()
+    {
+        CreateRun(kernelPolicyRunId, BuildKernelPolicyModelYaml(), mode: "simulation");
+    }
+
     private void CreateFullModeRun()
     {
         var seriesOutputs = new Dictionary<string, double[]>
@@ -475,6 +563,9 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         WriteSeries(modelDir, "OrderService_arrivals.csv", new double[] { 10, 10, 10, 10 });
         WriteSeries(modelDir, "OrderService_served.csv", new double[] { 9, 6, 9, 4 });
         WriteSeries(modelDir, "OrderService_errors.csv", new double[] { 1, 1, 1, 1 });
+        WriteSeries(modelDir, "OrderService_attempts.csv", new double[] { 10, 7, 10, 5 });
+        WriteSeries(modelDir, "OrderService_failures.csv", new double[] { 1, 1, 1, 1 });
+        WriteSeries(modelDir, "OrderService_retryEcho.csv", new double[] { 0.0, 0.6, 0.9, 1.0 });
         WriteSeries(modelDir, "OrderService_capacity.csv", new double[] { 12, 7, 9, 4 });
 
         WriteSeries(modelDir, "SupportQueue_arrivals.csv", new double[] { 9, 7, 9, 5 });
@@ -502,6 +593,54 @@ topology:
         arrivals: "file:OrderService_arrivals.csv"
         served: "file:OrderService_served_missing.csv"
         errors: "file:OrderService_errors.csv"
+        attempts: "file:OrderService_attempts.csv"
+        failures: "file:OrderService_failures.csv"
+        retryEcho: "file:OrderService_retryEcho.csv"
+        retryKernel: [0.0, 0.6, 0.3, 0.1]
+        externalDemand: null
+        queueDepth: null
+        capacity: "file:OrderService_capacity.csv"
+        slaMin: null
+    - id: "SupportQueue"
+      kind: "queue"
+      semantics:
+        arrivals: "file:SupportQueue_arrivals.csv"
+        served: "file:SupportQueue_served.csv"
+        errors: "file:SupportQueue_errors.csv"
+        externalDemand: null
+        queue: "file:SupportQueue_queue.csv"
+        capacity: null
+        slaMin: 5
+  edges: []
+
+""";
+    }
+
+    private static string BuildKernelPolicyModelYaml()
+    {
+        var kernelValues = string.Join(", ", Enumerable.Repeat("0.5", 40));
+
+        return $"""
+schemaVersion: 1
+
+grid:
+  bins: {binCount}
+  binSize: {binSizeMinutes}
+  binUnit: minutes
+  startTimeUtc: "{startTimeUtc:O}"
+
+topology:
+  nodes:
+    - id: "OrderService"
+      kind: "service"
+      semantics:
+        arrivals: "file:OrderService_arrivals.csv"
+        served: "file:OrderService_served.csv"
+        errors: "file:OrderService_errors.csv"
+        attempts: "file:OrderService_attempts.csv"
+        failures: "file:OrderService_failures.csv"
+        retryEcho: "file:OrderService_retryEcho.csv"
+        retryKernel: [{kernelValues}]
         externalDemand: null
         queueDepth: null
         capacity: "file:OrderService_capacity.csv"
@@ -706,6 +845,10 @@ topology:
         arrivals: "file:OrderService_arrivals.csv"
         served: "file:OrderService_served.csv"
         errors: "file:OrderService_errors.csv"
+        attempts: "file:OrderService_attempts.csv"
+        failures: "file:OrderService_failures.csv"
+        retryEcho: "file:OrderService_retryEcho.csv"
+        retryKernel: [0.0, 0.6, 0.3, 0.1]
         externalDemand: null
         queueDepth: null
         capacity: "file:OrderService_capacity.csv"
@@ -744,6 +887,10 @@ topology:
         arrivals: "file:OrderService_arrivals.csv"
         served: "file:OrderService_served.csv"
         errors: "file:OrderService_errors.csv"
+        attempts: "file:OrderService_attempts.csv"
+        failures: "file:OrderService_failures.csv"
+        retryEcho: "file:OrderService_retryEcho.csv"
+        retryKernel: [0.0, 0.6, 0.3, 0.1]
         externalDemand: null
         queueDepth: null
         capacity: "file:OrderService_capacity.csv"
@@ -802,6 +949,10 @@ topology:
         arrivals: "file:OrderService_arrivals.csv"
         served: "file:OrderService_served.csv"
         errors: "file:OrderService_errors.csv"
+        attempts: "file:OrderService_attempts.csv"
+        failures: "file:OrderService_failures.csv"
+        retryEcho: "OrderService_retryEcho"
+        retryKernel: [0.0, 0.6, 0.3, 0.1]
         externalDemand: null
         queueDepth: null
         capacity: "file:OrderService_capacity.csv"

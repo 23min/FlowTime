@@ -67,8 +67,8 @@
         "retryEcho": [
           0,
           0.6,
-          0.8999999999999999,
-          0.9999999999999999
+          0.9,
+          1
         ],
         "capacity": [
           12,
@@ -94,6 +94,9 @@
           "file:OrderService_arrivals.csv",
           "file:OrderService_served.csv",
           "file:OrderService_errors.csv",
+          "file:OrderService_attempts.csv",
+          "file:OrderService_failures.csv",
+          "file:OrderService_retryEcho.csv",
           "file:OrderService_capacity.csv"
         ],
         "warnings": []

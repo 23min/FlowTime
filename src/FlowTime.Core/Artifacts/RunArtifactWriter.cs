@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using FlowTime.Core;
 using FlowTime.Core.Nodes;
+using FlowTime.Core.TimeTravel;
 using YamlDotNet.Serialization;
 using YamlDotNet.RepresentationModel;
 
@@ -83,6 +84,7 @@ public static class RunArtifactWriter
         // Build a mutable context and precompute any derived series (e.g., true SHIFT-based queue depth)
         var effectiveContext = new Dictionary<NodeId, double[]>(request.Context);
         TryPrecomputeQueueDepthSeries(request.SpecText, effectiveContext);
+        TryPrecomputeRetryEchoSeries(request.SpecText, effectiveContext);
 
         var resolvedSeries = ResolveSeries((object?)modelDto.Outputs, effectiveContext);
         var seriesDescriptorMap = new Dictionary<string, SeriesDescriptor>(StringComparer.OrdinalIgnoreCase);
@@ -391,6 +393,158 @@ public static class RunArtifactWriter
             // best-effort only; do not fail the run on precompute issues
         }
     }
+
+    private static void TryPrecomputeRetryEchoSeries(string specText, Dictionary<NodeId, double[]> context)
+    {
+        if (string.IsNullOrWhiteSpace(specText))
+        {
+            return;
+        }
+
+        try
+        {
+            var yaml = new YamlStream();
+            yaml.Load(new StringReader(specText));
+            if (yaml.Documents.Count == 0 || yaml.Documents[0].RootNode is not YamlMappingNode root)
+            {
+                return;
+            }
+
+            if (!root.Children.TryGetValue(new YamlScalarNode("topology"), out var topologyNode) || topologyNode is not YamlMappingNode topologyMap)
+            {
+                return;
+            }
+
+            if (!topologyMap.Children.TryGetValue(new YamlScalarNode("nodes"), out var nodesNode) || nodesNode is not YamlSequenceNode nodesSequence)
+            {
+                return;
+            }
+
+            var semanticsKey = new YamlScalarNode("semantics");
+            var retryEchoKey = new YamlScalarNode("retryEcho");
+            var failuresKey = new YamlScalarNode("failures");
+            var errorsKey = new YamlScalarNode("errors");
+            var retryKernelKey = new YamlScalarNode("retryKernel");
+
+            foreach (var node in nodesSequence.Children.OfType<YamlMappingNode>())
+            {
+                if (!node.Children.TryGetValue(semanticsKey, out var semanticsNode) || semanticsNode is not YamlMappingNode semanticsMap)
+                {
+                    continue;
+                }
+
+                if (!semanticsMap.Children.TryGetValue(retryEchoKey, out var retryEchoNode) || retryEchoNode is not YamlScalarNode retryEchoScalar)
+                {
+                    continue;
+                }
+
+                var retryEchoSeries = (retryEchoScalar.Value ?? string.Empty).Trim();
+                if (string.IsNullOrWhiteSpace(retryEchoSeries) ||
+                    retryEchoSeries.StartsWith("file:", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                var retryEchoId = new NodeId(retryEchoSeries);
+                if (context.ContainsKey(retryEchoId))
+                {
+                    continue;
+                }
+
+                string? failuresSeries = null;
+                if (semanticsMap.Children.TryGetValue(failuresKey, out var failuresNode) && failuresNode is YamlScalarNode failuresScalar)
+                {
+                    failuresSeries = failuresScalar.Value?.Trim();
+                }
+
+                if (string.IsNullOrWhiteSpace(failuresSeries) &&
+                    semanticsMap.Children.TryGetValue(errorsKey, out var errorsNode) && errorsNode is YamlScalarNode errorsScalar)
+                {
+                    failuresSeries = errorsScalar.Value?.Trim();
+                }
+
+                if (string.IsNullOrWhiteSpace(failuresSeries))
+                {
+                    continue;
+                }
+
+                var failuresId = new NodeId(failuresSeries);
+                if (!context.TryGetValue(failuresId, out var failures) || failures.Length == 0)
+                {
+                    continue;
+                }
+
+                double[]? rawKernel = null;
+                if (semanticsMap.Children.TryGetValue(retryKernelKey, out var kernelNode) && kernelNode is YamlSequenceNode kernelSequence)
+                {
+                    var components = new List<double>();
+                    foreach (var scalar in kernelSequence.Children.OfType<YamlScalarNode>())
+                    {
+                        if (double.TryParse(scalar.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
+                        {
+                            components.Add(value);
+                        }
+                    }
+
+                    if (components.Count > 0)
+                    {
+                        rawKernel = components.ToArray();
+                    }
+                }
+
+                var policyResult = RetryKernelPolicy.Apply(rawKernel);
+                if (policyResult.HasMessages)
+                {
+                    foreach (var message in policyResult.Messages)
+                    {
+                        Console.WriteLine($"[flowtime] Retry kernel policy for '{retryEchoSeries}': {message}");
+                    }
+                }
+
+                var kernel = policyResult.Kernel;
+                if (kernel.Length == 0)
+                {
+                    continue;
+                }
+
+                var computed = new double[failures.Length];
+                for (var t = 0; t < failures.Length; t++)
+                {
+                    double sum = 0;
+                    for (var k = 0; k < kernel.Length; k++)
+                    {
+                        var sourceIndex = t - k;
+                        if (sourceIndex < 0)
+                        {
+                            break;
+                        }
+
+                        if (sourceIndex >= failures.Length)
+                        {
+                            continue;
+                        }
+
+                        var sample = failures[sourceIndex];
+                        if (!double.IsFinite(sample))
+                        {
+                            continue;
+                        }
+
+                        sum += sample * kernel[k];
+                    }
+
+                    computed[t] = sum;
+                }
+
+                context[retryEchoId] = computed;
+            }
+        }
+        catch
+        {
+            // best-effort only; do not fail the run on precompute issues
+        }
+    }
+
 
     private sealed record SeriesDescriptor(
         NodeId NodeId,
@@ -781,6 +935,9 @@ public static class RunArtifactWriter
             modified |= NormalizeSemanticsField(semanticsMap, nodeId, "queue", required: false, descriptorMap, descriptorList, context);
             modified |= NormalizeSemanticsField(semanticsMap, nodeId, "queueDepth", required: false, descriptorMap, descriptorList, context);
             modified |= NormalizeSemanticsField(semanticsMap, nodeId, "capacity", required: false, descriptorMap, descriptorList, context);
+            modified |= NormalizeSemanticsField(semanticsMap, nodeId, "attempts", required: false, descriptorMap, descriptorList, context);
+            modified |= NormalizeSemanticsField(semanticsMap, nodeId, "failures", required: false, descriptorMap, descriptorList, context);
+            modified |= NormalizeSemanticsField(semanticsMap, nodeId, "retryEcho", required: false, descriptorMap, descriptorList, context);
         }
 
         if (!modified)

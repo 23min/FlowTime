@@ -1,6 +1,6 @@
 # TT‑M‑03.28 — Retries First‑Class (Attempts/Failures, Effort vs Throughput Edges, Temporal Echoes)
 
-Status: 🚧 In Progress (Docs/telemetry updates underway; roadmap follow-up pending)  
+Status: ✅ Complete  
 Owners: Platform (API/Sim) + UI  
 References: docs/architecture/retry-modeling.md, docs/architecture/time-travel/queues-shift-depth-and-initial-conditions.md, docs/performance/perf-log.md
 
@@ -24,6 +24,8 @@ In Scope
 
 Out of Scope (deferred)
 - Advanced effort heatmap overlays; service‑time S metrics; oldest‑age telemetry.
+- Max-attempt governance + terminal edges (scheduled for TT‑M‑03.30).
+- Domain terminology alias mapping (scheduled for TT‑M‑03.30.1).
 
 ## Requirements
 
@@ -35,6 +37,7 @@ Out of Scope (deferred)
 ### Non‑Functional
 - Bounded history and kernel length; perf budgets enforced.
 - Additive API changes; guard missing telemetry with structured warnings.
+- New retry metrics remain optional from the contract perspective—clients must handle `null` values when telemetry/series are absent, with warnings surfaced via the API.
 
 ## Built‑In Mitigations (Must‑Do)
 
@@ -71,13 +74,13 @@ Out of Scope (deferred)
 - ✅ **API**: `/graph` surfaces `edgeType`, multipliers, and lags; `/state_window` returns attempts/failures/retryEcho (derived when absent).
 - ✅ **UI**: Canvas renders effort edges with dashed styling/multipliers; chips + inspector stacks respect retry toggles; tests cover payloads and toggles.
 - ✅ **Docs + perf**: Milestone/tracker refreshed, replay contract snippet captured, perf log documents latest full-suite run.
-- ⏳ **Kernel governance/precompute** tracked for follow-up (warnings + artifact-time caching still outstanding).
+- ✅ **Kernel governance & precompute**: Retry kernels trimmed/scaled with warnings; simulation path fills retryEcho series when absent.
 
 ### Execution Plan (Revised)
 
 - [x] **Session 1 — Templates & Operators**
   - [x] Add retry-enabled example with deterministic kernel
-  - [ ] Artifact-time retryEcho precompute (pending governance work)
+  - [x] Artifact-time retryEcho precompute
 - [x] **Session 2 — API Contracts**
   - [x] Extend `/graph` with edge types + metadata
   - [x] Include attempts/failures/retryEcho in `/state_window` with goldens
