@@ -543,15 +543,30 @@ code {
     text-transform: none;
 }
 
-.timeline-reset-zoom-chip {
-    font-size: 0.65rem;
-    min-height: 1.35rem;
-    padding: 0.1rem 0.5rem;
-}
-
 .timeline-focus-set .mud-chip.mud-chip-selected {
     border-color: rgba(32, 101, 209, 0.6);
     background: rgba(32, 101, 209, 0.18);
+}
+
+.timeline-zoom-set {
+    display: flex;
+    gap: 0.35rem;
+}
+
+.timeline-zoom-chip {
+    font-size: 0.65rem;
+    line-height: 1.2;
+    padding: 0.1rem 0.45rem;
+    min-height: 1.35rem;
+    text-transform: none;
+    border-color: rgba(59, 72, 89, 0.35);
+    background: rgba(148, 163, 184, 0.16);
+    color: var(--mud-palette-text-primary);
+}
+
+.timeline-zoom-chip:hover {
+    border-color: rgba(32, 101, 209, 0.45);
+    background: rgba(32, 101, 209, 0.12);
 }
 
 .timeline-range::-ms-track {
@@ -614,6 +629,12 @@ code {
     flex: 1 1 auto;
 }
 
+.topology-stage .topology-canvas-region {
+    flex: 1 1 auto;
+    min-width: 0;
+    position: relative;
+}
+
 .topology-canvas-host {
     position: relative;
     background: var(--mud-palette-surface);
@@ -621,7 +642,7 @@ code {
     box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.05);
     overflow: hidden;
     min-height: 420px;
-    height: clamp(360px, 60vh, 760px);
+    height: 100%;
 }
 
 .topology-canvas {

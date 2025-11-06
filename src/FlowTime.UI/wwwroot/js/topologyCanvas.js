@@ -48,7 +48,12 @@
                 hoveredChipId: null,
                 hoveredChip: null,
                 pointerDownPoint: null,
-                pointerMoved: false
+                pointerMoved: false,
+                title: '',
+                settingsHitbox: null,
+                settingsPointerActive: false,
+                settingsPointerId: null,
+                settingsPointerDown: null
             };
             setupCanvas(canvas, state);
             registry.set(canvas, state);
@@ -116,6 +121,30 @@
             }
         };
 
+        const isPointerInSettingsButton = (event) => {
+            if (!state || !state.settingsHitbox) {
+                return false;
+            }
+
+            const rect = canvas.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            const { x: hx, y: hy, width, height } = state.settingsHitbox;
+            return x >= hx && x <= hx + width && y >= hy && y <= hy + height;
+        };
+
+        const updateCursorForEvent = (event) => {
+            if (!canvas) {
+                return;
+            }
+
+            if (isPointerInSettingsButton(event) || state.settingsPointerActive) {
+                canvas.style.cursor = 'pointer';
+            } else if (!state.dragging) {
+                canvas.style.cursor = 'default';
+            }
+        };
+
         const updateHover = (event) => {
             if (!state.payload || !state.chipHitboxes || state.chipHitboxes.length === 0) {
                 if (state.hoveredChipId !== null || state.hoveredChip !== null) {
@@ -144,6 +173,15 @@
             if (event.button !== 0) {
                 return;
             }
+            if (isPointerInSettingsButton(event)) {
+                canvas.setPointerCapture?.(event.pointerId);
+                state.settingsPointerActive = true;
+                state.settingsPointerId = event.pointerId;
+                state.settingsPointerDown = { x: event.clientX, y: event.clientY };
+                state.pointerMoved = false;
+                canvas.style.cursor = 'pointer';
+                return;
+            }
             canvas.setPointerCapture(event.pointerId);
             state.dragging = true;
             state.dragStart = { x: event.clientX, y: event.clientY };
@@ -151,10 +189,27 @@
             state.userAdjusted = true;
             state.pointerDownPoint = { x: event.clientX, y: event.clientY };
             state.pointerMoved = false;
+            state.settingsPointerActive = false;
+            state.settingsPointerId = null;
+            state.settingsPointerDown = null;
             clearHover();
+            canvas.style.cursor = 'grabbing';
         };
 
         const pointerMove = (event) => {
+            updateCursorForEvent(event);
+
+            if (state.settingsPointerActive) {
+                if (state.settingsPointerDown) {
+                    const deltaX = event.clientX - state.settingsPointerDown.x;
+                    const deltaY = event.clientY - state.settingsPointerDown.y;
+                    if (Math.abs(deltaX) > POINTER_CLICK_DISTANCE || Math.abs(deltaY) > POINTER_CLICK_DISTANCE) {
+                        state.pointerMoved = true;
+                    }
+                }
+                return;
+            }
+
             if (!state.dragging) {
                 updateHover(event);
                 return;
@@ -171,10 +226,28 @@
             state.offsetX = state.panStart.x + dx;
             state.offsetY = state.panStart.y + dy;
             draw(canvas, state);
+            canvas.style.cursor = 'grabbing';
         };
 
         const pointerUp = (event) => {
             if (event.button !== 0) {
+                return;
+            }
+            if (state.settingsPointerActive && state.settingsPointerId === event.pointerId) {
+                if (canvas.hasPointerCapture?.(event.pointerId)) {
+                    canvas.releasePointerCapture(event.pointerId);
+                }
+                const inside = isPointerInSettingsButton(event);
+                const moved = !!state.pointerMoved;
+                state.settingsPointerActive = false;
+                state.settingsPointerId = null;
+                state.settingsPointerDown = null;
+                state.pointerDownPoint = null;
+                state.pointerMoved = false;
+                if (!moved && inside && state.dotNetRef) {
+                    state.dotNetRef.invokeMethodAsync('OnSettingsRequestedFromCanvas');
+                }
+                canvas.style.cursor = inside ? 'pointer' : 'default';
                 return;
             }
             canvas.releasePointerCapture(event.pointerId);
@@ -195,6 +268,7 @@
             }
             state.pointerDownPoint = null;
             state.pointerMoved = false;
+            canvas.style.cursor = 'default';
         };
 
         const pointerLeave = (event) => {
@@ -205,11 +279,17 @@
             state.dragging = false;
             state.pointerDownPoint = null;
             state.pointerMoved = false;
+            state.settingsPointerActive = false;
+            state.settingsPointerId = null;
+            state.settingsPointerDown = null;
             if (wasDragging) {
                 updateWorldCenter(state);
                 emitViewportChanged(canvas, state);
             }
             clearHover();
+            if (canvas) {
+                canvas.style.cursor = 'default';
+            }
         };
 
         const wheel = (event) => {
@@ -625,6 +705,8 @@
 
         ctx.restore();
 
+        drawCanvasTitle(ctx, state);
+
         if (tooltip) {
             tryDrawTooltip(ctx, nodeMap, tooltip, state);
         }
@@ -632,6 +714,91 @@
         if (state.hoveredChip) {
             drawChipTooltip(ctx, state);
         }
+    }
+
+    function drawCanvasTitle(ctx, state) {
+        if (!state) {
+            return;
+        }
+
+        state.settingsHitbox = null;
+
+        const rawTitle = state.title;
+        const title = typeof rawTitle === 'string' ? rawTitle.trim() : '';
+        if (!title) {
+            return;
+        }
+
+        const ratio = Number(state.deviceRatio ?? window.devicePixelRatio ?? 1) || 1;
+        const canvasWidth = Number(state.canvasWidth ?? (ctx.canvas.width / ratio));
+        const margin = 6;
+        const fontSize = 12;
+        const boxHeight = 18;
+        const paddingY = Math.max(1.5, (boxHeight - fontSize) / 2);
+        const paddingX = 8;
+        const maxContainerWidth = Math.max(60, canvasWidth - (margin * 2) - 52);
+        const maxTextWidth = Math.max(48, maxContainerWidth - paddingX * 2);
+
+        ctx.save();
+        ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+        ctx.font = `${fontSize}px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif`;
+
+        const iconSpacing = 6;
+        const iconBoxSize = boxHeight;
+        const iconRectX = margin;
+        const iconRectY = margin;
+
+        const measured = ctx.measureText(title).width;
+        const textWidth = Math.min(measured, maxTextWidth);
+        const minBoxWidth = 80;
+        const boxWidth = Math.max(minBoxWidth, textWidth + paddingX * 2);
+        const rectX = iconRectX + iconBoxSize + iconSpacing;
+        const rectY = margin;
+
+        const isDark = document.body.classList.contains('dark-mode');
+        const background = isDark ? '#0F172A' : '#F8FAFC';
+        const border = isDark ? 'rgba(148, 163, 184, 0.6)' : 'rgba(148, 163, 184, 0.4)';
+        const textColor = isDark ? '#E2E8F0' : '#111827';
+
+        ctx.fillStyle = background;
+        ctx.strokeStyle = border;
+        ctx.lineWidth = 1;
+        drawRoundedRectTopLeft(ctx, rectX, rectY, boxWidth, boxHeight, 6);
+        ctx.fill();
+        drawRoundedRectTopLeft(ctx, rectX, rectY, boxWidth, boxHeight, 6);
+        ctx.stroke();
+
+        ctx.fillStyle = textColor;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        const textX = rectX + paddingX;
+        const textY = rectY + (boxHeight / 2);
+        drawFittedText(ctx, title, textX, textY, boxWidth - paddingX * 2);
+
+        const iconBackground = background;
+        const iconBorder = border;
+        const iconColor = isDark ? '#CBD5F5' : '#4B5563';
+
+        ctx.fillStyle = iconBackground;
+        ctx.strokeStyle = iconBorder;
+        ctx.lineWidth = 1;
+        drawRoundedRectTopLeft(ctx, iconRectX, iconRectY, iconBoxSize, iconBoxSize, 5);
+        ctx.fill();
+        drawRoundedRectTopLeft(ctx, iconRectX, iconRectY, iconBoxSize, iconBoxSize, 5);
+        ctx.stroke();
+
+        const iconCenterX = iconRectX + iconBoxSize / 2;
+        const iconCenterY = iconRectY + iconBoxSize / 2;
+        drawSettingsGlyph(ctx, iconCenterX, iconCenterY, iconBoxSize - 3, iconColor);
+
+        state.settingsHitbox = {
+            x: iconRectX,
+            y: iconRectY,
+            width: iconBoxSize,
+            height: iconBoxSize
+        };
+
+        ctx.restore();
     }
 
     function hitTestChip(state, worldX, worldY) {
@@ -1121,6 +1288,7 @@
         state.ctx.setTransform(state.deviceRatio, 0, 0, state.deviceRatio, 0, 0);
         state.ctx.clearRect(0, 0, state.ctx.canvas.width, state.ctx.canvas.height);
         state.ctx.restore();
+        state.settingsHitbox = null;
     }
 
     function clamp(value, min, max) {
@@ -1231,6 +1399,8 @@
         const preserveViewport = !!(payload?.preserveViewport ?? payload?.PreserveViewport);
         const overlaySettings = parseOverlaySettings(payload?.overlays ?? payload?.Overlays ?? {});
         state.overlaySettings = overlaySettings;
+        const rawTitle = payload?.title ?? payload?.Title ?? '';
+        state.title = typeof rawTitle === 'string' ? rawTitle : '';
 
         const savedViewport = payload?.savedViewport ?? payload?.SavedViewport ?? null;
         if (preserveViewport && savedViewport) {
@@ -1283,6 +1453,35 @@
         draw(canvas, state);
         emitViewportChanged(canvas, state);
         console.info('[TopologyCanvas] render finished');
+    }
+
+    function fitToViewport(canvas) {
+        const state = getState(canvas);
+        if (!state || !state.payload) {
+            return NaN;
+        }
+
+        const viewport = getViewport(state.payload);
+        if (!viewport) {
+            return NaN;
+        }
+
+        state.userAdjusted = false;
+        state.viewportApplied = false;
+        state.baseScale = null;
+        state.overlayScale = null;
+        state.lastOverlayZoom = null;
+
+        applyViewport(canvas, state, viewport);
+        updateWorldCenter(state);
+        state.userAdjusted = true;
+        state.viewportApplied = true;
+
+        draw(canvas, state);
+        emitViewportChanged(canvas, state);
+
+        const zoomPercent = clamp((state.scale ?? 1) * 100, MIN_ZOOM_PERCENT, MAX_ZOOM_PERCENT);
+        return zoomPercent;
     }
 
     function dispose(canvas) {
@@ -1434,6 +1633,57 @@
         }
         const finalText = full.slice(0, lo) + ellipsis;
         ctx.fillText(finalText, Math.round(x), Math.round(y));
+    }
+
+    function drawRoundedRectTopLeft(ctx, x, y, width, height, radius) {
+        const r = Math.min(radius, Math.min(width, height) / 2);
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.lineTo(x + width - r, y);
+        ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+        ctx.lineTo(x + width, y + height - r);
+        ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+        ctx.lineTo(x + r, y + height);
+        ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+        ctx.lineTo(x, y + r);
+        ctx.quadraticCurveTo(x, y, x + r, y);
+        ctx.closePath();
+    }
+
+    function drawSettingsGlyph(ctx, centerX, centerY, size, color) {
+        const halfLength = size / 2;
+        const spacing = size / 3.2;
+        ctx.save();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.1;
+
+        for (let i = -1; i <= 1; i++) {
+            const y = centerY + i * spacing;
+            ctx.beginPath();
+            ctx.moveTo(centerX - halfLength, y);
+            ctx.lineTo(centerX + halfLength, y);
+            ctx.stroke();
+        }
+
+        ctx.fillStyle = color;
+        const dotRadius = Math.max(1.3, size * 0.16);
+        const offsets = [
+            { x: -halfLength * 0.55, y: -spacing },
+            { x: halfLength * 0.2, y: 0 },
+            { x: -halfLength * 0.25, y: spacing }
+        ];
+        for (const offset of offsets) {
+            ctx.beginPath();
+            ctx.arc(centerX + offset.x, centerY + offset.y, dotRadius, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        ctx.restore();
+
+        return {
+            width: halfLength * 2,
+            height: spacing * 2
+        };
     }
 
     function parseOverlaySettings(raw) {
@@ -3442,6 +3692,7 @@
         render,
         dispose,
         restoreViewport,
+        fitToViewport,
         registerHandlers: (canvas, dotNetRef) => {
             const state = getState(canvas);
             state.dotNetRef = dotNetRef;

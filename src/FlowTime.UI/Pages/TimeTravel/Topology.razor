@@ -29,19 +29,8 @@
         </MudPaper>
     }
 
-    <MudPaper Class="pa-5 topology-page" Elevation="1">
+        <MudPaper Class="pa-5 topology-page" Elevation="1">
         <MudStack Spacing="3">
-            <MudStack Row="true" AlignItems="@AlignItems.Center" Justify="@Justify.SpaceBetween">
-                <MudStack Row="true" AlignItems="@AlignItems.Center" Spacing="1">
-                    <MudText Typo="Typo.h5">@GetTemplateTitle()</MudText>
-                </MudStack>
-                <MudIconButton Icon="@Icons.Material.Filled.Tune"
-                               Color="Color.Primary"
-                               Size="Size.Medium"
-                               AriaLabel="Open topology feature bar"
-                               OnClick="OpenFeatureBar" />
-            </MudStack>
-
             @if (string.IsNullOrWhiteSpace(RunId))
             {
                 <MudAlert Severity="Severity.Info">
@@ -211,17 +200,31 @@
                                                 </MudChip>
                                             </MudChipSet>
                                         </MudStack>
-                                        <MudChip T="string"
-                                                 Value="@("Reset")"
-                                                 Variant="Variant.Outlined"
-                                                 Color="Color.Primary"
-                                                 DisableRipple="true"
-                                                 Size="Size.Small"
-                                                 Class="timeline-reset-zoom-chip"
-                                                 OnClick="ResetZoom"
-                                                 Title="Reset zoom">
-                                            100%
-                                        </MudChip>
+                                        <MudChipSet T="string"
+                                                    Class="timeline-zoom-set">
+                                            <MudChip T="string"
+                                                     Value="@("Reset")"
+                                                     Variant="Variant.Outlined"
+                                                     Color="Color.Default"
+                                                     DisableRipple="true"
+                                                     Size="Size.Small"
+                                                     Class="timeline-zoom-chip"
+                                                     OnClick="ResetZoom"
+                                                     Title="Reset zoom">
+                                                100%
+                                            </MudChip>
+                                            <MudChip T="string"
+                                                     Value="@("Fit")"
+                                                     Variant="Variant.Outlined"
+                                                     Color="Color.Default"
+                                                     DisableRipple="true"
+                                                     Size="Size.Small"
+                                                     Class="timeline-zoom-chip"
+                                                     OnClick="FitViewport"
+                                                     Title="Fit graph to canvas">
+                                                Fit
+                                            </MudChip>
+                                        </MudChipSet>
                                     </MudStack>
                                 </div>
                             </div>
@@ -229,13 +232,15 @@
                     </MudPaper>
 
                     <MudStack Row="true" AlignItems="AlignItems.Stretch" Spacing="2" Class="topology-stage">
-                        <div class="topology-canvas-region" style="flex: 1 1 auto; min-width: 0;">
+                        <div class="topology-canvas-region">
                             <TopologyCanvas @ref="canvasComponent"
                                             Graph="topologyGraph"
                                             NodeMetrics="activeMetrics"
                                             NodeSparklines="nodeSparklines"
                                             OverlaySettings="overlaySettings"
                                             ActiveBin="selectedBin"
+                                            Title="@GetTemplateTitle()"
+                                            SettingsRequested="OpenFeatureBar"
                                             ZoomPercentChanged="HandleCanvasZoomChanged"
                                             ViewportChanged="OnCanvasViewportChanged"
                                             NodeFocused="OnNodeFocused"
@@ -378,24 +383,6 @@
                         }
                     </MudStack>
 
-                    <div class="topology-legend">
-                        <span class="legend-item">
-                            <span class="legend-swatch success"></span>
-                            Healthy
-                        </span>
-                        <span class="legend-item">
-                            <span class="legend-swatch warning"></span>
-                            Warning
-                        </span>
-                        <span class="legend-item">
-                            <span class="legend-swatch error"></span>
-                            Error
-                        </span>
-                        <span class="legend-item">
-                            <span class="legend-swatch neutral"></span>
-                            No data
-                        </span>
-                    </div>
                 </MudStack>
             }
         </MudStack>
@@ -960,6 +947,29 @@
         await OnOverlaySettingsChanged(updated);
         pointerNeedsJump = true;
         pendingViewportSnapshot = currentViewportSnapshot?.CloneWithScale(1d);
+    }
+
+    private async Task FitViewport()
+    {
+        if (canvasComponent is null)
+        {
+            return;
+        }
+
+        StopPlayback();
+        var zoomPercent = await canvasComponent.FitToViewportAsync();
+        if (double.IsFinite(zoomPercent))
+        {
+            var clamped = Math.Clamp(zoomPercent, 25d, 200d);
+            if (Math.Abs(overlaySettings.ZoomPercent - clamped) > 0.1d)
+            {
+                var updated = overlaySettings.Clone();
+                updated.ZoomPercent = clamped;
+                await OnOverlaySettingsChanged(updated);
+            }
+        }
+
+        pointerNeedsJump = true;
     }
 
     private async Task OnFocusMetricChanged(TopologyColorBasis basis)

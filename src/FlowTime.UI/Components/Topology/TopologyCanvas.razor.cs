@@ -51,6 +51,8 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
     [Parameter] public EventCallback<ViewportSnapshot> ViewportChanged { get; set; }
     [Parameter] public EventCallback<string?> NodeFocused { get; set; }
     [Parameter] public ViewportSnapshot? RequestedViewport { get; set; }
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public EventCallback SettingsRequested { get; set; }
     [Parameter] public EventCallback ViewportRequestConsumed { get; set; }
     protected ElementReference canvasRef;
 
@@ -105,7 +107,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         {
             preserveViewportHint = true;
         }
-        pendingRequest = BuildRenderRequest(filteredGraph, NodeMetrics, NodeSparklines, focusedNodeId, tooltipNodeId, OverlaySettings, ActiveBin, snapshotForRender, preserveViewport);
+        pendingRequest = BuildRenderRequest(filteredGraph, NodeMetrics, NodeSparklines, focusedNodeId, tooltipNodeId, OverlaySettings, ActiveBin, snapshotForRender, preserveViewport, Title);
         lastSourceGraph = Graph;
         renderScheduled = true;
     }
@@ -265,7 +267,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             return;
         }
 
-        pendingRequest = BuildRenderRequest(filteredGraph, NodeMetrics, NodeSparklines, focusedNodeId, tooltipNodeId, OverlaySettings, ActiveBin, snapshot: pendingViewportSnapshot ?? RequestedViewport, preserveViewport: preserveViewportHint);
+        pendingRequest = BuildRenderRequest(filteredGraph, NodeMetrics, NodeSparklines, focusedNodeId, tooltipNodeId, OverlaySettings, ActiveBin, snapshot: pendingViewportSnapshot ?? RequestedViewport, preserveViewport: preserveViewportHint, title: Title);
         renderScheduled = true;
     }
 
@@ -503,7 +505,8 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         TopologyOverlaySettings overlays,
         int selectedBin,
         ViewportSnapshot? snapshot,
-        bool preserveViewport)
+        bool preserveViewport,
+        string? title)
     {
         var thresholds = ColorScale.ColorThresholds.FromOverlay(overlays);
         var outgoingGroups = graph.Edges
@@ -711,7 +714,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
 
         var snapshotPayload = preserveViewport ? CreateSnapshotPayload(snapshot) : null;
 
-        return new CanvasRenderRequest(nodeDtos, edges, viewport, overlayPayload, tooltip, snapshotPayload, preserveViewport);
+        return new CanvasRenderRequest(title, nodeDtos, edges, viewport, overlayPayload, tooltip, snapshotPayload, preserveViewport);
     }
 
     private static bool IsComputedKind(string? kind)
@@ -1087,6 +1090,22 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         }
 
         return JS.InvokeVoidAsync("FlowTime.TopologyCanvas.restoreViewport", canvasRef, snapshot);
+    }
+
+    public ValueTask<double> FitToViewportAsync()
+    {
+        return JS.InvokeAsync<double>("FlowTime.TopologyCanvas.fitToViewport", canvasRef);
+    }
+
+    [JSInvokable]
+    public Task OnSettingsRequestedFromCanvas()
+    {
+        if (!SettingsRequested.HasDelegate)
+        {
+            return Task.CompletedTask;
+        }
+
+        return SettingsRequested.InvokeAsync();
     }
 
     [JSInvokable]

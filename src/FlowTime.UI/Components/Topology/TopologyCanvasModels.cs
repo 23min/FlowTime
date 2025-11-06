@@ -3,6 +3,7 @@ using System.Collections.Generic;
 namespace FlowTime.UI.Components.Topology;
 
 internal sealed record CanvasRenderRequest(
+    string? Title,
     IReadOnlyList<NodeRenderInfo> Nodes,
     IReadOnlyList<EdgeRenderInfo> Edges,
     CanvasViewport Viewport,
