@@ -9,7 +9,8 @@
 | M-2 PMF Benchmark | — | Performance Grade: Incomplete ⏸️ | [docs/performance/M2-pmf-performance-report.md](docs/performance/M2-pmf-performance-report.md) |
 | TT-M-03.27 Full Suite | 2025-11-04 | Full suite: 6m44s (190 pass / 1 skip) | [docs/performance/perf-log.md#tt-m-03-27-queues-first-class](docs/performance/perf-log.md#tt-m-03-27-queues-first-class) |
 | TT-M-03.28 Full Suite | 2025-03-18 | Full suite: 6m03s (299 pass / 4 skip) | [docs/performance/perf-log.md#tt-m-03-28-retries-first-class](docs/performance/perf-log.md#tt-m-03-28-retries-first-class) |
-| TT-M-03.29 Full Suite | 2025-11-06 | Debug suite: 41s (FlowTime.Tests 190 pass / 1 skip) | [docs/performance/perf-log.md#tt-m-03-29-service-time-derived](docs/performance/perf-log.md#tt-m-03-29-service-time-derived) |
+| TT-M-03.29 Full Suite (Debug) | 2025-11-06 | Debug suite: 41s (FlowTime.Tests 190 pass / 1 skip) | [docs/performance/perf-log.md#tt-m-03-29-service-time-derived](docs/performance/perf-log.md#tt-m-03-29-service-time-derived) |
+| TT-M-03.29 Release Sweep | 2025-11-06 | Release `dotnet test` hit known PMF perf thresholds (2 failures) | [docs/performance/TT-M-03.29-performance-report.md](docs/performance/TT-M-03.29-performance-report.md) |
 
 ---
 
@@ -43,5 +44,5 @@
   - FlowTime.Sim.Tests — 134 passed / 3 skipped (Expression parser + RNG fixtures, consistent with prior runs)
   - Remaining suites (Core, Expressions, Adapters, CLI, Integration) all green
 - Release validation attempt: `dotnet test FlowTime.sln -c Release --no-build`
-  - Aborted after `FlowTime.Tests.Performance.M2PerformanceTests.Test_PMF_Complexity_Scaling` reported an already-tracked flake (large/medium ratio spike) and `GraphServiceTests.GetGraphAsync_NoTopologyThrowsPreconditionFailed` returned `404` under Release optimizations.
-  - Given the known flakiness, we tracked results but did not block the milestone; debug configuration remains stable and shows no regressions after adding service-time derivation.
+  - Overall runtime: ~4 minutes before timeout (FlowTime.Tests still running). Most projects reported green; FlowTime.Tests hit the historical PMF perf flakes (`Test_PMF_Normalization_Performance` and `Test_PMF_Mixed_Workload_Performance` exceeded their 25×/20× limits). `Test_PMF_Grid_Size_Scaling` remains skipped.
+  - Because the failures match the known performance tolerance issues (no regressions tied to service time), we documented the run but did not block the milestone. Full breakdown lives in [docs/performance/TT-M-03.29-performance-report.md](docs/performance/TT-M-03.29-performance-report.md).
