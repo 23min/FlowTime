@@ -362,6 +362,19 @@ code {
 
 .topology-run-info {
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 240px;
+}
+
+.topology-run-id {
+    word-break: break-all;
+    overflow-wrap: anywhere;
+}
+
+.topology-inspector-title {
+    word-break: break-all;
+    overflow-wrap: anywhere;
 }
 
 .timeline-paper {
@@ -501,6 +514,7 @@ code {
 .timeline-speed-set {
     display: flex;
     gap: 0.25rem;
+    flex-wrap: wrap;
 }
 
 .timeline-speed-chip {
@@ -549,6 +563,7 @@ code {
 .timeline-focus-set {
     display: flex;
     gap: 0.35rem;
+    flex-wrap: wrap;
 }
 
 .timeline-focus-chip {
@@ -641,6 +656,7 @@ code {
     flex-direction: column;
     flex: 1 1 auto;
     min-height: 0;
+    min-width: 0; /* allow column to shrink inside flex parent */
     height: 100%;
 }
 
@@ -653,6 +669,7 @@ code {
     display: flex;
     flex-direction: column;
     min-height: 0;
+    min-width: 0;
     height: 100%;
     padding: 10px;
 }
@@ -660,12 +677,14 @@ code {
 .topology-layout .topology-page > .mud-stack {
     flex: 1 1 auto;
     min-height: 0;
+    min-width: 0;
     height: 100%;
 }
 
 .topology-content {
     flex: 1 1 auto !important;
     min-height: 0 !important;
+    min-width: 0 !important;
     display: flex !important;
     flex-direction: column !important;
     height: 100%;
@@ -674,6 +693,7 @@ code {
 .topology-main-stack {
     flex: 1 1 auto !important;
     min-height: 0 !important;
+    min-width: 0 !important;
     display: flex !important;
     flex-direction: column !important;
     height: 100%;
@@ -715,6 +735,7 @@ code {
     flex: 1 1 auto;
     display: flex;
     min-height: 0;
+    min-width: 0;
     height: 100%;
 }
 
@@ -729,6 +750,7 @@ code {
 .topology-stage {
     flex: 1 1 auto !important;
     min-height: 0 !important;
+    min-width: 0 !important;
     flex-wrap: nowrap !important;
     height: 100% !important;
 }
@@ -744,6 +766,7 @@ code {
 
 .topology-stage .topology-inspector {
     flex: 0 0 360px;
+    min-width: 0;
     overflow-y: auto;
 }
 

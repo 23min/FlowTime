@@ -65,7 +65,7 @@
                             <MudStack Row="true" AlignItems="@AlignItems.Center" Justify="@Justify.SpaceBetween">
                                 <MudText Typo="Typo.caption">@selectedTimestampLabel</MudText>
                                 <MudStack Row="true" AlignItems="@AlignItems.Center" Justify="@Justify.FlexEnd" Spacing="1">
-                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Run @RunId</MudText>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="topology-run-id">Run @RunId</MudText>
                                     @if (!string.IsNullOrWhiteSpace(runInfo))
                                     {
                                         <MudText Typo="Typo.caption" Class="topology-run-info" Color="Color.Info">@runInfo</MudText>
@@ -97,8 +97,10 @@
                                         var totalSpan = Math.Max(1, visibleEndBin - visibleStartBin);
                                         var winStart = Math.Max(visibleStartBin, selectedBin - SparklinePointLimit + 1);
                                         var winEnd = Math.Max(winStart, Math.Min(selectedBin, visibleEndBin));
-                                        var xPct = (winStart - visibleStartBin) * 100.0 / totalSpan;
-                                        var wPct = (winEnd - winStart + 1) * 100.0 / totalSpan;
+                                        var xPct = Math.Clamp((winStart - visibleStartBin) * 100.0 / totalSpan, 0.0, 100.0);
+                                        var rawWidth = (winEnd - winStart + 1) * 100.0 / totalSpan;
+                                        var maxWidth = Math.Max(0.0, 100.0 - xPct);
+                                        var wPct = Math.Clamp(rawWidth, 0.0, maxWidth);
                                     }
                                     <div class="timeline-window" style="left: @xPct.ToString("0.###", CultureInfo.InvariantCulture)%; width: @wPct.ToString("0.###", CultureInfo.InvariantCulture)%;"></div>
                                     <div class="timeline-pointer @(isDialPointerDragging ? "is-dragging" : string.Empty)"
@@ -270,7 +272,7 @@
                             <MudPaper Class="topology-inspector topology-inspector-panel" Elevation="1" Style="width: 360px; flex: 0 0 360px;">
                                 <MudStack Class="pa-4" Spacing="2">
                                     <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
-                                        <MudText Typo="Typo.h6">@nodeId</MudText>
+                                        <MudText Typo="Typo.h6" Class="topology-inspector-title">@nodeId</MudText>
                                         <MudIconButton Icon="@Icons.Material.Filled.Close"
                                                        Color="Color.Secondary"
                                                        Size="Size.Small"
