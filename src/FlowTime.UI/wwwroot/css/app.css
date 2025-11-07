@@ -1250,236 +1250,42 @@ body.dark-mode .topology-muted-text {
     color: rgba(203, 213, 225, 0.75);
 }
 
-/* Navigation hierarchy styles - using multiple selectors for higher specificity */
-.mud-nav-link.nav-section-header,
-.mud-drawer .mud-nav-link.nav-section-header,
-.mud-nav-menu .mud-nav-link.nav-section-header {
-    font-weight: 600 !important;
+/* Drawer navigation sections */
+.drawer-section {
+    padding: 0.5rem 0 0.75rem;
+}
+
+.drawer-section + .drawer-section {
+    border-top: 1px solid rgba(148, 163, 184, 0.3);
+    margin-top: 0.75rem;
+}
+
+.drawer-section-title {
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(71, 85, 105, 0.85);
+    margin: 0 0 0.35rem;
+    padding: 0 0.5rem;
+}
+
+.drawer-nav-link {
+    border-radius: 6px !important;
     font-size: 0.95rem !important;
-    margin-top: 0.5rem !important;
-    margin-bottom: 0.25rem !important;
-    border-left: 3px solid var(--mud-palette-primary) !important;
-    padding-left: 1rem !important;
 }
 
-.mud-nav-link.nav-section-header:first-child,
-.mud-drawer .mud-nav-link.nav-section-header:first-child,
-.mud-nav-menu .mud-nav-link.nav-section-header:first-child {
-    margin-top: 0 !important;
+.drawer-nav-link .mud-nav-link-icon {
+    margin-right: 0.5rem;
 }
 
-.mud-nav-link.nav-submenu,
-.mud-drawer .mud-nav-link.nav-submenu,
-.mud-nav-menu .mud-nav-link.nav-submenu {
-    padding-left: 4rem !important;
-    margin-left: 2rem !important;
-    font-size: 0.875rem !important;
-    opacity: 0.9 !important;
-    position: relative !important;
-    background-color: rgba(0, 0, 0, 0.1) !important;
-    border-radius: 4px !important;
-    margin-bottom: 2px !important;
+.mud-drawer-mini .drawer-section-title {
+    display: none;
 }
 
-.mud-nav-link.nav-submenu:hover,
-.mud-drawer .mud-nav-link.nav-submenu:hover,
-.mud-nav-menu .mud-nav-link.nav-submenu:hover {
-    opacity: 1 !important;
-    background-color: rgba(0, 0, 0, 0.2) !important;
+body.dark-mode .drawer-section + .drawer-section {
+    border-top-color: rgba(82, 103, 132, 0.6);
 }
 
-.mud-nav-link.nav-submenu::before,
-.mud-drawer .mud-nav-link.nav-submenu::before,
-.mud-nav-menu .mud-nav-link.nav-submenu::before {
-    content: "└─" !important;
-    position: absolute !important;
-    left: 0.5rem !important;
-    top: 50% !important;
-    color: rgba(255, 255, 255, 0.4) !important;
-    transform: translateY(-50%) !important;
-    font-size: 0.75rem !important;
-}
-
-.mud-nav-link.nav-submenu .mud-icon,
-.mud-drawer .mud-nav-link.nav-submenu .mud-icon,
-.mud-nav-menu .mud-nav-link.nav-submenu .mud-icon {
-    margin-left: 0.25rem !important;
-    font-size: 1.125rem !important;
-}
-
-/* API Wizard Tabs Styling */
-.api-wizard-tabs .mud-tabs-header {
-    background-color: var(--mud-palette-surface);
-    border-radius: 8px 8px 0 0;
-}
-
-.api-wizard-tabs .mud-tab {
-    font-weight: 500;
-    text-transform: none;
-    min-width: 140px;
-    padding: 12px 16px;
-}
-
-.api-wizard-tabs .mud-tab.mud-tab-active {
-    background-color: transparent;
-    color: var(--mud-palette-primary);
-    border-bottom: 2px solid var(--mud-palette-primary);
-    border-radius: 0;
-    margin: 0;
-}
-
-.api-wizard-tabs .mud-tabs-panels {
-    background-color: var(--mud-palette-background);
-    border-radius: 0 0 8px 8px;
-}
-
-.api-wizard-tabs .mud-tabs-panels .mud-tabpanel {
-    padding-bottom: 24px;
-}
-
-/* Reduce padding in table cells with chips */
-.api-wizard-tabs .mud-table .mud-table-cell {
-    padding-top: 8px;
-    padding-bottom: 8px;
-}
-
-.api-wizard-tabs .mud-table .mud-table-cell:last-child {
-    padding-top: 0px;
-    padding-bottom: 0px;
-}
-
-/* Add subtle outline to tables */
-.api-wizard-tabs .mud-table-root {
-    border: 1px solid var(--mud-palette-table-lines);
-    border-radius: 4px;
-}
-
-/* Model dropdown styling - keep it simple */
-.api-wizard-tabs .mud-select {
-    width: 300px !important;
-    margin-left: 8px !important;
-}
-
-.api-wizard-tabs .mud-select .mud-input-root {
-    min-height: 28px !important;
-    height: 28px !important;
-}
-
-.api-wizard-tabs .mud-select .mud-input-slot {
-    min-height: 28px !important;
-    height: 28px !important;
-    padding-top: 2px !important;
-    padding-bottom: 2px !important;
-}
-
-.sla-panel {
-    padding: 12px !important;
-}
-
-.sla-tiles-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: 12px;
-}
-
-.sla-tile {
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    gap: 10px;
-    padding: 12px;
-    border: 1px solid var(--tile-accent-color, var(--mud-palette-divider));
-    border-radius: 10px;
-    cursor: pointer;
-    outline: none;
-    background-color: var(--mud-palette-surface);
-    transition: box-shadow 0.15s ease, transform 0.15s ease;
-}
-
-.sla-tile:hover {
-    box-shadow: var(--mud-elevation-4);
-    transform: translateY(-1px);
-}
-
-.sla-tile:focus-visible {
-    box-shadow: 0 0 0 2px var(--mud-palette-primary);
-}
-
-.sla-tile__title {
-    max-width: 100%;
-    word-break: break-word;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.sla-mini {
-    display: flex;
-    align-items: flex-end;
-    gap: 3px;
-    height: 32px;
-    margin-top: 4px;
-}
-
-.sla-mini__bar {
-    flex: 1;
-    background-color: var(--tile-accent-color, var(--mud-palette-primary));
-    border-radius: 2px 2px 0 0;
-}
-
-.sla-filter-chip.mud-chip,
-.sla-header-chip.mud-chip {
-    --sla-chip-height: 20px;
-    min-height: var(--sla-chip-height) !important;
-    height: var(--sla-chip-height) !important;
-    padding: 0 6px !important;
-    font-size: 12px;
-    font-weight: 400;
-    line-height: calc(var(--sla-chip-height) - 4px);
-    display: inline-flex;
-    align-items: center;
-}
-
-.sla-filter-chip .mud-chip-content,
-.sla-header-chip .mud-chip-content {
-    padding: 0 !important;
-    min-height: inherit;
-}
-
-.sla-filter-group {
-    flex-wrap: wrap;
-    gap: 4px;
-}
-
-.sla-filter-group .mud-button-root {
-    min-height: 20px;
-    height: 20px;
-    font-size: 0.7rem;
-    padding: 0 6px;
-}
-
-.sla-header-meta {
-    flex-wrap: wrap;
-    gap: 4px;
-    margin-top: 4px;
-}
-
-.sla-header-meta .mud-chip {
-    margin-right: 4px;
-}
-
-.sla-value-text {
-    font-weight: 600;
-}
-
-.sla-summary-text {
-    margin-top: -2px;
-}
-
-.sla-status-icon {
-    font-size: 18px;
-}
-
-.dashboard-sort {
-    min-width: 160px;
+body.dark-mode .drawer-section-title {
+    color: rgba(203, 213, 225, 0.8);
 }

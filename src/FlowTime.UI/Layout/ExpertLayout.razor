@@ -41,63 +41,58 @@
         </MudTooltip>
     </MudAppBar>
 
-        <MudDrawer @bind-Open="drawerOpen" 
+    <MudDrawer @bind-Open="drawerOpen" 
                ClipMode="DrawerClipMode.Always" 
                Elevation="2"
                Variant="DrawerVariant.Mini"
                OpenMiniOnHover="true"
                Width="280px"
                Class="drawer-surface">
-        <MudDrawerHeader>
-            <MudText Typo="Typo.h6">Expert Console</MudText>
-        </MudDrawerHeader>
         <MudNavMenu>
             <MudNavLink Href="/" Icon="@Icons.Material.Filled.Home" Match="NavLinkMatch.All">Home</MudNavLink>
             
-            <!-- TIME-TRAVEL Section -->
-            <MudNavGroup Icon="@Icons.Material.Filled.AutoAwesomeMotion" Title="Time-Travel" Expanded="true" Class="nav-section-header">
-                <MudNavLink Href="/time-travel/artifacts" Icon="@Icons.Material.Filled.Archive" Class="nav-submenu ps-6">
-                    Artifacts
-                </MudNavLink>
-                <MudNavLink Href="/time-travel/dashboard" Icon="@Icons.Material.Filled.Dashboard" Class="nav-submenu ps-6">
-                    Dashboard
-                </MudNavLink>
-                <MudNavLink Href="/time-travel/topology" Icon="@Icons.Material.Filled.AccountTree" Class="nav-submenu ps-6">
-                    Topology
-                </MudNavLink>
-                <MudNavLink Href="/time-travel/run" Icon="@Icons.Material.Filled.PlayArrow" Class="nav-submenu ps-6">
+            <div class="drawer-section">
+                <div class="drawer-section-title">Time Travel</div>
+                <MudNavLink Href="/time-travel/run" Icon="@Icons.Material.Filled.PlayArrow" Class="drawer-nav-link">
                     Run Model
                 </MudNavLink>
-            </MudNavGroup>
-            
-            <!-- SIMULATE Section -->
-            <MudNavLink Href="/simulate" Icon="@Icons.Material.Filled.ShowChart" Class="nav-section-header">
-                SIMULATE
-            </MudNavLink>
-            <MudNavLink Href="/templates" Icon="@Icons.Material.Filled.PlayArrow" Class="nav-submenu ps-6">
-                Template Studio
-            </MudNavLink>
-            
-            <!-- TOOLS Section -->
-            <MudNavLink Href="/tools" Icon="@Icons.Material.Filled.Build" Class="nav-section-header">
-                TOOLS
-            </MudNavLink>
-            <MudNavLink Href="/health" Icon="@Icons.Material.Filled.HealthAndSafety" Class="nav-submenu ps-6">
-                System Health
-            </MudNavLink>
-            <MudNavLink Href="/features" Icon="@Icons.Material.Filled.AccountTree" Class="nav-submenu ps-6">
-                Features
-            </MudNavLink>
-            <MudNavLink Href="/api-demo" Icon="@Icons.Material.Filled.Api" Class="nav-submenu ps-6">
-                API Testing
-            </MudNavLink>
-            
-            <MudDivider Class="my-2" />
-            
-            <!-- LEARN Section -->
-            <MudNavLink Href="/learn" Icon="@Icons.Material.Filled.MenuBook" Class="nav-section-header">
-                LEARN
-            </MudNavLink>
+                <MudNavLink Href="/time-travel/artifacts" Icon="@Icons.Material.Filled.Archive" Class="drawer-nav-link">
+                    Artifacts
+                </MudNavLink>
+                <MudNavLink Href="/time-travel/dashboard" Icon="@Icons.Material.Filled.Dashboard" Class="drawer-nav-link">
+                    Dashboard
+                </MudNavLink>
+                <MudNavLink Href="/time-travel/topology" Icon="@Icons.Material.Filled.AccountTree" Class="drawer-nav-link">
+                    Topology
+                </MudNavLink>
+            </div>
+
+            <div class="drawer-section">
+                <div class="drawer-section-title">Simulate</div>
+                <MudNavLink Href="/templates" Icon="@Icons.Material.Filled.DesignServices" Class="drawer-nav-link">
+                    Template Studio
+                </MudNavLink>
+            </div>
+
+            <div class="drawer-section">
+                <div class="drawer-section-title">Tools</div>
+                <MudNavLink Href="/health" Icon="@Icons.Material.Filled.HealthAndSafety" Class="drawer-nav-link">
+                    System Health
+                </MudNavLink>
+                <MudNavLink Href="/features" Icon="@Icons.Material.Filled.AccountTree" Class="drawer-nav-link">
+                    Features
+                </MudNavLink>
+                <MudNavLink Href="/api-demo" Icon="@Icons.Material.Filled.Api" Class="drawer-nav-link">
+                    API Testing
+                </MudNavLink>
+            </div>
+
+            <div class="drawer-section">
+                <div class="drawer-section-title">Learn</div>
+                <MudNavLink Href="/learn" Icon="@Icons.Material.Filled.MenuBook" Class="drawer-nav-link">
+                    Learning Mode
+                </MudNavLink>
+            </div>
         </MudNavMenu>
 
         <div class="drawer-status-footer">
