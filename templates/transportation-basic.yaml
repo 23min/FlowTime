@@ -59,6 +59,8 @@ topology:
         arrivals: passenger_demand
         served: passengers_served
         errors: unmet_demand
+        processingTimeMsSum: transit_processing_time_ms_sum
+        servedCount: passengers_served
   edges: []
 
 nodes:
@@ -74,6 +76,9 @@ nodes:
   - id: passengers_served
     kind: expr
     expr: "MIN(passenger_demand, vehicle_capacity)"
+  - id: transit_processing_time_ms_sum
+    kind: expr
+    expr: "passengers_served * 120"
 
   - id: unmet_demand
     kind: expr

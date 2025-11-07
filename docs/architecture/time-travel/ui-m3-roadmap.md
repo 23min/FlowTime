@@ -191,9 +191,9 @@ Purpose: make retries and service time first‑class, end‑to‑end. Start with
   - Doc: contract snippet and examples.
 
 - TT‑M‑03.29 — Service Time (S) Derivation (Processing Time Sum)
-  - Templates/fixtures: add per‑bin `processingTimeMsSum` and `servedCount`.
+  - Templates/fixtures: add per‑bin `processingTimeMsSum` and `servedCount` across the gallery (incident workflow, IT microservices, every supply-chain variant, manufacturing, network reliability, transportation).
   - API: derive `serviceTimeMs`; include in `/state` and `/state_window` for services.
-  - UI: inspector Service Time chart; color basis adds “Service Time”.
+  - UI: inspector Service Time chart + horizon; Feature Bar adds “Service Time” color basis with static 400 ms/700 ms thresholds (green/yellow/red).
 
 - TT‑M‑03.30 — UI Overlays (Retries + Service Time)
   - Edge overlays: color by RetryRate or Attempts; legend and toggles in Feature Bar; persistence.

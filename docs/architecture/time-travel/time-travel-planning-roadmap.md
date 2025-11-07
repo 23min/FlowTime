@@ -28,6 +28,16 @@ This document defines the concrete implementation plan for FlowTime time-travel 
 - **Mode-Based Validation:** Telemetry runs surface warnings, simulation runs fail fast on errors—simplicity with clear operator feedback (`time-travel-planning-decisions.md` Q3).
 - **Incremental Delivery:** Milestones M-03.00 → M-03.02 → M-03.02.01 → M-03.03 are sequenced so each step is independently demoable and testable before layering the next capability (`time-travel-architecture-ch5-implementation-roadmap.md`).
 
+### Service Time Contract (TT‑M‑03.29)
+
+TT‑M‑03.29 expands the `service` semantics with optional `processingTimeMsSum` (per-bin milliseconds of active work) and `servedCount`. When both are provided, the engine derives:
+
+```
+serviceTimeMs = processingTimeMsSum / max(1, servedCount)
+```
+
+The derived metric ships in `/state` and `/state_window`, giving the UI a stable basis for the “Service Time” color mode and inspector sparkline. Every gallery template (incident workflow, IT microservices, all supply-chain variants, manufacturing, network reliability, and transportation demos) now emits those series so operators can see latency and service time without editing YAML. The UI currently uses static thresholds (green ≤ 400 ms, yellow ≤ 700 ms, red beyond) until quantile-based tuning arrives in TT‑M‑03.30.
+
 ---
 
 ## Milestone Overview

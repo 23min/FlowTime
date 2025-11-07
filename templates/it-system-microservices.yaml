@@ -73,18 +73,24 @@ topology:
         arrivals: user_requests
         served: load_balanced_requests
         errors: failed_requests
+        processingTimeMsSum: load_balancer_processing_time_ms_sum
+        servedCount: load_balanced_requests
     - id: AuthService
       kind: service
       semantics:
         arrivals: load_balanced_requests
         served: authenticated_requests
         errors: failed_requests
+        processingTimeMsSum: auth_processing_time_ms_sum
+        servedCount: authenticated_requests
     - id: Database
       kind: service
       semantics:
         arrivals: authenticated_requests
         served: processed_requests
         errors: failed_requests
+        processingTimeMsSum: database_processing_time_ms_sum
+        servedCount: processed_requests
   edges:
     - id: edge1
       from: LoadBalancer:out
@@ -115,13 +121,25 @@ nodes:
     kind: expr
     expr: "MIN(user_requests, load_balancer_capacity)"
 
+  - id: load_balancer_processing_time_ms_sum
+    kind: expr
+    expr: "load_balanced_requests * 150"
+
   - id: authenticated_requests
     kind: expr
     expr: "MIN(load_balanced_requests, auth_capacity)"
 
+  - id: auth_processing_time_ms_sum
+    kind: expr
+    expr: "authenticated_requests * 220"
+
   - id: processed_requests
     kind: expr
     expr: "MIN(authenticated_requests, database_capacity)"
+
+  - id: database_processing_time_ms_sum
+    kind: expr
+    expr: "processed_requests * 320"
 
   - id: failed_requests
     kind: expr

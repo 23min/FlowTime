@@ -132,6 +132,8 @@ topology:
         arrivals: arrivals_north
         served: served_north
         errors: unmet_north
+        processingTimeMsSum: origin_north_processing_time_ms_sum
+        servedCount: served_north
       ui: { x: 0,   y: 0 }
     - id: OriginSouth
       kind: service
@@ -139,6 +141,8 @@ topology:
         arrivals: arrivals_south
         served: served_south
         errors: unmet_south
+        processingTimeMsSum: origin_south_processing_time_ms_sum
+        servedCount: served_south
       ui: { x: 0,   y: 140 }
     - id: CentralHub
       kind: service
@@ -147,6 +151,8 @@ topology:
         served: served_hub
         errors: unmet_hub
         capacity: cap_hub
+        processingTimeMsSum: hub_processing_time_ms_sum
+        servedCount: served_hub
       ui: { x: 240, y: 70 }
     - id: LineAirport
       kind: service
@@ -155,6 +161,8 @@ topology:
         served: served_airport
         errors: unmet_airport
         capacity: cap_airport
+        processingTimeMsSum: airport_processing_time_ms_sum
+        servedCount: served_airport
       ui: { x: 480, y: 0 }
     - id: LineDowntown
       kind: service
@@ -163,6 +171,8 @@ topology:
         served: served_downtown
         errors: unmet_downtown
         capacity: cap_downtown
+        processingTimeMsSum: downtown_processing_time_ms_sum
+        servedCount: served_downtown
       ui: { x: 480, y: 140 }
     - id: LineIndustrialPark
       kind: service
@@ -171,6 +181,8 @@ topology:
         served: served_industrial
         errors: unmet_industrial
         capacity: cap_industrial
+        processingTimeMsSum: industrial_processing_time_ms_sum
+        servedCount: served_industrial
       ui: { x: 480, y: 280 }
   edges:
     - id: e_north_hub
@@ -198,6 +210,9 @@ nodes:
   - id: served_north
     kind: expr
     expr: "MIN(arrivals_north, cap_north_to_hub)"
+  - id: origin_north_processing_time_ms_sum
+    kind: expr
+    expr: "served_north * 90"
   - id: unmet_north
     kind: expr
     expr: "MAX(0, arrivals_north - cap_north_to_hub)"
@@ -209,6 +224,9 @@ nodes:
   - id: served_south
     kind: expr
     expr: "MIN(arrivals_south, cap_south_to_hub)"
+  - id: origin_south_processing_time_ms_sum
+    kind: expr
+    expr: "served_south * 90"
   - id: unmet_south
     kind: expr
     expr: "MAX(0, arrivals_south - cap_south_to_hub)"
@@ -223,6 +241,9 @@ nodes:
   - id: served_hub
     kind: expr
     expr: "MIN(arrivals_hub, cap_hub)"
+  - id: hub_processing_time_ms_sum
+    kind: expr
+    expr: "served_hub * 150"
   - id: unmet_hub
     kind: expr
     expr: "MAX(0, arrivals_hub - cap_hub)"
@@ -248,6 +269,9 @@ nodes:
   - id: served_airport
     kind: expr
     expr: "MIN(arrivals_airport, cap_airport)"
+  - id: airport_processing_time_ms_sum
+    kind: expr
+    expr: "served_airport * 130"
   - id: unmet_airport
     kind: expr
     expr: "MAX(0, arrivals_airport - cap_airport)"
@@ -262,6 +286,9 @@ nodes:
   - id: served_downtown
     kind: expr
     expr: "MIN(arrivals_downtown, cap_downtown)"
+  - id: downtown_processing_time_ms_sum
+    kind: expr
+    expr: "served_downtown * 140"
   - id: unmet_downtown
     kind: expr
     expr: "MAX(0, arrivals_downtown - cap_downtown)"
@@ -276,6 +303,9 @@ nodes:
   - id: served_industrial
     kind: expr
     expr: "MIN(arrivals_industrial, cap_industrial)"
+  - id: industrial_processing_time_ms_sum
+    kind: expr
+    expr: "served_industrial * 160"
   - id: unmet_industrial
     kind: expr
     expr: "MAX(0, arrivals_industrial - cap_industrial)"
@@ -290,4 +320,3 @@ nodes:
 
 outputs:
   - series: "*"
-

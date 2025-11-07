@@ -24,12 +24,16 @@ topology:
         arrivals: planned_production
         served: supplier_shipments
         errors: supplier_shortage
+        processingTimeMsSum: supplier_processing_time_ms_sum
+        servedCount: supplier_shipments
     - id: Warehouse
       kind: service
       semantics:
         arrivals: supplier_shipments
         served: warehouse_shipments
         errors: inventory_build
+        processingTimeMsSum: warehouse_processing_time_ms_sum
+        servedCount: warehouse_shipments
     - id: DistributorQueue
       kind: queue
       semantics:
@@ -45,12 +49,16 @@ topology:
         arrivals: queue_outflow
         served: distributed_items
         errors: distributor_backlog
+        processingTimeMsSum: distributor_processing_time_ms_sum
+        servedCount: distributed_items
     - id: Retailer
       kind: service
       semantics:
         arrivals: distributed_items
         served: retail_sales
         errors: unmet_demand
+        processingTimeMsSum: retailer_processing_time_ms_sum
+        servedCount: retail_sales
   edges:
     - id: e1
       from: Supplier:out
@@ -245,6 +253,9 @@ nodes:
   - id: supplier_shipments
     kind: expr
     expr: "planned_production"
+  - id: supplier_processing_time_ms_sum
+    kind: expr
+    expr: "supplier_shipments * 180"
 
   # Downstream pull and availability
   - id: downstream_cap
@@ -258,6 +269,9 @@ nodes:
   - id: warehouse_shipments
     kind: expr
     expr: "MIN(supplier_shipments, requested_shipments)"
+  - id: warehouse_processing_time_ms_sum
+    kind: expr
+    expr: "warehouse_shipments * 220"
 
   # Queue between Warehouse and Distributor
   - id: queue_inflow
@@ -289,10 +303,16 @@ nodes:
     kind: expr
     # Outbound from distributor equals queue outflow
     expr: "queue_outflow"
+  - id: distributor_processing_time_ms_sum
+    kind: expr
+    expr: "distributed_items * 210"
 
   - id: retail_sales
     kind: expr
     expr: "MIN(distributed_items, retailer_capacity)"
+  - id: retailer_processing_time_ms_sum
+    kind: expr
+    expr: "retail_sales * 260"
 
   # Diagnostics
   - id: supplier_shortage

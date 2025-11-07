@@ -87,18 +87,24 @@ topology:
         arrivals: raw_materials
         served: assembly
         errors: defects
+        processingTimeMsSum: assembly_processing_time_ms_sum
+        servedCount: assembly
     - id: QualityControl
       kind: service
       semantics:
         arrivals: assembly
         served: quality_control
         errors: quality_rejects
+        processingTimeMsSum: quality_processing_time_ms_sum
+        servedCount: quality_control
     - id: PackagingStation
       kind: service
       semantics:
         arrivals: quality_control
         served: packaging
         errors: packaging_rejects
+        processingTimeMsSum: packaging_processing_time_ms_sum
+        servedCount: packaging
   edges:
     - id: edge1
       from: AssemblyLine:out
@@ -125,9 +131,17 @@ nodes:
     kind: expr
     expr: "MIN(raw_materials, assembly_capacity)"
 
+  - id: assembly_processing_time_ms_sum
+    kind: expr
+    expr: "assembly * 240"
+
   - id: quality_control
     kind: expr
     expr: "MIN(assembly * ${qualityRate}, quality_control_capacity)"
+
+  - id: quality_processing_time_ms_sum
+    kind: expr
+    expr: "quality_control * 300"
 
   - id: quality_rejects
     kind: expr
@@ -136,6 +150,10 @@ nodes:
   - id: packaging
     kind: expr
     expr: "MIN(quality_control, ${productionRate} * 0.9)"
+
+  - id: packaging_processing_time_ms_sum
+    kind: expr
+    expr: "packaging * 360"
 
   - id: packaging_rejects
     kind: expr

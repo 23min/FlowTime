@@ -1,6 +1,6 @@
 # TT‑M‑03.29 — Service Time (S) Derivation (Processing Time Sum)
 
-Status: Planned  
+Status: Implemented  
 Owners: Platform (API) + UI  
 References: docs/development/milestone-documentation-guide.md, docs/development/TEMPLATE-tracking.md
 
@@ -19,7 +19,7 @@ Derive average service time S for service nodes from aggregated processing time 
 ## Scope
 
 In Scope
-- Templates/fixtures: add `processingTimeMsSum` and `servedCount` for service nodes in an example system.  
+- Templates/fixtures: add `processingTimeMsSum` and `servedCount` for service nodes across the gallery (incident workflow, IT microservices, supply-chain variants, manufacturing, network reliability, and transportation templates all emit the series now).  
 - API: add `serviceTimeMs` to `/state` and `/state_window` node payloads for `kind=service`.  
 - UI: inspector renders S; feature bar exposes “Service Time” color basis.
 
@@ -46,10 +46,10 @@ Out of Scope
 - Accessibility: labels and units visible; numeric formatting stable.
 
 ## Deliverables
-1) Example fixture with processing time and served count.  
+1) Example fixture with processing time and served count (API regression run now produces `run_state_fixture`, and the gallery templates listed above mirror the contract).  
 2) API derivation and payload extensions for S.  
 3) UI inspector S chart + color basis option.  
-4) Docs: contract examples, threshold defaults.  
+4) Docs: contract examples, threshold defaults (`docs/architecture/time-travel/time-travel-planning-roadmap.md`, `docs/architecture/time-travel/ui-m3-roadmap.md`).  
 5) Tests: unit/golden + UI rendering tests.
 
 ## Acceptance Criteria
@@ -76,6 +76,12 @@ Session 4 — Docs + Stabilization
 - Contract snippets; `.http` samples; docs updated.  
 - Review thresholds; finalize tests.
 
+## Implementation Notes
+
+- `processingTimeMsSum`/`servedCount` now flow from the updated templates, fixtures, and API golden runs, so both `/state` and `/state_window` populate `serviceTimeMs` whenever those series exist.
+- The UI defaults to static service-time thresholds (green ≤ 400 ms, yellow ≤ 700 ms, red beyond) and exposes “Service Time” in the Feature Bar color basis alongside SLA/utilization/errors/queue.
+- Templates promoted in the UI (Incident Workflow with Retries, IT System with Microservices, Multi-Tier Supply Chain + Warehouse) all emit the new series so product demos surface latency + service time out of the box.
+
 ## Testing Strategy
 - API unit: S derivation with guards; null propagation.  
 - API golden: fixed run → consistent S series.  
@@ -93,4 +99,3 @@ Session 4 — Docs + Stabilization
 - docs/architecture/time-travel/time-travel-architecture-ch2-data-contracts.md  
 - docs/architecture/time-travel/ui-m3-roadmap.md  
 - docs/development/milestone-documentation-guide.md
-
