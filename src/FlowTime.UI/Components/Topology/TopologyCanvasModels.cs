@@ -93,6 +93,8 @@ internal sealed record OverlaySettingsPayload(
     double UtilizationCriticalCutoff,
     double ErrorWarningCutoff,
     double ErrorCriticalCutoff,
+    double ServiceTimeWarningThresholdMs,
+    double ServiceTimeCriticalThresholdMs,
     bool ShowArrivalsDependencies,
     bool ShowServedDependencies,
     bool ShowErrorsDependencies,

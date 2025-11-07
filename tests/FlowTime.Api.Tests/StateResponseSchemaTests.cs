@@ -118,6 +118,8 @@ public class StateResponseSchemaTests : IClassFixture<TestWebApplicationFactory>
         WriteSeries(modelDir, "OrderService_served.csv", new double[] { 9, 6, 9, 4 });
         WriteSeries(modelDir, "OrderService_errors.csv", new double[] { 1, 1, 1, 1 });
         WriteSeries(modelDir, "OrderService_capacity.csv", new double[] { 12, 7, 9, 4 });
+        WriteSeries(modelDir, "OrderService_processingTimeMsSum.csv", new double[] { 2250, 1800, 2700, 1200 });
+        WriteSeries(modelDir, "OrderService_servedCount.csv", new double[] { 9, 6, 9, 4 });
 
         WriteSeries(modelDir, "SupportQueue_arrivals.csv", new double[] { 9, 7, 9, 5 });
         WriteSeries(modelDir, "SupportQueue_served.csv", new double[] { 9, 6, 9, 4 });
@@ -239,6 +241,8 @@ topology:
         externalDemand: null
         queueDepth: null
         capacity: "file:OrderService_capacity.csv"
+        processingTimeMsSum: "file:OrderService_processingTimeMsSum.csv"
+        servedCount: "file:OrderService_servedCount.csv"
         slaMin: null
     - id: "SupportQueue"
       kind: "queue"

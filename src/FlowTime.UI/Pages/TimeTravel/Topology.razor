@@ -198,6 +198,14 @@
                                                          Class="timeline-focus-chip">
                                                     Queue depth
                                                 </MudChip>
+                                                <MudChip T="TopologyColorBasis"
+                                                         Value="TopologyColorBasis.ServiceTime"
+                                                         Variant="Variant.Outlined"
+                                                         DisableRipple="true"
+                                                         Size="Size.Small"
+                                                         Class="timeline-focus-chip">
+                                                    Service time
+                                                </MudChip>
                                             </MudChipSet>
                                         </MudStack>
                                         <MudChipSet T="string"
@@ -1271,6 +1279,7 @@
             var utilization = Get("utilization");
             var queue = Get("queue");
             var latency = Get("latencyMinutes");
+            var serviceTime = Get("serviceTimeMs");
 
             double? successRate = throughput;
             if (successRate is null && arrivals.HasValue && arrivals.Value > 0 && served.HasValue)
@@ -1348,11 +1357,12 @@
                 queue,
                 latency,
                 selectionTimestamp,
-                customValue,
-                customLabel,
-                pmfProbability,
-                pmfSupportValue,
-                node.Kind);
+                CustomValue: customValue,
+                CustomLabel: customLabel,
+                PmfProbability: pmfProbability,
+                PmfValue: pmfSupportValue,
+                NodeKind: node.Kind,
+                ServiceTimeMs: serviceTime);
         }
 
         if (topologyGraph is not null)
@@ -1463,14 +1473,15 @@
                             existingMetrics.SuccessRate,
                             existingMetrics.Utilization,
                             existingMetrics.ErrorRate,
-                            existingMetrics.QueueDepth,
-                            existingMetrics.LatencyMinutes,
-                            existingMetrics.Timestamp,
-                            newCustomValue,
-                            newCustomLabel,
-                            pmfProbability ?? existingMetrics.PmfProbability,
-                            pmfSupportValue ?? existingMetrics.PmfValue,
-                            existingMetrics.NodeKind ?? topoNode.Kind);
+                        existingMetrics.QueueDepth,
+                        existingMetrics.LatencyMinutes,
+                        existingMetrics.Timestamp,
+                        CustomValue: newCustomValue,
+                        CustomLabel: newCustomLabel,
+                        PmfProbability: pmfProbability ?? existingMetrics.PmfProbability,
+                        PmfValue: pmfSupportValue ?? existingMetrics.PmfValue,
+                        NodeKind: existingMetrics.NodeKind ?? topoNode.Kind,
+                        ServiceTimeMs: existingMetrics.ServiceTimeMs);
                     }
 
                     continue;
@@ -1483,11 +1494,11 @@
                     null,
                     null,
                     selectionTimestamp,
-                    customValue,
-                    customLabel,
-                    pmfProbability,
-                    pmfSupportValue,
-                    topoNode.Kind);
+                    CustomValue: customValue,
+                    CustomLabel: customLabel,
+                    PmfProbability: pmfProbability,
+                    PmfValue: pmfSupportValue,
+                    NodeKind: topoNode.Kind);
             }
         }
 
@@ -2394,6 +2405,7 @@
 
         AddRequired("Success rate", "successRate", 0d, 1d, valueFormat: InspectorValueFormat.Percent);
         AddRequired("Utilization", "utilization", 0d, 1d, valueFormat: InspectorValueFormat.Percent);
+        AddRequired("Service time", "serviceTimeMs", 0d, seriesKeyOverride: "serviceTimeMs");
         AddRequired("Latency", "latencyMinutes", 0d);
         AddRequired("Error rate", "errorRate", 0d, 1d, valueFormat: InspectorValueFormat.Percent);
         AddOptional("Errors", "errors", 0d, ariaLabel: "Errors sparkline");
@@ -2779,6 +2791,7 @@
             TopologyColorBasis.Utilization => new NodeBinMetrics(null, sample, null, null, null, null),
             TopologyColorBasis.Errors => new NodeBinMetrics(null, null, sample, null, null, null),
             TopologyColorBasis.Queue => new NodeBinMetrics(null, null, null, sample, null, null),
+            TopologyColorBasis.ServiceTime => new NodeBinMetrics(null, null, null, null, null, null, ServiceTimeMs: sample),
             _ => new NodeBinMetrics(sample, null, null, null, null, null)
         };
 

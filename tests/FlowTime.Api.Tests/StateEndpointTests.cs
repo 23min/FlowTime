@@ -43,10 +43,15 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
     private readonly string artifactsRoot;
     private readonly HttpClient client;
     private readonly TestLogCollector logCollector;
+    private readonly bool deleteArtifactsOnDispose;
 
     public StateEndpointTests(TestWebApplicationFactory factory)
     {
-        artifactsRoot = Path.Combine(Path.GetTempPath(), $"flowtime_state_fixture_{Guid.NewGuid():N}");
+        var overrideRoot = Environment.GetEnvironmentVariable("FLOWTIME_TEST_ARTIFACT_ROOT");
+        deleteArtifactsOnDispose = string.IsNullOrWhiteSpace(overrideRoot);
+        artifactsRoot = string.IsNullOrWhiteSpace(overrideRoot)
+            ? Path.Combine(Path.GetTempPath(), $"flowtime_state_fixture_{Guid.NewGuid():N}")
+            : overrideRoot;
         Directory.CreateDirectory(artifactsRoot);
         CreateFixtureRun();
         CreateInvalidRun();
@@ -106,6 +111,7 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         Assert.Equal(1, service.Metrics.Failures);
         Assert.Equal(0.6, service.Metrics.RetryEcho!.Value, 5);
         Assert.Equal(0.85714, service.Derived.Utilization!.Value, 5);
+        Assert.Equal(300, service.Derived.ServiceTimeMs!.Value, 5);
         Assert.Equal("yellow", service.Derived.Color);
         Assert.Contains(service.Telemetry.Sources, s => s.Contains("OrderService_arrivals") || s.Contains("OrderService_served"));
         Assert.Empty(service.Telemetry.Warnings);
@@ -115,6 +121,7 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         Assert.Equal(10, queue.Metrics.Queue);
         Assert.Equal(8.33333, queue.Derived.LatencyMinutes!.Value, 5);
         Assert.Equal("red", queue.Derived.Color);
+        Assert.Null(queue.Derived.ServiceTimeMs);
         Assert.Contains(queue.Telemetry.Sources, s => s.Contains("SupportQueue_arrivals"));
         Assert.Empty(queue.Telemetry.Warnings);
     }
@@ -147,6 +154,8 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         Assert.Equal(new double?[] { 12.0, 7.0, 9.0, 4.0 }, serviceSeries.Series["capacity"]);
         Assert.Equal(new double?[] { 10.0, 7.0, 10.0, 5.0 }, serviceSeries.Series["attempts"]);
         Assert.Equal(new double?[] { 1.0, 1.0, 1.0, 1.0 }, serviceSeries.Series["failures"]);
+        Assert.True(serviceSeries.Series.ContainsKey("serviceTimeMs"));
+        Assert.Equal(new double?[] { 250.0, 300.0, 300.0, 300.0 }, serviceSeries.Series["serviceTimeMs"]);
         var retryEcho = serviceSeries.Series["retryEcho"];
         Assert.Equal(4, retryEcho.Length);
         Assert.Equal(0.0, retryEcho[0]!.Value, 5);
@@ -404,6 +413,7 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         var service = Assert.Single(payload.Nodes, n => n.Id == "OrderService");
         Assert.Empty(service.Telemetry.Sources);
         Assert.Contains(service.Telemetry.Warnings, w => w.Code == "telemetry_sources_unresolved");
+        Assert.Null(service.Derived.ServiceTimeMs);
     }
 
     [Fact]
@@ -567,6 +577,8 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         WriteSeries(modelDir, "OrderService_failures.csv", new double[] { 1, 1, 1, 1 });
         WriteSeries(modelDir, "OrderService_retryEcho.csv", new double[] { 0.0, 0.6, 0.9, 1.0 });
         WriteSeries(modelDir, "OrderService_capacity.csv", new double[] { 12, 7, 9, 4 });
+        WriteSeries(modelDir, "OrderService_processingTimeMsSum.csv", new double[] { 2250, 1800, 2700, 1200 });
+        WriteSeries(modelDir, "OrderService_servedCount.csv", new double[] { 9, 6, 9, 4 });
 
         WriteSeries(modelDir, "SupportQueue_arrivals.csv", new double[] { 9, 7, 9, 5 });
         WriteSeries(modelDir, "SupportQueue_served.csv", new double[] { 9, 6, 9, 4 });
@@ -600,6 +612,8 @@ topology:
         externalDemand: null
         queueDepth: null
         capacity: "file:OrderService_capacity.csv"
+        processingTimeMsSum: null
+        servedCount: null
         slaMin: null
     - id: "SupportQueue"
       kind: "queue"
@@ -644,6 +658,8 @@ topology:
         externalDemand: null
         queueDepth: null
         capacity: "file:OrderService_capacity.csv"
+        processingTimeMsSum: "file:OrderService_processingTimeMsSum.csv"
+        servedCount: "file:OrderService_servedCount.csv"
         slaMin: null
     - id: "SupportQueue"
       kind: "queue"
@@ -852,6 +868,8 @@ topology:
         externalDemand: null
         queueDepth: null
         capacity: "file:OrderService_capacity.csv"
+        processingTimeMsSum: "file:OrderService_processingTimeMsSum.csv"
+        servedCount: "file:OrderService_servedCount.csv"
         slaMin: null
     - id: "SupportQueue"
       kind: "queue"
@@ -894,6 +912,8 @@ topology:
         externalDemand: null
         queueDepth: null
         capacity: "file:OrderService_capacity.csv"
+        processingTimeMsSum: "file:OrderService_processingTimeMsSum.csv"
+        servedCount: "file:OrderService_servedCount.csv"
         slaMin: null
     - id: "SupportQueue"
       kind: "queue"
@@ -956,6 +976,8 @@ topology:
         externalDemand: null
         queueDepth: null
         capacity: "file:OrderService_capacity.csv"
+        processingTimeMsSum: null
+        servedCount: null
         slaMin: null
     - id: "SupportQueue"
       kind: "queue"
@@ -976,7 +998,7 @@ topology:
     {
         client.Dispose();
         logCollector.Dispose();
-        if (Directory.Exists(artifactsRoot))
+        if (deleteArtifactsOnDispose && Directory.Exists(artifactsRoot))
         {
             Directory.Delete(artifactsRoot, recursive: true);
         }

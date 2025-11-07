@@ -478,6 +478,12 @@ public sealed class StateQueryService
         var throughputRatioValue = ComputeThroughputRatio(arrivals, served);
         var throughputRatio = throughputRatioValue.HasValue ? Normalize(throughputRatioValue.Value) : null;
 
+        double? serviceTimeMs = null;
+        if (string.Equals(kind, "service", StringComparison.OrdinalIgnoreCase))
+        {
+            serviceTimeMs = ComputeServiceTimeValue(data, binIndex);
+        }
+
         var color = string.Equals(kind, "queue", StringComparison.OrdinalIgnoreCase)
             ? ColoringRules.PickQueueColor(latencyMinutes, node.Semantics.SlaMinutes)
             : ColoringRules.PickServiceColor(utilization);
@@ -502,6 +508,7 @@ public sealed class StateQueryService
             {
                 Utilization = utilization,
                 LatencyMinutes = latencyMinutes,
+                ServiceTimeMs = serviceTimeMs,
                 ThroughputRatio = throughputRatio,
                 Color = color
             },
@@ -526,7 +533,9 @@ public sealed class StateQueryService
             RetryKernel = kernelResult.Kernel,
             ExternalDemand = node.Semantics.ExternalDemand != null ? CreateSeries() : null,
             QueueDepth = node.Semantics.QueueDepth != null ? CreateSeries() : null,
-            Capacity = node.Semantics.Capacity != null ? CreateSeries() : null
+            Capacity = node.Semantics.Capacity != null ? CreateSeries() : null,
+            ProcessingTimeMsSum = node.Semantics.ProcessingTimeMsSum != null ? CreateSeries() : null,
+            ServedCount = node.Semantics.ServedCount != null ? CreateSeries() : null
         };
     }
 
@@ -594,6 +603,15 @@ public sealed class StateQueryService
             series["throughputRatio"] = throughputSeries;
         }
 
+        if (string.Equals(kind, "service", StringComparison.OrdinalIgnoreCase))
+        {
+            var serviceTimeSeries = ComputeServiceTimeSeries(data, startBin, count);
+            if (serviceTimeSeries != null)
+            {
+                series["serviceTimeMs"] = serviceTimeSeries;
+            }
+        }
+
         if (data.Values is not null)
         {
             var valuesSlice = ExtractSlice(data.Values, startBin, count);
@@ -644,6 +662,8 @@ public sealed class StateQueryService
         TryAdd(node.Semantics.ExternalDemand);
         TryAdd(node.Semantics.QueueDepth);
         TryAdd(node.Semantics.Capacity);
+        TryAdd(node.Semantics.ProcessingTimeMsSum);
+        TryAdd(node.Semantics.ServedCount);
 
         if (nodeWarnings.Count > 0)
         {
@@ -717,6 +737,64 @@ public sealed class StateQueryService
             var served = data.Served[start + i];
             var raw = LatencyComputer.Calculate(queue, served, binMinutes);
             result[i] = raw.HasValue ? Normalize(raw.Value) : null;
+        }
+
+        return result;
+    }
+
+    private static double? ComputeServiceTimeValue(NodeData data, int index)
+    {
+        if (data.ProcessingTimeMsSum is null || data.ServedCount is null)
+        {
+            return null;
+        }
+
+        if (index < 0 ||
+            index >= data.ProcessingTimeMsSum.Length ||
+            index >= data.ServedCount.Length)
+        {
+            return null;
+        }
+
+        var sum = data.ProcessingTimeMsSum[index];
+        var count = data.ServedCount[index];
+
+        if (!double.IsFinite(sum) || !double.IsFinite(count))
+        {
+            return null;
+        }
+
+        if (sum == 0 && count == 0)
+        {
+            return 0d;
+        }
+
+        var denominator = count <= 0 ? 1d : count;
+        var value = sum / denominator;
+        return double.IsFinite(value) ? value : null;
+    }
+
+    private static double?[]? ComputeServiceTimeSeries(NodeData data, int start, int count)
+    {
+        if (data.ProcessingTimeMsSum is null || data.ServedCount is null)
+        {
+            return null;
+        }
+
+        var sumLength = data.ProcessingTimeMsSum.Length;
+        var countLength = data.ServedCount.Length;
+        var result = new double?[count];
+
+        for (var i = 0; i < count; i++)
+        {
+            var index = start + i;
+            if (index < 0 || index >= sumLength || index >= countLength)
+            {
+                result[i] = null;
+                continue;
+            }
+
+            result[i] = ComputeServiceTimeValue(data, index);
         }
 
         return result;
@@ -971,6 +1049,8 @@ public sealed class StateQueryService
             ExternalDemand = null,
             QueueDepth = null,
             Capacity = null,
+            ProcessingTimeMsSum = null,
+            ServedCount = null,
             Values = values
         };
     }
@@ -1200,6 +1280,8 @@ public sealed class StateQueryService
         var queue = Resolve(semantics.QueueDepth, data.QueueDepth);
         var capacity = Resolve(semantics.Capacity, data.Capacity);
         var external = Resolve(semantics.ExternalDemand, data.ExternalDemand);
+        var processingTime = Resolve(semantics.ProcessingTimeMsSum, data.ProcessingTimeMsSum);
+        var servedCount = Resolve(semantics.ServedCount, data.ServedCount);
 
         return data with
         {
@@ -1211,7 +1293,9 @@ public sealed class StateQueryService
             RetryEcho = retryEcho,
             QueueDepth = queue,
             Capacity = capacity,
-            ExternalDemand = external
+            ExternalDemand = external,
+            ProcessingTimeMsSum = processingTime,
+            ServedCount = servedCount
         };
     }
 

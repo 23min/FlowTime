@@ -13,6 +13,8 @@ internal static class ColorScale
     private const double DefaultSlaWarningWindow = 0.15;
     private const double DefaultUtilizationCriticalOffset = 0.05;
     private const double DefaultErrorWarningRatio = 0.4;
+    private const double DefaultServiceTimeWarningMs = 400;
+    private const double DefaultServiceTimeCriticalMs = 700;
 
     public static string GetFill(NodeBinMetrics metrics) => GetFill(metrics, TopologyColorBasis.Sla, ColorThresholds.Default);
 
@@ -31,6 +33,7 @@ internal static class ColorScale
             TopologyColorBasis.Utilization => EvaluateUtilization(metrics.Utilization, thresholds),
             TopologyColorBasis.Errors => EvaluateErrorRate(metrics.ErrorRate, thresholds),
             TopologyColorBasis.Queue => EvaluateQueue(metrics.QueueDepth),
+            TopologyColorBasis.ServiceTime => EvaluateServiceTime(metrics.ServiceTimeMs, thresholds),
             _ => EvaluateSla(metrics.SuccessRate, metrics.Utilization, metrics.ErrorRate, thresholds)
         };
     }
@@ -101,6 +104,26 @@ internal static class ColorScale
         return SuccessColor;
     }
 
+    private static string EvaluateServiceTime(double? serviceTimeMs, ColorThresholds thresholds)
+    {
+        if (!serviceTimeMs.HasValue)
+        {
+            return NeutralColor;
+        }
+
+        if (serviceTimeMs.Value >= thresholds.ServiceTimeCritical)
+        {
+            return ErrorColor;
+        }
+
+        if (serviceTimeMs.Value >= thresholds.ServiceTimeWarning)
+        {
+            return WarningColor;
+        }
+
+        return SuccessColor;
+    }
+
     private static string EvaluateErrorRate(double? errorRate, ColorThresholds thresholds)
     {
         if (!errorRate.HasValue)
@@ -149,7 +172,9 @@ internal static class ColorScale
             utilizationWarning: 0.90,
             utilizationCritical: 0.95,
             errorWarning: 0.02,
-            errorCritical: 0.05);
+            errorCritical: 0.05,
+            serviceTimeWarning: DefaultServiceTimeWarningMs,
+            serviceTimeCritical: DefaultServiceTimeCriticalMs);
 
         public ColorThresholds(
             double slaSuccess,
@@ -157,7 +182,9 @@ internal static class ColorScale
             double utilizationWarning,
             double utilizationCritical,
             double errorWarning,
-            double errorCritical)
+            double errorCritical,
+            double serviceTimeWarning,
+            double serviceTimeCritical)
         {
             SlaSuccess = slaSuccess;
             SlaWarning = slaWarning;
@@ -165,6 +192,8 @@ internal static class ColorScale
             UtilizationCritical = utilizationCritical;
             ErrorWarning = errorWarning;
             ErrorCritical = errorCritical;
+            ServiceTimeWarning = serviceTimeWarning;
+            ServiceTimeCritical = serviceTimeCritical;
         }
 
         public double SlaSuccess { get; }
@@ -173,6 +202,8 @@ internal static class ColorScale
         public double UtilizationCritical { get; }
         public double ErrorWarning { get; }
         public double ErrorCritical { get; }
+        public double ServiceTimeWarning { get; }
+        public double ServiceTimeCritical { get; }
 
         public static ColorThresholds FromOverlay(TopologyOverlaySettings settings)
         {
@@ -185,13 +216,23 @@ internal static class ColorScale
             var errorCritical = Math.Clamp(settings.ErrorRateAlertThreshold, 0.0001, 1);
             var errorWarning = Math.Min(errorCritical * DefaultErrorWarningRatio, errorCritical);
 
+            var serviceTimeWarning = settings.ServiceTimeWarningThresholdMs > 0
+                ? settings.ServiceTimeWarningThresholdMs
+                : DefaultServiceTimeWarningMs;
+            var serviceTimeCriticalCandidate = settings.ServiceTimeCriticalThresholdMs > 0
+                ? settings.ServiceTimeCriticalThresholdMs
+                : DefaultServiceTimeCriticalMs;
+            var serviceTimeCritical = Math.Max(serviceTimeWarning, serviceTimeCriticalCandidate);
+
             return new ColorThresholds(
                 slaSuccess,
                 slaWarning,
                 utilWarn,
                 utilCritical,
                 errorWarning,
-                errorCritical);
+                errorCritical,
+                serviceTimeWarning,
+                serviceTimeCritical);
         }
 
         private static double Clamp01(double value) => Math.Clamp(value, 0, 1);
@@ -209,4 +250,5 @@ public sealed record NodeBinMetrics(
     string? CustomLabel = null,
     double? PmfProbability = null,
     double? PmfValue = null,
-    string? NodeKind = null);
+    string? NodeKind = null,
+    double? ServiceTimeMs = null);

@@ -75,6 +75,11 @@ internal static class TooltipFormatter
                 lines.Add($"Queue {Math.Round(queueDepth, MidpointRounding.AwayFromZero):0}");
             }
 
+            if (metrics.ServiceTimeMs is double serviceTime)
+            {
+                lines.Add($"Service time {serviceTime.ToString(serviceTime >= 1000 ? "0" : "0.0", CultureInfo.InvariantCulture)} ms");
+            }
+
             if (metrics.LatencyMinutes is double latencyMinutes)
             {
                 lines.Add($"Latency {latencyMinutes:F1} min");

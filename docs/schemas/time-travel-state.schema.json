@@ -153,6 +153,7 @@
             "properties": {
                 "utilization": { "$ref": "#/$defs/nullableNumber" },
                 "latencyMinutes": { "$ref": "#/$defs/nullableNumber" },
+                "serviceTimeMs": { "$ref": "#/$defs/nullableNumber" },
                 "throughputRatio": { "$ref": "#/$defs/nullableNumber" },
                 "color": { "type": ["string", "null"], "minLength": 1 }
             }

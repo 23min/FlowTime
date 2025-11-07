@@ -99,6 +99,8 @@ public sealed class TopologySemanticsDto
     public string? ExternalDemand { get; set; }
     public string? Queue { get; set; }
     public string? Capacity { get; set; }
+    public string? ProcessingTimeMsSum { get; set; }
+    public string? ServedCount { get; set; }
     public double? SlaMin { get; set; }
 }
 

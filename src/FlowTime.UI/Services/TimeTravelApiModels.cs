@@ -180,6 +180,9 @@ public sealed record TimeTravelNodeDerivedMetricsDto
     [JsonPropertyName("latencyMinutes")]
     public double? LatencyMinutes { get; init; }
 
+    [JsonPropertyName("serviceTimeMs")]
+    public double? ServiceTimeMs { get; init; }
+
     [JsonPropertyName("throughputRatio")]
     public double? ThroughputRatio { get; init; }
 

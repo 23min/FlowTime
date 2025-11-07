@@ -56,4 +56,36 @@ public sealed class TopologyInspectorSparklineTests : TestContext
         Assert.Contains("0.1", cut.Markup);
         Assert.Contains("0.9", cut.Markup);
     }
+
+    [Fact]
+    public void ServiceTimeSeriesKeyUsesColorBasisHighlight()
+    {
+        var values = new double?[] { 220, 240, 260 };
+        var additional = new Dictionary<string, SparklineSeriesSlice>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["serviceTimeMs"] = new SparklineSeriesSlice(values, 0)
+        };
+
+        var sparkline = NodeSparklineData.Create(
+            values,
+            Array.Empty<double?>(),
+            Array.Empty<double?>(),
+            Array.Empty<double?>(),
+            startIndex: 0,
+            additionalSeries: additional);
+
+        var overlays = new TopologyOverlaySettings
+        {
+            ColorBasis = TopologyColorBasis.ServiceTime
+        };
+
+        var cut = RenderComponent<TopologyInspectorSparkline>(parameters => parameters
+            .Add(p => p.Data, sparkline)
+            .Add(p => p.SelectedBin, 1)
+            .Add(p => p.OverlaySettings, overlays)
+            .Add(p => p.SeriesKey, "serviceTimeMs"));
+
+        var highlight = cut.Find("circle");
+        Assert.NotEqual("#CBD5E1", highlight.GetAttribute("fill"));
+    }
 }

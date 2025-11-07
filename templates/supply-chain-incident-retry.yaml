@@ -28,6 +28,8 @@ topology:
         retryEcho: incident_retry_echo
         retryKernel: [0.0, 0.6, 0.3, 0.1]
         capacity: incident_capacity
+        processingTimeMsSum: incident_processing_time_ms_sum
+        servedCount: incident_served
     - id: IncidentQueue
       kind: queue
       semantics:
@@ -44,6 +46,8 @@ topology:
         served: support_analytics_load
         errors: support_analytics_errors
         capacity: null
+        processingTimeMsSum: support_analytics_processing_time_ms_sum
+        servedCount: support_analytics_load
   edges:
     - id: throughput_incident
       from: IncidentIntake:out
@@ -83,6 +87,10 @@ nodes:
     kind: const
     values: [22, 26, 27, 28, 29, 31, 28, 28, 30, 26, 26, 25, 19, 21, 20, 18, 18, 18, 17, 19, 22, 21, 23, 27]
 
+  - id: incident_processing_time_ms_sum
+    kind: const
+    values: [5320, 6440, 6720, 7000, 7280, 7840, 7000, 7000, 7560, 6440, 6440, 6160, 4480, 5040, 4760, 4200, 4200, 4200, 3920, 4480, 5320, 5040, 5600, 6720]
+
   - id: support_queue_served
     kind: const
     values: [19, 22, 22, 22, 26, 27, 23, 22, 27, 22, 21, 19, 16, 17, 15, 12, 15, 14, 12, 13, 19, 17, 18, 21]
@@ -102,6 +110,10 @@ nodes:
   - id: support_analytics_errors
     kind: const
     values: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+  - id: support_analytics_processing_time_ms_sum
+    kind: const
+    values: [2759, 3054, 3379, 3302, 3426, 3674, 3503, 3503, 3550, 3054, 3054, 2930, 2589, 2434, 2310, 2062, 2062, 2263, 2139, 2186, 2558, 2434, 2883, 3178]
 
 outputs:
   - series: incident_arrivals

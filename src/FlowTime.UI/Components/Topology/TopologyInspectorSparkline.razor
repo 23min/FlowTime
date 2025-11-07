@@ -291,6 +291,7 @@ else
             "utilization" => TopologyColorBasis.Utilization,
             "errorrate" or "errors" => TopologyColorBasis.Errors,
             "queue" or "queuedepth" => TopologyColorBasis.Queue,
+            "servicetimems" or "servicetime" => TopologyColorBasis.ServiceTime,
             _ => null
         };
     }
@@ -307,6 +308,7 @@ else
             TopologyColorBasis.Utilization => new NodeBinMetrics(null, value, null, null, null, null),
             TopologyColorBasis.Errors => new NodeBinMetrics(null, null, value, null, null, null),
             TopologyColorBasis.Queue => new NodeBinMetrics(null, null, null, value, null, null),
+            TopologyColorBasis.ServiceTime => new NodeBinMetrics(null, null, null, null, null, null, ServiceTimeMs: value),
             _ => new NodeBinMetrics(value, null, null, null, null, null)
         };
 

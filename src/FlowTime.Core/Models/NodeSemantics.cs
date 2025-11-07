@@ -14,5 +14,7 @@ public sealed record NodeSemantics
     public string? ExternalDemand { get; init; }
     public string? QueueDepth { get; init; }
     public string? Capacity { get; init; }
+    public string? ProcessingTimeMsSum { get; init; }
+    public string? ServedCount { get; init; }
     public double? SlaMinutes { get; init; }
 }

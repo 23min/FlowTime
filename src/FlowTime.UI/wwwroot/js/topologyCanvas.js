@@ -1719,6 +1719,11 @@
         const utilCritical = clamp(Number(raw.utilizationCriticalCutoff ?? raw.UtilizationCriticalCutoff ?? 0.95), 0, 1);
         const errorWarn = clamp(Number(raw.errorWarningCutoff ?? raw.ErrorWarningCutoff ?? 0.02), 0, 1);
         const errorCritical = clamp(Number(raw.errorCriticalCutoff ?? raw.ErrorCriticalCutoff ?? 0.05), 0, 1);
+        const serviceTimeWarnRaw = Number(raw.serviceTimeWarningThresholdMs ?? raw.ServiceTimeWarningThresholdMs ?? 400);
+        const serviceTimeCritRaw = Number(raw.serviceTimeCriticalThresholdMs ?? raw.ServiceTimeCriticalThresholdMs ?? 700);
+        const serviceTimeWarningMs = Number.isFinite(serviceTimeWarnRaw) && serviceTimeWarnRaw > 0 ? serviceTimeWarnRaw : 400;
+        const serviceTimeCriticalCandidate = Number.isFinite(serviceTimeCritRaw) && serviceTimeCritRaw > 0 ? serviceTimeCritRaw : 700;
+        const serviceTimeCriticalMs = Math.max(serviceTimeWarningMs, serviceTimeCriticalCandidate);
 
         let edgeStyle = 'orthogonal';
         if (typeof edgeStyleRaw === 'string') {
@@ -1761,7 +1766,9 @@
                 utilizationWarning: utilWarn,
                 utilizationCritical: utilCritical,
                 errorWarning: errorWarn,
-                errorCritical
+                errorCritical,
+                serviceTimeWarningMs,
+                serviceTimeCriticalMs
             }
         };
     }
@@ -1774,6 +1781,8 @@
                 return '#D9480F';
             case 3: // Queue
                 return '#2F9E44';
+            case 4: // Service Time
+                return '#1D4ED8';
             default: // SLA / fallback
                 return '#0B7285';
         }
@@ -1807,6 +1816,10 @@
                 if (value >= 0.8) return '#D55E00';
                 if (value >= 0.4) return '#E69F00';
                 return '#009E73';
+            case 4: // Service time (ms)
+                if (value >= thresholds.serviceTimeCriticalMs) return '#D55E00';
+                if (value >= thresholds.serviceTimeWarningMs) return '#E69F00';
+                return '#009E73';
             default: // SLA success
                 if (value >= thresholds.slaSuccess) return '#009E73';
                 if (value >= thresholds.slaWarning) return '#E69F00';
@@ -1831,6 +1844,8 @@
                 return sliceValue('errorRate') ?? valueAtArray(sparkline.errorRate ?? sparkline.ErrorRate, index);
             case 3:
                 return sliceValue('queue') ?? sliceValue('queueDepth') ?? valueAtArray(sparkline.queueDepth ?? sparkline.QueueDepth, index);
+            case 4:
+                return sliceValue('serviceTimeMs') ?? sliceValue('serviceTime') ?? valueAtArray(sparkline.serviceTimeMs ?? sparkline.ServiceTimeMs, index);
             default:
                 return sliceValue('successRate') ?? valueAtArray(sparkline.values ?? sparkline.Values, index);
         }
@@ -3465,7 +3480,9 @@
                 ? ['errorRate']
                 : basis === 3
                     ? ['queue', 'queueDepth']
-                    : [];
+                    : basis === 4
+                        ? ['serviceTimeMs', 'serviceTime']
+                        : [];
 
         for (const candidate of keyCandidates) {
             const slice = getSeriesSlice(sparkline, candidate);
@@ -3482,6 +3499,8 @@
                 return sparkline.errorRate ?? sparkline.ErrorRate ?? sparkline.values ?? sparkline.Values ?? [];
             case 3:
                 return sparkline.queueDepth ?? sparkline.QueueDepth ?? sparkline.values ?? sparkline.Values ?? [];
+            case 4:
+                return sparkline.serviceTimeMs ?? sparkline.ServiceTimeMs ?? sparkline.values ?? sparkline.Values ?? [];
             default:
                 return sparkline.values ?? sparkline.Values ?? [];
         }

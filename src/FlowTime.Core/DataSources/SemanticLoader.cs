@@ -52,6 +52,14 @@ public sealed class SemanticLoader
             ? LoadSeries(semantics.Capacity!, bins)
             : null;
 
+        double[]? processingTimeMsSum = IsFileUri(semantics.ProcessingTimeMsSum)
+            ? LoadSeries(semantics.ProcessingTimeMsSum!, bins)
+            : null;
+
+        double[]? servedCount = IsFileUri(semantics.ServedCount)
+            ? LoadSeries(semantics.ServedCount!, bins)
+            : null;
+
         return new NodeData
         {
             NodeId = node.Id,
@@ -65,6 +73,8 @@ public sealed class SemanticLoader
             ExternalDemand = externalDemand,
             QueueDepth = queueDepth,
             Capacity = capacity,
+            ProcessingTimeMsSum = processingTimeMsSum,
+            ServedCount = servedCount,
             Values = null
         };
     }

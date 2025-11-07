@@ -5,7 +5,8 @@ public enum TopologyColorBasis
     Sla,
     Utilization,
     Errors,
-    Queue
+    Queue,
+    ServiceTime
 }
 
 public enum SparklineRenderMode
@@ -48,6 +49,8 @@ public sealed class TopologyOverlaySettings
     public double SlaWarningThreshold { get; set; } = 0.95;
     public double ErrorRateAlertThreshold { get; set; } = 0.05;
     public double UtilizationWarningThreshold { get; set; } = 0.9;
+    public double ServiceTimeWarningThresholdMs { get; set; } = 400;
+    public double ServiceTimeCriticalThresholdMs { get; set; } = 700;
 
     public double ZoomPercent { get; set; } = 100;
 
@@ -89,6 +92,8 @@ public sealed class TopologyOverlaySettings
             SlaWarningThreshold = SlaWarningThreshold,
             ErrorRateAlertThreshold = ErrorRateAlertThreshold,
             UtilizationWarningThreshold = UtilizationWarningThreshold,
+            ServiceTimeWarningThresholdMs = ServiceTimeWarningThresholdMs,
+            ServiceTimeCriticalThresholdMs = ServiceTimeCriticalThresholdMs,
             ZoomPercent = ZoomPercent,
             RespectUiPositions = RespectUiPositions,
             ShowArrivalsDependencies = ShowArrivalsDependencies,

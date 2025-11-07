@@ -85,6 +85,8 @@ public static class ModelService
                         ExternalDemand = node.Semantics.ExternalDemand,
                         QueueDepth = node.Semantics.Queue,
                         Capacity = node.Semantics.Capacity,
+                        ProcessingTimeMsSum = node.Semantics.ProcessingTimeMsSum,
+                        ServedCount = node.Semantics.ServedCount,
                         SlaMin = node.Semantics.SlaMin
                     },
                     InitialCondition = node.InitialCondition != null

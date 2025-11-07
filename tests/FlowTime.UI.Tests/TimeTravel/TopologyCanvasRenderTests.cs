@@ -274,6 +274,8 @@ public sealed class TopologyCanvasRenderTests : TestContext
         Assert.Equal(0.91, overlayPayload.UtilizationCriticalCutoff, 3);
         Assert.Equal(0.032, overlayPayload.ErrorWarningCutoff, 3);
         Assert.Equal(0.08, overlayPayload.ErrorCriticalCutoff, 3);
+        Assert.Equal(400, overlayPayload.ServiceTimeWarningThresholdMs, 3);
+        Assert.Equal(700, overlayPayload.ServiceTimeCriticalThresholdMs, 3);
         Assert.Equal(activeBin, overlayPayload.SelectedBin);
     }
 
@@ -310,6 +312,40 @@ public sealed class TopologyCanvasRenderTests : TestContext
         var processor = Assert.Single(payload.Nodes, node => node.Id == "processor");
 
         Assert.Equal("82%", processor.FocusLabel);
+    }
+
+    [Fact]
+    public void FocusLabelForServiceTimeBasisIncludesMilliseconds()
+    {
+        var graph = CreateGraph();
+        var metrics = CreateMetrics();
+
+        var overlays = TopologyOverlaySettings.Default.Clone();
+        overlays.ColorBasis = TopologyColorBasis.ServiceTime;
+
+        var sparklines = new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["processor"] = CreateServiceTimeSparkline(
+                new double?[] { 210, 240, 270 },
+                startIndex: 0)
+        };
+
+        var renderCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.render", _ => true);
+        renderCall.SetVoidResult();
+
+        const int activeBin = 1;
+
+        RenderComponent<TopologyCanvas>(parameters => parameters
+            .Add(p => p.Graph, graph)
+            .Add(p => p.NodeMetrics, metrics)
+            .Add(p => p.NodeSparklines, sparklines)
+            .Add(p => p.OverlaySettings, overlays)
+            .Add(p => p.ActiveBin, activeBin));
+
+        var payload = Assert.IsType<CanvasRenderRequest>(renderCall.Invocations.Single().Arguments[1]);
+        var processor = Assert.Single(payload.Nodes, node => node.Id == "processor");
+
+        Assert.Contains("ms", processor.FocusLabel, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -423,8 +459,8 @@ public sealed class TopologyCanvasRenderTests : TestContext
     {
         return new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase)
         {
-            ["ingress"] = new NodeBinMetrics(0.96, 0.70, 0.01, 5, 2.3, DateTimeOffset.UtcNow),
-            ["processor"] = new NodeBinMetrics(0.88, 0.80, 0.02, 8, 3.2, DateTimeOffset.UtcNow),
+            ["ingress"] = new NodeBinMetrics(0.96, 0.70, 0.01, 5, 2.3, DateTimeOffset.UtcNow, ServiceTimeMs: 230),
+            ["processor"] = new NodeBinMetrics(0.88, 0.80, 0.02, 8, 3.2, DateTimeOffset.UtcNow, ServiceTimeMs: 260),
             ["egress"] = new NodeBinMetrics(0.75, 0.92, 0.04, 12, 5.8, DateTimeOffset.UtcNow)
         };
     }
@@ -439,6 +475,22 @@ public sealed class TopologyCanvasRenderTests : TestContext
 
         return NodeSparklineData.Create(
             successRate,
+            Array.Empty<double?>(),
+            Array.Empty<double?>(),
+            Array.Empty<double?>(),
+            startIndex,
+            additionalSeries: additional);
+    }
+
+    private static NodeSparklineData CreateServiceTimeSparkline(double?[] serviceTimes, int startIndex)
+    {
+        var additional = new Dictionary<string, SparklineSeriesSlice>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["serviceTimeMs"] = new SparklineSeriesSlice(serviceTimes, startIndex)
+        };
+
+        return NodeSparklineData.Create(
+            serviceTimes,
             Array.Empty<double?>(),
             Array.Empty<double?>(),
             Array.Empty<double?>(),

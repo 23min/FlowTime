@@ -120,6 +120,7 @@ public sealed class TopologyInspectorTests
         {
             ["successRate"] = new double?[] { 0.95, 0.97, 0.99 },
             ["utilization"] = new double?[] { 0.42, 0.58, 0.61 },
+            ["serviceTimeMs"] = new double?[] { 240, 255, 265 },
             ["latencyMinutes"] = new double?[] { 1.2, 1.1, 1.0 },
             ["errorRate"] = new double?[] { 0.01, 0.02, 0.03 },
             ["attempts"] = new double?[] { 12, 11, 10 },
@@ -170,6 +171,12 @@ public sealed class TopologyInspectorTests
             {
                 Assert.Equal("Utilization", block.Title);
                 Assert.False(block.IsPlaceholder);
+            },
+            block =>
+            {
+                Assert.Equal("Service time", block.Title);
+                Assert.False(block.IsPlaceholder);
+                Assert.NotNull(block.Sparkline);
             },
             block =>
             {

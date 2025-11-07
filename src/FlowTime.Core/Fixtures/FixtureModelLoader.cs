@@ -94,6 +94,8 @@ internal sealed class FixtureDocument
                 ExternalDemand = node.Semantics.ExternalDemand,
                 QueueDepth = node.Semantics.QueueDepth,
                 Capacity = node.Semantics.Capacity,
+                ProcessingTimeMsSum = node.Semantics.ProcessingTimeMsSum,
+                ServedCount = node.Semantics.ServedCount,
                 SlaMin = node.Semantics.SlaMinutes
             },
             InitialCondition = node.InitialCondition != null
@@ -149,6 +151,8 @@ internal sealed class FixtureSemantics
     public string? ExternalDemand { get; init; }
     public string? QueueDepth { get; init; }
     public string? Capacity { get; init; }
+    public string? ProcessingTimeMsSum { get; init; }
+    public string? ServedCount { get; init; }
     public double? SlaMinutes { get; init; }
 }
 

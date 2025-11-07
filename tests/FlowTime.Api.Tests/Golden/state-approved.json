@@ -38,7 +38,8 @@
         "capacity": 7
       },
       "derived": {
-        "utilization": 0.8571428571428571,
+        "utilization": 0.857143,
+        "serviceTimeMs": 300,
         "throughputRatio": 0.6,
         "color": "yellow"
       },
@@ -50,7 +51,9 @@
           "file:OrderService_attempts.csv",
           "file:OrderService_failures.csv",
           "file:OrderService_retryEcho.csv",
-          "file:OrderService_capacity.csv"
+          "file:OrderService_capacity.csv",
+          "file:OrderService_processingTimeMsSum.csv",
+          "file:OrderService_servedCount.csv"
         ],
         "warnings": []
       }
@@ -68,8 +71,8 @@
         "queue": 10
       },
       "derived": {
-        "latencyMinutes": 8.333333333333334,
-        "throughputRatio": 0.8571428571428571,
+        "latencyMinutes": 8.333333,
+        "throughputRatio": 0.857143,
         "color": "red"
       },
       "telemetry": {
