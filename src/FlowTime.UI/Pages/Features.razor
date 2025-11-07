@@ -5,8 +5,10 @@
 
 <PageTitle>Features (FlowTime Engine)</PageTitle>
 
-<MudText Typo="Typo.h5" GutterBottom="true">Features</MudText>
-<MudText Class="mb-4">Available node types and expression functions (M1.5 + M2 capabilities). See also <a href="/docs/capability-matrix" target="_blank">Capability Matrix</a>.</MudText>
+<div class="page-header">
+    <MudText Typo="Typo.h5">Features</MudText>
+    <MudText Class="mb-0">Available node types and expression functions (M1.5 + M2 capabilities). See also <a href="/docs/capability-matrix" target="_blank">Capability Matrix</a>.</MudText>
+</div>
 
 <MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-6" Class="features-tabs">
     <MudTabPanel Text="Node Types" Icon="@Icons.Material.Filled.AccountTree">
@@ -126,4 +128,3 @@
                (node.ExampleExpr?.ToLowerInvariant().Contains(s) ?? false);
     }
 }
-

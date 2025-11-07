@@ -1250,6 +1250,19 @@ body.dark-mode .topology-muted-text {
     color: rgba(203, 213, 225, 0.75);
 }
 
+.page-header {
+    padding: 0.5rem 0.5rem 1rem 0.5rem;
+    margin-bottom: 1.25rem;
+}
+
+.page-header .mud-typography {
+    margin-bottom: 0.5rem;
+}
+
+.page-header .mud-typography:last-child {
+    margin-bottom: 0;
+}
+
 /* Drawer navigation sections */
 .drawer-section {
     padding: 0.5rem 0 0.75rem;
