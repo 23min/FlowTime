@@ -44,7 +44,6 @@ public sealed partial class ArtifactList : ComponentBase
     private string? _detailError;
     private TelemetryCaptureSummaryDto? _captureSummary;
     private bool _isGeneratingTelemetry;
-    private string _captureKeyInput = string.Empty;
     private bool _overwriteCapture;
 
     internal bool IsDrawerOpen => _isDrawerOpen;
@@ -338,7 +337,6 @@ public sealed partial class ArtifactList : ComponentBase
         _isDrawerOpen = true;
         _detailError = null;
         _captureSummary = null;
-        _captureKeyInput = string.Empty;
         _overwriteCapture = false;
 
         await UpdateQueryAsync(includeRunId: true).ConfigureAwait(false);
@@ -365,7 +363,6 @@ public sealed partial class ArtifactList : ComponentBase
         _selectedDetail = null;
         _detailError = null;
         _captureSummary = null;
-        _captureKeyInput = string.Empty;
         _overwriteCapture = false;
         await UpdateQueryAsync(includeRunId: false).ConfigureAwait(false);
         await InvokeAsync(StateHasChanged);
@@ -436,10 +433,7 @@ public sealed partial class ArtifactList : ComponentBase
         {
             var request = new TelemetryCaptureRequestDto(
                 new TelemetryCaptureSourceDto("run", _selectedRun.RunId),
-                new TelemetryCaptureOutputDto(
-                    string.IsNullOrWhiteSpace(_captureKeyInput) ? null : _captureKeyInput.Trim(),
-                    null,
-                    _overwriteCapture));
+                new TelemetryCaptureOutputDto(null, null, _overwriteCapture));
 
             var result = await ApiClient.GenerateTelemetryCaptureAsync(request).ConfigureAwait(false);
             if (!result.Success || result.Value?.Capture is null)
@@ -447,7 +441,7 @@ public sealed partial class ArtifactList : ComponentBase
                 if (result.StatusCode == 409)
                 {
                     _captureSummary = TryParseCapture(result.Error);
-                    NotificationService.Add("Telemetry bundle already exists. Enable overwrite to regenerate or choose another capture key.", Severity.Info);
+                    NotificationService.Add("Telemetry bundle already exists. Enable overwrite to regenerate.", Severity.Info);
                 }
                 else
                 {
@@ -552,15 +546,6 @@ public sealed partial class ArtifactList : ComponentBase
             ["templateId"] = templateId,
             ["mode"] = mode.ToApiString()
         };
-
-        if (mode == OrchestrationMode.Telemetry)
-        {
-            var captureDir = string.IsNullOrWhiteSpace(_captureKeyInput) ? null : _captureKeyInput.Trim();
-            if (!string.IsNullOrWhiteSpace(captureDir))
-            {
-                query["captureDir"] = captureDir;
-            }
-        }
 
         var qs = string.Join("&", query
             .Where(kvp => !string.IsNullOrWhiteSpace(kvp.Value))
@@ -993,11 +978,6 @@ public sealed partial class ArtifactList : ComponentBase
         await OpenDrawerAsync(match).ConfigureAwait(false);
     }
 
-    private Task OnCaptureKeyChanged(string value)
-    {
-        _captureKeyInput = value;
-        return Task.CompletedTask;
-    }
 
     private Task OnOverwriteChanged(bool value)
     {

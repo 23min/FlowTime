@@ -179,14 +179,10 @@
                                                 <span class="artifact-details-value">@(metadata.ProvenanceHash ?? "Not reported")</span>
                                             </MudTooltip>
                                         </div>
-                                        <div class="artifact-details-row">
-                                            <span class="artifact-details-label">Schema</span>
-                                            <span class="artifact-details-value">
-                                                @(metadata.Schema is { } schema
-                                                    ? $"{schema.Id} v{schema.Version}"
-                                                    : "Not reported")
-                                            </span>
-                                        </div>
+                                <div class="artifact-details-row">
+                                    <span class="artifact-details-label">Schema</span>
+                                    <span class="artifact-details-value">@FormatSchemaDisplay(metadata.Schema)</span>
+                                </div>
                                         <div class="artifact-details-row">
                                             <span class="artifact-details-label">Telemetry sources</span>
                                             <span class="artifact-details-value">
@@ -214,20 +210,6 @@
                                 <MudText Typo="Typo.caption">
                                     Generate or refresh telemetry bundles for this run. Overwrite is off by default.
                                 </MudText>
-
-                                <MudAlert Severity="Severity.Info"
-                                          Variant="Variant.Outlined"
-                                          Dense="true"
-                                          Icon="@Icons.Material.Filled.Info">
-                                    Leave the capture key blank to store telemetry alongside this run. Provide a key only when publishing to a shared library.
-                                </MudAlert>
-
-                                <MudTextField @bind-Value="CaptureKeyValue"
-                                              Immediate="true"
-                                              Label="Capture key"
-                                              Variant="Variant.Outlined"
-                                              Placeholder="template-telemetry"
-                                              Disabled="IsGeneratingTelemetry" />
 
                                 <MudSwitch T="bool"
                                            @bind-Checked="OverwriteTelemetry"
@@ -333,8 +315,6 @@
     [Parameter] public bool IsGeneratingTelemetry { get; set; }
     [Parameter] public string? ErrorMessage { get; set; }
     [Parameter] public TelemetryCaptureSummaryDto? LastCaptureSummary { get; set; }
-    [Parameter] public string CaptureKey { get; set; } = string.Empty;
-    [Parameter] public EventCallback<string> CaptureKeyChanged { get; set; }
     [Parameter] public bool OverwriteTelemetry { get; set; }
     [Parameter] public EventCallback<bool> OverwriteTelemetryChanged { get; set; }
     [Parameter] public bool CanLoadModel { get; set; }
@@ -422,12 +402,6 @@
         ? "Generate telemetry bundle"
         : OverwriteTelemetry ? "Regenerate telemetry bundle" : "Generate telemetry bundle";
 
-    private string CaptureKeyValue
-    {
-        get => CaptureKey ?? string.Empty;
-        set => CaptureKeyChanged.InvokeAsync(value ?? string.Empty);
-    }
-
     private async Task HandleKeyDown(KeyboardEventArgs args)
     {
         if (!Open)
@@ -475,5 +449,29 @@
         }
 
         return timestamp.Value.ToString("yyyy-MM-dd HH:mm 'UTC'", CultureInfo.InvariantCulture);
+    }
+
+    private static string FormatSchemaDisplay(SchemaMetadataDto? schema)
+    {
+        if (schema is null)
+        {
+            return "Not reported";
+        }
+
+        var id = schema.Id?.Trim();
+        var version = schema.Version?.Trim();
+
+        if (string.IsNullOrWhiteSpace(id))
+        {
+            return string.IsNullOrWhiteSpace(version) ? "Not reported" : $"v{version}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(version) &&
+            id.Contains(version, StringComparison.OrdinalIgnoreCase) == false)
+        {
+            return $"{id} (v{version})";
+        }
+
+        return id;
     }
 }

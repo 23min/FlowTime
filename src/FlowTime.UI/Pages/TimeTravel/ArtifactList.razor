@@ -262,9 +262,9 @@
                 {
                     <MudStack Row Class="artifact-content-row" Spacing="2">
                     <MudStack Class="artifact-list-column" Spacing="2">
-                        <MudPaper Class="artifact-paper" Elevation="1">
-                            @if (_viewMode == ArtifactViewMode.Cards)
-                            {
+                        @if (_viewMode == ArtifactViewMode.Cards)
+                        {
+                            <MudPaper Class="artifact-paper" Elevation="1">
                                 <div class="artifact-cards-grid">
                                     @foreach (var run in _view.Items)
                                     {
@@ -276,9 +276,11 @@
                                                  IsSelected="@IsSelected(run)" />
                                     }
                                 </div>
-                            }
-                            else
-                            {
+                            </MudPaper>
+                        }
+                        else
+                        {
+                            <div class="artifact-list-surface">
                                 <MudStack Spacing="1">
                                     <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="artifact-list-toolbar">
                                         <MudStack Row Spacing="1" AlignItems="AlignItems.Center">
@@ -365,10 +367,10 @@
                                             <div class="artifact-grid-cell artifact-grid-header-cell"
                                                  role="button"
                                                  tabindex="0"
-                                                 aria-label="Sort by telemetry"
+                                                 aria-label="Sort by mode"
                                                  @onclick="async () => await ToggleColumnSortAsync(ArtifactSortOption.Telemetry)"
                                                  @onkeydown="async args => await OnHeaderKeyDown(args, ArtifactSortOption.Telemetry)">
-                                                <span>Telemetry</span>
+                                                <span>Mode</span>
                                                 @if (IsSortedBy(ArtifactSortOption.Telemetry))
                                                 {
                                                     <MudIcon Icon="@GetSortIcon()" Class="artifact-sort-icon" />
@@ -396,45 +398,23 @@
                                                     </div>
                                                 </div>
                                                 <div>
-                                                    <MudStack Spacing="0">
-                                                        <MudText Typo="Typo.subtitle2" Class="artifact-table-template">@FormatTemplateTitle(run)</MudText>
-                                                        <MudStack Row Spacing="0" AlignItems="AlignItems.Center" Class="artifact-inline-gap">
-                                                            <MudText Typo="Typo.caption" Class="artifact-table-subtext">@run.TemplateId</MudText>
-                                                            @if (!string.IsNullOrWhiteSpace(run.Source))
-                                                            {
-                                                                <MudChip T="string"
-                                                                         Size="Size.Small"
-                                                                         Variant="Variant.Outlined"
-                                                                         Color="Color.Secondary">
-                                                                    @FormatModeLabel(run.Source)
-                                                                </MudChip>
-                                                            }
-                                                        </MudStack>
-                                                    </MudStack>
+                                                    <MudText Typo="Typo.subtitle2" Class="artifact-table-template">@FormatTemplateTitle(run)</MudText>
                                                 </div>
                                                 <div>
-                                                    <MudStack Spacing="0">
-                                                        <MudStack Row Spacing="0" AlignItems="AlignItems.Center" Class="artifact-inline-gap">
-                                                            <MudText Typo="Typo.subtitle2" Class="artifact-table-runid">@run.RunId</MudText>
-                                                            @if (run.WarningCount > 0)
-                                                            {
-                                                                <MudIcon Icon="@Icons.Material.Filled.WarningAmber" Color="Color.Warning" Size="Size.Small" />
-                                                            }
-                                                        </MudStack>
-                                                        <MudText Typo="Typo.caption" Class="artifact-table-subtext">@GetShortRunId(run.RunId)</MudText>
+                                                    <MudStack Row Spacing="0" AlignItems="AlignItems.Center" Class="artifact-inline-gap">
+                                                        <MudText Typo="Typo.subtitle2" Class="artifact-table-runid">@GetShortRunId(run.RunId)</MudText>
+                                                        @if (run.WarningCount > 0)
+                                                        {
+                                                            <MudIcon Icon="@Icons.Material.Filled.WarningAmber" Color="Color.Warning" Size="Size.Small" />
+                                                        }
                                                     </MudStack>
                                                 </div>
                                                 <div>@FormatCreated(run)</div>
                                                 <div>@FormatGrid(run.Grid)</div>
                                                 <div>
-                                                    @if (run.Telemetry?.Available == true)
-                                                    {
-                                                        <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Outlined">Available</MudChip>
-                                                    }
-                                                    else
-                                                    {
-                                                        <MudText Typo="Typo.caption" Class="artifact-table-subtext">Not available</MudText>
-                                                    }
+                                                    <MudText Typo="Typo.body2">
+                                                        @(run.Telemetry?.Available == true ? "Telemetry" : "Simulation")
+                                                    </MudText>
                                                 </div>
                                                 <div class="artifact-grid-actions-cell">
                                                     @{
@@ -497,8 +477,9 @@
                                         }
                                     </div>
                                 </MudStack>
-                            }
-                        </MudPaper>
+                            </div>
+                        }
+
 
                         <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
                             <MudText Typo="Typo.caption" Color="Color.Secondary">
@@ -525,8 +506,6 @@
                                           IsGeneratingTelemetry="_isGeneratingTelemetry"
                                           ErrorMessage="@_detailError"
                                           LastCaptureSummary="_captureSummary"
-                                          CaptureKey="_captureKeyInput"
-                                          CaptureKeyChanged="OnCaptureKeyChanged"
                                           OverwriteTelemetry="_overwriteCapture"
                                           OverwriteTelemetryChanged="OnOverwriteChanged"
                                           CanLoadModel="CanLoadModel"

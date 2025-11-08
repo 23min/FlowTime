@@ -1269,6 +1269,11 @@ body.dark-mode .topology-muted-text {
     margin-right: 24px;
 }
 
+.artifact-list-surface {
+    padding: 16px;
+    margin: 0;
+}
+
 .artifact-view-toggle .mud-button-root {
     min-width: 90px;
 }
