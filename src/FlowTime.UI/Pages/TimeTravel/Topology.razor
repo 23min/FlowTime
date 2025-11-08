@@ -262,6 +262,8 @@
                         {
                             var nodeId = inspectorNodeId;
                             var metricBlocks = BuildInspectorMetricBlocks(nodeId);
+                            var metricsHaveSeries = metricBlocks.Any(block => !block.IsPlaceholder);
+                            var hasSparklineSeries = metricBlocks.Any(block => !block.IsPlaceholder && block.Sparkline is not null);
                             var topoNodeInfo = FindTopologyNode(nodeId);
                             var nodeKind = topoNodeInfo?.Kind;
                             var expressionText = topoNodeInfo?.Semantics?.Expression;
@@ -322,12 +324,12 @@
                                                 <MudText Typo="Typo.body2" Class="topology-muted-text">@metrics.CustomLabel</MudText>
                                             }
                                         </MudStack>
-                                        @if (!summaryRendered && !isComputedNode)
+                                        @if (!summaryRendered && !metricsHaveSeries && !isComputedNode)
                                         {
                                             <MudText Typo="Typo.body2">Metrics unavailable.</MudText>
                                         }
                                     }
-                                    else if (!isComputedNode)
+                                    else if (!isComputedNode && !metricsHaveSeries)
                                     {
                                         <MudText Typo="Typo.body2">Metrics unavailable.</MudText>
                                     }
@@ -347,44 +349,99 @@
                                         </MudStack>
                                     }
 
+                                    @if (hasSparklineSeries)
+                                    {
+                                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                                            <MudText Typo="Typo.subtitle2">Metric charts</MudText>
+                                            <MudChip T="bool"
+                                                     Variant="Variant.Outlined"
+                                                     Size="Size.Small"
+                                                     Color="Color.Primary"
+                                                     Selected="@inspectorMetricsExpanded"
+                                                     OnClick="ToggleInspectorMetricsExpanded">
+                                                @(inspectorMetricsExpanded ? "Collapse" : "Expand")
+                                            </MudChip>
+                                        </MudStack>
+                                    }
+
                                     @foreach (var block in metricBlocks)
                                     {
                                         <MudStack Spacing="1">
-                                            <MudText Typo="Typo.subtitle2">@block.Title</MudText>
-                                            @if (block.IsPlaceholder)
+                                            @if (inspectorMetricsExpanded)
                                             {
-                                                <MudText Typo="Typo.caption" Class="topology-muted-text">@block.Placeholder</MudText>
+                                                <MudText Typo="Typo.subtitle2">@block.Title</MudText>
                                             }
-                                            else if (block.Sparkline is not null)
+                                            @if (block.Sparkline is not null)
                                             {
-                                                <TopologyInspectorSparkline Data="@block.Sparkline"
-                                                                             SelectedBin="@selectedBin"
-                                                                             Stroke="@block.Stroke"
-                                                                             AriaLabel="@block.AriaLabel"
-                                                                             ValueFormat="@block.ValueFormat"
-                                                                             OverlaySettings="overlaySettings"
-                                                                             SeriesKey="@block.SeriesKey" />
-
-                                                @if (overlaySettings.ShowInspectorOverview)
+                                                if (inspectorMetricsExpanded)
                                                 {
-                                                    var (hData, hMin, hMax, hStart, hEnd) = ResolveHorizonSeries(inspectorNodeId!, block.SeriesKey, block.Sparkline);
-                                                    var horizonMin = overlaySettings.NormalizeInspectorHorizonCounts ? 0d : hMin;
-                                                    var horizonMax = overlaySettings.NormalizeInspectorHorizonCounts
-                                                        ? (overlaySettings.InspectorHorizonGlobalCap ?? hMax)
-                                                        : hMax;
-                                                    <TopologyHorizonChart Data="@hData"
-                                                                          Min="@horizonMin"
-                                                                          Max="@horizonMax"
-                                                                          Bands="@overlaySettings.HorizonBands"
-                                                                          Height="24"
-                                                                          NormalizeAcrossNodes="@overlaySettings.NormalizeInspectorHorizonCounts"
-                                                                          GlobalCap="@overlaySettings.InspectorHorizonGlobalCap"
-                                                                          OverlaySettings="overlaySettings"
-                                                                          SeriesKey="@block.SeriesKey"
-                                                                          HighlightStartIndex="@hStart"
-                                                                          HighlightEndIndex="@hEnd"
-                                                                          AriaLabel="@(block.AriaLabel is null ? null : $"{block.AriaLabel} horizon overview")" />
+                                                    <TopologyInspectorSparkline Data="@block.Sparkline"
+                                                                                 SelectedBin="@selectedBin"
+                                                                                 Stroke="@block.Stroke"
+                                                                                 AriaLabel="@block.AriaLabel"
+                                                                                 ValueFormat="@block.ValueFormat"
+                                                                                 OverlaySettings="overlaySettings"
+                                                                                 SeriesKey="@block.SeriesKey" />
                                                 }
+
+                                                var (hData, hMin, hMax, hStart, hEnd) = ResolveHorizonSeries(inspectorNodeId!, block.SeriesKey, block.Sparkline);
+                                                var horizonMin = overlaySettings.NormalizeInspectorHorizonCounts ? 0d : hMin;
+                                                var horizonMax = overlaySettings.NormalizeInspectorHorizonCounts
+                                                    ? (overlaySettings.InspectorHorizonGlobalCap ?? hMax)
+                                                    : hMax;
+
+                                                @if (hData is not null && hData.Length > 0)
+                                                {
+                                                    <MudStack Spacing="0" Class="topology-horizon-wrapper">
+                                                        @if (!inspectorMetricsExpanded)
+                                                        {
+                                                            <MudText Typo="Typo.caption"
+                                                                     Class="topology-muted-text topology-horizon-label">@block.Title</MudText>
+                                                        }
+                                                        <TopologyHorizonChart Data="@hData"
+                                                                              Min="@horizonMin"
+                                                                              Max="@horizonMax"
+                                                                              Bands="@overlaySettings.HorizonBands"
+                                                                              Height="24"
+                                                                              NormalizeAcrossNodes="@overlaySettings.NormalizeInspectorHorizonCounts"
+                                                                              GlobalCap="@overlaySettings.InspectorHorizonGlobalCap"
+                                                                              OverlaySettings="overlaySettings"
+                                                                              SeriesKey="@block.SeriesKey"
+                                                                              HighlightStartIndex="@hStart"
+                                                                              HighlightEndIndex="@hEnd"
+                                                                              AriaLabel="@(block.AriaLabel is null ? null : $"{block.AriaLabel} horizon overview")" />
+                                                    </MudStack>
+                                                }
+                                                else
+                                                {
+                                                    <MudStack Spacing="0" Class="topology-horizon-wrapper">
+                                                        @if (!inspectorMetricsExpanded)
+                                                        {
+                                                            <MudText Typo="Typo.caption"
+                                                                     Class="topology-muted-text topology-horizon-label">@block.Title</MudText>
+                                                        }
+                                                        <div class="topology-horizon-empty"
+                                                             role="img"
+                                                             aria-label="@BuildHorizonEmptyLabel(block.AriaLabel, block.Placeholder)">
+                                                            <span>No data</span>
+                                                        </div>
+                                                    </MudStack>
+                                                }
+                                            }
+                                            else
+                                            {
+                                                <MudStack Spacing="0" Class="topology-horizon-wrapper">
+                                                    @if (!inspectorMetricsExpanded)
+                                                    {
+                                                        <MudText Typo="Typo.caption"
+                                                                 Class="topology-muted-text topology-horizon-label">@block.Title</MudText>
+                                                    }
+                                                    <div class="topology-horizon-empty"
+                                                         role="img"
+                                                         aria-label="@BuildHorizonEmptyLabel(block.AriaLabel, block.Placeholder)">
+                                                        <span>No data</span>
+                                                    </div>
+                                                </MudStack>
                                             }
                                         </MudStack>
                                     }
@@ -421,9 +478,10 @@
     private bool attemptedRestore;
     private DotNetObjectReference<Topology>? selfReference;
     private int? hotkeyRegistrationId;
-    private string? inspectorNodeId;
-    private bool inspectorOpen;
-    private bool inspectorPinned;
+private string? inspectorNodeId;
+private bool inspectorOpen;
+private bool inspectorPinned;
+private bool inspectorMetricsExpanded;
     private CancellationTokenSource? saveRunStateDebounceCts;
 
     private TopologyGraph? topologyGraph;
@@ -488,6 +546,20 @@
     internal const string InspectorMissingSeriesMessage = "Model does not include series data";
     private const string BinValueLabel = "bin(t)";
     private const string PmfExpectationLabel = "E[output]";
+
+    private static string BuildHorizonEmptyLabel(string? ariaLabel, string? placeholder = null)
+    {
+        var baseLabel = ariaLabel is null
+            ? "Metric horizon chart has no data"
+            : $"{ariaLabel} horizon chart has no data";
+
+        if (string.IsNullOrWhiteSpace(placeholder))
+        {
+            return baseLabel;
+        }
+
+        return $"{baseLabel}. {placeholder}";
+    }
 
     protected override async Task OnParametersSetAsync()
     {
@@ -1951,6 +2023,7 @@
             inspectorPinned = true;
         }
 
+        inspectorMetricsExpanded = false;
         StateHasChanged();
         return Task.CompletedTask;
     }
@@ -2588,8 +2661,14 @@
         inspectorOpen = false;
         inspectorNodeId = null;
         inspectorPinned = false;
+        inspectorMetricsExpanded = false;
         canvasComponent?.ClearFocus();
         StateHasChanged();
+    }
+
+    private void ToggleInspectorMetricsExpanded()
+    {
+        inspectorMetricsExpanded = !inspectorMetricsExpanded;
     }
 
     private static double?[]? SelectPrimarySeries(IReadOnlyDictionary<string, double?[]> series)
@@ -3052,6 +3131,7 @@ private static IReadOnlyList<double?> TrimSeriesAt(double?[]? source, int limit,
         inspectorOpen = false;
         inspectorPinned = false;
         inspectorNodeId = null;
+        inspectorMetricsExpanded = false;
         loggedMissingMetricKinds.Clear();
         activeMetrics = new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase);
         nodeSparklines = new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase);

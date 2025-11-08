@@ -1250,6 +1250,32 @@ body.dark-mode .topology-muted-text {
     color: rgba(203, 213, 225, 0.75);
 }
 
+.topology-horizon-wrapper {
+    margin-top: 0.25rem;
+}
+
+.topology-horizon-label {
+    font-size: 0.65rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.topology-horizon-empty {
+    height: 24px;
+    border: 1px dashed rgba(71, 85, 105, 0.35);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.72rem;
+    color: rgba(71, 85, 105, 0.75);
+    background: rgba(71, 85, 105, 0.05);
+}
+
+.topology-horizon-empty span {
+    pointer-events: none;
+}
+
 .page-header {
     padding: 24px;
     margin-bottom: 1.25rem;
