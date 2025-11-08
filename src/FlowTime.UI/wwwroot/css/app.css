@@ -1264,9 +1264,13 @@ body.dark-mode .topology-muted-text {
 }
 
 .artifact-paper {
-    padding: 24px;
+    padding: 10px 24px 24px 24px;
     margin-left: 24px;
     margin-right: 24px;
+}
+
+.artifact-view-toggle .mud-button-root {
+    min-width: 90px;
 }
 
 .sla-title-paper {
@@ -1274,6 +1278,188 @@ body.dark-mode .topology-muted-text {
     padding-right: 24px;
     margin-top: 16px;
     padding-bottom: 10px;
+}
+
+.artifact-list-toolbar {
+    padding: 12px 16px 4px 16px;
+}
+
+.artifact-table .mud-table-cell,
+.artifact-table .mud-table-head .mud-table-cell,
+.artifact-table .mud-table-body .mud-table-cell {
+    padding: 0.35rem 0.5rem;
+    font-size: 0.85rem;
+}
+
+.artifact-table table {
+    table-layout: fixed;
+    width: 100%;
+}
+
+.artifact-checkbox-cell {
+    width: 48px;
+    min-width: 48px;
+    max-width: 48px;
+    text-align: center;
+}
+
+.artifact-checkbox-cell .mud-input-root {
+    justify-content: center;
+}
+
+.artifact-checkbox-cell .mud-input-control {
+    width: auto;
+    margin: 0 auto;
+}
+
+.artifact-table-row {
+    cursor: pointer;
+}
+
+.artifact-table-row--selected {
+    background-color: rgba(25, 118, 210, 0.08);
+}
+
+.artifact-table-runid {
+    font-weight: 600;
+}
+
+.artifact-table-template {
+    font-weight: 600;
+}
+
+.artifact-table-subtext {
+    font-size: 0.75rem;
+    color: rgba(71, 85, 105, 0.9);
+}
+
+.artifact-inline-gap {
+    gap: 0.5rem !important;
+}
+
+.artifact-grid-container {
+    border: 1px solid var(--mud-palette-divider);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.artifact-grid-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    min-width: 0;
+}
+
+.artifact-grid-row {
+    display: grid;
+    grid-template-columns: 48px minmax(180px, 2.1fr) minmax(180px, 1.9fr) minmax(120px, 1.15fr) minmax(120px, 1.05fr) minmax(100px, 1fr) minmax(90px, 1fr);
+    align-items: center;
+    padding: 0.2rem 0.55rem;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.artifact-grid-row:last-child {
+    border-bottom: none;
+}
+
+.artifact-grid-row.artifact-grid-header {
+    padding: 0 0.55rem;
+    min-height: 24px;
+}
+
+.artifact-grid-header {
+    background: rgba(15, 23, 42, 0.05);
+    font-weight: 600;
+    padding: 0;
+    min-height: 24px;
+    font-size: 0.85rem;
+    line-height: 1.2;
+}
+
+.artifact-grid-header-cell {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-weight: 600;
+    cursor: pointer;
+    user-select: none;
+}
+
+.artifact-grid-header .artifact-grid-cell,
+.artifact-grid-header .artifact-checkbox-cell {
+    min-height: 24px;
+}
+
+.artifact-grid-checkbox {
+    padding: 0 !important;
+}
+
+.artifact-grid-checkbox .mud-input-root,
+.artifact-grid-header .mud-input-root,
+.artifact-grid-header .mud-checkbox-root {
+    min-height: 20px;
+}
+
+.artifact-grid-checkbox-header {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+}
+
+.artifact-grid-actions-header {
+    justify-content: flex-start;
+    cursor: default;
+}
+
+.artifact-grid-actions-cell {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    align-content: center;
+    gap: 0.2rem;
+    row-gap: 0.15rem;
+    flex-wrap: wrap;
+    max-width: 100%;
+}
+
+.artifact-grid-actions-cell .mud-icon-button-root {
+    padding: 0.1rem;
+}
+
+.artifact-grid-actions-cell .artifact-card-telemetry-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 0.2rem;
+    min-width: 0;
+}
+
+.artifact-grid-actions-cell .artifact-card-telemetry-dot {
+    top: 1px;
+    right: 1px;
+}
+
+.artifact-grid-header-cell span {
+    line-height: 1.2;
+}
+
+.artifact-grid-header-cell:focus-visible {
+    outline: 2px solid var(--mud-palette-primary);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+.artifact-sort-icon {
+    font-size: 1.1rem;
+    color: rgba(15, 23, 42, 0.6);
+}
+
+.artifact-grid-row.artifact-table-row {
+    cursor: pointer;
+}
+
+.artifact-grid-row.artifact-table-row--selected {
+    background-color: rgba(25, 118, 210, 0.08);
 }
 
 .sla-panel {

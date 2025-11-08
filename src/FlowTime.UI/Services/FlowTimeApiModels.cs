@@ -232,3 +232,14 @@ public sealed record TelemetryCaptureSummaryDto(
     [property: JsonPropertyName("generatedAtUtc")] string? GeneratedAtUtc,
     [property: JsonPropertyName("sourceRunId")] string? SourceRunId,
     [property: JsonPropertyName("warnings")] IReadOnlyList<StateWarningDto>? Warnings);
+
+public sealed record BulkArtifactDeleteResponse(
+    [property: JsonPropertyName("success")] bool Success,
+    [property: JsonPropertyName("processed")] int Processed,
+    [property: JsonPropertyName("deleted")] int Deleted,
+    [property: JsonPropertyName("results")] IReadOnlyList<BulkArtifactDeleteResult> Results);
+
+public sealed record BulkArtifactDeleteResult(
+    [property: JsonPropertyName("id")] string Id,
+    [property: JsonPropertyName("success")] bool Success,
+    [property: JsonPropertyName("error")] string? Error);

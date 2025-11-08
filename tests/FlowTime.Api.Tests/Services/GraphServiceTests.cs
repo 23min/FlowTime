@@ -14,11 +14,15 @@ public sealed class GraphServiceTests : IDisposable
     private readonly string artifactsRoot;
     private readonly IConfiguration configuration;
     private readonly GraphService service;
+    private readonly string? originalDataDir;
 
     public GraphServiceTests()
     {
         artifactsRoot = Path.Combine(Path.GetTempPath(), $"graph_service_tests_{Guid.NewGuid():N}");
         Directory.CreateDirectory(artifactsRoot);
+
+        originalDataDir = Environment.GetEnvironmentVariable("FLOWTIME_DATA_DIR");
+        Environment.SetEnvironmentVariable("FLOWTIME_DATA_DIR", null);
 
         configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new[]
@@ -209,5 +213,7 @@ grid:
         {
             // best effort cleanup
         }
+
+        Environment.SetEnvironmentVariable("FLOWTIME_DATA_DIR", originalDataDir);
     }
 }

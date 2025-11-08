@@ -41,6 +41,7 @@ public sealed class ArtifactListRenderTests : TestContext
         Services.AddSingleton<INotificationService>(new StubNotificationService());
 
         RenderComponent<MudPopoverProvider>();
+        RenderComponent<MudDialogProvider>();
         navigation = Services.GetRequiredService<NavigationManager>();
     }
 
@@ -122,6 +123,51 @@ public sealed class ArtifactListRenderTests : TestContext
         var cut = RenderArtifactList();
 
         cut.WaitForAssertion(() => Assert.True(cut.Instance.IsDrawerOpen));
+    }
+
+    [Fact]
+    public void ListViewSelectionEnablesBulkDelete()
+    {
+        navigation.NavigateTo("http://localhost/time-travel/artifacts");
+        var runs = CreateRuns();
+        runDiscovery.SetRuns(runs);
+        SetupLocalStorage();
+
+        var cut = RenderArtifactList();
+        cut.WaitForAssertion(() => Assert.Equal(runs.Count, cut.FindAll("[data-testid='artifact-card']").Count));
+
+        SwitchToListView(cut);
+
+        var deleteButtonSelector = "[data-testid='artifact-delete-button']";
+        cut.WaitForAssertion(() => Assert.True(cut.Find(deleteButtonSelector).HasAttribute("disabled")));
+
+        var grid = cut.Find(".artifact-grid-container");
+        var checkboxes = grid.QuerySelectorAll("input[type='checkbox']");
+        Assert.True(checkboxes.Length > 1);
+
+        var dashboardButtons = grid.QuerySelectorAll("[data-testid='artifact-action-dashboard']");
+        var topologyButtons = grid.QuerySelectorAll("[data-testid='artifact-action-topology']");
+        Assert.Equal(runs.Count, dashboardButtons.Length);
+        Assert.Equal(runs.Count, topologyButtons.Length);
+
+        checkboxes[1].Change(true);
+
+        cut.WaitForAssertion(() =>
+        {
+            var summary = cut.Find("[data-testid='artifact-selection-summary']");
+            Assert.Contains("1 run selected", summary.TextContent, StringComparison.OrdinalIgnoreCase);
+            Assert.False(cut.Find(deleteButtonSelector).HasAttribute("disabled"));
+        });
+
+        grid = cut.Find(".artifact-grid-container");
+        checkboxes = grid.QuerySelectorAll("input[type='checkbox']");
+        checkboxes[0].Change(true);
+
+        cut.WaitForAssertion(() =>
+        {
+            var summary = cut.Find("[data-testid='artifact-selection-summary']");
+            Assert.Contains($"{runs.Count} runs selected", summary.TextContent, StringComparison.OrdinalIgnoreCase);
+        });
     }
 
     private void SetupLocalStorage()
@@ -226,6 +272,12 @@ public sealed class ArtifactListRenderTests : TestContext
         return RenderComponent<ArtifactList>();
     }
 
+    private void SwitchToListView(IRenderedComponent<ArtifactList> cut)
+    {
+        cut.Find("[data-testid='artifact-view-list']").Click();
+        cut.WaitForAssertion(() => cut.Find(".artifact-grid-container"));
+    }
+
     private sealed class StubRunDiscoveryService : IRunDiscoveryService
     {
         private IReadOnlyList<RunListEntry> runs = Array.Empty<RunListEntry>();
@@ -298,6 +350,9 @@ public sealed class ArtifactListRenderTests : TestContext
 
         public Task<ApiCallResult<object>> GetDetailedHealthAsync(CancellationToken ct = default)
             => Task.FromResult(ApiCallResult<object>.Fail(503, "not implemented"));
+
+        public Task<ApiCallResult<BulkArtifactDeleteResponse>> BulkDeleteArtifactsAsync(string[] artifactIds, CancellationToken ct = default) =>
+            Task.FromResult(ApiCallResult<BulkArtifactDeleteResponse>.Fail(501, "not implemented"));
 
     }
 

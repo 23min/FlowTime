@@ -1,5 +1,6 @@
 @page "/time-travel/artifacts"
 @using FlowTime.UI.Components.Artifacts
+@using FlowTime.UI.Components.Dialogs
 @using FlowTime.UI.Services
 @using MudBlazor
 
@@ -8,6 +9,7 @@
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
 @inject INotificationService NotificationService
+@inject IDialogService DialogService
 @inject ILogger<ArtifactList> Logger
 
 <PageTitle>Artifacts</PageTitle>
@@ -23,6 +25,22 @@
                     </MudText>
                 </MudStack>
                 <MudStack Row Spacing="1" AlignItems="AlignItems.Center">
+                    <MudButtonGroup Variant="Variant.Text" Class="artifact-view-toggle">
+                        <MudButton StartIcon="@Icons.Material.Filled.ViewModule"
+                                   Variant="@(_viewMode == ArtifactViewMode.Cards ? Variant.Filled : Variant.Outlined)"
+                                   Color="Color.Primary"
+                                   data-testid="artifact-view-cards"
+                                   OnClick="() => SetViewMode(ArtifactViewMode.Cards)">
+                            Cards
+                        </MudButton>
+                        <MudButton StartIcon="@Icons.Material.Filled.TableRows"
+                                   Variant="@(_viewMode == ArtifactViewMode.List ? Variant.Filled : Variant.Outlined)"
+                                   Color="Color.Primary"
+                                   data-testid="artifact-view-list"
+                                   OnClick="() => SetViewMode(ArtifactViewMode.List)">
+                            List
+                        </MudButton>
+                    </MudButtonGroup>
                     <MudChip T="string"
                              Variant="Variant.Outlined"
                              Color="Color.Primary"
@@ -44,21 +62,35 @@
                 <MudItem xs="12" md="7">
                     <MudStack Spacing="2">
                         <MudStack Row Spacing="1" AlignItems="AlignItems.Center">
-                            <MudText Typo="Typo.subtitle2">Modes</MudText>
+                            <MudText Typo="Typo.subtitle2">Mode</MudText>
                             <MudStack Row Spacing="1" Wrap="Wrap.Wrap">
-                                        @foreach (var mode in _modeFacets.Keys.OrderBy(m => m, StringComparer.OrdinalIgnoreCase))
-                                        {
-                                            var modeKey = GetModeKey(mode);
-                                            <MudChip T="string"
-                                                     Variant="Variant.Outlined"
-                                                     Size="Size.Small"
-                                                     Color="Color.Secondary"
-                                                     Selected="@_state.IsModeSelected(mode)"
-                                                     data-testid="@($"filter-mode-{modeKey}")"
-                                                     OnClick="@(() => ToggleModeAsync(mode))">
-                                        @($"{GetModeLabel(mode)} ({_modeFacets[mode]})")
-                                    </MudChip>
-                                }
+                                <MudChip T="string"
+                                         Variant="Variant.Outlined"
+                                         Size="Size.Small"
+                                         Color="Color.Secondary"
+                                         Selected="@(!_state.SelectedModes.Any() && _state.TelemetryFilter == ArtifactTelemetryFilter.All)"
+                                         data-testid="filter-mode-all"
+                                         OnClick="@(() => SetModeFilterAsync(null))">
+                                    All (@_runs.Count)
+                                </MudChip>
+                                <MudChip T="string"
+                                         Variant="Variant.Outlined"
+                                         Size="Size.Small"
+                                         Color="Color.Secondary"
+                                         Selected="@_state.IsModeSelected("simulation")"
+                                         data-testid="filter-mode-simulation"
+                                         OnClick="@(() => SetModeFilterAsync("simulation"))">
+                                    Simulation (@_simulationModeCount)
+                                </MudChip>
+                                <MudChip T="string"
+                                         Variant="Variant.Outlined"
+                                         Size="Size.Small"
+                                         Color="Color.Secondary"
+                                         Selected="@(_state.TelemetryFilter == ArtifactTelemetryFilter.Available)"
+                                         data-testid="filter-mode-telemetry"
+                                         OnClick="@(() => SetModeFilterAsync("telemetry-available"))">
+                                    Telemetry (@_telemetryAvailable)
+                                </MudChip>
                             </MudStack>
                         </MudStack>
 
@@ -95,38 +127,41 @@
                             </MudStack>
                         </MudStack>
 
-                        <MudStack Row Spacing="1" AlignItems="AlignItems.Center">
-                            <MudText Typo="Typo.subtitle2">Sort By</MudText>
-                            <MudStack Row Spacing="1" Wrap="Wrap.Wrap">
-                                <MudChip T="ArtifactSortOption"
-                                         Variant="Variant.Outlined"
-                                         Size="Size.Small"
-                                         Color="Color.Primary"
-                                         Selected="@(_state.SortOption == ArtifactSortOption.Created)"
-                                         data-testid="sort-created"
-                                         OnClick="@(async () => await OnSortChanged(ArtifactSortOption.Created))">
-                                    Created
-                                </MudChip>
-                                <MudChip T="ArtifactSortOption"
-                                         Variant="Variant.Outlined"
-                                         Size="Size.Small"
-                                         Color="Color.Primary"
-                                         Selected="@(_state.SortOption == ArtifactSortOption.Status)"
-                                         data-testid="sort-status"
-                                         OnClick="@(async () => await OnSortChanged(ArtifactSortOption.Status))">
-                                    Status
-                                </MudChip>
-                                <MudChip T="ArtifactSortOption"
-                                         Variant="Variant.Outlined"
-                                         Size="Size.Small"
-                                         Color="Color.Primary"
-                                         Selected="@(_state.SortOption == ArtifactSortOption.Template)"
-                                         data-testid="sort-template"
-                                         OnClick="@(async () => await OnSortChanged(ArtifactSortOption.Template))">
-                                    Template
-                                </MudChip>
+                        @if (_viewMode == ArtifactViewMode.Cards)
+                        {
+                            <MudStack Row Spacing="1" AlignItems="AlignItems.Center">
+                                <MudText Typo="Typo.subtitle2">Sort By</MudText>
+                                <MudStack Row Spacing="1" Wrap="Wrap.Wrap">
+                                    <MudChip T="ArtifactSortOption"
+                                             Variant="Variant.Outlined"
+                                             Size="Size.Small"
+                                             Color="Color.Primary"
+                                             Selected="@(_state.SortOption == ArtifactSortOption.Created)"
+                                             data-testid="sort-created"
+                                             OnClick="@(async () => await OnSortChanged(ArtifactSortOption.Created))">
+                                        Created
+                                    </MudChip>
+                                    <MudChip T="ArtifactSortOption"
+                                             Variant="Variant.Outlined"
+                                             Size="Size.Small"
+                                             Color="Color.Primary"
+                                             Selected="@(_state.SortOption == ArtifactSortOption.Status)"
+                                             data-testid="sort-status"
+                                             OnClick="@(async () => await OnSortChanged(ArtifactSortOption.Status))">
+                                        Status
+                                    </MudChip>
+                                    <MudChip T="ArtifactSortOption"
+                                             Variant="Variant.Outlined"
+                                             Size="Size.Small"
+                                             Color="Color.Primary"
+                                             Selected="@(_state.SortOption == ArtifactSortOption.Template)"
+                                             data-testid="sort-template"
+                                             OnClick="@(async () => await OnSortChanged(ArtifactSortOption.Template))">
+                                        Template
+                                    </MudChip>
+                                </MudStack>
                             </MudStack>
-                        </MudStack>
+                        }
                     </MudStack>
                 </MudItem>
 
@@ -226,8 +261,10 @@
                 else
                 {
                     <MudStack Row Class="artifact-content-row" Spacing="2">
-                        <MudStack Class="artifact-list-column" Spacing="2">
-                            <MudPaper Class="pa-4" Elevation="1">
+                    <MudStack Class="artifact-list-column" Spacing="2">
+                        <MudPaper Class="artifact-paper" Elevation="1">
+                            @if (_viewMode == ArtifactViewMode.Cards)
+                            {
                                 <div class="artifact-cards-grid">
                                     @foreach (var run in _view.Items)
                                     {
@@ -239,12 +276,234 @@
                                                  IsSelected="@IsSelected(run)" />
                                     }
                                 </div>
-                            </MudPaper>
+                            }
+                            else
+                            {
+                                <MudStack Spacing="1">
+                                    <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="artifact-list-toolbar">
+                                        <MudStack Row Spacing="1" AlignItems="AlignItems.Center">
+                                            <MudButton Variant="Variant.Filled"
+                                                       Color="Color.Error"
+                                                       StartIcon="@Icons.Material.Filled.Delete"
+                                                       Disabled="@(!_selectedRunIds.Any() || _isDeletingArtifacts)"
+                                                       data-testid="artifact-delete-button"
+                                                       OnClick="DeleteSelectedAsync">
+                                                @if (_isDeletingArtifacts)
+                                                {
+                                                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                                                }
+                                                Delete
+                                            </MudButton>
+                                            <MudText Typo="Typo.caption"
+                                                     Color="Color.Secondary"
+                                                     data-testid="artifact-selection-summary">
+                                                @SelectionSummary
+                                            </MudText>
+                                        </MudStack>
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">Rows open details</MudText>
+                                    </MudStack>
+                                    <div class="artifact-grid-container">
+                                        <div class="artifact-grid-row artifact-grid-header">
+                                            <div class="artifact-checkbox-cell artifact-grid-checkbox-header">
+                                                <MudCheckBox T="bool"
+                                                             Dense="true"
+                                                             DisableRipple="true"
+                                                             Class="artifact-grid-checkbox"
+                                                             Value="@SelectAllChecked"
+                                                             ValueChanged="@(EventCallback.Factory.Create<bool>(this, OnSelectAllChanged))"
+                                                             Indeterminate="SelectAllIndeterminate"
+                                                             Color="Color.Primary" />
+                                            </div>
+                                            <div class="artifact-grid-cell artifact-grid-header-cell"
+                                                 role="button"
+                                                 tabindex="0"
+                                                 aria-label="Sort by template"
+                                                 @onclick="async () => await ToggleColumnSortAsync(ArtifactSortOption.Template)"
+                                                 @onkeydown="async args => await OnHeaderKeyDown(args, ArtifactSortOption.Template)">
+                                                <span>Template</span>
+                                                @if (IsSortedBy(ArtifactSortOption.Template))
+                                                {
+                                                    <MudIcon Icon="@GetSortIcon()" Class="artifact-sort-icon" />
+                                                }
+                                            </div>
+                                            <div class="artifact-grid-cell artifact-grid-header-cell"
+                                                 role="button"
+                                                 tabindex="0"
+                                                 aria-label="Sort by run"
+                                                 @onclick="async () => await ToggleColumnSortAsync(ArtifactSortOption.RunId)"
+                                                 @onkeydown="async args => await OnHeaderKeyDown(args, ArtifactSortOption.RunId)">
+                                                <span>Run</span>
+                                                @if (IsSortedBy(ArtifactSortOption.RunId))
+                                                {
+                                                    <MudIcon Icon="@GetSortIcon()" Class="artifact-sort-icon" />
+                                                }
+                                            </div>
+                                            <div class="artifact-grid-cell artifact-grid-header-cell"
+                                                 role="button"
+                                                 tabindex="0"
+                                                 aria-label="Sort by created date"
+                                                 @onclick="async () => await ToggleColumnSortAsync(ArtifactSortOption.Created)"
+                                                 @onkeydown="async args => await OnHeaderKeyDown(args, ArtifactSortOption.Created)">
+                                                <span>Created (UTC)</span>
+                                                @if (IsSortedBy(ArtifactSortOption.Created))
+                                                {
+                                                    <MudIcon Icon="@GetSortIcon()" Class="artifact-sort-icon" />
+                                                }
+                                            </div>
+                                            <div class="artifact-grid-cell artifact-grid-header-cell"
+                                                 role="button"
+                                                 tabindex="0"
+                                                 aria-label="Sort by grid"
+                                                 @onclick="async () => await ToggleColumnSortAsync(ArtifactSortOption.Grid)"
+                                                 @onkeydown="async args => await OnHeaderKeyDown(args, ArtifactSortOption.Grid)">
+                                                <span>Grid</span>
+                                                @if (IsSortedBy(ArtifactSortOption.Grid))
+                                                {
+                                                    <MudIcon Icon="@GetSortIcon()" Class="artifact-sort-icon" />
+                                                }
+                                            </div>
+                                            <div class="artifact-grid-cell artifact-grid-header-cell"
+                                                 role="button"
+                                                 tabindex="0"
+                                                 aria-label="Sort by telemetry"
+                                                 @onclick="async () => await ToggleColumnSortAsync(ArtifactSortOption.Telemetry)"
+                                                 @onkeydown="async args => await OnHeaderKeyDown(args, ArtifactSortOption.Telemetry)">
+                                                <span>Telemetry</span>
+                                                @if (IsSortedBy(ArtifactSortOption.Telemetry))
+                                                {
+                                                    <MudIcon Icon="@GetSortIcon()" Class="artifact-sort-icon" />
+                                                }
+                                            </div>
+                                            <div class="artifact-grid-cell artifact-grid-header-cell artifact-grid-actions-header">
+                                                <span>Open</span>
+                                            </div>
+                                        </div>
+                                        @foreach (var run in _view.Items)
+                                        {
+                                            <div class="@GetRowClass(run) artifact-grid-row"
+                                                 role="button"
+                                                 tabindex="0"
+                                                 @onclick="() => OnRowClickedAsync(run)">
+                                                <div class="artifact-checkbox-cell">
+                                                    <div @onclick:stopPropagation>
+                                                        <MudCheckBox T="bool"
+                                                                     Dense="true"
+                                                                     DisableRipple="true"
+                                                                     Class="artifact-grid-checkbox"
+                                                                     Value="@IsRowSelected(run)"
+                                                                     ValueChanged="@(EventCallback.Factory.Create<bool>(this, value => OnRowSelectionChanged(run, value)))"
+                                                                     Color="Color.Primary" />
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <MudStack Spacing="0">
+                                                        <MudText Typo="Typo.subtitle2" Class="artifact-table-template">@FormatTemplateTitle(run)</MudText>
+                                                        <MudStack Row Spacing="0" AlignItems="AlignItems.Center" Class="artifact-inline-gap">
+                                                            <MudText Typo="Typo.caption" Class="artifact-table-subtext">@run.TemplateId</MudText>
+                                                            @if (!string.IsNullOrWhiteSpace(run.Source))
+                                                            {
+                                                                <MudChip T="string"
+                                                                         Size="Size.Small"
+                                                                         Variant="Variant.Outlined"
+                                                                         Color="Color.Secondary">
+                                                                    @FormatModeLabel(run.Source)
+                                                                </MudChip>
+                                                            }
+                                                        </MudStack>
+                                                    </MudStack>
+                                                </div>
+                                                <div>
+                                                    <MudStack Spacing="0">
+                                                        <MudStack Row Spacing="0" AlignItems="AlignItems.Center" Class="artifact-inline-gap">
+                                                            <MudText Typo="Typo.subtitle2" Class="artifact-table-runid">@run.RunId</MudText>
+                                                            @if (run.WarningCount > 0)
+                                                            {
+                                                                <MudIcon Icon="@Icons.Material.Filled.WarningAmber" Color="Color.Warning" Size="Size.Small" />
+                                                            }
+                                                        </MudStack>
+                                                        <MudText Typo="Typo.caption" Class="artifact-table-subtext">@GetShortRunId(run.RunId)</MudText>
+                                                    </MudStack>
+                                                </div>
+                                                <div>@FormatCreated(run)</div>
+                                                <div>@FormatGrid(run.Grid)</div>
+                                                <div>
+                                                    @if (run.Telemetry?.Available == true)
+                                                    {
+                                                        <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Outlined">Available</MudChip>
+                                                    }
+                                                    else
+                                                    {
+                                                        <MudText Typo="Typo.caption" Class="artifact-table-subtext">Not available</MudText>
+                                                    }
+                                                </div>
+                                                <div class="artifact-grid-actions-cell">
+                                                    @{
+                                                        var telemetryQuickActions = run.Telemetry?.Available == true && run.CanReplay;
+                                                    }
+                                                    <MudTooltip Text="Open dashboard">
+                                                        <MudIconButton Icon="@Icons.Material.Filled.Dashboard"
+                                                                       Color="Color.Primary"
+                                                                       Size="Size.Small"
+                                                                       AriaLabel="Open dashboard"
+                                                                       data-testid="artifact-action-dashboard"
+                                                                       Disabled="@(!run.CanOpen)"
+                                                                       OnClick="@(EventCallback.Factory.Create(this, async () => await NavigateToDashboardAsync(run)))"
+                                                                       OnClick:stopPropagation="true" />
+                                                    </MudTooltip>
+                                                    @if (telemetryQuickActions)
+                                                    {
+                                                        <MudTooltip Text="Open dashboard (telemetry)">
+                                                            <div class="artifact-card-telemetry-icon">
+                                                                <MudIconButton Icon="@Icons.Material.Filled.Dashboard"
+                                                                               Color="Color.Primary"
+                                                                               Size="Size.Small"
+                                                                               AriaLabel="Open telemetry dashboard"
+                                                                               data-testid="artifact-action-dashboard-telemetry"
+                                                                               Disabled="@(!run.CanOpen)"
+                                                                               OnClick="@(EventCallback.Factory.Create(this, async () => await NavigateToTelemetryDashboardAsync(run)))"
+                                                                               OnClick:stopPropagation="true" />
+                                                                <span class="artifact-card-telemetry-dot"></span>
+                                                            </div>
+                                                        </MudTooltip>
+                                                    }
+                                                    <MudTooltip Text="Open topology">
+                                                        <MudIconButton Icon="@Icons.Material.Filled.AccountTree"
+                                                                       Color="Color.Secondary"
+                                                                       Size="Size.Small"
+                                                                       AriaLabel="Open topology"
+                                                                       data-testid="artifact-action-topology"
+                                                                       Disabled="@(!run.CanOpen)"
+                                                                       OnClick="@(EventCallback.Factory.Create(this, async () => await NavigateToTopologyAsync(run)))"
+                                                                       OnClick:stopPropagation="true" />
+                                                    </MudTooltip>
+                                                    @if (telemetryQuickActions)
+                                                    {
+                                                        <MudTooltip Text="Open topology (telemetry)">
+                                                            <div class="artifact-card-telemetry-icon">
+                                                                <MudIconButton Icon="@Icons.Material.Filled.AccountTree"
+                                                                               Color="Color.Secondary"
+                                                                               Size="Size.Small"
+                                                                               AriaLabel="Open telemetry topology"
+                                                                               data-testid="artifact-action-topology-telemetry"
+                                                                               Disabled="@(!run.CanOpen)"
+                                                                               OnClick="@(EventCallback.Factory.Create(this, async () => await NavigateToTelemetryTopologyAsync(run)))"
+                                                                               OnClick:stopPropagation="true" />
+                                                                <span class="artifact-card-telemetry-dot"></span>
+                                                            </div>
+                                                        </MudTooltip>
+                                                    }
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                </MudStack>
+                            }
+                        </MudPaper>
 
-                            <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
-                                <MudText Typo="Typo.caption" Color="Color.Secondary">
-                                    Showing @_view.Items.Count of @_view.TotalItems runs (page @_view.PageIndex / @_view.TotalPages)
-                                </MudText>
+                        <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                Showing @_view.Items.Count of @_view.TotalItems runs (page @_view.PageIndex / @_view.TotalPages)
+                            </MudText>
                                 <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
                                     <MudIconButton Icon="@Icons.Material.Filled.NavigateBefore"
                                                    Disabled="@(_state.PageIndex <= 1)"

@@ -9,7 +9,7 @@
               data-testid="run-details-drawer"
               @onkeydown="HandleKeyDown">
         <MudStack Spacing="3" Class="pa-4 artifact-details-scroll" TabIndex="0">
-            @if (Open && Run is not null)
+            @if (Open && renderRun is not null)
             {
                 <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Start" Class="artifact-details-header">
                     <MudStack Spacing="1">
@@ -56,7 +56,7 @@
                     <MudText Typo="Typo.body2">Loading run details…</MudText>
                 </MudStack>
             }
-            else if (Run is not null)
+            else if (renderRun is not null)
             {
                 <MudStack Spacing="3">
                     @if (!string.IsNullOrWhiteSpace(ErrorMessage))
@@ -79,19 +79,19 @@
                             <div class="artifact-details-table">
                                 <div class="artifact-details-row">
                                     <span class="artifact-details-label">Run ID</span>
-                                    <MudTooltip Text="@Run.RunId">
-                                        <span class="artifact-details-value">@Run.RunId</span>
+                                    <MudTooltip Text="@renderRun.RunId">
+                                        <span class="artifact-details-value">@renderRun.RunId</span>
                                     </MudTooltip>
                                 </div>
                                 <div class="artifact-details-row">
                                     <span class="artifact-details-label">Template</span>
-                                    <MudTooltip Text="@(Run.TemplateTitle ?? Run.TemplateId)">
-                                        <span class="artifact-details-value">@(Run.TemplateTitle ?? Run.TemplateId)</span>
+                                    <MudTooltip Text="@(renderRun.TemplateTitle ?? renderRun.TemplateId)">
+                                        <span class="artifact-details-value">@(renderRun.TemplateTitle ?? renderRun.TemplateId)</span>
                                     </MudTooltip>
                                 </div>
                                 <div class="artifact-details-row">
                                     <span class="artifact-details-label">Created (UTC)</span>
-                                    <span class="artifact-details-value">@FormatDate(Run.CreatedUtc)</span>
+                                    <span class="artifact-details-value">@FormatDate(renderRun.CreatedUtc)</span>
                                 </div>
                                 <div class="artifact-details-row">
                                     <span class="artifact-details-label">Mode</span>
@@ -120,43 +120,50 @@
                             <MudStack Spacing="1">
                                 <MudText Typo="Typo.subtitle2">Artifacts</MudText>
                                 <MudStack Row Spacing="1" Class="artifact-details-presence">
+                                    @{
+                                        var presence = renderRun.Presence;
+                                        var hasModel = presence?.HasModel == true;
+                                        var hasManifest = presence?.HasManifest == true;
+                                        var hasIndex = presence?.HasIndex == true;
+                                        var hasSeries = presence?.HasSeries == true;
+                                    }
                                     <MudChip T="string"
                                              Variant="Variant.Outlined"
                                              Size="Size.Small"
-                                             Color="@(Run.Presence.HasModel ? Color.Success : Color.Warning)">
-                                        Model @(Run.Presence.HasModel ? "available" : "missing")
+                                             Color="@(hasModel ? Color.Success : Color.Warning)">
+                                        Model @(hasModel ? "available" : "missing")
                                     </MudChip>
                                     <MudChip T="string"
                                              Variant="Variant.Outlined"
                                              Size="Size.Small"
-                                             Color="@(Run.Presence.HasManifest ? Color.Success : Color.Warning)">
-                                        Manifest @(Run.Presence.HasManifest ? "available" : "missing")
+                                             Color="@(hasManifest ? Color.Success : Color.Warning)">
+                                        Manifest @(hasManifest ? "available" : "missing")
                                     </MudChip>
                                     <MudChip T="string"
                                              Variant="Variant.Outlined"
                                              Size="Size.Small"
-                                             Color="@(Run.Presence.HasIndex ? Color.Success : Color.Warning)">
-                                        Index @(Run.Presence.HasIndex ? "available" : "missing")
+                                             Color="@(hasIndex ? Color.Success : Color.Warning)">
+                                        Index @(hasIndex ? "available" : "missing")
                                     </MudChip>
                                     <MudChip T="string"
                                              Variant="Variant.Outlined"
                                              Size="Size.Small"
-                                             Color="@(Run.Presence.HasSeries ? Color.Success : Color.Warning)">
-                                        Series @(Run.Presence.HasSeries ? "available" : "missing")
+                                             Color="@(hasSeries ? Color.Success : Color.Warning)">
+                                        Series @(hasSeries ? "available" : "missing")
                                     </MudChip>
                                 </MudStack>
                             </MudStack>
                         </MudStack>
                     </MudPaper>
 
-                    @if (Detail is not null || Run.Warnings.Count > 0)
+                    @if (renderDetail is not null || (renderRun?.Warnings?.Count ?? 0) > 0)
                     {
                         <MudDivider Class="artifact-details-divider" />
                     }
 
-                    @if (Detail is not null)
+                    @if (renderDetail is not null)
                     {
-                        if (Detail.Metadata is { } metadata)
+                        if (renderDetail.Metadata is { } metadata)
                         {
                             <MudPaper Elevation="0" Class="pa-0 artifact-details-section">
                                 <MudStack Spacing="2">
@@ -290,13 +297,13 @@
                         </MudPaper>
                     }
 
-                    @if (Run.Warnings.Count > 0)
+                    @if ((renderRun?.Warnings?.Count ?? 0) > 0)
                     {
                         <MudPaper Elevation="0" Class="pa-0">
                             <MudStack Spacing="2">
                                 <MudText Typo="Typo.subtitle1">Run Warnings</MudText>
                                 <MudList T="RunWarningInfo" Dense="true">
-                                    @foreach (var warning in Run.Warnings)
+                                    @foreach (var warning in renderRun?.Warnings ?? Array.Empty<RunWarningInfo>())
                                     {
                                         <MudListItem>
                                             <MudStack>
@@ -337,26 +344,42 @@
     [Parameter] public EventCallback OnReload { get; set; }
     [Parameter] public EventCallback OnGenerateTelemetry { get; set; }
 
+    private RunListEntry? renderRun;
+    private RunCreateResponseDto? renderDetail;
+
+    protected override void OnParametersSet()
+    {
+        if (Run is not null)
+        {
+            renderRun = Run;
+        }
+
+        if (Detail is not null)
+        {
+            renderDetail = Detail;
+        }
+    }
+
     private string ContainerClass => Open ? "artifact-details-container is-open" : "artifact-details-container";
 
-    private string TitleId => $"artifact-drawer-title-{Run?.RunId ?? "none"}";
+    private string TitleId => $"artifact-drawer-title-{renderRun?.RunId ?? "none"}";
 
-    private string RunTitle => Run?.TemplateTitle ?? Run?.TemplateId ?? "Run details";
+    private string RunTitle => renderRun?.TemplateTitle ?? renderRun?.TemplateId ?? "Run details";
 
-    private string RunSourceLabel => string.IsNullOrWhiteSpace(Run?.Source) ? "Unknown" : Run.Source;
+    private string RunSourceLabel => string.IsNullOrWhiteSpace(renderRun?.Source) ? "Unknown" : renderRun.Source;
 
     private string StatusLabel
     {
         get
         {
-            if (Run is null)
+            if (renderRun is null)
             {
                 return string.Empty;
             }
 
-            if (Run.WarningCount > 0)
+            if (renderRun.WarningCount > 0)
             {
-                return $"Warnings: {Run.WarningCount}";
+                return $"Warnings: {renderRun.WarningCount}";
             }
 
             if (TelemetryAvailable)
@@ -368,34 +391,34 @@
         }
     }
 
-    private Color StatusColor => Run is null ? Color.Default : Run.WarningCount switch
+    private Color StatusColor => renderRun is null ? Color.Default : renderRun.WarningCount switch
     {
         > 0 => Color.Warning,
         _ when TelemetryAvailable => Color.Success,
         _ => Color.Info
     };
 
-    private bool TelemetryAvailable => Run?.Telemetry?.Available == true;
+    private bool TelemetryAvailable => renderRun?.Telemetry?.Available == true;
 
-    private string TelemetrySummaryText => Run?.Telemetry?.Available switch
+    private string TelemetrySummaryText => renderRun?.Telemetry?.Available switch
     {
         true => "Telemetry ready",
         false => "Not generated",
         _ => "Not generated"
     };
 
-    private string TelemetryGeneratedAtText => Run?.Telemetry?.GeneratedAtUtc ?? string.Empty;
+    private string TelemetryGeneratedAtText => renderRun?.Telemetry?.GeneratedAtUtc ?? string.Empty;
 
-    private string TelemetrySourceRunText => Run?.Telemetry?.SourceRunId ?? string.Empty;
+    private string TelemetrySourceRunText => renderRun?.Telemetry?.SourceRunId ?? string.Empty;
 
-    private string TelemetryWarningText => Run?.Telemetry?.WarningCount switch
+    private string TelemetryWarningText => renderRun?.Telemetry?.WarningCount switch
     {
-        > 1 => $"{Run.Telemetry!.WarningCount} warnings",
+        > 1 => $"{renderRun.Telemetry!.WarningCount} warnings",
         1 => "1 warning",
         _ => string.Empty
     };
 
-    private string TelemetryActionLabel => Run?.Telemetry?.Available == true && !OverwriteTelemetry
+    private string TelemetryActionLabel => renderRun?.Telemetry?.Available == true && !OverwriteTelemetry
         ? "Generate telemetry bundle"
         : OverwriteTelemetry ? "Regenerate telemetry bundle" : "Generate telemetry bundle";
 

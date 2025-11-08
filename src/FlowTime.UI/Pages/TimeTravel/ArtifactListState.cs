@@ -19,11 +19,27 @@ public enum ArtifactWarningFilter
     NoWarnings
 }
 
+public enum ArtifactTelemetryFilter
+{
+    All,
+    Available,
+    Missing
+}
+
 public enum ArtifactSortOption
 {
     Created,
     Status,
-    Template
+    Template,
+    RunId,
+    Grid,
+    Telemetry
+}
+
+public enum ArtifactSortDirection
+{
+    Ascending,
+    Descending
 }
 
 internal sealed record ArtifactListResult(
@@ -47,7 +63,9 @@ internal sealed class ArtifactListState
     public int PageIndex { get; set; } = 1;
     public string SearchText { get; set; } = string.Empty;
     public ArtifactWarningFilter WarningFilter { get; set; } = ArtifactWarningFilter.All;
+    public ArtifactTelemetryFilter TelemetryFilter { get; set; } = ArtifactTelemetryFilter.All;
     public ArtifactSortOption SortOption { get; set; } = ArtifactSortOption.Created;
+    public ArtifactSortDirection SortDirection { get; set; } = ArtifactSortDirection.Descending;
 
     public IReadOnlyCollection<ArtifactRunStatus> SelectedStatuses => new ReadOnlyCollection<ArtifactRunStatus>(selectedStatuses.ToList());
     public IReadOnlyCollection<string> SelectedModes => new ReadOnlyCollection<string>(selectedModes.ToList());
@@ -124,7 +142,9 @@ internal sealed class ArtifactListState
             PageIndex = PageIndex,
             SearchText = SearchText,
             WarningFilter = WarningFilter,
-            SortOption = SortOption
+            TelemetryFilter = TelemetryFilter,
+            SortOption = SortOption,
+            SortDirection = SortDirection
         };
         clone.SetStatuses(selectedStatuses);
         clone.SetModes(selectedModes);
@@ -181,6 +201,16 @@ internal sealed class ArtifactListState
             };
         }
 
+        if (TelemetryFilter != ArtifactTelemetryFilter.All)
+        {
+            query["telemetry"] = TelemetryFilter switch
+            {
+                ArtifactTelemetryFilter.Available => "available",
+                ArtifactTelemetryFilter.Missing => "missing",
+                _ => "all"
+            };
+        }
+
         if (!string.IsNullOrWhiteSpace(SearchText))
         {
             query["search"] = SearchText;
@@ -192,8 +222,17 @@ internal sealed class ArtifactListState
             {
                 ArtifactSortOption.Status => "status",
                 ArtifactSortOption.Template => "template",
+                ArtifactSortOption.RunId => "run",
+                ArtifactSortOption.Grid => "grid",
+                ArtifactSortOption.Telemetry => "telemetry",
                 _ => "created"
             };
+        }
+
+        var defaultDirection = GetDefaultDirection(SortOption);
+        if (SortDirection != defaultDirection)
+        {
+            query["sortDir"] = SortDirection == ArtifactSortDirection.Ascending ? "asc" : "desc";
         }
 
         if (PageIndex > 1)
@@ -233,16 +272,39 @@ internal sealed class ArtifactListState
             };
         }
 
+        if (query.TryGetValue("telemetry", out var telemetryValue) && !string.IsNullOrWhiteSpace(telemetryValue))
+        {
+            state.TelemetryFilter = telemetryValue.ToLowerInvariant() switch
+            {
+                "available" => ArtifactTelemetryFilter.Available,
+                "missing" => ArtifactTelemetryFilter.Missing,
+                _ => ArtifactTelemetryFilter.All
+            };
+        }
+
         if (query.TryGetValue("sort", out var sortValue) && !string.IsNullOrWhiteSpace(sortValue))
         {
             state.SortOption = sortValue.ToLowerInvariant() switch
             {
                 "status" => ArtifactSortOption.Status,
                 "template" => ArtifactSortOption.Template,
+                "run" => ArtifactSortOption.RunId,
+                "grid" => ArtifactSortOption.Grid,
+                "telemetry" => ArtifactSortOption.Telemetry,
                 _ => ArtifactSortOption.Created
             };
         }
 
+        state.SortDirection = GetDefaultDirection(state.SortOption);
+        if (query.TryGetValue("sortDir", out var sortDirValue) && !string.IsNullOrWhiteSpace(sortDirValue))
+        {
+            state.SortDirection = sortDirValue.ToLowerInvariant() switch
+            {
+                "asc" => ArtifactSortDirection.Ascending,
+                "desc" => ArtifactSortDirection.Descending,
+                _ => state.SortDirection
+            };
+        }
         if (query.TryGetValue("search", out var searchValue) && !string.IsNullOrWhiteSpace(searchValue))
         {
             state.SearchText = searchValue;
@@ -341,6 +403,17 @@ internal sealed class ArtifactListState
             }
         }
 
+        var telemetryAvailable = run.Telemetry?.Available == true;
+        if (TelemetryFilter == ArtifactTelemetryFilter.Available && !telemetryAvailable)
+        {
+            return false;
+        }
+
+        if (TelemetryFilter == ArtifactTelemetryFilter.Missing && telemetryAvailable)
+        {
+            return false;
+        }
+
         return true;
     }
 
@@ -380,27 +453,78 @@ internal sealed class ArtifactListState
         return false;
     }
 
-    private IList<RunListEntry> Sort(IList<RunListEntry> runsToSort)
-    {
-        var ordered = SortOption switch
+    public static ArtifactSortDirection GetDefaultDirection(ArtifactSortOption option) =>
+        option switch
         {
-            ArtifactSortOption.Status => runsToSort
-                .OrderBy(r => DetermineStatus(r))
-                .ThenByDescending(r => r.CreatedUtc ?? DateTimeOffset.MinValue)
-                .ThenBy(r => r.RunId, StringComparer.OrdinalIgnoreCase)
-                .ToList(),
-            ArtifactSortOption.Template => runsToSort
-                .OrderBy(r => r.TemplateTitle ?? r.TemplateId ?? r.RunId, StringComparer.OrdinalIgnoreCase)
-                .ThenBy(r => r.TemplateId ?? string.Empty, StringComparer.OrdinalIgnoreCase)
-                .ThenByDescending(r => r.CreatedUtc ?? DateTimeOffset.MinValue)
-                .ThenBy(r => r.RunId, StringComparer.OrdinalIgnoreCase)
-                .ToList(),
-            _ => runsToSort
-                .OrderByDescending(r => r.CreatedUtc ?? DateTimeOffset.MinValue)
-                .ThenBy(r => r.RunId, StringComparer.OrdinalIgnoreCase)
-                .ToList()
+            ArtifactSortOption.Created => ArtifactSortDirection.Descending,
+            ArtifactSortOption.Template => ArtifactSortDirection.Ascending,
+            ArtifactSortOption.Status => ArtifactSortDirection.Ascending,
+            ArtifactSortOption.RunId => ArtifactSortDirection.Ascending,
+            ArtifactSortOption.Grid => ArtifactSortDirection.Descending,
+            ArtifactSortOption.Telemetry => ArtifactSortDirection.Descending,
+            _ => ArtifactSortDirection.Descending
         };
 
-        return ordered;
+    private IList<RunListEntry> Sort(IList<RunListEntry> runsToSort)
+    {
+        IOrderedEnumerable<RunListEntry> ordered;
+
+        switch (SortOption)
+        {
+            case ArtifactSortOption.Status:
+                ordered = SortDirection == ArtifactSortDirection.Descending
+                    ? runsToSort.OrderByDescending(r => DetermineStatus(r))
+                    : runsToSort.OrderBy(r => DetermineStatus(r));
+                ordered = ordered
+                    .ThenByDescending(r => r.CreatedUtc ?? DateTimeOffset.MinValue)
+                    .ThenBy(r => r.RunId, StringComparer.OrdinalIgnoreCase);
+                break;
+            case ArtifactSortOption.Template:
+                ordered = SortDirection == ArtifactSortDirection.Descending
+                    ? runsToSort.OrderByDescending(r => r.TemplateTitle ?? r.TemplateId ?? r.RunId, StringComparer.OrdinalIgnoreCase)
+                    : runsToSort.OrderBy(r => r.TemplateTitle ?? r.TemplateId ?? r.RunId, StringComparer.OrdinalIgnoreCase);
+                ordered = ordered
+                    .ThenBy(r => r.TemplateId ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+                    .ThenByDescending(r => r.CreatedUtc ?? DateTimeOffset.MinValue)
+                    .ThenBy(r => r.RunId, StringComparer.OrdinalIgnoreCase);
+                break;
+            case ArtifactSortOption.RunId:
+                ordered = SortDirection == ArtifactSortDirection.Descending
+                    ? runsToSort.OrderByDescending(r => r.RunId, StringComparer.OrdinalIgnoreCase)
+                    : runsToSort.OrderBy(r => r.RunId, StringComparer.OrdinalIgnoreCase);
+                ordered = ordered.ThenByDescending(r => r.CreatedUtc ?? DateTimeOffset.MinValue);
+                break;
+            case ArtifactSortOption.Grid:
+                ordered = SortDirection == ArtifactSortDirection.Descending
+                    ? runsToSort
+                        .OrderByDescending(r => r.Grid.IsAvailable)
+                        .ThenByDescending(r => r.Grid.Bins)
+                        .ThenByDescending(r => r.Grid.BinMinutes)
+                    : runsToSort
+                        .OrderBy(r => r.Grid.IsAvailable)
+                        .ThenBy(r => r.Grid.Bins)
+                        .ThenBy(r => r.Grid.BinMinutes);
+                ordered = ordered
+                    .ThenByDescending(r => r.CreatedUtc ?? DateTimeOffset.MinValue)
+                    .ThenBy(r => r.RunId, StringComparer.OrdinalIgnoreCase);
+                break;
+            case ArtifactSortOption.Telemetry:
+                ordered = SortDirection == ArtifactSortDirection.Descending
+                    ? runsToSort.OrderByDescending(r => r.Telemetry?.Available == true)
+                    : runsToSort.OrderBy(r => r.Telemetry?.Available == true);
+                ordered = ordered
+                    .ThenBy(r => r.Telemetry?.WarningCount ?? r.WarningCount)
+                    .ThenByDescending(r => r.CreatedUtc ?? DateTimeOffset.MinValue)
+                    .ThenBy(r => r.RunId, StringComparer.OrdinalIgnoreCase);
+                break;
+            default:
+                ordered = SortDirection == ArtifactSortDirection.Ascending
+                    ? runsToSort.OrderBy(r => r.CreatedUtc ?? DateTimeOffset.MinValue)
+                    : runsToSort.OrderByDescending(r => r.CreatedUtc ?? DateTimeOffset.MinValue);
+                ordered = ordered.ThenBy(r => r.RunId, StringComparer.OrdinalIgnoreCase);
+                break;
+        }
+
+        return ordered.ToList();
     }
 }

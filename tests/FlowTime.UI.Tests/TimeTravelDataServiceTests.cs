@@ -199,5 +199,8 @@ public class TimeTravelDataServiceTests
 
         public Task<ApiCallResult<TimeTravelMetricsResponseDto>> GetRunMetricsAsync(string runId, CancellationToken ct = default)
             => OnGetRunMetricsAsync(runId, ct);
+
+        public Task<ApiCallResult<BulkArtifactDeleteResponse>> BulkDeleteArtifactsAsync(string[] artifactIds, CancellationToken ct = default) =>
+            Task.FromResult(ApiCallResult<BulkArtifactDeleteResponse>.Fail(501, "not implemented"));
     }
 }

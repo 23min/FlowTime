@@ -84,6 +84,31 @@ public sealed class ArtifactListStateTests
     }
 
     [Fact]
+    public void ApplyFilters_WithTelemetryFilter_FiltersRuns()
+    {
+        var runs = new[]
+        {
+            CreateEntry("run_available", "Available Template", "simulation", telemetryAvailable: true, warningCount: 0),
+            CreateEntry("run_missing", "Missing Template", "simulation", telemetryAvailable: false, warningCount: 0)
+        };
+
+        var state = new ArtifactListState(runs)
+        {
+            PageSize = 100,
+            TelemetryFilter = ArtifactTelemetryFilter.Available
+        };
+
+        var result = state.Apply();
+        var single = Assert.Single(result.Items);
+        Assert.Equal("run_available", single.RunId);
+
+        state.TelemetryFilter = ArtifactTelemetryFilter.Missing;
+        result = state.Apply();
+        single = Assert.Single(result.Items);
+        Assert.Equal("run_missing", single.RunId);
+    }
+
+    [Fact]
     public void Apply_SortsByTemplateAndStatus()
     {
         var runs = new[]
@@ -96,7 +121,8 @@ public sealed class ArtifactListStateTests
         var state = new ArtifactListState(runs)
         {
             PageSize = 100,
-            SortOption = ArtifactSortOption.Template
+            SortOption = ArtifactSortOption.Template,
+            SortDirection = ArtifactSortDirection.Ascending
         };
 
         var result = state.Apply();
@@ -104,6 +130,7 @@ public sealed class ArtifactListStateTests
         Assert.Equal(new[] { "run_b", "run_c", "run_a" }, result.Items.Select(r => r.RunId));
 
         state.SortOption = ArtifactSortOption.Status;
+        state.SortDirection = ArtifactSortDirection.Ascending;
         result = state.Apply();
         Assert.Equal(new[] { "run_a", "run_b", "run_c" }, result.Items.Select(r => r.RunId));
     }
@@ -142,7 +169,9 @@ public sealed class ArtifactListStateTests
             PageIndex = 3,
             SearchText = "grid",
             SortOption = ArtifactSortOption.Status,
-            WarningFilter = ArtifactWarningFilter.NoWarnings
+            SortDirection = ArtifactSortDirection.Ascending,
+            WarningFilter = ArtifactWarningFilter.NoWarnings,
+            TelemetryFilter = ArtifactTelemetryFilter.Available
         };
         state.SetStatuses(new[] { ArtifactRunStatus.Healthy, ArtifactRunStatus.Pending });
         state.SetModes(new[] { "simulation" });
@@ -153,6 +182,7 @@ public sealed class ArtifactListStateTests
         Assert.Equal("healthy,pending", statusValue);
         Assert.Equal("simulation", query["mode"]);
         Assert.Equal("none", query["warnings"]);
+        Assert.Equal("available", query["telemetry"]);
         Assert.Equal("status", query["sort"]);
         Assert.Equal("grid", query["search"]);
         Assert.Equal("3", query["page"]);
@@ -164,8 +194,35 @@ public sealed class ArtifactListStateTests
         Assert.Equal(state.SearchText, rehydrated.SearchText);
         Assert.Equal(state.SortOption, rehydrated.SortOption);
         Assert.Equal(state.WarningFilter, rehydrated.WarningFilter);
+        Assert.Equal(state.TelemetryFilter, rehydrated.TelemetryFilter);
         Assert.Equal(state.SelectedStatuses.OrderBy(s => s), rehydrated.SelectedStatuses.OrderBy(s => s));
         Assert.Equal(state.SelectedModes.OrderBy(m => m), rehydrated.SelectedModes.OrderBy(m => m));
+    }
+
+    [Fact]
+    public void QueryIncludesSortDirection_WhenNonDefault()
+    {
+        var runs = new[]
+        {
+            CreateEntry("run_sort", "Sort Template", "simulation", telemetryAvailable: true, warningCount: 0)
+        };
+
+        var state = new ArtifactListState(runs)
+        {
+            SortOption = ArtifactSortOption.Template,
+            SortDirection = ArtifactSortDirection.Descending
+        };
+
+        var query = state.ToQueryParameters();
+        Assert.Equal("template", query["sort"]);
+        Assert.Equal("desc", query["sortDir"]);
+
+        var rehydrated = ArtifactListState.FromQuery(
+            runs,
+            query.ToDictionary(kvp => kvp.Key, kvp => (string?)kvp.Value));
+
+        Assert.Equal(ArtifactSortOption.Template, rehydrated.SortOption);
+        Assert.Equal(ArtifactSortDirection.Descending, rehydrated.SortDirection);
     }
 
     [Fact]
@@ -177,6 +234,7 @@ public sealed class ArtifactListStateTests
             ["status"] = "unknown",
             ["mode"] = "bogus",
             ["warnings"] = "other",
+            ["telemetry"] = "bad",
             ["sort"] = "bogus",
             ["page"] = "-2"
         };
@@ -186,6 +244,7 @@ public sealed class ArtifactListStateTests
         Assert.Empty(state.SelectedStatuses);
         Assert.Empty(state.SelectedModes);
         Assert.Equal(ArtifactWarningFilter.All, state.WarningFilter);
+        Assert.Equal(ArtifactTelemetryFilter.All, state.TelemetryFilter);
         Assert.Equal(ArtifactSortOption.Created, state.SortOption);
         Assert.Equal(1, state.PageIndex);
     }
