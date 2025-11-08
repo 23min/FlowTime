@@ -403,7 +403,9 @@ internal static class TemplateValidator
             ("retryEcho", semantics.RetryEcho),
             ("queue", semantics.Queue),
             ("capacity", semantics.Capacity),
-            ("external_demand", semantics.ExternalDemand)
+            ("external_demand", semantics.ExternalDemand),
+            ("processingTimeMsSum", semantics.ProcessingTimeMsSum),
+            ("servedCount", semantics.ServedCount)
         };
 
         foreach (var (name, value) in mappedSeries)

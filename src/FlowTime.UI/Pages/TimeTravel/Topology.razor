@@ -2066,6 +2066,12 @@ private bool inspectorMetricsExpanded;
         }
 
         var result = new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase);
+        var windowStart = windowData.Window.StartBin;
+        var binCount = Math.Max(0, windowData.Window.BinCount);
+        var windowEnd = binCount > 0 ? windowStart + binCount - 1 : windowStart;
+        var clampedSelection = Math.Clamp(selectedBin, windowStart, windowEnd);
+        var selectionLocalIndex = Math.Max(0, clampedSelection - windowStart);
+
         foreach (var node in windowData.Nodes)
         {
             var series = node.Series ?? new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase);
@@ -2082,7 +2088,7 @@ private bool inspectorMetricsExpanded;
                 continue;
             }
 
-            var anchor = Math.Clamp(selectedBin, 0, (primarySeries?.Length ?? 1) - 1);
+            var anchor = Math.Clamp(selectionLocalIndex, 0, (primarySeries?.Length ?? 1) - 1);
             var trimmedPrimary = TrimSeriesAt(primarySeries, SparklinePointLimit, anchor);
             if (trimmedPrimary.Count == 0)
             {
@@ -2094,7 +2100,7 @@ private bool inspectorMetricsExpanded;
                 continue;
             }
 
-            var primaryStartIndex = anchor + 1 - trimmedPrimary.Count;
+            var primaryStartIndex = windowStart + (anchor + 1 - trimmedPrimary.Count);
             var trimmedUtilization = TrimSeriesAt(TryGetSeries(node, "utilization"), SparklinePointLimit, anchor, trimmedPrimary.Count);
             var trimmedErrorRate = TrimSeriesAt(BuildErrorRateSeries(node), SparklinePointLimit, anchor, trimmedPrimary.Count);
             var trimmedQueue = TrimSeriesAt(TryGetSeries(node, "queue"), SparklinePointLimit, anchor, trimmedPrimary.Count);
@@ -2105,7 +2111,7 @@ private bool inspectorMetricsExpanded;
                 var trimmed = TrimSeriesAt(pair.Value, SparklinePointLimit, anchor, trimmedPrimary.Count);
                 var startIndex = pair.Value is null || pair.Value.Length == 0
                     ? primaryStartIndex
-                    : anchor + 1 - trimmed.Count;
+                    : windowStart + (anchor + 1 - trimmed.Count);
                 additional[pair.Key] = new SparklineSeriesSlice(trimmed, startIndex);
             }
 

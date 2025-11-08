@@ -1262,14 +1262,14 @@ body.dark-mode .topology-muted-text {
 
 .topology-horizon-empty {
     height: 24px;
-    border: 1px dashed rgba(71, 85, 105, 0.35);
+    border: 1px dashed rgba(148, 163, 184, 0.7);
     border-radius: 6px;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 0.72rem;
-    color: rgba(71, 85, 105, 0.75);
-    background: rgba(71, 85, 105, 0.05);
+    color: #475569;
+    background: #E2E8F0;
 }
 
 .topology-horizon-empty span {

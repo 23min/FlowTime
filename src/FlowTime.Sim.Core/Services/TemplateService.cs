@@ -145,6 +145,7 @@ public class TemplateService : ITemplateService
             parsedTemplate.Mode = modeOverride.Value;
         }
 
+        EnsureSemanticsOutputs(parsedTemplate);
         var artifact = SimModelBuilder.Build(parsedTemplate, mergedParameters, substitutedYaml);
         var yaml = yamlSerializer.Serialize(artifact);
 
@@ -459,6 +460,60 @@ public class TemplateService : ITemplateService
             {
                 throw new TemplateValidationException(
                     $"Parameter '{binding.Value}' provides {length.Value} values but grid.bins is {template.Grid.Bins}; const node '{binding.Key}' requires matching length.");
+            }
+        }
+    }
+
+    private static void EnsureSemanticsOutputs(Template template)
+    {
+        if (template.Topology?.Nodes is null || template.Topology.Nodes.Count == 0)
+        {
+            return;
+        }
+
+        template.Outputs ??= new List<TemplateOutput>();
+        var existing = new HashSet<string>(
+            template.Outputs.Select(o => o.Series),
+            StringComparer.OrdinalIgnoreCase);
+
+        foreach (var topoNode in template.Topology.Nodes)
+        {
+            var semantics = topoNode.Semantics;
+            if (semantics is null)
+            {
+                continue;
+            }
+
+            var references = new[]
+            {
+                semantics.Arrivals,
+                semantics.Served,
+                semantics.Errors,
+                semantics.Attempts,
+                semantics.Failures,
+                semantics.RetryEcho,
+                semantics.Queue,
+                semantics.Capacity,
+                semantics.ExternalDemand,
+                semantics.ProcessingTimeMsSum,
+                semantics.ServedCount
+            };
+
+            foreach (var reference in references)
+            {
+                if (string.IsNullOrWhiteSpace(reference) ||
+                    reference == "*" ||
+                    existing.Contains(reference))
+                {
+                    continue;
+                }
+
+                template.Outputs.Add(new TemplateOutput
+                {
+                    Series = reference,
+                    Description = $"Auto-added for topology node '{topoNode.Id}' semantics."
+                });
+                existing.Add(reference);
             }
         }
     }

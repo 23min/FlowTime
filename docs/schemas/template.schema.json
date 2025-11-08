@@ -116,6 +116,70 @@
       },
       "additionalProperties": true
     },
+    "topology": {
+      "type": "object",
+      "properties": {
+        "nodes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "kind"],
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "kind": {
+                "type": "string"
+              },
+              "semantics": {
+                "type": "object",
+                "properties": {
+                  "arrivals": { "type": "string" },
+                  "served": { "type": "string" },
+                  "errors": { "type": "string" },
+                  "attempts": { "type": "string" },
+                  "failures": { "type": "string" },
+                  "retryEcho": { "type": "string" },
+                  "queue": { "type": "string" },
+                  "capacity": { "type": "string" },
+                  "external_demand": { "type": "string" },
+                  "processingTimeMsSum": { "type": "string" },
+                  "servedCount": { "type": "string" }
+                },
+                "additionalProperties": true
+              },
+              "initialCondition": {
+                "type": "object",
+                "properties": {
+                  "queueDepth": { "type": "number" }
+                },
+                "additionalProperties": true
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "edges": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "from": { "type": "string" },
+              "to": { "type": "string" },
+              "weight": { "type": "number" },
+              "type": { "type": "string" },
+              "measure": { "type": "string" },
+              "multiplier": { "type": "number" },
+              "lag": { "type": "integer" }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true
+    },
     "nodes": {
       "type": "array",
       "items": {

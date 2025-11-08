@@ -268,6 +268,56 @@ outputs:
         Assert.Empty(model.Provenance.Parameters);
     }
 
+    [Fact]
+    public async Task GenerateModelAsync_PreservesServiceTimeSemantics()
+    {
+        var templateYaml = """
+metadata:
+  id: service-time-model-test
+  title: Service Time Semantic Preservation
+  version: 1.0.0
+window:
+  start: 2025-04-01T00:00:00Z
+  timezone: UTC
+grid:
+  bins: 2
+  binSize: 60
+  binUnit: minutes
+topology:
+  nodes:
+    - id: IncidentIntake
+      kind: service
+      semantics:
+        arrivals: arrivals
+        served: served
+        processingTimeMsSum: processing_sum
+        servedCount: served
+  edges: []
+nodes:
+  - id: arrivals
+    kind: const
+    values: [10, 12]
+  - id: served
+    kind: const
+    values: [9, 11]
+  - id: processing_sum
+    kind: const
+    values: [4500, 5100]
+outputs:
+  - series: "*"
+""";
+
+        var service = CreateTestService(templateYaml, "service-time-model-test");
+        var generatedYaml = await service.GenerateEngineModelAsync(
+            "service-time-model-test",
+            new Dictionary<string, object>());
+
+        var model = DeserializeArtifact(generatedYaml);
+        var node = Assert.Single(model.Topology.Nodes, n => n.Id == "IncidentIntake");
+        Assert.Equal("processing_sum", node.Semantics.ProcessingTimeMsSum);
+        Assert.Equal("served", node.Semantics.ServedCount);
+    }
+
     private static TemplateService CreateTestService(string templateYaml, string templateId)
     {
         var templates = new Dictionary<string, string>

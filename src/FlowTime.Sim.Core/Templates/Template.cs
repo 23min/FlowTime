@@ -132,6 +132,9 @@ public class TemplateNodeSemantics
 
     [YamlMember(Alias = "external_demand", ApplyNamingConventions = false)]
     public string? ExternalDemand { get; set; }
+
+    public string? ProcessingTimeMsSum { get; set; }
+    public string? ServedCount { get; set; }
 }
 
 /// <summary>

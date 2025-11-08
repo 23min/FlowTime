@@ -120,7 +120,9 @@ internal static class SimModelBuilder
         Failures = semantics.Failures,
         RetryEcho = semantics.RetryEcho,
         RetryKernel = semantics.RetryKernel?.ToArray(),
-        ExternalDemand = semantics.ExternalDemand
+        ExternalDemand = semantics.ExternalDemand,
+        ProcessingTimeMsSum = semantics.ProcessingTimeMsSum,
+        ServedCount = semantics.ServedCount
     };
 
     private static List<SimNode> BuildNodes(List<TemplateNode> nodes)
