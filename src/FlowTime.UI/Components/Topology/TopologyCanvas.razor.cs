@@ -329,7 +329,8 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                 node.X,
                 node.Y,
                 node.IsPositionFixed,
-                node.Semantics))
+                node.Semantics,
+                node.Lane))
             .ToImmutableArray();
 
         var filteredEdges = graph.Edges

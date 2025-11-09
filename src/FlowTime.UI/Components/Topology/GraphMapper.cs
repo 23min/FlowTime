@@ -96,6 +96,10 @@ internal static class GraphMapper
                     y = layer * verticalSpacing;
                 }
 
+                var laneValue = hasOverride && overridePoint.Lane != 0
+                    ? overridePoint.Lane
+                    : (int)Math.Round(x / horizontalSpacing);
+
                 return new TopologyNode(
                     builder.Id,
                     builder.Kind,
@@ -106,7 +110,8 @@ internal static class GraphMapper
                     Math.Round(x, 3, MidpointRounding.AwayFromZero),
                     Math.Round(y, 3, MidpointRounding.AwayFromZero),
                     hasCustomPosition,
-                    builder.Semantics);
+                    builder.Semantics,
+                    laneValue);
             })
             .ToImmutableArray();
 
@@ -290,16 +295,24 @@ internal static class GraphMapper
             var x = resolvedLane * horizontalSpacing;
             var y = layer * verticalSpacing;
             var orderHint = resolvedLane * 10;
-            positions[builder.Id] = new LayoutPoint(x, y, orderHint);
+            positions[builder.Id] = new LayoutPoint(x, y, orderHint, resolvedLane);
         }
 
         var serviceMeanX = serviceNodes.Count > 0
             ? serviceNodes.Select(builder => positions[builder.Id].X).Average()
             : 0d;
-        var serviceLaneXs = serviceNodes
-            .Select(builder => positions[builder.Id].X)
-            .Distinct()
-            .OrderBy(x => x)
+        var serviceLaneLookup = new Dictionary<int, double>();
+        foreach (var builder in serviceNodes)
+        {
+            if (positions.TryGetValue(builder.Id, out var point))
+            {
+                serviceLaneLookup[point.Lane] = point.X;
+            }
+        }
+
+        var serviceLaneXs = serviceLaneLookup
+            .OrderBy(pair => pair.Key)
+            .Select(pair => new LaneCoordinate(pair.Key, pair.Value))
             .ToList();
 
         var computeNodes = nodeBuilders.Values
@@ -365,10 +378,12 @@ internal static class GraphMapper
             layerPosition = snappedY / verticalSpacing;
             layerPositionByNode[builder.Id] = layerPosition;
 
-            var x = (anchorLane + ResolveColumnOffset(gridColumn)) * horizontalSpacing;
+            var offsetUnit = ResolveColumnOffset(gridColumn);
+            var lanePosition = anchorLane + (int)Math.Round(offsetUnit);
+            var x = (anchorLane + offsetUnit) * horizontalSpacing;
             var y = snappedY;
             var orderHint = (anchorLane * 10) + (gridColumn - columnsPerSide);
-            positions[builder.Id] = new LayoutPoint(x, y, orderHint);
+            positions[builder.Id] = new LayoutPoint(x, y, orderHint, lanePosition);
         }
 
         EnforceSupportingNodeElevations(computeNodes, positions, layerPositionByNode, layerByNode);
@@ -639,7 +654,7 @@ internal static class GraphMapper
         IEnumerable<NodeBuilder> computeNodes,
         Dictionary<string, LayoutPoint> positions,
         double serviceMeanX,
-        IReadOnlyList<double> serviceLaneXs)
+        IReadOnlyList<LaneCoordinate> serviceLaneXs)
     {
         var leaves = computeNodes
             .Where(builder => builder.Outputs.Count == 0)
@@ -650,13 +665,13 @@ internal static class GraphMapper
             return;
         }
 
-        var laneXs = serviceLaneXs is not null && serviceLaneXs.Count > 0
+        var laneCoords = serviceLaneXs is not null && serviceLaneXs.Count > 0
             ? serviceLaneXs
-            : new[] { serviceMeanX };
+            : new List<LaneCoordinate> { new LaneCoordinate(0, serviceMeanX) };
 
-        var laneOrder = laneXs
-            .OrderBy(x => Math.Abs(x - serviceMeanX))
-            .ThenBy(x => x)
+        var laneOrder = laneCoords
+            .OrderBy(coord => Math.Abs(coord.X - serviceMeanX))
+            .ThenBy(coord => coord.X)
             .ToList();
 
         for (var i = 0; i < leaves.Count; i++)
@@ -668,8 +683,8 @@ internal static class GraphMapper
             }
 
             var laneIndex = i % laneOrder.Count;
-            var x = laneOrder[laneIndex];
-            positions[builder.Id] = point with { X = x };
+            var lane = laneOrder[laneIndex];
+            positions[builder.Id] = point with { X = lane.X, Lane = lane.Lane };
         }
     }
 
@@ -844,7 +859,8 @@ internal static class GraphMapper
     }
 }
 
-internal readonly record struct LayoutPoint(double X, double Y, int OrderHint);
+internal readonly record struct LayoutPoint(double X, double Y, int OrderHint, int Lane);
+internal readonly record struct LaneCoordinate(int Lane, double X);
 
 internal enum NodeCategory
 {
@@ -867,7 +883,8 @@ public sealed record TopologyNode(
     double X,
     double Y,
     bool IsPositionFixed,
-    TopologyNodeSemantics Semantics);
+    TopologyNodeSemantics Semantics,
+    int Lane = 0);
 
 public sealed record TopologyEdge(
     string Id,

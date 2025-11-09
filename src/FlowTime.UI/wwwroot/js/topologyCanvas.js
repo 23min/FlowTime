@@ -381,7 +381,8 @@
                 focusLabel: n.focusLabel ?? n.FocusLabel ?? '',
                 semantics: n.semantics ?? n.Semantics ?? null,
                 distribution: n.distribution ?? n.Distribution ?? (n.semantics?.distribution ?? n.Semantics?.Distribution ?? null),
-                leaf: Boolean(n.isLeaf ?? n.IsLeaf)
+                leaf: Boolean(n.isLeaf ?? n.IsLeaf),
+                lane: Number.isFinite(n.lane ?? n.Lane) ? Number(n.lane ?? n.Lane) : null
             });
         }
 
@@ -409,9 +410,6 @@
         ctx.scale(state.scale, state.scale);
 
         const sparkColor = resolveSparklineColor(overlaySettings.colorBasis);
-        const portRadius = 4.5;
-        const portFillColor = '#E7EBF4';
-        const portStrokeColor = 'rgba(59, 72, 89, 0.55)';
         const portPadding = 0;
 
         let focusedId = null;
@@ -462,7 +460,8 @@
 
             const edgeId = edge.id ?? edge.Id ?? `${fromId}->${toId}`;
             const highlightEdge = !emphasisEnabled || (neighborEdges?.has(edgeId) ?? false);
-            const edgeAlpha = highlightEdge ? defaultEdgeAlpha : defaultEdgeAlpha * 0.25;
+            const emphasized = emphasisEnabled && (neighborEdges?.has(edgeId) ?? false);
+            const edgeAlpha = emphasized ? 1 : (highlightEdge ? defaultEdgeAlpha : defaultEdgeAlpha * 0.25);
 
             const baseStrokeColor = isEffortEdge
                 ? '#DC2626'
@@ -470,10 +469,26 @@
                     ? '#2563EB'
                     : '#9AA1AC';
 
-            const dashPattern = isDependency ? [4, 3] : (isEffortEdge ? [8, 4] : null);
-            const lineWidth = isDependency ? 1.4 : (isEffortEdge ? 3.2 : 3);
+            let dashPattern = isDependency ? [4, 3] : (isEffortEdge ? [8, 4] : null);
+            let lineWidth = isDependency ? 1.4 : (isEffortEdge ? 3.2 : 3);
+            let strokeColor = baseStrokeColor;
+
+            if (emphasized) {
+                strokeColor = '#2563EB';
+                dashPattern = null;
+                lineWidth += 0.6;
+            }
 
             const offset = edgeLaneOffset(edge);
+            const fromLane = Number.isFinite(fromNode.lane) ? fromNode.lane : null;
+            const toLane = Number.isFinite(toNode.lane) ? toNode.lane : null;
+            const fromCenterX = fromNode.x ?? fromNode.X ?? 0;
+            const toCenterX = toNode.x ?? toNode.X ?? 0;
+            const laneEqual = Number.isFinite(fromLane) && Number.isFinite(toLane) && fromLane === toLane;
+            const xAligned = Math.abs(fromCenterX - toCenterX) < 0.1;
+            const sameLaneConnection = laneEqual || xAligned;
+            const verticallyAdjacent = areNodesVerticallyAdjacent(fromNode, toNode);
+            const laneDescriptor = sameLaneConnection ? edgeLaneDescriptor(edge, fromCenterX, toCenterX) : null;
             let pathPoints;
             let startPoint;
             let endPoint;
@@ -481,35 +496,64 @@
             ctx.save();
             ctx.globalAlpha = edgeAlpha;
             ctx.lineWidth = lineWidth;
-            ctx.strokeStyle = baseStrokeColor;
-            if (dashPattern) {
+            ctx.strokeStyle = strokeColor;
+            if (dashPattern && dashPattern.length > 0) {
                 ctx.setLineDash(dashPattern);
+            } else {
+                ctx.setLineDash([]);
             }
 
             if (overlaySettings.edgeStyle === 'bezier') {
-                const path = computeBezierPath(fromNode, toNode, offset, portPadding);
-                ctx.beginPath();
-                ctx.moveTo(path.start.x, path.start.y);
-                ctx.bezierCurveTo(path.cp1.x, path.cp1.y, path.cp2.x, path.cp2.y, path.end.x, path.end.y);
-                ctx.stroke();
-                pathPoints = path.samples;
-                startPoint = path.start;
-                endPoint = path.end;
+                if (verticallyAdjacent) {
+                    const segment = buildVerticalAdjacentSegment(fromNode, toNode, portPadding);
+                    ctx.beginPath();
+                    ctx.moveTo(segment.start.x, segment.start.y);
+                    ctx.lineTo(segment.end.x, segment.end.y);
+                    ctx.stroke();
+                    pathPoints = [segment.start, segment.end];
+                    startPoint = segment.start;
+                    endPoint = segment.end;
+                } else if (sameLaneConnection && laneDescriptor) {
+                    const segments = buildSameLaneBezierSegments(fromNode, toNode, laneDescriptor, portPadding);
+                    ctx.beginPath();
+                    ctx.moveTo(segments[0].start.x, segments[0].start.y);
+                    for (const seg of segments) {
+                        ctx.bezierCurveTo(seg.cp1.x, seg.cp1.y, seg.cp2.x, seg.cp2.y, seg.end.x, seg.end.y);
+                    }
+                    ctx.stroke();
+                    pathPoints = sampleSegmentSeries(segments);
+                    startPoint = segments[0].start;
+                    endPoint = segments[segments.length - 1].end;
+                } else {
+                    const path = computeBezierPath(fromNode, toNode, offset, portPadding, laneDescriptor, sameLaneConnection);
+                    ctx.beginPath();
+                    ctx.moveTo(path.start.x, path.start.y);
+                    ctx.bezierCurveTo(path.cp1.x, path.cp1.y, path.cp2.x, path.cp2.y, path.end.x, path.end.y);
+                    ctx.stroke();
+                    pathPoints = path.samples;
+                    startPoint = path.start;
+                    endPoint = path.end;
+                }
             } else {
-                const dx = toX - fromX;
-                const dy = toY - fromY;
-                const len = Math.hypot(dx, dy) || 1;
-                const ux = dx / len;
-                const uy = dy / len;
+                let path;
+                if (sameLaneConnection && laneDescriptor) {
+                    path = computeSiblingLaneElbowPath(fromNode, toNode, laneDescriptor, portPadding);
+                } else {
+                    const dx = toX - fromX;
+                    const dy = toY - fromY;
+                    const len = Math.hypot(dx, dy) || 1;
+                    const ux = dx / len;
+                    const uy = dy / len;
 
-                const startShrink = computePortOffset(fromNode, ux, uy, portPadding);
-                const endShrink = computePortOffset(toNode, -ux, -uy, portPadding);
-                const sx = fromX + ux * startShrink;
-                const sy = fromY + uy * startShrink;
-                const ex = toX - ux * endShrink;
-                const ey = toY - uy * endShrink;
+                    const startShrink = computePortOffset(fromNode, ux, uy, portPadding);
+                    const endShrink = computePortOffset(toNode, -ux, -uy, portPadding);
+                    const sx = fromX + ux * startShrink;
+                    const sy = fromY + uy * startShrink;
+                    const ex = toX - ux * endShrink;
+                    const ey = toY - uy * endShrink;
 
-                const path = computeElbowPath(sx, sy, ex, ey, offset);
+                    path = computeElbowPath(sx, sy, ex, ey, offset);
+                }
 
                 ctx.beginPath();
                 drawRoundedPolyline(ctx, path.points, 6);
@@ -524,14 +568,6 @@
                 const prevPoint = pathPoints[pathPoints.length - 2];
                 const endPathPoint = pathPoints[pathPoints.length - 1];
                 drawArrowhead(ctx, prevPoint.x, prevPoint.y, endPathPoint.x, endPathPoint.y);
-            }
-
-            const fromKind = String(fromNode.kind ?? '').toLowerCase();
-            const toKind = String(toNode.kind ?? '').toLowerCase();
-            const skipPorts = isComputedKind(fromKind) || isComputedKind(toKind);
-            if (!skipPorts) {
-                drawPort(ctx, startPoint.x, startPoint.y, portRadius, portFillColor, portStrokeColor);
-                drawPort(ctx, endPoint.x, endPoint.y, portRadius, portFillColor, portStrokeColor);
             }
 
             const share = edge.share ?? edge.Share;
@@ -1916,6 +1952,25 @@
         return lane * 6;
     }
 
+    function edgeLaneDescriptor(edge, fromX, toX) {
+        const raw = String(edge?.id ?? edge?.Id ?? '');
+        let hash = 0;
+        for (let i = 0; i < raw.length; i++) {
+            hash = ((hash << 5) - hash) + raw.charCodeAt(i);
+            hash |= 0;
+        }
+
+        const band = Math.abs(hash % 3);
+        let side = (hash & 1) === 0 ? -1 : 1;
+        if (Number.isFinite(fromX) && Number.isFinite(toX)) {
+            const meanX = (fromX + toX) / 2;
+            if (Math.abs(meanX) > Math.abs(meanX + side * 0.01)) {
+                side = meanX >= 0 ? -1 : 1;
+            }
+        }
+        return { side, band };
+    }
+
     function computeNeighborNodes(edges, focusedId) {
         const set = new Set();
         if (!focusedId) {
@@ -3122,7 +3177,7 @@
         return { points: dedupePoints(points) };
     }
 
-    function computeBezierPath(fromNode, toNode, laneOffset, padding) {
+    function computeBezierPath(fromNode, toNode, laneOffset, padding, laneDescriptor, sameLaneConnection) {
         const anchorsFrom = createAnchors(fromNode);
         const anchorsTo = createAnchors(toNode);
 
@@ -3144,8 +3199,17 @@
             orientation: 'vertical'
         };
 
-        const useVertical = Math.abs(dy) > Math.abs(dx);
-        let selected = useVertical ? vertical : horizontal;
+        let selected;
+        if (sameLaneConnection && laneDescriptor) {
+            selected = {
+                start: laneDescriptor.side >= 0 ? anchorsFrom.right : anchorsFrom.left,
+                end: laneDescriptor.side >= 0 ? anchorsTo.right : anchorsTo.left,
+                orientation: 'horizontal'
+            };
+        } else {
+            const useVertical = Math.abs(dy) > Math.abs(dx);
+            selected = useVertical ? vertical : horizontal;
+        }
 
         const startDistance = computePortOffset(fromNode, selected.start.normalX, selected.start.normalY, padding);
         const endDistance = computePortOffset(toNode, selected.end.normalX, selected.end.normalY, padding);
@@ -3166,7 +3230,9 @@
         const span = selected.orientation === 'horizontal'
             ? Math.abs(end.x - start.x)
             : Math.abs(end.y - start.y);
-        const baseTension = Math.max(24, Math.min(120, span * 0.45));
+        const baseTension = sameLaneConnection
+            ? Math.max(48, Math.min(180, span * 0.5))
+            : Math.max(24, Math.min(120, span * 0.45));
         const offset = clamp(laneOffset ?? 0, -24, 24);
 
         let cp1, cp2;
@@ -3192,6 +3258,194 @@
 
         const samples = sampleCubicBezier(start, cp1, cp2, end, 32);
         return { start, end, cp1, cp2, samples };
+    }
+
+    function areNodesVerticallyAdjacent(nodeA, nodeB) {
+        if (!nodeA || !nodeB) {
+            return false;
+        }
+
+        const ax = Number(nodeA.x ?? nodeA.X ?? 0);
+        const ay = Number(nodeA.y ?? nodeA.Y ?? 0);
+        const bx = Number(nodeB.x ?? nodeB.X ?? 0);
+        const by = Number(nodeB.y ?? nodeB.Y ?? 0);
+        const aw = Math.abs(Number(nodeA.width ?? nodeA.Width ?? 54));
+        const bw = Math.abs(Number(nodeB.width ?? nodeB.Width ?? 54));
+        const ah = Math.abs(Number(nodeA.height ?? nodeA.Height ?? 24));
+        const bh = Math.abs(Number(nodeB.height ?? nodeB.Height ?? 24));
+        const laneA = Number.isFinite(nodeA.lane) ? nodeA.lane : null;
+        const laneB = Number.isFinite(nodeB.lane) ? nodeB.lane : null;
+        const sameLane = laneA !== null && laneA === laneB;
+
+        const avgWidth = (aw + bw) / 2;
+        const avgHeight = (ah + bh) / 2;
+        const horizontalTolerance = sameLane
+            ? Math.max(12, Math.min(96, avgWidth * 1.05))
+            : Math.max(4, Math.min(24, avgWidth * 0.4));
+
+        if (Math.abs(ax - bx) > horizontalTolerance) {
+            return false;
+        }
+
+        const verticalDistance = Math.abs(ay - by);
+        const minSeparation = Math.max(6, Math.min(24, avgHeight * 0.35));
+        if (verticalDistance < minSeparation) {
+            return false;
+        }
+
+        if (sameLane) {
+            const maxSeparation = Math.max(180, avgHeight * 8);
+            return verticalDistance <= maxSeparation;
+        }
+
+        const combinedHalfHeight = (ah + bh) / 2;
+        const gap = verticalDistance - combinedHalfHeight;
+        const overlapAllowance = Math.max(8, avgHeight * 0.25);
+        const spacingAllowance = Math.max(40, avgHeight * 1.75);
+        return gap >= -overlapAllowance && gap <= spacingAllowance;
+    }
+
+    function buildVerticalAdjacentSegment(fromNode, toNode, padding) {
+        const fromCenterX = Number(fromNode.x ?? fromNode.X ?? 0);
+        const fromCenterY = Number(fromNode.y ?? fromNode.Y ?? 0);
+        const toCenterX = Number(toNode.x ?? toNode.X ?? 0);
+        const toCenterY = Number(toNode.y ?? toNode.Y ?? 0);
+        const pad = Number.isFinite(padding) ? padding : 0;
+        const direction = toCenterY >= fromCenterY ? 1 : -1;
+        const alignX = (fromCenterX + toCenterX) / 2;
+
+        const fromNormalY = direction;
+        const toNormalY = -direction;
+
+        const startDistance = computePortOffset(fromNode, 0, fromNormalY, pad);
+        const endDistance = computePortOffset(toNode, 0, toNormalY, pad);
+
+        const start = {
+            x: alignX,
+            y: fromCenterY + fromNormalY * startDistance
+        };
+
+        const end = {
+            x: alignX,
+            y: toCenterY + toNormalY * endDistance
+        };
+
+        return { start, end };
+    }
+
+    function buildSameLaneBezierSegments(fromNode, toNode, descriptor, padding) {
+        const side = descriptor?.side >= 0 ? 1 : -1;
+        const band = Math.max(0, Math.min(2, descriptor?.band ?? 0));
+        const fromCenterX = fromNode.x ?? fromNode.X ?? 0;
+        const fromCenterY = fromNode.y ?? fromNode.Y ?? 0;
+        const toCenterX = toNode.x ?? toNode.X ?? 0;
+        const toCenterY = toNode.y ?? toNode.Y ?? 0;
+        const pad = Number.isFinite(padding) ? padding : 0;
+
+        const surfacePadding = 2 + band;
+        const startOffset = computePortOffset(fromNode, side, 0, pad) + surfacePadding;
+        const endOffset = computePortOffset(toNode, side, 0, pad) + surfacePadding;
+
+        const start = {
+            x: fromCenterX + side * startOffset,
+            y: fromCenterY
+        };
+
+        const end = {
+            x: toCenterX + side * endOffset,
+            y: toCenterY
+        };
+
+        const spanY = Math.abs(end.y - start.y);
+        let direction = Math.sign(end.y - start.y);
+        if (direction === 0) {
+            direction = fromCenterY <= toCenterY ? 1 : -1;
+        }
+
+        const stub = 18 + band * 4;
+        const reach = 32 + Math.min(72, spanY * 0.2) + band * 8;
+        const settle = Math.max(14, Math.min(48, spanY * 0.35 + 10));
+
+        const exitCtrlX = start.x + side * stub;
+        const entryCtrlX = end.x + side * stub;
+        const baseOuter = side > 0 ? Math.max(exitCtrlX, entryCtrlX) : Math.min(exitCtrlX, entryCtrlX);
+        const outerX = baseOuter + side * reach;
+
+        const bendExtent = spanY > 0 ? Math.min(spanY / 2, Math.max(36, Math.min(110, spanY * 0.45))) : 48 + band * 6;
+        const bendAmount = spanY > 0 ? bendExtent : Math.max(36, bendExtent);
+
+        let startBendY = start.y + direction * bendAmount;
+        let endBendY = end.y - direction * bendAmount;
+
+        if ((direction > 0 && startBendY > endBendY) || (direction < 0 && startBendY < endBendY)) {
+            const mid = (start.y + end.y) / 2;
+            const delta = Math.max(18, Math.min(60, spanY * 0.5 || 36));
+            startBendY = mid - direction * delta;
+            endBendY = mid + direction * delta;
+        }
+
+        const seg1End = { x: outerX, y: startBendY };
+        const seg2End = { x: outerX, y: endBendY };
+
+        const segments = [
+            {
+                start,
+                cp1: { x: exitCtrlX, y: start.y },
+                cp2: { x: outerX, y: startBendY - direction * settle },
+                end: seg1End
+            },
+            {
+                start: seg1End,
+                cp1: { x: outerX, y: startBendY + direction * settle },
+                cp2: { x: outerX, y: endBendY - direction * settle },
+                end: seg2End
+            },
+            {
+                start: seg2End,
+                cp1: { x: outerX, y: endBendY + direction * settle },
+                cp2: { x: entryCtrlX, y: end.y },
+                end
+            }
+        ];
+
+        return segments;
+    }
+
+    function computeSiblingLaneElbowPath(fromNode, toNode, descriptor, padding) {
+        const side = descriptor?.side >= 0 ? 1 : -1;
+        const band = descriptor?.band ?? 0;
+
+        const fromCenterX = fromNode.x ?? fromNode.X ?? 0;
+        const fromCenterY = fromNode.y ?? fromNode.Y ?? 0;
+        const toCenterX = toNode.x ?? toNode.X ?? 0;
+        const toCenterY = toNode.y ?? toNode.Y ?? 0;
+        const pad = Number.isFinite(padding) ? padding : 0;
+        const lateralStub = 28 + band * 6;
+        const verticalLift = 40 + Math.abs(fromCenterY - toCenterY) * 0.35 + band * 6;
+
+        const startOffset = computePortOffset(fromNode, side, 0, pad) + 6 + band * 2;
+        const endOffset = computePortOffset(toNode, side, 0, pad) + 6 + band * 2;
+
+        const startX = fromCenterX + side * startOffset;
+        const startY = fromCenterY;
+        const endX = toCenterX + side * endOffset;
+        const endY = toCenterY;
+
+        const midX = startX + side * lateralStub;
+        const landingX = endX - side * lateralStub;
+        const verticalDir = fromCenterY <= toCenterY ? 1 : -1;
+        const bendY = (startY + endY) / 2 - verticalDir * verticalLift;
+
+        const points = dedupePoints([
+            { x: startX, y: startY },
+            { x: midX, y: startY },
+            { x: midX, y: bendY },
+            { x: landingX, y: bendY },
+            { x: landingX, y: endY },
+            { x: endX, y: endY }
+        ]);
+
+        return { points };
     }
 
     function createAnchors(node) {
@@ -3225,6 +3479,29 @@
         return points;
     }
 
+    function sampleSegmentSeries(segments, samplesPerSegment = 16) {
+        if (!Array.isArray(segments) || segments.length === 0) {
+            return [];
+        }
+
+        const collected = [];
+        const sampleCount = Math.max(6, samplesPerSegment | 0);
+
+        segments.forEach((segment, index) => {
+            if (!segment?.start || !segment?.cp1 || !segment?.cp2 || !segment?.end) {
+                return;
+            }
+
+            const points = sampleCubicBezier(segment.start, segment.cp1, segment.cp2, segment.end, sampleCount);
+            if (index > 0 && points.length > 0) {
+                points.shift();
+            }
+            collected.push(...points);
+        });
+
+        return collected;
+    }
+
     function drawArrowhead(ctx, fromX, fromY, toX, toY) {
         let dx = toX - fromX;
         let dy = toY - fromY;
@@ -3246,18 +3523,6 @@
         ctx.closePath();
         ctx.fillStyle = ctx.strokeStyle;
         ctx.fill();
-    }
-
-    function drawPort(ctx, x, y, radius, fill, stroke) {
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(x, y, radius, 0, Math.PI * 2);
-        ctx.fillStyle = fill;
-        ctx.fill();
-        ctx.lineWidth = 0.75;
-        ctx.strokeStyle = stroke;
-        ctx.stroke();
-        ctx.restore();
     }
 
     function drawEdgeShare(ctx, points, share) {
