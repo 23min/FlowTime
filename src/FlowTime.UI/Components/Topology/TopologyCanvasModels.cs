@@ -27,7 +27,8 @@ internal sealed record NodeRenderInfo(
     NodeSparklineDto? Sparkline,
     string? FocusLabel,
     bool IsLeaf,
-    NodeSemanticsDto? Semantics);
+    NodeSemanticsDto? Semantics,
+    int Lane);
 
 internal sealed record NodeSemanticsDto(
     string? Arrivals,

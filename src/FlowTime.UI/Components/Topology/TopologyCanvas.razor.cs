@@ -54,12 +54,14 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
     [Parameter] public string? Title { get; set; }
     [Parameter] public EventCallback SettingsRequested { get; set; }
     [Parameter] public EventCallback ViewportRequestConsumed { get; set; }
+    [Parameter] public bool InspectorVisible { get; set; }
     protected ElementReference canvasRef;
 
     protected bool HasVisibleNodes => filteredGraph is { Nodes.Count: > 0 };
     protected bool HasSourceGraph => Graph is { Nodes.Count: > 0 };
 
     protected IReadOnlyList<NodeProxyViewModel> NodeProxies { get; private set; } = Array.Empty<NodeProxyViewModel>();
+    protected string? SelectedNodeId => selectedNodeId;
 
     protected override void OnParametersSet()
     {
@@ -148,22 +150,23 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
 
     protected void SelectNode(string nodeId)
     {
-        CancelPendingTooltipDismiss();
-        FocusNodeInternal(nodeId, notify: true, isSelection: true);
+        FocusNodeInternal(nodeId, isSelection: true);
     }
 
     protected void HoverNode(string nodeId)
     {
         CancelPendingTooltipDismiss();
-        FocusNodeInternal(nodeId, notify: false, isSelection: false);
+        FocusNodeInternal(nodeId, isSelection: false, showTooltip: true);
     }
 
-    private void FocusNodeInternal(string nodeId, bool notify, bool isSelection)
+    private void FocusNodeInternal(string nodeId, bool isSelection, bool? showTooltip = null)
     {
         if (!HasVisibleNodes || !nodeLookup.ContainsKey(nodeId))
         {
             return;
         }
+
+        var previousSelection = selectedNodeId;
 
         focusedNodeId = nodeId;
         if (isSelection)
@@ -171,16 +174,28 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             selectedNodeId = nodeId;
         }
 
-        tooltipNodeId = nodeId;
+        if (showTooltip.HasValue)
+        {
+            tooltipNodeId = showTooltip.Value ? nodeId : null;
+        }
         var graph = filteredGraph ?? Graph!;
         NodeProxies = BuildNodeProxies(graph, NodeMetrics, focusedNodeId, OverlaySettings);
         ScheduleRedraw();
         StateHasChanged();
 
-        if (isSelection && notify && NodeFocused.HasDelegate)
+        if (isSelection &&
+            InspectorVisible &&
+            NodeFocused.HasDelegate &&
+            !string.IsNullOrWhiteSpace(selectedNodeId) &&
+            !string.Equals(previousSelection, selectedNodeId, StringComparison.OrdinalIgnoreCase))
         {
-            _ = NodeFocused.InvokeAsync(nodeId);
+            _ = NodeFocused.InvokeAsync(selectedNodeId);
         }
+    }
+
+    protected void OpenInspector(string nodeId)
+    {
+        OpenInspectorForNode(nodeId);
     }
 
     protected void OnNodeBlur()
@@ -206,8 +221,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                 HandleNodeBlur(clearSelection: true, notify: true);
                 return;
             case "Enter":
-            case " ":
-                // Selection placeholder for later milestones
+                OpenInspectorForNode(nodeId);
                 return;
         }
 
@@ -222,14 +236,35 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
 
         if (!string.IsNullOrWhiteSpace(candidate))
         {
-            FocusNodeInternal(candidate, notify: true, isSelection: true);
+            FocusNodeInternal(candidate, isSelection: true, showTooltip: false);
+        }
+    }
+
+    private void OpenInspectorForNode(string nodeId)
+    {
+        if (!HasVisibleNodes || !nodeLookup.ContainsKey(nodeId))
+        {
+            return;
+        }
+
+        if (!string.Equals(selectedNodeId, nodeId, StringComparison.OrdinalIgnoreCase))
+        {
+            FocusNodeInternal(nodeId, isSelection: true, showTooltip: false);
+        }
+
+        if (NodeFocused.HasDelegate)
+        {
+            _ = NodeFocused.InvokeAsync(nodeId);
         }
     }
 
     private void HandleNodeBlur(bool clearSelection, bool notify)
     {
-        CancelPendingTooltipDismiss();
-        tooltipNodeId = null;
+        if (clearSelection)
+        {
+            CancelPendingTooltipDismiss();
+            tooltipNodeId = null;
+        }
 
         if (clearSelection)
         {
@@ -610,7 +645,8 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                     sparklineDto,
                     focusLabel,
                     isLeaf,
-                    semanticsDto);
+                    semanticsDto,
+                    node.Lane);
             })
             .ToImmutableArray();
 

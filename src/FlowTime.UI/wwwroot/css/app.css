@@ -803,6 +803,67 @@ code {
     border-color: transparent;
 }
 
+.topology-node-inspector-toggle {
+    position: absolute;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid rgba(148, 163, 184, 0.5);
+    background: rgba(248, 250, 252, 0.96);
+    color: #0f172a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: auto;
+    cursor: pointer;
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.15);
+    transform: translate(-50%, -50%);
+    transition: box-shadow 0.18s ease, transform 0.18s ease;
+    padding: 0;
+}
+
+.topology-node-inspector-toggle__bars {
+    position: relative;
+    display: inline-flex;
+    width: 16px;
+    height: 14px;
+}
+
+.topology-node-inspector-toggle__bars .bar {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 2px;
+    border-radius: 999px;
+    background: rgba(99, 102, 241, 0.55);
+}
+
+.topology-node-inspector-toggle__bars .bar-1 { top: 0; }
+.topology-node-inspector-toggle__bars .bar-2 { top: 6px; }
+.topology-node-inspector-toggle__bars .bar-3 { bottom: 0; }
+
+.topology-node-inspector-toggle__bars .dot {
+    position: absolute;
+    width: 3px;
+    height: 3px;
+    border-radius: 999px;
+    background: #2563eb;
+}
+
+.topology-node-inspector-toggle__bars .dot-1 { top: -1px; left: 2px; }
+.topology-node-inspector-toggle__bars .dot-2 { top: 5px; left: 6px; }
+.topology-node-inspector-toggle__bars .dot-3 { bottom: -1px; left: 10px; }
+
+.topology-node-inspector-toggle:hover {
+    transform: translate(-50%, -50%) translateY(-1px);
+    box-shadow: 0 10px 20px rgba(79, 70, 229, 0.25);
+}
+
+.topology-node-inspector-toggle:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.4);
+}
+
 .topology-tooltip {
     position: absolute;
     background: rgba(17, 23, 34, 0.92);

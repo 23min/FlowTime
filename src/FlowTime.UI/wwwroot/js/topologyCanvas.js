@@ -4,6 +4,9 @@
     const EdgeTypeDependency = 'dependency';
     const EdgeTypeThroughput = 'throughput';
     const EdgeTypeEffort = 'effort';
+    const InspectorIconSize = 32;
+    const InspectorIconGap = 8;
+    const InspectorTooltipGap = 10;
     const MIN_ZOOM_PERCENT = 25;
     const MAX_ZOOM_PERCENT = 200;
     const MIN_SCALE = MIN_ZOOM_PERCENT / 100;
@@ -21,6 +24,7 @@
             const ctx = canvas.getContext('2d');
             state = {
                 ctx,
+                canvas,
                 payload: null,
                 offsetX: 0,
                 offsetY: 0,
@@ -53,7 +57,8 @@
                 settingsHitbox: null,
                 settingsPointerActive: false,
                 settingsPointerId: null,
-                settingsPointerDown: null
+                settingsPointerDown: null,
+                tooltipMetrics: null
             };
             setupCanvas(canvas, state);
             registry.set(canvas, state);
@@ -352,6 +357,7 @@
         const ctx = state.ctx;
         clear(state);
         state.chipHitboxes = [];
+        state.tooltipMetrics = null;
 
         const nodes = state.payload.nodes ?? state.payload.Nodes ?? [];
         const edges = state.payload.edges ?? state.payload.Edges ?? [];
@@ -750,6 +756,8 @@
         if (state.hoveredChip) {
             drawChipTooltip(ctx, state);
         }
+
+        positionInspectorToggle(state, nodeMap);
     }
 
     function drawCanvasTitle(ctx, state) {
@@ -880,6 +888,67 @@
 
     }
 
+    function positionInspectorToggle(state, nodeMap) {
+        if (!state || !nodeMap) {
+            return;
+        }
+
+        const host = state.canvas?.parentElement ?? state.canvas?.parentNode ?? document;
+        if (!host) {
+            return;
+        }
+
+        const toggle = host.querySelector('.topology-node-inspector-toggle');
+        if (!toggle) {
+            return;
+        }
+
+        const nodeId = toggle.getAttribute('data-node-id');
+        if (!nodeId || !nodeMap.has(nodeId)) {
+            toggle.style.display = 'none';
+            return;
+        }
+
+        const meta = nodeMap.get(nodeId);
+        const base = computeInspectorAnchor(meta);
+        let targetX = base.x;
+        let targetY = base.y;
+
+        const tooltipMetrics = state.tooltipMetrics;
+        if (tooltipMetrics?.active && tooltipMetrics.side === 'right') {
+            const centerCssX = tooltipMetrics.x + (tooltipMetrics.width / 2);
+            const centerCssY = tooltipMetrics.y + tooltipMetrics.height + InspectorTooltipGap + (InspectorIconSize / 2);
+            const worldPoint = cssToWorld(state, centerCssX, centerCssY);
+            targetX = worldPoint.x;
+            targetY = worldPoint.y;
+        }
+
+        toggle.style.display = '';
+        toggle.style.left = `${targetX}px`;
+        toggle.style.top = `${targetY}px`;
+    }
+
+    function computeInspectorAnchor(meta) {
+        const nodeWidth = Number(meta.width ?? meta.Width ?? 54);
+        const nodeX = Number(meta.x ?? meta.X ?? 0);
+        const nodeY = Number(meta.y ?? meta.Y ?? 0);
+        const offset = (nodeWidth / 2) + InspectorIconGap + (InspectorIconSize / 2);
+        return {
+            x: nodeX + offset,
+            y: nodeY
+        };
+    }
+
+    function cssToWorld(state, cssX, cssY) {
+        const scale = Number(state.scale ?? 1) || 1;
+        const offsetX = Number(state.offsetX ?? 0);
+        const offsetY = Number(state.offsetY ?? 0);
+        return {
+            x: (cssX - offsetX) / scale,
+            y: (cssY - offsetY) / scale
+        };
+    }
+
     function tryDrawTooltip(ctx, nodeMap, tooltip, state) {
         if (!tooltip || !nodeMap || nodeMap.size === 0) {
             return;
@@ -983,8 +1052,10 @@
         if (!Number.isFinite(tooltipX)) {
             tooltipX = 0;
         }
+        let tooltipSide = 'left';
         if (tooltipX < minMargin) {
             tooltipX = rightCandidate;
+            tooltipSide = 'right';
         }
         const maxX = canvasWidthDevice - boxWidth - minMargin;
         if (tooltipX > maxX) {
@@ -1039,6 +1110,17 @@
         }
 
         ctx.restore();
+
+        const tooltipCssX = tooltipX / ratio;
+        const tooltipCssY = tooltipTop / ratio;
+        state.tooltipMetrics = {
+            active: true,
+            x: tooltipCssX,
+            y: tooltipCssY,
+            width: (boxWidth / ratio),
+            height: (boxHeight / ratio),
+            side: tooltipSide
+        };
     }
 
     function prepareTooltipSparklineData(sparkline) {
