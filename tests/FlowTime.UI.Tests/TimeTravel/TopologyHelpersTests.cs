@@ -95,6 +95,85 @@ public sealed class TopologyHelpersTests
     }
 
     [Fact]
+    public void HappyPathLayoutAlignsOperationalBackbone()
+    {
+        var response = new GraphResponseModel(
+            new[]
+            {
+                new GraphNodeModel("ingress", "service", CreateSemantics(), null),
+                new GraphNodeModel("processor", "service", CreateSemantics(), null),
+                new GraphNodeModel("egress", "service", CreateSemantics(), null)
+            },
+            new[]
+            {
+                new GraphEdgeModel("edge_ingress_processor", "ingress:out", "processor:in", 1, null, null, null, null),
+                new GraphEdgeModel("edge_processor_egress", "processor:out", "egress:in", 1, null, null, null, null)
+            });
+
+        var graph = GraphMapper.Map(response, respectUiPositions: false, layout: LayoutMode.HappyPath);
+
+        var ingress = graph.Nodes.Single(n => n.Id == "ingress");
+        var processor = graph.Nodes.Single(n => n.Id == "processor");
+        var egress = graph.Nodes.Single(n => n.Id == "egress");
+
+        Assert.Equal(ingress.X, processor.X, 3);
+        Assert.Equal(processor.X, egress.X, 3);
+        Assert.True(processor.Y > ingress.Y);
+        Assert.True(egress.Y > processor.Y);
+    }
+
+    [Fact]
+    public void HappyPathLayoutPositionsSupportingNodesBesideBackbone()
+    {
+        var response = new GraphResponseModel(
+            new[]
+            {
+                new GraphNodeModel("constant", "const", CreateSemantics(), null),
+                new GraphNodeModel("expression", "expression", CreateSemantics(), null),
+                new GraphNodeModel("service", "service", CreateSemantics(), null)
+            },
+            new[]
+            {
+                new GraphEdgeModel("edge_constant_expression", "constant:out", "expression:in", 1, null, null, null, null),
+                new GraphEdgeModel("edge_expression_service", "expression:out", "service:in", 1, null, null, null, null)
+            });
+
+        var graph = GraphMapper.Map(response, respectUiPositions: false, layout: LayoutMode.HappyPath);
+
+        var svc = graph.Nodes.Single(n => n.Id == "service");
+        var expr = graph.Nodes.Single(n => n.Id == "expression");
+        var constant = graph.Nodes.Single(n => n.Id == "constant");
+        Assert.True(expr.X < svc.X);
+        Assert.True(constant.X <= expr.X + 0.001);
+        Assert.True(expr.Y < svc.Y);
+        Assert.True(constant.Y < expr.Y);
+    }
+
+    [Fact]
+    public void HappyPathLayoutDropsLeafNodesBelowBackbone()
+    {
+        var response = new GraphResponseModel(
+            new[]
+            {
+                new GraphNodeModel("ingress", "service", CreateSemantics(), null),
+                new GraphNodeModel("processor", "service", CreateSemantics(), null),
+                new GraphNodeModel("orphan_metric", "expression", CreateSemantics(), null)
+            },
+            new[]
+            {
+                new GraphEdgeModel("edge_ingress_processor", "ingress:out", "processor:in", 1, null, null, null, null)
+            });
+
+        var graph = GraphMapper.Map(response, respectUiPositions: false, layout: LayoutMode.HappyPath);
+
+        var processor = graph.Nodes.Single(n => n.Id == "processor");
+        var orphan = graph.Nodes.Single(n => n.Id == "orphan_metric");
+
+        Assert.True(orphan.Y > processor.Y);
+        Assert.True(orphan.Y - processor.Y >= 40);
+    }
+
+    [Fact]
     public void ColorScaleReturnsSuccessForHealthyNodes()
     {
         var metrics = new NodeBinMetrics(0.96, 0.72, 0.01, null, null, DateTimeOffset.UtcNow);
