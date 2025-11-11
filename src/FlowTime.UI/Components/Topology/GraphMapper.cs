@@ -9,9 +9,15 @@ internal static class GraphMapper
 {
     private const double horizontalSpacing = 240d;
     private const double verticalSpacing = 140d;
-    private const int columnsPerSide = 2;
-    private const int gridColumns = columnsPerSide * 2 + 1;
-    private static readonly double[] columnOffsetUnits = { -2, -1, 0, 1, 2 };
+
+    private const int farLeftLane = -2;
+    private const int innerLeftLane = -1;
+    private const int centerLane = 0;
+    private const int innerRightLane = 1;
+    private const int leafLane = 2;
+
+    private static readonly int[] serviceLanePreference = { centerLane, innerRightLane, innerLeftLane };
+    private static readonly int[] supportLanePreference = { farLeftLane, innerLeftLane };
 
     public static TopologyGraph Map(GraphResponseModel response) => Map(response, true, LayoutMode.Layered);
 
@@ -254,549 +260,439 @@ internal static class GraphMapper
         Dictionary<string, int> layerByNode)
     {
         var positions = new Dictionary<string, LayoutPoint>(StringComparer.OrdinalIgnoreCase);
+        if (nodeBuilders.Count == 0)
+        {
+            return positions;
+        }
+
+        var categoryById = nodeBuilders.Values.ToDictionary(
+            b => b.Id,
+            b => Classify(b.Kind),
+            StringComparer.OrdinalIgnoreCase);
+
         var laneByNode = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        var sideByNode = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        var columnIndexByNode = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        var layerPositionByNode = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
-        var categoryById = nodeBuilders.Values.ToDictionary(b => b.Id, b => Classify(b.Kind), StringComparer.OrdinalIgnoreCase);
+        var rowByNode = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var occupancy = new HashSet<(int Lane, int Row)>();
 
-        var laneUsage = new HashSet<(int Layer, int Lane)>();
-        var laneSeedCursor = 0;
-        var maxOperationalLayer = nodeBuilders.Values
-            .Where(builder => categoryById.GetValueOrDefault(builder.Id, NodeCategory.Service) == NodeCategory.Service)
-            .Select(builder => layerByNode.GetValueOrDefault(builder.Id))
-            .DefaultIfEmpty(layerByNode.Values.DefaultIfEmpty(0).Max())
-            .Max();
+        AssignServiceNodes(nodeBuilders, categoryById, laneByNode, rowByNode, occupancy, layerByNode);
+        AssignSupportingNodes(nodeBuilders, categoryById, laneByNode, rowByNode, occupancy);
+        AssignLeafNodes(nodeBuilders, categoryById, laneByNode, rowByNode, occupancy);
 
-        var serviceNodes = nodeBuilders.Values
-            .Where(builder => categoryById.GetValueOrDefault(builder.Id, NodeCategory.Service) == NodeCategory.Service)
-            .OrderBy(builder => layerByNode.GetValueOrDefault(builder.Id))
-            .ThenBy(builder => builder.Order)
-            .ToList();
+        NormalizeRows(rowByNode);
 
-        foreach (var builder in serviceNodes)
+        foreach (var builder in nodeBuilders.Values)
         {
-            var layer = layerByNode.GetValueOrDefault(builder.Id);
-            var parentLanes = builder.Inputs
-                .Where(id => categoryById.GetValueOrDefault(id, NodeCategory.Service) == NodeCategory.Service && laneByNode.ContainsKey(id))
-                .Select(id => laneByNode[id])
-                .ToList();
-
-            var candidateLane = parentLanes.Count > 0
-                ? (int)Math.Round(parentLanes.Average(), MidpointRounding.AwayFromZero)
-                : NextLaneSeed(ref laneSeedCursor);
-
-            var resolvedLane = ResolveLaneConflict(layer, candidateLane, laneUsage);
-            laneByNode[builder.Id] = resolvedLane;
-            sideByNode[builder.Id] = 0;
-            columnIndexByNode[builder.Id] = columnsPerSide;
-            layerPositionByNode[builder.Id] = layer;
-
-            var x = resolvedLane * horizontalSpacing;
-            var y = layer * verticalSpacing;
-            var orderHint = resolvedLane * 10;
-            positions[builder.Id] = new LayoutPoint(x, y, orderHint, resolvedLane);
+            var lane = laneByNode.GetValueOrDefault(builder.Id, centerLane);
+            var row = rowByNode.GetValueOrDefault(builder.Id, 0);
+            var x = lane * horizontalSpacing;
+            var y = row * verticalSpacing;
+            var orderHint = (row * 100) + lane;
+            positions[builder.Id] = new LayoutPoint(x, y, orderHint, lane);
         }
 
-        var serviceMeanX = serviceNodes.Count > 0
-            ? serviceNodes.Select(builder => positions[builder.Id].X).Average()
-            : 0d;
-        var serviceLaneLookup = new Dictionary<int, double>();
-        foreach (var builder in serviceNodes)
-        {
-            if (positions.TryGetValue(builder.Id, out var point))
-            {
-                serviceLaneLookup[point.Lane] = point.X;
-            }
-        }
-
-        var serviceLaneXs = serviceLaneLookup
-            .OrderBy(pair => pair.Key)
-            .Select(pair => new LaneCoordinate(pair.Key, pair.Value))
-            .ToList();
-
-        var computeNodes = nodeBuilders.Values
-            .Where(builder => categoryById.GetValueOrDefault(builder.Id, NodeCategory.Service) != NodeCategory.Service)
-            .OrderByDescending(builder => layerByNode.GetValueOrDefault(builder.Id))
-            .ThenBy(builder => builder.Order)
-            .ToList();
-
-        var columnUsage = new Dictionary<(int Lane, int Side), int>();
-        var columnRowUsage = new Dictionary<(int Lane, int ColumnIndex), HashSet<int>>();
-
-        foreach (var builder in computeNodes)
-        {
-            var layer = layerByNode.GetValueOrDefault(builder.Id);
-            var side = ResolveAuxiliarySide(builder, sideByNode, categoryById);
-            var downstreamLanes = builder.Outputs
-                .Where(id => laneByNode.ContainsKey(id))
-                .Select(id => laneByNode[id])
-                .ToList();
-
-            var upstreamLanes = builder.Inputs
-                .Where(id => laneByNode.ContainsKey(id))
-                .Select(id => laneByNode[id])
-                .ToList();
-
-            var anchorLane = downstreamLanes.Count > 0
-                ? (int)Math.Round(downstreamLanes.Average(), MidpointRounding.AwayFromZero)
-                : upstreamLanes.Count > 0
-                    ? (int)Math.Round(upstreamLanes.Average(), MidpointRounding.AwayFromZero)
-                    : 0;
-
-            var sibling = builder.Outputs
-                .FirstOrDefault(id =>
-                    columnIndexByNode.ContainsKey(id)
-                    && categoryById.GetValueOrDefault(id, NodeCategory.Service) != NodeCategory.Service);
-
-            int gridColumn;
-            if (!string.IsNullOrEmpty(sibling) && columnIndexByNode.TryGetValue(sibling, out var siblingColumn))
-            {
-                gridColumn = siblingColumn;
-                side = ResolveSideFromColumn(gridColumn);
-            }
-            else
-            {
-                gridColumn = AllocateGridColumn(anchorLane, ref side, columnUsage);
-            }
-
-            sideByNode[builder.Id] = side;
-            laneByNode[builder.Id] = anchorLane;
-            columnIndexByNode[builder.Id] = gridColumn;
-
-            var layerPosition = ResolveAuxiliaryLayerPosition(
-                builder,
-                layerPositionByNode,
-                layerByNode,
-                categoryById,
-                maxOperationalLayer,
-                gridColumn);
-            var desiredY = layerPosition * verticalSpacing;
-            var dependentLimit = ResolveDependentLimit(builder, positions);
-            var columnKey = (anchorLane, gridColumn);
-            var snappedY = AllocateColumnRow(columnKey, desiredY, dependentLimit, columnRowUsage);
-            layerPosition = snappedY / verticalSpacing;
-            layerPositionByNode[builder.Id] = layerPosition;
-
-            var offsetUnit = ResolveColumnOffset(gridColumn);
-            var lanePosition = anchorLane + (int)Math.Round(offsetUnit);
-            var x = (anchorLane + offsetUnit) * horizontalSpacing;
-            var y = snappedY;
-            var orderHint = (anchorLane * 10) + (gridColumn - columnsPerSide);
-            positions[builder.Id] = new LayoutPoint(x, y, orderHint, lanePosition);
-        }
-
-        EnforceSupportingNodeElevations(computeNodes, positions, layerPositionByNode, layerByNode);
-        AlignLeafNodes(computeNodes, positions, serviceMeanX, serviceLaneXs);
-        ResolveSupportingCollisions(computeNodes, positions);
         return positions;
     }
 
-    private static int ResolveAuxiliarySide(
-        NodeBuilder builder,
-        Dictionary<string, int> sideByNode,
-        Dictionary<string, NodeCategory> categoryById)
-    {
-        static int MajoritySide(List<int> sides) => sides
-            .GroupBy(side => side)
-            .OrderByDescending(group => group.Count())
-            .ThenBy(group => Math.Abs(group.Key))
-            .Select(group => group.Key)
-            .First();
-
-        var downstreamSides = builder.Outputs
-            .Where(id => sideByNode.TryGetValue(id, out var side) && side != 0)
-            .Select(id => sideByNode[id])
-            .ToList();
-
-        if (downstreamSides.Count > 0)
-        {
-            return MajoritySide(downstreamSides);
-        }
-
-        var upstreamSides = builder.Inputs
-            .Where(id => sideByNode.TryGetValue(id, out var side) && side != 0)
-            .Select(id => sideByNode[id])
-            .ToList();
-
-        if (upstreamSides.Count > 0)
-        {
-            return MajoritySide(upstreamSides);
-        }
-
-        var hasServiceOutputs = builder.Outputs.Any(id =>
-            categoryById.GetValueOrDefault(id, NodeCategory.Service) == NodeCategory.Service);
-
-        if (hasServiceOutputs)
-        {
-            return -1;
-        }
-
-        var hasServiceInputs = builder.Inputs.Any(id =>
-            categoryById.GetValueOrDefault(id, NodeCategory.Service) == NodeCategory.Service);
-
-        if (hasServiceInputs)
-        {
-            return 1;
-        }
-
-        return -1;
-    }
-
-    private static int ResolveLaneConflict(int layer, int candidateLane, HashSet<(int Layer, int Lane)> usage)
-    {
-        if (usage.Add((layer, candidateLane)))
-        {
-            return candidateLane;
-        }
-
-        const int searchRadius = 8;
-        for (var offset = 1; offset <= searchRadius; offset++)
-        {
-            var leftLane = candidateLane - offset;
-            if (usage.Add((layer, leftLane)))
-            {
-                return leftLane;
-            }
-
-            var rightLane = candidateLane + offset;
-            if (usage.Add((layer, rightLane)))
-            {
-                return rightLane;
-            }
-        }
-
-        return candidateLane;
-    }
-
-    private static int AllocateGridColumn(
-        int lane,
-        ref int side,
-        Dictionary<(int Lane, int Side), int> usage)
-    {
-        if (side == 0)
-        {
-            var left = usage.GetValueOrDefault((lane, -1));
-            var right = usage.GetValueOrDefault((lane, 1));
-            side = left <= right ? -1 : 1;
-        }
-
-        var sideKey = (lane, side);
-        var sideCount = usage.GetValueOrDefault(sideKey);
-        var oppositeKey = (lane, -side);
-        var oppositeCount = usage.GetValueOrDefault(oppositeKey);
-
-        if (sideCount >= columnsPerSide && oppositeCount < columnsPerSide)
-        {
-            side = -side;
-            sideKey = (lane, side);
-            sideCount = usage.GetValueOrDefault(sideKey);
-        }
-
-        var slotWithinSide = Math.Min(sideCount, columnsPerSide - 1);
-        usage[sideKey] = sideCount + 1;
-
-        return ToGridColumn(side, slotWithinSide);
-    }
-
-    private static int ToGridColumn(int side, int slotWithinSide)
-    {
-        slotWithinSide = Math.Max(0, Math.Min(columnsPerSide - 1, slotWithinSide));
-        return side switch
-        {
-            < 0 => Math.Max(0, columnsPerSide - 1 - slotWithinSide),
-            > 0 => Math.Min(gridColumns - 1, columnsPerSide + 1 + slotWithinSide),
-            _ => columnsPerSide
-        };
-    }
-
-    private static int ResolveSideFromColumn(int columnIndex)
-    {
-        if (columnIndex < columnsPerSide)
-        {
-            return -1;
-        }
-
-        if (columnIndex > columnsPerSide)
-        {
-            return 1;
-        }
-
-        return 0;
-    }
-
-    private static double ResolveColumnOffset(int columnIndex)
-    {
-        if (columnIndex >= 0 && columnIndex < columnOffsetUnits.Length)
-        {
-            return columnOffsetUnits[columnIndex];
-        }
-
-        var clamped = Math.Max(0, Math.Min(gridColumns - 1, columnIndex));
-        return columnOffsetUnits[clamped];
-    }
-
-    private static double AllocateColumnRow(
-        (int Lane, int ColumnIndex) key,
-        double desiredY,
-        double dependentLimitY,
-        Dictionary<(int Lane, int ColumnIndex), HashSet<int>> usage)
-    {
-        var rowHeight = verticalSpacing * 0.55;
-        var preferredRow = (int)Math.Round(desiredY / rowHeight);
-        preferredRow = Math.Max(0, preferredRow);
-
-        var maxAllowedRow = double.IsPositiveInfinity(dependentLimitY)
-            ? int.MaxValue
-            : Math.Max(0, (int)Math.Floor((dependentLimitY - (verticalSpacing * 0.35)) / rowHeight));
-
-        if (!usage.TryGetValue(key, out var rows))
-        {
-            rows = new HashSet<int>();
-            usage[key] = rows;
-        }
-
-        var row = Math.Min(preferredRow, maxAllowedRow);
-        while (row >= 0 && rows.Contains(row))
-        {
-            row--;
-        }
-
-        if (row < 0)
-        {
-            row = Math.Min(preferredRow, maxAllowedRow);
-            while (rows.Contains(row) && row < maxAllowedRow)
-            {
-                row++;
-            }
-        }
-
-        if (rows.Contains(row))
-        {
-            row = maxAllowedRow + 1;
-            while (rows.Contains(row))
-            {
-                row++;
-            }
-        }
-
-        rows.Add(row);
-        return row * rowHeight;
-    }
-
-    private static double ResolveDependentLimit(
-        NodeBuilder builder,
-        Dictionary<string, LayoutPoint> positions)
-    {
-        var dependentYs = builder.Outputs
-            .Select(id => positions.TryGetValue(id, out var point) ? point.Y : (double?)null)
-            .Where(y => y.HasValue)
-            .Select(y => y!.Value)
-            .ToList();
-
-        if (dependentYs.Count == 0)
-        {
-            return double.PositiveInfinity;
-        }
-
-        return dependentYs.Min();
-    }
-
-    private static void EnforceSupportingNodeElevations(
-        IEnumerable<NodeBuilder> computeNodes,
-        Dictionary<string, LayoutPoint> positions,
-        Dictionary<string, double> layerPositionByNode,
+    private static void AssignServiceNodes(
+        Dictionary<string, NodeBuilder> nodeBuilders,
+        Dictionary<string, NodeCategory> categoryById,
+        Dictionary<string, int> laneByNode,
+        Dictionary<string, int> rowByNode,
+        HashSet<(int Lane, int Row)> occupancy,
         Dictionary<string, int> layerByNode)
     {
-        const double ClearanceFactor = 0.35;
-
-        var ordered = computeNodes
-            .OrderByDescending(builder => layerByNode.GetValueOrDefault(builder.Id))
-            .ThenBy(builder => builder.Order)
+        var serviceNodes = nodeBuilders.Values
+            .Where(b => categoryById.GetValueOrDefault(b.Id, NodeCategory.Service) == NodeCategory.Service)
             .ToList();
 
-        foreach (var builder in ordered)
-        {
-            if (builder.Outputs.Count == 0)
-            {
-                // Allow true leaves to sit below the operational backbone
-                continue;
-            }
-
-            if (!positions.TryGetValue(builder.Id, out var point))
-            {
-                continue;
-            }
-
-            var dependentYs = builder.Outputs
-                .Select(id => positions.TryGetValue(id, out var dep) ? dep.Y : (double?)null)
-                .Where(y => y.HasValue)
-                .Select(y => y!.Value)
-                .ToList();
-
-            if (dependentYs.Count == 0)
-            {
-                continue;
-            }
-
-            var clearance = verticalSpacing * ClearanceFactor;
-            var limit = Math.Max(0, dependentYs.Min() - clearance);
-            var updatedY = Math.Min(point.Y, limit);
-            if (Math.Abs(updatedY - point.Y) > 0.5)
-            {
-                positions[builder.Id] = point with { Y = updatedY };
-                layerPositionByNode[builder.Id] = updatedY / verticalSpacing;
-            }
-        }
-    }
-
-    private static void AlignLeafNodes(
-        IEnumerable<NodeBuilder> computeNodes,
-        Dictionary<string, LayoutPoint> positions,
-        double serviceMeanX,
-        IReadOnlyList<LaneCoordinate> serviceLaneXs)
-    {
-        var leaves = computeNodes
-            .Where(builder => builder.Outputs.Count == 0)
-            .ToList();
-
-        if (leaves.Count == 0)
+        if (serviceNodes.Count == 0)
         {
             return;
         }
 
-        var laneCoords = serviceLaneXs is not null && serviceLaneXs.Count > 0
-            ? serviceLaneXs
-            : new List<LaneCoordinate> { new LaneCoordinate(0, serviceMeanX) };
+        var serviceSet = new HashSet<string>(serviceNodes.Select(b => b.Id), StringComparer.OrdinalIgnoreCase);
+        var inDegree = serviceNodes.ToDictionary(
+            b => b.Id,
+            b => b.Inputs.Count(id => serviceSet.Contains(id)),
+            StringComparer.OrdinalIgnoreCase);
 
-        var laneOrder = laneCoords
-            .OrderBy(coord => Math.Abs(coord.X - serviceMeanX))
-            .ThenBy(coord => coord.X)
+        var ready = new SortedSet<ReadyNode>(ReadyNodeComparer.Instance);
+        foreach (var builder in serviceNodes.Where(b => inDegree[b.Id] == 0))
+        {
+            ready.Add(new ReadyNode(layerByNode.GetValueOrDefault(builder.Id), builder.Order, builder.Id));
+        }
+
+        var processed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        while (ready.Count > 0)
+        {
+            var current = ready.Min;
+            ready.Remove(current);
+            var builder = nodeBuilders[current.Id];
+            var baselineRow = ResolveServiceBaseline(builder, rowByNode);
+            var (lane, row) = ResolveServicePlacement(builder, baselineRow, laneByNode, rowByNode, occupancy);
+            laneByNode[builder.Id] = lane;
+            rowByNode[builder.Id] = row;
+            occupancy.Add((lane, row));
+            processed.Add(builder.Id);
+
+            foreach (var childId in builder.Outputs.Where(serviceSet.Contains))
+            {
+                if (!inDegree.ContainsKey(childId))
+                {
+                    continue;
+                }
+
+                inDegree[childId]--;
+                if (inDegree[childId] <= 0)
+                {
+                    ready.Add(new ReadyNode(layerByNode.GetValueOrDefault(childId), nodeBuilders[childId].Order, childId));
+                }
+            }
+        }
+
+        foreach (var builder in serviceNodes.Where(b => !processed.Contains(b.Id)).OrderBy(b => b.Order))
+        {
+            var baselineRow = ResolveServiceBaseline(builder, rowByNode);
+            var (lane, row) = ResolveServicePlacement(builder, baselineRow, laneByNode, rowByNode, occupancy);
+            laneByNode[builder.Id] = lane;
+            rowByNode[builder.Id] = row;
+            occupancy.Add((lane, row));
+        }
+    }
+
+    private static void AssignSupportingNodes(
+        Dictionary<string, NodeBuilder> nodeBuilders,
+        Dictionary<string, NodeCategory> categoryById,
+        Dictionary<string, int> laneByNode,
+        Dictionary<string, int> rowByNode,
+        HashSet<(int Lane, int Row)> occupancy)
+    {
+        var supportNodes = nodeBuilders.Values
+            .Where(b => categoryById.GetValueOrDefault(b.Id, NodeCategory.Service) != NodeCategory.Service && b.Outputs.Count > 0)
             .ToList();
 
-        for (var i = 0; i < leaves.Count; i++)
+        if (supportNodes.Count == 0)
         {
-            var builder = leaves[i];
-            if (!positions.TryGetValue(builder.Id, out var point))
+            return;
+        }
+
+        var pending = new HashSet<string>(supportNodes.Select(b => b.Id), StringComparer.OrdinalIgnoreCase);
+
+        while (pending.Count > 0)
+        {
+            var progressed = false;
+            foreach (var id in pending.ToList())
+            {
+                var builder = nodeBuilders[id];
+                if (builder.Outputs.All(rowByNode.ContainsKey))
+                {
+                    PlaceSupportNode(builder, laneByNode, rowByNode, occupancy);
+                    pending.Remove(id);
+                    progressed = true;
+                }
+            }
+
+            if (!progressed)
+            {
+                var fallback = pending
+                    .Select(id => nodeBuilders[id])
+                    .OrderBy(b => ResolveSupportBaseline(b, rowByNode))
+                    .ThenBy(b => b.Order)
+                    .First();
+
+                PlaceSupportNode(fallback, laneByNode, rowByNode, occupancy);
+                pending.Remove(fallback.Id);
+            }
+        }
+    }
+
+    private static void AssignLeafNodes(
+        Dictionary<string, NodeBuilder> nodeBuilders,
+        Dictionary<string, NodeCategory> categoryById,
+        Dictionary<string, int> laneByNode,
+        Dictionary<string, int> rowByNode,
+        HashSet<(int Lane, int Row)> occupancy)
+    {
+        var leaves = nodeBuilders.Values
+            .Where(b => categoryById.GetValueOrDefault(b.Id, NodeCategory.Service) != NodeCategory.Service && b.Outputs.Count == 0)
+            .OrderBy(b => ResolveLeafBaseline(b, rowByNode))
+            .ThenBy(b => b.Order)
+            .ToList();
+
+        foreach (var builder in leaves)
+        {
+            PlaceLeafNode(builder, laneByNode, rowByNode, occupancy);
+        }
+    }
+
+    private static int ResolveServiceBaseline(NodeBuilder builder, Dictionary<string, int> rowByNode)
+    {
+        var parentRows = builder.Inputs
+            .Select(id => rowByNode.TryGetValue(id, out var row) ? row : (int?)null)
+            .Where(r => r.HasValue)
+            .Select(r => r!.Value)
+            .ToList();
+
+        return parentRows.Count == 0 ? 0 : parentRows.Max() + 1;
+    }
+
+    private static (int Lane, int Row) ResolveServicePlacement(
+        NodeBuilder builder,
+        int baselineRow,
+        Dictionary<string, int> laneByNode,
+        Dictionary<string, int> rowByNode,
+        HashSet<(int Lane, int Row)> occupancy)
+    {
+        var adjacency = GetAdjacentServiceLanes(builder, baselineRow, laneByNode, rowByNode);
+        foreach (var lane in adjacency)
+        {
+            if (!occupancy.Contains((lane, baselineRow)))
+            {
+                return (lane, baselineRow);
+            }
+        }
+
+        var blocked = new HashSet<int>(adjacency);
+        var fallbacks = serviceLanePreference.Where(lane => !blocked.Contains(lane)).ToList();
+        if (fallbacks.Count == 0)
+        {
+            fallbacks.Add(centerLane);
+        }
+
+        var bestLane = fallbacks[0];
+        var bestRow = int.MaxValue;
+
+        foreach (var lane in fallbacks)
+        {
+            var row = FindNextAvailableRow(lane, baselineRow, occupancy);
+            if (row < bestRow || (row == bestRow && CompareLanePriority(lane, bestLane) < 0))
+            {
+                bestLane = lane;
+                bestRow = row;
+            }
+        }
+
+        if (bestRow == int.MaxValue)
+        {
+            bestRow = baselineRow;
+        }
+
+        return (bestLane, bestRow);
+    }
+
+    private static List<int> GetAdjacentServiceLanes(
+        NodeBuilder builder,
+        int baselineRow,
+        Dictionary<string, int> laneByNode,
+        Dictionary<string, int> rowByNode)
+    {
+        var lanes = new List<int>();
+        foreach (var parentId in builder.Inputs)
+        {
+            if (!laneByNode.TryGetValue(parentId, out var lane) ||
+                !rowByNode.TryGetValue(parentId, out var parentRow))
             {
                 continue;
             }
 
-            var laneIndex = i % laneOrder.Count;
-            var lane = laneOrder[laneIndex];
-            positions[builder.Id] = point with { X = lane.X, Lane = lane.Lane };
+            if (baselineRow == parentRow + 1)
+            {
+                AppendUniqueLane(lanes, lane);
+            }
+        }
+
+        return lanes;
+    }
+
+    private static void PlaceSupportNode(
+        NodeBuilder builder,
+        Dictionary<string, int> laneByNode,
+        Dictionary<string, int> rowByNode,
+        HashSet<(int Lane, int Row)> occupancy)
+    {
+        var targetRow = ResolveSupportBaseline(builder, rowByNode);
+        var laneCandidates = ResolveSupportLaneCandidates(builder, laneByNode);
+        var row = targetRow;
+
+        while (true)
+        {
+            foreach (var lane in laneCandidates)
+            {
+                if (!occupancy.Contains((lane, row)))
+                {
+                    laneByNode[builder.Id] = lane;
+                    rowByNode[builder.Id] = row;
+                    occupancy.Add((lane, row));
+                    return;
+                }
+            }
+
+            row--;
         }
     }
 
-    private static void ResolveSupportingCollisions(
-        IEnumerable<NodeBuilder> computeNodes,
-        Dictionary<string, LayoutPoint> positions)
+    private static int ResolveSupportBaseline(
+        NodeBuilder builder,
+        Dictionary<string, int> rowByNode)
     {
-        var groups = computeNodes
-            .Where(builder => builder.Outputs.Count > 0)
-            .Select(builder =>
-            {
-                var hasPoint = positions.TryGetValue(builder.Id, out var point);
-                return (Builder: builder, HasPoint: hasPoint, Point: point);
-            })
-            .Where(tuple => tuple.HasPoint)
-            .GroupBy(tuple => (int)Math.Round(tuple.Point.X / horizontalSpacing))
+        var childRows = builder.Outputs
+            .Select(id => rowByNode.TryGetValue(id, out var row) ? row : (int?)null)
+            .Where(r => r.HasValue)
+            .Select(r => r!.Value)
             .ToList();
 
-        foreach (var group in groups)
+        if (childRows.Count == 0)
         {
-            var usedRows = new HashSet<int>();
-            var ordered = group
-                .OrderByDescending(tuple => tuple.Point.Y)
-                .ToList();
-
-            foreach (var entry in ordered)
-            {
-                var builder = entry.Builder;
-                var point = entry.Point;
-                var desiredRow = (int)Math.Floor(point.Y / verticalSpacing);
-
-                while (usedRows.Contains(desiredRow))
-                {
-                    desiredRow--;
-                }
-
-                usedRows.Add(desiredRow);
-                var newY = desiredRow * verticalSpacing;
-                positions[builder.Id] = point with { Y = newY };
-            }
-        }
-    }
-
-    private static int NextLaneSeed(ref int cursor)
-    {
-        if (cursor == 0)
-        {
-            cursor++;
-            return 0;
+            return rowByNode.Values.DefaultIfEmpty(0).Min() - 1;
         }
 
-        var magnitude = (cursor + 1) / 2;
-        var sign = cursor % 2 == 1 ? 1 : -1;
-        cursor++;
-        return magnitude * sign;
+        return childRows.Min() - 1;
     }
 
-    private static double ResolveAuxiliaryLayerPosition(
+    private static IReadOnlyList<int> ResolveSupportLaneCandidates(
         NodeBuilder builder,
-        Dictionary<string, double> layerPositionByNode,
-        Dictionary<string, int> layerByNode,
-        Dictionary<string, NodeCategory> categoryById,
-        int maxOperationalLayer,
-        int gridColumn)
+        Dictionary<string, int> laneByNode)
     {
-        static IEnumerable<double> ResolveNeighborLayers(
-            IEnumerable<string> ids,
-            Dictionary<string, double> layerPositionByNode,
-            Dictionary<string, int> layerByNode)
+        var childLanes = builder.Outputs
+            .Select(id => laneByNode.TryGetValue(id, out var lane) ? lane : (int?)null)
+            .Where(l => l.HasValue)
+            .Select(l => l!.Value)
+            .ToList();
+
+        if (childLanes.Count == 0)
         {
-            foreach (var id in ids)
+            return supportLanePreference;
+        }
+
+        var anchorLane = childLanes.Min();
+        var desired = Math.Max(farLeftLane, Math.Min(innerLeftLane, anchorLane - 1));
+        if (anchorLane <= farLeftLane)
+        {
+            desired = farLeftLane;
+        }
+
+        if (desired == farLeftLane)
+        {
+            return supportLanePreference;
+        }
+
+        return new[] { desired, farLeftLane };
+    }
+
+    private static void PlaceLeafNode(
+        NodeBuilder builder,
+        Dictionary<string, int> laneByNode,
+        Dictionary<string, int> rowByNode,
+        HashSet<(int Lane, int Row)> occupancy)
+    {
+        var targetRow = ResolveLeafBaseline(builder, rowByNode);
+        var row = targetRow;
+
+        while (occupancy.Contains((leafLane, row)))
+        {
+            row++;
+        }
+
+        laneByNode[builder.Id] = leafLane;
+        rowByNode[builder.Id] = row;
+        occupancy.Add((leafLane, row));
+    }
+
+    private static int ResolveLeafBaseline(NodeBuilder builder, Dictionary<string, int> rowByNode)
+    {
+        var parentRows = builder.Inputs
+            .Select(id => rowByNode.TryGetValue(id, out var row) ? row : (int?)null)
+            .Where(r => r.HasValue)
+            .Select(r => r!.Value)
+            .ToList();
+
+        if (parentRows.Count == 0)
+        {
+            return rowByNode.Values.DefaultIfEmpty(0).Max() + 1;
+        }
+
+        return parentRows.Max() + 1;
+    }
+
+    private static void NormalizeRows(Dictionary<string, int> rowByNode)
+    {
+        if (rowByNode.Count == 0)
+        {
+            return;
+        }
+
+        var minRow = rowByNode.Values.Min();
+        if (minRow >= 0)
+        {
+            return;
+        }
+
+        foreach (var key in rowByNode.Keys.ToList())
+        {
+            rowByNode[key] = rowByNode[key] - minRow;
+        }
+    }
+
+    private static int FindNextAvailableRow(int lane, int startRow, HashSet<(int Lane, int Row)> occupancy)
+    {
+        var row = startRow;
+        while (occupancy.Contains((lane, row)))
+        {
+            row++;
+        }
+
+        return row;
+    }
+
+    private static int CompareLanePriority(int left, int right)
+    {
+        int Rank(int lane)
+        {
+            for (var i = 0; i < serviceLanePreference.Length; i++)
             {
-                if (layerPositionByNode.TryGetValue(id, out var position))
+                if (serviceLanePreference[i] == lane)
                 {
-                    yield return position;
-                }
-                else if (layerByNode.TryGetValue(id, out var layer))
-                {
-                    yield return layer;
+                    return i;
                 }
             }
+
+            return serviceLanePreference.Length;
         }
 
-        var columnDistance = Math.Max(0, Math.Abs(gridColumn - columnsPerSide));
-        var downstreamLayers = ResolveNeighborLayers(builder.Outputs, layerPositionByNode, layerByNode).ToList();
-        if (downstreamLayers.Count > 0)
+        return Rank(left).CompareTo(Rank(right));
+    }
+
+    private static void AppendUniqueLane(ICollection<int> lanes, int lane)
+    {
+        if (!lanes.Contains(lane))
         {
-            var target = downstreamLayers.Min();
-            var offset = 0.45 + columnDistance * 0.06;
-            return Math.Max(0, target - offset);
+            lanes.Add(lane);
         }
+    }
 
-        var upstreamLayers = ResolveNeighborLayers(builder.Inputs, layerPositionByNode, layerByNode).ToList();
-        if (upstreamLayers.Count > 0)
+    private readonly record struct ReadyNode(int Layer, int Order, string Id);
+
+    private sealed class ReadyNodeComparer : IComparer<ReadyNode>
+    {
+        public static ReadyNodeComparer Instance { get; } = new();
+
+        public int Compare(ReadyNode x, ReadyNode y)
         {
-            var target = upstreamLayers.Max();
-            var offset = 0.35 + columnDistance * 0.05;
-            return target + offset;
-        }
+            var layer = x.Layer.CompareTo(y.Layer);
+            if (layer != 0)
+            {
+                return layer;
+            }
 
-        if (builder.Outputs.Count == 0 && builder.Inputs.Count == 0)
-        {
-            return maxOperationalLayer + 0.8 + columnDistance * 0.05;
-        }
+            var order = x.Order.CompareTo(y.Order);
+            if (order != 0)
+            {
+                return order;
+            }
 
-        var fallbackLayer = layerByNode.GetValueOrDefault(builder.Id);
-        if (categoryById.GetValueOrDefault(builder.Id, NodeCategory.Service) == NodeCategory.Service)
-        {
-            return fallbackLayer;
+            return string.CompareOrdinal(x.Id, y.Id);
         }
-
-        return maxOperationalLayer + 0.5 + columnDistance * 0.05;
     }
 
     private static string ExtractNodeId(string value)
@@ -860,7 +756,6 @@ internal static class GraphMapper
 }
 
 internal readonly record struct LayoutPoint(double X, double Y, int OrderHint, int Lane);
-internal readonly record struct LaneCoordinate(int Lane, double X);
 
 internal enum NodeCategory
 {

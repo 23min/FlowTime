@@ -7,6 +7,9 @@ namespace FlowTime.UI.Tests.TimeTravel;
 
 public sealed class TopologyHelpersTests
 {
+    private const double VerticalSpacing = 140d;
+    private const int LeafLane = 2;
+
     [Fact]
     public void GraphMapperAssignsLayersAndConnections()
     {
@@ -116,10 +119,11 @@ public sealed class TopologyHelpersTests
         var processor = graph.Nodes.Single(n => n.Id == "processor");
         var egress = graph.Nodes.Single(n => n.Id == "egress");
 
-        Assert.Equal(ingress.X, processor.X, 3);
-        Assert.Equal(processor.X, egress.X, 3);
-        Assert.True(processor.Y > ingress.Y);
-        Assert.True(egress.Y > processor.Y);
+        Assert.Equal(0, ingress.Lane);
+        Assert.Equal(0, processor.Lane);
+        Assert.Equal(0, egress.Lane);
+        Assert.Equal(ResolveRow(ingress) + 1, ResolveRow(processor));
+        Assert.Equal(ResolveRow(processor) + 1, ResolveRow(egress));
     }
 
     [Fact]
@@ -143,10 +147,10 @@ public sealed class TopologyHelpersTests
         var svc = graph.Nodes.Single(n => n.Id == "service");
         var expr = graph.Nodes.Single(n => n.Id == "expression");
         var constant = graph.Nodes.Single(n => n.Id == "constant");
-        Assert.True(expr.X < svc.X);
-        Assert.True(constant.X <= expr.X + 0.001);
-        Assert.True(expr.Y < svc.Y);
-        Assert.True(constant.Y < expr.Y);
+        Assert.True(expr.Lane < svc.Lane);
+        Assert.True(constant.Lane <= expr.Lane);
+        Assert.Equal(ResolveRow(svc) - 1, ResolveRow(expr));
+        Assert.Equal(ResolveRow(expr) - 1, ResolveRow(constant));
     }
 
     [Fact]
@@ -169,8 +173,75 @@ public sealed class TopologyHelpersTests
         var processor = graph.Nodes.Single(n => n.Id == "processor");
         var orphan = graph.Nodes.Single(n => n.Id == "orphan_metric");
 
-        Assert.True(orphan.Y > processor.Y);
-        Assert.True(orphan.Y - processor.Y >= 40);
+        Assert.Equal(LeafLane, orphan.Lane);
+        Assert.Equal(ResolveRow(processor) + 1, ResolveRow(orphan));
+    }
+
+    [Fact]
+    public void HappyPathLayoutProducesUniqueLaneRowPairs()
+    {
+        var response = new GraphResponseModel(
+            new[]
+            {
+                new GraphNodeModel("svc_a", "service", CreateSemantics(), null),
+                new GraphNodeModel("svc_b", "service", CreateSemantics(), null),
+                new GraphNodeModel("svc_c", "service", CreateSemantics(), null),
+                new GraphNodeModel("expr_in", "expression", CreateSemantics(), null),
+                new GraphNodeModel("expr_mid", "expression", CreateSemantics(), null),
+                new GraphNodeModel("expr_top", "expression", CreateSemantics(), null),
+                new GraphNodeModel("leaf_one", "expression", CreateSemantics(), null),
+                new GraphNodeModel("leaf_two", "expression", CreateSemantics(), null)
+            },
+            new[]
+            {
+                new GraphEdgeModel("edge_ab", "svc_a:out", "svc_b:in", 1, null, null, null, null),
+                new GraphEdgeModel("edge_bc", "svc_b:out", "svc_c:in", 1, null, null, null, null),
+                new GraphEdgeModel("edge_mid_b", "expr_mid:out", "svc_b:in", 1, null, null, null, null),
+                new GraphEdgeModel("edge_top_mid", "expr_top:out", "expr_mid:in", 1, null, null, null, null),
+                new GraphEdgeModel("edge_in_top", "expr_in:out", "expr_top:in", 1, null, null, null, null),
+                new GraphEdgeModel("edge_c_leaf1", "svc_c:out", "leaf_one:in", 1, null, null, null, null),
+                new GraphEdgeModel("edge_b_leaf2", "svc_b:out", "leaf_two:in", 1, null, null, null, null)
+            });
+
+        var graph = GraphMapper.Map(response, respectUiPositions: false, layout: LayoutMode.HappyPath);
+        var occupied = new HashSet<(int Lane, int Row)>();
+
+        foreach (var node in graph.Nodes)
+        {
+            var row = ResolveRow(node);
+            Assert.True(occupied.Add((node.Lane, row)), $"Duplicate cell detected for {node.Id}");
+        }
+    }
+
+    [Fact]
+    public void HappyPathLayoutStacksSupportingChainsAboveChildren()
+    {
+        var response = new GraphResponseModel(
+            new[]
+            {
+                new GraphNodeModel("svc", "service", CreateSemantics(), null),
+                new GraphNodeModel("expr_upper", "expression", CreateSemantics(), null),
+                new GraphNodeModel("expr_lower", "expression", CreateSemantics(), null),
+                new GraphNodeModel("const_seed", "const", CreateSemantics(), null)
+            },
+            new[]
+            {
+                new GraphEdgeModel("edge_upper_svc", "expr_upper:out", "svc:in", 1, null, null, null, null),
+                new GraphEdgeModel("edge_lower_upper", "expr_lower:out", "expr_upper:in", 1, null, null, null, null),
+                new GraphEdgeModel("edge_seed_lower", "const_seed:out", "expr_lower:in", 1, null, null, null, null)
+            });
+
+        var graph = GraphMapper.Map(response, respectUiPositions: false, layout: LayoutMode.HappyPath);
+        var svc = graph.Nodes.Single(n => n.Id == "svc");
+        var upper = graph.Nodes.Single(n => n.Id == "expr_upper");
+        var lower = graph.Nodes.Single(n => n.Id == "expr_lower");
+        var seed = graph.Nodes.Single(n => n.Id == "const_seed");
+
+        Assert.True(upper.Lane < svc.Lane);
+        Assert.True(lower.Lane <= upper.Lane);
+        Assert.Equal(ResolveRow(svc) - 1, ResolveRow(upper));
+        Assert.Equal(ResolveRow(upper) - 1, ResolveRow(lower));
+        Assert.Equal(ResolveRow(lower) - 1, ResolveRow(seed));
     }
 
     [Fact]
@@ -245,4 +316,9 @@ public sealed class TopologyHelpersTests
             Expression: null,
             Distribution: null,
             InlineValues: null);
+
+    private static int ResolveRow(TopologyNode node)
+    {
+        return (int)Math.Round(node.Y / VerticalSpacing, MidpointRounding.AwayFromZero);
+    }
 }

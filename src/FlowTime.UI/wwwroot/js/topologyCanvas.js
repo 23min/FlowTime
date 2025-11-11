@@ -17,6 +17,8 @@
     const LEAF_CIRCLE_FILL = '#E2E8F0';
     const LEAF_CIRCLE_STROKE = '#64748B';
     const POINTER_CLICK_DISTANCE = 4;
+    const GRID_ROW_SPACING = 140;
+    const GRID_COLUMN_SPACING = 240;
 
     function getState(canvas) {
         let state = registry.get(canvas);
@@ -1600,6 +1602,27 @@
 
         const zoomPercent = clamp((state.scale ?? 1) * 100, MIN_ZOOM_PERCENT, MAX_ZOOM_PERCENT);
         return zoomPercent;
+    }
+
+    function resetViewportState(canvas) {
+        const state = getState(canvas);
+        if (!state) {
+            return;
+        }
+
+        state.userAdjusted = false;
+        state.viewportApplied = false;
+        state.baseScale = null;
+        state.overlayScale = null;
+        state.lastOverlayZoom = null;
+        state.viewportSignature = null;
+        state.lastViewportSignature = null;
+        state.lastViewportPayload = null;
+        state.scale = 1;
+        state.offsetX = 0;
+        state.offsetY = 0;
+        state.worldCenterX = 0;
+        state.worldCenterY = 0;
     }
 
     function dispose(canvas) {
@@ -3342,9 +3365,35 @@
         return { start, end, cp1, cp2, samples };
     }
 
+    function resolveRowIndex(node) {
+        if (!node) {
+            return NaN;
+        }
+        const y = Number(node.y ?? node.Y);
+        if (!Number.isFinite(y)) {
+            return NaN;
+        }
+        return Math.round(y / GRID_ROW_SPACING);
+    }
+
     function areNodesVerticallyAdjacent(nodeA, nodeB) {
         if (!nodeA || !nodeB) {
             return false;
+        }
+
+        const laneA = Number.isFinite(nodeA.lane) ? nodeA.lane : null;
+        const laneB = Number.isFinite(nodeB.lane) ? nodeB.lane : null;
+
+        if (laneA !== null && laneB !== null) {
+            if (laneA !== laneB) {
+                return false;
+            }
+
+            const rowA = resolveRowIndex(nodeA);
+            const rowB = resolveRowIndex(nodeB);
+            if (Number.isFinite(rowA) && Number.isFinite(rowB)) {
+                return Math.abs(rowA - rowB) === 1;
+            }
         }
 
         const ax = Number(nodeA.x ?? nodeA.X ?? 0);
@@ -3355,8 +3404,6 @@
         const bw = Math.abs(Number(nodeB.width ?? nodeB.Width ?? 54));
         const ah = Math.abs(Number(nodeA.height ?? nodeA.Height ?? 24));
         const bh = Math.abs(Number(nodeB.height ?? nodeB.Height ?? 24));
-        const laneA = Number.isFinite(nodeA.lane) ? nodeA.lane : null;
-        const laneB = Number.isFinite(nodeB.lane) ? nodeB.lane : null;
         const sameLane = laneA !== null && laneA === laneB;
 
         const avgWidth = (aw + bw) / 2;
@@ -4059,6 +4106,7 @@
         dispose,
         restoreViewport,
         fitToViewport,
+        resetViewportState,
         registerHandlers: (canvas, dotNetRef) => {
             const state = getState(canvas);
             state.dotNetRef = dotNetRef;

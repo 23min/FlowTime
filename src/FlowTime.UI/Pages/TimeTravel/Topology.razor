@@ -998,6 +998,18 @@ private bool inspectorMetricsExpanded;
             || previous.RespectUiPositions != overlaySettings.RespectUiPositions
             || previous.Layout != overlaySettings.Layout;
 
+        if (requiresGraphReload)
+        {
+            pendingViewportSnapshot = null;
+            currentViewportSnapshot = null;
+            isRestoringViewport = false;
+            pointerNeedsJump = true;
+            if (canvasComponent is not null)
+            {
+                await canvasComponent.ResetViewportAsync();
+            }
+        }
+
         if (requiresGraphReload && hasLoaded)
         {
             await RefreshGraphAsync();

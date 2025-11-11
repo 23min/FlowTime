@@ -1148,6 +1148,21 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         return JS.InvokeAsync<double>("FlowTime.TopologyCanvas.fitToViewport", canvasRef);
     }
 
+    public ValueTask ResetViewportAsync()
+    {
+        pendingViewportSnapshot = null;
+        pendingViewportSignature = null;
+        preserveViewportHint = false;
+        lastViewportSnapshot = null;
+
+        if (!hasRendered)
+        {
+            return ValueTask.CompletedTask;
+        }
+
+        return JS.InvokeVoidAsync("FlowTime.TopologyCanvas.resetViewportState", canvasRef);
+    }
+
     [JSInvokable]
     public Task OnSettingsRequestedFromCanvas()
     {
