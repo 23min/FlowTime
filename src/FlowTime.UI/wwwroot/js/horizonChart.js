@@ -24,7 +24,7 @@
     success: '#009E73',
     warning: '#E69F00',
     error: '#D55E00',
-    neutral: '#7A7A7A'
+    neutral: '#E2E8F0'
   };
 
   function pickColor(value, basis, t) {

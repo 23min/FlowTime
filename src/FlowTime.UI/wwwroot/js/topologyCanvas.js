@@ -385,7 +385,7 @@
                 isFocused: !!(n.isFocused ?? n.IsFocused),
                 visible: !(n.isVisible === false || n.IsVisible === false),
                 kind: String(n.kind ?? n.Kind ?? 'service'),
-                fill: n.fill ?? n.Fill ?? '#7A7A7A',
+                fill: n.fill ?? n.Fill ?? LEAF_CIRCLE_FILL,
                 focusLabel: n.focusLabel ?? n.FocusLabel ?? '',
                 semantics: n.semantics ?? n.Semantics ?? null,
                 distribution: n.distribution ?? n.Distribution ?? (n.semantics?.distribution ?? n.Semantics?.Distribution ?? null),
@@ -620,7 +620,7 @@
             const width = node.width ?? node.Width ?? 54;
             const height = node.height ?? node.Height ?? 24;
             const cornerRadius = node.cornerRadius ?? node.CornerRadius ?? 3;
-            const fill = node.fill ?? node.Fill ?? '#7A7A7A';
+            const fill = node.fill ?? node.Fill ?? LEAF_CIRCLE_FILL;
             const stroke = node.stroke ?? node.Stroke ?? '#262626';
 
             const highlightNode = !emphasisEnabled || (neighborNodes?.has(id) ?? false);

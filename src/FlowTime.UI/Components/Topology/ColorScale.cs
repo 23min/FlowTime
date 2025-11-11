@@ -7,7 +7,7 @@ internal static class ColorScale
     public const string SuccessColor = "#009E73";   // Okabe-Ito green
     public const string WarningColor = "#E69F00";   // Okabe-Ito orange
     public const string ErrorColor = "#D55E00";     // Okabe-Ito vermillion
-    public const string NeutralColor = "#7A7A7A";   // Neutral gray
+    public const string NeutralColor = "#E2E8F0";   // Leaf neutral fill
     public const string FocusStrokeColor = "#262626";
 
     private const double DefaultSlaWarningWindow = 0.15;

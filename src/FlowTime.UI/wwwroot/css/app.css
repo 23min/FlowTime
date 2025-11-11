@@ -358,7 +358,7 @@ code {
 .legend-swatch.success { background-color: #009E73; }
 .legend-swatch.warning { background-color: #E69F00; }
 .legend-swatch.error { background-color: #D55E00; }
-.legend-swatch.neutral { background-color: #7A7A7A; }
+.legend-swatch.neutral { background-color: #E2E8F0; }
 
 .topology-run-info {
     white-space: nowrap;
