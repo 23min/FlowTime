@@ -115,6 +115,31 @@ public sealed class TopologyCanvasRenderTests : TestContext
     }
 
     [Fact]
+    public void OverlayPayloadIncludesEdgeOverlayMode()
+    {
+        var graph = CreateGraph();
+        var metrics = CreateMetrics();
+        var overlay = new TopologyOverlaySettings
+        {
+            EdgeOverlay = EdgeOverlayMode.RetryRate,
+            ShowEdgeOverlayLabels = false
+        };
+
+        var renderCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.render", _ => true);
+        renderCall.SetVoidResult();
+
+        RenderComponent<TopologyCanvas>(parameters => parameters
+            .Add(p => p.Graph, graph)
+            .Add(p => p.NodeMetrics, metrics)
+            .Add(p => p.OverlaySettings, overlay));
+
+        var payload = Assert.IsType<CanvasRenderRequest>(renderCall.Invocations.Single().Arguments[1]);
+
+        Assert.Equal(EdgeOverlayMode.RetryRate, payload.Overlays.EdgeOverlay);
+        Assert.False(payload.Overlays.ShowEdgeOverlayLabels);
+    }
+
+    [Fact]
     public void UpdatesMetricsTriggerAdditionalRender()
     {
         var graph = CreateGraph();

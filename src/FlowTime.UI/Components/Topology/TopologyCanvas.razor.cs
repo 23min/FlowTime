@@ -55,6 +55,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
     [Parameter] public EventCallback SettingsRequested { get; set; }
     [Parameter] public EventCallback ViewportRequestConsumed { get; set; }
     [Parameter] public bool InspectorVisible { get; set; }
+    [Parameter] public EventCallback<string?> EdgeHovered { get; set; }
     protected ElementReference canvasRef;
 
     protected bool HasVisibleNodes => filteredGraph is { Nodes.Count: > 0 };
@@ -716,6 +717,8 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             overlays.ShowQueueScalarBadge,
             overlays.SparklineMode,
             overlays.EdgeStyle,
+            overlays.EdgeOverlay,
+            overlays.ShowEdgeOverlayLabels,
             overlays.ZoomPercent,
             overlays.ColorBasis,
             overlays.SlaWarningThreshold,
@@ -1163,6 +1166,26 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         return JS.InvokeVoidAsync("FlowTime.TopologyCanvas.resetViewportState", canvasRef);
     }
 
+    public ValueTask SetInspectorEdgeHoverAsync(string? edgeId)
+    {
+        if (!hasRendered)
+        {
+            return ValueTask.CompletedTask;
+        }
+
+        return JS.InvokeVoidAsync("FlowTime.TopologyCanvas.setInspectorEdgeHover", canvasRef, edgeId);
+    }
+
+    public ValueTask FocusEdgeAsync(string? edgeId, bool centerOnEdge)
+    {
+        if (!hasRendered)
+        {
+            return ValueTask.CompletedTask;
+        }
+
+        return JS.InvokeVoidAsync("FlowTime.TopologyCanvas.focusEdge", canvasRef, edgeId, centerOnEdge);
+    }
+
     [JSInvokable]
     public Task OnSettingsRequestedFromCanvas()
     {
@@ -1183,6 +1206,17 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         }
 
         return Task.CompletedTask;
+    }
+
+    [JSInvokable]
+    public Task OnEdgeHoverChanged(string? edgeId)
+    {
+        if (!EdgeHovered.HasDelegate)
+        {
+            return Task.CompletedTask;
+        }
+
+        return EdgeHovered.InvokeAsync(edgeId);
     }
 
     protected Task OnNodePointerLeave()

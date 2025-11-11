@@ -144,19 +144,19 @@
                                                    OnClick="ToggleLoop" />
                                     <MudChipSet T="double"
                                                 Choice="true"
-                                                SelectedValue="@playbackSecondsPerFrame"
+                                                SelectedValue="@playbackSpeedFactor"
                                                 SelectedValueChanged="OnPlaybackSpeedChipChanged"
                                                 Class="timeline-speed-set">
                                         @foreach (var option in PlaybackSpeedOptions)
                                         {
                                             <MudChip T="double"
-                                                     Value="@option"
+                                                     Value="@option.Factor"
                                                      Variant="Variant.Outlined"
                                                      Color="Color.Default"
                                                      DisableRipple="true"
                                                      Size="Size.Small"
                                                      Class="timeline-speed-chip">
-                                                @FormatPlaybackSpeedLabel(option)
+                                                @option.Label
                                             </MudChip>
                                         }
                                     </MudChipSet>
@@ -255,6 +255,7 @@
                                             ViewportChanged="OnCanvasViewportChanged"
                                             InspectorVisible="inspectorOpen"
                                             NodeFocused="OnNodeFocused"
+                                            EdgeHovered="OnCanvasEdgeHovered"
                                             RequestedViewport="pendingViewportSnapshot"
                                             ViewportRequestConsumed="OnRequestedViewportConsumed" />
                         </div>
@@ -271,6 +272,7 @@
                             var hasExpressionText = !string.IsNullOrWhiteSpace(expressionText);
                             var showExpressionSection = IsExpressionKind(nodeKind);
                             var isComputedNode = IsComputedKind(nodeKind);
+                            var dependencyRows = BuildInspectorDependencies(nodeId);
 
                             <MudPaper Class="topology-inspector topology-inspector-panel" Elevation="1" Style="width: 360px; flex: 0 0 360px;">
                                 <MudStack Class="pa-4" Spacing="2">
@@ -447,6 +449,40 @@
                                         </MudStack>
                                     }
                                 </MudStack>
+                                <MudDivider Class="my-2" />
+                                <MudStack Spacing="1">
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                                        <MudText Typo="Typo.subtitle2">Dependencies</MudText>
+                                        @if (dependencyRows.Count > 0)
+                                        {
+                                            <MudText Typo="Typo.caption" Class="topology-muted-text">@($"{dependencyRows.Count}")</MudText>
+                                        }
+                                    </MudStack>
+                                    @if (dependencyRows.Count == 0)
+                                    {
+                                        <MudText Typo="Typo.caption" Class="topology-muted-text">No dependencies</MudText>
+                                    }
+                                    else
+                                    {
+                                        <div class="topology-inspector-dependencies">
+                                            @foreach (var dependency in dependencyRows)
+                                            {
+                                                var highlighted = IsDependencyHighlighted(dependency.EdgeId);
+                                                <button type="button"
+                                                        class="inspector-dependency-row"
+                                                        data-highlighted="@(highlighted ? "true" : "false")"
+                                                        @onmouseenter="() => OnInspectorDependencyHover(dependency.EdgeId)"
+                                                        @onmouseleave="() => OnInspectorDependencyHover(null)"
+                                                        @onclick="() => OnInspectorDependencyClick(dependency.EdgeId)">
+                                                    <div class="inspector-dependency-row__meta">
+                                                        <MudText Typo="Typo.body2">@dependency.Label</MudText>
+                                                        <MudText Typo="Typo.caption" Class="topology-muted-text">@dependency.Source</MudText>
+                                                    </div>
+                                                </button>
+                                            }
+                                        </div>
+                                    }
+                                </MudStack>
                             </MudPaper>
                         }
                     </MudStack>
@@ -483,6 +519,9 @@ private string? inspectorNodeId;
 private bool inspectorOpen;
 private bool inspectorPinned;
 private bool inspectorMetricsExpanded;
+private string? inspectorHoveredEdgeId;
+private string? inspectorPinnedEdgeId;
+private string? canvasHoveredEdgeId;
     private CancellationTokenSource? saveRunStateDebounceCts;
 
     private TopologyGraph? topologyGraph;
@@ -506,6 +545,7 @@ private bool inspectorMetricsExpanded;
     private bool isPlaying;
     private bool loopPlayback;
     private double playbackSecondsPerFrame = 1d;
+    private double playbackSpeedFactor = 1d;
     private CancellationTokenSource? playbackCts;
     private Task playbackTask = Task.CompletedTask;
     private bool isDialPointerDragging;
@@ -515,10 +555,12 @@ private bool inspectorMetricsExpanded;
     private const double MaxPlaybackDelay = 120d;
     private const double BasePlaybackTotalSeconds = 30d;
     private static readonly double[] PlaybackSpeedFactors = new[] { 1d, 2d, 4d, 8d };
-    private List<double> playbackSpeedOptions = new() { 1d, 0.5d, 0.25d, 0.125d };
-    private IReadOnlyList<double> PlaybackSpeedOptions => playbackSpeedOptions;
+    private sealed record PlaybackSpeedOption(double Factor, double Seconds, string Label);
+    private List<PlaybackSpeedOption> playbackSpeedOptions = new();
+    private IReadOnlyList<PlaybackSpeedOption> PlaybackSpeedOptions => playbackSpeedOptions;
 
     private sealed record TimelineTick(int Bin, double Percent, string Label);
+    internal sealed record InspectorDependencyViewModel(string EdgeId, string Label, string Source, int Order);
 
     private double DialPercent
     {
@@ -1291,9 +1333,11 @@ private bool inspectorMetricsExpanded;
         loopPlayback = !loopPlayback;
     }
 
-    private Task OnPlaybackSpeedChipChanged(double value)
+    private Task OnPlaybackSpeedChipChanged(double factor)
     {
-        playbackSecondsPerFrame = AlignPlaybackSelection(value);
+        playbackSpeedFactor = AlignPlaybackFactor(factor);
+        playbackSecondsPerFrame = GetSecondsForFactor(playbackSpeedFactor);
+        StateHasChanged();
         return Task.CompletedTask;
     }
 
@@ -1695,86 +1739,58 @@ private bool inspectorMetricsExpanded;
         var baseSeconds = BasePlaybackTotalSeconds / totalBins;
         baseSeconds = Math.Clamp(baseSeconds, MinPlaybackDelay, MaxPlaybackDelay);
 
-        var options = new List<double>(PlaybackSpeedFactors.Length);
+        var options = new List<PlaybackSpeedOption>(PlaybackSpeedFactors.Length);
         foreach (var factor in PlaybackSpeedFactors)
         {
-            var seconds = baseSeconds / factor;
-            if (seconds < MinPlaybackDelay)
-            {
-                seconds = MinPlaybackDelay;
-            }
+            var seconds = Math.Clamp(baseSeconds / factor, MinPlaybackDelay, MaxPlaybackDelay);
+            var label = $"{factor:0.#}x";
+            options.Add(new PlaybackSpeedOption(factor, seconds, label));
+        }
 
-            options.Add(seconds);
+        if (options.Count == 0)
+        {
+            options.Add(new PlaybackSpeedOption(1d, baseSeconds, "1x"));
         }
 
         playbackSpeedOptions = options;
-        playbackSecondsPerFrame = AlignPlaybackSelection(playbackSecondsPerFrame);
+        playbackSpeedFactor = AlignPlaybackFactor(playbackSpeedFactor);
+        playbackSecondsPerFrame = GetSecondsForFactor(playbackSpeedFactor);
     }
 
-    private double AlignPlaybackSelection(double value)
+    private double AlignPlaybackFactor(double value)
     {
         if (playbackSpeedOptions.Count == 0)
         {
-            playbackSpeedOptions.Add(Math.Clamp(value, MinPlaybackDelay, MaxPlaybackDelay));
+            playbackSpeedOptions.Add(new PlaybackSpeedOption(1d, Math.Clamp(playbackSecondsPerFrame, MinPlaybackDelay, MaxPlaybackDelay), "1x"));
         }
 
-        var clamped = Math.Clamp(value, MinPlaybackDelay, MaxPlaybackDelay);
-        var closest = playbackSpeedOptions[0];
-        var smallestDelta = Math.Abs(playbackSpeedOptions[0] - clamped);
+        var closest = playbackSpeedOptions[0].Factor;
+        var smallestDelta = Math.Abs(playbackSpeedOptions[0].Factor - value);
 
-        for (var i = 1; i < playbackSpeedOptions.Count; i++)
+        foreach (var option in playbackSpeedOptions)
         {
-            var option = playbackSpeedOptions[i];
-            var delta = Math.Abs(option - clamped);
+            var delta = Math.Abs(option.Factor - value);
             if (delta < smallestDelta)
             {
                 smallestDelta = delta;
-                closest = option;
+                closest = option.Factor;
             }
         }
 
         return closest;
     }
 
-    private string FormatPlaybackSpeedLabel(double seconds)
+    private double GetSecondsForFactor(double factor)
     {
-        if (seconds <= 0)
+        var option = playbackSpeedOptions.FirstOrDefault(o => Math.Abs(o.Factor - factor) < 0.0001);
+        if (option is not null)
         {
-            return "—";
+            return option.Seconds;
         }
 
-        if (playbackSpeedOptions.Count == 0)
-        {
-            return "1x";
-        }
-
-        var baseline = playbackSpeedOptions[0];
-        if (baseline <= 0)
-        {
-            return "1x";
-        }
-
-        var factor = baseline / seconds;
-        if (factor <= 0)
-        {
-            return "1x";
-        }
-
-        var roundedPower = Math.Round(Math.Log(factor, 2));
-        if (double.IsNaN(roundedPower))
-        {
-            roundedPower = 0;
-        }
-
-        var normalized = Math.Pow(2, roundedPower);
-        normalized = Math.Clamp(normalized, 1d, 8d);
-
-        if (Math.Abs(normalized - 1d) < 0.05)
-        {
-            return "1x";
-        }
-
-        return $"{normalized:0.#}x";
+        return playbackSpeedOptions.Count > 0
+            ? playbackSpeedOptions[0].Seconds
+            : Math.Clamp(BasePlaybackTotalSeconds, MinPlaybackDelay, MaxPlaybackDelay);
     }
 
     private string BuildTickLabel(int bin)
@@ -1950,7 +1966,8 @@ private bool inspectorMetricsExpanded;
                         return;
                     }
 
-                    var next = selectedBin + 1;
+                    var stepCount = Math.Max(1, (int)Math.Round(playbackSpeedFactor));
+                    var next = selectedBin + stepCount;
                     if (next > visibleEndBin)
                     {
                         if (loopPlayback)
@@ -2037,6 +2054,7 @@ private bool inspectorMetricsExpanded;
         }
 
         inspectorMetricsExpanded = false;
+        ClearInspectorEdgeHighlights();
         StateHasChanged();
         return Task.CompletedTask;
     }
@@ -2681,6 +2699,7 @@ private bool inspectorMetricsExpanded;
         inspectorNodeId = null;
         inspectorPinned = false;
         inspectorMetricsExpanded = false;
+        ClearInspectorEdgeHighlights();
         canvasComponent?.ClearFocus();
         StateHasChanged();
     }
@@ -3020,6 +3039,166 @@ private bool inspectorMetricsExpanded;
         return null;
     }
 
+    private IReadOnlyList<InspectorDependencyViewModel> BuildInspectorDependencies(string nodeId)
+    {
+        if (topologyGraph?.Edges is null || string.IsNullOrWhiteSpace(nodeId))
+        {
+            return Array.Empty<InspectorDependencyViewModel>();
+        }
+
+        var matches = new List<InspectorDependencyViewModel>();
+        foreach (var edge in topologyGraph.Edges)
+        {
+            if (!string.Equals(edge.To, nodeId, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (!string.Equals(edge.EdgeType, "dependency", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (!IsDependencyFieldEnabled(edge.Field))
+            {
+                continue;
+            }
+
+            var edgeId = edge.Id ?? $"{edge.From}->{edge.To}:{edge.Field}";
+            var label = FormatDependencyFieldLabel(edge.Field);
+            var source = edge.From ?? "Unknown";
+            var order = ResolveDependencyFieldOrder(edge.Field);
+            matches.Add(new InspectorDependencyViewModel(edgeId, label, source, order));
+        }
+
+        if (matches.Count == 0)
+        {
+            return Array.Empty<InspectorDependencyViewModel>();
+        }
+
+        return matches
+            .OrderBy(match => match.Order)
+            .ThenBy(match => match.Source, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static int ResolveDependencyFieldOrder(string? field)
+    {
+        return field?.ToLowerInvariant() switch
+        {
+            "arrivals" => 0,
+            "served" => 1,
+            "attempts" => 2,
+            "failures" => 3,
+            "retryecho" or "retry_echo" => 4,
+            "errors" => 5,
+            "queue" => 6,
+            "capacity" => 7,
+            "expr" or "expression" => 8,
+            _ => 9
+        };
+    }
+
+    private static string FormatDependencyFieldLabel(string? field)
+    {
+        return field?.ToLowerInvariant() switch
+        {
+            "arrivals" => "Arrivals",
+            "served" => "Served",
+            "errors" => "Errors",
+            "attempts" => "Attempts",
+            "failures" => "Failures",
+            "retryecho" or "retry_echo" => "Retry echo",
+            "queue" => "Queue depth",
+            "capacity" => "Capacity",
+            "expr" or "expression" => "Expression",
+            _ => string.IsNullOrWhiteSpace(field)
+                ? "Dependency"
+                : CultureInfo.InvariantCulture.TextInfo.ToTitleCase(field.ToLowerInvariant())
+        };
+    }
+
+    private bool IsDependencyFieldEnabled(string? field)
+    {
+        var key = field?.ToLowerInvariant();
+        return key switch
+        {
+            "arrivals" => overlaySettings.ShowArrivalsDependencies,
+            "served" => overlaySettings.ShowServedDependencies,
+            "errors" => overlaySettings.ShowErrorsDependencies,
+            "queue" => overlaySettings.ShowQueueDependencies,
+            "capacity" => overlaySettings.ShowCapacityDependencies,
+            "expr" or "expression" => overlaySettings.ShowExpressionDependencies,
+            "attempts" or "failures" or "retryecho" or "retry_echo" => overlaySettings.ShowRetryMetrics,
+            _ => true
+        };
+    }
+
+    private bool IsDependencyHighlighted(string edgeId)
+    {
+        if (string.IsNullOrWhiteSpace(edgeId))
+        {
+            return false;
+        }
+
+        return string.Equals(inspectorHoveredEdgeId, edgeId, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(inspectorPinnedEdgeId, edgeId, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(canvasHoveredEdgeId, edgeId, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private async Task OnInspectorDependencyHover(string? edgeId)
+    {
+        if (string.Equals(inspectorHoveredEdgeId, edgeId, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        inspectorHoveredEdgeId = edgeId;
+        if (canvasComponent is not null)
+        {
+            await canvasComponent.SetInspectorEdgeHoverAsync(edgeId);
+        }
+        StateHasChanged();
+    }
+
+    private async Task OnInspectorDependencyClick(string? edgeId)
+    {
+        inspectorPinnedEdgeId = edgeId;
+        if (canvasComponent is not null)
+        {
+            await canvasComponent.FocusEdgeAsync(edgeId, centerOnEdge: true);
+        }
+    }
+
+    private Task OnCanvasEdgeHovered(string? edgeId)
+    {
+        if (string.Equals(canvasHoveredEdgeId, edgeId, StringComparison.OrdinalIgnoreCase))
+        {
+            return Task.CompletedTask;
+        }
+
+        canvasHoveredEdgeId = edgeId;
+        if (!inspectorOpen)
+        {
+            return Task.CompletedTask;
+        }
+
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private void ClearInspectorEdgeHighlights()
+    {
+        inspectorHoveredEdgeId = null;
+        inspectorPinnedEdgeId = null;
+        canvasHoveredEdgeId = null;
+        if (canvasComponent is not null)
+        {
+            _ = canvasComponent.SetInspectorEdgeHoverAsync(null);
+            _ = canvasComponent.FocusEdgeAsync(null, centerOnEdge: false);
+        }
+    }
+
     private static double? GetValueAt(double?[]? series, int index)
     {
         if (series is null || index < 0 || index >= series.Length)
@@ -3151,6 +3330,7 @@ private static IReadOnlyList<double?> TrimSeriesAt(double?[]? source, int limit,
         inspectorPinned = false;
         inspectorNodeId = null;
         inspectorMetricsExpanded = false;
+        ClearInspectorEdgeHighlights();
         loggedMissingMetricKinds.Clear();
         activeMetrics = new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase);
         nodeSparklines = new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase);

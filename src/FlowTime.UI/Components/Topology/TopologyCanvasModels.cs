@@ -77,6 +77,8 @@ internal sealed record OverlaySettingsPayload(
     bool ShowQueueScalarBadge,
     SparklineRenderMode SparklineMode,
     EdgeRenderMode EdgeStyle,
+    EdgeOverlayMode EdgeOverlay,
+    bool ShowEdgeOverlayLabels,
     double ZoomPercent,
     TopologyColorBasis ColorBasis,
     double SlaWarningThreshold,

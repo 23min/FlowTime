@@ -70,6 +70,11 @@ public partial class Topology
         return BuildInspectorMetricBlocks(nodeId);
     }
 
+    internal IReadOnlyList<InspectorDependencyViewModel> TestBuildInspectorDependencies(string nodeId)
+    {
+        return BuildInspectorDependencies(nodeId);
+    }
+
     internal void TestCloseInspector()
     {
         CloseInspector();

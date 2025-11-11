@@ -4,6 +4,13 @@
     const EdgeTypeDependency = 'dependency';
     const EdgeTypeThroughput = 'throughput';
     const EdgeTypeEffort = 'effort';
+    const EDGE_OVERLAY_BASE_COLORS = {
+        success: '#009E73',
+        warning: '#E69F00',
+        error: '#D55E00',
+        neutral: '#7C8BA1'
+    };
+    const EDGE_OVERLAY_STROKE_ALPHA = 0.85;
     const InspectorIconSize = 32;
     const InspectorIconGap = 8;
     const InspectorTooltipGap = 10;
@@ -53,6 +60,11 @@
                 chipHitboxes: [],
                 hoveredChipId: null,
                 hoveredChip: null,
+                edgeHitboxes: [],
+                hoveredEdgeId: null,
+                inspectorEdgeHoverId: null,
+                focusedEdgeId: null,
+                lastEdgeHoverId: null,
                 pointerDownPoint: null,
                 pointerMoved: false,
                 title: '',
@@ -60,7 +72,9 @@
                 settingsPointerActive: false,
                 settingsPointerId: null,
                 settingsPointerDown: null,
-                tooltipMetrics: null
+                tooltipMetrics: null,
+                edgeOverlayLegend: null,
+                edgeOverlayContext: null
             };
             setupCanvas(canvas, state);
             registry.set(canvas, state);
@@ -121,9 +135,18 @@
         }
 
         const clearHover = () => {
+            let invalidated = false;
             if (state.hoveredChipId !== null || state.hoveredChip !== null) {
                 state.hoveredChipId = null;
                 state.hoveredChip = null;
+                invalidated = true;
+            }
+
+            if (setHoveredEdge(state, null)) {
+                invalidated = true;
+            }
+
+            if (invalidated) {
                 draw(canvas, state);
             }
         };
@@ -153,8 +176,9 @@
         };
 
         const updateHover = (event) => {
-            if (!state.payload || !state.chipHitboxes || state.chipHitboxes.length === 0) {
-                if (state.hoveredChipId !== null || state.hoveredChip !== null) {
+            if (!state.payload) {
+                const changed = setHoveredEdge(state, null);
+                if ((state.hoveredChipId !== null || state.hoveredChip !== null) || changed) {
                     state.hoveredChipId = null;
                     state.hoveredChip = null;
                     draw(canvas, state);
@@ -167,11 +191,33 @@
             const clientY = event.clientY - rect.top;
             const worldX = (clientX - state.offsetX) / state.scale;
             const worldY = (clientY - state.offsetY) / state.scale;
-            const hit = hitTestChip(state, worldX, worldY);
-            const nextId = hit ? hit.id : null;
+            let invalidated = false;
 
-            if (nextId !== state.hoveredChipId) {
-                state.hoveredChipId = nextId;
+            if (!state.chipHitboxes || state.chipHitboxes.length === 0) {
+                if (state.hoveredChipId !== null || state.hoveredChip !== null) {
+                    state.hoveredChipId = null;
+                    state.hoveredChip = null;
+                    invalidated = true;
+                }
+            } else {
+                const hitChip = hitTestChip(state, worldX, worldY);
+                const nextChipId = hitChip ? hitChip.id : null;
+                if (nextChipId !== state.hoveredChipId) {
+                    state.hoveredChipId = nextChipId;
+                    invalidated = true;
+                }
+            }
+
+            const edgeHit = hitTestEdge(state, worldX, worldY);
+            if (edgeHit) {
+                canvas.style.cursor = 'pointer';
+            }
+
+            if (setHoveredEdge(state, edgeHit ? edgeHit.id : null)) {
+                invalidated = true;
+            }
+
+            if (invalidated) {
                 draw(canvas, state);
             }
         };
@@ -268,6 +314,13 @@
                 const clientY = event.clientY - rect.top;
                 const worldX = (clientX - state.offsetX) / state.scale;
                 const worldY = (clientY - state.offsetY) / state.scale;
+                const edgeHit = hitTestEdge(state, worldX, worldY);
+                if (edgeHit) {
+                    state.pointerDownPoint = null;
+                    state.pointerMoved = false;
+                    canvas.style.cursor = 'default';
+                    return;
+                }
                 const hit = hitTestChip(state, worldX, worldY);
                 if (!hit && state.dotNetRef) {
                     state.dotNetRef.invokeMethodAsync('OnCanvasBackgroundClicked');
@@ -360,6 +413,9 @@
         clear(state);
         state.chipHitboxes = [];
         state.tooltipMetrics = null;
+        state.edgeHitboxes = [];
+        state.edgeOverlayLegend = null;
+        state.edgeOverlayContext = null;
 
         const nodes = state.payload.nodes ?? state.payload.Nodes ?? [];
         const edges = state.payload.edges ?? state.payload.Edges ?? [];
@@ -432,6 +488,10 @@
         const neighborNodes = emphasisEnabled ? computeNeighborNodes(edges, focusedId) : null;
         const neighborEdges = emphasisEnabled ? computeNeighborEdges(edges, focusedId) : null;
 
+        const overlayContext = buildEdgeOverlayContext(edges, nodeMap, overlaySettings);
+        state.edgeOverlayContext = overlayContext;
+        state.edgeOverlayLegend = overlayContext?.legend ?? null;
+
         const defaultEdgeAlpha = 0.85;
 
         for (const edge of edges) {
@@ -454,10 +514,10 @@
                 continue;
             }
 
-            const rawEdgeType = String(edge.edgeType ?? edge.EdgeType ?? EdgeTypeTopology).toLowerCase();
-            const isEffortEdge = rawEdgeType === EdgeTypeEffort;
-            const isThroughputEdge = rawEdgeType === EdgeTypeThroughput;
-            const isDependency = rawEdgeType === EdgeTypeDependency;
+            const resolvedEdgeType = resolveEdgeType(edge);
+            const isEffortEdge = resolvedEdgeType === EdgeTypeEffort;
+            const isThroughputEdge = resolvedEdgeType === EdgeTypeThroughput;
+            const isDependency = resolvedEdgeType === EdgeTypeDependency;
 
             if (isDependency) {
                 const field = String(edge.field ?? edge.Field ?? '').toLowerCase();
@@ -467,8 +527,12 @@
             }
 
             const edgeId = edge.id ?? edge.Id ?? `${fromId}->${toId}`;
-            const highlightEdge = !emphasisEnabled || (neighborEdges?.has(edgeId) ?? false);
-            const emphasized = emphasisEnabled && (neighborEdges?.has(edgeId) ?? false);
+            const pointerHoveredEdge = state.hoveredEdgeId && state.hoveredEdgeId === edgeId;
+            const inspectorHoveredEdge = state.inspectorEdgeHoverId && state.inspectorEdgeHoverId === edgeId;
+            const focusedEdge = state.focusedEdgeId && state.focusedEdgeId === edgeId;
+            const neighborHighlighted = neighborEdges?.has(edgeId) ?? false;
+            const highlightEdge = pointerHoveredEdge || inspectorHoveredEdge || focusedEdge || !emphasisEnabled || neighborHighlighted;
+            const emphasized = pointerHoveredEdge || inspectorHoveredEdge || focusedEdge || (emphasisEnabled && neighborHighlighted);
             const edgeAlpha = emphasized ? 1 : (highlightEdge ? defaultEdgeAlpha : defaultEdgeAlpha * 0.25);
 
             const baseStrokeColor = isEffortEdge
@@ -479,10 +543,17 @@
 
             let dashPattern = isDependency ? [4, 3] : (isEffortEdge ? [8, 4] : null);
             let lineWidth = isDependency ? 1.4 : (isEffortEdge ? 3.2 : 3);
+            const overlaySample = overlayContext?.samples?.get(edgeId) ?? null;
+            if (overlaySample && !isDependency) {
+                lineWidth *= 2;
+            }
             let strokeColor = baseStrokeColor;
+            if (overlaySample?.color) {
+                strokeColor = overlaySample.color;
+            }
 
             if (emphasized) {
-                strokeColor = '#2563EB';
+                strokeColor = focusedEdge ? '#1D4ED8' : '#0EA5E9';
                 dashPattern = null;
                 lineWidth += 0.6;
             }
@@ -594,6 +665,17 @@
                     drawEdgeMultiplier(ctx, pathPoints, label, baseStrokeColor);
                 }
             }
+
+            if (overlaySample && overlaySettings.showEdgeOverlayLabels !== false) {
+                const labelColor = overlaySample.baseColor ?? overlaySample.color ?? '#2563EB';
+                drawEdgeOverlayLabel(ctx, pathPoints, overlaySample.text, labelColor);
+            }
+
+            state.edgeHitboxes.push({
+                id: edgeId,
+                points: pathPoints.slice(),
+                type: resolvedEdgeType
+            });
 
             if (dashPattern) {
                 ctx.setLineDash([]);
@@ -750,6 +832,7 @@
         ctx.restore();
 
         drawCanvasTitle(ctx, state);
+        drawEdgeOverlayLegend(ctx, state);
 
         if (tooltip) {
             tryDrawTooltip(ctx, nodeMap, tooltip, state);
@@ -875,6 +958,57 @@
         }
 
         return null;
+    }
+
+    function hitTestEdge(state, worldX, worldY) {
+        if (!state || !Array.isArray(state.edgeHitboxes) || state.edgeHitboxes.length === 0) {
+            return null;
+        }
+
+        const tolerance = 8 / Math.max(state.scale || 1, 0.0001);
+        let closest = null;
+        let minDistance = tolerance;
+
+        for (const hitbox of state.edgeHitboxes) {
+            const distance = distanceToPolyline(hitbox.points, worldX, worldY);
+            if (distance < minDistance) {
+                minDistance = distance;
+                closest = hitbox;
+            }
+        }
+
+        return closest;
+    }
+
+    function distanceToPolyline(points, x, y) {
+        if (!Array.isArray(points) || points.length < 2) {
+            return Number.POSITIVE_INFINITY;
+        }
+
+        let best = Number.POSITIVE_INFINITY;
+        for (let i = 0; i < points.length - 1; i++) {
+            const start = points[i];
+            const end = points[i + 1];
+            const px = end.x - start.x;
+            const py = end.y - start.y;
+            const lenSq = px * px + py * py;
+            let t = 0;
+            if (lenSq > 0) {
+                t = ((x - start.x) * px + (y - start.y) * py) / lenSq;
+                t = Math.max(0, Math.min(1, t));
+            }
+
+            const projX = start.x + t * px;
+            const projY = start.y + t * py;
+            const dx = x - projX;
+            const dy = y - projY;
+            const dist = Math.hypot(dx, dy);
+            if (dist < best) {
+                best = dist;
+            }
+        }
+
+        return best;
     }
 
     function applyOverlayTransform(canvas, state) {
@@ -1847,6 +1981,7 @@
 
         const sparkMode = Number(raw.sparklineMode ?? raw.SparklineMode ?? 0);
         const edgeStyleRaw = raw.edgeStyle ?? raw.EdgeStyle ?? 0;
+        const edgeOverlayRaw = Number(raw.edgeOverlay ?? raw.EdgeOverlay ?? 0);
         const zoomPercentRaw = Number(raw.zoomPercent ?? raw.ZoomPercent ?? 100);
         const zoomPercent = Number.isFinite(zoomPercentRaw)
             ? clamp(zoomPercentRaw, MIN_ZOOM_PERCENT, MAX_ZOOM_PERCENT)
@@ -1876,6 +2011,18 @@
             edgeStyle = Number(edgeStyleRaw) === 1 ? 'bezier' : 'orthogonal';
         }
 
+        let edgeOverlayMode = 'off';
+        if (typeof edgeOverlayRaw === 'string') {
+            const normalized = edgeOverlayRaw.trim().toLowerCase();
+            if (normalized === 'retryrate' || normalized === 'retry_rate') {
+                edgeOverlayMode = 'retryRate';
+            } else if (normalized === 'attempts') {
+                edgeOverlayMode = 'attempts';
+            }
+        } else {
+            edgeOverlayMode = edgeOverlayRaw === 1 ? 'retryRate' : edgeOverlayRaw === 2 ? 'attempts' : 'off';
+        }
+
         return {
             showLabels: boolOr(raw.showLabels ?? raw.ShowLabels, true),
             showEdgeArrows: boolOr(raw.showEdgeArrows ?? raw.ShowEdgeArrows, true),
@@ -1886,6 +2033,8 @@
             showQueueBadge: boolOr(raw.showQueueScalarBadge ?? raw.ShowQueueScalarBadge, true),
             sparklineMode: sparkMode === 1 ? 'bar' : 'line',
             edgeStyle,
+            edgeOverlayMode,
+            showEdgeOverlayLabels: boolOr(raw.showEdgeOverlayLabels ?? raw.ShowEdgeOverlayLabels, true),
             colorBasis: raw.colorBasis ?? raw.ColorBasis ?? 0,
             zoomPercent,
             manualScale,
@@ -3660,16 +3809,7 @@
             return;
         }
 
-        const segments = [];
-        for (let i = 0; i < points.length - 1; i++) {
-            const start = points[i];
-            const end = points[i + 1];
-            const dx = end.x - start.x;
-            const dy = end.y - start.y;
-            const length = Math.hypot(dx, dy);
-            segments.push({ x1: start.x, y1: start.y, x2: end.x, y2: end.y, length });
-        }
-
+        const segments = buildPolylineSegments(points);
         const totalLength = segments.reduce((sum, seg) => sum + seg.length, 0);
         if (!Number.isFinite(totalLength) || totalLength === 0) {
             return;
@@ -3692,9 +3832,27 @@
         ctx.font = '10px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-    ctx.fillText(label, labelX, labelY);
-    ctx.restore();
-}
+        ctx.fillText(label, labelX, labelY);
+        ctx.restore();
+    }
+
+    function buildPolylineSegments(points) {
+        if (!Array.isArray(points) || points.length < 2) {
+            return [];
+        }
+
+        const segments = [];
+        for (let i = 0; i < points.length - 1; i++) {
+            const start = points[i];
+            const end = points[i + 1];
+            const dx = end.x - start.x;
+            const dy = end.y - start.y;
+            const length = Math.hypot(dx, dy);
+            segments.push({ x1: start.x, y1: start.y, x2: end.x, y2: end.y, length });
+        }
+
+        return segments;
+    }
 
     function drawEdgeMultiplier(ctx, points, label, strokeColor) {
         if (!Array.isArray(points) || points.length === 0 || typeof label !== 'string' || label.length === 0) {
@@ -3717,6 +3875,528 @@
         const baseline = anchor.y - 8;
         drawChip(ctx, left, baseline, label, 'rgba(255, 255, 255, 0.92)', strokeColor, paddingX, chipHeight);
         ctx.restore();
+    }
+
+    function drawEdgeOverlayLabel(ctx, points, text, accentColor) {
+        if (!Array.isArray(points) || points.length < 2 || typeof text !== 'string' || text.trim().length === 0) {
+            return;
+        }
+
+        const segments = buildPolylineSegments(points);
+        const totalLength = segments.reduce((sum, seg) => sum + seg.length, 0);
+        if (!Number.isFinite(totalLength) || totalLength === 0) {
+            return;
+        }
+
+        const midpoint = pointAlongSegments(segments, totalLength / 2);
+        if (!midpoint || !midpoint.point) {
+            return;
+        }
+
+        const anchor = midpoint.point;
+        const border = accentColor ?? EDGE_OVERLAY_BASE_COLORS.neutral;
+        const background = accentColor ?? EDGE_OVERLAY_BASE_COLORS.neutral;
+        const textColor = '#FFFFFF';
+
+        ctx.save();
+        ctx.font = '600 10px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
+        const paddingX = 6;
+        const paddingY = 3;
+        const measured = ctx.measureText(text);
+        const width = Math.ceil(measured.width) + paddingX * 2;
+        const height = 14;
+        const x = anchor.x - width / 2;
+        const y = anchor.y - height - 4;
+
+        ctx.fillStyle = background;
+        ctx.strokeStyle = border;
+        ctx.lineWidth = 0.9;
+        drawRoundedRectTopLeft(ctx, x, y, width, height, 6);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = textColor;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, anchor.x, y + height / 2);
+        ctx.restore();
+    }
+
+    function drawEdgeOverlayLegend(ctx, state) {
+        const legend = state?.edgeOverlayLegend;
+        if (!legend || !Array.isArray(legend.entries) || legend.entries.length === 0) {
+            return;
+        }
+
+        const ratio = Number(state.deviceRatio ?? window.devicePixelRatio ?? 1) || 1;
+        ctx.save();
+        ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+
+        const isDark = document.body.classList.contains('dark-mode');
+        const background = isDark ? 'rgba(15, 23, 42, 0.92)' : 'rgba(248, 250, 252, 0.95)';
+        const border = isDark ? 'rgba(148, 163, 184, 0.45)' : 'rgba(148, 163, 184, 0.35)';
+        const textColor = isDark ? '#E2E8F0' : '#0F172A';
+        const badgeBorder = isDark ? '#1E293B' : '#E2E8F0';
+
+        const margin = 6;
+        const badgeSize = 10;
+        const paddingX = 12;
+        const paddingY = 10;
+        const rowGap = 4;
+        const rowHeight = 16;
+
+        ctx.font = '600 11px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
+        let width = ctx.measureText(legend.title ?? 'Edge overlays').width;
+        ctx.font = '10px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
+        for (const entry of legend.entries) {
+            const text = buildLegendEntryText(entry);
+            width = Math.max(width, ctx.measureText(text).width);
+        }
+
+        width += paddingX * 2 + badgeSize + 12;
+        const height = paddingY * 2 + 4 + legend.entries.length * (rowHeight + rowGap);
+        const canvasWidth = state.canvasWidth ?? (ctx.canvas.width / ratio);
+        const x = canvasWidth - width - margin;
+        const y = margin;
+
+        ctx.fillStyle = background;
+        ctx.strokeStyle = border;
+        ctx.lineWidth = 1;
+        drawRoundedRectTopLeft(ctx, x, y, width, height, 10);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = textColor;
+        ctx.font = '600 11px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
+        ctx.textBaseline = 'top';
+        ctx.fillText(legend.title ?? 'Edge overlays', x + paddingX, y + paddingY);
+
+        ctx.font = '10px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
+        ctx.textBaseline = 'middle';
+        let cursorY = y + paddingY + 18;
+        for (const entry of legend.entries) {
+            const text = buildLegendEntryText(entry);
+            ctx.fillStyle = entry.color ?? EDGE_OVERLAY_BASE_COLORS.neutral;
+            ctx.beginPath();
+            ctx.arc(x + paddingX, cursorY + 6, badgeSize / 2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = badgeBorder;
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
+
+            ctx.fillStyle = textColor;
+            ctx.textAlign = 'left';
+            ctx.fillText(text, x + paddingX + badgeSize + 6, cursorY + 6);
+            cursorY += rowHeight + rowGap;
+        }
+
+        ctx.restore();
+    }
+
+    function buildLegendEntryText(entry) {
+        const label = typeof entry?.label === 'string' ? entry.label : '';
+        const value = typeof entry?.value === 'string' ? entry.value : '';
+        return value ? `${label}: ${value}` : label;
+    }
+
+    function buildEdgeOverlayContext(edges, nodeMap, overlays) {
+        if (!overlays) {
+            return null;
+        }
+
+        const mode = normalizeEdgeOverlayMode(overlays.edgeOverlayMode);
+        if (mode === 'off') {
+            return null;
+        }
+
+        const selectedBin = Number(overlays.selectedBin ?? -1);
+        if (!Number.isFinite(selectedBin) || selectedBin < 0) {
+            return null;
+        }
+
+        const samples = new Map();
+        const values = [];
+
+        for (const edge of edges) {
+            const type = resolveEdgeType(edge);
+            if (type === EdgeTypeDependency) {
+                continue;
+            }
+
+            const fromId = edge.from ?? edge.From;
+            if (!nodeMap.has(fromId)) {
+                continue;
+            }
+
+            const meta = nodeMap.get(fromId);
+            const sparkline = meta?.sparkline ?? null;
+            if (!sparkline) {
+                continue;
+            }
+
+            const edgeId = edge.id ?? edge.Id ?? `${fromId}->${edge.to ?? edge.To}`;
+
+            if (mode === 'retryRate') {
+                const attempts = sampleSeriesValueAt(sparkline, 'attempts', selectedBin);
+                if (!Number.isFinite(attempts) || attempts <= 0) {
+                    continue;
+                }
+                const failures = sampleSeriesValueAt(sparkline, 'failures', selectedBin) ?? sampleSeriesValueAt(sparkline, 'errors', selectedBin) ?? 0;
+                const value = clamp(Number(failures) / attempts, 0, 1);
+                samples.set(edgeId, {
+                    mode,
+                    value,
+                    text: formatPercent(value)
+                });
+                values.push(value);
+            } else if (mode === 'attempts') {
+                let attempts = sampleSeriesValueAt(sparkline, 'attempts', selectedBin)
+                    ?? sampleSeriesValueAt(sparkline, 'served', selectedBin)
+                    ?? sampleSeriesValueAt(sparkline, 'arrivals', selectedBin);
+                if (!Number.isFinite(attempts)) {
+                    continue;
+                }
+                if (attempts < 0) {
+                    attempts = 0;
+                }
+
+                const multiplier = Number(edge.multiplier ?? edge.Multiplier);
+                if (type === EdgeTypeEffort && Number.isFinite(multiplier) && multiplier > 0) {
+                    attempts *= multiplier;
+                }
+
+                const value = attempts;
+                samples.set(edgeId, {
+                    mode,
+                    value,
+                    text: formatMetricValue(value)
+                });
+                values.push(value);
+            }
+        }
+
+        if (samples.size === 0) {
+            return null;
+        }
+
+        if (mode === 'retryRate') {
+            const warning = Number(overlays.thresholds?.errorWarning ?? 0.02);
+            const critical = Number(overlays.thresholds?.errorCritical ?? 0.05);
+            for (const sample of samples.values()) {
+                sample.bucket = classifyRetryRate(sample.value, warning, critical);
+                const bucketColors = overlayBucketColors(sample.bucket);
+                sample.color = bucketColors.stroke;
+                sample.baseColor = bucketColors.base;
+            }
+            return {
+                mode,
+                samples,
+                legend: buildRetryLegend(warning, critical, samples.size)
+            };
+        }
+
+        const thresholds = buildAttemptsThresholds(values);
+        for (const sample of samples.values()) {
+            sample.bucket = classifyAttempts(sample.value, thresholds);
+            const bucketColors = overlayBucketColors(sample.bucket);
+            sample.color = bucketColors.stroke;
+            sample.baseColor = bucketColors.base;
+        }
+
+        return {
+            mode,
+            samples,
+            legend: buildAttemptsLegend(thresholds, samples.size)
+        };
+    }
+
+    function normalizeEdgeOverlayMode(raw) {
+        if (typeof raw === 'string') {
+            const normalized = raw.trim().toLowerCase();
+            if (normalized === 'retryrate' || normalized === 'retry_rate') {
+                return 'retryRate';
+            }
+            if (normalized === 'attempts') {
+                return 'attempts';
+            }
+            return 'off';
+        }
+
+        const numeric = Number(raw);
+        if (numeric === 1) {
+            return 'retryRate';
+        }
+        if (numeric === 2) {
+            return 'attempts';
+        }
+        return 'off';
+    }
+
+    function classifyRetryRate(value, warning, critical) {
+        if (!Number.isFinite(value)) {
+            return 'neutral';
+        }
+
+        if (Number.isFinite(critical) && value >= critical) {
+            return 'error';
+        }
+
+        if (Number.isFinite(warning) && value >= warning) {
+            return 'warning';
+        }
+
+        return 'success';
+    }
+
+    function classifyAttempts(value, thresholds) {
+        if (!Number.isFinite(value)) {
+            return 'neutral';
+        }
+
+        if (value >= thresholds.critical) {
+            return 'error';
+        }
+
+        if (value >= thresholds.warning) {
+            return 'warning';
+        }
+
+        return 'success';
+    }
+
+    function overlayBucketColors(bucket) {
+        const key = bucket ?? 'neutral';
+        const base = EDGE_OVERLAY_BASE_COLORS[key] ?? EDGE_OVERLAY_BASE_COLORS.neutral;
+        return {
+            base,
+            stroke: hexToRgba(base, EDGE_OVERLAY_STROKE_ALPHA)
+        };
+    }
+
+    function buildRetryLegend(warning, critical, count) {
+        const warningLabel = formatPercent(Math.max(warning, 0));
+        const criticalLabel = formatPercent(Math.max(critical, 0));
+        return {
+            title: 'Retry rate',
+            count,
+            entries: [
+                { label: 'Healthy', value: `< ${warningLabel}`, color: overlayBucketColors('success').base },
+                { label: 'Elevated', value: `${warningLabel} – ${criticalLabel}`, color: overlayBucketColors('warning').base },
+                { label: 'Critical', value: `> ${criticalLabel}`, color: overlayBucketColors('error').base }
+            ]
+        };
+    }
+
+    function buildAttemptsLegend(thresholds, count) {
+        const warningLabel = formatMetricValue(thresholds.warning);
+        const criticalLabel = formatMetricValue(thresholds.critical);
+        return {
+            title: 'Attempts',
+            count,
+            entries: [
+                { label: 'Low', value: `< ${warningLabel}`, color: overlayBucketColors('success').base },
+                { label: 'Busy', value: `${warningLabel} – ${criticalLabel}`, color: overlayBucketColors('warning').base },
+                { label: 'Hot', value: `> ${criticalLabel}`, color: overlayBucketColors('error').base }
+            ]
+        };
+    }
+
+    function buildAttemptsThresholds(values) {
+        const valid = values
+            .map(value => Number(value))
+            .filter(value => Number.isFinite(value))
+            .sort((a, b) => a - b);
+
+        if (valid.length === 0) {
+            return {
+                warning: 0,
+                critical: 1,
+                min: 0,
+                max: 1
+            };
+        }
+
+        const warning = percentile(valid, 0.6);
+        const criticalRaw = percentile(valid, 0.85);
+        const span = Math.max(valid[valid.length - 1] - valid[0], 1);
+        const epsilon = span * 0.05;
+        const critical = Math.max(criticalRaw, warning + epsilon);
+
+        return {
+            warning,
+            critical,
+            min: valid[0],
+            max: valid[valid.length - 1]
+        };
+    }
+
+    function percentile(sortedValues, ratio) {
+        if (!Array.isArray(sortedValues) || sortedValues.length === 0) {
+            return 0;
+        }
+
+        const clampedRatio = Math.min(Math.max(ratio, 0), 1);
+        const index = (sortedValues.length - 1) * clampedRatio;
+        const lower = Math.floor(index);
+        const upper = Math.ceil(index);
+        if (lower === upper) {
+            return sortedValues[lower];
+        }
+
+        const weight = index - lower;
+        return sortedValues[lower] * (1 - weight) + sortedValues[upper] * weight;
+    }
+
+    function hexToRgba(hex, alpha) {
+        if (typeof hex !== 'string') {
+            return `rgba(124, 139, 161, ${alpha ?? 1})`;
+        }
+
+        const normalized = hex.replace('#', '').trim();
+        if (normalized.length !== 6) {
+            return `rgba(124, 139, 161, ${alpha ?? 1})`;
+        }
+
+        const r = parseInt(normalized.slice(0, 2), 16);
+        const g = parseInt(normalized.slice(2, 4), 16);
+        const b = parseInt(normalized.slice(4, 6), 16);
+        const safeAlpha = Number.isFinite(alpha) ? alpha : 1;
+        return `rgba(${r}, ${g}, ${b}, ${safeAlpha})`;
+    }
+
+    function colorWithAlpha(color, alpha) {
+        if (typeof color !== 'string' || color.trim().length === 0) {
+            return `rgba(37, 99, 235, ${alpha ?? 1})`;
+        }
+
+        const trimmed = color.trim();
+        if (trimmed.startsWith('#')) {
+            return hexToRgba(trimmed, alpha);
+        }
+
+        const rgbaMatch = trimmed.match(/^rgba\(([^)]+)\)$/i);
+        if (rgbaMatch) {
+            const parts = rgbaMatch[1].split(',').map(part => part.trim());
+            if (parts.length >= 4) {
+                return `rgba(${parts[0]}, ${parts[1]}, ${parts[2]}, ${alpha ?? parts[3]})`;
+            }
+        }
+
+        const rgbMatch = trimmed.match(/^rgb\(([^)]+)\)$/i);
+        if (rgbMatch) {
+            const parts = rgbMatch[1].split(',').map(part => part.trim());
+            if (parts.length >= 3) {
+                return `rgba(${parts[0]}, ${parts[1]}, ${parts[2]}, ${alpha ?? 1})`;
+            }
+        }
+
+        return trimmed;
+    }
+
+    function resolveEdgeType(edge) {
+        const raw = String(edge?.edgeType ?? edge?.EdgeType ?? EdgeTypeTopology).toLowerCase();
+        if (raw === EdgeTypeDependency) {
+            return EdgeTypeDependency;
+        }
+        if (raw === EdgeTypeEffort) {
+            return EdgeTypeEffort;
+        }
+        if (raw === EdgeTypeThroughput) {
+            return EdgeTypeThroughput;
+        }
+        return EdgeTypeTopology;
+    }
+
+    function setHoveredEdge(state, edgeId) {
+        if (!state) {
+            return false;
+        }
+
+        const normalized = edgeId ?? null;
+        if (state.hoveredEdgeId === normalized) {
+            return false;
+        }
+
+        state.hoveredEdgeId = normalized;
+        if (state.dotNetRef && state.lastEdgeHoverId !== normalized) {
+            state.lastEdgeHoverId = normalized;
+            state.dotNetRef.invokeMethodAsync('OnEdgeHoverChanged', normalized);
+        }
+
+        return true;
+    }
+
+    function setInspectorEdgeHoverState(canvas, edgeId) {
+        const state = getState(canvas);
+        const normalized = edgeId ?? null;
+        if (state.inspectorEdgeHoverId === normalized) {
+            return;
+        }
+
+        state.inspectorEdgeHoverId = normalized;
+        draw(canvas, state);
+    }
+
+    function focusEdgeOnCanvas(canvas, edgeId, centerOnEdge) {
+        const state = getState(canvas);
+        const normalized = edgeId ?? null;
+        state.focusedEdgeId = normalized;
+        if (centerOnEdge && normalized) {
+            centerEdgeOnCanvas(canvas, state, normalized);
+        } else {
+            draw(canvas, state);
+        }
+    }
+
+    function centerEdgeOnCanvas(canvas, state, edgeId) {
+        if (!edgeId) {
+            draw(canvas, state);
+            return;
+        }
+
+        const hitbox = Array.isArray(state.edgeHitboxes)
+            ? state.edgeHitboxes.find(edge => edge?.id === edgeId)
+            : null;
+        let anchor = hitbox ? computeEdgeAnchor(hitbox.points) : null;
+
+        if (!anchor) {
+            const edges = state.payload?.edges ?? state.payload?.Edges ?? [];
+            const edge = edges.find(e => (e.id ?? e.Id) === edgeId);
+            if (edge) {
+                const fromX = Number(edge.fromX ?? edge.FromX ?? 0);
+                const toX = Number(edge.toX ?? edge.ToX ?? fromX);
+                const fromY = Number(edge.fromY ?? edge.FromY ?? 0);
+                const toY = Number(edge.toY ?? edge.ToY ?? fromY);
+                anchor = { x: (fromX + toX) / 2, y: (fromY + toY) / 2 };
+            }
+        }
+
+        if (!anchor) {
+            draw(canvas, state);
+            return;
+        }
+
+        const ratio = Number(state.deviceRatio ?? window.devicePixelRatio ?? 1) || 1;
+        const width = state.canvasWidth ?? (canvas.width / ratio);
+        const height = state.canvasHeight ?? (canvas.height / ratio);
+
+        state.offsetX = (width / 2) - anchor.x * state.scale;
+        state.offsetY = (height / 2) - anchor.y * state.scale;
+        state.userAdjusted = true;
+        updateWorldCenter(state);
+        draw(canvas, state);
+        emitViewportChanged(canvas, state);
+    }
+
+    function computeEdgeAnchor(points) {
+        const segments = buildPolylineSegments(points);
+        const totalLength = segments.reduce((sum, seg) => sum + seg.length, 0);
+        if (!Number.isFinite(totalLength) || totalLength <= 0) {
+            return null;
+        }
+
+        const midpoint = pointAlongSegments(segments, totalLength / 2);
+        return midpoint?.point ?? null;
     }
 
     function drawSparkline(ctx, nodeMeta, sparkline, overlaySettings, defaultColor, overrides) {
@@ -4107,6 +4787,8 @@
         restoreViewport,
         fitToViewport,
         resetViewportState,
+        setInspectorEdgeHover: (canvas, edgeId) => setInspectorEdgeHoverState(canvas, edgeId),
+        focusEdge: (canvas, edgeId, centerOnEdge) => focusEdgeOnCanvas(canvas, edgeId, centerOnEdge),
         registerHandlers: (canvas, dotNetRef) => {
             const state = getState(canvas);
             state.dotNetRef = dotNetRef;

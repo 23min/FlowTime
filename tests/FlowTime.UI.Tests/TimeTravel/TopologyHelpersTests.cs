@@ -283,7 +283,7 @@ public sealed class TopologyHelpersTests
     {
         var metrics = new NodeBinMetrics(null, null, null, null, null, null);
         var fill = ColorScale.GetFill(metrics);
-        Assert.Equal("#7A7A7A", fill);
+        Assert.Equal(ColorScale.NeutralColor, fill);
     }
 
     [Fact]

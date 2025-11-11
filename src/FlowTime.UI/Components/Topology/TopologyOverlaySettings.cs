@@ -15,6 +15,13 @@ public enum SparklineRenderMode
     Bar
 }
 
+public enum EdgeOverlayMode
+{
+    Off,
+    RetryRate,
+    Attempts
+}
+
 public enum EdgeRenderMode
 {
     Orthogonal,
@@ -37,7 +44,9 @@ public sealed class TopologyOverlaySettings
     public bool ShowQueueScalarBadge { get; set; } = true;
     public SparklineRenderMode SparklineMode { get; set; } = SparklineRenderMode.Line;
     public EdgeRenderMode EdgeStyle { get; set; } = EdgeRenderMode.Bezier;
+    public EdgeOverlayMode EdgeOverlay { get; set; } = EdgeOverlayMode.Off;
     public bool ShowEdgeMultipliers { get; set; } = true;
+    public bool ShowEdgeOverlayLabels { get; set; } = true;
 
     public bool EnableFullDag { get; set; } = true;
     public bool IncludeServiceNodes { get; set; } = true;
@@ -82,7 +91,9 @@ public sealed class TopologyOverlaySettings
             ShowQueueScalarBadge = ShowQueueScalarBadge,
             SparklineMode = SparklineMode,
             EdgeStyle = EdgeStyle,
+            EdgeOverlay = EdgeOverlay,
             ShowEdgeMultipliers = ShowEdgeMultipliers,
+            ShowEdgeOverlayLabels = ShowEdgeOverlayLabels,
             EnableFullDag = EnableFullDag,
             IncludeServiceNodes = IncludeServiceNodes,
             IncludeExpressionNodes = IncludeExpressionNodes,

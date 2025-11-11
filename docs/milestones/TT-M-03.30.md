@@ -74,6 +74,11 @@ Session 4 — Linking + Tests
 - Hover interactions both ways; UI tests for toggles/legend/link.  
 - Docs update with screenshots.
 
+## 03.30 Notes
+- Adopted client-side derivation for edge overlays: sample upstream node attempts/failures from `/state_window` and merge with `/graph` metadata so the `/state_window` contract stays unchanged for this milestone. Schema/API work to surface an `edges` slice moves to TT‑M‑03.31.
+- Overlay attempts reflect upstream effort. When a node retries internally (e.g., Warehouse retries before shipping), the outbound edge shows the total attempts even if fewer units flowed downstream. TT‑M‑03.31 will add explicit edge metrics/loops once `/state_window.edges` is available.
+- Inspector dependency list now mirrors the active dependency toggles and links with the canvas; hover synchronizes highlighting and clicks center the edge on the canvas while persisting overlay selections in localStorage.
+
 ## Testing Strategy
 - Unit: color mapping thresholds; settings persistence.  
 - Integration: edge recolor on mode toggle; inspector/canvas linking.  
@@ -85,4 +90,3 @@ Session 4 — Linking + Tests
 ## References
 - docs/architecture/time-travel/ui-m3-roadmap.md  
 - docs/development/milestone-documentation-guide.md
-

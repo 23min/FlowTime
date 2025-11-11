@@ -197,6 +197,7 @@ Purpose: make retries and service time first‑class, end‑to‑end. Start with
 
 - TT‑M‑03.30 — UI Overlays (Retries + Service Time)
   - Edge overlays: color by RetryRate or Attempts; legend and toggles in Feature Bar; persistence.
+  - Derivation stays client-side for 03.30: sample node series from `/state_window` + graph metadata to avoid changing the contract; API `edges` slice moves to 03.31.
   - Node basis: allow coloring by Service Time; tooltip includes S at current bin.
   - Inspector ↔ canvas: hover/selection linking between retry list and edges.
 

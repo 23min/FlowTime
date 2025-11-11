@@ -191,6 +191,36 @@ public sealed class TopologyInspectorTests
     }
 
     [Fact]
+    public void BuildInspectorDependencies_RespectsOverlayFilters()
+    {
+        var topology = new Topology();
+        var nodes = new[]
+        {
+            new TopologyNode("producer", "service", Array.Empty<string>(), new[] { "svc" }, 0, 0, 0, 0, false, EmptySemantics()),
+            new TopologyNode("svc", "service", new[] { "producer" }, Array.Empty<string>(), 1, 0, 100, 120, false, EmptySemantics())
+        };
+
+        var edges = new[]
+        {
+            new TopologyEdge("dep_attempts", "producer", "svc", 1, "dependency", "attempts"),
+            new TopologyEdge("dep_arrivals", "producer", "svc", 1, "dependency", "arrivals")
+        };
+
+        topology.TestSetTopologyGraph(new TopologyGraph(nodes, edges));
+        topology.TestSetOverlaySettings(new TopologyOverlaySettings
+        {
+            ShowArrivalsDependencies = false,
+            ShowRetryMetrics = true
+        });
+
+        var dependencies = topology.TestBuildInspectorDependencies("svc");
+
+        var dependency = Assert.Single(dependencies);
+        Assert.Equal("dep_attempts", dependency.EdgeId);
+        Assert.Equal("Attempts", dependency.Label);
+    }
+
+    [Fact]
     public void BuildInspectorMetrics_QueueNodeWithMissingSeries_UsesPlaceholderAndLogsOnce()
     {
         var topology = new Topology();
