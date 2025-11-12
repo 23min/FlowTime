@@ -718,6 +718,11 @@
             const nodeMeta = nodeMap.get(id);
             const kind = String(meta?.kind ?? node.kind ?? node.Kind ?? 'service').toLowerCase();
             const isLeafComputed = !!nodeMeta?.leaf && isComputedKind(kind);
+            const retryTax = kind === 'service' ? resolveRetryTaxValue(nodeMeta) : null;
+            const hasRetryLoop = overlaySettings.showRetryMetrics !== false &&
+                kind === 'service' &&
+                Number.isFinite(retryTax) &&
+                retryTax > 0;
 
             let focusLabelWidth = Math.max(width - 14, 18);
             let fillForText = fill;
