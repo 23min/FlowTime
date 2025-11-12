@@ -51,7 +51,7 @@ Follow-up to TT‑M‑03.30.1 that focuses on raising the realism of our catalog
 - **Queue styling:** render queue nodes as pill-shaped, wider capsules with a lilac fill; embed a small stacked bar + formatted queue depth (1k, 1.2M, etc.) inside the node so depth is always visible.
 - **Focus controls:** remove “Queue depth” from the global focus chips and drop the queue-depth badge toggle in the topology panel (queues always show depth inline). Focus metrics apply only to service nodes.
 - Update UI tests/goldens once the visuals change.
-- **Retry loop clarity:** keep Attempts in the top row (so they still balance Arrivals + Retries) and only render the sideways “U” loop when we have non-zero retry tax; the loop now shows horizontal chips (Retries, Failed retries, Retry echo) beside it so internal retry load is distinct from overall Errors.
+- **Retry loop clarity:** keep Attempts in the top row (so they still balance Arrivals + Retries) and only render the sideways “U” loop when we have non-zero retry tax. When the loop does render, we now show a horizontal chip stack (`Retries`, `Failed retries`, `Retry echo`) next to it, and hide both the loop and the chips entirely when there is no retry activity. Templates map `errors` to the full set of failed attempts while `failures` is reserved for internal retry attempts so the UI can keep those signals distinct.
 
 4. **Documentation**
    - Add a “buffer modeling” section to `docs/templates/metric-alias-authoring.md` (or new doc) describing when to use queue nodes.
