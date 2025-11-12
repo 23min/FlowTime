@@ -48,9 +48,10 @@ Follow-up to TT‑M‑03.30.1 that focuses on raising the realism of our catalog
    - **Internal retries:** add a short arc looping from the service’s right edge back to the top of the attempts chip. The arc color should reflect retry ratio (green → yellow → red). Retry-related chips stay next to attempts/failures; only the actual retry loop shows the “extra” work.
    - **Edges:** service-to-consumer edges display only Served volume (attempts stay internal to the loop). Served chips can be removed/repurposed accordingly.
    - **Inspector:** include “Retry tax” (% of attempts that are retries) in the summary block.
-   - **Queue styling:** render queue nodes as pill-shaped, wider capsules with a lilac fill; embed a small stacked bar + formatted queue depth (1k, 1.2M, etc.) inside the node so depth is always visible.
-   - **Focus controls:** remove “Queue depth” from the global focus chips and drop the queue-depth badge toggle in the topology panel (queues always show depth inline). Focus metrics apply only to service nodes.
-   - Update UI tests/goldens once the visuals change.
+- **Queue styling:** render queue nodes as pill-shaped, wider capsules with a lilac fill; embed a small stacked bar + formatted queue depth (1k, 1.2M, etc.) inside the node so depth is always visible.
+- **Focus controls:** remove “Queue depth” from the global focus chips and drop the queue-depth badge toggle in the topology panel (queues always show depth inline). Focus metrics apply only to service nodes.
+- Update UI tests/goldens once the visuals change.
+- **Retry loop clarity:** keep Attempts in the top row (so they still balance Arrivals + Retries) and only render the sideways “U” loop when we have non-zero retry tax; the loop now shows horizontal chips (Retries, Failed retries, Retry echo) beside it so internal retry load is distinct from overall Errors.
 
 4. **Documentation**
    - Add a “buffer modeling” section to `docs/templates/metric-alias-authoring.md` (or new doc) describing when to use queue nodes.

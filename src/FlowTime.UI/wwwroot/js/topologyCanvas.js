@@ -23,6 +23,9 @@
     const LEAF_CIRCLE_GUTTER = 3;
     const LEAF_CIRCLE_FILL = '#E2E8F0';
     const LEAF_CIRCLE_STROKE = '#64748B';
+    const QUEUE_PILL_FILL = '#C4B5FD';
+    const QUEUE_PILL_STROKE = '#5B21B6';
+    const QUEUE_LABEL_COLOR = '#F8FAFC';
     const POINTER_CLICK_DISTANCE = 4;
     const GRID_ROW_SPACING = 140;
     const GRID_COLUMN_SPACING = 240;
@@ -443,6 +446,7 @@
                 kind: String(n.kind ?? n.Kind ?? 'service'),
                 fill: n.fill ?? n.Fill ?? LEAF_CIRCLE_FILL,
                 focusLabel: n.focusLabel ?? n.FocusLabel ?? '',
+                metrics: n.metrics ?? n.Metrics ?? null,
                 semantics: n.semantics ?? n.Semantics ?? null,
                 distribution: n.distribution ?? n.Distribution ?? (n.semantics?.distribution ?? n.Semantics?.Distribution ?? null),
                 leaf: Boolean(n.isLeaf ?? n.IsLeaf),
@@ -745,6 +749,9 @@
 
                 focusLabelWidth = Math.max((innerRadius * 2) - 10, 18);
                 fillForText = LEAF_CIRCLE_FILL;
+            } else if (kind === 'queue') {
+                drawQueueNode(ctx, nodeMeta);
+                fillForText = QUEUE_PILL_FILL;
             } else {
                 ctx.beginPath();
                 if (kind === 'expr' || kind === 'expression') {
@@ -764,26 +771,22 @@
                 ctx.lineWidth = 0.9;
                 ctx.fill();
                 ctx.stroke();
-                if (kind === 'queue') {
-                    const pad = 3;
-                    ctx.save();
-                    ctx.fillStyle = 'rgba(17, 17, 17, 0.08)';
-                    ctx.fillRect(x - width / 2 + pad, y + height / 2 - 6 - pad, width - 2 * pad, 4);
-                    ctx.restore();
-                }
 
                 if (nodeMeta) {
                     nodeMeta.fill = fill;
                 }
+            }
 
-                if (kind === 'service' || kind === 'queue' || kind === 'router') {
-                    drawServiceDecorations(ctx, nodeMeta, overlaySettings, state);
-                } else if (kind === 'pmf' && nodeMeta?.distribution) {
-                    drawPmfDistribution(ctx, nodeMeta, nodeMeta.distribution);
-                } else if ((kind === 'const' || kind === 'constant') && overlaySettings.showSparklines && nodeMeta?.sparkline) {
-                    drawInputSparkline(ctx, nodeMeta, overlaySettings);
-                }
+            if (kind === 'service' || kind === 'queue' || kind === 'router') {
+                drawServiceDecorations(ctx, nodeMeta, overlaySettings, state);
+            } else if (kind === 'pmf' && nodeMeta?.distribution) {
+                drawPmfDistribution(ctx, nodeMeta, nodeMeta.distribution);
+            } else if ((kind === 'const' || kind === 'constant') && overlaySettings.showSparklines && nodeMeta?.sparkline) {
+                drawInputSparkline(ctx, nodeMeta, overlaySettings);
+            }
 
+            if (hasRetryLoop) {
+                drawRetryLoop(ctx, nodeMeta, retryTax);
             }
 
             if (overlaySettings.showLabels) {
@@ -2053,7 +2056,6 @@
             showEdgeMultipliers: boolOr(raw.showEdgeMultipliers ?? raw.ShowEdgeMultipliers, true),
             showSparklines: boolOr(raw.showSparklines ?? raw.ShowSparklines, true),
             showRetryMetrics: boolOr(raw.showRetryMetrics ?? raw.ShowRetryMetrics, true),
-            showQueueBadge: boolOr(raw.showQueueScalarBadge ?? raw.ShowQueueScalarBadge, true),
             sparklineMode: sparkMode === 1 ? 'bar' : 'line',
             edgeStyle,
             edgeOverlayMode,
@@ -2325,6 +2327,8 @@
         const hasSpark = spark !== null;
         const shouldDrawSparkline = overlays.showSparklines && spark;
         const showRetryMetrics = overlays.showRetryMetrics !== false;
+        const nodeKind = String(nodeMeta.kind ?? nodeMeta.Kind ?? '').trim().toLowerCase();
+        const isServiceNode = nodeKind === 'service';
 
         if (!hasSemantics && !hasSpark) {
             return;
@@ -2517,32 +2521,33 @@
         let bottomLeft = topLeft;
         let bottomRight = topRight;
 
-        if (showRetryMetrics) {
-            const attemptsValue = sampleValueFor('attempts', semantics.attempts, ['attempt']);
+        const attemptsValue = isServiceNode ? sampleValueFor('attempts', semantics.attempts, ['attempt']) : null;
+        const arrivalsValue = sampleValueFor('arrivals', semantics.arrivals);
+        const failuresValue = sampleValueFor('failures', semantics.failures, ['failure']);
+        const retryValue = sampleValueFor('retryEcho', semantics.retry, ['retry', 'retry_echo']);
+
+        if (showRetryMetrics && isServiceNode && attemptsValue !== null) {
             const attemptsTooltip = semanticTooltip(semantics.attempts, 'Attempts');
-            if (attemptsValue !== null) {
-                const attemptsLabel = formatMetricValue(attemptsValue);
-                if (attemptsLabel) {
-                    const dims = drawChip(ctx, topLeft, topRowTop + chipH, attemptsLabel, '#0EA5E9', '#0F172A', paddingX, chipH);
-                    registerChipHitbox(state, {
-                        nodeId: nodeMeta.id ?? null,
-                        metric: 'attempts',
-                        placement: 'top',
-                        tooltip: attemptsTooltip,
-                        x: topLeft,
-                        y: dims.top,
-                        width: dims.width,
-                        height: dims.height
-                    });
-                    topLeft += dims.width + gap;
-                }
+            const attemptsLabel = formatMetricValue(attemptsValue);
+            if (attemptsLabel) {
+                const dims = drawChip(ctx, topLeft, topRowTop + chipH, attemptsLabel, '#0EA5E9', '#0F172A', paddingX, chipH);
+                registerChipHitbox(state, {
+                    nodeId: nodeMeta.id ?? null,
+                    metric: 'attempts',
+                    placement: 'top',
+                    tooltip: attemptsTooltip,
+                    x: topLeft,
+                    y: dims.top,
+                    width: dims.width,
+                    height: dims.height
+                });
+                topLeft += dims.width + gap;
             }
         }
 
         if (overlays.showArrivalsDependencies !== false) {
-            const arrivalValue = sampleValueFor('arrivals', semantics.arrivals);
-            if (arrivalValue !== null) {
-                const arrivalLabel = formatMetricValue(arrivalValue);
+            if (arrivalsValue !== null) {
+                const arrivalLabel = formatMetricValue(arrivalsValue);
                 if (arrivalLabel) {
                     const dims = drawChip(ctx, topLeft, topRowTop + chipH, arrivalLabel, '#1976D2', '#FFFFFF', paddingX, chipH);
                     registerChipHitbox(state, {
@@ -2602,15 +2607,14 @@
             }
         }
 
-        if (showRetryMetrics) {
-            const failureValue = sampleValueFor('failures', semantics.failures, ['failure']);
+        if (showRetryMetrics && !isServiceNode) {
             const failuresTooltip = semanticTooltip(semantics.failures, 'Failed retries');
-            if (failureValue !== null) {
-                const failureLabel = formatMetricValue(failureValue);
+            if (failuresValue !== null) {
+                const failureLabel = formatMetricValue(failuresValue);
                 if (failureLabel) {
                     let failureBg = '#DC2626';
                     let failureFg = '#FFFFFF';
-                    if (failureValue <= 0) {
+                    if (failuresValue <= 0) {
                         failureBg = '#E5E7EB';
                         failureFg = '#1F2937';
                     }
@@ -2630,7 +2634,6 @@
                 }
             }
 
-            const retryValue = sampleValueFor('retryEcho', semantics.retry, ['retry', 'retry_echo']);
             const retryTooltip = semanticTooltip(semantics.retry, 'Retry echo');
             if (retryValue !== null) {
                 const retryLabel = formatMetricValue(retryValue);
@@ -2656,6 +2659,50 @@
                     bottomLeft += dims.width + gap;
                 }
             }
+        }
+
+        if (hasRetryLoop) {
+            const loopExtent = x + (nodeWidth / 2) + Math.max(22, nodeWidth * 0.4);
+            let stackX = loopExtent + 14;
+            const stackSpacing = 6;
+            const chipY = y - (chipH / 2);
+
+            const drawStackChip = (value, tooltip, metric, bg, fg) =>
+            {
+                if (value === null || value <= 0) {
+                    return;
+                }
+
+                const label = formatMetricValue(value);
+                if (!label) {
+                    return;
+                }
+
+                const dims = drawChip(ctx, stackX, chipY, label, bg, fg, paddingX, chipH, 'top');
+                registerChipHitbox(state, {
+                    nodeId: nodeMeta.id ?? null,
+                    metric,
+                    placement: 'right',
+                    tooltip,
+                    x: stackX,
+                    y: dims.top,
+                    width: dims.width,
+                    height: dims.height
+                });
+                stackX += dims.width + stackSpacing;
+            };
+
+            const retryAttempts = (attemptsValue !== null && arrivalsValue !== null)
+                ? Math.max(attemptsValue - arrivalsValue, 0)
+                : null;
+
+            drawStackChip(retryAttempts, 'Retries', 'retries', '#7C3AED', '#FFFFFF');
+
+            if (failuresValue !== null) {
+                drawStackChip(failuresValue, semanticTooltip(semantics.failures, 'Failed retries'), 'failures', '#DC2626', '#FFFFFF');
+            }
+
+            drawStackChip(retryValue, semanticTooltip(semantics.retry, 'Retry echo'), 'retryEcho', '#EDE9FE', '#4C1D95');
         }
 
         if (overlays.showCapacityDependencies !== false) {
@@ -2686,31 +2733,15 @@
             const nodeKind = String(nodeMeta.kind ?? nodeMeta.Kind ?? '').trim().toLowerCase();
             const isQueueNode = nodeKind === 'queue';
             const queueValue = sampleValueFor('queue', semantics.queue);
-            const allowed = !isQueueNode || overlays.showQueueBadge !== false;
             queueTooltip = semanticTooltip(semantics.queue, 'Queue depth');
 
-            if (queueValue !== null && allowed) {
+            if (queueValue !== null && !isQueueNode) {
                 const queueLabel = formatMetricValue(queueValue);
                 if (queueLabel) {
-                    if (isQueueNode) {
-                        const dims = drawChip(ctx, bottomLeft, bottomRowTop, queueLabel, '#8E24AA', '#FFFFFF', paddingX, chipH, 'top');
-                        registerChipHitbox(state, {
-                            nodeId: nodeMeta.id ?? null,
-                            metric: 'queue',
-                            placement: 'bottom-left',
-                            tooltip: queueTooltip,
-                            x: bottomLeft,
-                            y: dims.top,
-                            width: dims.width,
-                            height: dims.height
-                        });
-                        bottomLeft += dims.width + gap;
-                    } else {
-                        pendingQueueChip = {
-                            label: queueLabel,
-                            tooltip: queueTooltip
-                        };
-                    }
+                    pendingQueueChip = {
+                        label: queueLabel,
+                        tooltip: queueTooltip
+                    };
                 }
             }
         }
@@ -2777,6 +2808,121 @@
         }
 
         ctx.restore();
+    }
+
+    function drawQueueNode(ctx, nodeMeta) {
+        const x = Number(nodeMeta.x ?? nodeMeta.X ?? 0);
+        const y = Number(nodeMeta.y ?? nodeMeta.Y ?? 0);
+        const width = Number(nodeMeta.width ?? nodeMeta.Width ?? 54);
+        const height = Number(nodeMeta.height ?? nodeMeta.Height ?? 24);
+        const radius = height / 2;
+
+        ctx.beginPath();
+        traceRoundedRect(ctx, x, y, width, height, radius);
+        ctx.fillStyle = QUEUE_PILL_FILL;
+        ctx.strokeStyle = QUEUE_PILL_STROKE;
+        ctx.lineWidth = 1.2;
+        ctx.fill();
+        ctx.stroke();
+
+        if (nodeMeta) {
+            nodeMeta.fill = QUEUE_PILL_FILL;
+        }
+
+        const queueValue = resolveQueueValue(nodeMeta);
+        const displayValue = queueValue !== null ? formatMetricValue(queueValue) : '—';
+
+        ctx.fillStyle = QUEUE_LABEL_COLOR;
+        ctx.font = '600 12px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(displayValue, x, y);
+    }
+
+    function resolveQueueValue(nodeMeta) {
+        const metrics = nodeMeta.metrics ?? nodeMeta.Metrics ?? null;
+        if (metrics) {
+            const queueDepth = metrics.queueDepth ?? metrics.QueueDepth;
+            if (Number.isFinite(queueDepth)) {
+                return Number(queueDepth);
+            }
+        }
+
+        const raw = metrics?.raw ?? metrics?.Raw ?? null;
+        if (raw) {
+            const rawValue = raw.queue ?? raw.Queue ?? raw.queueDepth ?? raw.QueueDepth;
+            if (Number.isFinite(rawValue)) {
+                return Number(rawValue);
+            }
+        }
+
+        return null;
+    }
+
+    function resolveRetryTaxValue(nodeMeta) {
+        const metrics = nodeMeta.metrics ?? nodeMeta.Metrics ?? null;
+        if (metrics) {
+            const retryTax = metrics.retryTax ?? metrics.RetryTax;
+            if (Number.isFinite(retryTax)) {
+                return Number(retryTax);
+            }
+        }
+
+        const raw = metrics?.raw ?? metrics?.Raw ?? null;
+        if (raw) {
+            const rawValue = raw.retryTax ?? raw.retrytax ?? raw.retry_tax;
+            if (Number.isFinite(rawValue)) {
+                return Number(rawValue);
+            }
+        }
+
+        return null;
+    }
+
+    function drawRetryLoop(ctx, nodeMeta, retryTax) {
+        if (!Number.isFinite(retryTax) || retryTax <= 0) {
+            return;
+        }
+
+        const x = Number(nodeMeta.x ?? nodeMeta.X ?? 0);
+        const y = Number(nodeMeta.y ?? nodeMeta.Y ?? 0);
+        const width = Number(nodeMeta.width ?? nodeMeta.Width ?? 54);
+        const height = Number(nodeMeta.height ?? nodeMeta.Height ?? 24);
+
+        const startX = x + (width / 2);
+        const topY = y - (height / 2) + 4;
+        const bottomY = y + (height / 2) - 4;
+        const lead = 6;
+        const loopX = startX + Math.max(26, width * 0.45);
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(startX, topY);
+        ctx.lineTo(startX + lead, topY);
+        ctx.bezierCurveTo(loopX, topY, loopX, bottomY, startX + lead, bottomY);
+        ctx.lineTo(startX, bottomY);
+        ctx.strokeStyle = pickRetryArcColor(retryTax);
+        ctx.lineWidth = 3.2;
+        ctx.setLineDash([]);
+        ctx.stroke();
+        drawArrowhead(ctx, startX + lead, bottomY, startX, bottomY);
+        ctx.restore();
+    }
+
+    function pickRetryArcColor(value) {
+        if (!Number.isFinite(value) || value <= 0.02) {
+            return '#22C55E';
+        }
+
+        if (value <= 0.08) {
+            return '#84CC16';
+        }
+
+        if (value <= 0.15) {
+            return '#F59E0B';
+        }
+
+        return '#EF4444';
     }
 
     function drawInputSparkline(ctx, nodeMeta, overlaySettings) {
