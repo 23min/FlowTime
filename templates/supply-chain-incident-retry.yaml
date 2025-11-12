@@ -61,6 +61,16 @@ topology:
         aliases:
           arrivals: "Analysis load"
           served: "Analysis tasks"
+    - id: SupportDesk
+      kind: service
+      semantics:
+        arrivals: support_queue_served
+        served: support_queue_served
+        errors: support_queue_errors
+        aliases:
+          arrivals: "Tickets pulled"
+          served: "Tickets resolved"
+          errors: "Desk drops"
   edges:
     - id: throughput_incident
       from: IncidentIntake:out
@@ -74,6 +84,11 @@ topology:
       measure: load
       multiplier: 0.4
       lag: 1
+    - id: throughput_support_desk
+      from: IncidentQueue:out
+      to: SupportDesk:in
+      type: throughput
+      measure: served
 
 nodes:
   - id: incident_arrivals

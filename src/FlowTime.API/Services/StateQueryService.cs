@@ -459,9 +459,15 @@ public sealed class StateQueryService
         var externalDemand = GetOptionalValue(data.ExternalDemand, binIndex);
         var queue = GetOptionalValue(data.QueueDepth, binIndex);
         var capacity = GetOptionalValue(data.Capacity, binIndex);
-        var attempts = ComputeAttemptValue(data, binIndex);
-        var failures = ComputeFailureValue(data, binIndex);
-        var retryEcho = ComputeRetryEchoValue(data, binIndex);
+        var isServiceKind = string.Equals(kind, "service", StringComparison.OrdinalIgnoreCase);
+        var hasExplicitAttempts = HasMetricReference(node.Semantics?.Attempts);
+        var hasExplicitFailures = HasMetricReference(node.Semantics?.Failures);
+        var hasExplicitRetryEcho = HasMetricReference(node.Semantics?.RetryEcho);
+        var attempts = ComputeAttemptValue(data, binIndex, isServiceKind || hasExplicitAttempts);
+        var failures = (isServiceKind || hasExplicitFailures) ? ComputeFailureValue(data, binIndex) : null;
+        var retryEcho = (isServiceKind || hasExplicitRetryEcho)
+            ? ComputeRetryEchoValue(data, binIndex, isServiceKind)
+            : GetOptionalValue(data.RetryEcho, binIndex);
 
         var rawUtilization = served.HasValue
             ? UtilizationComputer.Calculate(served.Value, capacity)
@@ -485,7 +491,7 @@ public sealed class StateQueryService
         }
 
         var color = string.Equals(kind, "queue", StringComparison.OrdinalIgnoreCase)
-            ? ColoringRules.PickQueueColor(latencyMinutes, node.Semantics.SlaMinutes)
+            ? ColoringRules.PickQueueColor(latencyMinutes, node.Semantics?.SlaMinutes)
             : ColoringRules.PickServiceColor(utilization);
 
         return new NodeSnapshot
@@ -554,16 +560,28 @@ public sealed class StateQueryService
             ["errors"] = errorsSlice
         };
 
-        var attemptsSeries = ComputeAttemptSeries(data, startBin, count);
+        var isServiceKind = string.Equals(kind, "service", StringComparison.OrdinalIgnoreCase);
+        var hasExplicitAttempts = HasMetricReference(node.Semantics?.Attempts);
+        var hasExplicitFailures = HasMetricReference(node.Semantics?.Failures);
+        var hasExplicitRetryEcho = HasMetricReference(node.Semantics?.RetryEcho);
+
+        var attemptsSeries = (isServiceKind || hasExplicitAttempts)
+            ? ComputeAttemptSeries(data, startBin, count, isServiceKind)
+            : null;
         if (attemptsSeries != null)
         {
             series["attempts"] = attemptsSeries;
         }
 
-        var failuresSlice = data.Failures != null ? ExtractSlice(data.Failures, startBin, count) : errorsSlice;
-        series["failures"] = failuresSlice;
+        if (isServiceKind || hasExplicitFailures)
+        {
+            var failuresSlice = data.Failures != null ? ExtractSlice(data.Failures, startBin, count) : errorsSlice;
+            series["failures"] = failuresSlice;
+        }
 
-        var retryEchoSeries = ComputeRetryEchoSeries(data, startBin, count);
+        var retryEchoSeries = (isServiceKind || hasExplicitRetryEcho)
+            ? ComputeRetryEchoSeries(data, startBin, count, isServiceKind)
+            : data.RetryEcho != null ? ExtractSlice(data.RetryEcho, startBin, count) : null;
         if (retryEchoSeries != null)
         {
             series["retryEcho"] = retryEchoSeries;
@@ -821,10 +839,10 @@ public sealed class StateQueryService
         return result;
     }
 
-    private static double? ComputeAttemptValue(NodeData data, int index)
+    private static double? ComputeAttemptValue(NodeData data, int index, bool allowDerived)
     {
         var attempts = GetOptionalValue(data.Attempts, index);
-        if (attempts.HasValue)
+        if (attempts.HasValue || !allowDerived)
         {
             return attempts;
         }
@@ -840,14 +858,14 @@ public sealed class StateQueryService
         return Normalize(served.Value + failures.Value);
     }
 
-    private static double?[]? ComputeAttemptSeries(NodeData data, int start, int count)
+    private static double?[]? ComputeAttemptSeries(NodeData data, int start, int count, bool allowDerived)
     {
         if (data.Attempts != null)
         {
             return ExtractSlice(data.Attempts, start, count);
         }
 
-        if (data.Served == null)
+        if (!allowDerived || data.Served == null)
         {
             return null;
         }
@@ -877,10 +895,10 @@ public sealed class StateQueryService
         return result;
     }
 
-    private static double? ComputeRetryEchoValue(NodeData data, int index)
+    private static double? ComputeRetryEchoValue(NodeData data, int index, bool allowDerived)
     {
         var precomputed = GetOptionalValue(data.RetryEcho, index);
-        if (precomputed.HasValue)
+        if (precomputed.HasValue || !allowDerived)
         {
             return precomputed;
         }
@@ -926,14 +944,14 @@ public sealed class StateQueryService
         return Normalize(sum);
     }
 
-    private static double?[]? ComputeRetryEchoSeries(NodeData data, int start, int count)
+    private static double?[]? ComputeRetryEchoSeries(NodeData data, int start, int count, bool allowDerived)
     {
         if (data.RetryEcho != null)
         {
             return ExtractSlice(data.RetryEcho, start, count);
         }
 
-        if (data.Errors == null && data.Failures == null)
+        if (!allowDerived || (data.Errors == null && data.Failures == null))
         {
             return null;
         }
@@ -942,7 +960,7 @@ public sealed class StateQueryService
         for (var i = 0; i < count; i++)
         {
             var index = start + i;
-            result[i] = ComputeRetryEchoValue(data, index);
+            result[i] = ComputeRetryEchoValue(data, index, allowDerived);
         }
 
         return result;
@@ -1201,6 +1219,9 @@ public sealed class StateQueryService
         var normalized = NormalizeKind(kind);
         return normalized is "const" or "expression" or "expr" or "pmf";
     }
+
+    private static bool HasMetricReference(string? reference) =>
+        !string.IsNullOrWhiteSpace(reference);
 
     private ModeValidationResult ValidateContext(StateRunContext context) =>
         modeValidator.Validate(new ModeValidationContext(

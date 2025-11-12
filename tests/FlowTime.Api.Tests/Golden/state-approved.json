@@ -70,9 +70,6 @@
         "arrivals": 7,
         "served": 6,
         "errors": 0,
-        "attempts": 6,
-        "failures": 0,
-        "retryEcho": 0,
         "queue": 10
       },
       "derived": {
