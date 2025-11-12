@@ -28,6 +28,7 @@ internal sealed record NodeRenderInfo(
     string? FocusLabel,
     bool IsLeaf,
     NodeSemanticsDto? Semantics,
+    NodeMetricSnapshotDto? Metrics,
     int Lane);
 
 internal sealed record NodeSemanticsDto(
@@ -42,7 +43,8 @@ internal sealed record NodeSemanticsDto(
     string? Series,
     string? Expression,
     NodeDistributionDto? Distribution,
-    IReadOnlyList<double>? InlineValues);
+    IReadOnlyList<double>? InlineValues,
+    IReadOnlyDictionary<string, string>? Aliases);
 
 internal sealed record NodeDistributionDto(
     IReadOnlyList<double> Values,
@@ -130,3 +132,12 @@ internal sealed record NodeSparklineDto(
 internal sealed record SparklineSeriesSliceDto(
     IReadOnlyList<double?> Values,
     int StartIndex);
+
+internal sealed record NodeMetricSnapshotDto(
+    double? SuccessRate,
+    double? Utilization,
+    double? ErrorRate,
+    double? QueueDepth,
+    double? LatencyMinutes,
+    double? ServiceTimeMs,
+    IReadOnlyDictionary<string, double?>? Raw);

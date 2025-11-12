@@ -263,7 +263,9 @@
                         @if (inspectorOpen && inspectorNodeId is not null)
                         {
                             var nodeId = inspectorNodeId;
-                            var metricBlocks = BuildInspectorMetricBlocks(nodeId);
+        activeMetrics.TryGetValue(nodeId, out var nodeMetricsSnapshot);
+        var binMetrics = BuildInspectorBinMetrics(nodeId, nodeMetricsSnapshot);
+        var metricBlocks = BuildInspectorMetricBlocks(nodeId);
                             var metricsHaveSeries = metricBlocks.Any(block => !block.IsPlaceholder);
                             var hasSparklineSeries = metricBlocks.Any(block => !block.IsPlaceholder && block.Sparkline is not null);
                             var topoNodeInfo = FindTopologyNode(nodeId);
@@ -285,9 +287,12 @@
                                     </MudStack>
                                     <MudText Typo="Typo.caption" Class="topology-muted-text">Kind: @FormatNodeKindLabel(nodeKind)</MudText>
 
-                                    @if (activeMetrics.TryGetValue(nodeId, out var metrics))
-                                    {
+                                    @{
+                                        var metrics = nodeMetricsSnapshot;
                                         var summaryRendered = false;
+                                    }
+                                    @if (metrics is not null)
+                                    {
                                         <MudStack Spacing="1">
                                             @if (!isComputedNode && metrics.SuccessRate.HasValue)
                                             {
@@ -335,6 +340,20 @@
                                     else if (!isComputedNode && !metricsHaveSeries)
                                     {
                                         <MudText Typo="Typo.body2">Metrics unavailable.</MudText>
+                                    }
+
+                                    @if (binMetrics.Count > 0)
+                                    {
+                                        <MudTable T="InspectorBinMetric" Dense="true" Elevation="0" Class="node-inspector-bin-table">
+                                            <HeaderContent>
+                                                <MudTh>Metric</MudTh>
+                                                <MudTh Style="text-align:right;">Value</MudTh>
+                                            </HeaderContent>
+                                            <RowTemplate Context="row">
+                                                <MudTd>@row.Label</MudTd>
+                                                <MudTd Style="text-align:right;">@row.Value</MudTd>
+                                            </RowTemplate>
+                                        </MudTable>
                                     }
 
                                     @if (showExpressionSection)
@@ -1406,6 +1425,10 @@ private string? canvasHoveredEdgeId;
             var arrivals = Get("arrivals");
             var served = Get("served");
             var errors = Get("errors");
+            var attempts = Get("attempts");
+            var failures = Get("failures");
+            var retryEcho = Get("retryEcho");
+            var capacity = Get("capacity");
             var throughput = Get("throughputRatio");
             var utilization = Get("utilization");
             var queue = Get("queue");
@@ -1429,6 +1452,24 @@ private string? canvasHoveredEdgeId;
             string? customLabel = null;
             double? pmfProbability = null;
             double? pmfSupportValue = null;
+
+            var rawMetrics = new Dictionary<string, double?>(StringComparer.OrdinalIgnoreCase);
+            void SetRaw(string key, double? value)
+            {
+                if (value.HasValue)
+                {
+                    rawMetrics[key] = value.Value;
+                }
+            }
+
+            SetRaw("arrivals", arrivals);
+            SetRaw("served", served);
+            SetRaw("errors", errors);
+            SetRaw("attempts", attempts);
+            SetRaw("failures", failures);
+            SetRaw("retryEcho", retryEcho);
+            SetRaw("queue", queue);
+            SetRaw("capacity", capacity);
 
             if (IsComputedKind(node.Kind) && !isPmf)
             {
@@ -1493,7 +1534,8 @@ private string? canvasHoveredEdgeId;
                 PmfProbability: pmfProbability,
                 PmfValue: pmfSupportValue,
                 NodeKind: node.Kind,
-                ServiceTimeMs: serviceTime);
+                ServiceTimeMs: serviceTime,
+                RawMetrics: rawMetrics.Count == 0 ? null : rawMetrics);
         }
 
         if (topologyGraph is not null)
@@ -1604,15 +1646,16 @@ private string? canvasHoveredEdgeId;
                             existingMetrics.SuccessRate,
                             existingMetrics.Utilization,
                             existingMetrics.ErrorRate,
-                        existingMetrics.QueueDepth,
-                        existingMetrics.LatencyMinutes,
-                        existingMetrics.Timestamp,
-                        CustomValue: newCustomValue,
-                        CustomLabel: newCustomLabel,
-                        PmfProbability: pmfProbability ?? existingMetrics.PmfProbability,
-                        PmfValue: pmfSupportValue ?? existingMetrics.PmfValue,
-                        NodeKind: existingMetrics.NodeKind ?? topoNode.Kind,
-                        ServiceTimeMs: existingMetrics.ServiceTimeMs);
+                            existingMetrics.QueueDepth,
+                            existingMetrics.LatencyMinutes,
+                            existingMetrics.Timestamp,
+                            CustomValue: newCustomValue,
+                            CustomLabel: newCustomLabel,
+                            PmfProbability: pmfProbability ?? existingMetrics.PmfProbability,
+                            PmfValue: pmfSupportValue ?? existingMetrics.PmfValue,
+                            NodeKind: existingMetrics.NodeKind ?? topoNode.Kind,
+                            ServiceTimeMs: existingMetrics.ServiceTimeMs,
+                            RawMetrics: existingMetrics.RawMetrics);
                     }
 
                     continue;
@@ -1629,7 +1672,8 @@ private string? canvasHoveredEdgeId;
                     CustomLabel: customLabel,
                     PmfProbability: pmfProbability,
                     PmfValue: pmfSupportValue,
-                    NodeKind: topoNode.Kind);
+                    NodeKind: topoNode.Kind,
+                    RawMetrics: existingMetrics?.RawMetrics);
             }
         }
 
@@ -2084,6 +2128,22 @@ private string? canvasHoveredEdgeId;
         return value.Value.ToString("0.0", CultureInfo.InvariantCulture);
     }
 
+    private static string FormatBinValue(double? value, InspectorValueFormat format = InspectorValueFormat.Number, string? unit = null)
+    {
+        var text = format switch
+        {
+            InspectorValueFormat.Percent => FormatPercent(value),
+            _ => FormatNumber(value)
+        };
+
+        if (string.Equals(text, "—", StringComparison.Ordinal))
+        {
+            return text;
+        }
+
+        return string.IsNullOrWhiteSpace(unit) ? text : $"{text} {unit}";
+    }
+
     private void BuildNodeSparklines()
     {
         var missing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -2326,15 +2386,15 @@ private string? canvasHoveredEdgeId;
         EnsureInspectorVisibility();
     }
 
-    internal sealed record InspectorMetricBlock(
-        string Title,
-        NodeSparklineData? Sparkline,
-        string Stroke,
-        bool IsPlaceholder,
-        string? Placeholder,
-        string? AriaLabel,
-        InspectorValueFormat ValueFormat,
-        string? SeriesKey)
+internal sealed record InspectorMetricBlock(
+    string Title,
+    NodeSparklineData? Sparkline,
+    string Stroke,
+    bool IsPlaceholder,
+    string? Placeholder,
+    string? AriaLabel,
+    InspectorValueFormat ValueFormat,
+    string? SeriesKey)
     {
         public static InspectorMetricBlock FromSparkline(
             string title,
@@ -2349,6 +2409,8 @@ private string? canvasHoveredEdgeId;
             new(title, null, "#CBD5E1", true, message, null, valueFormat, seriesKey);
     }
 
+    internal sealed record InspectorBinMetric(string Label, string Value);
+
     private IReadOnlyList<InspectorMetricBlock> BuildInspectorMetricBlocks(string? nodeId)
     {
         if (string.IsNullOrWhiteSpace(nodeId))
@@ -2362,6 +2424,9 @@ private string? canvasHoveredEdgeId;
         var kindKey = string.IsNullOrWhiteSpace(nodeKind) ? "unknown" : nodeKind!;
 
         var blocks = new List<InspectorMetricBlock>();
+
+        string Label(string fallback, params string[] keys) =>
+            ResolveMetricLabel(topoNode, fallback, keys);
 
         InspectorMetricBlock CreatePlaceholder(string title, InspectorValueFormat valueFormat = InspectorValueFormat.Number, string? seriesKey = null)
         {
@@ -2482,10 +2547,10 @@ private string? canvasHoveredEdgeId;
 
         if (IsQueueKind(nodeKind))
         {
-            AddRequired("Queue depth", "queue", 0d);
+            AddRequired(Label("Queue depth", "queue", "queueDepth"), "queue", 0d);
             AddRequired("Latency", "latencyMinutes", 0d);
-            AddRequired("Arrivals", "arrivals", 0d);
-            AddRequired("Served", "served", 0d);
+            AddRequired(Label("Arrivals", "arrivals"), "arrivals", 0d);
+            AddRequired(Label("Served", "served"), "served", 0d);
             return blocks;
         }
 
@@ -2497,22 +2562,22 @@ private string? canvasHoveredEdgeId;
 
         if (showRetryMetrics && (hasAttemptsSeries || !string.IsNullOrWhiteSpace(topoNode?.Semantics?.Attempts)))
         {
-            AddRequired("Attempts", "attempts", 0d, seriesKeyOverride: "attempts");
+            AddRequired(Label("Attempts", "attempts"), "attempts", 0d, seriesKeyOverride: "attempts");
         }
 
         if (hasServedSeries)
         {
-            AddRequired("Served", "served", 0d, seriesKeyOverride: "served");
+            AddRequired(Label("Served", "served"), "served", 0d, seriesKeyOverride: "served");
         }
 
         if (showRetryMetrics && (hasFailuresSeries || !string.IsNullOrWhiteSpace(topoNode?.Semantics?.Failures)))
         {
-            AddRequired("Failures", "failures", 0d, seriesKeyOverride: "failures");
+            AddRequired(Label("Failed retries", "failures"), "failures", 0d, seriesKeyOverride: "failures");
         }
 
         if (showRetryMetrics && (hasRetryEchoSeries || !string.IsNullOrWhiteSpace(topoNode?.Semantics?.RetryEcho)))
         {
-            AddRequired("Retry echo", "retryEcho", 0d, seriesKeyOverride: "retryEcho");
+            AddRequired(Label("Retry echo", "retryEcho", "retry_echo", "retry"), "retryEcho", 0d, seriesKeyOverride: "retryEcho");
         }
 
         AddRequired("Success rate", "successRate", 0d, 1d, valueFormat: InspectorValueFormat.Percent);
@@ -2520,9 +2585,61 @@ private string? canvasHoveredEdgeId;
         AddRequired("Service time", "serviceTimeMs", 0d, seriesKeyOverride: "serviceTimeMs");
         AddRequired("Latency", "latencyMinutes", 0d);
         AddRequired("Error rate", "errorRate", 0d, 1d, valueFormat: InspectorValueFormat.Percent);
-        AddOptional("Errors", "errors", 0d, ariaLabel: "Errors sparkline");
+        AddOptional(Label("Errors", "errors"), "errors", 0d, ariaLabel: "Errors sparkline");
 
         return blocks;
+    }
+
+    private IReadOnlyList<InspectorBinMetric> BuildInspectorBinMetrics(string? nodeId, NodeBinMetrics? metrics)
+    {
+        if (string.IsNullOrWhiteSpace(nodeId) || metrics is null)
+        {
+            return Array.Empty<InspectorBinMetric>();
+        }
+
+        var rows = new List<InspectorBinMetric>();
+        var topoNode = FindTopologyNode(nodeId);
+        var raw = metrics.RawMetrics;
+
+        string Label(string fallback, params string[] keys) =>
+            FormatSemanticLabelWithAlias(fallback, TryResolveAlias(topoNode, keys));
+
+        void AddRaw(string fallback, string key, InspectorValueFormat format = InspectorValueFormat.Number, string? unit = null)
+        {
+            if (raw is null || !raw.TryGetValue(key, out var value) || !value.HasValue)
+            {
+                return;
+            }
+
+            rows.Add(new InspectorBinMetric(Label(fallback, key), FormatBinValue(value, format, unit)));
+        }
+
+        void AddDerived(string fallback, double? value, InspectorValueFormat format = InspectorValueFormat.Number, string? unit = null, params string[] aliasKeys)
+        {
+            if (!value.HasValue)
+            {
+                return;
+            }
+
+            rows.Add(new InspectorBinMetric(Label(fallback, aliasKeys), FormatBinValue(value, format, unit)));
+        }
+
+        AddRaw("Arrivals", "arrivals");
+        AddRaw("Served", "served");
+        AddRaw("Errors", "errors");
+        AddRaw("Attempts", "attempts");
+        AddRaw("Failed retries", "failures");
+        AddRaw("Retry echo", "retryEcho");
+        AddRaw("Queue depth", "queue");
+        AddRaw("Capacity", "capacity");
+
+        AddDerived("Success rate", metrics.SuccessRate, InspectorValueFormat.Percent);
+        AddDerived("Utilization", metrics.Utilization, InspectorValueFormat.Percent);
+        AddDerived("Error rate", metrics.ErrorRate, InspectorValueFormat.Percent);
+        AddDerived("Latency", metrics.LatencyMinutes, InspectorValueFormat.Number, "min");
+        AddDerived("Service time", metrics.ServiceTimeMs, InspectorValueFormat.Number, "ms");
+
+        return rows;
     }
 
     private NodeSparklineData? BuildInspectorSparkline(NodeSparklineData sparkline, string primaryKey, double? explicitMin = null, double? explicitMax = null)
@@ -2790,6 +2907,94 @@ private string? canvasHoveredEdgeId;
 
     private string? GetNodeKind(string nodeId) => FindTopologyNode(nodeId)?.Kind;
 
+    private static string ResolveMetricLabel(TopologyNode? node, string fallback, params string[] canonicalKeys)
+    {
+        var alias = TryResolveAlias(node, canonicalKeys);
+        return FormatSemanticLabelWithAlias(fallback, alias);
+    }
+
+    private static string FormatSemanticLabelWithAlias(string canonicalLabel, string? alias)
+    {
+        if (string.IsNullOrWhiteSpace(alias))
+        {
+            return canonicalLabel;
+        }
+
+        if (string.Equals(alias, canonicalLabel, StringComparison.OrdinalIgnoreCase))
+        {
+            return canonicalLabel;
+        }
+
+        return $"{canonicalLabel}: {alias}";
+    }
+
+    private static string? TryResolveAlias(TopologyNode? node, params string[] canonicalKeys)
+    {
+        if (node?.Semantics?.Aliases is null || node.Semantics.Aliases.Count == 0 || canonicalKeys is null || canonicalKeys.Length == 0)
+        {
+            return null;
+        }
+
+        foreach (var key in canonicalKeys.SelectMany(BuildAliasKeyCandidates))
+        {
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                continue;
+            }
+
+            if (node.Semantics.Aliases.TryGetValue(key, out var alias) && !string.IsNullOrWhiteSpace(alias))
+            {
+                return alias;
+            }
+        }
+
+        return null;
+    }
+
+    private static string[] BuildAliasKeyCandidates(string? field)
+    {
+        if (string.IsNullOrWhiteSpace(field))
+        {
+            return Array.Empty<string>();
+        }
+
+        var trimmed = field.Trim();
+        var keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { trimmed };
+        var lower = trimmed.ToLowerInvariant();
+        keys.Add(lower);
+
+        var noUnderscore = trimmed.Replace("_", string.Empty, StringComparison.OrdinalIgnoreCase);
+        if (!string.Equals(noUnderscore, trimmed, StringComparison.Ordinal))
+        {
+            keys.Add(noUnderscore);
+        }
+
+        if (string.Equals(noUnderscore, "retryecho", StringComparison.OrdinalIgnoreCase))
+        {
+            keys.Add("retryEcho");
+            keys.Add("retry");
+        }
+
+        if (string.Equals(noUnderscore, "queue", StringComparison.OrdinalIgnoreCase))
+        {
+            keys.Add("queueDepth");
+        }
+
+        return keys.ToArray();
+    }
+
+    private static string? ExtractNodeReference(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return value;
+        }
+
+        var trimmed = value.Trim();
+        var colonIndex = trimmed.IndexOf(':');
+        return colonIndex < 0 ? trimmed : trimmed[..colonIndex].Trim();
+    }
+
     private static double? SampleSparklineAt(NodeSparklineData? sparkline, int bin)
     {
         if (sparkline is null)
@@ -3049,7 +3254,8 @@ private string? canvasHoveredEdgeId;
         var matches = new List<InspectorDependencyViewModel>();
         foreach (var edge in topologyGraph.Edges)
         {
-            if (!string.Equals(edge.To, nodeId, StringComparison.OrdinalIgnoreCase))
+            var targetNodeId = ExtractNodeReference(edge.To);
+            if (!string.Equals(targetNodeId, nodeId, StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }
@@ -3065,7 +3271,8 @@ private string? canvasHoveredEdgeId;
             }
 
             var edgeId = edge.Id ?? $"{edge.From}->{edge.To}:{edge.Field}";
-            var label = FormatDependencyFieldLabel(edge.Field);
+            var sourceNode = FindTopologyNode(ExtractNodeReference(edge.From));
+            var label = FormatDependencyFieldLabel(edge.Field, sourceNode);
             var source = edge.From ?? "Unknown";
             var order = ResolveDependencyFieldOrder(edge.Field);
             matches.Add(new InspectorDependencyViewModel(edgeId, label, source, order));
@@ -3099,9 +3306,9 @@ private string? canvasHoveredEdgeId;
         };
     }
 
-    private static string FormatDependencyFieldLabel(string? field)
+    private static string FormatDependencyFieldLabel(string? field, TopologyNode? sourceNode)
     {
-        return field?.ToLowerInvariant() switch
+        var fallback = field?.ToLowerInvariant() switch
         {
             "arrivals" => "Arrivals",
             "served" => "Served",
@@ -3116,6 +3323,10 @@ private string? canvasHoveredEdgeId;
                 ? "Dependency"
                 : CultureInfo.InvariantCulture.TextInfo.ToTitleCase(field.ToLowerInvariant())
         };
+
+        var aliasKeys = BuildAliasKeyCandidates(field);
+        var alias = TryResolveAlias(sourceNode, aliasKeys);
+        return FormatSemanticLabelWithAlias(fallback, alias);
     }
 
     private bool IsDependencyFieldEnabled(string? field)

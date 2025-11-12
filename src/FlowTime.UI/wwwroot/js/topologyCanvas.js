@@ -1433,15 +1433,22 @@
         const foreground = prefersDark ? '#F8FAFC' : '#0F172A';
         const border = prefersDark ? 'rgba(148, 163, 184, 0.45)' : 'rgba(15, 23, 42, 0.18)';
 
+        const lines = rawText.split(/\n/).map(line => line.trim()).filter(line => line.length > 0);
+        if (lines.length === 0) {
+            lines.push(rawText.trim());
+        }
+
         ctx.save();
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.font = `500 ${fontSize}px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif`;
-        ctx.textBaseline = 'middle';
+        ctx.textBaseline = 'top';
         ctx.textAlign = 'left';
 
-        const textWidth = ctx.measureText(rawText).width;
+        const textWidth = lines.reduce((max, line) => Math.max(max, ctx.measureText(line).width), 0);
+        const lineGap = 4 * ratio;
+        const textHeight = lines.length * fontSize + Math.max(0, lines.length - 1) * lineGap;
         const boxWidth = Math.ceil(textWidth + paddingX * 2);
-        const boxHeight = Math.ceil(fontSize + paddingY * 2);
+        const boxHeight = Math.ceil(textHeight + paddingY * 2);
 
         const placement = String(chip.placement ?? 'top');
         let bubbleAbove = placement.startsWith('top');
@@ -1516,7 +1523,11 @@
         }
 
         ctx.fillStyle = foreground;
-        ctx.fillText(rawText, bubbleX + paddingX, bubbleY + boxHeight / 2);
+        let textY = bubbleY + paddingY;
+        for (const line of lines) {
+            ctx.fillText(line, bubbleX + paddingX, textY);
+            textY += fontSize + lineGap;
+        }
 
         ctx.restore();
     }
@@ -2296,6 +2307,8 @@
         const spark = nodeMeta.sparkline ?? null;
 
         const semantics = normalizeSemantics(semanticsRaw);
+        const metricSnapshot = nodeMeta.metrics ?? nodeMeta.Metrics ?? null;
+        const rawMetrics = normalizeRawMetricMap(metricSnapshot?.raw ?? metricSnapshot?.Raw ?? null);
         const hasSemantics = Object.values(semantics).some(value => value);
         const hasSpark = spark !== null;
         const shouldDrawSparkline = overlays.showSparklines && spark;
@@ -2328,11 +2341,36 @@
         const selectedBin = Number(overlays.selectedBin ?? -1);
         const hasSelectedBin = Number.isFinite(selectedBin) && selectedBin >= 0;
 
-        const sampleValueFor = (defaultKey, semanticEntry, extraKeys) => {
-            if (!spark || !hasSelectedBin) {
-                return null;
+        const sampleBin = (() => {
+            if (hasSelectedBin || !spark) {
+                return selectedBin;
             }
 
+            const baseStart = Number(spark.startIndex ?? spark.StartIndex ?? 0);
+            const baseValues = spark.values ?? spark.Values;
+            if (Array.isArray(baseValues) && baseValues.length > 0) {
+                return baseStart + baseValues.length - 1;
+            }
+
+            const map = spark.series ?? spark.Series;
+            if (map) {
+                for (const slice of Object.values(map)) {
+                    if (!slice) {
+                        continue;
+                    }
+
+                    const sliceValues = slice.values ?? slice.Values;
+                    if (Array.isArray(sliceValues) && sliceValues.length > 0) {
+                        const sliceStart = Number(slice.startIndex ?? slice.StartIndex ?? baseStart);
+                        return sliceStart + sliceValues.length - 1;
+                    }
+                }
+            }
+
+            return baseStart;
+        })();
+
+        const sampleValueFor = (defaultKey, semanticEntry, extraKeys) => {
             const keys = [];
             const pushKey = (candidate) => {
                 if (candidate === null || candidate === undefined) {
@@ -2364,17 +2402,47 @@
                 }
             }
 
+            const lookupRawMetric = (candidate) => {
+                if (!rawMetrics || !candidate) {
+                    return null;
+                }
+
+                const text = String(candidate).trim();
+                if (text.length === 0) {
+                    return null;
+                }
+
+                const normalized = text.toLowerCase();
+                if (!Object.prototype.hasOwnProperty.call(rawMetrics, normalized)) {
+                    return null;
+                }
+
+                const rawValue = rawMetrics[normalized];
+                if (rawValue === null || rawValue === undefined) {
+                    return null;
+                }
+
+                const numeric = Number(rawValue);
+                return Number.isFinite(numeric) ? numeric : null;
+            };
+
             for (const candidate of keys) {
-                const value = sampleSeriesValueAt(spark, candidate, selectedBin);
+                let value = null;
+                if (spark) {
+                    value = sampleSeriesValueAt(spark, candidate, sampleBin);
+                }
+
+                if (value === null || value === undefined) {
+                    value = lookupRawMetric(candidate);
+                }
+
                 if (value !== null && value !== undefined) {
                     return value;
                 }
             }
 
-            return null;
+            return lookupRawMetric(defaultKey);
         };
-
-        const fallbackLabel = (entry) => entry?.label ?? null;
 
         if (shouldDrawSparkline) {
             const neutralSpark = '#94A3B8';
@@ -2439,155 +2507,163 @@
 
         if (showRetryMetrics) {
             const attemptsValue = sampleValueFor('attempts', semantics.attempts, ['attempt']);
-            const attemptsTooltip = semantics.attempts?.label ?? 'Attempts';
-            if (attemptsValue !== null || semantics.attempts) {
-                const attemptsLabel = attemptsValue !== null ? formatMetricValue(attemptsValue) : attemptsTooltip;
+            const attemptsTooltip = semanticTooltip(semantics.attempts, 'Attempts');
+            if (attemptsValue !== null) {
+                const attemptsLabel = formatMetricValue(attemptsValue);
                 if (attemptsLabel) {
-                    const drawn = drawChip(ctx, topLeft, topRowTop + chipH, attemptsLabel, '#0EA5E9', '#0F172A', paddingX, chipH);
+                    const dims = drawChip(ctx, topLeft, topRowTop + chipH, attemptsLabel, '#0EA5E9', '#0F172A', paddingX, chipH);
                     registerChipHitbox(state, {
                         nodeId: nodeMeta.id ?? null,
                         metric: 'attempts',
                         placement: 'top',
                         tooltip: attemptsTooltip,
                         x: topLeft,
-                        y: topRowTop,
-                        width: drawn,
-                        height: chipH
+                        y: dims.top,
+                        width: dims.width,
+                        height: dims.height
                     });
-                    topLeft += drawn + gap;
+                    topLeft += dims.width + gap;
                 }
             }
         }
 
         if (overlays.showArrivalsDependencies !== false) {
             const arrivalValue = sampleValueFor('arrivals', semantics.arrivals);
-            const arrivalLabel = arrivalValue !== null ? formatMetricValue(arrivalValue) : fallbackLabel(semantics.arrivals);
-            if (arrivalLabel) {
-                const drawn = drawChip(ctx, topLeft, topRowTop + chipH, arrivalLabel, '#1976D2', '#FFFFFF', paddingX, chipH);
-                registerChipHitbox(state, {
-                    nodeId: nodeMeta.id ?? null,
-                    metric: 'arrivals',
-                    placement: 'top',
-                    tooltip: semantics.arrivals?.label ?? toPascal('arrivals'),
-                    x: topLeft,
-                    y: topRowTop,
-                    width: drawn,
-                    height: chipH
-                });
-                topLeft += drawn + gap;
+            if (arrivalValue !== null) {
+                const arrivalLabel = formatMetricValue(arrivalValue);
+                if (arrivalLabel) {
+                    const dims = drawChip(ctx, topLeft, topRowTop + chipH, arrivalLabel, '#1976D2', '#FFFFFF', paddingX, chipH);
+                    registerChipHitbox(state, {
+                        nodeId: nodeMeta.id ?? null,
+                        metric: 'arrivals',
+                        placement: 'top',
+                        tooltip: semanticTooltip(semantics.arrivals, 'Arrivals'),
+                        x: topLeft,
+                        y: dims.top,
+                        width: dims.width,
+                        height: dims.height
+                    });
+                    topLeft += dims.width + gap;
+                }
             }
         }
 
         if (semantics.series) {
             const outValue = sampleValueFor('series', semantics.series);
-            const outLabel = outValue !== null ? formatMetricValue(outValue) : fallbackLabel(semantics.series);
-            if (outLabel) {
-                const drawn = drawChip(ctx, topLeft, topRowTop + chipH, outLabel, '#5C6BC0', '#FFFFFF', paddingX, chipH);
-                registerChipHitbox(state, {
-                    nodeId: nodeMeta.id ?? null,
-                    metric: 'series',
-                    placement: 'top',
-                    tooltip: semantics.series?.label ?? toPascal('series'),
-                    x: topLeft,
-                    y: topRowTop,
-                    width: drawn,
-                    height: chipH
-                });
-                topLeft += drawn + gap;
+            if (outValue !== null) {
+                const outLabel = formatMetricValue(outValue);
+                if (outLabel) {
+                    const dims = drawChip(ctx, topLeft, topRowTop + chipH, outLabel, '#5C6BC0', '#FFFFFF', paddingX, chipH);
+                    registerChipHitbox(state, {
+                        nodeId: nodeMeta.id ?? null,
+                        metric: 'series',
+                        placement: 'top',
+                        tooltip: semanticTooltip(semantics.series, 'Series'),
+                        x: topLeft,
+                        y: dims.top,
+                        width: dims.width,
+                        height: dims.height
+                    });
+                    topLeft += dims.width + gap;
+                }
             }
         }
 
         if (overlays.showServedDependencies !== false) {
             const servedValue = sampleValueFor('served', semantics.served);
-            const servedLabel = servedValue !== null ? formatMetricValue(servedValue) : fallbackLabel(semantics.served);
-            if (servedLabel) {
-                const drawn = drawChip(ctx, bottomLeft, bottomRowTop + chipH, servedLabel, '#2E7D32', '#FFFFFF', paddingX, chipH);
-                registerChipHitbox(state, {
-                    nodeId: nodeMeta.id ?? null,
-                    metric: 'served',
-                    placement: 'bottom-left',
-                    tooltip: semantics.served?.label ?? toPascal('served'),
-                    x: bottomLeft,
-                    y: bottomRowTop,
-                    width: drawn,
-                    height: chipH
-                });
-                bottomLeft += drawn + gap;
+            if (servedValue !== null) {
+                const servedLabel = formatMetricValue(servedValue);
+                if (servedLabel) {
+                    const dims = drawChip(ctx, bottomLeft, bottomRowTop, servedLabel, '#2E7D32', '#FFFFFF', paddingX, chipH, 'top');
+                    registerChipHitbox(state, {
+                        nodeId: nodeMeta.id ?? null,
+                        metric: 'served',
+                        placement: 'bottom-left',
+                        tooltip: semanticTooltip(semantics.served, 'Served'),
+                        x: bottomLeft,
+                        y: dims.top,
+                        width: dims.width,
+                        height: dims.height
+                    });
+                    bottomLeft += dims.width + gap;
+                }
             }
         }
 
         if (showRetryMetrics) {
             const failureValue = sampleValueFor('failures', semantics.failures, ['failure']);
-            const failuresTooltip = semantics.failures?.label ?? 'Failures';
-            if (failureValue !== null || semantics.failures) {
-                const failureLabel = failureValue !== null ? formatMetricValue(failureValue) : failuresTooltip;
+            const failuresTooltip = semanticTooltip(semantics.failures, 'Failures');
+            if (failureValue !== null) {
+                const failureLabel = formatMetricValue(failureValue);
                 if (failureLabel) {
                     let failureBg = '#DC2626';
                     let failureFg = '#FFFFFF';
-                    if (failureValue !== null && failureValue <= 0) {
+                    if (failureValue <= 0) {
                         failureBg = '#E5E7EB';
                         failureFg = '#1F2937';
                     }
 
-                    const drawn = drawChip(ctx, bottomLeft, bottomRowTop + chipH, failureLabel, failureBg, failureFg, paddingX, chipH);
+                    const dims = drawChip(ctx, bottomLeft, bottomRowTop, failureLabel, failureBg, failureFg, paddingX, chipH, 'top');
                     registerChipHitbox(state, {
                         nodeId: nodeMeta.id ?? null,
                         metric: 'failures',
                         placement: 'bottom-left',
                         tooltip: failuresTooltip,
                         x: bottomLeft,
-                        y: bottomRowTop,
-                        width: drawn,
-                        height: chipH
+                        y: dims.top,
+                        width: dims.width,
+                        height: dims.height
                     });
-                    bottomLeft += drawn + gap;
+                    bottomLeft += dims.width + gap;
                 }
             }
 
             const retryValue = sampleValueFor('retryEcho', semantics.retry, ['retry', 'retry_echo']);
-            const retryTooltip = semantics.retry?.label ?? 'Retry';
-            if (retryValue !== null || semantics.retry) {
-                const retryLabel = retryValue !== null ? formatMetricValue(retryValue) : retryTooltip;
+            const retryTooltip = semanticTooltip(semantics.retry, 'Retry echo');
+            if (retryValue !== null) {
+                const retryLabel = formatMetricValue(retryValue);
                 if (retryLabel) {
                     let retryBg = '#7C3AED';
                     let retryFg = '#FFFFFF';
-                    if (retryValue !== null && retryValue <= 0) {
+                    if (retryValue <= 0) {
                         retryBg = '#EDE9FE';
                         retryFg = '#4C1D95';
                     }
 
-                    const drawn = drawChip(ctx, bottomLeft, bottomRowTop + chipH, retryLabel, retryBg, retryFg, paddingX, chipH);
+                    const dims = drawChip(ctx, bottomLeft, bottomRowTop, retryLabel, retryBg, retryFg, paddingX, chipH, 'top');
                     registerChipHitbox(state, {
                         nodeId: nodeMeta.id ?? null,
                         metric: 'retryEcho',
                         placement: 'bottom-left',
                         tooltip: retryTooltip,
                         x: bottomLeft,
-                        y: bottomRowTop,
-                        width: drawn,
-                        height: chipH
+                        y: dims.top,
+                        width: dims.width,
+                        height: dims.height
                     });
-                    bottomLeft += drawn + gap;
+                    bottomLeft += dims.width + gap;
                 }
             }
         }
 
         if (overlays.showCapacityDependencies !== false) {
             const capacityValue = sampleValueFor('capacity', semantics.capacity, ['cap']);
-            const capacityLabel = capacityValue !== null ? formatMetricValue(capacityValue) : fallbackLabel(semantics.capacity);
-            if (capacityLabel) {
-                const drawn = drawChip(ctx, bottomLeft, bottomRowTop + chipH, capacityLabel, '#FFB300', '#1F2937', paddingX, chipH);
-                registerChipHitbox(state, {
-                    nodeId: nodeMeta.id ?? null,
-                    metric: 'capacity',
-                    placement: 'bottom-left',
-                    tooltip: semantics.capacity?.label ?? toPascal('capacity'),
-                    x: bottomLeft,
-                    y: bottomRowTop,
-                    width: drawn,
-                    height: chipH
-                });
-                bottomLeft += drawn + gap;
+            if (capacityValue !== null) {
+                const capacityLabel = formatMetricValue(capacityValue);
+                if (capacityLabel) {
+                    const dims = drawChip(ctx, bottomLeft, bottomRowTop, capacityLabel, '#FFB300', '#1F2937', paddingX, chipH, 'top');
+                    registerChipHitbox(state, {
+                        nodeId: nodeMeta.id ?? null,
+                        metric: 'capacity',
+                        placement: 'bottom-left',
+                        tooltip: semanticTooltip(semantics.capacity, 'Capacity'),
+                        x: bottomLeft,
+                        y: dims.top,
+                        width: dims.width,
+                        height: dims.height
+                    });
+                    bottomLeft += dims.width + gap;
+                }
             }
         }
 
@@ -2598,29 +2674,31 @@
             const nodeKind = String(nodeMeta.kind ?? nodeMeta.Kind ?? '').trim().toLowerCase();
             const isQueueNode = nodeKind === 'queue';
             const queueValue = sampleValueFor('queue', semantics.queue);
-            const queueLabel = queueValue !== null ? formatMetricValue(queueValue) : fallbackLabel(semantics.queue);
             const allowed = !isQueueNode || overlays.showQueueBadge !== false;
-            queueTooltip = semantics.queue?.label ?? toPascal('queue');
+            queueTooltip = semanticTooltip(semantics.queue, 'Queue depth');
 
-            if (queueLabel && allowed) {
-                if (isQueueNode) {
-                    const drawn = drawChip(ctx, bottomLeft, bottomRowTop + chipH, queueLabel, '#8E24AA', '#FFFFFF', paddingX, chipH);
-                    registerChipHitbox(state, {
-                        nodeId: nodeMeta.id ?? null,
-                        metric: 'queue',
-                        placement: 'bottom-left',
-                        tooltip: queueTooltip,
-                        x: bottomLeft,
-                        y: bottomRowTop,
-                        width: drawn,
-                        height: chipH
-                    });
-                    bottomLeft += drawn + gap;
-                } else {
-                    pendingQueueChip = {
-                        label: queueLabel,
-                        tooltip: queueTooltip
-                    };
+            if (queueValue !== null && allowed) {
+                const queueLabel = formatMetricValue(queueValue);
+                if (queueLabel) {
+                    if (isQueueNode) {
+                        const dims = drawChip(ctx, bottomLeft, bottomRowTop, queueLabel, '#8E24AA', '#FFFFFF', paddingX, chipH, 'top');
+                        registerChipHitbox(state, {
+                            nodeId: nodeMeta.id ?? null,
+                            metric: 'queue',
+                            placement: 'bottom-left',
+                            tooltip: queueTooltip,
+                            x: bottomLeft,
+                            y: dims.top,
+                            width: dims.width,
+                            height: dims.height
+                        });
+                        bottomLeft += dims.width + gap;
+                    } else {
+                        pendingQueueChip = {
+                            label: queueLabel,
+                            tooltip: queueTooltip
+                        };
+                    }
                 }
             }
         }
@@ -2652,40 +2730,38 @@
                     }
 
                     errorLabel = formatMetricValue(errorCount);
-                } else {
-                    errorLabel = fallbackLabel(semantics.errors);
                 }
             }
 
             if (errorLabel) {
-                const drawn = drawChip(ctx, bottomLeft, bottomRowTop + chipH, errorLabel, bg, fg, paddingX, chipH);
+                const dims = drawChip(ctx, bottomLeft, bottomRowTop, errorLabel, bg, fg, paddingX, chipH, 'top');
                 registerChipHitbox(state, {
                     nodeId: nodeMeta.id ?? null,
                     metric: 'errors',
                     placement: 'bottom-left',
-                    tooltip: semantics.errors?.label ?? toPascal('errors'),
+                    tooltip: semanticTooltip(semantics.errors, 'Errors'),
                     x: bottomLeft,
-                    y: bottomRowTop,
-                    width: drawn,
-                    height: chipH
+                    y: dims.top,
+                    width: dims.width,
+                    height: dims.height
                 });
-                bottomLeft += drawn + gap;
+                bottomLeft += dims.width + gap;
             }
         }
 
         if (pendingQueueChip) {
-            const drawn = drawChip(ctx, bottomRight, bottomRowTop + chipH, pendingQueueChip.label, '#8E24AA', '#FFFFFF', paddingX, chipH);
+            const dims = drawChip(ctx, bottomRight, bottomRowTop, pendingQueueChip.label, '#8E24AA', '#FFFFFF', paddingX, chipH, 'top');
             registerChipHitbox(state, {
                 nodeId: nodeMeta.id ?? null,
                 metric: 'queue',
                 placement: 'bottom-right',
-                tooltip: queueTooltip ?? toPascal('queue'),
+                tooltip: queueTooltip ?? 'Queue depth',
                 x: bottomRight,
-                y: bottomRowTop,
-                width: drawn,
-                height: chipH
+                y: dims.top,
+                width: dims.width,
+                height: dims.height
             });
-            bottomRight += drawn + gap;
+            bottomRight += dims.width + gap;
         }
 
         ctx.restore();
@@ -2805,23 +2881,25 @@
             };
         }
 
+        const aliasMap = normalizeAliasMap(raw.aliases ?? raw.Aliases);
         return {
-            arrivals: normalizeSemanticValue(raw.arrivals ?? raw.Arrivals),
-            served: normalizeSemanticValue(raw.served ?? raw.Served),
-            errors: normalizeSemanticValue(raw.errors ?? raw.Errors),
-            attempts: normalizeSemanticValue(raw.attempts ?? raw.Attempts),
-            failures: normalizeSemanticValue(raw.failures ?? raw.Failures),
-            retry: normalizeSemanticValue(raw.retry ?? raw.Retry ?? raw.retryEcho ?? raw.RetryEcho),
-            queue: normalizeSemanticValue(raw.queue ?? raw.Queue),
-            capacity: normalizeSemanticValue(raw.capacity ?? raw.Capacity),
-            series: normalizeSemanticValue(raw.series ?? raw.Series),
+            arrivals: normalizeSemanticValue(raw.arrivals ?? raw.Arrivals, 'Arrivals', aliasFor(aliasMap, 'arrivals'), 'arrivals'),
+            served: normalizeSemanticValue(raw.served ?? raw.Served, 'Served', aliasFor(aliasMap, 'served'), 'served'),
+            errors: normalizeSemanticValue(raw.errors ?? raw.Errors, 'Errors', aliasFor(aliasMap, 'errors'), 'errors'),
+            attempts: normalizeSemanticValue(raw.attempts ?? raw.Attempts, 'Attempts', aliasFor(aliasMap, 'attempts'), 'attempts'),
+            failures: normalizeSemanticValue(raw.failures ?? raw.Failures, 'Failures', aliasFor(aliasMap, 'failures'), 'failures'),
+            retry: normalizeSemanticValue(raw.retry ?? raw.Retry ?? raw.retryEcho ?? raw.RetryEcho, 'Retry', aliasFor(aliasMap, 'retry') ?? aliasFor(aliasMap, 'retryecho'), 'retryEcho'),
+            queue: normalizeSemanticValue(raw.queue ?? raw.Queue, 'Queue depth', aliasFor(aliasMap, 'queue'), 'queue'),
+            capacity: normalizeSemanticValue(raw.capacity ?? raw.Capacity, 'Capacity', aliasFor(aliasMap, 'capacity'), 'capacity'),
+            series: normalizeSemanticValue(raw.series ?? raw.Series, 'Series', null, 'series'),
             distribution: normalizeDistribution(raw.distribution ?? raw.Distribution),
             inline: normalizeInlineSeries(raw.inlineValues ?? raw.InlineValues),
-            retryEcho: normalizeSemanticValue(raw.retryEcho ?? raw.RetryEcho)
+            retryEcho: normalizeSemanticValue(raw.retryEcho ?? raw.RetryEcho, 'Retry echo', aliasFor(aliasMap, 'retryecho'), 'retryEcho'),
+            aliases: aliasMap
         };
     }
 
-    function normalizeSemanticValue(raw) {
+    function normalizeSemanticValue(raw, canonicalLabel, aliasLabel, canonicalKey) {
         if (raw === null || raw === undefined) {
             return null;
         }
@@ -2834,16 +2912,50 @@
         const seriesMatch = text.match(/^series:(.+)$/i);
         const fileMatch = text.match(/^file:(.+)$/i);
         const rawIdentifier = (seriesMatch ?? fileMatch)?.[1]?.trim() ?? text;
-        const canonical = canonicalizeSeriesKey(rawIdentifier);
+        const canonical = canonicalKey ?? canonicalizeSeriesKey(rawIdentifier);
         const key = extractSeriesKey(rawIdentifier);
-        const label = simplifySemanticLabel(rawIdentifier);
+        const override = typeof aliasLabel === 'string' ? aliasLabel.trim() : '';
+        const resolvedCanonicalLabel = canonicalLabel ?? toPascal(canonicalKey ?? key ?? 'Metric');
+        const label = override.length > 0 ? override : resolvedCanonicalLabel;
 
         return {
             key,
             label,
             reference: rawIdentifier,
-            canonical
+            canonical,
+            canonicalLabel: resolvedCanonicalLabel,
+            aliasLabel: override.length > 0 ? override : null
         };
+    }
+
+    function normalizeAliasMap(raw) {
+        if (!raw || typeof raw !== 'object') {
+            return null;
+        }
+
+        const normalized = {};
+        for (const [key, value] of Object.entries(raw)) {
+            if (typeof value !== 'string') {
+                continue;
+            }
+
+            const normalizedKey = String(key ?? '').trim().toLowerCase();
+            if (!normalizedKey || value.trim().length === 0) {
+                continue;
+            }
+
+            normalized[normalizedKey] = value.trim();
+        }
+
+        return Object.keys(normalized).length === 0 ? null : normalized;
+    }
+
+    function aliasFor(map, key) {
+        if (!map || !key) {
+            return null;
+        }
+
+        return map[String(key).trim().toLowerCase()] ?? null;
     }
 
     function canonicalizeSeriesKey(identifier) {
@@ -2959,6 +3071,30 @@
         };
     }
 
+    function normalizeRawMetricMap(raw) {
+        if (!raw || typeof raw !== 'object') {
+            return null;
+        }
+
+        const normalized = {};
+        for (const [key, value] of Object.entries(raw)) {
+            if (typeof key !== 'string' || key.trim().length === 0) {
+                continue;
+            }
+
+            const normalizedKey = key.trim().toLowerCase();
+            let normalizedValue = null;
+            if (value !== null && value !== undefined) {
+                const numeric = Number(value);
+                normalizedValue = Number.isFinite(numeric) ? numeric : null;
+            }
+
+            normalized[normalizedKey] = normalizedValue;
+        }
+
+        return normalized;
+    }
+
     function normalizeInlineSeries(raw) {
         if (!raw) {
             return null;
@@ -3020,19 +3156,43 @@
 
     function sampleSeriesValueAt(sparkline, key, selectedBin) {
         const slice = getSeriesSlice(sparkline, key);
-        let values = slice?.values ?? slice?.Values ?? null;
-        let startIndex = Number(slice?.startIndex ?? slice?.StartIndex ?? sparkline.startIndex ?? sparkline.StartIndex ?? 0);
+        const values = slice?.values ?? slice?.Values ?? null;
+        const startIndex = Number(slice?.startIndex ?? slice?.StartIndex ?? sparkline.startIndex ?? sparkline.StartIndex ?? 0);
 
         if (!Array.isArray(values) || values.length === 0) {
             return null;
         }
 
-        const index = selectedBin - startIndex;
-        if (index < 0 || index >= values.length) {
-            return null;
+        let index = selectedBin - startIndex;
+        if (!Number.isFinite(index)) {
+            index = values.length - 1;
         }
 
-        const sample = values[index];
+        if (index < 0) {
+            index = 0;
+        } else if (index >= values.length) {
+            index = values.length - 1;
+        }
+
+        let sample = values[index];
+        if (sample === null || sample === undefined) {
+            for (let i = index - 1; i >= 0; i--) {
+                if (values[i] !== null && values[i] !== undefined) {
+                    sample = values[i];
+                    break;
+                }
+            }
+        }
+
+        if (sample === null || sample === undefined) {
+            for (let i = index + 1; i < values.length; i++) {
+                if (values[i] !== null && values[i] !== undefined) {
+                    sample = values[i];
+                    break;
+                }
+            }
+        }
+
         if (sample === null || sample === undefined) {
             return null;
         }
@@ -3212,6 +3372,40 @@
         return name.charAt(0).toUpperCase() + name.slice(1);
     }
 
+    function formatSemanticAlias(entry, canonicalFallback, options) {
+        const settings = {
+            newlineAlias: false,
+            includeColon: true,
+            ...(options ?? {})
+        };
+
+        const canonical = entry?.canonicalLabel ?? canonicalFallback ?? entry?.label ?? null;
+        const aliasRaw = typeof entry?.aliasLabel === 'string' ? entry.aliasLabel.trim() : '';
+        const alias = aliasRaw.length > 0 ? aliasRaw : null;
+
+        if (alias && canonical && alias.localeCompare(canonical, undefined, { sensitivity: 'accent' }) !== 0) {
+            if (settings.newlineAlias) {
+                return settings.includeColon ? `${canonical}:\n${alias}` : `${canonical}\n${alias}`;
+            }
+
+            if (settings.includeColon) {
+                return `${canonical}: ${alias}`;
+            }
+
+            return `${canonical} ${alias}`.trim();
+        }
+
+        return canonical ?? alias ?? canonicalFallback ?? null;
+    }
+
+    function semanticTooltip(entry, canonicalFallback) {
+        return formatSemanticAlias(entry, canonicalFallback, { newlineAlias: true, includeColon: false });
+    }
+
+    function semanticChipLabel(entry, canonicalFallback) {
+        return formatSemanticAlias(entry, canonicalFallback, { newlineAlias: true, includeColon: true });
+    }
+
     function registerChipHitbox(state, chip) {
         if (!state) {
             return;
@@ -3262,32 +3456,55 @@
         });
     }
 
-    function drawChip(ctx, x, y, text, bg, fg, paddingX, h) {
-        const w = Math.ceil(ctx.measureText(text).width) + paddingX * 2;
+    function drawChip(ctx, x, anchorY, text, bg, fg, paddingX, lineHeight, anchor = 'bottom') {
+        const normalized = typeof text === 'string' ? text : String(text ?? '');
+        const rawLines = normalized.split(/\r?\n/);
+        const lines = rawLines
+            .map(line => line.trim())
+            .filter(line => line.length > 0);
+        if (lines.length === 0) {
+            lines.push(normalized.trim().length > 0 ? normalized.trim() : '');
+        }
+
+        const metrics = lines.map(line => ctx.measureText(line));
+        const maxWidth = metrics.reduce((max, metric) => Math.max(max, metric.width), 0);
+        const width = Math.ceil(maxWidth) + paddingX * 2;
+        const baseLineHeight = Math.max(12, lineHeight);
+        const lineGap = Math.max(2, Math.round(baseLineHeight * 0.3));
+        const totalHeight = lines.length > 0
+            ? Math.ceil((lines.length * baseLineHeight) + ((lines.length - 1) * lineGap))
+            : baseLineHeight;
+        const top = anchor === 'top'
+            ? Math.round(anchorY)
+            : Math.round(anchorY - totalHeight);
+        const bottom = top + totalHeight;
+
         ctx.save();
         ctx.fillStyle = bg;
         ctx.strokeStyle = 'rgba(15, 23, 42, 0.35)';
         ctx.lineWidth = 1;
-        // rounded rect
-        const r = h / 2;
+        const r = Math.min(baseLineHeight / 1.5, totalHeight / 2);
         const bx = Math.round(x);
-        const by = Math.round(y - h);
         ctx.beginPath();
-        ctx.moveTo(bx + r, by);
-        ctx.arcTo(bx + w, by, bx + w, by + h, r);
-        ctx.arcTo(bx + w, by + h, bx, by + h, r);
-        ctx.arcTo(bx, by + h, bx, by, r);
-        ctx.arcTo(bx, by, bx + w, by, r);
+        ctx.moveTo(bx + r, top);
+        ctx.arcTo(bx + width, top, bx + width, top + totalHeight, r);
+        ctx.arcTo(bx + width, top + totalHeight, bx, top + totalHeight, r);
+        ctx.arcTo(bx, top + totalHeight, bx, top, r);
+        ctx.arcTo(bx, top, bx + r, top, r);
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
         ctx.fillStyle = fg;
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
-        const textY = by + (h / 2) + 0.5;
-        ctx.fillText(text, bx + paddingX, textY);
+        const firstLineCenter = top + (baseLineHeight / 2);
+        const lineAdvance = baseLineHeight + lineGap;
+        for (let i = 0; i < lines.length; i++) {
+            const lineCenter = firstLineCenter + i * lineAdvance;
+            ctx.fillText(lines[i], bx + paddingX, lineCenter);
+        }
         ctx.restore();
-        return w;
+        return { width, height: totalHeight, top, bottom };
     }
 
     function dedupePoints(points) {

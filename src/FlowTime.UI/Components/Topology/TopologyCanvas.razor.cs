@@ -612,7 +612,8 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                         semantics.Series,
                         semantics.Expression,
                         distributionDto,
-                        semantics.InlineValues);
+                        semantics.InlineValues,
+                        semantics.Aliases);
 
                     if (distributionDto is null &&
                         string.IsNullOrWhiteSpace(semanticsDto.Arrivals) &&
@@ -631,6 +632,15 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                 var isVisible = true;
                 var isLeaf = !outgoingGroups.ContainsKey(node.Id);
 
+                var metricsDto = new NodeMetricSnapshotDto(
+                    nodeMetrics.SuccessRate,
+                    nodeMetrics.Utilization,
+                    nodeMetrics.ErrorRate,
+                    nodeMetrics.QueueDepth,
+                    nodeMetrics.LatencyMinutes,
+                    nodeMetrics.ServiceTimeMs,
+                    nodeMetrics.RawMetrics);
+
                 return new NodeRenderInfo(
                     node.Id,
                     node.Kind,
@@ -647,6 +657,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                     focusLabel,
                     isLeaf,
                     semanticsDto,
+                    metricsDto,
                     node.Lane);
             })
             .ToImmutableArray();
