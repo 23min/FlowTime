@@ -1440,11 +1440,22 @@
 
         ctx.save();
         ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.font = `500 ${fontSize}px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif`;
         ctx.textBaseline = 'top';
         ctx.textAlign = 'left';
 
-        const textWidth = lines.reduce((max, line) => Math.max(max, ctx.measureText(line).width), 0);
+        const boldFont = `600 ${fontSize}px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif`;
+        const regularFont = `400 ${fontSize}px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif`;
+        const lineFonts = lines.map((_, idx) => idx === 0 ? boldFont : regularFont);
+
+        let textWidth = 0;
+        for (let i = 0; i < lines.length; i++) {
+            ctx.font = lineFonts[i];
+            const measured = ctx.measureText(lines[i]).width;
+            if (measured > textWidth) {
+                textWidth = measured;
+            }
+        }
+
         const lineGap = 4 * ratio;
         const textHeight = lines.length * fontSize + Math.max(0, lines.length - 1) * lineGap;
         const boxWidth = Math.ceil(textWidth + paddingX * 2);
@@ -1524,8 +1535,9 @@
 
         ctx.fillStyle = foreground;
         let textY = bubbleY + paddingY;
-        for (const line of lines) {
-            ctx.fillText(line, bubbleX + paddingX, textY);
+        for (let i = 0; i < lines.length; i++) {
+            ctx.font = lineFonts[i];
+            ctx.fillText(lines[i], bubbleX + paddingX, textY);
             textY += fontSize + lineGap;
         }
 
@@ -2592,7 +2604,7 @@
 
         if (showRetryMetrics) {
             const failureValue = sampleValueFor('failures', semantics.failures, ['failure']);
-            const failuresTooltip = semanticTooltip(semantics.failures, 'Failures');
+            const failuresTooltip = semanticTooltip(semantics.failures, 'Failed retries');
             if (failureValue !== null) {
                 const failureLabel = formatMetricValue(failureValue);
                 if (failureLabel) {
@@ -2887,7 +2899,7 @@
             served: normalizeSemanticValue(raw.served ?? raw.Served, 'Served', aliasFor(aliasMap, 'served'), 'served'),
             errors: normalizeSemanticValue(raw.errors ?? raw.Errors, 'Errors', aliasFor(aliasMap, 'errors'), 'errors'),
             attempts: normalizeSemanticValue(raw.attempts ?? raw.Attempts, 'Attempts', aliasFor(aliasMap, 'attempts'), 'attempts'),
-            failures: normalizeSemanticValue(raw.failures ?? raw.Failures, 'Failures', aliasFor(aliasMap, 'failures'), 'failures'),
+            failures: normalizeSemanticValue(raw.failures ?? raw.Failures, 'Failed retries', aliasFor(aliasMap, 'failures'), 'failures'),
             retry: normalizeSemanticValue(raw.retry ?? raw.Retry ?? raw.retryEcho ?? raw.RetryEcho, 'Retry', aliasFor(aliasMap, 'retry') ?? aliasFor(aliasMap, 'retryecho'), 'retryEcho'),
             queue: normalizeSemanticValue(raw.queue ?? raw.Queue, 'Queue depth', aliasFor(aliasMap, 'queue'), 'queue'),
             capacity: normalizeSemanticValue(raw.capacity ?? raw.Capacity, 'Capacity', aliasFor(aliasMap, 'capacity'), 'capacity'),
