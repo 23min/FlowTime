@@ -2207,10 +2207,8 @@
             const denom = (absUx / halfW) + (absUy / halfH);
             boundary = denom < epsilon ? Math.max(halfW, halfH) : 1 / denom;
         } else {
-            const effectiveWidth = isLeafComputed ? Math.max(width, height * 1.4) : width;
-            const effectiveHeight = isLeafComputed ? Math.max(height, 20) : height;
-            const halfW = effectiveWidth / 2;
-            const halfH = effectiveHeight / 2;
+            const halfW = width / 2;
+            const halfH = Math.max(height, isLeafComputed ? 20 : height) / 2;
             const candidates = [];
 
             if (absUx > epsilon) {
@@ -2338,7 +2336,8 @@
         const hasSemantics = Object.values(semantics).some(value => value);
         const hasSpark = spark !== null;
         const shouldDrawSparkline = overlays.showSparklines && spark;
-        const showRetryMetrics = overlays.showRetryMetrics !== false;
+        const hasRetrySemantics = Boolean(semantics.attempts || semantics.failures || semantics.retry);
+        const showRetryMetrics = overlays.showRetryMetrics !== false && hasRetrySemantics;
         const nodeKind = String(nodeMeta.kind ?? nodeMeta.Kind ?? '').trim().toLowerCase();
         const isServiceNode = nodeKind === 'service';
         const retryTax = isServiceNode ? resolveRetryTaxValue(nodeMeta) : null;
@@ -2873,7 +2872,7 @@
         const width = Number(nodeMeta.width ?? nodeMeta.Width ?? 54);
         const height = Number(nodeMeta.height ?? nodeMeta.Height ?? 24);
         const pillHeight = Math.max(height, 20);
-        const pillWidth = Math.max(width, pillHeight * 1.4);
+        const pillWidth = width;
         const radius = Math.min(pillHeight / 2, pillWidth / 2);
 
         ctx.save();
