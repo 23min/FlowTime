@@ -2912,7 +2912,7 @@
         ctx.lineWidth = 3.2;
         ctx.setLineDash([]);
         ctx.stroke();
-        drawArrowhead(ctx, startX + lead, bottomY, startX, bottomY);
+        drawArrowhead(ctx, startX + lead, topY, startX, topY);
         ctx.restore();
     }
 
