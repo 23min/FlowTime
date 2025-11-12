@@ -44,7 +44,7 @@ topology:
     - id: IncidentQueue
       kind: queue
       semantics:
-        arrivals: incident_attempts
+        arrivals: incident_served
         served: support_queue_served
         errors: support_queue_errors
         queue: support_queue_depth
@@ -96,12 +96,10 @@ topology:
       measure: served
 
 nodes:
-  # Derived from the deterministic hourly arrival shape; PMF preserves the original mean volume.
+  # Deterministic hourly arrival curve; each bucket = served + unresolved so SLA stays <= 100%.
   - id: incident_arrivals
-    kind: pmf
-    pmf:
-      values: [12, 13, 15, 16, 18, 20, 21, 23, 24]
-      probabilities: [0.08333333333333333, 0.16666666666666666, 0.08333333333333333, 0.08333333333333333, 0.125, 0.125, 0.08333333333333333, 0.16666666666666666, 0.08333333333333333]
+    kind: const
+    values: [21, 24, 26, 26, 27, 29, 27, 27, 28, 24, 24, 23, 19, 19, 18, 16, 16, 17, 16, 17, 20, 19, 22, 25]
 
   - id: incident_served
     kind: const
@@ -113,19 +111,19 @@ nodes:
 
   - id: incident_attempts
     kind: expr
-    expr: incident_served + incident_failures
+    expr: incident_arrivals + incident_retry_attempts
 
   - id: incident_retry_echo
     kind: expr
-    expr: CONV(incident_failures, [0.0, 0.6, 0.3, 0.1])
+    expr: CONV(incident_retry_attempts, [0.0, 0.6, 0.3, 0.1])
 
   - id: incident_retry_attempts
-    kind: expr
-    expr: MAX(0, incident_attempts - incident_arrivals)
+    kind: const
+    values: [0, 2, 3, 3, 4, 5, 4, 3, 4, 3, 3, 2, 1, 2, 2, 1, 1, 1, 1, 1, 2, 2, 2, 3]
 
   - id: incident_retry_failures
-    kind: expr
-    expr: incident_retry_attempts * (incident_failures / MAX(incident_attempts, 0.0001))
+    kind: const
+    values: [0, 1, 1, 1, 2, 2, 2, 1, 2, 1, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1]
 
   - id: incident_capacity
     kind: pmf

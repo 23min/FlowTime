@@ -61,4 +61,25 @@ Aliases can be declared for any of the per-node metrics listed below (case-insen
 - **`failures`** is reserved for *internal retry attempts* that failed. Only wire this when the service actually spins an internal retry loop; leave it unmapped for services without retries.
 - The UI uses `errors` for the general “Failed work” chip and `failures` for the retry loop chips (`Retries`, `Failed retries`, `Retry echo`). Keeping the semantics clean prevents duplicate/confusing readings in the inspector.
 
+## Effort Edges (Support Workload)
+
+Some downstream work scales with attempts rather than served throughput (analytics, fraud review, audit logging, etc.). Represent those relationships with **effort edges** in your topology:
+
+- Set `type: effort` on the edge and provide a `multiplier` (and optional `lag`) describing how much dependent work each upstream attempt generates.
+
+    ```yaml
+    - id: effort_analytics
+      from: IncidentIntake:out
+      to: SupportAnalytics:in
+      type: effort
+      measure: load
+      multiplier: 0.4   # 0.4 analytics tasks per intake attempt
+      lag: 1            # optional delay in bins
+    ```
+
+- Effort edges **do not carry throughput**. They model supporting effort that is proportional to attempts, so keep using standard throughput edges for customer-facing flow between services/queues.
+- The canvas renders effort edges as dashed blue lines (with multiplier labels when present) so operators can distinguish support workload from throughput.
+
+Document why the template includes each effort edge (“Analytics load scales with ticket attempts,” etc.) so reviewers and operators understand the dependency semantics.
+
 Use this guide whenever you add or update templates so operators always see the terminology they expect without compromising FlowTime’s canonical contracts.

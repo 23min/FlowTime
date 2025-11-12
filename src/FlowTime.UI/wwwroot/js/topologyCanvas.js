@@ -499,10 +499,10 @@
         const defaultEdgeAlpha = 0.85;
 
         for (const edge of edges) {
-            const fromX = edge.fromX ?? edge.FromX;
-            const fromY = edge.fromY ?? edge.FromY;
-            const toX = edge.toX ?? edge.ToX;
-            const toY = edge.toY ?? edge.ToY;
+            let fromX = edge.fromX ?? edge.FromX;
+            let fromY = edge.fromY ?? edge.FromY;
+            let toX = edge.toX ?? edge.ToX;
+            let toY = edge.toY ?? edge.ToY;
 
             const fromId = edge.from ?? edge.From;
             const toId = edge.to ?? edge.To;
@@ -539,8 +539,26 @@
             const emphasized = pointerHoveredEdge || inspectorHoveredEdge || focusedEdge || (emphasisEnabled && neighborHighlighted);
             const edgeAlpha = emphasized ? 1 : (highlightEdge ? defaultEdgeAlpha : defaultEdgeAlpha * 0.25);
 
+            if (isEffortEdge) {
+                const sourceHeight = fromNode.height ?? fromNode.Height ?? 24;
+                const sourceX = fromNode.x ?? fromNode.X ?? fromX ?? 0;
+                const sourceY = fromNode.y ?? fromNode.Y ?? fromY ?? 0;
+                fromX = sourceX;
+                fromY = sourceY + (sourceHeight / 2);
+            }
+
+            let skipFromPortOffset = false;
+            if (isEffortEdge) {
+                const sourceX = fromNode.x ?? fromNode.X ?? fromX ?? 0;
+                const sourceY = fromNode.y ?? fromNode.Y ?? fromY ?? 0;
+                const sourceHeight = fromNode.height ?? fromNode.Height ?? 24;
+                fromX = sourceX;
+                fromY = sourceY + (sourceHeight / 2);
+                skipFromPortOffset = true;
+            }
+
             const baseStrokeColor = isEffortEdge
-                ? '#DC2626'
+                ? '#1D4ED8'
                 : isThroughputEdge
                     ? '#2563EB'
                     : '#9AA1AC';
@@ -608,7 +626,9 @@
                     startPoint = segments[0].start;
                     endPoint = segments[segments.length - 1].end;
                 } else {
-                    const path = computeBezierPath(fromNode, toNode, offset, portPadding, laneDescriptor, sameLaneConnection);
+                    const path = computeBezierPath(fromNode, toNode, offset, portPadding, laneDescriptor, sameLaneConnection, {
+                        forceBottomStart: isEffortEdge
+                    });
                     ctx.beginPath();
                     ctx.moveTo(path.start.x, path.start.y);
                     ctx.bezierCurveTo(path.cp1.x, path.cp1.y, path.cp2.x, path.cp2.y, path.end.x, path.end.y);
@@ -628,10 +648,10 @@
                     const ux = dx / len;
                     const uy = dy / len;
 
-                    const startShrink = computePortOffset(fromNode, ux, uy, portPadding);
+                    const startShrink = skipFromPortOffset ? 0 : computePortOffset(fromNode, ux, uy, portPadding);
                     const endShrink = computePortOffset(toNode, -ux, -uy, portPadding);
-                    const sx = fromX + ux * startShrink;
-                    const sy = fromY + uy * startShrink;
+                    const sx = skipFromPortOffset ? fromX : fromX + ux * startShrink;
+                    const sy = skipFromPortOffset ? fromY : fromY + uy * startShrink;
                     const ex = toX - ux * endShrink;
                     const ey = toY - uy * endShrink;
 
@@ -673,6 +693,14 @@
             if (overlaySample && overlaySettings.showEdgeOverlayLabels !== false) {
                 const labelColor = overlaySample.baseColor ?? overlaySample.color ?? '#2563EB';
                 drawEdgeOverlayLabel(ctx, pathPoints, overlaySample.text, labelColor);
+            } else if (isThroughputEdge && overlaySettings.showEdgeOverlayLabels !== false) {
+                const throughputValue = sampleThroughputValue(fromNode, overlaySettings);
+                if (throughputValue !== null && throughputValue !== undefined) {
+                    const text = formatMetricValue(throughputValue);
+                    if (text) {
+                        drawEdgeOverlayLabel(ctx, pathPoints, text, baseStrokeColor);
+                    }
+                }
             }
 
             state.edgeHitboxes.push({
@@ -788,10 +816,6 @@
                 drawPmfDistribution(ctx, nodeMeta, nodeMeta.distribution);
             } else if ((kind === 'const' || kind === 'constant') && overlaySettings.showSparklines && nodeMeta?.sparkline) {
                 drawInputSparkline(ctx, nodeMeta, overlaySettings);
-            }
-
-            if (hasRetryLoop) {
-                drawRetryLoop(ctx, nodeMeta, retryTax);
             }
 
             if (overlaySettings.showLabels) {
@@ -2012,7 +2036,7 @@
 
         const sparkMode = Number(raw.sparklineMode ?? raw.SparklineMode ?? 0);
         const edgeStyleRaw = raw.edgeStyle ?? raw.EdgeStyle ?? 0;
-        const edgeOverlayRaw = Number(raw.edgeOverlay ?? raw.EdgeOverlay ?? 0);
+        const edgeOverlayRaw = raw.edgeOverlay ?? raw.EdgeOverlay ?? null;
         const zoomPercentRaw = Number(raw.zoomPercent ?? raw.ZoomPercent ?? 100);
         const zoomPercent = Number.isFinite(zoomPercentRaw)
             ? clamp(zoomPercentRaw, MIN_ZOOM_PERCENT, MAX_ZOOM_PERCENT)
@@ -2049,9 +2073,18 @@
                 edgeOverlayMode = 'retryRate';
             } else if (normalized === 'attempts') {
                 edgeOverlayMode = 'attempts';
+            } else if (normalized === 'off' || normalized === 'none') {
+                edgeOverlayMode = 'off';
             }
-        } else {
-            edgeOverlayMode = edgeOverlayRaw === 1 ? 'retryRate' : edgeOverlayRaw === 2 ? 'attempts' : 'off';
+        } else if (edgeOverlayRaw !== undefined && edgeOverlayRaw !== null) {
+            const numeric = Number(edgeOverlayRaw);
+            if (numeric === 1) {
+                edgeOverlayMode = 'retryRate';
+            } else if (numeric === 0) {
+                edgeOverlayMode = 'off';
+            } else if (numeric === 2) {
+                edgeOverlayMode = 'attempts';
+            }
         }
 
         return {
@@ -2064,7 +2097,7 @@
             sparklineMode: sparkMode === 1 ? 'bar' : 'line',
             edgeStyle,
             edgeOverlayMode,
-            showEdgeOverlayLabels: boolOr(raw.showEdgeOverlayLabels ?? raw.ShowEdgeOverlayLabels, true),
+            showEdgeOverlayLabels: true,
             colorBasis: raw.colorBasis ?? raw.ColorBasis ?? 0,
             zoomPercent,
             manualScale,
@@ -2481,21 +2514,25 @@
             // Tiny label positioned directly above the sparkline (left-aligned)
             try {
                 const basis = overlays.colorBasis ?? 0;
-                const label = (function () {
-                    switch (basis) {
-                        case 1: return 'Util';
-                        case 2: return 'Errors';
-                        case 3: return 'Queue';
-                        default: return 'SLA';
-                    }
-                })();
+                const seriesBasis = nodeKind === 'queue' ? 3 : Number(basis);
+                const label = nodeKind === 'queue'
+                    ? 'Queue'
+                    : (function () {
+                        switch (basis) {
+                            case 1: return 'Util';
+                            case 2: return 'Errors';
+                            case 3: return 'Queue';
+                            case 4: return 'Svc time';
+                            default: return 'SLA';
+                        }
+                    })();
 
                 // Recompute sparkline geometry to determine its left edge
                 const mode = overlays.sparklineMode === 'bar' ? 'bar' : 'line';
                 const nodeWidth = nodeMeta.width ?? 54;
                 const defaultSparkWidth = Math.max(nodeWidth - 6, 16);
                 const baseWidth = defaultSparkWidth;
-                const series = selectSeriesForBasis(spark, Number(basis)) ?? [];
+                const series = selectSeriesForBasis(spark, seriesBasis) ?? [];
                 const sparkWidth = computeAdaptiveWidth(series.length, baseWidth, {
                     min: Math.max(baseWidth, 20),
                     max: 140,
@@ -2528,29 +2565,10 @@
         let bottomLeft = topLeft;
         let bottomRight = topRight;
 
-        const attemptsValue = isServiceNode ? sampleValueFor('attempts', semantics.attempts, ['attempt']) : null;
         const arrivalsValue = sampleValueFor('arrivals', semantics.arrivals);
+        const attemptsValue = isServiceNode ? sampleValueFor('attempts', semantics.attempts, ['attempt']) : null;
         const failuresValue = sampleValueFor('failures', semantics.failures, ['failure']);
         const retryValue = sampleValueFor('retryEcho', semantics.retry, ['retry', 'retry_echo']);
-
-        if (showRetryMetrics && isServiceNode && attemptsValue !== null) {
-            const attemptsTooltip = semanticTooltip(semantics.attempts, 'Attempts');
-            const attemptsLabel = formatMetricValue(attemptsValue);
-            if (attemptsLabel) {
-                const dims = drawChip(ctx, topLeft, topRowTop + chipH, attemptsLabel, '#0EA5E9', '#0F172A', paddingX, chipH);
-                registerChipHitbox(state, {
-                    nodeId: nodeMeta.id ?? null,
-                    metric: 'attempts',
-                    placement: 'top',
-                    tooltip: attemptsTooltip,
-                    x: topLeft,
-                    y: dims.top,
-                    width: dims.width,
-                    height: dims.height
-                });
-                topLeft += dims.width + gap;
-            }
-        }
 
         if (overlays.showArrivalsDependencies !== false) {
             if (arrivalsValue !== null) {
@@ -2569,6 +2587,26 @@
                     });
                     topLeft += dims.width + gap;
                 }
+            }
+        }
+
+        if (showRetryMetrics && isServiceNode && attemptsValue !== null) {
+            const attemptsBaseTooltip = semanticTooltip(semantics.attempts, 'Attempts') ?? 'Attempts';
+            const attemptsTooltip = `${attemptsBaseTooltip}\nIncludes retries`;
+            const attemptsLabel = formatMetricValue(attemptsValue);
+            if (attemptsLabel) {
+                const dims = drawChip(ctx, topLeft, topRowTop + chipH, attemptsLabel, '#0EA5E9', '#0F172A', paddingX, chipH);
+                registerChipHitbox(state, {
+                    nodeId: nodeMeta.id ?? null,
+                    metric: 'attempts',
+                    placement: 'top',
+                    tooltip: attemptsTooltip,
+                    x: topLeft,
+                    y: dims.top,
+                    width: dims.width,
+                    height: dims.height
+                });
+                topLeft += dims.width + gap;
             }
         }
 
@@ -2669,8 +2707,13 @@
         }
 
         if (hasRetryLoop) {
-            const loopExtent = x + (nodeWidth / 2) + Math.max(22, nodeWidth * 0.4);
-            let stackX = loopExtent + 14;
+            const badgeMetrics = drawRetryBadge(ctx, nodeMeta, retryTax);
+            const nodeRight = x + (nodeWidth / 2);
+            const badgeLeft = badgeMetrics?.left ?? nodeRight;
+            const badgeRight = badgeMetrics?.right ?? nodeRight;
+            const nodeToBadgeGap = badgeMetrics ? (badgeLeft - nodeRight) : Math.max(8, Math.min(16, nodeWidth * 0.2));
+            drawRetryConnector(ctx, nodeMeta, badgeLeft);
+            let stackX = badgeRight + nodeToBadgeGap;
             const stackSpacing = 6;
             const chipY = y - (chipH / 2);
 
@@ -2754,48 +2797,52 @@
         }
 
         if (overlays.showErrorsDependencies !== false) {
+            const errorCount = sampleValueFor('errors', semantics.errors);
             const errorRateValue = sampleValueFor('errorRate', semantics.errors, ['error_rate']);
-            let errorLabel = null;
-            let bg = '#C62828';
-            let fg = '#FFFFFF';
+            const errorsTooltip = semanticTooltip(semantics.errors, 'Errors') ?? 'Errors';
 
-            if (errorRateValue !== null) {
-                if (errorRateValue <= 0) {
-                    bg = '#E5E7EB';
-                    fg = '#1F2937';
-                } else if (errorRateValue >= thresholds.errorCritical) {
-                    bg = '#B71C1C';
-                } else if (errorRateValue >= thresholds.errorWarning) {
-                    bg = '#FB8C00';
-                    fg = '#1F2937';
+            const drawErrorChip = (label, bg, fg, metric, tooltipText) => {
+                if (!label) {
+                    return;
                 }
 
-                errorLabel = formatPercent(errorRateValue);
-            } else {
-                const errorCount = sampleValueFor('errors', semantics.errors);
-                if (errorCount !== null) {
-                    if (errorCount <= 0) {
-                        bg = '#E5E7EB';
-                        fg = '#1F2937';
-                    }
-
-                    errorLabel = formatMetricValue(errorCount);
-                }
-            }
-
-            if (errorLabel) {
-                const dims = drawChip(ctx, bottomLeft, bottomRowTop, errorLabel, bg, fg, paddingX, chipH, 'top');
+                const dims = drawChip(ctx, bottomLeft, bottomRowTop, label, bg, fg, paddingX, chipH, 'top');
                 registerChipHitbox(state, {
                     nodeId: nodeMeta.id ?? null,
-                    metric: 'errors',
+                    metric,
                     placement: 'bottom-left',
-                    tooltip: semanticTooltip(semantics.errors, 'Errors'),
+                    tooltip: tooltipText,
                     x: bottomLeft,
                     y: dims.top,
                     width: dims.width,
                     height: dims.height
                 });
                 bottomLeft += dims.width + gap;
+            };
+
+            if (errorCount !== null) {
+                const countLabel = formatMetricValue(errorCount);
+                const zeroCount = errorCount <= 0;
+                const countBg = zeroCount ? '#E5E7EB' : '#C62828';
+                const countFg = zeroCount ? '#1F2937' : '#FFFFFF';
+                drawErrorChip(countLabel, countBg, countFg, 'errors', errorsTooltip);
+            }
+
+            if (errorRateValue !== null) {
+                let rateBg = '#C62828';
+                let rateFg = '#FFFFFF';
+                if (errorRateValue <= 0) {
+                    rateBg = '#E5E7EB';
+                    rateFg = '#1F2937';
+                } else if (errorRateValue >= thresholds.errorCritical) {
+                    rateBg = '#B71C1C';
+                } else if (errorRateValue >= thresholds.errorWarning) {
+                    rateBg = '#FB8C00';
+                    rateFg = '#1F2937';
+                }
+
+                const rateLabel = formatPercent(errorRateValue);
+                drawErrorChip(rateLabel, rateBg, rateFg, 'errorRate', `${errorsTooltip} (%)`);
             }
         }
 
@@ -2886,50 +2933,63 @@
         return null;
     }
 
-    function drawRetryLoop(ctx, nodeMeta, retryTax) {
+    function drawRetryBadge(ctx, nodeMeta, retryTax) {
         if (!Number.isFinite(retryTax) || retryTax <= 0) {
-            return;
+            return null;
         }
 
         const x = Number(nodeMeta.x ?? nodeMeta.X ?? 0);
         const y = Number(nodeMeta.y ?? nodeMeta.Y ?? 0);
         const width = Number(nodeMeta.width ?? nodeMeta.Width ?? 54);
         const height = Number(nodeMeta.height ?? nodeMeta.Height ?? 24);
-
-        const startX = x + (width / 2);
-        const topY = y - (height / 2) + 4;
-        const bottomY = y + (height / 2) - 4;
-        const lead = 6;
-        const loopX = startX + Math.max(26, width * 0.45);
+        const badgeSize = Math.min(22, Math.max(16, height * 0.55));
+        const offset = Math.max(8, Math.min(16, width * 0.2));
+        const centerX = x + (width / 2) + offset + (badgeSize / 2);
 
         ctx.save();
         ctx.beginPath();
-        ctx.moveTo(startX, topY);
-        ctx.lineTo(startX + lead, topY);
-        ctx.bezierCurveTo(loopX, topY, loopX, bottomY, startX + lead, bottomY);
-        ctx.lineTo(startX, bottomY);
-        ctx.strokeStyle = pickRetryArcColor(retryTax);
-        ctx.lineWidth = 3.2;
-        ctx.setLineDash([]);
+        traceRoundedRect(ctx, centerX, y, badgeSize, badgeSize, Math.min(6, badgeSize / 2));
+        ctx.fillStyle = '#EF4444';
+        ctx.strokeStyle = '#B91C1C';
+        ctx.lineWidth = 1.2;
+        ctx.fill();
         ctx.stroke();
-        drawArrowhead(ctx, startX + lead, topY, startX, topY);
+
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = '600 11px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('R', centerX, y + 0.5);
         ctx.restore();
+
+        const left = centerX - (badgeSize / 2);
+        const right = centerX + (badgeSize / 2);
+
+        return {
+            left,
+            right,
+            width: badgeSize,
+            centerY: y,
+            size: badgeSize
+        };
     }
 
-    function pickRetryArcColor(value) {
-        if (!Number.isFinite(value) || value <= 0.02) {
-            return '#22C55E';
-        }
+    function drawRetryConnector(ctx, nodeMeta, connectorEndX) {
+        const x = Number(nodeMeta.x ?? nodeMeta.X ?? 0);
+        const y = Number(nodeMeta.y ?? nodeMeta.Y ?? 0);
+        const width = Number(nodeMeta.width ?? nodeMeta.Width ?? 54);
+        const startX = x + (width / 2);
+        const midY = y;
 
-        if (value <= 0.08) {
-            return '#84CC16';
-        }
-
-        if (value <= 0.15) {
-            return '#F59E0B';
-        }
-
-        return '#EF4444';
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(startX, midY);
+        ctx.lineTo(connectorEndX, midY);
+        ctx.strokeStyle = '#EF4444';
+        ctx.lineWidth = 3;
+        ctx.setLineDash([]);
+        ctx.stroke();
+        ctx.restore();
     }
 
     function drawInputSparkline(ctx, nodeMeta, overlaySettings) {
@@ -3813,7 +3873,7 @@
         return { points: dedupePoints(points) };
     }
 
-    function computeBezierPath(fromNode, toNode, laneOffset, padding, laneDescriptor, sameLaneConnection) {
+    function computeBezierPath(fromNode, toNode, laneOffset, padding, laneDescriptor, sameLaneConnection, options) {
         const anchorsFrom = createAnchors(fromNode);
         const anchorsTo = createAnchors(toNode);
 
@@ -3823,6 +3883,7 @@
         const toCenterY = toNode.y ?? toNode.Y ?? 0;
         const dx = toCenterX - fromCenterX;
         const dy = toCenterY - fromCenterY;
+        const forceBottomStart = Boolean(options?.forceBottomStart);
 
         const horizontal = {
             start: dx >= 0 ? anchorsFrom.right : anchorsFrom.left,
@@ -3836,7 +3897,13 @@
         };
 
         let selected;
-        if (sameLaneConnection && laneDescriptor) {
+        if (forceBottomStart) {
+            selected = {
+                start: anchorsFrom.bottom,
+                end: dy >= 0 ? anchorsTo.top : anchorsTo.bottom,
+                orientation: 'vertical'
+            };
+        } else if (sameLaneConnection && laneDescriptor) {
             selected = {
                 start: laneDescriptor.side >= 0 ? anchorsFrom.right : anchorsFrom.left,
                 end: laneDescriptor.side >= 0 ? anchorsTo.right : anchorsTo.left,
@@ -4785,7 +4852,9 @@
         const opts = overrides ?? {};
         const neutralize = Boolean(opts.neutralize);
         const basis = Number(overlaySettings.colorBasis ?? 0);
-        const series = selectSeriesForBasis(sparkline, basis);
+        const nodeKind = String(nodeMeta?.kind ?? nodeMeta?.Kind ?? '').trim().toLowerCase();
+        const seriesBasis = nodeKind === 'queue' ? 3 : basis;
+        const series = selectSeriesForBasis(sparkline, seriesBasis);
         if (!Array.isArray(series) || series.length < 2) {
             return;
         }
@@ -4960,6 +5029,130 @@
             default:
                 return sparkline.values ?? sparkline.Values ?? [];
         }
+    }
+
+    function sampleThroughputValue(nodeMeta, overlays) {
+        if (!nodeMeta) {
+            return null;
+        }
+
+        const semantics = normalizeSemantics(nodeMeta.semantics ?? nodeMeta.Semantics ?? null);
+        return sampleMetricFromNode(nodeMeta, overlays, 'served', semantics.served, ['served']);
+    }
+
+    function sampleMetricFromNode(nodeMeta, overlays, defaultKey, semanticEntry, extraKeys) {
+        if (!nodeMeta) {
+            return null;
+        }
+
+        const spark = nodeMeta.sparkline ?? nodeMeta.Sparkline ?? null;
+        const metricSnapshot = nodeMeta.metrics ?? nodeMeta.Metrics ?? null;
+        const rawMetrics = normalizeRawMetricMap(metricSnapshot?.raw ?? metricSnapshot?.Raw ?? null);
+        const sampleBin = resolveSampleBinForNode(spark, overlays);
+
+        const keys = [];
+        const pushKey = (candidate) => {
+            if (candidate === null || candidate === undefined) {
+                return;
+            }
+            const text = String(candidate).trim();
+            if (text.length === 0) {
+                return;
+            }
+            if (!keys.includes(text)) {
+                keys.push(text);
+            }
+        };
+
+        pushKey(defaultKey);
+
+        if (semanticEntry) {
+            pushKey(semanticEntry.key);
+            pushKey(semanticEntry.canonical);
+            pushKey(semanticEntry.reference);
+            pushKey(semanticEntry.label);
+        }
+
+        if (Array.isArray(extraKeys)) {
+            for (const candidate of extraKeys) {
+                pushKey(candidate);
+            }
+        }
+
+        const lookupRawMetric = (candidate) => {
+            if (!rawMetrics || !candidate) {
+                return null;
+            }
+
+            const text = String(candidate).trim();
+            if (text.length === 0) {
+                return null;
+            }
+
+            const normalized = text.toLowerCase();
+            if (!Object.prototype.hasOwnProperty.call(rawMetrics, normalized)) {
+                return null;
+            }
+
+            const rawValue = rawMetrics[normalized];
+            if (rawValue === null || rawValue === undefined) {
+                return null;
+            }
+
+            const numeric = Number(rawValue);
+            return Number.isFinite(numeric) ? numeric : null;
+        };
+
+        for (const candidate of keys) {
+            let value = null;
+            if (spark) {
+                value = sampleSeriesValueAt(spark, candidate, sampleBin);
+            }
+
+            if (value === null || value === undefined) {
+                value = lookupRawMetric(candidate);
+            }
+
+            if (value !== null && value !== undefined) {
+                return value;
+            }
+        }
+
+        return lookupRawMetric(defaultKey);
+    }
+
+    function resolveSampleBinForNode(spark, overlays) {
+        const selectedBin = Number(overlays?.selectedBin ?? overlays?.SelectedBin ?? -1);
+        if (Number.isFinite(selectedBin) && selectedBin >= 0) {
+            return selectedBin;
+        }
+
+        if (!spark) {
+            return selectedBin;
+        }
+
+        const baseStart = Number(spark.startIndex ?? spark.StartIndex ?? 0);
+        const baseValues = spark.values ?? spark.Values;
+        if (Array.isArray(baseValues) && baseValues.length > 0) {
+            return baseStart + baseValues.length - 1;
+        }
+
+        const map = spark.series ?? spark.Series;
+        if (map) {
+            for (const slice of Object.values(map)) {
+                if (!slice) {
+                    continue;
+                }
+
+                const sliceValues = slice.values ?? slice.Values;
+                if (Array.isArray(sliceValues) && sliceValues.length > 0) {
+                    const sliceStart = Number(slice.startIndex ?? slice.StartIndex ?? baseStart);
+                    return sliceStart + sliceValues.length - 1;
+                }
+            }
+        }
+
+        return baseStart;
     }
 
     function computeSeriesBounds(series) {

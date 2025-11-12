@@ -110,26 +110,6 @@
                                ValueChanged="OnShowRetryMetricsChanged"
                                Color="Color.Primary"
                                Label="Show retry chips" />
-                    <MudDivider Class="my-2" />
-                    <MudText Typo="Typo.caption" Class="topology-muted-text">Edge overlays</MudText>
-                    <MudRadioGroup T="EdgeOverlayMode"
-                                   Value="@workingSettings.EdgeOverlay"
-                                   ValueChanged="OnEdgeOverlayModeChanged"
-                                   Orientation="Orientation.Horizontal"
-                                   Dense="true"
-                                   Class="topology-dense-control">
-                        <MudRadio T="EdgeOverlayMode" Value="EdgeOverlayMode.Off" Color="Color.Primary">Off</MudRadio>
-                        <MudRadio T="EdgeOverlayMode" Value="EdgeOverlayMode.RetryRate" Color="Color.Primary">Retry rate</MudRadio>
-                        <MudRadio T="EdgeOverlayMode" Value="EdgeOverlayMode.Attempts" Color="Color.Primary">Attempts</MudRadio>
-                    </MudRadioGroup>
-                    <MudSwitch T="bool"
-                               Dense="true"
-                               Class="topology-dense-control"
-                               Value="@workingSettings.ShowEdgeOverlayLabels"
-                               ValueChanged="OnShowEdgeOverlayLabelsChanged"
-                               Disabled="@(workingSettings.EdgeOverlay == EdgeOverlayMode.Off)"
-                               Color="Color.Primary"
-                               Label="Show overlay labels" />
                     <MudRadioGroup T="SparklineRenderMode"
                                    Value="@workingSettings.SparklineMode"
                                    ValueChanged="OnSparklineModeChanged"
@@ -488,28 +468,6 @@
         }
 
         workingSettings.SparklineMode = value;
-        return NotifyChange();
-    }
-
-    private Task OnEdgeOverlayModeChanged(EdgeOverlayMode value)
-    {
-        if (workingSettings.EdgeOverlay == value)
-        {
-            return Task.CompletedTask;
-        }
-
-        workingSettings.EdgeOverlay = value;
-        return NotifyChange();
-    }
-
-    private Task OnShowEdgeOverlayLabelsChanged(bool value)
-    {
-        if (workingSettings.ShowEdgeOverlayLabels == value)
-        {
-            return Task.CompletedTask;
-        }
-
-        workingSettings.ShowEdgeOverlayLabels = value;
         return NotifyChange();
     }
 
