@@ -2334,6 +2334,8 @@
         const showRetryMetrics = overlays.showRetryMetrics !== false;
         const nodeKind = String(nodeMeta.kind ?? nodeMeta.Kind ?? '').trim().toLowerCase();
         const isServiceNode = nodeKind === 'service';
+        const retryTax = isServiceNode ? resolveRetryTaxValue(nodeMeta) : null;
+        const hasRetryLoop = showRetryMetrics && isServiceNode && Number.isFinite(retryTax) && retryTax > 0;
 
         if (!hasSemantics && !hasSpark) {
             return;
