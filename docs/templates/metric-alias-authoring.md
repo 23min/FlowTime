@@ -55,4 +55,10 @@ Aliases can be declared for any of the per-node metrics listed below (case-insen
 - The topology inspector, dependency list, and canvas tooltips display the alias first and fall back to the canonical label if no alias exists.
 - Goldens/tests enforce the new schema so future changes don’t regress the alias payloads.
 
+## Errors vs. Failures (Retries)
+
+- **`errors`** should capture *all* failed attempts that leave the service during that bin. This is the number you route to unresolved/backlog/DLQ nodes.
+- **`failures`** is reserved for *internal retry attempts* that failed. Only wire this when the service actually spins an internal retry loop; leave it unmapped for services without retries.
+- The UI uses `errors` for the general “Failed work” chip and `failures` for the retry loop chips (`Retries`, `Failed retries`, `Retry echo`). Keeping the semantics clean prevents duplicate/confusing readings in the inspector.
+
 Use this guide whenever you add or update templates so operators always see the terminology they expect without compromising FlowTime’s canonical contracts.

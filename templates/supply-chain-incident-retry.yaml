@@ -38,8 +38,9 @@ topology:
           arrivals: "Incident tickets"
           served: "Tickets resolved"
           attempts: "Ticket attempts"
+          errors: "Unresolved tickets"
           retryEcho: "Retry backlog"
-          failures: "Unresolved tickets"
+          failures: "Failed retries"
     - id: IncidentQueue
       kind: queue
       semantics:
