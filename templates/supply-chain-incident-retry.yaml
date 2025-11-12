@@ -28,7 +28,7 @@ topology:
         served: incident_served
         errors: incident_failures
         attempts: incident_attempts
-        failures: incident_failures
+        failures: incident_retry_failures
         retryEcho: incident_retry_echo
         retryKernel: [0.0, 0.6, 0.3, 0.1]
         capacity: incident_capacity
@@ -117,6 +117,18 @@ nodes:
   - id: incident_retry_echo
     kind: expr
     expr: CONV(incident_failures, [0.0, 0.6, 0.3, 0.1])
+
+  - id: incident_failure_rate
+    kind: expr
+    expr: IF(incident_attempts <= 0, 0, incident_failures / incident_attempts)
+
+  - id: incident_retry_attempts
+    kind: expr
+    expr: MAX(0, incident_attempts - incident_arrivals)
+
+  - id: incident_retry_failures
+    kind: expr
+    expr: incident_retry_attempts * incident_failure_rate
 
   - id: incident_capacity
     kind: pmf
