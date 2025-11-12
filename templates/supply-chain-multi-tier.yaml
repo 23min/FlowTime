@@ -82,6 +82,10 @@ topology:
         errors: supplier_shortage
         processingTimeMsSum: supplier_processing_time_ms_sum
         servedCount: supplied_items
+        aliases:
+          arrivals: "Customer demand"
+          served: "Units supplied"
+          errors: "Supplier shortage"
     - id: Distributor
       kind: service
       semantics:
@@ -90,6 +94,9 @@ topology:
         errors: distributor_backlog
         processingTimeMsSum: distributor_processing_time_ms_sum
         servedCount: distributed_items
+        aliases:
+          served: "Units shipped"
+          errors: "Distributor backlog"
     - id: Retailer
       kind: service
       semantics:
@@ -98,6 +105,9 @@ topology:
         errors: unmet_demand
         processingTimeMsSum: retailer_processing_time_ms_sum
         servedCount: retail_sales
+        aliases:
+          served: "Units sold"
+          errors: "Unmet demand"
   edges:
     - id: edge1
       from: Supplier:out

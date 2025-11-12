@@ -52,6 +52,8 @@ public sealed class GraphEndpointTests : IClassFixture<TestWebApplicationFactory
                 Assert.Equal("series:incoming", node.Semantics.Arrivals);
                 Assert.Equal("series:routed", node.Semantics.Served);
                 Assert.Null(node.Ui);
+                Assert.NotNull(node.Semantics.Aliases);
+                Assert.Equal("Requests Routed", node.Semantics.Aliases!["served"]);
             },
             node =>
             {
@@ -153,6 +155,9 @@ topology:
         arrivals: series:incoming
         served: series:routed
         errors: series:errors
+        aliases:
+          served: "Requests Routed"
+          errors: "Dropped Requests"
     - id: Database
       kind: service
       ui:
@@ -163,6 +168,8 @@ topology:
         served: series:served
         errors: series:errors
         capacity: series:capacity
+        aliases:
+          served: "Transactions Committed"
     - id: Analytics
       kind: service
       semantics:

@@ -54,7 +54,8 @@ public sealed class TopologySparklinesTests
                 Distribution: new TopologyNodeDistribution(
                     new double[] { 1, 2, 3 },
                     new double[] { 0.2, 0.3, 0.5 }),
-                InlineValues: null));
+                InlineValues: null,
+                Aliases: null));
 
         var graph = new TopologyGraph(
             new[] { pmfNode },

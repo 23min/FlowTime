@@ -30,6 +30,12 @@ topology:
         capacity: incident_capacity
         processingTimeMsSum: incident_processing_time_ms_sum
         servedCount: incident_served
+        aliases:
+          arrivals: "Incident tickets"
+          served: "Tickets resolved"
+          attempts: "Ticket attempts"
+          retryEcho: "Retry backlog"
+          failures: "Unresolved tickets"
     - id: IncidentQueue
       kind: queue
       semantics:
@@ -37,6 +43,10 @@ topology:
         served: support_queue_served
         errors: support_queue_errors
         queue: support_queue_depth
+        aliases:
+          served: "Tickets worked"
+          errors: "Queue drops"
+          queue: "Open queue depth"
       initialCondition:
         queueDepth: 6
     - id: SupportAnalytics
@@ -48,6 +58,9 @@ topology:
         capacity: null
         processingTimeMsSum: support_analytics_processing_time_ms_sum
         servedCount: support_analytics_load
+        aliases:
+          arrivals: "Analysis load"
+          served: "Analysis tasks"
   edges:
     - id: throughput_incident
       from: IncidentIntake:out

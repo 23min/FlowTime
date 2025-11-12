@@ -28,6 +28,10 @@ FlowTime maintains **deterministic, single-pass evaluation** while handling comp
 - **API Goldens:** `tests/FlowTime.Api.Tests/Golden/state-window-*.json`, `graph-run_graph_fixture.json`
 - **UI Tests:** `tests/FlowTime.UI.Tests/TimeTravel/*` covering chips, edge payloads, and inspector toggles
 
+### Domain Terminology Aliases (TT‑M‑03.30.1)
+
+To reduce cognitive load for operators, templates can now declare domain-specific aliases for retry metrics (e.g., “Ticket Submissions” instead of `attempts`). Authors add an `aliases` dictionary under `topology.nodes[].semantics`, the engine preserves it end-to-end, and `/graph` + `/state_window` expose the mapping. The topology UI consumes aliases for inspector chips, dependency lists, and canvas tooltips while still retaining canonical field names for automation. See `docs/templates/metric-alias-authoring.md` for authoring guidance.
+
 ### Kernel Governance & Artifact Precompute
 
 - Retry kernels are subject to lightweight policy checks during load:

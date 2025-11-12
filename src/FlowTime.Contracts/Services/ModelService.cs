@@ -87,7 +87,8 @@ public static class ModelService
                         Capacity = node.Semantics.Capacity,
                         ProcessingTimeMsSum = node.Semantics.ProcessingTimeMsSum,
                         ServedCount = node.Semantics.ServedCount,
-                        SlaMin = node.Semantics.SlaMin
+                        SlaMin = node.Semantics.SlaMin,
+                        Aliases = node.Semantics.Aliases
                     },
                     InitialCondition = node.InitialCondition != null
                         ? new InitialConditionDefinition { QueueDepth = node.InitialCondition.QueueDepth }

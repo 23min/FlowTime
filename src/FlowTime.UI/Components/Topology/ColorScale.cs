@@ -251,4 +251,5 @@ public sealed record NodeBinMetrics(
     double? PmfProbability = null,
     double? PmfValue = null,
     string? NodeKind = null,
-    double? ServiceTimeMs = null);
+    double? ServiceTimeMs = null,
+    IReadOnlyDictionary<string, double?>? RawMetrics = null);

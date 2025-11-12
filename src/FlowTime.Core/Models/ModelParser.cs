@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
 using FlowTime.Core.Execution;
@@ -105,7 +106,8 @@ public static class ModelParser
                     Capacity = definition.Semantics.Capacity,
                     ProcessingTimeMsSum = definition.Semantics.ProcessingTimeMsSum,
                     ServedCount = definition.Semantics.ServedCount,
-                    SlaMinutes = definition.Semantics.SlaMin
+                    SlaMinutes = definition.Semantics.SlaMin,
+                    Aliases = NormalizeAliases(definition.Semantics.Aliases)
                 },
                 InitialCondition = definition.InitialCondition != null
                     ? new InitialCondition { QueueDepth = definition.InitialCondition.QueueDepth }
@@ -136,6 +138,29 @@ public static class ModelParser
             if (string.IsNullOrWhiteSpace(value))
                 throw new ModelParseException($"Topology node '{nodeId}' must specify semantics.{name}");
             return value;
+        }
+
+        static IReadOnlyDictionary<string, string>? NormalizeAliases(Dictionary<string, string>? aliases)
+        {
+            if (aliases is null || aliases.Count == 0)
+            {
+                return null;
+            }
+
+            var normalized = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var kvp in aliases)
+            {
+                var key = kvp.Key?.Trim();
+                var value = kvp.Value?.Trim();
+                if (string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(value))
+                {
+                    continue;
+                }
+
+                normalized[key] = value;
+            }
+
+            return normalized.Count == 0 ? null : new ReadOnlyDictionary<string, string>(normalized);
         }
     }
 
@@ -382,6 +407,7 @@ public class TopologyNodeSemanticsDefinition
     public string? ProcessingTimeMsSum { get; set; }
     public string? ServedCount { get; set; }
     public double? SlaMin { get; set; }
+    public Dictionary<string, string>? Aliases { get; set; }
 }
 
 public class TopologyEdgeDefinition

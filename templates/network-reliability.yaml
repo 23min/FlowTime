@@ -72,6 +72,10 @@ topology:
         errors: network_failures
         processingTimeMsSum: edge_gateway_processing_time_ms_sum
         servedCount: network_requests
+        aliases:
+          arrivals: "Incoming requests"
+          served: "Requests routed"
+          errors: "Network drops"
     - id: CorePlatform
       kind: service
       semantics:
@@ -80,6 +84,9 @@ topology:
         errors: database_failures
         processingTimeMsSum: core_platform_processing_time_ms_sum
         servedCount: successful_requests
+        aliases:
+          served: "Requests fulfilled"
+          errors: "Database failures"
   edges:
     - id: edge1
       from: EdgeGateway:out

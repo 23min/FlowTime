@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using YamlDotNet.Serialization;
 
 namespace FlowTime.Contracts.Dtos;
@@ -102,6 +103,7 @@ public sealed class TopologySemanticsDto
     public string? ProcessingTimeMsSum { get; set; }
     public string? ServedCount { get; set; }
     public double? SlaMin { get; set; }
+    public Dictionary<string, string>? Aliases { get; set; }
 }
 
 public sealed class TopologyInitialConditionDto

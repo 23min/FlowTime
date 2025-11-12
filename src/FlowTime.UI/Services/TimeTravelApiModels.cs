@@ -134,6 +134,9 @@ public sealed record TimeTravelNodeSnapshotDto
 
     [JsonPropertyName("telemetry")]
     public TimeTravelNodeTelemetryDto Telemetry { get; init; } = new();
+
+    [JsonPropertyName("aliases")]
+    public IReadOnlyDictionary<string, string>? Aliases { get; init; }
 }
 
 public sealed record TimeTravelNodeSeriesDto
@@ -149,6 +152,9 @@ public sealed record TimeTravelNodeSeriesDto
 
     [JsonPropertyName("telemetry")]
     public TimeTravelNodeTelemetryDto Telemetry { get; init; } = new();
+
+    [JsonPropertyName("aliases")]
+    public IReadOnlyDictionary<string, string>? Aliases { get; init; }
 }
 
 public sealed record TimeTravelNodeMetricsDto

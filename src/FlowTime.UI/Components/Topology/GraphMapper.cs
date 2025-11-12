@@ -725,7 +725,7 @@ internal static class GraphMapper
             var semantics = node.Semantics;
             if (semantics is null)
             {
-                Semantics = new TopologyNodeSemantics(null, null, null, null, null, null, null, null, null, null, null, null);
+                Semantics = new TopologyNodeSemantics(null, null, null, null, null, null, null, null, null, null, null, null, null);
             }
             else
             {
@@ -749,7 +749,8 @@ internal static class GraphMapper
                     semantics.Series,
                     semantics.Expression,
                     distribution,
-                    semantics.InlineValues);
+                    semantics.InlineValues,
+                    semantics.Aliases);
             }
         }
     }
@@ -813,7 +814,8 @@ public sealed record GraphNodeSemanticsModel(
     string? Series,
     string? Expression,
     GraphDistributionModel? Distribution,
-    IReadOnlyList<double>? InlineValues);
+    IReadOnlyList<double>? InlineValues,
+    IReadOnlyDictionary<string, string>? Aliases);
 
 public sealed record GraphNodeUiModel(double? X, double? Y);
 
@@ -839,7 +841,8 @@ public sealed record TopologyNodeSemantics(
     string? Series,
     string? Expression,
     TopologyNodeDistribution? Distribution,
-    IReadOnlyList<double>? InlineValues);
+    IReadOnlyList<double>? InlineValues,
+    IReadOnlyDictionary<string, string>? Aliases);
 
 public sealed record GraphDistributionModel(
     IReadOnlyList<double> Values,

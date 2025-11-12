@@ -512,7 +512,8 @@ public sealed class StateQueryService
                 ThroughputRatio = throughputRatio,
                 Color = color
             },
-            Telemetry = BuildTelemetryInfo(node, context.ManifestMetadata, nodeWarnings)
+            Telemetry = BuildTelemetryInfo(node, context.ManifestMetadata, nodeWarnings),
+            Aliases = node.Semantics?.Aliases
         };
     }
 
@@ -624,7 +625,8 @@ public sealed class StateQueryService
             Id = node.Id,
             Kind = kind,
             Series = series,
-            Telemetry = BuildTelemetryInfo(node, context.ManifestMetadata, nodeWarnings)
+            Telemetry = BuildTelemetryInfo(node, context.ManifestMetadata, nodeWarnings),
+            Aliases = node.Semantics?.Aliases
         };
     }
 

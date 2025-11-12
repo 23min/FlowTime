@@ -75,6 +75,10 @@ topology:
         errors: failed_requests
         processingTimeMsSum: load_balancer_processing_time_ms_sum
         servedCount: load_balanced_requests
+        aliases:
+          arrivals: "User requests"
+          served: "Requests routed"
+          errors: "Dropped requests"
     - id: AuthService
       kind: service
       semantics:
@@ -83,6 +87,10 @@ topology:
         errors: failed_requests
         processingTimeMsSum: auth_processing_time_ms_sum
         servedCount: authenticated_requests
+        aliases:
+          arrivals: "Routed requests"
+          served: "Sessions authenticated"
+          errors: "Auth failures"
     - id: Database
       kind: service
       semantics:
@@ -91,6 +99,10 @@ topology:
         errors: failed_requests
         processingTimeMsSum: database_processing_time_ms_sum
         servedCount: processed_requests
+        aliases:
+          arrivals: "Auth passes"
+          served: "Queries committed"
+          errors: "Query failures"
   edges:
     - id: edge1
       from: LoadBalancer:out

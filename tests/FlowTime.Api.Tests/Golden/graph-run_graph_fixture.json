@@ -9,7 +9,11 @@
         "errors": "series:errors",
         "series": null,
         "expression": null,
-        "distribution": null
+        "distribution": null,
+        "aliases": {
+          "served": "Requests Routed",
+          "errors": "Dropped Requests"
+        }
       }
     },
     {
@@ -22,7 +26,10 @@
         "capacity": "series:capacity",
         "series": null,
         "expression": null,
-        "distribution": null
+        "distribution": null,
+        "aliases": {
+          "served": "Transactions Committed"
+        }
       },
       "ui": {
         "x": 160,

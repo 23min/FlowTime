@@ -153,7 +153,7 @@ public sealed class TopologyInspectorTests
             },
             block =>
             {
-                Assert.Equal("Failures", block.Title);
+                Assert.Equal("Failed retries", block.Title);
                 Assert.False(block.IsPlaceholder);
             },
             block =>
@@ -191,6 +191,60 @@ public sealed class TopologyInspectorTests
     }
 
     [Fact]
+    public void BuildInspectorMetrics_UsesAliasesWhenPresent()
+    {
+        var aliasSemantics = new TopologyNodeSemantics(
+            Arrivals: "arrivals",
+            Served: "served",
+            Errors: "errors",
+            Attempts: "attempts",
+            Failures: null,
+            RetryEcho: "retryEcho",
+            Queue: null,
+            Capacity: null,
+            Series: null,
+            Expression: null,
+            Distribution: null,
+            InlineValues: null,
+            Aliases: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["attempts"] = "Ticket submissions",
+                ["served"] = "Incidents resolved",
+                ["retryEcho"] = "Echo retries"
+            });
+
+        var topology = new Topology();
+        topology.TestSetTopologyGraph(new TopologyGraph(
+            new[]
+            {
+                new TopologyNode("svc", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, aliasSemantics)
+            },
+            Array.Empty<TopologyEdge>()));
+
+        var sparkline = CreateSparkline(new Dictionary<string, double?[]>
+        {
+            ["successRate"] = new double?[] { 0.95, 0.96, 0.97 },
+            ["utilization"] = new double?[] { 0.4, 0.5, 0.6 },
+            ["serviceTimeMs"] = new double?[] { 200, 210, 220 },
+            ["latencyMinutes"] = new double?[] { 1.2, 1.1, 1.0 },
+            ["errorRate"] = new double?[] { 0.02, 0.01, 0.01 },
+            ["attempts"] = new double?[] { 15, 14, 13 },
+            ["served"] = new double?[] { 14, 13, 12 },
+            ["retryEcho"] = new double?[] { 0.1, 0.2, 0.3 }
+        });
+
+        topology.TestSetNodeSparklines(new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["svc"] = sparkline
+        });
+
+        var blocks = topology.TestBuildInspectorMetrics("svc");
+        Assert.Contains(blocks, block => string.Equals(block.Title, "Attempts: Ticket submissions", StringComparison.Ordinal));
+        Assert.Contains(blocks, block => string.Equals(block.Title, "Served: Incidents resolved", StringComparison.Ordinal));
+        Assert.Contains(blocks, block => string.Equals(block.Title, "Retry echo: Echo retries", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void BuildInspectorDependencies_RespectsOverlayFilters()
     {
         var topology = new Topology();
@@ -218,6 +272,46 @@ public sealed class TopologyInspectorTests
         var dependency = Assert.Single(dependencies);
         Assert.Equal("dep_attempts", dependency.EdgeId);
         Assert.Equal("Attempts", dependency.Label);
+    }
+
+    [Fact]
+    public void BuildInspectorDependencies_UsesProducerAliases()
+    {
+        var topology = new Topology();
+        var producerSemantics = new TopologyNodeSemantics(
+            Arrivals: null,
+            Served: null,
+            Errors: null,
+            Attempts: null,
+            Failures: null,
+            RetryEcho: null,
+            Queue: null,
+            Capacity: null,
+            Series: null,
+            Expression: null,
+            Distribution: null,
+            InlineValues: null,
+            Aliases: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["served"] = "Cases closed"
+            });
+
+        var nodes = new[]
+        {
+            new TopologyNode("producer", "service", Array.Empty<string>(), new[] { "svc" }, 0, 0, 0, 0, false, producerSemantics),
+            new TopologyNode("svc", "service", new[] { "producer" }, Array.Empty<string>(), 1, 0, 0, 0, false, EmptySemantics())
+        };
+
+        var edges = new[]
+        {
+            new TopologyEdge("dep_served", "producer:out", "svc:in", 1, "dependency", "served")
+        };
+
+        topology.TestSetTopologyGraph(new TopologyGraph(nodes, edges));
+
+        var dependencies = topology.TestBuildInspectorDependencies("svc");
+        var dependency = Assert.Single(dependencies);
+        Assert.Equal("Served: Cases closed", dependency.Label);
     }
 
     [Fact]
@@ -295,7 +389,8 @@ public sealed class TopologyInspectorTests
                         Series: null,
                         Expression: null,
                         Distribution: null,
-                        InlineValues: null))
+                        InlineValues: null,
+                        Aliases: null))
             },
             Array.Empty<TopologyEdge>()));
 
@@ -374,7 +469,8 @@ public sealed class TopologyInspectorTests
                         Distribution: new TopologyNodeDistribution(
                             new double[] { 1, 2, 3 },
                             new double[] { 0.2, 0.3, 0.5 }),
-                        InlineValues: null))
+                        InlineValues: null,
+                        Aliases: null))
             },
             Array.Empty<TopologyEdge>()));
 
@@ -477,7 +573,8 @@ public sealed class TopologyInspectorTests
             Series: null,
             Expression: null,
             Distribution: null,
-            InlineValues: null);
+            InlineValues: null,
+            Aliases: null);
 
         topology.TestSetTopologyGraph(new TopologyGraph(
             new[] { new TopologyNode("svc-retry", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, semantics) },
@@ -501,13 +598,13 @@ public sealed class TopologyInspectorTests
         topology.TestSetOverlaySettings(TopologyOverlaySettings.Default.Clone());
         var defaultBlocks = topology.TestBuildInspectorMetrics("svc-retry");
         Assert.Contains(defaultBlocks, block => string.Equals(block.Title, "Attempts", StringComparison.OrdinalIgnoreCase));
-        Assert.Contains(defaultBlocks, block => string.Equals(block.Title, "Failures", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(defaultBlocks, block => string.Equals(block.Title, "Failed retries", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(defaultBlocks, block => string.Equals(block.Title, "Retry echo", StringComparison.OrdinalIgnoreCase));
 
         topology.TestSetOverlaySettings(new TopologyOverlaySettings { ShowRetryMetrics = false });
         var hiddenBlocks = topology.TestBuildInspectorMetrics("svc-retry");
         Assert.DoesNotContain(hiddenBlocks, block => string.Equals(block.Title, "Attempts", StringComparison.OrdinalIgnoreCase));
-        Assert.DoesNotContain(hiddenBlocks, block => string.Equals(block.Title, "Failures", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(hiddenBlocks, block => string.Equals(block.Title, "Failed retries", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(hiddenBlocks, block => string.Equals(block.Title, "Retry echo", StringComparison.OrdinalIgnoreCase));
     }
 
@@ -528,7 +625,8 @@ public sealed class TopologyInspectorTests
             Series: null,
             Expression: null,
             Distribution: null,
-            InlineValues: null);
+            InlineValues: null,
+            Aliases: null);
 
         topology.TestSetTopologyGraph(new TopologyGraph(
             new[]
@@ -626,7 +724,8 @@ public sealed class TopologyInspectorTests
             Series: null,
             Expression: null,
             Distribution: null,
-            InlineValues: null);
+            InlineValues: null,
+            Aliases: null);
 
     private static NodeSparklineData CreateSparkline(IDictionary<string, double?[]> seriesMap)
     {

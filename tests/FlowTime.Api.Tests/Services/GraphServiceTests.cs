@@ -59,6 +59,8 @@ topology:
         errors: series:errors
         queue: series:queue
         capacity: series:capacity
+        aliases:
+          served: "Cases Resolved"
     - id: QueueB
       kind: queue
       semantics:
@@ -82,6 +84,8 @@ topology:
         Assert.Equal("series:errors", serviceNode.Semantics.Errors);
         Assert.Equal("series:queue", serviceNode.Semantics.Queue);
         Assert.Equal("series:capacity", serviceNode.Semantics.Capacity);
+        Assert.NotNull(serviceNode.Semantics.Aliases);
+        Assert.Equal("Cases Resolved", serviceNode.Semantics.Aliases!["served"]);
         Assert.NotNull(serviceNode.Ui);
         Assert.Equal(10, serviceNode.Ui!.X);
         Assert.Equal(20, serviceNode.Ui.Y);

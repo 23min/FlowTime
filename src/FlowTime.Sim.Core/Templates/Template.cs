@@ -135,6 +135,7 @@ public class TemplateNodeSemantics
 
     public string? ProcessingTimeMsSum { get; set; }
     public string? ServedCount { get; set; }
+    public Dictionary<string, string>? Aliases { get; set; }
 }
 
 /// <summary>

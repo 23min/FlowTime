@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace FlowTime.Contracts.TimeTravel;
 
 public sealed class StateSnapshotResponse
@@ -67,6 +69,7 @@ public sealed class NodeSnapshot
     public NodeMetrics Metrics { get; init; } = new();
     public NodeDerivedMetrics Derived { get; init; } = new();
     public NodeTelemetryInfo Telemetry { get; init; } = new();
+    public IReadOnlyDictionary<string, string>? Aliases { get; init; }
 }
 
 public sealed class NodeSeries
@@ -75,6 +78,7 @@ public sealed class NodeSeries
     public required string Kind { get; init; }
     public IDictionary<string, double?[]> Series { get; init; } = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase);
     public NodeTelemetryInfo Telemetry { get; init; } = new();
+    public IReadOnlyDictionary<string, string>? Aliases { get; init; }
 }
 
 public sealed class NodeMetrics

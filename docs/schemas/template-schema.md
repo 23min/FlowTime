@@ -354,6 +354,31 @@ rng:
   seed: ${rngSeed}     # Deterministic seed for reproducible results
 ```
 
+### Metric Aliases (TT‑M‑03.30.1)
+
+Template authors can attach domain-friendly names to individual node metrics without changing FlowTime’s canonical terminology. Add an optional `aliases` dictionary beneath a node’s `semantics` block:
+
+```yaml
+topology:
+  nodes:
+    - id: claims_router
+      kind: service
+      semantics:
+        arrivals: file:ClaimsRouter_arrivals.csv
+        served: file:ClaimsRouter_served.csv
+        errors: file:ClaimsRouter_errors.csv
+        attempts: file:ClaimsRouter_attempts.csv
+        retryEcho: file:ClaimsRouter_retryEcho.csv
+        aliases:
+          served: "Claims adjudicated"
+          attempts: "Claim submissions"
+          retryEcho: "Pending rework"
+```
+
+Supported keys mirror the semantics you can declare today: `arrivals`, `served`, `errors`, `attempts`, `failures`, `retryEcho`, `queue`/`queueDepth`, `capacity`, `externalDemand`, `processingTimeMsSum`, and `servedCount`. Keys are case-insensitive, and underscores are optional (`queue`, `queue_depth`). Keep labels concise (≲32 chars) and ASCII unless the template already relies on extended characters.
+
+Aliases flow through `ModelParser`, the `/graph` and `/state_window` endpoints, and the UI (tooltips/inspector chips). See `docs/templates/metric-alias-authoring.md` for authoring guidance.
+
 ### Array Parameters
 
 - Declare array parameters with `type: array`. Set `arrayOf` to either `double` or `int` to enforce element type (defaults to `double`).

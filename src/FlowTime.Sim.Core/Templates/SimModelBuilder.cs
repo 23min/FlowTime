@@ -122,7 +122,10 @@ internal static class SimModelBuilder
         RetryKernel = semantics.RetryKernel?.ToArray(),
         ExternalDemand = semantics.ExternalDemand,
         ProcessingTimeMsSum = semantics.ProcessingTimeMsSum,
-        ServedCount = semantics.ServedCount
+        ServedCount = semantics.ServedCount,
+        Aliases = semantics.Aliases is null
+            ? null
+            : new Dictionary<string, string>(semantics.Aliases, StringComparer.OrdinalIgnoreCase)
     };
 
     private static List<SimNode> BuildNodes(List<TemplateNode> nodes)

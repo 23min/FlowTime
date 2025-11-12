@@ -61,6 +61,10 @@ topology:
         errors: unmet_demand
         processingTimeMsSum: transit_processing_time_ms_sum
         servedCount: passengers_served
+        aliases:
+          arrivals: "Passenger demand"
+          served: "Passengers transported"
+          errors: "Unserved riders"
   edges: []
 
 nodes:

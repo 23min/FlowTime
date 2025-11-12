@@ -123,7 +123,8 @@ public sealed class GraphService
                 Failures = topoNode.Semantics?.Failures,
                 RetryEcho = topoNode.Semantics?.RetryEcho,
                 Queue = topoNode.Semantics?.QueueDepth,
-                Capacity = topoNode.Semantics?.Capacity
+                Capacity = topoNode.Semantics?.Capacity,
+                Aliases = topoNode.Semantics?.Aliases
             };
 
             var ui = topoNode.Ui is null

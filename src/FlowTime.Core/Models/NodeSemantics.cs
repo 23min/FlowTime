@@ -1,5 +1,7 @@
 using System.Collections.Generic;
 
+using System.Collections.Generic;
+
 namespace FlowTime.Core.Models;
 
 public sealed record NodeSemantics
@@ -17,4 +19,5 @@ public sealed record NodeSemantics
     public string? ProcessingTimeMsSum { get; init; }
     public string? ServedCount { get; init; }
     public double? SlaMinutes { get; init; }
+    public IReadOnlyDictionary<string, string>? Aliases { get; init; }
 }

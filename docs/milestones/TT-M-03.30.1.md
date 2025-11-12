@@ -1,6 +1,6 @@
 # TT‑M‑03.30.1 — Domain Terminology Mapping (Deferred)
 
-Status: Deferred  
+Status: ✅ Complete  
 Owners: Platform (Templates) + UI  
 References: docs/architecture/retry-modeling.md, docs/development/milestone-documentation-guide.md
 
@@ -53,6 +53,20 @@ Introduce a lightweight mapping layer that links FlowTime’s generic retry/queu
 - AC2: API responses include alias metadata for nodes that define it.
 - AC3: UI surfaces (chips, inspector) render aliases when configured and fall back gracefully when absent.
 - AC4: Documentation updated with a sample mapping table and governance guidance.
+
+## Outcome
+
+- Template semantics now accept `aliases` per node, with schema/docs updated so template authors can declare domain terminology alongside canonical metrics.
+- `/v1/runs/{id}/graph`, `/state`, and `/state_window` attach alias dictionaries to each node, goldens/tests covering the new shape.
+- The topology inspector, dependency list, and canvas tooltips consume aliases (chips/tooltips prefer aliases and fall back to canonical labels).
+- Template maintainer guidance (`docs/templates/metric-alias-authoring.md`) and retry architecture docs describe when to author aliases plus validation steps; TT‑M tracking + release notes updated to capture completion.
+
+## Validation
+
+| Command | Result |
+| --- | --- |
+| `dotnet build FlowTime.sln` | ✅ |
+| `dotnet test FlowTime.sln` | ⚠️ `FlowTime.Sim.Tests.NodeBased.ModelGenerationTests.GenerateModelAsync_WithConstNodes_EmbedsProvenance` known failure (pre-existing; documented in release note). |
 
 ## Implementation Plan (Tentative)
 

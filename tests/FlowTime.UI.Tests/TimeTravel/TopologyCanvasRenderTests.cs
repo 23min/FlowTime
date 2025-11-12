@@ -535,5 +535,6 @@ public sealed class TopologyCanvasRenderTests : TestContext
         Series: null,
         Expression: null,
         Distribution: null,
-        InlineValues: null);
+        InlineValues: null,
+        Aliases: null);
 }

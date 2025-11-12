@@ -114,7 +114,8 @@
                 "kind": { "type": "string", "minLength": 1 },
                 "metrics": { "$ref": "#/$defs/nodeMetrics" },
                 "derived": { "$ref": "#/$defs/nodeDerivedMetrics" },
-                "telemetry": { "$ref": "#/$defs/nodeTelemetryInfo" }
+                "telemetry": { "$ref": "#/$defs/nodeTelemetryInfo" },
+                "aliases": { "$ref": "#/$defs/aliasDictionary" }
             }
         },
         "nodeSeries": {
@@ -129,7 +130,8 @@
                     "minProperties": 1,
                     "additionalProperties": { "$ref": "#/$defs/numericSeries" }
                 },
-                "telemetry": { "$ref": "#/$defs/nodeTelemetryInfo" }
+                "telemetry": { "$ref": "#/$defs/nodeTelemetryInfo" },
+                "aliases": { "$ref": "#/$defs/aliasDictionary" }
             }
         },
         "nodeMetrics": {
@@ -201,6 +203,11 @@
                 "severity": { "type": "string", "minLength": 1 },
                 "nodeId": { "$ref": "#/$defs/nodeId" }
             }
+        },
+        "aliasDictionary": {
+            "type": ["object", "null"],
+            "default": null,
+            "additionalProperties": { "type": "string", "minLength": 1 }
         },
         "rngMetadata": {
             "type": "object",

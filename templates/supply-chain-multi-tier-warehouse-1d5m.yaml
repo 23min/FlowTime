@@ -26,6 +26,10 @@ topology:
         errors: supplier_shortage
         processingTimeMsSum: supplier_processing_time_ms_sum
         servedCount: supplier_shipments
+        aliases:
+          arrivals: "Planned production"
+          served: "Supplier shipments"
+          errors: "Supplier shortage"
     - id: Warehouse
       kind: service
       semantics:
@@ -34,6 +38,9 @@ topology:
         errors: inventory_build
         processingTimeMsSum: warehouse_processing_time_ms_sum
         servedCount: warehouse_shipments
+        aliases:
+          served: "Warehouse shipments"
+          errors: "Inventory build"
     - id: DistributorQueue
       kind: queue
       semantics:
@@ -41,6 +48,10 @@ topology:
         served: queue_outflow
         errors: queue_errors
         queue: queue_depth
+        aliases:
+          served: "Loads released"
+          queue: "Queue depth"
+          errors: "Queue losses"
       initialCondition:
         queueDepth: 0
     - id: Distributor
@@ -51,6 +62,9 @@ topology:
         errors: distributor_backlog
         processingTimeMsSum: distributor_processing_time_ms_sum
         servedCount: distributed_items
+        aliases:
+          served: "Units distributed"
+          errors: "Distributor backlog"
     - id: Retailer
       kind: service
       semantics:
@@ -59,6 +73,9 @@ topology:
         errors: unmet_demand
         processingTimeMsSum: retailer_processing_time_ms_sum
         servedCount: retail_sales
+        aliases:
+          served: "Units sold"
+          errors: "Unmet demand"
   edges:
     - id: e1
       from: Supplier:out

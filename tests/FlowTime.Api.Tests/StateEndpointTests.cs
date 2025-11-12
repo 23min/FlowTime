@@ -115,6 +115,8 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         Assert.Equal("yellow", service.Derived.Color);
         Assert.Contains(service.Telemetry.Sources, s => s.Contains("OrderService_arrivals") || s.Contains("OrderService_served"));
         Assert.Empty(service.Telemetry.Warnings);
+        Assert.NotNull(service.Aliases);
+        Assert.Equal("Ticket submissions", service.Aliases!["attempts"]);
 
         var queue = Assert.Single(payload.Nodes, n => n.Id == "SupportQueue");
         Assert.Equal("queue", queue.Kind);
@@ -124,6 +126,8 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         Assert.Null(queue.Derived.ServiceTimeMs);
         Assert.Contains(queue.Telemetry.Sources, s => s.Contains("SupportQueue_arrivals"));
         Assert.Empty(queue.Telemetry.Warnings);
+        Assert.NotNull(queue.Aliases);
+        Assert.Equal("Open backlog", queue.Aliases!["queue"]);
     }
 
     [Fact]
@@ -164,6 +168,8 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         Assert.Equal(1.0, retryEcho[3]!.Value, 5);
         Assert.Empty(payload.Warnings);
         Assert.Empty(serviceSeries.Telemetry.Warnings);
+        Assert.NotNull(serviceSeries.Aliases);
+        Assert.Equal("Orders fulfilled", serviceSeries.Aliases!["served"]);
 
         var utilization = serviceSeries.Series.ContainsKey("utilization") ? serviceSeries.Series["utilization"] : Array.Empty<double?>();
         Assert.Equal(4, utilization.Length);
@@ -177,6 +183,8 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         Assert.Equal(1.11111, latency[0]!.Value, 5);
         Assert.Equal(8.33333, latency[1]!.Value, 5);
         Assert.Empty(queueSeries.Telemetry.Warnings);
+        Assert.NotNull(queueSeries.Aliases);
+        Assert.Equal("Open backlog", queueSeries.Aliases!["queue"]);
     }
 
     [Fact]
@@ -615,6 +623,10 @@ topology:
         processingTimeMsSum: null
         servedCount: null
         slaMin: null
+        aliases:
+          attempts: "Ticket submissions"
+          served: "Orders fulfilled"
+          retryEcho: "Retry backlog"
     - id: "SupportQueue"
       kind: "queue"
       semantics:
@@ -625,6 +637,8 @@ topology:
         queue: "file:SupportQueue_queue.csv"
         capacity: null
         slaMin: 5
+        aliases:
+          queue: "Open backlog"
   edges: []
 
 """;
@@ -661,6 +675,10 @@ topology:
         processingTimeMsSum: "file:OrderService_processingTimeMsSum.csv"
         servedCount: "file:OrderService_servedCount.csv"
         slaMin: null
+        aliases:
+          attempts: "Ticket submissions"
+          served: "Orders fulfilled"
+          retryEcho: "Retry backlog"
     - id: "SupportQueue"
       kind: "queue"
       semantics:
@@ -671,6 +689,8 @@ topology:
         queue: "file:SupportQueue_queue.csv"
         capacity: null
         slaMin: 5
+        aliases:
+          queue: "Open backlog"
   edges: []
 
 """;
@@ -871,6 +891,10 @@ topology:
         processingTimeMsSum: "file:OrderService_processingTimeMsSum.csv"
         servedCount: "file:OrderService_servedCount.csv"
         slaMin: null
+        aliases:
+          attempts: "Ticket submissions"
+          served: "Orders fulfilled"
+          retryEcho: "Retry backlog"
     - id: "SupportQueue"
       kind: "queue"
       semantics:
@@ -881,6 +905,8 @@ topology:
         queue: "file:SupportQueue_queue.csv"
         capacity: null
         slaMin: 5
+        aliases:
+          queue: "Open backlog"
   edges: []
 
 """;
@@ -979,6 +1005,10 @@ topology:
         processingTimeMsSum: null
         servedCount: null
         slaMin: null
+        aliases:
+          attempts: "Ticket submissions"
+          served: "Orders fulfilled"
+          retryEcho: "Retry backlog"
     - id: "SupportQueue"
       kind: "queue"
       semantics:
@@ -989,6 +1019,8 @@ topology:
         queue: "file:SupportQueue_queue.csv"
         capacity: null
         slaMin: 5
+        aliases:
+          queue: "Open backlog"
   edges: []
 
 """;

@@ -302,20 +302,21 @@ public sealed class TopologyHelpersTests
         Assert.Equal("01 Jan 2025 00:15 UTC", content.Subtitle);
     }
 
-    private static GraphNodeSemanticsModel CreateSemantics()
-        => new(
-            Arrivals: "series:arrivals",
-            Served: "series:served",
-            Errors: "series:errors",
-            Attempts: null,
-            Failures: null,
-            RetryEcho: null,
-            Queue: null,
-            Capacity: null,
-            Series: null,
-            Expression: null,
-            Distribution: null,
-            InlineValues: null);
+private static GraphNodeSemanticsModel CreateSemantics()
+    => new(
+        Arrivals: "series:arrivals",
+        Served: "series:served",
+        Errors: "series:errors",
+        Attempts: null,
+        Failures: null,
+        RetryEcho: null,
+        Queue: null,
+        Capacity: null,
+        Series: null,
+        Expression: null,
+        Distribution: null,
+        InlineValues: null,
+        Aliases: null);
 
     private static int ResolveRow(TopologyNode node)
     {

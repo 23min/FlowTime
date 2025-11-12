@@ -134,6 +134,10 @@ topology:
         errors: unmet_north
         processingTimeMsSum: origin_north_processing_time_ms_sum
         servedCount: served_north
+        aliases:
+          arrivals: "Northbound demand"
+          served: "North → hub passengers"
+          errors: "Unserved north riders"
       ui: { x: 0,   y: 0 }
     - id: OriginSouth
       kind: service
@@ -143,6 +147,10 @@ topology:
         errors: unmet_south
         processingTimeMsSum: origin_south_processing_time_ms_sum
         servedCount: served_south
+        aliases:
+          arrivals: "Southbound demand"
+          served: "South → hub passengers"
+          errors: "Unserved south riders"
       ui: { x: 0,   y: 140 }
     - id: CentralHub
       kind: service
@@ -153,6 +161,9 @@ topology:
         capacity: cap_hub
         processingTimeMsSum: hub_processing_time_ms_sum
         servedCount: served_hub
+        aliases:
+          served: "Passengers routed"
+          errors: "Hub overflow"
       ui: { x: 240, y: 70 }
     - id: LineAirport
       kind: service
@@ -163,6 +174,9 @@ topology:
         capacity: cap_airport
         processingTimeMsSum: airport_processing_time_ms_sum
         servedCount: served_airport
+        aliases:
+          served: "Airport passengers"
+          errors: "Airport overflow"
       ui: { x: 480, y: 0 }
     - id: LineDowntown
       kind: service
@@ -173,6 +187,9 @@ topology:
         capacity: cap_downtown
         processingTimeMsSum: downtown_processing_time_ms_sum
         servedCount: served_downtown
+        aliases:
+          served: "Downtown passengers"
+          errors: "Downtown overflow"
       ui: { x: 480, y: 140 }
     - id: LineIndustrialPark
       kind: service
@@ -183,6 +200,9 @@ topology:
         capacity: cap_industrial
         processingTimeMsSum: industrial_processing_time_ms_sum
         servedCount: served_industrial
+        aliases:
+          served: "Industrial passengers"
+          errors: "Industrial overflow"
       ui: { x: 480, y: 280 }
   edges:
     - id: e_north_hub

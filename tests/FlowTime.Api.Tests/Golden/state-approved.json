@@ -56,6 +56,11 @@
           "file:OrderService_servedCount.csv"
         ],
         "warnings": []
+      },
+      "aliases": {
+        "attempts": "Ticket submissions",
+        "served": "Orders fulfilled",
+        "retryEcho": "Retry backlog"
       }
     },
     {
@@ -83,6 +88,9 @@
           "file:SupportQueue_queue.csv"
         ],
         "warnings": []
+      },
+      "aliases": {
+        "queue": "Open backlog"
       }
     }
   ],

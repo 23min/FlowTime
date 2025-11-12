@@ -89,6 +89,10 @@ topology:
         errors: defects
         processingTimeMsSum: assembly_processing_time_ms_sum
         servedCount: assembly
+        aliases:
+          arrivals: "Raw material feed"
+          served: "Units assembled"
+          errors: "Assembly defects"
     - id: QualityControl
       kind: service
       semantics:
@@ -97,6 +101,9 @@ topology:
         errors: quality_rejects
         processingTimeMsSum: quality_processing_time_ms_sum
         servedCount: quality_control
+        aliases:
+          served: "Units approved"
+          errors: "QC rejects"
     - id: PackagingStation
       kind: service
       semantics:
@@ -105,6 +112,9 @@ topology:
         errors: packaging_rejects
         processingTimeMsSum: packaging_processing_time_ms_sum
         servedCount: packaging
+        aliases:
+          served: "Units packaged"
+          errors: "Packaging rejects"
   edges:
     - id: edge1
       from: AssemblyLine:out
