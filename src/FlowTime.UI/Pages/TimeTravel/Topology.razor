@@ -193,14 +193,6 @@
                                                     Error rate
                                                 </MudChip>
                                                 <MudChip T="TopologyColorBasis"
-                                                         Value="TopologyColorBasis.Queue"
-                                                         Variant="Variant.Outlined"
-                                                         DisableRipple="true"
-                                                         Size="Size.Small"
-                                                         Class="timeline-focus-chip">
-                                                    Queue depth
-                                                </MudChip>
-                                                <MudChip T="TopologyColorBasis"
                                                          Value="TopologyColorBasis.ServiceTime"
                                                          Variant="Variant.Outlined"
                                                          DisableRipple="true"
@@ -700,6 +692,7 @@ private string? canvasHoveredEdgeId;
             if (stored?.Overlay is not null)
             {
                 overlaySettings = stored.Overlay.Clone();
+                NormalizeOverlayFocusBasis();
             }
             else
             {
@@ -757,6 +750,7 @@ private string? canvasHoveredEdgeId;
             {
                 overlaySettings = stored.Clone();
                 ApplyLegacyOverlayFields(json, overlaySettings);
+                NormalizeOverlayFocusBasis();
             }
         }
         catch
@@ -806,6 +800,14 @@ private string? canvasHoveredEdgeId;
         catch
         {
             // Ignore persistence errors
+        }
+    }
+
+    private void NormalizeOverlayFocusBasis()
+    {
+        if (overlaySettings.ColorBasis == TopologyColorBasis.Queue)
+        {
+            overlaySettings.ColorBasis = TopologyColorBasis.Sla;
         }
     }
 
@@ -1434,6 +1436,7 @@ private string? canvasHoveredEdgeId;
             var queue = Get("queue");
             var latency = Get("latencyMinutes");
             var serviceTime = Get("serviceTimeMs");
+            var retryTax = Get("retryTax");
 
             double? successRate = throughput;
             if (successRate is null && arrivals.HasValue && arrivals.Value > 0 && served.HasValue)
@@ -1469,6 +1472,7 @@ private string? canvasHoveredEdgeId;
             SetRaw("failures", failures);
             SetRaw("retryEcho", retryEcho);
             SetRaw("queue", queue);
+            SetRaw("retryTax", retryTax);
             SetRaw("capacity", capacity);
 
             if (IsComputedKind(node.Kind) && !isPmf)
@@ -1535,6 +1539,7 @@ private string? canvasHoveredEdgeId;
                 PmfValue: pmfSupportValue,
                 NodeKind: node.Kind,
                 ServiceTimeMs: serviceTime,
+                RetryTax: retryTax,
                 RawMetrics: rawMetrics.Count == 0 ? null : rawMetrics);
         }
 
@@ -1655,6 +1660,7 @@ private string? canvasHoveredEdgeId;
                             PmfValue: pmfSupportValue ?? existingMetrics.PmfValue,
                             NodeKind: existingMetrics.NodeKind ?? topoNode.Kind,
                             ServiceTimeMs: existingMetrics.ServiceTimeMs,
+                            RetryTax: existingMetrics.RetryTax,
                             RawMetrics: existingMetrics.RawMetrics);
                     }
 
@@ -1673,6 +1679,7 @@ private string? canvasHoveredEdgeId;
                     PmfProbability: pmfProbability,
                     PmfValue: pmfSupportValue,
                     NodeKind: topoNode.Kind,
+                    RetryTax: existingMetrics?.RetryTax,
                     RawMetrics: existingMetrics?.RawMetrics);
             }
         }
@@ -2580,6 +2587,8 @@ internal sealed record InspectorMetricBlock(
             AddRequired(Label("Retry echo", "retryEcho", "retry_echo", "retry"), "retryEcho", 0d, seriesKeyOverride: "retryEcho");
         }
 
+        AddRequired("Retry tax", "retryTax", 0d, 1d, valueFormat: InspectorValueFormat.Percent, seriesKeyOverride: "retryTax");
+
         AddRequired("Success rate", "successRate", 0d, 1d, valueFormat: InspectorValueFormat.Percent);
         AddRequired("Utilization", "utilization", 0d, 1d, valueFormat: InspectorValueFormat.Percent);
         AddRequired("Service time", "serviceTimeMs", 0d, seriesKeyOverride: "serviceTimeMs");
@@ -2638,6 +2647,7 @@ internal sealed record InspectorMetricBlock(
         AddDerived("Error rate", metrics.ErrorRate, InspectorValueFormat.Percent);
         AddDerived("Latency", metrics.LatencyMinutes, InspectorValueFormat.Number, "min");
         AddDerived("Service time", metrics.ServiceTimeMs, InspectorValueFormat.Number, "ms");
+        AddDerived("Retry tax", metrics.RetryTax, InspectorValueFormat.Percent);
 
         return rows;
     }

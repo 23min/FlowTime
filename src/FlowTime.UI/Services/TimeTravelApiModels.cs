@@ -192,6 +192,9 @@ public sealed record TimeTravelNodeDerivedMetricsDto
     [JsonPropertyName("throughputRatio")]
     public double? ThroughputRatio { get; init; }
 
+    [JsonPropertyName("retryTax")]
+    public double? RetryTax { get; init; }
+
     [JsonPropertyName("color")]
     public string? Color { get; init; }
 }

@@ -63,6 +63,7 @@ public class StateContractSerializationTests
                         Utilization = 0.79,
                         LatencyMinutes = 0.34,
                         ThroughputRatio = 0.98,
+                        RetryTax = 0.015,
                         Color = "yellow"
                     },
                     Telemetry = new NodeTelemetryInfo
@@ -104,6 +105,7 @@ public class StateContractSerializationTests
         Assert.Equal("OrderService", firstNode.GetProperty("id").GetString());
         Assert.True(firstNode.TryGetProperty("metrics", out var metrics));
         Assert.Equal(118, metrics.GetProperty("served").GetInt32());
+        Assert.Equal(0.015, firstNode.GetProperty("derived").GetProperty("retryTax").GetDouble());
 
         var telemetry = firstNode.GetProperty("telemetry");
         Assert.Equal(JsonValueKind.Array, telemetry.GetProperty("sources").ValueKind);

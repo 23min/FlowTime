@@ -252,4 +252,5 @@ public sealed record NodeBinMetrics(
     double? PmfValue = null,
     string? NodeKind = null,
     double? ServiceTimeMs = null,
+    double? RetryTax = null,
     IReadOnlyDictionary<string, double?>? RawMetrics = null);

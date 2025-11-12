@@ -76,7 +76,6 @@ internal sealed record OverlaySettingsPayload(
 	bool ShowEdgeArrows,
 	bool ShowEdgeShares,
 	bool ShowSparklines,
-    bool ShowQueueScalarBadge,
     SparklineRenderMode SparklineMode,
     EdgeRenderMode EdgeStyle,
     EdgeOverlayMode EdgeOverlay,
@@ -140,4 +139,5 @@ internal sealed record NodeMetricSnapshotDto(
     double? QueueDepth,
     double? LatencyMinutes,
     double? ServiceTimeMs,
+    double? RetryTax,
     IReadOnlyDictionary<string, double?>? Raw);

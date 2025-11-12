@@ -126,7 +126,8 @@ public sealed class TopologyInspectorTests
             ["attempts"] = new double?[] { 12, 11, 10 },
             ["served"] = new double?[] { 10, 9, 8 },
             ["failures"] = new double?[] { 2, 2, 2 },
-            ["retryEcho"] = new double?[] { 0.0, 0.4, 0.2 }
+            ["retryEcho"] = new double?[] { 0.0, 0.4, 0.2 },
+            ["retryTax"] = new double?[] { 0.05, 0.08, 0.12 }
         });
 
         topology.TestSetNodeSparklines(new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase)
@@ -137,6 +138,7 @@ public sealed class TopologyInspectorTests
         var sparklineData = topology.TestGetNodeSparklines()["svc"];
         Assert.Contains("attempts", sparklineData.Series.Keys, StringComparer.OrdinalIgnoreCase);
         Assert.Contains("retryEcho", sparklineData.Series.Keys, StringComparer.OrdinalIgnoreCase);
+        Assert.Contains("retryTax", sparklineData.Series.Keys, StringComparer.OrdinalIgnoreCase);
 
         var metrics = topology.TestBuildInspectorMetrics("svc");
 
@@ -160,6 +162,12 @@ public sealed class TopologyInspectorTests
             {
                 Assert.Equal("Retry echo", block.Title);
                 Assert.False(block.IsPlaceholder);
+            },
+            block =>
+            {
+                Assert.Equal("Retry tax", block.Title);
+                Assert.False(block.IsPlaceholder);
+                Assert.NotNull(block.Sparkline);
             },
             block =>
             {

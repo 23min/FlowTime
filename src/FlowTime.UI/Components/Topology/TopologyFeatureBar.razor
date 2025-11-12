@@ -143,10 +143,10 @@
                     <MudSwitch T="bool"
                                Dense="true"
                                Class="topology-dense-control"
-                               Value="@workingSettings.ShowQueueScalarBadge"
-                               ValueChanged="OnShowQueueScalarBadgeChanged"
+                               Value="@workingSettings.ShowRetryMetrics"
+                               ValueChanged="OnShowRetryMetricsChanged"
                                Color="Color.Primary"
-                               Label="Queue depth badge (queue nodes)" />
+                               Label="Retry chips" />
                 </MudStack>
             </MudExpansionPanel>
 
@@ -477,17 +477,6 @@
         }
 
         workingSettings.ShowRetryMetrics = value;
-        return NotifyChange();
-    }
-
-    private Task OnShowQueueScalarBadgeChanged(bool value)
-    {
-        if (workingSettings.ShowQueueScalarBadge == value)
-        {
-            return Task.CompletedTask;
-        }
-
-        workingSettings.ShowQueueScalarBadge = value;
         return NotifyChange();
     }
 

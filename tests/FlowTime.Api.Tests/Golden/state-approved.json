@@ -41,6 +41,7 @@
         "utilization": 0.857143,
         "serviceTimeMs": 300,
         "throughputRatio": 0.6,
+        "retryTax": 0.142857,
         "color": "yellow"
       },
       "telemetry": {

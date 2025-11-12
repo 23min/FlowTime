@@ -251,15 +251,23 @@ public sealed class TopologyCanvasRenderTests : TestContext
 
         Assert.All(payload.Nodes, node =>
         {
-            Assert.Equal(NodeWidth, node.Width);
+            if (string.Equals(node.Kind, "queue", StringComparison.OrdinalIgnoreCase))
+            {
+                Assert.True(node.Width >= NodeWidth);
+            }
+            else
+            {
+                Assert.Equal(NodeWidth, node.Width);
+            }
+
             Assert.Equal(NodeHeight, node.Height);
             Assert.Equal(NodeCornerRadius, node.CornerRadius);
         });
 
-        var expectedMinX = graph.Nodes.Min(n => n.X) - (NodeWidth / 2);
-        var expectedMaxX = graph.Nodes.Max(n => n.X) + (NodeWidth / 2);
-        var expectedMinY = graph.Nodes.Min(n => n.Y) - (NodeHeight / 2);
-        var expectedMaxY = graph.Nodes.Max(n => n.Y) + (NodeHeight / 2);
+        var expectedMinX = payload.Nodes.Min(n => n.X - (n.Width / 2));
+        var expectedMaxX = payload.Nodes.Max(n => n.X + (n.Width / 2));
+        var expectedMinY = payload.Nodes.Min(n => n.Y - (n.Height / 2));
+        var expectedMaxY = payload.Nodes.Max(n => n.Y + (n.Height / 2));
 
         Assert.Equal(expectedMinX, payload.Viewport.MinX, 3);
         Assert.Equal(expectedMaxX, payload.Viewport.MaxX, 3);

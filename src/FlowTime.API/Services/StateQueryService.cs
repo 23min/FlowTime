@@ -460,14 +460,9 @@ public sealed class StateQueryService
         var queue = GetOptionalValue(data.QueueDepth, binIndex);
         var capacity = GetOptionalValue(data.Capacity, binIndex);
         var isServiceKind = string.Equals(kind, "service", StringComparison.OrdinalIgnoreCase);
-        var hasExplicitAttempts = HasMetricReference(node.Semantics?.Attempts);
-        var hasExplicitFailures = HasMetricReference(node.Semantics?.Failures);
-        var hasExplicitRetryEcho = HasMetricReference(node.Semantics?.RetryEcho);
-        var attempts = ComputeAttemptValue(data, binIndex, isServiceKind || hasExplicitAttempts);
-        var failures = (isServiceKind || hasExplicitFailures) ? ComputeFailureValue(data, binIndex) : null;
-        var retryEcho = (isServiceKind || hasExplicitRetryEcho)
-            ? ComputeRetryEchoValue(data, binIndex, isServiceKind)
-            : GetOptionalValue(data.RetryEcho, binIndex);
+        var attempts = isServiceKind ? ComputeAttemptValue(data, binIndex, allowDerived: true) : null;
+        var failures = isServiceKind ? ComputeFailureValue(data, binIndex) : null;
+        var retryEcho = isServiceKind ? ComputeRetryEchoValue(data, binIndex, allowDerived: true) : null;
 
         var rawUtilization = served.HasValue
             ? UtilizationComputer.Calculate(served.Value, capacity)
@@ -483,6 +478,7 @@ public sealed class StateQueryService
 
         var throughputRatioValue = ComputeThroughputRatio(arrivals, served);
         var throughputRatio = throughputRatioValue.HasValue ? Normalize(throughputRatioValue.Value) : null;
+        var retryTax = ComputeRetryTaxValue(attempts, served);
 
         double? serviceTimeMs = null;
         if (string.Equals(kind, "service", StringComparison.OrdinalIgnoreCase))
@@ -516,6 +512,7 @@ public sealed class StateQueryService
                 LatencyMinutes = latencyMinutes,
                 ServiceTimeMs = serviceTimeMs,
                 ThroughputRatio = throughputRatio,
+                RetryTax = retryTax,
                 Color = color
             },
             Telemetry = BuildTelemetryInfo(node, context.ManifestMetadata, nodeWarnings),
@@ -561,30 +558,33 @@ public sealed class StateQueryService
         };
 
         var isServiceKind = string.Equals(kind, "service", StringComparison.OrdinalIgnoreCase);
-        var hasExplicitAttempts = HasMetricReference(node.Semantics?.Attempts);
-        var hasExplicitFailures = HasMetricReference(node.Semantics?.Failures);
-        var hasExplicitRetryEcho = HasMetricReference(node.Semantics?.RetryEcho);
 
-        var attemptsSeries = (isServiceKind || hasExplicitAttempts)
-            ? ComputeAttemptSeries(data, startBin, count, isServiceKind)
+        var attemptsSeries = isServiceKind
+            ? ComputeAttemptSeries(data, startBin, count, allowDerived: true)
             : null;
         if (attemptsSeries != null)
         {
             series["attempts"] = attemptsSeries;
         }
 
-        if (isServiceKind || hasExplicitFailures)
+        if (isServiceKind)
         {
             var failuresSlice = data.Failures != null ? ExtractSlice(data.Failures, startBin, count) : errorsSlice;
             series["failures"] = failuresSlice;
         }
 
-        var retryEchoSeries = (isServiceKind || hasExplicitRetryEcho)
-            ? ComputeRetryEchoSeries(data, startBin, count, isServiceKind)
-            : data.RetryEcho != null ? ExtractSlice(data.RetryEcho, startBin, count) : null;
+        var retryEchoSeries = isServiceKind
+            ? ComputeRetryEchoSeries(data, startBin, count, allowDerived: true)
+            : null;
         if (retryEchoSeries != null)
         {
             series["retryEcho"] = retryEchoSeries;
+        }
+
+        var retryTaxSeries = ComputeRetryTaxSeries(attemptsSeries, servedSlice);
+        if (retryTaxSeries != null)
+        {
+            series["retryTax"] = retryTaxSeries;
         }
 
         if (data.ExternalDemand != null)
@@ -992,6 +992,59 @@ public sealed class StateQueryService
         return served.Value / arrivals.Value;
     }
 
+    private static double? ComputeRetryTaxValue(double? attempts, double? served)
+    {
+        if (!attempts.HasValue || !served.HasValue)
+        {
+            return null;
+        }
+
+        if (attempts.Value <= 0)
+        {
+            return null;
+        }
+
+        var retries = attempts.Value - served.Value;
+        if (retries <= 0)
+        {
+            return 0d;
+        }
+
+        var ratio = retries / attempts.Value;
+        return Normalize(ratio);
+    }
+
+    private static double?[]? ComputeRetryTaxSeries(double?[]? attempts, double?[]? served)
+    {
+        if (attempts is null || served is null || attempts.Length != served.Length)
+        {
+            return null;
+        }
+
+        var result = new double?[attempts.Length];
+        for (var i = 0; i < attempts.Length; i++)
+        {
+            var attempt = attempts[i];
+            var success = served[i];
+            if (!attempt.HasValue || !success.HasValue || attempt.Value <= 0)
+            {
+                result[i] = null;
+                continue;
+            }
+
+            var retries = attempt.Value - success.Value;
+            if (retries <= 0)
+            {
+                result[i] = 0d;
+                continue;
+            }
+
+            result[i] = Normalize(retries / attempt.Value);
+        }
+
+        return result;
+    }
+
     private static Dictionary<string, SeriesReference> BuildSeriesLookup(IEnumerable<SeriesReference> seriesReferences)
     {
         var lookup = new Dictionary<string, SeriesReference>(StringComparer.OrdinalIgnoreCase);
@@ -1219,9 +1272,6 @@ public sealed class StateQueryService
         var normalized = NormalizeKind(kind);
         return normalized is "const" or "expression" or "expr" or "pmf";
     }
-
-    private static bool HasMetricReference(string? reference) =>
-        !string.IsNullOrWhiteSpace(reference);
 
     private ModeValidationResult ValidateContext(StateRunContext context) =>
         modeValidator.Validate(new ModeValidationContext(

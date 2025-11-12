@@ -100,6 +100,7 @@ public sealed class NodeDerivedMetrics
     public double? LatencyMinutes { get; init; }
     public double? ServiceTimeMs { get; init; }
     public double? ThroughputRatio { get; init; }
+    public double? RetryTax { get; init; }
     public string? Color { get; init; }
 }
 

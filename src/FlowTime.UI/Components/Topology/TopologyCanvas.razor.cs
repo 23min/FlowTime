@@ -15,6 +15,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
 {
     private const double NodeWidth = 54;
     private const double NodeHeight = 24;
+    private const double QueueNodeWidth = 72;
     private const double NodeCornerRadius = 3;
     private const double LeafCircleScale = 1.25;
     private const double LeafCircleProxyPadding = 6;
@@ -519,10 +520,13 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             var proxyHeight = isLeafComputed
                 ? (NodeHeight * LeafCircleScale) + LeafCircleProxyPadding
                 : NodeHeight;
+            var proxyWidth = string.Equals(node.Kind, "queue", StringComparison.OrdinalIgnoreCase)
+                ? QueueNodeWidth
+                : NodeWidth;
 
             var style = string.Create(
                 CultureInfo.InvariantCulture,
-                $"left: {node.X}px; top: {node.Y}px; transform: translate(-50%, -50%); --topology-node-width: {NodeWidth}px; --topology-node-height: {proxyHeight}px;");
+                $"left: {node.X}px; top: {node.Y}px; transform: translate(-50%, -50%); --topology-node-width: {proxyWidth}px; --topology-node-height: {proxyHeight}px;");
 
             var isFocused = !string.IsNullOrWhiteSpace(selectedId) &&
                             node.Id.Equals(selectedId, StringComparison.OrdinalIgnoreCase);
@@ -589,6 +593,10 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                     node.Id.Equals(focusedNode, StringComparison.OrdinalIgnoreCase);
 
                 var focusLabel = FormatFocusLabel(nodeMetrics, rawSparkline, overlays.ColorBasis, selectedBin);
+                if (string.Equals(node.Kind, "queue", StringComparison.OrdinalIgnoreCase))
+                {
+                    focusLabel = string.Empty;
+                }
 
                 var semantics = node.Semantics;
                 NodeSemanticsDto? semanticsDto = null;
@@ -639,14 +647,19 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                     nodeMetrics.QueueDepth,
                     nodeMetrics.LatencyMinutes,
                     nodeMetrics.ServiceTimeMs,
+                    nodeMetrics.RetryTax,
                     nodeMetrics.RawMetrics);
+
+                var nodeWidth = string.Equals(node.Kind, "queue", StringComparison.OrdinalIgnoreCase)
+                    ? QueueNodeWidth
+                    : NodeWidth;
 
                 return new NodeRenderInfo(
                     node.Id,
                     node.Kind,
                     node.X,
                     node.Y,
-                    NodeWidth,
+                    nodeWidth,
                     NodeHeight,
                     NodeCornerRadius,
                     fill,
@@ -709,13 +722,26 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         }
         else
         {
-            var halfWidth = NodeWidth / 2d;
             var halfHeight = NodeHeight / 2d;
+            double minX = double.PositiveInfinity;
+            double maxX = double.NegativeInfinity;
+            double minY = double.PositiveInfinity;
+            double maxY = double.NegativeInfinity;
 
-            var minX = graph.Nodes.Min(node => node.X - halfWidth);
-            var maxX = graph.Nodes.Max(node => node.X + halfWidth);
-            var minY = graph.Nodes.Min(node => node.Y - halfHeight);
-            var maxY = graph.Nodes.Max(node => node.Y + halfHeight);
+            foreach (var node in graph.Nodes)
+            {
+                var width = string.Equals(node.Kind, "queue", StringComparison.OrdinalIgnoreCase) ? QueueNodeWidth : NodeWidth;
+                var halfWidth = width / 2d;
+                var left = node.X - halfWidth;
+                var right = node.X + halfWidth;
+                var top = node.Y - halfHeight;
+                var bottom = node.Y + halfHeight;
+
+                if (left < minX) minX = left;
+                if (right > maxX) maxX = right;
+                if (top < minY) minY = top;
+                if (bottom > maxY) maxY = bottom;
+            }
 
             viewport = new CanvasViewport(minX, minY, maxX, maxY, ViewportPadding);
         }
@@ -725,7 +751,6 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             overlays.ShowEdgeArrows,
             overlays.ShowEdgeShares,
             overlays.ShowSparklines,
-            overlays.ShowQueueScalarBadge,
             overlays.SparklineMode,
             overlays.EdgeStyle,
             overlays.EdgeOverlay,
