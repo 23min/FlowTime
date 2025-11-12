@@ -560,6 +560,13 @@ code {
     letter-spacing: 0.02em;
 }
 
+.timeline-operational-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    white-space: nowrap;
+}
+
 .timeline-focus-set {
     display: flex;
     gap: 0.35rem;

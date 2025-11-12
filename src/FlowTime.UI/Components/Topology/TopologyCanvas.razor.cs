@@ -15,7 +15,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
 {
     private const double NodeWidth = 54;
     private const double NodeHeight = 24;
-    private const double QueueNodeWidth = 72;
+    private const double QueueNodeWidth = NodeWidth;
     private const double NodeCornerRadius = 3;
     private const double LeafCircleScale = 1.25;
     private const double LeafCircleProxyPadding = 6;

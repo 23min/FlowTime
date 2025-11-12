@@ -162,7 +162,7 @@
                                     </MudChipSet>
                                     <MudStack Row="true" AlignItems="@AlignItems.Center" Class="timeline-focus-group">
                                         <MudStack Row="true" AlignItems="@AlignItems.Center" Spacing="1" Class="timeline-focus-controls">
-                                            <MudText Typo="Typo.caption" Class="timeline-focus-label">Focus metric:</MudText>
+                                            <MudText Typo="Typo.caption" Class="timeline-focus-label">Focus</MudText>
                                             <MudChipSet T="TopologyColorBasis"
                                                         Choice="true"
                                                         SelectedValue="@overlaySettings.ColorBasis"
@@ -201,6 +201,16 @@
                                                     Service time
                                                 </MudChip>
                                             </MudChipSet>
+                                        </MudStack>
+                                        <MudStack Row="true" AlignItems="@AlignItems.Center" Spacing="1" Class="timeline-operational-toggle">
+                                            <MudText Typo="Typo.caption" Class="timeline-focus-label">Operational</MudText>
+                                            <MudSwitch T="bool"
+                                                       Dense="true"
+                                                       DisableRipple="true"
+                                                       Value="@operationalViewOnly"
+                                                       ValueChanged="OnOperationalViewChanged"
+                                                       Disabled="@operationalTogglePending"
+                                                       Color="Color.Primary" />
                                         </MudStack>
                                         <MudChipSet T="string"
                                                     Class="timeline-zoom-set">
@@ -561,6 +571,11 @@ private string? canvasHoveredEdgeId;
     private Task playbackTask = Task.CompletedTask;
     private bool isDialPointerDragging;
     private bool pointerNeedsJump;
+    private bool operationalViewOnly;
+    private bool operationalTogglePending;
+    private bool? savedIncludeExpressionNodes;
+    private bool? savedIncludeConstNodes;
+    private bool? savedEnableFullDag;
 
     private const double MinPlaybackDelay = 0.02d;
     private const double MaxPlaybackDelay = 120d;
@@ -673,6 +688,7 @@ private string? canvasHoveredEdgeId;
     private async Task LoadRunStateAsync(string runId)
     {
         overlaySettings = TopologyOverlaySettings.Default.Clone();
+        SyncOperationalViewFlagFromOverlay(resetSavedValues: true);
         sectionExpansionState = CreateDefaultSectionState();
         featureBarOpen = true;
         currentViewportSnapshot = null;
@@ -693,6 +709,7 @@ private string? canvasHoveredEdgeId;
             {
                 overlaySettings = stored.Overlay.Clone();
                 NormalizeOverlayFocusBasis();
+                SyncOperationalViewFlagFromOverlay(resetSavedValues: true);
             }
             else
             {
@@ -751,6 +768,7 @@ private string? canvasHoveredEdgeId;
                 overlaySettings = stored.Clone();
                 ApplyLegacyOverlayFields(json, overlaySettings);
                 NormalizeOverlayFocusBasis();
+                SyncOperationalViewFlagFromOverlay(resetSavedValues: true);
             }
         }
         catch
@@ -808,6 +826,23 @@ private string? canvasHoveredEdgeId;
         if (overlaySettings.ColorBasis == TopologyColorBasis.Queue)
         {
             overlaySettings.ColorBasis = TopologyColorBasis.Sla;
+        }
+    }
+
+    private void SyncOperationalViewFlagFromOverlay(bool resetSavedValues = false)
+    {
+        var derivedOperational = !overlaySettings.EnableFullDag
+            && !overlaySettings.IncludeExpressionNodes
+            && !overlaySettings.IncludeConstNodes;
+
+        operationalViewOnly = derivedOperational;
+
+        if (resetSavedValues)
+        {
+            savedIncludeExpressionNodes = null;
+            savedIncludeConstNodes = null;
+            savedEnableFullDag = null;
+            operationalTogglePending = false;
         }
     }
 
@@ -1057,9 +1092,28 @@ private string? canvasHoveredEdgeId;
         overlaySettings = updated.Clone();
         await SaveRunStateAsync();
 
+        var derivedOperational = !overlaySettings.EnableFullDag
+            && !overlaySettings.IncludeExpressionNodes
+            && !overlaySettings.IncludeConstNodes;
+
+        if (!derivedOperational && operationalViewOnly)
+        {
+            operationalViewOnly = false;
+            savedIncludeExpressionNodes = null;
+            savedIncludeConstNodes = null;
+            savedEnableFullDag = null;
+        }
+        else if (derivedOperational && !operationalViewOnly)
+        {
+            operationalViewOnly = true;
+        }
+
         var requiresGraphReload = previous.EnableFullDag != overlaySettings.EnableFullDag
             || previous.RespectUiPositions != overlaySettings.RespectUiPositions
-            || previous.Layout != overlaySettings.Layout;
+            || previous.Layout != overlaySettings.Layout
+            || previous.IncludeExpressionNodes != overlaySettings.IncludeExpressionNodes
+            || previous.IncludeConstNodes != overlaySettings.IncludeConstNodes
+            || previous.IncludeServiceNodes != overlaySettings.IncludeServiceNodes;
 
         if (requiresGraphReload)
         {
@@ -1140,6 +1194,49 @@ private string? canvasHoveredEdgeId;
         var updated = overlaySettings.Clone();
         updated.ColorBasis = basis;
         await OnOverlaySettingsChanged(updated);
+    }
+
+    private async Task OnOperationalViewChanged(bool value)
+    {
+        if (value == operationalViewOnly || operationalTogglePending)
+        {
+            return;
+        }
+
+        operationalTogglePending = true;
+
+        var updated = overlaySettings.Clone();
+
+        if (value)
+        {
+            savedIncludeExpressionNodes = overlaySettings.IncludeExpressionNodes;
+            savedIncludeConstNodes = overlaySettings.IncludeConstNodes;
+            savedEnableFullDag = overlaySettings.EnableFullDag;
+
+            updated.IncludeExpressionNodes = false;
+            updated.IncludeConstNodes = false;
+            updated.EnableFullDag = false;
+        }
+        else
+        {
+            updated.IncludeExpressionNodes = savedIncludeExpressionNodes ?? true;
+            updated.IncludeConstNodes = savedIncludeConstNodes ?? true;
+            updated.EnableFullDag = savedEnableFullDag ?? true;
+
+            savedIncludeExpressionNodes = null;
+            savedIncludeConstNodes = null;
+            savedEnableFullDag = null;
+        }
+
+        operationalViewOnly = value;
+        try
+        {
+            await OnOverlaySettingsChanged(updated);
+        }
+        finally
+        {
+            operationalTogglePending = false;
+        }
     }
 
     private async Task OnFeatureSectionExpansionChanged(SectionExpansionChangedArgs args)
@@ -3567,6 +3664,10 @@ private static IReadOnlyList<double?> TrimSeriesAt(double?[]? source, int limit,
         isLoading = false;
         pointerNeedsJump = false;
         featureBarOpen = true;
+        operationalViewOnly = false;
+        savedIncludeExpressionNodes = null;
+        savedIncludeConstNodes = null;
+        savedEnableFullDag = null;
         sectionExpansionState = CreateDefaultSectionState();
         currentViewportSnapshot = null;
         pendingViewportSnapshot = null;

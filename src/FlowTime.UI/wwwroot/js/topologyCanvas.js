@@ -18,14 +18,12 @@
     const MAX_ZOOM_PERCENT = 200;
     const MIN_SCALE = MIN_ZOOM_PERCENT / 100;
     const MAX_SCALE = MAX_ZOOM_PERCENT / 100;
-    const LEAF_CIRCLE_SCALE = 2.25;
-    const LEAF_CIRCLE_RING_WIDTH = 4;
-    const LEAF_CIRCLE_GUTTER = 3;
     const LEAF_CIRCLE_FILL = '#E2E8F0';
     const LEAF_CIRCLE_STROKE = '#64748B';
-    const QUEUE_PILL_FILL = '#C4B5FD';
-    const QUEUE_PILL_STROKE = '#5B21B6';
-    const QUEUE_LABEL_COLOR = '#F8FAFC';
+    const QUEUE_PILL_FILL = '#FACC15';
+    const QUEUE_PILL_STROKE = '#9CA3AF';
+    const QUEUE_LABEL_COLOR = '#78350F';
+    const CHIP_BASE_FILL = '#F3F4F6';
     const POINTER_CLICK_DISTANCE = 4;
     const GRID_ROW_SPACING = 140;
     const GRID_COLUMN_SPACING = 240;
@@ -756,31 +754,8 @@
             let fillForText = fill;
 
             if (isLeafComputed) {
-                const baseRadius = Math.min(width, height) / 2;
-                const outerRadius = baseRadius * LEAF_CIRCLE_SCALE;
-                const ringWidth = LEAF_CIRCLE_RING_WIDTH;
-                const innerRadius = Math.max(outerRadius - ringWidth - LEAF_CIRCLE_GUTTER, outerRadius * 0.6);
-
-                ctx.save();
-                ctx.lineWidth = ringWidth;
-                ctx.strokeStyle = LEAF_CIRCLE_STROKE;
-                ctx.beginPath();
-                ctx.arc(x, y, outerRadius - (ringWidth / 2), 0, Math.PI * 2);
-                ctx.stroke();
-                ctx.restore();
-
-                ctx.beginPath();
-                ctx.fillStyle = LEAF_CIRCLE_FILL;
-                ctx.arc(x, y, innerRadius, 0, Math.PI * 2);
-                ctx.fill();
-
-                if (nodeMeta) {
-                    nodeMeta.fill = LEAF_CIRCLE_FILL;
-                    nodeMeta.outerRadius = outerRadius;
-                    nodeMeta.innerRadius = innerRadius;
-                }
-
-                focusLabelWidth = Math.max((innerRadius * 2) - 10, 18);
+                const pillMetrics = drawLeafNode(ctx, nodeMeta);
+                focusLabelWidth = Math.max(pillMetrics.width - 14, 18);
                 fillForText = LEAF_CIRCLE_FILL;
             } else if (kind === 'queue') {
                 drawQueueNode(ctx, nodeMeta);
@@ -2226,17 +2201,16 @@
         const isLeafComputed = !!(node.leaf ?? node.Leaf) && isComputedKind(kind);
 
         let boundary;
-        if (isLeafComputed) {
-            const baseRadius = Math.min(width, height) / 2;
-            boundary = baseRadius * LEAF_CIRCLE_SCALE;
-        } else if (kind === 'expr' || kind === 'expression') {
+        if (kind === 'expr' || kind === 'expression') {
             const halfW = width / 2;
             const halfH = height / 2;
             const denom = (absUx / halfW) + (absUy / halfH);
             boundary = denom < epsilon ? Math.max(halfW, halfH) : 1 / denom;
         } else {
-            const halfW = width / 2;
-            const halfH = height / 2;
+            const effectiveWidth = isLeafComputed ? Math.max(width, height * 1.4) : width;
+            const effectiveHeight = isLeafComputed ? Math.max(height, 20) : height;
+            const halfW = effectiveWidth / 2;
+            const halfH = effectiveHeight / 2;
             const candidates = [];
 
             if (absUx > epsilon) {
@@ -2891,6 +2865,32 @@
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(displayValue, x, y);
+    }
+
+    function drawLeafNode(ctx, nodeMeta) {
+        const x = Number(nodeMeta.x ?? nodeMeta.X ?? 0);
+        const y = Number(nodeMeta.y ?? nodeMeta.Y ?? 0);
+        const width = Number(nodeMeta.width ?? nodeMeta.Width ?? 54);
+        const height = Number(nodeMeta.height ?? nodeMeta.Height ?? 24);
+        const pillHeight = Math.max(height, 20);
+        const pillWidth = Math.max(width, pillHeight * 1.4);
+        const radius = Math.min(pillHeight / 2, pillWidth / 2);
+
+        ctx.save();
+        ctx.beginPath();
+        traceRoundedRect(ctx, x, y, pillWidth, pillHeight, radius);
+        ctx.fillStyle = LEAF_CIRCLE_FILL;
+        ctx.strokeStyle = LEAF_CIRCLE_STROKE;
+        ctx.lineWidth = 1.2;
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+
+        if (nodeMeta) {
+            nodeMeta.fill = LEAF_CIRCLE_FILL;
+        }
+
+        return { width: pillWidth, height: pillHeight };
     }
 
     function resolveQueueValue(nodeMeta) {
@@ -3681,7 +3681,7 @@
         });
     }
 
-    function drawChip(ctx, x, anchorY, text, bg, fg, paddingX, lineHeight, anchor = 'bottom') {
+    function drawChip(ctx, x, anchorY, text, outlineColor, fg, paddingX, lineHeight, anchor = 'bottom') {
         const normalized = typeof text === 'string' ? text : String(text ?? '');
         const rawLines = normalized.split(/\r?\n/);
         const lines = rawLines
@@ -3705,8 +3705,19 @@
         const bottom = top + totalHeight;
 
         ctx.save();
-        ctx.fillStyle = bg;
-        ctx.strokeStyle = 'rgba(15, 23, 42, 0.35)';
+        const textColor = (() => {
+            if (typeof fg !== 'string' || fg.trim().length === 0) {
+                return '#0F172A';
+            }
+            const normalized = fg.trim().toLowerCase();
+            if (normalized === '#fff' || normalized === '#ffffff' || normalized === 'white') {
+                return '#0F172A';
+            }
+            return fg;
+        })();
+
+        ctx.fillStyle = CHIP_BASE_FILL;
+        ctx.strokeStyle = outlineColor ?? '#94A3B8';
         ctx.lineWidth = 1;
         const r = Math.min(baseLineHeight / 1.5, totalHeight / 2);
         const bx = Math.round(x);
@@ -3719,7 +3730,7 @@
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
-        ctx.fillStyle = fg;
+        ctx.fillStyle = textColor;
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
         const firstLineCenter = top + (baseLineHeight / 2);
