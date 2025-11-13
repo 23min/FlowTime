@@ -79,10 +79,24 @@ topology:
           arrivals: "User requests"
           served: "Requests routed"
           errors: "Dropped requests"
+    - id: IngressQueue
+      kind: queue
+      semantics:
+        arrivals: load_balanced_requests
+        served: auth_queue_outflow
+        errors: auth_queue_spill
+        queueDepth: ingress_queue_depth
+        aliases:
+          arrivals: "Routed requests"
+          served: "Requests dequeued"
+          errors: "Queue drops"
+          queue: "Ingress backlog"
+      initialCondition:
+        queueDepth: 0
     - id: AuthService
       kind: service
       semantics:
-        arrivals: load_balanced_requests
+        arrivals: auth_queue_outflow
         served: authenticated_requests
         errors: failed_requests
         processingTimeMsSum: auth_processing_time_ms_sum
@@ -106,8 +120,11 @@ topology:
   edges:
     - id: edge1
       from: LoadBalancer:out
-      to: AuthService:in
+      to: IngressQueue:in
     - id: edge2
+      from: IngressQueue:out
+      to: AuthService:in
+    - id: edge3
       from: AuthService:out
       to: Database:in
 
@@ -137,9 +154,23 @@ nodes:
     kind: expr
     expr: "load_balanced_requests * 150"
 
-  - id: authenticated_requests
+  - id: auth_queue_outflow
     kind: expr
     expr: "MIN(load_balanced_requests, auth_capacity)"
+
+  - id: auth_queue_spill
+    kind: expr
+    expr: "MAX(0, load_balanced_requests - auth_capacity)"
+
+  - id: ingress_queue_depth
+    kind: backlog
+    inflow: load_balanced_requests
+    outflow: auth_queue_outflow
+    loss: auth_queue_spill
+
+  - id: authenticated_requests
+    kind: expr
+    expr: "auth_queue_outflow"
 
   - id: auth_processing_time_ms_sum
     kind: expr
@@ -168,5 +199,7 @@ outputs:
     as: processed.csv
   - series: failed_requests
     as: failures.csv
+  - series: ingress_queue_depth
+    as: ingress_queue_depth.csv
   - series: system_utilization
     as: utilization.csv
