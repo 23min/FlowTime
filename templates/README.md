@@ -34,17 +34,28 @@ Telemetry JSON example:
 
 ## transportation-basic
 
+Hub-and-spoke transit network with a central queue and airport retries.
+
 | Parameter | Type | Default | Notes |
 |-----------|------|---------|-------|
-| `bins` | integer | `6` | Time periods to simulate. |
-| `binSize` | integer | `60` | Minutes per bin. |
-| `demandPattern` | array&lt;number&gt; | `[10, 15, 20, 25, 18, 12]` | Baseline passenger arrivals. |
-| `capacityPattern` | array&lt;number&gt; | `[15, 18, 25, 30, 22, 16]` | Vehicle capacity per bin. |
-| `telemetryDemandSource` | string | `""` | Optional telemetry CSV for `passenger_demand`. |
+| `bins` / `binSize` | integer | `6` / `60` | Forwarded to the model grid. |
+| `demandNorth`, `demandSouth` | array&lt;number&gt; | `[10, 14, 18, 22, 16, 12]` / `[8, 12, 16, 20, 14, 10]` | Origin arrivals. |
+| `capNorthToHub`, `capSouthToHub` | array&lt;number&gt; | `[12, …]` / `[10, …]` | Feeder capacities. |
+| `capHub`, `hubDispatchCapacity` | array&lt;number&gt; | `[20, 24, 32, 36, 28, 22]` / `[18, 22, 30, 32, 26, 20]` | Hub processing/dispatch limits. |
+| `capAirport`, `capDowntown`, `capIndustrial` | array&lt;number&gt; | see template | Destination capacities. |
+| `splitAirport`, `splitIndustrial` | number | `0.3` / `0.2` | Routing ratios out of the hub queue. |
+| `hubQueueLossRate` | number | `0.03` | Abandonment applied to `hub_queue_inflow`. |
+| `airportRetryRate`, `airportRetryFailureRate` | number | `0.12` / `0.25` | Retry semantics surfaced on the Airport line. |
+| `telemetryDemandNorthSource`, `telemetryDemandSouthSource` | string | `""` | Optional `file://` URIs for origin arrivals. |
+
+Highlights:
+- Origins feed `CentralHub`, which stages riders in `HubQueue` (backlog node) before dispatching downstream.
+- Airport line maps `attempts`, `failures`, and `retryEcho`, so UI retry chips mirror delivery behavior.
 
 ```json
 {
-  "telemetryDemandSource": "file:///workspaces/flowtime-vnext/data/telemetry/passenger_demand.csv"
+  "telemetryDemandNorthSource": "file:///captures/North_arrivals.csv",
+  "telemetryDemandSouthSource": "file:///captures/South_arrivals.csv"
 }
 ```
 
@@ -70,20 +81,31 @@ Telemetry JSON example:
 
 ## supply-chain-multi-tier
 
+End-to-end purchase order flow with warehouse buffering, distributor backlog, and delivery retries.
+
 | Parameter | Type | Default | Notes |
 |-----------|------|---------|-------|
-| `bins` | integer | `6` | Time periods to simulate. |
-| `binSize` | integer | `60` | Minutes per bin. |
-| `demandPattern` | array&lt;number&gt; | `[80, 120, 160, 140, 100, 60]` | Customer demand for `customer_demand`. |
-| `supplierCapacity` | array&lt;number&gt; | `[200, 200, 200, 200, 200, 200]` | Supplier production capacity. |
-| `distributorCapacity` | array&lt;number&gt; | `[150, 150, 150, 150, 150, 150]` | Distribution centre capacity. |
-| `retailerCapacity` | array&lt;number&gt; | `[120, 120, 120, 120, 120, 120]` | Retail capacity per bin. |
-| — | — | — | This base template models direct flow without explicit buffers (served is capped at demand). For buffer modeling, see the warehouse variant below. |
-| `telemetryDemandSource` | string | `""` | Optional telemetry CSV for `customer_demand`. |
+| `bins` | integer | `6` | Planning buckets (forwarded to `grid`). |
+| `binSize` | integer | `60` | Minutes per bucket. |
+| `demandPattern` | array&lt;number&gt; | `[80, 120, 160, 140, 100, 60]` | Purchase orders feeding `purchase_orders`. |
+| `supplierCapacity` | array&lt;number&gt; | `[220, 220, 210, 195, 180, 150]` | Supplier ship limit. |
+| `warehouseReleaseCap` | array&lt;number&gt; | `[190, 200, 205, 185, 160, 130]` | Warehouse release capacity. |
+| `fulfillmentCapacity` | array&lt;number&gt; | `[170, 170, 165, 160, 150, 120]` | Distributor pull capacity (`queue_outflow`). |
+| `deliveryCapacity` | array&lt;number&gt; | `[150, 155, 150, 140, 135, 110]` | Delivery fleet capacity. |
+| `bufferMultiplier` | number | `1.15` | Supplier build-ahead multiplier. |
+| `queueLossRate` | number | `0.04` | Spoilage/shrink applied to `queue_inflow`. |
+| `retryRate` | number | `0.18` | Fraction of pulled loads needing a retry. |
+| `retryFailureRate` | number | `0.35` | Fraction of retry attempts that still fail. |
+| `telemetryDemandSource` | string | `""` | Optional telemetry CSV for `purchase_orders`. |
+
+Highlights:
+- Supplier → Warehouse → DistributionQueue → Delivery mirrors the canonical topology, with aliases describing purchase orders, staged loads, backlog, and delivered units.
+- `DistributionQueue` uses the backlog node (`queueDepth`) so the UI queue chip reflects accumulated staged loads.
+- Delivery node surfaces retry semantics (`attempts`, `failures`, `retryEcho`) so retry chips render alongside total errors.
 
 ```json
 {
-  "telemetryDemandSource": "file:///workspaces/flowtime-vnext/data/telemetry/customer_demand.csv"
+  "telemetryDemandSource": "file:///workspaces/flowtime-vnext/data/telemetry/purchase_orders.csv"
 }
 ```
 
@@ -115,10 +137,6 @@ When FlowTime-Sim runs in a different environment than Engine:
 
 This keeps template ownership with Sim while ensuring Engine always consumes canonical bundles.
 
-## supply-chain-multi-tier-warehouse
-
-This variant introduces an explicit warehouse buffer between Supplier and Distributor. The Supplier plans production with a buffer multiplier (e.g., 20% build-ahead), ships to the Warehouse, and downstream pulls from inventory subject to Distributor and Retailer capacities. SLA channels remain conservative: per-node `served` values are capped by the corresponding `arrivals`/pull, so ratios never exceed 1.0.
-
 ## supply-chain-incident-retry
 
 Deterministic 24-hour IT operations incident workflow demonstrating retry semantics:
@@ -130,43 +148,9 @@ Deterministic 24-hour IT operations incident workflow demonstrating retry semant
 
 | Parameter | Type | Default | Notes |
 |-----------|------|---------|-------|
-| `bins` | integer | `6` | Time periods to simulate. |
-| `binSize` | integer | `60` | Minutes per bin. |
-| `demandPattern` | array<number> | `[80, 120, 160, 140, 100, 60]` | Customer demand for `customer_demand`. |
-| `supplierCapacity` | array<number> | `[200, 200, 200, 200, 200, 200]` | Supplier production capacity. |
-| `distributorCapacity` | array<number> | `[150, 150, 150, 150, 150, 150]` | Distribution capacity. |
-| `retailerCapacity` | array<number> | `[120, 120, 120, 120, 120, 120]` | Retail capacity. |
-| `bufferSize` | number | `1.2` | Planned production multiplier feeding the warehouse. |
-| `initialStock` | number | `0` | Initial warehouse inventory (bin 0). |
-| `telemetryDemandSource` | string | `""` | Optional telemetry CSV for `customer_demand`. |
-
-Key series:
-- `planned_production` and `supplier_shipments` feed the warehouse.
-- `warehouse_shipments` respects downstream pull (`customer_demand`) and capacities.
-
-Topology nodes: Supplier (service) → Warehouse (router) → Distributor (service) → Retailer (service).
-
-Notes:
-- Arrays for demand/capacity parameters must contain exactly `grid.bins` values. If you raise `bins`, provide matching-length arrays or the engine throws at evaluation time.
-
-## supply-chain-multi-tier-warehouse-1d5m
-
-Fixed 24-hour variant of the warehouse template preconfigured for a 1‑day window with 5‑minute bins (288). Demand is shaped by hour and expanded to 5‑minute bins; capacities are constant across the day. No parameters — ready to run.
-
-Metadata:
-- Title: "Multi-Tier Supply Chain with Warehouse (1day, 5m)"
-- Grid: `bins: 288`, `binSize: 5`, `binUnit: minutes`
-
-Topology nodes: Supplier (service) → Warehouse (service) → Distributor (service) → Retailer (service).
-
----
-
 ## Queues, SHIFT, and initial conditions (authoring guidance)
 
-FlowTime expressions support `SHIFT(series, k)` and it is safe for non‑self references (e.g., `SHIFT(demand, 1)`). To model an accumulating queue depth (`Q[t] = max(0, Q[t−1] + inflow[t] − outflow[t])`), a self‑reference is required. Templates must then:
-
-1) Provide an initial condition in topology for the queue node (e.g., `initialCondition.queueDepth: 0`).
-2) Define `queue_depth` from the previous bin:
+FlowTime still supports self‑referential `SHIFT` expressions, but catalog templates now prefer the dedicated backlog node. Provide inflow/outflow/loss series plus a topology seed and the engine maintains `queueDepth` automatically:
 
 ```yaml
 topology:
@@ -176,14 +160,17 @@ topology:
       semantics:
         arrivals: queue_inflow
         served: queue_outflow
+        errors: queue_losses
         queueDepth: queue_depth
       initialCondition:
-        queueDepth: 0
+        queueDepth: 12
 
 nodes:
   - id: queue_depth
-    kind: expr
-    expr: "MAX(0, SHIFT(queue_depth, 1) + queue_inflow - queue_outflow)"
+    kind: backlog
+    inflow: queue_inflow
+    outflow: queue_outflow
+    loss: queue_losses
 ```
 
-Note: As of this milestone, catalog templates avoid self‑`SHIFT` patterns to keep models simple. Several existing templates use per‑bin inflow/outflow (and sometimes a delta proxy) for queues rather than true accumulation. The snippet above shows the intended approach for accumulating backlog once we adopt it broadly in the catalog. If you use self‑`SHIFT`, ensure an initial condition is declared, or validation will fail.
+If you hand-author `queue_depth := MAX(0, SHIFT(queue_depth, 1) + …)`, remember to keep `initialCondition.queueDepth`—the validator still requires it for legacy patterns.

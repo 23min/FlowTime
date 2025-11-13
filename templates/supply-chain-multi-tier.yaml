@@ -1,12 +1,12 @@
 schemaVersion: 1
 generator: flowtime-sim
 metadata:
-  id: 'supply-chain-multi-tier'
-  title: 'Multi-Tier Supply Chain'
-  description: 'Complex supply chain with suppliers, distributors, retailers, and demand variability'
-  version: 1.0.0
+  id: supply-chain-multi-tier
+  title: Multi-Tier Supply Chain
+  description: End-to-end purchase order flow with warehouse buffering, distributor queue backlog, and delivery retries.
+  version: 2.0.0
   captureKey: supply-chain-multi-tier-telemetry
-  tags: [advanced, supply-chain, multi-tier, variability, logistics]
+  tags: [supply-chain, logistics, queue, retries]
 window:
   start: 2025-01-01T00:00:00Z
   timezone: UTC
@@ -15,56 +15,84 @@ parameters:
   - name: bins
     type: integer
     title: "Time Periods"
-    description: "Number of time periods to simulate"
+    description: "Number of hourly planning buckets"
     default: 6
     minimum: 3
-    maximum: 288
+    maximum: 48
   - name: binSize
     type: integer
-    title: "Period Duration"
-    description: "Duration of each time period in minutes"
+    title: "Bin Size (minutes)"
+    description: "Duration of each planning bucket"
     default: 60
     minimum: 15
     maximum: 480
   - name: demandPattern
     type: array
-    title: "Customer Demand Pattern"
-    description: "Customer demand volume per time period"
+    title: "Customer Demand"
+    description: "Purchase orders entering the supplier per bucket"
     default: [80, 120, 160, 140, 100, 60]
     minimum: 0
     maximum: 5000
   - name: supplierCapacity
     type: array
     title: "Supplier Capacity"
-    description: "Supplier production capacity per time period"
-    default: [200, 200, 200, 200, 200, 200]
+    description: "Units the supplier can ship per bucket"
+    default: [220, 220, 210, 195, 180, 150]
     minimum: 1
     maximum: 5000
-  - name: distributorCapacity
+  - name: warehouseReleaseCap
     type: array
-    title: "Distributor Capacity"
-    description: "Distribution center capacity per time period"
-    default: [150, 150, 150, 150, 150, 150]
+    title: "Warehouse Release Capacity"
+    description: "Units the warehouse can prep for distribution"
+    default: [190, 200, 205, 185, 160, 130]
     minimum: 1
     maximum: 5000
-  - name: retailerCapacity
+  - name: fulfillmentCapacity
     type: array
-    title: "Retailer Capacity"
-    description: "Retail outlet capacity per time period"
-    default: [120, 120, 120, 120, 120, 120]
+    title: "Distributor Pull Capacity"
+    description: "Units the distributor tries to pull from the queue"
+    default: [170, 170, 165, 160, 150, 120]
     minimum: 1
     maximum: 5000
-  - name: bufferSize
+  - name: deliveryCapacity
+    type: array
+    title: "Delivery Fleet Capacity"
+    description: "Delivered units the network can land with customers"
+    default: [150, 155, 150, 140, 135, 110]
+    minimum: 1
+    maximum: 5000
+  - name: bufferMultiplier
     type: number
-    title: "Buffer Size Multiplier"
-    description: "Safety stock buffer as multiplier of demand (deprecated in this base template; use the warehouse variant to model buffers)"
-    default: 1.0
+    title: "Supplier Build-Ahead"
+    description: "Multiplier applied to demand to plan build-ahead production"
+    default: 1.15
     minimum: 1.0
-    maximum: 3.0
+    maximum: 2.0
+  - name: queueLossRate
+    type: number
+    title: "Queue Shrinkage"
+    description: "Percent of staged loads that spoil or miss the window"
+    default: 0.04
+    minimum: 0.0
+    maximum: 0.3
+  - name: retryRate
+    type: number
+    title: "Delivery Retry Rate"
+    description: "Fraction of shipments that require a redelivery attempt"
+    default: 0.18
+    minimum: 0.0
+    maximum: 1.0
+  - name: retryFailureRate
+    type: number
+    title: "Failed Retry Rate"
+    description: "Fraction of retry attempts that still fail"
+    default: 0.35
+    minimum: 0.0
+    maximum: 1.0
   - name: telemetryDemandSource
     type: string
-    title: "Telemetry customer demand source"
-    description: "Optional file:// URI for customer demand when replaying telemetry"
+    title: "Telemetry demand source"
+    description: "Optional file:// URI for customer demand replay"
     default: ""
 
 grid:
@@ -77,151 +105,197 @@ topology:
     - id: Supplier
       kind: service
       semantics:
-        arrivals: customer_demand
-        served: supplied_items
+        arrivals: purchase_orders
+        served: supplier_shipments
         errors: supplier_shortage
         processingTimeMsSum: supplier_processing_time_ms_sum
-        servedCount: supplied_items
+        servedCount: supplier_shipments
         aliases:
-          arrivals: "Customer demand"
-          served: "Units supplied"
-          errors: "Supplier shortage"
-    - id: DistributorQueue
+          arrivals: "Purchase orders"
+          served: "Supplier shipments"
+          errors: "Supplier shortfall"
+    - id: Warehouse
+      kind: service
+      semantics:
+        arrivals: supplier_shipments
+        served: warehouse_release
+        errors: warehouse_inventory_build
+        processingTimeMsSum: warehouse_processing_time_ms_sum
+        servedCount: warehouse_release
+        aliases:
+          served: "Loads staged"
+          errors: "Inventory build"
+    - id: DistributionQueue
       kind: queue
       semantics:
         arrivals: queue_inflow
         served: queue_outflow
-        errors: queue_errors
+        errors: queue_losses
         queueDepth: queue_depth
         aliases:
-          arrivals: "Supply inflow"
-          served: "Loads released"
-          queue: "Staged loads"
-          errors: "Overflow"
-    - id: Distributor
+          arrivals: "Loads staged"
+          served: "Loads pulled"
+          errors: "Spoilage"
+          queue: "Distributor backlog"
+      initialCondition:
+        queueDepth: 12
+    - id: Delivery
       kind: service
       semantics:
         arrivals: queue_outflow
-        served: distributed_items
-        errors: distributor_backlog
-        processingTimeMsSum: distributor_processing_time_ms_sum
-        servedCount: distributed_items
+        served: deliveries_served
+        errors: delivery_errors
+        capacity: delivery_capacity
+        attempts: delivery_attempts
+        failures: retry_failures
+        retryEcho: retry_echo
+        retryKernel: [0.0, 0.6, 0.3, 0.1]
+        processingTimeMsSum: delivery_processing_time_ms_sum
+        servedCount: deliveries_served
         aliases:
-          served: "Units shipped"
-          errors: "Distributor backlog"
-    - id: Retailer
-      kind: service
-      semantics:
-        arrivals: distributed_items
-        served: retail_sales
-        errors: unmet_demand
-        processingTimeMsSum: retailer_processing_time_ms_sum
-        servedCount: retail_sales
-        aliases:
-          served: "Units sold"
-          errors: "Unmet demand"
+          arrivals: "Loads pulled"
+          served: "Orders delivered"
+          errors: "Failed deliveries"
+          attempts: "Delivery attempts"
+          failures: "Failed retries"
+          retryEcho: "Retry backlog"
   edges:
-    - id: edge1
+    - id: supplier_to_warehouse
       from: Supplier:out
-      to: DistributorQueue:in
-    - id: edge2
-      from: DistributorQueue:out
-      to: Distributor:in
-    - id: edge3
-      from: Distributor:out
-      to: Retailer:in
+      to: Warehouse:in
+    - id: warehouse_to_queue
+      from: Warehouse:out
+      to: DistributionQueue:in
+    - id: queue_to_delivery
+      from: DistributionQueue:out
+      to: Delivery:in
 
 nodes:
+  - id: purchase_orders
+    kind: const
+    values: ${demandPattern}
+    source: ${telemetryDemandSource}
+
   - id: supplier_capacity
     kind: const
     values: ${supplierCapacity}
 
-  - id: customer_demand_pmf
-    kind: pmf
-    pmf:
-      values: [80, 120, 160, 140, 100, 60]
-      probabilities: [0.15, 0.25, 0.2, 0.2, 0.15, 0.05]
-
-  - id: customer_demand
-    kind: expr
-    expr: "customer_demand_pmf"
-  - id: distributor_capacity
+  - id: warehouse_release_cap
     kind: const
-    values: ${distributorCapacity}
+    values: ${warehouseReleaseCap}
 
-  - id: retailer_capacity
+  - id: fulfillment_capacity
     kind: const
-    values: ${retailerCapacity}
+    values: ${fulfillmentCapacity}
 
-  - id: supplied_items
+  - id: delivery_capacity
+    kind: const
+    values: ${deliveryCapacity}
+
+  - id: supplier_shipments
     kind: expr
-    expr: "MIN(customer_demand, supplier_capacity)"
+    expr: "MIN(purchase_orders * ${bufferMultiplier}, supplier_capacity)"
+
   - id: supplier_processing_time_ms_sum
     kind: expr
-    expr: "supplied_items * 180"
+    expr: "supplier_shipments * 240"
+
+  - id: warehouse_release
+    kind: expr
+    expr: "MIN(supplier_shipments, warehouse_release_cap)"
+
+  - id: warehouse_processing_time_ms_sum
+    kind: expr
+    expr: "warehouse_release * 160"
+
+  - id: warehouse_inventory_build
+    kind: expr
+    expr: "MAX(0, supplier_shipments - warehouse_release)"
 
   - id: queue_inflow
     kind: expr
-    expr: "supplied_items"
+    expr: "warehouse_release"
+
+  - id: queue_losses
+    kind: expr
+    expr: "${queueLossRate} * queue_inflow"
 
   - id: queue_outflow
     kind: expr
-    expr: "MIN(queue_inflow, distributor_capacity)"
-
-  - id: queue_errors
-    kind: expr
-    expr: "0"
+    expr: "MIN(queue_inflow, fulfillment_capacity)"
 
   - id: queue_depth
     kind: backlog
     inflow: queue_inflow
     outflow: queue_outflow
-    loss: queue_errors
+    loss: queue_losses
 
-  - id: distributed_items
+  - id: delivery_base_load
     kind: expr
     expr: "queue_outflow"
-  - id: distributor_processing_time_ms_sum
-    kind: expr
-    expr: "distributed_items * 210"
 
-  - id: retail_sales
+  - id: retry_attempts
     kind: expr
-    expr: "MIN(distributed_items, retailer_capacity)"
-  - id: retailer_processing_time_ms_sum
+    expr: "${retryRate} * delivery_base_load"
+
+  - id: delivery_attempts
     kind: expr
-    expr: "retail_sales * 260"
+    expr: "delivery_base_load + retry_attempts"
+
+  - id: retry_failures
+    kind: expr
+    expr: "${retryFailureRate} * retry_attempts"
+
+  - id: capacity_served
+    kind: expr
+    expr: "MIN(delivery_attempts, delivery_capacity)"
+
+  - id: deliveries_served
+    kind: expr
+    expr: "MAX(0, capacity_served - retry_failures)"
+
+  - id: delivery_errors
+    kind: expr
+    expr: "delivery_attempts - deliveries_served"
+
+  - id: delivery_processing_time_ms_sum
+    kind: expr
+    expr: "deliveries_served * 300"
+
+  - id: retry_echo
+    kind: expr
+    expr: "CONV(retry_attempts, [0.0, 0.6, 0.3, 0.1])"
 
   - id: supplier_shortage
     kind: expr
-    expr: "MAX(0, customer_demand - supplied_items)"
+    expr: "MAX(0, purchase_orders - supplier_shipments)"
 
-  - id: distributor_backlog
+  - id: queue_overflow
     kind: expr
-    expr: "MAX(0, supplied_items - distributed_items)"
+    expr: "MAX(0, queue_inflow - fulfillment_capacity)"
 
-  - id: unmet_demand
+  - id: delivery_utilization
     kind: expr
-    expr: "MAX(0, customer_demand - retail_sales)"
-
-  - id: supply_efficiency
-    kind: expr
-    expr: "retail_sales / customer_demand"
+    expr: "deliveries_served / delivery_capacity"
 
 outputs:
-  - series: customer_demand
+  - series: purchase_orders
     as: demand.csv
-  - series: retail_sales
-    as: sales.csv
-  - series: unmet_demand
-    as: stockouts.csv
-  - series: supplier_shortage
-    as: supplier_shortage.csv
-  - series: distributor_backlog
-    as: distributor_backlog.csv
+  - series: supplier_shipments
+    as: supplier_shipments.csv
+  - series: warehouse_release
+    as: warehouse_release.csv
   - series: queue_depth
     as: distributor_queue_depth.csv
   - series: queue_outflow
-    as: distributor_queue_out.csv
-  - series: supply_efficiency
-    as: efficiency.csv
+    as: loads_pulled.csv
+  - series: deliveries_served
+    as: deliveries.csv
+  - series: delivery_attempts
+    as: delivery_attempts.csv
+  - series: retry_failures
+    as: failed_retries.csv
+  - series: delivery_errors
+    as: delivery_errors.csv
+  - series: delivery_utilization
+    as: delivery_utilization.csv

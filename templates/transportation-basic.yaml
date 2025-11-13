@@ -2,11 +2,11 @@ schemaVersion: 1
 generator: flowtime-sim
 metadata:
   id: 'transportation-basic'
-  title: 'Transportation Network'
-  description: 'Simple transportation flow with demand and capacity constraints, ideal for logistics learning'
-  version: 1.0.0
-  captureKey: transportation-basic-telemetry
-  tags: [beginner, transportation, logistics, capacity]
+  title: 'Transportation Network with Hub Queue'
+  description: 'North/South origins feed a central hub with an outbound queue and airport retries.'
+  version: 2.0.0
+  captureKey: transportation-network-telemetry
+  tags: [transportation, transit, queue, retries]
 window:
   start: 2025-01-01T00:00:00Z
   timezone: UTC
@@ -22,28 +22,124 @@ parameters:
   - name: binSize
     type: integer
     title: "Period Duration"
-    description: "Duration of each time period in minutes"
+    description: "Minutes per bin"
     default: 60
     minimum: 15
     maximum: 480
-  - name: demandPattern
+
+  - name: demandNorth
     type: array
-    title: "Passenger Demand Pattern"
-    description: "Number of passengers wanting to travel in each time period"
-    default: [10, 15, 20, 25, 18, 12]
+    title: "Northbound Demand"
+    description: "Passengers arriving from the North per period"
+    default: [10, 14, 18, 22, 16, 12]
     minimum: 0
     maximum: 1000
-  - name: capacityPattern
+  - name: demandSouth
     type: array
-    title: "Vehicle Capacity Pattern"
-    description: "Number of available seats/spaces in each time period"
-    default: [15, 18, 25, 30, 22, 16]
+    title: "Southbound Demand"
+    description: "Passengers arriving from the South per period"
+    default: [8, 12, 16, 20, 14, 10]
+    minimum: 0
+    maximum: 1000
+
+  - name: capNorthToHub
+    type: array
+    title: "North → Hub Capacity"
+    description: "Feeder capacity from North origin to Hub"
+    default: [12, 12, 20, 24, 18, 14]
     minimum: 1
     maximum: 1000
-  - name: telemetryDemandSource
+  - name: capSouthToHub
+    type: array
+    title: "South → Hub Capacity"
+    description: "Feeder capacity from South origin to Hub"
+    default: [10, 12, 18, 22, 16, 12]
+    minimum: 1
+    maximum: 1000
+
+  - name: capHub
+    type: array
+    title: "Hub Processing Capacity"
+    description: "Passengers the hub can process per period"
+    default: [20, 24, 32, 36, 28, 22]
+    minimum: 1
+    maximum: 2000
+  - name: hubDispatchCapacity
+    type: array
+    title: "Hub Dispatch Capacity"
+    description: "Passengers the hub can dispatch downstream"
+    default: [18, 22, 30, 32, 26, 20]
+    minimum: 1
+    maximum: 2000
+
+  - name: capAirport
+    type: array
+    title: "Airport Line Capacity"
+    description: "Capacity of the Airport destination line"
+    default: [8, 10, 12, 14, 12, 10]
+    minimum: 1
+    maximum: 1000
+  - name: capDowntown
+    type: array
+    title: "Downtown Line Capacity"
+    description: "Capacity of the Downtown destination line"
+    default: [10, 14, 20, 22, 16, 12]
+    minimum: 1
+    maximum: 1000
+  - name: capIndustrial
+    type: array
+    title: "Industrial Park Capacity"
+    description: "Capacity of the Industrial Park line"
+    default: [6, 8, 10, 12, 10, 8]
+    minimum: 1
+    maximum: 1000
+
+  - name: splitAirport
+    type: number
+    title: "Hub → Airport Split"
+    description: "Fraction of hub dispatch routed to Airport"
+    default: 0.3
+    minimum: 0.0
+    maximum: 1.0
+  - name: splitIndustrial
+    type: number
+    title: "Hub → Industrial Split"
+    description: "Fraction of hub dispatch routed to Industrial Park"
+    default: 0.2
+    minimum: 0.0
+    maximum: 1.0
+
+  - name: hubQueueLossRate
+    type: number
+    title: "Hub Queue Abandon Rate"
+    description: "Percent of staged passengers that abandon the queue"
+    default: 0.03
+    minimum: 0.0
+    maximum: 0.5
+  - name: airportRetryRate
+    type: number
+    title: "Airport Retry Rate"
+    description: "Fraction of airport passengers requiring re-boarding"
+    default: 0.12
+    minimum: 0.0
+    maximum: 1.0
+  - name: airportRetryFailureRate
+    type: number
+    title: "Airport Failed Retry Rate"
+    description: "Fraction of airport retry attempts that still fail"
+    default: 0.25
+    minimum: 0.0
+    maximum: 1.0
+
+  - name: telemetryDemandNorthSource
     type: string
-    title: "Telemetry demand source"
-    description: "Optional file:// URI for passenger demand when replaying telemetry"
+    title: "Telemetry North demand source"
+    description: "Optional file:// URI for North arrivals"
+    default: ""
+  - name: telemetryDemandSouthSource
+    type: string
+    title: "Telemetry South demand source"
+    description: "Optional file:// URI for South arrivals"
     default: ""
 
 grid:
@@ -53,51 +149,282 @@ grid:
 
 topology:
   nodes:
-    - id: TransitLine
+    - id: OriginNorth
       kind: service
       semantics:
-        arrivals: passenger_demand
-        served: passengers_served
-        errors: unmet_demand
-        processingTimeMsSum: transit_processing_time_ms_sum
-        servedCount: passengers_served
+        arrivals: arrivals_north
+        served: served_north
+        errors: unmet_north
+        processingTimeMsSum: origin_north_processing_time_ms_sum
+        servedCount: served_north
         aliases:
-          arrivals: "Passenger demand"
-          served: "Passengers transported"
-          errors: "Unserved riders"
-  edges: []
+          arrivals: "Northbound demand"
+          served: "North → hub passengers"
+          errors: "Unserved north riders"
+    - id: OriginSouth
+      kind: service
+      semantics:
+        arrivals: arrivals_south
+        served: served_south
+        errors: unmet_south
+        processingTimeMsSum: origin_south_processing_time_ms_sum
+        servedCount: served_south
+        aliases:
+          arrivals: "Southbound demand"
+          served: "South → hub passengers"
+          errors: "Unserved south riders"
+    - id: CentralHub
+      kind: service
+      semantics:
+        arrivals: arrivals_hub
+        served: served_hub
+        errors: unmet_hub
+        capacity: cap_hub
+        processingTimeMsSum: hub_processing_time_ms_sum
+        servedCount: served_hub
+        aliases:
+          served: "Hub throughput"
+          errors: "Hub overflow"
+    - id: HubQueue
+      kind: queue
+      semantics:
+        arrivals: hub_queue_inflow
+        served: hub_dispatch
+        errors: hub_queue_abandon
+        queueDepth: hub_queue_depth
+        aliases:
+          arrivals: "Hub throughput"
+          served: "Dispatched riders"
+          errors: "Queue abandon"
+          queue: "Hub backlog"
+      initialCondition:
+        queueDepth: 20
+    - id: LineAirport
+      kind: service
+      semantics:
+        arrivals: arrivals_airport
+        served: served_airport
+        errors: errors_airport
+        capacity: cap_airport
+        attempts: airport_attempts
+        failures: airport_retry_failures
+        retryEcho: airport_retry_echo
+        retryKernel: [0.0, 0.6, 0.3, 0.1]
+        processingTimeMsSum: airport_processing_time_ms_sum
+        servedCount: served_airport
+        aliases:
+          arrivals: "Airport-bound riders"
+          served: "Airport departures"
+          errors: "Airport fallout"
+          attempts: "Airport attempts"
+          failures: "Airport failed retries"
+    - id: LineDowntown
+      kind: service
+      semantics:
+        arrivals: arrivals_downtown
+        served: served_downtown
+        errors: unmet_downtown
+        capacity: cap_downtown
+        processingTimeMsSum: downtown_processing_time_ms_sum
+        servedCount: served_downtown
+        aliases:
+          served: "Downtown departures"
+          errors: "Downtown overflow"
+    - id: LineIndustrial
+      kind: service
+      semantics:
+        arrivals: arrivals_industrial
+        served: served_industrial
+        errors: unmet_industrial
+        capacity: cap_industrial
+        processingTimeMsSum: industrial_processing_time_ms_sum
+        servedCount: served_industrial
+        aliases:
+          served: "Industrial departures"
+          errors: "Industrial overflow"
+  edges:
+    - id: north_to_hub
+      from: OriginNorth:out
+      to: CentralHub:in
+    - id: south_to_hub
+      from: OriginSouth:out
+      to: CentralHub:in
+    - id: hub_to_queue
+      from: CentralHub:out
+      to: HubQueue:in
+    - id: queue_to_airport
+      from: HubQueue:out
+      to: LineAirport:in
+    - id: queue_to_downtown
+      from: HubQueue:out
+      to: LineDowntown:in
+    - id: queue_to_industrial
+      from: HubQueue:out
+      to: LineIndustrial:in
 
 nodes:
-  - id: passenger_demand
+  - id: arrivals_north
     kind: const
-    values: ${demandPattern}
-    source: ${telemetryDemandSource}
-
-  - id: vehicle_capacity
+    values: ${demandNorth}
+    source: ${telemetryDemandNorthSource}
+  - id: arrivals_south
     kind: const
-    values: ${capacityPattern}
+    values: ${demandSouth}
+    source: ${telemetryDemandSouthSource}
 
-  - id: passengers_served
-    kind: expr
-    expr: "MIN(passenger_demand, vehicle_capacity)"
-  - id: transit_processing_time_ms_sum
-    kind: expr
-    expr: "passengers_served * 120"
+  - id: cap_north
+    kind: const
+    values: ${capNorthToHub}
+  - id: cap_south
+    kind: const
+    values: ${capSouthToHub}
+  - id: cap_hub
+    kind: const
+    values: ${capHub}
+  - id: hub_dispatch_capacity
+    kind: const
+    values: ${hubDispatchCapacity}
+  - id: cap_airport
+    kind: const
+    values: ${capAirport}
+  - id: cap_downtown
+    kind: const
+    values: ${capDowntown}
+  - id: cap_industrial
+    kind: const
+    values: ${capIndustrial}
 
-  - id: unmet_demand
+  - id: served_north
     kind: expr
-    expr: "MAX(0, passenger_demand - vehicle_capacity)"
+    expr: "MIN(arrivals_north, cap_north)"
+  - id: served_south
+    kind: expr
+    expr: "MIN(arrivals_south, cap_south)"
+  - id: unmet_north
+    kind: expr
+    expr: "MAX(0, arrivals_north - cap_north)"
+  - id: unmet_south
+    kind: expr
+    expr: "MAX(0, arrivals_south - cap_south)"
+  - id: origin_north_processing_time_ms_sum
+    kind: expr
+    expr: "served_north * 40"
+  - id: origin_south_processing_time_ms_sum
+    kind: expr
+    expr: "served_south * 40"
 
-  - id: utilization
+  - id: arrivals_hub
     kind: expr
-    expr: "passengers_served / vehicle_capacity"
+    expr: "served_north + served_south"
+  - id: served_hub
+    kind: expr
+    expr: "MIN(arrivals_hub, cap_hub)"
+  - id: unmet_hub
+    kind: expr
+    expr: "MAX(0, arrivals_hub - cap_hub)"
+  - id: hub_processing_time_ms_sum
+    kind: expr
+    expr: "served_hub * 55"
+
+  - id: hub_queue_inflow
+    kind: expr
+    expr: "served_hub"
+  - id: hub_queue_abandon
+    kind: expr
+    expr: "${hubQueueLossRate} * hub_queue_inflow"
+  - id: hub_dispatch
+    kind: expr
+    expr: "MIN(hub_queue_inflow, hub_dispatch_capacity)"
+
+  - id: hub_queue_depth
+    kind: backlog
+    inflow: hub_queue_inflow
+    outflow: hub_dispatch
+    loss: hub_queue_abandon
+
+  - id: hub_dispatch_airport
+    kind: expr
+    expr: "hub_dispatch * ${splitAirport}"
+  - id: hub_dispatch_industrial
+    kind: expr
+    expr: "hub_dispatch * ${splitIndustrial}"
+  - id: hub_dispatch_downtown
+    kind: expr
+    expr: "hub_dispatch - hub_dispatch_airport - hub_dispatch_industrial"
+
+  - id: arrivals_airport
+    kind: expr
+    expr: "hub_dispatch_airport"
+  - id: arrivals_industrial
+    kind: expr
+    expr: "hub_dispatch_industrial"
+  - id: arrivals_downtown
+    kind: expr
+    expr: "hub_dispatch_downtown"
+
+  - id: airport_base_served
+    kind: expr
+    expr: "MIN(arrivals_airport, cap_airport)"
+  - id: airport_retry_attempts
+    kind: expr
+    expr: "${airportRetryRate} * airport_base_served"
+  - id: airport_attempts
+    kind: expr
+    expr: "airport_base_served + airport_retry_attempts"
+  - id: airport_retry_failures
+    kind: expr
+    expr: "${airportRetryFailureRate} * airport_retry_attempts"
+  - id: served_airport
+    kind: expr
+    expr: "MAX(0, MIN(airport_attempts, cap_airport) - airport_retry_failures)"
+  - id: errors_airport
+    kind: expr
+    expr: "airport_attempts - served_airport"
+  - id: airport_retry_echo
+    kind: expr
+    expr: "CONV(airport_retry_attempts, [0.0, 0.6, 0.3, 0.1])"
+  - id: airport_processing_time_ms_sum
+    kind: expr
+    expr: "served_airport * 75"
+
+  - id: served_downtown
+    kind: expr
+    expr: "MIN(arrivals_downtown, cap_downtown)"
+  - id: unmet_downtown
+    kind: expr
+    expr: "MAX(0, arrivals_downtown - cap_downtown)"
+  - id: downtown_processing_time_ms_sum
+    kind: expr
+    expr: "served_downtown * 60"
+
+  - id: served_industrial
+    kind: expr
+    expr: "MIN(arrivals_industrial, cap_industrial)"
+  - id: unmet_industrial
+    kind: expr
+    expr: "MAX(0, arrivals_industrial - cap_industrial)"
+  - id: industrial_processing_time_ms_sum
+    kind: expr
+    expr: "served_industrial * 60"
 
 outputs:
-  - series: passenger_demand
-    as: demand.csv
-  - series: passengers_served
-    as: served.csv
-  - series: unmet_demand
-    as: overcrowding.csv
-  - series: utilization
-    as: utilization.csv
+  - series: arrivals_north
+    as: north_demand.csv
+  - series: arrivals_south
+    as: south_demand.csv
+  - series: served_hub
+    as: hub_throughput.csv
+  - series: hub_queue_depth
+    as: hub_queue_depth.csv
+  - series: hub_dispatch
+    as: hub_dispatch.csv
+  - series: served_airport
+    as: airport_served.csv
+  - series: airport_attempts
+    as: airport_attempts.csv
+  - series: airport_retry_failures
+    as: airport_retry_failures.csv
+  - series: served_downtown
+    as: downtown_served.csv
+  - series: served_industrial
+    as: industrial_served.csv
