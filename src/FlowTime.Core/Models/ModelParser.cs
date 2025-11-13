@@ -36,7 +36,7 @@ public static class ModelParser
         var unit = TimeUnitExtensions.Parse(model.Grid.BinUnit);
         var grid = new TimeGrid(model.Grid.Bins, model.Grid.BinSize, unit);
         
-        var nodes = ParseNodes(model.Nodes);
+        var nodes = ParseNodes(model);
         var graph = new Graph(nodes);
         
         return (grid, graph);
@@ -234,13 +234,36 @@ public static class ModelParser
     /// <summary>
     /// Parse node definitions into INode objects.
     /// </summary>
-    public static List<INode> ParseNodes(IEnumerable<NodeDefinition> nodeDefinitions)
+    public static List<INode> ParseNodes(ModelDefinition model)
     {
         var nodes = new List<INode>();
-        
-        foreach (var nodeDef in nodeDefinitions)
+
+        // Build a lookup from backlog series id to initial seed (from topology initialCondition)
+        var backlogInitials = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        if (model.Topology?.Nodes != null)
+        {
+            foreach (var topoNode in model.Topology.Nodes)
+            {
+                var queueId = topoNode.Semantics?.QueueDepth;
+                if (string.IsNullOrWhiteSpace(queueId)) continue;
+                var seed = topoNode.InitialCondition?.QueueDepth ?? 0d;
+                backlogInitials[queueId!.Trim()] = seed;
+            }
+        }
+
+        foreach (var nodeDef in model.Nodes)
         {
             var node = ParseSingleNode(nodeDef);
+
+            // Patch BacklogNode with initial seed if configured via topology
+            if (node is Nodes.BacklogNode && backlogInitials.TryGetValue(nodeDef.Id, out var seed))
+            {
+                // Reconstruct with seed
+                var inflow = new NodeId(nodeDef.Inflow ?? throw new ModelParseException($"Backlog node {nodeDef.Id} requires 'inflow'."));
+                var outflow = new NodeId(nodeDef.Outflow ?? throw new ModelParseException($"Backlog node {nodeDef.Id} requires 'outflow'."));
+                NodeId? loss = string.IsNullOrWhiteSpace(nodeDef.Loss) ? null : new NodeId(nodeDef.Loss!);
+                node = new Nodes.BacklogNode(nodeDef.Id, inflow, outflow, loss, seed);
+            }
             nodes.Add(node);
         }
         
@@ -260,6 +283,7 @@ public static class ModelParser
             "const" => ParseConstNode(nodeDef),
             "expr" => ParseExprNode(nodeDef),
             "pmf" => ParsePmfNode(nodeDef),
+            "backlog" => ParseBacklogNode(nodeDef),
             _ => throw new ModelParseException($"Unknown node kind: {nodeDef.Kind}")
         };
     }
@@ -324,6 +348,18 @@ public static class ModelParser
             throw new ModelParseException($"Node {nodeDef.Id}: unexpected error parsing PMF: {ex.Message}", ex);
         }
     }
+
+    private static INode ParseBacklogNode(NodeDefinition nodeDef)
+    {
+        var inflowId = nodeDef.Inflow;
+        var outflowId = nodeDef.Outflow;
+        if (string.IsNullOrWhiteSpace(inflowId) || string.IsNullOrWhiteSpace(outflowId))
+            throw new ModelParseException($"Node {nodeDef.Id}: backlog nodes require 'inflow' and 'outflow' fields");
+
+        NodeId? loss = string.IsNullOrWhiteSpace(nodeDef.Loss) ? null : new NodeId(nodeDef.Loss!);
+        // Initial seed is injected later from topology (see ParseNodes(model))
+        return new Nodes.BacklogNode(nodeDef.Id, new NodeId(inflowId), new NodeId(outflowId), loss, 0d);
+    }
 }
 
 /// <summary>
@@ -362,6 +398,10 @@ public class NodeDefinition
     public double[]? Values { get; set; }
     public string? Expr { get; set; }
     public PmfDefinition? Pmf { get; set; }
+    // For backlog nodes
+    public string? Inflow { get; set; }
+    public string? Outflow { get; set; }
+    public string? Loss { get; set; }
 }
 
 public class PmfDefinition

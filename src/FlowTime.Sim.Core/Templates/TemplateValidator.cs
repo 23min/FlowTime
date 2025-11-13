@@ -172,6 +172,10 @@ internal static class TemplateValidator
                     }
                     break;
 
+                case "backlog":
+                    ValidateBacklogNode(node, allNodeIds);
+                    break;
+
                 default:
                     throw new TemplateValidationException($"Unsupported node kind '{node.Kind}' for node '{node.Id}'.");
             }
@@ -283,6 +287,29 @@ internal static class TemplateValidator
         }
 
         return false;
+    }
+
+    private static void ValidateBacklogNode(TemplateNode node, HashSet<string> allNodeIds)
+    {
+        if (string.IsNullOrWhiteSpace(node.Inflow) || string.IsNullOrWhiteSpace(node.Outflow))
+        {
+            throw new TemplateValidationException($"Backlog node '{node.Id}' must define 'inflow' and 'outflow'.");
+        }
+
+        // Ensure inflow/outflow reference existing nodes
+        if (!allNodeIds.Contains(node.Inflow))
+        {
+            throw new TemplateValidationException($"Backlog node '{node.Id}' inflow references unknown node '{node.Inflow}'.");
+        }
+        if (!allNodeIds.Contains(node.Outflow))
+        {
+            throw new TemplateValidationException($"Backlog node '{node.Id}' outflow references unknown node '{node.Outflow}'.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(node.Loss) && !allNodeIds.Contains(node.Loss))
+        {
+            throw new TemplateValidationException($"Backlog node '{node.Id}' loss references unknown node '{node.Loss}'.");
+        }
     }
 
     private static void ValidateOutputs(List<TemplateOutput> outputs, HashSet<string> nodeIds)
@@ -401,7 +428,7 @@ internal static class TemplateValidator
             ("attempts", semantics.Attempts),
             ("failures", semantics.Failures),
             ("retryEcho", semantics.RetryEcho),
-            ("queue", semantics.Queue),
+            ("queueDepth", semantics.QueueDepth),
             ("capacity", semantics.Capacity),
             ("external_demand", semantics.ExternalDemand),
             ("processingTimeMsSum", semantics.ProcessingTimeMsSum),
@@ -441,9 +468,9 @@ internal static class TemplateValidator
             }
 
             if (string.IsNullOrWhiteSpace(semantics.Served) &&
-                string.IsNullOrWhiteSpace(semantics.Queue))
+                string.IsNullOrWhiteSpace(semantics.QueueDepth))
             {
-                throw new TemplateValidationException($"Topology node '{topologyNode.Id}' must define semantics.served or semantics.queue in simulation mode.");
+                throw new TemplateValidationException($"Topology node '{topologyNode.Id}' must define semantics.served or semantics.queueDepth in simulation mode.");
             }
         }
     }
@@ -465,12 +492,12 @@ internal static class TemplateValidator
 
         foreach (var topologyNode in topology.Nodes)
         {
-            if (string.IsNullOrWhiteSpace(topologyNode.Semantics?.Queue))
+            if (string.IsNullOrWhiteSpace(topologyNode.Semantics?.QueueDepth))
             {
                 continue;
             }
 
-            var queueSeries = topologyNode.Semantics.Queue;
+            var queueSeries = topologyNode.Semantics.QueueDepth;
             if (queueSeries != null && nodesRequiringInitial.Contains(queueSeries))
             {
                 if (topologyNode.InitialCondition?.QueueDepth is null)

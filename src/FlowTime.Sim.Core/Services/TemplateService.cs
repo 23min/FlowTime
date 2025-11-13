@@ -492,7 +492,7 @@ public class TemplateService : ITemplateService
                 semantics.Attempts,
                 semantics.Failures,
                 semantics.RetryEcho,
-                semantics.Queue,
+                semantics.QueueDepth,
                 semantics.Capacity,
                 semantics.ExternalDemand,
                 semantics.ProcessingTimeMsSum,

@@ -91,8 +91,8 @@ topology:
       semantics:
         arrivals: queue_inflow
         served: queue_outflow
-        errors: queue_spill
-        queue: queue_depth
+        errors: queue_errors
+        queueDepth: queue_depth
         aliases:
           arrivals: "Supply inflow"
           served: "Loads released"
@@ -132,11 +132,6 @@ topology:
       to: Retailer:in
 
 nodes:
-  - id: customer_demand
-    kind: const
-    values: ${demandPattern}
-    source: ${telemetryDemandSource}
-
   - id: supplier_capacity
     kind: const
     values: ${supplierCapacity}
@@ -173,13 +168,15 @@ nodes:
     kind: expr
     expr: "MIN(queue_inflow, distributor_capacity)"
 
-  - id: queue_spill
+  - id: queue_errors
     kind: expr
-    expr: "MAX(0, queue_inflow - queue_outflow)"
+    expr: "0"
 
   - id: queue_depth
-    kind: expr
-    expr: "queue_spill"
+    kind: backlog
+    inflow: queue_inflow
+    outflow: queue_outflow
+    loss: queue_errors
 
   - id: distributed_items
     kind: expr

@@ -109,24 +109,33 @@ internal static class SimModelBuilder
         return clone;
     }
 
-    private static TemplateNodeSemantics CloneSemantics(TemplateNodeSemantics semantics) => new()
+    private static TemplateNodeSemantics CloneSemantics(TemplateNodeSemantics semantics)
     {
-        Arrivals = semantics.Arrivals,
-        Served = semantics.Served,
-        Errors = semantics.Errors,
-        Queue = semantics.Queue,
-        Capacity = semantics.Capacity,
-        Attempts = semantics.Attempts,
-        Failures = semantics.Failures,
-        RetryEcho = semantics.RetryEcho,
-        RetryKernel = semantics.RetryKernel?.ToArray(),
-        ExternalDemand = semantics.ExternalDemand,
-        ProcessingTimeMsSum = semantics.ProcessingTimeMsSum,
-        ServedCount = semantics.ServedCount,
-        Aliases = semantics.Aliases is null
-            ? null
-            : new Dictionary<string, string>(semantics.Aliases, StringComparer.OrdinalIgnoreCase)
-    };
+        var clone = new TemplateNodeSemantics
+        {
+            Arrivals = semantics.Arrivals,
+            Served = semantics.Served,
+            Errors = semantics.Errors,
+            Capacity = semantics.Capacity,
+            Attempts = semantics.Attempts,
+            Failures = semantics.Failures,
+            RetryEcho = semantics.RetryEcho,
+            RetryKernel = semantics.RetryKernel?.ToArray(),
+            ExternalDemand = semantics.ExternalDemand,
+            ProcessingTimeMsSum = semantics.ProcessingTimeMsSum,
+            ServedCount = semantics.ServedCount,
+            Aliases = semantics.Aliases is null
+                ? null
+                : new Dictionary<string, string>(semantics.Aliases, StringComparer.OrdinalIgnoreCase)
+        };
+
+        // Normalize semantics: emit queueDepth only (will also accept legacy 'queue' during parse)
+        if (!string.IsNullOrWhiteSpace(semantics.QueueDepth))
+        {
+            clone.QueueDepth = semantics.QueueDepth;
+        }
+        return clone;
+    }
 
     private static List<SimNode> BuildNodes(List<TemplateNode> nodes)
     {
@@ -150,7 +159,10 @@ internal static class SimModelBuilder
                 Values = node.Pmf.Values?.ToArray() ?? Array.Empty<double>(),
                 Probabilities = node.Pmf.Probabilities?.ToArray() ?? Array.Empty<double>()
             },
-                Initial = node.Initial
+                Initial = node.Initial,
+                Inflow = kind == "backlog" ? node.Inflow : null,
+                Outflow = kind == "backlog" ? node.Outflow : null,
+                Loss = kind == "backlog" ? node.Loss : null
             };
         }).ToList();
     }

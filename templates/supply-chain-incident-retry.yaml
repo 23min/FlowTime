@@ -47,7 +47,7 @@ topology:
         arrivals: incident_served
         served: support_queue_served
         errors: support_queue_errors
-        queue: support_queue_depth
+        queueDepth: support_queue_depth
         aliases:
           served: "Tickets worked"
           errors: "Queue drops"

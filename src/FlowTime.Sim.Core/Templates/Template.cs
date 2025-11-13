@@ -123,7 +123,10 @@ public class TemplateNodeSemantics
     public string? Arrivals { get; set; }
     public string? Served { get; set; }
     public string? Errors { get; set; }
-    public string? Queue { get; set; }
+    // Backing field for queue semantics; serialize as 'queueDepth' only
+    private string? queue;
+    [YamlMember(Alias = "queueDepth", ApplyNamingConventions = false)]
+    public string? QueueDepth { get => queue; set => queue = value; }
     public string? Capacity { get; set; }
     public string? Attempts { get; set; }
     public string? Failures { get; set; }
@@ -207,6 +210,11 @@ public class TemplateNode
 
     public List<string>? Dependencies { get; set; }
     public double? Initial { get; set; }
+
+    // For backlog nodes (stateful queue accumulator)
+    public string? Inflow { get; set; }
+    public string? Outflow { get; set; }
+    public string? Loss { get; set; }
 }
 
 /// <summary>

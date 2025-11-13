@@ -44,11 +44,12 @@ Follow-up to TT‑M‑03.30.1 that focuses on raising the realism of our catalog
    - Update graph/state goldens to reflect new topology nodes/edges and changed series.
    - Add coverage for new PMF series where state endpoints expose them.
 
-3. **UI Adjustments**
+3. **UI/Engine Adjustments**
    - **Internal retries:** add a short arc looping from the service’s right edge back to the top of the attempts chip. The arc color should reflect retry ratio (green → yellow → red). Retry-related chips stay next to attempts/failures; only the actual retry loop shows the “extra” work.
    - **Edges:** service-to-consumer edges display only Served volume (attempts stay internal to the loop). Served chips can be removed/repurposed accordingly.
    - **Inspector:** include “Retry tax” (% of attempts that are retries) in the summary block.
-- **Queue styling:** render queue nodes as pill-shaped, wider capsules with a lilac fill; embed a small stacked bar + formatted queue depth (1k, 1.2M, etc.) inside the node so depth is always visible.
+- **Queue accumulation (Backlog node):** implement a first‑class stateful backlog node so templates model `Q[t] = max(0, Q[t−1] + inflow[t] − outflow[t])` with a topology initial seed (no self‑SHIFT cycles). Topology semantics map `queue` to this node; UI reads depth directly. Loss series (optional) subtracts drops before clamping.
+- **Queue styling:** render queue nodes as pill-shaped capsules and show the depth inline.
 - **Focus controls:** remove “Queue depth” from the global focus chips and drop the queue-depth badge toggle in the topology panel (queues always show depth inline). Focus metrics apply only to service nodes.
 - Update UI tests/goldens once the visuals change.
 - **Retry loop clarity:** keep Attempts in the top row (so they still balance Arrivals + Retries) and only render the sideways “U” loop when we have non-zero retry tax. When the loop does render, we now show a horizontal chip stack (`Retries`, `Failed retries`, `Retry echo`) next to it, and hide both the loop and the chips entirely when there is no retry activity. Templates map `errors` to the full set of failed attempts while `failures` is reserved for internal retry attempts so the UI can keep those signals distinct.
@@ -60,7 +61,7 @@ Follow-up to TT‑M‑03.30.1 that focuses on raising the realism of our catalog
 
 ## Acceptance Criteria
 
-- AC1: All catalog templates explicitly model at least one queue/buffer where the real system has staging.
+- AC1: All catalog templates explicitly model at least one queue/buffer where the real system has staging, using the Backlog node for true accumulation (no per-bin delta proxies).
 - AC2: Templates previously using deterministic const series for arrivals/demand now expose PMFs (or justify remaining const data).
 - AC3: API/state/graph goldens updated and tests passing (aside from known external failures).
 - AC4: UI renders expected chips (no retry chips on queues) and topology includes the new consumer nodes.

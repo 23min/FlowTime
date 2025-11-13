@@ -55,6 +55,10 @@ public sealed class NodeDto
     public double[]? Values { get; set; }
     public string? Expr { get; set; }
     public PmfDto? Pmf { get; set; }
+    // For backlog nodes
+    public string? Inflow { get; set; }
+    public string? Outflow { get; set; }
+    public string? Loss { get; set; }
 }
 
 public sealed class PmfDto
@@ -98,7 +102,8 @@ public sealed class TopologySemanticsDto
     public string? RetryEcho { get; set; }
     public double[]? RetryKernel { get; set; }
     public string? ExternalDemand { get; set; }
-    public string? Queue { get; set; }
+    // canonical queue binding (no legacy 'queue' alias)
+    public string? QueueDepth { get; set; }
     public string? Capacity { get; set; }
     public string? ProcessingTimeMsSum { get; set; }
     public string? ServedCount { get; set; }

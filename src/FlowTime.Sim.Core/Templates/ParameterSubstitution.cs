@@ -207,7 +207,7 @@ public static class ParameterSubstitution
                     topologyNode.Semantics.Arrivals = SubstituteInString(topologyNode.Semantics.Arrivals, values) ?? topologyNode.Semantics.Arrivals;
                     topologyNode.Semantics.Served = SubstituteInString(topologyNode.Semantics.Served, values) ?? topologyNode.Semantics.Served;
                     topologyNode.Semantics.Errors = SubstituteInString(topologyNode.Semantics.Errors, values) ?? topologyNode.Semantics.Errors;
-                    topologyNode.Semantics.Queue = SubstituteInString(topologyNode.Semantics.Queue, values) ?? topologyNode.Semantics.Queue;
+                    topologyNode.Semantics.QueueDepth = SubstituteInString(topologyNode.Semantics.QueueDepth, values) ?? topologyNode.Semantics.QueueDepth;
                     topologyNode.Semantics.Capacity = SubstituteInString(topologyNode.Semantics.Capacity, values) ?? topologyNode.Semantics.Capacity;
                     topologyNode.Semantics.ExternalDemand = SubstituteInString(topologyNode.Semantics.ExternalDemand, values) ?? topologyNode.Semantics.ExternalDemand;
                 }

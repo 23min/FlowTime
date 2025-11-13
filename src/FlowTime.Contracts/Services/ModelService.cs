@@ -54,7 +54,11 @@ public static class ModelService
                 {
                     Values = n.Pmf.Values ?? Array.Empty<double>(),
                     Probabilities = n.Pmf.Probabilities ?? Array.Empty<double>()
-                }
+                },
+                // backlog-specific fields (emitted in YAML as inflow/outflow/loss)
+                Inflow = n.Inflow,
+                Outflow = n.Outflow,
+                Loss = n.Loss
             }).ToList(),
             Outputs = model.Outputs.Select(o => new OutputDefinition 
             { 
@@ -83,7 +87,7 @@ public static class ModelService
                         RetryEcho = node.Semantics.RetryEcho,
                         RetryKernel = node.Semantics.RetryKernel,
                         ExternalDemand = node.Semantics.ExternalDemand,
-                        QueueDepth = node.Semantics.Queue,
+                        QueueDepth = node.Semantics.QueueDepth,
                         Capacity = node.Semantics.Capacity,
                         ProcessingTimeMsSum = node.Semantics.ProcessingTimeMsSum,
                         ServedCount = node.Semantics.ServedCount,

@@ -142,8 +142,7 @@ Deterministic 24-hour IT operations incident workflow demonstrating retry semant
 
 Key series:
 - `planned_production` and `supplier_shipments` feed the warehouse.
-- `warehouse_stock` maintains inventory via `SHIFT(warehouse_stock, 1) + inflow - outflow`.
-- `warehouse_shipments` respects both inventory availability and downstream pull (`customer_demand` capped by distributor/retailer capacity).
+- `warehouse_shipments` respects downstream pull (`customer_demand`) and capacities.
 
 Topology nodes: Supplier (service) → Warehouse (router) → Distributor (service) → Retailer (service).
 
@@ -159,3 +158,32 @@ Metadata:
 - Grid: `bins: 288`, `binSize: 5`, `binUnit: minutes`
 
 Topology nodes: Supplier (service) → Warehouse (service) → Distributor (service) → Retailer (service).
+
+---
+
+## Queues, SHIFT, and initial conditions (authoring guidance)
+
+FlowTime expressions support `SHIFT(series, k)` and it is safe for non‑self references (e.g., `SHIFT(demand, 1)`). To model an accumulating queue depth (`Q[t] = max(0, Q[t−1] + inflow[t] − outflow[t])`), a self‑reference is required. Templates must then:
+
+1) Provide an initial condition in topology for the queue node (e.g., `initialCondition.queueDepth: 0`).
+2) Define `queue_depth` from the previous bin:
+
+```yaml
+topology:
+  nodes:
+    - id: DistributorQueue
+      kind: queue
+      semantics:
+        arrivals: queue_inflow
+        served: queue_outflow
+        queueDepth: queue_depth
+      initialCondition:
+        queueDepth: 0
+
+nodes:
+  - id: queue_depth
+    kind: expr
+    expr: "MAX(0, SHIFT(queue_depth, 1) + queue_inflow - queue_outflow)"
+```
+
+Note: As of this milestone, catalog templates avoid self‑`SHIFT` patterns to keep models simple. Several existing templates use per‑bin inflow/outflow (and sometimes a delta proxy) for queues rather than true accumulation. The snippet above shows the intended approach for accumulating backlog once we adopt it broadly in the catalog. If you use self‑`SHIFT`, ensure an initial condition is declared, or validation will fail.

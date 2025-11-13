@@ -47,7 +47,7 @@ topology:
         arrivals: queue_inflow
         served: queue_outflow
         errors: queue_errors
-        queue: queue_depth
+        queueDepth: queue_depth
         aliases:
           served: "Loads released"
           queue: "Queue depth"

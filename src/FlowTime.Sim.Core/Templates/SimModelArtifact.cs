@@ -49,6 +49,11 @@ public class SimNode
 
     public double? Initial { get; set; }
 
+    // For backlog nodes
+    public string? Inflow { get; set; }
+    public string? Outflow { get; set; }
+    public string? Loss { get; set; }
+
     public bool ShouldSerializeValues() => Values is { Length: > 0 };
 }
 
