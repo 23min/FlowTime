@@ -89,7 +89,7 @@ topology:
         aliases:
           arrivals: "Routed requests"
           served: "Requests dequeued"
-          errors: "Queue drops"
+          errors: "Queue attrition"
           queue: "Ingress backlog"
       initialCondition:
         queueDepth: 0
@@ -160,7 +160,7 @@ nodes:
 
   - id: auth_queue_spill
     kind: expr
-    expr: "MAX(0, load_balanced_requests - auth_capacity)"
+    expr: "0"
 
   - id: ingress_queue_depth
     kind: backlog

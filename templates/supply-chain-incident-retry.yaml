@@ -50,7 +50,7 @@ topology:
         queueDepth: support_queue_depth
         aliases:
           served: "Tickets worked"
-          errors: "Queue drops"
+          errors: "Queue attrition"
           queue: "Open queue depth"
       initialCondition:
         queueDepth: 6
@@ -140,12 +140,14 @@ nodes:
     values: [19, 22, 22, 22, 26, 27, 23, 22, 27, 22, 21, 19, 16, 17, 15, 12, 15, 14, 12, 13, 19, 17, 18, 21]
 
   - id: support_queue_errors
-    kind: const
-    values: [2, 2, 4, 4, 1, 2, 4, 5, 1, 2, 3, 4, 3, 2, 3, 4, 1, 3, 4, 4, 1, 2, 4, 4]
+    kind: expr
+    expr: 0
 
   - id: support_queue_depth
-    kind: const
-    values: [8, 10, 14, 18, 19, 21, 25, 30, 31, 33, 36, 40, 43, 45, 48, 52, 53, 56, 60, 64, 65, 67, 71, 75]
+    kind: backlog
+    inflow: incident_served
+    outflow: support_queue_served
+    loss: support_queue_errors
 
   - id: support_analytics_load
     kind: expr

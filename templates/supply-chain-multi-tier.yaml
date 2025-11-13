@@ -68,13 +68,6 @@ parameters:
     default: 1.15
     minimum: 1.0
     maximum: 2.0
-  - name: queueLossRate
-    type: number
-    title: "Queue Shrinkage"
-    description: "Percent of staged loads that spoil or miss the window"
-    default: 0.04
-    minimum: 0.0
-    maximum: 0.3
   - name: retryRate
     type: number
     title: "Delivery Retry Rate"
@@ -135,7 +128,7 @@ topology:
         aliases:
           arrivals: "Loads staged"
           served: "Loads pulled"
-          errors: "Spoilage"
+          errors: "Queue attrition"
           queue: "Distributor backlog"
       initialCondition:
         queueDepth: 12
@@ -192,9 +185,13 @@ nodes:
     kind: const
     values: ${deliveryCapacity}
 
-  - id: supplier_shipments
+  - id: supplier_plan
     kind: expr
     expr: "MIN(purchase_orders * ${bufferMultiplier}, supplier_capacity)"
+
+  - id: supplier_shipments
+    kind: expr
+    expr: "MIN(purchase_orders, supplier_capacity)"
 
   - id: supplier_processing_time_ms_sum
     kind: expr
@@ -210,7 +207,7 @@ nodes:
 
   - id: warehouse_inventory_build
     kind: expr
-    expr: "MAX(0, supplier_shipments - warehouse_release)"
+    expr: "MAX(0, supplier_plan - warehouse_release)"
 
   - id: queue_inflow
     kind: expr
@@ -218,7 +215,7 @@ nodes:
 
   - id: queue_losses
     kind: expr
-    expr: "${queueLossRate} * queue_inflow"
+    expr: "0"
 
   - id: queue_outflow
     kind: expr
@@ -269,10 +266,6 @@ nodes:
   - id: supplier_shortage
     kind: expr
     expr: "MAX(0, purchase_orders - supplier_shipments)"
-
-  - id: queue_overflow
-    kind: expr
-    expr: "MAX(0, queue_inflow - fulfillment_capacity)"
 
   - id: delivery_utilization
     kind: expr

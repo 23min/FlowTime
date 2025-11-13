@@ -559,7 +559,7 @@
     private CancellationTokenSource? windowReloadCts;
     private TopologyCanvas? canvasComponent;
 
-    private bool featureBarOpen = true;
+    private bool featureBarOpen = false;
     private TopologyOverlaySettings overlaySettings = TopologyOverlaySettings.Default.Clone();
     private Dictionary<TopologyFeatureSection, bool> sectionExpansionState = CreateDefaultSectionState();
     private ViewportSnapshot? currentViewportSnapshot;
@@ -726,7 +726,7 @@ private string? canvasHoveredEdgeId;
         overlaySettings = TopologyOverlaySettings.Default.Clone();
         SyncOperationalViewFlagFromOverlay(resetSavedValues: true);
         sectionExpansionState = CreateDefaultSectionState();
-        featureBarOpen = true;
+        featureBarOpen = false;
         currentViewportSnapshot = null;
         pendingViewportSnapshot = null;
 
@@ -769,7 +769,7 @@ private string? canvasHoveredEdgeId;
                 sectionExpansionState = CreateDefaultSectionState();
             }
 
-            featureBarOpen = stored?.FeatureBarOpen ?? true;
+            featureBarOpen = stored?.FeatureBarOpen ?? false;
             restoredSelectedBin = stored?.SelectedBin;
 
             if (stored?.Viewport is not null)
@@ -1064,7 +1064,7 @@ private string? canvasHoveredEdgeId;
             return;
         }
 
-        featureBarOpen = true;
+        featureBarOpen = false;
         StateHasChanged();
         await SaveRunStateAsync();
     }
@@ -3707,7 +3707,7 @@ private static IReadOnlyList<double?> TrimSeriesAt(double?[]? source, int limit,
         hasLoaded = false;
         isLoading = false;
         pointerNeedsJump = false;
-        featureBarOpen = true;
+        featureBarOpen = false;
         operationalViewOnly = false;
         savedIncludeExpressionNodes = null;
         savedIncludeConstNodes = null;

@@ -109,13 +109,6 @@ parameters:
     minimum: 0.0
     maximum: 1.0
 
-  - name: hubQueueLossRate
-    type: number
-    title: "Hub Queue Abandon Rate"
-    description: "Percent of staged passengers that abandon the queue"
-    default: 0.03
-    minimum: 0.0
-    maximum: 0.5
   - name: airportRetryRate
     type: number
     title: "Airport Retry Rate"
@@ -195,7 +188,7 @@ topology:
         aliases:
           arrivals: "Hub throughput"
           served: "Dispatched riders"
-          errors: "Queue abandon"
+          errors: "Queue attrition"
           queue: "Hub backlog"
       initialCondition:
         queueDepth: 20
@@ -215,7 +208,7 @@ topology:
         aliases:
           arrivals: "Airport-bound riders"
           served: "Airport departures"
-          errors: "Airport fallout"
+          errors: "Failed departures"
           attempts: "Airport attempts"
           failures: "Airport failed retries"
     - id: LineDowntown
@@ -331,7 +324,7 @@ nodes:
     expr: "served_hub"
   - id: hub_queue_abandon
     kind: expr
-    expr: "${hubQueueLossRate} * hub_queue_inflow"
+    expr: "0"
   - id: hub_dispatch
     kind: expr
     expr: "MIN(hub_queue_inflow, hub_dispatch_capacity)"
@@ -362,24 +355,24 @@ nodes:
     kind: expr
     expr: "hub_dispatch_downtown"
 
-  - id: airport_base_served
-    kind: expr
-    expr: "MIN(arrivals_airport, cap_airport)"
   - id: airport_retry_attempts
     kind: expr
-    expr: "${airportRetryRate} * airport_base_served"
+    expr: "${airportRetryRate} * arrivals_airport"
   - id: airport_attempts
     kind: expr
-    expr: "airport_base_served + airport_retry_attempts"
+    expr: "arrivals_airport + airport_retry_attempts"
+  - id: airport_capacity_served
+    kind: expr
+    expr: "MIN(airport_attempts, cap_airport)"
   - id: airport_retry_failures
     kind: expr
     expr: "${airportRetryFailureRate} * airport_retry_attempts"
   - id: served_airport
     kind: expr
-    expr: "MAX(0, MIN(airport_attempts, cap_airport) - airport_retry_failures)"
+    expr: "MIN(arrivals_airport, MAX(0, airport_capacity_served - airport_retry_failures))"
   - id: errors_airport
     kind: expr
-    expr: "airport_attempts - served_airport"
+    expr: "MAX(0, arrivals_airport - served_airport)"
   - id: airport_retry_echo
     kind: expr
     expr: "CONV(airport_retry_attempts, [0.0, 0.6, 0.3, 0.1])"

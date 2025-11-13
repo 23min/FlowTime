@@ -44,12 +44,11 @@ Hub-and-spoke transit network with a central queue and airport retries.
 | `capHub`, `hubDispatchCapacity` | array&lt;number&gt; | `[20, 24, 32, 36, 28, 22]` / `[18, 22, 30, 32, 26, 20]` | Hub processing/dispatch limits. |
 | `capAirport`, `capDowntown`, `capIndustrial` | array&lt;number&gt; | see template | Destination capacities. |
 | `splitAirport`, `splitIndustrial` | number | `0.3` / `0.2` | Routing ratios out of the hub queue. |
-| `hubQueueLossRate` | number | `0.03` | Abandonment applied to `hub_queue_inflow`. |
 | `airportRetryRate`, `airportRetryFailureRate` | number | `0.12` / `0.25` | Retry semantics surfaced on the Airport line. |
 | `telemetryDemandNorthSource`, `telemetryDemandSouthSource` | string | `""` | Optional `file://` URIs for origin arrivals. |
 
 Highlights:
-- Origins feed `CentralHub`, which stages riders in `HubQueue` (backlog node) before dispatching downstream.
+- Origins feed `CentralHub`, which stages riders in `HubQueue` (backlog node) before dispatching downstream; there is no queue abandonment in this milestone so backlog is conserved.
 - Airport line maps `attempts`, `failures`, and `retryEcho`, so UI retry chips mirror delivery behavior.
 
 ```json
@@ -93,14 +92,13 @@ End-to-end purchase order flow with warehouse buffering, distributor backlog, an
 | `fulfillmentCapacity` | array&lt;number&gt; | `[170, 170, 165, 160, 150, 120]` | Distributor pull capacity (`queue_outflow`). |
 | `deliveryCapacity` | array&lt;number&gt; | `[150, 155, 150, 140, 135, 110]` | Delivery fleet capacity. |
 | `bufferMultiplier` | number | `1.15` | Supplier build-ahead multiplier. |
-| `queueLossRate` | number | `0.04` | Spoilage/shrink applied to `queue_inflow`. |
 | `retryRate` | number | `0.18` | Fraction of pulled loads needing a retry. |
 | `retryFailureRate` | number | `0.35` | Fraction of retry attempts that still fail. |
 | `telemetryDemandSource` | string | `""` | Optional telemetry CSV for `purchase_orders`. |
 
 Highlights:
 - Supplier → Warehouse → DistributionQueue → Delivery mirrors the canonical topology, with aliases describing purchase orders, staged loads, backlog, and delivered units.
-- `DistributionQueue` uses the backlog node (`queueDepth`) so the UI queue chip reflects accumulated staged loads.
+- `DistributionQueue` uses the backlog node (`queueDepth`) so the UI queue chip reflects accumulated staged loads (no shrink/attrition is modeled in this milestone).
 - Delivery node surfaces retry semantics (`attempts`, `failures`, `retryEcho`) so retry chips render alongside total errors.
 
 ```json
