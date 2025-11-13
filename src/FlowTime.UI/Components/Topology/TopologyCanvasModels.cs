@@ -29,7 +29,12 @@ internal sealed record NodeRenderInfo(
     bool IsLeaf,
     NodeSemanticsDto? Semantics,
     NodeMetricSnapshotDto? Metrics,
-    int Lane);
+    int Lane,
+    IReadOnlyList<NodeWarningPayload>? Warnings);
+
+public sealed record NodeWarningPayload(
+    string Code,
+    string Message);
 
 internal sealed record NodeSemanticsDto(
     string? Arrivals,

@@ -2323,6 +2323,24 @@
         }
     }
 
+    function normalizeWarningEntries(nodeMeta) {
+        const raw = nodeMeta?.warnings ?? nodeMeta?.Warnings ?? null;
+        if (!Array.isArray(raw) || raw.length === 0) {
+            return [];
+        }
+
+        const normalized = [];
+        for (const entry of raw) {
+            if (!entry) continue;
+            const codeCandidate = typeof entry.code === 'string' ? entry.code : entry.Code;
+            const messageCandidate = typeof entry.message === 'string' ? entry.message : entry.Message;
+            const code = (codeCandidate ?? '').toString().trim() || 'warning';
+            const message = (messageCandidate ?? '').toString().trim();
+            normalized.push({ code, message });
+        }
+        return normalized;
+    }
+
     function drawServiceDecorations(ctx, nodeMeta, overlaySettings, state) {
         if (!nodeMeta) return;
 
@@ -2342,6 +2360,20 @@
         const isServiceNode = nodeKind === 'service';
         const retryTax = isServiceNode ? resolveRetryTaxValue(nodeMeta) : null;
         const hasRetryLoop = showRetryMetrics && isServiceNode && Number.isFinite(retryTax) && retryTax > 0;
+        const warningEntries = normalizeWarningEntries(nodeMeta);
+        const warningCodes = new Set(warningEntries.map(entry => (entry.code ?? '').toString().toLowerCase()));
+        const addSyntheticWarning = (code, message) => {
+            const normalized = (code ?? '').toString().toLowerCase() || 'warning';
+            if (warningCodes.has(normalized)) {
+                return;
+            }
+
+            warningEntries.push({
+                code: code ?? 'warning',
+                message: message ?? ''
+            });
+            warningCodes.add(normalized);
+        };
 
         if (!hasSemantics && !hasSpark) {
             return;
@@ -2536,12 +2568,18 @@
         let topLeft = x - (nodeWidth / 2) + gap;
         let topRight = x + (nodeWidth / 2) + gap;
         let bottomLeft = topLeft;
+        const bottomLeftBaseline = bottomLeft;
         let bottomRight = topRight;
 
         const arrivalsValue = sampleValueFor('arrivals', semantics.arrivals);
         const attemptsValue = isServiceNode ? sampleValueFor('attempts', semantics.attempts, ['attempt']) : null;
         const failuresValue = sampleValueFor('failures', semantics.failures, ['failure']);
         const retryValue = sampleValueFor('retryEcho', semantics.retry, ['retry', 'retry_echo']);
+        const servedValue = sampleValueFor('served', semantics.served);
+
+        if (Number.isFinite(servedValue) && Number.isFinite(arrivalsValue) && (servedValue - arrivalsValue) > 1e-6) {
+            addSyntheticWarning('served_exceeds_arrivals', 'Served volume exceeded arrivals');
+        }
 
         if (overlays.showArrivalsDependencies !== false) {
             if (arrivalsValue !== null) {
@@ -2604,12 +2642,14 @@
             }
         }
 
+        let servedChipDims = null;
         if (overlays.showServedDependencies !== false) {
             const servedValue = sampleValueFor('served', semantics.served);
             if (servedValue !== null) {
                 const servedLabel = formatMetricValue(servedValue);
                 if (servedLabel) {
                     const dims = drawChip(ctx, bottomLeft, bottomRowTop, servedLabel, '#2E7D32', '#FFFFFF', paddingX, chipH, 'top');
+                    servedChipDims = dims;
                     registerChipHitbox(state, {
                         nodeId: nodeMeta.id ?? null,
                         metric: 'served',
@@ -2623,6 +2663,29 @@
                     bottomLeft += dims.width + gap;
                 }
             }
+        }
+
+        if (warningEntries.length > 0) {
+            const primary = warningEntries[0];
+            const labelBaseRaw = primary.code || 'Warning';
+            const warningLabel = 'Warning';
+            const tooltipText = warningEntries
+                .map(entry => entry.message || entry.code)
+                .join('\n') || labelBaseRaw;
+            const measurement = measureChipText(ctx, warningLabel, paddingX, chipH);
+            const anchorLeft = servedChipDims?.left ?? bottomLeftBaseline;
+            const warningLeft = anchorLeft - measurement.width - gap;
+            const dims = drawChip(ctx, warningLeft, bottomRowTop, warningLabel, '#F59E0B', '#78350F', paddingX, chipH, 'top', '#FFE04D', measurement, '600');
+            registerChipHitbox(state, {
+                nodeId: nodeMeta.id ?? null,
+                metric: 'warning',
+                placement: 'bottom-left',
+                tooltip: tooltipText,
+                x: warningLeft,
+                y: dims.top,
+                width: dims.width,
+                height: dims.height
+            });
         }
 
         if (showRetryMetrics && !isServiceNode) {
@@ -3680,7 +3743,7 @@
         });
     }
 
-    function drawChip(ctx, x, anchorY, text, outlineColor, fg, paddingX, lineHeight, anchor = 'bottom') {
+    function measureChipText(ctx, text, paddingX, lineHeight) {
         const normalized = typeof text === 'string' ? text : String(text ?? '');
         const rawLines = normalized.split(/\r?\n/);
         const lines = rawLines
@@ -3698,6 +3761,26 @@
         const totalHeight = lines.length > 0
             ? Math.ceil((lines.length * baseLineHeight) + ((lines.length - 1) * lineGap))
             : baseLineHeight;
+
+        return {
+            normalized,
+            lines,
+            metrics,
+            width,
+            totalHeight,
+            baseLineHeight,
+            lineGap
+        };
+    }
+
+    function drawChip(ctx, x, anchorY, text, outlineColor, fg, paddingX, lineHeight, anchor = 'bottom', fillColor = null, measurement = null, fontWeight = 'normal') {
+        const normalized = typeof text === 'string' ? text : String(text ?? '');
+        const chipMetrics = measurement ?? measureChipText(ctx, normalized, paddingX, lineHeight);
+        const lines = chipMetrics.lines;
+        const width = chipMetrics.width;
+        const totalHeight = chipMetrics.totalHeight;
+        const baseLineHeight = chipMetrics.baseLineHeight;
+        const lineGap = chipMetrics.lineGap;
         const top = anchor === 'top'
             ? Math.round(anchorY)
             : Math.round(anchorY - totalHeight);
@@ -3715,7 +3798,10 @@
             return fg;
         })();
 
-        ctx.fillStyle = CHIP_BASE_FILL;
+        const chipFill = typeof fillColor === 'string' && fillColor.trim().length > 0
+            ? fillColor
+            : CHIP_BASE_FILL;
+        ctx.fillStyle = chipFill;
         ctx.strokeStyle = outlineColor ?? '#94A3B8';
         ctx.lineWidth = 1;
         const r = Math.min(baseLineHeight / 1.5, totalHeight / 2);
@@ -3730,6 +3816,7 @@
         ctx.fill();
         ctx.stroke();
         ctx.fillStyle = textColor;
+        ctx.font = `${fontWeight} 11px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif`;
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
         const firstLineCenter = top + (baseLineHeight / 2);
@@ -3739,7 +3826,7 @@
             ctx.fillText(lines[i], bx + paddingX, lineCenter);
         }
         ctx.restore();
-        return { width, height: totalHeight, top, bottom };
+        return { width, height: totalHeight, top, bottom, left: bx };
     }
 
     function dedupePoints(points) {

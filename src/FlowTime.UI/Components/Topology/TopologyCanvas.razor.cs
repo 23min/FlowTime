@@ -57,6 +57,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
     [Parameter] public EventCallback ViewportRequestConsumed { get; set; }
     [Parameter] public bool InspectorVisible { get; set; }
     [Parameter] public EventCallback<string?> EdgeHovered { get; set; }
+    [Parameter] public IReadOnlyDictionary<string, IReadOnlyList<NodeWarningPayload>> NodeWarnings { get; set; } = new Dictionary<string, IReadOnlyList<NodeWarningPayload>>(StringComparer.OrdinalIgnoreCase);
     protected ElementReference canvasRef;
 
     protected bool HasVisibleNodes => filteredGraph is { Nodes.Count: > 0 };
@@ -111,7 +112,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         {
             preserveViewportHint = true;
         }
-        pendingRequest = BuildRenderRequest(filteredGraph, NodeMetrics, NodeSparklines, focusedNodeId, tooltipNodeId, OverlaySettings, ActiveBin, snapshotForRender, preserveViewport, Title);
+        pendingRequest = BuildRenderRequest(filteredGraph, NodeMetrics, NodeSparklines, focusedNodeId, tooltipNodeId, OverlaySettings, ActiveBin, snapshotForRender, preserveViewport, Title, NodeWarnings);
         lastSourceGraph = Graph;
         renderScheduled = true;
     }
@@ -304,7 +305,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             return;
         }
 
-        pendingRequest = BuildRenderRequest(filteredGraph, NodeMetrics, NodeSparklines, focusedNodeId, tooltipNodeId, OverlaySettings, ActiveBin, snapshot: pendingViewportSnapshot ?? RequestedViewport, preserveViewport: preserveViewportHint, title: Title);
+        pendingRequest = BuildRenderRequest(filteredGraph, NodeMetrics, NodeSparklines, focusedNodeId, tooltipNodeId, OverlaySettings, ActiveBin, snapshot: pendingViewportSnapshot ?? RequestedViewport, preserveViewport: preserveViewportHint, title: Title, nodeWarningsMap: NodeWarnings);
         renderScheduled = true;
     }
 
@@ -547,7 +548,8 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         int selectedBin,
         ViewportSnapshot? snapshot,
         bool preserveViewport,
-        string? title)
+        string? title,
+        IReadOnlyDictionary<string, IReadOnlyList<NodeWarningPayload>>? nodeWarningsMap)
     {
         var thresholds = ColorScale.ColorThresholds.FromOverlay(overlays);
         var outgoingGroups = graph.Edges
@@ -654,6 +656,12 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                     ? QueueNodeWidth
                     : NodeWidth;
 
+                IReadOnlyList<NodeWarningPayload>? warningDtos = null;
+                if (nodeWarningsMap is not null && nodeWarningsMap.TryGetValue(node.Id, out var warningsForNode) && warningsForNode.Count > 0)
+                {
+                    warningDtos = warningsForNode;
+                }
+
                 return new NodeRenderInfo(
                     node.Id,
                     node.Kind,
@@ -671,7 +679,8 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                     isLeaf,
                     semanticsDto,
                     metricsDto,
-                    node.Lane);
+                    node.Lane,
+                    warningDtos);
             })
             .ToImmutableArray();
 

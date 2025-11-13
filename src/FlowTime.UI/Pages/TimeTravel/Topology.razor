@@ -161,6 +161,37 @@
                                         }
                                     </MudChipSet>
                                     <MudStack Row="true" AlignItems="@AlignItems.Center" Class="timeline-focus-group">
+                                        @if (HasWindowWarnings)
+                                        {
+                                            <MudTooltip MaxWidth="360">
+                                                <ChildContent>
+                                                    <MudChip T="string"
+                                                             Variant="Variant.Filled"
+                                                             DisableRipple="true"
+                                                             Class="timeline-warning-chip"
+                                                             Color="Color.Warning">
+                                                        Warning
+                                                    </MudChip>
+                                                </ChildContent>
+                                                <TooltipContent>
+                                                    <div class="timeline-warning-tooltip">
+                                                        @foreach (var warning in windowWarnings)
+                                                        {
+                                                            <div class="timeline-warning-tooltip__item">
+                                                                <div class="timeline-warning-tooltip__heading">
+                                                                    <strong>@(warning.NodeId ?? "Run")</strong>
+                                                                    <span class="timeline-warning-tooltip__code">@warning.Code</span>
+                                                                </div>
+                                                                @if (!string.IsNullOrWhiteSpace(warning.Message))
+                                                                {
+                                                                    <span>@warning.Message</span>
+                                                                }
+                                                            </div>
+                                                        }
+                                                    </div>
+                                                </TooltipContent>
+                                            </MudTooltip>
+                                        }
                                         <MudStack Row="true" AlignItems="@AlignItems.Center" Spacing="1" Class="timeline-focus-controls">
                                             <MudText Typo="Typo.caption" Class="timeline-focus-label">Focus</MudText>
                                             <MudChipSet T="TopologyColorBasis"
@@ -249,6 +280,7 @@
                                             Graph="topologyGraph"
                                             NodeMetrics="activeMetrics"
                                             NodeSparklines="nodeSparklines"
+                                            NodeWarnings="nodeWarningsForCanvas"
                                             OverlaySettings="overlaySettings"
                                             ActiveBin="selectedBin"
                                             Title="@GetTemplateTitle()"
@@ -563,6 +595,10 @@ private string? canvasHoveredEdgeId;
     private string selectedTimestampLabel = string.Empty;
     private IReadOnlyList<TimelineTick> timelineTicks = Array.Empty<TimelineTick>();
     private IReadOnlyList<double> timelineMinorTicks = Array.Empty<double>();
+    private IReadOnlyList<TimeTravelStateWarningDto> windowWarnings = Array.Empty<TimeTravelStateWarningDto>();
+    private IReadOnlyDictionary<string, IReadOnlyList<NodeWarningPayload>> nodeWarningsForCanvas = EmptyNodeWarnings;
+    private static readonly IReadOnlyDictionary<string, IReadOnlyList<NodeWarningPayload>> EmptyNodeWarnings = new Dictionary<string, IReadOnlyList<NodeWarningPayload>>(StringComparer.OrdinalIgnoreCase);
+    private bool HasWindowWarnings => windowWarnings.Count > 0;
     private bool isPlaying;
     private bool loopPlayback;
     private double playbackSecondsPerFrame = 1d;
@@ -961,6 +997,8 @@ private string? canvasHoveredEdgeId;
 
             var stateMode = (overlaySettings.EnableFullDag || overlaySettings.IncludeExpressionNodes || overlaySettings.IncludeConstNodes) ? "full" : null;
             Logger?.LogInformation("Requesting state window for run {RunId} bins {Start}-{End} (mode={Mode})", runId, sliceStart, sliceEnd, stateMode ?? "operational");
+            windowWarnings = Array.Empty<TimeTravelStateWarningDto>();
+            UpdateNodeWarningMap();
             var windowResult = await DataService.GetStateWindowAsync(runId, sliceStart, sliceEnd, stateMode, ct);
             if (!windowResult.Success || windowResult.Value is null)
             {
@@ -970,6 +1008,8 @@ private string? canvasHoveredEdgeId;
             }
 
             windowData = windowResult.Value;
+            windowWarnings = windowData.Warnings ?? Array.Empty<TimeTravelStateWarningDto>();
+            UpdateNodeWarningMap();
             Logger?.LogInformation("State window loaded for run {RunId}: nodeSeries={NodeSeriesCount}, timestamps={TimestampCount}",
                 runId,
                 windowData.Nodes.Count,
@@ -1375,6 +1415,8 @@ private string? canvasHoveredEdgeId;
         {
             var mode = overlaySettings.EnableFullDag ? "full" : null;
             var fullMode = (overlaySettings.EnableFullDag || overlaySettings.IncludeExpressionNodes || overlaySettings.IncludeConstNodes) ? "full" : mode;
+            windowWarnings = Array.Empty<TimeTravelStateWarningDto>();
+            UpdateNodeWarningMap();
             var windowResult = await DataService.GetStateWindowAsync(currentRunId!, sliceStart, sliceEnd, fullMode, cts.Token);
             if (!windowResult.Success || windowResult.Value is null)
             {
@@ -1382,6 +1424,8 @@ private string? canvasHoveredEdgeId;
             }
 
             windowData = windowResult.Value;
+            windowWarnings = windowData.Warnings ?? Array.Empty<TimeTravelStateWarningDto>();
+            UpdateNodeWarningMap();
             timestamps = windowData.TimestampsUtc.ToList();
             BuildNodeSparklines();
 
@@ -3672,9 +3716,36 @@ private static IReadOnlyList<double?> TrimSeriesAt(double?[]? source, int limit,
         currentViewportSnapshot = null;
         pendingViewportSnapshot = null;
         restoredSelectedBin = null;
+        windowWarnings = Array.Empty<TimeTravelStateWarningDto>();
+        UpdateNodeWarningMap();
         saveRunStateDebounceCts?.Cancel();
         saveRunStateDebounceCts?.Dispose();
         saveRunStateDebounceCts = null;
+    }
+
+    private void UpdateNodeWarningMap()
+    {
+        if (windowWarnings.Count == 0)
+        {
+            nodeWarningsForCanvas = EmptyNodeWarnings;
+            return;
+        }
+
+        var grouped = windowWarnings
+            .Where(w => !string.IsNullOrWhiteSpace(w.NodeId))
+            .GroupBy(w => w.NodeId!, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                g => g.Key,
+                g => (IReadOnlyList<NodeWarningPayload>)g.Select(w =>
+                {
+                    var code = string.IsNullOrWhiteSpace(w.Code) ? "warning" : w.Code.Trim();
+                    var message = string.IsNullOrWhiteSpace(w.Message) ? string.Empty : w.Message.Trim();
+                    return new NodeWarningPayload(code, message);
+                }).ToArray(),
+                StringComparer.OrdinalIgnoreCase);
+
+        nodeWarningsForCanvas = grouped.Count == 0 ? EmptyNodeWarnings : grouped;
+        Logger?.LogDebug("Node warning map rebuilt: {Count} nodes", nodeWarningsForCanvas.Count);
     }
 
     public void Dispose()
