@@ -5,6 +5,8 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using FlowTime.Core;
+using FlowTime.Core.Analysis;
+using FlowTime.Core.Models;
 using FlowTime.Core.Nodes;
 using FlowTime.Core.TimeTravel;
 using YamlDotNet.Serialization;
@@ -85,6 +87,20 @@ public static class RunArtifactWriter
         var effectiveContext = new Dictionary<NodeId, double[]>(request.Context);
         TryPrecomputeQueueDepthSeries(request.SpecText, effectiveContext);
         TryPrecomputeRetryEchoSeries(request.SpecText, effectiveContext);
+        if (request.Model is not ModelDefinition modelDefinition)
+        {
+            throw new InvalidOperationException("RunArtifactWriter requires ModelDefinition for the Model field.");
+        }
+
+        var invariantResult = InvariantAnalyzer.Analyze(modelDefinition, effectiveContext);
+        var warningEntries = invariantResult.Warnings.Select(w => new RunWarningEntry
+        {
+            NodeId = w.NodeId,
+            Code = w.Code,
+            Message = w.Message,
+            Bins = w.Bins?.ToArray(),
+            Value = w.Value
+        }).ToList();
 
         var resolvedSeries = ResolveSeries((object?)modelDto.Outputs, effectiveContext);
         var seriesDescriptorMap = new Dictionary<string, SeriesDescriptor>(StringComparer.OrdinalIgnoreCase);
@@ -190,7 +206,7 @@ public static class RunArtifactWriter
             },
             ScenarioHash = scenarioHash,
             ModelHash = modelHash,
-            Warnings = Array.Empty<string>(),
+            Warnings = warningEntries,
             Series = seriesMetas.Select(m => new RunSeriesEntry { Id = m.Id, Path = m.Path, Unit = m.Unit }).ToList()
         };
 
@@ -273,7 +289,7 @@ public static class RunArtifactWriter
 
     /// <summary>
     /// Precompute true SHIFT-based queue depth series at artifact time.
-    /// If a topology node has semantics.queue mapped to a logical series name that
+    /// If a topology node has semantics.queueDepth mapped to a logical series name that
     /// does not exist in the evaluation context, and arrivals/served exist, compute
     /// q(t) = max(0, q(t-1) + a(t) - s(t)) with initialCondition.queueDepth as q0.
     /// </summary>
@@ -321,7 +337,7 @@ public static class RunArtifactWriter
                 }
 
                 // Extract potential queue series id
-                if (!semanticsMap.Children.TryGetValue(new YamlScalarNode("queue"), out var queueNode) || queueNode is not YamlScalarNode queueScalar)
+                if (!semanticsMap.Children.TryGetValue(new YamlScalarNode("queueDepth"), out var queueNode) || queueNode is not YamlScalarNode queueScalar)
                 {
                     continue;
                 }
@@ -932,7 +948,6 @@ public static class RunArtifactWriter
             modified |= NormalizeSemanticsField(semanticsMap, nodeId, "served", required: true, descriptorMap, descriptorList, context);
             modified |= NormalizeSemanticsField(semanticsMap, nodeId, "errors", required: true, descriptorMap, descriptorList, context);
             modified |= NormalizeSemanticsField(semanticsMap, nodeId, "externalDemand", required: false, descriptorMap, descriptorList, context);
-            modified |= NormalizeSemanticsField(semanticsMap, nodeId, "queue", required: false, descriptorMap, descriptorList, context);
             modified |= NormalizeSemanticsField(semanticsMap, nodeId, "queueDepth", required: false, descriptorMap, descriptorList, context);
             modified |= NormalizeSemanticsField(semanticsMap, nodeId, "capacity", required: false, descriptorMap, descriptorList, context);
             modified |= NormalizeSemanticsField(semanticsMap, nodeId, "attempts", required: false, descriptorMap, descriptorList, context);
@@ -1076,8 +1091,17 @@ file sealed record RunJson
     public string? ModelHash { get; set; }
     public string ScenarioHash { get; set; } = "";
     public string CreatedUtc { get; set; } = DateTime.UtcNow.ToString("o");
-    public string[] Warnings { get; set; } = Array.Empty<string>();
+    public List<RunWarningEntry> Warnings { get; set; } = new();
     public List<RunSeriesEntry> Series { get; set; } = new();
+}
+
+file sealed record RunWarningEntry
+{
+    public string Code { get; set; } = "";
+    public string Message { get; set; } = "";
+    public string? NodeId { get; set; }
+    public int[]? Bins { get; set; }
+    public double? Value { get; set; }
 }
 
 file sealed record GridJson { public int Bins { get; set; } public int BinSize { get; set; } public string BinUnit { get; set; } = "minutes"; public string Timezone { get; set; } = "UTC"; public string Align { get; set; } = "left"; }

@@ -45,6 +45,13 @@ public sealed class BacklogNode : INode
         return new Series(result);
     }
 
-    private static double Safe(double? v) => double.IsFinite(v ?? 0d) ? v!.Value : 0d;
-}
+    private static double Safe(double? v)
+    {
+        if (!v.HasValue)
+        {
+            return 0d;
+        }
 
+        return double.IsFinite(v.Value) ? v.Value : 0d;
+    }
+}

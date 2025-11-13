@@ -251,16 +251,16 @@ public class RunArtifactWriterTests
         var tempDir = Path.Combine(Path.GetTempPath(), "test_artifacts_semantics");
         Directory.CreateDirectory(tempDir);
 
-        var model = new TestModelDto
+        var model = new ModelDefinition
         {
-            Grid = new TestGridDto { Bins = 2, BinMinutes = 5 },
-            Nodes = new List<TestNodeDto>
+            Grid = new GridDefinition { Bins = 2, BinSize = 5, BinUnit = "minutes" },
+            Nodes = new List<NodeDefinition>
             {
                 new() { Id = "arrivals_series", Kind = "const", Values = new[] { 10.0, 12.0 } },
                 new() { Id = "served_series", Kind = "const", Values = new[] { 9.0, 11.0 } },
                 new() { Id = "error_series", Kind = "const", Values = new[] { 1.0, 1.0 } }
             },
-            Outputs = new List<TestOutputDto> { new() { Series = "*" } }
+            Outputs = new List<OutputDefinition> { new() { Series = "*", As = "out.csv" } }
         };
 
         var context = new Dictionary<NodeId, double[]>
@@ -324,15 +324,15 @@ outputs:
         var tempDir = Path.Combine(Path.GetTempPath(), "test_artifacts_semantics_missing");
         Directory.CreateDirectory(tempDir);
 
-        var model = new TestModelDto
+        var model = new ModelDefinition
         {
-            Grid = new TestGridDto { Bins = 2, BinMinutes = 5 },
-            Nodes = new List<TestNodeDto>
+            Grid = new GridDefinition { Bins = 2, BinSize = 5, BinUnit = "minutes" },
+            Nodes = new List<NodeDefinition>
             {
                 new() { Id = "arrivals_series", Kind = "const", Values = new[] { 10.0, 12.0 } },
                 new() { Id = "served_series", Kind = "const", Values = new[] { 9.0, 11.0 } }
             },
-            Outputs = new List<TestOutputDto> { new() { Series = "*" } }
+            Outputs = new List<OutputDefinition> { new() { Series = "*", As = "out.csv" } }
         };
 
         var context = new Dictionary<NodeId, double[]>
@@ -386,17 +386,17 @@ outputs:
         var tempDir = Path.Combine(Path.GetTempPath(), "test_artifacts_wildcard");
         Directory.CreateDirectory(tempDir);
 
-        var model = new TestModelDto
+        var model = new ModelDefinition
         {
-            Grid = new TestGridDto { Bins = 2, BinMinutes = 5 },
-            Nodes = new List<TestNodeDto>
+            Grid = new GridDefinition { Bins = 2, BinSize = 5, BinUnit = "minutes" },
+            Nodes = new List<NodeDefinition>
             {
-                new() { Id = "demand", Values = new[] { 1.0, 2.0 } },
-                new() { Id = "served", Values = new[] { 0.5, 1.5 } }
+                new() { Id = "demand", Kind = "const", Values = new[] { 1.0, 2.0 } },
+                new() { Id = "served", Kind = "const", Values = new[] { 0.5, 1.5 } }
             },
-            Outputs = new List<TestOutputDto>
+            Outputs = new List<OutputDefinition>
             {
-                new() { Series = "*" }
+                new() { Series = "*", As = "all.csv" }
             }
         };
 
@@ -431,47 +431,105 @@ outputs:
         Directory.Delete(tempDir, true);
     }
 
-    private static TestModelDto CreateTestModel()
+    [Fact]
+    public async Task WriteArtifacts_WritesInvariantWarnings()
     {
-        // Create a model that will trigger the auto-output generation branch
-        // This relies on the code that creates outputs for all series in context when Outputs is null/empty
-        return new TestModelDto
+        var tempDir = Path.Combine(Path.GetTempPath(), "test_artifacts_warnings");
+        Directory.CreateDirectory(tempDir);
+
+        var model = new ModelDefinition
         {
-            Grid = new TestGridDto { Bins = 3, BinMinutes = 60 },
-            Nodes = new List<TestNodeDto>
+            Grid = new GridDefinition { Bins = 2, BinSize = 60, BinUnit = "minutes" },
+            Nodes = new List<NodeDefinition>
+            {
+                new() { Id = "arrivals", Kind = "const", Values = new[] { 10.0, 10.0 } },
+                new() { Id = "served", Kind = "const", Values = new[] { 15.0, 5.0 } },
+                new() { Id = "errors", Kind = "const", Values = new[] { 0.0, 0.0 } }
+            },
+            Topology = new TopologyDefinition
+            {
+                Nodes = new List<TopologyNodeDefinition>
+                {
+                    new()
+                    {
+                        Id = "Delivery",
+                        Semantics = new TopologyNodeSemanticsDefinition
+                        {
+                            Arrivals = "arrivals",
+                            Served = "served",
+                            Errors = "errors"
+                        }
+                    }
+                }
+            },
+            Outputs = new List<OutputDefinition>()
+        };
+
+        var grid = new TimeGrid(2, 60, TimeUnit.Minutes);
+        var context = new Dictionary<NodeId, double[]>
+        {
+            [new NodeId("arrivals")] = new[] { 10.0, 10.0 },
+            [new NodeId("served")] = new[] { 15.0, 5.0 },
+            [new NodeId("errors")] = new[] { 0.0, 0.0 }
+        };
+
+        const string spec = """
+schemaVersion: 1
+grid:
+  bins: 2
+  binSize: 60
+  binUnit: minutes
+topology:
+  nodes:
+  - id: Delivery
+    semantics:
+      arrivals: arrivals
+      served: served
+      errors: errors
+nodes:
+- id: arrivals
+  kind: const
+  values: [10, 10]
+- id: served
+  kind: const
+  values: [15, 5]
+- id: errors
+  kind: const
+  values: [0, 0]
+""";
+
+        var request = new RunArtifactWriter.WriteRequest
+        {
+            Model = model,
+            Grid = grid,
+            Context = context,
+            SpecText = spec,
+            OutputDirectory = tempDir
+        };
+
+        var result = await RunArtifactWriter.WriteArtifactsAsync(request);
+        var runJsonPath = Path.Combine(result.RunDirectory, "run.json");
+        var json = await File.ReadAllTextAsync(runJsonPath);
+        using var doc = JsonDocument.Parse(json);
+        var warnings = doc.RootElement.GetProperty("warnings");
+
+        Assert.True(warnings.GetArrayLength() > 0);
+        Assert.Equal("served_exceeds_arrivals", warnings[0].GetProperty("code").GetString());
+
+        Directory.Delete(tempDir, true);
+    }
+
+    private static ModelDefinition CreateTestModel()
+    {
+        return new ModelDefinition
+        {
+            Grid = new GridDefinition { Bins = 3, BinSize = 60, BinUnit = "minutes" },
+            Nodes = new List<NodeDefinition>
             {
                 new() { Id = "demand", Kind = "const", Values = new[] { 10.0, 20.0, 30.0 } },
                 new() { Id = "served", Kind = "const", Values = new[] { 8.0, 16.0, 24.0 } }
             },
-            Outputs = new List<TestOutputDto>() // Empty list to trigger auto-generation
+            Outputs = new List<OutputDefinition>()
         };
-    }
-
-    // Test DTOs that mimic the CLI ModelDto structure
-    public class TestModelDto
-    {
-        public TestGridDto Grid { get; set; } = new();
-        public List<TestNodeDto> Nodes { get; set; } = new();
-        public List<TestOutputDto> Outputs { get; set; } = new();
-    }
-
-    public class TestGridDto
-    {
-        public int Bins { get; set; }
-        public int BinMinutes { get; set; }
-    }
-
-    public class TestNodeDto
-    {
-        public string Id { get; set; } = "";
-        public string Kind { get; set; } = "const";
-        public double[]? Values { get; set; }
-        public string? Expr { get; set; }
-    }
-
-    public class TestOutputDto
-    {
-        public string Series { get; set; } = "";
-        public string As { get; set; } = "out.csv";
     }
 }

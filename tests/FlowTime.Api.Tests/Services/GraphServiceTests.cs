@@ -57,7 +57,7 @@ topology:
         arrivals: series:arrivals
         served: series:served
         errors: series:errors
-        queue: series:queue
+        queueDepth: series:queue
         capacity: series:capacity
         aliases:
           served: "Cases Resolved"

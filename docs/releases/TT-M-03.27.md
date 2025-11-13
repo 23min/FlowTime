@@ -14,7 +14,7 @@ Queues are now first-class citizens in the Time-Travel stack. The warehouse 1d/5
 
 ### Templates & Artifact Generation
 - Inserted `DistributorQueue` between Warehouse and Distributor with `queue_inflow`, `queue_outflow`, and `queue_depth` series.
-- `RunArtifactWriter` precomputes `queue_depth = MAX(0, q(t-1) + inflow - outflow)` using topology `initialCondition.queueDepth`, emitting CSVs and normalising `semantics.queue` to `file:` URIs.
+- `RunArtifactWriter` precomputes `queue_depth = MAX(0, q(t-1) + inflow - outflow)` using topology `initialCondition.queueDepth`, emitting CSVs and normalising `semantics.queueDepth` to `file:` URIs.
 
 ### API Enhancements
 - `/state_window` builder emits `latencyMinutes = (queue/served) * binMinutes` for queue nodes, null when `served == 0`.

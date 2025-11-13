@@ -348,7 +348,7 @@ IF kind = "service":
 IF kind = "queue":
   REQUIRE semantics.arrivals is not null
   REQUIRE semantics.served is not null
-  REQUIRE semantics.queue is not null
+  REQUIRE semantics.queueDepth is not null
   OPTIONAL semantics.capacity, errors, sla_min, q0
 
 IF kind = "router":
@@ -386,7 +386,7 @@ graph TB
     
     T1 -->|semantics.arrivals| C1
     T1 -->|semantics.served| C2
-    T2 -->|semantics.queue| C3
+    T2 -->|semantics.queueDepth| C3
     
     style T1 fill:#f9f,stroke:#333,stroke-width:2px
     style T2 fill:#f9f,stroke:#333,stroke-width:2px

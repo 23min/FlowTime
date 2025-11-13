@@ -45,7 +45,7 @@ window:
 parameters:
   - name: bins
     type: integer
-    default: 10
+    default: 3
   - name: binSize
     type: integer
     default: 1
@@ -60,7 +60,7 @@ topology:
       semantics:
         arrivals: arrivals
         served: served
-        queue: queue_depth
+        queueDepth: queue_depth
       initialCondition:
         queueDepth: 0
   edges: []
@@ -72,9 +72,9 @@ nodes:
     kind: expr
     expr: ""arrivals""
   - id: queue_depth
-    kind: expr
-    expr: ""SHIFT(queue_depth, 1) + arrivals - served""
-    initial: 0
+    kind: backlog
+    inflow: arrivals
+    outflow: served
 outputs:
   - series: ""*""
 ".Trim();
@@ -187,7 +187,7 @@ outputs:
     {
         // Arrange
         var paramsPath = Path.Combine(_testDir, "params.json");
-        await File.WriteAllTextAsync(paramsPath, """{"bins": 12, "binSize": 2}""");
+        await File.WriteAllTextAsync(paramsPath, """{"bins": 3, "binSize": 2}""");
 
         var modelPath = Path.Combine(_testDir, "model.yaml");
         var provenancePath = Path.Combine(_testDir, "provenance.json");
@@ -216,7 +216,7 @@ outputs:
         var provenance = JsonDocument.Parse(provenanceJson);
         
         var parameters = provenance.RootElement.GetProperty("parameters");
-        Assert.Equal(12, GetInt32(parameters.GetProperty("bins")));
+        Assert.Equal(3, GetInt32(parameters.GetProperty("bins")));
         Assert.Equal(2, GetInt32(parameters.GetProperty("binSize")));
     }
 

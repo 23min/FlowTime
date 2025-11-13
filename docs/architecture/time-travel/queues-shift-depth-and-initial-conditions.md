@@ -91,7 +91,7 @@ The end goal is to support the SHIFT recurrence for queue depth while keeping th
 
 1) Artifact‑time derivation (recommended short‑term)
 - During run generation (simulation build), precompute `queue_depth` from `queue_inflow` and `queue_outflow` using the recurrence and `initialCondition.queueDepth`.
-- Persist `queue_depth` as a concrete series (CSV). The topology’s `semantics.queue` then references the concrete series.
+- Persist `queue_depth` as a concrete series (CSV). The topology’s `semantics.queueDepth` then references the concrete series.
 - Pros: keeps the evaluation graph acyclic; works with current engine; guarantees file URIs exist.
 - Cons: moves stateful computation out of the expression system; less flexible if we want to vary recurrence at runtime.
 
@@ -152,7 +152,7 @@ Implementation choices:
 ### Simulation mode
 
 - With self‑SHIFT expressions, an explicit `initialCondition.queueDepth = q0` is required to make the recurrence well‑defined at `t=0`.
-- Alternative (no self‑SHIFT at evaluation time): precompute `q(t)` during artifact generation and bind `semantics.queue` to the concrete series; in this case, no runtime SHIFT is involved.
+- Alternative (no self‑SHIFT at evaluation time): precompute `q(t)` during artifact generation and bind `semantics.queueDepth` to the concrete series; in this case, no runtime SHIFT is involved.
 - Modeler guidance for choosing `q0`:
   - If sim starts “cold”, set `q0 = 0`.
   - If sim starts “under load”, set `q0 > 0` to represent carry‑over backlog.
@@ -180,7 +180,7 @@ Implementation choices:
 ## Contracts and Architecture Touchpoints
 
 Templates
-- Use `semantics.queue` to bind queue depth series (telemetry URI after generation). If self‑SHIFT is authored, include `initialCondition.queueDepth`.
+- Use `semantics.queueDepth` to bind queue depth series (telemetry URI after generation). If self‑SHIFT is authored, include `initialCondition.queueDepth`.
 - For sim with precomputation, author `queue_inflow`, `queue_outflow`, and a `queue_depth` expression; generation materializes depth to CSV.
 
 Run Generation (Artifact Writer)

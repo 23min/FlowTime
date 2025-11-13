@@ -452,7 +452,7 @@ graph TB
     T1 -->|semantics.arrivals| C1
     T1 -->|semantics.served| C2
     T1 -->|semantics.capacity| C3
-    T2 -->|semantics.queue| C4
+    T2 -->|semantics.queueDepth| C4
     
     style T1 fill:#f9f,stroke:#333,stroke-width:2px
     style T2 fill:#f9f,stroke:#333,stroke-width:2px
@@ -659,7 +659,7 @@ nodes:
 **Validation Rule:**
 ```
 IF topology.nodes[*].semantics.q0 is not null:
-  queue_node_id = topology.nodes[*].semantics.queue
+  queue_node_id = topology.nodes[*].semantics.queueDepth
   queue_node = find_node(queue_node_id)
   IF queue_node.initial is not null:
     ASSERT queue_node.initial == topology.nodes[*].semantics.q0

@@ -46,7 +46,7 @@
 
 **Updates:**
 - Inserted `DistributorQueue` between Warehouse and Distributor with `queue_inflow/outflow/depth` series and rerouted edges.
-- Artifact writer now precomputes true SHIFT-based queue depth and normalizes `semantics.queue` to emitted CSV URIs.
+- Artifact writer now precomputes true SHIFT-based queue depth and normalizes `semantics.queueDepth` to emitted CSV URIs.
 - Added persisted overlay toggle for queue scalar badge; queue chips now render left-aligned ahead of errors on queue nodes; feature panel scrollability fixed.
 - Confirmed API already emits `latencyMinutes` (Little’s Law) and added coverage for zero-served bins.
 - Authored architecture note: `docs/architecture/time-travel/queues-shift-depth-and-initial-conditions.md` (shift, initial conditions, telemetry expectations).
@@ -193,7 +193,7 @@ Expected:
 
 ## Issues Encountered
 
-- Template normalization initially emitted `semantics.queue: queue_depth`, which the API rejected (non-URI); resolved by teaching the artifact writer to normalize the queue mapping and regenerating runs.
+- Template normalization initially emitted `semantics.queueDepth: queue_depth`, which the API rejected (non-URI); resolved by teaching the artifact writer to normalize the queue mapping and regenerating runs.
 
 ---
 

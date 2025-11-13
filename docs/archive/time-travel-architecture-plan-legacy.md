@@ -707,7 +707,7 @@ sequenceDiagram
         Artifacts-->>Reader: value
         Reader-->>API: arrivals[14]
         
-        API->>Reader: ReadSeries(semantics.queue)
+        API->>Reader: ReadSeries(semantics.queueDepth)
         Reader->>Artifacts: Read CSV[binIndex]
         Artifacts-->>Reader: value
         Reader-->>API: queue[14]
@@ -792,7 +792,7 @@ For each topology node:
   If node.kind == "queue":
     If semantics.latency_min exists:
       latency = read series[binIndex]
-    Else if semantics.queue and semantics.served exist:
+    Else if semantics.queueDepth and semantics.served exist:
       latency = queue[t] / max(0.001, served[t]) * binMinutes
     Else:
       latency = null

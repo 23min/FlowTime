@@ -380,13 +380,13 @@ public class TopologyValidator : IValidator
                         });
                     }
                     
-                    if (string.IsNullOrEmpty(node.Semantics.Queue))
+                    if (string.IsNullOrEmpty(node.Semantics.QueueDepth))
                     {
                         result.Errors.Add(new ValidationError
                         {
                             Code = "TOP010",
-                            Message = $"Queue '{node.Id}' requires semantics.queue",
-                            Path = $"topology.nodes[{i}].semantics.queue",
+                            Message = $"Queue '{node.Id}' requires semantics.queueDepth",
+                            Path = $"topology.nodes[{i}].semantics.queueDepth",
                             Suggestion = "Specify queue depth series ID"
                         });
                     }

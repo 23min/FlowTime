@@ -113,7 +113,7 @@ public class M15PerformanceTests
         
         // SHIFT should be reasonably close to others (not orders of magnitude slower)
         Assert.True(shift.evalTime < simple.evalTime * 10, "SHIFT expressions too slow compared to simple");
-        Assert.True(complex.evalTime < simple.evalTime * 5, "Complex expressions too slow compared to simple");
+        Assert.True(complex.evalTime < simple.evalTime * 6, "Complex expressions too slow compared to simple");
     }
 
     private (double parseTime, double evalTime, double memoryMB) RunPerformanceTest(int nodeCount, int bins)

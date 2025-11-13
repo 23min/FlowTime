@@ -74,8 +74,10 @@ outputs:
         Assert.Equal("2025-01-01T00:00:00Z", model.Grid.Start);
 
         Assert.Contains(model.Nodes, n => n.Id == "arrivals" && n.Values![0] == 80);
-        Assert.Single(model.Outputs);
-        Assert.Equal("*", model.Outputs[0].Series);
+        Assert.Equal(3, model.Outputs.Count);
+        Assert.Contains(model.Outputs, o => o.Series == "*");
+        Assert.Contains(model.Outputs, o => o.Series == "arrivals");
+        Assert.Contains(model.Outputs, o => o.Series == "served");
 
         Assert.Equal("flowtime-sim", model.Provenance.Source);
         Assert.Equal("const-model-test", model.Provenance.TemplateId);
@@ -113,7 +115,7 @@ topology:
       semantics:
         arrivals: stochastic_demand
         served: baseline
-        queue: queue_depth
+        queueDepth: queue_depth
       initialCondition:
         queueDepth: 0
   edges: []

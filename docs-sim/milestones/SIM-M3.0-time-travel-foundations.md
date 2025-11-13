@@ -70,7 +70,7 @@ window:
 
 **Acceptance Criteria:**
 - [ ] `TopologyNode` exposes `id`, `kind`, optional `group`, optional `ui`, and a `NodeSemantics` object.
-- [ ] Kind-specific requirements raise `TOP005`–`TOP013` (service arrivals/served, queue arrivals/served/queue, router arrivals/served, external external_demand).
+- [ ] Kind-specific requirements raise `TOP005`–`TOP013` (service arrivals/served, queue arrivals/served/queueDepth, router arrivals/served, external external_demand).
 - [ ] Edge validation produces `EDG001`–`EDG005` for unknown references, self-loops, undelayed cycles, and weight issues.
 - [ ] Semantic references validate against `nodes[*].id` and raise `SEM001` with suggestions for unknown series.
 
@@ -87,7 +87,7 @@ topology:
       semantics:
         arrivals: "orders_inflow"
         served: "orders_outflow"
-        queue: "orders_backlog"
+        queueDepth: "orders_backlog"
         q0: 0
   edges:
     - from: "OrderService:out"
@@ -96,7 +96,7 @@ topology:
 ```
 
 **Error Cases:**
-- Queue missing `semantics.queue` ⇒ `TOP010`.
+- Queue missing `semantics.queueDepth` ⇒ `TOP010`.
 - Edge referencing unknown node ⇒ `EDG001`.
 
 #### FR3: Artifact & Registry Output
@@ -197,7 +197,7 @@ flowchart TD
 ### Unit Tests
 - Parser round-trip with window/topology populates DTOs and infers `modelVersion "1.1"`.
 - Window validation rejects `timezone: "EST"` with `WIN004`.
-- Topology validator flags queue missing `semantics.queue` (`TOP010`) and router missing `semantics.served` (`TOP012`).
+- Topology validator flags queue missing `semantics.queueDepth` (`TOP010`) and router missing `semantics.served` (`TOP012`).
 - Semantic validator reports `SEM001` for unknown series with suggestion text.
 - Edge validator raises `EDG004` for undelayed cycles.
 

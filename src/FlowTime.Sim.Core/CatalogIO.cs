@@ -156,4 +156,14 @@ internal sealed class ReadablePropertiesTypeInspector : TypeInspectorSkeleton
         // Filter out read-only properties that end with "ReadOnly"
         return properties.Where(p => !p.Name.EndsWith("ReadOnly", StringComparison.OrdinalIgnoreCase));
     }
+
+    public override string GetEnumName(Type enumType, string value)
+    {
+        return innerTypeInspector.GetEnumName(enumType, value);
+    }
+
+    public override string GetEnumValue(object value)
+    {
+        return innerTypeInspector.GetEnumValue(value);
+    }
 }

@@ -6,6 +6,7 @@ using System.Text.RegularExpressions;
 using FlowTime.Sim.Core.Models;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Xunit;
+using Xunit.Sdk;
 
 namespace FlowTime.Sim.Tests.Service;
 
@@ -48,7 +49,7 @@ parameters:
   - name: bins
     type: integer
     description: Number of bins
-    default: 10
+    default: 3
     min: 1
     max: 100
   - name: binSize
@@ -84,17 +85,14 @@ outputs:
     public async Task Generate_ReturnsModelAndProvenance_Separately()
     {
         // Arrange
-        var parameters = new { bins = 12, binSize = 1 };
+        var parameters = new { bins = 3, binSize = 1 };
         var content = new StringContent(
             JsonSerializer.Serialize(parameters),
             Encoding.UTF8,
             "application/json");
 
-        // Act
         var response = await _client.PostAsync("/api/v1/templates/test-template/generate", content);
-
-        // Assert
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        await AssertStatusOk(response);
         
         var responseBody = await response.Content.ReadAsStringAsync();
         var json = JsonDocument.Parse(responseBody);
@@ -139,7 +137,7 @@ outputs:
     public async Task Generate_WithEmbedProvenanceTrue_ReturnsEmbeddedModel()
     {
         // Arrange
-        var parameters = new { bins = 12, binSize = 1 };
+        var parameters = new { bins = 3, binSize = 1 };
         var content = new StringContent(
             JsonSerializer.Serialize(parameters),
             Encoding.UTF8,
@@ -149,9 +147,7 @@ outputs:
         var response = await _client.PostAsync(
             "/api/v1/templates/test-template/generate?embed_provenance=true", 
             content);
-
-        // Assert
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        await AssertStatusOk(response);
         
         var responseBody = await response.Content.ReadAsStringAsync();
         var json = JsonDocument.Parse(responseBody);
@@ -185,7 +181,7 @@ outputs:
     public async Task Generate_WithEmbedProvenanceFalse_ReturnsSeparateProvenance()
     {
         // Arrange
-        var parameters = new { bins = 12, binSize = 1 };
+        var parameters = new { bins = 3, binSize = 1 };
         var content = new StringContent(
             JsonSerializer.Serialize(parameters),
             Encoding.UTF8,
@@ -195,9 +191,7 @@ outputs:
         var response = await _client.PostAsync(
             "/api/v1/templates/test-template/generate?embed_provenance=false", 
             content);
-
-        // Assert
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        await AssertStatusOk(response);
         
         var responseBody = await response.Content.ReadAsStringAsync();
         var json = JsonDocument.Parse(responseBody);
@@ -217,7 +211,7 @@ outputs:
     public async Task Generate_WithModeOverride_UsesTelemetryMode()
     {
         // Arrange
-        var parameters = new { bins = 12, binSize = 1 };
+        var parameters = new { bins = 3, binSize = 1 };
         var content = new StringContent(
             JsonSerializer.Serialize(parameters),
             Encoding.UTF8,
@@ -225,9 +219,7 @@ outputs:
 
         // Act
         var response = await _client.PostAsync("/api/v1/templates/test-template/generate?mode=telemetry", content);
-
-        // Assert
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        await AssertStatusOk(response);
 
         var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         var metadata = json.RootElement.GetProperty("metadata");
@@ -239,7 +231,7 @@ outputs:
     public async Task Generate_WithInvalidMode_ReturnsBadRequest()
     {
         // Arrange
-        var parameters = new { bins = 12, binSize = 1 };
+        var parameters = new { bins = 3, binSize = 1 };
         var content = new StringContent(
             JsonSerializer.Serialize(parameters),
             Encoding.UTF8,
@@ -256,7 +248,7 @@ outputs:
     public async Task Generate_ProvenanceModelId_IsDeterministic()
     {
         // Arrange
-        var parameters = new { bins = 12, binSize = 1 };
+        var parameters = new { bins = 3, binSize = 1 };
         var content1 = new StringContent(
             JsonSerializer.Serialize(parameters),
             Encoding.UTF8,
@@ -290,7 +282,7 @@ outputs:
     public async Task Generate_ProvenanceIncludesAllParameters()
     {
         // Arrange
-        var parameters = new { bins = 24, binSize = 2 };
+        var parameters = new { bins = 3, binSize = 2 };
         var content = new StringContent(
             JsonSerializer.Serialize(parameters),
             Encoding.UTF8,
@@ -303,7 +295,7 @@ outputs:
         var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         var provenanceParams = json.RootElement.GetProperty("provenance").GetProperty("parameters");
         
-        Assert.Equal(24, GetInt32(provenanceParams.GetProperty("bins")));
+        Assert.Equal(3, GetInt32(provenanceParams.GetProperty("bins")));
         Assert.Equal(2, GetInt32(provenanceParams.GetProperty("binSize")));
     }
 
@@ -311,7 +303,7 @@ outputs:
     public async Task Generate_InvalidTemplate_Returns404()
     {
         // Arrange
-        var parameters = new { bins = 12 };
+        var parameters = new { bins = 3 };
         var content = new StringContent(
             JsonSerializer.Serialize(parameters),
             Encoding.UTF8,
@@ -332,11 +324,8 @@ outputs:
         // Arrange - No parameters
         var content = new StringContent("{}", Encoding.UTF8, "application/json");
 
-        // Act
         var response = await _client.PostAsync("/api/v1/templates/test-template/generate", content);
-
-        // Assert
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        await AssertStatusOk(response);
         
         var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         var provenanceParams = json.RootElement.GetProperty("provenance").GetProperty("parameters");
@@ -349,16 +338,14 @@ outputs:
     public async Task Generate_ProvenanceTimestamp_IsIso8601Utc()
     {
         // Arrange
-        var parameters = new { bins = 12 };
+        var parameters = new { bins = 3 };
         var content = new StringContent(
             JsonSerializer.Serialize(parameters),
             Encoding.UTF8,
             "application/json");
 
-        // Act
         var response = await _client.PostAsync("/api/v1/templates/test-template/generate", content);
-
-        // Assert
+        await AssertStatusOk(response);
         var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         var timestamp = json.RootElement.GetProperty("provenance").GetProperty("generatedAt").GetString();
         
@@ -370,17 +357,14 @@ outputs:
     public async Task Generate_BackwardCompatible_ExistingClientsWork()
     {
         // Arrange - Old-style request expecting just YAML back
-        var parameters = new { bins = 12 };
+        var parameters = new { bins = 3 };
         var content = new StringContent(
             JsonSerializer.Serialize(parameters),
             Encoding.UTF8,
             "application/json");
 
-        // Act
         var response = await _client.PostAsync("/api/v1/templates/test-template/generate", content);
-
-        // Assert - Should still return 200 OK
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        await AssertStatusOk(response);
         
         // Response should be valid JSON (new format)
         var responseBody = await response.Content.ReadAsStringAsync();
@@ -395,7 +379,7 @@ outputs:
     public async Task Generate_EmbeddedProvenance_ValidYamlFormat()
     {
         // Arrange
-        var parameters = new { bins = 12 };
+        var parameters = new { bins = 3 };
         var content = new StringContent(
             JsonSerializer.Serialize(parameters),
             Encoding.UTF8,
@@ -432,6 +416,15 @@ outputs:
         catch
         {
             return false;
+        }
+    }
+
+    private static async Task AssertStatusOk(HttpResponseMessage response)
+    {
+        if (response.StatusCode != HttpStatusCode.OK)
+        {
+            var body = await response.Content.ReadAsStringAsync();
+            throw new XunitException($"Expected 200 OK but got {(int)response.StatusCode}: {body}");
         }
     }
 

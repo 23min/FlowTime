@@ -38,7 +38,7 @@ topology:
         served: service_served
         capacity: service_capacity
         errors: null
-        queue: service_queue
+        queueDepth: service_queue
   edges: []
 nodes:
   - id: service_arrivals

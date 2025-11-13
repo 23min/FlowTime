@@ -91,7 +91,7 @@ topology:
       semantics:
         arrivals: stochastic_arrivals
         served: served
-        queue: queue_depth
+        queueDepth: queue_depth
       initialCondition:
         queueDepth: 0
   edges: []
@@ -202,7 +202,7 @@ topology:
       semantics:
         arrivals: arrivals
         served: served
-        queue: queue_depth
+        queueDepth: queue_depth
   edges: []
 nodes:
   - id: arrivals

@@ -44,8 +44,8 @@ public sealed class FileSeriesReader : ISeriesReader
             CreatedUtc = DateTime.Parse(root.GetProperty("createdUtc").GetString()!, 
                 null, DateTimeStyles.RoundtripKind),
             Warnings = root.TryGetProperty("warnings", out var warningsProp)
-                ? warningsProp.EnumerateArray().Select(w => w.GetString()!).ToArray()
-                : [],
+                ? warningsProp.EnumerateArray().Select(ParseRunWarning).ToArray()
+                : Array.Empty<RunWarning>(),
             Series = root.GetProperty("series").EnumerateArray()
                 .Select(ParseSeriesReference)
                 .ToArray()
@@ -198,6 +198,38 @@ public sealed class FileSeriesReader : ISeriesReader
             Id = element.GetProperty("id").GetString()!,
             Path = element.GetProperty("path").GetString()!,
             Unit = element.GetProperty("unit").GetString()!
+        };
+    }
+
+    private static RunWarning ParseRunWarning(JsonElement element)
+    {
+        if (element.ValueKind == JsonValueKind.String)
+        {
+            var message = element.GetString() ?? string.Empty;
+            return new RunWarning
+            {
+                Code = "engine_warning",
+                Message = message
+            };
+        }
+
+        var bins = element.TryGetProperty("bins", out var binsElement) && binsElement.ValueKind == JsonValueKind.Array
+            ? binsElement.EnumerateArray().Select(b => b.GetInt32()).ToArray()
+            : null;
+
+        double? value = null;
+        if (element.TryGetProperty("value", out var valueElement) && valueElement.ValueKind == JsonValueKind.Number)
+        {
+            value = valueElement.GetDouble();
+        }
+
+        return new RunWarning
+        {
+            Code = element.TryGetProperty("code", out var codeElement) ? codeElement.GetString() ?? "engine_warning" : "engine_warning",
+            Message = element.TryGetProperty("message", out var messageElement) ? messageElement.GetString() ?? string.Empty : string.Empty,
+            NodeId = element.TryGetProperty("nodeId", out var nodeElement) ? nodeElement.GetString() : null,
+            Bins = bins,
+            Value = value
         };
     }
 

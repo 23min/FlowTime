@@ -634,7 +634,7 @@ topology:
         served: "file:SupportQueue_served.csv"
         errors: "file:SupportQueue_errors.csv"
         externalDemand: null
-        queue: "file:SupportQueue_queue.csv"
+        queueDepth: "file:SupportQueue_queue.csv"
         capacity: null
         slaMin: 5
         aliases:
@@ -686,7 +686,7 @@ topology:
         served: "file:SupportQueue_served.csv"
         errors: "file:SupportQueue_errors.csv"
         externalDemand: null
-        queue: "file:SupportQueue_queue.csv"
+        queueDepth: "file:SupportQueue_queue.csv"
         capacity: null
         slaMin: 5
         aliases:
@@ -902,7 +902,7 @@ topology:
         served: "file:SupportQueue_served.csv"
         errors: "file:SupportQueue_errors.csv"
         externalDemand: null
-        queue: "file:SupportQueue_queue.csv"
+        queueDepth: "file:SupportQueue_queue.csv"
         capacity: null
         slaMin: 5
         aliases:
@@ -948,7 +948,7 @@ topology:
         served: "file:SupportQueue_served.csv"
         errors: "file:SupportQueue_errors.csv"
         externalDemand: null
-        queue: "file:SupportQueue_queue.csv"
+        queueDepth: "file:SupportQueue_queue.csv"
         capacity: null
         slaMin: 5
   edges: []
@@ -1016,7 +1016,7 @@ topology:
         served: "file:SupportQueue_served.csv"
         errors: "file:SupportQueue_errors.csv"
         externalDemand: null
-        queue: "file:SupportQueue_queue.csv"
+        queueDepth: "file:SupportQueue_queue.csv"
         capacity: null
         slaMin: 5
         aliases:

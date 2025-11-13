@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using FlowTime.Sim.Core.Services;
 using FlowTime.Sim.Core.Templates;
+using FlowTime.Sim.Core.Analysis;
 using FlowTime.Sim.Core.Templates.Exceptions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -295,6 +296,24 @@ namespace FlowTime.Sim.Cli
             // Generate model (YAML already contains provenance block)
             var model = await service.GenerateEngineModelAsync(opts.TemplateId, parameters, modeOverride);
             var artifact = DeserializeArtifact(model);
+            var invariantAnalysis = TemplateInvariantAnalyzer.Analyze(model);
+            if (invariantAnalysis.Warnings.Count > 0)
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine($"⚠ Template produced {invariantAnalysis.Warnings.Count} warning(s):");
+                foreach (var warning in invariantAnalysis.Warnings.Take(5))
+                {
+                    var binsText = warning.Bins.Count > 0
+                        ? $" bins [{string.Join(", ", warning.Bins)}]"
+                        : string.Empty;
+                    Console.WriteLine($"  - [{warning.NodeId}] {warning.Message}{binsText}");
+                }
+                if (invariantAnalysis.Warnings.Count > 5)
+                {
+                    Console.WriteLine("    (additional warnings omitted)");
+                }
+                Console.ResetColor();
+            }
 
             if (opts.Verbose)
             {

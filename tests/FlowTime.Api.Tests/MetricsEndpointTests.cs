@@ -187,7 +187,7 @@ topology:
         arrivals: "file:SupportQueue_arrivals.csv"
         served: "file:SupportQueue_served.csv"
         errors: "file:SupportQueue_errors.csv"
-        queue: "file:SupportQueue_queue.csv"
+        queueDepth: "file:SupportQueue_queue.csv"
 """;
     }
 

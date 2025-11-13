@@ -92,7 +92,15 @@ public class AdapterExampleTests
           "grid": { "bins": 4, "binSize": 1, "binUnit": "hours", "timezone": "UTC", "align": "left" },
           "scenarioHash": "sha256:sample123",
           "createdUtc": "2025-09-03T12:00:00Z",
-          "warnings": ["PMF normalized"],
+          "warnings": [
+            {
+              "code": "pmf_normalized",
+              "message": "PMF normalized",
+              "nodeId": "COMP_A",
+              "bins": [0],
+              "value": null
+            }
+          ],
           "series": [
             { "id": "demand@COMP_A", "path": "series/demand@COMP_A.csv", "unit": "entities/bin" },
             { "id": "served@COMP_A", "path": "series/served@COMP_A.csv", "unit": "entities/bin" },

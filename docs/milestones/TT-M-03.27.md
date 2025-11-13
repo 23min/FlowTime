@@ -77,7 +77,7 @@ Out of Scope
 
 ## Completion Summary
 
-- Queue node is precomputed during artifact generation, binding `semantics.queue` to the emitted `queue_depth` CSV; architecture note published at `docs/architecture/time-travel/queues-shift-depth-and-initial-conditions.md`.
+- Queue node is precomputed during artifact generation, binding `semantics.queueDepth` to the emitted `queue_depth` CSV; architecture note published at `docs/architecture/time-travel/queues-shift-depth-and-initial-conditions.md`.
 - API `/state_window` response validated with new golden (`state-window-queue-null-approved.json`) covering the served=0 latency case, alongside unit tests for queue latency derivation.
 - UI canvas/inspector updates include badge toggle persistence, queue-chip layout, and inspector coverage tests; accessibility/performance targets observed.
 - Docs, roadmap deferrals, and centralized performance log (`docs/performance/perf-log.md`) updated; full solution test suite executed (`dotnet test tests/FlowTime.Tests -c Release --no-build`).
@@ -88,7 +88,7 @@ Session 1 — Templates + Topology
 - Add `queue_inflow`, `queue_outflow`, `queue_depth` (with `initial`) and `DistributorQueue` node to `templates/supply-chain-multi-tier-warehouse-1d5m.yaml`.
 - Reroute edges Warehouse→DistributorQueue→Distributor.
 - Provide sample run artifacts; validate conservation (served ≤ arrivals) still holds.
-- Precompute true queue depth at artifact generation so `semantics.queue` references the emitted CSV (see architecture note).
+- Precompute true queue depth at artifact generation so `semantics.queueDepth` references the emitted CSV (see architecture note).
 
 Session 2 — API Latency Derivation
 - In `/state_window` builder, when a node.kind == `queue`, derive `latencyMinutes = (queue/served) * binMinutes` with guards; include in response. (Implemented; additional golden captured for zero-served bins.)

@@ -500,7 +500,7 @@ IF kind = "service":
 IF kind = "queue":
   REQUIRE semantics.arrivals
   REQUIRE semantics.served
-  REQUIRE semantics.queue
+  REQUIRE semantics.queueDepth
   REQUIRE semantics.q0 OR node has initial condition
 ```
 

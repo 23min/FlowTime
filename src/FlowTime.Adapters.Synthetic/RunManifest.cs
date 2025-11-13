@@ -13,8 +13,17 @@ public sealed class RunManifest
     public string? ModelHash { get; init; }
     public required string ScenarioHash { get; init; }
     public required DateTime CreatedUtc { get; init; }
-    public required string[] Warnings { get; init; }
+    public required RunWarning[] Warnings { get; init; } = Array.Empty<RunWarning>();
     public required SeriesReference[] Series { get; init; }
+}
+
+public sealed class RunWarning
+{
+    public required string Code { get; init; }
+    public required string Message { get; init; }
+    public string? NodeId { get; init; }
+    public int[]? Bins { get; init; }
+    public double? Value { get; init; }
 }
 
 /// <summary>

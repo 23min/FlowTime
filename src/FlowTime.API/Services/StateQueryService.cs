@@ -1405,15 +1405,16 @@ public sealed class StateQueryService
     {
         var warnings = new List<StateWarning>();
 
-        if (context.Manifest.Warnings != null)
+        if (context.Manifest.Warnings is { Length: > 0 })
         {
-            for (var i = 0; i < context.Manifest.Warnings.Length; i++)
+            foreach (var warning in context.Manifest.Warnings)
             {
                 warnings.Add(new StateWarning
                 {
-                    Code = "run_warning",
-                    Message = context.Manifest.Warnings[i],
-                    Severity = "info"
+                    Code = warning.Code,
+                    Message = warning.Message,
+                    NodeId = warning.NodeId,
+                    Severity = "warning"
                 });
             }
         }

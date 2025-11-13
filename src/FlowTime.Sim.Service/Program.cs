@@ -3,7 +3,9 @@ using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Linq;
+using Microsoft.Extensions.DependencyInjection;
 using FlowTime.Sim.Core;
+using FlowTime.Sim.Core.Analysis;
 using FlowTime.Sim.Core.Services;
 using FlowTime.Sim.Core.Templates;
 using FlowTime.Sim.Core.Templates.Exceptions;
@@ -37,6 +39,7 @@ builder.Services.AddCors(p => p.AddDefaultPolicy(policy => policy.AllowAnyOrigin
 builder.Services.AddSingleton<IServiceInfoProvider, ServiceInfoProvider>();
 builder.Services.AddSingleton<IEndpointDiscoveryService, EndpointDiscoveryService>();
 builder.Services.AddSingleton<ICapabilitiesDetectionService, CapabilitiesDetectionService>();
+builder.Services.AddSingleton<ITemplateWarningRegistry, TemplateWarningRegistry>();
 builder.Services.AddSingleton<ITemplateService>(provider =>
 {
 	var logger = provider.GetRequiredService<ILogger<TemplateService>>();
@@ -72,12 +75,45 @@ app.Use(async (ctx, next) =>
 // Initialize catalogs during startup
 ServiceHelpers.EnsureRuntimeCatalogs(app.Configuration);
 
+app.Lifetime.ApplicationStarted.Register(() =>
+{
+	_ = Task.Run(async () =>
+	{
+		using var scope = app.Services.CreateScope();
+		var templateService = scope.ServiceProvider.GetRequiredService<ITemplateService>();
+		var warningRegistry = scope.ServiceProvider.GetRequiredService<ITemplateWarningRegistry>();
+
+		var templates = await templateService.GetAllTemplatesAsync();
+		foreach (var template in templates)
+		{
+			try
+			{
+				var yaml = await templateService.GenerateEngineModelAsync(template.Metadata.Id, new Dictionary<string, object>(), null);
+				var analysis = TemplateInvariantAnalyzer.Analyze(yaml);
+				warningRegistry.UpdateWarnings(template.Metadata.Id, analysis.Warnings);
+
+				if (analysis.Warnings.Count > 0)
+				{
+					app.Logger.LogWarning("Template {TemplateId} produced {Count} invariant warning(s) at startup", template.Metadata.Id, analysis.Warnings.Count);
+				}
+			}
+			catch (Exception ex)
+			{
+				app.Logger.LogWarning(ex, "Invariant analysis failed for template {TemplateId}", template.Metadata.Id);
+			}
+		}
+	});
+});
+
 // Health endpoints - simple and factual
-app.MapGet("/healthz", (HttpContext context, IConfiguration config, IEndpointDiscoveryService endpointService) =>
+app.MapGet("/healthz", (HttpContext context, IConfiguration config, IEndpointDiscoveryService endpointService, ITemplateWarningRegistry warningRegistry) =>
 {
     // Check for detailed health parameter
     var includeDetails = context.Request.Query.ContainsKey("detailed") || 
                         context.Request.Query.ContainsKey("include-details");
+    
+    var hasWarnings = warningRegistry.HasWarnings;
+    var status = hasWarnings ? "warning" : "ok";
     
     if (includeDetails)
     {
@@ -89,7 +125,7 @@ app.MapGet("/healthz", (HttpContext context, IConfiguration config, IEndpointDis
         
         return Results.Ok(new
         {
-            status = "ok",
+            status,
             service = serviceName,
             version = version,
             timestamp = DateTime.UtcNow,
@@ -102,22 +138,25 @@ app.MapGet("/healthz", (HttpContext context, IConfiguration config, IEndpointDis
                 platform = Environment.OSVersion.Platform.ToString(),
                 architecture = RuntimeInformation.ProcessArchitecture.ToString()
             },
-            availableEndpoints = endpointService.GetAvailableEndpoints()
+            availableEndpoints = endpointService.GetAvailableEndpoints(),
+            templateWarnings = warningRegistry.GetWarnings()
         });
     }
     else
     {
         // Legacy basic response
-        return Results.Ok(new { status = "ok" });
+        return Results.Ok(new { status });
     }
 });
 
 // Enhanced health endpoint with service information (v1)
-app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext context, IConfiguration config) =>
+app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext context, IConfiguration config, ITemplateWarningRegistry warningRegistry) =>
 {
     // Check for detailed health parameter
     var includeDetails = context.Request.Query.ContainsKey("detailed") || 
                         context.Request.Query.ContainsKey("include-details");
+    var hasWarnings = warningRegistry.HasWarnings;
+    var status = hasWarnings ? "warning" : "ok";
     
     if (includeDetails)
     {
@@ -125,7 +164,7 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
         var process = System.Diagnostics.Process.GetCurrentProcess();
         return Results.Ok(new
         {
-            status = "ok",
+            status,
             service = "FlowTime.Sim.Service",
             version = "1.0.0",
             timestamp = DateTime.UtcNow,
@@ -151,13 +190,19 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
                 "/api/v1/catalogs",
                 "/api/v1/catalogs/{id}",
                 "/api/v1/catalogs/validate"
-            }
+            },
+            templateWarnings = warningRegistry.GetWarnings()
         });
     }
     else
     {
         // Standard v1 health with service info
         var serviceInfo = serviceInfoProvider.GetServiceInfo();
+        if (warningRegistry.HasWarnings)
+        {
+            serviceInfo.Health.Status = "warning";
+            serviceInfo.Health.Details["templateWarnings"] = warningRegistry.GetWarnings();
+        }
         return Results.Ok(serviceInfo);
     }
 });
@@ -238,7 +283,7 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 
 		// API: POST /api/v1/templates/{id}/generate  (generate model from template with parameter substitution)
 		// SIM-M2.7: Enhanced to return provenance metadata
-		api.MapPost("/templates/{id}/generate", async (string id, HttpRequest req, IConfiguration config, ITemplateService templateService) =>
+		api.MapPost("/templates/{id}/generate", async (string id, HttpRequest req, IConfiguration config, ITemplateService templateService, ITemplateWarningRegistry warningRegistry) =>
 		{
 			try
 			{
@@ -282,6 +327,8 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 				}
 
 				var modelYaml = await templateService.GenerateEngineModelAsync(id, parameters, modeOverride);
+				var invariantAnalysis = TemplateInvariantAnalyzer.Analyze(modelYaml);
+				warningRegistry.UpdateWarnings(id, invariantAnalysis.Warnings);
 
 				var finalModelYaml = modelYaml;
 				// Compute canonical model hash for integrity/cross-system compatibility
@@ -351,7 +398,15 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 					modelHash
 				};
 
-				return Results.Ok(new { model = finalModelYaml, provenance = artifact.Provenance, metadata = metadataSummary });
+				var warningsPayload = invariantAnalysis.Warnings.Select(w => new
+				{
+					nodeId = w.NodeId,
+					code = w.Code,
+					message = w.Message,
+					bins = w.Bins
+				}).ToArray();
+
+				return Results.Ok(new { model = finalModelYaml, provenance = artifact.Provenance, metadata = metadataSummary, warnings = warningsPayload });
 			}
 			catch (ArgumentException ex)
 			{
