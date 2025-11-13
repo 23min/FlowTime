@@ -252,11 +252,11 @@ nodes:
 
   - id: deliveries_served
     kind: expr
-    expr: "MAX(0, capacity_served - retry_failures)"
+    expr: "MIN(delivery_base_load, MAX(0, capacity_served - retry_failures))"
 
   - id: delivery_errors
     kind: expr
-    expr: "delivery_attempts - deliveries_served"
+    expr: "MAX(0, delivery_base_load - deliveries_served)"
 
   - id: delivery_processing_time_ms_sum
     kind: expr

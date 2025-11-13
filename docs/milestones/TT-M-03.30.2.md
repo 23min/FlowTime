@@ -53,6 +53,9 @@ Follow-up to TT‑M‑03.30.1 that focuses on raising the realism of our catalog
 - **Focus controls:** remove “Queue depth” from the global focus chips and drop the queue-depth badge toggle in the topology panel (queues always show depth inline). Focus metrics apply only to service nodes.
 - Update UI tests/goldens once the visuals change.
 - **Retry loop clarity:** keep Attempts in the top row (so they still balance Arrivals + Retries) and only render the sideways “U” loop when we have non-zero retry tax. When the loop does render, we now show a horizontal chip stack (`Retries`, `Failed retries`, `Retry echo`) next to it, and hide both the loop and the chips entirely when there is no retry activity. Templates map `errors` to the full set of failed attempts while `failures` is reserved for internal retry attempts so the UI can keep those signals distinct.
+- **Template & Run invariant validation:**
+  - **Sim-side:** FlowTime.Sim adopts a dependency on `FlowTime.Core` so templates can be evaluated with the same graph engine as runtime. Add a `TemplateInvariantAnalyzer` that runs immediately after model generation and emits warnings when conservation rules are violated (`served > arrivals`, `errors > arrivals`, invalid retry math, backlog mismatch, negative series etc.). Warnings surface in CLI output, Sim Service responses, and the Sim health probe (warnings flip the health check + MudDrawer status icon to amber). Template cards (future UI work) can also show these warnings.
+  - **Engine-side:** introduce a `RunInvariantAnalyzer` that executes after the Engine evaluates a model (simulation or telemetry). Violations are attached to nodes/edges in run metadata and the `/state` graph payload so UI can badge nodes during inspection. This allows telemetry runs with bad source data to raise the same warnings.
 
 4. **Documentation**
    - Add a “buffer modeling” section to `docs/templates/metric-alias-authoring.md` (or new doc) describing when to use queue nodes.
@@ -79,7 +82,10 @@ Follow-up to TT‑M‑03.30.1 that focuses on raising the realism of our catalog
 1. **Template audit & planning** – inventory current nodes, identify buffer gaps, draft PMF replacements.
 2. **Iterative template refresh** – update one template at a time; run targeted `dotnet test` for affected areas.
 3. **API/UI golden updates** – refresh state/graph/metrics goldens plus UI snapshots once templates settle.
-4. **Docs & release note** – capture new guidance and summarize changes in TT tracking + release file.
+4. **Invariant analyzers**
+   - 4a. Wire FlowTime.Sim to reuse `FlowTime.Core` and build `TemplateInvariantAnalyzer` (evaluation + warning serialization + CLI/Service surfacing + Sim health check integration).
+   - 4b. Implement Engine `RunInvariantAnalyzer`, persist warnings in run metadata, expose via API graph/state responses, and add UI badges/messages.
+5. **Docs & release note** – capture new guidance and summarize changes in TT tracking + release file.
 
 ## Risks & Mitigations
 

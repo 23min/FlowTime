@@ -85,10 +85,10 @@ topology:
       kind: service
       semantics:
         arrivals: raw_materials
-        served: assembly
+        served: assembly_output
         errors: defects
         processingTimeMsSum: assembly_processing_time_ms_sum
-        servedCount: assembly
+        servedCount: assembly_output
         aliases:
           arrivals: "Raw material feed"
           served: "Units assembled"
@@ -96,7 +96,7 @@ topology:
     - id: QualityControl
       kind: service
       semantics:
-        arrivals: assembly
+        arrivals: assembly_output
         served: quality_control
         errors: quality_rejects
         processingTimeMsSum: quality_processing_time_ms_sum
@@ -145,9 +145,17 @@ nodes:
     kind: expr
     expr: "assembly * 240"
 
+  - id: defects
+    kind: expr
+    expr: "assembly * ${defectRate}"
+
+  - id: assembly_output
+    kind: expr
+    expr: "MAX(0, assembly - defects)"
+
   - id: quality_control
     kind: expr
-    expr: "MIN(assembly * ${qualityRate}, quality_control_capacity)"
+    expr: "MIN(assembly_output * ${qualityRate}, quality_control_capacity)"
 
   - id: quality_processing_time_ms_sum
     kind: expr
@@ -155,7 +163,7 @@ nodes:
 
   - id: quality_rejects
     kind: expr
-    expr: "MAX(assembly - quality_control, 0)"
+    expr: "MAX(assembly_output - quality_control, 0)"
 
   - id: packaging
     kind: expr
@@ -168,10 +176,6 @@ nodes:
   - id: packaging_rejects
     kind: expr
     expr: "MAX(quality_control - packaging, 0)"
-
-  - id: defects
-    kind: expr
-    expr: "assembly * ${defectRate}"
 
 outputs:
   - series: raw_materials
