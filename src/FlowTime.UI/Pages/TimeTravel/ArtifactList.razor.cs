@@ -599,6 +599,10 @@ public sealed partial class ArtifactList : ComponentBase
         _view.Items.Count > 0 &&
         _view.Items.Any(IsRowSelected) &&
         !_view.Items.All(IsRowSelected);
+    private bool? SelectAllTriState =>
+        SelectAllChecked ? true :
+        SelectAllIndeterminate ? null :
+        false;
 
     private Task OnSelectAllChanged(bool value)
     {
@@ -620,6 +624,9 @@ public sealed partial class ArtifactList : ComponentBase
         StateHasChanged();
         return Task.CompletedTask;
     }
+
+    private Task OnSelectAllStateChanged(bool? value) =>
+        OnSelectAllChanged(value == true);
 
     private Task OnRowSelectionChanged(RunListEntry run, bool value)
     {
@@ -984,6 +991,9 @@ public sealed partial class ArtifactList : ComponentBase
         _overwriteCapture = value;
         return Task.CompletedTask;
     }
+
+    private static IReadOnlyDictionary<string, object> GetAriaLabelAttributes(string label)
+        => new Dictionary<string, object> { ["aria-label"] = label };
 }
 
 internal enum ArtifactViewMode

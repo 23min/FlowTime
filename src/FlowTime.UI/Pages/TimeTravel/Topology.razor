@@ -46,7 +46,7 @@
             else if (isLoading)
             {
                 <MudPaper Class="pa-6 d-flex flex-column align-center justify-center" Elevation="0">
-                    <MudProgressCircular Color="Color.Primary" Diameter="64" Indeterminate="true" />
+                    <MudProgressCircular Color="Color.Primary" Indeterminate="true" Style="width: 64px; height: 64px;" />
                     <MudText Typo="Typo.caption" Class="mt-2">Loading topology…</MudText>
                 </MudPaper>
             }
@@ -143,17 +143,16 @@
                                                    Color="@(loopPlayback ? Color.Primary : Color.Default)"
                                                    OnClick="ToggleLoop" />
                                     <MudChipSet T="double"
-                                                Choice="true"
                                                 SelectedValue="@playbackSpeedFactor"
                                                 SelectedValueChanged="OnPlaybackSpeedChipChanged"
-                                                Class="timeline-speed-set">
+                                                Class="timeline-speed-set"
+                                                Ripple="false">
                                         @foreach (var option in PlaybackSpeedOptions)
                                         {
                                             <MudChip T="double"
                                                      Value="@option.Factor"
                                                      Variant="Variant.Outlined"
                                                      Color="Color.Default"
-                                                     DisableRipple="true"
                                                      Size="Size.Small"
                                                      Class="timeline-speed-chip">
                                                 @option.Label
@@ -163,13 +162,13 @@
                                     <MudStack Row="true" AlignItems="@AlignItems.Center" Class="timeline-focus-group">
                                         @if (HasWindowWarnings)
                                         {
-                                            <MudTooltip MaxWidth="360">
+                                            <MudTooltip RootClass="timeline-warning-tooltip-root">
                                                 <ChildContent>
                                                     <MudChip T="string"
                                                              Variant="Variant.Filled"
-                                                             DisableRipple="true"
                                                              Class="timeline-warning-chip"
-                                                             Color="Color.Warning">
+                                                             Color="Color.Warning"
+                                                             Ripple="false">
                                                         Warning
                                                     </MudChip>
                                                 </ChildContent>
@@ -195,14 +194,13 @@
                                         <MudStack Row="true" AlignItems="@AlignItems.Center" Spacing="1" Class="timeline-focus-controls">
                                             <MudText Typo="Typo.caption" Class="timeline-focus-label">Focus</MudText>
                                             <MudChipSet T="TopologyColorBasis"
-                                                        Choice="true"
                                                         SelectedValue="@overlaySettings.ColorBasis"
                                                         SelectedValueChanged="OnFocusMetricChanged"
-                                                        Class="timeline-focus-set">
+                                                        Class="timeline-focus-set"
+                                                        Ripple="false">
                                                 <MudChip T="TopologyColorBasis"
                                                          Value="TopologyColorBasis.Sla"
                                                          Variant="Variant.Outlined"
-                                                         DisableRipple="true"
                                                          Size="Size.Small"
                                                          Class="timeline-focus-chip">
                                                     SLA
@@ -210,7 +208,6 @@
                                                 <MudChip T="TopologyColorBasis"
                                                          Value="TopologyColorBasis.Utilization"
                                                          Variant="Variant.Outlined"
-                                                         DisableRipple="true"
                                                          Size="Size.Small"
                                                          Class="timeline-focus-chip">
                                                     Utilization
@@ -218,7 +215,6 @@
                                                 <MudChip T="TopologyColorBasis"
                                                          Value="TopologyColorBasis.Errors"
                                                          Variant="Variant.Outlined"
-                                                         DisableRipple="true"
                                                          Size="Size.Small"
                                                          Class="timeline-focus-chip">
                                                     Error rate
@@ -226,7 +222,6 @@
                                                 <MudChip T="TopologyColorBasis"
                                                          Value="TopologyColorBasis.ServiceTime"
                                                          Variant="Variant.Outlined"
-                                                         DisableRipple="true"
                                                          Size="Size.Small"
                                                          Class="timeline-focus-chip">
                                                     Service time
@@ -236,37 +231,38 @@
                                         <MudStack Row="true" AlignItems="@AlignItems.Center" Spacing="1" Class="timeline-operational-toggle">
                                             <MudText Typo="Typo.caption" Class="timeline-focus-label">Operational</MudText>
                                             <MudSwitch T="bool"
-                                                       Dense="true"
-                                                       DisableRipple="true"
+                                                       Size="Size.Small"
+                                                       Ripple="false"
                                                        Value="@operationalViewOnly"
                                                        ValueChanged="OnOperationalViewChanged"
                                                        Disabled="@operationalTogglePending"
                                                        Color="Color.Primary" />
                                         </MudStack>
                                         <MudChipSet T="string"
-                                                    Class="timeline-zoom-set">
-                                            <MudChip T="string"
-                                                     Value="@("Reset")"
-                                                     Variant="Variant.Outlined"
-                                                     Color="Color.Default"
-                                                     DisableRipple="true"
-                                                     Size="Size.Small"
-                                                     Class="timeline-zoom-chip"
-                                                     OnClick="ResetZoom"
-                                                     Title="Reset zoom">
-                                                100%
-                                            </MudChip>
-                                            <MudChip T="string"
-                                                     Value="@("Fit")"
-                                                     Variant="Variant.Outlined"
-                                                     Color="Color.Default"
-                                                     DisableRipple="true"
-                                                     Size="Size.Small"
-                                                     Class="timeline-zoom-chip"
-                                                     OnClick="FitViewport"
-                                                     Title="Fit graph to canvas">
-                                                Fit
-                                            </MudChip>
+                                                    Class="timeline-zoom-set"
+                                                    Ripple="false">
+                                            <MudTooltip Text="Reset zoom">
+                                                <MudChip T="string"
+                                                         Value="@("Reset")"
+                                                         Variant="Variant.Outlined"
+                                                         Color="Color.Default"
+                                                         Size="Size.Small"
+                                                         Class="timeline-zoom-chip"
+                                                         OnClick="ResetZoom">
+                                                    100%
+                                                </MudChip>
+                                            </MudTooltip>
+                                            <MudTooltip Text="Fit graph to canvas">
+                                                <MudChip T="string"
+                                                         Value="@("Fit")"
+                                                         Variant="Variant.Outlined"
+                                                         Color="Color.Default"
+                                                         Size="Size.Small"
+                                                         Class="timeline-zoom-chip"
+                                                         OnClick="FitViewport">
+                                                    Fit
+                                                </MudChip>
+                                            </MudTooltip>
                                         </MudChipSet>
                                     </MudStack>
                                 </div>

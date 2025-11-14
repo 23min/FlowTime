@@ -9,53 +9,47 @@
         <MudText Typo="Typo.body1">Topology Features</MudText>
         <MudIconButton Icon="@Icons.Material.Filled.Close"
                        Size="Size.Small"
-                       AriaLabel="Close topology feature bar"
-                       OnClick="Close" />
+                       OnClick="Close"
+                       @attributes="featureBarCloseButtonAttributes" />
     </MudStack>
 
     <div class="topology-feature-scroll">
-        <MudExpansionPanels Dense="true" MultiExpansion="true" Class="topology-feature-panels">
+        <MudExpansionPanels MultiExpansion="true" Class="topology-feature-panels">
             <MudExpansionPanel Text="Dependency edges"
                                Expanded="@IsExpanded(TopologyFeatureSection.DependencyEdges)"
                                ExpandedChanged="expanded => SetSectionExpanded(TopologyFeatureSection.DependencyEdges, expanded)">
                 <MudStack Spacing="1" Class="topology-section-body">
                     <MudSwitch T="bool"
-                               Dense="true"
                                Class="topology-dense-control"
                                Value="@workingSettings.ShowArrivalsDependencies"
                                ValueChanged="OnShowArrivalsDependenciesChanged"
                                Color="Color.Primary"
                                Label="Arrivals" />
                     <MudSwitch T="bool"
-                               Dense="true"
                                Class="topology-dense-control"
                                Value="@workingSettings.ShowServedDependencies"
                                ValueChanged="OnShowServedDependenciesChanged"
                                Color="Color.Primary"
                                Label="Served" />
                     <MudSwitch T="bool"
-                               Dense="true"
                                Class="topology-dense-control"
                                Value="@workingSettings.ShowErrorsDependencies"
                                ValueChanged="OnShowErrorsDependenciesChanged"
                                Color="Color.Primary"
                                Label="Errors" />
                     <MudSwitch T="bool"
-                               Dense="true"
                                Class="topology-dense-control"
                                Value="@workingSettings.ShowQueueDependencies"
                                ValueChanged="OnShowQueueDependenciesChanged"
                                Color="Color.Primary"
                                Label="Queue" />
                     <MudSwitch T="bool"
-                               Dense="true"
                                Class="topology-dense-control"
                                Value="@workingSettings.ShowCapacityDependencies"
                                ValueChanged="OnShowCapacityDependenciesChanged"
                                Color="Color.Primary"
                                Label="Capacity" />
                     <MudSwitch T="bool"
-                               Dense="true"
                                Class="topology-dense-control"
                                Value="@workingSettings.ShowExpressionDependencies"
                                ValueChanged="OnShowExpressionDependenciesChanged"
@@ -69,42 +63,36 @@
                                ExpandedChanged="expanded => SetSectionExpanded(TopologyFeatureSection.Overlays, expanded)">
                 <MudStack Spacing="1" Class="topology-section-body">
                     <MudSwitch T="bool"
-                               Dense="true"
                                Class="topology-dense-control"
                                Value="@workingSettings.ShowLabels"
                                ValueChanged="OnShowLabelsChanged"
                                Color="Color.Primary"
                                Label="Show node labels" />
                     <MudSwitch T="bool"
-                               Dense="true"
                                Class="topology-dense-control"
                                Value="@workingSettings.ShowEdgeArrows"
                                ValueChanged="OnShowEdgeArrowsChanged"
                                Color="Color.Primary"
                                Label="Show edge arrows" />
                     <MudSwitch T="bool"
-                               Dense="true"
                                Class="topology-dense-control"
                                Value="@workingSettings.ShowEdgeShares"
                                ValueChanged="OnShowEdgeSharesChanged"
                                Color="Color.Primary"
                                Label="Show edge shares" />
                     <MudSwitch T="bool"
-                               Dense="true"
                                Class="topology-dense-control"
                                Value="@workingSettings.ShowEdgeMultipliers"
                                ValueChanged="OnShowEdgeMultipliersChanged"
                                Color="Color.Primary"
                                Label="Show edge multipliers" />
                     <MudSwitch T="bool"
-                               Dense="true"
                                Class="topology-dense-control"
                                Value="@workingSettings.ShowSparklines"
                                ValueChanged="OnShowSparklinesChanged"
                                Color="Color.Primary"
                                Label="Show sparklines" />
                     <MudSwitch T="bool"
-                               Dense="true"
                                Class="topology-dense-control"
                                Value="@workingSettings.ShowRetryMetrics"
                                ValueChanged="OnShowRetryMetricsChanged"
@@ -114,14 +102,12 @@
                                    Value="@workingSettings.SparklineMode"
                                    ValueChanged="OnSparklineModeChanged"
                                    Disabled="@(!workingSettings.ShowSparklines)"
-                                   Orientation="Orientation.Horizontal"
-                                   Dense="true"
-                                   Class="topology-dense-control">
+                                   Class="topology-dense-control"
+                                   InputClass="topology-radio-row">
                         <MudRadio T="SparklineRenderMode" Value="SparklineRenderMode.Line" Color="Color.Primary">Line</MudRadio>
                         <MudRadio T="SparklineRenderMode" Value="SparklineRenderMode.Bar" Color="Color.Primary">Bars</MudRadio>
                     </MudRadioGroup>
                     <MudSwitch T="bool"
-                               Dense="true"
                                Class="topology-dense-control"
                                Value="@workingSettings.ShowRetryMetrics"
                                ValueChanged="OnShowRetryMetricsChanged"
@@ -135,7 +121,6 @@
                                ExpandedChanged="expanded => SetSectionExpanded(TopologyFeatureSection.InspectorOverview, expanded)">
                 <MudStack Spacing="1" Class="topology-section-body">
                     <MudSwitch T="bool"
-                               Dense="true"
                                Class="topology-dense-control"
                                Value="@workingSettings.ShowInspectorOverview"
                                ValueChanged="OnShowInspectorOverviewChanged"
@@ -156,14 +141,12 @@
                         <MudText Typo="Typo.caption">@workingSettings.HorizonBands</MudText>
                     </MudStack>
                     <MudCheckBox T="bool"
-                                 Dense="true"
                                  Class="topology-dense-control"
                                  Value="@workingSettings.NormalizeInspectorHorizonCounts"
                                  ValueChanged="OnNormalizeHorizonChanged"
                                  Color="Color.Primary"
                                  Label="Normalize across nodes (use global cap)" />
                     <MudNumericField T="double?"
-                                     Dense="true"
                                      Class="topology-dense-control"
                                      Label="Global cap (optional)"
                                      Culture="@CultureInfo.InvariantCulture"
@@ -182,9 +165,8 @@
                     <MudRadioGroup T="EdgeRenderMode"
                                    Value="@workingSettings.EdgeStyle"
                                    ValueChanged="OnEdgeStyleChanged"
-                                   Orientation="Orientation.Horizontal"
-                                   Dense="true"
-                                   Class="topology-dense-control">
+                                   Class="topology-dense-control"
+                                   InputClass="topology-radio-row">
                         <MudRadio T="EdgeRenderMode" Value="EdgeRenderMode.Orthogonal" Color="Color.Primary">Orthogonal</MudRadio>
                         <MudRadio T="EdgeRenderMode" Value="EdgeRenderMode.Bezier" Color="Color.Primary">Bezier</MudRadio>
                     </MudRadioGroup>
@@ -196,14 +178,12 @@
                                ExpandedChanged="expanded => SetSectionExpanded(TopologyFeatureSection.Topology, expanded)">
                 <MudStack Spacing="1" Class="topology-section-body">
                     <MudSwitch T="bool"
-                               Dense="true"
                                Class="topology-dense-control"
                                Value="@workingSettings.EnableFullDag"
                                ValueChanged="OnEnableFullDagChanged"
                                Color="Color.Primary"
                                Label="Full DAG mode" />
                     <MudSwitch T="bool"
-                               Dense="true"
                                Class="topology-dense-control"
                                Value="@workingSettings.RespectUiPositions"
                                ValueChanged="OnRespectUiPositionsChanged"
@@ -213,21 +193,18 @@
                     <MudRadioGroup T="LayoutMode"
                                    Value="@workingSettings.Layout"
                                    ValueChanged="OnLayoutModeChanged"
-                                   Orientation="Orientation.Horizontal"
-                                   Dense="true"
-                                   Class="topology-dense-control">
+                                   Class="topology-dense-control"
+                                   InputClass="topology-radio-row">
                         <MudRadio T="LayoutMode" Value="LayoutMode.Layered" Color="Color.Primary">Layered</MudRadio>
                         <MudRadio T="LayoutMode" Value="LayoutMode.HappyPath" Color="Color.Primary">Happy Path (beta)</MudRadio>
                     </MudRadioGroup>
                     <MudCheckBox T="bool"
-                                 Dense="true"
                                  Class="topology-dense-control"
                                  Value="@workingSettings.IncludeServiceNodes"
                                  ValueChanged="OnIncludeServiceNodesChanged"
                                  Color="Color.Primary"
                                  Label="Include service nodes" />
                     <MudCheckBox T="bool"
-                                 Dense="true"
                                  Class="topology-dense-control"
                                  Value="@workingSettings.IncludeExpressionNodes"
                                  ValueChanged="OnIncludeExpressionNodesChanged"
@@ -235,7 +212,6 @@
                                  Color="Color.Primary"
                                  Label="Include expression nodes" />
                     <MudCheckBox T="bool"
-                                 Dense="true"
                                  Class="topology-dense-control"
                                  Value="@workingSettings.IncludeConstNodes"
                                  ValueChanged="OnIncludeConstNodesChanged"
@@ -243,7 +219,6 @@
                                  Color="Color.Primary"
                                  Label="Include constant nodes" />
                     <MudCheckBox T="bool"
-                                 Dense="true"
                                  Class="topology-dense-control"
                                  Value="@workingSettings.NeighborEmphasis"
                                  ValueChanged="OnNeighborEmphasisChanged"
@@ -351,6 +326,9 @@
 
     [Parameter]
     public EventCallback<SectionExpansionChangedArgs> SectionExpansionChanged { get; set; }
+
+    private static readonly IReadOnlyDictionary<string, object> featureBarCloseButtonAttributes =
+        new Dictionary<string, object> { ["aria-label"] = "Close topology feature bar" };
 
     private TopologyOverlaySettings workingSettings = TopologyOverlaySettings.Default;
     private TopologyOverlaySettings? lastReceivedSettings;

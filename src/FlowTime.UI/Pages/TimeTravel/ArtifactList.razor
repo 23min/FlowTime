@@ -172,7 +172,6 @@
                                       Label="Search"
                                       Variant="Variant.Outlined"
                                       Margin="Margin.Dense"
-                                      Dense="true"
                                       Adornment="Adornment.End"
                                       AdornmentIcon="@Icons.Material.Filled.Search"
                                       AdornmentColor="Color.Secondary"
@@ -185,8 +184,8 @@
                         <MudIconButton Icon="@Icons.Material.Filled.Close"
                                        Color="Color.Secondary"
                                        Disabled="@(!_hasActiveFilters)"
-                                       AriaLabel="Reset filters"
-                                       OnClick="ResetFiltersAsync" />
+                                       OnClick="ResetFiltersAsync"
+                                       @attributes=@GetAriaLabelAttributes("Reset filters") />
                     </MudTooltip>
                 </MudItem>
             </MudGrid>
@@ -305,15 +304,14 @@
                                         <MudText Typo="Typo.caption" Color="Color.Secondary">Rows open details</MudText>
                                     </MudStack>
                                     <div class="artifact-grid-container">
-                                        <div class="artifact-grid-row artifact-grid-header">
-                                            <div class="artifact-checkbox-cell artifact-grid-checkbox-header">
-                                                <MudCheckBox T="bool"
-                                                             Dense="true"
-                                                             DisableRipple="true"
+                                            <div class="artifact-grid-row artifact-grid-header">
+                                        <div class="artifact-checkbox-cell artifact-grid-checkbox-header">
+                                                <MudCheckBox T="bool?"
                                                              Class="artifact-grid-checkbox"
-                                                             Value="@SelectAllChecked"
-                                                             ValueChanged="@(EventCallback.Factory.Create<bool>(this, OnSelectAllChanged))"
-                                                             Indeterminate="SelectAllIndeterminate"
+                                                             TriState="true"
+                                                             Ripple="false"
+                                                             Value="@SelectAllTriState"
+                                                             ValueChanged="@(EventCallback.Factory.Create<bool?>(this, OnSelectAllStateChanged))"
                                                              Color="Color.Primary" />
                                             </div>
                                             <div class="artifact-grid-cell artifact-grid-header-cell"
@@ -389,9 +387,8 @@
                                                 <div class="artifact-checkbox-cell">
                                                     <div @onclick:stopPropagation>
                                                         <MudCheckBox T="bool"
-                                                                     Dense="true"
-                                                                     DisableRipple="true"
                                                                      Class="artifact-grid-checkbox"
+                                                                     Ripple="false"
                                                                      Value="@IsRowSelected(run)"
                                                                      ValueChanged="@(EventCallback.Factory.Create<bool>(this, value => OnRowSelectionChanged(run, value)))"
                                                                      Color="Color.Primary" />
@@ -416,7 +413,7 @@
                                                         @(run.Telemetry?.Available == true ? "Telemetry" : "Simulation")
                                                     </MudText>
                                                 </div>
-                                                <div class="artifact-grid-actions-cell">
+                                                <div class="artifact-grid-actions-cell" @onclick:stopPropagation>
                                                     @{
                                                         var telemetryQuickActions = run.Telemetry?.Available == true && run.CanReplay;
                                                     }
@@ -424,11 +421,10 @@
                                                         <MudIconButton Icon="@Icons.Material.Filled.Dashboard"
                                                                        Color="Color.Primary"
                                                                        Size="Size.Small"
-                                                                       AriaLabel="Open dashboard"
                                                                        data-testid="artifact-action-dashboard"
                                                                        Disabled="@(!run.CanOpen)"
                                                                        OnClick="@(EventCallback.Factory.Create(this, async () => await NavigateToDashboardAsync(run)))"
-                                                                       OnClick:stopPropagation="true" />
+                                                                       @attributes=@GetAriaLabelAttributes("Open dashboard") />
                                                     </MudTooltip>
                                                     @if (telemetryQuickActions)
                                                     {
@@ -437,11 +433,10 @@
                                                                 <MudIconButton Icon="@Icons.Material.Filled.Dashboard"
                                                                                Color="Color.Primary"
                                                                                Size="Size.Small"
-                                                                               AriaLabel="Open telemetry dashboard"
                                                                                data-testid="artifact-action-dashboard-telemetry"
                                                                                Disabled="@(!run.CanOpen)"
                                                                                OnClick="@(EventCallback.Factory.Create(this, async () => await NavigateToTelemetryDashboardAsync(run)))"
-                                                                               OnClick:stopPropagation="true" />
+                                                                               @attributes=@GetAriaLabelAttributes("Open telemetry dashboard") />
                                                                 <span class="artifact-card-telemetry-dot"></span>
                                                             </div>
                                                         </MudTooltip>
@@ -450,11 +445,10 @@
                                                         <MudIconButton Icon="@Icons.Material.Filled.AccountTree"
                                                                        Color="Color.Secondary"
                                                                        Size="Size.Small"
-                                                                       AriaLabel="Open topology"
                                                                        data-testid="artifact-action-topology"
                                                                        Disabled="@(!run.CanOpen)"
                                                                        OnClick="@(EventCallback.Factory.Create(this, async () => await NavigateToTopologyAsync(run)))"
-                                                                       OnClick:stopPropagation="true" />
+                                                                       @attributes=@GetAriaLabelAttributes("Open topology") />
                                                     </MudTooltip>
                                                     @if (telemetryQuickActions)
                                                     {
@@ -463,11 +457,10 @@
                                                                 <MudIconButton Icon="@Icons.Material.Filled.AccountTree"
                                                                                Color="Color.Secondary"
                                                                                Size="Size.Small"
-                                                                               AriaLabel="Open telemetry topology"
                                                                                data-testid="artifact-action-topology-telemetry"
                                                                                Disabled="@(!run.CanOpen)"
                                                                                OnClick="@(EventCallback.Factory.Create(this, async () => await NavigateToTelemetryTopologyAsync(run)))"
-                                                                               OnClick:stopPropagation="true" />
+                                                                               @attributes=@GetAriaLabelAttributes("Open telemetry topology") />
                                                                 <span class="artifact-card-telemetry-dot"></span>
                                                             </div>
                                                         </MudTooltip>
@@ -489,12 +482,12 @@
                                     <MudIconButton Icon="@Icons.Material.Filled.NavigateBefore"
                                                    Disabled="@(_state.PageIndex <= 1)"
                                                    OnClick="PreviousPageAsync"
-                                                   AriaLabel="Previous page" />
+                                                   @attributes=@GetAriaLabelAttributes("Previous page") />
                                     <MudText Typo="Typo.body2">@_view.PageIndex</MudText>
                                     <MudIconButton Icon="@Icons.Material.Filled.NavigateNext"
                                                    Disabled="@(_view.PageIndex >= _view.TotalPages)"
                                                    OnClick="NextPageAsync"
-                                                   AriaLabel="Next page" />
+                                                   @attributes=@GetAriaLabelAttributes("Next page") />
                                 </MudStack>
                             </MudStack>
                         </MudStack>

@@ -14,7 +14,11 @@
             {
                 <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Start" Class="artifact-details-header">
                     <MudStack Spacing="1">
-                        <MudText Typo="Typo.h6" Class="artifact-details-title" Id="@TitleId">@RunTitle</MudText>
+                        <MudText Typo="Typo.h6"
+                                 Class="artifact-details-title"
+                                 @attributes="BuildTitleAttributes()">
+                            @RunTitle
+                        </MudText>
                         @if (!string.IsNullOrWhiteSpace(StatusLabel))
                         {
                             <MudChip T="string"
@@ -31,14 +35,14 @@
                                            Color="Color.Primary"
                                            Size="Size.Small"
                                            Disabled="IsLoading"
-                                           AriaLabel="Refresh details"
-                                           OnClick="RetryAsync" />
+                                           OnClick="RetryAsync"
+                                           @attributes="refreshButtonAriaAttributes" />
                         </MudTooltip>
                         <MudIconButton Icon="@Icons.Material.Filled.Close"
                                        Color="Color.Secondary"
                                        Size="Size.Small"
-                                       AriaLabel="Close details"
-                                       OnClick="CloseAsync" />
+                                       OnClick="CloseAsync"
+                                       @attributes="closeButtonAriaAttributes" />
                     </MudStack>
                 </MudStack>
             }
@@ -213,7 +217,7 @@
                                 </MudText>
 
                                 <MudSwitch T="bool"
-                                           @bind-Checked="OverwriteTelemetry"
+                                           @bind-Value="OverwriteTelemetry"
                                            Disabled="IsGeneratingTelemetry"
                                            Color="Color.Primary"
                                            Label="Overwrite existing bundle" />
@@ -327,6 +331,10 @@
 
     private static readonly IReadOnlyDictionary<string, object> tabbableStackAttributes =
         new Dictionary<string, object> { ["tabindex"] = 0 };
+    private static readonly IReadOnlyDictionary<string, object> refreshButtonAriaAttributes =
+        new Dictionary<string, object> { ["aria-label"] = "Refresh details" };
+    private static readonly IReadOnlyDictionary<string, object> closeButtonAriaAttributes =
+        new Dictionary<string, object> { ["aria-label"] = "Close details" };
 
     private RunListEntry? renderRun;
     private RunCreateResponseDto? renderDetail;
@@ -347,6 +355,9 @@
     private string ContainerClass => Open ? "artifact-details-container is-open" : "artifact-details-container";
 
     private string TitleId => $"artifact-drawer-title-{renderRun?.RunId ?? "none"}";
+
+    private IReadOnlyDictionary<string, object> BuildTitleAttributes()
+        => new Dictionary<string, object> { ["id"] = TitleId };
 
     private string RunTitle => renderRun?.TemplateTitle ?? renderRun?.TemplateId ?? "Run details";
 

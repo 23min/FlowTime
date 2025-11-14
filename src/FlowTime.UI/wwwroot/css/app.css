@@ -302,6 +302,16 @@ code {
     gap: 0.25rem !important;
 }
 
+.topology-feature-panel .topology-radio-row {
+    display: flex;
+    flex-wrap: wrap;
+    flex-direction: row;
+}
+
+.timeline-warning-tooltip-root .mud-tooltip {
+    max-width: 360px;
+}
+
 .topology-feature-panel .mud-checkbox-root,
 .topology-feature-panel .mud-radio-root,
 .topology-feature-panel .mud-switch-root {
