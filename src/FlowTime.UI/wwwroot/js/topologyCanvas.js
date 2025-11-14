@@ -20,9 +20,9 @@
     const MAX_SCALE = MAX_ZOOM_PERCENT / 100;
     const LEAF_CIRCLE_FILL = '#E2E8F0';
     const LEAF_CIRCLE_STROKE = '#64748B';
-    const QUEUE_PILL_FILL = '#FACC15';
-    const QUEUE_PILL_STROKE = '#9CA3AF';
-    const QUEUE_LABEL_COLOR = '#78350F';
+    const QUEUE_PILL_FILL = '#60A5FA';
+    const QUEUE_PILL_STROKE = '#2563EB';
+    const QUEUE_LABEL_COLOR = '#0F172A';
     const CHIP_BASE_FILL = '#F3F4F6';
     const POINTER_CLICK_DISTANCE = 4;
     const GRID_ROW_SPACING = 140;
@@ -2906,10 +2906,19 @@
         const y = Number(nodeMeta.y ?? nodeMeta.Y ?? 0);
         const width = Number(nodeMeta.width ?? nodeMeta.Width ?? 54);
         const height = Number(nodeMeta.height ?? nodeMeta.Height ?? 24);
-        const radius = height / 2;
+        const trapezoidHeight = Math.max(height * 0.85, 14);
+        const halfHeight = trapezoidHeight / 2;
+        const topWidth = width * 0.65;
+        const bottomWidth = width;
+        const topHalf = topWidth / 2;
+        const bottomHalf = bottomWidth / 2;
 
         ctx.beginPath();
-        traceRoundedRect(ctx, x, y, width, height, radius);
+        ctx.moveTo(x - topHalf, y - halfHeight);
+        ctx.lineTo(x + topHalf, y - halfHeight);
+        ctx.lineTo(x + bottomHalf, y + halfHeight);
+        ctx.lineTo(x - bottomHalf, y + halfHeight);
+        ctx.closePath();
         ctx.fillStyle = QUEUE_PILL_FILL;
         ctx.strokeStyle = QUEUE_PILL_STROKE;
         ctx.lineWidth = 1.2;
@@ -3687,10 +3696,16 @@
     }
 
     function semanticTooltip(entry, canonicalFallback) {
+        if (entry?.aliasLabel) {
+            return entry.aliasLabel;
+        }
         return formatSemanticAlias(entry, canonicalFallback, { newlineAlias: true, includeColon: false });
     }
 
     function semanticChipLabel(entry, canonicalFallback) {
+        if (entry?.aliasLabel) {
+            return entry.aliasLabel;
+        }
         return formatSemanticAlias(entry, canonicalFallback, { newlineAlias: true, includeColon: true });
     }
 
