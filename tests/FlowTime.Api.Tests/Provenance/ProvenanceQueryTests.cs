@@ -270,7 +270,9 @@ public class ProvenanceQueryTests : IClassFixture<TestWebApplicationFactory>
         
         var responseJson = await response.Content.ReadAsStringAsync();
         var result = JsonSerializer.Deserialize<JsonElement>(responseJson);
-        return result.GetProperty("runId").GetString()!;
+        var runId = result.GetProperty("runId").GetString()!;
+        await factory.RegisterRunInRegistryAsync(runId);
+        return runId;
     }
 
     private async Task<string> CreateTestRunWithoutProvenance()
@@ -298,7 +300,9 @@ public class ProvenanceQueryTests : IClassFixture<TestWebApplicationFactory>
         
         var responseJson = await response.Content.ReadAsStringAsync();
         var result = JsonSerializer.Deserialize<JsonElement>(responseJson);
-        return result.GetProperty("runId").GetString()!;
+        var runId = result.GetProperty("runId").GetString()!;
+        await factory.RegisterRunInRegistryAsync(runId);
+        return runId;
     }
 
     private async Task RebuildIndex()

@@ -548,24 +548,28 @@ v1.MapPost("/run", async (HttpRequest req, IArtifactRegistry registry, ILogger<P
         var artifactResult = await RunArtifactWriter.WriteArtifactsAsync(writeRequest);
         logger.LogInformation("Created artifacts at {RunDirectory}", artifactResult.RunDirectory);
 
+        var autoAddRegistryEnabled = app.Configuration.GetValue("ArtifactRegistry:AutoAddEnabled", true);
         // Automatically add new run to artifact registry (fire-and-forget to avoid blocking response)
-        _ = Task.Run(async () =>
+        if (autoAddRegistryEnabled)
         {
-            try
+            _ = Task.Run(async () =>
             {
-                var artifact = await registry.ScanRunDirectoryAsync(artifactResult.RunDirectory);
-                if (artifact != null)
+                try
                 {
-                    await registry.AddOrUpdateArtifactAsync(artifact);
-                    logger.LogDebug("Automatically added run {RunId} to artifact registry", artifactResult.RunId);
+                    var artifact = await registry.ScanRunDirectoryAsync(artifactResult.RunDirectory);
+                    if (artifact != null)
+                    {
+                        await registry.AddOrUpdateArtifactAsync(artifact);
+                        logger.LogDebug("Automatically added run {RunId} to artifact registry", artifactResult.RunId);
+                    }
                 }
-            }
-            catch (Exception ex)
-            {
-                // Log but don't fail the main request
-                logger.LogWarning(ex, "Failed to automatically add run {RunId} to artifact registry", artifactResult.RunId);
-            }
-        });
+                catch (Exception ex)
+                {
+                    // Log but don't fail the main request
+                    logger.LogWarning(ex, "Failed to automatically add run {RunId} to artifact registry", artifactResult.RunId);
+                }
+            });
+        }
 
         await MetricsArtifactWriter.TryWriteAsync(metricsService, artifactResult.RunId, artifactResult.RunDirectory, logger, req.HttpContext.RequestAborted);
 

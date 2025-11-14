@@ -170,10 +170,8 @@ public class RunOrchestrationTests : IClassFixture<TestWebApplicationFactory>, I
     }
 
     [Fact]
-    public async Task CreateSimulationRun_NetworkReliabilityArrayOverride_BindsValues()
+    public async Task CreateSimulationRun_NetworkReliabilityModelContainsBaseLoadPmf()
     {
-        var baseLoadOverride = Enumerable.Range(0, 12).Select(i => 80d + i * 5d).ToArray();
-
         var requestPayload = new
         {
             templateId = networkReliabilityTemplateId,
@@ -185,7 +183,6 @@ public class RunOrchestrationTests : IClassFixture<TestWebApplicationFactory>, I
             },
             parameters = new
             {
-                baseLoad = baseLoadOverride,
                 rngSeed = 42
             },
             options = new
@@ -206,19 +203,14 @@ public class RunOrchestrationTests : IClassFixture<TestWebApplicationFactory>, I
         Assert.True(File.Exists(modelPath), $"Expected generated model at {modelPath}");
 
         var modelContent = await File.ReadAllTextAsync(modelPath);
-        var inlineSequence = $"[{string.Join(", ", baseLoadOverride.Select(v => v.ToString(System.Globalization.CultureInfo.InvariantCulture)))}]";
-
-        if (!modelContent.Contains(inlineSequence, StringComparison.Ordinal))
-        {
-            foreach (var value in baseLoadOverride)
-            {
-                Assert.Contains($"- {value.ToString(System.Globalization.CultureInfo.InvariantCulture)}", modelContent);
-            }
-        }
+        Assert.Contains("id: base_requests", modelContent, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("pmf:", modelContent, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("values:", modelContent, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("probabilities:", modelContent, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
-    public async Task CreateSimulationRun_NetworkReliabilityArrayLengthMismatch_ReturnsBadRequest()
+    public async Task CreateSimulationRun_NetworkReliabilityInvalidRetryRate_ReturnsBadRequest()
     {
         var requestPayload = new
         {
@@ -231,8 +223,7 @@ public class RunOrchestrationTests : IClassFixture<TestWebApplicationFactory>, I
             },
             parameters = new
             {
-                baseLoad = new[] { 100, 110, 120, 130, 140, 150, 160, 170, 180, 190 },
-                rngSeed = 42
+                retryRate = "invalid"
             }
         };
 
@@ -240,8 +231,7 @@ public class RunOrchestrationTests : IClassFixture<TestWebApplicationFactory>, I
         var body = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        Assert.Contains("baseLoad", body, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("length", body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("core_retry_attempts", body, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

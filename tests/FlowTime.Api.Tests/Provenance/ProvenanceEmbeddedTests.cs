@@ -4,6 +4,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Xunit;
 using FlowTime.Core.Configuration;
+using System.Threading;
 
 namespace FlowTime.Api.Tests.Provenance;
 
@@ -56,7 +57,7 @@ public class ProvenanceEmbeddedTests : IClassFixture<TestWebApplicationFactory>
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var runId = await ExtractRunIdFromResponse(response);
-        var provenancePath = GetProvenanceFilePath(runId!);
+        var provenancePath = GetProvenanceFilePath(runId!, ensureExists: true);
         var provenanceJson = await File.ReadAllTextAsync(provenancePath);
         var provenance = JsonSerializer.Deserialize<JsonElement>(provenanceJson);
 
@@ -109,7 +110,7 @@ public class ProvenanceEmbeddedTests : IClassFixture<TestWebApplicationFactory>
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var runId = await ExtractRunIdFromResponse(response);
-        var provenancePath = GetProvenanceFilePath(runId!);
+        var provenancePath = GetProvenanceFilePath(runId!, ensureExists: true);
         var provenanceJson = await File.ReadAllTextAsync(provenancePath);
         var provenance = JsonSerializer.Deserialize<JsonElement>(provenanceJson);
 
@@ -155,7 +156,7 @@ public class ProvenanceEmbeddedTests : IClassFixture<TestWebApplicationFactory>
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var runId = await ExtractRunIdFromResponse(response);
-        var provenancePath = GetProvenanceFilePath(runId!);
+        var provenancePath = GetProvenanceFilePath(runId!, ensureExists: true);
         var provenanceJson = await File.ReadAllTextAsync(provenancePath);
         var provenance = JsonSerializer.Deserialize<JsonElement>(provenanceJson);
 
@@ -293,7 +294,7 @@ public class ProvenanceEmbeddedTests : IClassFixture<TestWebApplicationFactory>
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var runId = await ExtractRunIdFromResponse(response);
-        var provenancePath = GetProvenanceFilePath(runId!);
+        var provenancePath = GetProvenanceFilePath(runId!, ensureExists: true);
         var provenanceJson = await File.ReadAllTextAsync(provenancePath);
         var provenance = JsonSerializer.Deserialize<JsonElement>(provenanceJson);
 
@@ -338,7 +339,7 @@ public class ProvenanceEmbeddedTests : IClassFixture<TestWebApplicationFactory>
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var runId = await ExtractRunIdFromResponse(response);
-        var provenancePath = GetProvenanceFilePath(runId!);
+        var provenancePath = GetProvenanceFilePath(runId!, ensureExists: true);
         var provenanceJson = await File.ReadAllTextAsync(provenancePath);
         var provenance = JsonSerializer.Deserialize<JsonElement>(provenanceJson);
 
@@ -358,14 +359,32 @@ public class ProvenanceEmbeddedTests : IClassFixture<TestWebApplicationFactory>
         return null;
     }
 
-    private string GetProvenanceFilePath(string runId)
+    private string GetProvenanceFilePath(string runId, bool ensureExists = false)
     {
         var canonicalPath = Path.Combine(_factory.TestDataDirectory, runId, "model", "provenance.json");
-        if (File.Exists(canonicalPath))
+        if (!ensureExists)
         {
-            return canonicalPath;
+            return File.Exists(canonicalPath)
+                ? canonicalPath
+                : Path.Combine(_factory.TestDataDirectory, runId, "provenance.json");
         }
 
-        return Path.Combine(_factory.TestDataDirectory, runId, "provenance.json");
+        var fallbackPath = Path.Combine(_factory.TestDataDirectory, runId, "provenance.json");
+        for (var attempt = 0; attempt < 40; attempt++)
+        {
+            if (File.Exists(canonicalPath))
+            {
+                return canonicalPath;
+            }
+
+            if (File.Exists(fallbackPath))
+            {
+                return fallbackPath;
+            }
+
+            Thread.Sleep(50);
+        }
+
+        throw new FileNotFoundException($"Provenance file not found for run {runId}", canonicalPath);
     }
 }

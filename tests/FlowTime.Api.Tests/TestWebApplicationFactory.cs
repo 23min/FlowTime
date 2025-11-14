@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
+using FlowTime.Contracts.Services;
 
 namespace FlowTime.Api.Tests;
 
@@ -32,8 +33,26 @@ public class TestWebApplicationFactory : WebApplicationFactory<Program>
         // Override the artifacts/data directory to use our test directory
         builder.UseSetting("ArtifactsDirectory", testDataDirectory);
         builder.UseSetting("DataDirectory", testDataDirectory);
+        builder.UseSetting("ArtifactRegistry:AutoAddEnabled", "false");
 
         base.ConfigureWebHost(builder);
+    }
+
+    public async Task RegisterRunInRegistryAsync(string runId)
+    {
+        await using var scope = Services.CreateAsyncScope();
+        var registry = scope.ServiceProvider.GetRequiredService<IArtifactRegistry>();
+        var runDirectory = Path.Combine(testDataDirectory, runId);
+        if (!Directory.Exists(runDirectory))
+        {
+            return;
+        }
+
+        var artifact = await registry.ScanRunDirectoryAsync(runDirectory);
+        if (artifact != null)
+        {
+            await registry.AddOrUpdateArtifactAsync(artifact);
+        }
     }
 
     protected override void Dispose(bool disposing)

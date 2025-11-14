@@ -46,45 +46,40 @@ public class SimToEngineWorkflowTests
     }
 
     [Fact]
-    public async Task NetworkReliability_ArrayParameter_BindsValues()
+    public async Task NetworkReliability_BaseLoadPmf_PresentInModel()
     {
         var templateId = "network-reliability";
         var templateYaml = await File.ReadAllTextAsync(GetRepoPath("templates", $"{templateId}.yaml"));
         var service = CreateService(templateId, templateYaml);
 
-        var overrideValues = Enumerable.Range(0, 12).Select(i => 80d + i * 2).ToArray();
-        var parameters = new Dictionary<string, object>
-        {
-            ["baseLoad"] = overrideValues,
-            ["rngSeed"] = 99
-        };
-
-        var engineYaml = await service.GenerateEngineModelAsync(templateId, parameters);
-        Assert.Contains("values: [80, 82, 84, 86, 88, 90, 92, 94, 96, 98, 100, 102]", engineYaml);
+        var engineYaml = await service.GenerateEngineModelAsync(templateId, new Dictionary<string, object>());
+        Assert.Contains("id: base_requests", engineYaml, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("pmf:", engineYaml, StringComparison.OrdinalIgnoreCase);
 
         var modelDefinition = ModelService.ParseAndConvert(engineYaml);
         var baseNode = modelDefinition.Nodes.First(n => string.Equals(n.Id, "base_requests", StringComparison.OrdinalIgnoreCase));
-        Assert.Equal(overrideValues, baseNode.Values);
+        Assert.Equal("pmf", baseNode.Kind);
+        Assert.NotNull(baseNode.Pmf);
+        Assert.NotEmpty(baseNode.Pmf!.Values);
+        Assert.NotEmpty(baseNode.Pmf!.Probabilities);
     }
 
     [Fact]
-    public async Task NetworkReliability_ArrayParameter_LengthMismatch_Throws()
+    public async Task NetworkReliability_InvalidRetryRate_Throws()
     {
         var templateId = "network-reliability";
         var templateYaml = await File.ReadAllTextAsync(GetRepoPath("templates", $"{templateId}.yaml"));
         var service = CreateService(templateId, templateYaml);
 
-        var invalidValues = Enumerable.Range(0, 10).Select(i => (double)i).ToArray();
         var parameters = new Dictionary<string, object>
         {
-            ["baseLoad"] = invalidValues,
-            ["rngSeed"] = 42
+            ["retryRate"] = "invalid"
         };
 
         var ex = await Assert.ThrowsAsync<TemplateValidationException>(() =>
             service.GenerateEngineModelAsync(templateId, parameters));
 
-        Assert.Contains("length", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("core_retry_attempts", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
