@@ -1,5 +1,7 @@
 (function () {
     const registry = new WeakMap();
+    const activeStates = new Set();
+    let cachedThemeIsDark = null;
     const EdgeTypeTopology = 'topology';
     const EdgeTypeDependency = 'dependency';
     const EdgeTypeThroughput = 'throughput';
@@ -18,15 +20,103 @@
     const MAX_ZOOM_PERCENT = 200;
     const MIN_SCALE = MIN_ZOOM_PERCENT / 100;
     const MAX_SCALE = MAX_ZOOM_PERCENT / 100;
-    const LEAF_CIRCLE_FILL = '#E2E8F0';
-    const LEAF_CIRCLE_STROKE = '#64748B';
+    const LEAF_FILL_LIGHT = '#E2E8F0';
+    const LEAF_FILL_DARK = '#1E293B';
+    const LEAF_STROKE_LIGHT = '#64748B';
+    const LEAF_STROKE_DARK = '#475569';
     const QUEUE_PILL_FILL = '#60A5FA';
     const QUEUE_PILL_STROKE = '#2563EB';
     const QUEUE_LABEL_COLOR = '#0F172A';
-    const CHIP_BASE_FILL = '#F3F4F6';
+    const CHIP_BASE_FILL_LIGHT = '#F3F4F6';
+    const CHIP_BASE_FILL_DARK = '#1F2937';
+    const CHIP_TEXT_LIGHT = '#0F172A';
+    const CHIP_TEXT_DARK = '#E2E8F0';
     const POINTER_CLICK_DISTANCE = 4;
     const GRID_ROW_SPACING = 140;
     const GRID_COLUMN_SPACING = 240;
+
+    function registerActiveState(state) {
+        activeStates.add(state);
+    }
+
+    function unregisterActiveState(state) {
+        activeStates.delete(state);
+    }
+
+    function invalidateThemeCache() {
+        cachedThemeIsDark = null;
+    }
+
+    function redrawActiveStates() {
+        for (const state of activeStates) {
+            if (state?.canvas) {
+                draw(state.canvas, state);
+            }
+        }
+    }
+
+    (function setupThemeObservers() {
+        const handleThemeChange = () => {
+            invalidateThemeCache();
+            redrawActiveStates();
+        };
+
+        const tryObserve = () => {
+            if (!document.body) {
+                return false;
+            }
+            const observer = new MutationObserver(handleThemeChange);
+            observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+            return true;
+        };
+
+        if (!tryObserve()) {
+            document.addEventListener('DOMContentLoaded', () => tryObserve(), { once: true });
+        }
+
+        const media = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+        media?.addEventListener?.('change', handleThemeChange);
+    })();
+
+    function isDarkTheme() {
+        if (cachedThemeIsDark === null) {
+            cachedThemeIsDark = evaluateDarkTheme();
+        }
+        return cachedThemeIsDark;
+    }
+
+    function evaluateDarkTheme() {
+        if (document.body?.classList.contains('dark-mode')) {
+            return true;
+        }
+        const paletteBackground = getComputedStyle(document.documentElement).getPropertyValue('--mud-palette-background');
+        const rgb = colorStringToRgb(paletteBackground);
+        if (rgb) {
+            const luminance = calculateLuminance(rgb);
+            return luminance < 0.45;
+        }
+        return false;
+    }
+
+    function getLeafFill() {
+        return isDarkTheme() ? LEAF_FILL_DARK : LEAF_FILL_LIGHT;
+    }
+
+    function getLeafStroke() {
+        return isDarkTheme() ? LEAF_STROKE_DARK : LEAF_STROKE_LIGHT;
+    }
+
+    function getDefaultChipFill() {
+        return isDarkTheme() ? CHIP_BASE_FILL_DARK : CHIP_BASE_FILL_LIGHT;
+    }
+
+    function getDefaultChipTextColor() {
+        return isDarkTheme() ? CHIP_TEXT_DARK : CHIP_TEXT_LIGHT;
+    }
+
+    function getQueueLabelColor() {
+        return isDarkTheme() ? '#E2E8F0' : QUEUE_LABEL_COLOR;
+    }
 
     function getState(canvas) {
         let state = registry.get(canvas);
@@ -134,6 +224,8 @@
             observer.observe(canvas.parentElement ?? canvas);
             state.resizeObserver = observer;
         }
+
+        registerActiveState(state);
 
         const clearHover = () => {
             let invalidated = false;
@@ -397,6 +489,7 @@
             state.resizeObserver?.disconnect?.();
             state.resizeObserver = null;
             state.dotNetRef = null;
+            unregisterActiveState(state);
         };
     }
 
@@ -442,7 +535,7 @@
                 isFocused: !!(n.isFocused ?? n.IsFocused),
                 visible: !(n.isVisible === false || n.IsVisible === false),
                 kind: String(n.kind ?? n.Kind ?? 'service'),
-                fill: n.fill ?? n.Fill ?? LEAF_CIRCLE_FILL,
+                fill: n.fill ?? n.Fill ?? getLeafFill(),
                 focusLabel: n.focusLabel ?? n.FocusLabel ?? '',
                 metrics: n.metrics ?? n.Metrics ?? null,
                 semantics: n.semantics ?? n.Semantics ?? null,
@@ -732,7 +825,8 @@
             const width = node.width ?? node.Width ?? 54;
             const height = node.height ?? node.Height ?? 24;
             const cornerRadius = node.cornerRadius ?? node.CornerRadius ?? 3;
-            const fill = node.fill ?? node.Fill ?? LEAF_CIRCLE_FILL;
+            const defaultLeafFill = getLeafFill();
+            const fill = node.fill ?? node.Fill ?? defaultLeafFill;
             const stroke = node.stroke ?? node.Stroke ?? '#262626';
 
             const highlightNode = !emphasisEnabled || (neighborNodes?.has(id) ?? false);
@@ -751,12 +845,13 @@
                 retryTax > 0;
 
             let focusLabelWidth = Math.max(width - 14, 18);
-            let fillForText = fill;
+            const computedOverride = isDarkTheme() && isComputedKind(kind) ? defaultLeafFill : null;
+            let fillForText = computedOverride ?? fill;
 
             if (isLeafComputed) {
                 const pillMetrics = drawLeafNode(ctx, nodeMeta);
                 focusLabelWidth = Math.max(pillMetrics.width - 14, 18);
-                fillForText = LEAF_CIRCLE_FILL;
+                fillForText = pillMetrics.fill ?? defaultLeafFill;
             } else if (kind === 'queue') {
                 drawQueueNode(ctx, nodeMeta);
                 fillForText = QUEUE_PILL_FILL;
@@ -774,14 +869,14 @@
                     const r = Math.min(cornerRadius + 6, Math.min(width, height) / 2);
                     traceRoundedRect(ctx, x, y, width, height, r);
                 }
-                ctx.fillStyle = fill;
+                ctx.fillStyle = fillForText;
                 ctx.strokeStyle = stroke;
                 ctx.lineWidth = 0.9;
                 ctx.fill();
                 ctx.stroke();
 
                 if (nodeMeta) {
-                    nodeMeta.fill = fill;
+                    nodeMeta.fill = fillForText;
                 }
             }
 
@@ -796,7 +891,7 @@
             if (overlaySettings.showLabels) {
                 ctx.save();
                 const label = String(id);
-                ctx.fillStyle = '#0F172A';
+                ctx.fillStyle = isDarkTheme() ? '#E2E8F0' : '#0F172A';
                 ctx.globalAlpha = highlightNode ? 1 : 0.75;
                 ctx.font = '10px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
                 ctx.textAlign = 'right';
@@ -891,7 +986,7 @@
         const rectX = iconRectX + iconBoxSize + iconSpacing;
         const rectY = margin;
 
-        const isDark = document.body.classList.contains('dark-mode');
+        const isDark = isDarkTheme();
         const background = isDark ? '#0F172A' : '#F8FAFC';
         const border = isDark ? 'rgba(148, 163, 184, 0.6)' : 'rgba(148, 163, 184, 0.4)';
         const textColor = isDark ? '#E2E8F0' : '#111827';
@@ -1208,11 +1303,11 @@
             tooltipX = minMargin;
         }
 
-        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-        const bg = prefersDark ? 'rgba(15, 23, 42, 0.96)' : 'rgba(255, 255, 255, 0.97)';
-        const fg = prefersDark ? '#F8FAFC' : '#0F172A';
-        const subtitleColor = prefersDark ? '#94A3B8' : '#4B5563';
-        const border = prefersDark ? 'rgba(148, 163, 184, 0.35)' : 'rgba(15, 23, 42, 0.12)';
+        const darkMode = isDarkTheme();
+        const bg = darkMode ? 'rgba(15, 23, 42, 0.96)' : 'rgba(255, 255, 255, 0.97)';
+        const fg = darkMode ? '#F8FAFC' : '#0F172A';
+        const subtitleColor = darkMode ? '#94A3B8' : '#4B5563';
+        const border = darkMode ? 'rgba(148, 163, 184, 0.35)' : 'rgba(15, 23, 42, 0.12)';
 
         ctx.lineWidth = Math.max(1, ratio);
         ctx.fillStyle = bg;
@@ -1435,10 +1530,10 @@
         const canvasWidthDevice = Number.isFinite(state.canvasWidth) ? state.canvasWidth * ratio : ctx.canvas.width;
         const canvasHeightDevice = Number.isFinite(state.canvasHeight) ? state.canvasHeight * ratio : ctx.canvas.height;
 
-        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-        const background = prefersDark ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.97)';
-        const foreground = prefersDark ? '#F8FAFC' : '#0F172A';
-        const border = prefersDark ? 'rgba(148, 163, 184, 0.45)' : 'rgba(15, 23, 42, 0.18)';
+        const darkMode = isDarkTheme();
+        const background = darkMode ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.97)';
+        const foreground = darkMode ? '#F8FAFC' : '#0F172A';
+        const border = darkMode ? 'rgba(148, 163, 184, 0.45)' : 'rgba(15, 23, 42, 0.18)';
 
         const lines = rawText.split(/\n/).map(line => line.trim()).filter(line => line.length > 0);
         if (lines.length === 0) {
@@ -1898,9 +1993,17 @@
 
     function hexToRgb(hex) {
         if (!hex || typeof hex !== 'string') return null;
-        const m = hex.trim().match(/^#?([a-fA-F0-9]{6})$/);
-        if (!m) return null;
-        const intVal = parseInt(m[1], 16);
+        let normalized = hex.trim();
+        if (normalized.startsWith('#')) {
+            normalized = normalized.slice(1);
+        }
+        if (normalized.length === 3) {
+            normalized = normalized.split('').map(ch => `${ch}${ch}`).join('');
+        }
+        if (!/^[a-f0-9]{6}$/i.test(normalized)) {
+            return null;
+        }
+        const intVal = parseInt(normalized, 16);
         return {
             r: (intVal >> 16) & 255,
             g: (intVal >> 8) & 255,
@@ -1908,14 +2011,36 @@
         };
     }
 
-    function isDarkColor(hex) {
-        const rgb = hexToRgb(hex);
-        if (!rgb) return false;
+    function colorStringToRgb(value) {
+        if (!value || typeof value !== 'string') {
+            return null;
+        }
+        const trimmed = value.trim().toLowerCase();
+        if (trimmed.startsWith('#')) {
+            return hexToRgb(trimmed);
+        }
+        const rgbMatch = trimmed.match(/rgba?\(([^)]+)\)/);
+        if (rgbMatch) {
+            const parts = rgbMatch[1].split(',').map(p => parseFloat(p.trim())).filter(v => !Number.isNaN(v));
+            if (parts.length >= 3) {
+                return { r: parts[0], g: parts[1], b: parts[2] };
+            }
+        }
+        return null;
+    }
+
+    function calculateLuminance(rgb) {
         const srgb = [rgb.r, rgb.g, rgb.b].map(v => {
             v /= 255;
             return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
         });
-        const L = 0.2126 * srgb[0] + 0.7152 * srgb[1] + 0.0722 * srgb[2];
+        return 0.2126 * srgb[0] + 0.7152 * srgb[1] + 0.0722 * srgb[2];
+    }
+
+    function isDarkColor(hex) {
+        const rgb = colorStringToRgb(hex);
+        if (!rgb) return false;
+        const L = calculateLuminance(rgb);
         return L < 0.5;
     }
 
@@ -2932,7 +3057,7 @@
         const queueValue = resolveQueueValue(nodeMeta);
         const displayValue = queueValue !== null ? formatMetricValue(queueValue) : '—';
 
-        ctx.fillStyle = QUEUE_LABEL_COLOR;
+        ctx.fillStyle = getQueueLabelColor();
         ctx.font = '600 12px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -2947,22 +3072,24 @@
         const pillHeight = Math.max(height, 20);
         const pillWidth = width;
         const radius = Math.min(pillHeight / 2, pillWidth / 2);
+        const fill = getLeafFill();
+        const stroke = getLeafStroke();
 
         ctx.save();
         ctx.beginPath();
         traceRoundedRect(ctx, x, y, pillWidth, pillHeight, radius);
-        ctx.fillStyle = LEAF_CIRCLE_FILL;
-        ctx.strokeStyle = LEAF_CIRCLE_STROKE;
+        ctx.fillStyle = fill;
+        ctx.strokeStyle = stroke;
         ctx.lineWidth = 1.2;
         ctx.fill();
         ctx.stroke();
         ctx.restore();
 
         if (nodeMeta) {
-            nodeMeta.fill = LEAF_CIRCLE_FILL;
+            nodeMeta.fill = fill;
         }
 
-        return { width: pillWidth, height: pillHeight };
+        return { width: pillWidth, height: pillHeight, fill };
     }
 
     function resolveQueueValue(nodeMeta) {
@@ -3803,20 +3930,18 @@
         const bottom = top + totalHeight;
 
         ctx.save();
+        const hasCustomFill = typeof fillColor === 'string' && fillColor.trim().length > 0;
+        const chipFill = hasCustomFill ? fillColor : getDefaultChipFill();
+        const defaultTextColor = getDefaultChipTextColor();
         const textColor = (() => {
-            if (typeof fg !== 'string' || fg.trim().length === 0) {
-                return '#0F172A';
+            if (!hasCustomFill) {
+                return defaultTextColor;
             }
-            const normalized = fg.trim().toLowerCase();
-            if (normalized === '#fff' || normalized === '#ffffff' || normalized === 'white') {
-                return '#0F172A';
+            if (typeof fg !== 'string' || fg.trim().length === 0) {
+                return defaultTextColor;
             }
             return fg;
         })();
-
-        const chipFill = typeof fillColor === 'string' && fillColor.trim().length > 0
-            ? fillColor
-            : CHIP_BASE_FILL;
         ctx.fillStyle = chipFill;
         ctx.strokeStyle = outlineColor ?? '#94A3B8';
         ctx.lineWidth = 1;
@@ -4494,7 +4619,7 @@
         ctx.save();
         ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
 
-        const isDark = document.body.classList.contains('dark-mode');
+        const isDark = isDarkTheme();
         const background = isDark ? 'rgba(15, 23, 42, 0.92)' : 'rgba(248, 250, 252, 0.95)';
         const border = isDark ? 'rgba(148, 163, 184, 0.45)' : 'rgba(148, 163, 184, 0.35)';
         const textColor = isDark ? '#E2E8F0' : '#0F172A';
@@ -5023,9 +5148,9 @@
         let previousPoint = null;
         let previousColor = defaultColor;
 
-        ctx.fillStyle = 'rgba(203, 213, 225, 0.12)';
+        ctx.fillStyle = 'rgba(203, 213, 225, 0.2)';
         ctx.fillRect(0, 0, sparkWidth, sparkHeight);
-        ctx.strokeStyle = 'rgba(148, 163, 184, 0.22)';
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.35)';
         ctx.lineWidth = 0.5;
         ctx.strokeRect(0, 0, sparkWidth, sparkHeight);
 
