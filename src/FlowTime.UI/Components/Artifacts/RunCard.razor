@@ -1,4 +1,6 @@
+@using System.Collections.Generic
 @using System.Globalization
+@using Microsoft.AspNetCore.Components.Web
 @using System.Text
 @using System.Linq
 @using FlowTime.UI.Pages.TimeTravel
@@ -8,30 +10,25 @@
 
 <MudPaper Class="@CssClass"
           Elevation="2"
-          role="button"
-          tabindex="0"
           data-testid="artifact-card"
-          aria-label="@AriaLabel"
+          @attributes="BuildCardAttributes()"
           @onclick="HandleClick"
           @onkeydown="HandleKeyDown">
     <div class="artifact-card-body">
         <div class="artifact-card-header">
             <div class="artifact-card-title">
-                @if (!string.IsNullOrWhiteSpace(TemplateIcon))
-                {
-                    <MudAvatar Size="Size.Medium"
-                               Class="artifact-card-avatar"
-                               Color="@IconAvatarColor"
-                               Icon="@TemplateIcon" />
-                }
-                else
-                {
-                    <MudAvatar Size="Size.Medium"
-                               Class="artifact-card-avatar artifact-card-avatar--initials"
-                               Color="@AvatarColor">
+                <MudAvatar Size="Size.Medium"
+                           Class="@(string.IsNullOrWhiteSpace(TemplateIcon) ? "artifact-card-avatar artifact-card-avatar--initials" : "artifact-card-avatar")"
+                           Color="@(string.IsNullOrWhiteSpace(TemplateIcon) ? AvatarColor : IconAvatarColor)">
+                    @if (!string.IsNullOrWhiteSpace(TemplateIcon))
+                    {
+                        <MudIcon Icon="@TemplateIcon" />
+                    }
+                    else
+                    {
                         <span class="artifact-avatar-text" style="@AvatarTextStyle">@AvatarLabel</span>
-                    </MudAvatar>
-                }
+                    }
+                </MudAvatar>
                 <div class="artifact-card-title-texts">
                     <MudTooltip Text="@DisplayTitle">
                         <MudText Typo="Typo.subtitle2" Class="artifact-card-title-text">@DisplayTitle</MudText>
@@ -89,24 +86,24 @@
             <MudStack Row Spacing="1" AlignItems="AlignItems.Center">
                 <MudStack Row Spacing="0" AlignItems="AlignItems.Center">
                     <MudTooltip Text="Open dashboard">
-                        <MudIconButton Icon="@Icons.Material.Filled.Dashboard"
-                                       Color="Color.Primary"
-                                       Size="Size.Small"
-                                       AriaLabel="Open dashboard"
-                                       OnClick="HandleDashboard"
-                                       OnClick:stopPropagation="true" />
+                        <span @onclick:stopPropagation="true">
+                            <MudIconButton Icon="@Icons.Material.Filled.Dashboard"
+                                           Color="Color.Primary"
+                                           Size="Size.Small"
+                                           OnClick="HandleDashboardIconClick"
+                                           @attributes="dashboardAriaAttributes" />
+                        </span>
                     </MudTooltip>
                     @if (TelemetryQuickActionsEnabled && TelemetryAvailable && CanReplay)
                     {
                         <MudTooltip Text="Open dashboard (telemetry)">
-                            <div class="artifact-card-telemetry-icon">
+                            <div class="artifact-card-telemetry-icon" @onclick:stopPropagation="true">
                                 <MudIconButton Icon="@Icons.Material.Filled.Dashboard"
                                                Color="Color.Primary"
                                                Size="Size.Small"
-                                               AriaLabel="Open dashboard telemetry"
                                                Disabled="!TelemetryAvailable || !CanReplay"
-                                               OnClick="HandleTelemetryDashboard"
-                                               OnClick:stopPropagation="true" />
+                                               OnClick="HandleTelemetryDashboardIconClick"
+                                               @attributes="dashboardTelemetryAriaAttributes" />
                                 <span class="artifact-card-telemetry-dot"></span>
                             </div>
                         </MudTooltip>
@@ -115,24 +112,24 @@
 
                 <MudStack Row Spacing="0" AlignItems="AlignItems.Center">
                     <MudTooltip Text="Open topology">
-                        <MudIconButton Icon="@Icons.Material.Filled.AccountTree"
-                                       Color="Color.Secondary"
-                                       Size="Size.Small"
-                                       AriaLabel="Open topology"
-                                       OnClick="HandleTopology"
-                                       OnClick:stopPropagation="true" />
+                        <span @onclick:stopPropagation="true">
+                            <MudIconButton Icon="@Icons.Material.Filled.AccountTree"
+                                           Color="Color.Secondary"
+                                           Size="Size.Small"
+                                           OnClick="HandleTopologyIconClick"
+                                           @attributes="topologyAriaAttributes" />
+                        </span>
                     </MudTooltip>
                     @if (TelemetryQuickActionsEnabled && TelemetryAvailable && CanReplay)
                     {
                         <MudTooltip Text="Open topology (telemetry)">
-                            <div class="artifact-card-telemetry-icon">
+                            <div class="artifact-card-telemetry-icon" @onclick:stopPropagation="true">
                                 <MudIconButton Icon="@Icons.Material.Filled.AccountTree"
                                                Color="Color.Secondary"
                                                Size="Size.Small"
-                                               AriaLabel="Open telemetry topology"
                                                Disabled="!TelemetryAvailable || !CanReplay"
-                                               OnClick="HandleTelemetryTopology"
-                                               OnClick:stopPropagation="true" />
+                                               OnClick="HandleTelemetryTopologyIconClick"
+                                               @attributes="topologyTelemetryAriaAttributes" />
                                 <span class="artifact-card-telemetry-dot"></span>
                             </div>
                         </MudTooltip>
@@ -266,26 +263,33 @@
         _ => "color: rgba(255,255,255,0.95); font-weight:600;"
     };
 
-    private string AriaLabel
+    private IReadOnlyDictionary<string, object> BuildCardAttributes()
     {
-        get
+        return new Dictionary<string, object>
         {
-            var builder = new StringBuilder();
-            builder.Append(DisplayTitle);
-            builder.Append(", run ");
-            builder.Append(Run.RunId);
-            builder.Append(". ");
-            builder.Append("Mode ");
-            builder.Append(ModeLabel);
-            if (TelemetryAvailable)
-            {
-                builder.Append(". Telemetry ready.");
-            }
-            builder.Append(" ");
-            builder.Append(WarningsText);
+            ["role"] = "button",
+            ["tabindex"] = 0,
+            ["aria-label"] = BuildCardAriaLabel()
+        };
+    }
 
-            return builder.ToString();
+    private string BuildCardAriaLabel()
+    {
+        var builder = new StringBuilder();
+        builder.Append(DisplayTitle);
+        builder.Append(", run ");
+        builder.Append(Run.RunId);
+        builder.Append(". ");
+        builder.Append("Mode ");
+        builder.Append(ModeLabel);
+        if (TelemetryAvailable)
+        {
+            builder.Append(". Telemetry ready.");
         }
+        builder.Append(" ");
+        builder.Append(WarningsText);
+
+        return builder.ToString();
     }
 
     private async Task HandleClick()
@@ -296,12 +300,22 @@
         }
     }
 
+    private async Task HandleDashboardIconClick(MouseEventArgs args)
+    {
+        await HandleDashboard();
+    }
+
     private async Task HandleDashboard()
     {
         if (OnDashboard.HasDelegate)
         {
             await OnDashboard.InvokeAsync(Run);
         }
+    }
+
+    private async Task HandleTelemetryDashboardIconClick(MouseEventArgs args)
+    {
+        await HandleTelemetryDashboard();
     }
 
     private async Task HandleTopology()
@@ -311,6 +325,28 @@
             await OnTopology.InvokeAsync(Run);
         }
     }
+
+    private async Task HandleTopologyIconClick(MouseEventArgs args)
+    {
+        await HandleTopology();
+    }
+
+    private async Task HandleTelemetryTopologyIconClick(MouseEventArgs args)
+    {
+        await HandleTelemetryTopology();
+    }
+
+    private static readonly IReadOnlyDictionary<string, object> dashboardAriaAttributes =
+        new Dictionary<string, object> { ["aria-label"] = "Open dashboard" };
+
+    private static readonly IReadOnlyDictionary<string, object> dashboardTelemetryAriaAttributes =
+        new Dictionary<string, object> { ["aria-label"] = "Open dashboard telemetry" };
+
+    private static readonly IReadOnlyDictionary<string, object> topologyAriaAttributes =
+        new Dictionary<string, object> { ["aria-label"] = "Open topology" };
+
+    private static readonly IReadOnlyDictionary<string, object> topologyTelemetryAriaAttributes =
+        new Dictionary<string, object> { ["aria-label"] = "Open telemetry topology" };
 
     [Inject] private NavigationManager Navigation { get; set; } = default!;
 

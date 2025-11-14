@@ -1,3 +1,4 @@
+@using System.Collections.Generic
 @using System.Globalization
 @using FlowTime.UI.Services
 @using FlowTime.UI.Pages.TimeTravel
@@ -8,7 +9,7 @@
               Class="artifact-details-drawer"
               data-testid="run-details-drawer"
               @onkeydown="HandleKeyDown">
-        <MudStack Spacing="3" Class="pa-4 artifact-details-scroll" TabIndex="0">
+<MudStack Spacing="3" Class="pa-4 artifact-details-scroll" @attributes="tabbableStackAttributes">
             @if (Open && renderRun is not null)
             {
                 <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Start" Class="artifact-details-header">
@@ -323,6 +324,9 @@
     [Parameter] public EventCallback OnClose { get; set; }
     [Parameter] public EventCallback OnReload { get; set; }
     [Parameter] public EventCallback OnGenerateTelemetry { get; set; }
+
+    private static readonly IReadOnlyDictionary<string, object> tabbableStackAttributes =
+        new Dictionary<string, object> { ["tabindex"] = 0 };
 
     private RunListEntry? renderRun;
     private RunCreateResponseDto? renderDetail;
