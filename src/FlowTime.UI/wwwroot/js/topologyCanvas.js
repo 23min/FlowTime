@@ -2857,8 +2857,8 @@
             };
 
             if (errorCount !== null) {
-                const countLabel = formatMetricValue(errorCount);
                 const zeroCount = errorCount <= 0;
+                const countLabel = zeroCount ? '-' : formatMetricValue(errorCount);
                 const countBg = zeroCount ? '#E5E7EB' : '#C62828';
                 const countFg = zeroCount ? '#1F2937' : '#FFFFFF';
                 drawErrorChip(countLabel, countBg, countFg, 'errors', errorsTooltip);
@@ -2867,7 +2867,8 @@
             if (errorRateValue !== null) {
                 let rateBg = '#C62828';
                 let rateFg = '#FFFFFF';
-                if (errorRateValue <= 0) {
+                const zeroRate = errorRateValue <= 0;
+                if (zeroRate) {
                     rateBg = '#E5E7EB';
                     rateFg = '#1F2937';
                 } else if (errorRateValue >= thresholds.errorCritical) {
@@ -2877,7 +2878,7 @@
                     rateFg = '#1F2937';
                 }
 
-                const rateLabel = formatPercent(errorRateValue);
+                const rateLabel = zeroRate ? '-' : formatPercent(errorRateValue);
                 drawErrorChip(rateLabel, rateBg, rateFg, 'errorRate', `${errorsTooltip} (%)`);
             }
         }

@@ -2,11 +2,11 @@ schemaVersion: 1
 generator: flowtime-sim
 metadata:
   id: 'it-system-microservices'
-  title: 'IT System with Microservices'
-  description: 'Modern web application with request queues, load balancer, auth service, and database bottlenecks'
-  version: 1.0.0
+  title: 'IT System with Queueing and Database Retries'
+  description: 'Modern web application with ingress queue, auth bottleneck, and transactional retries'
+  version: 2.0.0
   captureKey: it-system-telemetry
-  tags: [intermediate, microservices, web-scale, modern, it-systems]
+  tags: [microservices, web, queue, retries]
 window:
   start: 2025-01-01T00:00:00Z
   timezone: UTC
@@ -15,55 +15,45 @@ parameters:
   - name: bins
     type: integer
     title: "Time Periods"
-    description: "Number of time periods to simulate"
-    default: 6
-    minimum: 3
-    maximum: 48
+    description: "Number of 5-minute bins (24h default)"
+    default: 288
+    minimum: 12
+    maximum: 288
   - name: binSize
     type: integer
-    title: "Period Duration"
-    description: "Duration of each time period in minutes"
-    default: 60
-    minimum: 15
-    maximum: 480
-  - name: requestPattern
-    type: array
-    title: "User Request Pattern"
-    description: "Number of requests per time period"
-    default: [100, 150, 200, 180, 120, 80]
-    minimum: 0
-    maximum: 10000
-  - name: loadBalancerCapacity
-    type: array
-    title: "Load Balancer Capacity"
-    description: "Load balancer throughput per time period"
-    default: [300, 300, 300, 300, 300, 300]
-    minimum: 1
-    maximum: 10000
-  - name: authCapacity
-    type: array
-    title: "Auth Service Capacity"
-    description: "Authentication service throughput per time period"
-    default: [250, 250, 250, 250, 250, 250]
-    minimum: 1
-    maximum: 10000
-  - name: databaseCapacity
-    type: array
-    title: "Database Capacity"
-    description: "Database query capacity per time period"
-    default: [180, 180, 180, 180, 180, 180]
-    minimum: 1
-    maximum: 10000
+    title: "Bin Size (minutes)"
+    description: "Duration of each bin"
+    default: 5
+    minimum: 5
+    maximum: 60
+  - name: dbRetryRate
+    type: number
+    title: "DB Retry Rate"
+    description: "Fraction of authenticated requests that retry"
+    default: 0.2
+    minimum: 0.0
+    maximum: 1.0
+  - name: dbRetryFailureRate
+    type: number
+    title: "DB Retry Failure Rate"
+    description: "Probability a retry fails"
+    default: 0.25
+    minimum: 0.0
+    maximum: 1.0
   - name: telemetryRequestsSource
     type: string
     title: "Telemetry requests source"
-    description: "Optional file:// URI when replaying telemetry"
+    description: "Optional file:// URI for user requests"
     default: ""
 
 grid:
   bins: ${bins}
   binSize: ${binSize}
   binUnit: minutes
+
+rng:
+  kind: pcg32
+  seed: 20250329
 
 topology:
   nodes:
@@ -72,13 +62,13 @@ topology:
       semantics:
         arrivals: user_requests
         served: load_balanced_requests
-        errors: failed_requests
+        errors: lb_dropped
         processingTimeMsSum: load_balancer_processing_time_ms_sum
         servedCount: load_balanced_requests
         aliases:
           arrivals: "User requests"
           served: "Requests routed"
-          errors: "Dropped requests"
+          errors: "Dropped at LB"
     - id: IngressQueue
       kind: queue
       semantics:
@@ -98,57 +88,74 @@ topology:
       semantics:
         arrivals: auth_queue_outflow
         served: authenticated_requests
-        errors: failed_requests
+        errors: auth_failures
         processingTimeMsSum: auth_processing_time_ms_sum
         servedCount: authenticated_requests
         aliases:
-          arrivals: "Routed requests"
           served: "Sessions authenticated"
-          errors: "Auth failures"
+          errors: "Auth throttled"
     - id: Database
       kind: service
       semantics:
         arrivals: authenticated_requests
         served: processed_requests
-        errors: failed_requests
+        errors: db_errors
+        attempts: db_attempts
+        failures: db_retry_failures
+        retryEcho: db_retry_echo
+        retryKernel: [0.0, 0.6, 0.3, 0.1]
         processingTimeMsSum: database_processing_time_ms_sum
         servedCount: processed_requests
         aliases:
-          arrivals: "Auth passes"
           served: "Queries committed"
           errors: "Query failures"
+          attempts: "DB attempts"
+          failures: "Failed retries"
+          retryEcho: "Retry backlog"
   edges:
-    - id: edge1
+    - id: lb_to_queue
       from: LoadBalancer:out
       to: IngressQueue:in
-    - id: edge2
+    - id: queue_to_auth
       from: IngressQueue:out
       to: AuthService:in
-    - id: edge3
+    - id: auth_to_db
       from: AuthService:out
       to: Database:in
 
 nodes:
   - id: user_requests
-    kind: const
-    values: ${requestPattern}
+    kind: pmf
     source: ${telemetryRequestsSource}
+    pmf:
+      values: [80, 100, 130, 170, 210, 260]
+      probabilities: [0.08, 0.18, 0.27, 0.25, 0.15, 0.07]
 
   - id: load_balancer_capacity
-    kind: const
-    values: ${loadBalancerCapacity}
+    kind: pmf
+    pmf:
+      values: [150, 175, 200, 225, 250]
+      probabilities: [0.05, 0.15, 0.4, 0.25, 0.15]
 
   - id: auth_capacity
-    kind: const
-    values: ${authCapacity}
+    kind: pmf
+    pmf:
+      values: [140, 160, 180, 200]
+      probabilities: [0.1, 0.3, 0.4, 0.2]
 
   - id: database_capacity
-    kind: const
-    values: ${databaseCapacity}
+    kind: pmf
+    pmf:
+      values: [130, 150, 170, 190]
+      probabilities: [0.15, 0.35, 0.35, 0.15]
 
   - id: load_balanced_requests
     kind: expr
     expr: "MIN(user_requests, load_balancer_capacity)"
+
+  - id: lb_dropped
+    kind: expr
+    expr: "MAX(0, user_requests - load_balancer_capacity)"
 
   - id: load_balancer_processing_time_ms_sum
     kind: expr
@@ -176,9 +183,37 @@ nodes:
     kind: expr
     expr: "authenticated_requests * 220"
 
+  - id: auth_failures
+    kind: expr
+    expr: "MAX(0, load_balanced_requests - authenticated_requests)"
+
+  - id: db_retry_attempts
+    kind: expr
+    expr: "${dbRetryRate} * authenticated_requests"
+
+  - id: db_attempts
+    kind: expr
+    expr: "authenticated_requests + db_retry_attempts"
+
+  - id: db_retry_failures
+    kind: expr
+    expr: "${dbRetryFailureRate} * db_retry_attempts"
+
+  - id: db_capacity_window
+    kind: expr
+    expr: "MIN(db_attempts, database_capacity)"
+
   - id: processed_requests
     kind: expr
-    expr: "MIN(authenticated_requests, database_capacity)"
+    expr: "MIN(authenticated_requests, MAX(0, db_capacity_window - db_retry_failures))"
+
+  - id: db_errors
+    kind: expr
+    expr: "MAX(0, authenticated_requests - processed_requests)"
+
+  - id: db_retry_echo
+    kind: expr
+    expr: "CONV(db_retry_attempts, [0.0, 0.6, 0.3, 0.1])"
 
   - id: database_processing_time_ms_sum
     kind: expr
@@ -186,20 +221,16 @@ nodes:
 
   - id: failed_requests
     kind: expr
-    expr: "user_requests - processed_requests"
-
-  - id: system_utilization
-    kind: expr
-    expr: "processed_requests / user_requests"
+    expr: "MAX(0, user_requests - processed_requests)"
 
 outputs:
   - series: user_requests
-    as: requests.csv
-  - series: processed_requests
-    as: processed.csv
-  - series: failed_requests
-    as: failures.csv
+    as: user_requests.csv
   - series: ingress_queue_depth
     as: ingress_queue_depth.csv
-  - series: system_utilization
-    as: utilization.csv
+  - series: processed_requests
+    as: processed_requests.csv
+  - series: failed_requests
+    as: failed_requests.csv
+  - series: db_errors
+    as: db_errors.csv

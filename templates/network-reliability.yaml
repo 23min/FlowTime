@@ -2,11 +2,11 @@ schemaVersion: 1
 generator: flowtime-sim
 metadata:
   id: 'network-reliability'
-  title: 'Network Reliability with Stochastic Failures'
-  description: 'Demonstrates PMF nodes and RNG for probabilistic network behavior modeling'
-  version: 1.0.0
+  title: 'Network Reliability with Queues and Retries'
+  description: 'Edge gateway buffering, core retries, and stochastic infrastructure variation'
+  version: 2.0.0
   captureKey: network-reliability-telemetry
-  tags: [advanced, probabilistic, rng, network, stochastic]
+  tags: [network, stochastic, queue, retries]
 window:
   start: 2025-01-01T00:00:00Z
   timezone: UTC
@@ -15,42 +15,35 @@ parameters:
   - name: bins
     type: integer
     title: "Time Periods"
-    description: "Number of time periods to simulate"
-    default: 12
-    minimum: 1
-    maximum: 48
+    description: "Number of 5-minute bins (24h default)"
+    default: 288
+    minimum: 12
+    maximum: 288
   - name: binSize
     type: integer
-    title: "Period Duration"
-    description: "Duration of each time period in minutes"
-    default: 60
-    minimum: 15
-    maximum: 480
-  - name: rngSeed
-    type: integer
-    title: "Random Number Generator Seed"
-    description: "Seed for reproducible random behavior"
-    default: 42
-    minimum: 1
-    maximum: 2147483647
-  - name: baseLoad
-    type: array
-    title: "Base Request Load"
-    description: "Expected requests per time period"
-    default: [100, 120, 150, 180, 200, 190, 170, 160, 140, 130, 110, 105]
-    minimum: 0
-    maximum: 1000
-  - name: serverBaseCapacity
-    type: integer
-    title: "Server Base Capacity"
-    description: "Base server capacity before performance variations"
-    default: 150
-    minimum: 50
-    maximum: 500
+    title: "Bin Size (minutes)"
+    description: "Duration of each bin"
+    default: 5
+    minimum: 5
+    maximum: 60
+  - name: retryRate
+    type: number
+    title: "Core Retry Rate"
+    description: "Fraction of dispatched requests that retry at the core"
+    default: 0.15
+    minimum: 0.0
+    maximum: 1.0
+  - name: retryFailureRate
+    type: number
+    title: "Failed Retry Rate"
+    description: "Probability that a retry still fails"
+    default: 0.3
+    minimum: 0.0
+    maximum: 1.0
   - name: telemetryBaseLoadSource
     type: string
     title: "Telemetry base load source"
-    description: "Optional file:// URI for observed request load when replaying telemetry"
+    description: "Optional file:// URI for observed request load"
     default: ""
 
 grid:
@@ -60,7 +53,7 @@ grid:
 
 rng:
   kind: pcg32
-  seed: ${rngSeed}
+  seed: 20250331
 
 topology:
   nodes:
@@ -76,94 +69,142 @@ topology:
           arrivals: "Incoming requests"
           served: "Requests routed"
           errors: "Network drops"
+    - id: RequestQueue
+      kind: queue
+      semantics:
+        arrivals: network_requests
+        served: request_queue_outflow
+        errors: request_queue_spill
+        queueDepth: request_queue_depth
+        aliases:
+          arrivals: "Requests routed"
+          served: "Requests dequeued"
+          errors: "Queue attrition"
+          queue: "Edge backlog"
+      initialCondition:
+        queueDepth: 40
     - id: CorePlatform
       kind: service
       semantics:
-        arrivals: network_requests
+        arrivals: request_queue_outflow
         served: successful_requests
-        errors: database_failures
+        errors: core_errors
+        attempts: core_attempts
+        failures: core_retry_failures
+        retryEcho: core_retry_echo
+        retryKernel: [0.0, 0.6, 0.3, 0.1]
         processingTimeMsSum: core_platform_processing_time_ms_sum
         servedCount: successful_requests
         aliases:
           served: "Requests fulfilled"
-          errors: "Database failures"
+          errors: "Core failures"
+          attempts: "Dispatch attempts"
+          failures: "Failed retries"
+          retryEcho: "Retry backlog"
   edges:
-    - id: edge1
+    - id: edge_to_queue
       from: EdgeGateway:out
+      to: RequestQueue:in
+    - id: queue_to_core
+      from: RequestQueue:out
       to: CorePlatform:in
 
 nodes:
-  # Base request load (deterministic pattern)
   - id: base_requests
-    kind: const
-    values: ${baseLoad}
+    kind: pmf
     source: ${telemetryBaseLoadSource}
-    
-  # Network reliability (stochastic failures)
+    pmf:
+      values: [60, 90, 120, 150, 180, 210]
+      probabilities: [0.08, 0.18, 0.28, 0.24, 0.15, 0.07]
+
   - id: network_reliability
     kind: pmf
     pmf:
       values: [1.0, 0.95, 0.8, 0.6, 0.3]
       probabilities: [0.7, 0.2, 0.06, 0.03, 0.01]
-      
-  # Server performance variation (load-dependent capacity)
+
   - id: server_performance
-    kind: pmf  
+    kind: pmf
     pmf:
       values: [0.8, 1.0, 1.2]
       probabilities: [0.1, 0.8, 0.1]
-      
-  # Database connection reliability
+
   - id: database_reliability
     kind: pmf
     pmf:
       values: [1.0, 0.9, 0.7, 0.5]
       probabilities: [0.85, 0.1, 0.04, 0.01]
-    
-  # Requests that reach the server (after network failures)
+
   - id: network_requests
     kind: expr
     expr: "base_requests * network_reliability"
+
+  - id: network_failures
+    kind: expr
+    expr: "MAX(0, base_requests - network_requests)"
 
   - id: edge_gateway_processing_time_ms_sum
     kind: expr
     expr: "network_requests * 120"
 
-  # Available server capacity (with performance variations)
   - id: server_capacity
     kind: expr
-    expr: "${serverBaseCapacity} * server_performance"
-    
-  # Requests that can be processed by server
-  - id: server_processed
+    expr: "180 * server_performance"
+
+  - id: request_queue_spill
+    kind: expr
+    expr: "0"
+
+  - id: request_queue_outflow
     kind: expr
     expr: "MIN(network_requests, server_capacity)"
-    
-  # Requests that successfully complete (after database failures)
+
+  - id: request_queue_depth
+    kind: backlog
+    inflow: network_requests
+    outflow: request_queue_outflow
+    loss: request_queue_spill
+
+  - id: core_retry_attempts
+    kind: expr
+    expr: "${retryRate} * request_queue_outflow"
+
+  - id: core_attempts
+    kind: expr
+    expr: "request_queue_outflow + core_retry_attempts"
+
+  - id: core_retry_failures
+    kind: expr
+    expr: "${retryFailureRate} * core_retry_attempts"
+
+  - id: server_processed
+    kind: expr
+    expr: "MIN(core_attempts, server_capacity)"
+
+  - id: core_processed
+    kind: expr
+    expr: "MIN(request_queue_outflow, MAX(0, server_processed - core_retry_failures))"
+
+  - id: core_errors
+    kind: expr
+    expr: "MAX(0, request_queue_outflow - core_processed)"
+
+  - id: core_retry_echo
+    kind: expr
+    expr: "CONV(core_retry_attempts, [0.0, 0.6, 0.3, 0.1])"
+
   - id: successful_requests
     kind: expr
-    expr: "server_processed * database_reliability"
+    expr: "core_processed * database_reliability"
+
+  - id: database_failures
+    kind: expr
+    expr: "MAX(0, core_processed - successful_requests)"
 
   - id: core_platform_processing_time_ms_sum
     kind: expr
     expr: "successful_requests * 220"
 
-  # Failed requests due to network issues
-  - id: network_failures
-    kind: expr
-    expr: "base_requests - network_requests"
-    
-  # Failed requests due to server capacity
-  - id: server_failures
-    kind: expr
-    expr: "network_requests - server_processed"
-    
-  # Failed requests due to database issues
-  - id: database_failures
-    kind: expr
-    expr: "server_processed - successful_requests"
-    
-  # Overall system reliability
   - id: system_reliability
     kind: expr
     expr: "successful_requests / base_requests"
@@ -171,19 +212,13 @@ nodes:
 outputs:
   - series: base_requests
     as: base_requests.csv
-    description: "Original incoming requests"
+  - series: request_queue_depth
+    as: edge_queue_depth.csv
   - series: successful_requests
     as: successful_requests.csv
-    description: "Successfully processed requests"
-  - series: network_failures
-    as: network_failures.csv
-    description: "Requests lost due to network issues"
-  - series: server_failures
-    as: server_failures.csv
-    description: "Requests lost due to server capacity"
+  - series: core_errors
+    as: core_failures.csv
   - series: database_failures
     as: database_failures.csv
-    description: "Requests lost due to database issues"
   - series: system_reliability
     as: system_reliability.csv
-    description: "Overall system success rate"

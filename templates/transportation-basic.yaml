@@ -4,7 +4,7 @@ metadata:
   id: 'transportation-basic'
   title: 'Transportation Network with Hub Queue'
   description: 'North/South origins feed a central hub with an outbound queue and airport retries.'
-  version: 2.0.0
+  version: 3.0.0
   captureKey: transportation-network-telemetry
   tags: [transportation, transit, queue, retries]
 window:
@@ -15,85 +15,17 @@ parameters:
   - name: bins
     type: integer
     title: "Time Periods"
-    description: "Number of time periods to simulate"
-    default: 6
-    minimum: 3
-    maximum: 48
+    description: "Number of 5-minute bins (24h default)"
+    default: 288
+    minimum: 12
+    maximum: 288
   - name: binSize
     type: integer
     title: "Period Duration"
     description: "Minutes per bin"
-    default: 60
-    minimum: 15
-    maximum: 480
-
-  - name: demandNorth
-    type: array
-    title: "Northbound Demand"
-    description: "Passengers arriving from the North per period"
-    default: [10, 14, 18, 22, 16, 12]
-    minimum: 0
-    maximum: 1000
-  - name: demandSouth
-    type: array
-    title: "Southbound Demand"
-    description: "Passengers arriving from the South per period"
-    default: [8, 12, 16, 20, 14, 10]
-    minimum: 0
-    maximum: 1000
-
-  - name: capNorthToHub
-    type: array
-    title: "North → Hub Capacity"
-    description: "Feeder capacity from North origin to Hub"
-    default: [12, 12, 20, 24, 18, 14]
-    minimum: 1
-    maximum: 1000
-  - name: capSouthToHub
-    type: array
-    title: "South → Hub Capacity"
-    description: "Feeder capacity from South origin to Hub"
-    default: [10, 12, 18, 22, 16, 12]
-    minimum: 1
-    maximum: 1000
-
-  - name: capHub
-    type: array
-    title: "Hub Processing Capacity"
-    description: "Passengers the hub can process per period"
-    default: [20, 24, 32, 36, 28, 22]
-    minimum: 1
-    maximum: 2000
-  - name: hubDispatchCapacity
-    type: array
-    title: "Hub Dispatch Capacity"
-    description: "Passengers the hub can dispatch downstream"
-    default: [18, 22, 30, 32, 26, 20]
-    minimum: 1
-    maximum: 2000
-
-  - name: capAirport
-    type: array
-    title: "Airport Line Capacity"
-    description: "Capacity of the Airport destination line"
-    default: [8, 10, 12, 14, 12, 10]
-    minimum: 1
-    maximum: 1000
-  - name: capDowntown
-    type: array
-    title: "Downtown Line Capacity"
-    description: "Capacity of the Downtown destination line"
-    default: [10, 14, 20, 22, 16, 12]
-    minimum: 1
-    maximum: 1000
-  - name: capIndustrial
-    type: array
-    title: "Industrial Park Capacity"
-    description: "Capacity of the Industrial Park line"
-    default: [6, 8, 10, 12, 10, 8]
-    minimum: 1
-    maximum: 1000
-
+    default: 5
+    minimum: 5
+    maximum: 60
   - name: splitAirport
     type: number
     title: "Hub → Airport Split"
@@ -108,22 +40,20 @@ parameters:
     default: 0.2
     minimum: 0.0
     maximum: 1.0
-
-  - name: airportRetryRate
+  - name: hubRetryRate
     type: number
     title: "Airport Retry Rate"
     description: "Fraction of airport passengers requiring re-boarding"
     default: 0.12
     minimum: 0.0
     maximum: 1.0
-  - name: airportRetryFailureRate
+  - name: hubRetryFailureRate
     type: number
     title: "Airport Failed Retry Rate"
     description: "Fraction of airport retry attempts that still fail"
     default: 0.25
     minimum: 0.0
     maximum: 1.0
-
   - name: telemetryDemandNorthSource
     type: string
     title: "Telemetry North demand source"
@@ -139,6 +69,10 @@ grid:
   bins: ${bins}
   binSize: ${binSize}
   binUnit: minutes
+
+rng:
+  kind: pcg32
+  seed: 20250327
 
 topology:
   nodes:
@@ -257,35 +191,53 @@ topology:
 
 nodes:
   - id: arrivals_north
-    kind: const
-    values: ${demandNorth}
+    kind: pmf
     source: ${telemetryDemandNorthSource}
+    pmf:
+      values: [8, 12, 16, 20, 26]
+      probabilities: [0.1, 0.2, 0.3, 0.25, 0.15]
   - id: arrivals_south
-    kind: const
-    values: ${demandSouth}
+    kind: pmf
     source: ${telemetryDemandSouthSource}
+    pmf:
+      values: [6, 10, 14, 18, 22]
+      probabilities: [0.12, 0.24, 0.28, 0.22, 0.14]
 
   - id: cap_north
-    kind: const
-    values: ${capNorthToHub}
+    kind: pmf
+    pmf:
+      values: [12, 15, 18, 22, 26]
+      probabilities: [0.08, 0.2, 0.32, 0.25, 0.15]
   - id: cap_south
-    kind: const
-    values: ${capSouthToHub}
+    kind: pmf
+    pmf:
+      values: [10, 13, 16, 19, 22]
+      probabilities: [0.1, 0.22, 0.3, 0.24, 0.14]
   - id: cap_hub
-    kind: const
-    values: ${capHub}
+    kind: pmf
+    pmf:
+      values: [24, 28, 32, 36, 40]
+      probabilities: [0.1, 0.2, 0.3, 0.25, 0.15]
   - id: hub_dispatch_capacity
-    kind: const
-    values: ${hubDispatchCapacity}
+    kind: pmf
+    pmf:
+      values: [20, 24, 28, 32, 36]
+      probabilities: [0.1, 0.2, 0.3, 0.25, 0.15]
   - id: cap_airport
-    kind: const
-    values: ${capAirport}
+    kind: pmf
+    pmf:
+      values: [8, 10, 12, 14]
+      probabilities: [0.15, 0.35, 0.3, 0.2]
   - id: cap_downtown
-    kind: const
-    values: ${capDowntown}
+    kind: pmf
+    pmf:
+      values: [10, 14, 18, 22]
+      probabilities: [0.1, 0.25, 0.35, 0.3]
   - id: cap_industrial
-    kind: const
-    values: ${capIndustrial}
+    kind: pmf
+    pmf:
+      values: [6, 8, 10, 12]
+      probabilities: [0.15, 0.35, 0.3, 0.2]
 
   - id: served_north
     kind: expr
@@ -357,7 +309,7 @@ nodes:
 
   - id: airport_retry_attempts
     kind: expr
-    expr: "${airportRetryRate} * arrivals_airport"
+    expr: "${hubRetryRate} * arrivals_airport"
   - id: airport_attempts
     kind: expr
     expr: "arrivals_airport + airport_retry_attempts"
@@ -366,7 +318,7 @@ nodes:
     expr: "MIN(airport_attempts, cap_airport)"
   - id: airport_retry_failures
     kind: expr
-    expr: "${airportRetryFailureRate} * airport_retry_attempts"
+    expr: "${hubRetryFailureRate} * airport_retry_attempts"
   - id: served_airport
     kind: expr
     expr: "MIN(arrivals_airport, MAX(0, airport_capacity_served - airport_retry_failures))"
@@ -405,8 +357,6 @@ outputs:
     as: north_demand.csv
   - series: arrivals_south
     as: south_demand.csv
-  - series: served_hub
-    as: hub_throughput.csv
   - series: hub_queue_depth
     as: hub_queue_depth.csv
   - series: hub_dispatch

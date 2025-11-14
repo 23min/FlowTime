@@ -3,10 +3,10 @@ generator: flowtime-sim
 metadata:
   id: 'manufacturing-line'
   title: 'Manufacturing Production Line'
-  description: 'Production line with workstations, quality control, and bottleneck identification'
-  version: 1.0.0
+  description: 'Production line with raw-material variability, WIP buffering, and QC retries'
+  version: 2.0.0
   captureKey: manufacturing-line-telemetry
-  tags: [intermediate, manufacturing, production, bottleneck, quality]
+  tags: [manufacturing, production, queue, retries]
 window:
   start: 2025-01-01T00:00:00Z
   timezone: UTC
@@ -15,69 +15,45 @@ parameters:
   - name: bins
     type: integer
     title: "Time Periods"
-    description: "Number of time periods to simulate"
-    default: 6
-    minimum: 3
-    maximum: 48
+    description: "Number of 5-minute bins (24h by default)"
+    default: 288
+    minimum: 12
+    maximum: 288
   - name: binSize
     type: integer
-    title: "Period Duration"
-    description: "Duration of each time period in minutes"
-    default: 60
-    minimum: 15
-    maximum: 480
-  - name: rawMaterialSchedule
-    type: array
-    title: "Raw Material Schedule"
-    description: "Amount of raw materials available in each time period"
-    default: [100, 100, 80, 120, 100, 90]
-    minimum: 0
-    maximum: 500
-  - name: assemblyCapacity
-    type: array
-    title: "Assembly Line Capacity"
-    description: "Maximum items that can be assembled per time period"
-    default: [90, 90, 90, 90, 90, 90]
-    minimum: 1
-    maximum: 200
-  - name: qualityCapacity
-    type: array
-    title: "Quality Control Capacity"
-    description: "Maximum items that can be quality checked per time period"
-    default: [80, 80, 80, 80, 80, 80]
-    minimum: 1
-    maximum: 200
-  - name: qualityRate
+    title: "Bin Size (minutes)"
+    description: "Duration of each bin"
+    default: 5
+    minimum: 5
+    maximum: 60
+  - name: qcRetryRate
     type: number
-    title: "Quality Pass Rate"
-    description: "Percentage of items that pass quality control (0.0-1.0)"
-    default: 0.95
-    minimum: 0.1
-    maximum: 1.0
-  - name: productionRate
-    type: number
-    title: "Production Rate"
-    description: "Base production rate per time period"
-    default: 12
-    minimum: 1
-    maximum: 100
-  - name: defectRate
-    type: number
-    title: "Defect Rate"
-    description: "Percentage of items that become defective (0.0-1.0)"
-    default: 0.05
+    title: "QC Retry Rate"
+    description: "Fraction of inspected units that require rework"
+    default: 0.08
     minimum: 0.0
     maximum: 0.5
+  - name: qcRetryFailureRate
+    type: number
+    title: "QC Retry Failure Rate"
+    description: "Probability that a retry attempt still fails"
+    default: 0.35
+    minimum: 0.0
+    maximum: 1.0
   - name: telemetryRawMaterialsSource
     type: string
     title: "Telemetry raw materials source"
-    description: "Optional file:// URI for raw material arrivals when replaying telemetry"
+    description: "Optional file:// URI for captured arrivals"
     default: ""
 
 grid:
   bins: ${bins}
   binSize: ${binSize}
   binUnit: minutes
+
+rng:
+  kind: pcg32
+  seed: 20250330
 
 topology:
   nodes:
@@ -86,28 +62,49 @@ topology:
       semantics:
         arrivals: raw_materials
         served: assembly_output
-        errors: defects
+        errors: assembly_scrap
         processingTimeMsSum: assembly_processing_time_ms_sum
         servedCount: assembly_output
         aliases:
           arrivals: "Raw material feed"
           served: "Units assembled"
-          errors: "Assembly defects"
+          errors: "Assembly scrap"
+    - id: WipQueue
+      kind: queue
+      semantics:
+        arrivals: wip_queue_inflow
+        served: wip_queue_outflow
+        errors: wip_queue_loss
+        queueDepth: wip_queue_depth
+        aliases:
+          arrivals: "Units assembled"
+          served: "Units staged"
+          errors: "Queue attrition"
+          queue: "WIP backlog"
+      initialCondition:
+        queueDepth: 30
     - id: QualityControl
       kind: service
       semantics:
-        arrivals: assembly_output
-        served: quality_control
-        errors: quality_rejects
+        arrivals: wip_queue_outflow
+        served: quality_served
+        errors: quality_errors
+        attempts: quality_attempts
+        failures: qc_retry_failures
+        retryEcho: qc_retry_echo
+        retryKernel: [0.0, 0.6, 0.3, 0.1]
         processingTimeMsSum: quality_processing_time_ms_sum
-        servedCount: quality_control
+        servedCount: quality_served
         aliases:
           served: "Units approved"
           errors: "QC rejects"
+          attempts: "Inspection attempts"
+          failures: "Failed rework"
+          retryEcho: "Rework backlog"
     - id: PackagingStation
       kind: service
       semantics:
-        arrivals: quality_control
+        arrivals: quality_served
         served: packaging
         errors: packaging_rejects
         processingTimeMsSum: packaging_processing_time_ms_sum
@@ -116,58 +113,107 @@ topology:
           served: "Units packaged"
           errors: "Packaging rejects"
   edges:
-    - id: edge1
+    - id: assembly_to_queue
       from: AssemblyLine:out
+      to: WipQueue:in
+    - id: queue_to_quality
+      from: WipQueue:out
       to: QualityControl:in
-    - id: edge2
+    - id: quality_to_packaging
       from: QualityControl:out
       to: PackagingStation:in
 
 nodes:
   - id: raw_materials
-    kind: const
-    values: ${rawMaterialSchedule}
+    kind: pmf
     source: ${telemetryRawMaterialsSource}
+    pmf:
+      values: [70, 85, 95, 110, 125, 140, 155]
+      probabilities: [0.04, 0.12, 0.24, 0.24, 0.18, 0.12, 0.06]
 
   - id: assembly_capacity
-    kind: const
-    values: ${assemblyCapacity}
+    kind: pmf
+    pmf:
+      values: [80, 90, 100, 110, 120]
+      probabilities: [0.1, 0.25, 0.3, 0.25, 0.1]
 
-  - id: quality_control_capacity
-    kind: const
-    values: ${qualityCapacity}
+  - id: quality_capacity
+    kind: pmf
+    pmf:
+      values: [70, 80, 85, 90, 100]
+      probabilities: [0.08, 0.22, 0.3, 0.25, 0.15]
 
-  - id: assembly
+  - id: packaging_capacity
+    kind: pmf
+    pmf:
+      values: [60, 70, 80, 90, 95]
+      probabilities: [0.1, 0.2, 0.3, 0.25, 0.15]
+
+  - id: assembly_output
     kind: expr
     expr: "MIN(raw_materials, assembly_capacity)"
 
   - id: assembly_processing_time_ms_sum
     kind: expr
-    expr: "assembly * 240"
+    expr: "assembly_output * 240"
 
-  - id: defects
+  - id: assembly_scrap
     kind: expr
-    expr: "assembly * ${defectRate}"
+    expr: "MAX(0, raw_materials - assembly_output)"
 
-  - id: assembly_output
+  - id: wip_queue_inflow
     kind: expr
-    expr: "MAX(0, assembly - defects)"
+    expr: "assembly_output"
 
-  - id: quality_control
+  - id: wip_queue_loss
     kind: expr
-    expr: "MIN(assembly_output * ${qualityRate}, quality_control_capacity)"
+    expr: "0"
+
+  - id: wip_queue_outflow
+    kind: expr
+    expr: "MIN(wip_queue_inflow, quality_capacity)"
+
+  - id: wip_queue_depth
+    kind: backlog
+    inflow: wip_queue_inflow
+    outflow: wip_queue_outflow
+    loss: wip_queue_loss
+
+  - id: qc_retry_attempts
+    kind: expr
+    expr: "${qcRetryRate} * wip_queue_outflow"
+
+  - id: quality_attempts
+    kind: expr
+    expr: "wip_queue_outflow + qc_retry_attempts"
+
+  - id: qc_retry_failures
+    kind: expr
+    expr: "${qcRetryFailureRate} * qc_retry_attempts"
+
+  - id: quality_capacity_window
+    kind: expr
+    expr: "MIN(quality_attempts, quality_capacity)"
+
+  - id: quality_served
+    kind: expr
+    expr: "MIN(wip_queue_outflow, MAX(0, quality_capacity_window - qc_retry_failures))"
+
+  - id: quality_errors
+    kind: expr
+    expr: "MAX(0, wip_queue_outflow - quality_served)"
+
+  - id: qc_retry_echo
+    kind: expr
+    expr: "CONV(qc_retry_attempts, [0.0, 0.6, 0.3, 0.1])"
 
   - id: quality_processing_time_ms_sum
     kind: expr
-    expr: "quality_control * 300"
-
-  - id: quality_rejects
-    kind: expr
-    expr: "MAX(assembly_output - quality_control, 0)"
+    expr: "quality_served * 300"
 
   - id: packaging
     kind: expr
-    expr: "MIN(quality_control, ${productionRate} * 0.9)"
+    expr: "MIN(quality_served, packaging_capacity)"
 
   - id: packaging_processing_time_ms_sum
     kind: expr
@@ -175,18 +221,18 @@ nodes:
 
   - id: packaging_rejects
     kind: expr
-    expr: "MAX(quality_control - packaging, 0)"
+    expr: "MAX(0, quality_served - packaging)"
 
 outputs:
   - series: raw_materials
     as: raw_materials.csv
+  - series: assembly_output
+    as: units_assembled.csv
+  - series: wip_queue_depth
+    as: wip_queue_depth.csv
+  - series: quality_served
+    as: units_approved.csv
+  - series: quality_errors
+    as: qc_rejects.csv
   - series: packaging
     as: finished_goods.csv
-  - series: defects
-    as: defects.csv
-  - series: quality_control
-    as: quality_passed.csv
-  - series: packaging_rejects
-    as: packaging_rejects.csv
-  - series: quality_rejects
-    as: quality_rejects.csv
