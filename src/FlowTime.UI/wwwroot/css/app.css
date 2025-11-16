@@ -575,7 +575,7 @@ body.dark-mode .timeline-label {
 }
 
 body.dark-mode .timeline-focus-label {
-    color: #E2E8F0;
+    color: #F8FAFC;
 }
 
 .timeline-operational-toggle {
@@ -1423,7 +1423,7 @@ body.dark-mode .node-inspector-expression {
 }
 
 body.dark-mode .node-inspector-sparkline {
-    background-color: rgba(30, 41, 59, 0.55);
+    background-color: rgba(30, 41, 59, 0.85);
     border-color: rgba(148, 163, 184, 0.4);
 }
 
@@ -1434,6 +1434,7 @@ body.dark-mode .node-inspector-sparkline-tick {
 
 body.dark-mode .node-inspector-sparkline-label {
     fill: #F8FAFC;
+    color: #F8FAFC;
 }
 
 .topology-muted-text {

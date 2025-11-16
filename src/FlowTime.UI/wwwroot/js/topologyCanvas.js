@@ -33,7 +33,7 @@
     const CHIP_BASE_FILL_DARK = '#0F172A';
     const CHIP_TEXT_LIGHT = NODE_LABEL_COLOR_LIGHT;
     const CHIP_TEXT_DARK = '#F8FAFC';
-    const EXPRESSION_DARK_FILL = '#0B1120';
+    const EXPRESSION_DARK_FILL = '#1F2735';
     const POINTER_CLICK_DISTANCE = 4;
     const GRID_ROW_SPACING = 140;
     const GRID_COLUMN_SPACING = 240;
@@ -850,7 +850,9 @@
                 retryTax > 0;
 
             let focusLabelWidth = Math.max(width - 14, 18);
-            const expressionOverride = isDarkTheme() && isExpressionKind(kind) ? EXPRESSION_DARK_FILL : null;
+            const expressionLikeNode = isExpressionKind(kind) || isConstKind(kind);
+            const expressionOverride = isDarkTheme() && expressionLikeNode ? EXPRESSION_DARK_FILL : null;
+            const expressionStrokeOverride = isDarkTheme() && expressionLikeNode ? NODE_LABEL_COLOR_DARK : null;
             const computedOverride = isDarkTheme() && isComputedKind(kind) ? defaultLeafFill : null;
             let fillForText = expressionOverride ?? computedOverride ?? fill;
 
@@ -876,7 +878,7 @@
                     traceRoundedRect(ctx, x, y, width, height, r);
                 }
                 ctx.fillStyle = fillForText;
-                ctx.strokeStyle = stroke;
+                ctx.strokeStyle = expressionStrokeOverride ?? stroke;
                 ctx.lineWidth = 0.9;
                 ctx.fill();
                 ctx.stroke();
@@ -2276,6 +2278,14 @@
         }
         const normalized = kind.trim().toLowerCase();
         return normalized === 'expr' || normalized === 'expression';
+    }
+
+    function isConstKind(kind) {
+        if (typeof kind !== 'string') {
+            return false;
+        }
+        const normalized = kind.trim().toLowerCase();
+        return normalized === 'const' || normalized === 'constant';
     }
 
     function resolveSampleColor(basis, index, sparkline, thresholds, defaultColor) {
@@ -5196,9 +5206,10 @@
         let previousPoint = null;
         let previousColor = defaultColor;
 
-        ctx.fillStyle = 'rgba(203, 213, 225, 0.2)';
+        const darkMode = isDarkTheme();
+        ctx.fillStyle = darkMode ? 'rgba(15, 23, 42, 0.85)' : 'rgba(203, 213, 225, 0.2)';
         ctx.fillRect(0, 0, sparkWidth, sparkHeight);
-        ctx.strokeStyle = 'rgba(148, 163, 184, 0.35)';
+        ctx.strokeStyle = darkMode ? 'rgba(148, 163, 184, 0.5)' : 'rgba(148, 163, 184, 0.35)';
         ctx.lineWidth = 0.5;
         ctx.strokeRect(0, 0, sparkWidth, sparkHeight);
 
