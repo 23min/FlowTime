@@ -570,6 +570,14 @@ code {
     letter-spacing: 0.02em;
 }
 
+body.dark-mode .timeline-label {
+    color: rgba(226, 232, 240, 0.8);
+}
+
+body.dark-mode .timeline-focus-label {
+    color: #E2E8F0;
+}
+
 .timeline-operational-toggle {
     display: flex;
     align-items: center;
@@ -879,21 +887,28 @@ code {
 
 .topology-node-inspector-toggle {
     position: absolute;
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
-    border: 1px solid rgba(148, 163, 184, 0.5);
+    width: 18px;
+    height: 18px;
+    border-radius: 5px;
+    border: 1px solid rgba(148, 163, 184, 0.4);
     background: rgba(248, 250, 252, 0.96);
-    color: #0f172a;
+    color: #4B5563;
     display: flex;
     align-items: center;
     justify-content: center;
     pointer-events: auto;
     cursor: pointer;
     box-shadow: 0 6px 16px rgba(15, 23, 42, 0.15);
-    transform: translate(-50%, -50%);
-    transition: box-shadow 0.18s ease, transform 0.18s ease;
+    transform: translate(-50%, -50%) scale(var(--topology-inspector-toggle-scale, 1));
+    transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
     padding: 0;
+}
+
+.dark-mode .topology-node-inspector-toggle {
+    background: rgba(15, 23, 42, 0.95);
+    border-color: rgba(148, 163, 184, 0.6);
+    color: #CBD5F5;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.45);
 }
 
 .topology-node-inspector-toggle__bars {
@@ -909,7 +924,7 @@ code {
     right: 0;
     height: 2px;
     border-radius: 999px;
-    background: rgba(99, 102, 241, 0.55);
+    background: currentColor;
 }
 
 .topology-node-inspector-toggle__bars .bar-1 { top: 0; }
@@ -921,7 +936,7 @@ code {
     width: 3px;
     height: 3px;
     border-radius: 999px;
-    background: #2563eb;
+    background: currentColor;
 }
 
 .topology-node-inspector-toggle__bars .dot-1 { top: -1px; left: 2px; }
@@ -929,7 +944,7 @@ code {
 .topology-node-inspector-toggle__bars .dot-3 { bottom: -1px; left: 10px; }
 
 .topology-node-inspector-toggle:hover {
-    transform: translate(-50%, -50%) translateY(-1px);
+    transform: translate(-50%, -50%) translateY(-1px) scale(var(--topology-inspector-toggle-scale, 1));
     box-shadow: 0 10px 20px rgba(79, 70, 229, 0.25);
 }
 
@@ -976,6 +991,10 @@ code {
 .topology-node-inspector-toggle:focus-visible {
     outline: none;
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.4);
+}
+
+.dark-mode .topology-node-inspector-toggle:focus-visible {
+    box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.5);
 }
 
 .topology-tooltip {
@@ -1422,7 +1441,7 @@ body.dark-mode .node-inspector-sparkline-label {
 }
 
 body.dark-mode .topology-muted-text {
-    color: rgba(203, 213, 225, 0.75);
+    color: #E2E8F0;
 }
 
 .topology-horizon-wrapper {

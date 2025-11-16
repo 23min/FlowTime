@@ -13,7 +13,7 @@
         neutral: '#7C8BA1'
     };
     const EDGE_OVERLAY_STROKE_ALPHA = 0.85;
-    const InspectorIconSize = 32;
+    const InspectorIconSize = 18;
     const InspectorIconGap = 8;
     const InspectorTooltipGap = 10;
     const MIN_ZOOM_PERCENT = 25;
@@ -26,11 +26,14 @@
     const LEAF_STROKE_DARK = '#475569';
     const QUEUE_PILL_FILL = '#60A5FA';
     const QUEUE_PILL_STROKE = '#2563EB';
-    const QUEUE_LABEL_COLOR = '#0F172A';
+    const NODE_LABEL_COLOR_LIGHT = '#0F172A';
+    const NODE_LABEL_COLOR_DARK = '#F8FAFC';
+    const QUEUE_LABEL_COLOR = NODE_LABEL_COLOR_LIGHT;
     const CHIP_BASE_FILL_LIGHT = '#F3F4F6';
-    const CHIP_BASE_FILL_DARK = '#1F2937';
-    const CHIP_TEXT_LIGHT = '#0F172A';
-    const CHIP_TEXT_DARK = '#E2E8F0';
+    const CHIP_BASE_FILL_DARK = '#0F172A';
+    const CHIP_TEXT_LIGHT = NODE_LABEL_COLOR_LIGHT;
+    const CHIP_TEXT_DARK = '#F8FAFC';
+    const EXPRESSION_DARK_FILL = '#0B1120';
     const POINTER_CLICK_DISTANCE = 4;
     const GRID_ROW_SPACING = 140;
     const GRID_COLUMN_SPACING = 240;
@@ -76,6 +79,8 @@
 
         const media = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
         media?.addEventListener?.('change', handleThemeChange);
+
+        window.addEventListener?.('ft-theme-changed', handleThemeChange);
     })();
 
     function isDarkTheme() {
@@ -115,7 +120,7 @@
     }
 
     function getQueueLabelColor() {
-        return isDarkTheme() ? '#E2E8F0' : QUEUE_LABEL_COLOR;
+        return isDarkTheme() ? NODE_LABEL_COLOR_DARK : QUEUE_LABEL_COLOR;
     }
 
     function getState(canvas) {
@@ -845,8 +850,9 @@
                 retryTax > 0;
 
             let focusLabelWidth = Math.max(width - 14, 18);
+            const expressionOverride = isDarkTheme() && isExpressionKind(kind) ? EXPRESSION_DARK_FILL : null;
             const computedOverride = isDarkTheme() && isComputedKind(kind) ? defaultLeafFill : null;
-            let fillForText = computedOverride ?? fill;
+            let fillForText = expressionOverride ?? computedOverride ?? fill;
 
             if (isLeafComputed) {
                 const pillMetrics = drawLeafNode(ctx, nodeMeta);
@@ -902,7 +908,7 @@
             if (overlaySettings.showLabels) {
                 ctx.save();
                 const label = String(id);
-                ctx.fillStyle = isDarkTheme() ? '#E2E8F0' : '#0F172A';
+                ctx.fillStyle = isDarkTheme() ? NODE_LABEL_COLOR_DARK : NODE_LABEL_COLOR_LIGHT;
                 ctx.globalAlpha = highlightNode ? 1 : 0.75;
                 ctx.font = '10px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
                 ctx.textAlign = 'right';
@@ -916,7 +922,7 @@
             const focusLabel = String(nodeMeta?.focusLabel ?? '').trim();
             if (focusLabel) {
                 ctx.save();
-                ctx.fillStyle = isDarkColor(fillForText) ? '#FFFFFF' : '#0F172A';
+                ctx.fillStyle = isDarkColor(fillForText) ? '#FFFFFF' : NODE_LABEL_COLOR_LIGHT;
                 ctx.globalAlpha = highlightNode ? 1 : 0.85;
                 ctx.font = '600 12px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
                 ctx.textAlign = 'center';
@@ -1173,6 +1179,9 @@
         }
 
         toggle.style.display = '';
+        const scale = Number(state.scale ?? 1) || 1;
+        const normalizedScale = scale > 0 ? (1 / scale) : 1;
+        toggle.style.setProperty('--topology-inspector-toggle-scale', normalizedScale.toFixed(4));
         toggle.style.left = `${targetX}px`;
         toggle.style.top = `${targetY}px`;
     }
@@ -2261,6 +2270,14 @@
         return normalized === 'expr' || normalized === 'expression' || normalized === 'const' || normalized === 'constant' || normalized === 'pmf';
     }
 
+    function isExpressionKind(kind) {
+        if (typeof kind !== 'string') {
+            return false;
+        }
+        const normalized = kind.trim().toLowerCase();
+        return normalized === 'expr' || normalized === 'expression';
+    }
+
     function resolveSampleColor(basis, index, sparkline, thresholds, defaultColor) {
         const value = getBasisValue(basis, index, sparkline);
         if (value === null || value === undefined || !Number.isFinite(value)) {
@@ -2683,7 +2700,8 @@
                 const leftEdge = rightEdge - sparkWidth;
 
                 ctx.save();
-                ctx.fillStyle = '#64748B'; // slate-500
+                const sparkLabelColor = isDarkTheme() ? NODE_LABEL_COLOR_DARK : '#64748B';
+                ctx.fillStyle = sparkLabelColor;
                 ctx.globalAlpha = 0.9;
                 ctx.font = '10px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
                 ctx.textAlign = 'left';
@@ -3962,18 +3980,16 @@
         const bottom = top + totalHeight;
 
         ctx.save();
+        const darkMode = isDarkTheme();
         const hasCustomFill = typeof fillColor === 'string' && fillColor.trim().length > 0;
-        const chipFill = hasCustomFill ? fillColor : getDefaultChipFill();
-        const defaultTextColor = getDefaultChipTextColor();
-        const textColor = (() => {
-            if (!hasCustomFill) {
-                return defaultTextColor;
-            }
-            if (typeof fg !== 'string' || fg.trim().length === 0) {
-                return defaultTextColor;
-            }
-            return fg;
-        })();
+        let chipFill = hasCustomFill ? fillColor : getDefaultChipFill();
+        let textColor = getDefaultChipTextColor();
+        if (darkMode) {
+            chipFill = CHIP_BASE_FILL_DARK;
+            textColor = CHIP_TEXT_DARK;
+        } else if (hasCustomFill && typeof fg === 'string' && fg.trim().length > 0) {
+            textColor = fg;
+        }
         ctx.fillStyle = chipFill;
         ctx.strokeStyle = outlineColor ?? '#94A3B8';
         ctx.lineWidth = 1;

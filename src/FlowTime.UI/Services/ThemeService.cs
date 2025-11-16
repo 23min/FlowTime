@@ -27,8 +27,14 @@ public sealed class ThemeService
         try
         {
             var stored = await js.InvokeAsync<string?>("localStorage.getItem", storageKey);
-            if (stored == "light") SetInternal(false, persist:false);
-            else if (stored == "dark") SetInternal(true, persist:false);
+            if (stored == "light") SetInternal(false);
+            else if (stored == "dark") SetInternal(true);
+            else
+            {
+                var legacy = await js.InvokeAsync<string>("ftTheme.get");
+                SetInternal(legacy == "dark");
+            }
+            await ApplyBodyThemeAsync();
         }
         catch { /* ignore */ }
     }
@@ -38,11 +44,11 @@ public sealed class ThemeService
     public Task SetAsync(bool dark)
     {
         if (IsDark == dark) return Task.CompletedTask;
-        SetInternal(dark, persist:true);
+        SetInternal(dark);
         return PersistAsync();
     }
 
-    private void SetInternal(bool dark, bool persist)
+    private void SetInternal(bool dark)
     {
         IsDark = dark;
         Changed?.Invoke();
@@ -50,8 +56,26 @@ public sealed class ThemeService
 
     private async Task PersistAsync()
     {
-        try { await js.InvokeVoidAsync("localStorage.setItem", storageKey, IsDark ? "dark" : "light"); }
+        try
+        {
+            var mode = IsDark ? "dark" : "light";
+            await js.InvokeVoidAsync("localStorage.setItem", storageKey, mode);
+            await js.InvokeVoidAsync("ftTheme.set", mode);
+        }
         catch { /* ignore */ }
+    }
+
+    private Task ApplyBodyThemeAsync()
+    {
+        try
+        {
+            var mode = IsDark ? "dark" : "light";
+            return js.InvokeVoidAsync("ftTheme.set", mode).AsTask();
+        }
+        catch
+        {
+            return Task.CompletedTask;
+        }
     }
 
     public readonly MudTheme LightTheme = new()
