@@ -398,6 +398,7 @@ public class NodeDefinition
     public double[]? Values { get; set; }
     public string? Expr { get; set; }
     public PmfDefinition? Pmf { get; set; }
+    public Dictionary<string, string>? Metadata { get; set; }
     // For backlog nodes
     public string? Inflow { get; set; }
     public string? Outflow { get; set; }

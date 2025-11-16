@@ -162,7 +162,7 @@ internal static class TemplateValidator
                     break;
 
                 case "pmf":
-                    ValidatePmfNode(node);
+                    ValidatePmfNode(node, template.Grid);
                     break;
 
                 case "expr":
@@ -192,8 +192,10 @@ internal static class TemplateValidator
         }
     }
 
-    private static void ValidatePmfNode(TemplateNode node)
+    private static void ValidatePmfNode(TemplateNode node, TemplateGrid grid)
     {
+        ArgumentNullException.ThrowIfNull(grid);
+
         if (node.Pmf == null)
         {
             throw new TemplateValidationException($"PMF node '{node.Id}' must define a pmf section.");
@@ -223,6 +225,11 @@ internal static class TemplateValidator
         if (node.Pmf.Probabilities.Any(p => p < 0))
         {
             throw new TemplateValidationException($"PMF node '{node.Id}' probabilities must be non-negative.");
+        }
+
+        if (node.Profile != null)
+        {
+            TemplateProfileResolver.TryResolve(node.Profile, grid);
         }
     }
 

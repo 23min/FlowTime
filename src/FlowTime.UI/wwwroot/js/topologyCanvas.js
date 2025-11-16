@@ -882,8 +882,19 @@
 
             if (kind === 'service' || kind === 'queue' || kind === 'router') {
                 drawServiceDecorations(ctx, nodeMeta, overlaySettings, state);
-            } else if (kind === 'pmf' && nodeMeta?.distribution) {
-                drawPmfDistribution(ctx, nodeMeta, nodeMeta.distribution);
+            } else if (kind === 'pmf') {
+                const hasSparkline = overlaySettings.showSparklines && nodeMeta?.sparkline;
+                const sparklineLayout = hasSparkline
+                    ? computeSparklineLayout(nodeMeta, overlaySettings, nodeMeta.sparkline)
+                    : null;
+
+                if (nodeMeta?.distribution) {
+                    drawPmfDistribution(ctx, nodeMeta, nodeMeta.distribution, overlaySettings, sparklineLayout);
+                }
+
+                if (hasSparkline && sparklineLayout) {
+                    drawInputSparkline(ctx, nodeMeta, overlaySettings, sparklineLayout);
+                }
             } else if ((kind === 'const' || kind === 'constant') && overlaySettings.showSparklines && nodeMeta?.sparkline) {
                 drawInputSparkline(ctx, nodeMeta, overlaySettings);
             }
@@ -3191,10 +3202,9 @@
         ctx.restore();
     }
 
-    function drawInputSparkline(ctx, nodeMeta, overlaySettings) {
-        const spark = nodeMeta.sparkline ?? null;
+    function computeSparklineLayout(nodeMeta, overlaySettings, spark) {
         if (!spark) {
-            return;
+            return null;
         }
 
         const mode = overlaySettings.sparklineMode === 'bar' ? 'bar' : 'line';
@@ -3204,6 +3214,10 @@
         const nodeWidth = nodeMeta.width ?? 54;
         const top = (nodeMeta.y ?? 0) - (nodeHeight / 2) - chipH - gap;
         const seriesLength = (spark.values ?? spark.Values ?? []).length;
+        if (!seriesLength) {
+            return null;
+        }
+
         const desiredWidth = computeAdaptiveWidth(seriesLength, nodeWidth, {
             min: 32,
             max: 140,
@@ -3211,17 +3225,31 @@
         });
         const center = nodeMeta.x ?? 0;
 
-        drawSparkline(ctx, nodeMeta, spark, overlaySettings, '#94A3B8', {
+        return {
             top,
             height: chipH,
             left: center - desiredWidth / 2,
             minWidth: desiredWidth,
             maxWidth: desiredWidth,
             neutralize: true
-        });
+        };
     }
 
-    function drawPmfDistribution(ctx, nodeMeta, distribution) {
+    function drawInputSparkline(ctx, nodeMeta, overlaySettings, layoutOverride) {
+        const spark = nodeMeta.sparkline ?? null;
+        if (!spark) {
+            return;
+        }
+
+        const layout = layoutOverride ?? computeSparklineLayout(nodeMeta, overlaySettings, spark);
+        if (!layout) {
+            return;
+        }
+
+        drawSparkline(ctx, nodeMeta, spark, overlaySettings, '#94A3B8', layout);
+    }
+
+    function drawPmfDistribution(ctx, nodeMeta, distribution, overlaySettings, sparklineLayout) {
         if (!distribution) {
             return;
         }
@@ -3241,7 +3269,11 @@
         const nodeWidth = nodeMeta.width ?? 54;
         const chartHeight = 14;
         const gap = 6;
-        const top = (nodeMeta.y ?? 0) - (nodeHeight / 2) - chartHeight - gap;
+        const stackGap = 4;
+        let top = (nodeMeta.y ?? 0) - (nodeHeight / 2) - chartHeight - gap;
+        if (sparklineLayout) {
+            top = Math.min(sparklineLayout.top - stackGap - chartHeight, top);
+        }
         const chartWidth = computeAdaptiveWidth(count, nodeWidth, {
             min: 36,
             max: 150,

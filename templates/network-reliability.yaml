@@ -116,24 +116,36 @@ nodes:
     pmf:
       values: [60, 90, 120, 150, 180, 210]
       probabilities: [0.08, 0.18, 0.28, 0.24, 0.15, 0.07]
+    profile:
+      kind: builtin
+      name: hub-rush-hour
 
   - id: network_reliability
     kind: pmf
     pmf:
       values: [1.0, 0.95, 0.8, 0.6, 0.3]
       probabilities: [0.7, 0.2, 0.06, 0.03, 0.01]
+    profile:
+      kind: builtin
+      name: three-shift
 
   - id: server_performance
     kind: pmf
     pmf:
       values: [0.8, 1.0, 1.2]
       probabilities: [0.1, 0.8, 0.1]
+    profile:
+      kind: builtin
+      name: three-shift
 
   - id: database_reliability
     kind: pmf
     pmf:
       values: [1.0, 0.9, 0.7, 0.5]
       probabilities: [0.85, 0.1, 0.04, 0.01]
+    profile:
+      kind: builtin
+      name: three-shift
 
   - id: network_requests
     kind: expr

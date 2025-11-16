@@ -30,15 +30,14 @@ internal static class TooltipFormatter
                 lines.Add($"Probability {probability.ToString("0.###", CultureInfo.InvariantCulture)}");
             }
 
-            if (metrics.PmfValue is double pmfValue)
-            {
-                lines.Add($"Value {pmfValue.ToString("0.###", CultureInfo.InvariantCulture)}");
-            }
-
             if (metrics.CustomValue.HasValue)
             {
-                var expectationLabel = string.IsNullOrWhiteSpace(metrics.CustomLabel) ? "Expectation" : metrics.CustomLabel!;
-                lines.Add($"{expectationLabel} {metrics.CustomValue.Value.ToString("0.###", CultureInfo.InvariantCulture)}");
+                var valueLabel = string.IsNullOrWhiteSpace(metrics.CustomLabel) ? "Value" : metrics.CustomLabel!;
+                lines.Add($"{valueLabel} {metrics.CustomValue.Value.ToString("0.###", CultureInfo.InvariantCulture)}");
+            }
+            else if (metrics.PmfValue is double pmfValue)
+            {
+                lines.Add($"Value {pmfValue.ToString("0.###", CultureInfo.InvariantCulture)}");
             }
         }
         else

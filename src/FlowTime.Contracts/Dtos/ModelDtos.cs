@@ -55,6 +55,7 @@ public sealed class NodeDto
     public double[]? Values { get; set; }
     public string? Expr { get; set; }
     public PmfDto? Pmf { get; set; }
+    public Dictionary<string, string>? Metadata { get; set; }
     // For backlog nodes
     public string? Inflow { get; set; }
     public string? Outflow { get; set; }

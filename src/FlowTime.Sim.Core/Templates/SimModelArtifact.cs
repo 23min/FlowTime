@@ -53,6 +53,7 @@ public class SimNode
     public string? Inflow { get; set; }
     public string? Outflow { get; set; }
     public string? Loss { get; set; }
+    public Dictionary<string, string>? Metadata { get; set; }
 
     public bool ShouldSerializeValues() => Values is { Length: > 0 };
 }

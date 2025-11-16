@@ -1,6 +1,6 @@
 # TT‑M‑03.30.3 — PMF Time‑of‑Day Profiles
 
-Status: 🔄 Proposed  
+Status: ✅ Landed  
 Owners: Platform (Sim + Templates), Architecture  
 Depends on: TT‑M‑03.30.2 (queues/retries baseline)
 

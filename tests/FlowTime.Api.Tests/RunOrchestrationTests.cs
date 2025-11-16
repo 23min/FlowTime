@@ -204,9 +204,9 @@ public class RunOrchestrationTests : IClassFixture<TestWebApplicationFactory>, I
 
         var modelContent = await File.ReadAllTextAsync(modelPath);
         Assert.Contains("id: base_requests", modelContent, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("pmf:", modelContent, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("values:", modelContent, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("probabilities:", modelContent, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("profile.name: hub-rush-hour", modelContent, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("origin.kind: pmf", modelContent, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -251,7 +251,14 @@ public class RunOrchestrationTests : IClassFixture<TestWebApplicationFactory>, I
 
         var artifact = deserializer.Deserialize<SimModelArtifact>(model);
         Assert.NotNull(artifact);
-        Assert.Null(artifact.Nodes.First(n => n.Id == "network_reliability").Values);
+
+        var reliabilityNode = artifact.Nodes.First(n => n.Id == "network_reliability");
+        Assert.Equal("const", reliabilityNode.Kind);
+        Assert.NotNull(reliabilityNode.Values);
+        Assert.NotNull(reliabilityNode.Metadata);
+        Assert.Equal("pmf", reliabilityNode.Metadata!["origin.kind"]);
+        Assert.Equal("three-shift", reliabilityNode.Metadata["profile.name"]);
+
         Assert.Null(artifact.Nodes.First(n => n.Id == "network_requests").Values);
 
         var definition = ModelService.ParseAndConvert(model);

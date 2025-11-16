@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using FlowTime.Contracts.Dtos;
 using FlowTime.Core.Models;
 using YamlDotNet.Serialization;
@@ -55,6 +57,9 @@ public static class ModelService
                     Values = n.Pmf.Values ?? Array.Empty<double>(),
                     Probabilities = n.Pmf.Probabilities ?? Array.Empty<double>()
                 },
+                Metadata = n.Metadata == null
+                    ? null
+                    : new Dictionary<string, string>(n.Metadata, StringComparer.OrdinalIgnoreCase),
                 // backlog-specific fields (emitted in YAML as inflow/outflow/loss)
                 Inflow = n.Inflow,
                 Outflow = n.Outflow,

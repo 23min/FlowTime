@@ -54,14 +54,17 @@ public class SimToEngineWorkflowTests
 
         var engineYaml = await service.GenerateEngineModelAsync(templateId, new Dictionary<string, object>());
         Assert.Contains("id: base_requests", engineYaml, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("pmf:", engineYaml, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("profile.name: hub-rush-hour", engineYaml, StringComparison.OrdinalIgnoreCase);
 
         var modelDefinition = ModelService.ParseAndConvert(engineYaml);
         var baseNode = modelDefinition.Nodes.First(n => string.Equals(n.Id, "base_requests", StringComparison.OrdinalIgnoreCase));
-        Assert.Equal("pmf", baseNode.Kind);
-        Assert.NotNull(baseNode.Pmf);
-        Assert.NotEmpty(baseNode.Pmf!.Values);
-        Assert.NotEmpty(baseNode.Pmf!.Probabilities);
+        Assert.Equal("const", baseNode.Kind);
+        Assert.NotNull(baseNode.Values);
+        Assert.NotEmpty(baseNode.Values!);
+        Assert.NotNull(baseNode.Metadata);
+        Assert.Equal("pmf", baseNode.Metadata!["origin.kind"]);
+        Assert.Equal("builtin", baseNode.Metadata["profile.kind"]);
+        Assert.Equal("hub-rush-hour", baseNode.Metadata["profile.name"]);
     }
 
     [Fact]

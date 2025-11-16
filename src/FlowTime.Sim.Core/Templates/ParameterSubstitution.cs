@@ -290,6 +290,15 @@ public static class ParameterSubstitution
 
         node.Source = SubstituteInString(node.Source, values) ?? node.Source;
 
+        if (node.Profile != null)
+        {
+            node.Profile.Kind = SubstituteInString(node.Profile.Kind, values) ?? node.Profile.Kind;
+            if (!string.IsNullOrEmpty(node.Profile.Name))
+            {
+                node.Profile.Name = SubstituteInString(node.Profile.Name, values) ?? node.Profile.Name;
+            }
+        }
+
         // Substitute in dependencies
         if (node.Dependencies != null)
         {

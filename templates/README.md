@@ -2,6 +2,8 @@
 
 FlowTime templates are authored in YAML and validated with [`docs/schemas/template.schema.json`](../docs/schemas/template.schema.json). Each template exposes a set of parameters that FlowTime-Sim accepts when instantiating `model.yaml`. The `flowtime telemetry bundle` CLI expects telemetry parameters to point at files inside a capture directory (for example `--telemetry-param telemetryRequestsSource=OrderService_arrivals.csv`).
 
+PMF nodes can optionally reference a time-of-day profile to produce realistic deterministic curves. See [`docs/templates/profiles.md`](../docs/templates/profiles.md) for the schema and built-in library.
+
 Telemetry workflow recap:
 
 1. Capture canonical telemetry from an Engine run:  

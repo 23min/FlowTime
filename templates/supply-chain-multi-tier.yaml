@@ -139,30 +139,45 @@ nodes:
     pmf:
       values: [40, 60, 80, 100, 120, 150, 180]
       probabilities: [0.04, 0.1, 0.2, 0.26, 0.2, 0.14, 0.06]
+    profile:
+      kind: builtin
+      name: weekday-office
 
   - id: supplier_capacity
     kind: pmf
     pmf:
       values: [120, 150, 180, 200, 220, 240]
       probabilities: [0.05, 0.15, 0.25, 0.25, 0.2, 0.1]
+    profile:
+      kind: builtin
+      name: three-shift
 
   - id: warehouse_release_cap
     kind: pmf
     pmf:
       values: [90, 110, 130, 150, 170, 190]
       probabilities: [0.06, 0.16, 0.26, 0.26, 0.16, 0.1]
+    profile:
+      kind: builtin
+      name: three-shift
 
   - id: fulfillment_capacity
     kind: pmf
     pmf:
       values: [80, 100, 120, 140, 160]
       probabilities: [0.08, 0.18, 0.3, 0.28, 0.16]
+    profile:
+      kind: builtin
+      name: three-shift
 
   - id: delivery_capacity
     kind: pmf
     pmf:
       values: [70, 90, 110, 130, 150]
       probabilities: [0.1, 0.2, 0.3, 0.25, 0.15]
+    profile:
+      kind: builtin
+      name: three-shift
 
   - id: supplier_plan
     kind: expr

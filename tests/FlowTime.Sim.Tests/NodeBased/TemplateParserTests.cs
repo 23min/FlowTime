@@ -125,6 +125,50 @@ outputs:
     }
 
     [Fact]
+    public void Template_With_Invalid_Profile_Length_Fails_Validation()
+    {
+        var yaml = """
+schemaVersion: 1
+generator: flowtime-sim
+metadata:
+  id: pmf-profile-invalid
+  title: PMF Profile Invalid
+  version: 1.0.0
+window:
+  start: 2025-05-01T00:00:00Z
+  timezone: UTC
+grid:
+  bins: 3
+  binSize: 60
+  binUnit: minutes
+topology:
+  nodes:
+    - id: ProfileService
+      kind: service
+      semantics:
+        arrivals: profiled
+        served: served
+  edges: []
+nodes:
+  - id: profiled
+    kind: pmf
+    pmf:
+      values: [10, 20]
+      probabilities: [0.5, 0.5]
+    profile:
+      kind: inline
+      weights: [0.5, 1.5]
+  - id: served
+    kind: const
+    values: [10, 10, 10]
+outputs:
+  - series: "*"
+""";
+
+        Assert.Throws<TemplateValidationException>(() => TemplateParser.ParseFromYaml(yaml));
+    }
+
+    [Fact]
     public void Template_With_Parameters_Populates_Collection()
     {
         var yaml = """

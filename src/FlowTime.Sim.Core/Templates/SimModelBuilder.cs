@@ -25,7 +25,7 @@ internal static class SimModelBuilder
             Window = CloneWindow(template.Window),
             Grid = CloneGrid(template.Grid),
             Topology = CloneTopology(template.Topology),
-            Nodes = BuildNodes(template.Nodes),
+            Nodes = BuildNodes(template),
             Outputs = BuildOutputs(template.Outputs)
         };
         if (artifact.Grid != null && string.IsNullOrWhiteSpace(artifact.Grid.Start))
@@ -137,34 +137,118 @@ internal static class SimModelBuilder
         return clone;
     }
 
-    private static List<SimNode> BuildNodes(List<TemplateNode> nodes)
+    private static List<SimNode> BuildNodes(Template template)
     {
-        return nodes.Select(node =>
+        ArgumentNullException.ThrowIfNull(template);
+        ArgumentNullException.ThrowIfNull(template.Grid);
+
+        var nodes = new List<SimNode>(template.Nodes.Count);
+        foreach (var node in template.Nodes)
         {
             var kind = node.Kind?.Trim().ToLowerInvariant();
-            return new SimNode
+
+            if (string.Equals(kind, "pmf", StringComparison.OrdinalIgnoreCase) &&
+                node.Pmf != null)
             {
-                Id = node.Id,
-                Kind = node.Kind,
-                Values = kind switch
+                var resolution = TemplateProfileResolver.TryResolve(node.Profile, template.Grid);
+                if (resolution != null)
                 {
-                    "pmf" => null,
-                    "expr" => null,
-                    _ => node.Values?.ToArray()
+                    nodes.Add(BuildProfiledConstNode(node, resolution, template.Grid));
+                    continue;
+                }
+            }
+
+            nodes.Add(BuildDefaultNode(node));
+        }
+
+        return nodes;
+    }
+
+    private static SimNode BuildProfiledConstNode(TemplateNode node, ProfileResolution resolution, TemplateGrid grid)
+    {
+        if (grid.Bins != resolution.Weights.Length)
+        {
+            throw new InvalidOperationException($"Profile weights length ({resolution.Weights.Length}) must match grid.bins ({grid.Bins}).");
+        }
+
+        var expectedValue = ComputeExpectedValue(node.Pmf!);
+        var values = new double[resolution.Weights.Length];
+        for (int i = 0; i < resolution.Weights.Length; i++)
+        {
+            values[i] = expectedValue * resolution.Weights[i];
+        }
+
+        return new SimNode
+        {
+            Id = node.Id,
+            Kind = "const",
+            Values = values,
+            Source = node.Source,
+            Pmf = node.Pmf == null
+                ? null
+                : new PmfSpec
+                {
+                    Values = node.Pmf.Values?.ToArray() ?? Array.Empty<double>(),
+                    Probabilities = node.Pmf.Probabilities?.ToArray() ?? Array.Empty<double>()
                 },
+            Metadata = BuildProfileMetadata(node, resolution, expectedValue)
+        };
+    }
+
+    private static double ComputeExpectedValue(PmfSpec pmf)
+    {
+        double sum = 0;
+        for (int i = 0; i < pmf.Values.Length; i++)
+        {
+            sum += pmf.Values[i] * pmf.Probabilities[i];
+        }
+        return sum;
+    }
+
+    private static Dictionary<string, string> BuildProfileMetadata(TemplateNode node, ProfileResolution resolution, double expectedValue)
+    {
+        var metadata = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["origin.kind"] = "pmf",
+            ["profile.kind"] = resolution.Kind,
+            ["pmf.expected"] = expectedValue.ToString("G17", CultureInfo.InvariantCulture)
+        };
+
+        if (!string.IsNullOrWhiteSpace(resolution.Name))
+        {
+            metadata["profile.name"] = resolution.Name!;
+        }
+
+        return metadata;
+    }
+
+    private static SimNode BuildDefaultNode(TemplateNode node)
+    {
+        var kind = node.Kind?.Trim().ToLowerInvariant();
+        return new SimNode
+        {
+            Id = node.Id,
+            Kind = node.Kind,
+            Values = kind switch
+            {
+                "pmf" => null,
+                "expr" => null,
+                _ => node.Values?.ToArray()
+            },
             Expr = node.Expr,
             Source = node.Source,
-            Pmf = node.Pmf == null ? null : new PmfSpec
-            {
-                Values = node.Pmf.Values?.ToArray() ?? Array.Empty<double>(),
-                Probabilities = node.Pmf.Probabilities?.ToArray() ?? Array.Empty<double>()
-            },
-                Initial = node.Initial,
-                Inflow = kind == "backlog" ? node.Inflow : null,
-                Outflow = kind == "backlog" ? node.Outflow : null,
-                Loss = kind == "backlog" ? node.Loss : null
-            };
-        }).ToList();
+            Pmf = node.Pmf == null
+                ? null
+                : new PmfSpec
+                {
+                    Values = node.Pmf.Values?.ToArray() ?? Array.Empty<double>(),
+                    Probabilities = node.Pmf.Probabilities?.ToArray() ?? Array.Empty<double>()
+                },
+            Initial = node.Initial,
+            Inflow = kind == "backlog" ? node.Inflow : null,
+            Outflow = kind == "backlog" ? node.Outflow : null,
+            Loss = kind == "backlog" ? node.Loss : null
+        };
     }
 
     private static List<SimOutput> BuildOutputs(List<TemplateOutput> outputs)

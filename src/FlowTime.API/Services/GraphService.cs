@@ -188,8 +188,9 @@ public sealed class GraphService
                     continue;
                 }
 
-                var kind = string.IsNullOrWhiteSpace(nodeDef.Kind) ? "const" : nodeDef.Kind!;
-                if (!allowedKinds.Contains(kind))
+                var actualKind = string.IsNullOrWhiteSpace(nodeDef.Kind) ? "const" : nodeDef.Kind!;
+                var displayKind = ResolveDisplayKind(nodeDef, actualKind);
+                if (!allowedKinds.Contains(actualKind) && !allowedKinds.Contains(displayKind))
                 {
                     continue;
                 }
@@ -200,7 +201,9 @@ public sealed class GraphService
                 }
 
                 GraphNodeDistribution? distribution = null;
-                if (string.Equals(kind, "pmf", StringComparison.OrdinalIgnoreCase) && nodeDef.Pmf is { } pmfDef)
+                if (nodeDef.Pmf is { } pmfDef &&
+                    pmfDef.Values is { Length: > 0 } &&
+                    pmfDef.Probabilities is { Length: > 0 })
                 {
                     distribution = new GraphNodeDistribution
                     {
@@ -210,13 +213,13 @@ public sealed class GraphService
                 }
 
                 double[]? inlineValues = null;
-                if (string.Equals(kind, "const", StringComparison.OrdinalIgnoreCase) && nodeDef.Values is { Length: > 0 })
+                if (nodeDef.Values is { Length: > 0 })
                 {
                     inlineValues = nodeDef.Values;
                 }
 
                 string? expression = null;
-                if (string.Equals(kind, "expr", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(actualKind, "expr", StringComparison.OrdinalIgnoreCase))
                 {
                     expression = nodeDef.Expr;
                 }
@@ -232,7 +235,7 @@ public sealed class GraphService
                 AddOrReplaceNode(new GraphNode
                 {
                     Id = nodeDef.Id,
-                    Kind = kind,
+                    Kind = displayKind,
                     Semantics = semantics
                 });
             }
@@ -344,6 +347,32 @@ public sealed class GraphService
         _ = source;
         _ = target;
         return 1.0;
+    }
+
+    private static string ResolveDisplayKind(NodeDefinition nodeDef, string fallbackKind)
+    {
+        var originKind = TryGetMetadataValue(nodeDef.Metadata, "origin.kind");
+        if (!string.IsNullOrWhiteSpace(originKind))
+        {
+            return originKind.Trim();
+        }
+
+        return string.IsNullOrWhiteSpace(fallbackKind) ? "const" : fallbackKind;
+    }
+
+    private static string? TryGetMetadataValue(IReadOnlyDictionary<string, string>? metadata, string key)
+    {
+        if (metadata is null)
+        {
+            return null;
+        }
+
+        if (metadata.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value))
+        {
+            return value;
+        }
+
+        return null;
     }
 
     private static string BuildDependencyEdgeId(string from, string to, string field) =>

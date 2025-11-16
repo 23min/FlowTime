@@ -258,11 +258,16 @@ public class FlowTimeSimApiClient : IFlowTimeSimApiClient
             }
             
             var responseContent = await response.Content.ReadAsStringAsync(ct);
+            if (string.IsNullOrWhiteSpace(responseContent))
+            {
+                logger.LogWarning("Empty response content for template '{TemplateId}'", templateId);
+                return Result<TemplateGenerationResponse>.Fail("Empty response from model generation API");
+            }
             logger.LogInformation("Raw response content length: {Length} chars, first 200 chars: {Preview}", 
                 responseContent?.Length ?? 0, 
                 responseContent?.Length > 200 ? responseContent.Substring(0, 200) : responseContent);
             
-            var result = JsonSerializer.Deserialize<TemplateGenerationResponse>(responseContent, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+            var result = JsonSerializer.Deserialize<TemplateGenerationResponse>(responseContent!, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
             
             if (result == null)
             {

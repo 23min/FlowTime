@@ -130,24 +130,36 @@ nodes:
     pmf:
       values: [80, 100, 130, 170, 210, 260]
       probabilities: [0.08, 0.18, 0.27, 0.25, 0.15, 0.07]
+    profile:
+      kind: builtin
+      name: weekday-office
 
   - id: load_balancer_capacity
     kind: pmf
     pmf:
       values: [150, 175, 200, 225, 250]
       probabilities: [0.05, 0.15, 0.4, 0.25, 0.15]
+    profile:
+      kind: builtin
+      name: three-shift
 
   - id: auth_capacity
     kind: pmf
     pmf:
       values: [140, 160, 180, 200]
       probabilities: [0.1, 0.3, 0.4, 0.2]
+    profile:
+      kind: builtin
+      name: three-shift
 
   - id: database_capacity
     kind: pmf
     pmf:
       values: [130, 150, 170, 190]
       probabilities: [0.15, 0.35, 0.35, 0.15]
+    profile:
+      kind: builtin
+      name: three-shift
 
   - id: load_balanced_requests
     kind: expr

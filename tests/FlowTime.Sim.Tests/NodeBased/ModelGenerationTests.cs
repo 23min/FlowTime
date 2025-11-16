@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using FlowTime.Sim.Core.Services;
 using FlowTime.Sim.Core.Templates;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -157,6 +158,133 @@ outputs:
         Assert.Equal("2025-02-01T00:00:00Z", model.Grid.Start);
         Assert.True(model.Provenance.Parameters.TryGetValue("high_prob", out var highProb));
         Assert.Equal(0.2, Convert.ToDouble(highProb, System.Globalization.CultureInfo.InvariantCulture));
+    }
+
+    [Fact]
+    public async Task GenerateModelAsync_WithBuiltinProfile_ExpandsPmfToConstSeries()
+    {
+        var templateYaml = """
+metadata:
+  id: pmf-profile-builtin
+  title: PMF Profile Builtin Test
+  version: 1.0.0
+window:
+  start: 2025-04-01T00:00:00Z
+  timezone: UTC
+grid:
+  bins: 12
+  binSize: 60
+  binUnit: minutes
+topology:
+  nodes:
+    - id: ProfiledService
+      kind: service
+      semantics:
+        arrivals: profiled_demand
+        served: baseline
+  edges: []
+nodes:
+  - id: profiled_demand
+    kind: pmf
+    pmf:
+      values: [50, 100]
+      probabilities: [0.4, 0.6]
+    profile:
+      kind: builtin
+      name: weekday-office
+  - id: baseline
+    kind: const
+    values: [80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80]
+outputs:
+  - series: "*"
+""";
+
+        var service = CreateTestService(templateYaml, "pmf-profile-builtin");
+        var generatedYaml = await service.GenerateEngineModelAsync("pmf-profile-builtin", new Dictionary<string, object>());
+        var model = DeserializeArtifact(generatedYaml);
+
+        var profiledNode = model.Nodes.Single(n => n.Id == "profiled_demand");
+        Assert.Equal("const", profiledNode.Kind);
+        Assert.NotNull(profiledNode.Values);
+        Assert.Equal(12, profiledNode.Values!.Length);
+        Assert.NotNull(profiledNode.Metadata);
+        Assert.NotNull(profiledNode.Pmf);
+        Assert.Equal(new[] { 50d, 100d }, profiledNode.Pmf!.Values);
+        Assert.Equal(new[] { 0.4d, 0.6d }, profiledNode.Pmf.Probabilities);
+
+        var expectedMean = 50 * 0.4 + 100 * 0.6;
+        var average = profiledNode.Values.Average();
+        Assert.InRange(average, expectedMean - 0.01, expectedMean + 0.01);
+        Assert.True(profiledNode.Values.Max() > profiledNode.Values.Min());
+
+        Assert.True(profiledNode.Metadata!.TryGetValue("profile.kind", out var profileKind));
+        Assert.Equal("builtin", profileKind);
+        Assert.Equal("weekday-office", profiledNode.Metadata!["profile.name"]);
+        Assert.Equal("pmf", profiledNode.Metadata["origin.kind"]);
+    }
+
+    [Fact]
+    public async Task GenerateModelAsync_WithInlineProfile_UsesProvidedWeights()
+    {
+        var templateYaml = """
+metadata:
+  id: pmf-profile-inline
+  title: PMF Profile Inline Test
+  version: 1.0.0
+window:
+  start: 2025-04-02T00:00:00Z
+  timezone: UTC
+grid:
+  bins: 3
+  binSize: 60
+  binUnit: minutes
+topology:
+  nodes:
+    - id: InlineService
+      kind: service
+      semantics:
+        arrivals: inline_profiled
+        served: inline_capacity
+  edges: []
+nodes:
+  - id: inline_profiled
+    kind: pmf
+    pmf:
+      values: [20, 40]
+      probabilities: [0.5, 0.5]
+    profile:
+      kind: inline
+      weights: [0.5, 1.5, 1.0]
+  - id: inline_capacity
+    kind: const
+    values: [40, 40, 40]
+outputs:
+  - series: "*"
+""";
+
+        var service = CreateTestService(templateYaml, "pmf-profile-inline");
+        var generatedYaml = await service.GenerateEngineModelAsync("pmf-profile-inline", new Dictionary<string, object>());
+        var model = DeserializeArtifact(generatedYaml);
+
+        var profiledNode = model.Nodes.Single(n => n.Id == "inline_profiled");
+        Assert.Equal("const", profiledNode.Kind);
+        Assert.NotNull(profiledNode.Values);
+        Assert.Equal(3, profiledNode.Values!.Length);
+        Assert.NotNull(profiledNode.Pmf);
+        Assert.Equal(new[] { 20d, 40d }, profiledNode.Pmf!.Values);
+        Assert.Equal(new[] { 0.5d, 0.5d }, profiledNode.Pmf.Probabilities);
+
+        var expectedMean = 30d;
+        var expectedSeries = new[] { expectedMean * 0.5, expectedMean * 1.5, expectedMean * 1.0 };
+        for (int i = 0; i < expectedSeries.Length; i++)
+        {
+            Assert.Equal(expectedSeries[i], profiledNode.Values[i], 6);
+        }
+
+        Assert.NotNull(profiledNode.Metadata);
+        Assert.True(profiledNode.Metadata!.TryGetValue("profile.kind", out var profileKind));
+        Assert.Equal("inline", profileKind);
+        Assert.Equal("pmf", profiledNode.Metadata!["origin.kind"]);
     }
 
     [Fact]

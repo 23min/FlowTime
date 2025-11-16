@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text;
@@ -119,6 +120,28 @@ public sealed class GraphEndpointTests : IClassFixture<TestWebApplicationFactory
         Assert.Equal((HttpStatusCode)412, response.StatusCode);
     }
 
+    [Fact]
+    public async Task GetGraph_FullMode_EmitsProfiledPmfNodes()
+    {
+        var response = await client.GetAsync($"/v1/runs/{runId}/graph?mode=full");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var payload = await response.Content.ReadFromJsonAsync<GraphResponse>(new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            PropertyNameCaseInsensitive = true
+        });
+
+        Assert.NotNull(payload);
+        var pmfNode = Assert.Single(payload!.Nodes, node => string.Equals(node.Id, "demand_curve", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal("pmf", pmfNode.Kind);
+        Assert.Equal("series:demand_curve", pmfNode.Semantics.Series);
+        Assert.NotNull(pmfNode.Semantics.Distribution);
+        Assert.Equal(new[] { 50d, 100d, 150d }, pmfNode.Semantics.Distribution!.Values.ToArray());
+        Assert.Equal(new[] { 0.2d, 0.5d, 0.3d }, pmfNode.Semantics.Distribution!.Probabilities.ToArray());
+        Assert.NotNull(pmfNode.Semantics.InlineValues);
+        Assert.Equal(new[] { 80d, 100d, 120d, 140d }, pmfNode.Semantics.InlineValues!.ToArray());
+    }
+
     public void Dispose()
     {
         try
@@ -191,6 +214,18 @@ topology:
       measure: load
       multiplier: 0.5
       lag: 1
+
+nodes:
+  - id: demand_curve
+    kind: const
+    values: [80, 100, 120, 140]
+    pmf:
+      values: [50, 100, 150]
+      probabilities: [0.2, 0.5, 0.3]
+    metadata:
+      origin.kind: pmf
+      profile.kind: builtin
+      profile.name: weekday-office
 """;
 
         File.WriteAllText(Path.Combine(runDir, "model.yaml"), yaml, Encoding.UTF8);

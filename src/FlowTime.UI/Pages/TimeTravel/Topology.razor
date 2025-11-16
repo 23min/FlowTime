@@ -646,7 +646,7 @@ private string? canvasHoveredEdgeId;
     private const string MissingSeriesMessage = "No series for selected range.";
     internal const string InspectorMissingSeriesMessage = "Model does not include series data";
     private const string BinValueLabel = "bin(t)";
-    private const string PmfExpectationLabel = "E[output]";
+private const string PmfExpectationLabel = "Value";
 
     private static string BuildHorizonEmptyLabel(string? ariaLabel, string? placeholder = null)
     {
@@ -1558,7 +1558,9 @@ private string? canvasHoveredEdgeId;
             }
 
             var topoNode = FindTopologyNode(node.Id);
-            var isPmf = IsPmfKind(node.Kind);
+            var displayKind = string.IsNullOrWhiteSpace(topoNode?.Kind) ? node.Kind : topoNode!.Kind;
+            var isPmf = IsPmfKind(displayKind);
+            var isComputed = IsComputedKind(displayKind);
             var distribution = topoNode?.Semantics?.Distribution;
             var (modeProbability, modeValue) = ComputePmfMode(distribution);
             var arrivals = Get("arrivals");
@@ -1612,7 +1614,7 @@ private string? canvasHoveredEdgeId;
             SetRaw("retryTax", retryTax);
             SetRaw("capacity", capacity);
 
-            if (IsComputedKind(node.Kind) && !isPmf)
+            if (isComputed && !isPmf)
             {
                 if (nodeSparklines is not null && nodeSparklines.TryGetValue(node.Id, out var sparkline))
                 {
@@ -1624,7 +1626,7 @@ private string? canvasHoveredEdgeId;
                     }
                 }
 
-                if (!customValue.HasValue && IsExpressionKind(node.Kind) && nodesMissingSparkline.Contains(node.Id))
+                if (!customValue.HasValue && IsExpressionKind(displayKind) && nodesMissingSparkline.Contains(node.Id))
                 {
                     customLabel = MissingSeriesMessage;
                 }
@@ -1674,7 +1676,7 @@ private string? canvasHoveredEdgeId;
                 CustomLabel: customLabel,
                 PmfProbability: pmfProbability,
                 PmfValue: pmfSupportValue,
-                NodeKind: node.Kind,
+                NodeKind: displayKind,
                 ServiceTimeMs: serviceTime,
                 RetryTax: retryTax,
                 RawMetrics: rawMetrics.Count == 0 ? null : rawMetrics);
@@ -1716,7 +1718,14 @@ private string? canvasHoveredEdgeId;
                     }
                 }
 
-                var isPmfNode = IsPmfKind(topoNode.Kind);
+                var topoKind = topoNode.Kind;
+                if (string.IsNullOrWhiteSpace(topoKind) && windowData?.Nodes is { } windowNodes)
+                {
+                    var seriesNode = windowNodes.FirstOrDefault(n => string.Equals(n.Id, topoNodeId, StringComparison.OrdinalIgnoreCase));
+                    topoKind = seriesNode?.Kind;
+                }
+
+                var isPmfNode = IsPmfKind(topoKind);
                 double? pmfProbability = null;
                 double? pmfSupportValue = null;
                 double? customValue = null;
@@ -2310,12 +2319,33 @@ private string? canvasHoveredEdgeId;
         foreach (var node in windowData.Nodes)
         {
             var series = node.Series ?? new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase);
+            var topoNode = FindTopologyNode(node.Id);
+            var displayKind = string.IsNullOrWhiteSpace(topoNode?.Kind) ? node.Kind : topoNode!.Kind;
             var successSeries = BuildSuccessRateSeries(node);
             var primarySeries = successSeries ?? SelectPrimarySeries(series);
+            var synthesizedValues = false;
+
+            if (primarySeries is null && IsPmfKind(displayKind))
+            {
+                var expectation = ComputePmfExpectation(topoNode?.Semantics?.Distribution);
+                if (expectation.HasValue)
+                {
+                    var syntheticLength = binCount > 0 ? binCount : SparklinePointLimit;
+                    syntheticLength = Math.Max(1, syntheticLength);
+                    var syntheticSeries = new double?[syntheticLength];
+                    for (var i = 0; i < syntheticLength; i++)
+                    {
+                        syntheticSeries[i] = expectation.Value;
+                    }
+
+                    primarySeries = syntheticSeries;
+                    synthesizedValues = true;
+                }
+            }
 
             if (primarySeries is null || primarySeries.Length == 0)
             {
-                if (IsExpressionKind(node.Kind))
+                if (IsExpressionKind(displayKind))
                 {
                     missing.Add(node.Id);
                 }
@@ -2327,7 +2357,7 @@ private string? canvasHoveredEdgeId;
             var trimmedPrimary = TrimSeriesAt(primarySeries, SparklinePointLimit, anchor);
             if (trimmedPrimary.Count == 0)
             {
-                if (IsExpressionKind(node.Kind))
+                if (IsExpressionKind(displayKind))
                 {
                     missing.Add(node.Id);
                 }
@@ -2370,6 +2400,11 @@ private string? canvasHoveredEdgeId;
                 additional["queue"] = new SparklineSeriesSlice(trimmedQueue, primaryStartIndex);
             }
 
+            if (synthesizedValues)
+            {
+                additional["values"] = new SparklineSeriesSlice(trimmedPrimary, primaryStartIndex);
+            }
+
             var sparkline = NodeSparklineData.Create(
                 trimmedPrimary,
                 trimmedUtilization,
@@ -2392,6 +2427,8 @@ private string? canvasHoveredEdgeId;
                     continue;
                 }
 
+                var distributionSlices = CreateDistributionSlices(topoNode.Id, topoNode.Semantics?.Distribution, selectedBin);
+
                 var inlineValues = topoNode.Semantics?.InlineValues;
                 if (inlineValues is not null && inlineValues.Count > 0)
                 {
@@ -2404,12 +2441,19 @@ private string? canvasHoveredEdgeId;
                     }
 
                     var startIndex = anchor + 1 - trimmedInline.Count;
-                    var additional = new Dictionary<string, SparklineSeriesSlice>(StringComparer.OrdinalIgnoreCase)
+                    var additional = new Dictionary<string, SparklineSeriesSlice>(StringComparer.OrdinalIgnoreCase);
+                    if (distributionSlices is not null)
                     {
-                        ["values"] = new SparklineSeriesSlice(trimmedInline, startIndex),
-                        [topoNode.Id] = new SparklineSeriesSlice(trimmedInline, startIndex),
-                        [$"series:{topoNode.Id}"] = new SparklineSeriesSlice(trimmedInline, startIndex)
-                    };
+                        foreach (var pair in distributionSlices)
+                        {
+                            additional[pair.Key] = pair.Value;
+                        }
+                    }
+
+                    var inlineSlice = new SparklineSeriesSlice(trimmedInline, startIndex);
+                    additional["values"] = inlineSlice;
+                    additional[topoNode.Id] = inlineSlice;
+                    additional[$"series:{topoNode.Id}"] = inlineSlice;
 
                     var sparkline = NodeSparklineData.Create(
                         trimmedInline,
@@ -2425,85 +2469,23 @@ private string? canvasHoveredEdgeId;
                     continue;
                 }
 
-                var distribution = topoNode.Semantics?.Distribution;
-                if (distribution is not null &&
-                    distribution.Values is { Count: > 0 } &&
-                    distribution.Probabilities is { Count: > 0 })
+                if (distributionSlices is not null &&
+                    distributionSlices.TryGetValue("probability", out var probabilitySlice) &&
+                    probabilitySlice.Values.Count > 0)
                 {
-                    var length = Math.Min(distribution.Values.Count, distribution.Probabilities.Count);
-                    if (length > 0)
-                    {
-                        var probabilities = new double?[length];
-                        var supportValues = new double?[length];
-                        var hasProbability = false;
-                        for (var i = 0; i < length; i++)
-                        {
-                            var probability = distribution.Probabilities[i];
-                            var support = distribution.Values[i];
+                    var probabilityArray = probabilitySlice.Values as double?[] ?? probabilitySlice.Values.ToArray();
+                    var sparkline = NodeSparklineData.Create(
+                        probabilityArray,
+                        Array.Empty<double?>(),
+                        Array.Empty<double?>(),
+                        Array.Empty<double?>(),
+                        probabilitySlice.StartIndex,
+                        explicitMin: 0d,
+                        explicitMax: 1d,
+                        additionalSeries: distributionSlices);
 
-                            if (!double.IsFinite(probability) || probability < 0)
-                            {
-                                probabilities[i] = 0d;
-                            }
-                            else
-                            {
-                                probabilities[i] = probability;
-                                if (probability > 0)
-                                {
-                                    hasProbability = true;
-                                }
-                            }
-
-                            supportValues[i] = double.IsFinite(support) ? support : null;
-                        }
-
-                        if (hasProbability)
-                        {
-                            var anchor = Math.Clamp(selectedBin, 0, probabilities.Length - 1);
-                            var trimmedProbabilities = TrimSeriesAt(probabilities, SparklinePointLimit, anchor);
-                            if (trimmedProbabilities.Count > 0)
-                            {
-                                var trimmedValues = TrimSeriesAt(supportValues, SparklinePointLimit, anchor, trimmedProbabilities.Count);
-                                var probabilityArray = trimmedProbabilities as double?[] ?? trimmedProbabilities.ToArray();
-                                var valueArray = trimmedValues as double?[] ?? trimmedValues.ToArray();
-                                var probabilityStartIndex = anchor + 1 - probabilityArray.Length;
-                                var additional = new Dictionary<string, SparklineSeriesSlice>(StringComparer.OrdinalIgnoreCase)
-                                {
-                                    ["distribution"] = new SparklineSeriesSlice(probabilityArray, probabilityStartIndex),
-                                    ["probability"] = new SparklineSeriesSlice(probabilityArray, probabilityStartIndex)
-                                };
-
-                                if (valueArray.Length > 0)
-                                {
-                                    var valueStartIndex = anchor + 1 - valueArray.Length;
-                                    additional["values"] = new SparklineSeriesSlice(valueArray, valueStartIndex);
-                                }
-
-                                var expectation = ComputePmfExpectation(distribution);
-                                if (expectation.HasValue)
-                                {
-                                    var expectationSeries = Enumerable.Repeat((double?)expectation.Value, probabilityArray.Length).ToArray();
-                                    additional["expectation"] = new SparklineSeriesSlice(expectationSeries, probabilityStartIndex);
-                                }
-
-                                additional[topoNode.Id] = new SparklineSeriesSlice(probabilityArray, probabilityStartIndex);
-                                additional[$"series:{topoNode.Id}"] = new SparklineSeriesSlice(probabilityArray, probabilityStartIndex);
-
-                                var sparkline = NodeSparklineData.Create(
-                                    probabilityArray,
-                                    Array.Empty<double?>(),
-                                    Array.Empty<double?>(),
-                                    Array.Empty<double?>(),
-                                    probabilityStartIndex,
-                                    explicitMin: 0d,
-                                    explicitMax: 1d,
-                                    additionalSeries: additional);
-
-                                result[topoNode.Id] = sparkline;
-                                continue;
-                            }
-                        }
-                    }
+                    result[topoNode.Id] = sparkline;
+                    continue;
                 }
 
                 if (IsExpressionKind(topoNode.Kind))
@@ -2528,6 +2510,81 @@ private string? canvasHoveredEdgeId;
 
         nodeSparklines = result;
         EnsureInspectorVisibility();
+    }
+
+    private Dictionary<string, SparklineSeriesSlice>? CreateDistributionSlices(string nodeId, TopologyNodeDistribution? distribution, int selectedBin)
+    {
+        if (distribution is null ||
+            distribution.Values is not { Count: > 0 } ||
+            distribution.Probabilities is not { Count: > 0 })
+        {
+            return null;
+        }
+
+        var length = Math.Min(distribution.Values.Count, distribution.Probabilities.Count);
+        if (length == 0)
+        {
+            return null;
+        }
+
+        var probabilities = new double?[length];
+        var supportValues = new double?[length];
+        var hasProbability = false;
+        for (var i = 0; i < length; i++)
+        {
+            var probability = distribution.Probabilities[i];
+            var support = distribution.Values[i];
+
+            if (!double.IsFinite(probability) || probability < 0)
+            {
+                probabilities[i] = 0d;
+            }
+            else
+            {
+                probabilities[i] = probability;
+                if (probability > 0)
+                {
+                    hasProbability = true;
+                }
+            }
+
+            supportValues[i] = double.IsFinite(support) ? support : null;
+        }
+
+        if (!hasProbability)
+        {
+            return null;
+        }
+
+        var anchor = Math.Clamp(selectedBin, 0, probabilities.Length - 1);
+        var trimmedProbabilities = TrimSeriesAt(probabilities, SparklinePointLimit, anchor);
+        if (trimmedProbabilities.Count == 0)
+        {
+            return null;
+        }
+
+        var trimmedValues = TrimSeriesAt(supportValues, SparklinePointLimit, anchor, trimmedProbabilities.Count);
+        var probabilityArray = trimmedProbabilities as double?[] ?? trimmedProbabilities.ToArray();
+        var valueArray = trimmedValues as double?[] ?? trimmedValues.ToArray();
+        var probabilityStartIndex = anchor + 1 - probabilityArray.Length;
+
+        var additional = new Dictionary<string, SparklineSeriesSlice>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["distribution"] = new SparklineSeriesSlice(probabilityArray, probabilityStartIndex),
+            ["probability"] = new SparklineSeriesSlice(probabilityArray, probabilityStartIndex),
+            [nodeId] = new SparklineSeriesSlice(probabilityArray, probabilityStartIndex),
+            [$"series:{nodeId}"] = new SparklineSeriesSlice(probabilityArray, probabilityStartIndex)
+        };
+
+        var expectation = ComputePmfExpectation(distribution);
+        if (expectation.HasValue)
+        {
+            var expectationSeries = Enumerable.Repeat((double?)expectation.Value, probabilityArray.Length).ToArray();
+            additional["values"] = new SparklineSeriesSlice(expectationSeries, probabilityStartIndex);
+            additional["expectation"] = new SparklineSeriesSlice(expectationSeries, probabilityStartIndex);
+        }
+
+        return additional;
     }
 
 internal sealed record InspectorMetricBlock(
@@ -2667,9 +2724,6 @@ internal sealed record InspectorMetricBlock(
 
                 var valueSparkline = baseSparkline is not null ? BuildInspectorSparkline(baseSparkline, "values") : null;
                 blocks.Add(valueSparkline is not null ? CreateSparkline("Values", valueSparkline, strokeOverride: "#94A3B8", seriesKey: "values") : CreatePlaceholder("Values", seriesKey: "values"));
-
-                var expectationSparkline = baseSparkline is not null ? BuildInspectorSparkline(baseSparkline, "expectation") : null;
-                blocks.Add(expectationSparkline is not null ? CreateSparkline("E[Output]", expectationSparkline, strokeOverride: "#94A3B8", seriesKey: "expectation") : CreatePlaceholder("E[Output]", seriesKey: "expectation"));
 
                 return blocks;
             }
@@ -3418,7 +3472,13 @@ internal sealed record InspectorMetricBlock(
             }
 
             var edgeId = edge.Id ?? $"{edge.From}->{edge.To}:{edge.Field}";
-            var sourceNode = FindTopologyNode(ExtractNodeReference(edge.From));
+            var sourceNodeReference = ExtractNodeReference(edge.From);
+            if (string.IsNullOrWhiteSpace(sourceNodeReference))
+            {
+                continue;
+            }
+
+            var sourceNode = FindTopologyNode(sourceNodeReference);
             var label = FormatDependencyFieldLabel(edge.Field, sourceNode);
             var source = edge.From ?? "Unknown";
             var order = ResolveDependencyFieldOrder(edge.Field);

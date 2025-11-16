@@ -130,24 +130,36 @@ nodes:
     pmf:
       values: [70, 85, 95, 110, 125, 140, 155]
       probabilities: [0.04, 0.12, 0.24, 0.24, 0.18, 0.12, 0.06]
+    profile:
+      kind: builtin
+      name: three-shift
 
   - id: assembly_capacity
     kind: pmf
     pmf:
       values: [80, 90, 100, 110, 120]
       probabilities: [0.1, 0.25, 0.3, 0.25, 0.1]
+    profile:
+      kind: builtin
+      name: three-shift
 
   - id: quality_capacity
     kind: pmf
     pmf:
       values: [70, 80, 85, 90, 100]
       probabilities: [0.08, 0.22, 0.3, 0.25, 0.15]
+    profile:
+      kind: builtin
+      name: three-shift
 
   - id: packaging_capacity
     kind: pmf
     pmf:
       values: [60, 70, 80, 90, 95]
       probabilities: [0.1, 0.2, 0.3, 0.25, 0.15]
+    profile:
+      kind: builtin
+      name: three-shift
 
   - id: assembly_output
     kind: expr

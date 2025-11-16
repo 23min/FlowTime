@@ -498,8 +498,7 @@ public sealed class TopologyInspectorTests
 
         Assert.Collection(metrics,
             block => Assert.Equal("Probability", block.Title),
-            block => Assert.Equal("Values", block.Title),
-            block => Assert.Equal("E[Output]", block.Title));
+            block => Assert.Equal("Values", block.Title));
         Assert.All(metrics, block => Assert.False(block.IsPlaceholder));
     }
 

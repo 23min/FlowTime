@@ -196,48 +196,75 @@ nodes:
     pmf:
       values: [8, 12, 16, 20, 26]
       probabilities: [0.1, 0.2, 0.3, 0.25, 0.15]
+    profile:
+      kind: builtin
+      name: hub-rush-hour
   - id: arrivals_south
     kind: pmf
     source: ${telemetryDemandSouthSource}
     pmf:
       values: [6, 10, 14, 18, 22]
       probabilities: [0.12, 0.24, 0.28, 0.22, 0.14]
+    profile:
+      kind: builtin
+      name: hub-rush-hour
 
   - id: cap_north
     kind: pmf
     pmf:
       values: [12, 15, 18, 22, 26]
       probabilities: [0.08, 0.2, 0.32, 0.25, 0.15]
+    profile:
+      kind: builtin
+      name: hub-rush-hour
   - id: cap_south
     kind: pmf
     pmf:
       values: [10, 13, 16, 19, 22]
       probabilities: [0.1, 0.22, 0.3, 0.24, 0.14]
+    profile:
+      kind: builtin
+      name: hub-rush-hour
   - id: cap_hub
     kind: pmf
     pmf:
       values: [24, 28, 32, 36, 40]
       probabilities: [0.1, 0.2, 0.3, 0.25, 0.15]
+    profile:
+      kind: builtin
+      name: hub-rush-hour
   - id: hub_dispatch_capacity
     kind: pmf
     pmf:
       values: [20, 24, 28, 32, 36]
       probabilities: [0.1, 0.2, 0.3, 0.25, 0.15]
+    profile:
+      kind: builtin
+      name: hub-rush-hour
   - id: cap_airport
     kind: pmf
     pmf:
       values: [8, 10, 12, 14]
       probabilities: [0.15, 0.35, 0.3, 0.2]
+    profile:
+      kind: builtin
+      name: hub-rush-hour
   - id: cap_downtown
     kind: pmf
     pmf:
       values: [10, 14, 18, 22]
       probabilities: [0.1, 0.25, 0.35, 0.3]
+    profile:
+      kind: builtin
+      name: hub-rush-hour
   - id: cap_industrial
     kind: pmf
     pmf:
       values: [6, 8, 10, 12]
       probabilities: [0.15, 0.35, 0.3, 0.2]
+    profile:
+      kind: builtin
+      name: hub-rush-hour
 
   - id: served_north
     kind: expr

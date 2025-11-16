@@ -188,6 +188,7 @@ public class TemplateNode
     
     // For pmf nodes
     public PmfSpec? Pmf { get; set; }
+    public TemplateProfile? Profile { get; set; }
     
     // For expr nodes
     private string? expr;
@@ -215,6 +216,16 @@ public class TemplateNode
     public string? Inflow { get; set; }
     public string? Outflow { get; set; }
     public string? Loss { get; set; }
+}
+
+/// <summary>
+/// Time-of-day profile definition for PMF nodes.
+/// </summary>
+public class TemplateProfile
+{
+    public string Kind { get; set; } = "builtin";
+    public string? Name { get; set; }
+    public double[]? Weights { get; set; }
 }
 
 /// <summary>
