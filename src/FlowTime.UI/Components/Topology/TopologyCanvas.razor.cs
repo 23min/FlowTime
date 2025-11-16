@@ -511,7 +511,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             }
             else
             {
-            nodeMetrics = new NodeBinMetrics(null, null, null, null, null, null, NodeKind: node.Kind);
+                nodeMetrics = new NodeBinMetrics(null, null, null, null, null, null, NodeKind: node.Kind, Metadata: node.Semantics?.Metadata);
             }
 
             var tooltip = TooltipFormatter.Format(node.Id, nodeMetrics);
@@ -566,7 +566,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                 }
                 else
                 {
-                    nodeMetrics = new NodeBinMetrics(null, null, null, null, null, null, NodeKind: node.Kind);
+                    nodeMetrics = new NodeBinMetrics(null, null, null, null, null, null, NodeKind: node.Kind, Metadata: node.Semantics?.Metadata);
                 }
 
                 NodeSparklineData? rawSparkline = null;
@@ -620,10 +620,11 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                         semantics.Queue,
                         semantics.Capacity,
                         semantics.Series,
-                        semantics.Expression,
-                        distributionDto,
-                        semantics.InlineValues,
-                        semantics.Aliases);
+                    semantics.Expression,
+                    distributionDto,
+                    semantics.InlineValues,
+                    semantics.Aliases,
+                    semantics.Metadata);
 
                     if (distributionDto is null &&
                         string.IsNullOrWhiteSpace(semanticsDto.Arrivals) &&

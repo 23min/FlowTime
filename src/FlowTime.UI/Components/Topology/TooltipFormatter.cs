@@ -21,10 +21,14 @@ internal static class TooltipFormatter
         var lines = new List<string>();
 
         var kindLabel = FormatKind(metrics.NodeKind);
+        var profileName = TryGetMetadataValue(metrics.Metadata, "profile.name");
+        var decoratedKind = string.IsNullOrWhiteSpace(profileName)
+            ? kindLabel
+            : $"{kindLabel} ({profileName})";
 
         if (metrics.PmfProbability.HasValue || metrics.PmfValue.HasValue)
         {
-            lines.Add($"Kind: {kindLabel}");
+            lines.Add($"Kind: {decoratedKind}");
             if (metrics.PmfProbability is double probability)
             {
                 lines.Add($"Probability {probability.ToString("0.###", CultureInfo.InvariantCulture)}");
@@ -42,7 +46,7 @@ internal static class TooltipFormatter
         }
         else
         {
-            lines.Add($"Kind: {kindLabel}");
+            lines.Add($"Kind: {decoratedKind}");
             if (metrics.CustomValue.HasValue && !string.Equals(metrics.CustomLabel, "bin(t)", StringComparison.Ordinal))
             {
                 var label = string.IsNullOrWhiteSpace(metrics.CustomLabel) ? "Value" : metrics.CustomLabel!;
@@ -111,6 +115,16 @@ internal static class TooltipFormatter
             "pmf" => "PMF",
             _ => CultureInfo.InvariantCulture.TextInfo.ToTitleCase(kind)
         };
+    }
+
+    private static string? TryGetMetadataValue(IReadOnlyDictionary<string, string>? metadata, string key)
+    {
+        if (metadata is null)
+        {
+            return null;
+        }
+
+        return metadata.TryGetValue(key, out var value) ? value : null;
     }
 }
 

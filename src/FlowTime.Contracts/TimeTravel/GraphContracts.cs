@@ -36,6 +36,9 @@ public sealed class GraphNodeSemantics
 
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyDictionary<string, string>? Aliases { get; init; }
+
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyDictionary<string, string>? Metadata { get; init; }
 }
 
 public sealed class GraphNodeUi

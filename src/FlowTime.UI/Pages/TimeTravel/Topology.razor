@@ -324,6 +324,15 @@
                                     @if (metrics is not null)
                                     {
                                         <MudStack Spacing="1">
+                                            @{
+                                                var profileName = GetMetadataValue(metrics.Metadata, "profile.name");
+                                                if (!string.IsNullOrWhiteSpace(profileName) &&
+                                                    string.Equals(metrics.NodeKind, "pmf", StringComparison.OrdinalIgnoreCase))
+                                                {
+                                                    summaryRendered = true;
+                                                    <MudText Typo="Typo.body2">Profile: @profileName</MudText>
+                                                }
+                                            }
                                             @if (!isComputedNode && metrics.SuccessRate.HasValue)
                                             {
                                                 summaryRendered = true;
@@ -1679,7 +1688,8 @@ private const string PmfExpectationLabel = "Value";
                 NodeKind: displayKind,
                 ServiceTimeMs: serviceTime,
                 RetryTax: retryTax,
-                RawMetrics: rawMetrics.Count == 0 ? null : rawMetrics);
+                RawMetrics: rawMetrics.Count == 0 ? null : rawMetrics,
+                Metadata: topoNode?.Semantics?.Metadata);
         }
 
         if (topologyGraph is not null)
@@ -1807,7 +1817,8 @@ private const string PmfExpectationLabel = "Value";
                             NodeKind: existingMetrics.NodeKind ?? topoNode.Kind,
                             ServiceTimeMs: existingMetrics.ServiceTimeMs,
                             RetryTax: existingMetrics.RetryTax,
-                            RawMetrics: existingMetrics.RawMetrics);
+                            RawMetrics: existingMetrics.RawMetrics,
+                            Metadata: existingMetrics.Metadata ?? topoNode.Semantics?.Metadata);
                     }
 
                     continue;
@@ -1826,7 +1837,8 @@ private const string PmfExpectationLabel = "Value";
                     PmfValue: pmfSupportValue,
                     NodeKind: topoNode.Kind,
                     RetryTax: existingMetrics?.RetryTax,
-                    RawMetrics: existingMetrics?.RawMetrics);
+                    RawMetrics: existingMetrics?.RawMetrics,
+                    Metadata: topoNode.Semantics?.Metadata ?? existingMetrics?.Metadata);
             }
         }
 
@@ -3150,6 +3162,16 @@ internal sealed record InspectorMetricBlock(
         }
 
         return null;
+    }
+
+    private static string? GetMetadataValue(IReadOnlyDictionary<string, string>? metadata, string key)
+    {
+        if (metadata is null)
+        {
+            return null;
+        }
+
+        return metadata.TryGetValue(key, out var value) ? value : null;
     }
 
     private static string[] BuildAliasKeyCandidates(string? field)

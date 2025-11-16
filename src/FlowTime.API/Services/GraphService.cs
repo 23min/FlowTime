@@ -124,7 +124,8 @@ public sealed class GraphService
                 RetryEcho = topoNode.Semantics?.RetryEcho,
                 Queue = topoNode.Semantics?.QueueDepth,
                 Capacity = topoNode.Semantics?.Capacity,
-                Aliases = topoNode.Semantics?.Aliases
+                Aliases = topoNode.Semantics?.Aliases,
+                Metadata = null
             };
 
             var ui = topoNode.Ui is null
@@ -229,7 +230,8 @@ public sealed class GraphService
                     Series = $"series:{nodeDef.Id}",
                     Expression = string.IsNullOrWhiteSpace(expression) ? null : expression,
                     Distribution = distribution,
-                    InlineValues = inlineValues
+                    InlineValues = inlineValues,
+                    Metadata = nodeDef.Metadata
                 };
 
                 AddOrReplaceNode(new GraphNode

@@ -140,6 +140,9 @@ public sealed class GraphEndpointTests : IClassFixture<TestWebApplicationFactory
         Assert.Equal(new[] { 0.2d, 0.5d, 0.3d }, pmfNode.Semantics.Distribution!.Probabilities.ToArray());
         Assert.NotNull(pmfNode.Semantics.InlineValues);
         Assert.Equal(new[] { 80d, 100d, 120d, 140d }, pmfNode.Semantics.InlineValues!.ToArray());
+        Assert.NotNull(pmfNode.Semantics.Metadata);
+        Assert.Equal("pmf", pmfNode.Semantics.Metadata!["origin.kind"]);
+        Assert.Equal("weekday-office", pmfNode.Semantics.Metadata["profile.name"]);
     }
 
     public void Dispose()

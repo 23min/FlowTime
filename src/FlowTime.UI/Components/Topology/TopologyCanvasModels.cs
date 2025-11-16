@@ -49,7 +49,8 @@ internal sealed record NodeSemanticsDto(
     string? Expression,
     NodeDistributionDto? Distribution,
     IReadOnlyList<double>? InlineValues,
-    IReadOnlyDictionary<string, string>? Aliases);
+    IReadOnlyDictionary<string, string>? Aliases,
+    IReadOnlyDictionary<string, string>? Metadata = null);
 
 internal sealed record NodeDistributionDto(
     IReadOnlyList<double> Values,
