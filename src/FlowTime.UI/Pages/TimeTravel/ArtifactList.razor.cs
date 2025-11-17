@@ -595,14 +595,6 @@ public sealed partial class ArtifactList : ComponentBase
     }
 
     private bool SelectAllChecked => _view.Items.Count > 0 && _view.Items.All(IsRowSelected);
-    private bool SelectAllIndeterminate =>
-        _view.Items.Count > 0 &&
-        _view.Items.Any(IsRowSelected) &&
-        !_view.Items.All(IsRowSelected);
-    private bool? SelectAllTriState =>
-        SelectAllChecked ? true :
-        SelectAllIndeterminate ? null :
-        false;
 
     private Task OnSelectAllChanged(bool value)
     {

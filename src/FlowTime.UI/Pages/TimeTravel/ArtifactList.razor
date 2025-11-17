@@ -306,12 +306,11 @@
                                     <div class="artifact-grid-container">
                                             <div class="artifact-grid-row artifact-grid-header">
                                         <div class="artifact-checkbox-cell artifact-grid-checkbox-header">
-                                                <MudCheckBox T="bool?"
+                                                <MudCheckBox T="bool"
                                                              Class="artifact-grid-checkbox"
-                                                             TriState="true"
                                                              Ripple="false"
-                                                             Value="@SelectAllTriState"
-                                                             ValueChanged="@(EventCallback.Factory.Create<bool?>(this, OnSelectAllStateChanged))"
+                                                             Value="@SelectAllChecked"
+                                                             ValueChanged="@(EventCallback.Factory.Create<bool>(this, OnSelectAllChanged))"
                                                              Color="Color.Primary" />
                                             </div>
                                             <div class="artifact-grid-cell artifact-grid-header-cell"
