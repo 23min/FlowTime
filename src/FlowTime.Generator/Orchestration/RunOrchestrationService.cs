@@ -600,9 +600,9 @@ public sealed class RunOrchestrationService
 
             var modelDirectory = Path.Combine(finalRunDirectory, "model");
             var manifestMetadata = await manifestReader.ReadAsync(modelDirectory, cancellationToken).ConfigureAwait(false);
-            var telemetryManifest = BuildSimulationTelemetryManifest(simArtifact, manifestMetadata, finalRunId, writeResult.ScenarioHash);
-            await WriteSimulationTelemetryManifestAsync(finalRunDirectory, telemetryManifest, cancellationToken).ConfigureAwait(false);
             var runDocument = await RunDirectoryUtilities.LoadRunDocumentAsync(finalRunDirectory, cancellationToken).ConfigureAwait(false);
+            var telemetryManifest = BuildSimulationTelemetryManifest(simArtifact, manifestMetadata, finalRunId, writeResult.ScenarioHash, runDocument.Warnings);
+            await WriteSimulationTelemetryManifestAsync(finalRunDirectory, telemetryManifest, cancellationToken).ConfigureAwait(false);
 
             runsCreatedCounter.Add(1, CreateMetricTags(templateId, TemplateMode.Simulation.ToSerializedValue()));
 
@@ -694,9 +694,18 @@ public sealed class RunOrchestrationService
         SimModelArtifact artifact,
         RunManifestMetadata manifestMetadata,
         string runId,
-        string scenarioHash)
+        string scenarioHash,
+        IReadOnlyList<RunWarningEntryDto>? runWarnings)
     {
         var durationMinutes = TryComputeDurationMinutes(artifact.Grid);
+        var manifestWarnings = (runWarnings ?? Array.Empty<RunWarningEntryDto>())
+            .Select(w => new CaptureWarning(
+                w.Code,
+                w.Message,
+                w.NodeId,
+                w.Bins,
+                string.IsNullOrWhiteSpace(w.Severity) ? "warning" : w.Severity))
+            .ToArray();
 
         return new TelemetryManifest(
             SchemaVersion: 1,
@@ -708,7 +717,7 @@ public sealed class RunOrchestrationService
                 artifact.Grid?.BinSize ?? 0,
                 NormalizeBinUnit(artifact.Grid?.BinUnit)),
             Files: Array.Empty<TelemetryManifestFile>(),
-            Warnings: Array.Empty<CaptureWarning>(),
+            Warnings: manifestWarnings,
             Provenance: new TelemetryManifestProvenance(
                 runId,
                 scenarioHash,

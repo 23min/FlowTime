@@ -349,7 +349,7 @@ internal static class RunOrchestrationEndpoints
             Code = w.Code,
             Message = w.Message,
             NodeId = w.NodeId,
-            Severity = "warning"
+            Severity = string.IsNullOrWhiteSpace(w.Severity) ? "warning" : w.Severity
         }).ToArray();
     }
 

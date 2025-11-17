@@ -10,7 +10,8 @@ internal sealed record CanvasRenderRequest(
     OverlaySettingsPayload Overlays,
     TooltipPayload? Tooltip,
     ViewportSnapshotPayload? SavedViewport,
-    bool PreserveViewport);
+    bool PreserveViewport,
+    IReadOnlyList<NodeWarningPayload>? Warnings);
 
 internal sealed record NodeRenderInfo(
     string Id,
@@ -34,7 +35,9 @@ internal sealed record NodeRenderInfo(
 
 public sealed record NodeWarningPayload(
     string Code,
-    string Message);
+    string Message,
+    string Severity = "warning",
+    string? NodeId = null);
 
 internal sealed record NodeSemanticsDto(
     string? Arrivals,

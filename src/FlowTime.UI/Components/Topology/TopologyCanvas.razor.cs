@@ -802,7 +802,11 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
 
         var snapshotPayload = preserveViewport ? CreateSnapshotPayload(snapshot) : null;
 
-        return new CanvasRenderRequest(title, nodeDtos, edges, viewport, overlayPayload, tooltip, snapshotPayload, preserveViewport);
+        var flattenedWarnings = nodeWarningsMap is null || nodeWarningsMap.Count == 0
+            ? Array.Empty<NodeWarningPayload>()
+            : nodeWarningsMap.SelectMany(kvp => kvp.Value.Select(w => w with { NodeId = kvp.Key })).ToArray();
+
+        return new CanvasRenderRequest(title, nodeDtos, edges, viewport, overlayPayload, tooltip, snapshotPayload, preserveViewport, flattenedWarnings);
     }
 
     private static bool IsComputedKind(string? kind)

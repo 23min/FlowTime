@@ -223,13 +223,18 @@ public sealed class FileSeriesReader : ISeriesReader
             value = valueElement.GetDouble();
         }
 
+        var severity = element.TryGetProperty("severity", out var severityElement) && severityElement.ValueKind == JsonValueKind.String
+            ? severityElement.GetString() ?? "warning"
+            : "warning";
+
         return new RunWarning
         {
             Code = element.TryGetProperty("code", out var codeElement) ? codeElement.GetString() ?? "engine_warning" : "engine_warning",
             Message = element.TryGetProperty("message", out var messageElement) ? messageElement.GetString() ?? string.Empty : string.Empty,
             NodeId = element.TryGetProperty("nodeId", out var nodeElement) ? nodeElement.GetString() : null,
             Bins = bins,
-            Value = value
+            Value = value,
+            Severity = severity
         };
     }
 

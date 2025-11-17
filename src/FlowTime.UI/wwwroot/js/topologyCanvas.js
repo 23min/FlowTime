@@ -170,7 +170,8 @@
                 settingsPointerDown: null,
                 tooltipMetrics: null,
                 edgeOverlayLegend: null,
-                edgeOverlayContext: null
+                edgeOverlayContext: null,
+                globalWarningsByNode: new Map()
             };
             setupCanvas(canvas, state);
             registry.set(canvas, state);
@@ -1803,6 +1804,21 @@
         const rawTitle = payload?.title ?? payload?.Title ?? '';
         state.title = typeof rawTitle === 'string' ? rawTitle : '';
 
+        // Global warning map keyed by node id for fallback when warnings are not attached to node payloads
+        state.globalWarningsByNode = new Map();
+        const globalWarnings = payload?.warnings ?? payload?.Warnings ?? [];
+        if (Array.isArray(globalWarnings)) {
+            for (const entry of globalWarnings) {
+                if (!entry) continue;
+                const nodeId = (entry.nodeId ?? entry.NodeId ?? '').toString().toLowerCase();
+                if (!nodeId) continue;
+                if (!state.globalWarningsByNode.has(nodeId)) {
+                    state.globalWarningsByNode.set(nodeId, []);
+                }
+                state.globalWarningsByNode.get(nodeId).push(entry);
+            }
+        }
+
         const savedViewport = payload?.savedViewport ?? payload?.SavedViewport ?? null;
         if (preserveViewport && savedViewport) {
             applyViewportSnapshot(state, savedViewport);
@@ -2486,8 +2502,11 @@
         }
     }
 
-    function normalizeWarningEntries(nodeMeta) {
-        const raw = nodeMeta?.warnings ?? nodeMeta?.Warnings ?? null;
+    function normalizeWarningEntries(nodeMeta, globalWarnings) {
+        const rawFromNode = nodeMeta?.warnings ?? nodeMeta?.Warnings ?? null;
+        const raw = (rawFromNode && Array.isArray(rawFromNode) && rawFromNode.length > 0)
+            ? rawFromNode
+            : (globalWarnings?.get?.((nodeMeta?.id ?? nodeMeta?.Id ?? '').toString().toLowerCase()) ?? null);
         if (!Array.isArray(raw) || raw.length === 0) {
             return [];
         }
@@ -2497,9 +2516,11 @@
             if (!entry) continue;
             const codeCandidate = typeof entry.code === 'string' ? entry.code : entry.Code;
             const messageCandidate = typeof entry.message === 'string' ? entry.message : entry.Message;
+            const severityCandidate = typeof entry.severity === 'string' ? entry.severity : entry.Severity;
             const code = (codeCandidate ?? '').toString().trim() || 'warning';
             const message = (messageCandidate ?? '').toString().trim();
-            normalized.push({ code, message });
+            const severity = (severityCandidate ?? '').toString().trim().toLowerCase() || 'warning';
+            normalized.push({ code, message, severity });
         }
         return normalized;
     }
@@ -2523,7 +2544,7 @@
         const isServiceNode = nodeKind === 'service';
         const retryTax = isServiceNode ? resolveRetryTaxValue(nodeMeta) : null;
         const hasRetryLoop = showRetryMetrics && isServiceNode && Number.isFinite(retryTax) && retryTax > 0;
-        const warningEntries = normalizeWarningEntries(nodeMeta);
+        const warningEntries = normalizeWarningEntries(nodeMeta, state.globalWarningsByNode);
         const warningCodes = new Set(warningEntries.map(entry => (entry.code ?? '').toString().toLowerCase()));
         const addSyntheticWarning = (code, message) => {
             const normalized = (code ?? '').toString().toLowerCase() || 'warning';
@@ -2831,15 +2852,20 @@
 
         if (warningEntries.length > 0) {
             const primary = warningEntries[0];
-            const labelBaseRaw = primary.code || 'Warning';
-            const warningLabel = 'Warning';
+            const severity = (primary.severity ?? '').toLowerCase() || 'warning';
+            const isInfo = severity === 'info';
+            const labelBaseRaw = primary.code || (isInfo ? 'Info' : 'Warning');
+            const warningLabel = isInfo ? 'Info' : 'Warning';
             const tooltipText = warningEntries
                 .map(entry => entry.message || entry.code)
                 .join('\n') || labelBaseRaw;
             const measurement = measureChipText(ctx, warningLabel, paddingX, chipH);
             const anchorLeft = servedChipDims?.left ?? bottomLeftBaseline;
             const warningLeft = anchorLeft - measurement.width - gap;
-            const dims = drawChip(ctx, warningLeft, bottomRowTop, warningLabel, '#F59E0B', '#78350F', paddingX, chipH, 'top', '#FFE04D', measurement, '600');
+            const chipBg = isInfo ? '#BFDBFE' : '#FFE04D';
+            const chipStroke = isInfo ? '#2563EB' : '#F59E0B';
+            const chipText = isInfo ? '#0F2A7A' : '#78350F';
+            const dims = drawChip(ctx, warningLeft, bottomRowTop, warningLabel, chipStroke, chipText, paddingX, chipH, 'top', chipBg, measurement, '600');
             registerChipHitbox(state, {
                 nodeId: nodeMeta.id ?? null,
                 metric: 'warning',
@@ -3994,10 +4020,12 @@
         const hasCustomFill = typeof fillColor === 'string' && fillColor.trim().length > 0;
         let chipFill = hasCustomFill ? fillColor : getDefaultChipFill();
         let textColor = getDefaultChipTextColor();
-        if (darkMode) {
-            chipFill = CHIP_BASE_FILL_DARK;
-            textColor = CHIP_TEXT_DARK;
-        } else if (hasCustomFill && typeof fg === 'string' && fg.trim().length > 0) {
+        if (!hasCustomFill) {
+            if (darkMode) {
+                chipFill = CHIP_BASE_FILL_DARK;
+                textColor = CHIP_TEXT_DARK;
+            }
+        } else if (typeof fg === 'string' && fg.trim().length > 0) {
             textColor = fg;
         }
         ctx.fillStyle = chipFill;

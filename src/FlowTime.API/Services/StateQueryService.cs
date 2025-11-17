@@ -1414,7 +1414,7 @@ public sealed class StateQueryService
                     Code = warning.Code,
                     Message = warning.Message,
                     NodeId = warning.NodeId,
-                    Severity = "warning"
+                    Severity = string.IsNullOrWhiteSpace(warning.Severity) ? "warning" : warning.Severity
                 });
             }
         }

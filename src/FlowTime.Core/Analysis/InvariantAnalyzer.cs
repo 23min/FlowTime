@@ -1,3 +1,4 @@
+using System.Linq;
 using FlowTime.Core.Execution;
 using FlowTime.Core.Models;
 using FlowTime.Core.Nodes;
@@ -37,6 +38,9 @@ public static class InvariantAnalyzer
 
             var semantics = topoNode.Semantics;
             var nodeId = topoNode.Id;
+            var nodeKind = (topoNode.Kind ?? string.Empty).Trim().ToLowerInvariant();
+            var isServiceKind = nodeKind == "service" || nodeKind == "router";
+            var isQueueKind = nodeKind == "queue";
 
             if (!TryGetSeries(semantics.Arrivals, out var arrivals))
             {
@@ -65,6 +69,10 @@ public static class InvariantAnalyzer
             if (!TryGetSeries(semantics.RetryEcho, out var retryEcho))
             {
                 retryEcho = null;
+            }
+            if (!TryGetSeries(semantics.Capacity, out var capacity))
+            {
+                capacity = null;
             }
 
             // Non-negative checks
@@ -115,6 +123,54 @@ public static class InvariantAnalyzer
                     ? val
                     : 0d;
                 ValidateQueue(nodeId, queueDepth, arrivals, served, errors, seed);
+            }
+
+            // Soft info: missing prerequisite metrics
+            var expectsCapacity = isServiceKind || !string.IsNullOrWhiteSpace(semantics.Capacity);
+            var expectsServed = isServiceKind || !string.IsNullOrWhiteSpace(semantics.Served);
+            var expectsQueue = isQueueKind || !string.IsNullOrWhiteSpace(semantics.QueueDepth);
+
+            if (expectsCapacity && capacity == null)
+            {
+                warnings.Add(new InvariantWarning(
+                    nodeId,
+                    "missing_capacity_series",
+                    "Capacity series was not available; utilization cannot be computed.",
+                    Array.Empty<int>(),
+                    null,
+                    "info"));
+            }
+            else if (capacity != null && capacity.All(v => Math.Abs(v) <= tolerance))
+            {
+                warnings.Add(new InvariantWarning(
+                    nodeId,
+                    "capacity_all_zero",
+                    "Capacity series is zero for all bins; utilization will be unavailable.",
+                    Array.Empty<int>(),
+                    null,
+                    "info"));
+            }
+
+            if (expectsServed && served == null)
+            {
+                warnings.Add(new InvariantWarning(
+                    nodeId,
+                    "missing_served_series",
+                    "Served/output series was not available; utilization cannot be computed.",
+                    Array.Empty<int>(),
+                    null,
+                    "info"));
+            }
+
+            if (expectsQueue && queueDepth == null)
+            {
+                warnings.Add(new InvariantWarning(
+                    nodeId,
+                    "missing_queue_depth_series",
+                    "Queue depth series was not available; queue overlays may be incomplete.",
+                    Array.Empty<int>(),
+                    null,
+                    "info"));
             }
         }
 
@@ -275,6 +331,7 @@ public sealed record InvariantWarning(
     string Code,
     string Message,
     IReadOnlyList<int> Bins,
-    double? Value);
+    double? Value,
+    string Severity = "warning");
 
 public sealed record InvariantAnalysisResult(IReadOnlyList<InvariantWarning> Warnings);

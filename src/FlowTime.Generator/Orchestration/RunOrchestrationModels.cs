@@ -52,4 +52,15 @@ public sealed record RunDocument
     public string? Mode { get; init; }
     public string? TemplateId { get; init; }
     public string? CreatedUtc { get; init; }
+    public IReadOnlyList<RunWarningEntryDto> Warnings { get; init; } = Array.Empty<RunWarningEntryDto>();
+}
+
+public sealed record RunWarningEntryDto
+{
+    public string Code { get; init; } = string.Empty;
+    public string Message { get; init; } = string.Empty;
+    public string? NodeId { get; init; }
+    public IReadOnlyList<int>? Bins { get; init; }
+    public double? Value { get; init; }
+    public string Severity { get; init; } = "warning";
 }

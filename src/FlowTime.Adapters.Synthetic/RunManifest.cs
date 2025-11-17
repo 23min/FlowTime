@@ -24,6 +24,7 @@ public sealed class RunWarning
     public string? NodeId { get; init; }
     public int[]? Bins { get; init; }
     public double? Value { get; init; }
+    public string Severity { get; init; } = "warning";
 }
 
 /// <summary>

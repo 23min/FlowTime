@@ -99,7 +99,8 @@ public static class RunArtifactWriter
             Code = w.Code,
             Message = w.Message,
             Bins = w.Bins?.ToArray(),
-            Value = w.Value
+            Value = w.Value,
+            Severity = w.Severity
         }).ToList();
 
         var resolvedSeries = ResolveSeries((object?)modelDto.Outputs, effectiveContext);
@@ -1102,6 +1103,7 @@ file sealed record RunWarningEntry
     public string? NodeId { get; set; }
     public int[]? Bins { get; set; }
     public double? Value { get; set; }
+    public string Severity { get; set; } = "warning";
 }
 
 file sealed record GridJson { public int Bins { get; set; } public int BinSize { get; set; } public string BinUnit { get; set; } = "minutes"; public string Timezone { get; set; } = "UTC"; public string Align { get; set; } = "left"; }

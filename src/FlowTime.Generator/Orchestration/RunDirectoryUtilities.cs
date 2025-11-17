@@ -13,7 +13,11 @@ internal static class RunDirectoryUtilities
         }
 
         await using var stream = File.OpenRead(runJsonPath);
-        var document = await JsonSerializer.DeserializeAsync<RunDocument>(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
+        var options = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        };
+        var document = await JsonSerializer.DeserializeAsync<RunDocument>(stream, options, cancellationToken).ConfigureAwait(false);
         return document ?? throw new InvalidOperationException($"run.json at '{runJsonPath}' is invalid.");
     }
 }

@@ -7,4 +7,5 @@ public sealed record CaptureWarning(
     string Code,
     string Message,
     string? NodeId = null,
-    IReadOnlyList<int>? Bins = null);
+    IReadOnlyList<int>? Bins = null,
+    string Severity = "warning");

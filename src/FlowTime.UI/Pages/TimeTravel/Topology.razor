@@ -160,16 +160,23 @@
                                         }
                                     </MudChipSet>
                                     <MudStack Row="true" AlignItems="@AlignItems.Center" Class="timeline-focus-group">
+                                        @{
+                                            var anyWarnings = windowWarnings.Any(w => string.Equals(w.Severity, "warning", StringComparison.OrdinalIgnoreCase));
+                                            var anyInfos = windowWarnings.Any(w => string.Equals(w.Severity, "info", StringComparison.OrdinalIgnoreCase));
+                                        }
                                         @if (HasWindowWarnings)
                                         {
-                                            <MudTooltip RootClass="timeline-warning-tooltip-root">
+                                            var chipLabel = anyWarnings ? "Warning" : "Info";
+                                            var chipColor = anyWarnings ? Color.Warning : Color.Info;
+                                            var chipClass = anyWarnings ? "timeline-warning-chip" : "timeline-info-chip";
+                                            <MudTooltip Class="timeline-warning-tooltip-root">
                                                 <ChildContent>
                                                     <MudChip T="string"
                                                              Variant="Variant.Filled"
-                                                             Class="timeline-warning-chip"
-                                                             Color="Color.Warning"
+                                                             Class="@chipClass"
+                                                             Color="@chipColor"
                                                              Ripple="false">
-                                                        Warning
+                                                        @chipLabel
                                                     </MudChip>
                                                 </ChildContent>
                                                 <TooltipContent>
@@ -179,7 +186,7 @@
                                                             <div class="timeline-warning-tooltip__item">
                                                                 <div class="timeline-warning-tooltip__heading">
                                                                     <strong>@(warning.NodeId ?? "Run")</strong>
-                                                                    <span class="timeline-warning-tooltip__code">@warning.Code</span>
+                                                                    <span class="timeline-warning-tooltip__code">@warning.Code (@warning.Severity)</span>
                                                                 </div>
                                                                 @if (!string.IsNullOrWhiteSpace(warning.Message))
                                                                 {
@@ -3818,7 +3825,8 @@ private static IReadOnlyList<double?> TrimSeriesAt(double?[]? source, int limit,
                 {
                     var code = string.IsNullOrWhiteSpace(w.Code) ? "warning" : w.Code.Trim();
                     var message = string.IsNullOrWhiteSpace(w.Message) ? string.Empty : w.Message.Trim();
-                    return new NodeWarningPayload(code, message);
+                    var severity = string.IsNullOrWhiteSpace(w.Severity) ? "warning" : w.Severity.Trim().ToLowerInvariant();
+                    return new NodeWarningPayload(code, message, severity, w.NodeId);
                 }).ToArray(),
                 StringComparer.OrdinalIgnoreCase);
 

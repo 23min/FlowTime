@@ -177,6 +177,46 @@ public class RunOrchestrationServiceTests
     }
 
     [Fact]
+    public async Task CreateRunAsync_SimulationMode_CarriesRunWarningsIntoTelemetryManifest()
+    {
+        using var temp = new TempDirectory();
+        var templatesDir = Path.Combine(temp.Path, "templates");
+        Directory.CreateDirectory(templatesDir);
+        await File.WriteAllTextAsync(Path.Combine(templatesDir, "sim-order.yaml"), SimulationTemplate);
+
+        var templateService = new TemplateService(templatesDir, NullLogger<TemplateService>.Instance);
+        var bundleBuilder = new TelemetryBundleBuilder();
+        var orchestration = new RunOrchestrationService(templateService, bundleBuilder, NullLogger<RunOrchestrationService>.Instance);
+
+        var request = new RunOrchestrationRequest
+        {
+            TemplateId = "sim-order",
+            Mode = "simulation",
+            Parameters = new Dictionary<string, object?>
+            {
+                ["bins"] = 4,
+                ["binSize"] = 5
+            },
+            OutputRoot = Path.Combine(temp.Path, "runs"),
+            DeterministicRunId = true
+        };
+
+        var outcome = await orchestration.CreateRunAsync(request);
+        var result = outcome.Result!;
+
+        // Missing capacity series on the service node should emit an info-level warning.
+        var manifestPath = Path.Combine(result.RunDirectory, "model", "telemetry", "telemetry-manifest.json");
+        Assert.True(File.Exists(manifestPath));
+
+        using var manifest = System.Text.Json.JsonDocument.Parse(await File.ReadAllTextAsync(manifestPath));
+        var warnings = manifest.RootElement.GetProperty("warnings");
+        Assert.True(warnings.GetArrayLength() > 0);
+        var first = warnings[0];
+        Assert.Equal("missing_capacity_series", first.GetProperty("code").GetString());
+        Assert.Equal("info", first.GetProperty("severity").GetString());
+    }
+
+    [Fact]
     public async Task CreateRunAsync_SimulationMode_EmitsMetricsAndLogs()
     {
         using var temp = new TempDirectory();
