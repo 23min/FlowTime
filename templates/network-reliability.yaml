@@ -63,6 +63,7 @@ topology:
         arrivals: base_requests
         served: network_requests
         errors: network_failures
+        capacity: edge_capacity
         processingTimeMsSum: edge_gateway_processing_time_ms_sum
         servedCount: network_requests
         aliases:
@@ -89,6 +90,7 @@ topology:
         arrivals: request_queue_outflow
         served: successful_requests
         errors: core_errors
+        capacity: server_capacity
         attempts: core_attempts
         failures: core_retry_failures
         retryEcho: core_retry_echo
@@ -138,6 +140,15 @@ nodes:
       kind: builtin
       name: three-shift
 
+  - id: edge_capacity
+    kind: pmf
+    pmf:
+      values: [140, 170, 200, 230, 260]
+      probabilities: [0.08, 0.22, 0.3, 0.25, 0.15]
+    profile:
+      kind: builtin
+      name: hub-rush-hour
+
   - id: database_reliability
     kind: pmf
     pmf:
@@ -149,7 +160,7 @@ nodes:
 
   - id: network_requests
     kind: expr
-    expr: "base_requests * network_reliability"
+    expr: "base_requests * MIN(network_reliability, 1)"
 
   - id: network_failures
     kind: expr
@@ -207,7 +218,7 @@ nodes:
 
   - id: successful_requests
     kind: expr
-    expr: "core_processed * database_reliability"
+    expr: "core_processed * MIN(database_reliability, 1)"
 
   - id: database_failures
     kind: expr

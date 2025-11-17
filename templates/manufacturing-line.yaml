@@ -63,6 +63,7 @@ topology:
         arrivals: raw_materials
         served: assembly_output
         errors: assembly_scrap
+        capacity: assembly_capacity
         processingTimeMsSum: assembly_processing_time_ms_sum
         servedCount: assembly_output
         aliases:
@@ -89,6 +90,7 @@ topology:
         arrivals: wip_queue_outflow
         served: quality_served
         errors: quality_errors
+        capacity: quality_capacity
         attempts: quality_attempts
         failures: qc_retry_failures
         retryEcho: qc_retry_echo
@@ -107,6 +109,7 @@ topology:
         arrivals: quality_served
         served: packaging
         errors: packaging_rejects
+        capacity: packaging_capacity
         processingTimeMsSum: packaging_processing_time_ms_sum
         servedCount: packaging
         aliases:

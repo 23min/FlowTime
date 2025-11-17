@@ -82,6 +82,7 @@ topology:
         arrivals: arrivals_north
         served: served_north
         errors: unmet_north
+        capacity: cap_north
         processingTimeMsSum: origin_north_processing_time_ms_sum
         servedCount: served_north
         aliases:
@@ -94,6 +95,7 @@ topology:
         arrivals: arrivals_south
         served: served_south
         errors: unmet_south
+        capacity: cap_south
         processingTimeMsSum: origin_south_processing_time_ms_sum
         servedCount: served_south
         aliases:

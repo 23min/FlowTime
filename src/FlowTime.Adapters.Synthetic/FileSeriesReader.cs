@@ -12,7 +12,7 @@ namespace FlowTime.Adapters.Synthetic;
 /// </summary>
 public sealed class FileSeriesReader : ISeriesReader
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
+    private static readonly JsonSerializerOptions jsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         PropertyNameCaseInsensitive = true

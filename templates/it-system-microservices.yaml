@@ -63,6 +63,7 @@ topology:
         arrivals: user_requests
         served: load_balanced_requests
         errors: lb_dropped
+        capacity: load_balancer_capacity
         processingTimeMsSum: load_balancer_processing_time_ms_sum
         servedCount: load_balanced_requests
         aliases:
@@ -89,6 +90,7 @@ topology:
         arrivals: auth_queue_outflow
         served: authenticated_requests
         errors: auth_failures
+        capacity: auth_capacity
         processingTimeMsSum: auth_processing_time_ms_sum
         servedCount: authenticated_requests
         aliases:
@@ -100,6 +102,7 @@ topology:
         arrivals: authenticated_requests
         served: processed_requests
         errors: db_errors
+        capacity: database_capacity
         attempts: db_attempts
         failures: db_retry_failures
         retryEcho: db_retry_echo

@@ -73,6 +73,22 @@
 **Blockers:**
 - Perf benchmark tests flaky when run in full suite.
 
+### 2025-11-19 - Template capacity/utilization wiring
+
+**Changes:**
+- Added capacity semantics for all service nodes across templates so utilization is computable: wiring supplier/warehouse/load balancer/auth/database/origin/support/etc. to their capacity series and introducing edge/support analytics capacity PMFs where missing.
+
+**Tests:**
+- ✅ `dotnet build FlowTime.sln`
+- ⚠️ `dotnet test FlowTime.sln` — API golden baselines now need updates for added info warnings.
+
+**Next Steps:**
+- [ ] Refresh API golden files to account for info-level warnings.
+- [ ] Visual QA: confirm utilization now shows for all operational nodes.
+
+**Blockers:**
+- None.
+
 ---
 
 ## Phase 1: Engine & Profiles

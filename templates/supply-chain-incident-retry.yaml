@@ -81,6 +81,7 @@ topology:
         arrivals: support_analytics_load
         served: support_analytics_load
         errors: support_analytics_errors
+        capacity: analytics_capacity
         processingTimeMsSum: support_analytics_processing_time_ms_sum
         servedCount: support_analytics_load
         aliases:
@@ -92,6 +93,7 @@ topology:
         arrivals: support_queue_served
         served: support_queue_served
         errors: support_queue_errors
+        capacity: support_capacity
         aliases:
           arrivals: "Tickets pulled"
           served: "Tickets resolved"
@@ -140,6 +142,15 @@ nodes:
     pmf:
       values: [10, 12, 14, 16, 18, 20]
       probabilities: [0.08, 0.16, 0.26, 0.26, 0.16, 0.08]
+    profile:
+      kind: builtin
+      name: weekday-office
+
+  - id: analytics_capacity
+    kind: pmf
+    pmf:
+      values: [12, 14, 16, 18, 20]
+      probabilities: [0.1, 0.2, 0.3, 0.25, 0.15]
     profile:
       kind: builtin
       name: weekday-office
