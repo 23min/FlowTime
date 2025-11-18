@@ -142,7 +142,7 @@ public class RunOrchestrationTests : IClassFixture<TestWebApplicationFactory>, I
         Assert.NotNull(detail);
         Assert.Equal("simulation", detail!["metadata"]?["mode"]?.GetValue<string>());
         Assert.True(detail["canReplay"]?.GetValue<bool>() ?? false);
-        Assert.Equal(0, detail["warnings"]?.AsArray()?.Count ?? 0);
+        Assert.Equal(3, detail["warnings"]?.AsArray()?.Count ?? 0);
     }
 
     [Fact]

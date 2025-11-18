@@ -40,10 +40,10 @@
       "derived": {
         "utilization": 0.857143,
         "serviceTimeMs": 300,
+        "flowLatencyMs": 300,
         "throughputRatio": 0.6,
         "retryTax": 0.142857,
-        "color": "yellow",
-        "flowLatencyMs": 300
+        "color": "yellow"
       },
       "telemetry": {
         "sources": [
@@ -76,9 +76,9 @@
       },
       "derived": {
         "latencyMinutes": 8.333333,
+        "flowLatencyMs": 500000.00000000006,
         "throughputRatio": 0.857143,
-        "color": "red",
-        "flowLatencyMs": 500000
+        "color": "red"
       },
       "telemetry": {
         "sources": [

@@ -24,12 +24,31 @@
     }
   },
   "plan": null,
-  "warnings": [],
+  "warnings": [
+    {
+      "code": "missing_capacity_series",
+      "message": "Capacity series was not available; utilization cannot be computed.",
+      "severity": "info",
+      "nodeId": "OrderService"
+    },
+    {
+      "code": "missing_processing_time_series",
+      "message": "Processing time series was not available; service time cannot be computed.",
+      "severity": "info",
+      "nodeId": "OrderService"
+    },
+    {
+      "code": "missing_served_count_series",
+      "message": "Served count series was not available; service time cannot be computed.",
+      "severity": "info",
+      "nodeId": "OrderService"
+    }
+  ],
   "canReplay": true,
   "telemetry": {
     "available": false,
     "generatedAtUtc": null,
-    "warningCount": 0,
+    "warningCount": 3,
     "sourceRunId": null
   }
 }

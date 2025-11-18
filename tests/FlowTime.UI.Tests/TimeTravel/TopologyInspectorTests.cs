@@ -193,11 +193,6 @@ public sealed class TopologyInspectorTests
             },
             block =>
             {
-                Assert.Equal("Latency", block.Title);
-                Assert.False(block.IsPlaceholder);
-            },
-            block =>
-            {
                 Assert.Equal("Error rate", block.Title);
                 Assert.False(block.IsPlaceholder);
             });

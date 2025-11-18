@@ -62,13 +62,13 @@ public sealed class MetricsServiceTests : IDisposable
         Assert.Equal(1, serviceA.BinsMet);
         Assert.Equal(4, serviceA.BinsTotal);
         Assert.Equal(0.25, serviceA.SlaPct, 6);
-        Assert.Equal(new[] { 1d, 0.6, 0.8, 0d }, serviceA.Mini);
+        Assert.Equal(new double?[] { 1d, 0.6, 0.8, 0d }, serviceA.Mini);
 
         var serviceB = Assert.Single(response.Services, s => s.Id == "ServiceB");
         Assert.Equal(2, serviceB.BinsMet);
         Assert.Equal(4, serviceB.BinsTotal);
         Assert.Equal(0.5, serviceB.SlaPct, 6);
-        Assert.Equal(new[] { 1d, 1d, 0.75, 0.5 }, serviceB.Mini);
+        Assert.Equal(new double?[] { 1d, 1d, 0.75, 0.5 }, serviceB.Mini);
     }
 
     [Fact]
@@ -106,7 +106,7 @@ public sealed class MetricsServiceTests : IDisposable
         Assert.Equal(2, service.BinsMet);
         Assert.Equal(3, service.BinsTotal);
         Assert.Equal(2d / 3d, service.SlaPct, 6);
-        Assert.Equal(new[] { 1d, 0.96, 0.6 }, service.Mini);
+        Assert.Equal(new double?[] { 1d, 0.96, 0.6 }, service.Mini);
     }
 
     private void CreateTelemetryRun(string identifier)
