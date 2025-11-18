@@ -94,6 +94,8 @@ topology:
         served: support_queue_served
         errors: support_queue_errors
         capacity: support_capacity
+        processingTimeMsSum: support_desk_processing_time_ms_sum
+        servedCount: support_queue_served
         aliases:
           arrivals: "Tickets pulled"
           served: "Tickets resolved"
@@ -209,6 +211,10 @@ nodes:
     kind: expr
     expr: "support_analytics_load * 180"
 
+  - id: support_desk_processing_time_ms_sum
+    kind: expr
+    expr: "support_queue_served * 300"
+
 outputs:
   - series: incident_arrivals
     as: IncidentIntake_arrivals.csv
@@ -218,5 +224,9 @@ outputs:
     as: IncidentQueue_queueDepth.csv
   - series: support_queue_served
     as: SupportDesk_served.csv
+  - series: support_queue_served
+    as: SupportDesk_servedCount.csv
+  - series: support_desk_processing_time_ms_sum
+    as: SupportDesk_processingTimeMsSum.csv
   - series: support_analytics_load
     as: SupportAnalytics_load.csv

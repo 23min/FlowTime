@@ -233,6 +233,13 @@
                                                          Class="timeline-focus-chip">
                                                     Service time
                                                 </MudChip>
+                                                <MudChip T="TopologyColorBasis"
+                                                         Value="TopologyColorBasis.FlowLatency"
+                                                         Variant="Variant.Outlined"
+                                                         Size="Size.Small"
+                                                         Class="timeline-focus-chip">
+                                                    Flow latency
+                                                </MudChip>
                                             </MudChipSet>
                                         </MudStack>
                                         <MudStack Row="true" AlignItems="@AlignItems.Center" Spacing="1" Class="timeline-operational-toggle">
@@ -278,7 +285,7 @@
                     </MudPaper>
 
                     <MudStack Row="true" AlignItems="AlignItems.Stretch" Spacing="2" Class="topology-stage">
-                        <div class="topology-legend-overlay">
+                        <div class="topology-legend-overlay @(inspectorOpen ? "legend-shifted" : string.Empty)">
                             @foreach (var entry in BuildLegendEntries())
                             {
                                 <div class="legend-item">
@@ -664,6 +671,12 @@ private bool inspectorMetricsExpanded;
                 new LegendEntry("success", $"Service time < {FormatMs(thresholds.ServiceTimeWarning)}"),
                 new LegendEntry("warning", $"Service time {FormatMs(thresholds.ServiceTimeWarning)}–{FormatMs(thresholds.ServiceTimeCritical)}"),
                 new LegendEntry("error", $"Service time > {FormatMs(thresholds.ServiceTimeCritical)}")
+            },
+            TopologyColorBasis.FlowLatency => new[]
+            {
+                new LegendEntry("success", $"Flow latency < {FormatMs(thresholds.FlowLatencyWarning)}"),
+                new LegendEntry("warning", $"Flow latency {FormatMs(thresholds.FlowLatencyWarning)}–{FormatMs(thresholds.FlowLatencyCritical)}"),
+                new LegendEntry("error", $"Flow latency > {FormatMs(thresholds.FlowLatencyCritical)}")
             },
             _ => new[]
             {
@@ -1743,6 +1756,7 @@ private const string PmfExpectationLabel = "Value";
                 PmfValue: pmfSupportValue,
                 NodeKind: displayKind,
                 ServiceTimeMs: serviceTime,
+                FlowLatencyMs: Get("flowLatencyMs"),
                 RetryTax: retryTax,
                 RawMetrics: rawMetrics.Count == 0 ? null : rawMetrics,
                 Metadata: topoNode?.Semantics?.Metadata);
@@ -3409,6 +3423,7 @@ internal sealed record InspectorMetricBlock(
             TopologyColorBasis.Errors => new NodeBinMetrics(null, null, sample, null, null, null),
             TopologyColorBasis.Queue => new NodeBinMetrics(null, null, null, sample, null, null),
             TopologyColorBasis.ServiceTime => new NodeBinMetrics(null, null, null, null, null, null, ServiceTimeMs: sample),
+            TopologyColorBasis.FlowLatency => new NodeBinMetrics(null, null, null, null, null, null, FlowLatencyMs: sample),
             _ => new NodeBinMetrics(sample, null, null, null, null, null)
         };
 

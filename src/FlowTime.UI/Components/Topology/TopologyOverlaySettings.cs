@@ -6,7 +6,8 @@ public enum TopologyColorBasis
     Utilization,
     Errors,
     Queue,
-    ServiceTime
+    ServiceTime,
+    FlowLatency
 }
 
 public enum SparklineRenderMode
@@ -59,6 +60,8 @@ public sealed class TopologyOverlaySettings
     public double UtilizationWarningThreshold { get; set; } = 0.9;
     public double ServiceTimeWarningThresholdMs { get; set; } = 400;
     public double ServiceTimeCriticalThresholdMs { get; set; } = 700;
+    public double FlowLatencyWarningThresholdMs { get; set; } = 2000;
+    public double FlowLatencyCriticalThresholdMs { get; set; } = 10_000;
 
     public double ZoomPercent { get; set; } = 100;
 

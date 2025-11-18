@@ -80,3 +80,5 @@ Once this lands, templates get realistic curves immediately, and we still have t
 - 🟠 Flow latency focus: add a “Flow latency” focus chip to paint node coloring from `flowLatencyMs` when available; ensure legend reflects color basis.
 - 🟠 Perf suite: `FlowTime.Tests.Performance.M2PerformanceTests.Test_PMF_Complexity_Scaling` remains flaky/skip.
 - ✅ Topology legend: restore top-right legend for node color basis (passing/warning/breach swatches).
+- ✅ Flow latency focus: Chip added, tooltips show flow latency (ms/min), dedicated thresholds (2s/10s), and coloring uses proper sampling. Legend reflects flow latency thresholds.
+- 🟠 Templates: Incident Workflow (IT Ops) SupportDesk processing/served wired; need analyzer re-run across all templates to confirm no missing service time regressions.

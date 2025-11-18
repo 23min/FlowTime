@@ -99,6 +99,8 @@
 - Inspector toggle replaced with info glyph, re-positioned above tooltip, scaled to 20px; hides with tooltip.
 - Restored topology legend swatches (passing/warning/breach) in the canvas header.
 - Queue latency null test fixed and golden refreshed (flow latency null behavior).
+- Flow latency focus chip added; legend reflects flow latency thresholds (defaults 2s/10s). Flow latency shown in tooltips and focus labels (ms/min). Coloring now samples `flowLatencyMs`.
+- SupportDesk in incident-retry template now wired with processingTimeMsSum + servedCount to compute service time; analyzer sweep pending across all templates to confirm no regressions.
 
 **Tests:**
 - ⚠️ `dotnet test` overall: UI inspector stack expectation still failing; API goldens/schemas still pending refresh.

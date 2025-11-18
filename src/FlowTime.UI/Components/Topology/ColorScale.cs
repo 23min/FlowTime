@@ -15,6 +15,8 @@ internal static class ColorScale
     private const double DefaultErrorWarningRatio = 0.4;
     private const double DefaultServiceTimeWarningMs = 400;
     private const double DefaultServiceTimeCriticalMs = 700;
+    private const double DefaultFlowLatencyWarningMs = 2000;
+    private const double DefaultFlowLatencyCriticalMs = 10000;
 
     public static string GetFill(NodeBinMetrics metrics) => GetFill(metrics, TopologyColorBasis.Sla, ColorThresholds.Default);
 
@@ -33,6 +35,7 @@ internal static class ColorScale
             TopologyColorBasis.Utilization => EvaluateUtilization(metrics.Utilization, thresholds),
             TopologyColorBasis.Errors => EvaluateErrorRate(metrics.ErrorRate, thresholds),
             TopologyColorBasis.Queue => EvaluateQueue(metrics.QueueDepth),
+            TopologyColorBasis.FlowLatency => EvaluateFlowLatency(metrics.FlowLatencyMs, thresholds),
             TopologyColorBasis.ServiceTime => EvaluateServiceTime(metrics.ServiceTimeMs, thresholds),
             _ => EvaluateSla(metrics.SuccessRate, metrics.Utilization, metrics.ErrorRate, thresholds)
         };
@@ -124,6 +127,26 @@ internal static class ColorScale
         return SuccessColor;
     }
 
+    private static string EvaluateFlowLatency(double? flowLatencyMs, ColorThresholds thresholds)
+    {
+        if (!flowLatencyMs.HasValue)
+        {
+            return NeutralColor;
+        }
+
+        if (flowLatencyMs.Value >= thresholds.FlowLatencyCritical)
+        {
+            return ErrorColor;
+        }
+
+        if (flowLatencyMs.Value >= thresholds.FlowLatencyWarning)
+        {
+            return WarningColor;
+        }
+
+        return SuccessColor;
+    }
+
     private static string EvaluateErrorRate(double? errorRate, ColorThresholds thresholds)
     {
         if (!errorRate.HasValue)
@@ -174,7 +197,9 @@ internal static class ColorScale
             errorWarning: 0.02,
             errorCritical: 0.05,
             serviceTimeWarning: DefaultServiceTimeWarningMs,
-            serviceTimeCritical: DefaultServiceTimeCriticalMs);
+            serviceTimeCritical: DefaultServiceTimeCriticalMs,
+            flowLatencyWarning: DefaultFlowLatencyWarningMs,
+            flowLatencyCritical: DefaultFlowLatencyCriticalMs);
 
         public ColorThresholds(
             double slaSuccess,
@@ -184,7 +209,9 @@ internal static class ColorScale
             double errorWarning,
             double errorCritical,
             double serviceTimeWarning,
-            double serviceTimeCritical)
+            double serviceTimeCritical,
+            double flowLatencyWarning,
+            double flowLatencyCritical)
         {
             SlaSuccess = slaSuccess;
             SlaWarning = slaWarning;
@@ -194,6 +221,8 @@ internal static class ColorScale
             ErrorCritical = errorCritical;
             ServiceTimeWarning = serviceTimeWarning;
             ServiceTimeCritical = serviceTimeCritical;
+            FlowLatencyWarning = flowLatencyWarning;
+            FlowLatencyCritical = flowLatencyCritical;
         }
 
         public double SlaSuccess { get; }
@@ -204,6 +233,8 @@ internal static class ColorScale
         public double ErrorCritical { get; }
         public double ServiceTimeWarning { get; }
         public double ServiceTimeCritical { get; }
+        public double FlowLatencyWarning { get; }
+        public double FlowLatencyCritical { get; }
 
         public static ColorThresholds FromOverlay(TopologyOverlaySettings settings)
         {
@@ -232,7 +263,9 @@ internal static class ColorScale
                 errorWarning,
                 errorCritical,
                 serviceTimeWarning,
-                serviceTimeCritical);
+                serviceTimeCritical,
+                flowLatencyWarning: settings.FlowLatencyWarningThresholdMs > 0 ? settings.FlowLatencyWarningThresholdMs : DefaultFlowLatencyWarningMs,
+                flowLatencyCritical: settings.FlowLatencyCriticalThresholdMs > 0 ? settings.FlowLatencyCriticalThresholdMs : DefaultFlowLatencyCriticalMs);
         }
 
         private static double Clamp01(double value) => Math.Clamp(value, 0, 1);
@@ -252,6 +285,7 @@ public sealed record NodeBinMetrics(
     double? PmfValue = null,
     string? NodeKind = null,
     double? ServiceTimeMs = null,
+    double? FlowLatencyMs = null,
     double? RetryTax = null,
     IReadOnlyDictionary<string, double?>? RawMetrics = null,
     IReadOnlyDictionary<string, string>? Metadata = null);

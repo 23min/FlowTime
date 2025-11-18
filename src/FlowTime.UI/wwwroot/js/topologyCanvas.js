@@ -2197,6 +2197,11 @@
         const serviceTimeWarningMs = Number.isFinite(serviceTimeWarnRaw) && serviceTimeWarnRaw > 0 ? serviceTimeWarnRaw : 400;
         const serviceTimeCriticalCandidate = Number.isFinite(serviceTimeCritRaw) && serviceTimeCritRaw > 0 ? serviceTimeCritRaw : 700;
         const serviceTimeCriticalMs = Math.max(serviceTimeWarningMs, serviceTimeCriticalCandidate);
+        const flowLatencyWarnRaw = Number(raw.flowLatencyWarningThresholdMs ?? raw.FlowLatencyWarningThresholdMs ?? 2000);
+        const flowLatencyCritRaw = Number(raw.flowLatencyCriticalThresholdMs ?? raw.FlowLatencyCriticalThresholdMs ?? 10000);
+        const flowLatencyWarningMs = Number.isFinite(flowLatencyWarnRaw) && flowLatencyWarnRaw > 0 ? flowLatencyWarnRaw : 2000;
+        const flowLatencyCriticalCandidate = Number.isFinite(flowLatencyCritRaw) && flowLatencyCritRaw > 0 ? flowLatencyCritRaw : 10000;
+        const flowLatencyCriticalMs = Math.max(flowLatencyWarningMs, flowLatencyCriticalCandidate);
 
         let edgeStyle = 'orthogonal';
         if (typeof edgeStyleRaw === 'string') {
@@ -2263,7 +2268,9 @@
                 errorWarning: errorWarn,
                 errorCritical,
                 serviceTimeWarningMs,
-                serviceTimeCriticalMs
+                serviceTimeCriticalMs,
+                flowLatencyWarningMs,
+                flowLatencyCriticalMs
             }
         };
     }
@@ -2278,6 +2285,8 @@
                 return '#2F9E44';
             case 4: // Service Time
                 return '#1D4ED8';
+            case 5: // Flow latency
+                return '#2563EB';
             default: // SLA / fallback
                 return '#0B7285';
         }
@@ -2331,6 +2340,10 @@
                 if (value >= thresholds.serviceTimeCriticalMs) return '#D55E00';
                 if (value >= thresholds.serviceTimeWarningMs) return '#E69F00';
                 return '#009E73';
+            case 5: // Flow latency (ms)
+                if (value >= thresholds.flowLatencyCriticalMs) return '#D55E00';
+                if (value >= thresholds.flowLatencyWarningMs) return '#E69F00';
+                return '#009E73';
             default: // SLA success
                 if (value >= thresholds.slaSuccess) return '#009E73';
                 if (value >= thresholds.slaWarning) return '#E69F00';
@@ -2357,6 +2370,8 @@
                 return sliceValue('queue') ?? sliceValue('queueDepth') ?? valueAtArray(sparkline.queueDepth ?? sparkline.QueueDepth, index);
             case 4:
                 return sliceValue('serviceTimeMs') ?? sliceValue('serviceTime') ?? valueAtArray(sparkline.serviceTimeMs ?? sparkline.ServiceTimeMs, index);
+            case 5:
+                return sliceValue('flowLatencyMs') ?? sliceValue('flowLatency') ?? valueAtArray(sparkline.flowLatencyMs ?? sparkline.FlowLatencyMs, index);
             default:
                 return sliceValue('successRate') ?? valueAtArray(sparkline.values ?? sparkline.Values, index);
         }

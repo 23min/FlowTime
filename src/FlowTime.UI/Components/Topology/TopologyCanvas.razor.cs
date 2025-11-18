@@ -842,6 +842,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                 TopologyColorBasis.Errors => new NodeBinMetrics(null, null, sampled, null, null, null, NodeKind: node.Kind),
                 TopologyColorBasis.Queue => new NodeBinMetrics(null, null, null, sampled, null, null, NodeKind: node.Kind),
                 TopologyColorBasis.ServiceTime => new NodeBinMetrics(null, null, null, null, null, null, NodeKind: node.Kind, ServiceTimeMs: sampled),
+                TopologyColorBasis.FlowLatency => new NodeBinMetrics(null, null, null, null, null, null, NodeKind: node.Kind, FlowLatencyMs: sampled),
                 _ => new NodeBinMetrics(sampled, null, null, null, null, null, NodeKind: node.Kind)
             };
 
@@ -958,6 +959,8 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                 FromSeries("queue", "queueDepth"),
             TopologyColorBasis.ServiceTime =>
                 FromSeries("serviceTimeMs", "service_time_ms", "serviceTime"),
+            TopologyColorBasis.FlowLatency =>
+                FromSeries("flowLatencyMs", "flow_latency_ms", "flowLatency"),
             _ =>
                 FromSeries("successRate", "expectation", "values", "output") ??
                 FromPrimarySeries(sparkline.Values, sparkline.StartIndex)
@@ -1020,13 +1023,14 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         }
 
         var metrics = basis switch
-        {
-            TopologyColorBasis.Utilization => new NodeBinMetrics(null, value, null, null, null, null),
-            TopologyColorBasis.Errors => new NodeBinMetrics(null, null, value, null, null, null),
-            TopologyColorBasis.Queue => new NodeBinMetrics(null, null, null, value, null, null),
-            TopologyColorBasis.ServiceTime => new NodeBinMetrics(null, null, null, null, null, null, ServiceTimeMs: value),
-            _ => new NodeBinMetrics(value, null, null, null, null, null)
-        };
+            {
+                TopologyColorBasis.Utilization => new NodeBinMetrics(null, value, null, null, null, null),
+                TopologyColorBasis.Errors => new NodeBinMetrics(null, null, value, null, null, null),
+                TopologyColorBasis.Queue => new NodeBinMetrics(null, null, null, value, null, null),
+                TopologyColorBasis.ServiceTime => new NodeBinMetrics(null, null, null, null, null, null, ServiceTimeMs: value),
+                TopologyColorBasis.FlowLatency => new NodeBinMetrics(null, null, null, null, null, null, FlowLatencyMs: value),
+                _ => new NodeBinMetrics(value, null, null, null, null, null)
+            };
 
         return ColorScale.GetFill(metrics, basis, thresholds);
     }
@@ -1081,6 +1085,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             TopologyColorBasis.Errors => FormatFocusPercent(sample.Value, invariant, allowFractional: sample.Value < 0.1),
             TopologyColorBasis.Sla => FormatFocusPercent(sample.Value, invariant),
             TopologyColorBasis.ServiceTime => FormatFocusMilliseconds(sample.Value, invariant),
+            TopologyColorBasis.FlowLatency => FormatFocusMilliseconds(sample.Value, invariant),
             _ => FormatFocusNumber(sample.Value, invariant)
         };
     }
@@ -1092,8 +1097,14 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
 
     private static string FormatFocusMilliseconds(double value, CultureInfo culture)
     {
+        if (value >= 10_000) // show minutes once we exceed 10 seconds
+        {
+            var minutes = value / 1000d / 60d;
+            return minutes.ToString("0.0", culture) + "m";
+        }
+
         var format = value >= 1000 ? "0" : value >= 100 ? "0.0" : "0.00";
-        return value.ToString(format, culture) + " ms";
+        return value.ToString(format, culture) + "ms";
     }
 
     private static string FormatFocusPercent(double value, CultureInfo culture, bool allowFractional = false)

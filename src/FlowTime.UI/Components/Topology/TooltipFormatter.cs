@@ -83,6 +83,23 @@ internal static class TooltipFormatter
                 lines.Add($"Service time {serviceTime.ToString(serviceTime >= 1000 ? "0" : "0.0", CultureInfo.InvariantCulture)} ms");
             }
 
+            if (metrics.FlowLatencyMs is double flowLatency)
+            {
+                if (flowLatency >= 10_000) // beyond 10s, show minutes
+                {
+                    var minutes = flowLatency / 1000d / 60d;
+                    lines.Add($"Flow latency {minutes.ToString("0.0", CultureInfo.InvariantCulture)} min");
+                }
+                else if (flowLatency >= 1000)
+                {
+                    lines.Add($"Flow latency {flowLatency.ToString("0", CultureInfo.InvariantCulture)} ms");
+                }
+                else
+                {
+                    lines.Add($"Flow latency {flowLatency.ToString("0.0", CultureInfo.InvariantCulture)} ms");
+                }
+            }
+
             if (metrics.LatencyMinutes is double latencyMinutes)
             {
                 lines.Add($"Latency {latencyMinutes:F1} min");
