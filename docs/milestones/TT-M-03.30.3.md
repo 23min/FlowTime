@@ -2,7 +2,7 @@
 
 Status: ✅ Landed  
 Owners: Platform (Sim + Templates), Architecture  
-Depends on: TT‑M‑03.30.2 (queues/retries baseline)
+Depends on: TT-M-03.30.2 (queues/retries baseline)
 
 ---
 
@@ -82,3 +82,20 @@ Once this lands, templates get realistic curves immediately, and we still have t
 - ✅ Topology legend: restore top-right legend for node color basis (passing/warning/breach swatches).
 - ✅ Flow latency focus: Chip added, tooltips show flow latency (ms/min), dedicated thresholds (2s/10s), and coloring uses proper sampling. Legend reflects flow latency thresholds.
 - 🟠 Templates: Incident Workflow (IT Ops) SupportDesk processing/served wired; need analyzer re-run across all templates to confirm no missing service time regressions.
+
+## Release Summary (Landed 2025-11-18)
+
+- **Flow latency everywhere:** `flowLatencyMs` derived server-side along the dominant upstream path and exposed in `/state` + `/state_window`; UI focus chip, legend, and inspector/tooltips show the metric with ms→min formatting. Latency chart remains queue-only to avoid confusion.
+- **Analyzer coverage:** Invariant analyzer emits info-level warnings for missing capacity/served/queue/processing inputs; warnings propagate to run metadata, telemetry manifests, and UI badges. Analyzer sweep across all catalog templates is clean.
+- **SLA dashboard polish:** SLA panels now render line sparklines across the full run window (no per-bin flattening) and stay within card width.
+- **Tooltip/icon/legend UX:** Inspector/info icon sizing/placement fixed; legend restored as a floating pill with flow-latency thresholds; dark-mode styling aligned with tooltip/title blocks.
+- **Templates:** SupportDesk and other operational nodes now wire served+processing inputs so service time and flow latency compute without infos; profile-driven PMF outputs remain deterministic.
+- **Tests:** `dotnet test` full suite passes (only known perf/parse skips remain); API/UI goldens refreshed (state/state_window/orchestration) and schema updated for `flowLatencyMs`.
+
+### Release Validation
+
+| Check | Result |
+| --- | --- |
+| `dotnet build FlowTime.sln` | ✅ |
+| `dotnet test --no-build` | ✅ (perf/parse tests intentionally skipped) |
+| Template analyzer sweep (Sim CLI) | ✅ no warnings across all catalog templates |

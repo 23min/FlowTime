@@ -6,7 +6,7 @@
 
 **Milestone:** TT-M-03.30.3 — PMF Time-of-Day Profiles  
 **Started:** 2025-11-17  
-**Status:** 🔄 In Progress  
+**Status:** ✅ Done  
 **Branch:** `feature/tt-m-0330-1-domain-aliases`  
 **Assignee:** [Unassigned]
 
@@ -25,13 +25,13 @@
 ### Overall Progress
 - [x] Phase 1: Engine & Profiles (2/2 tasks)
 - [x] Phase 2: Templates & Docs (3/3 tasks)
-- [ ] Phase 3: UI & Analyzer polish (2/3 tasks)
+- [x] Phase 3: UI & Analyzer polish (3/3 tasks)
 
 ### Test Status
-- **Unit/UI Tests:** Failing: UI Topology inspector (metric stack ordering after flow latency). Dashboard sparkline passes.
-- **API Tests:** Failing: state/schema goldens (`flowLatencyMs` + bin metadata) and orchestration goldens (`plan`/timestamps). Queue-latency-null fixed.
-- **Integration Tests:** Existing suites pass (perf flakes when running full PMF perf tests)
-- **E2E Tests:** Manual UI verification pending
+- **Unit/UI Tests:** ✅ `dotnet test --no-build` passes (only known perf/parse skips).
+- **API Tests:** ✅ Goldens refreshed (state/state_window/orchestration), schema updated for `flowLatencyMs`.
+- **Integration Tests:** ✅ Passing.
+- **E2E Tests:** ⚠️ Manual UI sweep spot-checked (topology flow latency focus, SLA sparklines); full manual pass deferred.
 
 ---
 
@@ -112,6 +112,21 @@
 - [ ] Verify restored legend renders in prod bundle.
 
 ---
+
+### 2025-11-21 - Wrap-up and goldens
+
+**Changes:**
+- Refreshed API goldens (state, state_window, orchestration) and schema for `flowLatencyMs`; updated orchestration test expectation for analyzer warnings.
+- Fixed UI inspector metric stack ordering (flow latency placeholder) test; SLA sparklines and flow-latency legend/palette in place.
+- Analyzer sweep across all templates clean (no missing-service-time infos).
+
+**Tests:**
+- ✅ `dotnet test --no-build` (full suite; known perf/parse tests skipped by design).
+- ✅ Template analyzer sweep via Sim CLI.
+
+**Next Steps:**
+- ✅ Milestone release note captured in `TT-M-03.30.3.md`.
+- ⚠️ Optional: broader manual UI pass when bundle is published.
 
 ## Phase 1: Engine & Profiles
 
