@@ -42,7 +42,8 @@
         "serviceTimeMs": 300,
         "throughputRatio": 0.6,
         "retryTax": 0.142857,
-        "color": "yellow"
+        "color": "yellow",
+        "flowLatencyMs": 300
       },
       "telemetry": {
         "sources": [
@@ -76,7 +77,8 @@
       "derived": {
         "latencyMinutes": 8.333333,
         "throughputRatio": 0.857143,
-        "color": "red"
+        "color": "red",
+        "flowLatencyMs": 500000
       },
       "telemetry": {
         "sources": [

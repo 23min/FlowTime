@@ -34,72 +34,18 @@
       "id": "OrderService",
       "kind": "service",
       "series": {
-        "arrivals": [
-          10,
-          10,
-          10,
-          10
-        ],
-        "served": [
-          9,
-          6,
-          9,
-          4
-        ],
-        "errors": [
-          1,
-          1,
-          1,
-          1
-        ],
-        "attempts": [
-          10,
-          7,
-          10,
-          5
-        ],
-        "failures": [
-          1,
-          1,
-          1,
-          1
-        ],
-        "retryEcho": [
-          0,
-          0.6,
-          0.9,
-          1
-        ],
-        "retryTax": [
-          0.1,
-          0.142857,
-          0.1,
-          0.2
-        ],
-        "capacity": [
-          12,
-          7,
-          9,
-          4
-        ],
-        "utilization": [
-          0.75,
-          0.857143,
-          1,
-          1
-        ],
-        "throughputRatio": [
-          0.9,
-          0.6,
-          0.9,
-          0.4
-        ],
-        "serviceTimeMs": [
-          250,
-          300,
-          300,
-          300
-        ]
+        "arrivals": [10, 10, 10, 10],
+        "served": [9, 6, 9, 4],
+        "errors": [1, 1, 1, 1],
+        "attempts": [10, 7, 10, 5],
+        "failures": [1, 1, 1, 1],
+        "retryEcho": [0, 0.6, 0.9, 1],
+        "retryTax": [0.1, 0.142857, 0.1, 0.2],
+        "capacity": [12, 7, 9, 4],
+        "utilization": [0.75, 0.857143, 1, 1],
+        "throughputRatio": [0.9, 0.6, 0.9, 0.4],
+        "serviceTimeMs": [250, 300, 300, 300],
+        "flowLatencyMs": [250, 300, 300, 300]
       },
       "telemetry": {
         "sources": [
@@ -125,42 +71,13 @@
       "id": "SupportQueue",
       "kind": "queue",
       "series": {
-        "arrivals": [
-          9,
-          7,
-          9,
-          5
-        ],
-        "served": [
-          9,
-          6,
-          9,
-          4
-        ],
-        "errors": [
-          0,
-          0,
-          0,
-          0
-        ],
-        "queue": [
-          2,
-          10,
-          20,
-          0
-        ],
-        "latencyMinutes": [
-          1.111111,
-          8.333333,
-          11.111111,
-          0
-        ],
-        "throughputRatio": [
-          1,
-          0.857143,
-          1,
-          0.8
-        ]
+        "arrivals": [9, 7, 9, 5],
+        "served": [9, 6, 9, 4],
+        "errors": [0, 0, 0, 0],
+        "queue": [2, 10, 20, 0],
+        "latencyMinutes": [1.111111, 8.333333, 11.111111, 0],
+        "throughputRatio": [1, 0.857143, 1, 0.8],
+        "flowLatencyMs": [66666.666667, 500000, 666666.666667, 0]
       },
       "telemetry": {
         "sources": [

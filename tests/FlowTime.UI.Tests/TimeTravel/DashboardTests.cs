@@ -36,7 +36,7 @@ public class DashboardTests
                     SlaPct = 0.96d,
                     BinsMet = 2,
                     BinsTotal = 2,
-                    Mini = new[] { 1d, 0.9d }
+                    Mini = new double?[] { 1d, 0.9d }
                 }
             }
         };
@@ -158,7 +158,7 @@ public class DashboardTests
             SlaPct = 0.955d,
             BinsMet = 5,
             BinsTotal = 6,
-            Mini = new[] { 1d, 0.8d, 0.6d }
+            Mini = new double?[] { 1d, 0.8d, 0.6d }
         });
 
         Assert.NotNull(tile);

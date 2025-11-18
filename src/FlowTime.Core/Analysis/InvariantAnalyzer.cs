@@ -172,6 +172,69 @@ public static class InvariantAnalyzer
                     null,
                     "info"));
             }
+
+            // Derived-completeness infos
+            var processingSeries = TryGetSeries(semantics.ProcessingTimeMsSum, out var proc) ? proc : null;
+            var servedCountSeries = TryGetSeries(semantics.ServedCount, out var sc) ? sc : null;
+
+            var expectsProcessing = isServiceKind || !string.IsNullOrWhiteSpace(semantics.ProcessingTimeMsSum);
+            var expectsServedCount = isServiceKind || !string.IsNullOrWhiteSpace(semantics.ServedCount);
+            if (expectsProcessing && processingSeries == null)
+            {
+                warnings.Add(new InvariantWarning(
+                    nodeId,
+                    "missing_processing_time_series",
+                    "Processing time series was not available; service time cannot be computed.",
+                    Array.Empty<int>(),
+                    null,
+                    "info"));
+            }
+
+            if (expectsServedCount && servedCountSeries == null)
+            {
+                warnings.Add(new InvariantWarning(
+                    nodeId,
+                    "missing_served_count_series",
+                    "Served count series was not available; service time cannot be computed.",
+                    Array.Empty<int>(),
+                    null,
+                    "info"));
+            }
+
+            if (queueDepth != null && served != null)
+            {
+                var badLatencyBins = new List<int>();
+                var latencyBins = queueDepth.Length;
+                if (arrivals != null)
+                {
+                    latencyBins = Math.Min(latencyBins, arrivals.Length);
+                }
+                for (var i = 0; i < latencyBins; i++)
+                {
+                    var q = queueDepth[i];
+                    var s = served[i];
+                    if (!double.IsFinite(q) || !double.IsFinite(s))
+                    {
+                        continue;
+                    }
+
+                    if (s <= tolerance && Math.Abs(q) > tolerance)
+                    {
+                        badLatencyBins.Add(i);
+                    }
+                }
+
+                if (badLatencyBins.Count > 0)
+                {
+                    warnings.Add(new InvariantWarning(
+                        nodeId,
+                        "latency_uncomputable_bins",
+                        "Queue latency could not be computed where served was zero and queue depth was positive.",
+                        badLatencyBins.ToArray(),
+                        null,
+                        "info"));
+                }
+            }
         }
 
         return warnings.Count == 0

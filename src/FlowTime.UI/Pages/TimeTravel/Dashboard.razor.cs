@@ -118,7 +118,7 @@ public partial class Dashboard : IDisposable
         }
 
         var status = DetermineStatus(service);
-        var mini = service.Mini?.ToArray() ?? Array.Empty<double>();
+        var mini = service.Mini?.ToArray() ?? Array.Empty<double?>();
         var slaText = service.BinsTotal > 0
             ? string.Format(CultureInfo.InvariantCulture, "{0:0.#}%", service.SlaPct * 100d)
             : "—";
@@ -221,16 +221,60 @@ public partial class Dashboard : IDisposable
         StateHasChanged();
     }
 
-    private static string FormatMiniBarStyle(double value)
+    internal static IReadOnlyList<LineSegment> BuildLineSegments(IReadOnlyList<double?> values)
     {
-        var height = Math.Clamp(value, 0d, 1d) * 100d;
-        var color = value switch
+        var segments = new List<LineSegment>();
+        if (values.Count == 0)
         {
-            >= 0.95d => "#27ae60",
-            >= 0.9d => "#f39c12",
-            _ => "#e74c3c"
-        };
-        return $"height:{height.ToString("0.##", CultureInfo.InvariantCulture)}%;background-color:{color};";
+            return segments;
+        }
+
+        var currentPoints = new List<string>();
+        string? currentColor = null;
+        double Scale(double v) => 1d - Math.Clamp(v, 0d, 1d);
+
+        void Flush()
+        {
+            if (currentPoints.Count > 1 && currentColor is not null)
+            {
+                segments.Add(new LineSegment(string.Join(' ', currentPoints), currentColor));
+            }
+            currentPoints.Clear();
+            currentColor = null;
+        }
+
+        for (var i = 0; i < values.Count; i++)
+        {
+            var value = values[i];
+            if (!value.HasValue)
+            {
+                Flush();
+                continue;
+            }
+
+            var y = Scale(value.Value);
+            var color = value.Value switch
+            {
+                >= 0.95d => "#27ae60",
+                >= 0.9d => "#f39c12",
+                _ => "#e74c3c"
+            };
+
+            if (currentColor is null)
+            {
+                currentColor = color;
+            }
+            else if (!string.Equals(currentColor, color, StringComparison.Ordinal))
+            {
+                Flush();
+                currentColor = color;
+            }
+
+            currentPoints.Add(FormattableString.Invariant($"{i},{y:0.###}"));
+        }
+
+        Flush();
+        return segments;
     }
 
     private void HandleTileKeyDown(KeyboardEventArgs args, ServiceTileViewModel tile)
@@ -388,7 +432,7 @@ public partial class Dashboard : IDisposable
         double SlaPct,
         int BinsMet,
         int BinsTotal,
-        IReadOnlyList<double> Mini,
+        IReadOnlyList<double?> Mini,
         SlaStatus Status,
         MudBlazor.Color ChipColor,
         string StatusLabel,
@@ -396,4 +440,6 @@ public partial class Dashboard : IDisposable
         string BinsSummary,
         string AriaLabel,
         string SparklineLabel);
+
+    internal sealed record LineSegment(string Points, string Color);
 }

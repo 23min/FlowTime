@@ -13,9 +13,9 @@
         neutral: '#7C8BA1'
     };
     const EDGE_OVERLAY_STROKE_ALPHA = 0.85;
-    const InspectorIconSize = 18;
-    const InspectorIconGap = 8;
-    const InspectorTooltipGap = 10;
+    const InspectorIconSize = 20;
+    const InspectorIconGap = 4;
+    const InspectorTooltipGap = 4;
     const MIN_ZOOM_PERCENT = 25;
     const MAX_ZOOM_PERCENT = 200;
     const MIN_SCALE = MIN_ZOOM_PERCENT / 100;
@@ -1161,6 +1161,12 @@
             return;
         }
 
+        const tooltipMetrics = state.tooltipMetrics;
+        if (!tooltipMetrics?.active) {
+            toggle.style.display = 'none';
+            return;
+        }
+
         const nodeId = toggle.getAttribute('data-node-id');
         if (!nodeId || !nodeMap.has(nodeId)) {
             toggle.style.display = 'none';
@@ -1172,14 +1178,12 @@
         let targetX = base.x;
         let targetY = base.y;
 
-        const tooltipMetrics = state.tooltipMetrics;
-        if (tooltipMetrics?.active && tooltipMetrics.side === 'right') {
-            const centerCssX = tooltipMetrics.x + (tooltipMetrics.width / 2);
-            const centerCssY = tooltipMetrics.y + tooltipMetrics.height + InspectorTooltipGap + (InspectorIconSize / 2);
-            const worldPoint = cssToWorld(state, centerCssX, centerCssY);
-            targetX = worldPoint.x;
-            targetY = worldPoint.y;
-        }
+        const rightEdge = tooltipMetrics.x + tooltipMetrics.width;
+        const iconCenterCssX = rightEdge - (InspectorIconSize / 2);
+        const iconCenterCssY = tooltipMetrics.y - InspectorTooltipGap - (InspectorIconSize / 2);
+        const worldPoint = cssToWorld(state, iconCenterCssX, iconCenterCssY);
+        targetX = worldPoint.x;
+        targetY = worldPoint.y;
 
         toggle.style.display = '';
         const scale = Number(state.scale ?? 1) || 1;

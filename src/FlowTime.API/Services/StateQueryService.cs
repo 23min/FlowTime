@@ -54,6 +54,7 @@ public sealed class StateQueryService
             throw new StateQueryException(422, validation.ErrorMessage ?? "Mode validation failed.", validation.ErrorCode ?? "mode_validation_failed");
         }
 
+        var flowLatency = ComputeFlowLatency(context);
         var nodeSnapshots = new List<NodeSnapshot>(capacity: context.Topology.Nodes.Count);
         foreach (var topologyNode in context.Topology.Nodes)
         {
@@ -62,7 +63,8 @@ public sealed class StateQueryService
                 throw new StateQueryException(500, $"Data for node '{topologyNode.Id}' was not loaded. Available nodes: {string.Join(", ", context.NodeData.Keys)}");
             }
 
-            nodeSnapshots.Add(BuildNodeSnapshot(topologyNode, data, context, binIndex, GetNodeWarnings(validation, topologyNode.Id)));
+            flowLatency.TryGetValue(topologyNode.Id, out var nodeFlowLatency);
+            nodeSnapshots.Add(BuildNodeSnapshot(topologyNode, data, context, binIndex, GetNodeWarnings(validation, topologyNode.Id), nodeFlowLatency));
         }
 
         logger.LogInformation(
@@ -141,6 +143,7 @@ public sealed class StateQueryService
             ? context.Topology.Nodes
             : context.Topology.Nodes.Where(node => !IsComputedKind(node.Kind)).ToList();
 
+        var flowLatency = ComputeFlowLatency(context);
         var seriesList = new List<NodeSeries>(capacity: topologyNodes.Count);
         foreach (var topologyNode in topologyNodes)
         {
@@ -149,7 +152,8 @@ public sealed class StateQueryService
                 throw new StateQueryException(500, $"Data for node '{topologyNode.Id}' was not loaded. Available nodes: {string.Join(", ", context.NodeData.Keys)}");
             }
 
-            seriesList.Add(BuildNodeSeries(topologyNode, data, context, startBin, count, GetNodeWarnings(validation, topologyNode.Id)));
+            flowLatency.TryGetValue(topologyNode.Id, out var nodeFlowLatency);
+            seriesList.Add(BuildNodeSeries(topologyNode, data, context, startBin, count, GetNodeWarnings(validation, topologyNode.Id), nodeFlowLatency));
         }
 
         if (includeComputed)
@@ -288,9 +292,7 @@ public sealed class StateQueryService
 
             var loader = new SemanticLoader(modelDirectory);
             var bins = metadata.Window.Bins;
-            var valueSeriesLookup = loadComputedValues
-                ? BuildSeriesLookup(manifest.Series)
-                : new Dictionary<string, SeriesReference>(StringComparer.OrdinalIgnoreCase);
+            var valueSeriesLookup = BuildSeriesLookup(manifest.Series);
             var modelNodeDefinitions = modelDefinition.Nodes
                 .Where(n => !string.IsNullOrWhiteSpace(n.Id))
                 .ToDictionary(n => n.Id!, StringComparer.OrdinalIgnoreCase);
@@ -450,7 +452,7 @@ public sealed class StateQueryService
         }
     }
 
-    private static NodeSnapshot BuildNodeSnapshot(Node node, NodeData data, StateRunContext context, int binIndex, IReadOnlyList<ModeValidationWarning> nodeWarnings)
+    private static NodeSnapshot BuildNodeSnapshot(Node node, NodeData data, StateRunContext context, int binIndex, IReadOnlyList<ModeValidationWarning> nodeWarnings, double?[]? flowLatencyForNode = null)
     {
         var kind = NormalizeKind(node.Kind);
         var arrivals = GetValue(data.Arrivals, binIndex);
@@ -479,6 +481,13 @@ public sealed class StateQueryService
         var throughputRatioValue = ComputeThroughputRatio(arrivals, served);
         var throughputRatio = throughputRatioValue.HasValue ? Normalize(throughputRatioValue.Value) : null;
         var retryTax = ComputeRetryTaxValue(attempts, served);
+
+        double? flowLatencyMs = null;
+        if (flowLatencyForNode != null && binIndex >= 0 && binIndex < flowLatencyForNode.Length)
+        {
+            var raw = flowLatencyForNode[binIndex];
+            flowLatencyMs = raw.HasValue && double.IsFinite(raw.Value) ? raw.Value : null;
+        }
 
         double? serviceTimeMs = null;
         if (string.Equals(kind, "service", StringComparison.OrdinalIgnoreCase))
@@ -511,6 +520,7 @@ public sealed class StateQueryService
                 Utilization = utilization,
                 LatencyMinutes = latencyMinutes,
                 ServiceTimeMs = serviceTimeMs,
+                FlowLatencyMs = flowLatencyMs,
                 ThroughputRatio = throughputRatio,
                 RetryTax = retryTax,
                 Color = color
@@ -543,7 +553,7 @@ public sealed class StateQueryService
         };
     }
 
-    private static NodeSeries BuildNodeSeries(Node node, NodeData data, StateRunContext context, int startBin, int count, IReadOnlyList<ModeValidationWarning> nodeWarnings)
+    private static NodeSeries BuildNodeSeries(Node node, NodeData data, StateRunContext context, int startBin, int count, IReadOnlyList<ModeValidationWarning> nodeWarnings, double?[]? flowLatencyForNode = null)
     {
         var kind = NormalizeKind(node.Kind);
         var arrivalsSlice = ExtractSlice(data.Arrivals, startBin, count);
@@ -629,6 +639,12 @@ public sealed class StateQueryService
             {
                 series["serviceTimeMs"] = serviceTimeSeries;
             }
+        }
+
+        if (flowLatencyForNode != null)
+        {
+            var flowLatencySlice = ExtractSlice(flowLatencyForNode, startBin, count);
+            series["flowLatencyMs"] = flowLatencySlice;
         }
 
         if (data.Values is not null)
@@ -720,6 +736,26 @@ public sealed class StateQueryService
         {
             result[i] = Normalize(source[start + i]);
         }
+        return result;
+    }
+
+    private static double?[] ExtractSlice(double?[] source, int start, int count)
+    {
+        var result = new double?[count];
+        for (var i = 0; i < count; i++)
+        {
+            var index = start + i;
+            if (index >= 0 && index < source.Length)
+            {
+                var sample = source[index];
+                result[i] = sample.HasValue ? Normalize(sample.Value) : null;
+            }
+            else
+            {
+                result[i] = null;
+            }
+        }
+
         return result;
     }
 
@@ -815,6 +851,140 @@ public sealed class StateQueryService
             }
 
             result[i] = ComputeServiceTimeValue(data, index);
+        }
+
+        return result;
+    }
+
+    private static Dictionary<string, double?[]> ComputeFlowLatency(StateRunContext context)
+    {
+        var bins = context.Window.Bins;
+        var result = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase);
+
+        var predecessors = new Dictionary<string, List<(string Pred, double Weight)>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var edge in context.Topology.Edges)
+        {
+            var from = edge.Source?.Split(':')[0];
+            var to = edge.Target?.Split(':')[0];
+            if (string.IsNullOrWhiteSpace(from) || string.IsNullOrWhiteSpace(to))
+            {
+                continue;
+            }
+
+            var weight = edge.Multiplier ?? edge.Weight;
+            if (weight <= 0 || double.IsNaN(weight) || double.IsInfinity(weight))
+            {
+                weight = 1d;
+            }
+
+            if (!predecessors.TryGetValue(to, out var list))
+            {
+                list = new List<(string Pred, double Weight)>();
+                predecessors[to] = list;
+            }
+
+            list.Add((from, weight));
+        }
+
+        foreach (var node in context.Topology.Nodes)
+        {
+            if (!context.NodeData.TryGetValue(node.Id, out var data))
+            {
+                continue;
+            }
+
+            var baseSeries = new double?[bins];
+            var kind = NormalizeKind(node.Kind);
+            var isQueue = string.Equals(kind, "queue", StringComparison.OrdinalIgnoreCase);
+            var isService = string.Equals(kind, "service", StringComparison.OrdinalIgnoreCase);
+
+            for (var i = 0; i < bins; i++)
+            {
+                double? baseValue = null;
+                if (isQueue)
+                {
+                    var queue = GetOptionalValue(data.QueueDepth, i);
+                    var served = GetOptionalValue(data.Served, i);
+                    if (queue.HasValue && served.HasValue)
+                    {
+                        var latMin = LatencyComputer.Calculate(queue.Value, served.Value, context.Window.BinDuration.TotalMinutes);
+                        if (latMin.HasValue && double.IsFinite(latMin.Value))
+                        {
+                            baseValue = latMin.Value * 60000d;
+                        }
+                    }
+                }
+                else if (isService)
+                {
+                    baseValue = ComputeServiceTimeValue(data, i);
+                }
+
+                baseSeries[i] = baseValue;
+            }
+
+            double?[]? upstream = null;
+            if (predecessors.TryGetValue(node.Id, out var preds) && preds.Count > 0)
+            {
+                upstream = new double?[bins];
+                for (var i = 0; i < bins; i++)
+                {
+                    double? bestLatency = null;
+                    double bestServed = double.NegativeInfinity;
+
+                    foreach (var (predId, weight) in preds)
+                    {
+                        if (!result.TryGetValue(predId, out var predSeries))
+                        {
+                            continue;
+                        }
+
+                        if (!context.NodeData.TryGetValue(predId, out var predData))
+                        {
+                            continue;
+                        }
+
+                        var candidateLatency = predSeries[i];
+                        if (!candidateLatency.HasValue || !double.IsFinite(candidateLatency.Value))
+                        {
+                            continue;
+                        }
+
+                        var servedSeries = predData.Served;
+                        var servedVal = servedSeries != null && i < servedSeries.Length ? servedSeries[i] * weight : 0d;
+
+                        if (!double.IsFinite(servedVal))
+                        {
+                            continue;
+                        }
+
+                        if (servedVal > bestServed)
+                        {
+                            bestServed = servedVal;
+                            bestLatency = candidateLatency.Value;
+                        }
+                    }
+
+                    upstream[i] = bestLatency;
+                }
+            }
+
+            var combined = new double?[bins];
+            for (var i = 0; i < bins; i++)
+            {
+                var baseVal = baseSeries[i];
+                var upVal = upstream?[i];
+
+                if (baseVal.HasValue && double.IsFinite(baseVal.Value))
+                {
+                    combined[i] = upVal.HasValue ? baseVal.Value + upVal.Value : baseVal.Value;
+                }
+                else
+                {
+                    combined[i] = upVal.HasValue ? upVal.Value : null;
+                }
+            }
+
+            result[node.Id] = combined;
         }
 
         return result;

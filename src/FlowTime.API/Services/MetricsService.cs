@@ -20,7 +20,6 @@ namespace FlowTime.API.Services;
 
 public sealed class MetricsService
 {
-    private const int defaultWindowBins = 12;
     private const double slaThreshold = 0.95d;
     private readonly IConfiguration configuration;
     private readonly ILogger<MetricsService> logger;
@@ -140,13 +139,12 @@ public sealed class MetricsService
         else if (endBin.HasValue)
         {
             resolvedEnd = endBin.Value;
-            var desired = defaultWindowBins - 1;
-            resolvedStart = Math.Max(0, resolvedEnd - desired);
+            resolvedStart = 0;
         }
         else
         {
+            resolvedStart = 0;
             resolvedEnd = totalBins - 1;
-            resolvedStart = Math.Max(0, totalBins - defaultWindowBins);
         }
 
         if (resolvedEnd < resolvedStart)
@@ -188,25 +186,25 @@ public sealed class MetricsService
 
         var binCount = endBin - startBin + 1;
 
-        if (!string.Equals(manifestMetadata.Mode, "simulation", StringComparison.OrdinalIgnoreCase))
+        // Always prefer operational state (matches topology scrubbing). Fall back to model only if unavailable.
+        try
         {
-            try
+            var window = await stateQueryService.GetStateWindowAsync(
+                runId,
+                startBin,
+                endBin,
+                GraphQueryMode.Operational,
+                cancellationToken).ConfigureAwait(false);
+            return ConvertFromStateWindow(window, manifest, binCount);
+        }
+        catch (StateQueryException ex)
+        {
+            logger.LogWarning(ex, "State window resolution failed for run {RunId}, falling back to model evaluation", runId);
+            var allowFallback = ex.StatusCode is 404 or 413 ||
+                                ex.Message.Contains("Unsupported URI scheme", StringComparison.OrdinalIgnoreCase);
+            if (!allowFallback)
             {
-                var window = await stateQueryService.GetStateWindowAsync(
-                    runId,
-                    startBin,
-                    endBin,
-                    GraphQueryMode.Operational,
-                    cancellationToken).ConfigureAwait(false);
-                return ConvertFromStateWindow(window, manifest, binCount);
-            }
-            catch (StateQueryException ex)
-            {
-                logger.LogWarning(ex, "State window resolution failed for run {RunId}, falling back to model evaluation", runId);
-                if (ex.StatusCode != 404 && !ex.Message.Contains("Unsupported URI scheme", StringComparison.OrdinalIgnoreCase))
-                {
-                    throw new MetricsQueryException(ex.StatusCode, ex.Message);
-                }
+                throw new MetricsQueryException(ex.StatusCode, ex.Message);
             }
         }
 
@@ -411,7 +409,7 @@ public sealed class MetricsService
             }
 
             var binCount = resolution.BinCount;
-            var ratios = new double[binCount];
+            var ratios = new double?[binCount];
             var binsMet = 0;
             var binsEvaluated = 0;
 
@@ -422,7 +420,7 @@ public sealed class MetricsService
 
                 if (!arrivals.HasValue || !served.HasValue)
                 {
-                    ratios[i] = 0d;
+                    ratios[i] = null;
                     continue;
                 }
 
@@ -439,9 +437,9 @@ public sealed class MetricsService
                 }
             }
 
-            IReadOnlyList<double> mini = ratios;
+            IReadOnlyList<double?> mini = ratios;
 
-            var slaPct = binsEvaluated > 0 ? binsMet / (double)binsEvaluated : 1d;
+            var slaPct = binsEvaluated > 0 ? binsMet / (double)binsEvaluated : 0d;
             services.Add(new ServiceMetrics
             {
                 Id = node.Id,

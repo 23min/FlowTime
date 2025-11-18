@@ -189,6 +189,9 @@ public sealed record TimeTravelNodeDerivedMetricsDto
     [JsonPropertyName("serviceTimeMs")]
     public double? ServiceTimeMs { get; init; }
 
+    [JsonPropertyName("flowLatencyMs")]
+    public double? FlowLatencyMs { get; init; }
+
     [JsonPropertyName("throughputRatio")]
     public double? ThroughputRatio { get; init; }
 
@@ -280,5 +283,5 @@ public sealed record TimeTravelServiceMetricsDto
     public int BinsTotal { get; init; }
 
     [JsonPropertyName("mini")]
-    public IReadOnlyList<double> Mini { get; init; } = Array.Empty<double>();
+    public IReadOnlyList<double?> Mini { get; init; } = Array.Empty<double?>();
 }

@@ -28,5 +28,5 @@ public sealed class ServiceMetrics
     public double SlaPct { get; init; }
     public int BinsMet { get; init; }
     public int BinsTotal { get; init; }
-    public IReadOnlyList<double> Mini { get; init; } = Array.Empty<double>();
+    public IReadOnlyList<double?> Mini { get; init; } = Array.Empty<double?>();
 }

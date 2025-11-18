@@ -38,6 +38,13 @@ serviceTimeMs = processingTimeMsSum / max(1, servedCount)
 
 The derived metric ships in `/state` and `/state_window`, giving the UI a stable basis for the “Service Time” color mode and inspector sparkline. Every gallery template (incident workflow, IT microservices, all supply-chain variants, manufacturing, network reliability, and transportation demos) now emits those series so operators can see latency and service time without editing YAML. The UI currently uses static thresholds (green ≤ 400 ms, yellow ≤ 700 ms, red beyond) until quantile-based tuning arrives in TT‑M‑03.30.
 
+### Flow Latency (Source → Node)
+
+- Definition: cumulative queue latency (Little’s Law per queue) plus service time along the dominant upstream path from a source to the current node. No fan-in averaging/blending.
+- Computation: pick the highest-volume predecessor per bin; `flowLatencyMs = upstreamFlowLatencyMs + (queueLatencyMinutes * 60000 or serviceTimeMs)`.
+- Exposure: `/state` and `/state_window` include `flowLatencyMs` per node; null when inputs are missing. UI shows flow latency sparkline/metric; dashboard can surface flow latency KPI.
+- Telemetry: works for simulation and real telemetry as long as queue depth/served and processingTimeMsSum/servedCount are present; otherwise emits info-level warnings.
+
 ---
 
 ## Milestone Overview

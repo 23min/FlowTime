@@ -188,6 +188,11 @@ public sealed class TopologyInspectorTests
             },
             block =>
             {
+                Assert.Equal("Flow latency", block.Title);
+                Assert.True(block.IsPlaceholder);
+            },
+            block =>
+            {
                 Assert.Equal("Latency", block.Title);
                 Assert.False(block.IsPlaceholder);
             },

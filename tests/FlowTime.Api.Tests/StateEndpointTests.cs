@@ -265,6 +265,15 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         Assert.Equal(1.11111, latency[0]!.Value, 5);
         Assert.Null(latency[1]);
         Assert.Equal(11.11111, latency[2]!.Value, 5);
+        Assert.Equal(0, latency[3]!.Value, 5);
+
+        // Flow latency should track queue latency + upstream service; null when served is zero.
+        Assert.True(queueSeries.Series.TryGetValue("flowLatencyMs", out var flowLatency));
+        Assert.Equal(4, flowLatency.Length);
+        Assert.Equal(66666.666667, flowLatency[0]!.Value, 6);
+        Assert.Null(flowLatency[1]);
+        Assert.Equal(666666.666667, flowLatency[2]!.Value, 6);
+        Assert.Equal(0, flowLatency[3]!.Value, 6);
 
         AssertGoldenResponse("state-window-queue-null-approved.json", payload);
     }

@@ -21,7 +21,9 @@
     "rng": {
       "kind": "pcg32",
       "seed": 123
-    }
+    },
+    "createdUtc": "CREATED_UTC",
+    "warningCount": 0
   },
   "plan": null,
   "warnings": [],

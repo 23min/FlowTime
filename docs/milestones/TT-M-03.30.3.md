@@ -67,3 +67,14 @@ Templates now rely on PMF nodes for demand/capacity, but PMFs currently emit a f
 ## Follow-up
 
 Once this lands, templates get realistic curves immediately, and we still have the option to introduce true stochastic sampling later without breaking determinism (profiles simply become the mean curve we sample around).
+
+### Addendum — End-to-End Latency (in flight)
+
+- We will derive flow latency server-side (no UI math) as: queue wait (Little’s Law latency per queue) + service time (processingTimeMsSum / servedCount) accumulated along the path. The API will expose `flowLatencyMs` in `/state` and `/state_window` so both simulation and real telemetry benefit. Missing inputs yield null plus info-level warnings. UI will render the series in topology/inspector and can surface a latency KPI on the dashboard.
+
+### QA / Open Items (2025-11-17)
+
+- 🔴 API goldens need refresh for new `flowLatencyMs`/bin metadata and orchestration responses (`create-run`, `create-simulation-run`, list). State schema must allow `flowLatencyMs`.
+- 🔴 UI Topology inspector test still expects old metric stack (needs flow-latency aware ordering).
+- 🟠 SLA dashboard: sparkline now rendered as SVG line; verify visibility across 288-bin windows once bundle rebuilt.
+- 🟠 Perf suite: `FlowTime.Tests.Performance.M2PerformanceTests.Test_PMF_Complexity_Scaling` remains flaky/skip.

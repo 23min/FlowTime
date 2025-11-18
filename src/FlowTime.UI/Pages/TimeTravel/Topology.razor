@@ -2802,7 +2802,11 @@ internal sealed record InspectorMetricBlock(
         AddRequired("Success rate", "successRate", 0d, 1d, valueFormat: InspectorValueFormat.Percent);
         AddRequired("Utilization", "utilization", 0d, 1d, valueFormat: InspectorValueFormat.Percent);
         AddRequired("Service time", "serviceTimeMs", 0d, seriesKeyOverride: "serviceTimeMs");
-        AddRequired("Latency", "latencyMinutes", 0d);
+        AddRequired("Flow latency", "flowLatencyMs", 0d, seriesKeyOverride: "flowLatencyMs");
+        if (IsQueueKind(nodeKind))
+        {
+            AddRequired("Latency", "latencyMinutes", 0d);
+        }
         AddRequired("Error rate", "errorRate", 0d, 1d, valueFormat: InspectorValueFormat.Percent);
         AddOptional(Label("Errors", "errors"), "errors", 0d, ariaLabel: "Errors sparkline");
 

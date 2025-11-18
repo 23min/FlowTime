@@ -38,14 +38,7 @@
                         title="View @SelectedNodeId details"
                         @onclick="() => OpenInspector(SelectedNodeId!)"
                         @onclick:stopPropagation>
-                    <span class="topology-node-inspector-toggle__bars" aria-hidden="true">
-                        <span class="bar bar-1"></span>
-                        <span class="bar bar-2"></span>
-                        <span class="bar bar-3"></span>
-                        <span class="dot dot-1"></span>
-                        <span class="dot dot-2"></span>
-                        <span class="dot dot-3"></span>
-                    </span>
+                    <span class="topology-node-inspector-toggle__info" aria-hidden="true"></span>
                     <span class="visually-hidden">Open details for @SelectedNodeId</span>
                 </button>
             }

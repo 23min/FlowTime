@@ -174,7 +174,7 @@ public sealed class TimeTravelMetricsClient : ITimeTravelMetricsClient
             return null;
         }
 
-        var ratios = new double[clampCount];
+        var ratios = new double?[clampCount];
         var binsMet = 0;
         var binsEvaluated = 0;
 
@@ -185,7 +185,7 @@ public sealed class TimeTravelMetricsClient : ITimeTravelMetricsClient
 
             if (!arrivalsValue.HasValue || !servedValue.HasValue)
             {
-                ratios[i] = 0d;
+                ratios[i] = null;
                 continue;
             }
 
@@ -202,7 +202,7 @@ public sealed class TimeTravelMetricsClient : ITimeTravelMetricsClient
             }
         }
 
-        IReadOnlyList<double> mini = ratios;
+        IReadOnlyList<double?> mini = ratios;
 
         var slaPct = binsEvaluated > 0 ? binsMet / (double)binsEvaluated : 1d;
 

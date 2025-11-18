@@ -28,7 +28,8 @@
 - [ ] Phase 3: UI & Analyzer polish (2/3 tasks)
 
 ### Test Status
-- **Unit Tests:** 1 new (generator manifest warning propagation) / suites passing
+- **Unit/UI Tests:** Failing: UI Topology inspector (metric stack ordering after flow latency). Dashboard sparkline passes.
+- **API Tests:** Failing: state/schema goldens (`flowLatencyMs` + bin metadata) and orchestration goldens (`plan`/timestamps). Queue-latency-null test needs update.
 - **Integration Tests:** Existing suites pass (perf flakes when running full PMF perf tests)
 - **E2E Tests:** Manual UI verification pending
 
@@ -69,6 +70,8 @@
 **Next Steps:**
 - [ ] Finalize scrubber tooltip border to match node tooltips visually.
 - [ ] Re-verify node info chips after UI restart/run regeneration.
+- [ ] Update API goldens and schema for flow latency; fix queue-latency-null regression.
+- [ ] Update inspector metric stack expectation to include flow latency before error rate.
 
 **Blockers:**
 - Perf benchmark tests flaky when run in full suite.
@@ -80,10 +83,10 @@
 
 **Tests:**
 - ✅ `dotnet build FlowTime.sln`
-- ⚠️ `dotnet test FlowTime.sln` — API golden baselines now need updates for added info warnings.
+- ⚠️ `dotnet test FlowTime.sln` — API golden baselines now need updates for added info warnings and flow latency; UI inspector stack expectation failing.
 
 **Next Steps:**
-- [ ] Refresh API golden files to account for info-level warnings.
+- [ ] Refresh API golden files to account for info-level warnings and flow latency.
 - [ ] Visual QA: confirm utilization now shows for all operational nodes.
 
 **Blockers:**
