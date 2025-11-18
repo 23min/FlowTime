@@ -29,7 +29,7 @@
 
 ### Test Status
 - **Unit/UI Tests:** Failing: UI Topology inspector (metric stack ordering after flow latency). Dashboard sparkline passes.
-- **API Tests:** Failing: state/schema goldens (`flowLatencyMs` + bin metadata) and orchestration goldens (`plan`/timestamps). Queue-latency-null test needs update.
+- **API Tests:** Failing: state/schema goldens (`flowLatencyMs` + bin metadata) and orchestration goldens (`plan`/timestamps). Queue-latency-null fixed.
 - **Integration Tests:** Existing suites pass (perf flakes when running full PMF perf tests)
 - **E2E Tests:** Manual UI verification pending
 
@@ -91,6 +91,23 @@
 
 **Blockers:**
 - None.
+
+### 2025-11-20 - Flow latency UI polish & legend
+
+**Changes:**
+- SLA dashboard sparkline switched to SVG with clearer stroke and null-handling; metrics prefer operational state windows.
+- Inspector toggle replaced with info glyph, re-positioned above tooltip, scaled to 20px; hides with tooltip.
+- Restored topology legend swatches (passing/warning/breach) in the canvas header.
+- Queue latency null test fixed and golden refreshed (flow latency null behavior).
+
+**Tests:**
+- ⚠️ `dotnet test` overall: UI inspector stack expectation still failing; API goldens/schemas still pending refresh.
+
+**Next Steps:**
+- [ ] Add flow-latency focus chip/legend option for topology coloring when `flowLatencyMs` is available.
+- [ ] Refresh API goldens + state schema for `flowLatencyMs` (state and orchestration).
+- [ ] Update inspector metric stack test to reflect flow latency insertion.
+- [ ] Verify restored legend renders in prod bundle.
 
 ---
 

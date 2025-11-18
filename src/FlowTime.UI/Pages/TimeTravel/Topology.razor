@@ -277,6 +277,16 @@
                         </MudStack>
                     </MudPaper>
 
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.End" Class="topology-legend">
+                        @foreach (var entry in BuildLegendEntries())
+                        {
+                            <div class="legend-item">
+                                <span class="legend-swatch @entry.Swatch"></span>
+                                <span>@entry.Label</span>
+                            </div>
+                        }
+                    </MudStack>
+
                     <MudStack Row="true" AlignItems="AlignItems.Stretch" Spacing="2" Class="topology-stage">
                         <div class="topology-canvas-region">
                             <TopologyCanvas @ref="canvasComponent"
@@ -584,10 +594,17 @@ private string? inspectorNodeId;
 private bool inspectorOpen;
 private bool inspectorPinned;
 private bool inspectorMetricsExpanded;
-private string? inspectorHoveredEdgeId;
-private string? inspectorPinnedEdgeId;
-private string? canvasHoveredEdgeId;
+    private string? inspectorHoveredEdgeId;
+    private string? inspectorPinnedEdgeId;
+    private string? canvasHoveredEdgeId;
     private CancellationTokenSource? saveRunStateDebounceCts;
+
+    private static readonly LegendEntry[] LegendEntries =
+    [
+        new LegendEntry("success", "Passing / low"),
+        new LegendEntry("warning", "Warning"),
+        new LegendEntry("error", "High / breach")
+    ];
 
     private TopologyGraph? topologyGraph;
     private IReadOnlyDictionary<string, NodeBinMetrics> activeMetrics = new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase);
@@ -625,6 +642,12 @@ private string? canvasHoveredEdgeId;
     private bool? savedIncludeConstNodes;
     private bool? savedEnableFullDag;
 
+    private IEnumerable<LegendEntry> BuildLegendEntries()
+    {
+        // Legend swatches are kept simple and consistent regardless of color basis.
+        return LegendEntries;
+    }
+
     private const double MinPlaybackDelay = 0.02d;
     private const double MaxPlaybackDelay = 120d;
     private const double BasePlaybackTotalSeconds = 30d;
@@ -632,6 +655,8 @@ private string? canvasHoveredEdgeId;
     private sealed record PlaybackSpeedOption(double Factor, double Seconds, string Label);
     private List<PlaybackSpeedOption> playbackSpeedOptions = new();
     private IReadOnlyList<PlaybackSpeedOption> PlaybackSpeedOptions => playbackSpeedOptions;
+
+    private sealed record LegendEntry(string Swatch, string Label);
 
     private sealed record TimelineTick(int Bin, double Percent, string Label);
     internal sealed record InspectorDependencyViewModel(string EdgeId, string Label, string Source, int Order);

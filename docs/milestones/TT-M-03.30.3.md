@@ -77,4 +77,6 @@ Once this lands, templates get realistic curves immediately, and we still have t
 - 🔴 API goldens need refresh for new `flowLatencyMs`/bin metadata and orchestration responses (`create-run`, `create-simulation-run`, list). State schema must allow `flowLatencyMs`.
 - 🔴 UI Topology inspector test still expects old metric stack (needs flow-latency aware ordering).
 - 🟠 SLA dashboard: sparkline now rendered as SVG line; verify visibility across 288-bin windows once bundle rebuilt.
+- 🟠 Flow latency focus: add a “Flow latency” focus chip to paint node coloring from `flowLatencyMs` when available; ensure legend reflects color basis.
 - 🟠 Perf suite: `FlowTime.Tests.Performance.M2PerformanceTests.Test_PMF_Complexity_Scaling` remains flaky/skip.
+- ✅ Topology legend: restore top-right legend for node color basis (passing/warning/breach swatches).
