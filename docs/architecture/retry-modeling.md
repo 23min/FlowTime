@@ -25,6 +25,7 @@ FlowTime maintains **deterministic, single-pass evaluation** while handling comp
 ## Reference Assets
 
 - **Template:** `templates/supply-chain-incident-retry.yaml` (24-bin IT ops incident workflow with deterministic kernel)
+- **Fixture:** `fixtures/time-travel/retry-service-time/` — deterministic 4-bin telemetry bundle used by API/UI tests; copy under `data/runs/<id>/model` to replay server-computed edges locally.
 - **API Goldens:** `tests/FlowTime.Api.Tests/Golden/state-window-*.json`, `graph-run_graph_fixture.json`
 - **UI Tests:** `tests/FlowTime.UI.Tests/TimeTravel/*` covering chips, edge payloads, and inspector toggles
 
@@ -733,3 +734,8 @@ FlowTime engine's retry modeling architecture provides **comprehensive computati
 By **avoiding algebraic loops** and using **bounded history buffers**, FlowTime maintains predictable performance characteristics while supporting sophisticated retry analysis. The architecture is designed to scale from simple internal retry modeling to complex multi-service retry propagation scenarios.
 
 This foundation enables data-driven optimization of retry policies, early detection of retry storms, and comprehensive understanding of how failure patterns propagate through complex distributed systems.
+- **Retry Edge Slice (TT‑M‑03.31)**  
+  `/v1/runs/{runId}/state_window` now emits a server-computed `edges` collection (when requested) describing each retry-relevant dependency:
+  - `id`, `from`, `to`, `edgeType`, `field`, `multiplier`, `lag`.
+  - Series keys: `attemptsLoad`, `failuresLoad`, `retryRate` (aligned with `window.startBin`).  
+  UI surfaces consume those series directly for overlay rendering; clients no longer derive retry metrics from node data.

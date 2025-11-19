@@ -1,12 +1,33 @@
 # TT‑M‑03.31 — End‑to‑End Fixtures, Goldens, and Documentation (Retries + Service Time)
 
-Status: Planned  
+Status: Completed  
 Owners: Platform (API) + UI  
 References: docs/development/milestone-documentation-guide.md, docs/development/TEMPLATE-tracking.md
 
 ## Overview
 
 Close out the “Retry + Service Time” epic with production‑quality fixtures, golden tests for API contracts, UI tests, and documentation. Ensure examples clearly show how retries impact dependencies and how service time affects node coloring.
+
+## Summary (May 2025)
+
+- Added a deterministic replay fixture under `fixtures/time-travel/retry-service-time/` (CSV series, model, README). Harnessed in API tests/UI tests so anyone can recreate the run locally (`FLOWTIME_DATA_DIR=/path/to/fixture dotnet test`).
+- `/v1/runs/{runId}/state_window` now emits server-computed retry edge series (attempts/failures/retryRate with multiplier/lag) when requested. UI requests `include=edges` and renders overlays directly from the slice; client-side derivation is next to be removed entirely.
+- Golden snapshots cover the edge slice (`state-window-edges-approved.json`) and schema tests assert both shapes. UI tests verify retry overlays consume server edges.
+- Docs updated (this milestone, architecture retry section, roadmap) with contract tables, fixture instructions, and demo checklist.
+
+## Validation
+
+1. Generated the retry fixture (`cp -r fixtures/time-travel/retry-service-time data/runs/run_state_fixture/model`, run metadata via test harness) and inspected via UI/topology page with overlays enabled (retry legend shows server metrics at bin 1).
+2. `dotnet test FlowTime.sln` — PASS (perf baseline skips still present). API `StateEndpointTests.GetStateWindow_IncludesRetryEdgesWhenRequested` validates golden; schema tests validate edges slice. UI tests confirm `CanvasRenderRequest.EdgeSeries`.
+3. Demo checklist (operator view):
+   - Load topology page with run `run_state_edges` using `include=edges`.
+   - Toggle Retry overlay; verify legends/labels match golden values (`attemptsLoad[1]=20`, `retryRate[1]=0.1`).
+   - Switch node color basis to Service Time and inspect TTL in inspector.
+
+## What’s Next
+
+- Remove legacy client-side edge derivation and the temporary `include=edges` opt-in flag (edges will ship by default). Update docs when done.
+- Expand fixtures with captured provenance + CLI instructions if additional replay scenarios are needed.
 
 ## Goals
 

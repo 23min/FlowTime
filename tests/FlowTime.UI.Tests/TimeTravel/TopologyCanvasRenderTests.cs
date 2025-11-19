@@ -184,6 +184,7 @@ public sealed class TopologyCanvasRenderTests : TestContext
         var payload = Assert.IsType<CanvasRenderRequest>(renderCall.Invocations.Single().Arguments[1]);
         Assert.NotNull(payload.EdgeSeries);
         Assert.Equal(edgeSeries, payload.EdgeSeries);
+        Assert.Equal(0, payload.EdgeSeriesStartIndex);
     }
 
     [Fact]

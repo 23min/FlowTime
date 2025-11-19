@@ -808,8 +808,10 @@ static IReadOnlyCollection<string>? ParseCsv(IQueryCollection query, string key)
         return null;
     }
 
-    var entries = rawValues
-        .SelectMany(value => value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+    var values = rawValues.ToArray() ?? Array.Empty<string>();
+    var entries = values
+        .Where(value => !string.IsNullOrWhiteSpace(value))
+        .SelectMany(value => (value ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         .Where(value => !string.IsNullOrWhiteSpace(value))
         .Select(value => value.Trim())
         .ToArray();
