@@ -171,7 +171,9 @@
                 tooltipMetrics: null,
                 edgeOverlayLegend: null,
                 edgeOverlayContext: null,
-                globalWarningsByNode: new Map()
+                globalWarningsByNode: new Map(),
+                edgeSeries: new Map(),
+                edgeSeriesStartIndex: 0
             };
             setupCanvas(canvas, state);
             registry.set(canvas, state);
@@ -522,6 +524,8 @@
         console.info('[TopologyCanvas] draw', { nodes: nodes.length, edges: edges.length });
         const overlaySettings = state.overlaySettings ?? parseOverlaySettings(state.payload.overlays ?? state.payload.Overlays ?? {});
         const tooltip = state.payload.tooltip ?? state.payload.Tooltip ?? null;
+        const edgeSeries = state.edgeSeries ?? new Map();
+        const edgeSeriesStartIndex = Number(state.edgeSeriesStartIndex ?? 0);
 
         // Sync overlay DOM (proxies + tooltip) with canvas pan/zoom so hover/focus hitboxes and callouts align
         applyOverlayTransform(canvas, state);
@@ -589,7 +593,7 @@
         const neighborNodes = emphasisEnabled ? computeNeighborNodes(edges, focusedId) : null;
         const neighborEdges = emphasisEnabled ? computeNeighborEdges(edges, focusedId) : null;
 
-        const overlayContext = buildEdgeOverlayContext(edges, nodeMap, overlaySettings);
+        const overlayContext = buildEdgeOverlayContext(edges, nodeMap, overlaySettings, edgeSeries, edgeSeriesStartIndex);
         state.edgeOverlayContext = overlayContext;
         state.edgeOverlayLegend = overlayContext?.legend ?? null;
 
@@ -1807,6 +1811,11 @@
         state.overlaySettings = overlaySettings;
         const rawTitle = payload?.title ?? payload?.Title ?? '';
         state.title = typeof rawTitle === 'string' ? rawTitle : '';
+
+        const rawEdgeSeries = payload?.edgeSeries ?? payload?.EdgeSeries ?? null;
+        state.edgeSeries = normalizeEdgeSeries(rawEdgeSeries);
+        const edgeSeriesStartIndex = Number(payload?.edgeSeriesStartIndex ?? payload?.EdgeSeriesStartIndex ?? 0);
+        state.edgeSeriesStartIndex = Number.isFinite(edgeSeriesStartIndex) ? edgeSeriesStartIndex : 0;
 
         // Global warning map keyed by node id for fallback when warnings are not attached to node payloads
         state.globalWarningsByNode = new Map();
@@ -4791,7 +4800,60 @@
         return value ? `${label}: ${value}` : label;
     }
 
-    function buildEdgeOverlayContext(edges, nodeMap, overlays) {
+    function normalizeEdgeSeries(raw) {
+        const map = new Map();
+        if (!raw || !Array.isArray(raw)) {
+            return map;
+        }
+
+        for (const entry of raw) {
+            if (!entry) continue;
+            const id = (entry.id ?? entry.Id ?? '').toString();
+            if (!id) continue;
+
+            map.set(id, {
+                id,
+                from: entry.from ?? entry.From ?? '',
+                to: entry.to ?? entry.To ?? '',
+                field: typeof entry?.field === 'string' ? entry.field.toLowerCase() : (typeof entry?.Field === 'string' ? entry.Field.toLowerCase() : ''),
+                series: entry.series ?? entry.Series ?? {},
+                multiplier: entry.multiplier ?? entry.Multiplier,
+                lag: entry.lag ?? entry.Lag
+            });
+        }
+
+        return map;
+    }
+
+    function sampleEdgeSeriesValue(series, key, selectedBin, startIndex) {
+        if (!series || typeof key !== 'string') {
+            return null;
+        }
+
+        const normalizedKey = key.toLowerCase();
+        const pascalKey = key.length > 0 ? `${key[0].toUpperCase()}${key.slice(1)}` : key;
+        const values = Array.isArray(series[key])
+            ? series[key]
+            : Array.isArray(series[normalizedKey])
+                ? series[normalizedKey]
+                : Array.isArray(series[pascalKey])
+                    ? series[pascalKey]
+                    : null;
+
+        if (!values || values.length === 0) {
+            return null;
+        }
+
+        const index = Math.round(selectedBin - startIndex);
+        if (!Number.isFinite(index) || index < 0 || index >= values.length) {
+            return null;
+        }
+
+        const value = values[index];
+        return Number.isFinite(value) ? Number(value) : null;
+    }
+
+    function buildEdgeOverlayContext(edges, nodeMap, overlays, edgeSeries, edgeSeriesStartIndex) {
         if (!overlays) {
             return null;
         }
@@ -4806,55 +4868,51 @@
             return null;
         }
 
+        const seriesMap = edgeSeries instanceof Map ? edgeSeries : normalizeEdgeSeries(edgeSeries);
+        if (!seriesMap || seriesMap.size === 0) {
+            return null;
+        }
+
+        const startIndex = Number.isFinite(edgeSeriesStartIndex) ? edgeSeriesStartIndex : 0;
         const samples = new Map();
         const values = [];
 
         for (const edge of edges) {
-            const type = resolveEdgeType(edge);
-            if (type === EdgeTypeDependency) {
+            const fromId = edge.from ?? edge.From;
+            const toId = edge.to ?? edge.To;
+            if (!fromId || !toId) {
                 continue;
             }
 
-            const fromId = edge.from ?? edge.From;
             if (!nodeMap.has(fromId)) {
                 continue;
             }
 
-            const meta = nodeMap.get(fromId);
-            const sparkline = meta?.sparkline ?? null;
-            if (!sparkline) {
+            const edgeId = edge.id ?? edge.Id ?? `${fromId}->${toId}`;
+            const series = seriesMap.get(edgeId);
+            if (!series) {
                 continue;
             }
 
-            const edgeId = edge.id ?? edge.Id ?? `${fromId}->${edge.to ?? edge.To}`;
-
             if (mode === 'retryRate') {
-                const attempts = sampleSeriesValueAt(sparkline, 'attempts', selectedBin);
-                if (!Number.isFinite(attempts) || attempts <= 0) {
+                const value = sampleEdgeSeriesValue(series.series, 'retryRate', selectedBin, startIndex);
+                if (!Number.isFinite(value)) {
                     continue;
                 }
-                const failures = sampleSeriesValueAt(sparkline, 'failures', selectedBin) ?? sampleSeriesValueAt(sparkline, 'errors', selectedBin) ?? 0;
-                const value = clamp(Number(failures) / attempts, 0, 1);
+                const clamped = clamp(Number(value), 0, 1);
                 samples.set(edgeId, {
                     mode,
-                    value,
-                    text: formatPercent(value)
+                    value: clamped,
+                    text: formatPercent(clamped)
                 });
-                values.push(value);
+                values.push(clamped);
             } else if (mode === 'attempts') {
-                let attempts = sampleSeriesValueAt(sparkline, 'attempts', selectedBin)
-                    ?? sampleSeriesValueAt(sparkline, 'served', selectedBin)
-                    ?? sampleSeriesValueAt(sparkline, 'arrivals', selectedBin);
+                let attempts = sampleEdgeSeriesValue(series.series, 'attemptsLoad', selectedBin, startIndex);
                 if (!Number.isFinite(attempts)) {
                     continue;
                 }
                 if (attempts < 0) {
                     attempts = 0;
-                }
-
-                const multiplier = Number(edge.multiplier ?? edge.Multiplier);
-                if (type === EdgeTypeEffort && Number.isFinite(multiplier) && multiplier > 0) {
-                    attempts *= multiplier;
                 }
 
                 const value = attempts;

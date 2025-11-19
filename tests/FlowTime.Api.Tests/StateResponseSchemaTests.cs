@@ -14,8 +14,10 @@ public class StateResponseSchemaTests : IClassFixture<TestWebApplicationFactory>
 
     private static readonly object setupLock = new();
     private static bool schemaRunCreated;
+    private static bool schemaEdgesRunCreated;
 
     private const string schemaRunId = "run_schema_validation";
+    private const string schemaEdgesRunId = "run_schema_edges";
     private const int binCount = 4;
     private const int binSizeMinutes = 5;
     private static readonly DateTime startTimeUtc = new(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -56,6 +58,23 @@ public class StateResponseSchemaTests : IClassFixture<TestWebApplicationFactory>
         ValidateAgainstSchema(json);
     }
 
+    [Fact]
+    public async Task StateWindow_Response_WithEdgesSlice_MatchesSchema()
+    {
+        var runId = EnsureSchemaEdgesRun();
+        var response = await client.GetAsync($"/v1/runs/{runId}/state_window?startBin=0&endBin=3&include=edges");
+        response.EnsureSuccessStatusCode();
+
+        var json = await response.Content.ReadAsStringAsync();
+        var node = JsonNode.Parse(json);
+
+        Assert.NotNull(node);
+        Assert.True(node!.AsObject().TryGetPropertyValue("edges", out var edges), "Expected edges slice when include=edges is requested.");
+        Assert.NotNull(edges);
+
+        ValidateAgainstSchema(json);
+    }
+
     private string EnsureSchemaRun()
     {
         lock (setupLock)
@@ -88,6 +107,38 @@ public class StateResponseSchemaTests : IClassFixture<TestWebApplicationFactory>
         }
     }
 
+    private string EnsureSchemaEdgesRun()
+    {
+        lock (setupLock)
+        {
+            if (!schemaEdgesRunCreated)
+            {
+                var runDir = Path.Combine(factory.TestDataDirectory, schemaEdgesRunId);
+                var modelDir = Path.Combine(runDir, "model");
+
+                if (!Directory.Exists(runDir))
+                {
+                    Directory.CreateDirectory(modelDir);
+                    WriteBaseSeries(modelDir);
+                    var modelPath = Path.Combine(modelDir, "model.yaml");
+                    File.WriteAllText(modelPath, BuildValidModelYamlWithEdges(), System.Text.Encoding.UTF8);
+                    var modelHash = ComputeFileHash(modelPath);
+                    WriteMetadata(modelDir, schemaEdgesRunId, "telemetry", modelHash);
+
+                    var seriesDir = Path.Combine(runDir, "series");
+                    Directory.CreateDirectory(seriesDir);
+                    WriteSeriesIndex(seriesDir);
+
+                    File.WriteAllText(Path.Combine(runDir, "run.json"), BuildRunJson(schemaEdgesRunId, "telemetry", modelHash), System.Text.Encoding.UTF8);
+                }
+
+                schemaEdgesRunCreated = true;
+            }
+
+            return schemaEdgesRunId;
+        }
+    }
+
     private void ValidateAgainstSchema(string json)
     {
         JsonNode? node;
@@ -117,6 +168,8 @@ public class StateResponseSchemaTests : IClassFixture<TestWebApplicationFactory>
         WriteSeries(modelDir, "OrderService_arrivals.csv", new double[] { 10, 10, 10, 10 });
         WriteSeries(modelDir, "OrderService_served.csv", new double[] { 9, 6, 9, 4 });
         WriteSeries(modelDir, "OrderService_errors.csv", new double[] { 1, 1, 1, 1 });
+        WriteSeries(modelDir, "OrderService_attempts.csv", new double[] { 10, 7, 10, 5 });
+        WriteSeries(modelDir, "OrderService_failures.csv", new double[] { 1, 1, 1, 1 });
         WriteSeries(modelDir, "OrderService_capacity.csv", new double[] { 12, 7, 9, 4 });
         WriteSeries(modelDir, "OrderService_processingTimeMsSum.csv", new double[] { 2250, 1800, 2700, 1200 });
         WriteSeries(modelDir, "OrderService_servedCount.csv", new double[] { 9, 6, 9, 4 });
@@ -254,6 +307,60 @@ topology:
         queueDepth: "file:SupportQueue_queue.csv"
         capacity: null
   edges: []
+""";
+    }
+
+    private static string BuildValidModelYamlWithEdges()
+    {
+        return $"""
+schemaVersion: 1
+
+grid:
+  bins: {binCount}
+  binSize: {binSizeMinutes}
+  binUnit: minutes
+  startTimeUtc: "{startTimeUtc:O}"
+
+topology:
+  nodes:
+    - id: "OrderService"
+      kind: "service"
+      semantics:
+        arrivals: "file:OrderService_arrivals.csv"
+        served: "file:OrderService_served.csv"
+        errors: "file:OrderService_errors.csv"
+        attempts: "file:OrderService_attempts.csv"
+        failures: "file:OrderService_failures.csv"
+        externalDemand: null
+        queueDepth: null
+        capacity: "file:OrderService_capacity.csv"
+        processingTimeMsSum: "file:OrderService_processingTimeMsSum.csv"
+        servedCount: "file:OrderService_servedCount.csv"
+        slaMin: null
+    - id: "SupportQueue"
+      kind: "queue"
+      semantics:
+        arrivals: "file:SupportQueue_arrivals.csv"
+        served: "file:SupportQueue_served.csv"
+        errors: "file:SupportQueue_errors.csv"
+        externalDemand: null
+        queueDepth: "file:SupportQueue_queue.csv"
+        capacity: null
+  edges:
+    - id: "edge_order_support_attempts"
+      from: "OrderService:attempts"
+      to: "SupportQueue:arrivals"
+      type: "effort"
+      measure: "attempts"
+      multiplier: 2
+      lag: 1
+    - id: "edge_order_support_failures"
+      from: "OrderService:failures"
+      to: "SupportQueue:errors"
+      type: "effort"
+      measure: "failures"
+      multiplier: 0.5
+      lag: 0
 """;
     }
 

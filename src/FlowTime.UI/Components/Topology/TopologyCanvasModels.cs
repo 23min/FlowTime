@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using FlowTime.UI.Services;
 
 namespace FlowTime.UI.Components.Topology;
 
@@ -11,7 +12,11 @@ internal sealed record CanvasRenderRequest(
     TooltipPayload? Tooltip,
     ViewportSnapshotPayload? SavedViewport,
     bool PreserveViewport,
-    IReadOnlyList<NodeWarningPayload>? Warnings);
+    IReadOnlyList<NodeWarningPayload>? Warnings)
+{
+    public IReadOnlyList<TimeTravelEdgeSeriesDto>? EdgeSeries { get; init; }
+    public int EdgeSeriesStartIndex { get; init; }
+}
 
 internal sealed record NodeRenderInfo(
     string Id,

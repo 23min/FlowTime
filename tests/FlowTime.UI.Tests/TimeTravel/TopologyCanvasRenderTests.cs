@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Bunit;
 using FlowTime.UI.Components.Topology;
+using FlowTime.UI.Services;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Xunit;
@@ -137,6 +138,52 @@ public sealed class TopologyCanvasRenderTests : TestContext
 
         Assert.Equal(EdgeOverlayMode.RetryRate, payload.Overlays.EdgeOverlay);
         Assert.False(payload.Overlays.ShowEdgeOverlayLabels);
+    }
+
+    [Fact]
+    public void RetryOverlay_UsesServerEdgeSeries()
+    {
+        var graph = CreateGraph();
+        var metrics = CreateMetrics();
+        var overlay = new TopologyOverlaySettings
+        {
+            EdgeOverlay = EdgeOverlayMode.RetryRate,
+            ShowRetryMetrics = true
+        };
+
+        var renderCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.render", _ => true);
+        renderCall.SetVoidResult();
+
+        var edgeSeries = new[]
+        {
+            new TimeTravelEdgeSeriesDto
+            {
+                Id = "edge_ingress_processor_attempts",
+                From = "ingress",
+                To = "processor",
+                EdgeType = "dependency",
+                Field = "attempts",
+                Multiplier = 2,
+                Lag = 1,
+                Series = new Dictionary<string, double?[]>
+                {
+                    ["attemptsLoad"] = new double?[] { null, 20, 14 },
+                    ["failuresLoad"] = new double?[] { null, 2, 2 },
+                    ["retryRate"] = new double?[] { null, 0.1, 0.142857 }
+                }
+            }
+        };
+
+        RenderComponent<TopologyCanvas>(parameters => parameters
+            .Add(p => p.Graph, graph)
+            .Add(p => p.NodeMetrics, metrics)
+            .Add(p => p.OverlaySettings, overlay)
+            .Add(p => p.ActiveBin, 1)
+            .Add(p => p.EdgeSeries, edgeSeries));
+
+        var payload = Assert.IsType<CanvasRenderRequest>(renderCall.Invocations.Single().Arguments[1]);
+        Assert.NotNull(payload.EdgeSeries);
+        Assert.Equal(edgeSeries, payload.EdgeSeries);
     }
 
     [Fact]

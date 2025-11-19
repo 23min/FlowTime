@@ -75,7 +75,7 @@ public class TimeTravelDataServiceTests
 
         var client = new StubFlowTimeApiClient
         {
-            OnGetRunStateWindowAsync = (_, _, _, _, _) => Task.FromResult(ApiCallResult<TimeTravelStateWindowDto>.Ok(dto, 200))
+            OnGetRunStateWindowAsync = (_, _, _, _, _, _) => Task.FromResult(ApiCallResult<TimeTravelStateWindowDto>.Ok(dto, 200))
         };
 
         var service = new TimeTravelDataService(client, NullLogger<TimeTravelDataService>.Instance);
@@ -149,8 +149,8 @@ public class TimeTravelDataServiceTests
         public Func<string, int, CancellationToken, Task<ApiCallResult<TimeTravelStateSnapshotDto>>> OnGetRunStateAsync { get; set; } =
             (_, _, _) => throw new NotImplementedException();
 
-        public Func<string, int, int, string?, CancellationToken, Task<ApiCallResult<TimeTravelStateWindowDto>>> OnGetRunStateWindowAsync { get; set; } =
-            (_, _, _, _, _) => throw new NotImplementedException();
+        public Func<string, int, int, string?, bool, CancellationToken, Task<ApiCallResult<TimeTravelStateWindowDto>>> OnGetRunStateWindowAsync { get; set; } =
+            (_, _, _, _, _, _) => throw new NotImplementedException();
 
         public Func<string, CancellationToken, Task<ApiCallResult<SeriesIndex>>> OnGetRunIndexAsync { get; set; } =
             (_, _) => throw new NotImplementedException();
@@ -185,8 +185,8 @@ public class TimeTravelDataServiceTests
         public Task<ApiCallResult<TimeTravelStateSnapshotDto>> GetRunStateAsync(string runId, int binIndex, CancellationToken ct = default)
             => OnGetRunStateAsync(runId, binIndex, ct);
 
-        public Task<ApiCallResult<TimeTravelStateWindowDto>> GetRunStateWindowAsync(string runId, int startBin, int endBin, string? mode = null, CancellationToken ct = default)
-            => OnGetRunStateWindowAsync(runId, startBin, endBin, mode, ct);
+        public Task<ApiCallResult<TimeTravelStateWindowDto>> GetRunStateWindowAsync(string runId, int startBin, int endBin, string? mode = null, bool includeEdges = false, CancellationToken ct = default)
+            => OnGetRunStateWindowAsync(runId, startBin, endBin, mode, includeEdges, ct);
 
         public Task<ApiCallResult<SeriesIndex>> GetRunIndexAsync(string runId, CancellationToken ct = default)
             => OnGetRunIndexAsync(runId, ct);

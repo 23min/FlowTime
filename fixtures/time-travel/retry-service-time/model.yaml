@@ -1,0 +1,51 @@
+schemaVersion: 1
+
+grid:
+  bins: 4
+  binSize: 5
+  binUnit: minutes
+  startTimeUtc: "2025-01-01T00:00:00Z"
+
+topology:
+  nodes:
+    - id: "OrderService"
+      kind: "service"
+      semantics:
+        arrivals: "file:OrderService_arrivals.csv"
+        served: "file:OrderService_served.csv"
+        errors: "file:OrderService_errors.csv"
+        attempts: "file:OrderService_attempts.csv"
+        failures: "file:OrderService_failures.csv"
+        retryEcho: "file:OrderService_retryEcho.csv"
+        retryKernel: [0.0, 0.6, 0.3, 0.1]
+        capacity: "file:OrderService_capacity.csv"
+        processingTimeMsSum: "file:OrderService_processingTimeMsSum.csv"
+        servedCount: "file:OrderService_servedCount.csv"
+        aliases:
+          attempts: "Ticket submissions"
+          served: "Orders fulfilled"
+    - id: "SupportQueue"
+      kind: "queue"
+      semantics:
+        arrivals: "file:SupportQueue_arrivals.csv"
+        served: "file:SupportQueue_served.csv"
+        errors: "file:SupportQueue_errors.csv"
+        queueDepth: "file:SupportQueue_queue.csv"
+        slaMin: 5
+        aliases:
+          queue: "Open backlog"
+  edges:
+    - id: "edge_order_support_attempts"
+      from: "OrderService:attempts"
+      to: "SupportQueue:arrivals"
+      type: "effort"
+      measure: "attempts"
+      multiplier: 2.0
+      lag: 1
+    - id: "edge_order_support_failures"
+      from: "OrderService:failures"
+      to: "SupportQueue:errors"
+      type: "effort"
+      measure: "failures"
+      multiplier: 0.5
+      lag: 0

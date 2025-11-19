@@ -774,6 +774,33 @@ static bool TryParseGraphMode(IQueryCollection query, out GraphQueryMode mode, o
     return false;
 }
 
+static bool ShouldIncludeEdges(IQueryCollection query)
+{
+    if (!query.TryGetValue("include", out var includeValues) || StringValues.IsNullOrEmpty(includeValues))
+    {
+        return false;
+    }
+
+    foreach (var include in includeValues)
+    {
+        if (string.IsNullOrWhiteSpace(include))
+        {
+            continue;
+        }
+
+        var parts = include.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        foreach (var part in parts)
+        {
+            if (part.Equals("edges", StringComparison.OrdinalIgnoreCase) || part.Equals("all", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
 static IReadOnlyCollection<string>? ParseCsv(IQueryCollection query, string key)
 {
     if (!query.TryGetValue(key, out var rawValues) || StringValues.IsNullOrEmpty(rawValues))
@@ -882,9 +909,11 @@ v1.MapGet("/runs/{runId}/state_window", async (string runId, HttpContext context
         return Results.BadRequest(new { error = modeError });
     }
 
+    var includeEdges = ShouldIncludeEdges(context.Request.Query);
+
     try
     {
-        var response = await stateQueryService.GetStateWindowAsync(runId, startBin, endBin, mode, context.RequestAborted);
+        var response = await stateQueryService.GetStateWindowAsync(runId, startBin, endBin, mode, includeEdges, context.RequestAborted);
         return Results.Ok(response);
     }
     catch (StateQueryException ex)

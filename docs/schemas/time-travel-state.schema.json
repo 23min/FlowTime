@@ -39,6 +39,11 @@
                     "items": { "$ref": "#/$defs/nodeSeries" },
                     "default": []
                 },
+                "edges": {
+                    "type": "array",
+                    "items": { "$ref": "#/$defs/edgeSeries" },
+                    "default": []
+                },
                 "warnings": { "$ref": "#/$defs/stateWarnings" }
             }
         },
@@ -132,6 +137,25 @@
                 },
                 "telemetry": { "$ref": "#/$defs/nodeTelemetryInfo" },
                 "aliases": { "$ref": "#/$defs/aliasDictionary" }
+            }
+        },
+        "edgeSeries": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "from", "to", "series"],
+            "properties": {
+                "id": { "$ref": "#/$defs/nodeId" },
+                "from": { "$ref": "#/$defs/nodeId" },
+                "to": { "$ref": "#/$defs/nodeId" },
+                "edgeType": { "type": ["string", "null"], "minLength": 1 },
+                "field": { "type": ["string", "null"], "minLength": 1 },
+                "multiplier": { "$ref": "#/$defs/nullableNumber" },
+                "lag": { "type": ["integer", "null"], "minimum": 0 },
+                "series": {
+                    "type": "object",
+                    "minProperties": 1,
+                    "additionalProperties": { "$ref": "#/$defs/numericSeries" }
+                }
             }
         },
         "nodeMetrics": {

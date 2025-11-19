@@ -33,6 +33,9 @@ public sealed record TimeTravelStateWindowDto
     [JsonPropertyName("nodes")]
     public IReadOnlyList<TimeTravelNodeSeriesDto> Nodes { get; init; } = Array.Empty<TimeTravelNodeSeriesDto>();
 
+    [JsonPropertyName("edges")]
+    public IReadOnlyList<TimeTravelEdgeSeriesDto>? Edges { get; init; } = Array.Empty<TimeTravelEdgeSeriesDto>();
+
     [JsonPropertyName("warnings")]
     public IReadOnlyList<TimeTravelStateWarningDto> Warnings { get; init; } = Array.Empty<TimeTravelStateWarningDto>();
 }
@@ -155,6 +158,33 @@ public sealed record TimeTravelNodeSeriesDto
 
     [JsonPropertyName("aliases")]
     public IReadOnlyDictionary<string, string>? Aliases { get; init; }
+}
+
+public sealed record TimeTravelEdgeSeriesDto
+{
+    [JsonPropertyName("id")]
+    public required string Id { get; init; }
+
+    [JsonPropertyName("from")]
+    public required string From { get; init; }
+
+    [JsonPropertyName("to")]
+    public required string To { get; init; }
+
+    [JsonPropertyName("edgeType")]
+    public string? EdgeType { get; init; }
+
+    [JsonPropertyName("field")]
+    public string? Field { get; init; }
+
+    [JsonPropertyName("multiplier")]
+    public double? Multiplier { get; init; }
+
+    [JsonPropertyName("lag")]
+    public int? Lag { get; init; }
+
+    [JsonPropertyName("series")]
+    public IReadOnlyDictionary<string, double?[]> Series { get; init; } = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase);
 }
 
 public sealed record TimeTravelNodeMetricsDto

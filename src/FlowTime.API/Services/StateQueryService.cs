@@ -95,6 +95,7 @@ public sealed class StateQueryService
         int startBin,
         int endBin,
         GraphQueryMode mode = GraphQueryMode.Operational,
+        bool includeEdges = false,
         CancellationToken cancellationToken = default)
     {
         var includeComputed = mode == GraphQueryMode.Full;
@@ -186,6 +187,12 @@ public sealed class StateQueryService
             }
         }
 
+        IReadOnlyList<EdgeSeries>? edgeSeries = null;
+        if (includeEdges)
+        {
+            edgeSeries = BuildEdgeSeries(context, startBin, count);
+        }
+
         logger.LogInformation(
             stateWindowEvent,
             "Resolved state window for run {RunId} (mode={Mode}, windowMode={WindowMode}) from bin {StartBin} to {EndBin} ({RequestedBins} of {TotalBins})",
@@ -208,6 +215,7 @@ public sealed class StateQueryService
             },
             TimestampsUtc = timestamps,
             Nodes = seriesList,
+            Edges = edgeSeries ?? (includeEdges ? Array.Empty<EdgeSeries>() : null),
             Warnings = BuildWarnings(context, validation.Warnings)
         };
     }
@@ -990,6 +998,95 @@ public sealed class StateQueryService
         return result;
     }
 
+    private static IReadOnlyList<EdgeSeries> BuildEdgeSeries(StateRunContext context, int startBin, int count)
+    {
+        if (context.Topology.Edges is null || context.Topology.Edges.Count == 0)
+        {
+            return Array.Empty<EdgeSeries>();
+        }
+
+        var totalBins = context.Window.Bins;
+        var result = new List<EdgeSeries>();
+
+        foreach (var edge in context.Topology.Edges)
+        {
+            var sourceNodeId = ExtractNodeReference(edge.Source);
+            var targetNodeId = ExtractNodeReference(edge.Target);
+            if (string.IsNullOrWhiteSpace(sourceNodeId) || string.IsNullOrWhiteSpace(targetNodeId))
+            {
+                continue;
+            }
+
+            var field = NormalizeField(edge.Field);
+            if (!IsRetryDependencyField(field))
+            {
+                continue;
+            }
+
+            if (!context.NodeData.TryGetValue(sourceNodeId, out var sourceData))
+            {
+                continue;
+            }
+
+            var attemptsSeries = ComputeAttemptSeries(sourceData, 0, totalBins, allowDerived: true);
+            var failuresSeries = ComputeFailureSeries(sourceData, 0, totalBins);
+            if (attemptsSeries is null && failuresSeries is null)
+            {
+                continue;
+            }
+
+            var lag = Math.Max(0, edge.Lag ?? 0);
+            var multiplier = NormalizeMultiplier(edge.Multiplier ?? edge.Weight);
+            var attemptsLoad = new double?[count];
+            var failuresLoad = new double?[count];
+            var retryRate = new double?[count];
+
+            for (var i = 0; i < count; i++)
+            {
+                var sourceIndex = startBin + i - lag;
+                if (sourceIndex < 0 || sourceIndex >= totalBins)
+                {
+                    attemptsLoad[i] = null;
+                    failuresLoad[i] = null;
+                    retryRate[i] = null;
+                    continue;
+                }
+
+                var attempt = Sample(attemptsSeries, sourceIndex);
+                var failure = Sample(failuresSeries, sourceIndex);
+
+                attemptsLoad[i] = attempt.HasValue ? Normalize(attempt.Value * multiplier) : null;
+                failuresLoad[i] = failure.HasValue ? Normalize(failure.Value * multiplier) : null;
+                retryRate[i] = ComputeRetryRate(attempt, failure);
+            }
+
+            var series = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["attemptsLoad"] = attemptsLoad,
+                ["failuresLoad"] = failuresLoad,
+                ["retryRate"] = retryRate
+            };
+
+            var edgeId = string.IsNullOrWhiteSpace(edge.Id)
+                ? $"{edge.Source}->{edge.Target}:{(string.IsNullOrWhiteSpace(edge.Field) ? "attempts" : edge.Field)}"
+                : edge.Id!;
+
+            result.Add(new EdgeSeries
+            {
+                Id = edgeId,
+                From = sourceNodeId,
+                To = targetNodeId,
+                EdgeType = "dependency",
+                Field = field,
+                Multiplier = multiplier,
+                Lag = lag,
+                Series = series
+            });
+        }
+
+        return result;
+    }
+
     private static double?[]? ComputeThroughputSeries(NodeData data, int start, int count)
     {
         if (data.Arrivals == null || data.Arrivals.Length == 0)
@@ -1063,6 +1160,21 @@ public sealed class StateQueryService
         }
 
         return result;
+    }
+
+    private static double?[]? ComputeFailureSeries(NodeData data, int start, int count)
+    {
+        if (data.Failures != null)
+        {
+            return ExtractSlice(data.Failures, start, count);
+        }
+
+        if (data.Errors != null)
+        {
+            return ExtractSlice(data.Errors, start, count);
+        }
+
+        return null;
     }
 
     private static double? ComputeRetryEchoValue(NodeData data, int index, bool allowDerived)
@@ -1636,6 +1748,61 @@ public sealed class StateQueryService
         }
 
         throw new FileNotFoundException("Run is missing model/model.yaml or spec.yaml");
+    }
+
+    private static string NormalizeField(string? field)
+    {
+        return string.IsNullOrWhiteSpace(field) ? string.Empty : field.Trim().ToLowerInvariant();
+    }
+
+    private static bool IsRetryDependencyField(string field)
+    {
+        return string.Equals(field, "attempts", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(field, "failures", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string ExtractNodeReference(string? reference)
+    {
+        if (string.IsNullOrWhiteSpace(reference))
+        {
+            return string.Empty;
+        }
+
+        var separator = reference.IndexOf(':');
+        return separator < 0 ? reference : reference[..separator];
+    }
+
+    private static double NormalizeMultiplier(double? raw)
+    {
+        if (!raw.HasValue || double.IsNaN(raw.Value) || double.IsInfinity(raw.Value))
+        {
+            return 1d;
+        }
+
+        return raw.Value;
+    }
+
+    private static double? Sample(double?[]? series, int index)
+    {
+        if (series is null || index < 0 || index >= series.Length)
+        {
+            return null;
+        }
+
+        var value = series[index];
+        return value.HasValue ? Normalize(value.Value) : null;
+    }
+
+    private static double? ComputeRetryRate(double? attempts, double? failures)
+    {
+        if (!attempts.HasValue || attempts.Value <= 0)
+        {
+            return null;
+        }
+
+        var numerator = failures ?? 0d;
+        var rate = numerator / attempts.Value;
+        return double.IsFinite(rate) ? Normalize(rate) : null;
     }
 
     private static string NormalizeKind(string? kind)

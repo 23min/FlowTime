@@ -1,0 +1,253 @@
+{
+  "metadata": {
+    "runId": "run_state_edges",
+    "templateId": "order-system",
+    "templateTitle": "Order System Fixture",
+    "templateVersion": "1.0.0",
+    "mode": "telemetry",
+    "provenanceHash": "sha256:run_state_edges",
+    "telemetrySourcesResolved": true,
+    "schema": {
+      "id": "time-travel/v1",
+      "version": "1",
+      "hash": "sha256:run_state_edges"
+    },
+    "storage": {
+      "modelPath": "<dynamic>",
+      "metadataPath": "<dynamic>",
+      "provenancePath": "<dynamic>"
+    },
+    "rng": null
+  },
+  "window": {
+    "startBin": 0,
+    "endBin": 3,
+    "binCount": 4
+  },
+  "timestampsUtc": [
+    "2025-01-01T00:00:00+00:00",
+    "2025-01-01T00:05:00+00:00",
+    "2025-01-01T00:10:00+00:00",
+    "2025-01-01T00:15:00+00:00"
+  ],
+  "nodes": [
+    {
+      "id": "OrderService",
+      "kind": "service",
+      "series": {
+        "arrivals": [
+          10,
+          10,
+          10,
+          10
+        ],
+        "served": [
+          9,
+          6,
+          9,
+          4
+        ],
+        "errors": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "attempts": [
+          10,
+          7,
+          10,
+          5
+        ],
+        "failures": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "retryEcho": [
+          0,
+          0.6,
+          0.9,
+          1
+        ],
+        "retryTax": [
+          0.1,
+          0.142857,
+          0.1,
+          0.2
+        ],
+        "capacity": [
+          12,
+          7,
+          9,
+          4
+        ],
+        "utilization": [
+          0.75,
+          0.857143,
+          1,
+          1
+        ],
+        "throughputRatio": [
+          0.9,
+          0.6,
+          0.9,
+          0.4
+        ],
+        "serviceTimeMs": [
+          250,
+          300,
+          300,
+          300
+        ],
+        "flowLatencyMs": [
+          250,
+          300,
+          300,
+          300
+        ]
+      },
+      "telemetry": {
+        "sources": [
+          "file:OrderService_arrivals.csv",
+          "file:OrderService_served.csv",
+          "file:OrderService_errors.csv",
+          "file:OrderService_attempts.csv",
+          "file:OrderService_failures.csv",
+          "file:OrderService_retryEcho.csv",
+          "file:OrderService_capacity.csv",
+          "file:OrderService_processingTimeMsSum.csv",
+          "file:OrderService_servedCount.csv"
+        ],
+        "warnings": []
+      },
+      "aliases": {
+        "attempts": "Ticket submissions",
+        "served": "Orders fulfilled",
+        "retryEcho": "Retry backlog"
+      }
+    },
+    {
+      "id": "SupportQueue",
+      "kind": "queue",
+      "series": {
+        "arrivals": [
+          9,
+          7,
+          9,
+          5
+        ],
+        "served": [
+          9,
+          6,
+          9,
+          4
+        ],
+        "errors": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "queue": [
+          2,
+          10,
+          20,
+          0
+        ],
+        "latencyMinutes": [
+          1.111111,
+          8.333333,
+          11.111111,
+          0
+        ],
+        "throughputRatio": [
+          1,
+          0.857143,
+          1,
+          0.8
+        ],
+        "flowLatencyMs": [
+          66916.666667,
+          500300,
+          666966.666667,
+          300
+        ]
+      },
+      "telemetry": {
+        "sources": [
+          "file:SupportQueue_arrivals.csv",
+          "file:SupportQueue_served.csv",
+          "file:SupportQueue_errors.csv",
+          "file:SupportQueue_queue.csv"
+        ],
+        "warnings": []
+      },
+      "aliases": {
+        "queue": "Open backlog"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge_order_support_attempts",
+      "from": "OrderService",
+      "to": "SupportQueue",
+      "edgeType": "dependency",
+      "field": "attempts",
+      "multiplier": 2,
+      "lag": 1,
+      "series": {
+        "attemptsLoad": [
+          null,
+          20,
+          14,
+          20
+        ],
+        "failuresLoad": [
+          null,
+          2,
+          2,
+          2
+        ],
+        "retryRate": [
+          null,
+          0.1,
+          0.142857,
+          0.1
+        ]
+      }
+    },
+    {
+      "id": "edge_order_support_failures",
+      "from": "OrderService",
+      "to": "SupportQueue",
+      "edgeType": "dependency",
+      "field": "failures",
+      "multiplier": 0.5,
+      "lag": 0,
+      "series": {
+        "attemptsLoad": [
+          5,
+          3.5,
+          5,
+          2.5
+        ],
+        "failuresLoad": [
+          0.5,
+          0.5,
+          0.5,
+          0.5
+        ],
+        "retryRate": [
+          0.1,
+          0.142857,
+          0.1,
+          0.2
+        ]
+      }
+    }
+  ],
+  "warnings": []
+}

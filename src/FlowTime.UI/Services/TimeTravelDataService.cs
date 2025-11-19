@@ -10,7 +10,7 @@ namespace FlowTime.UI.Services;
 public interface ITimeTravelDataService
 {
     Task<ApiCallResult<TimeTravelStateSnapshotDto>> GetStateAsync(string runId, int binIndex, CancellationToken ct = default);
-    Task<ApiCallResult<TimeTravelStateWindowDto>> GetStateWindowAsync(string runId, int startBin, int endBin, string? mode = null, CancellationToken ct = default);
+    Task<ApiCallResult<TimeTravelStateWindowDto>> GetStateWindowAsync(string runId, int startBin, int endBin, string? mode = null, bool includeEdges = false, CancellationToken ct = default);
     Task<ApiCallResult<GraphResponseModel>> GetGraphAsync(string runId, GraphQueryOptions? options = null, CancellationToken ct = default);
     Task<ApiCallResult<SeriesIndex>> GetSeriesIndexAsync(string runId, CancellationToken ct = default);
     Task<ApiCallResult<Stream>> GetSeriesAsync(string runId, string seriesId, CancellationToken ct = default);
@@ -43,7 +43,7 @@ public sealed class TimeTravelDataService : ITimeTravelDataService
         return SendAndInspect(runId, "state", () => apiClient.GetRunStateAsync(runId, binIndex, ct));
     }
 
-    public Task<ApiCallResult<TimeTravelStateWindowDto>> GetStateWindowAsync(string runId, int startBin, int endBin, string? mode = null, CancellationToken ct = default)
+    public Task<ApiCallResult<TimeTravelStateWindowDto>> GetStateWindowAsync(string runId, int startBin, int endBin, string? mode = null, bool includeEdges = false, CancellationToken ct = default)
     {
         var validationError = ValidateRunId(runId);
         if (validationError is not null)
@@ -66,7 +66,7 @@ public sealed class TimeTravelDataService : ITimeTravelDataService
             return Task.FromResult(ApiCallResult<TimeTravelStateWindowDto>.Fail(400, "endBin must be greater than or equal to startBin."));
         }
 
-        return SendAndInspect(runId, "state_window", () => apiClient.GetRunStateWindowAsync(runId, startBin, endBin, mode, ct));
+        return SendAndInspect(runId, "state_window", () => apiClient.GetRunStateWindowAsync(runId, startBin, endBin, mode, includeEdges, ct));
     }
 
     public Task<ApiCallResult<GraphResponseModel>> GetGraphAsync(string runId, GraphQueryOptions? options = null, CancellationToken ct = default)

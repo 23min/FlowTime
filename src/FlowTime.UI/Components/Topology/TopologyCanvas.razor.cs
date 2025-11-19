@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using FlowTime.UI.Services;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
@@ -48,6 +49,8 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
     [Parameter] public TopologyOverlaySettings OverlaySettings { get; set; } = TopologyOverlaySettings.Default;
     [Parameter] public int ActiveBin { get; set; }
     [Parameter] public IReadOnlyDictionary<string, NodeSparklineData>? NodeSparklines { get; set; }
+    [Parameter] public IReadOnlyList<TimeTravelEdgeSeriesDto>? EdgeSeries { get; set; }
+    [Parameter] public int EdgeSeriesStartIndex { get; set; }
     [Parameter] public EventCallback<double> ZoomPercentChanged { get; set; }
     [Parameter] public EventCallback<ViewportSnapshot> ViewportChanged { get; set; }
     [Parameter] public EventCallback<string?> NodeFocused { get; set; }
@@ -112,7 +115,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         {
             preserveViewportHint = true;
         }
-        pendingRequest = BuildRenderRequest(filteredGraph, NodeMetrics, NodeSparklines, focusedNodeId, tooltipNodeId, OverlaySettings, ActiveBin, snapshotForRender, preserveViewport, Title, NodeWarnings);
+        pendingRequest = BuildRenderRequest(filteredGraph, NodeMetrics, NodeSparklines, focusedNodeId, tooltipNodeId, OverlaySettings, ActiveBin, snapshotForRender, preserveViewport, Title, NodeWarnings, EdgeSeries, EdgeSeriesStartIndex);
         lastSourceGraph = Graph;
         renderScheduled = true;
     }
@@ -305,7 +308,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             return;
         }
 
-        pendingRequest = BuildRenderRequest(filteredGraph, NodeMetrics, NodeSparklines, focusedNodeId, tooltipNodeId, OverlaySettings, ActiveBin, snapshot: pendingViewportSnapshot ?? RequestedViewport, preserveViewport: preserveViewportHint, title: Title, nodeWarningsMap: NodeWarnings);
+        pendingRequest = BuildRenderRequest(filteredGraph, NodeMetrics, NodeSparklines, focusedNodeId, tooltipNodeId, OverlaySettings, ActiveBin, snapshot: pendingViewportSnapshot ?? RequestedViewport, preserveViewport: preserveViewportHint, title: Title, nodeWarningsMap: NodeWarnings, edgeSeries: EdgeSeries, edgeSeriesStartIndex: EdgeSeriesStartIndex);
         renderScheduled = true;
     }
 
@@ -549,7 +552,9 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         ViewportSnapshot? snapshot,
         bool preserveViewport,
         string? title,
-        IReadOnlyDictionary<string, IReadOnlyList<NodeWarningPayload>>? nodeWarningsMap)
+        IReadOnlyDictionary<string, IReadOnlyList<NodeWarningPayload>>? nodeWarningsMap,
+        IReadOnlyList<TimeTravelEdgeSeriesDto>? edgeSeries,
+        int edgeSeriesStartIndex)
     {
         var thresholds = ColorScale.ColorThresholds.FromOverlay(overlays);
         var outgoingGroups = graph.Edges
@@ -806,7 +811,11 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             ? Array.Empty<NodeWarningPayload>()
             : nodeWarningsMap.SelectMany(kvp => kvp.Value.Select(w => w with { NodeId = kvp.Key })).ToArray();
 
-        return new CanvasRenderRequest(title, nodeDtos, edges, viewport, overlayPayload, tooltip, snapshotPayload, preserveViewport, flattenedWarnings);
+        return new CanvasRenderRequest(title, nodeDtos, edges, viewport, overlayPayload, tooltip, snapshotPayload, preserveViewport, flattenedWarnings)
+        {
+            EdgeSeries = edgeSeries,
+            EdgeSeriesStartIndex = edgeSeriesStartIndex
+        };
     }
 
     private static bool IsComputedKind(string? kind)

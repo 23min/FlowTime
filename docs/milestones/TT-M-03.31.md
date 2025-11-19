@@ -105,15 +105,15 @@ Notes
   - Update/add: `tests/FlowTime.Api.Tests/StateEndpointTests.cs` (goldens with `include=edges`)
 - Unit tests for lag/multiplier application and retryRate guards.
 
-### UI Integration (Optional Pivot)
-- UI for 03.30 continues using client derivation (Option A).
-- For 03.31, add a feature flag to let the UI consume server‑computed `edges` when present; fallback to client derivation when absent.
+### UI Integration
+- UI should request `include=edges` and render retry overlays solely from server‑computed edge series (remove client derivation once parity is verified).
 - No breaking changes in UI contracts; legend/thresholds unchanged.
 
 ### Acceptance Criteria (Edges Slice)
 - AC‑Edges‑1: `/state_window` includes `edges` only when `include=edges|all` is provided; default response unchanged.
 - AC‑Edges‑2: For retry‑enabled fixtures, `edges[].series.retryRate` matches `failures/attempts` (with guards), and `attemptsLoad` reflects multiplier/lag.
 - AC‑Edges‑3: Schema validation passes for both response shapes.
+- AC‑Edges‑4: UI overlays consume server `edges` and client-side retry derivation is removed after parity validation.
 
 ## Acceptance Criteria
 - AC1: `dotnet test` passes all new goldens/UI tests (outside known unrelated perf skips).  
@@ -131,7 +131,8 @@ Session 2 — Golden Tests
 
 Session 3 — UI Tests  
 - Toggle overlays; verify legend; verify S basis; hover/selection link tests.  
-- Basic snapshot of inspector retries.
+- Basic snapshot of inspector retries.  
+- Consume server `edges` slice for retries (remove client derivation after parity).
 
 Session 4 — Docs + Sign‑off  
 - Architecture contracts; operator guide; screenshots; finalize milestone status.

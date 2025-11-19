@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace FlowTime.Contracts.TimeTravel;
 
@@ -16,6 +18,8 @@ public sealed class StateWindowResponse
     public required WindowSlice Window { get; init; }
     public required IReadOnlyList<DateTimeOffset> TimestampsUtc { get; init; }
     public IReadOnlyList<NodeSeries> Nodes { get; init; } = Array.Empty<NodeSeries>();
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<EdgeSeries>? Edges { get; init; }
     public IReadOnlyList<StateWarning> Warnings { get; init; } = Array.Empty<StateWarning>();
 }
 
@@ -79,6 +83,18 @@ public sealed class NodeSeries
     public IDictionary<string, double?[]> Series { get; init; } = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase);
     public NodeTelemetryInfo Telemetry { get; init; } = new();
     public IReadOnlyDictionary<string, string>? Aliases { get; init; }
+}
+
+public sealed class EdgeSeries
+{
+    public required string Id { get; init; }
+    public required string From { get; init; }
+    public required string To { get; init; }
+    public string? EdgeType { get; init; }
+    public string? Field { get; init; }
+    public double? Multiplier { get; init; }
+    public int? Lag { get; init; }
+    public IDictionary<string, double?[]> Series { get; init; } = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase);
 }
 
 public sealed class NodeMetrics

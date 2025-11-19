@@ -204,6 +204,79 @@ public class FlowTimeApiClientTests
     }
 
     [Fact]
+    public async Task GetRunStateWindowAsync_RequestsEdgesSlice()
+    {
+        HttpRequestMessage? captured = null;
+        var handler = new StubHandler(request =>
+        {
+            captured = request;
+            if (!string.Equals(request.RequestUri?.Query, "?startBin=0&endBin=1&include=edges", StringComparison.OrdinalIgnoreCase))
+            {
+                return new HttpResponseMessage(HttpStatusCode.BadRequest)
+                {
+                    Content = new StringContent("{\"error\":\"include=edges required\"}", Encoding.UTF8, "application/json")
+                };
+            }
+
+            const string json = """
+            {
+              "metadata": {
+                "runId": "run_edges",
+                "templateId": "orders",
+                "templateTitle": "Orders",
+                "templateVersion": "1.0.0",
+                "mode": "simulation",
+                "telemetrySourcesResolved": true,
+                "schema": { "id": "time-travel/v1", "version": "1", "hash": "sha256:edges" },
+                "storage": { "modelPath": "runs/run_edges/model.yaml", "metadataPath": null, "provenancePath": null }
+              },
+              "window": { "startBin": 0, "endBin": 1, "binCount": 2 },
+              "timestampsUtc": ["2025-01-01T00:00:00Z", "2025-01-01T00:05:00Z"],
+              "nodes": [],
+              "edges": [
+                {
+                  "id": "edge_a_b_attempts",
+                  "from": "A",
+                  "to": "B",
+                  "edgeType": "dependency",
+                  "field": "attempts",
+                  "multiplier": 2,
+                  "lag": 1,
+                  "series": {
+                    "attemptsLoad": [ null, 2 ],
+                    "failuresLoad": [ null, 1 ],
+                    "retryRate": [ null, 0.5 ]
+                  }
+                }
+              ],
+              "warnings": []
+            }
+            """;
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(json, Encoding.UTF8, "application/json")
+            };
+        });
+
+        using var http = new HttpClient(handler)
+        {
+            BaseAddress = new Uri("http://localhost:8080/")
+        };
+        var opts = Options.Create(new FlowTimeApiOptions { ApiVersion = "v1" });
+        var client = new FlowTimeApiClient(http, opts.Value);
+
+        var response = await client.GetRunStateWindowAsync("run_edges", 0, 1, null, includeEdges: true, CancellationToken.None);
+
+        Assert.True(response.Success);
+        Assert.Equal("/v1/runs/run_edges/state_window?startBin=0&endBin=1&include=edges", captured?.RequestUri?.PathAndQuery);
+
+        var edge = Assert.Single(response.Value?.Edges ?? Array.Empty<TimeTravelEdgeSeriesDto>());
+        Assert.Equal("edge_a_b_attempts", edge.Id);
+        var attemptsLoad = Assert.Contains("attemptsLoad", edge.Series);
+        Assert.Equal(2, attemptsLoad[1]);
+    }
+
+    [Fact]
     public async Task GetRunGraphAsync_ParsesResponse()
     {
         HttpRequestMessage? captured = null;

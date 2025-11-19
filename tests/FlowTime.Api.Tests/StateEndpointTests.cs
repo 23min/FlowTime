@@ -29,6 +29,7 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
     private const string fullModeRunId = "run_state_full";
     private const string queueLatencyNullRunId = "run_state_queue_zero_served";
     private const string kernelPolicyRunId = "run_state_retry_kernel_policy";
+    private const string retryEdgesRunId = "run_state_edges";
     private const int binCount = 4;
     private const int binSizeMinutes = 5;
     private static readonly DateTime startTimeUtc = new(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -61,6 +62,7 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         CreateFullModeRun();
         CreateQueueLatencyNullRun();
         CreateKernelPolicyRun();
+        CreateRetryEdgesRun();
 
         logCollector = new TestLogCollector();
         client = factory.WithWebHostBuilder(builder =>
@@ -276,6 +278,27 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         Assert.Equal(0, flowLatency[3]!.Value, 6);
 
         AssertGoldenResponse("state-window-queue-null-approved.json", payload);
+    }
+
+    [Fact]
+    public async Task GetStateWindow_IncludesRetryEdgesWhenRequested()
+    {
+        var response = await client.GetAsync($"/v1/runs/{retryEdgesRunId}/state_window?startBin=0&endBin=3&include=edges");
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync();
+            throw new XunitException($"Expected 200 OK but got {(int)response.StatusCode}: {errorBody}");
+        }
+
+        var json = await response.Content.ReadAsStringAsync();
+        var payload = JsonNode.Parse(json);
+
+        Assert.NotNull(payload);
+        var edges = payload!["edges"] as JsonArray;
+        Assert.NotNull(edges);
+        Assert.NotEmpty(edges);
+
+        AssertGoldenResponse("state-window-edges-approved.json", payload!);
     }
 
     [Fact]
@@ -527,6 +550,11 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         CreateRun(kernelPolicyRunId, BuildKernelPolicyModelYaml(), mode: "simulation");
     }
 
+    private void CreateRetryEdgesRun()
+    {
+        CreateRun(retryEdgesRunId, BuildRetryEdgesModelYaml(), mode: "telemetry");
+    }
+
     private void CreateFullModeRun()
     {
         var seriesOutputs = new Dictionary<string, double[]>
@@ -650,6 +678,69 @@ topology:
           queue: "Open backlog"
   edges: []
 
+""";
+    }
+
+    private static string BuildRetryEdgesModelYaml()
+    {
+        return $"""
+schemaVersion: 1
+
+grid:
+  bins: {binCount}
+  binSize: {binSizeMinutes}
+  binUnit: minutes
+  startTimeUtc: "{startTimeUtc:O}"
+
+topology:
+  nodes:
+    - id: "OrderService"
+      kind: "service"
+      semantics:
+        arrivals: "file:OrderService_arrivals.csv"
+        served: "file:OrderService_served.csv"
+        errors: "file:OrderService_errors.csv"
+        attempts: "file:OrderService_attempts.csv"
+        failures: "file:OrderService_failures.csv"
+        retryEcho: "file:OrderService_retryEcho.csv"
+        retryKernel: [0.0, 0.6, 0.3, 0.1]
+        externalDemand: null
+        queueDepth: null
+        capacity: "file:OrderService_capacity.csv"
+        processingTimeMsSum: "file:OrderService_processingTimeMsSum.csv"
+        servedCount: "file:OrderService_servedCount.csv"
+        slaMin: null
+        aliases:
+          attempts: "Ticket submissions"
+          served: "Orders fulfilled"
+          retryEcho: "Retry backlog"
+    - id: "SupportQueue"
+      kind: "queue"
+      semantics:
+        arrivals: "file:SupportQueue_arrivals.csv"
+        served: "file:SupportQueue_served.csv"
+        errors: "file:SupportQueue_errors.csv"
+        externalDemand: null
+        queueDepth: "file:SupportQueue_queue.csv"
+        capacity: null
+        slaMin: 5
+        aliases:
+          queue: "Open backlog"
+  edges:
+    - id: "edge_order_support_attempts"
+      from: "OrderService:attempts"
+      to: "SupportQueue:arrivals"
+      type: "effort"
+      measure: "attempts"
+      multiplier: 2.0
+      lag: 1
+    - id: "edge_order_support_failures"
+      from: "OrderService:failures"
+      to: "SupportQueue:errors"
+      type: "effort"
+      measure: "failures"
+      multiplier: 0.5
+      lag: 0
 """;
     }
 

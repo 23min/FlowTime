@@ -33,6 +33,10 @@ Accept: application/json
 GET {{host}}/v1/runs/{{runId}}/state_window?startBin={{startBin}}&endBin={{endBin}}&mode=full
 Accept: application/json
 
-### 5. Topology graph (handy alongside state payloads)
+### 5. Window including server-computed edges (retry overlays)
+GET {{host}}/v1/runs/{{runId}}/state_window?startBin={{startBin}}&endBin={{endBin}}&include=edges
+Accept: application/json
+
+### 6. Topology graph (handy alongside state payloads)
 GET {{host}}/v1/runs/{{runId}}/graph
 Accept: application/json
