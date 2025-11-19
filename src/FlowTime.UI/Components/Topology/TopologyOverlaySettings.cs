@@ -47,6 +47,8 @@ public sealed class TopologyOverlaySettings
     public EdgeOverlayMode EdgeOverlay { get; set; } = EdgeOverlayMode.Off;
     public bool ShowEdgeMultipliers { get; set; } = true;
     public bool ShowEdgeOverlayLabels { get; set; } = true;
+    public bool ShowRetryBudget { get; set; } = true;
+    public bool ShowTerminalEdges { get; set; } = true;
 
     public bool EnableFullDag { get; set; } = true;
     public bool IncludeServiceNodes { get; set; } = true;
@@ -95,6 +97,8 @@ public sealed class TopologyOverlaySettings
             EdgeOverlay = EdgeOverlay,
             ShowEdgeMultipliers = ShowEdgeMultipliers,
             ShowEdgeOverlayLabels = ShowEdgeOverlayLabels,
+            ShowRetryBudget = ShowRetryBudget,
+            ShowTerminalEdges = ShowTerminalEdges,
             EnableFullDag = EnableFullDag,
             IncludeServiceNodes = IncludeServiceNodes,
             IncludeExpressionNodes = IncludeExpressionNodes,

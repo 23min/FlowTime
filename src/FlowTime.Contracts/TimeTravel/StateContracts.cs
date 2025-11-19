@@ -102,10 +102,13 @@ public sealed class NodeMetrics
     public double? Errors { get; init; }
     public double? Attempts { get; init; }
     public double? Failures { get; init; }
+    public double? ExhaustedFailures { get; init; }
     public double? RetryEcho { get; init; }
+    public double? RetryBudgetRemaining { get; init; }
     public double? Queue { get; init; }
     public double? Capacity { get; init; }
     public double? ExternalDemand { get; init; }
+    public double? MaxAttempts { get; init; }
 }
 
 public sealed class NodeDerivedMetrics

@@ -239,6 +239,7 @@ public class FlowTimeApiClientTests
                   "series": {
                     "attemptsLoad": [ null, 2 ],
                     "failuresLoad": [ null, 1 ],
+                    "exhaustedFailuresLoad": [ null, 1 ],
                     "retryRate": [ null, 0.5 ]
                   }
                 }

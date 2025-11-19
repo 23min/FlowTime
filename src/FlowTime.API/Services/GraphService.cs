@@ -28,7 +28,7 @@ public sealed class GraphService
 
     private static readonly string[] DefaultOperationalKinds = { "service", "queue", "router", "external" };
     private static readonly string[] DefaultFullKinds = { "service", "queue", "router", "external", "expr", "const", "pmf" };
-    private static readonly string[] DefaultDependencyFields = { "arrivals", "served", "errors", "attempts", "failures", "retryEcho", "queue", "capacity", "expr" };
+    private static readonly string[] DefaultDependencyFields = { "arrivals", "served", "errors", "attempts", "failures", "exhaustedFailures", "retryEcho", "retryBudgetRemaining", "queue", "capacity", "expr" };
 
     private const string EdgeTypeTopology = "topology";
     private const string EdgeTypeDependency = "dependency";
@@ -121,11 +121,16 @@ public sealed class GraphService
                 Errors = topoNode.Semantics?.Errors ?? string.Empty,
                 Attempts = topoNode.Semantics?.Attempts,
                 Failures = topoNode.Semantics?.Failures,
+                ExhaustedFailures = topoNode.Semantics?.ExhaustedFailures,
                 RetryEcho = topoNode.Semantics?.RetryEcho,
+                RetryBudgetRemaining = topoNode.Semantics?.RetryBudgetRemaining,
                 Queue = topoNode.Semantics?.QueueDepth,
                 Capacity = topoNode.Semantics?.Capacity,
                 Aliases = topoNode.Semantics?.Aliases,
-                Metadata = null
+                Metadata = topoNode.Semantics?.Metadata,
+                MaxAttempts = topoNode.Semantics?.MaxAttempts,
+                BackoffStrategy = topoNode.Semantics?.BackoffStrategy,
+                ExhaustedPolicy = topoNode.Semantics?.ExhaustedPolicy
             };
 
             var ui = topoNode.Ui is null

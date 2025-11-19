@@ -47,6 +47,13 @@ parameters:
     default: 0.35
     minimum: 0.0
     maximum: 1.0
+  - name: maxDeliveryAttempts
+    type: integer
+    title: "Max Delivery Attempts"
+    description: "Maximum delivery attempts allowed per order before escalation"
+    default: 3
+    minimum: 1
+    maximum: 5
   - name: telemetryDemandSource
     type: string
     title: "Telemetry demand source"
@@ -112,10 +119,14 @@ topology:
         capacity: delivery_capacity
         attempts: delivery_attempts
         failures: retry_failures
+        exhaustedFailures: exhausted_failures
         retryEcho: retry_echo
         retryKernel: [0.0, 0.6, 0.3, 0.1]
+        retryBudgetRemaining: retry_budget_remaining
         processingTimeMsSum: delivery_processing_time_ms_sum
         servedCount: deliveries_served
+        maxAttempts: ${maxDeliveryAttempts}
+        exhaustedPolicy: "returns"
         aliases:
           arrivals: "Loads pulled"
           served: "Orders delivered"
@@ -123,6 +134,67 @@ topology:
           attempts: "Delivery attempts"
           failures: "Failed retries"
           retryEcho: "Retry backlog"
+          exhaustedFailures: "DLQ"
+    - id: RejectedDLQ
+      kind: queue
+      semantics:
+        arrivals: dlq_inflow
+        served: dlq_release
+        errors: dlq_losses
+        queueDepth: dlq_depth
+        aliases:
+          arrivals: "Rejected loads"
+          served: "Escalations handled"
+          errors: "Scrapped"
+          queue: "DLQ backlog"
+      initialCondition:
+        queueDepth: 0
+    - id: ReturnsProcessing
+      kind: service
+      semantics:
+        arrivals: dlq_release
+        served: returns_processed
+        errors: returns_escalated
+        capacity: returns_capacity
+        aliases:
+          served: "Returns completed"
+          errors: "Manual escalations"
+    - id: RestockQueue
+      kind: queue
+      semantics:
+        arrivals: restock_inflow
+        served: restock_outflow
+        errors: restock_losses
+        queueDepth: restock_backlog
+        aliases:
+          arrivals: "Restock inflow"
+          served: "Restocked"
+          errors: "Repack failures"
+          queue: "Restock backlog"
+    - id: RecoverQueue
+      kind: queue
+      semantics:
+        arrivals: recover_inflow
+        served: recover_outflow
+        errors: recover_losses
+        queueDepth: recover_backlog
+        aliases:
+          arrivals: "Secondary inflow"
+          served: "Secondary sales"
+          errors: "Failed refurbish"
+          queue: "Secondary backlog"
+    - id: DisposalQueue
+      kind: queue
+      semantics:
+        arrivals: scrap_inflow
+        served: scrap_processed
+        errors: scrap_losses
+        queueDepth: scrap_backlog
+        aliases:
+          arrivals: "Scrap inflow"
+          served: "Disposed"
+          errors: "Hazmat holds"
+          queue: "Disposal backlog"
   edges:
     - id: supplier_to_warehouse
       from: Supplier:out
@@ -133,6 +205,23 @@ topology:
     - id: queue_to_delivery
       from: DistributionQueue:out
       to: Delivery:in
+    - id: delivery_to_rejected_dlq
+      from: Delivery:exhaustedFailures
+      to: RejectedDLQ:arrivals
+      type: terminal
+      measure: exhaustedFailures
+    - id: dlq_to_returns
+      from: RejectedDLQ:out
+      to: ReturnsProcessing:in
+    - id: returns_to_restock
+      from: ReturnsProcessing:out
+      to: RestockQueue:in
+    - id: returns_to_recover
+      from: ReturnsProcessing:out
+      to: RecoverQueue:in
+    - id: returns_to_disposal
+      from: ReturnsProcessing:out
+      to: DisposalQueue:in
 
 nodes:
   - id: purchase_orders
@@ -239,6 +328,18 @@ nodes:
     kind: expr
     expr: "${retryFailureRate} * retry_attempts"
 
+  - id: exhausted_failures
+    kind: expr
+    expr: "retry_failures"
+
+  - id: retry_budget_capacity
+    kind: expr
+    expr: "delivery_base_load * ${maxDeliveryAttempts}"
+
+  - id: retry_budget_remaining
+    kind: expr
+    expr: "MAX(0, retry_budget_capacity - delivery_attempts)"
+
   - id: capacity_served
     kind: expr
     expr: "MIN(delivery_attempts, delivery_capacity)"
@@ -258,6 +359,95 @@ nodes:
   - id: retry_echo
     kind: expr
     expr: "CONV(retry_attempts, [0.0, 0.6, 0.3, 0.1])"
+
+  - id: dlq_inflow
+    kind: expr
+    expr: "exhausted_failures"
+
+  - id: dlq_losses
+    kind: expr
+    expr: "dlq_inflow * 0.2"
+
+  - id: dlq_release
+    kind: expr
+    expr: "MAX(0, dlq_inflow - dlq_losses)"
+
+  - id: dlq_depth
+    kind: backlog
+    inflow: dlq_inflow
+    outflow: dlq_release
+    loss: dlq_losses
+
+  - id: returns_capacity
+    kind: pmf
+    pmf:
+      values: [10, 20, 30, 40]
+      probabilities: [0.1, 0.3, 0.4, 0.2]
+    profile:
+      kind: builtin
+      name: weekday-office
+
+  - id: returns_processed
+    kind: expr
+    expr: "MIN(dlq_release, returns_capacity)"
+
+  - id: returns_escalated
+    kind: expr
+    expr: "MAX(0, dlq_release - returns_processed)"
+
+  - id: restock_inflow
+    kind: expr
+    expr: "returns_processed * 0.5"
+
+  - id: restock_outflow
+    kind: expr
+    expr: "restock_inflow * 0.9"
+
+  - id: restock_losses
+    kind: expr
+    expr: "MAX(0, restock_inflow - restock_outflow)"
+
+  - id: restock_backlog
+    kind: backlog
+    inflow: restock_inflow
+    outflow: restock_outflow
+    loss: restock_losses
+
+  - id: recover_inflow
+    kind: expr
+    expr: "returns_processed * 0.3"
+
+  - id: recover_outflow
+    kind: expr
+    expr: "recover_inflow * 0.8"
+
+  - id: recover_losses
+    kind: expr
+    expr: "MAX(0, recover_inflow - recover_outflow)"
+
+  - id: recover_backlog
+    kind: backlog
+    inflow: recover_inflow
+    outflow: recover_outflow
+    loss: recover_losses
+
+  - id: scrap_inflow
+    kind: expr
+    expr: "returns_processed * 0.2"
+
+  - id: scrap_processed
+    kind: expr
+    expr: "scrap_inflow * 0.95"
+
+  - id: scrap_losses
+    kind: expr
+    expr: "MAX(0, scrap_inflow - scrap_processed)"
+
+  - id: scrap_backlog
+    kind: backlog
+    inflow: scrap_inflow
+    outflow: scrap_processed
+    loss: scrap_losses
 
   - id: supplier_shortage
     kind: expr
@@ -284,7 +474,29 @@ outputs:
     as: delivery_attempts.csv
   - series: retry_failures
     as: failed_retries.csv
+  - series: exhausted_failures
+    as: exhausted_failures.csv
+  - series: retry_budget_remaining
+    as: retry_budget_remaining.csv
   - series: delivery_errors
     as: delivery_errors.csv
   - series: delivery_utilization
     as: delivery_utilization.csv
+  - series: dlq_depth
+    as: dlq_backlog.csv
+  - series: returns_processed
+    as: returns_processed.csv
+  - series: returns_escalated
+    as: returns_escalated.csv
+  - series: restock_backlog
+    as: restock_backlog.csv
+  - series: restock_outflow
+    as: restock_fulfillment.csv
+  - series: recover_backlog
+    as: recover_backlog.csv
+  - series: recover_outflow
+    as: recover_sales.csv
+  - series: scrap_backlog
+    as: scrap_backlog.csv
+  - series: scrap_processed
+    as: scrap_processed.csv

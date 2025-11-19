@@ -111,6 +111,10 @@ internal static class TooltipFormatter
             lines.Add("No metrics for selected bin");
         }
 
+        AppendRawLine(metrics.RawMetrics, lines, "exhaustedFailures", "Exhausted");
+        AppendRawLine(metrics.RawMetrics, lines, "retryBudgetRemaining", "Budget remaining");
+        AppendRawLine(metrics.RawMetrics, lines, "maxAttempts", "Max attempts");
+
         var subtitle = metrics.Timestamp.HasValue
             ? metrics.Timestamp.Value.ToUniversalTime().ToString("dd MMM yyyy HH:mm 'UTC'", CultureInfo.InvariantCulture)
             : "Latest metrics unavailable";
@@ -142,6 +146,17 @@ internal static class TooltipFormatter
         }
 
         return metadata.TryGetValue(key, out var value) ? value : null;
+    }
+
+    private static void AppendRawLine(IReadOnlyDictionary<string, double?>? raw, List<string> lines, string key, string label)
+    {
+        if (raw is null || !raw.TryGetValue(key, out var value) || !value.HasValue)
+        {
+            return;
+        }
+
+        var formatted = value.Value.ToString(Math.Abs(value.Value) >= 100 ? "0" : "0.###", CultureInfo.InvariantCulture);
+        lines.Add($"{label} {formatted}");
     }
 }
 

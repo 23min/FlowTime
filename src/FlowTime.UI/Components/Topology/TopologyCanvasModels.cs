@@ -50,7 +50,9 @@ internal sealed record NodeSemanticsDto(
     string? Errors,
     string? Attempts,
     string? Failures,
+    string? ExhaustedFailures,
     string? RetryEcho,
+    string? RetryBudgetRemaining,
     string? Queue,
     string? Capacity,
     string? Series,
@@ -58,7 +60,10 @@ internal sealed record NodeSemanticsDto(
     NodeDistributionDto? Distribution,
     IReadOnlyList<double>? InlineValues,
     IReadOnlyDictionary<string, string>? Aliases,
-    IReadOnlyDictionary<string, string>? Metadata = null);
+    IReadOnlyDictionary<string, string>? Metadata = null,
+    double? MaxAttempts = null,
+    string? BackoffStrategy = null,
+    string? ExhaustedPolicy = null);
 
 internal sealed record NodeDistributionDto(
     IReadOnlyList<double> Values,
@@ -120,6 +125,8 @@ internal sealed record OverlaySettingsPayload(
     bool ShowCapacityDependencies,
     bool ShowExpressionDependencies,
     bool ShowRetryMetrics,
+    bool ShowRetryBudget,
+    bool ShowTerminalEdges,
     bool ShowEdgeMultipliers);
 
 internal sealed record ViewportSnapshotPayload(

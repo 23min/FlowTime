@@ -309,14 +309,20 @@ private static GraphNodeSemanticsModel CreateSemantics()
         Errors: "series:errors",
         Attempts: null,
         Failures: null,
+        ExhaustedFailures: null,
         RetryEcho: null,
+        RetryBudgetRemaining: null,
         Queue: null,
         Capacity: null,
         Series: null,
         Expression: null,
         Distribution: null,
         InlineValues: null,
-        Aliases: null);
+        Aliases: null,
+        Metadata: null,
+        MaxAttempts: null,
+        BackoffStrategy: null,
+        ExhaustedPolicy: null);
 
     private static int ResolveRow(TopologyNode node)
     {

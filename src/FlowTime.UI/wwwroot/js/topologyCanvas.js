@@ -6,6 +6,7 @@
     const EdgeTypeDependency = 'dependency';
     const EdgeTypeThroughput = 'throughput';
     const EdgeTypeEffort = 'effort';
+    const EdgeTypeTerminal = 'terminal';
     const EDGE_OVERLAY_BASE_COLORS = {
         success: '#009E73',
         warning: '#E69F00',
@@ -623,6 +624,8 @@
             const isEffortEdge = resolvedEdgeType === EdgeTypeEffort;
             const isThroughputEdge = resolvedEdgeType === EdgeTypeThroughput;
             const isDependency = resolvedEdgeType === EdgeTypeDependency;
+            const terminalStylingEnabled = overlaySettings.showTerminalEdges !== false;
+            const isTerminalEdge = terminalStylingEnabled && resolvedEdgeType === EdgeTypeTerminal;
 
             if (isDependency) {
                 const field = String(edge.field ?? edge.Field ?? '').toLowerCase();
@@ -658,20 +661,26 @@
                 skipFromPortOffset = true;
             }
 
-            const baseStrokeColor = isEffortEdge
-                ? '#1D4ED8'
-                : isThroughputEdge
-                    ? '#2563EB'
-                    : '#9AA1AC';
+            const baseStrokeColor = isTerminalEdge
+                ? '#B91C1C'
+                : isEffortEdge
+                    ? '#1D4ED8'
+                    : isThroughputEdge
+                        ? '#2563EB'
+                        : '#9AA1AC';
 
             let dashPattern = isDependency ? [4, 3] : (isEffortEdge ? [8, 4] : null);
             let lineWidth = isDependency ? 1.4 : (isEffortEdge ? 3.2 : 3);
             const overlaySample = overlayContext?.samples?.get(edgeId) ?? null;
-            if (overlaySample && !isDependency) {
+            if (overlaySample && !isDependency && !isTerminalEdge) {
                 lineWidth *= 2;
             }
             let strokeColor = baseStrokeColor;
-            if (overlaySample?.color) {
+            if (isTerminalEdge) {
+                strokeColor = baseStrokeColor;
+                dashPattern = [4, 6];
+                lineWidth = Math.max(lineWidth, 3.5);
+            } else if (overlaySample?.color) {
                 strokeColor = overlaySample.color;
             }
 
@@ -803,6 +812,7 @@
                     }
                 }
             }
+
 
             state.edgeHitboxes.push({
                 id: edgeId,
@@ -2789,6 +2799,8 @@
         const failuresValue = sampleValueFor('failures', semantics.failures, ['failure']);
         const retryValue = sampleValueFor('retryEcho', semantics.retry, ['retry', 'retry_echo']);
         const servedValue = sampleValueFor('served', semantics.served);
+        const exhaustedValue = isServiceNode ? sampleValueFor('exhaustedFailures', semantics.exhausted, ['exhausted', 'exhaustedfailures']) : null;
+        const budgetRemainingValue = isServiceNode ? sampleValueFor('retryBudgetRemaining', semantics.retryBudget, ['retrybudgetremaining', 'retrybudget']) : null;
 
         if (Number.isFinite(servedValue) && Number.isFinite(arrivalsValue) && (servedValue - arrivalsValue) > 1e-6) {
             addSyntheticWarning('served_exceeds_arrivals', 'Served volume exceeded arrivals');
@@ -2971,9 +2983,10 @@
             const stackSpacing = 6;
             const chipY = y - (chipH / 2);
 
-            const drawStackChip = (value, tooltip, metric, bg, fg) =>
+            const drawStackChip = (value, tooltip, metric, bg, fg, options) =>
             {
-                if (value === null || value <= 0) {
+                const allowZero = options && options.showZero === true;
+                if (value === null || (!allowZero && value <= 0)) {
                     return;
                 }
 
@@ -3007,6 +3020,16 @@
             }
 
             drawStackChip(retryValue, semanticTooltip(semantics.retry, 'Retry echo'), 'retryEcho', '#EDE9FE', '#4C1D95');
+
+            if (overlays.showRetryBudget !== false) {
+                if (exhaustedValue !== null) {
+                    drawStackChip(exhaustedValue, semanticTooltip(semantics.exhausted, 'Exhausted'), 'exhaustedFailures', '#7F1D1D', '#FEE2E2');
+                }
+
+                if (budgetRemainingValue !== null) {
+                    drawStackChip(budgetRemainingValue, semanticTooltip(semantics.retryBudget, 'Budget remaining'), 'retryBudgetRemaining', '#0F766E', '#D1FAE5', { showZero: true });
+                }
+            }
         }
 
         if (overlays.showCapacityDependencies !== false) {
@@ -3028,6 +3051,14 @@
                     bottomLeft += dims.width + gap;
                 }
             }
+        }
+
+        if (overlays.showTerminalEdges !== false && semantics.exhausted) {
+            const terminalLabel = semantics.exhausted.aliasLabel
+                || semantics.exhausted.label
+                || semantics.exhausted.canonicalLabel
+                || 'DLQ';
+            drawTerminalEdgeBadge(ctx, nodeMeta, terminalLabel);
         }
 
         let pendingQueueChip = null;
@@ -3284,6 +3315,45 @@
         ctx.restore();
     }
 
+    function drawTerminalEdgeBadge(ctx, nodeMeta, label) {
+        const text = (label ?? 'DLQ').toUpperCase();
+        const font = '600 9px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
+        ctx.save();
+        ctx.font = font;
+        const textMetrics = ctx.measureText(text);
+        const paddingX = 6;
+        const paddingY = 3;
+        const chipWidth = Math.max(textMetrics.width + paddingX * 2, 26);
+        const chipHeight = 14;
+
+        const nodeX = Number(nodeMeta.x ?? nodeMeta.X ?? 0);
+        const nodeY = Number(nodeMeta.y ?? nodeMeta.Y ?? 0);
+        const nodeWidth = Number(nodeMeta.width ?? nodeMeta.Width ?? 54);
+        const nodeHeight = Number(nodeMeta.height ?? nodeMeta.Height ?? 24);
+        const chipCenterX = nodeX + (nodeWidth / 2) + (chipWidth / 2) + 10;
+        const chipCenterY = nodeY - (nodeHeight / 2) - (chipHeight / 2) - 6;
+        const radius = chipHeight / 2;
+
+        const bg = isDarkTheme() ? '#374151' : '#E5E7EB';
+        const fg = isDarkTheme() ? '#F8FAFC' : '#111827';
+        const border = isDarkTheme() ? '#1F2937' : '#CBD5F5';
+
+        ctx.beginPath();
+        traceRoundedRect(ctx, chipCenterX, chipCenterY, chipWidth, chipHeight, radius);
+        ctx.fillStyle = bg;
+        ctx.strokeStyle = border;
+        ctx.lineWidth = 1;
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = fg;
+        ctx.font = font;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, chipCenterX, chipCenterY + 0.5);
+        ctx.restore();
+    }
+
     function computeSparklineLayout(nodeMeta, overlaySettings, spark) {
         if (!spark) {
             return null;
@@ -3409,13 +3479,18 @@
                 errors: null,
                 attempts: null,
                 failures: null,
+                exhausted: null,
                 retry: null,
                 queue: null,
                 capacity: null,
                 series: null,
                 distribution: null,
                 inline: null,
-                retryEcho: null
+                retryEcho: null,
+                retryBudget: null,
+                maxAttempts: null,
+                backoffStrategy: null,
+                exhaustedPolicy: null
             };
         }
 
@@ -3426,6 +3501,7 @@
             errors: normalizeSemanticValue(raw.errors ?? raw.Errors, 'Errors', aliasFor(aliasMap, 'errors'), 'errors'),
             attempts: normalizeSemanticValue(raw.attempts ?? raw.Attempts, 'Attempts', aliasFor(aliasMap, 'attempts'), 'attempts'),
             failures: normalizeSemanticValue(raw.failures ?? raw.Failures, 'Failed retries', aliasFor(aliasMap, 'failures'), 'failures'),
+            exhausted: normalizeSemanticValue(raw.exhaustedFailures ?? raw.ExhaustedFailures, 'Exhausted', aliasFor(aliasMap, 'exhaustedFailures') ?? aliasFor(aliasMap, 'exhausted'), 'exhaustedFailures'),
             retry: normalizeSemanticValue(raw.retry ?? raw.Retry ?? raw.retryEcho ?? raw.RetryEcho, 'Retry', aliasFor(aliasMap, 'retry') ?? aliasFor(aliasMap, 'retryecho'), 'retryEcho'),
             queue: normalizeSemanticValue(raw.queue ?? raw.Queue, 'Queue depth', aliasFor(aliasMap, 'queue'), 'queue'),
             capacity: normalizeSemanticValue(raw.capacity ?? raw.Capacity, 'Capacity', aliasFor(aliasMap, 'capacity'), 'capacity'),
@@ -3433,7 +3509,11 @@
             distribution: normalizeDistribution(raw.distribution ?? raw.Distribution),
             inline: normalizeInlineSeries(raw.inlineValues ?? raw.InlineValues),
             retryEcho: normalizeSemanticValue(raw.retryEcho ?? raw.RetryEcho, 'Retry echo', aliasFor(aliasMap, 'retryecho'), 'retryEcho'),
-            aliases: aliasMap
+            retryBudget: normalizeSemanticValue(raw.retryBudgetRemaining ?? raw.RetryBudgetRemaining, 'Retry budget', aliasFor(aliasMap, 'retryBudgetRemaining'), 'retryBudgetRemaining'),
+            aliases: aliasMap,
+            maxAttempts: normalizeNumericValue(raw.maxAttempts ?? raw.MaxAttempts),
+            backoffStrategy: typeof raw.backoffStrategy === 'string' ? raw.backoffStrategy.trim() : (typeof raw.BackoffStrategy === 'string' ? raw.BackoffStrategy.trim() : null),
+            exhaustedPolicy: typeof raw.exhaustedPolicy === 'string' ? raw.exhaustedPolicy.trim() : (typeof raw.ExhaustedPolicy === 'string' ? raw.ExhaustedPolicy.trim() : null)
         };
     }
 
@@ -3650,6 +3730,15 @@
         }
 
         return numericValues;
+    }
+
+    function normalizeNumericValue(raw) {
+        if (raw === null || raw === undefined) {
+            return null;
+        }
+
+        const numeric = Number(raw);
+        return Number.isFinite(numeric) ? numeric : null;
     }
 
     function extractSeriesKey(identifier) {
@@ -5153,6 +5242,9 @@
         }
         if (raw === EdgeTypeThroughput) {
             return EdgeTypeThroughput;
+        }
+        if (raw === EdgeTypeTerminal) {
+            return EdgeTypeTerminal;
         }
         return EdgeTypeTopology;
     }

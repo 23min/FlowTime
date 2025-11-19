@@ -24,11 +24,16 @@ public sealed class GraphNodeSemantics
     public string Errors { get; init; } = string.Empty;
     public string? Attempts { get; init; }
     public string? Failures { get; init; }
+    public string? ExhaustedFailures { get; init; }
     public string? RetryEcho { get; init; }
+    public string? RetryBudgetRemaining { get; init; }
     public string? Queue { get; init; }
     public string? Capacity { get; init; }
     public string? Series { get; init; }
     public string? Expression { get; init; }
+    public double? MaxAttempts { get; init; }
+    public string? BackoffStrategy { get; init; }
+    public string? ExhaustedPolicy { get; init; }
     public GraphNodeDistribution? Distribution { get; init; }
 
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]

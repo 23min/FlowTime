@@ -198,6 +198,21 @@ public sealed record TimeTravelNodeMetricsDto
     [JsonPropertyName("errors")]
     public double? Errors { get; init; }
 
+    [JsonPropertyName("attempts")]
+    public double? Attempts { get; init; }
+
+    [JsonPropertyName("failures")]
+    public double? Failures { get; init; }
+
+    [JsonPropertyName("exhaustedFailures")]
+    public double? ExhaustedFailures { get; init; }
+
+    [JsonPropertyName("retryEcho")]
+    public double? RetryEcho { get; init; }
+
+    [JsonPropertyName("retryBudgetRemaining")]
+    public double? RetryBudgetRemaining { get; init; }
+
     [JsonPropertyName("queue")]
     public double? Queue { get; init; }
 
@@ -206,6 +221,9 @@ public sealed record TimeTravelNodeMetricsDto
 
     [JsonPropertyName("externalDemand")]
     public double? ExternalDemand { get; init; }
+
+    [JsonPropertyName("maxAttempts")]
+    public double? MaxAttempts { get; init; }
 }
 
 public sealed record TimeTravelNodeDerivedMetricsDto

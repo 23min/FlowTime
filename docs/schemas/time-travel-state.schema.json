@@ -167,10 +167,13 @@
                 "errors": { "$ref": "#/$defs/nullableNumber" },
                 "attempts": { "$ref": "#/$defs/nullableNumber" },
                 "failures": { "$ref": "#/$defs/nullableNumber" },
+                "exhaustedFailures": { "$ref": "#/$defs/nullableNumber" },
                 "retryEcho": { "$ref": "#/$defs/nullableNumber" },
+                "retryBudgetRemaining": { "$ref": "#/$defs/nullableNumber" },
                 "queue": { "$ref": "#/$defs/nullableNumber" },
                 "capacity": { "$ref": "#/$defs/nullableNumber" },
-                "externalDemand": { "$ref": "#/$defs/nullableNumber" }
+                "externalDemand": { "$ref": "#/$defs/nullableNumber" },
+                "maxAttempts": { "$ref": "#/$defs/nullableNumber" }
             }
         },
         "nodeDerivedMetrics": {

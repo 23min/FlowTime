@@ -100,7 +100,9 @@ public sealed class TopologySemanticsDto
     public string Errors { get; set; } = string.Empty;
     public string? Attempts { get; set; }
     public string? Failures { get; set; }
+    public string? ExhaustedFailures { get; set; }
     public string? RetryEcho { get; set; }
+    public string? RetryBudgetRemaining { get; set; }
     public double[]? RetryKernel { get; set; }
     public string? ExternalDemand { get; set; }
     // canonical queue binding (no legacy 'queue' alias)
@@ -109,6 +111,9 @@ public sealed class TopologySemanticsDto
     public string? ProcessingTimeMsSum { get; set; }
     public string? ServedCount { get; set; }
     public double? SlaMin { get; set; }
+    public double? MaxAttempts { get; set; }
+    public string? BackoffStrategy { get; set; }
+    public string? ExhaustedPolicy { get; set; }
     public Dictionary<string, string>? Aliases { get; set; }
 }
 

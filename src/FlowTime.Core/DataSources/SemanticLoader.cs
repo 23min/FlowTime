@@ -34,8 +34,16 @@ public sealed class SemanticLoader
             ? LoadSeries(semantics.Failures!, bins)
             : null;
 
+        double[]? exhaustedFailures = IsFileUri(semantics.ExhaustedFailures)
+            ? LoadSeries(semantics.ExhaustedFailures!, bins)
+            : null;
+
         double[]? retryEcho = IsFileUri(semantics.RetryEcho)
             ? LoadSeries(semantics.RetryEcho!, bins)
+            : null;
+
+        double[]? retryBudgetRemaining = IsFileUri(semantics.RetryBudgetRemaining)
+            ? LoadSeries(semantics.RetryBudgetRemaining!, bins)
             : null;
 
         var retryKernel = semantics.RetryKernel?.ToArray();
@@ -68,6 +76,7 @@ public sealed class SemanticLoader
             Errors = errors,
             Attempts = attempts,
             Failures = failures ?? errors,
+            ExhaustedFailures = exhaustedFailures,
             RetryEcho = retryEcho,
             RetryKernel = retryKernel,
             ExternalDemand = externalDemand,
@@ -75,6 +84,7 @@ public sealed class SemanticLoader
             Capacity = capacity,
             ProcessingTimeMsSum = processingTimeMsSum,
             ServedCount = servedCount,
+            RetryBudgetRemaining = retryBudgetRemaining,
             Values = null
         };
     }

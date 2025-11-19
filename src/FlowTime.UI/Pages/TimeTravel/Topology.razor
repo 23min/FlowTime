@@ -1649,6 +1649,8 @@ private const string PmfExpectationLabel = "Value";
             var attempts = Get("attempts");
             var failures = Get("failures");
             var retryEcho = Get("retryEcho");
+            var exhaustedFailures = Get("exhaustedFailures");
+            var retryBudgetRemaining = Get("retryBudgetRemaining");
             var capacity = Get("capacity");
             var throughput = Get("throughputRatio");
             var utilization = Get("utilization");
@@ -1689,10 +1691,13 @@ private const string PmfExpectationLabel = "Value";
             SetRaw("errors", errors);
             SetRaw("attempts", attempts);
             SetRaw("failures", failures);
+            SetRaw("exhaustedFailures", exhaustedFailures);
             SetRaw("retryEcho", retryEcho);
+            SetRaw("retryBudgetRemaining", retryBudgetRemaining);
             SetRaw("queue", queue);
             SetRaw("retryTax", retryTax);
             SetRaw("capacity", capacity);
+            SetRaw("maxAttempts", topoNode?.Semantics?.MaxAttempts);
 
             if (isComputed && !isPmf)
             {
@@ -2847,10 +2852,13 @@ internal sealed record InspectorMetricBlock(
         }
 
         var showRetryMetrics = overlaySettings.ShowRetryMetrics;
+        var showRetryBudget = overlaySettings.ShowRetryBudget;
         var hasAttemptsSeries = baseSparkline?.Series.ContainsKey("attempts") == true;
         var hasFailuresSeries = baseSparkline?.Series.ContainsKey("failures") == true;
         var hasRetryEchoSeries = baseSparkline?.Series.ContainsKey("retryEcho") == true;
         var hasServedSeries = baseSparkline?.Series.ContainsKey("served") == true || AllowsFallback("served");
+        var hasExhaustedSeries = baseSparkline?.Series.ContainsKey("exhaustedFailures") == true;
+        var hasBudgetSeries = baseSparkline?.Series.ContainsKey("retryBudgetRemaining") == true;
 
         if (showRetryMetrics && (hasAttemptsSeries || !string.IsNullOrWhiteSpace(topoNode?.Semantics?.Attempts)))
         {
@@ -2870,6 +2878,16 @@ internal sealed record InspectorMetricBlock(
         if (showRetryMetrics && (hasRetryEchoSeries || !string.IsNullOrWhiteSpace(topoNode?.Semantics?.RetryEcho)))
         {
             AddRequired(Label("Retry echo", "retryEcho", "retry_echo", "retry"), "retryEcho", 0d, seriesKeyOverride: "retryEcho");
+        }
+
+        if (showRetryMetrics && (hasExhaustedSeries || !string.IsNullOrWhiteSpace(topoNode?.Semantics?.ExhaustedFailures)))
+        {
+            AddRequired(Label("Exhausted", "exhaustedFailures"), "exhaustedFailures", 0d, seriesKeyOverride: "exhaustedFailures");
+        }
+
+        if (showRetryBudget && (hasBudgetSeries || !string.IsNullOrWhiteSpace(topoNode?.Semantics?.RetryBudgetRemaining)))
+        {
+            AddRequired(Label("Retry budget remaining", "retryBudgetRemaining"), "retryBudgetRemaining", 0d, seriesKeyOverride: "retryBudgetRemaining");
         }
 
         AddRequired("Retry tax", "retryTax", 0d, 1d, valueFormat: InspectorValueFormat.Percent, seriesKeyOverride: "retryTax");
@@ -2902,8 +2920,13 @@ internal sealed record InspectorMetricBlock(
         string Label(string fallback, params string[] keys) =>
             FormatSemanticLabelWithAlias(fallback, TryResolveAlias(topoNode, keys));
 
-        void AddRaw(string fallback, string key, InspectorValueFormat format = InspectorValueFormat.Number, string? unit = null)
+        void AddRaw(string fallback, string key, InspectorValueFormat format = InspectorValueFormat.Number, string? unit = null, bool gate = true)
         {
+            if (!gate)
+            {
+                return;
+            }
+
             if (raw is null || !raw.TryGetValue(key, out var value) || !value.HasValue)
             {
                 return;
@@ -2927,9 +2950,12 @@ internal sealed record InspectorMetricBlock(
         AddRaw("Errors", "errors");
         AddRaw("Attempts", "attempts");
         AddRaw("Failed retries", "failures");
+        AddRaw("Exhausted", "exhaustedFailures", gate: overlaySettings.ShowRetryMetrics);
         AddRaw("Retry echo", "retryEcho");
+        AddRaw("Retry budget remaining", "retryBudgetRemaining", gate: overlaySettings.ShowRetryBudget);
         AddRaw("Queue depth", "queue");
         AddRaw("Capacity", "capacity");
+        AddRaw("Max attempts", "maxAttempts");
 
         AddDerived("Success rate", metrics.SuccessRate, InspectorValueFormat.Percent);
         AddDerived("Utilization", metrics.Utilization, InspectorValueFormat.Percent);

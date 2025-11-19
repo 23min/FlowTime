@@ -7,8 +7,13 @@
         "arrivals": "series:incoming",
         "served": "series:routed",
         "errors": "series:errors",
+        "exhaustedFailures": null,
+        "retryBudgetRemaining": null,
         "series": null,
         "expression": null,
+        "maxAttempts": null,
+        "backoffStrategy": null,
+        "exhaustedPolicy": null,
         "distribution": null,
         "aliases": {
           "served": "Requests Routed",
@@ -23,9 +28,14 @@
         "arrivals": "series:routed",
         "served": "series:served",
         "errors": "series:errors",
+        "exhaustedFailures": null,
+        "retryBudgetRemaining": null,
         "capacity": "series:capacity",
         "series": null,
         "expression": null,
+        "maxAttempts": null,
+        "backoffStrategy": null,
+        "exhaustedPolicy": null,
         "distribution": null,
         "aliases": {
           "served": "Transactions Committed"
@@ -45,8 +55,13 @@
         "arrivals": "series:analytics_load",
         "served": "series:analytics_served",
         "errors": "series:analytics_errors",
+        "exhaustedFailures": null,
+        "retryBudgetRemaining": null,
         "series": null,
         "expression": null,
+        "maxAttempts": null,
+        "backoffStrategy": null,
+        "exhaustedPolicy": null,
         "distribution": null
       }
     }

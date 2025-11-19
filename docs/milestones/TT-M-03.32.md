@@ -1,6 +1,6 @@
 # TT‑M‑03.32 — Retry Governance & Terminal Disposition
 
-Status: Planned  
+Status: ✅ Complete  
 Owners: Platform (API/Runtime) + UI
 
 ## Overview
@@ -48,3 +48,9 @@ Layer governance semantics on top of the retry foundations delivered in TT‑M�
 - Finalize spec for schema/API changes (fields, telemetry).
 - Prototype runtime enforcement with a deterministic fixture.
 - Update UI canvas/inspector with new metrics and styling.
+
+## Implementation Notes
+- **Runtime/API:** `/state` and `/state_window` now emit `maxAttempts`, `retryBudgetRemaining`, and `exhaustedFailures` plus terminal edge metadata. See `StateQueryService`, `docs/schemas/time-travel-state.schema.json`, and the updated golden fixtures under `tests/FlowTime.Api.Tests/Golden/`.
+- **UI:** Feature bar exposes retry-budget and terminal-edge toggles. Canvas renders exhausted/budget chips and badges, while inspector blocks/rows respond to the new settings. Relevant files include `Topology.razor`, `TopologyFeatureBar.razor`, and `wwwroot/js/topologyCanvas.js`.
+- **Fixtures/Tests:** `fixtures/time-travel/retry-service-time` gained deterministic exhausted/budget series so API/UI tests cover the governance workflow. State/graph goldens and UI tests were refreshed to account for the new metrics and overlay payload fields.
+- **Follow-Up:** TT‑M‑03.32.1 tracks the dedicated `dlq` node type so future templates can differentiate DLQs without relying on aliases.

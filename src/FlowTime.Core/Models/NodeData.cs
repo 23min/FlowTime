@@ -8,6 +8,7 @@ public sealed record NodeData
     public required double[] Errors { get; init; }
     public double[]? Attempts { get; init; }
     public double[]? Failures { get; init; }
+    public double[]? ExhaustedFailures { get; init; }
     public double[]? RetryEcho { get; init; }
     public double[]? RetryKernel { get; init; }
     public double[]? ExternalDemand { get; init; }
@@ -15,5 +16,6 @@ public sealed record NodeData
     public double[]? Capacity { get; init; }
     public double[]? ProcessingTimeMsSum { get; init; }
     public double[]? ServedCount { get; init; }
+    public double[]? RetryBudgetRemaining { get; init; }
     public double[]? Values { get; init; }
 }

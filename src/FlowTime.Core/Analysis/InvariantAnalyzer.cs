@@ -62,6 +62,10 @@ public static class InvariantAnalyzer
             {
                 failures = null;
             }
+            if (!TryGetSeries(semantics.ExhaustedFailures, out var exhaustedFailures))
+            {
+                exhaustedFailures = null;
+            }
             if (!TryGetSeries(semantics.QueueDepth, out var queueDepth))
             {
                 queueDepth = null;
@@ -74,6 +78,10 @@ public static class InvariantAnalyzer
             {
                 capacity = null;
             }
+            if (!TryGetSeries(semantics.RetryBudgetRemaining, out var retryBudgetRemaining))
+            {
+                retryBudgetRemaining = null;
+            }
 
             // Non-negative checks
             CheckNonNegative(nodeId, "arrivals_negative", "Arrivals produced negative values", arrivals);
@@ -81,8 +89,10 @@ public static class InvariantAnalyzer
             CheckNonNegative(nodeId, "errors_negative", "Errors produced negative values", errors);
             CheckNonNegative(nodeId, "attempts_negative", "Attempts produced negative values", attempts);
             CheckNonNegative(nodeId, "failures_negative", "Failures produced negative values", failures);
+            CheckNonNegative(nodeId, "exhausted_failures_negative", "Exhausted failures produced negative values", exhaustedFailures);
             CheckNonNegative(nodeId, "queue_negative", "Queue depth produced negative values", queueDepth);
             CheckNonNegative(nodeId, "retry_echo_negative", "Retry echo produced negative values", retryEcho);
+            CheckNonNegative(nodeId, "retry_budget_negative", "Retry budget remaining produced negative values", retryBudgetRemaining);
 
             // Served <= arrivals
             if (arrivals != null && served != null)
@@ -116,6 +126,19 @@ public static class InvariantAnalyzer
                     failures, attempts, greaterTolerance: true);
             }
 
+            if (exhaustedFailures != null && failures != null)
+            {
+                CheckDiff(nodeId, "exhausted_exceeds_failures",
+                    "Exhausted retries exceeded total failures",
+                    exhaustedFailures, failures, greaterTolerance: true);
+            }
+            else if (exhaustedFailures != null && errors != null)
+            {
+                CheckDiff(nodeId, "exhausted_exceeds_errors",
+                    "Exhausted retries exceeded total errors",
+                    exhaustedFailures, errors, greaterTolerance: true);
+            }
+
             // Queue depth validation
             if (queueDepth != null && arrivals != null && served != null)
             {
@@ -129,6 +152,7 @@ public static class InvariantAnalyzer
             var expectsCapacity = isServiceKind || !string.IsNullOrWhiteSpace(semantics.Capacity);
             var expectsServed = isServiceKind || !string.IsNullOrWhiteSpace(semantics.Served);
             var expectsQueue = isQueueKind || !string.IsNullOrWhiteSpace(semantics.QueueDepth);
+            var hasMaxAttempts = semantics.MaxAttempts.HasValue;
 
             if (expectsCapacity && capacity == null)
             {
@@ -139,6 +163,28 @@ public static class InvariantAnalyzer
                     Array.Empty<int>(),
                     null,
                     "info"));
+            }
+
+            if (hasMaxAttempts && exhaustedFailures == null)
+            {
+                warnings.Add(new InvariantWarning(
+                    nodeId,
+                    "missing_exhausted_failures_series",
+                    "maxAttempts was configured but exhaustedFailures series was not produced.",
+                    Array.Empty<int>(),
+                    null,
+                    "warning"));
+            }
+
+            if (hasMaxAttempts && retryBudgetRemaining == null)
+            {
+                warnings.Add(new InvariantWarning(
+                    nodeId,
+                    "missing_retry_budget_series",
+                    "maxAttempts was configured but retryBudgetRemaining series was not produced.",
+                    Array.Empty<int>(),
+                    null,
+                    "warning"));
             }
             else if (capacity != null && capacity.All(v => Math.Abs(v) <= tolerance))
             {

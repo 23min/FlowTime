@@ -99,7 +99,9 @@ public static class ModelParser
                     Errors = RequireSemantic(definition.Semantics.Errors, definition.Id, "errors"),
                     Attempts = definition.Semantics.Attempts,
                     Failures = definition.Semantics.Failures,
+                    ExhaustedFailures = definition.Semantics.ExhaustedFailures,
                     RetryEcho = definition.Semantics.RetryEcho,
+                    RetryBudgetRemaining = definition.Semantics.RetryBudgetRemaining,
                     RetryKernel = definition.Semantics.RetryKernel,
                     ExternalDemand = definition.Semantics.ExternalDemand,
                     QueueDepth = definition.Semantics.QueueDepth,
@@ -107,6 +109,10 @@ public static class ModelParser
                     ProcessingTimeMsSum = definition.Semantics.ProcessingTimeMsSum,
                     ServedCount = definition.Semantics.ServedCount,
                     SlaMinutes = definition.Semantics.SlaMin,
+                    MaxAttempts = definition.Semantics.MaxAttempts,
+                    BackoffStrategy = definition.Semantics.BackoffStrategy,
+                    ExhaustedPolicy = definition.Semantics.ExhaustedPolicy,
+                    Metadata = definition.Semantics.Metadata,
                     Aliases = NormalizeAliases(definition.Semantics.Aliases)
                 },
                 InitialCondition = definition.InitialCondition != null
@@ -440,7 +446,9 @@ public class TopologyNodeSemanticsDefinition
     public string Errors { get; set; } = string.Empty;
     public string? Attempts { get; set; }
     public string? Failures { get; set; }
+    public string? ExhaustedFailures { get; set; }
     public string? RetryEcho { get; set; }
+    public string? RetryBudgetRemaining { get; set; }
     public double[]? RetryKernel { get; set; }
     public string? ExternalDemand { get; set; }
     public string? QueueDepth { get; set; }
@@ -448,7 +456,11 @@ public class TopologyNodeSemanticsDefinition
     public string? ProcessingTimeMsSum { get; set; }
     public string? ServedCount { get; set; }
     public double? SlaMin { get; set; }
+    public double? MaxAttempts { get; set; }
+    public string? BackoffStrategy { get; set; }
+    public string? ExhaustedPolicy { get; set; }
     public Dictionary<string, string>? Aliases { get; set; }
+    public Dictionary<string, string>? Metadata { get; set; }
 }
 
 public class TopologyEdgeDefinition

@@ -98,6 +98,18 @@
                                ValueChanged="OnShowRetryMetricsChanged"
                                Color="Color.Primary"
                                Label="Show retry chips" />
+                    <MudSwitch T="bool"
+                               Class="topology-dense-control"
+                               Value="@workingSettings.ShowRetryBudget"
+                               ValueChanged="OnShowRetryBudgetChanged"
+                               Color="Color.Primary"
+                               Label="Show retry budget" />
+                    <MudSwitch T="bool"
+                               Class="topology-dense-control"
+                               Value="@workingSettings.ShowTerminalEdges"
+                               ValueChanged="OnShowTerminalEdgesChanged"
+                               Color="Color.Primary"
+                               Label="Highlight terminal edges" />
                     <MudRadioGroup T="SparklineRenderMode"
                                    Value="@workingSettings.SparklineMode"
                                    ValueChanged="OnSparklineModeChanged"
@@ -435,6 +447,28 @@
         }
 
         workingSettings.ShowRetryMetrics = value;
+        return NotifyChange();
+    }
+
+    private Task OnShowRetryBudgetChanged(bool value)
+    {
+        if (workingSettings.ShowRetryBudget == value)
+        {
+            return Task.CompletedTask;
+        }
+
+        workingSettings.ShowRetryBudget = value;
+        return NotifyChange();
+    }
+
+    private Task OnShowTerminalEdgesChanged(bool value)
+    {
+        if (workingSettings.ShowTerminalEdges == value)
+        {
+            return Task.CompletedTask;
+        }
+
+        workingSettings.ShowTerminalEdges = value;
         return NotifyChange();
     }
 

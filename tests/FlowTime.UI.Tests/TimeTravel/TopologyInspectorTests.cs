@@ -207,7 +207,9 @@ public sealed class TopologyInspectorTests
             Errors: "errors",
             Attempts: "attempts",
             Failures: null,
+            ExhaustedFailures: null,
             RetryEcho: "retryEcho",
+            RetryBudgetRemaining: null,
             Queue: null,
             Capacity: null,
             Series: null,
@@ -292,7 +294,9 @@ public sealed class TopologyInspectorTests
             Errors: null,
             Attempts: null,
             Failures: null,
+            ExhaustedFailures: null,
             RetryEcho: null,
+            RetryBudgetRemaining: null,
             Queue: null,
             Capacity: null,
             Series: null,
@@ -391,7 +395,9 @@ public sealed class TopologyInspectorTests
                         Errors: "queue_err",
                         Attempts: null,
                         Failures: null,
+                        ExhaustedFailures: null,
                         RetryEcho: null,
+                        RetryBudgetRemaining: null,
                         Queue: "queue_depth",
                         Capacity: null,
                         Series: null,
@@ -469,7 +475,9 @@ public sealed class TopologyInspectorTests
                         Errors: null,
                         Attempts: null,
                         Failures: null,
+                        ExhaustedFailures: null,
                         RetryEcho: null,
+                        RetryBudgetRemaining: null,
                         Queue: null,
                         Capacity: null,
                         Series: null,
@@ -574,7 +582,9 @@ public sealed class TopologyInspectorTests
             Errors: "errors",
             Attempts: "attempts",
             Failures: "failures",
+            ExhaustedFailures: null,
             RetryEcho: "retryEcho",
+            RetryBudgetRemaining: null,
             Queue: null,
             Capacity: null,
             Series: null,
@@ -593,7 +603,9 @@ public sealed class TopologyInspectorTests
             ["served"] = new double?[] { 10.0 },
             ["attempts"] = new double?[] { 12.0 },
             ["failures"] = new double?[] { 2.0 },
-            ["retryEcho"] = new double?[] { 1.0 }
+            ["retryEcho"] = new double?[] { 1.0 },
+            ["exhaustedFailures"] = new double?[] { 0.5 },
+            ["retryBudgetRemaining"] = new double?[] { 2.0 }
         };
 
         var sparkline = CreateSparkline(series);
@@ -607,12 +619,20 @@ public sealed class TopologyInspectorTests
         Assert.Contains(defaultBlocks, block => string.Equals(block.Title, "Attempts", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(defaultBlocks, block => string.Equals(block.Title, "Failed retries", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(defaultBlocks, block => string.Equals(block.Title, "Retry echo", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(defaultBlocks, block => string.Equals(block.Title, "Exhausted", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(defaultBlocks, block => string.Equals(block.Title, "Retry budget remaining", StringComparison.OrdinalIgnoreCase));
 
         topology.TestSetOverlaySettings(new TopologyOverlaySettings { ShowRetryMetrics = false });
         var hiddenBlocks = topology.TestBuildInspectorMetrics("svc-retry");
         Assert.DoesNotContain(hiddenBlocks, block => string.Equals(block.Title, "Attempts", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(hiddenBlocks, block => string.Equals(block.Title, "Failed retries", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(hiddenBlocks, block => string.Equals(block.Title, "Retry echo", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(hiddenBlocks, block => string.Equals(block.Title, "Exhausted", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(hiddenBlocks, block => string.Equals(block.Title, "Retry budget remaining", StringComparison.OrdinalIgnoreCase));
+
+        topology.TestSetOverlaySettings(new TopologyOverlaySettings { ShowRetryBudget = false });
+        var budgetHidden = topology.TestBuildInspectorMetrics("svc-retry");
+        Assert.DoesNotContain(budgetHidden, block => string.Equals(block.Title, "Retry budget remaining", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -626,7 +646,9 @@ public sealed class TopologyInspectorTests
             Errors: "errors",
             Attempts: "attempts",
             Failures: "failures",
+            ExhaustedFailures: null,
             RetryEcho: "retryEcho",
+            RetryBudgetRemaining: null,
             Queue: null,
             Capacity: null,
             Series: null,
@@ -725,14 +747,20 @@ public sealed class TopologyInspectorTests
             Errors: null,
             Attempts: null,
             Failures: null,
+            ExhaustedFailures: null,
             RetryEcho: null,
+            RetryBudgetRemaining: null,
             Queue: null,
             Capacity: null,
             Series: null,
             Expression: null,
             Distribution: null,
             InlineValues: null,
-            Aliases: null);
+            Aliases: null,
+            Metadata: null,
+            MaxAttempts: null,
+            BackoffStrategy: null,
+            ExhaustedPolicy: null);
 
     private static NodeSparklineData CreateSparkline(IDictionary<string, double?[]> seriesMap)
     {

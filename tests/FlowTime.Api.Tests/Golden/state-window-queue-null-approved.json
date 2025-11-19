@@ -64,6 +64,18 @@
           1,
           1
         ],
+        "exhaustedFailures": [
+          0,
+          0,
+          1,
+          1
+        ],
+        "retryBudgetRemaining": [
+          3,
+          3,
+          2,
+          1
+        ],
         "retryEcho": [
           0,
           0.6,
@@ -114,7 +126,9 @@
           "file:OrderService_errors.csv",
           "file:OrderService_attempts.csv",
           "file:OrderService_failures.csv",
+          "file:OrderService_exhaustedFailures.csv",
           "file:OrderService_retryEcho.csv",
+          "file:OrderService_retryBudgetRemaining.csv",
           "file:OrderService_capacity.csv",
           "file:OrderService_processingTimeMsSum.csv",
           "file:OrderService_servedCount.csv"

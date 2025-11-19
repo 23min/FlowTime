@@ -97,7 +97,9 @@ public sealed class TopologyCanvasRenderTests : TestContext
         var overlay = new TopologyOverlaySettings
         {
             ShowRetryMetrics = false,
-            ShowEdgeMultipliers = false
+            ShowEdgeMultipliers = false,
+            ShowRetryBudget = false,
+            ShowTerminalEdges = false
         };
 
         var renderCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.render", _ => true);
@@ -113,6 +115,8 @@ public sealed class TopologyCanvasRenderTests : TestContext
 
         Assert.False(payload.Overlays.ShowRetryMetrics);
         Assert.False(payload.Overlays.ShowEdgeMultipliers);
+        Assert.False(payload.Overlays.ShowRetryBudget);
+        Assert.False(payload.Overlays.ShowTerminalEdges);
     }
 
     [Fact]
@@ -585,12 +589,18 @@ public sealed class TopologyCanvasRenderTests : TestContext
         Errors: null,
         Attempts: null,
         Failures: null,
+        ExhaustedFailures: null,
         RetryEcho: null,
+        RetryBudgetRemaining: null,
         Queue: null,
         Capacity: null,
         Series: null,
         Expression: null,
         Distribution: null,
         InlineValues: null,
-        Aliases: null);
+        Aliases: null,
+        Metadata: null,
+        MaxAttempts: null,
+        BackoffStrategy: null,
+        ExhaustedPolicy: null);
 }

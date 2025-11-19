@@ -16,11 +16,16 @@ topology:
         errors: "file:OrderService_errors.csv"
         attempts: "file:OrderService_attempts.csv"
         failures: "file:OrderService_failures.csv"
+        exhaustedFailures: "file:OrderService_exhaustedFailures.csv"
         retryEcho: "file:OrderService_retryEcho.csv"
         retryKernel: [0.0, 0.6, 0.3, 0.1]
+        retryBudgetRemaining: "file:OrderService_retryBudgetRemaining.csv"
         capacity: "file:OrderService_capacity.csv"
         processingTimeMsSum: "file:OrderService_processingTimeMsSum.csv"
         servedCount: "file:OrderService_servedCount.csv"
+        maxAttempts: 4
+        exhaustedPolicy: "dlq"
+        backoffStrategy: "linear"
         aliases:
           attempts: "Ticket submissions"
           served: "Orders fulfilled"

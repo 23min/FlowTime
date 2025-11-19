@@ -111,7 +111,10 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         Assert.Equal(1, service.Metrics.Errors);
         Assert.Equal(7, service.Metrics.Attempts);
         Assert.Equal(1, service.Metrics.Failures);
+        Assert.Equal(0, service.Metrics.ExhaustedFailures);
         Assert.Equal(0.6, service.Metrics.RetryEcho!.Value, 5);
+        Assert.Equal(3, service.Metrics.RetryBudgetRemaining);
+        Assert.Equal(4, service.Metrics.MaxAttempts);
         Assert.Equal(0.85714, service.Derived.Utilization!.Value, 5);
         Assert.Equal(300, service.Derived.ServiceTimeMs!.Value, 5);
         Assert.Equal("yellow", service.Derived.Color);
@@ -160,6 +163,8 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         Assert.Equal(new double?[] { 12.0, 7.0, 9.0, 4.0 }, serviceSeries.Series["capacity"]);
         Assert.Equal(new double?[] { 10.0, 7.0, 10.0, 5.0 }, serviceSeries.Series["attempts"]);
         Assert.Equal(new double?[] { 1.0, 1.0, 1.0, 1.0 }, serviceSeries.Series["failures"]);
+        Assert.Equal(new double?[] { 0.0, 0.0, 1.0, 1.0 }, serviceSeries.Series["exhaustedFailures"]);
+        Assert.Equal(new double?[] { 3.0, 3.0, 2.0, 1.0 }, serviceSeries.Series["retryBudgetRemaining"]);
         Assert.True(serviceSeries.Series.ContainsKey("serviceTimeMs"));
         Assert.Equal(new double?[] { 250.0, 300.0, 300.0, 300.0 }, serviceSeries.Series["serviceTimeMs"]);
         var retryEcho = serviceSeries.Series["retryEcho"];
@@ -620,7 +625,9 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         WriteSeries(modelDir, "OrderService_errors.csv", new double[] { 1, 1, 1, 1 });
         WriteSeries(modelDir, "OrderService_attempts.csv", new double[] { 10, 7, 10, 5 });
         WriteSeries(modelDir, "OrderService_failures.csv", new double[] { 1, 1, 1, 1 });
+        WriteSeries(modelDir, "OrderService_exhaustedFailures.csv", new double[] { 0, 0, 1, 1 });
         WriteSeries(modelDir, "OrderService_retryEcho.csv", new double[] { 0.0, 0.6, 0.9, 1.0 });
+        WriteSeries(modelDir, "OrderService_retryBudgetRemaining.csv", new double[] { 3, 3, 2, 1 });
         WriteSeries(modelDir, "OrderService_capacity.csv", new double[] { 12, 7, 9, 4 });
         WriteSeries(modelDir, "OrderService_processingTimeMsSum.csv", new double[] { 2250, 1800, 2700, 1200 });
         WriteSeries(modelDir, "OrderService_servedCount.csv", new double[] { 9, 6, 9, 4 });
@@ -652,14 +659,19 @@ topology:
         errors: "file:OrderService_errors.csv"
         attempts: "file:OrderService_attempts.csv"
         failures: "file:OrderService_failures.csv"
+        exhaustedFailures: "file:OrderService_exhaustedFailures.csv"
         retryEcho: "file:OrderService_retryEcho.csv"
         retryKernel: [0.0, 0.6, 0.3, 0.1]
+        retryBudgetRemaining: "file:OrderService_retryBudgetRemaining.csv"
         externalDemand: null
         queueDepth: null
         capacity: "file:OrderService_capacity.csv"
         processingTimeMsSum: null
         servedCount: null
         slaMin: null
+        maxAttempts: 4
+        exhaustedPolicy: "dlq"
+        backoffStrategy: "linear"
         aliases:
           attempts: "Ticket submissions"
           served: "Orders fulfilled"
@@ -702,14 +714,19 @@ topology:
         errors: "file:OrderService_errors.csv"
         attempts: "file:OrderService_attempts.csv"
         failures: "file:OrderService_failures.csv"
+        exhaustedFailures: "file:OrderService_exhaustedFailures.csv"
         retryEcho: "file:OrderService_retryEcho.csv"
         retryKernel: [0.0, 0.6, 0.3, 0.1]
+        retryBudgetRemaining: "file:OrderService_retryBudgetRemaining.csv"
         externalDemand: null
         queueDepth: null
         capacity: "file:OrderService_capacity.csv"
         processingTimeMsSum: "file:OrderService_processingTimeMsSum.csv"
         servedCount: "file:OrderService_servedCount.csv"
         slaMin: null
+        maxAttempts: 4
+        exhaustedPolicy: "dlq"
+        backoffStrategy: "linear"
         aliases:
           attempts: "Ticket submissions"
           served: "Orders fulfilled"
@@ -983,14 +1000,19 @@ topology:
         errors: "file:OrderService_errors.csv"
         attempts: "file:OrderService_attempts.csv"
         failures: "file:OrderService_failures.csv"
+        exhaustedFailures: "file:OrderService_exhaustedFailures.csv"
         retryEcho: "file:OrderService_retryEcho.csv"
         retryKernel: [0.0, 0.6, 0.3, 0.1]
+        retryBudgetRemaining: "file:OrderService_retryBudgetRemaining.csv"
         externalDemand: null
         queueDepth: null
         capacity: "file:OrderService_capacity.csv"
         processingTimeMsSum: "file:OrderService_processingTimeMsSum.csv"
         servedCount: "file:OrderService_servedCount.csv"
         slaMin: null
+        maxAttempts: 4
+        exhaustedPolicy: "dlq"
+        backoffStrategy: "linear"
         aliases:
           attempts: "Ticket submissions"
           served: "Orders fulfilled"
@@ -1033,14 +1055,19 @@ topology:
         errors: "file:OrderService_errors.csv"
         attempts: "file:OrderService_attempts.csv"
         failures: "file:OrderService_failures.csv"
+        exhaustedFailures: "file:OrderService_exhaustedFailures.csv"
         retryEcho: "file:OrderService_retryEcho.csv"
         retryKernel: [0.0, 0.6, 0.3, 0.1]
+        retryBudgetRemaining: "file:OrderService_retryBudgetRemaining.csv"
         externalDemand: null
         queueDepth: null
         capacity: "file:OrderService_capacity.csv"
         processingTimeMsSum: "file:OrderService_processingTimeMsSum.csv"
         servedCount: "file:OrderService_servedCount.csv"
         slaMin: null
+        maxAttempts: 4
+        exhaustedPolicy: "dlq"
+        backoffStrategy: "linear"
     - id: "SupportQueue"
       kind: "queue"
       semantics:

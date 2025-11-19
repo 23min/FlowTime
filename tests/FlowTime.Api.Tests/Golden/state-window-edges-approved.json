@@ -65,6 +65,18 @@
           1,
           1
         ],
+        "exhaustedFailures": [
+          0,
+          0,
+          1,
+          1
+        ],
+        "retryBudgetRemaining": [
+          3,
+          3,
+          2,
+          1
+        ],
         "retryEcho": [
           0,
           0.6,
@@ -115,7 +127,9 @@
           "file:OrderService_errors.csv",
           "file:OrderService_attempts.csv",
           "file:OrderService_failures.csv",
+          "file:OrderService_exhaustedFailures.csv",
           "file:OrderService_retryEcho.csv",
+          "file:OrderService_retryBudgetRemaining.csv",
           "file:OrderService_capacity.csv",
           "file:OrderService_processingTimeMsSum.csv",
           "file:OrderService_servedCount.csv"
@@ -194,7 +208,7 @@
       "id": "edge_order_support_attempts",
       "from": "OrderService",
       "to": "SupportQueue",
-      "edgeType": "dependency",
+      "edgeType": "effort",
       "field": "attempts",
       "multiplier": 2,
       "lag": 1,
@@ -216,6 +230,12 @@
           0.1,
           0.142857,
           0.1
+        ],
+        "exhaustedFailuresLoad": [
+          null,
+          0,
+          0,
+          2
         ]
       }
     },
@@ -223,7 +243,7 @@
       "id": "edge_order_support_failures",
       "from": "OrderService",
       "to": "SupportQueue",
-      "edgeType": "dependency",
+      "edgeType": "effort",
       "field": "failures",
       "multiplier": 0.5,
       "lag": 0,
@@ -245,6 +265,12 @@
           0.142857,
           0.1,
           0.2
+        ],
+        "exhaustedFailuresLoad": [
+          0,
+          0,
+          0.5,
+          0.5
         ]
       }
     }

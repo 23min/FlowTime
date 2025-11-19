@@ -725,7 +725,26 @@ internal static class GraphMapper
             var semantics = node.Semantics;
             if (semantics is null)
             {
-                Semantics = new TopologyNodeSemantics(null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+                Semantics = new TopologyNodeSemantics(
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null);
             }
             else
             {
@@ -743,7 +762,9 @@ internal static class GraphMapper
                     semantics.Errors,
                     semantics.Attempts,
                     semantics.Failures,
+                    semantics.ExhaustedFailures,
                     semantics.RetryEcho,
+                    semantics.RetryBudgetRemaining,
                     semantics.Queue,
                     semantics.Capacity,
                     semantics.Series,
@@ -751,7 +772,10 @@ internal static class GraphMapper
                     distribution,
                     semantics.InlineValues,
                     semantics.Aliases,
-                    semantics.Metadata);
+                    semantics.Metadata,
+                    semantics.MaxAttempts,
+                    semantics.BackoffStrategy,
+                    semantics.ExhaustedPolicy);
             }
         }
     }
@@ -809,7 +833,9 @@ public sealed record GraphNodeSemanticsModel(
     string Errors,
     string? Attempts,
     string? Failures,
+    string? ExhaustedFailures,
     string? RetryEcho,
+    string? RetryBudgetRemaining,
     string? Queue,
     string? Capacity,
     string? Series,
@@ -817,7 +843,10 @@ public sealed record GraphNodeSemanticsModel(
     GraphDistributionModel? Distribution,
     IReadOnlyList<double>? InlineValues,
     IReadOnlyDictionary<string, string>? Aliases,
-    IReadOnlyDictionary<string, string>? Metadata = null);
+    IReadOnlyDictionary<string, string>? Metadata = null,
+    double? MaxAttempts = null,
+    string? BackoffStrategy = null,
+    string? ExhaustedPolicy = null);
 
 public sealed record GraphNodeUiModel(double? X, double? Y);
 
@@ -837,7 +866,9 @@ public sealed record TopologyNodeSemantics(
     string? Errors,
     string? Attempts,
     string? Failures,
+    string? ExhaustedFailures,
     string? RetryEcho,
+    string? RetryBudgetRemaining,
     string? Queue,
     string? Capacity,
     string? Series,
@@ -845,7 +876,10 @@ public sealed record TopologyNodeSemantics(
     TopologyNodeDistribution? Distribution,
     IReadOnlyList<double>? InlineValues,
     IReadOnlyDictionary<string, string>? Aliases,
-    IReadOnlyDictionary<string, string>? Metadata = null);
+    IReadOnlyDictionary<string, string>? Metadata = null,
+    double? MaxAttempts = null,
+    string? BackoffStrategy = null,
+    string? ExhaustedPolicy = null);
 
 public sealed record GraphDistributionModel(
     IReadOnlyList<double> Values,

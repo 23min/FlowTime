@@ -89,7 +89,9 @@ public static class ModelService
                         Errors = node.Semantics.Errors,
                         Attempts = node.Semantics.Attempts,
                         Failures = node.Semantics.Failures,
+                        ExhaustedFailures = node.Semantics.ExhaustedFailures,
                         RetryEcho = node.Semantics.RetryEcho,
+                        RetryBudgetRemaining = node.Semantics.RetryBudgetRemaining,
                         RetryKernel = node.Semantics.RetryKernel,
                         ExternalDemand = node.Semantics.ExternalDemand,
                         QueueDepth = node.Semantics.QueueDepth,
@@ -97,6 +99,9 @@ public static class ModelService
                         ProcessingTimeMsSum = node.Semantics.ProcessingTimeMsSum,
                         ServedCount = node.Semantics.ServedCount,
                         SlaMin = node.Semantics.SlaMin,
+                        MaxAttempts = node.Semantics.MaxAttempts,
+                        BackoffStrategy = node.Semantics.BackoffStrategy,
+                        ExhaustedPolicy = node.Semantics.ExhaustedPolicy,
                         Aliases = node.Semantics.Aliases
                     },
                     InitialCondition = node.InitialCondition != null

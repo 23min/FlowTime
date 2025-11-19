@@ -621,15 +621,20 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                         semantics.Errors,
                         semantics.Attempts,
                         semantics.Failures,
+                        semantics.ExhaustedFailures,
                         semantics.RetryEcho,
+                        semantics.RetryBudgetRemaining,
                         semantics.Queue,
                         semantics.Capacity,
                         semantics.Series,
-                    semantics.Expression,
-                    distributionDto,
-                    semantics.InlineValues,
-                    semantics.Aliases,
-                    semantics.Metadata);
+                        semantics.Expression,
+                        distributionDto,
+                        semantics.InlineValues,
+                        semantics.Aliases,
+                        semantics.Metadata,
+                        semantics.MaxAttempts,
+                        semantics.BackoffStrategy,
+                        semantics.ExhaustedPolicy);
 
                     if (distributionDto is null &&
                         string.IsNullOrWhiteSpace(semanticsDto.Arrivals) &&
@@ -796,6 +801,8 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             overlays.ShowCapacityDependencies,
             overlays.ShowExpressionDependencies,
             overlays.ShowRetryMetrics,
+            overlays.ShowRetryBudget,
+            overlays.ShowTerminalEdges,
             overlays.ShowEdgeMultipliers);
 
         TooltipPayload? tooltip = null;

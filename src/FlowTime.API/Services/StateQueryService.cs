@@ -467,7 +467,10 @@ public sealed class StateQueryService
         var isServiceKind = string.Equals(kind, "service", StringComparison.OrdinalIgnoreCase);
         var attempts = isServiceKind ? ComputeAttemptValue(data, binIndex, allowDerived: true) : null;
         var failures = isServiceKind ? ComputeFailureValue(data, binIndex) : null;
+        var exhaustedFailures = isServiceKind ? GetOptionalValue(data.ExhaustedFailures, binIndex) : null;
         var retryEcho = isServiceKind ? ComputeRetryEchoValue(data, binIndex, allowDerived: true) : null;
+        var retryBudgetRemaining = isServiceKind ? GetOptionalValue(data.RetryBudgetRemaining, binIndex) : null;
+        var maxAttempts = node.Semantics?.MaxAttempts;
 
         var rawUtilization = served.HasValue
             ? UtilizationComputer.Calculate(served.Value, capacity)
@@ -513,10 +516,13 @@ public sealed class StateQueryService
                 Errors = errors,
                 Attempts = attempts,
                 Failures = failures,
+                ExhaustedFailures = exhaustedFailures,
                 RetryEcho = retryEcho,
+                RetryBudgetRemaining = retryBudgetRemaining,
                 Queue = queue,
                 Capacity = capacity,
-                ExternalDemand = externalDemand
+                ExternalDemand = externalDemand,
+                MaxAttempts = maxAttempts
             },
             Derived = new NodeDerivedMetrics
             {
@@ -546,13 +552,15 @@ public sealed class StateQueryService
             Errors = CreateSeries(),
             Attempts = node.Semantics.Attempts != null ? CreateSeries() : null,
             Failures = node.Semantics.Failures != null ? CreateSeries() : null,
+            ExhaustedFailures = node.Semantics.ExhaustedFailures != null ? CreateSeries() : null,
             RetryEcho = node.Semantics.RetryEcho != null ? CreateSeries() : null,
             RetryKernel = kernelResult.Kernel,
             ExternalDemand = node.Semantics.ExternalDemand != null ? CreateSeries() : null,
             QueueDepth = node.Semantics.QueueDepth != null ? CreateSeries() : null,
             Capacity = node.Semantics.Capacity != null ? CreateSeries() : null,
             ProcessingTimeMsSum = node.Semantics.ProcessingTimeMsSum != null ? CreateSeries() : null,
-            ServedCount = node.Semantics.ServedCount != null ? CreateSeries() : null
+            ServedCount = node.Semantics.ServedCount != null ? CreateSeries() : null,
+            RetryBudgetRemaining = node.Semantics.RetryBudgetRemaining != null ? CreateSeries() : null
         };
     }
 
@@ -584,6 +592,16 @@ public sealed class StateQueryService
         {
             var failuresSlice = data.Failures != null ? ExtractSlice(data.Failures, startBin, count) : errorsSlice;
             series["failures"] = failuresSlice;
+
+            if (data.ExhaustedFailures != null)
+            {
+                series["exhaustedFailures"] = ExtractSlice(data.ExhaustedFailures, startBin, count);
+            }
+
+            if (data.RetryBudgetRemaining != null)
+            {
+                series["retryBudgetRemaining"] = ExtractSlice(data.RetryBudgetRemaining, startBin, count);
+            }
         }
 
         var retryEchoSeries = isServiceKind
@@ -697,7 +715,9 @@ public sealed class StateQueryService
         TryAdd(node.Semantics.Errors);
         TryAdd(node.Semantics.Attempts);
         TryAdd(node.Semantics.Failures);
+        TryAdd(node.Semantics.ExhaustedFailures);
         TryAdd(node.Semantics.RetryEcho);
+        TryAdd(node.Semantics.RetryBudgetRemaining);
         TryAdd(node.Semantics.ExternalDemand);
         TryAdd(node.Semantics.QueueDepth);
         TryAdd(node.Semantics.Capacity);
@@ -1025,7 +1045,7 @@ public sealed class StateQueryService
 
             var attemptsSeries = ComputeAttemptSeries(sourceData, 0, totalBins, allowDerived: true);
             var failuresSeries = ComputeFailureSeries(sourceData, 0, totalBins);
-            if (attemptsSeries is null && failuresSeries is null)
+            if (attemptsSeries is null && failuresSeries is null && sourceData.ExhaustedFailures is null)
             {
                 continue;
             }
@@ -1035,6 +1055,7 @@ public sealed class StateQueryService
             var attemptsLoad = new double?[count];
             var failuresLoad = new double?[count];
             var retryRate = new double?[count];
+            double?[]? exhaustedLoad = sourceData.ExhaustedFailures != null ? new double?[count] : null;
 
             for (var i = 0; i < count; i++)
             {
@@ -1044,15 +1065,24 @@ public sealed class StateQueryService
                     attemptsLoad[i] = null;
                     failuresLoad[i] = null;
                     retryRate[i] = null;
+                    if (exhaustedLoad is not null)
+                    {
+                        exhaustedLoad[i] = null;
+                    }
                     continue;
                 }
 
                 var attempt = Sample(attemptsSeries, sourceIndex);
                 var failure = Sample(failuresSeries, sourceIndex);
+                var exhausted = GetOptionalValue(sourceData.ExhaustedFailures, sourceIndex);
 
                 attemptsLoad[i] = attempt.HasValue ? Normalize(attempt.Value * multiplier) : null;
                 failuresLoad[i] = failure.HasValue ? Normalize(failure.Value * multiplier) : null;
                 retryRate[i] = ComputeRetryRate(attempt, failure);
+                if (exhaustedLoad is not null)
+                {
+                    exhaustedLoad[i] = exhausted.HasValue ? Normalize(exhausted.Value * multiplier) : null;
+                }
             }
 
             var series = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase)
@@ -1061,6 +1091,11 @@ public sealed class StateQueryService
                 ["failuresLoad"] = failuresLoad,
                 ["retryRate"] = retryRate
             };
+
+            if (exhaustedLoad is not null)
+            {
+                series["exhaustedFailuresLoad"] = exhaustedLoad;
+            }
 
             var edgeId = string.IsNullOrWhiteSpace(edge.Id)
                 ? $"{edge.Source}->{edge.Target}:{(string.IsNullOrWhiteSpace(edge.Field) ? "attempts" : edge.Field)}"
@@ -1071,7 +1106,7 @@ public sealed class StateQueryService
                 Id = edgeId,
                 From = sourceNodeId,
                 To = targetNodeId,
-                EdgeType = "dependency",
+                EdgeType = NormalizeEdgeType(edge.EdgeType),
                 Field = field,
                 Multiplier = multiplier,
                 Lag = lag,
@@ -1472,6 +1507,7 @@ public sealed class StateQueryService
         CheckSeries(semantics.Attempts, data.Attempts, "attempts_series_missing", "Attempts series was expected but could not be resolved.");
         CheckSeries(semantics.Failures, data.Failures, "failures_series_missing", "Failures series was expected but could not be resolved.");
         CheckSeries(semantics.RetryEcho, data.RetryEcho, "retry_echo_series_missing", "Retry echo series was expected but could not be resolved.");
+        CheckSeries(semantics.ExhaustedFailures, data.ExhaustedFailures, "exhausted_failures_series_missing", "Exhausted failures series was expected but could not be resolved.");
     }
 
     private static void ValidateAttemptConservation(
@@ -1750,10 +1786,21 @@ public sealed class StateQueryService
         return string.IsNullOrWhiteSpace(field) ? string.Empty : field.Trim().ToLowerInvariant();
     }
 
+    private static string NormalizeEdgeType(string? edgeType)
+    {
+        if (string.IsNullOrWhiteSpace(edgeType))
+        {
+            return "dependency";
+        }
+
+        return edgeType.Trim().ToLowerInvariant();
+    }
+
     private static bool IsRetryDependencyField(string field)
     {
         return string.Equals(field, "attempts", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(field, "failures", StringComparison.OrdinalIgnoreCase);
+            || string.Equals(field, "failures", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(field, "exhaustedfailures", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string ExtractNodeReference(string? reference)
