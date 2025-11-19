@@ -204,7 +204,7 @@ Purpose: make retries and service time first‑class, end‑to‑end. Start with
 
 - TT‑M‑03.31 — E2E Fixtures, Goldens, Docs (Closeout)
   - Reproducible fixtures; API golden snapshots; UI tests for overlays/basis; operator docs and demo script.
-  - ✅ May 2025 update: `/state_window` now emits retry `edges` (attempts/failures/retryRate) when requested; UI consumes server-provided series. Fixture lives at `fixtures/time-travel/retry-service-time/` with README + CSVs. Golden snapshot `state-window-edges-approved.json` pins the payload. Docs + demo checklist captured in `docs/milestones/TT-M-03.31.md`.
+  - ✅ May 2025 update: `/state_window` now emits retry `edges` (attempts/failures/retryRate) by default; UI consumes server-provided series. Fixture lives at `fixtures/time-travel/retry-service-time/` with README + CSVs. Golden snapshot `state-window-edges-approved.json` pins the payload. Docs + demo checklist captured in `docs/milestones/TT-M-03.31.md`.
 
 References
 - docs/milestones/TT-M-03.28.md

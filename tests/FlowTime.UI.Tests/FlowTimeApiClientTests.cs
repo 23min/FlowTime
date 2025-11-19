@@ -179,6 +179,7 @@ public class FlowTimeApiClientTests
                   "telemetry": { "sources": ["series/orders"], "warnings": [] }
                 }
               ],
+              "edges": [],
               "warnings": []
             }
             """;
@@ -200,24 +201,17 @@ public class FlowTimeApiClientTests
         Assert.True(response.Success);
         Assert.Equal(3, response.Value?.Window.BinCount);
         Assert.Equal(3, response.Value?.Nodes.Single().Series["lat"].Length);
+        Assert.Empty(response.Value?.Edges ?? Array.Empty<TimeTravelEdgeSeriesDto>());
         Assert.Equal("/v1/runs/run_xyz/state_window?startBin=10&endBin=12", captured?.RequestUri?.PathAndQuery);
     }
 
     [Fact]
-    public async Task GetRunStateWindowAsync_RequestsEdgesSlice()
+    public async Task GetRunStateWindowAsync_ParsesEdgeSeries()
     {
         HttpRequestMessage? captured = null;
         var handler = new StubHandler(request =>
         {
             captured = request;
-            if (!string.Equals(request.RequestUri?.Query, "?startBin=0&endBin=1&include=edges", StringComparison.OrdinalIgnoreCase))
-            {
-                return new HttpResponseMessage(HttpStatusCode.BadRequest)
-                {
-                    Content = new StringContent("{\"error\":\"include=edges required\"}", Encoding.UTF8, "application/json")
-                };
-            }
-
             const string json = """
             {
               "metadata": {
@@ -265,10 +259,10 @@ public class FlowTimeApiClientTests
         var opts = Options.Create(new FlowTimeApiOptions { ApiVersion = "v1" });
         var client = new FlowTimeApiClient(http, opts.Value);
 
-        var response = await client.GetRunStateWindowAsync("run_edges", 0, 1, null, includeEdges: true, CancellationToken.None);
+        var response = await client.GetRunStateWindowAsync("run_edges", 0, 1, null, CancellationToken.None);
 
         Assert.True(response.Success);
-        Assert.Equal("/v1/runs/run_edges/state_window?startBin=0&endBin=1&include=edges", captured?.RequestUri?.PathAndQuery);
+        Assert.Equal("/v1/runs/run_edges/state_window?startBin=0&endBin=1", captured?.RequestUri?.PathAndQuery);
 
         var edge = Assert.Single(response.Value?.Edges ?? Array.Empty<TimeTravelEdgeSeriesDto>());
         Assert.Equal("edge_a_b_attempts", edge.Id);

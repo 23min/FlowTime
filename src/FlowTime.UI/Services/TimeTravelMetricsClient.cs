@@ -110,7 +110,7 @@ public sealed class TimeTravelMetricsClient : ITimeTravelMetricsClient
             return ApiCallResult<TimeTravelMetricsResult>.Fail(409, "Invalid grid metadata.");
         }
 
-        var stateResult = await dataService.GetStateWindowAsync(runId, 0, totalBins - 1, mode: null, includeEdges: false, ct).ConfigureAwait(false);
+        var stateResult = await dataService.GetStateWindowAsync(runId, 0, totalBins - 1, mode: null, ct).ConfigureAwait(false);
         if (!stateResult.Success || stateResult.Value is null)
         {
             var error = stateResult.Error ?? "state_window unavailable.";

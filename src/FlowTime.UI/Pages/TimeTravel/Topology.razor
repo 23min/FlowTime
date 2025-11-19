@@ -1075,7 +1075,7 @@ private const string PmfExpectationLabel = "Value";
             Logger?.LogInformation("Requesting state window for run {RunId} bins {Start}-{End} (mode={Mode})", runId, sliceStart, sliceEnd, stateMode ?? "operational");
             windowWarnings = Array.Empty<TimeTravelStateWarningDto>();
             UpdateNodeWarningMap();
-            var windowResult = await DataService.GetStateWindowAsync(runId, sliceStart, sliceEnd, stateMode, includeEdges: true, ct);
+            var windowResult = await DataService.GetStateWindowAsync(runId, sliceStart, sliceEnd, stateMode, ct);
             if (!windowResult.Success || windowResult.Value is null)
             {
                 Logger?.LogWarning("State window load failed for run {RunId}: {Error}", runId, windowResult.Error ?? "unknown error");
@@ -1493,7 +1493,7 @@ private const string PmfExpectationLabel = "Value";
             var fullMode = (overlaySettings.EnableFullDag || overlaySettings.IncludeExpressionNodes || overlaySettings.IncludeConstNodes) ? "full" : mode;
             windowWarnings = Array.Empty<TimeTravelStateWarningDto>();
             UpdateNodeWarningMap();
-            var windowResult = await DataService.GetStateWindowAsync(currentRunId!, sliceStart, sliceEnd, fullMode, includeEdges: true, cts.Token);
+            var windowResult = await DataService.GetStateWindowAsync(currentRunId!, sliceStart, sliceEnd, fullMode, cts.Token);
             if (!windowResult.Success || windowResult.Value is null)
             {
                 return;

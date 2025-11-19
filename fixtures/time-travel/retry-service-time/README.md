@@ -7,5 +7,5 @@ Deterministic 4-bin slice that exercises retry attempts/failures, retry rate, an
 
 Quick use:
 1. Copy this folder under your artifacts root as a run model (e.g., `data/runs/run_retry_fixture/model/`).
-2. Provide `metadata.json`/`provenance.json` as needed (or reuse the test harness writers), then query `/v1/runs/run_retry_fixture/state_window?startBin=0&endBin=3&include=edges` to see the server-computed edge slice.
-3. Use the same run with the UI; the topology page will request `include=edges` and render retry overlays from the returned edge series.
+2. Provide `metadata.json`/`provenance.json` as needed (or reuse the test harness writers), then query `/v1/runs/run_retry_fixture/state_window?startBin=0&endBin=3` to see the server-computed edge slice.
+3. Use the same run with the UI; the topology page consumes the server edge slice automatically when rendering retry overlays.

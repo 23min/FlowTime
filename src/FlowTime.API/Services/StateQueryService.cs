@@ -95,7 +95,6 @@ public sealed class StateQueryService
         int startBin,
         int endBin,
         GraphQueryMode mode = GraphQueryMode.Operational,
-        bool includeEdges = false,
         CancellationToken cancellationToken = default)
     {
         var includeComputed = mode == GraphQueryMode.Full;
@@ -187,11 +186,7 @@ public sealed class StateQueryService
             }
         }
 
-        IReadOnlyList<EdgeSeries>? edgeSeries = null;
-        if (includeEdges)
-        {
-            edgeSeries = BuildEdgeSeries(context, startBin, count);
-        }
+        var edgeSeries = BuildEdgeSeries(context, startBin, count);
 
         logger.LogInformation(
             stateWindowEvent,
@@ -215,7 +210,7 @@ public sealed class StateQueryService
             },
             TimestampsUtc = timestamps,
             Nodes = seriesList,
-            Edges = edgeSeries ?? (includeEdges ? Array.Empty<EdgeSeries>() : null),
+            Edges = edgeSeries,
             Warnings = BuildWarnings(context, validation.Warnings)
         };
     }

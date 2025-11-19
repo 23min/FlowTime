@@ -194,8 +194,7 @@ public sealed class MetricsService
                 startBin,
                 endBin,
                 GraphQueryMode.Operational,
-                includeEdges: false,
-                cancellationToken: cancellationToken).ConfigureAwait(false);
+                cancellationToken).ConfigureAwait(false);
             return ConvertFromStateWindow(window, manifest, binCount);
         }
         catch (StateQueryException ex)

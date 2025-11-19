@@ -735,7 +735,7 @@ By **avoiding algebraic loops** and using **bounded history buffers**, FlowTime 
 
 This foundation enables data-driven optimization of retry policies, early detection of retry storms, and comprehensive understanding of how failure patterns propagate through complex distributed systems.
 - **Retry Edge Slice (TT‑M‑03.31)**  
-  `/v1/runs/{runId}/state_window` now emits a server-computed `edges` collection (when requested) describing each retry-relevant dependency:
+  `/v1/runs/{runId}/state_window` now emits a server-computed `edges` collection describing each retry-relevant dependency:
   - `id`, `from`, `to`, `edgeType`, `field`, `multiplier`, `lag`.
   - Series keys: `attemptsLoad`, `failuresLoad`, `retryRate` (aligned with `window.startBin`).  
   UI surfaces consume those series directly for overlay rendering; clients no longer derive retry metrics from node data.

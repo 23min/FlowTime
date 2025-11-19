@@ -281,9 +281,9 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
     }
 
     [Fact]
-    public async Task GetStateWindow_IncludesRetryEdgesWhenRequested()
+    public async Task GetStateWindow_IncludesRetryEdgesByDefault()
     {
-        var response = await client.GetAsync($"/v1/runs/{retryEdgesRunId}/state_window?startBin=0&endBin=3&include=edges");
+        var response = await client.GetAsync($"/v1/runs/{retryEdgesRunId}/state_window?startBin=0&endBin=3");
         if (!response.IsSuccessStatusCode)
         {
             var errorBody = await response.Content.ReadAsStringAsync();

@@ -11,7 +11,7 @@ Close out the “Retry + Service Time” epic with production‑quality fixtures
 ## Summary (May 2025)
 
 - Added a deterministic replay fixture under `fixtures/time-travel/retry-service-time/` (CSV series, model, README). Harnessed in API tests/UI tests so anyone can recreate the run locally (`FLOWTIME_DATA_DIR=/path/to/fixture dotnet test`).
-- `/v1/runs/{runId}/state_window` now emits server-computed retry edge series (attempts/failures/retryRate with multiplier/lag) when requested. UI requests `include=edges` and renders overlays directly from the slice; client-side derivation is next to be removed entirely.
+- `/v1/runs/{runId}/state_window` now always emits server-computed retry edge series (attempts/failures/retryRate with multiplier/lag). The UI consumes those slices directly; client-side derivation has been fully removed.
 - Golden snapshots cover the edge slice (`state-window-edges-approved.json`) and schema tests assert both shapes. UI tests verify retry overlays consume server edges.
 - Docs updated (this milestone, architecture retry section, roadmap) with contract tables, fixture instructions, and demo checklist.
 
@@ -20,13 +20,12 @@ Close out the “Retry + Service Time” epic with production‑quality fixtures
 1. Generated the retry fixture (`cp -r fixtures/time-travel/retry-service-time data/runs/run_state_fixture/model`, run metadata via test harness) and inspected via UI/topology page with overlays enabled (retry legend shows server metrics at bin 1).
 2. `dotnet test FlowTime.sln` — PASS (perf baseline skips still present). API `StateEndpointTests.GetStateWindow_IncludesRetryEdgesWhenRequested` validates golden; schema tests validate edges slice. UI tests confirm `CanvasRenderRequest.EdgeSeries`.
 3. Demo checklist (operator view):
-   - Load topology page with run `run_state_edges` using `include=edges`.
+   - Load topology page with run `run_state_edges`.
    - Toggle Retry overlay; verify legends/labels match golden values (`attemptsLoad[1]=20`, `retryRate[1]=0.1`).
    - Switch node color basis to Service Time and inspect TTL in inspector.
 
 ## What’s Next
 
-- Remove legacy client-side edge derivation and the temporary `include=edges` opt-in flag (edges will ship by default). Update docs when done.
 - Expand fixtures with captured provenance + CLI instructions if additional replay scenarios are needed.
 
 ## Goals
@@ -54,15 +53,13 @@ Out of Scope
 
 ## Option B — API Edges Slice in `/state_window` (Spec)
 
-Context: TT‑M‑03.30 implements edge overlays via client‑side derivation (Option A). TT‑M‑03.31 will add an optional `edges` slice to `/state_window` so clients (UI/CLI/others) can consume consistent, server‑computed edge metrics without duplicating logic.
+Context: TT‑M‑03.30 implements edge overlays via client‑side derivation (Option A). TT‑M‑03.31 adds a server-provided `edges` slice to `/state_window` so clients (UI/CLI/others) can consume consistent edge metrics without duplicating logic.
 
 ### Contract Changes (Additive)
-- Endpoint: `GET /v1/runs/{runId}/state_window?startBin&endBin[&mode=operational|full][&include=edges|all]`
-  - New query parameter `include` controls optional payload sections. When `include=edges` or `include=all`, the response includes `edges`.
+- Endpoint: `GET /v1/runs/{runId}/state_window?startBin&endBin[&mode=operational|full]` always returns an `edges` slice (empty array when no retry dependencies exist).
 - DTO: extend `StateWindowResponse` with optional `Edges` collection.
   - File: `src/FlowTime.Contracts/TimeTravel/StateContracts.cs`
-  - Add new type `EdgeSeries` and property `IReadOnlyList<EdgeSeries>? Edges { get; init; }`
-  - Backward compatible: property omitted when not requested.
+  - Add new type `EdgeSeries` and property `IReadOnlyList<EdgeSeries> Edges { get; init; }`
 - Schema: update `docs/schemas/time-travel-state.schema.json` to allow optional `edges: []` alongside `nodes: []`.
 
 ### Payload Shape (EdgeSeries)
@@ -109,29 +106,28 @@ Notes
    - Factor a small internal helper used by both `GraphService` and `StateQueryService` to enumerate dependency edges with `field`, `multiplier`, `lag`.
    - Files: `src/FlowTime.API/Services/GraphService.cs` (edge enumeration), `src/FlowTime.API/Services/StateQueryService.cs` (consumer).
 3) Series computation
-   - In `StateQueryService.GetStateWindowAsync(...)`, when `include` requests edges, build `EdgeSeries` for retry‑relevant edges using node `NodeData` already loaded.
+   - In `StateQueryService.GetStateWindowAsync(...)`, always build `EdgeSeries` for retry‑relevant edges using node `NodeData` already loaded.
    - Respect existing `maxWindowBins` and validation. Guard divide‑by‑zero and NaN/Infinity.
 4) Schema + Examples
    - Update `docs/schemas/time-travel-state.schema.json` with `edges` definition.
-   - Add `.http` example under `src/FlowTime.API/FlowTime.API.state.http` to demonstrate `include=edges`.
+   - Add `.http` example under `src/FlowTime.API/FlowTime.API.state.http` highlighting the retry edge payload (no extra query parameters required).
 
 ### Performance & Controls
-- Opt‑in via `include=edges` to avoid payload bloat for consumers that do not need edges.
-- Keep existing `maxWindowBins` (500) enforcement; edge computation work is O(E × bins) and bounded by the requested slice.
+- Edge series ship by default; keep existing `maxWindowBins` (500) enforcement so edge computation stays bounded at O(E × bins).
 - Return only dependency edges with fields in `{ attempts, failures }`.
 
 ### Tests (API)
 - Snapshot/schema tests for both shapes (with and without `edges`).
   - Update: `tests/FlowTime.Api.Tests/StateResponseSchemaTests.cs`
-  - Update/add: `tests/FlowTime.Api.Tests/StateEndpointTests.cs` (goldens with `include=edges`)
+- Update/add: `tests/FlowTime.Api.Tests/StateEndpointTests.cs` (goldens verifying default `edges` payload)
 - Unit tests for lag/multiplier application and retryRate guards.
 
 ### UI Integration
-- UI should request `include=edges` and render retry overlays solely from server‑computed edge series (remove client derivation once parity is verified).
+- UI renders retry overlays solely from server‑computed edge series (no additional query flags required).
 - No breaking changes in UI contracts; legend/thresholds unchanged.
 
 ### Acceptance Criteria (Edges Slice)
-- AC‑Edges‑1: `/state_window` includes `edges` only when `include=edges|all` is provided; default response unchanged.
+- AC‑Edges‑1: `/state_window` always includes an `edges` collection (empty array when no retry dependencies exist).
 - AC‑Edges‑2: For retry‑enabled fixtures, `edges[].series.retryRate` matches `failures/attempts` (with guards), and `attemptsLoad` reflects multiplier/lag.
 - AC‑Edges‑3: Schema validation passes for both response shapes.
 - AC‑Edges‑4: UI overlays consume server `edges` and client-side retry derivation is removed after parity validation.

@@ -59,17 +59,17 @@ public class StateResponseSchemaTests : IClassFixture<TestWebApplicationFactory>
     }
 
     [Fact]
-    public async Task StateWindow_Response_WithEdgesSlice_MatchesSchema()
+    public async Task StateWindow_Response_IncludesEdges()
     {
         var runId = EnsureSchemaEdgesRun();
-        var response = await client.GetAsync($"/v1/runs/{runId}/state_window?startBin=0&endBin=3&include=edges");
+        var response = await client.GetAsync($"/v1/runs/{runId}/state_window?startBin=0&endBin=3");
         response.EnsureSuccessStatusCode();
 
         var json = await response.Content.ReadAsStringAsync();
         var node = JsonNode.Parse(json);
 
         Assert.NotNull(node);
-        Assert.True(node!.AsObject().TryGetPropertyValue("edges", out var edges), "Expected edges slice when include=edges is requested.");
+        Assert.True(node!.AsObject().TryGetPropertyValue("edges", out var edges), "Expected edges slice to be present.");
         Assert.NotNull(edges);
 
         ValidateAgainstSchema(json);

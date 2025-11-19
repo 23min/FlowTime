@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Text.Json.Serialization;
 
 namespace FlowTime.Contracts.TimeTravel;
 
@@ -18,8 +17,7 @@ public sealed class StateWindowResponse
     public required WindowSlice Window { get; init; }
     public required IReadOnlyList<DateTimeOffset> TimestampsUtc { get; init; }
     public IReadOnlyList<NodeSeries> Nodes { get; init; } = Array.Empty<NodeSeries>();
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public IReadOnlyList<EdgeSeries>? Edges { get; init; }
+    public IReadOnlyList<EdgeSeries> Edges { get; init; } = Array.Empty<EdgeSeries>();
     public IReadOnlyList<StateWarning> Warnings { get; init; } = Array.Empty<StateWarning>();
 }
 
