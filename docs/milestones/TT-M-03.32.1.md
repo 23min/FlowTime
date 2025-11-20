@@ -43,6 +43,46 @@ TT‑M‑03.32 delivered retry budgets, exhausted-flow tracking, and terminal-ed
 - `templates/supply-chain-multi-tier.yaml` and its golden fixtures migrated to `kind: dlq`, with terminal release edges enforced. Authoring/testing guides now document the schema + analyzer expectations.
 - Release notes updated to call out TT‑M‑03.32.1 so future operators know DLQs are first-class.
 
+### Template Enhancement Backlog (Next Up)
+With the core DLQ semantics live, we now need to retrofit the remaining canonical templates so their queues carry realistic backlog signals and their loss/failure pathways terminate in DLQs or explicit sinks. The following plan will be executed sequentially during TT‑M‑03.32.1:
+
+1. **IT System – Microservices (`templates/it-system-microservices.yaml`)**
+   - Rework `IngressQueue` to use backlog-aware outflow/attrition so queue depth oscillates instead of staying pinned.
+   - Introduce a `ManualReconciliation` DLQ fed by `db_retry_failures` (and optionally `db_errors`) to model exhausted transactions.
+   - Add a terminal queue for `lb_dropped`/`auth_failures` so customer-impact backlog is visible.
+2. **Manufacturing Line (`templates/manufacturing-line.yaml`)**
+   - Update `WipQueue` outflow to consume backlog and model loss due to excessive wait.
+   - Route persistent QC/packaging failures (`qc_retry_failures`, `quality_errors`) to DLQ/terminal queues representing scrap, downgrade, or supplier chargebacks.
+3. **Network Reliability (`templates/network-reliability.yaml`)**
+   - Give `RequestQueue` proper backlog dynamics (capacity draws down backlog instead of only current inflow).
+   - Add DLQs for `core_retry_failures`/`database_failures` (e.g., “CustomerMakeGood”).
+   - Model packet attrition (`request_queue_spill`) as a terminal queue tied to large depth.
+4. **Supply-Chain Incident Retry (`templates/supply-chain-incident-retry.yaml`)**
+   - Fix `IncidentQueue` depth math (backlog-aware outflow) plus attrition.
+   - Add DLQs/terminal queues for `incident_retry_failures` and `support_queue_errors` to represent escalations/abandonment.
+5. **Transportation Basic (`templates/transportation-basic.yaml`)**
+   - Improve `HubQueue` outflow + attrition.
+   - Create DLQs or terminal sinks for repeated airport retries and unmet demand per destination.
+6. **Supply-Chain Multi-Tier (`templates/supply-chain-multi-tier.yaml`)**
+   - Already uses DLQs, but `DistributionQueue` still needs backlog-aware outflow so the main queue depth behaves realistically.
+   - Evaluate additional sinks for supplier shortages/delivery misses.
+
+Each retrofit will update the relevant template, regenerate fixtures/goldens, and document the DLQ semantics in the template authoring guides. We will reassess whether both supply-chain templates are necessary after the above work (see Tracking doc for the consolidation analysis task).
+
+### Retrofit Workflow & Validation
+
+When touching any template in this milestone, follow the canonical workflow so Sim + Engine analyzers run and fixtures stay aligned:
+
+1. **Edit & inspect** – Update the YAML (queue math, DLQs, terminal edges) under `templates/`. Keep changes ASCII and respect `.editorconfig`.
+2. **Parameter validation** – `dotnet run --project src/FlowTime.Sim.Cli -- validate template --id <template-id> --templates-dir templates` to ensure defaults/overrides still type-check.
+3. **Generate + Sim analyzer** – `dotnet run --project src/FlowTime.Sim.Cli -- generate --id <template-id> --templates-dir templates --mode simulation --out /tmp/<template-id>.yaml`. This command automatically runs the invariant analyzers (same as FlowTime.Sim Service) and prints warnings if anything regresses.
+4. **Engine analyzer sweep** – `dotnet test tests/FlowTime.Tests/FlowTime.Tests.csproj --filter TemplateBundleValidationTests.AllTemplatesGenerateValidBundlesWithDefaults` (or `dotnet test FlowTime.Tests --filter TemplateBundleValidationTests`) so the engine-side bundle validator parses the generated model. This mirrors what FlowTime.Engine does when loading canonical artifacts.
+5. **Fixtures + goldens** – If telemetry/outputs change, update `fixtures/<template-id>/` and rerun `dotnet test FlowTime.Api.Tests/FlowTime.Api.Tests.csproj` (refresh JSON goldens) plus any UI golden suites impacted.
+6. **Full solution tests** – Finish with `dotnet build FlowTime.sln` and `dotnet test FlowTime.sln`, documenting known perf guard failures (e.g., PMF scaling tests) in the milestone hand-off.
+7. **Docs** – Record notable analyzer warnings (e.g., DLQ latency info) and screenshots in `docs/templates/template-authoring.md` / `template-testing.md`, plus call out any template deprecations (e.g., if we consolidate the two supply-chain templates).
+
+Only after the above steps pass should a retrofit be considered “done.”
+
 ## Validation
 - `dotnet build FlowTime.sln`
 - `dotnet test FlowTime.Api.Tests/FlowTime.Api.Tests.csproj`
