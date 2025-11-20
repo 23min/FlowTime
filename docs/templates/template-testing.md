@@ -38,8 +38,10 @@ What to expect:
 For templates that configure `maxAttempts`:
 
 1. Ensure the model emits `exhaustedFailures` and `retryBudgetRemaining` series.
-2. Confirm terminal edges (type `terminal`, measure `exhaustedFailures`) flow to the expected DLQ/escalation node.
-3. Analyzer warnings (`missing_exhausted_failures_series`, `missing_retry_budget_series`) indicate misconfigured semantics.
+2. Mark DLQ nodes with `kind: dlq`. They behave like queues for telemetry, but analyzers expect every inbound/outbound edge to declare `type: terminal`. This prevents DLQs from rejoining the throughput graph.
+3. Confirm terminal edges (type `terminal`, measure `exhaustedFailures`) flow to the expected DLQ/escalation node, including release edges leaving the DLQ.
+4. Analyzer warnings (`missing_exhausted_failures_series`, `missing_retry_budget_series`, `dlq_non_terminal_inbound`, `dlq_non_terminal_outbound`) indicate misconfigured semantics.
+5. When DLQs are modeled as pure backlogs (served = 0), the queue-latency analyzer emits informational messages (“latency could not be computed”). These are expected; the alternative would be to fake a served series, which misrepresents terminal behavior. Call them out in release notes so operators know they can ignore them.
 
 ## 4. Update Fixtures and Goldens
 

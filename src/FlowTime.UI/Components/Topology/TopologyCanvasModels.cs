@@ -107,6 +107,7 @@ internal sealed record OverlaySettingsPayload(
     bool NeighborEmphasis,
     bool EnableFullDag,
     bool IncludeServiceNodes,
+    bool IncludeDlqNodes,
     bool IncludeExpressionNodes,
     bool IncludeConstNodes,
     int SelectedBin,

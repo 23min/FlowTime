@@ -478,7 +478,7 @@ public sealed class StateQueryService
         var utilization = rawUtilization.HasValue ? Normalize(rawUtilization.Value) : null;
 
         double? latencyMinutes = null;
-        if (string.Equals(kind, "queue", StringComparison.OrdinalIgnoreCase) && queue.HasValue && served.HasValue)
+        if (IsQueueLikeKind(kind) && queue.HasValue && served.HasValue)
         {
             var rawLatency = LatencyComputer.Calculate(queue.Value, served.Value, context.Window.BinDuration.TotalMinutes);
             latencyMinutes = rawLatency.HasValue ? Normalize(rawLatency.Value) : null;
@@ -501,9 +501,11 @@ public sealed class StateQueryService
             serviceTimeMs = ComputeServiceTimeValue(data, binIndex);
         }
 
-        var color = string.Equals(kind, "queue", StringComparison.OrdinalIgnoreCase)
-            ? ColoringRules.PickQueueColor(latencyMinutes, node.Semantics?.SlaMinutes)
-            : ColoringRules.PickServiceColor(utilization);
+        var color = IsDlqKind(kind)
+            ? "dlq"
+            : IsQueueLikeKind(kind)
+                ? ColoringRules.PickQueueColor(latencyMinutes, node.Semantics?.SlaMinutes)
+                : ColoringRules.PickServiceColor(utilization);
 
         return new NodeSnapshot
         {
@@ -638,7 +640,7 @@ public sealed class StateQueryService
             }
         }
 
-        if (string.Equals(kind, "queue", StringComparison.OrdinalIgnoreCase) && data.QueueDepth != null)
+        if (IsQueueLikeKind(kind) && data.QueueDepth != null)
         {
             var latency = ComputeLatencySeries(data, context.Window, startBin, count);
             if (latency != null)
@@ -918,7 +920,7 @@ public sealed class StateQueryService
 
             var baseSeries = new double?[bins];
             var kind = NormalizeKind(node.Kind);
-            var isQueue = string.Equals(kind, "queue", StringComparison.OrdinalIgnoreCase);
+        var isQueue = IsQueueLikeKind(kind);
             var isService = string.Equals(kind, "service", StringComparison.OrdinalIgnoreCase);
 
             for (var i = 0; i < bins; i++)
@@ -1855,6 +1857,27 @@ public sealed class StateQueryService
         }
 
         return kind.Trim().ToLowerInvariant();
+    }
+
+    private static bool IsQueueLikeKind(string? kind)
+    {
+        if (string.IsNullOrWhiteSpace(kind))
+        {
+            return false;
+        }
+
+        var normalized = kind.Trim().ToLowerInvariant();
+        return normalized is "queue" or "dlq";
+    }
+
+    private static bool IsDlqKind(string? kind)
+    {
+        if (string.IsNullOrWhiteSpace(kind))
+        {
+            return false;
+        }
+
+        return kind.Trim().Equals("dlq", StringComparison.OrdinalIgnoreCase);
     }
 
     private static double? GetValue(double[] source, int index)

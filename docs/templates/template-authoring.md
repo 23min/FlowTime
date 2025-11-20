@@ -103,6 +103,25 @@ Templates that declare `maxAttempts` **must** provide both `exhaustedFailures` a
 
 Whenever work becomes unrecoverable, model an explicit destination (queue, DLQ service, manual triage). Provide aliases for arrivals/served/queue metrics so the UI surfaces domain-specific labels.
 
+DLQs are now a first-class node kind:
+
+```yaml
+  - id: RejectedDLQ
+    kind: dlq
+    semantics:
+      arrivals: dlq_inflow
+      served: dlq_release
+      errors: dlq_losses
+      queueDepth: dlq_depth
+      aliases:
+        queue: "DLQ backlog"
+```
+
+- All inbound/outbound topology edges referencing a DLQ must be `type: terminal`. This keeps the analyzer happy and prevents DLQs from rejoining the primary throughput graph accidentally.
+- DLQs behave like queues for telemetry (`queueDepth`, latency), but they never emit SLA colors—UI renders them with the dedicated DLQ badge instead of relying on aliases.
+- Model DLQs as pure backlogs: set `served` to a zero-valued series, route any cleanup/purge logic through the `loss` field, and point `errors` at whatever attrition metric you want surfaced in the UI. This matches real terminal buffers (everything accumulates unless you explicitly purge) and keeps analyzers from flagging “served exceeds arrivals.”
+- Because `served == 0`, queue-latency analyzers emit informational warnings (“latency could not be computed”). This is expected and indicates the DLQ is behaving as a terminal sink rather than an operational queue.
+
 ## Computational Nodes and Outputs
 
 - Keep transformation nodes (`expr`, `pmf`, `backlog`) in the `nodes:` section outside topology.

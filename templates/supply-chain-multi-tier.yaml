@@ -135,27 +135,29 @@ topology:
           failures: "Failed retries"
           retryEcho: "Retry backlog"
           exhaustedFailures: "DLQ"
-    - id: RejectedDLQ
+    - id: Rejections
       kind: queue
       semantics:
         arrivals: dlq_inflow
-        served: dlq_release
+        served: dlq_release_volume
         errors: dlq_losses
         queueDepth: dlq_depth
         aliases:
           arrivals: "Rejected loads"
           served: "Escalations handled"
           errors: "Scrapped"
-          queue: "DLQ backlog"
+          queue: "Rejections backlog"
       initialCondition:
         queueDepth: 0
     - id: ReturnsProcessing
       kind: service
       semantics:
-        arrivals: dlq_release
+        arrivals: dlq_release_volume
         served: returns_processed
         errors: returns_escalated
         capacity: returns_capacity
+        processingTimeMsSum: returns_processing_time_ms_sum
+        servedCount: returns_processed
         aliases:
           served: "Returns completed"
           errors: "Manual escalations"
@@ -163,7 +165,7 @@ topology:
       kind: queue
       semantics:
         arrivals: restock_inflow
-        served: restock_outflow
+        served: restock_served_zero
         errors: restock_losses
         queueDepth: restock_backlog
         aliases:
@@ -175,7 +177,7 @@ topology:
       kind: queue
       semantics:
         arrivals: recover_inflow
-        served: recover_outflow
+        served: recover_served_zero
         errors: recover_losses
         queueDepth: recover_backlog
         aliases:
@@ -184,10 +186,10 @@ topology:
           errors: "Failed refurbish"
           queue: "Secondary backlog"
     - id: DisposalQueue
-      kind: queue
+      kind: dlq
       semantics:
         arrivals: scrap_inflow
-        served: scrap_processed
+        served: scrap_served_zero
         errors: scrap_losses
         queueDepth: scrap_backlog
         aliases:
@@ -205,23 +207,28 @@ topology:
     - id: queue_to_delivery
       from: DistributionQueue:out
       to: Delivery:in
-    - id: delivery_to_rejected_dlq
+    - id: delivery_to_rejections
       from: Delivery:exhaustedFailures
-      to: RejectedDLQ:arrivals
-      type: terminal
+      to: Rejections:arrivals
       measure: exhaustedFailures
     - id: dlq_to_returns
-      from: RejectedDLQ:out
+      from: Rejections:out
       to: ReturnsProcessing:in
     - id: returns_to_restock
       from: ReturnsProcessing:out
       to: RestockQueue:in
+      weight: 0.5
+      type: terminal
     - id: returns_to_recover
       from: ReturnsProcessing:out
       to: RecoverQueue:in
+      weight: 0.3
+      type: terminal
     - id: returns_to_disposal
       from: ReturnsProcessing:out
       to: DisposalQueue:in
+      type: terminal
+      weight: 0.2
 
 nodes:
   - id: purchase_orders
@@ -368,85 +375,121 @@ nodes:
     kind: expr
     expr: "dlq_inflow * 0.2"
 
-  - id: dlq_release
-    kind: expr
-    expr: "MAX(0, dlq_inflow - dlq_losses)"
-
   - id: dlq_depth
     kind: backlog
     inflow: dlq_inflow
-    outflow: dlq_release
+    outflow: dlq_release_volume
     loss: dlq_losses
 
   - id: returns_capacity
     kind: pmf
     pmf:
-      values: [10, 20, 30, 40]
-      probabilities: [0.1, 0.3, 0.4, 0.2]
+      values: [0.6, 0.9, 1.2, 1.6]
+      probabilities: [0.2, 0.3, 0.3, 0.2]
     profile:
       kind: builtin
       name: weekday-office
 
+  - id: dlq_available
+    kind: expr
+    expr: "MAX(0, dlq_inflow - dlq_losses)"
+
+  - id: dlq_release_volume
+    kind: expr
+    expr: "MIN(dlq_available, returns_capacity)"
+
+  - id: returns_throughput
+    kind: expr
+    expr: "dlq_release_volume"
+
   - id: returns_processed
     kind: expr
-    expr: "MIN(dlq_release, returns_capacity)"
+    expr: "returns_throughput * 0.95"
 
   - id: returns_escalated
     kind: expr
-    expr: "MAX(0, dlq_release - returns_processed)"
+    expr: "MAX(0, returns_throughput - returns_processed)"
+
+  - id: returns_processing_time_ms_sum
+    kind: expr
+    expr: "returns_processed * 420"
 
   - id: restock_inflow
     kind: expr
     expr: "returns_processed * 0.5"
 
-  - id: restock_outflow
+  - id: restock_served_zero
     kind: expr
-    expr: "restock_inflow * 0.9"
+    expr: "0"
+    metadata:
+      graph.hidden: "true"
+
+  - id: restock_outflow_zero
+    kind: expr
+    expr: "0"
+    metadata:
+      graph.hidden: "true"
 
   - id: restock_losses
     kind: expr
-    expr: "MAX(0, restock_inflow - restock_outflow)"
+    expr: "0"
 
   - id: restock_backlog
     kind: backlog
     inflow: restock_inflow
-    outflow: restock_outflow
+    outflow: restock_outflow_zero
     loss: restock_losses
 
   - id: recover_inflow
     kind: expr
     expr: "returns_processed * 0.3"
 
-  - id: recover_outflow
+  - id: recover_served_zero
     kind: expr
-    expr: "recover_inflow * 0.8"
+    expr: "0"
+    metadata:
+      graph.hidden: "true"
+
+  - id: recover_outflow_zero
+    kind: expr
+    expr: "0"
+    metadata:
+      graph.hidden: "true"
 
   - id: recover_losses
     kind: expr
-    expr: "MAX(0, recover_inflow - recover_outflow)"
+    expr: "0"
 
   - id: recover_backlog
     kind: backlog
     inflow: recover_inflow
-    outflow: recover_outflow
+    outflow: recover_outflow_zero
     loss: recover_losses
 
   - id: scrap_inflow
     kind: expr
     expr: "returns_processed * 0.2"
 
-  - id: scrap_processed
+  - id: scrap_served_zero
     kind: expr
-    expr: "scrap_inflow * 0.95"
+    expr: "0"
+    metadata:
+      graph.hidden: "true"
+
+  - id: scrap_outflow_zero
+    kind: expr
+    expr: "0"
+    metadata:
+      graph.hidden: "true"
 
   - id: scrap_losses
     kind: expr
-    expr: "MAX(0, scrap_inflow - scrap_processed)"
+    expr: "0"
 
   - id: scrap_backlog
     kind: backlog
     inflow: scrap_inflow
-    outflow: scrap_processed
+    outflow: scrap_outflow_zero
     loss: scrap_losses
 
   - id: supplier_shortage
@@ -490,13 +533,13 @@ outputs:
     as: returns_escalated.csv
   - series: restock_backlog
     as: restock_backlog.csv
-  - series: restock_outflow
-    as: restock_fulfillment.csv
+  - series: restock_losses
+    as: restock_purge.csv
   - series: recover_backlog
     as: recover_backlog.csv
-  - series: recover_outflow
-    as: recover_sales.csv
+  - series: recover_losses
+    as: recover_purge.csv
   - series: scrap_backlog
     as: scrap_backlog.csv
-  - series: scrap_processed
-    as: scrap_processed.csv
+  - series: scrap_losses
+    as: scrap_purge.csv

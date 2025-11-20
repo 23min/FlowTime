@@ -154,7 +154,7 @@ public sealed class TopologyHelpersTests
     }
 
     [Fact]
-    public void HappyPathLayoutDropsLeafNodesBelowBackbone()
+    public void HappyPathLayoutIgnoresIsolatedSupportNodes()
     {
         var response = new GraphResponseModel(
             new[]
@@ -171,10 +171,8 @@ public sealed class TopologyHelpersTests
         var graph = GraphMapper.Map(response, respectUiPositions: false, layout: LayoutMode.HappyPath);
 
         var processor = graph.Nodes.Single(n => n.Id == "processor");
-        var orphan = graph.Nodes.Single(n => n.Id == "orphan_metric");
-
-        Assert.Equal(LeafLane, orphan.Lane);
-        Assert.Equal(ResolveRow(processor) + 1, ResolveRow(orphan));
+        Assert.NotNull(processor);
+        Assert.DoesNotContain(graph.Nodes, n => n.Id == "orphan_metric");
     }
 
     [Fact]

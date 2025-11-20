@@ -1229,7 +1229,8 @@ private const string PmfExpectationLabel = "Value";
             || previous.Layout != overlaySettings.Layout
             || previous.IncludeExpressionNodes != overlaySettings.IncludeExpressionNodes
             || previous.IncludeConstNodes != overlaySettings.IncludeConstNodes
-            || previous.IncludeServiceNodes != overlaySettings.IncludeServiceNodes;
+            || previous.IncludeServiceNodes != overlaySettings.IncludeServiceNodes
+            || previous.IncludeDlqNodes != overlaySettings.IncludeDlqNodes;
 
         if (requiresGraphReload)
         {
@@ -3202,7 +3203,8 @@ internal sealed record InspectorMetricBlock(
 
     private static bool IsQueueKind(string? kind) =>
         !string.IsNullOrWhiteSpace(kind) &&
-        string.Equals(kind, "queue", StringComparison.OrdinalIgnoreCase);
+        (string.Equals(kind, "queue", StringComparison.OrdinalIgnoreCase) ||
+         string.Equals(kind, "dlq", StringComparison.OrdinalIgnoreCase));
 
     private static string FormatNodeKindLabel(string? kind)
     {
@@ -3216,6 +3218,7 @@ internal sealed record InspectorMetricBlock(
             "expr" or "expression" => "Expression",
             "const" or "constant" => "Const",
             "pmf" => "PMF",
+            "dlq" => "DLQ",
             _ => CultureInfo.InvariantCulture.TextInfo.ToTitleCase(kind)
         };
     }

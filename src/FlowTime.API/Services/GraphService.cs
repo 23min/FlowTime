@@ -26,8 +26,8 @@ public sealed class GraphService
         this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    private static readonly string[] DefaultOperationalKinds = { "service", "queue", "router", "external" };
-    private static readonly string[] DefaultFullKinds = { "service", "queue", "router", "external", "expr", "const", "pmf" };
+    private static readonly string[] DefaultOperationalKinds = { "service", "queue", "dlq", "router", "external" };
+    private static readonly string[] DefaultFullKinds = { "service", "queue", "dlq", "router", "external", "expr", "const", "pmf" };
     private static readonly string[] DefaultDependencyFields = { "arrivals", "served", "errors", "attempts", "failures", "exhaustedFailures", "retryEcho", "retryBudgetRemaining", "queue", "capacity", "expr" };
 
     private const string EdgeTypeTopology = "topology";
@@ -190,6 +190,11 @@ public sealed class GraphService
             foreach (var nodeDef in modelDefinition.Nodes)
             {
                 if (string.IsNullOrWhiteSpace(nodeDef.Id))
+                {
+                    continue;
+                }
+
+                if (IsGraphHidden(nodeDef.Metadata))
                 {
                     continue;
                 }
@@ -380,6 +385,20 @@ public sealed class GraphService
         }
 
         return null;
+    }
+
+    private static bool IsGraphHidden(IReadOnlyDictionary<string, string>? metadata)
+    {
+        var graphHidden = TryGetMetadataValue(metadata, "graph.hidden");
+        if (!string.IsNullOrWhiteSpace(graphHidden) &&
+            string.Equals(graphHidden, "true", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        var uiHidden = TryGetMetadataValue(metadata, "ui.hidden");
+        return !string.IsNullOrWhiteSpace(uiHidden) &&
+            string.Equals(uiHidden, "true", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string BuildDependencyEdgeId(string from, string to, string field) =>

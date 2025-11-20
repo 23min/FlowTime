@@ -1,6 +1,6 @@
 # TT‑M‑03.32.1 — First-Class DLQ Nodes
 
-Status: Planned  
+Status: ✅ Complete  
 Owners: Platform (API/Runtime) + UI
 
 ## Overview
@@ -36,11 +36,17 @@ TT‑M‑03.32 delivered retry budgets, exhausted-flow tracking, and terminal-ed
 - Builds directly on TT‑M‑03.32; no external blockers.
 - Requires coordination with template owners to migrate DLQ nodes.
 
-## Next Steps
-- Finalize schema choice (`kind: dlq` vs `queueType: dlq`) and update contracts.
-- Extend analyzers + runtime loaders.
-- Update topology canvas + inspector to render DLQs with the new metadata.
-- Migrate the supply-chain template and at least one IT/message-queue template to use the new type.
+## Implementation Summary
+- Adopted `kind: dlq` as the canonical marker in schemas, DTOs, and template docs. API/Graph/state contracts now surface DLQ nodes without alias hacks.
+- Invariant analyzer + semantic loader emit explicit warnings (`dlq_non_terminal_inbound` / `outbound`) when DLQs receive or emit non-terminal edges; `ModeValidator`, `StateQueryService`, and metrics services treat DLQs as queue-like for latency/series while keeping them out of SLA scoring.
+- Topology canvas renders DLQs with a dedicated trapezoid/badge, queue-depth readout, and a feature-bar toggle (`Include DLQ nodes`). JS helpers avoid badges on upstream services, and inspector labels recognize the new kind.
+- `templates/supply-chain-multi-tier.yaml` and its golden fixtures migrated to `kind: dlq`, with terminal release edges enforced. Authoring/testing guides now document the schema + analyzer expectations.
+- Release notes updated to call out TT‑M‑03.32.1 so future operators know DLQs are first-class.
+
+## Validation
+- `dotnet build FlowTime.sln`
+- `dotnet test FlowTime.Api.Tests/FlowTime.Api.Tests.csproj`
+- `dotnet test FlowTime.sln`
 
 ## Tracking
 - Milestone doc created (this file).

@@ -796,6 +796,7 @@ static bool IsSupportedKind(string value)
 {
     return value.Equals("service", StringComparison.OrdinalIgnoreCase) ||
            value.Equals("queue", StringComparison.OrdinalIgnoreCase) ||
+           value.Equals("dlq", StringComparison.OrdinalIgnoreCase) ||
            value.Equals("router", StringComparison.OrdinalIgnoreCase) ||
            value.Equals("external", StringComparison.OrdinalIgnoreCase) ||
            value.Equals("expr", StringComparison.OrdinalIgnoreCase) ||

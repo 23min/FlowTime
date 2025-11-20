@@ -315,10 +315,11 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
     private static TopologyGraph FilterGraph(TopologyGraph graph, TopologyOverlaySettings overlays)
     {
         var includeServiceNodes = overlays.IncludeServiceNodes;
+        var includeDlqNodes = overlays.IncludeDlqNodes;
         var includeExpressionNodes = overlays.EnableFullDag && overlays.IncludeExpressionNodes;
         var includeConstNodes = overlays.EnableFullDag && overlays.IncludeConstNodes;
 
-        if (!includeServiceNodes && !includeExpressionNodes && !includeConstNodes)
+        if (!includeServiceNodes && !includeDlqNodes && !includeExpressionNodes && !includeConstNodes)
         {
             return new TopologyGraph(Array.Empty<TopologyNode>(), Array.Empty<TopologyEdge>());
         }
@@ -330,6 +331,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             var include = category switch
             {
                 NodeCategory.Service => includeServiceNodes,
+                NodeCategory.Terminal => includeDlqNodes,
                 NodeCategory.Expression => includeExpressionNodes,
                 NodeCategory.Constant => includeConstNodes,
                 NodeCategory.Other => includeServiceNodes,
@@ -342,11 +344,13 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             }
         }
 
-        if (includedIds.Count == 0 && includeServiceNodes)
+        if (includedIds.Count == 0 && (includeServiceNodes || includeDlqNodes))
         {
             foreach (var node in graph.Nodes)
             {
-                if (ClassifyNode(node.Kind) == NodeCategory.Service)
+                var category = ClassifyNode(node.Kind);
+                if ((category == NodeCategory.Service && includeServiceNodes) ||
+                    (category == NodeCategory.Terminal && includeDlqNodes))
                 {
                     includedIds.Add(node.Id);
                 }
@@ -393,6 +397,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         {
             "expr" or "expression" => NodeCategory.Expression,
             "const" or "constant" or "pmf" => NodeCategory.Constant,
+            "dlq" => NodeCategory.Terminal,
             "service" or "queue" or "router" or "external" or "flow" => NodeCategory.Service,
             _ => NodeCategory.Other
         };
@@ -401,6 +406,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
     private enum NodeCategory
     {
         Service,
+        Terminal,
         Expression,
         Constant,
         Other
@@ -524,7 +530,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             var proxyHeight = isLeafComputed
                 ? (NodeHeight * LeafCircleScale) + LeafCircleProxyPadding
                 : NodeHeight;
-            var proxyWidth = string.Equals(node.Kind, "queue", StringComparison.OrdinalIgnoreCase)
+            var proxyWidth = IsQueueLikeKind(node.Kind)
                 ? QueueNodeWidth
                 : NodeWidth;
 
@@ -600,7 +606,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                     node.Id.Equals(focusedNode, StringComparison.OrdinalIgnoreCase);
 
                 var focusLabel = FormatFocusLabel(nodeMetrics, rawSparkline, overlays.ColorBasis, selectedBin);
-                if (string.Equals(node.Kind, "queue", StringComparison.OrdinalIgnoreCase))
+                if (IsQueueLikeKind(node.Kind))
                 {
                     focusLabel = string.Empty;
                 }
@@ -663,7 +669,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                     nodeMetrics.RetryTax,
                     nodeMetrics.RawMetrics);
 
-                var nodeWidth = string.Equals(node.Kind, "queue", StringComparison.OrdinalIgnoreCase)
+                var nodeWidth = IsQueueLikeKind(node.Kind)
                     ? QueueNodeWidth
                     : NodeWidth;
 
@@ -750,7 +756,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
 
             foreach (var node in graph.Nodes)
             {
-                var width = string.Equals(node.Kind, "queue", StringComparison.OrdinalIgnoreCase) ? QueueNodeWidth : NodeWidth;
+                var width = IsQueueLikeKind(node.Kind) ? QueueNodeWidth : NodeWidth;
                 var halfWidth = width / 2d;
                 var left = node.X - halfWidth;
                 var right = node.X + halfWidth;
@@ -783,6 +789,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             overlays.NeighborEmphasis,
             overlays.EnableFullDag,
             overlays.IncludeServiceNodes,
+            overlays.IncludeDlqNodes,
             overlays.IncludeExpressionNodes,
             overlays.IncludeConstNodes,
             selectedBin,
@@ -839,6 +846,21 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             || string.Equals(kind, "pmf", StringComparison.OrdinalIgnoreCase);
     }
 
+    private static bool IsQueueLikeKind(string? kind)
+    {
+        if (string.IsNullOrWhiteSpace(kind))
+        {
+            return false;
+        }
+
+        return string.Equals(kind, "queue", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(kind, "dlq", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsDlqKind(string? kind) =>
+        !string.IsNullOrWhiteSpace(kind) &&
+        string.Equals(kind, "dlq", StringComparison.OrdinalIgnoreCase);
+
     private static string DetermineFillColor(
         TopologyNode node,
         NodeBinMetrics metrics,
@@ -876,9 +898,14 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             return "#E2E8F0";
         }
 
-        if (node.Inputs.Count == 0 && kindNormalized is "service" or "queue" or "router" or "external" or null)
+        if (node.Inputs.Count == 0 && kindNormalized is "service" or "queue" or "router" or "external" or "dlq" or null)
         {
             return ColorScale.SuccessColor;
+        }
+
+        if (kindNormalized == "dlq")
+        {
+            return "#FB7185";
         }
 
         return fill;

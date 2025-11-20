@@ -218,6 +218,12 @@
                                  Label="Include service nodes" />
                     <MudCheckBox T="bool"
                                  Class="topology-dense-control"
+                                 Value="@workingSettings.IncludeDlqNodes"
+                                 ValueChanged="OnIncludeDlqNodesChanged"
+                                 Color="Color.Primary"
+                                 Label="Include DLQ nodes" />
+                    <MudCheckBox T="bool"
+                                 Class="topology-dense-control"
                                  Value="@workingSettings.IncludeExpressionNodes"
                                  ValueChanged="OnIncludeExpressionNodesChanged"
                                  Disabled="@(!workingSettings.EnableFullDag)"
@@ -542,6 +548,17 @@
         }
 
         workingSettings.IncludeServiceNodes = value;
+        return NotifyChange();
+    }
+
+    private Task OnIncludeDlqNodesChanged(bool value)
+    {
+        if (workingSettings.IncludeDlqNodes == value)
+        {
+            return Task.CompletedTask;
+        }
+
+        workingSettings.IncludeDlqNodes = value;
         return NotifyChange();
     }
 

@@ -27,6 +27,11 @@ Retry governance moved from a design note to a fully supported contract + UI exp
 - Added `docs/templates/template-authoring.md` and `docs/templates/template-testing.md` describing the governance semantics, analyzer workflow, and CLI commands.
 - Milestone doc marked complete, tracking file added, follow-up TT‑M‑03.32.1 logged to introduce a dedicated `dlq` node type.
 
+## 🔁 Update — TT‑M‑03.32.1 (First-Class DLQ Nodes)
+- `kind: dlq` is now part of the topology schema. Contracts, DTOs, and analyzer warnings recognize DLQs as queue-like nodes that only accept/emit `terminal` edges (`dlq_non_terminal_inbound` / `outbound` warnings catch mistakes).
+- Topology canvas renders DLQs with a dedicated badge + queue-depth readout, and the feature bar includes an “Include DLQ nodes” toggle so operators can declutter the view without hiding core services.
+- Supply-chain + docs updated to declare DLQs explicitly, and release goldens refreshed so API/UI fixtures assert the new kind.
+
 ## 📊 Validation
 
 | Command | Outcome |
@@ -39,7 +44,7 @@ Retry governance moved from a design note to a fully supported contract + UI exp
 
 ## ⚠️ Follow-Up
 
-- **TT‑M‑03.32.1:** introduce a first-class `dlq` node kind (or `queueType: dlq`) so DLQ semantics don’t rely on aliases. That work will add schema/analysis rules and dedicated canvas styling.
+- Future retry-governance work (automated draining, DLQ dashboards) will build on `kind: dlq`. No additional work remains from TT‑M‑03.32.1.
 
 ---
 

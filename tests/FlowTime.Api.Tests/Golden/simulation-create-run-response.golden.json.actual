@@ -1,0 +1,54 @@
+{
+  "isDryRun": false,
+  "metadata": {
+    "runId": "RUN_ID",
+    "templateId": "sim-order",
+    "templateTitle": "Simulation Order Template",
+    "templateVersion": "1.0.0",
+    "mode": "simulation",
+    "provenanceHash": "PROVENANCE_HASH",
+    "telemetrySourcesResolved": true,
+    "schema": {
+      "id": "time-travel/v1",
+      "version": "1",
+      "hash": "SCHEMA_HASH"
+    },
+    "storage": {
+      "modelPath": "MODEL_PATH",
+      "metadataPath": "METADATA_PATH",
+      "provenancePath": null
+    },
+    "rng": {
+      "kind": "pcg32",
+      "seed": 123
+    }
+  },
+  "plan": null,
+  "warnings": [
+    {
+      "code": "missing_capacity_series",
+      "message": "Capacity series was not available; utilization cannot be computed.",
+      "severity": "info",
+      "nodeId": "OrderService"
+    },
+    {
+      "code": "missing_processing_time_series",
+      "message": "Processing time series was not available; service time cannot be computed.",
+      "severity": "info",
+      "nodeId": "OrderService"
+    },
+    {
+      "code": "missing_served_count_series",
+      "message": "Served count series was not available; service time cannot be computed.",
+      "severity": "info",
+      "nodeId": "OrderService"
+    }
+  ],
+  "canReplay": true,
+  "telemetry": {
+    "available": false,
+    "generatedAtUtc": null,
+    "warningCount": 3,
+    "sourceRunId": null
+  }
+}

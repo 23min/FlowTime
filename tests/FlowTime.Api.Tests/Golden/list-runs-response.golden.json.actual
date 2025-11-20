@@ -1,0 +1,26 @@
+{
+  "items": [
+    {
+      "runId": "RUN_ID",
+      "templateId": "test-order",
+      "templateTitle": "Test Order System",
+      "templateVersion": "1.0.0",
+      "mode": "telemetry",
+      "createdUtc": "CREATED_UTC",
+      "warningCount": 0,
+      "telemetry": {
+        "available": true,
+        "generatedAtUtc": "GENERATED_AT_UTC",
+        "warningCount": 0,
+        "sourceRunId": "CAPTURE_SOURCE_RUN_ID"
+      },
+      "rng": {
+        "kind": "pcg32",
+        "seed": 123
+      }
+    }
+  ],
+  "totalCount": 1,
+  "page": 1,
+  "pageSize": 10
+}

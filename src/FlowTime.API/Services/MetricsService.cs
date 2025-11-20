@@ -403,6 +403,11 @@ public sealed class MetricsService
 
         foreach (var node in resolution.Nodes)
         {
+            if (string.Equals(node.Kind, "dlq", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
             if (node.Arrivals is null || node.Served is null)
             {
                 continue;

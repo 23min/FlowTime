@@ -172,8 +172,16 @@ public sealed class ModeValidator
     private static bool IsServiceNode(Node node) =>
         string.Equals(node.Kind, "service", StringComparison.OrdinalIgnoreCase);
 
-    private static bool IsQueueNode(Node node) =>
-        string.Equals(node.Kind, "queue", StringComparison.OrdinalIgnoreCase);
+    private static bool IsQueueNode(Node node)
+    {
+        if (string.IsNullOrWhiteSpace(node.Kind))
+        {
+            return false;
+        }
+
+        return string.Equals(node.Kind, "queue", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(node.Kind, "dlq", StringComparison.OrdinalIgnoreCase);
+    }
 }
 
 public sealed class ModeValidationContext

@@ -52,6 +52,7 @@ public sealed class TopologyOverlaySettings
 
     public bool EnableFullDag { get; set; } = true;
     public bool IncludeServiceNodes { get; set; } = true;
+    public bool IncludeDlqNodes { get; set; } = true;
     public bool IncludeExpressionNodes { get; set; } = true;
     public bool IncludeConstNodes { get; set; } = true;
     public bool NeighborEmphasis { get; set; } = true;
@@ -101,6 +102,7 @@ public sealed class TopologyOverlaySettings
             ShowTerminalEdges = ShowTerminalEdges,
             EnableFullDag = EnableFullDag,
             IncludeServiceNodes = IncludeServiceNodes,
+            IncludeDlqNodes = IncludeDlqNodes,
             IncludeExpressionNodes = IncludeExpressionNodes,
             IncludeConstNodes = IncludeConstNodes,
             NeighborEmphasis = NeighborEmphasis,

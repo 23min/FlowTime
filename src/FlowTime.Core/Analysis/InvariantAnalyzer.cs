@@ -28,6 +28,37 @@ public static class InvariantAnalyzer
         var warnings = new List<InvariantWarning>();
         var cache = new Dictionary<string, double[]>(StringComparer.Ordinal);
         var queueSeeds = BuildQueueInitials(model.Topology.Nodes);
+        var incomingEdges = new Dictionary<string, List<TopologyEdgeDefinition>>(StringComparer.OrdinalIgnoreCase);
+        var outgoingEdges = new Dictionary<string, List<TopologyEdgeDefinition>>(StringComparer.OrdinalIgnoreCase);
+
+        if (model.Topology.Edges is { Count: > 0 })
+        {
+            foreach (var edge in model.Topology.Edges)
+            {
+                var sourceId = ExtractNodeId(edge.Source);
+                var targetId = ExtractNodeId(edge.Target);
+
+                if (!string.IsNullOrWhiteSpace(sourceId))
+                {
+                    if (!outgoingEdges.TryGetValue(sourceId, out var edges))
+                    {
+                        edges = new List<TopologyEdgeDefinition>();
+                        outgoingEdges[sourceId] = edges;
+                    }
+                    edges.Add(edge);
+                }
+
+                if (!string.IsNullOrWhiteSpace(targetId))
+                {
+                    if (!incomingEdges.TryGetValue(targetId, out var edges))
+                    {
+                        edges = new List<TopologyEdgeDefinition>();
+                        incomingEdges[targetId] = edges;
+                    }
+                    edges.Add(edge);
+                }
+            }
+        }
 
         foreach (var topoNode in model.Topology.Nodes)
         {
@@ -41,6 +72,13 @@ public static class InvariantAnalyzer
             var nodeKind = (topoNode.Kind ?? string.Empty).Trim().ToLowerInvariant();
             var isServiceKind = nodeKind == "service" || nodeKind == "router";
             var isQueueKind = nodeKind == "queue";
+            var isQueueLikeKind = nodeKind is "queue" or "dlq";
+            var isDlqKind = nodeKind == "dlq";
+            var isTerminalQueue = isQueueKind &&
+                                  incomingEdges.TryGetValue(nodeId, out var terminalInbound) &&
+                                  terminalInbound.Count > 0 &&
+                                  terminalInbound.All(IsTerminalEdge) &&
+                                  (!outgoingEdges.TryGetValue(nodeId, out var queueOutbound) || queueOutbound.Count == 0);
 
             if (!TryGetSeries(semantics.Arrivals, out var arrivals))
             {
@@ -151,7 +189,7 @@ public static class InvariantAnalyzer
             // Soft info: missing prerequisite metrics
             var expectsCapacity = isServiceKind || !string.IsNullOrWhiteSpace(semantics.Capacity);
             var expectsServed = isServiceKind || !string.IsNullOrWhiteSpace(semantics.Served);
-            var expectsQueue = isQueueKind || !string.IsNullOrWhiteSpace(semantics.QueueDepth);
+            var expectsQueue = isQueueLikeKind || !string.IsNullOrWhiteSpace(semantics.QueueDepth);
             var hasMaxAttempts = semantics.MaxAttempts.HasValue;
 
             if (expectsCapacity && capacity == null)
@@ -247,7 +285,7 @@ public static class InvariantAnalyzer
                     "info"));
             }
 
-            if (queueDepth != null && served != null)
+            if (!isDlqKind && !isTerminalQueue && queueDepth != null && served != null)
             {
                 var badLatencyBins = new List<int>();
                 var latencyBins = queueDepth.Length;
@@ -280,6 +318,10 @@ public static class InvariantAnalyzer
                         null,
                         "info"));
                 }
+            }
+            if (isDlqKind)
+            {
+                ValidateDlqConnectivity(nodeId);
             }
         }
 
@@ -416,6 +458,73 @@ public static class InvariantAnalyzer
                     bins[..binCount].ToArray(),
                     null));
             }
+        }
+
+        void ValidateDlqConnectivity(string nodeId)
+        {
+            if (incomingEdges.TryGetValue(nodeId, out var inbound) && inbound.Count > 0)
+            {
+                var invalid = inbound
+                    .Where(edge => !IsTerminalEdge(edge))
+                    .Select(GetEdgeLabel)
+                    .ToArray();
+                if (invalid.Length > 0)
+                {
+                    warnings.Add(new InvariantWarning(
+                        nodeId,
+                        "dlq_non_terminal_inbound",
+                        $"DLQ nodes must only receive terminal edges ({string.Join(", ", invalid)}).",
+                        Array.Empty<int>(),
+                        null,
+                        "warning"));
+                }
+            }
+
+            if (outgoingEdges.TryGetValue(nodeId, out var outbound) && outbound.Count > 0)
+            {
+                var invalid = outbound
+                    .Where(edge => !IsTerminalEdge(edge))
+                    .Select(GetEdgeLabel)
+                    .ToArray();
+                if (invalid.Length > 0)
+                {
+                    warnings.Add(new InvariantWarning(
+                        nodeId,
+                        "dlq_non_terminal_outbound",
+                        $"DLQ nodes must emit terminal edges ({string.Join(", ", invalid)}).",
+                        Array.Empty<int>(),
+                        null,
+                        "warning"));
+                }
+            }
+        }
+
+        static bool IsTerminalEdge(TopologyEdgeDefinition edge) =>
+            !string.IsNullOrWhiteSpace(edge.Type) &&
+            edge.Type.Trim().Equals("terminal", StringComparison.OrdinalIgnoreCase);
+
+        static string GetEdgeLabel(TopologyEdgeDefinition edge)
+        {
+            if (!string.IsNullOrWhiteSpace(edge.Id))
+            {
+                return edge.Id!;
+            }
+
+            var source = string.IsNullOrWhiteSpace(edge.Source) ? "?" : edge.Source;
+            var target = string.IsNullOrWhiteSpace(edge.Target) ? "?" : edge.Target;
+            return $"{source}->{target}";
+        }
+
+        static string ExtractNodeId(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return string.Empty;
+            }
+
+            var trimmed = value.Trim();
+            var separatorIndex = trimmed.IndexOf(':');
+            return separatorIndex >= 0 ? trimmed[..separatorIndex] : trimmed;
         }
     }
 

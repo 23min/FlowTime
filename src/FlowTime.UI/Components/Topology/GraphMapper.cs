@@ -60,6 +60,8 @@ internal static class GraphMapper
             }
         }
 
+        PruneIsolatedSupportNodes(nodeBuilders);
+
         var layerByNode = ComputeLayers(nodeBuilders);
         NormalizeLayers(layerByNode);
         var indexByNode = ComputeLayerIndices(layerByNode, nodeBuilders);
@@ -231,6 +233,33 @@ internal static class GraphMapper
             "const" or "constant" or "pmf" => NodeCategory.Constant,
             _ => NodeCategory.Service
         };
+    }
+
+    private static void PruneIsolatedSupportNodes(Dictionary<string, NodeBuilder> nodeBuilders)
+    {
+        if (nodeBuilders.Count == 0)
+        {
+            return;
+        }
+
+        var toRemove = nodeBuilders.Values
+            .Where(builder =>
+            {
+                var category = Classify(builder.Kind);
+                if (category == NodeCategory.Service)
+                {
+                    return false;
+                }
+
+                return builder.Inputs.Count == 0 && builder.Outputs.Count == 0;
+            })
+            .Select(builder => builder.Id)
+            .ToList();
+
+        foreach (var nodeId in toRemove)
+        {
+            nodeBuilders.Remove(nodeId);
+        }
     }
 
     private static Dictionary<string, int> ComputeLayerIndices(

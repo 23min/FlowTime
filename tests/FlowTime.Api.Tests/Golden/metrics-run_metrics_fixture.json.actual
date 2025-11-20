@@ -1,0 +1,36 @@
+{
+  "window": {
+    "start": "2025-01-01T00:00:00+00:00",
+    "timezone": "UTC"
+  },
+  "grid": {
+    "binMinutes": 5,
+    "bins": 4
+  },
+  "services": [
+    {
+      "id": "OrderService",
+      "slaPct": 0,
+      "binsMet": 0,
+      "binsTotal": 4,
+      "mini": [
+        0.9,
+        0.6,
+        0.9,
+        0.4
+      ]
+    },
+    {
+      "id": "SupportQueue",
+      "slaPct": 0.5,
+      "binsMet": 2,
+      "binsTotal": 4,
+      "mini": [
+        1,
+        0.857143,
+        1,
+        0.8
+      ]
+    }
+  ]
+}

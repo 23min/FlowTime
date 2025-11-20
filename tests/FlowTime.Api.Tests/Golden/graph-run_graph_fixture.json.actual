@@ -1,0 +1,89 @@
+{
+  "nodes": [
+    {
+      "id": "LoadBalancer",
+      "kind": "service",
+      "semantics": {
+        "arrivals": "series:incoming",
+        "served": "series:routed",
+        "errors": "series:errors",
+        "exhaustedFailures": null,
+        "retryBudgetRemaining": null,
+        "series": null,
+        "expression": null,
+        "maxAttempts": null,
+        "backoffStrategy": null,
+        "exhaustedPolicy": null,
+        "distribution": null,
+        "aliases": {
+          "served": "Requests Routed",
+          "errors": "Dropped Requests"
+        }
+      }
+    },
+    {
+      "id": "Database",
+      "kind": "service",
+      "semantics": {
+        "arrivals": "series:routed",
+        "served": "series:served",
+        "errors": "series:errors",
+        "exhaustedFailures": null,
+        "retryBudgetRemaining": null,
+        "capacity": "series:capacity",
+        "series": null,
+        "expression": null,
+        "maxAttempts": null,
+        "backoffStrategy": null,
+        "exhaustedPolicy": null,
+        "distribution": null,
+        "aliases": {
+          "served": "Transactions Committed"
+        }
+      },
+      "ui": {
+        "x": 160,
+        "y": 48,
+        "layer": null,
+        "order": null
+      }
+    },
+    {
+      "id": "Analytics",
+      "kind": "service",
+      "semantics": {
+        "arrivals": "series:analytics_load",
+        "served": "series:analytics_served",
+        "errors": "series:analytics_errors",
+        "exhaustedFailures": null,
+        "retryBudgetRemaining": null,
+        "series": null,
+        "expression": null,
+        "maxAttempts": null,
+        "backoffStrategy": null,
+        "exhaustedPolicy": null,
+        "distribution": null
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge_lb_db",
+      "from": "LoadBalancer:out",
+      "to": "Database:in",
+      "weight": 1,
+      "edgeType": "throughput",
+      "field": "served"
+    },
+    {
+      "id": "edge_lb_analytics",
+      "from": "LoadBalancer:out",
+      "to": "Analytics:in",
+      "weight": 1,
+      "edgeType": "effort",
+      "field": "load",
+      "multiplier": 0.5,
+      "lag": 1
+    }
+  ]
+}

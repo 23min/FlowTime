@@ -30,6 +30,11 @@
     const NODE_LABEL_COLOR_LIGHT = '#0F172A';
     const NODE_LABEL_COLOR_DARK = '#F8FAFC';
     const QUEUE_LABEL_COLOR = NODE_LABEL_COLOR_LIGHT;
+    const RETRY_BADGE_FILL = '#EF4444';
+    const RETRY_BADGE_STROKE = '#B91C1C';
+    const RETRY_BADGE_TEXT = '#FFFFFF';
+    const DLQ_LIGHT_PALETTE = { fill: '#FDE68A', stroke: '#B45309', text: '#7C2D12' };
+    const DLQ_DARK_PALETTE = { fill: RETRY_BADGE_FILL, stroke: RETRY_BADGE_STROKE, text: RETRY_BADGE_TEXT };
     const CHIP_BASE_FILL_LIGHT = '#F3F4F6';
     const CHIP_BASE_FILL_DARK = '#0F172A';
     const CHIP_TEXT_LIGHT = NODE_LABEL_COLOR_LIGHT;
@@ -122,6 +127,19 @@
 
     function getQueueLabelColor() {
         return isDarkTheme() ? NODE_LABEL_COLOR_DARK : QUEUE_LABEL_COLOR;
+    }
+
+    function getDlqPalette() {
+        return isDarkTheme() ? DLQ_DARK_PALETTE : DLQ_LIGHT_PALETTE;
+    }
+
+    function getDlqValueColor() {
+        return getDlqPalette().text;
+    }
+
+    function getDlqTagColors() {
+        const palette = getDlqPalette();
+        return { fill: palette.fill, text: palette.text, stroke: palette.stroke };
     }
 
     function getState(canvas) {
@@ -624,8 +642,6 @@
             const isEffortEdge = resolvedEdgeType === EdgeTypeEffort;
             const isThroughputEdge = resolvedEdgeType === EdgeTypeThroughput;
             const isDependency = resolvedEdgeType === EdgeTypeDependency;
-            const terminalStylingEnabled = overlaySettings.showTerminalEdges !== false;
-            const isTerminalEdge = terminalStylingEnabled && resolvedEdgeType === EdgeTypeTerminal;
 
             if (isDependency) {
                 const field = String(edge.field ?? edge.Field ?? '').toLowerCase();
@@ -661,26 +677,20 @@
                 skipFromPortOffset = true;
             }
 
-            const baseStrokeColor = isTerminalEdge
-                ? '#B91C1C'
-                : isEffortEdge
-                    ? '#1D4ED8'
-                    : isThroughputEdge
-                        ? '#2563EB'
-                        : '#9AA1AC';
+            const baseStrokeColor = isEffortEdge
+                ? '#1D4ED8'
+                : isThroughputEdge
+                    ? '#2563EB'
+                    : '#9AA1AC';
 
             let dashPattern = isDependency ? [4, 3] : (isEffortEdge ? [8, 4] : null);
             let lineWidth = isDependency ? 1.4 : (isEffortEdge ? 3.2 : 3);
             const overlaySample = overlayContext?.samples?.get(edgeId) ?? null;
-            if (overlaySample && !isDependency && !isTerminalEdge) {
+            if (overlaySample && !isDependency) {
                 lineWidth *= 2;
             }
             let strokeColor = baseStrokeColor;
-            if (isTerminalEdge) {
-                strokeColor = baseStrokeColor;
-                dashPattern = [4, 6];
-                lineWidth = Math.max(lineWidth, 3.5);
-            } else if (overlaySample?.color) {
+            if (overlaySample?.color) {
                 strokeColor = overlaySample.color;
             }
 
@@ -857,6 +867,8 @@
 
             const nodeMeta = nodeMap.get(id);
             const kind = String(meta?.kind ?? node.kind ?? node.Kind ?? 'service').toLowerCase();
+            const queueLikeNode = isQueueLikeKind(kind);
+            const dlqNode = isDlqKind(kind);
             const isLeafComputed = !!nodeMeta?.leaf && isComputedKind(kind);
             const retryTax = kind === 'service' ? resolveRetryTaxValue(nodeMeta) : null;
             const hasRetryLoop = overlaySettings.showRetryMetrics !== false &&
@@ -876,8 +888,11 @@
                 focusLabelWidth = Math.max(pillMetrics.width - 14, 18);
                 fillForText = pillMetrics.fill ?? defaultLeafFill;
             } else if (kind === 'queue') {
-                drawQueueNode(ctx, nodeMeta);
+                drawQueueNode(ctx, nodeMeta, overlaySettings);
                 fillForText = QUEUE_PILL_FILL;
+            } else if (dlqNode) {
+                drawDlqNode(ctx, nodeMeta, overlaySettings);
+                fillForText = getDlqPalette().fill;
             } else {
                 ctx.beginPath();
                 if (kind === 'expr' || kind === 'expression') {
@@ -903,7 +918,7 @@
                 }
             }
 
-            if (kind === 'service' || kind === 'queue' || kind === 'router') {
+            if (kind === 'service' || kind === 'queue' || kind === 'router' || dlqNode) {
                 drawServiceDecorations(ctx, nodeMeta, overlaySettings, state);
             } else if (kind === 'pmf') {
                 const hasSparkline = overlaySettings.showSparklines && nodeMeta?.sparkline;
@@ -2270,6 +2285,7 @@
             neighborEmphasis: boolOr(raw.neighborEmphasis ?? raw.NeighborEmphasis, true),
             enableFullDag: boolOr(raw.enableFullDag ?? raw.EnableFullDag, false),
             includeServiceNodes: boolOr(raw.includeServiceNodes ?? raw.IncludeServiceNodes, true),
+            includeDlqNodes: boolOr(raw.includeDlqNodes ?? raw.IncludeDlqNodes, true),
             includeExpressionNodes: boolOr(raw.includeExpressionNodes ?? raw.IncludeExpressionNodes, false),
             includeConstNodes: boolOr(raw.includeConstNodes ?? raw.IncludeConstNodes, false),
             selectedBin,
@@ -2318,6 +2334,21 @@
 
         const normalized = kind.trim().toLowerCase();
         return normalized === 'expr' || normalized === 'expression' || normalized === 'const' || normalized === 'constant' || normalized === 'pmf';
+    }
+
+    function isQueueLikeKind(kind) {
+        if (typeof kind !== 'string') {
+            return false;
+        }
+        const normalized = kind.trim().toLowerCase();
+        return normalized === 'queue' || normalized === 'dlq';
+    }
+
+    function isDlqKind(kind) {
+        if (typeof kind !== 'string') {
+            return false;
+        }
+        return kind.trim().toLowerCase() === 'dlq';
     }
 
     function isExpressionKind(kind) {
@@ -2580,6 +2611,7 @@
         const showRetryMetrics = overlays.showRetryMetrics !== false && hasRetrySemantics;
         const nodeKind = String(nodeMeta.kind ?? nodeMeta.Kind ?? '').trim().toLowerCase();
         const isServiceNode = nodeKind === 'service';
+        const isDlqNode = isDlqKind(nodeKind);
         const retryTax = isServiceNode ? resolveRetryTaxValue(nodeMeta) : null;
         const hasRetryLoop = showRetryMetrics && isServiceNode && Number.isFinite(retryTax) && retryTax > 0;
         const warningEntries = normalizeWarningEntries(nodeMeta, state.globalWarningsByNode);
@@ -2741,9 +2773,10 @@
             // Tiny label positioned directly above the sparkline (left-aligned)
             try {
                 const basis = overlays.colorBasis ?? 0;
-                const seriesBasis = nodeKind === 'queue' ? 3 : Number(basis);
-                const label = nodeKind === 'queue'
-                    ? 'Queue'
+                const queueLike = isQueueLikeKind(nodeKind);
+                const seriesBasis = queueLike ? 3 : Number(basis);
+                const label = queueLike
+                    ? (isDlqKind(nodeKind) ? 'DLQ' : 'Queue')
                     : (function () {
                         switch (basis) {
                             case 1: return 'Util';
@@ -2822,6 +2855,24 @@
                         height: dims.height
                     });
                     topLeft += dims.width + gap;
+
+                    if (isDlqNode) {
+                        const tagColors = getDlqTagColors();
+                        const dlqDims = drawChip(
+                            ctx,
+                            topLeft,
+                            topRowTop + chipH,
+                            'DLQ',
+                            tagColors.stroke ?? getDlqPalette().stroke,
+                            tagColors.text,
+                            paddingX,
+                            chipH,
+                            'bottom',
+                            tagColors.fill,
+                            null,
+                            '600');
+                        topLeft += dlqDims.width + gap;
+                    }
                 }
             }
         }
@@ -3066,7 +3117,7 @@
 
         if (overlays.showQueueDependencies !== false) {
             const nodeKind = String(nodeMeta.kind ?? nodeMeta.Kind ?? '').trim().toLowerCase();
-            const isQueueNode = nodeKind === 'queue';
+            const isQueueNode = isQueueLikeKind(nodeKind);
             const queueValue = sampleValueFor('queue', semantics.queue);
             queueTooltip = semanticTooltip(semantics.queue, 'Queue depth');
 
@@ -3150,7 +3201,7 @@
         ctx.restore();
     }
 
-    function drawQueueNode(ctx, nodeMeta) {
+    function drawQueueNode(ctx, nodeMeta, overlays) {
         const x = Number(nodeMeta.x ?? nodeMeta.X ?? 0);
         const y = Number(nodeMeta.y ?? nodeMeta.Y ?? 0);
         const width = Number(nodeMeta.width ?? nodeMeta.Width ?? 54);
@@ -3178,10 +3229,50 @@
             nodeMeta.fill = QUEUE_PILL_FILL;
         }
 
-        const queueValue = resolveQueueValue(nodeMeta);
+        const queueValue = resolveQueueValue(nodeMeta, overlays);
         const displayValue = queueValue !== null ? formatMetricValue(queueValue) : '—';
 
         ctx.fillStyle = getQueueLabelColor();
+        ctx.font = '600 12px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(displayValue, x, y);
+    }
+
+    function drawDlqNode(ctx, nodeMeta, overlays) {
+        const x = Number(nodeMeta.x ?? nodeMeta.X ?? 0);
+        const y = Number(nodeMeta.y ?? nodeMeta.Y ?? 0);
+        const width = Number(nodeMeta.width ?? nodeMeta.Width ?? 54);
+        const height = Number(nodeMeta.height ?? nodeMeta.Height ?? 24);
+        const trapezoidHeight = Math.max(height * 0.85, 16);
+        const halfHeight = trapezoidHeight / 2;
+        const topWidth = width * 0.65;
+        const bottomWidth = width;
+        const topHalf = topWidth / 2;
+        const bottomHalf = bottomWidth / 2;
+        const palette = getDlqPalette();
+        const fillColor = palette.fill;
+        const textColor = palette.text;
+
+        ctx.beginPath();
+        ctx.moveTo(x - topHalf, y - halfHeight);
+        ctx.lineTo(x + topHalf, y - halfHeight);
+        ctx.lineTo(x + bottomHalf, y + halfHeight);
+        ctx.lineTo(x - bottomHalf, y + halfHeight);
+        ctx.closePath();
+        ctx.fillStyle = fillColor;
+        ctx.strokeStyle = palette.stroke;
+        ctx.lineWidth = 1.2;
+        ctx.fill();
+        ctx.stroke();
+
+        if (nodeMeta) {
+            nodeMeta.fill = fillColor;
+        }
+
+        const queueValue = resolveQueueValue(nodeMeta, overlays);
+        const displayValue = queueValue !== null ? formatMetricValue(queueValue) : '—';
+        ctx.fillStyle = textColor;
         ctx.font = '600 12px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -3216,24 +3307,76 @@
         return { width: pillWidth, height: pillHeight, fill };
     }
 
-    function resolveQueueValue(nodeMeta) {
-        const metrics = nodeMeta.metrics ?? nodeMeta.Metrics ?? null;
+    function resolveQueueValue(nodeMeta, overlays) {
+        const metrics = nodeMeta?.metrics ?? nodeMeta?.Metrics ?? null;
         if (metrics) {
             const queueDepth = metrics.queueDepth ?? metrics.QueueDepth;
-            if (Number.isFinite(queueDepth)) {
+            if (isRenderableNumber(queueDepth)) {
                 return Number(queueDepth);
+            }
+
+            const raw = metrics.raw ?? metrics.Raw ?? null;
+            if (raw) {
+                const rawValue = raw.queue ?? raw.Queue ?? raw.queueDepth ?? raw.QueueDepth;
+                if (isRenderableNumber(rawValue)) {
+                    return Number(rawValue);
+                }
             }
         }
 
-        const raw = metrics?.raw ?? metrics?.Raw ?? null;
-        if (raw) {
-            const rawValue = raw.queue ?? raw.Queue ?? raw.queueDepth ?? raw.QueueDepth;
-            if (Number.isFinite(rawValue)) {
-                return Number(rawValue);
+        const spark = nodeMeta?.sparkline ?? nodeMeta?.Sparkline ?? null;
+        if (spark) {
+            const selectedBin = Number(overlays?.selectedBin ?? overlays?.SelectedBin ?? -1);
+            const queueSeries = spark.queueDepth ?? spark.QueueDepth ?? null;
+            const startIndex = Number.isFinite(spark.startIndex ?? spark.StartIndex)
+                ? Number(spark.startIndex ?? spark.StartIndex)
+                : 0;
+
+            const sparkValue = sampleSparklineSeriesValue(queueSeries, startIndex, selectedBin);
+            if (sparkValue !== null) {
+                return sparkValue;
+            }
+
+            const additionalSeries = spark.series ?? spark.Series;
+            if (additionalSeries) {
+                const queueSlice = additionalSeries.queue ?? additionalSeries.Queue ?? additionalSeries.queueDepth ?? additionalSeries.QueueDepth;
+                const sliceValue = sampleSparklineSliceValue(queueSlice, selectedBin);
+                if (sliceValue !== null) {
+                    return sliceValue;
+                }
             }
         }
 
         return null;
+    }
+
+    function sampleSparklineSeriesValue(values, startIndex, selectedBin) {
+        if (!Array.isArray(values) || values.length === 0) {
+            return null;
+        }
+
+        const safeStart = Number.isFinite(startIndex) ? Number(startIndex) : 0;
+        const defaultIndex = safeStart + values.length - 1;
+        let targetIndex = Number.isFinite(selectedBin) && selectedBin >= safeStart
+            ? selectedBin
+            : defaultIndex;
+
+        targetIndex = Math.min(values.length - 1, Math.max(0, targetIndex - safeStart));
+        const candidate = values[targetIndex];
+        return isRenderableNumber(candidate) ? Number(candidate) : null;
+    }
+
+    function sampleSparklineSliceValue(slice, selectedBin) {
+        if (!slice) {
+            return null;
+        }
+
+        const values = slice.values ?? slice.Values;
+        const startIndex = Number.isFinite(slice.startIndex ?? slice.StartIndex)
+            ? Number(slice.startIndex ?? slice.StartIndex)
+            : 0;
+
+        return sampleSparklineSeriesValue(values, startIndex, selectedBin);
     }
 
     function resolveRetryTaxValue(nodeMeta) {
@@ -3272,13 +3415,13 @@
         ctx.save();
         ctx.beginPath();
         traceRoundedRect(ctx, centerX, y, badgeSize, badgeSize, Math.min(6, badgeSize / 2));
-        ctx.fillStyle = '#EF4444';
-        ctx.strokeStyle = '#B91C1C';
+        ctx.fillStyle = RETRY_BADGE_FILL;
+        ctx.strokeStyle = RETRY_BADGE_STROKE;
         ctx.lineWidth = 1.2;
         ctx.fill();
         ctx.stroke();
 
-        ctx.fillStyle = '#FFFFFF';
+        ctx.fillStyle = RETRY_BADGE_TEXT;
         ctx.font = '600 11px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -3308,7 +3451,7 @@
         ctx.beginPath();
         ctx.moveTo(startX, midY);
         ctx.lineTo(connectorEndX, midY);
-        ctx.strokeStyle = '#EF4444';
+        ctx.strokeStyle = RETRY_BADGE_FILL;
         ctx.lineWidth = 3;
         ctx.setLineDash([]);
         ctx.stroke();
@@ -3908,6 +4051,14 @@
 
         const numeric = Number(sample);
         return Number.isFinite(numeric) ? numeric : null;
+    }
+
+    function isRenderableNumber(value) {
+        if (value === null || value === undefined) {
+            return false;
+        }
+
+        return Number.isFinite(Number(value));
     }
 
     function formatMetricValue(value) {
@@ -5346,7 +5497,7 @@
         const neutralize = Boolean(opts.neutralize);
         const basis = Number(overlaySettings.colorBasis ?? 0);
         const nodeKind = String(nodeMeta?.kind ?? nodeMeta?.Kind ?? '').trim().toLowerCase();
-        const seriesBasis = nodeKind === 'queue' ? 3 : basis;
+        const seriesBasis = isQueueLikeKind(nodeKind) ? 3 : basis;
         const series = selectSeriesForBasis(sparkline, seriesBasis);
         if (!Array.isArray(series) || series.length < 2) {
             return;
