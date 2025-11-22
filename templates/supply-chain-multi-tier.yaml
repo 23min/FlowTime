@@ -84,6 +84,18 @@ topology:
           arrivals: "Purchase orders"
           served: "Supplier shipments"
           errors: "Supplier shortfall"
+    - id: SupplierShortfallQueue
+      kind: queue
+      semantics:
+        arrivals: supplier_shortage
+        served: supplier_shortfall_served_zero
+        errors: supplier_shortfall_attrition
+        queueDepth: supplier_shortfall_depth
+        aliases:
+          arrivals: "Purchase shortfall"
+          queue: "Supplier backlog"
+      initialCondition:
+        queueDepth: 0
     - id: Warehouse
       kind: service
       semantics:
@@ -100,8 +112,8 @@ topology:
       kind: queue
       semantics:
         arrivals: queue_inflow
-        served: queue_outflow
-        errors: queue_losses
+        served: queue_served
+        errors: queue_attrition
         queueDepth: queue_depth
         aliases:
           arrivals: "Loads staged"
@@ -113,7 +125,7 @@ topology:
     - id: Delivery
       kind: service
       semantics:
-        arrivals: queue_outflow
+        arrivals: queue_served
         served: deliveries_served
         errors: delivery_errors
         capacity: delivery_capacity
@@ -201,6 +213,11 @@ topology:
     - id: supplier_to_warehouse
       from: Supplier:out
       to: Warehouse:in
+    - id: supplier_to_shortfall
+      from: Supplier:errors
+      to: SupplierShortfallQueue:arrivals
+      type: terminal
+      measure: errors
     - id: warehouse_to_queue
       from: Warehouse:out
       to: DistributionQueue:in
@@ -305,23 +322,35 @@ nodes:
     kind: expr
     expr: "warehouse_release"
 
-  - id: queue_losses
+  - id: queue_carry_raw
     kind: expr
-    expr: "0"
+    expr: "CONV(queue_inflow - fulfillment_capacity, [1.0, 0.5, 0.25])"
 
-  - id: queue_outflow
+  - id: queue_carry
     kind: expr
-    expr: "MIN(queue_inflow, fulfillment_capacity)"
+    expr: "MAX(0, queue_carry_raw)"
+
+  - id: queue_demand
+    kind: expr
+    expr: "queue_inflow + queue_carry"
+
+  - id: queue_attrition
+    kind: expr
+    expr: "MIN(queue_carry, queue_carry * 0.01)"
+
+  - id: queue_served
+    kind: expr
+    expr: "MIN(fulfillment_capacity, queue_demand)"
 
   - id: queue_depth
     kind: backlog
-    inflow: queue_inflow
-    outflow: queue_outflow
-    loss: queue_losses
+    inflow: queue_demand
+    outflow: queue_served
+    loss: queue_attrition
 
   - id: delivery_base_load
     kind: expr
-    expr: "queue_outflow"
+    expr: "queue_served"
 
   - id: retry_attempts
     kind: expr
@@ -500,6 +529,22 @@ nodes:
     kind: expr
     expr: "deliveries_served / delivery_capacity"
 
+  - id: supplier_shortfall_served_zero
+    kind: expr
+    expr: "0"
+    metadata:
+      graph.hidden: "true"
+
+  - id: supplier_shortfall_attrition
+    kind: expr
+    expr: "0"
+
+  - id: supplier_shortfall_depth
+    kind: backlog
+    inflow: supplier_shortage
+    outflow: supplier_shortfall_served_zero
+    loss: supplier_shortfall_attrition
+
 outputs:
   - series: purchase_orders
     as: demand.csv
@@ -509,7 +554,7 @@ outputs:
     as: warehouse_release.csv
   - series: queue_depth
     as: distributor_queue_depth.csv
-  - series: queue_outflow
+  - series: queue_served
     as: loads_pulled.csv
   - series: deliveries_served
     as: deliveries.csv
@@ -543,3 +588,5 @@ outputs:
     as: scrap_backlog.csv
   - series: scrap_losses
     as: scrap_purge.csv
+  - series: supplier_shortfall_depth
+    as: supplier_shortfall_backlog.csv

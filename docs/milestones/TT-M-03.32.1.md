@@ -46,9 +46,12 @@ TT‑M‑03.32 delivered retry budgets, exhausted-flow tracking, and terminal-ed
 ### Template Enhancement Backlog (Next Up)
 With the core DLQ semantics live, we now need to retrofit the remaining canonical templates so their queues carry realistic backlog signals and their loss/failure pathways terminate in DLQs or explicit sinks. The following plan will be executed sequentially during TT‑M‑03.32.1:
 
+> **DLQ Lens (Our Services vs. Dependencies)**  
+> DLQs belong to services we operate (where we own retries and escalation). External dependencies should surface failures as losses/terminal queues, not DLQs. Each retrofit will move/introduce DLQs on “our” services, and express downstream vendors/partners as terminal sinks.
+
 1. **IT System – Microservices (`templates/it-system-microservices.yaml`)**
    - Rework `IngressQueue` to use backlog-aware outflow/attrition so queue depth oscillates instead of staying pinned.
-   - Introduce a `ManualReconciliation` DLQ fed by `db_retry_failures` (and optionally `db_errors`) to model exhausted transactions.
+   - Introduce a `ManualReconciliation` DLQ fed by auth retry failures (our service), not the database dependency. Add a response queue that returns authorized sessions to customers.
    - Add a terminal queue for `lb_dropped`/`auth_failures` so customer-impact backlog is visible.
 2. **Manufacturing Line (`templates/manufacturing-line.yaml`)**
    - Update `WipQueue` outflow to consume backlog and model loss due to excessive wait.
@@ -91,3 +94,6 @@ Only after the above steps pass should a retrofit be considered “done.”
 ## Tracking
 - Milestone doc created (this file).
 - Follow the standard tracking template under `docs/milestones/tracking/` when implementation begins.
+
+### Deferred (Post TT‑M‑03.32.1)
+- Add analyzer checks that correlate queue arrivals with upstream `served` metrics so mismatched semantics (e.g., pointing arrivals at backlog-adjusted demand) are caught automatically. This requires topology-aware validation or edge-level telemetry, so we will tackle it in the next epic after the time-travel deliverables.

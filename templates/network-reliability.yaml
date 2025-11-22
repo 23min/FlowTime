@@ -73,12 +73,12 @@ topology:
     - id: RequestQueue
       kind: queue
       semantics:
-        arrivals: network_requests
-        served: request_queue_outflow
-        errors: request_queue_spill
+        arrivals: request_queue_demand
+        served: request_queue_served
+        errors: request_queue_attrition
         queueDepth: request_queue_depth
         aliases:
-          arrivals: "Requests routed"
+          arrivals: "Effective demand"
           served: "Requests dequeued"
           errors: "Queue attrition"
           queue: "Edge backlog"
@@ -87,7 +87,7 @@ topology:
     - id: CorePlatform
       kind: service
       semantics:
-        arrivals: request_queue_outflow
+        arrivals: request_queue_served
         served: successful_requests
         errors: core_errors
         capacity: server_capacity
@@ -103,6 +103,42 @@ topology:
           attempts: "Dispatch attempts"
           failures: "Failed retries"
           retryEcho: "Retry backlog"
+    - id: EdgeDropQueue
+      kind: queue
+      semantics:
+        arrivals: edge_drop_inflow
+        served: edge_drop_served_zero
+        errors: edge_drop_attrition
+        queueDepth: edge_drop_depth
+        aliases:
+          arrivals: "Edge drops"
+          queue: "Edge loss backlog"
+      initialCondition:
+        queueDepth: 0
+    - id: CoreDlq
+      kind: dlq
+      semantics:
+        arrivals: core_dlq_inflow
+        served: core_dlq_served_zero
+        errors: core_dlq_attrition
+        queueDepth: core_dlq_depth
+        aliases:
+          arrivals: "Core exhausted retries"
+          queue: "Core DLQ"
+      initialCondition:
+        queueDepth: 0
+    - id: DatabaseLossQueue
+      kind: queue
+      semantics:
+        arrivals: database_failures
+        served: database_loss_served_zero
+        errors: database_loss_attrition
+        queueDepth: database_loss_depth
+        aliases:
+          arrivals: "DB failures"
+          queue: "Database loss"
+      initialCondition:
+        queueDepth: 0
   edges:
     - id: edge_to_queue
       from: EdgeGateway:out
@@ -110,6 +146,21 @@ topology:
     - id: queue_to_core
       from: RequestQueue:out
       to: CorePlatform:in
+    - id: edge_to_drop
+      from: EdgeGateway:errors
+      to: EdgeDropQueue:arrivals
+      type: terminal
+      measure: errors
+    - id: core_to_dlq
+      from: CorePlatform:failures
+      to: CoreDlq:arrivals
+      type: terminal
+      measure: failures
+    - id: db_to_loss
+      from: CorePlatform:errors
+      to: DatabaseLossQueue:arrivals
+      type: terminal
+      measure: errors
 
 nodes:
   - id: base_requests
@@ -174,27 +225,39 @@ nodes:
     kind: expr
     expr: "180 * server_performance"
 
-  - id: request_queue_spill
+  - id: request_queue_carry_raw
     kind: expr
-    expr: "0"
+    expr: "CONV(network_requests - server_capacity, [1.0, 0.5, 0.25])"
 
-  - id: request_queue_outflow
+  - id: request_queue_carry
     kind: expr
-    expr: "MIN(network_requests, server_capacity)"
+    expr: "MAX(0, request_queue_carry_raw)"
+
+  - id: request_queue_demand
+    kind: expr
+    expr: "network_requests + request_queue_carry"
+
+  - id: request_queue_attrition
+    kind: expr
+    expr: "MIN(request_queue_carry, request_queue_carry * 0.01)"
+
+  - id: request_queue_served
+    kind: expr
+    expr: "MIN(server_capacity, request_queue_demand)"
 
   - id: request_queue_depth
     kind: backlog
-    inflow: network_requests
-    outflow: request_queue_outflow
-    loss: request_queue_spill
+    inflow: request_queue_demand
+    outflow: request_queue_served
+    loss: request_queue_attrition
 
   - id: core_retry_attempts
     kind: expr
-    expr: "${retryRate} * request_queue_outflow"
+    expr: "${retryRate} * request_queue_served"
 
   - id: core_attempts
     kind: expr
-    expr: "request_queue_outflow + core_retry_attempts"
+    expr: "request_queue_served + core_retry_attempts"
 
   - id: core_retry_failures
     kind: expr
@@ -206,11 +269,11 @@ nodes:
 
   - id: core_processed
     kind: expr
-    expr: "MIN(request_queue_outflow, MAX(0, server_processed - core_retry_failures))"
+    expr: "MIN(request_queue_served, MAX(0, server_processed - core_retry_failures))"
 
   - id: core_errors
     kind: expr
-    expr: "MAX(0, request_queue_outflow - core_processed)"
+    expr: "MAX(0, request_queue_served - core_processed)"
 
   - id: core_retry_echo
     kind: expr
@@ -232,6 +295,62 @@ nodes:
     kind: expr
     expr: "successful_requests / base_requests"
 
+  - id: edge_drop_inflow
+    kind: expr
+    expr: "network_failures"
+
+  - id: edge_drop_served_zero
+    kind: expr
+    expr: "0"
+    metadata:
+      graph.hidden: "true"
+
+  - id: edge_drop_attrition
+    kind: expr
+    expr: "0"
+
+  - id: edge_drop_depth
+    kind: backlog
+    inflow: edge_drop_inflow
+    outflow: edge_drop_served_zero
+    loss: edge_drop_attrition
+
+  - id: core_dlq_inflow
+    kind: expr
+    expr: "core_retry_failures"
+
+  - id: core_dlq_served_zero
+    kind: expr
+    expr: "0"
+    metadata:
+      graph.hidden: "true"
+
+  - id: core_dlq_attrition
+    kind: expr
+    expr: "0"
+
+  - id: core_dlq_depth
+    kind: backlog
+    inflow: core_dlq_inflow
+    outflow: core_dlq_served_zero
+    loss: core_dlq_attrition
+
+  - id: database_loss_served_zero
+    kind: expr
+    expr: "0"
+    metadata:
+      graph.hidden: "true"
+
+  - id: database_loss_attrition
+    kind: expr
+    expr: "0"
+
+  - id: database_loss_depth
+    kind: backlog
+    inflow: database_failures
+    outflow: database_loss_served_zero
+    loss: database_loss_attrition
+
 outputs:
   - series: base_requests
     as: base_requests.csv
@@ -245,3 +364,9 @@ outputs:
     as: database_failures.csv
   - series: system_reliability
     as: system_reliability.csv
+  - series: edge_drop_depth
+    as: edge_drop_backlog.csv
+  - series: core_dlq_depth
+    as: core_dlq_backlog.csv
+  - series: database_loss_depth
+    as: database_loss_backlog.csv

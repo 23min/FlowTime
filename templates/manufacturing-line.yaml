@@ -73,12 +73,12 @@ topology:
     - id: WipQueue
       kind: queue
       semantics:
-        arrivals: wip_queue_inflow
-        served: wip_queue_outflow
-        errors: wip_queue_loss
+        arrivals: wip_queue_demand
+        served: wip_queue_served
+        errors: wip_queue_attrition
         queueDepth: wip_queue_depth
         aliases:
-          arrivals: "Units assembled"
+          arrivals: "Effective demand"
           served: "Units staged"
           errors: "Queue attrition"
           queue: "WIP backlog"
@@ -87,7 +87,7 @@ topology:
     - id: QualityControl
       kind: service
       semantics:
-        arrivals: wip_queue_outflow
+        arrivals: wip_queue_served
         served: quality_served
         errors: quality_errors
         capacity: quality_capacity
@@ -115,6 +115,30 @@ topology:
         aliases:
           served: "Units packaged"
           errors: "Packaging rejects"
+    - id: QualityScrap
+      kind: dlq
+      semantics:
+        arrivals: quality_scrap_inflow
+        served: quality_scrap_served_zero
+        errors: quality_scrap_attrition
+        queueDepth: quality_scrap_depth
+        aliases:
+          arrivals: "Failed QC units"
+          queue: "QC scrap"
+      initialCondition:
+        queueDepth: 0
+    - id: PackagingWaste
+      kind: dlq
+      semantics:
+        arrivals: packaging_scrap_inflow
+        served: packaging_scrap_served_zero
+        errors: packaging_scrap_attrition
+        queueDepth: packaging_scrap_depth
+        aliases:
+          arrivals: "Packaging rejects"
+          queue: "Packaging scrap"
+      initialCondition:
+        queueDepth: 0
   edges:
     - id: assembly_to_queue
       from: AssemblyLine:out
@@ -125,6 +149,16 @@ topology:
     - id: quality_to_packaging
       from: QualityControl:out
       to: PackagingStation:in
+    - id: quality_to_scrap
+      from: QualityControl:errors
+      to: QualityScrap:arrivals
+      type: terminal
+      measure: errors
+    - id: packaging_to_scrap
+      from: PackagingStation:errors
+      to: PackagingWaste:arrivals
+      type: terminal
+      measure: errors
 
 nodes:
   - id: raw_materials
@@ -180,27 +214,39 @@ nodes:
     kind: expr
     expr: "assembly_output"
 
-  - id: wip_queue_loss
+  - id: wip_queue_carry_raw
     kind: expr
-    expr: "0"
+    expr: "CONV(wip_queue_inflow - quality_capacity, [1.0, 0.5, 0.25])"
 
-  - id: wip_queue_outflow
+  - id: wip_queue_carry
     kind: expr
-    expr: "MIN(wip_queue_inflow, quality_capacity)"
+    expr: "MAX(0, wip_queue_carry_raw)"
+
+  - id: wip_queue_demand
+    kind: expr
+    expr: "wip_queue_inflow + wip_queue_carry"
+
+  - id: wip_queue_attrition
+    kind: expr
+    expr: "MIN(wip_queue_carry, wip_queue_carry * 0.01)"
+
+  - id: wip_queue_served
+    kind: expr
+    expr: "MIN(quality_capacity, wip_queue_demand)"
 
   - id: wip_queue_depth
     kind: backlog
-    inflow: wip_queue_inflow
-    outflow: wip_queue_outflow
-    loss: wip_queue_loss
+    inflow: wip_queue_demand
+    outflow: wip_queue_served
+    loss: wip_queue_attrition
 
   - id: qc_retry_attempts
     kind: expr
-    expr: "${qcRetryRate} * wip_queue_outflow"
+    expr: "${qcRetryRate} * wip_queue_served"
 
   - id: quality_attempts
     kind: expr
-    expr: "wip_queue_outflow + qc_retry_attempts"
+    expr: "wip_queue_served + qc_retry_attempts"
 
   - id: qc_retry_failures
     kind: expr
@@ -212,11 +258,11 @@ nodes:
 
   - id: quality_served
     kind: expr
-    expr: "MIN(wip_queue_outflow, MAX(0, quality_capacity_window - qc_retry_failures))"
+    expr: "MIN(wip_queue_served, MAX(0, quality_capacity_window - qc_retry_failures))"
 
   - id: quality_errors
     kind: expr
-    expr: "MAX(0, wip_queue_outflow - quality_served)"
+    expr: "MAX(0, wip_queue_served - quality_served)"
 
   - id: qc_retry_echo
     kind: expr
@@ -238,6 +284,46 @@ nodes:
     kind: expr
     expr: "MAX(0, quality_served - packaging)"
 
+  - id: quality_scrap_inflow
+    kind: expr
+    expr: "quality_errors"
+
+  - id: quality_scrap_served_zero
+    kind: expr
+    expr: "0"
+    metadata:
+      graph.hidden: "true"
+
+  - id: quality_scrap_attrition
+    kind: expr
+    expr: "0"
+
+  - id: quality_scrap_depth
+    kind: backlog
+    inflow: quality_scrap_inflow
+    outflow: quality_scrap_served_zero
+    loss: quality_scrap_attrition
+
+  - id: packaging_scrap_inflow
+    kind: expr
+    expr: "packaging_rejects"
+
+  - id: packaging_scrap_served_zero
+    kind: expr
+    expr: "0"
+    metadata:
+      graph.hidden: "true"
+
+  - id: packaging_scrap_attrition
+    kind: expr
+    expr: "0"
+
+  - id: packaging_scrap_depth
+    kind: backlog
+    inflow: packaging_scrap_inflow
+    outflow: packaging_scrap_served_zero
+    loss: packaging_scrap_attrition
+
 outputs:
   - series: raw_materials
     as: raw_materials.csv
@@ -251,3 +337,7 @@ outputs:
     as: qc_rejects.csv
   - series: packaging
     as: finished_goods.csv
+  - series: quality_scrap_depth
+    as: qc_scrap_backlog.csv
+  - series: packaging_scrap_depth
+    as: packaging_scrap_backlog.csv

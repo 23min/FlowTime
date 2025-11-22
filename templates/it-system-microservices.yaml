@@ -73,12 +73,12 @@ topology:
     - id: IngressQueue
       kind: queue
       semantics:
-        arrivals: load_balanced_requests
-        served: auth_queue_outflow
-        errors: auth_queue_spill
+        arrivals: ingress_queue_demand
+        served: ingress_queue_served
+        errors: ingress_queue_attrition
         queueDepth: ingress_queue_depth
         aliases:
-          arrivals: "Routed requests"
+          arrivals: "Effective demand"
           served: "Requests dequeued"
           errors: "Queue attrition"
           queue: "Ingress backlog"
@@ -87,34 +87,70 @@ topology:
     - id: AuthService
       kind: service
       semantics:
-        arrivals: auth_queue_outflow
+        arrivals: ingress_queue_served
         served: authenticated_requests
         errors: auth_failures
         capacity: auth_capacity
+        attempts: auth_attempts
+        failures: auth_retry_failures
+        retryEcho: auth_retry_echo
         processingTimeMsSum: auth_processing_time_ms_sum
         servedCount: authenticated_requests
         aliases:
           served: "Sessions authenticated"
           errors: "Auth throttled"
-    - id: Database
+    - id: Processor
       kind: service
       semantics:
         arrivals: authenticated_requests
         served: processed_requests
         errors: db_errors
         capacity: database_capacity
-        attempts: db_attempts
-        failures: db_retry_failures
-        retryEcho: db_retry_echo
-        retryKernel: [0.0, 0.6, 0.3, 0.1]
         processingTimeMsSum: database_processing_time_ms_sum
         servedCount: processed_requests
         aliases:
           served: "Queries committed"
           errors: "Query failures"
-          attempts: "DB attempts"
-          failures: "Failed retries"
-          retryEcho: "Retry backlog"
+    - id: ResponseQueue
+      kind: queue
+      semantics:
+        arrivals: processed_requests
+        served: responses_dispatched
+        errors: response_queue_attrition
+        queueDepth: response_queue_depth
+        aliases:
+          arrivals: "Authorized responses"
+          served: "Responses sent"
+          errors: "Response attrition"
+          queue: "Response backlog"
+      initialCondition:
+        queueDepth: 0
+    - id: ManualReconciliation
+      kind: dlq
+      semantics:
+        arrivals: manual_recon_inflow
+        served: manual_recon_served_zero
+        errors: manual_recon_attrition
+        queueDepth: manual_recon_depth
+        aliases:
+          arrivals: "Failed transactions"
+          errors: "Manual attrition"
+          queue: "Manual backlog"
+      initialCondition:
+        queueDepth: 0
+    - id: CustomerImpactQueue
+      kind: queue
+      semantics:
+        arrivals: customer_impact_inflow
+        served: customer_impact_served_zero
+        errors: customer_impact_attrition
+        queueDepth: customer_impact_depth
+        aliases:
+          arrivals: "Dropped sessions"
+          errors: "Customer attrition"
+          queue: "Customer backlog"
+      initialCondition:
+        queueDepth: 0
   edges:
     - id: lb_to_queue
       from: LoadBalancer:out
@@ -124,7 +160,25 @@ topology:
       to: AuthService:in
     - id: auth_to_db
       from: AuthService:out
-      to: Database:in
+      to: Processor:in
+    - id: db_to_response_queue
+      from: Processor:out
+      to: ResponseQueue:in
+    - id: auth_to_manual_recon
+      from: AuthService:failures
+      to: ManualReconciliation:arrivals
+      type: terminal
+      measure: failures
+    - id: lb_to_customer_impact
+      from: LoadBalancer:errors
+      to: CustomerImpactQueue:arrivals
+      type: terminal
+      measure: errors
+    - id: auth_to_customer_impact
+      from: AuthService:errors
+      to: CustomerImpactQueue:arrivals
+      type: terminal
+      measure: errors
 
 nodes:
   - id: user_requests
@@ -164,6 +218,15 @@ nodes:
       kind: builtin
       name: three-shift
 
+  - id: response_capacity
+    kind: pmf
+    pmf:
+      values: [120, 140, 160, 180]
+      probabilities: [0.1, 0.3, 0.4, 0.2]
+    profile:
+      kind: builtin
+      name: weekday-office
+
   - id: load_balanced_requests
     kind: expr
     expr: "MIN(user_requests, load_balancer_capacity)"
@@ -176,23 +239,39 @@ nodes:
     kind: expr
     expr: "load_balanced_requests * 150"
 
-  - id: auth_queue_outflow
+  - id: ingress_queue_carry_raw
     kind: expr
-    expr: "MIN(load_balanced_requests, auth_capacity)"
+    expr: "CONV(load_balanced_requests - ingress_queue_capacity, [1.0, 0.5, 0.25])"
 
-  - id: auth_queue_spill
+  - id: ingress_queue_carry
     kind: expr
-    expr: "0"
+    expr: "MAX(0, ingress_queue_carry_raw)"
+
+  - id: ingress_queue_demand
+    kind: expr
+    expr: "load_balanced_requests + ingress_queue_carry"
+
+  - id: ingress_queue_capacity
+    kind: expr
+    expr: "auth_capacity"
+
+  - id: ingress_queue_served
+    kind: expr
+    expr: "MIN(ingress_queue_capacity, ingress_queue_demand)"
+
+  - id: ingress_queue_attrition
+    kind: expr
+    expr: "MIN(ingress_queue_carry, ingress_queue_carry * 0.02)"
 
   - id: ingress_queue_depth
     kind: backlog
-    inflow: load_balanced_requests
-    outflow: auth_queue_outflow
-    loss: auth_queue_spill
+    inflow: ingress_queue_demand
+    outflow: ingress_queue_served
+    loss: ingress_queue_attrition
 
   - id: authenticated_requests
     kind: expr
-    expr: "auth_queue_outflow"
+    expr: "MIN(ingress_queue_served, MAX(0, auth_capacity_window - auth_retry_failures))"
 
   - id: auth_processing_time_ms_sum
     kind: expr
@@ -200,35 +279,39 @@ nodes:
 
   - id: auth_failures
     kind: expr
-    expr: "MAX(0, load_balanced_requests - authenticated_requests)"
+    expr: "MAX(0, ingress_queue_served - authenticated_requests)"
 
-  - id: db_retry_attempts
+  - id: auth_retry_attempts
     kind: expr
-    expr: "${dbRetryRate} * authenticated_requests"
+    expr: "${dbRetryRate} * ingress_queue_served"
 
-  - id: db_attempts
+  - id: auth_attempts
     kind: expr
-    expr: "authenticated_requests + db_retry_attempts"
+    expr: "ingress_queue_served + auth_retry_attempts"
 
-  - id: db_retry_failures
+  - id: auth_retry_failures
     kind: expr
-    expr: "${dbRetryFailureRate} * db_retry_attempts"
+    expr: "${dbRetryFailureRate} * auth_retry_attempts"
+
+  - id: auth_capacity_window
+    kind: expr
+    expr: "MIN(auth_attempts, auth_capacity)"
+
+  - id: auth_retry_echo
+    kind: expr
+    expr: "CONV(auth_retry_attempts, [0.0, 0.6, 0.3, 0.1])"
 
   - id: db_capacity_window
     kind: expr
-    expr: "MIN(db_attempts, database_capacity)"
+    expr: "MIN(auth_attempts, database_capacity)"
 
   - id: processed_requests
     kind: expr
-    expr: "MIN(authenticated_requests, MAX(0, db_capacity_window - db_retry_failures))"
+    expr: "MIN(authenticated_requests, db_capacity_window)"
 
   - id: db_errors
     kind: expr
     expr: "MAX(0, authenticated_requests - processed_requests)"
-
-  - id: db_retry_echo
-    kind: expr
-    expr: "CONV(db_retry_attempts, [0.0, 0.6, 0.3, 0.1])"
 
   - id: database_processing_time_ms_sum
     kind: expr
@@ -237,6 +320,60 @@ nodes:
   - id: failed_requests
     kind: expr
     expr: "MAX(0, user_requests - processed_requests)"
+
+  - id: responses_dispatched
+    kind: expr
+    expr: "MIN(processed_requests, response_capacity)"
+
+  - id: response_queue_attrition
+    kind: expr
+    expr: "0"
+
+  - id: response_queue_depth
+    kind: backlog
+    inflow: processed_requests
+    outflow: responses_dispatched
+    loss: response_queue_attrition
+
+  - id: manual_recon_inflow
+    kind: expr
+    expr: "auth_retry_failures"
+
+  - id: manual_recon_served_zero
+    kind: expr
+    expr: "0"
+    metadata:
+      graph.hidden: "true"
+
+  - id: manual_recon_attrition
+    kind: expr
+    expr: "0"
+
+  - id: manual_recon_depth
+    kind: backlog
+    inflow: manual_recon_inflow
+    outflow: manual_recon_served_zero
+    loss: manual_recon_attrition
+
+  - id: customer_impact_inflow
+    kind: expr
+    expr: "lb_dropped + auth_failures"
+
+  - id: customer_impact_served_zero
+    kind: expr
+    expr: "0"
+    metadata:
+      graph.hidden: "true"
+
+  - id: customer_impact_attrition
+    kind: expr
+    expr: "0"
+
+  - id: customer_impact_depth
+    kind: backlog
+    inflow: customer_impact_inflow
+    outflow: customer_impact_served_zero
+    loss: customer_impact_attrition
 
 outputs:
   - series: user_requests
@@ -249,3 +386,11 @@ outputs:
     as: failed_requests.csv
   - series: db_errors
     as: db_errors.csv
+  - series: manual_recon_depth
+    as: manual_recon_backlog.csv
+  - series: customer_impact_depth
+    as: customer_impact_backlog.csv
+  - series: response_queue_depth
+    as: response_queue_depth.csv
+  - series: responses_dispatched
+    as: responses_dispatched.csv

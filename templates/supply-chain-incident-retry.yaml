@@ -65,11 +65,12 @@ topology:
     - id: IncidentQueue
       kind: queue
       semantics:
-        arrivals: incident_served
+        arrivals: incident_queue_demand
         served: support_queue_served
-        errors: support_queue_errors
+        errors: support_queue_attrition
         queueDepth: support_queue_depth
         aliases:
+          arrivals: "Effective demand"
           served: "Tickets worked"
           errors: "Queue attrition"
           queue: "Open queue depth"
@@ -100,6 +101,30 @@ topology:
           arrivals: "Tickets pulled"
           served: "Tickets resolved"
           errors: "Desk drops"
+    - id: IncidentEscalationDlq
+      kind: dlq
+      semantics:
+        arrivals: incident_dlq_inflow
+        served: incident_dlq_served_zero
+        errors: incident_dlq_attrition
+        queueDepth: incident_dlq_depth
+        aliases:
+          arrivals: "Escalated incidents"
+          queue: "Escalation backlog"
+      initialCondition:
+        queueDepth: 0
+    - id: SupportLossQueue
+      kind: queue
+      semantics:
+        arrivals: support_loss_inflow
+        served: support_loss_served_zero
+        errors: support_loss_attrition
+        queueDepth: support_loss_depth
+        aliases:
+          arrivals: "Desk drops"
+          queue: "Support loss backlog"
+      initialCondition:
+        queueDepth: 0
   edges:
     - id: throughput_incident
       from: IncidentIntake:out
@@ -118,6 +143,16 @@ topology:
       to: SupportDesk:in
       type: throughput
       measure: served
+    - id: incident_to_dlq
+      from: IncidentIntake:failures
+      to: IncidentEscalationDlq:arrivals
+      type: terminal
+      measure: failures
+    - id: support_to_loss
+      from: SupportDesk:errors
+      to: SupportLossQueue:arrivals
+      type: terminal
+      measure: errors
 
 nodes:
   - id: incident_arrivals
@@ -185,19 +220,35 @@ nodes:
     kind: expr
     expr: "CONV(incident_retry_attempts, [0.0, 0.6, 0.3, 0.1])"
 
+  - id: incident_queue_carry_raw
+    kind: expr
+    expr: "CONV(incident_served - support_capacity, [1.0, 0.5, 0.25])"
+
+  - id: incident_queue_carry
+    kind: expr
+    expr: "MAX(0, incident_queue_carry_raw)"
+
+  - id: incident_queue_demand
+    kind: expr
+    expr: "incident_served + incident_queue_carry"
+
+  - id: support_queue_attrition
+    kind: expr
+    expr: "MIN(incident_queue_carry, incident_queue_carry * 0.02)"
+
   - id: support_queue_served
     kind: expr
-    expr: "MIN(incident_served, support_capacity)"
+    expr: "MIN(support_capacity, incident_queue_demand)"
 
   - id: support_queue_errors
     kind: expr
-    expr: "MAX(0, incident_served - support_queue_served)"
+    expr: "MAX(0, incident_queue_demand - support_queue_served)"
 
   - id: support_queue_depth
     kind: backlog
-    inflow: incident_served
+    inflow: incident_queue_demand
     outflow: support_queue_served
-    loss: support_queue_errors
+    loss: support_queue_attrition
 
   - id: support_analytics_load
     kind: expr
@@ -215,6 +266,46 @@ nodes:
     kind: expr
     expr: "support_queue_served * 300"
 
+  - id: incident_dlq_inflow
+    kind: expr
+    expr: "incident_retry_failures"
+
+  - id: incident_dlq_served_zero
+    kind: expr
+    expr: "0"
+    metadata:
+      graph.hidden: "true"
+
+  - id: incident_dlq_attrition
+    kind: expr
+    expr: "0"
+
+  - id: incident_dlq_depth
+    kind: backlog
+    inflow: incident_dlq_inflow
+    outflow: incident_dlq_served_zero
+    loss: incident_dlq_attrition
+
+  - id: support_loss_inflow
+    kind: expr
+    expr: "support_queue_errors"
+
+  - id: support_loss_served_zero
+    kind: expr
+    expr: "0"
+    metadata:
+      graph.hidden: "true"
+
+  - id: support_loss_attrition
+    kind: expr
+    expr: "0"
+
+  - id: support_loss_depth
+    kind: backlog
+    inflow: support_loss_inflow
+    outflow: support_loss_served_zero
+    loss: support_loss_attrition
+
 outputs:
   - series: incident_arrivals
     as: IncidentIntake_arrivals.csv
@@ -230,3 +321,7 @@ outputs:
     as: SupportDesk_processingTimeMsSum.csv
   - series: support_analytics_load
     as: SupportAnalytics_load.csv
+  - series: incident_dlq_depth
+    as: IncidentEscalationDlq_backlog.csv
+  - series: support_loss_depth
+    as: SupportLoss_backlog.csv
