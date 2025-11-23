@@ -1,4 +1,5 @@
 using FlowTime.Adapters.Synthetic;
+using System.Linq;
 using Xunit;
 
 namespace FlowTime.Adapters.Synthetic.Tests;
@@ -40,10 +41,19 @@ public class CliIntegrationTests
             throw new Exception($"CLI failed: {error}");
         }
 
-        // Extract the run directory from output
-        var outputLine = output.Trim();
-        var runPath = outputLine.Replace("Wrote artifacts to ", "");
-        
+        // Extract the run directory from output (ignore build warnings/noise)
+        var outputLines = output
+            .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(line => line.Trim());
+
+        var runPathLine = outputLines.LastOrDefault(line => line.StartsWith("Wrote artifacts to "));
+        if (string.IsNullOrWhiteSpace(runPathLine))
+        {
+            throw new Exception($"CLI output did not include run directory. STDOUT: {output}\nSTDERR: {error}");
+        }
+
+        var runPath = runPathLine["Wrote artifacts to ".Length..].Trim();
+
         try
         {
             // Use our adapter to read the CLI artifacts
