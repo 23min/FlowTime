@@ -1,7 +1,0 @@
-{"entity_id":"e1","event_type":"arrival","ts":"2025-01-01T00:00:00Z","node":"nodeA","flow":"*"}
-{"entity_id":"e2","event_type":"arrival","ts":"2025-01-01T00:00:00Z","node":"nodeA","flow":"*"}
-{"entity_id":"e3","event_type":"arrival","ts":"2025-01-01T00:00:00Z","node":"nodeA","flow":"*"}
-{"entity_id":"e4","event_type":"arrival","ts":"2025-01-01T00:00:00Z","node":"nodeA","flow":"*"}
-{"entity_id":"e5","event_type":"arrival","ts":"2025-01-01T00:00:00Z","node":"nodeA","flow":"*"}
-{"entity_id":"e6","event_type":"arrival","ts":"2025-01-01T01:00:00Z","node":"nodeA","flow":"*"}
-... (remaining lines follow same pattern up to e20 for 4 bins; see gold for counts)
