@@ -19,7 +19,7 @@ This roadmap supersedes the previous legacy plan (now archived under `docs/archi
    - Work: define schema (likely derived from node series), update `/state_window` or companion API, extend UI to consume.  
    - Status: not analyzed yet; needs dedicated design session.
 2. **TelemetryLoader Service**  
-   - Architecture docs still assume an ADX/KQL loader feeding Engine; today we rely on CLI capture/bundles.  
+   - Architecture docs still assume an ADX/KQL loader feeding Engine; today we rely on CLI capture/bundles. Synthetic telemetry already defines the contract/schema (`docs/schemas/time-travel-state.schema.json`), so any eventual ADX ingestion must produce artifacts that match what the synthetic loop emits.  
    - Work: decide whether to implement the loader, replace it with improved CLI workflows, or update docs to match reality.
 3. **Topology Layout Metadata**  
    - Templates currently omit `topology.ui` hints; UI uses heuristics.  
