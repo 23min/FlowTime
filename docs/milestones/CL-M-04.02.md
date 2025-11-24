@@ -1,6 +1,6 @@
 # CL-M-04.02 — Engine & State Aggregation for Classes
 
-**Status:** 📋 Planned  
+**Status:** ✅ Completed  
 **Dependencies:** ✅ CL-M-04.01 (Schema & Template Enablement)  
 **Target:** Extend FlowTime Engine, synthetic telemetry, and `/state` APIs to emit class-aware node metrics without breaking existing consumers.
 
@@ -45,15 +45,15 @@ With schema support in place, the engine must propagate class information throug
 **Description:** During simulation or telemetry ingestion, the engine aggregates per-node metrics split by class.
 
 **Acceptance Criteria:**
-- [ ] Internal data structures store `ClassMetrics` (arrivals, served, errors, queueDepth, latency sums/counts).
-- [ ] Aggregations respect conservation: totals equal the sum over `byClass` within ±1 due to rounding, with warnings when violated.
-- [ ] Missing class data defaults to the wildcard `"*"` bucket.
+- [x] Internal data structures store `ClassMetrics` (arrivals, served, errors, queueDepth, latency sums/counts).
+- [x] Aggregations respect conservation: totals equal the sum over `byClass` within ±1 due to rounding, with warnings when violated.
+- [x] Missing class data defaults to the wildcard `"*"` bucket.
 
 #### FR2: `/state` & `/state_window` Contract
 **Description:** API responses include the optional `byClass` object per node.
 
 **Acceptance Criteria:**
-- [ ] `GET /v1/runs/{id}/state` returns:
+- [x] `GET /v1/runs/{id}/state` returns:
 ```jsonc
 "nodes": {
   "ingest": {
@@ -65,23 +65,23 @@ With schema support in place, the engine must propagate class information throug
   }
 }
 ```
-- [ ] `state_window` streams per-bin entries with the same shape.
-- [ ] Existing consumers can omit `byClass` without errors (property is optional).
+- [x] `state_window` streams per-bin entries with the same shape.
+- [x] Existing consumers can omit `byClass` without errors (property is optional).
 
 #### FR3: Synthetic Telemetry Output
 **Description:** `series/*.csv` and `model/telemetry/manifest.json` include class data.
 
 **Acceptance Criteria:**
-- [ ] CSV columns add `classId` and per-class metrics.
-- [ ] Manifest enumerates available classes and describes the per-class grain.
-- [ ] CLI diagnostics (`flowtime runs inspect`) display class data when present.
+- [x] CSV columns add `classId` and per-class metrics.
+- [x] Manifest enumerates available classes and describes the per-class grain.
+- [ ] CLI diagnostics (`flowtime runs inspect`) display class data when present. *(deferred to CL-M-04.03/CL-M-04.04 UI/CLI work)*
 
 #### FR4: Validation & Diagnostics
 **Description:** Provide visibility when class data is missing or inconsistent.
 
 **Acceptance Criteria:**
-- [ ] Engine emits warnings in logs and run manifest metadata when telemetry lacks per-class metrics.
-- [ ] `/state` response metadata lists `classCoverage: full|partial|missing`.
+- [ ] Engine emits warnings in logs and run manifest metadata when telemetry lacks per-class metrics. *(metadata present; explicit warning surfacing deferred)*
+- [x] `/state` response metadata lists `classCoverage: full|partial|missing`.
 
 ### Non-Functional Requirements
 
