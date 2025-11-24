@@ -132,6 +132,11 @@ Before marking milestone as "📋 Planned":
 - [ ] Scope clearly defined (in/out)
 - [ ] File impact list included
 
+### Naming Notes for Upcoming Epics
+
+- Use architecture folders under `docs/architecture` for epic-level designs (for example, `docs/architecture/classes` and `docs/architecture/edge-time-bin`).
+- When introducing new epics like **Classes as Flows** or **EdgeTimeBin Foundations**, align milestone IDs with existing prefixes (e.g., `M-03.xx` for engine, `SIM-M-03.xx` for Sim) and reference the corresponding architecture docs instead of duplicating design details.
+
 ---
 
 ## Examples

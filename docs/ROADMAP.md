@@ -35,12 +35,13 @@ This roadmap supersedes the previous legacy plan (now archived under `docs/archi
    - Scope policy + tooling to avoid artifact sprawl.
 
 ## Mid-Term / Aspirational
-- **Router & Autoscale Primitives** – First-class node types for routing shares, autoscale feedback loops (whitepaper §2, expression roadmap).  
-- **Per-Class Modeling & PMF Sampling** – Support classed flows/multi-class fairness, stochastic PMF sampling rather than expected values.  
-- **Advanced Retry/Service-Time Overlays** – Edge heatmaps, retry service-time overlays (see TT‑M‑03.27 deferred items).  
-- **Telemetry Calibration** – Parameter fitting from telemetry (retry kernels, capacities).  
-- **Uncertainty / Monte Carlo** – Percentile bands, repeated runs with randomness (whitepaper future direction).  
-- **Performance Scaling / WASM Runtime** – Larger DAG support and potential in-browser evaluation for demos.
+**Engine as Post-Processing & Semantics Layer** – Treat the Engine as a reusable post-processing and semantics layer between ADX (or similar telemetry stores) and downstream UIs/BI tools; see `docs/architecture/engine-post-processing/README.md` for the detailed proposal.  
+
+**Flow-Aware Anomaly & Pathology Detection** – Build on the time-binned DAG model to detect anomalies and recurring flow pathologies (e.g., retry storms, slow drains), group them into incidents, and surface incident-focused stories and dashboards for SREs and stakeholders; see `docs/architecture/anomaly-detection/README.md`.  
+
+**AI Analyst over the Digital Twin (MCP)** – Expose FlowTime graph and state APIs via MCP so AI assistants can act as read-only analysts over runs: answering incident questions, comparing scenarios, and drafting summaries using structured tools rather than ad-hoc API calls; see `docs/architecture/ai/`.  
+
+**Ptolemy-Inspired Semantics & Directors** – Keep time/coordination semantics explicit (e.g., a DiscreteTime director seam) and selectively borrow ideas like modal models, typed ports, and determinacy contracts to future-proof FlowTime’s engine while staying DT-first; see `docs/architecture/ptolemy/README.md`.  
 
 ## References
 - `docs/architecture/time-travel/status-2025-11-23.md` — Latest epic + global gap status.  

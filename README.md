@@ -12,29 +12,17 @@ Together they let you design flows, generate synthetic demand, execute models, a
 
 ---
 
-## ⚠️ Repository Consolidation Notice
+## FlowTime as Flow Literacy
 
-Following the October 2025 repository consolidation, the FlowTime-Sim codebase now lives inside this repository alongside the Engine surface.
+FlowTime is not just a simulator or engine; it is a common language for talking about flows and resilience across many kinds of systems.
 
-**Sim projects now in-scope**
-- `src/FlowTime.Sim.Core`
-- `src/FlowTime.Sim.Service` (API on :8090)
-- `src/FlowTime.Sim.Cli`
-- `tests/FlowTime.Sim.Tests`
+It brings together telemetry, architecture, scenarios, incidents, and business impact into a single, consistent representation of how work moves through a system over time.
 
-**Unified build/run workflow**
-```bash
-dotnet build              # Builds Engine + Sim + UI
-dotnet test               # Runs all test projects
+Realizing this vision means investing in:
 
-# Engine API (http://localhost:8080)
-dotnet run --project src/FlowTime.API
-
-# Sim API (http://localhost:8090)
-dotnet run --project src/FlowTime.Sim.Service
-```
-
-Documentation parity is still in progress; simulation docs remain under `docs-sim/` until the Phase 5 migration wraps.
+- Clear core concepts (flows, classes, paths, subsystems, incidents, modes).
+- Reusable visual idioms for understanding how work moves and where it gets stuck.
+- Shared definitions of recovery, impact, severity, and risk that can be applied across domains.
 
 ---
 
@@ -42,8 +30,8 @@ Documentation parity is still in progress; simulation docs remain under `docs-si
 
 | Surface | Purpose | Key Projects |
 |---------|---------|--------------|
-| **Engine** | Deterministic execution, artifact registry, REST API, Blazor UI | `src/FlowTime.Core`, `src/FlowTime.API`, `src/FlowTime.CLI`, `ui/FlowTime.UI`, `tests/FlowTime.*` |
-| **Sim** | Template-based model authoring, provenance, synthetic data APIs | `src/FlowTime.Sim.Core`, `src/FlowTime.Sim.Service`, `src/FlowTime.Sim.Cli`, `tests/FlowTime.Sim.Tests` |
+| **Engine** | Deterministic execution, artifact registry, REST API, Blazor UI | `src/FlowTime.Core`, `src/FlowTime.API`, `src/FlowTime.Cli`, `src/FlowTime.Expressions`, `src/FlowTime.Generator`, `src/FlowTime.UI`, `ui/FlowTime.UI`, `ui/FlowTime.UI.Tests`, `tests/FlowTime.*` |
+| **Sim** | Template-based model authoring, provenance, synthetic data APIs | `src/FlowTime.Sim.Core`, `src/FlowTime.Sim.Service`, `src/FlowTime.Sim.Cli`, `templates/`, `examples/`, `catalogs/`, `fixtures/`, `tests/FlowTime.Sim.Tests` |
 
 Why FlowTime:
 - Explainable flow modelling with spreadsheet-like graphs and expressions.
@@ -63,15 +51,19 @@ flowtime-vnext/
 │  ├─ FlowTime.CLI/              # Engine CLI
 │  ├─ FlowTime.Contracts/        # Shared models/schemas
 │  ├─ FlowTime.Adapters.Synthetic/ # Engine synthetic adapters
+│  ├─ FlowTime.Expressions/       # Expression language support
+│  ├─ FlowTime.Generator/         # Model/generator utilities
 │  ├─ FlowTime.Sim.Core/         # Simulation templates + provenance
 │  ├─ FlowTime.Sim.Service/      # Simulation HTTP API (:8090)
 │  └─ FlowTime.Sim.Cli/          # Simulation CLI utilities
 ├─ ui/FlowTime.UI/               # Blazor WebAssembly UI (:5219)
+├─ ui/FlowTime.UI.Tests/         # UI test project
 ├─ tests/                        # Engine + Sim test projects
-├─ docs/                         # Engine + shared documentation
-├─ docs-sim/                     # Simulation documentation (Phase 5 merge)
+├─ docs/                         # Engine + shared documentation (roadmap, architecture, schemas)
 ├─ templates/                    # Simulation templates
 ├─ examples/                     # Example models
+├─ catalogs/                     # Scenario catalogs and sample systems
+├─ fixtures/                     # HTTP/microservices/time-travel fixtures
 ├─ .devcontainer/                # Unified dev container setup
 ├─ .github/                      # CI workflows and Copilot instructions
 └─ FlowTime.sln                  # Unified solution file
@@ -128,8 +120,8 @@ dotnet test tests/FlowTime.Sim.Tests/FlowTime.Sim.Tests.csproj
 ## Documentation
 
 - Engine + shared docs: `docs/` (roadmap, architecture, schemas, onboarding).
-- Simulation docs: `docs-sim/` (templates, CLI guides, milestone history) – slated for Phase 5 consolidation.
-- Consolidation plan: [`REPO-CONSOLIDATION-PLAN.md`](REPO-CONSOLIDATION-PLAN.md).
+- Planning & epics: `docs/ROADMAP.md` (current and future work, including time-travel and upcoming epics).
+- Architecture notes: `docs/architecture/` (time-travel, expression extensions, classes, edge time bins, engine post-processing, etc.).
 
 ---
 
