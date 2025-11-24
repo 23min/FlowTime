@@ -1,0 +1,32 @@
+schemaVersion: 1
+classes:
+  - id: Order
+    displayName: "Order Flow"
+  - id: Refund
+    displayName: "Refund Flow"
+grid:
+  bins: 8
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: ingest
+    kind: const
+    values: [10, 10, 10, 10, 10, 10, 10, 10]
+  - id: served
+    kind: expr
+    expr: "MIN(ingest, 8)"
+traffic:
+  arrivals:
+    - nodeId: ingest
+      classId: Order
+      pattern:
+        kind: constant
+        ratePerBin: 20
+    - nodeId: ingest
+      classId: Refund
+      pattern:
+        kind: constant
+        ratePerBin: 5
+outputs:
+  - series: served
+    as: served.csv

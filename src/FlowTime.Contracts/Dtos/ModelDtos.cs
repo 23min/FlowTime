@@ -19,6 +19,8 @@ public sealed class ModelDto
 {
     public int? SchemaVersion { get; set; }
     public GridDto Grid { get; set; } = new();
+    public List<ClassDto> Classes { get; set; } = new();
+    public TrafficDto? Traffic { get; set; }
     public List<NodeDto> Nodes { get; set; } = new();
     public List<OutputDto> Outputs { get; set; } = new();
     public RngDto? Rng { get; set; }
@@ -66,6 +68,32 @@ public sealed class PmfDto
 {
     public double[] Values { get; set; } = Array.Empty<double>();
     public double[] Probabilities { get; set; } = Array.Empty<double>();
+}
+
+public sealed class ClassDto
+{
+    public string Id { get; set; } = string.Empty;
+    public string? DisplayName { get; set; }
+    public string? Description { get; set; }
+}
+
+public sealed class TrafficDto
+{
+    public List<ArrivalDto> Arrivals { get; set; } = new();
+}
+
+public sealed class ArrivalDto
+{
+    public string NodeId { get; set; } = string.Empty;
+    public string? ClassId { get; set; }
+    public ArrivalPatternDto Pattern { get; set; } = new();
+}
+
+public sealed class ArrivalPatternDto
+{
+    public string Kind { get; set; } = string.Empty;
+    public double? RatePerBin { get; set; }
+    public double? Rate { get; set; }
 }
 
 /// <summary>

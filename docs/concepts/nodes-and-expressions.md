@@ -9,15 +9,16 @@ This document explains how FlowTime represents models internally (nodes and grap
 ## Mental model
 
 Think of FlowTime as a spreadsheet for flows:
-- The time axis is a fixed grid of bins (e.g., 8 bins, 60 minutes each).
+- The time axis is a fixed grid of bins with explicit `binSize`/`binUnit` (e.g., 8 bins, 1 hour each).
 - Each node produces a numeric series aligned to the grid.
 - Edges express dependencies between nodes, like spreadsheet cell references.
 - Evaluation is deterministic and ordered topologically: inputs first, outputs last.
+- Classes (optional) name the kinds of items flowing; arrivals can be bound to classes for per-class analysis.
 
 ## The building blocks
 
 - TimeGrid
-  - Fixed number of bins and binMinutes. All series align to this grid.
+  - Fixed number of bins and binSize/binUnit. All series align to this grid.
 - Series
   - A contiguous double[] representing a value per bin. Immutable by contract (copy on write in nodes).
 - NodeId
@@ -110,7 +111,8 @@ metadata:
 spec:
   grid:
     bins: 8
-    binMinutes: 60
+    binSize: 60
+    binUnit: minutes
   nodes:
     - id: demand
       kind: const
@@ -129,7 +131,7 @@ dotnet run --project src/FlowTime.Cli -- run examples/hello/model.yaml --out out
 Console summary (verbose):
 ```
 FlowTime run summary:
-  Grid: bins=8, binMinutes=60
+  Grid: bins=8, binSize=60, binUnit=minutes
   Topological order: demand -> served
   Wrote served.csv (8 rows)
 ```
@@ -161,7 +163,7 @@ Today, you can build the same in code/tests by composing nodes directly.
 - Optimization: specific nodes (e.g., Shift) can be optimized later.
 - Caching: memoization at node granularity.
 
-## Unified Model Artifact: FlowTime & FlowTime-Sim
+## Unified Model Artifact: FlowTime & FlowTime-Sim (with optional classes)
 
 Both FlowTime and FlowTime-Sim now use the same unified Model artifact format. The `spec` contains the model definition that both engines understand:
 
@@ -176,7 +178,11 @@ metadata:
 spec:
   grid:
     bins: 8
-    binMinutes: 60
+    binSize: 60
+    binUnit: minutes
+  classes:
+    - id: Order
+      displayName: "Order Flow"
   nodes:
     - id: demand
       kind: const
@@ -184,6 +190,13 @@ spec:
     - id: served
       kind: expr
       expr: "demand * 0.8"
+  traffic:
+    arrivals:
+      - nodeId: demand
+        classId: Order
+        pattern:
+          kind: constant
+          ratePerBin: 10
   # Optional randomness configuration (used by Sim, ignored by Engine)
   rng:
     kind: pcg32
@@ -194,10 +207,11 @@ spec:
 ```
 
 ### Engine Behavior Differences
-- **FlowTime (Engine)**: Always deterministic - ignores `rng`/`seed` fields in `spec`
-- **FlowTime-Sim**: Uses `rng`/`seed` from `spec` for reproducible synthetic data generation
-- **Model Sharing**: Same Model artifact works for both engines - only execution behavior differs
-- **Artifacts**: Both produce compatible output artifacts (same JSON schemas, CSV formats)
+- **FlowTime (Engine)**: Always deterministic - ignores `rng`/`seed` fields in `spec`.
+- **FlowTime-Sim**: Uses `rng`/`seed` from `spec` for reproducible synthetic data generation.
+- **Model Sharing**: Same Model artifact works for both engines - only execution behavior differs.
+- **Classes**: Optional; when present, arrivals must reference declared `classId` values and downstream surfaces can present per-class views.
+- **Artifacts**: Both produce compatible output artifacts (same JSON schemas, CSV formats).
 
 ### Benefits of Unified Format
 - **Single Model Definition**: No need for separate Engine vs Sim model files

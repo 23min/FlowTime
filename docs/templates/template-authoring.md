@@ -39,6 +39,34 @@ grid:
 - **parameters** expose user-controlled knobs with proper typing and bounds.
 - **grid/window** define the evaluation domain. Always specify `binUnit`.
 
+## Classes (optional but recommended for multi-flow models)
+
+- Declare classes under `classes` with stable `id` and a friendly `displayName`.
+- When `classes` exist, every arrival entry must include a matching `classId`.
+- When `classes` are omitted, templates run in single-class mode with an implicit wildcard (`*`).
+
+Example:
+```yaml
+classes:
+  - id: Order
+    displayName: "Order Flow"
+  - id: Refund
+    displayName: "Refund Flow"
+
+traffic:
+  arrivals:
+    - nodeId: Ingest
+      classId: Order
+      pattern:
+        kind: constant
+        ratePerBin: 20
+    - nodeId: Ingest
+      classId: Refund
+      pattern:
+        kind: constant
+        ratePerBin: 5
+```
+
 ## Topology Semantics
 
 Each operational node belongs in `topology.nodes`. Semantics reference the model nodes that produce each time series:

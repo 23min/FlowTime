@@ -384,9 +384,37 @@ public class ModelDefinition
 {
     public int SchemaVersion { get; set; }
     public GridDefinition? Grid { get; set; }
+    public List<ClassDefinition> Classes { get; set; } = new();
+    public TrafficDefinition? Traffic { get; set; }
     public List<NodeDefinition> Nodes { get; set; } = new();
     public List<OutputDefinition> Outputs { get; set; } = new();
     public TopologyDefinition? Topology { get; set; }
+}
+
+public class ClassDefinition
+{
+    public string Id { get; set; } = string.Empty;
+    public string? DisplayName { get; set; }
+    public string? Description { get; set; }
+}
+
+public class TrafficDefinition
+{
+    public List<ArrivalDefinition> Arrivals { get; set; } = new();
+}
+
+public class ArrivalDefinition
+{
+    public string NodeId { get; set; } = string.Empty;
+    public string ClassId { get; set; } = "*";
+    public ArrivalPatternDefinition Pattern { get; set; } = new();
+}
+
+public class ArrivalPatternDefinition
+{
+    public string Kind { get; set; } = string.Empty;
+    public double? RatePerBin { get; set; }
+    public double? Rate { get; set; }
 }
 
 public class GridDefinition

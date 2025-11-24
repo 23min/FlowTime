@@ -34,6 +34,7 @@ Classes become the canonical way to describe what type of entity flows through a
 - CL-M-04.02 consumes the schema to emit `byClass` metrics.
 - CL-M-04.03 binds the UI to the new metadata.
 - CL-M-04.04 updates TelemetryLoader contracts once classes appear in gold bundles.
+- Align `docs/schemas/template.schema.json` + `template-schema.md` with the class-aware template shape and consider wiring Sim template validation to the schema to avoid drift (post-CL-M-04.01 follow-up).
 
 ---
 

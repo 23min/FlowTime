@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using FlowTime.Sim.Core.Templates.Exceptions;
 
 namespace FlowTime.Sim.Core.Templates;
 
@@ -25,6 +26,8 @@ internal static class SimModelBuilder
             Window = CloneWindow(template.Window),
             Grid = CloneGrid(template.Grid),
             Topology = CloneTopology(template.Topology),
+            Classes = CloneClasses(template.Classes),
+            Traffic = CloneTraffic(template.Traffic, template.Classes),
             Nodes = BuildNodes(template),
             Outputs = BuildOutputs(template.Outputs)
         };
@@ -107,6 +110,52 @@ internal static class SimModelBuilder
         }
 
         return clone;
+    }
+
+    private static List<TemplateClass> CloneClasses(List<TemplateClass> classes) =>
+        classes?.Select(c => new TemplateClass
+        {
+            Id = c.Id,
+            DisplayName = c.DisplayName,
+            Description = c.Description
+        }).ToList() ?? new List<TemplateClass>();
+
+    private static SimTraffic? CloneTraffic(TemplateTraffic? traffic, List<TemplateClass> classes)
+    {
+        if (traffic?.Arrivals == null || traffic.Arrivals.Count == 0)
+        {
+            return null;
+        }
+
+        var declaredClasses = new HashSet<string>(classes.Select(c => c.Id), StringComparer.Ordinal);
+        var arrivals = new List<SimArrival>();
+
+        foreach (var arrival in traffic.Arrivals)
+        {
+            var classId = arrival.ClassId;
+            if (string.IsNullOrWhiteSpace(classId))
+            {
+                classId = declaredClasses.Count > 0 ? throw new TemplateValidationException($"Arrival targeting '{arrival.NodeId}' must declare classId because classes are defined.") : "*";
+            }
+            else if (declaredClasses.Count > 0 && !declaredClasses.Contains(classId))
+            {
+                throw new TemplateValidationException($"Class '{classId}' referenced by arrivals is not declared under classes.");
+            }
+
+            arrivals.Add(new SimArrival
+            {
+                NodeId = arrival.NodeId,
+                ClassId = classId,
+                Pattern = new SimArrivalPattern
+                {
+                    Kind = arrival.Pattern?.Kind ?? string.Empty,
+                    RatePerBin = arrival.Pattern?.RatePerBin,
+                    Rate = arrival.Pattern?.Rate
+                }
+            });
+        }
+
+        return new SimTraffic { Arrivals = arrivals };
     }
 
     private static TemplateNodeSemantics CloneSemantics(TemplateNodeSemantics semantics)
@@ -228,7 +277,7 @@ internal static class SimModelBuilder
         return new SimNode
         {
             Id = node.Id,
-            Kind = node.Kind,
+            Kind = node.Kind ?? string.Empty,
             Values = kind switch
             {
                 "pmf" => null,

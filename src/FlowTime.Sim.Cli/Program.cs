@@ -315,6 +315,17 @@ namespace FlowTime.Sim.Cli
                 Console.ResetColor();
             }
 
+            if (artifact.Classes is { Count: > 0 })
+            {
+                var classSummary = string.Join(", ", artifact.Classes.Select(c =>
+                    string.IsNullOrWhiteSpace(c.DisplayName) ? c.Id : $"{c.Id} ({c.DisplayName})"));
+                Console.WriteLine($"Classes: {classSummary}");
+            }
+            else
+            {
+                Console.WriteLine("Classes: * (implicit single-class)");
+            }
+
             if (opts.Verbose)
             {
                 Console.WriteLine($"Mode: {artifact.Mode}");

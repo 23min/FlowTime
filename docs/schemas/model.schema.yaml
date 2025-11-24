@@ -223,6 +223,71 @@ properties:
 
       additionalProperties: false
 
+  classes:
+    type: array
+    description: "Optional set of flow classes; when present, traffic arrivals must declare classId"
+    minItems: 1
+    items:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: string
+          pattern: "^[A-Za-z0-9_-]+$"
+          description: "Class identifier referenced by traffic definitions"
+          examples:
+            - "Order"
+            - "Refund"
+            - "Invoice"
+        displayName:
+          type: string
+          description: "Human-readable class name"
+          examples:
+            - "Order Flow"
+            - "Refund Flow"
+        description:
+          type: string
+          description: "Optional class description"
+      additionalProperties: false
+
+  traffic:
+    type: object
+    description: "Optional traffic definitions, including arrivals per class"
+    properties:
+      arrivals:
+        type: array
+        minItems: 1
+        items:
+          type: object
+          required:
+            - nodeId
+            - pattern
+          properties:
+            nodeId:
+              type: string
+              description: "Target node receiving arrivals"
+            classId:
+              type: string
+              description: "Class identifier (required when classes are declared)"
+            pattern:
+              type: object
+              required:
+                - kind
+              properties:
+                kind:
+                  type: string
+                  enum:
+                    - constant
+                    - poisson
+                  description: "Arrival pattern kind"
+                ratePerBin:
+                  type: number
+                  description: "Arrivals per bin for constant patterns"
+              additionalProperties: true
+          additionalProperties: false
+    additionalProperties: false
+
   rng:
     type: object
     description: "Optional random number generator configuration for reproducibility"
@@ -488,6 +553,23 @@ examples:
         kind: expr
         expr: "weekly_production - weekly_orders + SHIFT(inventory, 1)"
 
+allOf:
+  - if:
+      required:
+        - classes
+      properties:
+        classes:
+          type: array
+          minItems: 1
+    then:
+      properties:
+        traffic:
+          properties:
+            arrivals:
+              items:
+                required:
+                  - classId
+
 # Schema validation notes and migration guidance
 notes:
   migration_from_binMinutes: |
@@ -495,7 +577,7 @@ notes:
       grid:
         bins: 24
         binSize: 1
-  binUnit: hours
+        binUnit: hours
     
     New format (target schema):
       grid:

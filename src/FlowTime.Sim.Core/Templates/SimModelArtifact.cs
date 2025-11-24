@@ -23,6 +23,10 @@ public class SimModelArtifact
 
     public TemplateTopology Topology { get; set; } = new();
 
+    public List<TemplateClass> Classes { get; set; } = new();
+
+    public SimTraffic? Traffic { get; set; }
+
     public List<SimNode> Nodes { get; set; } = new();
 
     public List<SimOutput> Outputs { get; set; } = new();
@@ -66,6 +70,25 @@ public class SimOutput
     public string Series { get; set; } = "*";
     public List<string>? Exclude { get; set; }
     public string? As { get; set; }
+}
+
+public class SimTraffic
+{
+    public List<SimArrival> Arrivals { get; set; } = new();
+}
+
+public class SimArrival
+{
+    public string NodeId { get; set; } = string.Empty;
+    public string ClassId { get; set; } = "*";
+    public SimArrivalPattern Pattern { get; set; } = new();
+}
+
+public class SimArrivalPattern
+{
+    public string Kind { get; set; } = string.Empty;
+    public double? RatePerBin { get; set; }
+    public double? Rate { get; set; }
 }
 
 /// <summary>

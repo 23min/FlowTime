@@ -191,6 +191,10 @@ public static class RunArtifactWriter
             }
         }
 
+        var classEntries = modelDefinition.Classes
+            .Select(c => new ManifestClassEntry { Id = c.Id, DisplayName = c.DisplayName, Description = c.Description })
+            .ToList();
+
         var runJson = new RunJson
         {
             SchemaVersion = 1,
@@ -208,7 +212,8 @@ public static class RunArtifactWriter
             ScenarioHash = scenarioHash,
             ModelHash = modelHash,
             Warnings = warningEntries,
-            Series = seriesMetas.Select(m => new RunSeriesEntry { Id = m.Id, Path = m.Path, Unit = m.Unit }).ToList()
+            Series = seriesMetas.Select(m => new RunSeriesEntry { Id = m.Id, Path = m.Path, Unit = m.Unit }).ToList(),
+            Classes = classEntries
         };
 
         await File.WriteAllTextAsync(Path.Combine(runDir, "run.json"), JsonSerializer.Serialize(runJson, jsonOptions), Encoding.UTF8);
@@ -267,7 +272,8 @@ public static class RunArtifactWriter
             SeriesHashes = seriesHashes,
             EventCount = 0,
             CreatedUtc = DateTime.UtcNow.ToString("o"),
-            Provenance = provenanceRef
+            Provenance = provenanceRef,
+            Classes = classEntries
         };
 
         await File.WriteAllTextAsync(Path.Combine(runDir, "manifest.json"), JsonSerializer.Serialize(manifest, jsonOptions), Encoding.UTF8);
@@ -1094,6 +1100,7 @@ file sealed record RunJson
     public string CreatedUtc { get; set; } = DateTime.UtcNow.ToString("o");
     public List<RunWarningEntry> Warnings { get; set; } = new();
     public List<RunSeriesEntry> Series { get; set; } = new();
+    public List<ManifestClassEntry> Classes { get; set; } = new();
 }
 
 file sealed record RunWarningEntry
@@ -1120,6 +1127,14 @@ file sealed record ManifestJson
     [System.Text.Json.Serialization.JsonPropertyName("provenance")]
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public ProvenanceRef? Provenance { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("classes")]
+    public List<ManifestClassEntry> Classes { get; set; } = new();
+}
+file sealed record ManifestClassEntry
+{
+    public string Id { get; set; } = string.Empty;
+    public string? DisplayName { get; set; }
+    public string? Description { get; set; }
 }
 file sealed record RngJson 
 { 

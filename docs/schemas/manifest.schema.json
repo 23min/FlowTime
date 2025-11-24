@@ -36,6 +36,19 @@
         "templateId": { "type": "string" },
         "source": { "type": "string" }
       }
+    },
+    "classes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "displayName": { "type": "string" },
+          "description": { "type": "string" }
+        }
+      }
     }
   },
   "$defs": {

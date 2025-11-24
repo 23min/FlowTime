@@ -156,9 +156,7 @@ public class TemplateService : ITemplateService
 
     public Task<ValidationResult> ValidateParametersAsync(string templateId, Dictionary<string, object> parameters)
     {
-        // For SIM-M2.6 node-based templates, we accept parameters leniently.
-        // Deeper schema-aware validation will be added alongside schema versioning.
-        return Task.FromResult(ValidationResult.Success());
+        return ValidateAsync(templateId, parameters);
     }
 
     private async Task LoadTemplatesIfNeededAsync()
@@ -241,6 +239,27 @@ public class TemplateService : ITemplateService
         if (templateCache.Count > 0)
         {
             logger.LogDebug("Template ids: {Ids}", string.Join(", ", templateCache.Keys));
+        }
+    }
+
+    private async Task<ValidationResult> ValidateAsync(string templateId, Dictionary<string, object> parameters)
+    {
+        try
+        {
+            await GenerateEngineModelAsync(templateId, parameters);
+            return ValidationResult.Success();
+        }
+        catch (TemplateValidationException ex)
+        {
+            return ValidationResult.Failure(ex.Message);
+        }
+        catch (TemplateParsingException ex)
+        {
+            return ValidationResult.Failure(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return ValidationResult.Failure(ex.Message);
         }
     }
 

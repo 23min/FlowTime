@@ -46,6 +46,28 @@ public static class ModelService
                 BinUnit = model.Grid.BinUnit,
                 StartTimeUtc = model.Grid.StartTimeUtc
             },
+            Classes = model.Classes.Select(c => new ClassDefinition
+            {
+                Id = c.Id,
+                DisplayName = c.DisplayName,
+                Description = c.Description
+            }).ToList(),
+            Traffic = model.Traffic == null
+                ? null
+                : new TrafficDefinition
+                {
+                    Arrivals = model.Traffic.Arrivals.Select(a => new ArrivalDefinition
+                    {
+                        NodeId = a.NodeId,
+                        ClassId = string.IsNullOrWhiteSpace(a.ClassId) ? "*" : a.ClassId,
+                        Pattern = new ArrivalPatternDefinition
+                        {
+                            Kind = a.Pattern.Kind,
+                            RatePerBin = a.Pattern.RatePerBin,
+                            Rate = a.Pattern.Rate
+                        }
+                    }).ToList()
+                },
             Nodes = model.Nodes.Select(n => new NodeDefinition 
             { 
                 Id = n.Id, 

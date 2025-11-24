@@ -58,6 +58,7 @@ nodes:
 - **Empirical PMF Fitting**: Can take raw telemetry and fit empirical PMFs (e.g., average Monday shape)
 - **Telemetry-Compatible Output**: Emits bin-aligned artifacts (`run.json`, `series/*.csv`) so the engine sees no difference between "real" telemetry and "PMF-generated" series
 - **What-If Scenarios**: Enables scenario testing by tweaking PMFs (e.g., "burstier Monday arrivals" or "retry tail heavier")
+- **Classes**: When templates declare `classes`, bind PMF arrivals to `classId` for per-class metrics; omit `classId` only for single-class (wildcard) models.
 
 **Usage**: Test engineers create PMF generators for Engine validation
 ```yaml
@@ -69,7 +70,8 @@ arrivals:
     probabilities: [0.1, 0.3, 0.4, 0.2]
     grid:
       bins: 24
-      binMinutes: 60
+      binSize: 60
+      binUnit: minutes
 ```
 
 **Output**: Synthetic events and time series following PMF distribution
@@ -145,7 +147,8 @@ arrivals:
     probabilities: [0.4, 0.35, 0.2, 0.05]
     grid:
       bins: 168      # One week in hours
-      binMinutes: 60
+      binSize: 60
+      binUnit: minutes
 ```
 
 ### JSON API Format

@@ -31,6 +31,7 @@ internal static class TemplateValidator
         var nodeIds = ValidateNodes(template, out var nodesRequiringInitial);
         ValidateOutputs(template.Outputs, nodeIds);
         ValidateTopology(template, nodeIds, nodesRequiringInitial, template.Mode);
+        ValidateClassesAndTraffic(template);
         ValidateRng(template.Rng);
     }
 
@@ -119,6 +120,64 @@ internal static class TemplateValidator
         if (string.IsNullOrWhiteSpace(grid.BinUnit))
         {
             throw new TemplateValidationException("Grid binUnit is required (e.g., 'minutes').");
+        }
+    }
+
+    private static void ValidateClassesAndTraffic(Template template)
+    {
+        var classes = template.Classes ?? new List<TemplateClass>();
+        var classIds = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var c in classes)
+        {
+            if (string.IsNullOrWhiteSpace(c.Id))
+            {
+                throw new TemplateValidationException("Classes must declare a non-empty id.");
+            }
+
+            if (!classIds.Add(c.Id))
+            {
+                throw new TemplateValidationException($"Duplicate class id '{c.Id}' detected.");
+            }
+        }
+
+        if (template.Traffic?.Arrivals is not { Count: > 0 })
+        {
+            return;
+        }
+
+        foreach (var arrival in template.Traffic.Arrivals)
+        {
+            if (string.IsNullOrWhiteSpace(arrival.NodeId))
+            {
+                throw new TemplateValidationException("Traffic arrivals must specify nodeId.");
+            }
+
+            if (arrival.Pattern is null || string.IsNullOrWhiteSpace(arrival.Pattern.Kind))
+            {
+                throw new TemplateValidationException($"Traffic arrival for node '{arrival.NodeId}' must include a pattern kind.");
+            }
+
+            if (string.Equals(arrival.Pattern.Kind, "constant", StringComparison.OrdinalIgnoreCase) &&
+                (arrival.Pattern.RatePerBin is null || arrival.Pattern.RatePerBin < 0))
+            {
+                throw new TemplateValidationException($"Traffic arrival for node '{arrival.NodeId}' must specify a non-negative ratePerBin when kind=constant.");
+            }
+
+            if (classIds.Count == 0)
+            {
+                arrival.ClassId ??= "*";
+                continue;
+            }
+
+            if (string.IsNullOrWhiteSpace(arrival.ClassId))
+            {
+                throw new TemplateValidationException($"Arrival targeting '{arrival.NodeId}' must declare classId because classes are defined.");
+            }
+
+            if (!classIds.Contains(arrival.ClassId))
+            {
+                throw new TemplateValidationException($"Class '{arrival.ClassId}' is not declared under classes.");
+            }
         }
     }
 

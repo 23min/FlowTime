@@ -8,6 +8,7 @@ The telemetry capture CLI converts canonical engine runs into telemetry bundles 
 - `.NET 9.0` SDK (already required for the FlowTime CLI).
 - Optional: set `FLOWTIME_DATA_DIR` to override the default data root (`./data`).
 - API deployments can configure `TelemetryRoot` when they want to maintain a shared library of telemetry bundles; by default, generated bundles live alongside the source run under `data/run_<id>/model/telemetry/`.
+- **Classes (forward reference):** Runs now emit declared `classes` in `run.json`/`manifest.json`; telemetry bundles will include the same class inventory so downstream loaders can align per-class series in CL-M-04.04.
 
 ## Explicit API Flow (Recommended)
 

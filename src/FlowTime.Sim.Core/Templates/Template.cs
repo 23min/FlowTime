@@ -30,6 +30,8 @@ public class Template
     public List<TemplateParameter> Parameters { get; set; } = new();
     public TemplateGrid Grid { get; set; } = new();
     public TemplateTopology Topology { get; set; } = new();
+    public List<TemplateClass> Classes { get; set; } = new();
+    public TemplateTraffic? Traffic { get; set; }
     public List<TemplateNode> Nodes { get; set; } = new();
     public List<TemplateOutput> Outputs { get; set; } = new();
     public TemplateRng? Rng { get; set; } = null;
@@ -100,6 +102,38 @@ public class TemplateTopology
 {
     public List<TemplateTopologyNode> Nodes { get; set; } = new();
     public List<TemplateTopologyEdge> Edges { get; set; } = new();
+}
+
+/// <summary>
+/// Optional class declarations for templates.
+/// </summary>
+public class TemplateClass
+{
+    public string Id { get; set; } = string.Empty;
+    public string? DisplayName { get; set; }
+    public string? Description { get; set; }
+}
+
+/// <summary>
+/// Optional class-aware traffic definitions.
+/// </summary>
+public class TemplateTraffic
+{
+    public List<TemplateArrival> Arrivals { get; set; } = new();
+}
+
+public class TemplateArrival
+{
+    public string NodeId { get; set; } = string.Empty;
+    public string? ClassId { get; set; }
+    public TemplateArrivalPattern Pattern { get; set; } = new();
+}
+
+public class TemplateArrivalPattern
+{
+    public string Kind { get; set; } = string.Empty;
+    public double? RatePerBin { get; set; }
+    public double? Rate { get; set; }
 }
 
 /// <summary>
