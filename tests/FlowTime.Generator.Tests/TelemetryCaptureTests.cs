@@ -46,8 +46,9 @@ public sealed class TelemetryCaptureTests
             var csvPath = System.IO.Path.Combine(outputDir, file.TargetFileName);
             Assert.True(File.Exists(csvPath));
             var lines = await File.ReadAllLinesAsync(csvPath);
-            Assert.Equal("bin_index,value", lines.First());
+            Assert.Equal("bin_index,classId,value", lines.First());
             Assert.Equal(5, lines.Length); // header + 4 rows
+            Assert.Contains(",DEFAULT,", lines[1]);
         }
 
         var manifestPath = System.IO.Path.Combine(outputDir, "manifest.json");
@@ -201,7 +202,7 @@ public sealed class TelemetryCaptureTests
 
         var csvPath = Path.Combine(options.OutputDirectory, "OrderService_served.csv");
         var lines = await File.ReadAllLinesAsync(csvPath);
-        Assert.Equal("1,0", lines[2]); // header + index 0 + index 1
+        Assert.Equal("1,DEFAULT,0", lines[2]); // header + index 0 + index 1
     }
 
     private static JsonSchema LoadTelemetryManifestSchema()
@@ -221,7 +222,7 @@ public sealed class TelemetryCaptureTests
     {
         var lines = await File.ReadAllLinesAsync(filePath);
         var parts = lines[binIndex + 1].Split(',');
-        parts[1] = "NaN";
+        parts[2] = "NaN";
         lines[binIndex + 1] = string.Join(',', parts);
         await File.WriteAllLinesAsync(filePath, lines);
     }
@@ -230,7 +231,7 @@ public sealed class TelemetryCaptureTests
     {
         var lines = await File.ReadAllLinesAsync(filePath);
         var parts = lines[binIndex + 1].Split(',');
-        parts[1] = string.Empty;
+        parts[2] = string.Empty;
         lines[binIndex + 1] = string.Join(',', parts);
         await File.WriteAllLinesAsync(filePath, lines);
     }

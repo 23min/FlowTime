@@ -32,6 +32,7 @@ public sealed class TelemetryBundleBuilderTests
         Assert.NotEmpty(captureManifest!.Files);
         Assert.Equal(3, captureManifest.Files!.Count);
         Assert.Contains("OrderService_arrivals.csv", captureManifest.Files!.Select(f => f.Path));
+        Assert.Equal("missing", captureManifest.ClassCoverage);
         var captureFiles = Directory.GetFiles(captureOutput).Select(Path.GetFileName).ToArray();
         Assert.Contains("OrderService_arrivals.csv", captureFiles);
 
@@ -93,6 +94,7 @@ public sealed class TelemetryBundleBuilderTests
             Assert.Equal(captureManifest.Provenance.RunId, canonicalRoot.GetProperty("provenance").GetProperty("runId").GetString());
             Assert.Equal(captureManifest.Provenance.ScenarioHash, canonicalRoot.GetProperty("provenance").GetProperty("scenarioHash").GetString());
             Assert.Equal(captureManifest.Files!.Count, canonicalRoot.GetProperty("files").GetArrayLength());
+            Assert.Equal("missing", canonicalRoot.GetProperty("classCoverage").GetString());
         }
 
         var manifestReader = new RunManifestReader();
@@ -197,7 +199,7 @@ outputs:
     {
         using var reader = new StreamReader(sourcePath);
         using var writer = new StreamWriter(targetPath);
-        writer.WriteLine("bin_index,value");
+        writer.WriteLine("bin_index,classId,value");
         _ = reader.ReadLine(); // skip header
         var index = 0;
         string? line;
@@ -214,7 +216,7 @@ outputs:
                 continue;
             }
 
-            writer.WriteLine(FormattableString.Invariant($"{index},{parts[1].Trim()}"));
+            writer.WriteLine(FormattableString.Invariant($"{index},DEFAULT,{parts[1].Trim()}"));
             index++;
         }
     }

@@ -43,6 +43,15 @@
         }
       }
     },
+    "classes": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "classCoverage": {
+      "type": "string",
+      "enum": ["full", "partial", "missing"]
+    },
     "files": {
       "type": "array",
       "items": {
@@ -75,6 +84,10 @@
           "points": {
             "type": "integer",
             "minimum": 0
+          },
+          "classId": {
+            "type": "string",
+            "minLength": 1
           }
         }
       }

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace FlowTime.Contracts.TimeTravel;
 
@@ -33,6 +34,8 @@ public sealed class StateMetadata
     public required SchemaMetadata Schema { get; init; }
     public required StorageDescriptor Storage { get; init; }
     public RunRngOptions? Rng { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ClassCoverage { get; init; }
 }
 
 public sealed class SchemaMetadata
@@ -69,6 +72,8 @@ public sealed class NodeSnapshot
     public required string Id { get; init; }
     public required string Kind { get; init; }
     public NodeMetrics Metrics { get; init; } = new();
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyDictionary<string, ClassMetrics>? ByClass { get; init; }
     public NodeDerivedMetrics Derived { get; init; } = new();
     public NodeTelemetryInfo Telemetry { get; init; } = new();
     public IReadOnlyDictionary<string, string>? Aliases { get; init; }
@@ -79,6 +84,8 @@ public sealed class NodeSeries
     public required string Id { get; init; }
     public required string Kind { get; init; }
     public IDictionary<string, double?[]> Series { get; init; } = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase);
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IDictionary<string, IDictionary<string, double?[]>>? ByClass { get; init; }
     public NodeTelemetryInfo Telemetry { get; init; } = new();
     public IReadOnlyDictionary<string, string>? Aliases { get; init; }
 }
@@ -109,6 +116,17 @@ public sealed class NodeMetrics
     public double? Capacity { get; init; }
     public double? ExternalDemand { get; init; }
     public double? MaxAttempts { get; init; }
+}
+
+public sealed class ClassMetrics
+{
+    public double? Arrivals { get; init; }
+    public double? Served { get; init; }
+    public double? Errors { get; init; }
+    public double? Queue { get; init; }
+    public double? Capacity { get; init; }
+    public double? ProcessingTimeMsSum { get; init; }
+    public double? ServedCount { get; init; }
 }
 
 public sealed class NodeDerivedMetrics

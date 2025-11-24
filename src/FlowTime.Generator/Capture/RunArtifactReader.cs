@@ -160,7 +160,8 @@ public sealed class RunArtifactReader
                 alias,
                 seriesMeta.Id,
                 seriesMeta.Path,
-                seriesMeta.Points));
+                seriesMeta.Points,
+                seriesMeta.Class));
         }
     }
 
@@ -198,7 +199,8 @@ public sealed class RunArtifactReader
                 alias,
                 meta.Id,
                 meta.Path,
-                meta.Points);
+                meta.Points,
+                meta.Class);
         }
     }
 
@@ -266,4 +268,5 @@ public sealed record TelemetrySeriesBinding(
     string TargetFileName,
     string SourceSeriesId,
     string SourcePath,
-    int Points);
+    int Points,
+    string ClassId);

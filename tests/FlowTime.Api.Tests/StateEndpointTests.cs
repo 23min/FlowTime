@@ -30,6 +30,7 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
     private const string queueLatencyNullRunId = "run_state_queue_zero_served";
     private const string kernelPolicyRunId = "run_state_retry_kernel_policy";
     private const string retryEdgesRunId = "run_state_edges";
+    private const string classRunId = "run_state_classes";
     private const int binCount = 4;
     private const int binSizeMinutes = 5;
     private static readonly DateTime startTimeUtc = new(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -63,6 +64,7 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         CreateQueueLatencyNullRun();
         CreateKernelPolicyRun();
         CreateRetryEdgesRun();
+        CreateClassRun();
 
         logCollector = new TestLogCollector();
         client = factory.WithWebHostBuilder(builder =>
@@ -99,6 +101,7 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         Assert.Equal(runId, payload!.Metadata.RunId);
         Assert.Equal("telemetry", payload.Metadata.Mode);
         Assert.True(payload.Metadata.TelemetrySourcesResolved);
+        Assert.Equal("missing", payload.Metadata.ClassCoverage);
         Assert.Empty(payload.Warnings);
 
         Assert.Equal(1, payload.Bin.Index);
@@ -136,6 +139,44 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
     }
 
     [Fact]
+    public async Task GetState_ReturnsByClassBreakdown()
+    {
+        var response = await client.GetAsync($"/v1/runs/{classRunId}/state?binIndex=0");
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync();
+            throw new XunitException($"Expected 200 OK but got {(int)response.StatusCode}: {errorBody}");
+        }
+
+        var payload = await response.Content.ReadFromJsonAsync<StateSnapshotResponse>(new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            PropertyNameCaseInsensitive = true
+        });
+        Assert.NotNull(payload);
+
+        Assert.Equal("full", payload!.Metadata.ClassCoverage);
+
+        var orderService = Assert.Single(payload.Nodes, n => n.Id == "OrderService");
+        Assert.Equal("full", payload.Metadata.ClassCoverage);
+        Assert.NotNull(orderService.ByClass);
+        Assert.Equal(2, orderService.ByClass!.Count);
+
+        var vip = orderService.ByClass["vip"];
+        Assert.Equal(6d, vip.Arrivals);
+        Assert.Equal(5d, vip.Served);
+        Assert.Equal(1d, vip.Errors);
+
+        var standard = orderService.ByClass["standard"];
+        Assert.Equal(4d, standard.Arrivals);
+        Assert.Equal(3d, standard.Served);
+        Assert.Equal(0d, standard.Errors);
+
+        Assert.Equal(10d, orderService.Metrics.Arrivals);
+        Assert.Equal(8d, orderService.Metrics.Served);
+        Assert.Equal(1d, orderService.Metrics.Errors);
+    }
+
+    [Fact]
     public async Task GetStateWindow_ReturnsAlignedSeries()
     {
         var response = await client.GetAsync($"/v1/runs/{runId}/state_window?startBin=0&endBin=3");
@@ -152,6 +193,7 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         Assert.NotNull(payload);
 
         Assert.Equal(runId, payload!.Metadata.RunId);
+        Assert.Equal("missing", payload.Metadata.ClassCoverage);
         Assert.Equal(4, payload.Window.BinCount);
         Assert.Equal(4, payload.TimestampsUtc.Count);
         Assert.Equal(startTimeUtc, payload.TimestampsUtc[0].UtcDateTime);
@@ -192,6 +234,36 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         Assert.Empty(queueSeries.Telemetry.Warnings);
         Assert.NotNull(queueSeries.Aliases);
         Assert.Equal("Open backlog", queueSeries.Aliases!["queue"]);
+    }
+
+    [Fact]
+    public async Task GetStateWindow_ReturnsByClassSeries()
+    {
+        var response = await client.GetAsync($"/v1/runs/{classRunId}/state_window?startBin=0&endBin=1");
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync();
+            throw new XunitException($"Expected 200 OK but got {(int)response.StatusCode}: {errorBody}");
+        }
+
+        var payload = await response.Content.ReadFromJsonAsync<StateWindowResponse>(new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            PropertyNameCaseInsensitive = true
+        });
+        Assert.NotNull(payload);
+
+        var orderService = Assert.Single(payload!.Nodes, n => n.Id == "OrderService");
+        Assert.NotNull(orderService.ByClass);
+
+        var vip = orderService.ByClass!["vip"];
+        Assert.Equal(new double?[] { 6d, 5d }, vip["arrivals"]);
+        Assert.Equal(new double?[] { 5d, 4d }, vip["served"]);
+        Assert.Equal(new double?[] { 1d, 0d }, vip["errors"]);
+
+        var standard = orderService.ByClass["standard"];
+        Assert.Equal(new double?[] { 4d, 5d }, standard["arrivals"]);
+        Assert.Equal(new double?[] { 3d, 4d }, standard["served"]);
+        Assert.Equal(new double?[] { 0d, 1d }, standard["errors"]);
     }
 
     [Fact]
@@ -560,6 +632,38 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         CreateRun(retryEdgesRunId, BuildRetryEdgesModelYaml(), mode: "telemetry");
     }
 
+    private void CreateClassRun()
+    {
+        var overrides = new Dictionary<string, double[]>
+        {
+            ["OrderService_arrivals.csv"] = new[] { 10d, 10d, 9d, 8d },
+            ["OrderService_served.csv"] = new[] { 8d, 8d, 7d, 6d },
+            ["OrderService_errors.csv"] = new[] { 1d, 1d, 1d, 1d }
+        };
+
+        var classSeries = new Dictionary<string, double[]>
+        {
+            ["OrderService_arrivals@ORDERSERVICE@vip.csv"] = new[] { 6d, 5d, 5d, 4d },
+            ["OrderService_arrivals@ORDERSERVICE@standard.csv"] = new[] { 4d, 5d, 4d, 4d },
+            ["OrderService_served@ORDERSERVICE@vip.csv"] = new[] { 5d, 4d, 4d, 3d },
+            ["OrderService_served@ORDERSERVICE@standard.csv"] = new[] { 3d, 4d, 3d, 3d },
+            ["OrderService_errors@ORDERSERVICE@vip.csv"] = new[] { 1d, 0d, 1d, 0d },
+            ["OrderService_errors@ORDERSERVICE@standard.csv"] = new[] { 0d, 1d, 0d, 1d }
+        };
+
+        var manifestSeries = classSeries.Keys
+            .Select(fileName => (id: Path.GetFileNameWithoutExtension(fileName), path: $"series/{fileName}", unit: "entities/bin"))
+            .ToArray();
+
+        CreateRun(
+            classRunId,
+            BuildValidModelYaml(),
+            mode: "telemetry",
+            overrides: overrides,
+            seriesOutputs: classSeries,
+            manifestSeries: manifestSeries);
+    }
+
     private void CreateFullModeRun()
     {
         var seriesOutputs = new Dictionary<string, double[]>
@@ -845,7 +949,7 @@ private static void WriteSeries(string directory, string fileName, IReadOnlyList
                 path = entry.path,
                 unit = entry.unit,
                 componentId = ExtractComponentId(entry.id),
-                @class = "DEFAULT",
+                @class = ExtractClassId(entry.id),
                 points = binCount,
                 hash = $"sha256:{entry.id}"
             }).ToArray()
@@ -870,6 +974,24 @@ private static void WriteSeries(string directory, string fileName, IReadOnlyList
         var remainder = id[(firstAt + 1)..];
         var secondAt = remainder.IndexOf('@');
         return secondAt < 0 ? remainder : remainder[..secondAt];
+    }
+
+    private static string ExtractClassId(string id)
+    {
+        var firstAt = id.IndexOf('@');
+        if (firstAt < 0)
+        {
+            return "DEFAULT";
+        }
+
+        var remainder = id[(firstAt + 1)..];
+        var secondAt = remainder.IndexOf('@');
+        if (secondAt < 0 || secondAt == remainder.Length - 1)
+        {
+            return "DEFAULT";
+        }
+
+        return remainder[(secondAt + 1)..];
     }
 
     private static void AssertGoldenResponse<T>(string fileName, T payload)

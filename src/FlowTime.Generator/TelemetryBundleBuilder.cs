@@ -438,13 +438,13 @@ public sealed class TelemetryBundleBuilder
                 continue;
             }
 
-            var parts = line.Split(',', 2);
+            var parts = line.Split(',');
             if (parts.Length < 2)
             {
                 throw new InvalidDataException($"Invalid telemetry row '{line}' in {path}.");
             }
 
-            var valueText = parts[1].Trim();
+            var valueText = parts[^1].Trim();
             if (string.IsNullOrEmpty(valueText))
             {
                 values.Add(double.NaN);

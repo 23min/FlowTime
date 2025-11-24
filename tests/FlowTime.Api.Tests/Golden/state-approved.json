@@ -16,7 +16,8 @@
       "modelPath": "<dynamic>",
       "metadataPath": "<dynamic>",
       "provenancePath": "<dynamic>"
-    }
+    },
+    "classCoverage": "missing"
   },
   "bin": {
     "index": 1,
@@ -39,6 +40,16 @@
         "retryBudgetRemaining": 3,
         "capacity": 7,
         "maxAttempts": 4
+      },
+      "byClass": {
+        "*": {
+          "arrivals": 10,
+          "served": 6,
+          "errors": 1,
+          "capacity": 7,
+          "processingTimeMsSum": 1800,
+          "servedCount": 6
+        }
       },
       "derived": {
         "utilization": 0.857143,
@@ -78,6 +89,14 @@
         "served": 6,
         "errors": 0,
         "queue": 10
+      },
+      "byClass": {
+        "*": {
+          "arrivals": 7,
+          "served": 6,
+          "errors": 0,
+          "queue": 10
+        }
       },
       "derived": {
         "latencyMinutes": 8.333333,

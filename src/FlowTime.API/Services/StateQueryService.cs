@@ -56,6 +56,7 @@ public sealed class StateQueryService
 
         var flowLatency = ComputeFlowLatency(context);
         var nodeSnapshots = new List<NodeSnapshot>(capacity: context.Topology.Nodes.Count);
+        var classCoverageStates = new List<ClassCoverage>(context.Topology.Nodes.Count);
         foreach (var topologyNode in context.Topology.Nodes)
         {
             if (!context.NodeData.TryGetValue(topologyNode.Id, out var data))
@@ -64,7 +65,9 @@ public sealed class StateQueryService
             }
 
             flowLatency.TryGetValue(topologyNode.Id, out var nodeFlowLatency);
-            nodeSnapshots.Add(BuildNodeSnapshot(topologyNode, data, context, binIndex, GetNodeWarnings(validation, topologyNode.Id), nodeFlowLatency));
+            var classAggregation = ClassMetricsAggregator.Aggregate(data, binIndex);
+            classCoverageStates.Add(classAggregation.Coverage);
+            nodeSnapshots.Add(BuildNodeSnapshot(topologyNode, data, context, binIndex, GetNodeWarnings(validation, topologyNode.Id), classAggregation, nodeFlowLatency));
         }
 
         logger.LogInformation(
@@ -77,7 +80,7 @@ public sealed class StateQueryService
 
         return new StateSnapshotResponse
         {
-            Metadata = BuildMetadata(context),
+            Metadata = BuildMetadata(context, ResolveClassCoverage(classCoverageStates)),
             Bin = new BinDetail
             {
                 Index = binIndex,
@@ -145,6 +148,7 @@ public sealed class StateQueryService
 
         var flowLatency = ComputeFlowLatency(context);
         var seriesList = new List<NodeSeries>(capacity: topologyNodes.Count);
+        var classCoverageStates = new List<ClassCoverage>(topologyNodes.Count);
         foreach (var topologyNode in topologyNodes)
         {
             if (!context.NodeData.TryGetValue(topologyNode.Id, out var data))
@@ -153,7 +157,10 @@ public sealed class StateQueryService
             }
 
             flowLatency.TryGetValue(topologyNode.Id, out var nodeFlowLatency);
-            seriesList.Add(BuildNodeSeries(topologyNode, data, context, startBin, count, GetNodeWarnings(validation, topologyNode.Id), nodeFlowLatency));
+            var classAggregation = ClassMetricsAggregator.Aggregate(data, startBin);
+            classCoverageStates.Add(classAggregation.Coverage);
+            var mergedWarnings = MergeWarnings(GetNodeWarnings(validation, topologyNode.Id), classAggregation.Warnings, topologyNode.Id);
+            seriesList.Add(BuildNodeSeries(topologyNode, data, context, startBin, count, mergedWarnings, nodeFlowLatency));
         }
 
         if (includeComputed)
@@ -201,7 +208,7 @@ public sealed class StateQueryService
 
         return new StateWindowResponse
         {
-            Metadata = BuildMetadata(context),
+            Metadata = BuildMetadata(context, ResolveClassCoverage(classCoverageStates)),
             Window = new WindowSlice
             {
                 StartBin = startBin,
@@ -315,6 +322,18 @@ public sealed class StateQueryService
                         runDirectory,
                         bins,
                         valueSeriesLookup);
+                    var byClass = ResolveClassData(
+                        node,
+                        data,
+                        seriesIndex,
+                        runDirectory,
+                        bins,
+                        valueSeriesLookup,
+                        logger);
+                    if (byClass != null)
+                    {
+                        data = data with { ByClass = byClass };
+                    }
                     var kernelResult = RetryKernelPolicy.Apply(data.RetryKernel);
                     if (!ReferenceEquals(data.RetryKernel, kernelResult.Kernel))
                     {
@@ -455,7 +474,14 @@ public sealed class StateQueryService
         }
     }
 
-    private static NodeSnapshot BuildNodeSnapshot(Node node, NodeData data, StateRunContext context, int binIndex, IReadOnlyList<ModeValidationWarning> nodeWarnings, double?[]? flowLatencyForNode = null)
+    private static NodeSnapshot BuildNodeSnapshot(
+        Node node,
+        NodeData data,
+        StateRunContext context,
+        int binIndex,
+        IReadOnlyList<ModeValidationWarning> nodeWarnings,
+        ClassAggregationResult classAggregation,
+        double?[]? flowLatencyForNode = null)
     {
         var kind = NormalizeKind(node.Kind);
         var arrivals = GetValue(data.Arrivals, binIndex);
@@ -507,6 +533,8 @@ public sealed class StateQueryService
                 ? ColoringRules.PickQueueColor(latencyMinutes, node.Semantics?.SlaMinutes)
                 : ColoringRules.PickServiceColor(utilization);
 
+        var mergedWarnings = MergeWarnings(nodeWarnings, classAggregation.Warnings, node.Id);
+
         return new NodeSnapshot
         {
             Id = node.Id,
@@ -526,6 +554,7 @@ public sealed class StateQueryService
                 ExternalDemand = externalDemand,
                 MaxAttempts = maxAttempts
             },
+            ByClass = ConvertClassMetrics(classAggregation.ByClass),
             Derived = new NodeDerivedMetrics
             {
                 Utilization = utilization,
@@ -536,9 +565,78 @@ public sealed class StateQueryService
                 RetryTax = retryTax,
                 Color = color
             },
-            Telemetry = BuildTelemetryInfo(node, context.ManifestMetadata, nodeWarnings),
+            Telemetry = BuildTelemetryInfo(node, context.ManifestMetadata, mergedWarnings),
             Aliases = node.Semantics?.Aliases
         };
+    }
+
+    private static IReadOnlyDictionary<string, ClassMetrics>? ConvertClassMetrics(IReadOnlyDictionary<string, ClassMetricsSnapshot> byClass)
+    {
+        if (byClass is null || byClass.Count == 0)
+        {
+            return null;
+        }
+
+        var result = new Dictionary<string, ClassMetrics>(byClass.Count, StringComparer.OrdinalIgnoreCase);
+        foreach (var kvp in byClass)
+        {
+            result[kvp.Key] = new ClassMetrics
+            {
+                Arrivals = kvp.Value.Arrivals,
+                Served = kvp.Value.Served,
+                Errors = kvp.Value.Errors,
+                Queue = kvp.Value.Queue,
+                Capacity = kvp.Value.Capacity,
+                ProcessingTimeMsSum = kvp.Value.ProcessingTimeMsSum,
+                ServedCount = kvp.Value.ServedCount
+            };
+        }
+
+        return result;
+    }
+
+    private static IReadOnlyList<ModeValidationWarning> MergeWarnings(
+        IReadOnlyList<ModeValidationWarning> existing,
+        IReadOnlyList<ModeValidationWarning> additional,
+        string nodeId)
+    {
+        if (additional is null || additional.Count == 0)
+        {
+            return existing;
+        }
+
+        var merged = new List<ModeValidationWarning>(existing);
+        foreach (var warning in additional)
+        {
+            merged.Add(new ModeValidationWarning
+            {
+                Code = warning.Code,
+                Message = warning.Message,
+                NodeId = nodeId
+            });
+        }
+
+        return merged;
+    }
+
+    private static string? ResolveClassCoverage(IReadOnlyList<ClassCoverage> coverages)
+    {
+        if (coverages is null || coverages.Count == 0)
+        {
+            return null;
+        }
+
+        if (coverages.Any(c => c == ClassCoverage.Partial))
+        {
+            return "partial";
+        }
+
+        if (coverages.Any(c => c == ClassCoverage.Full))
+        {
+            return "full";
+        }
+
+        return "missing";
     }
 
     private static NodeData CreateEmptyNodeData(Node node, int bins)
@@ -682,9 +780,70 @@ public sealed class StateQueryService
             Id = node.Id,
             Kind = kind,
             Series = series,
+            ByClass = BuildClassSeries(data, startBin, count),
             Telemetry = BuildTelemetryInfo(node, context.ManifestMetadata, nodeWarnings),
             Aliases = node.Semantics?.Aliases
         };
+    }
+
+    private static IDictionary<string, IDictionary<string, double?[]>>? BuildClassSeries(NodeData data, int startBin, int count)
+    {
+        if (data.ByClass is null || data.ByClass.Count == 0)
+        {
+            return null;
+        }
+
+        var result = new Dictionary<string, IDictionary<string, double?[]>>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var kvp in data.ByClass)
+        {
+            var classId = string.IsNullOrWhiteSpace(kvp.Key) ? "*" : kvp.Key.Trim();
+            var classData = kvp.Value;
+            if (classData is null)
+            {
+                continue;
+            }
+
+            var classSeries = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase);
+            AddSeriesIfAvailable(classSeries, "arrivals", classData.Arrivals);
+            AddSeriesIfAvailable(classSeries, "served", classData.Served);
+            AddSeriesIfAvailable(classSeries, "errors", classData.Errors);
+            AddSeriesIfAvailable(classSeries, "queue", classData.QueueDepth);
+            AddSeriesIfAvailable(classSeries, "capacity", classData.Capacity);
+            AddSeriesIfAvailable(classSeries, "processingTimeMsSum", classData.ProcessingTimeMsSum);
+            AddSeriesIfAvailable(classSeries, "servedCount", classData.ServedCount);
+
+            if (classSeries.Count > 0)
+            {
+                result[classId] = classSeries;
+            }
+        }
+
+        return result.Count == 0 ? null : result;
+
+        void AddSeriesIfAvailable(IDictionary<string, double?[]> target, string key, double[]? series)
+        {
+            if (series is null)
+            {
+                return;
+            }
+
+            var slice = ExtractSlice(series, startBin, count);
+            var hasValue = false;
+            for (var i = 0; i < slice.Length; i++)
+            {
+                if (slice[i].HasValue)
+                {
+                    hasValue = true;
+                    break;
+                }
+            }
+
+            if (hasValue)
+            {
+                target[key] = slice;
+            }
+        }
     }
 
     private static NodeTelemetryInfo BuildTelemetryInfo(Node node, RunManifestMetadata manifestMetadata, IReadOnlyList<ModeValidationWarning> nodeWarnings)
@@ -1687,7 +1846,148 @@ public sealed class StateQueryService
         };
     }
 
-    private static StateMetadata BuildMetadata(StateRunContext context)
+    private static IReadOnlyDictionary<string, NodeClassData>? ResolveClassData(
+        Node node,
+        NodeData data,
+        SeriesIndex seriesIndex,
+        string runDirectory,
+        int bins,
+        IReadOnlyDictionary<string, SeriesReference> seriesLookup,
+        ILogger logger)
+    {
+        if (seriesIndex.Series is null || seriesIndex.Series.Length == 0)
+        {
+            return null;
+        }
+
+        var byClass = new Dictionary<string, NodeClassData>(StringComparer.OrdinalIgnoreCase);
+
+        void Apply(string? semanticId, Func<NodeClassData, double[], NodeClassData> merge)
+        {
+            var componentId = ResolveComponentId(semanticId, seriesLookup);
+            if (string.IsNullOrWhiteSpace(componentId))
+            {
+                return;
+            }
+
+            var metricKey = NormalizeSeriesKey(semanticId ?? string.Empty);
+            var atIndexMetric = metricKey.IndexOf('@');
+            if (atIndexMetric >= 0)
+            {
+                metricKey = metricKey[..atIndexMetric];
+            }
+
+            foreach (var meta in seriesIndex.Series)
+            {
+                if (!string.Equals(meta.ComponentId, componentId, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                var metaKey = meta.Id;
+                var metaAt = metaKey.IndexOf('@');
+                if (metaAt >= 0)
+                {
+                    metaKey = metaKey[..metaAt];
+                }
+
+                if (!string.Equals(metaKey, metricKey, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                var path = Path.Combine(runDirectory, meta.Path.Replace('/', Path.DirectorySeparatorChar));
+                double[] series;
+                try
+                {
+                    series = CsvReader.ReadTimeSeries(path, bins);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogDebug(ex, "Failed to load class series {SeriesId} for node {NodeId}", meta.Id, node.Id);
+                    continue;
+                }
+
+                var classId = string.IsNullOrWhiteSpace(meta.Class) ? "*" : meta.Class.Trim();
+                var current = byClass.TryGetValue(classId, out var existing) ? existing : new NodeClassData();
+                byClass[classId] = merge(current, series);
+            }
+        }
+
+        Apply(node.Semantics.Arrivals, (current, series) => current with { Arrivals = series });
+        Apply(node.Semantics.Served, (current, series) => current with { Served = series });
+        Apply(node.Semantics.Errors, (current, series) => current with { Errors = series });
+        Apply(node.Semantics.QueueDepth, (current, series) => current with { QueueDepth = series });
+        Apply(node.Semantics.Capacity, (current, series) => current with { Capacity = series });
+        Apply(node.Semantics.ProcessingTimeMsSum, (current, series) => current with { ProcessingTimeMsSum = series });
+        Apply(node.Semantics.ServedCount, (current, series) => current with { ServedCount = series });
+
+        if (byClass.Count > 0)
+        {
+            logger.LogDebug("Loaded byClass metrics for node {NodeId}: classes={ClassCount}", node.Id, byClass.Count);
+        }
+
+        return byClass.Count == 0 ? null : byClass;
+    }
+
+    private static string? ResolveComponentId(string? semanticId, IReadOnlyDictionary<string, SeriesReference> seriesLookup)
+    {
+        if (string.IsNullOrWhiteSpace(semanticId))
+        {
+            return null;
+        }
+
+        var normalized = NormalizeSeriesKey(semanticId);
+        var key = normalized;
+        var atIndex = key.IndexOf('@');
+        if (atIndex >= 0)
+        {
+            key = key[..atIndex];
+        }
+
+        if (seriesLookup.TryGetValue(key, out var reference))
+        {
+            var component = ExtractComponentId(reference.Id);
+            if (!string.IsNullOrWhiteSpace(component))
+            {
+                return component;
+            }
+        }
+
+        var fallback = ExtractComponentId(normalized);
+        return string.IsNullOrWhiteSpace(fallback) ? null : fallback;
+    }
+
+    private static string NormalizeSeriesKey(string semanticId)
+    {
+        var trimmed = semanticId.Trim();
+        if (trimmed.StartsWith("file:", StringComparison.OrdinalIgnoreCase))
+        {
+            trimmed = trimmed["file:".Length..].TrimStart('/', '\\');
+        }
+
+        trimmed = Path.GetFileName(trimmed);
+
+        if (trimmed.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
+        {
+            trimmed = trimmed[..^4];
+        }
+
+        return trimmed;
+    }
+
+    private static string? ExtractComponentId(string? seriesId)
+    {
+        if (string.IsNullOrWhiteSpace(seriesId))
+        {
+            return null;
+        }
+
+        var parts = seriesId.Split('@');
+        return parts.Length >= 2 ? parts[1] : null;
+    }
+
+    private static StateMetadata BuildMetadata(StateRunContext context, string? classCoverage = null)
     {
         var metadata = context.ManifestMetadata;
         var telemetryResolved = metadata.TelemetrySources.Count > 0 &&
@@ -1712,7 +2012,8 @@ public sealed class StateQueryService
                 ModelPath = metadata.Storage.ModelPath,
                 MetadataPath = metadata.Storage.MetadataPath,
                 ProvenancePath = metadata.Storage.ProvenancePath
-            }
+            },
+            ClassCoverage = classCoverage
         };
     }
 

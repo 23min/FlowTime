@@ -194,6 +194,7 @@ public static class RunArtifactWriter
         var classEntries = modelDefinition.Classes
             .Select(c => new ManifestClassEntry { Id = c.Id, DisplayName = c.DisplayName, Description = c.Description })
             .ToList();
+        var classCoverage = classEntries.Count == 0 ? "missing" : "partial";
 
         var runJson = new RunJson
         {
@@ -211,6 +212,7 @@ public static class RunArtifactWriter
             },
             ScenarioHash = scenarioHash,
             ModelHash = modelHash,
+            ClassCoverage = classCoverage,
             Warnings = warningEntries,
             Series = seriesMetas.Select(m => new RunSeriesEntry { Id = m.Id, Path = m.Path, Unit = m.Unit }).ToList(),
             Classes = classEntries
@@ -229,6 +231,8 @@ public static class RunArtifactWriter
                 Timezone = "UTC"
             },
             Series = seriesMetas,
+            Classes = classEntries,
+            ClassCoverage = classCoverage,
             Formats = new FormatsJson
             {
                 AggregatesTable = new AggregatesTableJson
@@ -1098,6 +1102,7 @@ file sealed record RunJson
     public string? ModelHash { get; set; }
     public string ScenarioHash { get; set; } = "";
     public string CreatedUtc { get; set; } = DateTime.UtcNow.ToString("o");
+    public string? ClassCoverage { get; set; }
     public List<RunWarningEntry> Warnings { get; set; } = new();
     public List<RunSeriesEntry> Series { get; set; } = new();
     public List<ManifestClassEntry> Classes { get; set; } = new();
@@ -1147,7 +1152,7 @@ file sealed record ProvenanceRef
     [System.Text.Json.Serialization.JsonPropertyName("modelId")] public string? ModelId { get; set; }
     [System.Text.Json.Serialization.JsonPropertyName("templateId")] public string? TemplateId { get; set; }
 }
-file sealed record SeriesIndexJson { public int SchemaVersion { get; set; } public IndexGridJson Grid { get; set; } = new(); public List<SeriesMeta> Series { get; set; } = new(); public FormatsJson Formats { get; set; } = new(); }
+file sealed record SeriesIndexJson { public int SchemaVersion { get; set; } public IndexGridJson Grid { get; set; } = new(); public List<SeriesMeta> Series { get; set; } = new(); public FormatsJson Formats { get; set; } = new(); public List<ManifestClassEntry> Classes { get; set; } = new(); public string? ClassCoverage { get; set; } }
 file sealed record IndexGridJson { public int Bins { get; set; } public int BinSize { get; set; } public string BinUnit { get; set; } = "minutes"; public string Timezone { get; set; } = "UTC"; }
 file sealed record SeriesMeta { public string Id { get; set; } = ""; public string Kind { get; set; } = "flow"; public string Path { get; set; } = ""; public string Unit { get; set; } = ""; public string ComponentId { get; set; } = ""; public string Class { get; set; } = "DEFAULT"; public int Points { get; set; } public string Hash { get; set; } = ""; }
 file sealed record FormatsJson { public AggregatesTableJson AggregatesTable { get; set; } = new(); }

@@ -17,7 +17,8 @@
       "metadataPath": "<dynamic>",
       "provenancePath": "<dynamic>"
     },
-    "rng": null
+    "rng": null,
+    "classCoverage": "missing"
   },
   "window": {
     "startBin": 0,

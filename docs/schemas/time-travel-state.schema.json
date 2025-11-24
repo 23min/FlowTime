@@ -61,6 +61,7 @@
                 "telemetrySourcesResolved": { "type": "boolean" },
                 "schema": { "$ref": "#/$defs/schemaMetadata" },
                 "storage": { "$ref": "#/$defs/storageDescriptor" },
+                "classCoverage": { "type": ["string", "null"], "enum": ["full", "partial", "missing", null] },
                 "rng": {
                     "anyOf": [
                         { "type": "null" },
@@ -118,6 +119,10 @@
                 "id": { "$ref": "#/$defs/nodeId" },
                 "kind": { "type": "string", "minLength": 1 },
                 "metrics": { "$ref": "#/$defs/nodeMetrics" },
+                "byClass": {
+                    "type": "object",
+                    "additionalProperties": { "$ref": "#/$defs/classMetrics" }
+                },
                 "derived": { "$ref": "#/$defs/nodeDerivedMetrics" },
                 "telemetry": { "$ref": "#/$defs/nodeTelemetryInfo" },
                 "aliases": { "$ref": "#/$defs/aliasDictionary" }
@@ -134,6 +139,13 @@
                     "type": "object",
                     "minProperties": 1,
                     "additionalProperties": { "$ref": "#/$defs/numericSeries" }
+                },
+                "byClass": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "object",
+                        "additionalProperties": { "$ref": "#/$defs/numericSeries" }
+                    }
                 },
                 "telemetry": { "$ref": "#/$defs/nodeTelemetryInfo" },
                 "aliases": { "$ref": "#/$defs/aliasDictionary" }
@@ -174,6 +186,19 @@
                 "capacity": { "$ref": "#/$defs/nullableNumber" },
                 "externalDemand": { "$ref": "#/$defs/nullableNumber" },
                 "maxAttempts": { "$ref": "#/$defs/nullableNumber" }
+            }
+        },
+        "classMetrics": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "arrivals": { "$ref": "#/$defs/nullableNumber" },
+                "served": { "$ref": "#/$defs/nullableNumber" },
+                "errors": { "$ref": "#/$defs/nullableNumber" },
+                "queue": { "$ref": "#/$defs/nullableNumber" },
+                "capacity": { "$ref": "#/$defs/nullableNumber" },
+                "processingTimeMsSum": { "$ref": "#/$defs/nullableNumber" },
+                "servedCount": { "$ref": "#/$defs/nullableNumber" }
             }
         },
         "nodeDerivedMetrics": {
