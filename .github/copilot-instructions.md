@@ -5,7 +5,7 @@ Purpose: give AI assistants the minimum context to work safely and productively 
 ---
 
 ## 1. Tooling & Workflow Guardrails
-- Always use Serena MCP tools for navigation and edits (`serena__find_symbol`, `serena__read_file`, `serena__insert_after_symbol`, etc.); avoid whole-file reads unless necessary.
+- Use structured navigation/edit tools where available (e.g., Serena MCP in enabled environments: `serena__find_symbol`, `serena__read_file`, `serena__insert_after_symbol`, etc.); avoid whole-file reads unless necessary.
 - Do not stage, commit, push, or make network calls unless the user explicitly asks.
 - Prefer precise, symbol-level edits; stick to established patterns and avoid broad refactors without context.
 - Build and test before handing work back (`dotnet build FlowTime.sln`, `dotnet test FlowTime.sln`).
@@ -17,11 +17,11 @@ Purpose: give AI assistants the minimum context to work safely and productively 
 ---
 
 ## 2. Project Layout
-- `src/FlowTime.Core`, `src/FlowTime.API`, `src/FlowTime.CLI`, `src/FlowTime.Contracts`, `src/FlowTime.Adapters.Synthetic`: Engine surface.
+- `src/FlowTime.Core`, `src/FlowTime.API`, `src/FlowTime.Cli`, `src/FlowTime.Contracts`, `src/FlowTime.Adapters.Synthetic`: Engine surface.
 - `src/FlowTime.Sim.Core`, `src/FlowTime.Sim.Service`, `src/FlowTime.Sim.Cli`: Simulation surface.
-- `ui/FlowTime.UI`: Blazor WebAssembly UI.
+- `src/FlowTime.UI`, `src/FlowTime.UI.Tests`: Blazor WebAssembly UI.
 - Tests mirror project names under `tests/` (e.g., `tests/FlowTime.Core.Tests`, `tests/FlowTime.Sim.Tests`, `tests/FlowTime.Api.Tests`).
-- Documentation in `docs/` (Engine/shared) and `docs-sim/` (Sim-specific). Ignore `docs-sim/` content when providing context, summaries, or references unless the user explicitly instructs otherwise.
+- Documentation in `docs/` (Engine/shared); Sim-specific legacy docs are in `docs-sim/` (archived—ignore unless explicitly requested).
 - Devcontainer, scripts, GitHub workflows, and VS Code tasks are consolidated at repo root.
 
 ---
@@ -50,7 +50,7 @@ Purpose: give AI assistants the minimum context to work safely and productively 
 - When running APIs manually:
   - Engine: `dotnet run --project src/FlowTime.API` (exposes :8080).
   - Sim: `dotnet run --project src/FlowTime.Sim.Service` with `ASPNETCORE_URLS=http://0.0.0.0:8090`.
-  - UI: `dotnet run --project ui/FlowTime.UI`.
+- UI: `dotnet run --project src/FlowTime.UI`.
 
 ---
 

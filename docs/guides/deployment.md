@@ -6,9 +6,9 @@ For production deployments, use these port assignments to ensure compatibility w
 
 | Service | Development Port | Production Port | Notes |
 |---------|------------------|-----------------|-------|
-| **FlowTime API** | `8080` | `8080` | Standard for APIs |
+| **FlowTime Engine API** | `8080` | `8080` | Standard for APIs |
 | **FlowTime UI** | `5219` | `3000` | Standard for web apps |
-| **FlowTime.Sim API** | `8081` | `8081` | Avoid conflicts with main API |
+| **FlowTime Sim API** | `8090` | `8090` | Avoid conflicts with main API |
 
 ## **Container Deployment**
 
@@ -34,34 +34,68 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    networks:
+      - flowtime-net
+
+  flowtime-sim:
+    build:
+      context: .
+      dockerfile: src/FlowTime.Sim.Service/Dockerfile
+    ports:
+      - "8090:8090"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://*:8090
+    volumes:
+      - flowtime-sim-data:/app/data
+    depends_on:
+      - flowtime-api
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8090/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - flowtime-net
 
   flowtime-ui:
     build:
       context: .
-      dockerfile: ui/FlowTime.UI/Dockerfile
+      dockerfile: src/FlowTime.UI/Dockerfile
     ports:
       - "3000:3000"
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://*:3000
+      - FLOWTIME_API_BASE_URL=http://flowtime-api:8080/
+      - FLOWTIME_SIM_API_BASE_URL=http://flowtime-sim:8090/
     depends_on:
       - flowtime-api
+      - flowtime-sim
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000"]
       interval: 30s
       timeout: 10s
       retries: 3
+    networks:
+      - flowtime-net
 
 volumes:
   flowtime-data:
+  flowtime-sim-data:
+
+networks:
+  flowtime-net:
 ```
 
 ### Individual Container Deployment
 
-**FlowTime API**:
+**FlowTime Engine API**:
 ```bash
+docker network create flowtime-net
 docker run -d \
   --name flowtime-api \
+  --network flowtime-net \
   -p 8080:8080 \
   -e ASPNETCORE_ENVIRONMENT=Production \
   -e ASPNETCORE_URLS=http://*:8080 \
@@ -69,20 +103,42 @@ docker run -d \
   flowtime/api:latest
 ```
 
+**FlowTime Sim API**:
+```bash
+docker run -d \
+  --name flowtime-sim \
+  --network flowtime-net \
+  -p 8090:8090 \
+  -e ASPNETCORE_ENVIRONMENT=Production \
+  -e ASPNETCORE_URLS=http://*:8090 \
+  -v flowtime-sim-data:/app/data \
+  flowtime/sim:latest
+```
+
 **FlowTime UI**:
 ```bash
 docker run -d \
   --name flowtime-ui \
+  --network flowtime-net \
   -p 3000:3000 \
   -e ASPNETCORE_ENVIRONMENT=Production \
   -e ASPNETCORE_URLS=http://*:3000 \
-  --link flowtime-api \
+  -e FLOWTIME_API_BASE_URL=http://flowtime-api:8080/ \
+  -e FLOWTIME_SIM_API_BASE_URL=http://flowtime-sim:8090/ \
   flowtime/ui:latest
+```
+
+If you run the containers separately, create a shared network so they can resolve each other by name:
+```bash
+docker network create flowtime-net
+docker network connect flowtime-net flowtime-api
+docker network connect flowtime-net flowtime-sim
+docker network connect flowtime-net flowtime-ui
 ```
 
 ## **Environment Variables**
 
-### FlowTime API Production Configuration
+### FlowTime Engine API Production Configuration
 
 ```bash
 # Required
@@ -92,9 +148,6 @@ ASPNETCORE_URLS=http://*:8080
 # Optional
 FLOWTIME_DATA_DIR=/app/data
 FLOWTIME_LOG_LEVEL=Information
-
-# Database (if applicable)
-ConnectionStrings__DefaultConnection="Server=..."
 ```
 
 ### FlowTime UI Production Configuration
@@ -106,199 +159,7 @@ ASPNETCORE_URLS=http://*:3000
 
 # API Endpoints
 FLOWTIME_API_BASE_URL=http://flowtime-api:8080
-FLOWTIME_SIM_API_BASE_URL=http://flowtime-sim:8081
-```
-
-## **Kubernetes Deployment**
-
-### FlowTime API Deployment
-
-**`k8s/flowtime-api-deployment.yaml`**:
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: flowtime-api
-spec:
-  replicas: 3
-  selector:
-    matchLabels:
-      app: flowtime-api
-  template:
-    metadata:
-      labels:
-        app: flowtime-api
-    spec:
-      containers:
-      - name: flowtime-api
-        image: flowtime/api:latest
-        ports:
-        - containerPort: 8080
-        env:
-        - name: ASPNETCORE_ENVIRONMENT
-          value: "Production"
-        - name: ASPNETCORE_URLS
-          value: "http://*:8080"
-        volumeMounts:
-        - name: data-volume
-          mountPath: /app/data
-        livenessProbe:
-          httpGet:
-            path: /healthz
-            port: 8080
-          initialDelaySeconds: 30
-          periodSeconds: 10
-        readinessProbe:
-          httpGet:
-            path: /healthz
-            port: 8080
-          initialDelaySeconds: 5
-          periodSeconds: 5
-      volumes:
-      - name: data-volume
-        persistentVolumeClaim:
-          claimName: flowtime-data-pvc
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: flowtime-api-service
-spec:
-  selector:
-    app: flowtime-api
-  ports:
-  - protocol: TCP
-    port: 8080
-    targetPort: 8080
-  type: LoadBalancer
-```
-
-### FlowTime UI Deployment
-
-**`k8s/flowtime-ui-deployment.yaml`**:
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: flowtime-ui
-spec:
-  replicas: 2
-  selector:
-    matchLabels:
-      app: flowtime-ui
-  template:
-    metadata:
-      labels:
-        app: flowtime-ui
-    spec:
-      containers:
-      - name: flowtime-ui
-        image: flowtime/ui:latest
-        ports:
-        - containerPort: 3000
-        env:
-        - name: ASPNETCORE_ENVIRONMENT
-          value: "Production"
-        - name: ASPNETCORE_URLS
-          value: "http://*:3000"
-        - name: FLOWTIME_API_BASE_URL
-          value: "http://flowtime-api-service:8080"
-        livenessProbe:
-          httpGet:
-            path: /
-            port: 3000
-          initialDelaySeconds: 30
-          periodSeconds: 10
-        readinessProbe:
-          httpGet:
-            path: /
-            port: 3000
-          initialDelaySeconds: 5
-          periodSeconds: 5
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: flowtime-ui-service
-spec:
-  selector:
-    app: flowtime-ui
-  ports:
-  - protocol: TCP
-    port: 3000
-    targetPort: 3000
-  type: LoadBalancer
-```
-
-## **Reverse Proxy Configuration**
-
-### Nginx Configuration
-
-**`/etc/nginx/sites-available/flowtime`**:
-```nginx
-upstream flowtime_api {
-    server localhost:8080;
-}
-
-upstream flowtime_ui {
-    server localhost:3000;
-}
-
-server {
-    listen 80;
-    server_name flowtime.example.com;
-
-    # UI routes
-    location / {
-        proxy_pass http://flowtime_ui;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    # API routes
-    location /api/ {
-        proxy_pass http://flowtime_api/;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-```
-
-### Traefik Configuration
-
-**`docker-compose.yml` with Traefik**:
-```yaml
-version: '3.8'
-services:
-  traefik:
-    image: traefik:v2.10
-    command:
-      - "--api.insecure=true"
-      - "--providers.docker=true"
-      - "--entrypoints.web.address=:80"
-    ports:
-      - "80:80"
-      - "8080:8080"  # Traefik dashboard
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-
-  flowtime-api:
-    build: .
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.api.rule=Host(`flowtime.example.com`) && PathPrefix(`/api`)"
-      - "traefik.http.services.api.loadbalancer.server.port=8080"
-
-  flowtime-ui:
-    build: ./ui
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.ui.rule=Host(`flowtime.example.com`)"
-      - "traefik.http.services.ui.loadbalancer.server.port=3000"
+FLOWTIME_SIM_API_BASE_URL=http://flowtime-sim:8090
 ```
 
 ## **Production Monitoring**
@@ -306,6 +167,7 @@ services:
 ### Health Check Endpoints
 
 - **FlowTime API**: `GET /healthz`
+- **FlowTime Sim API**: `GET /healthz`
 - **FlowTime UI**: `GET /` (returns 200 for healthy UI)
 
 ### Logging Configuration
@@ -327,14 +189,6 @@ services:
 }
 ```
 
-### Metrics and Observability
-
-Consider integrating:
-- **Prometheus** for metrics collection
-- **Grafana** for dashboards
-- **Serilog** for structured logging
-- **Application Insights** for .NET monitoring
-
 ## **Security Considerations**
 
 ### Production Security Checklist
@@ -346,15 +200,6 @@ Consider integrating:
 - [ ] Enable request logging for auditing
 - [ ] Configure rate limiting
 - [ ] Use least-privilege container users
-
-### Example HTTPS Configuration
-
-```bash
-# Environment variables for HTTPS
-ASPNETCORE_URLS="https://*:443;http://*:80"
-ASPNETCORE_Kestrel__Certificates__Default__Path="/app/certificates/cert.pfx"
-ASPNETCORE_Kestrel__Certificates__Default__Password="certificate_password"
-```
 
 ## **Backup and Data Management**
 

@@ -1,8 +1,6 @@
 # Configuration Reference
 
-> **📋 Charter Context**: Configuration patterns described here support both legacy and charter workflows. Charter-specific configurations are documented in individual milestone specifications (M-02.07-M-02.09).
-
-FlowTime services support configuration through multiple methods with clear precedence rules.
+FlowTime services share a small set of configuration knobs with a consistent precedence model.
 
 ## Configuration Precedence
 
@@ -26,20 +24,24 @@ FlowTime services support configuration through multiple methods with clear prec
 ### **1. Configuration Precedence**
 ```
 1. FLOWTIME_DATA_DIR environment variable       [Highest Priority]
-2. ArtifactsDirectory in appsettings.json      [Configuration File]
-3. ./data                                       [Default]
+2. ArtifactsDirectory in appsettings*.json      [API only]
+3. Solution-root /data or CWD/data              [Default]
 ```
 
 ### **2. Environment Variable**
 - **Variable Name**: `FLOWTIME_DATA_DIR`
-- **Scope**: Both CLI and API respect this variable
-- **Usage**: Set to any absolute or relative path
+- **Scope**: Engine CLI, Sim CLI (via orchestrated runs), API, tests
+- **Usage**: Absolute or relative path; directories are created if missing.
 
-### **3. Configuration Files**
-- **API**: Uses `ArtifactsDirectory` field in `appsettings.json`
-- **CLI**: Uses environment variable or defaults to `./data`
+### **3. Configuration Files (API)**
+- `ArtifactsDirectory` in `appsettings.json` or `appsettings.Development.json`
+- Relative paths are resolved against the solution root; absolute paths are used as-is.
 
-### **4. Directory Structure**
+### **4. CLI Flags**
+- Engine CLI: `--out <dir>` overrides all other sources for that invocation.
+- Sim CLI orchestration inherits `FLOWTIME_DATA_DIR` for run output unless `--out` is provided by the engine CLI that performs the run.
+
+### **5. Directory Structure**
 ```
 FLOWTIME_DATA_DIR/
 └── run_TIMESTAMP_ID/
@@ -88,13 +90,8 @@ services:
       - flowtime-data:/app/data
 ```
 
-### **Development Environment**
-```json
-// appsettings.Development.json
-{
-  "ArtifactsDirectory": "/workspaces/flowtime-vnext/data"
-}
-```
+### **Development Environment (API)**
+`appsettings.Development.json` ships with `ArtifactsDirectory` pointing to `/workspaces/flowtime-vnext/data` inside the dev container. You can override with `FLOWTIME_DATA_DIR` locally.
 
 ## **✅ Configuration Methods**
 
@@ -103,14 +100,14 @@ services:
 export FLOWTIME_DATA_DIR="/var/lib/flowtime"
 ```
 
-### **Method 2: Configuration File (API Only)**
+### **Method 2: Configuration File (API only)**
 ```json
 {
   "ArtifactsDirectory": "/path/to/data"
 }
 ```
 
-### **Method 3: CLI Parameter (CLI Only)**
+### **Method 3: CLI Parameter (Engine CLI only)**
 ```bash
 dotnet run --project src/FlowTime.Cli -- run model.yaml --out /custom/path
 ```
@@ -125,12 +122,10 @@ dotnet run --project src/FlowTime.Cli -- run model.yaml --out /custom/path
 
 ## **✅ Testing Coverage**
 
-- ✅ Environment variable precedence
-- ✅ Configuration file fallback
-- ✅ Default directory behavior
-- ✅ Empty/whitespace environment variable handling
-- ✅ Relative and absolute path support
-- ✅ CLI parameter override functionality
+Automated tests cover configuration precedence and directory handling:
+- `tests/FlowTime.Api.Tests/ConfigurationTests.cs` exercises env var vs config vs default paths and whitespace handling.
+- `tests/FlowTime.Cli.Tests/OutputDirectoryConfigurationTests.cs` and `TelemetryRunCommandTests.cs` cover env var override, relative/absolute paths, and CLI `--out` priority.
+- Integration-style tests set `FLOWTIME_DATA_DIR` per-test to isolate artifacts (see `EnvVarScope` usage in CLI tests).
 
 ## **✅ Platform Integration**
 
@@ -148,10 +143,7 @@ systemctl start flowtime-api
 ```
 
 ### **Development Container**
-```bash
-# Configured in appsettings.Development.json
-FLOWTIME_DATA_DIR=/workspaces/flowtime-vnext/data
-```
+`FLOWTIME_DATA_DIR` is set to `/workspaces/flowtime-vnext/data` via `appsettings.Development.json`; override as needed with an environment variable.
 
 ## **✅ Configuration Validation**
 
@@ -170,3 +162,8 @@ FlowTime automatically:
 4. **Configure appsettings** for development environments
 5. **Ensure write permissions** on target directories
 6. **Use absolute paths** in production for clarity
+
+## Templates Directory (orchestrated runs)
+- Environment variable: `FLOWTIME_TEMPLATES_DIR`
+- Used by engine CLI orchestrated runs (`flowtime run --template-id ...`) and Sim CLI defaults.
+- If unset, defaults to `<repo>/templates` or `AppContext.BaseDirectory/templates` in packaged builds.
