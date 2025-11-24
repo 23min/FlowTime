@@ -10,6 +10,12 @@
   - **M-02.09.01.md** - Detailed implementation plan
 - **M-03.00.01.md** - 📋 Shared Expression Validation Library (Post-M-03.00 follow-up)
 
+### **Classes Epic (4.x)**
+- **CL-M-04.01.md** - 📋 Class Schema & Template Enablement
+- **CL-M-04.02.md** - 📋 Engine & State Aggregation for Classes
+- **CL-M-04.03.md** - 📋 UI Class-Aware Visualization
+- **CL-M-04.04.md** - 📋 Telemetry Contract & Loop Validation
+
 ### **UI Implementation Milestones**
 - **UI-M-02.07.md** - 📋 Artifacts Registry UI (Planned)
 - **UI-M-02.08.md** - � Charter Navigation & Tab Structure (Phase 1 ✅ Complete, Phases 2+ ❌ Postponed)
