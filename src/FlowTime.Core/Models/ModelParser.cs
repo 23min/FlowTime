@@ -290,6 +290,7 @@ public static class ModelParser
             "expr" => ParseExprNode(nodeDef),
             "pmf" => ParsePmfNode(nodeDef),
             "backlog" => ParseBacklogNode(nodeDef),
+            "router" => ParseRouterNode(nodeDef),
             _ => throw new ModelParseException($"Unknown node kind: {nodeDef.Kind}")
         };
     }
@@ -366,6 +367,35 @@ public static class ModelParser
         // Initial seed is injected later from topology (see ParseNodes(model))
         return new Nodes.BacklogNode(nodeDef.Id, new NodeId(inflowId), new NodeId(outflowId), loss, 0d);
     }
+
+    private static INode ParseRouterNode(NodeDefinition nodeDef)
+    {
+        var queueId = nodeDef.Router?.Inputs?.Queue;
+        if (string.IsNullOrWhiteSpace(queueId))
+        {
+            throw new ModelParseException($"Node {nodeDef.Id}: router nodes require inputs.queue");
+        }
+
+        if (nodeDef.Router?.Routes is not { Count: > 0 })
+        {
+            throw new ModelParseException($"Node {nodeDef.Id}: router nodes require at least one route");
+        }
+
+        foreach (var route in nodeDef.Router.Routes)
+        {
+            if (string.IsNullOrWhiteSpace(route.Target))
+            {
+                throw new ModelParseException($"Node {nodeDef.Id}: router routes must specify target");
+            }
+
+            if ((route.Classes is null || route.Classes.Length == 0) && (!route.Weight.HasValue || route.Weight.Value <= 0))
+            {
+                throw new ModelParseException($"Node {nodeDef.Id}: router route '{route.Target}' must declare classes or positive weight");
+            }
+        }
+
+        return new Nodes.RouterNode(nodeDef.Id, new NodeId(queueId));
+    }
 }
 
 /// <summary>
@@ -437,6 +467,26 @@ public class NodeDefinition
     public string? Inflow { get; set; }
     public string? Outflow { get; set; }
     public string? Loss { get; set; }
+    // For router nodes
+    public RouterDefinition? Router { get; set; }
+}
+
+public class RouterDefinition
+{
+    public RouterInputsDefinition Inputs { get; set; } = new();
+    public List<RouterRouteDefinition> Routes { get; set; } = new();
+}
+
+public class RouterInputsDefinition
+{
+    public string? Queue { get; set; }
+}
+
+public class RouterRouteDefinition
+{
+    public string Target { get; set; } = string.Empty;
+    public string[]? Classes { get; set; }
+    public double? Weight { get; set; }
 }
 
 public class PmfDefinition

@@ -27,6 +27,7 @@ internal static class ClassContributionBuilder
 
         var topologySeeds = ExtractBacklogSeeds(model);
         var nodeDefinitions = model.Nodes.ToDictionary(n => n.Id, StringComparer.OrdinalIgnoreCase);
+        var routerSpecs = BuildRouterSpecifications(model);
         var parsedNodes = ModelParser.ParseNodes(model);
         var graph = new Graph(parsedNodes);
         var order = graph.TopologicalOrder();
@@ -63,6 +64,8 @@ internal static class ClassContributionBuilder
             contributions[nodeId] = series;
         }
 
+        ApplyRouterContributions(routerSpecs, grid, totals, contributions);
+
         var result = new Dictionary<NodeId, IReadOnlyDictionary<string, double[]>>();
         foreach (var (nodeId, series) in contributions)
         {
@@ -78,6 +81,131 @@ internal static class ClassContributionBuilder
         }
 
         return result;
+    }
+
+    private static Dictionary<NodeId, RouterSpec> BuildRouterSpecifications(ModelDefinition model)
+    {
+        var specs = new Dictionary<NodeId, RouterSpec>(new NodeIdComparer());
+        foreach (var node in model.Nodes.Where(n => string.Equals(n.Kind, "router", StringComparison.OrdinalIgnoreCase)))
+        {
+            if (node.Router?.Inputs?.Queue is null || node.Router.Routes is null)
+            {
+                continue;
+            }
+
+            var routes = new List<RouterRouteSpec>();
+            foreach (var route in node.Router.Routes)
+            {
+                if (string.IsNullOrWhiteSpace(route.Target))
+                {
+                    continue;
+                }
+
+                var classes = route.Classes?
+                    .Where(c => !string.IsNullOrWhiteSpace(c))
+                    .Select(c => c.Trim())
+                    .ToArray() ?? Array.Empty<string>();
+
+                var weight = route.Weight ?? 1d;
+                routes.Add(new RouterRouteSpec(new NodeId(route.Target), classes, weight));
+            }
+
+            if (routes.Count == 0)
+            {
+                continue;
+            }
+
+            specs[new NodeId(node.Id)] = new RouterSpec(new NodeId(node.Id), new NodeId(node.Router.Inputs.Queue), routes);
+        }
+
+        return specs;
+    }
+
+    private static void ApplyRouterContributions(
+        IReadOnlyDictionary<NodeId, RouterSpec> routerSpecs,
+        TimeGrid grid,
+        IReadOnlyDictionary<NodeId, double[]> totals,
+        Dictionary<NodeId, ClassSeries> contributions)
+    {
+        foreach (var spec in routerSpecs.Values)
+        {
+            var overrides = EvaluateRouterRoutes(spec, grid, totals, contributions);
+            foreach (var (targetId, series) in overrides)
+            {
+                contributions[targetId] = series;
+            }
+
+            contributions[spec.RouterId] = GetRouterSeries(spec, grid, totals, contributions);
+        }
+    }
+
+    private static Dictionary<NodeId, ClassSeries> EvaluateRouterRoutes(
+        RouterSpec spec,
+        TimeGrid grid,
+        IReadOnlyDictionary<NodeId, double[]> totals,
+        IReadOnlyDictionary<NodeId, ClassSeries> contributions)
+    {
+        var result = new Dictionary<NodeId, ClassSeries>(new NodeIdComparer());
+        var source = GetSourceSeries(spec.SourceId, grid.Length, totals, contributions);
+        var remainder = CloneClassDictionary(source.ByClass);
+
+        var classRoutes = spec.Routes.Where(r => r.Classes.Count > 0).ToList();
+        foreach (var route in classRoutes)
+        {
+            var dict = new Dictionary<string, double[]>(StringComparer.OrdinalIgnoreCase);
+            foreach (var classId in route.Classes)
+            {
+                if (source.ByClass.TryGetValue(classId, out var series))
+                {
+                    dict[classId] = (double[])series.Clone();
+                }
+                else
+                {
+                    dict[classId] = new double[grid.Length];
+                }
+
+                remainder.Remove(classId);
+            }
+
+            var total = GetTotalsCopy(route.TargetId, totals, grid.Length);
+            ClassSeries.NormalizeToTotal(dict, total);
+            result[route.TargetId] = new ClassSeries(total, dict);
+        }
+
+        var weightRoutes = spec.Routes.Where(r => r.Classes.Count == 0).ToList();
+        if (weightRoutes.Count > 0)
+        {
+            var totalWeight = weightRoutes.Sum(r => r.Weight);
+            if (totalWeight <= 0)
+            {
+                totalWeight = weightRoutes.Count;
+            }
+
+            foreach (var route in weightRoutes)
+            {
+                var fraction = totalWeight <= 0 ? 0d : route.Weight / totalWeight;
+                var dict = new Dictionary<string, double[]>(StringComparer.OrdinalIgnoreCase);
+                foreach (var (classId, series) in remainder)
+                {
+                    dict[classId] = ScaleSeries(series, fraction);
+                }
+
+                var total = GetTotalsCopy(route.TargetId, totals, grid.Length);
+                ClassSeries.NormalizeToTotal(dict, total);
+                result[route.TargetId] = new ClassSeries(total, dict);
+            }
+        }
+
+        return result;
+    }
+
+    private static ClassSeries GetRouterSeries(
+        RouterSpec spec,
+        TimeGrid grid,
+        IReadOnlyDictionary<NodeId, double[]> totals,
+        IReadOnlyDictionary<NodeId, ClassSeries> contributions)
+    {
+        return GetSourceSeries(spec.SourceId, grid.Length, totals, contributions);
     }
 
     private static Dictionary<string, double> ExtractBacklogSeeds(ModelDefinition model)
@@ -355,6 +483,70 @@ internal static class ClassContributionBuilder
         return new ClassSeries(total, dict);
     }
 
+    private static ClassSeries GetSourceSeries(
+        NodeId sourceId,
+        int length,
+        IReadOnlyDictionary<NodeId, double[]> totals,
+        IReadOnlyDictionary<NodeId, ClassSeries> contributions)
+    {
+        if (contributions.TryGetValue(sourceId, out var series))
+        {
+            return CloneSeries(series);
+        }
+
+        if (totals.TryGetValue(sourceId, out var total))
+        {
+            return ClassSeries.FromTotals(total);
+        }
+
+        return ClassSeries.Zero(length);
+    }
+
+    private static Dictionary<string, double[]> CloneClassDictionary(IReadOnlyDictionary<string, double[]> source)
+    {
+        var dict = new Dictionary<string, double[]>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (classId, series) in source)
+        {
+            dict[classId] = (double[])series.Clone();
+        }
+
+        return dict;
+    }
+
+    private static double[] ScaleSeries(double[] series, double fraction)
+    {
+        var clone = new double[series.Length];
+        for (var i = 0; i < series.Length; i++)
+        {
+            clone[i] = series[i] * fraction;
+        }
+
+        return clone;
+    }
+
+    private static double[] GetTotalsCopy(NodeId nodeId, IReadOnlyDictionary<NodeId, double[]> totals, int length)
+    {
+        if (totals.TryGetValue(nodeId, out var total))
+        {
+            return (double[])total.Clone();
+        }
+
+        return new double[length];
+    }
+
+    private sealed record RouterSpec(NodeId RouterId, NodeId SourceId, IReadOnlyList<RouterRouteSpec> Routes);
+
+    private sealed record RouterRouteSpec(NodeId TargetId, IReadOnlyList<string> Classes, double Weight);
+
+    private sealed class NodeIdComparer : IEqualityComparer<NodeId>
+    {
+        public bool Equals(NodeId x, NodeId y) =>
+            string.Equals(x.Value, y.Value, StringComparison.OrdinalIgnoreCase);
+
+        public int GetHashCode(NodeId obj) =>
+            obj.Value?.ToLowerInvariant().GetHashCode() ?? 0;
+    }
+
     private sealed class ClassSeries
     {
         public double[] Total { get; }
@@ -385,7 +577,7 @@ internal static class ClassContributionBuilder
         {
             var total = Combine(left.Total, right.Total, (a, b) => a + b);
             var dict = Merge(left.ByClass, right.ByClass, (a, b) => a + b, total.Length);
-            NormalizeToTotal(dict, total);
+            ClassSeries.NormalizeToTotal(dict, total);
             return new ClassSeries(total, dict);
         }
 
@@ -393,7 +585,7 @@ internal static class ClassContributionBuilder
         {
             var total = Combine(left.Total, right.Total, (a, b) => a - b);
             var dict = Merge(left.ByClass, right.ByClass, (a, b) => a - b, total.Length);
-            NormalizeToTotal(dict, total);
+            ClassSeries.NormalizeToTotal(dict, total);
             return new ClassSeries(total, dict);
         }
 
@@ -526,7 +718,7 @@ internal static class ClassContributionBuilder
                 dict[classId] = series;
             }
 
-            NormalizeToTotal(dict, totalSeries);
+            ClassSeries.NormalizeToTotal(dict, totalSeries);
             return new ClassSeries((double[])totalSeries.Clone(), dict);
         }
 
@@ -632,7 +824,7 @@ internal static class ClassContributionBuilder
                 }
             }
 
-            NormalizeToTotal(dict, result);
+            ClassSeries.NormalizeToTotal(dict, result);
             return new ClassSeries(result, dict);
         }
 
@@ -669,7 +861,7 @@ internal static class ClassContributionBuilder
             return null;
         }
 
-        private static void NormalizeToTotal(
+        internal static void NormalizeToTotal(
             IDictionary<string, double[]> contributions,
             double[] totals)
         {

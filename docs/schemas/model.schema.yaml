@@ -96,6 +96,8 @@ properties:
             - const
             - expr
             - pmf
+            - backlog
+            - router
           description: "Node type: constant values, expression, or probability mass function"
 
         # Properties for 'const' nodes
@@ -152,6 +154,37 @@ properties:
 
           additionalProperties: false
 
+        inputs:
+          type: object
+          description: "Router inputs configuration"
+          properties:
+            queue:
+              type: string
+              description: "Source node routed by this router"
+          additionalProperties: false
+
+        routes:
+          type: array
+          description: "Router routes mapping to downstream targets"
+          minItems: 1
+          items:
+            type: object
+            required:
+              - target
+            properties:
+              target:
+                type: string
+                description: "Target node receiving this route"
+              classes:
+                type: array
+                description: "Optional list of class IDs routed 100% to this target"
+                items:
+                  type: string
+              weight:
+                type: number
+                description: "Weight used to split remaining classes when no classes list is provided"
+            additionalProperties: false
+
       # Validation rules based on 'kind'
       allOf:
         # const nodes must have 'values', not 'expr' or 'pmf'
@@ -192,6 +225,25 @@ properties:
               anyOf:
                 - required: [values]
                 - required: [expr]
+
+        # router nodes require inputs.queue and at least one route
+        - if:
+            properties:
+              kind:
+                const: router
+          then:
+            required:
+              - inputs
+              - routes
+            properties:
+              inputs:
+                required:
+                  - queue
+              routes:
+                items:
+                  anyOf:
+                    - required: [classes]
+                    - required: [weight]
 
       additionalProperties: false
 

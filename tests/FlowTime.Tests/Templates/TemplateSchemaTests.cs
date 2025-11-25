@@ -98,4 +98,76 @@ traffic:
 
         Assert.True(result.IsValid, string.Join("; ", result.Errors));
     }
+
+    [Fact]
+    public void TemplateSchema_Allows_RouterDefinitions()
+    {
+        var yaml = """
+schemaVersion: 1
+classes:
+  - id: Airport
+  - id: Downtown
+grid:
+  bins: 3
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: hub_queue
+    kind: const
+    values: [10, 12, 14]
+  - id: airport_arrivals
+    kind: expr
+    expr: "hub_queue * 0.4"
+  - id: downtown_arrivals
+    kind: expr
+    expr: "hub_queue * 0.6"
+  - id: hub_router
+    kind: router
+    inputs:
+      queue: hub_queue
+    routes:
+      - target: airport_arrivals
+        classes: [Airport]
+      - target: downtown_arrivals
+        weight: 1
+traffic:
+  arrivals:
+    - nodeId: hub_queue
+      classId: Airport
+      pattern:
+        kind: constant
+        ratePerBin: 5
+""";
+
+        var result = ModelSchemaValidator.Validate(yaml);
+
+        Assert.True(result.IsValid, string.Join("; ", result.Errors));
+    }
+
+    [Fact]
+    public void TemplateSchema_Router_Requires_Target()
+    {
+        var yaml = """
+schemaVersion: 1
+grid:
+  bins: 2
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: hub_queue
+    kind: const
+    values: [10, 10]
+  - id: invalid_router
+    kind: router
+    inputs:
+      queue: hub_queue
+    routes:
+      - weight: 1
+""";
+
+        var result = ModelSchemaValidator.Validate(yaml);
+
+        Assert.False(result.IsValid);
+        Assert.Contains("routes", string.Join("; ", result.Errors), StringComparison.OrdinalIgnoreCase);
+    }
 }
