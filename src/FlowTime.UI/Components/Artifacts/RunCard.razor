@@ -71,11 +71,35 @@
                 </MudChip>
             </MudStack>
 
-            <MudText Typo="Typo.caption" Class="artifact-card-textline">@WarningsText</MudText>
+            <MudText Typo="Typo.caption"
+                     Class="artifact-card-textline"
+                     data-testid="artifact-class-coverage">@WarningsAndClassSummary</MudText>
 
             @if (!string.IsNullOrEmpty(TelemetryDetailLine))
             {
                 <MudText Typo="Typo.caption" Class="artifact-card-textline">@TelemetryDetailLine</MudText>
+            }
+
+            @if (HasClassInventory)
+            {
+                <MudDivider Class="artifact-card-divider" />
+                <MudStack Spacing="1" Class="artifact-class-section">
+                    <MudStack Row="true"
+                              Wrap="Wrap.Wrap"
+                              Class="artifact-class-chips">
+                        @foreach (var chip in BuildClassChips())
+                        {
+                            <MudChip T="string"
+                                     Variant="Variant.Outlined"
+                                     Size="Size.Small"
+                                     Color="Color.Default"
+                                     Class="artifact-class-chip"
+                                     data-testid="artifact-class-chip">
+                                @chip.Label
+                            </MudChip>
+                        }
+                    </MudStack>
+                </MudStack>
             }
         </div>
 
@@ -188,6 +212,49 @@
         }
     }
 
+    private IReadOnlyList<string> ClassList => Run.Classes ?? Array.Empty<string>();
+    private bool HasClassInventory => ClassList.Count > 0;
+    private IReadOnlyDictionary<string, string> ClassDisplayNames =>
+        Run.ClassDescriptions ?? EmptyClassDescriptions;
+    private static readonly IReadOnlyDictionary<string, string> EmptyClassDescriptions =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+    private string WarningsAndClassSummary
+    {
+        get
+        {
+            var warnings = WarningsText;
+            var classCount = ClassList.Count;
+            return $"{warnings} · Classes: {classCount}";
+        }
+    }
+
+    private IEnumerable<(string Id, string Label)> BuildClassChips()
+    {
+        foreach (var classId in ClassList)
+        {
+            yield return (classId, ResolveClassLabel(classId));
+        }
+    }
+
+    private string ResolveClassLabel(string classId)
+    {
+        if (IsDefaultClassId(classId))
+        {
+            return "Total";
+        }
+
+        if (ClassDisplayNames.TryGetValue(classId, out var label) && !string.IsNullOrWhiteSpace(label))
+        {
+            return label;
+        }
+
+        return classId;
+    }
+
+    private static bool IsDefaultClassId(string classId) =>
+        string.Equals(classId, "DEFAULT", StringComparison.OrdinalIgnoreCase);
+
     private static readonly Color[] AvatarPalette =
     {
         Color.Primary,
@@ -287,7 +354,7 @@
             builder.Append(". Telemetry ready.");
         }
         builder.Append(" ");
-        builder.Append(WarningsText);
+        builder.Append(WarningsAndClassSummary);
 
         return builder.ToString();
     }

@@ -94,4 +94,22 @@ public partial class Topology
     {
         UpdateActiveMetrics(bin);
     }
+
+    internal void TestSetClassSelection(IReadOnlyList<string> classes)
+    {
+        selectedClasses = classes;
+    }
+
+    internal IReadOnlyCollection<string> TestGetClassFilteredNodes() => classFilteredNodes;
+
+    internal IReadOnlyDictionary<string, NodeBinMetrics> TestGetActiveMetrics() => activeMetrics;
+
+    internal IReadOnlyList<ClassContribution> TestGetClassContributions(string nodeId)
+    {
+        return nodeClassContributions.TryGetValue(nodeId, out var list)
+            ? list
+            : Array.Empty<ClassContribution>();
+    }
+
+    internal string TestBuildFilteredCsv() => BuildFilteredCsvContent();
 }

@@ -298,6 +298,8 @@ public class SeriesIndex
     public SimGridInfo Grid { get; set; } = new();
     public List<SeriesInfo> Series { get; set; } = new();
     public FormatsInfo Formats { get; set; } = new();
+    public List<ManifestClassEntry> Classes { get; set; } = new();
+    public string? ClassCoverage { get; set; }
 }
 
 public class SimGridInfo
@@ -332,6 +334,13 @@ public class SeriesInfo
     public string Class { get; set; } = string.Empty;
     public int Points { get; set; }
     public string Hash { get; set; } = string.Empty;
+}
+
+public class ManifestClassEntry
+{
+    public string Id { get; set; } = string.Empty;
+    public string? DisplayName { get; set; }
+    public string? Description { get; set; }
 }
 
 public class FormatsInfo

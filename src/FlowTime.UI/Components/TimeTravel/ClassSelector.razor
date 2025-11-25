@@ -1,0 +1,207 @@
+@using FlowTime.UI.TimeTravel
+@namespace FlowTime.UI.Components.TimeTravel
+@inject NavigationManager Navigation
+
+@if (orderedClasses.Count == 0)
+{
+    <div class="class-selector-empty" data-testid="class-selector-empty">
+        Single-class model (default)
+    </div>
+}
+else
+{
+    <div class="class-selector" role="group" aria-label="Select flow class">
+        <button type="button"
+                class="@GetChipClass(IsAllSelected)"
+                aria-pressed="@GetPressed(IsAllSelected)"
+                data-testid="class-chip-all"
+                @onclick="SelectAllAsync">
+            All classes
+        </button>
+        @foreach (var classId in orderedClasses)
+        {
+            var isSelected = IsSelected(classId);
+            <button type="button"
+                    class="@GetChipClass(isSelected)"
+                    aria-pressed="@GetPressed(isSelected)"
+                    data-testid="@($"class-chip-{classId}")"
+                    @onclick="() => ToggleClassAsync(classId)">
+                @GetDisplayLabel(classId)
+            </button>
+        }
+    </div>
+}
+
+@code {
+    [Parameter]
+    public IReadOnlyList<string>? Classes { get; set; }
+
+    [Parameter]
+    public EventCallback<IReadOnlyList<string>> SelectionChanged { get; set; }
+
+    [Parameter]
+    public EventCallback<ClassSelectionMode> ModeChanged { get; set; }
+
+    [Parameter]
+    public string QueryKey { get; set; } = "classes";
+
+    [Parameter]
+    public IReadOnlyDictionary<string, string>? ClassDisplayNames { get; set; }
+
+    private IReadOnlyList<string> orderedClasses = Array.Empty<string>();
+    private ClassSelectionState selectionState = new(Array.Empty<string>());
+    private string? selectionSignature;
+
+    protected override void OnParametersSet()
+    {
+        orderedClasses = BuildOrderedList(Classes);
+        selectionState = new ClassSelectionState(orderedClasses);
+        selectionState.ApplyQueryValue(ReadQueryValue());
+
+        var signature = BuildSelectionSignature();
+        if (!string.Equals(selectionSignature, signature, StringComparison.Ordinal))
+        {
+            selectionSignature = signature;
+            _ = InvokeAsync(async () => await NotifySelectionChangedAsync().ConfigureAwait(false));
+        }
+    }
+
+    private static IReadOnlyList<string> BuildOrderedList(IReadOnlyList<string>? source)
+    {
+        if (source is null || source.Count == 0)
+        {
+            return Array.Empty<string>();
+        }
+
+        return source
+            .Where(c => !string.IsNullOrWhiteSpace(c))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(c => c, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private string? ReadQueryValue() =>
+        ReadQueryParameters().TryGetValue(QueryKey, out var value) ? value : null;
+
+    private bool IsSelected(string classId) =>
+        selectionState.SelectedClasses.Contains(classId, StringComparer.OrdinalIgnoreCase);
+
+    private bool IsAllSelected => selectionState.Mode == ClassSelectionMode.All;
+
+    private async Task SelectAllAsync()
+    {
+        selectionState.ApplyQueryValue(null);
+        await NotifySelectionChangedAsync().ConfigureAwait(false);
+    }
+
+    private async Task ToggleClassAsync(string classId)
+    {
+        selectionState.Toggle(classId);
+        await NotifySelectionChangedAsync().ConfigureAwait(false);
+    }
+
+    private async Task NotifySelectionChangedAsync()
+    {
+        UpdateNavigation();
+
+        if (SelectionChanged.HasDelegate)
+        {
+            await SelectionChanged.InvokeAsync(selectionState.SelectedClasses).ConfigureAwait(false);
+        }
+
+        if (ModeChanged.HasDelegate)
+        {
+            await ModeChanged.InvokeAsync(selectionState.Mode).ConfigureAwait(false);
+        }
+    }
+
+    private void UpdateNavigation()
+    {
+        var parsed = ReadQueryParameters();
+        var dict = parsed.ToDictionary(kvp => kvp.Key, kvp => (object?)kvp.Value, StringComparer.OrdinalIgnoreCase);
+        var value = selectionState.GetQueryValue();
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            dict.Remove(QueryKey);
+        }
+        else
+        {
+            dict[QueryKey] = value;
+        }
+
+        var target = Navigation.GetUriWithQueryParameters(GetBaseUri(), dict);
+        if (!string.Equals(target, Navigation.Uri, StringComparison.Ordinal))
+        {
+            Navigation.NavigateTo(target, replace: true);
+        }
+    }
+
+    private static string GetChipClass(bool isSelected) =>
+        isSelected ? "class-chip class-chip--selected" : "class-chip";
+
+    private static string GetPressed(bool value) => value ? "true" : "false";
+
+    private string BuildSelectionSignature()
+    {
+        if (orderedClasses.Count == 0)
+        {
+            return "none";
+        }
+
+        if (selectionState.Mode == ClassSelectionMode.All || selectionState.SelectedClasses.Count == 0)
+        {
+            return "all";
+        }
+
+        var joined = string.Join(",", selectionState.SelectedClasses);
+        return $"{selectionState.Mode}:{joined}";
+    }
+
+    private string GetDisplayLabel(string classId)
+    {
+        if (ClassDisplayNames is not null &&
+            ClassDisplayNames.TryGetValue(classId, out var label) &&
+            !string.IsNullOrWhiteSpace(label))
+        {
+            return label;
+        }
+
+        return classId;
+    }
+
+    private string GetBaseUri()
+    {
+        var uri = Navigation.Uri;
+        var questionMark = uri.IndexOf('?', StringComparison.Ordinal);
+        return questionMark >= 0 ? uri[..questionMark] : uri;
+    }
+
+    private Dictionary<string, string> ReadQueryParameters()
+    {
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        var query = uri.Query;
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (string.IsNullOrEmpty(query))
+        {
+            return result;
+        }
+
+        var trimmed = query.TrimStart('?');
+        var pairs = trimmed.Split('&', StringSplitOptions.RemoveEmptyEntries);
+        foreach (var pair in pairs)
+        {
+            var kvp = pair.Split('=', 2);
+            if (kvp.Length == 0 || string.IsNullOrWhiteSpace(kvp[0]))
+            {
+                continue;
+            }
+
+            var key = Uri.UnescapeDataString(kvp[0]);
+            var value = kvp.Length > 1 ? Uri.UnescapeDataString(kvp[1]) : string.Empty;
+            result[key] = value;
+        }
+
+        return result;
+    }
+}

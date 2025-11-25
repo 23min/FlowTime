@@ -34,6 +34,9 @@ public class FileSeriesReaderTests : IDisposable
         Assert.Equal("UTC", manifest.Grid.Timezone);
         Assert.Equal("left", manifest.Grid.Align);
         Assert.Equal(2, manifest.Series.Length);
+        Assert.Equal("missing", manifest.ClassCoverage);
+        Assert.NotNull(manifest.Classes);
+        Assert.Empty(manifest.Classes!);
     }
 
     [Fact]
@@ -46,6 +49,9 @@ public class FileSeriesReaderTests : IDisposable
         Assert.Equal(4, index.Grid.Bins);
         Assert.Equal(60, index.Grid.BinMinutes);
         Assert.Equal(2, index.Series.Length);
+        Assert.Equal("missing", index.ClassCoverage);
+        Assert.NotNull(index.Classes);
+        Assert.Empty(index.Classes!);
 
         var demandSeries = index.Series.First(s => s.Id.StartsWith("demand", StringComparison.OrdinalIgnoreCase));
         Assert.Equal("flow", demandSeries.Kind);
@@ -151,12 +157,7 @@ public class FileSeriesReaderTests : IDisposable
         rootDirectory = Path.Combine(Path.GetTempPath(), "flowtime-test-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(rootDirectory);
 
-        var grid = new TimeGrid
-        {
-            Bins = 4,
-            BinSize = 1,
-            BinUnit = "hours"
-        };
+        var grid = new FlowTime.Core.Models.TimeGrid(4, 1, TimeUnit.Hours);
 
         var model = new ModelDefinition
         {

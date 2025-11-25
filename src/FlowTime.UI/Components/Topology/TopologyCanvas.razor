@@ -13,9 +13,10 @@
             @foreach (var proxy in NodeProxies)
             {
                 <button type="button"
-                        class="topology-node-proxy"
+                        class="topology-node-proxy@(proxy.IsDimmed ? " topology-node-proxy--dimmed" : string.Empty)"
                         data-node-id="@proxy.Id"
                         data-focused="@(proxy.IsFocused ? "true" : "false")"
+                        data-dimmed="@(proxy.IsDimmed ? "true" : "false")"
                         style="@proxy.Style"
                         aria-label="@proxy.AriaLabel"
                         @onclick="() => SelectNode(proxy.Id)"

@@ -1,6 +1,6 @@
 # FlowTime Time‑Travel UI — Wireframes v3 (Minimal)
 Date: October 16, 2025
-Scope: Minimal set to ship quickly with gold data. This spec narrows the UI to three visualizations and a few shared components. No forecasting, no transactional drilldowns, no customer/class segmentation.
+ Scope: Minimal set to ship quickly with gold data. This spec narrows the UI to three visualizations and a few shared components. No forecasting or transactional drilldowns. **Update (CL‑M‑04.03):** class segmentation is now supported via a global selector + inspector chips.
 
 ---
 
@@ -25,11 +25,22 @@ Controls
 - Run selector: choose a run bundle.
 - Time range selector: presets (1h, 6h, 24h, 7d) or absolute Start/End. Used to scope queries to `startTimeUtc`/`endTimeUtc` (or bin range).
 - Filter: text (node id contains), optional status/type filters.
+- Class selector: `All`/single/multi (≤3). Persists to `?classes=` query string and updates Dashboard/Topology/Inspector without reloading data.
 - Scrubber: global time cursor; playback (▶) and step (←/→) control.
 
 Notes
 - All views listen to the global scrubber and range.
 - Keep the scrubber always visible (top bar) for tight feedback.
+
+### Class Selector & Inventory (New)
+
+- Run overview cards surface class coverage (`full`, `partial`, `missing`) and chips for each class. When a run is single-class the card states “Single-class model (default)”.
+- Selector requirements:
+  - Toggle between `All`, `Single`, and `Multi (max 3)` classes.
+  - Keyboard support (arrow keys navigation, enter/space to confirm) and `aria-label="Select flow class"`.
+  - Mirrors the selection in the query string (e.g., `/time-travel/topology?runId=...&classes=Order,Refund`) so deep links survive reloads.
+- Dimming: nodes without any selected-class volume are visually de-emphasized while remaining interactive. Tooltips clarify “No volume for selected class”.
+- Node inspector includes “Classes” chips sorted by arrivals, showing Arr/Srv/Err/Q metrics; selected classes render as filled chips and an overflow chip summarizes the remainder.
 
 ---
 
@@ -66,6 +77,7 @@ Interactions
 - Click node → opens Node Detail Panel (right side). Panel remains sticky across scrub changes, updating the charts.
 - Shift + drag canvas → lasso select (optional later). MVP: pan/zoom only.
 - Keyboard: `←/→` previous/next bin; `Space` play/pause.
+- Class filtering: canvas listens to selector and re-colors nodes using only selected classes; zero-volume nodes dim.
 
 Data binding
 - Topology: `graph.json` (nodes, edges, optional node `type`: `service|queue`).
@@ -143,6 +155,8 @@ Minimal Minigraph (SVG)
 
 Node Detail Panel
 - Opens when a node is clicked; sticky across scrubs. Shows current bin values and line charts for the selected range.
+- Class chips show Arr/Srv/Err/Q per class, highlight global selections, and collapse into “+N more” when >6 classes.
+- Include a “Download filtered CSV” action that exports per-class metrics for the active selector and visible window (mirrors what the charts use).
 
 Time Range Selector
 - Quick presets + absolute start/end. Drives data queries via `startTimeUtc` and `endTimeUtc` (or visible bin indices).
@@ -224,4 +238,3 @@ Out of scope (for now)
 ---
 
 End of Wireframes v3 (Minimal)
-

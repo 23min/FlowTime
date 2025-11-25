@@ -68,6 +68,9 @@ public sealed record TimeTravelStateMetadataDto
 
     [JsonPropertyName("storage")]
     public required TimeTravelStorageDescriptorDto Storage { get; init; }
+
+    [JsonPropertyName("classCoverage")]
+    public string? ClassCoverage { get; init; }
 }
 
 public sealed record TimeTravelSchemaMetadataDto
@@ -132,6 +135,10 @@ public sealed record TimeTravelNodeSnapshotDto
     [JsonPropertyName("metrics")]
     public TimeTravelNodeMetricsDto Metrics { get; init; } = new();
 
+    [JsonPropertyName("byClass")]
+    public IReadOnlyDictionary<string, TimeTravelClassMetricsDto> ByClass { get; init; } =
+        new Dictionary<string, TimeTravelClassMetricsDto>(StringComparer.OrdinalIgnoreCase);
+
     [JsonPropertyName("derived")]
     public TimeTravelNodeDerivedMetricsDto Derived { get; init; } = new();
 
@@ -152,6 +159,10 @@ public sealed record TimeTravelNodeSeriesDto
 
     [JsonPropertyName("series")]
     public IReadOnlyDictionary<string, double?[]> Series { get; init; } = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase);
+
+    [JsonPropertyName("byClass")]
+    public IReadOnlyDictionary<string, IReadOnlyDictionary<string, double?[]>> ByClass { get; init; } =
+        new Dictionary<string, IReadOnlyDictionary<string, double?[]>>(StringComparer.OrdinalIgnoreCase);
 
     [JsonPropertyName("telemetry")]
     public TimeTravelNodeTelemetryDto Telemetry { get; init; } = new();
@@ -224,6 +235,30 @@ public sealed record TimeTravelNodeMetricsDto
 
     [JsonPropertyName("maxAttempts")]
     public double? MaxAttempts { get; init; }
+}
+
+public sealed record TimeTravelClassMetricsDto
+{
+    [JsonPropertyName("arrivals")]
+    public double? Arrivals { get; init; }
+
+    [JsonPropertyName("served")]
+    public double? Served { get; init; }
+
+    [JsonPropertyName("errors")]
+    public double? Errors { get; init; }
+
+    [JsonPropertyName("queue")]
+    public double? Queue { get; init; }
+
+    [JsonPropertyName("capacity")]
+    public double? Capacity { get; init; }
+
+    [JsonPropertyName("processingTimeMsSum")]
+    public double? ProcessingTimeMsSum { get; init; }
+
+    [JsonPropertyName("servedCount")]
+    public double? ServedCount { get; init; }
 }
 
 public sealed record TimeTravelNodeDerivedMetricsDto

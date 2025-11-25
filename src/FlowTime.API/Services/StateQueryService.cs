@@ -57,6 +57,7 @@ public sealed class StateQueryService
         var flowLatency = ComputeFlowLatency(context);
         var nodeSnapshots = new List<NodeSnapshot>(capacity: context.Topology.Nodes.Count);
         var classCoverageStates = new List<ClassCoverage>(context.Topology.Nodes.Count);
+        var coverageDiagnostics = new List<ClassCoverageDiagnostic>(context.Topology.Nodes.Count);
         foreach (var topologyNode in context.Topology.Nodes)
         {
             if (!context.NodeData.TryGetValue(topologyNode.Id, out var data))
@@ -66,8 +67,17 @@ public sealed class StateQueryService
 
             flowLatency.TryGetValue(topologyNode.Id, out var nodeFlowLatency);
             var classAggregation = ClassMetricsAggregator.Aggregate(data, binIndex);
+            LogClassCoverageDiagnostics(context.Manifest.RunId, topologyNode, data, classAggregation);
+            if (classAggregation.Coverage != ClassCoverage.Full)
+            {
+                coverageDiagnostics.Add(new ClassCoverageDiagnostic(topologyNode.Id, classAggregation.Coverage, classAggregation.Warnings));
+            }
             classCoverageStates.Add(classAggregation.Coverage);
             nodeSnapshots.Add(BuildNodeSnapshot(topologyNode, data, context, binIndex, GetNodeWarnings(validation, topologyNode.Id), classAggregation, nodeFlowLatency));
+        }
+        if (coverageDiagnostics.Count > 0)
+        {
+            LogClassCoverageSummary(context.Manifest.RunId, "snapshot", binIndex, coverageDiagnostics);
         }
 
         logger.LogInformation(
@@ -149,6 +159,7 @@ public sealed class StateQueryService
         var flowLatency = ComputeFlowLatency(context);
         var seriesList = new List<NodeSeries>(capacity: topologyNodes.Count);
         var classCoverageStates = new List<ClassCoverage>(topologyNodes.Count);
+        var coverageDiagnostics = new List<ClassCoverageDiagnostic>(topologyNodes.Count);
         foreach (var topologyNode in topologyNodes)
         {
             if (!context.NodeData.TryGetValue(topologyNode.Id, out var data))
@@ -158,9 +169,18 @@ public sealed class StateQueryService
 
             flowLatency.TryGetValue(topologyNode.Id, out var nodeFlowLatency);
             var classAggregation = ClassMetricsAggregator.Aggregate(data, startBin);
+            LogClassCoverageDiagnostics(context.Manifest.RunId, topologyNode, data, classAggregation);
+            if (classAggregation.Coverage != ClassCoverage.Full)
+            {
+                coverageDiagnostics.Add(new ClassCoverageDiagnostic(topologyNode.Id, classAggregation.Coverage, classAggregation.Warnings));
+            }
             classCoverageStates.Add(classAggregation.Coverage);
             var mergedWarnings = MergeWarnings(GetNodeWarnings(validation, topologyNode.Id), classAggregation.Warnings, topologyNode.Id);
             seriesList.Add(BuildNodeSeries(topologyNode, data, context, startBin, count, mergedWarnings, nodeFlowLatency));
+        }
+        if (coverageDiagnostics.Count > 0)
+        {
+            LogClassCoverageSummary(context.Manifest.RunId, "window", startBin, coverageDiagnostics);
         }
 
         if (includeComputed)
@@ -663,6 +683,71 @@ public sealed class StateQueryService
             RetryBudgetRemaining = node.Semantics.RetryBudgetRemaining != null ? CreateSeries() : null
         };
     }
+
+    private void LogClassCoverageDiagnostics(
+        string runId,
+        Node node,
+        NodeData data,
+        ClassAggregationResult aggregation)
+    {
+        if (aggregation.Coverage == ClassCoverage.Full)
+        {
+            return;
+        }
+
+        var classList = data.ByClass is null || data.ByClass.Count == 0
+            ? "none"
+            : string.Join(", ", data.ByClass.Keys);
+
+        if (aggregation.Coverage == ClassCoverage.Missing)
+        {
+            logger.LogWarning(
+                "Class coverage missing for node {NodeId} in run {RunId}. Semantics arrivals={Arrivals}, served={Served}, errors={Errors}. Available class series: {Classes}",
+                node.Id,
+                runId,
+                node.Semantics?.Arrivals,
+                node.Semantics?.Served,
+                node.Semantics?.Errors,
+                classList);
+            return;
+        }
+
+        var warningCodes = aggregation.Warnings.Select(w => w.Code).ToArray();
+        var warningMessages = aggregation.Warnings.Select(w => w.Message).ToArray();
+        logger.LogWarning(
+            "Class coverage partial for node {NodeId} in run {RunId}. WarningCodes={WarningCodes}. Messages={WarningMessages}. Available class series: {Classes}",
+            node.Id,
+            runId,
+            warningCodes,
+            warningMessages,
+            classList);
+    }
+
+    private void LogClassCoverageSummary(
+        string runId,
+        string scope,
+        int binIndex,
+        IReadOnlyList<ClassCoverageDiagnostic> diagnostics)
+    {
+        var summary = diagnostics
+            .Select(d =>
+            {
+                var codes = d.Warnings.Count == 0
+                    ? "none"
+                    : string.Join(",", d.Warnings.Select(w => w.Code));
+                return $"{d.NodeId}:{d.Coverage}:{codes}";
+            })
+            .ToArray();
+
+        logger.LogWarning(
+            "Class coverage summary for run {RunId} ({Scope} bin={BinIndex}): {Summary}",
+            runId,
+            scope,
+            binIndex,
+            string.Join("; ", summary));
+    }
+
+    private sealed record ClassCoverageDiagnostic(string NodeId, ClassCoverage Coverage, IReadOnlyList<ModeValidationWarning> Warnings);
 
     private static NodeSeries BuildNodeSeries(Node node, NodeData data, StateRunContext context, int startBin, int count, IReadOnlyList<ModeValidationWarning> nodeWarnings, double?[]? flowLatencyForNode = null)
     {
@@ -1909,6 +1994,12 @@ public sealed class StateQueryService
                 }
 
                 var classId = string.IsNullOrWhiteSpace(meta.Class) ? "*" : meta.Class.Trim();
+                if (string.Equals(classId, "*", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(classId, "DEFAULT", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Skip totals; they are already represented in NodeData.Arrivals/Served/Errors arrays.
+                    continue;
+                }
                 var current = byClass.TryGetValue(classId, out var existing) ? existing : new NodeClassData();
                 byClass[classId] = merge(current, series);
             }

@@ -61,6 +61,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
     [Parameter] public bool InspectorVisible { get; set; }
     [Parameter] public EventCallback<string?> EdgeHovered { get; set; }
     [Parameter] public IReadOnlyDictionary<string, IReadOnlyList<NodeWarningPayload>> NodeWarnings { get; set; } = new Dictionary<string, IReadOnlyList<NodeWarningPayload>>(StringComparer.OrdinalIgnoreCase);
+    [Parameter] public IReadOnlyCollection<string>? DimmedNodes { get; set; }
     protected ElementReference canvasRef;
 
     protected bool HasVisibleNodes => filteredGraph is { Nodes.Count: > 0 };
@@ -115,7 +116,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         {
             preserveViewportHint = true;
         }
-        pendingRequest = BuildRenderRequest(filteredGraph, NodeMetrics, NodeSparklines, focusedNodeId, tooltipNodeId, OverlaySettings, ActiveBin, snapshotForRender, preserveViewport, Title, NodeWarnings, EdgeSeries, EdgeSeriesStartIndex);
+        pendingRequest = BuildRenderRequest(filteredGraph, NodeMetrics, NodeSparklines, focusedNodeId, tooltipNodeId, OverlaySettings, ActiveBin, snapshotForRender, preserveViewport, Title, NodeWarnings, EdgeSeries, EdgeSeriesStartIndex, DimmedNodes);
         lastSourceGraph = Graph;
         renderScheduled = true;
     }
@@ -308,7 +309,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             return;
         }
 
-        pendingRequest = BuildRenderRequest(filteredGraph, NodeMetrics, NodeSparklines, focusedNodeId, tooltipNodeId, OverlaySettings, ActiveBin, snapshot: pendingViewportSnapshot ?? RequestedViewport, preserveViewport: preserveViewportHint, title: Title, nodeWarningsMap: NodeWarnings, edgeSeries: EdgeSeries, edgeSeriesStartIndex: EdgeSeriesStartIndex);
+        pendingRequest = BuildRenderRequest(filteredGraph, NodeMetrics, NodeSparklines, focusedNodeId, tooltipNodeId, OverlaySettings, ActiveBin, snapshot: pendingViewportSnapshot ?? RequestedViewport, preserveViewport: preserveViewportHint, title: Title, nodeWarningsMap: NodeWarnings, edgeSeries: EdgeSeries, edgeSeriesStartIndex: EdgeSeriesStartIndex, dimmedNodes: DimmedNodes);
         renderScheduled = true;
     }
 
@@ -541,7 +542,9 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             var isFocused = !string.IsNullOrWhiteSpace(selectedId) &&
                             node.Id.Equals(selectedId, StringComparison.OrdinalIgnoreCase);
 
-            proxies.Add(new NodeProxyViewModel(node.Id, style, aria, isFocused));
+            var isDimmed = DimmedNodes?.Contains(node.Id) == true;
+
+            proxies.Add(new NodeProxyViewModel(node.Id, style, aria, isFocused, isDimmed));
         }
 
         return proxies;
@@ -560,7 +563,8 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         string? title,
         IReadOnlyDictionary<string, IReadOnlyList<NodeWarningPayload>>? nodeWarningsMap,
         IReadOnlyList<TimeTravelEdgeSeriesDto>? edgeSeries,
-        int edgeSeriesStartIndex)
+        int edgeSeriesStartIndex,
+        IReadOnlyCollection<string>? dimmedNodes)
     {
         var thresholds = ColorScale.ColorThresholds.FromOverlay(overlays);
         var outgoingGroups = graph.Edges
@@ -600,8 +604,9 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                             StringComparer.OrdinalIgnoreCase));
                 }
 
-                var fill = DetermineFillColor(node, nodeMetrics, overlays, thresholds, rawSparkline, selectedBin);
-                var stroke = ColorScale.GetStroke(nodeMetrics);
+                var isDimmed = dimmedNodes?.Contains(node.Id) == true;
+                var fill = DetermineFillColor(node, nodeMetrics, overlays, thresholds, rawSparkline, selectedBin, isDimmed);
+                var stroke = isDimmed ? "rgba(148, 163, 184, 0.8)" : ColorScale.GetStroke(nodeMetrics);
                 var isFocused = !string.IsNullOrWhiteSpace(focusedNode) &&
                     node.Id.Equals(focusedNode, StringComparison.OrdinalIgnoreCase);
 
@@ -867,8 +872,14 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         TopologyOverlaySettings overlays,
         ColorScale.ColorThresholds thresholds,
         NodeSparklineData? sparkline,
-        int selectedBin)
+        int selectedBin,
+        bool isDimmed)
     {
+        if (isDimmed)
+        {
+            return "rgba(148, 163, 184, 0.35)";
+        }
+
         var fill = ColorScale.GetFill(metrics, overlays.ColorBasis, thresholds);
 
         var sampled = SampleSparklineValue(sparkline, overlays.ColorBasis, selectedBin);
@@ -1214,7 +1225,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         dotNetRef = null;
     }
 
-    protected sealed record NodeProxyViewModel(string Id, string Style, string AriaLabel, bool IsFocused);
+    protected sealed record NodeProxyViewModel(string Id, string Style, string AriaLabel, bool IsFocused, bool IsDimmed);
 
     [JSInvokable]
     public Task OnCanvasZoomChanged(double zoomPercent)

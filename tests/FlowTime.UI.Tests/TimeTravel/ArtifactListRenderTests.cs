@@ -170,6 +170,41 @@ public sealed class ArtifactListRenderTests : TestContext
         });
     }
 
+    [Fact]
+    public void RunCardsSurfaceClassCoverage()
+    {
+        navigation.NavigateTo("http://localhost/time-travel/artifacts");
+        var runs = CreateRuns();
+        var classDescriptions = new Dictionary<string, string>
+        {
+            ["order"] = "Order",
+            ["refund"] = "Refund"
+        };
+
+        var enriched = runs[0] with
+        {
+            Classes = new[] { "order", "refund" },
+            ClassCoverage = "full",
+            ClassDescriptions = classDescriptions
+        };
+
+        runDiscovery.SetRuns(new[] { enriched });
+        SetupLocalStorage();
+
+        var cut = RenderArtifactList();
+
+        cut.WaitForAssertion(() =>
+        {
+            var coverage = cut.Find("[data-testid='artifact-class-coverage']");
+            Assert.Contains("Warnings: None", coverage.TextContent, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("Classes: 2", coverage.TextContent, StringComparison.OrdinalIgnoreCase);
+
+            var chips = cut.FindAll("[data-testid='artifact-class-chip']");
+            Assert.Equal(2, chips.Count);
+            Assert.Contains("Order", chips[0].TextContent, StringComparison.OrdinalIgnoreCase);
+        });
+    }
+
     private void SetupLocalStorage()
     {
         JSInterop.Setup<string?>("localStorage.getItem", call =>

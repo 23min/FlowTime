@@ -81,6 +81,10 @@ public static class RunArtifactWriter
         ArgumentNullException.ThrowIfNull(request);
 
         var modelDto = (dynamic)request.Model;
+        if (request.Grid is not TimeGrid grid)
+        {
+            throw new InvalidOperationException("RunArtifactWriter requires TimeGrid for the Grid field.");
+        }
         var gridDto = (dynamic)request.Grid;
 
         // Build a mutable context and precompute any derived series (e.g., true SHIFT-based queue depth)
@@ -148,6 +152,13 @@ public static class RunArtifactWriter
 
         var seriesMetas = new List<SeriesMeta>();
         var seriesHashes = new Dictionary<string, string>(StringComparer.Ordinal);
+        var classAssignments = BuildClassAssignments(modelDefinition);
+        IReadOnlyDictionary<NodeId, IReadOnlyDictionary<string, double[]>> classSeries = new Dictionary<NodeId, IReadOnlyDictionary<string, double[]>>();
+        if (classAssignments.Count > 0)
+        {
+            classSeries = ClassContributionBuilder.Build(modelDefinition, grid, effectiveContext, classAssignments);
+        }
+        var capturedClasses = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var descriptor in seriesDescriptorList)
         {
@@ -158,19 +169,7 @@ public static class RunArtifactWriter
 
             var path = Path.Combine(seriesDir, descriptor.CsvFileName);
 
-            await using (var writer = new StreamWriter(path, false, Encoding.UTF8, 4096))
-            {
-                writer.NewLine = "\n";
-                await writer.WriteLineAsync("bin_index,value");
-                for (var t = 0; t < seriesData.Length; t++)
-                {
-                    await writer.WriteAsync(t.ToString(CultureInfo.InvariantCulture));
-                    await writer.WriteAsync(',');
-                    await writer.WriteAsync(seriesData[t].ToString(CultureInfo.InvariantCulture));
-                    await writer.WriteAsync('\n');
-                }
-            }
-
+            await WriteSeriesCsvAsync(path, seriesData);
             var hash = await ComputeFileHashAsync(path);
             seriesHashes[descriptor.SeriesId] = hash;
             seriesMetas.Add(new SeriesMeta
@@ -185,6 +184,36 @@ public static class RunArtifactWriter
                 Hash = hash
             });
 
+            if (classSeries.TryGetValue(descriptor.NodeId, out var perClass) &&
+                perClass.Count > 0)
+            {
+                foreach (var (classId, classValues) in perClass)
+                {
+                    if (!HasFiniteValues(classValues))
+                    {
+                        continue;
+                    }
+
+                    var classDescriptor = descriptor.ForClass(classId);
+                    var classPath = Path.Combine(seriesDir, classDescriptor.CsvFileName);
+                    await WriteSeriesCsvAsync(classPath, classValues);
+                    var classHash = await ComputeFileHashAsync(classPath);
+                    seriesHashes[classDescriptor.SeriesId] = classHash;
+                    seriesMetas.Add(new SeriesMeta
+                    {
+                        Id = classDescriptor.SeriesId,
+                        Kind = "flow",
+                        Path = classDescriptor.RootRelativePath,
+                        Unit = "entities/bin",
+                        ComponentId = classDescriptor.ComponentId,
+                        Class = classId,
+                        Points = classValues.Length,
+                        Hash = classHash
+                    });
+                    capturedClasses.Add(classId);
+                }
+            }
+
             if (request.Verbose)
             {
                 Console.WriteLine($"  Wrote {descriptor.CsvFileName} ({seriesData.Length} rows)");
@@ -194,7 +223,7 @@ public static class RunArtifactWriter
         var classEntries = modelDefinition.Classes
             .Select(c => new ManifestClassEntry { Id = c.Id, DisplayName = c.DisplayName, Description = c.Description })
             .ToList();
-        var classCoverage = classEntries.Count == 0 ? "missing" : "partial";
+        var classCoverage = DetermineClassCoverage(classEntries, capturedClasses);
 
         var runJson = new RunJson
         {
@@ -579,7 +608,17 @@ public static class RunArtifactWriter
         string ComponentId,
         string CsvFileName,
         string RootRelativePath,
-        string ModelRelativePath);
+        string ModelRelativePath)
+    {
+        public SeriesDescriptor ForClass(string classId)
+        {
+            var classSeriesId = $"{NodeId.Value}@{ComponentId}@{classId}";
+            var csvName = $"{classSeriesId}.csv";
+            var relativePath = $"series/{csvName}";
+            var modelRelativePath = $"../series/{csvName}";
+            return new SeriesDescriptor(NodeId, classSeriesId, ComponentId, csvName, relativePath, modelRelativePath);
+        }
+    }
 
     private static SeriesDescriptor CreateSeriesDescriptor(NodeId nodeId)
     {
@@ -1089,10 +1128,86 @@ public static class RunArtifactWriter
         var bytes = Encoding.UTF8.GetBytes(canonicalInput);
         return "sha256:" + Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
     }
+
+    private static async Task WriteSeriesCsvAsync(string path, double[] series)
+    {
+        await using var writer = new StreamWriter(path, false, Encoding.UTF8, 4096);
+        writer.NewLine = "\n";
+        await writer.WriteLineAsync("bin_index,value");
+        for (var t = 0; t < series.Length; t++)
+        {
+            await writer.WriteAsync(t.ToString(CultureInfo.InvariantCulture));
+            await writer.WriteAsync(',');
+            await writer.WriteAsync(series[t].ToString(CultureInfo.InvariantCulture));
+            await writer.WriteAsync('\n');
+        }
+    }
+
+    private static bool HasFiniteValues(double[] series)
+    {
+        foreach (var value in series)
+        {
+            if (double.IsFinite(value))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static IReadOnlyDictionary<NodeId, string> BuildClassAssignments(ModelDefinition model)
+    {
+        var map = new Dictionary<NodeId, string>(new NodeIdComparer());
+        if (model.Traffic?.Arrivals is not { Count: > 0 })
+        {
+            return map;
+        }
+
+        foreach (var arrival in model.Traffic.Arrivals)
+        {
+            if (string.IsNullOrWhiteSpace(arrival.NodeId) || string.IsNullOrWhiteSpace(arrival.ClassId))
+            {
+                continue;
+            }
+
+            map[new NodeId(arrival.NodeId)] = arrival.ClassId.Trim();
+        }
+
+        return map;
+    }
+
+    private static string DetermineClassCoverage(
+        IReadOnlyCollection<ManifestClassEntry> declared,
+        IReadOnlyCollection<string> captured)
+    {
+        if (declared.Count == 0)
+        {
+            return "missing";
+        }
+
+        if (captured.Count == 0)
+        {
+            return "missing";
+        }
+
+        var declaredSet = new HashSet<string>(declared.Select(c => c.Id), StringComparer.OrdinalIgnoreCase);
+        var capturedSet = new HashSet<string>(captured, StringComparer.OrdinalIgnoreCase);
+
+        return capturedSet.IsSupersetOf(declaredSet) && capturedSet.Count == declaredSet.Count
+            ? "full"
+            : "partial";
+    }
+
+    private sealed class NodeIdComparer : IEqualityComparer<NodeId>
+    {
+        public bool Equals(NodeId x, NodeId y) => string.Equals(x.Value, y.Value, StringComparison.OrdinalIgnoreCase);
+        public int GetHashCode(NodeId obj) => obj.Value?.ToLowerInvariant().GetHashCode() ?? 0;
+    }
 }
 
 // DTOs for JSON artifacts
-file sealed record RunJson
+internal sealed record RunJson
 {
     public int SchemaVersion { get; set; }
     public string RunId { get; set; } = "";
@@ -1108,7 +1223,7 @@ file sealed record RunJson
     public List<ManifestClassEntry> Classes { get; set; } = new();
 }
 
-file sealed record RunWarningEntry
+internal sealed record RunWarningEntry
 {
     public string Code { get; set; } = "";
     public string Message { get; set; } = "";
@@ -1118,9 +1233,9 @@ file sealed record RunWarningEntry
     public string Severity { get; set; } = "warning";
 }
 
-file sealed record GridJson { public int Bins { get; set; } public int BinSize { get; set; } public string BinUnit { get; set; } = "minutes"; public string Timezone { get; set; } = "UTC"; public string Align { get; set; } = "left"; }
-file sealed record RunSeriesEntry { public string Id { get; set; } = ""; public string Path { get; set; } = ""; public string Unit { get; set; } = ""; }
-file sealed record ManifestJson 
+internal sealed record GridJson { public int Bins { get; set; } public int BinSize { get; set; } public string BinUnit { get; set; } = "minutes"; public string Timezone { get; set; } = "UTC"; public string Align { get; set; } = "left"; }
+internal sealed record RunSeriesEntry { public string Id { get; set; } = ""; public string Path { get; set; } = ""; public string Unit { get; set; } = ""; }
+internal sealed record ManifestJson 
 { 
     [System.Text.Json.Serialization.JsonPropertyName("schemaVersion")] public int SchemaVersion { get; set; }
     [System.Text.Json.Serialization.JsonPropertyName("scenarioHash")] public string ScenarioHash { get; set; } = "";
@@ -1135,25 +1250,25 @@ file sealed record ManifestJson
     [System.Text.Json.Serialization.JsonPropertyName("classes")]
     public List<ManifestClassEntry> Classes { get; set; } = new();
 }
-file sealed record ManifestClassEntry
+internal sealed record ManifestClassEntry
 {
     public string Id { get; set; } = string.Empty;
     public string? DisplayName { get; set; }
     public string? Description { get; set; }
 }
-file sealed record RngJson 
+internal sealed record RngJson 
 { 
     [System.Text.Json.Serialization.JsonPropertyName("kind")] public string Kind { get; set; } = "pcg32";
     [System.Text.Json.Serialization.JsonPropertyName("seed")] public int Seed { get; set; }
 }
-file sealed record ProvenanceRef 
+internal sealed record ProvenanceRef 
 { 
     [System.Text.Json.Serialization.JsonPropertyName("hasProvenance")] public bool HasProvenance { get; set; }
     [System.Text.Json.Serialization.JsonPropertyName("modelId")] public string? ModelId { get; set; }
     [System.Text.Json.Serialization.JsonPropertyName("templateId")] public string? TemplateId { get; set; }
 }
-file sealed record SeriesIndexJson { public int SchemaVersion { get; set; } public IndexGridJson Grid { get; set; } = new(); public List<SeriesMeta> Series { get; set; } = new(); public FormatsJson Formats { get; set; } = new(); public List<ManifestClassEntry> Classes { get; set; } = new(); public string? ClassCoverage { get; set; } }
-file sealed record IndexGridJson { public int Bins { get; set; } public int BinSize { get; set; } public string BinUnit { get; set; } = "minutes"; public string Timezone { get; set; } = "UTC"; }
-file sealed record SeriesMeta { public string Id { get; set; } = ""; public string Kind { get; set; } = "flow"; public string Path { get; set; } = ""; public string Unit { get; set; } = ""; public string ComponentId { get; set; } = ""; public string Class { get; set; } = "DEFAULT"; public int Points { get; set; } public string Hash { get; set; } = ""; }
-file sealed record FormatsJson { public AggregatesTableJson AggregatesTable { get; set; } = new(); }
-file sealed record AggregatesTableJson { public string Path { get; set; } = "aggregates/node_time_bin.parquet"; public string[] Dimensions { get; set; } = Array.Empty<string>(); public string[] Measures { get; set; } = Array.Empty<string>(); }
+internal sealed record SeriesIndexJson { public int SchemaVersion { get; set; } public IndexGridJson Grid { get; set; } = new(); public List<SeriesMeta> Series { get; set; } = new(); public FormatsJson Formats { get; set; } = new(); public List<ManifestClassEntry> Classes { get; set; } = new(); public string? ClassCoverage { get; set; } }
+internal sealed record IndexGridJson { public int Bins { get; set; } public int BinSize { get; set; } public string BinUnit { get; set; } = "minutes"; public string Timezone { get; set; } = "UTC"; }
+internal sealed record SeriesMeta { public string Id { get; set; } = ""; public string Kind { get; set; } = "flow"; public string Path { get; set; } = ""; public string Unit { get; set; } = ""; public string ComponentId { get; set; } = ""; public string Class { get; set; } = "DEFAULT"; public int Points { get; set; } public string Hash { get; set; } = ""; }
+internal sealed record FormatsJson { public AggregatesTableJson AggregatesTable { get; set; } = new(); }
+internal sealed record AggregatesTableJson { public string Path { get; set; } = "aggregates/node_time_bin.parquet"; public string[] Dimensions { get; set; } = Array.Empty<string>(); public string[] Measures { get; set; } = Array.Empty<string>(); }

@@ -60,6 +60,10 @@ Highlights:
 }
 ```
 
+### transportation-basic-classes
+
+Companion template `transportation-basic-classes` keeps the same topology but declares three rider classes (`Airport`, `Industrial`, `Downtown`). Class arrivals split upstream demand (`telemetryDemandNorthSource`/`telemetryDemandSouthSource`) so every node reports by-class metrics. Use this template to validate UI selectors without losing the legacy single-class variant.
+
 ## manufacturing-line
 
 | Parameter | Type | Default | Notes |
@@ -108,6 +112,10 @@ Highlights:
   "telemetryDemandSource": "file:///workspaces/flowtime-vnext/data/telemetry/purchase_orders.csv"
 }
 ```
+
+### supply-chain-multi-tier-classes
+
+Use `supply-chain-multi-tier-classes` when you need per-class telemetry. The template keeps the same topology but splits purchase orders into `Retail`, `Wholesale`, and `Subscription` flows (via `traffic.arrivals`). Run it side-by-side with the original version to compare single-class vs multi-class UI behavior.
 
 ## network-reliability
 

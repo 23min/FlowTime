@@ -7,6 +7,7 @@
 @using System.Collections.Generic
 @using System.Globalization
 @using System.Linq
+@using System.Text
 @using System.Text.Json
 @using System.Threading
 @inject ITimeTravelDataService DataService
@@ -59,6 +60,50 @@
             else
             {
                 <MudStack Spacing="2" Class="topology-main-stack">
+                    @if (ShowClassSelector)
+                    {
+                        <MudStack Row="true"
+                                  AlignItems="AlignItems.Center"
+                                  Class="topology-class-selector"
+                                  Spacing="1">
+                            <ClassSelector Classes="availableClasses"
+                                           ClassDisplayNames="classDisplayNames"
+                                           SelectionChanged="OnClassSelectionChanged"
+                                           ModeChanged="OnClassSelectionModeChanged"
+                                           QueryKey="classes" />
+                            <MudText Typo="Typo.caption"
+                                    Class="topology-class-selector-coverage">
+                                @ClassCoverageText
+                            </MudText>
+                            <MudButton Variant="Variant.Outlined"
+                                       Color="Color.Primary"
+                                       Disabled="@(!CanDownloadFilteredCsv)"
+                                       StartIcon="@Icons.Material.Filled.Download"
+                                       OnClick="DownloadFilteredCsvAsync">
+                                Download filtered CSV
+                            </MudButton>
+                        </MudStack>
+                    }
+                    else if (!string.IsNullOrWhiteSpace(ClassCoverageText))
+                    {
+                        <MudStack Row="true"
+                                  AlignItems="AlignItems.Center"
+                                  Class="topology-class-selector"
+                                  Spacing="1">
+                            <MudText Typo="Typo.caption"
+                                     Class="topology-class-selector-coverage">
+                                @ClassCoverageText
+                            </MudText>
+                            <MudButton Variant="Variant.Outlined"
+                                       Color="Color.Primary"
+                                       Disabled="@(!CanDownloadFilteredCsv)"
+                                       StartIcon="@Icons.Material.Filled.Download"
+                                       OnClick="DownloadFilteredCsvAsync">
+                                Download filtered CSV
+                            </MudButton>
+                        </MudStack>
+                    }
+
                     <MudPaper Class="pa-3 timeline-paper" Elevation="0">
                         <MudStack Spacing="1" Class="topology-header">
                             @{ var runInfo = GetRunInfo(); }
@@ -305,6 +350,7 @@
                                             OverlaySettings="overlaySettings"
                                             ActiveBin="selectedBin"
                                             Title="@GetTemplateTitle()"
+                                            DimmedNodes="classFilteredNodes"
                                             SettingsRequested="OpenFeatureBar"
                                             ZoomPercentChanged="HandleCanvasZoomChanged"
                                             ViewportChanged="OnCanvasViewportChanged"
@@ -404,6 +450,41 @@
                                     else if (!isComputedNode && !metricsHaveSeries)
                                     {
                                         <MudText Typo="Typo.body2">Metrics unavailable.</MudText>
+                                    }
+
+                                    @if (nodeClassContributions.TryGetValue(nodeId, out var classChips) && classChips.Count > 0)
+                                    {
+                                        <MudStack Spacing="0">
+                                            <MudText Typo="Typo.subtitle2">Classes</MudText>
+                                            @{
+                                                var visibleChips = classChips.Take(6).ToList();
+                                                var overflow = classChips.Count - visibleChips.Count;
+                                            }
+                                            <MudStack Row="true" Class="topology-class-chip-row" Spacing="0">
+                                                @foreach (var chip in visibleChips)
+                                                {
+                                                    var isSelected = IsClassSelectedChip(chip.Id);
+                                                    <MudChip T="string"
+                                                             Variant="@(isSelected ? Variant.Filled : Variant.Outlined)"
+                                                             Color="@(isSelected ? Color.Primary : Color.Default)"
+                                                             Size="Size.Small"
+                                                             Class="inspector-class-chip"
+                                                             data-testid="inspector-class-chip">
+                                                        <span class="class-chip-name">@ResolveClassLabel(chip.Id)</span>
+                                                        <span class="class-chip-metrics">@FormatClassChipMetrics(chip)</span>
+                                                    </MudChip>
+                                                }
+                                                @if (overflow > 0)
+                                                {
+                                                    <MudChip T="string"
+                                                             Variant="Variant.Outlined"
+                                                             Size="Size.Small"
+                                                             Class="inspector-class-chip overflow">
+                                                        +@overflow more
+                                                    </MudChip>
+                                                }
+                                            </MudStack>
+                                        </MudStack>
                                     }
 
                                     @if (binMetrics.Count > 0)
@@ -611,7 +692,7 @@ private bool inspectorMetricsExpanded;
     private IReadOnlyDictionary<string, NodeBinMetrics> activeMetrics = new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase);
     private IReadOnlyDictionary<string, NodeSparklineData> nodeSparklines = new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase);
     private HashSet<string> nodesMissingSparkline = new(StringComparer.OrdinalIgnoreCase);
-    private readonly HashSet<string> loggedMissingExpressionSeries = new(StringComparer.OrdinalIgnoreCase);
+private readonly HashSet<string> loggedMissingExpressionSeries = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> loggedMissingMetricKinds = new(StringComparer.OrdinalIgnoreCase);
     private TimeTravelStateWindowDto? windowData;
     private SeriesIndex? seriesIndex;
@@ -625,7 +706,7 @@ private bool inspectorMetricsExpanded;
     private string selectedTimestampLabel = string.Empty;
     private IReadOnlyList<TimelineTick> timelineTicks = Array.Empty<TimelineTick>();
     private IReadOnlyList<double> timelineMinorTicks = Array.Empty<double>();
-    private IReadOnlyList<TimeTravelStateWarningDto> windowWarnings = Array.Empty<TimeTravelStateWarningDto>();
+private IReadOnlyList<TimeTravelStateWarningDto> windowWarnings = Array.Empty<TimeTravelStateWarningDto>();
     private IReadOnlyDictionary<string, IReadOnlyList<NodeWarningPayload>> nodeWarningsForCanvas = EmptyNodeWarnings;
     private static readonly IReadOnlyDictionary<string, IReadOnlyList<NodeWarningPayload>> EmptyNodeWarnings = new Dictionary<string, IReadOnlyList<NodeWarningPayload>>(StringComparer.OrdinalIgnoreCase);
     private bool HasWindowWarnings => windowWarnings.Count > 0;
@@ -642,6 +723,16 @@ private bool inspectorMetricsExpanded;
     private bool? savedIncludeExpressionNodes;
     private bool? savedIncludeConstNodes;
     private bool? savedEnableFullDag;
+    private IReadOnlyList<string> availableClasses = Array.Empty<string>();
+    private IReadOnlyDictionary<string, string> classDisplayNames = EmptyClassLabels;
+    private IReadOnlyDictionary<string, ManifestClassEntry> classMetadata = EmptyClassMetadata;
+    private IReadOnlyList<string> selectedClasses = Array.Empty<string>();
+    private ClassSelectionMode classSelectionMode = ClassSelectionMode.All;
+    private string? classCoverageState;
+private readonly HashSet<string> classFilteredNodes = new(StringComparer.OrdinalIgnoreCase);
+    private IReadOnlyDictionary<string, IReadOnlyList<ClassContribution>> nodeClassContributions = new Dictionary<string, IReadOnlyList<ClassContribution>>(StringComparer.OrdinalIgnoreCase);
+    private static readonly IReadOnlyDictionary<string, string> EmptyClassLabels = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    private static readonly IReadOnlyDictionary<string, ManifestClassEntry> EmptyClassMetadata = new Dictionary<string, ManifestClassEntry>(StringComparer.OrdinalIgnoreCase);
 
     private sealed record LegendEntry(string Swatch, string Label);
 
@@ -689,6 +780,60 @@ private bool inspectorMetricsExpanded;
         };
     }
 
+    private bool ShowClassSelector => availableClasses.Count > 0;
+    private bool HasClassSelection => selectedClasses.Count > 0;
+    private bool CanDownloadFilteredCsv => windowData is not null && windowData.Nodes.Count > 0;
+    private string ClassCoverageText => FormatClassCoverageLabel(classCoverageState ?? windowData?.Metadata.ClassCoverage);
+
+    private static string FormatClassCoverageLabel(string? coverage) =>
+        coverage switch
+        {
+            "full" => "Class coverage: Full",
+            "partial" => "Class coverage: Partial",
+            "missing" => "Class coverage: Missing",
+            _ => string.IsNullOrWhiteSpace(coverage) ? string.Empty : $"Class coverage: {coverage}"
+        };
+
+    private Task OnClassSelectionChanged(IReadOnlyList<string> classes)
+    {
+        selectedClasses = classes;
+        if (windowData is not null)
+        {
+            BuildNodeSparklines();
+            UpdateActiveMetrics(selectedBin);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private Task OnClassSelectionModeChanged(ClassSelectionMode mode)
+    {
+        classSelectionMode = mode;
+        return Task.CompletedTask;
+    }
+
+    private async Task DownloadFilteredCsvAsync()
+    {
+        if (!CanDownloadFilteredCsv)
+        {
+            return;
+        }
+
+        var csv = BuildFilteredCsvContent();
+        if (string.IsNullOrWhiteSpace(csv))
+        {
+            return;
+        }
+
+        var safeRunId = string.IsNullOrWhiteSpace(RunId) ? "run" : RunId;
+        var suffix = HasClassSelection && selectedClasses.Count > 0
+            ? string.Join('-', selectedClasses)
+            : "all";
+        var fileName = $"state-{safeRunId}-{suffix}.csv";
+
+        await JS.InvokeVoidAsync("FlowTime.downloadText", fileName, csv, "text/csv");
+    }
+
     private const double MinPlaybackDelay = 0.02d;
     private const double MaxPlaybackDelay = 120d;
     private const double BasePlaybackTotalSeconds = 30d;
@@ -698,7 +843,8 @@ private bool inspectorMetricsExpanded;
     private IReadOnlyList<PlaybackSpeedOption> PlaybackSpeedOptions => playbackSpeedOptions;
 
     private sealed record TimelineTick(int Bin, double Percent, string Label);
-    internal sealed record InspectorDependencyViewModel(string EdgeId, string Label, string Source, int Order);
+internal sealed record InspectorDependencyViewModel(string EdgeId, string Label, string Source, int Order);
+internal sealed record ClassContribution(string Id, double? Arrivals, double? Served, double? Errors, double? Queue);
 
     private double DialPercent
     {
@@ -968,6 +1114,73 @@ private const string PmfExpectationLabel = "Value";
         return result;
     }
 
+    private void UpdateClassMetadata(SeriesIndex index)
+    {
+        if (index.Classes is { Count: > 0 })
+        {
+            var ordered = index.Classes
+                .Where(entry => !string.IsNullOrWhiteSpace(entry.Id))
+                .OrderBy(entry => entry.DisplayName ?? entry.Id, StringComparer.OrdinalIgnoreCase)
+                .Select(entry => entry.Id)
+                .ToArray();
+
+            availableClasses = ordered;
+            classDisplayNames = index.Classes
+                .Where(entry => !string.IsNullOrWhiteSpace(entry.Id))
+                .ToDictionary(entry => entry.Id, entry => entry.DisplayName ?? entry.Id, StringComparer.OrdinalIgnoreCase);
+            classMetadata = index.Classes
+                .Where(entry => !string.IsNullOrWhiteSpace(entry.Id))
+                .ToDictionary(entry => entry.Id, entry => entry, StringComparer.OrdinalIgnoreCase);
+        }
+        else
+        {
+            availableClasses = Array.Empty<string>();
+            classDisplayNames = EmptyClassLabels;
+            classMetadata = EmptyClassMetadata;
+        }
+
+        Logger?.LogInformation("Topology class metadata for run {RunId}: coverage={Coverage}; classes={Count}; values={Classes}",
+            RunId,
+            index.ClassCoverage,
+            availableClasses.Count,
+            availableClasses.Count > 0 ? string.Join(", ", availableClasses) : "(none)");
+
+        classCoverageState = index.ClassCoverage;
+    }
+
+    private void EnsureFallbackClassMetadataFromWindow(TimeTravelStateWindowDto window)
+    {
+        if (availableClasses.Count > 0 || window.Nodes.Count == 0)
+        {
+            return;
+        }
+
+        var fallback = window.Nodes
+            .Where(node => node.ByClass is not null && node.ByClass.Count > 0)
+            .SelectMany(node => node.ByClass.Keys)
+            .Where(key => !string.IsNullOrWhiteSpace(key) &&
+                          !string.Equals(key, "DEFAULT", StringComparison.OrdinalIgnoreCase))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(key => classDisplayNames.TryGetValue(key, out var label) && !string.IsNullOrWhiteSpace(label) ? label : key,
+                     StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        if (fallback.Length == 0)
+        {
+            return;
+        }
+
+        availableClasses = fallback;
+        if (classDisplayNames == EmptyClassLabels)
+        {
+            classDisplayNames = fallback.ToDictionary(id => id, id => id, StringComparer.OrdinalIgnoreCase);
+        }
+
+        Logger?.LogInformation("Topology fallback class metadata from window {RunId}: {Classes}",
+            RunId,
+            string.Join(", ", fallback));
+    }
+
     private static string BuildRunStateKey(string runId) => $"{RunStateStoragePrefix}:{runId}";
 
     private void ScheduleRunStateSave()
@@ -1047,6 +1260,7 @@ private const string PmfExpectationLabel = "Value";
 
             topologyGraph = GraphMapper.Map(graphResult.Value, overlaySettings.RespectUiPositions, overlaySettings.Layout);
             seriesIndex = indexResult.Value;
+            UpdateClassMetadata(seriesIndex);
 
             var totalBins = Math.Max(1, seriesIndex.Grid.Bins);
             var span = Math.Min(totalBins, 500);
@@ -1084,6 +1298,11 @@ private const string PmfExpectationLabel = "Value";
             }
 
             windowData = windowResult.Value;
+            if (!string.IsNullOrWhiteSpace(windowData.Metadata.ClassCoverage))
+            {
+                classCoverageState ??= windowData.Metadata.ClassCoverage;
+            }
+            EnsureFallbackClassMetadataFromWindow(windowData);
             windowWarnings = windowData.Warnings ?? Array.Empty<TimeTravelStateWarningDto>();
             UpdateNodeWarningMap();
             Logger?.LogInformation("State window loaded for run {RunId}: nodeSeries={NodeSeriesCount}, timestamps={TimestampCount}",
@@ -1140,7 +1359,7 @@ private const string PmfExpectationLabel = "Value";
             return;
         }
 
-        featureBarOpen = false;
+        featureBarOpen = true;
         StateHasChanged();
         await SaveRunStateAsync();
     }
@@ -1602,6 +1821,8 @@ private const string PmfExpectationLabel = "Value";
 
     private void UpdateActiveMetrics(int bin)
     {
+        classFilteredNodes.Clear();
+
         if (windowData is null)
         {
             activeMetrics = new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase);
@@ -1627,16 +1848,14 @@ private const string PmfExpectationLabel = "Value";
             ? timestamps[localIndex]
             : (DateTimeOffset?)null;
 
+        var classContributionMap = new Dictionary<string, IReadOnlyList<ClassContribution>>(StringComparer.OrdinalIgnoreCase);
+
         foreach (var node in windowData.Nodes)
         {
-            double? Get(string key)
-            {
-                if (node.Series.TryGetValue(key, out var values) && localIndex < values.Length)
-                {
-                    return values[localIndex];
-                }
-                return null;
-            }
+            var classDataFound = !HasClassSelection;
+            double classVolume = 0d;
+
+            double? Get(string key) => GetSeriesValue(node, key, localIndex, ref classDataFound, ref classVolume);
 
             var topoNode = FindTopologyNode(node.Id);
             var displayKind = string.IsNullOrWhiteSpace(topoNode?.Kind) ? node.Kind : topoNode!.Kind;
@@ -1768,6 +1987,20 @@ private const string PmfExpectationLabel = "Value";
                 RetryTax: retryTax,
                 RawMetrics: rawMetrics.Count == 0 ? null : rawMetrics,
                 Metadata: topoNode?.Semantics?.Metadata);
+
+            if (HasClassSelection)
+            {
+                if (!classDataFound || classVolume <= 0d)
+                {
+                    classFilteredNodes.Add(node.Id);
+                }
+            }
+
+            var contributions = BuildClassContributions(node, localIndex);
+            if (contributions.Count > 0)
+            {
+                classContributionMap[node.Id] = contributions;
+            }
         }
 
         if (topologyGraph is not null)
@@ -1920,7 +2153,24 @@ private const string PmfExpectationLabel = "Value";
             }
         }
 
+        if (HasClassSelection && topologyGraph is not null)
+        {
+            foreach (var topoNode in topologyGraph.Nodes)
+            {
+                if (string.IsNullOrWhiteSpace(topoNode?.Id))
+                {
+                    continue;
+                }
+
+                if (!metrics.ContainsKey(topoNode.Id))
+                {
+                    classFilteredNodes.Add(topoNode.Id);
+                }
+            }
+        }
+
         activeMetrics = metrics;
+        nodeClassContributions = classContributionMap;
         selectedBin = bin;
         selectedBinLabel = bin.ToString(CultureInfo.InvariantCulture);
         selectedTimestampLabel = FormatTimestamp(localIndex);
@@ -2369,6 +2619,29 @@ private const string PmfExpectationLabel = "Value";
         }
 
         return value.Value.ToString("0.0", CultureInfo.InvariantCulture);
+    }
+
+    private static string FormatClassChipMetrics(ClassContribution contribution)
+    {
+        var parts = new List<string>();
+        if (contribution.Arrivals.HasValue)
+        {
+            parts.Add($"Arr {FormatNumber(contribution.Arrivals)}");
+        }
+        if (contribution.Served.HasValue)
+        {
+            parts.Add($"Srv {FormatNumber(contribution.Served)}");
+        }
+        if (contribution.Errors.HasValue)
+        {
+            parts.Add($"Err {FormatNumber(contribution.Errors)}");
+        }
+        if (contribution.Queue.HasValue)
+        {
+            parts.Add($"Q {FormatNumber(contribution.Queue)}");
+        }
+
+        return parts.Count > 0 ? string.Join(" • ", parts) : "No metrics";
     }
 
     private static string FormatPercentValue(double value)
@@ -3477,7 +3750,7 @@ internal sealed record InspectorMetricBlock(
         return "Time-Travel Topology";
     }
 
-    private static double?[]? BuildSuccessRateSeries(TimeTravelNodeSeriesDto node)
+    private double?[]? BuildSuccessRateSeries(TimeTravelNodeSeriesDto node)
     {
         if (node is null)
         {
@@ -3527,7 +3800,7 @@ internal sealed record InspectorMetricBlock(
         return values;
     }
 
-    private static double?[]? BuildErrorRateSeries(TimeTravelNodeSeriesDto node)
+    private double?[]? BuildErrorRateSeries(TimeTravelNodeSeriesDto node)
     {
         if (node is null)
         {
@@ -3568,19 +3841,276 @@ internal sealed record InspectorMetricBlock(
         return values;
     }
 
-    private static double?[]? TryGetSeries(TimeTravelNodeSeriesDto node, string key)
+    private double?[]? TryGetSeries(TimeTravelNodeSeriesDto node, string key)
     {
+        if (HasClassSelection)
+        {
+            var aggregated = ResolveSeriesForClasses(node, key, out _);
+            if (aggregated is not null)
+            {
+                return aggregated;
+            }
+        }
+
         if (node.Series is null || string.IsNullOrWhiteSpace(key))
         {
             return null;
         }
 
-        if (node.Series.TryGetValue(key, out var series) && series is not null && series.Length > 0)
+        return node.Series.TryGetValue(key, out var series) && series is not null && series.Length > 0
+            ? series
+            : null;
+    }
+
+    private double?[]? ResolveSeriesForClasses(TimeTravelNodeSeriesDto node, string key, out bool hadData)
+    {
+        hadData = false;
+        if (node.ByClass is null || selectedClasses.Count == 0 || string.IsNullOrWhiteSpace(key))
         {
-            return series;
+            return null;
+        }
+
+        double?[]? accumulator = null;
+        foreach (var classId in selectedClasses)
+        {
+            if (!node.ByClass.TryGetValue(classId, out var classMetrics) ||
+                classMetrics is null ||
+                !classMetrics.TryGetValue(key, out var series) ||
+                series is null ||
+                series.Length == 0)
+            {
+                continue;
+            }
+
+            hadData = true;
+            accumulator ??= new double?[series.Length];
+            var limit = Math.Min(accumulator.Length, series.Length);
+            for (var i = 0; i < limit; i++)
+            {
+                var value = series[i];
+                if (!value.HasValue)
+                {
+                    continue;
+                }
+
+                accumulator[i] = (accumulator[i] ?? 0d) + value.Value;
+            }
+        }
+
+        return accumulator;
+    }
+
+    private double? GetSeriesValue(
+        TimeTravelNodeSeriesDto node,
+        string key,
+        int localIndex,
+        ref bool classDataFound,
+        ref double classVolume)
+    {
+        if (HasClassSelection)
+        {
+            var series = ResolveSeriesForClasses(node, key, out var hasData);
+            if (hasData)
+            {
+                classDataFound = true;
+            }
+
+            if (series is not null && localIndex >= 0 && localIndex < series.Length)
+            {
+                var value = series[localIndex];
+                if (value.HasValue && ShouldContributeToVolume(key))
+                {
+                    classVolume += Math.Abs(value.Value);
+                }
+
+                return value;
+            }
+        }
+
+        if (node.Series is null || string.IsNullOrWhiteSpace(key))
+        {
+            return null;
+        }
+
+        if (node.Series.TryGetValue(key, out var fallback) &&
+            fallback is not null &&
+            localIndex >= 0 &&
+            localIndex < fallback.Length)
+        {
+            return fallback[localIndex];
         }
 
         return null;
+    }
+
+    private static bool ShouldContributeToVolume(string key)
+    {
+        if (string.IsNullOrWhiteSpace(key))
+        {
+            return false;
+        }
+
+        return key.Equals("arrivals", StringComparison.OrdinalIgnoreCase) ||
+               key.Equals("served", StringComparison.OrdinalIgnoreCase) ||
+               key.Equals("queue", StringComparison.OrdinalIgnoreCase) ||
+               key.Equals("capacity", StringComparison.OrdinalIgnoreCase) ||
+               key.Equals("attempts", StringComparison.OrdinalIgnoreCase) ||
+               key.Equals("errors", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool IsClassSelectedChip(string classId) =>
+        HasClassSelection && selectedClasses.Contains(classId, StringComparer.OrdinalIgnoreCase);
+
+    private string ResolveClassLabel(string classId)
+    {
+        if (IsDefaultClassId(classId))
+        {
+            return "Total";
+        }
+
+        if (classDisplayNames.TryGetValue(classId, out var label) && !string.IsNullOrWhiteSpace(label))
+        {
+            return label;
+        }
+
+        return classId;
+    }
+
+    private static bool IsDefaultClassId(string classId) =>
+        string.Equals(classId, "DEFAULT", StringComparison.OrdinalIgnoreCase);
+
+    private IReadOnlyList<ClassContribution> BuildClassContributions(TimeTravelNodeSeriesDto node, int localIndex)
+    {
+        var contributions = new List<ClassContribution>();
+        if (node.ByClass is null || localIndex < 0)
+        {
+            return contributions;
+        }
+
+        foreach (var entry in node.ByClass)
+        {
+            var metrics = entry.Value;
+            if (metrics is null)
+            {
+                continue;
+            }
+
+            double? GetMetric(string key)
+            {
+                if (!metrics.TryGetValue(key, out var series) || series is null || series.Length == 0)
+                {
+                    return null;
+                }
+
+                if (localIndex < 0 || localIndex >= series.Length)
+                {
+                    return null;
+                }
+
+                var value = series[localIndex];
+                return value.HasValue && double.IsFinite(value.Value) ? value : null;
+            }
+
+            var arrivals = GetMetric("arrivals");
+            var served = GetMetric("served");
+            var errors = GetMetric("errors");
+            var queue = GetMetric("queue");
+
+            if (!(arrivals.HasValue || served.HasValue || errors.HasValue || queue.HasValue))
+            {
+                continue;
+            }
+
+            contributions.Add(new ClassContribution(entry.Key, arrivals, served, errors, queue));
+        }
+
+        return contributions
+            .OrderByDescending(c => c.Arrivals ?? 0d)
+            .ThenBy(c => c.Id, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private string BuildFilteredCsvContent()
+    {
+        if (windowData is null)
+        {
+            return string.Empty;
+        }
+
+        var sb = new StringBuilder();
+        sb.AppendLine("nodeId,classId,metric,binIndex,value");
+        var metrics = new[] { "arrivals", "served", "errors", "queue" };
+        var startBin = windowData.Window.StartBin;
+        var binCount = Math.Max(1, windowData.Window.BinCount);
+
+        foreach (var node in windowData.Nodes)
+        {
+            var hasByClass = node.ByClass is not null && node.ByClass.Count > 0;
+            var targetClasses = new List<string>();
+            if (HasClassSelection && selectedClasses.Count > 0)
+            {
+                targetClasses.AddRange(selectedClasses);
+            }
+            else if (hasByClass && node.ByClass is not null)
+            {
+                targetClasses.AddRange(node.ByClass.Keys);
+            }
+
+            if (hasByClass && targetClasses.Count > 0 && node.ByClass is not null)
+            {
+                foreach (var classId in targetClasses)
+                {
+                    if (!node.ByClass.TryGetValue(classId, out var metricMap) || metricMap is null)
+                    {
+                        continue;
+                    }
+
+                    foreach (var metric in metrics)
+                    {
+                        if (!metricMap.TryGetValue(metric, out var series) || series is null || series.Length == 0)
+                        {
+                            continue;
+                        }
+
+                        var limit = Math.Min(series.Length, binCount);
+                        for (var i = 0; i < limit; i++)
+                        {
+                            var value = series[i];
+                            if (!value.HasValue)
+                            {
+                                continue;
+                            }
+
+                            sb.AppendLine(FormattableString.Invariant($"{node.Id},{classId},{metric},{startBin + i},{value.Value}"));
+                        }
+                    }
+                }
+            }
+            else
+            {
+                foreach (var metric in metrics)
+                {
+                    if (node.Series is null || !node.Series.TryGetValue(metric, out var series) || series is null || series.Length == 0)
+                    {
+                        continue;
+                    }
+
+                    var limit = Math.Min(series.Length, binCount);
+                    for (var i = 0; i < limit; i++)
+                    {
+                        var value = series[i];
+                        if (!value.HasValue)
+                        {
+                            continue;
+                        }
+
+                        sb.AppendLine(FormattableString.Invariant($"{node.Id},*,{metric},{startBin + i},{value.Value}"));
+                    }
+                }
+            }
+        }
+
+        return sb.ToString();
     }
 
     private IReadOnlyList<InspectorDependencyViewModel> BuildInspectorDependencies(string nodeId)
@@ -3891,6 +4421,12 @@ private static IReadOnlyList<double?> TrimSeriesAt(double?[]? source, int limit,
         activeMetrics = new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase);
         nodeSparklines = new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase);
         nodesMissingSparkline = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        nodeClassContributions = new Dictionary<string, IReadOnlyList<ClassContribution>>(StringComparer.OrdinalIgnoreCase);
+        classFilteredNodes.Clear();
+        availableClasses = Array.Empty<string>();
+        classDisplayNames = EmptyClassLabels;
+        classMetadata = EmptyClassMetadata;
+        classCoverageState = null;
         selectedBin = 0;
         visibleStartBin = 0;
         visibleEndBin = 0;

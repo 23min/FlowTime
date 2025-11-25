@@ -121,7 +121,10 @@ public sealed record RunSummaryDto(
     [property: JsonPropertyName("createdUtc")] DateTimeOffset? CreatedUtc,
     [property: JsonPropertyName("warningCount")] int WarningCount,
     [property: JsonPropertyName("telemetry")] RunTelemetrySummaryDto? Telemetry,
-    [property: JsonPropertyName("rng")] RunRngOptionsDto? Rng);
+    [property: JsonPropertyName("rng")] RunRngOptionsDto? Rng,
+    [property: JsonPropertyName("classes")] IReadOnlyList<string>? Classes = null,
+    [property: JsonPropertyName("classCoverage")] string? ClassCoverage = null,
+    [property: JsonPropertyName("classDescriptions")] IReadOnlyDictionary<string, string>? ClassDescriptions = null);
 
 public sealed record RunCreateResponseDto(
     [property: JsonPropertyName("isDryRun")] bool IsDryRun,

@@ -125,6 +125,14 @@ flowchart LR
 2. GREEN: Implement validation, metadata, and storage updates.
 3. RED/GREEN: Build Loop regression tests comparing simulation vs telemetry outputs.
 
+## Current Progress (2025-11-25)
+
+- `RunArtifactWriter`/`ClassContributionBuilder` now preserve per-class series even when scalar math or `MAX/MIN` clamps collapse a node to zero. Regression coverage lives in `tests/FlowTime.Tests/RunArtifactWriterTests.cs` (`WriteArtifacts_ClassSeriesScaleThroughScalarMultipliers`).
+- Demo runs with class coverage pushed through every node were regenerated for hands-on validation:
+  - Supply chain: `data/run_20251125T130751Z_21597334` (template `supply-chain-multi-tier-classes`).
+  - Transportation: `data/run_20251125T130822Z_91deaced` (template `transportation-basic-classes`).
+- These runs keep `classCoverage: "full"` and surface class chips past DLQ/returns queues, so Time Travel UI selectors now render meaningful data all the way through the topology.
+
 ---
 
 ## Test Plan

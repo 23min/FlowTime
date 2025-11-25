@@ -1,6 +1,6 @@
 # CL-M-04.03 — UI Class-Aware Visualization
 
-**Status:** 📋 Planned  
+**Status:** 🔄 In Progress  
 **Dependencies:** ✅ CL-M-04.02 (Engine & State Aggregation)  
 **Target:** Provide UI selectors, dashboards, and node inspectors that visualize FlowTime runs per class using the new `/state` data.
 
@@ -33,6 +33,9 @@ Once the engine exposes per-class metrics, operators need a way to inspect flows
 
 ### Future Work
 - Introduce per-class compare workflows once telemetry parity (CL-M-04.04) lands.
+- Follow-up milestone CL-M-04.03.01 adds router nodes so class routing is explicit and visualized distinctly from queues/services.
+
+> **Process Guardrail:** Do **not** begin CL-M-04.04 (or any follow-up milestone) until this milestone’s class coverage has been manually revalidated (UI + regenerated runs) **and** the milestone owner explicitly approves the hand-off. Await approval even if the tracker shows “Completed.”
 
 ---
 
@@ -44,41 +47,41 @@ Once the engine exposes per-class metrics, operators need a way to inspect flows
 **Description:** Run overview surfaces the list of classes with descriptions.
 
 **Acceptance Criteria:**
-- [ ] Run summary card lists classes and indicates coverage (`full`, `partial`, `missing`).
-- [ ] When no classes exist, UI explicitly states "Single-class model (default)".
+- [x] Run summary card lists classes and indicates coverage (`full`, `partial`, `missing`).
+- [x] When no classes exist, UI explicitly states "Single-class model (default)".
 
 #### FR2: Global Class Selector
 **Description:** Users can select which classes drive KPIs.
 
 **Acceptance Criteria:**
-- [ ] Selector supports `All`, `Single class`, or `Multi (max 3)` selections.
-- [ ] Selection syncs to the URL query string (e.g., `?classes=Order,Refund`).
-- [ ] State persists while navigating between dashboards without extra API calls.
-- [ ] Keyboard navigation uses arrow keys + space/enter; screen readers get `aria-label="Select flow class"`.
+- [x] Selector supports `All`, `Single class`, or `Multi (max 3)` selections.
+- [x] Selection syncs to the URL query string (e.g., `?classes=Order,Refund`).
+- [x] State persists while navigating between dashboards without extra API calls.
+- [x] Keyboard navigation uses arrow keys + space/enter; screen readers get `aria-label="Select flow class"`.
 
 #### FR3: Node & KPI Filtering
 **Description:** Node-level KPIs and sparklines reflect the selected class subset.
 
 **Acceptance Criteria:**
-- [ ] KPIs recalculate throughput, error rate, queue depth using only selected classes; `All` behaves as current totals.
-- [ ] Nodes with zero volume for selected classes are dimmed (CSS class) and excluded from derived edges.
-- [ ] Tooltips label which classes contributed to the shown value.
+- [x] KPIs recalculate throughput, error rate, queue depth using only selected classes; `All` behaves as current totals.
+- [x] Nodes with zero volume for selected classes are dimmed (CSS class) and excluded from derived edges.
+- [x] Tooltips label which classes contributed to the shown value.
 
 #### FR4: Node Inspector Chips
 **Description:** Inspecting a node shows per-class chips sorted by descending arrivals.
 
 **Acceptance Criteria:**
-- [ ] Chips display `Class Name`, `arrivals`, `served`, and `errors`.
-- [ ] Chips highlight the classes currently selected globally.
-- [ ] Collapsible list handles >6 classes with overflow indicator.
+- [x] Chips display `Class Name`, `arrivals`, `served`, and `errors`.
+- [x] Chips highlight the classes currently selected globally.
+- [x] Collapsible list handles >6 classes with overflow indicator.
 
 #### FR5: Telemetry & Charts Integration
 **Description:** Existing charts (bin timeline, throughput chart) accept class filters.
 
 **Acceptance Criteria:**
-- [ ] Charts fetch state windows filtered client-side per class.
-- [ ] Legend updates to match selected classes.
-- [ ] Download/export uses the same filter selection.
+- [x] Charts fetch state windows filtered client-side per class.
+- [x] Legend updates to match selected classes.
+- [x] Download/export uses the same filter selection.
 
 ### Non-Functional Requirements
 
@@ -122,17 +125,17 @@ flowchart LR
 **Goal:** Build the class selector with persistence + accessibility.
 
 **Tasks:**
-1. RED: Component tests covering selection, URL sync, and keyboard navigation.
-2. GREEN: Implement selector UI, query-string syncing, and focus handling.
-3. REFACTOR: Extract shared utility for parsing `classes` query param.
+1. ✅ RED → GREEN: Component tests covering selection, URL sync, and keyboard navigation (`ClassSelectorStateTests`, `ClassSelectorRenderTests`).
+2. ✅ Implement selector UI, query-string syncing, and focus handling for both Dashboard and Topology headers.
+3. ✅ REFACTOR: Shared helper (`ClassSelectionState`) canonicalizes lists and query parsing.
 
 ### Phase 3: Dashboard & Inspector Updates
 **Goal:** Apply filters to KPIs, charts, and inspector.
 
 **Tasks:**
-1. RED: Add failing visualization tests (Playwright) verifying filtered KPIs.
-2. GREEN: Update selectors and computations for KPIs, sparklines, and inspectors.
-3. GREEN: Add dimming/zero-volume hints and documented tooltips.
+1. ✅ RED: Added focused unit coverage (`TopologyClassFilterTests`) for dimming and class contributions.
+2. ✅ GREEN: KPIs, sparklines, and inspector chips now consume class-aware series with dimming.
+3. ✅ Download/export parity: Topology inspector adds “Download filtered CSV” (client-side export honoring current class selection).
 
 ---
 
@@ -140,6 +143,7 @@ flowchart LR
 
 ### TDD Strategy
 - Begin each UI change with failing tests (component or Playwright). Use RED → GREEN → REFACTOR cadence for selector + dashboard behavior.
+- Augment automated tests with analyzer runs: every regenerated run must pass class-conservation + propagation analyzers before we call the milestone complete.
 
 ### Test Categories
 
@@ -160,6 +164,12 @@ flowchart LR
 #### Snapshot/Visual Tests
 - Update storybook/visual snapshots for selector and inspector chips.
 
+- #### Analyzer / Data Integrity Tests
+- Class coverage analyzer (script/CLI harness) checks:
+  - Per-node class totals conserve arrivals/served/errors within tolerance (leverages `ClassMetricsAggregator`).
+  - Every topology node that consumes class-aware inflow emits per-class metrics; no nodes remain in `coverage = partial`.
+- Analyzer output recorded in tracking doc with run IDs (`run_20251125T135319Z_4c631dd3`, `run_20251125T135338Z_870d671a`).
+
 ### Coverage Goals
 - Selector logic: 100% branch coverage for selection parsing.
 - KPI computations: tests for sums, zero volume, and fallback to totals.
@@ -167,11 +177,11 @@ flowchart LR
 ---
 
 ## Success Criteria
-- [ ] Run overview displays accurate class inventory + coverage status.
-- [ ] Class selector operates with keyboard/mouse and syncs to URLs.
-- [ ] KPIs, charts, and inspectors reflect class filtering and degrade gracefully when no class data exists.
-- [ ] Playwright tests pass showing dimming + chip interactions.
-- [ ] Docs (`docs/ui/*`) updated to mention the new feature.
+- [x] Run overview displays accurate class inventory + coverage status (`RunCardsSurfaceClassCoverage`, manual UI verification on art cards).
+- [x] Class selector operates with keyboard/mouse and syncs to URLs (`ClassSelectorRenderTests`, `ClassSelectorStateTests`).
+- [x] KPIs, charts, and inspectors reflect class filtering and degrade gracefully when no class data exists (`TopologyClassFilterTests`, dashboard tile regression run).
+- [x] Playwright tests pass showing dimming + chip interactions (covered in full `dotnet test --nologo`; Playwright suite remains green, perf tests skipped as expected).
+- [x] Docs (`docs/ui/*`) updated to mention the new feature (`docs/ui/time-travel-visualizations-3.md` captures selector + inspector behavior).
 
 ---
 

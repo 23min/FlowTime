@@ -1,0 +1,638 @@
+schemaVersion: 1
+generator: flowtime-sim
+metadata:
+  id: supply-chain-multi-tier-classes
+  title: Multi-Tier Supply Chain (Class Segments)
+  description: End-to-end purchase order flow with warehouse buffering, distributor queue backlog, and delivery retries.
+  version: 3.0.0
+  captureKey: supply-chain-multi-tier-telemetry
+  tags: [supply-chain, logistics, queue, retries]
+
+classes:
+  - id: Retail
+    displayName: "Retail Orders"
+    description: "Direct-to-consumer and specialty retail demand"
+  - id: Wholesale
+    displayName: "Wholesale Replenishment"
+    description: "Bulk store/network restock loads"
+  - id: Subscription
+    displayName: "Subscription / auto-replenish"
+    description: "Lower-volume contracts with flexible SLA"
+window:
+  start: 2025-01-01T00:00:00Z
+  timezone: UTC
+
+parameters:
+  - name: bins
+    type: integer
+    title: "Time Periods"
+    description: "Number of 5-minute bins (24h default)"
+    default: 288
+    minimum: 12
+    maximum: 288
+  - name: binSize
+    type: integer
+    title: "Bin Size (minutes)"
+    description: "Duration of each planning bucket"
+    default: 5
+    minimum: 5
+    maximum: 60
+  - name: bufferMultiplier
+    type: number
+    title: "Supplier Build-Ahead"
+    description: "Multiplier applied to demand to plan build-ahead production"
+    default: 1.15
+    minimum: 1.0
+    maximum: 2.0
+  - name: retryRate
+    type: number
+    title: "Delivery Retry Rate"
+    description: "Fraction of shipments that require a redelivery attempt"
+    default: 0.18
+    minimum: 0.0
+    maximum: 1.0
+  - name: retryFailureRate
+    type: number
+    title: "Failed Retry Rate"
+    description: "Fraction of retry attempts that still fail"
+    default: 0.35
+    minimum: 0.0
+    maximum: 1.0
+  - name: maxDeliveryAttempts
+    type: integer
+    title: "Max Delivery Attempts"
+    description: "Maximum delivery attempts allowed per order before escalation"
+    default: 3
+    minimum: 1
+    maximum: 5
+  - name: telemetryDemandSource
+    type: string
+    title: "Telemetry demand source"
+    description: "Optional file:// URI for customer demand replay"
+    default: ""
+
+grid:
+  bins: ${bins}
+  binSize: ${binSize}
+  binUnit: minutes
+
+rng:
+  kind: pcg32
+  seed: 20250328
+
+traffic:
+  arrivals:
+    - nodeId: purchase_orders_retail
+      classId: Retail
+      pattern:
+        kind: constant
+        ratePerBin: 1
+    - nodeId: purchase_orders_wholesale
+      classId: Wholesale
+      pattern:
+        kind: constant
+        ratePerBin: 1
+    - nodeId: purchase_orders_subscription
+      classId: Subscription
+      pattern:
+        kind: constant
+        ratePerBin: 1
+
+topology:
+  nodes:
+    - id: Supplier
+      kind: service
+      semantics:
+        arrivals: purchase_orders
+        served: supplier_shipments
+        errors: supplier_shortage
+        capacity: supplier_capacity
+        processingTimeMsSum: supplier_processing_time_ms_sum
+        servedCount: supplier_shipments
+        aliases:
+          arrivals: "Purchase orders"
+          served: "Supplier shipments"
+          errors: "Supplier shortfall"
+    - id: SupplierShortfallQueue
+      kind: queue
+      semantics:
+        arrivals: supplier_shortage
+        served: supplier_shortfall_served_zero
+        errors: supplier_shortfall_attrition
+        queueDepth: supplier_shortfall_depth
+        aliases:
+          arrivals: "Purchase shortfall"
+          queue: "Supplier backlog"
+      initialCondition:
+        queueDepth: 0
+    - id: Warehouse
+      kind: service
+      semantics:
+        arrivals: supplier_shipments
+        served: warehouse_release
+        errors: warehouse_inventory_build
+        capacity: warehouse_release_cap
+        processingTimeMsSum: warehouse_processing_time_ms_sum
+        servedCount: warehouse_release
+        aliases:
+          served: "Loads staged"
+          errors: "Inventory build"
+    - id: DistributionQueue
+      kind: queue
+      semantics:
+        arrivals: queue_inflow
+        served: queue_served
+        errors: queue_attrition
+        queueDepth: queue_depth
+        aliases:
+          arrivals: "Loads staged"
+          served: "Loads pulled"
+          errors: "Queue attrition"
+          queue: "Distributor backlog"
+      initialCondition:
+        queueDepth: 12
+    - id: Delivery
+      kind: service
+      semantics:
+        arrivals: queue_served
+        served: deliveries_served
+        errors: delivery_errors
+        capacity: delivery_capacity
+        attempts: delivery_attempts
+        failures: retry_failures
+        exhaustedFailures: exhausted_failures
+        retryEcho: retry_echo
+        retryKernel: [0.0, 0.6, 0.3, 0.1]
+        retryBudgetRemaining: retry_budget_remaining
+        processingTimeMsSum: delivery_processing_time_ms_sum
+        servedCount: deliveries_served
+        maxAttempts: ${maxDeliveryAttempts}
+        exhaustedPolicy: "returns"
+        aliases:
+          arrivals: "Loads pulled"
+          served: "Orders delivered"
+          errors: "Failed deliveries"
+          attempts: "Delivery attempts"
+          failures: "Failed retries"
+          retryEcho: "Retry backlog"
+          exhaustedFailures: "DLQ"
+    - id: Rejections
+      kind: queue
+      semantics:
+        arrivals: dlq_inflow
+        served: dlq_release_volume
+        errors: dlq_losses
+        queueDepth: dlq_depth
+        aliases:
+          arrivals: "Rejected loads"
+          served: "Escalations handled"
+          errors: "Scrapped"
+          queue: "Rejections backlog"
+      initialCondition:
+        queueDepth: 0
+    - id: ReturnsProcessing
+      kind: service
+      semantics:
+        arrivals: dlq_release_volume
+        served: returns_processed
+        errors: returns_escalated
+        capacity: returns_capacity
+        processingTimeMsSum: returns_processing_time_ms_sum
+        servedCount: returns_processed
+        aliases:
+          served: "Returns completed"
+          errors: "Manual escalations"
+    - id: RestockQueue
+      kind: queue
+      semantics:
+        arrivals: restock_inflow
+        served: restock_served_zero
+        errors: restock_losses
+        queueDepth: restock_backlog
+        aliases:
+          arrivals: "Restock inflow"
+          served: "Restocked"
+          errors: "Repack failures"
+          queue: "Restock backlog"
+    - id: RecoverQueue
+      kind: queue
+      semantics:
+        arrivals: recover_inflow
+        served: recover_served_zero
+        errors: recover_losses
+        queueDepth: recover_backlog
+        aliases:
+          arrivals: "Secondary inflow"
+          served: "Secondary sales"
+          errors: "Failed refurbish"
+          queue: "Secondary backlog"
+    - id: DisposalQueue
+      kind: dlq
+      semantics:
+        arrivals: scrap_inflow
+        served: scrap_served_zero
+        errors: scrap_losses
+        queueDepth: scrap_backlog
+        aliases:
+          arrivals: "Scrap inflow"
+          served: "Disposed"
+          errors: "Hazmat holds"
+          queue: "Disposal backlog"
+  edges:
+    - id: supplier_to_warehouse
+      from: Supplier:out
+      to: Warehouse:in
+    - id: supplier_to_shortfall
+      from: Supplier:errors
+      to: SupplierShortfallQueue:arrivals
+      type: terminal
+      measure: errors
+    - id: warehouse_to_queue
+      from: Warehouse:out
+      to: DistributionQueue:in
+    - id: queue_to_delivery
+      from: DistributionQueue:out
+      to: Delivery:in
+    - id: delivery_to_rejections
+      from: Delivery:exhaustedFailures
+      to: Rejections:arrivals
+      measure: exhaustedFailures
+    - id: dlq_to_returns
+      from: Rejections:out
+      to: ReturnsProcessing:in
+    - id: returns_to_restock
+      from: ReturnsProcessing:out
+      to: RestockQueue:in
+      weight: 0.5
+      type: terminal
+    - id: returns_to_recover
+      from: ReturnsProcessing:out
+      to: RecoverQueue:in
+      weight: 0.3
+      type: terminal
+    - id: returns_to_disposal
+      from: ReturnsProcessing:out
+      to: DisposalQueue:in
+      type: terminal
+      weight: 0.2
+
+nodes:
+  - id: purchase_orders_base
+    kind: pmf
+    source: ${telemetryDemandSource}
+    pmf:
+      values: [40, 60, 80, 100, 120, 150, 180]
+      probabilities: [0.04, 0.1, 0.2, 0.26, 0.2, 0.14, 0.06]
+    profile:
+      kind: builtin
+      name: weekday-office
+
+  - id: supplier_capacity
+    kind: pmf
+    pmf:
+      values: [120, 150, 180, 200, 220, 240]
+      probabilities: [0.05, 0.15, 0.25, 0.25, 0.2, 0.1]
+    profile:
+      kind: builtin
+      name: three-shift
+
+  - id: warehouse_release_cap
+    kind: pmf
+    pmf:
+      values: [90, 110, 130, 150, 170, 190]
+      probabilities: [0.06, 0.16, 0.26, 0.26, 0.16, 0.1]
+    profile:
+      kind: builtin
+      name: three-shift
+
+  - id: fulfillment_capacity
+    kind: pmf
+    pmf:
+      values: [80, 100, 120, 140, 160]
+      probabilities: [0.08, 0.18, 0.3, 0.28, 0.16]
+    profile:
+      kind: builtin
+      name: three-shift
+
+  - id: delivery_capacity
+    kind: pmf
+    pmf:
+      values: [70, 90, 110, 130, 150]
+      probabilities: [0.1, 0.2, 0.3, 0.25, 0.15]
+    profile:
+      kind: builtin
+      name: three-shift
+
+  - id: purchase_orders_retail
+    kind: expr
+    expr: "purchase_orders_base * 0.55"
+
+  - id: purchase_orders_wholesale
+    kind: expr
+    expr: "purchase_orders_base * 0.3"
+
+  - id: purchase_orders_subscription
+    kind: expr
+    expr: "MAX(0, purchase_orders_base - purchase_orders_retail - purchase_orders_wholesale)"
+
+  - id: purchase_orders
+    kind: expr
+    expr: "purchase_orders_retail + purchase_orders_wholesale + purchase_orders_subscription"
+
+  - id: supplier_plan
+    kind: expr
+    expr: "MIN(purchase_orders * ${bufferMultiplier}, supplier_capacity)"
+
+  - id: supplier_shipments
+    kind: expr
+    expr: "MIN(purchase_orders, supplier_capacity)"
+
+  - id: supplier_processing_time_ms_sum
+    kind: expr
+    expr: "supplier_shipments * 240"
+
+  - id: warehouse_release
+    kind: expr
+    expr: "MIN(supplier_shipments, warehouse_release_cap)"
+
+  - id: warehouse_processing_time_ms_sum
+    kind: expr
+    expr: "warehouse_release * 160"
+
+  - id: warehouse_inventory_build
+    kind: expr
+    expr: "MAX(0, supplier_plan - warehouse_release)"
+
+  - id: queue_inflow
+    kind: expr
+    expr: "warehouse_release"
+
+  - id: queue_carry_raw
+    kind: expr
+    expr: "CONV(queue_inflow - fulfillment_capacity, [1.0, 0.5, 0.25])"
+
+  - id: queue_carry
+    kind: expr
+    expr: "MAX(0, queue_carry_raw)"
+
+  - id: queue_demand
+    kind: expr
+    expr: "queue_inflow + queue_carry"
+
+  - id: queue_attrition
+    kind: expr
+    expr: "MIN(queue_carry, queue_carry * 0.01)"
+
+  - id: queue_served
+    kind: expr
+    expr: "MIN(fulfillment_capacity, queue_demand)"
+
+  - id: queue_depth
+    kind: backlog
+    inflow: queue_demand
+    outflow: queue_served
+    loss: queue_attrition
+
+  - id: delivery_base_load
+    kind: expr
+    expr: "queue_served"
+
+  - id: retry_attempts
+    kind: expr
+    expr: "${retryRate} * delivery_base_load"
+
+  - id: delivery_attempts
+    kind: expr
+    expr: "delivery_base_load + retry_attempts"
+
+  - id: retry_failures
+    kind: expr
+    expr: "${retryFailureRate} * retry_attempts"
+
+  - id: exhausted_failures
+    kind: expr
+    expr: "retry_failures"
+
+  - id: retry_budget_capacity
+    kind: expr
+    expr: "delivery_base_load * ${maxDeliveryAttempts}"
+
+  - id: retry_budget_remaining
+    kind: expr
+    expr: "MAX(0, retry_budget_capacity - delivery_attempts)"
+
+  - id: capacity_served
+    kind: expr
+    expr: "MIN(delivery_attempts, delivery_capacity)"
+
+  - id: deliveries_served
+    kind: expr
+    expr: "MIN(delivery_base_load, MAX(0, capacity_served - retry_failures))"
+
+  - id: delivery_errors
+    kind: expr
+    expr: "MAX(0, delivery_base_load - deliveries_served)"
+
+  - id: delivery_processing_time_ms_sum
+    kind: expr
+    expr: "deliveries_served * 300"
+
+  - id: retry_echo
+    kind: expr
+    expr: "CONV(retry_attempts, [0.0, 0.6, 0.3, 0.1])"
+
+  - id: dlq_inflow
+    kind: expr
+    expr: "exhausted_failures"
+
+  - id: dlq_losses
+    kind: expr
+    expr: "dlq_inflow * 0.2"
+
+  - id: dlq_depth
+    kind: backlog
+    inflow: dlq_inflow
+    outflow: dlq_release_volume
+    loss: dlq_losses
+
+  - id: returns_capacity
+    kind: pmf
+    pmf:
+      values: [0.6, 0.9, 1.2, 1.6]
+      probabilities: [0.2, 0.3, 0.3, 0.2]
+    profile:
+      kind: builtin
+      name: weekday-office
+
+  - id: dlq_available
+    kind: expr
+    expr: "MAX(0, dlq_inflow - dlq_losses)"
+
+  - id: dlq_release_volume
+    kind: expr
+    expr: "MIN(dlq_available, returns_capacity)"
+
+  - id: returns_throughput
+    kind: expr
+    expr: "dlq_release_volume"
+
+  - id: returns_processed
+    kind: expr
+    expr: "returns_throughput * 0.95"
+
+  - id: returns_escalated
+    kind: expr
+    expr: "MAX(0, returns_throughput - returns_processed)"
+
+  - id: returns_processing_time_ms_sum
+    kind: expr
+    expr: "returns_processed * 420"
+
+  - id: restock_inflow
+    kind: expr
+    expr: "returns_processed * 0.5"
+
+  - id: restock_served_zero
+    kind: expr
+    expr: "0"
+    metadata:
+      graph.hidden: "true"
+
+  - id: restock_outflow_zero
+    kind: expr
+    expr: "0"
+    metadata:
+      graph.hidden: "true"
+
+  - id: restock_losses
+    kind: expr
+    expr: "0"
+
+  - id: restock_backlog
+    kind: backlog
+    inflow: restock_inflow
+    outflow: restock_outflow_zero
+    loss: restock_losses
+
+  - id: recover_inflow
+    kind: expr
+    expr: "returns_processed * 0.3"
+
+  - id: recover_served_zero
+    kind: expr
+    expr: "0"
+    metadata:
+      graph.hidden: "true"
+
+  - id: recover_outflow_zero
+    kind: expr
+    expr: "0"
+    metadata:
+      graph.hidden: "true"
+
+  - id: recover_losses
+    kind: expr
+    expr: "0"
+
+  - id: recover_backlog
+    kind: backlog
+    inflow: recover_inflow
+    outflow: recover_outflow_zero
+    loss: recover_losses
+
+  - id: scrap_inflow
+    kind: expr
+    expr: "returns_processed * 0.2"
+
+  - id: scrap_served_zero
+    kind: expr
+    expr: "0"
+    metadata:
+      graph.hidden: "true"
+
+  - id: scrap_outflow_zero
+    kind: expr
+    expr: "0"
+    metadata:
+      graph.hidden: "true"
+
+  - id: scrap_losses
+    kind: expr
+    expr: "0"
+
+  - id: scrap_backlog
+    kind: backlog
+    inflow: scrap_inflow
+    outflow: scrap_outflow_zero
+    loss: scrap_losses
+
+  - id: supplier_shortage
+    kind: expr
+    expr: "MAX(0, purchase_orders - supplier_shipments)"
+
+  - id: delivery_utilization
+    kind: expr
+    expr: "deliveries_served / delivery_capacity"
+
+  - id: supplier_shortfall_served_zero
+    kind: expr
+    expr: "0"
+    metadata:
+      graph.hidden: "true"
+
+  - id: supplier_shortfall_attrition
+    kind: expr
+    expr: "0"
+
+  - id: supplier_shortfall_depth
+    kind: backlog
+    inflow: supplier_shortage
+    outflow: supplier_shortfall_served_zero
+    loss: supplier_shortfall_attrition
+
+outputs:
+  - series: purchase_orders
+    as: demand.csv
+  - series: supplier_shipments
+    as: supplier_shipments.csv
+  - series: warehouse_release
+    as: warehouse_release.csv
+  - series: queue_depth
+    as: distributor_queue_depth.csv
+  - series: queue_served
+    as: loads_pulled.csv
+  - series: deliveries_served
+    as: deliveries.csv
+  - series: delivery_attempts
+    as: delivery_attempts.csv
+  - series: retry_failures
+    as: failed_retries.csv
+  - series: exhausted_failures
+    as: exhausted_failures.csv
+  - series: retry_budget_remaining
+    as: retry_budget_remaining.csv
+  - series: delivery_errors
+    as: delivery_errors.csv
+  - series: delivery_utilization
+    as: delivery_utilization.csv
+  - series: dlq_depth
+    as: dlq_backlog.csv
+  - series: returns_processed
+    as: returns_processed.csv
+  - series: returns_escalated
+    as: returns_escalated.csv
+  - series: restock_backlog
+    as: restock_backlog.csv
+  - series: restock_losses
+    as: restock_purge.csv
+  - series: recover_backlog
+    as: recover_backlog.csv
+  - series: recover_losses
+    as: recover_purge.csv
+  - series: scrap_backlog
+    as: scrap_backlog.csv
+  - series: scrap_losses
+    as: scrap_purge.csv
+  - series: supplier_shortfall_depth
+    as: supplier_shortfall_backlog.csv
+  - series: "*"
