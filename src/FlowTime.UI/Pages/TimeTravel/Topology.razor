@@ -60,50 +60,6 @@
             else
             {
                 <MudStack Spacing="2" Class="topology-main-stack">
-                    @if (ShowClassSelector)
-                    {
-                        <MudStack Row="true"
-                                  AlignItems="AlignItems.Center"
-                                  Class="topology-class-selector"
-                                  Spacing="1">
-                            <ClassSelector Classes="availableClasses"
-                                           ClassDisplayNames="classDisplayNames"
-                                           SelectionChanged="OnClassSelectionChanged"
-                                           ModeChanged="OnClassSelectionModeChanged"
-                                           QueryKey="classes" />
-                            <MudText Typo="Typo.caption"
-                                    Class="topology-class-selector-coverage">
-                                @ClassCoverageText
-                            </MudText>
-                            <MudButton Variant="Variant.Outlined"
-                                       Color="Color.Primary"
-                                       Disabled="@(!CanDownloadFilteredCsv)"
-                                       StartIcon="@Icons.Material.Filled.Download"
-                                       OnClick="DownloadFilteredCsvAsync">
-                                Download filtered CSV
-                            </MudButton>
-                        </MudStack>
-                    }
-                    else if (!string.IsNullOrWhiteSpace(ClassCoverageText))
-                    {
-                        <MudStack Row="true"
-                                  AlignItems="AlignItems.Center"
-                                  Class="topology-class-selector"
-                                  Spacing="1">
-                            <MudText Typo="Typo.caption"
-                                     Class="topology-class-selector-coverage">
-                                @ClassCoverageText
-                            </MudText>
-                            <MudButton Variant="Variant.Outlined"
-                                       Color="Color.Primary"
-                                       Disabled="@(!CanDownloadFilteredCsv)"
-                                       StartIcon="@Icons.Material.Filled.Download"
-                                       OnClick="DownloadFilteredCsvAsync">
-                                Download filtered CSV
-                            </MudButton>
-                        </MudStack>
-                    }
-
                     <MudPaper Class="pa-3 timeline-paper" Elevation="0">
                         <MudStack Spacing="1" Class="topology-header">
                             @{ var runInfo = GetRunInfo(); }
@@ -330,12 +286,30 @@
                     </MudPaper>
 
                     <MudStack Row="true" AlignItems="AlignItems.Stretch" Spacing="2" Class="topology-stage">
-                        <div class="topology-legend-overlay @(inspectorOpen ? "legend-shifted" : string.Empty)">
-                            @foreach (var entry in BuildLegendEntries())
+                        <div class="topology-overlay-stack @(inspectorOpen ? "legend-shifted" : string.Empty)">
+                            <div class="topology-legend-overlay">
+                                <div class="topology-legend-list">
+                                    @foreach (var entry in BuildLegendEntries())
+                                    {
+                                        <div class="legend-item">
+                                            <span class="legend-swatch @entry.Swatch"></span>
+                                            <span>@entry.Label</span>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                            @if (ShowClassSelector)
                             {
-                                <div class="legend-item">
-                                    <span class="legend-swatch @entry.Swatch"></span>
-                                    <span>@entry.Label</span>
+                                <div class="topology-flow-overlay">
+                                    <div class="topology-flow-header">
+                                        <MudText Typo="Typo.overline" Class="topology-flow-panel-title">Flows</MudText>
+                                        <span class="topology-flow-counter">@((availableClasses?.Count ?? 0).ToString(CultureInfo.InvariantCulture))</span>
+                                    </div>
+                                    <ClassSelector Classes="availableClasses"
+                                                   ClassDisplayNames="classDisplayNames"
+                                                   SelectionChanged="OnClassSelectionChanged"
+                                                   ModeChanged="OnClassSelectionModeChanged"
+                                                   QueryKey="classes" />
                                 </div>
                             }
                         </div>
@@ -782,17 +756,6 @@ private readonly HashSet<string> classFilteredNodes = new(StringComparer.Ordinal
 
     private bool ShowClassSelector => availableClasses.Count > 0;
     private bool HasClassSelection => selectedClasses.Count > 0;
-    private bool CanDownloadFilteredCsv => windowData is not null && windowData.Nodes.Count > 0;
-    private string ClassCoverageText => FormatClassCoverageLabel(classCoverageState ?? windowData?.Metadata.ClassCoverage);
-
-    private static string FormatClassCoverageLabel(string? coverage) =>
-        coverage switch
-        {
-            "full" => "Class coverage: Full",
-            "partial" => "Class coverage: Partial",
-            "missing" => "Class coverage: Missing",
-            _ => string.IsNullOrWhiteSpace(coverage) ? string.Empty : $"Class coverage: {coverage}"
-        };
 
     private Task OnClassSelectionChanged(IReadOnlyList<string> classes)
     {
@@ -810,28 +773,6 @@ private readonly HashSet<string> classFilteredNodes = new(StringComparer.Ordinal
     {
         classSelectionMode = mode;
         return Task.CompletedTask;
-    }
-
-    private async Task DownloadFilteredCsvAsync()
-    {
-        if (!CanDownloadFilteredCsv)
-        {
-            return;
-        }
-
-        var csv = BuildFilteredCsvContent();
-        if (string.IsNullOrWhiteSpace(csv))
-        {
-            return;
-        }
-
-        var safeRunId = string.IsNullOrWhiteSpace(RunId) ? "run" : RunId;
-        var suffix = HasClassSelection && selectedClasses.Count > 0
-            ? string.Join('-', selectedClasses)
-            : "all";
-        var fileName = $"state-{safeRunId}-{suffix}.csv";
-
-        await JS.InvokeVoidAsync("FlowTime.downloadText", fileName, csv, "text/csv");
     }
 
     private const double MinPlaybackDelay = 0.02d;

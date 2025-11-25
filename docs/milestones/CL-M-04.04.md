@@ -1,6 +1,6 @@
 # CL-M-04.04 — Telemetry Contract & Loop Validation for Classes
 
-**Status:** 📋 Planned  
+**Status:** 📋 Not Started  
 **Dependencies:** ✅ CL-M-04.02 (Engine aggregation), 🔄 CL-M-04.03 (UI consumers optional)  
 **Target:** Update TelemetryLoader contracts, capture endpoints, and Loop validation suites so telemetry-driven runs produce the same per-class node metrics as simulation-driven runs.
 

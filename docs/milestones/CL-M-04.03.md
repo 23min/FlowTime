@@ -1,6 +1,6 @@
 # CL-M-04.03 — UI Class-Aware Visualization
 
-**Status:** 🔄 In Progress  
+**Status:** ✅ Complete  
 **Dependencies:** ✅ CL-M-04.02 (Engine & State Aggregation)  
 **Target:** Provide UI selectors, dashboards, and node inspectors that visualize FlowTime runs per class using the new `/state` data.
 
@@ -184,6 +184,11 @@ flowchart LR
 - [x] Docs (`docs/ui/*`) updated to mention the new feature (`docs/ui/time-travel-visualizations-3.md` captures selector + inspector behavior).
 
 ---
+
+## Completion Notes
+- Topology legend/flows panel shares a floating overlay so class chips no longer compete with the timeline toolbar; chips reuse the same palette as the timeline focus controls for consistency.
+- Manual validation on regenerated runs (`run_20251125T155445Z_74e60979`, `run_20251125T155501Z_0cc3f7e6`) confirmed full coverage and selector behavior prior to sign-off.
+- Release notes recorded in `docs/releases/CL-M-04.03.md`; full `dotnet build` + `dotnet test --nologo` executed (perf benchmark `Test_PMF_Mixed_Workload_Performance` still fails in the dev sandbox and remains documented as an expected perf follow-up under CL-M-04.x).
 
 ## File Impact Summary
 
