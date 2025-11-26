@@ -506,21 +506,33 @@ nodes:
   - id: returns_router_errors
     kind: expr
     expr: "0"
+    metadata:
+      graph.hidden: "true"
   - id: returns_router_arrivals
     kind: expr
     expr: "returns_processed"
+    metadata:
+      graph.hidden: "true"
   - id: returns_router_served
     kind: expr
     expr: "returns_processed"
+    metadata:
+      graph.hidden: "true"
   - id: returns_router_capacity
     kind: expr
     expr: "returns_capacity"
+    metadata:
+      graph.hidden: "true"
   - id: returns_router_processing_time_ms_sum
     kind: expr
     expr: "returns_router_served * 200"
+    metadata:
+      graph.hidden: "true"
   - id: returns_router_served_count
     kind: expr
     expr: "returns_router_served"
+    metadata:
+      graph.hidden: "true"
 
   - id: returns_router
     kind: router

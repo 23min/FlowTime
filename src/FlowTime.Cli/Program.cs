@@ -123,6 +123,24 @@ var writeRequest = new RunArtifactWriter.WriteRequest
 
 var result = await RunArtifactWriter.WriteArtifactsAsync(writeRequest);
 if (verbose) Console.WriteLine($"  RNG seed: {result.FinalSeed} ({(rngSeed.HasValue ? "provided" : "generated")})");
+if (result.Warnings.Count > 0)
+{
+	Console.ForegroundColor = ConsoleColor.Yellow;
+	Console.WriteLine($"⚠ Run emitted {result.Warnings.Count} warning(s):");
+	foreach (var warning in result.Warnings.Take(5))
+	{
+		var nodePrefix = string.IsNullOrWhiteSpace(warning.NodeId) ? string.Empty : $"[{warning.NodeId}] ";
+		var binsText = warning.Bins is { Length: > 0 }
+			? $" bins [{string.Join(", ", warning.Bins.Take(5))}{(warning.Bins.Length > 5 ? ", …" : string.Empty)}]"
+			: string.Empty;
+		Console.WriteLine($"  - {nodePrefix}{warning.Message}{binsText}");
+	}
+	if (result.Warnings.Count > 5)
+	{
+		Console.WriteLine("    (additional warnings omitted)");
+	}
+	Console.ResetColor();
+}
 Console.WriteLine($"Wrote artifacts to {result.RunDirectory}");
 
 return 0;

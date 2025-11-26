@@ -13,15 +13,18 @@ namespace FlowTime.Core.Artifacts;
 internal static class ClassContributionBuilder
 {
     private const double Tolerance = 1e-9;
+    private const double RouterDiagnosticsTolerance = 1e-6;
 
     public static IReadOnlyDictionary<NodeId, IReadOnlyDictionary<string, double[]>> Build(
         ModelDefinition model,
         TimeGrid grid,
         IReadOnlyDictionary<NodeId, double[]> totals,
-        IReadOnlyDictionary<NodeId, string> classAssignments)
+        IReadOnlyDictionary<NodeId, string> classAssignments,
+        out IReadOnlyList<RouterDiagnostic> routerDiagnostics)
     {
         if (classAssignments.Count == 0)
         {
+            routerDiagnostics = Array.Empty<RouterDiagnostic>();
             return new Dictionary<NodeId, IReadOnlyDictionary<string, double[]>>();
         }
 
@@ -64,7 +67,9 @@ internal static class ClassContributionBuilder
             contributions[nodeId] = series;
         }
 
-        var overriddenNodes = ApplyRouterContributions(routerSpecs, grid, totals, contributions);
+        var routerDiagnosticsList = new List<RouterDiagnostic>();
+
+        var overriddenNodes = ApplyRouterContributions(routerSpecs, grid, totals, contributions, routerDiagnosticsList);
         if (overriddenNodes.Count > 0)
         {
             RecomputeContributions(
@@ -92,6 +97,7 @@ internal static class ClassContributionBuilder
                 StringComparer.OrdinalIgnoreCase);
         }
 
+        routerDiagnostics = routerDiagnosticsList;
         return result;
     }
 
@@ -137,12 +143,13 @@ internal static class ClassContributionBuilder
         IReadOnlyDictionary<NodeId, RouterSpec> routerSpecs,
         TimeGrid grid,
         IReadOnlyDictionary<NodeId, double[]> totals,
-        Dictionary<NodeId, ClassSeries> contributions)
+        Dictionary<NodeId, ClassSeries> contributions,
+        List<RouterDiagnostic> diagnostics)
     {
         var overridden = new HashSet<NodeId>(new NodeIdComparer());
         foreach (var spec in routerSpecs.Values)
         {
-            var overrides = EvaluateRouterRoutes(spec, grid, totals, contributions);
+            var overrides = EvaluateRouterRoutes(spec, grid, totals, contributions, diagnostics);
             foreach (var (targetId, series) in overrides)
             {
                 contributions[targetId] = series;
@@ -199,7 +206,8 @@ internal static class ClassContributionBuilder
         RouterSpec spec,
         TimeGrid grid,
         IReadOnlyDictionary<NodeId, double[]> totals,
-        IReadOnlyDictionary<NodeId, ClassSeries> contributions)
+        IReadOnlyDictionary<NodeId, ClassSeries> contributions,
+        List<RouterDiagnostic> diagnostics)
     {
         var result = new Dictionary<NodeId, ClassSeries>(new NodeIdComparer());
         var source = GetSourceSeries(spec.SourceId, grid.Length, totals, contributions);
@@ -251,6 +259,8 @@ internal static class ClassContributionBuilder
                 result[route.TargetId] = new ClassSeries(total, dict);
             }
         }
+
+        EmitRouterDiagnostics(spec, source, remainder, weightRoutes.Count > 0, result.Values, diagnostics);
 
         return result;
     }
@@ -590,9 +600,117 @@ internal static class ClassContributionBuilder
         return new double[length];
     }
 
+    private static void EmitRouterDiagnostics(
+        RouterSpec spec,
+        ClassSeries source,
+        Dictionary<string, double[]> remainder,
+        bool hasWeightedRoutes,
+        IEnumerable<ClassSeries> routedSeries,
+        List<RouterDiagnostic> diagnostics)
+    {
+        if (!hasWeightedRoutes)
+        {
+            var missing = remainder
+                .Where(kvp => HasNonZero(kvp.Value))
+                .Select(kvp => kvp.Key)
+                .ToArray();
+
+            if (missing.Length > 0)
+            {
+                diagnostics.Add(new RouterDiagnostic(
+                    spec.RouterId.Value,
+                    "router_missing_class_route",
+                    $"Router '{spec.RouterId.Value}' is missing routes for classes: {string.Join(", ", missing)}."));
+            }
+        }
+
+        var leakage = ComputeClassLeakage(source.ByClass, routedSeries);
+        if (leakage.Count > 0)
+        {
+            var details = string.Join(", ", leakage.Select(kvp => $"{kvp.Key} (max diff {kvp.Value:0.###})"));
+            diagnostics.Add(new RouterDiagnostic(
+                spec.RouterId.Value,
+                "router_class_leakage",
+                $"Router '{spec.RouterId.Value}' routed class totals that differ from source: {details}."));
+        }
+    }
+
+    private static Dictionary<string, double> ComputeClassLeakage(
+        IReadOnlyDictionary<string, double[]> source,
+        IEnumerable<ClassSeries> routedSeries)
+    {
+        var sums = new Dictionary<string, double[]>(StringComparer.OrdinalIgnoreCase);
+        foreach (var series in routedSeries)
+        {
+            foreach (var (classId, values) in series.ByClass)
+            {
+                if (!sums.TryGetValue(classId, out var aggregate))
+                {
+                    aggregate = new double[values.Length];
+                    sums[classId] = aggregate;
+                }
+
+                AddSeries(aggregate, values);
+            }
+        }
+
+        var result = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (classId, sourceSeries) in source)
+        {
+            var routed = sums.TryGetValue(classId, out var aggregate) ? aggregate : new double[sourceSeries.Length];
+            var diff = MaxAbsDifference(sourceSeries, routed);
+            if (diff > RouterDiagnosticsTolerance)
+            {
+                result[classId] = diff;
+            }
+        }
+
+        return result;
+    }
+
+    private static void AddSeries(double[] destination, double[] source)
+    {
+        var limit = Math.Min(destination.Length, source.Length);
+        for (var i = 0; i < limit; i++)
+        {
+            destination[i] += source[i];
+        }
+    }
+
+    private static bool HasNonZero(double[] series)
+    {
+        for (var i = 0; i < series.Length; i++)
+        {
+            if (Math.Abs(series[i]) > RouterDiagnosticsTolerance)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static double MaxAbsDifference(double[] left, double[] right)
+    {
+        var limit = Math.Min(left.Length, right.Length);
+        var max = 0d;
+        for (var i = 0; i < limit; i++)
+        {
+            var diff = Math.Abs(left[i] - right[i]);
+            if (diff > max)
+            {
+                max = diff;
+            }
+        }
+
+        return max;
+    }
+
     private sealed record RouterSpec(NodeId RouterId, NodeId SourceId, IReadOnlyList<RouterRouteSpec> Routes);
 
     private sealed record RouterRouteSpec(NodeId TargetId, IReadOnlyList<string> Classes, double Weight);
+
+    internal sealed record RouterDiagnostic(string RouterId, string Code, string Message);
 
     private sealed class NodeIdComparer : IEqualityComparer<NodeId>
     {

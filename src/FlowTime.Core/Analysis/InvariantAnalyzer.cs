@@ -1,4 +1,5 @@
 using System.Linq;
+using FlowTime.Core.Artifacts;
 using FlowTime.Core.Execution;
 using FlowTime.Core.Models;
 using FlowTime.Core.Nodes;
@@ -325,6 +326,8 @@ public static class InvariantAnalyzer
             }
         }
 
+        AppendRouterDiagnostics(model, evaluatedSeries, warnings);
+
         return warnings.Count == 0
             ? new InvariantAnalysisResult(Array.Empty<InvariantWarning>())
             : new InvariantAnalysisResult(warnings);
@@ -526,6 +529,105 @@ public static class InvariantAnalyzer
             var separatorIndex = trimmed.IndexOf(':');
             return separatorIndex >= 0 ? trimmed[..separatorIndex] : trimmed;
         }
+    }
+
+    private static void AppendRouterDiagnostics(
+        ModelDefinition model,
+        IReadOnlyDictionary<NodeId, double[]> evaluatedSeries,
+        List<InvariantWarning> warnings)
+    {
+        if (model.Nodes == null || model.Nodes.Count == 0)
+        {
+            return;
+        }
+
+        if (!model.Nodes.Any(n => string.Equals(n.Kind, "router", StringComparison.OrdinalIgnoreCase)))
+        {
+            return;
+        }
+
+        if (!TryCreateTimeGrid(model.Grid, out var grid))
+        {
+            return;
+        }
+
+        var classAssignments = BuildClassAssignments(model);
+        if (classAssignments.Count == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            _ = ClassContributionBuilder.Build(model, grid, evaluatedSeries, classAssignments, out var routerDiagnostics);
+            foreach (var diagnostic in routerDiagnostics)
+            {
+                warnings.Add(new InvariantWarning(
+                    diagnostic.RouterId,
+                    diagnostic.Code,
+                    diagnostic.Message,
+                    Array.Empty<int>(),
+                    null,
+                    "warning"));
+            }
+        }
+        catch (Exception ex)
+        {
+            warnings.Add(new InvariantWarning(
+                "router_diagnostics",
+                "router_diagnostics_failed",
+                $"Router diagnostics failed: {ex.Message}",
+                Array.Empty<int>(),
+                null,
+                "warning"));
+        }
+    }
+
+    private static bool TryCreateTimeGrid(GridDefinition? gridDefinition, out TimeGrid grid)
+    {
+        grid = default;
+        if (gridDefinition is null)
+        {
+            return false;
+        }
+
+        try
+        {
+            var unit = TimeUnitExtensions.Parse(gridDefinition.BinUnit ?? "minutes");
+            grid = new TimeGrid(gridDefinition.Bins, gridDefinition.BinSize, unit);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static Dictionary<NodeId, string> BuildClassAssignments(ModelDefinition model)
+    {
+        var assignments = new Dictionary<NodeId, string>(new NodeIdComparer());
+        if (model.Traffic?.Arrivals is not { Count: > 0 })
+        {
+            return assignments;
+        }
+
+        foreach (var arrival in model.Traffic.Arrivals)
+        {
+            if (string.IsNullOrWhiteSpace(arrival.NodeId) || string.IsNullOrWhiteSpace(arrival.ClassId))
+            {
+                continue;
+            }
+
+            assignments[new NodeId(arrival.NodeId)] = arrival.ClassId.Trim();
+        }
+
+        return assignments;
+    }
+
+    private sealed class NodeIdComparer : IEqualityComparer<NodeId>
+    {
+        public bool Equals(NodeId x, NodeId y) => string.Equals(x.Value, y.Value, StringComparison.OrdinalIgnoreCase);
+        public int GetHashCode(NodeId obj) => obj.Value?.ToLowerInvariant().GetHashCode() ?? 0;
     }
 
     private static Dictionary<string, double> BuildQueueInitials(IEnumerable<TopologyNodeDefinition> nodes)

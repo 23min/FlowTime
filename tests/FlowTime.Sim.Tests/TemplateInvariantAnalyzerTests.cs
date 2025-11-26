@@ -41,4 +41,131 @@ outputs: []
         Assert.NotEmpty(result.Warnings);
         Assert.Contains(result.Warnings, w => w.Code == "served_exceeds_arrivals");
     }
+
+    [Fact]
+    public void Analyze_FlagsRouterMissingClassRoute()
+    {
+        var yaml = """
+schemaVersion: 1
+generator: flowtime-sim
+grid:
+  bins: 1
+  binSize: 60
+  binUnit: minutes
+classes:
+  - id: Alpha
+  - id: Beta
+traffic:
+  arrivals:
+    - nodeId: alpha_source
+      classId: Alpha
+      pattern:
+        kind: constant
+        ratePerBin: 1
+    - nodeId: beta_source
+      classId: Beta
+      pattern:
+        kind: constant
+        ratePerBin: 1
+topology:
+  nodes:
+    - id: RouterNode
+      kind: service
+      semantics:
+        arrivals: source_total
+        served: route_alpha
+        errors: route_alpha
+nodes:
+  - id: alpha_source
+    kind: const
+    values: [5]
+  - id: beta_source
+    kind: const
+    values: [5]
+  - id: source_total
+    kind: expr
+    expr: alpha_source + beta_source
+  - id: route_alpha
+    kind: expr
+    expr: source_total * 0.5
+  - id: hub_router
+    kind: router
+    inputs:
+      queue: source_total
+    routes:
+      - target: route_alpha
+        classes: [Alpha]
+outputs: []
+""";
+
+        var result = TemplateInvariantAnalyzer.Analyze(yaml);
+
+        Assert.Contains(result.Warnings, w => w.Code == "router_missing_class_route" && w.NodeId == "hub_router");
+    }
+
+    [Fact]
+    public void Analyze_FlagsRouterClassLeakage()
+    {
+        var yaml = """
+schemaVersion: 1
+generator: flowtime-sim
+grid:
+  bins: 1
+  binSize: 60
+  binUnit: minutes
+classes:
+  - id: Alpha
+  - id: Beta
+traffic:
+  arrivals:
+    - nodeId: alpha_source
+      classId: Alpha
+      pattern:
+        kind: constant
+        ratePerBin: 1
+    - nodeId: beta_source
+      classId: Beta
+      pattern:
+        kind: constant
+        ratePerBin: 1
+topology:
+  nodes:
+    - id: RouterNode
+      kind: service
+      semantics:
+        arrivals: source_total
+        served: route_alpha
+        errors: route_beta
+nodes:
+  - id: alpha_source
+    kind: const
+    values: [5]
+  - id: beta_source
+    kind: const
+    values: [5]
+  - id: source_total
+    kind: expr
+    expr: alpha_source + beta_source
+  - id: route_alpha
+    kind: const
+    values: [8]
+  - id: route_beta
+    kind: const
+    values: [1]
+  - id: hub_router
+    kind: router
+    inputs:
+      queue: source_total
+    routes:
+      - target: route_alpha
+        classes: [Alpha]
+      - target: route_beta
+        classes: [Beta]
+outputs: []
+""";
+
+        var result = TemplateInvariantAnalyzer.Analyze(yaml);
+
+        Assert.Contains(result.Warnings, w => w.Code == "router_class_leakage" && w.NodeId == "hub_router");
+    }
 }

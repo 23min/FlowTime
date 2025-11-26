@@ -53,7 +53,7 @@ public class RouterClassContributionTests
             [new NodeId("beta_source")] = "Beta"
         };
 
-        var contributions = ClassContributionBuilder.Build(model, grid, totals, classAssignments);
+        var contributions = ClassContributionBuilder.Build(model, grid, totals, classAssignments, out _);
 
         var airport = Assert.Contains(new NodeId("airport_flow"), contributions);
         Assert.Equal(new[] { 4d, 6d }, airport["Alpha"]);
@@ -110,7 +110,7 @@ public class RouterClassContributionTests
             [new NodeId("beta_source")] = "Beta"
         };
 
-        var contributions = ClassContributionBuilder.Build(model, grid, totals, classAssignments);
+        var contributions = ClassContributionBuilder.Build(model, grid, totals, classAssignments, out _);
 
         var routeA = Assert.Contains(new NodeId("route_a"), contributions);
         Assert.Equal(new[] { 16d / 3d, 8d / 3d }, routeA["Alpha"], new DoubleArrayComparer(1e-9));
@@ -119,6 +119,105 @@ public class RouterClassContributionTests
         var routeB = Assert.Contains(new NodeId("route_b"), contributions);
         Assert.Equal(new[] { 8d / 3d, 4d / 3d }, routeB["Alpha"], new DoubleArrayComparer(1e-9));
         Assert.Equal(new[] { 2d / 3d, 2d }, routeB["Beta"], new DoubleArrayComparer(1e-9));
+    }
+
+    [Fact]
+    public void Build_EmitsWarning_WhenRouterMissingClassRoute()
+    {
+        var model = new ModelDefinition
+        {
+            Grid = new GridDefinition { Bins = 1, BinSize = 1, BinUnit = "hours" },
+            Nodes =
+            {
+                new NodeDefinition { Id = "alpha_source", Kind = "const", Values = new[] { 4d } },
+                new NodeDefinition { Id = "beta_source", Kind = "const", Values = new[] { 6d } },
+                new NodeDefinition { Id = "source_total", Kind = "expr", Expr = "alpha_source + beta_source" },
+                new NodeDefinition { Id = "route_alpha", Kind = "expr", Expr = "source_total * 0.4" },
+                new NodeDefinition
+                {
+                    Id = "hub_router",
+                    Kind = "router",
+                    Router = new RouterDefinition
+                    {
+                        Inputs = new RouterInputsDefinition { Queue = "source_total" },
+                        Routes = new List<RouterRouteDefinition>
+                        {
+                            new() { Target = "route_alpha", Classes = new[] { "Alpha" } }
+                        }
+                    }
+                }
+            }
+        };
+
+        var grid = new TimeGrid(1, 1, TimeUnit.Hours);
+        var totals = new Dictionary<NodeId, double[]>
+        {
+            [new NodeId("alpha_source")] = new[] { 4d },
+            [new NodeId("beta_source")] = new[] { 6d },
+            [new NodeId("source_total")] = new[] { 10d },
+            [new NodeId("route_alpha")] = new[] { 4d },
+            [new NodeId("hub_router")] = new[] { 10d }
+        };
+        var classAssignments = new Dictionary<NodeId, string>
+        {
+            [new NodeId("alpha_source")] = "Alpha",
+            [new NodeId("beta_source")] = "Beta"
+        };
+
+        _ = ClassContributionBuilder.Build(model, grid, totals, classAssignments, out var diagnostics);
+
+        Assert.Contains(diagnostics, d => d.RouterId == "hub_router" && d.Code == "router_missing_class_route");
+    }
+
+    [Fact]
+    public void Build_EmitsWarning_WhenRouterLeakageDetected()
+    {
+        var model = new ModelDefinition
+        {
+            Grid = new GridDefinition { Bins = 1, BinSize = 1, BinUnit = "hours" },
+            Nodes =
+            {
+                new NodeDefinition { Id = "alpha_source", Kind = "const", Values = new[] { 2d } },
+                new NodeDefinition { Id = "beta_source", Kind = "const", Values = new[] { 1d } },
+                new NodeDefinition { Id = "source_total", Kind = "expr", Expr = "alpha_source + beta_source" },
+                new NodeDefinition { Id = "route_alpha", Kind = "expr", Expr = "source_total * 0.7" },
+                new NodeDefinition { Id = "route_beta", Kind = "expr", Expr = "source_total * 0.3" },
+                new NodeDefinition
+                {
+                    Id = "hub_router",
+                    Kind = "router",
+                    Router = new RouterDefinition
+                    {
+                        Inputs = new RouterInputsDefinition { Queue = "source_total" },
+                        Routes = new List<RouterRouteDefinition>
+                        {
+                            new() { Target = "route_alpha", Classes = new[] { "Alpha" } },
+                            new() { Target = "route_beta", Classes = new[] { "Beta" } }
+                        }
+                    }
+                }
+            }
+        };
+
+        var grid = new TimeGrid(1, 1, TimeUnit.Hours);
+        var totals = new Dictionary<NodeId, double[]>
+        {
+            [new NodeId("alpha_source")] = new[] { 2d },
+            [new NodeId("beta_source")] = new[] { 1d },
+            [new NodeId("source_total")] = new[] { 3d },
+            [new NodeId("route_alpha")] = new[] { 10d },
+            [new NodeId("route_beta")] = new[] { 5d },
+            [new NodeId("hub_router")] = new[] { 3d }
+        };
+        var classAssignments = new Dictionary<NodeId, string>
+        {
+            [new NodeId("alpha_source")] = "Alpha",
+            [new NodeId("beta_source")] = "Beta"
+        };
+
+        _ = ClassContributionBuilder.Build(model, grid, totals, classAssignments, out var diagnostics);
+
+        Assert.Contains(diagnostics, d => d.RouterId == "hub_router" && d.Code == "router_class_leakage");
     }
 
     private sealed class DoubleArrayComparer : IEqualityComparer<double[]>

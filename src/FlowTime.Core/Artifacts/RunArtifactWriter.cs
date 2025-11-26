@@ -44,6 +44,7 @@ public static class RunArtifactWriter
         public required string RunId { get; init; }
         public required int FinalSeed { get; init; }
         public required string ScenarioHash { get; init; }
+        public required IReadOnlyList<RunWarningEntry> Warnings { get; init; }
     }
 
     private sealed record MetadataContext(
@@ -156,7 +157,7 @@ public static class RunArtifactWriter
         IReadOnlyDictionary<NodeId, IReadOnlyDictionary<string, double[]>> classSeries = new Dictionary<NodeId, IReadOnlyDictionary<string, double[]>>();
         if (classAssignments.Count > 0)
         {
-            classSeries = ClassContributionBuilder.Build(modelDefinition, grid, effectiveContext, classAssignments);
+            classSeries = ClassContributionBuilder.Build(modelDefinition, grid, effectiveContext, classAssignments, out _);
         }
         var capturedClasses = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -316,7 +317,8 @@ public static class RunArtifactWriter
             RunDirectory = runDir,
             RunId = runId,
             FinalSeed = finalSeed,
-            ScenarioHash = scenarioHash
+            ScenarioHash = scenarioHash,
+            Warnings = warningEntries
         };
     }
 
@@ -1223,7 +1225,7 @@ internal sealed record RunJson
     public List<ManifestClassEntry> Classes { get; set; } = new();
 }
 
-internal sealed record RunWarningEntry
+public sealed record RunWarningEntry
 {
     public string Code { get; set; } = "";
     public string Message { get; set; } = "";

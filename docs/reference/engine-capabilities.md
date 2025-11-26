@@ -35,6 +35,7 @@ This document describes the **shipped** FlowTime Engine surfaces and behaviors a
   - `flowtime artifacts list [--template-id --model-id --limit --skip --data-dir]`
   - Output root precedence: `FLOWTIME_DATA_DIR` > `--out` (per run) > defaults (`<repo>/data`).
   - RNG: templates declaring `rng` require a seed in orchestration; the CLI currently lacks an explicit `--rng` flag (run fails if template requires it).
+  - Analyzer/manifest warnings (e.g., router diagnostics, conservation failures) are printed to stdout after a run completes so authors can act before inspecting artifacts; up to five warnings are echoed with codes/node context.
 - Sim CLI (`src/FlowTime.Sim.Cli`):
   - `list templates|models`, `show template|model`, `generate [--id --params --out --mode]`, `validate template|params`.
   - `generate` runs `TemplateInvariantAnalyzer` and prints warnings; `validate` checks parameter shapes/bounds.
@@ -60,4 +61,5 @@ This document describes the **shipped** FlowTime Engine surfaces and behaviors a
 ## Validation & analyzers
 - Engine invariants run during artifact writing; warnings persist in `run.json`.
 - Template invariant analyzer runs in Sim CLI generation and in orchestration paths; warnings surface on stdout (Sim CLI) and in manifests for runs.
+- Router diagnostics (`router_missing_class_route`, `router_class_leakage`) are emitted by the invariant analyzer so CLI, API, and UI surfaces all present the same warnings.
 - Configuration precedence is tested in `FlowTime.Api.Tests.ConfigurationTests` and `FlowTime.Cli.Tests.OutputDirectoryConfigurationTests`.

@@ -467,6 +467,22 @@ public sealed class StateQueryService
                 kvp => (IReadOnlyList<ModeValidationWarning>)kvp.Value,
                 StringComparer.OrdinalIgnoreCase);
 
+            if (manifest.Warnings is { Length: > 0 })
+            {
+                var warningSummary = manifest.Warnings
+                    .Select(w =>
+                        string.IsNullOrWhiteSpace(w.NodeId)
+                            ? w.Code
+                            : $"{w.Code}@{w.NodeId}")
+                    .ToArray();
+
+                logger.LogWarning(
+                    "Run {RunId} manifest contains {WarningCount} warning(s): {Warnings}",
+                    runId,
+                    warningSummary.Length,
+                    string.Join(", ", warningSummary));
+            }
+
             return new StateRunContext(
                 manifest,
                 manifestMetadata,
