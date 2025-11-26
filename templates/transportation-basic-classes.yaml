@@ -520,22 +520,19 @@ nodes:
     inputs:
       queue: hub_dispatch
     routes:
-      - target: airport_dispatch_queue_inflow
+      - target: airport_dispatch_queue_demand
         classes: [Airport]
-      - target: downtown_dispatch_queue_inflow
+      - target: downtown_dispatch_queue_demand
         classes: [Downtown]
-      - target: industrial_dispatch_queue_inflow
+      - target: industrial_dispatch_queue_demand
         classes: [Industrial]
 
-  - id: airport_dispatch_queue_inflow
-    kind: expr
-    expr: "hub_dispatch_airport"
   - id: airport_dispatch_queue_attrition
     kind: expr
     expr: "0"
   - id: airport_dispatch_queue_demand
     kind: expr
-    expr: "airport_dispatch_queue_inflow"
+    expr: "hub_dispatch_airport"
   - id: airport_dispatch_queue_served
     kind: expr
     expr: "airport_dispatch_queue_demand"
@@ -545,15 +542,12 @@ nodes:
     outflow: airport_dispatch_queue_served
     loss: airport_dispatch_queue_attrition
 
-  - id: downtown_dispatch_queue_inflow
-    kind: expr
-    expr: "hub_dispatch_downtown"
   - id: downtown_dispatch_queue_attrition
     kind: expr
     expr: "0"
   - id: downtown_dispatch_queue_demand
     kind: expr
-    expr: "downtown_dispatch_queue_inflow"
+    expr: "hub_dispatch_downtown"
   - id: downtown_dispatch_queue_served
     kind: expr
     expr: "downtown_dispatch_queue_demand"
@@ -563,15 +557,12 @@ nodes:
     outflow: downtown_dispatch_queue_served
     loss: downtown_dispatch_queue_attrition
 
-  - id: industrial_dispatch_queue_inflow
-    kind: expr
-    expr: "hub_dispatch_industrial"
   - id: industrial_dispatch_queue_attrition
     kind: expr
     expr: "0"
   - id: industrial_dispatch_queue_demand
     kind: expr
-    expr: "industrial_dispatch_queue_inflow"
+    expr: "hub_dispatch_industrial"
   - id: industrial_dispatch_queue_served
     kind: expr
     expr: "industrial_dispatch_queue_demand"

@@ -39,7 +39,7 @@ public class RouterTemplateRegressionTests
         "transportation-basic-classes",
         "hub_dispatch_router",
         "hub_dispatch",
-        new[] { "airport_dispatch_queue_inflow", "downtown_dispatch_queue_inflow", "industrial_dispatch_queue_inflow" })]
+        new[] { "airport_dispatch_queue_demand", "downtown_dispatch_queue_demand", "industrial_dispatch_queue_demand" })]
     [InlineData(
         "supply-chain-multi-tier-classes",
         "returns_router",

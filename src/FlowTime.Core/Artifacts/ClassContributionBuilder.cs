@@ -64,7 +64,19 @@ internal static class ClassContributionBuilder
             contributions[nodeId] = series;
         }
 
-        ApplyRouterContributions(routerSpecs, grid, totals, contributions);
+        var overriddenNodes = ApplyRouterContributions(routerSpecs, grid, totals, contributions);
+        if (overriddenNodes.Count > 0)
+        {
+            RecomputeContributions(
+                graph,
+                nodeDefinitions,
+                grid,
+                totals,
+                classAssignments,
+                topologySeeds,
+                overriddenNodes,
+                contributions);
+        }
 
         var result = new Dictionary<NodeId, IReadOnlyDictionary<string, double[]>>();
         foreach (var (nodeId, series) in contributions)
@@ -121,21 +133,65 @@ internal static class ClassContributionBuilder
         return specs;
     }
 
-    private static void ApplyRouterContributions(
+    private static HashSet<NodeId> ApplyRouterContributions(
         IReadOnlyDictionary<NodeId, RouterSpec> routerSpecs,
         TimeGrid grid,
         IReadOnlyDictionary<NodeId, double[]> totals,
         Dictionary<NodeId, ClassSeries> contributions)
     {
+        var overridden = new HashSet<NodeId>(new NodeIdComparer());
         foreach (var spec in routerSpecs.Values)
         {
             var overrides = EvaluateRouterRoutes(spec, grid, totals, contributions);
             foreach (var (targetId, series) in overrides)
             {
                 contributions[targetId] = series;
+                overridden.Add(targetId);
             }
 
             contributions[spec.RouterId] = GetRouterSeries(spec, grid, totals, contributions);
+            overridden.Add(spec.RouterId);
+        }
+
+        return overridden;
+    }
+
+    private static void RecomputeContributions(
+        Graph graph,
+        IReadOnlyDictionary<string, NodeDefinition> nodeDefinitions,
+        TimeGrid grid,
+        IReadOnlyDictionary<NodeId, double[]> totals,
+        IReadOnlyDictionary<NodeId, string> classAssignments,
+        IReadOnlyDictionary<string, double> backlogSeeds,
+        HashSet<NodeId> overriddenNodes,
+        Dictionary<NodeId, ClassSeries> contributions)
+    {
+        foreach (var nodeId in graph.TopologicalOrder())
+        {
+            if (!totals.ContainsKey(nodeId))
+            {
+                continue;
+            }
+
+            if (classAssignments.ContainsKey(nodeId) || overriddenNodes.Contains(nodeId))
+            {
+                continue;
+            }
+
+            if (!nodeDefinitions.TryGetValue(nodeId.Value, out var nodeDefinition))
+            {
+                continue;
+            }
+
+            var series = nodeDefinition.Kind switch
+            {
+                "const" or "pmf" => BuildSourceSeries(nodeId, totals[nodeId], classAssignments),
+                "expr" => EvaluateExpressionNode(nodeDefinition, grid, totals, contributions),
+                "backlog" => EvaluateBacklogNode(nodeDefinition, grid, totals, contributions, backlogSeeds),
+                _ => ClassSeries.FromTotals(totals[nodeId])
+            };
+
+            contributions[nodeId] = series;
         }
     }
 

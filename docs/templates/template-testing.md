@@ -43,7 +43,17 @@ For templates that configure `maxAttempts`:
 4. Analyzer warnings (`missing_exhausted_failures_series`, `missing_retry_budget_series`, `dlq_non_terminal_inbound`, `dlq_non_terminal_outbound`) indicate misconfigured semantics.
 5. When DLQs are modeled as pure backlogs (served = 0), the queue-latency analyzer emits informational messages (“latency could not be computed”). These are expected; the alternative would be to fake a served series, which misrepresents terminal behavior. Call them out in release notes so operators know they can ignore them.
 
-## 4. Update Fixtures and Goldens
+## 4. Validate Router/Class Coverage
+
+If the template declares `kind: router` nodes or multiple classes:
+
+1. Run the Sim CLI `generate` command (step 2) and confirm no `router_*` warnings are emitted. Common failures:
+   - `router_missing_class_route`: a class reaches the router but no route declares it, and no weighted fallback exists.
+   - `router_class_leakage`: routed totals do not add up to the inbound queue for one or more bins.
+2. Verify the downstream targets referenced in `routes[].target` consume the router outputs directly (no stale expression splits). When you update topology semantics, ensure the queue arrivals reference the same node used by the backlog to avoid conservation warnings.
+3. Record analyzer runs (template id + parameters) in the milestone tracking document so reviewers can reproduce the clean sweep.
+
+## 5. Update Fixtures and Goldens
 
 When template outputs change:
 
@@ -57,7 +67,7 @@ When template outputs change:
 
   Approved JSON files live under `tests/FlowTime.Api.Tests/Golden/…`.
 
-## 5. Full Solution Tests
+## 6. Full Solution Tests
 
 Before pushing:
 
@@ -69,6 +79,6 @@ dotnet test FlowTime.sln
 - `dotnet test FlowTime.sln` runs unit/integration tests plus the template analyzers indirectly through fixture-based API/UI tests.
 - Performance suite failures (e.g., `FlowTime.Tests.Performance.M2PerformanceTests.Test_PMF_vs_Const_Performance_Baseline`) are known and should be reported in review comments.
 
-## 6. Document Analyzer Usage
+## 7. Document Analyzer Usage
 
 When introducing new template features (retry governance, terminal edges, etc.), update the authoring/testing docs so future contributors can follow the correct steps. The CLI commands above are the canonical way to replicate analyzer output locally.

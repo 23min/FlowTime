@@ -46,10 +46,17 @@ This milestone is intentionally scoped to “scheduled dispatch,” but it lays 
 - Template analyzer flags invalid schedules (period <= 0, missing capacity series, etc.).
 - Analyzer emits info-level notices when dispatch queues never release inventory (misaligned schedule).
 - `flow-sim generate` should print schedule metadata for nodes (period, capacity, next departure) when verbose.
+- Analyzer additionally validates that per-bin `served` never exceeds `arrivals` (per node and per class) so impossible SLAs are flagged.
 
 ### FR5 — API/UI Integration
 - `/graph` and `/state_window` responses include `dispatchSchedule` metadata so the UI can annotate scheduled nodes (tooltip showing “Dispatch every 6 bins”).
 - UI chips on topology highlight scheduled routers/queues (icon or label) without blocking other work.
+
+### FR6 — Template Cache Refresh
+- Add a “Clear Template Cache” capability so Sim/API services reload YAML without restarting:
+  - Expose a CLI command (or API endpoint) that invalidates the template cache on disk and in-memory lookup tables.
+  - Surface the action in the Run page (button or menu item) so operators can trigger a refresh before regenerating runs.
+  - Update docs to explain when to use cache refresh vs. deterministic runs (`--overwrite`).
 
 ### Test Plan
 - **Expressions:** new tests in `FlowTime.Expressions.Tests` for MOD/FLOOR/CEIL/ROUND/STEP/PULSE.

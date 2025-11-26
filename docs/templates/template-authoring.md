@@ -150,6 +150,36 @@ DLQs are now a first-class node kind:
 - Model DLQs as pure backlogs: set `served` to a zero-valued series, route any cleanup/purge logic through the `loss` field, and point `errors` at whatever attrition metric you want surfaced in the UI. This matches real terminal buffers (everything accumulates unless you explicitly purge) and keeps analyzers from flagging “served exceeds arrivals.”
 - Because `served == 0`, queue-latency analyzers emit informational warnings (“latency could not be computed”). This is expected and indicates the DLQ is behaving as a terminal sink rather than an operational queue.
 
+### Router Nodes
+
+Use `kind: router` when a single upstream queue feeds multiple downstream legs and you need to preserve class-level metrics without sprinkling percentage math across expressions.
+
+```yaml
+  - id: HubDispatchRouter
+    kind: router
+    semantics:
+      arrivals: hub_dispatch_router_arrivals
+      served: hub_dispatch_router_served
+      capacity: hub_dispatch_capacity
+    inputs:
+      queue: hub_dispatch
+    routes:
+      - target: airport_dispatch_queue_demand
+        classes: [Airport]
+      - target: downtown_dispatch_queue_demand
+        classes: [Downtown]
+      - target: industrial_dispatch_queue_demand
+        weight: 1    # catch-all (unnamed classes split by weight)
+```
+
+- **`inputs.queue`** references the node that supplies arrivals. The router duplicates that series for downstream consumption, so no additional expression nodes are required for per-route splits.
+- **Routes with `classes`** capture 100% of those classes; they do not need weights. **Routes without `classes`** split the remaining classes proportionally using `weight`.
+- Always provide router semantics (`arrivals`, `served`, `capacity`, etc.) so the UI can surface node-level metrics and analyzers can validate conservation.
+- Analyzer expectations:
+  - Every router must route all classes — either via explicit `classes` entries or through weighted fallbacks. If a class never finds a route, the CLI emits `router_missing_class_route`.
+  - Conservation must hold per bin (`router_class_leakage`). When you see this warning, confirm each downstream target consumes the exact series exported by the router.
+- Router nodes are optional, but they eliminate fragile expressions like `hub_dispatch * 0.3` and keep class chips aligned with topology flows.
+
 ## Computational Nodes and Outputs
 
 - Keep transformation nodes (`expr`, `pmf`, `backlog`) in the `nodes:` section outside topology.

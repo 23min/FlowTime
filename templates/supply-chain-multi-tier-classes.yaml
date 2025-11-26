@@ -140,12 +140,12 @@ topology:
     - id: DistributionQueue
       kind: queue
       semantics:
-        arrivals: queue_inflow
+        arrivals: queue_demand
         served: queue_served
         errors: queue_attrition
         queueDepth: queue_depth
         aliases:
-          arrivals: "Loads staged"
+          arrivals: "Loads staged (demand + backlog)"
           served: "Loads pulled"
           errors: "Queue attrition"
           queue: "Distributor backlog"

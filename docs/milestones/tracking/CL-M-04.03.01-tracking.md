@@ -108,6 +108,69 @@
 
 **Status:** 🟢 Badge shows actual per-node metric values.
 
+### 2025-11-27 - Template analyzer sweep (transportation + supply chain)
+
+**Notes:**
+- Ran FlowTime.Sim CLI `generate` for `transportation-basic-classes` and `supply-chain-multi-tier-classes` to capture invariant analyzer output.
+- Supply-chain template initially emitted `DistributionQueue` depth warnings because topology semantics pointed at `queue_inflow` while the backlog used `queue_demand`. Updated semantics to reference `queue_demand` (demand + backlog) so analyzer math and UI arrivals stay aligned.
+
+**Verification:**
+- `dotnet run --project src/FlowTime.Sim.Cli -- generate --id transportation-basic-classes --templates-dir templates --mode simulation --out /tmp/transportation-basic-classes.yaml`
+- `dotnet run --project src/FlowTime.Sim.Cli -- generate --id supply-chain-multi-tier-classes --templates-dir templates --mode simulation --out /tmp/supply-chain-multi-tier-classes.yaml`
+
+**Status:** 🟢 Template analyzer sweep clean; ready to regenerate reference runs.
+
+### 2025-11-27 - Router documentation refresh
+
+**Notes:**
+- Expanded `docs/templates/template-authoring.md` with a dedicated “Router Nodes” section covering schema fields, analyzer expectations, and a sample snippet.
+- Updated `docs/templates/template-testing.md` to include a router/class-coverage validation step and renumbered the workflow so authors record analyzer runs.
+
+**Status:** 🟢 Docs reflect router authoring/testing guidance.
+
+### 2025-11-27 - Transportation router targets fix
+
+**Notes:**
+- Observed that downstream dispatch queues still exposed all classes even after routing. Root cause: router routes targeted intermediate `*_inflow` nodes that are not tied to topology semantics, so class overrides never reached the queue metrics.
+- Updated `templates/transportation-basic-classes.yaml` so router targets point directly at the queue demand nodes, removed the redundant `*_inflow` expressions, and refreshed regression tests/doc samples accordingly.
+- Verified via deterministic engine run (`run_deterministic_1f945764`) that each dispatch queue now only reports its intended classes.
+
+**Verification:**
+- `dotnet test --filter RouterTemplateRegressionTests --nologo`
+- `dotnet run --project src/FlowTime.Sim.Cli -- generate --id transportation-basic-classes --templates-dir templates --mode simulation --out /tmp/transportation-basic-classes.yaml`
+- `dotnet run --project src/FlowTime.Cli -- run /tmp/transportation-basic-classes.yaml --out data --deterministic-run-id --seed 4242`
+
+**Status:** 🟢 Router outputs align with queue class filters.
+
+### 2025-11-27 - Router propagation bug fix
+
+**Notes:**
+- After regenerating runs, leaf nodes still showed all classes because routers only rewrote their immediate targets; downstream expression/backlog nodes retained the pre-router class contributions.
+- Updated `ClassContributionBuilder` so router overrides trigger a second pass that recomputes contributions for downstream nodes using the adjusted inputs, ensuring per-class CSVs reflect the routed traffic end-to-end.
+- Confirmed via deterministic run `run_deterministic_40c00c5b` (seed 4242) that arrivals/leaf nodes now emit a single class.
+
+**Verification:**
+- `dotnet test tests/FlowTime.Sim.Tests/FlowTime.Sim.Tests.csproj --filter RouterTemplateRegressionTests --nologo`
+- `dotnet run --project src/FlowTime.Sim.Cli -- generate --id transportation-basic-classes --templates-dir templates --mode simulation --out /tmp/transportation-basic-classes.yaml`
+- `dotnet run --project src/FlowTime.Cli -- run /tmp/transportation-basic-classes.yaml --out data --deterministic-run-id --seed 4242`
+
+**Status:** 🟢 Router class splits propagate through downstream metrics.
+
+### 2025-11-27 - Regenerated router reference runs
+
+**Notes:**
+- Generated deterministic simulation runs for both router-enabled templates using the Sim CLI + engine CLI workflow so RNG requirements are satisfied.
+- Transportation run: `data/run_deterministic_1f945764` (seed 4242) — `classCoverage: "full"`, no warnings (replaced earlier run after router-class fix).
+- Supply chain run: `data/run_deterministic_ff24907c` (seed 6789) — `classCoverage: "full"`, no warnings.
+
+**Commands:**
+- `dotnet run --project src/FlowTime.Sim.Cli -- generate --id transportation-basic-classes --mode simulation --out /tmp/transportation-basic-classes.yaml`
+- `dotnet run --project src/FlowTime.Sim.Cli -- generate --id supply-chain-multi-tier-classes --mode simulation --out /tmp/supply-chain-multi-tier-classes.yaml`
+- `dotnet run --project src/FlowTime.Cli -- run /tmp/transportation-basic-classes.yaml --out data --deterministic-run-id --seed 4242`
+- `dotnet run --project src/FlowTime.Cli -- run /tmp/supply-chain-multi-tier-classes.yaml --out data --deterministic-run-id --seed 6789`
+
+**Status:** 🟢 Canonical runs refreshed; ready to update golden fixtures/UI smoke tests.
+
 ---
 
 ## Phase 1: Schema & Engine (Router Node)

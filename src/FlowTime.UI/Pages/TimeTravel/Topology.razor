@@ -1820,7 +1820,6 @@ private const string PmfExpectationLabel = "Value";
             {
                 successRate = served.Value / arrivals.Value;
             }
-
             double? errorRate = null;
             var denominator = arrivals ?? served;
             if (errors.HasValue && denominator.HasValue && denominator.Value > 0)
