@@ -85,7 +85,19 @@ public static class ModelService
                 // backlog-specific fields (emitted in YAML as inflow/outflow/loss)
                 Inflow = n.Inflow,
                 Outflow = n.Outflow,
-                Loss = n.Loss
+                Loss = n.Loss,
+                Router = n.Inputs == null || n.Routes == null
+                    ? null
+                    : new RouterDefinition
+                    {
+                        Inputs = new RouterInputsDefinition { Queue = n.Inputs.Queue },
+                        Routes = n.Routes.Select(route => new RouterRouteDefinition
+                        {
+                            Target = route.Target,
+                            Classes = route.Classes,
+                            Weight = route.Weight
+                        }).ToList()
+                    }
             }).ToList(),
             Outputs = model.Outputs.Select(o => new OutputDefinition 
             { 

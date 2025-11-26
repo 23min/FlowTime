@@ -485,26 +485,27 @@ code {
     color: var(--mud-palette-text-primary);
 }
 
-.inspector-class-chip {
-    font-size: 0.75rem;
-    display: inline-flex;
-    flex-direction: column;
-    align-items: flex-start;
-    min-width: 100px;
-}
-
-.inspector-class-chip.overflow {
-    opacity: 0.75;
-}
-
 .class-chip-name {
-    font-weight: 600;
-    font-size: 0.75rem;
+    font-weight: 500;
+    font-size: 0.7rem;
+    display: inline-block;
+    padding-right: 0.6rem;
 }
 
 .class-chip-metrics {
     font-size: 0.7rem;
     color: var(--mud-palette-text-secondary);
+}
+
+.inspector-class-selector {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.inspector-class-selector .class-chip {
+    width: 100%;
+    justify-content: flex-start;
 }
 
 .topology-legend-overlay .legend-item {

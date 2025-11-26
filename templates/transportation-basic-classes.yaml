@@ -172,6 +172,56 @@ topology:
           queue: "Hub backlog"
       initialCondition:
         queueDepth: 20
+    - id: HubDispatchRouter
+      kind: router
+      semantics:
+        arrivals: hub_dispatch_router_arrivals
+        served: hub_dispatch_router_served
+        errors: hub_dispatch_router_errors
+        capacity: hub_dispatch_router_capacity
+        processingTimeMsSum: hub_dispatch_router_processing_time_ms_sum
+        servedCount: hub_dispatch_router_served_count
+        aliases:
+          served: "Router dispatch"
+    - id: AirportDispatchQueue
+      kind: queue
+      semantics:
+        arrivals: airport_dispatch_queue_demand
+        served: airport_dispatch_queue_served
+        errors: airport_dispatch_queue_attrition
+        queueDepth: airport_dispatch_queue_depth
+        aliases:
+          arrivals: "Airport routing inflow"
+          served: "Airport queue releases"
+          queue: "Airport dispatch backlog"
+      initialCondition:
+        queueDepth: 0
+    - id: DowntownDispatchQueue
+      kind: queue
+      semantics:
+        arrivals: downtown_dispatch_queue_demand
+        served: downtown_dispatch_queue_served
+        errors: downtown_dispatch_queue_attrition
+        queueDepth: downtown_dispatch_queue_depth
+        aliases:
+          arrivals: "Downtown routing inflow"
+          served: "Downtown queue releases"
+          queue: "Downtown dispatch backlog"
+      initialCondition:
+        queueDepth: 0
+    - id: IndustrialDispatchQueue
+      kind: queue
+      semantics:
+        arrivals: industrial_dispatch_queue_demand
+        served: industrial_dispatch_queue_served
+        errors: industrial_dispatch_queue_attrition
+        queueDepth: industrial_dispatch_queue_depth
+        aliases:
+          arrivals: "Industrial routing inflow"
+          served: "Industrial queue releases"
+          queue: "Industrial dispatch backlog"
+      initialCondition:
+        queueDepth: 0
     - id: LineAirport
       kind: service
       semantics:
@@ -249,14 +299,26 @@ topology:
     - id: hub_to_queue
       from: CentralHub:out
       to: HubQueue:in
-    - id: queue_to_airport
+    - id: queue_to_router
       from: HubQueue:out
+      to: HubDispatchRouter:in
+    - id: router_to_airport_queue
+      from: HubDispatchRouter:out
+      to: AirportDispatchQueue:in
+    - id: router_to_downtown_queue
+      from: HubDispatchRouter:out
+      to: DowntownDispatchQueue:in
+    - id: router_to_industrial_queue
+      from: HubDispatchRouter:out
+      to: IndustrialDispatchQueue:in
+    - id: airport_queue_to_line
+      from: AirportDispatchQueue:out
       to: LineAirport:in
-    - id: queue_to_downtown
-      from: HubQueue:out
+    - id: downtown_queue_to_line
+      from: DowntownDispatchQueue:out
       to: LineDowntown:in
-    - id: queue_to_industrial
-      from: HubQueue:out
+    - id: industrial_queue_to_line
+      from: IndustrialDispatchQueue:out
       to: LineIndustrial:in
     - id: hub_to_loss
       from: CentralHub:errors
@@ -434,6 +496,91 @@ nodes:
     outflow: hub_dispatch
     loss: hub_queue_attrition
 
+  - id: hub_dispatch_router_arrivals
+    kind: expr
+    expr: "hub_dispatch"
+  - id: hub_dispatch_router_served
+    kind: expr
+    expr: "hub_dispatch"
+  - id: hub_dispatch_router_errors
+    kind: expr
+    expr: "0"
+  - id: hub_dispatch_router_capacity
+    kind: expr
+    expr: "hub_dispatch_capacity"
+  - id: hub_dispatch_router_processing_time_ms_sum
+    kind: expr
+    expr: "hub_dispatch_router_served * 25"
+  - id: hub_dispatch_router_served_count
+    kind: expr
+    expr: "hub_dispatch_router_served"
+
+  - id: hub_dispatch_router
+    kind: router
+    inputs:
+      queue: hub_dispatch
+    routes:
+      - target: airport_dispatch_queue_inflow
+        classes: [Airport]
+      - target: downtown_dispatch_queue_inflow
+        classes: [Downtown]
+      - target: industrial_dispatch_queue_inflow
+        classes: [Industrial]
+
+  - id: airport_dispatch_queue_inflow
+    kind: expr
+    expr: "hub_dispatch_airport"
+  - id: airport_dispatch_queue_attrition
+    kind: expr
+    expr: "0"
+  - id: airport_dispatch_queue_demand
+    kind: expr
+    expr: "airport_dispatch_queue_inflow"
+  - id: airport_dispatch_queue_served
+    kind: expr
+    expr: "airport_dispatch_queue_demand"
+  - id: airport_dispatch_queue_depth
+    kind: backlog
+    inflow: airport_dispatch_queue_demand
+    outflow: airport_dispatch_queue_served
+    loss: airport_dispatch_queue_attrition
+
+  - id: downtown_dispatch_queue_inflow
+    kind: expr
+    expr: "hub_dispatch_downtown"
+  - id: downtown_dispatch_queue_attrition
+    kind: expr
+    expr: "0"
+  - id: downtown_dispatch_queue_demand
+    kind: expr
+    expr: "downtown_dispatch_queue_inflow"
+  - id: downtown_dispatch_queue_served
+    kind: expr
+    expr: "downtown_dispatch_queue_demand"
+  - id: downtown_dispatch_queue_depth
+    kind: backlog
+    inflow: downtown_dispatch_queue_demand
+    outflow: downtown_dispatch_queue_served
+    loss: downtown_dispatch_queue_attrition
+
+  - id: industrial_dispatch_queue_inflow
+    kind: expr
+    expr: "hub_dispatch_industrial"
+  - id: industrial_dispatch_queue_attrition
+    kind: expr
+    expr: "0"
+  - id: industrial_dispatch_queue_demand
+    kind: expr
+    expr: "industrial_dispatch_queue_inflow"
+  - id: industrial_dispatch_queue_served
+    kind: expr
+    expr: "industrial_dispatch_queue_demand"
+  - id: industrial_dispatch_queue_depth
+    kind: backlog
+    inflow: industrial_dispatch_queue_demand
+    outflow: industrial_dispatch_queue_served
+    loss: industrial_dispatch_queue_attrition
+
   - id: hub_dispatch_airport
     kind: expr
     expr: "hub_dispatch * ${splitAirport}"
@@ -446,13 +593,13 @@ nodes:
 
   - id: arrivals_airport
     kind: expr
-    expr: "hub_dispatch_airport"
+    expr: "airport_dispatch_queue_served"
   - id: arrivals_industrial
     kind: expr
-    expr: "hub_dispatch_industrial"
+    expr: "industrial_dispatch_queue_served"
   - id: arrivals_downtown
     kind: expr
-    expr: "hub_dispatch_downtown"
+    expr: "downtown_dispatch_queue_served"
 
   - id: airport_retry_attempts
     kind: expr

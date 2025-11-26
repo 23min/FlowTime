@@ -434,30 +434,25 @@
                                                 var visibleChips = classChips.Take(6).ToList();
                                                 var overflow = classChips.Count - visibleChips.Count;
                                             }
-                                            <MudStack Row="true" Class="topology-class-chip-row" Spacing="0">
+                                            <div class="inspector-class-selector">
                                                 @foreach (var chip in visibleChips)
                                                 {
                                                     var isSelected = IsClassSelectedChip(chip.Id);
-                                                    <MudChip T="string"
-                                                             Variant="@(isSelected ? Variant.Filled : Variant.Outlined)"
-                                                             Color="@(isSelected ? Color.Primary : Color.Default)"
-                                                             Size="Size.Small"
-                                                             Class="inspector-class-chip"
-                                                             data-testid="inspector-class-chip">
+                                                    var chipClass = $"class-chip{(isSelected ? " class-chip--selected" : string.Empty)}";
+                                                    <button type="button"
+                                                            class="@chipClass"
+                                                            data-testid="inspector-class-chip">
                                                         <span class="class-chip-name">@ResolveClassLabel(chip.Id)</span>
                                                         <span class="class-chip-metrics">@FormatClassChipMetrics(chip)</span>
-                                                    </MudChip>
+                                                    </button>
                                                 }
                                                 @if (overflow > 0)
                                                 {
-                                                    <MudChip T="string"
-                                                             Variant="Variant.Outlined"
-                                                             Size="Size.Small"
-                                                             Class="inspector-class-chip overflow">
+                                                    <button type="button" class="class-chip">
                                                         +@overflow more
-                                                    </MudChip>
+                                                    </button>
                                                 }
-                                            </MudStack>
+                                            </div>
                                         </MudStack>
                                     }
 
@@ -2611,7 +2606,7 @@ private const string PmfExpectationLabel = "Value";
         return string.IsNullOrWhiteSpace(unit) ? text : $"{text} {unit}";
     }
 
-    private void BuildNodeSparklines()
+    private void BuildNodeSparklines(int? anchorBin = null)
     {
         var missing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         loggedMissingMetricKinds.Clear();
@@ -2627,7 +2622,8 @@ private const string PmfExpectationLabel = "Value";
         var windowStart = windowData.Window.StartBin;
         var binCount = Math.Max(0, windowData.Window.BinCount);
         var windowEnd = binCount > 0 ? windowStart + binCount - 1 : windowStart;
-        var clampedSelection = Math.Clamp(selectedBin, windowStart, windowEnd);
+        var anchorValue = anchorBin ?? selectedBin;
+        var clampedSelection = Math.Clamp(anchorValue, windowStart, windowEnd);
         var selectionLocalIndex = Math.Max(0, clampedSelection - windowStart);
 
         foreach (var node in windowData.Nodes)
@@ -2636,7 +2632,7 @@ private const string PmfExpectationLabel = "Value";
             var topoNode = FindTopologyNode(node.Id);
             var displayKind = string.IsNullOrWhiteSpace(topoNode?.Kind) ? node.Kind : topoNode!.Kind;
             var successSeries = BuildSuccessRateSeries(node);
-            var primarySeries = successSeries ?? SelectPrimarySeries(series);
+            var primarySeries = SelectPrimarySeries(series) ?? successSeries;
             var synthesizedValues = false;
 
             if (primarySeries is null && IsPmfKind(displayKind))
@@ -2741,13 +2737,13 @@ private const string PmfExpectationLabel = "Value";
                     continue;
                 }
 
-                var distributionSlices = CreateDistributionSlices(topoNode.Id, topoNode.Semantics?.Distribution, selectedBin);
+                var distributionSlices = CreateDistributionSlices(topoNode.Id, topoNode.Semantics?.Distribution, anchorValue);
 
                 var inlineValues = topoNode.Semantics?.InlineValues;
                 if (inlineValues is not null && inlineValues.Count > 0)
                 {
                     var nullableSeries = inlineValues.Select(value => (double?)value).ToArray();
-                    var anchor = Math.Clamp(selectedBin, 0, nullableSeries.Length - 1);
+                    var anchor = Math.Clamp(anchorValue, 0, nullableSeries.Length - 1);
                     var trimmedInline = TrimSeriesAt(nullableSeries, SparklinePointLimit, anchor);
                     if (trimmedInline.Count == 0)
                     {
@@ -2826,7 +2822,7 @@ private const string PmfExpectationLabel = "Value";
         EnsureInspectorVisibility();
     }
 
-    private Dictionary<string, SparklineSeriesSlice>? CreateDistributionSlices(string nodeId, TopologyNodeDistribution? distribution, int selectedBin)
+private Dictionary<string, SparklineSeriesSlice>? CreateDistributionSlices(string nodeId, TopologyNodeDistribution? distribution, int anchorBin)
     {
         if (distribution is null ||
             distribution.Values is not { Count: > 0 } ||
@@ -2870,7 +2866,7 @@ private const string PmfExpectationLabel = "Value";
             return null;
         }
 
-        var anchor = Math.Clamp(selectedBin, 0, probabilities.Length - 1);
+        var anchor = Math.Clamp(anchorBin, 0, probabilities.Length - 1);
         var trimmedProbabilities = TrimSeriesAt(probabilities, SparklinePointLimit, anchor);
         if (trimmedProbabilities.Count == 0)
         {
@@ -4325,9 +4321,9 @@ private static IReadOnlyList<double?> TrimSeriesAt(double?[]? source, int limit,
             return Task.CompletedTask;
         }
 
+        // Rebuild sparklines anchored at the incoming selection so sampling succeeds.
+        BuildNodeSparklines(value);
         UpdateActiveMetrics(value);
-        // Rebuild sparklines anchored at the new selection so sampling works across the whole day.
-        BuildNodeSparklines();
         StateHasChanged();
         return Task.CompletedTask;
     }

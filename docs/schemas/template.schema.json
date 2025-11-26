@@ -47,7 +47,34 @@
           "arrayOf": { "type": "string" },
           "required": { "type": "boolean" }
         },
-        "additionalProperties": true
+        "additionalProperties": true,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "kind": { "const": "router" }
+              },
+              "required": ["kind"]
+            },
+            "then": {
+              "required": ["inputs", "routes"],
+              "properties": {
+                "inputs": {
+                  "required": ["queue"]
+                },
+                "routes": {
+                  "minItems": 1,
+                  "items": {
+                    "anyOf": [
+                      { "required": ["classes"] },
+                      { "required": ["weight"] }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        ]
       }
     },
     "grid": {
@@ -168,7 +195,7 @@
         "required": ["id", "kind"],
         "properties": {
           "id": { "type": "string", "minLength": 1 },
-          "kind": { "type": "string", "enum": ["const", "pmf", "expr", "backlog"] },
+          "kind": { "type": "string", "enum": ["const", "pmf", "expr", "backlog", "router"] },
           "group": { "type": "string" },
           "values": {
             "anyOf": [
@@ -193,9 +220,58 @@
           "profile": { "type": "object", "additionalProperties": true },
           "inflow": { "type": "string" },
           "outflow": { "type": "string" },
-          "loss": { "type": "string" }
+          "loss": { "type": "string" },
+          "inputs": {
+            "type": "object",
+            "properties": {
+              "queue": { "type": "string" }
+            },
+            "additionalProperties": false
+          },
+          "routes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["target"],
+              "properties": {
+                "target": { "type": "string" },
+                "classes": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                },
+                "weight": { "type": "number" }
+              },
+              "additionalProperties": false
+            }
+          }
         },
-        "additionalProperties": true
+        "additionalProperties": true,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "kind": { "const": "router" }
+              }
+            },
+            "then": {
+              "required": ["inputs", "routes"],
+              "properties": {
+                "inputs": {
+                  "required": ["queue"]
+                },
+                "routes": {
+                  "minItems": 1,
+                  "items": {
+                    "anyOf": [
+                      { "required": ["classes"] },
+                      { "required": ["weight"] }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        ]
       }
     },
     "outputs": {

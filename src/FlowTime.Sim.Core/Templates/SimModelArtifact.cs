@@ -58,6 +58,8 @@ public class SimNode
     public string? Outflow { get; set; }
     public string? Loss { get; set; }
     public Dictionary<string, string>? Metadata { get; set; }
+    public TemplateRouterInputs? Inputs { get; set; }
+    public List<TemplateRouterRoute>? Routes { get; set; }
 
     public bool ShouldSerializeValues() => Values is { Length: > 0 };
 }

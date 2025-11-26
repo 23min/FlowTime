@@ -62,6 +62,9 @@ public sealed class NodeDto
     public string? Inflow { get; set; }
     public string? Outflow { get; set; }
     public string? Loss { get; set; }
+    // For router nodes
+    public RouterInputsDto? Inputs { get; set; }
+    public List<RouterRouteDto>? Routes { get; set; }
 }
 
 public sealed class PmfDto
@@ -166,4 +169,16 @@ public sealed class UiHintsDto
 {
     public double? X { get; set; }
     public double? Y { get; set; }
+}
+
+public sealed class RouterInputsDto
+{
+    public string? Queue { get; set; }
+}
+
+public sealed class RouterRouteDto
+{
+    public string Target { get; set; } = string.Empty;
+    public string[]? Classes { get; set; }
+    public double? Weight { get; set; }
 }

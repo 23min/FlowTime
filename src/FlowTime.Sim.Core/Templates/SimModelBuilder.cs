@@ -296,7 +296,9 @@ internal static class SimModelBuilder
             Initial = node.Initial,
             Inflow = kind == "backlog" ? node.Inflow : null,
             Outflow = kind == "backlog" ? node.Outflow : null,
-            Loss = kind == "backlog" ? node.Loss : null
+            Loss = kind == "backlog" ? node.Loss : null,
+            Inputs = kind == "router" ? CloneInputs(node.Inputs) : null,
+            Routes = kind == "router" ? CloneRoutes(node.Routes) : null
         };
     }
 
@@ -307,6 +309,29 @@ internal static class SimModelBuilder
             Series = output.Series,
             Exclude = output.Exclude == null ? null : new List<string>(output.Exclude),
             As = output.As
+        }).ToList();
+    }
+
+    private static TemplateRouterInputs? CloneInputs(TemplateRouterInputs? inputs)
+    {
+        if (inputs is null)
+        {
+            return null;
+        }
+
+        return new TemplateRouterInputs
+        {
+            Queue = inputs.Queue
+        };
+    }
+
+    private static List<TemplateRouterRoute>? CloneRoutes(List<TemplateRouterRoute>? routes)
+    {
+        return routes?.Select(route => new TemplateRouterRoute
+        {
+            Target = route.Target,
+            Classes = route.Classes?.ToArray(),
+            Weight = route.Weight
         }).ToList();
     }
 

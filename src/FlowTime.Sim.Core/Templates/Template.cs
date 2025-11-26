@@ -250,6 +250,22 @@ public class TemplateNode
     public string? Inflow { get; set; }
     public string? Outflow { get; set; }
     public string? Loss { get; set; }
+
+    // For router nodes
+    public TemplateRouterInputs? Inputs { get; set; }
+    public List<TemplateRouterRoute>? Routes { get; set; }
+}
+
+public class TemplateRouterInputs
+{
+    public string? Queue { get; set; }
+}
+
+public class TemplateRouterRoute
+{
+    public string Target { get; set; } = string.Empty;
+    public string[]? Classes { get; set; }
+    public double? Weight { get; set; }
 }
 
 /// <summary>

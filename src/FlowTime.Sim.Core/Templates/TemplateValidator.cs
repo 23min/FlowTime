@@ -235,6 +235,10 @@ internal static class TemplateValidator
                     ValidateBacklogNode(node, allNodeIds);
                     break;
 
+                case "router":
+                    ValidateRouterNode(node, allNodeIds);
+                    break;
+
                 default:
                     throw new TemplateValidationException($"Unsupported node kind '{node.Kind}' for node '{node.Id}'.");
             }
@@ -375,6 +379,43 @@ internal static class TemplateValidator
         if (!string.IsNullOrWhiteSpace(node.Loss) && !allNodeIds.Contains(node.Loss))
         {
             throw new TemplateValidationException($"Backlog node '{node.Id}' loss references unknown node '{node.Loss}'.");
+        }
+    }
+
+    private static void ValidateRouterNode(TemplateNode node, HashSet<string> allNodeIds)
+    {
+        if (node.Inputs?.Queue is null)
+        {
+            throw new TemplateValidationException($"Router node '{node.Id}' must declare inputs.queue.");
+        }
+
+        if (!allNodeIds.Contains(node.Inputs.Queue))
+        {
+            throw new TemplateValidationException($"Router node '{node.Id}' references unknown queue '{node.Inputs.Queue}'.");
+        }
+
+        if (node.Routes is null || node.Routes.Count == 0)
+        {
+            throw new TemplateValidationException($"Router node '{node.Id}' must declare at least one route.");
+        }
+
+        foreach (var route in node.Routes)
+        {
+            if (string.IsNullOrWhiteSpace(route.Target))
+            {
+                throw new TemplateValidationException($"Router node '{node.Id}' has a route without a target.");
+            }
+
+            if (!allNodeIds.Contains(route.Target))
+            {
+                throw new TemplateValidationException($"Router node '{node.Id}' route target '{route.Target}' does not match a defined node.");
+            }
+
+            var hasClasses = route.Classes is { Length: > 0 };
+            if (!hasClasses && route.Weight is null)
+            {
+                throw new TemplateValidationException($"Router node '{node.Id}' route targeting '{route.Target}' must specify classes or weight.");
+            }
         }
     }
 

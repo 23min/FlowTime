@@ -202,6 +202,17 @@ topology:
         aliases:
           served: "Returns completed"
           errors: "Manual escalations"
+    - id: ReturnsRouter
+      kind: router
+      semantics:
+        arrivals: returns_router_arrivals
+        served: returns_router_served
+        errors: returns_router_errors
+        capacity: returns_router_capacity
+        processingTimeMsSum: returns_router_processing_time_ms_sum
+        servedCount: returns_router_served_count
+        aliases:
+          served: "Returns routed"
     - id: RestockQueue
       kind: queue
       semantics:
@@ -260,21 +271,25 @@ topology:
     - id: dlq_to_returns
       from: Rejections:out
       to: ReturnsProcessing:in
-    - id: returns_to_restock
+    - id: returns_to_router
       from: ReturnsProcessing:out
+      to: ReturnsRouter:in
+      type: terminal
+    - id: router_to_restock
+      from: ReturnsRouter:out
       to: RestockQueue:in
       weight: 0.5
       type: terminal
-    - id: returns_to_recover
-      from: ReturnsProcessing:out
+    - id: router_to_recover
+      from: ReturnsRouter:out
       to: RecoverQueue:in
       weight: 0.3
       type: terminal
-    - id: returns_to_disposal
-      from: ReturnsProcessing:out
+    - id: router_to_disposal
+      from: ReturnsRouter:out
       to: DisposalQueue:in
-      type: terminal
       weight: 0.2
+      type: terminal
 
 nodes:
   - id: purchase_orders_base
@@ -487,6 +502,37 @@ nodes:
   - id: returns_processing_time_ms_sum
     kind: expr
     expr: "returns_processed * 420"
+
+  - id: returns_router_errors
+    kind: expr
+    expr: "0"
+  - id: returns_router_arrivals
+    kind: expr
+    expr: "returns_processed"
+  - id: returns_router_served
+    kind: expr
+    expr: "returns_processed"
+  - id: returns_router_capacity
+    kind: expr
+    expr: "returns_capacity"
+  - id: returns_router_processing_time_ms_sum
+    kind: expr
+    expr: "returns_router_served * 200"
+  - id: returns_router_served_count
+    kind: expr
+    expr: "returns_router_served"
+
+  - id: returns_router
+    kind: router
+    inputs:
+      queue: returns_processed
+    routes:
+      - target: restock_inflow
+        weight: 5
+      - target: recover_inflow
+        weight: 3
+      - target: scrap_inflow
+        weight: 2
 
   - id: restock_inflow
     kind: expr
