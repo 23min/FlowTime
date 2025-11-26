@@ -104,7 +104,7 @@ public class ExpressionIntegrationTests
         Assert.Equal(20.0, result[2]);   // Previous index 1 value
         Assert.Equal(30.0, result[3]);   // Previous index 2 value
     }
-    
+
     [Fact]
     public void ParseAndEvaluate_ComplexExpression_CombinesAllFeatures()
     {
@@ -135,5 +135,97 @@ public class ExpressionIntegrationTests
         Assert.Equal(214.0, result[2]);
         // Index 3: (4+5)*2 + 300 = 18 + 300 = 318
         Assert.Equal(318.0, result[3]);
+    }
+
+    [Fact]
+    public void ParseAndEvaluate_ModFunction_ReturnsRemainder()
+    {
+        var sourceA = new double[] { 5.5, 6.0, 7.75, 9.1 };
+        var parser = new ExpressionParser("MOD(a, 2)");
+        var ast = parser.Parse();
+        var exprNode = ExpressionCompiler.Compile(ast, "result");
+
+        var getInput = (NodeId id) =>
+        {
+            if (id.Value == "a") return new Series(sourceA);
+            throw new ArgumentException($"Unknown node: {id}");
+        };
+
+        var result = exprNode.Evaluate(grid, getInput);
+
+        var expected = new[] { 1.5, 0.0, 1.75, 1.1 };
+        var actual = result.ToArray();
+        for (var i = 0; i < expected.Length; i++)
+        {
+            Assert.Equal(expected[i], actual[i], 6);
+        }
+    }
+
+    [Fact]
+    public void ParseAndEvaluate_FloorCeilRoundFunctions_WorkPerBin()
+    {
+        var series = new double[] { 1.2, 3.8, -2.4, -3.5 };
+
+        Series Eval(string expr)
+        {
+            var parser = new ExpressionParser(expr);
+            var ast = parser.Parse();
+            var node = ExpressionCompiler.Compile(ast, "result");
+            return node.Evaluate(grid, id =>
+            {
+                if (id.Value == "x") return new Series(series);
+                throw new ArgumentException();
+            });
+        }
+
+        Assert.Equal(new[] { 1.0, 3.0, -3.0, -4.0 }, Eval("FLOOR(x)").ToArray());
+        Assert.Equal(new[] { 2.0, 4.0, -2.0, -3.0 }, Eval("CEIL(x)").ToArray());
+        Assert.Equal(new[] { 1.0, 4.0, -2.0, -4.0 }, Eval("ROUND(x)").ToArray());
+    }
+
+    [Fact]
+    public void ParseAndEvaluate_StepFunction_GatesSeries()
+    {
+        var source = new double[] { 0.2, 0.5, 0.75, 1.1 };
+        var parser = new ExpressionParser("STEP(utilization, 0.75)");
+        var ast = parser.Parse();
+        var exprNode = ExpressionCompiler.Compile(ast, "result");
+
+        var result = exprNode.Evaluate(grid, id =>
+        {
+            if (id.Value == "utilization") return new Series(source);
+            throw new ArgumentException();
+        });
+
+        Assert.Equal(new[] { 0.0, 0.0, 1.0, 1.0 }, result.ToArray());
+    }
+
+    [Fact]
+    public void ParseAndEvaluate_PulseFunction_WithLiteralAmplitude()
+    {
+        var parser = new ExpressionParser("PULSE(2, 1, 5)");
+        var ast = parser.Parse();
+        var exprNode = ExpressionCompiler.Compile(ast, "result");
+
+        var result = exprNode.Evaluate(grid, _ => throw new ArgumentException());
+
+        Assert.Equal(new[] { 0.0, 5.0, 0.0, 5.0 }, result.ToArray());
+    }
+
+    [Fact]
+    public void ParseAndEvaluate_PulseFunction_WithSeriesAmplitude()
+    {
+        var source = new double[] { 10, 20, 30, 40 };
+        var parser = new ExpressionParser("PULSE(2, 0, demand)");
+        var ast = parser.Parse();
+        var exprNode = ExpressionCompiler.Compile(ast, "result");
+
+        var result = exprNode.Evaluate(grid, id =>
+        {
+            if (id.Value == "demand") return new Series(source);
+            throw new ArgumentException();
+        });
+
+        Assert.Equal(new[] { 10.0, 0.0, 30.0, 0.0 }, result.ToArray());
     }
 }

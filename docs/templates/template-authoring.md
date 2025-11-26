@@ -196,6 +196,8 @@ Use `kind: router` when a single upstream queue feeds multiple downstream legs a
       as: retry_budget_remaining.csv
   ```
 
+- Expressions support arithmetic plus helper functions: `SHIFT`, `CONV`, `MIN`, `MAX`, `CLAMP`, `MOD`, `FLOOR`, `CEIL`, `ROUND`, `STEP`, and `PULSE`. Use `STEP(value, threshold)` to produce a 0/1 gating signal and `PULSE(periodBins, phaseOffset?, amplitude?)` when modeling cadence-driven dispatch (e.g., bus departures). `MOD`/`FLOOR`/`CEIL`/`ROUND` mirror their mathematical counterparts and can be combined with `PULSE`/`STEP` to build bursty patterns without precomputed arrays.
+
 ## Analyzer Expectations
 
 The invariant analyzers (engine and sim) enforce:

@@ -383,6 +383,12 @@ internal static class ClassContributionBuilder
             "MIN" => EvaluateMin(node, grid, totals, contributions),
             "MAX" => EvaluateMax(node, grid, totals, contributions),
             "CLAMP" => EvaluateClamp(node, grid, totals, contributions),
+            "MOD" => EvaluateMod(node, grid, totals, contributions),
+            "FLOOR" => EvaluateUnary(node, grid, totals, contributions, ClassSeries.Floor),
+            "CEIL" => EvaluateUnary(node, grid, totals, contributions, ClassSeries.Ceil),
+            "ROUND" => EvaluateUnary(node, grid, totals, contributions, ClassSeries.Round),
+            "STEP" => EvaluateStep(node, grid, totals, contributions),
+            "PULSE" => EvaluatePulse(node, grid, totals, contributions),
             _ => ClassSeries.Zero(grid.Length)
         };
     }
@@ -721,6 +727,98 @@ internal static class ClassContributionBuilder
             obj.Value?.ToLowerInvariant().GetHashCode() ?? 0;
     }
 
+    private static ClassSeries EvaluateUnary(
+        FunctionCallNode node,
+        TimeGrid grid,
+        IReadOnlyDictionary<NodeId, double[]> totals,
+        IReadOnlyDictionary<NodeId, ClassSeries> contributions,
+        Func<ClassSeries, ClassSeries> op)
+    {
+        if (node.Arguments.Count != 1)
+        {
+            return ClassSeries.Zero(grid.Length);
+        }
+
+        var operand = EvaluateExpression(node.Arguments[0], grid, totals, contributions);
+        return op(operand);
+    }
+
+    private static ClassSeries EvaluateMod(
+        FunctionCallNode node,
+        TimeGrid grid,
+        IReadOnlyDictionary<NodeId, double[]> totals,
+        IReadOnlyDictionary<NodeId, ClassSeries> contributions)
+    {
+        if (node.Arguments.Count != 2)
+        {
+            return ClassSeries.Zero(grid.Length);
+        }
+
+        var left = EvaluateExpression(node.Arguments[0], grid, totals, contributions);
+        var right = EvaluateExpression(node.Arguments[1], grid, totals, contributions);
+        return ClassSeries.Mod(left, right);
+    }
+
+    private static ClassSeries EvaluateStep(
+        FunctionCallNode node,
+        TimeGrid grid,
+        IReadOnlyDictionary<NodeId, double[]> totals,
+        IReadOnlyDictionary<NodeId, ClassSeries> contributions)
+    {
+        if (node.Arguments.Count != 2)
+        {
+            return ClassSeries.Zero(grid.Length);
+        }
+
+        var value = EvaluateExpression(node.Arguments[0], grid, totals, contributions);
+        var threshold = EvaluateExpression(node.Arguments[1], grid, totals, contributions);
+        return ClassSeries.Step(value, threshold);
+    }
+
+    private static ClassSeries EvaluatePulse(
+        FunctionCallNode node,
+        TimeGrid grid,
+        IReadOnlyDictionary<NodeId, double[]> totals,
+        IReadOnlyDictionary<NodeId, ClassSeries> contributions)
+    {
+        if (node.Arguments.Count is < 1 or > 3)
+        {
+            return ClassSeries.Zero(grid.Length);
+        }
+
+        if (node.Arguments[0] is not LiteralNode periodLiteral)
+        {
+            return ClassSeries.Zero(grid.Length);
+        }
+
+        var period = (int)periodLiteral.Value;
+        if (period <= 0 || Math.Abs(period - periodLiteral.Value) > Tolerance)
+        {
+            return ClassSeries.Zero(grid.Length);
+        }
+
+        var phase = 0;
+        if (node.Arguments.Count >= 2)
+        {
+            if (node.Arguments[1] is not LiteralNode phaseLiteral)
+            {
+                return ClassSeries.Zero(grid.Length);
+            }
+
+            phase = (int)phaseLiteral.Value;
+            if (phase < 0 || Math.Abs(phase - phaseLiteral.Value) > Tolerance)
+            {
+                return ClassSeries.Zero(grid.Length);
+            }
+        }
+
+        ClassSeries amplitude = node.Arguments.Count == 3
+            ? EvaluateExpression(node.Arguments[2], grid, totals, contributions)
+            : ClassSeries.FromTotals(CreateLiteralSeries(1d, grid.Length));
+
+        return ClassSeries.Pulse(period, phase, amplitude);
+    }
+
     private sealed class ClassSeries
     {
         public double[] Total { get; }
@@ -751,9 +849,9 @@ internal static class ClassContributionBuilder
         {
             var total = Combine(left.Total, right.Total, (a, b) => a + b);
             var dict = Merge(left.ByClass, right.ByClass, (a, b) => a + b, total.Length);
-            ClassSeries.NormalizeToTotal(dict, total);
-            return new ClassSeries(total, dict);
-        }
+        ClassSeries.NormalizeToTotal(dict, total);
+        return new ClassSeries(total, dict);
+    }
 
         public static ClassSeries Subtract(ClassSeries left, ClassSeries right)
         {
@@ -1033,6 +1131,125 @@ internal static class ClassContributionBuilder
             }
 
             return null;
+        }
+
+        public static ClassSeries Floor(ClassSeries source) => ApplyUnary(source, Math.Floor);
+
+        public static ClassSeries Ceil(ClassSeries source) => ApplyUnary(source, Math.Ceiling);
+
+        public static ClassSeries Round(ClassSeries source) =>
+            ApplyUnary(source, v => Math.Round(v, MidpointRounding.AwayFromZero));
+
+        public static ClassSeries Step(ClassSeries value, ClassSeries threshold)
+        {
+            var length = value.Total.Length;
+            var total = new double[length];
+            for (var i = 0; i < length; i++)
+            {
+                var lhs = Safe(value.Total, i);
+                var rhs = Safe(threshold.Total, i);
+                total[i] = lhs >= rhs ? 1d : 0d;
+            }
+
+            return new ClassSeries(total, new Dictionary<string, double[]>(StringComparer.OrdinalIgnoreCase));
+        }
+
+        public static ClassSeries Mod(ClassSeries dividend, ClassSeries divisor)
+        {
+            var total = Combine(dividend.Total, divisor.Total, (a, b) =>
+            {
+                return Math.Abs(b) <= Tolerance ? 0d : Modulo(a, b);
+            });
+
+            if (dividend.ByClass.Count == 0 || divisor.ByClass.Count > 0)
+            {
+                return new ClassSeries(total, new Dictionary<string, double[]>(StringComparer.OrdinalIgnoreCase));
+            }
+
+            var dict = new Dictionary<string, double[]>(StringComparer.OrdinalIgnoreCase);
+            foreach (var (classId, series) in dividend.ByClass)
+            {
+                var values = new double[series.Length];
+                for (var i = 0; i < series.Length; i++)
+                {
+                    var divisorSample = i < divisor.Total.Length ? divisor.Total[i] : 0d;
+                    values[i] = Math.Abs(divisorSample) <= Tolerance ? 0d : Modulo(series[i], divisorSample);
+                }
+
+                dict[classId] = values;
+            }
+
+            ClassSeries.NormalizeToTotal(dict, total);
+            return new ClassSeries(total, dict);
+        }
+
+        public static ClassSeries Pulse(int period, int phase, ClassSeries amplitude)
+        {
+            if (period <= 0)
+            {
+                return ClassSeries.Zero(amplitude.Total.Length);
+            }
+
+            var length = amplitude.Total.Length;
+            var total = new double[length];
+            var dict = new Dictionary<string, double[]>(StringComparer.OrdinalIgnoreCase);
+            foreach (var classId in amplitude.ByClass.Keys)
+            {
+                dict[classId] = new double[length];
+            }
+
+            for (var i = 0; i < length; i++)
+            {
+                var delta = i - phase;
+                var fire = delta >= 0 && delta % period == 0;
+                if (!fire)
+                {
+                    continue;
+                }
+
+                total[i] = Safe(amplitude.Total, i);
+                foreach (var (classId, series) in amplitude.ByClass)
+                {
+                    var arr = dict[classId];
+                    arr[i] = Safe(series, i);
+                }
+            }
+
+            return new ClassSeries(total, dict);
+        }
+
+        private static ClassSeries ApplyUnary(ClassSeries source, Func<double, double> op)
+        {
+            var total = new double[source.Total.Length];
+            for (var i = 0; i < total.Length; i++)
+            {
+                total[i] = op(source.Total[i]);
+            }
+
+            var dict = new Dictionary<string, double[]>(StringComparer.OrdinalIgnoreCase);
+            foreach (var (classId, series) in source.ByClass)
+            {
+                var values = new double[series.Length];
+                for (var i = 0; i < series.Length; i++)
+                {
+                    values[i] = op(series[i]);
+                }
+
+                dict[classId] = values;
+            }
+
+            return new ClassSeries(total, dict);
+        }
+
+        private static double Modulo(double dividend, double divisor)
+        {
+            var remainder = dividend % divisor;
+            if (remainder == 0d || Math.Sign(remainder) == Math.Sign(divisor))
+            {
+                return remainder;
+            }
+
+            return remainder + divisor;
         }
 
         internal static void NormalizeToTotal(

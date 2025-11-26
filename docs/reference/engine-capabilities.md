@@ -5,7 +5,7 @@ This document describes the **shipped** FlowTime Engine surfaces and behaviors a
 ## Execution model
 - **Deterministic, discrete-time DAG** on a fixed grid `{ bins, binSize, binUnit }` (UTC, left-aligned).
 - **Node kinds**: const (inline values), expr (limited expression set), backlog/queue semantics via topology semantics (`queueDepth`, `arrivals/served/errors`, optional `externalDemand`, `capacity`, retry fields), and template-derived computed nodes preserved in artifacts.
-- **Expression support** (engine evaluator): arithmetic `+ - * /`, functions `SHIFT`, `CONV`, `MIN`, `MAX`, `CLAMP`. No IF/EMA/ABS/SQRT/POW/routers/autoscale nodes yet.
+- **Expression support** (engine evaluator): arithmetic `+ - * /`, functions `SHIFT`, `CONV`, `MIN`, `MAX`, `CLAMP`, `MOD`, `FLOOR`, `CEIL`, `ROUND`, `STEP`, `PULSE`. No IF/EMA/ABS/SQRT/POW/routers/autoscale nodes yet.
 - **Retry/backoff**: Supports attempts/failures/retry echo series; `RetryKernelPolicy` normalizes kernels; derived retry echo and exhaustion warnings recorded when missing.
 - **Backlog/latency**: Queue depth/backlog recurrence with optional initial conditions; derived `latencyMinutes`, `throughputRatio`, `flowLatencyMs` in state responses.
 - **Classes**: Single class (`DEFAULT`) emitted; no per-class metrics or filtering.
