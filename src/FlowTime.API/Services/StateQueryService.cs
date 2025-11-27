@@ -4,6 +4,7 @@ using System.Linq;
 using FlowTime.Adapters.Synthetic;
 using FlowTime.Contracts.Services;
 using FlowTime.Contracts.TimeTravel;
+using FlowTime.Core.Dispatching;
 using FlowTime.Core.DataSources;
 using FlowTime.Core.Metrics;
 using FlowTime.Core.Models;
@@ -520,6 +521,7 @@ public sealed class StateQueryService
         double?[]? flowLatencyForNode = null)
     {
         var kind = NormalizeKind(node.Kind);
+        var dispatchSchedule = ResolveDispatchSchedule(node.Id, context);
         var arrivals = GetValue(data.Arrivals, binIndex);
         var served = GetValue(data.Served, binIndex);
         var errors = GetValue(data.Errors, binIndex);
@@ -602,7 +604,8 @@ public sealed class StateQueryService
                 Color = color
             },
             Telemetry = BuildTelemetryInfo(node, context.ManifestMetadata, mergedWarnings),
-            Aliases = node.Semantics?.Aliases
+            Aliases = node.Semantics?.Aliases,
+            DispatchSchedule = dispatchSchedule
         };
     }
 
@@ -768,6 +771,7 @@ public sealed class StateQueryService
     private static NodeSeries BuildNodeSeries(Node node, NodeData data, StateRunContext context, int startBin, int count, IReadOnlyList<ModeValidationWarning> nodeWarnings, double?[]? flowLatencyForNode = null)
     {
         var kind = NormalizeKind(node.Kind);
+        var dispatchSchedule = ResolveDispatchSchedule(node.Id, context);
         var arrivalsSlice = ExtractSlice(data.Arrivals, startBin, count);
         var servedSlice = ExtractSlice(data.Served, startBin, count);
         var errorsSlice = ExtractSlice(data.Errors, startBin, count);
@@ -883,7 +887,8 @@ public sealed class StateQueryService
             Series = series,
             ByClass = BuildClassSeries(data, startBin, count),
             Telemetry = BuildTelemetryInfo(node, context.ManifestMetadata, nodeWarnings),
-            Aliases = node.Semantics?.Aliases
+            Aliases = node.Semantics?.Aliases,
+            DispatchSchedule = dispatchSchedule
         };
     }
 
@@ -1563,7 +1568,23 @@ public sealed class StateQueryService
             return null;
         }
 
-        return served.Value / arrivals.Value;
+        var ratio = served.Value / arrivals.Value;
+        if (double.IsNaN(ratio) || double.IsInfinity(ratio))
+        {
+            return null;
+        }
+
+        if (ratio < 0d)
+        {
+            return 0d;
+        }
+
+        if (ratio > 1d)
+        {
+            return 1d;
+        }
+
+        return ratio;
     }
 
     private static double? ComputeRetryTaxValue(double? attempts, double? served)
@@ -1661,6 +1682,7 @@ public sealed class StateQueryService
         }
 
         var valuesSlice = ExtractSlice(data.Values, start, count);
+        var dispatchSchedule = ResolveDispatchSchedule(nodeId, context);
 
         var series = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase)
         {
@@ -1677,7 +1699,51 @@ public sealed class StateQueryService
             {
                 Sources = Array.Empty<string>(),
                 Warnings = ConvertNodeWarnings(nodeWarnings)
-            }
+            },
+            DispatchSchedule = dispatchSchedule
+        };
+    }
+
+    private static DispatchScheduleDescriptor? ResolveDispatchSchedule(string nodeId, StateRunContext context)
+    {
+        if (string.IsNullOrWhiteSpace(nodeId))
+        {
+            return null;
+        }
+
+        if (!context.ModelNodes.TryGetValue(nodeId, out var definition))
+        {
+            return null;
+        }
+
+        return ConvertDispatchSchedule(definition.DispatchSchedule);
+    }
+
+    private static DispatchScheduleDescriptor? ConvertDispatchSchedule(DispatchScheduleDefinition? schedule)
+    {
+        if (schedule is null)
+        {
+            return null;
+        }
+
+        var period = schedule.PeriodBins;
+        if (period <= 0)
+        {
+            return null;
+        }
+
+        var kind = string.IsNullOrWhiteSpace(schedule.Kind) ? "time-based" : schedule.Kind.Trim();
+        var normalizedPhase = DispatchScheduleProcessor.NormalizePhase(schedule.PhaseOffset ?? 0, period);
+        var capacitySeries = string.IsNullOrWhiteSpace(schedule.CapacitySeries)
+            ? null
+            : schedule.CapacitySeries.Trim();
+
+        return new DispatchScheduleDescriptor
+        {
+            Kind = kind,
+            PeriodBins = period,
+            PhaseOffset = normalizedPhase,
+            CapacitySeries = capacitySeries
         };
     }
 

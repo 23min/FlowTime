@@ -31,6 +31,8 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
     private const string kernelPolicyRunId = "run_state_retry_kernel_policy";
     private const string retryEdgesRunId = "run_state_edges";
     private const string classRunId = "run_state_classes";
+    private const string dispatchScheduleRunId = "run_state_dispatch_schedule";
+    private const string throughputOverflowRunId = "run_state_throughput_overflow";
     private const int binCount = 4;
     private const int binSizeMinutes = 5;
     private static readonly DateTime startTimeUtc = new(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -65,6 +67,8 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         CreateKernelPolicyRun();
         CreateRetryEdgesRun();
         CreateClassRun();
+        CreateDispatchScheduleRun();
+        CreateThroughputOverflowRun();
 
         logCollector = new TestLogCollector();
         client = factory.WithWebHostBuilder(builder =>
@@ -234,6 +238,74 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         Assert.Empty(queueSeries.Telemetry.Warnings);
         Assert.NotNull(queueSeries.Aliases);
         Assert.Equal("Open backlog", queueSeries.Aliases!["queue"]);
+    }
+
+    [Fact]
+    public async Task ThroughputRatio_IsClampedToOneInSnapshot()
+    {
+        var response = await client.GetAsync($"/v1/runs/{throughputOverflowRunId}/state?binIndex=0");
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<StateSnapshotResponse>(new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            PropertyNameCaseInsensitive = true
+        });
+        Assert.NotNull(payload);
+
+        var service = Assert.Single(payload!.Nodes, n => n.Id == "OrderService");
+        Assert.Equal(1d, service.Derived.ThroughputRatio);
+        Assert.True(service.Metrics.Served > service.Metrics.Arrivals);
+    }
+
+    [Fact]
+    public async Task ThroughputRatioSeries_IsClampedToOne()
+    {
+        var response = await client.GetAsync($"/v1/runs/{throughputOverflowRunId}/state_window?startBin=0&endBin=3");
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<StateWindowResponse>(new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            PropertyNameCaseInsensitive = true
+        });
+        Assert.NotNull(payload);
+
+        var service = Assert.Single(payload!.Nodes, n => n.Id == "OrderService");
+        Assert.True(service.Series.TryGetValue("throughputRatio", out var ratios));
+        Assert.NotNull(ratios);
+        Assert.All(ratios!, value =>
+        {
+            if (!value.HasValue)
+            {
+                return;
+            }
+
+            Assert.InRange(value.Value, 0d, 1d);
+        });
+        Assert.Contains(ratios!, value => value.HasValue && Math.Abs(value.Value - 1d) < 1e-6);
+    }
+
+    [Fact]
+    public async Task StateWindow_IncludesDispatchScheduleMetadata()
+    {
+        var response = await client.GetAsync($"/v1/runs/{dispatchScheduleRunId}/state_window?startBin=0&endBin=1");
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync();
+            throw new XunitException($"Expected 200 OK but got {(int)response.StatusCode}: {errorBody}");
+        }
+
+        var payload = await response.Content.ReadFromJsonAsync<StateWindowResponse>(new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            PropertyNameCaseInsensitive = true
+        });
+        Assert.NotNull(payload);
+
+        var queueNode = Assert.Single(payload!.Nodes, n => n.Id == "SupportQueue");
+        Assert.NotNull(queueNode.DispatchSchedule);
+        Assert.Equal("time-based", queueNode.DispatchSchedule!.Kind);
+        Assert.Equal(4, queueNode.DispatchSchedule.PeriodBins);
+        Assert.Equal(1, queueNode.DispatchSchedule.PhaseOffset);
+        Assert.Equal("QueueCapacity", queueNode.DispatchSchedule.CapacitySeries);
     }
 
     [Fact]
@@ -662,6 +734,22 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
             overrides: overrides,
             seriesOutputs: classSeries,
             manifestSeries: manifestSeries);
+    }
+
+    private void CreateDispatchScheduleRun()
+    {
+        CreateRun(dispatchScheduleRunId, BuildDispatchScheduleModelYaml(), mode: "telemetry");
+    }
+
+    private void CreateThroughputOverflowRun()
+    {
+        var overrides = new Dictionary<string, double[]>
+        {
+            ["OrderService_arrivals.csv"] = new[] { 1d, 1d, 1d, 1d },
+            ["OrderService_served.csv"] = new[] { 2d, 1.5d, 1.25d, 1.1d }
+        };
+
+        CreateRun(throughputOverflowRunId, BuildValidModelYaml(), mode: "telemetry", overrides: overrides);
     }
 
     private void CreateFullModeRun()
@@ -1152,6 +1240,80 @@ topology:
         aliases:
           queue: "Open backlog"
   edges: []
+
+""";
+    }
+
+    private static string BuildDispatchScheduleModelYaml()
+    {
+        return $"""
+schemaVersion: 1
+
+grid:
+  bins: {binCount}
+  binSize: {binSizeMinutes}
+  binUnit: minutes
+  startTimeUtc: "{startTimeUtc:O}"
+
+topology:
+  nodes:
+    - id: "OrderService"
+      kind: "service"
+      semantics:
+        arrivals: "file:OrderService_arrivals.csv"
+        served: "file:OrderService_served.csv"
+        errors: "file:OrderService_errors.csv"
+        attempts: "file:OrderService_attempts.csv"
+        failures: "file:OrderService_failures.csv"
+        exhaustedFailures: "file:OrderService_exhaustedFailures.csv"
+        retryEcho: "file:OrderService_retryEcho.csv"
+        retryKernel: [0.0, 0.6, 0.3, 0.1]
+        retryBudgetRemaining: "file:OrderService_retryBudgetRemaining.csv"
+        externalDemand: null
+        queueDepth: null
+        capacity: "file:OrderService_capacity.csv"
+        processingTimeMsSum: "file:OrderService_processingTimeMsSum.csv"
+        servedCount: "file:OrderService_servedCount.csv"
+        slaMin: null
+        maxAttempts: 4
+        exhaustedPolicy: "dlq"
+        backoffStrategy: "linear"
+        aliases:
+          attempts: "Ticket submissions"
+          served: "Orders fulfilled"
+          retryEcho: "Retry backlog"
+    - id: "SupportQueue"
+      kind: "queue"
+      semantics:
+        arrivals: "file:SupportQueue_arrivals.csv"
+        served: "file:SupportQueue_served.csv"
+        errors: "file:SupportQueue_errors.csv"
+        externalDemand: null
+        queueDepth: "file:SupportQueue_queue.csv"
+        capacity: null
+        slaMin: 5
+        aliases:
+          queue: "Open backlog"
+  edges: []
+
+nodes:
+  - id: "QueueInflow"
+    kind: "const"
+    values: [1, 1, 1, 1]
+  - id: "QueueOutflow"
+    kind: "const"
+    values: [1, 1, 1, 1]
+  - id: "QueueCapacity"
+    kind: "const"
+    values: [5, 5, 5, 5]
+  - id: "SupportQueue"
+    kind: "backlog"
+    inflow: "QueueInflow"
+    outflow: "QueueOutflow"
+    dispatchSchedule:
+      periodBins: 4
+      phaseOffset: 5
+      capacitySeries: "QueueCapacity"
 
 """;
     }

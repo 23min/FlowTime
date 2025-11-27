@@ -298,7 +298,8 @@ internal static class SimModelBuilder
             Outflow = kind == "backlog" ? node.Outflow : null,
             Loss = kind == "backlog" ? node.Loss : null,
             Inputs = kind == "router" ? CloneInputs(node.Inputs) : null,
-            Routes = kind == "router" ? CloneRoutes(node.Routes) : null
+            Routes = kind == "router" ? CloneRoutes(node.Routes) : null,
+            DispatchSchedule = kind == "backlog" ? CloneDispatchSchedule(node.DispatchSchedule) : null
         };
     }
 
@@ -333,6 +334,22 @@ internal static class SimModelBuilder
             Classes = route.Classes?.ToArray(),
             Weight = route.Weight
         }).ToList();
+    }
+
+    private static TemplateDispatchSchedule? CloneDispatchSchedule(TemplateDispatchSchedule? schedule)
+    {
+        if (schedule is null)
+        {
+            return null;
+        }
+
+        return new TemplateDispatchSchedule
+        {
+            Kind = schedule.Kind,
+            PeriodBins = schedule.PeriodBins,
+            PhaseOffset = schedule.PhaseOffset,
+            CapacitySeries = schedule.CapacitySeries
+        };
     }
 
     private static SimProvenance BuildProvenance(Template template, Dictionary<string, object?> parameterValues, string substitutedYaml)

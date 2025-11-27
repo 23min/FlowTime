@@ -106,6 +106,73 @@ public sealed class TopologyInspectorTests
     }
 
     [Fact]
+    public void BuildNodeSparklines_UsesSuccessRateSeries()
+    {
+        var topology = new Topology();
+
+        topology.TestSetTopologyGraph(new TopologyGraph(
+            new[]
+            {
+                new TopologyNode("svc", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
+            },
+            Array.Empty<TopologyEdge>()));
+
+        var window = new TimeTravelStateWindowDto
+        {
+            Metadata = new TimeTravelStateMetadataDto
+            {
+                RunId = "run-id",
+                TemplateId = "template-id",
+                Mode = "simulation",
+                TelemetrySourcesResolved = true,
+                Schema = new TimeTravelSchemaMetadataDto
+                {
+                    Id = "time-travel/v1",
+                    Version = "1",
+                    Hash = "hash"
+                },
+                Storage = new TimeTravelStorageDescriptorDto()
+            },
+            Window = new TimeTravelWindowSliceDto
+            {
+                StartBin = 0,
+                EndBin = 2,
+                BinCount = 3
+            },
+            TimestampsUtc = new[]
+            {
+                DateTimeOffset.UtcNow,
+                DateTimeOffset.UtcNow.AddMinutes(5),
+                DateTimeOffset.UtcNow.AddMinutes(10)
+            },
+            Nodes = new[]
+            {
+                new TimeTravelNodeSeriesDto
+                {
+                    Id = "svc",
+                    Kind = "service",
+                    Series = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["throughputRatio"] = new double?[] { 0.6, 0.8, 1.0 },
+                        ["arrivals"] = new double?[] { 100, 120, 140 },
+                        ["served"] = new double?[] { 60, 96, 140 }
+                    }
+                }
+            }
+        };
+
+        topology.TestSetWindowData(window);
+        topology.TestBuildNodeSparklines(anchorBin: 2);
+
+        var sparklines = topology.TestGetNodeSparklines();
+        var sparkline = Assert.Single(sparklines).Value;
+        Assert.True(sparkline.Series.TryGetValue("successRate", out var slice));
+        Assert.NotNull(slice);
+        var nonNullValues = slice!.Values.Where(v => v.HasValue).Select(v => v!.Value).ToArray();
+        Assert.Equal(new[] { 0.6, 0.8, 1.0 }, nonNullValues);
+    }
+
+    [Fact]
     public void BuildInspectorMetrics_ServiceNode_ReturnsExpectedStack()
     {
         var topology = new Topology();
@@ -738,6 +805,71 @@ public sealed class TopologyInspectorTests
         var offset = 0 - attemptsBlock.Sparkline!.StartIndex;
         Assert.InRange(offset, 0, attemptsBlock.Sparkline.Values.Count - 1);
         Assert.Equal(attemptsSeries[0], attemptsBlock.Sparkline.Values[offset]);
+    }
+
+    [Fact]
+    public void DispatchScheduleOverlayReflectsGraph()
+    {
+        var topology = new Topology();
+        var nodes = new[]
+        {
+            new TopologyNode(
+                "queue-a",
+                "queue",
+                Array.Empty<string>(),
+                Array.Empty<string>(),
+                0,
+                0,
+                0,
+                0,
+                false,
+                EmptySemantics(),
+                0,
+                new GraphDispatchScheduleModel("time-based", 6, 1, "cap_a")),
+            new TopologyNode(
+                "service-node",
+                "service",
+                Array.Empty<string>(),
+                Array.Empty<string>(),
+                0,
+                1,
+                0,
+                0,
+                false,
+                EmptySemantics()),
+            new TopologyNode(
+                "queue-b",
+                "queue",
+                Array.Empty<string>(),
+                Array.Empty<string>(),
+                0,
+                2,
+                0,
+                0,
+                false,
+                EmptySemantics(),
+                0,
+                new GraphDispatchScheduleModel("time-based", 4, 0, null))
+        };
+
+        topology.TestSetTopologyGraph(new TopologyGraph(nodes, Array.Empty<TopologyEdge>()));
+        topology.TestUpdateDispatchEntries();
+
+        var entries = topology.TestGetDispatchEntries();
+
+        Assert.Collection(entries,
+            entry =>
+            {
+                Assert.Equal("queue-a", entry.NodeId);
+                Assert.Equal("Every 6 bins (phase 1)", entry.Summary);
+                Assert.Equal("Capacity: cap_a", entry.CapacityLabel);
+            },
+            entry =>
+            {
+                Assert.Equal("queue-b", entry.NodeId);
+                Assert.Equal("Every 4 bins (phase 0)", entry.Summary);
+                Assert.Equal("Capacity: unbounded", entry.CapacityLabel);
+            });
     }
 
     private static TopologyNodeSemantics EmptySemantics() =>

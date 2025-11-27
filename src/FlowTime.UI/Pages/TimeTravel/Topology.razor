@@ -312,6 +312,36 @@
                                                    QueryKey="classes" />
                                 </div>
                             }
+                            @{
+                                var dispatchList = dispatchScheduleEntries;
+                            }
+                            @if (ShowDispatchPanel)
+                            {
+                                <div class="topology-flow-overlay topology-dispatch-overlay">
+                                    <div class="topology-flow-header">
+                                        <MudText Typo="Typo.overline" Class="topology-flow-panel-title">Schedules</MudText>
+                                        <span class="topology-flow-counter">@(
+                                            dispatchList.Count.ToString(CultureInfo.InvariantCulture))</span>
+                                    </div>
+                                    <MudStack Spacing="1" Class="topology-dispatch-chip-list">
+                                        @foreach (var entry in dispatchList)
+                                        {
+                                            <MudChip T="string"
+                                                     Variant="Variant.Outlined"
+                                                     Color="Color.Info"
+                                                     Size="Size.Small"
+                                                     Class="topology-dispatch-chip"
+                                                     OnClick="@(() => FocusDispatchNode(entry.NodeId))">
+                                                <div class="dispatch-chip-content">
+                                                    <span class="dispatch-chip-title">@entry.NodeId</span>
+                                                    <span class="dispatch-chip-meta">@entry.Summary</span>
+                                                    <span class="dispatch-chip-meta">@entry.CapacityLabel</span>
+                                                </div>
+                                            </MudChip>
+                                        }
+                                    </MudStack>
+                                </div>
+                            }
                         </div>
                         <div class="topology-canvas-region">
                             <TopologyCanvas @ref="canvasComponent"
@@ -424,6 +454,18 @@
                                     else if (!isComputedNode && !metricsHaveSeries)
                                     {
                                         <MudText Typo="Typo.body2">Metrics unavailable.</MudText>
+                                    }
+
+                                    @{
+                                        var inspectorSchedule = topoNodeInfo?.DispatchSchedule;
+                                        if (inspectorSchedule is not null)
+                                        {
+                                            <MudStack Spacing="0" Class="topology-dispatch-inspector">
+                                                <MudText Typo="Typo.subtitle2">Dispatch schedule</MudText>
+                                                <MudText Typo="Typo.body2">@FormatDispatchSummary(inspectorSchedule)</MudText>
+                                                <MudText Typo="Typo.caption" Class="topology-muted-text">@FormatDispatchCapacity(inspectorSchedule)</MudText>
+                                            </MudStack>
+                                        }
                                     }
 
                                     @if (nodeClassContributions.TryGetValue(nodeId, out var classChips) && classChips.Count > 0)
@@ -693,6 +735,7 @@ private IReadOnlyList<TimeTravelStateWarningDto> windowWarnings = Array.Empty<Ti
     private bool? savedIncludeConstNodes;
     private bool? savedEnableFullDag;
     private IReadOnlyList<string> availableClasses = Array.Empty<string>();
+    private IReadOnlyList<DispatchScheduleEntry> dispatchScheduleEntries = Array.Empty<DispatchScheduleEntry>();
     private IReadOnlyDictionary<string, string> classDisplayNames = EmptyClassLabels;
     private IReadOnlyDictionary<string, ManifestClassEntry> classMetadata = EmptyClassMetadata;
     private IReadOnlyList<string> selectedClasses = Array.Empty<string>();
@@ -704,6 +747,7 @@ private readonly HashSet<string> classFilteredNodes = new(StringComparer.Ordinal
     private static readonly IReadOnlyDictionary<string, ManifestClassEntry> EmptyClassMetadata = new Dictionary<string, ManifestClassEntry>(StringComparer.OrdinalIgnoreCase);
 
     private sealed record LegendEntry(string Swatch, string Label);
+internal sealed record DispatchScheduleEntry(string NodeId, string Summary, string CapacityLabel);
 
     private IEnumerable<LegendEntry> BuildLegendEntries()
     {
@@ -750,6 +794,7 @@ private readonly HashSet<string> classFilteredNodes = new(StringComparer.Ordinal
     }
 
     private bool ShowClassSelector => availableClasses.Count > 0;
+    private bool ShowDispatchPanel => dispatchScheduleEntries.Count > 0;
     private bool HasClassSelection => selectedClasses.Count > 0;
 
     private Task OnClassSelectionChanged(IReadOnlyList<string> classes)
@@ -1084,6 +1129,40 @@ private const string PmfExpectationLabel = "Value";
         classCoverageState = index.ClassCoverage;
     }
 
+    private void UpdateDispatchEntries()
+    {
+        if (topologyGraph is null)
+        {
+            dispatchScheduleEntries = Array.Empty<DispatchScheduleEntry>();
+            return;
+        }
+
+        var entries = topologyGraph.Nodes
+            .Where(n => n.DispatchSchedule is not null)
+            .Select(n =>
+            {
+                var schedule = n.DispatchSchedule!;
+                return new DispatchScheduleEntry(
+                    n.Id,
+                    FormatDispatchSummary(schedule),
+                    FormatDispatchCapacity(schedule));
+            })
+            .OrderBy(e => e.NodeId, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        dispatchScheduleEntries = entries;
+    }
+
+    private void FocusDispatchNode(string nodeId)
+    {
+        if (string.IsNullOrWhiteSpace(nodeId))
+        {
+            return;
+        }
+
+        canvasComponent?.FocusNode(nodeId);
+    }
+
     private void EnsureFallbackClassMetadataFromWindow(TimeTravelStateWindowDto window)
     {
         if (availableClasses.Count > 0 || window.Nodes.Count == 0)
@@ -1195,6 +1274,7 @@ private const string PmfExpectationLabel = "Value";
                 indexResult.Value.Grid.Bins);
 
             topologyGraph = GraphMapper.Map(graphResult.Value, overlaySettings.RespectUiPositions, overlaySettings.Layout);
+            UpdateDispatchEntries();
             seriesIndex = indexResult.Value;
             UpdateClassMetadata(seriesIndex);
 
@@ -1618,6 +1698,7 @@ private const string PmfExpectationLabel = "Value";
             }
 
             topologyGraph = GraphMapper.Map(graphResult.Value, overlaySettings.RespectUiPositions, overlaySettings.Layout);
+            UpdateDispatchEntries();
             errorMessage = null;
         }
         catch (Exception ex)
@@ -2556,6 +2637,21 @@ private const string PmfExpectationLabel = "Value";
         return value.Value.ToString("0.0", CultureInfo.InvariantCulture);
     }
 
+    private static string FormatDispatchSummary(GraphDispatchScheduleModel schedule)
+    {
+        var period = Math.Max(1, schedule.PeriodBins);
+        var phase = Math.Max(0, schedule.PhaseOffset);
+        var cadence = period == 1 ? "Every bin" : $"Every {period} bins";
+        return $"{cadence} (phase {phase})";
+    }
+
+    private static string FormatDispatchCapacity(GraphDispatchScheduleModel schedule)
+    {
+        return string.IsNullOrWhiteSpace(schedule.CapacitySeries)
+            ? "Capacity: unbounded"
+            : $"Capacity: {schedule.CapacitySeries}";
+    }
+
     private static string FormatClassChipMetrics(ClassContribution contribution)
     {
         var parts = new List<string>();
@@ -2691,7 +2787,12 @@ private const string PmfExpectationLabel = "Value";
 
             if (successSeries is not null)
             {
-                additional["successRate"] = new SparklineSeriesSlice(trimmedPrimary, primaryStartIndex);
+                var trimmedSuccess = TrimSeriesAt(successSeries, SparklinePointLimit, anchor, trimmedPrimary.Count);
+                if (trimmedSuccess.Count > 0)
+                {
+                    var successStartIndex = windowStart + (anchor + 1 - trimmedSuccess.Count);
+                    additional["successRate"] = new SparklineSeriesSlice(trimmedSuccess, successStartIndex);
+                }
             }
 
             if (trimmedUtilization.Count > 0)
@@ -4344,6 +4445,7 @@ private static IReadOnlyList<double?> TrimSeriesAt(double?[]? source, int limit,
         windowReloadCts?.Dispose();
         windowReloadCts = null;
         topologyGraph = null;
+        dispatchScheduleEntries = Array.Empty<DispatchScheduleEntry>();
         windowData = null;
         seriesIndex = null;
         runDisplayName = null;

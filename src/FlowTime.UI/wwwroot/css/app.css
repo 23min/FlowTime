@@ -445,6 +445,38 @@ code {
     min-height: unset;
 }
 
+.topology-dispatch-chip-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.topology-dispatch-chip {
+    width: 100%;
+    justify-content: flex-start;
+}
+
+.dispatch-chip-content {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    line-height: 1.2;
+}
+
+.dispatch-chip-title {
+    font-weight: 600;
+    font-size: 0.75rem;
+}
+
+.dispatch-chip-meta {
+    font-size: 0.7rem;
+    color: var(--mud-palette-text-secondary);
+}
+
+.topology-dispatch-inspector {
+    padding-top: 0.25rem;
+}
+
 .class-selector {
     display: flex;
     flex-wrap: wrap;

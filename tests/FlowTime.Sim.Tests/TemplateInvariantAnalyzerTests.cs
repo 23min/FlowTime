@@ -168,4 +168,44 @@ outputs: []
 
         Assert.Contains(result.Warnings, w => w.Code == "router_class_leakage" && w.NodeId == "hub_router");
     }
+
+    [Fact]
+    public void Analyze_WarnsWhenDispatchScheduleNeverReleases()
+    {
+        var yaml = """
+schemaVersion: 1
+generator: flowtime-sim
+grid:
+  bins: 3
+  binSize: 60
+  binUnit: minutes
+topology:
+  nodes:
+    - id: QueueNode
+      kind: queue
+      semantics:
+        arrivals: queue_inflow
+        served: queue_dispatch
+        queueDepth: backlog_depth
+nodes:
+  - id: queue_inflow
+    kind: const
+    values: [5, 5, 5]
+  - id: queue_dispatch
+    kind: const
+    values: [0, 0, 0]
+  - id: backlog_depth
+    kind: backlog
+    inflow: queue_inflow
+    outflow: queue_dispatch
+    dispatchSchedule:
+      periodBins: 4
+      phaseOffset: 0
+outputs: []
+""";
+
+        var result = TemplateInvariantAnalyzer.Analyze(yaml);
+
+        Assert.Contains(result.Warnings, w => w.Code == "dispatch_never_releases" && w.NodeId == "QueueNode");
+    }
 }

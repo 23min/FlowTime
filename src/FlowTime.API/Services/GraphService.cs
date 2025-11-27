@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using FlowTime.Contracts.Services;
 using FlowTime.Contracts.TimeTravel;
+using FlowTime.Core.Dispatching;
 using FlowTime.Core.Models;
 using FlowTime.Core.Services;
 using Microsoft.Extensions.Configuration;
@@ -27,7 +28,7 @@ public sealed class GraphService
     }
 
     private static readonly string[] DefaultOperationalKinds = { "service", "queue", "dlq", "router", "external" };
-    private static readonly string[] DefaultFullKinds = { "service", "queue", "dlq", "router", "external", "expr", "const", "pmf" };
+    private static readonly string[] DefaultFullKinds = { "service", "queue", "dlq", "router", "external", "expr", "const", "pmf", "backlog" };
     private static readonly string[] DefaultDependencyFields = { "arrivals", "served", "errors", "attempts", "failures", "exhaustedFailures", "retryEcho", "retryBudgetRemaining", "queue", "capacity", "expr" };
 
     private const string EdgeTypeTopology = "topology";
@@ -83,6 +84,11 @@ public sealed class GraphService
 
         options ??= GraphQueryOptions.Default;
         var mode = options.Mode;
+
+        var nodeDefinitions = modelDefinition.Nodes ?? new List<NodeDefinition>();
+        var nodeDefinitionsById = nodeDefinitions
+            .Where(n => !string.IsNullOrWhiteSpace(n.Id))
+            .ToDictionary(n => n.Id!, StringComparer.OrdinalIgnoreCase);
 
         var allowedKinds = options.Kinds?.Count > 0
             ? new HashSet<string>(options.Kinds, StringComparer.OrdinalIgnoreCase)
@@ -141,12 +147,15 @@ public sealed class GraphService
                     Y = topoNode.Ui.Y
                 };
 
+            var dispatchSchedule = TryBuildDispatchSchedule(nodeDefinitionsById, topoNode.Id);
+
             AddOrReplaceNode(new GraphNode
             {
                 Id = topoNode.Id,
                 Kind = kind,
                 Semantics = semantics,
-                Ui = ui
+                Ui = ui,
+                DispatchSchedule = dispatchSchedule
             });
         }
 
@@ -185,9 +194,7 @@ public sealed class GraphService
         if (mode == GraphQueryMode.Full)
         {
             // Include non-operational nodes (const/expr/pmf) based on allowed kinds.
-            var nodeDefinitionsById = modelDefinition.Nodes.ToDictionary(n => n.Id, StringComparer.OrdinalIgnoreCase);
-
-            foreach (var nodeDef in modelDefinition.Nodes)
+            foreach (var nodeDef in nodeDefinitions)
             {
                 if (string.IsNullOrWhiteSpace(nodeDef.Id))
                 {
@@ -248,12 +255,13 @@ public sealed class GraphService
                 {
                     Id = nodeDef.Id,
                     Kind = displayKind,
-                    Semantics = semantics
+                    Semantics = semantics,
+                    DispatchSchedule = TryBuildDispatchSchedule(nodeDefinitionsById, nodeDef.Id)
                 });
             }
 
             // Expression dependencies (expr inputs).
-            foreach (var nodeDef in modelDefinition.Nodes)
+            foreach (var nodeDef in nodeDefinitions)
             {
                 if (!string.Equals(nodeDef.Kind, "expr", StringComparison.OrdinalIgnoreCase))
                 {
@@ -451,6 +459,45 @@ public sealed class GraphService
         }
 
         return value.Trim();
+    }
+    private static DispatchScheduleDescriptor? TryBuildDispatchSchedule(
+        IReadOnlyDictionary<string, NodeDefinition> nodeDefinitions,
+        string nodeId)
+    {
+        if (string.IsNullOrWhiteSpace(nodeId) || !nodeDefinitions.TryGetValue(nodeId, out var definition))
+        {
+            return null;
+        }
+
+        return ConvertSchedule(definition.DispatchSchedule);
+    }
+
+    private static DispatchScheduleDescriptor? ConvertSchedule(DispatchScheduleDefinition? schedule)
+    {
+        if (schedule is null)
+        {
+            return null;
+        }
+
+        var period = schedule.PeriodBins;
+        if (period <= 0)
+        {
+            return null;
+        }
+
+        var kind = string.IsNullOrWhiteSpace(schedule.Kind) ? "time-based" : schedule.Kind.Trim();
+        var normalizedPhase = DispatchScheduleProcessor.NormalizePhase(schedule.PhaseOffset ?? 0, period);
+        var capacitySeries = string.IsNullOrWhiteSpace(schedule.CapacitySeries)
+            ? null
+            : schedule.CapacitySeries.Trim();
+
+        return new DispatchScheduleDescriptor
+        {
+            Kind = kind,
+            PeriodBins = period,
+            PhaseOffset = normalizedPhase,
+            CapacitySeries = capacitySeries
+        };
     }
 }
 

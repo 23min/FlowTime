@@ -185,6 +185,21 @@ properties:
                 description: "Weight used to split remaining classes when no classes list is provided"
             additionalProperties: false
 
+        inflow:
+          type: string
+          description: "Backlog inflow node id (required when kind=backlog)"
+
+        outflow:
+          type: string
+          description: "Backlog outflow node id (required when kind=backlog)"
+
+        loss:
+          type: string
+          description: "Optional loss sink node id for backlog depletion"
+
+        dispatchSchedule:
+          $ref: "#/$defs/dispatchSchedule"
+
       # Validation rules based on 'kind'
       allOf:
         # const nodes must have 'values', not 'expr' or 'pmf'
@@ -244,6 +259,16 @@ properties:
                   anyOf:
                     - required: [classes]
                     - required: [weight]
+
+        # backlog nodes require inflow/outflow
+        - if:
+            properties:
+              kind:
+                const: backlog
+          then:
+            required:
+              - inflow
+              - outflow
 
       additionalProperties: false
 
@@ -432,6 +457,31 @@ properties:
     additionalProperties: false
 
 additionalProperties: false
+
+$defs:
+  dispatchSchedule:
+    type: object
+    description: "Optional schedule controlling when backlog nodes release flow"
+    properties:
+      kind:
+        type: string
+        enum:
+          - time-based
+        default: time-based
+        description: "Schedule type (time-based cadence)"
+      periodBins:
+        type: integer
+        minimum: 1
+        description: "Number of bins between dispatch events"
+      phaseOffset:
+        type: integer
+        description: "Bin offset that determines the first dispatch bin (0-indexed, modulo period)"
+      capacitySeries:
+        type: string
+        description: "Optional node ID containing per-bin dispatch capacity overrides"
+    required:
+      - periodBins
+    additionalProperties: false
 
 # Example valid models demonstrating schema capabilities
 examples:

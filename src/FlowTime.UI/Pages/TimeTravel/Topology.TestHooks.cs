@@ -25,6 +25,11 @@ public partial class Topology
         BuildNodeSparklines();
     }
 
+    internal void TestBuildNodeSparklines(int? anchorBin)
+    {
+        BuildNodeSparklines(anchorBin);
+    }
+
     internal IReadOnlyDictionary<string, NodeSparklineData> TestGetNodeSparklines()
     {
         return nodeSparklines;
@@ -112,4 +117,8 @@ public partial class Topology
     }
 
     internal string TestBuildFilteredCsv() => BuildFilteredCsvContent();
+
+    internal void TestUpdateDispatchEntries() => UpdateDispatchEntries();
+
+    internal IReadOnlyList<DispatchScheduleEntry> TestGetDispatchEntries() => dispatchScheduleEntries;
 }

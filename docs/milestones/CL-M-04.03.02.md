@@ -65,6 +65,9 @@ This milestone is intentionally scoped to “scheduled dispatch,” but it lays 
 - **Analyzer:** tests that misconfigured schedules raise warnings; valid schedules pass.
 - **End-to-end:** rerun `dotnet test --nologo` plus sample `flow-sim generate` runs to capture analyzer output in the milestone tracker.
 
+### Release Notes & Known Limitations
+- The CL‑M‑04.03.x release summary **must** capture any remaining backlog/router limitations (e.g., backlog nodes still modeled as queues until SB‑M‑01 promotes “service-with-buffer” to a first-class type). Call out mitigations and reference the follow-up epic so consumers know the gap is intentional and scheduled.
+
 ---
 
 ## Phases & Deliverables

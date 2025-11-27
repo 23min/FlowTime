@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
+using FlowTime.Core.Dispatching;
 using FlowTime.Core.Execution;
 using FlowTime.Core.Nodes;
 using FlowTime.Core.Expressions;
@@ -268,7 +269,8 @@ public static class ModelParser
                 var inflow = new NodeId(nodeDef.Inflow ?? throw new ModelParseException($"Backlog node {nodeDef.Id} requires 'inflow'."));
                 var outflow = new NodeId(nodeDef.Outflow ?? throw new ModelParseException($"Backlog node {nodeDef.Id} requires 'outflow'."));
                 NodeId? loss = string.IsNullOrWhiteSpace(nodeDef.Loss) ? null : new NodeId(nodeDef.Loss!);
-                node = new Nodes.BacklogNode(nodeDef.Id, inflow, outflow, loss, seed);
+                var scheduleConfig = CreateDispatchSchedule(nodeDef);
+                node = new Nodes.BacklogNode(nodeDef.Id, inflow, outflow, loss, seed, scheduleConfig);
             }
             nodes.Add(node);
         }
@@ -364,8 +366,9 @@ public static class ModelParser
             throw new ModelParseException($"Node {nodeDef.Id}: backlog nodes require 'inflow' and 'outflow' fields");
 
         NodeId? loss = string.IsNullOrWhiteSpace(nodeDef.Loss) ? null : new NodeId(nodeDef.Loss!);
+        var scheduleConfig = CreateDispatchSchedule(nodeDef);
         // Initial seed is injected later from topology (see ParseNodes(model))
-        return new Nodes.BacklogNode(nodeDef.Id, new NodeId(inflowId), new NodeId(outflowId), loss, 0d);
+        return new Nodes.BacklogNode(nodeDef.Id, new NodeId(inflowId), new NodeId(outflowId), loss, 0d, scheduleConfig);
     }
 
     private static INode ParseRouterNode(NodeDefinition nodeDef)
@@ -395,6 +398,35 @@ public static class ModelParser
         }
 
         return new Nodes.RouterNode(nodeDef.Id, new NodeId(queueId));
+    }
+
+    private static DispatchScheduleConfig? CreateDispatchSchedule(NodeDefinition nodeDef)
+    {
+        if (nodeDef.DispatchSchedule is null)
+        {
+            return null;
+        }
+
+        var schedule = nodeDef.DispatchSchedule;
+        if (!string.IsNullOrWhiteSpace(schedule.Kind) &&
+            !string.Equals(schedule.Kind, "time-based", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ModelParseException($"Node {nodeDef.Id}: dispatchSchedule.kind '{schedule.Kind}' is not supported.");
+        }
+
+        if (schedule.PeriodBins <= 0)
+        {
+            throw new ModelParseException($"Node {nodeDef.Id}: dispatchSchedule.periodBins must be positive.");
+        }
+
+        NodeId? capacityId = null;
+        if (!string.IsNullOrWhiteSpace(schedule.CapacitySeries))
+        {
+            capacityId = new NodeId(schedule.CapacitySeries);
+        }
+
+        var phase = schedule.PhaseOffset ?? 0;
+        return new DispatchScheduleConfig(schedule.PeriodBins, phase, capacityId);
     }
 }
 
@@ -467,6 +499,7 @@ public class NodeDefinition
     public string? Inflow { get; set; }
     public string? Outflow { get; set; }
     public string? Loss { get; set; }
+    public DispatchScheduleDefinition? DispatchSchedule { get; set; }
     // For router nodes
     public RouterDefinition? Router { get; set; }
 }
@@ -487,6 +520,14 @@ public class RouterRouteDefinition
     public string Target { get; set; } = string.Empty;
     public string[]? Classes { get; set; }
     public double? Weight { get; set; }
+}
+
+public class DispatchScheduleDefinition
+{
+    public string Kind { get; set; } = "time-based";
+    public int PeriodBins { get; set; }
+    public int? PhaseOffset { get; set; }
+    public string? CapacitySeries { get; set; }
 }
 
 public class PmfDefinition

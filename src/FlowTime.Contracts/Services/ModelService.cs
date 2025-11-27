@@ -86,6 +86,15 @@ public static class ModelService
                 Inflow = n.Inflow,
                 Outflow = n.Outflow,
                 Loss = n.Loss,
+                DispatchSchedule = n.DispatchSchedule == null
+                    ? null
+                    : new DispatchScheduleDefinition
+                    {
+                        Kind = n.DispatchSchedule.Kind,
+                        PeriodBins = n.DispatchSchedule.PeriodBins,
+                        PhaseOffset = n.DispatchSchedule.PhaseOffset,
+                        CapacitySeries = n.DispatchSchedule.CapacitySeries
+                    },
                 Router = n.Inputs == null || n.Routes == null
                     ? null
                     : new RouterDefinition

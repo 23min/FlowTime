@@ -119,7 +119,8 @@ internal static class GraphMapper
                     Math.Round(y, 3, MidpointRounding.AwayFromZero),
                     hasCustomPosition,
                     builder.Semantics,
-                    laneValue);
+                    laneValue,
+                    builder.DispatchSchedule);
             })
             .ToImmutableArray();
 
@@ -744,6 +745,7 @@ internal static class GraphMapper
         public List<string> Inputs { get; } = new();
         public List<string> Outputs { get; } = new();
         public TopologyNodeSemantics Semantics { get; }
+        public GraphDispatchScheduleModel? DispatchSchedule { get; }
 
         public NodeBuilder(GraphNodeModel node, int order)
         {
@@ -751,6 +753,7 @@ internal static class GraphMapper
             Kind = node.Kind ?? "unknown";
             Ui = node.Ui;
             Order = order;
+            DispatchSchedule = node.DispatchSchedule;
             var semantics = node.Semantics;
             if (semantics is null)
             {
@@ -834,7 +837,8 @@ public sealed record TopologyNode(
     double Y,
     bool IsPositionFixed,
     TopologyNodeSemantics Semantics,
-    int Lane = 0);
+    int Lane = 0,
+    GraphDispatchScheduleModel? DispatchSchedule = null);
 
 public sealed record TopologyEdge(
     string Id,
@@ -854,7 +858,8 @@ public sealed record GraphNodeModel(
     string Id,
     string Kind,
     GraphNodeSemanticsModel Semantics,
-    GraphNodeUiModel? Ui);
+    GraphNodeUiModel? Ui,
+    GraphDispatchScheduleModel? DispatchSchedule = null);
 
 public sealed record GraphNodeSemanticsModel(
     string Arrivals,
@@ -888,6 +893,12 @@ public sealed record GraphEdgeModel(
     string? Field,
     double? Multiplier = null,
     int? Lag = null);
+
+public sealed record GraphDispatchScheduleModel(
+    string Kind,
+    int PeriodBins,
+    int PhaseOffset,
+    string? CapacitySeries);
 
 public sealed record TopologyNodeSemantics(
     string? Arrivals,

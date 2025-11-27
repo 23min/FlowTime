@@ -174,6 +174,108 @@ topology:
     }
 
     [Fact]
+    public async Task GetGraphAsync_IncludesDispatchScheduleMetadata()
+    {
+        const string runId = "run_graph_schedule";
+        CreateRun(runId, """
+schemaVersion: 1
+
+grid:
+  bins: 4
+  binSize: 5
+  binUnit: minutes
+
+nodes:
+  - id: "QueueInflow"
+    kind: "const"
+    values: [1, 1, 1, 1]
+  - id: "QueueOutflow"
+    kind: "const"
+    values: [1, 1, 1, 1]
+  - id: "QueueCapacity"
+    kind: "const"
+    values: [5, 5, 5, 5]
+  - id: "QueueB"
+    kind: "backlog"
+    inflow: "QueueInflow"
+    outflow: "QueueOutflow"
+    dispatchSchedule:
+      kind: "time-based"
+      periodBins: 3
+      phaseOffset: -1
+      capacitySeries: "QueueCapacity"
+
+topology:
+  nodes:
+    - id: QueueB
+      kind: queue
+      semantics:
+        arrivals: series:q_arrivals
+        served: series:q_served
+        errors: series:q_errors
+        queueDepth: series:q_queue
+  edges: []
+""");
+
+        var response = await service.GetGraphAsync(runId);
+
+        var queueNode = Assert.Single(response.Nodes, n => n.Id == "QueueB");
+        Assert.NotNull(queueNode.DispatchSchedule);
+        Assert.Equal("time-based", queueNode.DispatchSchedule!.Kind);
+        Assert.Equal(3, queueNode.DispatchSchedule.PeriodBins);
+        Assert.Equal(2, queueNode.DispatchSchedule.PhaseOffset); // -1 normalized mod 3
+        Assert.Equal("QueueCapacity", queueNode.DispatchSchedule.CapacitySeries);
+    }
+
+    [Fact]
+    public async Task GetGraphAsync_FullMode_IncludesBacklogNodes()
+    {
+        const string runId = "run_graph_backlog_full";
+        CreateRun(runId, """
+schemaVersion: 1
+
+grid:
+  bins: 2
+  binSize: 5
+  binUnit: minutes
+
+topology:
+  nodes:
+    - id: PickerWave
+      kind: queue
+      semantics:
+        arrivals: series:wave_arrivals
+        served: series:wave_served
+        errors: series:wave_errors
+        queueDepth: series:picker_wave_backlog
+  edges: []
+
+nodes:
+  - id: wave_arrivals
+    kind: const
+    values: [10, 12]
+  - id: wave_served
+    kind: const
+    values: [8, 9]
+  - id: wave_errors
+    kind: const
+    values: [0, 0]
+  - id: picker_wave_backlog
+    kind: backlog
+    inflow: wave_arrivals
+    outflow: wave_served
+""");
+
+        var operational = await service.GetGraphAsync(runId);
+        Assert.DoesNotContain(operational.Nodes, node => string.Equals(node.Id, "picker_wave_backlog", StringComparison.OrdinalIgnoreCase));
+
+        var fullGraph = await service.GetGraphAsync(runId, new GraphQueryOptions { Mode = GraphQueryMode.Full });
+        var backlogNode = Assert.Single(fullGraph.Nodes, node => node.Id == "picker_wave_backlog");
+        Assert.Equal("backlog", backlogNode.Kind);
+        Assert.Equal("series:picker_wave_backlog", backlogNode.Semantics.Series);
+    }
+
+    [Fact]
     public async Task GetGraphAsync_MissingRunThrowsNotFound()
     {
         var ex = await Assert.ThrowsAsync<GraphQueryException>(() => service.GetGraphAsync("missing-run"));

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using FlowTime.Core.Dispatching;
 using FlowTime.Core.Execution;
 using FlowTime.Core.Models;
 using FlowTime.Core.Nodes;
@@ -9,6 +10,8 @@ using FlowTime.Expressions;
 using ExpressionBinaryOpNode = FlowTime.Expressions.BinaryOpNode;
 
 namespace FlowTime.Core.Artifacts;
+
+internal sealed record DispatchScheduleParameters(int PeriodBins, int PhaseOffset);
 
 internal static class ClassContributionBuilder
 {
@@ -499,7 +502,26 @@ internal static class ClassContributionBuilder
             : GetRequiredNode(nodeDefinition.Loss, grid, totals, contributions);
 
         var initial = seeds.TryGetValue(nodeDefinition.Id, out var seed) ? seed : 0d;
-        return ClassSeries.Backlog(totalSeries, inflow, outflow, loss, initial);
+        DispatchScheduleParameters? schedule = null;
+        ClassSeries? capacity = null;
+        if (nodeDefinition.DispatchSchedule is not null)
+        {
+            var period = nodeDefinition.DispatchSchedule.PeriodBins;
+            var phase = nodeDefinition.DispatchSchedule.PhaseOffset ?? 0;
+            schedule = new DispatchScheduleParameters(
+                period,
+                DispatchScheduleProcessor.NormalizePhase(phase, period));
+            if (!string.IsNullOrWhiteSpace(nodeDefinition.DispatchSchedule.CapacitySeries))
+            {
+                capacity = GetRequiredNode(
+                    nodeDefinition.DispatchSchedule.CapacitySeries,
+                    grid,
+                    totals,
+                    contributions);
+            }
+        }
+
+        return ClassSeries.Backlog(totalSeries, inflow, outflow, loss, initial, schedule, capacity);
     }
 
     private static ClassSeries GetRequiredNode(
@@ -950,8 +972,15 @@ internal static class ClassContributionBuilder
             ClassSeries inflow,
             ClassSeries outflow,
             ClassSeries loss,
-            double initial)
+            double initial,
+            DispatchScheduleParameters? schedule = null,
+            ClassSeries? capacityOverride = null)
         {
+            if (schedule is not null)
+            {
+                ApplyDispatchSchedule(outflow, capacityOverride, schedule);
+            }
+
             var length = totalSeries.Length;
             var dict = new Dictionary<string, double[]>(StringComparer.OrdinalIgnoreCase);
             var allClasses = inflow.ByClass.Keys
@@ -1378,6 +1407,81 @@ internal static class ClassContributionBuilder
             }
 
             return result;
+        }
+
+        private static void ApplyDispatchSchedule(
+            ClassSeries outflow,
+            ClassSeries? capacity,
+            DispatchScheduleParameters schedule)
+        {
+            var normalizedPhase = schedule.PhaseOffset;
+            var total = outflow.Total;
+            var capacityTotals = capacity?.Total;
+
+            for (var i = 0; i < total.Length; i++)
+            {
+                if (!DispatchScheduleProcessor.IsDispatchBin(i, schedule.PeriodBins, normalizedPhase))
+                {
+                    ZeroBin(outflow, i);
+                    continue;
+                }
+
+                var requested = Safe(total, i);
+                var allowed = capacityTotals is not null && i < capacityTotals.Length
+                    ? capacityTotals[i]
+                    : requested;
+
+                if (!double.IsFinite(allowed))
+                {
+                    allowed = requested;
+                }
+
+                allowed = Math.Min(requested, allowed);
+                if (Math.Abs(allowed - requested) <= Tolerance)
+                {
+                    total[i] = requested;
+                    continue;
+                }
+
+                ScaleBin(outflow, i, allowed);
+            }
+        }
+
+        private static void ZeroBin(ClassSeries source, int index)
+        {
+            if (index < source.Total.Length)
+            {
+                source.Total[index] = 0d;
+            }
+
+            foreach (var series in source.ByClass.Values)
+            {
+                if (index < series.Length)
+                {
+                    series[index] = 0d;
+                }
+            }
+        }
+
+        private static void ScaleBin(ClassSeries source, int index, double targetValue)
+        {
+            var current = index < source.Total.Length ? source.Total[index] : 0d;
+            if (current <= Tolerance)
+            {
+                ZeroBin(source, index);
+                source.Total[index] = targetValue;
+                return;
+            }
+
+            var scale = targetValue / current;
+            source.Total[index] = targetValue;
+            foreach (var series in source.ByClass.Values)
+            {
+                if (index < series.Length)
+                {
+                    series[index] *= scale;
+                }
+            }
         }
 
         private static double[] ConvolveSeries(double[] source, double[] kernel)

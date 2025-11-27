@@ -553,6 +553,10 @@ nodes:
     inflow: airport_dispatch_queue_demand
     outflow: airport_dispatch_queue_served
     loss: airport_dispatch_queue_attrition
+    dispatchSchedule:
+      periodBins: 6
+      phaseOffset: 0
+      capacitySeries: cap_airport
 
   - id: downtown_dispatch_queue_attrition
     kind: expr
@@ -568,6 +572,10 @@ nodes:
     inflow: downtown_dispatch_queue_demand
     outflow: downtown_dispatch_queue_served
     loss: downtown_dispatch_queue_attrition
+    dispatchSchedule:
+      periodBins: 8
+      phaseOffset: 2
+      capacitySeries: cap_downtown
 
   - id: industrial_dispatch_queue_attrition
     kind: expr
@@ -583,6 +591,10 @@ nodes:
     inflow: industrial_dispatch_queue_demand
     outflow: industrial_dispatch_queue_served
     loss: industrial_dispatch_queue_attrition
+    dispatchSchedule:
+      periodBins: 10
+      phaseOffset: 4
+      capacitySeries: cap_industrial
 
   - id: hub_dispatch_airport
     kind: expr

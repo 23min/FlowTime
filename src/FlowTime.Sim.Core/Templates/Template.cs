@@ -251,9 +251,20 @@ public class TemplateNode
     public string? Outflow { get; set; }
     public string? Loss { get; set; }
 
+    // Dispatch schedule (optional backlog cadence)
+    public TemplateDispatchSchedule? DispatchSchedule { get; set; }
+
     // For router nodes
     public TemplateRouterInputs? Inputs { get; set; }
     public List<TemplateRouterRoute>? Routes { get; set; }
+}
+
+public class TemplateDispatchSchedule
+{
+    public string Kind { get; set; } = "time-based";
+    public int PeriodBins { get; set; }
+    public int? PhaseOffset { get; set; }
+    public string? CapacitySeries { get; set; }
 }
 
 public class TemplateRouterInputs

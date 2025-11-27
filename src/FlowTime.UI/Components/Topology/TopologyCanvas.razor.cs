@@ -215,6 +215,16 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         HandleNodeBlur(clearSelection: true, notify: true);
     }
 
+    public void FocusNode(string nodeId)
+    {
+        if (string.IsNullOrWhiteSpace(nodeId))
+        {
+            return;
+        }
+
+        FocusNodeInternal(nodeId, isSelection: true, showTooltip: true);
+    }
+
     protected void OnNodeKeyDown(KeyboardEventArgs args, string nodeId)
     {
         if (!HasVisibleNodes || !nodeLookup.TryGetValue(nodeId, out var current))

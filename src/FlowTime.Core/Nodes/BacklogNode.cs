@@ -1,3 +1,4 @@
+using FlowTime.Core.Dispatching;
 using FlowTime.Core.Execution;
 using FlowTime.Core.Models;
 
@@ -13,25 +14,48 @@ public sealed class BacklogNode : INode
     private readonly NodeId outflowId;
     private readonly NodeId? lossId;
     private readonly double initialDepth;
+    private readonly DispatchScheduleConfig? dispatchSchedule;
 
     public NodeId Id { get; }
     public IEnumerable<NodeId> Inputs => lossId.HasValue
         ? new[] { inflowId, outflowId, lossId.Value }
         : new[] { inflowId, outflowId };
 
-    public BacklogNode(string id, NodeId inflow, NodeId outflow, NodeId? loss, double initialDepth)
+    public BacklogNode(
+        string id,
+        NodeId inflow,
+        NodeId outflow,
+        NodeId? loss,
+        double initialDepth,
+        DispatchScheduleConfig? dispatchSchedule)
     {
         Id = new NodeId(id);
         inflowId = inflow;
         outflowId = outflow;
         lossId = loss;
         this.initialDepth = initialDepth;
+        this.dispatchSchedule = dispatchSchedule;
     }
 
     public Series Evaluate(TimeGrid grid, Func<NodeId, Series> getInput)
     {
         var inflow = getInput(inflowId);
         var outflow = getInput(outflowId);
+        Series? scheduleCapacity = null;
+        if (dispatchSchedule?.CapacitySeriesId is NodeId capacityId)
+        {
+            scheduleCapacity = getInput(capacityId);
+        }
+
+        if (dispatchSchedule is not null)
+        {
+            DispatchScheduleProcessor.ApplySchedule(
+                dispatchSchedule.PeriodBins,
+                dispatchSchedule.PhaseOffset,
+                outflow,
+                scheduleCapacity);
+        }
+
         var loss = lossId.HasValue ? getInput(lossId.Value) : null;
 
         var result = new double[grid.Bins];

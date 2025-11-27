@@ -60,6 +60,7 @@ public class SimNode
     public Dictionary<string, string>? Metadata { get; set; }
     public TemplateRouterInputs? Inputs { get; set; }
     public List<TemplateRouterRoute>? Routes { get; set; }
+    public TemplateDispatchSchedule? DispatchSchedule { get; set; }
 
     public bool ShouldSerializeValues() => Values is { Length: > 0 };
 }

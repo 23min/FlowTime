@@ -28,6 +28,10 @@ public static class InvariantAnalyzer
 
         var warnings = new List<InvariantWarning>();
         var cache = new Dictionary<string, double[]>(StringComparer.Ordinal);
+        var nodeDefinitions = model.Nodes?
+            .Where(n => !string.IsNullOrWhiteSpace(n.Id))
+            .ToDictionary(n => n.Id!, StringComparer.OrdinalIgnoreCase)
+            ?? new Dictionary<string, NodeDefinition>(StringComparer.OrdinalIgnoreCase);
         var queueSeeds = BuildQueueInitials(model.Topology.Nodes);
         var incomingEdges = new Dictionary<string, List<TopologyEdgeDefinition>>(StringComparer.OrdinalIgnoreCase);
         var outgoingEdges = new Dictionary<string, List<TopologyEdgeDefinition>>(StringComparer.OrdinalIgnoreCase);
@@ -256,6 +260,12 @@ public static class InvariantAnalyzer
                     Array.Empty<int>(),
                     null,
                     "info"));
+            }
+
+            var dispatchSchedule = ResolveDispatchSchedule(nodeId, semantics);
+            if (dispatchSchedule is not null)
+            {
+                ValidateDispatchSchedule(nodeId, dispatchSchedule, arrivals, served);
             }
 
             // Derived-completeness infos
@@ -502,6 +512,79 @@ public static class InvariantAnalyzer
             }
         }
 
+        DispatchScheduleDefinition? ResolveDispatchSchedule(string topologyNodeId, TopologyNodeSemanticsDefinition semantics)
+        {
+            if (nodeDefinitions.TryGetValue(topologyNodeId, out var nodeDef) &&
+                nodeDef.DispatchSchedule is not null)
+            {
+                return nodeDef.DispatchSchedule;
+            }
+
+            var queueDepthRef = ExtractNodeId(semantics.QueueDepth ?? string.Empty);
+            if (!string.IsNullOrWhiteSpace(queueDepthRef) &&
+                nodeDefinitions.TryGetValue(queueDepthRef, out var depthDef) &&
+                depthDef.DispatchSchedule is not null)
+            {
+                return depthDef.DispatchSchedule;
+            }
+
+            return null;
+        }
+
+        void ValidateDispatchSchedule(
+            string topologyNodeId,
+            DispatchScheduleDefinition schedule,
+            double[]? arrivals,
+            double[]? served)
+        {
+            if (!string.IsNullOrWhiteSpace(schedule.CapacitySeries) &&
+                !TryGetSeries(schedule.CapacitySeries, out _))
+            {
+                warnings.Add(new InvariantWarning(
+                    topologyNodeId,
+                    "dispatch_capacity_missing",
+                    $"Dispatch schedule references capacity series '{schedule.CapacitySeries}' but it was not produced.",
+                    Array.Empty<int>(),
+                    null,
+                    "warning"));
+            }
+
+            if (served is null)
+            {
+                warnings.Add(new InvariantWarning(
+                    topologyNodeId,
+                    "dispatch_missing_served_series",
+                    "Dispatch schedule configured but served/output series was not available.",
+                    Array.Empty<int>(),
+                    null,
+                    "info"));
+                return;
+            }
+
+            if (arrivals is null)
+            {
+                return;
+            }
+
+            var arrivalTotal = SumFinite(arrivals);
+            if (arrivalTotal <= tolerance)
+            {
+                return;
+            }
+
+            var servedTotal = SumFinite(served);
+            if (servedTotal <= tolerance)
+            {
+                warnings.Add(new InvariantWarning(
+                    topologyNodeId,
+                    "dispatch_never_releases",
+                    "Dispatch schedule never released inventory across the simulated window; check period and phase alignment.",
+                    Array.Empty<int>(),
+                    null,
+                    "info"));
+            }
+        }
+
         static bool IsTerminalEdge(TopologyEdgeDefinition edge) =>
             !string.IsNullOrWhiteSpace(edge.Type) &&
             edge.Type.Trim().Equals("terminal", StringComparison.OrdinalIgnoreCase);
@@ -528,6 +611,22 @@ public static class InvariantAnalyzer
             var trimmed = value.Trim();
             var separatorIndex = trimmed.IndexOf(':');
             return separatorIndex >= 0 ? trimmed[..separatorIndex] : trimmed;
+        }
+
+        static double SumFinite(double[] series)
+        {
+            double total = 0d;
+            foreach (var value in series)
+            {
+                if (!double.IsFinite(value))
+                {
+                    continue;
+                }
+
+                total += Math.Max(0d, value);
+            }
+
+            return total;
         }
     }
 

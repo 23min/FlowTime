@@ -147,6 +147,9 @@ public sealed record TimeTravelNodeSnapshotDto
 
     [JsonPropertyName("aliases")]
     public IReadOnlyDictionary<string, string>? Aliases { get; init; }
+
+    [JsonPropertyName("dispatchSchedule")]
+    public TimeTravelDispatchScheduleDto? DispatchSchedule { get; init; }
 }
 
 public sealed record TimeTravelNodeSeriesDto
@@ -169,6 +172,9 @@ public sealed record TimeTravelNodeSeriesDto
 
     [JsonPropertyName("aliases")]
     public IReadOnlyDictionary<string, string>? Aliases { get; init; }
+
+    [JsonPropertyName("dispatchSchedule")]
+    public TimeTravelDispatchScheduleDto? DispatchSchedule { get; init; }
 }
 
 public sealed record TimeTravelEdgeSeriesDto
@@ -367,4 +373,19 @@ public sealed record TimeTravelServiceMetricsDto
 
     [JsonPropertyName("mini")]
     public IReadOnlyList<double?> Mini { get; init; } = Array.Empty<double?>();
+}
+
+public sealed record TimeTravelDispatchScheduleDto
+{
+    [JsonPropertyName("kind")]
+    public string Kind { get; init; } = "time-based";
+
+    [JsonPropertyName("periodBins")]
+    public int PeriodBins { get; init; }
+
+    [JsonPropertyName("phaseOffset")]
+    public int PhaseOffset { get; init; }
+
+    [JsonPropertyName("capacitySeries")]
+    public string? CapacitySeries { get; init; }
 }

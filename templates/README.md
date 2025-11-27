@@ -64,6 +64,29 @@ Highlights:
 
 Companion template `transportation-basic-classes` keeps the same topology but declares three rider classes (`Airport`, `Industrial`, `Downtown`). Class arrivals split upstream demand (`telemetryDemandNorthSource`/`telemetryDemandSouthSource`) so every node reports by-class metrics. Use this template to validate UI selectors without losing the legacy single-class variant.
 
+**New in CL-M-04.03.02:** the downstream dispatch queues now model bus-stop bursts. Each queue declares a `dispatchSchedule` so the backlog only releases on the cadence you expect (Airport every 6 bins, Downtown every 8 bins with a phase offset, Industrial every 10 bins). Analyzer warnings surface if the cadence never fires or if the referenced capacity series is missing.
+
+## warehouse-picker-waves
+
+Wave-based warehouse template where orders accumulate in staging and release in picker waves before packing. The model now captures two realistic feedback loops:
+
+- `picker_wave_buildup` aggregates the last four bins of intake so a dispatch pulse drains the backlog in meaningful chunks instead of only the immediate inflow. Queue depth grows between pulses and drops when the gate fires, matching how tote waves behave on the floor.
+- `PackStagingQueue` now uses the canonical backlog series to feed pack demand: `pack_demand = SHIFT(queueDepth, 1) + arrivals` and `pack_processed = SHIFT(queueDepth, 1) + arrivals - queueDepth`, so served is always ≤ supply and analyzer invariants stay quiet without any smoothing tricks.
+
+| Parameter | Type | Default | Notes |
+|-----------|------|---------|-------|
+| `bins` / `binSize` | integer | `12` / `60` | Planning horizon in 1-hour bins. |
+| `inboundPattern` | array&lt;number&gt; | `[120, 135, 150, 190, 210, 220, 205, 185, 170, 160, 150, 140]` | Orders arriving at intake. |
+| `intakeCapacity` | array&lt;number&gt; | `[130, 150, 160, 200, 210, 210, 195, 185, 175, 165, 155, 150]` | Receiving limit per bin. |
+| `wavePeriodBins` / `wavePhaseOffset` | integer | `4` / `0` | Picker cadence (bins between releases + phase). |
+| `waveCapacity` | integer | `80` | Orders per picker wave (used as `capacitySeries`). |
+| `packCapacity` | integer | `70` | Pack & ship capacity per bin (steady workers). |
+
+Highlights:
+- Intake behaves like a traditional service node with demand/capacity arrays, SLA target, and explicit overflow (`intake_spill`).
+- The `PickerWave` backlog stores staged totes until a scheduled picker wave fires (`dispatchSchedule`), so the staged backlog grows between releases.
+- A second backlog (`PackStagingQueue`) sits between picker waves and packers, smoothing the bursty releases into a steady packing cadence. When bursts exceed pack capacity, backlog grows and `pack_spill`/queue depth highlight the shortfall.
+
 ## manufacturing-line
 
 | Parameter | Type | Default | Notes |

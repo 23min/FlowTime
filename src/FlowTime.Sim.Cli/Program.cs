@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
+using FlowTime.Contracts.Services;
 using FlowTime.Sim.Core.Services;
 using FlowTime.Sim.Core.Templates;
 using FlowTime.Sim.Core.Analysis;
@@ -333,6 +334,15 @@ namespace FlowTime.Sim.Cli
                 Console.WriteLine($"Has Window: {HasWindow(artifact)}");
                 Console.WriteLine($"Has Topology: {HasTopology(artifact)}");
                 Console.WriteLine($"Has Telemetry Sources: {HasTelemetrySources(artifact)}");
+                var dispatchSummaries = DescribeDispatchSchedules(model);
+                if (dispatchSummaries.Count > 0)
+                {
+                    Console.WriteLine("Dispatch schedules:");
+                    foreach (var summary in dispatchSummaries)
+                    {
+                        Console.WriteLine($"  - {summary}");
+                    }
+                }
             }
 
             var provenance = artifact.Provenance;
@@ -385,6 +395,39 @@ namespace FlowTime.Sim.Cli
         private static bool HasTopology(SimModelArtifact artifact) => artifact.Topology?.Nodes is { Count: > 0 };
 
         private static bool HasTelemetrySources(SimModelArtifact artifact) => artifact.Nodes.Any(n => !string.IsNullOrWhiteSpace(n.Source));
+
+        private static IReadOnlyList<string> DescribeDispatchSchedules(string modelYaml)
+        {
+            try
+            {
+                var dto = ModelService.ParseYaml(modelYaml);
+                var definition = ModelService.ConvertToModelDefinition(dto);
+                if (definition.Nodes == null || definition.Nodes.Count == 0)
+                {
+                    return Array.Empty<string>();
+                }
+
+                var summaries = definition.Nodes
+                    .Where(n => n.DispatchSchedule is not null)
+                    .Select(n =>
+                    {
+                        var schedule = n.DispatchSchedule!;
+                        var kind = string.IsNullOrWhiteSpace(schedule.Kind) ? "time-based" : schedule.Kind;
+                        var phase = schedule.PhaseOffset ?? 0;
+                        var capacity = string.IsNullOrWhiteSpace(schedule.CapacitySeries)
+                            ? "unbounded"
+                            : schedule.CapacitySeries;
+                        return $"{n.Id}: {kind}, period={schedule.PeriodBins}, phase={phase}, capacity={capacity}";
+                    })
+                    .ToList();
+
+                return summaries.Count == 0 ? Array.Empty<string>() : summaries;
+            }
+            catch
+            {
+                return Array.Empty<string>();
+            }
+        }
 
         static async Task<int> ExecuteValidateCommand(ITemplateService service, CliOptions opts, CancellationToken ct)
         {

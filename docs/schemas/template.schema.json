@@ -221,6 +221,16 @@
           "inflow": { "type": "string" },
           "outflow": { "type": "string" },
           "loss": { "type": "string" },
+          "dispatchSchedule": {
+            "type": "object",
+            "properties": {
+              "kind": { "type": "string" },
+              "periodBins": { "type": "integer" },
+              "phaseOffset": { "type": "integer" },
+              "capacitySeries": { "type": "string" }
+            },
+            "additionalProperties": false
+          },
           "inputs": {
             "type": "object",
             "properties": {

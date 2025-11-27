@@ -62,6 +62,7 @@ public sealed class NodeDto
     public string? Inflow { get; set; }
     public string? Outflow { get; set; }
     public string? Loss { get; set; }
+    public DispatchScheduleDto? DispatchSchedule { get; set; }
     // For router nodes
     public RouterInputsDto? Inputs { get; set; }
     public List<RouterRouteDto>? Routes { get; set; }
@@ -181,4 +182,12 @@ public sealed class RouterRouteDto
     public string Target { get; set; } = string.Empty;
     public string[]? Classes { get; set; }
     public double? Weight { get; set; }
+}
+
+public sealed class DispatchScheduleDto
+{
+    public string Kind { get; set; } = "time-based";
+    public int PeriodBins { get; set; }
+    public int? PhaseOffset { get; set; }
+    public string? CapacitySeries { get; set; }
 }

@@ -77,6 +77,8 @@ public sealed class NodeSnapshot
     public NodeDerivedMetrics Derived { get; init; } = new();
     public NodeTelemetryInfo Telemetry { get; init; } = new();
     public IReadOnlyDictionary<string, string>? Aliases { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DispatchScheduleDescriptor? DispatchSchedule { get; init; }
 }
 
 public sealed class NodeSeries
@@ -88,6 +90,8 @@ public sealed class NodeSeries
     public IDictionary<string, IDictionary<string, double?[]>>? ByClass { get; init; }
     public NodeTelemetryInfo Telemetry { get; init; } = new();
     public IReadOnlyDictionary<string, string>? Aliases { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DispatchScheduleDescriptor? DispatchSchedule { get; init; }
 }
 
 public sealed class EdgeSeries

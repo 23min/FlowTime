@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using FlowTime.Contracts.Services;
 using FlowTime.Core.Models;
+using FlowTime.Sim.Core.Analysis;
 using FlowTime.Sim.Core.Services;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
@@ -19,7 +20,8 @@ public class RouterTemplateRegressionTests
         var templateIds = new[]
         {
             "transportation-basic-classes",
-            "supply-chain-multi-tier-classes"
+            "supply-chain-multi-tier-classes",
+            "warehouse-picker-waves"
         };
 
         var preloaded = templateIds.ToDictionary(
@@ -32,6 +34,49 @@ public class RouterTemplateRegressionTests
             });
 
         templateService = new TemplateService(preloaded, NullLogger<TemplateService>.Instance);
+    }
+
+    public static IEnumerable<object[]> DispatchScheduleTemplates => new[]
+    {
+        new object[]
+        {
+            "transportation-basic-classes",
+            new (string NodeId, int Period, int Phase, string CapacitySeries)[]
+            {
+                ("airport_dispatch_queue_depth", 6, 0, "cap_airport"),
+                ("downtown_dispatch_queue_depth", 8, 2, "cap_downtown"),
+                ("industrial_dispatch_queue_depth", 10, 4, "cap_industrial")
+            }
+        },
+        new object[]
+        {
+            "warehouse-picker-waves",
+            new (string NodeId, int Period, int Phase, string CapacitySeries)[]
+            {
+                ("picker_wave_backlog", 4, 0, "wave_dispatch_capacity")
+            }
+        }
+    };
+
+    [Theory]
+    [MemberData(nameof(DispatchScheduleTemplates))]
+    public async Task Templates_DefineDispatchSchedules(
+        string templateId,
+        (string NodeId, int Period, int Phase, string CapacitySeries)[] expectations)
+    {
+        var yaml = await templateService.GenerateEngineModelAsync(templateId, new Dictionary<string, object>());
+        var model = ModelService.ParseAndConvert(yaml);
+
+        foreach (var (nodeId, period, phase, capacitySeries) in expectations)
+        {
+            var backlog = model.Nodes
+                .FirstOrDefault(n => string.Equals(n.Id, nodeId, StringComparison.OrdinalIgnoreCase));
+            Assert.NotNull(backlog);
+            Assert.NotNull(backlog!.DispatchSchedule);
+            Assert.Equal(period, backlog.DispatchSchedule!.PeriodBins);
+            Assert.Equal(phase, backlog.DispatchSchedule.PhaseOffset ?? 0);
+            Assert.Equal(capacitySeries, backlog.DispatchSchedule.CapacitySeries);
+        }
     }
 
     [Theory]
@@ -68,6 +113,24 @@ public class RouterTemplateRegressionTests
         {
             Assert.Contains(expected, actualTargets);
         }
+    }
+
+    [Fact]
+    public async Task WarehousePickerTemplate_DoesNotEmitServedExceedsArrivalsWarnings()
+    {
+        var yaml = await templateService.GenerateEngineModelAsync(
+            "warehouse-picker-waves",
+            new Dictionary<string, object>());
+
+        var analysis = TemplateInvariantAnalyzer.Analyze(yaml);
+        Assert.DoesNotContain(
+            analysis.Warnings,
+            warning => string.Equals(warning.Code, "served_exceeds_arrivals", StringComparison.OrdinalIgnoreCase) &&
+                       string.Equals(warning.NodeId, "PickerWave", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(
+            analysis.Warnings,
+            warning => string.Equals(warning.Code, "served_exceeds_arrivals", StringComparison.OrdinalIgnoreCase) &&
+                       string.Equals(warning.NodeId, "PackAndShip", StringComparison.OrdinalIgnoreCase));
     }
 
     private static string ResolveTemplatesDirectory()

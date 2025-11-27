@@ -180,6 +180,53 @@ Use `kind: router` when a single upstream queue feeds multiple downstream legs a
   - Conservation must hold per bin (`router_class_leakage`). When you see this warning, confirm each downstream target consumes the exact series exported by the router.
 - Router nodes are optional, but they eliminate fragile expressions like `hub_dispatch * 0.3` and keep class chips aligned with topology flows.
 
+### Scheduled Dispatch Backlogs
+
+Use the backlog node with `dispatchSchedule` when you want a queue to release on a cadence instead of every bin. This models picker waves, shuttle departures, or any bursty flow where work accumulates and then drains in discrete bursts.
+
+```yaml
+  - id: PickerWave
+    kind: queue
+    semantics:
+      arrivals: wave_stage_inflow
+      served: picker_wave_release
+      queueDepth: picker_wave_backlog
+    initialCondition:
+      queueDepth: 0
+
+nodes:
+  - id: picker_wave_gate
+    kind: expr
+    expr: "PULSE(${wavePeriodBins}, ${wavePhaseOffset}, 1)"
+  - id: picker_wave_buildup
+    kind: expr
+    expr: "wave_stage_inflow + SHIFT(wave_stage_inflow, 1) + SHIFT(wave_stage_inflow, 2) + SHIFT(wave_stage_inflow, 3)"
+  - id: picker_wave_release
+    kind: expr
+    expr: "MIN(picker_wave_buildup, wave_dispatch_capacity) * picker_wave_gate"
+  - id: wave_dispatch_capacity
+    kind: expr
+    expr: "${waveCapacity}"
+  - id: picker_wave_backlog
+    kind: backlog
+    inflow: wave_stage_inflow
+    outflow: picker_wave_release
+    loss: wave_attrition
+    dispatchSchedule:
+      periodBins: ${wavePeriodBins}
+      phaseOffset: ${wavePhaseOffset}
+      capacitySeries: wave_dispatch_capacity
+```
+
+- `periodBins` is required and represents the number of bins between dispatch events.
+- `phaseOffset` shifts the first dispatch bin. The engine normalizes negative offsets modulo `periodBins`, so you can align bus departures with a specific clock tick.
+- `capacitySeries` (optional) caps the per-dispatch volume. Reference an existing capacity node (e.g., `cap_airport`) or a dedicated `wave_dispatch_capacity` expression. When omitted, releases equal whatever the `outflow` series requested on dispatch bins.
+- Analyzer warnings:
+  - `dispatch_capacity_missing` when `capacitySeries` references an undefined node.
+  - `dispatch_missing_served_series` if the queue semantics omit `served`.
+  - `dispatch_never_releases` when arrivals exist but the cadence never fires. This usually means `phaseOffset` and `periodBins` don’t cover the evaluated window.
+- FlowTime-Sim CLI prints a summary of every `dispatchSchedule` when you run `flowtime-sim generate --verbose ...`. Use it to confirm cadence metadata (kind/period/phase/capacity) without spelunking through YAML.
+
 ## Computational Nodes and Outputs
 
 - Keep transformation nodes (`expr`, `pmf`, `backlog`) in the `nodes:` section outside topology.

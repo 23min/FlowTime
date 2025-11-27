@@ -300,6 +300,40 @@ nodes:
     probabilities: [0.1, 0.4, 0.4, 0.1]  # Peak around 100-150
 ```
 
+#### 3.4 Backlog Nodes (`kind: backlog`)
+
+Backlog nodes maintain queue depth using explicit inflow/outflow semantics. The engine enforces conservation automatically without requiring custom `SHIFT` expressions.
+
+```yaml
+- id: shipping_queue
+  kind: backlog
+  inflow: hub_arrivals
+  outflow: dispatch_demand
+  loss: spoilage_sink
+  dispatchSchedule:
+    kind: time-based
+    periodBins: 6
+    phaseOffset: 1
+    capacitySeries: bus_capacity
+```
+
+**Properties:**
+
+- `inflow` (required): Node ID providing arrivals into the backlog.
+- `outflow` (required): Node ID whose demand drains the backlog (typically a service/router).
+- `loss` (optional): Node ID capturing inventory that ages out (e.g., spoilage).
+- `dispatchSchedule` (optional): Cadence definition controlling when outflow is permitted.
+  - `kind`: Currently supports `time-based`.
+  - `periodBins`: Number of bins between dispatch events (must be ≥ 1).
+  - `phaseOffset`: Optional integer offset (can be negative; normalized modulo `periodBins`).
+  - `capacitySeries`: Optional node ID whose series caps per-bin dispatch volume.
+
+**Behavior:**
+
+- When a schedule is present, outflow is zero on non-dispatch bins.
+- On dispatch bins, released volume equals `min(requested, capacityOverride)` for that bin.
+- Omit `dispatchSchedule` to allow continuous draining behavior.
+
 ---
 
 ### 4. Outputs Array
