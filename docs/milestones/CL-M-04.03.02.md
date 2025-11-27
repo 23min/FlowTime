@@ -1,6 +1,6 @@
 # CL-M-04.03.02 — Scheduled Dispatch & Flow Control Primitives
 
-**Status:** 📋 Proposed  
+**Status:** ✅ Complete  
 **Depends on:** CL‑M‑04.03.01 (router nodes & class routing), CL‑M‑04.03 (UI class visualization)  
 **Target:** Allow templates to model bursty “bus stop” behavior and other cadence-driven flows by extending the expression/runtime toolbox (MOD/FLOOR/PULSE) and by introducing scheduled dispatch semantics for queues/routers.
 

@@ -263,6 +263,9 @@ public class DashboardTests
         public Task<ApiCallResult<Stream>> GetRunSeriesAsync(string runId, string seriesId, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<ApiCallResult<BulkArtifactDeleteResponse>> BulkDeleteArtifactsAsync(string[] artifactIds, CancellationToken ct = default) =>
             Task.FromResult(ApiCallResult<BulkArtifactDeleteResponse>.Fail(501, "not implemented"));
+
+        public Task<ApiCallResult<TemplateRefreshResponse>> RefreshTemplateCacheAsync(CancellationToken ct = default) =>
+            Task.FromResult(ApiCallResult<TemplateRefreshResponse>.Ok(new TemplateRefreshResponse("refreshed", 0), 200));
     }
 
     private sealed class StubTimeTravelDataService : ITimeTravelDataService

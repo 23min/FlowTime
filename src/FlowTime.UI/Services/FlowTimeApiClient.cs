@@ -28,6 +28,7 @@ public interface IFlowTimeApiClient
     Task<ApiCallResult<Stream>> GetRunSeriesAsync(string runId, string seriesId, CancellationToken ct = default);
     Task<ApiCallResult<TimeTravelMetricsResponseDto>> GetRunMetricsAsync(string runId, CancellationToken ct = default);
     Task<ApiCallResult<BulkArtifactDeleteResponse>> BulkDeleteArtifactsAsync(string[] artifactIds, CancellationToken ct = default);
+    Task<ApiCallResult<TemplateRefreshResponse>> RefreshTemplateCacheAsync(CancellationToken ct = default);
 }
 
 internal sealed class FlowTimeApiClient : IFlowTimeApiClient
@@ -233,6 +234,9 @@ internal sealed class FlowTimeApiClient : IFlowTimeApiClient
 
     public Task<ApiCallResult<BulkArtifactDeleteResponse>> BulkDeleteArtifactsAsync(string[] artifactIds, CancellationToken ct = default)
         => PostJson<BulkArtifactDeleteResponse>($"{apiBasePath}/artifacts/bulk-delete", artifactIds, ct);
+
+    public Task<ApiCallResult<TemplateRefreshResponse>> RefreshTemplateCacheAsync(CancellationToken ct = default)
+        => PostJson<TemplateRefreshResponse>($"{apiBasePath}/templates/refresh", new { }, ct);
 
     private async Task<ApiCallResult<T>> GetJson<T>(string path, CancellationToken ct)
     {

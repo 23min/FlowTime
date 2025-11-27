@@ -142,6 +142,9 @@ namespace FlowTime.Sim.Cli
                     
                     // validate (template parameters)
                     ("validate", "" or "template" or "params") => await ExecuteValidateCommand(templateService, opts, cts.Token),
+
+                    // refresh template cache
+                    ("refresh", "templates") => await ExecuteRefreshTemplatesCommand(templateService, opts, cts.Token),
                     
                     _ => HandleUnknownCommand(verb, noun)
                 };
@@ -191,6 +194,14 @@ namespace FlowTime.Sim.Cli
                     Console.WriteLine();
                 }
             }
+            return 0;
+        }
+
+        static async Task<int> ExecuteRefreshTemplatesCommand(ITemplateService service, CliOptions opts, CancellationToken ct)
+        {
+            Console.WriteLine("Refreshing template cache…");
+            var count = await service.RefreshAsync().ConfigureAwait(false);
+            Console.WriteLine($"✓ Reloaded {count} template(s).");
             return 0;
         }
 
@@ -692,6 +703,7 @@ namespace FlowTime.Sim.Cli
             Console.WriteLine("                           Generate Engine model from template");
             Console.WriteLine("  validate [template] --id <template-id> [--params <file>]");
             Console.WriteLine("                           Validate template parameters\n");
+            Console.WriteLine("  refresh templates       Clear the template cache and reload YAML files\n");
             Console.WriteLine("Options:");
             Console.WriteLine("  --id <id>                Template identifier");
             Console.WriteLine("  --params <file>          JSON file with parameter overrides (optional)");

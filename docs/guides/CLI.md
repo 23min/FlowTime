@@ -123,6 +123,7 @@ Supported verbs/nouns:
 - `show template|model`
 - `generate [model]`
 - `validate [template|params]`
+- `refresh templates`
 
 Common options: `--id <templateId>`, `--params <json>`, `--out <path>`, `--format yaml|json`, `--templates-dir <dir>`, `--models-dir <dir>`, `--mode simulation|telemetry`, `--provenance <file>`, `--embed-provenance`, `--verbose`.
 
@@ -144,6 +145,10 @@ dotnet run --project src/FlowTime.Sim.Cli -- validate template \
   --id transportation-basic \
   --templates-dir templates \
   --params overrides.json
+
+# Clear and reload the template cache
+dotnet run --project src/FlowTime.Sim.Cli -- refresh templates \
+  --templates-dir templates
 ```
 
 Analyzer behavior:

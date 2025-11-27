@@ -159,6 +159,22 @@ public class TemplateService : ITemplateService
         return ValidateAsync(templateId, parameters);
     }
 
+    public async Task<int> RefreshAsync()
+    {
+        lock (cacheLock)
+        {
+            templateCache.Clear();
+        }
+
+        await LoadTemplatesIfNeededAsync().ConfigureAwait(false);
+
+        lock (cacheLock)
+        {
+            logger.LogInformation("Template cache refreshed. {Count} template(s) loaded.", templateCache.Count);
+            return templateCache.Count;
+        }
+    }
+
     private async Task LoadTemplatesIfNeededAsync()
     {
         lock (cacheLock)

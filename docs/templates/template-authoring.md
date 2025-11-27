@@ -127,6 +127,16 @@ TT‑M‑03.32 introduced three retry governance fields. When a service node sup
 
 Templates that declare `maxAttempts` **must** provide both `exhaustedFailures` and `retryBudgetRemaining` so analyzers and the UI stay consistent.
 
+## Refreshing the Template Cache
+
+FlowTime-Sim and FlowTime.API cache template headers/metadata after the first request so listing and generation stay fast. When you edit YAML locally (or deploy updated templates to a shared instance) you no longer need to restart services to pick up the changes:
+
+- **CLI:** run `dotnet run --project src/FlowTime.Sim.Cli -- refresh templates --templates-dir templates`. The command clears the cache, reloads all `*.yaml` under the specified directory, and prints the number of templates reloaded.
+- **FlowTime.API / UI:** the Time-Travel “Run Model” page now includes a *Refresh templates* button. It calls `POST /v1/templates/refresh` on FlowTime.API, which clears the API’s cache, reloads the YAML on disk, and then re-queries FlowTime-Sim for the latest metadata. Use this before regenerating runs after a template update.
+- **Sim API:** `POST /api/v1/templates/refresh` is available when running FlowTime-Sim as a standalone service (the same endpoint the CLI calls internally). Include it in operational runbooks so deployed environments can reload templates without downtime.
+
+The refresh endpoints only flush the cache—they never delete or modify templates. If the reload fails, the previous cache remains empty, so the next list/generate call will surface the underlying parsing/validation error. Always rerun `flow-sim list templates` or the UI refresh button after editing YAML to make sure the analyzer + schema changes landed correctly.
+
 ### Terminal Nodes
 
 Whenever work becomes unrecoverable, model an explicit destination (queue, DLQ service, manual triage). Provide aliases for arrivals/served/queue metrics so the UI surfaces domain-specific labels.

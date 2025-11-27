@@ -128,6 +128,12 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider) =>
 var v1 = app.MapGroup("/v1");
 v1.MapRunOrchestrationEndpoints();
 v1.MapTelemetryCaptureEndpoints();
+v1.MapPost("/templates/refresh", async (SimITemplateService templateService, ILogger<Program> logger) =>
+{
+    var count = await templateService.RefreshAsync().ConfigureAwait(false);
+    logger.LogInformation("Template cache refreshed via API. {Count} template(s) loaded.", count);
+    return Results.Ok(new { status = "refreshed", templates = count });
+});
 
 // Artifacts registry endpoints
 v1.MapPost("/artifacts/index", async (IArtifactRegistry registry, ILogger<Program> logger) =>

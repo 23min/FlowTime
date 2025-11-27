@@ -184,6 +184,7 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
                 "/api/v1/templates",
                 "/api/v1/templates/{id}",
                 "/api/v1/templates/{id}/generate",
+                "/api/v1/templates/refresh",
                 "/api/v1/templates/categories",
                 "/api/v1/models",
                 "/api/v1/models/{templateId}",
@@ -280,6 +281,14 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 			var categories = new[] { "general" };
 			return Results.Ok(new { categories });
 		});
+
+        // API: POST /api/v1/templates/refresh (clear template cache)
+        api.MapPost("/templates/refresh", async (ITemplateService templateService, ILogger<Program> logger) =>
+        {
+            var count = await templateService.RefreshAsync().ConfigureAwait(false);
+            logger.LogInformation("Template cache refreshed via FlowTime-Sim API. {Count} template(s) reloaded.", count);
+            return Results.Ok(new { status = "refreshed", templates = count });
+        });
 
 		// API: POST /api/v1/templates/{id}/generate  (generate model from template with parameter substitution)
 		// SIM-M2.7: Enhanced to return provenance metadata

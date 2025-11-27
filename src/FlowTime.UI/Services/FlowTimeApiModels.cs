@@ -75,6 +75,10 @@ public record GraphResponse(
     [property: JsonPropertyName("order")] string[] Order,
     [property: JsonPropertyName("edges")] GraphEdge[] Edges);
 
+public sealed record TemplateRefreshResponse(
+    [property: JsonPropertyName("status")] string Status,
+    [property: JsonPropertyName("templates")] int Templates);
+
 public record GraphEdge(
     [property: JsonPropertyName("id")] string Id,
     [property: JsonPropertyName("inputs")] string[] Inputs);

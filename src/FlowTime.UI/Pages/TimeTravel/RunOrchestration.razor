@@ -85,6 +85,13 @@
                                OnClick="@(() => SubmitAsync(dryRun: false))">
                         Run model
                     </MudButton>
+                    <MudButton Variant="Variant.Text"
+                               Color="Color.Info"
+                               Disabled="_state.IsBusy || _refreshingTemplates"
+                               Loading="@_refreshingTemplates"
+                               OnClick="RefreshTemplateCacheAsync">
+                        Refresh templates
+                    </MudButton>
                     <MudSpacer />
                     <MudButton Variant="Variant.Text"
                                Color="Color.Default"
@@ -302,6 +309,7 @@
     private string? _parameterText;
     private string? _telemetryBindingsText;
     private bool _loadingTemplates;
+    private bool _refreshingTemplates;
     private string? _templateLoadError;
     private string? _statusMessage;
     private string? _errorMessage;
@@ -379,6 +387,39 @@
         finally
         {
             _loadingTemplates = false;
+        }
+    }
+
+    private async Task RefreshTemplateCacheAsync()
+    {
+        if (_refreshingTemplates)
+        {
+            return;
+        }
+
+        _refreshingTemplates = true;
+        try
+        {
+            var response = await ApiClient.RefreshTemplateCacheAsync().ConfigureAwait(false);
+            if (!response.Success || response.Value is null)
+            {
+                var message = response.Error ?? "Template cache refresh failed.";
+                NotificationService.Add(message, Severity.Error);
+                return;
+            }
+
+            NotificationService.Add($"Template cache refreshed ({response.Value.Templates} template(s)).", Severity.Success);
+            await LoadTemplatesAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Template cache refresh failed.");
+            NotificationService.Add($"Template cache refresh failed: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _refreshingTemplates = false;
+            await InvokeAsync(StateHasChanged);
         }
     }
 
