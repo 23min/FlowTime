@@ -2,7 +2,7 @@
 
 The `docs/milestones/` folder now mirrors the active roadmap status:
 
-- **Active / Upcoming work** remains at the top level. Today that includes the Class epic (`CL-*`) and `SB-M-01-service-with-buffer.md`, plus the shared `tracking/` documents.
+- **Active / Upcoming work** remains at the top level. Today that includes the Class epic (`CL-*`) and `SB-M-04.01.md`, plus the shared `tracking/` documents.
 - **Completed milestones** have been archived under `docs/milestones/completed/`. Every reference in the repo now points to the files in that subfolder (e.g., `docs/milestones/completed/UI-M-03.12.md`).
 
 ## Adding a new milestone
@@ -14,5 +14,5 @@ The `docs/milestones/` folder now mirrors the active roadmap status:
 ## Quick Links
 
 - **Active Class Epic:** `CL-M-04.01.md`, `CL-M-04.02.md`, `CL-M-04.03.md`, `CL-M-04.04.md`
-- **Service-With-Buffer Follow-Up:** `SB-M-01-service-with-buffer.md`
+- **Service-With-Buffer Follow-Up:** `SB-M-04.01.md`
 - **Archive:** See `docs/milestones/completed/` for historic milestones across backend, UI, time-travel, and service epics.
