@@ -12,6 +12,7 @@ This document describes how we structure larger chunks of work into **epics** an
   - A short `README.md` describing the epic at a high level.
   - One or more detailed architecture / design documents.
   - Links to the relevant milestones under `docs/milestones/`.
+- Once every milestone in an epic ships, move those milestone specs into `docs/milestones/completed/` and update links (epic docs should continue to point at the archived paths).
 
 ## Milestones
 
