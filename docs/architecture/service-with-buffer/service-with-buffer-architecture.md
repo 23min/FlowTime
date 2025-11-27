@@ -32,6 +32,7 @@ Examples where ServiceWithBuffer is the natural abstraction:
 - Shuttle buses: passengers accumulate; buses depart on a timetable with fixed capacity.
 - Batch machines: WIP accumulates until a batch is started; the batch drains the buffer.
 - Nightly ETL or billing: events accumulate; a job drains them on a schedule.
+- Cloud messaging stages where you care primarily about **throughput and backlog**, and individual platform queue behaviors can be treated as part of a single "queue + consumer group" stage.
 
 ---
 
@@ -50,7 +51,16 @@ After this epic lands, the core node taxonomy is:
 
 3. **Queue visual (`kind: queue` in topology)**  
    - Purely a visual/semantic shell around the queue metrics of a ServiceWithBuffer node.  
-   - It does **not** own behavior; it points at a ServiceWithBuffer’s queue series.
+  - It does **not** own behavior; it points at a ServiceWithBuffer’s queue series.
+
+In particular, for many cloud/message-queue systems the **ServiceWithBuffer node can represent the combined "queue + consumer" stage** when the main questions are about backlog and capacity. Queue visuals can be used to make the platform queue explicit, but all capacity/schedule/routing semantics stay on the ServiceWithBuffer.
+
+For systems with a **large number of independently managed platform queues** (e.g., Azure Service Bus plus MQ, each with distinct scaling and limits) and rich telemetry on the queues themselves, models may instead:
+
+- Represent each platform queue as a **queue visual or dedicated node** whose series come from telemetry (synthetic or real), and
+- Model key consumer behaviors as `service` or `serviceWithBuffer` nodes consuming from those series.
+
+The key guardrail remains: queues themselves do **not** grow their own service semantics in FlowTime; they are sources of level/flow series that Service/ServiceWithBuffer nodes consume and act upon.
 
 There is **no public backlog node kind** after this epic. Internally, we may still name certain runtime components “backlog” in code, but the schema and user-facing docs only speak in terms of **ServiceWithBuffer**.
 

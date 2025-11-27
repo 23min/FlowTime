@@ -33,12 +33,6 @@ The list below enumerates current epics under `docs/architecture/` in an order t
 - **Goal:** Introduce class-aware routing and visualization so that templates and the UI can represent multi-class flows (e.g., priority tiers, customer segments) while preserving FlowTime's determinism and DAG semantics.
 - **Notes:** Current milestone `CL-M-04.03.02` (scheduled dispatch & flow control primitives) sits within this broader epic.
 
-#### Expression Extensions
-
-- **Folder:** `docs/architecture/expression-extensions-roadmap.md`
-- **Goal:** Extend the expression language with math, gating, and control-flow primitives (MOD/FLOOR/CEIL/ROUND/PULSE/STEP, IF, EMA/DELAY, router/autoscale helpers) needed by higher-level epics like autoscale, scheduled dispatch, and richer anomaly detection.
-- **Notes:** Cross-cutting support epic; many milestones (including classes/routing and ServiceWithBuffer) depend on specific operators landing.
-
 #### Service With Buffer
 
 - **Folder:** `docs/architecture/service-with-buffer/`

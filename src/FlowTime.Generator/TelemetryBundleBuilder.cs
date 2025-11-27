@@ -5,7 +5,6 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using FlowTime.Contracts.Services;
 using FlowTime.Core.Artifacts;
 using FlowTime.Core.Models;
@@ -41,9 +40,7 @@ public sealed class TelemetryBundleBuilder
 
         var modelYaml = await File.ReadAllTextAsync(modelPath, cancellationToken).ConfigureAwait(false);
         var normalizedYaml = NormalizeTelemetrySources(modelYaml, captureDir, captureFiles);
-        var sourceModel = ModelService.ParseAndConvert(normalizedYaml);
-        var normalizedWithSemantics = NormalizeTelemetrySemantics(normalizedYaml, telemetryManifest, sourceModel);
-        var canonicalModel = ModelService.ParseAndConvert(normalizedWithSemantics);
+        var canonicalModel = ModelService.ParseAndConvert(normalizedYaml);
         var telemetrySeries = await LoadTelemetrySeriesAsync(captureDir, telemetryManifest, canonicalModel, cancellationToken).ConfigureAwait(false);
         var coverageWarnings = ValidateClassSeries(telemetryManifest, telemetrySeries);
         telemetryManifest = telemetryManifest with
@@ -79,7 +76,7 @@ public sealed class TelemetryBundleBuilder
                     kvp => kvp.Key,
                     kvp => (IReadOnlyDictionary<string, double[]>)new Dictionary<string, double[]>(kvp.Value, StringComparer.OrdinalIgnoreCase),
                     new NodeIdComparer()),
-            SpecText = normalizedWithSemantics,
+            SpecText = normalizedYaml,
             RngSeed = null,
             StartTimeBias = null,
             DeterministicRunId = options.DeterministicRunId,
@@ -181,44 +178,6 @@ public sealed class TelemetryBundleBuilder
 
             normalized = normalized.Replace(absoluteUri, relativeUri, StringComparison.OrdinalIgnoreCase)
                                    .Replace($"file://{absolutePath.Replace('\\', '/')}", relativeUri, StringComparison.OrdinalIgnoreCase);
-        }
-
-        return normalized;
-    }
-
-    private static string NormalizeTelemetrySemantics(string modelYaml, TelemetryManifest manifest, ModelDefinition modelDefinition)
-    {
-        if (manifest.Files is null || manifest.Files.Count == 0)
-        {
-            return modelYaml;
-        }
-
-        var topologyNodes = modelDefinition.Topology?.Nodes ?? new List<TopologyNodeDefinition>();
-        var nodesById = topologyNodes.ToDictionary(n => n.Id, StringComparer.OrdinalIgnoreCase);
-        var normalized = modelYaml;
-
-        foreach (var file in manifest.Files)
-        {
-            if (!nodesById.TryGetValue(file.NodeId, out var topologyNode) || topologyNode.Semantics is null)
-            {
-                continue;
-            }
-
-            var key = GetSemanticsKey(file.Metric);
-            if (key is null)
-            {
-                continue;
-            }
-
-            var currentValue = GetSemanticsValue(topologyNode.Semantics, file.Metric);
-            if (string.IsNullOrWhiteSpace(currentValue))
-            {
-                continue;
-            }
-
-            var regex = new Regex($@"({key}\s*:\s*)(['""]?){Regex.Escape(currentValue)}\2", RegexOptions.IgnoreCase);
-            var replacement = $"$1file://telemetry/{Path.GetFileName(file.Path)}";
-            normalized = regex.Replace(normalized, replacement, 1);
         }
 
         return normalized;

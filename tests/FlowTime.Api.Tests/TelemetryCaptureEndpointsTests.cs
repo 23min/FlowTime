@@ -83,6 +83,68 @@ public class TelemetryCaptureEndpointsTests : IClassFixture<TestWebApplicationFa
     }
 
     [Fact]
+    public async Task GenerateTelemetry_FromClassAwareRun_ReturnsClassMetadata()
+    {
+        var templateDir = Path.Combine(factory.TestDataDirectory, "templates-capture-tests-classes");
+        Directory.CreateDirectory(templateDir);
+        File.WriteAllText(Path.Combine(templateDir, "sim-order-classes.yaml"), SimulationClassTemplateYaml);
+
+        var customizedFactory = factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseSetting("TemplatesDirectory", templateDir);
+        });
+
+        using var client = customizedFactory.CreateClient();
+
+        var simulationPayload = new
+        {
+            templateId = "sim-order-classes",
+            mode = "simulation",
+            parameters = new { bins = 6, binSize = 5 },
+            options = new { deterministicRunId = true }
+        };
+
+        var simulateResponse = await client.PostAsJsonAsync("/v1/runs", simulationPayload);
+        simulateResponse.EnsureSuccessStatusCode();
+        var simulateJson = await simulateResponse.Content.ReadFromJsonAsync<JsonNode>() ?? throw new InvalidOperationException("Simulation response invalid JSON.");
+        var runId = simulateJson["metadata"]?["runId"]?.GetValue<string>() ?? throw new InvalidOperationException("runId missing");
+
+        var captureRequest = new
+        {
+            source = new { type = "run", runId },
+            output = new { overwrite = true }
+        };
+
+        var captureResponse = await client.PostAsJsonAsync("/v1/telemetry/captures", captureRequest);
+        captureResponse.EnsureSuccessStatusCode();
+
+        var captureJson = await captureResponse.Content.ReadFromJsonAsync<JsonNode>() ?? throw new InvalidOperationException("Capture response invalid JSON.");
+        var captureNode = captureJson["capture"] ?? throw new InvalidOperationException("Capture summary missing.");
+        Assert.True(captureNode["supportsClassMetrics"]?.GetValue<bool>() ?? false);
+        Assert.Equal("full", captureNode["classCoverage"]?.GetValue<string>());
+
+        var classesNode = captureNode["classes"] as JsonArray ?? throw new InvalidOperationException("classes missing");
+        var classes = classesNode.Select(c => c?.GetValue<string>() ?? string.Empty).Where(id => !string.IsNullOrWhiteSpace(id)).OrderBy(id => id, StringComparer.OrdinalIgnoreCase).ToArray();
+        Assert.Equal(new[] { "Retail", "Wholesale" }, classes);
+
+        var customizedTestFactory = customizedFactory as TestWebApplicationFactory ?? factory;
+        var runDirectory = Path.Combine(customizedTestFactory.TestDataDirectory, runId);
+        var telemetryDir = Path.Combine(runDirectory, "model", "telemetry");
+        var manifestPath = Path.Combine(telemetryDir, "telemetry-manifest.json");
+        Assert.True(File.Exists(manifestPath), "telemetry-manifest.json should be created.");
+
+        var manifestJson = await JsonNode.ParseAsync(File.OpenRead(manifestPath)) ?? throw new InvalidOperationException("telemetry-manifest.json invalid");
+
+        Assert.Equal("full", manifestJson["classCoverage"]?.GetValue<string>());
+        var manifestClasses = manifestJson["classes"] as JsonArray ?? throw new InvalidOperationException("Manifest classes missing");
+        var manifestClassIds = manifestClasses.Select(c => c?.GetValue<string>() ?? string.Empty)
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .OrderBy(id => id, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        Assert.Equal(new[] { "Retail", "Wholesale" }, manifestClassIds);
+    }
+
+    [Fact]
     public async Task GenerateTelemetry_WritesAutocaptureMetadata()
     {
         var templateDir = Path.Combine(factory.TestDataDirectory, "templates-capture-tests-metadata");
@@ -171,4 +233,87 @@ public class TelemetryCaptureEndpointsTests : IClassFixture<TestWebApplicationFa
     }
 
     private const string SimulationTemplateYaml = "schemaVersion: 1\ngenerator: flowtime-sim\nmetadata:\n  id: sim-order\n  title: Simulation Order Template\n  version: 1.0.0\nwindow:\n  start: 2025-01-01T00:00:00Z\n  timezone: UTC\n\nparameters:\n  - name: bins\n    type: integer\n    default: 4\n  - name: binSize\n    type: integer\n    default: 5\n\ngrid:\n  bins: ${bins}\n  binSize: ${binSize}\n  binUnit: minutes\n\ntopology:\n  nodes:\n    - id: OrderService\n      kind: service\n      semantics:\n        arrivals: arrivals\n        served: served\n        errors: errors\n  edges: []\n\nnodes:\n  - id: arrivals\n    kind: const\n    values: [10, 10, 10, 10]\n  - id: served\n    kind: const\n    values: [8, 9, 9, 10]\n  - id: errors\n    kind: const\n    values: [0, 0, 0, 0]\n\noutputs:\n  - series: \"*\"";
+
+    private const string SimulationClassTemplateYaml =
+        "schemaVersion: 1\n" +
+        "generator: flowtime-sim\n" +
+        "metadata:\n" +
+        "  id: sim-order-classes\n" +
+        "  title: Simulation Order Template (Classes)\n" +
+        "  version: 1.0.0\n" +
+        "window:\n" +
+        "  start: 2025-01-01T00:00:00Z\n" +
+        "  timezone: UTC\n" +
+        "\n" +
+        "parameters:\n" +
+        "  - name: bins\n" +
+        "    type: integer\n" +
+        "    default: 6\n" +
+        "  - name: binSize\n" +
+        "    type: integer\n" +
+        "    default: 5\n" +
+        "\n" +
+        "grid:\n" +
+        "  bins: ${bins}\n" +
+        "  binSize: ${binSize}\n" +
+        "  binUnit: minutes\n" +
+        "\n" +
+        "classes:\n" +
+        "  - id: Retail\n" +
+        "    displayName: Retail Flow\n" +
+        "  - id: Wholesale\n" +
+        "    displayName: Wholesale Flow\n" +
+        "\n" +
+        "traffic:\n" +
+        "  arrivals:\n" +
+        "    - nodeId: retail_demand\n" +
+        "      classId: Retail\n" +
+        "      pattern:\n" +
+        "        kind: constant\n" +
+        "        ratePerBin: 1\n" +
+        "    - nodeId: wholesale_demand\n" +
+        "      classId: Wholesale\n" +
+        "      pattern:\n" +
+        "        kind: constant\n" +
+        "        ratePerBin: 1\n" +
+        "\n" +
+        "topology:\n" +
+        "  nodes:\n" +
+        "    - id: OrderService\n" +
+        "      kind: service\n" +
+        "      semantics:\n" +
+        "        arrivals: total_arrivals\n" +
+        "        served: total_served\n" +
+        "        errors: total_errors\n" +
+        "  edges: []\n" +
+        "\n" +
+        "nodes:\n" +
+        "  - id: retail_demand\n" +
+        "    kind: const\n" +
+        "    values: [10, 11, 12, 13, 14, 15]\n" +
+        "  - id: wholesale_demand\n" +
+        "    kind: const\n" +
+        "    values: [3, 4, 3, 4, 3, 4]\n" +
+        "  - id: total_arrivals\n" +
+        "    kind: expr\n" +
+        "    expr: retail_demand + wholesale_demand\n" +
+        "  - id: total_served\n" +
+        "    kind: expr\n" +
+        "    expr: total_arrivals\n" +
+        "  - id: total_errors\n" +
+        "    kind: const\n" +
+        "    values: [0, 0, 0, 0, 0, 0]\n" +
+        "\n" +
+        "outputs:\n" +
+        "  - series: retail_demand\n" +
+        "    as: retail_demand.csv\n" +
+        "  - series: wholesale_demand\n" +
+        "    as: wholesale_demand.csv\n" +
+        "  - series: total_arrivals\n" +
+        "    as: total_arrivals.csv\n" +
+        "  - series: total_served\n" +
+        "    as: total_served.csv\n" +
+        "  - series: total_errors\n" +
+        "    as: total_errors.csv\n";
+
 }

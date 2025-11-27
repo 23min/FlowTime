@@ -1,0 +1,78 @@
+schemaVersion: 1
+generator: flowtime-sim
+metadata:
+  id: loop-parity-template
+  title: Loop Parity Template
+  version: 1.0.0
+classes:
+  - id: Retail
+    displayName: Retail Flow
+  - id: Wholesale
+    displayName: Wholesale Flow
+window:
+  start: 2025-01-01T00:00:00Z
+  timezone: UTC
+grid:
+  bins: 12
+  binSize: 5
+  binUnit: minutes
+rng:
+  kind: pcg32
+  seed: 424242
+traffic:
+  arrivals:
+    - nodeId: retail_demand
+      classId: Retail
+      pattern:
+        kind: constant
+        ratePerBin: 1
+    - nodeId: wholesale_demand
+      classId: Wholesale
+      pattern:
+        kind: constant
+        ratePerBin: 1
+parameters:
+  - name: telemetryRetailSource
+    type: string
+    default: ""
+  - name: telemetryWholesaleSource
+    type: string
+    default: ""
+topology:
+  nodes:
+    - id: OrderService
+      kind: service
+      semantics:
+        arrivals: total_arrivals
+        served: total_served
+        errors: total_errors
+  edges: []
+nodes:
+  - id: retail_demand
+    kind: const
+    values: [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21]
+    source: ${telemetryRetailSource}
+  - id: wholesale_demand
+    kind: const
+    values: [3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4]
+    source: ${telemetryWholesaleSource}
+  - id: total_arrivals
+    kind: expr
+    expr: "retail_demand + wholesale_demand"
+  - id: total_served
+    kind: expr
+    expr: "total_arrivals"
+  - id: total_errors
+    kind: const
+    values: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+outputs:
+  - series: retail_demand
+    as: retail_demand.csv
+  - series: wholesale_demand
+    as: wholesale_demand.csv
+  - series: total_arrivals
+    as: total_arrivals.csv
+  - series: total_served
+    as: total_served.csv
+  - series: total_errors
+    as: total_errors.csv

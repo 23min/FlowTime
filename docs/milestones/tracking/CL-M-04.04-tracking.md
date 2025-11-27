@@ -19,13 +19,13 @@
 
 ### Overall Progress
 - [x] Phase 1: Contract & Docs (3/3 tasks)
-- [x] Phase 2: Engine + Telemetry Plumbing (1/3 tasks)
-- [ ] Phase 3: Capture Endpoint & Loop Tests (0/3 tasks)
+- [x] Phase 2: Engine + Telemetry Plumbing (3/3 tasks)
+- [x] Phase 3: Capture Endpoint & Loop Tests (3/3 tasks)
 
 ### Test Status
 - ✅ Targeted: `dotnet test --filter WriteArtifacts_ClassSeriesScaleThroughScalarMultipliers`
-- ⏳ Full `dotnet test --nologo` (scheduled for session end)
-- ⏳ Telemetry/Loop integration suites (pending Phase 3)
+- ✅ Full `dotnet test --nologo`
+- ✅ Telemetry/Loop integration suites (Phase 3 parity tests)
 
 ---
 
@@ -68,6 +68,33 @@
 
 **Next Steps:**
 - Surface CLI/log summaries for class coverage warnings (Phase 2 Task 2 REFACTOR).
+
+### 2025-11-27 - Loop parity fixture + integration tests
+
+**Changes:**
+- Added the deterministic `loop-parity-template` fixture plus supporting telemetry capture helpers to drive two-class workloads during loop validation.
+- Introduced `ClassesLoopTests` that orchestrate both simulation and telemetry runs, compare `/state_window` totals/byClass series, and ensure missing-class telemetry emits the correct warnings.
+- Updated the telemetry bundler to stop overwriting topology semantics with capture URIs and to ignore class assignments for nodes without captured series, enabling canonical CSV emission (and `classCoverage` metadata) for telemetry runs.
+
+**Tests:**
+- ✅ `dotnet test tests/FlowTime.Integration.Tests/FlowTime.Integration.Tests.csproj --filter ClassesLoopTests --nologo`
+
+**Next Steps:**
+- Fold the new fixture into the milestone document + test plan and proceed with capture endpoint validations.
+
+### 2025-11-27 - Telemetry capture endpoint validations
+
+**Changes:**
+- Fixed `RunArtifactReader` so telemetry capture bindings look through file-based semantics, normalize `file://...csv` references, and emit per-class bindings for every `(node, classId)` combination.
+- `/v1/telemetry/captures` now ships class-aware bundles end-to-end; added `GenerateTelemetry_FromClassAwareRun_ReturnsClassMetadata` to assert that capture summaries and stored manifests report `supportsClassMetrics=true`/`classCoverage=full` with the expected class list.
+- Kept legacy captures working by falling back to totals-only bindings while still writing schema v2 manifests.
+
+**Tests:**
+- ✅ `dotnet test tests/FlowTime.Api.Tests/FlowTime.Api.Tests.csproj --filter TelemetryCaptureEndpointsTests --nologo`
+- ✅ `dotnet test --nologo`
+
+**Next Steps:**
+- Close out the milestone ceremony and sync docs once release notes are drafted.
 
 ### 2025-11-26 - Class coverage warnings + CLI summaries
 

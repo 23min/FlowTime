@@ -293,6 +293,38 @@ Evaluation:
 
 ---
 
+## 13. Non-Goals and Guardrails
+
+### 13.1 Stay Flow-First (No DES)
+
+FlowTime is intentionally **not** a discrete-event simulator (DES):
+
+- Models operate on **aggregated flows over time bins**, not on individual entities or per-event timelines.
+- Core semantics, artifacts, and APIs are all defined in terms of **flows and levels** (arrivals, served, backlog, retries) on the fixed grid.
+
+Implications:
+
+- We do not introduce per-entity event queues, arbitrary event-scheduling APIs, or per-entity state machines into the engine.
+- Any future “silver telemetry” drill-down (e.g., per-request traces) is a **derived, optional analysis feature** layered on top of flow outputs, not a change to the core semantics.
+
+### 13.2 Engine-Only Semantics, UI-Only Visualization
+
+The engine is the **single source of truth** for model semantics and computation:
+
+- All metrics, series, and behaviors must be computed by the engine and surfaced via APIs.
+- The UI is responsible for **visualization, navigation, and annotation** only.
+
+Implications for UI and tooling:
+
+- The UI must never introduce its own hidden computations that change or redefine model behavior.
+- Any “smart” UX (what-if sliders, overlays, annotations, suggested insights) must be a **thin layer over engine APIs**:
+  - If the UX needs a new metric, that metric is first added to the engine + schema and then consumed by the UI.
+  - What-if workflows are implemented by driving the engine with alternative inputs/templates, not by simulating locally in the browser.
+
+These guardrails keep FlowTime’s semantics centralized, reproducible, and explainable, and ensure the engine remains a first-class, UI-independent component in larger pipelines.
+
+---
+
 # Conclusion
 
 FlowTime provides a **domain-neutral, spreadsheet-like engine** for modeling flows with retries, feedback loops, queues, and capacity dynamics.

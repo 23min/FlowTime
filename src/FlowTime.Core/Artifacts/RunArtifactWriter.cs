@@ -155,6 +155,12 @@ public static class RunArtifactWriter
         var seriesMetas = new List<SeriesMeta>();
         var seriesHashes = new Dictionary<string, string>(StringComparer.Ordinal);
         var classAssignments = BuildClassAssignments(modelDefinition);
+        if (classAssignments.Count > 0)
+        {
+            classAssignments = classAssignments
+                .Where(kvp => effectiveContext.ContainsKey(kvp.Key))
+                .ToDictionary(kvp => kvp.Key, kvp => kvp.Value, new NodeIdComparer());
+        }
         var classSeries = new Dictionary<NodeId, IReadOnlyDictionary<string, double[]>>(new NodeIdComparer());
         if (classAssignments.Count > 0)
         {

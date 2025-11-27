@@ -81,7 +81,7 @@ public sealed class RunArtifactReader
             aliasMap[output.Series.Trim()] = EnsureCsvExtension(alias);
         }
 
-        var seriesByNodeId = new Dictionary<string, SeriesMetadata>(StringComparer.OrdinalIgnoreCase);
+        var seriesByNodeId = new Dictionary<string, List<SeriesMetadata>>(StringComparer.OrdinalIgnoreCase);
         var seriesCollection = index.Series ?? Array.Empty<SeriesMetadata>();
         foreach (var series in seriesCollection)
         {
@@ -91,10 +91,13 @@ public sealed class RunArtifactReader
             }
 
             var nodeId = ExtractNodeId(series.Id);
-            if (!seriesByNodeId.ContainsKey(nodeId))
+            if (!seriesByNodeId.TryGetValue(nodeId, out var list))
             {
-                seriesByNodeId[nodeId] = series;
+                list = new List<SeriesMetadata>();
+                seriesByNodeId[nodeId] = list;
             }
+
+            list.Add(series);
         }
 
         if (model.Topology?.Nodes is { Count: > 0 } nodes)
@@ -143,8 +146,9 @@ public sealed class RunArtifactReader
 
         void TryAddBinding(List<TelemetrySeriesBinding> bindings, string nodeId, TelemetryMetricKind metric, string rawSeriesId)
         {
-            var seriesNodeId = rawSeriesId.Trim();
-            if (!seriesByNodeId.TryGetValue(seriesNodeId, out var seriesMeta))
+            var normalizedSeries = NormalizeSeriesIdentifier(rawSeriesId);
+            var seriesNodeId = ExtractNodeId(normalizedSeries);
+            if (!seriesByNodeId.TryGetValue(seriesNodeId, out var seriesMetas) || seriesMetas.Count == 0)
             {
                 return;
             }
@@ -153,21 +157,25 @@ public sealed class RunArtifactReader
                 ? mappedAlias
                 : BuildDefaultFileName(nodeId, metric);
 
-            bindings.Add(new TelemetrySeriesBinding(
-                nodeId,
-                metric,
-                seriesNodeId,
-                alias,
-                seriesMeta.Id,
-                seriesMeta.Path,
-                seriesMeta.Points,
-                seriesMeta.Class));
+            foreach (var meta in seriesMetas)
+            {
+                var aliasForClass = BuildAliasForClass(alias, meta.Class);
+                bindings.Add(new TelemetrySeriesBinding(
+                    nodeId,
+                    metric,
+                    seriesNodeId,
+                    aliasForClass,
+                    meta.Id,
+                    meta.Path,
+                    meta.Points,
+                    meta.Class));
+            }
         }
     }
 
     private static IEnumerable<TelemetrySeriesBinding> BuildFallbackBindings(
         ModelDefinition model,
-        IReadOnlyDictionary<string, SeriesMetadata> seriesByNodeId,
+        IReadOnlyDictionary<string, List<SeriesMetadata>> seriesByNodeId,
         IReadOnlyDictionary<string, string> aliasMap)
     {
         foreach (var output in model.Outputs)
@@ -178,10 +186,11 @@ public sealed class RunArtifactReader
             }
 
             var seriesId = output.Series.Trim();
-            if (!seriesByNodeId.TryGetValue(seriesId, out var meta))
+            if (!seriesByNodeId.TryGetValue(seriesId, out var metaList) || metaList.Count == 0)
             {
                 continue;
             }
+            var meta = metaList[0];
 
             var alias = aliasMap.TryGetValue(seriesId, out var mappedAlias)
                 ? mappedAlias
@@ -251,6 +260,42 @@ public sealed class RunArtifactReader
     {
         var sanitizedNode = string.IsNullOrWhiteSpace(nodeId) ? "node" : nodeId.Replace(' ', '_');
         return $"{sanitizedNode}_{metric.ToString().ToLowerInvariant()}.csv";
+    }
+
+    private static string BuildAliasForClass(string baseAlias, string classId)
+    {
+        if (string.IsNullOrWhiteSpace(classId) || string.Equals(classId, "DEFAULT", StringComparison.OrdinalIgnoreCase))
+        {
+            return baseAlias;
+        }
+
+        var extension = Path.GetExtension(baseAlias);
+        var prefix = string.IsNullOrEmpty(extension)
+            ? baseAlias
+            : baseAlias[..^extension.Length];
+
+        return string.IsNullOrEmpty(extension)
+            ? $"{prefix}_{classId}"
+            : $"{prefix}_{classId}{extension}";
+    }
+
+    private static string NormalizeSeriesIdentifier(string value)
+    {
+        var trimmed = value?.Trim() ?? string.Empty;
+        if (trimmed.StartsWith("file:", StringComparison.OrdinalIgnoreCase))
+        {
+            trimmed = trimmed["file:".Length..];
+            trimmed = trimmed.TrimStart('/', '\\');
+        }
+
+        trimmed = Path.GetFileName(trimmed);
+
+        if (trimmed.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
+        {
+            trimmed = trimmed[..^4];
+        }
+
+        return trimmed;
     }
 }
 

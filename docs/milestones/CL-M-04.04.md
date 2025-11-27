@@ -1,6 +1,6 @@
 # CL-M-04.04 — Telemetry Contract & Loop Validation for Classes
 
-**Status:** 🔄 In Progress  
+**Status:** ✅ Completed  
 **Dependencies:** ✅ CL-M-04.02 (Engine aggregation), 🔄 CL-M-04.03 (UI consumers optional)  
 **Target:** Update TelemetryLoader contracts, capture endpoints, and Loop validation suites so telemetry-driven runs produce the same per-class node metrics as simulation-driven runs.
 
@@ -34,6 +34,12 @@ The Loop must stay consistent once classes become part of the gold contract. Thi
 ### Future Work
 - EdgeTimeBin telemetry ingestion (separate epic).
 
+### Key Deliverables
+- **Schema & Docs:** `telemetry-manifest.schema.json` v2 + updated operations guide showcasing `supportsClassMetrics`, `classCoverage`, and per-file `classId`.
+- **Loader & CLI:** Class-aware ingestion, conservation warnings, and CLI coverage summaries verified via `TelemetryLoaderByClassTests`.
+- **Capture Endpoint:** `/v1/telemetry/captures` returns manifest snapshots (coverage + classes) and persists class-aware manifests under `model/telemetry/`.
+- **Loop Fixture:** `tests/fixtures/templates/loop-parity-template.yaml` plus `ClassesLoopTests` ensure simulation vs telemetry parity and missing-class warnings.
+
 ---
 
 ## Requirements
@@ -44,34 +50,34 @@ The Loop must stay consistent once classes become part of the gold contract. Thi
 **Description:** Telemetry manifests describe per-class metrics, coverage, and schema version.
 
 **Acceptance Criteria:**
-- [ ] `docs/schemas/telemetry-manifest.schema.json` (or equivalent) includes `classId` metadata and `classCoverage` flags.
-- [ ] Capture manifests declare `supportsClassMetrics: true/false`.
-- [ ] `docs/operations/telemetry-capture-guide.md` shows updated manifest examples.
+- [x] `docs/schemas/telemetry-manifest.schema.json` includes `classId`, `supportsClassMetrics`, and `classCoverage`.
+- [x] Capture manifests declare `supportsClassMetrics` and emit coverage metadata (legacy totals still supported).
+- [x] `docs/operations/telemetry-capture-guide.md` shows schemaVersion 2 manifest examples.
 
 #### FR2: TelemetryLoader Ingestion
 **Description:** TelemetryLoader reads class-aware CSV bundles and produces canonical gold data.
 
 **Acceptance Criteria:**
-- [ ] `TelemetryLoader` validates that each `(nodeId, timeBin)` has either totals+classes or totals only and logs warnings otherwise.
-- [ ] Aggregation writes `byClass` entries identical to engine output from CL-M-04.02.
-- [ ] CLI command `flowtime telemetry ingest` prints class coverage summary.
+- [x] `TelemetryLoader` validates totals vs classes and logs actionable warnings.
+- [x] Aggregation writes `byClass` entries identical to engine output from CL-M-04.02.
+- [x] CLI telemetry commands print class coverage summaries and highlight warnings.
 
 #### FR3: Capture Endpoint Validation
 **Description:** `POST /v1/telemetry/captures` enforces the new contract.
 
 **Acceptance Criteria:**
-- [ ] Requests missing `classId` column are rejected unless `supportsClassMetrics=false`.
-- [ ] Response metadata includes `classCoverage` and `warnings` arrays.
-- [ ] When `captureKey`/`directory` is specified, engine stores class manifests alongside totals.
+- [x] Requests missing `classId` are only accepted when `supportsClassMetrics=false`.
+- [x] Response metadata includes `supportsClassMetrics`, `classCoverage`, `classes`, and warnings.
+- [x] Capture manifests (including class metadata) are persisted under `model/telemetry/`.
 
 #### FR4: Loop Regression Tests
 **Description:** Automated suites compare simulation vs telemetry `/state` per class.
 
 **Acceptance Criteria:**
-- [ ] `tests/FlowTime.Integration.Tests/Loop/ClassesLoopTests.cs` contains scenarios:
-  - Simulation vs telemetry parity for two-class model.
-  - Telemetry missing a class triggers warning + fallback.
-- [ ] Tests assert that `state.nodes.*.byClass` matches between modes within tolerance.
+- [x] `tests/FlowTime.Integration.Tests/Loop/ClassesLoopTests.cs` includes:
+  - Simulation vs telemetry parity for a two-class model.
+  - Missing-class telemetry warning / partial coverage scenario.
+- [x] Tests assert `state.nodes.*.byClass` matches within tolerance.
 
 ### Non-Functional Requirements
 
@@ -102,38 +108,23 @@ flowchart LR
 ## Implementation Plan
 
 ### Phase 1: Contract & Docs
-**Goal:** Formalize manifest/schema updates and communicate to producers.
-
-**Tasks:**
-1. RED: Add failing schema tests for new manifest fields.
-2. GREEN: Update schema files + docs with examples.
-3. GREEN: Version manifest schema (e.g., `telemetry-manifest@2`).
+- SchemaVersion 2 manifests, schema tests, and producer docs landed.
+- Operations guide now references class-aware manifests (with forward/backward compatibility guidance).
 
 ### Phase 2: TelemetryLoader Enhancements
-**Goal:** Parse and aggregate per-class telemetry.
-
-**Tasks:**
-1. RED: Add failing unit tests around loader parsing + aggregation.
-2. GREEN: Implement CSV parsing, `byClass` aggregation, and coverage warnings.
-3. GREEN: Update CLI output + logging.
+- Loader ingests class CSVs, validates conservation, and surfaces warnings; CLI emits coverage summaries.
+- Fixture-backed `TelemetryLoaderByClassTests` keep behavior locked.
 
 ### Phase 3: Capture Endpoint & Loop Tests
-**Goal:** Enforce contract and validate equivalence.
+- `/v1/telemetry/captures` exposes class metadata and writes manifests for UI/CLI.
+- `ClassesLoopTests` ensure simulation vs telemetry parity + missing-class warnings using the new fixture template.
 
-**Tasks:**
-1. RED: Integration tests hitting `/v1/telemetry/captures` with/without class data.
-2. GREEN: Implement validation, metadata, and storage updates.
-3. RED/GREEN: Build Loop regression tests comparing simulation vs telemetry outputs.
+## Completion Summary (2025-11-27)
 
-## Current Progress (2025-11-25)
-
-- `RunArtifactWriter`/`ClassContributionBuilder` now preserve per-class series even when scalar math or `MAX/MIN` clamps collapse a node to zero. Regression coverage lives in `tests/FlowTime.Tests/RunArtifactWriterTests.cs` (`WriteArtifacts_ClassSeriesScaleThroughScalarMultipliers`).
-- Demo runs with class coverage pushed through every node were regenerated for hands-on validation:
-  - Supply chain: `data/run_20251125T130751Z_21597334` (template `supply-chain-multi-tier-classes`).
-  - Transportation: `data/run_20251125T130822Z_91deaced` (template `transportation-basic-classes`).
-- These runs keep `classCoverage: "full"` and surface class chips past DLQ/returns queues, so Time Travel UI selectors now render meaningful data all the way through the topology.
-
----
+- Engine artifacts and CLI ingestion now emit/consume per-class CSVs for every topology node; conservation mismatches trigger actionable warnings.
+- Telemetry captures store schemaVersion 2 manifests (with class metadata) and `/v1/telemetry/captures` returns `supportsClassMetrics`, `classCoverage`, and warning summaries.
+- Loop parity suite, powered by `loop-parity-template`, guarantees simulation vs telemetry `/state` parity and validates missing-class fallbacks.
+- Docs (schemas, operations guide, reference) describe the enhanced contract; milestone tracker/logs capture run IDs and fixture locations for reproducibility.
 
 ## Test Plan
 
