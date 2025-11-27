@@ -47,7 +47,7 @@
 ---
 
 ## References
-- docs/milestones/TT-M-03.20.md
+- docs/milestones/completed/TT-M-03.20.md
 - docs/schemas/template.schema.json
 - docs/schemas/template-schema.md
 - templates/network-reliability.yaml

@@ -110,5 +110,5 @@ Implementation already exists on `feature/time-travel-ui-m3`: the nav group live
 ## References
 
 - `docs/architecture/time-travel/ui-m3-roadmap.md`
-- `docs/milestones/UI-M-03.11.md`
+- `docs/milestones/completed/UI-M-03.11.md`
 - `docs/development/milestone-documentation-guide.md`

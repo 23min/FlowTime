@@ -6,7 +6,7 @@
 **Branch:** `feature/tt-m-03-31/e2e-retries-service-time`
 
 Quick Links
-- Milestone: `docs/milestones/TT-M-03.31.md`
+- Milestone: `docs/milestones/completed/TT-M-03.31.md`
 - Guide: `docs/development/milestone-documentation-guide.md`
 
 Overall Progress

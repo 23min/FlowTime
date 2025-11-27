@@ -70,6 +70,6 @@
 ---
 
 ## References
-- docs/milestones/UI-M-03.16.md
+- docs/milestones/completed/UI-M-03.16.md
 - docs/operations/telemetry-capture-guide.md
-- docs/milestones/UI-M-03.12.md
+- docs/milestones/completed/UI-M-03.12.md

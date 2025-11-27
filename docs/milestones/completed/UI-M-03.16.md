@@ -138,7 +138,7 @@ Operators currently jump between CLI commands and the Simulate tab to orchestrat
 ## References
 
 - `docs/operations/telemetry-capture-guide.md`
-- `docs/milestones/UI-M-03.12.md`
-- `docs/milestones/UI-M-03.15.md`
+- `docs/milestones/completed/UI-M-03.12.md`
+- `docs/milestones/completed/UI-M-03.15.md`
 - `src/FlowTime.API/Endpoints/RunOrchestrationEndpoints.cs`
 - `src/FlowTime.UI/Services/FlowTimeApiClient.cs`

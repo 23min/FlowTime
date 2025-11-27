@@ -1,6 +1,6 @@
 # TT‑M‑03.30.1 Implementation Tracking — Domain Metric Aliases
 
-**Milestone:** `docs/milestones/TT-M-03.30.1.md`  
+**Milestone:** `docs/milestones/completed/TT-M-03.30.1.md`  
 **Status:** ✅ Complete  
 **Branch:** `feature/tt-m-0330-1-domain-aliases`
 
@@ -20,7 +20,7 @@
 
 ## References
 
-- Milestone: `docs/milestones/TT-M-03.30.1.md`
+- Milestone: `docs/milestones/completed/TT-M-03.30.1.md`
 - Schema guide: `docs/schemas/template-schema.md`
 - Authoring guide: `docs/templates/metric-alias-authoring.md`
 - Release note: `docs/releases/TT-M-03.30.1.md`

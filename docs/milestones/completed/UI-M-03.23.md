@@ -208,4 +208,4 @@ sequenceDiagram
 - docs/development/milestone-documentation-guide.md
 - docs/development/TEMPLATE-tracking.md
 - docs/architecture/time-travel/ui-m3-roadmap.md (Phase 2, UI-M-03.23 entry)
-- docs/milestones/UI-M-03.22.2.md (preceding polish milestone)
+- docs/milestones/completed/UI-M-03.22.2.md (preceding polish milestone)

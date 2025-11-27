@@ -58,6 +58,6 @@ None of these items require additional Phase 1 implementation work beyond docs/r
 ---
 
 ## References
-- docs/milestones/TT-M-03.17.md
+- docs/milestones/completed/TT-M-03.17.md
 - docs/architecture/time-travel/ui-m3-roadmap.md
 - docs/operations/telemetry-capture-guide.md

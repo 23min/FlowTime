@@ -1,7 +1,7 @@
 # TT‑M‑03.30.2 Tracking
 
 Status: 🟡 Planned  
-Milestone doc: [docs/milestones/TT-M-03.30.2.md](../TT-M-03.30.2.md)
+Milestone doc: [docs/milestones/completed/TT-M-03.30.2.md](../TT-M-03.30.2.md)
 
 ## Checklist
 

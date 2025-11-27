@@ -14,7 +14,7 @@
 
 ## Quick Links
 
-- **Milestone Document:** [`docs/milestones/UI-M-03.23.md`](../milestones/UI-M-03.23.md)
+- **Milestone Document:** [`docs/milestones/completed/UI-M-03.23.md`](../milestones/UI-M-03.23.md)
 - **Related Analysis:** _(link once available)_
 - **Milestone Guide:** [`docs/development/milestone-documentation-guide.md`](../development/milestone-documentation-guide.md)
 

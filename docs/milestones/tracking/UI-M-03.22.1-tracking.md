@@ -7,8 +7,8 @@
 ---
 
 ## Quick Links
-- Milestone: `docs/milestones/UI-M-03.22.1.md`
-- Parent milestone: `docs/milestones/UI-M-03.22.md`
+- Milestone: `docs/milestones/completed/UI-M-03.22.1.md`
+- Parent milestone: `docs/milestones/completed/UI-M-03.22.md`
 - Layout reference: `src/FlowTime.UI/Pages/TimeTravel/Topology.razor`
 
 ---
@@ -111,7 +111,7 @@
 ---
 
 ## Notes / Hand-off
-- Incident markers for the timeline dial and playback presets are deferred to UI‑M‑03.22.2 (`docs/milestones/UI-M-03.22.1.md`).
+- Incident markers for the timeline dial and playback presets are deferred to UI‑M‑03.22.2 (`docs/milestones/completed/UI-M-03.22.1.md`).
 - Full DAG rendering depends on new graph payloads that surface const/expr/pmf semantics; legacy runs continue to show operational topology only.
 - Inspector deep-dive (lazy-loaded CSV detail for compute nodes) moves to UI‑M‑03.22.2 alongside accessibility verification of the feature bar.
 

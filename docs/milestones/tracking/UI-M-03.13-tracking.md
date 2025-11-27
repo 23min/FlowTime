@@ -9,7 +9,7 @@
 
 ## Quick Links
 
-- Milestone Document: docs/milestones/UI-M-03.13.md
+- Milestone Document: docs/milestones/completed/UI-M-03.13.md
 - Roadmap: docs/architecture/time-travel/ui-m3-roadmap.md
 - Analyze Page: src/FlowTime.UI/Pages/Analyze.razor
 - Expert Layout: src/FlowTime.UI/Layout/ExpertLayout.razor
@@ -53,5 +53,5 @@
 ---
 
 ## References
-- docs/milestones/UI-M-03.13.md
+- docs/milestones/completed/UI-M-03.13.md
 - docs/architecture/time-travel/ui-m3-roadmap.md

@@ -8,7 +8,7 @@
 ---
 
 ## Quick Links
-- Milestone: `docs/milestones/TT-M-03.28.md`
+- Milestone: `docs/milestones/completed/TT-M-03.28.md`
 - Architecture: `docs/architecture/retry-modeling.md`
 - Queue/SHIFT reference: `docs/architecture/time-travel/queues-shift-depth-and-initial-conditions.md`
 - Perf log: `docs/performance/perf-log.md`

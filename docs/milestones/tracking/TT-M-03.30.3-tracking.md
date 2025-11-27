@@ -14,7 +14,7 @@
 
 ## Quick Links
 
-- **Milestone Document:** [`docs/milestones/TT-M-03.30.3.md`](../TT-M-03.30.3.md)
+- **Milestone Document:** [`docs/milestones/completed/TT-M-03.30.3.md`](../TT-M-03.30.3.md)
 - **Related Analysis:** [None recorded]
 - **Milestone Guide:** [`docs/development/milestone-documentation-guide.md`](../development/milestone-documentation-guide.md)
 
@@ -184,7 +184,7 @@
 **Status:** ✅ Complete
 
 ### Task 2.2: Docs
-**File(s):** `docs/milestones/TT-M-03.30.3.md`, `docs/templates/profiles.md`
+**File(s):** `docs/milestones/completed/TT-M-03.30.3.md`, `docs/templates/profiles.md`
 
 **Checklist:**
 - [x] Document profile library and usage

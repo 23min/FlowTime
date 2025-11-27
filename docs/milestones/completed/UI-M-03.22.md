@@ -38,7 +38,7 @@ This milestone delivers the first production-ready topology view for time‑trav
 - Optional node labels/overlays and edge badges once design ships guidance.
 
 ### Follow‑up Milestone
-- See UI‑M‑03.22.1 — Topology LOD + Feature Bar: docs/milestones/UI-M-03.22.1.md
+- See UI‑M‑03.22.1 — Topology LOD + Feature Bar: docs/milestones/completed/UI-M-03.22.1.md
   - Adds LOD overlays, Feature Bar, sparklines, edge shares, Full DAG mode.
   - Tracks open bug: topology tooltips not working (hover/focus).
 

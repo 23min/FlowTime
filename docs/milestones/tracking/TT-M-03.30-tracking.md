@@ -6,7 +6,7 @@
 **Branch:** `feature/ui-m-0330-edge-overlays`
 
 Quick Links
-- Milestone: `docs/milestones/TT-M-03.30.md`
+- Milestone: `docs/milestones/completed/TT-M-03.30.md`
 - Guide: `docs/development/milestone-documentation-guide.md`
 
 Overall Progress

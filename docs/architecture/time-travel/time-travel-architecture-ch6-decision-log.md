@@ -806,9 +806,9 @@ parameters:
 ### 6.8 Related Documents
 
 **Internal:**
-- M-1 Implementation Plan: `docs/milestones/M-01.00.md`
-- M-2 Implementation Plan: `docs/milestones/M-02.00.md`
-- M-3 Implementation Plan: `docs/milestones/M-03.00.md`
+- M-1 Implementation Plan: `docs/milestones/completed/M-01.00.md`
+- M-2 Implementation Plan: `docs/milestones/completed/M-02.00.md`
+- M-3 Implementation Plan: `docs/milestones/completed/M-03.00.md`
 - M-4 Implementation Plan: `docs/milestones/M-04.00.md`
 - API Reference: `docs/api/openapi.yaml`
 - Template Reference: `docs/templates/README.md`

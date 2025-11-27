@@ -9,7 +9,7 @@
 
 ## Quick Links
 
-- **Milestone Document:** [`docs/milestones/SIM-M-03.00.md`](../SIM-M-03.00.md)
+- **Milestone Document:** [`docs/milestones/completed/SIM-M-03.00.md`](../SIM-M-03.00.md)
 - **Implementation Plan:** [`docs/architecture/time-travel/sim/sim-implementation-plan.md`](../../architecture/time-travel/sim/sim-implementation-plan.md)
 - **Schema Requirements:** [`docs/architecture/time-travel/sim/sim-schema-and-validation.md`](../../architecture/time-travel/sim/sim-schema-and-validation.md)
 - **Readiness Audit:** [`docs/architecture/time-travel/sim-time-travel-readiness-audit.md`](../../architecture/time-travel/sim-time-travel-readiness-audit.md)

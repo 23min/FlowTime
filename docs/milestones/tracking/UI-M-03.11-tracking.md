@@ -10,7 +10,7 @@
 
 ## Quick Links
 
-- Milestone Document: docs/milestones/UI-M-03.11.md
+- Milestone Document: docs/milestones/completed/UI-M-03.11.md
 - Roadmap: docs/architecture/time-travel/ui-m3-roadmap.md
 - Contracts Reference: docs/reference/contracts.md
 - Milestone Guide: docs/development/milestone-documentation-guide.md

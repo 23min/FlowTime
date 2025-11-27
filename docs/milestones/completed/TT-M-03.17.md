@@ -132,5 +132,5 @@ Each test should fail prior to implementation, then pass once the feature code i
 
 ## References
 - `docs/operations/telemetry-capture-guide.md`
-- `docs/milestones/UI-M-03.16.md`
+- `docs/milestones/completed/UI-M-03.16.md`
 - `docs/architecture/time-travel/telemetry-generation-explicit.md`

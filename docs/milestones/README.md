@@ -1,77 +1,18 @@
-# FlowTime Milestones Directory
+# Milestones Directory Layout
 
-## Current Active Milestones
+The `docs/milestones/` folder now mirrors the active roadmap status:
 
-### **Backend/API Milestones**
-- **M-02.06.md** - ✅ Export System Implementation (Completed)
-- **M-02.07.md** - ✅ Artifacts Registry (Completed)
-- **M-02.08.md** - ✅ Registry Integration & API Enhancement (Completed)
-- **M-02.09.md** - 🚧 Schema Evolution & Documentation (In Progress - Phase 0 Complete)
-  - **M-02.09.01.md** - Detailed implementation plan
-- **M-03.00.01.md** - 📋 Shared Expression Validation Library (Post-M-03.00 follow-up)
+- **Active / Upcoming work** remains at the top level. Today that includes the Class epic (`CL-*`) and `SB-M-01-service-with-buffer.md`, plus the shared `tracking/` documents.
+- **Completed milestones** have been archived under `docs/milestones/completed/`. Every reference in the repo now points to the files in that subfolder (e.g., `docs/milestones/completed/UI-M-03.12.md`).
 
-### **Classes Epic (4.x)**
-- **CL-M-04.01.md** - 📋 Class Schema & Template Enablement
-- **CL-M-04.02.md** - 📋 Engine & State Aggregation for Classes
-- **CL-M-04.03.md** - 📋 UI Class-Aware Visualization
-- **CL-M-04.04.md** - 📋 Telemetry Contract & Loop Validation
+## Adding a new milestone
 
-### **UI Implementation Milestones**
-- **UI-M-02.07.md** - 📋 Artifacts Registry UI (Planned)
-- **UI-M-02.08.md** - � Charter Navigation & Tab Structure (Phase 1 ✅ Complete, Phases 2+ ❌ Postponed)
-- **UI-M-02.09.md** - ❌ Compare Workflow UI Integration (Postponed)
-- **UI-M-03.00.md** - 📋 Cross-Platform Charter Integration (Planned)
+1. Author the spec at `docs/milestones/<MILESTONE-ID>.md` (only for work that is planned or in progress).
+2. When the milestone ships, move the spec to `docs/milestones/completed/` and update references (including the tracking log and release notes).
+3. Keep the tracking document under `docs/milestones/tracking/` no matter what stage the milestone is in.
 
-## Legacy/Reference Files
+## Quick Links
 
-### **Completed Earlier Milestones**
-- **M-00.00.md, M-01.00.md, M-01.05.md, M-01.06.md, M-02.00.md** - Historical milestones
-- **UI-M-00.00.md, UI-M-01.00.md, UI-M-02.00.md** - Early UI milestones
-
-### **Superseded UI Milestones**
-> **Charter Notice**: These milestones have been superseded by the Charter UI Milestone Structure above.
-- **UI-M-02.05.md** - Superseded by UI-M-02.08 (Charter Navigation)
-- **UI-M-02.06.md** - Superseded by UI-M-02.07, UI-M-02.08, UI-M-02.09
-
-### **Service Milestones**
-- **SVC-M-00.00.md, SVC-M-01.00.md** - Service-specific milestones
-- **SYN-M-00.00.md** - Synchronization milestones
-
-## Architecture Documents
-
-- **CHARTER-ROADMAP.md** - Archived (see [ROADMAP.md](../ROADMAP.md) for current roadmap)
-
-## Archived Documents
-
-See `docs/transitions/` for:
-- **UI-M2.6-CHARTER-TRANSITION.md** - How UI-M-02.06 work transitioned to new UI structure
-- **M-02.06-ORIGINAL.md** - Original M-02.06 milestone file (superseded by M-02.06.md)
-
----
-
-## Milestone Naming Convention
-
-### **Active Milestones**
-- **M-XX.XX.md** - Backend/API milestones (e.g., M-02.07.md)
-- **UI-M-XX.XX.md** - UI implementation milestones (e.g., UI-M-02.08.md)
-- **SIM-M-XX.XX.md** - Simulation-specific milestones (maintained in the simulation repository)
-
-### **Status Indicators**
-- ✅ **Completed** - Implementation finished
-- 📋 **Planned** - Design complete, ready for implementation
-- 🔄 **In Progress** - Currently being implemented
-- ❌ **Cancelled** - Superseded or abandoned
-
----
-
-## Recent Updates
-
-**September 21, 2025**: Simplified milestone naming convention:
-- Removed descriptive suffixes from M-02.x filenames (M-02.07-REGISTRY.md → M-02.07.md)
-- Moved transition documents to `docs/transitions/` folder
-- Created clear structure documentation and naming conventions
-
----
-
-**Last Updated:** September 21, 2025
-**Charter Status:** Implementation in Progress (M-02.07-M-02.09)
+- **Active Class Epic:** `CL-M-04.01.md`, `CL-M-04.02.md`, `CL-M-04.03.md`, `CL-M-04.04.md`
+- **Service-With-Buffer Follow-Up:** `SB-M-01-service-with-buffer.md`
+- **Archive:** See `docs/milestones/completed/` for historic milestones across backend, UI, time-travel, and service epics.

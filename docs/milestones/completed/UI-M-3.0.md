@@ -20,9 +20,9 @@ This milestone delivers the first usable Time‑Travel UI on top of run bundles 
 ## Milestone Tree
 
 Phase 1 — Align With M3 (Refactor and Restore)
-- [ ] UI-M-03.10 — UI Baseline & Build Health (see: docs/milestones/UI-M-03.10.md)
-- [ ] UI-M-03.11 — Artifacts Page Restoration (see: docs/milestones/UI-M-03.11.md)
-- [ ] UI-M-03.12 — Simulate → Run Bundle Integration (see: docs/milestones/UI-M-03.12.md)
+- [ ] UI-M-03.10 — UI Baseline & Build Health (see: docs/milestones/completed/UI-M-03.10.md)
+- [ ] UI-M-03.11 — Artifacts Page Restoration (see: docs/milestones/completed/UI-M-03.11.md)
+- [ ] UI-M-03.12 — Simulate → Run Bundle Integration (see: docs/milestones/completed/UI-M-03.12.md)
 - [x] UI-M-03.13 — Analyze Section Decision (complete — nav hide documented)
 - [x] UI-M-03.14 — Time‑Travel Nav & Routes (skeleton) (complete — nav group + placeholders live)
 - [x] UI-M-03.15 — Run Bundle Data Access Service (REST) (complete — REST client & data service)
