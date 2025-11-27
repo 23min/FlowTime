@@ -217,7 +217,7 @@ Those behaviors are **out of scope for the initial milestone**, but the design i
 
 ## 9. Implementation Plan (High-Level)
 
-The detailed breakdown lives in `docs/milestones/SB-M-04.01.md`, but at a high level we will:
+The detailed breakdown lives in `docs/milestones/SB-M-05.01.md`, but at a high level we will:
 
 1. Update schema and loader to introduce `kind: serviceWithBuffer` and remove `kind: backlog` from the public contract.
 2. Update engine code to treat ServiceWithBuffer as the owner of queue + schedule semantics.

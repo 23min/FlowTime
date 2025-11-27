@@ -1,6 +1,6 @@
-# SB-M-01 — ServiceWithBuffer Node Type (Breaking Introduction)
+# SB-M-05.01 — ServiceWithBuffer Node Type (Breaking Introduction)
 
-**Status:** 📋 Proposed  
+**Status:** 🔄 In Progress  
 **Epic:** Service With Buffer (architecture epic under `docs/service-with-buffer/`)  
 **Depends on:** CL‑M‑04.03.02 (Scheduled Dispatch & Flow Control Primitives)  
 **Target:** Introduce `kind: serviceWithBuffer` as the canonical node type for services with explicit queues/buffers, remove `kind: backlog` from the public surface, and ensure the engine and UI treat ServiceWithBuffer as an operational node with a queue badge.
@@ -9,9 +9,9 @@
 
 ## Overview
 
-CL‑M‑04.03.02 introduces scheduled dispatch semantics and expression primitives that support cadence-based flows. SB‑M‑01 builds on that by making **ServiceWithBuffer** a first-class node type and eliminating backlog from the public contract.
+CL‑M‑04.03.02 introduces scheduled dispatch semantics and expression primitives that support cadence-based flows. SB‑M‑05.01 builds on that by making **ServiceWithBuffer** a first-class node type and eliminating backlog from the public contract.
 
-SB‑M‑01 does **not** aim for backward compatibility:
+SB‑M‑05.01 does **not** aim for backward compatibility:
 
 - Templates, docs, and UI must be updated to use `kind: serviceWithBuffer` (or corresponding topology concepts) instead of `kind: backlog`.
 - Where helpful during implementation, temporary loader shims may support `backlog`, but the final state of this milestone is **forward-only**: new models and tooling should rely solely on ServiceWithBuffer.
@@ -35,7 +35,7 @@ SB‑M‑01 does **not** aim for backward compatibility:
 - Tests:
   - Add tests under `tests/FlowTime.Core.Tests` (or appropriate schema/loader tests) verifying that ServiceWithBuffer nodes:
     - Load successfully from the new schema shape.
-    - Produce the same numerical behavior as the pre‑SB‑M‑01 backlog-based templates when those templates are mechanically migrated.
+    - Produce the same numerical behavior as the pre‑SB‑M‑05.01 backlog-based templates when those templates are mechanically migrated.
 
 ### FR2 — Architecture & Authoring Docs
 
