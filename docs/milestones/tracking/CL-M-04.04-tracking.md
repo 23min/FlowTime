@@ -57,7 +57,24 @@
 
 **Goal:** Formalize manifest/schema/doc updates for class-aware telemetry.
 
-_Status:_ Not started — RED schema tests + doc stubs planned for next session.
+**TDD Checklist:**
+- [x] RED: `TelemetryManifestSchemaTests.ManifestSchema_Requires_ClassColumns_When_SupportsTrue`
+- [x] RED: `TelemetryManifestSchemaTests.ManifestSchema_LegacyMode_AllowsTotalsOnly`
+- [x] GREEN: Update manifest schema + `docs/operations/telemetry-capture-guide.md`
+- [x] GREEN: Versioning + examples (`docs/schemas/telemetry-manifest.schema.json`, schema index)
+- [ ] REFACTOR: Ensure docs/reference pages link to the new schema
+
+_Status:_ Schema + docs landed; final doc sweep (reference cross-links) still pending.
+
+### 2025-12-01 - Telemetry Manifest Schema v2
+
+**Changes:**
+- Added RED tests (`TelemetryManifestSchemaTests`) asserting that manifests must declare `supportsClassMetrics`, require per-file `classId` entries when the flag is true, and still allow totals-only bundles when false.
+- Bumped `docs/schemas/telemetry-manifest.schema.json` to schemaVersion **2** with the new `supportsClassMetrics` boolean, conditional `classes`/`classCoverage` requirements, and file-level `classId` enforcement.
+- Updated `docs/operations/telemetry-capture-guide.md` and `docs/schemas/README.md` to describe the new manifest contract and provide sample JSON.
+
+**Tests:**
+- ✅ `dotnet test --filter FullyQualifiedName~TelemetryManifestSchemaTests --nologo`
 
 ---
 

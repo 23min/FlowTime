@@ -29,7 +29,7 @@ Content-Type: application/json
 - When `captureKey` and `directory` are omitted, the service writes into the run's own `model/telemetry/` folder. Provide either field only if you want to copy the bundle to a shared library (for example, a curated directory managed by `TelemetryRoot`).
 - If a bundle already exists and `overwrite` is `false`, the endpoint returns `409 Conflict` and surfaces the previously recorded metadata.
 - Successful requests emit two files next to the generated CSVs inside `model/telemetry/`:
-  - `manifest.json` — bundle inventory + warning list (unchanged from earlier tooling).
+- `manifest.json` — bundle inventory + warning list (schema version **2**, now includes `supportsClassMetrics`, `classes`, and per-file `classId` metadata).
   - `autocapture.json` — `{ templateId, captureKey?, sourceRunId, generatedAtUtc, rngSeed, parametersHash, scenarioHash }` for provenance.
 - When `rng` is not provided, simulation runs default to seed `123`. The UI exposes an “RNG Seed” input so operators can supply a deterministic override.
 - The response includes a telemetry summary (`generated`, `alreadyExists`, `generatedAtUtc`, `warningCount`, `sourceRunId`) that is mirrored in `/v1/runs` and UI summaries. No filesystem paths are ever exposed.
@@ -87,6 +87,44 @@ telemetry/<runId>/
 ```
 
 Each CSV follows the capture schema (`bin_index,value`) and the manifest lists the full file inventory plus provenance (run id, scenario hash, captured timestamp).
+
+### Manifest (Schema v2) Quick Reference
+
+Telemetry manifests now follow schema version **2**. Two additions matter for class-aware telemetry:
+
+- `supportsClassMetrics` (boolean, required): declares whether every CSV includes per-class data. When `true`, the manifest must also include `classes`, `classCoverage`, and every entry in `files[]` must name the `classId` the CSV represents.
+- `classCoverage` (enum: `full|partial|missing`): mirrors the run metadata so ingestion/loop validation can fail fast when a class is absent.
+
+Example excerpt:
+
+```json
+{
+  "schemaVersion": 2,
+  "supportsClassMetrics": true,
+  "classes": ["Retail", "Wholesale"],
+  "classCoverage": "full",
+  "files": [
+    {
+      "nodeId": "OrderService",
+      "metric": "Arrivals",
+      "path": "OrderService_arrivals_Retail.csv",
+      "classId": "Retail",
+      "hash": "sha256:…",
+      "points": 288
+    },
+    {
+      "nodeId": "OrderService",
+      "metric": "Arrivals",
+      "path": "OrderService_arrivals_Wholesale.csv",
+      "classId": "Wholesale",
+      "hash": "sha256:…",
+      "points": 288
+    }
+  ]
+}
+```
+
+Legacy bundles (without class metrics) set `supportsClassMetrics=false` and omit the `classes`/`classCoverage` block; their CSV inventory continues to list totals-only files.
 
 ## Template Generation
 
