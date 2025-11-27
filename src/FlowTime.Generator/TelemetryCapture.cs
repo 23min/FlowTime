@@ -154,9 +154,14 @@ public sealed class TelemetryCapture
         var classCoverage = classes.Length == 0
             ? "missing"
             : hasNonDefault ? "full" : "partial";
+        var supportsClassMetrics = hasNonDefault;
+        IReadOnlyList<string>? manifestClasses = supportsClassMetrics
+            ? classes.Where(c => !string.Equals(c, "DEFAULT", StringComparison.OrdinalIgnoreCase)).ToArray()
+            : null;
+        var manifestCoverage = supportsClassMetrics ? classCoverage : null;
 
         var manifest = new TelemetryManifest(
-            SchemaVersion: 1,
+            SchemaVersion: 2,
             Window: BuildWindow(context.Model),
             Grid: new TelemetryManifestGrid(
                 context.SeriesIndex.Grid.Bins,
@@ -169,8 +174,9 @@ public sealed class TelemetryCapture
                 context.Manifest.ScenarioHash,
                 context.Manifest.ModelHash,
                 CapturedAtUtc: DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture)),
-            Classes: classes,
-            ClassCoverage: classCoverage);
+            SupportsClassMetrics: supportsClassMetrics,
+            Classes: manifestClasses,
+            ClassCoverage: manifestCoverage);
 
         var manifestPath = Path.Combine(outputDirectory, "manifest.json");
         await CaptureManifestWriter.WriteAsync(manifestPath, manifest, cancellationToken).ConfigureAwait(false);

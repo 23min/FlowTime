@@ -8,7 +8,7 @@ This document describes the **shipped** FlowTime Engine surfaces and behaviors a
 - **Expression support** (engine evaluator): arithmetic `+ - * /`, functions `SHIFT`, `CONV`, `MIN`, `MAX`, `CLAMP`, `MOD`, `FLOOR`, `CEIL`, `ROUND`, `STEP`, `PULSE`. No IF/EMA/ABS/SQRT/POW/routers/autoscale nodes yet.
 - **Retry/backoff**: Supports attempts/failures/retry echo series; `RetryKernelPolicy` normalizes kernels; derived retry echo and exhaustion warnings recorded when missing.
 - **Backlog/latency**: Queue depth/backlog recurrence with optional initial conditions; derived `latencyMinutes`, `throughputRatio`, `flowLatencyMs` in state responses.
-- **Classes**: Single class (`DEFAULT`) emitted; no per-class metrics or filtering.
+- **Classes**: Multi-class flows supported. Templates/tagged nodes emit per-class series; artifacts and `/state(_window)` expose `byClass` arrays plus `classCoverage` metadata. `DEFAULT` remains the fallback for totals.
 - **Edges**: Only retry-dependency derived edges in `/state_window` (attempts/failures/retryRate from source semantics). No EdgeTimeBin fact tables.
 
 ## Artifacts & hashing
@@ -48,12 +48,12 @@ This document describes the **shipped** FlowTime Engine surfaces and behaviors a
 
 ## Telemetry & time-travel
 - Canonical run artifacts are the source of truth; `/state` and `/state_window` read from artifacts on disk.
-- Telemetry capture/loader service is not implemented; telemetry mode expects prebuilt bundles via orchestration (template + capture directory).
-- Time-travel schemas: `docs/schemas/time-travel-state.schema.json` governs state responses; API matches current state/state_window payloads.
+- Telemetry capture/loader tooling ingests bundles that follow `docs/schemas/telemetry-manifest.schema.json` (v2 adds `supportsClassMetrics`, `classes`, `classCoverage`, and per-file `classId`). CLI orchestration can target telemetry mode today; the hosted loader service remains future work.
+- Time-travel schemas: `docs/schemas/time-travel-state.schema.json` governs state responses; API matches current state/state_window payloads, including `byClass` series.
 
 ## Out of scope / not implemented
 - Streaming delivery.
-- Per-class metrics or filters.
+- Per-class filters in API query parameters (UI consumes the per-class data already exposed).
 - Edge fact tables (EdgeTimeBin) or path analytics.
 - Catalog APIs and registry/export/import loop.
 - Advanced expressions (IF/EMA/ABS/SQRT/POW), routers, autoscale nodes.

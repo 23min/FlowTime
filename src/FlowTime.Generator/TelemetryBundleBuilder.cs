@@ -44,7 +44,7 @@ public sealed class TelemetryBundleBuilder
         var sourceModel = ModelService.ParseAndConvert(normalizedYaml);
         var normalizedWithSemantics = NormalizeTelemetrySemantics(normalizedYaml, telemetryManifest, sourceModel);
         var canonicalModel = ModelService.ParseAndConvert(normalizedWithSemantics);
-        var context = await LoadTelemetrySeriesAsync(captureDir, telemetryManifest, canonicalModel, cancellationToken).ConfigureAwait(false);
+        var telemetrySeries = await LoadTelemetrySeriesAsync(captureDir, telemetryManifest, canonicalModel, cancellationToken).ConfigureAwait(false);
         var (grid, _) = ModelParser.ParseModel(canonicalModel);
 
         var outputDirectory = outputRoot;
@@ -67,7 +67,13 @@ public sealed class TelemetryBundleBuilder
         {
             Model = canonicalModel,
             Grid = grid,
-            Context = context,
+            Context = telemetrySeries.Totals,
+            ClassSeriesOverride = telemetrySeries.ClassSeries.Count == 0
+                ? null
+                : telemetrySeries.ClassSeries.ToDictionary(
+                    kvp => kvp.Key,
+                    kvp => (IReadOnlyDictionary<string, double[]>)new Dictionary<string, double[]>(kvp.Value, StringComparer.OrdinalIgnoreCase),
+                    new NodeIdComparer()),
             SpecText = normalizedWithSemantics,
             RngSeed = null,
             StartTimeBias = null,
@@ -213,7 +219,11 @@ public sealed class TelemetryBundleBuilder
         return normalized;
     }
 
-    private async Task<Dictionary<NodeId, double[]>> LoadTelemetrySeriesAsync(
+    private sealed record TelemetrySeriesLoadResult(
+        Dictionary<NodeId, double[]> Totals,
+        Dictionary<NodeId, Dictionary<string, double[]>> ClassSeries);
+
+    private async Task<TelemetrySeriesLoadResult> LoadTelemetrySeriesAsync(
         string captureDir,
         TelemetryManifest manifest,
         ModelDefinition modelDefinition,
@@ -223,7 +233,8 @@ public sealed class TelemetryBundleBuilder
         var nodeById = topology.ToDictionary(n => n.Id, StringComparer.OrdinalIgnoreCase);
         var seriesByFile = BuildSeriesMapping(modelDefinition);
 
-        var context = new Dictionary<NodeId, double[]>();
+        var context = new Dictionary<NodeId, double[]>(new NodeIdComparer());
+        var classSeries = new Dictionary<NodeId, Dictionary<string, double[]>>(new NodeIdComparer());
 
         foreach (var file in manifest.Files ?? Array.Empty<TelemetryManifestFile>())
         {
@@ -240,7 +251,19 @@ public sealed class TelemetryBundleBuilder
 
             var csvPath = Path.Combine(captureDir, file.Path);
             var values = await ReadTelemetrySeriesAsync(csvPath, manifest.Grid.Bins, cancellationToken).ConfigureAwait(false);
-            context[new NodeId(seriesNodeId)] = values;
+            var nodeKey = new NodeId(seriesNodeId);
+            context[nodeKey] = values;
+            if (!string.IsNullOrWhiteSpace(file.ClassId) &&
+                !string.Equals(file.ClassId, "DEFAULT", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!classSeries.TryGetValue(nodeKey, out var perNode))
+                {
+                    perNode = new Dictionary<string, double[]>(StringComparer.OrdinalIgnoreCase);
+                    classSeries[nodeKey] = perNode;
+                }
+
+                perNode[file.ClassId] = values;
+            }
 
             var nodeDefinition = modelDefinition.Nodes.FirstOrDefault(n => string.Equals(n.Id, seriesNodeId, StringComparison.OrdinalIgnoreCase));
             if (nodeDefinition is not null)
@@ -249,7 +272,7 @@ public sealed class TelemetryBundleBuilder
             }
         }
 
-        return context;
+        return new TelemetrySeriesLoadResult(context, classSeries);
     }
 
     private static IReadOnlyDictionary<string, string> BuildSeriesMapping(ModelDefinition modelDefinition)
@@ -502,5 +525,11 @@ public sealed class TelemetryBundleBuilder
         Directory.CreateDirectory(Path.GetDirectoryName(telemetryManifestPath)!);
         var json = JsonSerializer.Serialize(manifest, new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true });
         await File.WriteAllTextAsync(telemetryManifestPath, json, cancellationToken).ConfigureAwait(false);
+    }
+
+    private sealed class NodeIdComparer : IEqualityComparer<NodeId>
+    {
+        public bool Equals(NodeId x, NodeId y) => string.Equals(x.Value, y.Value, StringComparison.OrdinalIgnoreCase);
+        public int GetHashCode(NodeId obj) => obj.Value?.ToLowerInvariant().GetHashCode() ?? 0;
     }
 }

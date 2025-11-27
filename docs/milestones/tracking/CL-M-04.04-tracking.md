@@ -18,7 +18,7 @@
 ## Current Status
 
 ### Overall Progress
-- [ ] Phase 1: Contract & Docs (0/3 tasks)
+- [x] Phase 1: Contract & Docs (3/3 tasks)
 - [x] Phase 2: Engine + Telemetry Plumbing (1/3 tasks)
 - [ ] Phase 3: Capture Endpoint & Loop Tests (0/3 tasks)
 
@@ -30,6 +30,44 @@
 ---
 
 ## Progress Log
+
+### 2025-11-26 - Schema cross-links + manifest docs
+
+**Changes:**
+- Updated reference docs (`docs/reference/contracts.md`, `docs/reference/engine-capabilities.md`, `docs/reference/data-formats.md`) so telemetry manifest schema v2 + `supportsClassMetrics` requirements are linked outside the operations guide.
+- Marked milestone spec as in progress; ensured tracking reflects completion of Phase 1 doc tasks.
+
+**Tests:**
+- (Docs only)
+
+**Next Steps:**
+- [ ] Start Phase 2 Task 2 by adding TelemetryLoader ingestion RED tests.
+- [ ] Keep CLI/API references aligned as loader work progresses.
+
+### 2025-11-26 - Telemetry loader RED coverage
+
+**Changes:**
+- Added `TelemetryLoaderByClassTests.BuildAsync_WithClassAwareBundle_WritesPerClassSeries` to pin expected by-class behavior for telemetry bundles.
+- Created synthetic capture fixtures with manifest v2 (`supportsClassMetrics=true`) to drive ingestion work.
+
+**Tests:**
+- 🔴 `dotnet test tests/FlowTime.Generator.Tests/FlowTime.Generator.Tests.csproj --filter TelemetryLoaderByClassTests --nologo` (fails as expected; loader does not yet persist per-class series)
+
+**Next Steps:**
+- Implement loader + writer changes so per-class CSVs are ingested and class series files appear in run artifacts.
+
+### 2025-11-26 - Telemetry loader ingestion (GREEN)
+
+**Changes:**
+- Extended `TelemetryManifest` + capture pipeline to emit schema v2 manifests with `supportsClassMetrics`.
+- `TelemetryBundleBuilder` now preserves per-class CSV data and passes it to `RunArtifactWriter`, which learned to accept override class series.
+- `TelemetryLoaderByClassTests` now GREEN, confirming telemetry ingests write class-specific CSVs into `series/index.json`.
+
+**Tests:**
+- ✅ `dotnet test tests/FlowTime.Generator.Tests/FlowTime.Generator.Tests.csproj --filter TelemetryLoaderByClassTests --nologo`
+
+**Next Steps:**
+- Surface CLI/log summaries for class coverage warnings (Phase 2 Task 2 REFACTOR).
 
 ### 2025-11-25 - Kickoff & Engine Backfill
 
@@ -62,7 +100,7 @@
 - [x] RED: `TelemetryManifestSchemaTests.ManifestSchema_LegacyMode_AllowsTotalsOnly`
 - [x] GREEN: Update manifest schema + `docs/operations/telemetry-capture-guide.md`
 - [x] GREEN: Versioning + examples (`docs/schemas/telemetry-manifest.schema.json`, schema index)
-- [ ] REFACTOR: Ensure docs/reference pages link to the new schema
+- [x] REFACTOR: Ensure docs/reference pages link to the new schema
 
 _Status:_ Schema + docs landed; final doc sweep (reference cross-links) still pending.
 
@@ -87,7 +125,9 @@ _Status:_ Schema + docs landed; final doc sweep (reference cross-links) still pe
 - ✅ Demo runs regenerated for downstream validation.
 
 ### Task 2.2: TelemetryLoader ingestion
-- ⏳ Planned — will cover CSV parsing + coverage warnings.
+- [x] RED: `TelemetryLoaderByClassTests.BuildAsync_WithClassAwareBundle_WritesPerClassSeries` (fails: loader drops per-class CSVs)
+- [x] GREEN: Update loader + writer to ingest per-class CSVs, emit byClass series, and satisfy the new test.
+- ⏳ REFACTOR: CLI/log summaries for class coverage after ingestion changes.
 
 ### Task 2.3: CLI summary/logging
 - ⏳ Planned — update CLI output once ingestion work lands.

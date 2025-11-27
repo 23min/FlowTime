@@ -125,7 +125,7 @@ public class RunOrchestrationServiceTests
         Assert.Equal("telemetry", plan.Mode);
         Assert.Equal(Path.Combine(temp.Path, "runs"), plan.OutputRoot);
         Assert.Equal(captureDir, plan.CaptureDirectory);
-        Assert.True(plan.Files.Count > 0);
+        Assert.True(plan.TelemetryManifest.Files.Count > 0);
     }
 
     [Fact]

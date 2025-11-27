@@ -323,6 +323,13 @@ backup-2025-09-19.tar.gz     # Compressed backups
       imported_data.parquet # Parquet: Large dataset
       catalog.json          # JSON: Import metadata
 
+  # Telemetry bundles captured via CLI/loader
+  captures/
+    bundle_id/
+      manifest.json        # JSON: `docs/schemas/telemetry-manifest.schema.json` (v2)
+      files/               # CSV payloads referenced by manifest entries
+        *.csv
+
 /catalogs/                   # System catalog registry
   system_id/v1/
     catalog.yaml            # YAML: System definition
@@ -378,6 +385,11 @@ Content-Disposition: attachment; filename="run_123.parquet"
 - **Machine generation** → JSON (metadata, API responses, artifacts)  
 - **Tabular data** → CSV/Parquet (time series, analytics)
 - **Event streams** → NDJSON (logs, real-time data)
+
+### **Telemetry manifest (schema v2)**
+- Always set `supportsClassMetrics` so loaders know whether per-class CSVs exist.
+- When `supportsClassMetrics: true`, include `classes[]`, `classCoverage`, and give every `files[]` row a `classId` alongside `measure`/`componentId` metadata.
+- Legacy/aggregated-only bundles set `supportsClassMetrics: false` and omit the class blocks; loaders fall back to totals-only ingestion.
 
 ### **2. Content-Type Headers**
 Always specify correct Content-Type headers for HTTP requests:

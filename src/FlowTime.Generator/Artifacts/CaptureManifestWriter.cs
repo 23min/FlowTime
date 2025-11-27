@@ -30,6 +30,7 @@ public sealed record TelemetryManifest(
     IReadOnlyList<TelemetryManifestFile> Files,
     IReadOnlyList<CaptureWarning> Warnings,
     TelemetryManifestProvenance Provenance,
+    bool SupportsClassMetrics = false,
     IReadOnlyList<string>? Classes = null,
     string? ClassCoverage = null);
 

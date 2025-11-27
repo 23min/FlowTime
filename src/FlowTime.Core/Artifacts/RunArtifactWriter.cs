@@ -29,6 +29,7 @@ public static class RunArtifactWriter
         public required object Model { get; init; }
         public required object Grid { get; init; }
         public required IReadOnlyDictionary<NodeId, double[]> Context { get; init; }
+        public IReadOnlyDictionary<NodeId, IReadOnlyDictionary<string, double[]>>? ClassSeriesOverride { get; init; }
         public required string SpecText { get; init; }
         public int? RngSeed { get; init; }
         public double? StartTimeBias { get; init; }
@@ -154,10 +155,21 @@ public static class RunArtifactWriter
         var seriesMetas = new List<SeriesMeta>();
         var seriesHashes = new Dictionary<string, string>(StringComparer.Ordinal);
         var classAssignments = BuildClassAssignments(modelDefinition);
-        IReadOnlyDictionary<NodeId, IReadOnlyDictionary<string, double[]>> classSeries = new Dictionary<NodeId, IReadOnlyDictionary<string, double[]>>();
+        var classSeries = new Dictionary<NodeId, IReadOnlyDictionary<string, double[]>>(new NodeIdComparer());
         if (classAssignments.Count > 0)
         {
-            classSeries = ClassContributionBuilder.Build(modelDefinition, grid, effectiveContext, classAssignments, out _);
+            var builtSeries = ClassContributionBuilder.Build(modelDefinition, grid, effectiveContext, classAssignments, out _);
+            foreach (var entry in builtSeries)
+            {
+                classSeries[entry.Key] = entry.Value;
+            }
+        }
+        if (request.ClassSeriesOverride is { Count: > 0 })
+        {
+            foreach (var overrideEntry in request.ClassSeriesOverride)
+            {
+                classSeries[overrideEntry.Key] = overrideEntry.Value;
+            }
         }
         var capturedClasses = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 

@@ -18,12 +18,7 @@ public class ManifestSchemaValidationTests
 
         try
         {
-            var grid = new TimeGrid
-            {
-                Bins = 4,
-                BinSize = 5,
-                BinUnit = "minutes"
-            };
+            var grid = new TimeGrid(4, 5, TimeUnit.Minutes);
 
             var model = new ModelDefinition
             {
