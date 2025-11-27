@@ -55,7 +55,11 @@ public class TelemetryCaptureEndpointsTests : IClassFixture<TestWebApplicationFa
         var captureResponse = await client.PostAsJsonAsync("/v1/telemetry/captures", captureRequest);
         captureResponse.EnsureSuccessStatusCode();
         var captureJson = await captureResponse.Content.ReadFromJsonAsync<JsonNode>() ?? throw new InvalidOperationException("Capture response invalid");
-        Assert.True(captureJson["capture"]?["generated"]?.GetValue<bool>() ?? false);
+        var captureNode = captureJson["capture"] ?? throw new InvalidOperationException("Capture summary missing");
+        Assert.True(captureNode["generated"]?.GetValue<bool>() ?? false);
+        Assert.False(captureNode["supportsClassMetrics"]?.GetValue<bool>() ?? true);
+        Assert.True(captureNode["classes"] is JsonArray { Count: 0 } or null);
+        Assert.True(captureNode["classCoverage"] is null);
 
         var customizedTestFactory = customizedFactory as TestWebApplicationFactory ?? factory;
         var runDirectory = Path.Combine(customizedTestFactory.TestDataDirectory, runId);

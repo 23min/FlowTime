@@ -69,6 +69,27 @@
 **Next Steps:**
 - Surface CLI/log summaries for class coverage warnings (Phase 2 Task 2 REFACTOR).
 
+### 2025-11-26 - Class coverage warnings + CLI summaries
+
+**Changes:**
+- Added ingestion validations that compare totals vs per-class sums and emit warnings when manifests declare classes but data is missing or mismatched.
+- Both `flowtime telemetry bundle` and `flowtime telemetry run` now print class coverage summaries and merged warning lists, so operators see the contract status immediately.
+- Updated capture guide to describe the new CLI output.
+
+**Tests:**
+- ✅ `dotnet test tests/FlowTime.Generator.Tests/FlowTime.Generator.Tests.csproj --filter TelemetryLoaderByClassTests --nologo`
+
+### 2025-11-26 - Telemetry capture endpoint metadata
+
+**Changes:**
+- Extended `TelemetryGenerationService` to surface manifest summaries (supportsClassMetrics, classCoverage, classes) and propagate them through `/v1/telemetry/captures`.
+- `TelemetryCaptureSummary` + UI DTOs now include class metadata so operators can confirm what the capture pipeline produced.
+- Added API test coverage ensuring the capture response includes the new fields even for legacy single-class templates.
+
+**Tests:**
+- ✅ `dotnet test tests/FlowTime.Generator.Tests/FlowTime.Generator.Tests.csproj --filter TelemetryLoaderByClassTests --nologo`
+- ✅ `dotnet test tests/FlowTime.Api.Tests/FlowTime.Api.Tests.csproj --filter TelemetryCaptureEndpointsTests --nologo`
+
 ### 2025-11-25 - Kickoff & Engine Backfill
 
 **Changes:**
@@ -127,7 +148,7 @@ _Status:_ Schema + docs landed; final doc sweep (reference cross-links) still pe
 ### Task 2.2: TelemetryLoader ingestion
 - [x] RED: `TelemetryLoaderByClassTests.BuildAsync_WithClassAwareBundle_WritesPerClassSeries` (fails: loader drops per-class CSVs)
 - [x] GREEN: Update loader + writer to ingest per-class CSVs, emit byClass series, and satisfy the new test.
-- ⏳ REFACTOR: CLI/log summaries for class coverage after ingestion changes.
+- [x] REFACTOR: CLI/log summaries for class coverage after ingestion changes.
 
 ### Task 2.3: CLI summary/logging
 - ⏳ Planned — update CLI output once ingestion work lands.

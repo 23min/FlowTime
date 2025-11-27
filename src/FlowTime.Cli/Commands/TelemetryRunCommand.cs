@@ -204,17 +204,8 @@ public static class TelemetryRunCommand
                     }
                 }
 
-                var warnings = plan.TelemetryManifest.Warnings;
-                if (warnings is { Count: > 0 })
-                {
-                    Console.WriteLine("Warnings:");
-                    foreach (var warning in warnings)
-                    {
-                        var bins = warning.Bins is { Count: > 0 } ? $" [bins: {string.Join(",", warning.Bins)}]" : string.Empty;
-                        var node = string.IsNullOrWhiteSpace(warning.NodeId) ? string.Empty : $" (node {warning.NodeId})";
-                        Console.WriteLine($"  - {warning.Code}: {warning.Message}{node}{bins}");
-                    }
-                }
+                PrintManifestSummary(plan.TelemetryManifest);
+                PrintWarnings(plan.TelemetryManifest.Warnings);
 
                 return 0;
             }
@@ -225,6 +216,8 @@ public static class TelemetryRunCommand
             Console.WriteLine($"Mode: {result.ManifestMetadata.Mode}");
             Console.WriteLine($"Template: {result.ManifestMetadata.TemplateId}");
             Console.WriteLine($"Telemetry sources resolved: {result.TelemetrySourcesResolved}");
+            PrintManifestSummary(result.TelemetryManifest);
+            PrintWarnings(result.TelemetryManifest.Warnings);
             return 0;
         }
         catch (Exception ex)
@@ -258,6 +251,34 @@ public static class TelemetryRunCommand
         Console.WriteLine("  --run-id <value>         Explicit run directory name.");
         Console.WriteLine("  --overwrite              Overwrite existing run directory when --run-id is supplied.");
         Console.WriteLine("  --dry-run                Plan the run without writing files (report planned operations).");
+    }
+
+    private static void PrintManifestSummary(TelemetryManifest manifest)
+    {
+        var supports = manifest.SupportsClassMetrics ? "enabled" : "disabled";
+        var coverage = manifest.SupportsClassMetrics ? manifest.ClassCoverage ?? "unknown" : "n/a";
+        var classCount = manifest.Classes?.Count ?? 0;
+        Console.WriteLine($"Class metrics: {supports} (coverage: {coverage}, classes: {classCount})");
+        if (manifest.Classes is { Count: > 0 })
+        {
+            Console.WriteLine($"Declared classes: {string.Join(", ", manifest.Classes)}");
+        }
+    }
+
+    private static void PrintWarnings(IReadOnlyList<CaptureWarning>? warnings)
+    {
+        if (warnings is not { Count: > 0 })
+        {
+            return;
+        }
+
+        Console.WriteLine("Warnings:");
+        foreach (var warning in warnings)
+        {
+            var node = string.IsNullOrWhiteSpace(warning.NodeId) ? string.Empty : $" (node {warning.NodeId})";
+            var bins = warning.Bins is { Count: > 0 } ? $" [bins: {string.Join(",", warning.Bins)}]" : string.Empty;
+            Console.WriteLine($"  - {warning.Code}: {warning.Message}{node}{bins}");
+        }
     }
 
     private static object? ConvertJsonElement(JsonElement element) => element.ValueKind switch

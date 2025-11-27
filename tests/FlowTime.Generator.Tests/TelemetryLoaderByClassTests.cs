@@ -84,7 +84,58 @@ public sealed class TelemetryLoaderByClassTests
             ClassId: classId);
     }
 
-    private static void WriteManifest(string captureDir, int bins, IReadOnlyList<TelemetryManifestFile> files)
+    [Fact]
+    public async Task BuildAsync_Warns_On_Missing_ClassSeries()
+    {
+        using var temp = new TempDirectory();
+        var captureDir = Path.Combine(temp.Path, "capture");
+        Directory.CreateDirectory(captureDir);
+
+        var bins = 4;
+        WriteClassCsv(captureDir, "OrderService_arrivals_DEFAULT.csv", "DEFAULT", new[] { 10d, 10d, 10d, 10d });
+        WriteClassCsv(captureDir, "OrderService_arrivals_Retail.csv", "Retail", new[] { 4d, 4d, 4d, 4d });
+        // Missing Wholesale class.
+        WriteClassCsv(captureDir, "OrderService_served_DEFAULT.csv", "DEFAULT", new[] { 8d, 8d, 8d, 8d });
+        WriteClassCsv(captureDir, "OrderService_errors_DEFAULT.csv", "DEFAULT", new[] { 2d, 2d, 2d, 2d });
+
+        var manifestEntries = new List<TelemetryManifestFile>
+        {
+            ManifestEntry(captureDir, "OrderService", TelemetryMetricKind.Arrivals, "OrderService_arrivals_DEFAULT.csv", "DEFAULT", bins),
+            ManifestEntry(captureDir, "OrderService", TelemetryMetricKind.Arrivals, "OrderService_arrivals_Retail.csv", "Retail", bins),
+            ManifestEntry(captureDir, "OrderService", TelemetryMetricKind.Served, "OrderService_served_DEFAULT.csv", "DEFAULT", bins),
+            ManifestEntry(captureDir, "OrderService", TelemetryMetricKind.Errors, "OrderService_errors_DEFAULT.csv", "DEFAULT", bins)
+        };
+
+        WriteManifest(
+            captureDir,
+            bins,
+            manifestEntries,
+            supportsClassMetrics: true,
+            classCoverage: "partial",
+            classes: new[] { "Retail", "Wholesale" });
+
+        var modelPath = Path.Combine(temp.Path, "telemetry-model.yaml");
+        await File.WriteAllTextAsync(modelPath, BuildTelemetryModelYaml(captureDir));
+
+        var builder = new TelemetryBundleBuilder();
+        var result = await builder.BuildAsync(new TelemetryBundleOptions
+        {
+            CaptureDirectory = captureDir,
+            ModelPath = modelPath,
+            OutputRoot = Path.Combine(temp.Path, "runs"),
+            DeterministicRunId = true
+        });
+
+        Assert.Contains(result.TelemetryManifest.Warnings, warning => warning.Code == "class_series_partial");
+    }
+
+    private static void WriteManifest(
+        string captureDir,
+        int bins,
+        IReadOnlyList<TelemetryManifestFile> files,
+        bool supportsClassMetrics = false,
+        string? classCoverage = null,
+        IReadOnlyList<string>? classes = null)
     {
         var manifest = new TelemetryManifest(
             SchemaVersion: 2,
@@ -97,8 +148,9 @@ public sealed class TelemetryLoaderByClassTests
                 ScenarioHash: "sha256:1111111111111111111111111111111111111111111111111111111111111111",
                 ModelHash: null,
                 CapturedAtUtc: DateTime.UtcNow.ToString("O")),
-            Classes: new[] { "Retail", "Wholesale" },
-            ClassCoverage: "full");
+            SupportsClassMetrics: supportsClassMetrics,
+            Classes: classes,
+            ClassCoverage: classCoverage);
 
         var json = JsonSerializer.Serialize(manifest, new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true });
         File.WriteAllText(Path.Combine(captureDir, "manifest.json"), json);

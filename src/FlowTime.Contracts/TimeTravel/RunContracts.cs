@@ -132,4 +132,7 @@ public sealed class TelemetryCaptureSummary
     public string? GeneratedAtUtc { get; init; }
     public string? SourceRunId { get; init; }
     public IReadOnlyList<StateWarning> Warnings { get; init; } = Array.Empty<StateWarning>();
+    public bool SupportsClassMetrics { get; init; }
+    public string? ClassCoverage { get; init; }
+    public IReadOnlyList<string> Classes { get; init; } = Array.Empty<string>();
 }

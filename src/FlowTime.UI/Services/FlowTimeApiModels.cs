@@ -238,7 +238,10 @@ public sealed record TelemetryCaptureSummaryDto(
     [property: JsonPropertyName("alreadyExists")] bool AlreadyExists,
     [property: JsonPropertyName("generatedAtUtc")] string? GeneratedAtUtc,
     [property: JsonPropertyName("sourceRunId")] string? SourceRunId,
-    [property: JsonPropertyName("warnings")] IReadOnlyList<StateWarningDto>? Warnings);
+    [property: JsonPropertyName("warnings")] IReadOnlyList<StateWarningDto>? Warnings,
+    [property: JsonPropertyName("supportsClassMetrics")] bool SupportsClassMetrics = false,
+    [property: JsonPropertyName("classCoverage")] string? ClassCoverage = null,
+    [property: JsonPropertyName("classes")] IReadOnlyList<string>? Classes = null);
 
 public sealed record BulkArtifactDeleteResponse(
     [property: JsonPropertyName("success")] bool Success,

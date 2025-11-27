@@ -45,6 +45,11 @@ public sealed class TelemetryBundleBuilder
         var normalizedWithSemantics = NormalizeTelemetrySemantics(normalizedYaml, telemetryManifest, sourceModel);
         var canonicalModel = ModelService.ParseAndConvert(normalizedWithSemantics);
         var telemetrySeries = await LoadTelemetrySeriesAsync(captureDir, telemetryManifest, canonicalModel, cancellationToken).ConfigureAwait(false);
+        var coverageWarnings = ValidateClassSeries(telemetryManifest, telemetrySeries);
+        telemetryManifest = telemetryManifest with
+        {
+            Warnings = MergeWarnings(telemetryManifest.Warnings, coverageWarnings)
+        };
         var (grid, _) = ModelParser.ParseModel(canonicalModel);
 
         var outputDirectory = outputRoot;
@@ -525,6 +530,123 @@ public sealed class TelemetryBundleBuilder
         Directory.CreateDirectory(Path.GetDirectoryName(telemetryManifestPath)!);
         var json = JsonSerializer.Serialize(manifest, new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true });
         await File.WriteAllTextAsync(telemetryManifestPath, json, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static IReadOnlyList<CaptureWarning> MergeWarnings(IReadOnlyList<CaptureWarning>? existing, IReadOnlyList<CaptureWarning>? additional)
+    {
+        if (additional is null || additional.Count == 0)
+        {
+            return existing ?? Array.Empty<CaptureWarning>();
+        }
+
+        if (existing is null || existing.Count == 0)
+        {
+            return additional.ToArray();
+        }
+
+        var merged = new List<CaptureWarning>(existing.Count + additional.Count);
+        merged.AddRange(existing);
+        merged.AddRange(additional);
+        return merged;
+    }
+
+    private static List<CaptureWarning> ValidateClassSeries(TelemetryManifest manifest, TelemetrySeriesLoadResult series)
+    {
+        var warnings = new List<CaptureWarning>();
+        var declaredClasses = manifest.Classes?
+            .Where(c => !string.IsNullOrWhiteSpace(c))
+            .Select(c => c!)
+            .Where(c => !string.Equals(c, "DEFAULT", StringComparison.OrdinalIgnoreCase))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray() ?? Array.Empty<string>();
+
+        if (manifest.SupportsClassMetrics)
+        {
+            if (declaredClasses.Length == 0)
+            {
+                warnings.Add(new CaptureWarning("class_manifest_missing", "supportsClassMetrics=true but no classes were declared."));
+            }
+
+            if (series.ClassSeries.Count == 0)
+            {
+                warnings.Add(new CaptureWarning("class_data_missing", "Manifest declares class metrics but no class CSVs were found."));
+            }
+        }
+
+        foreach (var (nodeId, perClass) in series.ClassSeries)
+        {
+            if (!series.Totals.ContainsKey(nodeId))
+            {
+                warnings.Add(new CaptureWarning("class_totals_missing", $"Per-class CSVs exist for '{nodeId.Value}' but the totals series was not found.", nodeId.Value));
+            }
+        }
+
+        foreach (var (nodeId, totals) in series.Totals)
+        {
+            if (!series.ClassSeries.TryGetValue(nodeId, out var perClass) || perClass.Count == 0)
+            {
+                if (manifest.SupportsClassMetrics)
+                {
+                    warnings.Add(new CaptureWarning("class_series_missing", $"Node '{nodeId.Value}' is missing per-class CSVs.", nodeId.Value));
+                }
+                continue;
+            }
+
+            foreach (var required in declaredClasses)
+            {
+                if (!perClass.ContainsKey(required))
+                {
+                    warnings.Add(new CaptureWarning("class_series_partial", $"Node '{nodeId.Value}' is missing class '{required}'.", nodeId.Value));
+                }
+            }
+
+            for (var i = 0; i < totals.Length; i++)
+            {
+                var total = totals[i];
+                if (double.IsNaN(total))
+                {
+                    continue;
+                }
+
+                var sum = 0d;
+                var hasSamples = false;
+                foreach (var kvp in perClass)
+                {
+                    var classSeries = kvp.Value;
+                    if (i >= classSeries.Length)
+                    {
+                        continue;
+                    }
+
+                    var value = classSeries[i];
+                    if (double.IsNaN(value))
+                    {
+                        continue;
+                    }
+
+                    hasSamples = true;
+                    sum += value;
+                }
+
+                if (!hasSamples)
+                {
+                    continue;
+                }
+
+                var tolerance = Math.Max(1e-6, Math.Abs(total) * 1e-6);
+                if (Math.Abs(total - sum) > tolerance)
+                {
+                    warnings.Add(new CaptureWarning(
+                        "class_conservation_mismatch",
+                        $"Node '{nodeId.Value}' total differs from class sum (bin {i}, total={total:G4}, sum={sum:G4}).",
+                        nodeId.Value,
+                        new[] { i }));
+                    break;
+                }
+            }
+        }
+
+        return warnings;
     }
 
     private sealed class NodeIdComparer : IEqualityComparer<NodeId>

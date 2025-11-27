@@ -48,6 +48,7 @@ Key behaviour:
 - If `--output` is omitted, the tool writes directly into `<run-dir>/model/telemetry/`.
 - `manifest.json` is emitted using [`docs/schemas/telemetry-manifest.schema.json`](../schemas/telemetry-manifest.schema.json).
 - Per-node CSVs are converted to the `bin_index,value` shape expected by FlowTime-Sim telemetry bindings.
+- The CLI prints a class-metrics summary (`supportsClassMetrics`, coverage, declared classes) and merges any loader warnings (missing classes, conservation mismatches) into the run manifest so you can catch issues immediately.
 
 ### Dry Run
 

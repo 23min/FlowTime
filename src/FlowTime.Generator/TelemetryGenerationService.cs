@@ -67,11 +67,15 @@ public sealed class TelemetryGenerationService
             Path.GetFullPath(runScopedDirectory),
             StringComparison.OrdinalIgnoreCase);
         var manifestPath = Path.Combine(captureDirectory, "manifest.json");
+        var existingManifestSnapshot = await TryReadManifestSnapshotAsync(manifestPath, cancellationToken).ConfigureAwait(false);
 
         if (File.Exists(manifestPath) && !output.Overwrite)
         {
             logger.LogInformation("Telemetry bundle already exists for run {RunId} at {CaptureDirectory}", runId, captureDirectory);
-            return TelemetryGenerationResult.CreateAlreadyExists(runId, await TryReadMetadataAsync(captureDirectory, cancellationToken).ConfigureAwait(false));
+            return TelemetryGenerationResult.CreateAlreadyExists(
+                runId,
+                await TryReadMetadataAsync(captureDirectory, cancellationToken).ConfigureAwait(false),
+                existingManifestSnapshot);
         }
 
         Directory.CreateDirectory(captureDirectory);
@@ -125,6 +129,7 @@ public sealed class TelemetryGenerationService
 
         // Update the canonical telemetry manifest under model/telemetry so API/UI can reflect availability
         var captureManifestPath = Path.Combine(captureDirectory, "manifest.json");
+        TelemetryManifestSnapshot manifestSnapshot = TelemetryManifestSnapshot.Empty;
         if (File.Exists(captureManifestPath))
         {
             await using var stream = File.OpenRead(captureManifestPath);
@@ -134,16 +139,22 @@ public sealed class TelemetryGenerationService
                 cancellationToken).ConfigureAwait(false);
             if (captureManifest is not null)
             {
+                manifestSnapshot = BuildManifestSnapshot(captureManifest);
                 var telemetryManifestPath = Path.Combine(modelDirectory, "telemetry", "telemetry-manifest.json");
                 Directory.CreateDirectory(Path.GetDirectoryName(telemetryManifestPath)!);
                 await CaptureManifestWriter.WriteAsync(telemetryManifestPath, captureManifest, cancellationToken).ConfigureAwait(false);
             }
         }
+        else
+        {
+            manifestSnapshot = TelemetryManifestSnapshot.Empty;
+        }
 
         return TelemetryGenerationResult.CreateGenerated(
             runId,
             generatedAtUtc,
-            warnings);
+            warnings,
+            manifestSnapshot);
     }
 
     private static string ResolveCaptureDirectory(TelemetryGenerationOutput output, string runDirectory, string? telemetryRoot)
@@ -278,17 +289,62 @@ public sealed class TelemetryGenerationService
         await using var stream = File.OpenRead(metadataPath);
         return await JsonSerializer.DeserializeAsync<TelemetryGenerationMetadata>(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
+    private static async Task<TelemetryManifestSnapshot> TryReadManifestSnapshotAsync(string manifestPath, CancellationToken cancellationToken)
+    {
+        if (!File.Exists(manifestPath))
+        {
+            return TelemetryManifestSnapshot.Empty;
+        }
+
+        await using var stream = File.OpenRead(manifestPath);
+        var manifest = await JsonSerializer.DeserializeAsync<TelemetryManifest>(
+            stream,
+            new JsonSerializerOptions(JsonSerializerDefaults.Web),
+            cancellationToken).ConfigureAwait(false);
+        return BuildManifestSnapshot(manifest);
+    }
+
+    private static TelemetryManifestSnapshot BuildManifestSnapshot(TelemetryManifest? manifest)
+    {
+        if (manifest is null)
+        {
+            return TelemetryManifestSnapshot.Empty;
+        }
+
+        var classes = manifest.Classes is { Count: > 0 }
+            ? manifest.Classes.Where(c => !string.IsNullOrWhiteSpace(c)).Select(c => c!).ToArray()
+            : Array.Empty<string>();
+        return new TelemetryManifestSnapshot(manifest.SupportsClassMetrics, manifest.ClassCoverage, classes);
+    }
 }
 
 public sealed record TelemetryGenerationOutput(string? CaptureKey, string? Directory, bool Overwrite);
 
-public sealed record TelemetryGenerationResult(bool Generated, bool AlreadyExists, string? GeneratedAtUtc, IReadOnlyList<CaptureWarning> Warnings, string SourceRunId)
+public sealed record TelemetryGenerationResult(
+    bool Generated,
+    bool AlreadyExists,
+    string? GeneratedAtUtc,
+    IReadOnlyList<CaptureWarning> Warnings,
+    string SourceRunId,
+    TelemetryManifestSnapshot ManifestSummary)
 {
-    public static TelemetryGenerationResult CreateGenerated(string sourceRunId, string generatedAtUtc, IReadOnlyList<CaptureWarning> warnings) =>
-        new(true, false, generatedAtUtc, warnings, sourceRunId);
+    public static TelemetryGenerationResult CreateGenerated(
+        string sourceRunId,
+        string generatedAtUtc,
+        IReadOnlyList<CaptureWarning> warnings,
+        TelemetryManifestSnapshot manifestSummary) =>
+        new(true, false, generatedAtUtc, warnings, sourceRunId, manifestSummary);
 
-    public static TelemetryGenerationResult CreateAlreadyExists(string sourceRunId, TelemetryGenerationMetadata? metadata) =>
-        new(false, true, metadata?.GeneratedAtUtc, Array.Empty<CaptureWarning>(), sourceRunId);
+    public static TelemetryGenerationResult CreateAlreadyExists(
+        string sourceRunId,
+        TelemetryGenerationMetadata? metadata,
+        TelemetryManifestSnapshot manifestSummary) =>
+        new(false, true, metadata?.GeneratedAtUtc, Array.Empty<CaptureWarning>(), sourceRunId, manifestSummary);
+}
+
+public sealed record TelemetryManifestSnapshot(bool SupportsClassMetrics, string? ClassCoverage, IReadOnlyList<string> Classes)
+{
+    public static readonly TelemetryManifestSnapshot Empty = new(false, null, Array.Empty<string>());
 }
 
 public sealed record TelemetryGenerationMetadata(

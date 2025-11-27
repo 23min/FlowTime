@@ -1,5 +1,7 @@
 using FlowTime.Cli.Configuration;
 using FlowTime.Generator;
+using FlowTime.Generator.Artifacts;
+using FlowTime.Generator.Models;
 
 namespace FlowTime.Cli.Commands;
 
@@ -158,6 +160,8 @@ public static class TelemetryBundleCommand
             Console.WriteLine($"Bundle written to: {result.RunDirectory}");
             Console.WriteLine($"Run ID: {result.RunId}");
             Console.WriteLine($"Telemetry files: {result.TelemetryManifest.Files?.Count ?? 0}");
+            PrintManifestSummary(result.TelemetryManifest);
+            PrintWarnings(result.TelemetryManifest.Warnings);
             return 0;
         }
         catch (OperationCanceledException)
@@ -195,5 +199,33 @@ public static class TelemetryBundleCommand
         Console.WriteLine("  --overwrite             Overwrite existing run directory when --run-id is supplied.");
         Console.WriteLine("  --deterministic-run-id  Derive run ID deterministically from the model spec.");
         Console.WriteLine("  --random-run-id         Generate a unique run ID (default).");
+    }
+
+    private static void PrintManifestSummary(TelemetryManifest manifest)
+    {
+        var supports = manifest.SupportsClassMetrics ? "enabled" : "disabled";
+        var coverage = manifest.SupportsClassMetrics ? manifest.ClassCoverage ?? "unknown" : "n/a";
+        var classCount = manifest.Classes?.Count ?? 0;
+        Console.WriteLine($"Class metrics: {supports} (coverage: {coverage}, classes: {classCount})");
+        if (manifest.Classes is { Count: > 0 })
+        {
+            Console.WriteLine($"Declared classes: {string.Join(", ", manifest.Classes)}");
+        }
+    }
+
+    private static void PrintWarnings(IReadOnlyList<CaptureWarning>? warnings)
+    {
+        if (warnings is not { Count: > 0 })
+        {
+            return;
+        }
+
+        Console.WriteLine("Warnings:");
+        foreach (var warning in warnings)
+        {
+            var node = string.IsNullOrWhiteSpace(warning.NodeId) ? string.Empty : $" (node {warning.NodeId})";
+            var bins = warning.Bins is { Count: > 0 } ? $" [bins: {string.Join(",", warning.Bins)}]" : string.Empty;
+            Console.WriteLine($"  - {warning.Code}: {warning.Message}{node}{bins}");
+        }
     }
 }
