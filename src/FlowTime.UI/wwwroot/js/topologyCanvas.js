@@ -968,7 +968,8 @@
                 ctx.font = '600 12px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                drawFittedText(ctx, focusLabel, x, y + 1, focusLabelWidth);
+                const focusYOffset = logicalType === 'servicewithbuffer' ? 3 : 1;
+                drawFittedText(ctx, focusLabel, x, y + focusYOffset, focusLabelWidth);
                 ctx.restore();
             }
 

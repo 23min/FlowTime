@@ -411,7 +411,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             "expr" or "expression" => NodeCategory.Expression,
             "const" or "constant" or "pmf" => NodeCategory.Constant,
             "dlq" => NodeCategory.Terminal,
-            "service" or "queue" or "router" or "external" or "flow" => NodeCategory.Service,
+            "service" or "servicewithbuffer" or "queue" or "router" or "external" or "flow" => NodeCategory.Service,
             _ => NodeCategory.Other
         };
     }
