@@ -1,6 +1,6 @@
 # SB-M-05.01 — ServiceWithBuffer Node Type (Breaking Introduction)
 
-**Status:** 🔄 In Progress  
+**Status:** ✅ Completed  
 **Epic:** Service With Buffer (architecture epic under `docs/service-with-buffer/`)  
 **Depends on:** CL‑M‑04.03.02 (Scheduled Dispatch & Flow Control Primitives)  
 **Target:** Introduce `kind: serviceWithBuffer` as the canonical node type for services with explicit queues/buffers, remove `kind: backlog` from the public surface, and ensure the engine and UI treat ServiceWithBuffer as an operational node with a queue badge.

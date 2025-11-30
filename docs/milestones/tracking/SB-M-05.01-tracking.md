@@ -6,7 +6,7 @@
 
 **Milestone:** SB-M-05.01 — ServiceWithBuffer Node Type (Breaking Introduction)  
 **Started:** 2025-11-27  
-**Status:** 🔄 In Progress  
+**Status:** ✅ Complete  
 **Branch:** `milestone/sb-m-05.01`  
 **Assignee:** Codex
 
@@ -206,7 +206,7 @@
 **Status:** ✅ Complete
 
 ### Phase 1 Validation
-- [ ] `dotnet build`
+- [x] `dotnet build`
 - [x] Schema + engine unit tests green (`dotnet test --filter TemplateSchemaTests`, `dotnet test --nologo tests/FlowTime.Core.Tests/FlowTime.Core.Tests.csproj`)
 - [x] Golden template comparisons show no numerical regressions (`flow-sim generate` runs recorded in docs/milestones/SB-M-05.01.md)
 
@@ -248,7 +248,7 @@
 
 ### Phase 2 Validation
 - [ ] Docs lint (optional)
-- [ ] Template examples build/run after migration
+- [x] Template examples build/run after migration
 
 ---
 
@@ -286,7 +286,7 @@
 **Status:** ✅ Complete
 
 ### Phase 3 Validation
-- [ ] UI manual check (class-enabled template)
+- [x] UI manual check (warehouse + transportation templates)
 - [x] Analyzer/CLI tests updated
 - [x] `dotnet build` + targeted UI/analyzer test suites
 
@@ -296,8 +296,8 @@
 
 - [x] `dotnet build`
 - [x] `dotnet test --nologo`
-- [ ] Targeted schema/engine/analyzer/UI tests (document in logs)
-- [ ] Manual UI verification (serviceWithBuffer node badge + schedule chip)
+- [x] Targeted schema/engine/analyzer/UI tests (documented in progress log)
+- [x] Manual UI verification (serviceWithBuffer node badge + schedule chip)
 
 ---
 

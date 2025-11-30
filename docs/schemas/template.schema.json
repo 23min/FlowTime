@@ -253,6 +253,11 @@
               },
               "additionalProperties": false
             }
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Optional metadata for downstream tooling (e.g., graph.hidden).",
+            "additionalProperties": true
           }
         },
         "additionalProperties": true,

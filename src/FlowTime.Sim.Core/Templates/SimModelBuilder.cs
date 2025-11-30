@@ -227,6 +227,9 @@ internal static class SimModelBuilder
             values[i] = expectedValue * resolution.Weights[i];
         }
 
+        var profileMetadata = BuildProfileMetadata(node, resolution, expectedValue);
+        var mergedMetadata = MergeMetadata(CloneMetadata(node.Metadata), profileMetadata);
+
         return new SimNode
         {
             Id = node.Id,
@@ -240,7 +243,7 @@ internal static class SimModelBuilder
                     Values = node.Pmf.Values?.ToArray() ?? Array.Empty<double>(),
                     Probabilities = node.Pmf.Probabilities?.ToArray() ?? Array.Empty<double>()
                 },
-            Metadata = BuildProfileMetadata(node, resolution, expectedValue)
+            Metadata = mergedMetadata
         };
     }
 
@@ -271,6 +274,38 @@ internal static class SimModelBuilder
         return metadata;
     }
 
+    private static Dictionary<string, string>? CloneMetadata(Dictionary<string, string>? metadata)
+    {
+        if (metadata is null || metadata.Count == 0)
+        {
+            return null;
+        }
+
+        return new Dictionary<string, string>(metadata, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static Dictionary<string, string>? MergeMetadata(Dictionary<string, string>? primary, Dictionary<string, string>? secondary)
+    {
+        if ((primary == null || primary.Count == 0) && (secondary == null || secondary.Count == 0))
+        {
+            return null;
+        }
+
+        var merged = primary != null
+            ? new Dictionary<string, string>(primary, StringComparer.OrdinalIgnoreCase)
+            : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        if (secondary != null)
+        {
+            foreach (var (key, value) in secondary)
+            {
+                merged[key] = value;
+            }
+        }
+
+        return merged;
+    }
+
     private static SimNode BuildDefaultNode(TemplateNode node)
     {
         var kind = node.Kind?.Trim().ToLowerInvariant();
@@ -297,6 +332,7 @@ internal static class SimModelBuilder
             Inflow = kind == "servicewithbuffer" ? node.Inflow : null,
             Outflow = kind == "servicewithbuffer" ? node.Outflow : null,
             Loss = kind == "servicewithbuffer" ? node.Loss : null,
+            Metadata = CloneMetadata(node.Metadata),
             Inputs = kind == "router" ? CloneInputs(node.Inputs) : null,
             Routes = kind == "router" ? CloneRoutes(node.Routes) : null,
             DispatchSchedule = kind == "servicewithbuffer" ? CloneDispatchSchedule(node.DispatchSchedule) : null

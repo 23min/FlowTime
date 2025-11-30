@@ -214,6 +214,7 @@ public class TemplateNode
 {
     public string Id { get; set; } = string.Empty;
     public string Kind { get; set; } = string.Empty;
+    public Dictionary<string, string>? Metadata { get; set; }
     
     // For const nodes
     public double[]? Values { get; set; }

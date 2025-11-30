@@ -313,7 +313,9 @@
                                 </div>
                             }
                             @{
-                                var dispatchList = dispatchScheduleEntries;
+                                var dispatchList = dispatchScheduleEntries
+                                    .Where(e => inspectorNodeId != null && string.Equals(e.NodeId, inspectorNodeId, StringComparison.OrdinalIgnoreCase))
+                                    .ToList();
                             }
                             @if (ShowDispatchPanel)
                             {
@@ -794,7 +796,10 @@ internal sealed record DispatchScheduleEntry(string NodeId, string Summary, stri
     }
 
     private bool ShowClassSelector => availableClasses.Count > 0;
-    private bool ShowDispatchPanel => dispatchScheduleEntries.Count > 0;
+    private bool ShowDispatchPanel =>
+        inspectorOpen &&
+        !string.IsNullOrWhiteSpace(inspectorNodeId) &&
+        dispatchScheduleEntries.Any(e => string.Equals(e.NodeId, inspectorNodeId, StringComparison.OrdinalIgnoreCase));
     private bool HasClassSelection => selectedClasses.Count > 0;
 
     private Task OnClassSelectionChanged(IReadOnlyList<string> classes)
