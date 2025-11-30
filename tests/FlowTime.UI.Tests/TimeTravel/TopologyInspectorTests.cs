@@ -58,7 +58,7 @@ public sealed class TopologyInspectorTests
         var topology = new Topology();
 
         topology.TestSetTopologyGraph(new TopologyGraph(
-            new[] { new TopologyNode("expr-1", "expr", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics()) },
+            new[] { new TopologyNode("expr-1", "expr", "expr", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics()) },
             Array.Empty<TopologyEdge>()));
 
         var sparkline = CreateSparkline(new Dictionary<string, double?[]>
@@ -83,7 +83,7 @@ public sealed class TopologyInspectorTests
         var topology = new Topology();
 
         topology.TestSetTopologyGraph(new TopologyGraph(
-            new[] { new TopologyNode("expr-2", "expr", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics()) },
+            new[] { new TopologyNode("expr-2", "expr", "expr", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics()) },
             Array.Empty<TopologyEdge>()));
 
         var sparkline = CreateSparkline(new Dictionary<string, double?[]>
@@ -113,7 +113,7 @@ public sealed class TopologyInspectorTests
         topology.TestSetTopologyGraph(new TopologyGraph(
             new[]
             {
-                new TopologyNode("svc", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
+                new TopologyNode("svc", "service", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
             },
             Array.Empty<TopologyEdge>()));
 
@@ -179,7 +179,7 @@ public sealed class TopologyInspectorTests
         topology.TestSetTopologyGraph(new TopologyGraph(
             new[]
             {
-                new TopologyNode("svc", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
+                new TopologyNode("svc", "service", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
             },
             Array.Empty<TopologyEdge>()));
 
@@ -294,7 +294,7 @@ public sealed class TopologyInspectorTests
         topology.TestSetTopologyGraph(new TopologyGraph(
             new[]
             {
-                new TopologyNode("svc", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, aliasSemantics)
+                new TopologyNode("svc", "service", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, aliasSemantics)
             },
             Array.Empty<TopologyEdge>()));
 
@@ -327,8 +327,8 @@ public sealed class TopologyInspectorTests
         var topology = new Topology();
         var nodes = new[]
         {
-            new TopologyNode("producer", "service", Array.Empty<string>(), new[] { "svc" }, 0, 0, 0, 0, false, EmptySemantics()),
-            new TopologyNode("svc", "service", new[] { "producer" }, Array.Empty<string>(), 1, 0, 100, 120, false, EmptySemantics())
+            new TopologyNode("producer", "service", "service", Array.Empty<string>(), new[] { "svc" }, 0, 0, 0, 0, false, EmptySemantics()),
+            new TopologyNode("svc", "service", "service", new[] { "producer" }, Array.Empty<string>(), 1, 0, 100, 120, false, EmptySemantics())
         };
 
         var edges = new[]
@@ -377,8 +377,8 @@ public sealed class TopologyInspectorTests
 
         var nodes = new[]
         {
-            new TopologyNode("producer", "service", Array.Empty<string>(), new[] { "svc" }, 0, 0, 0, 0, false, producerSemantics),
-            new TopologyNode("svc", "service", new[] { "producer" }, Array.Empty<string>(), 1, 0, 0, 0, false, EmptySemantics())
+            new TopologyNode("producer", "service", "service", Array.Empty<string>(), new[] { "svc" }, 0, 0, 0, 0, false, producerSemantics),
+            new TopologyNode("svc", "service", "service", new[] { "producer" }, Array.Empty<string>(), 1, 0, 0, 0, false, EmptySemantics())
         };
 
         var edges = new[]
@@ -403,8 +403,8 @@ public sealed class TopologyInspectorTests
         topology.TestSetTopologyGraph(new TopologyGraph(
             new[]
             {
-                new TopologyNode("queue-a", "queue", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics()),
-                new TopologyNode("queue-b", "queue", Array.Empty<string>(), Array.Empty<string>(), 0, 1, 0, 0, false, EmptySemantics())
+                new TopologyNode("queue-a", "queue", "queue", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics()),
+                new TopologyNode("queue-b", "queue", "queue", Array.Empty<string>(), Array.Empty<string>(), 0, 1, 0, 0, false, EmptySemantics())
             },
             Array.Empty<TopologyEdge>()));
 
@@ -447,9 +447,7 @@ public sealed class TopologyInspectorTests
             new[]
             {
                 new TopologyNode(
-                    "queue-good",
-                    "queue",
-                    Array.Empty<string>(),
+                    "queue-good", "queue", "queue", Array.Empty<string>(),
                     Array.Empty<string>(),
                     0,
                     0,
@@ -527,9 +525,7 @@ public sealed class TopologyInspectorTests
             new[]
             {
                 new TopologyNode(
-                    "pmf-1",
-                    "pmf",
-                    Array.Empty<string>(),
+                    "pmf-1", "pmf", "pmf", Array.Empty<string>(),
                     Array.Empty<string>(),
                     0,
                     0,
@@ -584,7 +580,7 @@ public sealed class TopologyInspectorTests
 
         // Service node with a single metric slice; select Utilization basis
         topology.TestSetTopologyGraph(new TopologyGraph(
-            new[] { new TopologyNode("svc-x", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics()) },
+            new[] { new TopologyNode("svc-x", "service", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics()) },
             Array.Empty<TopologyEdge>()));
 
         var series = new Dictionary<string, double?[]>
@@ -661,7 +657,7 @@ public sealed class TopologyInspectorTests
             Aliases: null);
 
         topology.TestSetTopologyGraph(new TopologyGraph(
-            new[] { new TopologyNode("svc-retry", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, semantics) },
+            new[] { new TopologyNode("svc-retry", "service", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, semantics) },
             Array.Empty<TopologyEdge>()));
 
         var series = new Dictionary<string, double?[]>
@@ -727,7 +723,7 @@ public sealed class TopologyInspectorTests
         topology.TestSetTopologyGraph(new TopologyGraph(
             new[]
             {
-                new TopologyNode("svc-retry", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, semantics)
+                new TopologyNode("svc-retry", "service", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, semantics)
             },
             Array.Empty<TopologyEdge>()));
 
@@ -814,9 +810,7 @@ public sealed class TopologyInspectorTests
         var nodes = new[]
         {
             new TopologyNode(
-                "queue-a",
-                "queue",
-                Array.Empty<string>(),
+                "queue-a", "queue", "queue", Array.Empty<string>(),
                 Array.Empty<string>(),
                 0,
                 0,
@@ -827,9 +821,7 @@ public sealed class TopologyInspectorTests
                 0,
                 new GraphDispatchScheduleModel("time-based", 6, 1, "cap_a")),
             new TopologyNode(
-                "service-node",
-                "service",
-                Array.Empty<string>(),
+                "service-node", "service", "service", Array.Empty<string>(),
                 Array.Empty<string>(),
                 0,
                 1,
@@ -838,9 +830,7 @@ public sealed class TopologyInspectorTests
                 false,
                 EmptySemantics()),
             new TopologyNode(
-                "queue-b",
-                "queue",
-                Array.Empty<string>(),
+                "queue-b", "queue", "queue", Array.Empty<string>(),
                 Array.Empty<string>(),
                 0,
                 2,

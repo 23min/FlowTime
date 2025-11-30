@@ -14,5 +14,5 @@ The `docs/milestones/` folder now mirrors the active roadmap status:
 ## Quick Links
 
 - **Active Class Epic:** `CL-M-04.01.md`, `CL-M-04.02.md`, `CL-M-04.03.md`, `CL-M-04.04.md`
-- **Service-With-Buffer Follow-Up:** `SB-M-05.01.md`
+- **Service-With-Buffer Milestones:** `SB-M-05.01.md`, `SB-M-05.02.md`
 - **Archive:** See `docs/milestones/completed/` for historic milestones across backend, UI, time-travel, and service epics.

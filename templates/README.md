@@ -50,7 +50,7 @@ Hub-and-spoke transit network with a central queue and airport retries.
 | `telemetryDemandNorthSource`, `telemetryDemandSouthSource` | string | `""` | Optional `file://` URIs for origin arrivals. |
 
 Highlights:
-- Origins feed `CentralHub`, which stages riders in `HubQueue` (backlog node) before dispatching downstream; there is no queue abandonment in this milestone so backlog is conserved.
+- Origins feed `CentralHub`, which stages riders in `HubQueue` (service-with-buffer node) before dispatching downstream; there is no queue abandonment in this milestone so backlog is conserved.
 - Airport line maps `attempts`, `failures`, and `retryEcho`, so UI retry chips mirror delivery behavior.
 
 ```json
@@ -64,14 +64,14 @@ Highlights:
 
 Companion template `transportation-basic-classes` keeps the same topology but declares three rider classes (`Airport`, `Industrial`, `Downtown`). Class arrivals split upstream demand (`telemetryDemandNorthSource`/`telemetryDemandSouthSource`) so every node reports by-class metrics. Use this template to validate UI selectors without losing the legacy single-class variant.
 
-**New in CL-M-04.03.02:** the downstream dispatch queues now model bus-stop bursts. Each queue declares a `dispatchSchedule` so the backlog only releases on the cadence you expect (Airport every 6 bins, Downtown every 8 bins with a phase offset, Industrial every 10 bins). Analyzer warnings surface if the cadence never fires or if the referenced capacity series is missing.
+**New in CL-M-04.03.02:** the downstream dispatch queues now model bus-stop bursts. Each service-with-buffer node declares a `dispatchSchedule` so the backlog only releases on the cadence you expect (Airport every 6 bins, Downtown every 8 bins with a phase offset, Industrial every 10 bins). Analyzer warnings surface if the cadence never fires or if the referenced capacity series is missing.
 
 ## warehouse-picker-waves
 
-Wave-based warehouse template where orders accumulate in staging and release in picker waves before packing. The model now captures two realistic feedback loops:
+Wave-based warehouse template where orders accumulate in staging and release in picker waves before packing. The template now leans exclusively on `serviceWithBuffer` nodes to illustrate the canonical pattern:
 
-- `picker_wave_buildup` aggregates the last four bins of intake so a dispatch pulse drains the backlog in meaningful chunks instead of only the immediate inflow. Queue depth grows between pulses and drops when the gate fires, matching how tote waves behave on the floor.
-- `PackStagingQueue` now uses the canonical backlog series to feed pack demand: `pack_demand = SHIFT(queueDepth, 1) + arrivals` and `pack_processed = SHIFT(queueDepth, 1) + arrivals - queueDepth`, so served is always ≤ supply and analyzer invariants stay quiet without any smoothing tricks.
+- `PickerWave` owns the staging backlog and dispatch cadence via `dispatchSchedule`, so backlog is just “inflow minus gated release” without any helper expressions. When the gate fires, release volume is constrained by both the current backlog and the configured per-wave capacity.
+- `PackStagingQueue` is the second service-with-buffer stage that feeds `PackAndShip`. Its demand is computed from its own buffer (no synthetic queue nodes), and the packing service exposes `processingTimeMsSum` + `servedCount` so the UI can always chart service time.
 
 | Parameter | Type | Default | Notes |
 |-----------|------|---------|-------|
@@ -84,8 +84,8 @@ Wave-based warehouse template where orders accumulate in staging and release in 
 
 Highlights:
 - Intake behaves like a traditional service node with demand/capacity arrays, SLA target, and explicit overflow (`intake_spill`).
-- The `PickerWave` backlog stores staged totes until a scheduled picker wave fires (`dispatchSchedule`), so the staged backlog grows between releases.
-- A second backlog (`PackStagingQueue`) sits between picker waves and packers, smoothing the bursty releases into a steady packing cadence. When bursts exceed pack capacity, backlog grows and `pack_spill`/queue depth highlight the shortfall.
+- The `PickerWave` service-with-buffer node stores staged totes until a scheduled picker wave fires (`dispatchSchedule`), so the staged backlog grows between releases.
+- A second service-with-buffer (`PackStagingQueue`) sits between picker waves and packers, smoothing the bursty releases into a steady packing cadence. When bursts exceed pack capacity, backlog grows and `pack_spill`/queue depth highlight the shortfall.
 
 ## manufacturing-line
 
@@ -109,7 +109,7 @@ Highlights:
 
 ## supply-chain-multi-tier
 
-End-to-end purchase order flow with warehouse buffering, distributor backlog, and delivery retries.
+End-to-end purchase order flow with warehouse buffering, distributor queue/backlog (service-with-buffer), and delivery retries.
 
 | Parameter | Type | Default | Notes |
 |-----------|------|---------|-------|
@@ -127,7 +127,7 @@ End-to-end purchase order flow with warehouse buffering, distributor backlog, an
 
 Highlights:
 - Supplier → Warehouse → DistributionQueue → Delivery mirrors the canonical topology, with aliases describing purchase orders, staged loads, backlog, and delivered units.
-- `DistributionQueue` uses the backlog node (`queueDepth`) so the UI queue chip reflects accumulated staged loads (no shrink/attrition is modeled in this milestone).
+- `DistributionQueue` uses the service-with-buffer node (`queueDepth`) so the UI queue chip reflects accumulated staged loads (no shrink/attrition is modeled in this milestone).
 - Delivery node surfaces retry semantics (`attempts`, `failures`, `retryEcho`) so retry chips render alongside total errors.
 
 ```json
@@ -181,7 +181,7 @@ Deterministic 24-hour IT operations incident workflow demonstrating retry semant
 |-----------|------|---------|-------|
 ## Queues, SHIFT, and initial conditions (authoring guidance)
 
-FlowTime still supports self‑referential `SHIFT` expressions, but catalog templates now prefer the dedicated backlog node. Provide inflow/outflow/loss series plus a topology seed and the engine maintains `queueDepth` automatically:
+FlowTime still supports self‑referential `SHIFT` expressions, but catalog templates now prefer the dedicated `serviceWithBuffer` node. Provide inflow/outflow/loss series plus a topology seed and the engine maintains `queueDepth` automatically:
 
 ```yaml
 topology:
@@ -198,7 +198,7 @@ topology:
 
 nodes:
   - id: queue_depth
-    kind: backlog
+    kind: serviceWithBuffer
     inflow: queue_inflow
     outflow: queue_outflow
     loss: queue_losses

@@ -196,7 +196,7 @@ nodes:
     kind: "const"
     values: [5, 5, 5, 5]
   - id: "QueueB"
-    kind: "backlog"
+    kind: "serviceWithBuffer"
     inflow: "QueueInflow"
     outflow: "QueueOutflow"
     dispatchSchedule:
@@ -228,7 +228,7 @@ topology:
     }
 
     [Fact]
-    public async Task GetGraphAsync_FullMode_IncludesBacklogNodes()
+    public async Task GetGraphAsync_FullMode_IncludesServiceWithBufferNodes()
     {
         const string runId = "run_graph_backlog_full";
         CreateRun(runId, """
@@ -261,7 +261,7 @@ nodes:
     kind: const
     values: [0, 0]
   - id: picker_wave_backlog
-    kind: backlog
+    kind: serviceWithBuffer
     inflow: wave_arrivals
     outflow: wave_served
 """);
@@ -270,9 +270,9 @@ nodes:
         Assert.DoesNotContain(operational.Nodes, node => string.Equals(node.Id, "picker_wave_backlog", StringComparison.OrdinalIgnoreCase));
 
         var fullGraph = await service.GetGraphAsync(runId, new GraphQueryOptions { Mode = GraphQueryMode.Full });
-        var backlogNode = Assert.Single(fullGraph.Nodes, node => node.Id == "picker_wave_backlog");
-        Assert.Equal("backlog", backlogNode.Kind);
-        Assert.Equal("series:picker_wave_backlog", backlogNode.Semantics.Series);
+        var serviceWithBufferNode = Assert.Single(fullGraph.Nodes, node => node.Id == "picker_wave_backlog");
+        Assert.Equal("serviceWithBuffer", serviceWithBufferNode.Kind);
+        Assert.Equal("series:picker_wave_backlog", serviceWithBufferNode.Semantics.Series);
     }
 
     [Fact]

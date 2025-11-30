@@ -195,7 +195,7 @@
         "required": ["id", "kind"],
         "properties": {
           "id": { "type": "string", "minLength": 1 },
-          "kind": { "type": "string", "enum": ["const", "pmf", "expr", "backlog", "router"] },
+          "kind": { "type": "string", "enum": ["const", "pmf", "expr", "serviceWithBuffer", "router"] },
           "group": { "type": "string" },
           "values": {
             "anyOf": [

@@ -16,9 +16,9 @@ public sealed class TopologyHelpersTests
         var response = new GraphResponseModel(
             new[]
             {
-                new GraphNodeModel("ingress", "service", CreateSemantics(), null),
-                new GraphNodeModel("processor", "service", CreateSemantics(), null),
-                new GraphNodeModel("egress", "queue", CreateSemantics(), null)
+                new GraphNodeModel("ingress", "service", CreateSemantics()),
+                new GraphNodeModel("processor", "service", CreateSemantics()),
+                new GraphNodeModel("egress", "queue", CreateSemantics())
             },
             new[]
             {
@@ -52,8 +52,8 @@ public sealed class TopologyHelpersTests
         var response = new GraphResponseModel(
             new[]
             {
-                new GraphNodeModel("alpha", "service", CreateSemantics(), null),
-                new GraphNodeModel("beta", "queue", CreateSemantics(), new GraphNodeUiModel(160, 48))
+                new GraphNodeModel("alpha", "service", CreateSemantics()),
+                new GraphNodeModel("beta", "queue", CreateSemantics(), Ui: new GraphNodeUiModel(160, 48))
             },
             new[]
             {
@@ -77,8 +77,8 @@ public sealed class TopologyHelpersTests
         var response = new GraphResponseModel(
             new[]
             {
-                new GraphNodeModel("svc", "service", CreateSemantics(), null),
-                new GraphNodeModel("analytics", "service", CreateSemantics(), null)
+                new GraphNodeModel("svc", "service", CreateSemantics()),
+                new GraphNodeModel("analytics", "service", CreateSemantics())
             },
             new[]
             {
@@ -103,9 +103,9 @@ public sealed class TopologyHelpersTests
         var response = new GraphResponseModel(
             new[]
             {
-                new GraphNodeModel("ingress", "service", CreateSemantics(), null),
-                new GraphNodeModel("processor", "service", CreateSemantics(), null),
-                new GraphNodeModel("egress", "service", CreateSemantics(), null)
+                new GraphNodeModel("ingress", "service", CreateSemantics()),
+                new GraphNodeModel("processor", "service", CreateSemantics()),
+                new GraphNodeModel("egress", "service", CreateSemantics())
             },
             new[]
             {
@@ -132,9 +132,9 @@ public sealed class TopologyHelpersTests
         var response = new GraphResponseModel(
             new[]
             {
-                new GraphNodeModel("constant", "const", CreateSemantics(), null),
-                new GraphNodeModel("expression", "expression", CreateSemantics(), null),
-                new GraphNodeModel("service", "service", CreateSemantics(), null)
+                new GraphNodeModel("constant", "const", CreateSemantics()),
+                new GraphNodeModel("expression", "expression", CreateSemantics()),
+                new GraphNodeModel("service", "service", CreateSemantics())
             },
             new[]
             {
@@ -159,9 +159,9 @@ public sealed class TopologyHelpersTests
         var response = new GraphResponseModel(
             new[]
             {
-                new GraphNodeModel("ingress", "service", CreateSemantics(), null),
-                new GraphNodeModel("processor", "service", CreateSemantics(), null),
-                new GraphNodeModel("orphan_metric", "expression", CreateSemantics(), null)
+                new GraphNodeModel("ingress", "service", CreateSemantics()),
+                new GraphNodeModel("processor", "service", CreateSemantics()),
+                new GraphNodeModel("orphan_metric", "expression", CreateSemantics())
             },
             new[]
             {
@@ -181,14 +181,14 @@ public sealed class TopologyHelpersTests
         var response = new GraphResponseModel(
             new[]
             {
-                new GraphNodeModel("svc_a", "service", CreateSemantics(), null),
-                new GraphNodeModel("svc_b", "service", CreateSemantics(), null),
-                new GraphNodeModel("svc_c", "service", CreateSemantics(), null),
-                new GraphNodeModel("expr_in", "expression", CreateSemantics(), null),
-                new GraphNodeModel("expr_mid", "expression", CreateSemantics(), null),
-                new GraphNodeModel("expr_top", "expression", CreateSemantics(), null),
-                new GraphNodeModel("leaf_one", "expression", CreateSemantics(), null),
-                new GraphNodeModel("leaf_two", "expression", CreateSemantics(), null)
+                new GraphNodeModel("svc_a", "service", CreateSemantics()),
+                new GraphNodeModel("svc_b", "service", CreateSemantics()),
+                new GraphNodeModel("svc_c", "service", CreateSemantics()),
+                new GraphNodeModel("expr_in", "expression", CreateSemantics()),
+                new GraphNodeModel("expr_mid", "expression", CreateSemantics()),
+                new GraphNodeModel("expr_top", "expression", CreateSemantics()),
+                new GraphNodeModel("leaf_one", "expression", CreateSemantics()),
+                new GraphNodeModel("leaf_two", "expression", CreateSemantics())
             },
             new[]
             {
@@ -217,10 +217,10 @@ public sealed class TopologyHelpersTests
         var response = new GraphResponseModel(
             new[]
             {
-                new GraphNodeModel("svc", "service", CreateSemantics(), null),
-                new GraphNodeModel("expr_upper", "expression", CreateSemantics(), null),
-                new GraphNodeModel("expr_lower", "expression", CreateSemantics(), null),
-                new GraphNodeModel("const_seed", "const", CreateSemantics(), null)
+                new GraphNodeModel("svc", "service", CreateSemantics()),
+                new GraphNodeModel("expr_upper", "expression", CreateSemantics()),
+                new GraphNodeModel("expr_lower", "expression", CreateSemantics()),
+                new GraphNodeModel("const_seed", "const", CreateSemantics())
             },
             new[]
             {

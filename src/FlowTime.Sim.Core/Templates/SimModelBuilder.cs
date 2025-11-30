@@ -294,12 +294,12 @@ internal static class SimModelBuilder
                     Probabilities = node.Pmf.Probabilities?.ToArray() ?? Array.Empty<double>()
                 },
             Initial = node.Initial,
-            Inflow = kind == "backlog" ? node.Inflow : null,
-            Outflow = kind == "backlog" ? node.Outflow : null,
-            Loss = kind == "backlog" ? node.Loss : null,
+            Inflow = kind == "servicewithbuffer" ? node.Inflow : null,
+            Outflow = kind == "servicewithbuffer" ? node.Outflow : null,
+            Loss = kind == "servicewithbuffer" ? node.Loss : null,
             Inputs = kind == "router" ? CloneInputs(node.Inputs) : null,
             Routes = kind == "router" ? CloneRoutes(node.Routes) : null,
-            DispatchSchedule = kind == "backlog" ? CloneDispatchSchedule(node.DispatchSchedule) : null
+            DispatchSchedule = kind == "servicewithbuffer" ? CloneDispatchSchedule(node.DispatchSchedule) : null
         };
     }
 

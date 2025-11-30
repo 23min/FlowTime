@@ -4,7 +4,7 @@ This document describes the **shipped** FlowTime Engine surfaces and behaviors a
 
 ## Execution model
 - **Deterministic, discrete-time DAG** on a fixed grid `{ bins, binSize, binUnit }` (UTC, left-aligned).
-- **Node kinds**: const (inline values), expr (limited expression set), backlog/queue semantics via topology semantics (`queueDepth`, `arrivals/served/errors`, optional `externalDemand`, `capacity`, retry fields), and template-derived computed nodes preserved in artifacts.
+- **Node kinds**: const (inline values), expr (limited expression set), **serviceWithBuffer** nodes that own queue/backlog semantics (`queueDepth`, arrivals/served/errors, optional `loss`, dispatch schedules), routers, and template-derived computed nodes preserved in artifacts. (See [`docs/architecture/service-with-buffer/service-with-buffer-architecture.md`](../architecture/service-with-buffer/service-with-buffer-architecture.md) for the full contract.)
 - **Expression support** (engine evaluator): arithmetic `+ - * /`, functions `SHIFT`, `CONV`, `MIN`, `MAX`, `CLAMP`, `MOD`, `FLOOR`, `CEIL`, `ROUND`, `STEP`, `PULSE`. No IF/EMA/ABS/SQRT/POW/routers/autoscale nodes yet.
 - **Retry/backoff**: Supports attempts/failures/retry echo series; `RetryKernelPolicy` normalizes kernels; derived retry echo and exhaustion warnings recorded when missing.
 - **Backlog/latency**: Queue depth/backlog recurrence with optional initial conditions; derived `latencyMinutes`, `throughputRatio`, `flowLatencyMs` in state responses.

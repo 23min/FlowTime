@@ -28,7 +28,7 @@ public sealed class GraphService
     }
 
     private static readonly string[] DefaultOperationalKinds = { "service", "queue", "dlq", "router", "external" };
-    private static readonly string[] DefaultFullKinds = { "service", "queue", "dlq", "router", "external", "expr", "const", "pmf", "backlog" };
+    private static readonly string[] DefaultFullKinds = { "service", "queue", "dlq", "router", "external", "expr", "const", "pmf", "serviceWithBuffer" };
     private static readonly string[] DefaultDependencyFields = { "arrivals", "served", "errors", "attempts", "failures", "exhaustedFailures", "retryEcho", "retryBudgetRemaining", "queue", "capacity", "expr" };
 
     private const string EdgeTypeTopology = "topology";
@@ -115,6 +115,7 @@ public sealed class GraphService
         foreach (var topoNode in modelDefinition.Topology.Nodes)
         {
             var kind = string.IsNullOrWhiteSpace(topoNode.Kind) ? "service" : topoNode.Kind!;
+            var logicalType = DetermineLogicalType(kind, topoNode, nodeDefinitionsById, out var serviceWithBufferDefinition);
             if (!allowedKinds.Contains(kind))
             {
                 continue;
@@ -148,11 +149,16 @@ public sealed class GraphService
                 };
 
             var dispatchSchedule = TryBuildDispatchSchedule(nodeDefinitionsById, topoNode.Id);
+            if (dispatchSchedule is null && serviceWithBufferDefinition is not null)
+            {
+                dispatchSchedule = ConvertSchedule(serviceWithBufferDefinition.DispatchSchedule);
+            }
 
             AddOrReplaceNode(new GraphNode
             {
                 Id = topoNode.Id,
                 Kind = kind,
+                LogicalType = logicalType,
                 Semantics = semantics,
                 Ui = ui,
                 DispatchSchedule = dispatchSchedule
@@ -255,6 +261,7 @@ public sealed class GraphService
                 {
                     Id = nodeDef.Id,
                     Kind = displayKind,
+                    LogicalType = NormalizeKind(actualKind),
                     Semantics = semantics,
                     DispatchSchedule = TryBuildDispatchSchedule(nodeDefinitionsById, nodeDef.Id)
                 });
@@ -337,6 +344,11 @@ public sealed class GraphService
                 }
 
                 if (!graphNodes.ContainsKey(producerCandidate))
+                {
+                    return;
+                }
+
+                if (string.Equals(producerCandidate, consumerId, StringComparison.OrdinalIgnoreCase))
                 {
                     return;
                 }
@@ -499,6 +511,51 @@ public sealed class GraphService
             CapacitySeries = capacitySeries
         };
     }
+
+    private static string DetermineLogicalType(
+        string kind,
+        TopologyNodeDefinition node,
+        IReadOnlyDictionary<string, NodeDefinition> nodeDefinitions,
+        out NodeDefinition? serviceWithBufferDefinition)
+    {
+        serviceWithBufferDefinition = null;
+        var normalizedKind = NormalizeKind(kind);
+
+        if (normalizedKind is "queue" or "service")
+        {
+            serviceWithBufferDefinition = TryResolveServiceWithBufferDefinition(nodeDefinitions, node.Semantics?.QueueDepth);
+            if (serviceWithBufferDefinition is not null)
+            {
+                return "serviceWithBuffer";
+            }
+        }
+
+        return normalizedKind;
+    }
+
+    private static NodeDefinition? TryResolveServiceWithBufferDefinition(
+        IReadOnlyDictionary<string, NodeDefinition> nodeDefinitions,
+        string? reference)
+    {
+        if (string.IsNullOrWhiteSpace(reference))
+        {
+            return null;
+        }
+
+        var candidateId = TryResolveProducerId(reference);
+        if (string.IsNullOrWhiteSpace(candidateId))
+        {
+            return null;
+        }
+
+        return nodeDefinitions.TryGetValue(candidateId, out var definition) &&
+            string.Equals(definition.Kind, "serviceWithBuffer", StringComparison.OrdinalIgnoreCase)
+            ? definition
+            : null;
+    }
+
+    private static string NormalizeKind(string? kind) =>
+        string.IsNullOrWhiteSpace(kind) ? "service" : kind.Trim().ToLowerInvariant();
 }
 
 public sealed class GraphQueryException : Exception

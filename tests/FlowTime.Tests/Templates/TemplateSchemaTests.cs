@@ -170,4 +170,69 @@ nodes:
         Assert.False(result.IsValid);
         Assert.Contains("routes", string.Join("; ", result.Errors), StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public void TemplateSchema_ServiceWithBuffer_Node_Is_Valid()
+    {
+        var yaml = """
+schemaVersion: 1
+grid:
+  bins: 2
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: hub_demand
+    kind: const
+    values: [10, 12]
+  - id: hub_dispatch
+    kind: expr
+    expr: "hub_demand * 0.9"
+  - id: hub_queue
+    kind: serviceWithBuffer
+    inflow: hub_demand
+    outflow: hub_dispatch
+traffic:
+  arrivals:
+    - nodeId: hub_demand
+      pattern:
+        kind: constant
+        ratePerBin: 10
+""";
+
+        var result = ModelSchemaValidator.Validate(yaml);
+
+        Assert.True(result.IsValid, string.Join("; ", result.Errors));
+    }
+
+    [Fact]
+    public void TemplateSchema_Backlog_Node_Is_Rejected()
+    {
+        var yaml = """
+schemaVersion: 1
+grid:
+  bins: 2
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: hub_demand
+    kind: const
+    values: [10, 12]
+  - id: hub_dispatch
+    kind: expr
+    expr: "hub_demand * 0.9"
+  - id: hub_queue
+    kind: backlog
+    inflow: hub_demand
+    outflow: hub_dispatch
+traffic:
+  arrivals:
+    - nodeId: hub_demand
+      pattern:
+        kind: constant
+        ratePerBin: 10
+""";
+
+        var result = ModelSchemaValidator.Validate(yaml);
+        Assert.False(result.IsValid);
+    }
 }

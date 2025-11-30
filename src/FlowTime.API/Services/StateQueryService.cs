@@ -11,6 +11,7 @@ using FlowTime.Core.Models;
 using FlowTime.Core.TimeTravel;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using System.Text.RegularExpressions;
 
 namespace FlowTime.API.Services;
 
@@ -521,14 +522,16 @@ public sealed class StateQueryService
         double?[]? flowLatencyForNode = null)
     {
         var kind = NormalizeKind(node.Kind);
-        var dispatchSchedule = ResolveDispatchSchedule(node.Id, context);
+        var logicalType = DetermineLogicalType(node, kind, context, out var serviceWithBufferDefinition);
+        var dispatchSchedule = ResolveDispatchSchedule(node, context, serviceWithBufferDefinition);
         var arrivals = GetValue(data.Arrivals, binIndex);
         var served = GetValue(data.Served, binIndex);
         var errors = GetValue(data.Errors, binIndex);
         var externalDemand = GetOptionalValue(data.ExternalDemand, binIndex);
         var queue = GetOptionalValue(data.QueueDepth, binIndex);
         var capacity = GetOptionalValue(data.Capacity, binIndex);
-        var isServiceKind = string.Equals(kind, "service", StringComparison.OrdinalIgnoreCase);
+        var isServiceWithBuffer = string.Equals(logicalType, "serviceWithBuffer", StringComparison.OrdinalIgnoreCase);
+        var isServiceKind = string.Equals(kind, "service", StringComparison.OrdinalIgnoreCase) || isServiceWithBuffer;
         var attempts = isServiceKind ? ComputeAttemptValue(data, binIndex, allowDerived: true) : null;
         var failures = isServiceKind ? ComputeFailureValue(data, binIndex) : null;
         var exhaustedFailures = isServiceKind ? GetOptionalValue(data.ExhaustedFailures, binIndex) : null;
@@ -560,16 +563,18 @@ public sealed class StateQueryService
         }
 
         double? serviceTimeMs = null;
-        if (string.Equals(kind, "service", StringComparison.OrdinalIgnoreCase))
+        if (isServiceKind)
         {
             serviceTimeMs = ComputeServiceTimeValue(data, binIndex);
         }
 
-        var color = IsDlqKind(kind)
-            ? "dlq"
-            : IsQueueLikeKind(kind)
-                ? ColoringRules.PickQueueColor(latencyMinutes, node.Semantics?.SlaMinutes)
-                : ColoringRules.PickServiceColor(utilization);
+        var color = isServiceWithBuffer
+            ? ColoringRules.PickServiceColor(utilization)
+            : IsDlqKind(kind)
+                ? "dlq"
+                : IsQueueLikeKind(kind)
+                    ? ColoringRules.PickQueueColor(latencyMinutes, node.Semantics?.SlaMinutes)
+                    : ColoringRules.PickServiceColor(utilization);
 
         var mergedWarnings = MergeWarnings(nodeWarnings, classAggregation.Warnings, node.Id);
 
@@ -577,6 +582,7 @@ public sealed class StateQueryService
         {
             Id = node.Id,
             Kind = kind,
+            LogicalType = logicalType,
             Metrics = new NodeMetrics
             {
                 Arrivals = arrivals,
@@ -771,7 +777,8 @@ public sealed class StateQueryService
     private static NodeSeries BuildNodeSeries(Node node, NodeData data, StateRunContext context, int startBin, int count, IReadOnlyList<ModeValidationWarning> nodeWarnings, double?[]? flowLatencyForNode = null)
     {
         var kind = NormalizeKind(node.Kind);
-        var dispatchSchedule = ResolveDispatchSchedule(node.Id, context);
+        var logicalType = DetermineLogicalType(node, kind, context, out var serviceWithBufferDefinition);
+        var dispatchSchedule = ResolveDispatchSchedule(node, context, serviceWithBufferDefinition);
         var arrivalsSlice = ExtractSlice(data.Arrivals, startBin, count);
         var servedSlice = ExtractSlice(data.Served, startBin, count);
         var errorsSlice = ExtractSlice(data.Errors, startBin, count);
@@ -858,7 +865,8 @@ public sealed class StateQueryService
             series["throughputRatio"] = throughputSeries;
         }
 
-        if (string.Equals(kind, "service", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(kind, "service", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(logicalType, "serviceWithBuffer", StringComparison.OrdinalIgnoreCase))
         {
             var serviceTimeSeries = ComputeServiceTimeSeries(data, startBin, count);
             if (serviceTimeSeries != null)
@@ -884,6 +892,7 @@ public sealed class StateQueryService
         {
             Id = node.Id,
             Kind = kind,
+            LogicalType = logicalType,
             Series = series,
             ByClass = BuildClassSeries(data, startBin, count),
             Telemetry = BuildTelemetryInfo(node, context.ManifestMetadata, nodeWarnings),
@@ -1694,6 +1703,7 @@ public sealed class StateQueryService
         {
             Id = nodeId,
             Kind = kind,
+            LogicalType = NormalizeKind(kind),
             Series = series,
             Telemetry = new NodeTelemetryInfo
             {
@@ -1702,6 +1712,32 @@ public sealed class StateQueryService
             },
             DispatchSchedule = dispatchSchedule
         };
+    }
+
+    private static DispatchScheduleDescriptor? ResolveDispatchSchedule(
+        Node node,
+        StateRunContext context,
+        NodeDefinition? fallbackDefinition = null)
+    {
+        if (context.ModelNodes.TryGetValue(node.Id, out var definition))
+        {
+            var descriptor = ConvertDispatchSchedule(definition.DispatchSchedule);
+            if (descriptor is not null)
+            {
+                return descriptor;
+            }
+        }
+
+        if (fallbackDefinition is not null)
+        {
+            var descriptor = ConvertDispatchSchedule(fallbackDefinition.DispatchSchedule);
+            if (descriptor is not null)
+            {
+                return descriptor;
+            }
+        }
+
+        return null;
     }
 
     private static DispatchScheduleDescriptor? ResolveDispatchSchedule(string nodeId, StateRunContext context)
@@ -2331,6 +2367,79 @@ public sealed class StateQueryService
         }
 
         return kind.Trim().ToLowerInvariant();
+    }
+
+    private static readonly Regex SeriesFileRegex = new(@"(?<name>[^/\\]+?)(?:\.csv)?$", RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+    private static string DetermineLogicalType(
+        Node node,
+        string normalizedKind,
+        StateRunContext context,
+        out NodeDefinition? serviceWithBufferDefinition)
+    {
+        serviceWithBufferDefinition = TryResolveServiceWithBufferDefinition(node.Semantics?.QueueDepth, context.ModelNodes);
+        if (serviceWithBufferDefinition is not null)
+        {
+            return "serviceWithBuffer";
+        }
+
+        return normalizedKind;
+    }
+
+    private static NodeDefinition? TryResolveServiceWithBufferDefinition(
+        string? reference,
+        IReadOnlyDictionary<string, NodeDefinition> nodeDefinitions)
+    {
+        if (string.IsNullOrWhiteSpace(reference))
+        {
+            return null;
+        }
+
+        var candidateId = TryResolveSeriesNodeId(reference);
+        if (string.IsNullOrWhiteSpace(candidateId))
+        {
+            return null;
+        }
+
+        return nodeDefinitions.TryGetValue(candidateId, out var definition) &&
+            string.Equals(definition.Kind, "serviceWithBuffer", StringComparison.OrdinalIgnoreCase)
+            ? definition
+            : null;
+    }
+
+    private static string? TryResolveSeriesNodeId(string? reference)
+    {
+        if (string.IsNullOrWhiteSpace(reference))
+        {
+            return null;
+        }
+
+        var value = reference.Trim();
+        if (value.StartsWith("series:", StringComparison.OrdinalIgnoreCase))
+        {
+            value = value["series:".Length..];
+        }
+        else if (value.StartsWith("file:", StringComparison.OrdinalIgnoreCase))
+        {
+            var match = SeriesFileRegex.Match(value);
+            if (match.Success)
+            {
+                value = match.Groups["name"].Value;
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var at = value.IndexOf('@');
+        if (at > 0)
+        {
+            value = value[..at];
+        }
+
+        return value.Trim();
     }
 
     private static bool IsQueueLikeKind(string? kind)

@@ -72,7 +72,7 @@ nodes:
     kind: expr
     expr: ""arrivals""
   - id: queue_depth
-    kind: backlog
+    kind: serviceWithBuffer
     inflow: arrivals
     outflow: served
 outputs:

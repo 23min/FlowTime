@@ -75,6 +75,7 @@ public static class InvariantAnalyzer
             var semantics = topoNode.Semantics;
             var nodeId = topoNode.Id;
             var nodeKind = (topoNode.Kind ?? string.Empty).Trim().ToLowerInvariant();
+            var isServiceWithBuffer = nodeKind == "servicewithbuffer";
             var isServiceKind = nodeKind == "service" || nodeKind == "router";
             var isQueueKind = nodeKind == "queue";
             var isQueueLikeKind = nodeKind is "queue" or "dlq";
@@ -138,7 +139,7 @@ public static class InvariantAnalyzer
             CheckNonNegative(nodeId, "retry_budget_negative", "Retry budget remaining produced negative values", retryBudgetRemaining);
 
             // Served <= arrivals
-            if (arrivals != null && served != null)
+            if (arrivals != null && served != null && !isServiceWithBuffer)
             {
                 CheckDiff(nodeId, "served_exceeds_arrivals",
                     "Served volume exceeded arrivals",
@@ -296,7 +297,7 @@ public static class InvariantAnalyzer
                     "info"));
             }
 
-            if (!isDlqKind && !isTerminalQueue && queueDepth != null && served != null)
+            if (!isDlqKind && !isTerminalQueue && !isServiceWithBuffer && queueDepth != null && served != null)
             {
                 var badLatencyBins = new List<int>();
                 var latencyBins = queueDepth.Length;

@@ -216,7 +216,7 @@ properties:
           type: string
         kind:
           type: string
-          enum: [const, pmf, expr, backlog]
+          enum: [const, pmf, expr, serviceWithBuffer]
         group:
           type: string
         values:

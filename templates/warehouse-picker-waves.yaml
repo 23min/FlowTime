@@ -86,18 +86,21 @@ topology:
         served: received_orders
         errors: intake_spill
         capacity: intake_capacity
+        processingTimeMsSum: intake_processing_time_ms_sum
+        servedCount: intake_served_count
         slaMin: 45
         aliases:
           arrivals: "Inbound orders"
           served: "Staged orders"
           errors: "Overflow"
     - id: PickerWave
-      kind: queue
+      kind: serviceWithBuffer
       semantics:
         arrivals: wave_stage_inflow
         served: picker_wave_release
         errors: wave_attrition
         queueDepth: picker_wave_backlog
+        capacity: wave_dispatch_capacity
         aliases:
           arrivals: "Wave staging"
           served: "Picker wave release"
@@ -105,12 +108,13 @@ topology:
       initialCondition:
         queueDepth: 0
     - id: PackStagingQueue
-      kind: queue
+      kind: serviceWithBuffer
       semantics:
         arrivals: pack_arrivals
         served: pack_processed
         errors: zero_flow
         queueDepth: pack_queue_backlog
+        capacity: pack_capacity
         aliases:
           arrivals: "Picker releases"
           served: "Pack throughput"
@@ -124,6 +128,8 @@ topology:
         served: pack_processed
         errors: pack_spill
         capacity: pack_capacity
+        processingTimeMsSum: pack_processing_time_ms_sum
+        servedCount: pack_served_count
         slaMin: 30
         aliases:
           arrivals: "Picker releases"
@@ -167,7 +173,7 @@ nodes:
     expr: "PULSE(${wavePeriodBins}, ${wavePhaseOffset}, 1)"
   - id: picker_wave_buildup
     kind: expr
-    expr: "wave_stage_inflow + SHIFT(wave_stage_inflow, 1) + SHIFT(wave_stage_inflow, 2) + SHIFT(wave_stage_inflow, 3)"
+    expr: "CONV(wave_stage_inflow, [1, 1, 1, 1])"
   - id: picker_wave_release
     kind: expr
     expr: "MIN(picker_wave_buildup, wave_dispatch_capacity) * picker_wave_gate"
@@ -175,7 +181,7 @@ nodes:
     kind: expr
     expr: "${waveCapacity}"
   - id: picker_wave_backlog
-    kind: backlog
+    kind: serviceWithBuffer
     inflow: wave_stage_inflow
     outflow: picker_wave_release
     loss: wave_attrition
@@ -183,6 +189,8 @@ nodes:
       periodBins: ${wavePeriodBins}
       phaseOffset: ${wavePhaseOffset}
       capacitySeries: wave_dispatch_capacity
+    metadata:
+      graph.hidden: "true"
   - id: pack_capacity
     kind: expr
     expr: "${packCapacity}"
@@ -196,15 +204,29 @@ nodes:
     kind: expr
     expr: "MAX(0, SHIFT(pack_queue_backlog, 1) + pack_arrivals - pack_queue_backlog)"
   - id: pack_queue_backlog
-    kind: backlog
+    kind: serviceWithBuffer
     inflow: pack_arrivals
     outflow: pack_capacity
+    metadata:
+      graph.hidden: "true"
   - id: zero_flow
     kind: expr
     expr: "0"
   - id: pack_spill
     kind: expr
     expr: "MAX(0, pack_demand - pack_processed)"
+  - id: intake_served_count
+    kind: expr
+    expr: "received_orders"
+  - id: intake_processing_time_ms_sum
+    kind: expr
+    expr: "received_orders * 240000" # 4 minutes per staged order
+  - id: pack_served_count
+    kind: expr
+    expr: "pack_processed"
+  - id: pack_processing_time_ms_sum
+    kind: expr
+    expr: "pack_processed * 300000" # 5 minutes per packed order
 
 outputs:
   - series: order_demand

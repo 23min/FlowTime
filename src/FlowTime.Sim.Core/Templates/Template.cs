@@ -246,12 +246,12 @@ public class TemplateNode
     public List<string>? Dependencies { get; set; }
     public double? Initial { get; set; }
 
-    // For backlog nodes (stateful queue accumulator)
+    // For serviceWithBuffer nodes (stateful queue accumulator)
     public string? Inflow { get; set; }
     public string? Outflow { get; set; }
     public string? Loss { get; set; }
 
-    // Dispatch schedule (optional backlog cadence)
+    // Dispatch schedule (optional serviceWithBuffer cadence)
     public TemplateDispatchSchedule? DispatchSchedule { get; set; }
 
     // For router nodes

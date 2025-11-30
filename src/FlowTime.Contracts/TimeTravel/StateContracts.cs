@@ -71,6 +71,8 @@ public sealed class NodeSnapshot
 {
     public required string Id { get; init; }
     public required string Kind { get; init; }
+    [JsonPropertyName("nodeLogicalType")]
+    public string? LogicalType { get; init; }
     public NodeMetrics Metrics { get; init; } = new();
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyDictionary<string, ClassMetrics>? ByClass { get; init; }
@@ -85,6 +87,8 @@ public sealed class NodeSeries
 {
     public required string Id { get; init; }
     public required string Kind { get; init; }
+    [JsonPropertyName("nodeLogicalType")]
+    public string? LogicalType { get; init; }
     public IDictionary<string, double?[]> Series { get; init; } = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase);
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IDictionary<string, IDictionary<string, double?[]>>? ByClass { get; init; }

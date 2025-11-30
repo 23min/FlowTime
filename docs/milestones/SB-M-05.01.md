@@ -132,3 +132,39 @@ Each phase follows FlowTime milestone guardrails (TDD where applicable, minimal 
 -- **Regression:**
   - Full `dotnet test --nologo` across the solution.
   - Re-run a small set of golden templates that have been migrated from backlog to ServiceWithBuffer to confirm no numerical differences.
+
+---
+
+## Implementation Notes (running log)
+
+| Date | Area | Notes |
+| --- | --- | --- |
+| 2025-11-27 | Schema/tests | Added TemplateSchema coverage to ensure `kind: serviceWithBuffer` validates and `kind: backlog` is rejected. Updated `docs/schemas/model.schema.(yaml\|md)` + `template.schema.json/md`. |
+| 2025-11-27 | Engine | Renamed `BacklogNode` → `ServiceWithBufferNode`, normalized `ModelParser` kind handling, and wired TemplateValidator/SimModelBuilder/ClassContributionBuilder to the new spelling. `dotnet test --nologo tests/FlowTime.Core.Tests/FlowTime.Core.Tests.csproj` passes. |
+| 2025-11-27 | CLI/analyzers | `flow-sim generate` succeeds for `transportation-basic` and `warehouse-picker-waves` post-migration (warehouse still reports the known bursty warnings tracked from earlier milestones). `TemplateInvariantAnalyzerTests` pass under `dotnet test --nologo --filter TemplateInvariantAnalyzerTests`. |
+| 2025-11-27 | Docs | Updated `docs/architecture/whitepaper.md`, `docs/reference/engine-capabilities.md`, and `docs/templates/template-authoring.md` to reference ServiceWithBuffer terminology, plus refreshed `templates/README.md` snippets. |
+| 2025-11-28 | API/UI/CLI | `/graph`, `/state`, and `/state_window` now emit `nodeLogicalType` + dispatch schedules for ServiceWithBuffer nodes (contracts + DTOs updated). `FlowTime.UI` consumes the new metadata so service-with-buffer nodes render like services with queue badges + schedule chips (JS canvas + inspector updated). Analyzer/CLI fixtures were refreshed to keep messaging aligned, and API/UI/CLI tests updated. |
+
+### 2025-11-27 - Template migration validation
+
+**Templates regenerated:**
+- transportation-basic
+- warehouse-picker-waves (expected bursty warnings retained)
+
+**Commands:**
+```
+dotnet run --project src/FlowTime.Sim.Cli -- generate --id transportation-basic --templates-dir templates --mode simulation --out data/run_sb_m_0501_transportation.yaml
+dotnet run --project src/FlowTime.Sim.Cli -- generate --id warehouse-picker-waves --templates-dir templates --mode simulation --out data/run_sb_m_0501_warehouse.yaml
+```
+
+**Warnings:**
+- Warehouse template still emits the known informational warnings (queue latency during zero served bins, served vs arrivals spikes) documented in CL-M-04.03.x; carry forward to SB-M-05.01 release notes.
+
+## Known Gaps / Follow-Up
+
+The current milestone intentionally left two technical gaps that will be addressed in `DB-M-05.02`:
+
+- **DSL simplification:** ServiceWithBuffer topology nodes still require explicit helper nodes (`queueDepth` series) to participate in execution. DB‑M‑05.02 will allow a topology-only declaration (implicit queueDepth) so modelers never author hidden helpers.
+- **Queue latency semantics for gated services:** When a dispatch schedule holds backlog (served = 0, depth > 0) the engine/UI expose `latencyMinutes = null`. DB‑M‑05.02 introduces explicit “paused” semantics so operators see why latency is undefined instead of a bare null.
+
+See `docs/milestones/SB-M-05.02.md` for the full spec.

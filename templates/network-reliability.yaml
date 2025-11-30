@@ -246,7 +246,7 @@ nodes:
     expr: "MIN(server_capacity, request_queue_demand)"
 
   - id: request_queue_depth
-    kind: backlog
+    kind: serviceWithBuffer
     inflow: request_queue_demand
     outflow: request_queue_served
     loss: request_queue_attrition
@@ -310,7 +310,7 @@ nodes:
     expr: "0"
 
   - id: edge_drop_depth
-    kind: backlog
+    kind: serviceWithBuffer
     inflow: edge_drop_inflow
     outflow: edge_drop_served_zero
     loss: edge_drop_attrition
@@ -330,7 +330,7 @@ nodes:
     expr: "0"
 
   - id: core_dlq_depth
-    kind: backlog
+    kind: serviceWithBuffer
     inflow: core_dlq_inflow
     outflow: core_dlq_served_zero
     loss: core_dlq_attrition
@@ -346,7 +346,7 @@ nodes:
     expr: "0"
 
   - id: database_loss_depth
-    kind: backlog
+    kind: serviceWithBuffer
     inflow: database_failures
     outflow: database_loss_served_zero
     loss: database_loss_attrition

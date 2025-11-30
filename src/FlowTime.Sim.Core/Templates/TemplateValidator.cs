@@ -211,7 +211,7 @@ internal static class TemplateValidator
         {
             if (string.IsNullOrWhiteSpace(node.Kind))
             {
-                throw new TemplateValidationException($"Node '{node.Id}' must define a kind (const, pmf, expr).");
+                throw new TemplateValidationException($"Node '{node.Id}' must define a kind (const, pmf, expr, router, serviceWithBuffer).");
             }
 
             switch (node.Kind)
@@ -231,8 +231,8 @@ internal static class TemplateValidator
                     }
                     break;
 
-                case "backlog":
-                    ValidateBacklogNode(node, allNodeIds);
+                case "serviceWithBuffer":
+                    ValidateServiceWithBufferNode(node, allNodeIds);
                     break;
 
                 case "router":
@@ -359,26 +359,26 @@ internal static class TemplateValidator
         return false;
     }
 
-    private static void ValidateBacklogNode(TemplateNode node, HashSet<string> allNodeIds)
+    private static void ValidateServiceWithBufferNode(TemplateNode node, HashSet<string> allNodeIds)
     {
         if (string.IsNullOrWhiteSpace(node.Inflow) || string.IsNullOrWhiteSpace(node.Outflow))
         {
-            throw new TemplateValidationException($"Backlog node '{node.Id}' must define 'inflow' and 'outflow'.");
+            throw new TemplateValidationException($"ServiceWithBuffer node '{node.Id}' must define 'inflow' and 'outflow'.");
         }
 
         // Ensure inflow/outflow reference existing nodes
         if (!allNodeIds.Contains(node.Inflow))
         {
-            throw new TemplateValidationException($"Backlog node '{node.Id}' inflow references unknown node '{node.Inflow}'.");
+            throw new TemplateValidationException($"ServiceWithBuffer node '{node.Id}' inflow references unknown node '{node.Inflow}'.");
         }
         if (!allNodeIds.Contains(node.Outflow))
         {
-            throw new TemplateValidationException($"Backlog node '{node.Id}' outflow references unknown node '{node.Outflow}'.");
+            throw new TemplateValidationException($"ServiceWithBuffer node '{node.Id}' outflow references unknown node '{node.Outflow}'.");
         }
 
         if (!string.IsNullOrWhiteSpace(node.Loss) && !allNodeIds.Contains(node.Loss))
         {
-            throw new TemplateValidationException($"Backlog node '{node.Id}' loss references unknown node '{node.Loss}'.");
+            throw new TemplateValidationException($"ServiceWithBuffer node '{node.Id}' loss references unknown node '{node.Loss}'.");
         }
     }
 

@@ -157,7 +157,7 @@ DLQs are now a first-class node kind:
 
 - All inbound/outbound topology edges referencing a DLQ must be `type: terminal`. This keeps the analyzer happy and prevents DLQs from rejoining the primary throughput graph accidentally.
 - DLQs behave like queues for telemetry (`queueDepth`, latency), but they never emit SLA colors—UI renders them with the dedicated DLQ badge instead of relying on aliases.
-- Model DLQs as pure backlogs: set `served` to a zero-valued series, route any cleanup/purge logic through the `loss` field, and point `errors` at whatever attrition metric you want surfaced in the UI. This matches real terminal buffers (everything accumulates unless you explicitly purge) and keeps analyzers from flagging “served exceeds arrivals.”
+- Model DLQs as service-with-buffer nodes configured as pure backlogs: set `served` to a zero-valued series, route any cleanup/purge logic through the `loss` field, and point `errors` at whatever attrition metric you want surfaced in the UI. This matches real terminal buffers (everything accumulates unless you explicitly purge) and keeps analyzers from flagging “served exceeds arrivals.”
 - Because `served == 0`, queue-latency analyzers emit informational warnings (“latency could not be computed”). This is expected and indicates the DLQ is behaving as a terminal sink rather than an operational queue.
 
 ### Router Nodes
@@ -190,9 +190,9 @@ Use `kind: router` when a single upstream queue feeds multiple downstream legs a
   - Conservation must hold per bin (`router_class_leakage`). When you see this warning, confirm each downstream target consumes the exact series exported by the router.
 - Router nodes are optional, but they eliminate fragile expressions like `hub_dispatch * 0.3` and keep class chips aligned with topology flows.
 
-### Scheduled Dispatch Backlogs
+### Scheduled Dispatch ServiceWithBuffer Nodes
 
-Use the backlog node with `dispatchSchedule` when you want a queue to release on a cadence instead of every bin. This models picker waves, shuttle departures, or any bursty flow where work accumulates and then drains in discrete bursts.
+Use a `serviceWithBuffer` node with `dispatchSchedule` when you want a queue to release on a cadence instead of every bin. This models picker waves, shuttle departures, or any bursty flow where work accumulates and then drains in discrete bursts.
 
 ```yaml
   - id: PickerWave
@@ -218,7 +218,7 @@ nodes:
     kind: expr
     expr: "${waveCapacity}"
   - id: picker_wave_backlog
-    kind: backlog
+    kind: serviceWithBuffer
     inflow: wave_stage_inflow
     outflow: picker_wave_release
     loss: wave_attrition
@@ -239,7 +239,7 @@ nodes:
 
 ## Computational Nodes and Outputs
 
-- Keep transformation nodes (`expr`, `pmf`, `backlog`) in the `nodes:` section outside topology.
+- Keep computational nodes (`const`, `expr`, `pmf`, `serviceWithBuffer`, `router`) in the `nodes:` section outside topology.
 - Every semantic reference must point to a node defined here.
 - Add outputs for the time series you want to export (CSV) or inspect:
 

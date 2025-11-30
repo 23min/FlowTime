@@ -17,7 +17,7 @@ public sealed class TopologyClassFilterTests
         topology.TestSetTopologyGraph(new TopologyGraph(
             new[]
             {
-                new TopologyNode("svc", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
+                new TopologyNode("svc", "service", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
             },
             Array.Empty<TopologyEdge>()));
 
@@ -38,7 +38,7 @@ public sealed class TopologyClassFilterTests
         topology.TestSetTopologyGraph(new TopologyGraph(
             new[]
             {
-                new TopologyNode("svc", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
+                new TopologyNode("svc", "service", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
             },
             Array.Empty<TopologyEdge>()));
 
@@ -64,7 +64,7 @@ public sealed class TopologyClassFilterTests
         topology.TestSetTopologyGraph(new TopologyGraph(
             new[]
             {
-                new TopologyNode("svc", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
+                new TopologyNode("svc", "service", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
             },
             Array.Empty<TopologyEdge>()));
 
@@ -95,7 +95,7 @@ public sealed class TopologyClassFilterTests
         topology.TestSetTopologyGraph(new TopologyGraph(
             new[]
             {
-                new TopologyNode("svc", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
+                new TopologyNode("svc", "service", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
             },
             Array.Empty<TopologyEdge>()));
 
@@ -120,7 +120,7 @@ public sealed class TopologyClassFilterTests
         topology.TestSetTopologyGraph(new TopologyGraph(
             new[]
             {
-                new TopologyNode("svc", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
+                new TopologyNode("svc", "service", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
             },
             Array.Empty<TopologyEdge>()));
 

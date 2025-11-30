@@ -264,7 +264,7 @@ nodes:
     expr: "MIN(ingress_queue_carry, ingress_queue_carry * 0.02)"
 
   - id: ingress_queue_depth
-    kind: backlog
+    kind: serviceWithBuffer
     inflow: ingress_queue_demand
     outflow: ingress_queue_served
     loss: ingress_queue_attrition
@@ -330,7 +330,7 @@ nodes:
     expr: "0"
 
   - id: response_queue_depth
-    kind: backlog
+    kind: serviceWithBuffer
     inflow: processed_requests
     outflow: responses_dispatched
     loss: response_queue_attrition
@@ -350,7 +350,7 @@ nodes:
     expr: "0"
 
   - id: manual_recon_depth
-    kind: backlog
+    kind: serviceWithBuffer
     inflow: manual_recon_inflow
     outflow: manual_recon_served_zero
     loss: manual_recon_attrition
@@ -370,7 +370,7 @@ nodes:
     expr: "0"
 
   - id: customer_impact_depth
-    kind: backlog
+    kind: serviceWithBuffer
     inflow: customer_impact_inflow
     outflow: customer_impact_served_zero
     loss: customer_impact_attrition

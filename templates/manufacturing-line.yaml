@@ -235,7 +235,7 @@ nodes:
     expr: "MIN(quality_capacity, wip_queue_demand)"
 
   - id: wip_queue_depth
-    kind: backlog
+    kind: serviceWithBuffer
     inflow: wip_queue_demand
     outflow: wip_queue_served
     loss: wip_queue_attrition
@@ -299,7 +299,7 @@ nodes:
     expr: "0"
 
   - id: quality_scrap_depth
-    kind: backlog
+    kind: serviceWithBuffer
     inflow: quality_scrap_inflow
     outflow: quality_scrap_served_zero
     loss: quality_scrap_attrition
@@ -319,7 +319,7 @@ nodes:
     expr: "0"
 
   - id: packaging_scrap_depth
-    kind: backlog
+    kind: serviceWithBuffer
     inflow: packaging_scrap_inflow
     outflow: packaging_scrap_served_zero
     loss: packaging_scrap_attrition

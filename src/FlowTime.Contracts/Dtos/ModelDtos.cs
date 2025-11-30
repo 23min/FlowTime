@@ -58,7 +58,7 @@ public sealed class NodeDto
     public string? Expr { get; set; }
     public PmfDto? Pmf { get; set; }
     public Dictionary<string, string>? Metadata { get; set; }
-    // For backlog nodes
+    // For serviceWithBuffer nodes
     public string? Inflow { get; set; }
     public string? Outflow { get; set; }
     public string? Loss { get; set; }

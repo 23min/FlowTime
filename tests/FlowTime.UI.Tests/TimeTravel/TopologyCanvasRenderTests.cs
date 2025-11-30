@@ -52,9 +52,9 @@ public sealed class TopologyCanvasRenderTests : TestContext
     {
         var nodes = new[]
         {
-            new TopologyNode("source", "service", Array.Empty<string>(), new[] { "downstream" }, 0, 0, 0, 0, false, EmptySemantics()),
-            new TopologyNode("downstream", "service", new[] { "source" }, Array.Empty<string>(), 1, 0, 200, 120, false, EmptySemantics()),
-            new TopologyNode("analytics", "service", new[] { "source" }, Array.Empty<string>(), 1, 1, 220, 160, false, EmptySemantics())
+            new TopologyNode("source", "service", "service", Array.Empty<string>(), new[] { "downstream" }, 0, 0, 0, 0, false, EmptySemantics()),
+            new TopologyNode("downstream", "service", "service", new[] { "source" }, Array.Empty<string>(), 1, 0, 200, 120, false, EmptySemantics()),
+            new TopologyNode("analytics", "service", "service", new[] { "source" }, Array.Empty<string>(), 1, 1, 220, 160, false, EmptySemantics())
         };
 
         var edges = new[]
@@ -508,9 +508,9 @@ public sealed class TopologyCanvasRenderTests : TestContext
     {
         var nodes = new[]
         {
-            new TopologyNode("source", "const", Array.Empty<string>(), new[] { "calc" }, 0, 0, 0, 0, false, EmptySemantics()),
-            new TopologyNode("calc", "expr", new[] { "source" }, new[] { "svc" }, 1, 0, 200, 120, false, EmptySemantics()),
-            new TopologyNode("svc", "service", new[] { "calc" }, Array.Empty<string>(), 2, 0, 400, 240, false, EmptySemantics())
+            new TopologyNode("source", "const", "const", Array.Empty<string>(), new[] { "calc" }, 0, 0, 0, 0, false, EmptySemantics()),
+            new TopologyNode("calc", "expr", "expr", new[] { "source" }, new[] { "svc" }, 1, 0, 200, 120, false, EmptySemantics()),
+            new TopologyNode("svc", "service", "service", new[] { "calc" }, Array.Empty<string>(), 2, 0, 400, 240, false, EmptySemantics())
         };
 
         var edges = new[]
@@ -526,9 +526,9 @@ public sealed class TopologyCanvasRenderTests : TestContext
     {
         var nodes = new[]
         {
-            new TopologyNode("ingress", "service", Array.Empty<string>(), new[] { "processor" }, 0, 0, 0, 0, false, EmptySemantics()),
-            new TopologyNode("processor", "service", new[] { "ingress" }, new[] { "egress" }, 1, 0, 240, 140, false, EmptySemantics()),
-            new TopologyNode("egress", "queue", new[] { "processor" }, Array.Empty<string>(), 2, 0, 480, 280, false, EmptySemantics())
+            new TopologyNode("ingress", "service", "service", Array.Empty<string>(), new[] { "processor" }, 0, 0, 0, 0, false, EmptySemantics()),
+            new TopologyNode("processor", "service", "service", new[] { "ingress" }, new[] { "egress" }, 1, 0, 240, 140, false, EmptySemantics()),
+            new TopologyNode("egress", "queue", "queue", new[] { "processor" }, Array.Empty<string>(), 2, 0, 480, 280, false, EmptySemantics())
         };
 
         var edges = new[]

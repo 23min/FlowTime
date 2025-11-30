@@ -132,6 +132,9 @@ public sealed record TimeTravelNodeSnapshotDto
     [JsonPropertyName("kind")]
     public required string Kind { get; init; }
 
+    [JsonPropertyName("nodeLogicalType")]
+    public string? LogicalType { get; init; }
+
     [JsonPropertyName("metrics")]
     public TimeTravelNodeMetricsDto Metrics { get; init; } = new();
 
@@ -159,6 +162,9 @@ public sealed record TimeTravelNodeSeriesDto
 
     [JsonPropertyName("kind")]
     public required string Kind { get; init; }
+
+    [JsonPropertyName("nodeLogicalType")]
+    public string? LogicalType { get; init; }
 
     [JsonPropertyName("series")]
     public IReadOnlyDictionary<string, double?[]> Series { get; init; } = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase);

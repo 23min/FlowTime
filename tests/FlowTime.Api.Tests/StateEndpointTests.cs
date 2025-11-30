@@ -1307,7 +1307,7 @@ nodes:
     kind: "const"
     values: [5, 5, 5, 5]
   - id: "SupportQueue"
-    kind: "backlog"
+    kind: "serviceWithBuffer"
     inflow: "QueueInflow"
     outflow: "QueueOutflow"
     dispatchSchedule:

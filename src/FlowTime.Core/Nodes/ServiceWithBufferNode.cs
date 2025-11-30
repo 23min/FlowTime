@@ -5,10 +5,10 @@ using FlowTime.Core.Models;
 namespace FlowTime.Core.Nodes;
 
 /// <summary>
-/// Stateful backlog/queue depth node.
+/// Stateful service-with-buffer node that owns its backlog/queue depth.
 /// Q[t] = max(0, Q[t-1] + inflow[t] - outflow[t] - loss[t]) with seed from topology initial condition.
 /// </summary>
-public sealed class BacklogNode : INode
+public sealed class ServiceWithBufferNode : INode
 {
     private readonly NodeId inflowId;
     private readonly NodeId outflowId;
@@ -21,7 +21,7 @@ public sealed class BacklogNode : INode
         ? new[] { inflowId, outflowId, lossId.Value }
         : new[] { inflowId, outflowId };
 
-    public BacklogNode(
+    public ServiceWithBufferNode(
         string id,
         NodeId inflow,
         NodeId outflow,

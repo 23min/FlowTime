@@ -21,6 +21,7 @@ internal sealed record CanvasRenderRequest(
 internal sealed record NodeRenderInfo(
     string Id,
     string Kind,
+    string LogicalType,
     double X,
     double Y,
     double Width,

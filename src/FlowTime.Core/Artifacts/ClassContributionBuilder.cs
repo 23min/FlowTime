@@ -63,7 +63,7 @@ internal static class ClassContributionBuilder
             {
                 "const" or "pmf" => BuildSourceSeries(nodeId, totalSeries, classAssignments),
                 "expr" => EvaluateExpressionNode(nodeDefinition, grid, totals, contributions),
-                "backlog" => EvaluateBacklogNode(nodeDefinition, grid, totals, contributions, topologySeeds),
+                "serviceWithBuffer" => EvaluateServiceWithBufferNode(nodeDefinition, grid, totals, contributions, topologySeeds),
                 _ => ClassSeries.FromTotals(totalSeries)
             };
 
@@ -172,7 +172,7 @@ internal static class ClassContributionBuilder
         TimeGrid grid,
         IReadOnlyDictionary<NodeId, double[]> totals,
         IReadOnlyDictionary<NodeId, string> classAssignments,
-        IReadOnlyDictionary<string, double> backlogSeeds,
+        IReadOnlyDictionary<string, double> serviceWithBufferSeeds,
         HashSet<NodeId> overriddenNodes,
         Dictionary<NodeId, ClassSeries> contributions)
     {
@@ -197,7 +197,7 @@ internal static class ClassContributionBuilder
             {
                 "const" or "pmf" => BuildSourceSeries(nodeId, totals[nodeId], classAssignments),
                 "expr" => EvaluateExpressionNode(nodeDefinition, grid, totals, contributions),
-                "backlog" => EvaluateBacklogNode(nodeDefinition, grid, totals, contributions, backlogSeeds),
+                "serviceWithBuffer" => EvaluateServiceWithBufferNode(nodeDefinition, grid, totals, contributions, serviceWithBufferSeeds),
                 _ => ClassSeries.FromTotals(totals[nodeId])
             };
 
@@ -487,7 +487,7 @@ internal static class ClassContributionBuilder
         return ClassSeries.Max(ClassSeries.Min(value, max), min);
     }
 
-    private static ClassSeries EvaluateBacklogNode(
+    private static ClassSeries EvaluateServiceWithBufferNode(
         NodeDefinition nodeDefinition,
         TimeGrid grid,
         IReadOnlyDictionary<NodeId, double[]> totals,

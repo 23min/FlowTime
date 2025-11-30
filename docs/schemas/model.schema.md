@@ -300,13 +300,13 @@ nodes:
     probabilities: [0.1, 0.4, 0.4, 0.1]  # Peak around 100-150
 ```
 
-#### 3.4 Backlog Nodes (`kind: backlog`)
+#### 3.4 ServiceWithBuffer Nodes (`kind: serviceWithBuffer`)
 
-Backlog nodes maintain queue depth using explicit inflow/outflow semantics. The engine enforces conservation automatically without requiring custom `SHIFT` expressions.
+ServiceWithBuffer nodes model a service that owns its queue. They track backlog depth via explicit inflow/outflow semantics, and optional schedules can gate when inventory is released.
 
 ```yaml
 - id: shipping_queue
-  kind: backlog
+  kind: serviceWithBuffer
   inflow: hub_arrivals
   outflow: dispatch_demand
   loss: spoilage_sink
@@ -319,8 +319,8 @@ Backlog nodes maintain queue depth using explicit inflow/outflow semantics. The 
 
 **Properties:**
 
-- `inflow` (required): Node ID providing arrivals into the backlog.
-- `outflow` (required): Node ID whose demand drains the backlog (typically a service/router).
+- `inflow` (required): Node ID providing arrivals into the buffer.
+- `outflow` (required): Node ID whose demand drains the buffer (typically a service/router).
 - `loss` (optional): Node ID capturing inventory that ages out (e.g., spoilage).
 - `dispatchSchedule` (optional): Cadence definition controlling when outflow is permitted.
   - `kind`: Currently supports `time-based`.

@@ -343,7 +343,7 @@ nodes:
     expr: "MIN(fulfillment_capacity, queue_demand)"
 
   - id: queue_depth
-    kind: backlog
+    kind: serviceWithBuffer
     inflow: queue_demand
     outflow: queue_served
     loss: queue_attrition
@@ -405,7 +405,7 @@ nodes:
     expr: "dlq_inflow * 0.2"
 
   - id: dlq_depth
-    kind: backlog
+    kind: serviceWithBuffer
     inflow: dlq_inflow
     outflow: dlq_release_volume
     loss: dlq_losses
@@ -464,7 +464,7 @@ nodes:
     expr: "0"
 
   - id: restock_backlog
-    kind: backlog
+    kind: serviceWithBuffer
     inflow: restock_inflow
     outflow: restock_outflow_zero
     loss: restock_losses
@@ -490,7 +490,7 @@ nodes:
     expr: "0"
 
   - id: recover_backlog
-    kind: backlog
+    kind: serviceWithBuffer
     inflow: recover_inflow
     outflow: recover_outflow_zero
     loss: recover_losses
@@ -516,7 +516,7 @@ nodes:
     expr: "0"
 
   - id: scrap_backlog
-    kind: backlog
+    kind: serviceWithBuffer
     inflow: scrap_inflow
     outflow: scrap_outflow_zero
     loss: scrap_losses
@@ -540,7 +540,7 @@ nodes:
     expr: "0"
 
   - id: supplier_shortfall_depth
-    kind: backlog
+    kind: serviceWithBuffer
     inflow: supplier_shortage
     outflow: supplier_shortfall_served_zero
     loss: supplier_shortfall_attrition

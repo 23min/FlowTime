@@ -82,7 +82,7 @@ public static class ModelService
                 Metadata = n.Metadata == null
                     ? null
                     : new Dictionary<string, string>(n.Metadata, StringComparer.OrdinalIgnoreCase),
-                // backlog-specific fields (emitted in YAML as inflow/outflow/loss)
+                // serviceWithBuffer-specific fields (emitted in YAML as inflow/outflow/loss)
                 Inflow = n.Inflow,
                 Outflow = n.Outflow,
                 Loss = n.Loss,

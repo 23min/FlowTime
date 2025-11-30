@@ -354,7 +354,7 @@ nodes:
     expr: "MIN(hub_dispatch_capacity, hub_queue_demand)"
 
   - id: hub_queue_depth
-    kind: backlog
+    kind: serviceWithBuffer
     inflow: hub_queue_demand
     outflow: hub_dispatch
     loss: hub_queue_attrition
@@ -439,7 +439,7 @@ nodes:
     expr: "0"
 
   - id: hub_loss_depth
-    kind: backlog
+    kind: serviceWithBuffer
     inflow: hub_loss_inflow
     outflow: hub_loss_served_zero
     loss: hub_loss_attrition
@@ -459,7 +459,7 @@ nodes:
     expr: "0"
 
   - id: airport_dlq_depth
-    kind: backlog
+    kind: serviceWithBuffer
     inflow: airport_dlq_inflow
     outflow: airport_dlq_served_zero
     loss: airport_dlq_attrition

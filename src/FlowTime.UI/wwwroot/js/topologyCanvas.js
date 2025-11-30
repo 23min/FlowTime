@@ -867,12 +867,17 @@
 
             const nodeMeta = nodeMap.get(id);
             const kind = String(meta?.kind ?? node.kind ?? node.Kind ?? 'service').toLowerCase();
-            const queueLikeNode = isQueueLikeKind(kind);
+            const logicalType = String(meta?.logicalType ?? node.logicalType ?? node.LogicalType ?? kind).toLowerCase();
+            if (nodeMeta) {
+                nodeMeta.logicalType = logicalType;
+            }
+            const queueLikeNode = isQueueLikeKind(kind, logicalType);
             const dlqNode = isDlqKind(kind);
             const isLeafComputed = !!nodeMeta?.leaf && isComputedKind(kind);
-            const retryTax = kind === 'service' ? resolveRetryTaxValue(nodeMeta) : null;
+            const serviceLikeNode = kind === 'service' || logicalType === 'servicewithbuffer';
+            const retryTax = serviceLikeNode ? resolveRetryTaxValue(nodeMeta) : null;
             const hasRetryLoop = overlaySettings.showRetryMetrics !== false &&
-                kind === 'service' &&
+                serviceLikeNode &&
                 Number.isFinite(retryTax) &&
                 retryTax > 0;
 
@@ -887,7 +892,7 @@
                 const pillMetrics = drawLeafNode(ctx, nodeMeta);
                 focusLabelWidth = Math.max(pillMetrics.width - 14, 18);
                 fillForText = pillMetrics.fill ?? defaultLeafFill;
-            } else if (kind === 'queue') {
+            } else if (kind === 'queue' && logicalType !== 'servicewithbuffer') {
                 drawQueueNode(ctx, nodeMeta, overlaySettings);
                 fillForText = QUEUE_PILL_FILL;
             } else if (dlqNode) {
@@ -918,7 +923,11 @@
                 }
             }
 
-            if (kind === 'service' || kind === 'queue' || kind === 'router' || dlqNode) {
+            if (logicalType === 'servicewithbuffer') {
+                drawServiceWithBufferBadge(ctx, nodeMeta);
+            }
+
+            if (kind === 'service' || logicalType === 'servicewithbuffer' || kind === 'queue' || kind === 'router' || dlqNode) {
                 drawServiceDecorations(ctx, nodeMeta, overlaySettings, state);
             } else if (kind === 'pmf') {
                 const hasSparkline = overlaySettings.showSparklines && nodeMeta?.sparkline;
@@ -2336,10 +2345,15 @@
         return normalized === 'expr' || normalized === 'expression' || normalized === 'const' || normalized === 'constant' || normalized === 'pmf';
     }
 
-    function isQueueLikeKind(kind) {
+    function isQueueLikeKind(kind, logicalType) {
         if (typeof kind !== 'string') {
             return false;
         }
+
+        if (typeof logicalType === 'string' && logicalType.trim().toLowerCase() === 'servicewithbuffer') {
+            return false;
+        }
+
         const normalized = kind.trim().toLowerCase();
         return normalized === 'queue' || normalized === 'dlq';
     }
@@ -2610,7 +2624,9 @@
         const hasRetrySemantics = Boolean(semantics.attempts || semantics.failures || semantics.retry);
         const showRetryMetrics = overlays.showRetryMetrics !== false && hasRetrySemantics;
         const nodeKind = String(nodeMeta.kind ?? nodeMeta.Kind ?? '').trim().toLowerCase();
-        const isServiceNode = nodeKind === 'service';
+        const nodeLogicalType = String(nodeMeta.logicalType ?? nodeMeta.LogicalType ?? '').trim().toLowerCase();
+        const isServiceNode = nodeKind === 'service' || nodeLogicalType === 'servicewithbuffer';
+        const isServiceWithBuffer = nodeLogicalType === 'servicewithbuffer';
         const isDlqNode = isDlqKind(nodeKind);
         const retryTax = isServiceNode ? resolveRetryTaxValue(nodeMeta) : null;
         const hasRetryLoop = showRetryMetrics && isServiceNode && Number.isFinite(retryTax) && retryTax > 0;
@@ -2773,7 +2789,7 @@
             // Tiny label positioned directly above the sparkline (left-aligned)
             try {
                 const basis = overlays.colorBasis ?? 0;
-                const queueLike = isQueueLikeKind(nodeKind);
+                const queueLike = isQueueLikeKind(nodeKind, nodeLogicalType);
                 const seriesBasis = queueLike ? 3 : Number(basis);
                 const label = queueLike
                     ? (isDlqKind(nodeKind) ? 'DLQ' : 'Queue')
@@ -2873,6 +2889,27 @@
                             '600');
                         topLeft += dlqDims.width + gap;
                     }
+                }
+            }
+        }
+
+        if (isServiceWithBuffer) {
+            const queueValue = sampleValueFor('queue', semantics.queue, ['queueDepth']);
+            if (queueValue !== null) {
+                const backlogLabel = formatMetricValue(queueValue);
+                if (backlogLabel) {
+                    const dims = drawQueueChip(ctx, topLeft, topRowTop + chipH, backlogLabel, paddingX, chipH);
+                    registerChipHitbox(state, {
+                        nodeId: nodeMeta.id ?? null,
+                        metric: 'queue',
+                        placement: 'top',
+                        tooltip: semanticTooltip(semantics.queue, 'Staged backlog'),
+                        x: topLeft,
+                        y: dims.top,
+                        width: dims.width,
+                        height: dims.height
+                    });
+                    topLeft += dims.width + gap;
                 }
             }
         }
@@ -3117,7 +3154,8 @@
 
         if (overlays.showQueueDependencies !== false) {
             const nodeKind = String(nodeMeta.kind ?? nodeMeta.Kind ?? '').trim().toLowerCase();
-            const isQueueNode = isQueueLikeKind(nodeKind);
+            const nodeLogicalType = String(nodeMeta.logicalType ?? nodeMeta.LogicalType ?? '').trim().toLowerCase();
+            const isQueueNode = isQueueLikeKind(nodeKind, nodeLogicalType);
             const queueValue = sampleValueFor('queue', semantics.queue);
             queueTooltip = semanticTooltip(semantics.queue, 'Queue depth');
 
@@ -3237,6 +3275,39 @@
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(displayValue, x, y);
+    }
+
+    function drawServiceWithBufferBadge(ctx, nodeMeta) {
+        if (!nodeMeta) {
+            return;
+        }
+
+        const x = Number(nodeMeta.x ?? nodeMeta.X ?? 0);
+        const y = Number(nodeMeta.y ?? nodeMeta.Y ?? 0);
+        const width = Number(nodeMeta.width ?? nodeMeta.Width ?? 54);
+        const height = Number(nodeMeta.height ?? nodeMeta.Height ?? 24);
+        const barWidth = 2;
+        const denseGap = 0.5;
+        const looseGap = 1.5;
+        const barHeights = [4, 5, 7, 9, 10];
+        const maxHeight = Math.max(...barHeights);
+        const startRight = x + (width / 2) - 3;
+        let cursor = startRight - barWidth;
+
+        ctx.save();
+        ctx.globalAlpha = 0.9;
+        ctx.fillStyle = QUEUE_PILL_STROKE;
+        const topEdge = y - (height / 2) + 3;
+
+        for (let i = barHeights.length - 1; i >= 0; i--) {
+            const barHeight = barHeights[i];
+            const offsetY = topEdge + (maxHeight - barHeight);
+            ctx.fillRect(cursor, offsetY, barWidth, barHeight);
+            const gap = i >= barHeights.length - 2 ? denseGap : looseGap;
+            cursor -= (barWidth + gap);
+        }
+
+        ctx.restore();
     }
 
     function drawDlqNode(ctx, nodeMeta, overlays) {
@@ -4322,6 +4393,39 @@
         }
         ctx.restore();
         return { width, height: totalHeight, top, bottom, left: bx };
+    }
+
+    function drawQueueChip(ctx, x, anchorY, text, paddingX, lineHeight, anchor = 'bottom') {
+        const normalized = typeof text === 'string' ? text : String(text ?? '');
+        const chipMetrics = measureChipText(ctx, normalized, paddingX, lineHeight);
+        const width = Math.max(chipMetrics.width + paddingX * 2, 28);
+        const totalHeight = Math.max(chipMetrics.totalHeight, lineHeight);
+        const top = anchor === 'top'
+            ? Math.round(anchorY)
+            : Math.round(anchorY - totalHeight);
+        const bottom = top + totalHeight;
+        const topWidth = Math.max(width * 0.65, width - 12);
+        const offset = (width - topWidth) / 2;
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(x + offset, top);
+        ctx.lineTo(x + offset + topWidth, top);
+        ctx.lineTo(x + width, bottom);
+        ctx.lineTo(x, bottom);
+        ctx.closePath();
+        ctx.fillStyle = QUEUE_PILL_FILL;
+        ctx.strokeStyle = QUEUE_PILL_STROKE;
+        ctx.lineWidth = 1;
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = getQueueLabelColor();
+        ctx.font = '600 11px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(normalized, x + width / 2, top + totalHeight / 2);
+        ctx.restore();
+        return { width, height: totalHeight, top, bottom, left: x };
     }
 
     function dedupePoints(points) {
@@ -5497,7 +5601,8 @@
         const neutralize = Boolean(opts.neutralize);
         const basis = Number(overlaySettings.colorBasis ?? 0);
         const nodeKind = String(nodeMeta?.kind ?? nodeMeta?.Kind ?? '').trim().toLowerCase();
-        const seriesBasis = isQueueLikeKind(nodeKind) ? 3 : basis;
+        const nodeLogicalType = String(nodeMeta?.logicalType ?? nodeMeta?.LogicalType ?? '').trim().toLowerCase();
+        const seriesBasis = isQueueLikeKind(nodeKind, nodeLogicalType) ? 3 : basis;
         const series = selectSeriesForBasis(sparkline, seriesBasis);
         if (!Array.isArray(series) || series.length < 2) {
             return;

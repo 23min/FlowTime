@@ -48,6 +48,10 @@ This keeps models **deterministic, transparent, and explainable** while allowing
 
 Flows (e.g., Order, Refund, VIP) are modeled as **classes**. All node computations can run per-class vectors with strict or weighted-fair capacity sharing.
 
+### 2.4 ServiceWithBuffer Nodes
+
+Queues owned by a service are modeled with `kind: serviceWithBuffer`. These nodes couple inflow/outflow/loss series, expose queue depth metrics, and optionally apply dispatch schedules to gate releases. They replace the legacy `kind: backlog` surface; see [`../service-with-buffer/service-with-buffer-architecture.md`](../service-with-buffer/service-with-buffer-architecture.md) for the canonical schema and visualization rules.
+
 ---
 
 ## 3. Expressions & Built-ins
@@ -67,8 +71,8 @@ Expressions are the "formula language" of FlowTime. Each node can declare `expr:
 
 ### 3.3 Stateful Primitives
 
-* **Backlog**:
-  `Q[t] = max(0, Q[t-1] + inflow[t] - capacity[t])`.
+* **ServiceWithBuffer / Backlog**:
+  `Q[t] = max(0, Q[t-1] + inflow[t] - outflow[t] - loss[t])`, optionally gated by dispatch schedules.
 * **Latency**:
   `W[t] ≈ Q[t] / max(ε, served_rate[t]) * binMinutes`.
 * **Autoscale**: threshold/target policies with lag & cooldown.
@@ -217,7 +221,7 @@ While the motivating use case is IT systems (queues, APIs, retries), **feedback 
 * **Manufacturing**: rework of defective items, queues with inspection/retry loops.
 * **Finance**: re-submission of trades or payments after rejection.
 
-FlowTime's spreadsheet-based, DAG + delay model makes it **domain-neutral**. By keeping terminology generic (arrivals, capacity, retries, backlog), it adapts to any flow system.
+FlowTime's spreadsheet-based, DAG + delay model makes it **domain-neutral**. By keeping terminology generic (arrivals, capacity, retries, service-with-buffer queues/backlog), it adapts to any flow system.
 
 ---
 
@@ -232,7 +236,7 @@ FlowTime's spreadsheet-based, DAG + delay model makes it **domain-neutral**. By 
 
 ### 9.2 Recommended Workflow
 
-1. Start with arrivals/capacity/backlog.
+1. Start with arrivals/capacity/serviceWithBuffer queues.
 2. Add retries (tax → explicit).
 3. Extend to multi-class and priority.
 4. Calibrate against telemetry.
@@ -240,7 +244,7 @@ FlowTime's spreadsheet-based, DAG + delay model makes it **domain-neutral**. By 
 
 ---
 
-## 10. Example: Service with Retries & Queue
+## 10. Example: Service with Retries & ServiceWithBuffer Queue
 
 ```yaml
 grid: { bins: 6, binMinutes: 5 }
@@ -255,9 +259,23 @@ nodes:
       retries := CONV(failures, [0.0,0.6,0.3,0.1])
       served := successes
       errors := failures
+  - id: qA_capacity
+    kind: const
+    values: [50, 50, 50, 50, 50, 50]
+  - id: downstream_demand
+    kind: expr
+    expr: "svcA.served * 0.95"
+  - id: qA_dispatch
+    kind: expr
+    expr: "MIN(qA_capacity, downstream_demand)"
   - id: qA
-    kind: backlog
-    inputs: { inflow: svcA.served, capacity: qA.capacity }
+    kind: serviceWithBuffer
+    inflow: svcA.served
+    outflow: qA_dispatch
+    dispatchSchedule:
+      periodBins: 2
+      phaseOffset: 0
+      capacitySeries: qA_capacity
 outputs:
   - series: svcA.served
   - series: svcA.errors
@@ -267,10 +285,10 @@ outputs:
 
 Evaluation:
 
-* Bin 0: `retries=0`.
+* Bin 0: `retries=0`, queue releases immediately because the schedule fires on even bins.
 * Bin 1: `retries[1] = failures[0]*0.6`.
 * Bin 2: `retries[2] = failures[0]*0.3 + failures[1]*0.6`.
-* And so on — retries "echo" across future bins.
+* And so on — retries "echo" across future bins while the ServiceWithBuffer cadence gates releases every other bin.
 
 ---
 

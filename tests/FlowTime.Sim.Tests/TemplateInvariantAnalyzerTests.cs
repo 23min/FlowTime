@@ -195,7 +195,7 @@ nodes:
     kind: const
     values: [0, 0, 0]
   - id: backlog_depth
-    kind: backlog
+    kind: serviceWithBuffer
     inflow: queue_inflow
     outflow: queue_dispatch
     dispatchSchedule:

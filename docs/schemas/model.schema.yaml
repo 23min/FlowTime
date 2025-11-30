@@ -96,7 +96,7 @@ properties:
             - const
             - expr
             - pmf
-            - backlog
+            - serviceWithBuffer
             - router
           description: "Node type: constant values, expression, or probability mass function"
 
@@ -187,15 +187,15 @@ properties:
 
         inflow:
           type: string
-          description: "Backlog inflow node id (required when kind=backlog)"
+          description: "ServiceWithBuffer inflow node id (required when kind=serviceWithBuffer)"
 
         outflow:
           type: string
-          description: "Backlog outflow node id (required when kind=backlog)"
+          description: "ServiceWithBuffer outflow node id (required when kind=serviceWithBuffer)"
 
         loss:
           type: string
-          description: "Optional loss sink node id for backlog depletion"
+          description: "Optional loss sink node id for ServiceWithBuffer depletion"
 
         dispatchSchedule:
           $ref: "#/$defs/dispatchSchedule"
@@ -260,11 +260,11 @@ properties:
                     - required: [classes]
                     - required: [weight]
 
-        # backlog nodes require inflow/outflow
+        # serviceWithBuffer nodes require inflow/outflow
         - if:
             properties:
               kind:
-                const: backlog
+                const: serviceWithBuffer
           then:
             required:
               - inflow
@@ -461,7 +461,7 @@ additionalProperties: false
 $defs:
   dispatchSchedule:
     type: object
-    description: "Optional schedule controlling when backlog nodes release flow"
+    description: "Optional schedule controlling when ServiceWithBuffer nodes release flow"
     properties:
       kind:
         type: string
@@ -594,14 +594,15 @@ examples:
       - id: served
         kind: expr
         expr: "MIN(arrivals, capacity)"
-      - id: backlog
-        kind: expr
-        expr: "MAX(0, arrivals - served + SHIFT(backlog, 1))"
+      - id: backlog_queue
+        kind: serviceWithBuffer
+        inflow: arrivals
+        outflow: served
     outputs:
       - series: served
         as: served.csv
-      - series: backlog
-        as: backlog.csv
+      - series: backlog_queue
+        as: backlog_queue.csv
 
   # Daily simulation for a year
   - schemaVersion: 1

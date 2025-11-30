@@ -491,7 +491,7 @@ nodes:
     expr: "MIN(hub_dispatch_capacity, hub_queue_demand)"
 
   - id: hub_queue_depth
-    kind: backlog
+    kind: serviceWithBuffer
     inflow: hub_queue_demand
     outflow: hub_dispatch
     loss: hub_queue_attrition
@@ -549,7 +549,7 @@ nodes:
     kind: expr
     expr: "airport_dispatch_queue_demand"
   - id: airport_dispatch_queue_depth
-    kind: backlog
+    kind: serviceWithBuffer
     inflow: airport_dispatch_queue_demand
     outflow: airport_dispatch_queue_served
     loss: airport_dispatch_queue_attrition
@@ -568,7 +568,7 @@ nodes:
     kind: expr
     expr: "downtown_dispatch_queue_demand"
   - id: downtown_dispatch_queue_depth
-    kind: backlog
+    kind: serviceWithBuffer
     inflow: downtown_dispatch_queue_demand
     outflow: downtown_dispatch_queue_served
     loss: downtown_dispatch_queue_attrition
@@ -587,7 +587,7 @@ nodes:
     kind: expr
     expr: "industrial_dispatch_queue_demand"
   - id: industrial_dispatch_queue_depth
-    kind: backlog
+    kind: serviceWithBuffer
     inflow: industrial_dispatch_queue_demand
     outflow: industrial_dispatch_queue_served
     loss: industrial_dispatch_queue_attrition
@@ -676,7 +676,7 @@ nodes:
     expr: "0"
 
   - id: hub_loss_depth
-    kind: backlog
+    kind: serviceWithBuffer
     inflow: hub_loss_inflow
     outflow: hub_loss_served_zero
     loss: hub_loss_attrition
@@ -696,7 +696,7 @@ nodes:
     expr: "0"
 
   - id: airport_dlq_depth
-    kind: backlog
+    kind: serviceWithBuffer
     inflow: airport_dlq_inflow
     outflow: airport_dlq_served_zero
     loss: airport_dlq_attrition

@@ -39,6 +39,7 @@ The list below enumerates current epics under `docs/architecture/` in an order t
 - **Goal:** Replace the legacy backlog node surface with a first-class `serviceWithBuffer` node type that owns both service behavior and an explicit queue/buffer, with aligned schema, engine, analyzer, and UI support.
 - **Key Milestones:**
   - `docs/milestones/SB-M-05.01.md` — Breaking introduction of `kind: serviceWithBuffer` and removal of `kind: backlog` from the public surface.
+  - `docs/milestones/SB-M-05.02.md` — Simplify the ServiceWithBuffer DSL (implicit queue depth) and improve queue latency semantics for scheduled drains.
 
 #### Edge Time Bins / Edge Metrics
 
