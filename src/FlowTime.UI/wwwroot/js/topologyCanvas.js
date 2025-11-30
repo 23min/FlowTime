@@ -3290,7 +3290,7 @@
         const barWidth = 3;
         const gap = 1;
         const barCount = 4;
-        const barHeight = Math.min(10, Math.max(4, height * 0.35));
+        const barHeight = Math.min(10, Math.max(4, height * 0.18));
         const startRight = x + (width / 2) - 4;
         let cursor = startRight - barWidth;
         const fillColor = isDarkTheme() ? NODE_LABEL_COLOR_DARK : NODE_LABEL_COLOR_LIGHT;
