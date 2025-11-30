@@ -2851,7 +2851,7 @@
         const exhaustedValue = isServiceNode ? sampleValueFor('exhaustedFailures', semantics.exhausted, ['exhausted', 'exhaustedfailures']) : null;
         const budgetRemainingValue = isServiceNode ? sampleValueFor('retryBudgetRemaining', semantics.retryBudget, ['retrybudgetremaining', 'retrybudget']) : null;
 
-        if (Number.isFinite(servedValue) && Number.isFinite(arrivalsValue) && (servedValue - arrivalsValue) > 1e-6) {
+        if (!isServiceWithBuffer && Number.isFinite(servedValue) && Number.isFinite(arrivalsValue) && (servedValue - arrivalsValue) > 1e-6) {
             addSyntheticWarning('served_exceeds_arrivals', 'Served volume exceeded arrivals');
         }
 
@@ -3156,10 +3156,11 @@
             const nodeKind = String(nodeMeta.kind ?? nodeMeta.Kind ?? '').trim().toLowerCase();
             const nodeLogicalType = String(nodeMeta.logicalType ?? nodeMeta.LogicalType ?? '').trim().toLowerCase();
             const isQueueNode = isQueueLikeKind(nodeKind, nodeLogicalType);
+            const isServiceWithBufferNode = nodeLogicalType === 'servicewithbuffer';
             const queueValue = sampleValueFor('queue', semantics.queue);
             queueTooltip = semanticTooltip(semantics.queue, 'Queue depth');
 
-            if (queueValue !== null && !isQueueNode) {
+            if (queueValue !== null && !isQueueNode && !isServiceWithBufferNode) {
                 const queueLabel = formatMetricValue(queueValue);
                 if (queueLabel) {
                     pendingQueueChip = {
@@ -3286,24 +3287,20 @@
         const y = Number(nodeMeta.y ?? nodeMeta.Y ?? 0);
         const width = Number(nodeMeta.width ?? nodeMeta.Width ?? 54);
         const height = Number(nodeMeta.height ?? nodeMeta.Height ?? 24);
-        const barWidth = 2;
-        const denseGap = 0.5;
-        const looseGap = 1.5;
-        const barHeights = [4, 5, 7, 9, 10];
-        const maxHeight = Math.max(...barHeights);
-        const startRight = x + (width / 2) - 3;
+        const barWidth = 3;
+        const gap = 1;
+        const barCount = 4;
+        const barHeight = Math.min(10, Math.max(4, height * 0.35));
+        const startRight = x + (width / 2) - 4;
         let cursor = startRight - barWidth;
-
+        const fillColor = isDarkTheme() ? NODE_LABEL_COLOR_DARK : NODE_LABEL_COLOR_LIGHT;
+        const topEdge = y - (height / 2) + 3;
         ctx.save();
         ctx.globalAlpha = 0.9;
-        ctx.fillStyle = QUEUE_PILL_STROKE;
-        const topEdge = y - (height / 2) + 3;
+        ctx.fillStyle = fillColor;
 
-        for (let i = barHeights.length - 1; i >= 0; i--) {
-            const barHeight = barHeights[i];
-            const offsetY = topEdge + (maxHeight - barHeight);
-            ctx.fillRect(cursor, offsetY, barWidth, barHeight);
-            const gap = i >= barHeights.length - 2 ? denseGap : looseGap;
+        for (let i = 0; i < barCount; i++) {
+            ctx.fillRect(cursor, topEdge, barWidth, barHeight);
             cursor -= (barWidth + gap);
         }
 
