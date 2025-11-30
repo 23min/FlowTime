@@ -27,7 +27,7 @@ public sealed class GraphService
         this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    private static readonly string[] DefaultOperationalKinds = { "service", "queue", "dlq", "router", "external" };
+    private static readonly string[] DefaultOperationalKinds = { "service", "serviceWithBuffer", "queue", "dlq", "router", "external" };
     private static readonly string[] DefaultFullKinds = { "service", "queue", "dlq", "router", "external", "expr", "const", "pmf", "serviceWithBuffer" };
     private static readonly string[] DefaultDependencyFields = { "arrivals", "served", "errors", "attempts", "failures", "exhaustedFailures", "retryEcho", "retryBudgetRemaining", "queue", "capacity", "expr" };
 
