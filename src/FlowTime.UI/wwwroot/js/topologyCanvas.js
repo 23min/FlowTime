@@ -2602,11 +2602,49 @@
             const messageCandidate = typeof entry.message === 'string' ? entry.message : entry.Message;
             const severityCandidate = typeof entry.severity === 'string' ? entry.severity : entry.Severity;
             const code = (codeCandidate ?? '').toString().trim() || 'warning';
+            if (code.toLowerCase() === 'queue_latency_gate_closed') {
+                continue;
+            }
             const message = (messageCandidate ?? '').toString().trim();
             const severity = (severityCandidate ?? '').toString().trim().toLowerCase() || 'warning';
             normalized.push({ code, message, severity });
         }
         return normalized;
+    }
+
+    function normalizeQueueLatencyStatus(status) {
+        if (!status) return null;
+        const codeCandidate = typeof status.code === 'string' ? status.code : status.Code;
+        const messageCandidate = typeof status.message === 'string' ? status.message : status.Message;
+        const code = (codeCandidate ?? '').toString().trim();
+        if (!code) {
+            return null;
+        }
+
+        const normalized = {
+            code: code.toLowerCase(),
+            originalCode: code,
+            message: (messageCandidate ?? '').toString().trim()
+        };
+        return normalized;
+    }
+
+    function formatQueueLatencyStatusLabel(status) {
+        if (!status) {
+            return 'Latency paused';
+        }
+
+        switch (status.code) {
+            case 'queue_latency_gate_closed':
+                return 'Paused (gate closed)';
+            case 'queue_latency_unreported':
+                return 'Latency unavailable';
+            default:
+                if (status.message && status.message.length > 0) {
+                    return status.message;
+                }
+                return toPascal(status.originalCode ?? 'Latency status');
+        }
     }
 
     function drawServiceDecorations(ctx, nodeMeta, overlaySettings, state) {
@@ -2645,6 +2683,8 @@
             });
             warningCodes.add(normalized);
         };
+
+        const queueLatencyStatus = normalizeQueueLatencyStatus(metricSnapshot?.queueLatencyStatus ?? metricSnapshot?.QueueLatencyStatus ?? null);
 
         if (!hasSemantics && !hasSpark) {
             return;
@@ -2912,6 +2952,23 @@
                     });
                     topLeft += dims.width + gap;
                 }
+            }
+
+            if (queueLatencyStatus && queueLatencyStatus.code === 'queue_latency_gate_closed') {
+                const statusLabel = formatQueueLatencyStatusLabel(queueLatencyStatus);
+                const statusFill = isDarkTheme() ? 'rgba(14, 165, 233, 0.3)' : 'rgba(14, 165, 233, 0.18)';
+                const dims = drawChip(ctx, topLeft, topRowTop + chipH, statusLabel, '#0EA5E9', getQueueLabelColor(), paddingX, chipH, 'top', statusFill);
+                registerChipHitbox(state, {
+                    nodeId: nodeMeta.id ?? null,
+                    metric: 'queueLatencyStatus',
+                    placement: 'top',
+                    tooltip: queueLatencyStatus.message || 'Latency paused while gate closed',
+                    x: topLeft,
+                    y: dims.top,
+                    width: dims.width,
+                    height: dims.height
+                });
+                topLeft += dims.width + gap;
             }
         }
 

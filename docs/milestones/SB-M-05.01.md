@@ -162,9 +162,9 @@ dotnet run --project src/FlowTime.Sim.Cli -- generate --id warehouse-picker-wave
 
 ## Known Gaps / Follow-Up
 
-The current milestone intentionally left two technical gaps that will be addressed in `DB-M-05.02`:
+The current milestone intentionally left two technical gaps that are now the focus of `SB-M-05.02`:
 
-- **DSL simplification:** ServiceWithBuffer topology nodes still require explicit helper nodes (`queueDepth` series) to participate in execution. DB‑M‑05.02 will allow a topology-only declaration (implicit queueDepth) so modelers never author hidden helpers.
-- **Queue latency semantics for gated services:** When a dispatch schedule holds backlog (served = 0, depth > 0) the engine/UI expose `latencyMinutes = null`. DB‑M‑05.02 introduces explicit “paused” semantics so operators see why latency is undefined instead of a bare null.
+- **DSL simplification:** ServiceWithBuffer topology nodes still require explicit helper nodes (`queueDepth` series) to participate in execution. SB‑M‑05.02 allows a topology-only declaration (implicit queueDepth) so modelers never author hidden helpers.
+- **Queue latency semantics for gated services:** When a dispatch schedule holds backlog (served = 0, depth > 0) the engine/UI expose `latencyMinutes = null`. SB‑M‑05.02 introduces explicit “paused” semantics so operators see why latency is undefined instead of a bare null.
 
 See `docs/milestones/SB-M-05.02.md` for the full spec.

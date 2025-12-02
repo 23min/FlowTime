@@ -322,10 +322,17 @@ public static class InvariantAnalyzer
 
                 if (badLatencyBins.Count > 0)
                 {
+                    var warningCode = dispatchSchedule is not null
+                        ? "queue_latency_gate_closed"
+                        : "queue_latency_unreported";
+                    var warningMessage = dispatchSchedule is not null
+                        ? "Dispatch gate was closed while backlog was present; latency will display as Paused (gate closed)."
+                        : "Queue latency could not be computed where served was zero and queue depth was positive.";
+
                     warnings.Add(new InvariantWarning(
                         nodeId,
-                        "latency_uncomputable_bins",
-                        "Queue latency could not be computed where served was zero and queue depth was positive.",
+                        warningCode,
+                        warningMessage,
                         badLatencyBins.ToArray(),
                         null,
                         "info"));

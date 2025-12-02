@@ -163,4 +163,5 @@ internal sealed record NodeMetricSnapshotDto(
     double? LatencyMinutes,
     double? ServiceTimeMs,
     double? RetryTax,
-    IReadOnlyDictionary<string, double?>? Raw);
+    IReadOnlyDictionary<string, double?>? Raw,
+    QueueLatencyStatus? QueueLatencyStatus);

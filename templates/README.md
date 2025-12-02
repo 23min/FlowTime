@@ -52,6 +52,7 @@ Hub-and-spoke transit network with a central queue and airport retries.
 Highlights:
 - Origins feed `CentralHub`, which stages riders in `HubQueue` (service-with-buffer node) before dispatching downstream; there is no queue abandonment in this milestone so backlog is conserved.
 - Airport line maps `attempts`, `failures`, and `retryEcho`, so UI retry chips mirror delivery behavior.
+- **SB‑M‑05.02 update:** Hub queues now rely on the implicit ServiceWithBuffer DSL—no hidden backlog helpers—and expose `queueLatencyStatus`. When a dispatch cadence holds backlog, the UI shows a “Paused (gate closed)” badge in place of the generic latency warning.
 
 ```json
 {
@@ -86,6 +87,7 @@ Highlights:
 - Intake behaves like a traditional service node with demand/capacity arrays, SLA target, and explicit overflow (`intake_spill`).
 - The `PickerWave` service-with-buffer node stores staged totes until a scheduled picker wave fires (`dispatchSchedule`), so the staged backlog grows between releases.
 - A second service-with-buffer (`PackStagingQueue`) sits between picker waves and packers, smoothing the bursty releases into a steady packing cadence. When bursts exceed pack capacity, backlog grows and `pack_spill`/queue depth highlight the shortfall.
+- **SB‑M‑05.02 update:** Both ServiceWithBuffer nodes are authored directly in the topology with `queueDepth: self` aliases, and the UI renders small buffer badges plus queue latency statuses. Expect the inspector to show “Paused (gate closed)” when waves have backlog but the dispatch gate is shut.
 
 ## manufacturing-line
 

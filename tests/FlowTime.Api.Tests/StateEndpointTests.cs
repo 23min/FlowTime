@@ -309,6 +309,43 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
     }
 
     [Fact]
+    public async Task GetState_ReportsQueueLatencyStatusWhenGateClosed()
+    {
+        var response = await client.GetAsync($"/v1/runs/{dispatchScheduleRunId}/state?binIndex=0");
+        response.EnsureSuccessStatusCode();
+
+        var payload = JsonNode.Parse(await response.Content.ReadAsStringAsync());
+        Assert.NotNull(payload);
+        var queueNode = payload!["nodes"]!.AsArray().First(n => string.Equals(n?["id"]?.GetValue<string>(), "SupportQueue", StringComparison.Ordinal));
+
+        Assert.Null(queueNode?["derived"]?["latencyMinutes"]);
+
+        var statusNode = queueNode?["metrics"]?["queueLatencyStatus"];
+        Assert.NotNull(statusNode);
+        Assert.Equal("paused_gate_closed", statusNode!["code"]!.GetValue<string>());
+        Assert.Contains("gate", statusNode["message"]!.GetValue<string>(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task StateWindow_IncludesQueueLatencyStatusSeries()
+    {
+        var response = await client.GetAsync($"/v1/runs/{dispatchScheduleRunId}/state_window?startBin=0&endBin=3");
+        response.EnsureSuccessStatusCode();
+
+        var payload = JsonNode.Parse(await response.Content.ReadAsStringAsync());
+        Assert.NotNull(payload);
+
+        var queueNode = payload!["nodes"]!.AsArray().First(n => string.Equals(n?["id"]?.GetValue<string>(), "SupportQueue", StringComparison.Ordinal));
+        var statuses = queueNode?["queueLatencyStatus"]?.AsArray();
+        Assert.NotNull(statuses);
+        Assert.Equal(4, statuses!.Count);
+
+        Assert.Equal("paused_gate_closed", statuses![0]!["code"]!.GetValue<string>());
+        Assert.Null(statuses[1]);
+        Assert.Equal("paused_gate_closed", statuses[2]!["code"]!.GetValue<string>());
+    }
+
+    [Fact]
     public async Task GetStateWindow_ReturnsByClassSeries()
     {
         var response = await client.GetAsync($"/v1/runs/{classRunId}/state_window?startBin=0&endBin=1");
@@ -738,7 +775,13 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
 
     private void CreateDispatchScheduleRun()
     {
-        CreateRun(dispatchScheduleRunId, BuildDispatchScheduleModelYaml(), mode: "telemetry");
+        var overrides = new Dictionary<string, double[]>
+        {
+            ["SupportQueue_served.csv"] = new[] { 0d, 5d, 0d, 0d },
+            ["SupportQueue_queue.csv"] = new[] { 5d, 0d, 6d, 7d }
+        };
+
+        CreateRun(dispatchScheduleRunId, BuildDispatchScheduleModelYaml(), mode: "telemetry", overrides: overrides);
     }
 
     private void CreateThroughputOverflowRun()

@@ -917,6 +917,24 @@ body.dark-mode .timeline-focus-label {
     font-weight: 600;
 }
 
+.queue-status-chip-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    padding-top: 0.35rem;
+}
+
+.queue-status-chip {
+    border-color: rgba(14, 165, 233, 0.6);
+    background: rgba(14, 165, 233, 0.16);
+}
+
+.dark-mode .queue-status-chip {
+    border-color: rgba(125, 211, 252, 0.7);
+    background: rgba(14, 165, 233, 0.32);
+    color: #E0F2FE;
+}
+
 .timeline-zoom-set {
     display: flex;
     gap: 0.35rem;

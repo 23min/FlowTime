@@ -1,6 +1,6 @@
-# DB-M-05.02 — ServiceWithBuffer DSL Simplification & Queue Latency Semantics
+# SB-M-05.02 — ServiceWithBuffer DSL Simplification & Queue Latency Semantics
 
-**Status:** 📝 Planned  
+**Status:** ✅ Completed  
 **Epic:** Service With Buffer (`docs/architecture/service-with-buffer/`)  
 **Depends on:** SB‑M‑05.01 (public ServiceWithBuffer introduction)  
 **Goal:** Let modelers declare ServiceWithBuffer stages directly in topology (no helper nodes) and improve queue‑latency semantics so scheduled drains surface “paused” status instead of nulls.
@@ -49,8 +49,9 @@ SB‑M‑05.01 delivered `kind: serviceWithBuffer` but still requires modelers t
 ### FR3 — Docs & Tracking
 
 - Update `docs/templates/template-authoring.md`, `templates/README.md`, and the ServiceWithBuffer architecture note to describe the implicit DSL and new latency status.
-- Log the change in `docs/milestones/tracking/DB-M-05.02-tracking.md` (new tracking doc).
-- Reference DB‑M‑05.02 in `docs/architecture/epic-roadmap.md` and `docs/milestones/README.md`.
+- Capture the previously documented CL‑M‑04.03.x limitations (helper nodes + missing latency reason) and note how SB‑M‑05.02 resolves them.
+- Log the change in `docs/milestones/tracking/SB-M-05.02-tracking.md` (new tracking doc).
+- Reference SB‑M‑05.02 in `docs/architecture/epic-roadmap.md` and `docs/milestones/README.md`.
 
 ---
 
@@ -78,4 +79,4 @@ SB‑M‑05.01 delivered `kind: serviceWithBuffer` but still requires modelers t
 
 ## Tracking
 
-- Create `docs/milestones/tracking/DB-M-05.02-tracking.md` when implementation starts.
+- Create `docs/milestones/tracking/SB-M-05.02-tracking.md` when implementation starts.

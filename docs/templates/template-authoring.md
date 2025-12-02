@@ -97,6 +97,32 @@ topology:
           retryEcho: "Retry backlog"
 ```
 
+### ServiceWithBuffer Nodes (Implicit Queue Ownership)
+
+`kind: serviceWithBuffer` nodes now own both the queue/buffer and the service that drains it. When you declare one in `topology.nodes` you no longer create separate backlog helpers—the loader synthesizes the backing queue series for you.
+
+```yaml
+topology:
+  nodes:
+    - id: PickerWave
+      kind: serviceWithBuffer
+      semantics:
+        arrivals: wave_stage_inflow
+        served: picker_wave_release
+        errors: wave_attrition
+        queueDepth: picker_wave_backlog   # alias for the synthesized queue series
+        capacity: wave_dispatch_capacity
+        dispatchSchedule:
+          periodBins: ${wavePeriodBins}
+          phaseOffset: ${wavePhaseOffset}
+          capacitySeries: wave_dispatch_capacity
+```
+
+- Set `queueDepth: self` (or omit the field) when you do not need a named alias for outputs. If you do provide a series id (`picker_wave_backlog` above) it becomes the exported queue depth without defining a separate `nodes:` entry.
+- `dispatchSchedule` lives directly under the topology node and describes when the queue is allowed to drain. Use the same schema you already use inside nodes (`periodBins`, `phaseOffset`, optional `capacitySeries`).
+- The loader rejects legacy backlog helpers. When you migrate older templates, delete the helper nodes and keep only the topology declaration.
+- When ServiceWithBuffer nodes release work on a cadence, the UI/CLI surface their queue latency status (see *Queue Latency Semantics* below) so paused gates show up as badges rather than warnings.
+
 ### Retry Governance Fields
 
 TT‑M‑03.32 introduced three retry governance fields. When a service node supports retries:
@@ -192,50 +218,50 @@ Use `kind: router` when a single upstream queue feeds multiple downstream legs a
 
 ### Scheduled Dispatch ServiceWithBuffer Nodes
 
-Use a `serviceWithBuffer` node with `dispatchSchedule` when you want a queue to release on a cadence instead of every bin. This models picker waves, shuttle departures, or any bursty flow where work accumulates and then drains in discrete bursts.
+Cadence-driven queues (picker waves, shuttle departures, batch jobs) are now authored entirely from the topology node—no helper backlog nodes are required. Declare the ServiceWithBuffer node plus its schedule and the loader will synthesize the queue depth series automatically:
 
 ```yaml
-  - id: PickerWave
-    kind: queue
-    semantics:
-      arrivals: wave_stage_inflow
-      served: picker_wave_release
-      queueDepth: picker_wave_backlog
-    initialCondition:
-      queueDepth: 0
-
-nodes:
-  - id: picker_wave_gate
-    kind: expr
-    expr: "PULSE(${wavePeriodBins}, ${wavePhaseOffset}, 1)"
-  - id: picker_wave_buildup
-    kind: expr
-    expr: "wave_stage_inflow + SHIFT(wave_stage_inflow, 1) + SHIFT(wave_stage_inflow, 2) + SHIFT(wave_stage_inflow, 3)"
-  - id: picker_wave_release
-    kind: expr
-    expr: "MIN(picker_wave_buildup, wave_dispatch_capacity) * picker_wave_gate"
-  - id: wave_dispatch_capacity
-    kind: expr
-    expr: "${waveCapacity}"
-  - id: picker_wave_backlog
-    kind: serviceWithBuffer
-    inflow: wave_stage_inflow
-    outflow: picker_wave_release
-    loss: wave_attrition
-    dispatchSchedule:
-      periodBins: ${wavePeriodBins}
-      phaseOffset: ${wavePhaseOffset}
-      capacitySeries: wave_dispatch_capacity
+topology:
+  nodes:
+    - id: PickerWave
+      kind: serviceWithBuffer
+      semantics:
+        arrivals: wave_stage_inflow
+        served: picker_wave_release
+        errors: wave_attrition
+        queueDepth: picker_wave_backlog
+        capacity: wave_dispatch_capacity
+        aliases:
+          queue: "Staged backlog"
+      initialCondition:
+        queueDepth: 0
+      dispatchSchedule:
+        periodBins: ${wavePeriodBins}
+        phaseOffset: ${wavePhaseOffset}
+        capacitySeries: wave_dispatch_capacity
 ```
 
 - `periodBins` is required and represents the number of bins between dispatch events.
-- `phaseOffset` shifts the first dispatch bin. The engine normalizes negative offsets modulo `periodBins`, so you can align bus departures with a specific clock tick.
-- `capacitySeries` (optional) caps the per-dispatch volume. Reference an existing capacity node (e.g., `cap_airport`) or a dedicated `wave_dispatch_capacity` expression. When omitted, releases equal whatever the `outflow` series requested on dispatch bins.
+- `phaseOffset` shifts the first dispatch bin. The engine normalizes negative offsets modulo `periodBins`, so you can align departures with a specific clock tick.
+- `capacitySeries` (optional) caps the per-dispatch volume. Reference an existing capacity node (e.g., `cap_airport`) or a dedicated expression. When omitted, releases equal whatever backlog exists on dispatch bins.
 - Analyzer warnings:
   - `dispatch_capacity_missing` when `capacitySeries` references an undefined node.
-  - `dispatch_missing_served_series` if the queue semantics omit `served`.
+  - `dispatch_missing_served_series` if the node omits `served`.
   - `dispatch_never_releases` when arrivals exist but the cadence never fires. This usually means `phaseOffset` and `periodBins` don’t cover the evaluated window.
-- FlowTime-Sim CLI prints a summary of every `dispatchSchedule` when you run `flowtime-sim generate --verbose ...`. Use it to confirm cadence metadata (kind/period/phase/capacity) without spelunking through YAML.
+- FlowTime-Sim CLI prints a summary of every `dispatchSchedule` when you run `flowtime-sim generate --verbose ...`. Use it to confirm cadence metadata without spelunking through YAML.
+- When a dispatch gate is closed while backlog remains, the engine exposes `queueLatencyStatus: paused_gate_closed`. The UI renders a “Paused” badge and CLI output explains that latency is undefined because the schedule is holding work. You no longer see the generic “latency could not be computed” warning for these cases.
+
+### Queue Latency Semantics
+
+Queue latency is now accompanied by a status descriptor so operators know *why* the metric may be missing. Every `/state` and `/state_window` payload includes `metrics.queueLatencyStatus` for queue-like nodes:
+
+- `null` — latency is fully computable (standard steady-state queues).
+- `paused_gate_closed` — backlog exists but the dispatch gate is closed. The UI renders a “Paused (gate closed)” badge and CLI output suppresses the older generic warning. Latency remains `null` because no work left the queue during those bins.
+
+Authoring guidance:
+
+- Ensure ServiceWithBuffer nodes always declare `served` plus the relevant dispatch schedule. The loader/engine will handle status calculation; templates do **not** emit distinct warning series.
+- When you expect paused status (e.g., nightly batches), mention it in the template README so consumers know the behavior is intentional.
 
 ## Computational Nodes and Outputs
 
@@ -283,4 +309,4 @@ Violations surface as warnings in CLI output and will prevent templates from pas
 3. Update fixtures (`fixtures/<template-id>/…`) so deterministic tests cover the new metrics.
 4. Run `dotnet test FlowTime.sln` before opening a PR.
 
-Documenting these steps keeps retries, terminal edges, and telemetry contracts consistent across all domains.***
+Documenting these steps keeps retries, terminal edges, and telemetry contracts consistent across all domains.

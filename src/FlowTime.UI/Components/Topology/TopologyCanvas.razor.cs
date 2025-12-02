@@ -684,7 +684,8 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                     nodeMetrics.LatencyMinutes,
                     nodeMetrics.ServiceTimeMs,
                     nodeMetrics.RetryTax,
-                    nodeMetrics.RawMetrics);
+                    nodeMetrics.RawMetrics,
+                    nodeMetrics.QueueLatencyStatus);
 
                 var nodeWidth = IsQueueLikeKind(node.Kind, node.LogicalType)
                     ? QueueNodeWidth

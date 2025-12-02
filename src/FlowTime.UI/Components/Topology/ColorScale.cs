@@ -288,4 +288,7 @@ public sealed record NodeBinMetrics(
     double? FlowLatencyMs = null,
     double? RetryTax = null,
     IReadOnlyDictionary<string, double?>? RawMetrics = null,
-    IReadOnlyDictionary<string, string>? Metadata = null);
+    IReadOnlyDictionary<string, string>? Metadata = null,
+    QueueLatencyStatus? QueueLatencyStatus = null);
+
+public sealed record QueueLatencyStatus(string Code, string? Message);

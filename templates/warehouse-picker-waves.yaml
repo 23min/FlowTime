@@ -107,6 +107,10 @@ topology:
           queue: "Staged backlog"
       initialCondition:
         queueDepth: 0
+      dispatchSchedule:
+        periodBins: ${wavePeriodBins}
+        phaseOffset: ${wavePhaseOffset}
+        capacitySeries: wave_dispatch_capacity
     - id: PackStagingQueue
       kind: serviceWithBuffer
       semantics:
@@ -180,17 +184,6 @@ nodes:
   - id: wave_dispatch_capacity
     kind: expr
     expr: "${waveCapacity}"
-  - id: picker_wave_backlog
-    kind: serviceWithBuffer
-    inflow: wave_stage_inflow
-    outflow: picker_wave_release
-    loss: wave_attrition
-    dispatchSchedule:
-      periodBins: ${wavePeriodBins}
-      phaseOffset: ${wavePhaseOffset}
-      capacitySeries: wave_dispatch_capacity
-    metadata:
-      graph.hidden: "true"
   - id: pack_capacity
     kind: expr
     expr: "${packCapacity}"
@@ -203,12 +196,6 @@ nodes:
   - id: pack_processed
     kind: expr
     expr: "MAX(0, SHIFT(pack_queue_backlog, 1) + pack_arrivals - pack_queue_backlog)"
-  - id: pack_queue_backlog
-    kind: serviceWithBuffer
-    inflow: pack_arrivals
-    outflow: pack_capacity
-    metadata:
-      graph.hidden: "true"
   - id: zero_flow
     kind: expr
     expr: "0"

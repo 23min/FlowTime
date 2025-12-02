@@ -21,6 +21,11 @@ public sealed class StateQueryService
     private static readonly EventId stateSnapshotEvent = new(3001, "StateSnapshotObservability");
     private static readonly EventId stateWindowEvent = new(3002, "StateWindowObservability");
     private static readonly double[] fallbackRetryKernel = RetryKernelPolicy.DefaultKernel;
+    private static readonly QueueLatencyStatusDescriptor pausedGateClosedStatus = new()
+    {
+        Code = "paused_gate_closed",
+        Message = "Queue latency unavailable: dispatch gate closed"
+    };
     private readonly IConfiguration configuration;
     private readonly ILogger<StateQueryService> logger;
     private readonly RunManifestReader manifestReader;
@@ -551,6 +556,10 @@ public sealed class StateQueryService
             latencyMinutes = rawLatency.HasValue ? Normalize(rawLatency.Value) : null;
         }
 
+        var queueLatencyStatus = IsQueueLikeKind(kind)
+            ? DetermineQueueLatencyStatus(queue, served, dispatchSchedule, binIndex)
+            : null;
+
         var throughputRatioValue = ComputeThroughputRatio(arrivals, served);
         var throughputRatio = throughputRatioValue.HasValue ? Normalize(throughputRatioValue.Value) : null;
         var retryTax = ComputeRetryTaxValue(attempts, served);
@@ -596,7 +605,8 @@ public sealed class StateQueryService
                 Queue = queue,
                 Capacity = capacity,
                 ExternalDemand = externalDemand,
-                MaxAttempts = maxAttempts
+                MaxAttempts = maxAttempts,
+                QueueLatencyStatus = queueLatencyStatus
             },
             ByClass = ConvertClassMetrics(classAggregation.ByClass),
             Derived = new NodeDerivedMetrics
@@ -850,6 +860,8 @@ public sealed class StateQueryService
             }
         }
 
+        QueueLatencyStatusDescriptor?[]? queueLatencyStatuses = null;
+
         if (IsQueueLikeKind(kind) && data.QueueDepth != null)
         {
             var latency = ComputeLatencySeries(data, context.Window, startBin, count);
@@ -857,6 +869,13 @@ public sealed class StateQueryService
             {
                 series["latencyMinutes"] = latency;
             }
+
+            queueLatencyStatuses = ComputeQueueLatencyStatusSeries(
+                data.QueueDepth,
+                data.Served,
+                dispatchSchedule,
+                startBin,
+                count);
         }
 
         var throughputSeries = ComputeThroughputSeries(data, startBin, count);
@@ -897,7 +916,8 @@ public sealed class StateQueryService
             ByClass = BuildClassSeries(data, startBin, count),
             Telemetry = BuildTelemetryInfo(node, context.ManifestMetadata, nodeWarnings),
             Aliases = node.Semantics?.Aliases,
-            DispatchSchedule = dispatchSchedule
+            DispatchSchedule = dispatchSchedule,
+            QueueLatencyStatus = queueLatencyStatuses
         };
     }
 
@@ -1095,6 +1115,37 @@ public sealed class StateQueryService
         }
 
         return result;
+    }
+
+    private static QueueLatencyStatusDescriptor?[]? ComputeQueueLatencyStatusSeries(
+        double[]? queueSeries,
+        double[]? servedSeries,
+        DispatchScheduleDescriptor? schedule,
+        int startBin,
+        int count)
+    {
+        if (schedule is null || schedule.PeriodBins <= 0 || queueSeries is null)
+        {
+            return null;
+        }
+
+        var result = new QueueLatencyStatusDescriptor?[count];
+        var hasStatus = false;
+
+        for (var offset = 0; offset < count; offset++)
+        {
+            var absoluteBin = startBin + offset;
+            var queue = GetOptionalValue(queueSeries, absoluteBin);
+            var served = GetOptionalValue(servedSeries, absoluteBin);
+            var status = DetermineQueueLatencyStatus(queue, served, schedule, absoluteBin);
+            result[offset] = status;
+            if (status is not null)
+            {
+                hasStatus = true;
+            }
+        }
+
+        return hasStatus ? result : null;
     }
 
     private static double? ComputeServiceTimeValue(NodeData data, int index)
@@ -2451,6 +2502,36 @@ public sealed class StateQueryService
 
         var normalized = kind.Trim().ToLowerInvariant();
         return normalized is "queue" or "dlq";
+    }
+
+    private static QueueLatencyStatusDescriptor? DetermineQueueLatencyStatus(
+        double? queue,
+        double? served,
+        DispatchScheduleDescriptor? schedule,
+        int absoluteBin)
+    {
+        if (schedule is null || schedule.PeriodBins <= 0)
+        {
+            return null;
+        }
+
+        if (!queue.HasValue || queue.Value <= 0)
+        {
+            return null;
+        }
+
+        var servedValue = served ?? 0d;
+        if (servedValue > 0)
+        {
+            return null;
+        }
+
+        if (DispatchScheduleProcessor.IsDispatchBin(absoluteBin, schedule.PeriodBins, schedule.PhaseOffset))
+        {
+            return null;
+        }
+
+        return pausedGateClosedStatus;
     }
 
     private static bool IsDlqKind(string? kind)

@@ -70,6 +70,73 @@ properties:
 
     additionalProperties: false
 
+  topology:
+    type: object
+    description: "Declarative topology description (nodes + edges) used by UI/inspectors."
+    properties:
+      nodes:
+        type: array
+        items:
+          type: object
+          required:
+            - id
+            - kind
+          properties:
+            id:
+              type: string
+              minLength: 1
+            kind:
+              type: string
+            semantics:
+              type: object
+              properties:
+                arrivals: { type: string }
+                served: { type: string }
+                errors: { type: string }
+                attempts: { type: string }
+                failures: { type: string }
+                retryEcho: { type: string }
+                queueDepth:
+                  type:
+                    - string
+                  description: |
+                    Series providing queue depth. When set to the literal "self", depth is derived from the node itself.
+                capacity: { type: string }
+                external_demand: { type: string }
+                processingTimeMsSum: { type: string }
+                servedCount: { type: string }
+                slaMin: { type: number }
+                aliases:
+                  type: object
+                  additionalProperties: true
+              additionalProperties: true
+            initialCondition:
+              type: object
+              properties:
+                queueDepth: { type: number }
+              additionalProperties: true
+            dispatchSchedule:
+              $ref: "#/$defs/dispatchSchedule"
+            metadata:
+              type: object
+              additionalProperties: true
+          additionalProperties: true
+      edges:
+        type: array
+        items:
+          type: object
+          properties:
+            id: { type: string }
+            from: { type: string }
+            to: { type: string }
+            weight: { type: number }
+            type: { type: string }
+            measure: { type: string }
+            multiplier: { type: number }
+            lag: { type: integer }
+          additionalProperties: true
+    additionalProperties: false
+
   nodes:
     type: array
     description: "Array of computation nodes defining the model structure"

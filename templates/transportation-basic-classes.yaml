@@ -159,7 +159,7 @@ topology:
           served: "Hub throughput"
           errors: "Hub overflow"
     - id: HubQueue
-      kind: queue
+      kind: serviceWithBuffer
       semantics:
         arrivals: hub_queue_demand
         served: hub_dispatch
@@ -184,7 +184,7 @@ topology:
         aliases:
           served: "Router dispatch"
     - id: AirportDispatchQueue
-      kind: queue
+      kind: serviceWithBuffer
       semantics:
         arrivals: airport_dispatch_queue_demand
         served: airport_dispatch_queue_served
@@ -196,8 +196,12 @@ topology:
           queue: "Airport dispatch backlog"
       initialCondition:
         queueDepth: 0
+      dispatchSchedule:
+        periodBins: 6
+        phaseOffset: 0
+        capacitySeries: cap_airport
     - id: DowntownDispatchQueue
-      kind: queue
+      kind: serviceWithBuffer
       semantics:
         arrivals: downtown_dispatch_queue_demand
         served: downtown_dispatch_queue_served
@@ -209,8 +213,12 @@ topology:
           queue: "Downtown dispatch backlog"
       initialCondition:
         queueDepth: 0
+      dispatchSchedule:
+        periodBins: 8
+        phaseOffset: 2
+        capacitySeries: cap_downtown
     - id: IndustrialDispatchQueue
-      kind: queue
+      kind: serviceWithBuffer
       semantics:
         arrivals: industrial_dispatch_queue_demand
         served: industrial_dispatch_queue_served
@@ -222,6 +230,10 @@ topology:
           queue: "Industrial dispatch backlog"
       initialCondition:
         queueDepth: 0
+      dispatchSchedule:
+        periodBins: 10
+        phaseOffset: 4
+        capacitySeries: cap_industrial
     - id: LineAirport
       kind: service
       semantics:
@@ -242,7 +254,7 @@ topology:
           attempts: "Airport attempts"
           failures: "Airport failed retries"
     - id: HubLossQueue
-      kind: queue
+      kind: serviceWithBuffer
       semantics:
         arrivals: hub_loss_inflow
         served: hub_loss_served_zero
@@ -490,12 +502,6 @@ nodes:
     kind: expr
     expr: "MIN(hub_dispatch_capacity, hub_queue_demand)"
 
-  - id: hub_queue_depth
-    kind: serviceWithBuffer
-    inflow: hub_queue_demand
-    outflow: hub_dispatch
-    loss: hub_queue_attrition
-
   - id: hub_dispatch_router_arrivals
     kind: expr
     expr: "hub_dispatch"
@@ -548,16 +554,6 @@ nodes:
   - id: airport_dispatch_queue_served
     kind: expr
     expr: "airport_dispatch_queue_demand"
-  - id: airport_dispatch_queue_depth
-    kind: serviceWithBuffer
-    inflow: airport_dispatch_queue_demand
-    outflow: airport_dispatch_queue_served
-    loss: airport_dispatch_queue_attrition
-    dispatchSchedule:
-      periodBins: 6
-      phaseOffset: 0
-      capacitySeries: cap_airport
-
   - id: downtown_dispatch_queue_attrition
     kind: expr
     expr: "0"
@@ -567,16 +563,6 @@ nodes:
   - id: downtown_dispatch_queue_served
     kind: expr
     expr: "downtown_dispatch_queue_demand"
-  - id: downtown_dispatch_queue_depth
-    kind: serviceWithBuffer
-    inflow: downtown_dispatch_queue_demand
-    outflow: downtown_dispatch_queue_served
-    loss: downtown_dispatch_queue_attrition
-    dispatchSchedule:
-      periodBins: 8
-      phaseOffset: 2
-      capacitySeries: cap_downtown
-
   - id: industrial_dispatch_queue_attrition
     kind: expr
     expr: "0"
@@ -586,16 +572,6 @@ nodes:
   - id: industrial_dispatch_queue_served
     kind: expr
     expr: "industrial_dispatch_queue_demand"
-  - id: industrial_dispatch_queue_depth
-    kind: serviceWithBuffer
-    inflow: industrial_dispatch_queue_demand
-    outflow: industrial_dispatch_queue_served
-    loss: industrial_dispatch_queue_attrition
-    dispatchSchedule:
-      periodBins: 10
-      phaseOffset: 4
-      capacitySeries: cap_industrial
-
   - id: hub_dispatch_airport
     kind: expr
     expr: "hub_dispatch * ${splitAirport}"
@@ -674,12 +650,6 @@ nodes:
   - id: hub_loss_attrition
     kind: expr
     expr: "0"
-
-  - id: hub_loss_depth
-    kind: serviceWithBuffer
-    inflow: hub_loss_inflow
-    outflow: hub_loss_served_zero
-    loss: hub_loss_attrition
 
   - id: airport_dlq_inflow
     kind: expr

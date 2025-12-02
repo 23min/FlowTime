@@ -47,6 +47,12 @@ The list below enumerates current epics under `docs/architecture/` in an order t
 - **Goal:** Derive or surface per-edge throughput/attempt volumes and related metrics to support edge heat maps, conservation checks, and richer topology overlays.
 - **Notes:** Called out as the first near‑term epic candidate in `docs/ROADMAP.md`. Depends on stable node semantics from classes and ServiceWithBuffer.
 
+#### SIM/Engine Boundary Purification
+
+- **Folder:** `docs/architecture/sim-engine-boundary/`
+- **Goal:** Restore the clean separation of responsibilities—SIM produces canonical models and telemetry bundles, Engine executes models—by extracting run orchestration (template compilation, analyzer/bundle generation) out of the engine host. This reduces coupling so engine deployments only change when execution logic changes.
+- **Notes:** Best tackled after the ServiceWithBuffer work stabilizes (SB-M-05.x) so template semantics are firm; dovetails with future orchestration/runtime improvements.
+
 ### Mid-Term / Aspirational Epics
 
 #### Engine as Post-Processing & Semantics Layer

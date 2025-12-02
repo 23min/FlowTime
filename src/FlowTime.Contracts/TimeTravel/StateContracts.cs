@@ -96,6 +96,8 @@ public sealed class NodeSeries
     public IReadOnlyDictionary<string, string>? Aliases { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public DispatchScheduleDescriptor? DispatchSchedule { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public QueueLatencyStatusDescriptor?[]? QueueLatencyStatus { get; init; }
 }
 
 public sealed class EdgeSeries
@@ -124,6 +126,8 @@ public sealed class NodeMetrics
     public double? Capacity { get; init; }
     public double? ExternalDemand { get; init; }
     public double? MaxAttempts { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public QueueLatencyStatusDescriptor? QueueLatencyStatus { get; init; }
 }
 
 public sealed class ClassMetrics

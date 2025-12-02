@@ -153,6 +153,9 @@ public sealed record TimeTravelNodeSnapshotDto
 
     [JsonPropertyName("dispatchSchedule")]
     public TimeTravelDispatchScheduleDto? DispatchSchedule { get; init; }
+
+    [JsonPropertyName("queueLatencyStatus")]
+    public TimeTravelQueueLatencyStatusDto? QueueLatencyStatus { get; init; }
 }
 
 public sealed record TimeTravelNodeSeriesDto
@@ -181,6 +184,9 @@ public sealed record TimeTravelNodeSeriesDto
 
     [JsonPropertyName("dispatchSchedule")]
     public TimeTravelDispatchScheduleDto? DispatchSchedule { get; init; }
+
+    [JsonPropertyName("queueLatencyStatus")]
+    public TimeTravelQueueLatencyStatusDto?[]? QueueLatencyStatus { get; init; }
 }
 
 public sealed record TimeTravelEdgeSeriesDto
@@ -247,6 +253,9 @@ public sealed record TimeTravelNodeMetricsDto
 
     [JsonPropertyName("maxAttempts")]
     public double? MaxAttempts { get; init; }
+
+    [JsonPropertyName("queueLatencyStatus")]
+    public TimeTravelQueueLatencyStatusDto? QueueLatencyStatus { get; init; }
 }
 
 public sealed record TimeTravelClassMetricsDto
@@ -316,6 +325,15 @@ public sealed record TimeTravelNodeTelemetryWarningDto
 
     [JsonPropertyName("severity")]
     public string? Severity { get; init; }
+}
+
+public sealed record TimeTravelQueueLatencyStatusDto
+{
+    [JsonPropertyName("code")]
+    public string Code { get; init; } = string.Empty;
+
+    [JsonPropertyName("message")]
+    public string? Message { get; init; }
 }
 
 public sealed record TimeTravelStateWarningDto

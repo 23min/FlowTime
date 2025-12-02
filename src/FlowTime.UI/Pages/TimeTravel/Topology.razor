@@ -435,6 +435,21 @@
                                                 summaryRendered = true;
                                                 <MudText Typo="Typo.body2">Latency (min): @FormatNumber(metrics.LatencyMinutes)</MudText>
                                             }
+                                            @if (metrics.QueueLatencyStatus is not null)
+                                            {
+                                                summaryRendered = true;
+                                                <MudStack Class="queue-status-chip-group">
+                                                    <span class="class-chip queue-status-chip">
+                                                        @FormatQueueLatencyStatusLabel(metrics.QueueLatencyStatus!)
+                                                    </span>
+                                                    @if (!string.IsNullOrWhiteSpace(metrics.QueueLatencyStatus.Message))
+                                                    {
+                                                        <MudText Typo="Typo.caption" Class="topology-muted-text">
+                                                            @metrics.QueueLatencyStatus.Message
+                                                        </MudText>
+                                                    }
+                                                </MudStack>
+                                            }
                                             @if (metrics.CustomValue.HasValue)
                                             {
                                                 var label = string.IsNullOrWhiteSpace(metrics.CustomLabel) ? "Value" : metrics.CustomLabel!;
@@ -1324,7 +1339,7 @@ private const string PmfExpectationLabel = "Value";
                 classCoverageState ??= windowData.Metadata.ClassCoverage;
             }
             EnsureFallbackClassMetadataFromWindow(windowData);
-            windowWarnings = windowData.Warnings ?? Array.Empty<TimeTravelStateWarningDto>();
+            windowWarnings = FilterWindowWarnings(windowData.Warnings);
             UpdateNodeWarningMap();
             Logger?.LogInformation("State window loaded for run {RunId}: nodeSeries={NodeSeriesCount}, timestamps={TimestampCount}",
                 runId,
@@ -1742,7 +1757,7 @@ private const string PmfExpectationLabel = "Value";
             }
 
             windowData = windowResult.Value;
-            windowWarnings = windowData.Warnings ?? Array.Empty<TimeTravelStateWarningDto>();
+            windowWarnings = FilterWindowWarnings(windowData.Warnings);
             UpdateNodeWarningMap();
             timestamps = windowData.TimestampsUtc.ToList();
             BuildNodeSparklines();
@@ -1991,6 +2006,8 @@ private const string PmfExpectationLabel = "Value";
                 }
             }
 
+            var queueLatencyStatus = ResolveQueueLatencyStatus(node, localIndex);
+
             metrics[node.Id] = new NodeBinMetrics(
                 successRate,
                 utilization,
@@ -2007,7 +2024,8 @@ private const string PmfExpectationLabel = "Value";
                 FlowLatencyMs: Get("flowLatencyMs"),
                 RetryTax: retryTax,
                 RawMetrics: rawMetrics.Count == 0 ? null : rawMetrics,
-                Metadata: topoNode?.Semantics?.Metadata);
+                Metadata: topoNode?.Semantics?.Metadata,
+                QueueLatencyStatus: queueLatencyStatus);
 
             if (HasClassSelection)
             {
@@ -2170,7 +2188,8 @@ private const string PmfExpectationLabel = "Value";
                     NodeKind: topoNode.Kind,
                     RetryTax: existingMetrics?.RetryTax,
                     RawMetrics: existingMetrics?.RawMetrics,
-                    Metadata: topoNode.Semantics?.Metadata ?? existingMetrics?.Metadata);
+                    Metadata: topoNode.Semantics?.Metadata ?? existingMetrics?.Metadata,
+                    QueueLatencyStatus: existingMetrics?.QueueLatencyStatus);
             }
         }
 
@@ -2201,6 +2220,33 @@ private const string PmfExpectationLabel = "Value";
         {
             ScheduleRunStateSave();
         }
+    }
+
+    private static QueueLatencyStatus? ResolveQueueLatencyStatus(TimeTravelNodeSeriesDto node, int localIndex)
+    {
+        if (node.QueueLatencyStatus is not { Length: > 0 })
+        {
+            return null;
+        }
+
+        if (localIndex < 0 || localIndex >= node.QueueLatencyStatus.Length)
+        {
+            return null;
+        }
+
+        return ConvertQueueLatencyStatus(node.QueueLatencyStatus[localIndex]);
+    }
+
+    private static QueueLatencyStatus? ConvertQueueLatencyStatus(TimeTravelQueueLatencyStatusDto? dto)
+    {
+        if (dto is null || string.IsNullOrWhiteSpace(dto.Code))
+        {
+            return null;
+        }
+
+        var code = dto.Code.Trim();
+        var message = string.IsNullOrWhiteSpace(dto.Message) ? null : dto.Message.Trim();
+        return new QueueLatencyStatus(code, message);
     }
 
     private void RefreshTimelineTicks()
@@ -2655,6 +2701,34 @@ private const string PmfExpectationLabel = "Value";
         return string.IsNullOrWhiteSpace(schedule.CapacitySeries)
             ? "Capacity: unbounded"
             : $"Capacity: {schedule.CapacitySeries}";
+    }
+
+    private static string FormatQueueLatencyStatusLabel(QueueLatencyStatus status)
+    {
+        if (status is null)
+        {
+            return "Latency paused";
+        }
+
+        var code = status.Code?.Trim().ToLowerInvariant();
+        if (code == "queue_latency_gate_closed")
+        {
+            return "Paused (gate closed)";
+        }
+
+        if (code == "queue_latency_unreported")
+        {
+            return "Latency unavailable";
+        }
+
+        if (!string.IsNullOrWhiteSpace(status.Message))
+        {
+            return status.Message.Trim();
+        }
+
+        return string.IsNullOrWhiteSpace(status.Code)
+            ? "Latency paused"
+            : CultureInfo.CurrentCulture.TextInfo.ToTitleCase(status.Code.Replace('_', ' '));
     }
 
     private static string FormatClassChipMetrics(ClassContribution contribution)
@@ -3279,6 +3353,11 @@ internal sealed record InspectorMetricBlock(
         AddDerived("Latency", metrics.LatencyMinutes, InspectorValueFormat.Number, "min");
         AddDerived("Service time", metrics.ServiceTimeMs, InspectorValueFormat.Number, "ms");
         AddDerived("Retry tax", metrics.RetryTax, InspectorValueFormat.Percent);
+
+        if (metrics.QueueLatencyStatus is not null)
+        {
+            rows.Add(new InspectorBinMetric("Latency status", FormatQueueLatencyStatusLabel(metrics.QueueLatencyStatus!)));
+        }
 
         return rows;
     }
@@ -4495,6 +4574,21 @@ private static IReadOnlyList<double?> TrimSeriesAt(double?[]? source, int limit,
         saveRunStateDebounceCts?.Dispose();
         saveRunStateDebounceCts = null;
     }
+
+    private static IReadOnlyList<TimeTravelStateWarningDto> FilterWindowWarnings(IReadOnlyList<TimeTravelStateWarningDto>? warnings)
+    {
+        if (warnings is null || warnings.Count == 0)
+        {
+            return Array.Empty<TimeTravelStateWarningDto>();
+        }
+
+        var filtered = warnings.Where(ShouldDisplayStateWarning).ToArray();
+        return filtered.Length == 0 ? Array.Empty<TimeTravelStateWarningDto>() : filtered;
+    }
+
+    private static bool ShouldDisplayStateWarning(TimeTravelStateWarningDto warning) =>
+        warning is not null &&
+        !string.Equals(warning.Code, "queue_latency_gate_closed", StringComparison.OrdinalIgnoreCase);
 
     private void UpdateNodeWarningMap()
     {

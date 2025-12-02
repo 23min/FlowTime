@@ -1,3 +1,5 @@
+using System;
+using System.Linq;
 using FlowTime.Sim.Core.Templates;
 using FlowTime.Sim.Core.Templates.Exceptions;
 using Xunit;
@@ -166,6 +168,62 @@ outputs:
 """;
 
         Assert.Throws<TemplateValidationException>(() => TemplateParser.ParseFromYaml(yaml));
+    }
+
+    [Fact]
+    public void Template_With_ServiceWithBuffer_SelfQueueDepth_Parses()
+    {
+        var yaml = """
+schemaVersion: 1
+generator: flowtime-sim
+metadata:
+  id: sba-self-queue
+  title: ServiceWithBuffer Self QueueDepth
+  version: 1.0.0
+window:
+  start: 2025-03-01T00:00:00Z
+  timezone: UTC
+grid:
+  bins: 4
+  binSize: 60
+  binUnit: minutes
+topology:
+  nodes:
+    - id: PickerWave
+      kind: serviceWithBuffer
+      semantics:
+        arrivals: wave_stage_inflow
+        served: picker_wave_release
+        errors: wave_attrition
+        queueDepth: self
+      initialCondition:
+        queueDepth: 5
+  edges: []
+nodes:
+  - id: wave_stage_inflow
+    kind: const
+    values: [100, 110, 120, 130]
+  - id: picker_wave_release
+    kind: const
+    values: [80, 90, 100, 110]
+  - id: wave_attrition
+    kind: const
+    values: [0, 0, 0, 0]
+outputs:
+  - series: "*"
+""";
+
+        var template = TemplateParser.ParseFromYaml(yaml);
+
+        Assert.Single(template.Topology.Nodes);
+        Assert.Equal("picker_wave_queue", template.Topology.Nodes[0].Semantics.QueueDepth);
+
+        var synthesized = Assert.Single(
+            template.Nodes,
+            n => string.Equals(n.Kind, "serviceWithBuffer", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal("picker_wave_queue", synthesized.Id);
+        Assert.Equal("wave_stage_inflow", synthesized.Inflow);
+        Assert.Equal("picker_wave_release", synthesized.Outflow);
     }
 
     [Fact]

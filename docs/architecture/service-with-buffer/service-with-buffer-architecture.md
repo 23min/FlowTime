@@ -172,6 +172,8 @@ Important:
 
 - `kind: backlog` is **not** accepted in new templates.
 - The ServiceWithBuffer semantics are documented as part of the public engine surface, alongside `service`.
+- `queueDepth` may be omitted or set to `self` if you do not need a named alias; otherwise the loader creates the queue series for you using the identifier you provide (no helper nodes required).
+- Dispatch schedules belong to the topology node. The loader synthesizes any hidden queue/loss series so templates only carry the operational semantics you care about.
 
 Exact field names are to be finalized in the milestone spec, but the intent is clear: ServiceWithBuffer owns both the queue series and the service behavior.
 
@@ -184,6 +186,7 @@ This epic accepts breaking changes in:
 - Template YAML: templates must be updated from `kind: backlog` to `kind: serviceWithBuffer`, and any accompanying field renames that clarify ownership.
 - UI expectations: topology rendering should treat ServiceWithBuffer as the primary operational node where previously backlog + queue composition was used.
 - API responses: `/graph` and `/state_window` should identify these nodes as `serviceWithBuffer` in node-type fields.
+- Queue latency semantics: `/state` responses now include `queueLatencyStatus`. When a dispatch gate suppresses release but backlog exists, the status is `paused_gate_closed` so operators see an explicit “paused” badge instead of a generic warning.
 
 We explicitly **do not** preserve backward compatibility for the `backlog` kind at the schema level. Any internal compatibility shims (e.g., loader accepting backlog while tests migrate) are considered temporary tooling, not part of the public contract.
 
@@ -225,3 +228,19 @@ The detailed breakdown lives in `docs/milestones/SB-M-05.01.md`, but at a high l
 4. Update analyzers and CLI wording to consistently speak about "services with buffers".
 
 All template and test updates will be done in lockstep with these changes.
+
+---
+
+## 10. Queue Latency Semantics (SB‑M‑05.02)
+
+ServiceWithBuffer nodes expose queue latency plus a status descriptor so downstream tools can distinguish “latency not computable” from “latency intentionally paused.” Queue-like nodes emit `queueLatencyStatus` in `/state` payloads:
+
+- `null` when latency is computable.
+- `paused_gate_closed` when backlog is present, served volume is zero, and the dispatch gate is closed for that bin.
+
+UI/CLI expectations:
+
+- The topology canvas and inspector show a “Paused (gate closed)” badge for affected bins. CLI warnings no longer spam “latency could not be computed”; they reference the paused status instead.
+- Analyzer messages map to the new status (`queue_latency_gate_closed`) so template authors know the behavior is intentional.
+
+This semantics layer ensures scheduled dispatch nodes remain observable even when the queue intentionally withholds work.

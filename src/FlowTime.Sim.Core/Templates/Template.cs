@@ -147,6 +147,7 @@ public class TemplateTopologyNode
     public TemplateNodeSemantics Semantics { get; set; } = new();
     public TemplateInitialCondition? InitialCondition { get; set; }
     public TemplateUiHint? Ui { get; set; }
+    public TemplateDispatchSchedule? DispatchSchedule { get; set; }
 }
 
 /// <summary>

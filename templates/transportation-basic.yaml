@@ -115,7 +115,7 @@ topology:
           served: "Hub throughput"
           errors: "Hub overflow"
     - id: HubQueue
-      kind: queue
+      kind: serviceWithBuffer
       semantics:
         arrivals: hub_queue_demand
         served: hub_dispatch
@@ -148,7 +148,7 @@ topology:
           attempts: "Airport attempts"
           failures: "Airport failed retries"
     - id: HubLossQueue
-      kind: queue
+      kind: serviceWithBuffer
       semantics:
         arrivals: hub_loss_inflow
         served: hub_loss_served_zero
@@ -353,12 +353,6 @@ nodes:
     kind: expr
     expr: "MIN(hub_dispatch_capacity, hub_queue_demand)"
 
-  - id: hub_queue_depth
-    kind: serviceWithBuffer
-    inflow: hub_queue_demand
-    outflow: hub_dispatch
-    loss: hub_queue_attrition
-
   - id: hub_dispatch_airport
     kind: expr
     expr: "hub_dispatch * ${splitAirport}"
@@ -437,12 +431,6 @@ nodes:
   - id: hub_loss_attrition
     kind: expr
     expr: "0"
-
-  - id: hub_loss_depth
-    kind: serviceWithBuffer
-    inflow: hub_loss_inflow
-    outflow: hub_loss_served_zero
-    loss: hub_loss_attrition
 
   - id: airport_dlq_inflow
     kind: expr

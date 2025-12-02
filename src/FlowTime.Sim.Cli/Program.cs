@@ -3,6 +3,7 @@ using System.Linq;
 using System.Text;
 using System.Text.Json;
 using FlowTime.Contracts.Services;
+using FlowTime.Core.Analysis;
 using FlowTime.Sim.Core.Services;
 using FlowTime.Sim.Core.Templates;
 using FlowTime.Sim.Core.Analysis;
@@ -205,6 +206,16 @@ namespace FlowTime.Sim.Cli
             return 0;
         }
 
+        private static bool ShouldDisplayWarning(InvariantWarning warning)
+        {
+            if (warning is null)
+            {
+                return false;
+            }
+
+            return !string.Equals(warning.Code, "queue_latency_gate_closed", StringComparison.OrdinalIgnoreCase);
+        }
+
         static async Task<int> ExecuteShowTemplateCommand(ITemplateService service, CliOptions opts, CancellationToken ct)
         {
             if (string.IsNullOrWhiteSpace(opts.TemplateId))
@@ -309,18 +320,22 @@ namespace FlowTime.Sim.Cli
             var model = await service.GenerateEngineModelAsync(opts.TemplateId, parameters, modeOverride);
             var artifact = DeserializeArtifact(model);
             var invariantAnalysis = TemplateInvariantAnalyzer.Analyze(model);
-            if (invariantAnalysis.Warnings.Count > 0)
+            var displayWarnings = invariantAnalysis.Warnings
+                .Where(ShouldDisplayWarning)
+                .ToList();
+
+            if (displayWarnings.Count > 0)
             {
                 Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine($"⚠ Template produced {invariantAnalysis.Warnings.Count} warning(s):");
-                foreach (var warning in invariantAnalysis.Warnings.Take(5))
+                Console.WriteLine($"⚠ Template produced {displayWarnings.Count} warning(s):");
+                foreach (var warning in displayWarnings.Take(5))
                 {
                     var binsText = warning.Bins.Count > 0
                         ? $" bins [{string.Join(", ", warning.Bins)}]"
                         : string.Empty;
                     Console.WriteLine($"  - [{warning.NodeId}] {warning.Message}{binsText}");
                 }
-                if (invariantAnalysis.Warnings.Count > 5)
+                if (displayWarnings.Count > 5)
                 {
                     Console.WriteLine("    (additional warnings omitted)");
                 }

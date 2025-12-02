@@ -205,6 +205,37 @@ traffic:
     }
 
     [Fact]
+    public void TemplateSchema_ServiceWithBuffer_Allows_Self_QueueDepth()
+    {
+        var yaml = """
+schemaVersion: 1
+grid:
+  bins: 2
+  binSize: 1
+  binUnit: hours
+topology:
+  nodes:
+    - id: wave
+      kind: serviceWithBuffer
+      semantics:
+        arrivals: inbound_orders
+        served: outbound_orders
+        queueDepth: self
+nodes:
+  - id: inbound_orders
+    kind: const
+    values: [10, 12]
+  - id: outbound_orders
+    kind: const
+    values: [9, 11]
+""";
+
+        var result = ModelSchemaValidator.Validate(yaml);
+
+        Assert.True(result.IsValid, string.Join("; ", result.Errors));
+    }
+
+    [Fact]
     public void TemplateSchema_Backlog_Node_Is_Rejected()
     {
         var yaml = """
