@@ -2,82 +2,72 @@
 
 **Status:** 📝 Planned  
 **Epic:** SIM/Engine Boundary Purification (`docs/architecture/sim-engine-boundary/`)  
-**Depends on:** SB‑M‑05.03 (queue/DLQ DSL parity)  
-**Goal:** Make template-driven run generation deterministic and idempotent so SIM/orchestration can reuse existing bundles (or prompt before overwriting) while producing engine-ready artifacts.
+**Depends on:** SB‑M‑05.03 (queue/DLQ implicit DSL)  
+**Goal:** Make template-driven runs idempotent by hashing inputs to deterministic bundle IDs, enabling bundle reuse/overwrite prompts, and completing the SIM/engine separation.
 
 ---
 
 ## Overview
 
-Today, FlowTime.UI/CLI call the engine API with a template ID + parameters and the engine instantiates `RunOrchestrationService`, which regenerates models/bundles every time—even if the inputs are identical. This bloats the `data/runs` directory, complicates comparisons, and keeps the SIM/Engine boundary blurry. SB‑M‑05.04 implements deterministic orchestration under the SIM umbrella:
-
-1. **Deterministic bundle hashing:** The orchestration tier computes a stable hash based on template ID, version, parameters, RNG seed, and telemetry bindings. Generated bundles are named using this hash (e.g., `run_<templateId>_<hash>`).
-2. **Idempotent runs:** Before generating artifacts, orchestration checks if the bundle already exists. If so, CLI/UI callers are prompted to reuse it or overwrite. Overwrites regenerate artifacts deterministically (no hidden drift).
-3. **Engine purity:** Engine APIs accept only canonical bundles/run manifests produced by the orchestration tier. No template compilation happens inside the engine host.
+Engine runs currently regenerate bundles every time a template is executed, even when inputs (template ID, parameters, RNG seed, telemetry bindings) haven’t changed. SB‑M‑05.04 moves hashing/packaging into the SIM/orchestration tier so runs become deterministic artifacts that can be reused or overwritten intentionally. This also advances the SIM/engine boundary epic: orchestration handles template compilation/analyzers; the engine consumes canonical bundles only.
 
 ---
 
 ## Functional Requirements
 
-### FR1 — Hashing & Bundle Identity
-- Define a hashing scheme for template inputs (`templateId`, `metadata.version`, parameter bag, RNG seed, telemetry bindings, and class definitions). Use a stable algorithm (e.g., SHA256) and encode it into the run ID.
-- Persist hash metadata in `provenance.json` so downstream consumers know which inputs produced the bundle.
-- Expose the computed hash/run ID in orchestration responses so UI/CLI can display “Run `run_<hash>` (existing/new).”
+### FR1 — Hashing & Provenance
+- Compute a stable hash from template ID/version, parameter bag, RNG seed, and telemetry bindings. Use that hash when naming run bundles (e.g., `run_<templateId>_<hash>`).
+- Persist the hash + input metadata into `provenance.json` for traceability.
+- Expose the hash/run ID in orchestration responses so UI/CLI can display “existing vs new run.”
 
-### FR2 — Orchestration Service Behavior
-- Extend the SIM orchestration endpoint (`POST /orchestration/runs`) to:
-  - Compute the deterministic hash.
-  - Check the bundle store (local `data/runs/` or configured artifact root) for an existing run with the same hash.
-  - If the bundle exists:
-    - Optionally short-circuit and return the existing manifest.
-    - Or, when the caller requests overwrite, regenerate artifacts in-place (ensuring atomic replacement).
-  - If the bundle is missing, generate it (template expansion, analyzers, telemetry bundle) and place it under the hashed run directory.
-- Provide a `force` flag so automation/CI can overwrite without interactive prompts.
+### FR2 — Orchestration Workflow
+- Enhance the SIM orchestration service (`FlowTime.Sim.Service` or CLI) so `generate/run`:
+  - Computes the deterministic hash.
+  - Checks the bundle store (`data/runs/<hash>` or configured path) to see if the run already exists.
+  - Returns existing bundle metadata by default, and allows callers to force a regeneration/overwrite.
+- Provide a REST endpoint (e.g., `POST /orchestration/runs`) that handles hashing, reuse prompt, and artifact creation.
 
 ### FR3 — Engine API Simplification
-- Update `FlowTime.API` run endpoints to accept only canonical bundles (path or upload). Remove any template-ID handling to enforce the new boundary.
-- Adjust CLI/UI to call orchestration first, then hand the resulting bundle ID/path to the engine run submission endpoint.
+- Update engine run endpoints to accept only canonical bundles (path or upload). Remove template ID/parameter handling from `FlowTime.API`.
+- Ensure UI/CLI flows call orchestration first, then hand the resulting bundle ID/path to the engine submission endpoint.
 
-### FR4 — UX/CLI Updates
+### FR4 — UI/CLI Updates
 - UI “Run Template” flow:
-  - Display the deterministic run ID upfront.
-  - If the run already exists, prompt the user: “Re-use existing bundle / Re-generate (overwrite).”
-  - Provide a “View existing run” shortcut when reusing.
-- CLI:
-  - `flow-sim generate` gains options `--reuse` (default) and `--force-overwrite`.
-  - Output explicitly states whether the run was reused or regenerated.
+  - Show the deterministic run ID/hash before execution.
+  - If the bundle exists, prompt “reuse existing / regenerate”.
+  - Provide a “View existing run” shortcut when reuse is chosen.
+- CLI (`flow-sim generate` / `flow-sim run`) gains options `--reuse` (default) and `--force-overwrite`.
 
-### FR5 — Docs & Tooling
-- Update `docs/templates/template-authoring.md` and `docs/operations` to describe deterministic bundle behavior and how to clear bundles if needed.
-- Document the hashing scheme and overwrite semantics in the SIM/engine boundary architecture note.
+### FR5 — Docs & Tracking
+- Update authoring/operations docs to describe deterministic bundle behavior, hashing scheme, and the orchestration vs engine boundary.
+- Add release note with the new flow; update milestone tracker as work progresses.
 
 ---
 
 ## Phases & Deliverables
 
-1. **Phase 1 — Hashing & Metadata**
-   - Implement hash computation + provenance wiring.
-   - Add unit tests verifying identical inputs yield identical hashes while parameter changes produce different run IDs.
-2. **Phase 2 — Orchestration Workflow**
-   - Extend orchestration endpoints/service to reuse/overwrite bundles.
-   - Wire CLI/UI to prompt for reuse vs overwrite.
-   - Add integration tests covering reuse, forced overwrite, and error cases (partial bundles).
-3. **Phase 3 — Engine Boundary & Docs**
-   - Remove template orchestration from engine API.
-   - Update docs, release notes, and tracking.
-   - `dotnet build` + `dotnet test --nologo` before handoff.
+1. **Phase 1 — Hashing & Schema Updates**
+   - RED tests for hashing/provenance metadata.
+   - Implement hash builder + provenance changes.
+2. **Phase 2 — Orchestration & Engine Boundary**
+   - Extend orchestration service + CLI; add reuse/overwrite prompts.
+   - Update engine API to accept only bundles; adjust tests/clients.
+3. **Phase 3 — UI/CLI, Docs & Release**
+   - Wire the UI prompt flow; expose “reuse vs overwrite” to users.
+   - `dotnet build`, `dotnet test --nologo`, manual verification, release note.
 
 ---
 
 ## Test Plan
 
-- **Unit tests:** Hash builder tests, orchestration service checks (existing vs new bundle), CLI prompt logic.
-- **Integration tests:** Orchestration endpoint end-to-end (simulate UI calling twice with same inputs).
-- **Regression:** Ensure router/template bundle tests remain deterministic and engine runs still execute normally.
-- **Manual:** Run a representative template twice, verify the same run ID and no duplicate bundles unless overwrite requested.
+- Unit tests for hash computation and provenance stamping.
+- Orchestration service integration tests (existing bundle vs new bundle).
+- Engine API regression tests ensuring it accepts only bundles (no template IDs).
+- UI/CLI tests verifying the prompt flow.
+- Manual verification: run a template twice, confirm the same bundle ID is reused unless overwritten.
 
 ---
 
 ## Tracking
 
-- Create `docs/milestones/tracking/SB-M-05.04-tracking.md` when implementation starts. 
+- `docs/milestones/tracking/SB-M-05.04-tracking.md`
