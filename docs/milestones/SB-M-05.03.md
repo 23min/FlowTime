@@ -60,6 +60,7 @@ This milestone unifies the DSL so anything that exposes queue semantics—Servic
 3. **Phase 3 — Template Migration & Docs**
    - Sweep canonical templates to remove helper backlog nodes and rerun analyzers.
    - Update docs, milestone tracker, and release notes; run full `dotnet build` + `dotnet test --nologo`.
+   - Document the router gap and queue-heavy templates that still rely on backlog series; reference SB-M-05.03-router follow-up.
 
 ---
 

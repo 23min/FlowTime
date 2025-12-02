@@ -148,12 +148,12 @@ topology:
           attempts: "Airport attempts"
           failures: "Airport failed retries"
     - id: HubLossQueue
-      kind: serviceWithBuffer
+      kind: queue
       semantics:
         arrivals: hub_loss_inflow
         served: hub_loss_served_zero
         errors: hub_loss_attrition
-        queueDepth: hub_loss_depth
+        queueDepth: self
         aliases:
           arrivals: "Unserved hub riders"
           queue: "Hub loss backlog"
@@ -165,7 +165,7 @@ topology:
         arrivals: airport_dlq_inflow
         served: airport_dlq_served_zero
         errors: airport_dlq_attrition
-        queueDepth: airport_dlq_depth
+        queueDepth: self
         aliases:
           arrivals: "Stranded airport riders"
           queue: "Airport DLQ"
@@ -463,9 +463,9 @@ outputs:
     as: airport_retry_failures.csv
   - series: served_downtown
     as: downtown_served.csv
-  - series: hub_loss_depth
-    as: hub_loss_backlog.csv
-  - series: airport_dlq_depth
-    as: airport_dlq_backlog.csv
+  - series: hub_loss_attrition
+    as: hub_loss_purge.csv
+  - series: airport_dlq_attrition
+    as: airport_dlq_losses.csv
   - series: served_industrial
     as: industrial_served.csv
