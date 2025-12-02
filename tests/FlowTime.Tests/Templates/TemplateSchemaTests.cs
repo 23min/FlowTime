@@ -236,6 +236,72 @@ nodes:
     }
 
     [Fact]
+    public void TemplateSchema_Queue_Allows_Self_QueueDepth()
+    {
+        var yaml = """
+schemaVersion: 1
+grid:
+  bins: 2
+  binSize: 1
+  binUnit: hours
+topology:
+  nodes:
+    - id: picker_queue
+      kind: queue
+      semantics:
+        arrivals: staged_orders
+        served: released_orders
+        queueDepth: self
+nodes:
+  - id: staged_orders
+    kind: const
+    values: [15, 20]
+  - id: released_orders
+    kind: const
+    values: [10, 10]
+""";
+
+        var result = ModelSchemaValidator.Validate(yaml);
+
+        Assert.True(result.IsValid, string.Join("; ", result.Errors));
+    }
+
+    [Fact]
+    public void TemplateSchema_Dlq_Allows_Self_QueueDepth()
+    {
+        var yaml = """
+schemaVersion: 1
+grid:
+  bins: 2
+  binSize: 1
+  binUnit: hours
+topology:
+  nodes:
+    - id: airport_dlq
+      kind: dlq
+      semantics:
+        arrivals: failed_arrivals
+        served: purge_series
+        errors: attrition_series
+        queueDepth: self
+nodes:
+  - id: failed_arrivals
+    kind: const
+    values: [5, 7]
+  - id: purge_series
+    kind: const
+    values: [0, 0]
+  - id: attrition_series
+    kind: const
+    values: [0, 0]
+""";
+
+        var result = ModelSchemaValidator.Validate(yaml);
+
+        Assert.True(result.IsValid, string.Join("; ", result.Errors));
+    }
+
+    [Fact]
     public void TemplateSchema_Backlog_Node_Is_Rejected()
     {
         var yaml = """

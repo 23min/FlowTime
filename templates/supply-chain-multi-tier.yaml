@@ -342,12 +342,6 @@ nodes:
     kind: expr
     expr: "MIN(fulfillment_capacity, queue_demand)"
 
-  - id: queue_depth
-    kind: serviceWithBuffer
-    inflow: queue_demand
-    outflow: queue_served
-    loss: queue_attrition
-
   - id: delivery_base_load
     kind: expr
     expr: "queue_served"
@@ -403,12 +397,6 @@ nodes:
   - id: dlq_losses
     kind: expr
     expr: "dlq_inflow * 0.2"
-
-  - id: dlq_depth
-    kind: serviceWithBuffer
-    inflow: dlq_inflow
-    outflow: dlq_release_volume
-    loss: dlq_losses
 
   - id: returns_capacity
     kind: pmf
@@ -538,12 +526,6 @@ nodes:
   - id: supplier_shortfall_attrition
     kind: expr
     expr: "0"
-
-  - id: supplier_shortfall_depth
-    kind: serviceWithBuffer
-    inflow: supplier_shortage
-    outflow: supplier_shortfall_served_zero
-    loss: supplier_shortfall_attrition
 
 outputs:
   - series: purchase_orders

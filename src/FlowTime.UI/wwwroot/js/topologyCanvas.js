@@ -3119,15 +3119,11 @@
         }
 
         if (hasRetryLoop) {
-            const badgeMetrics = drawRetryBadge(ctx, nodeMeta, retryTax);
-            const nodeRight = x + (nodeWidth / 2);
-            const badgeLeft = badgeMetrics?.left ?? nodeRight;
-            const badgeRight = badgeMetrics?.right ?? nodeRight;
-            const nodeToBadgeGap = badgeMetrics ? (badgeLeft - nodeRight) : Math.max(8, Math.min(16, nodeWidth * 0.2));
-            drawRetryConnector(ctx, nodeMeta, badgeLeft);
-            let stackX = badgeRight + nodeToBadgeGap;
+            const chipsStart = x + (nodeWidth / 2) + gap;
+            let stackX = chipsStart;
             const stackSpacing = 6;
             const chipY = y - (chipH / 2);
+            let drewChip = false;
 
             const drawStackChip = (value, tooltip, metric, bg, fg, options) =>
             {
@@ -3153,6 +3149,7 @@
                     height: dims.height
                 });
                 stackX += dims.width + stackSpacing;
+                drewChip = true;
             };
 
             const retryAttempts = (attemptsValue !== null && arrivalsValue !== null)
@@ -3176,6 +3173,11 @@
                     drawStackChip(budgetRemainingValue, semanticTooltip(semantics.retryBudget, 'Budget remaining'), 'retryBudgetRemaining', '#0F766E', '#D1FAE5', { showZero: true });
                 }
             }
+
+            const finalStackX = drewChip ? stackX : chipsStart;
+            const badgeGap = drewChip ? stackSpacing : Math.max(8, Math.min(16, nodeWidth * 0.2));
+            const badgeLeft = finalStackX + badgeGap;
+            drawRetryBadge(ctx, nodeMeta, retryTax, { left: badgeLeft });
         }
 
         if (overlays.showCapacityDependencies !== false) {
@@ -3525,18 +3527,21 @@
         return null;
     }
 
-    function drawRetryBadge(ctx, nodeMeta, retryTax) {
-        if (!Number.isFinite(retryTax) || retryTax <= 0) {
-            return null;
-        }
+function drawRetryBadge(ctx, nodeMeta, retryTax, options) {
+    if (!Number.isFinite(retryTax) || retryTax <= 0) {
+        return null;
+    }
 
-        const x = Number(nodeMeta.x ?? nodeMeta.X ?? 0);
-        const y = Number(nodeMeta.y ?? nodeMeta.Y ?? 0);
-        const width = Number(nodeMeta.width ?? nodeMeta.Width ?? 54);
-        const height = Number(nodeMeta.height ?? nodeMeta.Height ?? 24);
-        const badgeSize = Math.min(22, Math.max(16, height * 0.55));
-        const offset = Math.max(8, Math.min(16, width * 0.2));
-        const centerX = x + (width / 2) + offset + (badgeSize / 2);
+    const x = Number(nodeMeta.x ?? nodeMeta.X ?? 0);
+    const y = Number(nodeMeta.y ?? nodeMeta.Y ?? 0);
+    const width = Number(nodeMeta.width ?? nodeMeta.Width ?? 54);
+    const height = Number(nodeMeta.height ?? nodeMeta.Height ?? 24);
+    const badgeSize = Math.min(22, Math.max(16, height * 0.55));
+    const explicitLeft = options && Number.isFinite(options.left) ? Number(options.left) : null;
+    const offset = Math.max(8, Math.min(16, width * 0.2));
+    const centerX = explicitLeft !== null
+        ? explicitLeft + (badgeSize / 2)
+        : x + (width / 2) + offset + (badgeSize / 2);
 
         ctx.save();
         ctx.beginPath();
@@ -3564,24 +3569,6 @@
             centerY: y,
             size: badgeSize
         };
-    }
-
-    function drawRetryConnector(ctx, nodeMeta, connectorEndX) {
-        const x = Number(nodeMeta.x ?? nodeMeta.X ?? 0);
-        const y = Number(nodeMeta.y ?? nodeMeta.Y ?? 0);
-        const width = Number(nodeMeta.width ?? nodeMeta.Width ?? 54);
-        const startX = x + (width / 2);
-        const midY = y;
-
-        ctx.save();
-        ctx.beginPath();
-        ctx.moveTo(startX, midY);
-        ctx.lineTo(connectorEndX, midY);
-        ctx.strokeStyle = RETRY_BADGE_FILL;
-        ctx.lineWidth = 3;
-        ctx.setLineDash([]);
-        ctx.stroke();
-        ctx.restore();
     }
 
     function drawTerminalEdgeBadge(ctx, nodeMeta, label) {

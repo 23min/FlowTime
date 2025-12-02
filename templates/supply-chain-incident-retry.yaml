@@ -244,12 +244,6 @@ nodes:
     kind: expr
     expr: "MAX(0, incident_queue_demand - support_queue_served)"
 
-  - id: support_queue_depth
-    kind: serviceWithBuffer
-    inflow: incident_queue_demand
-    outflow: support_queue_served
-    loss: support_queue_attrition
-
   - id: support_analytics_load
     kind: expr
     expr: "0.4 * incident_attempts + 0.25 * incident_failures"
@@ -280,12 +274,6 @@ nodes:
     kind: expr
     expr: "0"
 
-  - id: incident_dlq_depth
-    kind: serviceWithBuffer
-    inflow: incident_dlq_inflow
-    outflow: incident_dlq_served_zero
-    loss: incident_dlq_attrition
-
   - id: support_loss_inflow
     kind: expr
     expr: "support_queue_errors"
@@ -299,12 +287,6 @@ nodes:
   - id: support_loss_attrition
     kind: expr
     expr: "0"
-
-  - id: support_loss_depth
-    kind: serviceWithBuffer
-    inflow: support_loss_inflow
-    outflow: support_loss_served_zero
-    loss: support_loss_attrition
 
 outputs:
   - series: incident_arrivals

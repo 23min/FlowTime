@@ -6,8 +6,15 @@ using FlowTime.Sim.Core.Templates.Exceptions;
 
 namespace FlowTime.Sim.Core.Templates;
 
-internal static class ServiceWithBufferNodeSynthesizer
+internal static class QueueNodeSynthesizer
 {
+    private static readonly HashSet<string> queueLikeKinds = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "servicewithbuffer",
+        "queue",
+        "dlq"
+    };
+
     public static void Apply(Template template)
     {
         ArgumentNullException.ThrowIfNull(template);
@@ -22,7 +29,8 @@ internal static class ServiceWithBufferNodeSynthesizer
 
         foreach (var topologyNode in template.Topology.Nodes)
         {
-            if (!string.Equals(topologyNode.Kind, "serviceWithBuffer", StringComparison.OrdinalIgnoreCase))
+            if (string.IsNullOrWhiteSpace(topologyNode.Kind) ||
+                !queueLikeKinds.Contains(topologyNode.Kind.Trim()))
             {
                 continue;
             }
@@ -41,18 +49,8 @@ internal static class ServiceWithBufferNodeSynthesizer
                 continue;
             }
 
-            var inflow = semantics.Arrivals;
-            if (string.IsNullOrWhiteSpace(inflow))
-            {
-                throw new TemplateValidationException($"Topology node '{topologyNode.Id}' must define semantics.arrivals to synthesize ServiceWithBuffer behavior.");
-            }
-
+            var inflow = ResolveInflow(topologyNode, semantics);
             var outflow = ResolveOutflow(topologyNode, semantics);
-            if (string.IsNullOrWhiteSpace(outflow))
-            {
-                throw new TemplateValidationException(
-                    $"Topology node '{topologyNode.Id}' must define semantics.capacity or semantics.served to synthesize ServiceWithBuffer behavior.");
-            }
 
             var queueNodeId = DetermineQueueNodeId(topologyNode.Id, requestedQueueId, existingNodeIds);
             semantics.QueueDepth = queueNodeId;
@@ -63,12 +61,26 @@ internal static class ServiceWithBufferNodeSynthesizer
                 Kind = "serviceWithBuffer",
                 Inflow = inflow,
                 Outflow = outflow,
-                Loss = string.IsNullOrWhiteSpace(semantics.Errors) ? null : semantics.Errors,
-                DispatchSchedule = CloneSchedule(topologyNode.DispatchSchedule)
+                Loss = ResolveLoss(semantics),
+                DispatchSchedule = CloneSchedule(topologyNode.DispatchSchedule),
+                Metadata = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["graph.hidden"] = "true"
+                }
             });
 
             existingNodeIds.Add(queueNodeId);
         }
+    }
+
+    private static string ResolveInflow(TemplateTopologyNode topologyNode, TemplateNodeSemantics semantics)
+    {
+        if (!string.IsNullOrWhiteSpace(semantics.Arrivals))
+        {
+            return semantics.Arrivals.Trim();
+        }
+
+        throw new TemplateValidationException($"Topology node '{topologyNode.Id}' must define semantics.arrivals to synthesize queue behavior.");
     }
 
     private static string DetermineQueueNodeId(string topologyNodeId, string? requestedId, HashSet<string> existingNodeIds)
@@ -94,16 +106,25 @@ internal static class ServiceWithBufferNodeSynthesizer
         return candidate;
     }
 
-    private static string? ResolveOutflow(TemplateTopologyNode topologyNode, TemplateNodeSemantics semantics)
+    private static string ResolveOutflow(TemplateTopologyNode topologyNode, TemplateNodeSemantics semantics)
     {
         if (!string.IsNullOrWhiteSpace(semantics.Capacity))
         {
             return semantics.Capacity.Trim();
         }
 
-        return string.IsNullOrWhiteSpace(semantics.Served)
-            ? null
-            : semantics.Served.Trim();
+        if (!string.IsNullOrWhiteSpace(semantics.Served))
+        {
+            return semantics.Served.Trim();
+        }
+
+        throw new TemplateValidationException(
+            $"Topology node '{topologyNode.Id}' must define semantics.served (or capacity for serviceWithBuffer) to synthesize queue behavior.");
+    }
+
+    private static string? ResolveLoss(TemplateNodeSemantics semantics)
+    {
+        return string.IsNullOrWhiteSpace(semantics.Errors) ? null : semantics.Errors.Trim();
     }
 
     private static TemplateDispatchSchedule? CloneSchedule(TemplateDispatchSchedule? schedule)

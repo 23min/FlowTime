@@ -174,6 +174,7 @@ Important:
 - The ServiceWithBuffer semantics are documented as part of the public engine surface, alongside `service`.
 - `queueDepth` may be omitted or set to `self` if you do not need a named alias; otherwise the loader creates the queue series for you using the identifier you provide (no helper nodes required).
 - Dispatch schedules belong to the topology node. The loader synthesizes any hidden queue/loss series so templates only carry the operational semantics you care about.
+- `queue` shells and `dlq` nodes share the same implicit behavior via the `QueueNodeSynthesizer`, so authors can declare `queueDepth: self` (or a named alias) without defining additional helper nodes.
 
 Exact field names are to be finalized in the milestone spec, but the intent is clear: ServiceWithBuffer owns both the queue series and the service behavior.
 

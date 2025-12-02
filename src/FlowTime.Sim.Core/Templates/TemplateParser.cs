@@ -54,7 +54,7 @@ public static class TemplateParser
                 throw new TemplateParsingException($"YAML parsing error: {ex.Message}", ex);
             }
 
-            ServiceWithBufferNodeSynthesizer.Apply(template);
+            QueueNodeSynthesizer.Apply(template);
             TemplateValidator.Validate(template);
             return template;
         }

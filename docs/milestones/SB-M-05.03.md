@@ -43,6 +43,10 @@ This milestone unifies the DSL so anything that exposes queue semantics—Servic
 - Refresh canonical templates (transportation-basic, transportation-basic-classes, warehouse-picker-waves, supply-chain variants) to remove any remaining helper backlog nodes, ensuring outputs rely on the synthesized IDs.
 - Document the migration guidance (what authors delete, how to rename outputs) plus known analyzer expectations.
 
+### Router Follow-up (Documented Gap)
+- Routers still rely on explicit helper expressions (e.g., `returns_router_arrivals`, `returns_router_served`). Capture the work required to make topology-level `kind: router` nodes self-contained (implicit synthesis for their metrics, hidden helpers, and analyzer/UI coverage).
+- The router gap is tracked as a follow-on milestone (`SB-M-05.03-router` placeholder) so we can spec/implement implicit routers similar to ServiceWithBuffer. This milestone documents the requirement but defers implementation.
+
 ---
 
 ## Phases & Deliverables

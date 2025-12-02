@@ -62,5 +62,5 @@ The ideal mental model—*SIM produces, engine executes*—is currently diluted.
 ## Next Steps
 
 1. Draft a more detailed design (API contracts, artifact layout, deployment architecture) and review with stakeholders.
-2. Create milestones to implement orchestration extraction, engine API simplification, and UI/CLI adjustments.
+2. Create milestones to implement orchestration extraction, engine API simplification, deterministic bundle generation/overwrite prompts, and UI/CLI adjustments.
 3. Plan migration strategy (feature flags, staged rollouts) so users can transition smoothly from current combined behavior to the purified separation.

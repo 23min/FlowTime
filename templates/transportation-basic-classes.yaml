@@ -665,12 +665,6 @@ nodes:
     kind: expr
     expr: "0"
 
-  - id: airport_dlq_depth
-    kind: serviceWithBuffer
-    inflow: airport_dlq_inflow
-    outflow: airport_dlq_served_zero
-    loss: airport_dlq_attrition
-
 outputs:
   - series: arrivals_north
     as: north_demand.csv

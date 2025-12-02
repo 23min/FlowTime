@@ -227,6 +227,108 @@ outputs:
     }
 
     [Fact]
+    public void Template_With_Queue_SelfQueueDepth_Parses()
+    {
+        var yaml = """
+schemaVersion: 1
+generator: flowtime-sim
+metadata:
+  id: queue-self-depth
+  title: Queue Visual Self Depth
+  version: 1.0.0
+window:
+  start: 2025-03-01T00:00:00Z
+  timezone: UTC
+grid:
+  bins: 3
+  binSize: 15
+  binUnit: minutes
+topology:
+  nodes:
+    - id: HubQueue
+      kind: queue
+      semantics:
+        arrivals: hub_queue_demand
+        served: hub_dispatch
+        queueDepth: self
+nodes:
+  - id: hub_queue_demand
+    kind: const
+    values: [50, 60, 70]
+  - id: hub_dispatch
+    kind: const
+    values: [40, 55, 65]
+outputs:
+  - series: "*"
+""";
+
+        var template = TemplateParser.ParseFromYaml(yaml);
+
+        var queueNode = Assert.Single(template.Topology.Nodes);
+        Assert.Equal("hub_queue_queue", queueNode.Semantics.QueueDepth);
+
+        var synthesized = Assert.Single(template.Nodes, n => n.Id == "hub_queue_queue");
+        Assert.Equal("serviceWithBuffer", synthesized.Kind, ignoreCase: true);
+        Assert.Equal("hub_queue_demand", synthesized.Inflow);
+        Assert.Equal("hub_dispatch", synthesized.Outflow);
+        Assert.NotNull(synthesized.Metadata);
+        Assert.Equal("true", synthesized.Metadata?["graph.hidden"]);
+    }
+
+    [Fact]
+    public void Template_With_Dlq_SelfQueueDepth_Parses()
+    {
+        var yaml = """
+schemaVersion: 1
+generator: flowtime-sim
+metadata:
+  id: dlq-self-depth
+  title: DLQ Self Depth
+  version: 1.0.0
+window:
+  start: 2025-03-01T00:00:00Z
+  timezone: UTC
+grid:
+  bins: 3
+  binSize: 15
+  binUnit: minutes
+topology:
+  nodes:
+    - id: AirportDlq
+      kind: dlq
+      semantics:
+        arrivals: retry_failures
+        served: purge_zero
+        errors: attrition_zero
+        queueDepth: self
+nodes:
+  - id: retry_failures
+    kind: const
+    values: [3, 4, 5]
+  - id: purge_zero
+    kind: const
+    values: [0, 0, 0]
+  - id: attrition_zero
+    kind: const
+    values: [0, 0, 0]
+outputs:
+  - series: "*"
+""";
+
+        var template = TemplateParser.ParseFromYaml(yaml);
+
+        var dlqNode = Assert.Single(template.Topology.Nodes);
+        Assert.Equal("airport_dlq_queue", dlqNode.Semantics.QueueDepth);
+
+        var synthesized = Assert.Single(template.Nodes, n => n.Id == "airport_dlq_queue");
+        Assert.Equal("serviceWithBuffer", synthesized.Kind, ignoreCase: true);
+        Assert.Equal("retry_failures", synthesized.Inflow);
+        Assert.Equal("purge_zero", synthesized.Outflow);
+        Assert.NotNull(synthesized.Metadata);
+        Assert.Equal("true", synthesized.Metadata?["graph.hidden"]);
+    }
+
+    [Fact]
     public void Template_With_Parameters_Populates_Collection()
     {
         var yaml = """

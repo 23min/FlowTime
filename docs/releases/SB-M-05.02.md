@@ -12,7 +12,7 @@ SB-M-05.02 finishes the ServiceWithBuffer rollout that began in SB-M-05.01. Temp
 
 1. **Schema, Validator, and Loader**
    - `docs/schemas/model.schema.yaml` + `template.schema.json/md` now allow `queueDepth: self` (or omission) whenever `kind: serviceWithBuffer` is used in topology nodes, making those declarations authoritative.
-   - `ServiceWithBufferNodeSynthesizer` runs during parse time to create the hidden execution node + queue series whenever the topology lacks an explicit helper, and schema tests cover both success/failure paths.
+   - `QueueNodeSynthesizer` (formerly `ServiceWithBufferNodeSynthesizer`) runs during parse time to create the hidden execution node + queue series whenever the topology lacks an explicit helper, and schema tests cover both success/failure paths.
    - `TemplateSchemaTests`/`TemplateParserTests` gained coverage for implicit queue depth plus dispatch schedule metadata to guard against regressions.
 2. **Templates & Documentation**
    - Transportation (classes + base) and warehouse picker templates now describe ServiceWithBuffer nodes directly in their topology, eliminating dozens of helper nodes while keeping aliases/output ids intact.

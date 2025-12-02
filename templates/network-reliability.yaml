@@ -245,12 +245,6 @@ nodes:
     kind: expr
     expr: "MIN(server_capacity, request_queue_demand)"
 
-  - id: request_queue_depth
-    kind: serviceWithBuffer
-    inflow: request_queue_demand
-    outflow: request_queue_served
-    loss: request_queue_attrition
-
   - id: core_retry_attempts
     kind: expr
     expr: "${retryRate} * request_queue_served"
@@ -309,12 +303,6 @@ nodes:
     kind: expr
     expr: "0"
 
-  - id: edge_drop_depth
-    kind: serviceWithBuffer
-    inflow: edge_drop_inflow
-    outflow: edge_drop_served_zero
-    loss: edge_drop_attrition
-
   - id: core_dlq_inflow
     kind: expr
     expr: "core_retry_failures"
@@ -329,12 +317,6 @@ nodes:
     kind: expr
     expr: "0"
 
-  - id: core_dlq_depth
-    kind: serviceWithBuffer
-    inflow: core_dlq_inflow
-    outflow: core_dlq_served_zero
-    loss: core_dlq_attrition
-
   - id: database_loss_served_zero
     kind: expr
     expr: "0"
@@ -344,12 +326,6 @@ nodes:
   - id: database_loss_attrition
     kind: expr
     expr: "0"
-
-  - id: database_loss_depth
-    kind: serviceWithBuffer
-    inflow: database_failures
-    outflow: database_loss_served_zero
-    loss: database_loss_attrition
 
 outputs:
   - series: base_requests

@@ -263,12 +263,6 @@ nodes:
     kind: expr
     expr: "MIN(ingress_queue_carry, ingress_queue_carry * 0.02)"
 
-  - id: ingress_queue_depth
-    kind: serviceWithBuffer
-    inflow: ingress_queue_demand
-    outflow: ingress_queue_served
-    loss: ingress_queue_attrition
-
   - id: authenticated_requests
     kind: expr
     expr: "MIN(ingress_queue_served, MAX(0, auth_capacity_window - auth_retry_failures))"
@@ -329,12 +323,6 @@ nodes:
     kind: expr
     expr: "0"
 
-  - id: response_queue_depth
-    kind: serviceWithBuffer
-    inflow: processed_requests
-    outflow: responses_dispatched
-    loss: response_queue_attrition
-
   - id: manual_recon_inflow
     kind: expr
     expr: "auth_retry_failures"
@@ -349,12 +337,6 @@ nodes:
     kind: expr
     expr: "0"
 
-  - id: manual_recon_depth
-    kind: serviceWithBuffer
-    inflow: manual_recon_inflow
-    outflow: manual_recon_served_zero
-    loss: manual_recon_attrition
-
   - id: customer_impact_inflow
     kind: expr
     expr: "lb_dropped + auth_failures"
@@ -368,12 +350,6 @@ nodes:
   - id: customer_impact_attrition
     kind: expr
     expr: "0"
-
-  - id: customer_impact_depth
-    kind: serviceWithBuffer
-    inflow: customer_impact_inflow
-    outflow: customer_impact_served_zero
-    loss: customer_impact_attrition
 
 outputs:
   - series: user_requests

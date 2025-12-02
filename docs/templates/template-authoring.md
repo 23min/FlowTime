@@ -123,6 +123,15 @@ topology:
 - The loader rejects legacy backlog helpers. When you migrate older templates, delete the helper nodes and keep only the topology declaration.
 - When ServiceWithBuffer nodes release work on a cadence, the UI/CLI surface their queue latency status (see *Queue Latency Semantics* below) so paused gates show up as badges rather than warnings.
 
+### Queue & DLQ Nodes
+
+`kind: queue` (visual shells) and `kind: dlq` (terminal buffers) share the same implicit DSL:
+
+- Set `semantics.queueDepth: self` to let the loader synthesize the queue/buffer series automatically. You only provide the inflow/outflow/loss series; no helper nodes are required under `nodes:`.
+- When you want a stable alias for CSV exports, set `queueDepth: some_alias`. The loader (`QueueNodeSynthesizer`) creates a ServiceWithBuffer node named `some_alias` so your outputs can keep existing filenames without hand-authoring the backing node.
+- DLQs behave just like queues from a modeling standpoint: emit arrivals + loss/attrition series, and use `queueDepth: self` (or a named alias) to expose backlog chips/charts.
+- Avoid mixing implicit and explicit queue implementations—the loader ignores explicit helper nodes when an alias already exists, so removing the helper is the supported path.
+
 ### Retry Governance Fields
 
 TT‑M‑03.32 introduced three retry governance fields. When a service node supports retries:
