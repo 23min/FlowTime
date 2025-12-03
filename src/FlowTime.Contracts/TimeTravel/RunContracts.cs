@@ -41,6 +41,7 @@ public sealed class RunCreateResponse
     public IReadOnlyList<StateWarning> Warnings { get; init; } = Array.Empty<StateWarning>();
     public bool? CanReplay { get; init; }
     public RunTelemetrySummary? Telemetry { get; init; }
+    public bool WasReused { get; init; }
 }
 
 public sealed class RunSummaryResponse
@@ -62,6 +63,7 @@ public sealed class RunSummary
     public int WarningCount { get; init; }
     public RunTelemetrySummary? Telemetry { get; init; }
     public RunRngOptions? Rng { get; init; }
+    public string? InputHash { get; init; }
 }
 
 public sealed class RunCreatePlan

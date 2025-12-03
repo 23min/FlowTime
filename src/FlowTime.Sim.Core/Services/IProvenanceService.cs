@@ -20,5 +20,10 @@ public interface IProvenanceService
         string templateId,
         string templateVersion,
         string templateTitle,
-        Dictionary<string, object> parameters);
+        Dictionary<string, object?> parameters,
+        string? inputHash = null,
+        string? mode = null,
+        int? rngSeed = null,
+        string? rngKind = null,
+        IReadOnlyDictionary<string, string>? telemetryBindings = null);
 }

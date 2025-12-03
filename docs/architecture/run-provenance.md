@@ -150,14 +150,20 @@ grid:
   "modelId": "model_20250925T120000Z_abc123def",
   "templateId": "it-system-microservices",
   "templateVersion": "1.0",
+  "mode": "telemetry",
+  "inputHash": "sha256:abcd1234....",
   "generatedAt": "2025-09-25T12:00:00Z",
   "receivedAt": "2025-09-25T12:05:00Z",
   "simVersion": "0.4.0",
+  "rng": { "kind": "pcg32", "seed": 42 },
   "parameters": {
     "bins": 12,
     "binSize": 1,
     "binUnit": "hours",
     "loadBalancerCapacity": 300
+  },
+  "telemetryBindings": {
+    "ordersArrivals": "OrderService_arrivals.csv"
   },
   "links": {
     "modelArtifact": "/api/v1/models/model_20250925T120000Z_abc123def",
@@ -169,6 +175,8 @@ grid:
   }
 }
 ```
+
+`inputHash` captures the deterministic fingerprint of template metadata, parameters, telemetry bindings, and RNG seed. Together with the optional `rng` and `telemetryBindings` nodes it guarantees that provenance consumers (UI, CLI, registry) can determine whether two runs were generated from identical inputs without diffing every series.
 
 **Storage location:**
 ```

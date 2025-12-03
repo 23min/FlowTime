@@ -6,6 +6,7 @@
 @using FlowTime.UI.Pages.TimeTravel
 @using FlowTime.UI.Services
 @using MudBlazor
+@using Microsoft.JSInterop
 @inherits MudComponentBase
 
 <MudPaper Class="@CssClass"
@@ -104,9 +105,21 @@
         </div>
 
         <div class="artifact-card-footer">
-            <MudTooltip Text="@Run.RunId">
-                <MudText Typo="Typo.caption" Class="artifact-card-runid">@Run.RunId</MudText>
-            </MudTooltip>
+            <MudStack Row Spacing="1" AlignItems="AlignItems.Center" Class="artifact-card-runid-stack">
+                <MudTooltip Text="@Run.RunId">
+                    <MudText Typo="Typo.caption" Class="artifact-card-runid">@ShortRunId</MudText>
+                </MudTooltip>
+                <MudTooltip Text="Copy run id">
+                    <span @onclick:stopPropagation="true">
+                        <MudIconButton Icon="@Icons.Material.Filled.ContentCopy"
+                                       Color="Color.Default"
+                                       Size="Size.Small"
+                                       Disabled="!CanCopyRunId"
+                                       OnClick="CopyRunIdAsync"
+                                       aria-label="Copy run id" />
+                    </span>
+                </MudTooltip>
+            </MudStack>
             <MudStack Row Spacing="1" AlignItems="AlignItems.Center">
                 <MudStack Row Spacing="0" AlignItems="AlignItems.Center">
                     <MudTooltip Text="Open dashboard">
@@ -177,6 +190,26 @@
     private string CssClass => IsSelected ? "artifact-card artifact-card--active" : "artifact-card";
 
     private string DisplayTitle => string.IsNullOrWhiteSpace(Run.TemplateTitle) ? Run.TemplateId : Run.TemplateTitle!;
+
+    private string ShortRunId
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(Run.RunId))
+            {
+                return "(unavailable)";
+            }
+
+            if (Run.RunId.Length <= 8)
+            {
+                return Run.RunId;
+            }
+
+            return $"…{Run.RunId[^8..]}";
+        }
+    }
+
+    private bool CanCopyRunId => !string.IsNullOrWhiteSpace(Run.RunId);
 
     private string CreatedShortLabel => Run.CreatedUtc is null
         ? "Unknown"
@@ -416,6 +449,7 @@
         new Dictionary<string, object> { ["aria-label"] = "Open telemetry topology" };
 
     [Inject] private NavigationManager Navigation { get; set; } = default!;
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
 
     private Task HandleTelemetryDashboard()
     {
@@ -439,6 +473,23 @@
         var uri = $"/time-travel/topology?runId={Uri.EscapeDataString(Run.RunId)}&mode=telemetry";
         Navigation.NavigateTo(uri);
         return Task.CompletedTask;
+    }
+
+    private async Task CopyRunIdAsync(MouseEventArgs args)
+    {
+        if (!CanCopyRunId || JSRuntime is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", Run.RunId);
+        }
+        catch
+        {
+            // Ignore clipboard failures
+        }
     }
 
     private async Task HandleKeyDown(KeyboardEventArgs args)

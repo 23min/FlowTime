@@ -34,7 +34,8 @@
         "hasProvenance": { "type": "boolean" },
         "modelId": { "type": "string" },
         "templateId": { "type": "string" },
-        "source": { "type": "string" }
+        "source": { "type": "string" },
+        "inputHash": { "$ref": "#/$defs/hash" }
       }
     },
     "classes": {

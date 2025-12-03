@@ -4,7 +4,7 @@
 > Do not create this until you're ready to start implementation.  
 > See [Milestone Rules](milestone-rules-quick-ref.md) for workflow.
 
-**Milestone:** SB-M-05.04 — Deterministic Run Orchestration  
+**Milestone:** [SB-M-05.04 — Deterministic Run Orchestration](../SB-M-05.04.md)  
 **Started:** 2025-11-28  
 **Status:** 📋 Planned  
 **Branch:** `milestone/sb-m-05.04`  
@@ -14,8 +14,8 @@
 
 ## Quick Links
 
-- **Milestone Document:** [`docs/milestones/[MILESTONE-ID].md`](../milestones/[MILESTONE-ID].md)
-- **Related Analysis:** [Link to any analysis documents]
+- **Milestone Document:** [`docs/milestones/SB-M-05.04.md`](../SB-M-05.04.md)
+- **Related Analysis:** [`docs/architecture/sim-engine-boundary/README.md`](../../architecture/sim-engine-boundary/README.md)
 - **Milestone Guide:** [`docs/development/milestone-documentation-guide.md`](milestone-documentation-guide.md)
 
 ---
@@ -48,7 +48,53 @@
 - [ ] Phase 1 Task 1.1 (hash RED tests)
 - [ ] Capture progress per task
 
----
+
+### 2025-12-02 — Phase 1 Hash Canonicalizer
+
+**Changes:**
+- Added `RunHashCalculatorTests` (FlowTime.Sim) covering canonical hashing, RNG sensitivity, telemetry bindings, and culture invariance (RED → GREEN).
+- Introduced `RunHashCalculator` + `RunHashInput` for deterministic hashing across template metadata, parameters, bindings, and RNG.
+- Plumbed `RunOrchestrationService`, telemetry bundler, manifest/provenance writers, and API/UI DTOs with the new input hash plus provenance metadata.
+- Updated manifest schema + provenance service/tests so `provenance.json` and `run.json` carry deterministic fingerprints.
+
+**Tests:**
+- ✅ `dotnet test tests/FlowTime.Sim.Tests/FlowTime.Sim.Tests.csproj --filter RunHashCalculator`
+
+**Next Steps:**
+- [ ] Plumb hash calculator into `RunOrchestrationService` and provenance outputs.
+- [ ] Update schema/docs + API contracts to surface the input hash.
+
+### 2025-12-02 — Deterministic Run Reuse
+
+**Changes:**
+- Wired deterministic run IDs to `RunArtifactWriter`/telemetry bundler so canonical bundles land under `run_<templateId>_<inputHash>` and `run.json`/`manifest.json` carry the same hash.
+- Added reuse gate + overwrite handling in `RunOrchestrationService` so repeat invocations with identical inputs short-circuit to the existing bundle.
+- Introduced targeted generator tests ensuring hashed IDs and reuse behavior plus provenance RNG metadata fields.
+
+**Tests:**
+- ✅ `dotnet test tests/FlowTime.Sim.Tests/FlowTime.Sim.Tests.csproj`
+- ✅ `dotnet test tests/FlowTime.UI.Tests/FlowTime.UI.Tests.csproj`
+- ✅ `dotnet test tests/FlowTime.Generator.Tests/FlowTime.Generator.Tests.csproj --filter RunOrchestrationServiceTests`
+
+**Next Steps:**
+- [ ] Extend orchestration layer to surface reuse vs overwrite choices to CLI/UI (Phase 2 Task 2.1).
+- [ ] Begin engine-only bundle submission work once reuse path stabilizes.
+
+### 2025-12-03 — CLI Reuse Controls
+
+**Changes:**
+- Added `WasReused` metadata to `RunOrchestrationResult`/API responses so downstream clients can tell whether a bundle was regenerated or short-circuited.
+- Introduced reuse switches to `flowtime telemetry run` (`--reuse`, `--force-overwrite`, `--fresh-run`) and made deterministic reuse the default; CLI output now reports reused bundles.
+- Extended generator tests to assert reuse flags and reran UI tests to ensure DTO additions don’t regress portals.
+
+**Tests:**
+- ✅ `dotnet test tests/FlowTime.Generator.Tests/FlowTime.Generator.Tests.csproj --filter RunOrchestrationServiceTests`
+- ✅ `dotnet test tests/FlowTime.UI.Tests/FlowTime.UI.Tests.csproj`
+
+**Next Steps:**
+- [ ] Surface reuse metadata inside the UI state machine so the Phase 3 prompt can leverage it.
+- [ ] Start paring down `/v1/runs` to accept only canonical bundle submissions (engine boundary).
+
 
 ### [YYYY-MM-DD] - [Session Title]
 
@@ -80,16 +126,16 @@
 ### Task 1.1: Hash builder + provenance schema
 **Files:** `src/FlowTime.Sim.Core/Orchestration/*`, `docs/schemas/manifest.schema.json`, `tests/FlowTime.Tests/Orchestration/*`
 
-- [ ] RED: unit test verifying identical inputs produce same hash (`RunHashCalculatorTests`)
-- [ ] Implement hash builder + provenance metadata
-- [ ] GREEN: targeted unit tests
+- [x] RED: unit test verifying identical inputs produce same hash (`RunHashCalculatorTests`)
+- [x] Implement hash builder + provenance metadata
+- [x] GREEN: targeted unit tests
 
 ### Task 1.2: CLI/orchestration hash plumbing
 **Files:** `src/FlowTime.Sim.Cli/Program.cs`, `src/FlowTime.Sim.Service/*`, `tests/FlowTime.Sim.Tests/Orchestration/*`
 
-- [ ] RED: orchestration integration test expecting reuse detection
-- [ ] Wire hash calculation into CLI/service responses
-- [ ] GREEN: targeted tests
+- [x] RED: orchestration integration test expecting reuse detection
+- [x] Wire hash calculation into CLI/service responses
+- [x] GREEN: targeted tests
 
 ---
 
@@ -116,6 +162,7 @@
 - [ ] RED: integration test verifying reuse prompt + forced overwrite
 - [ ] Implement hash lookup + filesystem checks (reuse vs regenerate)
 - [ ] GREEN: targeted tests
+- [ ] Surface `WasReused` in orchestration responses and thread through CLI/UI so reuse messaging is actionable.
 
 ### Task 2.2: Engine API simplification
 **Files:** `src/FlowTime.API/Controllers/RunsController.cs`, `src/FlowTime.API/Services/RunSubmissionService.cs`, `tests/FlowTime.Api.Tests/Runs/*`

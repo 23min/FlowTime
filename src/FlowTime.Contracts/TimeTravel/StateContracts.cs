@@ -35,6 +35,8 @@ public sealed class StateMetadata
     public required StorageDescriptor Storage { get; init; }
     public RunRngOptions? Rng { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? InputHash { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? ClassCoverage { get; init; }
 }
 

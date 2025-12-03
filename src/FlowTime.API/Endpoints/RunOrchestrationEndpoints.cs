@@ -85,7 +85,8 @@ internal static class RunOrchestrationEndpoints
                     Plan = BuildPlan(plan),
                     Warnings = Array.Empty<StateWarning>(),
                     CanReplay = false,
-                    Telemetry = null
+                    Telemetry = null,
+                    WasReused = false
                 });
             }
 
@@ -102,7 +103,8 @@ internal static class RunOrchestrationEndpoints
                 Metadata = metadata,
                 Warnings = warnings,
                 CanReplay = canReplay,
-                Telemetry = BuildTelemetrySummary(result)
+                Telemetry = BuildTelemetrySummary(result),
+                WasReused = result.WasReused
             });
         }
         catch (TemplateValidationException ex)
@@ -333,6 +335,7 @@ internal static class RunOrchestrationEndpoints
                 MetadataPath = manifest.Storage.MetadataPath,
                 ProvenancePath = manifest.Storage.ProvenancePath
             },
+            InputHash = result.InputHash ?? result.RunDocument.InputHash,
             Rng = new RunRngOptions { Kind = "pcg32", Seed = result.RngSeed }
         };
     }
@@ -366,7 +369,8 @@ internal static class RunOrchestrationEndpoints
             CreatedUtc = created,
             WarningCount = result.TelemetryManifest.Warnings?.Count ?? 0,
             Telemetry = BuildTelemetrySummary(result),
-            Rng = new RunRngOptions { Kind = "pcg32", Seed = result.RngSeed }
+            Rng = new RunRngOptions { Kind = "pcg32", Seed = result.RngSeed },
+            InputHash = result.InputHash ?? result.RunDocument.InputHash
         };
     }
 

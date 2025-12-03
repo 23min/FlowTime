@@ -56,6 +56,7 @@ public class DashboardTests
                     TelemetrySourcesResolved: true,
                     Schema: new SchemaMetadataDto("schema", "1", "hash"),
                     Storage: new StorageDescriptorDto(null, null, null),
+                    InputHash: null,
                     Rng: null),
                 Plan: null,
                 Warnings: null,

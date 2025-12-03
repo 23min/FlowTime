@@ -23,7 +23,7 @@ public sealed class RunOrchestrationStateMachineTests
         machine.PromoteToRunning();
         Assert.Equal(RunOrchestrationPhase.Running, machine.Phase);
 
-        machine.CompleteSuccess(new RunOrchestrationSuccess("run-42"));
+        machine.CompleteSuccess(new RunOrchestrationSuccess("run-42", false));
         Assert.Equal(RunOrchestrationPhase.Success, machine.Phase);
         Assert.NotNull(machine.LastSuccess);
         Assert.Equal("run-42", machine.LastSuccess!.RunId);

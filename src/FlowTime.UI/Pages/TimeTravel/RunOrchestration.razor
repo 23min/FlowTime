@@ -100,6 +100,20 @@
                         Reset
                     </MudButton>
                 </MudStack>
+                <MudItem xs="12" md="6" Class="mt-2">
+                    <MudSelect T="RunReuseMode"
+                               Label="Bundle reuse"
+                               Variant="Variant.Outlined"
+                               @bind-Value="_reuseMode"
+                               Disabled="_state.IsBusy">
+                        <MudSelectItem Value="RunReuseMode.AutoReuse">Reuse existing bundle when inputs match</MudSelectItem>
+                        <MudSelectItem Value="RunReuseMode.ForceOverwrite">Regenerate (overwrite deterministic bundle)</MudSelectItem>
+                        <MudSelectItem Value="RunReuseMode.FreshRun">Fresh run (timestamped id)</MudSelectItem>
+                    </MudSelect>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                        Reuse keeps run IDs deterministic. Choose Regenerate to overwrite the existing bundle or Fresh run to create a new timestamped run.
+                    </MudText>
+                </MudItem>
             </MudPaper>
         }
 
@@ -197,6 +211,16 @@
                     </MudText>
                     <MudText>Mode: @_lastMetadata.Mode</MudText>
                     <MudText>RNG Seed: @FormatSeed(_lastMetadata.Rng?.Seed)</MudText>
+                    @if (!string.IsNullOrWhiteSpace(_lastMetadata.InputHash))
+                    {
+                        <MudText>Input hash: @_lastMetadata.InputHash</MudText>
+                    }
+                    @if (_state.LastSuccess?.WasReused == true)
+                    {
+                        <MudAlert Severity="Severity.Info" Variant="Variant.Text">
+                            Existing deterministic bundle reused. Choose <strong>Regenerate</strong> to force a new run.
+                        </MudAlert>
+                    }
                     @if (string.Equals(_lastMetadata.Mode, "telemetry", StringComparison.OrdinalIgnoreCase))
                     {
                         <MudText>Telemetry sources resolved: @(_lastMetadata.TelemetrySourcesResolved ? "Yes" : "No")</MudText>
@@ -247,6 +271,10 @@
                         Template: @(_recentSuccess.TemplateTitle ?? _recentSuccess.TemplateId) (@_recentSuccess.TemplateVersion ?? "latest")
                     </MudText>
                     <MudText>Mode: @_recentSuccess.Mode</MudText>
+                    @if (_recentSuccess.WasReused)
+                    {
+                        <MudText Color="Color.Info">Existing deterministic bundle reused.</MudText>
+                    }
                     <MudText>RNG Seed: @FormatSeed(_recentSuccess.RngSeed)</MudText>
                     @if (string.Equals(_recentSuccess.Mode, "telemetry", StringComparison.OrdinalIgnoreCase))
                     {
@@ -322,6 +350,7 @@
     private string? _selectedCaptureKey;
     private bool _prefillPending = true;
     private string _rngSeedText = DefaultSeedText;
+    private RunReuseMode _reuseMode = RunReuseMode.AutoReuse;
 
     private OrchestrationMode Mode
     {
@@ -491,6 +520,7 @@
             _parameterText = snapshot.ParameterText;
             _telemetryBindingsText = snapshot.TelemetryBindingsText;
             _rngSeedText = string.IsNullOrWhiteSpace(snapshot.RngSeedText) ? DefaultSeedText : snapshot.RngSeedText!;
+            _reuseMode = snapshot.ReuseMode;
             EnsureCaptureKey();
 
             _state.RestorePending(snapshot, RunOrchestrationPhase.Planning);
@@ -539,7 +569,8 @@
             ParameterText = _parameterText,
             CaptureDirectory = _selectedCaptureKey,
             TelemetryBindingsText = _telemetryBindingsText,
-            RngSeedText = _rngSeedText
+            RngSeedText = _rngSeedText,
+            ReuseMode = _reuseMode
         };
 
         if (!RunOrchestrationRequestBuilder.TryBuild(form, dryRun, out var request, out var validationError))
@@ -558,7 +589,8 @@
             ParameterText = _parameterText,
             TelemetryBindingsText = _telemetryBindingsText,
             CaptureDirectory = _selectedCaptureKey,
-            RngSeedText = _rngSeedText
+            RngSeedText = _rngSeedText,
+            ReuseMode = _reuseMode
         };
 
         if (!_state.TryBeginPlanning(snapshot))
@@ -596,7 +628,7 @@
             if (payload.IsDryRun)
             {
                 _lastPlan = payload.Plan;
-                _state.CompleteSuccess(new RunOrchestrationSuccess("(plan)"));
+                _state.CompleteSuccess(new RunOrchestrationSuccess("(plan)", false));
                 _statusMessage = "Orchestration plan ready.";
                 NotificationService.Add("Plan generated successfully.", Severity.Success);
             }
@@ -614,9 +646,18 @@
 
                 _lastMetadata = payload.Metadata;
                 _runWarnings = payload.Warnings ?? Array.Empty<StateWarningDto>();
-                _state.CompleteSuccess(new RunOrchestrationSuccess(runId));
-                _statusMessage = $"Run {runId} created.";
-                NotificationService.Add($"Run {runId} created.", Severity.Success);
+                var reused = payload.WasReused;
+                _state.CompleteSuccess(new RunOrchestrationSuccess(runId, reused));
+                if (reused)
+                {
+                    _statusMessage = $"Existing bundle reused for {runId}.";
+                    NotificationService.Add($"Existing bundle reused for {runId}. Use Regenerate to force a new run.", Severity.Info);
+                }
+                else
+                {
+                    _statusMessage = $"Run {runId} created.";
+                    NotificationService.Add($"Run {runId} created.", Severity.Success);
+                }
 
                 if (_lastMetadata is not null)
                 {
@@ -631,7 +672,8 @@
                         Warnings: _runWarnings.Count == 0
                             ? Array.Empty<RunSuccessWarning>()
                             : _runWarnings.Select(w => new RunSuccessWarning(w.Code, w.Message, w.NodeId)).ToArray(),
-                        RngSeed: _lastMetadata.Rng?.Seed);
+                        RngSeed: _lastMetadata.Rng?.Seed,
+                        WasReused: reused);
 
                     await PersistRecentSuccessAsync(successSnapshot).ConfigureAwait(false);
                 }

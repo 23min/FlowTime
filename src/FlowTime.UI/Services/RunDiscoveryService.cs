@@ -114,6 +114,7 @@ public sealed class RunDiscoveryService : IRunDiscoveryService
             IReadOnlyList<string>? classes = summary.Classes;
             IReadOnlyDictionary<string, string>? classDescriptions = summary.ClassDescriptions;
             string? classCoverage = summary.ClassCoverage;
+            var inputHash = detailResult.Value?.Metadata?.InputHash ?? summary.InputHash;
 
             if (hasIndex && indexResult.Value is not null)
             {
@@ -142,6 +143,7 @@ public sealed class RunDiscoveryService : IRunDiscoveryService
                 WarningCount: summary.WarningCount,
                 Telemetry: telemetrySummary,
                 Rng: rng,
+                InputHash: inputHash,
                 FirstWarningMessage: firstWarning,
                 Warnings: warnings,
                 Grid: gridSummary,
@@ -300,6 +302,7 @@ public sealed record RunListEntry(
     int WarningCount,
     RunTelemetrySummaryDto? Telemetry,
     RunRngOptionsDto? Rng,
+    string? InputHash,
     string? FirstWarningMessage,
     IReadOnlyList<RunWarningInfo> Warnings,
     GridSummary Grid,

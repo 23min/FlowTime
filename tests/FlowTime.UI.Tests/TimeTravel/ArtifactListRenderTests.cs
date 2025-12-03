@@ -58,7 +58,7 @@ public sealed class ArtifactListRenderTests : TestContext
 
         var firstCard = cut.Find("[data-testid='artifact-card']");
         var buttons = firstCard.QuerySelectorAll("button");
-        Assert.Equal(2, buttons.Length);
+        Assert.Equal(3, buttons.Length);
         Assert.All(buttons, b =>
         {
             var className = b.GetAttribute("class") ?? string.Empty;
@@ -235,6 +235,7 @@ public sealed class ArtifactListRenderTests : TestContext
                 0,
                 new RunTelemetrySummaryDto(true, "2025-01-01T01:00:00Z", 0, null),
                 null,
+                "sha256:run_a",
                 null,
                 Array.Empty<RunWarningInfo>(),
                 new GridSummary(24, 60),
@@ -251,6 +252,7 @@ public sealed class ArtifactListRenderTests : TestContext
                 2,
                 new RunTelemetrySummaryDto(false, null, 2, null),
                 null,
+                "sha256:run_b",
                 "Two warnings",
                 new[] { new RunWarningInfo("W1", "Warning", "warning", null) },
                 new GridSummary(12, 30),
@@ -267,6 +269,7 @@ public sealed class ArtifactListRenderTests : TestContext
                 0,
                 new RunTelemetrySummaryDto(false, null, 0, null),
                 null,
+                "sha256:run_c",
                 null,
                 Array.Empty<RunWarningInfo>(),
                 new GridSummary(48, 15),
@@ -290,6 +293,7 @@ public sealed class ArtifactListRenderTests : TestContext
                 true,
                 new SchemaMetadataDto("schema", "1", "hash"),
                 new StorageDescriptorDto("manifest.json", "model.csv", "series"),
+                run.InputHash,
                 new RunRngOptionsDto("xorshift", 42)),
             null,
             run.WarningCount > 0

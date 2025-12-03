@@ -16,7 +16,8 @@ public sealed class RunSubmissionSnapshotStorageTests
             CaptureDirectory = "/captures/batch-42",
             ParameterText = "{\"foo\":1}",
             TelemetryBindingsText = "pressure=node-1",
-            RngSeedText = "456"
+            RngSeedText = "456",
+            ReuseMode = RunReuseMode.ForceOverwrite
         };
 
         var json = RunSubmissionSnapshotStorage.Serialize(snapshot);
@@ -32,6 +33,7 @@ public sealed class RunSubmissionSnapshotStorageTests
         Assert.Equal(snapshot.TelemetryBindingsText, roundTrip.TelemetryBindingsText);
         Assert.Equal(snapshot.RngSeedText, roundTrip.RngSeedText);
         Assert.False(roundTrip.IsDryRun);
+        Assert.Equal(snapshot.ReuseMode, roundTrip.ReuseMode);
     }
 
     [Fact]
@@ -59,7 +61,8 @@ public sealed class RunSuccessSnapshotStorageTests
             {
                 new RunSuccessWarning("WARN-1", "Example warning", "node-1")
             },
-            RngSeed: 789);
+            RngSeed: 789,
+            WasReused: true);
 
         var json = RunSuccessSnapshotStorage.Serialize(snapshot);
         Assert.Contains("\"runId\":\"run-123\"", json, StringComparison.Ordinal);
@@ -72,6 +75,7 @@ public sealed class RunSuccessSnapshotStorageTests
         Assert.Single(roundTrip.Warnings);
         Assert.Equal("WARN-1", roundTrip.Warnings[0].Code);
         Assert.Equal(789, roundTrip.RngSeed);
+        Assert.True(roundTrip.WasReused);
     }
 
     [Fact]

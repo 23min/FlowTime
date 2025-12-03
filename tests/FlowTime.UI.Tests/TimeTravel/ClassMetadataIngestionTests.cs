@@ -18,6 +18,7 @@ public sealed class ClassMetadataIngestionTests
             WarningCount: 0,
             Telemetry: null,
             Rng: null,
+            InputHash: "sha256:test",
             Classes: new[] { "Order", "Refund" },
             ClassCoverage: "full");
 
@@ -38,6 +39,7 @@ public sealed class ClassMetadataIngestionTests
             WarningCount: 0,
             Telemetry: null,
             Rng: null,
+            InputHash: null,
             Classes: null,
             ClassCoverage: null);
 

@@ -1,17 +1,19 @@
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Linq;
+using System.Text;
 using System.Text.Json;
 using FlowTime.Contracts.Services;
 using FlowTime.Contracts.TimeTravel;
 using FlowTime.Core.Configuration;
-using FlowTime.Core.Execution;
 using FlowTime.Core.Artifacts;
+using FlowTime.Core.Execution;
 using FlowTime.Core.Models;
 using FlowTime.Core.Nodes;
 using FlowTime.Core.TimeTravel;
 using FlowTime.Generator.Artifacts;
 using FlowTime.Generator.Models;
+using FlowTime.Sim.Core.Hashing;
 using FlowTime.Sim.Core.Services;
 using FlowTime.Sim.Core.Templates;
 using FlowTime.Sim.Core.Templates.Exceptions;
@@ -41,6 +43,7 @@ public sealed class RunOrchestrationService
     private readonly ITemplateService templateService;
     private readonly TelemetryBundleBuilder bundleBuilder;
     private readonly ILogger<RunOrchestrationService> logger;
+    private readonly IProvenanceService provenanceService;
     private readonly string? telemetryRoot;
     private readonly RunManifestReader manifestReader = new();
     private readonly IDeserializer simModelDeserializer = new DeserializerBuilder()
@@ -52,11 +55,13 @@ public sealed class RunOrchestrationService
         ITemplateService templateService,
         TelemetryBundleBuilder bundleBuilder,
         ILogger<RunOrchestrationService> logger,
-        IConfiguration? configuration = null)
+        IConfiguration? configuration = null,
+        IProvenanceService? provenanceService = null)
     {
         this.templateService = templateService ?? throw new ArgumentNullException(nameof(templateService));
         this.bundleBuilder = bundleBuilder ?? throw new ArgumentNullException(nameof(bundleBuilder));
         this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        this.provenanceService = provenanceService ?? new ProvenanceService();
 
         var configuredRoot = configuration?["TelemetryRoot"];
         if (string.IsNullOrWhiteSpace(configuredRoot))
@@ -96,6 +101,12 @@ public sealed class RunOrchestrationService
             throw new ArgumentException("Output root must be provided.", nameof(request));
         }
 
+        var template = await templateService.GetTemplateAsync(templateId).ConfigureAwait(false)
+            ?? throw new ArgumentException($"Template '{templateId}' was not found.", nameof(request));
+        var canonicalTemplateId = string.IsNullOrWhiteSpace(template.Metadata.Id) ? templateId : template.Metadata.Id;
+        var templateVersion = string.IsNullOrWhiteSpace(template.Metadata.Version) ? "0.0.0" : template.Metadata.Version;
+        var templateTitle = string.IsNullOrWhiteSpace(template.Metadata.Title) ? canonicalTemplateId : template.Metadata.Title;
+
         var mode = TemplateModeExtensions.Parse(request.Mode ?? "telemetry");
         var modeValue = mode.ToSerializedValue();
         var captureDirectory = mode == TemplateMode.Telemetry
@@ -109,19 +120,46 @@ public sealed class RunOrchestrationService
         var effectiveParameters = BuildParameters(request, captureDirectory);
 
         var resolvedRng = await ResolveRngOptionsAsync(templateId, request.Rng, cancellationToken).ConfigureAwait(false);
-        request = request with { Rng = resolvedRng };
+        var effectiveRequest = request with { Rng = resolvedRng };
+
+        var inputContext = BuildRunInputContext(
+            canonicalTemplateId,
+            templateVersion,
+            templateTitle,
+            modeValue,
+            effectiveParameters,
+            effectiveRequest.TelemetryBindings,
+            resolvedRng);
+
+        var targetRunId = !string.IsNullOrWhiteSpace(effectiveRequest.RunId)
+            ? effectiveRequest.RunId
+            : (effectiveRequest.DeterministicRunId ? inputContext.DeterministicRunId : null);
+
+        if (!string.IsNullOrWhiteSpace(targetRunId))
+        {
+            var reuseOutcome = await TryReuseExistingRunAsync(targetRunId!, outputRoot, effectiveRequest.OverwriteExisting, cancellationToken).ConfigureAwait(false);
+            if (reuseOutcome is not null)
+            {
+                logger.LogInformation(
+                    runCompletedEvent,
+                    "Reused existing run {RunId} for template {TemplateId}.",
+                    targetRunId,
+                    inputContext.TemplateId);
+                return reuseOutcome;
+            }
+        }
 
         logger.LogInformation(
             runStartEvent,
             "Starting run orchestration for template {TemplateId} (mode={Mode}, dryRun={DryRun})",
-            templateId,
+            inputContext.TemplateId,
             modeValue,
-            request.DryRun);
+            effectiveRequest.DryRun);
 
         return mode switch
         {
-            TemplateMode.Telemetry => await CreateTelemetryRunAsync(request, templateId, outputRoot, modeValue, effectiveParameters, captureDirectory!, cancellationToken).ConfigureAwait(false),
-            TemplateMode.Simulation => await CreateSimulationRunAsync(request, templateId, outputRoot, effectiveParameters, cancellationToken).ConfigureAwait(false),
+            TemplateMode.Telemetry => await CreateTelemetryRunAsync(effectiveRequest, inputContext, targetRunId, outputRoot, effectiveParameters, captureDirectory!, cancellationToken).ConfigureAwait(false),
+            TemplateMode.Simulation => await CreateSimulationRunAsync(effectiveRequest, inputContext, targetRunId, outputRoot, effectiveParameters, cancellationToken).ConfigureAwait(false),
             _ => throw new InvalidOperationException($"Unsupported template mode '{modeValue}'.")
         };
     }
@@ -158,11 +196,13 @@ public sealed class RunOrchestrationService
         return new RunOrchestrationResult(
             runDirectory,
             runId!,
+            runDocument.InputHash,
             manifestMetadata,
             runDocument,
             telemetryResolved,
             telemetryManifest,
-            rngSeed);
+            rngSeed,
+            false);
     }
 
     private Dictionary<string, object> BuildParameters(RunOrchestrationRequest request, string? resolvedCaptureDirectory)
@@ -273,11 +313,97 @@ public sealed class RunOrchestrationService
         }
     }
 
+    private async Task<string> WriteTemporaryProvenanceAsync(string provenanceJson, CancellationToken cancellationToken)
+    {
+        var tempFile = Path.Combine(Path.GetTempPath(), $"flowtime-provenance-{Guid.NewGuid():N}.json");
+        await File.WriteAllTextAsync(tempFile, provenanceJson, cancellationToken).ConfigureAwait(false);
+        return tempFile;
+    }
+
+    private async Task<RunOrchestrationOutcome?> TryReuseExistingRunAsync(string runId, string outputRoot, bool overwriteExisting, CancellationToken cancellationToken)
+    {
+        var runDirectory = Path.Combine(outputRoot, runId);
+        if (!Directory.Exists(runDirectory))
+        {
+            return null;
+        }
+
+        if (overwriteExisting)
+        {
+            Directory.Delete(runDirectory, recursive: true);
+            return null;
+        }
+
+        var existing = await TryLoadRunAsync(runDirectory, cancellationToken).ConfigureAwait(false);
+        if (existing is null)
+        {
+            return null;
+        }
+
+        var reused = existing with { WasReused = true };
+        return new RunOrchestrationOutcome(false, reused, null);
+    }
+
+    private RunInputContext BuildRunInputContext(
+        string templateId,
+        string templateVersion,
+        string templateTitle,
+        string modeValue,
+        Dictionary<string, object> effectiveParameters,
+        IReadOnlyDictionary<string, string>? telemetryBindings,
+        RunRngOptions rng)
+    {
+        var parameterSnapshot = CloneParameters(effectiveParameters);
+        var telemetrySnapshot = telemetryBindings is null
+            ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            : new Dictionary<string, string>(telemetryBindings, StringComparer.OrdinalIgnoreCase);
+
+        var hashInput = new RunHashInput(
+            templateId,
+            templateVersion,
+            modeValue,
+            parameterSnapshot,
+            telemetrySnapshot,
+            rng.Kind,
+            rng.Seed);
+        var inputHash = RunHashCalculator.ComputeHash(hashInput);
+        var deterministicRunId = DeterministicRunNaming.BuildRunId(templateId, inputHash);
+
+        var provenanceParameters = new Dictionary<string, object?>(parameterSnapshot, StringComparer.OrdinalIgnoreCase);
+        var provenance = provenanceService.CreateProvenance(
+            templateId,
+            templateVersion,
+            templateTitle,
+            provenanceParameters,
+            inputHash,
+            modeValue,
+            rng.Seed,
+            rng.Kind,
+            telemetrySnapshot);
+
+        var provenanceJson = JsonSerializer.Serialize(provenance, new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            WriteIndented = true
+        });
+
+        return new RunInputContext(
+            templateId,
+            templateVersion,
+            templateTitle,
+            modeValue,
+            parameterSnapshot,
+            telemetrySnapshot,
+            rng,
+            inputHash,
+            deterministicRunId,
+            provenanceJson);
+    }
+
     private async Task<RunOrchestrationOutcome> CreateTelemetryRunAsync(
         RunOrchestrationRequest request,
-        string templateId,
+        RunInputContext inputContext,
+        string? targetRunId,
         string outputRoot,
-        string modeValue,
         Dictionary<string, object> effectiveParameters,
         string captureDirectory,
         CancellationToken cancellationToken)
@@ -285,7 +411,7 @@ public sealed class RunOrchestrationService
         logger.LogInformation(
             runValidationEvent,
             "Validated telemetry inputs for template {TemplateId} (captureDir={CaptureDir}, captureKey={CaptureKey}, root={TelemetryRoot})",
-            templateId,
+            inputContext.TemplateId,
             captureDirectory,
             request.CaptureDirectory,
             telemetryRoot);
@@ -294,20 +420,20 @@ public sealed class RunOrchestrationService
         {
             var telemetryManifest = await ReadCaptureManifestAsync(captureDirectory, cancellationToken).ConfigureAwait(false);
             var plan = new RunOrchestrationPlan(
-                templateId,
-                modeValue,
+                inputContext.TemplateId,
+                inputContext.ModeValue,
                 outputRoot,
                 captureDirectory,
                 request.DeterministicRunId,
-                request.RunId,
-                CloneParameters(effectiveParameters),
-                new Dictionary<string, string>(request.TelemetryBindings ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase), StringComparer.OrdinalIgnoreCase),
+                targetRunId,
+                new Dictionary<string, object?>(inputContext.Parameters, StringComparer.OrdinalIgnoreCase),
+                new Dictionary<string, string>(inputContext.TelemetryBindings, StringComparer.OrdinalIgnoreCase),
                 telemetryManifest);
 
             logger.LogInformation(
                 runCompletedEvent,
                 "Telemetry dry-run planned for template {TemplateId}; files={FileCount}, warnings={WarningCount}",
-                templateId,
+                inputContext.TemplateId,
                 telemetryManifest.Files?.Count ?? 0,
                 telemetryManifest.Warnings?.Count ?? 0);
 
@@ -315,33 +441,39 @@ public sealed class RunOrchestrationService
         }
 
         Directory.CreateDirectory(outputRoot);
-        var modelYaml = await templateService.GenerateEngineModelAsync(templateId, effectiveParameters, TemplateMode.Telemetry).ConfigureAwait(false);
+        var modelYaml = await templateService.GenerateEngineModelAsync(inputContext.TemplateId, effectiveParameters, TemplateMode.Telemetry).ConfigureAwait(false);
         var tempModelPath = await WriteTemporaryModelAsync(modelYaml, cancellationToken).ConfigureAwait(false);
+        var tempProvenancePath = await WriteTemporaryProvenanceAsync(inputContext.ProvenanceJson, cancellationToken).ConfigureAwait(false);
 
         try
         {
             logger.LogInformation(
                 runEvaluationEvent,
                 "Building telemetry bundle for template {TemplateId} (mode={Mode})",
-                templateId,
-                modeValue);
+                inputContext.TemplateId,
+                inputContext.ModeValue);
 
             var bundleOptions = new TelemetryBundleOptions
             {
                 CaptureDirectory = captureDirectory,
                 ModelPath = tempModelPath,
+                TemplateId = inputContext.TemplateId,
                 OutputRoot = outputRoot,
-                ProvenancePath = null,
-                RunId = request.RunId,
+                ProvenancePath = tempProvenancePath,
+                InputHash = inputContext.InputHash,
+                RunId = targetRunId,
                 DeterministicRunId = request.DeterministicRunId,
                 Overwrite = request.OverwriteExisting
             };
 
             var bundleResult = await bundleBuilder.BuildAsync(bundleOptions, cancellationToken).ConfigureAwait(false);
-            var modelDirectory = Path.Combine(bundleResult.RunDirectory, "model");
+            var finalRunDirectory = bundleResult.RunDirectory;
+            var finalRunId = bundleResult.RunId;
+
+            var modelDirectory = Path.Combine(finalRunDirectory, "model");
 
             var manifestMetadata = await manifestReader.ReadAsync(modelDirectory, cancellationToken).ConfigureAwait(false);
-            var runDocument = await RunDirectoryUtilities.LoadRunDocumentAsync(bundleResult.RunDirectory, cancellationToken).ConfigureAwait(false);
+            var runDocument = await RunDirectoryUtilities.LoadRunDocumentAsync(finalRunDirectory, cancellationToken).ConfigureAwait(false);
             var telemetryResolved = manifestMetadata.TelemetrySources.Count > 0 &&
                 (bundleResult.TelemetryManifest.Warnings is null ||
                  bundleResult.TelemetryManifest.Warnings.All(w => !string.Equals(w.Code, "telemetry_sources_missing", StringComparison.OrdinalIgnoreCase)));
@@ -349,43 +481,46 @@ public sealed class RunOrchestrationService
             logger.LogInformation(
                 runArtifactsEvent,
                 "Telemetry artifacts written for run {RunId} (template {TemplateId})",
-                bundleResult.RunId,
-                templateId);
+                finalRunId,
+                inputContext.TemplateId);
 
-            runsCreatedCounter.Add(1, CreateMetricTags(templateId, modeValue));
+            runsCreatedCounter.Add(1, CreateMetricTags(inputContext.TemplateId, inputContext.ModeValue));
 
             logger.LogInformation(
                 runCompletedEvent,
                 "Completed telemetry run {RunId} for template {TemplateId}",
-                bundleResult.RunId,
-                templateId);
+                finalRunId,
+                inputContext.TemplateId);
 
             var result = new RunOrchestrationResult(
-                bundleResult.RunDirectory,
-                bundleResult.RunId,
+                finalRunDirectory,
+                finalRunId,
+                inputContext.InputHash,
                 manifestMetadata,
                 runDocument,
                 telemetryResolved,
                 bundleResult.TelemetryManifest,
-                request.Rng?.Seed ?? DefaultSeed);
+                request.Rng?.Seed ?? DefaultSeed,
+                false);
 
             return new RunOrchestrationOutcome(false, result, null);
         }
         catch (FileNotFoundException ex)
         {
-            runsFailedCounter.Add(1, CreateMetricTags(templateId, modeValue));
-            logger.LogWarning(runFailedEvent, ex, "Telemetry capture missing for template {TemplateId}", templateId);
+            runsFailedCounter.Add(1, CreateMetricTags(inputContext.TemplateId, inputContext.ModeValue));
+            logger.LogWarning(runFailedEvent, ex, "Telemetry capture missing for template {TemplateId}", inputContext.TemplateId);
             throw;
         }
         catch (Exception ex)
         {
-            runsFailedCounter.Add(1, CreateMetricTags(templateId, modeValue));
-            logger.LogError(runFailedEvent, ex, "Telemetry run creation failed for template {TemplateId}", templateId);
+            runsFailedCounter.Add(1, CreateMetricTags(inputContext.TemplateId, inputContext.ModeValue));
+            logger.LogError(runFailedEvent, ex, "Telemetry run creation failed for template {TemplateId}", inputContext.TemplateId);
             throw;
         }
         finally
         {
             TryDeleteTemporaryFile(tempModelPath);
+            TryDeleteTemporaryFile(tempProvenancePath);
         }
     }
 
@@ -480,34 +615,35 @@ public sealed class RunOrchestrationService
 
     private async Task<RunOrchestrationOutcome> CreateSimulationRunAsync(
         RunOrchestrationRequest request,
-        string templateId,
+        RunInputContext inputContext,
+        string? targetRunId,
         string outputRoot,
         Dictionary<string, object> effectiveParameters,
         CancellationToken cancellationToken)
     {
-        var modelYaml = await templateService.GenerateEngineModelAsync(templateId, effectiveParameters, TemplateMode.Simulation).ConfigureAwait(false);
+        var modelYaml = await templateService.GenerateEngineModelAsync(inputContext.TemplateId, effectiveParameters, TemplateMode.Simulation).ConfigureAwait(false);
         var simArtifact = simModelDeserializer.Deserialize<SimModelArtifact>(modelYaml) ?? throw new InvalidOperationException("Generated simulation model artifact could not be deserialized.");
 
-        ValidateSimulationArtifact(simArtifact, templateId);
+        ValidateSimulationArtifact(simArtifact, inputContext.TemplateId);
 
         if (request.DryRun)
         {
             var planManifest = BuildSimulationPlanManifest(simArtifact);
             var plan = new RunOrchestrationPlan(
-                templateId,
+                inputContext.TemplateId,
                 TemplateMode.Simulation.ToSerializedValue(),
                 outputRoot,
                 null,
                 request.DeterministicRunId,
-                request.RunId,
-                CloneParameters(effectiveParameters),
+                targetRunId,
+                new Dictionary<string, object?>(inputContext.Parameters, StringComparer.OrdinalIgnoreCase),
                 new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
                 planManifest);
 
             logger.LogInformation(
                 runCompletedEvent,
                 "Simulation dry-run planned for template {TemplateId}; bins={Bins}, warnings={WarningCount}",
-                templateId,
+                inputContext.TemplateId,
                 planManifest.Grid.Bins,
                 planManifest.Warnings.Count);
 
@@ -523,7 +659,7 @@ public sealed class RunOrchestrationService
             logger.LogInformation(
                 runEvaluationEvent,
                 "Evaluating simulation model for template {TemplateId} (bins={Bins}, binSize={BinSize})",
-                templateId,
+                inputContext.TemplateId,
                 grid.Bins,
                 grid.BinSize);
 
@@ -532,12 +668,12 @@ public sealed class RunOrchestrationService
             evaluationStopwatch.Stop();
 
             var evaluationDurationMs = evaluationStopwatch.Elapsed.TotalMilliseconds;
-            simulationEvaluationDuration.Record(evaluationDurationMs, CreateMetricTags(templateId, TemplateMode.Simulation.ToSerializedValue()));
+            simulationEvaluationDuration.Record(evaluationDurationMs, CreateMetricTags(inputContext.TemplateId, inputContext.ModeValue));
 
             logger.LogInformation(
                 runEvaluationEvent,
                 "Simulation evaluation completed for template {TemplateId} in {ElapsedMs:F2} ms",
-                templateId,
+                inputContext.TemplateId,
                 evaluationDurationMs);
 
             cancellationToken.ThrowIfCancellationRequested();
@@ -560,19 +696,21 @@ public sealed class RunOrchestrationService
                 DeterministicRunId = request.DeterministicRunId,
                 OutputDirectory = outputRoot,
                 Verbose = false,
-                ProvenanceJson = null
+                ProvenanceJson = inputContext.ProvenanceJson,
+                InputHash = inputContext.InputHash,
+                TemplateId = inputContext.TemplateId
             };
 
             logger.LogInformation(
                 runArtifactsEvent,
                 "Using rng seed {Seed} for simulation run {TemplateId}",
                 writeRequest.RngSeed,
-                templateId);
+                inputContext.TemplateId);
 
             logger.LogInformation(
                 runArtifactsEvent,
                 "Writing simulation artifacts for template {TemplateId}",
-                templateId);
+                inputContext.TemplateId);
 
             var writeResult = await RunArtifactWriter.WriteArtifactsAsync(writeRequest).ConfigureAwait(false);
             var finalRunId = writeResult.RunId;
@@ -604,22 +742,24 @@ public sealed class RunOrchestrationService
             var telemetryManifest = BuildSimulationTelemetryManifest(simArtifact, manifestMetadata, finalRunId, writeResult.ScenarioHash, runDocument.Warnings);
             await WriteSimulationTelemetryManifestAsync(finalRunDirectory, telemetryManifest, cancellationToken).ConfigureAwait(false);
 
-            runsCreatedCounter.Add(1, CreateMetricTags(templateId, TemplateMode.Simulation.ToSerializedValue()));
+            runsCreatedCounter.Add(1, CreateMetricTags(inputContext.TemplateId, inputContext.ModeValue));
 
             logger.LogInformation(
                 runCompletedEvent,
                 "Completed simulation run {RunId} for template {TemplateId}",
                 finalRunId,
-                templateId);
+                inputContext.TemplateId);
 
             var result = new RunOrchestrationResult(
                 finalRunDirectory,
                 finalRunId,
+                inputContext.InputHash,
                 manifestMetadata,
                 runDocument,
                 true,
                 telemetryManifest,
-                writeResult.FinalSeed);
+                writeResult.FinalSeed,
+                false);
 
             logger.LogInformation(
                 runCompletedEvent,
@@ -631,14 +771,14 @@ public sealed class RunOrchestrationService
         }
         catch (TemplateValidationException ex)
         {
-            runsFailedCounter.Add(1, CreateMetricTags(templateId, TemplateMode.Simulation.ToSerializedValue()));
-            logger.LogWarning(runFailedEvent, ex, "Simulation template validation failed for {TemplateId}", templateId);
+            runsFailedCounter.Add(1, CreateMetricTags(inputContext.TemplateId, inputContext.ModeValue));
+            logger.LogWarning(runFailedEvent, ex, "Simulation template validation failed for {TemplateId}", inputContext.TemplateId);
             throw;
         }
         catch (Exception ex)
         {
-            runsFailedCounter.Add(1, CreateMetricTags(templateId, TemplateMode.Simulation.ToSerializedValue()));
-            logger.LogError(runFailedEvent, ex, "Simulation run creation failed for template {TemplateId}", templateId);
+            runsFailedCounter.Add(1, CreateMetricTags(inputContext.TemplateId, inputContext.ModeValue));
+            logger.LogError(runFailedEvent, ex, "Simulation run creation failed for template {TemplateId}", inputContext.TemplateId);
             throw;
         }
     }
@@ -774,5 +914,15 @@ public sealed class RunOrchestrationService
         return clone;
     }
 
-
+    private sealed record RunInputContext(
+        string TemplateId,
+        string TemplateVersion,
+        string TemplateTitle,
+        string ModeValue,
+        Dictionary<string, object?> Parameters,
+        Dictionary<string, string> TelemetryBindings,
+        RunRngOptions Rng,
+        string InputHash,
+        string DeterministicRunId,
+        string ProvenanceJson);
 }

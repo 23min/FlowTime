@@ -37,6 +37,8 @@ public static class RunArtifactWriter
         public required string OutputDirectory { get; init; }
         public bool Verbose { get; init; }
         public string? ProvenanceJson { get; init; } // Optional provenance metadata as JSON string
+        public string? InputHash { get; init; }
+        public string? TemplateId { get; init; }
     }
     
     public record WriteResult
@@ -124,7 +126,7 @@ public static class RunArtifactWriter
         var scenarioHash = ComputeScenarioHash(normalizedSpecText, request.RngSeed, request.StartTimeBias);
 
         var runId = request.DeterministicRunId
-            ? $"run_deterministic_{scenarioHash[7..15]}"
+            ? BuildDeterministicRunId(request, scenarioHash)
             : $"run_{DateTime.UtcNow:yyyyMMddTHHmmssZ}_{Guid.NewGuid().ToString("N")[..8]}";
 
         var runDir = Path.Combine(request.OutputDirectory, runId);
@@ -250,6 +252,7 @@ public static class RunArtifactWriter
             RunId = runId,
             EngineVersion = "0.1.0",
             Source = "engine",
+            InputHash = request.InputHash,
             Grid = new GridJson
             {
                 Bins = gridDto.Bins,
@@ -306,7 +309,9 @@ public static class RunArtifactWriter
                 {
                     HasProvenance = true,
                     ModelId = provenanceDoc.TryGetProperty("modelId", out var modelId) ? modelId.GetString() : null,
-                    TemplateId = provenanceDoc.TryGetProperty("templateId", out var templateId) ? templateId.GetString() : null
+                    TemplateId = provenanceDoc.TryGetProperty("templateId", out var templateId) ? templateId.GetString() : null,
+                    InputHash = request.InputHash ??
+                        (provenanceDoc.TryGetProperty("inputHash", out var inputHash) ? inputHash.GetString() : null)
                 };
             }
             catch
@@ -1224,6 +1229,16 @@ public static class RunArtifactWriter
         public bool Equals(NodeId x, NodeId y) => string.Equals(x.Value, y.Value, StringComparison.OrdinalIgnoreCase);
         public int GetHashCode(NodeId obj) => obj.Value?.ToLowerInvariant().GetHashCode() ?? 0;
     }
+
+    private static string BuildDeterministicRunId(WriteRequest request, string scenarioHash)
+    {
+        if (!string.IsNullOrWhiteSpace(request.TemplateId) && !string.IsNullOrWhiteSpace(request.InputHash))
+        {
+            return DeterministicRunNaming.BuildRunId(request.TemplateId, request.InputHash);
+        }
+
+        return $"run_deterministic_{scenarioHash[7..15]}";
+    }
 }
 
 // DTOs for JSON artifacts
@@ -1233,6 +1248,7 @@ internal sealed record RunJson
     public string RunId { get; set; } = "";
     public string EngineVersion { get; set; } = "";
     public string Source { get; set; } = "engine";
+    public string? InputHash { get; set; }
     public GridJson Grid { get; set; } = new();
     public string? ModelHash { get; set; }
     public string ScenarioHash { get; set; } = "";
@@ -1286,6 +1302,9 @@ internal sealed record ProvenanceRef
     [System.Text.Json.Serialization.JsonPropertyName("hasProvenance")] public bool HasProvenance { get; set; }
     [System.Text.Json.Serialization.JsonPropertyName("modelId")] public string? ModelId { get; set; }
     [System.Text.Json.Serialization.JsonPropertyName("templateId")] public string? TemplateId { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("inputHash")]
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? InputHash { get; set; }
 }
 internal sealed record SeriesIndexJson { public int SchemaVersion { get; set; } public IndexGridJson Grid { get; set; } = new(); public List<SeriesMeta> Series { get; set; } = new(); public FormatsJson Formats { get; set; } = new(); public List<ManifestClassEntry> Classes { get; set; } = new(); public string? ClassCoverage { get; set; } }
 internal sealed record IndexGridJson { public int Bins { get; set; } public int BinSize { get; set; } public string BinUnit { get; set; } = "minutes"; public string Timezone { get; set; } = "UTC"; }

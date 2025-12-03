@@ -82,13 +82,16 @@ public sealed class TelemetryBundleBuilder
             DeterministicRunId = options.DeterministicRunId,
             OutputDirectory = outputDirectory,
             Verbose = false,
-            ProvenanceJson = provenancePath is null ? null : await File.ReadAllTextAsync(provenancePath, cancellationToken).ConfigureAwait(false)
+            ProvenanceJson = provenancePath is null ? null : await File.ReadAllTextAsync(provenancePath, cancellationToken).ConfigureAwait(false),
+            InputHash = options.InputHash,
+            TemplateId = options.TemplateId
         };
 
         var writeResult = await RunArtifactWriter.WriteArtifactsAsync(writeRequest).ConfigureAwait(false);
-        var runDir = explicitRunDirectory ?? writeResult.RunDirectory;
+        var runDir = writeResult.RunDirectory;
 
-        if (explicitRunDirectory is not null && !string.Equals(runDir, explicitRunDirectory, StringComparison.OrdinalIgnoreCase))
+        if (explicitRunDirectory is not null &&
+            !string.Equals(writeResult.RunDirectory, explicitRunDirectory, StringComparison.OrdinalIgnoreCase))
         {
             Directory.Move(writeResult.RunDirectory, explicitRunDirectory);
             runDir = explicitRunDirectory;

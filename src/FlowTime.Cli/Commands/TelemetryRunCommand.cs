@@ -12,6 +12,13 @@ namespace FlowTime.Cli.Commands;
 
 public static class TelemetryRunCommand
 {
+    private enum RunReuseMode
+    {
+        AutoReuse,
+        ForceOverwrite,
+        Fresh
+    }
+
     public static async Task<int> ExecuteAsync(string[] args)
     {
         if (args.Length == 0 || IsHelp(args[0]))
@@ -34,9 +41,12 @@ public static class TelemetryRunCommand
         string? paramFile = null;
         var telemetryBindings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         bool deterministicRunId = false;
+        bool deterministicExplicit = false;
         bool overwrite = false;
+        bool overwriteExplicit = false;
         bool dryRun = false;
         string? runId = null;
+        var reuseMode = RunReuseMode.AutoReuse;
 
         for (var i = 1; i < args.Length; i++)
         {
@@ -80,15 +90,28 @@ public static class TelemetryRunCommand
                 }
                 case "--deterministic-run-id":
                     deterministicRunId = true;
+                    deterministicExplicit = true;
                     break;
                 case "--run-id" when i + 1 < args.Length:
                     runId = args[++i];
                     break;
                 case "--overwrite":
                     overwrite = true;
+                    overwriteExplicit = true;
+                    reuseMode = RunReuseMode.ForceOverwrite;
                     break;
                 case "--dry-run":
                     dryRun = true;
+                    break;
+                case "--reuse":
+                    reuseMode = RunReuseMode.AutoReuse;
+                    break;
+                case "--force-overwrite":
+                    reuseMode = RunReuseMode.ForceOverwrite;
+                    break;
+                case "--fresh-run":
+                case "--no-reuse":
+                    reuseMode = RunReuseMode.Fresh;
                     break;
                 default:
                     Console.Error.WriteLine($"Unknown option: {arg}");
@@ -109,6 +132,33 @@ public static class TelemetryRunCommand
             Console.Error.WriteLine("--capture-dir is required for telemetry mode runs.");
             PrintUsage();
             return 2;
+        }
+
+        if (!string.IsNullOrWhiteSpace(runId) && reuseMode == RunReuseMode.AutoReuse && !deterministicExplicit)
+        {
+            reuseMode = RunReuseMode.Fresh;
+        }
+
+        switch (reuseMode)
+        {
+            case RunReuseMode.AutoReuse:
+                deterministicRunId = true;
+                overwrite = false;
+                break;
+            case RunReuseMode.ForceOverwrite:
+                deterministicRunId = true;
+                overwrite = true;
+                break;
+            case RunReuseMode.Fresh:
+                if (!deterministicExplicit)
+                {
+                    deterministicRunId = false;
+                }
+                if (!overwriteExplicit)
+                {
+                    overwrite = false;
+                }
+                break;
         }
 
         var runsRoot = string.IsNullOrWhiteSpace(outputRoot)
@@ -216,6 +266,14 @@ public static class TelemetryRunCommand
             Console.WriteLine($"Mode: {result.ManifestMetadata.Mode}");
             Console.WriteLine($"Template: {result.ManifestMetadata.TemplateId}");
             Console.WriteLine($"Telemetry sources resolved: {result.TelemetrySourcesResolved}");
+            if (!string.IsNullOrWhiteSpace(result.InputHash))
+            {
+                Console.WriteLine($"Input hash: {result.InputHash}");
+            }
+            if (result.WasReused)
+            {
+                Console.WriteLine("Existing deterministic bundle reused (pass --force-overwrite for regeneration).");
+            }
             PrintManifestSummary(result.TelemetryManifest);
             PrintWarnings(result.TelemetryManifest.Warnings);
             return 0;
@@ -247,9 +305,12 @@ public static class TelemetryRunCommand
         Console.WriteLine("  --param-file <path>      JSON file with template parameter overrides.");
         Console.WriteLine("  --bind key=FILE          Bind template telemetry parameter to CSV file within capture directory.");
         Console.WriteLine("  --output <dir>           Output directory for canonical run (default: $FLOWTIME_DATA_DIR/runs).");
-        Console.WriteLine("  --deterministic-run-id   Generate deterministic run id based on model hash.");
         Console.WriteLine("  --run-id <value>         Explicit run directory name.");
-        Console.WriteLine("  --overwrite              Overwrite existing run directory when --run-id is supplied.");
+        Console.WriteLine("  --reuse                  Reuse deterministic bundles when inputs match (default).");
+        Console.WriteLine("  --force-overwrite        Regenerate deterministic bundles even if they already exist.");
+        Console.WriteLine("  --fresh-run              Always create a new run id (disables reuse unless --deterministic-run-id is set).");
+        Console.WriteLine("  --overwrite              Alias for --force-overwrite (backward compatibility).");
+        Console.WriteLine("  --deterministic-run-id   Generate deterministic run id based on model hash.");
         Console.WriteLine("  --dry-run                Plan the run without writing files (report planned operations).");
     }
 

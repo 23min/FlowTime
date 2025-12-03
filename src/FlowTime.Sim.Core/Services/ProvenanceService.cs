@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
@@ -19,7 +20,12 @@ public sealed class ProvenanceService : IProvenanceService
         string templateId,
         string templateVersion,
         string templateTitle,
-        Dictionary<string, object> parameters)
+        Dictionary<string, object?> parameters,
+        string? inputHash = null,
+        string? mode = null,
+        int? rngSeed = null,
+        string? rngKind = null,
+        IReadOnlyDictionary<string, string>? telemetryBindings = null)
     {
         ArgumentNullException.ThrowIfNull(parameters);
 
@@ -34,10 +40,22 @@ public sealed class ProvenanceService : IProvenanceService
             TemplateId = templateId,
             TemplateVersion = templateVersion,
             TemplateTitle = templateTitle,
-            Parameters = new Dictionary<string, object>(parameters), // Defensive copy
+            Mode = mode,
+            Parameters = new Dictionary<string, object?>(parameters), // Defensive copy
             GeneratedAt = timestamp.ToString("yyyy-MM-ddTHH:mm:ss.fffZ", CultureInfo.InvariantCulture),
             Generator = $"flowtime-sim/{VersionInfo.Version}",
-            SchemaVersion = "1"
+            SchemaVersion = "1",
+            InputHash = inputHash,
+            Rng = rngSeed.HasValue
+                ? new ProvenanceRngMetadata
+                {
+                    Kind = string.IsNullOrWhiteSpace(rngKind) ? "pcg32" : rngKind!,
+                    Seed = rngSeed.Value
+                }
+                : null,
+            TelemetryBindings = telemetryBindings is null
+                ? null
+                : new Dictionary<string, string>(telemetryBindings, StringComparer.OrdinalIgnoreCase)
         };
     }
 
@@ -45,7 +63,7 @@ public sealed class ProvenanceService : IProvenanceService
     /// Computes deterministic hash from template ID and parameters.
     /// Same inputs always produce same hash (for reproducibility).
     /// </summary>
-    private static string ComputeDeterministicHash(string templateId, Dictionary<string, object> parameters)
+    private static string ComputeDeterministicHash(string templateId, Dictionary<string, object?> parameters)
     {
         // Create deterministic content string using invariant culture
         var contentBuilder = new StringBuilder();

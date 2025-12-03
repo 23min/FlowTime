@@ -126,6 +126,7 @@ public sealed record RunSummaryDto(
     [property: JsonPropertyName("warningCount")] int WarningCount,
     [property: JsonPropertyName("telemetry")] RunTelemetrySummaryDto? Telemetry,
     [property: JsonPropertyName("rng")] RunRngOptionsDto? Rng,
+    [property: JsonPropertyName("inputHash")] string? InputHash,
     [property: JsonPropertyName("classes")] IReadOnlyList<string>? Classes = null,
     [property: JsonPropertyName("classCoverage")] string? ClassCoverage = null,
     [property: JsonPropertyName("classDescriptions")] IReadOnlyDictionary<string, string>? ClassDescriptions = null);
@@ -136,7 +137,8 @@ public sealed record RunCreateResponseDto(
     [property: JsonPropertyName("plan")] RunCreatePlanDto? Plan,
     [property: JsonPropertyName("warnings")] IReadOnlyList<StateWarningDto>? Warnings,
     [property: JsonPropertyName("canReplay")] bool? CanReplay,
-    [property: JsonPropertyName("telemetry")] RunTelemetrySummaryDto? Telemetry);
+    [property: JsonPropertyName("telemetry")] RunTelemetrySummaryDto? Telemetry,
+    [property: JsonPropertyName("wasReused")] bool WasReused = false);
 
 public sealed record RunMetadataDto(
     [property: JsonPropertyName("runId")] string RunId,
@@ -148,6 +150,7 @@ public sealed record RunMetadataDto(
     [property: JsonPropertyName("telemetrySourcesResolved")] bool TelemetrySourcesResolved,
     [property: JsonPropertyName("schema")] SchemaMetadataDto Schema,
     [property: JsonPropertyName("storage")] StorageDescriptorDto Storage,
+    [property: JsonPropertyName("inputHash")] string? InputHash,
     [property: JsonPropertyName("rng")] RunRngOptionsDto? Rng);
 
 public sealed record SchemaMetadataDto(

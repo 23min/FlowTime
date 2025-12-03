@@ -17,7 +17,7 @@ Engine runs currently regenerate bundles every time a template is executed, even
 
 ### FR1 — Hashing & Provenance
 - Compute a stable hash from template ID/version, parameter bag, RNG seed, and telemetry bindings. Use that hash when naming run bundles (e.g., `run_<templateId>_<hash>`).
-- Persist the hash + input metadata into `provenance.json` for traceability.
+- Persist the hash + input metadata into `provenance.json`, `run.json`, and the manifest provenance stub for traceability.
 - Expose the hash/run ID in orchestration responses so UI/CLI can display “existing vs new run.”
 
 ### FR2 — Orchestration Workflow
@@ -33,9 +33,10 @@ Engine runs currently regenerate bundles every time a template is executed, even
 
 ### FR4 — UI/CLI Updates
 - UI “Run Template” flow:
-  - Show the deterministic run ID/hash before execution.
-  - If the bundle exists, prompt “reuse existing / regenerate”.
-  - Provide a “View existing run” shortcut when reuse is chosen.
+  - Default to deterministic reuse (`deterministicRunId=true`) when the form inputs (template selection, parameters, telemetry bindings, RNG seed) match a prior submission.
+  - If orchestration reports `WasReused = true`, surface a banner/toast with options to open the existing run or regenerate (which sets `overwriteExisting=true` for the next submission).
+  - Track form deltas locally so the UI knows when a new deterministic hash will be emitted (parameters changed, template version shifted, RNG seed updated) and hides reuse messaging in that case.
+  - Provide explicit run controls (Reuse / Regenerate / Fresh run) so power users can opt out of reuse.
 - CLI (`flow-sim generate` / `flow-sim run`) gains options `--reuse` (default) and `--force-overwrite`.
 
 ### FR5 — Docs & Tracking
