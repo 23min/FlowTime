@@ -850,6 +850,16 @@ public sealed class StateQueryService
             series["queue"] = ExtractSlice(data.QueueDepth, startBin, count);
         }
 
+        if (data.ProcessingTimeMsSum != null)
+        {
+            series["processingTimeMsSum"] = ExtractSlice(data.ProcessingTimeMsSum, startBin, count);
+        }
+
+        if (data.ServedCount != null)
+        {
+            series["servedCount"] = ExtractSlice(data.ServedCount, startBin, count);
+        }
+
         if (data.Capacity != null)
         {
             series["capacity"] = ExtractSlice(data.Capacity, startBin, count);

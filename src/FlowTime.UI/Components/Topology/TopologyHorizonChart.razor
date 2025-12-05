@@ -157,7 +157,11 @@ else
                     utilWarning = thresholds.UtilizationWarning,
                     utilCritical = thresholds.UtilizationCritical,
                     errorWarning = thresholds.ErrorWarning,
-                    errorCritical = thresholds.ErrorCritical
+                    errorCritical = thresholds.ErrorCritical,
+                    serviceTimeWarning = thresholds.ServiceTimeWarning,
+                    serviceTimeCritical = thresholds.ServiceTimeCritical,
+                    flowLatencyWarning = thresholds.FlowLatencyWarning,
+                    flowLatencyCritical = thresholds.FlowLatencyCritical
                 },
                 height = Height,
                 highlightStart = highlightStart >= 0 ? highlightStart : (int?)null,
@@ -168,9 +172,10 @@ else
 
     private string ResolveBasisFromSeries()
     {
+        var overlayBasis = OverlaySettings?.ColorBasis.ToString().ToLowerInvariant() ?? "sla";
         if (string.IsNullOrWhiteSpace(SeriesKey))
         {
-            return OverlaySettings is null ? "sla" : OverlaySettings.ColorBasis.ToString().ToLowerInvariant();
+            return overlayBasis;
         }
 
         return SeriesKey.Trim().ToLowerInvariant() switch
@@ -179,7 +184,9 @@ else
             "utilization" => "utilization",
             "errorrate" or "errors" => "errors",
             "queue" or "queuedepth" => "queue",
-            _ => OverlaySettings is null ? "sla" : OverlaySettings.ColorBasis.ToString().ToLowerInvariant()
+            "servicetimems" or "servicetime" => "servicetime",
+            "flowlatencyms" or "flowlatency" => "flowlatency",
+            _ => overlayBasis
         };
     }
 

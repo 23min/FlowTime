@@ -643,8 +643,16 @@ code {
     position: absolute;
     top: 0;
     bottom: 0;
-    background: rgba(71, 85, 105, 0.12); /* slightly darker than track bg, lighter than tick marks */
+    background: rgba(251, 120, 38, 0.16); /* vivid orange in light mode */
+    border: 1px solid rgba(194, 65, 12, 0.48);
     pointer-events: none;
+}
+
+body.dark-mode .timeline-window,
+body[class*="mud-theme-dark"] .timeline-window,
+body[data-ft-theme="dark"] .timeline-window {
+    background: rgba(253, 224, 71, 0.24);
+    border-color: rgba(253, 224, 71, 0.5);
 }
 
 .timeline-pointer.is-dragging {

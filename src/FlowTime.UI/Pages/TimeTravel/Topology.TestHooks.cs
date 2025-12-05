@@ -121,4 +121,8 @@ public partial class Topology
     internal void TestUpdateDispatchEntries() => UpdateDispatchEntries();
 
     internal IReadOnlyList<DispatchScheduleEntry> TestGetDispatchEntries() => dispatchScheduleEntries;
+
+    internal double?[]? TestBuildUtilizationSeries(TimeTravelNodeSeriesDto node) => BuildUtilizationSeries(node);
+
+    internal double?[]? TestBuildServiceTimeSeries(TimeTravelNodeSeriesDto node) => BuildServiceTimeSeries(node);
 }

@@ -25,14 +25,34 @@ else
                       y2="@FormatCoord(baseLineY - TickHeight)" />
             }
 
-            @foreach (var segment in pathSegments)
+            @if (useImpulseMode)
             {
-                <path d="@segment.Path"
-                      stroke="@segment.Color"
-                      fill="none"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round" />
+                @foreach (var bar in barSegments)
+                {
+                    <rect x="@FormatCoord(bar.X)"
+                          y="@FormatCoord(bar.Y)"
+                          width="@FormatCoord(bar.Width)"
+                          height="@FormatCoord(bar.Height)"
+                          fill="@bar.Color"
+                          fill-opacity="0.35"
+                          stroke="@bar.Color"
+                          stroke-opacity="0.75"
+                          stroke-width="1"
+                          rx="1"
+                          ry="1" />
+                }
+            }
+            else
+            {
+                @foreach (var segment in pathSegments)
+                {
+                    <path d="@segment.Path"
+                          stroke="@segment.Color"
+                          fill="none"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round" />
+                }
             }
 
             @if (hasHighlight)
@@ -85,9 +105,14 @@ else
     private const double TopPadding = 18;
     private const double BottomPadding = 28;
     private const double TickHeight = 10;
+    private const int DesiredPointCount = 160;
+    private const int ImpulseModeMinBuckets = 24;
+    private const double ImpulseDensityThreshold = 0.3;
+    private const double NonZeroAmplitudeEpsilon = 1e-6;
 
     private readonly CultureInfo invariant = CultureInfo.InvariantCulture;
     private IReadOnlyList<PathSegment> pathSegments = Array.Empty<PathSegment>();
+    private IReadOnlyList<BarSegment> barSegments = Array.Empty<BarSegment>();
     private string minLabel = string.Empty;
     private string maxLabel = string.Empty;
     private string resolvedAriaLabel = "Node sparkline preview";
@@ -98,6 +123,7 @@ else
     private string highlightColor = "#CBD5E1";
     private double baseLineY;
     private IReadOnlyList<double> tickPositions = Array.Empty<double>();
+    private bool useImpulseMode;
 
     protected override void OnParametersSet()
     {
@@ -111,20 +137,12 @@ else
             return;
         }
 
-        var samples = new List<(int Index, double Value)>(Data.Values.Count);
-        for (var i = 0; i < Data.Values.Count; i++)
-        {
-            var sample = Data.Values[i];
-            if (sample.HasValue && double.IsFinite(sample.Value))
-            {
-                samples.Add((i, sample.Value));
-            }
-        }
-
-        if (samples.Count == 0)
+        var aggregatedSamples = AggregateSamples(Data.Values, DesiredPointCount, Data.StartIndex);
+        if (aggregatedSamples.Count == 0)
         {
             hasData = false;
             pathSegments = Array.Empty<PathSegment>();
+            barSegments = Array.Empty<BarSegment>();
             tickPositions = Array.Empty<double>();
             hasHighlight = false;
             resolvedAriaLabel = string.IsNullOrWhiteSpace(AriaLabel) ? "Node sparkline preview unavailable" : AriaLabel!;
@@ -135,8 +153,10 @@ else
         highlightColor = Stroke;
         resolvedAriaLabel = string.IsNullOrWhiteSpace(AriaLabel) ? "Node sparkline preview" : AriaLabel!;
 
-        var actualMin = samples.Min(s => s.Value);
-        var actualMax = samples.Max(s => s.Value);
+        var dataSamples = aggregatedSamples.Where(s => s.HasData).ToList();
+        var extremumSource = dataSamples.Count > 0 ? dataSamples : aggregatedSamples;
+        var actualMin = extremumSource.Min(s => s.Value);
+        var actualMax = extremumSource.Max(s => s.Value);
         minLabel = FormatSample(actualMin);
         maxLabel = FormatSample(actualMax);
 
@@ -157,80 +177,118 @@ else
         zeroFraction = double.IsFinite(zeroFraction) ? Math.Clamp(zeroFraction, 0d, 1d) : 0d;
         baseLineY = TopPadding + (1 - zeroFraction) * plotHeight;
 
-        var segments = new List<PathSegmentBuilder>();
-        PathSegmentBuilder? currentSegment = null;
-        var movePending = true;
-        var count = Data.Values.Count;
-        double previousX = 0;
-        double previousY = 0;
-        string previousColor = Stroke;
         var thresholds = OverlaySettings is not null
             ? ColorScale.ColorThresholds.FromOverlay(OverlaySettings)
             : ColorScale.ColorThresholds.Default;
         var basis = ResolveBasisFromSeries();
 
-        for (var i = 0; i < count; i++)
+        var domainStart = aggregatedSamples[0].StartIndex;
+        var domainEnd = aggregatedSamples[^1].EndIndex;
+        if (domainEnd <= domainStart)
         {
-            var sample = Data.Values[i];
-            if (!sample.HasValue || !double.IsFinite(sample.Value))
-            {
-                movePending = true;
-                continue;
-            }
+            domainEnd = domainStart + aggregatedSamples.Count;
+        }
+        var domainSpan = Math.Max(1d, domainEnd - domainStart);
 
-            var xFraction = count <= 1 ? 0d : (double)i / (count - 1);
-            var yFraction = (sample.Value - scaleMin) / (scaleMax - scaleMin);
+        var bucketCount = aggregatedSamples.Count;
+        var nonZeroBuckets = aggregatedSamples.Count(s => s.HasData && Math.Abs(s.Value) > NonZeroAmplitudeEpsilon);
+        useImpulseMode = bucketCount >= ImpulseModeMinBuckets &&
+                         bucketCount > 0 &&
+                         nonZeroBuckets <= bucketCount * ImpulseDensityThreshold;
 
-            var x = LeftPadding + xFraction * plotWidth;
-            var y = TopPadding + (1 - yFraction) * plotHeight;
-            var segmentColor = ResolveSampleColor(sample.Value, basis, thresholds);
+        if (useImpulseMode)
+        {
+            pathSegments = Array.Empty<PathSegment>();
+            barSegments = BuildBarSegments(
+                aggregatedSamples,
+                plotWidth,
+                plotHeight,
+                scaleMin,
+                scaleMax,
+                domainStart,
+                domainSpan,
+                basis,
+                thresholds);
+        }
+        else
+        {
+            barSegments = Array.Empty<BarSegment>();
+            var segments = new List<PathSegmentBuilder>();
+        PathSegmentBuilder? currentSegment = null;
+        var movePending = true;
+        double previousX = 0;
+        double previousY = 0;
+        string previousColor = Stroke;
+            foreach (var sample in aggregatedSamples)
+            {
+                if (!sample.HasData)
+                {
+                    movePending = true;
+                    continue;
+                }
 
-            if (movePending)
-            {
-                currentSegment = new PathSegmentBuilder(segmentColor, Stroke);
-                segments.Add(currentSegment);
-                currentSegment.Builder.Append('M');
-                currentSegment.Builder.Append(FormatCoord(x));
-                currentSegment.Builder.Append(' ');
-                currentSegment.Builder.Append(FormatCoord(y));
-                movePending = false;
-            }
-            else
-            {
-                if (currentSegment is null || !segmentColor.Equals(previousColor, StringComparison.OrdinalIgnoreCase))
+                var value = sample.Value;
+                if (!double.IsFinite(value))
+                {
+                    movePending = true;
+                    continue;
+                }
+
+                var xFraction = (sample.Center - domainStart) / domainSpan;
+                xFraction = Math.Clamp(xFraction, 0d, 1d);
+                var yFraction = (value - scaleMin) / (scaleMax - scaleMin);
+
+                var x = LeftPadding + xFraction * plotWidth;
+                var y = TopPadding + (1 - yFraction) * plotHeight;
+                var segmentColor = ResolveSampleColor(value, basis, thresholds);
+
+                if (movePending)
                 {
                     currentSegment = new PathSegmentBuilder(segmentColor, Stroke);
                     segments.Add(currentSegment);
                     currentSegment.Builder.Append('M');
-                    currentSegment.Builder.Append(FormatCoord(previousX));
+                    currentSegment.Builder.Append(FormatCoord(x));
                     currentSegment.Builder.Append(' ');
-                    currentSegment.Builder.Append(FormatCoord(previousY));
+                    currentSegment.Builder.Append(FormatCoord(y));
+                    movePending = false;
+                }
+                else
+                {
+                    if (currentSegment is null || !segmentColor.Equals(previousColor, StringComparison.OrdinalIgnoreCase))
+                    {
+                        currentSegment = new PathSegmentBuilder(segmentColor, Stroke);
+                        segments.Add(currentSegment);
+                        currentSegment.Builder.Append('M');
+                        currentSegment.Builder.Append(FormatCoord(previousX));
+                        currentSegment.Builder.Append(' ');
+                        currentSegment.Builder.Append(FormatCoord(previousY));
+                    }
+
+                    currentSegment.Builder.Append('L');
+                    currentSegment.Builder.Append(FormatCoord(x));
+                    currentSegment.Builder.Append(' ');
+                    currentSegment.Builder.Append(FormatCoord(y));
                 }
 
-                currentSegment.Builder.Append('L');
-                currentSegment.Builder.Append(FormatCoord(x));
-                currentSegment.Builder.Append(' ');
-                currentSegment.Builder.Append(FormatCoord(y));
+                previousX = x;
+                previousY = y;
+                previousColor = currentSegment?.Color ?? Stroke;
             }
 
-            previousX = x;
-            previousY = y;
-            previousColor = currentSegment?.Color ?? Stroke;
+            pathSegments = segments.Count > 0
+                ? segments.ConvertAll(segment => new PathSegment(segment.Builder.ToString(), segment.Color))
+                : Array.Empty<PathSegment>();
         }
 
-        pathSegments = segments.Count > 0
-            ? segments.ConvertAll(segment => new PathSegment(segment.Builder.ToString(), segment.Color))
-            : Array.Empty<PathSegment>();
-
-        var highlightIndex = SelectedBin - Data.StartIndex;
-        if (highlightIndex >= 0 && highlightIndex < count)
+        if (SelectedBin >= domainStart && SelectedBin <= domainEnd)
         {
-            var highlightValue = Data.Values[highlightIndex];
+            var highlightValue = Data.Values[Math.Clamp(SelectedBin - Data.StartIndex, 0, Data.Values.Count - 1)];
             if (highlightValue.HasValue && double.IsFinite(highlightValue.Value))
             {
-                var xFraction = count <= 1 ? 0d : (double)highlightIndex / (count - 1);
+                var highlightFraction = (SelectedBin - domainStart) / domainSpan;
+                highlightFraction = Math.Clamp(highlightFraction, 0d, 1d);
                 var yFraction = (highlightValue.Value - scaleMin) / (scaleMax - scaleMin);
-                highlightX = LeftPadding + xFraction * plotWidth;
+                highlightX = LeftPadding + highlightFraction * plotWidth;
                 highlightY = TopPadding + (1 - yFraction) * plotHeight;
                 highlightColor = ResolveSampleColor(highlightValue.Value, basis, thresholds);
                 hasHighlight = true;
@@ -280,9 +338,10 @@ else
 
     private TopologyColorBasis? ResolveBasisFromSeries()
     {
+        var overlayBasis = OverlaySettings?.ColorBasis;
         if (string.IsNullOrWhiteSpace(SeriesKey))
         {
-            return null;
+            return overlayBasis;
         }
 
         return SeriesKey.Trim().ToLowerInvariant() switch
@@ -292,7 +351,8 @@ else
             "errorrate" or "errors" => TopologyColorBasis.Errors,
             "queue" or "queuedepth" => TopologyColorBasis.Queue,
             "servicetimems" or "servicetime" => TopologyColorBasis.ServiceTime,
-            _ => null
+            "flowlatencyms" or "flowlatency" => TopologyColorBasis.FlowLatency,
+            _ => overlayBasis
         };
     }
 
@@ -321,6 +381,108 @@ else
         return color;
     }
 
+    private IReadOnlyList<AggregatedSample> AggregateSamples(IReadOnlyList<double?> source, int desiredPoints, int startIndex)
+    {
+        var result = new List<AggregatedSample>();
+        if (source.Count == 0)
+        {
+            return result;
+        }
+
+        if (source.Count <= desiredPoints)
+        {
+            for (var i = 0; i < source.Count; i++)
+            {
+                var sample = source[i];
+                if (sample.HasValue && double.IsFinite(sample.Value))
+                {
+                    result.Add(new AggregatedSample(startIndex + i, startIndex + i + 1, sample.Value, true));
+                }
+                else
+                {
+                    result.Add(new AggregatedSample(startIndex + i, startIndex + i + 1, 0d, false));
+                }
+            }
+
+            return result;
+        }
+
+        var bucketSize = Math.Max(1, (int)Math.Ceiling(source.Count / (double)desiredPoints));
+        for (var bucketStart = 0; bucketStart < source.Count; bucketStart += bucketSize)
+        {
+            var bucketEnd = Math.Min(bucketStart + bucketSize, source.Count);
+            double? aggregatedValue = null;
+            var bucketHasData = false;
+            for (var i = bucketStart; i < bucketEnd; i++)
+            {
+                var sample = source[i];
+                if (sample.HasValue && double.IsFinite(sample.Value))
+                {
+                    aggregatedValue = aggregatedValue.HasValue
+                        ? Math.Max(aggregatedValue.Value, sample.Value)
+                        : sample.Value;
+                    bucketHasData = true;
+                }
+            }
+
+            var bucketValue = aggregatedValue ?? 0d;
+            result.Add(new AggregatedSample(
+                startIndex + bucketStart,
+                startIndex + bucketEnd,
+                bucketValue,
+                bucketHasData));
+        }
+
+        return result;
+    }
+
+    private IReadOnlyList<BarSegment> BuildBarSegments(
+        IReadOnlyList<AggregatedSample> samples,
+        double plotWidth,
+        double plotHeight,
+        double scaleMin,
+        double scaleMax,
+        double domainStart,
+        double domainSpan,
+        TopologyColorBasis? basis,
+        ColorScale.ColorThresholds thresholds)
+    {
+        if (samples.Count == 0)
+        {
+            return Array.Empty<BarSegment>();
+        }
+
+        var bars = new List<BarSegment>(samples.Count);
+        var domain = Math.Max(1e-6, domainSpan);
+
+        foreach (var sample in samples)
+        {
+            if (!sample.HasData)
+            {
+                continue;
+            }
+
+            var value = sample.Value;
+            var startFraction = (sample.StartIndex - domainStart) / domain;
+            var endFraction = (sample.EndIndex - domainStart) / domain;
+            startFraction = Math.Clamp(startFraction, 0d, 1d);
+            endFraction = Math.Clamp(endFraction, startFraction, 1d);
+            var widthFraction = Math.Max(1e-4, endFraction - startFraction);
+
+            var x = LeftPadding + startFraction * plotWidth;
+            var width = Math.Max(2d, widthFraction * plotWidth);
+            var yFraction = (value - scaleMin) / (scaleMax - scaleMin);
+            var y = TopPadding + (1 - yFraction) * plotHeight;
+            var top = Math.Min(y, baseLineY);
+            var height = Math.Abs(baseLineY - y);
+
+            var color = ResolveSampleColor(value, basis, thresholds);
+            bars.Add(new BarSegment(x, width, top, Math.Max(1.5d, height), color));
+        }
+
+        return bars;
+    }
+
     private sealed record PathSegment(string Path, string Color);
 
     private sealed class PathSegmentBuilder
@@ -335,4 +497,11 @@ else
 
         public string Color { get; }
     }
+
+    private sealed record AggregatedSample(int StartIndex, int EndIndex, double Value, bool HasData)
+    {
+        public double Center => StartIndex + (EndIndex - StartIndex) / 2d;
+    }
+
+    private sealed record BarSegment(double X, double Width, double Y, double Height, string Color);
 }

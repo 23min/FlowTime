@@ -91,6 +91,18 @@
           0.1,
           0.2
         ],
+        "processingTimeMsSum": [
+          2250,
+          1800,
+          2700,
+          1200
+        ],
+        "servedCount": [
+          9,
+          6,
+          9,
+          4
+        ],
         "capacity": [
           12,
           7,

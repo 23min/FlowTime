@@ -39,22 +39,12 @@ The list below enumerates current epics under `docs/architecture/` in an order t
 - **Goal:** Replace the legacy backlog node surface with a first-class `serviceWithBuffer` node type that owns both service behavior and an explicit queue/buffer, with aligned schema, engine, analyzer, and UI support.
 - **Key Milestones:**
   - `docs/milestones/SB-M-05.01.md` — Breaking introduction of `kind: serviceWithBuffer` and removal of `kind: backlog` from the public surface.
-  - `docs/milestones/SB-M-05.02.md` — Simplify the ServiceWithBuffer DSL (implicit queue depth) and improve queue latency semantics for scheduled drains.
-  - `docs/milestones/SB-M-05.03.md` — Queue/DLQ DSL parity: implicit synthesizer covers all queue-like semantics; canonical templates/doc updates.
 
 #### Edge Time Bins / Edge Metrics
 
 - **Folder:** `docs/architecture/edge-time-bin/`
 - **Goal:** Derive or surface per-edge throughput/attempt volumes and related metrics to support edge heat maps, conservation checks, and richer topology overlays.
 - **Notes:** Called out as the first near‑term epic candidate in `docs/ROADMAP.md`. Depends on stable node semantics from classes and ServiceWithBuffer.
-
-#### SIM/Engine Boundary Purification
-
-- **Folder:** `docs/architecture/sim-engine-boundary/`
-- **Goal:** Restore the clean separation of responsibilities—SIM produces canonical models and telemetry bundles, Engine executes models—by extracting run orchestration (template compilation, analyzer/bundle generation) out of the engine host. This reduces coupling so engine deployments only change when execution logic changes.
-- **Notes:** Best tackled after the ServiceWithBuffer work stabilizes (SB-M-05.x) so template semantics are firm; dovetails with future orchestration/runtime improvements.
-- **Key Milestones:**
-  - `docs/milestones/SB-M-05.04.md` — Deterministic run orchestration (stable hashes, bundle reuse/overwrite prompts) and engine boundary cleanup.
 
 ### Mid-Term / Aspirational Epics
 

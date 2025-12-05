@@ -173,6 +173,31 @@ public sealed class TopologyInspectorTests
     }
 
     [Fact]
+    public void BuildNodeSparklines_ComputesServiceWithBufferDerivedSeries()
+    {
+        var topology = new Topology();
+
+        var node = new TimeTravelNodeSeriesDto
+        {
+            Id = "svc-buffer",
+            Kind = "serviceWithBuffer",
+            Series = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["served"] = new double?[] { 10, 18, 24 },
+                ["capacity"] = new double?[] { 20, 18, 24 },
+                ["processingTimeMsSum"] = new double?[] { 1000, 1800, 2400 },
+                ["servedCount"] = new double?[] { 10, 18, 24 }
+            }
+        };
+
+        var derivedUtilization = topology.TestBuildUtilizationSeries(node);
+        Assert.Equal(new double?[] { 0.5, 1d, 1d }, derivedUtilization);
+
+        var derivedServiceTime = topology.TestBuildServiceTimeSeries(node);
+        Assert.Equal(new double?[] { 100d, 100d, 100d }, derivedServiceTime);
+    }
+
+    [Fact]
     public void BuildInspectorMetrics_ServiceNode_ReturnsExpectedStack()
     {
         var topology = new Topology();
@@ -263,6 +288,37 @@ public sealed class TopologyInspectorTests
                 Assert.Equal("Error rate", block.Title);
                 Assert.False(block.IsPlaceholder);
             });
+    }
+
+    [Fact]
+    public void BuildInspectorMetrics_QueueDepthUsesQueueBasisColor()
+    {
+        var topology = new Topology();
+        topology.TestSetOverlaySettings(new TopologyOverlaySettings
+        {
+            ColorBasis = TopologyColorBasis.Utilization
+        });
+
+        topology.TestSetTopologyGraph(new TopologyGraph(
+            new[]
+            {
+                new TopologyNode("queue-node", "queue", "queue", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
+            },
+            Array.Empty<TopologyEdge>()));
+
+        var queueSparkline = CreateSparkline(new Dictionary<string, double?[]>
+        {
+            ["queue"] = new double?[] { 0.9, 0.9, 0.9 }
+        });
+
+        topology.TestSetNodeSparklines(new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["queue-node"] = queueSparkline
+        });
+
+        var metrics = topology.TestBuildInspectorMetrics("queue-node");
+        var queueBlock = Assert.Single(metrics, block => block.Title == "Queue depth");
+        Assert.Equal(ColorScale.ErrorColor, queueBlock.Stroke);
     }
 
     [Fact]

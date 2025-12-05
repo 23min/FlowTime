@@ -39,7 +39,7 @@ public class ExprNode : INode
         return expr switch
         {
             LiteralNode literal => CreateLiteralSeries(literal.Value, grid),
-            NodeReferenceNode nodeRef => getInput(new NodeId(nodeRef.NodeId)),
+            NodeReferenceNode nodeRef => CloneSeries(getInput(new NodeId(nodeRef.NodeId))),
             BinaryOpNode binOp => EvaluateBinaryOp(binOp, grid, getInput),
             FunctionCallNode funcCall => EvaluateFunctionCall(funcCall, grid, getInput),
             _ => throw new ArgumentException($"Unsupported expression node type: {expr.GetType()}")
@@ -92,6 +92,11 @@ public class ExprNode : INode
             "PULSE" => EvaluatePulseFunction(node, grid, getInput),
             _ => throw new ArgumentException($"Unknown function: {node.FunctionName}")
         };
+    }
+
+    private static Series CloneSeries(Series source)
+    {
+        return new Series(source.ToArray());
     }
     
     private Series EvaluateShiftFunction(FunctionCallNode node, TimeGrid grid, Func<NodeId, Series> getInput)

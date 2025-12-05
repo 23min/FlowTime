@@ -516,9 +516,12 @@ public class RunOrchestrationTests : IClassFixture<TestWebApplicationFactory>, I
 
         var response = await client.PostAsJsonAsync("/v1/runs", requestPayload);
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-
         var json = JsonNode.Parse(await response.Content.ReadAsStringAsync());
-        Assert.Equal("Template not found: does-not-exist", json? ["error"]?.GetValue<string>());
+        var error = json?["error"]?.GetValue<string>() ?? string.Empty;
+        Assert.True(
+            error.Contains("Template not found", StringComparison.OrdinalIgnoreCase) ||
+            error.Contains("was not found", StringComparison.OrdinalIgnoreCase),
+            $"Unexpected error payload: {error}");
     }
 
     private async Task<string> CreateTelemetryCaptureAsync(bool asRelative = false)

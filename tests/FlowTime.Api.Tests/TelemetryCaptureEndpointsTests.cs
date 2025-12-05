@@ -30,6 +30,7 @@ public class TelemetryCaptureEndpointsTests : IClassFixture<TestWebApplicationFa
         {
             builder.UseSetting("TemplatesDirectory", templateDir);
         });
+        var customizedTestFactory = customizedFactory as TestWebApplicationFactory ?? factory;
 
         using var client = customizedFactory.CreateClient();
 
@@ -45,6 +46,12 @@ public class TelemetryCaptureEndpointsTests : IClassFixture<TestWebApplicationFa
         simulateResponse.EnsureSuccessStatusCode();
         var simulateJson = await simulateResponse.Content.ReadFromJsonAsync<JsonNode>() ?? throw new InvalidOperationException("Simulation response was not valid JSON.");
         var runId = simulateJson["metadata"]?["runId"]?.GetValue<string>() ?? throw new InvalidOperationException("runId missing");
+        var runDirectory = Path.Combine(customizedTestFactory.TestDataDirectory, runId);
+        var telemetryDir = Path.Combine(runDirectory, "model", "telemetry");
+        if (Directory.Exists(telemetryDir))
+        {
+            Directory.Delete(telemetryDir, recursive: true);
+        }
 
         var captureRequest = new
         {
@@ -61,9 +68,6 @@ public class TelemetryCaptureEndpointsTests : IClassFixture<TestWebApplicationFa
         Assert.True(captureNode["classes"] is JsonArray { Count: 0 } or null);
         Assert.True(captureNode["classCoverage"] is null);
 
-        var customizedTestFactory = customizedFactory as TestWebApplicationFactory ?? factory;
-        var runDirectory = Path.Combine(customizedTestFactory.TestDataDirectory, runId);
-        var telemetryDir = Path.Combine(runDirectory, "model", "telemetry");
         Assert.True(Directory.Exists(telemetryDir));
         Assert.True(File.Exists(Path.Combine(telemetryDir, "manifest.json")));
 

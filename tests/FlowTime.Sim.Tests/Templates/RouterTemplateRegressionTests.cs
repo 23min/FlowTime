@@ -7,31 +7,27 @@ using FlowTime.Sim.Core.Analysis;
 using FlowTime.Sim.Core.Services;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
+using YamlDotNet.RepresentationModel;
 
 namespace FlowTime.Sim.Tests.Templates;
 
 public class RouterTemplateRegressionTests
 {
     private readonly TemplateService templateService;
+    private static IReadOnlyList<object[]>? cachedRouterExpectations;
 
     public RouterTemplateRegressionTests()
     {
         var templatesDirectory = ResolveTemplatesDirectory();
-        var templateIds = new[]
-        {
-            "transportation-basic-classes",
-            "supply-chain-multi-tier-classes",
-            "warehouse-picker-waves"
-        };
-
-        var preloaded = templateIds.ToDictionary(
-            id => id,
-            id =>
-            {
-                var path = Path.Combine(templatesDirectory, $"{id}.yaml");
-                Assert.True(File.Exists(path), $"Template file missing: {path}");
-                return File.ReadAllText(path);
-            });
+        var preloaded = Directory
+            .EnumerateFiles(templatesDirectory, "*.yaml", SearchOption.TopDirectoryOnly)
+            .ToDictionary(
+                path => Path.GetFileNameWithoutExtension(path),
+                path =>
+                {
+                    Assert.True(File.Exists(path), $"Template file missing: {path}");
+                    return File.ReadAllText(path);
+                });
 
         templateService = new TemplateService(preloaded, NullLogger<TemplateService>.Instance);
     }
@@ -80,16 +76,7 @@ public class RouterTemplateRegressionTests
     }
 
     [Theory]
-    [InlineData(
-        "transportation-basic-classes",
-        "hub_dispatch_router",
-        "hub_dispatch",
-        new[] { "airport_dispatch_queue_demand", "downtown_dispatch_queue_demand", "industrial_dispatch_queue_demand" })]
-    [InlineData(
-        "supply-chain-multi-tier-classes",
-        "returns_router",
-        "returns_processed",
-        new[] { "restock_inflow", "recover_inflow", "scrap_inflow" })]
+    [MemberData(nameof(AllRouterExpectations))]
     public async Task CanonicalModel_DefinesRouterNodes(
         string templateId,
         string routerId,
@@ -113,6 +100,121 @@ public class RouterTemplateRegressionTests
         {
             Assert.Contains(expected, actualTargets);
         }
+    }
+
+    public static IEnumerable<object[]> AllRouterExpectations()
+    {
+        if (cachedRouterExpectations is not null)
+        {
+            foreach (var entry in cachedRouterExpectations)
+            {
+                yield return entry;
+            }
+            yield break;
+        }
+
+        var results = new List<object[]>();
+        var templatesDirectory = ResolveTemplatesDirectory();
+        foreach (var path in Directory.EnumerateFiles(templatesDirectory, "*.yaml", SearchOption.TopDirectoryOnly))
+        {
+            var templateId = Path.GetFileNameWithoutExtension(path);
+            var yaml = File.ReadAllText(path);
+            foreach (var expectation in ParseRouterExpectations(templateId, yaml))
+            {
+                results.Add(new object[]
+                {
+                    expectation.TemplateId,
+                    expectation.RouterId,
+                    expectation.QueueId,
+                    expectation.Targets
+                });
+            }
+        }
+
+        cachedRouterExpectations = results;
+        foreach (var entry in results)
+        {
+            yield return entry;
+        }
+    }
+
+    private sealed record RouterExpectation(string TemplateId, string RouterId, string QueueId, string[] Targets);
+
+    private static IEnumerable<RouterExpectation> ParseRouterExpectations(string templateId, string yaml)
+    {
+        var stream = new YamlStream();
+        using var reader = new StringReader(yaml);
+        stream.Load(reader);
+
+        if (stream.Documents.Count == 0 || stream.Documents[0].RootNode is not YamlMappingNode root)
+        {
+            yield break;
+        }
+
+        if (GetChild(root, "nodes") is not YamlSequenceNode nodesSequence)
+        {
+            yield break;
+        }
+
+        foreach (var node in nodesSequence.Children.OfType<YamlMappingNode>())
+        {
+            var kindValue = GetScalar(node, "kind");
+            if (!string.Equals(kindValue, "router", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var nodeId = GetScalar(node, "id");
+            if (string.IsNullOrWhiteSpace(nodeId))
+            {
+                continue;
+            }
+
+            var queueId = string.Empty;
+            if (GetChild(node, "inputs") is YamlMappingNode inputsMap)
+            {
+                queueId = GetScalar(inputsMap, "queue") ?? string.Empty;
+            }
+
+            var targets = new List<string>();
+            if (GetChild(node, "routes") is YamlSequenceNode routesSequence)
+            {
+                foreach (var routeNode in routesSequence.Children.OfType<YamlMappingNode>())
+                {
+                    var targetValue = GetScalar(routeNode, "target");
+                    if (!string.IsNullOrWhiteSpace(targetValue))
+                    {
+                        targets.Add(targetValue);
+                    }
+                }
+            }
+
+            if (targets.Count == 0)
+            {
+                targets.Add(string.Empty);
+            }
+
+            yield return new RouterExpectation(templateId, nodeId, queueId, targets.ToArray());
+        }
+    }
+
+    private static YamlNode? GetChild(YamlMappingNode map, string key)
+    {
+        foreach (var (childKey, value) in map.Children)
+        {
+            if (childKey is YamlScalarNode scalarKey &&
+                string.Equals(scalarKey.Value, key, StringComparison.OrdinalIgnoreCase))
+            {
+                return value;
+            }
+        }
+
+        return null;
+    }
+
+    private static string? GetScalar(YamlMappingNode map, string key)
+    {
+        return GetChild(map, key) is YamlScalarNode scalar ? scalar.Value : null;
     }
 
     [Fact]

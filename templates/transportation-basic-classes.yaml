@@ -533,7 +533,7 @@ nodes:
     metadata:
       graph.hidden: "true"
 
-  - id: hub_dispatch_router
+  - id: HubDispatchRouter
     kind: router
     inputs:
       queue: hub_dispatch

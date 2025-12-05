@@ -34,7 +34,7 @@ public sealed class TopologyInspectorSparklineTests : TestContext
 
         // Highlight circle should be present for the selected bin.
         var highlight = cut.Find("circle");
-        Assert.Equal("#123456", highlight.GetAttribute("fill"));
+        Assert.Equal(ColorScale.ErrorColor, highlight.GetAttribute("fill"));
     }
 
     [Fact]

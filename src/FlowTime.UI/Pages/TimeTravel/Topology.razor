@@ -2850,9 +2850,12 @@ private const string PmfExpectationLabel = "Value";
             }
 
             var primaryStartIndex = windowStart + (anchor + 1 - trimmedPrimary.Count);
-            var trimmedUtilization = TrimSeriesAt(TryGetSeries(node, "utilization"), SparklinePointLimit, anchor, trimmedPrimary.Count);
+            var utilizationSeries = TryGetSeries(node, "utilization") ?? BuildUtilizationSeries(node);
+            var trimmedUtilization = TrimSeriesAt(utilizationSeries, SparklinePointLimit, anchor, trimmedPrimary.Count);
             var trimmedErrorRate = TrimSeriesAt(BuildErrorRateSeries(node), SparklinePointLimit, anchor, trimmedPrimary.Count);
             var trimmedQueue = TrimSeriesAt(TryGetSeries(node, "queue"), SparklinePointLimit, anchor, trimmedPrimary.Count);
+            var serviceTimeSeries = TryGetSeries(node, "serviceTimeMs") ?? BuildServiceTimeSeries(node);
+            var trimmedServiceTime = TrimSeriesAt(serviceTimeSeries, SparklinePointLimit, anchor, trimmedPrimary.Count);
 
             var additional = new Dictionary<string, SparklineSeriesSlice>(StringComparer.OrdinalIgnoreCase);
             foreach (var pair in series)
@@ -2887,6 +2890,11 @@ private const string PmfExpectationLabel = "Value";
             if (trimmedQueue.Count > 0)
             {
                 additional["queue"] = new SparklineSeriesSlice(trimmedQueue, primaryStartIndex);
+            }
+
+            if (trimmedServiceTime.Count > 0)
+            {
+                additional["serviceTimeMs"] = new SparklineSeriesSlice(trimmedServiceTime, primaryStartIndex);
             }
 
             if (synthesizedValues)
@@ -3138,7 +3146,7 @@ internal sealed record InspectorMetricBlock(
             => InspectorMetricBlock.FromSparkline(
                 title,
                 data,
-                strokeOverride ?? ResolveInspectorSparklineStroke(data),
+                strokeOverride ?? ResolveInspectorSparklineStroke(data, seriesKey),
                 ariaLabel ?? $"{title} sparkline",
                 valueFormat,
                 seriesKey);
@@ -3819,7 +3827,7 @@ internal sealed record InspectorMetricBlock(
         return (maxProbability, modeValue);
     }
 
-    private string ResolveInspectorSparklineStroke(NodeSparklineData? sparkline)
+    private string ResolveInspectorSparklineStroke(NodeSparklineData? sparkline, string? seriesKey = null)
     {
         if (sparkline is null)
         {
@@ -3840,9 +3848,47 @@ internal sealed record InspectorMetricBlock(
             }
         }
 
-        var thresholds = ColorScale.ColorThresholds.FromOverlay(overlaySettings);
-        var basis = overlaySettings.ColorBasis;
-        var metrics = basis switch
+        var overlay = overlaySettings ?? TopologyOverlaySettings.Default;
+        var thresholds = ColorScale.ColorThresholds.FromOverlay(overlay);
+        var requestedBasis = ResolveInspectorSeriesBasis(seriesKey);
+        if (requestedBasis.HasValue)
+        {
+            var requestedMetrics = BuildMetricsForBasis(sample.Value, requestedBasis.Value);
+            var requestedColor = ColorScale.GetFill(requestedMetrics, requestedBasis.Value, thresholds);
+            if (!string.IsNullOrWhiteSpace(requestedColor))
+            {
+                return requestedColor;
+            }
+        }
+
+        var basis = overlay.ColorBasis;
+        var metrics = BuildMetricsForBasis(sample.Value, basis);
+        var color = ColorScale.GetFill(metrics, basis, thresholds);
+        return string.IsNullOrWhiteSpace(color) ? "#CBD5E1" : color;
+    }
+
+    private static TopologyColorBasis? ResolveInspectorSeriesBasis(string? seriesKey)
+    {
+        if (string.IsNullOrWhiteSpace(seriesKey))
+        {
+            return null;
+        }
+
+        return seriesKey.Trim().ToLowerInvariant() switch
+        {
+            "successrate" => TopologyColorBasis.Sla,
+            "utilization" => TopologyColorBasis.Utilization,
+            "errorrate" or "errors" => TopologyColorBasis.Errors,
+            "queue" or "queuedepth" => TopologyColorBasis.Queue,
+            "servicetimems" or "servicetime" => TopologyColorBasis.ServiceTime,
+            "flowlatencyms" or "flowlatency" => TopologyColorBasis.FlowLatency,
+            _ => null
+        };
+    }
+
+    private static NodeBinMetrics BuildMetricsForBasis(double sample, TopologyColorBasis basis)
+    {
+        return basis switch
         {
             TopologyColorBasis.Utilization => new NodeBinMetrics(null, sample, null, null, null, null),
             TopologyColorBasis.Errors => new NodeBinMetrics(null, null, sample, null, null, null),
@@ -3851,9 +3897,6 @@ internal sealed record InspectorMetricBlock(
             TopologyColorBasis.FlowLatency => new NodeBinMetrics(null, null, null, null, null, null, FlowLatencyMs: sample),
             _ => new NodeBinMetrics(sample, null, null, null, null, null)
         };
-
-        var color = ColorScale.GetFill(metrics, basis, thresholds);
-        return string.IsNullOrWhiteSpace(color) ? "#CBD5E1" : color;
     }
 
     private string GetRunInfo()
@@ -3957,6 +4000,88 @@ internal sealed record InspectorMetricBlock(
             {
                 values[i] = errorsValue.Value > 0 ? 1d : 0d;
             }
+        }
+
+        return values;
+    }
+
+    private double?[]? BuildUtilizationSeries(TimeTravelNodeSeriesDto node)
+    {
+        var served = TryGetSeries(node, "served");
+        var capacity = TryGetSeries(node, "capacity");
+        if (served is null || capacity is null)
+        {
+            return null;
+        }
+
+        var length = Math.Max(served.Length, capacity.Length);
+        if (length <= 0)
+        {
+            return null;
+        }
+
+        var values = new double?[length];
+        for (var i = 0; i < length; i++)
+        {
+            var servedValue = GetValueAt(served, i);
+            var capacityValue = GetValueAt(capacity, i);
+
+            if (!servedValue.HasValue)
+            {
+                values[i] = null;
+                continue;
+            }
+
+            if (!capacityValue.HasValue || capacityValue.Value <= 0)
+            {
+                values[i] = servedValue.Value <= 0 ? 0d : null;
+                continue;
+            }
+
+            values[i] = servedValue.Value / capacityValue.Value;
+        }
+
+        return values;
+    }
+
+    private double?[]? BuildServiceTimeSeries(TimeTravelNodeSeriesDto node)
+    {
+        var processingTime = TryGetSeries(node, "processingTimeMsSum");
+        var servedCount = TryGetSeries(node, "servedCount");
+        if (processingTime is null || servedCount is null)
+        {
+            return null;
+        }
+
+        var length = Math.Max(processingTime.Length, servedCount.Length);
+        if (length <= 0)
+        {
+            return null;
+        }
+
+        var values = new double?[length];
+        for (var i = 0; i < length; i++)
+        {
+            var sumValue = GetValueAt(processingTime, i);
+            var countValue = GetValueAt(servedCount, i);
+
+            if (!sumValue.HasValue)
+            {
+                values[i] = null;
+                continue;
+            }
+
+            if ((!countValue.HasValue || countValue.Value == 0) && Math.Abs(sumValue.Value) < 1e-9)
+            {
+                values[i] = 0d;
+                continue;
+            }
+
+            var denominator = countValue.HasValue && countValue.Value > 0
+                ? countValue.Value
+                : 1d;
+            var ratio = sumValue.Value / denominator;
+            values[i] = double.IsFinite(ratio) ? ratio : null;
         }
 
         return values;

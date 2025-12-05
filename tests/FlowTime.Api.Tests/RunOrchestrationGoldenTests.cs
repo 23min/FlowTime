@@ -157,6 +157,11 @@ public class RunOrchestrationGoldenTests : IClassFixture<TestWebApplicationFacto
                 schema["hash"] = "SCHEMA_HASH";
             }
 
+            if (metadata["inputHash"] is not null)
+            {
+                metadata["inputHash"] = "INPUT_HASH";
+            }
+
             if (metadata["rng"] is JsonObject rng)
             {
                 rng["kind"] = rng["kind"] ?? "pcg32";
@@ -218,6 +223,11 @@ public class RunOrchestrationGoldenTests : IClassFixture<TestWebApplicationFacto
                         {
                             rng["seed"] = JsonValue.Create(123);
                         }
+                    }
+
+                    if (item["inputHash"] is not null)
+                    {
+                        item["inputHash"] = "INPUT_HASH";
                     }
                     firstClone ??= item.DeepClone();
                 }

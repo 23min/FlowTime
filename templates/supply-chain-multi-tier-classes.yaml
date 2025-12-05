@@ -522,7 +522,7 @@ nodes:
     metadata:
       graph.hidden: "true"
 
-  - id: returns_router
+  - id: ReturnsRouter
     kind: router
     inputs:
       queue: returns_processed

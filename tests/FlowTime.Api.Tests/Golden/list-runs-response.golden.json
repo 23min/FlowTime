@@ -17,7 +17,8 @@
       "rng": {
         "kind": "pcg32",
         "seed": 123
-      }
+      },
+      "inputHash": "INPUT_HASH"
     }
   ],
   "totalCount": 1,
