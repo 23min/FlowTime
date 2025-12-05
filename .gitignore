@@ -6,6 +6,7 @@ obj/
 out/
 data/
 runs/
+/publish-wasm
 
 # Images used to prompt the AI
 /images

@@ -27,7 +27,10 @@ This roadmap supersedes the previous legacy plan (now archived under `docs/archi
 4. **Analyzer Cross-Node Checks**  
    - Need invariant rules that compare queue arrivals to upstream `served` (and similar cross-node relationships) to catch semantic mistakes early.  
    - Depends on either edge metrics or explicit topology lookup support in analyzers.
-5. **Expression Extensions & Conditional Logic / Services With Buffers**  
+5. **Classes & Router Solidification / Topology Perf (FT‑M‑05.05 / 05.06)**  
+   - FT‑M‑05.05: Rewire class-enabled templates (transportation, supply chain) to consume router outputs directly instead of legacy percentage splits; eliminates `router_class_leakage` warnings and keeps class chips accurate.  
+   - FT‑M‑05.06: Once routers are solid, throttle topology hover interactions (JS/interop batching, inspector debounce) to reduce WASM load and keep the UI responsive on class-heavy runs.
+6. **Expression Extensions & Conditional Logic / Services With Buffers**  
    - Track the features itemized in `docs/architecture/expression-extensions-roadmap.md` (ABS/SQRT/POW, EMA/DELAY, IF, router/autoscale helpers).  
    - Prioritize based on upcoming use cases (e.g., autoscale epic, smooth retry policies, and the ServiceWithBuffer epic under `docs/architecture/service-with-buffer/`).
 6. **Retention / Bundle Promotion Helpers**  

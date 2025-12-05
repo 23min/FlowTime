@@ -31,7 +31,7 @@ The list below enumerates current epics under `docs/architecture/` in an order t
 
 - **Folder:** `docs/architecture/classes/`
 - **Goal:** Introduce class-aware routing and visualization so that templates and the UI can represent multi-class flows (e.g., priority tiers, customer segments) while preserving FlowTime's determinism and DAG semantics.
-- **Notes:** Current milestone `CL-M-04.03.02` (scheduled dispatch & flow control primitives) sits within this broader epic.
+- **Notes:** Upcoming milestone `FT-M-05.05` (“Router Flow Solidification”) rewires templates to consume router outputs directly; `FT-M-05.06` (topology perf sweep) follows.
 
 #### Service With Buffer
 
