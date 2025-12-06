@@ -197,7 +197,36 @@ DLQs are now a first-class node kind:
 
 ### Router Nodes
 
-Use `kind: router` when a single upstream queue feeds multiple downstream legs and you need to preserve class-level metrics without sprinkling percentage math across expressions.
+Use `kind: router` when a single upstream queue feeds multiple downstream legs and you need to preserve class-level metrics without sprinkling percentage math across expressions. Routers behave like lightweight services: they accept a queue input, emit routed totals, and produce diagnostic series (`arrivals`, `served`, `errors`, `capacity`, `processingTimeMsSum`, `servedCount`).
+
+Authoring guidance:
+
+1. **Point routes at the true demand nodes.** Router targets should be the series that downstream queues/services already reference in their semantics (e.g., `airport_dispatch_queue_demand`, `restock_inflow`). This keeps the topology unchanged while letting the router overwrite those series with real routed totals.
+2. **Zero-out downstream expressions.** Set each router target node’s `expr` to `"0"` (or remove the expression entirely if the loader synthesizes it). Routers populate the target series via evaluation overrides, so no manual `%` math remains in the template.
+3. **Class routes first, weights second.** Provide `classes: [...]` for routes that siphon specific classes; omit `classes` and use `weight` when a route should consume the remaining traffic proportionally. Weights are normalized automatically.
+4. **Hide scaffolding nodes.** Any helper expressions that only exist to surface router metadata can be tagged with `metadata.graph.hidden: "true"` so CLI/API callers don’t see plumbing artifacts when expanding the graph.
+
+Example:
+
+```yaml
+- id: HubDispatchRouter
+  kind: router
+  inputs:
+    queue: hub_dispatch
+  routes:
+    - target: airport_dispatch_queue_demand
+      classes: [Airport]
+    - target: downtown_dispatch_queue_demand
+      classes: [Downtown]
+    - target: industrial_dispatch_queue_demand
+      classes: [Industrial]
+
+- id: airport_dispatch_queue_demand
+  kind: expr
+  expr: "0"        # router overrides populate this series
+```
+
+The analyzer treats router-generated series as authoritative, so downstream nodes automatically satisfy class-conservation checks (e.g., `router_class_leakage`). When you remove percentage expressions, rerun `flow-sim generate` followed by `flowtime run` to refresh canonical artifacts and ensure warnings disappear.
 
 ```yaml
   - id: HubDispatchRouter

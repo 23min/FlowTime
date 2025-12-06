@@ -63,7 +63,7 @@ Highlights:
 
 ### transportation-basic-classes
 
-Companion template `transportation-basic-classes` keeps the same topology but declares three rider classes (`Airport`, `Industrial`, `Downtown`). Class arrivals split upstream demand (`telemetryDemandNorthSource`/`telemetryDemandSouthSource`) so every node reports by-class metrics. Use this template to validate UI selectors without losing the legacy single-class variant.
+Companion template `transportation-basic-classes` keeps the same topology but declares three rider classes (`Airport`, `Industrial`, `Downtown`). Class arrivals still split upstream demand (`telemetryDemandNorthSource`/`telemetryDemandSouthSource`), but the downstream dispatch queues now consume router-emitted series directly: `HubDispatchRouter` inspects the actual class mix in `HubQueue` and feeds `airport_dispatch_queue_demand`, `downtown_dispatch_queue_demand`, and `industrial_dispatch_queue_demand` without any separate `%` parameters. This guarantees the queue/backlog metrics mirror the real-time router mix and eliminates `router_class_leakage` warnings. Use this template to validate UI selectors without losing the legacy single-class variant.
 
 **New in CL-M-04.03.02:** the downstream dispatch queues now model bus-stop bursts. Each service-with-buffer node declares a `dispatchSchedule` so the backlog only releases on the cadence you expect (Airport every 6 bins, Downtown every 8 bins with a phase offset, Industrial every 10 bins). Analyzer warnings surface if the cadence never fires or if the referenced capacity series is missing.
 
@@ -140,7 +140,7 @@ Highlights:
 
 ### supply-chain-multi-tier-classes
 
-Use `supply-chain-multi-tier-classes` when you need per-class telemetry. The template keeps the same topology but splits purchase orders into `Retail`, `Wholesale`, and `Subscription` flows (via `traffic.arrivals`). Run it side-by-side with the original version to compare single-class vs multi-class UI behavior.
+Use `supply-chain-multi-tier-classes` when you need per-class telemetry. The template keeps the same topology but splits purchase orders into `Retail`, `Wholesale`, and `Subscription` flows (`traffic.arrivals`). Returns are handled by an explicit `ReturnsRouter`—restock/recover/disposal queues listen directly to the router targets, so their inflows reflect the actual router mix instead of fixed percentages. Run it side-by-side with the original version to compare single-class vs multi-class UI behavior.
 
 ## network-reliability
 

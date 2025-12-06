@@ -658,7 +658,7 @@ public static class InvariantAnalyzer
             return;
         }
 
-        var classAssignments = BuildClassAssignments(model);
+        var classAssignments = ClassAssignmentMapBuilder.Build(model);
         if (classAssignments.Count == 0)
         {
             return;
@@ -708,33 +708,6 @@ public static class InvariantAnalyzer
         {
             return false;
         }
-    }
-
-    private static Dictionary<NodeId, string> BuildClassAssignments(ModelDefinition model)
-    {
-        var assignments = new Dictionary<NodeId, string>(new NodeIdComparer());
-        if (model.Traffic?.Arrivals is not { Count: > 0 })
-        {
-            return assignments;
-        }
-
-        foreach (var arrival in model.Traffic.Arrivals)
-        {
-            if (string.IsNullOrWhiteSpace(arrival.NodeId) || string.IsNullOrWhiteSpace(arrival.ClassId))
-            {
-                continue;
-            }
-
-            assignments[new NodeId(arrival.NodeId)] = arrival.ClassId.Trim();
-        }
-
-        return assignments;
-    }
-
-    private sealed class NodeIdComparer : IEqualityComparer<NodeId>
-    {
-        public bool Equals(NodeId x, NodeId y) => string.Equals(x.Value, y.Value, StringComparison.OrdinalIgnoreCase);
-        public int GetHashCode(NodeId obj) => obj.Value?.ToLowerInvariant().GetHashCode() ?? 0;
     }
 
     private static Dictionary<string, double> BuildQueueInitials(IEnumerable<TopologyNodeDefinition> nodes)

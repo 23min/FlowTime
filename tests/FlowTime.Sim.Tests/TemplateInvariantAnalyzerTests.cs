@@ -104,7 +104,7 @@ outputs: []
     }
 
     [Fact]
-    public void Analyze_FlagsRouterClassLeakage()
+    public void Analyze_RouterOverridesPreventClassLeakageWarning()
     {
         var yaml = """
 schemaVersion: 1
@@ -166,7 +166,7 @@ outputs: []
 
         var result = TemplateInvariantAnalyzer.Analyze(yaml);
 
-        Assert.Contains(result.Warnings, w => w.Code == "router_class_leakage" && w.NodeId == "hub_router");
+        Assert.DoesNotContain(result.Warnings, w => w.Code == "router_class_leakage");
     }
 
     [Fact]

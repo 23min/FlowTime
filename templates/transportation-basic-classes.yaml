@@ -4,7 +4,7 @@ metadata:
   id: 'transportation-basic-classes'
   title: 'Transportation Network with Hub Queue (Class Segments)'
   description: 'North/South origins feed a central hub with an outbound queue and airport retries.'
-  version: 3.0.0
+  version: 3.1.0
   captureKey: transportation-network-telemetry
   tags: [transportation, transit, queue, retries]
 
@@ -37,20 +37,6 @@ parameters:
     default: 5
     minimum: 5
     maximum: 60
-  - name: splitAirport
-    type: number
-    title: "Hub → Airport Split"
-    description: "Fraction of hub dispatch routed to Airport"
-    default: 0.3
-    minimum: 0.0
-    maximum: 1.0
-  - name: splitIndustrial
-    type: number
-    title: "Hub → Industrial Split"
-    description: "Fraction of hub dispatch routed to Industrial Park"
-    default: 0.2
-    minimum: 0.0
-    maximum: 1.0
   - name: hubRetryRate
     type: number
     title: "Airport Retry Rate"
@@ -550,7 +536,7 @@ nodes:
     expr: "0"
   - id: airport_dispatch_queue_demand
     kind: expr
-    expr: "hub_dispatch_airport"
+    expr: "0"
   - id: airport_dispatch_queue_served
     kind: expr
     expr: "airport_dispatch_queue_demand"
@@ -559,7 +545,7 @@ nodes:
     expr: "0"
   - id: downtown_dispatch_queue_demand
     kind: expr
-    expr: "hub_dispatch_downtown"
+    expr: "0"
   - id: downtown_dispatch_queue_served
     kind: expr
     expr: "downtown_dispatch_queue_demand"
@@ -568,19 +554,10 @@ nodes:
     expr: "0"
   - id: industrial_dispatch_queue_demand
     kind: expr
-    expr: "hub_dispatch_industrial"
+    expr: "0"
   - id: industrial_dispatch_queue_served
     kind: expr
     expr: "industrial_dispatch_queue_demand"
-  - id: hub_dispatch_airport
-    kind: expr
-    expr: "hub_dispatch * ${splitAirport}"
-  - id: hub_dispatch_industrial
-    kind: expr
-    expr: "hub_dispatch * ${splitIndustrial}"
-  - id: hub_dispatch_downtown
-    kind: expr
-    expr: "hub_dispatch - hub_dispatch_airport - hub_dispatch_industrial"
 
   - id: arrivals_airport
     kind: expr

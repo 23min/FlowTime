@@ -20,6 +20,7 @@ using SimTemplateService = FlowTime.Sim.Core.Services.TemplateService;
 using SimITemplateService = FlowTime.Sim.Core.Services.ITemplateService;
 using FlowTime.Contracts.Services;
 using FlowTime.Core.TimeTravel;
+using FlowTime.Core.Routing;
 using Microsoft.AspNetCore.HttpLogging;
 using System.Diagnostics;
 using Synthetic = FlowTime.Adapters.Synthetic;
@@ -523,18 +524,15 @@ v1.MapPost("/run", async (HttpRequest req, IArtifactRegistry registry, ILogger<P
         }
 
         var order = graph.TopologicalOrder();
-        var ctx = graph.Evaluate(grid);
+        var routerEvaluation = RouterAwareGraphEvaluator.Evaluate(coreModel, graph, grid);
+        var ctx = routerEvaluation.Evaluation;
 
         // Build artifacts using shared writer
         var artifactsDir = Program.GetArtifactsDirectory(app.Configuration);
         Directory.CreateDirectory(artifactsDir);
         
         // Create context dictionary for artifact writer
-        var artifactContext = new Dictionary<NodeId, double[]>();
-        foreach (var (nodeId, seriesData) in ctx)
-        {
-            artifactContext[nodeId] = seriesData.ToArray();
-        }
+        var artifactContext = routerEvaluation.Context;
 
         // Use shared artifact writer
         var writeRequest = new RunArtifactWriter.WriteRequest

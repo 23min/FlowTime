@@ -4,7 +4,7 @@ metadata:
   id: supply-chain-multi-tier-classes
   title: Multi-Tier Supply Chain (Class Segments)
   description: End-to-end purchase order flow with warehouse buffering, distributor queue backlog, and delivery retries.
-  version: 3.0.0
+  version: 3.1.0
   captureKey: supply-chain-multi-tier-telemetry
   tags: [supply-chain, logistics, queue, retries]
 
@@ -536,7 +536,7 @@ nodes:
 
   - id: restock_inflow
     kind: expr
-    expr: "returns_processed * 0.5"
+    expr: "0"
 
   - id: restock_served_zero
     kind: expr
@@ -556,7 +556,7 @@ nodes:
 
   - id: recover_inflow
     kind: expr
-    expr: "returns_processed * 0.3"
+    expr: "0"
 
   - id: recover_served_zero
     kind: expr
@@ -576,7 +576,7 @@ nodes:
 
   - id: scrap_inflow
     kind: expr
-    expr: "returns_processed * 0.2"
+    expr: "0"
 
   - id: scrap_served_zero
     kind: expr

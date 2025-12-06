@@ -2,6 +2,7 @@ using FlowTime.Contracts.Services;
 using FlowTime.Core.Analysis;
 using FlowTime.Core.Execution;
 using FlowTime.Core.Models;
+using FlowTime.Core.Routing;
 
 namespace FlowTime.Sim.Core.Analysis;
 
@@ -17,10 +18,8 @@ public static class TemplateInvariantAnalyzer
         var dto = ModelService.ParseYaml(modelYaml);
         var modelDefinition = ModelService.ConvertToModelDefinition(dto);
         var (grid, graph) = ModelParser.ParseModel(modelDefinition);
-        var evaluated = graph.Evaluate(grid);
-        var context = evaluated.ToDictionary(
-            kvp => kvp.Key,
-            kvp => kvp.Value.ToArray());
+        var evaluation = RouterAwareGraphEvaluator.Evaluate(modelDefinition, graph, grid);
+        var context = evaluation.Context;
 
         return InvariantAnalyzer.Analyze(modelDefinition, context);
     }

@@ -11,6 +11,8 @@ using FlowTime.Core.Execution;
 using FlowTime.Core.Models;
 using FlowTime.Core.Nodes;
 using FlowTime.Core.TimeTravel;
+using FlowTime.Core.Routing;
+using FlowTime.Core.Artifacts;
 using FlowTime.Generator.Artifacts;
 using FlowTime.Generator.Models;
 using FlowTime.Sim.Core.Hashing;
@@ -683,6 +685,27 @@ public sealed class RunOrchestrationService
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 context[nodeId] = series.ToArray();
+            }
+
+            var routerOverrides = RouterFlowMaterializer.ComputeOverrides(
+                canonicalModel,
+                grid,
+                context);
+            if (routerOverrides.Count > 0)
+            {
+                logger.LogInformation(
+                    runEvaluationEvent,
+                    "Applying router overrides for {Count} targets in template {TemplateId}",
+                    routerOverrides.Count,
+                    inputContext.TemplateId);
+
+                var reevaluated = graph.EvaluateWithOverrides(grid, routerOverrides);
+                context = new Dictionary<NodeId, double[]>(reevaluated.Count);
+                foreach (var (nodeId, series) in reevaluated)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    context[nodeId] = series.ToArray();
+                }
             }
 
             var writeRequest = new RunArtifactWriter.WriteRequest

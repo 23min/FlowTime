@@ -6,6 +6,7 @@ using FlowTime.Core.Dispatching;
 using FlowTime.Core.Execution;
 using FlowTime.Core.Models;
 using FlowTime.Core.Nodes;
+using FlowTime.Core.Routing;
 using FlowTime.Expressions;
 using ExpressionBinaryOpNode = FlowTime.Expressions.BinaryOpNode;
 
@@ -33,7 +34,7 @@ internal static class ClassContributionBuilder
 
         var topologySeeds = ExtractBacklogSeeds(model);
         var nodeDefinitions = model.Nodes.ToDictionary(n => n.Id, StringComparer.OrdinalIgnoreCase);
-        var routerSpecs = BuildRouterSpecifications(model);
+        var routerSpecs = RouterSpecificationBuilder.Build(model);
         var parsedNodes = ModelParser.ParseNodes(model);
         var graph = new Graph(parsedNodes);
         var order = graph.TopologicalOrder();
@@ -102,44 +103,6 @@ internal static class ClassContributionBuilder
 
         routerDiagnostics = routerDiagnosticsList;
         return result;
-    }
-
-    private static Dictionary<NodeId, RouterSpec> BuildRouterSpecifications(ModelDefinition model)
-    {
-        var specs = new Dictionary<NodeId, RouterSpec>(new NodeIdComparer());
-        foreach (var node in model.Nodes.Where(n => string.Equals(n.Kind, "router", StringComparison.OrdinalIgnoreCase)))
-        {
-            if (node.Router?.Inputs?.Queue is null || node.Router.Routes is null)
-            {
-                continue;
-            }
-
-            var routes = new List<RouterRouteSpec>();
-            foreach (var route in node.Router.Routes)
-            {
-                if (string.IsNullOrWhiteSpace(route.Target))
-                {
-                    continue;
-                }
-
-                var classes = route.Classes?
-                    .Where(c => !string.IsNullOrWhiteSpace(c))
-                    .Select(c => c.Trim())
-                    .ToArray() ?? Array.Empty<string>();
-
-                var weight = route.Weight ?? 1d;
-                routes.Add(new RouterRouteSpec(new NodeId(route.Target), classes, weight));
-            }
-
-            if (routes.Count == 0)
-            {
-                continue;
-            }
-
-            specs[new NodeId(node.Id)] = new RouterSpec(new NodeId(node.Id), new NodeId(node.Router.Inputs.Queue), routes);
-        }
-
-        return specs;
     }
 
     private static HashSet<NodeId> ApplyRouterContributions(
@@ -733,10 +696,6 @@ internal static class ClassContributionBuilder
 
         return max;
     }
-
-    private sealed record RouterSpec(NodeId RouterId, NodeId SourceId, IReadOnlyList<RouterRouteSpec> Routes);
-
-    private sealed record RouterRouteSpec(NodeId TargetId, IReadOnlyList<string> Classes, double Weight);
 
     internal sealed record RouterDiagnostic(string RouterId, string Code, string Message);
 

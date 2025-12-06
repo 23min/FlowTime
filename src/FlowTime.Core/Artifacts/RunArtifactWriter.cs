@@ -156,7 +156,7 @@ public static class RunArtifactWriter
 
         var seriesMetas = new List<SeriesMeta>();
         var seriesHashes = new Dictionary<string, string>(StringComparer.Ordinal);
-        var classAssignments = BuildClassAssignments(modelDefinition);
+        var classAssignments = ClassAssignmentMapBuilder.Build(modelDefinition);
         if (classAssignments.Count > 0)
         {
             classAssignments = classAssignments
@@ -1179,27 +1179,6 @@ public static class RunArtifactWriter
         }
 
         return false;
-    }
-
-    private static IReadOnlyDictionary<NodeId, string> BuildClassAssignments(ModelDefinition model)
-    {
-        var map = new Dictionary<NodeId, string>(new NodeIdComparer());
-        if (model.Traffic?.Arrivals is not { Count: > 0 })
-        {
-            return map;
-        }
-
-        foreach (var arrival in model.Traffic.Arrivals)
-        {
-            if (string.IsNullOrWhiteSpace(arrival.NodeId) || string.IsNullOrWhiteSpace(arrival.ClassId))
-            {
-                continue;
-            }
-
-            map[new NodeId(arrival.NodeId)] = arrival.ClassId.Trim();
-        }
-
-        return map;
     }
 
     private static string DetermineClassCoverage(

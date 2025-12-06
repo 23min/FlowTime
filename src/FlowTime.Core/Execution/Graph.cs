@@ -49,12 +49,28 @@ public sealed class Graph
         if (visited != nodes.Count) throw new InvalidOperationException("Graph has a cycle");
     }
 
-    public IReadOnlyDictionary<NodeId, Series> Evaluate(TimeGrid grid)
+    public IReadOnlyDictionary<NodeId, Series> Evaluate(TimeGrid grid) =>
+        EvaluateInternal(grid, null);
+
+    public IReadOnlyDictionary<NodeId, Series> EvaluateWithOverrides(
+        TimeGrid grid,
+        IReadOnlyDictionary<NodeId, double[]> overrides) =>
+        EvaluateInternal(grid, overrides);
+
+    private IReadOnlyDictionary<NodeId, Series> EvaluateInternal(
+        TimeGrid grid,
+        IReadOnlyDictionary<NodeId, double[]>? overrides)
     {
         var order = TopologicalOrder();
         var memo = new Dictionary<NodeId, Series>();
         foreach (var id in order)
         {
+            if (overrides != null && overrides.TryGetValue(id, out var overrideValues))
+            {
+                memo[id] = new Series((double[])overrideValues.Clone());
+                continue;
+            }
+
             var node = nodes[id];
             Series GetInput(NodeId n) => memo[n];
             memo[id] = node.Evaluate(grid, GetInput);

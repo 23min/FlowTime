@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -72,6 +73,62 @@ public class RouterTemplateRegressionTests
             Assert.Equal(period, backlog.DispatchSchedule!.PeriodBins);
             Assert.Equal(phase, backlog.DispatchSchedule.PhaseOffset ?? 0);
             Assert.Equal(capacitySeries, backlog.DispatchSchedule.CapacitySeries);
+        }
+    }
+
+    [Fact]
+    public async Task TransportationClassesTemplate_UsesRouterOutputsForDispatchQueues()
+    {
+        var yaml = await templateService.GenerateEngineModelAsync(
+            "transportation-basic-classes",
+            new Dictionary<string, object>());
+        var model = ModelService.ParseAndConvert(yaml);
+        Assert.NotNull(model.Nodes);
+
+        var removedNodes = new[] { "hub_dispatch_airport", "hub_dispatch_industrial", "hub_dispatch_downtown" };
+        foreach (var id in removedNodes)
+        {
+            Assert.DoesNotContain(model.Nodes!, n => string.Equals(n.Id, id, StringComparison.OrdinalIgnoreCase));
+        }
+
+        var demandNodes = new[]
+        {
+            "airport_dispatch_queue_demand",
+            "downtown_dispatch_queue_demand",
+            "industrial_dispatch_queue_demand"
+        };
+
+        foreach (var nodeId in demandNodes)
+        {
+            var node = model.Nodes!.FirstOrDefault(n => string.Equals(n.Id, nodeId, StringComparison.OrdinalIgnoreCase));
+            Assert.NotNull(node);
+            Assert.Equal("0", node!.Expr);
+        }
+    }
+
+    [Fact]
+    public async Task SupplyChainClassesTemplate_UsesRouterOutputsForReturnsQueues()
+    {
+        var yaml = await templateService.GenerateEngineModelAsync(
+            "supply-chain-multi-tier-classes",
+            new Dictionary<string, object>());
+
+        var model = ModelService.ParseAndConvert(yaml);
+        Assert.NotNull(model.Nodes);
+
+        var inflowNodes = new[]
+        {
+            "restock_inflow",
+            "recover_inflow",
+            "scrap_inflow"
+        };
+
+        foreach (var nodeId in inflowNodes)
+        {
+            var node = model.Nodes!.FirstOrDefault(n =>
+                string.Equals(n.Id, nodeId, StringComparison.OrdinalIgnoreCase));
+            Assert.NotNull(node);
+            Assert.Equal("0", node!.Expr);
         }
     }
 
