@@ -5,7 +5,10 @@ using System.Text.Json.Nodes;
 using FlowTime.Api.Tests.Infrastructure;
 using FlowTime.Generator;
 using FlowTime.Generator.Models;
+using FlowTime.Generator.Orchestration;
 using FlowTime.Tests.Support;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace FlowTime.Api.Tests;
 
@@ -17,51 +20,39 @@ public class RunOrchestrationGoldenTests : IClassFixture<TestWebApplicationFacto
     };
 
     private readonly TestWebApplicationFactory factory;
+    private readonly WebApplicationFactory<Program> serverFactory;
     private readonly HttpClient client;
     private readonly string dataRoot;
     private readonly string templateDirectory;
+    private readonly string sourceRoot;
 
     public RunOrchestrationGoldenTests(TestWebApplicationFactory factory)
     {
         this.factory = factory;
-        dataRoot = factory.TestDataDirectory;
+        dataRoot = Path.Combine(factory.TestDataDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dataRoot);
         templateDirectory = Path.Combine(dataRoot, "templates");
         Directory.CreateDirectory(templateDirectory);
         File.WriteAllText(Path.Combine(templateDirectory, "test-order.yaml"), TestTemplateYaml);
         File.WriteAllText(Path.Combine(templateDirectory, "sim-order.yaml"), SimulationTemplateYaml);
 
-        var customizedFactory = factory.WithWebHostBuilder(builder =>
+        sourceRoot = Path.Combine(dataRoot, "golden-source");
+        Directory.CreateDirectory(sourceRoot);
+
+        serverFactory = factory.WithWebHostBuilder(builder =>
         {
             builder.UseSetting("TemplatesDirectory", templateDirectory);
             builder.UseSetting("ArtifactsDirectory", dataRoot);
         });
 
-        client = customizedFactory.CreateClient();
+        client = serverFactory.CreateClient();
     }
 
     [Fact]
-    public async Task CreateSimulationRun_ResponseMatchesGolden()
+    public async Task ImportSimulationRun_ResponseMatchesGolden()
     {
-        var payload = new
-        {
-            templateId = "sim-order",
-            mode = "simulation",
-            parameters = new
-            {
-                bins = 4,
-                binSize = 5
-            },
-            options = new
-            {
-                deterministicRunId = true
-            }
-        };
-
-        var response = await client.PostAsJsonAsync("/v1/runs", payload);
-        var body = await response.Content.ReadAsStringAsync();
-        Assert.True(response.IsSuccessStatusCode, $"Simulation run failed: {body}");
-
-        var createNode = JsonNode.Parse(body) ?? throw new InvalidOperationException("Response was not valid JSON.");
+        var sourceRunPath = await CreateSimulationBundleAsync();
+        var createNode = await ImportRunAsync(sourceRunPath);
         var runId = createNode["metadata"]?["runId"]?.GetValue<string>() ?? throw new InvalidOperationException("runId missing.");
 
         var sanitizedCreate = SanitizeCreateResponse(createNode);
@@ -73,34 +64,10 @@ public class RunOrchestrationGoldenTests : IClassFixture<TestWebApplicationFacto
     }
 
     [Fact]
-    public async Task CreateRun_ResponseMatchesGolden()
+    public async Task ImportTelemetryRun_ResponseMatchesGolden()
     {
-        var captureDir = await CreateTelemetryCaptureAsync();
-
-        var payload = new
-        {
-            templateId = "test-order",
-            mode = "telemetry",
-            telemetry = new
-            {
-                captureDirectory = captureDir,
-                bindings = new Dictionary<string, string>
-                {
-                    ["telemetryArrivals"] = "OrderService_arrivals.csv",
-                    ["telemetryServed"] = "OrderService_served.csv"
-                }
-            },
-            options = new
-            {
-                deterministicRunId = true
-            }
-        };
-
-        var response = await client.PostAsJsonAsync("/v1/runs", payload);
-        var body = await response.Content.ReadAsStringAsync();
-        response.EnsureSuccessStatusCode();
-
-        var createNode = JsonNode.Parse(body) ?? throw new InvalidOperationException("Response was not valid JSON.");
+        var sourceRunPath = await CreateTelemetryBundleAsync();
+        var createNode = await ImportRunAsync(sourceRunPath);
         var runId = createNode["metadata"]?["runId"]?.GetValue<string>() ?? throw new InvalidOperationException("runId missing.");
 
         var sanitizedCreate = SanitizeCreateResponse(createNode);
@@ -113,6 +80,18 @@ public class RunOrchestrationGoldenTests : IClassFixture<TestWebApplicationFacto
         var listNode = (await client.GetFromJsonAsync<JsonNode>("/v1/runs?mode=telemetry&hasWarnings=false&page=1&pageSize=10")) ?? throw new InvalidOperationException("List response missing.");
         var sanitizedList = SanitizeListResponse(listNode);
         GoldenTestUtils.AssertMatchesGolden("list-runs-response.golden.json", sanitizedList);
+    }
+
+    private async Task<JsonNode> ImportRunAsync(string bundlePath)
+    {
+        var response = await client.PostAsJsonAsync("/v1/runs", new
+        {
+            bundlePath
+        });
+
+        var body = await response.Content.ReadAsStringAsync();
+        response.EnsureSuccessStatusCode();
+        return JsonNode.Parse(body) ?? throw new InvalidOperationException("Response was not valid JSON.");
     }
 
     private static JsonNode SanitizeCreateResponse(JsonNode node)
@@ -246,6 +225,56 @@ public class RunOrchestrationGoldenTests : IClassFixture<TestWebApplicationFacto
         return clone;
     }
 
+    private async Task<string> CreateSimulationBundleAsync()
+    {
+        await using var scope = serverFactory.Services.CreateAsyncScope();
+        var orchestration = scope.ServiceProvider.GetRequiredService<RunOrchestrationService>();
+        var runsRoot = Path.Combine(sourceRoot, "simulation");
+        Directory.CreateDirectory(runsRoot);
+
+        var request = new RunOrchestrationRequest
+        {
+            TemplateId = "sim-order",
+            Mode = "simulation",
+            OutputRoot = runsRoot,
+            DeterministicRunId = true,
+            Parameters = new Dictionary<string, object?>
+            {
+                ["bins"] = 4,
+                ["binSize"] = 5
+            }
+        };
+
+        var outcome = await orchestration.CreateRunAsync(request).ConfigureAwait(false);
+        return outcome.Result?.RunDirectory ?? throw new InvalidOperationException("Failed to create simulation bundle.");
+    }
+
+    private async Task<string> CreateTelemetryBundleAsync()
+    {
+        var captureDir = await CreateTelemetryCaptureAsync();
+        await using var scope = serverFactory.Services.CreateAsyncScope();
+        var orchestration = scope.ServiceProvider.GetRequiredService<RunOrchestrationService>();
+        var runsRoot = Path.Combine(sourceRoot, "telemetry");
+        Directory.CreateDirectory(runsRoot);
+
+        var request = new RunOrchestrationRequest
+        {
+            TemplateId = "test-order",
+            Mode = "telemetry",
+            CaptureDirectory = captureDir,
+            TelemetryBindings = new Dictionary<string, string>
+            {
+                ["telemetryArrivals"] = "OrderService_arrivals.csv",
+                ["telemetryServed"] = "OrderService_served.csv"
+            },
+            OutputRoot = runsRoot,
+            DeterministicRunId = true
+        };
+
+        var outcome = await orchestration.CreateRunAsync(request).ConfigureAwait(false);
+        return outcome.Result?.RunDirectory ?? throw new InvalidOperationException("Failed to create telemetry bundle.");
+    }
+
     private async Task<string> CreateTelemetryCaptureAsync()
     {
         var sourceRoot = Path.Combine(dataRoot, $"source_{Guid.NewGuid():N}");
@@ -268,6 +297,7 @@ public class RunOrchestrationGoldenTests : IClassFixture<TestWebApplicationFacto
     public void Dispose()
     {
         client.Dispose();
+        serverFactory.Dispose();
     }
 
     private const string TestTemplateYaml = """

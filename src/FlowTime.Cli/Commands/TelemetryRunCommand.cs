@@ -1,12 +1,8 @@
+using System.Globalization;
+using System.Net.Http;
+using System.Net.Http.Json;
 using System.Text.Json;
-using FlowTime.Cli.Configuration;
-using FlowTime.Core.Configuration;
-using FlowTime.Generator;
-using FlowTime.Generator.Artifacts;
-using FlowTime.Generator.Models;
-using FlowTime.Generator.Orchestration;
-using FlowTime.Sim.Core.Services;
-using Microsoft.Extensions.Logging.Abstractions;
+using FlowTime.Contracts.TimeTravel;
 
 namespace FlowTime.Cli.Commands;
 
@@ -18,6 +14,9 @@ public static class TelemetryRunCommand
         ForceOverwrite,
         Fresh
     }
+
+    private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
+    internal static Func<HttpClient>? HttpClientFactoryOverride { get; set; }
 
     public static async Task<int> ExecuteAsync(string[] args)
     {
@@ -127,13 +126,6 @@ public static class TelemetryRunCommand
             return 2;
         }
 
-        if (string.IsNullOrWhiteSpace(captureDir) && string.Equals(mode, "telemetry", StringComparison.OrdinalIgnoreCase))
-        {
-            Console.Error.WriteLine("--capture-dir is required for telemetry mode runs.");
-            PrintUsage();
-            return 2;
-        }
-
         if (!string.IsNullOrWhiteSpace(runId) && reuseMode == RunReuseMode.AutoReuse && !deterministicExplicit)
         {
             reuseMode = RunReuseMode.Fresh;
@@ -161,122 +153,117 @@ public static class TelemetryRunCommand
                 break;
         }
 
-        var runsRoot = string.IsNullOrWhiteSpace(outputRoot)
-            ? Path.Combine(OutputDirectoryProvider.GetDefaultOutputDirectory(), "runs")
-            : outputRoot;
+        var normalizedMode = NormalizeMode(mode);
+        if (normalizedMode is null)
+        {
+            Console.Error.WriteLine("--mode must be 'telemetry' or 'simulation'.");
+            PrintUsage();
+            return 2;
+        }
 
-        Dictionary<string, object?>? parameters = null;
+        mode = normalizedMode;
+
+        if (string.IsNullOrWhiteSpace(captureDir) && string.Equals(mode, "telemetry", StringComparison.OrdinalIgnoreCase))
+        {
+            Console.Error.WriteLine("--capture-dir is required for telemetry mode runs.");
+            PrintUsage();
+            return 2;
+        }
+
+        Dictionary<string, JsonElement>? parameterElements = null;
         if (!string.IsNullOrWhiteSpace(paramFile))
         {
-            var json = await File.ReadAllTextAsync(paramFile);
-            var doc = JsonDocument.Parse(json);
+            await using var stream = File.OpenRead(paramFile);
+            using var doc = await JsonDocument.ParseAsync(stream).ConfigureAwait(false);
             if (doc.RootElement.ValueKind != JsonValueKind.Object)
             {
                 Console.Error.WriteLine("Parameter file must contain a JSON object.");
                 return 2;
             }
 
-            parameters = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+            parameterElements = new Dictionary<string, JsonElement>(StringComparer.OrdinalIgnoreCase);
             foreach (var prop in doc.RootElement.EnumerateObject())
             {
-                parameters[prop.Name] = ConvertJsonElement(prop.Value);
+                parameterElements[prop.Name] = prop.Value.Clone();
             }
         }
 
-        var templatesDir = Environment.GetEnvironmentVariable("FLOWTIME_TEMPLATES_DIR");
-        if (string.IsNullOrWhiteSpace(templatesDir))
+        if (!string.IsNullOrWhiteSpace(outputRoot))
         {
-            var solutionRoot = DirectoryProvider.FindSolutionRoot();
-            templatesDir = solutionRoot is not null
-                ? Path.Combine(solutionRoot, "templates")
-                : Path.Combine(AppContext.BaseDirectory, "templates");
+            Console.WriteLine("Note: --output is managed by FlowTime.Sim Service. Configure FLOWTIME_SIM_DATA_DIR on the service host instead.");
         }
 
-        Directory.CreateDirectory(templatesDir!);
-
-        var templateService = new TemplateService(templatesDir!, NullLogger<TemplateService>.Instance);
-        var bundleBuilder = new TelemetryBundleBuilder();
-        var orchestration = new RunOrchestrationService(templateService, bundleBuilder, NullLogger<RunOrchestrationService>.Instance);
-
-        var request = new RunOrchestrationRequest
+        var request = new RunCreateRequest
         {
             TemplateId = templateId,
             Mode = mode,
-            CaptureDirectory = captureDir,
-            TelemetryBindings = telemetryBindings.Count == 0 ? null : telemetryBindings,
-            Parameters = parameters,
-            OutputRoot = runsRoot,
-            DeterministicRunId = deterministicRunId,
-            RunId = runId,
-            DryRun = dryRun,
-            OverwriteExisting = overwrite
+            Parameters = parameterElements,
+            Telemetry = BuildTelemetryOptions(mode, captureDir, telemetryBindings),
+            Options = new RunCreationOptions
+            {
+                DeterministicRunId = deterministicRunId,
+                RunId = runId,
+                DryRun = dryRun,
+                OverwriteExisting = overwrite
+            }
         };
+
+        if (!TryCreateSimHttpClient(out var httpClient, out var httpClientError))
+        {
+            Console.Error.WriteLine(httpClientError);
+            return 1;
+        }
+
+        using var client = httpClient;
 
         try
         {
-            var outcome = await orchestration.CreateRunAsync(request).ConfigureAwait(false);
-            if (outcome.IsDryRun)
+            var response = await client.PostAsJsonAsync("api/v1/orchestration/runs", request, SerializerOptions).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
             {
-                var plan = outcome.Plan ?? throw new InvalidOperationException("Dry-run outcome missing plan details.");
-                Console.WriteLine("Dry run completed. No files were written.");
-                Console.WriteLine($"Template: {plan.TemplateId} (mode: {plan.Mode})");
-                Console.WriteLine($"Output root: {plan.OutputRoot}");
-                if (!string.IsNullOrWhiteSpace(plan.CaptureDirectory))
+                var errorPayload = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                var errorMessage = ExtractErrorMessage(errorPayload, response.StatusCode);
+                Console.Error.WriteLine($"Run creation failed: {errorMessage}");
+                return 1;
+            }
+
+            var payload = await response.Content.ReadFromJsonAsync<RunCreateResponse>(SerializerOptions).ConfigureAwait(false);
+            if (payload is null)
+            {
+                Console.Error.WriteLine("Run creation failed: orchestration response was empty.");
+                return 1;
+            }
+
+            if (payload.IsDryRun)
+            {
+                if (payload.Plan is null)
                 {
-                    Console.WriteLine($"Capture directory: {plan.CaptureDirectory}");
+                    Console.Error.WriteLine("Run creation failed: dry-run response missing plan details.");
+                    return 1;
                 }
 
-                if (plan.Parameters.Count > 0)
-                {
-                    Console.WriteLine("Parameters:");
-                    foreach (var kvp in plan.Parameters)
-                    {
-                        Console.WriteLine($"  {kvp.Key}: {kvp.Value}");
-                    }
-                }
-
-                if (plan.TelemetryBindings.Count > 0)
-                {
-                    Console.WriteLine("Telemetry bindings:");
-                    foreach (var kvp in plan.TelemetryBindings)
-                    {
-                        Console.WriteLine($"  {kvp.Key} -> {kvp.Value}");
-                    }
-                }
-
-                var files = plan.TelemetryManifest.Files;
-                if (files is { Count: > 0 })
-                {
-                    Console.WriteLine("Planned telemetry files:");
-                    foreach (var file in files)
-                    {
-                        Console.WriteLine($"  {file.NodeId}:{file.Metric} => {file.Path}");
-                    }
-                }
-
-                PrintManifestSummary(plan.TelemetryManifest);
-                PrintWarnings(plan.TelemetryManifest.Warnings);
-
+                PrintPlanSummary(payload.Plan);
                 return 0;
             }
 
-            var result = outcome.Result ?? throw new InvalidOperationException("Run outcome missing result payload.");
-            Console.WriteLine($"Run created: {result.RunId}");
-            Console.WriteLine($"Directory: {result.RunDirectory}");
-            Console.WriteLine($"Mode: {result.ManifestMetadata.Mode}");
-            Console.WriteLine($"Template: {result.ManifestMetadata.TemplateId}");
-            Console.WriteLine($"Telemetry sources resolved: {result.TelemetrySourcesResolved}");
-            if (!string.IsNullOrWhiteSpace(result.InputHash))
+            if (payload.Metadata is null)
             {
-                Console.WriteLine($"Input hash: {result.InputHash}");
+                Console.Error.WriteLine("Run creation failed: response missing metadata.");
+                return 1;
             }
-            if (result.WasReused)
-            {
-                Console.WriteLine("Existing deterministic bundle reused (pass --force-overwrite for regeneration).");
-            }
-            PrintManifestSummary(result.TelemetryManifest);
-            PrintWarnings(result.TelemetryManifest.Warnings);
+
+            PrintRunSummary(payload);
             return 0;
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.Error.WriteLine($"Run creation failed: {ex.Message}");
+            return 1;
+        }
+        catch (TaskCanceledException ex)
+        {
+            Console.Error.WriteLine($"Run creation timed out: {ex.Message}");
+            return 1;
         }
         catch (Exception ex)
         {
@@ -314,19 +301,108 @@ public static class TelemetryRunCommand
         Console.WriteLine("  --dry-run                Plan the run without writing files (report planned operations).");
     }
 
-    private static void PrintManifestSummary(TelemetryManifest manifest)
+    private static void PrintPlanSummary(RunCreatePlan plan)
     {
-        var supports = manifest.SupportsClassMetrics ? "enabled" : "disabled";
-        var coverage = manifest.SupportsClassMetrics ? manifest.ClassCoverage ?? "unknown" : "n/a";
-        var classCount = manifest.Classes?.Count ?? 0;
-        Console.WriteLine($"Class metrics: {supports} (coverage: {coverage}, classes: {classCount})");
-        if (manifest.Classes is { Count: > 0 })
+        Console.WriteLine("Dry run completed. No files were written.");
+        Console.WriteLine($"Template: {plan.TemplateId} (mode: {plan.Mode})");
+        Console.WriteLine($"Output root: {plan.OutputRoot}");
+        if (!string.IsNullOrWhiteSpace(plan.CaptureDirectory))
         {
-            Console.WriteLine($"Declared classes: {string.Join(", ", manifest.Classes)}");
+            Console.WriteLine($"Capture directory: {plan.CaptureDirectory}");
+        }
+
+        if (plan.Parameters.Count > 0)
+        {
+            Console.WriteLine("Parameters:");
+            foreach (var parameter in plan.Parameters)
+            {
+                Console.WriteLine($"  {parameter.Key}: {FormatPlanValue(parameter.Value)}");
+            }
+        }
+
+        if (plan.TelemetryBindings.Count > 0)
+        {
+            Console.WriteLine("Telemetry bindings:");
+            foreach (var binding in plan.TelemetryBindings)
+            {
+                Console.WriteLine($"  {binding.Key} -> {binding.Value}");
+            }
+        }
+
+        if (plan.Files is { Count: > 0 })
+        {
+            Console.WriteLine("Planned telemetry files:");
+            foreach (var file in plan.Files)
+            {
+                Console.WriteLine($"  {file.NodeId}:{file.Metric} => {file.Path}");
+            }
+        }
+
+        PrintPlanWarnings(plan.Warnings);
+    }
+
+    private static void PrintRunSummary(RunCreateResponse response)
+    {
+        var metadata = response.Metadata!;
+        Console.WriteLine($"Run created: {metadata.RunId}");
+
+        var directory = ResolveRunDirectory(metadata.Storage);
+        if (!string.IsNullOrWhiteSpace(directory))
+        {
+            Console.WriteLine($"Directory: {directory}");
+        }
+
+        var templateVersion = string.IsNullOrWhiteSpace(metadata.TemplateVersion) ? "n/a" : metadata.TemplateVersion;
+        Console.WriteLine($"Mode: {metadata.Mode}");
+        Console.WriteLine($"Template: {metadata.TemplateId} (version: {templateVersion})");
+        Console.WriteLine($"Telemetry sources resolved: {metadata.TelemetrySourcesResolved}");
+        if (!string.IsNullOrWhiteSpace(metadata.InputHash))
+        {
+            Console.WriteLine($"Input hash: {metadata.InputHash}");
+        }
+
+        if (response.WasReused)
+        {
+            Console.WriteLine("Existing deterministic bundle reused (pass --force-overwrite for regeneration).");
+        }
+
+        PrintTelemetrySummary(response.Telemetry);
+        PrintStateWarnings(response.Warnings);
+    }
+
+    private static void PrintTelemetrySummary(RunTelemetrySummary? telemetry)
+    {
+        if (telemetry is null)
+        {
+            Console.WriteLine("Telemetry: unavailable.");
+            return;
+        }
+
+        var status = telemetry.Available ? "available" : "not generated";
+        var generated = string.IsNullOrWhiteSpace(telemetry.GeneratedAtUtc) ? "n/a" : telemetry.GeneratedAtUtc;
+        Console.WriteLine($"Telemetry: {status} (warnings: {telemetry.WarningCount}, generated: {generated})");
+        if (!string.IsNullOrWhiteSpace(telemetry.SourceRunId))
+        {
+            Console.WriteLine($"Telemetry source run: {telemetry.SourceRunId}");
         }
     }
 
-    private static void PrintWarnings(IReadOnlyList<CaptureWarning>? warnings)
+    private static void PrintStateWarnings(IReadOnlyList<StateWarning>? warnings)
+    {
+        if (warnings is not { Count: > 0 })
+        {
+            return;
+        }
+
+        Console.WriteLine("Warnings:");
+        foreach (var warning in warnings)
+        {
+            var node = string.IsNullOrWhiteSpace(warning.NodeId) ? string.Empty : $" (node {warning.NodeId})";
+            Console.WriteLine($"  - {warning.Code}: {warning.Message}{node}");
+        }
+    }
+
+    private static void PrintPlanWarnings(IReadOnlyList<RunCreatePlanWarning>? warnings)
     {
         if (warnings is not { Count: > 0 })
         {
@@ -342,15 +418,115 @@ public static class TelemetryRunCommand
         }
     }
 
-    private static object? ConvertJsonElement(JsonElement element) => element.ValueKind switch
+    private static string? ResolveRunDirectory(StorageDescriptor storage)
     {
-        JsonValueKind.String => element.GetString(),
-        JsonValueKind.Number => element.TryGetInt64(out var integer) ? integer : element.GetDouble(),
-        JsonValueKind.True => true,
-        JsonValueKind.False => false,
-        JsonValueKind.Null => null,
-        JsonValueKind.Array => element.EnumerateArray().Select(ConvertJsonElement).ToArray(),
-        JsonValueKind.Object => element.EnumerateObject().ToDictionary(p => p.Name, p => ConvertJsonElement(p.Value), StringComparer.OrdinalIgnoreCase),
-        _ => element.GetRawText()
+        if (string.IsNullOrWhiteSpace(storage.ModelPath))
+        {
+            return null;
+        }
+
+        var modelDirectory = Path.GetDirectoryName(storage.ModelPath);
+        if (string.IsNullOrWhiteSpace(modelDirectory))
+        {
+            return null;
+        }
+
+        var runDirectory = Directory.GetParent(modelDirectory)?.FullName;
+        return runDirectory ?? modelDirectory;
+    }
+
+    private static string FormatPlanValue(object? value) => value switch
+    {
+        null => "null",
+        string s => s,
+        JsonElement element => element.ToString(),
+        bool b => b.ToString(),
+        IFormattable formattable => formattable.ToString(null, CultureInfo.InvariantCulture),
+        _ => JsonSerializer.Serialize(value, value.GetType(), SerializerOptions)
     };
+
+    private static string? NormalizeMode(string requested)
+    {
+        if (string.IsNullOrWhiteSpace(requested))
+        {
+            return "telemetry";
+        }
+
+        var normalized = requested.Trim().ToLowerInvariant();
+        return normalized is "telemetry" or "simulation" ? normalized : null;
+    }
+
+    private static RunTelemetryOptions? BuildTelemetryOptions(
+        string mode,
+        string? captureDir,
+        Dictionary<string, string> telemetryBindings)
+    {
+        if (!string.Equals(mode, "telemetry", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        if (string.IsNullOrWhiteSpace(captureDir))
+        {
+            return null;
+        }
+
+        return new RunTelemetryOptions
+        {
+            CaptureDirectory = captureDir,
+            Bindings = new Dictionary<string, string>(telemetryBindings, StringComparer.OrdinalIgnoreCase)
+        };
+    }
+
+    private static bool TryCreateSimHttpClient(out HttpClient client, out string? errorMessage)
+    {
+        if (HttpClientFactoryOverride is not null)
+        {
+            client = HttpClientFactoryOverride();
+            errorMessage = null;
+            return true;
+        }
+
+        var baseUrl = Environment.GetEnvironmentVariable("FLOWTIME_SIM_API_BASE_URL");
+        if (string.IsNullOrWhiteSpace(baseUrl))
+        {
+            baseUrl = "http://localhost:8090/";
+        }
+
+        if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out var baseUri))
+        {
+            client = null!;
+            errorMessage = $"FLOWTIME_SIM_API_BASE_URL '{baseUrl}' is not a valid absolute URI.";
+            return false;
+        }
+
+        client = new HttpClient { BaseAddress = baseUri };
+        errorMessage = null;
+        return true;
+    }
+
+    private static string ExtractErrorMessage(string payload, System.Net.HttpStatusCode statusCode)
+    {
+        if (string.IsNullOrWhiteSpace(payload))
+        {
+            return $"HTTP {(int)statusCode} ({statusCode})";
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(payload);
+            if (doc.RootElement.ValueKind == JsonValueKind.Object &&
+                doc.RootElement.TryGetProperty("error", out var errorProp) &&
+                errorProp.ValueKind == JsonValueKind.String)
+            {
+                return errorProp.GetString() ?? payload;
+            }
+        }
+        catch
+        {
+            // Ignore parsing errors and fall back to raw payload.
+        }
+
+        return payload.Trim();
+    }
 }

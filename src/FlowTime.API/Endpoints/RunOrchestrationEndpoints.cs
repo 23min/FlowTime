@@ -1,12 +1,13 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Text.Json;
 using FlowTime.API.Services;
 using FlowTime.Contracts.TimeTravel;
 using FlowTime.Generator.Artifacts;
 using FlowTime.Generator.Orchestration;
-using FlowTime.Sim.Core.Templates.Exceptions;
 
 namespace FlowTime.API.Endpoints;
 
@@ -21,7 +22,7 @@ internal static class RunOrchestrationEndpoints
     }
 
     private static async Task<IResult> HandleCreateRunAsync(
-        RunCreateRequest request,
+        RunImportRequest request,
         RunOrchestrationService orchestration,
         IConfiguration configuration,
         MetricsService metricsService,
@@ -33,69 +34,68 @@ internal static class RunOrchestrationEndpoints
             return Results.BadRequest(new { error = "Request body is required." });
         }
 
-        if (string.IsNullOrWhiteSpace(request.TemplateId))
+        var hasBundlePath = !string.IsNullOrWhiteSpace(request.BundlePath);
+        var hasArchive = !string.IsNullOrWhiteSpace(request.BundleArchiveBase64);
+        if (!hasBundlePath && !hasArchive)
         {
-            return Results.BadRequest(new { error = "templateId is required." });
+            return Results.Json(
+                new { error = "Template-driven run creation moved to FlowTime.Sim Service (/api/v1/orchestration/runs). Import canonical bundles via bundlePath or bundleArchiveBase64." },
+                statusCode: StatusCodes.Status410Gone);
         }
 
-        var mode = string.IsNullOrWhiteSpace(request.Mode) ? "telemetry" : request.Mode.Trim().ToLowerInvariant();
-        if (mode is not ("telemetry" or "simulation"))
-        {
-            return Results.BadRequest(new { error = "mode must be 'telemetry' or 'simulation'." });
-        }
-
-        if (mode == "telemetry" && (request.Telemetry?.CaptureDirectory is null || string.IsNullOrWhiteSpace(request.Telemetry.CaptureDirectory)))
-        {
-            return Results.BadRequest(new { error = "telemetry.captureDirectory is required for telemetry runs." });
-        }
-
-        logger.LogInformation("Received {Mode} run creation request for template {TemplateId}", mode, request.TemplateId);
-
-        var runsRoot = Program.ServiceHelpers.RunsRoot(configuration);
-        var parameters = ConvertParameters(request.Parameters);
-        var telemetryBindings = request.Telemetry?.Bindings is not null
-            ? new Dictionary<string, string>(request.Telemetry.Bindings, StringComparer.OrdinalIgnoreCase)
-            : null;
-
-        var orchestrationRequest = new RunOrchestrationRequest
-        {
-            TemplateId = request.TemplateId,
-            Mode = mode,
-            CaptureDirectory = request.Telemetry?.CaptureDirectory,
-            TelemetryBindings = telemetryBindings,
-            Parameters = parameters,
-            OutputRoot = runsRoot,
-            DeterministicRunId = request.Options?.DeterministicRunId ?? false,
-            RunId = request.Options?.RunId,
-            DryRun = request.Options?.DryRun ?? false,
-            OverwriteExisting = request.Options?.OverwriteExisting ?? false,
-            Rng = request.Rng
-        };
-
+        string? extractionRoot = null;
         try
         {
-            var outcome = await orchestration.CreateRunAsync(orchestrationRequest, cancellationToken).ConfigureAwait(false);
+            var sourceDirectory = hasArchive
+                ? await ExtractArchiveAsync(request.BundleArchiveBase64!, cancellationToken).ConfigureAwait(false)
+                : Path.GetFullPath(request.BundlePath!);
 
-            if (outcome.IsDryRun)
+            extractionRoot = hasArchive ? sourceDirectory : null;
+
+            if (!Directory.Exists(sourceDirectory))
             {
-                var plan = outcome.Plan ?? throw new InvalidOperationException("Dry-run outcome missing plan details.");
-                return Results.Ok(new RunCreateResponse
-                {
-                    IsDryRun = true,
-                    Plan = BuildPlan(plan),
-                    Warnings = Array.Empty<StateWarning>(),
-                    CanReplay = false,
-                    Telemetry = null,
-                    WasReused = false
-                });
+                return Results.BadRequest(new { error = $"Bundle directory '{sourceDirectory}' was not found." });
             }
 
-            var result = outcome.Result ?? throw new InvalidOperationException("Run outcome missing result payload.");
-            var metadata = BuildStateMetadata(result);
-            var warnings = BuildStateWarnings(result.TelemetryManifest);
-            var canReplay = DetermineCanReplay(result);
+            var bundleRoot = FindBundleRoot(sourceDirectory);
+            var bundleRunId = await TryReadRunIdAsync(bundleRoot, cancellationToken).ConfigureAwait(false);
+            var runId = !string.IsNullOrWhiteSpace(bundleRunId)
+                ? bundleRunId
+                : (!string.IsNullOrWhiteSpace(request.RunId) ? request.RunId : Path.GetFileName(bundleRoot));
 
-            await MetricsArtifactWriter.TryWriteAsync(metricsService, result.RunId, result.RunDirectory, logger, cancellationToken);
+            if (string.IsNullOrWhiteSpace(runId))
+            {
+                return Results.BadRequest(new { error = "Run id could not be determined from the bundle." });
+            }
+
+            var runsRoot = Program.ServiceHelpers.RunsRoot(configuration);
+            var destination = Path.Combine(runsRoot, runId!);
+
+            if (Directory.Exists(destination))
+            {
+                if (!request.OverwriteExisting)
+                {
+                    return Results.Conflict(new { error = $"Run '{runId}' already exists. Set overwriteExisting=true to replace it." });
+                }
+
+                Directory.Delete(destination, recursive: true);
+            }
+
+            CopyDirectory(bundleRoot, destination);
+
+            var result = await orchestration.TryLoadRunAsync(destination, cancellationToken).ConfigureAwait(false);
+            if (result is null)
+            {
+                Directory.Delete(destination, recursive: true);
+                return Results.BadRequest(new { error = "Bundle was invalid or missing canonical artifacts." });
+            }
+
+            await MetricsArtifactWriter.TryWriteAsync(metricsService, result.RunId, destination, logger, cancellationToken);
+
+            var metadata = RunOrchestrationContractMapper.BuildStateMetadata(result);
+            var warnings = RunOrchestrationContractMapper.BuildStateWarnings(result.TelemetryManifest);
+            var canReplay = RunOrchestrationContractMapper.DetermineCanReplay(result);
+            var telemetry = RunOrchestrationContractMapper.BuildTelemetrySummary(result);
 
             return Results.Created($"/v1/runs/{metadata.RunId}", new RunCreateResponse
             {
@@ -103,39 +103,31 @@ internal static class RunOrchestrationEndpoints
                 Metadata = metadata,
                 Warnings = warnings,
                 CanReplay = canReplay,
-                Telemetry = BuildTelemetrySummary(result),
-                WasReused = result.WasReused
+                Telemetry = telemetry,
+                WasReused = false
             });
         }
-        catch (TemplateValidationException ex)
+        catch (FormatException ex)
         {
-            logger.LogWarning(ex, "Template validation failed for template {TemplateId}", request.TemplateId);
-            return Results.BadRequest(new { error = ex.Message });
+            logger.LogWarning(ex, "Bundle archive payload was not valid base64.");
+            return Results.BadRequest(new { error = "bundleArchiveBase64 must be a valid base64 string." });
         }
-        catch (ArgumentException ex) when (
-            ex.Message.Contains("Template not found", StringComparison.OrdinalIgnoreCase) ||
-            ex.Message.Contains("was not found", StringComparison.OrdinalIgnoreCase))
+        catch (InvalidDataException ex)
         {
-            logger.LogWarning(ex, "Template {TemplateId} was not found", request.TemplateId);
-            return Results.NotFound(new { error = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            logger.LogWarning(ex, "Run validation failed for template {TemplateId}", request.TemplateId);
-            return Results.BadRequest(new { error = ex.Message });
-        }
-        catch (FileNotFoundException ex)
-        {
-            logger.LogWarning(ex, "Missing capture artifact for template {TemplateId}", request.TemplateId);
-            return Results.Problem(
-                title: "Capture artifacts missing",
-                detail: ex.Message,
-                statusCode: StatusCodes.Status422UnprocessableEntity);
+            logger.LogWarning(ex, "Failed to extract bundle archive.");
+            return Results.BadRequest(new { error = $"Bundle archive could not be extracted: {ex.Message}" });
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to create run for template {TemplateId}", request.TemplateId);
-            return Results.Problem(title: "Run creation failed", detail: ex.Message, statusCode: StatusCodes.Status500InternalServerError);
+            logger.LogError(ex, "Failed to import canonical run bundle.");
+            return Results.Problem(title: "Run import failed", detail: ex.Message, statusCode: StatusCodes.Status500InternalServerError);
+        }
+        finally
+        {
+            if (!string.IsNullOrWhiteSpace(extractionRoot) && Directory.Exists(extractionRoot))
+            {
+                TryDeleteDirectory(extractionRoot);
+            }
         }
     }
 
@@ -203,7 +195,7 @@ internal static class RunOrchestrationEndpoints
                     continue;
                 }
 
-                items.Add(BuildRunSummary(result));
+                items.Add(RunOrchestrationContractMapper.BuildRunSummary(result));
             }
             catch
             {
@@ -276,221 +268,94 @@ internal static class RunOrchestrationEndpoints
             return Results.NotFound(new { error = $"Run '{runId}' not found." });
         }
 
-        var metadata = BuildStateMetadata(result);
-        var warnings = BuildStateWarnings(result.TelemetryManifest);
-        var canReplay = DetermineCanReplay(result);
-        return Results.Ok(new RunCreateResponse { IsDryRun = false, Metadata = metadata, Warnings = warnings, CanReplay = canReplay, Telemetry = BuildTelemetrySummary(result) });
+        var metadata = RunOrchestrationContractMapper.BuildStateMetadata(result);
+        var warnings = RunOrchestrationContractMapper.BuildStateWarnings(result.TelemetryManifest);
+        var canReplay = RunOrchestrationContractMapper.DetermineCanReplay(result);
+        return Results.Ok(new RunCreateResponse
+        {
+            IsDryRun = false,
+            Metadata = metadata,
+            Warnings = warnings,
+            CanReplay = canReplay,
+            Telemetry = RunOrchestrationContractMapper.BuildTelemetrySummary(result)
+        });
     }
 
-    private static Dictionary<string, object?> ConvertParameters(Dictionary<string, JsonElement>? source)
+    private static async Task<string?> TryReadRunIdAsync(string bundleRoot, CancellationToken cancellationToken)
     {
-        var result = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
-        if (source is null)
-        {
-            return result;
-        }
-
-        foreach (var kvp in source)
-        {
-            result[kvp.Key] = ConvertJsonElement(kvp.Value);
-        }
-
-        return result;
-    }
-
-    private static object? ConvertJsonElement(JsonElement element)
-    {
-        return element.ValueKind switch
-        {
-            JsonValueKind.String => element.GetString(),
-            JsonValueKind.Number => element.TryGetInt64(out var i) ? i : element.GetDouble(),
-            JsonValueKind.True => true,
-            JsonValueKind.False => false,
-            JsonValueKind.Null => null,
-            JsonValueKind.Array => element.EnumerateArray().Select(ConvertJsonElement).ToArray(),
-            JsonValueKind.Object => element.EnumerateObject().ToDictionary(p => p.Name, p => ConvertJsonElement(p.Value), StringComparer.OrdinalIgnoreCase),
-            _ => element.GetRawText()
-        };
-    }
-
-    private static StateMetadata BuildStateMetadata(RunOrchestrationResult result)
-    {
-        var manifest = result.ManifestMetadata;
-        return new StateMetadata
-        {
-            RunId = result.RunId,
-            TemplateId = manifest.TemplateId,
-            TemplateTitle = manifest.TemplateTitle,
-            TemplateVersion = manifest.TemplateVersion,
-            Mode = manifest.Mode,
-            TelemetrySourcesResolved = result.TelemetrySourcesResolved,
-            ProvenanceHash = manifest.ProvenanceHash,
-            Schema = new SchemaMetadata
-            {
-                Id = manifest.Schema.Id,
-                Version = manifest.Schema.Version,
-                Hash = manifest.Schema.Hash
-            },
-            Storage = new StorageDescriptor
-            {
-                ModelPath = manifest.Storage.ModelPath,
-                MetadataPath = manifest.Storage.MetadataPath,
-                ProvenancePath = manifest.Storage.ProvenancePath
-            },
-            InputHash = result.InputHash ?? result.RunDocument.InputHash,
-            Rng = new RunRngOptions { Kind = "pcg32", Seed = result.RngSeed }
-        };
-    }
-
-    private static IReadOnlyList<StateWarning> BuildStateWarnings(TelemetryManifest manifest)
-    {
-        if (manifest.Warnings is null || manifest.Warnings.Count == 0)
-        {
-            return Array.Empty<StateWarning>();
-        }
-
-        return manifest.Warnings.Select(w => new StateWarning
-        {
-            Code = w.Code,
-            Message = w.Message,
-            NodeId = w.NodeId,
-            Severity = string.IsNullOrWhiteSpace(w.Severity) ? "warning" : w.Severity
-        }).ToArray();
-    }
-
-    private static RunSummary BuildRunSummary(RunOrchestrationResult result)
-    {
-        var created = ParseCreated(result.RunDocument.CreatedUtc);
-        return new RunSummary
-        {
-            RunId = result.RunId,
-            TemplateId = result.ManifestMetadata.TemplateId,
-            TemplateTitle = result.ManifestMetadata.TemplateTitle,
-            TemplateVersion = result.ManifestMetadata.TemplateVersion,
-            Mode = result.ManifestMetadata.Mode,
-            CreatedUtc = created,
-            WarningCount = result.TelemetryManifest.Warnings?.Count ?? 0,
-            Telemetry = BuildTelemetrySummary(result),
-            Rng = new RunRngOptions { Kind = "pcg32", Seed = result.RngSeed },
-            InputHash = result.InputHash ?? result.RunDocument.InputHash
-        };
-    }
-
-    private static RunTelemetrySummary BuildTelemetrySummary(RunOrchestrationResult result)
-    {
-        var manifest = result.TelemetryManifest;
-
-        var available = manifest.Files is { Count: > 0 };
-        string? generatedAtUtc = available ? manifest.Provenance?.CapturedAtUtc : null;
-        string? sourceRunId = available && !string.IsNullOrWhiteSpace(manifest.Provenance?.RunId)
-            ? manifest.Provenance!.RunId
-            : null;
-
-        // Fallback: if manifest has no files (older runs), infer from directory contents and autocapture.json
-        if (!available)
-        {
-            try
-            {
-                var telemetryDir = Path.Combine(result.RunDirectory, "model", "telemetry");
-                if (Directory.Exists(telemetryDir))
-                {
-                    var hasCsvs = Directory.EnumerateFiles(telemetryDir, "*.csv").Any();
-                    if (hasCsvs)
-                    {
-                        available = true;
-                        var autoPath = Path.Combine(telemetryDir, "autocapture.json");
-                        if (File.Exists(autoPath))
-                        {
-                            var json = File.ReadAllText(autoPath);
-                            using var doc = System.Text.Json.JsonDocument.Parse(json);
-                            var root = doc.RootElement;
-                            if (generatedAtUtc is null && root.TryGetProperty("generatedAtUtc", out var genProp))
-                            {
-                                generatedAtUtc = genProp.GetString();
-                            }
-                            if (sourceRunId is null && root.TryGetProperty("sourceRunId", out var srcProp))
-                            {
-                                sourceRunId = srcProp.GetString();
-                            }
-                        }
-                    }
-                }
-            }
-            catch
-            {
-                // Ignore fallback errors
-            }
-        }
-
-        return new RunTelemetrySummary
-        {
-            Available = available,
-            GeneratedAtUtc = generatedAtUtc,
-            WarningCount = manifest.Warnings?.Count ?? 0,
-            SourceRunId = string.IsNullOrWhiteSpace(sourceRunId) ? null : sourceRunId
-        };
-    }
-
-    private static RunCreatePlan BuildPlan(RunOrchestrationPlan plan)
-    {
-        var files = plan.TelemetryManifest.Files is { Count: > 0 }
-            ? plan.TelemetryManifest.Files.Select(file => new RunCreatePlanFile
-            {
-                NodeId = file.NodeId,
-                Metric = file.Metric.ToString(),
-                Path = file.Path
-            }).ToArray()
-            : Array.Empty<RunCreatePlanFile>();
-
-        var warnings = plan.TelemetryManifest.Warnings is { Count: > 0 }
-            ? plan.TelemetryManifest.Warnings.Select(w => new RunCreatePlanWarning
-            {
-                Code = w.Code,
-                Message = w.Message,
-                NodeId = w.NodeId,
-                Bins = w.Bins is null ? null : w.Bins.ToArray()
-            }).ToArray()
-            : Array.Empty<RunCreatePlanWarning>();
-
-        return new RunCreatePlan
-        {
-            TemplateId = plan.TemplateId,
-            Mode = plan.Mode,
-            OutputRoot = plan.OutputRoot,
-            CaptureDirectory = plan.CaptureDirectory,
-            DeterministicRunId = plan.DeterministicRunId,
-            RequestedRunId = plan.RequestedRunId,
-            Parameters = plan.Parameters,
-            TelemetryBindings = plan.TelemetryBindings,
-            Files = files,
-            Warnings = warnings
-        };
-    }
-
-    private static bool DetermineCanReplay(RunOrchestrationResult result)
-    {
-        var storage = result.ManifestMetadata.Storage;
-        var modelPath = storage.ModelPath;
-        var metadataPath = storage.MetadataPath;
-        var modelDirectory = Path.GetDirectoryName(modelPath);
-        var hasModel = !string.IsNullOrWhiteSpace(modelPath) && File.Exists(modelPath);
-        var hasMetadata = !string.IsNullOrWhiteSpace(metadataPath) && File.Exists(metadataPath);
-
-        var telemetryManifestPath = modelDirectory is null
-            ? null
-            : Path.Combine(modelDirectory, "telemetry", "telemetry-manifest.json");
-        var hasTelemetryManifest = telemetryManifestPath is not null && File.Exists(telemetryManifestPath);
-
-        return hasModel && hasMetadata && hasTelemetryManifest && result.TelemetrySourcesResolved;
-    }
-
-    private static DateTimeOffset? ParseCreated(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
+        var runPath = Path.Combine(bundleRoot, "run.json");
+        if (!File.Exists(runPath))
         {
             return null;
         }
 
-        return DateTimeOffset.TryParse(value, out var parsed) ? parsed : null;
+        await using var stream = File.OpenRead(runPath);
+        using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
+        return document.RootElement.TryGetProperty("runId", out var runIdProp)
+            ? runIdProp.GetString()
+            : null;
+    }
+
+    private static async Task<string> ExtractArchiveAsync(string base64, CancellationToken cancellationToken)
+    {
+        var bytes = Convert.FromBase64String(base64);
+        var extractionRoot = Path.Combine(Path.GetTempPath(), $"flowtime_import_{Guid.NewGuid():N}");
+        Directory.CreateDirectory(extractionRoot);
+
+        await using var stream = new MemoryStream(bytes);
+        using var archive = new ZipArchive(stream, ZipArchiveMode.Read, leaveOpen: false);
+        archive.ExtractToDirectory(extractionRoot, overwriteFiles: true);
+
+        return extractionRoot;
+    }
+
+    private static string FindBundleRoot(string path)
+    {
+        if (File.Exists(Path.Combine(path, "run.json")))
+        {
+            return path;
+        }
+
+        foreach (var directory in Directory.EnumerateDirectories(path))
+        {
+            if (File.Exists(Path.Combine(directory, "run.json")))
+            {
+                return directory;
+            }
+        }
+
+        return path;
+    }
+
+    private static void CopyDirectory(string sourceDir, string destinationDir)
+    {
+        Directory.CreateDirectory(destinationDir);
+        foreach (var file in Directory.EnumerateFiles(sourceDir))
+        {
+            var fileName = Path.GetFileName(file);
+            var target = Path.Combine(destinationDir, fileName);
+            File.Copy(file, target, overwrite: true);
+        }
+
+        foreach (var directory in Directory.EnumerateDirectories(sourceDir))
+        {
+            var name = Path.GetFileName(directory);
+            CopyDirectory(directory, Path.Combine(destinationDir, name));
+        }
+    }
+
+    private static void TryDeleteDirectory(string path)
+    {
+        try
+        {
+            if (Directory.Exists(path))
+            {
+                Directory.Delete(path, recursive: true);
+            }
+        }
+        catch
+        {
+            // best effort cleanup
+        }
     }
 }

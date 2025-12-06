@@ -354,8 +354,6 @@ public sealed class ArtifactListRenderTests : TestContext
         public Task<ApiCallResult<TelemetryCaptureResponseDto>> GenerateTelemetryCaptureAsync(TelemetryCaptureRequestDto request, CancellationToken ct = default)
             => Task.FromResult(ApiCallResult<TelemetryCaptureResponseDto>.Fail(400, "not implemented"));
 
-        public Task<ApiCallResult<RunCreateResponseDto>> CreateRunAsync(RunCreateRequestDto request, CancellationToken ct = default)
-            => Task.FromResult(ApiCallResult<RunCreateResponseDto>.Fail(400, "not implemented"));
 
         public Task<ApiCallResult<Stream>> GetRunSeriesAsync(string runId, string seriesId, CancellationToken ct = default)
             => Task.FromResult(ApiCallResult<Stream>.Fail(404, "not implemented"));

@@ -1,6 +1,6 @@
 # SB-M-05.04 — Deterministic Run Orchestration
 
-**Status:** 📝 Planned  
+**Status:** ✅ Complete  
 **Epic:** SIM/Engine Boundary Purification (`docs/architecture/sim-engine-boundary/`)  
 **Depends on:** SB‑M‑05.03 (queue/DLQ implicit DSL)  
 **Goal:** Make template-driven runs idempotent by hashing inputs to deterministic bundle IDs, enabling bundle reuse/overwrite prompts, and completing the SIM/engine separation.
@@ -10,6 +10,15 @@
 ## Overview
 
 Engine runs currently regenerate bundles every time a template is executed, even when inputs (template ID, parameters, RNG seed, telemetry bindings) haven’t changed. SB‑M‑05.04 moves hashing/packaging into the SIM/orchestration tier so runs become deterministic artifacts that can be reused or overwritten intentionally. This also advances the SIM/engine boundary epic: orchestration handles template compilation/analyzers; the engine consumes canonical bundles only.
+
+---
+
+## Outcome
+
+- FlowTime-Sim now owns deterministic run orchestration end-to-end. `RunOrchestrationService`, the FlowTime.Sim Service endpoint (`/api/v1/orchestration/runs`), FlowTime.Cli (`flowtime telemetry run`), and the UI all compute a reuse hash and default to returning existing bundles unless callers opt into `overwriteExisting=true`.
+- FlowTime.API `/v1/runs` accepts canonical bundles via `RunImportRequest` (path or archive) and reuses `RunOrchestrationContractMapper` metadata so UI dashboards, CLI output, and API consumers share a consistent envelope.
+- Docs/tooling describe the new flow: `docs/operations/telemetry-capture-guide.md` now highlights the SIM-first orchestration, and `docs/development/ui-debug-mode.md` captures the debug commands + Chrome DevTools steps used during SB‑M‑05.04 validation.
+- Release summary, remaining risks, and verification details live in `docs/releases/SB-M-05.04.md`.
 
 ---
 
@@ -30,6 +39,7 @@ Engine runs currently regenerate bundles every time a template is executed, even
 ### FR3 — Engine API Simplification
 - Update engine run endpoints to accept only canonical bundles (path or upload). Remove template ID/parameter handling from `FlowTime.API`.
 - Ensure UI/CLI flows call orchestration first, then hand the resulting bundle ID/path to the engine submission endpoint.
+- `/v1/runs` now accepts `RunImportRequest` (either `bundlePath` or `bundleArchiveBase64`) and responds with the same metadata envelope used across UI/CLI, keeping the engine API read-only with respect to templates.
 
 ### FR4 — UI/CLI Updates
 - UI “Run Template” flow:
@@ -66,6 +76,13 @@ Engine runs currently regenerate bundles every time a template is executed, even
 - Engine API regression tests ensuring it accepts only bundles (no template IDs).
 - UI/CLI tests verifying the prompt flow.
 - Manual verification: run a template twice, confirm the same bundle ID is reused unless overwritten.
+
+---
+
+## Verification
+
+- `dotnet build`
+- `dotnet test --nologo` (expected skips: `FlowTime.Tests.Performance.M2PerformanceTests.*`, FlowTime.Sim example smoke tests)
 
 ---
 

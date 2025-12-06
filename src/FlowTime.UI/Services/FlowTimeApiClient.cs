@@ -18,7 +18,6 @@ public interface IFlowTimeApiClient
     Task<ApiCallResult<RunResponse>> RunAsync(string yaml, CancellationToken ct = default);
     Task<ApiCallResult<GraphResponse>> GraphAsync(string yaml, CancellationToken ct = default);
     Task<ApiCallResult<RunSummaryResponseDto>> GetRunSummariesAsync(int page = 1, int pageSize = 50, CancellationToken ct = default);
-    Task<ApiCallResult<RunCreateResponseDto>> CreateRunAsync(RunCreateRequestDto request, CancellationToken ct = default);
     Task<ApiCallResult<RunCreateResponseDto>> GetRunAsync(string runId, CancellationToken ct = default);
     Task<ApiCallResult<TelemetryCaptureResponseDto>> GenerateTelemetryCaptureAsync(TelemetryCaptureRequestDto request, CancellationToken ct = default);
     Task<ApiCallResult<TimeTravelStateSnapshotDto>> GetRunStateAsync(string runId, int binIndex, CancellationToken ct = default);
@@ -130,9 +129,6 @@ internal sealed class FlowTimeApiClient : IFlowTimeApiClient
         var path = $"{apiBasePath}/runs?page={page}&pageSize={pageSize}";
         return GetJson<RunSummaryResponseDto>(path, ct);
     }
-
-    public Task<ApiCallResult<RunCreateResponseDto>> CreateRunAsync(RunCreateRequestDto request, CancellationToken ct = default)
-        => PostJson<RunCreateResponseDto>($"{apiBasePath}/runs", request, ct);
 
     public Task<ApiCallResult<RunCreateResponseDto>> GetRunAsync(string runId, CancellationToken ct = default)
         => GetJson<RunCreateResponseDto>($"{apiBasePath}/runs/{Uri.EscapeDataString(runId)}", ct);

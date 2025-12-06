@@ -176,7 +176,6 @@ public class TimeTravelDataServiceTests
 
         public Task<ApiCallResult<RunSummaryResponseDto>> GetRunSummariesAsync(int page = 1, int pageSize = 50, CancellationToken ct = default) => throw new NotImplementedException();
 
-        public Task<ApiCallResult<RunCreateResponseDto>> CreateRunAsync(RunCreateRequestDto request, CancellationToken ct = default) => throw new NotImplementedException();
 
         public Task<ApiCallResult<RunCreateResponseDto>> GetRunAsync(string runId, CancellationToken ct = default) => throw new NotImplementedException();
 

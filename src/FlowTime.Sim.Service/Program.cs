@@ -14,6 +14,8 @@ using FlowTime.Sim.Service.Services; // ServiceInfoProvider
 using FlowTime.Sim.Service.Extensions; // TemplateValidationExtensions
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
+using FlowTime.Generator;
+using FlowTime.Generator.Orchestration;
 
 // Explicit Program class for integration tests & clear structure
 public partial class Program
@@ -46,6 +48,8 @@ builder.Services.AddSingleton<ITemplateService>(provider =>
 	var templatesDirectory = ServiceHelpers.TemplatesRoot(builder.Configuration);
 	return new TemplateService(templatesDirectory, logger);
 });
+builder.Services.AddSingleton<TelemetryBundleBuilder>();
+builder.Services.AddSingleton<RunOrchestrationService>();
 
 var app = builder.Build();
 app.UseCors();
@@ -210,6 +214,8 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 
 		// Modern RESTful endpoints under /api/v1
 		var api = app.MapGroup("/api/v1");
+		var orchestration = api.MapGroup("/orchestration");
+		orchestration.MapRunOrchestrationEndpoints();
 
 		// API: GET /api/v1/templates  (list all templates)
 		api.MapGet("/templates", async (ITemplateService templateService, string? category) =>

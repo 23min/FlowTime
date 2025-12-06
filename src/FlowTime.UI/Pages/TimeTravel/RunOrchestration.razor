@@ -6,6 +6,7 @@
 @using FlowTime.UI.Services
 @inject ITemplateService TemplateService
 @inject IFlowTimeApiClient ApiClient
+@inject IFlowTimeSimApiClient SimApiClient
 @inject INotificationService NotificationService
 @inject NavigationManager Navigation
 @inject IRunDiscoveryService RunDiscoveryService
@@ -611,7 +612,7 @@
                 _state.PromoteToRunning();
             }
 
-            var result = await ApiClient.CreateRunAsync(request, _submissionCts.Token).ConfigureAwait(false);
+            var result = await SimApiClient.CreateRunAsync(request, _submissionCts.Token).ConfigureAwait(false);
             await ClearSnapshotAsync().ConfigureAwait(false);
 
             if (!result.Success || result.Value is null)

@@ -258,7 +258,6 @@ public class DashboardTests
         public Task<ApiCallResult<RunResponse>> RunAsync(string yaml, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<ApiCallResult<GraphResponse>> GraphAsync(string yaml, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<ApiCallResult<RunSummaryResponseDto>> GetRunSummariesAsync(int page = 1, int pageSize = 50, CancellationToken ct = default) => throw new NotImplementedException();
-        public Task<ApiCallResult<RunCreateResponseDto>> CreateRunAsync(RunCreateRequestDto request, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<ApiCallResult<TelemetryCaptureResponseDto>> GenerateTelemetryCaptureAsync(TelemetryCaptureRequestDto request, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<ApiCallResult<TimeTravelStateSnapshotDto>> GetRunStateAsync(string runId, int binIndex, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<ApiCallResult<Stream>> GetRunSeriesAsync(string runId, string seriesId, CancellationToken ct = default) => throw new NotImplementedException();

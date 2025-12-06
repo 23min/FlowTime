@@ -164,38 +164,41 @@ This produces `data/runs/<runId>/model/model.yaml` where every telemetry binding
 
 Once the bundle is written, the run is ready for `/state` queries and UI inspection just like any engine-produced run.
 
-## Run Orchestration (Replay)
+## Run Import (Replay)
 
-With explicit telemetry generation in place, `/v1/runs` no longer creates capture bundles. Telemetry runs must reference an existing bundle — either one generated via the API flow above or a hand-produced directory that follows the bundle contract.
+Template-driven orchestration now lives in FlowTime-Sim (`POST /api/v1/orchestration/runs`). Once a canonical bundle exists, the Engine API simply ingests it. `/v1/runs` no longer accepts `templateId` or parameter payloads — it expects either a bundle directory that already contains `model/`, `run.json`, `telemetry/`, etc., or a base64-encoded zip archive of that directory.
 
 ### API workflow
 
-`POST /v1/runs` accepts a template id, parameter overrides, telemetry bindings, and orchestration options. For telemetry mode, provide a `captureDirectory` that resolves to an existing bundle (relative capture key or absolute path):
+Use `bundlePath` when the engine host can see the canonical bundle on disk:
 
 ```http
 POST http://localhost:8080/v1/runs
 Content-Type: application/json
 
 {
-  "templateId": "it-system-microservices",
-  "mode": "telemetry",
-  "telemetry": {
-    "captureDirectory": "data/runs/run_deterministic_72ca609c/model/telemetry",
-    "bindings": {
-      "telemetryRequestsSource": "LoadBalancer_arrivals.csv"
-    }
-  },
-  "options": {
-    "deterministicRunId": true,
-    "overwriteExisting": true
-  }
+  "bundlePath": "/sim-data/runs/run_sim-order_ea2cfcb7532f49d6b1ab98b9c7e4f5f5",
+  "overwriteExisting": false
 }
 ```
 
-- Omit `telemetry.captureDirectory` → `422 Unprocessable Entity` (bundle must exist first).
-- `options.dryRun = true` returns a plan without filesystem changes (resolved bindings, warnings, run directory).
-- `GET /v1/runs` and `GET /v1/runs/{runId}` now include a `telemetry` block summarising availability (`available`, `generatedAtUtc`, `warningCount`, `sourceRunId`). The UI relies on this metadata to toggle replay actions without revealing directories.
-- Configure `TelemetryRoot` in `appsettings.json` (or via environment) only if you want to maintain a shared library of capture bundles. When unset, absolute `captureDirectory` paths (such as the run-local path above) continue to work.
+- `bundlePath` must point to a directory that already looks like `runs/<id>/` (contains `run.json`, `model/model.yaml`, telemetry manifest, etc.). The Engine copies the directory into its `ArtifactsDirectory`/data root.
+- If the bundle lives on another machine, zip it and send the contents via `bundleArchiveBase64`. The archive should contain a single canonical run folder.
+- `overwriteExisting=true` replaces an existing run directory; otherwise the import fails with `409 Conflict`.
+
+Example archive request:
+
+```http
+POST http://localhost:8080/v1/runs
+Content-Type: application/json
+
+{
+  "bundleArchiveBase64": "<base64 zip payload>",
+  "overwriteExisting": true
+}
+```
+
+`GET /v1/runs` and `GET /v1/runs/{runId}` continue to include the `telemetry` availability block, so the UI and CLI still know whether replay artifacts exist. Configure `ArtifactsDirectory` (or `FLOWTIME_DATA_DIR`) on the Engine host so imports land alongside the rest of your bundles; FlowTime-Sim should point at the same physical directory (via `FLOWTIME_SIM_DATA_DIR`) if you want new runs to appear automatically.
 
 ### Telemetry availability metadata
 

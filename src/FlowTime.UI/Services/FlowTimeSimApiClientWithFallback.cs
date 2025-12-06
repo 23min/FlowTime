@@ -104,4 +104,10 @@ public class FlowTimeSimApiClientWithFallback : IFlowTimeSimApiClient
         var client = await GetActiveClientAsync();
         return await client.GenerateModelAsync(templateId, parameters, ct);
     }
+
+    public async Task<Result<RunCreateResponseDto>> CreateRunAsync(RunCreateRequestDto request, CancellationToken ct = default)
+    {
+        var client = await GetActiveClientAsync();
+        return await client.CreateRunAsync(request, ct);
+    }
 }

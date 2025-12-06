@@ -14,6 +14,7 @@ public interface IFlowTimeSimApiClient
     Task<Result<TemplateGenerationResponse>> GenerateModelAsync(string templateId, Dictionary<string, object> parameters, CancellationToken ct = default);
     Task<Result<bool>> HealthAsync(CancellationToken ct = default);
     Task<Result<object>> GetDetailedHealthAsync(CancellationToken ct = default);
+    Task<Result<RunCreateResponseDto>> CreateRunAsync(RunCreateRequestDto request, CancellationToken ct = default);
 }
 
 public class FlowTimeSimApiClient : IFlowTimeSimApiClient
@@ -283,6 +284,59 @@ public class FlowTimeSimApiClient : IFlowTimeSimApiClient
             logger.LogError(ex, "Failed to generate model from template '{TemplateId}'", templateId);
             return Result<TemplateGenerationResponse>.Fail($"Model generation error: {ex.Message}");
         }
+    }
+
+    public async Task<Result<RunCreateResponseDto>> CreateRunAsync(RunCreateRequestDto request, CancellationToken ct = default)
+    {
+        try
+        {
+            var json = JsonSerializer.Serialize(request, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var response = await httpClient.PostAsync($"{apiBasePath}/orchestration/runs", content, ct);
+
+            var payload = await response.Content.ReadAsStringAsync(ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                var error = TryExtractError(payload);
+                return Result<RunCreateResponseDto>.Fail(error, (int)response.StatusCode);
+            }
+
+            var result = JsonSerializer.Deserialize<RunCreateResponseDto>(payload, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+            if (result is null)
+            {
+                return Result<RunCreateResponseDto>.Fail("Orchestration response was empty.", (int)response.StatusCode);
+            }
+
+            return Result<RunCreateResponseDto>.Ok(result, (int)response.StatusCode);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "SIM orchestration call failed.");
+            return Result<RunCreateResponseDto>.Fail($"Run orchestration error: {ex.Message}");
+        }
+    }
+
+    private static string TryExtractError(string? payload)
+    {
+        if (string.IsNullOrWhiteSpace(payload))
+        {
+            return "Run orchestration failed.";
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(payload);
+            if (doc.RootElement.TryGetProperty("error", out var errorProp))
+            {
+                return errorProp.GetString() ?? payload;
+            }
+        }
+        catch
+        {
+            // ignore parse failures
+        }
+
+        return payload;
     }
 }
 
