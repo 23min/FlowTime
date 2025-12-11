@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using FlowTime.UI.Configuration;
 using FlowTime.UI.Services;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
@@ -41,6 +42,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
     private string? pendingViewportSignature;
     private bool preserveViewportHint;
     private ViewportSnapshot? lastViewportSnapshot;
+    private string? lastCanvasEdgeHoverId;
 
     [Inject] protected IJSRuntime JS { get; set; } = default!;
 
@@ -62,7 +64,13 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
     [Parameter] public EventCallback<string?> EdgeHovered { get; set; }
     [Parameter] public IReadOnlyDictionary<string, IReadOnlyList<NodeWarningPayload>> NodeWarnings { get; set; } = new Dictionary<string, IReadOnlyList<NodeWarningPayload>>(StringComparer.OrdinalIgnoreCase);
     [Parameter] public IReadOnlyCollection<string>? DimmedNodes { get; set; }
+    [Parameter] public bool DiagnosticsOverlayEnabled { get; set; }
+    [Parameter] public string? DiagnosticsUploadUrl { get; set; }
+    [Parameter] public int DiagnosticsUploadIntervalMs { get; set; }
+    [Parameter] public bool DiagnosticsDisableHoverCache { get; set; }
+    [Parameter] public string? RunId { get; set; }
     protected ElementReference canvasRef;
+    [Inject] protected BuildDiagnostics BuildDiagnostics { get; set; } = default!;
 
     protected bool HasVisibleNodes => filteredGraph is { Nodes.Count: > 0 };
     protected bool HasSourceGraph => Graph is { Nodes.Count: > 0 };
@@ -136,7 +144,16 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         }
 
         dotNetRef ??= DotNetObjectReference.Create(this);
-        await JS.InvokeVoidAsync("FlowTime.TopologyCanvas.registerHandlers", canvasRef, dotNetRef);
+        var diagnosticsOptions = new
+        {
+            enabled = DiagnosticsOverlayEnabled,
+            runId = RunId,
+            buildHash = BuildDiagnostics.Hash,
+            uploadUrl = DiagnosticsUploadUrl,
+            uploadIntervalMs = DiagnosticsUploadIntervalMs,
+            disableHoverCache = DiagnosticsDisableHoverCache
+        };
+        await JS.InvokeVoidAsync("FlowTime.TopologyCanvas.registerHandlers", canvasRef, dotNetRef, diagnosticsOptions);
 
         if (pendingViewportSnapshot is not null)
         {
@@ -1346,6 +1363,13 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
     [JSInvokable]
     public Task OnEdgeHoverChanged(string? edgeId)
     {
+        if (string.Equals(lastCanvasEdgeHoverId, edgeId, StringComparison.OrdinalIgnoreCase))
+        {
+            return Task.CompletedTask;
+        }
+
+        lastCanvasEdgeHoverId = edgeId;
+
         if (!EdgeHovered.HasDelegate)
         {
             return Task.CompletedTask;

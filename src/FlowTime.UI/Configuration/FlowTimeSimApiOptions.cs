@@ -17,7 +17,7 @@ public class FlowTimeApiOptions
     /// <summary>
     /// Timeout for API requests in minutes (default: 3)
     /// </summary>
-    public int TimeoutMinutes { get; set; } = 3;
+    public double TimeoutMinutes { get; set; } = 3;
 }
 
 public class FlowTimeSimApiOptions
@@ -42,5 +42,5 @@ public class FlowTimeSimApiOptions
     /// <summary>
     /// Timeout for API requests in minutes (default: 5)
     /// </summary>
-    public int TimeoutMinutes { get; set; } = 5;
+    public double TimeoutMinutes { get; set; } = 5;
 }

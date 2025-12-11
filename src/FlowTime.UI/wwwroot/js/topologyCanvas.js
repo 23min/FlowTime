@@ -43,6 +43,50 @@
     const POINTER_CLICK_DISTANCE = 4;
     const GRID_ROW_SPACING = 140;
     const GRID_COLUMN_SPACING = 240;
+    const DIAGNOSTICS_UPDATE_INTERVAL_MS = 750;
+    const DIAGNOSTICS_MIN_UPLOAD_INTERVAL_MS = 1000;
+    const HOVER_CACHE_WORLD_EPSILON = 0.05;
+    const DIAGNOSTICS_COLLAPSE_STORAGE_KEY = 'ft.topology.diag.collapsed';
+
+    function createHoverCache() {
+        return {
+            worldX: null,
+            worldY: null,
+            scale: null,
+            chipHit: null,
+            edgeHit: null,
+            chipVersion: -1,
+            edgeVersion: -1
+        };
+    }
+
+    function resetHoverCache(state) {
+        if (!state) {
+            return;
+        }
+
+        state.hoverCache = createHoverCache();
+    }
+
+    function createHoverStats() {
+        const now = typeof performance !== 'undefined' && typeof performance.now === 'function'
+            ? performance.now()
+            : Date.now();
+        return {
+            interopDispatches: 0,
+            lastDispatchTimestamp: 0,
+            startTimestamp: now
+        };
+    }
+
+    function clearHoverStats(state) {
+        if (!state) {
+            return;
+        }
+
+        state.hoverStats = createHoverStats();
+        updateDiagnosticsHud(state);
+    }
 
     function registerActiveState(state) {
         activeStates.add(state);
@@ -192,7 +236,20 @@
                 edgeOverlayContext: null,
                 globalWarningsByNode: new Map(),
                 edgeSeries: new Map(),
-                edgeSeriesStartIndex: 0
+                edgeSeriesStartIndex: 0,
+                pendingHover: null,
+                hoverFrameRequestId: null,
+                chipHitVersion: 0,
+                edgeHitVersion: 0,
+                hoverCache: createHoverCache(),
+                hoverStats: createHoverStats(),
+                diagnosticsOptions: null,
+                diagnosticsHud: null,
+                diagnosticsUploadHandle: null,
+                diagnosticsHudCollapsed: false,
+                runId: null,
+                buildHash: null,
+                disableHoverCache: false
             };
             setupCanvas(canvas, state);
             registry.set(canvas, state);
@@ -254,6 +311,14 @@
 
         registerActiveState(state);
 
+        const cancelScheduledHover = () => {
+            if (state.hoverFrameRequestId !== null) {
+                cancelAnimationFrame(state.hoverFrameRequestId);
+                state.hoverFrameRequestId = null;
+            }
+            state.pendingHover = null;
+        };
+
         const clearHover = () => {
             let invalidated = false;
             if (state.hoveredChipId !== null || state.hoveredChip !== null) {
@@ -265,6 +330,8 @@
             if (setHoveredEdge(state, null)) {
                 invalidated = true;
             }
+
+            resetHoverCache(state);
 
             if (invalidated) {
                 draw(canvas, state);
@@ -295,7 +362,7 @@
             }
         };
 
-        const updateHover = (event) => {
+        const applyHover = (pointer) => {
             if (!state.payload) {
                 const changed = setHoveredEdge(state, null);
                 if ((state.hoveredChipId !== null || state.hoveredChip !== null) || changed) {
@@ -303,34 +370,78 @@
                     state.hoveredChip = null;
                     draw(canvas, state);
                 }
+                resetHoverCache(state);
                 return;
             }
 
-            const rect = canvas.getBoundingClientRect();
-            const clientX = event.clientX - rect.left;
-            const clientY = event.clientY - rect.top;
+            const clientX = pointer.clientX - pointer.rectLeft;
+            const clientY = pointer.clientY - pointer.rectTop;
             const worldX = (clientX - state.offsetX) / state.scale;
             const worldY = (clientY - state.offsetY) / state.scale;
             let invalidated = false;
 
-            if (!state.chipHitboxes || state.chipHitboxes.length === 0) {
+            state.hoverCache ??= createHoverCache();
+            const cache = state.hoverCache;
+            const lastWorldX = typeof cache.worldX === 'number' ? cache.worldX : null;
+            const lastWorldY = typeof cache.worldY === 'number' ? cache.worldY : null;
+            const withinEpsilon = lastWorldX !== null && lastWorldY !== null
+                ? Math.abs(worldX - lastWorldX) <= HOVER_CACHE_WORLD_EPSILON && Math.abs(worldY - lastWorldY) <= HOVER_CACHE_WORLD_EPSILON
+                : false;
+            const sameScale = cache.scale === state.scale;
+            const disableCache = state.disableHoverCache === true;
+            const canReuseChip = !disableCache && withinEpsilon && sameScale && cache.chipVersion === state.chipHitVersion;
+            const canReuseEdge = !disableCache && withinEpsilon && sameScale && cache.edgeVersion === state.edgeHitVersion;
+
+            const chipHitboxesAvailable = Array.isArray(state.chipHitboxes) && state.chipHitboxes.length > 0;
+            let hitChip = null;
+            if (chipHitboxesAvailable) {
+                if (canReuseChip) {
+                    hitChip = cache.chipHit ?? null;
+                } else {
+                    hitChip = hitTestChip(state, worldX, worldY);
+                    cache.chipHit = hitChip;
+                    cache.chipVersion = state.chipHitVersion;
+                }
+            } else {
+                cache.chipHit = null;
+                cache.chipVersion = state.chipHitVersion;
+            }
+
+            const nextChipId = hitChip ? hitChip.id : null;
+            if (!chipHitboxesAvailable) {
                 if (state.hoveredChipId !== null || state.hoveredChip !== null) {
                     state.hoveredChipId = null;
                     state.hoveredChip = null;
                     invalidated = true;
                 }
-            } else {
-                const hitChip = hitTestChip(state, worldX, worldY);
-                const nextChipId = hitChip ? hitChip.id : null;
-                if (nextChipId !== state.hoveredChipId) {
-                    state.hoveredChipId = nextChipId;
-                    invalidated = true;
-                }
+            } else if (nextChipId !== state.hoveredChipId) {
+                state.hoveredChipId = nextChipId;
+                invalidated = true;
             }
 
-            const edgeHit = hitTestEdge(state, worldX, worldY);
+            const edgeHitboxesAvailable = Array.isArray(state.edgeHitboxes) && state.edgeHitboxes.length > 0;
+            let edgeHit = null;
+            if (edgeHitboxesAvailable) {
+                if (canReuseEdge) {
+                    edgeHit = cache.edgeHit ?? null;
+                } else {
+                    edgeHit = hitTestEdge(state, worldX, worldY);
+                    cache.edgeHit = edgeHit;
+                    cache.edgeVersion = state.edgeHitVersion;
+                }
+            } else {
+                cache.edgeHit = null;
+                cache.edgeVersion = state.edgeHitVersion;
+            }
+
+            cache.worldX = worldX;
+            cache.worldY = worldY;
+            cache.scale = state.scale;
+
             if (edgeHit) {
                 canvas.style.cursor = 'pointer';
+            } else if (!state.dragging && !state.settingsPointerActive) {
+                canvas.style.cursor = 'default';
             }
 
             if (setHoveredEdge(state, edgeHit ? edgeHit.id : null)) {
@@ -339,6 +450,56 @@
 
             if (invalidated) {
                 draw(canvas, state);
+            }
+        };
+
+        const processQueuedHover = () => {
+            const pending = state.pendingHover;
+            state.pendingHover = null;
+            if (!pending) {
+                return;
+            }
+            applyHover(pending);
+        };
+
+        const queueHoverUpdate = (event, forceImmediate) => {
+            if (!canvas) {
+                return;
+            }
+
+            const rect = canvas.getBoundingClientRect();
+            const inside = event.clientX >= rect.left &&
+                event.clientX <= rect.right &&
+                event.clientY >= rect.top &&
+                event.clientY <= rect.bottom;
+
+            if (!inside) {
+                cancelScheduledHover();
+                clearHover();
+                return;
+            }
+
+            state.pendingHover = {
+                clientX: event.clientX,
+                clientY: event.clientY,
+                rectLeft: rect.left,
+                rectTop: rect.top
+            };
+
+            if (forceImmediate) {
+                if (state.hoverFrameRequestId !== null) {
+                    cancelAnimationFrame(state.hoverFrameRequestId);
+                    state.hoverFrameRequestId = null;
+                }
+                processQueuedHover();
+                return;
+            }
+
+            if (state.hoverFrameRequestId === null) {
+                state.hoverFrameRequestId = window.requestAnimationFrame(() => {
+                    state.hoverFrameRequestId = null;
+                    processQueuedHover();
+                });
             }
         };
 
@@ -384,7 +545,7 @@
             }
 
             if (!state.dragging) {
-                updateHover(event);
+                queueHoverUpdate(event);
                 return;
             }
             const dx = event.clientX - state.dragStart.x;
@@ -427,7 +588,7 @@
             state.dragging = false;
             updateWorldCenter(state);
             emitViewportChanged(canvas, state);
-            updateHover(event);
+            queueHoverUpdate(event, true);
             if (!state.pointerMoved && state.pointerDownPoint) {
                 const rect = canvas.getBoundingClientRect();
                 const clientX = event.clientX - rect.left;
@@ -466,6 +627,7 @@
                 updateWorldCenter(state);
                 emitViewportChanged(canvas, state);
             }
+            cancelScheduledHover();
             clearHover();
             if (canvas) {
                 canvas.style.cursor = 'default';
@@ -497,7 +659,7 @@
             updateWorldCenter(state);
 
             draw(canvas, state);
-            updateHover(event);
+            queueHoverUpdate(event);
         };
 
         canvas.addEventListener('pointerdown', pointerDown);
@@ -515,6 +677,15 @@
             canvas.removeEventListener('wheel', wheel);
             state.resizeObserver?.disconnect?.();
             state.resizeObserver = null;
+            cancelScheduledHover();
+            resetHoverCache(state);
+            clearHoverStats(state);
+            destroyDiagnosticsHud(state);
+            state.diagnosticsOptions = null;
+            if (state.diagnosticsUploadHandle) {
+                clearInterval(state.diagnosticsUploadHandle);
+                state.diagnosticsUploadHandle = null;
+            }
             state.dotNetRef = null;
             unregisterActiveState(state);
         };
@@ -522,25 +693,29 @@
 
     function draw(canvas, state) {
         if (!state.payload) {
-            console.info('[TopologyCanvas] draw skipped (no payload)');
             clear(state);
             state.chipHitboxes = [];
+            state.chipHitVersion = (state.chipHitVersion ?? 0) + 1;
+            state.edgeHitboxes = [];
+            state.edgeHitVersion = (state.edgeHitVersion ?? 0) + 1;
             state.hoveredChipId = null;
             state.hoveredChip = null;
+            resetHoverCache(state);
             return;
         }
 
         const ctx = state.ctx;
         clear(state);
         state.chipHitboxes = [];
+        state.chipHitVersion = (state.chipHitVersion ?? 0) + 1;
         state.tooltipMetrics = null;
         state.edgeHitboxes = [];
+        state.edgeHitVersion = (state.edgeHitVersion ?? 0) + 1;
         state.edgeOverlayLegend = null;
         state.edgeOverlayContext = null;
 
         const nodes = state.payload.nodes ?? state.payload.Nodes ?? [];
         const edges = state.payload.edges ?? state.payload.Edges ?? [];
-        console.info('[TopologyCanvas] draw', { nodes: nodes.length, edges: edges.length });
         const overlaySettings = state.overlaySettings ?? parseOverlaySettings(state.payload.overlays ?? state.payload.Overlays ?? {});
         const tooltip = state.payload.tooltip ?? state.payload.Tooltip ?? null;
         const edgeSeries = state.edgeSeries ?? new Map();
@@ -1833,14 +2008,6 @@
     function render(canvas, payload) {
         const state = getState(canvas);
 
-        try {
-            const nodeCount = payload?.nodes?.length ?? payload?.Nodes?.length ?? 0;
-            const edgeCount = payload?.edges?.length ?? payload?.Edges?.length ?? 0;
-            console.info('[TopologyCanvas] render start', { nodeCount, edgeCount });
-        } catch (logError) {
-            console.warn('[TopologyCanvas] render logging failed', logError);
-        }
-
         const preserveViewport = !!(payload?.preserveViewport ?? payload?.PreserveViewport);
         const overlaySettings = parseOverlaySettings(payload?.overlays ?? payload?.Overlays ?? {});
         state.overlaySettings = overlaySettings;
@@ -1906,7 +2073,6 @@
             state.payload = payload;
             draw(canvas, state);
             emitViewportChanged(canvas, state);
-            console.info('[TopologyCanvas] render finished (preserve viewport)');
             return;
         }
 
@@ -1917,7 +2083,6 @@
         state.payload = payload;
         draw(canvas, state);
         emitViewportChanged(canvas, state);
-        console.info('[TopologyCanvas] render finished');
     }
 
     function fitToViewport(canvas) {
@@ -5559,9 +5724,16 @@ function drawRetryBadge(ctx, nodeMeta, retryTax, options) {
         state.hoveredEdgeId = normalized;
         if (state.dotNetRef && state.lastEdgeHoverId !== normalized) {
             state.lastEdgeHoverId = normalized;
+            state.hoverStats ??= createHoverStats();
+            state.hoverStats.interopDispatches = (state.hoverStats.interopDispatches ?? 0) + 1;
+            const now = typeof performance !== 'undefined' && typeof performance.now === 'function'
+                ? performance.now()
+                : Date.now();
+            state.hoverStats.lastDispatchTimestamp = now;
             state.dotNetRef.invokeMethodAsync('OnEdgeHoverChanged', normalized);
         }
 
+        updateDiagnosticsHud(state);
         return true;
     }
 
@@ -6041,13 +6213,11 @@ function drawRetryBadge(ctx, nodeMeta, retryTax, options) {
         }
 
         if (signature === state.lastViewportSignature || isWithinTolerance) {
-            console.info('[TopologyCanvas] viewport unchanged (tolerance)', signature);
             return;
         }
 
         state.lastViewportSignature = signature;
         state.lastViewportPayload = payload;
-        console.info('[TopologyCanvas] viewport changed', signature);
         state.dotNetRef.invokeMethodAsync('OnViewportChanged', payload);
     }
 
@@ -6107,6 +6277,339 @@ function drawRetryBadge(ctx, nodeMeta, retryTax, options) {
         emitViewportChanged(canvas, state);
     }
 
+    function loadDiagnosticsCollapsePref() {
+        try {
+            return window.localStorage?.getItem(DIAGNOSTICS_COLLAPSE_STORAGE_KEY) === '1';
+        } catch {
+            return false;
+        }
+    }
+
+    function saveDiagnosticsCollapsePref(collapsed) {
+        try {
+            window.localStorage?.setItem(DIAGNOSTICS_COLLAPSE_STORAGE_KEY, collapsed ? '1' : '0');
+        } catch {
+            // Ignore storage failures
+        }
+    }
+
+    function setDiagnosticsHudCollapsed(state, collapsed) {
+        if (!state) {
+            return;
+        }
+        state.diagnosticsHudCollapsed = collapsed;
+        saveDiagnosticsCollapsePref(collapsed);
+        applyDiagnosticsHudVisibility(state);
+    }
+
+    function applyDiagnosticsHudVisibility(state) {
+        if (!state?.diagnosticsHud) {
+            return;
+        }
+
+        const collapsed = !!state.diagnosticsHudCollapsed;
+        if (state.diagnosticsHud.root) {
+            state.diagnosticsHud.root.style.display = collapsed ? 'none' : '';
+        }
+        if (state.diagnosticsHud.collapsedChip) {
+            state.diagnosticsHud.collapsedChip.style.display = collapsed ? '' : 'none';
+        }
+    }
+
+    function createCollapsedChip(host, state) {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'topology-diag-panel__collapsed-chip';
+        chip.textContent = 'Diagnostics';
+        chip.addEventListener('click', () => setDiagnosticsHudCollapsed(state, false));
+        host.appendChild(chip);
+        chip.style.display = 'none';
+        return chip;
+    }
+
+    function applyDiagnosticsOptions(canvas, state, options) {
+        if (!state) {
+            return;
+        }
+
+        const normalized = options
+            ? {
+                enabled: Boolean(options.enabled),
+                runId: typeof options.runId === 'string' && options.runId.length > 0 ? options.runId : null,
+                buildHash: typeof options.buildHash === 'string' && options.buildHash.length > 0 ? options.buildHash : null,
+                uploadUrl: typeof options.uploadUrl === 'string' && options.uploadUrl.length > 0 ? options.uploadUrl : null,
+                uploadIntervalMs: Number.isFinite(options.uploadIntervalMs) && options.uploadIntervalMs > 0
+                    ? Number(options.uploadIntervalMs)
+                    : 0,
+                disableHoverCache: Boolean(options.disableHoverCache)
+            }
+            : null;
+
+        state.diagnosticsOptions = normalized;
+        state.runId = normalized?.runId ?? state.runId ?? null;
+        state.buildHash = normalized?.buildHash ?? state.buildHash ?? null;
+        const disableHoverCache = normalized?.disableHoverCache ?? false;
+        const cacheSettingChanged = state.disableHoverCache !== disableHoverCache;
+        state.disableHoverCache = disableHoverCache;
+        if (cacheSettingChanged) {
+            resetHoverCache(state);
+        }
+
+        if (!normalized?.enabled) {
+            destroyDiagnosticsHud(state);
+        } else if (!state.diagnosticsHud) {
+            state.diagnosticsHud = createDiagnosticsHud(canvas, state);
+        } else {
+            updateDiagnosticsHud(state);
+        }
+
+        configureDiagnosticsUploader(state);
+    }
+
+    function destroyDiagnosticsHud(state) {
+        const hud = state?.diagnosticsHud;
+        if (!hud) {
+            return;
+        }
+
+        if (hud.updateTimerId) {
+            clearInterval(hud.updateTimerId);
+        }
+        hud.root?.remove();
+        hud.collapsedChip?.remove();
+        state.diagnosticsHud = null;
+        state.diagnosticsHudCollapsed = false;
+    }
+
+    function createDiagnosticsHud(canvas, state) {
+        if (!canvas || !state) {
+            return null;
+        }
+
+        const host = canvas.parentElement ?? canvas;
+        const panel = document.createElement('div');
+        panel.className = 'topology-diag-panel';
+
+        const header = document.createElement('div');
+        header.className = 'topology-diag-panel__header';
+        const title = document.createElement('span');
+        title.className = 'topology-diag-panel__title';
+        title.textContent = 'Hover diagnostics';
+        const dumpButton = document.createElement('button');
+        dumpButton.type = 'button';
+        dumpButton.className = 'topology-diag-panel__chip';
+        dumpButton.textContent = 'Dump';
+        dumpButton.addEventListener('click', () => {
+            const payload = buildDiagnosticsPayload(state, 'manual');
+            downloadDiagnosticsPayload(payload);
+            uploadDiagnosticsPayload(state, payload);
+            clearHoverStats(state);
+        });
+
+        const collapseButton = document.createElement('button');
+        collapseButton.type = 'button';
+        collapseButton.className = 'topology-diag-panel__chip topology-diag-panel__chip--ghost';
+        collapseButton.textContent = 'Hide';
+        collapseButton.addEventListener('click', () => setDiagnosticsHudCollapsed(state, true));
+
+        const actionGroup = document.createElement('div');
+        actionGroup.className = 'topology-diag-panel__actions';
+        actionGroup.append(dumpButton, collapseButton);
+        header.append(title, actionGroup);
+        panel.appendChild(header);
+
+        const metrics = document.createElement('dl');
+        metrics.className = 'topology-diag-panel__metrics';
+        const fields = [
+            { key: 'total', label: 'Interop', defaultValue: '0' },
+            { key: 'rate', label: 'Rate', defaultValue: '0 /s' },
+            { key: 'elapsed', label: 'Elapsed', defaultValue: '0 ms' },
+            { key: 'build', label: 'Build', defaultValue: state.buildHash ?? 'n/a' },
+            { key: 'run', label: 'Run', defaultValue: formatRunDisplay(state.runId) }
+        ];
+        const valueRefs = {};
+        for (const field of fields) {
+            const labelEl = document.createElement('dt');
+            labelEl.className = 'topology-diag-panel__label';
+            labelEl.textContent = field.label;
+            const valueEl = document.createElement('dd');
+            valueEl.className = 'topology-diag-panel__value';
+            valueEl.textContent = field.defaultValue;
+            metrics.append(labelEl, valueEl);
+            valueRefs[field.key] = valueEl;
+        }
+        panel.appendChild(metrics);
+
+        const status = document.createElement('div');
+        status.className = 'topology-diag-panel__status';
+        const statusLabel = document.createElement('span');
+        statusLabel.textContent = 'Auto upload';
+        const statusValue = document.createElement('span');
+        statusValue.textContent = 'Off';
+        status.append(statusLabel, statusValue);
+        panel.appendChild(status);
+
+        host.appendChild(panel);
+        const collapsedChip = createCollapsedChip(host, state);
+
+        const hud = {
+            root: panel,
+            values: valueRefs,
+            statusValue,
+            updateTimerId: null,
+            collapsedChip
+        };
+
+        state.diagnosticsHud = hud;
+        hud.updateTimerId = window.setInterval(() => updateDiagnosticsHud(state), DIAGNOSTICS_UPDATE_INTERVAL_MS);
+        clearHoverStats(state);
+        state.diagnosticsHudCollapsed = loadDiagnosticsCollapsePref();
+        applyDiagnosticsHudVisibility(state);
+        configureDiagnosticsUploader(state);
+        return hud;
+    }
+
+    function updateDiagnosticsHud(state) {
+        const hud = state?.diagnosticsHud;
+        const stats = state?.hoverStats;
+        if (!hud || !stats) {
+            return;
+        }
+
+        const now = typeof performance !== 'undefined' && typeof performance.now === 'function'
+            ? performance.now()
+            : Date.now();
+        const start = Number.isFinite(stats.startTimestamp) ? stats.startTimestamp : now;
+        const elapsedMs = Math.max(0, now - start);
+        const elapsedSeconds = elapsedMs / 1000;
+        const rate = elapsedSeconds > 0
+            ? (stats.interopDispatches ?? 0) / elapsedSeconds
+            : 0;
+
+        if (hud.values.total) {
+            hud.values.total.textContent = (stats.interopDispatches ?? 0).toString();
+        }
+        if (hud.values.rate) {
+            hud.values.rate.textContent = `${rate.toFixed(2)}/s`;
+        }
+        if (hud.values.elapsed) {
+            hud.values.elapsed.textContent = elapsedMs >= 1000
+                ? `${(elapsedMs / 1000).toFixed(2)} s`
+                : `${elapsedMs.toFixed(0)} ms`;
+        }
+        if (hud.values.build) {
+            hud.values.build.textContent = state.buildHash ?? 'n/a';
+        }
+        if (hud.values.run) {
+            hud.values.run.textContent = formatRunDisplay(state.runId);
+        }
+    }
+
+    function formatRunDisplay(runId) {
+        if (!runId || typeof runId !== 'string') {
+            return 'n/a';
+        }
+
+        const trimmed = runId.trim();
+        if (trimmed.length <= 8) {
+            return trimmed;
+        }
+
+        const lastChunk = trimmed.slice(-8);
+        return `…${lastChunk}`;
+    }
+
+    function configureDiagnosticsUploader(state) {
+        const hud = state?.diagnosticsHud;
+        const options = state?.diagnosticsOptions;
+
+        if (state?.diagnosticsUploadHandle) {
+            clearInterval(state.diagnosticsUploadHandle);
+            state.diagnosticsUploadHandle = null;
+        }
+
+        if (!options || !options.uploadUrl || options.uploadIntervalMs <= 0) {
+            if (hud?.statusValue) {
+                hud.statusValue.textContent = 'Off';
+            }
+            return;
+        }
+
+        const interval = Math.max(DIAGNOSTICS_MIN_UPLOAD_INTERVAL_MS, options.uploadIntervalMs);
+        if (hud?.statusValue) {
+            hud.statusValue.textContent = `${(interval / 1000).toFixed(0)}s`;
+        }
+
+        state.diagnosticsUploadHandle = window.setInterval(() => {
+            const payload = buildDiagnosticsPayload(state, 'auto');
+            uploadDiagnosticsPayload(state, payload);
+        }, interval);
+    }
+
+    function buildDiagnosticsPayload(state, source) {
+        const stats = state?.hoverStats ?? createHoverStats();
+        const now = typeof performance !== 'undefined' && typeof performance.now === 'function'
+            ? performance.now()
+            : Date.now();
+        const start = Number.isFinite(stats.startTimestamp) ? stats.startTimestamp : now;
+        const elapsedMs = Math.max(0, now - start);
+        const elapsedSeconds = elapsedMs / 1000;
+        const rate = elapsedSeconds > 0
+            ? (stats.interopDispatches ?? 0) / elapsedSeconds
+            : 0;
+
+        return {
+            runId: state?.runId ?? null,
+            buildHash: state?.buildHash ?? null,
+            payloadSignature: state?.lastViewportSignature ?? null,
+            interopDispatches: stats.interopDispatches ?? 0,
+            durationMs: Number(elapsedMs.toFixed(2)),
+            ratePerSecond: Number(rate.toFixed(2)),
+            timestampUtc: new Date().toISOString(),
+            source: source ?? 'manual',
+            canvas: {
+                width: state?.canvasWidth ?? null,
+                height: state?.canvasHeight ?? null
+            }
+        };
+    }
+
+    function downloadDiagnosticsPayload(payload) {
+        if (!payload) {
+            return;
+        }
+
+        const json = JSON.stringify(payload, null, 2);
+        const timestamp = (payload.timestampUtc || new Date().toISOString()).replace(/[:.]/g, '-');
+        const runSegment = (payload.runId || 'hover').replace(/[^\w.-]+/g, '_');
+        const fileName = `hover-diagnostics_${runSegment}_${timestamp}.json`;
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = fileName;
+        document.body.appendChild(anchor);
+        anchor.click();
+        document.body.removeChild(anchor);
+        URL.revokeObjectURL(url);
+    }
+
+    function uploadDiagnosticsPayload(state, payload) {
+        if (!state?.diagnosticsOptions?.uploadUrl || !payload || typeof fetch !== 'function') {
+            return;
+        }
+
+        try {
+            fetch(state.diagnosticsOptions.uploadUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }).catch(() => { /* ignored */ });
+        } catch {
+            // Swallow network errors; diagnostics should never block user interaction.
+        }
+    }
+
     const hotkeyHandlers = new Map();
     let hotkeyCounter = 0;
 
@@ -6147,6 +6650,24 @@ function drawRetryBadge(ctx, nodeMeta, retryTax, options) {
         hotkeyHandlers.delete(id);
     }
 
+    function getHoverDiagnostics(canvas) {
+        const state = registry.get(canvas);
+        if (!state) {
+            return null;
+        }
+
+        return buildDiagnosticsPayload(state, 'snapshot');
+    }
+
+    function resetHoverDiagnostics(canvas) {
+        const state = registry.get(canvas);
+        if (!state) {
+            return;
+        }
+
+        clearHoverStats(state);
+    }
+
     window.FlowTime = window.FlowTime || {};
     window.FlowTime.TopologyCanvas = {
         render,
@@ -6154,11 +6675,24 @@ function drawRetryBadge(ctx, nodeMeta, retryTax, options) {
         restoreViewport,
         fitToViewport,
         resetViewportState,
+        getHoverDiagnostics,
+        dumpHoverDiagnostics: (canvas) => {
+            const state = registry.get(canvas);
+            if (!state) {
+                return null;
+            }
+            const payload = buildDiagnosticsPayload(state, 'api');
+            downloadDiagnosticsPayload(payload);
+            uploadDiagnosticsPayload(state, payload);
+            return payload;
+        },
+        resetHoverDiagnostics,
         setInspectorEdgeHover: (canvas, edgeId) => setInspectorEdgeHoverState(canvas, edgeId),
         focusEdge: (canvas, edgeId, centerOnEdge) => focusEdgeOnCanvas(canvas, edgeId, centerOnEdge),
-        registerHandlers: (canvas, dotNetRef) => {
+        registerHandlers: (canvas, dotNetRef, diagnosticsOptions) => {
             const state = getState(canvas);
             state.dotNetRef = dotNetRef;
+            applyDiagnosticsOptions(canvas, state, diagnosticsOptions);
         }
     };
     window.FlowTime.TopologyHotkeys = {

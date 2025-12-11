@@ -3,9 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 using Bunit;
 using FlowTime.UI.Components.Topology;
+using FlowTime.UI.Configuration;
 using FlowTime.UI.Services;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace FlowTime.UI.Tests.TimeTravel;
@@ -20,7 +22,8 @@ public sealed class TopologyCanvasRenderTests : TestContext
     public TopologyCanvasRenderTests()
     {
         JSInterop.Mode = JSRuntimeMode.Strict;
-        JSInterop.SetupVoid("FlowTime.TopologyCanvas.registerHandlers", _ => true).SetVoidResult();
+        JSInterop.SetupVoid("FlowTime.TopologyCanvas.registerHandlers", invocation => invocation.Arguments.Count == 3).SetVoidResult();
+        Services.AddSingleton(BuildDiagnostics.Create(typeof(TopologyCanvas).Assembly));
     }
 
     [Fact]

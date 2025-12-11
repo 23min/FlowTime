@@ -187,6 +187,44 @@ v1.MapGet("/artifacts", async (IArtifactRegistry registry, HttpContext context, 
     }
 });
 
+v1.MapPost("/diagnostics/hover", async (HoverDiagnosticsRequest payload, IConfiguration configuration) =>
+{
+    if (payload is null)
+    {
+        return Results.BadRequest(new { error = "Payload is required." });
+    }
+
+    var timestamp = payload.TimestampUtc == default ? DateTime.UtcNow : payload.TimestampUtc;
+    var diagnosticsRoot = Path.Combine(Program.ServiceHelpers.DataRoot(configuration), "diagnostics");
+    Directory.CreateDirectory(diagnosticsRoot);
+    var runSegment = Program.ServiceHelpers.SanitizePathSegment(payload.RunId);
+    var targetDir = Path.Combine(diagnosticsRoot, runSegment);
+    Directory.CreateDirectory(targetDir);
+
+    var baseName = $"hover_{timestamp:yyyyMMddTHHmmssfffZ}";
+    var fileName = $"{baseName}.json";
+    var fullPath = Path.Combine(targetDir, fileName);
+    var counter = 1;
+    while (File.Exists(fullPath))
+    {
+        fileName = $"{baseName}_{counter++}.json";
+        fullPath = Path.Combine(targetDir, fileName);
+    }
+
+    var serializerOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web)
+    {
+        WriteIndented = true
+    };
+
+    var enriched = payload with { TimestampUtc = timestamp };
+    await using (var stream = File.Create(fullPath))
+    {
+        await JsonSerializer.SerializeAsync(stream, enriched, serializerOptions);
+    }
+
+    return Results.Accepted($"/diagnostics/{runSegment}/{fileName}", new { path = fullPath });
+});
+
 // M2.8: Artifact relationships endpoint
 v1.MapGet("/artifacts/{id}/relationships", async (string id, IArtifactRegistry registry, ILogger<Program> logger) =>
 {
@@ -1252,6 +1290,23 @@ public partial class Program
             var fallback = Path.Combine(solutionRoot, "examples", "time-travel");
             Directory.CreateDirectory(fallback);
             return fallback;
+        }
+
+        public static string SanitizePathSegment(string? segment)
+        {
+            if (string.IsNullOrWhiteSpace(segment))
+            {
+                return "unknown";
+            }
+
+            var invalid = Path.GetInvalidFileNameChars();
+            var builder = new StringBuilder(segment.Length);
+            foreach (var ch in segment)
+            {
+                builder.Append(invalid.Contains(ch) ? '_' : ch);
+            }
+
+            return builder.ToString();
         }
     }
 
