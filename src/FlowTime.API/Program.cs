@@ -197,32 +197,31 @@ v1.MapPost("/diagnostics/hover", async (HoverDiagnosticsRequest payload, IConfig
     var timestamp = payload.TimestampUtc == default ? DateTime.UtcNow : payload.TimestampUtc;
     var diagnosticsRoot = Path.Combine(Program.ServiceHelpers.DataRoot(configuration), "diagnostics");
     Directory.CreateDirectory(diagnosticsRoot);
-    var runSegment = Program.ServiceHelpers.SanitizePathSegment(payload.RunId);
-    var targetDir = Path.Combine(diagnosticsRoot, runSegment);
-    Directory.CreateDirectory(targetDir);
+    var diagnosticsSection = configuration.GetSection("Diagnostics:Hover");
+    var rollingLimit = Math.Max(10, diagnosticsSection.GetValue<int?>("RollingMaxRows") ?? 720);
 
-    var baseName = $"hover_{timestamp:yyyyMMddTHHmmssfffZ}";
-    var fileName = $"{baseName}.json";
-    var fullPath = Path.Combine(targetDir, fileName);
-    var counter = 1;
-    while (File.Exists(fullPath))
-    {
-        fileName = $"{baseName}_{counter++}.json";
-        fullPath = Path.Combine(targetDir, fileName);
-    }
+    var runId = payload.RunId ?? "unknown";
+    var row = new HoverDiagnosticsRow(
+        timestamp,
+        runId,
+        payload.BuildHash ?? "dev",
+        payload.PayloadSignature,
+        payload.InteropDispatches,
+        payload.TotalDispatches > 0 ? payload.TotalDispatches : payload.InteropDispatches,
+        payload.DurationMs,
+        payload.RatePerSecond,
+        string.IsNullOrWhiteSpace(payload.Source) ? "manual" : payload.Source,
+        payload.ResolveCanvasWidth(),
+        payload.ResolveCanvasHeight(),
+        payload.OperationalOnly ?? string.Equals(payload.Mode, "operational", StringComparison.OrdinalIgnoreCase),
+        payload.Mode ?? ((payload.OperationalOnly ?? false) ? "operational" : "full"),
+        payload.NeighborEmphasis ?? true,
+        payload.ZoomPercent);
 
-    var serializerOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web)
-    {
-        WriteIndented = true
-    };
+    var csvPath = Path.Combine(diagnosticsRoot, "hover-diagnostics.csv");
+    await DiagnosticsFileWriter.AppendHoverEntryAsync(csvPath, row, rollingLimit);
 
-    var enriched = payload with { TimestampUtc = timestamp };
-    await using (var stream = File.Create(fullPath))
-    {
-        await JsonSerializer.SerializeAsync(stream, enriched, serializerOptions);
-    }
-
-    return Results.Accepted($"/diagnostics/{runSegment}/{fileName}", new { path = fullPath });
+    return Results.Accepted($"/diagnostics/{Path.GetFileName(csvPath)}", new { path = csvPath });
 });
 
 // M2.8: Artifact relationships endpoint

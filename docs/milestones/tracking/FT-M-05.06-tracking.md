@@ -26,6 +26,7 @@
 - [ ] Phase 1: Input Guardrails & Throttling (canvas gating + RAF coded, tests pending)
 - [ ] Phase 2: JS/Interop Optimizations (edge dedupe + inspector debounce coded; tests pending)
 - [ ] Phase 3: Profiling & Validation (0/3 tasks)
+- [ ] Phase 4: JS Hover Ownership & Timeline UX (new scope — hover-first work up next)
 
 ### Test Status
 - **Unit Tests:** 0 passing / 0 total
@@ -87,6 +88,16 @@
 
 **Next Steps:**
 - Capture before/after counts via HUD + CLI script.
+
+### 2025-12-11 — HUD persistence & scope update
+
+**Changes:**
+- HUD can now be collapsed to a chip, state stored in `localStorage`, and counts reset whenever users expand/dump.  
+- Diagnostics defaults moved into `wwwroot/appsettings*.json`, so WASM picks them up without query flags.  
+- Added `?hovercache=0` query flag for profiling (disables hit-test cache) and documented the new scope in the milestone doc (Phase 4).
+
+**Next Steps:**
+- Move node hover notifications into JS (parity with edge hover), then revisit timeline pointer lag once hover feels instant.
 
 ---
 
@@ -270,3 +281,40 @@
 - [ ] Manual hover perf verification complete
 - [ ] Performance acceptable (Chrome traces attached)
 - [ ] No regressions detected
+
+## Phase 4: JS Hover Ownership & Timeline UX
+
+### Task 4.1: JS→.NET node hover callback
+**Checklist:**
+- [ ] RED: Add dev-only instrumentation proving the DOM `@onmouseenter` path is lagging (HUD shows ~1 interop/sec)
+- [ ] GREEN: Invoke new `.NET` callback from `topologyCanvas.js` when the hovered node changes (reuse chip hit-test results)
+- [ ] REFACTOR: Keep DOM buttons for keyboard focus/accessibility but remove hover work from `HoverNode`
+
+**Tests:**
+- [ ] Manual run on transportation model shows tooltips following cursor immediately
+
+**Status:** 🚧 In Progress — JS callback landed; next steps are halo tuning, per-frame tooltip refresh, and doc updates.
+
+### Task 4.2: HUD collapse UX (Done)
+**Checklist:**
+- [x] Add “Hide” button + collapsed chip
+- [x] Store collapsed/expanded state in `localStorage`
+- [x] Reset hover stats whenever HUD expands or user clicks Dump
+
+**Status:** ✅ Completed 2025‑12‑11
+
+### Task 4.3: Timeline pointer immediacy (Next)
+**Checklist:**
+- [ ] Split `OnBinChanged` so pointer/timeline CSS updates happen before heavy recompute
+- [ ] Defer `BuildNodeSparklines`/`UpdateActiveMetrics` via background task/`InvokeAsync`
+- [ ] Ensure inspector + playback resume once recompute finishes; update run-state persistence accordingly
+
+**Status:** 🆕 Planned — will start after Task 4.1 lands
+
+### Task 4.4: Operational toggle resilience (Bug FT-M-05.06-OP1)
+**Checklist:**
+- [ ] Detect filter changes and cancel in-flight sparkline/metric recompute
+- [ ] Break `BuildNodeSparklines`/`UpdateActiveMetrics` into cancellable async chunks so the UI thread keeps painting
+- [ ] Verify toggling “Operational” no longer freezes the browser on large graphs
+
+**Status:** 🆕 Planned — linked to bug FT-M-05.06-OP1; to be addressed after hover/timeline work

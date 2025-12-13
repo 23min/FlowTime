@@ -37,7 +37,8 @@ internal sealed record NodeRenderInfo(
     NodeSemanticsDto? Semantics,
     NodeMetricSnapshotDto? Metrics,
     int Lane,
-    IReadOnlyList<NodeWarningPayload>? Warnings);
+    IReadOnlyList<NodeWarningPayload>? Warnings,
+    TooltipPayload Tooltip);
 
 public sealed record NodeWarningPayload(
     string Code,

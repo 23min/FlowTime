@@ -46,6 +46,8 @@
     const DIAGNOSTICS_UPDATE_INTERVAL_MS = 750;
     const DIAGNOSTICS_MIN_UPLOAD_INTERVAL_MS = 1000;
     const HOVER_CACHE_WORLD_EPSILON = 0.05;
+    const NODE_HALO_PADDING = 12;
+    const HOVER_INTENT_SPEED_THRESHOLD = 900; // pixels per second
     const DIAGNOSTICS_COLLAPSE_STORAGE_KEY = 'ft.topology.diag.collapsed';
 
     function createHoverCache() {
@@ -75,7 +77,9 @@
         return {
             interopDispatches: 0,
             lastDispatchTimestamp: 0,
-            startTimestamp: now
+            startTimestamp: now,
+            windowStartTimestamp: now,
+            windowDispatches: 0
         };
     }
 
@@ -216,9 +220,12 @@
                 dotNetRef: null,
                 lastViewportSignature: null,
                 lastViewportPayload: null,
+                eventSurface: null,
                 chipHitboxes: [],
+                nodeHitboxes: [],
                 hoveredChipId: null,
                 hoveredChip: null,
+                hoveredNodeId: null,
                 edgeHitboxes: [],
                 hoveredEdgeId: null,
                 inspectorEdgeHoverId: null,
@@ -249,7 +256,10 @@
                 diagnosticsHudCollapsed: false,
                 runId: null,
                 buildHash: null,
-                disableHoverCache: false
+                disableHoverCache: false,
+                operationalViewOnly: false,
+                lastNodeHoverId: null,
+                lastPointerSample: null
             };
             setupCanvas(canvas, state);
             registry.set(canvas, state);
@@ -309,6 +319,42 @@
             state.resizeObserver = observer;
         }
 
+        const eventSurface = canvas.parentElement ?? canvas;
+        state.eventSurface = eventSurface;
+
+        const setCursor = (cursor) => {
+            if (canvas?.style) {
+                canvas.style.cursor = cursor;
+            }
+            if (eventSurface && eventSurface !== canvas && eventSurface.style) {
+                eventSurface.style.cursor = cursor;
+            }
+        };
+
+        const isProxyPointerTarget = (event) => {
+            const target = event?.target;
+            if (!target?.closest) {
+                return false;
+            }
+            return Boolean(target.closest('.topology-node-proxy, .topology-node-inspector-toggle'));
+        };
+
+        const handleBackgroundClick = (event) => {
+            if (!state || !state.dotNetRef) {
+                return;
+            }
+            if (isProxyPointerTarget(event) || isPointerInSettingsButton(event)) {
+                return;
+            }
+            const target = event.target;
+            const withinHost = eventSurface && (target === eventSurface || target === canvas || target?.closest?.('.topology-node-layer'));
+            if (!withinHost) {
+                return;
+            }
+            clearHover();
+            state.dotNetRef.invokeMethodAsync('OnCanvasBackgroundClicked');
+        };
+
         registerActiveState(state);
 
         const cancelScheduledHover = () => {
@@ -320,7 +366,9 @@
         };
 
         const clearHover = () => {
+            const previousNodeId = state.hoveredNodeId;
             let invalidated = false;
+            let hoverChanged = false;
             if (state.hoveredChipId !== null || state.hoveredChip !== null) {
                 state.hoveredChipId = null;
                 state.hoveredChip = null;
@@ -333,9 +381,19 @@
 
             resetHoverCache(state);
 
-            if (invalidated) {
+            if (state.hoveredNodeId !== null) {
+                state.hoveredNodeId = null;
+                hoverChanged = true;
+            }
+
+            if (invalidated || hoverChanged) {
                 draw(canvas, state);
             }
+
+            if (hoverChanged || previousNodeId !== state.hoveredNodeId) {
+                notifyNodeHoverChanged(state);
+            }
+            state.lastPointerSample = null;
         };
 
         const isPointerInSettingsButton = (event) => {
@@ -356,13 +414,14 @@
             }
 
             if (isPointerInSettingsButton(event) || state.settingsPointerActive) {
-                canvas.style.cursor = 'pointer';
+                setCursor('pointer');
             } else if (!state.dragging) {
-                canvas.style.cursor = 'default';
+                setCursor('default');
             }
         };
 
         const applyHover = (pointer) => {
+            const previousNodeId = state.hoveredNodeId;
             if (!state.payload) {
                 const changed = setHoveredEdge(state, null);
                 if ((state.hoveredChipId !== null || state.hoveredChip !== null) || changed) {
@@ -371,9 +430,27 @@
                     draw(canvas, state);
                 }
                 resetHoverCache(state);
+                if (state.hoveredNodeId !== null) {
+                    state.hoveredNodeId = null;
+                }
+                if (previousNodeId !== state.hoveredNodeId) {
+                    notifyNodeHoverChanged(state);
+                }
                 return;
             }
 
+            const now = typeof performance !== 'undefined' && typeof performance.now === 'function'
+                ? performance.now()
+                : Date.now();
+            let pointerSpeed = 0;
+            if (state.lastPointerSample) {
+                const dt = Math.max(1, now - state.lastPointerSample.time);
+                const dx = pointer.clientX - state.lastPointerSample.x;
+                const dy = pointer.clientY - state.lastPointerSample.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                pointerSpeed = (distance / dt) * 1000;
+            }
+            state.lastPointerSample = { x: pointer.clientX, y: pointer.clientY, time: now };
             const clientX = pointer.clientX - pointer.rectLeft;
             const clientY = pointer.clientY - pointer.rectTop;
             const worldX = (clientX - state.offsetX) / state.scale;
@@ -439,17 +516,30 @@
             cache.scale = state.scale;
 
             if (edgeHit) {
-                canvas.style.cursor = 'pointer';
+                setCursor('pointer');
             } else if (!state.dragging && !state.settingsPointerActive) {
-                canvas.style.cursor = 'default';
+                setCursor('default');
             }
 
             if (setHoveredEdge(state, edgeHit ? edgeHit.id : null)) {
                 invalidated = true;
             }
 
-            if (invalidated) {
+            const nodeHit = pointerSpeed <= HOVER_INTENT_SPEED_THRESHOLD
+                ? hitTestNode(state, worldX, worldY)
+                : null;
+            const nextNodeId = nodeHit ? (nodeHit.id ?? null) : null;
+            let hoverChanged = nextNodeId !== state.hoveredNodeId;
+            if (hoverChanged) {
+                state.hoveredNodeId = nextNodeId;
+            }
+
+            if (invalidated || hoverChanged) {
                 draw(canvas, state);
+            }
+
+            if (hoverChanged) {
+                notifyNodeHoverChanged(state);
             }
         };
 
@@ -507,16 +597,19 @@
             if (event.button !== 0) {
                 return;
             }
+            if (isProxyPointerTarget(event)) {
+                return;
+            }
             if (isPointerInSettingsButton(event)) {
-                canvas.setPointerCapture?.(event.pointerId);
+                eventSurface?.setPointerCapture?.(event.pointerId);
                 state.settingsPointerActive = true;
                 state.settingsPointerId = event.pointerId;
                 state.settingsPointerDown = { x: event.clientX, y: event.clientY };
                 state.pointerMoved = false;
-                canvas.style.cursor = 'pointer';
+                setCursor('pointer');
                 return;
             }
-            canvas.setPointerCapture(event.pointerId);
+            eventSurface?.setPointerCapture?.(event.pointerId);
             state.dragging = true;
             state.dragStart = { x: event.clientX, y: event.clientY };
             state.panStart = { x: state.offsetX, y: state.offsetY };
@@ -527,7 +620,7 @@
             state.settingsPointerId = null;
             state.settingsPointerDown = null;
             clearHover();
-            canvas.style.cursor = 'grabbing';
+            setCursor('grabbing');
         };
 
         const pointerMove = (event) => {
@@ -568,8 +661,8 @@
                 return;
             }
             if (state.settingsPointerActive && state.settingsPointerId === event.pointerId) {
-                if (canvas.hasPointerCapture?.(event.pointerId)) {
-                    canvas.releasePointerCapture(event.pointerId);
+                if (eventSurface?.hasPointerCapture?.(event.pointerId)) {
+                    eventSurface.releasePointerCapture(event.pointerId);
                 }
                 const inside = isPointerInSettingsButton(event);
                 const moved = !!state.pointerMoved;
@@ -581,10 +674,13 @@
                 if (!moved && inside && state.dotNetRef) {
                     state.dotNetRef.invokeMethodAsync('OnSettingsRequestedFromCanvas');
                 }
-                canvas.style.cursor = inside ? 'pointer' : 'default';
+                setCursor(inside ? 'pointer' : 'default');
                 return;
             }
-            canvas.releasePointerCapture(event.pointerId);
+            if (eventSurface?.hasPointerCapture?.(event.pointerId)) {
+                eventSurface.releasePointerCapture(event.pointerId);
+            }
+            const wasDragging = state.dragging;
             state.dragging = false;
             updateWorldCenter(state);
             emitViewportChanged(canvas, state);
@@ -599,22 +695,36 @@
                 if (edgeHit) {
                     state.pointerDownPoint = null;
                     state.pointerMoved = false;
-                    canvas.style.cursor = 'default';
+                    setCursor('default');
                     return;
                 }
                 const hit = hitTestChip(state, worldX, worldY);
-                if (!hit && state.dotNetRef) {
-                    state.dotNetRef.invokeMethodAsync('OnCanvasBackgroundClicked');
+                if (!hit && !isProxyPointerTarget(event) && !wasDragging) {
+                    const hadHover = state.hoveredNodeId !== null || state.hoveredChipId !== null;
+                    if (state.hoveredNodeId !== null) {
+                        state.hoveredNodeId = null;
+                    }
+                    if (state.hoveredChipId !== null || state.hoveredChip !== null) {
+                        state.hoveredChipId = null;
+                        state.hoveredChip = null;
+                    }
+                    if (hadHover) {
+                        draw(canvas, state);
+                        notifyNodeHoverChanged(state);
+                    }
+                    if (state.dotNetRef) {
+                        state.dotNetRef.invokeMethodAsync('OnCanvasBackgroundClicked');
+                    }
                 }
             }
             state.pointerDownPoint = null;
             state.pointerMoved = false;
-            canvas.style.cursor = 'default';
+            setCursor('default');
         };
 
         const pointerLeave = (event) => {
-            if (canvas.hasPointerCapture?.(event.pointerId)) {
-                canvas.releasePointerCapture(event.pointerId);
+            if (eventSurface?.hasPointerCapture?.(event.pointerId)) {
+                eventSurface.releasePointerCapture(event.pointerId);
             }
             const wasDragging = state.dragging;
             state.dragging = false;
@@ -629,15 +739,16 @@
             }
             cancelScheduledHover();
             clearHover();
-            if (canvas) {
-                canvas.style.cursor = 'default';
-            }
+            setCursor('default');
         };
 
         const wheel = (event) => {
             event.preventDefault();
 
-            const { offsetX, offsetY, deltaY } = event;
+            const rect = canvas.getBoundingClientRect();
+            const offsetX = event.clientX - rect.left;
+            const offsetY = event.clientY - rect.top;
+            const deltaY = event.deltaY;
             const scaleFactor = deltaY < 0 ? 1.1 : 0.9;
             const focusX = (offsetX - state.offsetX) / state.scale;
             const focusY = (offsetY - state.offsetY) / state.scale;
@@ -662,19 +773,28 @@
             queueHoverUpdate(event);
         };
 
-        canvas.addEventListener('pointerdown', pointerDown);
-        canvas.addEventListener('pointermove', pointerMove);
-        canvas.addEventListener('pointerup', pointerUp);
-        canvas.addEventListener('pointerleave', pointerLeave);
-        canvas.addEventListener('wheel', wheel, { passive: false });
+        const wheelListenerOptions = { passive: false };
+
+        if (eventSurface) {
+            eventSurface.addEventListener('pointerdown', pointerDown);
+            eventSurface.addEventListener('pointermove', pointerMove);
+            eventSurface.addEventListener('pointerup', pointerUp);
+            eventSurface.addEventListener('pointerleave', pointerLeave);
+            eventSurface.addEventListener('wheel', wheel, wheelListenerOptions);
+            eventSurface.addEventListener('click', handleBackgroundClick);
+        }
 
         state.cleanup = () => {
             window.removeEventListener('resize', resize);
-            canvas.removeEventListener('pointerdown', pointerDown);
-            canvas.removeEventListener('pointermove', pointerMove);
-            canvas.removeEventListener('pointerup', pointerUp);
-            canvas.removeEventListener('pointerleave', pointerLeave);
-            canvas.removeEventListener('wheel', wheel);
+            const listenerTarget = state.eventSurface ?? canvas;
+            if (listenerTarget) {
+                listenerTarget.removeEventListener('pointerdown', pointerDown);
+                listenerTarget.removeEventListener('pointermove', pointerMove);
+                listenerTarget.removeEventListener('pointerup', pointerUp);
+                listenerTarget.removeEventListener('pointerleave', pointerLeave);
+                listenerTarget.removeEventListener('wheel', wheel, wheelListenerOptions);
+                listenerTarget.removeEventListener('click', handleBackgroundClick);
+            }
             state.resizeObserver?.disconnect?.();
             state.resizeObserver = null;
             cancelScheduledHover();
@@ -698,9 +818,16 @@
             state.chipHitVersion = (state.chipHitVersion ?? 0) + 1;
             state.edgeHitboxes = [];
             state.edgeHitVersion = (state.edgeHitVersion ?? 0) + 1;
+            state.nodeHitboxes = [];
+            const previousChipId = state.hoveredChipId;
+            const previousNodeId = state.hoveredNodeId;
             state.hoveredChipId = null;
             state.hoveredChip = null;
+            state.hoveredNodeId = null;
             resetHoverCache(state);
+            if (previousChipId !== state.hoveredChipId || previousNodeId !== state.hoveredNodeId) {
+                notifyNodeHoverChanged(state);
+            }
             return;
         }
 
@@ -713,11 +840,12 @@
         state.edgeHitVersion = (state.edgeHitVersion ?? 0) + 1;
         state.edgeOverlayLegend = null;
         state.edgeOverlayContext = null;
+        state.nodeHitboxes = [];
 
         const nodes = state.payload.nodes ?? state.payload.Nodes ?? [];
         const edges = state.payload.edges ?? state.payload.Edges ?? [];
         const overlaySettings = state.overlaySettings ?? parseOverlaySettings(state.payload.overlays ?? state.payload.Overlays ?? {});
-        const tooltip = state.payload.tooltip ?? state.payload.Tooltip ?? null;
+        const legacyTooltip = state.payload.tooltip ?? state.payload.Tooltip ?? null;
         const edgeSeries = state.edgeSeries ?? new Map();
         const edgeSeriesStartIndex = Number(state.edgeSeriesStartIndex ?? 0);
 
@@ -728,7 +856,7 @@
         for (const n of nodes) {
             const identifier = n.id ?? n.Id;
 
-            nodeMap.set(identifier, {
+            const meta = {
                 id: identifier,
                 x: n.x ?? n.X,
                 y: n.y ?? n.Y,
@@ -745,8 +873,12 @@
                 semantics: n.semantics ?? n.Semantics ?? null,
                 distribution: n.distribution ?? n.Distribution ?? (n.semantics?.distribution ?? n.Semantics?.Distribution ?? null),
                 leaf: Boolean(n.isLeaf ?? n.IsLeaf),
-                lane: Number.isFinite(n.lane ?? n.Lane) ? Number(n.lane ?? n.Lane) : null
-            });
+                lane: Number.isFinite(n.lane ?? n.Lane) ? Number(n.lane ?? n.Lane) : null,
+                tooltip: n.tooltip ?? n.Tooltip ?? null
+            };
+
+            nodeMap.set(identifier, meta);
+            registerNodeHitbox(state, meta);
         }
 
         // Synthesize sparklines from inline values for const nodes when not provided
@@ -783,9 +915,11 @@
             }
         }
 
-        const emphasisEnabled = overlaySettings.neighborEmphasis && focusedId;
-        const neighborNodes = emphasisEnabled ? computeNeighborNodes(edges, focusedId) : null;
-        const neighborEdges = emphasisEnabled ? computeNeighborEdges(edges, focusedId) : null;
+        const hoveredNodeId = state.hoveredNodeId ?? null;
+        const emphasisSeedId = focusedId ?? hoveredNodeId ?? null;
+        const emphasisEnabled = overlaySettings.neighborEmphasis && emphasisSeedId;
+        const neighborNodes = emphasisEnabled ? computeNeighborNodes(edges, emphasisSeedId) : null;
+        const neighborEdges = emphasisEnabled ? computeNeighborEdges(edges, emphasisSeedId) : null;
 
         const overlayContext = buildEdgeOverlayContext(edges, nodeMap, overlaySettings, edgeSeries, edgeSeriesStartIndex);
         state.edgeOverlayContext = overlayContext;
@@ -1034,7 +1168,8 @@
             const fill = node.fill ?? node.Fill ?? defaultLeafFill;
             const stroke = node.stroke ?? node.Stroke ?? '#262626';
 
-            const highlightNode = !emphasisEnabled || (neighborNodes?.has(id) ?? false);
+            const pointerHovered = hoveredNodeId && hoveredNodeId === id;
+            const highlightNode = pointerHovered || !emphasisEnabled || (neighborNodes?.has(id) ?? false);
             const nodeAlpha = highlightNode ? 1 : dimmedAlpha;
 
             ctx.save();
@@ -1151,6 +1286,7 @@
             ctx.restore();
         }
 
+        const previousChipIdForDraw = state.hoveredChipId;
         let hoveredChip = null;
         if (state.hoveredChipId) {
             hoveredChip = state.chipHitboxes.find(chip => chip.id === state.hoveredChipId) ?? null;
@@ -1165,14 +1301,20 @@
             }
         }
 
+        if (previousChipIdForDraw !== state.hoveredChipId) {
+            notifyNodeHoverChanged(state);
+        }
+
         ctx.restore();
 
         drawCanvasTitle(ctx, state);
         drawEdgeOverlayLegend(ctx, state);
 
-        if (tooltip) {
-            tryDrawTooltip(ctx, nodeMap, tooltip, state);
-        }
+        const tooltipMeta = hoveredNodeId ? nodeMap.get(hoveredNodeId) : null;
+        const tooltipAnchorMeta = hoveredNodeId
+            ? nodeMap.get(hoveredNodeId)
+            : (focusedId ? nodeMap.get(focusedId) : null);
+        tryDrawTooltip(ctx, nodeMap, tooltipAnchorMeta, legacyTooltip, state);
 
         if (state.hoveredChip) {
             drawChipTooltip(ctx, state);
@@ -1290,6 +1432,35 @@
             const bottom = top + height;
             if (worldX >= left && worldX <= right && worldY >= top && worldY <= bottom) {
                 return chip;
+            }
+        }
+
+        return null;
+    }
+
+    function hitTestNode(state, worldX, worldY) {
+        if (!state || !Array.isArray(state.nodeHitboxes) || state.nodeHitboxes.length === 0) {
+            return null;
+        }
+
+        for (const node of state.nodeHitboxes) {
+            if (!node) {
+                continue;
+            }
+
+            const left = Number(node.x);
+            const top = Number(node.y);
+            const width = Number(node.width);
+            const height = Number(node.height);
+
+            if (!Number.isFinite(left) || !Number.isFinite(top) || !Number.isFinite(width) || !Number.isFinite(height)) {
+                continue;
+            }
+
+            const right = left + width;
+            const bottom = top + height;
+            if (worldX >= left && worldX <= right && worldY >= top && worldY <= bottom) {
+                return node;
             }
         }
 
@@ -1428,31 +1599,42 @@
         };
     }
 
-    function tryDrawTooltip(ctx, nodeMap, tooltip, state) {
-        if (!tooltip || !nodeMap || nodeMap.size === 0) {
+    function findFocusedMeta(nodeMap) {
+        if (!nodeMap) {
+            return null;
+        }
+        for (const [, meta] of nodeMap.entries()) {
+            if (meta?.isFocused) {
+                return meta;
+            }
+        }
+        return null;
+    }
+
+    function tryDrawTooltip(ctx, nodeMap, anchorCandidate, legacyTooltip, state) {
+        if (!ctx || !nodeMap || nodeMap.size === 0) {
             return;
         }
 
-        let focusedId = null;
-        let focusedMeta = null;
-        for (const [id, meta] of nodeMap.entries()) {
-            if (meta.isFocused) {
-                focusedId = id;
-                focusedMeta = meta;
-                break;
+        let anchorMeta = anchorCandidate ?? null;
+        let tooltipPayload = anchorMeta?.tooltip ?? anchorMeta?.Tooltip ?? null;
+
+        if (!tooltipPayload && legacyTooltip) {
+            anchorMeta = anchorMeta ?? findFocusedMeta(nodeMap);
+            if (legacyTooltip && (legacyTooltip.title || legacyTooltip.subtitle || (legacyTooltip.lines?.length ?? 0) > 0)) {
+                tooltipPayload = legacyTooltip;
             }
         }
 
-        if (!focusedMeta) {
+        if (!anchorMeta || !tooltipPayload) {
+            state.tooltipMetrics = null;
+            positionInspectorToggle(state, nodeMap);
             return;
         }
 
-        const title = String(tooltip.title ?? tooltip.Title ?? '');
-        const subtitleRaw = String(tooltip.subtitle ?? tooltip.Subtitle ?? '');
-        const subtitle = subtitleRaw.trim().length > 0 ? subtitleRaw : '';
-        const lines = (tooltip.lines ?? tooltip.Lines ?? [])
-            .map(line => String(line).trim())
-            .filter(line => line.length > 0);
+        const title = tooltipPayload.title ?? '';
+        const subtitle = tooltipPayload.subtitle ?? '';
+        const lines = (tooltipPayload.lines ?? []).map(line => String(line).trim()).filter(line => line.length > 0);
 
         const ratio = Number(state.deviceRatio ?? window.devicePixelRatio ?? 1) || 1;
         const toDevice = (value) => Math.round(value * ratio * 1000) / 1000;
@@ -1463,8 +1645,8 @@
         const fontRegular = `${fontSizePx}px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif`;
         const fontStrong = `600 ${fontSizePx}px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif`;
         const overlays = state.overlaySettings ?? {};
-        const kind = String(focusedMeta.kind ?? '').toLowerCase();
-        const rawSparkline = focusedMeta.sparkline ?? null;
+        const kind = String(anchorMeta.kind ?? '').toLowerCase();
+        const rawSparkline = anchorMeta.sparkline ?? null;
         const preparedSparkline = kind === 'expr' || kind === 'expression'
             ? prepareTooltipSparklineData(rawSparkline)
             : null;
@@ -1503,15 +1685,15 @@
         const offsetX = Number(state.offsetX ?? 0);
         const offsetY = Number(state.offsetY ?? 0);
 
-        const nodeWidth = Number(focusedMeta.width ?? 54);
-        const nodeHeight = Number(focusedMeta.height ?? 24);
-        const nodeX = Number(focusedMeta.x ?? 0);
-        const nodeY = Number(focusedMeta.y ?? 0);
+        const nodeWidth = Number(anchorMeta.width ?? 54);
+        const nodeHeight = Number(anchorMeta.height ?? 24);
+        const nodeX = Number(anchorMeta.x ?? 0);
+        const nodeY = Number(anchorMeta.y ?? 0);
         const nodeCenterScreenX = toDevice(offsetX + scale * nodeX);
         const halfWidthScreen = toDevice((nodeWidth * scale) / 2);
 
         let badgeBottomWorld = nodeY - (nodeHeight / 2) - 6;
-        const spark = focusedMeta.sparkline ?? null;
+        const spark = anchorMeta.sparkline ?? null;
         if (spark && overlays.showSparklines) {
             const mode = overlays.sparklineMode === 'bar' ? 'bar' : 'line';
             const sparkHeight = mode === 'bar' ? 16 : 12;
@@ -4468,7 +4650,7 @@ function drawRetryBadge(ctx, nodeMeta, retryTax, options) {
         return formatSemanticAlias(entry, canonicalFallback, { newlineAlias: true, includeColon: true });
     }
 
-    function registerChipHitbox(state, chip) {
+function registerChipHitbox(state, chip) {
         if (!state) {
             return;
         }
@@ -5711,7 +5893,7 @@ function drawRetryBadge(ctx, nodeMeta, retryTax, options) {
         return EdgeTypeTopology;
     }
 
-    function setHoveredEdge(state, edgeId) {
+function setHoveredEdge(state, edgeId) {
         if (!state) {
             return false;
         }
@@ -5735,6 +5917,64 @@ function drawRetryBadge(ctx, nodeMeta, retryTax, options) {
 
         updateDiagnosticsHud(state);
         return true;
+}
+
+    function registerNodeHitbox(state, meta) {
+        if (!state || !meta) {
+            return;
+        }
+
+        const width = Number(meta.width ?? meta.Width ?? 0);
+        const height = Number(meta.height ?? meta.Height ?? 0);
+        const centerX = Number(meta.x ?? meta.X ?? 0);
+        const centerY = Number(meta.y ?? meta.Y ?? 0);
+
+        if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) {
+            return;
+        }
+
+        if (!Number.isFinite(centerX) || !Number.isFinite(centerY)) {
+            return;
+        }
+
+        const padding = NODE_HALO_PADDING;
+        const paddedWidth = width + padding * 2;
+        const paddedHeight = height + padding * 2;
+        const left = centerX - (width / 2) - padding;
+        const top = centerY - (height / 2) - padding;
+
+        if (!Array.isArray(state.nodeHitboxes)) {
+            state.nodeHitboxes = [];
+        }
+
+        state.nodeHitboxes.push({
+            id: meta.id ?? meta.Id ?? null,
+            x: left,
+            y: top,
+            width: paddedWidth,
+            height: paddedHeight
+        });
+    }
+
+    function notifyNodeHoverChanged(state) {
+        if (!state) {
+            return;
+        }
+
+        const normalized = state.hoveredNodeId ?? null;
+        if (state.lastNodeHoverId === normalized) {
+            return;
+        }
+
+        state.lastNodeHoverId = normalized;
+        state.hoverStats ??= createHoverStats();
+        state.hoverStats.interopDispatches = (state.hoverStats.interopDispatches ?? 0) + 1;
+        state.hoverStats.windowDispatches = (state.hoverStats.windowDispatches ?? 0) + 1;
+        const now = typeof performance !== 'undefined' && typeof performance.now === 'function'
+            ? performance.now()
+            : Date.now();
+        state.hoverStats.lastDispatchTimestamp = now;
+        updateDiagnosticsHud(state);
     }
 
     function setInspectorEdgeHoverState(canvas, edgeId) {
@@ -6341,7 +6581,8 @@ function drawRetryBadge(ctx, nodeMeta, retryTax, options) {
                 uploadIntervalMs: Number.isFinite(options.uploadIntervalMs) && options.uploadIntervalMs > 0
                     ? Number(options.uploadIntervalMs)
                     : 0,
-                disableHoverCache: Boolean(options.disableHoverCache)
+                disableHoverCache: Boolean(options.disableHoverCache),
+                operationalViewOnly: Boolean(options.operationalViewOnly)
             }
             : null;
 
@@ -6354,6 +6595,8 @@ function drawRetryBadge(ctx, nodeMeta, retryTax, options) {
         if (cacheSettingChanged) {
             resetHoverCache(state);
         }
+
+        state.operationalViewOnly = Boolean(normalized?.operationalViewOnly);
 
         if (!normalized?.enabled) {
             destroyDiagnosticsHud(state);
@@ -6479,11 +6722,12 @@ function drawRetryBadge(ctx, nodeMeta, retryTax, options) {
         const now = typeof performance !== 'undefined' && typeof performance.now === 'function'
             ? performance.now()
             : Date.now();
-        const start = Number.isFinite(stats.startTimestamp) ? stats.startTimestamp : now;
-        const elapsedMs = Math.max(0, now - start);
+        const windowStart = Number.isFinite(stats.windowStartTimestamp) ? stats.windowStartTimestamp : now;
+        const elapsedMs = Math.max(0, now - windowStart);
         const elapsedSeconds = elapsedMs / 1000;
+        const windowDispatches = stats.windowDispatches ?? stats.interopDispatches ?? 0;
         const rate = elapsedSeconds > 0
-            ? (stats.interopDispatches ?? 0) / elapsedSeconds
+            ? windowDispatches / elapsedSeconds
             : 0;
 
         if (hud.values.total) {
@@ -6511,6 +6755,10 @@ function drawRetryBadge(ctx, nodeMeta, retryTax, options) {
         }
 
         const trimmed = runId.trim();
+        if (!trimmed) {
+            return 'n/a';
+        }
+
         if (trimmed.length <= 8) {
             return trimmed;
         }
@@ -6551,27 +6799,46 @@ function drawRetryBadge(ctx, nodeMeta, retryTax, options) {
         const now = typeof performance !== 'undefined' && typeof performance.now === 'function'
             ? performance.now()
             : Date.now();
-        const start = Number.isFinite(stats.startTimestamp) ? stats.startTimestamp : now;
-        const elapsedMs = Math.max(0, now - start);
+        const windowStart = Number.isFinite(stats.windowStartTimestamp) ? stats.windowStartTimestamp : now;
+        const elapsedMs = Math.max(0, now - windowStart);
         const elapsedSeconds = elapsedMs / 1000;
+        const dispatches = stats.windowDispatches ?? stats.interopDispatches ?? 0;
         const rate = elapsedSeconds > 0
-            ? (stats.interopDispatches ?? 0) / elapsedSeconds
+            ? dispatches / elapsedSeconds
             : 0;
+        const canvasWidth = state?.canvasWidth ?? null;
+        const canvasHeight = state?.canvasHeight ?? null;
+        const operationalOnly = state?.operationalViewOnly === true;
+        const zoomPercent = Number(state?.overlaySettings?.zoomPercent ?? (state?.scale ?? 1) * 100);
 
-        return {
+        const payload = {
             runId: state?.runId ?? null,
             buildHash: state?.buildHash ?? null,
             payloadSignature: state?.lastViewportSignature ?? null,
-            interopDispatches: stats.interopDispatches ?? 0,
+            interopDispatches: dispatches,
             durationMs: Number(elapsedMs.toFixed(2)),
+            totalDispatches: stats.interopDispatches ?? dispatches,
             ratePerSecond: Number(rate.toFixed(2)),
             timestampUtc: new Date().toISOString(),
             source: source ?? 'manual',
-            canvas: {
-                width: state?.canvasWidth ?? null,
-                height: state?.canvasHeight ?? null
-            }
+            canvasWidth,
+            canvasHeight,
+            operationalOnly,
+            mode: operationalOnly ? 'operational' : 'full',
+            neighborEmphasis: Boolean(state?.overlaySettings?.neighborEmphasis),
+            zoomPercent: Number.isFinite(zoomPercent) ? Number(zoomPercent.toFixed(2)) : null,
+            hoverCacheDisabled: state?.disableHoverCache === true
         };
+
+        payload.canvas = {
+            width: canvasWidth,
+            height: canvasHeight
+        };
+
+        stats.windowStartTimestamp = now;
+        stats.windowDispatches = 0;
+
+        return payload;
     }
 
     function downloadDiagnosticsPayload(payload) {

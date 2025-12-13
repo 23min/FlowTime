@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Globalization;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using FlowTime.UI.Configuration;
 using FlowTime.UI.Services;
@@ -35,7 +34,6 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
     private string? selectedNodeId;
     private TopologyGraph? filteredGraph;
     private DotNetObjectReference<TopologyCanvasBase>? dotNetRef;
-    private CancellationTokenSource? tooltipDismissCts;
     private bool hasRendered;
     private TopologyGraph? lastSourceGraph;
     private ViewportSnapshot? pendingViewportSnapshot;
@@ -69,6 +67,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
     [Parameter] public int DiagnosticsUploadIntervalMs { get; set; }
     [Parameter] public bool DiagnosticsDisableHoverCache { get; set; }
     [Parameter] public string? RunId { get; set; }
+    [Parameter] public bool OperationalViewOnly { get; set; }
     protected ElementReference canvasRef;
     [Inject] protected BuildDiagnostics BuildDiagnostics { get; set; } = default!;
 
@@ -151,7 +150,8 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             buildHash = BuildDiagnostics.Hash,
             uploadUrl = DiagnosticsUploadUrl,
             uploadIntervalMs = DiagnosticsUploadIntervalMs,
-            disableHoverCache = DiagnosticsDisableHoverCache
+            disableHoverCache = DiagnosticsDisableHoverCache,
+            operationalViewOnly = OperationalViewOnly
         };
         await JS.InvokeVoidAsync("FlowTime.TopologyCanvas.registerHandlers", canvasRef, dotNetRef, diagnosticsOptions);
 
@@ -177,12 +177,6 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         FocusNodeInternal(nodeId, isSelection: true);
     }
 
-    protected void HoverNode(string nodeId)
-    {
-        CancelPendingTooltipDismiss();
-        FocusNodeInternal(nodeId, isSelection: false, showTooltip: true);
-    }
-
     private void FocusNodeInternal(string nodeId, bool isSelection, bool? showTooltip = null)
     {
         if (!HasVisibleNodes || !nodeLookup.ContainsKey(nodeId))
@@ -198,10 +192,17 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             selectedNodeId = nodeId;
         }
 
+        bool shouldShowTooltip;
         if (showTooltip.HasValue)
         {
-            tooltipNodeId = showTooltip.Value ? nodeId : null;
+            shouldShowTooltip = showTooltip.Value;
         }
+        else
+        {
+            shouldShowTooltip = isSelection;
+        }
+
+        tooltipNodeId = shouldShowTooltip ? nodeId : null;
         var graph = filteredGraph ?? Graph!;
         NodeProxies = BuildNodeProxies(graph, NodeMetrics, focusedNodeId, OverlaySettings);
         ScheduleRedraw();
@@ -296,12 +297,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
     {
         if (clearSelection)
         {
-            CancelPendingTooltipDismiss();
             tooltipNodeId = null;
-        }
-
-        if (clearSelection)
-        {
             focusedNodeId = null;
             selectedNodeId = null;
         }
@@ -703,6 +699,8 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                     nodeMetrics.RetryTax,
                     nodeMetrics.RawMetrics,
                     nodeMetrics.QueueLatencyStatus);
+                var tooltipContent = TooltipFormatter.Format(node.Id, nodeMetrics);
+                var tooltipDto = new TooltipPayload(tooltipContent.Title, tooltipContent.Subtitle, tooltipContent.Lines);
 
                 var nodeWidth = IsQueueLikeKind(node.Kind, node.LogicalType)
                     ? QueueNodeWidth
@@ -733,7 +731,8 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                     semanticsDto,
                     metricsDto,
                     node.Lane,
-                    warningDtos);
+                    warningDtos,
+                    tooltipDto);
             })
             .ToImmutableArray();
 
@@ -1256,7 +1255,6 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         }
 
         disposed = true;
-        CancelPendingTooltipDismiss();
         _ = JS.InvokeVoidAsync("FlowTime.TopologyCanvas.dispose", canvasRef);
         dotNetRef?.Dispose();
         dotNetRef = null;
@@ -1378,79 +1376,4 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         return EdgeHovered.InvokeAsync(edgeId);
     }
 
-    protected Task OnNodePointerLeave()
-    {
-        ScheduleTooltipDismiss();
-        return Task.CompletedTask;
-    }
-
-    protected void OnNodeHoverLeave()
-    {
-        ScheduleTooltipDismiss();
-
-        var targetFocus = selectedNodeId;
-        if (string.Equals(focusedNodeId, targetFocus, StringComparison.OrdinalIgnoreCase))
-        {
-            return;
-        }
-
-        focusedNodeId = targetFocus;
-
-        var graph = filteredGraph ?? Graph!;
-        NodeProxies = BuildNodeProxies(graph, NodeMetrics, focusedNodeId, OverlaySettings);
-        ScheduleRedraw();
-        StateHasChanged();
-    }
-
-    private void ScheduleTooltipDismiss()
-    {
-        CancelPendingTooltipDismiss();
-
-        tooltipDismissCts = new CancellationTokenSource();
-        var token = tooltipDismissCts.Token;
-
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await Task.Delay(TimeSpan.FromSeconds(2), token);
-                if (token.IsCancellationRequested)
-                {
-                    return;
-                }
-
-                await InvokeAsync(() =>
-                {
-                    if (tooltipDismissCts?.IsCancellationRequested == false)
-                    {
-                        tooltipDismissCts?.Dispose();
-                        tooltipDismissCts = null;
-                        tooltipNodeId = null;
-                        ScheduleRedraw();
-                        StateHasChanged();
-                    }
-                });
-            }
-            catch (OperationCanceledException)
-            {
-                // expected when pointer re-enters
-            }
-        }, token);
-    }
-
-    private void CancelPendingTooltipDismiss()
-    {
-        if (tooltipDismissCts is null)
-        {
-            return;
-        }
-
-        if (!tooltipDismissCts.IsCancellationRequested)
-        {
-            tooltipDismissCts.Cancel();
-        }
-
-        tooltipDismissCts.Dispose();
-        tooltipDismissCts = null;
-    }
 }
