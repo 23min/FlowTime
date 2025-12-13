@@ -26,6 +26,22 @@ public sealed record HoverDiagnosticsRequest
     public bool? HoverCacheDisabled { get; init; }
     public bool? NeighborEmphasis { get; init; }
     public double? ZoomPercent { get; init; }
+    public string? HoveredNodeId { get; init; }
+    public string? FocusedNodeId { get; init; }
+    public double? NodeCount { get; init; }
+    public double? EdgeCount { get; init; }
+    public bool? InspectorVisible { get; init; }
+    public double PointerThrottleSkips { get; init; }
+    public double PointerEventsReceived { get; init; }
+    public double PointerEventsProcessed { get; init; }
+    public double PointerQueueDrops { get; init; }
+    public double PointerIntentSkips { get; init; }
+    public double AvgDrawMs { get; init; }
+    public double MaxDrawMs { get; init; }
+    public double LastDrawMs { get; init; }
+    public double FrameCount { get; init; }
+    public double PanDistance { get; init; }
+    public double ZoomEvents { get; init; }
     public HoverDiagnosticsCanvasPayload? Canvas { get; init; }
 
     public double? ResolveCanvasWidth() => CanvasWidth ?? Canvas?.Width;

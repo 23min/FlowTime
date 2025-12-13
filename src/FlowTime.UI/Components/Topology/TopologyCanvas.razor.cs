@@ -41,6 +41,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
     private bool preserveViewportHint;
     private ViewportSnapshot? lastViewportSnapshot;
     private string? lastCanvasEdgeHoverId;
+    private string? lastCanvasNodeHoverId;
 
     [Inject] protected IJSRuntime JS { get; set; } = default!;
 
@@ -54,6 +55,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
     [Parameter] public EventCallback<double> ZoomPercentChanged { get; set; }
     [Parameter] public EventCallback<ViewportSnapshot> ViewportChanged { get; set; }
     [Parameter] public EventCallback<string?> NodeFocused { get; set; }
+    [Parameter] public EventCallback<string?> NodeHovered { get; set; }
     [Parameter] public ViewportSnapshot? RequestedViewport { get; set; }
     [Parameter] public string? Title { get; set; }
     [Parameter] public EventCallback SettingsRequested { get; set; }
@@ -151,7 +153,8 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             uploadUrl = DiagnosticsUploadUrl,
             uploadIntervalMs = DiagnosticsUploadIntervalMs,
             disableHoverCache = DiagnosticsDisableHoverCache,
-            operationalViewOnly = OperationalViewOnly
+            operationalViewOnly = OperationalViewOnly,
+            inspectorVisible = InspectorVisible
         };
         await JS.InvokeVoidAsync("FlowTime.TopologyCanvas.registerHandlers", canvasRef, dotNetRef, diagnosticsOptions);
 
@@ -1374,6 +1377,25 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         }
 
         return EdgeHovered.InvokeAsync(edgeId);
+    }
+
+    [JSInvokable]
+    public Task OnNodeHoverChanged(string? nodeId)
+    {
+        var normalized = string.IsNullOrWhiteSpace(nodeId) ? null : nodeId;
+        if (string.Equals(lastCanvasNodeHoverId, normalized, StringComparison.OrdinalIgnoreCase))
+        {
+            return Task.CompletedTask;
+        }
+
+        lastCanvasNodeHoverId = normalized;
+
+        if (!NodeHovered.HasDelegate)
+        {
+            return Task.CompletedTask;
+        }
+
+        return NodeHovered.InvokeAsync(normalized);
     }
 
 }

@@ -197,31 +197,77 @@ v1.MapPost("/diagnostics/hover", async (HoverDiagnosticsRequest payload, IConfig
     var timestamp = payload.TimestampUtc == default ? DateTime.UtcNow : payload.TimestampUtc;
     var diagnosticsRoot = Path.Combine(Program.ServiceHelpers.DataRoot(configuration), "diagnostics");
     Directory.CreateDirectory(diagnosticsRoot);
-    var diagnosticsSection = configuration.GetSection("Diagnostics:Hover");
-    var rollingLimit = Math.Max(10, diagnosticsSection.GetValue<int?>("RollingMaxRows") ?? 720);
+    var hoverSection = configuration.GetSection("Diagnostics:Hover");
+    var canvasSection = configuration.GetSection("Diagnostics:Canvas");
+    var hoverLimit = Math.Max(10, hoverSection.GetValue<int?>("RollingMaxRows") ?? 720);
+    var canvasLimit = Math.Max(10, canvasSection.GetValue<int?>("RollingMaxRows") ?? hoverLimit);
 
     var runId = payload.RunId ?? "unknown";
-    var row = new HoverDiagnosticsRow(
-        timestamp,
-        runId,
-        payload.BuildHash ?? "dev",
-        payload.PayloadSignature,
-        payload.InteropDispatches,
-        payload.TotalDispatches > 0 ? payload.TotalDispatches : payload.InteropDispatches,
-        payload.DurationMs,
-        payload.RatePerSecond,
-        string.IsNullOrWhiteSpace(payload.Source) ? "manual" : payload.Source,
-        payload.ResolveCanvasWidth(),
-        payload.ResolveCanvasHeight(),
-        payload.OperationalOnly ?? string.Equals(payload.Mode, "operational", StringComparison.OrdinalIgnoreCase),
-        payload.Mode ?? ((payload.OperationalOnly ?? false) ? "operational" : "full"),
-        payload.NeighborEmphasis ?? true,
-        payload.ZoomPercent);
+    var normalizedSource = string.IsNullOrWhiteSpace(payload.Source) ? "manual" : payload.Source;
+    var operationalOnly = payload.OperationalOnly ?? string.Equals(payload.Mode, "operational", StringComparison.OrdinalIgnoreCase);
+    var mode = payload.Mode ?? (operationalOnly ? "operational" : "full");
 
-    var csvPath = Path.Combine(diagnosticsRoot, "hover-diagnostics.csv");
-    await DiagnosticsFileWriter.AppendHoverEntryAsync(csvPath, row, rollingLimit);
+    if (normalizedSource.Contains("canvas", StringComparison.OrdinalIgnoreCase))
+    {
+        var canvasRow = new CanvasDiagnosticsRow(
+            timestamp,
+            runId,
+            payload.BuildHash ?? "dev",
+            payload.PayloadSignature,
+            payload.NodeCount,
+            payload.EdgeCount,
+            payload.AvgDrawMs,
+            payload.MaxDrawMs,
+            payload.LastDrawMs,
+            payload.FrameCount,
+            payload.PanDistance,
+            payload.ZoomEvents,
+            normalizedSource,
+            payload.ResolveCanvasWidth(),
+            payload.ResolveCanvasHeight(),
+            operationalOnly,
+            mode,
+            payload.NeighborEmphasis ?? true,
+            payload.ZoomPercent,
+            payload.InspectorVisible ?? false);
 
-    return Results.Accepted($"/diagnostics/{Path.GetFileName(csvPath)}", new { path = csvPath });
+        var canvasPath = Path.Combine(diagnosticsRoot, "canvas-diagnostics.csv");
+        await DiagnosticsFileWriter.AppendCanvasEntryAsync(canvasPath, canvasRow, canvasLimit);
+        return Results.Accepted($"/diagnostics/{Path.GetFileName(canvasPath)}", new { path = canvasPath });
+    }
+    else
+    {
+        var hoverRow = new HoverDiagnosticsRow(
+            timestamp,
+            runId,
+            payload.BuildHash ?? "dev",
+            payload.PayloadSignature,
+            payload.InteropDispatches,
+            payload.TotalDispatches > 0 ? payload.TotalDispatches : payload.InteropDispatches,
+            payload.DurationMs,
+            payload.RatePerSecond,
+            normalizedSource,
+            payload.ResolveCanvasWidth(),
+            payload.ResolveCanvasHeight(),
+            operationalOnly,
+            mode,
+            payload.NeighborEmphasis ?? true,
+            payload.ZoomPercent,
+            payload.HoveredNodeId,
+            payload.FocusedNodeId,
+            payload.NodeCount,
+            payload.EdgeCount,
+            payload.InspectorVisible ?? false,
+            payload.PointerThrottleSkips,
+            payload.PointerEventsReceived,
+            payload.PointerEventsProcessed,
+            payload.PointerQueueDrops,
+            payload.PointerIntentSkips);
+
+        var hoverPath = Path.Combine(diagnosticsRoot, "hover-diagnostics.csv");
+        await DiagnosticsFileWriter.AppendHoverEntryAsync(hoverPath, hoverRow, hoverLimit);
+        return Results.Accepted($"/diagnostics/{Path.GetFileName(hoverPath)}", new { path = hoverPath });
+    }
 });
 
 // M2.8: Artifact relationships endpoint

@@ -1192,6 +1192,18 @@ body.dark-mode .timeline-focus-label {
     text-align: right;
 }
 
+.topology-diag-panel__value--warn {
+    color: #fde68a;
+}
+
+.topology-diag-panel__value--bad {
+    color: #fca5a5;
+}
+
+.topology-diag-panel__value--good {
+    color: #86efac;
+}
+
 .topology-diag-panel__status {
     margin-top: 8px;
     display: flex;
