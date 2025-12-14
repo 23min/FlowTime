@@ -69,3 +69,81 @@ We will track these additions under an extra phase below.
    - Break recompute into async batches so the UI thread can repaint, avoiding the current “infinite rerender” loop.
 
 Phase 4 is considered complete when node hover feels instantaneous (JS callback fires at frame rate), the timeline pointer/window snap immediately, and the operational toggle no longer locks the browser.
+
+## Validation Protocol
+
+To make the milestone verifiable in any session, we will follow the same recipe for every before/after capture:
+
+1. **Run selection**  
+   - `run_transportation-basic-classes_9a88904467fb066d93d8b60a984918685018a4c5360efaf0ae32e3456a821d10` (transportation template).  
+   - Execute twice: once in `mode=full` (operationalOnly=false) and once in `mode=operational` (operationalOnly=true).
+2. **Browser setup**  
+   - Chrome stable, DevTools closed, diagnostics HUD enabled via `appsettings` (no `?diag` flag needed).  
+   - ZoomPercent pinned at 81% for full mode and 100% for operational mode to match prior dumps.
+3. **Interaction script (per mode)**  
+   - Pan continuously for 30 s (drag the canvas in small circles).  
+   - Hover edges/nodes for 30 s with neighbor emphasis on, moving both slowly and quickly.  
+   - Toggle inspector once (open for 15 s, close for 15 s) to gather both scenarios.  
+   - Trigger a diagnostics dump immediately after the minute-long run (HUD “Dump” button) and save the CSV snapshot (`data/diagnostics/.../hover-diagnostics.csv`, `canvas-diagnostics.csv`).
+4. **Metrics to record**  
+   - From `hover-diagnostics.csv`: `interopDispatches`, `totalDispatches`, `ratePerSecond`, `pointerQueueDrops`, `pointerEventsReceived`, `pointerEventsProcessed`, `dragFrameCount`, `dragAverageFrameMs`, `inspecterVisible`.  
+   - From `canvas-diagnostics.csv`: `avgDrawMs`, `maxDrawMs`, `frameCount`, `panDistance`, `zoomEvents`.
+5. **Acceptance thresholds**  
+   - Hover interop rate ≤ 0.5 dispatches/s when inspector is closed; ≤ 2 dispatches/s when inspector is open.  
+   - Pointer queue drops ≤ 5% of pointer events.  
+   - `avgDrawMs` ≤ 6 ms and `maxDrawMs` ≤ 12 ms while panning.  
+   - Drag frame count/avg frame ms indicates ≤ 6 ms per drag frame.  
+   - Manual “feel” check: no perceptible pause > 100 ms between releasing the mouse and hover resuming.
+6. **Documentation**  
+   - Attach before/after CSV excerpts plus HUD screenshots to `docs/performance/FT-M-05.06/README.md`.  
+   - Note Chrome version, commit hash, and whether inspector was open or closed.
+
+## Design Constraints
+
+To prevent ambiguity during implementation:
+
+1. **Scene rebuild vs. paint**  
+   - *Rebuild* = regenerating node/edge hitboxes, nodeMap, chip metadata, edge polyline caches, and any derived layout structures. Rebuilds occur only when `payloadSignature`, overlay settings, or zoom scale changes the world geometry (e.g., new data, toggling class filters). Panning, hovering, or minor zoom deltas must not trigger rebuilds.  
+   - *Paint* = drawing using cached structures plus hover/selection/tooltip overlays. Paints run per RAF tick and may update cursor, highlights, tooltips, HUD counters.
+2. **Spatial index**  
+   - World-space uniform grid (e.g., 256×256 world units per cell) keyed by edge ID + bounding box; rebuild only when edge geometry changes (payload replace, overlay toggled), not per draw.  
+   - Hit-test pipeline: locate pointer in world coords → find overlapping cells → test only edges in those cells via polyline distance. Expected candidate count `k ≪ E` (observed ≤ 8 on transportation run).  
+   - Cache last hit result if pointer stayed within `HOVER_CACHE_WORLD_EPSILON` to avoid re-querying the index.
+3. **Interop rules**  
+   - Node/edge hover events never call `.NET` when the inspector is hidden. JS still drives hover visuals in all cases.  
+   - When the inspector is visible, `.NET` callbacks fire only when the canonical ID changes (case-insensitive compare matching the C# dictionaries).  
+   - Viewport change notifications are debounced: fire once on drag end and wheel idle (≥ 100 ms with no new wheel events).  
+   - JS tooltip updates stay responsive regardless of inspector state; Blazor components consume hover state asynchronously.
+4. **Layout reads/writes**  
+   - Cache `getBoundingClientRect()` per RAF tick; invalidate on resize, scroll, or when canvas CSS transforms change.  
+   - DOM mutations (e.g., `.style.transform` for overlays) are batched once per frame to avoid interleaving read/write cycles.
+5. **Testing expectations**  
+   - Add a Playwright smoke (can live under `tests/FlowTime.UI.Tests` or a new perf harness) that simulates drag + hover and asserts the diagnostics HUD increments at ≤ 1 update/frame.  
+   - Add a unit/integration check ensuring `OnNodeHoverChanged`/`OnEdgeHoverChanged` are not invoked for null→null transitions (can be a simple JS interop spy in bUnit/Playwright).
+
+## Scope Refresh — Main-Thread Latency Remediation (2025‑12‑14)
+
+Manual testing plus a fresh audit highlighted additional hot spots that still create the “freeze, then flush” effect. These are now part of FT‑M‑05.06 so the milestone reflects the real work needed to keep the canvas responsive:
+
+1. **Strip hot-path logging**  
+   - Remove `console.info` and other logging from `draw`, `render`, viewport emitters, and hover/drag loops.  
+   - Add a guarded `debugLog` helper (reads from `state.debugEnabled`) so deep troubleshooting stays possible without paying the perf cost in production.
+
+2. **RAF-only drag/hover processing**  
+   - Pointermove while dragging must only schedule work via `requestAnimationFrame`; intermediate events should overwrite the pending snapshot so only the latest position renders.  
+   - Hover updates follow the same pattern so high polling rates no longer enqueue dozens of hit-tests per frame.
+
+3. **Avoid full redraws for hover-only changes**  
+   - Split “scene rebuild” from “paint” so hover state tweaks (node/edge highlight, tooltip) don’t rebuild hitboxes or node maps.  
+   - Short-circuit `draw` when `hasHoverVisualDelta` is false.
+
+4. **Faster edge hit-tests**  
+   - Introduce a coarse spatial index (grid or quadtree) for edge hitboxes so hover doesn’t check every edge each time.  
+   - Cache distance computations when the pointer moves less than a world-space epsilon.
+
+5. **Interop throttling & layout hygiene**  
+   - Keep `.NET` callbacks suppressed unless the inspector is visible *and* the ID actually changed.  
+   - Cache `getBoundingClientRect()` values per RAF tick and reuse until scroll/resize.  
+   - Debounce viewport-change notifications so we only notify .NET at the end of drags/wheel bursts.
+
+Deliverable: update the milestone tracker to include this scope, capture before/after diagnostics (HUD + CSV), and describe the remediation steps in the FT‑M‑05.06 summary when we wrap.

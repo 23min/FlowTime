@@ -127,6 +127,50 @@
 - Phase 4 Task 4.2 — suppress hover draws until the drag queue drains.
 - Phase 4 Task 4.3 — move tooltip rendering entirely into JS to avoid Blazor interop churn when the inspector is closed.
 
+### 2025-12-14 — Main-thread latency remediation plan
+
+**Context:** Manual profiling still shows “freeze, then flush” pointer behavior on large graphs. An audit identified several hot spots that remain after the initial RAF/caching work.
+
+**Plan Refresh:**
+- Remove hot-path logging in `draw`, `render`, hover, and viewport emitters (replace with a guarded `debugLog` helper).
+- Ensure drag and hover processing only update via RAF, dropping intermediate pointer samples so the latest snapshot always wins.
+- Split scene rebuilds from hover-only visuals; avoid re-hydrating hitboxes/node maps when only the highlight changes.
+- Add a coarse spatial index for edge hit-tests plus epsilon-based caching to keep hover cost bounded.
+- Tighten interop/layout: cache `getBoundingClientRect` per frame, debounce viewport change notifications, and keep `.NET` hover callbacks suppressed unless the inspector is visible **and** the ID changes.
+
+**Action Items:**
+- [ ] Update the milestone spec (done in FT-M-05.06 doc) and expand the tracker phases.
+- [ ] Capture before/after HUD snapshots once logging removal lands.
+- [ ] Sequence implementation: logging → RAF enforcement → hover redraw split → hit-test index → interop/layout tuning.
+
+### 2025-12-14 — Task 5.1: Hot-path logging removal
+
+**Changes:**
+- Introduced a persisted `debugLog` helper guarded by `state.debugEnabled` (configurable via querystring/localStorage or `FlowTime.TopologyCanvas.setDebugLoggingEnabled`), so normal sessions skip logging entirely.
+- Removed every `console.*` call from drag/hover/dispatch paths; diagnostics messages now flow through `debugLog`.
+- Diagnostics options can now carry an optional `debugLogging` flag for future toggling.
+
+**Tests:**
+- `dotnet build`
+- `dotnet test --nologo` (reran flaky `Test_PMF_Mixed_Workload_Performance` before the full suite)
+
+**Next Steps:**
+- Move to Task 5.2 (strict RAF coalescing) now that logging noise is gone.
+
+### 2025-12-14 — Task 5.2: Drag/Hover RAF coalescing
+
+**Changes:**
+- Ensured hover sample drops only count once per RAF tick (`hoverDropReported` flag) so metrics now reflect frames that backlog rather than every overwritten pointer event.
+- Kept only one hover snapshot alive at a time and reset drop flags whenever samples flush or get cancelled, guaranteeing the latest pointer sample wins each frame without building a long queue.
+- Drag RAF handling already coalesced pending moves; this change brings the hover path in line so both panning and hovering are strictly one-update-per-frame.
+
+**Tests:**
+- `dotnet build`
+- `dotnet test --nologo`
+
+**Next Steps:**
+- Proceed to Task 5.3 (split hover visuals from full scene rebuild) now that event coalescing is under control.
+
 ---
 
 ## Phase 1: Input Guardrails & Throttling
@@ -209,6 +253,46 @@
 **Status:** 🚧 In Progress — instrumentation hooks + `FlowTime.TopologyCanvas.getHoverDiagnostics` added; need to capture before/after counts + document results.
 
 ---
+
+## Phase 5: Main-Thread Latency Remediation
+
+**Goal:** Eliminate remaining “freeze, then flush” behavior by cutting hot-path overhead, bounding hit-test cost, and keeping interop/layout work off the critical path.
+
+### Task 5.1: Strip hot-path logging
+**Files:** `src/FlowTime.UI/wwwroot/js/topologyCanvas.js`
+
+- Remove `console.*` calls from `draw`, `render`, viewport emitters, hover/drag handlers.
+- Add a `debugLog(state, ...args)` helper and guard existing diagnostics behind a `state.debugEnabled` flag.
+- Verify HUD/reporting still works without noisy logs.
+
+### Task 5.2: Enforce RAF coalescing for drag/hover
+**Files:** `topologyCanvas.js`
+
+- Ensure pointermove while dragging only schedules one RAF, and pending snapshots always overwrite previous events.
+- Apply the same logic to hover updates (queue once per frame, trim intermediate samples).
+- Update diagnostics counters to confirm pointer queue drops fall near zero.
+
+### Task 5.3: Split hover visuals from full scene rebuild
+**Files:** `topologyCanvas.js`
+
+- Separate “rebuild hitboxes/nodeMap” from “paint using cached data”.
+- Short-circuit `draw` when `hasHoverVisualDelta` is false.
+- Add a lightweight overlay pass for hover-only highlights if needed.
+
+### Task 5.4: Edge hit-test index & caching
+**Files:** `topologyCanvas.js`
+
+- Build a coarse grid/quadtree for edge hitboxes to prefilter candidates.
+- Cache last edge result when pointer moves less than the world epsilon.
+- Document the new structure in the diagnostics logs (edge candidates per sample).
+
+### Task 5.5: Interop/layout hygiene
+**Files:** `topologyCanvas.js`, `TopologyCanvas.razor.cs`
+
+- Cache `getBoundingClientRect()` per RAF tick; refresh only on resize/scroll.
+- Debounce `emitViewportChanged` so .NET only hears about drags/wheels when the gesture completes.
+- Double-check `.NET` hover callbacks remain suppressed unless the inspector is visible and IDs change.
+- Update diagnostics CSV/HUD with before/after readings.
 
 ## Phase 3: Profiling & Validation
 

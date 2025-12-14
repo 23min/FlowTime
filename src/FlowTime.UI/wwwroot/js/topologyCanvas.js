@@ -51,6 +51,93 @@
     const HOVER_INTENT_MAX_SUPPRESSION_MS = 150;
     const HOVER_INTENT_RESUME_GRACE_MS = 150;
     const DIAGNOSTICS_COLLAPSE_STORAGE_KEY = 'ft.topology.diag.collapsed';
+    const DEBUG_LOG_STORAGE_KEY = 'ft.topology.debuglog';
+
+    function parseDebugFlagFromQuery() {
+        if (typeof window === 'undefined' || !window.location) {
+            return null;
+        }
+        try {
+            const params = new URLSearchParams(window.location.search || '');
+            const flag = params.get('topologyDebug');
+            if (flag === null) {
+                return null;
+            }
+            if (flag === '1') {
+                return true;
+            }
+            if (flag === '0') {
+                return false;
+            }
+            const normalized = flag.trim().toLowerCase();
+            if (normalized === 'true') {
+                return true;
+            }
+            if (normalized === 'false') {
+                return false;
+            }
+        } catch {
+            // Ignore malformed query strings
+        }
+        return null;
+    }
+
+    function loadPersistedDebugFlag() {
+        if (typeof window === 'undefined') {
+            return false;
+        }
+        try {
+            const stored = window.localStorage?.getItem(DEBUG_LOG_STORAGE_KEY);
+            if (stored === '1') {
+                return true;
+            }
+            if (stored === '0') {
+                return false;
+            }
+        } catch {
+            // Ignore storage failures
+        }
+        return false;
+    }
+
+    let globalDebugLoggingEnabled = (() => {
+        const queryFlag = parseDebugFlagFromQuery();
+        if (queryFlag !== null) {
+            return queryFlag;
+        }
+        return loadPersistedDebugFlag();
+    })();
+
+    function persistDebugFlag(enabled) {
+        try {
+            window.localStorage?.setItem(DEBUG_LOG_STORAGE_KEY, enabled ? '1' : '0');
+        } catch {
+            // Ignore storage failures
+        }
+    }
+
+    function setGlobalDebugLogging(enabled, persist = true) {
+        const normalized = Boolean(enabled);
+        globalDebugLoggingEnabled = normalized;
+        if (persist) {
+            persistDebugFlag(normalized);
+        }
+        for (const state of activeStates) {
+            if (state) {
+                state.debugEnabled = normalized;
+            }
+        }
+    }
+
+    function debugLog(state, ...args) {
+        if (!state?.debugEnabled) {
+            return;
+        }
+        if (typeof console === 'undefined' || typeof console.log !== 'function') {
+            return;
+        }
+        console.log(...args);
+    }
 
     function createHoverCache() {
         return {
@@ -225,6 +312,10 @@
     }
 
     function registerActiveState(state) {
+        if (!state) {
+            return;
+        }
+        state.debugEnabled = globalDebugLoggingEnabled;
         activeStates.add(state);
     }
 
@@ -387,6 +478,7 @@
                 edgeSeries: new Map(),
                 edgeSeriesStartIndex: 0,
                 pendingHover: null,
+                hoverDropReported: false,
                 hoverFrameRequestId: null,
                 chipHitVersion: 0,
                 edgeHitVersion: 0,
@@ -409,6 +501,7 @@
                 zoomStats: createZoomStats(),
                 zoomStatsSinceUpload: createZoomStats(),
                 diagnosticsOptions: null,
+                debugEnabled: globalDebugLoggingEnabled,
                 diagnosticsHud: null,
                 diagnosticsUploadHandle: null,
                 diagnosticsHudCollapsed: false,
@@ -545,6 +638,7 @@
                 state.hoverFrameRequestId = null;
             }
             state.pendingHover = null;
+            state.hoverDropReported = false;
         };
 
         const cancelDelayedResume = () => {
@@ -568,7 +662,7 @@
                 const delta = state.lastHoverResumeTimestamp
                     ? Number((now - state.lastHoverResumeTimestamp).toFixed(3))
                     : null;
-                console.log?.('[Topology] hover follow-up after drag', { delayedResume: snapshot, resumeDeltaMs: delta });
+                debugLog(state, '[Topology] hover follow-up after drag', { delayedResume: snapshot, resumeDeltaMs: delta });
                 queueHoverUpdate(snapshot, false);
             };
             state.pendingDelayedResume = window.requestAnimationFrame(dispatch);
@@ -853,6 +947,7 @@
         const processQueuedHover = () => {
             const pending = state.pendingHover;
             state.pendingHover = null;
+            state.hoverDropReported = false;
             if (!pending) {
                 return;
             }
@@ -865,12 +960,12 @@
             }
 
             if (state.dragging && !forceImmediate) {
-                console.log?.('[Topology] hover skipped (dragging)');
+                debugLog(state, '[Topology] hover skipped (dragging)');
                 return;
             }
 
             if (state.hoverSuspended && !forceImmediate) {
-                console.log?.('[Topology] hover skipped while suspended', { forceImmediate });
+                debugLog(state, '[Topology] hover skipped while suspended', { forceImmediate });
                 cancelScheduledHover();
                 return;
             }
@@ -905,15 +1000,15 @@
                 return;
             }
 
-            incrementPointerStat(state, 'received');
-
-            if (state.pendingHover) {
-                incrementPointerStat(state, 'queueDrops');
-            }
-
             const snapshot = capturePointerSnapshot(pointerEvent, rect);
+            const hadPending = Boolean(state.pendingHover);
             state.pendingHover = snapshot;
             state.lastPointerSnapshot = snapshot ? { ...snapshot } : null;
+            incrementPointerStat(state, 'received');
+            if (hadPending && !state.hoverDropReported) {
+                incrementPointerStat(state, 'queueDrops');
+                state.hoverDropReported = true;
+            }
 
             if (forceImmediate) {
                 if (state.hoverFrameRequestId !== null) {
@@ -984,7 +1079,7 @@
             state.hoverSuspended = true;
             cancelDelayedResume();
             cancelScheduledHover();
-            console.log?.('[Topology] hover suspended (drag start)');
+            debugLog(state, '[Topology] hover suspended (drag start)');
             clearHover();
             setCursor('grabbing');
         };
@@ -1095,7 +1190,7 @@
                     ? performance.now()
                     : Date.now();
                 state.lastHoverResumeTimestamp = resumeTime;
-                console.log?.('[Topology] hover resumed after drag', { resumeSnapshot, resumeTime });
+                debugLog(state, '[Topology] hover resumed after drag', { resumeSnapshot, resumeTime });
                 queueHoverUpdate(resumeSnapshot, false);
                 const delayedResume = state.lastPointerSnapshot ?? resumeSnapshot;
                 scheduleDelayedResume(delayedResume);
@@ -6499,7 +6594,7 @@ function setHoveredEdge(state, edgeId) {
                     const dispatchEnded = performance.now ? performance.now() : Date.now();
                     const duration = dispatchEnded - dispatchStarted;
                     if (duration > 16) {
-                        console.log?.('[Topology] hover dispatch completed', { nodeId: normalized, durationMs: Number(duration.toFixed(3)) });
+                        debugLog(state, '[Topology] hover dispatch completed', { nodeId: normalized, durationMs: Number(duration.toFixed(3)) });
                     }
                 });
         }
@@ -7123,7 +7218,8 @@ function setHoveredEdge(state, edgeId) {
                     : 0,
                 disableHoverCache: Boolean(options.disableHoverCache),
                 operationalViewOnly: Boolean(options.operationalViewOnly),
-                inspectorVisible: Boolean(options.inspectorVisible)
+                inspectorVisible: Boolean(options.inspectorVisible),
+                debugLogging: typeof options.debugLogging === 'boolean' ? Boolean(options.debugLogging) : undefined
             }
             : null;
 
@@ -7139,6 +7235,9 @@ function setHoveredEdge(state, edgeId) {
 
         state.operationalViewOnly = Boolean(normalized?.operationalViewOnly);
         state.inspectorVisible = Boolean(normalized?.inspectorVisible);
+        if (typeof normalized?.debugLogging === 'boolean') {
+            state.debugEnabled = normalized.debugLogging;
+        }
 
         if (!normalized?.enabled) {
             destroyDiagnosticsHud(state);
@@ -7680,7 +7779,8 @@ function setHoveredEdge(state, edgeId) {
             state.dotNetRef = dotNetRef;
             applyDiagnosticsOptions(canvas, state, diagnosticsOptions);
         },
-        setInspectorVisible: (canvas, isVisible) => setInspectorVisibility(canvas, isVisible)
+        setInspectorVisible: (canvas, isVisible) => setInspectorVisibility(canvas, isVisible),
+        setDebugLoggingEnabled: (enabled) => setGlobalDebugLogging(Boolean(enabled))
     };
     window.FlowTime.TopologyHotkeys = {
         register: registerHotkeys,
