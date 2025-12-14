@@ -42,6 +42,10 @@ public sealed record HoverDiagnosticsRequest
     public double FrameCount { get; init; }
     public double PanDistance { get; init; }
     public double ZoomEvents { get; init; }
+    public double DragFrameCount { get; init; }
+    public double DragTotalDurationMs { get; init; }
+    public double DragAverageFrameMs { get; init; }
+    public double DragMaxFrameMs { get; init; }
     public HoverDiagnosticsCanvasPayload? Canvas { get; init; }
 
     public double? ResolveCanvasWidth() => CanvasWidth ?? Canvas?.Width;

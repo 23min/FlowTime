@@ -49,6 +49,7 @@
     const NODE_HALO_PADDING = 12;
     const HOVER_INTENT_SPEED_THRESHOLD = 900; // pixels per second
     const HOVER_INTENT_MAX_SUPPRESSION_MS = 150;
+    const HOVER_INTENT_RESUME_GRACE_MS = 150;
     const DIAGNOSTICS_COLLAPSE_STORAGE_KEY = 'ft.topology.diag.collapsed';
 
     function createHoverCache() {
@@ -114,6 +115,28 @@
         };
     }
 
+    function createDragStats() {
+        return {
+            frames: 0,
+            totalDurationMs: 0,
+            maxDurationMs: 0
+        };
+    }
+
+    function capturePointerSnapshot(event, rect) {
+        if (!event || !rect) {
+            return null;
+        }
+        return {
+            clientX: event.clientX,
+            clientY: event.clientY,
+            rectLeft: rect.left,
+            rectTop: rect.top,
+            rectRight: rect.right,
+            rectBottom: rect.bottom
+        };
+    }
+
     function resetPointerStatsSinceUpload(state) {
         if (!state) {
             return;
@@ -129,6 +152,23 @@
 
         state.pointerStats = createPointerStats();
         resetPointerStatsSinceUpload(state);
+    }
+
+    function resetDragStatsSinceUpload(state) {
+        if (!state) {
+            return;
+        }
+
+        state.dragStatsSinceUpload = createDragStats();
+    }
+
+    function resetDragStats(state) {
+        if (!state) {
+            return;
+        }
+
+        state.dragStats = createDragStats();
+        resetDragStatsSinceUpload(state);
     }
 
     function incrementPointerStat(state, key, amount = 1) {
@@ -165,6 +205,7 @@
         state.panStatsSinceUpload = createPanStats();
         state.zoomStatsSinceUpload = createZoomStats();
         state.pointerThrottleSkipsSinceUpload = 0;
+        resetDragStatsSinceUpload(state);
     }
 
     function resetCanvasStats(state) {
@@ -177,6 +218,10 @@
         state.zoomStats = createZoomStats();
         state.pointerThrottleSkips = 0;
         resetCanvasStatsSinceUpload(state);
+        resetDragStats(state);
+        state.dragFrameCount = 0;
+        state.dragAccumulatedDuration = 0;
+        state.dragStartTime = null;
     }
 
     function registerActiveState(state) {
@@ -290,6 +335,15 @@
                 scale: 1,
                 dragging: false,
                 dragStart: { x: 0, y: 0 },
+                dragStartTime: null,
+                dragAccumulatedDuration: 0,
+                dragFrameCount: 0,
+                dragStats: createDragStats(),
+                dragStatsSinceUpload: createDragStats(),
+                lastPointerSnapshot: null,
+                dragActive: false,
+                dragEnding: false,
+                pendingDelayedResume: null,
                 panStart: { x: 0, y: 0 },
                 deviceRatio: window.devicePixelRatio || 1,
                 overlayScale: 1,
@@ -320,6 +374,7 @@
                 lastEdgeHoverId: null,
                 pointerDownPoint: null,
                 pointerMoved: false,
+                pointerClickCandidate: false,
                 title: '',
                 settingsHitbox: null,
                 settingsPointerActive: false,
@@ -340,9 +395,11 @@
                 pointerThrottleSkips: 0,
                 pointerThrottleSkipsSinceUpload: 0,
                 lastNodeHoverDispatchTime: 0,
+                hoverIntentBypassUntil: 0,
                 lastDrawnHoverNodeId: null,
                 lastDrawnHoverChipId: null,
                 lastDrawnHoverEdgeId: null,
+                hoverSuspended: false,
                 pointerStats: createPointerStats(),
                 pointerStatsSinceUpload: createPointerStats(),
                 drawStats: createDrawStats(),
@@ -365,7 +422,15 @@
                 lastNodeCount: 0,
                 lastEdgeCount: 0,
                 focusedNodeId: null,
-                lastPanSample: null
+                lastPanSample: null,
+                dragPointerId: null,
+                windowPointerUpHandler: null,
+                windowPointerCancelHandler: null,
+                dragEnding: false,
+                pendingDelayedResume: null,
+                lastHoverResumeTimestamp: null,
+                panFrameRequestId: null,
+                pendingPan: null
             };
             setupCanvas(canvas, state);
             registry.set(canvas, state);
@@ -480,6 +545,100 @@
                 state.hoverFrameRequestId = null;
             }
             state.pendingHover = null;
+        };
+
+        const cancelDelayedResume = () => {
+            if (state.pendingDelayedResume !== null) {
+                cancelAnimationFrame(state.pendingDelayedResume);
+                state.pendingDelayedResume = null;
+            }
+        };
+
+        const scheduleDelayedResume = (snapshot) => {
+            cancelDelayedResume();
+            const dispatch = () => {
+                if (state.dragging || state.dragActive || state.dragEnding) {
+                    state.pendingDelayedResume = window.requestAnimationFrame(dispatch);
+                    return;
+                }
+                state.pendingDelayedResume = null;
+                const now = typeof performance !== 'undefined' && typeof performance.now === 'function'
+                    ? performance.now()
+                    : Date.now();
+                const delta = state.lastHoverResumeTimestamp
+                    ? Number((now - state.lastHoverResumeTimestamp).toFixed(3))
+                    : null;
+                console.log?.('[Topology] hover follow-up after drag', { delayedResume: snapshot, resumeDeltaMs: delta });
+                queueHoverUpdate(snapshot, false);
+            };
+            state.pendingDelayedResume = window.requestAnimationFrame(dispatch);
+        };
+
+        const applyDragMovement = (point) => {
+            if (!state.dragging || state.dragEnding || !point) {
+                return;
+            }
+            const clientX = point.clientX;
+            const clientY = point.clientY;
+            const dx = clientX - state.dragStart.x;
+            const dy = clientY - state.dragStart.y;
+            state.offsetX = state.panStart.x + dx;
+            state.offsetY = state.panStart.y + dy;
+            if (state.lastPanSample) {
+                const moveDx = clientX - state.lastPanSample.x;
+                const moveDy = clientY - state.lastPanSample.y;
+                const moveDistance = Math.hypot(moveDx, moveDy);
+                if (moveDistance > 0) {
+                    state.panStats ??= createPanStats();
+                    state.panStats.distance += moveDistance;
+                    state.panStatsSinceUpload ??= createPanStats();
+                    state.panStatsSinceUpload.distance += moveDistance;
+                }
+            }
+            state.lastPanSample = { x: clientX, y: clientY };
+            if (canvas) {
+                const rect = canvas.getBoundingClientRect();
+                state.lastPointerSnapshot = capturePointerSnapshot({ clientX, clientY }, rect);
+            }
+            const timestamp = typeof point.timeStamp === 'number'
+                ? point.timeStamp
+                : (typeof performance !== 'undefined' && typeof performance.now === 'function'
+                    ? performance.now()
+                    : Date.now());
+            state.lastPointerSample = { x: clientX, y: clientY, time: timestamp };
+            draw(canvas, state);
+            canvas.style.cursor = 'grabbing';
+        };
+
+        const cancelPanFrame = () => {
+            if (state.panFrameRequestId !== null) {
+                cancelAnimationFrame(state.panFrameRequestId);
+                state.panFrameRequestId = null;
+            }
+            state.pendingPan = null;
+        };
+
+        const requestPanFrame = () => {
+            if (state.panFrameRequestId !== null) {
+                return;
+            }
+            state.panFrameRequestId = window.requestAnimationFrame(() => {
+                state.panFrameRequestId = null;
+                processPendingPan();
+            });
+        };
+
+        const processPendingPan = () => {
+            const pending = state.pendingPan;
+            if (!pending || !state.dragging || state.dragEnding) {
+                state.pendingPan = null;
+                return;
+            }
+            state.pendingPan = null;
+            applyDragMovement(pending);
+            if (state.pendingPan) {
+                requestPanFrame();
+            }
         };
 
         const clearHover = () => {
@@ -647,7 +806,10 @@
                 invalidated = true;
             }
 
-            const shouldThrottleIntent = pointerSpeed > HOVER_INTENT_SPEED_THRESHOLD;
+            const intentBypassActive = !state.dragging &&
+                typeof state.hoverIntentBypassUntil === 'number' &&
+                state.hoverIntentBypassUntil > now;
+            const shouldThrottleIntent = !intentBypassActive && pointerSpeed > HOVER_INTENT_SPEED_THRESHOLD;
             let allowHoverHit = true;
             if (shouldThrottleIntent) {
                 const lastDispatch = Number(state.lastNodeHoverDispatchTime ?? 0);
@@ -655,6 +817,11 @@
                 if (elapsedSinceDispatch < HOVER_INTENT_MAX_SUPPRESSION_MS) {
                     allowHoverHit = false;
                 }
+            }
+            if (intentBypassActive && !state.dragging) {
+                state.hoverIntentBypassUntil = 0;
+            } else if (!intentBypassActive && !state.dragging && typeof state.hoverIntentBypassUntil === 'number' && state.hoverIntentBypassUntil > 0 && state.hoverIntentBypassUntil <= now) {
+                state.hoverIntentBypassUntil = 0;
             }
             if (!allowHoverHit && shouldThrottleIntent) {
                 state.pointerThrottleSkips = (state.pointerThrottleSkips ?? 0) + 1;
@@ -697,15 +864,44 @@
                 return;
             }
 
-            const rect = canvas.getBoundingClientRect();
-            const inside = event.clientX >= rect.left &&
-                event.clientX <= rect.right &&
-                event.clientY >= rect.top &&
-                event.clientY <= rect.bottom;
+            if (state.dragging && !forceImmediate) {
+                console.log?.('[Topology] hover skipped (dragging)');
+                return;
+            }
+
+            if (state.hoverSuspended && !forceImmediate) {
+                console.log?.('[Topology] hover skipped while suspended', { forceImmediate });
+                cancelScheduledHover();
+                return;
+            }
+
+            const rect = typeof event?.rectLeft === 'number'
+                ? {
+                    left: event.rectLeft,
+                    top: event.rectTop,
+                    right: event.rectRight ?? event.rectLeft,
+                    bottom: event.rectBottom ?? event.rectTop
+                }
+                : canvas.getBoundingClientRect();
+            const pointerEvent = typeof event?.rectLeft === 'number'
+                ? event
+                : {
+                    clientX: event.clientX,
+                    clientY: event.clientY,
+                    rectLeft: rect.left,
+                    rectTop: rect.top,
+                    rectRight: rect.right,
+                    rectBottom: rect.bottom
+                };
+            const inside = pointerEvent.clientX >= rect.left &&
+                pointerEvent.clientX <= rect.right &&
+                pointerEvent.clientY >= rect.top &&
+                pointerEvent.clientY <= rect.bottom;
 
             if (!inside) {
                 cancelScheduledHover();
                 clearHover();
+                state.lastPointerSnapshot = null;
                 return;
             }
 
@@ -715,12 +911,9 @@
                 incrementPointerStat(state, 'queueDrops');
             }
 
-            state.pendingHover = {
-                clientX: event.clientX,
-                clientY: event.clientY,
-                rectLeft: rect.left,
-                rectTop: rect.top
-            };
+            const snapshot = capturePointerSnapshot(pointerEvent, rect);
+            state.pendingHover = snapshot;
+            state.lastPointerSnapshot = snapshot ? { ...snapshot } : null;
 
             if (forceImmediate) {
                 if (state.hoverFrameRequestId !== null) {
@@ -743,6 +936,7 @@
             if (event.button !== 0) {
                 return;
             }
+            state.pointerClickCandidate = false;
             if (isProxyPointerTarget(event)) {
                 return;
             }
@@ -760,18 +954,39 @@
                 return;
             }
             eventSurface?.setPointerCapture?.(event.pointerId);
+            cancelPanFrame();
             state.dragging = true;
+            state.dragActive = false;
+            state.dragPointerId = event.pointerId;
             state.dragStart = { x: event.clientX, y: event.clientY };
             state.panStart = { x: state.offsetX, y: state.offsetY };
+            state.dragStartTime = performance.now ? performance.now() : Date.now();
             state.userAdjusted = true;
             state.pointerDownPoint = { x: event.clientX, y: event.clientY };
-            state.pointerMoved = false;
+            state.pointerMoved = true;
+            state.pointerClickCandidate = true;
             state.settingsPointerActive = false;
             state.settingsPointerId = null;
             state.settingsPointerDown = null;
+            state.hoverIntentBypassUntil = 0;
+            if (canvas) {
+                const rect = canvas.getBoundingClientRect();
+                state.lastPointerSnapshot = capturePointerSnapshot(event, rect);
+            }
+            state.lastPanSample = { x: event.clientX, y: event.clientY };
+        };
+
+        const activateDragMotion = () => {
+            if (state.dragActive) {
+                return;
+            }
+            state.dragActive = true;
+            state.hoverSuspended = true;
+            cancelDelayedResume();
+            cancelScheduledHover();
+            console.log?.('[Topology] hover suspended (drag start)');
             clearHover();
             setCursor('grabbing');
-            state.lastPanSample = { x: event.clientX, y: event.clientY };
         };
 
         const pointerMove = (event) => {
@@ -782,7 +997,7 @@
                     const deltaX = event.clientX - state.settingsPointerDown.x;
                     const deltaY = event.clientY - state.settingsPointerDown.y;
                     if (Math.abs(deltaX) > POINTER_CLICK_DISTANCE || Math.abs(deltaY) > POINTER_CLICK_DISTANCE) {
-                        state.pointerMoved = true;
+                        state.pointerClickCandidate = false;
                     }
                 }
                 return;
@@ -796,35 +1011,31 @@
                 queueHoverUpdate(event);
                 return;
             }
-            const dx = event.clientX - state.dragStart.x;
-            const dy = event.clientY - state.dragStart.y;
-            if (!state.pointerMoved && state.pointerDownPoint) {
-                const deltaX = event.clientX - state.pointerDownPoint.x;
-                const deltaY = event.clientY - state.pointerDownPoint.y;
-                if (Math.abs(deltaX) > POINTER_CLICK_DISTANCE || Math.abs(deltaY) > POINTER_CLICK_DISTANCE) {
-                    state.pointerMoved = true;
-                }
+            if (state.dragEnding) {
+                return;
             }
-            state.offsetX = state.panStart.x + dx;
-            state.offsetY = state.panStart.y + dy;
-            if (state.lastPanSample) {
-                const moveDx = event.clientX - state.lastPanSample.x;
-                const moveDy = event.clientY - state.lastPanSample.y;
-                const moveDistance = Math.hypot(moveDx, moveDy);
-                if (moveDistance > 0) {
-                    state.panStats ??= createPanStats();
-                    state.panStats.distance += moveDistance;
-                    state.panStatsSinceUpload ??= createPanStats();
-                    state.panStatsSinceUpload.distance += moveDistance;
-                }
+            if (state.pointerClickCandidate) {
+                state.pointerClickCandidate = false;
+                state.pointerMoved = true;
+                activateDragMotion();
+                cancelScheduledHover();
+                state.lastPointerSnapshot = null;
             }
-            state.lastPanSample = { x: event.clientX, y: event.clientY };
-            draw(canvas, state);
-            canvas.style.cursor = 'grabbing';
+            state.pendingPan = {
+                clientX: event.clientX,
+                clientY: event.clientY,
+                timeStamp: typeof event.timeStamp === 'number'
+                    ? event.timeStamp
+                    : (typeof performance !== 'undefined' && typeof performance.now === 'function'
+                        ? performance.now()
+                        : Date.now())
+            };
+            requestPanFrame();
         };
 
         const pointerUp = (event) => {
-            if (event.button !== 0) {
+            const isPrimaryButton = typeof event.button !== 'number' || event.button === 0;
+            if (!isPrimaryButton) {
                 return;
             }
             if (isDiagnosticsControlTarget(event)) {
@@ -835,12 +1046,12 @@
                     eventSurface.releasePointerCapture(event.pointerId);
                 }
                 const inside = isPointerInSettingsButton(event);
-                const moved = !!state.pointerMoved;
+                const moved = !state.pointerClickCandidate;
                 state.settingsPointerActive = false;
                 state.settingsPointerId = null;
                 state.settingsPointerDown = null;
                 state.pointerDownPoint = null;
-                state.pointerMoved = false;
+                state.pointerClickCandidate = false;
                 if (!moved && inside && state.dotNetRef) {
                     state.dotNetRef.invokeMethodAsync('OnSettingsRequestedFromCanvas');
                 }
@@ -851,11 +1062,62 @@
                 eventSurface.releasePointerCapture(event.pointerId);
             }
             const wasDragging = state.dragging;
-            state.dragging = false;
-            updateWorldCenter(state);
-            emitViewportChanged(canvas, state);
-            queueHoverUpdate(event, true);
-            if (!state.pointerMoved && state.pointerDownPoint) {
+            state.dragPointerId = null;
+            const canvasRect = canvas.getBoundingClientRect();
+            const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+            const releaseSnapshot = {
+                clientX: clamp(event.clientX, canvasRect.left, canvasRect.right),
+                clientY: clamp(event.clientY, canvasRect.top, canvasRect.bottom),
+                rectLeft: canvasRect.left,
+                rectTop: canvasRect.top,
+                rectRight: canvasRect.right,
+                rectBottom: canvasRect.bottom
+            };
+            state.lastPointerSnapshot = { ...releaseSnapshot };
+            const now = typeof performance !== 'undefined' && typeof performance.now === 'function'
+                ? performance.now()
+                : Date.now();
+            state.hoverIntentBypassUntil = now + HOVER_INTENT_RESUME_GRACE_MS;
+            state.lastPointerSample = {
+                x: releaseSnapshot.clientX,
+                y: releaseSnapshot.clientY,
+                time: now
+            };
+            const performedDrag = state.dragActive;
+            const finalizeRelease = () => {
+                state.hoverSuspended = false;
+                state.dragEnding = true;
+                state.dragActive = false;
+                state.dragging = false;
+                cancelPanFrame();
+                const resumeSnapshot = state.lastPointerSnapshot ?? releaseSnapshot;
+                const resumeTime = typeof performance !== 'undefined' && typeof performance.now === 'function'
+                    ? performance.now()
+                    : Date.now();
+                state.lastHoverResumeTimestamp = resumeTime;
+                console.log?.('[Topology] hover resumed after drag', { resumeSnapshot, resumeTime });
+                queueHoverUpdate(resumeSnapshot, false);
+                const delayedResume = state.lastPointerSnapshot ?? resumeSnapshot;
+                scheduleDelayedResume(delayedResume);
+                updateWorldCenter(state);
+                emitViewportChanged(canvas, state);
+            };
+            if (performedDrag) {
+                finalizeRelease();
+            } else {
+                state.dragging = false;
+                state.hoverSuspended = false;
+                state.dragEnding = false;
+                state.dragActive = false;
+                cancelPanFrame();
+                cancelDelayedResume();
+                const resumeSnapshot = state.lastPointerSnapshot ?? releaseSnapshot;
+                state.lastHoverResumeTimestamp = typeof performance !== 'undefined' && typeof performance.now === 'function'
+                    ? performance.now()
+                    : Date.now();
+                queueHoverUpdate(resumeSnapshot, true);
+            }
+            if (!performedDrag && state.pointerClickCandidate && state.pointerDownPoint) {
                 const rect = canvas.getBoundingClientRect();
                 const clientX = event.clientX - rect.left;
                 const clientY = event.clientY - rect.top;
@@ -864,7 +1126,7 @@
                 const edgeHit = hitTestEdge(state, worldX, worldY);
                 if (edgeHit) {
                     state.pointerDownPoint = null;
-                    state.pointerMoved = false;
+                    state.pointerClickCandidate = false;
                     setCursor('default');
                     return;
                 }
@@ -888,22 +1150,48 @@
                 }
             }
             state.pointerDownPoint = null;
-            state.pointerMoved = false;
+            state.pointerClickCandidate = false;
             state.lastPanSample = null;
+            state.dragActive = false;
+            state.dragging = false;
+            state.dragEnding = false;
             setCursor('default');
         };
 
+        const handleWindowPointerUp = (event) => {
+            if (!state) {
+                return;
+            }
+            const matchesDragPointer = state.dragPointerId === null || state.dragPointerId === event.pointerId;
+            const canHandle = (state.dragging && matchesDragPointer) ||
+                (state.settingsPointerActive && state.settingsPointerId === event.pointerId);
+            if (!canHandle) {
+                return;
+            }
+            pointerUp(event);
+        };
+
         const pointerLeave = (event) => {
+            const primaryDown = (event.buttons & 1) === 1;
+            const matchesDragPointer = state.dragPointerId === null || state.dragPointerId === event.pointerId;
+            if (state.dragging && primaryDown && matchesDragPointer) {
+                // Still dragging; keep capture and skip clearing hover so release can resume immediately.
+                return;
+            }
             if (eventSurface?.hasPointerCapture?.(event.pointerId)) {
                 eventSurface.releasePointerCapture(event.pointerId);
             }
             const wasDragging = state.dragging;
             state.dragging = false;
+            state.hoverSuspended = false;
+            state.dragEnding = false;
+            cancelPanFrame();
             state.pointerDownPoint = null;
-            state.pointerMoved = false;
+            state.pointerClickCandidate = false;
             state.settingsPointerActive = false;
             state.settingsPointerId = null;
             state.settingsPointerDown = null;
+            state.lastPointerSnapshot = null;
             if (wasDragging) {
                 updateWorldCenter(state);
                 emitViewportChanged(canvas, state);
@@ -960,6 +1248,11 @@
             eventSurface.addEventListener('click', handleBackgroundClick);
         }
 
+        state.windowPointerUpHandler = (event) => handleWindowPointerUp(event);
+        state.windowPointerCancelHandler = (event) => handleWindowPointerUp(event);
+        window.addEventListener('pointerup', state.windowPointerUpHandler, true);
+        window.addEventListener('pointercancel', state.windowPointerCancelHandler, true);
+
         state.cleanup = () => {
             window.removeEventListener('resize', resize);
             const listenerTarget = state.eventSurface ?? canvas;
@@ -971,9 +1264,19 @@
                 listenerTarget.removeEventListener('wheel', wheel, wheelListenerOptions);
                 listenerTarget.removeEventListener('click', handleBackgroundClick);
             }
+            if (state.windowPointerUpHandler) {
+                window.removeEventListener('pointerup', state.windowPointerUpHandler, true);
+                state.windowPointerUpHandler = null;
+            }
+            if (state.windowPointerCancelHandler) {
+                window.removeEventListener('pointercancel', state.windowPointerCancelHandler, true);
+                state.windowPointerCancelHandler = null;
+            }
             state.resizeObserver?.disconnect?.();
             state.resizeObserver = null;
             cancelScheduledHover();
+            cancelDelayedResume();
+            cancelPanFrame();
             resetHoverCache(state);
             clearHoverStats(state);
             resetCanvasStats(state);
@@ -1505,10 +1808,10 @@
 
         positionInspectorToggle(state, nodeMap);
 
-        const frameEnd = typeof performance !== 'undefined' && typeof performance.now === 'function'
-            ? performance.now()
-            : Date.now();
-        const durationMs = Math.max(0, frameEnd - frameStart);
+            const frameEnd = typeof performance !== 'undefined' && typeof performance.now === 'function'
+                ? performance.now()
+                : Date.now();
+            const durationMs = Math.max(0, frameEnd - frameStart);
         const recordDrawStats = (stats) => {
             stats.frames += 1;
             stats.totalDurationMs += durationMs;
@@ -1522,6 +1825,18 @@
         state.lastDrawnHoverNodeId = state.hoveredNodeId ?? null;
         state.lastDrawnHoverChipId = state.hoveredChipId ?? null;
         state.lastDrawnHoverEdgeId = state.hoveredEdgeId ?? null;
+        if (state.dragging && state.dragStartTime) {
+            state.dragFrameCount = (state.dragFrameCount ?? 0) + 1;
+            state.dragAccumulatedDuration = (state.dragAccumulatedDuration ?? 0) + durationMs;
+            state.dragStats ??= createDragStats();
+            state.dragStats.frames += 1;
+            state.dragStats.totalDurationMs += durationMs;
+            state.dragStats.maxDurationMs = Math.max(state.dragStats.maxDurationMs ?? 0, durationMs);
+            state.dragStatsSinceUpload ??= createDragStats();
+            state.dragStatsSinceUpload.frames += 1;
+            state.dragStatsSinceUpload.totalDurationMs += durationMs;
+            state.dragStatsSinceUpload.maxDurationMs = Math.max(state.dragStatsSinceUpload.maxDurationMs ?? 0, durationMs);
+        }
     }
 
     function drawCanvasTitle(ctx, state) {
@@ -6176,8 +6491,17 @@ function setHoveredEdge(state, edgeId) {
             : Date.now();
         state.hoverStats.lastDispatchTimestamp = now;
         state.lastNodeHoverDispatchTime = now;
-        if (state.dotNetRef?.invokeMethodAsync) {
-            state.dotNetRef.invokeMethodAsync('OnNodeHoverChanged', normalized);
+        const shouldNotifyDotNet = state.inspectorVisible && state.dotNetRef?.invokeMethodAsync;
+        if (shouldNotifyDotNet) {
+            const dispatchStarted = performance.now ? performance.now() : Date.now();
+            state.dotNetRef.invokeMethodAsync('OnNodeHoverChanged', normalized)
+                ?.then(() => {
+                    const dispatchEnded = performance.now ? performance.now() : Date.now();
+                    const duration = dispatchEnded - dispatchStarted;
+                    if (duration > 16) {
+                        console.log?.('[Topology] hover dispatch completed', { nodeId: normalized, durationMs: Number(duration.toFixed(3)) });
+                    }
+                });
         }
         updateDiagnosticsHud(state);
     }
@@ -6827,6 +7151,23 @@ function setHoveredEdge(state, edgeId) {
         configureDiagnosticsUploader(state);
     }
 
+    function setInspectorVisibility(canvas, isVisible) {
+        const state = registry.get(canvas);
+        if (!state) {
+            return;
+        }
+
+        const normalized = Boolean(isVisible);
+        if (state.inspectorVisible === normalized) {
+            return;
+        }
+
+        state.inspectorVisible = normalized;
+        state.diagnosticsOptions ??= {};
+        state.diagnosticsOptions.inspectorVisible = normalized;
+        updateDiagnosticsHud(state);
+    }
+
     function destroyDiagnosticsHud(state) {
         const hud = state?.diagnosticsHud;
         if (!hud) {
@@ -7117,6 +7458,9 @@ function setHoveredEdge(state, edgeId) {
         const pointerThrottleSkips = Number(state?.pointerThrottleSkipsSinceUpload ?? state?.pointerThrottleSkips ?? 0);
 
         const pointerStats = state?.pointerStatsSinceUpload ?? state?.pointerStats ?? createPointerStats();
+        const dragStats = state?.dragStatsSinceUpload ?? state?.dragStats ?? createDragStats();
+        const dragFrames = dragStats.frames || 0;
+        const dragAvgMs = dragFrames > 0 ? dragStats.totalDurationMs / dragFrames : 0;
 
         const payload = {
             runId: state?.runId ?? null,
@@ -7144,7 +7488,11 @@ function setHoveredEdge(state, edgeId) {
             pointerEventsReceived: Number(pointerStats.received ?? 0),
             pointerEventsProcessed: Number(pointerStats.processed ?? 0),
             pointerQueueDrops: Number(pointerStats.queueDrops ?? 0),
-            pointerIntentSkips: Number(pointerStats.intentSkips ?? 0)
+            pointerIntentSkips: Number(pointerStats.intentSkips ?? 0),
+            dragFrameCount: dragFrames,
+            dragTotalDurationMs: Number(dragStats.totalDurationMs.toFixed(3)),
+            dragAverageFrameMs: Number(dragAvgMs.toFixed(3)),
+            dragMaxFrameMs: Number((dragStats.maxDurationMs ?? 0).toFixed(3))
         };
 
         payload.canvas = {
@@ -7168,6 +7516,10 @@ function setHoveredEdge(state, edgeId) {
         const drawStats = state?.drawStatsSinceUpload ?? state?.drawStats ?? createDrawStats();
         const frames = drawStats.frames || 0;
         const avgDrawMs = frames > 0 ? drawStats.totalDurationMs / frames : 0;
+        const dragStats = state?.dragStatsSinceUpload ?? state?.dragStats ?? createDragStats();
+        const dragFrames = dragStats.frames || 0;
+        const dragAvgMs = dragFrames > 0 ? dragStats.totalDurationMs / dragFrames : 0;
+
         const payload = {
             runId: state?.runId ?? null,
             buildHash: state?.buildHash ?? null,
@@ -7180,6 +7532,10 @@ function setHoveredEdge(state, edgeId) {
             frameCount: frames,
             panDistance: Number((state?.panStatsSinceUpload?.distance ?? state?.panStats?.distance ?? 0).toFixed(2)),
             zoomEvents: state?.zoomStatsSinceUpload?.events ?? state?.zoomStats?.events ?? 0,
+            dragFrameCount: dragFrames,
+            dragTotalDurationMs: Number(dragStats.totalDurationMs.toFixed(3)),
+            dragAverageFrameMs: Number(dragAvgMs.toFixed(3)),
+            dragMaxFrameMs: Number((dragStats.maxDurationMs ?? 0).toFixed(3)),
             timestampUtc: new Date().toISOString(),
             source: source ?? 'canvas',
             canvasWidth,
@@ -7323,7 +7679,8 @@ function setHoveredEdge(state, edgeId) {
             const state = getState(canvas);
             state.dotNetRef = dotNetRef;
             applyDiagnosticsOptions(canvas, state, diagnosticsOptions);
-        }
+        },
+        setInspectorVisible: (canvas, isVisible) => setInspectorVisibility(canvas, isVisible)
     };
     window.FlowTime.TopologyHotkeys = {
         register: registerHotkeys,

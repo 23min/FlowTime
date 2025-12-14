@@ -10,7 +10,7 @@ namespace FlowTime.API.Services;
 
 internal static class DiagnosticsFileWriter
 {
-    private const string HoverCsvHeader = "timestampUtc,runId,buildHash,payloadSignature,interopDispatches,totalDispatches,durationMs,ratePerSecond,source,canvasWidth,canvasHeight,operationalOnly,mode,neighborEmphasis,zoomPercent,hoveredNodeId,focusedNodeId,nodeCount,edgeCount,inspectorVisible,pointerThrottleSkips,pointerEventsReceived,pointerEventsProcessed,pointerQueueDrops,pointerIntentSkips";
+    private const string HoverCsvHeader = "timestampUtc,runId,buildHash,payloadSignature,interopDispatches,totalDispatches,durationMs,ratePerSecond,source,canvasWidth,canvasHeight,operationalOnly,mode,neighborEmphasis,zoomPercent,hoveredNodeId,focusedNodeId,nodeCount,edgeCount,inspectorVisible,pointerThrottleSkips,pointerEventsReceived,pointerEventsProcessed,pointerQueueDrops,pointerIntentSkips,dragFrameCount,dragTotalDurationMs,dragAverageFrameMs,dragMaxFrameMs";
     private const string CanvasCsvHeader = "timestampUtc,runId,buildHash,payloadSignature,nodeCount,edgeCount,avgDrawMs,maxDrawMs,lastDrawMs,frameCount,panDistance,zoomEvents,source,canvasWidth,canvasHeight,operationalOnly,mode,neighborEmphasis,zoomPercent,inspectorVisible";
 
     public static async Task AppendHoverEntryAsync(string path, HoverDiagnosticsRow row, int maxRows, CancellationToken cancellationToken = default)
@@ -94,7 +94,11 @@ internal sealed record HoverDiagnosticsRow(
     double PointerEventsReceived,
     double PointerEventsProcessed,
     double PointerQueueDrops,
-    double PointerIntentSkips)
+    double PointerIntentSkips,
+    double DragFrameCount,
+    double DragTotalDurationMs,
+    double DragAverageFrameMs,
+    double DragMaxFrameMs)
 {
     public string ToCsvLine()
     {
@@ -136,7 +140,11 @@ internal sealed record HoverDiagnosticsRow(
             FormatDouble(PointerEventsReceived),
             FormatDouble(PointerEventsProcessed),
             FormatDouble(PointerQueueDrops),
-            FormatDouble(PointerIntentSkips));
+            FormatDouble(PointerIntentSkips),
+            FormatDouble(DragFrameCount),
+            FormatDouble(DragTotalDurationMs),
+            FormatDouble(DragAverageFrameMs),
+            FormatDouble(DragMaxFrameMs));
     }
 }
 
@@ -153,6 +161,10 @@ internal sealed record CanvasDiagnosticsRow(
     double FrameCount,
     double PanDistance,
     double ZoomEvents,
+    double DragFrameCount,
+    double DragTotalDurationMs,
+    double DragAverageFrameMs,
+    double DragMaxFrameMs,
     string Source,
     double? CanvasWidth,
     double? CanvasHeight,
@@ -190,6 +202,10 @@ internal sealed record CanvasDiagnosticsRow(
             FormatDouble(FrameCount),
             FormatDouble(PanDistance),
             FormatDouble(ZoomEvents),
+            FormatDouble(DragFrameCount),
+            FormatDouble(DragTotalDurationMs),
+            FormatDouble(DragAverageFrameMs),
+            FormatDouble(DragMaxFrameMs),
             Escape(Source),
             FormatNullableDouble(CanvasWidth),
             FormatNullableDouble(CanvasHeight),

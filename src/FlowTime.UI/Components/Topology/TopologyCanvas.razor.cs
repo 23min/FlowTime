@@ -42,6 +42,9 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
     private ViewportSnapshot? lastViewportSnapshot;
     private string? lastCanvasEdgeHoverId;
     private string? lastCanvasNodeHoverId;
+    private bool handlersRegistered;
+    private bool inspectorVisibilityDirty;
+    private bool lastInspectorVisible;
 
     [Inject] protected IJSRuntime JS { get; set; } = default!;
 
@@ -128,51 +131,69 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         pendingRequest = BuildRenderRequest(filteredGraph, NodeMetrics, NodeSparklines, focusedNodeId, tooltipNodeId, OverlaySettings, ActiveBin, snapshotForRender, preserveViewport, Title, NodeWarnings, EdgeSeries, EdgeSeriesStartIndex, DimmedNodes);
         lastSourceGraph = Graph;
         renderScheduled = true;
+
+        if (handlersRegistered && lastInspectorVisible != InspectorVisible)
+        {
+            inspectorVisibilityDirty = true;
+        }
+
+        lastInspectorVisible = InspectorVisible;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!renderScheduled || pendingRequest is null || disposed)
+        if (disposed)
         {
             return;
         }
 
-        renderScheduled = false;
-
-        if (!HasVisibleNodes)
+        if (renderScheduled && pendingRequest is not null)
         {
-            return;
-        }
+            renderScheduled = false;
 
-        dotNetRef ??= DotNetObjectReference.Create(this);
-        var diagnosticsOptions = new
-        {
-            enabled = DiagnosticsOverlayEnabled,
-            runId = RunId,
-            buildHash = BuildDiagnostics.Hash,
-            uploadUrl = DiagnosticsUploadUrl,
-            uploadIntervalMs = DiagnosticsUploadIntervalMs,
-            disableHoverCache = DiagnosticsDisableHoverCache,
-            operationalViewOnly = OperationalViewOnly,
-            inspectorVisible = InspectorVisible
-        };
-        await JS.InvokeVoidAsync("FlowTime.TopologyCanvas.registerHandlers", canvasRef, dotNetRef, diagnosticsOptions);
-
-        if (pendingViewportSnapshot is not null)
-        {
-            var snapshot = pendingViewportSnapshot;
-            pendingViewportSnapshot = null;
-            await JS.InvokeVoidAsync("FlowTime.TopologyCanvas.restoreViewport", canvasRef, snapshot);
-            pendingViewportSignature = null;
-            lastViewportSnapshot = snapshot;
-            if (ViewportRequestConsumed.HasDelegate)
+            if (HasVisibleNodes)
             {
-                await ViewportRequestConsumed.InvokeAsync();
+                dotNetRef ??= DotNetObjectReference.Create(this);
+                var diagnosticsOptions = new
+                {
+                    enabled = DiagnosticsOverlayEnabled,
+                    runId = RunId,
+                    buildHash = BuildDiagnostics.Hash,
+                    uploadUrl = DiagnosticsUploadUrl,
+                    uploadIntervalMs = DiagnosticsUploadIntervalMs,
+                    disableHoverCache = DiagnosticsDisableHoverCache,
+                    operationalViewOnly = OperationalViewOnly,
+                    inspectorVisible = InspectorVisible
+                };
+                await JS.InvokeVoidAsync("FlowTime.TopologyCanvas.registerHandlers", canvasRef, dotNetRef, diagnosticsOptions);
+                handlersRegistered = true;
+                inspectorVisibilityDirty = false;
+                lastInspectorVisible = InspectorVisible;
+
+                if (pendingViewportSnapshot is not null)
+                {
+                    var snapshot = pendingViewportSnapshot;
+                    pendingViewportSnapshot = null;
+                    await JS.InvokeVoidAsync("FlowTime.TopologyCanvas.restoreViewport", canvasRef, snapshot);
+                    pendingViewportSignature = null;
+                    lastViewportSnapshot = snapshot;
+                    if (ViewportRequestConsumed.HasDelegate)
+                    {
+                        await ViewportRequestConsumed.InvokeAsync();
+                    }
+                }
+
+                await JS.InvokeVoidAsync("FlowTime.TopologyCanvas.render", canvasRef, pendingRequest);
+                hasRendered = true;
             }
         }
 
-        await JS.InvokeVoidAsync("FlowTime.TopologyCanvas.render", canvasRef, pendingRequest);
-        hasRendered = true;
+        if (inspectorVisibilityDirty && handlersRegistered)
+        {
+            await JS.InvokeVoidAsync("FlowTime.TopologyCanvas.setInspectorVisible", canvasRef, InspectorVisible);
+            inspectorVisibilityDirty = false;
+            lastInspectorVisible = InspectorVisible;
+        }
     }
 
     protected void SelectNode(string nodeId)
@@ -1258,6 +1279,8 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         }
 
         disposed = true;
+        handlersRegistered = false;
+        inspectorVisibilityDirty = false;
         _ = JS.InvokeVoidAsync("FlowTime.TopologyCanvas.dispose", canvasRef);
         dotNetRef?.Dispose();
         dotNetRef = null;

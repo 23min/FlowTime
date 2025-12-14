@@ -99,6 +99,34 @@
 **Next Steps:**
 - Move node hover notifications into JS (parity with edge hover), then revisit timeline pointer lag once hover feels instant.
 
+### 2025-12-13 — Drag resume snapshot fix & diagnostics
+
+**Changes:**
+- Captured pointer snapshots during drag start/move/up so hover resume uses the latest cursor location instead of stale coordinates.
+- Ensured diagnostics hover dumps keep reporting up-to-date pointer stats post-drag.
+- Added post-drag intent bypass so the first hover sample after a pan repaints immediately and no longer waits for the throttle window to elapse.
+- Hooked window-level pointer up/cancel listeners and removed the extra RAF delay so drag releases trigger hover resumption even if the cursor leaves the canvas.
+- Split drag “armed” vs “active” states so we no longer suspend hover/log a drag when the user simply clicks, and block all hover queues during the active drag so hovering resumes immediately on release.
+- Coalesced drag pointer moves to one RAF per frame, cancelling pending work on release so pan motion no longer replays old samples for seconds after you let go. Diagnostics now log JS↔.NET hover durations, exposing Blazor-side bottlenecks, and Blazor hover callbacks are suppressed unless the inspector is visible.
+- Coalesced drag pointer moves to one RAF per frame, cancelling pending work on release so pan motion no longer replays old samples for seconds after you let go. Diagnostics now log JS↔.NET hover durations, exposing Blazor-side bottlenecks.
+
+**Tests:**
+- Pending — will re-run `dotnet build` + `dotnet test --nologo` after batching the hover fixes.
+
+### 2025-12-14 — Drag resume queue trim
+
+**Changes:**
+- Drag releases now resume hover sampling asynchronously (via RAF) instead of forcing synchronous `queueHoverUpdate` calls for every pan, so prior drag samples are trimmed immediately.
+- Keeps the delayed resume hook for parity but ensures only the latest release snapshot gets processed so hover processing no longer blocks new drag gestures.
+
+**Tests:**
+- `dotnet build`
+- `dotnet test --nologo`
+
+**Next Steps:**
+- Phase 4 Task 4.2 — suppress hover draws until the drag queue drains.
+- Phase 4 Task 4.3 — move tooltip rendering entirely into JS to avoid Blazor interop churn when the inspector is closed.
+
 ---
 
 ## Phase 1: Input Guardrails & Throttling
