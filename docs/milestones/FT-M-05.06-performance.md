@@ -34,24 +34,9 @@ Reduce JS↔.NET churn from topology hover interactions so the FlowTime UI remai
 - Chrome scripting slice when cursor is idle is <1 s and fans stay quiet.
 - Docs capture the profiling method/results, and performance work lands cleanly after FT-M-05.05.
 
-## Progress to Date (2025‑12‑11)
-
-- **Diagnostics instrumentation shipped:** HUD overlay with live hover/sec stats, manual dump, auto upload (`/v1/diagnostics/hover`). Payloads land under `/data/diagnostics/<runId>/...` and can be reset from the UI.
-- **Config plumbing cleaned up:** UI appsettings now live under `wwwroot` so the WASM boot loader picks up diagnostics defaults without a `?diag=1` flag. Added hooks to disable caching via query string for profiling.
-- **Edge hover dedupe / throttling implemented:** RAF-based hover scheduling, hit-test caching, and inspector debounce are in production, providing the baseline for additional work.
-
-## Scope Update — JS-First Hover & Scrubber Responsiveness
-
-During manual validation we still see ~1 interop/sec while moving the cursor because node hover events rely on Razor button elements rather than the canvas hit-tests. The new scope focuses on:
-
-1. **JS-driven node hover reporting:** Move node hover/tooltip ownership into `topologyCanvas.js`, mirroring the existing edge hover callback. JS will invoke a `.NET` method with the hovered node ID + tooltip payload every frame, eliminating DOM-event lag while keeping the current buttons for accessibility/clicks.
-2. **HUD UX polish:** HUD can now be collapsed to a tiny chip in the bottom-right corner, with the state persisted in `localStorage` so it stays hidden between sessions.
-3. **Scrubber responsiveness (planned next):** After hover is JS-driven, make the timeline pointer and selection window jump immediately by updating `selectedBin`/CSS before rebuilding sparklines. Heavy recompute work will move to a deferred task so the pointer no longer waits ~1 s.
-4. **Operational toggle resilience:** Toggling “Operational” today locks up large graphs due to synchronous recompute loops (tracked as Bug FT-M-05.06-OP1). We will defer chunking/cancellation work until hover fixes land but it remains in scope for this milestone.
-
-We will track these additions under an extra phase below.
-
 ## Phase 4 — JS Hover Ownership & Timeline UX
+
+_Status (2025‑12‑14): Pending — implementation has not started; this remains the next major feature block once the main-thread fixes land._
 
 1. **Node hover interop from JS**  
    - Surface a new `FlowTime.TopologyCanvas.onNodeHoverChanged` callback that fires whenever JS hit-tests detect a new node.  
@@ -121,29 +106,21 @@ To prevent ambiguity during implementation:
    - Add a Playwright smoke (can live under `tests/FlowTime.UI.Tests` or a new perf harness) that simulates drag + hover and asserts the diagnostics HUD increments at ≤ 1 update/frame.  
    - Add a unit/integration check ensuring `OnNodeHoverChanged`/`OnEdgeHoverChanged` are not invoked for null→null transitions (can be a simple JS interop spy in bUnit/Playwright).
 
-## Scope Refresh — Main-Thread Latency Remediation (2025‑12‑14)
+## Phase 5 — Main-Thread Latency Remediation
 
-Manual testing plus a fresh audit highlighted additional hot spots that still create the “freeze, then flush” effect. These are now part of FT‑M‑05.06 so the milestone reflects the real work needed to keep the canvas responsive:
+Manual profiling showed the “freeze → flush” interaction pattern even after Phases 1–2. This phase reduces main-thread pressure so hover/pan stay responsive:
 
 1. **Strip hot-path logging**  
-   - Remove `console.info` and other logging from `draw`, `render`, viewport emitters, and hover/drag loops.  
-   - Add a guarded `debugLog` helper (reads from `state.debugEnabled`) so deep troubleshooting stays possible without paying the perf cost in production.
+   - Replace raw `console.*` calls in drag/hover/render paths with a guarded `debugLog` helper so production sessions incur zero logging overhead.
 
 2. **RAF-only drag/hover processing**  
-   - Pointermove while dragging must only schedule work via `requestAnimationFrame`; intermediate events should overwrite the pending snapshot so only the latest position renders.  
-   - Hover updates follow the same pattern so high polling rates no longer enqueue dozens of hit-tests per frame.
+   - Enforce a single `requestAnimationFrame` per gesture for both panning and hovering, dropping intermediate pointer samples to keep queues shallow.
 
 3. **Avoid full redraws for hover-only changes**  
-   - Split “scene rebuild” from “paint” so hover state tweaks (node/edge highlight, tooltip) don’t rebuild hitboxes or node maps.  
-   - Short-circuit `draw` when `hasHoverVisualDelta` is false.
+   - Split “scene rebuild” (hitboxes, node maps, edge geometry) from “paint” (highlights, tooltips) so hover tweaks do not rehydrate world data, and short-circuit draws when `hasHoverVisualDelta` is false.
 
 4. **Faster edge hit-tests**  
-   - Introduce a coarse spatial index (grid or quadtree) for edge hitboxes so hover doesn’t check every edge each time.  
-   - Cache distance computations when the pointer moves less than a world-space epsilon.
+   - Introduce a coarse world-space grid/quadtree for edge hitboxes to prefilter candidates, and cache distance computations whenever the pointer stays within the hover epsilon.
 
 5. **Interop throttling & layout hygiene**  
-   - Keep `.NET` callbacks suppressed unless the inspector is visible *and* the ID actually changed.  
-   - Cache `getBoundingClientRect()` values per RAF tick and reuse until scroll/resize.  
-   - Debounce viewport-change notifications so we only notify .NET at the end of drags/wheel bursts.
-
-Deliverable: update the milestone tracker to include this scope, capture before/after diagnostics (HUD + CSV), and describe the remediation steps in the FT‑M‑05.06 summary when we wrap.
+   - Keep `.NET` hover callbacks suppressed unless the inspector is visible and IDs change, cache `getBoundingClientRect()` once per RAF tick, and debounce viewport-change notifications so .NET only sees drag/wheel completions.

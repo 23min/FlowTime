@@ -23,10 +23,11 @@
 ## Current Status
 
 ### Overall Progress
-- [ ] Phase 1: Input Guardrails & Throttling (canvas gating + RAF coded, tests pending)
-- [ ] Phase 2: JS/Interop Optimizations (edge dedupe + inspector debounce coded; tests pending)
-- [ ] Phase 3: Profiling & Validation (0/3 tasks)
-- [ ] Phase 4: JS Hover Ownership & Timeline UX (new scope — hover-first work up next)
+- [ ] **Phase 1:** Input guardrails/throttling — core gating + RAF logic landed, but automated tests and doc polish still pending.
+- [ ] **Phase 2:** JS/interop optimizations — dedupe/caching code is in, inspector batching works, but perf verification + tests still outstanding.
+- [ ] **Phase 3:** Profiling & validation — not started (awaiting stabilized builds + diagnostics harness).
+- [ ] **Phase 4:** JS hover ownership & timeline UX — planned scope, no implementation yet.
+- [ ] **Phase 5:** Main-thread latency remediation — Task 5.1 ✅ (logging), Task 5.2 ✅ (RAF coalescing); Tasks 5.3–5.5 in progress.
 
 ### Test Status
 - **Unit Tests:** 0 passing / 0 total
@@ -108,7 +109,6 @@
 - Hooked window-level pointer up/cancel listeners and removed the extra RAF delay so drag releases trigger hover resumption even if the cursor leaves the canvas.
 - Split drag “armed” vs “active” states so we no longer suspend hover/log a drag when the user simply clicks, and block all hover queues during the active drag so hovering resumes immediately on release.
 - Coalesced drag pointer moves to one RAF per frame, cancelling pending work on release so pan motion no longer replays old samples for seconds after you let go. Diagnostics now log JS↔.NET hover durations, exposing Blazor-side bottlenecks, and Blazor hover callbacks are suppressed unless the inspector is visible.
-- Coalesced drag pointer moves to one RAF per frame, cancelling pending work on release so pan motion no longer replays old samples for seconds after you let go. Diagnostics now log JS↔.NET hover durations, exposing Blazor-side bottlenecks.
 
 **Tests:**
 - Pending — will re-run `dotnet build` + `dotnet test --nologo` after batching the hover fixes.
@@ -188,7 +188,7 @@
 **Tests:**
 - [ ] Playwright/JS harness verifying no hover state changes when cursor outside canvas
 
-**Status:** 🚧 In Progress — bounding-box gating implemented in JS; automated test + .razor helper refactor still pending.
+**Status:** 🚧 Implementation landed in JS; Playwright coverage + shared helper refactor still pending.
 
 ### Task 1.2: `requestAnimationFrame` throttling
 **File(s):** `src/FlowTime.UI/wwwroot/js/topologyCanvas.js`
@@ -201,7 +201,7 @@
 **Tests:**
 - [ ] Manual perf trace shows ≤1 hover update per frame
 
-**Status:** 🚧 In Progress — RAF queue + cancellation code committed; perf trace + disposal guards outstanding.
+**Status:** 🚧 RAF queue + cancellation code committed; perf trace + disposal guards outstanding.
 
 ### Task 1.3: Skip redundant redraws
 **File(s):** `TopologyCanvas.razor(.cs)`, JS hover helper
@@ -214,7 +214,7 @@
 **Tests:**
 - [ ] UI smoke verifying hover chips still respond when moving between edges
 
-**Status:** 🚧 In Progress — JS + Blazor handlers now short-circuit duplicate IDs; need instrumentation counter + tests.
+**Status:** 🚧 JS + Blazor handlers short-circuit duplicate IDs; instrumentation counter + tests still needed.
 
 ---
 
@@ -230,7 +230,7 @@
 - [ ] Avoid null→null and same-ID calls into .NET
 - [ ] Add logging counter (behind debug flag) to confirm reductions
 
-**Status:** 🚧 In Progress — hover cache in JS reduces redundant hit-tests; threshold tuning + perf verification outstanding.
+**Status:** 🚧 Logic implemented; need perf verification + debug counter to close the task.
 
 ### Task 2.2: Hit-test caching
 **File(s):** `topologyCanvas.js`
@@ -240,7 +240,7 @@
 - [ ] Reuse cached hit test results when pointer movement < threshold
 - [ ] Expose knob for sensitivity if needed
 
-**Status:** 🚧 In Progress — Canvas event handler now debounced via CTS; need to prove inspector stays in sync + add coverage.
+**Status:** 🚧 Cache + debounce in place; inspector parity tests outstanding.
 
 ### Task 2.3: Debounce inspector updates
 **File(s):** `TopologyInspector.razor`, state services
@@ -250,7 +250,7 @@
 - [ ] Ensure un-hover still clears state promptly
 - [ ] Validate no stale selections remain when switching nodes quickly
 
-**Status:** 🚧 In Progress — instrumentation hooks + `FlowTime.TopologyCanvas.getHoverDiagnostics` added; need to capture before/after counts + document results.
+**Status:** 🚧 Debounce implemented with instrumentation hooks; before/after counts + documentation pending.
 
 ---
 
@@ -265,12 +265,16 @@
 - Add a `debugLog(state, ...args)` helper and guard existing diagnostics behind a `state.debugEnabled` flag.
 - Verify HUD/reporting still works without noisy logs.
 
+**Status:** ✅ Completed 2025‑12‑14 — logging removed, `debugLog` + runtime toggle verified via build/test runs.
+
 ### Task 5.2: Enforce RAF coalescing for drag/hover
 **Files:** `topologyCanvas.js`
 
 - Ensure pointermove while dragging only schedules one RAF, and pending snapshots always overwrite previous events.
 - Apply the same logic to hover updates (queue once per frame, trim intermediate samples).
 - Update diagnostics counters to confirm pointer queue drops fall near zero.
+
+**Status:** ✅ Completed 2025‑12‑14 — hover queue now keeps one sample per RAF, drop metrics track per-frame overruns.
 
 ### Task 5.3: Split hover visuals from full scene rebuild
 **Files:** `topologyCanvas.js`
@@ -279,12 +283,16 @@
 - Short-circuit `draw` when `hasHoverVisualDelta` is false.
 - Add a lightweight overlay pass for hover-only highlights if needed.
 
+**Status:** ⏳ Not Started — pending after RAF work stabilizes.
+
 ### Task 5.4: Edge hit-test index & caching
 **Files:** `topologyCanvas.js`
 
 - Build a coarse grid/quadtree for edge hitboxes to prefilter candidates.
 - Cache last edge result when pointer moves less than the world epsilon.
 - Document the new structure in the diagnostics logs (edge candidates per sample).
+
+**Status:** ⏳ Not Started — design pending (world-space grid vs quadtree).
 
 ### Task 5.5: Interop/layout hygiene
 **Files:** `topologyCanvas.js`, `TopologyCanvas.razor.cs`
@@ -293,6 +301,8 @@
 - Debounce `emitViewportChanged` so .NET only hears about drags/wheels when the gesture completes.
 - Double-check `.NET` hover callbacks remain suppressed unless the inspector is visible and IDs change.
 - Update diagnostics CSV/HUD with before/after readings.
+
+**Status:** ⏳ Not Started — will follow once 5.3/5.4 are in place.
 
 ## Phase 3: Profiling & Validation
 
@@ -405,7 +415,7 @@
 **Tests:**
 - [ ] Manual run on transportation model shows tooltips following cursor immediately
 
-**Status:** 🚧 In Progress — JS callback landed; next steps are halo tuning, per-frame tooltip refresh, and doc updates.
+**Status:** ⏳ Planned — awaiting start (JS node-hover interop still pending).
 
 ### Task 4.2: HUD collapse UX (Done)
 **Checklist:**
