@@ -25,9 +25,9 @@
 ### Overall Progress
 - [ ] **Phase 1:** Input guardrails/throttling — core gating + RAF logic landed, but automated tests and doc polish still pending.
 - [ ] **Phase 2:** JS/interop optimizations — dedupe/caching code is in, inspector batching works, but perf verification + tests still outstanding.
-- [ ] **Phase 3:** Profiling & validation — not started (awaiting stabilized builds + diagnostics harness).
+- [ ] **Phase 3:** Profiling & validation — instrumentation (HUD, diagnostics CSV, debug logging hooks) is ready; awaiting before/after capture per Validation Protocol.
 - [ ] **Phase 4:** JS hover ownership & timeline UX — planned scope, no implementation yet.
-- [ ] **Phase 5:** Main-thread latency remediation — Task 5.1 ✅ (logging), Task 5.2 ✅ (RAF coalescing); Tasks 5.3–5.5 in progress.
+- [ ] **Phase 5:** Main-thread latency remediation — Task 5.1 ✅ (logging), Task 5.2 ✅ (RAF coalescing), Task 5.3 ✅ (scene cache), Task 5.4 ✅ (edge spatial index), Task 5.5 ✅ (viewport debounce & rect caching).
 
 ### Test Status
 - **Unit Tests:** 0 passing / 0 total
@@ -170,6 +170,50 @@
 
 **Next Steps:**
 - Proceed to Task 5.3 (split hover visuals from full scene rebuild) now that event coalescing is under control.
+
+### 2025-12-14 — Task 5.3: Scene cache + theme-safe invalidation
+
+**Changes:**
+- Split `draw` into a cached “scene” rebuild (`state.sceneDirty`) and a lightweight paint pass so hover-only redraws reuse node/edge metadata, hitboxes, and overlay legends.
+- Introduced `state.collectingHitboxes` so chip/edge hitboxes only rebuild when the scene is dirty; hover draws now reuse the previous buffers without pushing duplicate hitboxes or version IDs.
+- Cached nodes/edges/legacy tooltip payloads and marked the scene dirty whenever payloads arrive, payloads clear, or theme changes fire (theme observers now call `redrawActiveStates({ markSceneDirty: true })`).
+- Reset tooltip/hitbox metadata only when rebuilding so hover changes no longer blow away caches, and kept theme changes in sync by forcing a rebuild when palette flips.
+
+**Tests:**
+- `dotnet build`
+- `dotnet test --nologo` *(initial run failed on two `FlowTime.Tests.Performance.M15PerformanceTests` benchmarks; reran each filter individually and both passed in isolation — perf noise acknowledged)*
+
+**Next Steps:**
+- Kick off Task 5.4 (edge hit-test spatial index) and Task 5.5 (viewport/rect caching) once cached scene behavior soaks.
+
+### 2025-12-14 — Task 5.4: Edge hit-test spatial index
+
+**Changes:**
+- Added a world-space uniform grid (`EDGE_SPATIAL_INDEX_CELL_SIZE = 256`) that indexes edge hitboxes whenever the scene is rebuilt; each hitbox now stores a bounding box and buckets itself into every overlapping cell.
+- `hitTestEdge` now queries the grid based on pointer world coordinates plus tolerance, testing only the nearby candidates instead of all edges; if the grid has no entries we fall back to the legacy linear scan.
+- Cached hitboxes (and the grid) persist between hover-only paints, leveraging the existing `sceneDirty` flag, and theme/payload resets now call `resetEdgeSpatialIndex` so cached geometry stays consistent.
+
+**Tests:**
+- `dotnet build`
+- `dotnet test --nologo` *(initial failure: `FlowTime.Tests.Performance.M2PerformanceTests.Test_PMF_Mixed_Workload_Performance` triggered the known parse-overhead flake; reran the filtered test and it passed.)*
+
+**Next Steps:**
+- Move to Task 5.5 (viewport rect caching + interop debounce) now that edge hit-tests scale sub-linearly with graph size.
+
+### 2025-12-14 — Task 5.5: Viewport debounce + rect caching
+
+**Changes:**
+- Added a per-frame cached `getBoundingClientRect()` helper so pointer/hover/drag logic reuses one DOM measurement; invalidated the cache on canvas resize and reused it everywhere we previously called `canvas.getBoundingClientRect()`.
+- Debounced `emitViewportChanged` with a 120 ms idle window so JS only notifies .NET after wheel bursts settle; drag releases and programmatic viewport changes use `{ immediate: true }` to flush instantly, and pending debounced emits are cancelled whenever an immediate change occurs.
+- Wheel events now trigger viewport updates (debounced) so zoom adjustments propagate to Blazor once the gesture ends.
+- Added optional debug logging (`topologyDebug=1` or `setDebugLoggingEnabled(true)`) for hover interop dispatches so we can monitor node vs. edge calls while running the validation protocol.
+
+**Tests:**
+- `dotnet build`
+- `dotnet test --nologo`
+
+**Next Steps:**
+- Begin profiling to confirm the hover HUD now reflects fewer interop dispatches, then proceed toward Phase 4 or wrap-up depending on milestone scope.
 
 ---
 
