@@ -1381,11 +1381,6 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
     [JSInvokable]
     public Task OnCanvasBackgroundClicked()
     {
-        if (HasVisibleNodes)
-        {
-            ClearFocus();
-        }
-
         return Task.CompletedTask;
     }
 

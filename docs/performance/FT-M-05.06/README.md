@@ -15,6 +15,8 @@ Both runs live under `/workspaces/flowtime-vnext/data/runs` when the generator h
 
 The canvas now ships with a live diagnostics HUD (bottom-right chip). Click **Dump** to download the current stats and push them to the API automatically; hover/sec, totals, build hash, and run id are updated every ~0.75 s. Use `?diag=1` to force the HUD on if it was disabled via config.
 
+> Inspector note: the canvas no longer supports a “pin” state. Opening the inspector requires selecting a node and keeping focus there; clicking the background or dragging will collapse it, so plan captures accordingly.
+
 You can still interact via DevTools:
 
 ```js

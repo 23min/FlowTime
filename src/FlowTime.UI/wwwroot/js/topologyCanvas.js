@@ -561,6 +561,9 @@
                 pointerThrottleSkips: 0,
                 pointerThrottleSkipsSinceUpload: 0,
                 lastNodeHoverDispatchTime: 0,
+                pendingInspectorHoverId: null,
+                inspectorDispatchHandle: null,
+                lastInspectorDispatchId: null,
                 hoverIntentBypassUntil: 0,
                 lastDrawnHoverNodeId: null,
                 lastDrawnHoverChipId: null,
@@ -1083,12 +1086,18 @@
             state.pendingHover = snapshot;
             state.lastPointerSnapshot = snapshot ? { ...snapshot } : null;
             incrementPointerStat(state, 'received');
-            if (hadPending && !state.hoverDropReported) {
-                incrementPointerStat(state, 'queueDrops');
-                state.hoverDropReported = true;
-            }
 
             if (forceImmediate) {
+                if (state.hoverFrameRequestId !== null) {
+                    cancelAnimationFrame(state.hoverFrameRequestId);
+                    state.hoverFrameRequestId = null;
+                }
+                processQueuedHover();
+                return;
+            }
+
+            if (hadPending) {
+                incrementPointerStat(state, 'queueDrops');
                 if (state.hoverFrameRequestId !== null) {
                     cancelAnimationFrame(state.hoverFrameRequestId);
                     state.hoverFrameRequestId = null;
@@ -6818,6 +6827,51 @@ function setHoveredEdge(state, edgeId) {
         }
 
         state.lastNodeHoverId = normalized;
+        if (state.inspectorVisible) {
+            state.pendingInspectorHoverId = normalized;
+            scheduleInspectorDispatch(state);
+        } else {
+            state.pendingInspectorHoverId = null;
+            cancelInspectorDispatch(state);
+        }
+        updateDiagnosticsHud(state);
+    }
+
+    function scheduleInspectorDispatch(state) {
+        if (!state || state.inspectorDispatchHandle !== null) {
+            return;
+        }
+
+        state.inspectorDispatchHandle = window.requestAnimationFrame(() => {
+            state.inspectorDispatchHandle = null;
+            flushInspectorDispatch(state);
+        });
+    }
+
+    function cancelInspectorDispatch(state) {
+        if (!state) {
+            return;
+        }
+
+        if (state.inspectorDispatchHandle !== null) {
+            cancelAnimationFrame(state.inspectorDispatchHandle);
+            state.inspectorDispatchHandle = null;
+        }
+    }
+
+    function flushInspectorDispatch(state) {
+        if (!state || !state.inspectorVisible || !state.dotNetRef?.invokeMethodAsync) {
+            return;
+        }
+
+        const targetId = state.pendingInspectorHoverId ?? state.hoveredNodeId ?? null;
+        if (targetId === state.lastInspectorDispatchId) {
+            state.pendingInspectorHoverId = null;
+            return;
+        }
+
+        state.pendingInspectorHoverId = null;
+        state.lastInspectorDispatchId = targetId;
         state.hoverStats ??= createHoverStats();
         state.hoverStats.interopDispatches = (state.hoverStats.interopDispatches ?? 0) + 1;
         state.hoverStats.windowDispatches = (state.hoverStats.windowDispatches ?? 0) + 1;
@@ -6826,19 +6880,16 @@ function setHoveredEdge(state, edgeId) {
             : Date.now();
         state.hoverStats.lastDispatchTimestamp = now;
         state.lastNodeHoverDispatchTime = now;
-        const shouldNotifyDotNet = state.inspectorVisible && state.dotNetRef?.invokeMethodAsync;
-        if (shouldNotifyDotNet) {
-            const dispatchStarted = performance.now ? performance.now() : Date.now();
-            logHoverInteropDispatch(state, { kind: 'node', id: normalized });
-            state.dotNetRef.invokeMethodAsync('OnNodeHoverChanged', normalized)
-                ?.then(() => {
-                    const dispatchEnded = performance.now ? performance.now() : Date.now();
-                    const duration = dispatchEnded - dispatchStarted;
-                    if (duration > 16) {
-                        debugLog(state, '[Topology] hover dispatch completed', { nodeId: normalized, durationMs: Number(duration.toFixed(3)) });
-                    }
-                });
-        }
+        const dispatchStarted = performance.now ? performance.now() : Date.now();
+        logHoverInteropDispatch(state, { kind: 'node', id: targetId });
+        state.dotNetRef.invokeMethodAsync('OnNodeHoverChanged', targetId)
+            ?.then(() => {
+                const dispatchEnded = performance.now ? performance.now() : Date.now();
+                const duration = dispatchEnded - dispatchStarted;
+                if (duration > 16) {
+                    debugLog(state, '[Topology] hover dispatch completed', { nodeId: targetId, durationMs: Number(duration.toFixed(3)) });
+                }
+            });
         updateDiagnosticsHud(state);
     }
 
@@ -7573,6 +7624,14 @@ function setHoveredEdge(state, edgeId) {
         state.inspectorVisible = normalized;
         state.diagnosticsOptions ??= {};
         state.diagnosticsOptions.inspectorVisible = normalized;
+        if (normalized) {
+            state.lastInspectorDispatchId = null;
+            state.pendingInspectorHoverId = state.hoveredNodeId ?? null;
+            scheduleInspectorDispatch(state);
+        } else {
+            cancelInspectorDispatch(state);
+            state.pendingInspectorHoverId = null;
+        }
         updateDiagnosticsHud(state);
     }
 

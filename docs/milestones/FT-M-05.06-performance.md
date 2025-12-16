@@ -69,6 +69,7 @@ To make the milestone verifiable in any session, we will follow the same recipe 
    - Pan continuously for 30 s (drag the canvas in small circles).  
    - Hover edges/nodes for 30 s with neighbor emphasis on, moving both slowly and quickly.  
    - Toggle inspector once (open for 15 s, close for 15 s) to gather both scenarios.  
+   - The inspector no longer supports a pinned state—selecting a node opens it, and any background click or completed drag will close it—so keep the cursor over a node while gathering the “inspector open” samples.
    - Trigger a diagnostics dump immediately after the minute-long run (HUD “Dump” button) and save the CSV snapshot (`data/diagnostics/.../hover-diagnostics.csv`, `canvas-diagnostics.csv`).
 4. **Metrics to record**  
    - From `hover-diagnostics.csv`: `interopDispatches`, `totalDispatches`, `ratePerSecond`, `pointerQueueDrops`, `pointerEventsReceived`, `pointerEventsProcessed`, `dragFrameCount`, `dragAverageFrameMs`, `inspecterVisible`.  
