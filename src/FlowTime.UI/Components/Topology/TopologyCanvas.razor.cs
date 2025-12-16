@@ -151,7 +151,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         {
             renderScheduled = false;
 
-            if (HasVisibleNodes)
+            if (HasVisibleNodes && !string.IsNullOrEmpty(canvasRef.Id))
             {
                 dotNetRef ??= DotNetObjectReference.Create(this);
                 var diagnosticsOptions = new
@@ -185,6 +185,11 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
 
                 await JS.InvokeVoidAsync("FlowTime.TopologyCanvas.render", canvasRef, pendingRequest);
                 hasRendered = true;
+            }
+            else
+            {
+                pendingRequest = null;
+                handlersRegistered = false;
             }
         }
 

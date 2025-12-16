@@ -26,7 +26,7 @@
 - [ ] **Phase 1:** Input guardrails/throttling — core gating + RAF logic landed, but automated tests and doc polish still pending.
 - [ ] **Phase 2:** JS/interop optimizations — dedupe/caching code is in, inspector batching works, but perf verification + tests still outstanding.
 - [ ] **Phase 3:** Profiling & validation — instrumentation (HUD, diagnostics CSV, debug logging hooks) is ready; awaiting before/after capture per Validation Protocol.
-- [ ] **Phase 4:** JS hover ownership & timeline UX — planned scope, no implementation yet.
+- [ ] **Phase 4:** JS hover ownership & timeline UX — Task 4.3 (timeline scrub async recompute) in progress; hover ownership + operational toggle still pending.
 - [ ] **Phase 5:** Main-thread latency remediation — Task 5.1 ✅ (logging), Task 5.2 ✅ (RAF coalescing), Task 5.3 ✅ (scene cache), Task 5.4 ✅ (edge spatial index), Task 5.5 ✅ (viewport debounce & rect caching).
 
 ### Test Status
@@ -214,6 +214,35 @@
 
 **Next Steps:**
 - Begin profiling to confirm the hover HUD now reflects fewer interop dispatches, then proceed toward Phase 4 or wrap-up depending on milestone scope.
+
+### 2025-12-15 — Task 4.3: Timeline pointer immediacy
+
+**Changes:**
+- Added a lightweight `ApplySelectedBinUi` helper so dial pointer, labels, and timestamps update immediately when the user scrubs the timeline; UI feedback is no longer blocked on metric recompute.
+- Reworked `ScheduleBinDataRefresh`/`RunBinDataRefreshAsync` around `BinDataComputationContext`: recompute snapshots (sparklines + active metrics) now run via `Task.Run`, and only the final results are applied on the UI thread, so scrubbing no longer freezes while `BuildNodeSparklines` + `UpdateActiveMetrics` crunch.
+- Extracted pure helpers (`ComputeNodeSparklinesSnapshot`, `ComputeActiveMetricsSnapshot`, snapshot-aware `TryGetSeries`/`GetSeriesValue`, etc.) plus `ApplyNodeSparklinesResult`/`ApplyActiveMetricsResult` so synchronous callers reuse the same code path and inspector/persistence hooks still fire once per completed bin.
+
+**Tests:**
+- `dotnet build`
+- `dotnet test --nologo`
+
+**Next Steps:**
+- Capture “before/after” HUD/CSV dumps for timeline scrubbing, then handle Task 4.4 (operational toggle resiliency) now that scrub recompute is off the UI thread.
+
+### 2025-12-15 — Task 4.4: Operational toggle resiliency (in progress)
+
+**Changes:**
+- Added cancellation tokens and a latest-wins queue around `ScheduleBinDataRefresh`: bin changes, class filters, and overlay toggles now cancel in-flight recomputes instead of forcing the UI to wait for the previous bin to finish.
+- Moved the heavy portions of `BuildNodeSparklines`/`UpdateActiveMetrics` into cancellable background computations (with snapshot helpers + `CancellationToken` checks) so Blazor only applies the final results on the UI thread.
+- `ReloadWindowAsync` now cancels pending work, clears out stale sparkline/metric caches, and leverages the async recompute path instead of rebuilding synchronously—operational toggle reloads no longer block the browser.
+- Class selection changes queue a refresh instead of recomputing synchronously, and `ResetState`/overlay toggles clear outstanding bin requests so stale work isn’t re-run after cancellation.
+
+**Tests:**
+- `dotnet build`
+- `dotnet test --nologo`
+
+**Next Steps:**
+- Manually verify that toggling “Operational” and class filters on large graphs no longer freezes Chrome, then capture HUD/CSV data to document the improvement.
 
 ---
 
@@ -469,18 +498,18 @@
 
 **Status:** ✅ Completed 2025‑12‑11
 
-### Task 4.3: Timeline pointer immediacy (Next)
+### Task 4.3: Timeline pointer immediacy
 **Checklist:**
-- [ ] Split `OnBinChanged` so pointer/timeline CSS updates happen before heavy recompute
-- [ ] Defer `BuildNodeSparklines`/`UpdateActiveMetrics` via background task/`InvokeAsync`
-- [ ] Ensure inspector + playback resume once recompute finishes; update run-state persistence accordingly
+- [x] Split `OnBinChanged` so pointer/timeline CSS updates happen before heavy recompute
+- [x] Defer `BuildNodeSparklines`/`UpdateActiveMetrics` via background task with latest-wins coalescing
+- [x] Ensure inspector + playback resume once recompute finishes and run-state persistence still fires
 
-**Status:** 🆕 Planned — will start after Task 4.1 lands
+**Status:** 🚧 In Progress — code path landed; awaiting HUD/CSV validation & doc updates
 
 ### Task 4.4: Operational toggle resilience (Bug FT-M-05.06-OP1)
 **Checklist:**
-- [ ] Detect filter changes and cancel in-flight sparkline/metric recompute
-- [ ] Break `BuildNodeSparklines`/`UpdateActiveMetrics` into cancellable async chunks so the UI thread keeps painting
+- [x] Detect filter changes and cancel in-flight sparkline/metric recompute
+- [x] Break `BuildNodeSparklines`/`UpdateActiveMetrics` into cancellable async chunks so the UI thread keeps painting
 - [ ] Verify toggling “Operational” no longer freezes the browser on large graphs
 
-**Status:** 🆕 Planned — linked to bug FT-M-05.06-OP1; to be addressed after hover/timeline work
+**Status:** 🚧 In Progress — core cancellation + async chunks landed; awaiting validation on large runs (FT-M-05.06-OP1).

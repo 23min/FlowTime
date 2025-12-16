@@ -763,6 +763,9 @@ private IReadOnlyList<TimeTravelStateWarningDto> windowWarnings = Array.Empty<Ti
     private Task playbackTask = Task.CompletedTask;
     private bool isDialPointerDragging;
     private bool pointerNeedsJump;
+    private bool binDataRefreshInFlight;
+    private int? pendingBinDataRefresh;
+    private CancellationTokenSource? binDataRefreshCts;
     private bool operationalViewOnly;
     private bool operationalTogglePending;
     private bool? savedIncludeExpressionNodes;
@@ -839,8 +842,7 @@ internal sealed record DispatchScheduleEntry(string NodeId, string Summary, stri
         selectedClasses = classes;
         if (windowData is not null)
         {
-            BuildNodeSparklines();
-            UpdateActiveMetrics(selectedBin);
+            ScheduleBinDataRefresh(selectedBin, cancelCurrent: true);
         }
 
         return Task.CompletedTask;
@@ -1500,6 +1502,36 @@ private const string PmfExpectationLabel = "Value";
         }
     }
 
+    private async Task ReloadCurrentRunAsync()
+    {
+        if (string.IsNullOrWhiteSpace(currentRunId))
+        {
+            return;
+        }
+
+        StopPlayback();
+        CancelBinDataRefresh();
+        pendingBinDataRefresh = null;
+        windowReloadCts?.Cancel();
+        windowReloadCts?.Dispose();
+        windowReloadCts = null;
+        loadCts?.Cancel();
+        loadCts?.Dispose();
+        loadCts = null;
+
+        topologyGraph = null;
+        windowData = null;
+        activeMetrics = new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase);
+        nodeSparklines = new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase);
+        nodesMissingSparkline = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        nodeClassContributions = new Dictionary<string, IReadOnlyList<ClassContribution>>(StringComparer.OrdinalIgnoreCase);
+        classFilteredNodes.Clear();
+        hasLoaded = false;
+        StateHasChanged();
+
+        await LoadAsync(currentRunId);
+    }
+
     private async Task OpenFeatureBar()
     {
         if (featureBarOpen)
@@ -1611,16 +1643,14 @@ private const string PmfExpectationLabel = "Value";
             }
         }
 
-        if (requiresGraphReload && hasLoaded)
+        if (requiresGraphReload && hasLoaded && !string.IsNullOrWhiteSpace(currentRunId))
         {
-            await RefreshGraphAsync();
-            await ReloadWindowAsync();
-            StateHasChanged();
+            restoredSelectedBin = selectedBin;
+            await ReloadCurrentRunAsync();
+            return;
         }
-        else
-        {
-            StateHasChanged();
-        }
+
+        StateHasChanged();
     }
 
     private async Task HandleCanvasZoomChanged(double zoomPercent)
@@ -1812,35 +1842,6 @@ private const string PmfExpectationLabel = "Value";
         return options;
     }
 
-    private async Task RefreshGraphAsync()
-    {
-        if (string.IsNullOrWhiteSpace(currentRunId))
-        {
-            return;
-        }
-
-        try
-        {
-            var graphResult = await DataService.GetGraphAsync(currentRunId, BuildGraphQueryOptions());
-            if (!graphResult.Success || graphResult.Value is null)
-            {
-                errorMessage = graphResult.Error ?? "Topology graph is unavailable.";
-                StateHasChanged();
-                return;
-            }
-
-            topologyGraph = GraphMapper.Map(graphResult.Value, overlaySettings.RespectUiPositions, overlaySettings.Layout);
-            UpdateDispatchEntries();
-            errorMessage = null;
-        }
-        catch (Exception ex)
-        {
-            errorMessage = $"Failed to refresh topology: {ex.Message}";
-        }
-
-        StateHasChanged();
-    }
-
     private async Task ReloadWindowAsync()
     {
         if (!hasLoaded || string.IsNullOrWhiteSpace(currentRunId))
@@ -1855,6 +1856,8 @@ private const string PmfExpectationLabel = "Value";
         windowReloadCts?.Cancel();
         windowReloadCts?.Dispose();
         windowReloadCts = cts;
+        CancelBinDataRefresh();
+        pendingBinDataRefresh = null;
 
         try
         {
@@ -1872,10 +1875,18 @@ private const string PmfExpectationLabel = "Value";
             windowWarnings = FilterWindowWarnings(windowData.Warnings);
             UpdateNodeWarningMap();
             timestamps = windowData.TimestampsUtc.ToList();
-            BuildNodeSparklines();
 
             var clampedSelection = Math.Clamp(selectedBin, sliceStart, sliceEnd);
-            UpdateActiveMetrics(clampedSelection);
+            ApplySelectedBinUi(clampedSelection);
+
+            nodeSparklines = new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase);
+            nodesMissingSparkline = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            activeMetrics = new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase);
+            nodeClassContributions = new Dictionary<string, IReadOnlyList<ClassContribution>>(StringComparer.OrdinalIgnoreCase);
+            classFilteredNodes.Clear();
+            runDisplayName = windowData.Metadata.TemplateTitle ?? windowData.Metadata.TemplateId ?? currentRunId;
+
+            ScheduleBinDataRefresh(clampedSelection, cancelCurrent: true);
         }
         catch (OperationCanceledException)
         {
@@ -1970,43 +1981,63 @@ private const string PmfExpectationLabel = "Value";
 
     private void UpdateActiveMetrics(int bin)
     {
-        classFilteredNodes.Clear();
+        var context = CaptureBinDataContext();
+        var sparklinesSnapshot = nodeSparklines ?? new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase);
+        var missingSnapshot = nodesMissingSparkline ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var result = ComputeActiveMetricsSnapshot(context, bin, sparklinesSnapshot, missingSnapshot, CancellationToken.None);
+        ApplyActiveMetricsResult(result);
+    }
 
-        if (windowData is null)
+    private static ActiveMetricsComputationResult ComputeActiveMetricsSnapshot(
+        BinDataComputationContext context,
+        int bin,
+        IReadOnlyDictionary<string, NodeSparklineData> nodeSparklinesSnapshot,
+        IReadOnlyCollection<string> nodesMissingSnapshot,
+        CancellationToken token)
+    {
+        var classFilteredNodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        if (context.WindowData is null)
         {
-            activeMetrics = new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase);
-            selectedBinLabel = bin.ToString(CultureInfo.InvariantCulture);
-            selectedTimestampLabel = string.Empty;
-            EnsureInspectorVisibility();
-            return;
+            return new ActiveMetricsComputationResult(
+                new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase),
+                new Dictionary<string, IReadOnlyList<ClassContribution>>(StringComparer.OrdinalIgnoreCase),
+                classFilteredNodes,
+                bin,
+                bin.ToString(CultureInfo.InvariantCulture),
+                string.Empty);
         }
 
-        var spanStart = windowData.Window.StartBin;
+        var spanStart = context.WindowData.Window.StartBin;
         var localIndex = bin - spanStart;
-        if (localIndex < 0 || localIndex >= windowData.Window.BinCount)
+        if (localIndex < 0 || localIndex >= context.WindowData.Window.BinCount)
         {
-            activeMetrics = new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase);
-            selectedBinLabel = bin.ToString(CultureInfo.InvariantCulture);
-            selectedTimestampLabel = string.Empty;
-            EnsureInspectorVisibility();
-            return;
+            return new ActiveMetricsComputationResult(
+                new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase),
+                new Dictionary<string, IReadOnlyList<ClassContribution>>(StringComparer.OrdinalIgnoreCase),
+                classFilteredNodes,
+                bin,
+                bin.ToString(CultureInfo.InvariantCulture),
+                string.Empty);
         }
 
         var metrics = new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase);
-        var selectionTimestamp = localIndex >= 0 && localIndex < timestamps.Count
-            ? timestamps[localIndex]
+        var selectionTimestamp = localIndex >= 0 && localIndex < context.Timestamps.Count
+            ? context.Timestamps[localIndex]
             : (DateTimeOffset?)null;
 
         var classContributionMap = new Dictionary<string, IReadOnlyList<ClassContribution>>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var node in windowData.Nodes)
+        foreach (var node in context.WindowData.Nodes)
         {
-            var classDataFound = !HasClassSelection;
+            token.ThrowIfCancellationRequested();
+
+            var classDataFound = !context.HasClassSelection;
             double classVolume = 0d;
 
-            double? Get(string key) => GetSeriesValue(node, key, localIndex, ref classDataFound, ref classVolume);
+            double? Get(string key) => GetSeriesValueSnapshot(node, key, localIndex, ref classDataFound, ref classVolume, context.HasClassSelection, context.SelectedClasses);
 
-            var topoNode = FindTopologyNode(node.Id);
+            var topoNode = context.FindNode(node.Id);
             var displayKind = string.IsNullOrWhiteSpace(topoNode?.Kind) ? node.Kind : topoNode!.Kind;
             var isPmf = IsPmfKind(displayKind);
             var isComputed = IsComputedKind(displayKind);
@@ -2069,7 +2100,7 @@ private const string PmfExpectationLabel = "Value";
 
             if (isComputed && !isPmf)
             {
-                if (nodeSparklines is not null && nodeSparklines.TryGetValue(node.Id, out var sparkline))
+                if (nodeSparklinesSnapshot.TryGetValue(node.Id, out var sparkline))
                 {
                     var sampled = SampleSparklineAt(sparkline, bin);
                     if (sampled.HasValue)
@@ -2079,7 +2110,7 @@ private const string PmfExpectationLabel = "Value";
                     }
                 }
 
-                if (!customValue.HasValue && IsExpressionKind(displayKind) && nodesMissingSparkline.Contains(node.Id))
+                if (!customValue.HasValue && IsExpressionKind(displayKind) && nodesMissingSnapshot.Contains(node.Id))
                 {
                     customLabel = MissingSeriesMessage;
                 }
@@ -2097,7 +2128,7 @@ private const string PmfExpectationLabel = "Value";
                 pmfProbability = modeProbability;
                 pmfSupportValue = modeValue ?? expectation;
 
-                if (string.IsNullOrWhiteSpace(customLabel) && nodesMissingSparkline.Contains(node.Id))
+                if (string.IsNullOrWhiteSpace(customLabel) && nodesMissingSnapshot.Contains(node.Id))
                 {
                     customLabel = MissingSeriesMessage;
                 }
@@ -2139,7 +2170,7 @@ private const string PmfExpectationLabel = "Value";
                 Metadata: topoNode?.Semantics?.Metadata,
                 QueueLatencyStatus: queueLatencyStatus);
 
-            if (HasClassSelection)
+            if (context.HasClassSelection)
             {
                 if (!classDataFound || classVolume <= 0d)
                 {
@@ -2147,29 +2178,27 @@ private const string PmfExpectationLabel = "Value";
                 }
             }
 
-            var contributions = BuildClassContributions(node, localIndex);
+            var contributions = BuildClassContributions(node, localIndex, token);
             if (contributions.Count > 0)
             {
                 classContributionMap[node.Id] = contributions;
             }
         }
 
-        if (topologyGraph is not null)
+        if (context.TopologyGraph is not null)
         {
-            foreach (var topoNode in topologyGraph.Nodes)
+            foreach (var topoNode in context.TopologyGraph.Nodes)
             {
-                if (topoNode is null)
+                token.ThrowIfCancellationRequested();
+
+                if (topoNode is null || string.IsNullOrWhiteSpace(topoNode.Id))
                 {
                     continue;
                 }
 
                 var topoNodeId = topoNode.Id;
-                if (string.IsNullOrWhiteSpace(topoNodeId))
-                {
-                    continue;
-                }
                 metrics.TryGetValue(topoNodeId, out var existingMetrics);
-                nodeSparklines.TryGetValue(topoNodeId, out var sparkline);
+                nodeSparklinesSnapshot.TryGetValue(topoNodeId, out var sparkline);
 
                 double? inlineValue = null;
                 var inline = topoNode.Semantics?.InlineValues;
@@ -2191,7 +2220,7 @@ private const string PmfExpectationLabel = "Value";
                 }
 
                 var topoKind = topoNode.Kind;
-                if (string.IsNullOrWhiteSpace(topoKind) && windowData?.Nodes is { } windowNodes)
+                if (string.IsNullOrWhiteSpace(topoKind) && context.WindowData.Nodes is { } windowNodes)
                 {
                     var seriesNode = windowNodes.FirstOrDefault(n => string.Equals(n.Id, topoNodeId, StringComparison.OrdinalIgnoreCase));
                     topoKind = seriesNode?.Kind;
@@ -2227,7 +2256,7 @@ private const string PmfExpectationLabel = "Value";
                         customValue = inlineValue;
                         customLabel = PmfExpectationLabel;
                     }
-                    else if (nodesMissingSparkline.Contains(topoNode.Id))
+                    else if (nodesMissingSnapshot.Contains(topoNode.Id))
                     {
                         customLabel = MissingSeriesMessage;
                     }
@@ -2240,7 +2269,7 @@ private const string PmfExpectationLabel = "Value";
                     {
                         customLabel = BinValueLabel;
                     }
-                    else if (IsExpressionKind(topoNode.Kind) && nodesMissingSparkline.Contains(topoNode.Id))
+                    else if (IsExpressionKind(topoNode.Kind) && nodesMissingSnapshot.Contains(topoNode.Id))
                     {
                         customLabel = MissingSeriesMessage;
                     }
@@ -2300,15 +2329,17 @@ private const string PmfExpectationLabel = "Value";
                     NodeKind: topoNode.Kind,
                     RetryTax: existingMetrics?.RetryTax,
                     RawMetrics: existingMetrics?.RawMetrics,
-                    Metadata: topoNode.Semantics?.Metadata ?? existingMetrics?.Metadata,
+                    Metadata: existingMetrics?.Metadata ?? topoNode.Semantics?.Metadata,
                     QueueLatencyStatus: existingMetrics?.QueueLatencyStatus);
             }
         }
 
-        if (HasClassSelection && topologyGraph is not null)
+        if (context.HasClassSelection && context.TopologyGraph is not null)
         {
-            foreach (var topoNode in topologyGraph.Nodes)
+            foreach (var topoNode in context.TopologyGraph.Nodes)
             {
+                token.ThrowIfCancellationRequested();
+
                 if (string.IsNullOrWhiteSpace(topoNode?.Id))
                 {
                     continue;
@@ -2321,17 +2352,13 @@ private const string PmfExpectationLabel = "Value";
             }
         }
 
-        activeMetrics = metrics;
-        nodeClassContributions = classContributionMap;
-        selectedBin = bin;
-        selectedBinLabel = bin.ToString(CultureInfo.InvariantCulture);
-        selectedTimestampLabel = FormatTimestamp(localIndex);
-        EnsureInspectorVisibility();
-
-        if (hasLoaded && !isPlaying)
-        {
-            ScheduleRunStateSave();
-        }
+        return new ActiveMetricsComputationResult(
+            metrics,
+            classContributionMap,
+            classFilteredNodes,
+            bin,
+            bin.ToString(CultureInfo.InvariantCulture),
+            FormatTimestampSnapshot(context.Timestamps, localIndex));
     }
 
     private static QueueLatencyStatus? ResolveQueueLatencyStatus(TimeTravelNodeSeriesDto node, int localIndex)
@@ -2743,15 +2770,250 @@ private const string PmfExpectationLabel = "Value";
         }
     }
 
-    private string FormatTimestamp(int localIndex)
+    private string FormatTimestamp(int localIndex) =>
+        FormatTimestampSnapshot(timestamps, localIndex);
+
+    private static string FormatTimestampSnapshot(IReadOnlyList<DateTimeOffset> timestampsSnapshot, int localIndex)
     {
-        if (localIndex < 0 || localIndex >= timestamps.Count)
+        if (localIndex < 0 || localIndex >= timestampsSnapshot.Count)
         {
             return string.Empty;
         }
 
-        var ts = timestamps[localIndex];
+        var ts = timestampsSnapshot[localIndex];
         return ts.ToString("dd MMM yyyy HH:mm 'UTC'", CultureInfo.InvariantCulture);
+    }
+
+    private void ApplySelectedBinUi(int bin)
+    {
+        selectedBin = bin;
+        selectedBinLabel = bin.ToString(CultureInfo.InvariantCulture);
+        if (windowData is { } data)
+        {
+            var localIndex = bin - data.Window.StartBin;
+            selectedTimestampLabel = FormatTimestamp(localIndex);
+        }
+        else
+        {
+            selectedTimestampLabel = string.Empty;
+        }
+    }
+
+    private void ScheduleBinDataRefresh(int bin, bool cancelCurrent = true)
+    {
+        pendingBinDataRefresh = bin;
+
+        if (binDataRefreshInFlight)
+        {
+            if (cancelCurrent)
+            {
+                binDataRefreshCts?.Cancel();
+            }
+
+            return;
+        }
+
+        StartNextBinDataRefresh();
+    }
+
+    private void StartNextBinDataRefresh()
+    {
+        if (binDataRefreshInFlight || pendingBinDataRefresh is not int bin)
+        {
+            return;
+        }
+
+        binDataRefreshInFlight = true;
+        pendingBinDataRefresh = null;
+
+        binDataRefreshCts?.Cancel();
+        binDataRefreshCts?.Dispose();
+        var cts = new CancellationTokenSource();
+        binDataRefreshCts = cts;
+        _ = InvokeAsync(() => RunBinDataRefreshAsync(bin, cts));
+    }
+
+    private void CancelBinDataRefresh()
+    {
+        binDataRefreshCts?.Cancel();
+    }
+
+    private async Task RunBinDataRefreshAsync(int bin, CancellationTokenSource cts)
+    {
+        var token = cts.Token;
+
+        try
+        {
+            while (true)
+            {
+                token.ThrowIfCancellationRequested();
+
+                var context = CaptureBinDataContext();
+                var refreshResult = await Task.Run(
+                    () => ComputeBinDataRefreshResult(context, bin, token),
+                    token);
+
+                token.ThrowIfCancellationRequested();
+
+                ApplyNodeSparklinesResult(refreshResult.Sparklines);
+                ApplyActiveMetricsResult(refreshResult.Metrics);
+                StateHasChanged();
+
+                if (pendingBinDataRefresh is int next)
+                {
+                    bin = next;
+                    pendingBinDataRefresh = null;
+                    continue;
+                }
+
+                break;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected when a newer bin refresh supersedes the current one.
+        }
+        finally
+        {
+            if (ReferenceEquals(binDataRefreshCts, cts))
+            {
+                binDataRefreshCts = null;
+            }
+
+            binDataRefreshInFlight = false;
+            cts.Dispose();
+
+            if (pendingBinDataRefresh is int _)
+            {
+                StartNextBinDataRefresh();
+            }
+        }
+    }
+
+    private BinDataComputationContext CaptureBinDataContext()
+    {
+        var timestampsSnapshot = timestamps?.ToList() ?? new List<DateTimeOffset>();
+        var classSelectionSnapshot = selectedClasses.ToArray();
+        return new BinDataComputationContext(
+            windowData,
+            topologyGraph,
+            timestampsSnapshot,
+            classSelectionSnapshot,
+            SparklinePointLimit);
+    }
+
+    private sealed record BinDataRefreshResult(
+        NodeSparklineComputationResult Sparklines,
+        ActiveMetricsComputationResult Metrics);
+
+    private sealed class BinDataComputationContext
+    {
+        private readonly Dictionary<string, TopologyNode> nodeLookup;
+
+        public BinDataComputationContext(
+            TimeTravelStateWindowDto? windowData,
+            TopologyGraph? topologyGraph,
+            IReadOnlyList<DateTimeOffset> timestamps,
+            IReadOnlyCollection<string> selectedClasses,
+            int sparklinePointLimit)
+        {
+            WindowData = windowData;
+            TopologyGraph = topologyGraph;
+            Timestamps = timestamps;
+            SelectedClasses = selectedClasses;
+            SparklinePointLimit = sparklinePointLimit;
+            HasClassSelection = selectedClasses.Count > 0;
+            nodeLookup = topologyGraph?.Nodes?
+                .Where(n => n is not null && !string.IsNullOrWhiteSpace(n.Id))
+                .ToDictionary(n => n!.Id!, n => n!, StringComparer.OrdinalIgnoreCase) ??
+                new Dictionary<string, TopologyNode>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        public TimeTravelStateWindowDto? WindowData { get; }
+
+        public TopologyGraph? TopologyGraph { get; }
+
+        public IReadOnlyList<DateTimeOffset> Timestamps { get; }
+
+        public IReadOnlyCollection<string> SelectedClasses { get; }
+
+        public bool HasClassSelection { get; }
+
+        public int SparklinePointLimit { get; }
+
+        public TopologyNode? FindNode(string? nodeId)
+        {
+            if (string.IsNullOrWhiteSpace(nodeId))
+            {
+                return null;
+            }
+
+            return nodeLookup.TryGetValue(nodeId, out var node) ? node : null;
+        }
+    }
+
+    private sealed record NodeSparklineComputationResult(
+        Dictionary<string, NodeSparklineData> Sparklines,
+        HashSet<string> MissingNodes,
+        IReadOnlyCollection<string> MissingExpressionNodeIds);
+
+    private sealed record ActiveMetricsComputationResult(
+        Dictionary<string, NodeBinMetrics> Metrics,
+        Dictionary<string, IReadOnlyList<ClassContribution>> ClassContributions,
+        HashSet<string> ClassFilteredNodes,
+        int SelectedBin,
+        string SelectedBinLabel,
+        string SelectedTimestampLabel);
+
+    private static BinDataRefreshResult ComputeBinDataRefreshResult(
+        BinDataComputationContext context,
+        int bin,
+        CancellationToken token)
+    {
+        var sparklines = ComputeNodeSparklinesSnapshot(context, bin, token);
+        var metrics = ComputeActiveMetricsSnapshot(context, bin, sparklines.Sparklines, sparklines.MissingNodes, token);
+        return new BinDataRefreshResult(sparklines, metrics);
+    }
+
+    private void ApplyNodeSparklinesResult(NodeSparklineComputationResult result)
+    {
+        nodeSparklines = result.Sparklines;
+        nodesMissingSparkline = result.MissingNodes;
+        loggedMissingMetricKinds.Clear();
+
+        if (Logger is not null)
+        {
+            foreach (var nodeId in result.MissingExpressionNodeIds)
+            {
+                if (loggedMissingExpressionSeries.Add(nodeId))
+                {
+                    Logger.LogWarning("Expression node {NodeId} has no series for selected range.", nodeId);
+                }
+            }
+        }
+
+        EnsureInspectorVisibility();
+    }
+
+    private void ApplyActiveMetricsResult(ActiveMetricsComputationResult result)
+    {
+        activeMetrics = result.Metrics;
+        nodeClassContributions = result.ClassContributions;
+        classFilteredNodes.Clear();
+        foreach (var nodeId in result.ClassFilteredNodes)
+        {
+            classFilteredNodes.Add(nodeId);
+        }
+
+        selectedBin = result.SelectedBin;
+        selectedBinLabel = result.SelectedBinLabel;
+        selectedTimestampLabel = result.SelectedTimestampLabel;
+        EnsureInspectorVisibility();
+
+        if (hasLoaded && !isPlaying)
+        {
+            ScheduleRunStateSave();
+        }
     }
 
     private Task OnNodeFocused(string? nodeId)
@@ -2894,30 +3156,43 @@ private const string PmfExpectationLabel = "Value";
 
     private void BuildNodeSparklines(int? anchorBin = null)
     {
-        var missing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        loggedMissingMetricKinds.Clear();
+        var context = CaptureBinDataContext();
+        var targetAnchor = anchorBin ?? selectedBin;
+        var result = ComputeNodeSparklinesSnapshot(context, targetAnchor, CancellationToken.None);
+        ApplyNodeSparklinesResult(result);
+    }
 
-        if (windowData is null)
+    private static NodeSparklineComputationResult ComputeNodeSparklinesSnapshot(
+        BinDataComputationContext context,
+        int anchorBin,
+        CancellationToken token)
+    {
+        var missing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var missingExpressionNodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        if (context.WindowData is null)
         {
-            nodeSparklines = new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase);
-            nodesMissingSparkline = missing;
-            return;
+            return new NodeSparklineComputationResult(
+                new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase),
+                missing,
+                missingExpressionNodes);
         }
 
         var result = new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase);
-        var windowStart = windowData.Window.StartBin;
-        var binCount = Math.Max(0, windowData.Window.BinCount);
+        var windowStart = context.WindowData.Window.StartBin;
+        var binCount = Math.Max(0, context.WindowData.Window.BinCount);
         var windowEnd = binCount > 0 ? windowStart + binCount - 1 : windowStart;
-        var anchorValue = anchorBin ?? selectedBin;
-        var clampedSelection = Math.Clamp(anchorValue, windowStart, windowEnd);
+        var clampedSelection = Math.Clamp(anchorBin, windowStart, windowEnd);
         var selectionLocalIndex = Math.Max(0, clampedSelection - windowStart);
 
-        foreach (var node in windowData.Nodes)
+        foreach (var node in context.WindowData.Nodes)
         {
+            token.ThrowIfCancellationRequested();
+
             var series = node.Series ?? new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase);
-            var topoNode = FindTopologyNode(node.Id);
+            var topoNode = context.FindNode(node.Id);
             var displayKind = string.IsNullOrWhiteSpace(topoNode?.Kind) ? node.Kind : topoNode!.Kind;
-            var successSeries = BuildSuccessRateSeries(node);
+            var successSeries = BuildSuccessRateSeriesSnapshot(node, context.HasClassSelection, context.SelectedClasses);
             var primarySeries = SelectPrimarySeries(series) ?? successSeries;
             var synthesizedValues = false;
 
@@ -2926,7 +3201,7 @@ private const string PmfExpectationLabel = "Value";
                 var expectation = ComputePmfExpectation(topoNode?.Semantics?.Distribution);
                 if (expectation.HasValue)
                 {
-                    var syntheticLength = binCount > 0 ? binCount : SparklinePointLimit;
+                    var syntheticLength = binCount > 0 ? binCount : context.SparklinePointLimit;
                     syntheticLength = Math.Max(1, syntheticLength);
                     var syntheticSeries = new double?[syntheticLength];
                     for (var i = 0; i < syntheticLength; i++)
@@ -2944,35 +3219,47 @@ private const string PmfExpectationLabel = "Value";
                 if (IsExpressionKind(displayKind))
                 {
                     missing.Add(node.Id);
+                    missingExpressionNodes.Add(node.Id);
                 }
 
                 continue;
             }
 
             var anchor = Math.Clamp(selectionLocalIndex, 0, (primarySeries?.Length ?? 1) - 1);
-            var trimmedPrimary = TrimSeriesAt(primarySeries, SparklinePointLimit, anchor);
+            var trimmedPrimary = TrimSeriesAt(primarySeries, context.SparklinePointLimit, anchor);
             if (trimmedPrimary.Count == 0)
             {
                 if (IsExpressionKind(displayKind))
                 {
                     missing.Add(node.Id);
+                    missingExpressionNodes.Add(node.Id);
                 }
 
                 continue;
             }
 
             var primaryStartIndex = windowStart + (anchor + 1 - trimmedPrimary.Count);
-            var utilizationSeries = TryGetSeries(node, "utilization") ?? BuildUtilizationSeries(node);
-            var trimmedUtilization = TrimSeriesAt(utilizationSeries, SparklinePointLimit, anchor, trimmedPrimary.Count);
-            var trimmedErrorRate = TrimSeriesAt(BuildErrorRateSeries(node), SparklinePointLimit, anchor, trimmedPrimary.Count);
-            var trimmedQueue = TrimSeriesAt(TryGetSeries(node, "queue"), SparklinePointLimit, anchor, trimmedPrimary.Count);
-            var serviceTimeSeries = TryGetSeries(node, "serviceTimeMs") ?? BuildServiceTimeSeries(node);
-            var trimmedServiceTime = TrimSeriesAt(serviceTimeSeries, SparklinePointLimit, anchor, trimmedPrimary.Count);
+            var utilizationSeries = TryGetSeriesSnapshot(node, "utilization", context.HasClassSelection, context.SelectedClasses) ??
+                                    BuildUtilizationSeriesSnapshot(node, context.HasClassSelection, context.SelectedClasses);
+            var trimmedUtilization = TrimSeriesAt(utilizationSeries, context.SparklinePointLimit, anchor, trimmedPrimary.Count);
+            var trimmedErrorRate = TrimSeriesAt(
+                BuildErrorRateSeriesSnapshot(node, context.HasClassSelection, context.SelectedClasses),
+                context.SparklinePointLimit,
+                anchor,
+                trimmedPrimary.Count);
+            var trimmedQueue = TrimSeriesAt(
+                TryGetSeriesSnapshot(node, "queue", context.HasClassSelection, context.SelectedClasses),
+                context.SparklinePointLimit,
+                anchor,
+                trimmedPrimary.Count);
+            var serviceTimeSeries = TryGetSeriesSnapshot(node, "serviceTimeMs", context.HasClassSelection, context.SelectedClasses) ??
+                                    BuildServiceTimeSeriesSnapshot(node, context.HasClassSelection, context.SelectedClasses);
+            var trimmedServiceTime = TrimSeriesAt(serviceTimeSeries, context.SparklinePointLimit, anchor, trimmedPrimary.Count);
 
             var additional = new Dictionary<string, SparklineSeriesSlice>(StringComparer.OrdinalIgnoreCase);
             foreach (var pair in series)
             {
-                var trimmed = TrimSeriesAt(pair.Value, SparklinePointLimit, anchor, trimmedPrimary.Count);
+                var trimmed = TrimSeriesAt(pair.Value, context.SparklinePointLimit, anchor, trimmedPrimary.Count);
                 var startIndex = pair.Value is null || pair.Value.Length == 0
                     ? primaryStartIndex
                     : windowStart + (anchor + 1 - trimmed.Count);
@@ -2981,7 +3268,7 @@ private const string PmfExpectationLabel = "Value";
 
             if (successSeries is not null)
             {
-                var trimmedSuccess = TrimSeriesAt(successSeries, SparklinePointLimit, anchor, trimmedPrimary.Count);
+                var trimmedSuccess = TrimSeriesAt(successSeries, context.SparklinePointLimit, anchor, trimmedPrimary.Count);
                 if (trimmedSuccess.Count > 0)
                 {
                     var successStartIndex = windowStart + (anchor + 1 - trimmedSuccess.Count);
@@ -3027,23 +3314,25 @@ private const string PmfExpectationLabel = "Value";
             result[node.Id] = sparkline;
         }
 
-        if (topologyGraph is not null)
+        if (context.TopologyGraph is not null)
         {
-            foreach (var topoNode in topologyGraph.Nodes)
+            foreach (var topoNode in context.TopologyGraph.Nodes)
             {
-                if (result.ContainsKey(topoNode.Id))
+                token.ThrowIfCancellationRequested();
+
+                if (string.IsNullOrWhiteSpace(topoNode?.Id) || result.ContainsKey(topoNode.Id))
                 {
                     continue;
                 }
 
-                var distributionSlices = CreateDistributionSlices(topoNode.Id, topoNode.Semantics?.Distribution, anchorValue);
+                var distributionSlices = CreateDistributionSlices(topoNode.Id, topoNode.Semantics?.Distribution, anchorBin);
 
                 var inlineValues = topoNode.Semantics?.InlineValues;
                 if (inlineValues is not null && inlineValues.Count > 0)
                 {
                     var nullableSeries = inlineValues.Select(value => (double?)value).ToArray();
-                    var anchor = Math.Clamp(anchorValue, 0, nullableSeries.Length - 1);
-                    var trimmedInline = TrimSeriesAt(nullableSeries, SparklinePointLimit, anchor);
+                    var anchor = Math.Clamp(anchorBin, 0, nullableSeries.Length - 1);
+                    var trimmedInline = TrimSeriesAt(nullableSeries, context.SparklinePointLimit, anchor);
                     if (trimmedInline.Count == 0)
                     {
                         continue;
@@ -3100,28 +3389,15 @@ private const string PmfExpectationLabel = "Value";
                 if (IsExpressionKind(topoNode.Kind))
                 {
                     missing.Add(topoNode.Id);
+                    missingExpressionNodes.Add(topoNode.Id);
                 }
             }
         }
 
-        nodesMissingSparkline = missing;
-
-        if (Logger is not null)
-        {
-            foreach (var nodeId in missing)
-            {
-                if (IsExpressionKind(GetNodeKind(nodeId)) && loggedMissingExpressionSeries.Add(nodeId))
-                {
-                    Logger.LogWarning("Expression node {NodeId} has no series for selected range.", nodeId);
-                }
-            }
-        }
-
-        nodeSparklines = result;
-        EnsureInspectorVisibility();
+        return new NodeSparklineComputationResult(result, missing, missingExpressionNodes);
     }
 
-private Dictionary<string, SparklineSeriesSlice>? CreateDistributionSlices(string nodeId, TopologyNodeDistribution? distribution, int anchorBin)
+private static Dictionary<string, SparklineSeriesSlice>? CreateDistributionSlices(string nodeId, TopologyNodeDistribution? distribution, int anchorBin)
     {
         if (distribution is null ||
             distribution.Values is not { Count: > 0 } ||
@@ -4026,16 +4302,22 @@ internal sealed record InspectorMetricBlock(
         return "Time-Travel Topology";
     }
 
-    private double?[]? BuildSuccessRateSeries(TimeTravelNodeSeriesDto node)
+    private double?[]? BuildSuccessRateSeries(TimeTravelNodeSeriesDto node) =>
+        BuildSuccessRateSeriesSnapshot(node, HasClassSelection, selectedClasses);
+
+    private static double?[]? BuildSuccessRateSeriesSnapshot(
+        TimeTravelNodeSeriesDto node,
+        bool hasClassSelection,
+        IReadOnlyCollection<string> selectedClassIds)
     {
         if (node is null)
         {
             return null;
         }
 
-        var throughput = TryGetSeries(node, "throughputRatio");
-        var arrivals = TryGetSeries(node, "arrivals");
-        var served = TryGetSeries(node, "served");
+        var throughput = TryGetSeriesSnapshot(node, "throughputRatio", hasClassSelection, selectedClassIds);
+        var arrivals = TryGetSeriesSnapshot(node, "arrivals", hasClassSelection, selectedClassIds);
+        var served = TryGetSeriesSnapshot(node, "served", hasClassSelection, selectedClassIds);
 
         var length = Math.Max(
             throughput?.Length ?? 0,
@@ -4076,16 +4358,22 @@ internal sealed record InspectorMetricBlock(
         return values;
     }
 
-    private double?[]? BuildErrorRateSeries(TimeTravelNodeSeriesDto node)
+    private double?[]? BuildErrorRateSeries(TimeTravelNodeSeriesDto node) =>
+        BuildErrorRateSeriesSnapshot(node, HasClassSelection, selectedClasses);
+
+    private static double?[]? BuildErrorRateSeriesSnapshot(
+        TimeTravelNodeSeriesDto node,
+        bool hasClassSelection,
+        IReadOnlyCollection<string> selectedClassIds)
     {
         if (node is null)
         {
             return null;
         }
 
-        var errors = TryGetSeries(node, "errors");
-        var arrivals = TryGetSeries(node, "arrivals");
-        var served = TryGetSeries(node, "served");
+        var errors = TryGetSeriesSnapshot(node, "errors", hasClassSelection, selectedClassIds);
+        var arrivals = TryGetSeriesSnapshot(node, "arrivals", hasClassSelection, selectedClassIds);
+        var served = TryGetSeriesSnapshot(node, "served", hasClassSelection, selectedClassIds);
 
         var length = Math.Max(errors?.Length ?? 0, Math.Max(arrivals?.Length ?? 0, served?.Length ?? 0));
         if (length <= 0)
@@ -4117,10 +4405,16 @@ internal sealed record InspectorMetricBlock(
         return values;
     }
 
-    private double?[]? BuildUtilizationSeries(TimeTravelNodeSeriesDto node)
+    private double?[]? BuildUtilizationSeries(TimeTravelNodeSeriesDto node) =>
+        BuildUtilizationSeriesSnapshot(node, HasClassSelection, selectedClasses);
+
+    private static double?[]? BuildUtilizationSeriesSnapshot(
+        TimeTravelNodeSeriesDto node,
+        bool hasClassSelection,
+        IReadOnlyCollection<string> selectedClassIds)
     {
-        var served = TryGetSeries(node, "served");
-        var capacity = TryGetSeries(node, "capacity");
+        var served = TryGetSeriesSnapshot(node, "served", hasClassSelection, selectedClassIds);
+        var capacity = TryGetSeriesSnapshot(node, "capacity", hasClassSelection, selectedClassIds);
         if (served is null || capacity is null)
         {
             return null;
@@ -4156,10 +4450,16 @@ internal sealed record InspectorMetricBlock(
         return values;
     }
 
-    private double?[]? BuildServiceTimeSeries(TimeTravelNodeSeriesDto node)
+    private double?[]? BuildServiceTimeSeries(TimeTravelNodeSeriesDto node) =>
+        BuildServiceTimeSeriesSnapshot(node, HasClassSelection, selectedClasses);
+
+    private static double?[]? BuildServiceTimeSeriesSnapshot(
+        TimeTravelNodeSeriesDto node,
+        bool hasClassSelection,
+        IReadOnlyCollection<string> selectedClassIds)
     {
-        var processingTime = TryGetSeries(node, "processingTimeMsSum");
-        var servedCount = TryGetSeries(node, "servedCount");
+        var processingTime = TryGetSeriesSnapshot(node, "processingTimeMsSum", hasClassSelection, selectedClassIds);
+        var servedCount = TryGetSeriesSnapshot(node, "servedCount", hasClassSelection, selectedClassIds);
         if (processingTime is null || servedCount is null)
         {
             return null;
@@ -4199,11 +4499,18 @@ internal sealed record InspectorMetricBlock(
         return values;
     }
 
-    private double?[]? TryGetSeries(TimeTravelNodeSeriesDto node, string key)
+    private double?[]? TryGetSeries(TimeTravelNodeSeriesDto node, string key) =>
+        TryGetSeriesSnapshot(node, key, HasClassSelection, selectedClasses);
+
+    private static double?[]? TryGetSeriesSnapshot(
+        TimeTravelNodeSeriesDto node,
+        string key,
+        bool hasClassSelection,
+        IReadOnlyCollection<string> selectedClassIds)
     {
-        if (HasClassSelection)
+        if (hasClassSelection)
         {
-            var aggregated = ResolveSeriesForClasses(node, key, out _);
+            var aggregated = ResolveSeriesForClassesSnapshot(node, key, selectedClassIds, out _);
             if (aggregated is not null)
             {
                 return aggregated;
@@ -4215,21 +4522,28 @@ internal sealed record InspectorMetricBlock(
             return null;
         }
 
-        return node.Series.TryGetValue(key, out var series) && series is not null && series.Length > 0
+        return node.Series.TryGetValue(key, out var series) && series is { Length: > 0 }
             ? series
             : null;
     }
 
-    private double?[]? ResolveSeriesForClasses(TimeTravelNodeSeriesDto node, string key, out bool hadData)
+    private double?[]? ResolveSeriesForClasses(TimeTravelNodeSeriesDto node, string key, out bool hadData) =>
+        ResolveSeriesForClassesSnapshot(node, key, selectedClasses, out hadData);
+
+    private static double?[]? ResolveSeriesForClassesSnapshot(
+        TimeTravelNodeSeriesDto node,
+        string key,
+        IReadOnlyCollection<string> selectedClassIds,
+        out bool hadData)
     {
         hadData = false;
-        if (node.ByClass is null || selectedClasses.Count == 0 || string.IsNullOrWhiteSpace(key))
+        if (node.ByClass is null || selectedClassIds.Count == 0 || string.IsNullOrWhiteSpace(key))
         {
             return null;
         }
 
         double?[]? accumulator = null;
-        foreach (var classId in selectedClasses)
+        foreach (var classId in selectedClassIds)
         {
             if (!node.ByClass.TryGetValue(classId, out var classMetrics) ||
                 classMetrics is null ||
@@ -4263,11 +4577,21 @@ internal sealed record InspectorMetricBlock(
         string key,
         int localIndex,
         ref bool classDataFound,
-        ref double classVolume)
+        ref double classVolume) =>
+        GetSeriesValueSnapshot(node, key, localIndex, ref classDataFound, ref classVolume, HasClassSelection, selectedClasses);
+
+    private static double? GetSeriesValueSnapshot(
+        TimeTravelNodeSeriesDto node,
+        string key,
+        int localIndex,
+        ref bool classDataFound,
+        ref double classVolume,
+        bool hasClassSelection,
+        IReadOnlyCollection<string> selectedClassIds)
     {
-        if (HasClassSelection)
+        if (hasClassSelection)
         {
-            var series = ResolveSeriesForClasses(node, key, out var hasData);
+            var series = ResolveSeriesForClassesSnapshot(node, key, selectedClassIds, out var hasData);
             if (hasData)
             {
                 classDataFound = true;
@@ -4337,7 +4661,10 @@ internal sealed record InspectorMetricBlock(
     private static bool IsDefaultClassId(string classId) =>
         string.Equals(classId, "DEFAULT", StringComparison.OrdinalIgnoreCase);
 
-    private IReadOnlyList<ClassContribution> BuildClassContributions(TimeTravelNodeSeriesDto node, int localIndex)
+    private static IReadOnlyList<ClassContribution> BuildClassContributions(
+        TimeTravelNodeSeriesDto node,
+        int localIndex,
+        CancellationToken token = default)
     {
         var contributions = new List<ClassContribution>();
         if (node.ByClass is null || localIndex < 0)
@@ -4347,6 +4674,8 @@ internal sealed record InspectorMetricBlock(
 
         foreach (var entry in node.ByClass)
         {
+            token.ThrowIfCancellationRequested();
+
             var metrics = entry.Value;
             if (metrics is null)
             {
@@ -4796,15 +5125,15 @@ private static IReadOnlyList<double?> TrimSeriesAt(double?[]? source, int limit,
 
     private Task OnBinChanged(int value)
     {
-        if (value == selectedBin)
+        var clamped = Math.Clamp(value, visibleStartBin, visibleEndBin);
+        if (clamped == selectedBin)
         {
             return Task.CompletedTask;
         }
 
-        // Rebuild sparklines anchored at the incoming selection so sampling succeeds.
-        BuildNodeSparklines(value);
-        UpdateActiveMetrics(value);
+        ApplySelectedBinUi(clamped);
         StateHasChanged();
+        ScheduleBinDataRefresh(clamped);
         return Task.CompletedTask;
     }
 
@@ -4818,6 +5147,8 @@ private static IReadOnlyList<double?> TrimSeriesAt(double?[]? source, int limit,
 
     private void ResetState()
     {
+        CancelBinDataRefresh();
+        pendingBinDataRefresh = null;
         loadCts?.Cancel();
         loadCts?.Dispose();
         loadCts = null;

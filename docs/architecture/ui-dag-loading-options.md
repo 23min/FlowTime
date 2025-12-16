@@ -16,6 +16,16 @@ Today the UI pulls topology + state in slices:
 
 **Design intent:** keep payloads bounded (≤ 500 bins) and authoritative, shift expensive derivations to the service, and load only what the viewport requires.
 
+### Performance note (ties to UI perf work)
+
+This document focuses on *data acquisition strategies* (selective windows vs bulk bundles vs shared-engine/WASM). It is not, by itself, a guarantee of interactive responsiveness.
+
+Even with perfectly bounded network payloads, the topology UI can stall if it rebuilds large derived structures (metrics dictionaries, render DTOs, DOM overlays) at interactive rates (hover/pan/scrub/playback). Conversely, even a bulk bundle can feel responsive if parsing/hydration is streamed/off-main-thread and the renderer separates **scene build** from **paint**.
+
+For the UI-side performance architecture and lane separation model, see:
+
+- `docs/architecture/ui-perf/FT-UI-PERF-topology-input-latency.md`
+
 ---
 
 ## 2. “Ship the Entire DAG” Concept

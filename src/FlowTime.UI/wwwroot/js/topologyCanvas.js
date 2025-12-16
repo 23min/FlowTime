@@ -474,9 +474,16 @@
     }
 
     function getState(canvas) {
+        if (!canvas) {
+            return null;
+        }
+
         let state = registry.get(canvas);
         if (!state) {
-            const ctx = canvas.getContext('2d');
+            const ctx = canvas.getContext?.('2d');
+            if (!ctx) {
+                return null;
+            }
             state = {
                 ctx,
                 canvas,
@@ -2905,7 +2912,14 @@
     }
 
     function render(canvas, payload) {
+        if (!canvas) {
+            return;
+        }
+
         const state = getState(canvas);
+        if (!state) {
+            return;
+        }
 
         const preserveViewport = !!(payload?.preserveViewport ?? payload?.PreserveViewport);
         const overlaySettings = parseOverlaySettings(payload?.overlays ?? payload?.Overlays ?? {});
@@ -6841,6 +6855,9 @@ function setHoveredEdge(state, edgeId) {
 
     function setInspectorEdgeHoverState(canvas, edgeId) {
         const state = getState(canvas);
+        if (!state) {
+            return;
+        }
         const normalized = edgeId ?? null;
         if (state.inspectorEdgeHoverId === normalized) {
             return;
@@ -6852,6 +6869,9 @@ function setHoveredEdge(state, edgeId) {
 
     function focusEdgeOnCanvas(canvas, edgeId, centerOnEdge) {
         const state = getState(canvas);
+        if (!state) {
+            return;
+        }
         const normalized = edgeId ?? null;
         state.focusedEdgeId = normalized;
         if (centerOnEdge && normalized) {
@@ -7388,6 +7408,9 @@ function setHoveredEdge(state, edgeId) {
         }
 
         const state = getState(canvas);
+        if (!state) {
+            return;
+        }
         const scale = Number(snapshot.Scale ?? snapshot.scale);
         const overlayScale = Number(snapshot.OverlayScale ?? snapshot.overlayScale);
         const baseScale = Number(snapshot.BaseScale ?? snapshot.baseScale);
@@ -8062,6 +8085,9 @@ function setHoveredEdge(state, edgeId) {
         focusEdge: (canvas, edgeId, centerOnEdge) => focusEdgeOnCanvas(canvas, edgeId, centerOnEdge),
         registerHandlers: (canvas, dotNetRef, diagnosticsOptions) => {
             const state = getState(canvas);
+            if (!state) {
+                return;
+            }
             state.dotNetRef = dotNetRef;
             applyDiagnosticsOptions(canvas, state, diagnosticsOptions);
         },

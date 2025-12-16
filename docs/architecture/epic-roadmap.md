@@ -27,6 +27,20 @@ The list below enumerates current epics under `docs/architecture/` in an order t
 
 ### Near-Term / In-Flight Epics
 
+#### UI Performance (Topology Input Latency)
+
+- **Folder:** `docs/architecture/ui-perf/`
+- **Goal:** Make the Time-Travel Topology UI responsive under large graphs by enforcing strict input/paint/data lanes, splitting scene build from paint-only updates, and eliminating main-thread stalls from avoidable payload rebuilds and interop churn.
+- **Key Docs:** `docs/architecture/ui-perf/README.md`
+- **Notes:** This work is orthogonal to loading strategy decisions; selective windows vs bulk bundles still require render-loop hygiene.
+
+#### UI Layout Motors (Pluggable Layout Engines)
+
+- **Folder:** `docs/architecture/ui-layout/`
+- **Goal:** Decouple topology layout from rendering so different layout “motors” (client, server, hybrid) can be plugged in behind a stable `LayoutInput -> LayoutResult` contract with signatures for caching and reproducibility.
+- **Key Docs:** `docs/architecture/ui-layout/README.md`
+- **Notes:** This epic complements UI perf work by making layout an explicit scene-build concern (not tied to per-bin updates).
+
 #### Classes & Routing
 
 - **Folder:** `docs/architecture/classes/`

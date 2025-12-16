@@ -45,6 +45,12 @@ Data-loading strategy options are discussed separately in:
 
 This performance spec is intentionally *orthogonal* to the loading-mode decision: selective windows, bulk bundles, and WASM/shared-engine approaches all still require strict input/pain/data lane separation to avoid main-thread stalls.
 
+In particular, if a future loading mode introduces larger payloads (bundles), the UI should plan for:
+
+- **Streaming hydration**: progressively ingest data and render skeleton states early.
+- **Off-main-thread parsing**: use a Worker for large JSON/bundle parsing to avoid input stalls.
+- **Backpressure-aware recompute**: prefer latest-wins updates rather than attempting to process every intermediate bin/event.
+
 ## Root Causes / Problem Areas
 
 ### A) Main-thread blocking from long tasks
@@ -59,6 +65,10 @@ This performance spec is intentionally *orthogonal* to the loading-mode decision
 - **Selective window loading (default)**: keeps network bounded, but does not prevent UI stalls if the UI recomputes per-node/per-edge derived data every tick.
 - **Bulk DAG bundles**: reduce server round-trips, but can increase parse/hydration/memory costs and worsen GC churn unless hydration is streamed and off-main-thread.
 - **WASM/shared engine**: avoids evaluator drift, but shifts CPU to the client; treat as tooling/what-if unless benchmarks show UX wins.
+
+#### Practical implication
+
+Choosing a loading strategy should be treated as a *separate axis* from input responsiveness. The primary determinant of perceived smoothness is whether the UI avoids doing large allocations or full scene rebuilds on the hot interaction paths.
 
 ### B) Missing separation between **scene build** and **paint**
 
