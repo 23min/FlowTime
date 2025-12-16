@@ -2729,12 +2729,7 @@ private const string PmfExpectationLabel = "Value";
                         }
                     }
 
-                    pointerNeedsJump = false;
-
-                    UpdateActiveMetrics(next);
-                    // Ensure sparkline slices are anchored at the new selection during playback
-                    BuildNodeSparklines();
-                    StateHasChanged();
+                    ApplyBinSelection(next, jumpPointer: false);
                 });
 
                 if (shouldJumpAfterPause)
@@ -2748,10 +2743,7 @@ private const string PmfExpectationLabel = "Value";
                             return;
                         }
 
-                        pointerNeedsJump = true;
-                        UpdateActiveMetrics(visibleStartBin);
-                        BuildNodeSparklines();
-                        StateHasChanged();
+                        ApplyBinSelection(visibleStartBin, jumpPointer: true);
                     });
                 }
             }
@@ -5134,10 +5126,16 @@ private static IReadOnlyList<double?> TrimSeriesAt(double?[]? source, int limit,
             return Task.CompletedTask;
         }
 
-        ApplySelectedBinUi(clamped);
-        StateHasChanged();
-        ScheduleBinDataRefresh(clamped);
+        ApplyBinSelection(clamped);
         return Task.CompletedTask;
+    }
+
+    private void ApplyBinSelection(int bin, bool jumpPointer = false, bool cancelCurrentRefresh = true)
+    {
+        ApplySelectedBinUi(bin);
+        pointerNeedsJump = jumpPointer;
+        StateHasChanged();
+        ScheduleBinDataRefresh(bin, cancelCurrentRefresh);
     }
 
     [JSInvokable]
