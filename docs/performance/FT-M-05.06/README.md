@@ -66,6 +66,17 @@ When `Diagnostics:Hover.AutoUploadEnabled` is true the HUD POSTs to `POST /v1/di
 
 Once the traces are dropped into this directory, add screenshots/links plus notes about scripting vs. idle slices.
 
+## Diagnostics HUD Dumps
+
+We are mirroring every HUD capture under this folder so future sessions can validate improvements without re-running the UI. Each capture includes the raw hover/canvas CSV excerpts plus the JSON dump produced by the HUD button.
+
+| Scenario | Hover CSV | Canvas CSV | JSON Snapshot | Key Metrics |
+| --- | --- | --- | --- | --- |
+| Transportation — full graph, inspector open (after Phase 5 work) | `FT-M-05.06-after-full-hover-inspector-open-hover.csv` | `FT-M-05.06-after-full-hover-inspector-open-canvas.csv` | `FT-M-05.06-after-full-hover-inspector-open.json` | `interopDispatches=52`, `ratePerSecond=1.02`, `pointerQueueDrops=7`, `dragAverageFrameMs=5.477`, `dragMaxFrameMs=10.9` |
+| Transportation — full graph, inspector closed (after Phase 5 work) | `FT-M-05.06-after-full-hover-inspector-closed-hover.csv` | `FT-M-05.06-after-full-hover-inspector-closed-canvas.csv` | `FT-M-05.06-after-full-hover-inspector-closed.json` | `interopDispatches=0`, `totalDispatches=58`, `pointerQueueDrops=1`, `avgDrawMs≈5.6–6.8 ms`, `zoomPct=111.81` |
+| Transportation — operational-only, inspector closed (after Phase 5 work) | `FT-M-05.06-after-operational-hover-inspector-closed-hover.csv` | `FT-M-05.06-after-operational-hover-inspector-closed-canvas.csv` | `FT-M-05.06-after-operational-hover-inspector-closed.json` | `interopDispatches=111`, `ratePerSecond=2.82`, `pointerQueueDrops=738`, `dragAverageFrameMs=3.612`, `dragMaxFrameMs=13.1` |
+| Transportation — operational-only, inspector open (after Phase 5 work) | `FT-M-05.06-after-operational-hover-inspector-open-hover.csv` | `FT-M-05.06-after-operational-hover-inspector-open-canvas.csv` | `FT-M-05.06-after-operational-hover-inspector-open.json` | `interopDispatches=161`, `ratePerSecond=2.48`, `pointerQueueDrops=792`, `avgDrawMs≈3.5 ms`, `dragAverageFrameMs≈3.8 ms` |
+
 ## Follow-up Checklist
 
 - [ ] Attach four trace files (before/after for both runs).

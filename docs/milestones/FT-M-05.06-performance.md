@@ -83,6 +83,29 @@ To make the milestone verifiable in any session, we will follow the same recipe 
    - Attach before/after CSV excerpts plus HUD screenshots to `docs/performance/FT-M-05.06/README.md`.  
    - Note Chrome version, commit hash, and whether inspector was open or closed.
 
+### Captured Samples (2025‑12‑16)
+
+- **Transportation, mode=full, inspector open** — Interaction script executed as described above (pan 30 s, hover 30 s, inspector opened mid-run).  
+  - Hover CSV: `docs/performance/FT-M-05.06/FT-M-05.06-after-full-hover-inspector-open-hover.csv`  
+  - Canvas CSV: `docs/performance/FT-M-05.06/FT-M-05.06-after-full-hover-inspector-open-canvas.csv`  
+  - HUD dump: `docs/performance/FT-M-05.06/FT-M-05.06-after-full-hover-inspector-open.json`  
+  - Highlights: `interopDispatches=52`, `totalDispatches=58`, `ratePerSecond=1.02`, `pointerQueueDrops=7`, `dragAverageFrameMs=5.477 ms`, `dragMaxFrameMs=10.9 ms`, `avgDrawMs=5.368 ms`.
+- **Transportation, mode=operational (operationalOnly=true), inspector closed** — Same interaction script (pan 30 s, hover 30 s) but kept the inspector collapsed for the entire capture.  
+  - Hover CSV: `docs/performance/FT-M-05.06/FT-M-05.06-after-operational-hover-inspector-closed-hover.csv`  
+  - Canvas CSV: `docs/performance/FT-M-05.06/FT-M-05.06-after-operational-hover-inspector-closed-canvas.csv`  
+  - HUD dump: `docs/performance/FT-M-05.06/FT-M-05.06-after-operational-hover-inspector-closed.json`  
+  - Highlights: `interopDispatches=111`, `totalDispatches=134`, `ratePerSecond=2.82`, `pointerQueueDrops=738`, `pointerEventsProcessed=916` of `1733`, `dragAverageFrameMs=3.612 ms`, `dragMaxFrameMs=13.1 ms`, `avgDrawMs=3.428–4.215 ms`.
+- **Transportation, mode=full, inspector closed** — Inspector collapsed throughout to show the lowest interop baseline.  
+  - Hover CSV: `docs/performance/FT-M-05.06/FT-M-05.06-after-full-hover-inspector-closed-hover.csv`  
+  - Canvas CSV: `docs/performance/FT-M-05.06/FT-M-05.06-after-full-hover-inspector-closed-canvas.csv`  
+  - HUD dump: `docs/performance/FT-M-05.06/FT-M-05.06-after-full-hover-inspector-closed.json`  
+  - Highlights: `interopDispatches=0`, `totalDispatches=58`, `ratePerSecond≈0`, `pointerQueueDrops=1`, `avgDrawMs≈5.6–6.8 ms`, `dragAverageFrameMs≈5.8–6.8 ms`.
+- **Transportation, mode=operational, inspector open** — Inspector kept open while repeating the operational-only interaction script.  
+  - Hover CSV: `docs/performance/FT-M-05.06/FT-M-05.06-after-operational-hover-inspector-open-hover.csv`  
+  - Canvas CSV: `docs/performance/FT-M-05.06/FT-M-05.06-after-operational-hover-inspector-open-canvas.csv`  
+  - HUD dump: `docs/performance/FT-M-05.06/FT-M-05.06-after-operational-hover-inspector-open.json`  
+  - Highlights: `interopDispatches=161`, `totalDispatches=173`, `ratePerSecond=2.48`, `pointerQueueDrops=792`, `avgDrawMs≈3.5 ms`, `dragAverageFrameMs≈3.8 ms`.
+
 ## Design Constraints
 
 To prevent ambiguity during implementation:

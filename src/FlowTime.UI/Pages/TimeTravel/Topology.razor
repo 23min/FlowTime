@@ -42,18 +42,18 @@
                     Select a run from the Artifacts list to inspect its topology.
                 </MudAlert>
             }
-            else if (!string.IsNullOrWhiteSpace(errorMessage))
-            {
-                <MudAlert Severity="Severity.Error" Variant="Variant.Outlined">
-                    <MudText Typo="Typo.body1">@errorMessage</MudText>
-                </MudAlert>
-            }
-            else if (isLoading)
+            else if (!hasLoaded && isLoading)
             {
                 <MudPaper Class="pa-6 d-flex flex-column align-center justify-center" Elevation="0">
                     <MudProgressCircular Color="Color.Primary" Indeterminate="true" Style="width: 64px; height: 64px;" />
                     <MudText Typo="Typo.caption" Class="mt-2">Loading topology…</MudText>
                 </MudPaper>
+            }
+            else if (!hasLoaded && !string.IsNullOrWhiteSpace(errorMessage))
+            {
+                <MudAlert Severity="Severity.Error" Variant="Variant.Outlined">
+                    <MudText Typo="Typo.body1">@errorMessage</MudText>
+                </MudAlert>
             }
             else if (topologyGraph is null)
             {
@@ -64,6 +64,12 @@
             else
             {
                 <MudStack Spacing="2" Class="topology-main-stack">
+                    @if (!string.IsNullOrWhiteSpace(errorMessage))
+                    {
+                        <MudAlert Severity="Severity.Error" Variant="Variant.Outlined">
+                            <MudText Typo="Typo.body2">@errorMessage</MudText>
+                        </MudAlert>
+                    }
                     <MudPaper Class="pa-3 timeline-paper" Elevation="0">
                         <MudStack Spacing="1" Class="topology-header">
                             @{ var runInfo = GetRunInfo(); }
@@ -375,6 +381,13 @@
                                             DiagnosticsDisableHoverCache="@diagnosticsDisableHoverCache"
                                             RunId="@RunId"
                                             OperationalViewOnly="@operationalViewOnly" />
+                            @if (isLoading && hasLoaded)
+                            {
+                                <div class="topology-reload-overlay" aria-live="polite">
+                                    <MudProgressCircular Color="Color.Primary" Indeterminate="true" Style="width: 40px; height: 40px;" />
+                                    <MudText Typo="Typo.caption" Class="mt-2">Refreshing view…</MudText>
+                                </div>
+                            }
                         </div>
 
                         @if (inspectorOpen && inspectorNodeId is not null)
@@ -1518,16 +1531,6 @@ private const string PmfExpectationLabel = "Value";
         loadCts?.Cancel();
         loadCts?.Dispose();
         loadCts = null;
-
-        topologyGraph = null;
-        windowData = null;
-        activeMetrics = new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase);
-        nodeSparklines = new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase);
-        nodesMissingSparkline = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        nodeClassContributions = new Dictionary<string, IReadOnlyList<ClassContribution>>(StringComparer.OrdinalIgnoreCase);
-        classFilteredNodes.Clear();
-        hasLoaded = false;
-        StateHasChanged();
 
         await LoadAsync(currentRunId);
     }
