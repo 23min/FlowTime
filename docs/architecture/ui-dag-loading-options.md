@@ -24,7 +24,7 @@ Even with perfectly bounded network payloads, the topology UI can stall if it re
 
 For the UI-side performance architecture and lane separation model, see:
 
-- `docs/architecture/ui-perf/FT-UI-PERF-topology-input-latency.md`
+- `docs/architecture/ui-perf/README.md`
 
 ---
 
@@ -158,7 +158,7 @@ If we allow users to “edit” the DAG in-browser (e.g., modify an expression, 
 
 This document focuses on *data acquisition strategies* (selective windows vs bulk bundles vs WASM/shared engine). Separately, the UI has an input-latency/performance architecture spec:
 
-- `docs/architecture/ui-perf/FT-UI-PERF-topology-input-latency.md`
+- `docs/architecture/ui-perf/README.md`
 
 Key alignment points:
 
