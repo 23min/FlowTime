@@ -244,6 +244,20 @@
 **Next Steps:**
 - Manually verify that toggling “Operational” and class filters on large graphs no longer freezes Chrome, then capture HUD/CSV data to document the improvement.
 
+### 2025-12-17 — Timeline scrub drag gating
+
+**Changes:**
+- Updated `ApplyBinSelection`/dial handlers so timeline drags only update the pointer/labels immediately and defer heavy metric recompute until the drag ends (`pendingDragBin` + `FlushPendingDragBin`). This stops `RunBinDataRefreshAsync` from restarting on every pointermove, restoring instant feedback even on large runs.
+- `StartDialDrag` now cancels any in-flight bin refresh so the UI thread isn’t occupied while the user is scrubbing.
+- Removed the temporary `LogInformation`/`performance.mark` instrumentation that was added for debugging; DevTools logging no longer slows down hot paths.
+
+**Tests:**
+- `dotnet build`
+- `dotnet test --nologo` *(fails: `FlowTime.Tests.Performance.M15PerformanceTests.Test_ExpressionType_Performance` still reports “Complex expressions too slow compared to simple” — known perf harness sensitivity; unrelated to topology changes.)*
+
+**Next Steps:**
+- Capture a fresh HUD/CSV scrub run to verify the dial gating works under load, then wrap Phase 4 so we can schedule the follow-up UI-perf epic (`docs/architecture/ui-perf/README.md`).
+
 ---
 
 ## Phase 1: Input Guardrails & Throttling
@@ -512,4 +526,4 @@
 - [x] Break `BuildNodeSparklines`/`UpdateActiveMetrics` into cancellable async chunks so the UI thread keeps painting
 - [ ] Verify toggling “Operational” no longer freezes the browser on large graphs
 
-**Status:** 🚧 In Progress — core cancellation + async chunks landed; awaiting validation on large runs (FT-M-05.06-OP1).
+**Status:** 🚧 In Progress — operational toggle now reuses the existing graph when possible and routes through `ReloadWindowAsync` so the “Refreshing view…” overlay stays responsive; HUD validation on transportation/full graphs still pending (FT-M-05.06-OP1).

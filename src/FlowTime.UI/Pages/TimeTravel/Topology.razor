@@ -779,11 +779,13 @@ private IReadOnlyList<TimeTravelStateWarningDto> windowWarnings = Array.Empty<Ti
     private bool binDataRefreshInFlight;
     private int? pendingBinDataRefresh;
     private CancellationTokenSource? binDataRefreshCts;
+    private int? pendingDragBin;
     private bool operationalViewOnly;
     private bool operationalTogglePending;
     private bool? savedIncludeExpressionNodes;
     private bool? savedIncludeConstNodes;
     private bool? savedEnableFullDag;
+    private bool graphSupportsFullDag;
     private IReadOnlyList<string> availableClasses = Array.Empty<string>();
     private IReadOnlyList<DispatchScheduleEntry> dispatchScheduleEntries = Array.Empty<DispatchScheduleEntry>();
     private IReadOnlyDictionary<string, string> classDisplayNames = EmptyClassLabels;
@@ -1421,6 +1423,7 @@ private const string PmfExpectationLabel = "Value";
                 indexResult.Value.Grid.Bins);
 
             topologyGraph = GraphMapper.Map(graphResult.Value, overlaySettings.RespectUiPositions, overlaySettings.Layout);
+            graphSupportsFullDag = overlaySettings.EnableFullDag;
             UpdateDispatchEntries();
             seriesIndex = indexResult.Value;
             UpdateClassMetadata(seriesIndex);
@@ -1472,11 +1475,6 @@ private const string PmfExpectationLabel = "Value";
                 runId,
                 windowData.Nodes.Count,
                 windowData.TimestampsUtc.Count);
-            BuildNodeSparklines();
-            Logger?.LogInformation("Sparkline map built for run {RunId}: sparklines={SparklineCount}, missing={MissingCount}",
-                runId,
-                nodeSparklines?.Count ?? 0,
-                nodesMissingSparkline?.Count ?? 0);
             timestamps = windowData.TimestampsUtc.ToList();
             runDisplayName = windowData.Metadata.TemplateTitle ?? windowData.Metadata.TemplateId ?? runId;
 
@@ -1488,12 +1486,9 @@ private const string PmfExpectationLabel = "Value";
                 initialSelected = Math.Clamp(restoredSelectedBin.Value, visibleStartBin, visibleEndBin);
             }
 
-            selectedBin = initialSelected;
-            restoredSelectedBin = null;
             RefreshTimelineTicks();
-            UpdateActiveMetrics(selectedBin);
-            // Ensure node sparkline slices are built for the initial selection so chips show values, not labels.
-            BuildNodeSparklines();
+            ApplyBinSelection(initialSelected, jumpPointer: true);
+            restoredSelectedBin = null;
 
             hasLoaded = true;
             ScheduleRunStateSave();
@@ -1626,13 +1621,16 @@ private const string PmfExpectationLabel = "Value";
             operationalViewOnly = true;
         }
 
-        var requiresGraphReload = previous.EnableFullDag != overlaySettings.EnableFullDag
-            || previous.RespectUiPositions != overlaySettings.RespectUiPositions
-            || previous.Layout != overlaySettings.Layout
-            || previous.IncludeExpressionNodes != overlaySettings.IncludeExpressionNodes
+        var layoutChanged = previous.RespectUiPositions != overlaySettings.RespectUiPositions
+            || previous.Layout != overlaySettings.Layout;
+        var toggledFullDag = previous.EnableFullDag != overlaySettings.EnableFullDag;
+        var toggledNodeFilters = previous.IncludeExpressionNodes != overlaySettings.IncludeExpressionNodes
             || previous.IncludeConstNodes != overlaySettings.IncludeConstNodes
             || previous.IncludeServiceNodes != overlaySettings.IncludeServiceNodes
             || previous.IncludeDlqNodes != overlaySettings.IncludeDlqNodes;
+
+        var requiresGraphReload = layoutChanged
+            || (overlaySettings.EnableFullDag && !graphSupportsFullDag);
 
         if (requiresGraphReload)
         {
@@ -1644,12 +1642,26 @@ private const string PmfExpectationLabel = "Value";
             {
                 await canvasComponent.ResetViewportAsync();
             }
+
+            if (hasLoaded && !string.IsNullOrWhiteSpace(currentRunId))
+            {
+                restoredSelectedBin = selectedBin;
+                await ReloadCurrentRunAsync();
+                return;
+            }
+
+            StateHasChanged();
+            return;
         }
 
-        if (requiresGraphReload && hasLoaded && !string.IsNullOrWhiteSpace(currentRunId))
+        var requiresWindowReload = (toggledFullDag || toggledNodeFilters)
+            && hasLoaded
+            && !string.IsNullOrWhiteSpace(currentRunId);
+
+        if (requiresWindowReload)
         {
-            restoredSelectedBin = selectedBin;
-            await ReloadCurrentRunAsync();
+            StopPlayback();
+            await ReloadWindowAsync();
             return;
         }
 
@@ -1855,6 +1867,13 @@ private const string PmfExpectationLabel = "Value";
         var sliceStart = Math.Max(0, visibleStartBin);
         var sliceEnd = Math.Max(sliceStart, visibleEndBin);
 
+        var shouldShowOverlay = !isLoading;
+        if (shouldShowOverlay)
+        {
+            isLoading = true;
+            StateHasChanged();
+        }
+
         var cts = new CancellationTokenSource();
         windowReloadCts?.Cancel();
         windowReloadCts?.Dispose();
@@ -1907,6 +1926,12 @@ private const string PmfExpectationLabel = "Value";
             }
 
             cts.Dispose();
+
+            if (shouldShowOverlay)
+            {
+                isLoading = false;
+                StateHasChanged();
+            }
         }
     }
 
@@ -1967,6 +1992,8 @@ private const string PmfExpectationLabel = "Value";
         if (!isDialPointerDragging)
         {
             isDialPointerDragging = true;
+            CancelBinDataRefresh();
+            pendingBinDataRefresh = null;
             StateHasChanged();
         }
     }
@@ -1976,6 +2003,7 @@ private const string PmfExpectationLabel = "Value";
         if (isDialPointerDragging)
         {
             isDialPointerDragging = false;
+            FlushPendingDragBin();
             StateHasChanged();
         }
     }
@@ -2833,6 +2861,17 @@ private const string PmfExpectationLabel = "Value";
         binDataRefreshCts?.Cancel();
     }
 
+    private void FlushPendingDragBin()
+    {
+        if (pendingDragBin is not int bin)
+        {
+            return;
+        }
+
+        pendingDragBin = null;
+        ScheduleBinDataRefresh(bin, cancelCurrent: true);
+    }
+
     private async Task RunBinDataRefreshAsync(int bin, CancellationTokenSource cts)
     {
         var token = cts.Token;
@@ -3000,9 +3039,20 @@ private const string PmfExpectationLabel = "Value";
             classFilteredNodes.Add(nodeId);
         }
 
-        selectedBin = result.SelectedBin;
-        selectedBinLabel = result.SelectedBinLabel;
-        selectedTimestampLabel = result.SelectedTimestampLabel;
+        if (selectedBin != result.SelectedBin)
+        {
+            selectedBin = result.SelectedBin;
+        }
+
+        if (!string.Equals(selectedBinLabel, result.SelectedBinLabel, StringComparison.Ordinal))
+        {
+            selectedBinLabel = result.SelectedBinLabel;
+        }
+
+        if (!string.Equals(selectedTimestampLabel, result.SelectedTimestampLabel, StringComparison.Ordinal))
+        {
+            selectedTimestampLabel = result.SelectedTimestampLabel;
+        }
         EnsureInspectorVisibility();
 
         if (hasLoaded && !isPlaying)
@@ -5134,7 +5184,15 @@ private static IReadOnlyList<double?> TrimSeriesAt(double?[]? source, int limit,
     {
         ApplySelectedBinUi(bin);
         pointerNeedsJump = jumpPointer;
-        StateHasChanged();
+        _ = InvokeAsync(StateHasChanged);
+
+        if (isDialPointerDragging)
+        {
+            pendingDragBin = bin;
+            return;
+        }
+
+        pendingDragBin = null;
         ScheduleBinDataRefresh(bin, cancelCurrentRefresh);
     }
 
@@ -5192,6 +5250,7 @@ private static IReadOnlyList<double?> TrimSeriesAt(double?[]? source, int limit,
         savedIncludeExpressionNodes = null;
         savedIncludeConstNodes = null;
         savedEnableFullDag = null;
+        graphSupportsFullDag = false;
         sectionExpansionState = CreateDefaultSectionState();
         currentViewportSnapshot = null;
         pendingViewportSnapshot = null;

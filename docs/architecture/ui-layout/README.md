@@ -150,7 +150,7 @@ Cons: more complexity.
 
 ## Relationship to UI Performance Work
 
-This epic is a structural enabler for `docs/architecture/ui-perf/FT-UI-PERF-topology-input-latency.md`.
+This epic is a structural enabler for `docs/architecture/ui-perf/README.md`.
 
 - Layout becomes part of the **scene build** lane.
 - Per-bin changes do not trigger layout.

@@ -1105,6 +1105,30 @@ body.dark-mode .timeline-focus-label {
     height: 100%;
 }
 
+.topology-reload-overlay {
+    position: absolute;
+    inset: 0;
+    background-color: color-mix(in srgb, var(--mud-palette-surface) 90%, transparent);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 4;
+    pointer-events: all;
+    text-align: center;
+    color: var(--mud-palette-text-primary);
+    gap: 8px;
+}
+
+.topology-reload-overlay .mud-typography {
+    color: inherit;
+}
+
+.dark-mode .topology-reload-overlay {
+    background-color: rgba(4, 6, 16, 0.9);
+    color: #f8fafc;
+}
+
 .topology-diag-panel {
     position: absolute;
     bottom: 12px;

@@ -36,7 +36,7 @@ Reduce JS↔.NET churn from topology hover interactions so the FlowTime UI remai
 
 ## Phase 4 — JS Hover Ownership & Timeline UX
 
-_Status (2025‑12‑14): Pending — implementation has not started; this remains the next major feature block once the main-thread fixes land._
+_Status (2025‑12‑17): ✅ Complete — HUD toggle, JS hover ownership, scrubber gating, and operational reload resiliency are in place; remaining perf polish moves to the follow-up UI-perf epic._
 
 1. **Node hover interop from JS**  
    - Surface a new `FlowTime.TopologyCanvas.onNodeHoverChanged` callback that fires whenever JS hit-tests detect a new node.  
@@ -46,10 +46,10 @@ _Status (2025‑12‑14): Pending — implementation has not started; this remai
 2. **HUD collapse preference (done)**  
    - Add “Hide” button + collapsed chip, remember the collapsed state in `localStorage`, and reset stats whenever the HUD expands.
 
-3. **Timeline pointer immediacy (next after hover)**  
+3. **Timeline pointer immediacy**  
    - Split `OnBinChanged` into (a) immediate pointer/UI update and (b) background metric/sparkline recompute.  
-   - Ensure playback, inspector, and persisted state still refresh once recompute finishes.
-4. **Operational toggle resilience (after timeline work)**  
+   - During dial drags we now cache the latest requested bin and flush it once the drag ends, so scrubber motion stays instant even on large graphs. Playback/inspector still refresh once the recompute finishes.
+4. **Operational toggle resilience**  
    - Cancel in-flight `BuildNodeSparklines`/`UpdateActiveMetrics` when filters change.  
    - Break recompute into async batches so the UI thread can repaint, avoiding the current “infinite rerender” loop.
 
