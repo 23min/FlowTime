@@ -4,10 +4,11 @@
 
 @if (HasVisibleNodes)
 {
-    <div class="topology-canvas-host">
+    <div class="topology-canvas-host" data-test="topology-loaded">
         <canvas @ref="canvasRef"
                 class="topology-canvas"
-                role="presentation">
+                role="presentation"
+                data-topology-canvas>
         </canvas>
         <div class="topology-node-layer">
             @foreach (var proxy in NodeProxies)

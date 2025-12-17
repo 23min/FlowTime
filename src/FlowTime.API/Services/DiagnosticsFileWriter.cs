@@ -10,7 +10,7 @@ namespace FlowTime.API.Services;
 
 internal static class DiagnosticsFileWriter
 {
-    private const string HoverCsvHeader = "timestampUtc,runId,buildHash,payloadSignature,interopDispatches,totalDispatches,durationMs,ratePerSecond,source,canvasWidth,canvasHeight,operationalOnly,mode,neighborEmphasis,zoomPercent,hoveredNodeId,focusedNodeId,nodeCount,edgeCount,inspectorVisible,pointerThrottleSkips,pointerEventsReceived,pointerEventsProcessed,pointerQueueDrops,pointerIntentSkips,dragFrameCount,dragTotalDurationMs,dragAverageFrameMs,dragMaxFrameMs";
+    private const string HoverCsvHeader = "timestampUtc,runId,buildHash,payloadSignature,interopDispatches,totalDispatches,durationMs,ratePerSecond,source,canvasWidth,canvasHeight,operationalOnly,mode,neighborEmphasis,zoomPercent,hoveredNodeId,focusedNodeId,nodeCount,edgeCount,inspectorVisible,pointerThrottleSkips,pointerEventsReceived,pointerEventsProcessed,pointerQueueDrops,pointerIntentSkips,dragFrameCount,dragTotalDurationMs,dragAverageFrameMs,dragMaxFrameMs,sceneRebuilds,overlayUpdates,layoutReads,pointerInpSampleCount,pointerInpAverageMs,pointerInpMaxMs";
     private const string CanvasCsvHeader = "timestampUtc,runId,buildHash,payloadSignature,nodeCount,edgeCount,avgDrawMs,maxDrawMs,lastDrawMs,frameCount,panDistance,zoomEvents,source,canvasWidth,canvasHeight,operationalOnly,mode,neighborEmphasis,zoomPercent,inspectorVisible";
 
     public static async Task AppendHoverEntryAsync(string path, HoverDiagnosticsRow row, int maxRows, CancellationToken cancellationToken = default)
@@ -98,7 +98,13 @@ internal sealed record HoverDiagnosticsRow(
     double DragFrameCount,
     double DragTotalDurationMs,
     double DragAverageFrameMs,
-    double DragMaxFrameMs)
+    double DragMaxFrameMs,
+    double SceneRebuilds,
+    double OverlayUpdates,
+    double LayoutReads,
+    double PointerInpSampleCount,
+    double PointerInpAverageMs,
+    double PointerInpMaxMs)
 {
     public string ToCsvLine()
     {
@@ -144,7 +150,13 @@ internal sealed record HoverDiagnosticsRow(
             FormatDouble(DragFrameCount),
             FormatDouble(DragTotalDurationMs),
             FormatDouble(DragAverageFrameMs),
-            FormatDouble(DragMaxFrameMs));
+            FormatDouble(DragMaxFrameMs),
+            FormatDouble(SceneRebuilds),
+            FormatDouble(OverlayUpdates),
+            FormatDouble(LayoutReads),
+            FormatDouble(PointerInpSampleCount),
+            FormatDouble(PointerInpAverageMs),
+            FormatDouble(PointerInpMaxMs));
     }
 }
 

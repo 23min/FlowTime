@@ -203,6 +203,7 @@
             return cache.rect;
         }
         const rect = canvas.getBoundingClientRect();
+        incrementLayoutReads(state);
         state.canvasRectCache = { rect, timestamp: now };
         return rect;
     }
@@ -265,6 +266,28 @@
         };
     }
 
+    function createSceneStats() {
+        return {
+            rebuilds: 0,
+            overlayUpdates: 0
+        };
+    }
+
+    function createLayoutStats() {
+        return {
+            reads: 0
+        };
+    }
+
+    function createPointerInpStats() {
+        return {
+            samples: 0,
+            totalMs: 0,
+            maxMs: 0,
+            lastMs: 0
+        };
+    }
+
     function capturePointerSnapshot(event, rect) {
         if (!event || !rect) {
             return null;
@@ -313,6 +336,103 @@
         resetDragStatsSinceUpload(state);
     }
 
+    function resetSceneStatsSinceUpload(state) {
+        if (!state) {
+            return;
+        }
+
+        state.sceneStatsSinceUpload = createSceneStats();
+    }
+
+    function resetSceneStats(state) {
+        if (!state) {
+            return;
+        }
+
+        state.sceneStats = createSceneStats();
+        resetSceneStatsSinceUpload(state);
+    }
+
+    function incrementSceneStat(state, key, amount = 1) {
+        if (!state || !key) {
+            return;
+        }
+
+        state.sceneStats ??= createSceneStats();
+        state.sceneStats[key] = (state.sceneStats[key] ?? 0) + amount;
+        state.sceneStatsSinceUpload ??= createSceneStats();
+        state.sceneStatsSinceUpload[key] = (state.sceneStatsSinceUpload[key] ?? 0) + amount;
+    }
+
+    function resetLayoutStatsSinceUpload(state) {
+        if (!state) {
+            return;
+        }
+        state.layoutStatsSinceUpload = createLayoutStats();
+    }
+
+    function resetLayoutStats(state) {
+        if (!state) {
+            return;
+        }
+        state.layoutStats = createLayoutStats();
+        resetLayoutStatsSinceUpload(state);
+    }
+
+    function incrementLayoutReads(state, amount = 1) {
+        if (!state) {
+            return;
+        }
+        state.layoutStats ??= createLayoutStats();
+        state.layoutStats.reads = (state.layoutStats.reads ?? 0) + amount;
+        state.layoutStatsSinceUpload ??= createLayoutStats();
+        state.layoutStatsSinceUpload.reads = (state.layoutStatsSinceUpload.reads ?? 0) + amount;
+    }
+
+    function resetPointerInpStatsSinceUpload(state) {
+        if (!state) {
+            return;
+        }
+        state.pointerInpStatsSinceUpload = createPointerInpStats();
+    }
+
+    function resetPointerInpStats(state) {
+        if (!state) {
+            return;
+        }
+        state.pointerInpStats = createPointerInpStats();
+        resetPointerInpStatsSinceUpload(state);
+    }
+
+    function markPointerInteraction(state) {
+        if (!state || typeof performance === 'undefined' || typeof performance.now !== 'function') {
+            return;
+        }
+
+        state.pendingPointerInpStart = performance.now();
+    }
+
+    function recordPointerInteraction(state, frameEnd) {
+        if (!state || !state.pendingPointerInpStart || typeof performance === 'undefined') {
+            return;
+        }
+
+        const latency = Math.max(0, frameEnd - state.pendingPointerInpStart);
+        state.pointerInpStats ??= createPointerInpStats();
+        state.pointerInpStats.samples += 1;
+        state.pointerInpStats.totalMs += latency;
+        state.pointerInpStats.maxMs = Math.max(state.pointerInpStats.maxMs ?? 0, latency);
+        state.pointerInpStats.lastMs = latency;
+
+        state.pointerInpStatsSinceUpload ??= createPointerInpStats();
+        state.pointerInpStatsSinceUpload.samples += 1;
+        state.pointerInpStatsSinceUpload.totalMs += latency;
+        state.pointerInpStatsSinceUpload.maxMs = Math.max(state.pointerInpStatsSinceUpload.maxMs ?? 0, latency);
+        state.pointerInpStatsSinceUpload.lastMs = latency;
+
+        state.pendingPointerInpStart = null;
+    }
+
     function incrementPointerStat(state, key, amount = 1) {
         if (!state || !key) {
             return;
@@ -336,6 +456,9 @@
         state.lastDrawnHoverChipId = null;
         state.lastDrawnHoverEdgeId = null;
         updateDiagnosticsHud(state);
+        resetSceneStatsSinceUpload(state);
+        resetLayoutStatsSinceUpload(state);
+        resetPointerInpStatsSinceUpload(state);
     }
 
     function resetCanvasStatsSinceUpload(state) {
@@ -498,6 +621,12 @@
                 dragFrameCount: 0,
                 dragStats: createDragStats(),
                 dragStatsSinceUpload: createDragStats(),
+                sceneStats: createSceneStats(),
+                sceneStatsSinceUpload: createSceneStats(),
+                layoutStats: createLayoutStats(),
+                layoutStatsSinceUpload: createLayoutStats(),
+                pointerInpStats: createPointerInpStats(),
+                pointerInpStatsSinceUpload: createPointerInpStats(),
                 lastPointerSnapshot: null,
                 dragActive: false,
                 dragEnding: false,
@@ -746,7 +875,9 @@
                 debugLog(state, '[Topology] hover follow-up after drag', { delayedResume: snapshot, resumeDeltaMs: delta });
                 queueHoverUpdate(snapshot, false);
             };
-            state.pendingDelayedResume = window.requestAnimationFrame(dispatch);
+            if (!state.pendingDelayedResume) {
+                state.pendingDelayedResume = window.requestAnimationFrame(dispatch);
+            }
         };
 
         const applyDragMovement = (point) => {
@@ -1086,6 +1217,7 @@
             state.pendingHover = snapshot;
             state.lastPointerSnapshot = snapshot ? { ...snapshot } : null;
             incrementPointerStat(state, 'received');
+            markPointerInteraction(state);
 
             if (forceImmediate) {
                 if (state.hoverFrameRequestId !== null) {
@@ -1098,12 +1230,6 @@
 
             if (hadPending) {
                 incrementPointerStat(state, 'queueDrops');
-                if (state.hoverFrameRequestId !== null) {
-                    cancelAnimationFrame(state.hoverFrameRequestId);
-                    state.hoverFrameRequestId = null;
-                }
-                processQueuedHover();
-                return;
             }
 
             if (state.hoverFrameRequestId === null) {
@@ -1156,6 +1282,7 @@
                 state.lastPointerSnapshot = capturePointerSnapshot(event, rect);
             }
             state.lastPanSample = { x: event.clientX, y: event.clientY };
+            markPointerInteraction(state);
         };
 
         const activateDragMotion = () => {
@@ -1175,12 +1302,20 @@
             updateCursorForEvent(event);
 
             if (state.settingsPointerActive) {
-                if (state.settingsPointerDown) {
-                    const deltaX = event.clientX - state.settingsPointerDown.x;
-                    const deltaY = event.clientY - state.settingsPointerDown.y;
-                    if (Math.abs(deltaX) > POINTER_CLICK_DISTANCE || Math.abs(deltaY) > POINTER_CLICK_DISTANCE) {
-                        state.pointerClickCandidate = false;
-                    }
+                const wasCandidate = state.pointerClickCandidate;
+                state.pointerClickCandidate = false;
+                const snapshot = capturePointerSnapshot(event, getCanvasClientRect(canvas, state));
+                state.lastPointerSnapshot = snapshot;
+                state.lastPointerSample = {
+                    x: snapshot.clientX,
+                    y: snapshot.clientY,
+                    time: typeof performance !== 'undefined' && typeof performance.now === 'function'
+                        ? performance.now()
+                        : Date.now()
+                };
+                queueHoverUpdate(snapshot, false);
+                if (wasCandidate) {
+                    state.pointerClickCandidate = true;
                 }
                 return;
             }
@@ -1190,6 +1325,7 @@
             }
 
             if (!state.dragging) {
+                markPointerInteraction(state);
                 queueHoverUpdate(event);
                 return;
             }
@@ -1213,6 +1349,7 @@
                         : Date.now())
             };
             requestPanFrame();
+            markPointerInteraction(state);
         };
 
         const pointerUp = (event) => {
@@ -1237,6 +1374,15 @@
                 if (!moved && inside && state.dotNetRef) {
                     state.dotNetRef.invokeMethodAsync('OnSettingsRequestedFromCanvas');
                 }
+                const snapshot = {
+                    clientX: clamp(event.clientX, canvasRect.left, canvasRect.right),
+                    clientY: clamp(event.clientY, canvasRect.top, canvasRect.bottom),
+                    rectLeft: canvasRect.left,
+                    rectTop: canvasRect.top,
+                    rectRight: canvasRect.right,
+                    rectBottom: canvasRect.bottom
+                };
+                queueHoverUpdate(snapshot, true);
                 setCursor(inside ? 'pointer' : 'default');
                 return;
             }
@@ -1245,6 +1391,7 @@
             }
             const wasDragging = state.dragging;
             state.dragPointerId = null;
+            markPointerInteraction(state);
             const canvasRect = getCanvasClientRect(canvas, state);
             const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
             const releaseSnapshot = {
@@ -1386,6 +1533,7 @@
 
         const wheel = (event) => {
             event.preventDefault();
+            markPointerInteraction(state);
 
             const rect = getCanvasClientRect(canvas, state);
             const offsetX = event.clientX - rect.left;
@@ -1513,6 +1661,11 @@
         const edgeSeriesStartIndex = Number(state.edgeSeriesStartIndex ?? 0);
 
         let rebuildStaticScene = state.sceneDirty === true;
+        if (rebuildStaticScene) {
+            incrementSceneStat(state, 'rebuilds');
+        } else {
+            incrementSceneStat(state, 'overlayUpdates');
+        }
         if (rebuildStaticScene) {
             state.sceneRawNodes = nodesPayload;
             state.sceneRawEdges = edgesPayload;
@@ -2035,6 +2188,7 @@
         state.drawStatsSinceUpload ??= createDrawStats();
         recordDrawStats(state.drawStats);
         recordDrawStats(state.drawStatsSinceUpload);
+        recordPointerInteraction(state, frameEnd);
         state.lastDrawnHoverNodeId = state.hoveredNodeId ?? null;
         state.lastDrawnHoverChipId = state.hoveredChipId ?? null;
         state.lastDrawnHoverEdgeId = state.hoveredEdgeId ?? null;
@@ -7698,6 +7852,9 @@ function setHoveredEdge(state, edgeId) {
             { key: 'frame', label: 'Frame (avg/max)', defaultValue: '0 / 0 ms' },
             { key: 'throttle', label: 'Throttle', defaultValue: '0%' },
             { key: 'pointer', label: 'Pointer (ok/recv/drop)', defaultValue: '0 / 0 / 0' },
+            { key: 'scene', label: 'Scene / Overlay', defaultValue: '0 / 0' },
+            { key: 'layout', label: 'Layout Reads', defaultValue: '0' },
+            { key: 'inp', label: 'Pointer INP (avg/max)', defaultValue: '0 / 0 ms' },
             { key: 'panzoom', label: 'Pan / Zoom', defaultValue: '0px / 0' },
             { key: 'elapsed', label: 'Elapsed', defaultValue: '0 ms' },
             { key: 'build', label: 'Build', defaultValue: state.buildHash ?? 'n/a' },
@@ -7811,6 +7968,32 @@ function setHoveredEdge(state, edgeId) {
             const intentPart = intentSkips > 0 ? ` (intent ${intentSkips})` : '';
             hud.values.pointer.textContent = `${pointerProcessed} / ${pointerReceived} / ${pointerDrops}${intentPart}`;
             setSeverityClass(hud.values.pointer, dropPct, 25, 50, false, 10);
+        }
+
+        const sceneStats = state?.sceneStats ?? createSceneStats();
+        if (hud.values.scene) {
+            const rebuilds = sceneStats.rebuilds ?? 0;
+            const overlayUpdates = sceneStats.overlayUpdates ?? 0;
+            hud.values.scene.textContent = `${rebuilds} / ${overlayUpdates}`;
+            setSeverityClass(hud.values.scene, null);
+        }
+
+        const layoutStats = state?.layoutStats ?? createLayoutStats();
+        if (hud.values.layout) {
+            const reads = layoutStats.reads ?? 0;
+            hud.values.layout.textContent = `${reads}`;
+            setSeverityClass(hud.values.layout, null);
+        }
+
+        const pointerInpStats = state?.pointerInpStats ?? createPointerInpStats();
+        const inpSamples = pointerInpStats.samples ?? 0;
+        const inpAvg = inpSamples > 0
+            ? pointerInpStats.totalMs / inpSamples
+            : pointerInpStats.lastMs ?? 0;
+        const inpMax = pointerInpStats.maxMs ?? 0;
+        if (hud.values.inp) {
+            hud.values.inp.textContent = `${inpAvg.toFixed(1)} / ${inpMax.toFixed(1)} ms`;
+            setSeverityClass(hud.values.inp, inpAvg, 50, 100, false, 16);
         }
 
         const panDistance = state?.panStats?.distance ?? 0;
@@ -7928,6 +8111,14 @@ function setHoveredEdge(state, edgeId) {
         const dragStats = state?.dragStatsSinceUpload ?? state?.dragStats ?? createDragStats();
         const dragFrames = dragStats.frames || 0;
         const dragAvgMs = dragFrames > 0 ? dragStats.totalDurationMs / dragFrames : 0;
+        const sceneStats = state?.sceneStatsSinceUpload ?? state?.sceneStats ?? createSceneStats();
+        const layoutStats = state?.layoutStatsSinceUpload ?? state?.layoutStats ?? createLayoutStats();
+        const pointerInpStats = state?.pointerInpStatsSinceUpload ?? state?.pointerInpStats ?? createPointerInpStats();
+        const pointerInpSamples = pointerInpStats.samples ?? 0;
+        const pointerInpAvg = pointerInpSamples > 0
+            ? pointerInpStats.totalMs / pointerInpSamples
+            : pointerInpStats.lastMs ?? 0;
+        const pointerInpMax = pointerInpStats.maxMs ?? 0;
 
         const payload = {
             runId: state?.runId ?? null,
@@ -7959,7 +8150,13 @@ function setHoveredEdge(state, edgeId) {
             dragFrameCount: dragFrames,
             dragTotalDurationMs: Number(dragStats.totalDurationMs.toFixed(3)),
             dragAverageFrameMs: Number(dragAvgMs.toFixed(3)),
-            dragMaxFrameMs: Number((dragStats.maxDurationMs ?? 0).toFixed(3))
+            dragMaxFrameMs: Number((dragStats.maxDurationMs ?? 0).toFixed(3)),
+            sceneRebuilds: Number(sceneStats.rebuilds ?? 0),
+            overlayUpdates: Number(sceneStats.overlayUpdates ?? 0),
+            layoutReads: Number(layoutStats.reads ?? 0),
+            pointerInpSampleCount: Number(pointerInpSamples),
+            pointerInpAverageMs: Number((pointerInpAvg ?? 0).toFixed(3)),
+            pointerInpMaxMs: Number(pointerInpMax.toFixed(3))
         };
 
         payload.canvas = {
@@ -7971,6 +8168,9 @@ function setHoveredEdge(state, edgeId) {
         stats.windowDispatches = 0;
         state.pointerThrottleSkipsSinceUpload = 0;
         resetPointerStatsSinceUpload(state);
+        resetSceneStatsSinceUpload(state);
+        resetLayoutStatsSinceUpload(state);
+        resetPointerInpStatsSinceUpload(state);
 
         return payload;
     }
