@@ -6,6 +6,7 @@ export type HoverDiagnosticsPayload = {
   pointerInpSampleCount?: number;
   overlayUpdates?: number;
   sceneRebuilds?: number;
+  layoutReads?: number;
   pointerEventsReceived?: number;
   pointerQueueDrops?: number;
   dragTotalDurationMs?: number;
@@ -38,7 +39,7 @@ export async function getCanvasDiagnostics(page: Page) {
     if (!canvas || !(window as any).FlowTime?.TopologyCanvas) {
       throw new Error('Topology canvas not ready');
     }
-    return (window as any).FlowTime.TopologyCanvas.buildCanvasDiagnosticsPayload(canvas, 'playwright');
+    return (window as any).FlowTime.TopologyCanvas.getCanvasDiagnostics(canvas, 'playwright');
   });
 }
 

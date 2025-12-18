@@ -58,7 +58,7 @@ await page.evaluate(async () => {
 });
 ```
 
-For canvas stats, we call `buildCanvasDiagnosticsPayload` through the same API so the CSV writer and HUD stay consistent.
+For canvas stats, we call `getCanvasDiagnostics` (a thin wrapper around the internal builder) so the CSV writer and HUD stay consistent.
 
 ## Scenarios & Thresholds
 

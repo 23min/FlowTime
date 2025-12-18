@@ -22,9 +22,9 @@
 ## Current Status
 
 ### Overall Progress
-- [ ] Phase 1: Input Lane Strictness & Diagnostics (🔄 1/4 tasks actively in progress)
-- [ ] Phase 2: Scene vs. Overlay Payload Split (0/4 tasks)
-- [ ] Phase 3: Data Lane & Inspector Hygiene (0/4 tasks)
+- [x] Phase 1: Input Lane Strictness & Diagnostics (✅ complete; refactor nits pending)
+- [ ] Phase 2: Scene vs. Overlay Payload Split (🔄 4/4 tasks completed — refactors pending)
+- [ ] Phase 3: Data Lane & Inspector Hygiene (🔄 1/4 tasks completed)
 - [ ] Phase 4: Spatial Index & Final Validation (0/4 tasks)
 
 ### Test Status
@@ -73,6 +73,49 @@
 - Verified Playwright RED spec (`npm run test-ui`) passes when the FlowTime stack is running, and `dotnet build`/`dotnet test --nologo` remain green.
 
 **Next:** Finish Task 1.3 by extracting shared pointer-to-canvas helpers (refactor), then move to Task 1.4 (hot-path logging toggle).
+
+### 2025-12-18 - Phase 2 Task 2.1 Scene/Overlay Split
+
+**Task 2.1 RED → GREEN:**
+- ✅ Introduced `CanvasScenePayload`/`CanvasOverlayPayload` models plus deterministic signatures so bin-only updates no longer force full geometry rebuilds.
+- ✅ Refactored `TopologyCanvasBase` scheduling to call `renderScene` only when the topology/filter changed and `applyOverlayDelta` for hover/bin deltas; JS renderer now caches scene data separately and consumes overlay updates per RAF frame.
+- ✅ Updated `topologyCanvas.js` to track scene vs. overlay stats, reuse existing hitboxes on overlay updates, and added exported `renderScene`/`applyOverlayDelta` for diagnostics.
+- ✅ Adjusted `TopologyCanvasRenderTests` to assert both payloads and reran `dotnet build` / `dotnet test --nologo` (skipped perf suites as expected).
+
+**Next:** Expose scene/overlay counters in diagnostics HUD CSV (Task 2.4) and begin overlay delta-specific JS tests (Task 2.2).
+
+### 2025-12-18 - Phase 2 Task 2.2 Overlay Delta Pipeline
+
+**Task 2.2 RED → GREEN:**
+- ✅ Updated JS exports to `FlowTime.TopologyCanvas.applyOverlayDelta` and renamed the C#/JS call sites so overlay-only updates never hit the legacy `render` path.
+- ✅ Extended `TopologyCanvasRenderTests` (`UpdatesMetricsTriggerAdditionalRender`) to assert `renderScene` is invoked once while `applyOverlayDelta` handles metric updates; added coverage for other tests referencing the new method.
+- ✅ Confirmed `dotnet build` and `dotnet test --nologo` remain green (perf suites continue to skip expected cases).
+
+**Next:** finish the planned JS-side refactor (shared helpers + diagnostics counters) before moving to Task 2.3 DOM proxy hygiene.
+
+### 2025-12-18 - Phase 2 Task 2.3 DOM Proxy Hygiene
+
+**Task 2.3 RED → GREEN:**
+- ✅ Added `DimmedNodesDoNotRebuildProxyStatics` and `ActiveBinChangesReuseProxyStatics` tests proving dim/binned updates reuse cached proxy styles.
+- ✅ Introduced proxy static caching (`DebugProxySignature/DebugProxyStatics`) so style/ARIA strings rebuild only when the filtered graph changes; dim/focus toggles now flip flags without creating new strings.
+- 🔜 Refactor/docs follow-up: capture keyboard-focus guidance in milestone doc once Phase 2 closes.
+
+**Validation:** `dotnet build` / `dotnet test --nologo` to run before handing off Phase 2.4.
+
+### 2025-12-18 - Phase 2 Task 2.4 Diagnostics Counters
+
+- ✅ Exposed `FlowTime.TopologyCanvas.getCanvasDiagnostics` so Playwright (and docs) can capture canvas payloads without touching private helpers.
+- ✅ Documented `sceneRebuilds/overlayUpdates`, `layoutReads`, and pointer INP fields in `docs/performance/FT-M-05.07/README.md`; updated Playwright plan + helper typings accordingly.
+- ✅ `HoverDiagnosticsRow` coverage already ensures CSV columns exist; refreshed `dotnet build`/`dotnet test --nologo` after wiring the export.
+
+**Next:** circle back on the deferred refactors (shared snapshot structs + keyboard focus notes) before closing Phase 2 entirely.
+
+### 2025-12-18 - Phase 3 Task 3.1 Async Metric Worker
+
+- ✅ Introduced `AsyncWorkQueue<TJob, TResult>` plus focused unit tests so bin refresh work can be cancelled/resumed deterministically (Task 3.1 RED).
+- ✅ Topology scheduled bin refreshes now capture a `BinDataComputationContext` snapshot per request, enqueue it as a `BinDataWorkItem`, and let the worker run `ComputeBinDataRefreshResult` on a background thread before `InvokeAsync` applies the deltas (Task 3.1 GREEN).
+- 🔃 Refactor follow-up: document the shared context builder / inspector interplay once Task 3.2 lands.
+- ✅ Validation: `dotnet build` + `dotnet test --nologo` (full suite) now pass with the worker in place; the previously flaky `Test_PMF_Mixed_Workload_Performance` passed on rerun.
 
 ### 2025-12-17 - Kickoff & Planning
 
@@ -144,29 +187,31 @@
 ### Task 2.1: Scene & Overlay Signatures
 **File(s):** `src/FlowTime.UI/Components/Topology/TopologyCanvas.razor`, `TopologyCanvasBase`
 
-- [ ] RED: Add unit tests verifying bin-only changes do not trigger `renderScene`
-- [ ] GREEN: Implement `sceneSignature`/`overlaySignature` tracking and JS interop separation (`renderScene` vs. `applyOverlayDelta`)
+- [x] RED: UI tests expected separate `renderScene`/`applyOverlayDelta` calls so bin-only updates failed until new payloads landed
+- [x] GREEN: Added signature tracking + JS interop split; overlay-only changes now bypass scene rebuilds
 - [ ] REFACTOR: Share snapshot structures between .NET and JS
 
-### Task 2.2: JS Renderer Delta Pipeline
-**File(s):** `src/FlowTime.UI/wwwroot/js/topologyCanvas.js`
+**Status:** 🟢 Implementation complete (refactor pending)
 
-- [ ] RED: Add JS tests ensuring overlay deltas update highlights without rerender
-- [ ] GREEN: Implement `FlowTime.TopologyCanvas.applyOverlayDelta` and DOM updates
+### Task 2.2: JS Renderer Delta Pipeline
+**File(s):** `src/FlowTime.UI/wwwroot/js/topologyCanvas.js`, `tests/FlowTime.UI.Tests/TimeTravel/TopologyCanvasRenderTests.cs`
+
+- [x] RED: Add regression coverage ensuring overlay deltas update highlights without rerender (bUnit test now asserts `renderScene` stays at 1 while overlay deltas continue)
+- [x] GREEN: Implement `FlowTime.TopologyCanvas.applyOverlayDelta` and DOM updates
 - [ ] REFACTOR: Consolidate hover/selection overlay updates
 
 ### Task 2.3: DOM Proxy Update Hygiene
 **File(s):** `src/FlowTime.UI/Components/Topology/TopologyCanvas.razor`
 
-- [ ] RED: Add component/unit test ensuring proxies are not rebuilt on bin change
-- [ ] GREEN: Update proxies in place (attributes/style) for focus/dim states
+- [x] RED: Add component/unit test ensuring proxies are not rebuilt on bin change
+- [x] GREEN: Update proxies in place (attributes/style) for focus/dim states
 - [ ] REFACTOR: Document keyboard focus behavior
 
 ### Task 2.4: Diagnostics for Scene vs. Overlay Counts
 **File(s):** HUD/CSV + docs
 
-- [ ] RED: HUD tests expect new counters
-- [ ] GREEN: Emit scene and overlay delta counts per bin change and include in CSV dumps
+- [x] RED: HUD/CSV automation updated to cover new counters (`HoverDiagnosticsRow_ToCsv` test + Playwright helper type)
+- [x] GREEN: Scene/overlay counters + layout reads emitted in HUD, CSV, Playwright helper, and API writer; new dev workflow doc added
 - [ ] REFACTOR: Document thresholds in milestone validation protocol
 
 ### Phase 2 Validation
@@ -183,8 +228,8 @@
 ### Task 3.1: Async Metric Delta Computation
 **File(s):** `Topology.razor`, supporting services
 
-- [ ] RED: Unit test ensuring bin recompute can be cancelled + resumed
-- [ ] GREEN: Refactor to produce delta payloads (per-node metrics) via cancellable background tasks
+- [x] RED: Unit test ensuring bin recompute can be cancelled + resumed
+- [x] GREEN: Refactor to produce delta payloads (per-node metrics) via cancellable background tasks
 - [ ] REFACTOR: Share context snapshot builder between scrubber and inspector
 
 ### Task 3.2: Inspector-only Calculations Gating

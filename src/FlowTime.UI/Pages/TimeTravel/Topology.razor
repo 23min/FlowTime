@@ -776,9 +776,7 @@ private IReadOnlyList<TimeTravelStateWarningDto> windowWarnings = Array.Empty<Ti
     private Task playbackTask = Task.CompletedTask;
     private bool isDialPointerDragging;
     private bool pointerNeedsJump;
-    private bool binDataRefreshInFlight;
-    private int? pendingBinDataRefresh;
-    private CancellationTokenSource? binDataRefreshCts;
+    private AsyncWorkQueue<BinDataWorkItem, BinDataRefreshResult>? binDataWorker;
     private int? pendingDragBin;
     private bool operationalViewOnly;
     private bool operationalTogglePending;
@@ -1519,7 +1517,6 @@ private const string PmfExpectationLabel = "Value";
 
         StopPlayback();
         CancelBinDataRefresh();
-        pendingBinDataRefresh = null;
         windowReloadCts?.Cancel();
         windowReloadCts?.Dispose();
         windowReloadCts = null;
@@ -1879,7 +1876,6 @@ private const string PmfExpectationLabel = "Value";
         windowReloadCts?.Dispose();
         windowReloadCts = cts;
         CancelBinDataRefresh();
-        pendingBinDataRefresh = null;
 
         try
         {
@@ -1993,7 +1989,6 @@ private const string PmfExpectationLabel = "Value";
         {
             isDialPointerDragging = true;
             CancelBinDataRefresh();
-            pendingBinDataRefresh = null;
             StateHasChanged();
         }
     }
@@ -2824,41 +2819,42 @@ private const string PmfExpectationLabel = "Value";
 
     private void ScheduleBinDataRefresh(int bin, bool cancelCurrent = true)
     {
-        pendingBinDataRefresh = bin;
-
-        if (binDataRefreshInFlight)
-        {
-            if (cancelCurrent)
-            {
-                binDataRefreshCts?.Cancel();
-            }
-
-            return;
-        }
-
-        StartNextBinDataRefresh();
+        var workItem = new BinDataWorkItem(bin, CaptureBinDataContext());
+        var worker = GetOrCreateBinDataWorker();
+        worker.Schedule(workItem, cancelCurrent);
     }
 
-    private void StartNextBinDataRefresh()
+    private AsyncWorkQueue<BinDataWorkItem, BinDataRefreshResult> GetOrCreateBinDataWorker()
     {
-        if (binDataRefreshInFlight || pendingBinDataRefresh is not int bin)
+        return binDataWorker ??= new AsyncWorkQueue<BinDataWorkItem, BinDataRefreshResult>(
+            (job, token) => ComputeBinDataRefreshResult(job.Context, job.Bin, token),
+            HandleBinDataResultAsync);
+    }
+
+    private Task HandleBinDataResultAsync(BinDataRefreshResult result)
+    {
+        return InvokeAsync(() =>
         {
-            return;
-        }
-
-        binDataRefreshInFlight = true;
-        pendingBinDataRefresh = null;
-
-        binDataRefreshCts?.Cancel();
-        binDataRefreshCts?.Dispose();
-        var cts = new CancellationTokenSource();
-        binDataRefreshCts = cts;
-        _ = InvokeAsync(() => RunBinDataRefreshAsync(bin, cts));
+            ApplyNodeSparklinesResult(result.Sparklines);
+            ApplyActiveMetricsResult(result.Metrics);
+            StateHasChanged();
+        });
     }
 
     private void CancelBinDataRefresh()
     {
-        binDataRefreshCts?.Cancel();
+        binDataWorker?.Cancel(clearQueue: true);
+    }
+
+    private void DisposeBinDataWorker()
+    {
+        if (binDataWorker is null)
+        {
+            return;
+        }
+
+        binDataWorker.Dispose();
+        binDataWorker = null;
     }
 
     private void FlushPendingDragBin()
@@ -2870,58 +2866,6 @@ private const string PmfExpectationLabel = "Value";
 
         pendingDragBin = null;
         ScheduleBinDataRefresh(bin, cancelCurrent: true);
-    }
-
-    private async Task RunBinDataRefreshAsync(int bin, CancellationTokenSource cts)
-    {
-        var token = cts.Token;
-
-        try
-        {
-            while (true)
-            {
-                token.ThrowIfCancellationRequested();
-
-                var context = CaptureBinDataContext();
-                var refreshResult = await Task.Run(
-                    () => ComputeBinDataRefreshResult(context, bin, token),
-                    token);
-
-                token.ThrowIfCancellationRequested();
-
-                ApplyNodeSparklinesResult(refreshResult.Sparklines);
-                ApplyActiveMetricsResult(refreshResult.Metrics);
-                StateHasChanged();
-
-                if (pendingBinDataRefresh is int next)
-                {
-                    bin = next;
-                    pendingBinDataRefresh = null;
-                    continue;
-                }
-
-                break;
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            // Expected when a newer bin refresh supersedes the current one.
-        }
-        finally
-        {
-            if (ReferenceEquals(binDataRefreshCts, cts))
-            {
-                binDataRefreshCts = null;
-            }
-
-            binDataRefreshInFlight = false;
-            cts.Dispose();
-
-            if (pendingBinDataRefresh is int _)
-            {
-                StartNextBinDataRefresh();
-            }
-        }
     }
 
     private BinDataComputationContext CaptureBinDataContext()
@@ -2939,6 +2883,8 @@ private const string PmfExpectationLabel = "Value";
     private sealed record BinDataRefreshResult(
         NodeSparklineComputationResult Sparklines,
         ActiveMetricsComputationResult Metrics);
+
+    private sealed record BinDataWorkItem(int Bin, BinDataComputationContext Context);
 
     private sealed class BinDataComputationContext
     {
@@ -5207,7 +5153,7 @@ private static IReadOnlyList<double?> TrimSeriesAt(double?[]? source, int limit,
     private void ResetState()
     {
         CancelBinDataRefresh();
-        pendingBinDataRefresh = null;
+        DisposeBinDataWorker();
         loadCts?.Cancel();
         loadCts?.Dispose();
         loadCts = null;
@@ -5310,6 +5256,7 @@ private static IReadOnlyList<double?> TrimSeriesAt(double?[]? source, int limit,
         windowReloadCts?.Cancel();
         windowReloadCts?.Dispose();
         windowReloadCts = null;
+        DisposeBinDataWorker();
         if (hotkeyRegistrationId.HasValue)
         {
             _ = JS.InvokeVoidAsync("FlowTime.TopologyHotkeys.unregister", hotkeyRegistrationId.Value);

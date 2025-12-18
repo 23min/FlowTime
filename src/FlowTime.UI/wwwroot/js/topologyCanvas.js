@@ -636,8 +636,11 @@
                 overlayScale: 1,
                 lastOverlayZoom: null,
                 overlaySettings: null,
+                scenePayload: null,
+                overlayPayload: null,
                 userAdjusted: false,
                 viewportSignature: null,
+                preserveViewportRequest: false,
                 resizeObserver: null,
                 baseScale: null,
                 worldCenterX: 0,
@@ -1009,7 +1012,7 @@
         const applyHover = (pointer) => {
             const previousNodeId = state.hoveredNodeId;
             incrementPointerStat(state, 'processed');
-            if (!state.payload) {
+            if (!state.scenePayload || !state.overlayPayload) {
                 const changed = setHoveredEdge(state, null);
                 if ((state.hoveredChipId !== null || state.hoveredChip !== null) || changed) {
                     state.hoveredChipId = null;
@@ -1625,7 +1628,7 @@
     }
 
     function draw(canvas, state) {
-        if (!state.payload) {
+        if (!state.scenePayload || !state.overlayPayload) {
             clear(state);
             state.chipHitboxes = [];
             state.chipHitVersion = (state.chipHitVersion ?? 0) + 1;
@@ -1653,12 +1656,24 @@
         }
 
         const ctx = state.ctx;
-        const overlaySettings = state.overlaySettings ?? parseOverlaySettings(state.payload.overlays ?? state.payload.Overlays ?? {});
-        const nodesPayload = state.payload.nodes ?? state.payload.Nodes ?? [];
-        const edgesPayload = state.payload.edges ?? state.payload.Edges ?? [];
-        const legacyTooltipValue = state.payload.tooltip ?? state.payload.Tooltip ?? null;
+        const overlaySettings = state.overlaySettings ?? parseOverlaySettings(state.overlayPayload.overlays ?? state.overlayPayload.Overlays ?? {});
+        const nodesPayload = state.scenePayload.nodes ?? state.scenePayload.Nodes ?? [];
+        const edgesPayload = state.scenePayload.edges ?? state.scenePayload.Edges ?? [];
+        const legacyTooltipValue = state.overlayPayload.tooltip ?? state.overlayPayload.Tooltip ?? null;
         const edgeSeries = state.edgeSeries ?? new Map();
         const edgeSeriesStartIndex = Number(state.edgeSeriesStartIndex ?? 0);
+        const overlayNodesPayload = state.overlayPayload.nodes ?? state.overlayPayload.Nodes ?? [];
+        const overlayNodeLookup = new Map();
+        for (const entry of overlayNodesPayload) {
+            if (!entry) {
+                continue;
+            }
+            const identifier = entry.id ?? entry.Id;
+            if (!identifier) {
+                continue;
+            }
+            overlayNodeLookup.set(identifier, entry);
+        }
 
         let rebuildStaticScene = state.sceneDirty === true;
         if (rebuildStaticScene) {
@@ -1702,6 +1717,21 @@
                     lane: Number.isFinite(n.lane ?? n.Lane) ? Number(n.lane ?? n.Lane) : null,
                     tooltip: n.tooltip ?? n.Tooltip ?? null
                 };
+
+                const overlayNode = overlayNodeLookup.get(identifier);
+                if (overlayNode) {
+                    meta.fill = overlayNode.fill ?? overlayNode.Fill ?? meta.fill;
+                    meta.focusLabel = overlayNode.focusLabel ?? overlayNode.FocusLabel ?? meta.focusLabel;
+                    meta.metrics = overlayNode.metrics ?? overlayNode.Metrics ?? meta.metrics ?? null;
+                    meta.tooltip = overlayNode.tooltip ?? overlayNode.Tooltip ?? meta.tooltip;
+                    meta.stroke = overlayNode.stroke ?? overlayNode.Stroke ?? undefined;
+                    if (typeof overlayNode.isFocused === 'boolean' || typeof overlayNode.IsFocused === 'boolean') {
+                        meta.isFocused = Boolean(overlayNode.isFocused ?? overlayNode.IsFocused);
+                    }
+                    if (typeof overlayNode.isVisible === 'boolean' || typeof overlayNode.IsVisible === 'boolean') {
+                        meta.visible = !(overlayNode.isVisible === false || overlayNode.IsVisible === false);
+                    }
+                }
 
                 nodeMap.set(identifier, meta);
                 registerNodeHitbox(state, meta);
@@ -2004,7 +2034,8 @@
         for (const node of nodes) {
             const id = node.id ?? node.Id;
             const meta = nodeMap.get(id);
-            const isVisible = meta?.visible !== false;
+            const overlayNode = overlayNodeLookup.get(id);
+            const isVisible = overlayNode?.isVisible ?? overlayNode?.IsVisible ?? meta?.visible !== false;
 
             if (!isVisible) {
                 continue;
@@ -2016,8 +2047,8 @@
             const height = node.height ?? node.Height ?? 24;
             const cornerRadius = node.cornerRadius ?? node.CornerRadius ?? 3;
             const defaultLeafFill = getLeafFill();
-            const fill = node.fill ?? node.Fill ?? defaultLeafFill;
-            const stroke = node.stroke ?? node.Stroke ?? '#262626';
+            const fill = overlayNode?.fill ?? overlayNode?.Fill ?? meta?.fill ?? defaultLeafFill;
+            const stroke = overlayNode?.stroke ?? overlayNode?.Stroke ?? meta?.stroke ?? '#262626';
 
             const pointerHovered = hoveredNodeId && hoveredNodeId === id;
             const highlightNode = pointerHovered || !emphasisEnabled || (neighborNodes?.has(id) ?? false);
@@ -2033,6 +2064,22 @@
                 nodeMeta.logicalType = logicalType;
             }
             const queueLikeNode = isQueueLikeKind(kind, logicalType);
+
+            if (overlayNode) {
+                nodeMeta.fill = fill;
+                nodeMeta.focusLabel = overlayNode.focusLabel ?? overlayNode.FocusLabel ?? nodeMeta.focusLabel ?? '';
+                nodeMeta.metrics = overlayNode.metrics ?? overlayNode.Metrics ?? nodeMeta.metrics ?? null;
+                nodeMeta.tooltip = overlayNode.tooltip ?? overlayNode.Tooltip ?? nodeMeta.tooltip ?? null;
+                if (typeof overlayNode.isFocused === 'boolean' || typeof overlayNode.IsFocused === 'boolean') {
+                    nodeMeta.isFocused = Boolean(overlayNode.isFocused ?? overlayNode.IsFocused);
+                }
+                if (typeof overlayNode.isVisible === 'boolean' || typeof overlayNode.IsVisible === 'boolean') {
+                    nodeMeta.visible = !(overlayNode.isVisible === false || overlayNode.IsVisible === false);
+                }
+                if (overlayNode.warnings || overlayNode.Warnings) {
+                    nodeMeta.warnings = overlayNode.warnings ?? overlayNode.Warnings;
+                }
+            }
             const dlqNode = isDlqKind(kind);
             const isLeafComputed = !!nodeMeta?.leaf && isComputedKind(kind);
             const serviceLikeNode = kind === 'service' || logicalType === 'servicewithbuffer';
@@ -2121,7 +2168,7 @@
                 ctx.restore();
             }
 
-            const focusLabel = String(nodeMeta?.focusLabel ?? '').trim();
+            const focusLabel = String(overlayNode?.focusLabel ?? overlayNode?.FocusLabel ?? nodeMeta?.focusLabel ?? '').trim();
             if (focusLabel) {
                 ctx.save();
                 ctx.fillStyle = isDarkColor(fillForText) ? '#FFFFFF' : NODE_LABEL_COLOR_LIGHT;
@@ -3075,6 +3122,31 @@
     }
 
     function render(canvas, payload) {
+        if (!payload) {
+            return;
+        }
+        if (payload.scene || payload.overlay) {
+            if (payload.scene) {
+                applyScenePayload(canvas, payload.scene);
+            }
+            if (payload.overlay) {
+                applyOverlayPayload(canvas, payload.overlay);
+            }
+            return;
+        }
+
+        console.warn('[Topology] Legacy render payload is no longer supported. Use renderScene/applyOverlayDelta.');
+    }
+
+    function renderScene(canvas, payload) {
+        applyScenePayload(canvas, payload);
+    }
+
+    function applyOverlayDelta(canvas, payload) {
+        applyOverlayPayload(canvas, payload);
+    }
+
+    function applyScenePayload(canvas, payload) {
         if (!canvas) {
             return;
         }
@@ -3084,9 +3156,14 @@
             return;
         }
 
-        const preserveViewport = !!(payload?.preserveViewport ?? payload?.PreserveViewport);
-        const overlaySettings = parseOverlaySettings(payload?.overlays ?? payload?.Overlays ?? {});
-        state.overlaySettings = overlaySettings;
+        if (!payload) {
+            state.scenePayload = null;
+            state.sceneDirty = true;
+            draw(canvas, state);
+            return;
+        }
+
+        state.scenePayload = payload;
         state.sceneDirty = true;
         const rawTitle = payload?.title ?? payload?.Title ?? '';
         state.title = typeof rawTitle === 'string' ? rawTitle : '';
@@ -3096,25 +3173,58 @@
         const edgeSeriesStartIndex = Number(payload?.edgeSeriesStartIndex ?? payload?.EdgeSeriesStartIndex ?? 0);
         state.edgeSeriesStartIndex = Number.isFinite(edgeSeriesStartIndex) ? edgeSeriesStartIndex : 0;
 
-        // Global warning map keyed by node id for fallback when warnings are not attached to node payloads
-        state.globalWarningsByNode = new Map();
-        const globalWarnings = payload?.warnings ?? payload?.Warnings ?? [];
-        if (Array.isArray(globalWarnings)) {
-            for (const entry of globalWarnings) {
-                if (!entry) continue;
-                const nodeId = (entry.nodeId ?? entry.NodeId ?? '').toString().toLowerCase();
-                if (!nodeId) continue;
-                if (!state.globalWarningsByNode.has(nodeId)) {
-                    state.globalWarningsByNode.set(nodeId, []);
+        const viewport = getViewport(payload);
+        const signature = computeViewportSignature(viewport);
+        const preserveViewport = Boolean(state.preserveViewportRequest);
+        if (signature && signature !== state.viewportSignature)
+        {
+            state.viewportSignature = signature;
+            if (!preserveViewport)
+            {
+                const needAutoFit = !state.viewportApplied || !state.userAdjusted;
+                state.viewportApplied = false;
+                state.baseScale = null;
+                if (needAutoFit)
+                {
+                    state.userAdjusted = false;
                 }
-                state.globalWarningsByNode.get(nodeId).push(entry);
             }
         }
 
-        const savedViewport = payload?.savedViewport ?? payload?.SavedViewport ?? null;
-        if (preserveViewport && savedViewport) {
-            applyViewportSnapshot(state, savedViewport);
+        if (viewport && (!state.userAdjusted || !state.viewportApplied))
+        {
+            applyViewport(canvas, state, viewport);
         }
+
+        state.preserveViewportRequest = false;
+
+        if (state.overlayPayload)
+        {
+            draw(canvas, state);
+            emitViewportChanged(canvas, state, { immediate: true });
+        }
+    }
+
+    function applyOverlayPayload(canvas, payload) {
+        if (!canvas) {
+            return;
+        }
+
+        const state = getState(canvas);
+        if (!state) {
+            return;
+        }
+
+        if (!payload) {
+            state.overlayPayload = null;
+            return;
+        }
+
+        state.overlayPayload = payload;
+        const preserveViewport = Boolean(payload?.preserveViewport ?? payload?.PreserveViewport);
+        state.preserveViewportRequest = preserveViewport;
+        const overlaySettings = parseOverlaySettings(payload?.overlays ?? payload?.Overlays ?? {});
+        state.overlaySettings = overlaySettings;
 
         const desiredScale = overlaySettings.manualScale ?? state.overlayScale ?? 1;
         let manualScaleChanged = state.lastOverlayZoom === null || Math.abs(state.lastOverlayZoom - desiredScale) > 0.001;
@@ -3132,43 +3242,42 @@
             }
         }
 
-        const viewport = getViewport(payload);
-        const signature = computeViewportSignature(viewport);
-        if (signature && signature !== state.viewportSignature) {
-            state.viewportSignature = signature;
-            if (!preserveViewport) {
-                const needAutoFit = !state.viewportApplied || !state.userAdjusted;
-                state.viewportApplied = false;
-                state.baseScale = null;
-                if (needAutoFit) {
-                    state.userAdjusted = false;
+        state.globalWarningsByNode = new Map();
+        const globalWarnings = payload?.warnings ?? payload?.Warnings ?? [];
+        if (Array.isArray(globalWarnings)) {
+            for (const entry of globalWarnings) {
+                if (!entry) continue;
+                const nodeId = (entry.nodeId ?? entry.NodeId ?? '').toString().toLowerCase();
+                if (!nodeId) continue;
+                if (!state.globalWarningsByNode.has(nodeId)) {
+                    state.globalWarningsByNode.set(nodeId, []);
                 }
+                state.globalWarningsByNode.get(nodeId).push(entry);
             }
         }
 
         if (preserveViewport) {
-            state.payload = payload;
+            const savedViewport = payload?.savedViewport ?? payload?.SavedViewport ?? null;
+            if (savedViewport) {
+                applyViewportSnapshot(state, savedViewport);
+            }
+        } else {
+            state.preserveViewportRequest = false;
+        }
+
+        if (state.scenePayload) {
             draw(canvas, state);
             emitViewportChanged(canvas, state, { immediate: true });
-            return;
         }
-
-        if (viewport && (!state.userAdjusted || !state.viewportApplied)) {
-            applyViewport(canvas, state, viewport);
-        }
-
-        state.payload = payload;
-        draw(canvas, state);
-        emitViewportChanged(canvas, state, { immediate: true });
     }
 
     function fitToViewport(canvas) {
         const state = getState(canvas);
-        if (!state || !state.payload) {
+        if (!state || !state.scenePayload) {
             return NaN;
         }
 
-        const viewport = getViewport(state.payload);
+        const viewport = getViewport(state.scenePayload);
         if (!viewport) {
             return NaN;
         }
@@ -7098,7 +7207,7 @@ function setHoveredEdge(state, edgeId) {
         let anchor = hitbox ? computeEdgeAnchor(hitbox.points) : null;
 
         if (!anchor) {
-            const edges = state.payload?.edges ?? state.payload?.Edges ?? [];
+            const edges = state.scenePayload?.edges ?? state.scenePayload?.Edges ?? [];
             const edge = edges.find(e => (e.id ?? e.Id) === edgeId);
             if (edge) {
                 const fromX = Number(edge.fromX ?? edge.FromX ?? 0);
@@ -8319,14 +8428,26 @@ function setHoveredEdge(state, edgeId) {
         resetCanvasStats(state);
     }
 
+    function getCanvasDiagnostics(canvas, source) {
+        const state = registry.get(canvas);
+        if (!state) {
+            return null;
+        }
+
+        return buildCanvasDiagnosticsPayload(state, source ?? 'snapshot-canvas');
+    }
+
     window.FlowTime = window.FlowTime || {};
     window.FlowTime.TopologyCanvas = {
         render,
+        renderScene,
+        applyOverlayDelta,
         dispose,
         restoreViewport,
         fitToViewport,
         resetViewportState,
         getHoverDiagnostics,
+        getCanvasDiagnostics,
         dumpHoverDiagnostics: (canvas) => {
             const state = registry.get(canvas);
             if (!state) {
