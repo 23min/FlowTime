@@ -16,6 +16,7 @@ export type HoverDiagnosticsPayload = {
   zoomPercent?: number;
   mode?: string;
   runId?: string;
+  inspectorVisible?: boolean;
 };
 
 export async function waitForTopologyReady(page: Page) {

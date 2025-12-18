@@ -734,12 +734,16 @@ private string? inspectorNodeId;
 private bool inspectorOpen;
 private bool inspectorPinned;
 private bool inspectorMetricsExpanded;
+    private bool inspectorDataDirty = true;
     private string? inspectorHoveredEdgeId;
     private string? inspectorPinnedEdgeId;
     private string? canvasHoveredEdgeId;
     private string? pendingCanvasHoveredEdgeId;
     private CancellationTokenSource? canvasHoverDebounceCts;
     private CancellationTokenSource? saveRunStateDebounceCts;
+    private double runStateSaveDelayMs = DefaultRunStateSaveDebounceMs;
+    private Func<Func<Task>, Task>? runStateSaveInvoker;
+    private Task? pendingRunStateSaveTask;
 
     private TopologyGraph? topologyGraph;
     private IReadOnlyDictionary<string, NodeBinMetrics> activeMetrics = new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase);
@@ -900,6 +904,7 @@ internal sealed record ClassContribution(string Id, double? Arrivals, double? Se
 
     private static readonly JsonSerializerOptions overlaySerializerOptions = new(JsonSerializerDefaults.Web);
     private const string RunStateStoragePrefix = "ft.topology.state.v2";
+    private const double DefaultRunStateSaveDebounceMs = 300d;
     private const string LegacyOverlayStorageKey = "ft.topology.overlaySettings.v1";
     private const int SparklinePointLimit = 48;
     private const string MissingSeriesMessage = "No series for selected range.";
@@ -1354,17 +1359,18 @@ private const string PmfExpectationLabel = "Value";
         saveRunStateDebounceCts = cts;
         var token = cts.Token;
 
-        _ = Task.Run(async () =>
+        var delay = TimeSpan.FromMilliseconds(Math.Max(0d, runStateSaveDelayMs));
+        var task = Task.Run(async () =>
         {
             try
             {
-                await Task.Delay(TimeSpan.FromMilliseconds(300), token);
+                await Task.Delay(delay, token);
                 if (token.IsCancellationRequested)
                 {
                     return;
                 }
 
-                await InvokeAsync(async () => await SaveRunStateAsync());
+                await GetRunStateSaveInvoker()(SaveRunStateAsync);
             }
             catch (TaskCanceledException)
             {
@@ -1374,7 +1380,39 @@ private const string PmfExpectationLabel = "Value";
             {
                 // storage errors ignored
             }
+            finally
+            {
+                if (ReferenceEquals(saveRunStateDebounceCts, cts))
+                {
+                    saveRunStateDebounceCts?.Dispose();
+                    saveRunStateDebounceCts = null;
+                }
+            }
         }, token);
+
+        pendingRunStateSaveTask = task;
+        _ = task.ContinueWith(_ =>
+        {
+            if (ReferenceEquals(pendingRunStateSaveTask, task))
+            {
+                pendingRunStateSaveTask = null;
+            }
+        }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+    }
+
+    private Func<Func<Task>, Task> GetRunStateSaveInvoker()
+    {
+        return runStateSaveInvoker ??= async callback =>
+        {
+            try
+            {
+                await InvokeAsync(callback);
+            }
+            catch (InvalidOperationException)
+            {
+                await callback();
+            }
+        };
     }
 
     private async Task LoadAsync(string runId)
@@ -2031,7 +2069,8 @@ private const string PmfExpectationLabel = "Value";
                 classFilteredNodes,
                 bin,
                 bin.ToString(CultureInfo.InvariantCulture),
-                string.Empty);
+                string.Empty,
+                context.IncludeInspectorDetails);
         }
 
         var spanStart = context.WindowData.Window.StartBin;
@@ -2044,7 +2083,8 @@ private const string PmfExpectationLabel = "Value";
                 classFilteredNodes,
                 bin,
                 bin.ToString(CultureInfo.InvariantCulture),
-                string.Empty);
+                string.Empty,
+                context.IncludeInspectorDetails);
         }
 
         var metrics = new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase);
@@ -2052,7 +2092,9 @@ private const string PmfExpectationLabel = "Value";
             ? context.Timestamps[localIndex]
             : (DateTimeOffset?)null;
 
-        var classContributionMap = new Dictionary<string, IReadOnlyList<ClassContribution>>(StringComparer.OrdinalIgnoreCase);
+        var classContributionMap = context.IncludeClassContributions
+            ? new Dictionary<string, IReadOnlyList<ClassContribution>>(StringComparer.OrdinalIgnoreCase)
+            : new Dictionary<string, IReadOnlyList<ClassContribution>>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var node in context.WindowData.Nodes)
         {
@@ -2204,10 +2246,15 @@ private const string PmfExpectationLabel = "Value";
                 }
             }
 
-            var contributions = BuildClassContributions(node, localIndex, token);
-            if (contributions.Count > 0)
+            if (context.IncludeClassContributions &&
+                (string.IsNullOrWhiteSpace(context.InspectorNodeId) ||
+                 string.Equals(context.InspectorNodeId, node.Id, StringComparison.OrdinalIgnoreCase)))
             {
-                classContributionMap[node.Id] = contributions;
+                var contributions = BuildClassContributions(node, localIndex, token);
+                if (contributions.Count > 0)
+                {
+                    classContributionMap[node.Id] = contributions;
+                }
             }
         }
 
@@ -2384,7 +2431,8 @@ private const string PmfExpectationLabel = "Value";
             classFilteredNodes,
             bin,
             bin.ToString(CultureInfo.InvariantCulture),
-            FormatTimestampSnapshot(context.Timestamps, localIndex));
+            FormatTimestampSnapshot(context.Timestamps, localIndex),
+            context.IncludeInspectorDetails);
     }
 
     private static QueueLatencyStatus? ResolveQueueLatencyStatus(TimeTravelNodeSeriesDto node, int localIndex)
@@ -2872,12 +2920,36 @@ private const string PmfExpectationLabel = "Value";
     {
         var timestampsSnapshot = timestamps?.ToList() ?? new List<DateTimeOffset>();
         var classSelectionSnapshot = selectedClasses.ToArray();
+        var inspectorIdSnapshot = inspectorNodeId;
+        var includeInspectorDetails = inspectorOpen && !string.IsNullOrWhiteSpace(inspectorIdSnapshot);
+        var includeClassContributions = includeInspectorDetails || HasNodeClassData(windowData);
         return new BinDataComputationContext(
             windowData,
             topologyGraph,
             timestampsSnapshot,
             classSelectionSnapshot,
-            SparklinePointLimit);
+            SparklinePointLimit,
+            includeInspectorDetails,
+            includeClassContributions,
+            includeInspectorDetails ? inspectorIdSnapshot : null);
+    }
+
+    private static bool HasNodeClassData(TimeTravelStateWindowDto? window)
+    {
+        if (window?.Nodes is null)
+        {
+            return false;
+        }
+
+        foreach (var node in window.Nodes)
+        {
+            if (node?.ByClass is { Count: > 0 })
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private sealed record BinDataRefreshResult(
@@ -2895,7 +2967,10 @@ private const string PmfExpectationLabel = "Value";
             TopologyGraph? topologyGraph,
             IReadOnlyList<DateTimeOffset> timestamps,
             IReadOnlyCollection<string> selectedClasses,
-            int sparklinePointLimit)
+            int sparklinePointLimit,
+            bool includeInspectorDetails,
+            bool includeClassContributions,
+            string? inspectorNodeId)
         {
             WindowData = windowData;
             TopologyGraph = topologyGraph;
@@ -2903,6 +2978,9 @@ private const string PmfExpectationLabel = "Value";
             SelectedClasses = selectedClasses;
             SparklinePointLimit = sparklinePointLimit;
             HasClassSelection = selectedClasses.Count > 0;
+            IncludeInspectorDetails = includeInspectorDetails;
+            IncludeClassContributions = includeClassContributions;
+            InspectorNodeId = inspectorNodeId;
             nodeLookup = topologyGraph?.Nodes?
                 .Where(n => n is not null && !string.IsNullOrWhiteSpace(n.Id))
                 .ToDictionary(n => n!.Id!, n => n!, StringComparer.OrdinalIgnoreCase) ??
@@ -2920,6 +2998,12 @@ private const string PmfExpectationLabel = "Value";
         public bool HasClassSelection { get; }
 
         public int SparklinePointLimit { get; }
+
+        public bool IncludeInspectorDetails { get; }
+
+        public bool IncludeClassContributions { get; }
+
+        public string? InspectorNodeId { get; }
 
         public TopologyNode? FindNode(string? nodeId)
         {
@@ -2943,7 +3027,8 @@ private const string PmfExpectationLabel = "Value";
         HashSet<string> ClassFilteredNodes,
         int SelectedBin,
         string SelectedBinLabel,
-        string SelectedTimestampLabel);
+        string SelectedTimestampLabel,
+        bool IncludesInspectorDetails);
 
     private static BinDataRefreshResult ComputeBinDataRefreshResult(
         BinDataComputationContext context,
@@ -2979,6 +3064,7 @@ private const string PmfExpectationLabel = "Value";
     {
         activeMetrics = result.Metrics;
         nodeClassContributions = result.ClassContributions;
+        inspectorDataDirty = result.IncludesInspectorDetails ? false : true;
         classFilteredNodes.Clear();
         foreach (var nodeId in result.ClassFilteredNodes)
         {
@@ -3000,6 +3086,10 @@ private const string PmfExpectationLabel = "Value";
             selectedTimestampLabel = result.SelectedTimestampLabel;
         }
         EnsureInspectorVisibility();
+        if (inspectorOpen)
+        {
+            EnsureInspectorDataFresh();
+        }
 
         if (hasLoaded && !isPlaying)
         {
@@ -3014,12 +3104,14 @@ private const string PmfExpectationLabel = "Value";
             inspectorPinned = false;
             inspectorOpen = false;
             inspectorNodeId = null;
+            inspectorDataDirty = true;
         }
         else
         {
             inspectorNodeId = nodeId;
             inspectorOpen = true;
             inspectorPinned = true;
+            EnsureInspectorDataFresh();
         }
 
         inspectorMetricsExpanded = false;
@@ -3033,6 +3125,20 @@ private const string PmfExpectationLabel = "Value";
         if (inspectorPinned && !string.IsNullOrWhiteSpace(inspectorNodeId))
         {
             inspectorOpen = true;
+            EnsureInspectorDataFresh();
+        }
+    }
+
+    private void EnsureInspectorDataFresh()
+    {
+        if (!inspectorOpen || string.IsNullOrWhiteSpace(inspectorNodeId))
+        {
+            return;
+        }
+
+        if (inspectorDataDirty)
+        {
+            ScheduleBinDataRefresh(selectedBin, cancelCurrent: true);
         }
     }
 
@@ -3923,6 +4029,7 @@ internal sealed record InspectorMetricBlock(
         inspectorNodeId = null;
         inspectorPinned = false;
         inspectorMetricsExpanded = false;
+        inspectorDataDirty = true;
         ClearInspectorEdgeHighlights();
         canvasComponent?.ClearFocus();
         StateHasChanged();
@@ -5170,6 +5277,7 @@ private static IReadOnlyList<double?> TrimSeriesAt(double?[]? source, int limit,
         inspectorPinned = false;
         inspectorNodeId = null;
         inspectorMetricsExpanded = false;
+        inspectorDataDirty = true;
         ClearInspectorEdgeHighlights();
         loggedMissingMetricKinds.Clear();
         activeMetrics = new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase);

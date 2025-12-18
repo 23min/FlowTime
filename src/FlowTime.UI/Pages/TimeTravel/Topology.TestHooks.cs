@@ -1,7 +1,10 @@
+using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using FlowTime.UI.Components.Topology;
 using FlowTime.UI.Services;
 using Microsoft.Extensions.Logging;
+using Microsoft.JSInterop;
 
 namespace FlowTime.UI.Pages.TimeTravel;
 
@@ -80,10 +83,20 @@ public partial class Topology
         return BuildInspectorDependencies(nodeId);
     }
 
+    internal (bool IncludeInspectorDetails, bool IncludeClassContributions, string? InspectorNodeId) TestCaptureBinDataFlags()
+    {
+        var context = CaptureBinDataContext();
+        return (context.IncludeInspectorDetails, context.IncludeClassContributions, context.InspectorNodeId);
+    }
+
     internal void TestCloseInspector()
     {
         CloseInspector();
     }
+
+    internal void TestScheduleRunStateSave() => ScheduleRunStateSave();
+
+    internal Task TestAwaitPendingRunStateSaveAsync() => pendingRunStateSaveTask ?? Task.CompletedTask;
 
     internal void TestSetLogger(ILogger<Topology> logger)
     {
@@ -115,6 +128,16 @@ public partial class Topology
             ? list
             : Array.Empty<ClassContribution>();
     }
+
+    internal void TestSetJsRuntime(IJSRuntime runtime) => JS = runtime;
+
+    internal void TestSetCurrentRunId(string runId) => currentRunId = runId;
+
+    internal void TestMarkHasLoaded() => hasLoaded = true;
+
+    internal void TestSetRunStateSaveDelay(TimeSpan delay) => runStateSaveDelayMs = Math.Max(0d, delay.TotalMilliseconds);
+
+    internal void TestOverrideRunStateSaveInvoker(Func<Func<Task>, Task> invoker) => runStateSaveInvoker = invoker;
 
     internal string TestBuildFilteredCsv() => BuildFilteredCsvContent();
 

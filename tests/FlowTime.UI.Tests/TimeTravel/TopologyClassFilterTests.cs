@@ -137,6 +137,67 @@ public sealed class TopologyClassFilterTests
         Assert.Contains("svc,beta,arrivals,0,6", csv);
     }
 
+    [Fact]
+    public void CaptureContext_IncludesClassContributions_WhenRunHasClassData_InspectorClosed()
+    {
+        var topology = new Topology();
+        topology.TestSetTopologyGraph(new TopologyGraph(
+            new[]
+            {
+                new TopologyNode("svc", "service", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
+            },
+            Array.Empty<TopologyEdge>()));
+
+        var window = CreateWindow(totalArrivals: 10, totalServed: 8, classArrivals: 10, classServed: 8, classId: "alpha");
+        topology.TestSetWindowData(window);
+
+        var flags = topology.TestCaptureBinDataFlags();
+        Assert.False(flags.IncludeInspectorDetails);
+        Assert.True(flags.IncludeClassContributions);
+        Assert.Null(flags.InspectorNodeId);
+    }
+
+    [Fact]
+    public void CaptureContext_SkipsClassContributions_WhenRunHasNoClassData()
+    {
+        var topology = new Topology();
+        topology.TestSetTopologyGraph(new TopologyGraph(
+            new[]
+            {
+                new TopologyNode("svc", "service", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
+            },
+            Array.Empty<TopologyEdge>()));
+
+        var window = CreateWindowWithoutClasses(totalArrivals: 10, totalServed: 8);
+        topology.TestSetWindowData(window);
+
+        var flags = topology.TestCaptureBinDataFlags();
+        Assert.False(flags.IncludeInspectorDetails);
+        Assert.False(flags.IncludeClassContributions);
+        Assert.Null(flags.InspectorNodeId);
+    }
+
+    [Fact]
+    public void CaptureContext_IncludesInspectorDetails_WhenInspectorOpen()
+    {
+        var topology = new Topology();
+        topology.TestSetTopologyGraph(new TopologyGraph(
+            new[]
+            {
+                new TopologyNode("svc", "service", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
+            },
+            Array.Empty<TopologyEdge>()));
+
+        var window = CreateWindow(totalArrivals: 10, totalServed: 8, classArrivals: 10, classServed: 8, classId: "alpha");
+        topology.TestSetWindowData(window);
+        topology.TestOnNodeFocused("svc");
+
+        var flags = topology.TestCaptureBinDataFlags();
+        Assert.True(flags.IncludeInspectorDetails);
+        Assert.True(flags.IncludeClassContributions);
+        Assert.Equal("svc", flags.InspectorNodeId);
+    }
+
     private static TimeTravelStateWindowDto CreateWindow(double totalArrivals, double totalServed, double classArrivals, double classServed, string classId, Dictionary<string, (double Arrivals, double Served, double Errors, double Queue)>? extraClasses = null)
     {
         var byClass = new Dictionary<string, IReadOnlyDictionary<string, double?[]>>(StringComparer.OrdinalIgnoreCase)
@@ -196,6 +257,44 @@ public sealed class TopologyClassFilterTests
                         ["queue"] = new double?[] { 0d }
                     },
                     ByClass = byClass
+                }
+            }
+        };
+    }
+
+    private static TimeTravelStateWindowDto CreateWindowWithoutClasses(double totalArrivals, double totalServed)
+    {
+        return new TimeTravelStateWindowDto
+        {
+            Metadata = new TimeTravelStateMetadataDto
+            {
+                RunId = "run",
+                TemplateId = "template",
+                Mode = "telemetry",
+                TelemetrySourcesResolved = true,
+                Schema = new TimeTravelSchemaMetadataDto { Id = "time-travel/v1", Version = "1", Hash = "hash" },
+                Storage = new TimeTravelStorageDescriptorDto { ModelPath = "runs/run/model.yaml" },
+                ClassCoverage = "none"
+            },
+            Window = new TimeTravelWindowSliceDto
+            {
+                StartBin = 0,
+                EndBin = 0,
+                BinCount = 1
+            },
+            TimestampsUtc = new[] { DateTimeOffset.Parse("2025-01-01T00:00:00Z") },
+            Nodes = new[]
+            {
+                new TimeTravelNodeSeriesDto
+                {
+                    Id = "svc",
+                    Kind = "service",
+                    Series = new Dictionary<string, double?[]>
+                    {
+                        ["arrivals"] = new double?[] { totalArrivals },
+                        ["served"] = new double?[] { totalServed },
+                        ["queue"] = new double?[] { 0d }
+                    }
                 }
             }
         };
