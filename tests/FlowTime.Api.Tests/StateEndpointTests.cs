@@ -31,6 +31,7 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
     private const string kernelPolicyRunId = "run_state_retry_kernel_policy";
     private const string retryEdgesRunId = "run_state_edges";
     private const string classRunId = "run_state_classes";
+    private const string queueClassRunId = "run_state_classes_queue";
     private const string dispatchScheduleRunId = "run_state_dispatch_schedule";
     private const string throughputOverflowRunId = "run_state_throughput_overflow";
     private const int binCount = 4;
@@ -67,6 +68,7 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         CreateKernelPolicyRun();
         CreateRetryEdgesRun();
         CreateClassRun();
+        CreateServiceWithBufferClassRun();
         CreateDispatchScheduleRun();
         CreateThroughputOverflowRun();
 
@@ -373,6 +375,34 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         Assert.Equal(new double?[] { 4d, 5d }, standard["arrivals"]);
         Assert.Equal(new double?[] { 3d, 4d }, standard["served"]);
         Assert.Equal(new double?[] { 0d, 1d }, standard["errors"]);
+    }
+
+    [Fact]
+    public async Task GetStateWindow_ReturnsByClassSeries_ForQueueNode()
+    {
+        var response = await client.GetAsync($"/v1/runs/{queueClassRunId}/state_window?startBin=0&endBin=1");
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync();
+            throw new XunitException($"Expected 200 OK but got {(int)response.StatusCode}: {errorBody}");
+        }
+
+        var payload = await response.Content.ReadFromJsonAsync<StateWindowResponse>(new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            PropertyNameCaseInsensitive = true
+        });
+        Assert.NotNull(payload);
+
+        var queueNode = Assert.Single(payload!.Nodes, n => n.Id == "SupportQueue");
+        Assert.NotNull(queueNode.ByClass);
+
+        var vip = queueNode.ByClass!["vip"];
+        Assert.Equal(new double?[] { 5d, 4d }, vip["arrivals"]);
+        Assert.Equal(new double?[] { 1d, 4d }, vip["queue"]);
+
+        var standard = queueNode.ByClass["standard"];
+        Assert.Equal(new double?[] { 4d, 3d }, standard["arrivals"]);
+        Assert.Equal(new double?[] { 1d, 6d }, standard["queue"]);
     }
 
     [Fact]
@@ -769,6 +799,28 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
             BuildValidModelYaml(),
             mode: "telemetry",
             overrides: overrides,
+            seriesOutputs: classSeries,
+            manifestSeries: manifestSeries);
+    }
+
+    private void CreateServiceWithBufferClassRun()
+    {
+        var classSeries = new Dictionary<string, double[]>
+        {
+            ["SupportQueue_arrivals@SUPPORTQUEUE@vip.csv"] = new[] { 5d, 4d, 5d, 3d },
+            ["SupportQueue_arrivals@SUPPORTQUEUE@standard.csv"] = new[] { 4d, 3d, 4d, 2d },
+            ["SupportQueue_queue@SUPPORTQUEUE@vip.csv"] = new[] { 1d, 4d, 8d, 0d },
+            ["SupportQueue_queue@SUPPORTQUEUE@standard.csv"] = new[] { 1d, 6d, 12d, 0d }
+        };
+
+        var manifestSeries = classSeries.Keys
+            .Select(fileName => (id: Path.GetFileNameWithoutExtension(fileName), path: $"series/{fileName}", unit: "entities/bin"))
+            .ToArray();
+
+        CreateRun(
+            queueClassRunId,
+            BuildValidModelYaml(),
+            mode: "telemetry",
             seriesOutputs: classSeries,
             manifestSeries: manifestSeries);
     }

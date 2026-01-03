@@ -21,6 +21,7 @@ runs/
 tmpdata*/
 tmpdata_*/
 tmpdata-*/
+.tmp/
 
 # Performance captures/traces (stored outside git)
 /performance/

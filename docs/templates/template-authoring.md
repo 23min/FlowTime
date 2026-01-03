@@ -123,6 +123,11 @@ topology:
 - The loader rejects legacy backlog helpers. When you migrate older templates, delete the helper nodes and keep only the topology declaration.
 - When ServiceWithBuffer nodes release work on a cadence, the UI/CLI surface their queue latency status (see *Queue Latency Semantics* below) so paused gates show up as badges rather than warnings.
 
+**Inspector parity expectations (service + ServiceWithBuffer):**
+- **Baseline inspector parity:** provide `arrivals`, `served`, `errors`, and `queueDepth` semantics for ServiceWithBuffer nodes.
+- **Optional series for richer metrics:** emit `capacity` for utilization and `processingTimeMsSum` + `servedCount` for service time. If you want retry chips, emit `attempts`, `failures`, `retryEcho`, and `retryBudgetRemaining`; otherwise the UI omits retry metrics.
+- **Class chips:** per-class series for `arrivals`, `served`, `errors`, and `queueDepth` must exist to render class chips in the inspector. Router targets should point at queue inflow series so class routing is preserved.
+
 ### Queue & DLQ Nodes
 
 `kind: queue` (visual shells) and `kind: dlq` (terminal buffers) share the same implicit DSL:

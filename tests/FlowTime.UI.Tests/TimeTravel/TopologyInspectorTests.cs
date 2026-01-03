@@ -378,6 +378,159 @@ public sealed class TopologyInspectorTests
     }
 
     [Fact]
+    public void BuildInspectorMetrics_ServiceWithBuffer_IncludesQueueMetrics()
+    {
+        var topology = new Topology();
+        var semantics = new TopologyNodeSemantics(
+            Arrivals: "arrivals",
+            Served: "served",
+            Errors: "errors",
+            Attempts: null,
+            Failures: null,
+            ExhaustedFailures: null,
+            RetryEcho: null,
+            RetryBudgetRemaining: null,
+            Queue: "queue_depth",
+            Capacity: null,
+            Series: null,
+            Expression: null,
+            Distribution: null,
+            InlineValues: null,
+            Aliases: null);
+
+        topology.TestSetTopologyGraph(new TopologyGraph(
+            new[]
+            {
+                new TopologyNode("svc-buffer", "serviceWithBuffer", "serviceWithBuffer", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, semantics)
+            },
+            Array.Empty<TopologyEdge>()));
+
+        var sparkline = CreateSparkline(new Dictionary<string, double?[]>
+        {
+            ["queue"] = new double?[] { 3, 4, 2 },
+            ["latencyMinutes"] = new double?[] { 1.5, 1.2, 1.1 },
+            ["arrivals"] = new double?[] { 10, 12, 9 },
+            ["served"] = new double?[] { 9, 11, 8 },
+            ["successRate"] = new double?[] { 0.9, 0.92, 0.94 },
+            ["utilization"] = new double?[] { 0.4, 0.5, 0.45 },
+            ["serviceTimeMs"] = new double?[] { 200, 210, 190 },
+            ["flowLatencyMs"] = new double?[] { 300, 280, 260 },
+            ["errorRate"] = new double?[] { 0.05, 0.04, 0.03 }
+        });
+
+        topology.TestSetNodeSparklines(new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["svc-buffer"] = sparkline
+        });
+
+        var blocks = topology.TestBuildInspectorMetrics("svc-buffer");
+        Assert.Contains(blocks, block => block.Title == "Queue depth");
+        Assert.Contains(blocks, block => block.Title == "Queue latency");
+        Assert.Contains(blocks, block => block.Title == "Success rate");
+        Assert.Contains(blocks, block => block.Title == "Utilization");
+        Assert.Contains(blocks, block => block.Title == "Service time");
+        Assert.Contains(blocks, block => block.Title == "Flow latency");
+        Assert.Contains(blocks, block => block.Title == "Error rate");
+    }
+
+    [Fact]
+    public void BuildInspectorMetrics_ServiceWithBuffer_UsesQueueAlias()
+    {
+        var topology = new Topology();
+        var semantics = new TopologyNodeSemantics(
+            Arrivals: "arrivals",
+            Served: "served",
+            Errors: "errors",
+            Attempts: null,
+            Failures: null,
+            ExhaustedFailures: null,
+            RetryEcho: null,
+            RetryBudgetRemaining: null,
+            Queue: "queue_depth",
+            Capacity: null,
+            Series: null,
+            Expression: null,
+            Distribution: null,
+            InlineValues: null,
+            Aliases: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["queueDepth"] = "Open backlog"
+            });
+
+        topology.TestSetTopologyGraph(new TopologyGraph(
+            new[]
+            {
+                new TopologyNode("svc-buffer", "serviceWithBuffer", "serviceWithBuffer", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, semantics)
+            },
+            Array.Empty<TopologyEdge>()));
+
+        var sparkline = CreateSparkline(new Dictionary<string, double?[]>
+        {
+            ["queue"] = new double?[] { 1, 2, 3 },
+            ["latencyMinutes"] = new double?[] { 0.5, 0.6, 0.7 },
+            ["arrivals"] = new double?[] { 5, 6, 7 },
+            ["served"] = new double?[] { 4, 5, 6 },
+            ["successRate"] = new double?[] { 0.8, 0.82, 0.85 },
+            ["utilization"] = new double?[] { 0.3, 0.35, 0.4 },
+            ["serviceTimeMs"] = new double?[] { 150, 160, 170 },
+            ["flowLatencyMs"] = new double?[] { 220, 210, 200 },
+            ["errorRate"] = new double?[] { 0.02, 0.02, 0.01 }
+        });
+
+        topology.TestSetNodeSparklines(new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["svc-buffer"] = sparkline
+        });
+
+        var blocks = topology.TestBuildInspectorMetrics("svc-buffer");
+        var queueBlock = Assert.Single(blocks, block => block.Title.StartsWith("Queue depth", StringComparison.Ordinal));
+        Assert.Equal("Queue depth: Open backlog", queueBlock.Title);
+    }
+
+    [Fact]
+    public void BuildInspectorMetrics_ServiceWithBuffer_ExcludesRetryMetricsWhenAbsent()
+    {
+        var topology = new Topology();
+        topology.TestSetOverlaySettings(new TopologyOverlaySettings
+        {
+            ShowRetryMetrics = true,
+            ShowRetryBudget = true
+        });
+
+        topology.TestSetTopologyGraph(new TopologyGraph(
+            new[]
+            {
+                new TopologyNode("svc-buffer", "serviceWithBuffer", "serviceWithBuffer", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
+            },
+            Array.Empty<TopologyEdge>()));
+
+        var sparkline = CreateSparkline(new Dictionary<string, double?[]>
+        {
+            ["queue"] = new double?[] { 4, 3, 2 },
+            ["latencyMinutes"] = new double?[] { 1.1, 1.0, 0.9 },
+            ["served"] = new double?[] { 8, 7, 6 },
+            ["successRate"] = new double?[] { 0.9, 0.91, 0.92 },
+            ["utilization"] = new double?[] { 0.5, 0.55, 0.6 },
+            ["serviceTimeMs"] = new double?[] { 180, 175, 170 },
+            ["flowLatencyMs"] = new double?[] { 240, 230, 220 },
+            ["errorRate"] = new double?[] { 0.03, 0.02, 0.02 }
+        });
+
+        topology.TestSetNodeSparklines(new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["svc-buffer"] = sparkline
+        });
+
+        var blocks = topology.TestBuildInspectorMetrics("svc-buffer");
+        Assert.DoesNotContain(blocks, block => block.Title.StartsWith("Attempts", StringComparison.Ordinal));
+        Assert.DoesNotContain(blocks, block => block.Title.StartsWith("Failed retries", StringComparison.Ordinal));
+        Assert.DoesNotContain(blocks, block => block.Title.StartsWith("Retry echo", StringComparison.Ordinal));
+        Assert.DoesNotContain(blocks, block => block.Title.StartsWith("Exhausted", StringComparison.Ordinal));
+        Assert.DoesNotContain(blocks, block => block.Title.StartsWith("Retry budget remaining", StringComparison.Ordinal));
+        Assert.DoesNotContain(blocks, block => block.Title.StartsWith("Retry tax", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void BuildInspectorDependencies_RespectsOverlayFilters()
     {
         var topology = new Topology();
@@ -554,7 +707,7 @@ public sealed class TopologyInspectorTests
             },
             block =>
             {
-                Assert.Equal("Latency", block.Title);
+                Assert.Equal("Queue latency", block.Title);
                 Assert.False(block.IsPlaceholder);
                 Assert.Equal("latencyMinutes", block.SeriesKey);
             },

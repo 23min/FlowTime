@@ -65,6 +65,74 @@ public class RouterClassContributionTests
     }
 
     [Fact]
+    public void ServiceWithBuffer_UsesRouterOutputsForClassSeries()
+    {
+        var model = new ModelDefinition
+        {
+            Grid = new GridDefinition { Bins = 1, BinSize = 1, BinUnit = "hours" },
+            Nodes =
+            {
+                new NodeDefinition { Id = "alpha_source", Kind = "const", Values = new[] { 6d } },
+                new NodeDefinition { Id = "beta_source", Kind = "const", Values = new[] { 4d } },
+                new NodeDefinition { Id = "source_total", Kind = "expr", Expr = "alpha_source + beta_source" },
+                new NodeDefinition { Id = "route_alpha", Kind = "expr", Expr = "source_total * 0.6" },
+                new NodeDefinition { Id = "route_beta", Kind = "expr", Expr = "source_total * 0.4" },
+                new NodeDefinition
+                {
+                    Id = "hub_router",
+                    Kind = "router",
+                    Router = new RouterDefinition
+                    {
+                        Inputs = new RouterInputsDefinition { Queue = "source_total" },
+                        Routes = new List<RouterRouteDefinition>
+                        {
+                            new() { Target = "route_alpha", Classes = new[] { "Alpha" } },
+                            new() { Target = "route_beta", Classes = new[] { "Beta" } }
+                        }
+                    }
+                },
+                new NodeDefinition { Id = "queue_inflow", Kind = "expr", Expr = "route_alpha + route_beta" },
+                new NodeDefinition { Id = "queue_outflow", Kind = "const", Values = new[] { 0d } },
+                new NodeDefinition { Id = "queue_loss", Kind = "const", Values = new[] { 0d } },
+                new NodeDefinition
+                {
+                    Id = "queue_node",
+                    Kind = "serviceWithBuffer",
+                    Inflow = "queue_inflow",
+                    Outflow = "queue_outflow",
+                    Loss = "queue_loss"
+                }
+            }
+        };
+
+        var grid = new TimeGrid(1, 1, TimeUnit.Hours);
+        var totals = new Dictionary<NodeId, double[]>
+        {
+            [new NodeId("alpha_source")] = new[] { 6d },
+            [new NodeId("beta_source")] = new[] { 4d },
+            [new NodeId("source_total")] = new[] { 10d },
+            [new NodeId("route_alpha")] = new[] { 6d },
+            [new NodeId("route_beta")] = new[] { 4d },
+            [new NodeId("hub_router")] = new[] { 10d },
+            [new NodeId("queue_inflow")] = new[] { 10d },
+            [new NodeId("queue_outflow")] = new[] { 0d },
+            [new NodeId("queue_loss")] = new[] { 0d },
+            [new NodeId("queue_node")] = new[] { 10d }
+        };
+        var classAssignments = new Dictionary<NodeId, string>
+        {
+            [new NodeId("alpha_source")] = "Alpha",
+            [new NodeId("beta_source")] = "Beta"
+        };
+
+        var contributions = ClassContributionBuilder.Build(model, grid, totals, classAssignments, out _);
+
+        var queue = Assert.Contains(new NodeId("queue_node"), contributions);
+        Assert.Equal(new[] { 6d }, queue["Alpha"]);
+        Assert.Equal(new[] { 4d }, queue["Beta"]);
+    }
+
+    [Fact]
     public void RouterWeightedRoutesSplitRemainder()
     {
         var model = new ModelDefinition

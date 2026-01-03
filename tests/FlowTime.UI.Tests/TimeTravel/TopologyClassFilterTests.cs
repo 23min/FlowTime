@@ -89,6 +89,78 @@ public sealed class TopologyClassFilterTests
     }
 
     [Fact]
+    public void ClassContributionsExposePerClassMetrics_ForServiceWithBuffer()
+    {
+        var topology = new Topology();
+        topology.TestSetTopologyGraph(new TopologyGraph(
+            new[]
+            {
+                new TopologyNode("queue", "serviceWithBuffer", "serviceWithBuffer", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
+            },
+            Array.Empty<TopologyEdge>()));
+
+        var byClass = new Dictionary<string, IReadOnlyDictionary<string, double?[]>>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["alpha"] = new Dictionary<string, double?[]>
+            {
+                ["arrivals"] = new double?[] { 5 },
+                ["queue"] = new double?[] { 2 }
+            },
+            ["beta"] = new Dictionary<string, double?[]>
+            {
+                ["arrivals"] = new double?[] { 3 },
+                ["queue"] = new double?[] { 1 }
+            }
+        };
+
+        var window = new TimeTravelStateWindowDto
+        {
+            Metadata = new TimeTravelStateMetadataDto
+            {
+                RunId = "run",
+                TemplateId = "template",
+                Mode = "telemetry",
+                TelemetrySourcesResolved = true,
+                Schema = new TimeTravelSchemaMetadataDto { Id = "time-travel/v1", Version = "1", Hash = "hash" },
+                Storage = new TimeTravelStorageDescriptorDto { ModelPath = "runs/run/model.yaml" },
+                ClassCoverage = "full"
+            },
+            Window = new TimeTravelWindowSliceDto
+            {
+                StartBin = 0,
+                EndBin = 0,
+                BinCount = 1
+            },
+            TimestampsUtc = new[] { DateTimeOffset.Parse("2025-01-01T00:00:00Z") },
+            Nodes = new[]
+            {
+                new TimeTravelNodeSeriesDto
+                {
+                    Id = "queue",
+                    Kind = "serviceWithBuffer",
+                    Series = new Dictionary<string, double?[]>
+                    {
+                        ["arrivals"] = new double?[] { 8 },
+                        ["served"] = new double?[] { 6 },
+                        ["queue"] = new double?[] { 3 }
+                    },
+                    ByClass = byClass
+                }
+            }
+        };
+
+        topology.TestSetWindowData(window);
+        topology.TestSetClassSelection(Array.Empty<string>());
+
+        topology.TestUpdateActiveMetrics(0);
+
+        var contributions = topology.TestGetClassContributions("queue");
+        Assert.Equal(2, contributions.Count);
+        Assert.Contains(contributions, c => c.Id == "alpha" && c.Queue == 2);
+        Assert.Contains(contributions, c => c.Id == "beta" && c.Queue == 1);
+    }
+
+    [Fact]
     public void BuildFilteredCsv_RespectsSelectedClasses()
     {
         var topology = new Topology();

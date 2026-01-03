@@ -8,6 +8,8 @@ The `docs/milestones/` folder now mirrors the active roadmap status:
 ## Adding a new milestone
 
 1. Author the spec at `docs/milestones/<MILESTONE-ID>.md` (only for work that is planned or in progress).
+   - The spec filename may include a descriptive suffix (for example, `FT-M-05.08-servicewithbuffer-inspector.md`).
+   - References elsewhere should use the milestone ID without the suffix (for example, `FT-M-05.08`).
 2. When the milestone ships, move the spec to `docs/milestones/completed/` and update references (including the tracking log and release notes).
 3. Keep the tracking document under `docs/milestones/tracking/` no matter what stage the milestone is in.
 

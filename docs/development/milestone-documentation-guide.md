@@ -49,6 +49,10 @@ Milestones evolve through these states:
 ---
 ```
 
+**File Naming Note:**
+- The spec filename may include a descriptive suffix after the milestone ID (for example, `FT-M-05.08-servicewithbuffer-inspector.md`).
+- References in docs, tracking logs, and release notes should use the milestone ID without the suffix (for example, `FT-M-05.08`).
+
 **Milestone ID Format:**
 - Engine: `M-XX.XX` (e.g., `M-02.10`)
 - FlowTime.Sim: `SIM-M-XX.XX` (e.g., `SIM-M-03.00`)

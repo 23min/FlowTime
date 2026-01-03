@@ -3604,7 +3604,10 @@ internal sealed record InspectorMetricBlock(
         nodeSparklines.TryGetValue(nodeId, out var baseSparkline);
         var topoNode = FindTopologyNode(nodeId);
         var nodeKind = topoNode?.Kind;
-        var kindKey = string.IsNullOrWhiteSpace(nodeKind) ? "unknown" : nodeKind!;
+        var logicalKind = topoNode?.LogicalType;
+        var kindKey = string.IsNullOrWhiteSpace(nodeKind)
+            ? (string.IsNullOrWhiteSpace(logicalKind) ? "unknown" : logicalKind!)
+            : nodeKind!;
 
         var blocks = new List<InspectorMetricBlock>();
 
@@ -3725,13 +3728,20 @@ internal sealed record InspectorMetricBlock(
             return blocks;
         }
 
-        if (IsQueueKind(nodeKind))
+        var isQueueKind = IsQueueKind(nodeKind);
+        var isServiceWithBuffer = IsServiceWithBufferKind(nodeKind) || IsServiceWithBufferKind(logicalKind);
+
+        if (isQueueKind || isServiceWithBuffer)
         {
             AddRequired(Label("Queue depth", "queue", "queueDepth"), "queue", 0d);
-            AddRequired("Latency", "latencyMinutes", 0d);
+            AddRequired("Queue latency", "latencyMinutes", 0d);
             AddRequired(Label("Arrivals", "arrivals"), "arrivals", 0d);
             AddRequired(Label("Served", "served"), "served", 0d);
-            return blocks;
+
+            if (isQueueKind && !isServiceWithBuffer)
+            {
+                return blocks;
+            }
         }
 
         var showRetryMetrics = overlaySettings.ShowRetryMetrics;
@@ -3742,8 +3752,16 @@ internal sealed record InspectorMetricBlock(
         var hasServedSeries = baseSparkline?.Series.ContainsKey("served") == true || AllowsFallback("served");
         var hasExhaustedSeries = baseSparkline?.Series.ContainsKey("exhaustedFailures") == true;
         var hasBudgetSeries = baseSparkline?.Series.ContainsKey("retryBudgetRemaining") == true;
+        var wantsRetryMetrics = showRetryMetrics && (hasAttemptsSeries ||
+            hasFailuresSeries ||
+            hasRetryEchoSeries ||
+            hasExhaustedSeries ||
+            !string.IsNullOrWhiteSpace(topoNode?.Semantics?.Attempts) ||
+            !string.IsNullOrWhiteSpace(topoNode?.Semantics?.Failures) ||
+            !string.IsNullOrWhiteSpace(topoNode?.Semantics?.RetryEcho) ||
+            !string.IsNullOrWhiteSpace(topoNode?.Semantics?.ExhaustedFailures));
 
-        if (showRetryMetrics && (hasAttemptsSeries || !string.IsNullOrWhiteSpace(topoNode?.Semantics?.Attempts)))
+        if (wantsRetryMetrics && (hasAttemptsSeries || !string.IsNullOrWhiteSpace(topoNode?.Semantics?.Attempts)))
         {
             AddRequired(Label("Attempts", "attempts"), "attempts", 0d, seriesKeyOverride: "attempts");
         }
@@ -3753,17 +3771,17 @@ internal sealed record InspectorMetricBlock(
             AddRequired(Label("Served", "served"), "served", 0d, seriesKeyOverride: "served");
         }
 
-        if (showRetryMetrics && (hasFailuresSeries || !string.IsNullOrWhiteSpace(topoNode?.Semantics?.Failures)))
+        if (wantsRetryMetrics && (hasFailuresSeries || !string.IsNullOrWhiteSpace(topoNode?.Semantics?.Failures)))
         {
             AddRequired(Label("Failed retries", "failures"), "failures", 0d, seriesKeyOverride: "failures");
         }
 
-        if (showRetryMetrics && (hasRetryEchoSeries || !string.IsNullOrWhiteSpace(topoNode?.Semantics?.RetryEcho)))
+        if (wantsRetryMetrics && (hasRetryEchoSeries || !string.IsNullOrWhiteSpace(topoNode?.Semantics?.RetryEcho)))
         {
             AddRequired(Label("Retry echo", "retryEcho", "retry_echo", "retry"), "retryEcho", 0d, seriesKeyOverride: "retryEcho");
         }
 
-        if (showRetryMetrics && (hasExhaustedSeries || !string.IsNullOrWhiteSpace(topoNode?.Semantics?.ExhaustedFailures)))
+        if (wantsRetryMetrics && (hasExhaustedSeries || !string.IsNullOrWhiteSpace(topoNode?.Semantics?.ExhaustedFailures)))
         {
             AddRequired(Label("Exhausted", "exhaustedFailures"), "exhaustedFailures", 0d, seriesKeyOverride: "exhaustedFailures");
         }
@@ -3773,16 +3791,15 @@ internal sealed record InspectorMetricBlock(
             AddRequired(Label("Retry budget remaining", "retryBudgetRemaining"), "retryBudgetRemaining", 0d, seriesKeyOverride: "retryBudgetRemaining");
         }
 
-        AddRequired("Retry tax", "retryTax", 0d, 1d, valueFormat: InspectorValueFormat.Percent, seriesKeyOverride: "retryTax");
+        if (wantsRetryMetrics)
+        {
+            AddRequired("Retry tax", "retryTax", 0d, 1d, valueFormat: InspectorValueFormat.Percent, seriesKeyOverride: "retryTax");
+        }
 
         AddRequired("Success rate", "successRate", 0d, 1d, valueFormat: InspectorValueFormat.Percent);
         AddRequired("Utilization", "utilization", 0d, 1d, valueFormat: InspectorValueFormat.Percent);
         AddRequired("Service time", "serviceTimeMs", 0d, seriesKeyOverride: "serviceTimeMs");
         AddRequired("Flow latency", "flowLatencyMs", 0d, seriesKeyOverride: "flowLatencyMs");
-        if (IsQueueKind(nodeKind))
-        {
-            AddRequired("Latency", "latencyMinutes", 0d);
-        }
         AddRequired("Error rate", "errorRate", 0d, 1d, valueFormat: InspectorValueFormat.Percent);
         AddOptional(Label("Errors", "errors"), "errors", 0d, ariaLabel: "Errors sparkline");
 
@@ -3843,7 +3860,10 @@ internal sealed record InspectorMetricBlock(
         AddDerived("Success rate", metrics.SuccessRate, InspectorValueFormat.Percent);
         AddDerived("Utilization", metrics.Utilization, InspectorValueFormat.Percent);
         AddDerived("Error rate", metrics.ErrorRate, InspectorValueFormat.Percent);
-        AddDerived("Latency", metrics.LatencyMinutes, InspectorValueFormat.Number, "min");
+        var latencyLabel = IsQueueKind(metrics.NodeKind) || IsServiceWithBufferKind(metrics.NodeKind)
+            ? "Queue latency"
+            : "Latency";
+        AddDerived(latencyLabel, metrics.LatencyMinutes, InspectorValueFormat.Number, "min");
         AddDerived("Service time", metrics.ServiceTimeMs, InspectorValueFormat.Number, "ms");
         AddDerived("Retry tax", metrics.RetryTax, InspectorValueFormat.Percent);
 
@@ -4093,6 +4113,10 @@ internal sealed record InspectorMetricBlock(
         !string.IsNullOrWhiteSpace(kind) &&
         (string.Equals(kind, "queue", StringComparison.OrdinalIgnoreCase) ||
          string.Equals(kind, "dlq", StringComparison.OrdinalIgnoreCase));
+
+    private static bool IsServiceWithBufferKind(string? kind) =>
+        !string.IsNullOrWhiteSpace(kind) &&
+        string.Equals(kind, "serviceWithBuffer", StringComparison.OrdinalIgnoreCase);
 
     private static string FormatNodeKindLabel(string? kind)
     {
