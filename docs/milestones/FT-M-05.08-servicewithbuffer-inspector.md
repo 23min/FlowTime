@@ -26,6 +26,7 @@ ServiceWithBuffer was introduced as the canonical "service with queue" abstracti
 3. Ensure class coverage is consistent for ServiceWithBuffer nodes in classed templates (e.g., `transportation-basic-classes`).
 4. Update UI inspector logic so ServiceWithBuffer nodes display the expected metrics and class chips when data exists.
 5. Document model-driven vs. code-driven gaps and update authoring guidance if needed.
+6. Prefer API-side derivation/aliasing of ServiceWithBuffer metrics when data exists, rather than requiring template-only fixes.
 
 ### Out of Scope ❌
 - Broad performance work (this is not a perf milestone).
@@ -45,7 +46,29 @@ ServiceWithBuffer was introduced as the canonical "service with queue" abstracti
 **Acceptance Criteria:**
 - [ ] For service nodes, inspector shows: arrivals, served, errors, success rate, utilization, service time, flow latency, error rate, and optional retry metrics when series exist.
 - [ ] For ServiceWithBuffer nodes, inspector shows: arrivals, served, errors, queue depth, queue latency status (when available), success rate, utilization, service time, flow latency, error rate, and optional retry metrics when series exist.
+- [ ] When ServiceWithBuffer semantics are incomplete but series exist in `/state_window`, the API derives/aliases queue latency, utilization, and service time rather than requiring template edits.
 - [ ] When a metric series is missing, the inspector renders a consistent placeholder ("Model does not include series data") without silently dropping the metric.
+
+#### FR1.1: Metric Derivation Rules (API)
+**Description:** Define explicit derivation/alias rules so ServiceWithBuffer metrics are computed consistently when source series exist.
+
+**Rules:**
+- **Queue latency**: derived from queue depth + served count (or equivalent) over the same time bin. If either input is missing, queue latency remains unavailable.
+- **Utilization**: derived from served count + capacity (or capacitySeries). If capacity is missing, utilization remains unavailable.
+- **Service time**: derived from processing time sum + served count (or equivalent). If processing time or served count is missing, service time remains unavailable.
+- **Flow latency**: only shown when the run provides it directly; it is not inferred from queue latency + service time.
+
+**Acceptance Criteria:**
+- [ ] Derivation rules are implemented in the API (not in the UI).
+- [ ] The API never invents metrics without source series; missing inputs yield "No data".
+
+#### FR1.2: Missing Data Behavior
+**Description:** Missing series should be explicit and consistent across service and ServiceWithBuffer nodes.
+
+**Acceptance Criteria:**
+- [ ] Missing metrics show a consistent "No data" placeholder.
+- [ ] Missing inputs are logged or surfaced in diagnostics (non-blocking).
+- [ ] The UI does not hide metrics entirely when a series is missing.
 
 **Examples:**
 - HubQueue (ServiceWithBuffer) should display queue depth and queue latency alongside standard service metrics.
@@ -86,7 +109,7 @@ ServiceWithBuffer was introduced as the canonical "service with queue" abstracti
 ## Technical Design (Summary)
 
 ### Architecture Decisions
-**Decision:** Treat ServiceWithBuffer as "service-like plus queue" for inspector metrics, using `node.Kind` + `nodeLogicalType` mapping and series aliases.
+**Decision:** Treat ServiceWithBuffer as "service-like plus queue" for inspector metrics, using `node.Kind` + `nodeLogicalType` mapping and series aliases. Prefer API-derived metrics from existing series before requesting template changes.
 **Rationale:** Aligns with the ServiceWithBuffer epic expectations and reduces user confusion.
 **Alternatives Considered:** Hide queue metrics for ServiceWithBuffer (rejected as it contradicts queue ownership semantics).
 
@@ -99,8 +122,9 @@ ServiceWithBuffer was introduced as the canonical "service with queue" abstracti
 1. Capture `/graph` + `/state_window` series keys for:
    - `transportation-basic-classes` (CentralHub, HubQueue, AirportDispatchQueue).
    - `transportation-basic` (non-class baseline).
-2. Build a matrix of expected vs. actual series per node kind.
-3. Record which gaps are model-driven (template semantics missing) vs. code-driven (API/UI mapping).
+2. Capture ClassContributionBuilder routing outputs for the same runs and nodes to verify class series propagation.
+3. Build a matrix of expected vs. actual series per node kind.
+4. Record which gaps are model-driven (template semantics missing) vs. code-driven (API/UI mapping).
 
 **Deliverables:**
 - Gap matrix table in this milestone doc or tracking doc.
@@ -144,12 +168,27 @@ ServiceWithBuffer was introduced as the canonical "service with queue" abstracti
 **Tasks:**
 1. Update `docs/templates/template-authoring.md` with ServiceWithBuffer inspector expectations.
 2. Add a short validation checklist to the tracking doc.
+3. Update modeling documentation to clarify which series must be emitted (and which are derived) for ServiceWithBuffer parity.
+4. Update reference docs to reflect API-derived metrics and required inputs.
 
 **Deliverables:**
 - Updated authoring docs and validation checklist.
 
 **Success Criteria:**
 - [ ] Documentation clearly explains required series for ServiceWithBuffer inspector parity.
+ - [ ] Modeling/templates/telemetry docs stay consistent with API derivation rules.
+
+## Documentation Impact
+
+The API derivation approach affects multiple docs and must remain consistent:
+- `docs/templates/template-authoring.md`: required series inputs for ServiceWithBuffer.
+- `docs/modeling.md`: modeling guidance for queues, services, and buffers.
+- `docs/reference/*`: inspector metrics and semantics expectations.
+- `docs/schemas/*` (if schemas are updated): ensure telemetry/engine artifacts list the required series.
+
+## Future-Proofing Guard
+
+The UI must remain agnostic to data origin. Whether series come from templates, simulation artifacts, or telemetry ingestion, the inspector uses the same API contract and derivation rules. Any changes must preserve that contract so telemetry-driven runs behave identically to template-driven runs.
 
 ## Test Plan
 
@@ -188,4 +227,3 @@ ServiceWithBuffer was introduced as the canonical "service with queue" abstracti
 - `src/FlowTime.API/Services/StateQueryService.cs` - ensure ByClass is surfaced for ServiceWithBuffer nodes.
 - `src/FlowTime.UI/Pages/TimeTravel/Topology.razor` - inspector metric block mapping and alias handling.
 - `docs/templates/template-authoring.md` - clarify required series and class behavior.
-
