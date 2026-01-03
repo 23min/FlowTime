@@ -1,5 +1,5 @@
 import { test, expect, Page } from '@playwright/test';
-import { getHoverDiagnostics, waitForTopologyReady, topologyCanvas } from '../helpers/flowtime-hud';
+import { getHoverDiagnostics, waitForTopologyReady, topologyCanvas, getCanvasDiagnostics } from '../helpers/flowtime-hud';
 
 const RUN_ID = process.env.FLOWTIME_TEST_RUN_ID ?? 'run_20251214T151352Z_479f8f01';
 
@@ -53,5 +53,20 @@ test.describe('Topology latency budgets', () => {
     expect(inspectorStats.pointerInpAverageMs ?? Infinity).toBeLessThanOrEqual(200);
     expect(inspectorStats.pointerQueueDrops ?? 0).toBeLessThanOrEqual(20);
     expect(inspectorStats.pointerEventsReceived ?? 0).toBeGreaterThan(0);
+  });
+
+  test('edge spatial index limits hover candidate count', async ({ page }) => {
+    await page.goto(`/time-travel/topology?runId=${encodeURIComponent(RUN_ID)}&mode=simulation`);
+    await waitForTopologyReady(page);
+
+    const canvas = topologyCanvas(page);
+    await canvas.hover({ position: { x: 260, y: 360 } });
+    await page.mouse.move(960, 480, { steps: 14 });
+    await page.waitForTimeout(1200);
+
+    const stats = await getCanvasDiagnostics(page);
+    expect(stats.edgeCandidatesLast ?? Infinity).toBeLessThanOrEqual(12);
+    expect(stats.edgeCandidateFallbacks ?? 0).toBeLessThanOrEqual(1);
+    expect(stats.edgeGridCellSize ?? 0).toBeGreaterThan(0);
   });
 });

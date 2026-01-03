@@ -52,6 +52,13 @@ public sealed record HoverDiagnosticsRequest
     public double PointerInpSampleCount { get; init; }
     public double PointerInpAverageMs { get; init; }
     public double PointerInpMaxMs { get; init; }
+    public double EdgeCandidatesLast { get; init; }
+    public double EdgeCandidatesAverage { get; init; }
+    public double EdgeCandidateSamples { get; init; }
+    public double EdgeCandidateFallbacks { get; init; }
+    public double EdgeGridCellSize { get; init; }
+    public double EdgeCacheHits { get; init; }
+    public double EdgeCacheMisses { get; init; }
     public HoverDiagnosticsCanvasPayload? Canvas { get; init; }
 
     public double? ResolveCanvasWidth() => CanvasWidth ?? Canvas?.Width;

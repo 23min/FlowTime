@@ -34,7 +34,20 @@ export async function getHoverDiagnostics(page: Page): Promise<HoverDiagnosticsP
   });
 }
 
-export async function getCanvasDiagnostics(page: Page) {
+export type CanvasDiagnosticsPayload = {
+  sceneRebuilds?: number;
+  overlayUpdates?: number;
+  avgDrawMs?: number;
+  edgeCandidatesLast?: number;
+  edgeCandidatesAverage?: number;
+  edgeCandidateSamples?: number;
+  edgeCandidateFallbacks?: number;
+  edgeGridCellSize?: number;
+  edgeCacheHits?: number;
+  edgeCacheMisses?: number;
+};
+
+export async function getCanvasDiagnostics(page: Page): Promise<CanvasDiagnosticsPayload> {
   return page.evaluate(() => {
     const canvas = document.querySelector('canvas[data-topology-canvas]');
     if (!canvas || !(window as any).FlowTime?.TopologyCanvas) {

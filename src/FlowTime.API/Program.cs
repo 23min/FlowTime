@@ -276,7 +276,14 @@ v1.MapPost("/diagnostics/hover", async (HoverDiagnosticsRequest payload, IConfig
             payload.LayoutReads,
             payload.PointerInpSampleCount,
             payload.PointerInpAverageMs,
-            payload.PointerInpMaxMs);
+            payload.PointerInpMaxMs,
+            payload.EdgeCandidatesLast,
+            payload.EdgeCandidatesAverage,
+            payload.EdgeCandidateSamples,
+            payload.EdgeCandidateFallbacks,
+            payload.EdgeGridCellSize,
+            payload.EdgeCacheHits,
+            payload.EdgeCacheMisses);
 
         var hoverPath = Path.Combine(diagnosticsRoot, "hover-diagnostics.csv");
         await DiagnosticsFileWriter.AppendHoverEntryAsync(hoverPath, hoverRow, hoverLimit);

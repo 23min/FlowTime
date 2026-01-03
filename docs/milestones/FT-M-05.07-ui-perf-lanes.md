@@ -1,6 +1,6 @@
 # FT-M-05.07 — Topology UI Input/Paint/Data Separation
 
-**Status:** 📋 Planned  
+**Status:** ✅ Completed  
 **Epic Reference:** `docs/architecture/ui-perf/README.md`  
 **Owner:** FlowTime UI  
 **Scope:** FlowTime.UI (Time-Travel Topology page + diagnostics)  
@@ -72,7 +72,7 @@ Tests must precede implementation for each phase (e.g., failing Playwright test 
 
 **Exit Criteria:** Diagnostics show stable pointer INP < 200 ms while hovering/panning, and Playwright automation passes.
 
-### Phase 2 — Scene vs. Overlay Payload Split
+### Phase 2 — Scene vs. Overlay Payload Split ✅
 
 **Goal:** Only rebuild the “scene” when topology structure changes; bin/hover updates apply as lightweight deltas.
 
@@ -83,7 +83,7 @@ Tests must precede implementation for each phase (e.g., failing Playwright test 
 
 **Exit Criteria:** Diagnostics show scene rebuild count remains zero during scrubs/pans; overlay delta count matches bin changes. HUD/CSV captures verify improvements.
 
-### Phase 3 — Data Lane (Metrics & Inspector Hygiene)
+### Phase 3 — Data Lane (Metrics & Inspector Hygiene) ✅
 
 **Goal:** Keep heavy metric recompute off the input/pain lanes and minimize Blazor churn.
 
@@ -94,7 +94,7 @@ Tests must precede implementation for each phase (e.g., failing Playwright test 
 
 **Exit Criteria:** Diagnostics show overlay delta updates staying under 1/frame even with inspector open; no main-thread long tasks >50 ms during hover/pan.
 
-### Phase 4 — Edge Hit-Test Spatial Index & Final Validation
+### Phase 4 — Edge Hit-Test Spatial Index & Final Validation ✅
 
 **Goal:** Make hover detection scale sub-linearly with node/edge count and finalize perf validation.
 

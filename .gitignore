@@ -22,6 +22,12 @@ tmpdata*/
 tmpdata_*/
 tmpdata-*/
 
+# Performance captures/traces (stored outside git)
+/performance/
+docs/performance/FT-M-05.07/captures/
+docs/performance/FT-M-05.07/traces/*.json
+docs/performance/FT-M-05.07/traces/*.json.gz
+
 # Deprecated/removed directories - DO NOT RECREATE
 apis/
  

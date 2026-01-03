@@ -53,6 +53,9 @@
     const DIAGNOSTICS_COLLAPSE_STORAGE_KEY = 'ft.topology.diag.collapsed';
     const DEBUG_LOG_STORAGE_KEY = 'ft.topology.debuglog';
     const EDGE_SPATIAL_INDEX_CELL_SIZE = 256;
+    const EDGE_SPATIAL_MIN_CELL_SIZE = 64;
+    const EDGE_SPATIAL_MAX_CELL_SIZE = 512;
+    const EDGE_SPATIAL_TARGET_EDGES_PER_CELL = 4;
     const CANVAS_RECT_CACHE_MAX_AGE_MS = 32;
     const VIEWPORT_EMIT_DEBOUNCE_MS = 120;
 
@@ -285,6 +288,18 @@
             totalMs: 0,
             maxMs: 0,
             lastMs: 0
+        };
+    }
+
+    function createEdgeSpatialStats(cellSize = EDGE_SPATIAL_INDEX_CELL_SIZE) {
+        return {
+            cellSize,
+            samples: 0,
+            candidateTotal: 0,
+            lastCandidates: 0,
+            fallbackSamples: 0,
+            cacheHits: 0,
+            cacheMisses: 0
         };
     }
 
@@ -659,6 +674,9 @@
                 hoveredNodeId: null,
                 edgeHitboxes: [],
                 edgeSpatialIndex: createEdgeSpatialIndex(),
+                edgeSpatialCache: null,
+                edgeSpatialStats: createEdgeSpatialStats(),
+                sceneBounds: null,
                 hoveredEdgeId: null,
                 inspectorEdgeHoverId: null,
                 focusedEdgeId: null,
@@ -1624,6 +1642,9 @@
             state.canvasRectCache = null;
             state.dotNetRef = null;
             unregisterActiveState(state);
+            state.sceneBounds = null;
+            state.edgeSpatialCache = null;
+            state.edgeSpatialStats = createEdgeSpatialStats(state.edgeSpatialIndex?.cellSize ?? EDGE_SPATIAL_INDEX_CELL_SIZE);
         };
     }
 
@@ -1637,12 +1658,13 @@
             state.nodeHitboxes = [];
             state.sceneRawNodes = [];
             state.sceneRawEdges = [];
+            state.sceneBounds = null;
             state.sceneNodeMap = new Map();
-            state.sceneLegacyTooltip = null;
-            state.edgeOverlayContext = null;
-            state.edgeOverlayLegend = null;
-            resetEdgeSpatialIndex(state);
-            state.sceneDirty = true;
+        state.sceneLegacyTooltip = null;
+        state.edgeOverlayContext = null;
+        state.edgeOverlayLegend = null;
+        resetEdgeSpatialIndex(state);
+        state.sceneDirty = true;
             const previousChipId = state.hoveredChipId;
             const previousNodeId = state.hoveredNodeId;
             state.hoveredChipId = null;
@@ -1684,6 +1706,7 @@
         if (rebuildStaticScene) {
             state.sceneRawNodes = nodesPayload;
             state.sceneRawEdges = edgesPayload;
+            state.sceneBounds = computeSceneBoundsFromNodes(nodesPayload);
             state.sceneLegacyTooltip = legacyTooltipValue;
             state.nodeHitboxes = [];
             state.chipHitboxes = [];
@@ -2403,10 +2426,30 @@
         }
 
         const tolerance = 8 / Math.max(state.scale || 1, 0.0001);
-        let candidates = queryEdgeSpatialIndex(state, worldX, worldY, tolerance);
-        if (!Array.isArray(candidates) || candidates.length === 0) {
-            candidates = state.edgeHitboxes;
+        const index = state?.edgeSpatialIndex;
+        const cellSize = index?.cellSize;
+        const cellKey = cellSize ? `${Math.floor(worldX / cellSize)}:${Math.floor(worldY / cellSize)}` : null;
+
+        if (cellKey && state.edgeSpatialCache && state.edgeSpatialCache.key === cellKey) {
+            const cachedBox = state.edgeSpatialCache.hitbox;
+            if (cachedBox) {
+                const distance = distanceToPolyline(cachedBox.points, worldX, worldY);
+                if (distance <= tolerance) {
+                    recordEdgeSpatialCacheHit(state);
+                    updateEdgeSpatialStats(state, 1, false);
+                    state.edgeSpatialCache.worldX = worldX;
+                    state.edgeSpatialCache.worldY = worldY;
+                    return cachedBox;
+                }
+            }
+            recordEdgeSpatialCacheMiss(state);
         }
+
+        const spatialCandidates = queryEdgeSpatialIndex(state, worldX, worldY, tolerance);
+        const usedFallback = !Array.isArray(spatialCandidates) || spatialCandidates.length === 0;
+        const candidates = usedFallback ? state.edgeHitboxes : spatialCandidates;
+        const candidateCount = Array.isArray(candidates) ? candidates.length : 0;
+        updateEdgeSpatialStats(state, candidateCount, usedFallback);
         let closest = null;
         let minDistance = tolerance;
 
@@ -2416,6 +2459,12 @@
                 minDistance = distance;
                 closest = hitbox;
             }
+        }
+
+        if (cellKey) {
+            setEdgeSpatialCache(state, cellKey, closest, worldX, worldY);
+        } else if (!closest) {
+            clearEdgeSpatialCache(state);
         }
 
         return closest;
@@ -5718,8 +5767,14 @@ function drawRetryBadge(ctx, nodeMeta, retryTax, options) {
         if (!state) {
             return;
         }
-        const nextCellSize = state.edgeSpatialIndex?.cellSize ?? EDGE_SPATIAL_INDEX_CELL_SIZE;
+        const nodes = state.sceneRawNodes ?? [];
+        const edges = state.sceneRawEdges ?? [];
+        const bounds = computeSceneBoundsFromNodes(nodes);
+        state.sceneBounds = bounds;
+        const nextCellSize = computeEdgeSpatialCellSize(bounds, Array.isArray(edges) ? edges.length : 0);
         state.edgeSpatialIndex = createEdgeSpatialIndex(nextCellSize);
+        state.edgeSpatialStats = createEdgeSpatialStats(nextCellSize);
+        state.edgeSpatialCache = null;
     }
 
     function registerEdgeSpatialEntry(state, hitbox) {
@@ -5819,6 +5874,117 @@ function drawRetryBadge(ctx, nodeMeta, retryTax, options) {
             return null;
         }
         return { minX, minY, maxX, maxY };
+    }
+
+    function computeSceneBoundsFromNodes(nodes) {
+        if (!Array.isArray(nodes) || nodes.length === 0) {
+            return null;
+        }
+        let minX = Infinity;
+        let minY = Infinity;
+        let maxX = -Infinity;
+        let maxY = -Infinity;
+        for (const node of nodes) {
+            if (!node) {
+                continue;
+            }
+            const width = Number(node.width ?? node.Width ?? 54);
+            const height = Number(node.height ?? node.Height ?? 24);
+            const cx = Number(node.x ?? node.X ?? 0);
+            const cy = Number(node.y ?? node.Y ?? 0);
+            if (!Number.isFinite(cx) || !Number.isFinite(cy)) {
+                continue;
+            }
+            const halfWidth = Number.isFinite(width) ? width / 2 : 27;
+            const halfHeight = Number.isFinite(height) ? height / 2 : 12;
+            const left = cx - halfWidth;
+            const right = cx + halfWidth;
+            const top = cy - halfHeight;
+            const bottom = cy + halfHeight;
+            if (left < minX) minX = left;
+            if (right > maxX) maxX = right;
+            if (top < minY) minY = top;
+            if (bottom > maxY) maxY = bottom;
+        }
+
+        if (!Number.isFinite(minX) || !Number.isFinite(minY) || !Number.isFinite(maxX) || !Number.isFinite(maxY)) {
+            return null;
+        }
+
+        const width = Math.max(maxX - minX, EDGE_SPATIAL_MIN_CELL_SIZE);
+        const height = Math.max(maxY - minY, EDGE_SPATIAL_MIN_CELL_SIZE);
+        return {
+            minX,
+            minY,
+            maxX,
+            maxY,
+            width,
+            height
+        };
+    }
+
+    function computeEdgeSpatialCellSize(bounds, edgeCount) {
+        if (!bounds || !Number.isFinite(edgeCount) || edgeCount <= 0) {
+            return EDGE_SPATIAL_INDEX_CELL_SIZE;
+        }
+        const area = Math.max(bounds.width * bounds.height, 1);
+        const desiredCells = Math.max(1, edgeCount / EDGE_SPATIAL_TARGET_EDGES_PER_CELL);
+        const estimated = Math.sqrt(area / desiredCells);
+        const clamped = Math.max(EDGE_SPATIAL_MIN_CELL_SIZE, Math.min(EDGE_SPATIAL_MAX_CELL_SIZE, estimated));
+        return clamped;
+    }
+
+    function updateEdgeSpatialStats(state, candidateCount, usedFallback) {
+        if (!state) {
+            return;
+        }
+        const stats = state.edgeSpatialStats ?? (state.edgeSpatialStats = createEdgeSpatialStats(state.edgeSpatialIndex?.cellSize ?? EDGE_SPATIAL_INDEX_CELL_SIZE));
+        const normalizedCount = Number.isFinite(candidateCount) ? candidateCount : 0;
+        stats.samples += 1;
+        stats.candidateTotal += normalizedCount;
+        stats.lastCandidates = normalizedCount;
+        if (usedFallback) {
+            stats.fallbackSamples += 1;
+        }
+    }
+
+    function recordEdgeSpatialCacheHit(state) {
+        if (!state) {
+            return;
+        }
+        const stats = state.edgeSpatialStats ?? (state.edgeSpatialStats = createEdgeSpatialStats(state.edgeSpatialIndex?.cellSize ?? EDGE_SPATIAL_INDEX_CELL_SIZE));
+        stats.cacheHits += 1;
+        stats.samples += 1;
+    }
+
+    function recordEdgeSpatialCacheMiss(state) {
+        if (!state) {
+            return;
+        }
+        const stats = state.edgeSpatialStats ?? (state.edgeSpatialStats = createEdgeSpatialStats(state.edgeSpatialIndex?.cellSize ?? EDGE_SPATIAL_INDEX_CELL_SIZE));
+        stats.cacheMisses += 1;
+    }
+
+    function setEdgeSpatialCache(state, key, hitbox, worldX, worldY) {
+        if (!state) {
+            return;
+        }
+        if (hitbox) {
+            state.edgeSpatialCache = {
+                key,
+                hitbox,
+                worldX,
+                worldY
+            };
+        } else {
+            state.edgeSpatialCache = null;
+        }
+    }
+
+    function clearEdgeSpatialCache(state) {
+        if (state) {
+            state.edgeSpatialCache = null;
+        }
     }
 
     function measureChipText(ctx, text, paddingX, lineHeight) {
@@ -7957,17 +8123,16 @@ function setHoveredEdge(state, edgeId) {
         metrics.className = 'topology-diag-panel__metrics';
         const fields = [
             { key: 'total', label: 'Samples', defaultValue: '0' },
-            { key: 'rate', label: 'Rate', defaultValue: '0/s' },
             { key: 'frame', label: 'Frame (avg/max)', defaultValue: '0 / 0 ms' },
+            { key: 'fps', label: 'Frame rate', defaultValue: '0 fps' },
             { key: 'throttle', label: 'Throttle', defaultValue: '0%' },
             { key: 'pointer', label: 'Pointer (ok/recv/drop)', defaultValue: '0 / 0 / 0' },
             { key: 'scene', label: 'Scene / Overlay', defaultValue: '0 / 0' },
             { key: 'layout', label: 'Layout Reads', defaultValue: '0' },
+            { key: 'edgeCandidates', label: 'Edge candidates (avg/last)', defaultValue: '0 / 0' },
+            { key: 'edgeCache', label: 'Edge cache (hit/miss)', defaultValue: '0 / 0' },
             { key: 'inp', label: 'Pointer INP (avg/max)', defaultValue: '0 / 0 ms' },
-            { key: 'panzoom', label: 'Pan / Zoom', defaultValue: '0px / 0' },
-            { key: 'elapsed', label: 'Elapsed', defaultValue: '0 ms' },
-            { key: 'build', label: 'Build', defaultValue: state.buildHash ?? 'n/a' },
-            { key: 'run', label: 'Run', defaultValue: formatRunDisplay(state.runId) }
+            { key: 'elapsed', label: 'Elapsed', defaultValue: '0 ms' }
         ];
         const valueRefs = {};
         for (const field of fields) {
@@ -7982,22 +8147,12 @@ function setHoveredEdge(state, edgeId) {
         }
         panel.appendChild(metrics);
 
-        const status = document.createElement('div');
-        status.className = 'topology-diag-panel__status';
-        const statusLabel = document.createElement('span');
-        statusLabel.textContent = 'Auto upload';
-        const statusValue = document.createElement('span');
-        statusValue.textContent = 'Off';
-        status.append(statusLabel, statusValue);
-        panel.appendChild(status);
-
         host.appendChild(panel);
         const collapsedChip = createCollapsedChip(host, state);
 
         const hud = {
             root: panel,
             values: valueRefs,
-            statusValue,
             updateTimerId: null,
             collapsedChip
         };
@@ -8032,22 +8187,11 @@ function setHoveredEdge(state, edgeId) {
         if (hud.values.total) {
             hud.values.total.textContent = (stats.interopDispatches ?? 0).toString();
         }
-        if (hud.values.rate) {
-            hud.values.rate.textContent = `${rate.toFixed(2)}/s`;
-            setSeverityClass(hud.values.rate, rate, 20, 10, true, 30);
-        }
         if (hud.values.elapsed) {
             hud.values.elapsed.textContent = elapsedMs >= 1000
                 ? `${(elapsedMs / 1000).toFixed(2)} s`
                 : `${elapsedMs.toFixed(0)} ms`;
         }
-        if (hud.values.build) {
-            hud.values.build.textContent = state.buildHash ?? 'n/a';
-        }
-        if (hud.values.run) {
-            hud.values.run.textContent = formatRunDisplay(state.runId);
-        }
-
         const drawStats = state?.drawStats ?? createDrawStats();
         const frames = drawStats.frames || 0;
         const avgDraw = frames > 0 ? drawStats.totalDurationMs / frames : 0;
@@ -8056,18 +8200,36 @@ function setHoveredEdge(state, edgeId) {
             hud.values.frame.textContent = `${avgDraw.toFixed(1)} / ${maxDraw.toFixed(1)} ms`;
             setSeverityClass(hud.values.frame, maxDraw, 8, 16);
         }
+        if (hud.values.fps) {
+            const lastSampleTime = state.lastHudSampleTime ?? now;
+            const deltaMs = Math.max(1, now - lastSampleTime);
+            const frameDelta = Math.max(0, frames - (state.lastHudFrameCount ?? 0));
+            let smoothedFps;
+            if (frameDelta === 0) {
+                smoothedFps = state.smoothedFps = 0;
+            } else {
+                const instantaneousFps = (frameDelta * 1000) / deltaMs;
+                smoothedFps = state.smoothedFps = typeof state.smoothedFps === 'number'
+                    ? (state.smoothedFps * 0.8) + (instantaneousFps * 0.2)
+                    : instantaneousFps;
+            }
+            hud.values.fps.textContent = `${(smoothedFps ?? 0).toFixed(1)} fps`;
+            state.lastHudFrameCount = frames;
+            state.lastHudSampleTime = now;
+            setSeverityClass(hud.values.fps, smoothedFps ?? 0, 30, 20, true, 45);
+        }
 
         const throttleSkips = state?.pointerThrottleSkips ?? 0;
-        const totalSamples = throttleSkips + (stats.interopDispatches ?? 0);
+        const pointerStats = state?.pointerStats ?? createPointerStats();
+        const totalSamples = throttleSkips + (pointerStats.received ?? 0);
         const throttlePct = totalSamples > 0
             ? (throttleSkips / totalSamples) * 100
             : 0;
         if (hud.values.throttle) {
             hud.values.throttle.textContent = `${throttlePct.toFixed(1)}%`;
-            setSeverityClass(hud.values.throttle, throttlePct, 25, 50, false, 10);
+            setSeverityClass(hud.values.throttle, throttlePct, 60, 85, false, 20);
         }
 
-        const pointerStats = state?.pointerStats ?? createPointerStats();
         const pointerReceived = pointerStats.received ?? 0;
         const pointerProcessed = pointerStats.processed ?? 0;
         const pointerDrops = pointerStats.queueDrops ?? 0;
@@ -8092,6 +8254,22 @@ function setHoveredEdge(state, edgeId) {
             const reads = layoutStats.reads ?? 0;
             hud.values.layout.textContent = `${reads}`;
             setSeverityClass(hud.values.layout, null);
+        }
+
+        const edgeStats = collectEdgeSpatialDiagnostics(state);
+        if (hud.values.edgeCandidates) {
+            const avgCandidates = Number(edgeStats.edgeCandidatesAverage ?? 0);
+            const lastCandidates = Number(edgeStats.edgeCandidatesLast ?? 0);
+            hud.values.edgeCandidates.textContent = `${avgCandidates.toFixed(2)} / ${lastCandidates.toFixed(2)} (cell ${edgeStats.edgeGridCellSize ?? '?'}px)`;
+            setSeverityClass(hud.values.edgeCandidates, avgCandidates, 8, 16, false, 4);
+        }
+        if (hud.values.edgeCache) {
+            const hits = Number(edgeStats.edgeCacheHits ?? 0);
+            const misses = Number(edgeStats.edgeCacheMisses ?? 0);
+            hud.values.edgeCache.textContent = `${hits} / ${misses}`;
+            const cacheMissTotal = hits + misses;
+            const missRatioPct = cacheMissTotal > 0 ? (misses / cacheMissTotal) * 100 : 0;
+            setSeverityClass(hud.values.edgeCache, missRatioPct, 50, 75, false, 15);
         }
 
         const pointerInpStats = state?.pointerInpStats ?? createPointerInpStats();
@@ -8197,6 +8375,23 @@ function setHoveredEdge(state, edgeId) {
         }, interval);
     }
 
+    function collectEdgeSpatialDiagnostics(state) {
+        const stats = state?.edgeSpatialStats ?? createEdgeSpatialStats(state?.edgeSpatialIndex?.cellSize ?? EDGE_SPATIAL_INDEX_CELL_SIZE);
+        const averageCandidates = stats.samples > 0
+            ? stats.candidateTotal / stats.samples
+            : 0;
+
+        return {
+            edgeCandidatesLast: Number((stats.lastCandidates ?? 0).toFixed(2)),
+            edgeCandidatesAverage: Number(averageCandidates.toFixed(2)),
+            edgeCandidateSamples: Number(stats.samples ?? 0),
+            edgeCandidateFallbacks: Number(stats.fallbackSamples ?? 0),
+            edgeGridCellSize: Number((stats.cellSize ?? state?.edgeSpatialIndex?.cellSize ?? EDGE_SPATIAL_INDEX_CELL_SIZE).toFixed(2)),
+            edgeCacheHits: Number(stats.cacheHits ?? 0),
+            edgeCacheMisses: Number(stats.cacheMisses ?? 0)
+        };
+    }
+
     function buildHoverDiagnosticsPayload(state, source) {
         const stats = state?.hoverStats ?? createHoverStats();
         const now = typeof performance !== 'undefined' && typeof performance.now === 'function'
@@ -8268,6 +8463,8 @@ function setHoveredEdge(state, edgeId) {
             pointerInpMaxMs: Number(pointerInpMax.toFixed(3))
         };
 
+        Object.assign(payload, collectEdgeSpatialDiagnostics(state));
+
         payload.canvas = {
             width: canvasWidth,
             height: canvasHeight
@@ -8320,7 +8517,8 @@ function setHoveredEdge(state, edgeId) {
             mode: operationalOnly ? 'operational' : 'full',
             neighborEmphasis: Boolean(state?.overlaySettings?.neighborEmphasis),
             zoomPercent: Number.isFinite(zoomPercent) ? Number(zoomPercent.toFixed(2)) : null,
-            inspectorVisible: Boolean(state?.inspectorVisible)
+            inspectorVisible: Boolean(state?.inspectorVisible),
+            ...collectEdgeSpatialDiagnostics(state)
         };
 
         payload.canvas = {

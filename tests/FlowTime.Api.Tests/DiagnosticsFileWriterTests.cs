@@ -46,17 +46,31 @@ public class DiagnosticsFileWriterTests
             3,
             4,
             3,
-            6.9);
+            6.9,
+            6,
+            5,
+            4,
+            3,
+            120,
+            2,
+            1);
 
         var csv = row.ToCsvLine();
         var columns = csv.Split(',');
 
-        Assert.Equal(35, columns.Length);
-        Assert.Equal("4", columns[^6]); // sceneRebuilds
-        Assert.Equal("9", columns[^5]); // overlayUpdates
-        Assert.Equal("3", columns[^4]); // layoutReads
-        Assert.Equal("4", columns[^3]); // pointer INP sample count
-        Assert.Equal("3", columns[^2]); // pointer INP avg ms
-        Assert.Equal("6.9", columns[^1]); // pointer INP max ms
+        Assert.Equal(42, columns.Length);
+        Assert.Equal("4", columns[^13]); // sceneRebuilds
+        Assert.Equal("9", columns[^12]); // overlayUpdates
+        Assert.Equal("3", columns[^11]); // layoutReads
+        Assert.Equal("4", columns[^10]); // pointer INP sample count
+        Assert.Equal("3", columns[^9]); // pointer INP avg ms
+        Assert.Equal("6.9", columns[^8]); // pointer INP max ms
+        Assert.Equal("6", columns[^7]); // edgeCandidatesLast
+        Assert.Equal("5", columns[^6]); // edgeCandidatesAverage
+        Assert.Equal("4", columns[^5]); // edgeCandidateSamples
+        Assert.Equal("3", columns[^4]); // edgeCandidateFallbacks
+        Assert.Equal("120", columns[^3]); // edgeGridCellSize
+        Assert.Equal("2", columns[^2]); // edgeCacheHits
+        Assert.Equal("1", columns[^1]); // edgeCacheMisses
     }
 }
