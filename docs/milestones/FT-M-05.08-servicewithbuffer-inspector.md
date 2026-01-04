@@ -33,6 +33,14 @@ ServiceWithBuffer was introduced as the canonical "service with queue" abstracti
 - Router feature expansions beyond fixing class propagation gaps.
 - Schema changes unrelated to ServiceWithBuffer inspector and class coverage.
 
+### Known Regression (Carry-over)
+- **Topology chip hover tooltip**: Hovering over on-node metric chips no longer shows the tooltip popup. Likely introduced during FT-M-05.07 UI perf work.
+  - **Probable cause:** Chip hitboxes are only populated during static scene rebuilds. Overlay updates (e.g., timeline scrub/selected bin changes) do not mark the scene dirty, so `chipHitboxes` can be stale or empty and hover hit-testing returns `null`.
+  - **Symptoms:** Chips still render, but hover detection never sets `hoveredChipId`, so `drawChipTooltip` never fires.
+  - **Diagnostics:** Inspect `chipHitboxes.length` after an overlay-only update; if `0`, hover tooltips will never appear.
+  - **Fix direction:** Refresh chip hitboxes on overlay updates (or add a lightweight hitbox-only pass) when overlay metrics change.
+  - **Provenance/analysis:** During FT-M-05.07, canvas rendering was split into static scene rebuilds vs. overlay-only updates. The hover tooltip relies on chip hitboxes that are currently rebuilt only when `rebuildStaticScene` is true. When the timeline or overlay changes without a full scene rebuild, `chipHitboxes` remains empty and the hover path exits early. This is most likely in `src/FlowTime.UI/wwwroot/js/topologyCanvas.js` around the draw path and overlay refresh flow.
+
 ### Future Work (Optional)
 - Align router inspector UX with class coverage warnings if router class leakage persists.
 

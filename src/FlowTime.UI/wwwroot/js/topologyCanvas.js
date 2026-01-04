@@ -703,6 +703,8 @@
                 sceneNodeMap: new Map(),
                 sceneLegacyTooltip: null,
                 collectingHitboxes: false,
+                collectingChipHitboxes: false,
+                refreshChipHitboxes: false,
                 hoverFrameRequestId: null,
                 chipHitVersion: 0,
                 edgeHitVersion: 0,
@@ -1665,6 +1667,8 @@
         state.edgeOverlayLegend = null;
         resetEdgeSpatialIndex(state);
         state.sceneDirty = true;
+            state.collectingChipHitboxes = false;
+            state.refreshChipHitboxes = false;
             const previousChipId = state.hoveredChipId;
             const previousNodeId = state.hoveredNodeId;
             state.hoveredChipId = null;
@@ -1698,6 +1702,7 @@
         }
 
         let rebuildStaticScene = state.sceneDirty === true;
+        const refreshChipHitboxes = Boolean(state.refreshChipHitboxes);
         if (rebuildStaticScene) {
             incrementSceneStat(state, 'rebuilds');
         } else {
@@ -1785,6 +1790,9 @@
             state.lastNodeCount = nodesPayload.length;
             state.lastEdgeCount = edgesPayload.length;
             state.sceneDirty = false;
+        } else if (refreshChipHitboxes) {
+            state.chipHitboxes = [];
+            state.chipHitVersion = (state.chipHitVersion ?? 0) + 1;
         }
 
         const nodeMap = state.sceneNodeMap ?? new Map();
@@ -1801,6 +1809,7 @@
         // Sync overlay DOM (proxies + tooltip) with canvas pan/zoom so hover/focus hitboxes and callouts align
         applyOverlayTransform(canvas, state);
         state.collectingHitboxes = rebuildStaticScene;
+        state.collectingChipHitboxes = rebuildStaticScene || refreshChipHitboxes;
 
         ctx.save();
         ctx.translate(state.offsetX, state.offsetY);
@@ -2243,6 +2252,8 @@
 
         positionInspectorToggle(state, nodeMap);
         state.collectingHitboxes = false;
+        state.collectingChipHitboxes = false;
+        state.refreshChipHitboxes = false;
 
             const frameEnd = typeof performance !== 'undefined' && typeof performance.now === 'function'
                 ? performance.now()
@@ -3274,6 +3285,7 @@
         state.preserveViewportRequest = preserveViewport;
         const overlaySettings = parseOverlaySettings(payload?.overlays ?? payload?.Overlays ?? {});
         state.overlaySettings = overlaySettings;
+        state.refreshChipHitboxes = true;
 
         const desiredScale = overlaySettings.manualScale ?? state.overlayScale ?? 1;
         let manualScaleChanged = state.lastOverlayZoom === null || Math.abs(state.lastOverlayZoom - desiredScale) > 0.001;
@@ -5704,7 +5716,7 @@ function drawRetryBadge(ctx, nodeMeta, retryTax, options) {
     }
 
     function registerChipHitbox(state, chip) {
-        if (!state || !state.collectingHitboxes) {
+        if (!state || !(state.collectingHitboxes || state.collectingChipHitboxes)) {
             return;
         }
 
