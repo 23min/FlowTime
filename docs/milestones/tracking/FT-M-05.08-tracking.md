@@ -2,7 +2,7 @@
 
 **Milestone:** FT-M-05.08 — ServiceWithBuffer Inspector Consistency and Class Coverage  
 **Started:** 2026-01-03  
-**Status:** 🔄 In Progress  
+**Status:** ✅ Complete  
 **Branch:** `milestone/ft-m-05.08`  
 **Assignee:** Codex  
 
@@ -31,6 +31,22 @@
 ---
 
 ## Progress Log
+
+### 2026-01-04 - Inspector polish + validation
+
+**Changes:**
+- Suppressed full-range highlight rectangles in inspector horizon charts (timeline highlight still renders).
+- Expression inspector now uses the shared code-block styling, smaller font, and wraps instead of scrolling.
+- Dependency rows restyled for dark mode, tighter padding, and left-aligned text spacing.
+
+**Validation:**
+- `dotnet build FlowTime.sln` succeeded.
+- `dotnet test --nologo` succeeded (perf tests skipped as expected).
+- Manual UI check: chip hover tooltips and ServiceWithBuffer inspector metrics verified.
+
+**Warnings (existing):**
+- `tests/FlowTime.UI.Tests/FlowTimeApiClientTests.cs`: CS8604 possible null reference.
+- `tests/FlowTime.UI.Tests/TimeTravel/TopologyCanvasRenderTests.cs`: xUnit2013 collection size assertion.
 
 ### 2026-01-03 - Scope update for API-derived ServiceWithBuffer metrics
 
@@ -283,10 +299,10 @@
 **Status:** ✅ Complete
 
 ### Validation Checklist
-- [ ] Run `dotnet build`
-- [ ] Run `dotnet test --nologo`
-- [ ] Manual UI check: ServiceWithBuffer inspector shows queue depth + latency + service metrics.
-- [ ] Manual UI check: class chips show for HubQueue + dispatch queues in `transportation-basic-classes`.
+- [x] Run `dotnet build`
+- [x] Run `dotnet test --nologo`
+- [x] Manual UI check: ServiceWithBuffer inspector shows queue depth + latency + service metrics.
+- [x] Manual UI check: class chips show for HubQueue + dispatch queues in `transportation-basic-classes`.
 
 ### Phase 4 Validation
 - [ ] Documentation updated
@@ -296,8 +312,8 @@
 
 ## Final Checklist
 
-- [ ] All phase tasks complete
-- [ ] `dotnet build` passes
-- [ ] `dotnet test --nologo` passes
-- [ ] Milestone document updated (status -> ✅ Complete)
-- [ ] Release notes added
+- [x] All phase tasks complete
+- [x] `dotnet build` passes
+- [x] `dotnet test --nologo` passes
+- [x] Milestone document updated (status -> ✅ Complete)
+- [x] Release notes added

@@ -113,6 +113,16 @@ else
         // Avoid redundant renders when nothing material changed
         var highlightStart = HighlightStartIndex ?? -1;
         var highlightEnd = HighlightEndIndex ?? -1;
+        var highlightRequested = highlightStart >= 0 && highlightEnd >= 0;
+        var suppressHighlight = highlightRequested
+                                && dataLength > 0
+                                && highlightStart <= 0
+                                && highlightEnd >= dataLength - 1;
+        if (suppressHighlight)
+        {
+            highlightStart = -1;
+            highlightEnd = -1;
+        }
 
         var shouldRender = firstRender
                            || lastMin != effectiveMin

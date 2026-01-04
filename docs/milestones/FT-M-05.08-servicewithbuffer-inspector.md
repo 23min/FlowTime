@@ -1,6 +1,6 @@
 # FT-M-05.08 - ServiceWithBuffer Inspector Consistency and Class Coverage
 
-**Status:** 📋 Planned  
+**Status:** ✅ Complete  
 **Epic Reference:** `docs/architecture/service-with-buffer/README.md`  
 **Owner:** FlowTime Engine + UI  
 **Scope:** FlowTime.Core, FlowTime.API, FlowTime.UI, templates  
@@ -40,6 +40,7 @@ ServiceWithBuffer was introduced as the canonical "service with queue" abstracti
   - **Diagnostics:** Inspect `chipHitboxes.length` after an overlay-only update; if `0`, hover tooltips will never appear.
   - **Fix direction:** Refresh chip hitboxes on overlay updates (or add a lightweight hitbox-only pass) when overlay metrics change.
   - **Provenance/analysis:** During FT-M-05.07, canvas rendering was split into static scene rebuilds vs. overlay-only updates. The hover tooltip relies on chip hitboxes that are currently rebuilt only when `rebuildStaticScene` is true. When the timeline or overlay changes without a full scene rebuild, `chipHitboxes` remains empty and the hover path exits early. This is most likely in `src/FlowTime.UI/wwwroot/js/topologyCanvas.js` around the draw path and overlay refresh flow.
+  - **Resolution:** Implemented a lightweight chip-hitbox refresh on overlay updates so tooltips render without a full scene rebuild.
 
 ### Future Work (Optional)
 - Align router inspector UX with class coverage warnings if router class leakage persists.

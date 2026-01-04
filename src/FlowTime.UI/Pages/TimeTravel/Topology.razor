@@ -558,7 +558,7 @@
                                             <MudText Typo="Typo.subtitle2">Expression</MudText>
                                             @if (hasExpressionText)
                                             {
-                                                <pre class="node-inspector-expression">@expressionText</pre>
+                                                <MudPaper Class="pa-2 code-block node-inspector-expression" Elevation="0">@expressionText</MudPaper>
                                             }
                                             else
                                             {
