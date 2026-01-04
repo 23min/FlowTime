@@ -43,6 +43,7 @@ This document describes the **shipped** FlowTime Engine surfaces and behaviors a
 ## State & metrics
 - Node metrics exposed in state/state_window: arrivals, served, errors, attempts, failures, exhaustedFailures, retryEcho, queue/backlog, capacity, externalDemand, processingTimeMsSum, servedCount, retryBudgetRemaining, maxAttempts.
 - Derived metrics: utilization, latencyMinutes, serviceTimeMs, flowLatencyMs, throughputRatio, retryTax, color (UI aid).
+- ServiceWithBuffer derivations use the same inputs as service/queue nodes: `latencyMinutes` requires `queueDepth` + `served`, `utilization` requires `capacity` + `served`, and `serviceTimeMs` requires `processingTimeMsSum` + `servedCount`. Missing inputs yield no derived series.
 - Edge series (state_window): retry dependency edges only (`attemptsLoad`, `failuresLoad`, `retryRate`, optional `exhaustedFailuresLoad`) based on node semantics and edge multiplier/lag hints.
 - Warnings: invariants (conservation, missing series, retry kernel policy, telemetry missing), mode validation, retry kernel adjustments; recorded per-node/global in state responses and `run.json`.
 

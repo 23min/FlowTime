@@ -4,7 +4,7 @@ metadata:
   id: 'transportation-basic'
   title: 'Transportation Network with Hub Queue'
   description: 'North/South origins feed a central hub with an outbound queue and airport retries.'
-  version: 3.0.0
+  version: 3.0.1
   captureKey: transportation-network-telemetry
   tags: [transportation, transit, queue, retries]
 window:
@@ -121,6 +121,9 @@ topology:
         served: hub_dispatch
         errors: hub_queue_attrition
         queueDepth: hub_queue_depth
+        capacity: hub_dispatch_capacity
+        processingTimeMsSum: hub_queue_processing_time_ms_sum
+        servedCount: hub_dispatch
         aliases:
           arrivals: "Effective demand"
           served: "Dispatched riders"
@@ -352,6 +355,9 @@ nodes:
   - id: hub_dispatch
     kind: expr
     expr: "MIN(hub_dispatch_capacity, hub_queue_demand)"
+  - id: hub_queue_processing_time_ms_sum
+    kind: expr
+    expr: "hub_dispatch * 25"
 
   - id: hub_dispatch_airport
     kind: expr

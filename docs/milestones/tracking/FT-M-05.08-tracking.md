@@ -19,18 +19,55 @@
 
 ### Overall Progress
 - [x] Phase 1: Evidence and Gap Inventory (3/3 tasks)
-- [x] Phase 2: Engine/API Alignment for Class Coverage (3/3 tasks)
+- [x] Phase 2: Engine/API Alignment for Class Coverage (4/4 tasks)
 - [x] Phase 3: UI Inspector Alignment (4/4 tasks)
-- [x] Phase 4: Documentation and Validation (2/2 tasks)
+- [x] Phase 4: Documentation and Validation (3/3 tasks)
 
 ### Test Status
 - **Unit Tests:** 1 passing / 1 total
-- **Integration Tests:** 2 passing / 2 total
+- **Integration Tests:** 4 passing / 4 total
 - **UI Tests:** 4 passing / 4 total
 
 ---
 
 ## Progress Log
+
+### 2026-01-03 - Scope update for API-derived ServiceWithBuffer metrics
+
+**Change:** Added API-derivation requirement (queue latency, utilization, service time) plus documentation impact updates to the milestone spec.
+
+**Next:** Add tests + implement derivation rules in `StateQueryService` and align modeling/reference docs.
+
+**Notes:**
+- Attempted `dotnet test --filter GetStateWindow_DerivesMetrics_ForServiceWithBuffer` but MSBuild failed to create named pipes (`System.Net.Sockets.SocketException (13): Permission denied`) in the sandbox.
+- Retried with `DOTNET_CLI_DISABLE_MSBUILD_SERVER=1` and hit the same named pipe failure.
+
+### 2026-01-03 - Modeling/reference docs aligned for ServiceWithBuffer derivations
+
+**Changes:**
+- Added ServiceWithBuffer series requirements to `docs/notes/modeling-queues-and-buffers.md`.
+- Linked the guidance from `docs/modeling.md`.
+- Documented derivation inputs in `docs/reference/engine-capabilities.md`.
+
+### 2026-01-03 - API derivation tests (ServiceWithBuffer)
+
+**Changes:**
+- Ran `dotnet test --filter GetStateWindow_DerivesMetrics_ForServiceWithBuffer` (escalated) — passed.
+- Ran `dotnet test --filter GetStateWindow_SkipsServiceMetrics_ForServiceWithBuffer_WhenInputsMissing` (escalated) — passed.
+
+**Warnings:**
+- `tests/FlowTime.UI.Tests/FlowTimeApiClientTests.cs`: CS8604 possible null reference.
+- `tests/FlowTime.UI.Tests/TimeTravel/TopologyCanvasRenderTests.cs`: xUnit2013 collection size assertion.
+- `src/FlowTime.Sim.Core/Services/ProvenanceEmbedder.cs`: CS8604 possible null reference.
+- `src/FlowTime.Generator/Orchestration/RunOrchestrationService.cs`: CS0105 duplicate using directive.
+
+### 2026-01-03 - Template updates for ServiceWithBuffer metrics
+
+**Changes:**
+- Added capacity + service time series semantics for ServiceWithBuffer nodes in `templates/transportation-basic.yaml`.
+- Added capacity + service time series semantics for ServiceWithBuffer nodes in `templates/transportation-basic-classes.yaml`.
+- Bumped template versions to reflect the updated semantics.
+ - Added service time series semantics for ServiceWithBuffer nodes in `templates/warehouse-picker-waves.yaml` and bumped template version.
 
 ### 2026-01-03 - Phase 1 evidence capture (transportation-basic-classes)
 
@@ -169,6 +206,15 @@
 
 **Status:** ✅ Complete
 
+### Task 2.4: API derivation for ServiceWithBuffer metrics
+**Checklist (TDD Order - Tests FIRST):**
+- [x] Add API test: queue latency series derived for ServiceWithBuffer when queue depth + served exist (RED)
+- [x] Add API test: utilization/service time derived for ServiceWithBuffer when capacity/processing time inputs exist (RED)
+- [x] Update `StateQueryService` derivation rules (GREEN)
+- [x] Add guard tests for missing inputs (No data remains) (GREEN)
+
+**Status:** ✅ Complete
+
 ### Phase 2 Validation
 - [x] Unit + integration tests passing for class propagation
 - [x] `/state_window` includes ByClass for ServiceWithBuffer nodes where class data exists
@@ -226,6 +272,13 @@
 ### Task 4.2: Validation checklist
 **Checklist (TDD Order - Tests FIRST):**
 - [x] Add validation checklist to tracking log (GREEN)
+
+**Status:** ✅ Complete
+
+### Task 4.3: Modeling + reference docs alignment
+**Checklist (TDD Order - Tests FIRST):**
+- [x] Update `docs/modeling.md` for required ServiceWithBuffer series inputs (GREEN)
+- [x] Update `docs/reference/*` to reflect API-derivation rules (GREEN)
 
 **Status:** ✅ Complete
 

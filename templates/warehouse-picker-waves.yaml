@@ -4,7 +4,7 @@ metadata:
   id: warehouse-picker-waves
   title: Warehouse Picker Wave Dispatch
   description: Orders accumulate in staging and release in scheduled picker waves before final packing.
-  version: 1.0.0
+  version: 1.0.1
   captureKey: warehouse-picker
   tags: [warehouse, logistics, dispatch, backlog]
 
@@ -101,6 +101,8 @@ topology:
         errors: wave_attrition
         queueDepth: picker_wave_backlog
         capacity: wave_dispatch_capacity
+        processingTimeMsSum: picker_wave_processing_time_ms_sum
+        servedCount: picker_wave_release
         aliases:
           arrivals: "Wave staging"
           served: "Picker wave release"
@@ -119,6 +121,8 @@ topology:
         errors: zero_flow
         queueDepth: pack_queue_backlog
         capacity: pack_capacity
+        processingTimeMsSum: pack_queue_processing_time_ms_sum
+        servedCount: pack_processed
         aliases:
           arrivals: "Picker releases"
           served: "Pack throughput"
@@ -196,9 +200,15 @@ nodes:
   - id: pack_processed
     kind: expr
     expr: "MAX(0, SHIFT(pack_queue_backlog, 1) + pack_arrivals - pack_queue_backlog)"
+  - id: picker_wave_processing_time_ms_sum
+    kind: expr
+    expr: "picker_wave_release * 180000" # 3 minutes per released order
   - id: zero_flow
     kind: expr
     expr: "0"
+  - id: pack_queue_processing_time_ms_sum
+    kind: expr
+    expr: "pack_processed * 120000" # 2 minutes per staged order
   - id: pack_spill
     kind: expr
     expr: "MAX(0, pack_demand - pack_processed)"

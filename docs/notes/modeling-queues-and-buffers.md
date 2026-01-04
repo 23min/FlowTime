@@ -17,6 +17,17 @@ Rule of thumb:
 
 > If you care about **queue depth, cadence, or explicit draining policy**, model the stage as a `serviceWithBuffer`. Use plain `service` only when queueing is implicit and uninteresting.
 
+### 1.1 ServiceWithBuffer Inspector Series Requirements
+
+For inspector parity (service + ServiceWithBuffer), the API derives metrics when source series exist. These inputs should be emitted by templates or telemetry when you want the metric to show up:
+
+- **Queue latency**: requires `queueDepth` + `served` for the same bins.
+- **Utilization**: requires `capacity` (or capacitySeries) + `served`.
+- **Service time**: requires `processingTimeMsSum` + `servedCount`.
+- **Flow latency**: only shown when the series exists; it is not inferred from queue latency + service time.
+
+If a required series is missing, the UI shows "No data" rather than fabricating values.
+
 ---
 
 ## 2. Kubernetes Services Reading Azure Service Bus Queues

@@ -64,6 +64,7 @@ Opinionated or exploratory **design and modeling notes**:
 - Comparisons to other systems (e.g., FlowTime vs Ptolemy).
 - Modeling patterns and recommendations that may evolve.
 - Idea parking lots and scratchpads that have enough structure to be shared.
+- ServiceWithBuffer inspector series requirements (see `docs/notes/modeling-queues-and-buffers.md`).
 
 Notes are allowed to be essay-like. When a Note becomes stable and broadly applicable, promote parts of it into Concepts and Guides, keeping the Note as a deep-dive reference.
 

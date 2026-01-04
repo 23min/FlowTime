@@ -2511,7 +2511,7 @@ public sealed class StateQueryService
         }
 
         var normalized = kind.Trim().ToLowerInvariant();
-        return normalized is "queue" or "dlq";
+        return normalized is "queue" or "dlq" or "servicewithbuffer";
     }
 
     private static QueueLatencyStatusDescriptor? DetermineQueueLatencyStatus(
