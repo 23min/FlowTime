@@ -2267,6 +2267,7 @@ public sealed class StateQueryService
             RunId = context.Manifest.RunId,
             TemplateId = metadata.TemplateId,
             TemplateTitle = metadata.TemplateTitle,
+            TemplateNarrative = metadata.TemplateNarrative,
             TemplateVersion = metadata.TemplateVersion,
             Mode = metadata.Mode,
             ProvenanceHash = metadata.ProvenanceHash,

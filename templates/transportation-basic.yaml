@@ -4,6 +4,7 @@ metadata:
   id: 'transportation-basic'
   title: 'Transportation Network with Hub Queue'
   description: 'North/South origins feed a central hub with an outbound queue and airport retries.'
+  narrative: 'Hub-and-spoke transit system where inbound demand accumulates at a central dispatch queue, departures are capacity gated, and destination lines act as delivery sinks.'
   version: 3.0.1
   captureKey: transportation-network-telemetry
   tags: [transportation, transit, queue, retries]
@@ -137,7 +138,6 @@ topology:
         arrivals: arrivals_airport
         served: served_airport
         errors: errors_airport
-        capacity: cap_airport
         attempts: airport_attempts
         failures: airport_retry_failures
         retryEcho: airport_retry_echo
@@ -180,7 +180,6 @@ topology:
         arrivals: arrivals_downtown
         served: served_downtown
         errors: unmet_downtown
-        capacity: cap_downtown
         processingTimeMsSum: downtown_processing_time_ms_sum
         servedCount: served_downtown
         aliases:
@@ -192,7 +191,6 @@ topology:
         arrivals: arrivals_industrial
         served: served_industrial
         errors: unmet_industrial
-        capacity: cap_industrial
         processingTimeMsSum: industrial_processing_time_ms_sum
         servedCount: served_industrial
         aliases:
@@ -393,10 +391,10 @@ nodes:
     expr: "${hubRetryFailureRate} * airport_retry_attempts"
   - id: served_airport
     kind: expr
-    expr: "MIN(arrivals_airport, MAX(0, airport_capacity_served - airport_retry_failures))"
+    expr: "arrivals_airport"
   - id: errors_airport
     kind: expr
-    expr: "MAX(0, arrivals_airport - served_airport)"
+    expr: "0"
   - id: airport_retry_echo
     kind: expr
     expr: "CONV(airport_retry_attempts, [0.0, 0.6, 0.3, 0.1])"
@@ -406,20 +404,20 @@ nodes:
 
   - id: served_downtown
     kind: expr
-    expr: "MIN(arrivals_downtown, cap_downtown)"
+    expr: "arrivals_downtown"
   - id: unmet_downtown
     kind: expr
-    expr: "MAX(0, arrivals_downtown - cap_downtown)"
+    expr: "0"
   - id: downtown_processing_time_ms_sum
     kind: expr
     expr: "served_downtown * 60"
 
   - id: served_industrial
     kind: expr
-    expr: "MIN(arrivals_industrial, cap_industrial)"
+    expr: "arrivals_industrial"
   - id: unmet_industrial
     kind: expr
-    expr: "MAX(0, arrivals_industrial - cap_industrial)"
+    expr: "0"
   - id: industrial_processing_time_ms_sum
     kind: expr
     expr: "served_industrial * 60"

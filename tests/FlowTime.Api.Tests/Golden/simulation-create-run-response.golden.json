@@ -4,6 +4,7 @@
     "runId": "RUN_ID",
     "templateId": "sim-order",
     "templateTitle": "Simulation Order Template",
+    "templateNarrative": null,
     "templateVersion": "1.0.0",
     "mode": "simulation",
     "provenanceHash": "PROVENANCE_HASH",

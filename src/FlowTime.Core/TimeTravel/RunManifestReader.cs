@@ -71,6 +71,7 @@ public sealed class RunManifestReader
             ?? throw new InvalidOperationException("TemplateId missing from metadata.json and model.yaml metadata block.");
 
         var templateTitle = metadataDoc.TemplateTitle ?? modelDoc.Metadata?.Title ?? templateId;
+        var templateNarrative = metadataDoc.TemplateNarrative ?? modelDoc.Metadata?.Narrative;
         var templateVersion = metadataDoc.TemplateVersion ?? modelDoc.Metadata?.Version ?? "0.0.0";
         var mode = (metadataDoc.Mode ?? modelDoc.Mode ?? modelDoc.Provenance?.Mode ?? "simulation").ToLowerInvariant();
 
@@ -91,6 +92,7 @@ public sealed class RunManifestReader
         {
             TemplateId = templateId,
             TemplateTitle = templateTitle,
+            TemplateNarrative = templateNarrative,
             TemplateVersion = templateVersion,
             Mode = mode,
             Schema = new RunSchemaMetadata
@@ -227,6 +229,7 @@ public sealed class RunManifestReader
     {
         public string? Id { get; set; }
         public string? Title { get; set; }
+        public string? Narrative { get; set; }
         public string? Version { get; set; }
     }
 
@@ -270,6 +273,9 @@ public sealed class RunManifestReader
         [System.Text.Json.Serialization.JsonPropertyName("templateTitle")]
         public string? TemplateTitle { get; set; }
 
+        [System.Text.Json.Serialization.JsonPropertyName("templateNarrative")]
+        public string? TemplateNarrative { get; set; }
+
         [System.Text.Json.Serialization.JsonPropertyName("templateVersion")]
         public string? TemplateVersion { get; set; }
 
@@ -288,6 +294,7 @@ public sealed class RunManifestMetadata
 {
     public required string TemplateId { get; init; }
     public required string TemplateTitle { get; init; }
+    public string? TemplateNarrative { get; init; }
     public required string TemplateVersion { get; init; }
     public required string Mode { get; init; }
     public required RunSchemaMetadata Schema { get; init; }

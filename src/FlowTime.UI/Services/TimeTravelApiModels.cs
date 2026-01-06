@@ -51,6 +51,9 @@ public sealed record TimeTravelStateMetadataDto
     [JsonPropertyName("templateTitle")]
     public string? TemplateTitle { get; init; }
 
+    [JsonPropertyName("templateNarrative")]
+    public string? TemplateNarrative { get; init; }
+
     [JsonPropertyName("templateVersion")]
     public string? TemplateVersion { get; init; }
 

@@ -125,6 +125,71 @@ public class RunArtifactWriterTests
     }
 
     [Fact]
+    public async Task WriteArtifacts_WritesTemplateNarrativeMetadata()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), "test_artifacts_narrative");
+        Directory.CreateDirectory(tempDir);
+
+        var model = CreateTestModel();
+        var grid = new TimeGrid(3, 60, TimeUnit.Minutes);
+        var context = new Dictionary<NodeId, double[]>
+        {
+            [new NodeId("demand")] = new[] { 10.0, 20.0, 30.0 },
+            [new NodeId("served")] = new[] { 8.0, 16.0, 24.0 }
+        };
+
+        var specText = """
+schemaVersion: 1
+metadata:
+  id: narrative-test
+  title: Narrative Test
+  version: 1.0.0
+  narrative: "This model describes the narrative test scenario."
+grid:
+  bins: 3
+  binSize: 60
+  binUnit: minutes
+window:
+  start: 2025-01-01T00:00:00Z
+  timezone: UTC
+topology:
+  nodes:
+    - id: Service
+      kind: service
+      semantics:
+        arrivals: demand
+        served: served
+        errors: demand
+nodes:
+  - id: demand
+    kind: const
+    values: [10, 20, 30]
+  - id: served
+    kind: const
+    values: [8, 16, 24]
+outputs: []
+""";
+
+        var request = new RunArtifactWriter.WriteRequest
+        {
+            Model = model,
+            Grid = grid,
+            Context = context,
+            SpecText = specText,
+            OutputDirectory = tempDir
+        };
+
+        var result = await RunArtifactWriter.WriteArtifactsAsync(request);
+        var metadataPath = Path.Combine(result.RunDirectory, "model", "metadata.json");
+        using var metadataJson = JsonDocument.Parse(await File.ReadAllTextAsync(metadataPath));
+
+        Assert.Equal("This model describes the narrative test scenario.",
+            metadataJson.RootElement.GetProperty("templateNarrative").GetString());
+
+        Directory.Delete(tempDir, true);
+    }
+
+    [Fact]
     public async Task WriteArtifacts_DifferentScenarios_ProduceDifferentHashes()
     {
         var tempDir1 = Path.Combine(Path.GetTempPath(), "test_artifacts_hash1");

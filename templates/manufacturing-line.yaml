@@ -4,6 +4,7 @@ metadata:
   id: 'manufacturing-line'
   title: 'Manufacturing Production Line'
   description: 'Production line with raw-material variability, WIP buffering, and QC retries'
+  narrative: 'Assembly line with variable arrivals, intermediate buffers, and rework loops so utilization and backlog signals expose bottlenecks and quality impacts.'
   version: 2.0.0
   captureKey: manufacturing-line-telemetry
   tags: [manufacturing, production, queue, retries]

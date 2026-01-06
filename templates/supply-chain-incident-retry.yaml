@@ -4,6 +4,7 @@ metadata:
   id: supply-chain-incident-retry
   title: Incident Workflow With Retries (IT Ops)
   description: 24-hour incident intake with retries, queue buffering, and analytics effort edges.
+  narrative: 'IT operations incident workflow with triage, retry bursts, and resolution capacity limits to surface retry tax, failed retries, and backlog accumulation.'
   version: 2.0.0
   tags: [it-operations, retries, queue, analytics]
 window:

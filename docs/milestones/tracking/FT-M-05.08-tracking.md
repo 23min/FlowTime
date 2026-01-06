@@ -22,11 +22,10 @@
 - [x] Phase 2: Engine/API Alignment for Class Coverage (4/4 tasks)
 - [x] Phase 3: UI Inspector Alignment (4/4 tasks)
 - [x] Phase 4: Documentation and Validation (3/3 tasks)
+- [x] Phase 5: Template Narrative + Continuous Buffering (4/4 tasks)
 
 ### Test Status
-- **Unit Tests:** 1 passing / 1 total
-- **Integration Tests:** 4 passing / 4 total
-- **UI Tests:** 4 passing / 4 total
+- **dotnet test --nologo:** ✅ pass (perf benchmarks skipped)
 
 ---
 
@@ -57,6 +56,27 @@
 **Notes:**
 - Attempted `dotnet test --filter GetStateWindow_DerivesMetrics_ForServiceWithBuffer` but MSBuild failed to create named pipes (`System.Net.Sockets.SocketException (13): Permission denied`) in the sandbox.
 - Retried with `DOTNET_CLI_DISABLE_MSBUILD_SERVER=1` and hit the same named pipe failure.
+
+### 2026-01-04 - Scope update for template narrative + continuous buffering
+
+**Change:** Added Phase 5 to cover template narrative metadata and continuous ServiceWithBuffer modeling (no dispatch schedule) where backlog is intended.
+
+**Next:** Define tests-first checklist and implement schema + metadata propagation.
+
+### 2026-01-04 - Phase 5 narrative + continuous buffering (in progress)
+
+**Changes (tests first):**
+- Added RED tests for template narrative propagation in `RunArtifactWriterTests` and `RunManifestReaderTests`.
+- Added template schema + metadata propagation fields and updated UI/API DTOs.
+- Added narrative guidance to `docs/templates/template-authoring.md`.
+- Updated `warehouse-picker-waves` Intake to `serviceWithBuffer` (continuous) and added intake backlog semantics.
+- Added narrative lines to catalog templates.
+
+### 2026-01-04 - Phase 5 narrative + continuous buffering (validation)
+
+**Validation:**
+- `dotnet test --nologo` succeeded (perf tests skipped as expected).
+- Updated golden responses for template metadata narrative coverage.
 
 ### 2026-01-03 - Modeling/reference docs aligned for ServiceWithBuffer derivations
 
@@ -305,8 +325,44 @@
 - [x] Manual UI check: class chips show for HubQueue + dispatch queues in `transportation-basic-classes`.
 
 ### Phase 4 Validation
-- [ ] Documentation updated
-- [ ] Validation checklist complete
+- [x] Documentation updated
+- [x] Validation checklist complete
+
+---
+
+## Phase 5: Template Narrative + Continuous Buffering
+
+**Goal:** Add narrative metadata and model continuous buffering with ServiceWithBuffer where intended.
+
+### Task 5.1: Template narrative schema + model propagation
+**Checklist (TDD Order - Tests FIRST):**
+- [x] Add RED tests for template metadata narrative propagation (template -> metadata.json -> RunManifest).
+- [x] Update template schema + Sim metadata models (GREEN).
+- [x] Update RunArtifactWriter + RunManifestReader + API DTOs (GREEN).
+
+**Status:** ✅ Complete
+
+### Task 5.2: Template authoring docs update
+**Checklist (TDD Order - Tests FIRST):**
+- [x] Add narrative guidance section and example (RED).
+- [x] Update docs and verify schema/authoring guidance references (GREEN).
+
+**Status:** ✅ Complete
+
+### Task 5.3: Continuous buffering template audit + upgrades
+**Checklist (TDD Order - Tests FIRST):**
+- [x] Identify templates where backlog should persist without gated releases (RED).
+- [x] Convert service -> serviceWithBuffer (no dispatchSchedule) where appropriate (GREEN).
+- [x] Bump template versions and validate schema (GREEN).
+
+**Status:** ✅ Complete
+
+### Task 5.4: Validation + docs sync
+**Checklist (TDD Order - Tests FIRST):**
+- [x] Update modeling/telemetry docs if required by template changes (RED).
+- [x] Verify template changes still pass existing tests (GREEN).
+
+**Status:** ✅ Complete
 
 ---
 

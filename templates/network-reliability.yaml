@@ -4,6 +4,7 @@ metadata:
   id: 'network-reliability'
   title: 'Network Reliability with Queues and Retries'
   description: 'Edge gateway buffering, core retries, and stochastic infrastructure variation'
+  narrative: 'Edge-to-core network flow with buffering, retry backoff, and capacity variability to evaluate error accumulation, queue depth, and service time under intermittent failures.'
   version: 2.0.0
   captureKey: network-reliability-telemetry
   tags: [network, stochastic, queue, retries]

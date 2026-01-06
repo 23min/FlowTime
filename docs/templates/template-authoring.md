@@ -17,6 +17,9 @@ metadata:
   id: supply-chain-multi-tier
   title: Multi-Tier Supply Chain
   description: …
+  narrative: >
+    A short narrative that explains the modeled system, its intent, and any
+    assumptions that future readers should understand.
   version: 3.0.0
 window:
   start: 2025-01-01T00:00:00Z
@@ -36,6 +39,7 @@ grid:
 ```
 
 - **metadata** must include a stable `id`, `title`, and semantic version. `generator` is always `flowtime-sim`.
+- **metadata.narrative** is optional but recommended; it is propagated into run metadata so future readers understand the model context.
 - **parameters** expose user-controlled knobs with proper typing and bounds.
 - **grid/window** define the evaluation domain. Always specify `binUnit`.
 
@@ -127,6 +131,7 @@ topology:
 - **Baseline inspector parity:** provide `arrivals`, `served`, `errors`, and `queueDepth` semantics for ServiceWithBuffer nodes.
 - **Optional series for richer metrics:** emit `capacity` for utilization and `processingTimeMsSum` + `servedCount` for service time. If you want retry chips, emit `attempts`, `failures`, `retryEcho`, and `retryBudgetRemaining`; otherwise the UI omits retry metrics.
 - **Class chips:** per-class series for `arrivals`, `served`, `errors`, and `queueDepth` must exist to render class chips in the inspector. Router targets should point at queue inflow series so class routing is preserved.
+- **Backlog age SLA:** requires queue age telemetry (e.g., oldest-age or age distribution). If telemetry cannot provide queue age, the API must mark backlog age SLA as unavailable and the UI must show "No data" (never infer from queue depth alone).
 
 ### Queue & DLQ Nodes
 

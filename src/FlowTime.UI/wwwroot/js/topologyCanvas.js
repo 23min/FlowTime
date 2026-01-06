@@ -4645,7 +4645,7 @@
 
         if (overlays.showErrorsDependencies !== false) {
             const errorCount = sampleValueFor('errors', semantics.errors);
-            const errorRateValue = sampleValueFor('errorRate', semantics.errors, ['error_rate']);
+            const errorRateValue = sampleValueFor('errorRate', null, ['error_rate']);
             const errorsTooltip = semanticTooltip(semantics.errors, 'Errors') ?? 'Errors';
 
             const drawErrorChip = (label, bg, fg, metric, tooltipText) => {

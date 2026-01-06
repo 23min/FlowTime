@@ -657,6 +657,11 @@ public class TemplateService : ITemplateService
                     var desc = trimmed.Substring("description:".Length).Trim().Trim('"', '\'');
                     if (!string.IsNullOrWhiteSpace(desc)) template.Metadata.Description = desc;
                 }
+                else if (trimmed.StartsWith("narrative:"))
+                {
+                    var narrative = trimmed.Substring("narrative:".Length).Trim().Trim('"', '\'');
+                    if (!string.IsNullOrWhiteSpace(narrative)) template.Metadata.Narrative = narrative;
+                }
                 else if (trimmed.StartsWith("version:"))
                 {
                     var version = trimmed.Substring("version:".Length).Trim().Trim('"', '\'');

@@ -28,6 +28,16 @@ For inspector parity (service + ServiceWithBuffer), the API derives metrics when
 
 If a required series is missing, the UI shows "No data" rather than fabricating values.
 
+### 1.2 Queue Age Telemetry Gap (Azure Service Bus)
+
+Some platforms (notably Azure Service Bus) do not expose oldest-message age or queue age distribution by default. This has a direct impact on **backlog age SLA**:
+
+- **Do not invent backlog age SLA** from queue depth alone. It is misleading.
+- If queue age telemetry is missing, the API must surface this as an explicit warning or "unavailable" signal.
+- Any UI must show backlog age SLA as **"No data"** (or a specific "telemetry missing" status), not as 0% or a fabricated value.
+
+This requirement is mandatory for telemetry integrations so SLA interpretations remain trustworthy across domains.
+
 ---
 
 ## 2. Kubernetes Services Reading Azure Service Bus Queues
@@ -85,6 +95,7 @@ Avoid introducing independent "queue nodes" with their own service rules; that w
 ### 3.3 Buses, batches, waves
 
 - **Shuttle buses, picker waves, nightly jobs, batch ETL** – Always `serviceWithBuffer` with `dispatchSchedule` controlling $G_t$ so that draining occurs at discrete intervals.
+- **Continuous buffering (no schedule)** – Use `serviceWithBuffer` without `dispatchSchedule` when backlog drains continuously at capacity. This avoids encoding backlog as "errors/overflow" on plain services.
 
 ---
 

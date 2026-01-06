@@ -4,7 +4,8 @@ metadata:
   id: warehouse-picker-waves
   title: Warehouse Picker Wave Dispatch
   description: Orders accumulate in staging and release in scheduled picker waves before final packing.
-  version: 1.0.1
+  narrative: 'Warehouse order intake accumulates in continuous staging, picker waves release batches on schedule, and packing and dispatch stages reveal batch-driven throughput.'
+  version: 1.1.0
   captureKey: warehouse-picker
   tags: [warehouse, logistics, dispatch, backlog]
 
@@ -80,11 +81,12 @@ rng:
 topology:
   nodes:
     - id: Intake
-      kind: service
+      kind: serviceWithBuffer
       semantics:
         arrivals: order_demand
         served: received_orders
-        errors: intake_spill
+        errors: zero_flow
+        queueDepth: intake_queue_depth
         capacity: intake_capacity
         processingTimeMsSum: intake_processing_time_ms_sum
         servedCount: intake_served_count
@@ -92,7 +94,9 @@ topology:
         aliases:
           arrivals: "Inbound orders"
           served: "Staged orders"
-          errors: "Overflow"
+          queue: "Intake backlog"
+      initialCondition:
+        queueDepth: 0
     - id: PickerWave
       kind: serviceWithBuffer
       semantics:
@@ -164,12 +168,12 @@ nodes:
   - id: intake_capacity
     kind: const
     values: ${intakeCapacity}
+  - id: intake_demand
+    kind: expr
+    expr: "SHIFT(intake_queue_depth, 1) + order_demand"
   - id: received_orders
     kind: expr
-    expr: "MIN(order_demand, intake_capacity)"
-  - id: intake_spill
-    kind: expr
-    expr: "MAX(0, order_demand - intake_capacity)"
+    expr: "MIN(intake_demand, intake_capacity)"
   - id: wave_stage_inflow
     kind: expr
     expr: "received_orders"
@@ -228,6 +232,8 @@ nodes:
 outputs:
   - series: order_demand
     as: inbound_demand.csv
+  - series: intake_queue_depth
+    as: intake_queue_depth.csv
   - series: picker_wave_backlog
     as: staged_backlog.csv
   - series: picker_wave_release

@@ -59,6 +59,7 @@ Thumbs.db
 # Test results
 TestResult*/
 *.trx
+*.actual
 
 # Coverage
 coverage/

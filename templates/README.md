@@ -84,7 +84,7 @@ Wave-based warehouse template where orders accumulate in staging and release in 
 | `packCapacity` | integer | `70` | Pack & ship capacity per bin (steady workers). |
 
 Highlights:
-- Intake behaves like a traditional service node with demand/capacity arrays, SLA target, and explicit overflow (`intake_spill`).
+- Intake now uses a continuous `serviceWithBuffer` queue so excess demand accumulates as backlog instead of overflowing.
 - The `PickerWave` service-with-buffer node stores staged totes until a scheduled picker wave fires (`dispatchSchedule`), so the staged backlog grows between releases.
 - A second service-with-buffer (`PackStagingQueue`) sits between picker waves and packers, smoothing the bursty releases into a steady packing cadence. When bursts exceed pack capacity, backlog grows and `pack_spill`/queue depth highlight the shortfall.
 - **SB‑M‑05.02 update:** Both ServiceWithBuffer nodes are authored directly in the topology with `queueDepth: self` aliases, and the UI renders small buffer badges plus queue latency statuses. Expect the inspector to show “Paused (gate closed)” when waves have backlog but the dispatch gate is shut.

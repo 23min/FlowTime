@@ -50,6 +50,7 @@ public class DashboardTests
                     RunId: "run-1",
                     TemplateId: "template-1",
                     TemplateTitle: "Template A",
+                    TemplateNarrative: null,
                     TemplateVersion: null,
                     Mode: "simulation",
                     ProvenanceHash: null,

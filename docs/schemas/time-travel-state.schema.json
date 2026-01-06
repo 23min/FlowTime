@@ -55,6 +55,7 @@
                 "runId": { "type": "string", "minLength": 1 },
                 "templateId": { "type": "string", "minLength": 1 },
                 "templateTitle": { "type": "string", "minLength": 1 },
+                "templateNarrative": { "type": ["string", "null"] },
                 "templateVersion": { "type": "string", "minLength": 1 },
                 "mode": { "type": "string", "enum": ["simulation", "telemetry"] },
                 "provenanceHash": { "$ref": "#/$defs/hash" },

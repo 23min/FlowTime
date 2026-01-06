@@ -287,6 +287,7 @@ public sealed class ArtifactListRenderTests : TestContext
                 run.RunId,
                 run.TemplateId,
                 run.TemplateTitle,
+                null,
                 run.TemplateVersion,
                 run.Source,
                 "hash",

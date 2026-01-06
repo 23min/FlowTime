@@ -49,6 +49,8 @@ properties:
         type: string
       description:
         type: string
+      narrative:
+        type: string
       version:
         type: string
       tags:

@@ -4,6 +4,7 @@ metadata:
   id: supply-chain-multi-tier
   title: Multi-Tier Supply Chain
   description: End-to-end purchase order flow with warehouse buffering, distributor queue backlog, and delivery retries.
+  narrative: 'Multi-tier supply chain with producer output, warehouse staging, distributor queues, and last-mile delivery retries to show how upstream variability drives downstream backlog.'
   version: 3.0.0
   captureKey: supply-chain-multi-tier-telemetry
   tags: [supply-chain, logistics, queue, retries]

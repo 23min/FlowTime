@@ -4,6 +4,7 @@
     "runId": "RUN_ID",
     "templateId": "test-order",
     "templateTitle": "Test Order System",
+    "templateNarrative": null,
     "templateVersion": "1.0.0",
     "mode": "telemetry",
     "provenanceHash": "PROVENANCE_HASH",

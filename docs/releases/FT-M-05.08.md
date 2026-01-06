@@ -19,7 +19,10 @@ FT-M-05.08 aligns ServiceWithBuffer inspector metrics with service nodes, ensure
 3. **Template + modeling alignment**  
    ServiceWithBuffer templates now emit capacity and processing time series where needed, and modeling/reference docs clarify the required series and derivation rules.  
    (`templates/*.yaml`, `docs/modeling.md`, `docs/notes/modeling-queues-and-buffers.md`, `docs/reference/engine-capabilities.md`)
-4. **Inspector polish + regression fix**  
+4. **Template narrative + continuous buffering**  
+   Template metadata now supports a narrative field, and the Warehouse Picker intake was converted to continuous ServiceWithBuffer semantics to preserve backlog between waves.  
+   (`templates/*.yaml`, `docs/templates/template-authoring.md`, `docs/notes/modeling-queues-and-buffers.md`)
+5. **Inspector polish + regression fix**  
    Restored chip hover tooltips by refreshing chip hitboxes on overlay updates. Expression blocks now use the shared code-block styling with wrapping text, and dependency rows were refined for dark-mode contrast and tighter spacing.  
    (`src/FlowTime.UI/wwwroot/js/topologyCanvas.js`, `src/FlowTime.UI/Pages/TimeTravel/Topology.razor`, `src/FlowTime.UI/wwwroot/css/app.css`)
 

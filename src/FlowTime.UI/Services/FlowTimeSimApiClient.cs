@@ -407,8 +407,12 @@ public class ApiTemplateInfo
     public string Id { get; set; } = string.Empty;
     public string Title { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
+    [System.Text.Json.Serialization.JsonPropertyName("narrative")]
+    public string? Narrative { get; set; }
     public string Category { get; set; } = string.Empty;
     public List<string> Tags { get; set; } = new();
+    [System.Text.Json.Serialization.JsonPropertyName("version")]
+    public string? Version { get; set; }
     public List<ApiTemplateParameter>? Parameters { get; set; }
     public object? Preview { get; set; }
     [System.Text.Json.Serialization.JsonPropertyName("captureKey")]

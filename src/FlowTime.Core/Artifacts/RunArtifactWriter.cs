@@ -53,6 +53,7 @@ public static class RunArtifactWriter
     private sealed record MetadataContext(
         string? TemplateId,
         string? TemplateTitle,
+        string? TemplateNarrative,
         string? TemplateVersion,
         int? SchemaVersion,
         string? Mode,
@@ -67,6 +68,7 @@ public static class RunArtifactWriter
         public int SchemaVersion { get; set; }
         public string TemplateId { get; set; } = "adhoc-model";
         public string TemplateTitle { get; set; } = "Ad Hoc Model";
+        public string? TemplateNarrative { get; set; }
         public string TemplateVersion { get; set; } = "0.0.0";
         public string Mode { get; set; } = "simulation";
         public string ModelHash { get; set; } = string.Empty;
@@ -750,6 +752,7 @@ public static class RunArtifactWriter
     {
         string? templateId = null;
         string? templateTitle = null;
+        string? templateNarrative = null;
         string? templateVersion = null;
         int? schemaVersion = null;
         string? modeFromYaml = null;
@@ -772,6 +775,7 @@ public static class RunArtifactWriter
                     var metadata = NormalizeYamlDictionary(metadataRaw);
                     templateId ??= GetString(metadata, "id");
                     templateTitle ??= GetString(metadata, "title");
+                    templateNarrative ??= GetString(metadata, "narrative");
                     templateVersion ??= GetString(metadata, "version");
                 }
 
@@ -862,6 +866,7 @@ public static class RunArtifactWriter
         return new MetadataContext(
             TemplateId: templateId,
             TemplateTitle: templateTitle,
+            TemplateNarrative: templateNarrative,
             TemplateVersion: templateVersion,
             SchemaVersion: schemaVersion,
             Mode: modeFromProvenance ?? modeFromYaml,
@@ -947,6 +952,7 @@ public static class RunArtifactWriter
             SchemaVersion = metadata.SchemaVersion ?? 1,
             TemplateId = templateId,
             TemplateTitle = templateTitle,
+            TemplateNarrative = metadata.TemplateNarrative,
             TemplateVersion = templateVersion,
             Mode = mode,
             ModelHash = modelHash,

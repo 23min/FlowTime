@@ -27,6 +27,7 @@ public sealed class StateMetadata
     public required string RunId { get; init; }
     public required string TemplateId { get; init; }
     public string? TemplateTitle { get; init; }
+    public string? TemplateNarrative { get; init; }
     public string? TemplateVersion { get; init; }
     public required string Mode { get; init; }
     public string? ProvenanceHash { get; init; }

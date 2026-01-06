@@ -4,6 +4,7 @@ metadata:
   id: 'it-system-microservices'
   title: 'IT System with Queueing and Database Retries'
   description: 'Modern web application with ingress queue, auth bottleneck, and transactional retries'
+  narrative: 'Ingress to database microservices chain with queueing, retries, downstream dependencies, and capacity limits to model latency and error propagation across hops.'
   version: 2.0.0
   captureKey: it-system-telemetry
   tags: [microservices, web, queue, retries]

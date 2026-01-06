@@ -27,11 +27,14 @@ ServiceWithBuffer was introduced as the canonical "service with queue" abstracti
 4. Update UI inspector logic so ServiceWithBuffer nodes display the expected metrics and class chips when data exists.
 5. Document model-driven vs. code-driven gaps and update authoring guidance if needed.
 6. Prefer API-side derivation/aliasing of ServiceWithBuffer metrics when data exists, rather than requiring template-only fixes.
+7. Add template narrative metadata so templates can describe the modeled system and intent.
+8. Upgrade continuous buffer scenarios to use ServiceWithBuffer (no dispatch schedule) where backlog/overflow should be modeled explicitly.
 
 ### Out of Scope ❌
 - Broad performance work (this is not a perf milestone).
 - Router feature expansions beyond fixing class propagation gaps.
 - Schema changes unrelated to ServiceWithBuffer inspector and class coverage.
+ - UI layout redesigns beyond inspector consistency.
 
 ### Known Regression (Carry-over)
 - **Topology chip hover tooltip**: Hovering over on-node metric chips no longer shows the tooltip popup. Likely introduced during FT-M-05.07 UI perf work.
@@ -41,7 +44,24 @@ ServiceWithBuffer was introduced as the canonical "service with queue" abstracti
   - **Fix direction:** Refresh chip hitboxes on overlay updates (or add a lightweight hitbox-only pass) when overlay metrics change.
   - **Provenance/analysis:** During FT-M-05.07, canvas rendering was split into static scene rebuilds vs. overlay-only updates. The hover tooltip relies on chip hitboxes that are currently rebuilt only when `rebuildStaticScene` is true. When the timeline or overlay changes without a full scene rebuild, `chipHitboxes` remains empty and the hover path exits early. This is most likely in `src/FlowTime.UI/wwwroot/js/topologyCanvas.js` around the draw path and overlay refresh flow.
   - **Resolution:** Implemented a lightweight chip-hitbox refresh on overlay updates so tooltips render without a full scene rebuild.
+- **Topology sparklines disappear after inspector focus on queue metrics**: Viewing queue-depth (or queue-centric) inspector metrics can cause the node sparklines in the topology canvas to vanish until a full reload.
+  - **Probable cause:** Overlay-only updates are replacing or clearing node metadata, so `nodeMeta.sparkline` is missing even though the scene data originally contained sparkline payloads. This is likely tied to the FT-M-05.07 split between scene rebuilds and overlay-only refreshes (overlay payloads do not carry sparkline data).
+  - **Symptoms:** Sparklines render on initial load, then disappear after interacting with inspector metrics; the "Show sparklines" toggle remains enabled.
+  - **Diagnostics:** Compare `sceneNodes` vs. overlay payloads in `topologyCanvas.js` after the inspector interaction; confirm `nodeMeta.sparkline` is absent in cached scene state.
+  - **Fix direction (minimal perf impact):** Preserve cached scene node sparklines during overlay-only updates (do not overwrite scene metadata with overlay payloads). If overlay updates must refresh node metadata, rehydrate the `sparkline` property from the last scene payload instead of recomputing.
+  - **Provenance/analysis:** The regression appears after the UI perf milestone where scene rebuilds were decoupled from overlay updates; the interaction that triggers overlay-only refresh is the likely point where sparklines are dropped.
 
+### Known Modeling/Data Gap (Batch/Gated Releases)
+- **Queue depth mismatch warnings for dispatch queues**: The UI reports warnings like "Queue depth does not match inflow/outflow accumulation" for dispatch queues (e.g., AirportDispatchQueue). These warnings originate from `InvariantAnalyzer` during artifact generation (not from UI). They indicate the series emitted for arrivals/served/errors/queueDepth are inconsistent for batch/gated releases.
+  - **Why this happens:** In batch patterns, served events are emitted as gated releases (bursty), while arrivals can be continuous. If queue depth is modeled independently (or derived from a different source than served/arrivals), the invariant check fails. This is a model/series semantics issue, not a UI regression.
+  - **Fix direction:** Align template/telemetry series so queue depth is consistent with arrivals minus served (plus errors/attrition where applicable). For batch patterns, ensure releases are represented as served counts and queue depth is derived from that same served series.
+- **Spiky utilization + SLA plateaus in batch models (PickerWave)**: In the PickerWave model, SLA is 0% in most bins and spikes only at the gated release time; utilization is similarly spiky.
+  - **Why this happens:** SLA is currently computed per bin using completed/served work in that bin. In gated release systems, completions cluster at the release bin, making SLA flat elsewhere. Utilization computed as served/capacity per bin behaves the same.
+  - **Fix direction:** Define batch-friendly SLA/utilization semantics for ServiceWithBuffer:
+    - Option A: Compute SLA only on release bins and carry forward the last SLA value between releases.
+    - Option B: Define SLA as backlog-on-time ratio (queue age vs. SLA threshold), which is stable between releases.
+    - Option C: Introduce a "schedule adherence" metric for batch dispatches and use it instead of SLA in those nodes.
+  - **Performance impact:** Minimal; this is a data/metrics definition change in the engine/API (or template emissions), not a UI rendering change.
 ### Future Work (Optional)
 - Align router inspector UX with class coverage warnings if router class leakage persists.
 
@@ -104,6 +124,32 @@ ServiceWithBuffer was introduced as the canonical "service with queue" abstracti
 - [ ] Alias resolution (`aliases` in topology semantics) applies equally to service and ServiceWithBuffer nodes.
 - [ ] `queueDepth` and `queue` are treated as equivalent series for ServiceWithBuffer nodes.
 - [ ] Retry metrics show only when the series is present, and are never fabricated from unrelated series.
+
+#### FR4: Topology Sparkline Persistence
+**Description:** Node sparklines in the topology canvas must not disappear after inspector interactions or overlay-only refreshes.
+
+**Acceptance Criteria:**
+- [ ] Sparklines remain visible after opening queue depth or other inspector panels.
+- [ ] Overlay-only refreshes preserve cached `nodeMeta.sparkline` data from the last scene payload.
+  - [ ] Toggling inspector metrics does not require a full scene rebuild to keep sparklines rendered.
+
+#### FR5: Template Narrative Metadata
+**Description:** Templates must include a narrative field that captures the modeled system intent and context.
+
+**Acceptance Criteria:**
+- [ ] Template schema includes `metadata.narrative` as an optional string.
+- [ ] Sim template parsing/validation accepts the field without breaking existing templates.
+- [ ] `metadata.json` and run manifest metadata include the narrative when available.
+- [ ] API DTOs expose the narrative (UI may ignore for now, but the data must flow end-to-end).
+- [ ] Authoring documentation explains how to use the narrative field (purpose + examples).
+
+#### FR6: Continuous ServiceWithBuffer Modeling
+**Description:** Templates that represent continuous buffering (no gated release) should model queues using `serviceWithBuffer` without a dispatch schedule.
+
+**Acceptance Criteria:**
+- [ ] Candidate templates are audited and upgraded where a backlog is intended to persist across bins.
+- [ ] ServiceWithBuffer nodes without `dispatchSchedule` behave as continuous buffers (no gated release).
+- [ ] Template versions are bumped when node kinds change.
 
 ### Non-Functional Requirements
 
@@ -186,6 +232,20 @@ ServiceWithBuffer was introduced as the canonical "service with queue" abstracti
 **Success Criteria:**
 - [ ] Documentation clearly explains required series for ServiceWithBuffer inspector parity.
  - [ ] Modeling/templates/telemetry docs stay consistent with API derivation rules.
+
+### Phase 5: Template Narrative + Continuous Buffering
+
+**Goal:** Add narrative metadata and ensure continuous buffering is modeled with ServiceWithBuffer where intended.
+
+**Tasks:**
+1. Add `metadata.narrative` to the template schema and Sim/Engine metadata flow.
+2. Update template authoring docs with narrative guidance and examples.
+3. Audit templates for continuous buffering and upgrade service nodes to ServiceWithBuffer where backlog should persist (no dispatch schedule).
+4. Update template versions and verify updated models still validate.
+
+**Success Criteria:**
+- [ ] Narrative metadata flows from template → run bundle → API.
+- [ ] Continuous buffering templates no longer emit misleading overflow/error semantics.
 
 ## Documentation Impact
 

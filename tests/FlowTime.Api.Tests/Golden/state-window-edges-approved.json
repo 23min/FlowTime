@@ -3,6 +3,7 @@
     "runId": "run_state_edges",
     "templateId": "order-system",
     "templateTitle": "Order System Fixture",
+    "templateNarrative": null,
     "templateVersion": "1.0.0",
     "mode": "telemetry",
     "provenanceHash": "sha256:run_state_edges",

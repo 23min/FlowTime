@@ -152,8 +152,10 @@ public class TemplateService : ITemplateService
             Id = templateInfo.Id,
             Name = templateInfo.Title,
             Description = templateInfo.Description,
+            Narrative = string.IsNullOrWhiteSpace(templateInfo.Narrative) ? null : templateInfo.Narrative,
             Category = category,
             Tags = tags,
+            Version = string.IsNullOrWhiteSpace(templateInfo.Version) ? "1.0" : templateInfo.Version,
             ParameterSchema = parameterSchema,
             TelemetryCaptureKey = templateInfo.CaptureKey
         };
