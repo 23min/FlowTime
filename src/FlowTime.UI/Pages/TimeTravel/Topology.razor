@@ -1553,7 +1553,11 @@ private const string PmfExpectationLabel = "Value";
             }
 
             RefreshTimelineTicks();
-            ApplyBinSelection(initialSelected, jumpPointer: true);
+            ApplyBinSelection(initialSelected, jumpPointer: true, cancelCurrentRefresh: true, forceRefresh: true);
+            if (nodeSparklines.Count == 0)
+            {
+                BuildNodeSparklines(initialSelected);
+            }
             restoredSelectedBin = null;
 
             hasLoaded = true;
@@ -5394,13 +5398,13 @@ private static IReadOnlyList<double?> TrimSeriesAt(double?[]? source, int limit,
         return Task.CompletedTask;
     }
 
-    private void ApplyBinSelection(int bin, bool jumpPointer = false, bool cancelCurrentRefresh = true)
+    private void ApplyBinSelection(int bin, bool jumpPointer = false, bool cancelCurrentRefresh = true, bool forceRefresh = false)
     {
         ApplySelectedBinUi(bin);
         pointerNeedsJump = jumpPointer;
         _ = InvokeAsync(StateHasChanged);
 
-        if (isDialPointerDragging)
+        if (isDialPointerDragging && !forceRefresh)
         {
             pendingDragBin = bin;
             return;

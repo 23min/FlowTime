@@ -1281,6 +1281,7 @@
                 state.settingsPointerId = event.pointerId;
                 state.settingsPointerDown = { x: event.clientX, y: event.clientY };
                 state.pointerMoved = false;
+                state.pointerClickCandidate = true;
                 setCursor('pointer');
                 return;
             }
