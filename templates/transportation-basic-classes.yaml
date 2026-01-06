@@ -552,7 +552,10 @@ nodes:
     expr: "0"
   - id: airport_dispatch_queue_served
     kind: expr
-    expr: "airport_dispatch_queue_demand"
+    expr: "cap_airport * airport_dispatch_queue_gate"
+  - id: airport_dispatch_queue_gate
+    kind: expr
+    expr: "PULSE(6, 0, 1)"
   - id: airport_dispatch_queue_processing_time_ms_sum
     kind: expr
     expr: "airport_dispatch_queue_served * 30"
@@ -564,7 +567,10 @@ nodes:
     expr: "0"
   - id: downtown_dispatch_queue_served
     kind: expr
-    expr: "downtown_dispatch_queue_demand"
+    expr: "cap_downtown * downtown_dispatch_queue_gate"
+  - id: downtown_dispatch_queue_gate
+    kind: expr
+    expr: "PULSE(8, 2, 1)"
   - id: downtown_dispatch_queue_processing_time_ms_sum
     kind: expr
     expr: "downtown_dispatch_queue_served * 30"
@@ -576,7 +582,10 @@ nodes:
     expr: "0"
   - id: industrial_dispatch_queue_served
     kind: expr
-    expr: "industrial_dispatch_queue_demand"
+    expr: "cap_industrial * industrial_dispatch_queue_gate"
+  - id: industrial_dispatch_queue_gate
+    kind: expr
+    expr: "PULSE(10, 4, 1)"
   - id: industrial_dispatch_queue_processing_time_ms_sum
     kind: expr
     expr: "industrial_dispatch_queue_served * 30"

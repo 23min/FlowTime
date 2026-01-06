@@ -1392,6 +1392,40 @@ body.dark-mode .timeline-focus-label {
     padding: 0 8px;
 }
 
+.topology-inspector-warnings {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 0 8px;
+}
+
+.inspector-warning-row {
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    border-left: 3px solid #F59E0B;
+    background: rgba(248, 250, 252, 0.92);
+    border-radius: 8px;
+    padding: 6px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.inspector-warning-row[data-severity="info"] {
+    border-left-color: #0EA5E9;
+}
+
+.inspector-warning-row[data-severity="error"] {
+    border-left-color: #EF4444;
+}
+
+body.dark-mode .inspector-warning-row,
+body[class*="mud-theme-dark"] .inspector-warning-row,
+body[data-ft-theme="dark"] .inspector-warning-row {
+    background: rgba(17, 24, 39, 0.9);
+    border-color: rgba(148, 163, 184, 0.3);
+    color: #E2E8F0;
+}
+
 .inspector-dependency-row {
     border: 1px solid rgba(148, 163, 184, 0.35);
     background: rgba(248, 250, 252, 0.92);

@@ -84,6 +84,8 @@ public sealed class NodeSnapshot
     public IReadOnlyDictionary<string, string>? Aliases { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public DispatchScheduleDescriptor? DispatchSchedule { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<SlaMetricDescriptor>? Sla { get; init; }
 }
 
 public sealed class NodeSeries
@@ -101,6 +103,24 @@ public sealed class NodeSeries
     public DispatchScheduleDescriptor? DispatchSchedule { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public QueueLatencyStatusDescriptor?[]? QueueLatencyStatus { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<SlaSeriesDescriptor>? Sla { get; init; }
+}
+
+public sealed class SlaMetricDescriptor
+{
+    public required string Kind { get; init; }
+    public string Status { get; init; } = "ok";
+    public double? Threshold { get; init; }
+    public double? Value { get; init; }
+}
+
+public sealed class SlaSeriesDescriptor
+{
+    public required string Kind { get; init; }
+    public string Status { get; init; } = "ok";
+    public double? Threshold { get; init; }
+    public double?[] Values { get; init; } = Array.Empty<double?>();
 }
 
 public sealed class EdgeSeries
@@ -174,4 +194,10 @@ public sealed class StateWarning
     public string Message { get; init; } = string.Empty;
     public string Severity { get; init; } = "warning";
     public string? NodeId { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? StartBin { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? EndBin { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Signal { get; init; }
 }

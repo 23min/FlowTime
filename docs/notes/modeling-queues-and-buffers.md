@@ -38,6 +38,24 @@ Some platforms (notably Azure Service Bus) do not expose oldest-message age or q
 
 This requirement is mandatory for telemetry integrations so SLA interpretations remain trustworthy across domains.
 
+### 1.3 Queue depth invariant + backlog warnings
+
+ServiceWithBuffer queues follow a simple recurrence:
+
+```
+queueDepth[t] = queueDepth[t-1] + arrivals[t] - served[t] - loss[t]
+```
+
+When you model **batched releases** (dispatch schedules), make sure `served` is gated by the schedule (e.g., `capacity * gate`) so the recurrence holds. If the invariant does not hold, FlowTime raises a queue depth mismatch warning and backlog health signals become unreliable.
+
+FlowTime also emits **backlog health warnings** in `/state` and `/state_window` when sustained risk is detected:
+
+- **Growth streak** — queue depth increases for N consecutive bins.
+- **Overload ratio** — arrivals consistently exceed effective drain capacity.
+- **Age risk** — backlog age SLA falls below threshold (requires queue age telemetry).
+
+These warnings are **not** anomaly detection. They are guardrail signals to prompt review of capacity, schedule, or inflow assumptions.
+
 ---
 
 ## 2. Kubernetes Services Reading Azure Service Bus Queues

@@ -34,6 +34,24 @@ Telemetry JSON example:
 }
 ```
 
+## it-document-processing-continuous
+
+Continuous document pipeline with classed routing across ServiceWithBuffer stages, retry semantics, and DLQ capture. Use this template to validate class-aware SLA/backlog behavior without batch dispatch gates.
+
+| Parameter | Type | Default | Notes |
+|-----------|------|---------|-------|
+| `bins` / `binSize` | integer | `288` / `5` | Forwarded to the model grid. |
+| `invoiceRate`, `contractRate`, `claimRate` | number | `10` / `6` / `4` | Per-class intake rates. |
+| `intakeCapacity`, `ingressDbCapacity`, `egressDbCapacity`, `deliveryCapacity` | number | `22` / `20` / `18` / `18` | Continuous capacities per stage. |
+| `invoiceCapacity`, `contractCapacity`, `claimCapacity` | number | `12` / `8` / `6` | Type-specific processing capacities. |
+| `retryRate`, `retryFailureRate`, `exhaustRate` | number | `0.15` / `0.2` / `0.35` | Retry semantics used across stages. |
+| `maxAttempts` | integer | `3` | Retry budget per item. |
+
+Highlights:
+- Intake, validation, processing, and delivery are all modeled as ServiceWithBuffer nodes (continuous, no dispatch schedule).
+- Classed routing sends each document type to a dedicated processing queue, keeping class coverage intact end-to-end.
+- Each stage emits retry + exhausted-failure series and routes exhausted work into a dedicated DLQ.
+
 ## transportation-basic
 
 Hub-and-spoke transit network with a central queue and airport retries.

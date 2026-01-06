@@ -133,6 +133,11 @@
                         { "type": "null" },
                         { "$ref": "#/$defs/dispatchScheduleDescriptor" }
                     ]
+                },
+                "sla": {
+                    "type": "array",
+                    "items": { "$ref": "#/$defs/slaMetricDescriptor" },
+                    "default": []
                 }
             }
         },
@@ -163,6 +168,11 @@
                         { "type": "null" },
                         { "$ref": "#/$defs/dispatchScheduleDescriptor" }
                     ]
+                },
+                "sla": {
+                    "type": "array",
+                    "items": { "$ref": "#/$defs/slaSeriesDescriptor" },
+                    "default": []
                 }
             }
         },
@@ -247,6 +257,36 @@
                 }
             }
         },
+        "slaMetricDescriptor": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind", "status"],
+            "properties": {
+                "kind": { "$ref": "#/$defs/slaKind" },
+                "status": { "$ref": "#/$defs/slaStatus" },
+                "threshold": { "$ref": "#/$defs/nullableNumber" },
+                "value": { "$ref": "#/$defs/nullableNumber" }
+            }
+        },
+        "slaSeriesDescriptor": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind", "status", "values"],
+            "properties": {
+                "kind": { "$ref": "#/$defs/slaKind" },
+                "status": { "$ref": "#/$defs/slaStatus" },
+                "threshold": { "$ref": "#/$defs/nullableNumber" },
+                "values": { "$ref": "#/$defs/numericSeries" }
+            }
+        },
+        "slaKind": {
+            "type": "string",
+            "enum": ["completion", "backlogAge", "scheduleAdherence"]
+        },
+        "slaStatus": {
+            "type": "string",
+            "enum": ["ok", "unavailable", "noEvents"]
+        },
         "nodeTelemetryWarning": {
             "type": "object",
             "additionalProperties": false,
@@ -270,7 +310,10 @@
                 "code": { "type": "string", "minLength": 1 },
                 "message": { "type": "string", "minLength": 1 },
                 "severity": { "type": "string", "minLength": 1 },
-                "nodeId": { "$ref": "#/$defs/nodeId" }
+                "nodeId": { "$ref": "#/$defs/nodeId" },
+                "startBin": { "type": ["integer", "null"], "minimum": 0 },
+                "endBin": { "type": ["integer", "null"], "minimum": 0 },
+                "signal": { "type": ["string", "null"], "minLength": 1 }
             }
         },
         "aliasDictionary": {

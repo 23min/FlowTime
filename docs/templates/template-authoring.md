@@ -116,10 +116,10 @@ topology:
         errors: wave_attrition
         queueDepth: picker_wave_backlog   # alias for the synthesized queue series
         capacity: wave_dispatch_capacity
-        dispatchSchedule:
-          periodBins: ${wavePeriodBins}
-          phaseOffset: ${wavePhaseOffset}
-          capacitySeries: wave_dispatch_capacity
+      dispatchSchedule:
+        periodBins: ${wavePeriodBins}
+        phaseOffset: ${wavePhaseOffset}
+        capacitySeries: wave_dispatch_capacity
 ```
 
 - Set `queueDepth: self` (or omit the field) when you do not need a named alias for outputs. If you do provide a series id (`picker_wave_backlog` above) it becomes the exported queue depth without defining a separate `nodes:` entry.
@@ -132,6 +132,8 @@ topology:
 - **Optional series for richer metrics:** emit `capacity` for utilization and `processingTimeMsSum` + `servedCount` for service time. If you want retry chips, emit `attempts`, `failures`, `retryEcho`, and `retryBudgetRemaining`; otherwise the UI omits retry metrics.
 - **Class chips:** per-class series for `arrivals`, `served`, `errors`, and `queueDepth` must exist to render class chips in the inspector. Router targets should point at queue inflow series so class routing is preserved.
 - **Backlog age SLA:** requires queue age telemetry (e.g., oldest-age or age distribution). If telemetry cannot provide queue age, the API must mark backlog age SLA as unavailable and the UI must show "No data" (never infer from queue depth alone).
+- **Queue depth invariant:** queue depth must satisfy `queueDepth[t] = queueDepth[t-1] + arrivals[t] - served[t] - loss[t]`. When you use dispatch schedules, gate `served` by the schedule (e.g., `capacity * gate`) so the recurrence holds. Violations surface as queue depth mismatch warnings.
+- **Backlog health warnings:** the API emits growth/overload/age warnings based on queue depth trends. These are guardrails, not anomalies—avoid false positives by keeping the recurrence valid and providing the series needed for queue age when you want backlog age SLA.
 
 ### Queue & DLQ Nodes
 

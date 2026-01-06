@@ -53,6 +53,52 @@ public sealed class TopologyInspectorTests
     }
 
     [Fact]
+    public void Inspector_ShowsBacklogWarnings()
+    {
+        var topology = new Topology();
+        var warnings = new[]
+        {
+            new TimeTravelStateWarningDto
+            {
+                Code = "backlog_growth",
+                Severity = "warning",
+                NodeId = "svc-a",
+                Message = "Queue depth increased for 4 bins.",
+                StartBin = 2,
+                EndBin = 5,
+                Signal = "1.4"
+            },
+            new TimeTravelStateWarningDto
+            {
+                Code = "queue_latency_gate_closed",
+                Severity = "info",
+                NodeId = "svc-a",
+                Message = "Gate closed."
+            },
+            new TimeTravelStateWarningDto
+            {
+                Code = "backlog_overload",
+                Severity = "warning",
+                NodeId = "svc-b",
+                Message = "Arrivals exceeded capacity."
+            }
+        };
+
+        topology.TestSetWindowWarnings(warnings);
+
+        var inspectorWarnings = topology.TestGetInspectorWarnings("svc-a");
+
+        Assert.Single(inspectorWarnings);
+        var warning = inspectorWarnings[0];
+        Assert.Equal("backlog_growth", warning.Code);
+        Assert.Equal("svc-a", warning.NodeId);
+        Assert.Equal("Queue depth increased for 4 bins.", warning.Message);
+        Assert.Equal(2, warning.StartBin);
+        Assert.Equal(5, warning.EndBin);
+        Assert.Equal("1.4", warning.Signal);
+    }
+
+    [Fact]
     public void ComputedNodeWithoutSuccessSeries_ShowsOnlyOutput()
     {
         var topology = new Topology();

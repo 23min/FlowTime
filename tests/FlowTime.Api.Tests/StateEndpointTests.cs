@@ -36,6 +36,7 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
     private const string serviceWithBufferPartialRunId = "run_state_servicewithbuffer_partial";
     private const string dispatchScheduleRunId = "run_state_dispatch_schedule";
     private const string throughputOverflowRunId = "run_state_throughput_overflow";
+    private const string backlogWarningsRunId = "run_state_backlog_warnings";
     private const int binCount = 4;
     private const int binSizeMinutes = 5;
     private static readonly DateTime startTimeUtc = new(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -75,6 +76,7 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         CreateServiceWithBufferPartialRun();
         CreateDispatchScheduleRun();
         CreateThroughputOverflowRun();
+        CreateBacklogWarningsRun();
 
         logCollector = new TestLogCollector();
         client = factory.WithWebHostBuilder(builder =>
@@ -468,6 +470,56 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
     }
 
     [Fact]
+    public async Task GetStateWindow_SlaSeries_CarriesForward_ForDispatchSchedule()
+    {
+        var response = await client.GetAsync($"/v1/runs/{dispatchScheduleRunId}/state_window?startBin=0&endBin=3");
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<StateWindowResponse>(new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            PropertyNameCaseInsensitive = true
+        });
+        Assert.NotNull(payload);
+
+        var node = Assert.Single(payload!.Nodes, n => n.Id == "SupportQueue");
+        Assert.NotNull(node.Sla);
+
+        var completion = Assert.Single(node.Sla!, s => s.Kind == "completion");
+        Assert.Equal("ok", completion.Status);
+        Assert.Equal(4, completion.Values.Length);
+        Assert.Null(completion.Values[0]);
+        Assert.Equal(5d / 7d, completion.Values[1]!.Value, 5);
+        Assert.Equal(5d / 7d, completion.Values[2]!.Value, 5);
+        Assert.Equal(5d / 7d, completion.Values[3]!.Value, 5);
+
+        var backlog = Assert.Single(node.Sla!, s => s.Kind == "backlogAge");
+        Assert.Equal("unavailable", backlog.Status);
+        Assert.All(backlog.Values, value => Assert.Null(value));
+    }
+
+    [Fact]
+    public async Task GetStateWindow_SlaPayload_IncludesKindAndStatus_WhenInputsMissing()
+    {
+        var response = await client.GetAsync($"/v1/runs/{serviceWithBufferPartialRunId}/state_window?startBin=0&endBin=0");
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<StateWindowResponse>(new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            PropertyNameCaseInsensitive = true
+        });
+        Assert.NotNull(payload);
+
+        var node = Assert.Single(payload!.Nodes, n => n.Id == "BufferService");
+        Assert.NotNull(node.Sla);
+
+        var completion = Assert.Single(node.Sla!, s => s.Kind == "completion");
+        Assert.False(string.IsNullOrWhiteSpace(completion.Status));
+
+        var backlog = Assert.Single(node.Sla!, s => s.Kind == "backlogAge");
+        Assert.Equal("unavailable", backlog.Status);
+    }
+
+    [Fact]
     public async Task GetStateWindow_PreservesAttemptConservation()
     {
         var response = await client.GetAsync($"/v1/runs/{runId}/state_window?startBin=0&endBin=3");
@@ -556,6 +608,68 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         Assert.Equal(0, flowLatency[3]!.Value, 6);
 
         AssertGoldenResponse("state-window-queue-null-approved.json", payload);
+    }
+
+    [Fact]
+    public async Task GetStateWindow_EmitsBacklogWarnings_ForSustainedRisk()
+    {
+        var response = await client.GetAsync($"/v1/runs/{backlogWarningsRunId}/state_window?startBin=0&endBin=3");
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync();
+            throw new XunitException($"Expected 200 OK but got {(int)response.StatusCode}: {errorBody}");
+        }
+
+        var payload = await response.Content.ReadFromJsonAsync<StateWindowResponse>(new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            PropertyNameCaseInsensitive = true
+        });
+
+        Assert.NotNull(payload);
+        var warnings = payload!.Warnings.Where(w => w.NodeId == "BufferService").ToArray();
+
+        Assert.Contains(warnings, w =>
+            w.Code == "backlog_growth_streak" &&
+            w.StartBin == 0 &&
+            w.EndBin == 3 &&
+            w.Signal == "queueDepth");
+
+        Assert.Contains(warnings, w =>
+            w.Code == "backlog_overload_ratio" &&
+            w.StartBin == 0 &&
+            w.EndBin == 3 &&
+            w.Signal == "overloadRatio");
+
+        Assert.Contains(warnings, w =>
+            w.Code == "backlog_age_risk" &&
+            w.StartBin == 0 &&
+            w.EndBin == 3 &&
+            w.Signal == "latencyMinutes");
+    }
+
+    [Fact]
+    public async Task GetStateWindow_BacklogWarnings_IncludeSignalFields()
+    {
+        var response = await client.GetAsync($"/v1/runs/{backlogWarningsRunId}/state_window?startBin=0&endBin=3");
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync();
+            throw new XunitException($"Expected 200 OK but got {(int)response.StatusCode}: {errorBody}");
+        }
+
+        var json = JsonNode.Parse(await response.Content.ReadAsStringAsync());
+        Assert.NotNull(json);
+        var warnings = json!["warnings"] as JsonArray;
+        Assert.NotNull(warnings);
+        Assert.NotEmpty(warnings);
+
+        var warning = warnings!.FirstOrDefault(entry =>
+            string.Equals(entry?["code"]?.ToString(), "backlog_growth_streak", StringComparison.OrdinalIgnoreCase));
+
+        Assert.NotNull(warning);
+        Assert.Equal(0, warning!["startBin"]?.GetValue<int>());
+        Assert.Equal(3, warning["endBin"]?.GetValue<int>());
+        Assert.Equal("queueDepth", warning["signal"]?.GetValue<string>());
     }
 
     [Fact]
@@ -944,6 +1058,26 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         };
 
         CreateRun(throughputOverflowRunId, BuildValidModelYaml(), mode: "telemetry", overrides: overrides);
+    }
+
+    private void CreateBacklogWarningsRun()
+    {
+        var overrides = new Dictionary<string, double[]>
+        {
+            ["BufferService_arrivals.csv"] = new[] { 10d, 12d, 14d, 16d },
+            ["BufferService_served.csv"] = new[] { 2d, 2d, 2d, 2d },
+            ["BufferService_errors.csv"] = new[] { 0d, 0d, 0d, 0d },
+            ["BufferService_queue.csv"] = new[] { 5d, 8d, 12d, 15d },
+            ["BufferService_capacity.csv"] = new[] { 5d, 5d, 5d, 5d },
+            ["BufferService_processingTimeMsSum.csv"] = new[] { 400d, 400d, 400d, 400d },
+            ["BufferService_servedCount.csv"] = new[] { 2d, 2d, 2d, 2d }
+        };
+
+        CreateRun(
+            backlogWarningsRunId,
+            BuildBacklogWarningsModelYaml(),
+            mode: "telemetry",
+            overrides: overrides);
     }
 
     private void CreateFullModeRun()
@@ -1535,6 +1669,35 @@ topology:
         capacity: "file:BufferService_capacity.csv"
         processingTimeMsSum: "file:BufferService_processingTimeMsSum.csv"
         servedCount: "file:BufferService_servedCount.csv"
+  edges: []
+
+""";
+    }
+
+    private static string BuildBacklogWarningsModelYaml()
+    {
+        return $"""
+schemaVersion: 1
+
+grid:
+  bins: {binCount}
+  binSize: {binSizeMinutes}
+  binUnit: minutes
+  startTimeUtc: "{startTimeUtc:O}"
+
+topology:
+  nodes:
+    - id: "BufferService"
+      kind: "serviceWithBuffer"
+      semantics:
+        arrivals: "file:BufferService_arrivals.csv"
+        served: "file:BufferService_served.csv"
+        errors: "file:BufferService_errors.csv"
+        queueDepth: "file:BufferService_queue.csv"
+        capacity: "file:BufferService_capacity.csv"
+        processingTimeMsSum: "file:BufferService_processingTimeMsSum.csv"
+        servedCount: "file:BufferService_servedCount.csv"
+        slaMin: 10
   edges: []
 
 """;

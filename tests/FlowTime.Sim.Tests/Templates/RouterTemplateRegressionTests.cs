@@ -107,6 +107,29 @@ public class RouterTemplateRegressionTests
     }
 
     [Fact]
+    public async Task TransportationClassesTemplate_DoesNotEmitQueueDepthMismatchWarnings()
+    {
+        var yaml = await templateService.GenerateEngineModelAsync(
+            "transportation-basic-classes",
+            new Dictionary<string, object>());
+
+        var analysis = TemplateInvariantAnalyzer.Analyze(yaml);
+
+        Assert.DoesNotContain(
+            analysis.Warnings,
+            warning => string.Equals(warning.Code, "queue_depth_mismatch", StringComparison.OrdinalIgnoreCase) &&
+                       string.Equals(warning.NodeId, "AirportDispatchQueue", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(
+            analysis.Warnings,
+            warning => string.Equals(warning.Code, "queue_depth_mismatch", StringComparison.OrdinalIgnoreCase) &&
+                       string.Equals(warning.NodeId, "DowntownDispatchQueue", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(
+            analysis.Warnings,
+            warning => string.Equals(warning.Code, "queue_depth_mismatch", StringComparison.OrdinalIgnoreCase) &&
+                       string.Equals(warning.NodeId, "IndustrialDispatchQueue", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public async Task SupplyChainClassesTemplate_UsesRouterOutputsForReturnsQueues()
     {
         var yaml = await templateService.GenerateEngineModelAsync(

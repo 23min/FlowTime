@@ -159,6 +159,9 @@ public sealed record TimeTravelNodeSnapshotDto
 
     [JsonPropertyName("queueLatencyStatus")]
     public TimeTravelQueueLatencyStatusDto? QueueLatencyStatus { get; init; }
+
+    [JsonPropertyName("sla")]
+    public IReadOnlyList<TimeTravelSlaMetricDto>? Sla { get; init; }
 }
 
 public sealed record TimeTravelNodeSeriesDto
@@ -190,6 +193,39 @@ public sealed record TimeTravelNodeSeriesDto
 
     [JsonPropertyName("queueLatencyStatus")]
     public TimeTravelQueueLatencyStatusDto?[]? QueueLatencyStatus { get; init; }
+
+    [JsonPropertyName("sla")]
+    public IReadOnlyList<TimeTravelSlaSeriesDto>? Sla { get; init; }
+}
+
+public sealed record TimeTravelSlaMetricDto
+{
+    [JsonPropertyName("kind")]
+    public required string Kind { get; init; }
+
+    [JsonPropertyName("status")]
+    public string Status { get; init; } = "ok";
+
+    [JsonPropertyName("threshold")]
+    public double? Threshold { get; init; }
+
+    [JsonPropertyName("value")]
+    public double? Value { get; init; }
+}
+
+public sealed record TimeTravelSlaSeriesDto
+{
+    [JsonPropertyName("kind")]
+    public required string Kind { get; init; }
+
+    [JsonPropertyName("status")]
+    public string Status { get; init; } = "ok";
+
+    [JsonPropertyName("threshold")]
+    public double? Threshold { get; init; }
+
+    [JsonPropertyName("values")]
+    public double?[] Values { get; init; } = Array.Empty<double?>();
 }
 
 public sealed record TimeTravelEdgeSeriesDto
@@ -352,6 +388,15 @@ public sealed record TimeTravelStateWarningDto
 
     [JsonPropertyName("nodeId")]
     public string? NodeId { get; init; }
+
+    [JsonPropertyName("startBin")]
+    public int? StartBin { get; init; }
+
+    [JsonPropertyName("endBin")]
+    public int? EndBin { get; init; }
+
+    [JsonPropertyName("signal")]
+    public string? Signal { get; init; }
 }
 
 public sealed record TimeTravelMetricsResponseDto

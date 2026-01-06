@@ -155,7 +155,20 @@
         "attempts": "Ticket submissions",
         "served": "Orders fulfilled",
         "retryEcho": "Retry backlog"
-      }
+      },
+      "sla": [
+        {
+          "kind": "completion",
+          "status": "ok",
+          "threshold": null,
+          "values": [
+            0.9,
+            0.6,
+            0.9,
+            0.4
+          ]
+        }
+      ]
     },
     {
       "id": "SupportQueue",
@@ -216,7 +229,31 @@
       },
       "aliases": {
         "queue": "Open backlog"
-      }
+      },
+      "sla": [
+        {
+          "kind": "completion",
+          "status": "ok",
+          "threshold": null,
+          "values": [
+            1,
+            0.857143,
+            1,
+            0.8
+          ]
+        },
+        {
+          "kind": "backlogAge",
+          "status": "unavailable",
+          "threshold": 5,
+          "values": [
+            null,
+            null,
+            null,
+            null
+          ]
+        }
+      ]
     }
   ],
   "edges": [

@@ -23,6 +23,17 @@ public partial class Topology
         windowData = data;
     }
 
+    internal void TestSetWindowWarnings(IReadOnlyList<TimeTravelStateWarningDto> warnings)
+    {
+        windowWarnings = FilterWindowWarnings(warnings);
+        UpdateNodeWarningMap();
+    }
+
+    internal IReadOnlyList<TimeTravelStateWarningDto> TestGetInspectorWarnings(string nodeId)
+    {
+        return GetInspectorWarnings(nodeId);
+    }
+
     internal void TestBuildNodeSparklines()
     {
         BuildNodeSparklines();

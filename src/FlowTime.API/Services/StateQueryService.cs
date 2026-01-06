@@ -20,6 +20,9 @@ public sealed class StateQueryService
     private const int maxWindowBins = 500;
     private static readonly EventId stateSnapshotEvent = new(3001, "StateSnapshotObservability");
     private static readonly EventId stateWindowEvent = new(3002, "StateWindowObservability");
+    private const int BacklogGrowthStreakBins = 3;
+    private const int BacklogOverloadStreakBins = 3;
+    private const int BacklogAgeRiskStreakBins = 3;
     private static readonly double[] fallbackRetryKernel = RetryKernelPolicy.DefaultKernel;
     private static readonly QueueLatencyStatusDescriptor pausedGateClosedStatus = new()
     {
@@ -221,6 +224,8 @@ public sealed class StateQueryService
         }
 
         var edgeSeries = BuildEdgeSeries(context, startBin, count);
+        var backlogWarnings = BuildBacklogWarnings(context, topologyNodes, startBin, count);
+        var combinedWarnings = MergeWarnings(validation.Warnings, backlogWarnings);
 
         logger.LogInformation(
             stateWindowEvent,
@@ -245,7 +250,7 @@ public sealed class StateQueryService
             TimestampsUtc = timestamps,
             Nodes = seriesList,
             Edges = edgeSeries,
-            Warnings = BuildWarnings(context, validation.Warnings)
+            Warnings = BuildWarnings(context, combinedWarnings)
         };
     }
 
@@ -586,6 +591,7 @@ public sealed class StateQueryService
                     : ColoringRules.PickServiceColor(utilization);
 
         var mergedWarnings = MergeWarnings(nodeWarnings, classAggregation.Warnings, node.Id);
+        var slaMetrics = BuildSlaMetrics(node, logicalType, data, context, binIndex, dispatchSchedule);
 
         return new NodeSnapshot
         {
@@ -621,7 +627,271 @@ public sealed class StateQueryService
             },
             Telemetry = BuildTelemetryInfo(node, context.ManifestMetadata, mergedWarnings),
             Aliases = node.Semantics?.Aliases,
-            DispatchSchedule = dispatchSchedule
+            DispatchSchedule = dispatchSchedule,
+            Sla = slaMetrics
+        };
+    }
+
+    private const string SlaStatusOk = "ok";
+    private const string SlaStatusUnavailable = "unavailable";
+    private const string SlaStatusNoEvents = "noEvents";
+
+    private static IReadOnlyList<SlaSeriesDescriptor>? BuildSlaSeries(
+        Node node,
+        string? logicalType,
+        NodeData data,
+        StateRunContext context,
+        int startBin,
+        int count,
+        DispatchScheduleDescriptor? dispatchSchedule)
+    {
+        var completion = ComputeCompletionSlaSeries(data.Arrivals, data.Served, dispatchSchedule, startBin, count);
+        var backlogAge = BuildBacklogAgeSlaSeries(node, logicalType, data, context, startBin, count);
+        var scheduleAdherence = ComputeScheduleAdherenceSeries(data.Served, dispatchSchedule, startBin, count);
+
+        var items = new List<SlaSeriesDescriptor>(capacity: 3);
+        if (completion is not null)
+        {
+            items.Add(completion);
+        }
+        if (backlogAge is not null)
+        {
+            items.Add(backlogAge);
+        }
+        if (scheduleAdherence is not null)
+        {
+            items.Add(scheduleAdherence);
+        }
+
+        return items.Count == 0 ? null : items;
+    }
+
+    private static IReadOnlyList<SlaMetricDescriptor>? BuildSlaMetrics(
+        Node node,
+        string? logicalType,
+        NodeData data,
+        StateRunContext context,
+        int binIndex,
+        DispatchScheduleDescriptor? dispatchSchedule)
+    {
+        var completionValue = ComputeCompletionSlaValue(data.Arrivals, data.Served, dispatchSchedule, binIndex);
+        var completion = new SlaMetricDescriptor
+        {
+            Kind = "completion",
+            Status = completionValue.HasValue ? SlaStatusOk : SlaStatusNoEvents,
+            Threshold = null,
+            Value = completionValue
+        };
+
+        var backlogAge = BuildBacklogAgeMetric(node, logicalType);
+
+        var scheduleAdherence = BuildScheduleAdherenceMetric(data.Served, dispatchSchedule, binIndex);
+
+        var items = new List<SlaMetricDescriptor>(capacity: 3)
+        {
+            completion
+        };
+
+        if (backlogAge is not null)
+        {
+            items.Add(backlogAge);
+        }
+
+        if (scheduleAdherence is not null)
+        {
+            items.Add(scheduleAdherence);
+        }
+
+        return items;
+    }
+
+    private static SlaSeriesDescriptor ComputeCompletionSlaSeries(
+        double[] arrivals,
+        double[] served,
+        DispatchScheduleDescriptor? schedule,
+        int startBin,
+        int count)
+    {
+        var values = new double?[count];
+        double? lastValue = null;
+        var any = false;
+        var hasSchedule = schedule is not null && schedule.PeriodBins > 0;
+
+        for (var i = 0; i < count; i++)
+        {
+            var index = startBin + i;
+            var ratio = ComputeThroughputRatio(arrivals[index], served[index]);
+            if (hasSchedule)
+            {
+                if (DispatchScheduleProcessor.IsDispatchBin(index, schedule!.PeriodBins, schedule.PhaseOffset))
+                {
+                    if (ratio.HasValue)
+                    {
+                        lastValue = Normalize(ratio.Value);
+                        any = true;
+                    }
+                }
+            }
+            else if (ratio.HasValue)
+            {
+                lastValue = Normalize(ratio.Value);
+                any = true;
+            }
+
+            values[i] = lastValue;
+        }
+
+        return new SlaSeriesDescriptor
+        {
+            Kind = "completion",
+            Status = any ? SlaStatusOk : SlaStatusNoEvents,
+            Threshold = null,
+            Values = values
+        };
+    }
+
+    private static double? ComputeCompletionSlaValue(
+        double[] arrivals,
+        double[] served,
+        DispatchScheduleDescriptor? schedule,
+        int binIndex)
+    {
+        if (binIndex < 0 || binIndex >= arrivals.Length || binIndex >= served.Length)
+        {
+            return null;
+        }
+
+        var hasSchedule = schedule is not null && schedule.PeriodBins > 0;
+        if (!hasSchedule)
+        {
+            var ratio = ComputeThroughputRatio(arrivals[binIndex], served[binIndex]);
+            return ratio.HasValue ? Normalize(ratio.Value) : null;
+        }
+
+        double? lastValue = null;
+        for (var i = 0; i <= binIndex; i++)
+        {
+            if (!DispatchScheduleProcessor.IsDispatchBin(i, schedule!.PeriodBins, schedule.PhaseOffset))
+            {
+                continue;
+            }
+
+            var ratio = ComputeThroughputRatio(arrivals[i], served[i]);
+            if (ratio.HasValue)
+            {
+                lastValue = Normalize(ratio.Value);
+            }
+        }
+
+        return lastValue;
+    }
+
+    private static SlaSeriesDescriptor? BuildBacklogAgeSlaSeries(
+        Node node,
+        string? logicalType,
+        NodeData data,
+        StateRunContext context,
+        int startBin,
+        int count)
+    {
+        var isQueueLike = IsQueueLikeKind(node.Kind) || IsQueueLikeKind(logicalType);
+        if (!isQueueLike)
+        {
+            return null;
+        }
+
+        var values = new double?[count];
+        return new SlaSeriesDescriptor
+        {
+            Kind = "backlogAge",
+            Status = SlaStatusUnavailable,
+            Threshold = node.Semantics?.SlaMinutes,
+            Values = values
+        };
+    }
+
+    private static SlaMetricDescriptor? BuildBacklogAgeMetric(Node node, string? logicalType)
+    {
+        var isQueueLike = IsQueueLikeKind(node.Kind) || IsQueueLikeKind(logicalType);
+        if (!isQueueLike)
+        {
+            return null;
+        }
+
+        return new SlaMetricDescriptor
+        {
+            Kind = "backlogAge",
+            Status = SlaStatusUnavailable,
+            Threshold = node.Semantics?.SlaMinutes,
+            Value = null
+        };
+    }
+
+    private static SlaSeriesDescriptor? ComputeScheduleAdherenceSeries(
+        double[] served,
+        DispatchScheduleDescriptor? schedule,
+        int startBin,
+        int count)
+    {
+        if (schedule is null || schedule.PeriodBins <= 0)
+        {
+            return null;
+        }
+
+        var values = new double?[count];
+        var any = false;
+
+        for (var i = 0; i < count; i++)
+        {
+            var index = startBin + i;
+            if (!DispatchScheduleProcessor.IsDispatchBin(index, schedule.PeriodBins, schedule.PhaseOffset))
+            {
+                values[i] = null;
+                continue;
+            }
+
+            var servedValue = served[index];
+            values[i] = servedValue > 0d ? 1d : 0d;
+            any = true;
+        }
+
+        return new SlaSeriesDescriptor
+        {
+            Kind = "scheduleAdherence",
+            Status = any ? SlaStatusOk : SlaStatusNoEvents,
+            Threshold = 1d,
+            Values = values
+        };
+    }
+
+    private static SlaMetricDescriptor? BuildScheduleAdherenceMetric(
+        double[] served,
+        DispatchScheduleDescriptor? schedule,
+        int binIndex)
+    {
+        if (schedule is null || schedule.PeriodBins <= 0)
+        {
+            return null;
+        }
+
+        if (!DispatchScheduleProcessor.IsDispatchBin(binIndex, schedule.PeriodBins, schedule.PhaseOffset))
+        {
+            return new SlaMetricDescriptor
+            {
+                Kind = "scheduleAdherence",
+                Status = SlaStatusNoEvents,
+                Threshold = 1d,
+                Value = null
+            };
+        }
+
+        var servedValue = binIndex >= 0 && binIndex < served.Length ? served[binIndex] : 0d;
+        return new SlaMetricDescriptor
+        {
+            Kind = "scheduleAdherence",
+            Status = SlaStatusOk,
+            Threshold = 1d,
+            Value = servedValue > 0d ? 1d : 0d
         };
     }
 
@@ -672,6 +942,230 @@ public sealed class StateQueryService
         }
 
         return merged;
+    }
+
+    private static IReadOnlyList<ModeValidationWarning> MergeWarnings(
+        IReadOnlyList<ModeValidationWarning> existing,
+        IReadOnlyList<ModeValidationWarning> additional)
+    {
+        if (additional is null || additional.Count == 0)
+        {
+            return existing;
+        }
+
+        var merged = new List<ModeValidationWarning>(existing.Count + additional.Count);
+        merged.AddRange(existing);
+        merged.AddRange(additional);
+        return merged;
+    }
+
+    private static IReadOnlyList<ModeValidationWarning> BuildBacklogWarnings(
+        StateRunContext context,
+        IEnumerable<Node> nodes,
+        int startBin,
+        int count)
+    {
+        var warnings = new List<ModeValidationWarning>();
+        var endBin = startBin + count - 1;
+        var binMinutes = context.Window.BinDuration.TotalMinutes;
+
+        foreach (var node in nodes)
+        {
+            if (!IsQueueLikeKind(node.Kind))
+            {
+                continue;
+            }
+
+            if (!context.NodeData.TryGetValue(node.Id, out var data))
+            {
+                continue;
+            }
+
+            var growth = FindQueueGrowthStreak(data.QueueDepth, startBin, endBin);
+            if (growth.HasValue && growth.Value.Length >= BacklogGrowthStreakBins)
+            {
+                warnings.Add(new ModeValidationWarning
+                {
+                    Code = "backlog_growth_streak",
+                    Message = $"Queue depth increased for {growth.Value.Length} consecutive bins (bins {growth.Value.Start}–{growth.Value.End}).",
+                    NodeId = node.Id,
+                    StartBin = growth.Value.Start,
+                    EndBin = growth.Value.End,
+                    Signal = "queueDepth"
+                });
+            }
+
+            var overload = FindOverloadStreak(data.Arrivals, data.Capacity, startBin, endBin);
+            if (overload.HasValue && overload.Value.Length >= BacklogOverloadStreakBins)
+            {
+                warnings.Add(new ModeValidationWarning
+                {
+                    Code = "backlog_overload_ratio",
+                    Message = $"Arrivals exceeded capacity for {overload.Value.Length} consecutive bins (bins {overload.Value.Start}–{overload.Value.End}).",
+                    NodeId = node.Id,
+                    StartBin = overload.Value.Start,
+                    EndBin = overload.Value.End,
+                    Signal = "overloadRatio"
+                });
+            }
+
+            var ageRisk = FindAgeRiskStreak(data.QueueDepth, data.Served, binMinutes, node.Semantics?.SlaMinutes, startBin, endBin);
+            if (ageRisk.HasValue && ageRisk.Value.Length >= BacklogAgeRiskStreakBins)
+            {
+                warnings.Add(new ModeValidationWarning
+                {
+                    Code = "backlog_age_risk",
+                    Message = $"Queue latency exceeded SLA for {ageRisk.Value.Length} consecutive bins (bins {ageRisk.Value.Start}–{ageRisk.Value.End}).",
+                    NodeId = node.Id,
+                    StartBin = ageRisk.Value.Start,
+                    EndBin = ageRisk.Value.End,
+                    Signal = "latencyMinutes"
+                });
+            }
+        }
+
+        return warnings;
+    }
+
+    private static (int Start, int End, int Length)? FindQueueGrowthStreak(
+        double[]? queueSeries,
+        int startBin,
+        int endBin)
+    {
+        if (queueSeries is null || endBin - startBin < 1)
+        {
+            return null;
+        }
+
+        int? bestStart = null;
+        int? bestEnd = null;
+        var bestLength = 0;
+        int? currentStart = null;
+        var currentLength = 0;
+
+        for (var i = startBin + 1; i <= endBin; i++)
+        {
+            var previous = GetOptionalValue(queueSeries, i - 1);
+            var current = GetOptionalValue(queueSeries, i);
+
+            if (previous.HasValue && current.HasValue && current.Value > previous.Value)
+            {
+                if (currentLength == 0)
+                {
+                    currentStart = i - 1;
+                }
+
+                currentLength++;
+                if (currentLength > bestLength)
+                {
+                    bestLength = currentLength;
+                    bestStart = currentStart;
+                    bestEnd = i;
+                }
+            }
+            else
+            {
+                currentLength = 0;
+                currentStart = null;
+            }
+        }
+
+        return bestLength > 0 && bestStart.HasValue && bestEnd.HasValue
+            ? (bestStart.Value, bestEnd.Value, bestLength)
+            : null;
+    }
+
+    private static (int Start, int End, int Length)? FindOverloadStreak(
+        double[]? arrivalsSeries,
+        double[]? capacitySeries,
+        int startBin,
+        int endBin)
+    {
+        if (arrivalsSeries is null || capacitySeries is null)
+        {
+            return null;
+        }
+
+        return FindStreak(startBin, endBin, bin =>
+        {
+            var arrivals = GetOptionalValue(arrivalsSeries, bin);
+            var capacity = GetOptionalValue(capacitySeries, bin);
+            if (!arrivals.HasValue || !capacity.HasValue || capacity.Value <= 0d)
+            {
+                return false;
+            }
+
+            var ratio = arrivals.Value / capacity.Value;
+            return ratio > 1d;
+        });
+    }
+
+    private static (int Start, int End, int Length)? FindAgeRiskStreak(
+        double[]? queueSeries,
+        double[]? servedSeries,
+        double binMinutes,
+        double? slaMinutes,
+        int startBin,
+        int endBin)
+    {
+        if (!slaMinutes.HasValue || slaMinutes.Value <= 0d || queueSeries is null || servedSeries is null || binMinutes <= 0d)
+        {
+            return null;
+        }
+
+        var threshold = slaMinutes.Value;
+        return FindStreak(startBin, endBin, bin =>
+        {
+            var queue = GetOptionalValue(queueSeries, bin);
+            var served = GetOptionalValue(servedSeries, bin);
+            if (!queue.HasValue || !served.HasValue)
+            {
+                return false;
+            }
+
+            var latency = LatencyComputer.Calculate(queue.Value, served.Value, binMinutes);
+            return latency.HasValue && latency.Value > threshold;
+        });
+    }
+
+    private static (int Start, int End, int Length)? FindStreak(
+        int startBin,
+        int endBin,
+        Func<int, bool> predicate)
+    {
+        int? bestStart = null;
+        int? bestEnd = null;
+        var bestLength = 0;
+        int? currentStart = null;
+        var currentLength = 0;
+
+        for (var i = startBin; i <= endBin; i++)
+        {
+            if (predicate(i))
+            {
+                if (currentLength == 0)
+                {
+                    currentStart = i;
+                }
+
+                currentLength++;
+                if (currentLength > bestLength)
+                {
+                    bestLength = currentLength;
+                    bestStart = currentStart;
+                    bestEnd = i;
+                }
+            }
+            else
+            {
+                currentLength = 0;
+                currentStart = null;
+            }
+        }
+
+        return bestLength > 0 && bestStart.HasValue && bestEnd.HasValue
+            ? (bestStart.Value, bestEnd.Value, bestLength)
+            : null;
     }
 
     private static string? ResolveClassCoverage(IReadOnlyList<ClassCoverage> coverages)
@@ -917,6 +1411,8 @@ public sealed class StateQueryService
             series[$"series:{node.Id}"] = valuesSlice;
         }
 
+        var slaSeries = BuildSlaSeries(node, logicalType, data, context, startBin, count, dispatchSchedule);
+
         return new NodeSeries
         {
             Id = node.Id,
@@ -927,7 +1423,8 @@ public sealed class StateQueryService
             Telemetry = BuildTelemetryInfo(node, context.ManifestMetadata, nodeWarnings),
             Aliases = node.Semantics?.Aliases,
             DispatchSchedule = dispatchSchedule,
-            QueueLatencyStatus = queueLatencyStatuses
+            QueueLatencyStatus = queueLatencyStatuses,
+            Sla = slaSeries
         };
     }
 
@@ -2314,7 +2811,10 @@ public sealed class StateQueryService
                 {
                     Code = warning.Code,
                     Message = warning.Message,
-                    NodeId = warning.NodeId
+                    NodeId = warning.NodeId,
+                    StartBin = warning.StartBin,
+                    EndBin = warning.EndBin,
+                    Signal = warning.Signal
                 });
             }
         }
