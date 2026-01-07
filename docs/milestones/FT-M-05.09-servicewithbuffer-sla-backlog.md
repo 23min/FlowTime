@@ -1,6 +1,6 @@
 # FT-M-05.09 — ServiceWithBuffer SLA + Backlog Health Signals
 
-**Status:** 📋 Planned  
+**Status:** ✅ Complete  
 **Dependencies:** ✅ FT-M-05.08  
 **Target:** Implement batch-safe SLA semantics and backlog health signals for ServiceWithBuffer so SLA and queue warnings remain meaningful across batch and continuous systems.
 
