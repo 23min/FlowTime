@@ -87,6 +87,8 @@ internal static class ClassContributionBuilder
                 contributions);
         }
 
+        ApplyServiceWithBufferOutflowContributions(nodeDefinitions, grid, totals, contributions);
+
         var result = new Dictionary<NodeId, IReadOnlyDictionary<string, double[]>>();
         foreach (var (nodeId, series) in contributions)
         {
@@ -103,6 +105,67 @@ internal static class ClassContributionBuilder
 
         routerDiagnostics = routerDiagnosticsList;
         return result;
+    }
+
+    private static void ApplyServiceWithBufferOutflowContributions(
+        IReadOnlyDictionary<string, NodeDefinition> nodeDefinitions,
+        TimeGrid grid,
+        IReadOnlyDictionary<NodeId, double[]> totals,
+        Dictionary<NodeId, ClassSeries> contributions)
+    {
+        foreach (var nodeDefinition in nodeDefinitions.Values)
+        {
+            if (!string.Equals(nodeDefinition.Kind, "serviceWithBuffer", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (string.IsNullOrWhiteSpace(nodeDefinition.Inflow))
+            {
+                continue;
+            }
+
+            var inflow = GetRequiredNode(nodeDefinition.Inflow, grid, totals, contributions);
+            if (inflow.ByClass.Count == 0)
+            {
+                continue;
+            }
+
+            ApplyContributionForTarget(nodeDefinition.Outflow, inflow, totals, contributions);
+            ApplyContributionForTarget(nodeDefinition.Loss, inflow, totals, contributions);
+        }
+    }
+
+    private static void ApplyContributionForTarget(
+        string? targetId,
+        ClassSeries inflow,
+        IReadOnlyDictionary<NodeId, double[]> totals,
+        Dictionary<NodeId, ClassSeries> contributions)
+    {
+        if (string.IsNullOrWhiteSpace(targetId))
+        {
+            return;
+        }
+
+        var targetNodeId = new NodeId(targetId);
+        if (!totals.TryGetValue(targetNodeId, out var targetTotals))
+        {
+            return;
+        }
+
+        if (contributions.TryGetValue(targetNodeId, out var existing) && existing.ByClass.Count > 0)
+        {
+            return;
+        }
+
+        var dict = new Dictionary<string, double[]>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (classId, series) in inflow.ByClass)
+        {
+            dict[classId] = (double[])series.Clone();
+        }
+
+        ClassSeries.NormalizeToTotal(dict, targetTotals);
+        contributions[targetNodeId] = new ClassSeries((double[])targetTotals.Clone(), dict);
     }
 
     private static HashSet<NodeId> ApplyRouterContributions(

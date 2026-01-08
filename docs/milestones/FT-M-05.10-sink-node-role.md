@@ -69,9 +69,9 @@ Some modeled systems end with successful terminal nodes (airports, delivery endp
 **Goal:** Display sinks and suppress misleading metrics.
 
 **Tasks:**
-1. RED UI tests for sink badge + suppression.
-2. Implement sink badge rendering.
-3. Suppress error/utilization chips unless explicit series exist.
+1. RED UI test for sink badge rendering.
+2. RED UI tests that verify sink metrics are suppressed when missing and shown when explicit series exist.
+3. Implement sink badge and the single suppression/override rule (same change covers both missing and present series).
 
 ### Phase 3: Docs + Validation
 **Goal:** Document sink semantics and validate tests.
@@ -88,7 +88,8 @@ Some modeled systems end with successful terminal nodes (airports, delivery endp
 
 ### UI Tests
 1. `Topology_ShowsSinkBadge_WhenNodeRoleSink`
-2. `Inspector_SuppressesUtilization_ForSink`
+2. `BuildInspectorMetrics_SinkNode_SuppressesUtilizationAndErrorRateWhenMissing`
+3. `BuildInspectorMetrics_SinkNode_IncludesUtilizationAndErrorRateWhenPresent`
 
 ## Success Criteria
 
@@ -102,9 +103,14 @@ Some modeled systems end with successful terminal nodes (airports, delivery endp
 ### Files to Modify (Major Changes)
 - `docs/schemas/template.schema.json`
 - `src/FlowTime.Sim.Core/Templates/Template.cs`
-- `src/FlowTime.Core/TimeTravel/RunManifestReader.cs`
-- `src/FlowTime.Contracts/TimeTravel/StateContracts.cs`
+- `src/FlowTime.Contracts/Dtos/ModelDtos.cs`
+- `src/FlowTime.Contracts/Services/ModelService.cs`
+- `src/FlowTime.Core/Models/ModelParser.cs`
+- `src/FlowTime.Core/Models/Node.cs`
+- `src/FlowTime.Contracts/TimeTravel/GraphContracts.cs`
+- `src/FlowTime.API/Services/GraphService.cs`
 - `src/FlowTime.UI/Pages/TimeTravel/Topology.razor`
+- `src/FlowTime.UI/Components/Topology/GraphMapper.cs`
 
 ### Files to Modify (Minor Changes)
 - `docs/templates/template-authoring.md`

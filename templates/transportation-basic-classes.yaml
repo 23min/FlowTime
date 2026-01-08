@@ -235,6 +235,7 @@ topology:
         capacitySeries: cap_industrial
     - id: LineAirport
       kind: service
+      nodeRole: sink
       semantics:
         arrivals: arrivals_airport
         served: served_airport
@@ -277,6 +278,7 @@ topology:
         queueDepth: 0
     - id: LineDowntown
       kind: service
+      nodeRole: sink
       semantics:
         arrivals: arrivals_downtown
         served: served_downtown
@@ -288,6 +290,7 @@ topology:
           errors: "Downtown overflow"
     - id: LineIndustrial
       kind: service
+      nodeRole: sink
       semantics:
         arrivals: arrivals_industrial
         served: served_industrial

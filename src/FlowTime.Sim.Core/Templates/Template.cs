@@ -144,6 +144,7 @@ public class TemplateTopologyNode
 {
     public string Id { get; set; } = string.Empty;
     public string Kind { get; set; } = string.Empty;
+    public string? NodeRole { get; set; }
     public string? Group { get; set; }
     public TemplateNodeSemantics Semantics { get; set; } = new();
     public TemplateInitialCondition? InitialCondition { get; set; }

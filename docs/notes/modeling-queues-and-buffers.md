@@ -151,6 +151,20 @@ If in doubt, start with just `serviceWithBuffer` and add a queue visual later on
 
 ---
 
+## 5.1 Success Terminals (Sink Role)
+
+Some nodes represent successful handoff to the outside world (customer receipt, arrival at a destination, package delivery). These should not be treated as "failing services" when telemetry for utilization or error rate is missing.
+
+FlowTime supports a **metadata-only** sink role:
+
+- Mark the topology node with `nodeRole: sink`.
+- The UI renders a "Terminal" badge and suppresses utilization/error-rate chips unless you explicitly emit those series.
+- The engine does not alter arrivals/served/errors behavior based on the role; it is purely interpretive.
+
+Use this for terminal successes so topology signals stay honest without inventing capacity or error data.
+
+---
+
 ## 6. Relationship to the Rest of the Docs
 
 This note focuses specifically on **queues and buffers**. For a broader map of where modeling-related information lives in `docs/`, see `docs/modeling.md`.

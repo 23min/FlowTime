@@ -70,6 +70,49 @@ outputs:
     }
 
     [Fact]
+    public void Template_With_Sink_NodeRole_Parses()
+    {
+        var yaml = """
+schemaVersion: 1
+generator: flowtime-sim
+metadata:
+  id: sink-role-template
+  title: Sink Role Template
+  version: 1.0.0
+window:
+  start: 2025-04-01T00:00:00Z
+  timezone: UTC
+grid:
+  bins: 3
+  binSize: 60
+  binUnit: minutes
+topology:
+  nodes:
+    - id: TerminalSuccess
+      kind: service
+      nodeRole: sink
+      semantics:
+        arrivals: arrivals
+        served: served
+  edges: []
+nodes:
+  - id: arrivals
+    kind: const
+    values: [100, 100, 100]
+  - id: served
+    kind: const
+    values: [100, 100, 100]
+outputs:
+  - series: "*"
+""";
+
+        var template = TemplateParser.ParseFromYaml(yaml);
+
+        Assert.Single(template.Topology.Nodes);
+        Assert.Equal("TerminalSuccess", template.Topology.Nodes[0].Id);
+    }
+
+    [Fact]
     public void Template_With_Pmf_Node_Preserves_Pmf_Definition()
     {
         var yaml = """

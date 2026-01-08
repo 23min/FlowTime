@@ -70,6 +70,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
     [Parameter] public EventCallback ViewportRequestConsumed { get; set; }
     [Parameter] public bool InspectorVisible { get; set; }
     [Parameter] public EventCallback<string?> EdgeHovered { get; set; }
+    [Parameter] public EventCallback<string?> DumpBinRequested { get; set; }
     [Parameter] public IReadOnlyDictionary<string, IReadOnlyList<NodeWarningPayload>> NodeWarnings { get; set; } = new Dictionary<string, IReadOnlyList<NodeWarningPayload>>(StringComparer.OrdinalIgnoreCase);
     [Parameter] public IReadOnlyCollection<string>? DimmedNodes { get; set; }
     [Parameter] public bool DiagnosticsOverlayEnabled { get; set; }
@@ -983,6 +984,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             hash.Add(node.Height);
             hash.Add(node.Lane);
             hash.Add(node.IsLeaf);
+            AddSparklineSignature(ref hash, node.Sparkline);
         }
 
         foreach (var edge in payload.Edges)
@@ -1003,6 +1005,24 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         hash.Add(payload.EdgeSeriesStartIndex);
 
         return hash.ToHashCode().ToString("X");
+    }
+
+    private static void AddSparklineSignature(ref HashCode hash, NodeSparklineDto? sparkline)
+    {
+        if (sparkline is null)
+        {
+            return;
+        }
+
+        hash.Add(sparkline.StartIndex);
+        hash.Add(sparkline.IsFlat);
+        hash.Add(sparkline.Min);
+        hash.Add(sparkline.Max);
+        hash.Add(sparkline.Values.Count);
+        foreach (var value in sparkline.Values)
+        {
+            hash.Add(value ?? double.NaN);
+        }
     }
 
     private static string ComputeOverlaySignature(CanvasOverlayPayload payload)
@@ -1657,6 +1677,17 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         }
 
         return NodeHovered.InvokeAsync(normalized);
+    }
+
+    [JSInvokable]
+    public Task OnDumpBinRequested(string? nodeId)
+    {
+        if (!DumpBinRequested.HasDelegate)
+        {
+            return Task.CompletedTask;
+        }
+
+        return DumpBinRequested.InvokeAsync(nodeId);
     }
 
 }

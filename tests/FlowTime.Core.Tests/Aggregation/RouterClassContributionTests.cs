@@ -133,6 +133,57 @@ public class RouterClassContributionTests
     }
 
     [Fact]
+    public void ServiceWithBuffer_FillsOutflowAndLossClassSeries()
+    {
+        var model = new ModelDefinition
+        {
+            Grid = new GridDefinition { Bins = 1, BinSize = 1, BinUnit = "hours" },
+            Nodes =
+            {
+                new NodeDefinition { Id = "alpha_source", Kind = "const", Values = new[] { 6d } },
+                new NodeDefinition { Id = "beta_source", Kind = "const", Values = new[] { 4d } },
+                new NodeDefinition { Id = "queue_inflow", Kind = "expr", Expr = "alpha_source + beta_source" },
+                new NodeDefinition { Id = "queue_outflow", Kind = "const", Values = new[] { 5d } },
+                new NodeDefinition { Id = "queue_loss", Kind = "const", Values = new[] { 1d } },
+                new NodeDefinition
+                {
+                    Id = "queue_node",
+                    Kind = "serviceWithBuffer",
+                    Inflow = "queue_inflow",
+                    Outflow = "queue_outflow",
+                    Loss = "queue_loss"
+                }
+            }
+        };
+
+        var grid = new TimeGrid(1, 1, TimeUnit.Hours);
+        var totals = new Dictionary<NodeId, double[]>
+        {
+            [new NodeId("alpha_source")] = new[] { 6d },
+            [new NodeId("beta_source")] = new[] { 4d },
+            [new NodeId("queue_inflow")] = new[] { 10d },
+            [new NodeId("queue_outflow")] = new[] { 5d },
+            [new NodeId("queue_loss")] = new[] { 1d },
+            [new NodeId("queue_node")] = new[] { 10d }
+        };
+        var classAssignments = new Dictionary<NodeId, string>
+        {
+            [new NodeId("alpha_source")] = "Alpha",
+            [new NodeId("beta_source")] = "Beta"
+        };
+
+        var contributions = ClassContributionBuilder.Build(model, grid, totals, classAssignments, out _);
+
+        var outflow = Assert.Contains(new NodeId("queue_outflow"), contributions);
+        Assert.Equal(new[] { 3d }, outflow["Alpha"]);
+        Assert.Equal(new[] { 2d }, outflow["Beta"]);
+
+        var loss = Assert.Contains(new NodeId("queue_loss"), contributions);
+        Assert.Equal(0.6d, loss["Alpha"][0], 6);
+        Assert.Equal(0.4d, loss["Beta"][0], 6);
+    }
+
+    [Fact]
     public void RouterWeightedRoutesSplitRemainder()
     {
         var model = new ModelDefinition

@@ -119,6 +119,7 @@ public sealed class TopologyNodeDto
 {
     public string Id { get; set; } = string.Empty;
     public string Kind { get; set; } = "service";
+    public string? NodeRole { get; set; }
     public string? Group { get; set; }
     public UiHintsDto? Ui { get; set; }
     public TopologySemanticsDto Semantics { get; set; } = new();

@@ -122,7 +122,8 @@ internal static class GraphMapper
                     hasCustomPosition,
                     builder.Semantics,
                     laneValue,
-                    builder.DispatchSchedule);
+                    builder.DispatchSchedule,
+                    NodeRole: builder.NodeRole);
             })
             .ToImmutableArray();
 
@@ -744,6 +745,7 @@ internal static class GraphMapper
         public string Id { get; }
         public string Kind { get; }
         public string LogicalType { get; }
+        public string? NodeRole { get; }
         public int Order { get; }
         public GraphNodeUiModel? Ui { get; }
         public List<string> Inputs { get; } = new();
@@ -758,6 +760,7 @@ internal static class GraphMapper
             LogicalType = string.IsNullOrWhiteSpace(node.LogicalType)
                 ? Kind
                 : node.LogicalType!;
+            NodeRole = node.NodeRole;
             Ui = node.Ui;
             Order = order;
             DispatchSchedule = node.DispatchSchedule;
@@ -846,7 +849,8 @@ public sealed record TopologyNode(
     bool IsPositionFixed,
     TopologyNodeSemantics Semantics,
     int Lane = 0,
-    GraphDispatchScheduleModel? DispatchSchedule = null);
+    GraphDispatchScheduleModel? DispatchSchedule = null,
+    string? NodeRole = null);
 
 public sealed record TopologyEdge(
     string Id,
@@ -866,6 +870,7 @@ public sealed record GraphNodeModel(
     string Id,
     string Kind,
     GraphNodeSemanticsModel Semantics,
+    [property: JsonPropertyName("nodeRole")] string? NodeRole = null,
     [property: JsonPropertyName("nodeLogicalType")] string? LogicalType = null,
     GraphNodeUiModel? Ui = null,
     GraphDispatchScheduleModel? DispatchSchedule = null);

@@ -158,6 +158,7 @@ public sealed class GraphService
             {
                 Id = topoNode.Id,
                 Kind = kind,
+                NodeRole = string.IsNullOrWhiteSpace(topoNode.NodeRole) ? null : topoNode.NodeRole,
                 LogicalType = logicalType,
                 Semantics = semantics,
                 Ui = ui,

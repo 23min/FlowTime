@@ -17,6 +17,7 @@ public class CanonicalModelWriterTests
     private readonly TemplateService templateService;
 
     private const string TemplateId = "classy-template";
+    private const string SinkTemplateId = "sink-role-template";
     private const string ClassyTemplate = """
 schemaVersion: 1
 generator: flowtime-sim
@@ -70,12 +71,47 @@ outputs:
   - series: served
     as: served.csv
 """;
+    private const string SinkTemplate = """
+schemaVersion: 1
+generator: flowtime-sim
+metadata:
+  id: sink-role-template
+  title: Sink Role Template
+  version: 1.0.0
+window:
+  start: 2025-01-01T00:00:00Z
+  timezone: UTC
+grid:
+  bins: 2
+  binSize: 1
+  binUnit: hours
+nodes:
+  - id: arrivals
+    kind: const
+    values: [10, 10]
+  - id: served
+    kind: const
+    values: [10, 10]
+topology:
+  nodes:
+    - id: TerminalSuccess
+      kind: service
+      nodeRole: sink
+      semantics:
+        arrivals: arrivals
+        served: served
+        errors: null
+outputs:
+  - series: served
+    as: served.csv
+""";
 
     public CanonicalModelWriterTests()
     {
         var templates = new Dictionary<string, string>
         {
-            { TemplateId, ClassyTemplate }
+            { TemplateId, ClassyTemplate },
+            { SinkTemplateId, SinkTemplate }
         };
 
         templateService = new TemplateService(templates, NullLogger<TemplateService>.Instance);
@@ -122,6 +158,14 @@ outputs:
             .ToArray();
 
         Assert.Equal(new[] { "Order", "Refund" }, ids);
+    }
+
+    [Fact]
+    public async Task CanonicalModelWriter_Preserves_NodeRole()
+    {
+        var modelYaml = await templateService.GenerateEngineModelAsync(SinkTemplateId, new Dictionary<string, object>());
+
+        Assert.Contains("nodeRole: sink", modelYaml);
     }
 
     [Fact]

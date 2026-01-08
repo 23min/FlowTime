@@ -517,6 +517,46 @@ public sealed class TopologyCanvasRenderTests : TestContext
     }
 
     [Fact]
+    public void SparklineUpdatesTriggerSceneRender()
+    {
+        var graph = CreateGraph();
+        var metrics = CreateMetrics();
+        var sceneCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.renderScene", _ => true);
+        sceneCall.SetVoidResult();
+        var overlayCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.applyOverlayDelta", _ => true);
+        overlayCall.SetVoidResult();
+
+        var initialSparklines = new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["processor"] = CreateSparklineWithSlices(
+                new double?[] { 0.7, 0.8, 0.9 },
+                new double?[] { 0.6, 0.65, 0.7 },
+                startIndex: 0)
+        };
+
+        var cut = RenderComponent<TopologyCanvas>(parameters => parameters
+            .Add(p => p.Graph, graph)
+            .Add(p => p.NodeMetrics, metrics)
+            .Add(p => p.NodeSparklines, initialSparklines));
+
+        cut.WaitForAssertion(() => Assert.Single(sceneCall.Invocations));
+        cut.WaitForAssertion(() => Assert.Single(overlayCall.Invocations));
+
+        var updatedSparklines = new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["processor"] = CreateSparklineWithSlices(
+                new double?[] { 0.2, 0.4, 0.6 },
+                new double?[] { 0.3, 0.35, 0.4 },
+                startIndex: 1)
+        };
+
+        cut.SetParametersAndRender(p => p.Add(x => x.NodeSparklines, updatedSparklines));
+
+        cut.WaitForAssertion(() => Assert.Equal(2, sceneCall.Invocations.Count));
+        cut.WaitForAssertion(() => Assert.Equal(2, overlayCall.Invocations.Count));
+    }
+
+    [Fact]
     public void FullDagDisabledFiltersNonOperationalNodes()
     {
         var graph = CreateGraphWithFullDagNodes();

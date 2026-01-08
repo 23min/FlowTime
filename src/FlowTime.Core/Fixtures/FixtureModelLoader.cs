@@ -84,6 +84,7 @@ internal sealed class FixtureDocument
         {
             Id = node.Id ?? throw new InvalidOperationException("Fixture node missing id."),
             Kind = string.IsNullOrWhiteSpace(node.Kind) ? null : node.Kind,
+            NodeRole = string.IsNullOrWhiteSpace(node.NodeRole) ? null : node.NodeRole,
             Group = string.IsNullOrWhiteSpace(node.Group) ? null : node.Group,
             Ui = node.Ui != null ? new UiHintsDefinition { X = node.Ui.X, Y = node.Ui.Y } : null,
             Semantics = new TopologyNodeSemanticsDefinition
@@ -137,6 +138,7 @@ internal sealed class FixtureNode
 {
     public string? Id { get; init; }
     public string? Kind { get; init; }
+    public string? NodeRole { get; init; }
     public string? Group { get; init; }
     public FixtureSemantics? Semantics { get; init; }
     public FixtureInitialCondition? InitialCondition { get; init; }

@@ -91,6 +91,7 @@ public static class ModelParser
             {
                 Id = definition.Id,
                 Kind = string.IsNullOrWhiteSpace(definition.Kind) ? "service" : definition.Kind,
+                NodeRole = string.IsNullOrWhiteSpace(definition.NodeRole) ? null : definition.NodeRole,
                 Group = definition.Group,
                 Ui = definition.Ui != null ? new UiHints { X = definition.Ui.X, Y = definition.Ui.Y } : null,
                 Semantics = new NodeSemantics
@@ -560,6 +561,7 @@ public class TopologyNodeDefinition
 {
     public string Id { get; set; } = string.Empty;
     public string? Kind { get; set; }
+    public string? NodeRole { get; set; }
     public string? Group { get; set; }
     public UiHintsDefinition? Ui { get; set; }
     public TopologyNodeSemanticsDefinition Semantics { get; set; } = new();

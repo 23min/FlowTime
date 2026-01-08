@@ -123,6 +123,7 @@ public static class ModelService
                 {
                     Id = node.Id,
                     Kind = node.Kind,
+                    NodeRole = node.NodeRole,
                     Group = node.Group,
                     Ui = node.Ui != null ? new UiHintsDefinition { X = node.Ui.X, Y = node.Ui.Y } : null,
                     Semantics = new TopologyNodeSemanticsDefinition

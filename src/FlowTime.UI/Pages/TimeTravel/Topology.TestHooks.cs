@@ -89,6 +89,16 @@ public partial class Topology
         return BuildInspectorMetricBlocks(nodeId);
     }
 
+    internal BinDebugDump? TestBuildBinDump(string nodeId)
+    {
+        return BuildInspectorBinDump(nodeId);
+    }
+
+    internal string? TestResolveNodeRoleLabel(string nodeId)
+    {
+        return ResolveNodeRoleLabel(FindTopologyNode(nodeId));
+    }
+
     internal IReadOnlyList<InspectorDependencyViewModel> TestBuildInspectorDependencies(string nodeId)
     {
         return BuildInspectorDependencies(nodeId);

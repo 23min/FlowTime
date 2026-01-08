@@ -373,6 +373,7 @@
                                             InspectorVisible="inspectorOpen"
                                             NodeFocused="OnNodeFocused"
                                             EdgeHovered="OnCanvasEdgeHovered"
+                                            DumpBinRequested="DumpInspectorBinAsync"
                                             RequestedViewport="pendingViewportSnapshot"
                                             ViewportRequestConsumed="OnRequestedViewportConsumed"
                                             DiagnosticsOverlayEnabled="@diagnosticsOverlayEnabled"
@@ -400,6 +401,7 @@
                             var hasSparklineSeries = metricBlocks.Any(block => !block.IsPlaceholder && block.Sparkline is not null);
                             var topoNodeInfo = FindTopologyNode(nodeId);
                             var nodeKind = topoNodeInfo?.Kind;
+                            var nodeRoleLabel = ResolveNodeRoleLabel(topoNodeInfo);
                             var expressionText = topoNodeInfo?.Semantics?.Expression;
                             var hasExpressionText = !string.IsNullOrWhiteSpace(expressionText);
                             var showExpressionSection = IsExpressionKind(nodeKind);
@@ -409,14 +411,24 @@
 
                             <MudPaper Class="topology-inspector topology-inspector-panel" Elevation="1" Style="width: 360px; flex: 0 0 360px;">
                                 <MudStack Class="pa-4" Spacing="2">
-                                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
-                                        <MudText Typo="Typo.h6" Class="topology-inspector-title">@nodeId</MudText>
-                                        <MudIconButton Icon="@Icons.Material.Filled.Close"
-                                                       Color="Color.Secondary"
-                                                       Size="Size.Small"
-                                                       OnClick="CloseInspector" />
-                                    </MudStack>
+                                    <div class="topology-inspector-header">
+                                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                                            <MudText Typo="Typo.h6" Class="topology-inspector-title">@nodeId</MudText>
+                                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                                <MudIconButton Icon="@Icons.Material.Filled.Close"
+                                                               Color="Color.Secondary"
+                                                               Size="Size.Small"
+                                                               OnClick="CloseInspector" />
+                                            </MudStack>
+                                        </MudStack>
+                                    </div>
                                     <MudText Typo="Typo.caption" Class="topology-muted-text">Kind: @FormatNodeKindLabel(nodeKind)</MudText>
+                                    @if (!string.IsNullOrWhiteSpace(nodeRoleLabel))
+                                    {
+                                        <div class="topology-role-chip-row">
+                                            <span class="class-chip topology-role-chip" data-testid="sink-role-chip">@nodeRoleLabel</span>
+                                        </div>
+                                    }
 
                                     @{
                                         var metrics = nodeMetricsSnapshot;
@@ -761,6 +773,7 @@
     private DotNetObjectReference<Topology>? selfReference;
     private int? hotkeyRegistrationId;
 private string? inspectorNodeId;
+private string? lastInspectorNodeId;
 private bool inspectorOpen;
 private bool inspectorPinned;
 private bool inspectorMetricsExpanded;
@@ -812,6 +825,9 @@ private IReadOnlyList<TimeTravelStateWarningDto> windowWarnings = Array.Empty<Ti
     private bool pointerNeedsJump;
     private AsyncWorkQueue<BinDataWorkItem, BinDataRefreshResult>? binDataWorker;
     private int? pendingDragBin;
+    private long lastScrubRefreshAtMs;
+    private int? lastScrubRefreshBin;
+    private const int ScrubRefreshIntervalMs = 150;
     private bool operationalViewOnly;
     private bool operationalTogglePending;
     private bool? savedIncludeExpressionNodes;
@@ -1729,6 +1745,20 @@ private const string PmfExpectationLabel = "Value";
 
         if (requiresWindowReload)
         {
+            if (currentViewportSnapshot is not null)
+            {
+                pendingViewportSnapshot = new ViewportSnapshot
+                {
+                    Scale = currentViewportSnapshot.Scale,
+                    OffsetX = currentViewportSnapshot.OffsetX,
+                    OffsetY = currentViewportSnapshot.OffsetY,
+                    WorldCenterX = currentViewportSnapshot.WorldCenterX,
+                    WorldCenterY = currentViewportSnapshot.WorldCenterY,
+                    OverlayScale = currentViewportSnapshot.OverlayScale,
+                    BaseScale = currentViewportSnapshot.BaseScale
+                };
+                isRestoringViewport = true;
+            }
             StopPlayback();
             await ReloadWindowAsync();
             return;
@@ -1853,7 +1883,7 @@ private const string PmfExpectationLabel = "Value";
         currentViewportSnapshot = snapshot;
         if (isRestoringViewport)
         {
-            return;
+            isRestoringViewport = false;
         }
 
         if (hasLoaded && !string.IsNullOrWhiteSpace(currentRunId))
@@ -2060,6 +2090,8 @@ private const string PmfExpectationLabel = "Value";
         if (!isDialPointerDragging)
         {
             isDialPointerDragging = true;
+            lastScrubRefreshAtMs = 0;
+            lastScrubRefreshBin = null;
             CancelBinDataRefresh();
             StateHasChanged();
         }
@@ -2907,6 +2939,24 @@ private const string PmfExpectationLabel = "Value";
         worker.Schedule(workItem, cancelCurrent);
     }
 
+    private void MaybeScheduleScrubRefresh(int bin)
+    {
+        var now = Environment.TickCount64;
+        if (lastScrubRefreshBin == bin && (now - lastScrubRefreshAtMs) < ScrubRefreshIntervalMs)
+        {
+            return;
+        }
+
+        if ((now - lastScrubRefreshAtMs) < ScrubRefreshIntervalMs)
+        {
+            return;
+        }
+
+        lastScrubRefreshAtMs = now;
+        lastScrubRefreshBin = bin;
+        ScheduleBinDataRefresh(bin, cancelCurrent: true);
+    }
+
     private AsyncWorkQueue<BinDataWorkItem, BinDataRefreshResult> GetOrCreateBinDataWorker()
     {
         return binDataWorker ??= new AsyncWorkQueue<BinDataWorkItem, BinDataRefreshResult>(
@@ -3144,6 +3194,7 @@ private const string PmfExpectationLabel = "Value";
         else
         {
             inspectorNodeId = nodeId;
+            lastInspectorNodeId = nodeId;
             inspectorOpen = true;
             inspectorPinned = true;
             EnsureInspectorDataFresh();
@@ -3629,6 +3680,24 @@ internal sealed record InspectorMetricBlock(
 
     internal sealed record InspectorBinMetric(string Label, string Value);
 
+    internal sealed record BinDebugDump(
+        string? RunId,
+        string? NodeId,
+        string? NodeKind,
+        string? NodeLogicalType,
+        string? NodeRole,
+        int SelectedBin,
+        int WindowStartBin,
+        DateTimeOffset? SelectedTimestampUtc,
+        IReadOnlyCollection<string> SelectedClasses,
+        bool HasClassSelection,
+        IReadOnlyDictionary<string, double?> SelectedSeries,
+        IReadOnlyDictionary<string, double?> UnfilteredSeries,
+        IReadOnlyDictionary<string, double?> DerivedMetrics,
+        IReadOnlyDictionary<string, double?> SlaValues,
+        string? QueueLatencyStatusCode,
+        string? QueueLatencyStatusMessage);
+
     private IReadOnlyList<InspectorMetricBlock> BuildInspectorMetricBlocks(string? nodeId)
     {
         if (string.IsNullOrWhiteSpace(nodeId))
@@ -3766,6 +3835,8 @@ internal sealed record InspectorMetricBlock(
 
         var isQueueKind = IsQueueKind(nodeKind);
         var isServiceWithBuffer = IsServiceWithBufferKind(nodeKind) || IsServiceWithBufferKind(logicalKind);
+        var isSinkNode = IsSinkRole(topoNode?.NodeRole);
+        var servedAlreadyAdded = false;
 
         if (isQueueKind || isServiceWithBuffer)
         {
@@ -3773,6 +3844,7 @@ internal sealed record InspectorMetricBlock(
             AddRequired("Queue latency", "latencyMinutes", 0d);
             AddRequired(Label("Arrivals", "arrivals"), "arrivals", 0d);
             AddRequired(Label("Served", "served"), "served", 0d);
+            servedAlreadyAdded = true;
 
             if (isQueueKind && !isServiceWithBuffer)
             {
@@ -3802,7 +3874,7 @@ internal sealed record InspectorMetricBlock(
             AddRequired(Label("Attempts", "attempts"), "attempts", 0d, seriesKeyOverride: "attempts");
         }
 
-        if (hasServedSeries)
+        if (hasServedSeries && !servedAlreadyAdded)
         {
             AddRequired(Label("Served", "served"), "served", 0d, seriesKeyOverride: "served");
         }
@@ -3833,13 +3905,151 @@ internal sealed record InspectorMetricBlock(
         }
 
         AddRequired(successLabel, "successRate", 0d, 1d, valueFormat: InspectorValueFormat.Percent);
-        AddRequired("Utilization", "utilization", 0d, 1d, valueFormat: InspectorValueFormat.Percent);
+        if (isSinkNode)
+        {
+            AddOptional("Utilization", "utilization", 0d, 1d, valueFormat: InspectorValueFormat.Percent);
+        }
+        else
+        {
+            AddRequired("Utilization", "utilization", 0d, 1d, valueFormat: InspectorValueFormat.Percent);
+        }
         AddRequired("Service time", "serviceTimeMs", 0d, seriesKeyOverride: "serviceTimeMs");
         AddRequired("Flow latency", "flowLatencyMs", 0d, seriesKeyOverride: "flowLatencyMs");
-        AddRequired("Error rate", "errorRate", 0d, 1d, valueFormat: InspectorValueFormat.Percent);
+        if (isSinkNode)
+        {
+            AddOptional("Error rate", "errorRate", 0d, 1d, valueFormat: InspectorValueFormat.Percent);
+        }
+        else
+        {
+            AddRequired("Error rate", "errorRate", 0d, 1d, valueFormat: InspectorValueFormat.Percent);
+        }
         AddOptional(Label("Errors", "errors"), "errors", 0d, ariaLabel: "Errors sparkline");
 
         return blocks;
+    }
+
+    private async Task DumpInspectorBinAsync(string? nodeId)
+    {
+        var targetNodeId = nodeId ?? inspectorNodeId ?? lastInspectorNodeId;
+        var dump = BuildInspectorBinDump(targetNodeId);
+        if (dump is null)
+        {
+            return;
+        }
+
+        var json = JsonSerializer.Serialize(dump, new JsonSerializerOptions { WriteIndented = true });
+        var nodeLabel = string.IsNullOrWhiteSpace(dump.NodeId) ? "node" : dump.NodeId;
+        var fileName = $"bin_dump_{nodeLabel}_{dump.SelectedBin}.json";
+        await JS.InvokeVoidAsync("FlowTime.downloadText", fileName, json, "application/json");
+    }
+
+
+    private BinDebugDump? BuildInspectorBinDump(string? nodeId)
+    {
+        if (string.IsNullOrWhiteSpace(nodeId) || windowData is null)
+        {
+            return null;
+        }
+
+        var node = windowData.Nodes.FirstOrDefault(entry => string.Equals(entry.Id, nodeId, StringComparison.OrdinalIgnoreCase));
+        if (node is null)
+        {
+            return null;
+        }
+
+        var windowStart = windowData.Window.StartBin;
+        var localIndex = selectedBin - windowStart;
+        var timestamp = localIndex >= 0 && localIndex < windowData.TimestampsUtc.Count
+            ? windowData.TimestampsUtc[localIndex]
+            : (DateTimeOffset?)null;
+        var selectedSeries = BuildSeriesSnapshot(node, localIndex, HasClassSelection, selectedClasses);
+        var unfilteredSeries = BuildSeriesSnapshot(node, localIndex, hasClassSelection: false, Array.Empty<string>());
+        var metricsSnapshot = ComputeActiveMetricsSnapshot(
+            CaptureBinDataContext(),
+            selectedBin,
+            nodeSparklines ?? new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase),
+            nodesMissingSparkline ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase),
+            CancellationToken.None);
+        metricsSnapshot.Metrics.TryGetValue(nodeId, out var metrics);
+        var derived = BuildDerivedMetricsSnapshot(metrics);
+        var sla = BuildSlaSnapshot(node, localIndex);
+        var queueLatencyStatus = ResolveQueueLatencyStatus(node, localIndex);
+        var topoNode = FindTopologyNode(nodeId);
+
+        return new BinDebugDump(
+            RunId: currentRunId,
+            NodeId: nodeId,
+            NodeKind: topoNode?.Kind ?? node.Kind,
+            NodeLogicalType: topoNode?.LogicalType,
+            NodeRole: topoNode?.NodeRole,
+            SelectedBin: selectedBin,
+            WindowStartBin: windowStart,
+            SelectedTimestampUtc: timestamp,
+            SelectedClasses: selectedClasses.ToArray(),
+            HasClassSelection: HasClassSelection,
+            SelectedSeries: selectedSeries,
+            UnfilteredSeries: unfilteredSeries,
+            DerivedMetrics: derived,
+            SlaValues: sla,
+            QueueLatencyStatusCode: queueLatencyStatus?.Code,
+            QueueLatencyStatusMessage: queueLatencyStatus?.Message);
+    }
+
+    private IReadOnlyDictionary<string, double?> BuildSeriesSnapshot(
+        TimeTravelNodeSeriesDto node,
+        int localIndex,
+        bool hasClassSelection,
+        IReadOnlyCollection<string> classSelection)
+    {
+        var keys = new[]
+        {
+            "arrivals", "served", "errors", "attempts", "failures", "retryEcho", "exhaustedFailures",
+            "retryBudgetRemaining", "retryTax", "queue", "capacity", "throughputRatio",
+            "utilization", "latencyMinutes", "serviceTimeMs", "flowLatencyMs"
+        };
+
+        var result = new Dictionary<string, double?>(StringComparer.OrdinalIgnoreCase);
+        foreach (var key in keys)
+        {
+            var classDataFound = !hasClassSelection;
+            var classVolume = 0d;
+            var value = GetSeriesValueSnapshot(node, key, localIndex, ref classDataFound, ref classVolume, hasClassSelection, classSelection);
+            result[key] = value;
+        }
+
+        return result;
+    }
+
+    private static IReadOnlyDictionary<string, double?> BuildDerivedMetricsSnapshot(NodeBinMetrics? metrics)
+    {
+        if (metrics is null)
+        {
+            return new Dictionary<string, double?>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        return new Dictionary<string, double?>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["successRate"] = metrics.SuccessRate,
+            ["utilization"] = metrics.Utilization,
+            ["errorRate"] = metrics.ErrorRate,
+            ["queueDepth"] = metrics.QueueDepth,
+            ["latencyMinutes"] = metrics.LatencyMinutes,
+            ["serviceTimeMs"] = metrics.ServiceTimeMs,
+            ["flowLatencyMs"] = metrics.FlowLatencyMs,
+            ["retryTax"] = metrics.RetryTax
+        };
+    }
+
+    private static IReadOnlyDictionary<string, double?> BuildSlaSnapshot(TimeTravelNodeSeriesDto node, int localIndex)
+    {
+        var result = new Dictionary<string, double?>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["completion"] = GetSlaValueSnapshot(node, "completion", localIndex),
+            ["backlogAge"] = GetSlaValueSnapshot(node, "backlogAge", localIndex),
+            ["scheduleAdherence"] = GetSlaValueSnapshot(node, "scheduleAdherence", localIndex)
+        };
+
+        return result;
     }
 
     private IReadOnlyList<InspectorBinMetric> BuildInspectorBinMetrics(string? nodeId, NodeBinMetrics? metrics)
@@ -4204,6 +4414,20 @@ internal sealed record InspectorMetricBlock(
     private static bool IsServiceWithBufferKind(string? kind) =>
         !string.IsNullOrWhiteSpace(kind) &&
         string.Equals(kind, "serviceWithBuffer", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsSinkRole(string? role) =>
+        !string.IsNullOrWhiteSpace(role) &&
+        string.Equals(role.Trim(), "sink", StringComparison.OrdinalIgnoreCase);
+
+    private static string? ResolveNodeRoleLabel(TopologyNode? node)
+    {
+        if (node is null)
+        {
+            return null;
+        }
+
+        return IsSinkRole(node.NodeRole) ? "Terminal" : null;
+    }
 
     private static string FormatNodeKindLabel(string? kind)
     {
@@ -5407,6 +5631,7 @@ private static IReadOnlyList<double?> TrimSeriesAt(double?[]? source, int limit,
         if (isDialPointerDragging && !forceRefresh)
         {
             pendingDragBin = bin;
+            MaybeScheduleScrubRefresh(bin);
             return;
         }
 
@@ -5441,6 +5666,7 @@ private static IReadOnlyList<double?> TrimSeriesAt(double?[]? source, int limit,
         inspectorOpen = false;
         inspectorPinned = false;
         inspectorNodeId = null;
+        lastInspectorNodeId = null;
         inspectorMetricsExpanded = false;
         inspectorDataDirty = true;
         ClearInspectorEdgeHighlights();

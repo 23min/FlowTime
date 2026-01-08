@@ -14,6 +14,7 @@ public sealed class GraphNode
 {
     public string Id { get; init; } = string.Empty;
     public string? Kind { get; init; }
+    public string? NodeRole { get; init; }
     [JsonPropertyName("nodeLogicalType")]
     public string? LogicalType { get; init; }
     public GraphNodeSemantics Semantics { get; init; } = new();

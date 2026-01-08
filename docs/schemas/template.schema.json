@@ -141,6 +141,7 @@
             "properties": {
               "id": { "type": "string", "minLength": 1 },
               "kind": { "type": "string" },
+              "nodeRole": { "type": "string", "enum": ["sink"] },
               "semantics": {
                 "type": "object",
                 "properties": {

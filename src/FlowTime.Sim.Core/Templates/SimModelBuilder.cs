@@ -88,6 +88,7 @@ internal static class SimModelBuilder
             {
                 Id = node.Id,
                 Kind = node.Kind,
+                NodeRole = node.NodeRole,
                 Group = node.Group,
                 Semantics = node.Semantics == null ? new TemplateNodeSemantics() : CloneSemantics(node.Semantics),
                 InitialCondition = node.InitialCondition == null ? null : new TemplateInitialCondition { QueueDepth = node.InitialCondition.QueueDepth },

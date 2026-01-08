@@ -106,6 +106,36 @@ topology:
     }
 
     [Fact]
+    public async Task GetGraphAsync_EmitsNodeRole()
+    {
+        const string runId = "run_graph_sink";
+        CreateRun(runId, """
+schemaVersion: 1
+
+grid:
+  bins: 2
+  binSize: 5
+  binUnit: minutes
+
+topology:
+  nodes:
+    - id: TerminalSuccess
+      kind: service
+      nodeRole: sink
+      semantics:
+        arrivals: series:arrivals
+        served: series:served
+        errors: null
+  edges: []
+""");
+
+        var response = await service.GetGraphAsync(runId);
+
+        var terminal = Assert.Single(response.Nodes, n => n.Id == "TerminalSuccess");
+        Assert.Equal("sink", terminal.NodeRole);
+    }
+
+    [Fact]
     public async Task GetGraphAsync_IncludesRetrySemanticsAndEdgeTypes()
     {
         const string runId = "run_graph_retry";

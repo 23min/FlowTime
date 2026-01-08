@@ -83,6 +83,30 @@ Minimum outputs required to render:
   - rank/layer ids,
   - bend-point caches.
 
+  ## World coordinates vs viewport (client/server)
+
+  When layout is computed server-side, it does **not** need (and should not depend on) the client viewport size.
+
+  - **Layout outputs are in world coordinates.** The server returns node rectangles and edge routes in a stable coordinate system (e.g., logical pixels in an arbitrary world-space).
+  - **The UI owns the viewport transform.** Pan/zoom is just a transform from world → screen:
+
+  $$
+  	exttt{screenPoint} = T_{pan,zoom} (\texttt{worldPoint})
+  $$
+
+  - **`graph bounds` exist to fit-to-view.** The UI uses `LayoutResult` bounds to compute an initial camera transform (fit, center, padding). After that, the user’s camera state is purely client-side.
+
+  ### When viewport matters
+
+  There are two legitimate cases where the current viewport influences *what* gets rendered, but not the underlying topology:
+
+  1. **Level-of-detail (LOD)**: the UI can choose to omit labels, hide minor edges, or simplify stroke effects when zoomed out. This should not require recomputing layout.
+  2. **Text measurement / sizing**: exact label sizes can differ by font and platform. If station sizing depends on measured text widths, prefer a **hybrid** approach:
+    - server computes structure (ranks/order/routing) using conservative size estimates,
+    - UI measures labels and optionally runs a small refinement pass to resolve collisions.
+
+  If we ever introduce a mode where layout is intentionally viewport-dependent (e.g., produce a cropped layout for a minimap or a specific LOD geometry), that dependency must be explicit in `LayoutOptions` and therefore part of `layoutOptionsSignature`.
+
 ### 4) Signatures and versioning
 
 To make results cacheable and debuggable:

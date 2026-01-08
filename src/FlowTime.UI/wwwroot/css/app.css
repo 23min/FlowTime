@@ -529,6 +529,15 @@ code {
     color: var(--mud-palette-text-secondary);
 }
 
+.topology-role-chip-row {
+    margin-top: 0.25rem;
+}
+
+.topology-role-chip {
+    border-color: rgba(34, 197, 94, 0.55);
+    background: rgba(34, 197, 94, 0.16);
+}
+
 .inspector-class-selector {
     display: flex;
     flex-direction: column;
@@ -574,6 +583,19 @@ code {
 .topology-inspector-title {
     word-break: break-all;
     overflow-wrap: anywhere;
+}
+
+.topology-inspector-header {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--mud-palette-surface);
+    padding-bottom: 8px;
+}
+
+body.dark-mode .topology-inspector-header,
+body[class*="mud-theme-dark"] .topology-inspector-header {
+    background: var(--mud-palette-surface);
 }
 
 .timeline-paper {
@@ -1254,10 +1276,30 @@ body.dark-mode .timeline-focus-label {
     transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease;
 }
 
+.topology-diag-panel__collapsed-chip--bin {
+    right: 118px;
+}
+
+.topology-diag-panel__collapsed-chip--inline {
+    right: 248px;
+    background: rgba(12, 20, 35, 0.92);
+    border-color: rgba(147, 197, 253, 0.85);
+    color: #bfdbfe;
+}
+
 .topology-diag-panel__collapsed-chip:hover {
     background: rgba(30, 41, 59, 0.96);
     transform: translateY(-1px);
     box-shadow: 0 16px 26px rgba(15, 23, 42, 0.45);
+}
+
+.topology-diag-panel__collapsed-chip:disabled {
+    background: rgba(15, 23, 42, 0.55);
+    border-color: rgba(148, 163, 184, 0.35);
+    color: rgba(148, 163, 184, 0.7);
+    box-shadow: none;
+    cursor: default;
+    transform: none;
 }
 
 .topology-stage {

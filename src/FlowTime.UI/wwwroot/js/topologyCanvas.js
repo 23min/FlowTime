@@ -744,6 +744,7 @@
                 lastNodeCount: 0,
                 lastEdgeCount: 0,
                 focusedNodeId: null,
+                lastBinDumpSelectionId: null,
                 lastPanSample: null,
                 dragPointerId: null,
                 windowPointerUpHandler: null,
@@ -1827,6 +1828,7 @@
             }
         }
         state.focusedNodeId = focusedId ?? null;
+        updateBinDumpChipState(state);
 
         const hoveredNodeId = state.hoveredNodeId ?? null;
         const emphasisSeedId = focusedId ?? hoveredNodeId ?? null;
@@ -7904,6 +7906,7 @@ function setHoveredEdge(state, edgeId) {
         if (!state) {
             return;
         }
+        state.preserveViewportRequest = true;
         const scale = Number(snapshot.Scale ?? snapshot.scale);
         const overlayScale = Number(snapshot.OverlayScale ?? snapshot.overlayScale);
         const baseScale = Number(snapshot.BaseScale ?? snapshot.baseScale);
@@ -7991,6 +7994,20 @@ function setHoveredEdge(state, edgeId) {
         if (state.diagnosticsHud.collapsedChip) {
             state.diagnosticsHud.collapsedChip.style.display = collapsed ? '' : 'none';
         }
+        if (state.diagnosticsHud.binDumpChip) {
+            const chip = state.diagnosticsHud.binDumpChip;
+            if (collapsed) {
+                chip.style.display = '';
+                chip.style.right = '';
+                chip.classList.remove('topology-diag-panel__collapsed-chip--inline');
+            } else {
+                chip.style.display = '';
+                const panelWidth = state.diagnosticsHud.root?.offsetWidth ?? 220;
+                chip.style.right = `${panelWidth + 24}px`;
+                chip.classList.add('topology-diag-panel__collapsed-chip--inline');
+            }
+        }
+        updateBinDumpChipState(state);
     }
 
     function createCollapsedChip(host, state) {
@@ -8002,6 +8019,48 @@ function setHoveredEdge(state, edgeId) {
         host.appendChild(chip);
         chip.style.display = 'none';
         return chip;
+    }
+
+    function createBinDumpChip(host, state) {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'topology-diag-panel__collapsed-chip topology-diag-panel__collapsed-chip--bin';
+        chip.textContent = 'Dump bin';
+        chip.addEventListener('click', () => {
+            const dotNetRef = state?.dotNetRef;
+            if (!dotNetRef) {
+                return;
+            }
+            const nodeId = state?.focusedNodeId ?? null;
+            if (!nodeId) {
+                return;
+            }
+            dotNetRef.invokeMethodAsync('OnDumpBinRequested', nodeId);
+        });
+        host.appendChild(chip);
+        chip.style.display = 'none';
+        return chip;
+    }
+
+    function updateBinDumpChipState(state) {
+        const chip = state?.diagnosticsHud?.binDumpChip;
+        if (!chip) {
+            return;
+        }
+        const selectedNodeId = typeof state.focusedNodeId === 'string' && state.focusedNodeId.length > 0
+            ? state.focusedNodeId
+            : null;
+        const enabled = Boolean(selectedNodeId);
+        if (state.lastBinDumpSelectionId === selectedNodeId && chip.disabled === !enabled) {
+            return;
+        }
+        state.lastBinDumpSelectionId = selectedNodeId;
+        chip.disabled = !enabled;
+        if (enabled) {
+            chip.removeAttribute('aria-disabled');
+        } else {
+            chip.setAttribute('aria-disabled', 'true');
+        }
     }
 
     function applyDiagnosticsOptions(canvas, state, options) {
@@ -8088,6 +8147,7 @@ function setHoveredEdge(state, edgeId) {
         }
         hud.root?.remove();
         hud.collapsedChip?.remove();
+        hud.binDumpChip?.remove();
         state.diagnosticsHud = null;
         state.diagnosticsHudCollapsed = false;
     }
@@ -8162,12 +8222,14 @@ function setHoveredEdge(state, edgeId) {
 
         host.appendChild(panel);
         const collapsedChip = createCollapsedChip(host, state);
+        const binDumpChip = createBinDumpChip(host, state);
 
         const hud = {
             root: panel,
             values: valueRefs,
             updateTimerId: null,
-            collapsedChip
+            collapsedChip,
+            binDumpChip
         };
 
         state.diagnosticsHud = hud;

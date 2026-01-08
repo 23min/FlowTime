@@ -345,6 +345,7 @@ public static class InvariantAnalyzer
         }
 
         AppendRouterDiagnostics(model, evaluatedSeries, warnings);
+        AppendServiceWithBufferClassCoverageWarnings(nodeDefinitions, model, evaluatedSeries, warnings);
 
         return warnings.Count == 0
             ? new InvariantAnalysisResult(Array.Empty<InvariantWarning>())
@@ -687,6 +688,131 @@ public static class InvariantAnalyzer
                 Array.Empty<int>(),
                 null,
                 "warning"));
+        }
+    }
+
+    private static void AppendServiceWithBufferClassCoverageWarnings(
+        IReadOnlyDictionary<string, NodeDefinition> nodeDefinitions,
+        ModelDefinition model,
+        IReadOnlyDictionary<NodeId, double[]> evaluatedSeries,
+        List<InvariantWarning> warnings)
+    {
+        if (nodeDefinitions.Count == 0 ||
+            !nodeDefinitions.Values.Any(n => string.Equals(n.Kind, "serviceWithBuffer", StringComparison.OrdinalIgnoreCase)))
+        {
+            return;
+        }
+
+        var classAssignments = ClassAssignmentMapBuilder.Build(model);
+        if (classAssignments.Count == 0)
+        {
+            return;
+        }
+
+        if (!TryCreateTimeGrid(model.Grid, out var grid))
+        {
+            return;
+        }
+
+        try
+        {
+            var contributions = ClassContributionBuilder.Build(model, grid, evaluatedSeries, classAssignments, out _);
+            foreach (var warning in DetectServiceWithBufferClassCoverageGaps(nodeDefinitions, contributions))
+            {
+                warnings.Add(warning);
+            }
+        }
+        catch (Exception ex)
+        {
+            warnings.Add(new InvariantWarning(
+                "serviceWithBuffer",
+                "class_coverage_failed",
+                $"ServiceWithBuffer class coverage diagnostics failed: {ex.Message}",
+                Array.Empty<int>(),
+                null,
+                "warning"));
+        }
+    }
+
+    internal static IReadOnlyList<InvariantWarning> DetectServiceWithBufferClassCoverageGaps(
+        IReadOnlyDictionary<string, NodeDefinition> nodeDefinitions,
+        IReadOnlyDictionary<NodeId, IReadOnlyDictionary<string, double[]>> contributions)
+    {
+        var warnings = new List<InvariantWarning>();
+
+        foreach (var node in nodeDefinitions.Values)
+        {
+            if (!string.Equals(node.Kind, "serviceWithBuffer", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (string.IsNullOrWhiteSpace(node.Inflow))
+            {
+                continue;
+            }
+
+            var inflowClasses = ResolveClasses(contributions, node.Inflow);
+            if (inflowClasses.Count == 0)
+            {
+                continue;
+            }
+
+            CheckTarget(node.Id, "outflow", node.Outflow, inflowClasses, contributions, warnings);
+            CheckTarget(node.Id, "loss", node.Loss, inflowClasses, contributions, warnings);
+        }
+
+        return warnings;
+    }
+
+    private static HashSet<string> ResolveClasses(
+        IReadOnlyDictionary<NodeId, IReadOnlyDictionary<string, double[]>> contributions,
+        string? nodeId)
+    {
+        if (string.IsNullOrWhiteSpace(nodeId))
+        {
+            return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        return contributions.TryGetValue(new NodeId(nodeId), out var series)
+            ? new HashSet<string>(series.Keys, StringComparer.OrdinalIgnoreCase)
+            : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static void CheckTarget(
+        string serviceNodeId,
+        string label,
+        string? targetId,
+        HashSet<string> inflowClasses,
+        IReadOnlyDictionary<NodeId, IReadOnlyDictionary<string, double[]>> contributions,
+        List<InvariantWarning> warnings)
+    {
+        if (string.IsNullOrWhiteSpace(targetId))
+        {
+            return;
+        }
+
+        var targetClasses = ResolveClasses(contributions, targetId);
+
+        void AddWarning(string code, string message)
+        {
+            warnings.Add(new InvariantWarning(serviceNodeId, code, message, Array.Empty<int>(), null, "warning"));
+        }
+
+        if (targetClasses.Count == 0)
+        {
+            AddWarning(
+                $"class_series_missing_{label}",
+                $"Class coverage missing for serviceWithBuffer node '{serviceNodeId}' {label} '{targetId}'. Inflow classes: {string.Join(", ", inflowClasses)}.");
+            return;
+        }
+
+        var missing = inflowClasses.Except(targetClasses, StringComparer.OrdinalIgnoreCase).ToList();
+        if (missing.Count > 0)
+        {
+            AddWarning(
+                $"class_series_partial_{label}",
+                $"Class coverage partial for serviceWithBuffer node '{serviceNodeId}' {label} '{targetId}'. Missing classes: {string.Join(", ", missing)}.");
         }
     }
 

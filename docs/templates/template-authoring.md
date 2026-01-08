@@ -207,6 +207,27 @@ DLQs are now a first-class node kind:
 - Model DLQs as service-with-buffer nodes configured as pure backlogs: set `served` to a zero-valued series, route any cleanup/purge logic through the `loss` field, and point `errors` at whatever attrition metric you want surfaced in the UI. This matches real terminal buffers (everything accumulates unless you explicitly purge) and keeps analyzers from flagging “served exceeds arrivals.”
 - Because `served == 0`, queue-latency analyzers emit informational warnings (“latency could not be computed”). This is expected and indicates the DLQ is behaving as a terminal sink rather than an operational queue.
 
+### Sink Role (Success Terminal)
+
+Some systems end in a successful terminal (e.g., passengers arriving at an airport, packages delivered, customer receipt). These nodes should not surface misleading utilization or error-rate signals unless you explicitly emit them. Mark such nodes with a sink role:
+
+```yaml
+topology:
+  nodes:
+    - id: LineAirport
+      kind: serviceWithBuffer
+      nodeRole: sink
+      semantics:
+        arrivals: airport_arrivals
+        served: airport_arrivals
+        errors: airport_errors
+        queueDepth: airport_queue
+```
+
+- `nodeRole: sink` is metadata-only. It does not change engine behavior or series derivation.
+- The UI renders a "Terminal" badge for sink nodes.
+- Utilization and error-rate chips are suppressed unless the corresponding series are explicitly provided.
+
 ### Router Nodes
 
 Use `kind: router` when a single upstream queue feeds multiple downstream legs and you need to preserve class-level metrics without sprinkling percentage math across expressions. Routers behave like lightweight services: they accept a queue input, emit routed totals, and produce diagnostic series (`arrivals`, `served`, `errors`, `capacity`, `processingTimeMsSum`, `servedCount`).
