@@ -3,6 +3,7 @@
     {
       "id": "LoadBalancer",
       "kind": "service",
+      "nodeRole": null,
       "nodeLogicalType": "service",
       "semantics": {
         "arrivals": "series:incoming",
@@ -25,6 +26,7 @@
     {
       "id": "Database",
       "kind": "service",
+      "nodeRole": null,
       "nodeLogicalType": "service",
       "semantics": {
         "arrivals": "series:routed",
@@ -53,6 +55,7 @@
     {
       "id": "Analytics",
       "kind": "service",
+      "nodeRole": null,
       "nodeLogicalType": "service",
       "semantics": {
         "arrivals": "series:analytics_load",

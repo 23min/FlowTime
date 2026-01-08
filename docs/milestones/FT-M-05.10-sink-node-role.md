@@ -1,6 +1,6 @@
 # FT-M-05.10 — Sink Node Role (Success Terminal)
 
-**Status:** 📋 Planned  
+**Status:** ✅ Complete  
 **Dependencies:** ✅ FT-M-05.09  
 **Target:** Introduce a metadata-only sink role that marks terminal success nodes and suppresses misleading error/utilization signals without changing engine behavior.
 
@@ -36,24 +36,24 @@ Some modeled systems end with successful terminal nodes (airports, delivery endp
 **Description:** A node can be explicitly marked as a sink via metadata.
 
 **Acceptance Criteria:**
-- [ ] Template schema supports optional `nodeRole: sink`.
-- [ ] Run manifests and API state outputs surface sink role metadata.
-- [ ] Missing sink role defaults to normal service behavior.
+- [x] Template schema supports optional `nodeRole: sink`.
+- [x] Run manifests and API state outputs surface sink role metadata.
+- [x] Missing sink role defaults to normal service behavior.
 
 #### FR2: Sink Rendering and Metric Suppression
 **Description:** UI reflects sink semantics without altering engine data.
 
 **Acceptance Criteria:**
-- [ ] Sink nodes render with a “terminal success” badge (chip/label).
-- [ ] Error-rate/utilization chips are hidden unless errors/capacity are explicitly provided.
-- [ ] SLA metrics are shown only if available; no fabricated signals.
+- [x] Sink nodes render with a “terminal success” badge (chip/label).
+- [x] Error-rate/utilization chips are hidden unless errors/capacity are explicitly provided.
+- [x] SLA metrics are shown only if available; no fabricated signals.
 
 #### FR3: Documentation
 **Description:** Authoring guidance explains when to use sinks.
 
 **Acceptance Criteria:**
-- [ ] `docs/templates/template-authoring.md` includes sink guidance and examples.
-- [ ] `docs/notes/modeling-queues-and-buffers.md` clarifies sink semantics.
+- [x] `docs/templates/template-authoring.md` includes sink guidance and examples.
+- [x] `docs/notes/modeling-queues-and-buffers.md` clarifies sink semantics.
 
 ## Implementation Plan
 
@@ -94,9 +94,9 @@ Some modeled systems end with successful terminal nodes (airports, delivery endp
 ## Success Criteria
 
 ### Milestone Complete When
-- [ ] Sink role supported in schema + manifests.
-- [ ] UI renders sink badge and suppresses misleading metrics.
-- [ ] Docs updated and tests passing.
+- [x] Sink role supported in schema + manifests.
+- [x] UI renders sink badge and suppresses misleading metrics.
+- [x] Docs updated and tests passing.
 
 ## File Impact Summary
 

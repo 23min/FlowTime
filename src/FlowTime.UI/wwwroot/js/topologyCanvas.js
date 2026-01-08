@@ -2115,6 +2115,10 @@
                     nodeMeta.warnings = overlayNode.warnings ?? overlayNode.Warnings;
                 }
             }
+            if (nodeMeta) {
+                const warningEntries = normalizeWarningEntries(nodeMeta, state.globalWarningsByNode);
+                nodeMeta.queueWarningText = extractQueueWarningText(warningEntries);
+            }
             const dlqNode = isDlqKind(kind);
             const isLeafComputed = !!nodeMeta?.leaf && isComputedKind(kind);
             const serviceLikeNode = kind === 'service' || logicalType === 'servicewithbuffer';
@@ -2632,6 +2636,8 @@
         const title = tooltipPayload.title ?? '';
         const subtitle = tooltipPayload.subtitle ?? '';
         const lines = (tooltipPayload.lines ?? []).map(line => String(line).trim()).filter(line => line.length > 0);
+        const warningLine = (anchorMeta?.queueWarningText ?? '').toString().trim();
+        const hasWarningLine = warningLine.length > 0;
 
         const ratio = Number(state.deviceRatio ?? window.devicePixelRatio ?? 1) || 1;
         const toDevice = (value) => Math.round(value * ratio * 1000) / 1000;
@@ -2642,16 +2648,14 @@
         const fontRegular = `${fontSizePx}px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif`;
         const fontStrong = `600 ${fontSizePx}px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif`;
         const overlays = state.overlaySettings ?? {};
-        const kind = String(anchorMeta.kind ?? '').toLowerCase();
-        const rawSparkline = anchorMeta.sparkline ?? null;
-        const preparedSparkline = kind === 'expr' || kind === 'expression'
-            ? prepareTooltipSparklineData(rawSparkline)
+        const preparedSparkline = overlays.showSparklines
+            ? prepareTooltipSparklineData(anchorMeta, overlays)
             : null;
         const hasSparkline = preparedSparkline !== null;
         const sparklineWidth = hasSparkline ? toDevice(90) : 0;
         const sparklineHeight = hasSparkline ? toDevice(26) : 0;
         const sparklineMarginTop = hasSparkline ? toDevice(6) : 0;
-        const sparklineMarginBottom = hasSparkline ? toDevice(4) : 0;
+        const sparklineMarginBottom = hasSparkline ? toDevice(11) : 0;
         const sparklineBlockHeight = hasSparkline ? sparklineHeight + sparklineMarginTop + sparklineMarginBottom : 0;
 
         const canvasWidthDevice = Number.isFinite(state.canvasWidth) ? state.canvasWidth * ratio : ctx.canvas.width;
@@ -2667,6 +2671,9 @@
         if (subtitle) {
             width = Math.max(width, ctx.measureText(subtitle).width);
         }
+        if (hasWarningLine) {
+            width = Math.max(width, ctx.measureText(warningLine).width);
+        }
         for (const line of lines) {
             width = Math.max(width, ctx.measureText(line).width);
         }
@@ -2674,7 +2681,7 @@
             width = Math.max(width, sparklineWidth);
         }
 
-        const textLineCount = 1 + (subtitle ? 1 : 0) + lines.length;
+        const textLineCount = 1 + (subtitle ? 1 : 0) + (hasWarningLine ? 1 : 0) + lines.length;
         const boxWidth = Math.ceil(width + paddingX * 2);
         const boxHeight = Math.ceil(paddingY * 2 + textLineCount * lineHeight + sparklineBlockHeight);
 
@@ -2727,6 +2734,7 @@
         const bg = darkMode ? 'rgba(15, 23, 42, 0.96)' : 'rgba(255, 255, 255, 0.97)';
         const fg = darkMode ? '#F8FAFC' : '#0F172A';
         const subtitleColor = darkMode ? '#94A3B8' : '#4B5563';
+        const warningColor = darkMode ? '#FCD34D' : '#78350F';
         const border = darkMode ? 'rgba(148, 163, 184, 0.35)' : 'rgba(15, 23, 42, 0.12)';
 
         ctx.lineWidth = Math.max(1, ratio);
@@ -2750,6 +2758,12 @@
             textY += lineHeight;
             ctx.fillStyle = subtitleColor;
             ctx.fillText(subtitle, tooltipX + paddingX, textY);
+            ctx.fillStyle = fg;
+        }
+        if (hasWarningLine) {
+            textY += lineHeight;
+            ctx.fillStyle = warningColor;
+            ctx.fillText(warningLine, tooltipX + paddingX, textY);
             ctx.fillStyle = fg;
         }
 
@@ -2781,23 +2795,28 @@
         };
     }
 
-    function prepareTooltipSparklineData(sparkline) {
+    function prepareTooltipSparklineData(nodeMeta, overlays) {
+        const sparkline = nodeMeta?.sparkline ?? nodeMeta?.Sparkline ?? null;
         if (!sparkline) {
             return null;
         }
 
-        const rawValues = sparkline.values ?? sparkline.Values;
-        if (!Array.isArray(rawValues) || rawValues.length === 0) {
+        const kind = String(nodeMeta?.kind ?? nodeMeta?.Kind ?? '').trim().toLowerCase();
+        const logicalType = String(nodeMeta?.logicalType ?? nodeMeta?.LogicalType ?? '').trim().toLowerCase();
+        const overlayBasis = Number(overlays?.colorBasis ?? 0);
+        const basis = isQueueLikeKind(kind, logicalType) ? 3 : overlayBasis;
+        const series = selectSeriesForBasis(sparkline, basis);
+        if (!Array.isArray(series) || series.length === 0) {
             return null;
         }
 
-        const values = new Array(rawValues.length);
+        const values = new Array(series.length);
         let min = Infinity;
         let max = -Infinity;
         let hasValue = false;
 
-        for (let i = 0; i < rawValues.length; i++) {
-            const sample = rawValues[i];
+        for (let i = 0; i < series.length; i++) {
+            const sample = series[i];
             if (sample === null || sample === undefined) {
                 values[i] = null;
                 continue;
@@ -2833,7 +2852,9 @@
             max,
             length: values.length,
             startIndex: Number(sparkline.startIndex ?? sparkline.StartIndex ?? 0),
-            raw: sparkline
+            raw: sparkline,
+            basis,
+            mode: overlays?.sparklineMode === 'bar' ? 'bar' : 'line'
         };
     }
 
@@ -2842,15 +2863,17 @@
             return false;
         }
 
-        const { values, min, max, length, startIndex, raw } = sparklineData;
+        const { values, min, max, length, startIndex, raw, basis, mode } = sparklineData;
         if (!Array.isArray(values) || length === 0) {
             return false;
         }
 
-        const defaultColor = resolveSparklineColor(overlays.colorBasis ?? 0);
+        const resolvedBasis = Number.isFinite(basis) ? basis : Number(overlays?.colorBasis ?? 0);
+        const defaultColor = resolveSparklineColor(resolvedBasis);
         const thresholds = overlays.thresholds ?? {};
         const lastIndex = length - 1;
         const range = max - min;
+        const drawAsBars = mode === 'bar';
 
         ctx.save();
         ctx.translate(x, y);
@@ -2865,11 +2888,17 @@
         ctx.strokeStyle = defaultColor;
         ctx.lineWidth = 1.4;
         let segmentActive = false;
+        let previousPoint = null;
+        let previousColor = defaultColor;
+        let highlightPoint = null;
+        let highlightColor = defaultColor;
+        let highlightBar = null;
 
         for (let i = 0; i < length; i++) {
             const sample = values[i];
             if (sample === null || sample === undefined) {
                 segmentActive = false;
+                previousPoint = null;
                 continue;
             }
 
@@ -2877,41 +2906,66 @@
             const xPos = fraction * width;
             const normalized = range <= 0 ? 0.5 : clamp((sample - min) / range, 0, 1);
             const yPos = height - (normalized * height);
+            const sampleColor = resolveSampleColor(resolvedBasis, i, raw, thresholds, defaultColor);
 
-            if (!segmentActive) {
-                ctx.moveTo(xPos, yPos);
-                segmentActive = true;
+            if (drawAsBars) {
+                const barWidth = Math.max((width / Math.max(length - 1, 1)) * 0.6, 1.5);
+                ctx.fillStyle = sampleColor;
+                ctx.fillRect(xPos - (barWidth / 2), yPos, barWidth, height - yPos);
+                if (i === (overlays.selectedBin ?? -1) - startIndex) {
+                    highlightColor = sampleColor;
+                    highlightBar = { x: xPos, width: Math.max(barWidth, 3) };
+                }
             } else {
-                ctx.lineTo(xPos, yPos);
+                if (previousPoint) {
+                    ctx.beginPath();
+                    ctx.strokeStyle = previousColor ?? sampleColor;
+                    ctx.lineWidth = 1.4;
+                    ctx.moveTo(previousPoint.x, previousPoint.y);
+                    ctx.lineTo(xPos, yPos);
+                    ctx.stroke();
+                }
+                previousPoint = { x: xPos, y: yPos };
+                previousColor = sampleColor;
+                segmentActive = true;
+                if (i === (overlays.selectedBin ?? -1) - startIndex) {
+                    highlightPoint = { x: xPos, y: yPos };
+                    highlightColor = sampleColor;
+                }
             }
         }
 
-        if (!segmentActive && length === 1 && values[0] !== null && values[0] !== undefined) {
+        if (!drawAsBars && !segmentActive && length === 1 && values[0] !== null && values[0] !== undefined) {
             const yPos = height / 2;
+            ctx.beginPath();
+            ctx.strokeStyle = defaultColor;
             ctx.moveTo(0, yPos);
             ctx.lineTo(width, yPos);
+            ctx.stroke();
         }
 
-        ctx.stroke();
+        if (!drawAsBars && highlightPoint) {
+            ctx.beginPath();
+            ctx.fillStyle = highlightColor ?? defaultColor;
+            ctx.strokeStyle = '#FFFFFF';
+            ctx.lineWidth = 1;
+            ctx.arc(highlightPoint.x, highlightPoint.y, 3, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+        }
 
-        const selectedBin = overlays.selectedBin ?? -1;
-        const highlightIndex = selectedBin - startIndex;
-        if (Number.isInteger(highlightIndex) && highlightIndex >= 0 && highlightIndex < length) {
-            const highlightValue = values[highlightIndex];
-            if (highlightValue !== null && highlightValue !== undefined) {
-                const fraction = lastIndex <= 0 ? 0 : highlightIndex / lastIndex;
-                const xPos = fraction * width;
-                const normalized = range <= 0 ? 0.5 : clamp((highlightValue - min) / range, 0, 1);
-                const yPos = height - (normalized * height);
-                const highlightColor = resolveSampleColor(overlays.colorBasis ?? 0, highlightIndex, raw, thresholds, defaultColor);
-                ctx.beginPath();
-                ctx.fillStyle = highlightColor;
-                ctx.strokeStyle = '#FFFFFF';
-                ctx.lineWidth = 1;
-                ctx.arc(xPos, yPos, 3, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.stroke();
-            }
+        if (drawAsBars && highlightBar) {
+            const apexY = height + 1;
+            const baseY = apexY + 5;
+            const pointerWidth = Math.max(highlightBar.width + 4, 8);
+            const halfWidth = pointerWidth / 2;
+            ctx.beginPath();
+            ctx.moveTo(highlightBar.x, apexY);
+            ctx.lineTo(highlightBar.x - halfWidth, baseY);
+            ctx.lineTo(highlightBar.x + halfWidth, baseY);
+            ctx.closePath();
+            ctx.fillStyle = highlightColor ?? defaultColor;
+            ctx.fill();
         }
 
         ctx.restore();
@@ -4027,6 +4081,46 @@
         return normalized;
     }
 
+    function isQueueWarningEntry(entry) {
+        if (!entry) {
+            return false;
+        }
+        const code = (entry.code ?? '').toString().toLowerCase();
+        const message = (entry.message ?? '').toString().toLowerCase();
+        const combined = `${code} ${message}`.trim();
+        if (combined.length === 0) {
+            return false;
+        }
+        if (combined.includes('queue_depth') || combined.includes('queue depth')) {
+            return true;
+        }
+        if (combined.includes('queue')) {
+            return combined.includes('depth')
+                || combined.includes('backlog')
+                || combined.includes('accumulation')
+                || combined.includes('inflow')
+                || combined.includes('outflow')
+                || combined.includes('mismatch')
+                || combined.includes('building');
+        }
+        if (combined.includes('arrivals') && combined.includes('capacity')) {
+            return true;
+        }
+        return false;
+    }
+
+    function extractQueueWarningText(entries) {
+        if (!Array.isArray(entries) || entries.length === 0) {
+            return null;
+        }
+        const text = entries
+            .filter(entry => isQueueWarningEntry(entry))
+            .map(entry => entry.message || entry.code)
+            .filter(value => typeof value === 'string' && value.trim().length > 0)
+            .join('\n');
+        return text.length > 0 ? text : null;
+    }
+
     function normalizeQueueLatencyStatus(status) {
         if (!status) return null;
         const codeCandidate = typeof status.code === 'string' ? status.code : status.Code;
@@ -4084,7 +4178,7 @@
         const isDlqNode = isDlqKind(nodeKind);
         const retryTax = isServiceNode ? resolveRetryTaxValue(nodeMeta) : null;
         const hasRetryLoop = showRetryMetrics && isServiceNode && Number.isFinite(retryTax) && retryTax > 0;
-        const warningEntries = normalizeWarningEntries(nodeMeta, state.globalWarningsByNode);
+        let warningEntries = normalizeWarningEntries(nodeMeta, state.globalWarningsByNode);
         const warningCodes = new Set(warningEntries.map(entry => (entry.code ?? '').toString().toLowerCase()));
         const addSyntheticWarning = (code, message) => {
             const normalized = (code ?? '').toString().toLowerCase() || 'warning';
@@ -4100,6 +4194,10 @@
         };
 
         const queueLatencyStatus = normalizeQueueLatencyStatus(metricSnapshot?.queueLatencyStatus ?? metricSnapshot?.QueueLatencyStatus ?? null);
+        const queueWarningText = extractQueueWarningText(warningEntries);
+        if (queueWarningText) {
+            warningEntries = warningEntries.filter(entry => !isQueueWarningEntry(entry));
+        }
 
         if (!hasSemantics && !hasSpark) {
             return;
@@ -4352,14 +4450,26 @@
         if (isServiceWithBuffer) {
             const queueValue = sampleValueFor('queue', semantics.queue, ['queueDepth']);
             if (queueValue !== null) {
+                if (queueWarningText) {
+                    warningEntries = warningEntries.filter(entry => !isQueueWarningEntry(entry));
+                }
                 const backlogLabel = formatMetricValue(queueValue);
                 if (backlogLabel) {
-                    const dims = drawQueueChip(ctx, topLeft, topRowTop + chipH, backlogLabel, paddingX, chipH);
+                    const warningStyle = queueWarningText
+                        ? {
+                            fill: '#FFE04D',
+                            stroke: '#F59E0B',
+                            text: '#78350F'
+                        }
+                        : null;
+                    const dims = drawQueueChip(ctx, topLeft, topRowTop + chipH, backlogLabel, paddingX, chipH, 'bottom', warningStyle);
                     registerChipHitbox(state, {
                         nodeId: nodeMeta.id ?? null,
                         metric: 'queue',
                         placement: 'top',
-                        tooltip: semanticTooltip(semantics.queue, 'Staged backlog'),
+                        tooltip: queueWarningText
+                            ? `${semanticTooltip(semantics.queue, 'Staged backlog') ?? 'Staged backlog'}\n${queueWarningText}`
+                            : semanticTooltip(semantics.queue, 'Staged backlog'),
                         x: topLeft,
                         y: dims.top,
                         width: dims.width,
@@ -4451,13 +4561,14 @@
             }
         }
 
-        if (warningEntries.length > 0) {
-            const primary = warningEntries[0];
+        const warningEntriesForChip = warningEntries.filter(entry => !isQueueWarningEntry(entry));
+        if (warningEntriesForChip.length > 0) {
+            const primary = warningEntriesForChip[0];
             const severity = (primary.severity ?? '').toLowerCase() || 'warning';
             const isInfo = severity === 'info';
             const labelBaseRaw = primary.code || (isInfo ? 'Info' : 'Warning');
             const warningLabel = isInfo ? 'Info' : 'Warning';
-            const tooltipText = warningEntries
+            const tooltipText = warningEntriesForChip
                 .map(entry => entry.message || entry.code)
                 .join('\n') || labelBaseRaw;
             const measurement = measureChipText(ctx, warningLabel, paddingX, chipH);
@@ -4726,6 +4837,13 @@
         const bottomWidth = width;
         const topHalf = topWidth / 2;
         const bottomHalf = bottomWidth / 2;
+        const warningStyle = nodeMeta?.queueWarningText
+            ? {
+                fill: '#FFE04D',
+                stroke: '#F59E0B',
+                text: '#78350F'
+            }
+            : null;
 
         ctx.beginPath();
         ctx.moveTo(x - topHalf, y - halfHeight);
@@ -4733,20 +4851,20 @@
         ctx.lineTo(x + bottomHalf, y + halfHeight);
         ctx.lineTo(x - bottomHalf, y + halfHeight);
         ctx.closePath();
-        ctx.fillStyle = QUEUE_PILL_FILL;
-        ctx.strokeStyle = QUEUE_PILL_STROKE;
+        ctx.fillStyle = warningStyle?.fill ?? QUEUE_PILL_FILL;
+        ctx.strokeStyle = warningStyle?.stroke ?? QUEUE_PILL_STROKE;
         ctx.lineWidth = 1.2;
         ctx.fill();
         ctx.stroke();
 
         if (nodeMeta) {
-            nodeMeta.fill = QUEUE_PILL_FILL;
+            nodeMeta.fill = warningStyle?.fill ?? QUEUE_PILL_FILL;
         }
 
         const queueValue = resolveQueueValue(nodeMeta, overlays);
         const displayValue = queueValue !== null ? formatMetricValue(queueValue) : '—';
 
-        ctx.fillStyle = getQueueLabelColor();
+        ctx.fillStyle = warningStyle?.text ?? getQueueLabelColor();
         ctx.font = '600 12px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -6086,7 +6204,7 @@ function drawRetryBadge(ctx, nodeMeta, retryTax, options) {
         return { width, height: totalHeight, top, bottom, left: bx };
     }
 
-    function drawQueueChip(ctx, x, anchorY, text, paddingX, lineHeight, anchor = 'bottom') {
+    function drawQueueChip(ctx, x, anchorY, text, paddingX, lineHeight, anchor = 'bottom', styleOverrides) {
         const normalized = typeof text === 'string' ? text : String(text ?? '');
         const chipMetrics = measureChipText(ctx, normalized, paddingX, lineHeight);
         const width = Math.max(chipMetrics.width + paddingX * 2, 28);
@@ -6105,12 +6223,12 @@ function drawRetryBadge(ctx, nodeMeta, retryTax, options) {
         ctx.lineTo(x + width, bottom);
         ctx.lineTo(x, bottom);
         ctx.closePath();
-        ctx.fillStyle = QUEUE_PILL_FILL;
-        ctx.strokeStyle = QUEUE_PILL_STROKE;
+        ctx.fillStyle = styleOverrides?.fill ?? QUEUE_PILL_FILL;
+        ctx.strokeStyle = styleOverrides?.stroke ?? QUEUE_PILL_STROKE;
         ctx.lineWidth = 1;
         ctx.fill();
         ctx.stroke();
-        ctx.fillStyle = getQueueLabelColor();
+        ctx.fillStyle = styleOverrides?.text ?? getQueueLabelColor();
         ctx.font = '600 11px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
