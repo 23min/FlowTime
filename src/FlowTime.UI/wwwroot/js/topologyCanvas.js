@@ -2279,9 +2279,7 @@
         drawEdgeOverlayLegend(ctx, state);
 
         const tooltipMeta = hoveredNodeId ? nodeMap.get(hoveredNodeId) : null;
-        const tooltipAnchorMeta = hoveredNodeId
-            ? nodeMap.get(hoveredNodeId)
-            : (focusedId ? nodeMap.get(focusedId) : null);
+        const tooltipAnchorMeta = hoveredNodeId ? nodeMap.get(hoveredNodeId) : null;
         tryDrawTooltip(ctx, nodeMap, tooltipAnchorMeta, legacyTooltip, state);
 
         if (state.hoveredChip) {

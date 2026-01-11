@@ -530,7 +530,7 @@ code {
 }
 
 .topology-role-chip-row {
-    margin-top: 0.25rem;
+    margin-bottom: 0.25rem;
     display: flex;
     flex-wrap: wrap;
     gap: 0.35rem;

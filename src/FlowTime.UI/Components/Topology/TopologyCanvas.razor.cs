@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Globalization;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using FlowTime.UI.Configuration;
 using FlowTime.UI.Services;
@@ -33,6 +34,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
     private string? focusedNodeId;
     private string? tooltipNodeId;
     private string? selectedNodeId;
+    private CancellationTokenSource? tooltipDismissCts;
     private TopologyGraph? filteredGraph;
     private DotNetObjectReference<TopologyCanvasBase>? dotNetRef;
     private bool hasRendered;
@@ -267,6 +269,14 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         }
 
         tooltipNodeId = shouldShowTooltip ? nodeId : null;
+        if (shouldShowTooltip)
+        {
+            _ = ScheduleTooltipDismissAsync(nodeId);
+        }
+        else
+        {
+            CancelTooltipDismiss();
+        }
         var graph = filteredGraph ?? Graph!;
         NodeProxies = BuildNodeProxies(graph, NodeMetrics, focusedNodeId, OverlaySettings);
         ScheduleRedraw();
@@ -362,6 +372,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         if (clearSelection)
         {
             tooltipNodeId = null;
+            CancelTooltipDismiss();
             focusedNodeId = null;
             selectedNodeId = null;
         }
@@ -1563,9 +1574,55 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         disposed = true;
         handlersRegistered = false;
         inspectorVisibilityDirty = false;
+        CancelTooltipDismiss();
         _ = JS.InvokeVoidAsync("FlowTime.TopologyCanvas.dispose", canvasRef);
         dotNetRef?.Dispose();
         dotNetRef = null;
+    }
+
+    private void CancelTooltipDismiss()
+    {
+        if (tooltipDismissCts is null)
+        {
+            return;
+        }
+
+        tooltipDismissCts.Cancel();
+        tooltipDismissCts.Dispose();
+        tooltipDismissCts = null;
+    }
+
+    private async Task ScheduleTooltipDismissAsync(string nodeId)
+    {
+        CancelTooltipDismiss();
+        var cts = new CancellationTokenSource();
+        tooltipDismissCts = cts;
+
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(10), cts.Token);
+        }
+        catch (TaskCanceledException)
+        {
+            return;
+        }
+
+        if (disposed || cts.IsCancellationRequested)
+        {
+            return;
+        }
+
+        if (!string.Equals(tooltipNodeId, nodeId, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        tooltipNodeId = null;
+        await InvokeAsync(() =>
+        {
+            ScheduleRedraw();
+            StateHasChanged();
+        });
     }
 
     protected sealed record NodeProxyViewModel(string Id, string Style, string AriaLabel, bool IsFocused, bool IsDimmed);

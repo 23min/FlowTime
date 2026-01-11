@@ -1300,13 +1300,13 @@ public sealed class TopologyInspectorTests
             {
                 Assert.Equal("queue-a", entry.NodeId);
                 Assert.Equal("Every 6 bins (phase 1)", entry.Summary);
-                Assert.Equal("Capacity: cap_a", entry.CapacityLabel);
+                Assert.Equal("cap_a", entry.CapacityLabel);
             },
             entry =>
             {
                 Assert.Equal("queue-b", entry.NodeId);
                 Assert.Equal("Every 4 bins (phase 0)", entry.Summary);
-                Assert.Equal("Capacity: unbounded", entry.CapacityLabel);
+                Assert.Equal("Unbounded", entry.CapacityLabel);
             });
     }
 

@@ -25,8 +25,8 @@
 - [ ] Phase 4: Docs + Validation (0/2 tasks)
 
 ### Test Status
-- **Build:** Not run
-- **Tests:** Partial (filtered `SinkNode_ServedEqualsArrivals`, `SinkNode_RejectsRetryFields`, `SinkNode_AllowsRefusedArrivalsAndDerivesServed`, `GetStateWindow_SinkNode_EmitsCompletionSeries`, `Topology_ShowsSinkBadge_WhenKindSink`)
+- **Build:** ✅ `dotnet build` (warnings: CS8604 in `ProvenanceEmbedder.cs`, CS0105 in `RunOrchestrationService.cs`)
+- **Tests:** ❌ `dotnet test --nologo` (fails: `TopologyInspectorTests.DispatchScheduleOverlayReflectsGraph`, `Template_With_Sink_Kind_Parses`, `TransportationClassesTemplate_DoesNotEmitQueueDepthMismatchWarnings`)
 
 ---
 
@@ -221,6 +221,21 @@
 - Tooltip queue warning text respects line breaks.
 - Inspector warning headers are left-aligned; warning titles use a smaller amber style.
 
+### 2026-01-09 - Selected Tooltip TTL + Validation Run
+
+**Update:**
+- Selected-node tooltip dismissal moved to a 10s timer in `TopologyCanvas.razor.cs`; JS focused tooltip TTL removed.
+- Inspector kind chip row spacing adjusted (bottom margin).
+
+**Validation:**
+- `dotnet build`
+  - Warnings: CS8604 in `src/FlowTime.Sim.Core/Services/ProvenanceEmbedder.cs`, CS0105 in `src/FlowTime.Generator/Orchestration/RunOrchestrationService.cs`.
+- `dotnet test --nologo`
+  - Failures:
+    - `FlowTime.UI.Tests.TimeTravel.TopologyInspectorTests.DispatchScheduleOverlayReflectsGraph` (capacity label now missing `Capacity:` prefix).
+    - `FlowTime.Sim.Tests.NodeBased.TemplateParserTests.Template_With_Sink_Kind_Parses` (sink now enforces served == arrivals mapping).
+    - `FlowTime.Sim.Tests.Templates.RouterTemplateRegressionTests.TransportationClassesTemplate_DoesNotEmitQueueDepthMismatchWarnings` (queue depth mismatch still emitted for AirportDispatchQueue).
+
 ---
 
 ## Phase 1: Schema + Parser
@@ -351,10 +366,10 @@
 
 ### Task 4.2: Full validation
 **Checklist (TDD Order - Tests FIRST):**
-- [ ] Run `dotnet build`
-- [ ] Run `dotnet test --nologo`
+- [x] Run `dotnet build` (warnings noted)
+- [ ] Run `dotnet test --nologo` (fails: see progress log)
 
-**Status:** ⏳ Not Started
+**Status:** 🚧 In Progress
 
 ---
 

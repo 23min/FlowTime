@@ -135,13 +135,10 @@ topology:
       kind: sink
       semantics:
         arrivals: arrivals
-        served: served
+        served: arrivals
   edges: []
 nodes:
   - id: arrivals
-    kind: const
-    values: [100, 100, 100]
-  - id: served
     kind: const
     values: [100, 100, 100]
 outputs:
