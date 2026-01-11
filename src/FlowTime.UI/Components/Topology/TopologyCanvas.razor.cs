@@ -476,7 +476,9 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                 node.Y,
                 node.IsPositionFixed,
                 node.Semantics,
-                node.Lane))
+                node.Lane,
+                node.DispatchSchedule,
+                node.NodeRole))
             .ToImmutableArray();
 
         var filteredEdges = graph.Edges
@@ -500,7 +502,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             "expr" or "expression" => NodeCategory.Expression,
             "const" or "constant" or "pmf" => NodeCategory.Constant,
             "dlq" => NodeCategory.Terminal,
-            "service" or "servicewithbuffer" or "queue" or "router" or "external" or "flow" => NodeCategory.Service,
+            "service" or "servicewithbuffer" or "queue" or "router" or "external" or "flow" or "sink" => NodeCategory.Service,
             _ => NodeCategory.Other
         };
     }
@@ -767,7 +769,9 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                 isLeaf,
                 node.Lane,
                 sparklineDto,
-                semanticsDto);
+                semanticsDto,
+                node.DispatchSchedule,
+                node.NodeRole);
 
             sceneNodes.Add(sceneNode);
 
@@ -777,23 +781,25 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             var isFocused = !string.IsNullOrWhiteSpace(focusedNode) &&
                 node.Id.Equals(focusedNode, StringComparison.OrdinalIgnoreCase);
             var isVisible = true;
-            var focusLabel = FormatFocusLabel(nodeMetrics, rawSparkline, overlays.ColorBasis, selectedBin);
+            var isSink = IsSinkKind(node.Kind, node.LogicalType);
+            var displayMetrics = isSink ? SanitizeSinkMetrics(nodeMetrics) : nodeMetrics;
+            var focusLabel = FormatFocusLabel(displayMetrics, rawSparkline, overlays.ColorBasis, selectedBin);
             if (IsQueueLikeKind(node.Kind, node.LogicalType))
             {
                 focusLabel = string.Empty;
             }
 
             var metricsDto = new NodeMetricSnapshotDto(
-                nodeMetrics.SuccessRate,
-                nodeMetrics.Utilization,
-                nodeMetrics.ErrorRate,
-                nodeMetrics.QueueDepth,
-                nodeMetrics.LatencyMinutes,
-                nodeMetrics.ServiceTimeMs,
-                nodeMetrics.RetryTax,
-                nodeMetrics.RawMetrics,
-                nodeMetrics.QueueLatencyStatus);
-            var tooltipContent = TooltipFormatter.Format(node.Id, nodeMetrics);
+                displayMetrics.SuccessRate,
+                displayMetrics.Utilization,
+                displayMetrics.ErrorRate,
+                displayMetrics.QueueDepth,
+                displayMetrics.LatencyMinutes,
+                displayMetrics.ServiceTimeMs,
+                displayMetrics.RetryTax,
+                displayMetrics.RawMetrics,
+                displayMetrics.QueueLatencyStatus);
+            var tooltipContent = TooltipFormatter.Format(node.Id, displayMetrics);
             var tooltipDto = new TooltipPayload(tooltipContent.Title, tooltipContent.Subtitle, tooltipContent.Lines);
 
             IReadOnlyList<NodeWarningPayload>? warningDtos = null;
@@ -984,6 +990,14 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             hash.Add(node.Height);
             hash.Add(node.Lane);
             hash.Add(node.IsLeaf);
+            hash.Add(node.NodeRole ?? string.Empty, StringComparer.OrdinalIgnoreCase);
+            if (node.DispatchSchedule is not null)
+            {
+                hash.Add(node.DispatchSchedule.Kind ?? string.Empty, StringComparer.OrdinalIgnoreCase);
+                hash.Add(node.DispatchSchedule.PeriodBins);
+                hash.Add(node.DispatchSchedule.PhaseOffset);
+                hash.Add(node.DispatchSchedule.CapacitySeries ?? string.Empty, StringComparer.OrdinalIgnoreCase);
+            }
             AddSparklineSignature(ref hash, node.Sparkline);
         }
 
@@ -1119,9 +1133,64 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                string.Equals(kind, "dlq", StringComparison.OrdinalIgnoreCase);
     }
 
+    private static bool IsSinkKind(string? kind, string? logicalType = null)
+    {
+        if (!string.IsNullOrWhiteSpace(logicalType) &&
+            string.Equals(logicalType, "sink", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return !string.IsNullOrWhiteSpace(kind) &&
+               string.Equals(kind, "sink", StringComparison.OrdinalIgnoreCase);
+    }
+
     private static bool IsDlqKind(string? kind) =>
         !string.IsNullOrWhiteSpace(kind) &&
         string.Equals(kind, "dlq", StringComparison.OrdinalIgnoreCase);
+
+    private static readonly HashSet<string> SinkSuppressedRawKeys = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "queue",
+        "capacity",
+        "attempts",
+        "failures",
+        "exhaustedFailures",
+        "retryEcho",
+        "retryBudgetRemaining",
+        "retryTax",
+        "maxAttempts"
+    };
+
+    private static NodeBinMetrics SanitizeSinkMetrics(NodeBinMetrics metrics)
+    {
+        IReadOnlyDictionary<string, double?>? raw = metrics.RawMetrics;
+        if (raw is not null)
+        {
+            var filtered = new Dictionary<string, double?>(StringComparer.OrdinalIgnoreCase);
+            foreach (var entry in raw)
+            {
+                if (SinkSuppressedRawKeys.Contains(entry.Key))
+                {
+                    continue;
+                }
+
+                filtered[entry.Key] = entry.Value;
+            }
+
+            raw = filtered.Count == 0 ? null : filtered;
+        }
+
+        return metrics with
+        {
+            Utilization = null,
+            QueueDepth = null,
+            LatencyMinutes = null,
+            RetryTax = null,
+            RawMetrics = raw,
+            QueueLatencyStatus = null
+        };
+    }
 
     private static string DetermineFillColor(
         TopologyNode node,
@@ -1272,6 +1341,8 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                 FromSeries("serviceTimeMs", "service_time_ms", "serviceTime"),
             TopologyColorBasis.FlowLatency =>
                 FromSeries("flowLatencyMs", "flow_latency_ms", "flowLatency"),
+            TopologyColorBasis.Sla =>
+                FromSeries("successRate", "completion", "completionSla"),
             _ =>
                 FromSeries("successRate", "expectation", "values", "output") ??
                 FromPrimarySeries(sparkline.Values, sparkline.StartIndex)
@@ -1377,6 +1448,11 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
 
         if (!sample.HasValue)
         {
+            if (basis == TopologyColorBasis.Sla)
+            {
+                return "-";
+            }
+
             if (sparkline is not null && sparkline.Series.TryGetValue("values", out var valuesSlice))
             {
                 var valuesSample = SampleSliceValue(valuesSlice, selectedBin);
@@ -1394,7 +1470,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             TopologyColorBasis.Queue => FormatFocusNumber(sample.Value, invariant),
             TopologyColorBasis.Utilization => FormatFocusPercent(sample.Value, invariant),
             TopologyColorBasis.Errors => FormatFocusPercent(sample.Value, invariant, allowFractional: sample.Value < 0.1),
-            TopologyColorBasis.Sla => FormatFocusPercent(sample.Value, invariant),
+            TopologyColorBasis.Sla => FormatFocusPercent(sample.Value, invariant, clampToUnit: true),
             TopologyColorBasis.ServiceTime => FormatFocusMilliseconds(sample.Value, invariant),
             TopologyColorBasis.FlowLatency => FormatFocusMilliseconds(sample.Value, invariant),
             _ => FormatFocusNumber(sample.Value, invariant)
@@ -1418,8 +1494,17 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         return value.ToString(format, culture) + "ms";
     }
 
-    private static string FormatFocusPercent(double value, CultureInfo culture, bool allowFractional = false)
+    private static string FormatFocusPercent(
+        double value,
+        CultureInfo culture,
+        bool allowFractional = false,
+        bool clampToUnit = false)
     {
+        if (clampToUnit)
+        {
+            value = Math.Clamp(value, 0d, 1d);
+        }
+
         var percent = value * 100d;
         var format = allowFractional ? "0.0#" : "0";
         return percent.ToString(format, culture) + "%";

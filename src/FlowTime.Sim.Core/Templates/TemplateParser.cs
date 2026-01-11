@@ -55,6 +55,7 @@ public static class TemplateParser
             }
 
             QueueNodeSynthesizer.Apply(template);
+            SinkNodeSynthesizer.Apply(template);
             TemplateValidator.Validate(template);
             return template;
         }

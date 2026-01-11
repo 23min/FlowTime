@@ -94,6 +94,7 @@ public static class ModelParser
                 NodeRole = string.IsNullOrWhiteSpace(definition.NodeRole) ? null : definition.NodeRole,
                 Group = definition.Group,
                 Ui = definition.Ui != null ? new UiHints { X = definition.Ui.X, Y = definition.Ui.Y } : null,
+                DispatchSchedule = definition.DispatchSchedule,
                 Semantics = new NodeSemantics
                 {
                     Arrivals = RequireSemantic(definition.Semantics.Arrivals, definition.Id, "arrivals"),
@@ -561,12 +562,13 @@ public class TopologyNodeDefinition
 {
     public string Id { get; set; } = string.Empty;
     public string? Kind { get; set; }
-    public string? NodeRole { get; set; }
-    public string? Group { get; set; }
-    public UiHintsDefinition? Ui { get; set; }
-    public TopologyNodeSemanticsDefinition Semantics { get; set; } = new();
-    public InitialConditionDefinition? InitialCondition { get; set; }
-}
+            public string? NodeRole { get; set; }
+            public string? Group { get; set; }
+            public UiHintsDefinition? Ui { get; set; }
+            public TopologyNodeSemanticsDefinition Semantics { get; set; } = new();
+            public InitialConditionDefinition? InitialCondition { get; set; }
+            public DispatchScheduleDefinition? DispatchSchedule { get; set; }
+        }
 
 public class TopologyNodeSemanticsDefinition
 {

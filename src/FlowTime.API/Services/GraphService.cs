@@ -27,8 +27,8 @@ public sealed class GraphService
         this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    private static readonly string[] DefaultOperationalKinds = { "service", "serviceWithBuffer", "queue", "dlq", "router", "external" };
-    private static readonly string[] DefaultFullKinds = { "service", "queue", "dlq", "router", "external", "expr", "const", "pmf", "serviceWithBuffer" };
+    private static readonly string[] DefaultOperationalKinds = { "service", "serviceWithBuffer", "queue", "dlq", "router", "external", "sink" };
+    private static readonly string[] DefaultFullKinds = { "service", "queue", "dlq", "router", "external", "expr", "const", "pmf", "serviceWithBuffer", "sink" };
     private static readonly string[] DefaultDependencyFields = { "arrivals", "served", "errors", "attempts", "failures", "exhaustedFailures", "retryEcho", "retryBudgetRemaining", "queue", "capacity", "expr" };
 
     private const string EdgeTypeTopology = "topology";
@@ -114,7 +114,10 @@ public sealed class GraphService
         // Operational topology nodes
         foreach (var topoNode in modelDefinition.Topology.Nodes)
         {
-            var kind = string.IsNullOrWhiteSpace(topoNode.Kind) ? "service" : topoNode.Kind!;
+            nodeDefinitionsById.TryGetValue(topoNode.Id, out var nodeDefinition);
+            var kind = string.IsNullOrWhiteSpace(topoNode.Kind)
+                ? nodeDefinition?.Kind ?? "service"
+                : topoNode.Kind!;
             var logicalType = DetermineLogicalType(kind, topoNode, nodeDefinitionsById, out var serviceWithBufferDefinition);
             if (!allowedKinds.Contains(kind))
             {
@@ -149,6 +152,10 @@ public sealed class GraphService
                 };
 
             var dispatchSchedule = TryBuildDispatchSchedule(nodeDefinitionsById, topoNode.Id);
+            if (dispatchSchedule is null && topoNode.DispatchSchedule is not null)
+            {
+                dispatchSchedule = ConvertSchedule(topoNode.DispatchSchedule);
+            }
             if (dispatchSchedule is null && serviceWithBufferDefinition is not null)
             {
                 dispatchSchedule = ConvertSchedule(serviceWithBufferDefinition.DispatchSchedule);

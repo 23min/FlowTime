@@ -126,6 +126,15 @@ public static class ModelService
                     NodeRole = node.NodeRole,
                     Group = node.Group,
                     Ui = node.Ui != null ? new UiHintsDefinition { X = node.Ui.X, Y = node.Ui.Y } : null,
+                    DispatchSchedule = node.DispatchSchedule == null
+                        ? null
+                        : new DispatchScheduleDefinition
+                        {
+                            Kind = node.DispatchSchedule.Kind,
+                            PeriodBins = node.DispatchSchedule.PeriodBins,
+                            PhaseOffset = node.DispatchSchedule.PhaseOffset,
+                            CapacitySeries = node.DispatchSchedule.CapacitySeries
+                        },
                     Semantics = new TopologyNodeSemanticsDefinition
                     {
                         Arrivals = node.Semantics.Arrivals,

@@ -25,7 +25,9 @@ internal sealed record NodeSceneInfo(
     bool IsLeaf,
     int Lane,
     NodeSparklineDto? Sparkline,
-    NodeSemanticsDto? Semantics);
+    NodeSemanticsDto? Semantics,
+    GraphDispatchScheduleModel? DispatchSchedule,
+    string? NodeRole);
 
 internal sealed record CanvasOverlayPayload(
     OverlaySettingsPayload Overlays,

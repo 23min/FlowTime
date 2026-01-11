@@ -298,7 +298,7 @@ To prevent inconsistent metrics:
 - If this invariant fails, mark the node with a warning for model/telemetry alignment.
 - Metrics derived from missing series should be explicitly marked as "No data".
 
-## Future Enhancement: Success Terminal (Sink) Nodes
+## Success Terminal (Sink) Nodes
 
 Some domains benefit from an explicit **success terminal** to represent work leaving the modeled system (e.g., delivered to customer, arrived at airport). This is different from a DLQ: a sink is a **successful exit**, not a failure path.
 
@@ -308,11 +308,12 @@ Some domains benefit from an explicit **success terminal** to represent work lea
 - Improves SLA interpretation: completion SLA can anchor at the sink instead of overloading leaf services.
 - UI clarity: a sink chip/badge distinguishes "terminal success" from ordinary leaf services.
 
-### Semantics (Proposed)
+### Semantics (Current)
 
 - A sink does not own capacity or queue semantics.
 - `served = arrivals`, `errors = 0` by definition.
-- No retries, no queue, no latency metrics unless provided as explicit telemetry.
+- No retries, no queue, no capacity limits.
+- Sinks may display terminal-only metrics (flow latency, service time, schedule adherence) **if telemetry provides them**.
 - A sink is compatible with either templates or telemetry; it is optional and only used when terminal success is explicitly modeled.
 
 ### Telemetry Mapping
@@ -320,13 +321,14 @@ Some domains benefit from an explicit **success terminal** to represent work lea
 - If telemetry emits explicit "completion/delivered" events, the sink can be mapped directly to those series.
 - If telemetry does not expose completion events, a sink should not be inferred. The UI should simply treat the last service as a leaf node.
 
-### Implementation Path (Low-Risk)
+### Sink-Specific Behaviors (Terminal Subset)
 
-1. **Metadata-first**: Introduce a `nodeRole: sink` (or similar) flag on existing `service` nodes.
-2. **UI-only semantics**: Render a sink badge and suppress error-rate chips unless `errors` is explicitly provided.
-3. **Engine remains unchanged**: No new behavior or schema required in phase 1.
+- **Focus chips:** sinks should respond to focus chips for metrics that are meaningful at the terminal (SLA, error rate, flow latency, service time).
+- **No queue/capacity:** queue depth and capacity are never displayed for sinks.
+- **Optional refused arrivals:** telemetry can emit a terminal refusal/rejection series (distinct from retries); if present, it should be shown explicitly without introducing retry semantics.
+- **Schedule adherence:** sinks may show adherence to arrival schedules when provided.
 
-If the pattern proves valuable, a dedicated `kind: sink` can be added later.
+For a full design record and telemetry guidance, see `docs/architecture/service-with-buffer/sink-node-architecture.md`.
 
 ## Open Questions
 

@@ -113,6 +113,149 @@ outputs:
     }
 
     [Fact]
+    public void Template_With_Sink_Kind_Parses()
+    {
+        var yaml = """
+schemaVersion: 1
+generator: flowtime-sim
+metadata:
+  id: sink-kind-template
+  title: Sink Kind Template
+  version: 1.0.0
+window:
+  start: 2025-04-01T00:00:00Z
+  timezone: UTC
+grid:
+  bins: 3
+  binSize: 60
+  binUnit: minutes
+topology:
+  nodes:
+    - id: TerminalSuccess
+      kind: sink
+      semantics:
+        arrivals: arrivals
+        served: served
+  edges: []
+nodes:
+  - id: arrivals
+    kind: const
+    values: [100, 100, 100]
+  - id: served
+    kind: const
+    values: [100, 100, 100]
+outputs:
+  - series: "*"
+""";
+
+        var template = TemplateParser.ParseFromYaml(yaml);
+
+        Assert.Single(template.Topology.Nodes);
+        var node = template.Topology.Nodes[0];
+        Assert.Equal("TerminalSuccess", node.Id);
+        Assert.Equal("sink", node.Kind);
+    }
+
+    [Fact]
+    public void SinkNode_RejectsQueueCapacityFields()
+    {
+        var yaml = """
+schemaVersion: 1
+generator: flowtime-sim
+metadata:
+  id: sink-kind-invalid
+  title: Sink Kind Invalid
+  version: 1.0.0
+window:
+  start: 2025-04-01T00:00:00Z
+  timezone: UTC
+grid:
+  bins: 3
+  binSize: 60
+  binUnit: minutes
+topology:
+  nodes:
+    - id: TerminalSuccess
+      kind: sink
+      semantics:
+        arrivals: arrivals
+        served: served
+        queueDepth: queue_depth
+        capacity: capacity
+  edges: []
+nodes:
+  - id: arrivals
+    kind: const
+    values: [100, 100, 100]
+  - id: served
+    kind: const
+    values: [100, 100, 100]
+  - id: queue_depth
+    kind: const
+    values: [0, 0, 0]
+  - id: capacity
+    kind: const
+    values: [100, 100, 100]
+outputs:
+  - series: "*"
+""";
+
+        Assert.Throws<TemplateValidationException>(() => TemplateParser.ParseFromYaml(yaml));
+    }
+
+    [Fact]
+    public void SinkNode_RejectsRetryFields()
+    {
+        var yaml = """
+schemaVersion: 1
+generator: flowtime-sim
+metadata:
+  id: sink-kind-retry-invalid
+  title: Sink Kind Retry Invalid
+  version: 1.0.0
+window:
+  start: 2025-04-01T00:00:00Z
+  timezone: UTC
+grid:
+  bins: 3
+  binSize: 60
+  binUnit: minutes
+topology:
+  nodes:
+    - id: TerminalSuccess
+      kind: sink
+      semantics:
+        arrivals: arrivals
+        served: served
+        attempts: attempts
+        failures: failures
+        retryEcho: retry_echo
+        retryKernel: [0.5, 0.3, 0.2]
+  edges: []
+nodes:
+  - id: arrivals
+    kind: const
+    values: [100, 100, 100]
+  - id: served
+    kind: const
+    values: [100, 100, 100]
+  - id: attempts
+    kind: const
+    values: [100, 100, 100]
+  - id: failures
+    kind: const
+    values: [0, 0, 0]
+  - id: retry_echo
+    kind: const
+    values: [0, 0, 0]
+outputs:
+  - series: "*"
+""";
+
+        Assert.Throws<TemplateValidationException>(() => TemplateParser.ParseFromYaml(yaml));
+    }
+
+    [Fact]
     public void Template_With_Pmf_Node_Preserves_Pmf_Definition()
     {
         var yaml = """

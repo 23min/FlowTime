@@ -132,6 +132,28 @@ public sealed class TopologyInspectorTests
     }
 
     [Fact]
+    public void Topology_ShowsSinkBadge_WhenKindSink()
+    {
+        var topology = new Topology();
+        var nodes = new[]
+        {
+            new TopologyNode(
+                "terminal-2", "sink", "sink", Array.Empty<string>(),
+                Array.Empty<string>(),
+                0,
+                0,
+                0,
+                0,
+                false,
+                EmptySemantics())
+        };
+
+        topology.TestSetTopologyGraph(new TopologyGraph(nodes, Array.Empty<TopologyEdge>()));
+
+        Assert.Equal("Terminal", topology.TestResolveNodeRoleLabel("terminal-2"));
+    }
+
+    [Fact]
     public void BuildInspectorMetrics_SinkNode_SuppressesUtilizationAndErrorRateWhenMissing()
     {
         var topology = new Topology();

@@ -2295,6 +2295,15 @@ public sealed class StateQueryService
             }
         }
 
+        if (node.DispatchSchedule is not null)
+        {
+            var descriptor = ConvertDispatchSchedule(node.DispatchSchedule);
+            if (descriptor is not null)
+            {
+                return descriptor;
+            }
+        }
+
         return null;
     }
 

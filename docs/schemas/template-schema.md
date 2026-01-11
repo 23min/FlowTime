@@ -191,6 +191,14 @@ properties:
               properties:
                 queueDepth: { type: number }
               additionalProperties: true
+            dispatchSchedule:
+              type: object
+              properties:
+                kind: { type: string }
+                periodBins: { type: integer }
+                phaseOffset: { type: integer }
+                capacitySeries: { type: string }
+              additionalProperties: false
           additionalProperties: true
       edges:
         type: array

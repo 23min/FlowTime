@@ -37,6 +37,7 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
     private const string dispatchScheduleRunId = "run_state_dispatch_schedule";
     private const string throughputOverflowRunId = "run_state_throughput_overflow";
     private const string backlogWarningsRunId = "run_state_backlog_warnings";
+    private const string sinkRunId = "run_state_sink";
     private const int binCount = 4;
     private const int binSizeMinutes = 5;
     private static readonly DateTime startTimeUtc = new(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -77,6 +78,7 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         CreateDispatchScheduleRun();
         CreateThroughputOverflowRun();
         CreateBacklogWarningsRun();
+        CreateSinkRun();
 
         logCollector = new TestLogCollector();
         client = factory.WithWebHostBuilder(builder =>
@@ -246,6 +248,32 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         Assert.Empty(queueSeries.Telemetry.Warnings);
         Assert.NotNull(queueSeries.Aliases);
         Assert.Equal("Open backlog", queueSeries.Aliases!["queue"]);
+    }
+
+    [Fact]
+    public async Task GetStateWindow_SinkNode_EmitsCompletionSeries()
+    {
+        var payload = await client.GetFromJsonAsync<StateWindowResponse>($"/v1/runs/{sinkRunId}/state_window?startBin=0&endBin=3", new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            PropertyNameCaseInsensitive = true
+        }) ?? throw new XunitException("Failed to deserialize sink state window payload");
+
+        Assert.Equal(sinkRunId, payload.Metadata.RunId);
+
+        var sinkSeries = Assert.Single(payload.Nodes, n => n.Id == "TerminalSuccess");
+        Assert.DoesNotContain("queue", sinkSeries.Series.Keys);
+        Assert.DoesNotContain("capacity", sinkSeries.Series.Keys);
+        Assert.DoesNotContain("attempts", sinkSeries.Series.Keys);
+        Assert.DoesNotContain("retryEcho", sinkSeries.Series.Keys);
+
+        var slaSeries = sinkSeries.Sla;
+        Assert.NotNull(slaSeries);
+        var completion = Assert.Single(slaSeries!, s => string.Equals(s.Kind, "completion", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal(4, completion.Values.Length);
+        Assert.All(completion.Values, value => Assert.Equal(1d, value));
+
+        var schedule = Assert.Single(slaSeries!, s => string.Equals(s.Kind, "scheduleAdherence", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal(new double?[] { 1d, null, 1d, null }, schedule.Values);
     }
 
     [Fact]
@@ -1080,6 +1108,22 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
             overrides: overrides);
     }
 
+    private void CreateSinkRun()
+    {
+        var overrides = new Dictionary<string, double[]>
+        {
+            ["TerminalSuccess_arrivals.csv"] = new[] { 10d, 10d, 10d, 10d },
+            ["TerminalSuccess_served.csv"] = new[] { 10d, 10d, 10d, 10d },
+            ["TerminalSuccess_errors.csv"] = new[] { 0d, 0d, 0d, 0d }
+        };
+
+        CreateRun(
+            sinkRunId,
+            BuildSinkModelYaml(),
+            mode: "telemetry",
+            overrides: overrides);
+    }
+
     private void CreateFullModeRun()
     {
         var seriesOutputs = new Dictionary<string, double[]>
@@ -1567,6 +1611,34 @@ topology:
         slaMin: 5
         aliases:
           queue: "Open backlog"
+  edges: []
+
+""";
+    }
+
+    private static string BuildSinkModelYaml()
+    {
+        return $"""
+schemaVersion: 1
+
+grid:
+  bins: {binCount}
+  binSize: {binSizeMinutes}
+  binUnit: minutes
+  startTimeUtc: "{startTimeUtc:O}"
+
+topology:
+  nodes:
+    - id: "TerminalSuccess"
+      kind: "sink"
+      semantics:
+        arrivals: "file:TerminalSuccess_arrivals.csv"
+        served: "file:TerminalSuccess_served.csv"
+        errors: "file:TerminalSuccess_errors.csv"
+      dispatchSchedule:
+        kind: "time-based"
+        periodBins: 2
+        phaseOffset: 0
   edges: []
 
 """;

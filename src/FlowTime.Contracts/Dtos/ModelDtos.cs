@@ -122,6 +122,7 @@ public sealed class TopologyNodeDto
     public string? NodeRole { get; set; }
     public string? Group { get; set; }
     public UiHintsDto? Ui { get; set; }
+    public DispatchScheduleDto? DispatchSchedule { get; set; }
     public TopologySemanticsDto Semantics { get; set; } = new();
     public TopologyInitialConditionDto? InitialCondition { get; set; }
 }

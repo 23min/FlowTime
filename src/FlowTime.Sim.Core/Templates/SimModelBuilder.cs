@@ -92,7 +92,8 @@ internal static class SimModelBuilder
                 Group = node.Group,
                 Semantics = node.Semantics == null ? new TemplateNodeSemantics() : CloneSemantics(node.Semantics),
                 InitialCondition = node.InitialCondition == null ? null : new TemplateInitialCondition { QueueDepth = node.InitialCondition.QueueDepth },
-                Ui = node.Ui == null ? null : new TemplateUiHint { X = node.Ui.X, Y = node.Ui.Y }
+                Ui = node.Ui == null ? null : new TemplateUiHint { X = node.Ui.X, Y = node.Ui.Y },
+                DispatchSchedule = CloneDispatchSchedule(node.DispatchSchedule)
             });
         }
 

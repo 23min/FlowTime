@@ -14,9 +14,10 @@
         neutral: '#7C8BA1'
     };
     const EDGE_OVERLAY_STROKE_ALPHA = 0.85;
-    const InspectorIconSize = 20;
+    const InspectorIconSize = 18;
     const InspectorIconGap = 4;
     const InspectorTooltipGap = 4;
+    const InspectorTooltipInset = 6;
     const MIN_ZOOM_PERCENT = 25;
     const MAX_ZOOM_PERCENT = 200;
     const MIN_SCALE = MIN_ZOOM_PERCENT / 100;
@@ -25,6 +26,8 @@
     const LEAF_FILL_DARK = '#1E293B';
     const LEAF_STROKE_LIGHT = '#64748B';
     const LEAF_STROKE_DARK = '#475569';
+    const NEUTRAL_FILL_LIGHT = '#E2E8F0';
+    const NEUTRAL_FILL_DARK = '#B8C2D3';
     const QUEUE_PILL_FILL = '#60A5FA';
     const QUEUE_PILL_STROKE = '#2563EB';
     const NODE_LABEL_COLOR_LIGHT = '#0F172A';
@@ -580,6 +583,18 @@
 
     function getLeafFill() {
         return isDarkTheme() ? LEAF_FILL_DARK : LEAF_FILL_LIGHT;
+    }
+
+    function normalizeNeutralFill(fill) {
+        if (!fill || typeof fill !== 'string') {
+            return fill;
+        }
+        if (!isDarkTheme()) {
+            return fill;
+        }
+        return fill.toLowerCase() === NEUTRAL_FILL_LIGHT.toLowerCase()
+            ? NEUTRAL_FILL_DARK
+            : fill;
     }
 
     function getLeafStroke() {
@@ -1742,6 +1757,8 @@
                     focusLabel: n.focusLabel ?? n.FocusLabel ?? '',
                     metrics: n.metrics ?? n.Metrics ?? null,
                     semantics: n.semantics ?? n.Semantics ?? null,
+                    nodeRole: n.nodeRole ?? n.NodeRole ?? null,
+                    dispatchSchedule: n.dispatchSchedule ?? n.DispatchSchedule ?? null,
                     distribution: n.distribution ?? n.Distribution ?? (n.semantics?.distribution ?? n.Semantics?.Distribution ?? null),
                     leaf: Boolean(n.isLeaf ?? n.IsLeaf),
                     lane: Number.isFinite(n.lane ?? n.Lane) ? Number(n.lane ?? n.Lane) : null,
@@ -2082,7 +2099,8 @@
             const height = node.height ?? node.Height ?? 24;
             const cornerRadius = node.cornerRadius ?? node.CornerRadius ?? 3;
             const defaultLeafFill = getLeafFill();
-            const fill = overlayNode?.fill ?? overlayNode?.Fill ?? meta?.fill ?? defaultLeafFill;
+            let fill = overlayNode?.fill ?? overlayNode?.Fill ?? meta?.fill ?? defaultLeafFill;
+            fill = normalizeNeutralFill(fill);
             const stroke = overlayNode?.stroke ?? overlayNode?.Stroke ?? meta?.stroke ?? '#262626';
 
             const pointerHovered = hoveredNodeId && hoveredNodeId === id;
@@ -2120,6 +2138,8 @@
                 nodeMeta.queueWarningText = extractQueueWarningText(warningEntries);
             }
             const dlqNode = isDlqKind(kind);
+            const nodeRole = String(meta?.nodeRole ?? meta?.NodeRole ?? '').trim().toLowerCase();
+            const isSinkNode = kind === 'sink' || nodeRole === 'sink';
             const isLeafComputed = !!nodeMeta?.leaf && isComputedKind(kind);
             const serviceLikeNode = kind === 'service' || logicalType === 'servicewithbuffer';
             const retryTax = serviceLikeNode ? resolveRetryTaxValue(nodeMeta) : null;
@@ -2174,7 +2194,7 @@
                 drawServiceWithBufferBadge(ctx, nodeMeta);
             }
 
-            if (kind === 'service' || logicalType === 'servicewithbuffer' || kind === 'queue' || kind === 'router' || dlqNode) {
+            if (kind === 'service' || logicalType === 'servicewithbuffer' || kind === 'queue' || kind === 'router' || dlqNode || isSinkNode) {
                 drawServiceDecorations(ctx, nodeMeta, overlaySettings, state);
             } else if (kind === 'pmf') {
                 const hasSparkline = overlaySettings.showSparklines && nodeMeta?.sparkline;
@@ -2216,7 +2236,18 @@
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 const focusYOffset = logicalType === 'servicewithbuffer' ? 3 : 1;
-                drawFittedText(ctx, focusLabel, x, y + focusYOffset, focusLabelWidth);
+                if (focusLabel === '-') {
+                    const dashWidth = 7;
+                    const dashY = y + focusYOffset;
+                    ctx.strokeStyle = ctx.fillStyle;
+                    ctx.lineWidth = 1.6;
+                    ctx.beginPath();
+                    ctx.moveTo(x - (dashWidth / 2), dashY);
+                    ctx.lineTo(x + (dashWidth / 2), dashY);
+                    ctx.stroke();
+                } else {
+                    drawFittedText(ctx, focusLabel, x, y + focusYOffset, focusLabelWidth);
+                }
                 ctx.restore();
             }
 
@@ -2565,9 +2596,9 @@
         let targetY = base.y;
 
         const rightEdge = tooltipMetrics.x + tooltipMetrics.width;
-        const iconCenterCssX = rightEdge - (InspectorIconSize / 2);
-        const iconCenterCssY = tooltipMetrics.y - InspectorTooltipGap - (InspectorIconSize / 2);
-        const worldPoint = cssToWorld(state, iconCenterCssX, iconCenterCssY);
+        const iconAnchorCssX = rightEdge - InspectorTooltipInset;
+        const iconAnchorCssY = tooltipMetrics.y + InspectorTooltipInset;
+        const worldPoint = cssToWorld(state, iconAnchorCssX, iconAnchorCssY);
         targetX = worldPoint.x;
         targetY = worldPoint.y;
 
@@ -2636,8 +2667,12 @@
         const title = tooltipPayload.title ?? '';
         const subtitle = tooltipPayload.subtitle ?? '';
         const lines = (tooltipPayload.lines ?? []).map(line => String(line).trim()).filter(line => line.length > 0);
-        const warningLine = (anchorMeta?.queueWarningText ?? '').toString().trim();
-        const hasWarningLine = warningLine.length > 0;
+        const warningLine = (anchorMeta?.queueWarningText ?? '').toString();
+        const warningLines = warningLine
+            .split('\n')
+            .map(line => line.trim())
+            .filter(line => line.length > 0);
+        const hasWarningLine = warningLines.length > 0;
 
         const ratio = Number(state.deviceRatio ?? window.devicePixelRatio ?? 1) || 1;
         const toDevice = (value) => Math.round(value * ratio * 1000) / 1000;
@@ -2647,6 +2682,7 @@
         const fontSizePx = 12 * ratio;
         const fontRegular = `${fontSizePx}px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif`;
         const fontStrong = `600 ${fontSizePx}px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif`;
+        const dateOffsetY = 5 * ratio;
         const overlays = state.overlaySettings ?? {};
         const preparedSparkline = overlays.showSparklines
             ? prepareTooltipSparklineData(anchorMeta, overlays)
@@ -2672,7 +2708,9 @@
             width = Math.max(width, ctx.measureText(subtitle).width);
         }
         if (hasWarningLine) {
-            width = Math.max(width, ctx.measureText(warningLine).width);
+            for (const line of warningLines) {
+                width = Math.max(width, ctx.measureText(line).width);
+            }
         }
         for (const line of lines) {
             width = Math.max(width, ctx.measureText(line).width);
@@ -2681,7 +2719,7 @@
             width = Math.max(width, sparklineWidth);
         }
 
-        const textLineCount = 1 + (subtitle ? 1 : 0) + (hasWarningLine ? 1 : 0) + lines.length;
+        const textLineCount = 1 + (subtitle ? 1 : 0) + (hasWarningLine ? warningLines.length : 0) + lines.length;
         const boxWidth = Math.ceil(width + paddingX * 2);
         const boxHeight = Math.ceil(paddingY * 2 + textLineCount * lineHeight + sparklineBlockHeight);
 
@@ -2755,15 +2793,17 @@
 
         ctx.font = fontRegular;
         if (subtitle) {
-            textY += lineHeight;
+            textY += lineHeight + dateOffsetY;
             ctx.fillStyle = subtitleColor;
             ctx.fillText(subtitle, tooltipX + paddingX, textY);
             ctx.fillStyle = fg;
         }
         if (hasWarningLine) {
-            textY += lineHeight;
             ctx.fillStyle = warningColor;
-            ctx.fillText(warningLine, tooltipX + paddingX, textY);
+            for (const line of warningLines) {
+                textY += lineHeight;
+                ctx.fillText(line, tooltipX + paddingX, textY);
+            }
             ctx.fillStyle = fg;
         }
 
@@ -4173,9 +4213,12 @@
         const showRetryMetrics = overlays.showRetryMetrics !== false && hasRetrySemantics;
         const nodeKind = String(nodeMeta.kind ?? nodeMeta.Kind ?? '').trim().toLowerCase();
         const nodeLogicalType = String(nodeMeta.logicalType ?? nodeMeta.LogicalType ?? '').trim().toLowerCase();
+        const nodeRole = String(nodeMeta.nodeRole ?? nodeMeta.NodeRole ?? '').trim().toLowerCase();
+        const isSinkNode = nodeKind === 'sink' || nodeLogicalType === 'sink' || nodeRole === 'sink';
         const isServiceNode = nodeKind === 'service' || nodeLogicalType === 'servicewithbuffer';
         const isServiceWithBuffer = nodeLogicalType === 'servicewithbuffer';
         const isDlqNode = isDlqKind(nodeKind);
+        const schedule = nodeMeta.dispatchSchedule ?? nodeMeta.DispatchSchedule ?? null;
         const retryTax = isServiceNode ? resolveRetryTaxValue(nodeMeta) : null;
         const hasRetryLoop = showRetryMetrics && isServiceNode && Number.isFinite(retryTax) && retryTax > 0;
         let warningEntries = normalizeWarningEntries(nodeMeta, state.globalWarningsByNode);
@@ -4396,6 +4439,22 @@
         let bottomLeft = topLeft;
         const bottomLeftBaseline = bottomLeft;
         let bottomRight = topRight;
+        const scheduleInfo = (() => {
+            if (!schedule) {
+                return null;
+            }
+
+            const period = Number(schedule.periodBins ?? schedule.PeriodBins);
+            if (!Number.isFinite(period) || period <= 0) {
+                return null;
+            }
+
+            const phaseRaw = Number(schedule.phaseOffset ?? schedule.PhaseOffset ?? 0);
+            const phase = Number.isFinite(phaseRaw) ? Math.max(0, phaseRaw) : 0;
+            const capacitySeries = schedule.capacitySeries ?? schedule.CapacitySeries ?? null;
+
+            return { period, phase, capacitySeries };
+        })();
 
         const arrivalsValue = sampleValueFor('arrivals', semantics.arrivals);
         const attemptsValue = isServiceNode ? sampleValueFor('attempts', semantics.attempts, ['attempt']) : null;
@@ -4445,6 +4504,28 @@
                     }
                 }
             }
+        }
+
+        if (isSinkNode && scheduleInfo) {
+            const cadence = scheduleInfo.period === 1 ? 'Every bin' : `Every ${scheduleInfo.period} bins`;
+            const summary = `${cadence} (phase ${scheduleInfo.phase})`;
+            const capacityLabel = scheduleInfo.capacitySeries
+                ? `Capacity: ${scheduleInfo.capacitySeries}`
+                : 'Capacity: unbounded';
+            const tooltip = `Arrival schedule: ${summary}\n${capacityLabel}`;
+            const scheduleTop = y - (chipH / 2);
+            const scheduleX = x + (nodeWidth / 2) + 5;
+            const dims = drawScheduleBadge(ctx, scheduleX, scheduleTop, chipH);
+            registerChipHitbox(state, {
+                nodeId: nodeMeta.id ?? null,
+                metric: 'schedule',
+                placement: 'right',
+                tooltip,
+                x: scheduleX,
+                y: dims.top,
+                width: dims.width,
+                height: dims.height
+            });
         }
 
         if (isServiceWithBuffer) {
@@ -4539,7 +4620,7 @@
         }
 
         let servedChipDims = null;
-        if (overlays.showServedDependencies !== false) {
+        if (!isSinkNode && overlays.showServedDependencies !== false) {
             const servedValue = sampleValueFor('served', semantics.served);
             if (servedValue !== null) {
                 const servedLabel = formatMetricValue(servedValue);
@@ -4757,7 +4838,7 @@
             }
         }
 
-        if (overlays.showErrorsDependencies !== false) {
+        if (!isSinkNode && overlays.showErrorsDependencies !== false) {
             const errorCount = sampleValueFor('errors', semantics.errors);
             const errorRateValue = sampleValueFor('errorRate', null, ['error_rate']);
             const errorsTooltip = semanticTooltip(semantics.errors, 'Errors') ?? 'Errors';
@@ -6202,6 +6283,56 @@ function drawRetryBadge(ctx, nodeMeta, retryTax, options) {
         }
         ctx.restore();
         return { width, height: totalHeight, top, bottom, left: bx };
+    }
+
+    function drawScheduleBadge(ctx, x, anchorY, height) {
+        const badgeHeight = Math.max(14, Math.round(height));
+        const badgeWidth = Math.max(18, Math.round(badgeHeight * 1.2));
+        const top = Math.round(anchorY);
+        const left = Math.round(x);
+        const fill = '#0EA5E9';
+        const stroke = '#38BDF8';
+        const icon = '#FFFFFF';
+
+        ctx.save();
+        ctx.fillStyle = fill;
+        ctx.strokeStyle = stroke;
+        ctx.lineWidth = 1;
+        drawRoundedRectTopLeft(ctx, left, top, badgeWidth, badgeHeight, Math.min(7, badgeHeight / 2));
+        ctx.fill();
+        ctx.stroke();
+
+        const pad = Math.max(3, Math.round(badgeHeight * 0.2));
+        const centerX = left + (badgeWidth / 2);
+        const centerY = top + (badgeHeight / 2);
+        const radius = Math.max(4, Math.min(badgeWidth, badgeHeight) / 2 - pad);
+
+        ctx.strokeStyle = icon;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.strokeStyle = icon;
+        ctx.lineCap = 'round';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY);
+        ctx.lineTo(centerX, centerY - radius * 0.55);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY);
+        ctx.lineTo(centerX + radius * 0.45, centerY + radius * 0.1);
+        ctx.stroke();
+        ctx.restore();
+
+        return {
+            width: badgeWidth,
+            height: badgeHeight,
+            top,
+            bottom: top + badgeHeight,
+            left
+        };
     }
 
     function drawQueueChip(ctx, x, anchorY, text, paddingX, lineHeight, anchor = 'bottom', styleOverrides) {

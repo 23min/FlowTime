@@ -114,6 +114,9 @@ Avoid introducing independent "queue nodes" with their own service rules; that w
 
 - **Shuttle buses, picker waves, nightly jobs, batch ETL** – Always `serviceWithBuffer` with `dispatchSchedule` controlling $G_t$ so that draining occurs at discrete intervals.
 - **Continuous buffering (no schedule)** – Use `serviceWithBuffer` without `dispatchSchedule` when backlog drains continuously at capacity. This avoids encoding backlog as "errors/overflow" on plain services.
+- **Transit legs after dispatch** – When a stage represents travel time (bus/rail/last‑mile), model the **destination arrivals** as a delayed series:
+  - `arrivals_destination = SHIFT(served_route, N)` where `N` is travel time in bins.
+  - This makes queue latency (dispatch) and travel time (route) visible as distinct stages.
 
 ---
 

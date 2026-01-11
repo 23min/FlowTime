@@ -136,6 +136,46 @@ topology:
     }
 
     [Fact]
+    public async Task GetGraphAsync_IncludesSinkKind_InOperationalAndFullModes()
+    {
+        const string runId = "run_graph_sink_kind";
+        CreateRun(runId, """
+schemaVersion: 1
+
+grid:
+  bins: 2
+  binSize: 5
+  binUnit: minutes
+
+topology:
+  nodes:
+    - id: ServiceA
+      kind: service
+      semantics:
+        arrivals: series:arrivals
+        served: series:served
+        errors: series:errors
+    - id: TerminalDest
+      kind: sink
+      semantics:
+        arrivals: series:terminal_arrivals
+        served: series:terminal_served
+        errors: null
+  edges:
+    - id: to_terminal
+      from: ServiceA:out
+      to: TerminalDest:in
+""");
+
+        var operational = await service.GetGraphAsync(runId);
+        Assert.Contains(operational.Nodes, node => string.Equals(node.Id, "TerminalDest", StringComparison.OrdinalIgnoreCase));
+
+        var full = await service.GetGraphAsync(runId, new GraphQueryOptions { Mode = GraphQueryMode.Full });
+        var sinkNode = Assert.Single(full.Nodes, node => string.Equals(node.Id, "TerminalDest", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal("sink", sinkNode.Kind);
+    }
+
+    [Fact]
     public async Task GetGraphAsync_IncludesRetrySemanticsAndEdgeTypes()
     {
         const string runId = "run_graph_retry";

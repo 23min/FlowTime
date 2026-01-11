@@ -527,6 +527,40 @@ internal static class TemplateValidator
         }
 
         var semantics = topologyNode.Semantics;
+        var kind = topologyNode.Kind ?? string.Empty;
+        if (kind.Equals("sink", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!string.IsNullOrWhiteSpace(semantics.QueueDepth))
+            {
+                throw new TemplateValidationException($"Topology node '{topologyNode.Id}' of kind sink must not define semantics.queueDepth.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(semantics.Capacity))
+            {
+                throw new TemplateValidationException($"Topology node '{topologyNode.Id}' of kind sink must not define semantics.capacity.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(semantics.Attempts))
+            {
+                throw new TemplateValidationException($"Topology node '{topologyNode.Id}' of kind sink must not define semantics.attempts.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(semantics.Failures))
+            {
+                throw new TemplateValidationException($"Topology node '{topologyNode.Id}' of kind sink must not define semantics.failures.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(semantics.RetryEcho))
+            {
+                throw new TemplateValidationException($"Topology node '{topologyNode.Id}' of kind sink must not define semantics.retryEcho.");
+            }
+
+            if (semantics.RetryKernel is { Length: > 0 })
+            {
+                throw new TemplateValidationException($"Topology node '{topologyNode.Id}' of kind sink must not define semantics.retryKernel.");
+            }
+        }
+
         var mappedSeries = new[]
         {
             ("arrivals", semantics.Arrivals),

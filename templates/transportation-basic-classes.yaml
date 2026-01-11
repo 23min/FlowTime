@@ -235,23 +235,29 @@ topology:
         capacitySeries: cap_industrial
     - id: LineAirport
       kind: service
-      nodeRole: sink
       semantics:
         arrivals: arrivals_airport
         served: served_airport
         errors: errors_airport
-        attempts: airport_attempts
         failures: airport_retry_failures
-        retryEcho: airport_retry_echo
-        retryKernel: [0.0, 0.6, 0.3, 0.1]
         processingTimeMsSum: airport_processing_time_ms_sum
         servedCount: served_airport
         aliases:
           arrivals: "Airport-bound riders"
-          served: "Airport departures"
-          errors: "Failed departures"
-          attempts: "Airport attempts"
+          served: "Airport line departures"
+          errors: "Airport line errors"
           failures: "Airport failed retries"
+    - id: Airport
+      kind: sink
+      nodeRole: sink
+      dispatchSchedule:
+        periodBins: 6
+        phaseOffset: 5
+      semantics:
+        arrivals: arrivals_airport_destination
+        served: arrivals_airport_destination
+        aliases:
+          served: "Arrived at airport"
     - id: HubLossQueue
       kind: serviceWithBuffer
       semantics:
@@ -278,7 +284,6 @@ topology:
         queueDepth: 0
     - id: LineDowntown
       kind: service
-      nodeRole: sink
       semantics:
         arrivals: arrivals_downtown
         served: served_downtown
@@ -286,11 +291,17 @@ topology:
         processingTimeMsSum: downtown_processing_time_ms_sum
         servedCount: served_downtown
         aliases:
-          served: "Downtown departures"
-          errors: "Downtown overflow"
+          served: "Downtown line departures"
+    - id: Downtown
+      kind: sink
+      nodeRole: sink
+      semantics:
+        arrivals: arrivals_downtown_destination
+        served: arrivals_downtown_destination
+        aliases:
+          served: "Arrived downtown"
     - id: LineIndustrial
       kind: service
-      nodeRole: sink
       semantics:
         arrivals: arrivals_industrial
         served: served_industrial
@@ -298,8 +309,18 @@ topology:
         processingTimeMsSum: industrial_processing_time_ms_sum
         servedCount: served_industrial
         aliases:
-          served: "Industrial departures"
-          errors: "Industrial overflow"
+          served: "Industrial line departures"
+    - id: Industrial
+      kind: sink
+      nodeRole: sink
+      dispatchSchedule:
+        periodBins: 10
+        phaseOffset: 8
+      semantics:
+        arrivals: arrivals_industrial_destination
+        served: arrivals_industrial_destination
+        aliases:
+          served: "Arrived industrial"
   edges:
     - id: north_to_hub
       from: OriginNorth:out
@@ -331,6 +352,15 @@ topology:
     - id: industrial_queue_to_line
       from: IndustrialDispatchQueue:out
       to: LineIndustrial:in
+    - id: line_to_airport
+      from: LineAirport:out
+      to: Airport:in
+    - id: line_to_downtown
+      from: LineDowntown:out
+      to: Downtown:in
+    - id: line_to_industrial
+      from: LineIndustrial:out
+      to: Industrial:in
     - id: hub_to_loss
       from: CentralHub:errors
       to: HubLossQueue:arrivals
@@ -558,10 +588,13 @@ nodes:
     expr: "cap_airport * airport_dispatch_queue_gate"
   - id: airport_dispatch_queue_gate
     kind: expr
-    expr: "PULSE(6, 0, 1)"
+    expr: "PULSE(6, 0, 1) * (1 - airport_dispatch_queue_skip)"
+  - id: airport_dispatch_queue_skip
+    kind: expr
+    expr: "PULSE(96, 24, 1)"
   - id: airport_dispatch_queue_processing_time_ms_sum
     kind: expr
-    expr: "airport_dispatch_queue_served * 30"
+    expr: "airport_dispatch_queue_served * 30000"
   - id: downtown_dispatch_queue_attrition
     kind: expr
     expr: "0"
@@ -602,10 +635,32 @@ nodes:
   - id: arrivals_downtown
     kind: expr
     expr: "downtown_dispatch_queue_served"
+  - id: arrivals_airport_destination
+    kind: expr
+    expr: "SHIFT(served_airport, 5)"
+    metadata:
+      description: "Airport arrivals delayed by 25 minutes (5 bins)."
+  - id: arrivals_industrial_destination
+    kind: expr
+    expr: "SHIFT(served_industrial, 4)"
+    metadata:
+      description: "Industrial arrivals delayed by 20 minutes (4 bins)."
+  - id: arrivals_downtown_destination
+    kind: expr
+    expr: "SHIFT(served_downtown, 3)"
+    metadata:
+      description: "Downtown arrivals delayed by 15 minutes (3 bins)."
+
+  - id: airport_retry_rate_spikes
+    kind: expr
+    expr: "CONV(PULSE(29, 5, 1) + PULSE(47, 11, 0.7), [0.25, 0.5, 0.25])"
+  - id: airport_retry_rate
+    kind: expr
+    expr: "CLAMP(${hubRetryRate} * (0.7 + 0.5 * airport_retry_rate_spikes), 0, 0.4)"
 
   - id: airport_retry_attempts
     kind: expr
-    expr: "${hubRetryRate} * arrivals_airport"
+    expr: "airport_retry_rate * arrivals_airport"
   - id: airport_attempts
     kind: expr
     expr: "arrivals_airport + airport_retry_attempts"
@@ -626,7 +681,9 @@ nodes:
     expr: "CONV(airport_retry_attempts, [0.0, 0.6, 0.3, 0.1])"
   - id: airport_processing_time_ms_sum
     kind: expr
-    expr: "served_airport * 75"
+    expr: "served_airport * 1500000"
+    metadata:
+      description: "Bus travel time (25 min) for airport-bound riders after dispatch."
 
   - id: served_downtown
     kind: expr
@@ -636,7 +693,9 @@ nodes:
     expr: "0"
   - id: downtown_processing_time_ms_sum
     kind: expr
-    expr: "served_downtown * 60"
+    expr: "served_downtown * 1200000"
+    metadata:
+      description: "Bus travel time (20 min) for downtown-bound riders after dispatch."
 
   - id: served_industrial
     kind: expr
@@ -646,7 +705,9 @@ nodes:
     expr: "0"
   - id: industrial_processing_time_ms_sum
     kind: expr
-    expr: "served_industrial * 60"
+    expr: "served_industrial * 1500000"
+    metadata:
+      description: "Bus travel time (25 min) for industrial-bound riders after dispatch."
 
   - id: hub_loss_inflow
     kind: expr

@@ -482,6 +482,131 @@ public sealed class TopologyCanvasRenderTests : TestContext
     }
 
     [Fact]
+    public void FocusLabelForSlaUsesSuccessRateAndClampsToOne()
+    {
+        var graph = CreateGraph();
+
+        var metrics = new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["processor"] = new NodeBinMetrics(1.0, null, null, null, null, DateTimeOffset.UtcNow, NodeKind: "service")
+        };
+
+        var additional = new Dictionary<string, SparklineSeriesSlice>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["successRate"] = new SparklineSeriesSlice(new double?[] { 1.0 }, 0),
+            ["values"] = new SparklineSeriesSlice(new double?[] { 12.48 }, 0)
+        };
+
+        var sparkline = NodeSparklineData.Create(
+            new double?[] { 12.48 },
+            Array.Empty<double?>(),
+            Array.Empty<double?>(),
+            Array.Empty<double?>(),
+            0,
+            additionalSeries: additional);
+
+        var sparklines = new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["processor"] = sparkline
+        };
+
+        var overlays = TopologyOverlaySettings.Default.Clone();
+        overlays.ColorBasis = TopologyColorBasis.Sla;
+
+        JSInterop.SetupVoid("FlowTime.TopologyCanvas.renderScene", _ => true).SetVoidResult();
+        var overlayCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.applyOverlayDelta", _ => true);
+        overlayCall.SetVoidResult();
+
+        RenderComponent<TopologyCanvas>(parameters => parameters
+            .Add(p => p.Graph, graph)
+            .Add(p => p.NodeMetrics, metrics)
+            .Add(p => p.NodeSparklines, sparklines)
+            .Add(p => p.OverlaySettings, overlays)
+            .Add(p => p.ActiveBin, 0));
+
+        var payload = Assert.IsType<CanvasOverlayPayload>(overlayCall.Invocations.Single().Arguments[1]);
+        var processor = Assert.Single(payload.Nodes, node => (node.Id ?? string.Empty) == "processor");
+
+        Assert.Equal("100%", processor.FocusLabel);
+    }
+
+    [Fact]
+    public void FocusLabelForSinkUsesFocusBasisInsteadOfCustomValue()
+    {
+        var nodes = new[]
+        {
+            new TopologyNode("terminal", "sink", "sink", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
+        };
+        var graph = new TopologyGraph(nodes, Array.Empty<TopologyEdge>());
+
+        var metrics = new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["terminal"] = new NodeBinMetrics(0.92, 0.81, 0.0, null, null, DateTimeOffset.UtcNow, CustomValue: 42, NodeKind: "sink")
+        };
+
+        var overlays = TopologyOverlaySettings.Default.Clone();
+        overlays.ColorBasis = TopologyColorBasis.Utilization;
+
+        var sparklines = new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["terminal"] = CreateSparklineWithSlices(
+                new double?[] { 0.90, 0.91, 0.92 },
+                new double?[] { 0.75, 0.81, 0.82 },
+                startIndex: 0)
+        };
+
+        JSInterop.SetupVoid("FlowTime.TopologyCanvas.renderScene", _ => true).SetVoidResult();
+        var overlayCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.applyOverlayDelta", _ => true);
+        overlayCall.SetVoidResult();
+
+        const int activeBin = 2;
+
+        RenderComponent<TopologyCanvas>(parameters => parameters
+            .Add(p => p.Graph, graph)
+            .Add(p => p.NodeMetrics, metrics)
+            .Add(p => p.NodeSparklines, sparklines)
+            .Add(p => p.OverlaySettings, overlays)
+            .Add(p => p.ActiveBin, activeBin));
+
+        var payload = Assert.IsType<CanvasOverlayPayload>(overlayCall.Invocations.Single().Arguments[1]);
+        var terminal = Assert.Single(payload.Nodes, node => (node.Id ?? string.Empty) == "terminal");
+
+        Assert.Equal("82%", terminal.FocusLabel);
+    }
+
+    [Fact]
+    public void SinkOverlayMetrics_SuppressQueueAndUtilization()
+    {
+        var nodes = new[]
+        {
+            new TopologyNode("terminal", "sink", "sink", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
+        };
+        var graph = new TopologyGraph(nodes, Array.Empty<TopologyEdge>());
+
+        var metrics = new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["terminal"] = new NodeBinMetrics(0.92, 0.81, 0.0, 12, 5.4, DateTimeOffset.UtcNow, RetryTax: 0.12, NodeKind: "sink")
+        };
+
+        JSInterop.SetupVoid("FlowTime.TopologyCanvas.renderScene", _ => true).SetVoidResult();
+        var overlayCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.applyOverlayDelta", _ => true);
+        overlayCall.SetVoidResult();
+
+        RenderComponent<TopologyCanvas>(parameters => parameters
+            .Add(p => p.Graph, graph)
+            .Add(p => p.NodeMetrics, metrics));
+
+        var payload = Assert.IsType<CanvasOverlayPayload>(overlayCall.Invocations.Single().Arguments[1]);
+        var terminal = Assert.Single(payload.Nodes, node => (node.Id ?? string.Empty) == "terminal");
+
+        Assert.NotNull(terminal.Metrics);
+        Assert.Null(terminal.Metrics!.Utilization);
+        Assert.Null(terminal.Metrics.QueueDepth);
+        Assert.Null(terminal.Metrics.LatencyMinutes);
+        Assert.Null(terminal.Metrics.RetryTax);
+    }
+
+    [Fact]
     public void FocusLabelForServiceTimeBasisIncludesMilliseconds()
     {
         var graph = CreateGraph();

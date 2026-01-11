@@ -422,132 +422,28 @@
                                             </MudStack>
                                         </MudStack>
                                     </div>
-                                    <MudText Typo="Typo.caption" Class="topology-muted-text">Kind: @FormatNodeKindLabel(nodeKind)</MudText>
-                                    @if (!string.IsNullOrWhiteSpace(nodeRoleLabel))
-                                    {
-                                        <div class="topology-role-chip-row">
+                                    <div class="topology-role-chip-row">
+                                        <span class="class-chip topology-kind-chip">Kind: @FormatNodeKindLabel(nodeKind)</span>
+                                        @if (!string.IsNullOrWhiteSpace(nodeRoleLabel))
+                                        {
                                             <span class="class-chip topology-role-chip" data-testid="sink-role-chip">@nodeRoleLabel</span>
-                                        </div>
-                                    }
+                                        }
+                                    </div>
 
-                                    @{
-                                        var metrics = nodeMetricsSnapshot;
-                                        var summaryRendered = false;
-                                        var successLabel = ResolveSuccessRateLabel(nodeId);
-                                    }
-                                    @if (metrics is not null)
+                                    @if (binMetrics.Count > 0)
                                     {
-                                        <MudStack Spacing="1">
-                                            @{
-                                                var profileName = GetMetadataValue(metrics.Metadata, "profile.name");
-                                                if (!string.IsNullOrWhiteSpace(profileName) &&
-                                                    string.Equals(metrics.NodeKind, "pmf", StringComparison.OrdinalIgnoreCase))
+                                        <MudText Typo="Typo.subtitle2" Class="node-inspector-section-title">Properties</MudText>
+                                        <div class="node-inspector-bin-section">
+                                            <div class="node-inspector-bin-list">
+                                                @foreach (var row in binMetrics)
                                                 {
-                                                    summaryRendered = true;
-                                                    <MudText Typo="Typo.body2">Profile: @profileName</MudText>
+                                                    <div class="node-inspector-bin-row">
+                                                        <span class="node-inspector-bin-label">@row.Label</span>
+                                                        <span class="node-inspector-bin-value">@row.Value</span>
+                                                    </div>
                                                 }
-                                            }
-                                            @if (!isComputedNode && metrics.SuccessRate.HasValue)
-                                            {
-                                                summaryRendered = true;
-                                                <MudText Typo="Typo.body2">@successLabel: @FormatPercent(metrics.SuccessRate)</MudText>
-                                            }
-                                            @if (!isComputedNode && metrics.Utilization.HasValue)
-                                            {
-                                                summaryRendered = true;
-                                                <MudText Typo="Typo.body2">Utilization: @FormatPercent(metrics.Utilization)</MudText>
-                                            }
-                                            @if (!isComputedNode && metrics.ErrorRate.HasValue)
-                                            {
-                                                summaryRendered = true;
-                                                <MudText Typo="Typo.body2">Errors: @FormatPercent(metrics.ErrorRate)</MudText>
-                                            }
-                                            @if (!isComputedNode && metrics.QueueDepth.HasValue)
-                                            {
-                                                summaryRendered = true;
-                                                <MudText Typo="Typo.body2">Queue: @FormatNumber(metrics.QueueDepth)</MudText>
-                                            }
-                                            @if (!isComputedNode && metrics.LatencyMinutes.HasValue)
-                                            {
-                                                summaryRendered = true;
-                                                <MudText Typo="Typo.body2">Latency (min): @FormatNumber(metrics.LatencyMinutes)</MudText>
-                                            }
-                                            @if (metrics.QueueLatencyStatus is not null)
-                                            {
-                                                summaryRendered = true;
-                                                <MudStack Class="queue-status-chip-group">
-                                                    <span class="class-chip queue-status-chip">
-                                                        @FormatQueueLatencyStatusLabel(metrics.QueueLatencyStatus!)
-                                                    </span>
-                                                    @if (!string.IsNullOrWhiteSpace(metrics.QueueLatencyStatus.Message))
-                                                    {
-                                                        <MudText Typo="Typo.caption" Class="topology-muted-text">
-                                                            @metrics.QueueLatencyStatus.Message
-                                                        </MudText>
-                                                    }
-                                                </MudStack>
-                                            }
-                                            @if (metrics.CustomValue.HasValue)
-                                            {
-                                                var label = string.IsNullOrWhiteSpace(metrics.CustomLabel) ? "Value" : metrics.CustomLabel!;
-                                                summaryRendered = true;
-                                                <MudText Typo="Typo.body2">@label: @FormatNumber(metrics.CustomValue)</MudText>
-                                            }
-                                            else if (!string.IsNullOrWhiteSpace(metrics.CustomLabel) &&
-                                                     string.Equals(metrics.CustomLabel, MissingSeriesMessage, System.StringComparison.Ordinal))
-                                            {
-                                                summaryRendered = true;
-                                                <MudText Typo="Typo.body2" Class="topology-muted-text">@metrics.CustomLabel</MudText>
-                                            }
-                                        </MudStack>
-                                        @if (!summaryRendered && !metricsHaveSeries && !isComputedNode)
-                                        {
-                                            <MudText Typo="Typo.body2">Metrics unavailable.</MudText>
-                                        }
-                                    }
-                                    else if (!isComputedNode && !metricsHaveSeries)
-                                    {
-                                        <MudText Typo="Typo.body2">Metrics unavailable.</MudText>
-                                    }
-
-                                    @if (inspectorWarnings.Count > 0)
-                                    {
-                                        <MudStack Spacing="1" Class="topology-inspector-warnings">
-                                            <MudText Typo="Typo.subtitle2">Warnings</MudText>
-                                            @foreach (var warning in inspectorWarnings)
-                                            {
-                                                var severity = NormalizeWarningSeverity(warning.Severity);
-                                                var label = string.IsNullOrWhiteSpace(warning.Code) ? "warning" : warning.Code.Trim();
-                                                var binRange = FormatWarningBinRange(warning.StartBin, warning.EndBin);
-                                                <div class="inspector-warning-row" data-severity="@severity">
-                                                    <MudText Typo="Typo.body2"><strong>@label</strong> (@severity)</MudText>
-                                                    @if (!string.IsNullOrWhiteSpace(warning.Message))
-                                                    {
-                                                        <MudText Typo="Typo.caption" Class="topology-muted-text">@warning.Message</MudText>
-                                                    }
-                                                    @if (!string.IsNullOrWhiteSpace(binRange))
-                                                    {
-                                                        <MudText Typo="Typo.caption" Class="topology-muted-text">Bins: @binRange</MudText>
-                                                    }
-                                                    @if (!string.IsNullOrWhiteSpace(warning.Signal))
-                                                    {
-                                                        <MudText Typo="Typo.caption" Class="topology-muted-text">Signal: @warning.Signal</MudText>
-                                                    }
-                                                </div>
-                                            }
-                                        </MudStack>
-                                    }
-
-                                    @{
-                                        var inspectorSchedule = topoNodeInfo?.DispatchSchedule;
-                                        if (inspectorSchedule is not null)
-                                        {
-                                            <MudStack Spacing="0" Class="topology-dispatch-inspector">
-                                                <MudText Typo="Typo.subtitle2">Dispatch schedule</MudText>
-                                                <MudText Typo="Typo.body2">@FormatDispatchSummary(inspectorSchedule)</MudText>
-                                                <MudText Typo="Typo.caption" Class="topology-muted-text">@FormatDispatchCapacity(inspectorSchedule)</MudText>
-                                            </MudStack>
-                                        }
+                                            </div>
+                                        </div>
                                     }
 
                                     @if (nodeClassContributions.TryGetValue(nodeId, out var classChips) && classChips.Count > 0)
@@ -580,18 +476,32 @@
                                         </MudStack>
                                     }
 
-                                    @if (binMetrics.Count > 0)
+                                    @if (inspectorWarnings.Count > 0)
                                     {
-                                        <MudTable T="InspectorBinMetric" Dense="true" Elevation="0" Class="node-inspector-bin-table">
-                                            <HeaderContent>
-                                                <MudTh>Metric</MudTh>
-                                                <MudTh Style="text-align:right;">Value</MudTh>
-                                            </HeaderContent>
-                                            <RowTemplate Context="row">
-                                                <MudTd>@row.Label</MudTd>
-                                                <MudTd Style="text-align:right;">@row.Value</MudTd>
-                                            </RowTemplate>
-                                        </MudTable>
+                                        <MudStack Spacing="1" Class="topology-inspector-warnings">
+                                            <MudText Typo="Typo.subtitle2">Warnings</MudText>
+                                            @foreach (var warning in inspectorWarnings)
+                                            {
+                                                var severity = NormalizeWarningSeverity(warning.Severity);
+                                                var label = string.IsNullOrWhiteSpace(warning.Code) ? "warning" : warning.Code.Trim();
+                                                var binRange = FormatWarningBinRange(warning.StartBin, warning.EndBin);
+                                                <div class="inspector-warning-row" data-severity="@severity">
+                                                    <MudText Typo="Typo.body2" Class="inspector-warning-title"><strong>@label</strong> (@severity)</MudText>
+                                                    @if (!string.IsNullOrWhiteSpace(warning.Message))
+                                                    {
+                                                        <MudText Typo="Typo.caption" Class="topology-muted-text">@warning.Message</MudText>
+                                                    }
+                                                    @if (!string.IsNullOrWhiteSpace(binRange))
+                                                    {
+                                                        <MudText Typo="Typo.caption" Class="topology-muted-text">Bins: @binRange</MudText>
+                                                    }
+                                                    @if (!string.IsNullOrWhiteSpace(warning.Signal))
+                                                    {
+                                                        <MudText Typo="Typo.caption" Class="topology-muted-text">Signal: @warning.Signal</MudText>
+                                                    }
+                                                </div>
+                                            }
+                                        </MudStack>
                                     }
 
                                     @if (showExpressionSection)
@@ -612,7 +522,7 @@
                                     @if (hasSparklineSeries)
                                     {
                                         <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
-                                            <MudText Typo="Typo.subtitle2">Metric charts</MudText>
+                                            <MudText Typo="Typo.subtitle2">Charts</MudText>
                                             <MudChip T="bool"
                                                      Variant="Variant.Outlined"
                                                      Size="Size.Small"
@@ -894,10 +804,7 @@ internal sealed record DispatchScheduleEntry(string NodeId, string Summary, stri
     }
 
     private bool ShowClassSelector => availableClasses.Count > 0;
-    private bool ShowDispatchPanel =>
-        inspectorOpen &&
-        !string.IsNullOrWhiteSpace(inspectorNodeId) &&
-        dispatchScheduleEntries.Any(e => string.Equals(e.NodeId, inspectorNodeId, StringComparison.OrdinalIgnoreCase));
+    private bool ShowDispatchPanel => false;
     private bool HasClassSelection => selectedClasses.Count > 0;
 
     private Task OnClassSelectionChanged(IReadOnlyList<string> classes)
@@ -2194,8 +2101,15 @@ private const string PmfExpectationLabel = "Value";
             var retryTax = Get("retryTax");
 
             var completionSla = context.HasClassSelection ? null : GetSlaValueSnapshot(node, "completion", localIndex);
+            var scheduleAdherence = context.HasClassSelection ? null : GetSlaValueSnapshot(node, "scheduleAdherence", localIndex);
+            var hasSchedule = node.DispatchSchedule is not null;
+            var isSinkNode = IsSinkKind(displayKind) || IsSinkKind(topoNode?.LogicalType) || IsSinkRole(topoNode?.NodeRole);
             double? successRate = completionSla ?? throughput;
-            if (successRate is null && arrivals.HasValue && arrivals.Value > 0 && served.HasValue)
+            if (isSinkNode && hasSchedule)
+            {
+                successRate = scheduleAdherence;
+            }
+            if (successRate is null && !(isSinkNode && hasSchedule) && arrivals.HasValue && arrivals.Value > 0 && served.HasValue)
             {
                 successRate = served.Value / arrivals.Value;
             }
@@ -2231,6 +2145,7 @@ private const string PmfExpectationLabel = "Value";
             SetRaw("queue", queue);
             SetRaw("retryTax", retryTax);
             SetRaw("capacity", capacity);
+            SetRaw("flowLatencyMs", Get("flowLatencyMs"));
             SetRaw("maxAttempts", topoNode?.Semantics?.MaxAttempts);
 
             if (isComputed && !isPmf)
@@ -2447,9 +2362,11 @@ private const string PmfExpectationLabel = "Value";
                             PmfValue: pmfSupportValue ?? existingMetrics.PmfValue,
                             NodeKind: existingMetrics.NodeKind ?? topoNode.Kind,
                             ServiceTimeMs: existingMetrics.ServiceTimeMs,
+                            FlowLatencyMs: existingMetrics.FlowLatencyMs,
                             RetryTax: existingMetrics.RetryTax,
                             RawMetrics: existingMetrics.RawMetrics,
-                            Metadata: existingMetrics.Metadata ?? topoNode.Semantics?.Metadata);
+                            Metadata: existingMetrics.Metadata ?? topoNode.Semantics?.Metadata,
+                            QueueLatencyStatus: existingMetrics.QueueLatencyStatus);
                     }
 
                     continue;
@@ -3256,8 +3173,58 @@ private const string PmfExpectationLabel = "Value";
     private static string FormatDispatchCapacity(GraphDispatchScheduleModel schedule)
     {
         return string.IsNullOrWhiteSpace(schedule.CapacitySeries)
-            ? "Capacity: unbounded"
-            : $"Capacity: {schedule.CapacitySeries}";
+            ? "Unbounded"
+            : schedule.CapacitySeries!;
+    }
+
+    private static GraphDispatchScheduleModel? ToGraphDispatchSchedule(TimeTravelDispatchScheduleDto? schedule)
+    {
+        if (schedule is null)
+        {
+            return null;
+        }
+
+        return new GraphDispatchScheduleModel(
+            schedule.Kind,
+            schedule.PeriodBins,
+            schedule.PhaseOffset,
+            schedule.CapacitySeries);
+    }
+
+    private bool TryResolveScheduleSummary(string nodeId, out string summary, out string capacity)
+    {
+        summary = "-";
+        capacity = "-";
+
+        if (string.IsNullOrWhiteSpace(nodeId))
+        {
+            return false;
+        }
+
+        var topoNode = FindTopologyNode(nodeId);
+        var schedule = topoNode?.DispatchSchedule;
+        if (schedule is null)
+        {
+            var seriesNode = windowData?.Nodes.FirstOrDefault(n => string.Equals(n.Id, nodeId, StringComparison.OrdinalIgnoreCase));
+            schedule = ToGraphDispatchSchedule(seriesNode?.DispatchSchedule);
+        }
+
+        if (schedule is not null)
+        {
+            summary = FormatDispatchSummary(schedule);
+            capacity = FormatDispatchCapacity(schedule);
+            return true;
+        }
+
+        var entry = dispatchScheduleEntries.FirstOrDefault(e => string.Equals(e.NodeId, nodeId, StringComparison.OrdinalIgnoreCase));
+        if (entry is null)
+        {
+            return false;
+        }
+
+        summary = entry.Summary;
+        capacity = entry.CapacityLabel;
+        return true;
     }
 
     private static string FormatQueueLatencyStatusLabel(QueueLatencyStatus status)
@@ -3686,6 +3653,7 @@ internal sealed record InspectorMetricBlock(
         string? NodeKind,
         string? NodeLogicalType,
         string? NodeRole,
+        GraphDispatchScheduleModel? DispatchSchedule,
         int SelectedBin,
         int WindowStartBin,
         DateTimeOffset? SelectedTimestampUtc,
@@ -3975,6 +3943,7 @@ internal sealed record InspectorMetricBlock(
         var sla = BuildSlaSnapshot(node, localIndex);
         var queueLatencyStatus = ResolveQueueLatencyStatus(node, localIndex);
         var topoNode = FindTopologyNode(nodeId);
+        var dispatchSchedule = topoNode?.DispatchSchedule ?? ToGraphDispatchSchedule(node.DispatchSchedule);
 
         return new BinDebugDump(
             RunId: currentRunId,
@@ -3982,6 +3951,7 @@ internal sealed record InspectorMetricBlock(
             NodeKind: topoNode?.Kind ?? node.Kind,
             NodeLogicalType: topoNode?.LogicalType,
             NodeRole: topoNode?.NodeRole,
+            DispatchSchedule: dispatchSchedule,
             SelectedBin: selectedBin,
             WindowStartBin: windowStart,
             SelectedTimestampUtc: timestamp,
@@ -4054,15 +4024,55 @@ internal sealed record InspectorMetricBlock(
 
     private IReadOnlyList<InspectorBinMetric> BuildInspectorBinMetrics(string? nodeId, NodeBinMetrics? metrics)
     {
-        if (string.IsNullOrWhiteSpace(nodeId) || metrics is null)
+        if (string.IsNullOrWhiteSpace(nodeId))
         {
             return Array.Empty<InspectorBinMetric>();
         }
 
         var rows = new List<InspectorBinMetric>();
+        var localIndex = windowData is null ? -1 : selectedBin - windowData.Window.StartBin;
+        var timestampLabel = windowData is null ? string.Empty : FormatTimestampSnapshot(windowData.TimestampsUtc, localIndex);
+        if (!string.IsNullOrWhiteSpace(timestampLabel))
+        {
+            rows.Add(new InspectorBinMetric("Timestamp", timestampLabel));
+        }
+        rows.Add(new InspectorBinMetric("bin", selectedBin.ToString(CultureInfo.InvariantCulture)));
+        if (metrics is not null &&
+            string.Equals(metrics.CustomLabel, BinValueLabel, StringComparison.OrdinalIgnoreCase) &&
+            metrics.CustomValue.HasValue)
+        {
+            rows.Add(new InspectorBinMetric(BinValueLabel, FormatBinValue(metrics.CustomValue, InspectorValueFormat.Number)));
+        }
+        else
+        {
+            rows.Add(new InspectorBinMetric(BinValueLabel, "-"));
+        }
+        if (metrics is not null &&
+            !string.IsNullOrWhiteSpace(metrics.CustomLabel) &&
+            !string.Equals(metrics.CustomLabel, BinValueLabel, StringComparison.OrdinalIgnoreCase))
+        {
+            if (metrics.CustomValue.HasValue)
+            {
+                rows.Add(new InspectorBinMetric(metrics.CustomLabel!, FormatBinValue(metrics.CustomValue, InspectorValueFormat.Number)));
+            }
+            else if (string.Equals(metrics.CustomLabel, MissingSeriesMessage, StringComparison.Ordinal))
+            {
+                rows.Add(new InspectorBinMetric("Value", metrics.CustomLabel));
+            }
+        }
         var topoNode = FindTopologyNode(nodeId);
-        var raw = metrics.RawMetrics;
+        var raw = metrics?.RawMetrics;
+        var seriesNode = windowData?.Nodes.FirstOrDefault(n => string.Equals(n.Id, nodeId, StringComparison.OrdinalIgnoreCase));
         var successLabel = ResolveSuccessRateLabel(nodeId);
+        var isSink = IsSinkKind(metrics?.NodeKind)
+            || IsSinkKind(seriesNode?.Kind)
+            || IsSinkKind(seriesNode?.LogicalType)
+            || IsSinkRole(topoNode?.NodeRole);
+        var dispatchSchedule = topoNode?.DispatchSchedule ?? ToGraphDispatchSchedule(seriesNode?.DispatchSchedule);
+        var scheduleEntry = dispatchScheduleEntries.FirstOrDefault(entry => string.Equals(entry.NodeId, nodeId, StringComparison.OrdinalIgnoreCase));
+        var hasSchedule = dispatchSchedule is not null
+            || scheduleEntry is not null
+            || string.Equals(successLabel, "Schedule SLA", StringComparison.OrdinalIgnoreCase);
 
         string Label(string fallback, params string[] keys) =>
             FormatSemanticLabelWithAlias(fallback, TryResolveAlias(topoNode, keys));
@@ -4097,8 +4107,13 @@ internal sealed record InspectorMetricBlock(
             rows.Add(new InspectorBinMetric(Label(fallback, key), FormatBinValue(value, format, unit)));
         }
 
-        void AddDerived(string fallback, double? value, InspectorValueFormat format = InspectorValueFormat.Number, string? unit = null, params string[] aliasKeys)
+        void AddDerived(string fallback, double? value, InspectorValueFormat format = InspectorValueFormat.Number, string? unit = null, bool gate = true, params string[] aliasKeys)
         {
+            if (!gate)
+            {
+                return;
+            }
+
             if (!value.HasValue)
             {
                 return;
@@ -4112,11 +4127,10 @@ internal sealed record InspectorMetricBlock(
             string kind,
             InspectorValueFormat format,
             string? unit = null,
-            double? fallbackValue = null)
+            double? fallbackValue = null,
+            bool alwaysShow = false)
         {
-            var seriesNode = windowData?.Nodes.FirstOrDefault(n => string.Equals(n.Id, nodeId, StringComparison.OrdinalIgnoreCase));
             var slaSeries = seriesNode?.Sla?.FirstOrDefault(s => string.Equals(s.Kind, kind, StringComparison.OrdinalIgnoreCase));
-            var localIndex = windowData is null ? -1 : selectedBin - windowData.Window.StartBin;
             var value = fallbackValue;
 
             if (slaSeries is not null &&
@@ -4137,34 +4151,79 @@ internal sealed record InspectorMetricBlock(
             if (!string.IsNullOrWhiteSpace(statusLabel))
             {
                 rows.Add(new InspectorBinMetric(label, statusLabel!));
+                return;
             }
+
+            if (alwaysShow)
+            {
+                rows.Add(new InspectorBinMetric(label, "-"));
+            }
+        }
+
+        if (metrics is null)
+        {
+            if (isSink && hasSchedule)
+            {
+                rows.Add(new InspectorBinMetric(
+                    "Arrival schedule",
+                    dispatchSchedule is null ? scheduleEntry?.Summary ?? "-" : FormatDispatchSummary(dispatchSchedule)));
+                rows.Add(new InspectorBinMetric(
+                    "Schedule capacity",
+                    dispatchSchedule is null ? scheduleEntry?.CapacityLabel ?? "-" : FormatDispatchCapacity(dispatchSchedule)));
+                AddSlaMetric(successLabel, "scheduleAdherence", InspectorValueFormat.Percent, alwaysShow: true);
+            }
+
+            return rows;
         }
 
         AddRaw("Arrivals", "arrivals");
         AddRaw("Served", "served");
         AddRaw("Errors", "errors");
-        AddRaw("Attempts", "attempts");
-        AddRaw("Failed retries", "failures");
-        AddRaw("Exhausted", "exhaustedFailures", gate: overlaySettings.ShowRetryMetrics);
-        AddRaw("Retry echo", "retryEcho");
-        AddRaw("Retry budget remaining", "retryBudgetRemaining", gate: overlaySettings.ShowRetryBudget);
-        AddRaw("Queue depth", "queue");
-        AddRaw("Capacity", "capacity");
-        AddRaw("Max attempts", "maxAttempts");
+        AddRaw("Attempts", "attempts", gate: !isSink);
+        AddRaw("Failed retries", "failures", gate: !isSink);
+        AddRaw("Exhausted", "exhaustedFailures", gate: overlaySettings.ShowRetryMetrics && !isSink);
+        AddRaw("Retry echo", "retryEcho", gate: !isSink);
+        AddRaw("Retry budget remaining", "retryBudgetRemaining", gate: overlaySettings.ShowRetryBudget && !isSink);
+        AddRaw("Queue depth", "queue", gate: !isSink);
+        AddRaw("Capacity", "capacity", gate: !isSink);
+        AddRaw("Max attempts", "maxAttempts", gate: !isSink);
 
-        AddSlaMetric(successLabel, "completion", InspectorValueFormat.Percent, fallbackValue: metrics.SuccessRate);
-        AddSlaMetric("Backlog age SLA", "backlogAge", InspectorValueFormat.Number, unit: "min");
-        AddSlaMetric("Schedule adherence", "scheduleAdherence", InspectorValueFormat.Percent);
-        AddDerived("Utilization", metrics.Utilization, InspectorValueFormat.Percent);
+        if (isSink && hasSchedule)
+        {
+            rows.Add(new InspectorBinMetric(
+                "Arrival schedule",
+                dispatchSchedule is null ? scheduleEntry?.Summary ?? "-" : FormatDispatchSummary(dispatchSchedule)));
+            rows.Add(new InspectorBinMetric(
+                "Schedule capacity",
+                dispatchSchedule is null ? scheduleEntry?.CapacityLabel ?? "-" : FormatDispatchCapacity(dispatchSchedule)));
+            AddSlaMetric(successLabel, "scheduleAdherence", InspectorValueFormat.Percent, fallbackValue: metrics?.SuccessRate, alwaysShow: true);
+        }
+        else
+        {
+            AddSlaMetric(successLabel, "completion", InspectorValueFormat.Percent, fallbackValue: metrics?.SuccessRate);
+        }
+        if (!isSink)
+        {
+            AddSlaMetric("Backlog age SLA", "backlogAge", InspectorValueFormat.Number, unit: "min");
+        }
+        if (!isSink)
+        {
+            AddSlaMetric("Schedule adherence", "scheduleAdherence", InspectorValueFormat.Percent);
+        }
+        AddDerived("Utilization", metrics.Utilization, InspectorValueFormat.Percent, gate: !isSink);
         AddDerived("Error rate", metrics.ErrorRate, InspectorValueFormat.Percent);
-        var latencyLabel = IsQueueKind(metrics.NodeKind) || IsServiceWithBufferKind(metrics.NodeKind)
-            ? "Queue latency"
-            : "Latency";
-        AddDerived(latencyLabel, metrics.LatencyMinutes, InspectorValueFormat.Number, "min");
+        if (!isSink)
+        {
+            var latencyLabel = IsQueueKind(metrics.NodeKind) || IsServiceWithBufferKind(metrics.NodeKind)
+                ? "Queue latency"
+                : "Latency";
+            AddDerived(latencyLabel, metrics.LatencyMinutes, InspectorValueFormat.Number, "min");
+        }
         AddDerived("Service time", metrics.ServiceTimeMs, InspectorValueFormat.Number, "ms");
-        AddDerived("Retry tax", metrics.RetryTax, InspectorValueFormat.Percent);
+        AddDerived("Flow latency", metrics.FlowLatencyMs, InspectorValueFormat.Number, "ms");
+        AddDerived("Retry tax", metrics.RetryTax, InspectorValueFormat.Percent, gate: !isSink);
 
-        if (metrics.QueueLatencyStatus is not null)
+        if (!isSink && metrics.QueueLatencyStatus is not null)
         {
             rows.Add(new InspectorBinMetric("Latency status", FormatQueueLatencyStatusLabel(metrics.QueueLatencyStatus!)));
         }
@@ -4415,6 +4474,10 @@ internal sealed record InspectorMetricBlock(
         !string.IsNullOrWhiteSpace(kind) &&
         string.Equals(kind, "serviceWithBuffer", StringComparison.OrdinalIgnoreCase);
 
+    private static bool IsSinkKind(string? kind) =>
+        !string.IsNullOrWhiteSpace(kind) &&
+        string.Equals(kind.Trim(), "sink", StringComparison.OrdinalIgnoreCase);
+
     private static bool IsSinkRole(string? role) =>
         !string.IsNullOrWhiteSpace(role) &&
         string.Equals(role.Trim(), "sink", StringComparison.OrdinalIgnoreCase);
@@ -4426,7 +4489,7 @@ internal sealed record InspectorMetricBlock(
             return null;
         }
 
-        return IsSinkRole(node.NodeRole) ? "Terminal" : null;
+        return IsSinkRole(node.NodeRole) || IsSinkKind(node.Kind) ? "Terminal" : null;
     }
 
     private static string FormatNodeKindLabel(string? kind)
@@ -4471,6 +4534,13 @@ internal sealed record InspectorMetricBlock(
         }
 
         var node = windowData?.Nodes.FirstOrDefault(n => string.Equals(n.Id, nodeId, StringComparison.OrdinalIgnoreCase));
+        var topoNode = FindTopologyNode(nodeId);
+        var isSink = IsSinkKind(node?.Kind) || IsSinkKind(node?.LogicalType) || IsSinkRole(topoNode?.NodeRole);
+        if (isSink && node?.DispatchSchedule is not null)
+        {
+            return "Schedule SLA";
+        }
+
         var completion = node?.Sla?.FirstOrDefault(series => string.Equals(series.Kind, "completion", StringComparison.OrdinalIgnoreCase));
         return completion is null ? "Success rate" : "Completion SLA";
     }
@@ -4767,6 +4837,16 @@ internal sealed record InspectorMetricBlock(
 
         if (!hasClassSelection)
         {
+            var isSink = IsSinkKind(node.Kind) || IsSinkKind(node.LogicalType);
+            if (isSink)
+            {
+                var scheduleSeries = TryGetSlaSeriesSnapshot(node, "scheduleAdherence");
+                if (scheduleSeries is not null && scheduleSeries.Length > 0)
+                {
+                    return scheduleSeries;
+                }
+            }
+
             var slaCompletion = TryGetSlaSeriesSnapshot(node, "completion");
             if (slaCompletion is not null && slaCompletion.Length > 0)
             {

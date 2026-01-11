@@ -9,4 +9,5 @@ public sealed record Node
     public UiHints? Ui { get; init; }
     public required NodeSemantics Semantics { get; init; }
     public InitialCondition? InitialCondition { get; init; }
+    public DispatchScheduleDefinition? DispatchSchedule { get; init; }
 }

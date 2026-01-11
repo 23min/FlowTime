@@ -134,23 +134,26 @@ topology:
         queueDepth: 20
     - id: LineAirport
       kind: service
-      nodeRole: sink
       semantics:
         arrivals: arrivals_airport
         served: served_airport
         errors: errors_airport
-        attempts: airport_attempts
         failures: airport_retry_failures
-        retryEcho: airport_retry_echo
-        retryKernel: [0.0, 0.6, 0.3, 0.1]
         processingTimeMsSum: airport_processing_time_ms_sum
         servedCount: served_airport
         aliases:
           arrivals: "Airport-bound riders"
-          served: "Airport departures"
-          errors: "Failed departures"
-          attempts: "Airport attempts"
+          served: "Airport line departures"
+          errors: "Airport line errors"
           failures: "Airport failed retries"
+    - id: Airport
+      kind: sink
+      nodeRole: sink
+      semantics:
+        arrivals: served_airport
+        served: served_airport
+        aliases:
+          served: "Arrived at airport"
     - id: HubLossQueue
       kind: queue
       semantics:
@@ -177,7 +180,6 @@ topology:
         queueDepth: 0
     - id: LineDowntown
       kind: service
-      nodeRole: sink
       semantics:
         arrivals: arrivals_downtown
         served: served_downtown
@@ -185,11 +187,17 @@ topology:
         processingTimeMsSum: downtown_processing_time_ms_sum
         servedCount: served_downtown
         aliases:
-          served: "Downtown departures"
-          errors: "Downtown overflow"
+          served: "Downtown line departures"
+    - id: Downtown
+      kind: sink
+      nodeRole: sink
+      semantics:
+        arrivals: served_downtown
+        served: served_downtown
+        aliases:
+          served: "Arrived downtown"
     - id: LineIndustrial
       kind: service
-      nodeRole: sink
       semantics:
         arrivals: arrivals_industrial
         served: served_industrial
@@ -197,8 +205,15 @@ topology:
         processingTimeMsSum: industrial_processing_time_ms_sum
         servedCount: served_industrial
         aliases:
-          served: "Industrial departures"
-          errors: "Industrial overflow"
+          served: "Industrial line departures"
+    - id: Industrial
+      kind: sink
+      nodeRole: sink
+      semantics:
+        arrivals: served_industrial
+        served: served_industrial
+        aliases:
+          served: "Arrived industrial"
   edges:
     - id: north_to_hub
       from: OriginNorth:out
@@ -218,6 +233,15 @@ topology:
     - id: queue_to_industrial
       from: HubQueue:out
       to: LineIndustrial:in
+    - id: line_to_airport
+      from: LineAirport:out
+      to: Airport:in
+    - id: line_to_downtown
+      from: LineDowntown:out
+      to: Downtown:in
+    - id: line_to_industrial
+      from: LineIndustrial:out
+      to: Industrial:in
     - id: hub_to_loss
       from: CentralHub:errors
       to: HubLossQueue:arrivals
@@ -380,9 +404,16 @@ nodes:
     kind: expr
     expr: "hub_dispatch_downtown"
 
+  - id: airport_retry_rate_spikes
+    kind: expr
+    expr: "CONV(PULSE(29, 5, 1) + PULSE(47, 11, 0.7), [0.25, 0.5, 0.25])"
+  - id: airport_retry_rate
+    kind: expr
+    expr: "CLAMP(${hubRetryRate} * (0.7 + 0.5 * airport_retry_rate_spikes), 0, 0.4)"
+
   - id: airport_retry_attempts
     kind: expr
-    expr: "${hubRetryRate} * arrivals_airport"
+    expr: "airport_retry_rate * arrivals_airport"
   - id: airport_attempts
     kind: expr
     expr: "arrivals_airport + airport_retry_attempts"
