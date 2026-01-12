@@ -121,7 +121,7 @@ topology:
         arrivals: hub_queue_demand
         served: hub_dispatch
         errors: hub_queue_attrition
-        queueDepth: self
+        queueDepth: hub_queue_carry
         capacity: hub_dispatch_capacity
         processingTimeMsSum: hub_queue_processing_time_ms_sum
         servedCount: hub_dispatch
@@ -489,8 +489,8 @@ outputs:
     as: north_demand.csv
   - series: arrivals_south
     as: south_demand.csv
-  - series: hub_queue_queue
-    as: hub_queue_queue.csv
+  - series: hub_queue_carry
+    as: hub_queue_carry.csv
   - series: hub_dispatch
     as: hub_dispatch.csv
   - series: served_airport

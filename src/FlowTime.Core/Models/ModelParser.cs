@@ -194,7 +194,7 @@ public static class ModelParser
         if (model.Nodes == null || model.Nodes.Count == 0)
             return;
 
-        var topologyInitials = new Dictionary<string, bool>(StringComparer.Ordinal);
+        var topologyInitials = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         if (model.Topology?.Nodes != null)
         {
             foreach (var topoNode in model.Topology.Nodes)
@@ -202,7 +202,15 @@ public static class ModelParser
                 if (string.IsNullOrWhiteSpace(topoNode.Id))
                     continue;
 
-                topologyInitials[topoNode.Id] = topoNode.InitialCondition != null;
+                if (topoNode.InitialCondition != null)
+                {
+                    topologyInitials.Add(topoNode.Id);
+                    var queueDepthId = topoNode.Semantics?.QueueDepth;
+                    if (!string.IsNullOrWhiteSpace(queueDepthId))
+                    {
+                        topologyInitials.Add(queueDepthId.Trim());
+                    }
+                }
             }
         }
 
@@ -232,7 +240,7 @@ public static class ModelParser
 
             if (selfShiftError != null)
             {
-                if (!topologyInitials.TryGetValue(node.Id, out var hasInitial) || !hasInitial)
+                if (!topologyInitials.Contains(node.Id))
                 {
                     throw new ModelParseException(selfShiftError.Message);
                 }

@@ -170,7 +170,7 @@ nodes:
     values: ${intakeCapacity}
   - id: intake_demand
     kind: expr
-    expr: "SHIFT(intake_queue, 1) + order_demand"
+    expr: "order_demand"
   - id: received_orders
     kind: expr
     expr: "MIN(intake_demand, intake_capacity)"
@@ -200,10 +200,10 @@ nodes:
     expr: "picker_wave_release"
   - id: pack_demand
     kind: expr
-    expr: "SHIFT(pack_staging_queue_queue, 1) + pack_arrivals"
+    expr: "pack_arrivals"
   - id: pack_processed
     kind: expr
-    expr: "MAX(0, SHIFT(pack_staging_queue_queue, 1) + pack_arrivals - pack_staging_queue_queue)"
+    expr: "MIN(pack_demand, pack_capacity)"
   - id: picker_wave_processing_time_ms_sum
     kind: expr
     expr: "picker_wave_release * 180000" # 3 minutes per released order

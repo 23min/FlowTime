@@ -50,7 +50,7 @@ public class RouterTemplateRegressionTests
             "warehouse-picker-waves",
             new (string NodeId, int Period, int Phase, string CapacitySeries)[]
             {
-                ("picker_wave_backlog", 4, 0, "wave_dispatch_capacity")
+                ("picker_wave_queue", 4, 0, "wave_dispatch_capacity")
             }
         }
     };
