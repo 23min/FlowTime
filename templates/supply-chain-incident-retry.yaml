@@ -69,7 +69,7 @@ topology:
         arrivals: incident_queue_demand
         served: support_queue_served
         errors: support_queue_attrition
-        queueDepth: support_queue_depth
+        queueDepth: self
         aliases:
           arrivals: "Effective demand"
           served: "Tickets worked"
@@ -108,7 +108,7 @@ topology:
         arrivals: incident_dlq_inflow
         served: incident_dlq_served_zero
         errors: incident_dlq_attrition
-        queueDepth: incident_dlq_depth
+        queueDepth: self
         aliases:
           arrivals: "Escalated incidents"
           queue: "Escalation backlog"
@@ -120,7 +120,7 @@ topology:
         arrivals: support_loss_inflow
         served: support_loss_served_zero
         errors: support_loss_attrition
-        queueDepth: support_loss_depth
+        queueDepth: self
         aliases:
           arrivals: "Desk drops"
           queue: "Support loss backlog"
@@ -294,8 +294,8 @@ outputs:
     as: IncidentIntake_arrivals.csv
   - series: incident_attempts
     as: IncidentIntake_attempts.csv
-  - series: support_queue_depth
-    as: IncidentQueue_queueDepth.csv
+  - series: incident_queue_queue
+    as: incident_queue_queue.csv
   - series: support_queue_served
     as: SupportDesk_served.csv
   - series: support_queue_served
@@ -304,7 +304,7 @@ outputs:
     as: SupportDesk_processingTimeMsSum.csv
   - series: support_analytics_load
     as: SupportAnalytics_load.csv
-  - series: incident_dlq_depth
-    as: IncidentEscalationDlq_backlog.csv
-  - series: support_loss_depth
-    as: SupportLoss_backlog.csv
+  - series: incident_escalation_dlq_queue
+    as: incident_escalation_dlq_queue.csv
+  - series: support_loss_queue_queue
+    as: support_loss_queue_queue.csv

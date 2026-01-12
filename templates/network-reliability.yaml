@@ -77,7 +77,7 @@ topology:
         arrivals: request_queue_demand
         served: request_queue_served
         errors: request_queue_attrition
-        queueDepth: request_queue_depth
+        queueDepth: self
         aliases:
           arrivals: "Effective demand"
           served: "Requests dequeued"
@@ -110,7 +110,7 @@ topology:
         arrivals: edge_drop_inflow
         served: edge_drop_served_zero
         errors: edge_drop_attrition
-        queueDepth: edge_drop_depth
+        queueDepth: self
         aliases:
           arrivals: "Edge drops"
           queue: "Edge loss backlog"
@@ -122,7 +122,7 @@ topology:
         arrivals: core_dlq_inflow
         served: core_dlq_served_zero
         errors: core_dlq_attrition
-        queueDepth: core_dlq_depth
+        queueDepth: self
         aliases:
           arrivals: "Core exhausted retries"
           queue: "Core DLQ"
@@ -134,7 +134,7 @@ topology:
         arrivals: database_failures
         served: database_loss_served_zero
         errors: database_loss_attrition
-        queueDepth: database_loss_depth
+        queueDepth: self
         aliases:
           arrivals: "DB failures"
           queue: "Database loss"
@@ -331,8 +331,8 @@ nodes:
 outputs:
   - series: base_requests
     as: base_requests.csv
-  - series: request_queue_depth
-    as: edge_queue_depth.csv
+  - series: request_queue_queue
+    as: request_queue_queue.csv
   - series: successful_requests
     as: successful_requests.csv
   - series: core_errors
@@ -341,9 +341,9 @@ outputs:
     as: database_failures.csv
   - series: system_reliability
     as: system_reliability.csv
-  - series: edge_drop_depth
-    as: edge_drop_backlog.csv
-  - series: core_dlq_depth
-    as: core_dlq_backlog.csv
-  - series: database_loss_depth
-    as: database_loss_backlog.csv
+  - series: edge_drop_queue_queue
+    as: edge_drop_queue_queue.csv
+  - series: core_dlq_queue
+    as: core_dlq_queue.csv
+  - series: database_loss_queue_queue
+    as: database_loss_queue_queue.csv

@@ -238,6 +238,13 @@
                                                     Error rate
                                                 </MudChip>
                                                 <MudChip T="TopologyColorBasis"
+                                                         Value="TopologyColorBasis.Queue"
+                                                         Variant="Variant.Outlined"
+                                                         Size="Size.Small"
+                                                         Class="timeline-focus-chip">
+                                                    Queue depth
+                                                </MudChip>
+                                                <MudChip T="TopologyColorBasis"
                                                          Value="TopologyColorBasis.ServiceTime"
                                                          Variant="Variant.Outlined"
                                                          Size="Size.Small"
@@ -1073,10 +1080,6 @@ private const string PmfExpectationLabel = "Value";
 
     private void NormalizeOverlayFocusBasis()
     {
-        if (overlaySettings.ColorBasis == TopologyColorBasis.Queue)
-        {
-            overlaySettings.ColorBasis = TopologyColorBasis.Sla;
-        }
     }
 
     private void RefreshDiagnosticsConfig()

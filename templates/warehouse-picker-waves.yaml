@@ -86,7 +86,7 @@ topology:
         arrivals: order_demand
         served: received_orders
         errors: zero_flow
-        queueDepth: intake_queue_depth
+        queueDepth: self
         capacity: intake_capacity
         processingTimeMsSum: intake_processing_time_ms_sum
         servedCount: intake_served_count
@@ -103,7 +103,7 @@ topology:
         arrivals: wave_stage_inflow
         served: picker_wave_release
         errors: wave_attrition
-        queueDepth: picker_wave_backlog
+        queueDepth: self
         capacity: wave_dispatch_capacity
         processingTimeMsSum: picker_wave_processing_time_ms_sum
         servedCount: picker_wave_release
@@ -123,7 +123,7 @@ topology:
         arrivals: pack_arrivals
         served: pack_processed
         errors: zero_flow
-        queueDepth: pack_queue_backlog
+        queueDepth: self
         capacity: pack_capacity
         processingTimeMsSum: pack_queue_processing_time_ms_sum
         servedCount: pack_processed
@@ -170,7 +170,7 @@ nodes:
     values: ${intakeCapacity}
   - id: intake_demand
     kind: expr
-    expr: "SHIFT(intake_queue_depth, 1) + order_demand"
+    expr: "SHIFT(intake_queue, 1) + order_demand"
   - id: received_orders
     kind: expr
     expr: "MIN(intake_demand, intake_capacity)"
@@ -200,10 +200,10 @@ nodes:
     expr: "picker_wave_release"
   - id: pack_demand
     kind: expr
-    expr: "SHIFT(pack_queue_backlog, 1) + pack_arrivals"
+    expr: "SHIFT(pack_staging_queue_queue, 1) + pack_arrivals"
   - id: pack_processed
     kind: expr
-    expr: "MAX(0, SHIFT(pack_queue_backlog, 1) + pack_arrivals - pack_queue_backlog)"
+    expr: "MAX(0, SHIFT(pack_staging_queue_queue, 1) + pack_arrivals - pack_staging_queue_queue)"
   - id: picker_wave_processing_time_ms_sum
     kind: expr
     expr: "picker_wave_release * 180000" # 3 minutes per released order
@@ -232,13 +232,13 @@ nodes:
 outputs:
   - series: order_demand
     as: inbound_demand.csv
-  - series: intake_queue_depth
-    as: intake_queue_depth.csv
-  - series: picker_wave_backlog
-    as: staged_backlog.csv
+  - series: intake_queue
+    as: intake_queue.csv
+  - series: picker_wave_queue
+    as: picker_wave_queue.csv
   - series: picker_wave_release
     as: picker_wave_release.csv
-  - series: pack_queue_backlog
-    as: pack_queue_depth.csv
+  - series: pack_staging_queue_queue
+    as: pack_staging_queue_queue.csv
   - series: pack_processed
     as: packed_orders.csv

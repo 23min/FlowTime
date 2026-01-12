@@ -151,7 +151,7 @@ topology:
         arrivals: hub_queue_demand
         served: hub_dispatch
         errors: hub_queue_attrition
-        queueDepth: hub_queue_depth
+        queueDepth: self
         capacity: hub_dispatch_capacity
         processingTimeMsSum: hub_queue_processing_time_ms_sum
         servedCount: hub_dispatch
@@ -179,7 +179,7 @@ topology:
         arrivals: airport_dispatch_queue_demand
         served: airport_dispatch_queue_served
         errors: airport_dispatch_queue_attrition
-        queueDepth: airport_dispatch_queue_depth
+        queueDepth: self
         capacity: cap_airport
         processingTimeMsSum: airport_dispatch_queue_processing_time_ms_sum
         servedCount: airport_dispatch_queue_served
@@ -199,7 +199,7 @@ topology:
         arrivals: downtown_dispatch_queue_demand
         served: downtown_dispatch_queue_served
         errors: downtown_dispatch_queue_attrition
-        queueDepth: downtown_dispatch_queue_depth
+        queueDepth: self
         capacity: cap_downtown
         processingTimeMsSum: downtown_dispatch_queue_processing_time_ms_sum
         servedCount: downtown_dispatch_queue_served
@@ -219,7 +219,7 @@ topology:
         arrivals: industrial_dispatch_queue_demand
         served: industrial_dispatch_queue_served
         errors: industrial_dispatch_queue_attrition
-        queueDepth: industrial_dispatch_queue_depth
+        queueDepth: self
         capacity: cap_industrial
         processingTimeMsSum: industrial_dispatch_queue_processing_time_ms_sum
         servedCount: industrial_dispatch_queue_served
@@ -264,7 +264,7 @@ topology:
         arrivals: hub_loss_inflow
         served: hub_loss_served_zero
         errors: hub_loss_attrition
-        queueDepth: hub_loss_depth
+        queueDepth: self
         aliases:
           arrivals: "Unserved hub riders"
           queue: "Hub loss backlog"
@@ -276,7 +276,7 @@ topology:
         arrivals: airport_dlq_inflow
         served: airport_dlq_served_zero
         errors: airport_dlq_attrition
-        queueDepth: airport_dlq_depth
+        queueDepth: self
         aliases:
           arrivals: "Stranded airport riders"
           queue: "Airport DLQ"
@@ -742,8 +742,8 @@ outputs:
     as: north_demand.csv
   - series: arrivals_south
     as: south_demand.csv
-  - series: hub_queue_depth
-    as: hub_queue_depth.csv
+  - series: hub_queue_queue
+    as: hub_queue_queue.csv
   - series: hub_dispatch
     as: hub_dispatch.csv
   - series: served_airport
@@ -754,10 +754,10 @@ outputs:
     as: airport_retry_failures.csv
   - series: served_downtown
     as: downtown_served.csv
-  - series: hub_loss_depth
-    as: hub_loss_backlog.csv
-  - series: airport_dlq_depth
-    as: airport_dlq_backlog.csv
+  - series: hub_loss_queue_queue
+    as: hub_loss_queue_queue.csv
+  - series: airport_stranded_dlq_queue
+    as: airport_stranded_dlq_queue.csv
   - series: served_industrial
     as: industrial_served.csv
   - series: "*"

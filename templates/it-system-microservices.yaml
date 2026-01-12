@@ -77,7 +77,7 @@ topology:
         arrivals: ingress_queue_demand
         served: ingress_queue_served
         errors: ingress_queue_attrition
-        queueDepth: ingress_queue_depth
+        queueDepth: self
         aliases:
           arrivals: "Effective demand"
           served: "Requests dequeued"
@@ -118,7 +118,7 @@ topology:
         arrivals: processed_requests
         served: responses_dispatched
         errors: response_queue_attrition
-        queueDepth: response_queue_depth
+        queueDepth: self
         aliases:
           arrivals: "Authorized responses"
           served: "Responses sent"
@@ -132,7 +132,7 @@ topology:
         arrivals: manual_recon_inflow
         served: manual_recon_served_zero
         errors: manual_recon_attrition
-        queueDepth: manual_recon_depth
+        queueDepth: self
         aliases:
           arrivals: "Failed transactions"
           errors: "Manual attrition"
@@ -145,7 +145,7 @@ topology:
         arrivals: customer_impact_inflow
         served: customer_impact_served_zero
         errors: customer_impact_attrition
-        queueDepth: customer_impact_depth
+        queueDepth: self
         aliases:
           arrivals: "Dropped sessions"
           errors: "Customer attrition"
@@ -355,19 +355,19 @@ nodes:
 outputs:
   - series: user_requests
     as: user_requests.csv
-  - series: ingress_queue_depth
-    as: ingress_queue_depth.csv
+  - series: ingress_queue_queue
+    as: ingress_queue_queue.csv
   - series: processed_requests
     as: processed_requests.csv
   - series: failed_requests
     as: failed_requests.csv
   - series: db_errors
     as: db_errors.csv
-  - series: manual_recon_depth
-    as: manual_recon_backlog.csv
-  - series: customer_impact_depth
-    as: customer_impact_backlog.csv
-  - series: response_queue_depth
-    as: response_queue_depth.csv
+  - series: manual_reconciliation_queue
+    as: manual_reconciliation_queue.csv
+  - series: customer_impact_queue_queue
+    as: customer_impact_queue_queue.csv
+  - series: response_queue_queue
+    as: response_queue_queue.csv
   - series: responses_dispatched
     as: responses_dispatched.csv

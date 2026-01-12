@@ -1,4 +1,4 @@
-# FT-M-05.13 — Topology Focus View (Provenance Drilldown)
+# FT-M-05.14 — Topology Focus View (Provenance Drilldown)
 
 **Status:** 📋 Planned  
 **Dependencies:** ✅ FT‑M‑05.12  
@@ -88,4 +88,3 @@ This is intended as a complement to metric provenance (FT‑M‑05.12).
 - [ ] Focus view enables provenance tracing without manual panning.
 - [ ] Returning to full graph restores original view.
 - [ ] No regression in metrics or tooltip behavior.
-

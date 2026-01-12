@@ -77,7 +77,7 @@ topology:
         arrivals: wip_queue_demand
         served: wip_queue_served
         errors: wip_queue_attrition
-        queueDepth: wip_queue_depth
+        queueDepth: self
         aliases:
           arrivals: "Effective demand"
           served: "Units staged"
@@ -122,7 +122,7 @@ topology:
         arrivals: quality_scrap_inflow
         served: quality_scrap_served_zero
         errors: quality_scrap_attrition
-        queueDepth: quality_scrap_depth
+        queueDepth: self
         aliases:
           arrivals: "Failed QC units"
           queue: "QC scrap"
@@ -134,7 +134,7 @@ topology:
         arrivals: packaging_scrap_inflow
         served: packaging_scrap_served_zero
         errors: packaging_scrap_attrition
-        queueDepth: packaging_scrap_depth
+        queueDepth: self
         aliases:
           arrivals: "Packaging rejects"
           queue: "Packaging scrap"
@@ -312,15 +312,15 @@ outputs:
     as: raw_materials.csv
   - series: assembly_output
     as: units_assembled.csv
-  - series: wip_queue_depth
-    as: wip_queue_depth.csv
+  - series: wip_queue_queue
+    as: wip_queue_queue.csv
   - series: quality_served
     as: units_approved.csv
   - series: quality_errors
     as: qc_rejects.csv
   - series: packaging
     as: finished_goods.csv
-  - series: quality_scrap_depth
-    as: qc_scrap_backlog.csv
-  - series: packaging_scrap_depth
-    as: packaging_scrap_backlog.csv
+  - series: quality_scrap_queue
+    as: quality_scrap_queue.csv
+  - series: packaging_waste_queue
+    as: packaging_waste_queue.csv
