@@ -108,14 +108,14 @@ internal static class QueueNodeSynthesizer
 
     private static string ResolveOutflow(TemplateTopologyNode topologyNode, TemplateNodeSemantics semantics)
     {
-        if (!string.IsNullOrWhiteSpace(semantics.Capacity))
-        {
-            return semantics.Capacity.Trim();
-        }
-
         if (!string.IsNullOrWhiteSpace(semantics.Served))
         {
             return semantics.Served.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(semantics.Capacity))
+        {
+            return semantics.Capacity.Trim();
         }
 
         throw new TemplateValidationException(

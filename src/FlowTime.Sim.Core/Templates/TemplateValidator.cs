@@ -583,11 +583,6 @@ internal static class TemplateValidator
                 continue;
             }
 
-            if (name == "queueDepth")
-            {
-                continue;
-            }
-
             if (!nodeIds.Contains(value))
             {
                 throw new TemplateValidationException($"Topology node '{topologyNode.Id}' semantics.{name} references unknown series '{value}'.");

@@ -459,6 +459,58 @@ outputs:
     }
 
     [Fact]
+    public void ServiceWithBuffer_SynthesizesMissingQueueDepthSeries()
+    {
+        var yaml = """
+schemaVersion: 1
+generator: flowtime-sim
+metadata:
+  id: sba-missing-queue-depth
+  title: ServiceWithBuffer Missing QueueDepth
+  version: 1.0.0
+window:
+  start: 2025-03-01T00:00:00Z
+  timezone: UTC
+grid:
+  bins: 3
+  binSize: 60
+  binUnit: minutes
+topology:
+  nodes:
+    - id: DispatchQueue
+      kind: serviceWithBuffer
+      semantics:
+        arrivals: dispatch_arrivals
+        served: dispatch_served
+        errors: dispatch_errors
+        queueDepth: dispatch_queue_depth
+  edges: []
+nodes:
+  - id: dispatch_arrivals
+    kind: const
+    values: [10, 10, 10]
+  - id: dispatch_served
+    kind: const
+    values: [8, 8, 8]
+  - id: dispatch_errors
+    kind: const
+    values: [0, 0, 0]
+outputs:
+  - series: "*"
+""";
+
+        var template = TemplateParser.ParseFromYaml(yaml);
+
+        var topologyNode = Assert.Single(template.Topology.Nodes);
+        Assert.Equal("dispatch_queue_depth", topologyNode.Semantics.QueueDepth);
+
+        var synthesized = Assert.Single(template.Nodes, n => n.Id == "dispatch_queue_depth");
+        Assert.Equal("serviceWithBuffer", synthesized.Kind, ignoreCase: true);
+        Assert.Equal("dispatch_arrivals", synthesized.Inflow);
+        Assert.Equal("dispatch_served", synthesized.Outflow);
+    }
+
+    [Fact]
     public void Template_With_Dlq_SelfQueueDepth_Parses()
     {
         var yaml = """
