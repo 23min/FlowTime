@@ -1783,11 +1783,11 @@ private const string PmfExpectationLabel = "Value";
         await SaveRunStateAsync();
     }
 
-    private async Task OnCanvasViewportChanged(ViewportSnapshot snapshot)
+    private Task OnCanvasViewportChanged(ViewportSnapshot snapshot)
     {
         if (snapshot is null)
         {
-            return;
+            return Task.CompletedTask;
         }
 
         currentViewportSnapshot = snapshot;
@@ -1800,6 +1800,7 @@ private const string PmfExpectationLabel = "Value";
         {
             ScheduleRunStateSave();
         }
+        return Task.CompletedTask;
     }
 
     private Task OnRequestedViewportConsumed()
@@ -4179,6 +4180,7 @@ internal sealed record InspectorMetricBlock(
             return rows;
         }
 
+        var safeMetrics = metrics;
         AddRaw("Arrivals", "arrivals");
         AddRaw("Served", "served");
         AddRaw("Errors", "errors");
@@ -4199,11 +4201,11 @@ internal sealed record InspectorMetricBlock(
             rows.Add(new InspectorBinMetric(
                 "Schedule capacity",
                 dispatchSchedule is null ? scheduleEntry?.CapacityLabel ?? "-" : FormatDispatchCapacity(dispatchSchedule)));
-            AddSlaMetric(successLabel, "scheduleAdherence", InspectorValueFormat.Percent, fallbackValue: metrics?.SuccessRate, alwaysShow: true);
+            AddSlaMetric(successLabel, "scheduleAdherence", InspectorValueFormat.Percent, fallbackValue: safeMetrics.SuccessRate, alwaysShow: true);
         }
         else
         {
-            AddSlaMetric(successLabel, "completion", InspectorValueFormat.Percent, fallbackValue: metrics?.SuccessRate);
+            AddSlaMetric(successLabel, "completion", InspectorValueFormat.Percent, fallbackValue: safeMetrics.SuccessRate);
         }
         if (!isSink)
         {
@@ -4213,22 +4215,22 @@ internal sealed record InspectorMetricBlock(
         {
             AddSlaMetric("Schedule adherence", "scheduleAdherence", InspectorValueFormat.Percent);
         }
-        AddDerived("Utilization", metrics.Utilization, InspectorValueFormat.Percent, gate: !isSink);
-        AddDerived("Error rate", metrics.ErrorRate, InspectorValueFormat.Percent);
+        AddDerived("Utilization", safeMetrics.Utilization, InspectorValueFormat.Percent, gate: !isSink);
+        AddDerived("Error rate", safeMetrics.ErrorRate, InspectorValueFormat.Percent);
         if (!isSink)
         {
-            var latencyLabel = IsQueueKind(metrics.NodeKind) || IsServiceWithBufferKind(metrics.NodeKind)
+            var latencyLabel = IsQueueKind(safeMetrics.NodeKind) || IsServiceWithBufferKind(safeMetrics.NodeKind)
                 ? "Queue latency"
                 : "Latency";
-            AddDerived(latencyLabel, metrics.LatencyMinutes, InspectorValueFormat.Number, "min");
+            AddDerived(latencyLabel, safeMetrics.LatencyMinutes, InspectorValueFormat.Number, "min");
         }
-        AddDerived("Service time", metrics.ServiceTimeMs, InspectorValueFormat.Number, "ms");
-        AddDerived("Flow latency", metrics.FlowLatencyMs, InspectorValueFormat.Number, "ms");
-        AddDerived("Retry tax", metrics.RetryTax, InspectorValueFormat.Percent, gate: !isSink);
+        AddDerived("Service time", safeMetrics.ServiceTimeMs, InspectorValueFormat.Number, "ms");
+        AddDerived("Flow latency", safeMetrics.FlowLatencyMs, InspectorValueFormat.Number, "ms");
+        AddDerived("Retry tax", safeMetrics.RetryTax, InspectorValueFormat.Percent, gate: !isSink);
 
-        if (!isSink && metrics.QueueLatencyStatus is not null)
+        if (!isSink && safeMetrics.QueueLatencyStatus is not null)
         {
-            rows.Add(new InspectorBinMetric("Latency status", FormatQueueLatencyStatusLabel(metrics.QueueLatencyStatus!)));
+            rows.Add(new InspectorBinMetric("Latency status", FormatQueueLatencyStatusLabel(safeMetrics.QueueLatencyStatus!)));
         }
 
         return rows;

@@ -771,7 +771,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             var sceneNode = new NodeSceneInfo(
                 node.Id,
                 node.Kind,
-                node.LogicalType,
+                node.LogicalType ?? node.Kind,
                 node.X,
                 node.Y,
                 nodeWidth,

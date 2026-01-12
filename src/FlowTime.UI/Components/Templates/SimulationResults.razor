@@ -147,7 +147,11 @@
                 }
 
                 @* Show minimal metadata (artifact-first - metadata is not authoritative) *@
-                @if (Result.Metadata.Any())
+                @{
+                    var metadata = Result?.Metadata;
+                }
+
+                @if (metadata is not null && metadata.Any())
                 {
                     <div class="mt-4">
                         <MudStack Row AlignItems="AlignItems.Center" Spacing="2" Class="mb-3">
@@ -174,7 +178,7 @@
                         
                         <MudSimpleTable Striped="true" Dense="true">
                             <tbody>
-                                @foreach (var item in Result.Metadata.Where(m => IsDisplayableMetadata(m.Key)))
+                                @foreach (var item in metadata.Where(m => IsDisplayableMetadata(m.Key)))
                                 {
                                     <tr>
                                         <td><strong>@FormatMetadataKey(item.Key)</strong></td>
@@ -212,7 +216,6 @@
     [Parameter] public EventCallback OnDownloadResults { get; set; }
 
     private bool isLoadingResults;
-    private bool hasLoadedResults;
     private SimResultData? simulationData;
 
     private Color GetStatusColor(string status)
@@ -243,7 +246,6 @@
             if (result.Success && result.Value != null)
             {
                 simulationData = result.Value;
-                hasLoadedResults = true;
                 
                 // Trigger the parent callback
                 await OnViewResults.InvokeAsync();
@@ -266,7 +268,8 @@
 
     private async Task DownloadSeries(string seriesId)
     {
-        if (Result?.RunId == null || string.IsNullOrEmpty(seriesId))
+        var runId = Result?.RunId;
+        if (string.IsNullOrEmpty(runId) || string.IsNullOrEmpty(seriesId))
         {
             NotificationService.Add("Invalid series or run ID", Severity.Warning);
             return;
@@ -297,7 +300,7 @@
                 var simConfig = Configuration.GetSection(FlowTimeSimApiOptions.SectionName).Get<FlowTimeSimApiOptions>() 
                     ?? new FlowTimeSimApiOptions();
                 var baseUrl = simConfig.BaseUrl?.TrimEnd('/') ?? "";
-                downloadUrl = $"{baseUrl}/{simConfig.ApiVersion}/sim/runs/{Result.RunId}/series/{seriesId}";
+                downloadUrl = $"{baseUrl}/{simConfig.ApiVersion}/sim/runs/{runId}/series/{seriesId}";
             }
             else
             {
@@ -305,7 +308,7 @@
                 var apiConfig = Configuration.GetSection(FlowTimeApiOptions.SectionName).Get<FlowTimeApiOptions>() 
                     ?? new FlowTimeApiOptions();
                 var baseUrl = apiConfig.BaseUrl?.TrimEnd('/') ?? "";
-                downloadUrl = $"{baseUrl}/{apiConfig.ApiVersion}/runs/{Result.RunId}/series/{seriesId}";
+                downloadUrl = $"{baseUrl}/{apiConfig.ApiVersion}/runs/{runId}/series/{seriesId}";
             }
             
             // Open download URL in new tab to trigger browser download
@@ -397,7 +400,6 @@
         var currentRunId = Result?.RunId;
         if (currentRunId != null && currentRunId != lastLoadedRunId)
         {
-            hasLoadedResults = false;
             simulationData = null;
             lastLoadedRunId = null;
             

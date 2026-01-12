@@ -229,7 +229,7 @@ public sealed class TopologyCanvasRenderTests : TestContext
 
         cut.SetParametersAndRender(p => p.Add(x => x.NodeMetrics, updatedMetrics));
 
-        cut.WaitForAssertion(() => Assert.Equal(1, sceneCall.Invocations.Count));
+        cut.WaitForAssertion(() => Assert.Single(sceneCall.Invocations));
         cut.WaitForAssertion(() => Assert.Equal(2, overlayCall.Invocations.Count));
     }
 

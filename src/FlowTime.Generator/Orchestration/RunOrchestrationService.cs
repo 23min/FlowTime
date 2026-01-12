@@ -12,7 +12,6 @@ using FlowTime.Core.Models;
 using FlowTime.Core.Nodes;
 using FlowTime.Core.TimeTravel;
 using FlowTime.Core.Routing;
-using FlowTime.Core.Artifacts;
 using FlowTime.Generator.Artifacts;
 using FlowTime.Generator.Models;
 using FlowTime.Sim.Core.Hashing;

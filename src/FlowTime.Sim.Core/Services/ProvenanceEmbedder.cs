@@ -67,10 +67,11 @@ public static class ProvenanceEmbedder
         return result.ToString().TrimEnd();
     }
 
-    private static string FormatYamlValue(object value)
+    private static string FormatYamlValue(object? value)
     {
         return value switch
         {
+            null => "null",
             string s => $"\"{s}\"",
             bool b => b.ToString().ToLowerInvariant(),
             double d => d.ToString(CultureInfo.InvariantCulture),

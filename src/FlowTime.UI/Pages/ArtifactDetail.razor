@@ -276,7 +276,7 @@
         }
     }
 
-    private async Task ViewFile(string fileName)
+    private Task ViewFile(string fileName)
     {
         try
         {
@@ -289,6 +289,7 @@
         {
             Logger.LogError(ex, "Error viewing file: {FileName} from artifact: {ArtifactId}", fileName, ArtifactId);
         }
+        return Task.CompletedTask;
     }
 
     private string GetArtifactIcon(string type) => type.ToLower() switch
