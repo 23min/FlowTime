@@ -21,7 +21,7 @@
 ### Overall Progress
 - [x] Phase 1: UI Toggle + Filtering (2/2 tasks)
 - [x] Phase 2: Relayout (1/1 tasks)
-- [ ] Phase 3: State + Validation (1/2 tasks)
+- [x] Phase 3: State + Validation (2/2 tasks)
 
 ### Test Status
 - **Unit Tests:** 4 passing / 4 total
@@ -232,13 +232,13 @@
 - [x] Manual verification on large templates (GREEN - confirm behavior)
 - [x] Commit: Skipped (consolidated into final milestone commit)
 
-**Status:** 🔄 In Progress
+**Status:** ✅ Complete
 
 **Validation Checklist (Focus View):**
-- [ ] Metrics chips render and update as in full view
-- [ ] Tooltips show expected labels/values on hover
-- [ ] Inspector opens and stays synced to selected node
-- [ ] Focus panel controls remain available while inspector is open
+- [x] Metrics chips render and update as in full view
+- [x] Tooltips show expected labels/values on hover
+- [x] Inspector opens and stays synced to selected node
+- [x] Focus panel controls remain available while inspector is open
 
 ---
 
@@ -322,22 +322,22 @@
 ## Final Checklist
 
 ### Code Complete
-- [ ] All phase tasks complete
-- [ ] All tests passing
-- [ ] No compilation errors
-- [ ] No console warnings
+- [x] All phase tasks complete
+- [x] All tests passing
+- [x] No compilation errors
+- [x] No console warnings
 - [ ] Code reviewed (if applicable)
 
 ### Documentation
-- [ ] Milestone document updated (status → ✅ Complete)
+- [x] Milestone document updated (status → ✅ Complete)
 - [ ] ROADMAP.md updated
 - [ ] Release notes entry created
 - [ ] Related docs updated
 
 ### Quality Gates
-- [ ] All unit tests passing
-- [ ] All integration tests passing
-- [ ] Manual E2E tests passing
+- [x] All unit tests passing
+- [x] All integration tests passing
+- [x] Manual E2E tests passing
 - [ ] Performance acceptable
 - [ ] No regressions
 

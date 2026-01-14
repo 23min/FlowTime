@@ -1,6 +1,6 @@
 # FT-M-05.14 — Topology Focus View (Provenance Drilldown)
 
-**Status:** 📋 Planned  
+**Status:** ✅ Complete  
 **Dependencies:** ✅ FT‑M‑05.12  
 **Target:** Add a focused “node drilldown” view that isolates a selected node and its predecessors/outputs with a compact relayout.
 
@@ -87,6 +87,6 @@ This is intended as a complement to metric provenance (FT‑M‑05.12).
 
 ## Success Criteria
 
-- [ ] Focus view enables provenance tracing without manual panning.
-- [ ] Returning to full graph restores original view.
-- [ ] No regression in metrics or tooltip behavior.
+- [x] Focus view enables provenance tracing without manual panning.
+- [x] Returning to full graph restores original view.
+- [x] No regression in metrics or tooltip behavior.
