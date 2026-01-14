@@ -100,6 +100,56 @@ public sealed class TopologyCanvasRenderTests : TestContext
     }
 
     [Fact]
+    public void Topology_FocusView_DefaultsToUpstreamOnly()
+    {
+        var graph = CreateGraph();
+        var metrics = CreateMetrics();
+
+        var sceneCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.renderScene", _ => true);
+        sceneCall.SetVoidResult();
+        var overlayCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.applyOverlayDelta", _ => true);
+        overlayCall.SetVoidResult();
+
+        RenderComponent<TopologyCanvas>(parameters => parameters
+            .Add(p => p.Graph, graph)
+            .Add(p => p.NodeMetrics, metrics)
+            .Add(p => p.FocusViewEnabled, true)
+            .Add(p => p.FocusNodeId, "processor")
+            .Add(p => p.FocusIncludeDownstream, false));
+
+        var scenePayload = Assert.IsType<CanvasScenePayload>(sceneCall.Invocations.Single().Arguments[1]);
+
+        Assert.Contains(scenePayload.Nodes, node => node.Id == "ingress");
+        Assert.Contains(scenePayload.Nodes, node => node.Id == "processor");
+        Assert.DoesNotContain(scenePayload.Nodes, node => node.Id == "egress");
+    }
+
+    [Fact]
+    public void Topology_FocusView_RelayoutsFilteredGraph()
+    {
+        var graph = CreateGraph();
+        var metrics = CreateMetrics();
+        var originalProcessorX = graph.Nodes.Single(node => node.Id == "processor").X;
+
+        var sceneCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.renderScene", _ => true);
+        sceneCall.SetVoidResult();
+        var overlayCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.applyOverlayDelta", _ => true);
+        overlayCall.SetVoidResult();
+
+        RenderComponent<TopologyCanvas>(parameters => parameters
+            .Add(p => p.Graph, graph)
+            .Add(p => p.NodeMetrics, metrics)
+            .Add(p => p.FocusViewEnabled, true)
+            .Add(p => p.FocusNodeId, "processor")
+            .Add(p => p.FocusIncludeDownstream, false));
+
+        var scenePayload = Assert.IsType<CanvasScenePayload>(sceneCall.Invocations.Single().Arguments[1]);
+        var processor = Assert.Single(scenePayload.Nodes, node => node.Id == "processor");
+
+        Assert.NotEqual(originalProcessorX, processor.X);
+    }
+
+    [Fact]
     public void OverlayPayloadReflectsRetryToggles()
     {
         var graph = CreateGraph();

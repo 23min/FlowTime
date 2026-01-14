@@ -262,13 +262,31 @@
                                         </MudStack>
                                         <MudStack Row="true" AlignItems="@AlignItems.Center" Spacing="1" Class="timeline-operational-toggle">
                                             <MudText Typo="Typo.caption" Class="timeline-focus-label">Operational</MudText>
-                                            <MudSwitch T="bool"
-                                                       Size="Size.Small"
-                                                       Ripple="false"
-                                                       Value="@operationalViewOnly"
-                                                       ValueChanged="OnOperationalViewChanged"
-                                                       Disabled="@operationalTogglePending"
-                                                       Color="Color.Primary" />
+                                            <MudTooltip Text="Toggle operational-only view">
+                                                <ChildContent>
+                                                    <MudSwitch T="bool"
+                                                               Size="Size.Small"
+                                                               Ripple="false"
+                                                               Value="@operationalViewOnly"
+                                                               ValueChanged="OnOperationalViewChanged"
+                                                               Disabled="@operationalTogglePending"
+                                                               Color="Color.Primary" />
+                                                </ChildContent>
+                                            </MudTooltip>
+                                        </MudStack>
+                                        <MudStack Row="true" AlignItems="@AlignItems.Center" Spacing="1" Class="timeline-focusview-toggle">
+                                            <MudText Typo="Typo.caption" Class="timeline-focus-label">Focus view</MudText>
+                                            <MudTooltip Text="Select a node to enable focus view">
+                                                <ChildContent>
+                                                    <MudSwitch T="bool"
+                                                               Size="Size.Small"
+                                                               Ripple="false"
+                                                               Value="@focusViewEnabled"
+                                                               ValueChanged="OnFocusViewChanged"
+                                                               Disabled="@(!CanToggleFocusView)"
+                                                               Color="Color.Primary" />
+                                                </ChildContent>
+                                            </MudTooltip>
                                         </MudStack>
                                         <MudChipSet T="string"
                                                     Class="timeline-zoom-set"
@@ -329,6 +347,23 @@
                                                    QueryKey="classes" />
                                 </div>
                             }
+                            @if (focusViewEnabled)
+                            {
+                                <div class="topology-flow-overlay topology-focus-overlay">
+                                    <div class="topology-flow-header">
+                                        <MudText Typo="Typo.overline" Class="topology-flow-panel-title">Focus</MudText>
+                                    </div>
+                                    <MudStack Row="true" AlignItems="@AlignItems.Center" Spacing="1">
+                                        <MudText Typo="Typo.caption">Include downstream</MudText>
+                                        <MudSwitch T="bool"
+                                                   Size="Size.Small"
+                                                   Ripple="false"
+                                                   Value="@focusIncludeDownstream"
+                                                   ValueChanged="OnFocusIncludeDownstreamChanged"
+                                                   Color="Color.Primary" />
+                                    </MudStack>
+                                </div>
+                            }
                             @{
                                 var dispatchList = dispatchScheduleEntries
                                     .Where(e => inspectorNodeId != null && string.Equals(e.NodeId, inspectorNodeId, StringComparison.OrdinalIgnoreCase))
@@ -379,6 +414,7 @@
                                             ViewportChanged="OnCanvasViewportChanged"
                                             InspectorVisible="inspectorOpen"
                                             NodeFocused="OnNodeFocused"
+                                            NodeSelected="OnNodeSelected"
                                             EdgeHovered="OnCanvasEdgeHovered"
                                             DumpBinRequested="DumpInspectorBinAsync"
                                             RequestedViewport="pendingViewportSnapshot"
@@ -388,7 +424,10 @@
                                             DiagnosticsUploadIntervalMs="@diagnosticsUploadIntervalMs"
                                             DiagnosticsDisableHoverCache="@diagnosticsDisableHoverCache"
                                             RunId="@RunId"
-                                            OperationalViewOnly="@operationalViewOnly" />
+                                            OperationalViewOnly="@operationalViewOnly"
+                                            FocusViewEnabled="@focusViewEnabled"
+                                            FocusNodeId="@selectedNodeId"
+                                            FocusIncludeDownstream="@focusIncludeDownstream" />
                             @if (isLoading && hasLoaded)
                             {
                                 <div class="topology-reload-overlay" aria-live="polite">
@@ -684,13 +723,15 @@
     private TopologyOverlaySettings overlaySettings = TopologyOverlaySettings.Default.Clone();
     private Dictionary<TopologyFeatureSection, bool> sectionExpansionState = CreateDefaultSectionState();
     private ViewportSnapshot? currentViewportSnapshot;
+    private ViewportSnapshot? focusViewportSnapshot;
     private ViewportSnapshot? pendingViewportSnapshot;
     private bool isRestoringViewport;
     private bool attemptedRestore;
     private DotNetObjectReference<Topology>? selfReference;
     private int? hotkeyRegistrationId;
-private string? inspectorNodeId;
-private string? lastInspectorNodeId;
+    private string? inspectorNodeId;
+    private string? lastInspectorNodeId;
+    private string? selectedNodeId;
 private bool inspectorOpen;
 private bool inspectorPinned;
 private bool inspectorMetricsExpanded;
@@ -747,6 +788,8 @@ private IReadOnlyList<TimeTravelStateWarningDto> windowWarnings = Array.Empty<Ti
     private const int ScrubRefreshIntervalMs = 150;
     private bool operationalViewOnly;
     private bool operationalTogglePending;
+    private bool focusViewEnabled;
+    private bool focusIncludeDownstream;
     private bool? savedIncludeExpressionNodes;
     private bool? savedIncludeConstNodes;
     private bool? savedEnableFullDag;
@@ -813,6 +856,8 @@ internal sealed record DispatchScheduleEntry(string NodeId, string Summary, stri
     private bool ShowClassSelector => availableClasses.Count > 0;
     private bool ShowDispatchPanel => false;
     private bool HasClassSelection => selectedClasses.Count > 0;
+    private bool CanToggleFocusView => !string.IsNullOrWhiteSpace(selectedNodeId);
+    private ViewportSnapshot? ActiveViewportSnapshot => focusViewEnabled ? focusViewportSnapshot : currentViewportSnapshot;
 
     private Task OnClassSelectionChanged(IReadOnlyList<string> classes)
     {
@@ -884,6 +929,20 @@ private const string PmfExpectationLabel = "Value";
         }
 
         return $"{baseLabel}. {placeholder}";
+    }
+
+    private static ViewportSnapshot CloneViewportSnapshot(ViewportSnapshot snapshot)
+    {
+        return new ViewportSnapshot
+        {
+            Scale = snapshot.Scale,
+            OffsetX = snapshot.OffsetX,
+            OffsetY = snapshot.OffsetY,
+            WorldCenterX = snapshot.WorldCenterX,
+            WorldCenterY = snapshot.WorldCenterY,
+            OverlayScale = snapshot.OverlayScale,
+            BaseScale = snapshot.BaseScale
+        };
     }
 
     protected override async Task OnParametersSetAsync()
@@ -1631,6 +1690,7 @@ private const string PmfExpectationLabel = "Value";
         {
             pendingViewportSnapshot = null;
             currentViewportSnapshot = null;
+            focusViewportSnapshot = null;
             isRestoringViewport = false;
             pointerNeedsJump = true;
             if (canvasComponent is not null)
@@ -1655,18 +1715,10 @@ private const string PmfExpectationLabel = "Value";
 
         if (requiresWindowReload)
         {
-            if (currentViewportSnapshot is not null)
+            var activeSnapshot = ActiveViewportSnapshot;
+            if (activeSnapshot is not null)
             {
-                pendingViewportSnapshot = new ViewportSnapshot
-                {
-                    Scale = currentViewportSnapshot.Scale,
-                    OffsetX = currentViewportSnapshot.OffsetX,
-                    OffsetY = currentViewportSnapshot.OffsetY,
-                    WorldCenterX = currentViewportSnapshot.WorldCenterX,
-                    WorldCenterY = currentViewportSnapshot.WorldCenterY,
-                    OverlayScale = currentViewportSnapshot.OverlayScale,
-                    BaseScale = currentViewportSnapshot.BaseScale
-                };
+                pendingViewportSnapshot = CloneViewportSnapshot(activeSnapshot);
                 isRestoringViewport = true;
             }
             StopPlayback();
@@ -1696,7 +1748,7 @@ private const string PmfExpectationLabel = "Value";
         updated.ZoomPercent = 100d;
         await OnOverlaySettingsChanged(updated);
         pointerNeedsJump = true;
-        pendingViewportSnapshot = currentViewportSnapshot?.CloneWithScale(1d);
+        pendingViewportSnapshot = ActiveViewportSnapshot?.CloneWithScale(1d);
     }
 
     private async Task FitViewport()
@@ -1777,6 +1829,53 @@ private const string PmfExpectationLabel = "Value";
         }
     }
 
+    private Task OnFocusViewChanged(bool value)
+    {
+        SetFocusViewEnabled(value);
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private Task OnFocusIncludeDownstreamChanged(bool value)
+    {
+        focusIncludeDownstream = value;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private void ToggleFocusView()
+    {
+        SetFocusViewEnabled(!focusViewEnabled);
+    }
+
+    private void SetFocusViewEnabled(bool value)
+    {
+        if (!CanToggleFocusView && value)
+        {
+            focusViewEnabled = false;
+            return;
+        }
+
+        if (focusViewEnabled == value)
+        {
+            return;
+        }
+
+        focusViewEnabled = value;
+
+        var snapshot = ActiveViewportSnapshot;
+        if (snapshot is not null)
+        {
+            pendingViewportSnapshot = CloneViewportSnapshot(snapshot);
+            isRestoringViewport = true;
+        }
+        else
+        {
+            pendingViewportSnapshot = null;
+            isRestoringViewport = false;
+        }
+    }
+
     private async Task OnFeatureSectionExpansionChanged(SectionExpansionChangedArgs args)
     {
         sectionExpansionState[args.Section] = args.IsExpanded;
@@ -1790,13 +1889,20 @@ private const string PmfExpectationLabel = "Value";
             return Task.CompletedTask;
         }
 
-        currentViewportSnapshot = snapshot;
+        if (focusViewEnabled)
+        {
+            focusViewportSnapshot = snapshot;
+        }
+        else
+        {
+            currentViewportSnapshot = snapshot;
+        }
         if (isRestoringViewport)
         {
             isRestoringViewport = false;
         }
 
-        if (hasLoaded && !string.IsNullOrWhiteSpace(currentRunId))
+        if (!focusViewEnabled && hasLoaded && !string.IsNullOrWhiteSpace(currentRunId))
         {
             ScheduleRunStateSave();
         }
@@ -1809,7 +1915,7 @@ private const string PmfExpectationLabel = "Value";
         if (isRestoringViewport)
         {
             isRestoringViewport = false;
-            if (hasLoaded && !string.IsNullOrWhiteSpace(currentRunId))
+            if (!focusViewEnabled && hasLoaded && !string.IsNullOrWhiteSpace(currentRunId))
             {
                 ScheduleRunStateSave();
             }
@@ -3111,11 +3217,14 @@ private const string PmfExpectationLabel = "Value";
             inspectorOpen = false;
             inspectorNodeId = null;
             inspectorDataDirty = true;
+            SetFocusViewEnabled(false);
+            focusIncludeDownstream = false;
         }
         else
         {
             inspectorNodeId = nodeId;
             lastInspectorNodeId = nodeId;
+            selectedNodeId = nodeId;
             inspectorOpen = true;
             inspectorPinned = true;
             EnsureInspectorDataFresh();
@@ -3123,6 +3232,19 @@ private const string PmfExpectationLabel = "Value";
 
         inspectorMetricsExpanded = false;
         ClearInspectorEdgeHighlights();
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private Task OnNodeSelected(string? nodeId)
+    {
+        selectedNodeId = string.IsNullOrWhiteSpace(nodeId) ? null : nodeId;
+        if (selectedNodeId is null)
+        {
+            SetFocusViewEnabled(false);
+            focusIncludeDownstream = false;
+        }
+
         StateHasChanged();
         return Task.CompletedTask;
     }
@@ -5752,6 +5874,7 @@ private static IReadOnlyList<double?> TrimSeriesAt(double?[]? source, int limit,
         inspectorPinned = false;
         inspectorNodeId = null;
         lastInspectorNodeId = null;
+        selectedNodeId = null;
         inspectorMetricsExpanded = false;
         inspectorDataDirty = true;
         ClearInspectorEdgeHighlights();
@@ -5777,6 +5900,9 @@ private static IReadOnlyList<double?> TrimSeriesAt(double?[]? source, int limit,
         pointerNeedsJump = false;
         featureBarOpen = false;
         operationalViewOnly = false;
+        focusViewEnabled = false;
+        focusIncludeDownstream = false;
+        focusViewportSnapshot = null;
         savedIncludeExpressionNodes = null;
         savedIncludeConstNodes = null;
         savedEnableFullDag = null;

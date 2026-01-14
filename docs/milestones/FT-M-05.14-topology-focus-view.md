@@ -18,7 +18,7 @@ This is intended as a complement to metric provenance (FT‑M‑05.12).
 
 ### In Scope ✅
 1. **Focus toggle**: “Focus on selected node” with clear on/off state.
-2. **Graph filtering**: keep selected node, its predecessors, and its outgoing dependencies (depth configurable).
+2. **Graph filtering**: keep selected node, its predecessors, and (optionally) its outgoing dependencies.
 3. **Compact relayout**: reflow the filtered subgraph to remove large gaps.
 4. **Preserve semantics**: all metrics, tooltips, and chips should work in focus view.
 5. **Exit behavior**: return to full graph with previous pan/zoom.
@@ -34,15 +34,17 @@ This is intended as a complement to metric provenance (FT‑M‑05.12).
 
 ### FR1: Focus Toggle
 **Acceptance Criteria**
-- [ ] Toggle exists in topology UI (feature bar or inspector).
+- [ ] Toggle exists in the topology top bar (to the right of the operational switch).
 - [ ] Disabled unless a node is selected.
+- [ ] Disabled state communicates that a node must be selected (tooltip or hint).
 - [ ] Keyboard shortcut optional (nice‑to‑have).
 
 ### FR2: Filtered Subgraph
 **Acceptance Criteria**
 - [ ] Selected node included.
-- [ ] All upstream predecessors included (depth configurable).
-- [ ] All downstream successors included (depth configurable).
+- [ ] All upstream predecessors included by default.
+- [ ] Downstream successors included only when explicitly enabled in Focus controls.
+- [ ] Direction controls are visible in a small Focus panel on the canvas (below the Flows panel) when focus is on.
 - [ ] Orphaned nodes removed from focus view.
 
 ### FR3: Compact Relayout

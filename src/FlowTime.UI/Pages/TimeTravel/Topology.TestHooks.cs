@@ -129,6 +129,34 @@ public partial class Topology
         overlaySettings = settings.Clone();
     }
 
+    internal bool TestIsFocusToggleEnabled() => CanToggleFocusView;
+
+    internal bool TestIsFocusViewEnabled() => focusViewEnabled;
+
+    internal void TestToggleFocusView() => ToggleFocusView();
+
+    internal void TestSetFocusViewEnabled(bool value) => SetFocusViewEnabled(value);
+
+    internal void TestOnNodeSelected(string? nodeId)
+    {
+        selectedNodeId = string.IsNullOrWhiteSpace(nodeId) ? null : nodeId;
+        if (selectedNodeId is null)
+        {
+            SetFocusViewEnabled(false);
+            focusIncludeDownstream = false;
+        }
+    }
+
+    internal void TestSetFullViewportSnapshot(ViewportSnapshot snapshot) => currentViewportSnapshot = snapshot;
+
+    internal ViewportSnapshot? TestGetFullViewportSnapshot() => currentViewportSnapshot;
+
+    internal ViewportSnapshot? TestGetFocusViewportSnapshot() => focusViewportSnapshot;
+
+    internal ViewportSnapshot? TestGetPendingViewportSnapshot() => pendingViewportSnapshot;
+
+    internal Task TestOnCanvasViewportChanged(ViewportSnapshot snapshot) => OnCanvasViewportChanged(snapshot);
+
     internal void TestUpdateActiveMetrics(int bin)
     {
         UpdateActiveMetrics(bin);
