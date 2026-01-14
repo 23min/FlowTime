@@ -35,6 +35,8 @@ Milestones evolve through these states:
 
 **Archiving policy:** Do not move milestone specs to `docs/milestones/completed/` until the entire epic that owns them is complete. Completed milestones remain in `docs/milestones/` until the epic wrap, then are archived together.
 
+**Session prompts:** Use `docs/development/milestone-session-guide.md` for the parameterized prompt and guardrails when starting or continuing a milestone.
+
 ---
 
 ## Required Structure

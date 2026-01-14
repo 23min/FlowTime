@@ -9,6 +9,7 @@ Purpose: give AI assistants the minimum context to work safely and productively 
 - Do not stage, commit, push, or make network calls unless the user explicitly asks.
 - Prefer precise, symbol-level edits; stick to established patterns and avoid broad refactors without context.
 - Build and test before handing work back (`dotnet build FlowTime.sln`, `dotnet test FlowTime.sln`).
+- Use the parameterized milestone session prompt in `docs/development/milestone-session-guide.md` when starting or resuming milestone work.
 - No time/effort estimates in docs or planning artifacts.
 - Process safety: verify processes before killing (`lsof -ti:PORT`, `ps aux | grep`); use `pkill -f "ProcessName"` or `lsof -ti:PORT | xargs -r kill -TERM`. Never `kill <PORT>`.
 - Default ports: 8080 (Engine API), 8090 (Sim API), 5219/7047 (UI), 8091 (Sim diagnostics), 5091 (Engine dev profile).
