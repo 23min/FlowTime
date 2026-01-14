@@ -12,6 +12,7 @@ This roadmap supersedes the previous legacy plan (now archived under `docs/archi
 - Time-travel APIs (`/runs/{id}/state`, `/state_window`), telemetry capture/bundle pipeline, CLI orchestration.
 - DLQ and backlog retrofits across canonical templates; analyzers enforce DLQ semantics.
 - Updated docs: DLQ lens, template authoring/testing guides, expression extensions roadmap.
+- Topology focus view for provenance drilldown (focus toggle, upstream filtering, compact relayout, state preservation).
 
 ## Near-Term Focus (Next Epic Candidates)
 1. **EdgeTimeBin / Edge Metrics (name TBD)**  
