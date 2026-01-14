@@ -33,6 +33,8 @@ Milestones evolve through these states:
 - **🔄 In Progress** - Implementation underway, tracking document active
 - **✅ Complete** - Delivered, tracked in release notes
 
+**Archiving policy:** Do not move milestone specs to `docs/milestones/completed/` until the entire epic that owns them is complete. Completed milestones remain in `docs/milestones/` until the epic wrap, then are archived together.
+
 ---
 
 ## Required Structure

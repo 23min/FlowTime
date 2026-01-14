@@ -1,6 +1,6 @@
 # FT-M-05.12 — Metric Provenance & Audit Trail
 
-**Status:** 📋 Planned  
+**Status:** ✅ Complete  
 **Dependencies:** ✅ FT‑M‑05.09, ✅ FT‑M‑05.11  
 **Target:** Make metric calculations and data sources explicit in the UI and dump tooling so modelers and debuggers can trace “why this value”.
 
@@ -19,12 +19,13 @@ The goal is to help modelers validate assumptions and help debugging without rel
 ## Scope
 
 ### In Scope ✅
-1. **Inspector provenance view** for metric rows (expandable explanation).
+1. **Inspector provenance view** for metric rows (hover/tap popover).
 2. **Formula and source series mapping** per node kind (service, serviceWithBuffer, sink, dlq, router).
 3. **Gating rules** (dispatch schedule, backlog age unavailability, queue‑latency gates).
 4. **Units and semantics** (minutes vs ms vs percent).
 5. **Bin dump augmentation** (optional provenance payload or view).
 6. **Modifier‑key bin dump behavior**: open in new tab instead of file download.
+7. **Focus alignment** for SLA/Arrivals mini-sparklines with matching series and labels.
 
 ### Out of Scope ❌
 - ❌ New metrics or alternate computation models.
@@ -46,39 +47,40 @@ These are **not** implemented in 5.12, but are recorded here so provenance work 
 ## Requirements
 
 ### FR1: Inspector Metric Provenance
-**Description:** Each metric row in the inspector can expand to show how the value is computed.
+**Description:** Each metric row in the inspector can reveal how the value is computed.
 
 **Acceptance Criteria:**
-- [ ] Expandable provenance row for each metric shown in the inspector.
-- [ ] Displays formula (e.g., `utilization = served / capacity`).
-- [ ] Displays source series IDs (e.g., `served_airport`, `cap_airport`).
-- [ ] Displays gating rules (e.g., schedule bins only, backlog age unavailable).
-- [ ] Displays units (%, ms, min).
+- [x] Popover provenance view for each metric shown in the inspector.
+- [x] Displays formula (e.g., `utilization = served / capacity`).
+- [x] Displays source series IDs (e.g., `served_airport`, `cap_airport`).
+- [x] Displays gating rules (e.g., schedule bins only, backlog age unavailable).
+- [x] Displays units (%, ms, min).
+- [x] Includes a short meaning string per metric.
 
 ### FR2: Node‑Kind Formula Catalog
 **Description:** Metric formulas are defined in a single catalog by node kind.
 
 **Acceptance Criteria:**
-- [ ] A code‑level catalog maps `nodeKind → metric → formula + sources + units`.
-- [ ] When a metric’s input series is missing, the provenance view states **why**.
-- [ ] Catalog is deterministic (no runtime sampling beyond bin selection).
+- [x] A code‑level catalog maps `nodeKind → metric → formula + sources + units`.
+- [x] When a metric’s input series is missing, the provenance view states **why**.
+- [x] Catalog is deterministic (no runtime sampling beyond bin selection).
 
 ### FR3: Bin Dump Audit View
 **Description:** Bin dump can be opened in a browser tab and includes provenance.
 
 **Acceptance Criteria:**
-- [ ] ALT/CTRL (configurable) opens dump in a new tab with JSON + provenance.
-- [ ] Default behavior remains file download.
-- [ ] Dump view includes computed values + the provenance catalog slice used.
+- [x] ALT/CTRL (configurable) opens dump in a new tab with JSON + provenance.
+- [x] Default behavior remains file download.
+- [x] Dump view includes computed values + the provenance catalog slice used.
 
 ### FR4: Queue/Latency Clarification
 **Description:** Queue latency vs service time vs flow latency are explicitly explained.
 
 **Acceptance Criteria:**
-- [ ] Provenance view explains queue latency derivation for serviceWithBuffer.
-- [ ] Service time shown as per‑unit processing time (ms).
-- [ ] Flow latency description clearly states it is end‑to‑end (if available).
-- [ ] Total time in system is explained as `queue latency + service time` (unit conversion noted).
+- [x] Provenance view explains queue latency derivation for serviceWithBuffer.
+- [x] Service time shown as per‑unit processing time (ms).
+- [x] Flow latency description clearly states it is end‑to‑end (if available).
+- [x] Total time in system is explained as `queue latency + service time` (unit conversion noted).
 
 ---
 
@@ -89,7 +91,7 @@ These are **not** implemented in 5.12, but are recorded here so provenance work 
 2. Map metrics to series IDs using node semantics + known formula rules.
 
 ### Phase 2: Inspector UX
-1. Add expand/collapse affordance on inspector metric rows.
+1. Add hover/tap popovers on inspector metric rows.
 2. Render formula + inputs + units + gating status.
 
 ### Phase 3: Bin Dump Enhancements
@@ -110,16 +112,16 @@ These are **not** implemented in 5.12, but are recorded here so provenance work 
 - `MetricProvenance_ReportsMissingInputs`
 
 ### UI Tests
-- `Inspector_ExpandsMetricProvenance`
+- `Inspector_ProvidesMetricProvenanceTooltip`
 - `BinDump_AltKeyOpensTab`
 
 ---
 
 ## Success Criteria
 
-- [ ] Users can see formulas and inputs for each metric.
-- [ ] Bin dump supports both file download and tab view.
-- [ ] Latency semantics are unambiguous in the UI.
+- [x] Users can see formulas and inputs for each metric.
+- [x] Bin dump supports both file download and tab view.
+- [x] Latency semantics are unambiguous in the UI.
 
 ---
 
