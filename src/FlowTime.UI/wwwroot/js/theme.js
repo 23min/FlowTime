@@ -42,3 +42,18 @@ window.FlowTime.downloadText = function(filename, content, mimeType){
     console.error('FlowTime.downloadText failed', err);
   }
 };
+
+window.FlowTime.openTextInNewTab = function(filename, content, mimeType){
+  try {
+    const blob = new Blob([content], { type: mimeType || 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const newTab = window.open(url, '_blank', 'noopener');
+    if (!newTab) {
+      return;
+    }
+    newTab.document.title = filename || 'flowtime-export';
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 0);
+  } catch (err) {
+    console.error('FlowTime.openTextInNewTab failed', err);
+  }
+};

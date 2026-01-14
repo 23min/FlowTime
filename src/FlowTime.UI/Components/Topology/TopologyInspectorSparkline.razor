@@ -347,6 +347,7 @@ else
         return SeriesKey.Trim().ToLowerInvariant() switch
         {
             "successrate" => TopologyColorBasis.Sla,
+            "arrivals" => TopologyColorBasis.Arrivals,
             "utilization" => TopologyColorBasis.Utilization,
             "errorrate" or "errors" => TopologyColorBasis.Errors,
             "queue" or "queuedepth" => TopologyColorBasis.Queue,
@@ -369,6 +370,7 @@ else
             TopologyColorBasis.Errors => new NodeBinMetrics(null, null, value, null, null, null),
             TopologyColorBasis.Queue => new NodeBinMetrics(null, null, null, value, null, null),
             TopologyColorBasis.ServiceTime => new NodeBinMetrics(null, null, null, null, null, null, ServiceTimeMs: value),
+            TopologyColorBasis.Arrivals => new NodeBinMetrics(null, null, null, null, null, null, CustomValue: value),
             _ => new NodeBinMetrics(value, null, null, null, null, null)
         };
 

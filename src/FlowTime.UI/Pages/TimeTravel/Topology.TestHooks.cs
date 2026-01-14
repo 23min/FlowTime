@@ -94,6 +94,28 @@ public partial class Topology
         return BuildInspectorBinDump(nodeId);
     }
 
+    internal IReadOnlyList<InspectorBinMetric> TestBuildInspectorBinMetrics(string nodeId, NodeBinMetrics? metrics)
+    {
+        return BuildInspectorBinMetrics(nodeId, metrics);
+    }
+
+    internal Task TestDumpInspectorBinAsync(string? nodeId, bool openInNewTab)
+    {
+        return DumpInspectorBinAsync(new BinDumpRequest(nodeId, openInNewTab));
+    }
+
+    internal string TestBuildProvenanceTooltip(string nodeId, string metricKey)
+    {
+        var block = BuildInspectorMetricBlocks(nodeId)
+            .FirstOrDefault(entry => string.Equals(entry.SeriesKey, metricKey, StringComparison.OrdinalIgnoreCase));
+        if (block?.Provenance is null)
+        {
+            return string.Empty;
+        }
+
+        return BuildProvenanceTooltip(block.Provenance);
+    }
+
     internal string? TestResolveNodeRoleLabel(string nodeId)
     {
         return ResolveNodeRoleLabel(FindTopologyNode(nodeId));

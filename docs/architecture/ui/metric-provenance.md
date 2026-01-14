@@ -11,51 +11,69 @@ This document defines how FlowTime surfaces **metric provenance** in the UI so m
 
 ## UX Principles
 
-1. **Expandable detail per metric.** Each metric row can expand to reveal how the value is computed.
-2. **Human-readable formulas.** Use the same names a modeler sees in templates (series IDs and aliases).
-3. **Units everywhere.** Values and formulas must always specify units (%, ms, min).
-4. **Gating rules are explicit.** If a metric only updates on schedule bins or is unavailable, the UI must say so.
-5. **No hidden state.** If a metric is derived from a time window or last-event carry-forward logic, disclose it.
+1. **Tooltips per metric.** Inspector property rows and chart labels use tooltips to reveal how the value is computed.
+2. **Human-readable formulas.** Use canonical series IDs (for example, `served`, `capacity`, `sla:completion`).
+3. **Units everywhere.** Provenance details always show the metric unit (percent, ms, min, count).
+4. **Gating rules are explicit.** If a metric is schedule-gated or unavailable, the UI must say so.
+5. **Missing inputs are visible.** If required series are absent, the provenance view lists missing inputs.
 
 ## Inspector Behavior
 
-For each metric displayed in the inspector:
+For each inspector metric (properties or charts):
 
-- **Default row:** value, unit, and status (ok / unavailable / no events).
-- **Expanded provenance:**
+- **Default row:** chart sparkline and horizon overview.
+- **Provenance tooltip:**
   - **Formula:** e.g., `utilization = served / capacity`
-  - **Inputs:** e.g., `served_airport`, `cap_airport`
-  - **Gating:** e.g., `updated only on dispatch bins`
-  - **Units:** e.g., `served (count/bin)`, `capacity (count/bin)`
-  - **Notes:** e.g., "value carries forward when no events"
+  - **Meaning:** short definition of what the metric represents
+  - **Inputs:** e.g., `served`, `capacity`, `sla:completion`
+  - **Units:** e.g., `percent`, `ms`, `min`, `count`
+  - **Gating:** e.g., `Schedule adherence uses dispatch schedule bins only.`
+  - **Missing:** list of missing series when inputs are unavailable
+
+### Focus Chips and Mini-Sparklines
+
+- **SLA focus** uses the `successRate` series for the mini-sparkline and the current-bin value to avoid mismatched labels.
+- **Arrivals focus** (when selected) uses the `arrivals` series and shows volume coloring for the node mini-sparklines.
+- **Router nodes** always show an Arrivals chart in the inspector; if the series is missing it renders a placeholder so Served/Arrivals stay aligned.
+
+### Validation Loop
+
+- **Automated parity check:** UI tests validate that inspector values match the `/state_window` series for the selected bin (success rate, error rate, arrivals/served, utilization, service/flow latency).
+- **Manual cross-check:** use the bin dump + provenance popovers to confirm the exact series key and formula used for the displayed value.
+
+### Series Semantics Metadata
+
+When `/state` or `/state_window` provides `seriesMetadata`, the tooltip must include the aggregation semantics (for example, `Aggregation: avg` or `Aggregation: p95`) so telemetry-driven percentiles are explicit.
 
 ## Latency Semantics
 
 Latency is frequently misunderstood, so the UI must clarify:
 
-- **Queue latency (minutes):** derived from backlog depth and throughput; indicates waiting time in queue.
-- **Service time (ms):** per-unit processing time derived from `processingTimeMsSum / servedCount`.
-- **Total time in system (minutes):** `queue latency + service time` (converted to minutes).
-- **Flow latency (ms):** end-to-end time across multiple nodes (when present).
+- **Queue latency (minutes):** sourced from `latencyMinutes` when available. When derived by the engine it is a per-bin average wait time.
+- **Service time (ms):** derived from `processingTimeMsSum / servedCount` (per-bin average).
+- **Flow latency (ms):** sourced from `flowLatencyMs` when available; when derived it is a per-bin average end-to-end latency.
+- **Service latency (minutes):** for `kind=service`, `latencyMinutes` is telemetry- or template-defined (not engine-derived) when present.
+- **Total time in system:** not shown as a standalone metric; provenance clarifies queue vs service time.
 
 The provenance view must explicitly show these relationships for queue-like nodes.
+
+If telemetry provides percentiles (p95/p99), the series name and meaning text must reflect the percentile (for example, `flowLatencyP95Ms` with meaning "P95 flow latency"), rather than overloading the generic latency description.
 
 ## Bin Dump Provenance
 
 The bin dump is extended to include:
 
 - **Value snapshot** for the selected bin.
-- **Provenance block** containing formulas, inputs, and gating rules.
-- **Units** for all values.
+- **Provenance bundle** with the node-kind catalog slice used for evaluation.
+- **Available series** and **missing inputs** for each metric definition.
 
 ### UX Mode
 
 - Default: download JSON file.
-- ALT/CTRL: open a new browser tab with a readable JSON view.
+- ALT/CTRL/META: open a new browser tab with the JSON payload.
 
 ## Non-Goals
 
 - No new metrics or alternative models.
 - No auto-anomaly detection or alerting.
 - No graph layout changes (see follow-up milestone for focus view).
-

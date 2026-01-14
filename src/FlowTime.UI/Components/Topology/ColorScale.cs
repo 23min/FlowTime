@@ -9,6 +9,7 @@ internal static class ColorScale
     public const string ErrorColor = "#D55E00";     // Okabe-Ito vermillion
     public const string NeutralColor = "#E2E8F0";   // Leaf neutral fill
     public const string FocusStrokeColor = "#262626";
+    public const string ArrivalsColor = "#0284C7";  // Sky blue
 
     private const double DefaultSlaWarningWindow = 0.15;
     private const double DefaultUtilizationCriticalOffset = 0.05;
@@ -37,6 +38,7 @@ internal static class ColorScale
             TopologyColorBasis.Queue => EvaluateQueue(metrics.QueueDepth),
             TopologyColorBasis.FlowLatency => EvaluateFlowLatency(metrics.FlowLatencyMs, thresholds),
             TopologyColorBasis.ServiceTime => EvaluateServiceTime(metrics.ServiceTimeMs, thresholds),
+            TopologyColorBasis.Arrivals => EvaluateArrivals(metrics.CustomValue),
             _ => EvaluateSla(metrics.SuccessRate, metrics.Utilization, metrics.ErrorRate, thresholds)
         };
     }
@@ -185,6 +187,16 @@ internal static class ColorScale
         }
 
         return SuccessColor;
+    }
+
+    private static string EvaluateArrivals(double? arrivals)
+    {
+        if (!arrivals.HasValue)
+        {
+            return NeutralColor;
+        }
+
+        return ArrivalsColor;
     }
 
     internal readonly struct ColorThresholds

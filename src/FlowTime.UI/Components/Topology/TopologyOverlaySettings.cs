@@ -7,7 +7,8 @@ public enum TopologyColorBasis
     Errors,
     Queue,
     ServiceTime,
-    FlowLatency
+    FlowLatency,
+    Arrivals
 }
 
 public enum SparklineRenderMode

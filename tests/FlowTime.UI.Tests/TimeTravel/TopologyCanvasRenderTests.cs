@@ -482,6 +482,56 @@ public sealed class TopologyCanvasRenderTests : TestContext
     }
 
     [Fact]
+    public void FocusLabelClearsWhenSelectedBasisHasNoData()
+    {
+        var graph = CreateGraph();
+        var initialMetrics = CreateMetrics();
+        var metricsWithoutQueue = new Dictionary<string, NodeBinMetrics>(initialMetrics, StringComparer.OrdinalIgnoreCase)
+        {
+            ["processor"] = new NodeBinMetrics(0.88, 0.80, 0.02, null, null, DateTimeOffset.UtcNow, ServiceTimeMs: 260, NodeKind: "service")
+        };
+
+        var overlays = TopologyOverlaySettings.Default.Clone();
+        overlays.ColorBasis = TopologyColorBasis.Utilization;
+
+        var sparklines = new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["processor"] = CreateSparklineWithSlices(
+                new double?[] { 0.90, 0.91, 0.92 },
+                new double?[] { 0.75, 0.81, 0.82 },
+                startIndex: 0)
+        };
+
+        JSInterop.SetupVoid("FlowTime.TopologyCanvas.renderScene", _ => true).SetVoidResult();
+        var overlayCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.applyOverlayDelta", _ => true);
+        overlayCall.SetVoidResult();
+
+        const int activeBin = 2;
+
+        var cut = RenderComponent<TopologyCanvas>(parameters => parameters
+            .Add(p => p.Graph, graph)
+            .Add(p => p.NodeMetrics, initialMetrics)
+            .Add(p => p.NodeSparklines, sparklines)
+            .Add(p => p.OverlaySettings, overlays)
+            .Add(p => p.ActiveBin, activeBin));
+
+        var initialPayload = Assert.IsType<CanvasOverlayPayload>(overlayCall.Invocations.Last().Arguments[1]);
+        var initialProcessor = Assert.Single(initialPayload.Nodes, node => (node.Id ?? string.Empty) == "processor");
+        Assert.Equal("82%", initialProcessor.FocusLabel);
+
+        var updatedOverlays = overlays.Clone();
+        updatedOverlays.ColorBasis = TopologyColorBasis.Queue;
+
+        cut.SetParametersAndRender(parameters => parameters
+            .Add(p => p.NodeMetrics, metricsWithoutQueue)
+            .Add(p => p.OverlaySettings, updatedOverlays));
+
+        var updatedPayload = Assert.IsType<CanvasOverlayPayload>(overlayCall.Invocations.Last().Arguments[1]);
+        var updatedProcessor = Assert.Single(updatedPayload.Nodes, node => (node.Id ?? string.Empty) == "processor");
+        Assert.Equal(string.Empty, updatedProcessor.FocusLabel);
+    }
+
+    [Fact]
     public void FocusLabelForSlaUsesSuccessRateAndClampsToOne()
     {
         var graph = CreateGraph();

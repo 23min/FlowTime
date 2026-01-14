@@ -217,6 +217,13 @@
                                                         Class="timeline-focus-set"
                                                         Ripple="false">
                                                 <MudChip T="TopologyColorBasis"
+                                                         Value="TopologyColorBasis.Arrivals"
+                                                         Variant="Variant.Outlined"
+                                                         Size="Size.Small"
+                                                         Class="timeline-focus-chip">
+                                                    Arrivals
+                                                </MudChip>
+                                                <MudChip T="TopologyColorBasis"
                                                          Value="TopologyColorBasis.Sla"
                                                          Variant="Variant.Outlined"
                                                          Size="Size.Small"
@@ -371,7 +378,7 @@
                                             EdgeSeriesStartIndex="@(windowData?.Window.StartBin ?? 0)"
                                             NodeWarnings="nodeWarningsForCanvas"
                                             OverlaySettings="overlaySettings"
-                                            ActiveBin="selectedBin"
+                                            ActiveBin="renderBin"
                                             Title="@GetTemplateTitle()"
                                             DimmedNodes="classFilteredNodes"
                                             SettingsRequested="OpenFeatureBar"
@@ -444,10 +451,35 @@
                                             <div class="node-inspector-bin-list">
                                                 @foreach (var row in binMetrics)
                                                 {
-                                                    <div class="node-inspector-bin-row">
-                                                        <span class="node-inspector-bin-label">@row.Label</span>
-                                                        <span class="node-inspector-bin-value">@row.Value</span>
-                                                    </div>
+                                                    if (row.Provenance is not null)
+                                                    {
+                                                        <div class="inspector-provenance-hover">
+                                                            <div class="node-inspector-bin-row">
+                                                                <span class="node-inspector-bin-label">@row.Label</span>
+                                                                <span class="node-inspector-bin-value">@row.Value</span>
+                                                            </div>
+                                                            <div class="inspector-provenance-flyout">
+                                                                <div class="inspector-provenance-tooltip">
+                                                                    <div class="inspector-provenance-tooltip__entries">
+                                                                        @foreach (var entry in BuildProvenanceTooltipEntries(row.Provenance))
+                                                                        {
+                                                                            <div class="inspector-provenance-tooltip__entry">
+                                                                                <span class="inspector-provenance-tooltip__label">@entry.Label</span>
+                                                                                <span class="inspector-provenance-tooltip__value">@entry.Value</span>
+                                                                            </div>
+                                                                        }
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    }
+                                                    else
+                                                    {
+                                                        <div class="node-inspector-bin-row">
+                                                            <span class="node-inspector-bin-label">@row.Label</span>
+                                                            <span class="node-inspector-bin-value">@row.Value</span>
+                                                        </div>
+                                                    }
                                                 }
                                             </div>
                                         </div>
@@ -546,7 +578,29 @@
                                         <MudStack Spacing="1">
                                             @if (inspectorMetricsExpanded)
                                             {
-                                                <MudText Typo="Typo.subtitle2">@block.Title</MudText>
+                                                if (block.Provenance is not null)
+                                                {
+                                                    <div class="inspector-provenance-hover">
+                                                        <MudText Typo="Typo.subtitle2">@block.Title</MudText>
+                                                        <div class="inspector-provenance-flyout">
+                                                            <div class="inspector-provenance-tooltip">
+                                                                <div class="inspector-provenance-tooltip__entries">
+                                                                    @foreach (var entry in BuildProvenanceTooltipEntries(block.Provenance))
+                                                                    {
+                                                                        <div class="inspector-provenance-tooltip__entry">
+                                                                            <span class="inspector-provenance-tooltip__label">@entry.Label</span>
+                                                                            <span class="inspector-provenance-tooltip__value">@entry.Value</span>
+                                                                        </div>
+                                                                    }
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                }
+                                                else
+                                                {
+                                                    <MudText Typo="Typo.subtitle2">@block.Title</MudText>
+                                                }
                                             }
                                             @if (block.Sparkline is not null)
                                             {
@@ -572,8 +626,31 @@
                                                     <MudStack Spacing="0" Class="topology-horizon-wrapper">
                                                         @if (!inspectorMetricsExpanded)
                                                         {
-                                                            <MudText Typo="Typo.caption"
-                                                                     Class="topology-muted-text topology-horizon-label">@block.Title</MudText>
+                                                            if (block.Provenance is not null)
+                                                            {
+                                                                <div class="inspector-provenance-hover">
+                                                                    <MudText Typo="Typo.caption"
+                                                                             Class="topology-muted-text topology-horizon-label">@block.Title</MudText>
+                                                                    <div class="inspector-provenance-flyout">
+                                                                        <div class="inspector-provenance-tooltip">
+                                                                            <div class="inspector-provenance-tooltip__entries">
+                                                                                @foreach (var entry in BuildProvenanceTooltipEntries(block.Provenance))
+                                                                                {
+                                                                                    <div class="inspector-provenance-tooltip__entry">
+                                                                                        <span class="inspector-provenance-tooltip__label">@entry.Label</span>
+                                                                                        <span class="inspector-provenance-tooltip__value">@entry.Value</span>
+                                                                                    </div>
+                                                                                }
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            }
+                                                            else
+                                                            {
+                                                                <MudText Typo="Typo.caption"
+                                                                         Class="topology-muted-text topology-horizon-label">@block.Title</MudText>
+                                                            }
                                                         }
                                                         <TopologyHorizonChart Data="@hData"
                                                                               Min="@horizonMin"
@@ -594,8 +671,31 @@
                                                     <MudStack Spacing="0" Class="topology-horizon-wrapper">
                                                         @if (!inspectorMetricsExpanded)
                                                         {
-                                                            <MudText Typo="Typo.caption"
-                                                                     Class="topology-muted-text topology-horizon-label">@block.Title</MudText>
+                                                            if (block.Provenance is not null)
+                                                            {
+                                                                <div class="inspector-provenance-hover">
+                                                                    <MudText Typo="Typo.caption"
+                                                                             Class="topology-muted-text topology-horizon-label">@block.Title</MudText>
+                                                                    <div class="inspector-provenance-flyout">
+                                                                        <div class="inspector-provenance-tooltip">
+                                                                            <div class="inspector-provenance-tooltip__entries">
+                                                                                @foreach (var entry in BuildProvenanceTooltipEntries(block.Provenance))
+                                                                                {
+                                                                                    <div class="inspector-provenance-tooltip__entry">
+                                                                                        <span class="inspector-provenance-tooltip__label">@entry.Label</span>
+                                                                                        <span class="inspector-provenance-tooltip__value">@entry.Value</span>
+                                                                                    </div>
+                                                                                }
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            }
+                                                            else
+                                                            {
+                                                                <MudText Typo="Typo.caption"
+                                                                         Class="topology-muted-text topology-horizon-label">@block.Title</MudText>
+                                                            }
                                                         }
                                                         <div class="topology-horizon-empty"
                                                              role="img"
@@ -716,6 +816,7 @@ private bool inspectorMetricsExpanded;
     private IReadOnlyList<DateTimeOffset> timestamps = Array.Empty<DateTimeOffset>();
 
     private int selectedBin;
+    private int renderBin;
     private int visibleStartBin;
     private int visibleEndBin;
     private int? restoredSelectedBin;
@@ -788,6 +889,10 @@ internal sealed record DispatchScheduleEntry(string NodeId, string Summary, stri
                 new LegendEntry("success", "Queue low"),
                 new LegendEntry("warning", "Queue medium"),
                 new LegendEntry("error", "Queue high")
+            },
+            TopologyColorBasis.Arrivals => new[]
+            {
+                new LegendEntry("arrivals", "Arrivals (volume)")
             },
             TopologyColorBasis.ServiceTime => new[]
             {
@@ -3081,6 +3186,7 @@ private const string PmfExpectationLabel = "Value";
         {
             selectedBin = result.SelectedBin;
         }
+        renderBin = result.SelectedBin;
 
         if (!string.Equals(selectedBinLabel, result.SelectedBinLabel, StringComparison.Ordinal))
         {
@@ -3153,7 +3259,43 @@ private const string PmfExpectationLabel = "Value";
     {
         return value.HasValue
             ? (value.Value * 100).ToString("0", CultureInfo.InvariantCulture) + "%"
-            : "—";
+            : "-";
+    }
+
+    private static string BuildProvenanceTooltip(MetricProvenanceEvaluation provenance)
+    {
+        var entries = BuildProvenanceTooltipEntries(provenance);
+        return string.Join("\n", entries.Select(entry => $"{entry.Label}: {entry.Value}"));
+    }
+
+    private sealed record ProvenanceTooltipEntry(string Label, string Value);
+
+    private static IReadOnlyList<ProvenanceTooltipEntry> BuildProvenanceTooltipEntries(MetricProvenanceEvaluation provenance)
+    {
+        var formula = provenance.SelectedFormula?.Formula ?? "unavailable";
+        var inputs = provenance.SelectedFormula?.Inputs ?? Array.Empty<string>();
+        var gatingRules = provenance.Definition.GatingRules;
+        var missing = provenance.MissingInputs;
+
+        var entries = new List<ProvenanceTooltipEntry>
+        {
+            new("Meaning", string.IsNullOrWhiteSpace(provenance.Definition.Meaning) ? "unavailable" : provenance.Definition.Meaning),
+            new("Formula", formula),
+            new("Inputs", inputs.Count > 0 ? string.Join(", ", inputs) : "none"),
+            new("Units", provenance.Definition.Unit)
+        };
+
+        if (gatingRules.Count > 0)
+        {
+            entries.Add(new ProvenanceTooltipEntry("Gating", string.Join(" ", gatingRules)));
+        }
+
+        if (missing.Count > 0)
+        {
+            entries.Add(new ProvenanceTooltipEntry("Missing", string.Join(", ", missing)));
+        }
+
+        return entries;
     }
 
     private static string FormatNumber(double? value)
@@ -3634,7 +3776,8 @@ internal sealed record InspectorMetricBlock(
     string? Placeholder,
     string? AriaLabel,
     InspectorValueFormat ValueFormat,
-    string? SeriesKey)
+    string? SeriesKey,
+    MetricProvenanceEvaluation? Provenance)
     {
         public static InspectorMetricBlock FromSparkline(
             string title,
@@ -3642,14 +3785,25 @@ internal sealed record InspectorMetricBlock(
             string stroke,
             string? ariaLabel = null,
             InspectorValueFormat valueFormat = InspectorValueFormat.Number,
-            string? seriesKey = null) =>
-            new(title, data, stroke, false, null, ariaLabel, valueFormat, seriesKey);
+            string? seriesKey = null,
+            MetricProvenanceEvaluation? provenance = null) =>
+            new(title, data, stroke, false, null, ariaLabel, valueFormat, seriesKey, provenance);
 
-        public static InspectorMetricBlock CreatePlaceholder(string title, string message, InspectorValueFormat valueFormat = InspectorValueFormat.Number, string? seriesKey = null) =>
-            new(title, null, "#CBD5E1", true, message, null, valueFormat, seriesKey);
+        public static InspectorMetricBlock CreatePlaceholder(
+            string title,
+            string message,
+            InspectorValueFormat valueFormat = InspectorValueFormat.Number,
+            string? seriesKey = null,
+            MetricProvenanceEvaluation? provenance = null) =>
+            new(title, null, "#CBD5E1", true, message, null, valueFormat, seriesKey, provenance);
     }
 
-    internal sealed record InspectorBinMetric(string Label, string Value);
+    internal sealed record InspectorBinMetric(string Label, string Value, MetricProvenanceEvaluation? Provenance);
+
+    internal sealed record MetricProvenanceBundle(
+        string? NodeKind,
+        IReadOnlyCollection<string> AvailableSeries,
+        IReadOnlyDictionary<string, MetricProvenanceEvaluation> Metrics);
 
     internal sealed record BinDebugDump(
         string? RunId,
@@ -3667,6 +3821,7 @@ internal sealed record InspectorMetricBlock(
         IReadOnlyDictionary<string, double?> UnfilteredSeries,
         IReadOnlyDictionary<string, double?> DerivedMetrics,
         IReadOnlyDictionary<string, double?> SlaValues,
+        MetricProvenanceBundle? Provenance,
         string? QueueLatencyStatusCode,
         string? QueueLatencyStatusMessage);
 
@@ -3684,12 +3839,27 @@ internal sealed record InspectorMetricBlock(
         var kindKey = string.IsNullOrWhiteSpace(nodeKind)
             ? (string.IsNullOrWhiteSpace(logicalKind) ? "unknown" : logicalKind!)
             : nodeKind!;
+        var nodeSeries = windowData?.Nodes.FirstOrDefault(node => string.Equals(node.Id, nodeId, StringComparison.OrdinalIgnoreCase));
+        var availableSeries = BuildProvenanceSeriesKeys(nodeSeries);
+        var provenanceCatalog = MetricProvenanceCatalog.GetForNodeKind(kindKey);
         var successLabel = ResolveSuccessRateLabel(nodeId);
 
         var blocks = new List<InspectorMetricBlock>();
 
         string Label(string fallback, params string[] keys) =>
             ResolveMetricLabel(topoNode, fallback, keys);
+
+        MetricProvenanceEvaluation? ResolveProvenance(string? seriesKey)
+        {
+            if (string.IsNullOrWhiteSpace(seriesKey))
+            {
+                return null;
+            }
+
+            return provenanceCatalog.TryGetValue(seriesKey, out var definition)
+                ? definition.Evaluate(availableSeries)
+                : null;
+        }
 
         InspectorMetricBlock CreatePlaceholder(string title, InspectorValueFormat valueFormat = InspectorValueFormat.Number, string? seriesKey = null)
         {
@@ -3698,7 +3868,7 @@ internal sealed record InspectorMetricBlock(
                 Logger.LogWarning("Model does not include required series data for {NodeKind} inspector metrics (missing {Metric}).", kindKey, title);
             }
 
-            return InspectorMetricBlock.CreatePlaceholder(title, InspectorMissingSeriesMessage, valueFormat, seriesKey);
+            return InspectorMetricBlock.CreatePlaceholder(title, InspectorMissingSeriesMessage, valueFormat, seriesKey, ResolveProvenance(seriesKey));
         }
 
         InspectorMetricBlock CreateSparkline(
@@ -3714,7 +3884,8 @@ internal sealed record InspectorMetricBlock(
                 strokeOverride ?? ResolveInspectorSparklineStroke(data, seriesKey),
                 ariaLabel ?? $"{title} sparkline",
                 valueFormat,
-                seriesKey);
+                seriesKey,
+                ResolveProvenance(seriesKey));
 
         void AddRequired(
             string title,
@@ -3777,7 +3948,12 @@ internal sealed record InspectorMetricBlock(
                 var probabilitySparkline = BuildPmfSparkline(topoNode, baseSparkline);
                 if (probabilitySparkline is not null)
                 {
-                    blocks.Add(InspectorMetricBlock.FromSparkline("Probability", probabilitySparkline, "#94A3B8", seriesKey: "probability"));
+                    blocks.Add(InspectorMetricBlock.FromSparkline(
+                        "Probability",
+                        probabilitySparkline,
+                        "#94A3B8",
+                        seriesKey: "probability",
+                        provenance: ResolveProvenance("probability")));
                 }
                 else
                 {
@@ -3785,7 +3961,9 @@ internal sealed record InspectorMetricBlock(
                 }
 
                 var valueSparkline = baseSparkline is not null ? BuildInspectorSparkline(baseSparkline, "values") : null;
-                blocks.Add(valueSparkline is not null ? CreateSparkline("Values", valueSparkline, strokeOverride: "#94A3B8", seriesKey: "values") : CreatePlaceholder("Values", seriesKey: "values"));
+                blocks.Add(valueSparkline is not null
+                    ? CreateSparkline("Values", valueSparkline, strokeOverride: "#94A3B8", seriesKey: "values")
+                    : CreatePlaceholder("Values", seriesKey: "values"));
 
                 return blocks;
             }
@@ -3807,6 +3985,7 @@ internal sealed record InspectorMetricBlock(
 
         var isQueueKind = IsQueueKind(nodeKind);
         var isServiceWithBuffer = IsServiceWithBufferKind(nodeKind) || IsServiceWithBufferKind(logicalKind);
+        var isRouterKind = IsRouterKind(nodeKind) || IsRouterKind(logicalKind);
         var isSinkNode = IsSinkRole(topoNode?.NodeRole);
         var servedAlreadyAdded = false;
 
@@ -3844,6 +4023,11 @@ internal sealed record InspectorMetricBlock(
         if (wantsRetryMetrics && (hasAttemptsSeries || !string.IsNullOrWhiteSpace(topoNode?.Semantics?.Attempts)))
         {
             AddRequired(Label("Attempts", "attempts"), "attempts", 0d, seriesKeyOverride: "attempts");
+        }
+
+        if (isRouterKind)
+        {
+            AddRequired(Label("Arrivals", "arrivals"), "arrivals", 0d, seriesKeyOverride: "arrivals");
         }
 
         if (hasServedSeries && !servedAlreadyAdded)
@@ -3900,9 +4084,51 @@ internal sealed record InspectorMetricBlock(
         return blocks;
     }
 
-    private async Task DumpInspectorBinAsync(string? nodeId)
+    private static IReadOnlyCollection<string> BuildProvenanceSeriesKeys(TimeTravelNodeSeriesDto? node)
     {
-        var targetNodeId = nodeId ?? inspectorNodeId ?? lastInspectorNodeId;
+        if (node is null)
+        {
+            return Array.Empty<string>();
+        }
+
+        var keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (node.Series is not null)
+        {
+            foreach (var key in node.Series.Keys)
+            {
+                keys.Add(key);
+            }
+        }
+
+        if (node.ByClass is not null)
+        {
+            foreach (var classSeries in node.ByClass.Values)
+            {
+                foreach (var key in classSeries.Keys)
+                {
+                    keys.Add(key);
+                }
+            }
+        }
+
+        if (node.Sla is not null)
+        {
+            foreach (var sla in node.Sla)
+            {
+                if (!string.IsNullOrWhiteSpace(sla.Kind))
+                {
+                    keys.Add($"sla:{sla.Kind}");
+                }
+            }
+        }
+
+        return keys.ToArray();
+    }
+
+
+    private async Task DumpInspectorBinAsync(BinDumpRequest request)
+    {
+        var targetNodeId = request.NodeId ?? inspectorNodeId ?? lastInspectorNodeId;
         var dump = BuildInspectorBinDump(targetNodeId);
         if (dump is null)
         {
@@ -3912,7 +4138,14 @@ internal sealed record InspectorMetricBlock(
         var json = JsonSerializer.Serialize(dump, new JsonSerializerOptions { WriteIndented = true });
         var nodeLabel = string.IsNullOrWhiteSpace(dump.NodeId) ? "node" : dump.NodeId;
         var fileName = $"bin_dump_{nodeLabel}_{dump.SelectedBin}.json";
-        await JS.InvokeVoidAsync("FlowTime.downloadText", fileName, json, "application/json");
+        if (request.OpenInNewTab)
+        {
+            await JS.InvokeVoidAsync("FlowTime.openTextInNewTab", fileName, json, "application/json");
+        }
+        else
+        {
+            await JS.InvokeVoidAsync("FlowTime.downloadText", fileName, json, "application/json");
+        }
     }
 
 
@@ -3948,6 +4181,7 @@ internal sealed record InspectorMetricBlock(
         var queueLatencyStatus = ResolveQueueLatencyStatus(node, localIndex);
         var topoNode = FindTopologyNode(nodeId);
         var dispatchSchedule = topoNode?.DispatchSchedule ?? ToGraphDispatchSchedule(node.DispatchSchedule);
+        var provenance = BuildMetricProvenanceBundle(node, topoNode);
 
         return new BinDebugDump(
             RunId: currentRunId,
@@ -3965,8 +4199,33 @@ internal sealed record InspectorMetricBlock(
             UnfilteredSeries: unfilteredSeries,
             DerivedMetrics: derived,
             SlaValues: sla,
+            Provenance: provenance,
             QueueLatencyStatusCode: queueLatencyStatus?.Code,
             QueueLatencyStatusMessage: queueLatencyStatus?.Message);
+    }
+
+    private static MetricProvenanceBundle? BuildMetricProvenanceBundle(TimeTravelNodeSeriesDto node, TopologyNode? topoNode)
+    {
+        var nodeKind = topoNode?.Kind ?? node.Kind ?? node.LogicalType;
+        var availableSeries = BuildProvenanceSeriesKeys(node);
+        if (string.IsNullOrWhiteSpace(nodeKind))
+        {
+            return null;
+        }
+
+        var catalog = MetricProvenanceCatalog.GetForNodeKind(nodeKind);
+        if (catalog.Count == 0)
+        {
+            return new MetricProvenanceBundle(nodeKind, availableSeries, new Dictionary<string, MetricProvenanceEvaluation>());
+        }
+
+        var evaluations = new Dictionary<string, MetricProvenanceEvaluation>(StringComparer.OrdinalIgnoreCase);
+        foreach (var entry in catalog)
+        {
+            evaluations[entry.Key] = entry.Value.Evaluate(availableSeries);
+        }
+
+        return new MetricProvenanceBundle(nodeKind, availableSeries, evaluations);
     }
 
     private IReadOnlyDictionary<string, double?> BuildSeriesSnapshot(
@@ -4036,20 +4295,43 @@ internal sealed record InspectorMetricBlock(
         var rows = new List<InspectorBinMetric>();
         var localIndex = windowData is null ? -1 : selectedBin - windowData.Window.StartBin;
         var timestampLabel = windowData is null ? string.Empty : FormatTimestampSnapshot(windowData.TimestampsUtc, localIndex);
+        var seriesNode = windowData?.Nodes.FirstOrDefault(n => string.Equals(n.Id, nodeId, StringComparison.OrdinalIgnoreCase));
+        var topoNode = FindTopologyNode(nodeId);
+        var nodeKind = topoNode?.Kind ?? seriesNode?.Kind ?? seriesNode?.LogicalType;
+        var availableSeries = BuildProvenanceSeriesKeys(seriesNode);
+        var provenanceCatalog = MetricProvenanceCatalog.GetForNodeKind(nodeKind ?? string.Empty);
+
+        MetricProvenanceEvaluation? ResolveBinProvenance(string? metricKey)
+        {
+            if (string.IsNullOrWhiteSpace(metricKey))
+            {
+                return null;
+            }
+
+            return provenanceCatalog.TryGetValue(metricKey, out var definition)
+                ? definition.Evaluate(availableSeries)
+                : null;
+        }
+
+        InspectorBinMetric CreateRow(string label, string value, string? metricKey = null)
+        {
+            return new InspectorBinMetric(label, value, ResolveBinProvenance(metricKey));
+        }
+
         if (!string.IsNullOrWhiteSpace(timestampLabel))
         {
-            rows.Add(new InspectorBinMetric("Timestamp", timestampLabel));
+            rows.Add(CreateRow("Timestamp", timestampLabel));
         }
-        rows.Add(new InspectorBinMetric("bin", selectedBin.ToString(CultureInfo.InvariantCulture)));
+        rows.Add(CreateRow("bin", selectedBin.ToString(CultureInfo.InvariantCulture)));
         if (metrics is not null &&
             string.Equals(metrics.CustomLabel, BinValueLabel, StringComparison.OrdinalIgnoreCase) &&
             metrics.CustomValue.HasValue)
         {
-            rows.Add(new InspectorBinMetric(BinValueLabel, FormatBinValue(metrics.CustomValue, InspectorValueFormat.Number)));
+            rows.Add(CreateRow(BinValueLabel, FormatBinValue(metrics.CustomValue, InspectorValueFormat.Number)));
         }
         else
         {
-            rows.Add(new InspectorBinMetric(BinValueLabel, "-"));
+            rows.Add(CreateRow(BinValueLabel, "-"));
         }
         if (metrics is not null &&
             !string.IsNullOrWhiteSpace(metrics.CustomLabel) &&
@@ -4057,21 +4339,22 @@ internal sealed record InspectorMetricBlock(
         {
             if (metrics.CustomValue.HasValue)
             {
-                rows.Add(new InspectorBinMetric(metrics.CustomLabel!, FormatBinValue(metrics.CustomValue, InspectorValueFormat.Number)));
+                rows.Add(CreateRow(metrics.CustomLabel!, FormatBinValue(metrics.CustomValue, InspectorValueFormat.Number)));
             }
             else if (string.Equals(metrics.CustomLabel, MissingSeriesMessage, StringComparison.Ordinal))
             {
-                rows.Add(new InspectorBinMetric("Value", metrics.CustomLabel));
+                rows.Add(CreateRow("Value", metrics.CustomLabel));
             }
         }
-        var topoNode = FindTopologyNode(nodeId);
         var raw = metrics?.RawMetrics;
-        var seriesNode = windowData?.Nodes.FirstOrDefault(n => string.Equals(n.Id, nodeId, StringComparison.OrdinalIgnoreCase));
         var successLabel = ResolveSuccessRateLabel(nodeId);
         var isSink = IsSinkKind(metrics?.NodeKind)
             || IsSinkKind(seriesNode?.Kind)
             || IsSinkKind(seriesNode?.LogicalType)
             || IsSinkRole(topoNode?.NodeRole);
+        var isRouter = IsRouterKind(metrics?.NodeKind)
+            || IsRouterKind(seriesNode?.Kind)
+            || IsRouterKind(seriesNode?.LogicalType);
         var dispatchSchedule = topoNode?.DispatchSchedule ?? ToGraphDispatchSchedule(seriesNode?.DispatchSchedule);
         var scheduleEntry = dispatchScheduleEntries.FirstOrDefault(entry => string.Equals(entry.NodeId, nodeId, StringComparison.OrdinalIgnoreCase));
         var hasSchedule = dispatchSchedule is not null
@@ -4108,10 +4391,10 @@ internal sealed record InspectorMetricBlock(
                 return;
             }
 
-            rows.Add(new InspectorBinMetric(Label(fallback, key), FormatBinValue(value, format, unit)));
+            rows.Add(CreateRow(Label(fallback, key), FormatBinValue(value, format, unit), key));
         }
 
-        void AddDerived(string fallback, double? value, InspectorValueFormat format = InspectorValueFormat.Number, string? unit = null, bool gate = true, params string[] aliasKeys)
+        void AddDerived(string fallback, double? value, InspectorValueFormat format = InspectorValueFormat.Number, string? unit = null, bool gate = true, bool alwaysShow = false, string? metricKey = null, params string[] aliasKeys)
         {
             if (!gate)
             {
@@ -4120,10 +4403,15 @@ internal sealed record InspectorMetricBlock(
 
             if (!value.HasValue)
             {
+                if (alwaysShow)
+                {
+                    rows.Add(CreateRow(Label(fallback, aliasKeys), "-", metricKey));
+                }
+
                 return;
             }
 
-            rows.Add(new InspectorBinMetric(Label(fallback, aliasKeys), FormatBinValue(value, format, unit)));
+            rows.Add(CreateRow(Label(fallback, aliasKeys), FormatBinValue(value, format, unit), metricKey));
         }
 
         void AddSlaMetric(
@@ -4147,20 +4435,20 @@ internal sealed record InspectorMetricBlock(
 
             if (value.HasValue)
             {
-                rows.Add(new InspectorBinMetric(label, FormatBinValue(value, format, unit)));
+                rows.Add(CreateRow(label, FormatBinValue(value, format, unit), kind));
                 return;
             }
 
             var statusLabel = FormatSlaStatus(slaSeries?.Status);
             if (!string.IsNullOrWhiteSpace(statusLabel))
             {
-                rows.Add(new InspectorBinMetric(label, statusLabel!));
+                rows.Add(CreateRow(label, statusLabel!, kind));
                 return;
             }
 
             if (alwaysShow)
             {
-                rows.Add(new InspectorBinMetric(label, "-"));
+                rows.Add(CreateRow(label, "-", kind));
             }
         }
 
@@ -4168,13 +4456,19 @@ internal sealed record InspectorMetricBlock(
         {
             if (isSink && hasSchedule)
             {
-                rows.Add(new InspectorBinMetric(
+                rows.Add(CreateRow(
                     "Arrival schedule",
-                    dispatchSchedule is null ? scheduleEntry?.Summary ?? "-" : FormatDispatchSummary(dispatchSchedule)));
-                rows.Add(new InspectorBinMetric(
+                    dispatchSchedule is null ? scheduleEntry?.Summary ?? "-" : FormatDispatchSummary(dispatchSchedule),
+                    "arrivalSchedule"));
+                rows.Add(CreateRow(
                     "Schedule capacity",
-                    dispatchSchedule is null ? scheduleEntry?.CapacityLabel ?? "-" : FormatDispatchCapacity(dispatchSchedule)));
+                    dispatchSchedule is null ? scheduleEntry?.CapacityLabel ?? "-" : FormatDispatchCapacity(dispatchSchedule),
+                    "scheduleCapacity"));
                 AddSlaMetric(successLabel, "scheduleAdherence", InspectorValueFormat.Percent, alwaysShow: true);
+            }
+            else if (!isSink && (IsQueueKind(nodeKind) || IsServiceWithBufferKind(nodeKind)))
+            {
+                rows.Add(CreateRow("Queue latency", "-", "latencyMinutes"));
             }
 
             return rows;
@@ -4195,42 +4489,41 @@ internal sealed record InspectorMetricBlock(
 
         if (isSink && hasSchedule)
         {
-            rows.Add(new InspectorBinMetric(
+            rows.Add(CreateRow(
                 "Arrival schedule",
-                dispatchSchedule is null ? scheduleEntry?.Summary ?? "-" : FormatDispatchSummary(dispatchSchedule)));
-            rows.Add(new InspectorBinMetric(
+                dispatchSchedule is null ? scheduleEntry?.Summary ?? "-" : FormatDispatchSummary(dispatchSchedule),
+                "arrivalSchedule"));
+            rows.Add(CreateRow(
                 "Schedule capacity",
-                dispatchSchedule is null ? scheduleEntry?.CapacityLabel ?? "-" : FormatDispatchCapacity(dispatchSchedule)));
+                dispatchSchedule is null ? scheduleEntry?.CapacityLabel ?? "-" : FormatDispatchCapacity(dispatchSchedule),
+                "scheduleCapacity"));
             AddSlaMetric(successLabel, "scheduleAdherence", InspectorValueFormat.Percent, fallbackValue: safeMetrics.SuccessRate, alwaysShow: true);
         }
         else
         {
             AddSlaMetric(successLabel, "completion", InspectorValueFormat.Percent, fallbackValue: safeMetrics.SuccessRate);
         }
-        if (!isSink)
+        if (!isSink && !isRouter)
         {
             AddSlaMetric("Backlog age SLA", "backlogAge", InspectorValueFormat.Number, unit: "min");
         }
-        if (!isSink)
+        if (!isSink && !isRouter)
         {
             AddSlaMetric("Schedule adherence", "scheduleAdherence", InspectorValueFormat.Percent);
         }
-        AddDerived("Utilization", safeMetrics.Utilization, InspectorValueFormat.Percent, gate: !isSink);
-        AddDerived("Error rate", safeMetrics.ErrorRate, InspectorValueFormat.Percent);
-        if (!isSink)
+        AddDerived("Utilization", safeMetrics.Utilization, InspectorValueFormat.Percent, gate: !isSink, metricKey: "utilization");
+        AddDerived("Error rate", safeMetrics.ErrorRate, InspectorValueFormat.Percent, metricKey: "errorRate");
+        if (!isSink && !isRouter && (IsQueueKind(safeMetrics.NodeKind) || IsServiceWithBufferKind(safeMetrics.NodeKind)))
         {
-            var latencyLabel = IsQueueKind(safeMetrics.NodeKind) || IsServiceWithBufferKind(safeMetrics.NodeKind)
-                ? "Queue latency"
-                : "Latency";
-            AddDerived(latencyLabel, safeMetrics.LatencyMinutes, InspectorValueFormat.Number, "min");
+            AddDerived("Queue latency", safeMetrics.LatencyMinutes, InspectorValueFormat.Number, "min", alwaysShow: true, metricKey: "latencyMinutes");
         }
-        AddDerived("Service time", safeMetrics.ServiceTimeMs, InspectorValueFormat.Number, "ms");
-        AddDerived("Flow latency", safeMetrics.FlowLatencyMs, InspectorValueFormat.Number, "ms");
-        AddDerived("Retry tax", safeMetrics.RetryTax, InspectorValueFormat.Percent, gate: !isSink);
+        AddDerived("Service time", safeMetrics.ServiceTimeMs, InspectorValueFormat.Number, "ms", gate: !isRouter, metricKey: "serviceTimeMs");
+        AddDerived("Flow latency", safeMetrics.FlowLatencyMs, InspectorValueFormat.Number, "ms", gate: !isRouter, metricKey: "flowLatencyMs");
+        AddDerived("Retry tax", safeMetrics.RetryTax, InspectorValueFormat.Percent, gate: !isSink, metricKey: "retryTax");
 
         if (!isSink && safeMetrics.QueueLatencyStatus is not null)
         {
-            rows.Add(new InspectorBinMetric("Latency status", FormatQueueLatencyStatusLabel(safeMetrics.QueueLatencyStatus!)));
+            rows.Add(CreateRow("Latency status", FormatQueueLatencyStatusLabel(safeMetrics.QueueLatencyStatus!), "queueLatencyStatus"));
         }
 
         return rows;
@@ -4478,6 +4771,10 @@ internal sealed record InspectorMetricBlock(
     private static bool IsServiceWithBufferKind(string? kind) =>
         !string.IsNullOrWhiteSpace(kind) &&
         string.Equals(kind, "serviceWithBuffer", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsRouterKind(string? kind) =>
+        !string.IsNullOrWhiteSpace(kind) &&
+        string.Equals(kind, "router", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsSinkKind(string? kind) =>
         !string.IsNullOrWhiteSpace(kind) &&
@@ -4790,6 +5087,7 @@ internal sealed record InspectorMetricBlock(
         return seriesKey.Trim().ToLowerInvariant() switch
         {
             "successrate" => TopologyColorBasis.Sla,
+            "arrivals" => TopologyColorBasis.Arrivals,
             "utilization" => TopologyColorBasis.Utilization,
             "errorrate" or "errors" => TopologyColorBasis.Errors,
             "queue" or "queuedepth" => TopologyColorBasis.Queue,
@@ -4808,6 +5106,7 @@ internal sealed record InspectorMetricBlock(
             TopologyColorBasis.Queue => new NodeBinMetrics(null, null, null, sample, null, null),
             TopologyColorBasis.ServiceTime => new NodeBinMetrics(null, null, null, null, null, null, ServiceTimeMs: sample),
             TopologyColorBasis.FlowLatency => new NodeBinMetrics(null, null, null, null, null, null, FlowLatencyMs: sample),
+            TopologyColorBasis.Arrivals => new NodeBinMetrics(null, null, null, null, null, null, CustomValue: sample),
             _ => new NodeBinMetrics(sample, null, null, null, null, null)
         };
     }
@@ -5766,6 +6065,7 @@ private static IReadOnlyList<double?> TrimSeriesAt(double?[]? source, int limit,
         classMetadata = EmptyClassMetadata;
         classCoverageState = null;
         selectedBin = 0;
+        renderBin = 0;
         visibleStartBin = 0;
         visibleEndBin = 0;
         selectedBinLabel = string.Empty;

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Globalization;
 using System.Linq;
+using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using FlowTime.UI.Configuration;
@@ -72,7 +73,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
     [Parameter] public EventCallback ViewportRequestConsumed { get; set; }
     [Parameter] public bool InspectorVisible { get; set; }
     [Parameter] public EventCallback<string?> EdgeHovered { get; set; }
-    [Parameter] public EventCallback<string?> DumpBinRequested { get; set; }
+    [Parameter] public EventCallback<BinDumpRequest> DumpBinRequested { get; set; }
     [Parameter] public IReadOnlyDictionary<string, IReadOnlyList<NodeWarningPayload>> NodeWarnings { get; set; } = new Dictionary<string, IReadOnlyList<NodeWarningPayload>>(StringComparer.OrdinalIgnoreCase);
     [Parameter] public IReadOnlyCollection<string>? DimmedNodes { get; set; }
     [Parameter] public bool DiagnosticsOverlayEnabled { get; set; }
@@ -799,6 +800,10 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             {
                 focusLabel = string.Empty;
             }
+            else if (focusLabel is null)
+            {
+                focusLabel = string.Empty;
+            }
 
             var metricsDto = new NodeMetricSnapshotDto(
                 displayMetrics.SuccessRate,
@@ -1229,6 +1234,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                 TopologyColorBasis.Queue => new NodeBinMetrics(null, null, null, sampled, null, null, NodeKind: node.LogicalType ?? node.Kind),
                 TopologyColorBasis.ServiceTime => new NodeBinMetrics(null, null, null, null, null, null, NodeKind: node.LogicalType ?? node.Kind, ServiceTimeMs: sampled),
                 TopologyColorBasis.FlowLatency => new NodeBinMetrics(null, null, null, null, null, null, NodeKind: node.LogicalType ?? node.Kind, FlowLatencyMs: sampled),
+                TopologyColorBasis.Arrivals => new NodeBinMetrics(null, null, null, null, null, null, CustomValue: sampled, NodeKind: node.LogicalType ?? node.Kind),
                 _ => new NodeBinMetrics(sampled, null, null, null, null, null, NodeKind: node.LogicalType ?? node.Kind)
             };
 
@@ -1354,6 +1360,9 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                 FromSeries("flowLatencyMs", "flow_latency_ms", "flowLatency"),
             TopologyColorBasis.Sla =>
                 FromSeries("successRate", "completion", "completionSla"),
+            TopologyColorBasis.Arrivals =>
+                FromSeries("arrivals", "demand") ??
+                FromPrimarySeries(sparkline.Values, sparkline.StartIndex),
             _ =>
                 FromSeries("successRate", "expectation", "values", "output") ??
                 FromPrimarySeries(sparkline.Values, sparkline.StartIndex)
@@ -1422,6 +1431,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                 TopologyColorBasis.Queue => new NodeBinMetrics(null, null, null, value, null, null),
                 TopologyColorBasis.ServiceTime => new NodeBinMetrics(null, null, null, null, null, null, ServiceTimeMs: value),
                 TopologyColorBasis.FlowLatency => new NodeBinMetrics(null, null, null, null, null, null, FlowLatencyMs: value),
+                TopologyColorBasis.Arrivals => new NodeBinMetrics(null, null, null, null, null, null, CustomValue: value),
                 _ => new NodeBinMetrics(value, null, null, null, null, null)
             };
 
@@ -1455,6 +1465,12 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                 TopologyColorBasis.ServiceTime => metrics.ServiceTimeMs,
                 _ => metrics.SuccessRate
             };
+        }
+
+        if (!sample.HasValue && basis == TopologyColorBasis.Arrivals && metrics.RawMetrics is not null &&
+            metrics.RawMetrics.TryGetValue("arrivals", out var arrivals))
+        {
+            sample = arrivals;
         }
 
         if (!sample.HasValue)
@@ -1822,14 +1838,18 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
     }
 
     [JSInvokable]
-    public Task OnDumpBinRequested(string? nodeId)
+    public Task OnDumpBinRequested(BinDumpRequest request)
     {
         if (!DumpBinRequested.HasDelegate)
         {
             return Task.CompletedTask;
         }
 
-        return DumpBinRequested.InvokeAsync(nodeId);
+        return DumpBinRequested.InvokeAsync(request);
     }
 
 }
+
+public sealed record BinDumpRequest(
+    [property: JsonPropertyName("nodeId")] string? NodeId,
+    [property: JsonPropertyName("openInNewTab")] bool OpenInNewTab);

@@ -2694,6 +2694,7 @@
 
         const canvasWidthDevice = Number.isFinite(state.canvasWidth) ? state.canvasWidth * ratio : ctx.canvas.width;
         const canvasHeightDevice = Number.isFinite(state.canvasHeight) ? state.canvasHeight * ratio : ctx.canvas.height;
+        const minMargin = toDevice(12);
 
         ctx.save();
         ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -2716,6 +2717,12 @@
         if (hasSparkline) {
             width = Math.max(width, sparklineWidth);
         }
+
+        const infoReserve = toDevice(InspectorIconSize + InspectorTooltipInset * 2);
+        width += infoReserve;
+        const minBoxWidth = toDevice(180);
+        const maxBoxWidth = Math.max(minBoxWidth, canvasWidthDevice - minMargin * 2);
+        width = Math.min(Math.max(width, minBoxWidth), maxBoxWidth);
 
         const textLineCount = 1 + (subtitle ? 1 : 0) + (hasWarningLine ? warningLines.length : 0) + lines.length;
         const boxWidth = Math.ceil(width + paddingX * 2);
@@ -2743,7 +2750,6 @@
         // Position tooltip at constant screen distance to the left of the node, vertically centered
         const nodeCenterScreenY = toDevice(offsetY + scale * nodeY);
         const gap = toDevice(8); // constant px gap from node edge
-        const minMargin = toDevice(12);
         let tooltipTop = Math.round(nodeCenterScreenY - (boxHeight / 2));
         tooltipTop = Math.max(minMargin, Math.min(canvasHeightDevice - boxHeight - minMargin, tooltipTop));
 
@@ -3839,6 +3845,8 @@
                 return '#1D4ED8';
             case 5: // Flow latency
                 return '#2563EB';
+            case 6: // Arrivals
+                return '#0284C7';
             default: // SLA / fallback
                 return '#0B7285';
         }
@@ -3864,6 +3872,13 @@
 
         const normalized = kind.trim().toLowerCase();
         return normalized === 'queue' || normalized === 'dlq';
+    }
+
+    function isRouterKind(kind, logicalType) {
+        if (typeof kind === 'string' && kind.trim().toLowerCase() === 'router') {
+            return true;
+        }
+        return typeof logicalType === 'string' && logicalType.trim().toLowerCase() === 'router';
     }
 
     function isDlqKind(kind) {
@@ -3916,6 +3931,8 @@
                 if (value >= thresholds.flowLatencyCriticalMs) return '#D55E00';
                 if (value >= thresholds.flowLatencyWarningMs) return '#E69F00';
                 return '#009E73';
+            case 6: // Arrivals
+                return '#0284C7';
             default: // SLA success
                 if (value >= thresholds.slaSuccess) return '#009E73';
                 if (value >= thresholds.slaWarning) return '#E69F00';
@@ -3944,6 +3961,8 @@
                 return sliceValue('serviceTimeMs') ?? sliceValue('serviceTime') ?? valueAtArray(sparkline.serviceTimeMs ?? sparkline.ServiceTimeMs, index);
             case 5:
                 return sliceValue('flowLatencyMs') ?? sliceValue('flowLatency') ?? valueAtArray(sparkline.flowLatencyMs ?? sparkline.FlowLatencyMs, index);
+            case 6:
+                return sliceValue('arrivals') ?? valueAtArray(sparkline.arrivals ?? sparkline.Arrivals ?? sparkline.values ?? sparkline.Values, index);
             default:
                 return sliceValue('successRate') ?? valueAtArray(sparkline.values ?? sparkline.Values, index);
         }
@@ -4216,6 +4235,7 @@
         const isServiceNode = nodeKind === 'service' || nodeLogicalType === 'servicewithbuffer';
         const isServiceWithBuffer = nodeLogicalType === 'servicewithbuffer';
         const isDlqNode = isDlqKind(nodeKind);
+        const isRouterNode = isRouterKind(nodeKind, nodeLogicalType);
         const schedule = nodeMeta.dispatchSchedule ?? nodeMeta.DispatchSchedule ?? null;
         const retryTax = isServiceNode ? resolveRetryTaxValue(nodeMeta) : null;
         const hasRetryLoop = showRetryMetrics && isServiceNode && Number.isFinite(retryTax) && retryTax > 0;
@@ -4394,6 +4414,7 @@
                             case 2: return 'Errors';
                             case 3: return 'Queue';
                             case 4: return 'Svc time';
+                            case 6: return 'Arrivals';
                             default: return 'SLA';
                         }
                     })();
@@ -4502,6 +4523,25 @@
                     }
                 }
             }
+        }
+
+        if (isRouterNode) {
+            const darkMode = isDarkTheme();
+            const routerFill = darkMode ? 'rgba(14, 116, 144, 0.35)' : '#E0F2FE';
+            const routerStroke = darkMode ? '#22D3EE' : '#38BDF8';
+            const routerText = darkMode ? '#E2E8F0' : '#0F172A';
+            const dims = drawChip(ctx, topLeft, topRowTop + chipH, 'Router', routerStroke, routerText, paddingX, chipH, 'bottom', routerFill, null, '600');
+            registerChipHitbox(state, {
+                nodeId: nodeMeta.id ?? null,
+                metric: 'router',
+                placement: 'top',
+                tooltip: 'Router node',
+                x: topLeft,
+                y: dims.top,
+                width: dims.width,
+                height: dims.height
+            });
+            topLeft += dims.width + gap;
         }
 
         if (isSinkNode && scheduleInfo) {
@@ -4813,6 +4853,7 @@
                 || 'DLQ';
             drawTerminalEdgeBadge(ctx, nodeMeta, terminalLabel);
         }
+
 
         let pendingQueueChip = null;
         let queueTooltip = null;
@@ -5221,6 +5262,7 @@ function drawRetryBadge(ctx, nodeMeta, retryTax, options) {
         ctx.fillText(text, chipCenterX, chipCenterY + 0.5);
         ctx.restore();
     }
+
 
     function computeSparklineLayout(nodeMeta, overlaySettings, spark) {
         if (!spark) {
@@ -7757,9 +7799,6 @@ function setHoveredEdge(state, edgeId) {
             }
 
             let normalized = clamp((numeric - min) / range, 0, 1);
-            if (isFlat) {
-                normalized = numeric >= min ? 1 : 0;
-            }
 
             const x = index * step;
             const y = sparkHeight - (sparkHeight * normalized);
@@ -7835,7 +7874,11 @@ function setHoveredEdge(state, edgeId) {
                     ? ['queue', 'queueDepth']
                     : basis === 4
                         ? ['serviceTimeMs', 'serviceTime']
-                        : [];
+                        : basis === 6
+                            ? ['arrivals']
+                            : basis === 0
+                                ? ['successRate']
+                                : [];
 
         for (const candidate of keyCandidates) {
             const slice = getSeriesSlice(sparkline, candidate);
@@ -7854,6 +7897,8 @@ function setHoveredEdge(state, edgeId) {
                 return sparkline.queueDepth ?? sparkline.QueueDepth ?? sparkline.values ?? sparkline.Values ?? [];
             case 4:
                 return sparkline.serviceTimeMs ?? sparkline.ServiceTimeMs ?? sparkline.values ?? sparkline.Values ?? [];
+            case 6:
+                return sparkline.arrivals ?? sparkline.Arrivals ?? sparkline.values ?? sparkline.Values ?? [];
             default:
                 return sparkline.values ?? sparkline.Values ?? [];
         }
@@ -8273,7 +8318,7 @@ function setHoveredEdge(state, edgeId) {
         chip.type = 'button';
         chip.className = 'topology-diag-panel__collapsed-chip topology-diag-panel__collapsed-chip--bin';
         chip.textContent = 'Dump bin';
-        chip.addEventListener('click', () => {
+        chip.addEventListener('click', (event) => {
             const dotNetRef = state?.dotNetRef;
             if (!dotNetRef) {
                 return;
@@ -8282,7 +8327,8 @@ function setHoveredEdge(state, edgeId) {
             if (!nodeId) {
                 return;
             }
-            dotNetRef.invokeMethodAsync('OnDumpBinRequested', nodeId);
+            const openInNewTab = Boolean(event?.altKey || event?.ctrlKey || event?.metaKey);
+            dotNetRef.invokeMethodAsync('OnDumpBinRequested', { nodeId, openInNewTab });
         });
         host.appendChild(chip);
         chip.style.display = 'none';
