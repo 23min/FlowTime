@@ -454,6 +454,8 @@
                             var isComputedNode = IsComputedKind(nodeKind);
                             var dependencyRows = BuildInspectorDependencies(nodeId);
                             var inspectorWarnings = GetInspectorWarnings(nodeId);
+                            var inspectorTabs = GetInspectorTabs(showExpressionSection);
+                            var inspectorTabIndex = GetInspectorTabIndex(inspectorTab, inspectorTabs);
 
                             <MudPaper Class="topology-inspector topology-inspector-panel" Elevation="1" Style="width: 360px; flex: 0 0 360px;">
                                 <MudStack Class="pa-4" Spacing="2">
@@ -468,233 +470,262 @@
                                             </MudStack>
                                         </MudStack>
                                     </div>
-                                    <div class="topology-role-chip-row">
-                                        <span class="class-chip topology-kind-chip">Kind: @FormatNodeKindLabel(nodeKind)</span>
-                                        @if (!string.IsNullOrWhiteSpace(nodeRoleLabel))
-                                        {
-                                            <span class="class-chip topology-role-chip" data-testid="sink-role-chip">@nodeRoleLabel</span>
-                                        }
-                                    </div>
+	                                    <div class="topology-role-chip-row">
+	                                        <span class="class-chip topology-kind-chip">Kind: @FormatNodeKindLabel(nodeKind)</span>
+	                                        @if (!string.IsNullOrWhiteSpace(nodeRoleLabel))
+	                                        {
+	                                            <span class="class-chip topology-role-chip" data-testid="sink-role-chip">@nodeRoleLabel</span>
+	                                        }
+	                                    </div>
 
-                                    @if (binMetrics.Count > 0)
-                                    {
-                                        <MudText Typo="Typo.subtitle2" Class="node-inspector-section-title">Properties</MudText>
-                                        <div class="node-inspector-bin-section">
-                                            <div class="node-inspector-bin-list">
-                                                @foreach (var row in binMetrics)
-                                                {
-                                                    <div class="node-inspector-bin-row">
-                                                        <span class="node-inspector-bin-label">@row.Label</span>
-                                                        <span class="node-inspector-bin-value">@row.Value</span>
-                                                    </div>
-                                                }
-                                            </div>
-                                        </div>
-                                    }
+	                                    @if (nodeClassContributions.TryGetValue(nodeId, out var classChips) && classChips.Count > 0)
+	                                    {
+	                                        <MudStack Spacing="0">
+	                                            <MudText Typo="Typo.subtitle2">Classes</MudText>
+	                                            @{
+	                                                var visibleChips = classChips.Take(6).ToList();
+	                                                var overflow = classChips.Count - visibleChips.Count;
+	                                            }
+	                                            <div class="inspector-class-selector">
+	                                                @foreach (var chip in visibleChips)
+	                                                {
+	                                                    var isSelected = IsClassSelectedChip(chip.Id);
+	                                                    var chipClass = $"class-chip{(isSelected ? " class-chip--selected" : string.Empty)}";
+	                                                    <button type="button"
+	                                                            class="@chipClass"
+	                                                            data-testid="inspector-class-chip">
+	                                                        <span class="class-chip-name">@ResolveClassLabel(chip.Id)</span>
+	                                                        <span class="class-chip-metrics">@FormatClassChipMetrics(chip)</span>
+	                                                    </button>
+	                                                }
+	                                                @if (overflow > 0)
+	                                                {
+	                                                    <button type="button" class="class-chip">
+	                                                        +@overflow more
+	                                                    </button>
+	                                                }
+	                                            </div>
+	                                        </MudStack>
+	                                    }
 
-                                    @if (nodeClassContributions.TryGetValue(nodeId, out var classChips) && classChips.Count > 0)
-                                    {
-                                        <MudStack Spacing="0">
-                                            <MudText Typo="Typo.subtitle2">Classes</MudText>
-                                            @{
-                                                var visibleChips = classChips.Take(6).ToList();
-                                                var overflow = classChips.Count - visibleChips.Count;
+	                                    <MudTabs @key="nodeId"
+	                                             ActivePanelIndex="@inspectorTabIndex"
+	                                             ActivePanelIndexChanged="index => OnInspectorTabChanged(index, inspectorTabs)"
+	                                             MinimumTabWidth="0px"
+	                                             Class="topology-inspector-tabs">
+	                                        <MudTabPanel Text="Charts">
+	                                            @if (hasSparklineSeries)
+	                                            {
+	                                                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.FlexEnd">
+	                                                    <MudChip T="bool"
+	                                                             Variant="Variant.Outlined"
+	                                                             Size="Size.Small"
+	                                                             Color="Color.Primary"
+                                                             Selected="@inspectorMetricsExpanded"
+                                                             OnClick="ToggleInspectorMetricsExpanded">
+                                                        @(inspectorMetricsExpanded ? "Collapse" : "Expand")
+                                                    </MudChip>
+                                                </MudStack>
                                             }
-                                            <div class="inspector-class-selector">
-                                                @foreach (var chip in visibleChips)
-                                                {
-                                                    var isSelected = IsClassSelectedChip(chip.Id);
-                                                    var chipClass = $"class-chip{(isSelected ? " class-chip--selected" : string.Empty)}";
-                                                    <button type="button"
-                                                            class="@chipClass"
-                                                            data-testid="inspector-class-chip">
-                                                        <span class="class-chip-name">@ResolveClassLabel(chip.Id)</span>
-                                                        <span class="class-chip-metrics">@FormatClassChipMetrics(chip)</span>
-                                                    </button>
-                                                }
-                                                @if (overflow > 0)
-                                                {
-                                                    <button type="button" class="class-chip">
-                                                        +@overflow more
-                                                    </button>
-                                                }
-                                            </div>
-                                        </MudStack>
-                                    }
 
-                                    @if (inspectorWarnings.Count > 0)
-                                    {
-                                        <MudStack Spacing="1" Class="topology-inspector-warnings">
-                                            <MudText Typo="Typo.subtitle2">Warnings</MudText>
-                                            @foreach (var warning in inspectorWarnings)
+                                            @foreach (var block in metricBlocks)
                                             {
-                                                var severity = NormalizeWarningSeverity(warning.Severity);
-                                                var label = string.IsNullOrWhiteSpace(warning.Code) ? "warning" : warning.Code.Trim();
-                                                var binRange = FormatWarningBinRange(warning.StartBin, warning.EndBin);
-                                                <div class="inspector-warning-row" data-severity="@severity">
-                                                    <MudText Typo="Typo.body2" Class="inspector-warning-title"><strong>@label</strong> (@severity)</MudText>
-                                                    @if (!string.IsNullOrWhiteSpace(warning.Message))
+                                                <MudStack Spacing="1">
+                                                    @if (inspectorMetricsExpanded)
                                                     {
-                                                        <MudText Typo="Typo.caption" Class="topology-muted-text">@warning.Message</MudText>
+                                                        <MudText Typo="Typo.subtitle2">@block.Title</MudText>
                                                     }
-                                                    @if (!string.IsNullOrWhiteSpace(binRange))
+                                                    @if (block.Sparkline is not null)
                                                     {
-                                                        <MudText Typo="Typo.caption" Class="topology-muted-text">Bins: @binRange</MudText>
+                                                        if (inspectorMetricsExpanded)
+                                                        {
+                                                            <TopologyInspectorSparkline Data="@block.Sparkline"
+                                                                                         SelectedBin="@selectedBin"
+                                                                                         Stroke="@block.Stroke"
+                                                                                         AriaLabel="@block.AriaLabel"
+                                                                                         ValueFormat="@block.ValueFormat"
+                                                                                         OverlaySettings="overlaySettings"
+                                                                                         SeriesKey="@block.SeriesKey" />
+                                                        }
+
+                                                        var (hData, hMin, hMax, hStart, hEnd) = ResolveHorizonSeries(inspectorNodeId!, block.SeriesKey, block.Sparkline);
+                                                        var horizonMin = overlaySettings.NormalizeInspectorHorizonCounts ? 0d : hMin;
+                                                        var horizonMax = overlaySettings.NormalizeInspectorHorizonCounts
+                                                            ? (overlaySettings.InspectorHorizonGlobalCap ?? hMax)
+                                                            : hMax;
+
+                                                        @if (hData is not null && hData.Length > 0)
+                                                        {
+                                                            <MudStack Spacing="0" Class="topology-horizon-wrapper">
+                                                                @if (!inspectorMetricsExpanded)
+                                                                {
+                                                                    <MudText Typo="Typo.caption"
+                                                                             Class="topology-muted-text topology-horizon-label">@block.Title</MudText>
+                                                                }
+                                                                <TopologyHorizonChart Data="@hData"
+                                                                                      Min="@horizonMin"
+                                                                                      Max="@horizonMax"
+                                                                                      Bands="@overlaySettings.HorizonBands"
+                                                                                      Height="24"
+                                                                                      NormalizeAcrossNodes="@overlaySettings.NormalizeInspectorHorizonCounts"
+                                                                                      GlobalCap="@overlaySettings.InspectorHorizonGlobalCap"
+                                                                                      OverlaySettings="overlaySettings"
+                                                                                      SeriesKey="@block.SeriesKey"
+                                                                                      HighlightStartIndex="@hStart"
+                                                                                      HighlightEndIndex="@hEnd"
+                                                                                      AriaLabel="@(block.AriaLabel is null ? null : $"{block.AriaLabel} horizon overview")" />
+                                                            </MudStack>
+                                                        }
+                                                        else
+                                                        {
+                                                            <MudStack Spacing="0" Class="topology-horizon-wrapper">
+                                                                @if (!inspectorMetricsExpanded)
+                                                                {
+                                                                    <MudText Typo="Typo.caption"
+                                                                             Class="topology-muted-text topology-horizon-label">@block.Title</MudText>
+                                                                }
+                                                                <div class="topology-horizon-empty"
+                                                                     role="img"
+                                                                     aria-label="@BuildHorizonEmptyLabel(block.AriaLabel, block.Placeholder)">
+                                                                    <span>No data</span>
+                                                                </div>
+                                                            </MudStack>
+                                                        }
                                                     }
-                                                    @if (!string.IsNullOrWhiteSpace(warning.Signal))
+                                                    else
                                                     {
-                                                        <MudText Typo="Typo.caption" Class="topology-muted-text">Signal: @warning.Signal</MudText>
+                                                        <MudStack Spacing="0" Class="topology-horizon-wrapper">
+                                                            @if (!inspectorMetricsExpanded)
+                                                            {
+                                                                <MudText Typo="Typo.caption"
+                                                                         Class="topology-muted-text topology-horizon-label">@block.Title</MudText>
+                                                            }
+                                                            <div class="topology-horizon-empty"
+                                                                 role="img"
+                                                                 aria-label="@BuildHorizonEmptyLabel(block.AriaLabel, block.Placeholder)">
+                                                                <span>No data</span>
+                                                            </div>
+                                                        </MudStack>
                                                     }
+                                                </MudStack>
+                                            }
+                                        </MudTabPanel>
+	                                        <MudTabPanel Text="Props">
+	                                            @if (binMetrics.Count > 0)
+	                                            {
+	                                                <div class="node-inspector-bin-section">
+	                                                    <div class="node-inspector-bin-list">
+                                                        @foreach (var row in binMetrics)
+                                                        {
+                                                            <div class="node-inspector-bin-row">
+                                                                <span class="node-inspector-bin-label">@row.Label</span>
+                                                                <span class="node-inspector-bin-value">@row.Value</span>
+                                                            </div>
+                                                        }
+                                                    </div>
                                                 </div>
                                             }
-                                        </MudStack>
-                                    }
-
-                                    @if (showExpressionSection)
-                                    {
-                                        <MudStack Spacing="1">
-                                            <MudText Typo="Typo.subtitle2">Expression</MudText>
-                                            @if (hasExpressionText)
-                                            {
-                                                <MudPaper Class="pa-2 code-block node-inspector-expression" Elevation="0">@expressionText</MudPaper>
-                                            }
                                             else
-                                            {
-                                                <MudText Typo="Typo.caption" Class="topology-muted-text">Expression unavailable.</MudText>
-                                            }
-                                        </MudStack>
-                                    }
-
-                                    @if (hasSparklineSeries)
-                                    {
-                                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
-                                            <MudText Typo="Typo.subtitle2">Charts</MudText>
-                                            <MudChip T="bool"
-                                                     Variant="Variant.Outlined"
-                                                     Size="Size.Small"
-                                                     Color="Color.Primary"
-                                                     Selected="@inspectorMetricsExpanded"
-                                                     OnClick="ToggleInspectorMetricsExpanded">
-                                                @(inspectorMetricsExpanded ? "Collapse" : "Expand")
-                                            </MudChip>
-                                        </MudStack>
-                                    }
-
-                                    @foreach (var block in metricBlocks)
-                                    {
-                                        <MudStack Spacing="1">
-                                            @if (inspectorMetricsExpanded)
-                                            {
-                                                <MudText Typo="Typo.subtitle2">@block.Title</MudText>
-                                            }
-                                            @if (block.Sparkline is not null)
-                                            {
-                                                if (inspectorMetricsExpanded)
+	                                            {
+	                                                <MudText Typo="Typo.caption" Class="topology-muted-text">No properties</MudText>
+	                                            }
+	                                        </MudTabPanel>
+	                                        <MudTabPanel Text="Deps">
+	                                            <MudStack Spacing="1">
+	                                                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+	                                                    @if (dependencyRows.Count > 0)
+	                                                    {
+	                                                        <MudText Typo="Typo.caption" Class="topology-muted-text">@($"{dependencyRows.Count}")</MudText>
+	                                                    }
+                                                </MudStack>
+                                                @if (dependencyRows.Count == 0)
                                                 {
-                                                    <TopologyInspectorSparkline Data="@block.Sparkline"
-                                                                                 SelectedBin="@selectedBin"
-                                                                                 Stroke="@block.Stroke"
-                                                                                 AriaLabel="@block.AriaLabel"
-                                                                                 ValueFormat="@block.ValueFormat"
-                                                                                 OverlaySettings="overlaySettings"
-                                                                                 SeriesKey="@block.SeriesKey" />
-                                                }
-
-                                                var (hData, hMin, hMax, hStart, hEnd) = ResolveHorizonSeries(inspectorNodeId!, block.SeriesKey, block.Sparkline);
-                                                var horizonMin = overlaySettings.NormalizeInspectorHorizonCounts ? 0d : hMin;
-                                                var horizonMax = overlaySettings.NormalizeInspectorHorizonCounts
-                                                    ? (overlaySettings.InspectorHorizonGlobalCap ?? hMax)
-                                                    : hMax;
-
-                                                @if (hData is not null && hData.Length > 0)
-                                                {
-                                                    <MudStack Spacing="0" Class="topology-horizon-wrapper">
-                                                        @if (!inspectorMetricsExpanded)
-                                                        {
-                                                            <MudText Typo="Typo.caption"
-                                                                     Class="topology-muted-text topology-horizon-label">@block.Title</MudText>
-                                                        }
-                                                        <TopologyHorizonChart Data="@hData"
-                                                                              Min="@horizonMin"
-                                                                              Max="@horizonMax"
-                                                                              Bands="@overlaySettings.HorizonBands"
-                                                                              Height="24"
-                                                                              NormalizeAcrossNodes="@overlaySettings.NormalizeInspectorHorizonCounts"
-                                                                              GlobalCap="@overlaySettings.InspectorHorizonGlobalCap"
-                                                                              OverlaySettings="overlaySettings"
-                                                                              SeriesKey="@block.SeriesKey"
-                                                                              HighlightStartIndex="@hStart"
-                                                                              HighlightEndIndex="@hEnd"
-                                                                              AriaLabel="@(block.AriaLabel is null ? null : $"{block.AriaLabel} horizon overview")" />
-                                                    </MudStack>
+                                                    <MudText Typo="Typo.caption" Class="topology-muted-text">No dependencies</MudText>
                                                 }
                                                 else
                                                 {
-                                                    <MudStack Spacing="0" Class="topology-horizon-wrapper">
-                                                        @if (!inspectorMetricsExpanded)
+                                                    <div class="topology-inspector-dependencies">
+                                                        @foreach (var dependency in dependencyRows)
                                                         {
-                                                            <MudText Typo="Typo.caption"
-                                                                     Class="topology-muted-text topology-horizon-label">@block.Title</MudText>
+                                                            var highlighted = IsDependencyHighlighted(dependency.EdgeId);
+                                                            <button type="button"
+                                                                    class="inspector-dependency-row"
+                                                                    data-highlighted="@(highlighted ? "true" : "false")"
+                                                                    @onmouseenter="() => OnInspectorDependencyHover(dependency.EdgeId)"
+                                                                    @onmouseleave="() => OnInspectorDependencyHover(null)"
+                                                                    @onclick="() => OnInspectorDependencyClick(dependency.EdgeId)">
+                                                                <div class="inspector-dependency-row__meta">
+                                                                    <MudText Typo="Typo.body2">@dependency.Label</MudText>
+                                                                    <MudText Typo="Typo.caption" Class="topology-muted-text">@dependency.Source</MudText>
+                                                                </div>
+                                                            </button>
                                                         }
-                                                        <div class="topology-horizon-empty"
-                                                             role="img"
-                                                             aria-label="@BuildHorizonEmptyLabel(block.AriaLabel, block.Placeholder)">
-                                                            <span>No data</span>
-                                                        </div>
+                                                    </div>
+                                                }
+                                            </MudStack>
+                                        </MudTabPanel>
+                                        <MudTabPanel>
+                                            <TabContent>
+                                                <span class="topology-warning-tab-label">
+                                                    WARN
+                                                    @if (inspectorWarnings.Count > 0)
+                                                    {
+                                                        <MudIcon Icon="@Icons.Material.Filled.WarningAmber"
+                                                                 Color="Color.Warning"
+                                                                 Class="topology-warning-tab-icon"
+                                                                 Title="Warnings available" />
+                                                    }
+                                                </span>
+                                            </TabContent>
+                                            <ChildContent>
+                                                @if (inspectorWarnings.Count == 0)
+                                                {
+                                                    <MudText Typo="Typo.caption" Class="topology-muted-text">No warnings to show.</MudText>
+                                                }
+	                                                else
+	                                                {
+	                                                    <MudStack Spacing="1" Class="topology-inspector-warnings">
+	                                                        @foreach (var warning in inspectorWarnings)
+	                                                        {
+	                                                            var severity = NormalizeWarningSeverity(warning.Severity);
+	                                                            var label = string.IsNullOrWhiteSpace(warning.Code) ? "warning" : warning.Code.Trim();
+                                                            var binRange = FormatWarningBinRange(warning.StartBin, warning.EndBin);
+                                                            <div class="inspector-warning-row" data-severity="@severity">
+                                                                <MudText Typo="Typo.body2" Class="inspector-warning-title"><strong>@label</strong> (@severity)</MudText>
+                                                                @if (!string.IsNullOrWhiteSpace(warning.Message))
+                                                                {
+                                                                    <MudText Typo="Typo.caption" Class="topology-muted-text">@warning.Message</MudText>
+                                                                }
+                                                                @if (!string.IsNullOrWhiteSpace(binRange))
+                                                                {
+                                                                    <MudText Typo="Typo.caption" Class="topology-muted-text">Bins: @binRange</MudText>
+                                                                }
+                                                                @if (!string.IsNullOrWhiteSpace(warning.Signal))
+                                                                {
+                                                                    <MudText Typo="Typo.caption" Class="topology-muted-text">Signal: @warning.Signal</MudText>
+                                                                }
+                                                            </div>
+                                                        }
                                                     </MudStack>
                                                 }
-                                            }
-                                            else
-                                            {
-                                                <MudStack Spacing="0" Class="topology-horizon-wrapper">
-                                                    @if (!inspectorMetricsExpanded)
+                                            </ChildContent>
+                                        </MudTabPanel>
+	                                        @if (showExpressionSection)
+	                                        {
+	                                            <MudTabPanel Text="Expr">
+	                                                <MudStack Spacing="1">
+	                                                    @if (hasExpressionText)
+	                                                    {
+	                                                        <MudPaper Class="pa-2 code-block node-inspector-expression" Elevation="0">@expressionText</MudPaper>
+	                                                    }
+                                                    else
                                                     {
-                                                        <MudText Typo="Typo.caption"
-                                                                 Class="topology-muted-text topology-horizon-label">@block.Title</MudText>
+                                                        <MudText Typo="Typo.caption" Class="topology-muted-text">Expression unavailable.</MudText>
                                                     }
-                                                    <div class="topology-horizon-empty"
-                                                         role="img"
-                                                         aria-label="@BuildHorizonEmptyLabel(block.AriaLabel, block.Placeholder)">
-                                                        <span>No data</span>
-                                                    </div>
                                                 </MudStack>
-                                            }
-                                        </MudStack>
-                                    }
-                                </MudStack>
-                                <MudDivider Class="my-2" />
-                                <MudStack Spacing="1">
-                                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
-                                        <MudText Typo="Typo.subtitle2">Dependencies</MudText>
-                                        @if (dependencyRows.Count > 0)
-                                        {
-                                            <MudText Typo="Typo.caption" Class="topology-muted-text">@($"{dependencyRows.Count}")</MudText>
+                                            </MudTabPanel>
                                         }
-                                    </MudStack>
-                                    @if (dependencyRows.Count == 0)
-                                    {
-                                        <MudText Typo="Typo.caption" Class="topology-muted-text">No dependencies</MudText>
-                                    }
-                                    else
-                                    {
-                                        <div class="topology-inspector-dependencies">
-                                            @foreach (var dependency in dependencyRows)
-                                            {
-                                                var highlighted = IsDependencyHighlighted(dependency.EdgeId);
-                                                <button type="button"
-                                                        class="inspector-dependency-row"
-                                                        data-highlighted="@(highlighted ? "true" : "false")"
-                                                        @onmouseenter="() => OnInspectorDependencyHover(dependency.EdgeId)"
-                                                        @onmouseleave="() => OnInspectorDependencyHover(null)"
-                                                        @onclick="() => OnInspectorDependencyClick(dependency.EdgeId)">
-                                                    <div class="inspector-dependency-row__meta">
-                                                        <MudText Typo="Typo.body2">@dependency.Label</MudText>
-                                                        <MudText Typo="Typo.caption" Class="topology-muted-text">@dependency.Source</MudText>
-                                                    </div>
-                                                </button>
-                                            }
-                                        </div>
-                                    }
+                                    </MudTabs>
                                 </MudStack>
                             </MudPaper>
                         }
@@ -732,9 +763,10 @@
     private string? inspectorNodeId;
     private string? lastInspectorNodeId;
     private string? selectedNodeId;
-private bool inspectorOpen;
-private bool inspectorPinned;
-private bool inspectorMetricsExpanded;
+    private bool inspectorOpen;
+    private bool inspectorPinned;
+    private bool inspectorMetricsExpanded;
+    private InspectorTab inspectorTab = InspectorTab.Charts;
     private bool inspectorDataDirty = true;
     private string? inspectorHoveredEdgeId;
     private string? inspectorPinnedEdgeId;
@@ -807,7 +839,15 @@ private readonly HashSet<string> classFilteredNodes = new(StringComparer.Ordinal
     private static readonly IReadOnlyDictionary<string, ManifestClassEntry> EmptyClassMetadata = new Dictionary<string, ManifestClassEntry>(StringComparer.OrdinalIgnoreCase);
 
     private sealed record LegendEntry(string Swatch, string Label);
-internal sealed record DispatchScheduleEntry(string NodeId, string Summary, string CapacityLabel);
+    internal sealed record DispatchScheduleEntry(string NodeId, string Summary, string CapacityLabel);
+    private enum InspectorTab
+    {
+        Charts,
+        Properties,
+        Dependencies,
+        Warnings,
+        Expression
+    }
 
     private IEnumerable<LegendEntry> BuildLegendEntries()
     {
@@ -851,6 +891,48 @@ internal sealed record DispatchScheduleEntry(string NodeId, string Summary, stri
                 new LegendEntry("error", $"SLA < {FormatPercentValue(thresholds.SlaWarning)}")
             }
         };
+    }
+
+    private static IReadOnlyList<InspectorTab> GetInspectorTabs(bool includeExpression)
+    {
+        var tabs = new List<InspectorTab>
+        {
+            InspectorTab.Charts,
+            InspectorTab.Properties,
+            InspectorTab.Dependencies,
+            InspectorTab.Warnings
+        };
+
+        if (includeExpression)
+        {
+            tabs.Add(InspectorTab.Expression);
+        }
+
+        return tabs;
+    }
+
+    private int GetInspectorTabIndex(InspectorTab selected, IReadOnlyList<InspectorTab> tabs)
+    {
+        for (var i = 0; i < tabs.Count; i++)
+        {
+            if (tabs[i] == selected)
+            {
+                return i;
+            }
+        }
+
+        inspectorTab = InspectorTab.Charts;
+        return 0;
+    }
+
+    private void OnInspectorTabChanged(int index, IReadOnlyList<InspectorTab> tabs)
+    {
+        if (index < 0 || index >= tabs.Count)
+        {
+            return;
+        }
+
+        inspectorTab = tabs[index];
     }
 
     private bool ShowClassSelector => availableClasses.Count > 0;
@@ -1446,7 +1528,8 @@ private const string PmfExpectationLabel = "Value";
 
             Logger?.LogInformation("Topology load start for run {RunId}", runId);
 
-            var graphTask = DataService.GetGraphAsync(runId, BuildGraphQueryOptions(), ct);
+            var graphOptions = BuildGraphQueryOptions();
+            var graphTask = DataService.GetGraphAsync(runId, graphOptions, ct);
             var indexTask = DataService.GetSeriesIndexAsync(runId, ct);
 
             await Task.WhenAll(graphTask, indexTask);
@@ -1502,7 +1585,7 @@ private const string PmfExpectationLabel = "Value";
             visibleStartBin = sliceStart;
             visibleEndBin = sliceEnd;
 
-            var stateMode = (overlaySettings.EnableFullDag || overlaySettings.IncludeExpressionNodes || overlaySettings.IncludeConstNodes) ? "full" : null;
+            var stateMode = string.Equals(graphOptions.Mode, "full", StringComparison.OrdinalIgnoreCase) ? "full" : null;
             Logger?.LogInformation("Requesting state window for run {RunId} bins {Start}-{End} (mode={Mode})", runId, sliceStart, sliceEnd, stateMode ?? "operational");
             windowWarnings = Array.Empty<TimeTravelStateWarningDto>();
             UpdateNodeWarningMap();
@@ -1927,47 +2010,44 @@ private const string PmfExpectationLabel = "Value";
     {
         var options = new GraphQueryOptions
         {
-            Mode = overlaySettings.EnableFullDag ? "full" : "operational"
+            Mode = "full"
         };
 
-        if (overlaySettings.EnableFullDag)
+        var dependencyFields = new List<string>(6);
+
+        if (overlaySettings.ShowArrivalsDependencies)
         {
-            var dependencyFields = new List<string>(6);
+            dependencyFields.Add("arrivals");
+        }
 
-            if (overlaySettings.ShowArrivalsDependencies)
-            {
-                dependencyFields.Add("arrivals");
-            }
+        if (overlaySettings.ShowServedDependencies)
+        {
+            dependencyFields.Add("served");
+        }
 
-            if (overlaySettings.ShowServedDependencies)
-            {
-                dependencyFields.Add("served");
-            }
+        if (overlaySettings.ShowErrorsDependencies)
+        {
+            dependencyFields.Add("errors");
+        }
 
-            if (overlaySettings.ShowErrorsDependencies)
-            {
-                dependencyFields.Add("errors");
-            }
+        if (overlaySettings.ShowQueueDependencies)
+        {
+            dependencyFields.Add("queue");
+        }
 
-            if (overlaySettings.ShowQueueDependencies)
-            {
-                dependencyFields.Add("queue");
-            }
+        if (overlaySettings.ShowCapacityDependencies)
+        {
+            dependencyFields.Add("capacity");
+        }
 
-            if (overlaySettings.ShowCapacityDependencies)
-            {
-                dependencyFields.Add("capacity");
-            }
+        if (overlaySettings.ShowExpressionDependencies)
+        {
+            dependencyFields.Add("expr");
+        }
 
-            if (overlaySettings.ShowExpressionDependencies)
-            {
-                dependencyFields.Add("expr");
-            }
-
-            if (dependencyFields.Count > 0 && dependencyFields.Count < 6)
-            {
-                options.DependencyFields = dependencyFields;
-            }
+        if (dependencyFields.Count > 0 && dependencyFields.Count < 6)
+        {
+            options.DependencyFields = dependencyFields;
         }
 
         return options;
@@ -1998,8 +2078,8 @@ private const string PmfExpectationLabel = "Value";
 
         try
         {
-            var mode = overlaySettings.EnableFullDag ? "full" : null;
-            var fullMode = (overlaySettings.EnableFullDag || overlaySettings.IncludeExpressionNodes || overlaySettings.IncludeConstNodes) ? "full" : mode;
+            var graphMode = BuildGraphQueryOptions().Mode;
+            var fullMode = string.Equals(graphMode, "full", StringComparison.OrdinalIgnoreCase) ? "full" : null;
             windowWarnings = Array.Empty<TimeTravelStateWarningDto>();
             UpdateNodeWarningMap();
             var windowResult = await DataService.GetStateWindowAsync(currentRunId!, sliceStart, sliceEnd, fullMode, cts.Token);
@@ -3158,7 +3238,7 @@ private const string PmfExpectationLabel = "Value";
         nodesMissingSparkline = result.MissingNodes;
         loggedMissingMetricKinds.Clear();
 
-        if (Logger is not null)
+        if (Logger is not null && overlaySettings.IncludeExpressionNodes)
         {
             foreach (var nodeId in result.MissingExpressionNodeIds)
             {
@@ -3211,6 +3291,7 @@ private const string PmfExpectationLabel = "Value";
 
     private Task OnNodeFocused(string? nodeId)
     {
+        var wasOpen = inspectorOpen;
         if (string.IsNullOrWhiteSpace(nodeId))
         {
             inspectorPinned = false;
@@ -3228,6 +3309,11 @@ private const string PmfExpectationLabel = "Value";
             inspectorOpen = true;
             inspectorPinned = true;
             EnsureInspectorDataFresh();
+        }
+
+        if (!wasOpen && inspectorOpen)
+        {
+            inspectorTab = InspectorTab.Charts;
         }
 
         inspectorMetricsExpanded = false;
@@ -4532,6 +4618,7 @@ internal sealed record InspectorMetricBlock(
         inspectorNodeId = null;
         inspectorPinned = false;
         inspectorMetricsExpanded = false;
+        inspectorTab = InspectorTab.Charts;
         inspectorDataDirty = true;
         ClearInspectorEdgeHighlights();
         canvasComponent?.ClearFocus();
@@ -5504,12 +5591,6 @@ internal sealed record InspectorMetricBlock(
         var matches = new List<InspectorDependencyViewModel>();
         foreach (var edge in topologyGraph.Edges)
         {
-            var targetNodeId = ExtractNodeReference(edge.To);
-            if (!string.Equals(targetNodeId, nodeId, StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
-
             if (!string.Equals(edge.EdgeType, "dependency", StringComparison.OrdinalIgnoreCase))
             {
                 continue;
@@ -5520,17 +5601,26 @@ internal sealed record InspectorMetricBlock(
                 continue;
             }
 
-            var edgeId = edge.Id ?? $"{edge.From}->{edge.To}:{edge.Field}";
             var sourceNodeReference = ExtractNodeReference(edge.From);
-            if (string.IsNullOrWhiteSpace(sourceNodeReference))
+            var targetNodeReference = ExtractNodeReference(edge.To);
+            var isInbound = !string.IsNullOrWhiteSpace(targetNodeReference)
+                && string.Equals(targetNodeReference, nodeId, StringComparison.OrdinalIgnoreCase);
+            var isOutbound = !string.IsNullOrWhiteSpace(sourceNodeReference)
+                && string.Equals(sourceNodeReference, nodeId, StringComparison.OrdinalIgnoreCase);
+
+            if (!isInbound && !isOutbound)
             {
                 continue;
             }
 
-            var sourceNode = FindTopologyNode(sourceNodeReference);
-            var label = FormatDependencyFieldLabel(edge.Field, sourceNode);
-            var source = edge.From ?? "Unknown";
-            var order = ResolveDependencyFieldOrder(edge.Field);
+            var edgeId = edge.Id ?? $"{edge.From}->{edge.To}:{edge.Field}";
+            var otherReference = isInbound ? edge.From : edge.To;
+            var otherNodeId = isInbound ? sourceNodeReference : targetNodeReference;
+            var otherNode = string.IsNullOrWhiteSpace(otherNodeId) ? null : FindTopologyNode(otherNodeId);
+            var label = FormatDependencyFieldLabel(edge.Field, otherNode);
+            var direction = isInbound ? "from" : "to";
+            var source = $"{direction} {otherReference ?? "Unknown"}";
+            var order = ResolveDependencyFieldOrder(edge.Field) + (isOutbound ? 100 : 0);
             matches.Add(new InspectorDependencyViewModel(edgeId, label, source, order));
         }
 
@@ -5874,6 +5964,7 @@ private static IReadOnlyList<double?> TrimSeriesAt(double?[]? source, int limit,
         inspectorPinned = false;
         inspectorNodeId = null;
         lastInspectorNodeId = null;
+        inspectorTab = InspectorTab.Charts;
         selectedNodeId = null;
         inspectorMetricsExpanded = false;
         inspectorDataDirty = true;

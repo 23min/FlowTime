@@ -1441,6 +1441,53 @@ body.dark-mode .timeline-focus-label {
     text-align: left;
 }
 
+.topology-inspector-tabs .mud-tabs-toolbar-content .mud-tab {
+    min-width: 0 !important;
+    padding: 0.1rem 0.35rem;
+    font-size: 0.66rem;
+    flex: 0 1 auto;
+    white-space: nowrap;
+}
+
+.topology-inspector-tabs .mud-tabs-toolbar-content {
+    flex-wrap: nowrap;
+    column-gap: 10px;
+    row-gap: 0;
+}
+
+.topology-inspector-tabs .mud-tabs-toolbar-content .mud-tab .mud-tab-wrapper {
+    padding: 0;
+    min-width: 0;
+}
+
+.topology-warning-tab-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.topology-warning-tab-icon {
+    font-size: 0.7em;
+}
+
+.topology-inspector-tabs .mud-tabs-tabbar-content {
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+    padding: 0;
+}
+
+.topology-inspector-tabs .mud-tabs-tabbar-wrapper {
+    padding: 0;
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+.topology-inspector-tabs .mud-tabs-tabbar {
+    overflow-x: hidden;
+    padding: 0;
+}
+
 .inspector-warning-row {
     border: 1px solid rgba(148, 163, 184, 0.35);
     border-left: 3px solid #F59E0B;
