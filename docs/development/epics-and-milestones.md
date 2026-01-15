@@ -42,6 +42,17 @@ This document describes how we structure larger chunks of work into **epics** an
 2. **Epic**: For a roadmap item that needs deeper design, create an epic folder under `docs/architecture/` and describe its scope and rationale.
 3. **Milestones**: Break the epic into concrete, scoped milestones under `docs/milestones/`, following the milestone guardrails.
 
+## Integration Branches (Recommended)
+
+When `main` is only updated when an epic completes, use a dedicated epic integration branch:
+
+- Create `epic/<epic-slug>` where `<epic-slug>` matches the epic folder name under `docs/architecture/` (for example, `docs/architecture/ui-perf/` maps to `epic/ui-perf`).
+- Merge completed milestone branches into the epic branch via PRs.
+- Start new milestone work for that epic by branching from the epic branch (not from `main`).
+- Merge `epic/<epic-slug>` into `main` only when the epic is complete.
+
+For cross-epic "catch-up" trains, use an explicit integration slug (for example, `epic/ft-05-integration`) and treat it as the shared base until the work can be split into per-epic branches.
+
 ## Documentation Sync on Completion
 
 - When an **epic** or **milestone** completes, documentation under `docs/` must be brought back in sync with reality.

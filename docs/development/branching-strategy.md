@@ -10,6 +10,7 @@ This repository uses a milestone-first workflow that scales from solo work to sm
 ### Branch types
 
 - Mainline: `main` — always green and releasable
+- Epic integration (optional): `epic/<epic-slug>` — integration branch for an architecture epic spanning multiple milestones (see `docs/architecture/*`)
 - Milestone: `milestone/m0` — integration branch for a milestone spanning surfaces
 - Feature: `feature/<surface>-m0/<short-desc>` — actual work branches targeting the milestone branch
 - Release (optional): `release/m0` — brief hardening before tagging
@@ -19,6 +20,16 @@ This repository uses a milestone-first workflow that scales from solo work to sm
 
 - Single-surface, quick change: create `feature/<surface>-m0/<short-desc>` off `main`, PR directly into `main`.
 - Multi-surface (e.g., API and UI at once): create `milestone/m0`, base all related features from it, PR into the milestone branch, then merge milestone → main when complete.
+- Epic-first integration (when `main` only advances at epic completion): create `epic/<epic-slug>`, PR completed milestone branches into the epic branch, and only merge epic → main when the epic is complete.
+
+#### Epic slugs
+
+Prefer a short slug that maps to an epic folder under `docs/architecture/`:
+
+- Epic folder: `docs/architecture/ui-perf/` → branch: `epic/ui-perf`
+- Epic folder: `docs/architecture/classes/` → branch: `epic/classes`
+
+For "catch-up" or cross-epic integration trains, use an explicit integration slug (example: `epic/ft-05-integration`).
 
 ### Commands (examples)
 
@@ -27,6 +38,12 @@ This repository uses a milestone-first workflow that scales from solo work to sm
   - git pull
   - git checkout -b milestone/m0
   - git push -u origin milestone/m0
+
+- Create epic integration branch:
+  - git checkout main
+  - git pull
+  - git checkout -b epic/ui-perf
+  - git push -u origin epic/ui-perf
 
 - Start a feature targeting the milestone:
   - git checkout -b feature/api-m0/api-launch milestone/m0
@@ -40,6 +57,11 @@ This repository uses a milestone-first workflow that scales from solo work to sm
   - Ensure tests/docs are updated
   - Tag: v0.1.0-m0 (semantic version + milestone suffix)
   - Merge milestone/m0 → main and delete the branch
+
+- Complete epic (epic integration workflow):
+  - Merge completed milestones into `epic/<epic-slug>` via PRs
+  - Keep `epic/<epic-slug>` green (build + tests) so new milestone work can branch from it
+  - Merge `epic/<epic-slug>` → `main` only when the epic is complete
 
 ### Commit messages (Conventional Commits)
 
@@ -56,6 +78,7 @@ Scopes you can use: `api`, `ui`, `cli`, `core`, `repo`, `docs`, `test`, `build`,
 ### PR guidance
 
 - For multi-surface work, target PRs to `milestone/m0` (not `main`).
+- For epic-first integration, target completed milestone PRs to `epic/<epic-slug>` (not `main`).
 - Prefer squash merges to keep history clean.
 - Link PRs to the milestone in GitHub for traceability.
 
