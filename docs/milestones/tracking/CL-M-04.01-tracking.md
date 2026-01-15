@@ -2,7 +2,7 @@
 
 **Milestone:** CL-M-04.01 — Class Schema & Template Enablement  
 **Started:** 2025-11-24  
-**Status:** 🔄 In Progress  
+**Status:** ✅ Complete  
 **Branch:** `milestone/m4.1`
 
 ---

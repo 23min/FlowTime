@@ -6,7 +6,7 @@
 
 **Milestone:** SB-M-05.03 — Queue-Like DSL Parity & DLQ Synthesizer  
 **Started:** 2025-11-28  
-**Status:** 🔄 In Progress  
+**Status:** ✅ Complete  
 **Branch:** `milestone/sb-m-05.03`  
 **Assignee:** Codex
 

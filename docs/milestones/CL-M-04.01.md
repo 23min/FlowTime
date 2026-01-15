@@ -1,6 +1,6 @@
 # CL-M-04.01 — Class Schema & Template Enablement
 
-**Status:** 📋 Planned  
+**Status:** ✅ Complete  
 **Dependencies:** _None_  
 **Target:** Allow FlowTime templates, canonical models, and run metadata to declare explicit flow classes and validate class-aware traffic definitions before downstream services rely on them.
 

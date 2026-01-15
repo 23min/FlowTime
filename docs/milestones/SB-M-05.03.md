@@ -1,6 +1,6 @@
 # SB-M-05.03 — Queue-Like DSL Parity & DLQ Synthesizer
 
-**Status:** 📝 Planned  
+**Status:** ✅ Complete  
 **Epic:** Service With Buffer (`docs/architecture/service-with-buffer/`)  
 **Depends on:** SB‑M‑05.02 (implicit ServiceWithBuffer nodes + queue latency status)  
 **Goal:** Extend the implicit ServiceWithBuffer synthesizer to every queue-like semantic (visual queue shells, DLQs, and service-owned buffers) so templates never carry helper backlog nodes, and align analyzers/UI/CLI around the unified DSL.

@@ -6,7 +6,7 @@
 
 **Milestone:** [FT-M-05.06 — Topology Canvas Performance Sweep](../FT-M-05.06-performance.md)  
 **Started:** 2025-12-06  
-**Status:** 🚧 In Progress  
+**Status:** ✅ Complete  
 **Branch:** `milestone/ft-m-05.06`  
 **Assignee:** Codex
 

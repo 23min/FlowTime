@@ -17,7 +17,7 @@ This document should remain in sync with `docs/ROADMAP.md` (which gives the high
 
 The list below enumerates current epics under `docs/architecture/` in an order that roughly matches the roadmap: completed foundation work, near‑term focus, then mid‑term / aspirational epics.
 
-### Completed / Foundational Epics
+### Completed Epics
 
 #### Time Travel
 
@@ -25,20 +25,18 @@ The list below enumerates current epics under `docs/architecture/` in an order t
 - **Status:** V1 delivered (see `docs/architecture/time-travel/status-2025-11-23.md`).
 - **Goal:** Provide deterministic, time-binned replay of runs with `/state` and `/state_window` APIs, telemetry capture/bundles, and DLQ/backlog semantics so we can reason about flows after the fact.
 
-### Near-Term / In-Flight Epics
-
 #### UI Performance (Topology Input Latency)
 
 - **Folder:** `docs/architecture/ui-perf/`
 - **Goal:** Make the Time-Travel Topology UI responsive under large graphs by enforcing strict input/paint/data lanes, splitting scene build from paint-only updates, and eliminating main-thread stalls from avoidable payload rebuilds and interop churn.
 - **Key Docs:** `docs/architecture/ui-perf/README.md`
-- **Notes:** This work is orthogonal to loading strategy decisions; selective windows vs bulk bundles still require render-loop hygiene.
+- **Notes:** Milestone `FT-M-05.06` is marked complete in tracking; remaining work is follow-up/perf validation if new regressions appear.
 
 #### Classes & Routing
 
 - **Folder:** `docs/architecture/classes/`
 - **Goal:** Introduce class-aware routing and visualization so that templates and the UI can represent multi-class flows (e.g., priority tiers, customer segments) while preserving FlowTime's determinism and DAG semantics.
-- **Notes:** Upcoming milestone `FT-M-05.05` (“Router Flow Solidification”) rewires templates to consume router outputs directly; `FT-M-05.06` (topology perf sweep) follows.
+- **Notes:** CL-M-04.01 through CL-M-04.04 are marked complete in tracking; epic is effectively closed unless new class feature work is scoped.
 
 #### Service With Buffer
 
@@ -46,19 +44,30 @@ The list below enumerates current epics under `docs/architecture/` in an order t
 - **Goal:** Replace the legacy backlog node surface with a first-class `serviceWithBuffer` node type that owns both service behavior and an explicit queue/buffer, with aligned schema, engine, analyzer, and UI support.
 - **Key Milestones:**
   - `docs/milestones/SB-M-05.01.md` — Breaking introduction of `kind: serviceWithBuffer` and removal of `kind: backlog` from the public surface.
+- **Notes:** SB-M-05.01 through SB-M-05.04 are marked complete in tracking; epic is closed pending future expansion.
+
+### Near-Term / In-Flight Epics
+
+#### Evaluation Integrity (DAG/Spreadsheet Contract)
+
+- **Folder:** `docs/architecture/evaluation-integrity/`
+- **Goal:** Enforce a strict DAG evaluation contract so no post-eval mutation is possible; all overrides apply before evaluation and derived class series always recompute in order.
+- **Key Milestones:**
+  - `docs/milestones/FT-M-06.01-evaluation-integrity-dag-contract.md`
+- **Notes:** Newly planned; no tracking doc yet.
 
 #### Edge Time Bins / Edge Metrics
 
 - **Folder:** `docs/architecture/edge-time-bin/`
 - **Goal:** Derive or surface per-edge throughput/attempt volumes and related metrics to support edge heat maps, conservation checks, and richer topology overlays.
-- **Notes:** Called out as the first near‑term epic candidate in `docs/ROADMAP.md`. Depends on stable node semantics from classes and ServiceWithBuffer.
+- **Notes:** Not started; depends on stable node semantics from Classes and ServiceWithBuffer (now complete).
 
 #### Telemetry Ingestion and Canonical Bundles
 
 - **Folder:** `docs/architecture/telemetry-ingestion/`
 - **Goal:** Transform raw telemetry into canonical FlowTime bundles with validated manifests and stable series naming.
 - **Key Docs:** `docs/architecture/telemetry-ingestion/README.md`
-- **Notes:** Builds on the existing capture pipeline; depends on stable bundle schemas and series semantics so ingestion outputs align with engine contracts.
+- **Notes:** Not started; depends on stable bundle schemas and series semantics so ingestion outputs align with engine contracts.
 
 ### Mid-Term / Aspirational Epics
 
