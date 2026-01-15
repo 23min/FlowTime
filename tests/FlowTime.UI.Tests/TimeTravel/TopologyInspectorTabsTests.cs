@@ -96,6 +96,7 @@ public sealed class TopologyInspectorTabsTests
         RetryBudgetRemaining: null,
         Queue: null,
         Capacity: null,
+        Parallelism: null,
         Series: null,
         Expression: null,
         Distribution: null,
