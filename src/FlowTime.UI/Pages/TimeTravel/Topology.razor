@@ -269,13 +269,31 @@
                                         </MudStack>
                                         <MudStack Row="true" AlignItems="@AlignItems.Center" Spacing="1" Class="timeline-operational-toggle">
                                             <MudText Typo="Typo.caption" Class="timeline-focus-label">Operational</MudText>
-                                            <MudSwitch T="bool"
-                                                       Size="Size.Small"
-                                                       Ripple="false"
-                                                       Value="@operationalViewOnly"
-                                                       ValueChanged="OnOperationalViewChanged"
-                                                       Disabled="@operationalTogglePending"
-                                                       Color="Color.Primary" />
+                                            <MudTooltip Text="Toggle operational-only view">
+                                                <ChildContent>
+                                                    <MudSwitch T="bool"
+                                                               Size="Size.Small"
+                                                               Ripple="false"
+                                                               Value="@operationalViewOnly"
+                                                               ValueChanged="OnOperationalViewChanged"
+                                                               Disabled="@operationalTogglePending"
+                                                               Color="Color.Primary" />
+                                                </ChildContent>
+                                            </MudTooltip>
+                                        </MudStack>
+                                        <MudStack Row="true" AlignItems="@AlignItems.Center" Spacing="1" Class="timeline-focusview-toggle">
+                                            <MudText Typo="Typo.caption" Class="timeline-focus-label">Focus view</MudText>
+                                            <MudTooltip Text="Select a node to enable focus view">
+                                                <ChildContent>
+                                                    <MudSwitch T="bool"
+                                                               Size="Size.Small"
+                                                               Ripple="false"
+                                                               Value="@focusViewEnabled"
+                                                               ValueChanged="OnFocusViewChanged"
+                                                               Disabled="@(!CanToggleFocusView)"
+                                                               Color="Color.Primary" />
+                                                </ChildContent>
+                                            </MudTooltip>
                                         </MudStack>
                                         <MudChipSet T="string"
                                                     Class="timeline-zoom-set"
@@ -336,6 +354,23 @@
                                                    QueryKey="classes" />
                                 </div>
                             }
+                            @if (focusViewEnabled)
+                            {
+                                <div class="topology-flow-overlay topology-focus-overlay">
+                                    <div class="topology-flow-header">
+                                        <MudText Typo="Typo.overline" Class="topology-flow-panel-title">Focus</MudText>
+                                    </div>
+                                    <MudStack Row="true" AlignItems="@AlignItems.Center" Spacing="1">
+                                        <MudText Typo="Typo.caption">Include downstream</MudText>
+                                        <MudSwitch T="bool"
+                                                   Size="Size.Small"
+                                                   Ripple="false"
+                                                   Value="@focusIncludeDownstream"
+                                                   ValueChanged="OnFocusIncludeDownstreamChanged"
+                                                   Color="Color.Primary" />
+                                    </MudStack>
+                                </div>
+                            }
                             @{
                                 var dispatchList = dispatchScheduleEntries
                                     .Where(e => inspectorNodeId != null && string.Equals(e.NodeId, inspectorNodeId, StringComparison.OrdinalIgnoreCase))
@@ -386,6 +421,7 @@
                                             ViewportChanged="OnCanvasViewportChanged"
                                             InspectorVisible="inspectorOpen"
                                             NodeFocused="OnNodeFocused"
+                                            NodeSelected="OnNodeSelected"
                                             EdgeHovered="OnCanvasEdgeHovered"
                                             DumpBinRequested="DumpInspectorBinAsync"
                                             RequestedViewport="pendingViewportSnapshot"
@@ -395,7 +431,10 @@
                                             DiagnosticsUploadIntervalMs="@diagnosticsUploadIntervalMs"
                                             DiagnosticsDisableHoverCache="@diagnosticsDisableHoverCache"
                                             RunId="@RunId"
-                                            OperationalViewOnly="@operationalViewOnly" />
+                                            OperationalViewOnly="@operationalViewOnly"
+                                            FocusViewEnabled="@focusViewEnabled"
+                                            FocusNodeId="@selectedNodeId"
+                                            FocusIncludeDownstream="@focusIncludeDownstream" />
                             @if (isLoading && hasLoaded)
                             {
                                 <div class="topology-reload-overlay" aria-live="polite">
@@ -422,6 +461,8 @@
                             var isComputedNode = IsComputedKind(nodeKind);
                             var dependencyRows = BuildInspectorDependencies(nodeId);
                             var inspectorWarnings = GetInspectorWarnings(nodeId);
+                            var inspectorTabs = GetInspectorTabs(showExpressionSection);
+                            var inspectorTabIndex = GetInspectorTabIndex(inspectorTab, inspectorTabs);
 
                             <MudPaper Class="topology-inspector topology-inspector-panel" Elevation="1" Style="width: 360px; flex: 0 0 360px;">
                                 <MudStack Class="pa-4" Spacing="2">
@@ -436,54 +477,13 @@
                                             </MudStack>
                                         </MudStack>
                                     </div>
-                                    <div class="topology-role-chip-row">
-                                        <span class="class-chip topology-kind-chip">Kind: @FormatNodeKindLabel(nodeKind)</span>
-                                        @if (!string.IsNullOrWhiteSpace(nodeRoleLabel))
-                                        {
-                                            <span class="class-chip topology-role-chip" data-testid="sink-role-chip">@nodeRoleLabel</span>
-                                        }
-                                    </div>
-
-                                    @if (binMetrics.Count > 0)
-                                    {
-                                        <MudText Typo="Typo.subtitle2" Class="node-inspector-section-title">Properties</MudText>
-                                        <div class="node-inspector-bin-section">
-                                            <div class="node-inspector-bin-list">
-                                                @foreach (var row in binMetrics)
-                                                {
-                                                    if (row.Provenance is not null)
-                                                    {
-                                                        <div class="inspector-provenance-hover">
-                                                            <div class="node-inspector-bin-row">
-                                                                <span class="node-inspector-bin-label">@row.Label</span>
-                                                                <span class="node-inspector-bin-value">@row.Value</span>
-                                                            </div>
-                                                            <div class="inspector-provenance-flyout">
-                                                                <div class="inspector-provenance-tooltip">
-                                                                    <div class="inspector-provenance-tooltip__entries">
-                                                                        @foreach (var entry in BuildProvenanceTooltipEntries(row.Provenance))
-                                                                        {
-                                                                            <div class="inspector-provenance-tooltip__entry">
-                                                                                <span class="inspector-provenance-tooltip__label">@entry.Label</span>
-                                                                                <span class="inspector-provenance-tooltip__value">@entry.Value</span>
-                                                                            </div>
-                                                                        }
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    }
-                                                    else
-                                                    {
-                                                        <div class="node-inspector-bin-row">
-                                                            <span class="node-inspector-bin-label">@row.Label</span>
-                                                            <span class="node-inspector-bin-value">@row.Value</span>
-                                                        </div>
-                                                    }
-                                                }
-                                            </div>
-                                        </div>
-                                    }
+	                                    <div class="topology-role-chip-row">
+	                                        <span class="class-chip topology-kind-chip">Kind: @FormatNodeKindLabel(nodeKind)</span>
+	                                        @if (!string.IsNullOrWhiteSpace(nodeRoleLabel))
+	                                        {
+	                                            <span class="class-chip topology-role-chip" data-testid="sink-role-chip">@nodeRoleLabel</span>
+	                                        }
+	                                    </div>
 
                                     @if (nodeClassContributions.TryGetValue(nodeId, out var classChips) && classChips.Count > 0)
                                     {
@@ -515,247 +515,340 @@
                                         </MudStack>
                                     }
 
-                                    @if (inspectorWarnings.Count > 0)
-                                    {
-                                        <MudStack Spacing="1" Class="topology-inspector-warnings">
-                                            <MudText Typo="Typo.subtitle2">Warnings</MudText>
-                                            @foreach (var warning in inspectorWarnings)
-                                            {
-                                                var severity = NormalizeWarningSeverity(warning.Severity);
-                                                var label = string.IsNullOrWhiteSpace(warning.Code) ? "warning" : warning.Code.Trim();
-                                                var binRange = FormatWarningBinRange(warning.StartBin, warning.EndBin);
-                                                <div class="inspector-warning-row" data-severity="@severity">
-                                                    <MudText Typo="Typo.body2" Class="inspector-warning-title"><strong>@label</strong> (@severity)</MudText>
-                                                    @if (!string.IsNullOrWhiteSpace(warning.Message))
-                                                    {
-                                                        <MudText Typo="Typo.caption" Class="topology-muted-text">@warning.Message</MudText>
-                                                    }
-                                                    @if (!string.IsNullOrWhiteSpace(binRange))
-                                                    {
-                                                        <MudText Typo="Typo.caption" Class="topology-muted-text">Bins: @binRange</MudText>
-                                                    }
-                                                    @if (!string.IsNullOrWhiteSpace(warning.Signal))
-                                                    {
-                                                        <MudText Typo="Typo.caption" Class="topology-muted-text">Signal: @warning.Signal</MudText>
-                                                    }
-                                                </div>
-                                            }
-                                        </MudStack>
-                                    }
-
-                                    @if (showExpressionSection)
-                                    {
-                                        <MudStack Spacing="1">
-                                            <MudText Typo="Typo.subtitle2">Expression</MudText>
-                                            @if (hasExpressionText)
-                                            {
-                                                <MudPaper Class="pa-2 code-block node-inspector-expression" Elevation="0">@expressionText</MudPaper>
-                                            }
-                                            else
-                                            {
-                                                <MudText Typo="Typo.caption" Class="topology-muted-text">Expression unavailable.</MudText>
-                                            }
-                                        </MudStack>
-                                    }
-
-                                    @if (hasSparklineSeries)
-                                    {
-                                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
-                                            <MudText Typo="Typo.subtitle2">Charts</MudText>
-                                            <MudChip T="bool"
-                                                     Variant="Variant.Outlined"
-                                                     Size="Size.Small"
-                                                     Color="Color.Primary"
-                                                     Selected="@inspectorMetricsExpanded"
-                                                     OnClick="ToggleInspectorMetricsExpanded">
-                                                @(inspectorMetricsExpanded ? "Collapse" : "Expand")
-                                            </MudChip>
-                                        </MudStack>
-                                    }
-
-                                    @foreach (var block in metricBlocks)
-                                    {
-                                        <MudStack Spacing="1">
-                                            @if (inspectorMetricsExpanded)
-                                            {
-                                                if (block.Provenance is not null)
-                                                {
-                                                    <div class="inspector-provenance-hover">
-                                                        <MudText Typo="Typo.subtitle2">@block.Title</MudText>
-                                                        <div class="inspector-provenance-flyout">
-                                                            <div class="inspector-provenance-tooltip">
-                                                                <div class="inspector-provenance-tooltip__entries">
-                                                                    @foreach (var entry in BuildProvenanceTooltipEntries(block.Provenance))
-                                                                    {
-                                                                        <div class="inspector-provenance-tooltip__entry">
-                                                                            <span class="inspector-provenance-tooltip__label">@entry.Label</span>
-                                                                            <span class="inspector-provenance-tooltip__value">@entry.Value</span>
-                                                                        </div>
-                                                                    }
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                }
-                                                else
-                                                {
-                                                    <MudText Typo="Typo.subtitle2">@block.Title</MudText>
-                                                }
-                                            }
-                                            @if (block.Sparkline is not null)
-                                            {
-                                                if (inspectorMetricsExpanded)
-                                                {
-                                                    <TopologyInspectorSparkline Data="@block.Sparkline"
-                                                                                 SelectedBin="@selectedBin"
-                                                                                 Stroke="@block.Stroke"
-                                                                                 AriaLabel="@block.AriaLabel"
-                                                                                 ValueFormat="@block.ValueFormat"
-                                                                                 OverlaySettings="overlaySettings"
-                                                                                 SeriesKey="@block.SeriesKey" />
-                                                }
-
-                                                var (hData, hMin, hMax, hStart, hEnd) = ResolveHorizonSeries(inspectorNodeId!, block.SeriesKey, block.Sparkline);
-                                                var horizonMin = overlaySettings.NormalizeInspectorHorizonCounts ? 0d : hMin;
-                                                var horizonMax = overlaySettings.NormalizeInspectorHorizonCounts
-                                                    ? (overlaySettings.InspectorHorizonGlobalCap ?? hMax)
-                                                    : hMax;
-
-                                                @if (hData is not null && hData.Length > 0)
-                                                {
-                                                    <MudStack Spacing="0" Class="topology-horizon-wrapper">
-                                                        @if (!inspectorMetricsExpanded)
-                                                        {
-                                                            if (block.Provenance is not null)
-                                                            {
-                                                                <div class="inspector-provenance-hover">
-                                                                    <MudText Typo="Typo.caption"
-                                                                             Class="topology-muted-text topology-horizon-label">@block.Title</MudText>
-                                                                    <div class="inspector-provenance-flyout">
-                                                                        <div class="inspector-provenance-tooltip">
-                                                                            <div class="inspector-provenance-tooltip__entries">
-                                                                                @foreach (var entry in BuildProvenanceTooltipEntries(block.Provenance))
-                                                                                {
-                                                                                    <div class="inspector-provenance-tooltip__entry">
-                                                                                        <span class="inspector-provenance-tooltip__label">@entry.Label</span>
-                                                                                        <span class="inspector-provenance-tooltip__value">@entry.Value</span>
-                                                                                    </div>
-                                                                                }
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            }
-                                                            else
-                                                            {
-                                                                <MudText Typo="Typo.caption"
-                                                                         Class="topology-muted-text topology-horizon-label">@block.Title</MudText>
-                                                            }
-                                                        }
-                                                        <TopologyHorizonChart Data="@hData"
-                                                                              Min="@horizonMin"
-                                                                              Max="@horizonMax"
-                                                                              Bands="@overlaySettings.HorizonBands"
-                                                                              Height="24"
-                                                                              NormalizeAcrossNodes="@overlaySettings.NormalizeInspectorHorizonCounts"
-                                                                              GlobalCap="@overlaySettings.InspectorHorizonGlobalCap"
-                                                                              OverlaySettings="overlaySettings"
-                                                                              SeriesKey="@block.SeriesKey"
-                                                                              HighlightStartIndex="@hStart"
-                                                                              HighlightEndIndex="@hEnd"
-                                                                              AriaLabel="@(block.AriaLabel is null ? null : $"{block.AriaLabel} horizon overview")" />
-                                                    </MudStack>
-                                                }
-                                                else
-                                                {
-                                                    <MudStack Spacing="0" Class="topology-horizon-wrapper">
-                                                        @if (!inspectorMetricsExpanded)
-                                                        {
-                                                            if (block.Provenance is not null)
-                                                            {
-                                                                <div class="inspector-provenance-hover">
-                                                                    <MudText Typo="Typo.caption"
-                                                                             Class="topology-muted-text topology-horizon-label">@block.Title</MudText>
-                                                                    <div class="inspector-provenance-flyout">
-                                                                        <div class="inspector-provenance-tooltip">
-                                                                            <div class="inspector-provenance-tooltip__entries">
-                                                                                @foreach (var entry in BuildProvenanceTooltipEntries(block.Provenance))
-                                                                                {
-                                                                                    <div class="inspector-provenance-tooltip__entry">
-                                                                                        <span class="inspector-provenance-tooltip__label">@entry.Label</span>
-                                                                                        <span class="inspector-provenance-tooltip__value">@entry.Value</span>
-                                                                                    </div>
-                                                                                }
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            }
-                                                            else
-                                                            {
-                                                                <MudText Typo="Typo.caption"
-                                                                         Class="topology-muted-text topology-horizon-label">@block.Title</MudText>
-                                                            }
-                                                        }
-                                                        <div class="topology-horizon-empty"
-                                                             role="img"
-                                                             aria-label="@BuildHorizonEmptyLabel(block.AriaLabel, block.Placeholder)">
-                                                            <span>No data</span>
-                                                        </div>
-                                                    </MudStack>
-                                                }
-                                            }
-                                            else
-                                            {
-                                                <MudStack Spacing="0" Class="topology-horizon-wrapper">
-                                                    @if (!inspectorMetricsExpanded)
-                                                    {
-                                                        <MudText Typo="Typo.caption"
-                                                                 Class="topology-muted-text topology-horizon-label">@block.Title</MudText>
-                                                    }
-                                                    <div class="topology-horizon-empty"
-                                                         role="img"
-                                                         aria-label="@BuildHorizonEmptyLabel(block.AriaLabel, block.Placeholder)">
-                                                        <span>No data</span>
-                                                    </div>
+	                                    <MudTabs @key="nodeId"
+	                                             ActivePanelIndex="@inspectorTabIndex"
+	                                             ActivePanelIndexChanged="index => OnInspectorTabChanged(index, inspectorTabs)"
+	                                             MinimumTabWidth="0px"
+	                                             Class="topology-inspector-tabs">
+	                                        <MudTabPanel Text="Charts">
+	                                            @if (hasSparklineSeries)
+	                                            {
+	                                                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.FlexEnd">
+	                                                    <MudChip T="bool"
+	                                                             Variant="Variant.Outlined"
+	                                                             Size="Size.Small"
+	                                                             Color="Color.Primary"
+                                                             Selected="@inspectorMetricsExpanded"
+                                                             OnClick="ToggleInspectorMetricsExpanded">
+                                                        @(inspectorMetricsExpanded ? "Collapse" : "Expand")
+                                                    </MudChip>
                                                 </MudStack>
                                             }
-                                        </MudStack>
-                                    }
-                                </MudStack>
-                                <MudDivider Class="my-2" />
-                                <MudStack Spacing="1">
-                                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
-                                        <MudText Typo="Typo.subtitle2">Dependencies</MudText>
-                                        @if (dependencyRows.Count > 0)
-                                        {
-                                            <MudText Typo="Typo.caption" Class="topology-muted-text">@($"{dependencyRows.Count}")</MudText>
-                                        }
-                                    </MudStack>
-                                    @if (dependencyRows.Count == 0)
-                                    {
-                                        <MudText Typo="Typo.caption" Class="topology-muted-text">No dependencies</MudText>
-                                    }
-                                    else
-                                    {
-                                        <div class="topology-inspector-dependencies">
-                                            @foreach (var dependency in dependencyRows)
+
+                                            @foreach (var block in metricBlocks)
                                             {
-                                                var highlighted = IsDependencyHighlighted(dependency.EdgeId);
-                                                <button type="button"
-                                                        class="inspector-dependency-row"
-                                                        data-highlighted="@(highlighted ? "true" : "false")"
-                                                        @onmouseenter="() => OnInspectorDependencyHover(dependency.EdgeId)"
-                                                        @onmouseleave="() => OnInspectorDependencyHover(null)"
-                                                        @onclick="() => OnInspectorDependencyClick(dependency.EdgeId)">
-                                                    <div class="inspector-dependency-row__meta">
-                                                        <MudText Typo="Typo.body2">@dependency.Label</MudText>
-                                                        <MudText Typo="Typo.caption" Class="topology-muted-text">@dependency.Source</MudText>
-                                                    </div>
-                                                </button>
+                                                <MudStack Spacing="1">
+                                                    @if (inspectorMetricsExpanded)
+                                                    {
+                                                        if (block.Provenance is not null)
+                                                        {
+                                                            <div class="inspector-provenance-hover">
+                                                                <MudText Typo="Typo.subtitle2">@block.Title</MudText>
+                                                                <div class="inspector-provenance-flyout">
+                                                                    <div class="inspector-provenance-tooltip">
+                                                                        <div class="inspector-provenance-tooltip__entries">
+                                                                            @foreach (var entry in BuildProvenanceTooltipEntries(block.Provenance))
+                                                                            {
+                                                                                <div class="inspector-provenance-tooltip__entry">
+                                                                                    <span class="inspector-provenance-tooltip__label">@entry.Label</span>
+                                                                                    <span class="inspector-provenance-tooltip__value">@entry.Value</span>
+                                                                                </div>
+                                                                            }
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        }
+                                                        else
+                                                        {
+                                                            <MudText Typo="Typo.subtitle2">@block.Title</MudText>
+                                                        }
+                                                    }
+                                                    @if (block.Sparkline is not null)
+                                                    {
+                                                        if (inspectorMetricsExpanded)
+                                                        {
+                                                            <TopologyInspectorSparkline Data="@block.Sparkline"
+                                                                                         SelectedBin="@selectedBin"
+                                                                                         Stroke="@block.Stroke"
+                                                                                         AriaLabel="@block.AriaLabel"
+                                                                                         ValueFormat="@block.ValueFormat"
+                                                                                         OverlaySettings="overlaySettings"
+                                                                                         SeriesKey="@block.SeriesKey" />
+                                                        }
+
+                                                        var (hData, hMin, hMax, hStart, hEnd) = ResolveHorizonSeries(inspectorNodeId!, block.SeriesKey, block.Sparkline);
+                                                        var horizonMin = overlaySettings.NormalizeInspectorHorizonCounts ? 0d : hMin;
+                                                        var horizonMax = overlaySettings.NormalizeInspectorHorizonCounts
+                                                            ? (overlaySettings.InspectorHorizonGlobalCap ?? hMax)
+                                                            : hMax;
+
+                                                        @if (hData is not null && hData.Length > 0)
+                                                        {
+                                                            <MudStack Spacing="0" Class="topology-horizon-wrapper">
+                                                                @if (!inspectorMetricsExpanded)
+                                                                {
+                                                                    if (block.Provenance is not null)
+                                                                    {
+                                                                        <div class="inspector-provenance-hover">
+                                                                            <MudText Typo="Typo.caption"
+                                                                                     Class="topology-muted-text topology-horizon-label">@block.Title</MudText>
+                                                                            <div class="inspector-provenance-flyout">
+                                                                                <div class="inspector-provenance-tooltip">
+                                                                                    <div class="inspector-provenance-tooltip__entries">
+                                                                                        @foreach (var entry in BuildProvenanceTooltipEntries(block.Provenance))
+                                                                                        {
+                                                                                            <div class="inspector-provenance-tooltip__entry">
+                                                                                                <span class="inspector-provenance-tooltip__label">@entry.Label</span>
+                                                                                                <span class="inspector-provenance-tooltip__value">@entry.Value</span>
+                                                                                            </div>
+                                                                                        }
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    }
+                                                                    else
+                                                                    {
+                                                                        <MudText Typo="Typo.caption"
+                                                                                 Class="topology-muted-text topology-horizon-label">@block.Title</MudText>
+                                                                    }
+                                                                }
+                                                                <TopologyHorizonChart Data="@hData"
+                                                                                      Min="@horizonMin"
+                                                                                      Max="@horizonMax"
+                                                                                      Bands="@overlaySettings.HorizonBands"
+                                                                                      Height="24"
+                                                                                      NormalizeAcrossNodes="@overlaySettings.NormalizeInspectorHorizonCounts"
+                                                                                      GlobalCap="@overlaySettings.InspectorHorizonGlobalCap"
+                                                                                      OverlaySettings="overlaySettings"
+                                                                                      SeriesKey="@block.SeriesKey"
+                                                                                      HighlightStartIndex="@hStart"
+                                                                                      HighlightEndIndex="@hEnd"
+                                                                                      AriaLabel="@(block.AriaLabel is null ? null : $"{block.AriaLabel} horizon overview")" />
+                                                            </MudStack>
+                                                        }
+                                                        else
+                                                        {
+                                                            <MudStack Spacing="0" Class="topology-horizon-wrapper">
+                                                                @if (!inspectorMetricsExpanded)
+                                                                {
+                                                                    if (block.Provenance is not null)
+                                                                    {
+                                                                        <div class="inspector-provenance-hover">
+                                                                            <MudText Typo="Typo.caption"
+                                                                                     Class="topology-muted-text topology-horizon-label">@block.Title</MudText>
+                                                                            <div class="inspector-provenance-flyout">
+                                                                                <div class="inspector-provenance-tooltip">
+                                                                                    <div class="inspector-provenance-tooltip__entries">
+                                                                                        @foreach (var entry in BuildProvenanceTooltipEntries(block.Provenance))
+                                                                                        {
+                                                                                            <div class="inspector-provenance-tooltip__entry">
+                                                                                                <span class="inspector-provenance-tooltip__label">@entry.Label</span>
+                                                                                                <span class="inspector-provenance-tooltip__value">@entry.Value</span>
+                                                                                            </div>
+                                                                                        }
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    }
+                                                                    else
+                                                                    {
+                                                                        <MudText Typo="Typo.caption"
+                                                                                 Class="topology-muted-text topology-horizon-label">@block.Title</MudText>
+                                                                    }
+                                                                }
+                                                                <div class="topology-horizon-empty"
+                                                                     role="img"
+                                                                     aria-label="@BuildHorizonEmptyLabel(block.AriaLabel, block.Placeholder)">
+                                                                    <span>No data</span>
+                                                                </div>
+                                                            </MudStack>
+                                                        }
+                                                    }
+                                                    else
+                                                    {
+                                                        <MudStack Spacing="0" Class="topology-horizon-wrapper">
+                                                            @if (!inspectorMetricsExpanded)
+                                                            {
+                                                                if (block.Provenance is not null)
+                                                                {
+                                                                    <div class="inspector-provenance-hover">
+                                                                        <MudText Typo="Typo.caption"
+                                                                                 Class="topology-muted-text topology-horizon-label">@block.Title</MudText>
+                                                                        <div class="inspector-provenance-flyout">
+                                                                            <div class="inspector-provenance-tooltip">
+                                                                                <div class="inspector-provenance-tooltip__entries">
+                                                                                    @foreach (var entry in BuildProvenanceTooltipEntries(block.Provenance))
+                                                                                    {
+                                                                                        <div class="inspector-provenance-tooltip__entry">
+                                                                                            <span class="inspector-provenance-tooltip__label">@entry.Label</span>
+                                                                                            <span class="inspector-provenance-tooltip__value">@entry.Value</span>
+                                                                                        </div>
+                                                                                    }
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                }
+                                                                else
+                                                                {
+                                                                    <MudText Typo="Typo.caption"
+                                                                             Class="topology-muted-text topology-horizon-label">@block.Title</MudText>
+                                                                }
+                                                            }
+                                                            <div class="topology-horizon-empty"
+                                                                 role="img"
+                                                                 aria-label="@BuildHorizonEmptyLabel(block.AriaLabel, block.Placeholder)">
+                                                                <span>No data</span>
+                                                            </div>
+                                                        </MudStack>
+                                                    }
+                                                </MudStack>
                                             }
-                                        </div>
-                                    }
+                                        </MudTabPanel>
+                                        <MudTabPanel Text="Props">
+                                            @if (binMetrics.Count > 0)
+                                            {
+                                                <div class="node-inspector-bin-section">
+                                                    <div class="node-inspector-bin-list">
+                                                        @foreach (var row in binMetrics)
+                                                        {
+                                                            if (row.Provenance is not null)
+                                                            {
+                                                                <div class="inspector-provenance-hover">
+                                                                    <div class="node-inspector-bin-row">
+                                                                        <span class="node-inspector-bin-label">@row.Label</span>
+                                                                        <span class="node-inspector-bin-value">@row.Value</span>
+                                                                    </div>
+                                                                    <div class="inspector-provenance-flyout">
+                                                                        <div class="inspector-provenance-tooltip">
+                                                                            <div class="inspector-provenance-tooltip__entries">
+                                                                                @foreach (var entry in BuildProvenanceTooltipEntries(row.Provenance))
+                                                                                {
+                                                                                    <div class="inspector-provenance-tooltip__entry">
+                                                                                        <span class="inspector-provenance-tooltip__label">@entry.Label</span>
+                                                                                        <span class="inspector-provenance-tooltip__value">@entry.Value</span>
+                                                                                    </div>
+                                                                                }
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            }
+                                                            else
+                                                            {
+                                                                <div class="node-inspector-bin-row">
+                                                                    <span class="node-inspector-bin-label">@row.Label</span>
+                                                                    <span class="node-inspector-bin-value">@row.Value</span>
+                                                                </div>
+                                                            }
+                                                        }
+                                                    </div>
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <MudText Typo="Typo.caption" Class="topology-muted-text">No properties</MudText>
+                                            }
+                                        </MudTabPanel>
+                                        <MudTabPanel Text="Deps">
+                                            <MudStack Spacing="1">
+                                                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                                                    @if (dependencyRows.Count > 0)
+                                                    {
+                                                        <MudText Typo="Typo.caption" Class="topology-muted-text">@($"{dependencyRows.Count}")</MudText>
+                                                    }
+                                                </MudStack>
+                                                @if (dependencyRows.Count == 0)
+                                                {
+                                                    <MudText Typo="Typo.caption" Class="topology-muted-text">No dependencies</MudText>
+                                                }
+                                                else
+                                                {
+                                                    <div class="topology-inspector-dependencies">
+                                                        @foreach (var dependency in dependencyRows)
+                                                        {
+                                                            var highlighted = IsDependencyHighlighted(dependency.EdgeId);
+                                                            <button type="button"
+                                                                    class="inspector-dependency-row"
+                                                                    data-highlighted="@(highlighted ? "true" : "false")"
+                                                                    @onmouseenter="() => OnInspectorDependencyHover(dependency.EdgeId)"
+                                                                    @onmouseleave="() => OnInspectorDependencyHover(null)"
+                                                                    @onclick="() => OnInspectorDependencyClick(dependency.EdgeId)">
+                                                                <div class="inspector-dependency-row__meta">
+                                                                    <MudText Typo="Typo.body2">@dependency.Label</MudText>
+                                                                    <MudText Typo="Typo.caption" Class="topology-muted-text">@dependency.Source</MudText>
+                                                                </div>
+                                                            </button>
+                                                        }
+                                                    </div>
+                                                }
+                                            </MudStack>
+                                        </MudTabPanel>
+                                        <MudTabPanel>
+                                            <TabContent>
+                                                <span class="topology-warning-tab-label">
+                                                    WARN
+                                                    @if (inspectorWarnings.Count > 0)
+                                                    {
+                                                        <MudIcon Icon="@Icons.Material.Filled.WarningAmber"
+                                                                 Color="Color.Warning"
+                                                                 Class="topology-warning-tab-icon"
+                                                                 Title="Warnings available" />
+                                                    }
+                                                </span>
+                                            </TabContent>
+                                            <ChildContent>
+                                                @if (inspectorWarnings.Count == 0)
+                                                {
+                                                    <MudText Typo="Typo.caption" Class="topology-muted-text">No warnings to show.</MudText>
+                                                }
+	                                                else
+	                                                {
+	                                                    <MudStack Spacing="1" Class="topology-inspector-warnings">
+	                                                        @foreach (var warning in inspectorWarnings)
+	                                                        {
+	                                                            var severity = NormalizeWarningSeverity(warning.Severity);
+	                                                            var label = string.IsNullOrWhiteSpace(warning.Code) ? "warning" : warning.Code.Trim();
+                                                            var binRange = FormatWarningBinRange(warning.StartBin, warning.EndBin);
+                                                            <div class="inspector-warning-row" data-severity="@severity">
+                                                                <MudText Typo="Typo.body2" Class="inspector-warning-title"><strong>@label</strong> (@severity)</MudText>
+                                                                @if (!string.IsNullOrWhiteSpace(warning.Message))
+                                                                {
+                                                                    <MudText Typo="Typo.caption" Class="topology-muted-text">@warning.Message</MudText>
+                                                                }
+                                                                @if (!string.IsNullOrWhiteSpace(binRange))
+                                                                {
+                                                                    <MudText Typo="Typo.caption" Class="topology-muted-text">Bins: @binRange</MudText>
+                                                                }
+                                                                @if (!string.IsNullOrWhiteSpace(warning.Signal))
+                                                                {
+                                                                    <MudText Typo="Typo.caption" Class="topology-muted-text">Signal: @warning.Signal</MudText>
+                                                                }
+                                                            </div>
+                                                        }
+                                                    </MudStack>
+                                                }
+                                            </ChildContent>
+                                        </MudTabPanel>
+	                                        @if (showExpressionSection)
+	                                        {
+	                                            <MudTabPanel Text="Expr">
+	                                                <MudStack Spacing="1">
+	                                                    @if (hasExpressionText)
+	                                                    {
+	                                                        <MudPaper Class="pa-2 code-block node-inspector-expression" Elevation="0">@expressionText</MudPaper>
+	                                                    }
+                                                    else
+                                                    {
+                                                        <MudText Typo="Typo.caption" Class="topology-muted-text">Expression unavailable.</MudText>
+                                                    }
+                                                </MudStack>
+                                            </MudTabPanel>
+                                        }
+                                    </MudTabs>
                                 </MudStack>
                             </MudPaper>
                         }
@@ -784,16 +877,19 @@
     private TopologyOverlaySettings overlaySettings = TopologyOverlaySettings.Default.Clone();
     private Dictionary<TopologyFeatureSection, bool> sectionExpansionState = CreateDefaultSectionState();
     private ViewportSnapshot? currentViewportSnapshot;
+    private ViewportSnapshot? focusViewportSnapshot;
     private ViewportSnapshot? pendingViewportSnapshot;
     private bool isRestoringViewport;
     private bool attemptedRestore;
     private DotNetObjectReference<Topology>? selfReference;
     private int? hotkeyRegistrationId;
-private string? inspectorNodeId;
-private string? lastInspectorNodeId;
-private bool inspectorOpen;
-private bool inspectorPinned;
-private bool inspectorMetricsExpanded;
+    private string? inspectorNodeId;
+    private string? lastInspectorNodeId;
+    private string? selectedNodeId;
+    private bool inspectorOpen;
+    private bool inspectorPinned;
+    private bool inspectorMetricsExpanded;
+    private InspectorTab inspectorTab = InspectorTab.Charts;
     private bool inspectorDataDirty = true;
     private string? inspectorHoveredEdgeId;
     private string? inspectorPinnedEdgeId;
@@ -848,6 +944,8 @@ private IReadOnlyList<TimeTravelStateWarningDto> windowWarnings = Array.Empty<Ti
     private const int ScrubRefreshIntervalMs = 150;
     private bool operationalViewOnly;
     private bool operationalTogglePending;
+    private bool focusViewEnabled;
+    private bool focusIncludeDownstream;
     private bool? savedIncludeExpressionNodes;
     private bool? savedIncludeConstNodes;
     private bool? savedEnableFullDag;
@@ -865,7 +963,15 @@ private readonly HashSet<string> classFilteredNodes = new(StringComparer.Ordinal
     private static readonly IReadOnlyDictionary<string, ManifestClassEntry> EmptyClassMetadata = new Dictionary<string, ManifestClassEntry>(StringComparer.OrdinalIgnoreCase);
 
     private sealed record LegendEntry(string Swatch, string Label);
-internal sealed record DispatchScheduleEntry(string NodeId, string Summary, string CapacityLabel);
+    internal sealed record DispatchScheduleEntry(string NodeId, string Summary, string CapacityLabel);
+    private enum InspectorTab
+    {
+        Charts,
+        Properties,
+        Dependencies,
+        Warnings,
+        Expression
+    }
 
     private IEnumerable<LegendEntry> BuildLegendEntries()
     {
@@ -915,9 +1021,53 @@ internal sealed record DispatchScheduleEntry(string NodeId, string Summary, stri
         };
     }
 
+    private static IReadOnlyList<InspectorTab> GetInspectorTabs(bool includeExpression)
+    {
+        var tabs = new List<InspectorTab>
+        {
+            InspectorTab.Charts,
+            InspectorTab.Properties,
+            InspectorTab.Dependencies,
+            InspectorTab.Warnings
+        };
+
+        if (includeExpression)
+        {
+            tabs.Add(InspectorTab.Expression);
+        }
+
+        return tabs;
+    }
+
+    private int GetInspectorTabIndex(InspectorTab selected, IReadOnlyList<InspectorTab> tabs)
+    {
+        for (var i = 0; i < tabs.Count; i++)
+        {
+            if (tabs[i] == selected)
+            {
+                return i;
+            }
+        }
+
+        inspectorTab = InspectorTab.Charts;
+        return 0;
+    }
+
+    private void OnInspectorTabChanged(int index, IReadOnlyList<InspectorTab> tabs)
+    {
+        if (index < 0 || index >= tabs.Count)
+        {
+            return;
+        }
+
+        inspectorTab = tabs[index];
+    }
+
     private bool ShowClassSelector => availableClasses.Count > 0;
     private bool ShowDispatchPanel => false;
     private bool HasClassSelection => selectedClasses.Count > 0;
+    private bool CanToggleFocusView => !string.IsNullOrWhiteSpace(selectedNodeId);
+    private ViewportSnapshot? ActiveViewportSnapshot => focusViewEnabled ? focusViewportSnapshot : currentViewportSnapshot;
 
     private Task OnClassSelectionChanged(IReadOnlyList<string> classes)
     {
@@ -989,6 +1139,20 @@ private const string PmfExpectationLabel = "Value";
         }
 
         return $"{baseLabel}. {placeholder}";
+    }
+
+    private static ViewportSnapshot CloneViewportSnapshot(ViewportSnapshot snapshot)
+    {
+        return new ViewportSnapshot
+        {
+            Scale = snapshot.Scale,
+            OffsetX = snapshot.OffsetX,
+            OffsetY = snapshot.OffsetY,
+            WorldCenterX = snapshot.WorldCenterX,
+            WorldCenterY = snapshot.WorldCenterY,
+            OverlayScale = snapshot.OverlayScale,
+            BaseScale = snapshot.BaseScale
+        };
     }
 
     protected override async Task OnParametersSetAsync()
@@ -1492,7 +1656,8 @@ private const string PmfExpectationLabel = "Value";
 
             Logger?.LogInformation("Topology load start for run {RunId}", runId);
 
-            var graphTask = DataService.GetGraphAsync(runId, BuildGraphQueryOptions(), ct);
+            var graphOptions = BuildGraphQueryOptions();
+            var graphTask = DataService.GetGraphAsync(runId, graphOptions, ct);
             var indexTask = DataService.GetSeriesIndexAsync(runId, ct);
 
             await Task.WhenAll(graphTask, indexTask);
@@ -1548,7 +1713,7 @@ private const string PmfExpectationLabel = "Value";
             visibleStartBin = sliceStart;
             visibleEndBin = sliceEnd;
 
-            var stateMode = (overlaySettings.EnableFullDag || overlaySettings.IncludeExpressionNodes || overlaySettings.IncludeConstNodes) ? "full" : null;
+            var stateMode = string.Equals(graphOptions.Mode, "full", StringComparison.OrdinalIgnoreCase) ? "full" : null;
             Logger?.LogInformation("Requesting state window for run {RunId} bins {Start}-{End} (mode={Mode})", runId, sliceStart, sliceEnd, stateMode ?? "operational");
             windowWarnings = Array.Empty<TimeTravelStateWarningDto>();
             UpdateNodeWarningMap();
@@ -1736,6 +1901,7 @@ private const string PmfExpectationLabel = "Value";
         {
             pendingViewportSnapshot = null;
             currentViewportSnapshot = null;
+            focusViewportSnapshot = null;
             isRestoringViewport = false;
             pointerNeedsJump = true;
             if (canvasComponent is not null)
@@ -1760,18 +1926,10 @@ private const string PmfExpectationLabel = "Value";
 
         if (requiresWindowReload)
         {
-            if (currentViewportSnapshot is not null)
+            var activeSnapshot = ActiveViewportSnapshot;
+            if (activeSnapshot is not null)
             {
-                pendingViewportSnapshot = new ViewportSnapshot
-                {
-                    Scale = currentViewportSnapshot.Scale,
-                    OffsetX = currentViewportSnapshot.OffsetX,
-                    OffsetY = currentViewportSnapshot.OffsetY,
-                    WorldCenterX = currentViewportSnapshot.WorldCenterX,
-                    WorldCenterY = currentViewportSnapshot.WorldCenterY,
-                    OverlayScale = currentViewportSnapshot.OverlayScale,
-                    BaseScale = currentViewportSnapshot.BaseScale
-                };
+                pendingViewportSnapshot = CloneViewportSnapshot(activeSnapshot);
                 isRestoringViewport = true;
             }
             StopPlayback();
@@ -1801,7 +1959,7 @@ private const string PmfExpectationLabel = "Value";
         updated.ZoomPercent = 100d;
         await OnOverlaySettingsChanged(updated);
         pointerNeedsJump = true;
-        pendingViewportSnapshot = currentViewportSnapshot?.CloneWithScale(1d);
+        pendingViewportSnapshot = ActiveViewportSnapshot?.CloneWithScale(1d);
     }
 
     private async Task FitViewport()
@@ -1882,6 +2040,53 @@ private const string PmfExpectationLabel = "Value";
         }
     }
 
+    private Task OnFocusViewChanged(bool value)
+    {
+        SetFocusViewEnabled(value);
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private Task OnFocusIncludeDownstreamChanged(bool value)
+    {
+        focusIncludeDownstream = value;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private void ToggleFocusView()
+    {
+        SetFocusViewEnabled(!focusViewEnabled);
+    }
+
+    private void SetFocusViewEnabled(bool value)
+    {
+        if (!CanToggleFocusView && value)
+        {
+            focusViewEnabled = false;
+            return;
+        }
+
+        if (focusViewEnabled == value)
+        {
+            return;
+        }
+
+        focusViewEnabled = value;
+
+        var snapshot = ActiveViewportSnapshot;
+        if (snapshot is not null)
+        {
+            pendingViewportSnapshot = CloneViewportSnapshot(snapshot);
+            isRestoringViewport = true;
+        }
+        else
+        {
+            pendingViewportSnapshot = null;
+            isRestoringViewport = false;
+        }
+    }
+
     private async Task OnFeatureSectionExpansionChanged(SectionExpansionChangedArgs args)
     {
         sectionExpansionState[args.Section] = args.IsExpanded;
@@ -1895,13 +2100,20 @@ private const string PmfExpectationLabel = "Value";
             return Task.CompletedTask;
         }
 
-        currentViewportSnapshot = snapshot;
+        if (focusViewEnabled)
+        {
+            focusViewportSnapshot = snapshot;
+        }
+        else
+        {
+            currentViewportSnapshot = snapshot;
+        }
         if (isRestoringViewport)
         {
             isRestoringViewport = false;
         }
 
-        if (hasLoaded && !string.IsNullOrWhiteSpace(currentRunId))
+        if (!focusViewEnabled && hasLoaded && !string.IsNullOrWhiteSpace(currentRunId))
         {
             ScheduleRunStateSave();
         }
@@ -1914,7 +2126,7 @@ private const string PmfExpectationLabel = "Value";
         if (isRestoringViewport)
         {
             isRestoringViewport = false;
-            if (hasLoaded && !string.IsNullOrWhiteSpace(currentRunId))
+            if (!focusViewEnabled && hasLoaded && !string.IsNullOrWhiteSpace(currentRunId))
             {
                 ScheduleRunStateSave();
             }
@@ -1926,48 +2138,45 @@ private const string PmfExpectationLabel = "Value";
     {
         var options = new GraphQueryOptions
         {
-            Mode = overlaySettings.EnableFullDag ? "full" : "operational"
+            Mode = "full"
         };
 
-        if (overlaySettings.EnableFullDag)
+        var dependencyFields = new List<string>(6);
+
+        if (overlaySettings.ShowArrivalsDependencies)
         {
-            var dependencyFields = new List<string>(6);
+            dependencyFields.Add("arrivals");
+        }
 
-            if (overlaySettings.ShowArrivalsDependencies)
-            {
-                dependencyFields.Add("arrivals");
-            }
+        if (overlaySettings.ShowServedDependencies)
+        {
+            dependencyFields.Add("served");
+        }
 
-            if (overlaySettings.ShowServedDependencies)
-            {
-                dependencyFields.Add("served");
-            }
+        if (overlaySettings.ShowErrorsDependencies)
+        {
+            dependencyFields.Add("errors");
+        }
 
-            if (overlaySettings.ShowErrorsDependencies)
-            {
-                dependencyFields.Add("errors");
-            }
+        if (overlaySettings.ShowQueueDependencies)
+        {
+            dependencyFields.Add("queue");
+        }
 
-            if (overlaySettings.ShowQueueDependencies)
-            {
-                dependencyFields.Add("queue");
-            }
+        if (overlaySettings.ShowCapacityDependencies)
+        {
+            dependencyFields.Add("capacity");
+            dependencyFields.Add("parallelism");
+        }
 
-            if (overlaySettings.ShowCapacityDependencies)
-            {
-                dependencyFields.Add("capacity");
-                dependencyFields.Add("parallelism");
-            }
+        if (overlaySettings.ShowExpressionDependencies)
+        {
+            dependencyFields.Add("expr");
+        }
 
-            if (overlaySettings.ShowExpressionDependencies)
-            {
-                dependencyFields.Add("expr");
-            }
-
-            if (dependencyFields.Count > 0 && dependencyFields.Count < 6)
-            {
-                options.DependencyFields = dependencyFields;
-            }
+        if (dependencyFields.Count > 0 && dependencyFields.Count < 6)
+        {
+            options.DependencyFields = dependencyFields;
         }
 
         return options;
@@ -1998,8 +2207,8 @@ private const string PmfExpectationLabel = "Value";
 
         try
         {
-            var mode = overlaySettings.EnableFullDag ? "full" : null;
-            var fullMode = (overlaySettings.EnableFullDag || overlaySettings.IncludeExpressionNodes || overlaySettings.IncludeConstNodes) ? "full" : mode;
+            var graphMode = BuildGraphQueryOptions().Mode;
+            var fullMode = string.Equals(graphMode, "full", StringComparison.OrdinalIgnoreCase) ? "full" : null;
             windowWarnings = Array.Empty<TimeTravelStateWarningDto>();
             UpdateNodeWarningMap();
             var windowResult = await DataService.GetStateWindowAsync(currentRunId!, sliceStart, sliceEnd, fullMode, cts.Token);
@@ -3164,7 +3373,7 @@ private const string PmfExpectationLabel = "Value";
         nodesMissingSparkline = result.MissingNodes;
         loggedMissingMetricKinds.Clear();
 
-        if (Logger is not null)
+        if (Logger is not null && overlaySettings.IncludeExpressionNodes)
         {
             foreach (var nodeId in result.MissingExpressionNodeIds)
             {
@@ -3218,24 +3427,46 @@ private const string PmfExpectationLabel = "Value";
 
     private Task OnNodeFocused(string? nodeId)
     {
+        var wasOpen = inspectorOpen;
         if (string.IsNullOrWhiteSpace(nodeId))
         {
             inspectorPinned = false;
             inspectorOpen = false;
             inspectorNodeId = null;
             inspectorDataDirty = true;
+            SetFocusViewEnabled(false);
+            focusIncludeDownstream = false;
         }
         else
         {
             inspectorNodeId = nodeId;
             lastInspectorNodeId = nodeId;
+            selectedNodeId = nodeId;
             inspectorOpen = true;
             inspectorPinned = true;
             EnsureInspectorDataFresh();
         }
 
+        if (!wasOpen && inspectorOpen)
+        {
+            inspectorTab = InspectorTab.Charts;
+        }
+
         inspectorMetricsExpanded = false;
         ClearInspectorEdgeHighlights();
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private Task OnNodeSelected(string? nodeId)
+    {
+        selectedNodeId = string.IsNullOrWhiteSpace(nodeId) ? null : nodeId;
+        if (selectedNodeId is null)
+        {
+            SetFocusViewEnabled(false);
+            focusIncludeDownstream = false;
+        }
+
         StateHasChanged();
         return Task.CompletedTask;
     }
@@ -4723,6 +4954,7 @@ internal sealed record InspectorMetricBlock(
         inspectorNodeId = null;
         inspectorPinned = false;
         inspectorMetricsExpanded = false;
+        inspectorTab = InspectorTab.Charts;
         inspectorDataDirty = true;
         ClearInspectorEdgeHighlights();
         canvasComponent?.ClearFocus();
@@ -5701,12 +5933,6 @@ internal sealed record InspectorMetricBlock(
         var matches = new List<InspectorDependencyViewModel>();
         foreach (var edge in topologyGraph.Edges)
         {
-            var targetNodeId = ExtractNodeReference(edge.To);
-            if (!string.Equals(targetNodeId, nodeId, StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
-
             if (!string.Equals(edge.EdgeType, "dependency", StringComparison.OrdinalIgnoreCase))
             {
                 continue;
@@ -5717,17 +5943,26 @@ internal sealed record InspectorMetricBlock(
                 continue;
             }
 
-            var edgeId = edge.Id ?? $"{edge.From}->{edge.To}:{edge.Field}";
             var sourceNodeReference = ExtractNodeReference(edge.From);
-            if (string.IsNullOrWhiteSpace(sourceNodeReference))
+            var targetNodeReference = ExtractNodeReference(edge.To);
+            var isInbound = !string.IsNullOrWhiteSpace(targetNodeReference)
+                && string.Equals(targetNodeReference, nodeId, StringComparison.OrdinalIgnoreCase);
+            var isOutbound = !string.IsNullOrWhiteSpace(sourceNodeReference)
+                && string.Equals(sourceNodeReference, nodeId, StringComparison.OrdinalIgnoreCase);
+
+            if (!isInbound && !isOutbound)
             {
                 continue;
             }
 
-            var sourceNode = FindTopologyNode(sourceNodeReference);
-            var label = FormatDependencyFieldLabel(edge.Field, sourceNode);
-            var source = edge.From ?? "Unknown";
-            var order = ResolveDependencyFieldOrder(edge.Field);
+            var edgeId = edge.Id ?? $"{edge.From}->{edge.To}:{edge.Field}";
+            var otherReference = isInbound ? edge.From : edge.To;
+            var otherNodeId = isInbound ? sourceNodeReference : targetNodeReference;
+            var otherNode = string.IsNullOrWhiteSpace(otherNodeId) ? null : FindTopologyNode(otherNodeId);
+            var label = FormatDependencyFieldLabel(edge.Field, otherNode);
+            var direction = isInbound ? "from" : "to";
+            var source = $"{direction} {otherReference ?? "Unknown"}";
+            var order = ResolveDependencyFieldOrder(edge.Field) + (isOutbound ? 100 : 0);
             matches.Add(new InspectorDependencyViewModel(edgeId, label, source, order));
         }
 
@@ -6071,6 +6306,8 @@ private static IReadOnlyList<double?> TrimSeriesAt(double?[]? source, int limit,
         inspectorPinned = false;
         inspectorNodeId = null;
         lastInspectorNodeId = null;
+        inspectorTab = InspectorTab.Charts;
+        selectedNodeId = null;
         inspectorMetricsExpanded = false;
         inspectorDataDirty = true;
         ClearInspectorEdgeHighlights();
@@ -6097,6 +6334,9 @@ private static IReadOnlyList<double?> TrimSeriesAt(double?[]? source, int limit,
         pointerNeedsJump = false;
         featureBarOpen = false;
         operationalViewOnly = false;
+        focusViewEnabled = false;
+        focusIncludeDownstream = false;
+        focusViewportSnapshot = null;
         savedIncludeExpressionNodes = null;
         savedIncludeConstNodes = null;
         savedEnableFullDag = null;

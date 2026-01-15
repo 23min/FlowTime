@@ -1,5 +1,7 @@
 using System;
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using FlowTime.UI.Components.Topology;
 using FlowTime.UI.Services;
@@ -134,7 +136,32 @@ public partial class Topology
 
     internal void TestCloseInspector()
     {
-        CloseInspector();
+        inspectorOpen = false;
+        inspectorNodeId = null;
+        inspectorPinned = false;
+        inspectorMetricsExpanded = false;
+        inspectorTab = InspectorTab.Charts;
+        inspectorDataDirty = true;
+        ClearInspectorEdgeHighlights();
+    }
+
+    internal string TestGetInspectorTab() => inspectorTab.ToString();
+
+    internal void TestSetInspectorTab(string tab)
+    {
+        if (Enum.TryParse<InspectorTab>(tab, out var parsed))
+        {
+            inspectorTab = parsed;
+        }
+    }
+
+    internal IReadOnlyList<string> TestGetInspectorTabsForNode(string nodeId)
+    {
+        var node = FindTopologyNode(nodeId);
+        var includeExpression = node is not null && IsExpressionKind(node.Kind);
+        return GetInspectorTabs(includeExpression)
+            .Select(tab => tab.ToString())
+            .ToArray();
     }
 
     internal void TestScheduleRunStateSave() => ScheduleRunStateSave();
@@ -150,6 +177,36 @@ public partial class Topology
     {
         overlaySettings = settings.Clone();
     }
+
+    internal GraphQueryOptions TestBuildGraphQueryOptions() => BuildGraphQueryOptions();
+
+    internal bool TestIsFocusToggleEnabled() => CanToggleFocusView;
+
+    internal bool TestIsFocusViewEnabled() => focusViewEnabled;
+
+    internal void TestToggleFocusView() => ToggleFocusView();
+
+    internal void TestSetFocusViewEnabled(bool value) => SetFocusViewEnabled(value);
+
+    internal void TestOnNodeSelected(string? nodeId)
+    {
+        selectedNodeId = string.IsNullOrWhiteSpace(nodeId) ? null : nodeId;
+        if (selectedNodeId is null)
+        {
+            SetFocusViewEnabled(false);
+            focusIncludeDownstream = false;
+        }
+    }
+
+    internal void TestSetFullViewportSnapshot(ViewportSnapshot snapshot) => currentViewportSnapshot = snapshot;
+
+    internal ViewportSnapshot? TestGetFullViewportSnapshot() => currentViewportSnapshot;
+
+    internal ViewportSnapshot? TestGetFocusViewportSnapshot() => focusViewportSnapshot;
+
+    internal ViewportSnapshot? TestGetPendingViewportSnapshot() => pendingViewportSnapshot;
+
+    internal Task TestOnCanvasViewportChanged(ViewportSnapshot snapshot) => OnCanvasViewportChanged(snapshot);
 
     internal void TestUpdateActiveMetrics(int bin)
     {
