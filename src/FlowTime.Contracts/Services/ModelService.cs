@@ -149,6 +149,7 @@ public static class ModelService
                         ExternalDemand = node.Semantics.ExternalDemand,
                         QueueDepth = node.Semantics.QueueDepth,
                         Capacity = node.Semantics.Capacity,
+                        Parallelism = node.Semantics.Parallelism,
                         ProcessingTimeMsSum = node.Semantics.ProcessingTimeMsSum,
                         ServedCount = node.Semantics.ServedCount,
                         SlaMin = node.Semantics.SlaMin,

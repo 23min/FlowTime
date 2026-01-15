@@ -101,7 +101,7 @@ Key characteristics of FlowTime today:
 - **Roadmap Directions**
   - Classes as flows (per-class node metrics, UI views).
   - EdgeTimeBin (per-edge flow facts, node–edge conservation, path analytics).
-  - Engine-as-post-processing layer between telemetry stores and UIs.
+  - Engine semantics layer between telemetry stores and UIs.
   - Subsystems & zooming (hierarchical views, aggregated metrics).
 
 Within this context, Ptolemy is not a blueprint but a **catalog of patterns**. The rest of this document matches these patterns to FlowTime’s architecture.
@@ -335,7 +335,7 @@ PTIDES connects model time and real time:
 
 ### 9.2 FlowTime’s Streaming Aspirations
 
-FlowTime’s engine-as-post-processing doc already references:
+FlowTime’s engine semantics layer doc already references:
 
 - Batch runs today.
 - Potential future streaming/near-real-time mode:
@@ -390,11 +390,11 @@ Here is how the major Ptolemy-inspired ideas map to existing FlowTime roadmap di
   - Already aligned with Ptolemy-style hierarchy.
   - Should remain DT-only for now; no multiple directors per subsystem required.
 
-- **Engine-as-Post-Processing Layer**
+- **Engine Semantics Layer**
   - Good match for determinacy and typed ports.
   - Future streaming/watermarks can borrow ideas from PTIDES without changing the core contracts.
 
-- **Future Modes/Scenarios Epic (not yet formalized)**
+- **Scenario Overlays & What-If Runs**
   - Direct beneficiary of modal model ideas.
   - Can remain within DT semantics while switching parameter packs over time.
 

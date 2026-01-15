@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Linq;
 using FlowTime.Core.Models;
 
@@ -60,6 +61,8 @@ public sealed class SemanticLoader
             ? LoadSeries(semantics.Capacity!, bins)
             : null;
 
+        var parallelism = ResolveParallelism(semantics.Parallelism, bins);
+
         double[]? processingTimeMsSum = IsFileUri(semantics.ProcessingTimeMsSum)
             ? LoadSeries(semantics.ProcessingTimeMsSum!, bins)
             : null;
@@ -82,11 +85,61 @@ public sealed class SemanticLoader
             ExternalDemand = externalDemand,
             QueueDepth = queueDepth,
             Capacity = capacity,
+            Parallelism = parallelism,
             ProcessingTimeMsSum = processingTimeMsSum,
             ServedCount = servedCount,
             RetryBudgetRemaining = retryBudgetRemaining,
             Values = null
         };
+    }
+
+    private double[]? ResolveParallelism(object? parallelism, int bins)
+    {
+        if (parallelism is null)
+        {
+            return null;
+        }
+
+        if (parallelism is string seriesId)
+        {
+            if (IsFileUri(seriesId))
+            {
+                return LoadSeries(seriesId, bins);
+            }
+
+            if (double.TryParse(seriesId, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed) &&
+                double.IsFinite(parsed) &&
+                parsed > 0d)
+            {
+                return CreateConstantSeries(parsed, bins);
+            }
+
+            return null;
+        }
+
+        if (parallelism is IConvertible)
+        {
+            var value = Convert.ToDouble(parallelism, CultureInfo.InvariantCulture);
+            if (!double.IsFinite(value) || value <= 0d)
+            {
+                return null;
+            }
+
+            return CreateConstantSeries(value, bins);
+        }
+
+        return null;
+    }
+
+    private static double[] CreateConstantSeries(double value, int bins)
+    {
+        var series = new double[bins];
+        for (var i = 0; i < bins; i++)
+        {
+            series[i] = value;
+        }
+
+        return series;
     }
 
     private double[] LoadSeries(string uri, int bins)

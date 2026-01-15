@@ -561,6 +561,25 @@ internal static class TemplateValidator
             }
         }
 
+        if (!kind.Equals("serviceWithBuffer", StringComparison.OrdinalIgnoreCase))
+        {
+            if (semantics.Parallelism is not null)
+            {
+                throw new TemplateValidationException($"Topology node '{topologyNode.Id}' of kind {kind} must not define semantics.parallelism.");
+            }
+        }
+        else
+        {
+            if (semantics.Parallelism is null)
+            {
+                semantics.Parallelism = 1;
+            }
+            else
+            {
+                ValidateParallelism(topologyNode.Id, semantics.Parallelism, nodeIds);
+            }
+        }
+
         var mappedSeries = new[]
         {
             ("arrivals", semantics.Arrivals),
@@ -614,6 +633,56 @@ internal static class TemplateValidator
                 throw new TemplateValidationException($"Topology node '{topologyNode.Id}' must define semantics.served or semantics.queueDepth in simulation mode.");
             }
         }
+    }
+
+    private static void ValidateParallelism(string topologyNodeId, object parallelism, HashSet<string> nodeIds)
+    {
+        if (parallelism is string seriesId)
+        {
+            if (string.IsNullOrWhiteSpace(seriesId))
+            {
+                throw new TemplateValidationException($"Topology node '{topologyNodeId}' semantics.parallelism must be a number or series id.");
+            }
+
+            if (double.TryParse(seriesId, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed))
+            {
+                if (!double.IsFinite(parsed) || parsed < 1)
+                {
+                    throw new TemplateValidationException($"Topology node '{topologyNodeId}' semantics.parallelism must be >= 1.");
+                }
+
+                return;
+            }
+
+            if (!nodeIds.Contains(seriesId))
+            {
+                throw new TemplateValidationException($"Topology node '{topologyNodeId}' semantics.parallelism references unknown series '{seriesId}'.");
+            }
+
+            return;
+        }
+
+        if (parallelism is IConvertible)
+        {
+            double value;
+            try
+            {
+                value = Convert.ToDouble(parallelism, CultureInfo.InvariantCulture);
+            }
+            catch (Exception ex) when (ex is FormatException or InvalidCastException or OverflowException)
+            {
+                throw new TemplateValidationException($"Topology node '{topologyNodeId}' semantics.parallelism must be a number or series id.");
+            }
+
+            if (!double.IsFinite(value) || value < 1)
+            {
+                throw new TemplateValidationException($"Topology node '{topologyNodeId}' semantics.parallelism must be >= 1.");
+            }
+
+            return;
+        }
+
+        throw new TemplateValidationException($"Topology node '{topologyNodeId}' semantics.parallelism must be a number or series id.");
     }
 
     private static string ExtractTopologyNodeId(string endpoint)

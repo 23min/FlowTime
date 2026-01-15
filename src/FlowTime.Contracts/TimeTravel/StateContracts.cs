@@ -147,6 +147,7 @@ public sealed class NodeMetrics
     public double? RetryBudgetRemaining { get; init; }
     public double? Queue { get; init; }
     public double? Capacity { get; init; }
+    public double? Parallelism { get; init; }
     public double? ExternalDemand { get; init; }
     public double? MaxAttempts { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

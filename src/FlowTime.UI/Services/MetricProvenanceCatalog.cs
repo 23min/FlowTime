@@ -174,6 +174,24 @@ public static class MetricProvenanceCatalog
                     new MetricFormulaOption("capacity = capacity series", new[] { "capacity" })
                 },
                 "Available service capacity."),
+            ["parallelism"] = CreateDefinition(
+                "parallelism",
+                "Instances",
+                "count",
+                new[]
+                {
+                    new MetricFormulaOption("parallelism = parallelism series", new[] { "parallelism" })
+                },
+                "Concurrent instances/workers."),
+            ["effectiveCapacity"] = CreateDefinition(
+                "effectiveCapacity",
+                "Effective capacity",
+                "count",
+                new[]
+                {
+                    new MetricFormulaOption("effectiveCapacity = capacity * parallelism", new[] { "capacity", "parallelism" })
+                },
+                "Capacity after applying parallelism."),
             ["queue"] = CreateDefinition(
                 "queue",
                 "Queue depth",

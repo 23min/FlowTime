@@ -287,6 +287,9 @@ public sealed record TimeTravelNodeMetricsDto
     [JsonPropertyName("capacity")]
     public double? Capacity { get; init; }
 
+    [JsonPropertyName("parallelism")]
+    public double? Parallelism { get; init; }
+
     [JsonPropertyName("externalDemand")]
     public double? ExternalDemand { get; init; }
 

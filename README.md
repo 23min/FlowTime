@@ -30,7 +30,7 @@ Realizing this vision means investing in:
 
 | Surface | Purpose | Key Projects |
 |---------|---------|--------------|
-| **Engine** | Deterministic execution, artifact registry, REST API, Blazor UI | `src/FlowTime.Core`, `src/FlowTime.API`, `src/FlowTime.Cli`, `src/FlowTime.Expressions`, `src/FlowTime.Generator`, `src/FlowTime.UI`, `ui/FlowTime.UI`, `ui/FlowTime.UI.Tests`, `tests/FlowTime.*` |
+| **Engine** | Deterministic execution, artifact registry, REST API, Blazor UI | `src/FlowTime.Core`, `src/FlowTime.API`, `src/FlowTime.Cli`, `src/FlowTime.Expressions`, `src/FlowTime.Generator`, `src/FlowTime.UI`, `tests/FlowTime.UI.Tests`, `tests/FlowTime.*` |
 | **Sim** | Template-based model authoring, provenance, synthetic data APIs | `src/FlowTime.Sim.Core`, `src/FlowTime.Sim.Service`, `src/FlowTime.Sim.Cli`, `templates/`, `examples/`, `catalogs/`, `fixtures/`, `tests/FlowTime.Sim.Tests` |
 
 Why FlowTime:
@@ -48,16 +48,15 @@ flowtime-vnext/
 ├─ src/
 │  ├─ FlowTime.Core/             # Engine execution core
 │  ├─ FlowTime.API/              # Engine HTTP API (:8080)
-│  ├─ FlowTime.CLI/              # Engine CLI
+│  ├─ FlowTime.Cli/              # Engine CLI
 │  ├─ FlowTime.Contracts/        # Shared models/schemas
 │  ├─ FlowTime.Adapters.Synthetic/ # Engine synthetic adapters
 │  ├─ FlowTime.Expressions/       # Expression language support
 │  ├─ FlowTime.Generator/         # Model/generator utilities
 │  ├─ FlowTime.Sim.Core/         # Simulation templates + provenance
 │  ├─ FlowTime.Sim.Service/      # Simulation HTTP API (:8090)
-│  └─ FlowTime.Sim.Cli/          # Simulation CLI utilities
-├─ ui/FlowTime.UI/               # Blazor WebAssembly UI (:5219)
-├─ ui/FlowTime.UI.Tests/         # UI test project
+│  ├─ FlowTime.Sim.Cli/          # Simulation CLI utilities
+│  └─ FlowTime.UI/               # Blazor WebAssembly UI (:5219)
 ├─ tests/                        # Engine + Sim test projects
 ├─ docs/                         # Engine + shared documentation (roadmap, architecture, schemas)
 ├─ templates/                    # Simulation templates
@@ -96,10 +95,10 @@ Or use VS Code tasks: `build`, `build-sim`, `test`, `test-sim`.
 dotnet run --project src/FlowTime.API --urls http://0.0.0.0:8080
 
 # Launch the Blazor UI (default http://localhost:5219)
-dotnet run --project ui/FlowTime.UI
+dotnet run --project src/FlowTime.UI
 
 # Execute a model via CLI (writes CSV artifacts under out/)
-dotnet run --project src/FlowTime.CLI -- run examples/m0.const.yaml --out out/m0
+dotnet run --project src/FlowTime.Cli -- run examples/m0.const.yaml --out out/m0
 ```
 
 ### Run the Simulation Surface
@@ -121,18 +120,17 @@ dotnet test tests/FlowTime.Sim.Tests/FlowTime.Sim.Tests.csproj
 
 - Engine + shared docs: `docs/` (roadmap, architecture, schemas, onboarding).
 - Planning & epics: `docs/ROADMAP.md` (current and future work, including time-travel and upcoming epics).
-- Architecture notes: `docs/architecture/` (time-travel, expression extensions, classes, edge time bins, engine post-processing, etc.).
+- Architecture docs: `docs/architecture/` (time-travel, expression extensions, classes, edge time bins, engine semantics layer, overlays).
 
 ---
 
 ## Contributing
 
-1. Branch from the appropriate milestone branch (e.g., `feature/<surface>-mX/<desc>` aligned with the active milestone).
-2. Keep builds/tests passing (`dotnet build`, `dotnet test`).
-3. Follow Conventional Commits (`feat(sim): ...`, `fix(api): ...`, `docs: ...`).
-4. Update docs/tests alongside code changes.
+FlowTime is AI-first. Code changes and milestone specs are authored by AI workflows and must follow `docs/development/` and `.github/copilot-instructions.md`.
 
-Issues and pull requests are welcome—open a discussion first for large changes to align with the roadmap.
+- Humans may contribute by writing or improving documentation.
+- For code changes, open a discussion or issue describing the desired behavior; AI will author the milestone spec and implementation.
+- Do not submit human-written code PRs; they will be declined.
 
 ---
 

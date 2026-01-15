@@ -33,10 +33,14 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
     private const string classRunId = "run_state_classes";
     private const string queueClassRunId = "run_state_classes_queue";
     private const string serviceWithBufferDerivedRunId = "run_state_servicewithbuffer_derived";
+    private const string serviceWithBufferParallelismRunId = "run_state_servicewithbuffer_parallelism";
+    private const string serviceWithBufferBehaviorBaselineRunId = "run_state_servicewithbuffer_behavior_base";
+    private const string serviceWithBufferBehaviorParallelRunId = "run_state_servicewithbuffer_behavior_parallel";
     private const string serviceWithBufferPartialRunId = "run_state_servicewithbuffer_partial";
     private const string dispatchScheduleRunId = "run_state_dispatch_schedule";
     private const string throughputOverflowRunId = "run_state_throughput_overflow";
     private const string backlogWarningsRunId = "run_state_backlog_warnings";
+    private const string backlogWarningsParallelismRunId = "run_state_backlog_warnings_parallelism";
     private const string sinkRunId = "run_state_sink";
     private const int binCount = 4;
     private const int binSizeMinutes = 5;
@@ -74,10 +78,13 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         CreateClassRun();
         CreateServiceWithBufferClassRun();
         CreateServiceWithBufferDerivedRun();
+        CreateServiceWithBufferParallelismRun();
+        CreateServiceWithBufferBehaviorRuns();
         CreateServiceWithBufferPartialRun();
         CreateDispatchScheduleRun();
         CreateThroughputOverflowRun();
         CreateBacklogWarningsRun();
+        CreateBacklogWarningsParallelismRun();
         CreateSinkRun();
 
         logCollector = new TestLogCollector();
@@ -479,6 +486,118 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
     }
 
     [Fact]
+    public async Task GetStateWindow_UsesEffectiveCapacity_ForServiceWithBufferParallelism()
+    {
+        var response = await client.GetAsync($"/v1/runs/{serviceWithBufferParallelismRunId}/state_window?startBin=0&endBin=3");
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<StateWindowResponse>(new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            PropertyNameCaseInsensitive = true
+        });
+        Assert.NotNull(payload);
+
+        var node = Assert.Single(payload!.Nodes, n => n.Id == "BufferService");
+
+        Assert.True(node.Series.TryGetValue("utilization", out var utilizationSeries));
+        Assert.NotNull(utilizationSeries);
+        Assert.Equal(4, utilizationSeries!.Length);
+        Assert.Equal(0.25d, utilizationSeries[0]!.Value, 5);
+        Assert.Equal(0.5d, utilizationSeries[1]!.Value, 5);
+        Assert.Equal(0.125d, utilizationSeries[2]!.Value, 5);
+        Assert.Equal(0.25d, utilizationSeries[3]!.Value, 5);
+    }
+
+    [Fact]
+    public async Task GetStateWindow_ParallelismHalvesUtilization_VersusBaseline()
+    {
+        var baselineResponse = await client.GetAsync($"/v1/runs/{serviceWithBufferDerivedRunId}/state_window?startBin=0&endBin=3");
+        baselineResponse.EnsureSuccessStatusCode();
+        var baseline = await baselineResponse.Content.ReadFromJsonAsync<StateWindowResponse>(new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            PropertyNameCaseInsensitive = true
+        });
+        Assert.NotNull(baseline);
+
+        var parallelResponse = await client.GetAsync($"/v1/runs/{serviceWithBufferParallelismRunId}/state_window?startBin=0&endBin=3");
+        parallelResponse.EnsureSuccessStatusCode();
+        var parallel = await parallelResponse.Content.ReadFromJsonAsync<StateWindowResponse>(new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            PropertyNameCaseInsensitive = true
+        });
+        Assert.NotNull(parallel);
+
+        var baselineNode = Assert.Single(baseline!.Nodes, n => n.Id == "BufferService");
+        var parallelNode = Assert.Single(parallel!.Nodes, n => n.Id == "BufferService");
+
+        Assert.True(baselineNode.Series.TryGetValue("utilization", out var baselineUtilization));
+        Assert.True(parallelNode.Series.TryGetValue("utilization", out var parallelUtilization));
+        Assert.NotNull(baselineUtilization);
+        Assert.NotNull(parallelUtilization);
+        Assert.Equal(baselineUtilization!.Length, parallelUtilization!.Length);
+
+        for (var i = 0; i < baselineUtilization.Length; i += 1)
+        {
+            var baseValue = baselineUtilization[i];
+            var parallelValue = parallelUtilization[i];
+            if (!baseValue.HasValue || !parallelValue.HasValue)
+            {
+                continue;
+            }
+
+            Assert.Equal(baseValue.Value / 2d, parallelValue.Value, 5);
+        }
+    }
+
+    [Fact]
+    public async Task GetStateWindow_ParallelismReducesQueueDepth_ForServiceWithBuffer()
+    {
+        var baselineResponse = await client.GetAsync($"/v1/runs/{serviceWithBufferBehaviorBaselineRunId}/state_window?startBin=0&endBin=3");
+        baselineResponse.EnsureSuccessStatusCode();
+        var baseline = await baselineResponse.Content.ReadFromJsonAsync<StateWindowResponse>(new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            PropertyNameCaseInsensitive = true
+        });
+        Assert.NotNull(baseline);
+
+        var parallelResponse = await client.GetAsync($"/v1/runs/{serviceWithBufferBehaviorParallelRunId}/state_window?startBin=0&endBin=3");
+        parallelResponse.EnsureSuccessStatusCode();
+        var parallel = await parallelResponse.Content.ReadFromJsonAsync<StateWindowResponse>(new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            PropertyNameCaseInsensitive = true
+        });
+        Assert.NotNull(parallel);
+
+        var baselineNode = Assert.Single(baseline!.Nodes, n => n.Id == "BufferService");
+        var parallelNode = Assert.Single(parallel!.Nodes, n => n.Id == "BufferService");
+
+        Assert.True(baselineNode.Series.TryGetValue("queue", out var baselineQueue));
+        Assert.True(parallelNode.Series.TryGetValue("queue", out var parallelQueue));
+        Assert.NotNull(baselineQueue);
+        Assert.NotNull(parallelQueue);
+        Assert.Equal(baselineQueue!.Length, parallelQueue!.Length);
+
+        var sawStrictReduction = false;
+        for (var i = 0; i < baselineQueue.Length; i += 1)
+        {
+            var baseValue = baselineQueue[i];
+            var parallelValue = parallelQueue[i];
+            if (!baseValue.HasValue || !parallelValue.HasValue)
+            {
+                continue;
+            }
+
+            Assert.True(parallelValue.Value <= baseValue.Value);
+            if (parallelValue.Value < baseValue.Value)
+            {
+                sawStrictReduction = true;
+            }
+        }
+
+        Assert.True(sawStrictReduction);
+    }
+
+    [Fact]
     public async Task GetStateWindow_SkipsServiceMetrics_ForServiceWithBuffer_WhenInputsMissing()
     {
         var response = await client.GetAsync($"/v1/runs/{serviceWithBufferPartialRunId}/state_window?startBin=0&endBin=3");
@@ -673,6 +792,27 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
             w.StartBin == 0 &&
             w.EndBin == 3 &&
             w.Signal == "latencyMinutes");
+    }
+
+    [Fact]
+    public async Task GetStateWindow_SuppressesOverloadWarnings_WhenParallelismBoostsCapacity()
+    {
+        var response = await client.GetAsync($"/v1/runs/{backlogWarningsParallelismRunId}/state_window?startBin=0&endBin=3");
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync();
+            throw new XunitException($"Expected 200 OK but got {(int)response.StatusCode}: {errorBody}");
+        }
+
+        var payload = await response.Content.ReadFromJsonAsync<StateWindowResponse>(new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            PropertyNameCaseInsensitive = true
+        });
+
+        Assert.NotNull(payload);
+        var warnings = payload!.Warnings.Where(w => w.NodeId == "BufferService").ToArray();
+
+        Assert.DoesNotContain(warnings, w => w.Code == "backlog_overload_ratio");
     }
 
     [Fact]
@@ -1049,6 +1189,60 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
             overrides: overrides);
     }
 
+    private void CreateServiceWithBufferParallelismRun()
+    {
+        var overrides = new Dictionary<string, double[]>
+        {
+            ["BufferService_arrivals.csv"] = new[] { 5d, 4d, 3d, 2d },
+            ["BufferService_served.csv"] = new[] { 2d, 4d, 1d, 2d },
+            ["BufferService_errors.csv"] = new[] { 0d, 1d, 0d, 0d },
+            ["BufferService_queue.csv"] = new[] { 10d, 5d, 0d, 4d },
+            ["BufferService_capacity.csv"] = new[] { 4d, 4d, 4d, 4d },
+            ["BufferService_processingTimeMsSum.csv"] = new[] { 400d, 800d, 100d, 600d },
+            ["BufferService_servedCount.csv"] = new[] { 2d, 4d, 1d, 2d }
+        };
+
+        CreateRun(
+            serviceWithBufferParallelismRunId,
+            BuildServiceWithBufferParallelismModelYaml(),
+            mode: "telemetry",
+            overrides: overrides);
+    }
+
+    private void CreateServiceWithBufferBehaviorRuns()
+    {
+        var arrivals = new[] { 8d, 8d, 8d, 8d };
+        var capacity = new[] { 4d, 4d, 4d, 4d };
+        var baseline = BuildQueueSimulation(arrivals, capacity, parallelism: 1d);
+        var parallel = BuildQueueSimulation(arrivals, capacity, parallelism: 2d);
+
+        CreateRun(
+            serviceWithBufferBehaviorBaselineRunId,
+            BuildServiceWithBufferBehaviorModelYaml(parallelism: null),
+            mode: "telemetry",
+            overrides: new Dictionary<string, double[]>
+            {
+                ["BufferService_arrivals.csv"] = arrivals,
+                ["BufferService_served.csv"] = baseline.Served,
+                ["BufferService_queue.csv"] = baseline.Queue,
+                ["BufferService_capacity.csv"] = capacity,
+                ["BufferService_errors.csv"] = new[] { 0d, 0d, 0d, 0d }
+            });
+
+        CreateRun(
+            serviceWithBufferBehaviorParallelRunId,
+            BuildServiceWithBufferBehaviorModelYaml(parallelism: 2d),
+            mode: "telemetry",
+            overrides: new Dictionary<string, double[]>
+            {
+                ["BufferService_arrivals.csv"] = arrivals,
+                ["BufferService_served.csv"] = parallel.Served,
+                ["BufferService_queue.csv"] = parallel.Queue,
+                ["BufferService_capacity.csv"] = capacity,
+                ["BufferService_errors.csv"] = new[] { 0d, 0d, 0d, 0d }
+            });
+    }
+
     private void CreateServiceWithBufferPartialRun()
     {
         var overrides = new Dictionary<string, double[]>
@@ -1104,6 +1298,26 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         CreateRun(
             backlogWarningsRunId,
             BuildBacklogWarningsModelYaml(),
+            mode: "telemetry",
+            overrides: overrides);
+    }
+
+    private void CreateBacklogWarningsParallelismRun()
+    {
+        var overrides = new Dictionary<string, double[]>
+        {
+            ["BufferService_arrivals.csv"] = new[] { 7d, 8d, 9d, 10d },
+            ["BufferService_served.csv"] = new[] { 7d, 8d, 9d, 10d },
+            ["BufferService_errors.csv"] = new[] { 0d, 0d, 0d, 0d },
+            ["BufferService_queue.csv"] = new[] { 0d, 0d, 0d, 0d },
+            ["BufferService_capacity.csv"] = new[] { 5d, 5d, 5d, 5d },
+            ["BufferService_processingTimeMsSum.csv"] = new[] { 350d, 400d, 450d, 500d },
+            ["BufferService_servedCount.csv"] = new[] { 7d, 8d, 9d, 10d }
+        };
+
+        CreateRun(
+            backlogWarningsParallelismRunId,
+            BuildBacklogWarningsParallelismModelYaml(),
             mode: "telemetry",
             overrides: overrides);
     }
@@ -1746,6 +1960,98 @@ topology:
 """;
     }
 
+    private static (double[] Served, double[] Queue) BuildQueueSimulation(
+        IReadOnlyList<double> arrivals,
+        IReadOnlyList<double> capacity,
+        double parallelism)
+    {
+        if (arrivals.Count != capacity.Count)
+        {
+            throw new ArgumentException("Arrivals and capacity series length must match.");
+        }
+
+        if (parallelism <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(parallelism), "Parallelism must be positive.");
+        }
+
+        var served = new double[arrivals.Count];
+        var queue = new double[arrivals.Count];
+        var pending = 0d;
+
+        for (var i = 0; i < arrivals.Count; i += 1)
+        {
+            var available = capacity[i] * parallelism;
+            var demand = pending + arrivals[i];
+            var completed = Math.Min(available, demand);
+            pending = Math.Max(demand - completed, 0d);
+            served[i] = completed;
+            queue[i] = pending;
+        }
+
+        return (served, queue);
+    }
+
+    private static string BuildServiceWithBufferParallelismModelYaml()
+    {
+        return $"""
+schemaVersion: 1
+
+grid:
+  bins: {binCount}
+  binSize: {binSizeMinutes}
+  binUnit: minutes
+  startTimeUtc: "{startTimeUtc:O}"
+
+topology:
+  nodes:
+    - id: "BufferService"
+      kind: "serviceWithBuffer"
+      semantics:
+        arrivals: "file:BufferService_arrivals.csv"
+        served: "file:BufferService_served.csv"
+        errors: "file:BufferService_errors.csv"
+        queueDepth: "file:BufferService_queue.csv"
+        capacity: "file:BufferService_capacity.csv"
+        parallelism: 2
+        processingTimeMsSum: "file:BufferService_processingTimeMsSum.csv"
+        servedCount: "file:BufferService_servedCount.csv"
+  edges: []
+
+""";
+    }
+
+    private static string BuildServiceWithBufferBehaviorModelYaml(double? parallelism)
+    {
+        var parallelismLine = parallelism.HasValue
+            ? $"        parallelism: {parallelism.Value.ToString(CultureInfo.InvariantCulture)}"
+            : string.Empty;
+
+        return $"""
+schemaVersion: 1
+
+grid:
+  bins: {binCount}
+  binSize: {binSizeMinutes}
+  binUnit: minutes
+  startTimeUtc: "{startTimeUtc:O}"
+
+topology:
+  nodes:
+    - id: "BufferService"
+      kind: "serviceWithBuffer"
+      semantics:
+        arrivals: "file:BufferService_arrivals.csv"
+        served: "file:BufferService_served.csv"
+        errors: "file:BufferService_errors.csv"
+        queueDepth: "file:BufferService_queue.csv"
+        capacity: "file:BufferService_capacity.csv"
+{parallelismLine}
+  edges: []
+
+""";
+    }
+
     private static string BuildBacklogWarningsModelYaml()
     {
         return $"""
@@ -1767,6 +2073,36 @@ topology:
         errors: "file:BufferService_errors.csv"
         queueDepth: "file:BufferService_queue.csv"
         capacity: "file:BufferService_capacity.csv"
+        processingTimeMsSum: "file:BufferService_processingTimeMsSum.csv"
+        servedCount: "file:BufferService_servedCount.csv"
+        slaMin: 10
+  edges: []
+
+""";
+    }
+
+    private static string BuildBacklogWarningsParallelismModelYaml()
+    {
+        return $"""
+schemaVersion: 1
+
+grid:
+  bins: {binCount}
+  binSize: {binSizeMinutes}
+  binUnit: minutes
+  startTimeUtc: "{startTimeUtc:O}"
+
+topology:
+  nodes:
+    - id: "BufferService"
+      kind: "serviceWithBuffer"
+      semantics:
+        arrivals: "file:BufferService_arrivals.csv"
+        served: "file:BufferService_served.csv"
+        errors: "file:BufferService_errors.csv"
+        queueDepth: "file:BufferService_queue.csv"
+        capacity: "file:BufferService_capacity.csv"
+        parallelism: 2
         processingTimeMsSum: "file:BufferService_processingTimeMsSum.csv"
         servedCount: "file:BufferService_servedCount.csv"
         slaMin: 10

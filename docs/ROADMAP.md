@@ -18,9 +18,9 @@ This roadmap supersedes the previous legacy plan (now archived under `docs/archi
    - Goal: derive or surface per-edge throughput/attempt volumes for heat maps, conservation checks, and future edge overlays.  
    - Work: define schema (likely derived from node series), update `/state_window` or companion API, extend UI to consume.  
    - Status: not analyzed yet; needs dedicated design session.
-2. **TelemetryLoader Service**  
-   - Architecture docs still assume an ADX/KQL loader feeding Engine; today we rely on CLI capture/bundles. Synthetic telemetry already defines the contract/schema (`docs/schemas/time-travel-state.schema.json`), so any eventual ADX ingestion must produce artifacts that match what the synthetic loop emits.  
-   - Work: decide whether to implement the loader, replace it with improved CLI workflows, or update docs to match reality.
+2. **Telemetry Ingestion & Canonical Bundles**  
+   - Architecture docs still assume an ADX/KQL loader feeding Engine; today we rely on CLI capture/bundles. Synthetic telemetry already defines the contract/schema, so any ingestion must emit artifacts that match the canonical bundle format.  
+   - Work: decide whether to implement the loader, replace it with improved CLI workflows, and align ingestion with `docs/architecture/telemetry-ingestion/README.md`.
 3. **Topology Layout Metadata**  
    - Templates currently omit `topology.ui` hints; UI uses heuristics.  
    - Work: either formalize deterministic layout rules or allow templates to carry optional positions/lane metadata to stabilize DAG rendering.
@@ -38,7 +38,11 @@ This roadmap supersedes the previous legacy plan (now archived under `docs/archi
    - Scope policy + tooling to avoid artifact sprawl.
 
 ## Mid-Term / Aspirational
-**Engine as Post-Processing & Semantics Layer** – Treat the Engine as a reusable post-processing and semantics layer between ADX (or similar telemetry stores) and downstream UIs/BI tools; see `docs/architecture/engine-post-processing/README.md` for the detailed proposal.  
+**Engine Semantics Layer** – Treat the engine as the semantics layer between canonical bundles and downstream UIs/BI tools; see `docs/architecture/engine-semantics-layer/README.md` for the detailed proposal.  
+
+**Telemetry Loop & Parity** – Ensure synthetic runs and telemetry replays match within defined tolerances; see `docs/architecture/telemetry-loop-parity/README.md`.  
+
+**Scenario Overlays & What-If Runs** – Derived overlay runs for capacity, parallelism, and arrivals experiments with deterministic provenance; see `docs/architecture/overlays/overlays.md`.  
 
 **Flow-Aware Anomaly & Pathology Detection** – Build on the time-binned DAG model to detect anomalies and recurring flow pathologies (e.g., retry storms, slow drains), group them into incidents, and surface incident-focused stories and dashboards for SREs and stakeholders; see `docs/architecture/anomaly-detection/README.md`.  
 

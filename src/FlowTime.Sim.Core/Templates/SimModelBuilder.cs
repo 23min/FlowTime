@@ -169,6 +169,7 @@ internal static class SimModelBuilder
             Served = semantics.Served,
             Errors = semantics.Errors,
             Capacity = semantics.Capacity,
+            Parallelism = semantics.Parallelism,
             Attempts = semantics.Attempts,
             Failures = semantics.Failures,
             RetryEcho = semantics.RetryEcho,

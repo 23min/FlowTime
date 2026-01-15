@@ -88,6 +88,7 @@ topology:
         errors: zero_flow
         queueDepth: self
         capacity: intake_capacity
+        parallelism: 2
         processingTimeMsSum: intake_processing_time_ms_sum
         servedCount: intake_served_count
         slaMin: 45
@@ -105,6 +106,7 @@ topology:
         errors: wave_attrition
         queueDepth: self
         capacity: wave_dispatch_capacity
+        parallelism: 4
         processingTimeMsSum: picker_wave_processing_time_ms_sum
         servedCount: picker_wave_release
         aliases:

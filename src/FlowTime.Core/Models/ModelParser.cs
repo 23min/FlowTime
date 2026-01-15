@@ -109,6 +109,7 @@ public static class ModelParser
                     ExternalDemand = definition.Semantics.ExternalDemand,
                     QueueDepth = definition.Semantics.QueueDepth,
                     Capacity = definition.Semantics.Capacity,
+                    Parallelism = definition.Semantics.Parallelism,
                     ProcessingTimeMsSum = definition.Semantics.ProcessingTimeMsSum,
                     ServedCount = definition.Semantics.ServedCount,
                     SlaMinutes = definition.Semantics.SlaMin,
@@ -592,6 +593,7 @@ public class TopologyNodeSemanticsDefinition
     public string? ExternalDemand { get; set; }
     public string? QueueDepth { get; set; }
     public string? Capacity { get; set; }
+    public object? Parallelism { get; set; }
     public string? ProcessingTimeMsSum { get; set; }
     public string? ServedCount { get; set; }
     public double? SlaMin { get; set; }

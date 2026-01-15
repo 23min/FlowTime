@@ -116,6 +116,7 @@ topology:
         errors: wave_attrition
         queueDepth: picker_wave_backlog   # alias for the synthesized queue series
         capacity: wave_dispatch_capacity
+        parallelism: 4                   # optional; number of concurrent workers
       dispatchSchedule:
         periodBins: ${wavePeriodBins}
         phaseOffset: ${wavePhaseOffset}
@@ -126,10 +127,12 @@ topology:
 - `dispatchSchedule` lives directly under the topology node and describes when the queue is allowed to drain. Use the same schema you already use inside nodes (`periodBins`, `phaseOffset`, optional `capacitySeries`).
 - The loader rejects legacy backlog helpers. When you migrate older templates, delete the helper nodes and keep only the topology declaration.
 - When ServiceWithBuffer nodes release work on a cadence, the UI/CLI surface their queue latency status (see *Queue Latency Semantics* below) so paused gates show up as badges rather than warnings.
+- `parallelism` is optional and defaults to `1`. Use a literal number or a series id. Effective capacity uses `capacity * parallelism`.
 
 **Inspector parity expectations (service + ServiceWithBuffer):**
 - **Baseline inspector parity:** provide `arrivals`, `served`, `errors`, and `queueDepth` semantics for ServiceWithBuffer nodes.
 - **Optional series for richer metrics:** emit `capacity` for utilization and `processingTimeMsSum` + `servedCount` for service time. If you want retry chips, emit `attempts`, `failures`, `retryEcho`, and `retryBudgetRemaining`; otherwise the UI omits retry metrics.
+- **Parallelism/instances:** set `parallelism` when concurrent workers/vehicles matter. The UI renders instances and effective capacity when present.
 - **Class chips:** per-class series for `arrivals`, `served`, `errors`, and `queueDepth` must exist to render class chips in the inspector. Router targets should point at queue inflow series so class routing is preserved.
 - **Backlog age SLA:** requires queue age telemetry (e.g., oldest-age or age distribution). If telemetry cannot provide queue age, the API must mark backlog age SLA as unavailable and the UI must show "No data" (never infer from queue depth alone).
 - **Queue depth invariant:** queue depth must satisfy `queueDepth[t] = queueDepth[t-1] + arrivals[t] - served[t] - loss[t]`. When you use dispatch schedules, gate `served` by the schedule (e.g., `capacity * gate`) so the recurrence holds. Violations surface as queue depth mismatch warnings.

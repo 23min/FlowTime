@@ -614,6 +614,77 @@ public sealed class TopologyInspectorTests
     }
 
     [Fact]
+    public void InspectorRows_ProvideEffectiveCapacityProvenance()
+    {
+        var topology = new Topology();
+        topology.TestSetTopologyGraph(new TopologyGraph(
+            new[]
+            {
+                new TopologyNode("svc-buffer", "serviceWithBuffer", "serviceWithBuffer", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
+            },
+            Array.Empty<TopologyEdge>()));
+
+        var window = new TimeTravelStateWindowDto
+        {
+            Metadata = new TimeTravelStateMetadataDto
+            {
+                RunId = "run-id",
+                TemplateId = "template-id",
+                Mode = "simulation",
+                Schema = new TimeTravelSchemaMetadataDto
+                {
+                    Id = "time-travel/v1",
+                    Version = "1",
+                    Hash = "hash"
+                },
+                Storage = new TimeTravelStorageDescriptorDto()
+            },
+            Window = new TimeTravelWindowSliceDto
+            {
+                StartBin = 0,
+                EndBin = 0,
+                BinCount = 1
+            },
+            TimestampsUtc = new[] { DateTimeOffset.UtcNow },
+            Nodes = new[]
+            {
+                new TimeTravelNodeSeriesDto
+                {
+                    Id = "svc-buffer",
+                    Kind = "serviceWithBuffer",
+                    Series = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["capacity"] = new double?[] { 10 },
+                        ["parallelism"] = new double?[] { 3 }
+                    }
+                }
+            }
+        };
+
+        topology.TestSetWindowData(window);
+
+        var metrics = new NodeBinMetrics(
+            SuccessRate: null,
+            Utilization: null,
+            ErrorRate: null,
+            QueueDepth: null,
+            LatencyMinutes: null,
+            Timestamp: DateTimeOffset.UtcNow,
+            NodeKind: "serviceWithBuffer",
+            RawMetrics: new Dictionary<string, double?>
+            {
+                ["effectiveCapacity"] = 30
+            });
+
+        var rows = topology.TestBuildInspectorBinMetrics("svc-buffer", metrics);
+        var effectiveCapacity = rows.FirstOrDefault(row => row.Label == "Effective capacity");
+
+        Assert.NotNull(effectiveCapacity);
+        Assert.NotNull(effectiveCapacity!.Provenance);
+        Assert.Equal("effectiveCapacity = capacity * parallelism", effectiveCapacity.Provenance!.SelectedFormula?.Formula);
+    }
+
+    [Fact]
     public void Inspector_AlwaysShowsQueueLatencyRow_WhenUnavailable()
     {
         var topology = new Topology();
@@ -674,6 +745,38 @@ public sealed class TopologyInspectorTests
 
         Assert.NotNull(queueLatency);
         Assert.Equal("-", queueLatency!.Value);
+    }
+
+    [Fact]
+    public void Inspector_ShowsParallelismAndEffectiveCapacity()
+    {
+        var topology = new Topology();
+        topology.TestSetTopologyGraph(new TopologyGraph(
+            new[]
+            {
+                new TopologyNode("svc-buffer", "serviceWithBuffer", "serviceWithBuffer", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
+            },
+            Array.Empty<TopologyEdge>()));
+
+        var metrics = new NodeBinMetrics(
+            SuccessRate: 0.9,
+            Utilization: 0.4,
+            ErrorRate: 0.02,
+            QueueDepth: null,
+            LatencyMinutes: 1.2,
+            Timestamp: DateTimeOffset.UtcNow,
+            NodeKind: "serviceWithBuffer",
+            RawMetrics: new Dictionary<string, double?>
+            {
+                ["capacity"] = 10,
+                ["parallelism"] = 3,
+                ["effectiveCapacity"] = 30
+            });
+
+        var rows = topology.TestBuildInspectorBinMetrics("svc-buffer", metrics);
+
+        Assert.Contains(rows, row => row.Label == "Instances" && row.Value == "3.0");
+        Assert.Contains(rows, row => row.Label == "Effective capacity" && row.Value == "30.0");
     }
 
     [Fact]
@@ -1073,6 +1176,7 @@ public sealed class TopologyInspectorTests
             RetryBudgetRemaining: null,
             Queue: null,
             Capacity: null,
+            Parallelism: null,
             Series: null,
             Expression: null,
             Distribution: null,
@@ -1699,6 +1803,7 @@ public sealed class TopologyInspectorTests
             RetryBudgetRemaining: null,
             Queue: "queue_depth",
             Capacity: null,
+            Parallelism: null,
             Series: null,
             Expression: null,
             Distribution: null,
@@ -1755,6 +1860,7 @@ public sealed class TopologyInspectorTests
             RetryBudgetRemaining: null,
             Queue: "queue_depth",
             Capacity: null,
+            Parallelism: null,
             Series: null,
             Expression: null,
             Distribution: null,
@@ -1882,6 +1988,7 @@ public sealed class TopologyInspectorTests
             RetryBudgetRemaining: null,
             Queue: null,
             Capacity: null,
+            Parallelism: null,
             Series: null,
             Expression: null,
             Distribution: null,
@@ -1981,6 +2088,7 @@ public sealed class TopologyInspectorTests
                         RetryBudgetRemaining: null,
                         Queue: "queue_depth",
                         Capacity: null,
+                        Parallelism: null,
                         Series: null,
                         Expression: null,
                         Distribution: null,
@@ -2059,6 +2167,7 @@ public sealed class TopologyInspectorTests
                         RetryBudgetRemaining: null,
                         Queue: null,
                         Capacity: null,
+                        Parallelism: null,
                         Series: null,
                         Expression: null,
                         Distribution: null,
@@ -2111,6 +2220,7 @@ public sealed class TopologyInspectorTests
                         RetryBudgetRemaining: null,
                         Queue: null,
                         Capacity: null,
+                        Parallelism: null,
                         Series: null,
                         Expression: null,
                         Distribution: new TopologyNodeDistribution(
@@ -2218,6 +2328,7 @@ public sealed class TopologyInspectorTests
             RetryBudgetRemaining: null,
             Queue: null,
             Capacity: null,
+            Parallelism: null,
             Series: null,
             Expression: null,
             Distribution: null,
@@ -2282,6 +2393,7 @@ public sealed class TopologyInspectorTests
             RetryBudgetRemaining: null,
             Queue: null,
             Capacity: null,
+            Parallelism: null,
             Series: null,
             Expression: null,
             Distribution: null,
@@ -2442,6 +2554,7 @@ public sealed class TopologyInspectorTests
             RetryBudgetRemaining: null,
             Queue: null,
             Capacity: null,
+            Parallelism: null,
             Series: null,
             Expression: null,
             Distribution: null,

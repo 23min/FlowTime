@@ -165,6 +165,7 @@ public class TemplateNodeSemantics
     [YamlMember(Alias = "queueDepth", ApplyNamingConventions = false)]
     public string? QueueDepth { get => queue; set => queue = value; }
     public string? Capacity { get; set; }
+    public object? Parallelism { get; set; }
     public string? Attempts { get; set; }
     public string? Failures { get; set; }
     public string? RetryEcho { get; set; }

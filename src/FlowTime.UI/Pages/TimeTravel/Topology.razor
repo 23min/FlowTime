@@ -1956,6 +1956,7 @@ private const string PmfExpectationLabel = "Value";
             if (overlaySettings.ShowCapacityDependencies)
             {
                 dependencyFields.Add("capacity");
+                dependencyFields.Add("parallelism");
             }
 
             if (overlaySettings.ShowExpressionDependencies)
@@ -2202,6 +2203,7 @@ private const string PmfExpectationLabel = "Value";
             var exhaustedFailures = Get("exhaustedFailures");
             var retryBudgetRemaining = Get("retryBudgetRemaining");
             var capacity = Get("capacity");
+            var parallelism = Get("parallelism");
             var throughput = Get("throughputRatio");
             var utilization = Get("utilization");
             var queue = Get("queue");
@@ -2254,6 +2256,11 @@ private const string PmfExpectationLabel = "Value";
             SetRaw("queue", queue);
             SetRaw("retryTax", retryTax);
             SetRaw("capacity", capacity);
+            SetRaw("parallelism", parallelism);
+            if (capacity.HasValue && parallelism.HasValue)
+            {
+                SetRaw("effectiveCapacity", capacity.Value * parallelism.Value);
+            }
             SetRaw("flowLatencyMs", Get("flowLatencyMs"));
             SetRaw("maxAttempts", topoNode?.Semantics?.MaxAttempts);
 
@@ -4237,7 +4244,7 @@ internal sealed record InspectorMetricBlock(
         var keys = new[]
         {
             "arrivals", "served", "errors", "attempts", "failures", "retryEcho", "exhaustedFailures",
-            "retryBudgetRemaining", "retryTax", "queue", "capacity", "throughputRatio",
+            "retryBudgetRemaining", "retryTax", "queue", "capacity", "parallelism", "effectiveCapacity", "throughputRatio",
             "utilization", "latencyMinutes", "serviceTimeMs", "flowLatencyMs"
         };
 
@@ -4248,6 +4255,17 @@ internal sealed record InspectorMetricBlock(
             var classVolume = 0d;
             var value = GetSeriesValueSnapshot(node, key, localIndex, ref classDataFound, ref classVolume, hasClassSelection, classSelection);
             result[key] = value;
+        }
+
+        if (!result.TryGetValue("effectiveCapacity", out var existingEffective) || !existingEffective.HasValue)
+        {
+            if (result.TryGetValue("capacity", out var capacity) &&
+                result.TryGetValue("parallelism", out var parallelism) &&
+                capacity.HasValue &&
+                parallelism.HasValue)
+            {
+                result["effectiveCapacity"] = capacity.Value * parallelism.Value;
+            }
         }
 
         return result;
@@ -4485,6 +4503,8 @@ internal sealed record InspectorMetricBlock(
         AddRaw("Retry budget remaining", "retryBudgetRemaining", gate: overlaySettings.ShowRetryBudget && !isSink);
         AddRaw("Queue depth", "queue", gate: !isSink);
         AddRaw("Capacity", "capacity", gate: !isSink);
+        AddRaw("Instances", "parallelism", gate: !isSink);
+        AddRaw("Effective capacity", "effectiveCapacity", gate: !isSink);
         AddRaw("Max attempts", "maxAttempts", gate: !isSink);
 
         if (isSink && hasSchedule)

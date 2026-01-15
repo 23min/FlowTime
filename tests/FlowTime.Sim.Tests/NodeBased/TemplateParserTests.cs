@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Linq;
 using FlowTime.Sim.Core.Templates;
 using FlowTime.Sim.Core.Templates.Exceptions;
@@ -410,6 +411,88 @@ outputs:
     }
 
     [Fact]
+    public void TemplateValidator_Parallelism_DefaultsToOne()
+    {
+        var yaml = """
+schemaVersion: 1
+generator: flowtime-sim
+metadata:
+  id: parallelism-default
+  title: Parallelism Default
+  version: 1.0.0
+window:
+  start: 2025-03-01T00:00:00Z
+  timezone: UTC
+grid:
+  bins: 3
+  binSize: 60
+  binUnit: minutes
+topology:
+  nodes:
+    - id: DispatchQueue
+      kind: serviceWithBuffer
+      semantics:
+        arrivals: dispatch_arrivals
+        served: dispatch_served
+  edges: []
+nodes:
+  - id: dispatch_arrivals
+    kind: const
+    values: [10, 10, 10]
+  - id: dispatch_served
+    kind: const
+    values: [8, 8, 8]
+outputs:
+  - series: "*"
+""";
+
+        var template = TemplateParser.ParseFromYaml(yaml);
+
+        var parallelism = GetParallelismValue(template, "DispatchQueue");
+        Assert.Equal(1, parallelism);
+    }
+
+    [Fact]
+    public void TemplateValidator_Parallelism_RejectsZero()
+    {
+        var yaml = """
+schemaVersion: 1
+generator: flowtime-sim
+metadata:
+  id: parallelism-zero
+  title: Parallelism Zero
+  version: 1.0.0
+window:
+  start: 2025-03-01T00:00:00Z
+  timezone: UTC
+grid:
+  bins: 3
+  binSize: 60
+  binUnit: minutes
+topology:
+  nodes:
+    - id: DispatchQueue
+      kind: serviceWithBuffer
+      semantics:
+        arrivals: dispatch_arrivals
+        served: dispatch_served
+        parallelism: 0
+  edges: []
+nodes:
+  - id: dispatch_arrivals
+    kind: const
+    values: [10, 10, 10]
+  - id: dispatch_served
+    kind: const
+    values: [8, 8, 8]
+outputs:
+  - series: "*"
+""";
+
+        Assert.Throws<TemplateValidationException>(() => TemplateParser.ParseFromYaml(yaml));
+    }
+
+    [Fact]
     public void Template_With_Queue_SelfQueueDepth_Parses()
     {
         var yaml = """
@@ -736,5 +819,34 @@ outputs:
 """;
 
         Assert.Throws<TemplateValidationException>(() => TemplateParser.ParseFromYaml(yaml));
+    }
+
+    private static double? GetParallelismValue(Template template, string topologyNodeId)
+    {
+        var topologyNode = Assert.Single(
+            template.Topology.Nodes,
+            n => string.Equals(n.Id, topologyNodeId, StringComparison.OrdinalIgnoreCase));
+        var parallelism = topologyNode.Semantics.Parallelism;
+        if (parallelism is null)
+        {
+            return null;
+        }
+
+        return parallelism switch
+        {
+            byte value => value,
+            sbyte value => value,
+            short value => value,
+            ushort value => value,
+            int value => value,
+            uint value => value,
+            long value => value,
+            ulong value => value,
+            float value => value,
+            double value => value,
+            decimal value => (double)value,
+            string value => double.Parse(value, CultureInfo.InvariantCulture),
+            _ => Convert.ToDouble(parallelism, CultureInfo.InvariantCulture)
+        };
     }
 }

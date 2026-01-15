@@ -210,6 +210,10 @@ public static class ParameterSubstitution
                     topologyNode.Semantics.Errors = SubstituteInString(topologyNode.Semantics.Errors, values) ?? topologyNode.Semantics.Errors;
                     topologyNode.Semantics.QueueDepth = SubstituteInString(topologyNode.Semantics.QueueDepth, values) ?? topologyNode.Semantics.QueueDepth;
                     topologyNode.Semantics.Capacity = SubstituteInString(topologyNode.Semantics.Capacity, values) ?? topologyNode.Semantics.Capacity;
+                    if (topologyNode.Semantics.Parallelism is string parallelism)
+                    {
+                        topologyNode.Semantics.Parallelism = SubstituteInString(parallelism, values) ?? parallelism;
+                    }
                     topologyNode.Semantics.ExternalDemand = SubstituteInString(topologyNode.Semantics.ExternalDemand, values) ?? topologyNode.Semantics.ExternalDemand;
                 }
             }

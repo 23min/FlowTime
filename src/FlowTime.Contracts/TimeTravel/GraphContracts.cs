@@ -35,6 +35,7 @@ public sealed class GraphNodeSemantics
     public string? RetryBudgetRemaining { get; init; }
     public string? Queue { get; init; }
     public string? Capacity { get; init; }
+    public string? Parallelism { get; init; }
     public string? Series { get; init; }
     public string? Expression { get; init; }
     public double? MaxAttempts { get; init; }

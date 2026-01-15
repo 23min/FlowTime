@@ -4826,6 +4826,25 @@
         }
 
         if (overlays.showCapacityDependencies !== false) {
+            const parallelismValue = sampleValueFor('parallelism', semantics.parallelism, ['instances', 'instance', 'workers']);
+            if (parallelismValue !== null && parallelismValue > 1) {
+                const parallelismLabel = formatMetricValue(parallelismValue);
+                if (parallelismLabel) {
+                    const dims = drawChip(ctx, bottomLeft, bottomRowTop, `${parallelismLabel}x`, '#0EA5E9', '#FFFFFF', paddingX, chipH, 'top');
+                    registerChipHitbox(state, {
+                        nodeId: nodeMeta.id ?? null,
+                        metric: 'parallelism',
+                        placement: 'bottom-left',
+                        tooltip: semanticTooltip(semantics.parallelism, 'Instances'),
+                        x: bottomLeft,
+                        y: dims.top,
+                        width: dims.width,
+                        height: dims.height
+                    });
+                    bottomLeft += dims.width + gap;
+                }
+            }
+
             const capacityValue = sampleValueFor('capacity', semantics.capacity, ['cap']);
             if (capacityValue !== null) {
                 const capacityLabel = formatMetricValue(capacityValue);
@@ -5393,6 +5412,7 @@ function drawRetryBadge(ctx, nodeMeta, retryTax, options) {
                 retry: null,
                 queue: null,
                 capacity: null,
+                parallelism: null,
                 series: null,
                 distribution: null,
                 inline: null,
@@ -5415,6 +5435,7 @@ function drawRetryBadge(ctx, nodeMeta, retryTax, options) {
             retry: normalizeSemanticValue(raw.retry ?? raw.Retry ?? raw.retryEcho ?? raw.RetryEcho, 'Retry', aliasFor(aliasMap, 'retry') ?? aliasFor(aliasMap, 'retryecho'), 'retryEcho'),
             queue: normalizeSemanticValue(raw.queue ?? raw.Queue, 'Queue depth', aliasFor(aliasMap, 'queue'), 'queue'),
             capacity: normalizeSemanticValue(raw.capacity ?? raw.Capacity, 'Capacity', aliasFor(aliasMap, 'capacity'), 'capacity'),
+            parallelism: normalizeSemanticValue(raw.parallelism ?? raw.Parallelism, 'Instances', aliasFor(aliasMap, 'parallelism') ?? aliasFor(aliasMap, 'instances'), 'parallelism'),
             series: normalizeSemanticValue(raw.series ?? raw.Series, 'Series', null, 'series'),
             distribution: normalizeDistribution(raw.distribution ?? raw.Distribution),
             inline: normalizeInlineSeries(raw.inlineValues ?? raw.InlineValues),

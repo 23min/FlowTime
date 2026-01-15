@@ -1,4 +1,6 @@
+using System;
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using FlowTime.Adapters.Synthetic;
@@ -540,6 +542,8 @@ public sealed class StateQueryService
         var externalDemand = GetOptionalValue(data.ExternalDemand, binIndex);
         var queue = GetOptionalValue(data.QueueDepth, binIndex);
         var capacity = GetOptionalValue(data.Capacity, binIndex);
+        var parallelism = GetParallelismValue(node.Semantics, data, binIndex);
+        var effectiveCapacity = GetEffectiveCapacity(node.Semantics, data, binIndex, capacity);
         var isServiceWithBuffer = string.Equals(logicalType, "serviceWithBuffer", StringComparison.OrdinalIgnoreCase);
         var isServiceKind = string.Equals(kind, "service", StringComparison.OrdinalIgnoreCase) || isServiceWithBuffer;
         var attempts = isServiceKind ? ComputeAttemptValue(data, binIndex, allowDerived: true) : null;
@@ -550,7 +554,7 @@ public sealed class StateQueryService
         var maxAttempts = node.Semantics?.MaxAttempts;
 
         var rawUtilization = served.HasValue
-            ? UtilizationComputer.Calculate(served.Value, capacity)
+            ? UtilizationComputer.Calculate(served.Value, effectiveCapacity)
             : null;
         var utilization = rawUtilization.HasValue ? Normalize(rawUtilization.Value) : null;
 
@@ -610,6 +614,7 @@ public sealed class StateQueryService
                 RetryBudgetRemaining = retryBudgetRemaining,
                 Queue = queue,
                 Capacity = capacity,
+                Parallelism = parallelism,
                 ExternalDemand = externalDemand,
                 MaxAttempts = maxAttempts,
                 QueueLatencyStatus = queueLatencyStatus
@@ -995,13 +1000,13 @@ public sealed class StateQueryService
                 });
             }
 
-            var overload = FindOverloadStreak(data.Arrivals, data.Capacity, startBin, endBin);
+            var overload = FindOverloadStreak(node.Semantics, data, startBin, endBin);
             if (overload.HasValue && overload.Value.Length >= BacklogOverloadStreakBins)
             {
                 warnings.Add(new ModeValidationWarning
                 {
                     Code = "backlog_overload_ratio",
-                    Message = $"Arrivals exceeded capacity for {overload.Value.Length} consecutive bins (bins {overload.Value.Start}–{overload.Value.End}).",
+                    Message = $"Arrivals exceeded effective capacity for {overload.Value.Length} consecutive bins (bins {overload.Value.Start}–{overload.Value.End}).",
                     NodeId = node.Id,
                     StartBin = overload.Value.Start,
                     EndBin = overload.Value.End,
@@ -1076,20 +1081,23 @@ public sealed class StateQueryService
     }
 
     private static (int Start, int End, int Length)? FindOverloadStreak(
-        double[]? arrivalsSeries,
-        double[]? capacitySeries,
+        NodeSemantics? semantics,
+        NodeData data,
         int startBin,
         int endBin)
     {
-        if (arrivalsSeries is null || capacitySeries is null)
+        if (data.Arrivals is null || data.Capacity is null)
         {
             return null;
         }
 
         return FindStreak(startBin, endBin, bin =>
         {
-            var arrivals = GetOptionalValue(arrivalsSeries, bin);
-            var capacity = GetOptionalValue(capacitySeries, bin);
+            var arrivals = GetOptionalValue(data.Arrivals, bin);
+            var baseCapacity = GetOptionalValue(data.Capacity, bin);
+            var capacity = semantics is null
+                ? baseCapacity
+                : GetEffectiveCapacity(semantics, data, bin, baseCapacity);
             if (!arrivals.HasValue || !capacity.HasValue || capacity.Value <= 0d)
             {
                 return false;
@@ -1192,6 +1200,7 @@ public sealed class StateQueryService
     {
         double[] CreateSeries() => new double[bins];
         var kernelResult = RetryKernelPolicy.Apply(node.Semantics.RetryKernel?.ToArray());
+        var parallelism = BuildParallelismSeries(node.Semantics.Parallelism, bins);
 
         return new NodeData
         {
@@ -1207,6 +1216,7 @@ public sealed class StateQueryService
             ExternalDemand = node.Semantics.ExternalDemand != null ? CreateSeries() : null,
             QueueDepth = node.Semantics.QueueDepth != null ? CreateSeries() : null,
             Capacity = node.Semantics.Capacity != null ? CreateSeries() : null,
+            Parallelism = parallelism,
             ProcessingTimeMsSum = node.Semantics.ProcessingTimeMsSum != null ? CreateSeries() : null,
             ServedCount = node.Semantics.ServedCount != null ? CreateSeries() : null,
             RetryBudgetRemaining = node.Semantics.RetryBudgetRemaining != null ? CreateSeries() : null
@@ -1357,11 +1367,16 @@ public sealed class StateQueryService
         if (data.Capacity != null)
         {
             series["capacity"] = ExtractSlice(data.Capacity, startBin, count);
-            var utilizationSeries = ComputeUtilizationSeries(data, startBin, count);
+            var utilizationSeries = ComputeUtilizationSeries(data, node.Semantics, startBin, count);
             if (utilizationSeries != null)
             {
                 series["utilization"] = utilizationSeries;
             }
+        }
+
+        if (data.Parallelism != null)
+        {
+            series["parallelism"] = ExtractSlice(data.Parallelism, startBin, count);
         }
 
         QueueLatencyStatusDescriptor?[]? queueLatencyStatuses = null;
@@ -1426,6 +1441,12 @@ public sealed class StateQueryService
             QueueLatencyStatus = queueLatencyStatuses,
             Sla = slaSeries
         };
+    }
+
+    private static double[]? BuildParallelismSeries(object? parallelism, int bins)
+    {
+        var scalar = ParseParallelismScalar(parallelism);
+        return scalar.HasValue ? CreateConstantSeries(scalar.Value, bins) : null;
     }
 
     private static IDictionary<string, IDictionary<string, double?[]>>? BuildClassSeries(NodeData data, int startBin, int count)
@@ -1585,7 +1606,7 @@ public sealed class StateQueryService
         return result;
     }
 
-    private static double?[]? ComputeUtilizationSeries(NodeData data, int start, int count)
+    private static double?[]? ComputeUtilizationSeries(NodeData data, NodeSemantics semantics, int start, int count)
     {
         if (data.Capacity == null)
         {
@@ -1597,11 +1618,84 @@ public sealed class StateQueryService
         {
             var served = data.Served[start + i];
             var capacity = data.Capacity[start + i];
-            var raw = UtilizationComputer.Calculate(served, capacity);
+            var effectiveCapacity = GetEffectiveCapacity(semantics, data, start + i, capacity);
+            var raw = UtilizationComputer.Calculate(served, effectiveCapacity);
             result[i] = raw.HasValue ? Normalize(raw.Value) : null;
         }
 
         return result;
+    }
+
+    private static double? GetEffectiveCapacity(NodeSemantics semantics, NodeData data, int index, double? capacity = null)
+    {
+        var baseCapacity = capacity ?? GetOptionalValue(data.Capacity, index);
+        if (!baseCapacity.HasValue)
+        {
+            return null;
+        }
+
+        var parallelism = GetParallelismValue(semantics, data, index);
+        if (!parallelism.HasValue)
+        {
+            return baseCapacity.Value;
+        }
+
+        if (!double.IsFinite(parallelism.Value) || parallelism.Value <= 0d)
+        {
+            return baseCapacity.Value;
+        }
+
+        return baseCapacity.Value * parallelism.Value;
+    }
+
+    private static double? GetParallelismValue(NodeSemantics semantics, NodeData data, int index)
+    {
+        if (data.Parallelism != null && index >= 0 && index < data.Parallelism.Length)
+        {
+            var value = data.Parallelism[index];
+            return double.IsFinite(value) ? value : null;
+        }
+
+        return ParseParallelismScalar(semantics.Parallelism);
+    }
+
+    private static double? ParseParallelismScalar(object? value)
+    {
+        if (value is null)
+        {
+            return null;
+        }
+
+        double parsed;
+        switch (value)
+        {
+            case string text when double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var numeric):
+                parsed = numeric;
+                break;
+            case IConvertible:
+                parsed = Convert.ToDouble(value, CultureInfo.InvariantCulture);
+                break;
+            default:
+                return null;
+        }
+
+        if (!double.IsFinite(parsed) || parsed <= 0d)
+        {
+            return null;
+        }
+
+        return parsed;
+    }
+
+    private static double[] CreateConstantSeries(double value, int bins)
+    {
+        var series = new double[bins];
+        for (var i = 0; i < bins; i++)
+        {
+            series[i] = value;
+        }
+
+        return series;
     }
 
     private static double?[]? ComputeLatencySeries(NodeData data, Window window, int start, int count)
@@ -2596,6 +2690,7 @@ public sealed class StateQueryService
         var retryEcho = Resolve(semantics.RetryEcho, data.RetryEcho);
         var queue = Resolve(semantics.QueueDepth, data.QueueDepth);
         var capacity = Resolve(semantics.Capacity, data.Capacity);
+        var parallelism = ResolveParallelism(semantics.Parallelism, data.Parallelism);
         var external = Resolve(semantics.ExternalDemand, data.ExternalDemand);
         var processingTime = Resolve(semantics.ProcessingTimeMsSum, data.ProcessingTimeMsSum);
         var servedCount = Resolve(semantics.ServedCount, data.ServedCount);
@@ -2610,10 +2705,33 @@ public sealed class StateQueryService
             RetryEcho = retryEcho,
             QueueDepth = queue,
             Capacity = capacity,
+            Parallelism = parallelism,
             ExternalDemand = external,
             ProcessingTimeMsSum = processingTime,
             ServedCount = servedCount
         };
+
+        double[]? ResolveParallelism(object? value, double[]? current)
+        {
+            if (current != null)
+            {
+                return current;
+            }
+
+            if (value is null)
+            {
+                return null;
+            }
+
+            if (value is string seriesId)
+            {
+                var scalar = ParseParallelismScalar(seriesId);
+                return scalar.HasValue ? CreateConstantSeries(scalar.Value, bins) : Resolve(seriesId, null);
+            }
+
+            var literal = ParseParallelismScalar(value);
+            return literal.HasValue ? CreateConstantSeries(literal.Value, bins) : null;
+        }
     }
 
     private static IReadOnlyDictionary<string, NodeClassData>? ResolveClassData(

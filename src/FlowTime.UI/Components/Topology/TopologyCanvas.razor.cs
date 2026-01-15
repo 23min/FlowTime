@@ -740,6 +740,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                     semantics.RetryBudgetRemaining,
                     semantics.Queue,
                     semantics.Capacity,
+                    semantics.Parallelism,
                     semantics.Series,
                     semantics.Expression,
                     distributionDto,
@@ -756,6 +757,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                     string.IsNullOrWhiteSpace(semanticsDto.Errors) &&
                     string.IsNullOrWhiteSpace(semanticsDto.Queue) &&
                     string.IsNullOrWhiteSpace(semanticsDto.Capacity) &&
+                    string.IsNullOrWhiteSpace(semanticsDto.Parallelism) &&
                     string.IsNullOrWhiteSpace(semanticsDto.Series) &&
                     string.IsNullOrWhiteSpace(semanticsDto.Expression) &&
                     (semanticsDto.InlineValues is null || semanticsDto.InlineValues.Count == 0))

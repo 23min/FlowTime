@@ -100,6 +100,30 @@ public sealed class TopologyCanvasRenderTests : TestContext
     }
 
     [Fact]
+    public void RenderIncludesParallelismSemantics()
+    {
+        var semantics = EmptySemantics() with { Parallelism = "2" };
+        var graph = new TopologyGraph(
+            new[]
+            {
+                new TopologyNode("svc-buffer", "serviceWithBuffer", "serviceWithBuffer", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, semantics)
+            },
+            Array.Empty<TopologyEdge>());
+
+        var sceneCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.renderScene", _ => true);
+        sceneCall.SetVoidResult();
+        JSInterop.SetupVoid("FlowTime.TopologyCanvas.applyOverlayDelta", _ => true).SetVoidResult();
+
+        RenderComponent<TopologyCanvas>(parameters => parameters
+            .Add(p => p.Graph, graph));
+
+        var payload = Assert.IsType<CanvasScenePayload>(sceneCall.Invocations.Single().Arguments[1]);
+        var node = Assert.Single(payload.Nodes);
+        Assert.NotNull(node.Semantics);
+        Assert.Equal("2", node.Semantics!.Parallelism);
+    }
+
+    [Fact]
     public void OverlayPayloadReflectsRetryToggles()
     {
         var graph = CreateGraph();
@@ -898,6 +922,7 @@ public sealed class TopologyCanvasRenderTests : TestContext
         RetryBudgetRemaining: null,
         Queue: null,
         Capacity: null,
+        Parallelism: null,
         Series: null,
         Expression: null,
         Distribution: null,

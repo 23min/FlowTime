@@ -19,7 +19,7 @@ This document builds on existing work:
 - Time-travel state and graph architecture.
 - Classes as flows (`docs/architecture/classes/README.md`).
 - EdgeTimeBin foundations (`docs/architecture/edge-time-bin/README.md`).
-- Engine-as-post-processing proposal (`docs/architecture/engine-post-processing/README.md`).
+- Engine semantics layer (`docs/architecture/engine-semantics-layer/README.md`).
 
 ---
 

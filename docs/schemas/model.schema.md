@@ -333,6 +333,7 @@ ServiceWithBuffer nodes model a service that owns its queue. They track backlog 
 - When a schedule is present, outflow is zero on non-dispatch bins.
 - On dispatch bins, released volume equals `min(requested, capacityOverride)` for that bin.
 - Omit `dispatchSchedule` to allow continuous draining behavior.
+- When topology semantics include `parallelism` for a `serviceWithBuffer` node, effective capacity in time-travel views is treated as `capacity × parallelism`.
 
 ---
 

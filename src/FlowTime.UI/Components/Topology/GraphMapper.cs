@@ -786,6 +786,7 @@ internal static class GraphMapper
                     null,
                     null,
                     null,
+                    null,
                     null);
             }
             else
@@ -809,6 +810,7 @@ internal static class GraphMapper
                     semantics.RetryBudgetRemaining,
                     semantics.Queue,
                     semantics.Capacity,
+                    semantics.Parallelism,
                     semantics.Series,
                     semantics.Expression,
                     distribution,
@@ -886,6 +888,7 @@ public sealed record GraphNodeSemanticsModel(
     string? RetryBudgetRemaining,
     string? Queue,
     string? Capacity,
+    string? Parallelism,
     string? Series,
     string? Expression,
     GraphDistributionModel? Distribution,
@@ -925,6 +928,7 @@ public sealed record TopologyNodeSemantics(
     string? RetryBudgetRemaining,
     string? Queue,
     string? Capacity,
+    string? Parallelism,
     string? Series,
     string? Expression,
     TopologyNodeDistribution? Distribution,

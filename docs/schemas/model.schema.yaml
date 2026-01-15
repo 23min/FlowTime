@@ -102,6 +102,11 @@ properties:
                   description: |
                     Series providing queue depth. When set to the literal "self", depth is derived from the node itself.
                 capacity: { type: string }
+                parallelism:
+                  oneOf:
+                    - type: number
+                      minimum: 1
+                    - type: string
                 external_demand: { type: string }
                 processingTimeMsSum: { type: string }
                 servedCount: { type: string }

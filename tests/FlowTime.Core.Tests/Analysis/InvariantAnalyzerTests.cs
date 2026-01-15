@@ -9,6 +9,45 @@ namespace FlowTime.Core.Tests.Analysis;
 public class InvariantAnalyzerTests
 {
     [Fact]
+    public void Analyze_DoesNotWarn_WhenParallelismScalesCapacity()
+    {
+        var model = new ModelDefinition
+        {
+            Topology = new TopologyDefinition
+            {
+                Nodes =
+                {
+                    new TopologyNodeDefinition
+                    {
+                        Id = "BufferService",
+                        Kind = "serviceWithBuffer",
+                        Semantics = new TopologyNodeSemanticsDefinition
+                        {
+                            Arrivals = "arrivals",
+                            Served = "served",
+                            Errors = "errors",
+                            Capacity = "capacity",
+                            Parallelism = 2
+                        }
+                    }
+                }
+            }
+        };
+
+        var evaluated = new Dictionary<NodeId, double[]>
+        {
+            [new NodeId("arrivals")] = new[] { 9d, 9d, 9d },
+            [new NodeId("served")] = new[] { 9d, 9d, 9d },
+            [new NodeId("errors")] = new[] { 0d, 0d, 0d },
+            [new NodeId("capacity")] = new[] { 5d, 5d, 5d }
+        };
+
+        var result = InvariantAnalyzer.Analyze(model, evaluated);
+
+        Assert.DoesNotContain(result.Warnings, warning => warning.Code == "served_exceeds_capacity");
+    }
+
+    [Fact]
     public void DetectServiceWithBufferClassCoverageGaps_WarnsWhenOutflowOrLossMissingClasses()
     {
         var nodeDefinitions = new Dictionary<string, NodeDefinition>(StringComparer.OrdinalIgnoreCase)

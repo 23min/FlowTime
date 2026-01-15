@@ -66,6 +66,7 @@ internal sealed record NodeSemanticsDto(
     string? RetryBudgetRemaining,
     string? Queue,
     string? Capacity,
+    string? Parallelism,
     string? Series,
     string? Expression,
     NodeDistributionDto? Distribution,

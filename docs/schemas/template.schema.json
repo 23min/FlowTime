@@ -153,6 +153,12 @@
                   "retryEcho": { "type": "string" },
                   "queueDepth": { "type": "string" },
                   "capacity": { "type": "string" },
+                  "parallelism": {
+                    "anyOf": [
+                      { "type": "number", "minimum": 1 },
+                      { "type": "string" }
+                    ]
+                  },
                   "external_demand": { "type": "string" },
                   "processingTimeMsSum": { "type": "string" },
                   "servedCount": { "type": "string" }

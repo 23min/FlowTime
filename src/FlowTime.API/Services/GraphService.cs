@@ -124,6 +124,7 @@ public sealed class GraphService
                 continue;
             }
 
+            var parallelismReference = NormalizeParallelismReference(topoNode.Semantics?.Parallelism);
             var semantics = new GraphNodeSemantics
             {
                 Arrivals = topoNode.Semantics?.Arrivals ?? string.Empty,
@@ -136,6 +137,7 @@ public sealed class GraphService
                 RetryBudgetRemaining = topoNode.Semantics?.RetryBudgetRemaining,
                 Queue = topoNode.Semantics?.QueueDepth,
                 Capacity = topoNode.Semantics?.Capacity,
+                Parallelism = parallelismReference,
                 Aliases = topoNode.Semantics?.Aliases,
                 Metadata = topoNode.Semantics?.Metadata,
                 MaxAttempts = topoNode.Semantics?.MaxAttempts,
@@ -331,6 +333,7 @@ public sealed class GraphService
                 AddSemanticsDependencyEdge(topoNode.Id, topoNode.Semantics?.RetryEcho, "retryEcho");
                 AddSemanticsDependencyEdge(topoNode.Id, topoNode.Semantics?.QueueDepth, "queue");
                 AddSemanticsDependencyEdge(topoNode.Id, topoNode.Semantics?.Capacity, "capacity");
+                AddSemanticsDependencyEdge(topoNode.Id, NormalizeParallelismReference(topoNode.Semantics?.Parallelism), "parallelism");
             }
 
             void AddSemanticsDependencyEdge(string consumerId, string? reference, string field)
@@ -564,6 +567,28 @@ public sealed class GraphService
 
     private static string NormalizeKind(string? kind) =>
         string.IsNullOrWhiteSpace(kind) ? "service" : kind.Trim().ToLowerInvariant();
+
+    private static string? NormalizeParallelismReference(object? value)
+    {
+        if (value is null)
+        {
+            return null;
+        }
+
+        if (value is string text)
+        {
+            return string.IsNullOrWhiteSpace(text) ? null : text.Trim();
+        }
+
+        if (value is IFormattable formattable)
+        {
+            var formatted = formattable.ToString(null, CultureInfo.InvariantCulture);
+            return string.IsNullOrWhiteSpace(formatted) ? null : formatted;
+        }
+
+        var fallback = value.ToString();
+        return string.IsNullOrWhiteSpace(fallback) ? null : fallback;
+    }
 }
 
 public sealed class GraphQueryException : Exception

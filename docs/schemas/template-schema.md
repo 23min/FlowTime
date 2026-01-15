@@ -182,6 +182,11 @@ properties:
                 retryEcho: { type: string }
                 queueDepth: { type: string }
                 capacity: { type: string }
+                parallelism:
+                  anyOf:
+                    - type: number
+                      minimum: 1
+                    - type: string
                 external_demand: { type: string }
                 processingTimeMsSum: { type: string }
                 servedCount: { type: string }
@@ -538,7 +543,7 @@ topology:
           retryEcho: "Pending rework"
 ```
 
-Supported keys mirror the semantics you can declare today: `arrivals`, `served`, `errors`, `attempts`, `failures`, `retryEcho`, `queue`/`queueDepth`, `capacity`, `externalDemand`, `processingTimeMsSum`, and `servedCount`. Keys are case-insensitive, and underscores are optional (`queue`, `queue_depth`). Keep labels concise (≲32 chars) and ASCII unless the template already relies on extended characters.
+Supported keys mirror the semantics you can declare today: `arrivals`, `served`, `errors`, `attempts`, `failures`, `retryEcho`, `queue`/`queueDepth`, `capacity`, `parallelism`, `externalDemand`, `processingTimeMsSum`, and `servedCount`. Keys are case-insensitive, and underscores are optional (`queue`, `queue_depth`). Keep labels concise (≲32 chars) and ASCII unless the template already relies on extended characters.
 
 Aliases flow through `ModelParser`, the `/graph` and `/state_window` endpoints, and the UI (tooltips/inspector chips). See `docs/templates/metric-alias-authoring.md` for authoring guidance.
 

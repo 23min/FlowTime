@@ -34,13 +34,6 @@ The list below enumerates current epics under `docs/architecture/` in an order t
 - **Key Docs:** `docs/architecture/ui-perf/README.md`
 - **Notes:** This work is orthogonal to loading strategy decisions; selective windows vs bulk bundles still require render-loop hygiene.
 
-#### UI Layout Motors (Pluggable Layout Engines)
-
-- **Folder:** `docs/architecture/ui-layout/`
-- **Goal:** Decouple topology layout from rendering so different layout “motors” (client, server, hybrid) can be plugged in behind a stable `LayoutInput -> LayoutResult` contract with signatures for caching and reproducibility.
-- **Key Docs:** `docs/architecture/ui-layout/README.md`
-- **Notes:** This epic complements UI perf work by making layout an explicit scene-build concern (not tied to per-bin updates).
-
 #### Classes & Routing
 
 - **Folder:** `docs/architecture/classes/`
@@ -60,25 +53,47 @@ The list below enumerates current epics under `docs/architecture/` in an order t
 - **Goal:** Derive or surface per-edge throughput/attempt volumes and related metrics to support edge heat maps, conservation checks, and richer topology overlays.
 - **Notes:** Called out as the first near‑term epic candidate in `docs/ROADMAP.md`. Depends on stable node semantics from classes and ServiceWithBuffer.
 
+#### Telemetry Ingestion and Canonical Bundles
+
+- **Folder:** `docs/architecture/telemetry-ingestion/`
+- **Goal:** Transform raw telemetry into canonical FlowTime bundles with validated manifests and stable series naming.
+- **Key Docs:** `docs/architecture/telemetry-ingestion/README.md`
+- **Notes:** Builds on the existing capture pipeline; depends on stable bundle schemas and series semantics so ingestion outputs align with engine contracts.
+
 ### Mid-Term / Aspirational Epics
 
-#### Engine as Post-Processing & Semantics Layer
+#### Engine Semantics Layer
 
-- **Folder:** `docs/architecture/engine-post-processing/`
-- **Goal:** Treat the engine as a reusable post-processing and semantics layer between telemetry stores (e.g., ADX) and downstream UIs/BI tools.
+- **Folder:** `docs/architecture/engine-semantics-layer/`
+- **Goal:** Define the engine as the semantics layer that turns canonical bundles into stable `/state`, `/state_window`, and `/graph` contracts for downstream consumers.
+- **Key Docs:** `docs/architecture/engine-semantics-layer/README.md`
 - **Notes:** Listed in the "Mid-Term / Aspirational" section of the roadmap.
+
+#### Telemetry Loop & Parity
+
+- **Folder:** `docs/architecture/telemetry-loop-parity/`
+- **Goal:** Ensure synthetic runs and telemetry replays match via parity tooling, tolerances, and drift reporting.
+- **Key Docs:** `docs/architecture/telemetry-loop-parity/README.md`
+- **Notes:** Depends on Telemetry Ingestion and the Engine Semantics Layer.
+
+#### Scenario Overlays & What-If Runs
+
+- **Folder:** `docs/architecture/overlays/`
+- **Goal:** Create first-class overlay runs (what-if scenarios) that derive from baseline runs via validated patches (parallelism, capacity, arrivals, schedules) and preserve deterministic provenance for comparison in the UI.
+- **Key Docs:** `docs/architecture/overlays/overlays.md`
+- **Notes:** This epic consolidates overlay concepts previously scattered across the time-travel decision log and the engine charter. It pairs naturally with flow-aware anomaly/pathology detection, enabling immediate "what if" mitigation testing.
 
 #### Flow-Aware Anomaly & Pathology Detection
 
 - **Folder:** `docs/architecture/anomaly-detection/`
 - **Goal:** Use the time-binned DAG model to detect incidents and recurring flow pathologies (retry storms, slow drains, stuck queues) and surface incident-focused stories and dashboards.
-- **Notes:** Builds on time travel and engine post-processing; also benefits from richer node/edge metrics.
+- **Notes:** Builds on time travel and the engine semantics layer; also benefits from richer node/edge metrics.
 
 #### AI Analyst over the Digital Twin (MCP)
 
 - **Folder:** `docs/architecture/ai/`
 - **Goal:** Expose FlowTime graph and state APIs via MCP (and related interfaces) so AI agents can act as analysts over runs—answering questions, comparing scenarios, and drafting summaries in a structured way.
-- **Notes:** Depends on stable `/state`/`/state_window` semantics and a clear engine post-processing contract.
+- **Notes:** Depends on stable `/state`/`/state_window` semantics and a clear engine semantics contract.
 
 #### Streaming & Subsystems
 
@@ -93,6 +108,13 @@ The list below enumerates current epics under `docs/architecture/` in an order t
 - **Folder:** `docs/architecture/ptolemy/`
 - **Goal:** Keep time/coordination semantics explicit (e.g., a DiscreteTime director seam) and selectively borrow ideas like modal models, typed ports, and determinacy contracts to future-proof FlowTime’s engine while staying DT-first.
 - **Notes:** Conceptual guardrails for later engine/epic work; fits the same time horizon as other aspirational epics.
+
+#### UI Layout Motors (Pluggable Layout Engines)
+
+- **Folder:** `docs/architecture/ui-layout/`
+- **Goal:** Decouple topology layout from rendering so different layout “motors” (client, server, hybrid) can be plugged in behind a stable `LayoutInput -> LayoutResult` contract with signatures for caching and reproducibility.
+- **Key Docs:** `docs/architecture/ui-layout/README.md`
+- **Notes:** This epic complements UI perf work by making layout an explicit scene-build concern (not tied to per-bin updates).
 
 ## Keeping in Sync with the Roadmap
 

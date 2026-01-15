@@ -1,3 +1,4 @@
+using System.Globalization;
 using FlowTime.Core.Models;
 
 namespace FlowTime.Core.TimeTravel;
@@ -143,6 +144,13 @@ public sealed class ModeValidator
             Assess(semantics.QueueDepth, "queue");
             Assess(semantics.Capacity, "capacity");
             Assess(semantics.ExternalDemand, "external_demand");
+            if (semantics.Parallelism is string parallelismSeries)
+            {
+                if (!double.TryParse(parallelismSeries, NumberStyles.Float, CultureInfo.InvariantCulture, out _))
+                {
+                    Assess(parallelismSeries, "parallelism");
+                }
+            }
 
             return unresolved;
 

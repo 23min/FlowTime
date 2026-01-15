@@ -59,6 +59,16 @@ The provenance view must explicitly show these relationships for queue-like node
 
 If telemetry provides percentiles (p95/p99), the series name and meaning text must reflect the percentile (for example, `flowLatencyP95Ms` with meaning "P95 flow latency"), rather than overloading the generic latency description.
 
+## Capacity + Parallelism Semantics
+
+Capacity metrics also require explicit provenance:
+
+- **Instances (parallelism):** number of concurrent workers/instances for a node. Sourced from the `parallelism` series or a scalar template value.
+- **Effective capacity:** derived as `capacity × parallelism` when both are available. Used for utilization and overload checks.
+- **Base capacity:** the raw `capacity` series or template value before parallelism is applied.
+
+The provenance view must show the formula for effective capacity and the inputs used.
+
 ## Bin Dump Provenance
 
 The bin dump is extended to include:

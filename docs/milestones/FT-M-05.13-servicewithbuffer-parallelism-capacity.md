@@ -1,6 +1,6 @@
 # FT-M-05.13 — ServiceWithBuffer Parallelism + Capacity Backlog
 
-**Status:** 📋 Planned  
+**Status:** ✅ Complete  
 **Dependencies:** ✅ FT-M-05.09, ✅ FT-M-05.11  
 **Target:** Model and surface service-with-buffer parallelism (instances/workers) so capacity scales realistically, and backlog behavior is explainable in both sim and UI.
 
@@ -36,40 +36,40 @@ This milestone adds explicit parallelism inputs, derives effective capacity, and
 **Description:** Allow serviceWithBuffer to declare parallelism via template fields.
 
 **Acceptance Criteria**
-- [ ] Schema supports `parallelism` as const/series (per-node).
-- [ ] Defaults to `1` when omitted.
-- [ ] Values are validated (>= 1; non-null for series).
+- [x] Schema supports `parallelism` as const/series (per-node).
+- [x] Defaults to `1` when omitted.
+- [x] Values are validated (>= 1; non-null for series).
 
 ### FR2: Effective Capacity Derivation
 **Description:** Compute total capacity based on base capacity × parallelism.
 
 **Acceptance Criteria**
-- [ ] Total capacity series is computed for each bin.
-- [ ] Utilization uses **effective capacity**.
-- [ ] Served cannot exceed effective capacity unless explicitly allowed by modeler.
+- [x] Total capacity series is computed for each bin.
+- [x] Utilization uses **effective capacity**.
+- [x] Served cannot exceed effective capacity unless explicitly allowed by modeler.
 
 ### FR3: Backlog Signals
 **Description:** Provide actionable signals for backlog growth and capacity shortfall.
 
 **Acceptance Criteria**
-- [ ] Backlog growth warnings tie to insufficient capacity vs burst arrivals.
-- [ ] Warnings explain if parallelism is constant or varies.
-- [ ] Signal text indicates consecutive bins and expected mitigation (increase parallelism or capacity).
+- [x] Backlog growth warnings tie to insufficient capacity vs burst arrivals.
+- [x] Warnings explain if parallelism is constant or varies.
+- [x] Signal text indicates consecutive bins and expected mitigation (increase parallelism or capacity).
 
 ### FR4: UI Exposure
 **Description:** Show parallelism and effective capacity in UI.
 
 **Acceptance Criteria**
-- [ ] Node chips show `Instances` (or similar) when parallelism > 1.
-- [ ] Inspector shows base capacity, parallelism, and effective capacity.
-- [ ] Tooltip rows include effective capacity for serviceWithBuffer.
+- [x] Node chips show `Instances` (or similar) when parallelism > 1.
+- [x] Inspector shows base capacity, parallelism, and effective capacity.
+- [x] Tooltip rows include effective capacity for serviceWithBuffer.
 
 ### FR5: Template Examples
 **Description:** Update one template with continuous processing and one with gated releases.
 
 **Acceptance Criteria**
-- [ ] Transportation or warehouse template shows real-world instance scaling.
-- [ ] Another template (e.g., IT microservices) shows parallelism variance.
+- [x] Transportation or warehouse template shows real-world instance scaling.
+- [x] Another template (e.g., IT microservices) shows parallelism variance.
 
 ---
 
@@ -104,12 +104,16 @@ This milestone adds explicit parallelism inputs, derives effective capacity, and
 - `TemplateValidator_Parallelism_RejectsZero`
 
 ### Sim Tests
-- `ServiceWithBuffer_EffectiveCapacity_ScalesWithParallelism`
-- `ServiceWithBuffer_BacklogSignals_UseEffectiveCapacity`
+- `GetStateWindow_UsesEffectiveCapacity_ForServiceWithBufferParallelism`
+- `GetStateWindow_ParallelismHalvesUtilization_VersusBaseline`
+- `GetStateWindow_ParallelismReducesQueueDepth_ForServiceWithBuffer`
+- `GetStateWindow_SuppressesOverloadWarnings_WhenParallelismBoostsCapacity`
+- `Analyze_DoesNotWarn_WhenParallelismScalesCapacity`
 
 ### UI Tests
-- `Topology_ShowsParallelismChip_WhenInstancesGreaterThanOne`
-- `Inspector_ShowsEffectiveCapacity`
+- `RenderIncludesParallelismSemantics`
+- `Inspector_ShowsParallelismAndEffectiveCapacity`
+- `InspectorRows_ProvideEffectiveCapacityProvenance`
 
 ---
 

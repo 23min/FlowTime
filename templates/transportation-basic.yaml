@@ -123,6 +123,7 @@ topology:
         errors: hub_queue_attrition
         queueDepth: hub_queue_carry
         capacity: hub_dispatch_capacity
+        parallelism: 3
         processingTimeMsSum: hub_queue_processing_time_ms_sum
         servedCount: hub_dispatch
         aliases:

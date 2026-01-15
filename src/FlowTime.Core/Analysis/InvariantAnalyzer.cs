@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Linq;
 using FlowTime.Core.Artifacts;
 using FlowTime.Core.Execution;
@@ -127,6 +128,13 @@ public static class InvariantAnalyzer
                 retryBudgetRemaining = null;
             }
 
+            var effectiveCapacity = capacity;
+            if (capacity is not null)
+            {
+                ResolveParallelism(semantics.Parallelism, out var parallelismSeries, out var parallelismScalar);
+                effectiveCapacity = ApplyParallelism(capacity, parallelismSeries, parallelismScalar);
+            }
+
             // Non-negative checks
             CheckNonNegative(nodeId, "arrivals_negative", "Arrivals produced negative values", arrivals);
             CheckNonNegative(nodeId, "served_negative", "Served produced negative values", served);
@@ -144,6 +152,14 @@ public static class InvariantAnalyzer
                 CheckDiff(nodeId, "served_exceeds_arrivals",
                     "Served volume exceeded arrivals",
                     served, arrivals, greaterTolerance: true);
+            }
+
+            // Served <= effective capacity
+            if (served != null && effectiveCapacity != null && (isServiceKind || isServiceWithBuffer))
+            {
+                CheckDiff(nodeId, "served_exceeds_capacity",
+                    "Served volume exceeded effective capacity",
+                    served, effectiveCapacity, greaterTolerance: true);
             }
 
             // Errors <= arrivals
@@ -230,12 +246,12 @@ public static class InvariantAnalyzer
                     null,
                     "warning"));
             }
-            else if (capacity != null && capacity.All(v => Math.Abs(v) <= tolerance))
+            else if (effectiveCapacity != null && effectiveCapacity.All(v => Math.Abs(v) <= tolerance))
             {
                 warnings.Add(new InvariantWarning(
                     nodeId,
                     "capacity_all_zero",
-                    "Capacity series is zero for all bins; utilization will be unavailable.",
+                    "Effective capacity series is zero for all bins; utilization will be unavailable.",
                     Array.Empty<int>(),
                     null,
                     "info"));
@@ -374,6 +390,71 @@ public static class InvariantAnalyzer
             cache[id] = values;
             series = values;
             return true;
+        }
+
+        void ResolveParallelism(object? parallelism, out double[]? series, out double? scalar)
+        {
+            series = null;
+            scalar = null;
+
+            if (parallelism is null)
+            {
+                return;
+            }
+
+            if (parallelism is string seriesId)
+            {
+                if (double.TryParse(seriesId, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed))
+                {
+                    scalar = parsed;
+                    return;
+                }
+
+                if (TryGetSeries(seriesId, out var resolved))
+                {
+                    series = resolved;
+                }
+
+                return;
+            }
+
+            if (parallelism is IConvertible)
+            {
+                scalar = Convert.ToDouble(parallelism, CultureInfo.InvariantCulture);
+            }
+        }
+
+        double[] ApplyParallelism(double[] baseCapacity, double[]? parallelismSeries, double? parallelismScalar)
+        {
+            if (parallelismSeries is { Length: > 0 })
+            {
+                if (parallelismSeries.Length != baseCapacity.Length)
+                {
+                    return baseCapacity;
+                }
+
+                var scaled = new double[baseCapacity.Length];
+                for (var i = 0; i < baseCapacity.Length; i++)
+                {
+                    var factor = parallelismSeries[i];
+                    scaled[i] = double.IsFinite(factor) ? baseCapacity[i] * factor : baseCapacity[i];
+                }
+
+                return scaled;
+            }
+
+            if (parallelismScalar.HasValue && double.IsFinite(parallelismScalar.Value))
+            {
+                var scaled = new double[baseCapacity.Length];
+                for (var i = 0; i < baseCapacity.Length; i++)
+                {
+                    scaled[i] = baseCapacity[i] * parallelismScalar.Value;
+                }
+
+                return scaled;
+            }
+
+            return baseCapacity;
         }
 
         void CheckNonNegative(string nodeId, string code, string message, double[]? series)
