@@ -8,6 +8,8 @@ public sealed class SeriesIndex
     public required int SchemaVersion { get; init; }
     public required TimeGrid Grid { get; init; }
     public required SeriesMetadata[] Series { get; init; }
+    public string? ClassCoverage { get; init; }
+    public ManifestClassEntry[]? Classes { get; init; }
 }
 
 /// <summary>

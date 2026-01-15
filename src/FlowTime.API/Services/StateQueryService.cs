@@ -4,12 +4,14 @@ using System.Linq;
 using FlowTime.Adapters.Synthetic;
 using FlowTime.Contracts.Services;
 using FlowTime.Contracts.TimeTravel;
+using FlowTime.Core.Dispatching;
 using FlowTime.Core.DataSources;
 using FlowTime.Core.Metrics;
 using FlowTime.Core.Models;
 using FlowTime.Core.TimeTravel;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using System.Text.RegularExpressions;
 
 namespace FlowTime.API.Services;
 
@@ -18,7 +20,15 @@ public sealed class StateQueryService
     private const int maxWindowBins = 500;
     private static readonly EventId stateSnapshotEvent = new(3001, "StateSnapshotObservability");
     private static readonly EventId stateWindowEvent = new(3002, "StateWindowObservability");
+    private const int BacklogGrowthStreakBins = 3;
+    private const int BacklogOverloadStreakBins = 3;
+    private const int BacklogAgeRiskStreakBins = 3;
     private static readonly double[] fallbackRetryKernel = RetryKernelPolicy.DefaultKernel;
+    private static readonly QueueLatencyStatusDescriptor pausedGateClosedStatus = new()
+    {
+        Code = "paused_gate_closed",
+        Message = "Queue latency unavailable: dispatch gate closed"
+    };
     private readonly IConfiguration configuration;
     private readonly ILogger<StateQueryService> logger;
     private readonly RunManifestReader manifestReader;
@@ -56,6 +66,8 @@ public sealed class StateQueryService
 
         var flowLatency = ComputeFlowLatency(context);
         var nodeSnapshots = new List<NodeSnapshot>(capacity: context.Topology.Nodes.Count);
+        var classCoverageStates = new List<ClassCoverage>(context.Topology.Nodes.Count);
+        var coverageDiagnostics = new List<ClassCoverageDiagnostic>(context.Topology.Nodes.Count);
         foreach (var topologyNode in context.Topology.Nodes)
         {
             if (!context.NodeData.TryGetValue(topologyNode.Id, out var data))
@@ -64,7 +76,18 @@ public sealed class StateQueryService
             }
 
             flowLatency.TryGetValue(topologyNode.Id, out var nodeFlowLatency);
-            nodeSnapshots.Add(BuildNodeSnapshot(topologyNode, data, context, binIndex, GetNodeWarnings(validation, topologyNode.Id), nodeFlowLatency));
+            var classAggregation = ClassMetricsAggregator.Aggregate(data, binIndex);
+            LogClassCoverageDiagnostics(context.Manifest.RunId, topologyNode, data, classAggregation);
+            if (classAggregation.Coverage != ClassCoverage.Full)
+            {
+                coverageDiagnostics.Add(new ClassCoverageDiagnostic(topologyNode.Id, classAggregation.Coverage, classAggregation.Warnings));
+            }
+            classCoverageStates.Add(classAggregation.Coverage);
+            nodeSnapshots.Add(BuildNodeSnapshot(topologyNode, data, context, binIndex, GetNodeWarnings(validation, topologyNode.Id), classAggregation, nodeFlowLatency));
+        }
+        if (coverageDiagnostics.Count > 0)
+        {
+            LogClassCoverageSummary(context.Manifest.RunId, "snapshot", binIndex, coverageDiagnostics);
         }
 
         logger.LogInformation(
@@ -77,7 +100,7 @@ public sealed class StateQueryService
 
         return new StateSnapshotResponse
         {
-            Metadata = BuildMetadata(context),
+            Metadata = BuildMetadata(context, ResolveClassCoverage(classCoverageStates)),
             Bin = new BinDetail
             {
                 Index = binIndex,
@@ -145,6 +168,8 @@ public sealed class StateQueryService
 
         var flowLatency = ComputeFlowLatency(context);
         var seriesList = new List<NodeSeries>(capacity: topologyNodes.Count);
+        var classCoverageStates = new List<ClassCoverage>(topologyNodes.Count);
+        var coverageDiagnostics = new List<ClassCoverageDiagnostic>(topologyNodes.Count);
         foreach (var topologyNode in topologyNodes)
         {
             if (!context.NodeData.TryGetValue(topologyNode.Id, out var data))
@@ -153,7 +178,19 @@ public sealed class StateQueryService
             }
 
             flowLatency.TryGetValue(topologyNode.Id, out var nodeFlowLatency);
-            seriesList.Add(BuildNodeSeries(topologyNode, data, context, startBin, count, GetNodeWarnings(validation, topologyNode.Id), nodeFlowLatency));
+            var classAggregation = ClassMetricsAggregator.Aggregate(data, startBin);
+            LogClassCoverageDiagnostics(context.Manifest.RunId, topologyNode, data, classAggregation);
+            if (classAggregation.Coverage != ClassCoverage.Full)
+            {
+                coverageDiagnostics.Add(new ClassCoverageDiagnostic(topologyNode.Id, classAggregation.Coverage, classAggregation.Warnings));
+            }
+            classCoverageStates.Add(classAggregation.Coverage);
+            var mergedWarnings = MergeWarnings(GetNodeWarnings(validation, topologyNode.Id), classAggregation.Warnings, topologyNode.Id);
+            seriesList.Add(BuildNodeSeries(topologyNode, data, context, startBin, count, mergedWarnings, nodeFlowLatency));
+        }
+        if (coverageDiagnostics.Count > 0)
+        {
+            LogClassCoverageSummary(context.Manifest.RunId, "window", startBin, coverageDiagnostics);
         }
 
         if (includeComputed)
@@ -187,6 +224,8 @@ public sealed class StateQueryService
         }
 
         var edgeSeries = BuildEdgeSeries(context, startBin, count);
+        var backlogWarnings = BuildBacklogWarnings(context, topologyNodes, startBin, count);
+        var combinedWarnings = MergeWarnings(validation.Warnings, backlogWarnings);
 
         logger.LogInformation(
             stateWindowEvent,
@@ -201,7 +240,7 @@ public sealed class StateQueryService
 
         return new StateWindowResponse
         {
-            Metadata = BuildMetadata(context),
+            Metadata = BuildMetadata(context, ResolveClassCoverage(classCoverageStates)),
             Window = new WindowSlice
             {
                 StartBin = startBin,
@@ -211,7 +250,7 @@ public sealed class StateQueryService
             TimestampsUtc = timestamps,
             Nodes = seriesList,
             Edges = edgeSeries,
-            Warnings = BuildWarnings(context, validation.Warnings)
+            Warnings = BuildWarnings(context, combinedWarnings)
         };
     }
 
@@ -315,6 +354,18 @@ public sealed class StateQueryService
                         runDirectory,
                         bins,
                         valueSeriesLookup);
+                    var byClass = ResolveClassData(
+                        node,
+                        data,
+                        seriesIndex,
+                        runDirectory,
+                        bins,
+                        valueSeriesLookup,
+                        logger);
+                    if (byClass != null)
+                    {
+                        data = data with { ByClass = byClass };
+                    }
                     var kernelResult = RetryKernelPolicy.Apply(data.RetryKernel);
                     if (!ReferenceEquals(data.RetryKernel, kernelResult.Kernel))
                     {
@@ -428,6 +479,22 @@ public sealed class StateQueryService
                 kvp => (IReadOnlyList<ModeValidationWarning>)kvp.Value,
                 StringComparer.OrdinalIgnoreCase);
 
+            if (manifest.Warnings is { Length: > 0 })
+            {
+                var warningSummary = manifest.Warnings
+                    .Select(w =>
+                        string.IsNullOrWhiteSpace(w.NodeId)
+                            ? w.Code
+                            : $"{w.Code}@{w.NodeId}")
+                    .ToArray();
+
+                logger.LogWarning(
+                    "Run {RunId} manifest contains {WarningCount} warning(s): {Warnings}",
+                    runId,
+                    warningSummary.Length,
+                    string.Join(", ", warningSummary));
+            }
+
             return new StateRunContext(
                 manifest,
                 manifestMetadata,
@@ -455,16 +522,26 @@ public sealed class StateQueryService
         }
     }
 
-    private static NodeSnapshot BuildNodeSnapshot(Node node, NodeData data, StateRunContext context, int binIndex, IReadOnlyList<ModeValidationWarning> nodeWarnings, double?[]? flowLatencyForNode = null)
+    private static NodeSnapshot BuildNodeSnapshot(
+        Node node,
+        NodeData data,
+        StateRunContext context,
+        int binIndex,
+        IReadOnlyList<ModeValidationWarning> nodeWarnings,
+        ClassAggregationResult classAggregation,
+        double?[]? flowLatencyForNode = null)
     {
         var kind = NormalizeKind(node.Kind);
+        var logicalType = DetermineLogicalType(node, kind, context, out var serviceWithBufferDefinition);
+        var dispatchSchedule = ResolveDispatchSchedule(node, context, serviceWithBufferDefinition);
         var arrivals = GetValue(data.Arrivals, binIndex);
         var served = GetValue(data.Served, binIndex);
         var errors = GetValue(data.Errors, binIndex);
         var externalDemand = GetOptionalValue(data.ExternalDemand, binIndex);
         var queue = GetOptionalValue(data.QueueDepth, binIndex);
         var capacity = GetOptionalValue(data.Capacity, binIndex);
-        var isServiceKind = string.Equals(kind, "service", StringComparison.OrdinalIgnoreCase);
+        var isServiceWithBuffer = string.Equals(logicalType, "serviceWithBuffer", StringComparison.OrdinalIgnoreCase);
+        var isServiceKind = string.Equals(kind, "service", StringComparison.OrdinalIgnoreCase) || isServiceWithBuffer;
         var attempts = isServiceKind ? ComputeAttemptValue(data, binIndex, allowDerived: true) : null;
         var failures = isServiceKind ? ComputeFailureValue(data, binIndex) : null;
         var exhaustedFailures = isServiceKind ? GetOptionalValue(data.ExhaustedFailures, binIndex) : null;
@@ -484,6 +561,10 @@ public sealed class StateQueryService
             latencyMinutes = rawLatency.HasValue ? Normalize(rawLatency.Value) : null;
         }
 
+        var queueLatencyStatus = IsQueueLikeKind(kind)
+            ? DetermineQueueLatencyStatus(queue, served, dispatchSchedule, binIndex)
+            : null;
+
         var throughputRatioValue = ComputeThroughputRatio(arrivals, served);
         var throughputRatio = throughputRatioValue.HasValue ? Normalize(throughputRatioValue.Value) : null;
         var retryTax = ComputeRetryTaxValue(attempts, served);
@@ -496,21 +577,27 @@ public sealed class StateQueryService
         }
 
         double? serviceTimeMs = null;
-        if (string.Equals(kind, "service", StringComparison.OrdinalIgnoreCase))
+        if (isServiceKind)
         {
             serviceTimeMs = ComputeServiceTimeValue(data, binIndex);
         }
 
-        var color = IsDlqKind(kind)
-            ? "dlq"
-            : IsQueueLikeKind(kind)
-                ? ColoringRules.PickQueueColor(latencyMinutes, node.Semantics?.SlaMinutes)
-                : ColoringRules.PickServiceColor(utilization);
+        var color = isServiceWithBuffer
+            ? ColoringRules.PickServiceColor(utilization)
+            : IsDlqKind(kind)
+                ? "dlq"
+                : IsQueueLikeKind(kind)
+                    ? ColoringRules.PickQueueColor(latencyMinutes, node.Semantics?.SlaMinutes)
+                    : ColoringRules.PickServiceColor(utilization);
+
+        var mergedWarnings = MergeWarnings(nodeWarnings, classAggregation.Warnings, node.Id);
+        var slaMetrics = BuildSlaMetrics(node, logicalType, data, context, binIndex, dispatchSchedule);
 
         return new NodeSnapshot
         {
             Id = node.Id,
             Kind = kind,
+            LogicalType = logicalType,
             Metrics = new NodeMetrics
             {
                 Arrivals = arrivals,
@@ -524,8 +611,10 @@ public sealed class StateQueryService
                 Queue = queue,
                 Capacity = capacity,
                 ExternalDemand = externalDemand,
-                MaxAttempts = maxAttempts
+                MaxAttempts = maxAttempts,
+                QueueLatencyStatus = queueLatencyStatus
             },
+            ByClass = ConvertClassMetrics(classAggregation.ByClass),
             Derived = new NodeDerivedMetrics
             {
                 Utilization = utilization,
@@ -536,9 +625,567 @@ public sealed class StateQueryService
                 RetryTax = retryTax,
                 Color = color
             },
-            Telemetry = BuildTelemetryInfo(node, context.ManifestMetadata, nodeWarnings),
-            Aliases = node.Semantics?.Aliases
+            Telemetry = BuildTelemetryInfo(node, context.ManifestMetadata, mergedWarnings),
+            Aliases = node.Semantics?.Aliases,
+            DispatchSchedule = dispatchSchedule,
+            Sla = slaMetrics
         };
+    }
+
+    private const string SlaStatusOk = "ok";
+    private const string SlaStatusUnavailable = "unavailable";
+    private const string SlaStatusNoEvents = "noEvents";
+
+    private static IReadOnlyList<SlaSeriesDescriptor>? BuildSlaSeries(
+        Node node,
+        string? logicalType,
+        NodeData data,
+        StateRunContext context,
+        int startBin,
+        int count,
+        DispatchScheduleDescriptor? dispatchSchedule)
+    {
+        var completion = ComputeCompletionSlaSeries(data.Arrivals, data.Served, dispatchSchedule, startBin, count);
+        var backlogAge = BuildBacklogAgeSlaSeries(node, logicalType, data, context, startBin, count);
+        var scheduleAdherence = ComputeScheduleAdherenceSeries(data.Served, dispatchSchedule, startBin, count);
+
+        var items = new List<SlaSeriesDescriptor>(capacity: 3);
+        if (completion is not null)
+        {
+            items.Add(completion);
+        }
+        if (backlogAge is not null)
+        {
+            items.Add(backlogAge);
+        }
+        if (scheduleAdherence is not null)
+        {
+            items.Add(scheduleAdherence);
+        }
+
+        return items.Count == 0 ? null : items;
+    }
+
+    private static IReadOnlyList<SlaMetricDescriptor>? BuildSlaMetrics(
+        Node node,
+        string? logicalType,
+        NodeData data,
+        StateRunContext context,
+        int binIndex,
+        DispatchScheduleDescriptor? dispatchSchedule)
+    {
+        var completionValue = ComputeCompletionSlaValue(data.Arrivals, data.Served, dispatchSchedule, binIndex);
+        var completion = new SlaMetricDescriptor
+        {
+            Kind = "completion",
+            Status = completionValue.HasValue ? SlaStatusOk : SlaStatusNoEvents,
+            Threshold = null,
+            Value = completionValue
+        };
+
+        var backlogAge = BuildBacklogAgeMetric(node, logicalType);
+
+        var scheduleAdherence = BuildScheduleAdherenceMetric(data.Served, dispatchSchedule, binIndex);
+
+        var items = new List<SlaMetricDescriptor>(capacity: 3)
+        {
+            completion
+        };
+
+        if (backlogAge is not null)
+        {
+            items.Add(backlogAge);
+        }
+
+        if (scheduleAdherence is not null)
+        {
+            items.Add(scheduleAdherence);
+        }
+
+        return items;
+    }
+
+    private static SlaSeriesDescriptor ComputeCompletionSlaSeries(
+        double[] arrivals,
+        double[] served,
+        DispatchScheduleDescriptor? schedule,
+        int startBin,
+        int count)
+    {
+        var values = new double?[count];
+        double? lastValue = null;
+        var any = false;
+        var hasSchedule = schedule is not null && schedule.PeriodBins > 0;
+
+        for (var i = 0; i < count; i++)
+        {
+            var index = startBin + i;
+            var ratio = ComputeThroughputRatio(arrivals[index], served[index]);
+            if (hasSchedule)
+            {
+                if (DispatchScheduleProcessor.IsDispatchBin(index, schedule!.PeriodBins, schedule.PhaseOffset))
+                {
+                    if (ratio.HasValue)
+                    {
+                        lastValue = Normalize(ratio.Value);
+                        any = true;
+                    }
+                }
+            }
+            else if (ratio.HasValue)
+            {
+                lastValue = Normalize(ratio.Value);
+                any = true;
+            }
+
+            values[i] = lastValue;
+        }
+
+        return new SlaSeriesDescriptor
+        {
+            Kind = "completion",
+            Status = any ? SlaStatusOk : SlaStatusNoEvents,
+            Threshold = null,
+            Values = values
+        };
+    }
+
+    private static double? ComputeCompletionSlaValue(
+        double[] arrivals,
+        double[] served,
+        DispatchScheduleDescriptor? schedule,
+        int binIndex)
+    {
+        if (binIndex < 0 || binIndex >= arrivals.Length || binIndex >= served.Length)
+        {
+            return null;
+        }
+
+        var hasSchedule = schedule is not null && schedule.PeriodBins > 0;
+        if (!hasSchedule)
+        {
+            var ratio = ComputeThroughputRatio(arrivals[binIndex], served[binIndex]);
+            return ratio.HasValue ? Normalize(ratio.Value) : null;
+        }
+
+        double? lastValue = null;
+        for (var i = 0; i <= binIndex; i++)
+        {
+            if (!DispatchScheduleProcessor.IsDispatchBin(i, schedule!.PeriodBins, schedule.PhaseOffset))
+            {
+                continue;
+            }
+
+            var ratio = ComputeThroughputRatio(arrivals[i], served[i]);
+            if (ratio.HasValue)
+            {
+                lastValue = Normalize(ratio.Value);
+            }
+        }
+
+        return lastValue;
+    }
+
+    private static SlaSeriesDescriptor? BuildBacklogAgeSlaSeries(
+        Node node,
+        string? logicalType,
+        NodeData data,
+        StateRunContext context,
+        int startBin,
+        int count)
+    {
+        var isQueueLike = IsQueueLikeKind(node.Kind) || IsQueueLikeKind(logicalType);
+        if (!isQueueLike)
+        {
+            return null;
+        }
+
+        var values = new double?[count];
+        return new SlaSeriesDescriptor
+        {
+            Kind = "backlogAge",
+            Status = SlaStatusUnavailable,
+            Threshold = node.Semantics?.SlaMinutes,
+            Values = values
+        };
+    }
+
+    private static SlaMetricDescriptor? BuildBacklogAgeMetric(Node node, string? logicalType)
+    {
+        var isQueueLike = IsQueueLikeKind(node.Kind) || IsQueueLikeKind(logicalType);
+        if (!isQueueLike)
+        {
+            return null;
+        }
+
+        return new SlaMetricDescriptor
+        {
+            Kind = "backlogAge",
+            Status = SlaStatusUnavailable,
+            Threshold = node.Semantics?.SlaMinutes,
+            Value = null
+        };
+    }
+
+    private static SlaSeriesDescriptor? ComputeScheduleAdherenceSeries(
+        double[] served,
+        DispatchScheduleDescriptor? schedule,
+        int startBin,
+        int count)
+    {
+        if (schedule is null || schedule.PeriodBins <= 0)
+        {
+            return null;
+        }
+
+        var values = new double?[count];
+        var any = false;
+
+        for (var i = 0; i < count; i++)
+        {
+            var index = startBin + i;
+            if (!DispatchScheduleProcessor.IsDispatchBin(index, schedule.PeriodBins, schedule.PhaseOffset))
+            {
+                values[i] = null;
+                continue;
+            }
+
+            var servedValue = served[index];
+            values[i] = servedValue > 0d ? 1d : 0d;
+            any = true;
+        }
+
+        return new SlaSeriesDescriptor
+        {
+            Kind = "scheduleAdherence",
+            Status = any ? SlaStatusOk : SlaStatusNoEvents,
+            Threshold = 1d,
+            Values = values
+        };
+    }
+
+    private static SlaMetricDescriptor? BuildScheduleAdherenceMetric(
+        double[] served,
+        DispatchScheduleDescriptor? schedule,
+        int binIndex)
+    {
+        if (schedule is null || schedule.PeriodBins <= 0)
+        {
+            return null;
+        }
+
+        if (!DispatchScheduleProcessor.IsDispatchBin(binIndex, schedule.PeriodBins, schedule.PhaseOffset))
+        {
+            return new SlaMetricDescriptor
+            {
+                Kind = "scheduleAdherence",
+                Status = SlaStatusNoEvents,
+                Threshold = 1d,
+                Value = null
+            };
+        }
+
+        var servedValue = binIndex >= 0 && binIndex < served.Length ? served[binIndex] : 0d;
+        return new SlaMetricDescriptor
+        {
+            Kind = "scheduleAdherence",
+            Status = SlaStatusOk,
+            Threshold = 1d,
+            Value = servedValue > 0d ? 1d : 0d
+        };
+    }
+
+    private static IReadOnlyDictionary<string, ClassMetrics>? ConvertClassMetrics(IReadOnlyDictionary<string, ClassMetricsSnapshot> byClass)
+    {
+        if (byClass is null || byClass.Count == 0)
+        {
+            return null;
+        }
+
+        var result = new Dictionary<string, ClassMetrics>(byClass.Count, StringComparer.OrdinalIgnoreCase);
+        foreach (var kvp in byClass)
+        {
+            result[kvp.Key] = new ClassMetrics
+            {
+                Arrivals = kvp.Value.Arrivals,
+                Served = kvp.Value.Served,
+                Errors = kvp.Value.Errors,
+                Queue = kvp.Value.Queue,
+                Capacity = kvp.Value.Capacity,
+                ProcessingTimeMsSum = kvp.Value.ProcessingTimeMsSum,
+                ServedCount = kvp.Value.ServedCount
+            };
+        }
+
+        return result;
+    }
+
+    private static IReadOnlyList<ModeValidationWarning> MergeWarnings(
+        IReadOnlyList<ModeValidationWarning> existing,
+        IReadOnlyList<ModeValidationWarning> additional,
+        string nodeId)
+    {
+        if (additional is null || additional.Count == 0)
+        {
+            return existing;
+        }
+
+        var merged = new List<ModeValidationWarning>(existing);
+        foreach (var warning in additional)
+        {
+            merged.Add(new ModeValidationWarning
+            {
+                Code = warning.Code,
+                Message = warning.Message,
+                NodeId = nodeId
+            });
+        }
+
+        return merged;
+    }
+
+    private static IReadOnlyList<ModeValidationWarning> MergeWarnings(
+        IReadOnlyList<ModeValidationWarning> existing,
+        IReadOnlyList<ModeValidationWarning> additional)
+    {
+        if (additional is null || additional.Count == 0)
+        {
+            return existing;
+        }
+
+        var merged = new List<ModeValidationWarning>(existing.Count + additional.Count);
+        merged.AddRange(existing);
+        merged.AddRange(additional);
+        return merged;
+    }
+
+    private static IReadOnlyList<ModeValidationWarning> BuildBacklogWarnings(
+        StateRunContext context,
+        IEnumerable<Node> nodes,
+        int startBin,
+        int count)
+    {
+        var warnings = new List<ModeValidationWarning>();
+        var endBin = startBin + count - 1;
+        var binMinutes = context.Window.BinDuration.TotalMinutes;
+
+        foreach (var node in nodes)
+        {
+            if (!IsQueueLikeKind(node.Kind))
+            {
+                continue;
+            }
+
+            if (!context.NodeData.TryGetValue(node.Id, out var data))
+            {
+                continue;
+            }
+
+            var growth = FindQueueGrowthStreak(data.QueueDepth, startBin, endBin);
+            if (growth.HasValue && growth.Value.Length >= BacklogGrowthStreakBins)
+            {
+                warnings.Add(new ModeValidationWarning
+                {
+                    Code = "backlog_growth_streak",
+                    Message = $"Queue depth increased for {growth.Value.Length} consecutive bins (bins {growth.Value.Start}–{growth.Value.End}).",
+                    NodeId = node.Id,
+                    StartBin = growth.Value.Start,
+                    EndBin = growth.Value.End,
+                    Signal = "queueDepth"
+                });
+            }
+
+            var overload = FindOverloadStreak(data.Arrivals, data.Capacity, startBin, endBin);
+            if (overload.HasValue && overload.Value.Length >= BacklogOverloadStreakBins)
+            {
+                warnings.Add(new ModeValidationWarning
+                {
+                    Code = "backlog_overload_ratio",
+                    Message = $"Arrivals exceeded capacity for {overload.Value.Length} consecutive bins (bins {overload.Value.Start}–{overload.Value.End}).",
+                    NodeId = node.Id,
+                    StartBin = overload.Value.Start,
+                    EndBin = overload.Value.End,
+                    Signal = "overloadRatio"
+                });
+            }
+
+            var ageRisk = FindAgeRiskStreak(data.QueueDepth, data.Served, binMinutes, node.Semantics?.SlaMinutes, startBin, endBin);
+            if (ageRisk.HasValue && ageRisk.Value.Length >= BacklogAgeRiskStreakBins)
+            {
+                warnings.Add(new ModeValidationWarning
+                {
+                    Code = "backlog_age_risk",
+                    Message = $"Queue latency exceeded SLA for {ageRisk.Value.Length} consecutive bins (bins {ageRisk.Value.Start}–{ageRisk.Value.End}).",
+                    NodeId = node.Id,
+                    StartBin = ageRisk.Value.Start,
+                    EndBin = ageRisk.Value.End,
+                    Signal = "latencyMinutes"
+                });
+            }
+        }
+
+        return warnings;
+    }
+
+    private static (int Start, int End, int Length)? FindQueueGrowthStreak(
+        double[]? queueSeries,
+        int startBin,
+        int endBin)
+    {
+        if (queueSeries is null || endBin - startBin < 1)
+        {
+            return null;
+        }
+
+        int? bestStart = null;
+        int? bestEnd = null;
+        var bestLength = 0;
+        int? currentStart = null;
+        var currentLength = 0;
+
+        for (var i = startBin + 1; i <= endBin; i++)
+        {
+            var previous = GetOptionalValue(queueSeries, i - 1);
+            var current = GetOptionalValue(queueSeries, i);
+
+            if (previous.HasValue && current.HasValue && current.Value > previous.Value)
+            {
+                if (currentLength == 0)
+                {
+                    currentStart = i - 1;
+                }
+
+                currentLength++;
+                if (currentLength > bestLength)
+                {
+                    bestLength = currentLength;
+                    bestStart = currentStart;
+                    bestEnd = i;
+                }
+            }
+            else
+            {
+                currentLength = 0;
+                currentStart = null;
+            }
+        }
+
+        return bestLength > 0 && bestStart.HasValue && bestEnd.HasValue
+            ? (bestStart.Value, bestEnd.Value, bestLength)
+            : null;
+    }
+
+    private static (int Start, int End, int Length)? FindOverloadStreak(
+        double[]? arrivalsSeries,
+        double[]? capacitySeries,
+        int startBin,
+        int endBin)
+    {
+        if (arrivalsSeries is null || capacitySeries is null)
+        {
+            return null;
+        }
+
+        return FindStreak(startBin, endBin, bin =>
+        {
+            var arrivals = GetOptionalValue(arrivalsSeries, bin);
+            var capacity = GetOptionalValue(capacitySeries, bin);
+            if (!arrivals.HasValue || !capacity.HasValue || capacity.Value <= 0d)
+            {
+                return false;
+            }
+
+            var ratio = arrivals.Value / capacity.Value;
+            return ratio > 1d;
+        });
+    }
+
+    private static (int Start, int End, int Length)? FindAgeRiskStreak(
+        double[]? queueSeries,
+        double[]? servedSeries,
+        double binMinutes,
+        double? slaMinutes,
+        int startBin,
+        int endBin)
+    {
+        if (!slaMinutes.HasValue || slaMinutes.Value <= 0d || queueSeries is null || servedSeries is null || binMinutes <= 0d)
+        {
+            return null;
+        }
+
+        var threshold = slaMinutes.Value;
+        return FindStreak(startBin, endBin, bin =>
+        {
+            var queue = GetOptionalValue(queueSeries, bin);
+            var served = GetOptionalValue(servedSeries, bin);
+            if (!queue.HasValue || !served.HasValue)
+            {
+                return false;
+            }
+
+            var latency = LatencyComputer.Calculate(queue.Value, served.Value, binMinutes);
+            return latency.HasValue && latency.Value > threshold;
+        });
+    }
+
+    private static (int Start, int End, int Length)? FindStreak(
+        int startBin,
+        int endBin,
+        Func<int, bool> predicate)
+    {
+        int? bestStart = null;
+        int? bestEnd = null;
+        var bestLength = 0;
+        int? currentStart = null;
+        var currentLength = 0;
+
+        for (var i = startBin; i <= endBin; i++)
+        {
+            if (predicate(i))
+            {
+                if (currentLength == 0)
+                {
+                    currentStart = i;
+                }
+
+                currentLength++;
+                if (currentLength > bestLength)
+                {
+                    bestLength = currentLength;
+                    bestStart = currentStart;
+                    bestEnd = i;
+                }
+            }
+            else
+            {
+                currentLength = 0;
+                currentStart = null;
+            }
+        }
+
+        return bestLength > 0 && bestStart.HasValue && bestEnd.HasValue
+            ? (bestStart.Value, bestEnd.Value, bestLength)
+            : null;
+    }
+
+    private static string? ResolveClassCoverage(IReadOnlyList<ClassCoverage> coverages)
+    {
+        if (coverages is null || coverages.Count == 0)
+        {
+            return null;
+        }
+
+        if (coverages.Any(c => c == ClassCoverage.Partial))
+        {
+            return "partial";
+        }
+
+        if (coverages.Any(c => c == ClassCoverage.Full))
+        {
+            return "full";
+        }
+
+        return "missing";
     }
 
     private static NodeData CreateEmptyNodeData(Node node, int bins)
@@ -566,9 +1213,76 @@ public sealed class StateQueryService
         };
     }
 
+    private void LogClassCoverageDiagnostics(
+        string runId,
+        Node node,
+        NodeData data,
+        ClassAggregationResult aggregation)
+    {
+        if (aggregation.Coverage == ClassCoverage.Full)
+        {
+            return;
+        }
+
+        var classList = data.ByClass is null || data.ByClass.Count == 0
+            ? "none"
+            : string.Join(", ", data.ByClass.Keys);
+
+        if (aggregation.Coverage == ClassCoverage.Missing)
+        {
+            logger.LogWarning(
+                "Class coverage missing for node {NodeId} in run {RunId}. Semantics arrivals={Arrivals}, served={Served}, errors={Errors}. Available class series: {Classes}",
+                node.Id,
+                runId,
+                node.Semantics?.Arrivals,
+                node.Semantics?.Served,
+                node.Semantics?.Errors,
+                classList);
+            return;
+        }
+
+        var warningCodes = aggregation.Warnings.Select(w => w.Code).ToArray();
+        var warningMessages = aggregation.Warnings.Select(w => w.Message).ToArray();
+        logger.LogWarning(
+            "Class coverage partial for node {NodeId} in run {RunId}. WarningCodes={WarningCodes}. Messages={WarningMessages}. Available class series: {Classes}",
+            node.Id,
+            runId,
+            warningCodes,
+            warningMessages,
+            classList);
+    }
+
+    private void LogClassCoverageSummary(
+        string runId,
+        string scope,
+        int binIndex,
+        IReadOnlyList<ClassCoverageDiagnostic> diagnostics)
+    {
+        var summary = diagnostics
+            .Select(d =>
+            {
+                var codes = d.Warnings.Count == 0
+                    ? "none"
+                    : string.Join(",", d.Warnings.Select(w => w.Code));
+                return $"{d.NodeId}:{d.Coverage}:{codes}";
+            })
+            .ToArray();
+
+        logger.LogWarning(
+            "Class coverage summary for run {RunId} ({Scope} bin={BinIndex}): {Summary}",
+            runId,
+            scope,
+            binIndex,
+            string.Join("; ", summary));
+    }
+
+    private sealed record ClassCoverageDiagnostic(string NodeId, ClassCoverage Coverage, IReadOnlyList<ModeValidationWarning> Warnings);
+
     private static NodeSeries BuildNodeSeries(Node node, NodeData data, StateRunContext context, int startBin, int count, IReadOnlyList<ModeValidationWarning> nodeWarnings, double?[]? flowLatencyForNode = null)
     {
         var kind = NormalizeKind(node.Kind);
+        var logicalType = DetermineLogicalType(node, kind, context, out var serviceWithBufferDefinition);
+        var dispatchSchedule = ResolveDispatchSchedule(node, context, serviceWithBufferDefinition);
         var arrivalsSlice = ExtractSlice(data.Arrivals, startBin, count);
         var servedSlice = ExtractSlice(data.Served, startBin, count);
         var errorsSlice = ExtractSlice(data.Errors, startBin, count);
@@ -630,6 +1344,16 @@ public sealed class StateQueryService
             series["queue"] = ExtractSlice(data.QueueDepth, startBin, count);
         }
 
+        if (data.ProcessingTimeMsSum != null)
+        {
+            series["processingTimeMsSum"] = ExtractSlice(data.ProcessingTimeMsSum, startBin, count);
+        }
+
+        if (data.ServedCount != null)
+        {
+            series["servedCount"] = ExtractSlice(data.ServedCount, startBin, count);
+        }
+
         if (data.Capacity != null)
         {
             series["capacity"] = ExtractSlice(data.Capacity, startBin, count);
@@ -640,6 +1364,8 @@ public sealed class StateQueryService
             }
         }
 
+        QueueLatencyStatusDescriptor?[]? queueLatencyStatuses = null;
+
         if (IsQueueLikeKind(kind) && data.QueueDepth != null)
         {
             var latency = ComputeLatencySeries(data, context.Window, startBin, count);
@@ -647,6 +1373,13 @@ public sealed class StateQueryService
             {
                 series["latencyMinutes"] = latency;
             }
+
+            queueLatencyStatuses = ComputeQueueLatencyStatusSeries(
+                data.QueueDepth,
+                data.Served,
+                dispatchSchedule,
+                startBin,
+                count);
         }
 
         var throughputSeries = ComputeThroughputSeries(data, startBin, count);
@@ -655,7 +1388,8 @@ public sealed class StateQueryService
             series["throughputRatio"] = throughputSeries;
         }
 
-        if (string.Equals(kind, "service", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(kind, "service", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(logicalType, "serviceWithBuffer", StringComparison.OrdinalIgnoreCase))
         {
             var serviceTimeSeries = ComputeServiceTimeSeries(data, startBin, count);
             if (serviceTimeSeries != null)
@@ -677,14 +1411,81 @@ public sealed class StateQueryService
             series[$"series:{node.Id}"] = valuesSlice;
         }
 
+        var slaSeries = BuildSlaSeries(node, logicalType, data, context, startBin, count, dispatchSchedule);
+
         return new NodeSeries
         {
             Id = node.Id,
             Kind = kind,
+            LogicalType = logicalType,
             Series = series,
+            ByClass = BuildClassSeries(data, startBin, count),
             Telemetry = BuildTelemetryInfo(node, context.ManifestMetadata, nodeWarnings),
-            Aliases = node.Semantics?.Aliases
+            Aliases = node.Semantics?.Aliases,
+            DispatchSchedule = dispatchSchedule,
+            QueueLatencyStatus = queueLatencyStatuses,
+            Sla = slaSeries
         };
+    }
+
+    private static IDictionary<string, IDictionary<string, double?[]>>? BuildClassSeries(NodeData data, int startBin, int count)
+    {
+        if (data.ByClass is null || data.ByClass.Count == 0)
+        {
+            return null;
+        }
+
+        var result = new Dictionary<string, IDictionary<string, double?[]>>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var kvp in data.ByClass)
+        {
+            var classId = string.IsNullOrWhiteSpace(kvp.Key) ? "*" : kvp.Key.Trim();
+            var classData = kvp.Value;
+            if (classData is null)
+            {
+                continue;
+            }
+
+            var classSeries = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase);
+            AddSeriesIfAvailable(classSeries, "arrivals", classData.Arrivals);
+            AddSeriesIfAvailable(classSeries, "served", classData.Served);
+            AddSeriesIfAvailable(classSeries, "errors", classData.Errors);
+            AddSeriesIfAvailable(classSeries, "queue", classData.QueueDepth);
+            AddSeriesIfAvailable(classSeries, "capacity", classData.Capacity);
+            AddSeriesIfAvailable(classSeries, "processingTimeMsSum", classData.ProcessingTimeMsSum);
+            AddSeriesIfAvailable(classSeries, "servedCount", classData.ServedCount);
+
+            if (classSeries.Count > 0)
+            {
+                result[classId] = classSeries;
+            }
+        }
+
+        return result.Count == 0 ? null : result;
+
+        void AddSeriesIfAvailable(IDictionary<string, double?[]> target, string key, double[]? series)
+        {
+            if (series is null)
+            {
+                return;
+            }
+
+            var slice = ExtractSlice(series, startBin, count);
+            var hasValue = false;
+            for (var i = 0; i < slice.Length; i++)
+            {
+                if (slice[i].HasValue)
+                {
+                    hasValue = true;
+                    break;
+                }
+            }
+
+            if (hasValue)
+            {
+                target[key] = slice;
+            }
+        }
     }
 
     private static NodeTelemetryInfo BuildTelemetryInfo(Node node, RunManifestMetadata manifestMetadata, IReadOnlyList<ModeValidationWarning> nodeWarnings)
@@ -821,6 +1622,37 @@ public sealed class StateQueryService
         }
 
         return result;
+    }
+
+    private static QueueLatencyStatusDescriptor?[]? ComputeQueueLatencyStatusSeries(
+        double[]? queueSeries,
+        double[]? servedSeries,
+        DispatchScheduleDescriptor? schedule,
+        int startBin,
+        int count)
+    {
+        if (schedule is null || schedule.PeriodBins <= 0 || queueSeries is null)
+        {
+            return null;
+        }
+
+        var result = new QueueLatencyStatusDescriptor?[count];
+        var hasStatus = false;
+
+        for (var offset = 0; offset < count; offset++)
+        {
+            var absoluteBin = startBin + offset;
+            var queue = GetOptionalValue(queueSeries, absoluteBin);
+            var served = GetOptionalValue(servedSeries, absoluteBin);
+            var status = DetermineQueueLatencyStatus(queue, served, schedule, absoluteBin);
+            result[offset] = status;
+            if (status is not null)
+            {
+                hasStatus = true;
+            }
+        }
+
+        return hasStatus ? result : null;
     }
 
     private static double? ComputeServiceTimeValue(NodeData data, int index)
@@ -1303,7 +2135,23 @@ public sealed class StateQueryService
             return null;
         }
 
-        return served.Value / arrivals.Value;
+        var ratio = served.Value / arrivals.Value;
+        if (double.IsNaN(ratio) || double.IsInfinity(ratio))
+        {
+            return null;
+        }
+
+        if (ratio < 0d)
+        {
+            return 0d;
+        }
+
+        if (ratio > 1d)
+        {
+            return 1d;
+        }
+
+        return ratio;
     }
 
     private static double? ComputeRetryTaxValue(double? attempts, double? served)
@@ -1401,6 +2249,7 @@ public sealed class StateQueryService
         }
 
         var valuesSlice = ExtractSlice(data.Values, start, count);
+        var dispatchSchedule = ResolveDispatchSchedule(nodeId, context);
 
         var series = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase)
         {
@@ -1412,12 +2261,92 @@ public sealed class StateQueryService
         {
             Id = nodeId,
             Kind = kind,
+            LogicalType = NormalizeKind(kind),
             Series = series,
             Telemetry = new NodeTelemetryInfo
             {
                 Sources = Array.Empty<string>(),
                 Warnings = ConvertNodeWarnings(nodeWarnings)
+            },
+            DispatchSchedule = dispatchSchedule
+        };
+    }
+
+    private static DispatchScheduleDescriptor? ResolveDispatchSchedule(
+        Node node,
+        StateRunContext context,
+        NodeDefinition? fallbackDefinition = null)
+    {
+        if (context.ModelNodes.TryGetValue(node.Id, out var definition))
+        {
+            var descriptor = ConvertDispatchSchedule(definition.DispatchSchedule);
+            if (descriptor is not null)
+            {
+                return descriptor;
             }
+        }
+
+        if (fallbackDefinition is not null)
+        {
+            var descriptor = ConvertDispatchSchedule(fallbackDefinition.DispatchSchedule);
+            if (descriptor is not null)
+            {
+                return descriptor;
+            }
+        }
+
+        if (node.DispatchSchedule is not null)
+        {
+            var descriptor = ConvertDispatchSchedule(node.DispatchSchedule);
+            if (descriptor is not null)
+            {
+                return descriptor;
+            }
+        }
+
+        return null;
+    }
+
+    private static DispatchScheduleDescriptor? ResolveDispatchSchedule(string nodeId, StateRunContext context)
+    {
+        if (string.IsNullOrWhiteSpace(nodeId))
+        {
+            return null;
+        }
+
+        if (!context.ModelNodes.TryGetValue(nodeId, out var definition))
+        {
+            return null;
+        }
+
+        return ConvertDispatchSchedule(definition.DispatchSchedule);
+    }
+
+    private static DispatchScheduleDescriptor? ConvertDispatchSchedule(DispatchScheduleDefinition? schedule)
+    {
+        if (schedule is null)
+        {
+            return null;
+        }
+
+        var period = schedule.PeriodBins;
+        if (period <= 0)
+        {
+            return null;
+        }
+
+        var kind = string.IsNullOrWhiteSpace(schedule.Kind) ? "time-based" : schedule.Kind.Trim();
+        var normalizedPhase = DispatchScheduleProcessor.NormalizePhase(schedule.PhaseOffset ?? 0, period);
+        var capacitySeries = string.IsNullOrWhiteSpace(schedule.CapacitySeries)
+            ? null
+            : schedule.CapacitySeries.Trim();
+
+        return new DispatchScheduleDescriptor
+        {
+            Kind = kind,
+            PeriodBins = period,
+            PhaseOffset = normalizedPhase,
+            CapacitySeries = capacitySeries
         };
     }
 
@@ -1687,7 +2616,154 @@ public sealed class StateQueryService
         };
     }
 
-    private static StateMetadata BuildMetadata(StateRunContext context)
+    private static IReadOnlyDictionary<string, NodeClassData>? ResolveClassData(
+        Node node,
+        NodeData data,
+        SeriesIndex seriesIndex,
+        string runDirectory,
+        int bins,
+        IReadOnlyDictionary<string, SeriesReference> seriesLookup,
+        ILogger logger)
+    {
+        if (seriesIndex.Series is null || seriesIndex.Series.Length == 0)
+        {
+            return null;
+        }
+
+        var byClass = new Dictionary<string, NodeClassData>(StringComparer.OrdinalIgnoreCase);
+
+        void Apply(string? semanticId, Func<NodeClassData, double[], NodeClassData> merge)
+        {
+            var componentId = ResolveComponentId(semanticId, seriesLookup);
+            if (string.IsNullOrWhiteSpace(componentId))
+            {
+                return;
+            }
+
+            var metricKey = NormalizeSeriesKey(semanticId ?? string.Empty);
+            var atIndexMetric = metricKey.IndexOf('@');
+            if (atIndexMetric >= 0)
+            {
+                metricKey = metricKey[..atIndexMetric];
+            }
+
+            foreach (var meta in seriesIndex.Series)
+            {
+                if (!string.Equals(meta.ComponentId, componentId, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                var metaKey = meta.Id;
+                var metaAt = metaKey.IndexOf('@');
+                if (metaAt >= 0)
+                {
+                    metaKey = metaKey[..metaAt];
+                }
+
+                if (!string.Equals(metaKey, metricKey, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                var path = Path.Combine(runDirectory, meta.Path.Replace('/', Path.DirectorySeparatorChar));
+                double[] series;
+                try
+                {
+                    series = CsvReader.ReadTimeSeries(path, bins);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogDebug(ex, "Failed to load class series {SeriesId} for node {NodeId}", meta.Id, node.Id);
+                    continue;
+                }
+
+                var classId = string.IsNullOrWhiteSpace(meta.Class) ? "*" : meta.Class.Trim();
+                if (string.Equals(classId, "*", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(classId, "DEFAULT", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Skip totals; they are already represented in NodeData.Arrivals/Served/Errors arrays.
+                    continue;
+                }
+                var current = byClass.TryGetValue(classId, out var existing) ? existing : new NodeClassData();
+                byClass[classId] = merge(current, series);
+            }
+        }
+
+        Apply(node.Semantics.Arrivals, (current, series) => current with { Arrivals = series });
+        Apply(node.Semantics.Served, (current, series) => current with { Served = series });
+        Apply(node.Semantics.Errors, (current, series) => current with { Errors = series });
+        Apply(node.Semantics.QueueDepth, (current, series) => current with { QueueDepth = series });
+        Apply(node.Semantics.Capacity, (current, series) => current with { Capacity = series });
+        Apply(node.Semantics.ProcessingTimeMsSum, (current, series) => current with { ProcessingTimeMsSum = series });
+        Apply(node.Semantics.ServedCount, (current, series) => current with { ServedCount = series });
+
+        if (byClass.Count > 0)
+        {
+            logger.LogDebug("Loaded byClass metrics for node {NodeId}: classes={ClassCount}", node.Id, byClass.Count);
+        }
+
+        return byClass.Count == 0 ? null : byClass;
+    }
+
+    private static string? ResolveComponentId(string? semanticId, IReadOnlyDictionary<string, SeriesReference> seriesLookup)
+    {
+        if (string.IsNullOrWhiteSpace(semanticId))
+        {
+            return null;
+        }
+
+        var normalized = NormalizeSeriesKey(semanticId);
+        var key = normalized;
+        var atIndex = key.IndexOf('@');
+        if (atIndex >= 0)
+        {
+            key = key[..atIndex];
+        }
+
+        if (seriesLookup.TryGetValue(key, out var reference))
+        {
+            var component = ExtractComponentId(reference.Id);
+            if (!string.IsNullOrWhiteSpace(component))
+            {
+                return component;
+            }
+        }
+
+        var fallback = ExtractComponentId(normalized);
+        return string.IsNullOrWhiteSpace(fallback) ? null : fallback;
+    }
+
+    private static string NormalizeSeriesKey(string semanticId)
+    {
+        var trimmed = semanticId.Trim();
+        if (trimmed.StartsWith("file:", StringComparison.OrdinalIgnoreCase))
+        {
+            trimmed = trimmed["file:".Length..].TrimStart('/', '\\');
+        }
+
+        trimmed = Path.GetFileName(trimmed);
+
+        if (trimmed.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
+        {
+            trimmed = trimmed[..^4];
+        }
+
+        return trimmed;
+    }
+
+    private static string? ExtractComponentId(string? seriesId)
+    {
+        if (string.IsNullOrWhiteSpace(seriesId))
+        {
+            return null;
+        }
+
+        var parts = seriesId.Split('@');
+        return parts.Length >= 2 ? parts[1] : null;
+    }
+
+    private static StateMetadata BuildMetadata(StateRunContext context, string? classCoverage = null)
     {
         var metadata = context.ManifestMetadata;
         var telemetryResolved = metadata.TelemetrySources.Count > 0 &&
@@ -1697,6 +2773,7 @@ public sealed class StateQueryService
             RunId = context.Manifest.RunId,
             TemplateId = metadata.TemplateId,
             TemplateTitle = metadata.TemplateTitle,
+            TemplateNarrative = metadata.TemplateNarrative,
             TemplateVersion = metadata.TemplateVersion,
             Mode = metadata.Mode,
             ProvenanceHash = metadata.ProvenanceHash,
@@ -1712,7 +2789,8 @@ public sealed class StateQueryService
                 ModelPath = metadata.Storage.ModelPath,
                 MetadataPath = metadata.Storage.MetadataPath,
                 ProvenancePath = metadata.Storage.ProvenancePath
-            }
+            },
+            ClassCoverage = classCoverage
         };
     }
 
@@ -1742,7 +2820,10 @@ public sealed class StateQueryService
                 {
                     Code = warning.Code,
                     Message = warning.Message,
-                    NodeId = warning.NodeId
+                    NodeId = warning.NodeId,
+                    StartBin = warning.StartBin,
+                    EndBin = warning.EndBin,
+                    Signal = warning.Signal
                 });
             }
         }
@@ -1859,6 +2940,79 @@ public sealed class StateQueryService
         return kind.Trim().ToLowerInvariant();
     }
 
+    private static readonly Regex SeriesFileRegex = new(@"(?<name>[^/\\]+?)(?:\.csv)?$", RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+    private static string DetermineLogicalType(
+        Node node,
+        string normalizedKind,
+        StateRunContext context,
+        out NodeDefinition? serviceWithBufferDefinition)
+    {
+        serviceWithBufferDefinition = TryResolveServiceWithBufferDefinition(node.Semantics?.QueueDepth, context.ModelNodes);
+        if (serviceWithBufferDefinition is not null)
+        {
+            return "serviceWithBuffer";
+        }
+
+        return normalizedKind;
+    }
+
+    private static NodeDefinition? TryResolveServiceWithBufferDefinition(
+        string? reference,
+        IReadOnlyDictionary<string, NodeDefinition> nodeDefinitions)
+    {
+        if (string.IsNullOrWhiteSpace(reference))
+        {
+            return null;
+        }
+
+        var candidateId = TryResolveSeriesNodeId(reference);
+        if (string.IsNullOrWhiteSpace(candidateId))
+        {
+            return null;
+        }
+
+        return nodeDefinitions.TryGetValue(candidateId, out var definition) &&
+            string.Equals(definition.Kind, "serviceWithBuffer", StringComparison.OrdinalIgnoreCase)
+            ? definition
+            : null;
+    }
+
+    private static string? TryResolveSeriesNodeId(string? reference)
+    {
+        if (string.IsNullOrWhiteSpace(reference))
+        {
+            return null;
+        }
+
+        var value = reference.Trim();
+        if (value.StartsWith("series:", StringComparison.OrdinalIgnoreCase))
+        {
+            value = value["series:".Length..];
+        }
+        else if (value.StartsWith("file:", StringComparison.OrdinalIgnoreCase))
+        {
+            var match = SeriesFileRegex.Match(value);
+            if (match.Success)
+            {
+                value = match.Groups["name"].Value;
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var at = value.IndexOf('@');
+        if (at > 0)
+        {
+            value = value[..at];
+        }
+
+        return value.Trim();
+    }
+
     private static bool IsQueueLikeKind(string? kind)
     {
         if (string.IsNullOrWhiteSpace(kind))
@@ -1867,7 +3021,37 @@ public sealed class StateQueryService
         }
 
         var normalized = kind.Trim().ToLowerInvariant();
-        return normalized is "queue" or "dlq";
+        return normalized is "queue" or "dlq" or "servicewithbuffer";
+    }
+
+    private static QueueLatencyStatusDescriptor? DetermineQueueLatencyStatus(
+        double? queue,
+        double? served,
+        DispatchScheduleDescriptor? schedule,
+        int absoluteBin)
+    {
+        if (schedule is null || schedule.PeriodBins <= 0)
+        {
+            return null;
+        }
+
+        if (!queue.HasValue || queue.Value <= 0)
+        {
+            return null;
+        }
+
+        var servedValue = served ?? 0d;
+        if (servedValue > 0)
+        {
+            return null;
+        }
+
+        if (DispatchScheduleProcessor.IsDispatchBin(absoluteBin, schedule.PeriodBins, schedule.PhaseOffset))
+        {
+            return null;
+        }
+
+        return pausedGateClosedStatus;
     }
 
     private static bool IsDlqKind(string? kind)

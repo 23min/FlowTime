@@ -4,6 +4,7 @@ metadata:
   id: supply-chain-incident-retry
   title: Incident Workflow With Retries (IT Ops)
   description: 24-hour incident intake with retries, queue buffering, and analytics effort edges.
+  narrative: 'IT operations incident workflow with triage, retry bursts, and resolution capacity limits to surface retry tax, failed retries, and backlog accumulation.'
   version: 2.0.0
   tags: [it-operations, retries, queue, analytics]
 window:
@@ -68,7 +69,7 @@ topology:
         arrivals: incident_queue_demand
         served: support_queue_served
         errors: support_queue_attrition
-        queueDepth: support_queue_depth
+        queueDepth: self
         aliases:
           arrivals: "Effective demand"
           served: "Tickets worked"
@@ -107,7 +108,7 @@ topology:
         arrivals: incident_dlq_inflow
         served: incident_dlq_served_zero
         errors: incident_dlq_attrition
-        queueDepth: incident_dlq_depth
+        queueDepth: self
         aliases:
           arrivals: "Escalated incidents"
           queue: "Escalation backlog"
@@ -119,7 +120,7 @@ topology:
         arrivals: support_loss_inflow
         served: support_loss_served_zero
         errors: support_loss_attrition
-        queueDepth: support_loss_depth
+        queueDepth: self
         aliases:
           arrivals: "Desk drops"
           queue: "Support loss backlog"
@@ -244,12 +245,6 @@ nodes:
     kind: expr
     expr: "MAX(0, incident_queue_demand - support_queue_served)"
 
-  - id: support_queue_depth
-    kind: backlog
-    inflow: incident_queue_demand
-    outflow: support_queue_served
-    loss: support_queue_attrition
-
   - id: support_analytics_load
     kind: expr
     expr: "0.4 * incident_attempts + 0.25 * incident_failures"
@@ -280,12 +275,6 @@ nodes:
     kind: expr
     expr: "0"
 
-  - id: incident_dlq_depth
-    kind: backlog
-    inflow: incident_dlq_inflow
-    outflow: incident_dlq_served_zero
-    loss: incident_dlq_attrition
-
   - id: support_loss_inflow
     kind: expr
     expr: "support_queue_errors"
@@ -300,19 +289,13 @@ nodes:
     kind: expr
     expr: "0"
 
-  - id: support_loss_depth
-    kind: backlog
-    inflow: support_loss_inflow
-    outflow: support_loss_served_zero
-    loss: support_loss_attrition
-
 outputs:
   - series: incident_arrivals
     as: IncidentIntake_arrivals.csv
   - series: incident_attempts
     as: IncidentIntake_attempts.csv
-  - series: support_queue_depth
-    as: IncidentQueue_queueDepth.csv
+  - series: incident_queue_queue
+    as: incident_queue_queue.csv
   - series: support_queue_served
     as: SupportDesk_served.csv
   - series: support_queue_served
@@ -321,7 +304,7 @@ outputs:
     as: SupportDesk_processingTimeMsSum.csv
   - series: support_analytics_load
     as: SupportAnalytics_load.csv
-  - series: incident_dlq_depth
-    as: IncidentEscalationDlq_backlog.csv
-  - series: support_loss_depth
-    as: SupportLoss_backlog.csv
+  - series: incident_escalation_dlq_queue
+    as: incident_escalation_dlq_queue.csv
+  - series: support_loss_queue_queue
+    as: support_loss_queue_queue.csv

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Text.Json.Serialization;
 
 namespace FlowTime.UI.Components.Topology;
 
@@ -111,6 +112,7 @@ internal static class GraphMapper
                 return new TopologyNode(
                     builder.Id,
                     builder.Kind,
+                    builder.LogicalType,
                     builder.Inputs.Distinct(StringComparer.OrdinalIgnoreCase).ToImmutableArray(),
                     builder.Outputs.Distinct(StringComparer.OrdinalIgnoreCase).ToImmutableArray(),
                     layer,
@@ -119,7 +121,9 @@ internal static class GraphMapper
                     Math.Round(y, 3, MidpointRounding.AwayFromZero),
                     hasCustomPosition,
                     builder.Semantics,
-                    laneValue);
+                    laneValue,
+                    builder.DispatchSchedule,
+                    NodeRole: builder.NodeRole);
             })
             .ToImmutableArray();
 
@@ -140,7 +144,7 @@ internal static class GraphMapper
 
     private static double ResolvehorizontalSpacing(NodeBuilder builder, LayoutMode layout)
     {
-        var category = Classify(builder.Kind);
+            var category = Classify(builder.Kind, builder.LogicalType);
         if (category == NodeCategory.Expression || category == NodeCategory.Constant)
         {
             return layout == LayoutMode.HappyPath
@@ -220,14 +224,15 @@ internal static class GraphMapper
         return layerByNode;
     }
 
-    private static NodeCategory Classify(string? kind)
+    private static NodeCategory Classify(string? kind, string? logicalType = null)
     {
-        if (string.IsNullOrWhiteSpace(kind))
+        var candidate = string.IsNullOrWhiteSpace(logicalType) ? kind : logicalType;
+        if (string.IsNullOrWhiteSpace(candidate))
         {
             return NodeCategory.Service;
         }
 
-        return kind.Trim().ToLowerInvariant() switch
+        return candidate.Trim().ToLowerInvariant() switch
         {
             "expr" or "expression" => NodeCategory.Expression,
             "const" or "constant" or "pmf" => NodeCategory.Constant,
@@ -245,7 +250,7 @@ internal static class GraphMapper
         var toRemove = nodeBuilders.Values
             .Where(builder =>
             {
-                var category = Classify(builder.Kind);
+                var category = Classify(builder.Kind, builder.LogicalType);
                 if (category == NodeCategory.Service)
                 {
                     return false;
@@ -296,7 +301,7 @@ internal static class GraphMapper
 
         var categoryById = nodeBuilders.Values.ToDictionary(
             b => b.Id,
-            b => Classify(b.Kind),
+            b => Classify(b.Kind, b.LogicalType),
             StringComparer.OrdinalIgnoreCase);
 
         var laneByNode = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
@@ -739,18 +744,26 @@ internal static class GraphMapper
     {
         public string Id { get; }
         public string Kind { get; }
+        public string LogicalType { get; }
+        public string? NodeRole { get; }
         public int Order { get; }
         public GraphNodeUiModel? Ui { get; }
         public List<string> Inputs { get; } = new();
         public List<string> Outputs { get; } = new();
         public TopologyNodeSemantics Semantics { get; }
+        public GraphDispatchScheduleModel? DispatchSchedule { get; }
 
         public NodeBuilder(GraphNodeModel node, int order)
         {
             Id = node.Id ?? throw new ArgumentException("Graph node id is required.", nameof(node));
             Kind = node.Kind ?? "unknown";
+            LogicalType = string.IsNullOrWhiteSpace(node.LogicalType)
+                ? Kind
+                : node.LogicalType!;
+            NodeRole = node.NodeRole;
             Ui = node.Ui;
             Order = order;
+            DispatchSchedule = node.DispatchSchedule;
             var semantics = node.Semantics;
             if (semantics is null)
             {
@@ -826,6 +839,7 @@ public sealed record TopologyGraph(
 public sealed record TopologyNode(
     string Id,
     string Kind,
+    string LogicalType,
     IReadOnlyList<string> Inputs,
     IReadOnlyList<string> Outputs,
     int Layer,
@@ -834,7 +848,9 @@ public sealed record TopologyNode(
     double Y,
     bool IsPositionFixed,
     TopologyNodeSemantics Semantics,
-    int Lane = 0);
+    int Lane = 0,
+    GraphDispatchScheduleModel? DispatchSchedule = null,
+    string? NodeRole = null);
 
 public sealed record TopologyEdge(
     string Id,
@@ -854,7 +870,10 @@ public sealed record GraphNodeModel(
     string Id,
     string Kind,
     GraphNodeSemanticsModel Semantics,
-    GraphNodeUiModel? Ui);
+    [property: JsonPropertyName("nodeRole")] string? NodeRole = null,
+    [property: JsonPropertyName("nodeLogicalType")] string? LogicalType = null,
+    GraphNodeUiModel? Ui = null,
+    GraphDispatchScheduleModel? DispatchSchedule = null);
 
 public sealed record GraphNodeSemanticsModel(
     string Arrivals,
@@ -888,6 +907,12 @@ public sealed record GraphEdgeModel(
     string? Field,
     double? Multiplier = null,
     int? Lag = null);
+
+public sealed record GraphDispatchScheduleModel(
+    string Kind,
+    int PeriodBins,
+    int PhaseOffset,
+    string? CapacitySeries);
 
 public sealed record TopologyNodeSemantics(
     string? Arrivals,

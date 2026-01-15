@@ -3,40 +3,51 @@ using FlowTime.UI.Services;
 
 namespace FlowTime.UI.Components.Topology;
 
-internal sealed record CanvasRenderRequest(
+internal sealed record CanvasScenePayload(
     string? Title,
-    IReadOnlyList<NodeRenderInfo> Nodes,
+    IReadOnlyList<NodeSceneInfo> Nodes,
     IReadOnlyList<EdgeRenderInfo> Edges,
-    CanvasViewport Viewport,
-    OverlaySettingsPayload Overlays,
-    TooltipPayload? Tooltip,
-    ViewportSnapshotPayload? SavedViewport,
-    bool PreserveViewport,
-    IReadOnlyList<NodeWarningPayload>? Warnings)
+    CanvasViewport Viewport)
 {
     public IReadOnlyList<TimeTravelEdgeSeriesDto>? EdgeSeries { get; init; }
     public int EdgeSeriesStartIndex { get; init; }
 }
 
-internal sealed record NodeRenderInfo(
+internal sealed record NodeSceneInfo(
     string Id,
     string Kind,
+    string LogicalType,
     double X,
     double Y,
     double Width,
     double Height,
     double CornerRadius,
+    bool IsLeaf,
+    int Lane,
+    NodeSparklineDto? Sparkline,
+    NodeSemanticsDto? Semantics,
+    GraphDispatchScheduleModel? DispatchSchedule,
+    string? NodeRole);
+
+internal sealed record CanvasOverlayPayload(
+    OverlaySettingsPayload Overlays,
+    IReadOnlyList<NodeOverlayInfo> Nodes,
+    TooltipPayload? Tooltip,
+    ViewportSnapshotPayload? SavedViewport,
+    bool PreserveViewport,
+    string? Title,
+    IReadOnlyList<NodeWarningPayload>? Warnings);
+
+internal sealed record NodeOverlayInfo(
+    string Id,
     string Fill,
     string Stroke,
     bool IsFocused,
     bool IsVisible,
-    NodeSparklineDto? Sparkline,
     string? FocusLabel,
-    bool IsLeaf,
-    NodeSemanticsDto? Semantics,
     NodeMetricSnapshotDto? Metrics,
-    int Lane,
-    IReadOnlyList<NodeWarningPayload>? Warnings);
+    IReadOnlyList<NodeWarningPayload>? Warnings,
+    TooltipPayload Tooltip);
 
 public sealed record NodeWarningPayload(
     string Code,
@@ -162,4 +173,5 @@ internal sealed record NodeMetricSnapshotDto(
     double? LatencyMinutes,
     double? ServiceTimeMs,
     double? RetryTax,
-    IReadOnlyDictionary<string, double?>? Raw);
+    IReadOnlyDictionary<string, double?>? Raw,
+    QueueLatencyStatus? QueueLatencyStatus);

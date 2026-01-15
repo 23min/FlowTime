@@ -95,6 +95,23 @@ EdgeTimeBins are **optional but highly recommended**:
 - When present, they drive edge overlays and path analytics.
 - When absent, the system falls back to node‑derived heuristics with explicit fidelity warnings.
 
+### 3.1 Semantics and Conservation
+
+- Edges are **semantics-free carriers of metrics**. All behavior (capacity, schedule, routing decisions, retries) remains owned by nodes (including `serviceWithBuffer`), not by edges.
+- For each node $u$, class $k$, bin $t$, and outgoing edge $e = (u \to v)$, the edge flow $\text{edgeFlow}_{e,k}(t)$ is defined as the portion of $\text{served}_{u,k}(t)$ that is routed to $v$ in that bin.
+- Conservation at the node/edge boundary is expressed as:
+
+  $$
+  \sum_{e \in \text{Out}(u)} \text{edgeFlow}_{e,k}(t)
+    = \text{served}_{u,k}(t)
+      - \text{loss}_{u,k}(t)
+      - \text{routedToNull}_{u,k}(t)
+  $$
+
+  for each node $u$, class $k$, and bin $t$, where `loss` and `routedToNull` represent modeled drops or routing to terminal sinks.
+
+- For bins where a `serviceWithBuffer` node has its schedule gate $G_t = 0$, outgoing edge flows from that node are zero: edges respect node‑level schedules and capacities; they do not re‑interpret or override them.
+
 ---
 
 ## 4. Scope
@@ -114,6 +131,17 @@ EdgeTimeBins are **optional but highly recommended**:
 - Mandatory per‑edge telemetry ingestion from all domains.
 - Re‑implementing core retry logic to be edge‑native in one step.
 - Large‑scale persistence/query changes; the initial implementation stays within the existing run artifact layout.
+
+### 4.3 Non-Goals (v1)
+
+- **No edge-level behavior**
+  - Edges do not own capacity, queues, schedules, delays, or filters.
+  - If behavior is needed between two nodes, model it as an explicit node (often a `serviceWithBuffer`) with edges on either side.
+- **No new time model**
+  - Edge metrics are recorded on the same fixed time grid as node metrics; there are no per-edge event queues or DES-style timing.
+- **No path-level aggregation**
+  - This epic focuses on per-edge, per-bin, per-class flows.
+  - Path-level metrics and aggregations (multi-edge routes, end-to-end latency over paths, toxic route analysis) are explicitly deferred to the **Anomaly & Pathology Detection** epic (`docs/architecture/anomaly-detection/`).
 
 ---
 
@@ -227,6 +255,14 @@ These become **soft validators**:
 
 - Initial epic: log discrepancies; surface warnings in `/v1/runs` and `/state`.
 - Later: make them stricter as telemetry quality improves.
+
+### 6.4 Analyzer & UX Hooks (Edge-Level)
+
+- **FR-ETB-A1 — Edge/Node Conservation Check**
+  - For each node, class, and bin, analyzers must verify that the sum of outgoing edge flows $\text{edgeFlow}_{e,k}(t)$ matches $\text{served}_{u,k}(t)$ minus any modeled loss or routing to null, within a configured tolerance.
+  - Deviations beyond tolerance should be surfaced as warnings and made available to `/state` and `/v1/runs` so authors can debug modeling or telemetry issues.
+- **FR-ETB-A2 — Edge Heat & Policy Context**
+  - Analyzer/diagnostic output should make it easy for UIs to pair edge throughput/attempt metrics with nearby node policies (e.g., `serviceWithBuffer` capacity, dispatch schedules), so "cold" or "hot" edges can be explained in terms of upstream/downstream node behavior.
 
 ### 6.2 Queue Conservation via Edges
 

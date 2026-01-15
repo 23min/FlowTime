@@ -14,6 +14,8 @@ using FlowTime.Sim.Service.Services; // ServiceInfoProvider
 using FlowTime.Sim.Service.Extensions; // TemplateValidationExtensions
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
+using FlowTime.Generator;
+using FlowTime.Generator.Orchestration;
 
 // Explicit Program class for integration tests & clear structure
 public partial class Program
@@ -46,6 +48,8 @@ builder.Services.AddSingleton<ITemplateService>(provider =>
 	var templatesDirectory = ServiceHelpers.TemplatesRoot(builder.Configuration);
 	return new TemplateService(templatesDirectory, logger);
 });
+builder.Services.AddSingleton<TelemetryBundleBuilder>();
+builder.Services.AddSingleton<RunOrchestrationService>();
 
 var app = builder.Build();
 app.UseCors();
@@ -184,6 +188,7 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
                 "/api/v1/templates",
                 "/api/v1/templates/{id}",
                 "/api/v1/templates/{id}/generate",
+                "/api/v1/templates/refresh",
                 "/api/v1/templates/categories",
                 "/api/v1/models",
                 "/api/v1/models/{templateId}",
@@ -209,6 +214,8 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 
 		// Modern RESTful endpoints under /api/v1
 		var api = app.MapGroup("/api/v1");
+		var orchestration = api.MapGroup("/orchestration");
+		orchestration.MapRunOrchestrationEndpoints();
 
 		// API: GET /api/v1/templates  (list all templates)
 		api.MapGet("/templates", async (ITemplateService templateService, string? category) =>
@@ -220,8 +227,10 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 				id = t.Metadata.Id,
 				title = t.Metadata.Title ?? t.Metadata.Id,
 				description = t.Metadata.Description ?? string.Empty,
+				narrative = t.Metadata.Narrative,
 				category = "general", // node-based templates don't carry category yet
 				tags = t.Metadata.Tags,
+				version = t.Metadata.Version,
 				captureKey = t.Metadata.CaptureKey
 			});
 			
@@ -248,8 +257,10 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 					id = template.Metadata.Id,
 					title = template.Metadata.Title ?? template.Metadata.Id,
 					description = template.Metadata.Description ?? string.Empty,
+					narrative = template.Metadata.Narrative,
 					category = "general",
 					tags = template.Metadata.Tags,
+					version = template.Metadata.Version,
 					captureKey = template.Metadata.CaptureKey,
 					parameters = template.Parameters?.Select(p => new
 					{
@@ -280,6 +291,14 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 			var categories = new[] { "general" };
 			return Results.Ok(new { categories });
 		});
+
+        // API: POST /api/v1/templates/refresh (clear template cache)
+        api.MapPost("/templates/refresh", async (ITemplateService templateService, ILogger<Program> logger) =>
+        {
+            var count = await templateService.RefreshAsync().ConfigureAwait(false);
+            logger.LogInformation("Template cache refreshed via FlowTime-Sim API. {Count} template(s) reloaded.", count);
+            return Results.Ok(new { status = "refreshed", templates = count });
+        });
 
 		// API: POST /api/v1/templates/{id}/generate  (generate model from template with parameter substitution)
 		// SIM-M2.7: Enhanced to return provenance metadata

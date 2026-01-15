@@ -42,9 +42,42 @@ public sealed class TemplateSchemaValidationTests
                 throw new Xunit.Sdk.XunitException($"Template '{Path.GetFileName(path)}' failed schema validation: {errors}");
             }
 
+            ValidateArrivalClasses(document);
+
             if (document.RootElement.TryGetProperty("parameters", out var parametersElement) && parametersElement.ValueKind == JsonValueKind.Array)
             {
                 ValidateParameterDefaults(parametersElement, Path.GetFileName(path));
+            }
+        }
+    }
+
+    private static void ValidateArrivalClasses(JsonDocument doc)
+    {
+        var root = doc.RootElement;
+        var classes = root.TryGetProperty("classes", out var classesElement) && classesElement.ValueKind == JsonValueKind.Array
+            ? classesElement.EnumerateArray().Select(c => c.GetProperty("id").GetString()).Where(id => !string.IsNullOrWhiteSpace(id)).ToHashSet(StringComparer.Ordinal)
+            : new HashSet<string>(StringComparer.Ordinal);
+
+        if (root.TryGetProperty("traffic", out var traffic) && traffic.TryGetProperty("arrivals", out var arrivals) && arrivals.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var arrival in arrivals.EnumerateArray())
+            {
+                var nodeId = arrival.TryGetProperty("nodeId", out var node) ? node.GetString() : "<unknown>";
+                var classId = arrival.TryGetProperty("classId", out var classEl) ? classEl.GetString() : null;
+                if (classes.Count == 0)
+                {
+                    continue; // implicit wildcard allowed
+                }
+
+                if (string.IsNullOrWhiteSpace(classId))
+                {
+                    throw new Xunit.Sdk.XunitException($"Arrival for node '{nodeId}' must declare classId when classes are defined.");
+                }
+
+                if (!classes.Contains(classId))
+                {
+                    throw new Xunit.Sdk.XunitException($"Arrival for node '{nodeId}' references undeclared class '{classId}'.");
+                }
             }
         }
     }

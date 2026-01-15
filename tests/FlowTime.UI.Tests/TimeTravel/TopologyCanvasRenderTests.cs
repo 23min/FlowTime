@@ -3,9 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 using Bunit;
 using FlowTime.UI.Components.Topology;
+using FlowTime.UI.Configuration;
 using FlowTime.UI.Services;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace FlowTime.UI.Tests.TimeTravel;
@@ -20,7 +22,8 @@ public sealed class TopologyCanvasRenderTests : TestContext
     public TopologyCanvasRenderTests()
     {
         JSInterop.Mode = JSRuntimeMode.Strict;
-        JSInterop.SetupVoid("FlowTime.TopologyCanvas.registerHandlers", _ => true).SetVoidResult();
+        JSInterop.SetupVoid("FlowTime.TopologyCanvas.registerHandlers", invocation => invocation.Arguments.Count == 3).SetVoidResult();
+        Services.AddSingleton(BuildDiagnostics.Create(typeof(TopologyCanvas).Assembly));
     }
 
     [Fact]
@@ -29,22 +32,27 @@ public sealed class TopologyCanvasRenderTests : TestContext
         var graph = CreateGraph();
         var metrics = CreateMetrics();
 
-        var renderCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.render", _ => true);
-        renderCall.SetVoidResult();
+        var sceneCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.renderScene", _ => true);
+        sceneCall.SetVoidResult();
+        var overlayCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.applyOverlayDelta", _ => true);
+        overlayCall.SetVoidResult();
 
         var cut = RenderComponent<TopologyCanvas>(parameters => parameters
             .Add(p => p.Graph, graph)
             .Add(p => p.NodeMetrics, metrics));
 
-        cut.WaitForAssertion(() => Assert.Single(renderCall.Invocations));
+        cut.WaitForAssertion(() => Assert.Single(sceneCall.Invocations));
+        cut.WaitForAssertion(() => Assert.Single(overlayCall.Invocations));
 
-        var invocation = renderCall.Invocations.Single();
+        var invocation = sceneCall.Invocations.Single();
         Assert.Equal(2, invocation.Arguments.Count);
         Assert.True(invocation.Arguments[0] is ElementReference);
-        Assert.IsType<CanvasRenderRequest>(invocation.Arguments[1]);
+        var scenePayload = Assert.IsType<CanvasScenePayload>(invocation.Arguments[1]);
+        Assert.Equal(graph.Nodes.Count, scenePayload.Nodes.Count);
 
-        var payload = (CanvasRenderRequest)invocation.Arguments[1]!;
-        Assert.Equal(graph.Nodes.Count, payload.Nodes.Count);
+        var overlayInvocation = overlayCall.Invocations.Single();
+        Assert.True(overlayInvocation.Arguments[0] is ElementReference);
+        Assert.IsType<CanvasOverlayPayload>(overlayInvocation.Arguments[1]);
     }
 
     [Fact]
@@ -52,9 +60,9 @@ public sealed class TopologyCanvasRenderTests : TestContext
     {
         var nodes = new[]
         {
-            new TopologyNode("source", "service", Array.Empty<string>(), new[] { "downstream" }, 0, 0, 0, 0, false, EmptySemantics()),
-            new TopologyNode("downstream", "service", new[] { "source" }, Array.Empty<string>(), 1, 0, 200, 120, false, EmptySemantics()),
-            new TopologyNode("analytics", "service", new[] { "source" }, Array.Empty<string>(), 1, 1, 220, 160, false, EmptySemantics())
+            new TopologyNode("source", "service", "service", Array.Empty<string>(), new[] { "downstream" }, 0, 0, 0, 0, false, EmptySemantics()),
+            new TopologyNode("downstream", "service", "service", new[] { "source" }, Array.Empty<string>(), 1, 0, 200, 120, false, EmptySemantics()),
+            new TopologyNode("analytics", "service", "service", new[] { "source" }, Array.Empty<string>(), 1, 1, 220, 160, false, EmptySemantics())
         };
 
         var edges = new[]
@@ -66,15 +74,17 @@ public sealed class TopologyCanvasRenderTests : TestContext
         var graph = new TopologyGraph(nodes, edges);
         var metrics = CreateMetrics();
 
-        var renderCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.render", _ => true);
-        renderCall.SetVoidResult();
+        var sceneCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.renderScene", _ => true);
+        sceneCall.SetVoidResult();
+        var overlayCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.applyOverlayDelta", _ => true);
+        overlayCall.SetVoidResult();
 
         RenderComponent<TopologyCanvas>(parameters => parameters
             .Add(p => p.Graph, graph)
             .Add(p => p.NodeMetrics, metrics));
 
-        var invocation = renderCall.Invocations.Single();
-        var payload = Assert.IsType<CanvasRenderRequest>(invocation.Arguments[1]);
+        var sceneInvocation = sceneCall.Invocations.Single();
+        var payload = Assert.IsType<CanvasScenePayload>(sceneInvocation.Arguments[1]);
 
         var effortEdge = Assert.Single(payload.Edges, e => e.Id == "edge_source_analytics");
         Assert.Equal("effort", effortEdge.EdgeType);
@@ -90,6 +100,56 @@ public sealed class TopologyCanvasRenderTests : TestContext
     }
 
     [Fact]
+    public void Topology_FocusView_DefaultsToUpstreamOnly()
+    {
+        var graph = CreateGraph();
+        var metrics = CreateMetrics();
+
+        var sceneCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.renderScene", _ => true);
+        sceneCall.SetVoidResult();
+        var overlayCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.applyOverlayDelta", _ => true);
+        overlayCall.SetVoidResult();
+
+        RenderComponent<TopologyCanvas>(parameters => parameters
+            .Add(p => p.Graph, graph)
+            .Add(p => p.NodeMetrics, metrics)
+            .Add(p => p.FocusViewEnabled, true)
+            .Add(p => p.FocusNodeId, "processor")
+            .Add(p => p.FocusIncludeDownstream, false));
+
+        var scenePayload = Assert.IsType<CanvasScenePayload>(sceneCall.Invocations.Single().Arguments[1]);
+
+        Assert.Contains(scenePayload.Nodes, node => node.Id == "ingress");
+        Assert.Contains(scenePayload.Nodes, node => node.Id == "processor");
+        Assert.DoesNotContain(scenePayload.Nodes, node => node.Id == "egress");
+    }
+
+    [Fact]
+    public void Topology_FocusView_RelayoutsFilteredGraph()
+    {
+        var graph = CreateGraph();
+        var metrics = CreateMetrics();
+        var originalProcessorX = graph.Nodes.Single(node => node.Id == "processor").X;
+
+        var sceneCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.renderScene", _ => true);
+        sceneCall.SetVoidResult();
+        var overlayCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.applyOverlayDelta", _ => true);
+        overlayCall.SetVoidResult();
+
+        RenderComponent<TopologyCanvas>(parameters => parameters
+            .Add(p => p.Graph, graph)
+            .Add(p => p.NodeMetrics, metrics)
+            .Add(p => p.FocusViewEnabled, true)
+            .Add(p => p.FocusNodeId, "processor")
+            .Add(p => p.FocusIncludeDownstream, false));
+
+        var scenePayload = Assert.IsType<CanvasScenePayload>(sceneCall.Invocations.Single().Arguments[1]);
+        var processor = Assert.Single(scenePayload.Nodes, node => node.Id == "processor");
+
+        Assert.NotEqual(originalProcessorX, processor.X);
+    }
+
+    [Fact]
     public void OverlayPayloadReflectsRetryToggles()
     {
         var graph = CreateGraph();
@@ -102,16 +162,17 @@ public sealed class TopologyCanvasRenderTests : TestContext
             ShowTerminalEdges = false
         };
 
-        var renderCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.render", _ => true);
-        renderCall.SetVoidResult();
+        JSInterop.SetupVoid("FlowTime.TopologyCanvas.renderScene", _ => true).SetVoidResult();
+        var overlayCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.applyOverlayDelta", _ => true);
+        overlayCall.SetVoidResult();
 
         RenderComponent<TopologyCanvas>(parameters => parameters
             .Add(p => p.Graph, graph)
             .Add(p => p.NodeMetrics, metrics)
             .Add(p => p.OverlaySettings, overlay));
 
-        var invocation = renderCall.Invocations.Single();
-        var payload = Assert.IsType<CanvasRenderRequest>(invocation.Arguments[1]);
+        var invocation = overlayCall.Invocations.Single();
+        var payload = Assert.IsType<CanvasOverlayPayload>(invocation.Arguments[1]);
 
         Assert.False(payload.Overlays.ShowRetryMetrics);
         Assert.False(payload.Overlays.ShowEdgeMultipliers);
@@ -130,15 +191,16 @@ public sealed class TopologyCanvasRenderTests : TestContext
             ShowEdgeOverlayLabels = false
         };
 
-        var renderCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.render", _ => true);
-        renderCall.SetVoidResult();
+        JSInterop.SetupVoid("FlowTime.TopologyCanvas.renderScene", _ => true).SetVoidResult();
+        var overlayCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.applyOverlayDelta", _ => true);
+        overlayCall.SetVoidResult();
 
         RenderComponent<TopologyCanvas>(parameters => parameters
             .Add(p => p.Graph, graph)
             .Add(p => p.NodeMetrics, metrics)
             .Add(p => p.OverlaySettings, overlay));
 
-        var payload = Assert.IsType<CanvasRenderRequest>(renderCall.Invocations.Single().Arguments[1]);
+        var payload = Assert.IsType<CanvasOverlayPayload>(overlayCall.Invocations.Single().Arguments[1]);
 
         Assert.Equal(EdgeOverlayMode.RetryRate, payload.Overlays.EdgeOverlay);
         Assert.False(payload.Overlays.ShowEdgeOverlayLabels);
@@ -155,8 +217,10 @@ public sealed class TopologyCanvasRenderTests : TestContext
             ShowRetryMetrics = true
         };
 
-        var renderCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.render", _ => true);
-        renderCall.SetVoidResult();
+        var sceneCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.renderScene", _ => true);
+        sceneCall.SetVoidResult();
+        var overlayCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.applyOverlayDelta", _ => true);
+        overlayCall.SetVoidResult();
 
         var edgeSeries = new[]
         {
@@ -185,7 +249,7 @@ public sealed class TopologyCanvasRenderTests : TestContext
             .Add(p => p.ActiveBin, 1)
             .Add(p => p.EdgeSeries, edgeSeries));
 
-        var payload = Assert.IsType<CanvasRenderRequest>(renderCall.Invocations.Single().Arguments[1]);
+        var payload = Assert.IsType<CanvasScenePayload>(sceneCall.Invocations.Single().Arguments[1]);
         Assert.NotNull(payload.EdgeSeries);
         Assert.Equal(edgeSeries, payload.EdgeSeries);
         Assert.Equal(0, payload.EdgeSeriesStartIndex);
@@ -196,14 +260,17 @@ public sealed class TopologyCanvasRenderTests : TestContext
     {
         var graph = CreateGraph();
         var initialMetrics = CreateMetrics();
-        var renderCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.render", _ => true);
-        renderCall.SetVoidResult();
+        var sceneCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.renderScene", _ => true);
+        sceneCall.SetVoidResult();
+        var overlayCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.applyOverlayDelta", _ => true);
+        overlayCall.SetVoidResult();
 
         var cut = RenderComponent<TopologyCanvas>(parameters => parameters
             .Add(p => p.Graph, graph)
             .Add(p => p.NodeMetrics, initialMetrics));
 
-        cut.WaitForAssertion(() => Assert.Single(renderCall.Invocations));
+        cut.WaitForAssertion(() => Assert.Single(sceneCall.Invocations));
+        cut.WaitForAssertion(() => Assert.Single(overlayCall.Invocations));
 
         var updatedMetrics = new Dictionary<string, NodeBinMetrics>(initialMetrics, StringComparer.OrdinalIgnoreCase)
         {
@@ -212,7 +279,64 @@ public sealed class TopologyCanvasRenderTests : TestContext
 
         cut.SetParametersAndRender(p => p.Add(x => x.NodeMetrics, updatedMetrics));
 
-        cut.WaitForAssertion(() => Assert.Equal(2, renderCall.Invocations.Count));
+        cut.WaitForAssertion(() => Assert.Single(sceneCall.Invocations));
+        cut.WaitForAssertion(() => Assert.Equal(2, overlayCall.Invocations.Count));
+    }
+
+    [Fact]
+    public void DimmedNodesDoNotRebuildProxyStatics()
+    {
+        var graph = CreateGraph();
+        var metrics = CreateMetrics();
+        JSInterop.SetupVoid("FlowTime.TopologyCanvas.renderScene", _ => true).SetVoidResult();
+        JSInterop.SetupVoid("FlowTime.TopologyCanvas.applyOverlayDelta", _ => true).SetVoidResult();
+
+        var cut = RenderComponent<TopologyCanvas>(parameters => parameters
+            .Add(p => p.Graph, graph)
+            .Add(p => p.NodeMetrics, metrics));
+
+        var initialSignature = cut.Instance.DebugProxySignature;
+        var initialStatic = cut.Instance.DebugProxyStatics["processor"];
+
+        cut.SetParametersAndRender(p => p.Add(x => x.DimmedNodes, new[] { "processor" }));
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Equal(initialSignature, cut.Instance.DebugProxySignature);
+            Assert.Same(initialStatic, cut.Instance.DebugProxyStatics["processor"]);
+        });
+
+        var proxy = cut.Find("[data-node-id='processor']");
+        cut.WaitForAssertion(() => Assert.Equal("true", proxy.GetAttribute("data-dimmed")));
+    }
+
+    [Fact]
+    public void ActiveBinChangesReuseProxyStatics()
+    {
+        var graph = CreateGraph();
+        var initialMetrics = CreateMetrics();
+        JSInterop.SetupVoid("FlowTime.TopologyCanvas.renderScene", _ => true).SetVoidResult();
+        JSInterop.SetupVoid("FlowTime.TopologyCanvas.applyOverlayDelta", _ => true).SetVoidResult();
+
+        var cut = RenderComponent<TopologyCanvas>(parameters => parameters
+            .Add(p => p.Graph, graph)
+            .Add(p => p.NodeMetrics, initialMetrics)
+            .Add(p => p.ActiveBin, 0));
+
+        var firstSignature = cut.Instance.DebugProxySignature;
+        var cachedStatic = cut.Instance.DebugProxyStatics["processor"];
+
+        var updatedMetrics = CreateMetrics();
+
+        cut.SetParametersAndRender(p => p
+            .Add(x => x.ActiveBin, 2)
+            .Add(x => x.NodeMetrics, updatedMetrics));
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Equal(firstSignature, cut.Instance.DebugProxySignature);
+            Assert.Same(cachedStatic, cut.Instance.DebugProxyStatics["processor"]);
+        });
     }
 
     [Fact]
@@ -228,7 +352,8 @@ public sealed class TopologyCanvasRenderTests : TestContext
     {
         var graph = CreateGraph();
         var metrics = CreateMetrics();
-        JSInterop.SetupVoid("FlowTime.TopologyCanvas.render", _ => true).SetVoidResult();
+        JSInterop.SetupVoid("FlowTime.TopologyCanvas.renderScene", _ => true).SetVoidResult();
+        JSInterop.SetupVoid("FlowTime.TopologyCanvas.applyOverlayDelta", _ => true).SetVoidResult();
 
         var cut = RenderComponent<TopologyCanvas>(parameters => parameters
             .Add(p => p.Graph, graph)
@@ -245,7 +370,8 @@ public sealed class TopologyCanvasRenderTests : TestContext
     {
         var graph = CreateGraph();
         var metrics = CreateMetrics();
-        JSInterop.SetupVoid("FlowTime.TopologyCanvas.render", _ => true).SetVoidResult();
+        JSInterop.SetupVoid("FlowTime.TopologyCanvas.renderScene", _ => true).SetVoidResult();
+        JSInterop.SetupVoid("FlowTime.TopologyCanvas.applyOverlayDelta", _ => true).SetVoidResult();
 
         var cut = RenderComponent<TopologyCanvas>(parameters => parameters
             .Add(p => p.Graph, graph)
@@ -268,7 +394,8 @@ public sealed class TopologyCanvasRenderTests : TestContext
     {
         var graph = CreateGraph();
         var metrics = CreateMetrics();
-        JSInterop.SetupVoid("FlowTime.TopologyCanvas.render", _ => true);
+        JSInterop.SetupVoid("FlowTime.TopologyCanvas.renderScene", _ => true).SetVoidResult();
+        JSInterop.SetupVoid("FlowTime.TopologyCanvas.applyOverlayDelta", _ => true).SetVoidResult();
 
         var cut = RenderComponent<TopologyCanvas>(parameters => parameters
             .Add(p => p.Graph, graph)
@@ -292,20 +419,23 @@ public sealed class TopologyCanvasRenderTests : TestContext
     {
         var graph = CreateGraph();
         var metrics = CreateMetrics();
-        var renderCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.render", _ => true);
+        var sceneCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.renderScene", _ => true);
+        sceneCall.SetVoidResult();
+        var overlayCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.applyOverlayDelta", _ => true);
+        overlayCall.SetVoidResult();
 
         RenderComponent<TopologyCanvas>(parameters => parameters
             .Add(p => p.Graph, graph)
             .Add(p => p.NodeMetrics, metrics));
 
-        var invocation = renderCall.Invocations.Single();
-        var payload = Assert.IsType<CanvasRenderRequest>(invocation.Arguments[1]);
+        var invocation = sceneCall.Invocations.Single();
+        var payload = Assert.IsType<CanvasScenePayload>(invocation.Arguments[1]);
 
         Assert.All(payload.Nodes, node =>
         {
             if (string.Equals(node.Kind, "queue", StringComparison.OrdinalIgnoreCase))
             {
-                Assert.True(node.Width >= NodeWidth);
+            Assert.True(node.Width >= NodeWidth);
             }
             else
             {
@@ -339,8 +469,9 @@ public sealed class TopologyCanvasRenderTests : TestContext
         overlays.UtilizationWarningThreshold = 0.86;
         overlays.ErrorRateAlertThreshold = 0.08;
 
-        var renderCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.render", _ => true);
-        renderCall.SetVoidResult();
+        JSInterop.SetupVoid("FlowTime.TopologyCanvas.renderScene", _ => true).SetVoidResult();
+        var overlayCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.applyOverlayDelta", _ => true);
+        overlayCall.SetVoidResult();
 
         const int activeBin = 3;
 
@@ -350,7 +481,7 @@ public sealed class TopologyCanvasRenderTests : TestContext
             .Add(p => p.OverlaySettings, overlays)
             .Add(p => p.ActiveBin, activeBin));
 
-        var payload = Assert.IsType<CanvasRenderRequest>(renderCall.Invocations.Single().Arguments[1]);
+        var payload = Assert.IsType<CanvasOverlayPayload>(overlayCall.Invocations.Single().Arguments[1]);
         var overlayPayload = payload.Overlays;
 
         Assert.Equal(0.92, overlayPayload.SlaSuccessThreshold, 3);
@@ -381,8 +512,9 @@ public sealed class TopologyCanvasRenderTests : TestContext
                 startIndex: 0)
         };
 
-        var renderCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.render", _ => true);
-        renderCall.SetVoidResult();
+        JSInterop.SetupVoid("FlowTime.TopologyCanvas.renderScene", _ => true).SetVoidResult();
+        var overlayCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.applyOverlayDelta", _ => true);
+        overlayCall.SetVoidResult();
 
         const int activeBin = 2;
 
@@ -393,10 +525,135 @@ public sealed class TopologyCanvasRenderTests : TestContext
             .Add(p => p.OverlaySettings, overlays)
             .Add(p => p.ActiveBin, activeBin));
 
-        var payload = Assert.IsType<CanvasRenderRequest>(renderCall.Invocations.Single().Arguments[1]);
-        var processor = Assert.Single(payload.Nodes, node => node.Id == "processor");
+        var payload = Assert.IsType<CanvasOverlayPayload>(overlayCall.Invocations.Single().Arguments[1]);
+        var processor = Assert.Single(payload.Nodes, node => (node.Id ?? string.Empty) == "processor");
 
         Assert.Equal("82%", processor.FocusLabel);
+    }
+
+    [Fact]
+    public void FocusLabelForSlaUsesSuccessRateAndClampsToOne()
+    {
+        var graph = CreateGraph();
+
+        var metrics = new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["processor"] = new NodeBinMetrics(1.0, null, null, null, null, DateTimeOffset.UtcNow, NodeKind: "service")
+        };
+
+        var additional = new Dictionary<string, SparklineSeriesSlice>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["successRate"] = new SparklineSeriesSlice(new double?[] { 1.0 }, 0),
+            ["values"] = new SparklineSeriesSlice(new double?[] { 12.48 }, 0)
+        };
+
+        var sparkline = NodeSparklineData.Create(
+            new double?[] { 12.48 },
+            Array.Empty<double?>(),
+            Array.Empty<double?>(),
+            Array.Empty<double?>(),
+            0,
+            additionalSeries: additional);
+
+        var sparklines = new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["processor"] = sparkline
+        };
+
+        var overlays = TopologyOverlaySettings.Default.Clone();
+        overlays.ColorBasis = TopologyColorBasis.Sla;
+
+        JSInterop.SetupVoid("FlowTime.TopologyCanvas.renderScene", _ => true).SetVoidResult();
+        var overlayCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.applyOverlayDelta", _ => true);
+        overlayCall.SetVoidResult();
+
+        RenderComponent<TopologyCanvas>(parameters => parameters
+            .Add(p => p.Graph, graph)
+            .Add(p => p.NodeMetrics, metrics)
+            .Add(p => p.NodeSparklines, sparklines)
+            .Add(p => p.OverlaySettings, overlays)
+            .Add(p => p.ActiveBin, 0));
+
+        var payload = Assert.IsType<CanvasOverlayPayload>(overlayCall.Invocations.Single().Arguments[1]);
+        var processor = Assert.Single(payload.Nodes, node => (node.Id ?? string.Empty) == "processor");
+
+        Assert.Equal("100%", processor.FocusLabel);
+    }
+
+    [Fact]
+    public void FocusLabelForSinkUsesFocusBasisInsteadOfCustomValue()
+    {
+        var nodes = new[]
+        {
+            new TopologyNode("terminal", "sink", "sink", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
+        };
+        var graph = new TopologyGraph(nodes, Array.Empty<TopologyEdge>());
+
+        var metrics = new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["terminal"] = new NodeBinMetrics(0.92, 0.81, 0.0, null, null, DateTimeOffset.UtcNow, CustomValue: 42, NodeKind: "sink")
+        };
+
+        var overlays = TopologyOverlaySettings.Default.Clone();
+        overlays.ColorBasis = TopologyColorBasis.Utilization;
+
+        var sparklines = new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["terminal"] = CreateSparklineWithSlices(
+                new double?[] { 0.90, 0.91, 0.92 },
+                new double?[] { 0.75, 0.81, 0.82 },
+                startIndex: 0)
+        };
+
+        JSInterop.SetupVoid("FlowTime.TopologyCanvas.renderScene", _ => true).SetVoidResult();
+        var overlayCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.applyOverlayDelta", _ => true);
+        overlayCall.SetVoidResult();
+
+        const int activeBin = 2;
+
+        RenderComponent<TopologyCanvas>(parameters => parameters
+            .Add(p => p.Graph, graph)
+            .Add(p => p.NodeMetrics, metrics)
+            .Add(p => p.NodeSparklines, sparklines)
+            .Add(p => p.OverlaySettings, overlays)
+            .Add(p => p.ActiveBin, activeBin));
+
+        var payload = Assert.IsType<CanvasOverlayPayload>(overlayCall.Invocations.Single().Arguments[1]);
+        var terminal = Assert.Single(payload.Nodes, node => (node.Id ?? string.Empty) == "terminal");
+
+        Assert.Equal("82%", terminal.FocusLabel);
+    }
+
+    [Fact]
+    public void SinkOverlayMetrics_SuppressQueueAndUtilization()
+    {
+        var nodes = new[]
+        {
+            new TopologyNode("terminal", "sink", "sink", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
+        };
+        var graph = new TopologyGraph(nodes, Array.Empty<TopologyEdge>());
+
+        var metrics = new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["terminal"] = new NodeBinMetrics(0.92, 0.81, 0.0, 12, 5.4, DateTimeOffset.UtcNow, RetryTax: 0.12, NodeKind: "sink")
+        };
+
+        JSInterop.SetupVoid("FlowTime.TopologyCanvas.renderScene", _ => true).SetVoidResult();
+        var overlayCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.applyOverlayDelta", _ => true);
+        overlayCall.SetVoidResult();
+
+        RenderComponent<TopologyCanvas>(parameters => parameters
+            .Add(p => p.Graph, graph)
+            .Add(p => p.NodeMetrics, metrics));
+
+        var payload = Assert.IsType<CanvasOverlayPayload>(overlayCall.Invocations.Single().Arguments[1]);
+        var terminal = Assert.Single(payload.Nodes, node => (node.Id ?? string.Empty) == "terminal");
+
+        Assert.NotNull(terminal.Metrics);
+        Assert.Null(terminal.Metrics!.Utilization);
+        Assert.Null(terminal.Metrics.QueueDepth);
+        Assert.Null(terminal.Metrics.LatencyMinutes);
+        Assert.Null(terminal.Metrics.RetryTax);
     }
 
     [Fact]
@@ -415,8 +672,9 @@ public sealed class TopologyCanvasRenderTests : TestContext
                 startIndex: 0)
         };
 
-        var renderCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.render", _ => true);
-        renderCall.SetVoidResult();
+        JSInterop.SetupVoid("FlowTime.TopologyCanvas.renderScene", _ => true).SetVoidResult();
+        var overlayCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.applyOverlayDelta", _ => true);
+        overlayCall.SetVoidResult();
 
         const int activeBin = 1;
 
@@ -427,10 +685,50 @@ public sealed class TopologyCanvasRenderTests : TestContext
             .Add(p => p.OverlaySettings, overlays)
             .Add(p => p.ActiveBin, activeBin));
 
-        var payload = Assert.IsType<CanvasRenderRequest>(renderCall.Invocations.Single().Arguments[1]);
-        var processor = Assert.Single(payload.Nodes, node => node.Id == "processor");
+        var payload = Assert.IsType<CanvasOverlayPayload>(overlayCall.Invocations.Single().Arguments[1]);
+        var processor = Assert.Single(payload.Nodes, node => (node.Id ?? string.Empty) == "processor");
 
-        Assert.Contains("ms", processor.FocusLabel, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("ms", processor.FocusLabel ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void SparklineUpdatesTriggerSceneRender()
+    {
+        var graph = CreateGraph();
+        var metrics = CreateMetrics();
+        var sceneCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.renderScene", _ => true);
+        sceneCall.SetVoidResult();
+        var overlayCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.applyOverlayDelta", _ => true);
+        overlayCall.SetVoidResult();
+
+        var initialSparklines = new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["processor"] = CreateSparklineWithSlices(
+                new double?[] { 0.7, 0.8, 0.9 },
+                new double?[] { 0.6, 0.65, 0.7 },
+                startIndex: 0)
+        };
+
+        var cut = RenderComponent<TopologyCanvas>(parameters => parameters
+            .Add(p => p.Graph, graph)
+            .Add(p => p.NodeMetrics, metrics)
+            .Add(p => p.NodeSparklines, initialSparklines));
+
+        cut.WaitForAssertion(() => Assert.Single(sceneCall.Invocations));
+        cut.WaitForAssertion(() => Assert.Single(overlayCall.Invocations));
+
+        var updatedSparklines = new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["processor"] = CreateSparklineWithSlices(
+                new double?[] { 0.2, 0.4, 0.6 },
+                new double?[] { 0.3, 0.35, 0.4 },
+                startIndex: 1)
+        };
+
+        cut.SetParametersAndRender(p => p.Add(x => x.NodeSparklines, updatedSparklines));
+
+        cut.WaitForAssertion(() => Assert.Equal(2, sceneCall.Invocations.Count));
+        cut.WaitForAssertion(() => Assert.Equal(2, overlayCall.Invocations.Count));
     }
 
     [Fact]
@@ -443,14 +741,16 @@ public sealed class TopologyCanvasRenderTests : TestContext
         overlays.IncludeConstNodes = true;
         overlays.EnableFullDag = false;
 
-        var renderCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.render", _ => true);
-        renderCall.SetVoidResult();
+        var sceneCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.renderScene", _ => true);
+        sceneCall.SetVoidResult();
+        var overlayCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.applyOverlayDelta", _ => true);
+        overlayCall.SetVoidResult();
 
         RenderComponent<TopologyCanvas>(parameters => parameters
             .Add(p => p.Graph, graph)
             .Add(p => p.OverlaySettings, overlays));
 
-        var payload = Assert.IsType<CanvasRenderRequest>(renderCall.Invocations.Single().Arguments[1]);
+        var payload = Assert.IsType<CanvasScenePayload>(sceneCall.Invocations.Single().Arguments[1]);
 
         Assert.Single(payload.Nodes);
         Assert.Equal("svc", payload.Nodes[0].Id);
@@ -467,18 +767,21 @@ public sealed class TopologyCanvasRenderTests : TestContext
         overlays.IncludeExpressionNodes = true;
         overlays.IncludeConstNodes = true;
 
-        var renderCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.render", _ => true);
-        renderCall.SetVoidResult();
+        var sceneCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.renderScene", _ => true);
+        sceneCall.SetVoidResult();
+        var overlayCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.applyOverlayDelta", _ => true);
+        overlayCall.SetVoidResult();
 
         RenderComponent<TopologyCanvas>(parameters => parameters
             .Add(p => p.Graph, graph)
             .Add(p => p.OverlaySettings, overlays));
 
-        var payload = Assert.IsType<CanvasRenderRequest>(renderCall.Invocations.Single().Arguments[1]);
+        var payload = Assert.IsType<CanvasScenePayload>(sceneCall.Invocations.Single().Arguments[1]);
 
         Assert.Equal(3, payload.Nodes.Count);
         Assert.Equal(2, payload.Edges.Count);
-        Assert.True(payload.Overlays.EnableFullDag);
+        var overlayPayload = Assert.IsType<CanvasOverlayPayload>(overlayCall.Invocations.Single().Arguments[1]);
+        Assert.True(overlayPayload.Overlays.EnableFullDag);
 
         var ids = payload.Nodes.Select(n => n.Id).OrderBy(id => id, StringComparer.OrdinalIgnoreCase).ToArray();
         Assert.Equal(new[] { "calc", "source", "svc" }, ids);
@@ -491,7 +794,8 @@ public sealed class TopologyCanvasRenderTests : TestContext
         var overlays = TopologyOverlaySettings.Default.Clone();
         overlays.IncludeServiceNodes = false;
 
-        JSInterop.SetupVoid("FlowTime.TopologyCanvas.render", _ => true).SetVoidResult();
+        JSInterop.SetupVoid("FlowTime.TopologyCanvas.renderScene", _ => true).SetVoidResult();
+        JSInterop.SetupVoid("FlowTime.TopologyCanvas.applyOverlayDelta", _ => true).SetVoidResult();
 
         var cut = RenderComponent<TopologyCanvas>(parameters => parameters
             .Add(p => p.Graph, graph)
@@ -508,9 +812,9 @@ public sealed class TopologyCanvasRenderTests : TestContext
     {
         var nodes = new[]
         {
-            new TopologyNode("source", "const", Array.Empty<string>(), new[] { "calc" }, 0, 0, 0, 0, false, EmptySemantics()),
-            new TopologyNode("calc", "expr", new[] { "source" }, new[] { "svc" }, 1, 0, 200, 120, false, EmptySemantics()),
-            new TopologyNode("svc", "service", new[] { "calc" }, Array.Empty<string>(), 2, 0, 400, 240, false, EmptySemantics())
+            new TopologyNode("source", "const", "const", Array.Empty<string>(), new[] { "calc" }, 0, 0, 0, 0, false, EmptySemantics()),
+            new TopologyNode("calc", "expr", "expr", new[] { "source" }, new[] { "svc" }, 1, 0, 200, 120, false, EmptySemantics()),
+            new TopologyNode("svc", "service", "service", new[] { "calc" }, Array.Empty<string>(), 2, 0, 400, 240, false, EmptySemantics())
         };
 
         var edges = new[]
@@ -526,9 +830,9 @@ public sealed class TopologyCanvasRenderTests : TestContext
     {
         var nodes = new[]
         {
-            new TopologyNode("ingress", "service", Array.Empty<string>(), new[] { "processor" }, 0, 0, 0, 0, false, EmptySemantics()),
-            new TopologyNode("processor", "service", new[] { "ingress" }, new[] { "egress" }, 1, 0, 240, 140, false, EmptySemantics()),
-            new TopologyNode("egress", "queue", new[] { "processor" }, Array.Empty<string>(), 2, 0, 480, 280, false, EmptySemantics())
+            new TopologyNode("ingress", "service", "service", Array.Empty<string>(), new[] { "processor" }, 0, 0, 0, 0, false, EmptySemantics()),
+            new TopologyNode("processor", "service", "service", new[] { "ingress" }, new[] { "egress" }, 1, 0, 240, 140, false, EmptySemantics()),
+            new TopologyNode("egress", "queue", "queue", new[] { "processor" }, Array.Empty<string>(), 2, 0, 480, 280, false, EmptySemantics())
         };
 
         var edges = new[]

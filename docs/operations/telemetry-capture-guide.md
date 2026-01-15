@@ -8,6 +8,7 @@ The telemetry capture CLI converts canonical engine runs into telemetry bundles 
 - `.NET 9.0` SDK (already required for the FlowTime CLI).
 - Optional: set `FLOWTIME_DATA_DIR` to override the default data root (`./data`).
 - API deployments can configure `TelemetryRoot` when they want to maintain a shared library of telemetry bundles; by default, generated bundles live alongside the source run under `data/run_<id>/model/telemetry/`.
+- **Classes (forward reference):** Runs now emit declared `classes` in `run.json`/`manifest.json`; telemetry bundles will include the same class inventory so downstream loaders can align per-class series in CL-M-04.04.
 
 ## Explicit API Flow (Recommended)
 
@@ -28,7 +29,7 @@ Content-Type: application/json
 - When `captureKey` and `directory` are omitted, the service writes into the run's own `model/telemetry/` folder. Provide either field only if you want to copy the bundle to a shared library (for example, a curated directory managed by `TelemetryRoot`).
 - If a bundle already exists and `overwrite` is `false`, the endpoint returns `409 Conflict` and surfaces the previously recorded metadata.
 - Successful requests emit two files next to the generated CSVs inside `model/telemetry/`:
-  - `manifest.json` — bundle inventory + warning list (unchanged from earlier tooling).
+- `manifest.json` — bundle inventory + warning list (schema version **2**, now includes `supportsClassMetrics`, `classes`, and per-file `classId` metadata).
   - `autocapture.json` — `{ templateId, captureKey?, sourceRunId, generatedAtUtc, rngSeed, parametersHash, scenarioHash }` for provenance.
 - When `rng` is not provided, simulation runs default to seed `123`. The UI exposes an “RNG Seed” input so operators can supply a deterministic override.
 - The response includes a telemetry summary (`generated`, `alreadyExists`, `generatedAtUtc`, `warningCount`, `sourceRunId`) that is mirrored in `/v1/runs` and UI summaries. No filesystem paths are ever exposed.
@@ -47,6 +48,7 @@ Key behaviour:
 - If `--output` is omitted, the tool writes directly into `<run-dir>/model/telemetry/`.
 - `manifest.json` is emitted using [`docs/schemas/telemetry-manifest.schema.json`](../schemas/telemetry-manifest.schema.json).
 - Per-node CSVs are converted to the `bin_index,value` shape expected by FlowTime-Sim telemetry bindings.
+- The CLI prints a class-metrics summary (`supportsClassMetrics`, coverage, declared classes) and merges any loader warnings (missing classes, conservation mismatches) into the run manifest so you can catch issues immediately.
 
 ### Dry Run
 
@@ -87,6 +89,44 @@ telemetry/<runId>/
 
 Each CSV follows the capture schema (`bin_index,value`) and the manifest lists the full file inventory plus provenance (run id, scenario hash, captured timestamp).
 
+### Manifest (Schema v2) Quick Reference
+
+Telemetry manifests now follow schema version **2**. Two additions matter for class-aware telemetry:
+
+- `supportsClassMetrics` (boolean, required): declares whether every CSV includes per-class data. When `true`, the manifest must also include `classes`, `classCoverage`, and every entry in `files[]` must name the `classId` the CSV represents.
+- `classCoverage` (enum: `full|partial|missing`): mirrors the run metadata so ingestion/loop validation can fail fast when a class is absent.
+
+Example excerpt:
+
+```json
+{
+  "schemaVersion": 2,
+  "supportsClassMetrics": true,
+  "classes": ["Retail", "Wholesale"],
+  "classCoverage": "full",
+  "files": [
+    {
+      "nodeId": "OrderService",
+      "metric": "Arrivals",
+      "path": "OrderService_arrivals_Retail.csv",
+      "classId": "Retail",
+      "hash": "sha256:…",
+      "points": 288
+    },
+    {
+      "nodeId": "OrderService",
+      "metric": "Arrivals",
+      "path": "OrderService_arrivals_Wholesale.csv",
+      "classId": "Wholesale",
+      "hash": "sha256:…",
+      "points": 288
+    }
+  ]
+}
+```
+
+Legacy bundles (without class metrics) set `supportsClassMetrics=false` and omit the `classes`/`classCoverage` block; their CSV inventory continues to list totals-only files.
+
 ## Template Generation
 
 Use the helper script to call FlowTime-Sim with parameters that reference the captured bundle:
@@ -124,38 +164,41 @@ This produces `data/runs/<runId>/model/model.yaml` where every telemetry binding
 
 Once the bundle is written, the run is ready for `/state` queries and UI inspection just like any engine-produced run.
 
-## Run Orchestration (Replay)
+## Run Import (Replay)
 
-With explicit telemetry generation in place, `/v1/runs` no longer creates capture bundles. Telemetry runs must reference an existing bundle — either one generated via the API flow above or a hand-produced directory that follows the bundle contract.
+Template-driven orchestration now lives in FlowTime-Sim (`POST /api/v1/orchestration/runs`). Once a canonical bundle exists, the Engine API simply ingests it. `/v1/runs` no longer accepts `templateId` or parameter payloads — it expects either a bundle directory that already contains `model/`, `run.json`, `telemetry/`, etc., or a base64-encoded zip archive of that directory.
 
 ### API workflow
 
-`POST /v1/runs` accepts a template id, parameter overrides, telemetry bindings, and orchestration options. For telemetry mode, provide a `captureDirectory` that resolves to an existing bundle (relative capture key or absolute path):
+Use `bundlePath` when the engine host can see the canonical bundle on disk:
 
 ```http
 POST http://localhost:8080/v1/runs
 Content-Type: application/json
 
 {
-  "templateId": "it-system-microservices",
-  "mode": "telemetry",
-  "telemetry": {
-    "captureDirectory": "data/runs/run_deterministic_72ca609c/model/telemetry",
-    "bindings": {
-      "telemetryRequestsSource": "LoadBalancer_arrivals.csv"
-    }
-  },
-  "options": {
-    "deterministicRunId": true,
-    "overwriteExisting": true
-  }
+  "bundlePath": "/sim-data/runs/run_sim-order_ea2cfcb7532f49d6b1ab98b9c7e4f5f5",
+  "overwriteExisting": false
 }
 ```
 
-- Omit `telemetry.captureDirectory` → `422 Unprocessable Entity` (bundle must exist first).
-- `options.dryRun = true` returns a plan without filesystem changes (resolved bindings, warnings, run directory).
-- `GET /v1/runs` and `GET /v1/runs/{runId}` now include a `telemetry` block summarising availability (`available`, `generatedAtUtc`, `warningCount`, `sourceRunId`). The UI relies on this metadata to toggle replay actions without revealing directories.
-- Configure `TelemetryRoot` in `appsettings.json` (or via environment) only if you want to maintain a shared library of capture bundles. When unset, absolute `captureDirectory` paths (such as the run-local path above) continue to work.
+- `bundlePath` must point to a directory that already looks like `runs/<id>/` (contains `run.json`, `model/model.yaml`, telemetry manifest, etc.). The Engine copies the directory into its `ArtifactsDirectory`/data root.
+- If the bundle lives on another machine, zip it and send the contents via `bundleArchiveBase64`. The archive should contain a single canonical run folder.
+- `overwriteExisting=true` replaces an existing run directory; otherwise the import fails with `409 Conflict`.
+
+Example archive request:
+
+```http
+POST http://localhost:8080/v1/runs
+Content-Type: application/json
+
+{
+  "bundleArchiveBase64": "<base64 zip payload>",
+  "overwriteExisting": true
+}
+```
+
+`GET /v1/runs` and `GET /v1/runs/{runId}` continue to include the `telemetry` availability block, so the UI and CLI still know whether replay artifacts exist. Configure `ArtifactsDirectory` (or `FLOWTIME_DATA_DIR`) on the Engine host so imports land alongside the rest of your bundles; FlowTime-Sim should point at the same physical directory (via `FLOWTIME_SIM_DATA_DIR`) if you want new runs to appear automatically.
 
 ### Telemetry availability metadata
 

@@ -156,9 +156,23 @@ public class TemplateService : ITemplateService
 
     public Task<ValidationResult> ValidateParametersAsync(string templateId, Dictionary<string, object> parameters)
     {
-        // For SIM-M2.6 node-based templates, we accept parameters leniently.
-        // Deeper schema-aware validation will be added alongside schema versioning.
-        return Task.FromResult(ValidationResult.Success());
+        return ValidateAsync(templateId, parameters);
+    }
+
+    public async Task<int> RefreshAsync()
+    {
+        lock (cacheLock)
+        {
+            templateCache.Clear();
+        }
+
+        await LoadTemplatesIfNeededAsync().ConfigureAwait(false);
+
+        lock (cacheLock)
+        {
+            logger.LogInformation("Template cache refreshed. {Count} template(s) loaded.", templateCache.Count);
+            return templateCache.Count;
+        }
     }
 
     private async Task LoadTemplatesIfNeededAsync()
@@ -241,6 +255,27 @@ public class TemplateService : ITemplateService
         if (templateCache.Count > 0)
         {
             logger.LogDebug("Template ids: {Ids}", string.Join(", ", templateCache.Keys));
+        }
+    }
+
+    private async Task<ValidationResult> ValidateAsync(string templateId, Dictionary<string, object> parameters)
+    {
+        try
+        {
+            await GenerateEngineModelAsync(templateId, parameters);
+            return ValidationResult.Success();
+        }
+        catch (TemplateValidationException ex)
+        {
+            return ValidationResult.Failure(ex.Message);
+        }
+        catch (TemplateParsingException ex)
+        {
+            return ValidationResult.Failure(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return ValidationResult.Failure(ex.Message);
         }
     }
 
@@ -621,6 +656,11 @@ public class TemplateService : ITemplateService
                 {
                     var desc = trimmed.Substring("description:".Length).Trim().Trim('"', '\'');
                     if (!string.IsNullOrWhiteSpace(desc)) template.Metadata.Description = desc;
+                }
+                else if (trimmed.StartsWith("narrative:"))
+                {
+                    var narrative = trimmed.Substring("narrative:".Length).Trim().Trim('"', '\'');
+                    if (!string.IsNullOrWhiteSpace(narrative)) template.Metadata.Narrative = narrative;
                 }
                 else if (trimmed.StartsWith("version:"))
                 {

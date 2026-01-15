@@ -28,11 +28,13 @@ public sealed record RunOrchestrationOutcome(
 public sealed record RunOrchestrationResult(
     string RunDirectory,
     string RunId,
+    string? InputHash,
     RunManifestMetadata ManifestMetadata,
     RunDocument RunDocument,
     bool TelemetrySourcesResolved,
     TelemetryManifest TelemetryManifest,
-    int RngSeed);
+    int RngSeed,
+    bool WasReused);
 
 public sealed record RunOrchestrationPlan(
     string TemplateId,
@@ -52,6 +54,7 @@ public sealed record RunDocument
     public string? Mode { get; init; }
     public string? TemplateId { get; init; }
     public string? CreatedUtc { get; init; }
+    public string? InputHash { get; init; }
     public IReadOnlyList<RunWarningEntryDto> Warnings { get; init; } = Array.Empty<RunWarningEntryDto>();
 }
 

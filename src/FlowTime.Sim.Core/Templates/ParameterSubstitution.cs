@@ -186,6 +186,7 @@ public static class ParameterSubstitution
         template.Metadata.Id = SubstituteInString(template.Metadata.Id, values) ?? template.Metadata.Id;
         template.Metadata.Title = SubstituteInString(template.Metadata.Title, values) ?? template.Metadata.Title;
         template.Metadata.Description = SubstituteInString(template.Metadata.Description, values) ?? template.Metadata.Description;
+        template.Metadata.Narrative = SubstituteInString(template.Metadata.Narrative, values) ?? template.Metadata.Narrative;
         template.Metadata.Version = SubstituteInString(template.Metadata.Version, values) ?? template.Metadata.Version;
 
         template.Window.Start = SubstituteInString(template.Window.Start, values) ?? template.Window.Start;

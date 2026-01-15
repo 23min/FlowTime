@@ -3,6 +3,7 @@
 @using MudBlazor
 @using FlowTime.UI.Services
 @inject IFlowTimeApiClient ApiClient
+@inject IFlowTimeSimApiClient SimApiClient
 @inject NavigationManager Navigation
 @inject ILogger<Simulate> Logger
 
@@ -264,7 +265,7 @@
             _status = RunExecutionStatus.Running;
 
             var request = BuildRunRequest(parameters);
-            var result = await ApiClient.CreateRunAsync(request, _cts.Token);
+            var result = await SimApiClient.CreateRunAsync(request, _cts.Token);
 
             if (!result.Success || result.Value?.Metadata?.RunId is null)
             {

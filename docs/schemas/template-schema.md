@@ -32,26 +32,45 @@ Accept: application/x-yaml     # Returns YAML
 ## Schema Definition (schema.yaml)
 
 ```yaml
-# JSON Schema compatible definition for node-based templates
-schemaVersion: 1.0
+# JSON Schema compatible definition for node-based templates (class-aware)
+schemaVersion: 1
 type: object
-required: [metadata, grid, nodes, outputs]
+required: [schemaVersion, metadata, grid, window, nodes, outputs]
+additionalProperties: false
 properties:
   metadata:
     type: object
-    required: [id, title]
+    required: [id, title, version]
     properties:
-      id: 
+      id:
         type: string
         pattern: "^[a-z0-9-]+$"
-      title: 
+      title:
         type: string
-      description: 
+      description:
         type: string
-      tags: 
+      narrative:
+        type: string
+      version:
+        type: string
+      tags:
         type: array
-        items: 
+        items:
           type: string
+      captureKey:
+        type: string
+    additionalProperties: true
+
+  window:
+    type: object
+    required: [start, timezone]
+    properties:
+      start:
+        type: string
+        format: date-time
+      timezone:
+        type: string
+    additionalProperties: true
 
   parameters:
     type: array
@@ -68,16 +87,16 @@ properties:
           type: string
         description:
           type: string
-        default:
-          # Type must match declared type
+        default: {}
         min:
           type: number
         max:
           type: number
         arrayOf:
           type: string
-          enum: [double, int]
-          description: "Element type enforced for array parameters (default: double)."
+        required:
+          type: boolean
+      additionalProperties: true
 
   grid:
     type: object
@@ -92,12 +111,110 @@ properties:
       binUnit:
         enum: [minutes, hours, days]
       start:
-        description: "Optional UTC anchor timestamp for bin 0 (wall-clock alignment)"
         type: string
         format: date-time
-        examples:
-          - "2025-01-01T00:00:00Z"
-          - "2025-09-11T00:00:00+00:00"
+    additionalProperties: false
+
+  classes:
+    type: array
+    items:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: string
+          pattern: "^[A-Za-z0-9_-]+$"
+        displayName:
+          type: string
+        description:
+          type: string
+      additionalProperties: false
+
+  traffic:
+    type: object
+    properties:
+      arrivals:
+        type: array
+        items:
+          type: object
+          required: [nodeId, pattern]
+          properties:
+            nodeId:
+              type: string
+            classId:
+              type: string
+            pattern:
+              type: object
+              required: [kind]
+              properties:
+                kind:
+                  type: string
+                  enum: [constant, poisson]
+                ratePerBin:
+                  type: number
+                rate:
+                  type: number
+              additionalProperties: true
+          additionalProperties: false
+    additionalProperties: false
+
+  topology:
+    type: object
+    properties:
+      nodes:
+        type: array
+        items:
+          type: object
+          required: [id, kind]
+          properties:
+            id:
+              type: string
+            kind:
+              type: string
+            semantics:
+              type: object
+              properties:
+                arrivals: { type: string }
+                served: { type: string }
+                errors: { type: string }
+                attempts: { type: string }
+                failures: { type: string }
+                retryEcho: { type: string }
+                queueDepth: { type: string }
+                capacity: { type: string }
+                external_demand: { type: string }
+                processingTimeMsSum: { type: string }
+                servedCount: { type: string }
+              additionalProperties: true
+            initialCondition:
+              type: object
+              properties:
+                queueDepth: { type: number }
+              additionalProperties: true
+            dispatchSchedule:
+              type: object
+              properties:
+                kind: { type: string }
+                periodBins: { type: integer }
+                phaseOffset: { type: integer }
+                capacitySeries: { type: string }
+              additionalProperties: false
+          additionalProperties: true
+      edges:
+        type: array
+        items:
+          type: object
+          properties:
+            id: { type: string }
+            from: { type: string }
+            to: { type: string }
+            weight: { type: number }
+            type: { type: string }
+            measure: { type: string }
+            multiplier: { type: number }
+            lag: { type: integer }
+          additionalProperties: true
+    additionalProperties: true
 
   nodes:
     type: array
@@ -106,48 +223,94 @@ properties:
       required: [id, kind]
       properties:
         id:
-              # For expr nodes (authoring)
-              expression:
-                type: string
-              dependencies:
-                type: array
-                description: Explicit list of node IDs referenced by this expression
-                items:
-                  type: string
-          enum: [const, pmf, expr]
-        # For const nodes
+          type: string
+        kind:
+          type: string
+          enum: [const, pmf, expr, serviceWithBuffer]
+        group:
+          type: string
         values:
-          # Can be array or single value (number, boolean, string)
-        # For pmf nodes
+          anyOf:
+            - type: number
+            - type: array
+              items: { type: number }
+            - type: string
         pmf:
           type: object
           required: [values, probabilities]
           properties:
             values:
               type: array
-              items:
-                type: number
+              items: { type: number }
             probabilities:
               type: array
               items:
                 type: number
                 minimum: 0
                 maximum: 1
-        # For expr nodes  
+          additionalProperties: false
         expr:
           type: string
+        dependencies:
+          type: array
+          items: { type: string }
+        source:
+          type: string
+        telemetry:
+          type: string
+        profile:
+          type: object
+          additionalProperties: true
+        inflow:
+          type: string
+        outflow:
+          type: string
+        loss:
+          type: string
+      additionalProperties: true
 
   outputs:
     type: array
     items:
       type: object
-      required: [series, filename]
+      required: [series]
       properties:
         series:
           type: string
+        as:
+          type: string
         filename:
           type: string
-          pattern: "^[a-zA-Z0-9_-]+\\.csv$"
+        exclude:
+          type: array
+          items: { type: string }
+      additionalProperties: true
+
+  rng:
+    type: object
+    properties:
+      kind: { type: string }
+      seed: { type: integer }
+    additionalProperties: true
+
+  provenance:
+    type: object
+    additionalProperties: true
+
+allOf:
+  - if:
+      required: [classes]
+      properties:
+        classes:
+          type: array
+          minItems: 1
+    then:
+      properties:
+        traffic:
+          properties:
+            arrivals:
+              items:
+                required: [classId]
 ```
 
 ## Template Example (YAML version)

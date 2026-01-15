@@ -16,5 +16,7 @@
   <ProjectReference Include="../../src/FlowTime.Sim.Cli/FlowTime.Sim.Cli.csproj" />
   <ProjectReference Include="../../src/FlowTime.Sim.Service/FlowTime.Sim.Service.csproj" />
   <ProjectReference Include="../../src/FlowTime.Expressions/FlowTime.Expressions.csproj" />
+  <ProjectReference Include="../../src/FlowTime.Core/FlowTime.Core.csproj" />
+  <ProjectReference Include="../../src/FlowTime.Contracts/FlowTime.Contracts.csproj" />
   </ItemGroup>
 </Project>

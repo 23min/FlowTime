@@ -4,6 +4,7 @@
       "runId": "RUN_ID",
       "templateId": "test-order",
       "templateTitle": "Test Order System",
+      "templateNarrative": null,
       "templateVersion": "1.0.0",
       "mode": "telemetry",
       "createdUtc": "CREATED_UTC",
@@ -17,7 +18,8 @@
       "rng": {
         "kind": "pcg32",
         "seed": 123
-      }
+      },
+      "inputHash": "INPUT_HASH"
     }
   ],
   "totalCount": 1,

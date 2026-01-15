@@ -16,7 +16,8 @@
       "modelPath": "<dynamic>",
       "metadataPath": "<dynamic>",
       "provenancePath": "<dynamic>"
-    }
+    },
+    "classCoverage": "missing"
   },
   "bin": {
     "index": 1,
@@ -28,6 +29,7 @@
     {
       "id": "OrderService",
       "kind": "service",
+      "nodeLogicalType": "service",
       "metrics": {
         "arrivals": 10,
         "served": 6,
@@ -39,6 +41,16 @@
         "retryBudgetRemaining": 3,
         "capacity": 7,
         "maxAttempts": 4
+      },
+      "byClass": {
+        "*": {
+          "arrivals": 10,
+          "served": 6,
+          "errors": 1,
+          "capacity": 7,
+          "processingTimeMsSum": 1800,
+          "servedCount": 6
+        }
       },
       "derived": {
         "utilization": 0.857143,
@@ -68,16 +80,32 @@
         "attempts": "Ticket submissions",
         "served": "Orders fulfilled",
         "retryEcho": "Retry backlog"
-      }
+      },
+      "sla": [
+        {
+          "kind": "completion",
+          "status": "ok",
+          "value": 0.6
+        }
+      ]
     },
     {
       "id": "SupportQueue",
       "kind": "queue",
+      "nodeLogicalType": "queue",
       "metrics": {
         "arrivals": 7,
         "served": 6,
         "errors": 0,
         "queue": 10
+      },
+      "byClass": {
+        "*": {
+          "arrivals": 7,
+          "served": 6,
+          "errors": 0,
+          "queue": 10
+        }
       },
       "derived": {
         "latencyMinutes": 8.333333,
@@ -96,7 +124,19 @@
       },
       "aliases": {
         "queue": "Open backlog"
-      }
+      },
+      "sla": [
+        {
+          "kind": "completion",
+          "status": "ok",
+          "value": 0.857143
+        },
+        {
+          "kind": "backlogAge",
+          "status": "unavailable",
+          "threshold": 5
+        }
+      ]
     }
   ],
   "warnings": []

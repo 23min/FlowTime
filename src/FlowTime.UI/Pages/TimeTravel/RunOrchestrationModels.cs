@@ -23,6 +23,13 @@ public static class OrchestrationModeExtensions
             : OrchestrationMode.Simulation;
 }
 
+public enum RunReuseMode
+{
+    AutoReuse,
+    ForceOverwrite,
+    FreshRun
+}
+
 public enum RunOrchestrationPhase
 {
     Idle,
@@ -40,6 +47,7 @@ public sealed record RunOrchestrationFormModel
     public string? TelemetryBindingsText { get; init; }
     public string? CaptureDirectory { get; init; }
     public string? RngSeedText { get; init; }
+    public RunReuseMode ReuseMode { get; init; } = RunReuseMode.AutoReuse;
 }
 
 public sealed record RunSubmissionSnapshot(
@@ -52,9 +60,10 @@ public sealed record RunSubmissionSnapshot(
     public string? TelemetryBindingsText { get; init; }
     public string? CaptureDirectory { get; init; }
     public string? RngSeedText { get; init; }
+    public RunReuseMode ReuseMode { get; init; } = RunReuseMode.AutoReuse;
 }
 
-public sealed record RunOrchestrationSuccess(string RunId);
+public sealed record RunOrchestrationSuccess(string RunId, bool WasReused);
 
 public static class RunOrchestrationRequestBuilder
 {
@@ -105,11 +114,15 @@ public static class RunOrchestrationRequestBuilder
                 Bindings: bindings);
         }
 
+        var reuseMode = model.ReuseMode;
+        var deterministic = reuseMode != RunReuseMode.FreshRun;
+        var overwriteExisting = !dryRun && reuseMode == RunReuseMode.ForceOverwrite;
+
         var options = new RunCreationOptionsDto(
-            DeterministicRunId: false,
+            DeterministicRunId: deterministic,
             RunId: null,
             DryRun: dryRun,
-            OverwriteExisting: !dryRun);
+            OverwriteExisting: overwriteExisting);
 
         if (!TryResolveRng(model.RngSeedText, out var rng, out error))
         {
@@ -327,7 +340,8 @@ public static class RunSubmissionSnapshotStorage
         string TemplateId,
         string Mode,
         DateTimeOffset SubmittedAtUtc,
-        bool IsDryRun)
+        bool IsDryRun,
+        string ReuseMode = "AutoReuse")
     {
         public string? ParameterText { get; init; }
         public string? TelemetryBindingsText { get; init; }
@@ -343,7 +357,8 @@ public static class RunSubmissionSnapshotStorage
             TemplateId: snapshot.TemplateId,
             Mode: snapshot.Mode.ToApiString(),
             SubmittedAtUtc: snapshot.SubmittedAtUtc,
-            IsDryRun: snapshot.IsDryRun)
+            IsDryRun: snapshot.IsDryRun,
+            ReuseMode: snapshot.ReuseMode.ToString())
         {
             ParameterText = snapshot.ParameterText,
             TelemetryBindingsText = snapshot.TelemetryBindingsText,
@@ -379,7 +394,10 @@ public static class RunSubmissionSnapshotStorage
                 ParameterText = payload.ParameterText,
                 TelemetryBindingsText = payload.TelemetryBindingsText,
                 CaptureDirectory = payload.CaptureDirectory,
-                RngSeedText = payload.RngSeedText
+                RngSeedText = payload.RngSeedText,
+                ReuseMode = Enum.TryParse<RunReuseMode>(payload.ReuseMode, true, out var reuseMode)
+                    ? reuseMode
+                    : RunReuseMode.AutoReuse
             };
 
             return snapshot;
@@ -402,7 +420,8 @@ public sealed record RunSuccessSnapshot(
     bool TelemetryResolved,
     DateTimeOffset CompletedAtUtc,
     IReadOnlyList<RunSuccessWarning> Warnings,
-    int? RngSeed);
+    int? RngSeed,
+    bool WasReused);
 
 public static class RunSuccessSnapshotStorage
 {
@@ -422,7 +441,8 @@ public static class RunSuccessSnapshotStorage
         bool TelemetryResolved,
         DateTimeOffset CompletedAtUtc,
         IReadOnlyList<WarningPayload>? Warnings,
-        int? RngSeed);
+        int? RngSeed,
+        bool WasReused = false);
 
     public static string Serialize(RunSuccessSnapshot snapshot)
     {
@@ -441,7 +461,8 @@ public static class RunSuccessSnapshotStorage
             TelemetryResolved: snapshot.TelemetryResolved,
             CompletedAtUtc: snapshot.CompletedAtUtc,
             Warnings: warnings,
-            RngSeed: snapshot.RngSeed);
+            RngSeed: snapshot.RngSeed,
+            WasReused: snapshot.WasReused);
 
         return JsonSerializer.Serialize(payload, SerializerOptions);
     }
@@ -475,7 +496,8 @@ public static class RunSuccessSnapshotStorage
                 TelemetryResolved: payload.TelemetryResolved,
                 CompletedAtUtc: payload.CompletedAtUtc,
                 Warnings: warnings,
-                RngSeed: payload.RngSeed);
+                RngSeed: payload.RngSeed,
+                WasReused: payload.WasReused);
         }
         catch (JsonException)
         {

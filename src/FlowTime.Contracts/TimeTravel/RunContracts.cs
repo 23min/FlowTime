@@ -13,6 +13,14 @@ public sealed class RunCreateRequest
     public RunCreationOptions? Options { get; init; }
 }
 
+public sealed class RunImportRequest
+{
+    public string? RunId { get; init; }
+    public string? BundlePath { get; init; }
+    public string? BundleArchiveBase64 { get; init; }
+    public bool OverwriteExisting { get; init; }
+}
+
 public sealed class RunRngOptions
 {
     public string Kind { get; init; } = "pcg32";
@@ -41,6 +49,7 @@ public sealed class RunCreateResponse
     public IReadOnlyList<StateWarning> Warnings { get; init; } = Array.Empty<StateWarning>();
     public bool? CanReplay { get; init; }
     public RunTelemetrySummary? Telemetry { get; init; }
+    public bool WasReused { get; init; }
 }
 
 public sealed class RunSummaryResponse
@@ -56,12 +65,14 @@ public sealed class RunSummary
     public required string RunId { get; init; }
     public required string TemplateId { get; init; }
     public string? TemplateTitle { get; init; }
+    public string? TemplateNarrative { get; init; }
     public string? TemplateVersion { get; init; }
     public string Mode { get; init; } = "telemetry";
     public DateTimeOffset? CreatedUtc { get; init; }
     public int WarningCount { get; init; }
     public RunTelemetrySummary? Telemetry { get; init; }
     public RunRngOptions? Rng { get; init; }
+    public string? InputHash { get; init; }
 }
 
 public sealed class RunCreatePlan
@@ -132,4 +143,7 @@ public sealed class TelemetryCaptureSummary
     public string? GeneratedAtUtc { get; init; }
     public string? SourceRunId { get; init; }
     public IReadOnlyList<StateWarning> Warnings { get; init; } = Array.Empty<StateWarning>();
+    public bool SupportsClassMetrics { get; init; }
+    public string? ClassCoverage { get; init; }
+    public IReadOnlyList<string> Classes { get; init; } = Array.Empty<string>();
 }

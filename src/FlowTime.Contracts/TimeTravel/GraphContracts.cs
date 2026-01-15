@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace FlowTime.Contracts.TimeTravel;
 
@@ -13,8 +14,13 @@ public sealed class GraphNode
 {
     public string Id { get; init; } = string.Empty;
     public string? Kind { get; init; }
+    public string? NodeRole { get; init; }
+    [JsonPropertyName("nodeLogicalType")]
+    public string? LogicalType { get; init; }
     public GraphNodeSemantics Semantics { get; init; } = new();
     public GraphNodeUi? Ui { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DispatchScheduleDescriptor? DispatchSchedule { get; init; }
 }
 
 public sealed class GraphNodeSemantics

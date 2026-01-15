@@ -22,7 +22,7 @@ ASPNETCORE_URLS=http://0.0.0.0:8090 dotnet run --project src/FlowTime.Sim.Servic
 dotnet run --project src/FlowTime.UI
 ```
 - Default dev URL: `http://localhost:5219`
-- API base URLs come from `src/FlowTime.UI/appsettings*.json` (`FlowTimeApi.BaseUrl`, `FlowTimeSimApi.BaseUrl`). Adjust these if you run the backends on different ports/hosts.
+- API base URLs come from `src/FlowTime.UI/wwwroot/appsettings*.json` (`FlowTimeApi.BaseUrl`, `FlowTimeSimApi.BaseUrl`). Adjust these if you run the backends on different ports/hosts.
 
 ## What the UI uses today
 - Engine API endpoints: `/v1/runs` family (run creation, graph, state/state_window, metrics), and supporting discovery endpoints.

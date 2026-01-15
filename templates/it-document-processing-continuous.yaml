@@ -1,0 +1,931 @@
+schemaVersion: 1
+generator: flowtime-sim
+metadata:
+  id: 'it-document-processing-continuous'
+  title: 'IT Document Processing (Continuous, Classed)'
+  description: 'Continuous document intake with classed routing, buffer ownership, retries, and DLQ capture across ingestion, processing, and delivery.'
+  narrative: 'A steady stream of inbound documents (invoices, contracts, claims) enters an intake buffer, passes through database validation, and is routed by document type into specialized processing queues. Each stage owns its backlog and capacity, retries transient errors, and emits DLQ signals for exhausted failures. Processed documents are merged, enriched by an outbound database step, and delivered through a final dispatch buffer. This template exists to validate continuous (non-batched) ServiceWithBuffer behavior with class coverage and retry semantics.'
+  version: 1.0.0
+  captureKey: it-document-processing-continuous
+  tags: [documents, queue, classes, retries, dlq]
+window:
+  start: 2025-01-01T00:00:00Z
+  timezone: UTC
+
+parameters:
+  - name: bins
+    type: integer
+    title: "Time Periods"
+    description: "Number of 5-minute bins (24h default)"
+    default: 288
+    minimum: 24
+    maximum: 288
+  - name: binSize
+    type: integer
+    title: "Bin Size (minutes)"
+    description: "Duration of each bin"
+    default: 5
+    minimum: 5
+    maximum: 60
+  - name: invoiceRate
+    type: number
+    title: "Invoice arrival rate"
+    description: "Average invoices per bin"
+    default: 10
+    minimum: 1
+  - name: contractRate
+    type: number
+    title: "Contract arrival rate"
+    description: "Average contracts per bin"
+    default: 6
+    minimum: 1
+  - name: claimRate
+    type: number
+    title: "Claim arrival rate"
+    description: "Average claims per bin"
+    default: 4
+    minimum: 1
+  - name: intakeCapacity
+    type: number
+    title: "Intake capacity"
+    description: "Max documents staged per bin"
+    default: 22
+    minimum: 1
+  - name: ingressDbCapacity
+    type: number
+    title: "Ingress DB capacity"
+    description: "Max validations per bin"
+    default: 20
+    minimum: 1
+  - name: invoiceCapacity
+    type: number
+    title: "Invoice processing capacity"
+    description: "Max invoices processed per bin"
+    default: 12
+    minimum: 1
+  - name: contractCapacity
+    type: number
+    title: "Contract processing capacity"
+    description: "Max contracts processed per bin"
+    default: 8
+    minimum: 1
+  - name: claimCapacity
+    type: number
+    title: "Claim processing capacity"
+    description: "Max claims processed per bin"
+    default: 6
+    minimum: 1
+  - name: egressDbCapacity
+    type: number
+    title: "Egress DB capacity"
+    description: "Max outbound enrichments per bin"
+    default: 18
+    minimum: 1
+  - name: deliveryCapacity
+    type: number
+    title: "Delivery capacity"
+    description: "Max outbound deliveries per bin"
+    default: 18
+    minimum: 1
+  - name: retryRate
+    type: number
+    title: "Retry rate"
+    description: "Fraction of served items that retry"
+    default: 0.15
+    minimum: 0
+    maximum: 1
+  - name: retryFailureRate
+    type: number
+    title: "Retry failure rate"
+    description: "Fraction of retries that fail"
+    default: 0.2
+    minimum: 0
+    maximum: 1
+  - name: exhaustRate
+    type: number
+    title: "Exhausted retry rate"
+    description: "Fraction of retry failures that exhaust"
+    default: 0.35
+    minimum: 0
+    maximum: 1
+  - name: maxAttempts
+    type: integer
+    title: "Max retry attempts"
+    description: "Retry budget per item"
+    default: 3
+    minimum: 1
+    maximum: 8
+
+grid:
+  bins: ${bins}
+  binSize: ${binSize}
+  binUnit: minutes
+
+rng:
+  kind: pcg32
+  seed: 20250615
+
+classes:
+  - id: Invoice
+    displayName: Invoice
+  - id: Contract
+    displayName: Contract
+  - id: Claim
+    displayName: Claim
+
+traffic:
+  arrivals:
+  - nodeId: invoice_intake_demand
+    classId: Invoice
+    pattern:
+      kind: constant
+      ratePerBin: ${invoiceRate}
+  - nodeId: contract_intake_demand
+    classId: Contract
+    pattern:
+      kind: constant
+      ratePerBin: ${contractRate}
+  - nodeId: claim_intake_demand
+    classId: Claim
+    pattern:
+      kind: constant
+      ratePerBin: ${claimRate}
+
+topology:
+  nodes:
+    - id: IntakeQueue
+      kind: serviceWithBuffer
+      semantics:
+        arrivals: doc_intake_inflow
+        served: intake_served
+        errors: intake_errors
+        attempts: intake_attempts
+        failures: intake_retry_failures
+        exhaustedFailures: intake_exhausted
+        retryEcho: intake_retry_echo
+        retryBudgetRemaining: intake_retry_budget_remaining
+        queueDepth: self
+        capacity: intake_capacity
+        processingTimeMsSum: intake_processing_time_ms_sum
+        servedCount: intake_served
+        maxAttempts: ${maxAttempts}
+        aliases:
+          arrivals: "Incoming documents"
+          served: "Staged documents"
+          errors: "Intake drops"
+          queue: "Intake backlog"
+      initialCondition:
+        queueDepth: 0
+    - id: IngressDbQueue
+      kind: serviceWithBuffer
+      semantics:
+        arrivals: ingress_db_inflow
+        served: ingress_db_served
+        errors: ingress_db_errors
+        attempts: ingress_db_attempts
+        failures: ingress_db_retry_failures
+        exhaustedFailures: ingress_db_exhausted
+        retryEcho: ingress_db_retry_echo
+        retryBudgetRemaining: ingress_db_retry_budget_remaining
+        queueDepth: self
+        capacity: ingress_db_capacity
+        processingTimeMsSum: ingress_db_processing_time_ms_sum
+        servedCount: ingress_db_served
+        maxAttempts: ${maxAttempts}
+        aliases:
+          arrivals: "Validation inflow"
+          served: "Validated docs"
+          errors: "DB rejects"
+          queue: "Ingress DB backlog"
+      initialCondition:
+        queueDepth: 0
+    - id: DocumentTypeRouter
+      kind: router
+      semantics:
+        arrivals: doc_router_arrivals
+        served: doc_router_served
+        errors: doc_router_errors
+        capacity: doc_router_capacity
+        processingTimeMsSum: doc_router_processing_time_ms_sum
+        servedCount: doc_router_served
+        aliases:
+          served: "Type routing"
+    - id: InvoiceProcessing
+      kind: serviceWithBuffer
+      semantics:
+        arrivals: invoice_queue_demand
+        served: invoice_queue_served
+        errors: invoice_queue_errors
+        attempts: invoice_queue_attempts
+        failures: invoice_queue_retry_failures
+        exhaustedFailures: invoice_queue_exhausted
+        retryEcho: invoice_queue_retry_echo
+        retryBudgetRemaining: invoice_queue_retry_budget_remaining
+        queueDepth: self
+        capacity: invoice_capacity
+        processingTimeMsSum: invoice_processing_time_ms_sum
+        servedCount: invoice_queue_served
+        maxAttempts: ${maxAttempts}
+        aliases:
+          arrivals: "Invoice inflow"
+          served: "Invoice processed"
+          errors: "Invoice rejects"
+          queue: "Invoice backlog"
+      initialCondition:
+        queueDepth: 0
+    - id: ContractProcessing
+      kind: serviceWithBuffer
+      semantics:
+        arrivals: contract_queue_demand
+        served: contract_queue_served
+        errors: contract_queue_errors
+        attempts: contract_queue_attempts
+        failures: contract_queue_retry_failures
+        exhaustedFailures: contract_queue_exhausted
+        retryEcho: contract_queue_retry_echo
+        retryBudgetRemaining: contract_queue_retry_budget_remaining
+        queueDepth: self
+        capacity: contract_capacity
+        processingTimeMsSum: contract_processing_time_ms_sum
+        servedCount: contract_queue_served
+        maxAttempts: ${maxAttempts}
+        aliases:
+          arrivals: "Contract inflow"
+          served: "Contract processed"
+          errors: "Contract rejects"
+          queue: "Contract backlog"
+      initialCondition:
+        queueDepth: 0
+    - id: ClaimProcessing
+      kind: serviceWithBuffer
+      semantics:
+        arrivals: claim_queue_demand
+        served: claim_queue_served
+        errors: claim_queue_errors
+        attempts: claim_queue_attempts
+        failures: claim_queue_retry_failures
+        exhaustedFailures: claim_queue_exhausted
+        retryEcho: claim_queue_retry_echo
+        retryBudgetRemaining: claim_queue_retry_budget_remaining
+        queueDepth: self
+        capacity: claim_capacity
+        processingTimeMsSum: claim_processing_time_ms_sum
+        servedCount: claim_queue_served
+        maxAttempts: ${maxAttempts}
+        aliases:
+          arrivals: "Claim inflow"
+          served: "Claim processed"
+          errors: "Claim rejects"
+          queue: "Claim backlog"
+      initialCondition:
+        queueDepth: 0
+    - id: EgressDbQueue
+      kind: serviceWithBuffer
+      semantics:
+        arrivals: egress_db_inflow
+        served: egress_db_served
+        errors: egress_db_errors
+        attempts: egress_db_attempts
+        failures: egress_db_retry_failures
+        exhaustedFailures: egress_db_exhausted
+        retryEcho: egress_db_retry_echo
+        retryBudgetRemaining: egress_db_retry_budget_remaining
+        queueDepth: self
+        capacity: egress_db_capacity
+        processingTimeMsSum: egress_db_processing_time_ms_sum
+        servedCount: egress_db_served
+        maxAttempts: ${maxAttempts}
+        aliases:
+          arrivals: "Outbound enrich"
+          served: "Enriched docs"
+          errors: "Egress DB rejects"
+          queue: "Egress DB backlog"
+      initialCondition:
+        queueDepth: 0
+    - id: DeliveryQueue
+      kind: serviceWithBuffer
+      semantics:
+        arrivals: delivery_inflow
+        served: delivery_served
+        errors: delivery_errors
+        attempts: delivery_attempts
+        failures: delivery_retry_failures
+        exhaustedFailures: delivery_exhausted
+        retryEcho: delivery_retry_echo
+        retryBudgetRemaining: delivery_retry_budget_remaining
+        queueDepth: self
+        capacity: delivery_capacity
+        processingTimeMsSum: delivery_processing_time_ms_sum
+        servedCount: delivery_served
+        maxAttempts: ${maxAttempts}
+        aliases:
+          arrivals: "Delivery inflow"
+          served: "Delivered docs"
+          errors: "Delivery rejects"
+          queue: "Delivery backlog"
+      initialCondition:
+        queueDepth: 0
+    - id: IntakeDlq
+      kind: dlq
+      semantics:
+        arrivals: intake_dlq_inflow
+        served: intake_dlq_served_zero
+        errors: intake_dlq_attrition
+        queueDepth: self
+        aliases:
+          arrivals: "Intake DLQ"
+          queue: "Intake DLQ backlog"
+      initialCondition:
+        queueDepth: 0
+    - id: IngressDbDlq
+      kind: dlq
+      semantics:
+        arrivals: ingress_db_dlq_inflow
+        served: ingress_db_dlq_served_zero
+        errors: ingress_db_dlq_attrition
+        queueDepth: self
+        aliases:
+          arrivals: "Ingress DB DLQ"
+          queue: "Ingress DB DLQ backlog"
+      initialCondition:
+        queueDepth: 0
+    - id: InvoiceDlq
+      kind: dlq
+      semantics:
+        arrivals: invoice_dlq_inflow
+        served: invoice_dlq_served_zero
+        errors: invoice_dlq_attrition
+        queueDepth: self
+        aliases:
+          arrivals: "Invoice DLQ"
+          queue: "Invoice DLQ backlog"
+      initialCondition:
+        queueDepth: 0
+    - id: ContractDlq
+      kind: dlq
+      semantics:
+        arrivals: contract_dlq_inflow
+        served: contract_dlq_served_zero
+        errors: contract_dlq_attrition
+        queueDepth: self
+        aliases:
+          arrivals: "Contract DLQ"
+          queue: "Contract DLQ backlog"
+      initialCondition:
+        queueDepth: 0
+    - id: ClaimDlq
+      kind: dlq
+      semantics:
+        arrivals: claim_dlq_inflow
+        served: claim_dlq_served_zero
+        errors: claim_dlq_attrition
+        queueDepth: self
+        aliases:
+          arrivals: "Claim DLQ"
+          queue: "Claim DLQ backlog"
+      initialCondition:
+        queueDepth: 0
+    - id: EgressDbDlq
+      kind: dlq
+      semantics:
+        arrivals: egress_db_dlq_inflow
+        served: egress_db_dlq_served_zero
+        errors: egress_db_dlq_attrition
+        queueDepth: self
+        aliases:
+          arrivals: "Egress DB DLQ"
+          queue: "Egress DB DLQ backlog"
+      initialCondition:
+        queueDepth: 0
+    - id: DeliveryDlq
+      kind: dlq
+      semantics:
+        arrivals: delivery_dlq_inflow
+        served: delivery_dlq_served_zero
+        errors: delivery_dlq_attrition
+        queueDepth: self
+        aliases:
+          arrivals: "Delivery DLQ"
+          queue: "Delivery DLQ backlog"
+      initialCondition:
+        queueDepth: 0
+  edges:
+    - id: intake_to_ingress_db
+      from: IntakeQueue:out
+      to: IngressDbQueue:in
+    - id: ingress_db_to_router
+      from: IngressDbQueue:out
+      to: DocumentTypeRouter:in
+    - id: router_to_invoice
+      from: DocumentTypeRouter:out
+      to: InvoiceProcessing:in
+    - id: router_to_contract
+      from: DocumentTypeRouter:out
+      to: ContractProcessing:in
+    - id: router_to_claim
+      from: DocumentTypeRouter:out
+      to: ClaimProcessing:in
+    - id: invoice_to_egress
+      from: InvoiceProcessing:out
+      to: EgressDbQueue:in
+    - id: contract_to_egress
+      from: ContractProcessing:out
+      to: EgressDbQueue:in
+    - id: claim_to_egress
+      from: ClaimProcessing:out
+      to: EgressDbQueue:in
+    - id: egress_to_delivery
+      from: EgressDbQueue:out
+      to: DeliveryQueue:in
+    - id: intake_to_dlq
+      from: IntakeQueue:exhaustedFailures
+      to: IntakeDlq:arrivals
+      type: terminal
+      measure: exhaustedFailures
+    - id: ingress_to_dlq
+      from: IngressDbQueue:exhaustedFailures
+      to: IngressDbDlq:arrivals
+      type: terminal
+      measure: exhaustedFailures
+    - id: invoice_to_dlq
+      from: InvoiceProcessing:exhaustedFailures
+      to: InvoiceDlq:arrivals
+      type: terminal
+      measure: exhaustedFailures
+    - id: contract_to_dlq
+      from: ContractProcessing:exhaustedFailures
+      to: ContractDlq:arrivals
+      type: terminal
+      measure: exhaustedFailures
+    - id: claim_to_dlq
+      from: ClaimProcessing:exhaustedFailures
+      to: ClaimDlq:arrivals
+      type: terminal
+      measure: exhaustedFailures
+    - id: egress_to_dlq
+      from: EgressDbQueue:exhaustedFailures
+      to: EgressDbDlq:arrivals
+      type: terminal
+      measure: exhaustedFailures
+    - id: delivery_to_dlq
+      from: DeliveryQueue:exhaustedFailures
+      to: DeliveryDlq:arrivals
+      type: terminal
+      measure: exhaustedFailures
+
+nodes:
+  - id: invoice_intake_base
+    kind: pmf
+    pmf:
+      values: [4, 8, 12, 16]
+      probabilities: [0.2, 0.4, 0.3, 0.1]
+  - id: contract_intake_base
+    kind: pmf
+    pmf:
+      values: [3, 5, 8, 10]
+      probabilities: [0.3, 0.4, 0.2, 0.1]
+  - id: claim_intake_base
+    kind: pmf
+    pmf:
+      values: [2, 4, 6, 8]
+      probabilities: [0.3, 0.4, 0.2, 0.1]
+  - id: invoice_intake_demand
+    kind: expr
+    expr: "invoice_intake_base * ${invoiceRate} / 10"
+  - id: contract_intake_demand
+    kind: expr
+    expr: "contract_intake_base * ${contractRate} / 6"
+  - id: claim_intake_demand
+    kind: expr
+    expr: "claim_intake_base * ${claimRate} / 4"
+  - id: doc_intake_inflow
+    kind: expr
+    expr: "invoice_intake_demand + contract_intake_demand + claim_intake_demand"
+
+  - id: intake_capacity
+    kind: expr
+    expr: "${intakeCapacity}"
+  - id: intake_excess
+    kind: expr
+    expr: "MAX(0, doc_intake_inflow - intake_capacity)"
+  - id: intake_carry
+    kind: expr
+    expr: "CONV(intake_excess, [1.0, 0.6, 0.3, 0.1])"
+  - id: intake_errors
+    kind: expr
+    expr: "doc_intake_inflow * 0.02"
+  - id: intake_demand
+    kind: expr
+    expr: "doc_intake_inflow + intake_carry - intake_errors"
+  - id: intake_served
+    kind: expr
+    expr: "MIN(intake_capacity, intake_demand)"
+  - id: intake_retry_attempts
+    kind: expr
+    expr: "intake_served * ${retryRate}"
+  - id: intake_attempts
+    kind: expr
+    expr: "intake_served + intake_retry_attempts"
+  - id: intake_retry_failures
+    kind: expr
+    expr: "intake_retry_attempts * ${retryFailureRate}"
+  - id: intake_exhausted
+    kind: expr
+    expr: "intake_retry_failures * ${exhaustRate}"
+  - id: intake_retry_echo
+    kind: expr
+    expr: "CONV(intake_retry_attempts, [0.0, 0.6, 0.3, 0.1])"
+  - id: intake_retry_budget_capacity
+    kind: expr
+    expr: "intake_served * ${maxAttempts}"
+  - id: intake_retry_budget_remaining
+    kind: expr
+    expr: "MAX(0, intake_retry_budget_capacity - intake_attempts)"
+  - id: intake_processing_time_ms_sum
+    kind: expr
+    expr: "intake_served * 45000"
+
+  - id: ingress_db_inflow
+    kind: expr
+    expr: "intake_served"
+  - id: ingress_db_capacity
+    kind: expr
+    expr: "${ingressDbCapacity}"
+  - id: ingress_db_excess
+    kind: expr
+    expr: "MAX(0, ingress_db_inflow - ingress_db_capacity)"
+  - id: ingress_db_carry
+    kind: expr
+    expr: "CONV(ingress_db_excess, [1.0, 0.6, 0.3, 0.1])"
+  - id: ingress_db_errors
+    kind: expr
+    expr: "ingress_db_inflow * 0.03"
+  - id: ingress_db_demand
+    kind: expr
+    expr: "ingress_db_inflow + ingress_db_carry - ingress_db_errors"
+  - id: ingress_db_served
+    kind: expr
+    expr: "MIN(ingress_db_capacity, ingress_db_demand)"
+  - id: ingress_db_retry_attempts
+    kind: expr
+    expr: "ingress_db_served * ${retryRate}"
+  - id: ingress_db_attempts
+    kind: expr
+    expr: "ingress_db_served + ingress_db_retry_attempts"
+  - id: ingress_db_retry_failures
+    kind: expr
+    expr: "ingress_db_retry_attempts * ${retryFailureRate}"
+  - id: ingress_db_exhausted
+    kind: expr
+    expr: "ingress_db_retry_failures * ${exhaustRate}"
+  - id: ingress_db_retry_echo
+    kind: expr
+    expr: "CONV(ingress_db_retry_attempts, [0.0, 0.6, 0.3, 0.1])"
+  - id: ingress_db_retry_budget_capacity
+    kind: expr
+    expr: "ingress_db_served * ${maxAttempts}"
+  - id: ingress_db_retry_budget_remaining
+    kind: expr
+    expr: "MAX(0, ingress_db_retry_budget_capacity - ingress_db_attempts)"
+  - id: ingress_db_processing_time_ms_sum
+    kind: expr
+    expr: "ingress_db_served * 60000"
+
+  - id: doc_router_arrivals
+    kind: expr
+    expr: "ingress_db_served"
+  - id: doc_router_served
+    kind: expr
+    expr: "ingress_db_served"
+  - id: doc_router_errors
+    kind: expr
+    expr: "0"
+  - id: doc_router_capacity
+    kind: expr
+    expr: "ingress_db_served"
+  - id: doc_router_processing_time_ms_sum
+    kind: expr
+    expr: "doc_router_served * 15000"
+
+  - id: DocumentTypeRouter
+    kind: router
+    inputs:
+      queue: doc_router_arrivals
+    routes:
+      - target: invoice_queue_demand
+        classes: [Invoice]
+      - target: contract_queue_demand
+        classes: [Contract]
+      - target: claim_queue_demand
+        classes: [Claim]
+
+  - id: invoice_queue_demand
+    kind: expr
+    expr: "0"
+  - id: invoice_capacity
+    kind: expr
+    expr: "${invoiceCapacity}"
+  - id: invoice_excess
+    kind: expr
+    expr: "MAX(0, invoice_queue_demand - invoice_capacity)"
+  - id: invoice_carry
+    kind: expr
+    expr: "CONV(invoice_excess, [1.0, 0.6, 0.3, 0.1])"
+  - id: invoice_queue_errors
+    kind: expr
+    expr: "invoice_queue_demand * 0.02"
+  - id: invoice_queue_demand_total
+    kind: expr
+    expr: "invoice_queue_demand + invoice_carry - invoice_queue_errors"
+  - id: invoice_queue_served
+    kind: expr
+    expr: "MIN(invoice_capacity, invoice_queue_demand_total)"
+  - id: invoice_queue_retry_attempts
+    kind: expr
+    expr: "invoice_queue_served * ${retryRate}"
+  - id: invoice_queue_attempts
+    kind: expr
+    expr: "invoice_queue_served + invoice_queue_retry_attempts"
+  - id: invoice_queue_retry_failures
+    kind: expr
+    expr: "invoice_queue_retry_attempts * ${retryFailureRate}"
+  - id: invoice_queue_exhausted
+    kind: expr
+    expr: "invoice_queue_retry_failures * ${exhaustRate}"
+  - id: invoice_queue_retry_echo
+    kind: expr
+    expr: "CONV(invoice_queue_retry_attempts, [0.0, 0.6, 0.3, 0.1])"
+  - id: invoice_queue_retry_budget_capacity
+    kind: expr
+    expr: "invoice_queue_served * ${maxAttempts}"
+  - id: invoice_queue_retry_budget_remaining
+    kind: expr
+    expr: "MAX(0, invoice_queue_retry_budget_capacity - invoice_queue_attempts)"
+  - id: invoice_processing_time_ms_sum
+    kind: expr
+    expr: "invoice_queue_served * 75000"
+
+  - id: contract_queue_demand
+    kind: expr
+    expr: "0"
+  - id: contract_capacity
+    kind: expr
+    expr: "${contractCapacity}"
+  - id: contract_excess
+    kind: expr
+    expr: "MAX(0, contract_queue_demand - contract_capacity)"
+  - id: contract_carry
+    kind: expr
+    expr: "CONV(contract_excess, [1.0, 0.6, 0.3, 0.1])"
+  - id: contract_queue_errors
+    kind: expr
+    expr: "contract_queue_demand * 0.02"
+  - id: contract_queue_demand_total
+    kind: expr
+    expr: "contract_queue_demand + contract_carry - contract_queue_errors"
+  - id: contract_queue_served
+    kind: expr
+    expr: "MIN(contract_capacity, contract_queue_demand_total)"
+  - id: contract_queue_retry_attempts
+    kind: expr
+    expr: "contract_queue_served * ${retryRate}"
+  - id: contract_queue_attempts
+    kind: expr
+    expr: "contract_queue_served + contract_queue_retry_attempts"
+  - id: contract_queue_retry_failures
+    kind: expr
+    expr: "contract_queue_retry_attempts * ${retryFailureRate}"
+  - id: contract_queue_exhausted
+    kind: expr
+    expr: "contract_queue_retry_failures * ${exhaustRate}"
+  - id: contract_queue_retry_echo
+    kind: expr
+    expr: "CONV(contract_queue_retry_attempts, [0.0, 0.6, 0.3, 0.1])"
+  - id: contract_queue_retry_budget_capacity
+    kind: expr
+    expr: "contract_queue_served * ${maxAttempts}"
+  - id: contract_queue_retry_budget_remaining
+    kind: expr
+    expr: "MAX(0, contract_queue_retry_budget_capacity - contract_queue_attempts)"
+  - id: contract_processing_time_ms_sum
+    kind: expr
+    expr: "contract_queue_served * 90000"
+
+  - id: claim_queue_demand
+    kind: expr
+    expr: "0"
+  - id: claim_capacity
+    kind: expr
+    expr: "${claimCapacity}"
+  - id: claim_excess
+    kind: expr
+    expr: "MAX(0, claim_queue_demand - claim_capacity)"
+  - id: claim_carry
+    kind: expr
+    expr: "CONV(claim_excess, [1.0, 0.6, 0.3, 0.1])"
+  - id: claim_queue_errors
+    kind: expr
+    expr: "claim_queue_demand * 0.02"
+  - id: claim_queue_demand_total
+    kind: expr
+    expr: "claim_queue_demand + claim_carry - claim_queue_errors"
+  - id: claim_queue_served
+    kind: expr
+    expr: "MIN(claim_capacity, claim_queue_demand_total)"
+  - id: claim_queue_retry_attempts
+    kind: expr
+    expr: "claim_queue_served * ${retryRate}"
+  - id: claim_queue_attempts
+    kind: expr
+    expr: "claim_queue_served + claim_queue_retry_attempts"
+  - id: claim_queue_retry_failures
+    kind: expr
+    expr: "claim_queue_retry_attempts * ${retryFailureRate}"
+  - id: claim_queue_exhausted
+    kind: expr
+    expr: "claim_queue_retry_failures * ${exhaustRate}"
+  - id: claim_queue_retry_echo
+    kind: expr
+    expr: "CONV(claim_queue_retry_attempts, [0.0, 0.6, 0.3, 0.1])"
+  - id: claim_queue_retry_budget_capacity
+    kind: expr
+    expr: "claim_queue_served * ${maxAttempts}"
+  - id: claim_queue_retry_budget_remaining
+    kind: expr
+    expr: "MAX(0, claim_queue_retry_budget_capacity - claim_queue_attempts)"
+  - id: claim_processing_time_ms_sum
+    kind: expr
+    expr: "claim_queue_served * 80000"
+
+  - id: egress_db_inflow
+    kind: expr
+    expr: "invoice_queue_served + contract_queue_served + claim_queue_served"
+  - id: egress_db_capacity
+    kind: expr
+    expr: "${egressDbCapacity}"
+  - id: egress_db_excess
+    kind: expr
+    expr: "MAX(0, egress_db_inflow - egress_db_capacity)"
+  - id: egress_db_carry
+    kind: expr
+    expr: "CONV(egress_db_excess, [1.0, 0.6, 0.3, 0.1])"
+  - id: egress_db_errors
+    kind: expr
+    expr: "egress_db_inflow * 0.02"
+  - id: egress_db_demand
+    kind: expr
+    expr: "egress_db_inflow + egress_db_carry - egress_db_errors"
+  - id: egress_db_served
+    kind: expr
+    expr: "MIN(egress_db_capacity, egress_db_demand)"
+  - id: egress_db_retry_attempts
+    kind: expr
+    expr: "egress_db_served * ${retryRate}"
+  - id: egress_db_attempts
+    kind: expr
+    expr: "egress_db_served + egress_db_retry_attempts"
+  - id: egress_db_retry_failures
+    kind: expr
+    expr: "egress_db_retry_attempts * ${retryFailureRate}"
+  - id: egress_db_exhausted
+    kind: expr
+    expr: "egress_db_retry_failures * ${exhaustRate}"
+  - id: egress_db_retry_echo
+    kind: expr
+    expr: "CONV(egress_db_retry_attempts, [0.0, 0.6, 0.3, 0.1])"
+  - id: egress_db_retry_budget_capacity
+    kind: expr
+    expr: "egress_db_served * ${maxAttempts}"
+  - id: egress_db_retry_budget_remaining
+    kind: expr
+    expr: "MAX(0, egress_db_retry_budget_capacity - egress_db_attempts)"
+  - id: egress_db_processing_time_ms_sum
+    kind: expr
+    expr: "egress_db_served * 55000"
+
+  - id: delivery_inflow
+    kind: expr
+    expr: "egress_db_served"
+  - id: delivery_capacity
+    kind: expr
+    expr: "${deliveryCapacity}"
+  - id: delivery_excess
+    kind: expr
+    expr: "MAX(0, delivery_inflow - delivery_capacity)"
+  - id: delivery_carry
+    kind: expr
+    expr: "CONV(delivery_excess, [1.0, 0.6, 0.3, 0.1])"
+  - id: delivery_errors
+    kind: expr
+    expr: "delivery_inflow * 0.01"
+  - id: delivery_demand
+    kind: expr
+    expr: "delivery_inflow + delivery_carry - delivery_errors"
+  - id: delivery_served
+    kind: expr
+    expr: "MIN(delivery_capacity, delivery_demand)"
+  - id: delivery_retry_attempts
+    kind: expr
+    expr: "delivery_served * ${retryRate}"
+  - id: delivery_attempts
+    kind: expr
+    expr: "delivery_served + delivery_retry_attempts"
+  - id: delivery_retry_failures
+    kind: expr
+    expr: "delivery_retry_attempts * ${retryFailureRate}"
+  - id: delivery_exhausted
+    kind: expr
+    expr: "delivery_retry_failures * ${exhaustRate}"
+  - id: delivery_retry_echo
+    kind: expr
+    expr: "CONV(delivery_retry_attempts, [0.0, 0.6, 0.3, 0.1])"
+  - id: delivery_retry_budget_capacity
+    kind: expr
+    expr: "delivery_served * ${maxAttempts}"
+  - id: delivery_retry_budget_remaining
+    kind: expr
+    expr: "MAX(0, delivery_retry_budget_capacity - delivery_attempts)"
+  - id: delivery_processing_time_ms_sum
+    kind: expr
+    expr: "delivery_served * 40000"
+
+  - id: intake_dlq_inflow
+    kind: expr
+    expr: "intake_exhausted"
+  - id: intake_dlq_served_zero
+    kind: expr
+    expr: "0"
+  - id: intake_dlq_attrition
+    kind: expr
+    expr: "0"
+  - id: ingress_db_dlq_inflow
+    kind: expr
+    expr: "ingress_db_exhausted"
+  - id: ingress_db_dlq_served_zero
+    kind: expr
+    expr: "0"
+  - id: ingress_db_dlq_attrition
+    kind: expr
+    expr: "0"
+  - id: invoice_dlq_inflow
+    kind: expr
+    expr: "invoice_queue_exhausted"
+  - id: invoice_dlq_served_zero
+    kind: expr
+    expr: "0"
+  - id: invoice_dlq_attrition
+    kind: expr
+    expr: "0"
+  - id: contract_dlq_inflow
+    kind: expr
+    expr: "contract_queue_exhausted"
+  - id: contract_dlq_served_zero
+    kind: expr
+    expr: "0"
+  - id: contract_dlq_attrition
+    kind: expr
+    expr: "0"
+  - id: claim_dlq_inflow
+    kind: expr
+    expr: "claim_queue_exhausted"
+  - id: claim_dlq_served_zero
+    kind: expr
+    expr: "0"
+  - id: claim_dlq_attrition
+    kind: expr
+    expr: "0"
+  - id: egress_db_dlq_inflow
+    kind: expr
+    expr: "egress_db_exhausted"
+  - id: egress_db_dlq_served_zero
+    kind: expr
+    expr: "0"
+  - id: egress_db_dlq_attrition
+    kind: expr
+    expr: "0"
+  - id: delivery_dlq_inflow
+    kind: expr
+    expr: "delivery_exhausted"
+  - id: delivery_dlq_served_zero
+    kind: expr
+    expr: "0"
+  - id: delivery_dlq_attrition
+    kind: expr
+    expr: "0"
+
+outputs:
+  - series: doc_intake_inflow
+    as: doc_intake_inflow.csv
+  - series: intake_served
+    as: intake_served.csv
+  - series: ingress_db_served
+    as: ingress_db_served.csv
+  - series: invoice_queue_served
+    as: invoice_processed.csv
+  - series: contract_queue_served
+    as: contract_processed.csv
+  - series: claim_queue_served
+    as: claim_processed.csv
+  - series: delivery_served
+    as: delivery_served.csv
+  - series: "*"

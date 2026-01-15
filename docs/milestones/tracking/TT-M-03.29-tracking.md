@@ -6,7 +6,7 @@
 **Branch:** `feature/tt-m-03-29/service-time`
 
 Quick Links
-- Milestone: `docs/milestones/TT-M-03.29.md`
+- Milestone: `docs/milestones/completed/TT-M-03.29.md`
 - Guide: `docs/development/milestone-documentation-guide.md`
 
 Overall Progress

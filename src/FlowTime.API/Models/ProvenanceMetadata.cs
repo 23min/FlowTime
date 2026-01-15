@@ -32,6 +32,12 @@ public class ProvenanceMetadata
     public string? TemplateVersion { get; set; }
 
     /// <summary>
+    /// Mode used to generate the model (telemetry/simulation).
+    /// </summary>
+    [JsonPropertyName("mode")]
+    public string? Mode { get; set; }
+
+    /// <summary>
     /// Human-readable template title
     /// </summary>
     [JsonPropertyName("templateTitle")]
@@ -61,11 +67,38 @@ public class ProvenanceMetadata
     /// See docs/architecture/run-provenance.md for rationale.
     /// </summary>
     [JsonPropertyName("parameters")]
-    public Dictionary<string, object>? Parameters { get; set; }
+    public Dictionary<string, object?>? Parameters { get; set; }
+
+    /// <summary>
+    /// Deterministic input hash computed from template metadata, parameters, telemetry bindings, and RNG.
+    /// </summary>
+    [JsonPropertyName("inputHash")]
+    public string? InputHash { get; set; }
+
+    /// <summary>
+    /// RNG metadata captured for this run.
+    /// </summary>
+    [JsonPropertyName("rng")]
+    public ProvenanceRngMetadata? Rng { get; set; }
+
+    /// <summary>
+    /// Telemetry bindings used when generating the run (if any).
+    /// </summary>
+    [JsonPropertyName("telemetryBindings")]
+    public Dictionary<string, string>? TelemetryBindings { get; set; }
 
     /// <summary>
     /// Links to related artifacts
     /// </summary>
     [JsonPropertyName("links")]
     public Dictionary<string, string>? Links { get; set; }
+}
+
+public sealed class ProvenanceRngMetadata
+{
+    [JsonPropertyName("kind")]
+    public string Kind { get; set; } = "pcg32";
+
+    [JsonPropertyName("seed")]
+    public int Seed { get; set; }
 }

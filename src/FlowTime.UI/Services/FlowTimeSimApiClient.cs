@@ -14,6 +14,7 @@ public interface IFlowTimeSimApiClient
     Task<Result<TemplateGenerationResponse>> GenerateModelAsync(string templateId, Dictionary<string, object> parameters, CancellationToken ct = default);
     Task<Result<bool>> HealthAsync(CancellationToken ct = default);
     Task<Result<object>> GetDetailedHealthAsync(CancellationToken ct = default);
+    Task<Result<RunCreateResponseDto>> CreateRunAsync(RunCreateRequestDto request, CancellationToken ct = default);
 }
 
 public class FlowTimeSimApiClient : IFlowTimeSimApiClient
@@ -284,6 +285,59 @@ public class FlowTimeSimApiClient : IFlowTimeSimApiClient
             return Result<TemplateGenerationResponse>.Fail($"Model generation error: {ex.Message}");
         }
     }
+
+    public async Task<Result<RunCreateResponseDto>> CreateRunAsync(RunCreateRequestDto request, CancellationToken ct = default)
+    {
+        try
+        {
+            var json = JsonSerializer.Serialize(request, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var response = await httpClient.PostAsync($"{apiBasePath}/orchestration/runs", content, ct);
+
+            var payload = await response.Content.ReadAsStringAsync(ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                var error = TryExtractError(payload);
+                return Result<RunCreateResponseDto>.Fail(error, (int)response.StatusCode);
+            }
+
+            var result = JsonSerializer.Deserialize<RunCreateResponseDto>(payload, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+            if (result is null)
+            {
+                return Result<RunCreateResponseDto>.Fail("Orchestration response was empty.", (int)response.StatusCode);
+            }
+
+            return Result<RunCreateResponseDto>.Ok(result, (int)response.StatusCode);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "SIM orchestration call failed.");
+            return Result<RunCreateResponseDto>.Fail($"Run orchestration error: {ex.Message}");
+        }
+    }
+
+    private static string TryExtractError(string? payload)
+    {
+        if (string.IsNullOrWhiteSpace(payload))
+        {
+            return "Run orchestration failed.";
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(payload);
+            if (doc.RootElement.TryGetProperty("error", out var errorProp))
+            {
+                return errorProp.GetString() ?? payload;
+            }
+        }
+        catch
+        {
+            // ignore parse failures
+        }
+
+        return payload;
+    }
 }
 
 // API Response models following the integration spec
@@ -298,6 +352,8 @@ public class SeriesIndex
     public SimGridInfo Grid { get; set; } = new();
     public List<SeriesInfo> Series { get; set; } = new();
     public FormatsInfo Formats { get; set; } = new();
+    public List<ManifestClassEntry> Classes { get; set; } = new();
+    public string? ClassCoverage { get; set; }
 }
 
 public class SimGridInfo
@@ -334,6 +390,13 @@ public class SeriesInfo
     public string Hash { get; set; } = string.Empty;
 }
 
+public class ManifestClassEntry
+{
+    public string Id { get; set; } = string.Empty;
+    public string? DisplayName { get; set; }
+    public string? Description { get; set; }
+}
+
 public class FormatsInfo
 {
     public string AggregatesTable { get; set; } = string.Empty;
@@ -344,8 +407,12 @@ public class ApiTemplateInfo
     public string Id { get; set; } = string.Empty;
     public string Title { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
+    [System.Text.Json.Serialization.JsonPropertyName("narrative")]
+    public string? Narrative { get; set; }
     public string Category { get; set; } = string.Empty;
     public List<string> Tags { get; set; } = new();
+    [System.Text.Json.Serialization.JsonPropertyName("version")]
+    public string? Version { get; set; }
     public List<ApiTemplateParameter>? Parameters { get; set; }
     public object? Preview { get; set; }
     [System.Text.Json.Serialization.JsonPropertyName("captureKey")]

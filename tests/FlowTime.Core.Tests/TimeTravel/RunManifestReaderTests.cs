@@ -110,6 +110,48 @@ provenance:
     }
 
     [Fact]
+    public async Task ReadAsync_ReturnsTemplateNarrative()
+    {
+        var modelDir = Path.Combine(rootDirectory, "schema-1", "mode-simulation", "narrative");
+        Directory.CreateDirectory(modelDir);
+
+        var modelYaml = """
+schemaVersion: 1
+metadata:
+  id: narrative-test
+  title: Narrative Test
+  version: 1.0.0
+grid:
+  bins: 1
+  binSize: 5
+  binUnit: minutes
+topology:
+  nodes: []
+nodes: []
+outputs: []
+""";
+        await File.WriteAllTextAsync(Path.Combine(modelDir, "model.yaml"), modelYaml);
+
+        var metadataJson = """
+{
+  "templateId": "narrative-test",
+  "templateTitle": "Narrative Test",
+  "templateVersion": "1.0.0",
+  "templateNarrative": "Narrative from metadata.json",
+  "schemaVersion": 1,
+  "mode": "simulation",
+  "modelHash": "sha256:narrative"
+}
+""";
+        await File.WriteAllTextAsync(Path.Combine(modelDir, "metadata.json"), metadataJson);
+
+        var reader = new RunManifestReader();
+        var result = await reader.ReadAsync(modelDir, CancellationToken.None);
+
+        Assert.Equal("Narrative from metadata.json", result.TemplateNarrative);
+    }
+
+    [Fact]
     public async Task ReadAsync_WithoutMetadataJson_Throws()
     {
         var modelDir = Path.Combine(rootDirectory, "schema-1", "mode-simulation", "missing-metadata");

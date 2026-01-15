@@ -1,8 +1,12 @@
+extern alias SimService;
+
 using System;
 using System.IO;
 using System.Linq;
 using FlowTime.Cli.Commands;
 using FlowTime.Tests.Support;
+using Microsoft.AspNetCore.Mvc.Testing;
+using SimProgram = SimService::Program;
 
 namespace FlowTime.Cli.Tests;
 
@@ -12,15 +16,10 @@ public class TelemetryRunCommandTests
     public async Task ExecuteAsync_CreatesRunSuccessfully()
     {
         using var temp = new TempDirectory();
-        var originalDataDir = Environment.GetEnvironmentVariable("FLOWTIME_DATA_DIR");
-        var originalTemplatesDir = Environment.GetEnvironmentVariable("FLOWTIME_TEMPLATES_DIR");
-        Environment.SetEnvironmentVariable("FLOWTIME_DATA_DIR", temp.Path);
+        var (originalState, simDataDir, templatesDir) = PrepareSimEnvironment(temp);
 
-        var templatesDir = Path.Combine(temp.Path, "templates");
-        Directory.CreateDirectory(templatesDir);
         var templatePath = Path.Combine(templatesDir, "test-order.yaml");
         await File.WriteAllTextAsync(templatePath, TestTemplate);
-        Environment.SetEnvironmentVariable("FLOWTIME_TEMPLATES_DIR", templatesDir);
 
         var sourceRun = TelemetryRunFactory.CreateRunArtifacts(temp.Path, "source", includeTopology: true);
         var captureDir = Path.Combine(temp.Path, "capture");
@@ -32,6 +31,11 @@ public class TelemetryRunCommandTests
             RunDirectory = sourceRun,
             OutputDirectory = captureDir
         });
+
+        using var simFactory = new WebApplicationFactory<SimProgram>();
+        var client = simFactory.CreateClient();
+        Environment.SetEnvironmentVariable("FLOWTIME_SIM_API_BASE_URL", client.BaseAddress!.ToString());
+        TelemetryRunCommand.HttpClientFactoryOverride = () => simFactory.CreateClient();
 
         var args = new[]
         {
@@ -48,14 +52,15 @@ public class TelemetryRunCommandTests
             var exitCode = await TelemetryRunCommand.ExecuteAsync(args);
 
             Assert.Equal(0, exitCode);
-            var runsRoot = Path.Combine(temp.Path, "runs");
+            var runsRoot = Path.Combine(simDataDir, "runs");
             Assert.True(Directory.Exists(runsRoot));
             Assert.True(Directory.GetDirectories(runsRoot).Any());
         }
         finally
         {
-            Environment.SetEnvironmentVariable("FLOWTIME_DATA_DIR", originalDataDir);
-            Environment.SetEnvironmentVariable("FLOWTIME_TEMPLATES_DIR", originalTemplatesDir);
+            TelemetryRunCommand.HttpClientFactoryOverride = null;
+            simFactory.Dispose();
+            RestoreSimEnvironment(originalState);
         }
     }
 
@@ -63,15 +68,15 @@ public class TelemetryRunCommandTests
     public async Task ExecuteAsync_SimulationMode_CreatesRunSuccessfully()
     {
         using var temp = new TempDirectory();
-        var originalDataDir = Environment.GetEnvironmentVariable("FLOWTIME_DATA_DIR");
-        var originalTemplatesDir = Environment.GetEnvironmentVariable("FLOWTIME_TEMPLATES_DIR");
-        Environment.SetEnvironmentVariable("FLOWTIME_DATA_DIR", temp.Path);
+        var (originalState, simDataDir, templatesDir) = PrepareSimEnvironment(temp);
 
-        var templatesDir = Path.Combine(temp.Path, "templates");
-        Directory.CreateDirectory(templatesDir);
         var templatePath = Path.Combine(templatesDir, "sim-order.yaml");
         await File.WriteAllTextAsync(templatePath, SimulationTemplate);
-        Environment.SetEnvironmentVariable("FLOWTIME_TEMPLATES_DIR", templatesDir);
+
+        using var simFactory = new WebApplicationFactory<SimProgram>();
+        var client = simFactory.CreateClient();
+        Environment.SetEnvironmentVariable("FLOWTIME_SIM_API_BASE_URL", client.BaseAddress!.ToString());
+        TelemetryRunCommand.HttpClientFactoryOverride = () => simFactory.CreateClient();
 
         var args = new[]
         {
@@ -96,7 +101,7 @@ public class TelemetryRunCommandTests
             }
 
             Assert.Equal(0, exitCode);
-            var runsRoot = Path.Combine(temp.Path, "runs");
+            var runsRoot = Path.Combine(simDataDir, "runs");
             Assert.True(Directory.Exists(runsRoot));
             var runDir = Directory.GetDirectories(runsRoot).Single();
             Assert.True(File.Exists(Path.Combine(runDir, "model", "telemetry", "telemetry-manifest.json")));
@@ -105,8 +110,9 @@ public class TelemetryRunCommandTests
         finally
         {
             Console.SetError(originalError);
-            Environment.SetEnvironmentVariable("FLOWTIME_DATA_DIR", originalDataDir);
-            Environment.SetEnvironmentVariable("FLOWTIME_TEMPLATES_DIR", originalTemplatesDir);
+            simFactory.Dispose();
+            TelemetryRunCommand.HttpClientFactoryOverride = null;
+            RestoreSimEnvironment(originalState);
         }
     }
 
@@ -114,15 +120,10 @@ public class TelemetryRunCommandTests
     public async Task ExecuteAsync_DryRun_PrintsPlanWithoutCreatingRun()
     {
         using var temp = new TempDirectory();
-        var originalDataDir = Environment.GetEnvironmentVariable("FLOWTIME_DATA_DIR");
-        var originalTemplatesDir = Environment.GetEnvironmentVariable("FLOWTIME_TEMPLATES_DIR");
-        Environment.SetEnvironmentVariable("FLOWTIME_DATA_DIR", temp.Path);
+        var (originalState, simDataDir, templatesDir) = PrepareSimEnvironment(temp);
 
-        var templatesDir = Path.Combine(temp.Path, "templates");
-        Directory.CreateDirectory(templatesDir);
         var templatePath = Path.Combine(templatesDir, "test-order.yaml");
         await File.WriteAllTextAsync(templatePath, TestTemplate);
-        Environment.SetEnvironmentVariable("FLOWTIME_TEMPLATES_DIR", templatesDir);
 
         var sourceRun = TelemetryRunFactory.CreateRunArtifacts(temp.Path, "source", includeTopology: true);
         var captureDir = Path.Combine(temp.Path, "capture");
@@ -134,6 +135,11 @@ public class TelemetryRunCommandTests
             RunDirectory = sourceRun,
             OutputDirectory = captureDir
         });
+
+        using var simFactory = new WebApplicationFactory<SimProgram>();
+        var client = simFactory.CreateClient();
+        Environment.SetEnvironmentVariable("FLOWTIME_SIM_API_BASE_URL", client.BaseAddress!.ToString());
+        TelemetryRunCommand.HttpClientFactoryOverride = () => simFactory.CreateClient();
 
         var args = new[]
         {
@@ -153,14 +159,18 @@ public class TelemetryRunCommandTests
             var exitCode = await TelemetryRunCommand.ExecuteAsync(args);
             Assert.Equal(0, exitCode);
             Assert.DoesNotContain("Run created", output.ToString(), StringComparison.OrdinalIgnoreCase);
-            var runsRoot = Path.Combine(temp.Path, "runs");
-            Assert.False(Directory.Exists(runsRoot));
+            var runsRoot = Path.Combine(simDataDir, "runs");
+            if (Directory.Exists(runsRoot))
+            {
+                Assert.Empty(Directory.GetDirectories(runsRoot));
+            }
         }
         finally
         {
             Console.SetOut(originalOut);
-            Environment.SetEnvironmentVariable("FLOWTIME_DATA_DIR", originalDataDir);
-            Environment.SetEnvironmentVariable("FLOWTIME_TEMPLATES_DIR", originalTemplatesDir);
+            simFactory.Dispose();
+            TelemetryRunCommand.HttpClientFactoryOverride = null;
+            RestoreSimEnvironment(originalState);
         }
     }
 
@@ -280,4 +290,43 @@ outputs:
         using var document = await System.Text.Json.JsonDocument.ParseAsync(stream);
         return document.RootElement.GetProperty("mode").GetString() ?? string.Empty;
     }
+
+    private static (SimEnvironmentSnapshot Snapshot, string DataDir, string TemplatesDir) PrepareSimEnvironment(TempDirectory temp)
+    {
+        var snapshot = new SimEnvironmentSnapshot(
+            DataDir: Environment.GetEnvironmentVariable("FLOWTIME_SIM_DATA_DIR"),
+            TemplatesDir: Environment.GetEnvironmentVariable("FLOWTIME_SIM_TEMPLATES_DIR"),
+            CliTemplatesDir: Environment.GetEnvironmentVariable("FLOWTIME_TEMPLATES_DIR"),
+            ApiBaseUrl: Environment.GetEnvironmentVariable("FLOWTIME_SIM_API_BASE_URL"));
+
+        var simDataDir = Path.Combine(temp.Path, "sim-data");
+        Directory.CreateDirectory(simDataDir);
+
+        var simTemplatesDir = Path.Combine(temp.Path, "sim-templates");
+        Directory.CreateDirectory(simTemplatesDir);
+
+        var cliTemplatesDir = Path.Combine(temp.Path, "cli-templates");
+        Directory.CreateDirectory(cliTemplatesDir);
+
+        Environment.SetEnvironmentVariable("FLOWTIME_SIM_DATA_DIR", simDataDir);
+        Environment.SetEnvironmentVariable("FLOWTIME_SIM_TEMPLATES_DIR", simTemplatesDir);
+        Environment.SetEnvironmentVariable("FLOWTIME_TEMPLATES_DIR", cliTemplatesDir);
+        Environment.SetEnvironmentVariable("FLOWTIME_SIM_API_BASE_URL", null);
+
+        return (snapshot, simDataDir, simTemplatesDir);
+    }
+
+    private static void RestoreSimEnvironment(SimEnvironmentSnapshot snapshot)
+    {
+        Environment.SetEnvironmentVariable("FLOWTIME_SIM_DATA_DIR", snapshot.DataDir);
+        Environment.SetEnvironmentVariable("FLOWTIME_SIM_TEMPLATES_DIR", snapshot.TemplatesDir);
+        Environment.SetEnvironmentVariable("FLOWTIME_TEMPLATES_DIR", snapshot.CliTemplatesDir);
+        Environment.SetEnvironmentVariable("FLOWTIME_SIM_API_BASE_URL", snapshot.ApiBaseUrl);
+    }
+
+    private sealed record SimEnvironmentSnapshot(
+        string? DataDir,
+        string? TemplatesDir,
+        string? CliTemplatesDir,
+        string? ApiBaseUrl);
 }

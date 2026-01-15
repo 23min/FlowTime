@@ -62,6 +62,7 @@ run_20251124T092144Z_8e8bc14a/
 Notes:
 - Models are validated with `ModelValidator`; invariant analysis runs during artifact writing and warnings land in `run.json` (not on stdout).
 - Series hashes and scenario hash are recorded in `manifest.json`.
+- Telemetry gaps (including missing queue-age series required for backlog age SLA) are surfaced as warnings in `run.json` and must be surfaced by any UI/CLI consumer. Backlog age SLA must be shown as "No data" when queue age telemetry is absent.
 
 ### Orchestrated runs (templates / telemetry)
 
@@ -123,6 +124,7 @@ Supported verbs/nouns:
 - `show template|model`
 - `generate [model]`
 - `validate [template|params]`
+- `refresh templates`
 
 Common options: `--id <templateId>`, `--params <json>`, `--out <path>`, `--format yaml|json`, `--templates-dir <dir>`, `--models-dir <dir>`, `--mode simulation|telemetry`, `--provenance <file>`, `--embed-provenance`, `--verbose`.
 
@@ -144,6 +146,10 @@ dotnet run --project src/FlowTime.Sim.Cli -- validate template \
   --id transportation-basic \
   --templates-dir templates \
   --params overrides.json
+
+# Clear and reload the template cache
+dotnet run --project src/FlowTime.Sim.Cli -- refresh templates \
+  --templates-dir templates
 ```
 
 Analyzer behavior:

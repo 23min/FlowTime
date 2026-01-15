@@ -55,12 +55,14 @@
                 "runId": { "type": "string", "minLength": 1 },
                 "templateId": { "type": "string", "minLength": 1 },
                 "templateTitle": { "type": "string", "minLength": 1 },
+                "templateNarrative": { "type": ["string", "null"] },
                 "templateVersion": { "type": "string", "minLength": 1 },
                 "mode": { "type": "string", "enum": ["simulation", "telemetry"] },
                 "provenanceHash": { "$ref": "#/$defs/hash" },
                 "telemetrySourcesResolved": { "type": "boolean" },
                 "schema": { "$ref": "#/$defs/schemaMetadata" },
                 "storage": { "$ref": "#/$defs/storageDescriptor" },
+                "classCoverage": { "type": ["string", "null"], "enum": ["full", "partial", "missing", null] },
                 "rng": {
                     "anyOf": [
                         { "type": "null" },
@@ -117,10 +119,26 @@
             "properties": {
                 "id": { "$ref": "#/$defs/nodeId" },
                 "kind": { "type": "string", "minLength": 1 },
+                "nodeLogicalType": { "type": ["string", "null"], "minLength": 1 },
                 "metrics": { "$ref": "#/$defs/nodeMetrics" },
+                "byClass": {
+                    "type": "object",
+                    "additionalProperties": { "$ref": "#/$defs/classMetrics" }
+                },
                 "derived": { "$ref": "#/$defs/nodeDerivedMetrics" },
                 "telemetry": { "$ref": "#/$defs/nodeTelemetryInfo" },
-                "aliases": { "$ref": "#/$defs/aliasDictionary" }
+                "aliases": { "$ref": "#/$defs/aliasDictionary" },
+                "dispatchSchedule": {
+                    "anyOf": [
+                        { "type": "null" },
+                        { "$ref": "#/$defs/dispatchScheduleDescriptor" }
+                    ]
+                },
+                "sla": {
+                    "type": "array",
+                    "items": { "$ref": "#/$defs/slaMetricDescriptor" },
+                    "default": []
+                }
             }
         },
         "nodeSeries": {
@@ -130,13 +148,32 @@
             "properties": {
                 "id": { "$ref": "#/$defs/nodeId" },
                 "kind": { "type": "string", "minLength": 1 },
+                "nodeLogicalType": { "type": ["string", "null"], "minLength": 1 },
                 "series": {
                     "type": "object",
                     "minProperties": 1,
                     "additionalProperties": { "$ref": "#/$defs/numericSeries" }
                 },
+                "byClass": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "object",
+                        "additionalProperties": { "$ref": "#/$defs/numericSeries" }
+                    }
+                },
                 "telemetry": { "$ref": "#/$defs/nodeTelemetryInfo" },
-                "aliases": { "$ref": "#/$defs/aliasDictionary" }
+                "aliases": { "$ref": "#/$defs/aliasDictionary" },
+                "dispatchSchedule": {
+                    "anyOf": [
+                        { "type": "null" },
+                        { "$ref": "#/$defs/dispatchScheduleDescriptor" }
+                    ]
+                },
+                "sla": {
+                    "type": "array",
+                    "items": { "$ref": "#/$defs/slaSeriesDescriptor" },
+                    "default": []
+                }
             }
         },
         "edgeSeries": {
@@ -176,6 +213,19 @@
                 "maxAttempts": { "$ref": "#/$defs/nullableNumber" }
             }
         },
+        "classMetrics": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "arrivals": { "$ref": "#/$defs/nullableNumber" },
+                "served": { "$ref": "#/$defs/nullableNumber" },
+                "errors": { "$ref": "#/$defs/nullableNumber" },
+                "queue": { "$ref": "#/$defs/nullableNumber" },
+                "capacity": { "$ref": "#/$defs/nullableNumber" },
+                "processingTimeMsSum": { "$ref": "#/$defs/nullableNumber" },
+                "servedCount": { "$ref": "#/$defs/nullableNumber" }
+            }
+        },
         "nodeDerivedMetrics": {
             "type": "object",
             "additionalProperties": false,
@@ -207,6 +257,36 @@
                 }
             }
         },
+        "slaMetricDescriptor": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind", "status"],
+            "properties": {
+                "kind": { "$ref": "#/$defs/slaKind" },
+                "status": { "$ref": "#/$defs/slaStatus" },
+                "threshold": { "$ref": "#/$defs/nullableNumber" },
+                "value": { "$ref": "#/$defs/nullableNumber" }
+            }
+        },
+        "slaSeriesDescriptor": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind", "status", "values"],
+            "properties": {
+                "kind": { "$ref": "#/$defs/slaKind" },
+                "status": { "$ref": "#/$defs/slaStatus" },
+                "threshold": { "$ref": "#/$defs/nullableNumber" },
+                "values": { "$ref": "#/$defs/numericSeries" }
+            }
+        },
+        "slaKind": {
+            "type": "string",
+            "enum": ["completion", "backlogAge", "scheduleAdherence"]
+        },
+        "slaStatus": {
+            "type": "string",
+            "enum": ["ok", "unavailable", "noEvents"]
+        },
         "nodeTelemetryWarning": {
             "type": "object",
             "additionalProperties": false,
@@ -230,13 +310,27 @@
                 "code": { "type": "string", "minLength": 1 },
                 "message": { "type": "string", "minLength": 1 },
                 "severity": { "type": "string", "minLength": 1 },
-                "nodeId": { "$ref": "#/$defs/nodeId" }
+                "nodeId": { "$ref": "#/$defs/nodeId" },
+                "startBin": { "type": ["integer", "null"], "minimum": 0 },
+                "endBin": { "type": ["integer", "null"], "minimum": 0 },
+                "signal": { "type": ["string", "null"], "minLength": 1 }
             }
         },
         "aliasDictionary": {
             "type": ["object", "null"],
             "default": null,
             "additionalProperties": { "type": "string", "minLength": 1 }
+        },
+        "dispatchScheduleDescriptor": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind", "periodBins", "phaseOffset"],
+            "properties": {
+                "kind": { "type": "string", "minLength": 1 },
+                "periodBins": { "type": "integer", "minimum": 1 },
+                "phaseOffset": { "type": "integer" },
+                "capacitySeries": { "type": ["string", "null"], "minLength": 1 }
+            }
         },
         "rngMetadata": {
             "type": "object",

@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using FlowTime.Contracts.Services;
 using FlowTime.Contracts.TimeTravel;
+using FlowTime.Core.Dispatching;
 using FlowTime.Core.Models;
 using FlowTime.Core.Services;
 using Microsoft.Extensions.Configuration;
@@ -26,8 +27,8 @@ public sealed class GraphService
         this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    private static readonly string[] DefaultOperationalKinds = { "service", "queue", "dlq", "router", "external" };
-    private static readonly string[] DefaultFullKinds = { "service", "queue", "dlq", "router", "external", "expr", "const", "pmf" };
+    private static readonly string[] DefaultOperationalKinds = { "service", "serviceWithBuffer", "queue", "dlq", "router", "external", "sink" };
+    private static readonly string[] DefaultFullKinds = { "service", "queue", "dlq", "router", "external", "expr", "const", "pmf", "serviceWithBuffer", "sink" };
     private static readonly string[] DefaultDependencyFields = { "arrivals", "served", "errors", "attempts", "failures", "exhaustedFailures", "retryEcho", "retryBudgetRemaining", "queue", "capacity", "expr" };
 
     private const string EdgeTypeTopology = "topology";
@@ -84,6 +85,11 @@ public sealed class GraphService
         options ??= GraphQueryOptions.Default;
         var mode = options.Mode;
 
+        var nodeDefinitions = modelDefinition.Nodes ?? new List<NodeDefinition>();
+        var nodeDefinitionsById = nodeDefinitions
+            .Where(n => !string.IsNullOrWhiteSpace(n.Id))
+            .ToDictionary(n => n.Id!, StringComparer.OrdinalIgnoreCase);
+
         var allowedKinds = options.Kinds?.Count > 0
             ? new HashSet<string>(options.Kinds, StringComparer.OrdinalIgnoreCase)
             : new HashSet<string>(mode == GraphQueryMode.Full ? DefaultFullKinds : DefaultOperationalKinds, StringComparer.OrdinalIgnoreCase);
@@ -108,7 +114,11 @@ public sealed class GraphService
         // Operational topology nodes
         foreach (var topoNode in modelDefinition.Topology.Nodes)
         {
-            var kind = string.IsNullOrWhiteSpace(topoNode.Kind) ? "service" : topoNode.Kind!;
+            nodeDefinitionsById.TryGetValue(topoNode.Id, out var nodeDefinition);
+            var kind = string.IsNullOrWhiteSpace(topoNode.Kind)
+                ? nodeDefinition?.Kind ?? "service"
+                : topoNode.Kind!;
+            var logicalType = DetermineLogicalType(kind, topoNode, nodeDefinitionsById, out var serviceWithBufferDefinition);
             if (!allowedKinds.Contains(kind))
             {
                 continue;
@@ -141,12 +151,25 @@ public sealed class GraphService
                     Y = topoNode.Ui.Y
                 };
 
+            var dispatchSchedule = TryBuildDispatchSchedule(nodeDefinitionsById, topoNode.Id);
+            if (dispatchSchedule is null && topoNode.DispatchSchedule is not null)
+            {
+                dispatchSchedule = ConvertSchedule(topoNode.DispatchSchedule);
+            }
+            if (dispatchSchedule is null && serviceWithBufferDefinition is not null)
+            {
+                dispatchSchedule = ConvertSchedule(serviceWithBufferDefinition.DispatchSchedule);
+            }
+
             AddOrReplaceNode(new GraphNode
             {
                 Id = topoNode.Id,
                 Kind = kind,
+                NodeRole = string.IsNullOrWhiteSpace(topoNode.NodeRole) ? null : topoNode.NodeRole,
+                LogicalType = logicalType,
                 Semantics = semantics,
-                Ui = ui
+                Ui = ui,
+                DispatchSchedule = dispatchSchedule
             });
         }
 
@@ -185,9 +208,7 @@ public sealed class GraphService
         if (mode == GraphQueryMode.Full)
         {
             // Include non-operational nodes (const/expr/pmf) based on allowed kinds.
-            var nodeDefinitionsById = modelDefinition.Nodes.ToDictionary(n => n.Id, StringComparer.OrdinalIgnoreCase);
-
-            foreach (var nodeDef in modelDefinition.Nodes)
+            foreach (var nodeDef in nodeDefinitions)
             {
                 if (string.IsNullOrWhiteSpace(nodeDef.Id))
                 {
@@ -248,12 +269,14 @@ public sealed class GraphService
                 {
                     Id = nodeDef.Id,
                     Kind = displayKind,
-                    Semantics = semantics
+                    LogicalType = NormalizeKind(actualKind),
+                    Semantics = semantics,
+                    DispatchSchedule = TryBuildDispatchSchedule(nodeDefinitionsById, nodeDef.Id)
                 });
             }
 
             // Expression dependencies (expr inputs).
-            foreach (var nodeDef in modelDefinition.Nodes)
+            foreach (var nodeDef in nodeDefinitions)
             {
                 if (!string.Equals(nodeDef.Kind, "expr", StringComparison.OrdinalIgnoreCase))
                 {
@@ -329,6 +352,11 @@ public sealed class GraphService
                 }
 
                 if (!graphNodes.ContainsKey(producerCandidate))
+                {
+                    return;
+                }
+
+                if (string.Equals(producerCandidate, consumerId, StringComparison.OrdinalIgnoreCase))
                 {
                     return;
                 }
@@ -452,6 +480,90 @@ public sealed class GraphService
 
         return value.Trim();
     }
+    private static DispatchScheduleDescriptor? TryBuildDispatchSchedule(
+        IReadOnlyDictionary<string, NodeDefinition> nodeDefinitions,
+        string nodeId)
+    {
+        if (string.IsNullOrWhiteSpace(nodeId) || !nodeDefinitions.TryGetValue(nodeId, out var definition))
+        {
+            return null;
+        }
+
+        return ConvertSchedule(definition.DispatchSchedule);
+    }
+
+    private static DispatchScheduleDescriptor? ConvertSchedule(DispatchScheduleDefinition? schedule)
+    {
+        if (schedule is null)
+        {
+            return null;
+        }
+
+        var period = schedule.PeriodBins;
+        if (period <= 0)
+        {
+            return null;
+        }
+
+        var kind = string.IsNullOrWhiteSpace(schedule.Kind) ? "time-based" : schedule.Kind.Trim();
+        var normalizedPhase = DispatchScheduleProcessor.NormalizePhase(schedule.PhaseOffset ?? 0, period);
+        var capacitySeries = string.IsNullOrWhiteSpace(schedule.CapacitySeries)
+            ? null
+            : schedule.CapacitySeries.Trim();
+
+        return new DispatchScheduleDescriptor
+        {
+            Kind = kind,
+            PeriodBins = period,
+            PhaseOffset = normalizedPhase,
+            CapacitySeries = capacitySeries
+        };
+    }
+
+    private static string DetermineLogicalType(
+        string kind,
+        TopologyNodeDefinition node,
+        IReadOnlyDictionary<string, NodeDefinition> nodeDefinitions,
+        out NodeDefinition? serviceWithBufferDefinition)
+    {
+        serviceWithBufferDefinition = null;
+        var normalizedKind = NormalizeKind(kind);
+
+        if (normalizedKind is "queue" or "service")
+        {
+            serviceWithBufferDefinition = TryResolveServiceWithBufferDefinition(nodeDefinitions, node.Semantics?.QueueDepth);
+            if (serviceWithBufferDefinition is not null)
+            {
+                return "serviceWithBuffer";
+            }
+        }
+
+        return normalizedKind;
+    }
+
+    private static NodeDefinition? TryResolveServiceWithBufferDefinition(
+        IReadOnlyDictionary<string, NodeDefinition> nodeDefinitions,
+        string? reference)
+    {
+        if (string.IsNullOrWhiteSpace(reference))
+        {
+            return null;
+        }
+
+        var candidateId = TryResolveProducerId(reference);
+        if (string.IsNullOrWhiteSpace(candidateId))
+        {
+            return null;
+        }
+
+        return nodeDefinitions.TryGetValue(candidateId, out var definition) &&
+            string.Equals(definition.Kind, "serviceWithBuffer", StringComparison.OrdinalIgnoreCase)
+            ? definition
+            : null;
+    }
+
+    private static string NormalizeKind(string? kind) =>
+        string.IsNullOrWhiteSpace(kind) ? "service" : kind.Trim().ToLowerInvariant();
 }
 
 public sealed class GraphQueryException : Exception

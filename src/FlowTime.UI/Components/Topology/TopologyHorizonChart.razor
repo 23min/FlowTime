@@ -113,6 +113,16 @@ else
         // Avoid redundant renders when nothing material changed
         var highlightStart = HighlightStartIndex ?? -1;
         var highlightEnd = HighlightEndIndex ?? -1;
+        var highlightRequested = highlightStart >= 0 && highlightEnd >= 0;
+        var suppressHighlight = highlightRequested
+                                && dataLength > 0
+                                && highlightStart <= 0
+                                && highlightEnd >= dataLength - 1;
+        if (suppressHighlight)
+        {
+            highlightStart = -1;
+            highlightEnd = -1;
+        }
 
         var shouldRender = firstRender
                            || lastMin != effectiveMin
@@ -157,7 +167,11 @@ else
                     utilWarning = thresholds.UtilizationWarning,
                     utilCritical = thresholds.UtilizationCritical,
                     errorWarning = thresholds.ErrorWarning,
-                    errorCritical = thresholds.ErrorCritical
+                    errorCritical = thresholds.ErrorCritical,
+                    serviceTimeWarning = thresholds.ServiceTimeWarning,
+                    serviceTimeCritical = thresholds.ServiceTimeCritical,
+                    flowLatencyWarning = thresholds.FlowLatencyWarning,
+                    flowLatencyCritical = thresholds.FlowLatencyCritical
                 },
                 height = Height,
                 highlightStart = highlightStart >= 0 ? highlightStart : (int?)null,
@@ -168,9 +182,10 @@ else
 
     private string ResolveBasisFromSeries()
     {
+        var overlayBasis = OverlaySettings?.ColorBasis.ToString().ToLowerInvariant() ?? "sla";
         if (string.IsNullOrWhiteSpace(SeriesKey))
         {
-            return OverlaySettings is null ? "sla" : OverlaySettings.ColorBasis.ToString().ToLowerInvariant();
+            return overlayBasis;
         }
 
         return SeriesKey.Trim().ToLowerInvariant() switch
@@ -179,7 +194,9 @@ else
             "utilization" => "utilization",
             "errorrate" or "errors" => "errors",
             "queue" or "queuedepth" => "queue",
-            _ => OverlaySettings is null ? "sla" : OverlaySettings.ColorBasis.ToString().ToLowerInvariant()
+            "servicetimems" or "servicetime" => "servicetime",
+            "flowlatencyms" or "flowlatency" => "flowlatency",
+            _ => overlayBasis
         };
     }
 

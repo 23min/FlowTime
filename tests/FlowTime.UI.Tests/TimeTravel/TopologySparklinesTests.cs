@@ -31,8 +31,7 @@ public sealed class TopologySparklinesTests
         };
 
         var pmfNode = new TopologyNode(
-            "distribution_node",
-            "pmf",
+            "distribution_node", "pmf", "pmf",
             Array.Empty<string>(),
             Array.Empty<string>(),
             0,

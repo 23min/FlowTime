@@ -94,7 +94,7 @@ Status: not started (awaiting backend merge + telemetry).
 3. Track future enhancement for live log streaming once backend support lands.
 
 ## References
-- `docs/milestones/UI-M-03.12.md`
+- `docs/milestones/completed/UI-M-03.12.md`
 - `docs/operations/telemetry-capture-guide.md`
 - `src/FlowTime.UI/Pages/Simulate.razor`
 - `src/FlowTime.UI/Services/FlowTimeApiClient.cs`

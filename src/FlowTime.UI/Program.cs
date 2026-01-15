@@ -127,12 +127,12 @@ builder.Services.AddScoped<ISimulationResultsService, SimulationResultsService>(
 builder.Services.AddScoped<IRunDiscoveryService, RunDiscoveryService>();
 builder.Services.AddScoped<ITimeTravelDataService, TimeTravelDataService>();
 builder.Services.AddScoped<ITimeTravelMetricsClient, TimeTravelMetricsClient>();
+builder.Services.Configure<DiagnosticsOptions>(builder.Configuration.GetSection("Diagnostics"));
+
+var buildDiagnostics = BuildDiagnostics.Create(typeof(App).Assembly);
+builder.Services.AddSingleton(buildDiagnostics);
 
 var host = builder.Build();
-var informationalVersion = typeof(App).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
-var version = informationalVersion?.Split('+')[0]
-    ?? typeof(App).Assembly.GetName().Version?.ToString()
-    ?? "0.0.0";
-Console.WriteLine($"FlowTime.UI started v{version}");
+Console.WriteLine($"FlowTime.UI started v{buildDiagnostics.Version} ({buildDiagnostics.Hash})");
 
 await host.RunAsync();

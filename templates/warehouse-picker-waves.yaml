@@ -1,0 +1,244 @@
+schemaVersion: 1
+generator: flowtime-sim
+metadata:
+  id: warehouse-picker-waves
+  title: Warehouse Picker Wave Dispatch
+  description: Orders accumulate in staging and release in scheduled picker waves before final packing.
+  narrative: 'Warehouse order intake accumulates in continuous staging, picker waves release batches on schedule, and packing and dispatch stages reveal batch-driven throughput.'
+  version: 1.1.0
+  captureKey: warehouse-picker
+  tags: [warehouse, logistics, dispatch, backlog]
+
+window:
+  start: 2025-01-01T00:00:00Z
+  timezone: UTC
+
+parameters:
+  - name: bins
+    type: integer
+    title: "Time Periods"
+    description: "Number of 1-hour bins to model"
+    default: 12
+    minimum: 6
+    maximum: 72
+  - name: binSize
+    type: integer
+    title: "Minutes Per Bin"
+    description: "Duration of each time bucket"
+    default: 60
+    minimum: 15
+    maximum: 240
+  - name: inboundPattern
+    type: array
+    arrayOf: number
+    title: "Inbound Order Pattern"
+    description: "Orders per bin arriving at intake"
+    default: [120, 135, 150, 190, 210, 220, 205, 185, 170, 160, 150, 140]
+  - name: intakeCapacity
+    type: array
+    arrayOf: number
+    title: "Receiving Capacity"
+    description: "How many orders intake can stage per bin"
+    default: [130, 150, 160, 200, 210, 210, 195, 185, 175, 165, 155, 150]
+  - name: wavePeriodBins
+    type: integer
+    title: "Picker Wave Period"
+    description: "Bins between picker wave releases"
+    default: 4
+    minimum: 1
+    maximum: 24
+  - name: wavePhaseOffset
+    type: integer
+    title: "Picker Wave Phase"
+    description: "Offset (bins) before the first picker wave fires"
+    default: 0
+    minimum: 0
+    maximum: 24
+  - name: waveCapacity
+    type: integer
+    title: "Orders Per Wave"
+    description: "Per-wave dispatch capacity (orders)"
+    default: 80
+    minimum: 10
+    maximum: 500
+  - name: packCapacity
+    type: integer
+    title: "Pack & Ship Capacity"
+    description: "Orders per bin the packing line can complete"
+    default: 70
+    minimum: 10
+    maximum: 300
+
+grid:
+  bins: ${bins}
+  binSize: ${binSize}
+  binUnit: minutes
+
+rng:
+  kind: pcg32
+  seed: 20251127
+
+topology:
+  nodes:
+    - id: Intake
+      kind: serviceWithBuffer
+      semantics:
+        arrivals: order_demand
+        served: received_orders
+        errors: zero_flow
+        queueDepth: self
+        capacity: intake_capacity
+        processingTimeMsSum: intake_processing_time_ms_sum
+        servedCount: intake_served_count
+        slaMin: 45
+        aliases:
+          arrivals: "Inbound orders"
+          served: "Staged orders"
+          queue: "Intake backlog"
+      initialCondition:
+        queueDepth: 0
+    - id: PickerWave
+      kind: serviceWithBuffer
+      semantics:
+        arrivals: wave_stage_inflow
+        served: picker_wave_release
+        errors: wave_attrition
+        queueDepth: self
+        capacity: wave_dispatch_capacity
+        processingTimeMsSum: picker_wave_processing_time_ms_sum
+        servedCount: picker_wave_release
+        aliases:
+          arrivals: "Wave staging"
+          served: "Picker wave release"
+          queue: "Staged backlog"
+      initialCondition:
+        queueDepth: 0
+      dispatchSchedule:
+        periodBins: ${wavePeriodBins}
+        phaseOffset: ${wavePhaseOffset}
+        capacitySeries: wave_dispatch_capacity
+    - id: PackStagingQueue
+      kind: serviceWithBuffer
+      semantics:
+        arrivals: pack_arrivals
+        served: pack_processed
+        errors: zero_flow
+        queueDepth: self
+        capacity: pack_capacity
+        processingTimeMsSum: pack_queue_processing_time_ms_sum
+        servedCount: pack_processed
+        aliases:
+          arrivals: "Picker releases"
+          served: "Pack throughput"
+          queue: "Pack staging backlog"
+      initialCondition:
+        queueDepth: 0
+    - id: PackAndShip
+      kind: service
+      semantics:
+        arrivals: pack_demand
+        served: pack_processed
+        errors: pack_spill
+        capacity: pack_capacity
+        processingTimeMsSum: pack_processing_time_ms_sum
+        servedCount: pack_served_count
+        slaMin: 30
+        aliases:
+          arrivals: "Picker releases"
+          served: "Packed & shipped"
+          errors: "Unpacked"
+  edges:
+    - id: intake_to_wave
+      from: Intake:served
+      to: PickerWave:arrivals
+      weight: 1.0
+    - id: wave_to_pack_queue
+      from: PickerWave:served
+      to: PackStagingQueue:arrivals
+      weight: 1.0
+    - id: pack_queue_to_pack
+      from: PackStagingQueue:served
+      to: PackAndShip:arrivals
+      weight: 1.0
+
+nodes:
+  - id: order_demand
+    kind: const
+    values: ${inboundPattern}
+  - id: intake_capacity
+    kind: const
+    values: ${intakeCapacity}
+  - id: intake_demand
+    kind: expr
+    expr: "order_demand"
+  - id: received_orders
+    kind: expr
+    expr: "MIN(intake_demand, intake_capacity)"
+  - id: wave_stage_inflow
+    kind: expr
+    expr: "received_orders"
+  - id: wave_attrition
+    kind: expr
+    expr: "0"
+  - id: picker_wave_gate
+    kind: expr
+    expr: "PULSE(${wavePeriodBins}, ${wavePhaseOffset}, 1)"
+  - id: picker_wave_buildup
+    kind: expr
+    expr: "CONV(wave_stage_inflow, [1, 1, 1, 1])"
+  - id: picker_wave_release
+    kind: expr
+    expr: "MIN(picker_wave_buildup, wave_dispatch_capacity) * picker_wave_gate"
+  - id: wave_dispatch_capacity
+    kind: expr
+    expr: "${waveCapacity}"
+  - id: pack_capacity
+    kind: expr
+    expr: "${packCapacity}"
+  - id: pack_arrivals
+    kind: expr
+    expr: "picker_wave_release"
+  - id: pack_demand
+    kind: expr
+    expr: "pack_arrivals"
+  - id: pack_processed
+    kind: expr
+    expr: "MIN(pack_demand, pack_capacity)"
+  - id: picker_wave_processing_time_ms_sum
+    kind: expr
+    expr: "picker_wave_release * 180000" # 3 minutes per released order
+  - id: zero_flow
+    kind: expr
+    expr: "0"
+  - id: pack_queue_processing_time_ms_sum
+    kind: expr
+    expr: "pack_processed * 120000" # 2 minutes per staged order
+  - id: pack_spill
+    kind: expr
+    expr: "MAX(0, pack_demand - pack_processed)"
+  - id: intake_served_count
+    kind: expr
+    expr: "received_orders"
+  - id: intake_processing_time_ms_sum
+    kind: expr
+    expr: "received_orders * 240000" # 4 minutes per staged order
+  - id: pack_served_count
+    kind: expr
+    expr: "pack_processed"
+  - id: pack_processing_time_ms_sum
+    kind: expr
+    expr: "pack_processed * 300000" # 5 minutes per packed order
+
+outputs:
+  - series: order_demand
+    as: inbound_demand.csv
+  - series: intake_queue
+    as: intake_queue.csv
+  - series: picker_wave_queue
+    as: picker_wave_queue.csv
+  - series: picker_wave_release
+    as: picker_wave_release.csv
+  - series: pack_staging_queue_queue
+    as: pack_staging_queue_queue.csv
+  - series: pack_processed
+    as: packed_orders.csv

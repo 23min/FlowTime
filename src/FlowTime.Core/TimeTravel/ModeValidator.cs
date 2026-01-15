@@ -245,4 +245,7 @@ public sealed class ModeValidationWarning
     public string Code { get; init; } = string.Empty;
     public string Message { get; init; } = string.Empty;
     public string? NodeId { get; init; }
+    public int? StartBin { get; init; }
+    public int? EndBin { get; init; }
+    public string? Signal { get; init; }
 }

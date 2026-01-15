@@ -16,6 +16,16 @@ Today the UI pulls topology + state in slices:
 
 **Design intent:** keep payloads bounded (≤ 500 bins) and authoritative, shift expensive derivations to the service, and load only what the viewport requires.
 
+### Performance note (ties to UI perf work)
+
+This document focuses on *data acquisition strategies* (selective windows vs bulk bundles vs shared-engine/WASM). It is not, by itself, a guarantee of interactive responsiveness.
+
+Even with perfectly bounded network payloads, the topology UI can stall if it rebuilds large derived structures (metrics dictionaries, render DTOs, DOM overlays) at interactive rates (hover/pan/scrub/playback). Conversely, even a bulk bundle can feel responsive if parsing/hydration is streamed/off-main-thread and the renderer separates **scene build** from **paint**.
+
+For the UI-side performance architecture and lane separation model, see:
+
+- `docs/architecture/ui-perf/README.md`
+
 ---
 
 ## 2. “Ship the Entire DAG” Concept
@@ -141,3 +151,18 @@ If we allow users to “edit” the DAG in-browser (e.g., modify an expression, 
 ---
 
 **Summary:** A WebAssembly-in-browser evaluator is technically achievable and would give us true code sharing between backend and UI, but comes with non-trivial payload and dependency management. It makes the most sense coupled with bulk DAG bundles and heavy experimentation features (mutation, what-if). For the primary production experience, we should continue leaning on the server pipeline—possibly with streaming—while we explore the WASM route in parallel as a targeted PoC.
+
+---
+
+## 8. Performance Architecture Notes (ties to UI perf work)
+
+This document focuses on *data acquisition strategies* (selective windows vs bulk bundles vs WASM/shared engine). Separately, the UI has an input-latency/performance architecture spec:
+
+- `docs/architecture/ui-perf/README.md`
+
+Key alignment points:
+
+- **Loading mode does not guarantee responsiveness**: even with bounded `/state_window` payloads, the UI can still become sluggish if it rebuilds large derived structures (metrics maps, render DTOs) at interactive rates (hover/pan/playback).
+- **Bulk bundle mode can worsen main-thread load** unless parsing/hydration work is offloaded (streaming + Worker) and the renderer is architected around a strict scene-vs-overlay split.
+- **WASM/shared engine shifts CPU to the client**: best reserved for dev tooling/what-if workflows unless benchmarks prove it improves end-to-end UX.
+- **Streaming maps to the “data lane”**: chunked arrival and incremental hydration are valuable in both selective and bulk modes, but must not block the input lane.

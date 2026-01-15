@@ -70,6 +70,73 @@ properties:
 
     additionalProperties: false
 
+  topology:
+    type: object
+    description: "Declarative topology description (nodes + edges) used by UI/inspectors."
+    properties:
+      nodes:
+        type: array
+        items:
+          type: object
+          required:
+            - id
+            - kind
+          properties:
+            id:
+              type: string
+              minLength: 1
+            kind:
+              type: string
+            semantics:
+              type: object
+              properties:
+                arrivals: { type: string }
+                served: { type: string }
+                errors: { type: string }
+                attempts: { type: string }
+                failures: { type: string }
+                retryEcho: { type: string }
+                queueDepth:
+                  type:
+                    - string
+                  description: |
+                    Series providing queue depth. When set to the literal "self", depth is derived from the node itself.
+                capacity: { type: string }
+                external_demand: { type: string }
+                processingTimeMsSum: { type: string }
+                servedCount: { type: string }
+                slaMin: { type: number }
+                aliases:
+                  type: object
+                  additionalProperties: true
+              additionalProperties: true
+            initialCondition:
+              type: object
+              properties:
+                queueDepth: { type: number }
+              additionalProperties: true
+            dispatchSchedule:
+              $ref: "#/$defs/dispatchSchedule"
+            metadata:
+              type: object
+              additionalProperties: true
+          additionalProperties: true
+      edges:
+        type: array
+        items:
+          type: object
+          properties:
+            id: { type: string }
+            from: { type: string }
+            to: { type: string }
+            weight: { type: number }
+            type: { type: string }
+            measure: { type: string }
+            multiplier: { type: number }
+            lag: { type: integer }
+          additionalProperties: true
+    additionalProperties: false
+
   nodes:
     type: array
     description: "Array of computation nodes defining the model structure"
@@ -96,6 +163,8 @@ properties:
             - const
             - expr
             - pmf
+            - serviceWithBuffer
+            - router
           description: "Node type: constant values, expression, or probability mass function"
 
         # Properties for 'const' nodes
@@ -152,6 +221,52 @@ properties:
 
           additionalProperties: false
 
+        inputs:
+          type: object
+          description: "Router inputs configuration"
+          properties:
+            queue:
+              type: string
+              description: "Source node routed by this router"
+          additionalProperties: false
+
+        routes:
+          type: array
+          description: "Router routes mapping to downstream targets"
+          minItems: 1
+          items:
+            type: object
+            required:
+              - target
+            properties:
+              target:
+                type: string
+                description: "Target node receiving this route"
+              classes:
+                type: array
+                description: "Optional list of class IDs routed 100% to this target"
+                items:
+                  type: string
+              weight:
+                type: number
+                description: "Weight used to split remaining classes when no classes list is provided"
+            additionalProperties: false
+
+        inflow:
+          type: string
+          description: "ServiceWithBuffer inflow node id (required when kind=serviceWithBuffer)"
+
+        outflow:
+          type: string
+          description: "ServiceWithBuffer outflow node id (required when kind=serviceWithBuffer)"
+
+        loss:
+          type: string
+          description: "Optional loss sink node id for ServiceWithBuffer depletion"
+
+        dispatchSchedule:
+          $ref: "#/$defs/dispatchSchedule"
+
       # Validation rules based on 'kind'
       allOf:
         # const nodes must have 'values', not 'expr' or 'pmf'
@@ -193,6 +308,35 @@ properties:
                 - required: [values]
                 - required: [expr]
 
+        # router nodes require inputs.queue and at least one route
+        - if:
+            properties:
+              kind:
+                const: router
+          then:
+            required:
+              - inputs
+              - routes
+            properties:
+              inputs:
+                required:
+                  - queue
+              routes:
+                items:
+                  anyOf:
+                    - required: [classes]
+                    - required: [weight]
+
+        # serviceWithBuffer nodes require inflow/outflow
+        - if:
+            properties:
+              kind:
+                const: serviceWithBuffer
+          then:
+            required:
+              - inflow
+              - outflow
+
       additionalProperties: false
 
   outputs:
@@ -222,6 +366,71 @@ properties:
             - "metrics.csv"
 
       additionalProperties: false
+
+  classes:
+    type: array
+    description: "Optional set of flow classes; when present, traffic arrivals must declare classId"
+    minItems: 1
+    items:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: string
+          pattern: "^[A-Za-z0-9_-]+$"
+          description: "Class identifier referenced by traffic definitions"
+          examples:
+            - "Order"
+            - "Refund"
+            - "Invoice"
+        displayName:
+          type: string
+          description: "Human-readable class name"
+          examples:
+            - "Order Flow"
+            - "Refund Flow"
+        description:
+          type: string
+          description: "Optional class description"
+      additionalProperties: false
+
+  traffic:
+    type: object
+    description: "Optional traffic definitions, including arrivals per class"
+    properties:
+      arrivals:
+        type: array
+        minItems: 1
+        items:
+          type: object
+          required:
+            - nodeId
+            - pattern
+          properties:
+            nodeId:
+              type: string
+              description: "Target node receiving arrivals"
+            classId:
+              type: string
+              description: "Class identifier (required when classes are declared)"
+            pattern:
+              type: object
+              required:
+                - kind
+              properties:
+                kind:
+                  type: string
+                  enum:
+                    - constant
+                    - poisson
+                  description: "Arrival pattern kind"
+                ratePerBin:
+                  type: number
+                  description: "Arrivals per bin for constant patterns"
+              additionalProperties: true
+          additionalProperties: false
+    additionalProperties: false
 
   rng:
     type: object
@@ -315,6 +524,31 @@ properties:
     additionalProperties: false
 
 additionalProperties: false
+
+$defs:
+  dispatchSchedule:
+    type: object
+    description: "Optional schedule controlling when ServiceWithBuffer nodes release flow"
+    properties:
+      kind:
+        type: string
+        enum:
+          - time-based
+        default: time-based
+        description: "Schedule type (time-based cadence)"
+      periodBins:
+        type: integer
+        minimum: 1
+        description: "Number of bins between dispatch events"
+      phaseOffset:
+        type: integer
+        description: "Bin offset that determines the first dispatch bin (0-indexed, modulo period)"
+      capacitySeries:
+        type: string
+        description: "Optional node ID containing per-bin dispatch capacity overrides"
+    required:
+      - periodBins
+    additionalProperties: false
 
 # Example valid models demonstrating schema capabilities
 examples:
@@ -427,14 +661,15 @@ examples:
       - id: served
         kind: expr
         expr: "MIN(arrivals, capacity)"
-      - id: backlog
-        kind: expr
-        expr: "MAX(0, arrivals - served + SHIFT(backlog, 1))"
+      - id: backlog_queue
+        kind: serviceWithBuffer
+        inflow: arrivals
+        outflow: served
     outputs:
       - series: served
         as: served.csv
-      - series: backlog
-        as: backlog.csv
+      - series: backlog_queue
+        as: backlog_queue.csv
 
   # Daily simulation for a year
   - schemaVersion: 1
@@ -488,6 +723,23 @@ examples:
         kind: expr
         expr: "weekly_production - weekly_orders + SHIFT(inventory, 1)"
 
+allOf:
+  - if:
+      required:
+        - classes
+      properties:
+        classes:
+          type: array
+          minItems: 1
+    then:
+      properties:
+        traffic:
+          properties:
+            arrivals:
+              items:
+                required:
+                  - classId
+
 # Schema validation notes and migration guidance
 notes:
   migration_from_binMinutes: |
@@ -495,7 +747,7 @@ notes:
       grid:
         bins: 24
         binSize: 1
-  binUnit: hours
+        binUnit: hours
     
     New format (target schema):
       grid:

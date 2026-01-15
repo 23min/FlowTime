@@ -118,6 +118,8 @@
 2. Update ROADMAP.md
 3. Create release notes
 4. Archive tracking document
+5. **Await stakeholder approval before starting any follow-up milestone.** Do not branch or begin the next milestone until (a) the completed milestone’s acceptance criteria have been manually revalidated (e.g., rerun UI checks, regenerate runs) and (b) the milestone owner explicitly signs off on the hand-off.
+6. **Run analyzers/invariant checks and document the outcome.** For any milestone that introduces new data planes (e.g., class-aware telemetry), execute the corresponding analyzers (class conservation, propagation, telemetry validation, etc.) and record the results in the tracking doc before marking the milestone complete. If an analyzer surfaces warnings, treat the milestone as ⚠️ until the warnings are resolved or explicitly waived by the owner.
 
 ---
 
@@ -141,9 +143,9 @@ Before marking milestone as "📋 Planned":
 
 ## Examples
 
-**Good:** `docs/milestones/M-02.09.md` (remove time estimate)
-**Good:** `docs/milestones/M-02.10.md` (remove "1-2 hours")
-**Updated:** `docs/milestones/UI-M-02.09.md` (now follows rules)
+**Good:** `docs/milestones/completed/M-02.09.md` (remove time estimate)
+**Good:** `docs/milestones/completed/M-02.10.md` (remove "1-2 hours")
+**Updated:** `docs/milestones/completed/UI-M-02.09.md` (now follows rules)
 
 ---
 

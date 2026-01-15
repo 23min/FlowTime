@@ -71,6 +71,84 @@ public class ParityTests : IClassFixture<TestWebApplicationFactory>
 		Assert.Contains("served", doc.series.Keys);
 	}
 
+	[Fact]
+	public async Task Api_Run_Applies_Router_Overrides()
+	{
+		var client = factory.CreateClient();
+		var resp = await client.PostAsync("/v1/run", new StringContent(RouterOverrideModel, Encoding.UTF8, "text/plain"));
+		if (!resp.IsSuccessStatusCode)
+		{
+			var body = await resp.Content.ReadAsStringAsync();
+			throw new Xunit.Sdk.XunitException($"/run returned {(int)resp.StatusCode} {resp.StatusCode}: {body}");
+		}
+
+		var doc = await resp.Content.ReadFromJsonAsync<RunResponse>();
+		Assert.NotNull(doc);
+		Assert.True(doc!.series.TryGetValue("route_air", out var routeAir), "API response missing route_air series");
+		Assert.True(doc.series.TryGetValue("route_ground", out var routeGround), "API response missing route_ground series");
+
+		Assert.Equal(new[] { 8d }, routeAir);
+		Assert.Equal(new[] { 2d }, routeGround);
+	}
+
+	private const string RouterOverrideModel = """
+schemaVersion: 1
+generator: flowtime-sim
+grid:
+  bins: 1
+  binSize: 60
+  binUnit: minutes
+classes:
+  - id: Alpha
+  - id: Beta
+traffic:
+  arrivals:
+    - nodeId: alpha_inflow
+      classId: Alpha
+      pattern:
+        kind: constant
+        ratePerBin: 8
+    - nodeId: beta_inflow
+      classId: Beta
+      pattern:
+        kind: constant
+        ratePerBin: 2
+topology:
+  nodes:
+    - id: RouterNode
+      kind: service
+      semantics:
+        arrivals: router_input
+        served: route_air
+        errors: route_ground
+nodes:
+  - id: alpha_inflow
+    kind: const
+    values: [8]
+  - id: beta_inflow
+    kind: const
+    values: [2]
+  - id: router_input
+    kind: expr
+    expr: alpha_inflow + beta_inflow
+  - id: route_air
+    kind: const
+    values: [0]
+  - id: route_ground
+    kind: const
+    values: [0]
+  - id: hub_router
+    kind: router
+    inputs:
+      queue: router_input
+    routes:
+      - target: route_air
+        classes: [Alpha]
+      - target: route_ground
+        classes: [Beta]
+outputs: []
+""";
+
 	public sealed class RunResponse
 	{
 		public required Grid grid { get; init; }

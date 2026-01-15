@@ -4,11 +4,11 @@ This document describes the **shipped** FlowTime Engine surfaces and behaviors a
 
 ## Execution model
 - **Deterministic, discrete-time DAG** on a fixed grid `{ bins, binSize, binUnit }` (UTC, left-aligned).
-- **Node kinds**: const (inline values), expr (limited expression set), backlog/queue semantics via topology semantics (`queueDepth`, `arrivals/served/errors`, optional `externalDemand`, `capacity`, retry fields), and template-derived computed nodes preserved in artifacts.
-- **Expression support** (engine evaluator): arithmetic `+ - * /`, functions `SHIFT`, `CONV`, `MIN`, `MAX`, `CLAMP`. No IF/EMA/ABS/SQRT/POW/routers/autoscale nodes yet.
+- **Node kinds**: const (inline values), expr (limited expression set), **serviceWithBuffer** nodes that own queue/backlog semantics (`queueDepth`, arrivals/served/errors, optional `loss`, dispatch schedules), routers, and template-derived computed nodes preserved in artifacts. (See [`docs/architecture/service-with-buffer/service-with-buffer-architecture.md`](../architecture/service-with-buffer/service-with-buffer-architecture.md) for the full contract.)
+- **Expression support** (engine evaluator): arithmetic `+ - * /`, functions `SHIFT`, `CONV`, `MIN`, `MAX`, `CLAMP`, `MOD`, `FLOOR`, `CEIL`, `ROUND`, `STEP`, `PULSE`. No IF/EMA/ABS/SQRT/POW/routers/autoscale nodes yet.
 - **Retry/backoff**: Supports attempts/failures/retry echo series; `RetryKernelPolicy` normalizes kernels; derived retry echo and exhaustion warnings recorded when missing.
 - **Backlog/latency**: Queue depth/backlog recurrence with optional initial conditions; derived `latencyMinutes`, `throughputRatio`, `flowLatencyMs` in state responses.
-- **Classes**: Single class (`DEFAULT`) emitted; no per-class metrics or filtering.
+- **Classes**: Multi-class flows supported. Templates/tagged nodes emit per-class series; artifacts and `/state(_window)` expose `byClass` arrays plus `classCoverage` metadata. `DEFAULT` remains the fallback for totals.
 - **Edges**: Only retry-dependency derived edges in `/state_window` (attempts/failures/retryRate from source semantics). No EdgeTimeBin fact tables.
 
 ## Artifacts & hashing
@@ -35,6 +35,7 @@ This document describes the **shipped** FlowTime Engine surfaces and behaviors a
   - `flowtime artifacts list [--template-id --model-id --limit --skip --data-dir]`
   - Output root precedence: `FLOWTIME_DATA_DIR` > `--out` (per run) > defaults (`<repo>/data`).
   - RNG: templates declaring `rng` require a seed in orchestration; the CLI currently lacks an explicit `--rng` flag (run fails if template requires it).
+  - Analyzer/manifest warnings (e.g., router diagnostics, conservation failures) are printed to stdout after a run completes so authors can act before inspecting artifacts; up to five warnings are echoed with codes/node context.
 - Sim CLI (`src/FlowTime.Sim.Cli`):
   - `list templates|models`, `show template|model`, `generate [--id --params --out --mode]`, `validate template|params`.
   - `generate` runs `TemplateInvariantAnalyzer` and prints warnings; `validate` checks parameter shapes/bounds.
@@ -42,17 +43,19 @@ This document describes the **shipped** FlowTime Engine surfaces and behaviors a
 ## State & metrics
 - Node metrics exposed in state/state_window: arrivals, served, errors, attempts, failures, exhaustedFailures, retryEcho, queue/backlog, capacity, externalDemand, processingTimeMsSum, servedCount, retryBudgetRemaining, maxAttempts.
 - Derived metrics: utilization, latencyMinutes, serviceTimeMs, flowLatencyMs, throughputRatio, retryTax, color (UI aid).
+- SLA descriptors: completion SLA (with dispatch carry-forward for gated releases), backlog age SLA (marked unavailable when telemetry is missing), and schedule-adherence SLA. SLA payloads include kind + status so UIs can surface "No data" without fabricating values.
+- ServiceWithBuffer derivations use the same inputs as service/queue nodes: `latencyMinutes` requires `queueDepth` + `served`, `utilization` requires `capacity` + `served`, and `serviceTimeMs` requires `processingTimeMsSum` + `servedCount`. Missing inputs yield no derived series.
 - Edge series (state_window): retry dependency edges only (`attemptsLoad`, `failuresLoad`, `retryRate`, optional `exhaustedFailuresLoad`) based on node semantics and edge multiplier/lag hints.
-- Warnings: invariants (conservation, missing series, retry kernel policy, telemetry missing), mode validation, retry kernel adjustments; recorded per-node/global in state responses and `run.json`.
+- Warnings: invariants (conservation, queue depth mismatch, missing series, retry kernel policy, telemetry missing), backlog health signals (growth streak, overload ratio, age risk), mode validation, retry kernel adjustments; recorded per-node/global in state responses and `run.json`.
 
 ## Telemetry & time-travel
 - Canonical run artifacts are the source of truth; `/state` and `/state_window` read from artifacts on disk.
-- Telemetry capture/loader service is not implemented; telemetry mode expects prebuilt bundles via orchestration (template + capture directory).
-- Time-travel schemas: `docs/schemas/time-travel-state.schema.json` governs state responses; API matches current state/state_window payloads.
+- Telemetry capture/loader tooling ingests bundles that follow `docs/schemas/telemetry-manifest.schema.json` (v2 adds `supportsClassMetrics`, `classes`, `classCoverage`, and per-file `classId`). CLI orchestration can target telemetry mode today; the hosted loader service remains future work.
+- Time-travel schemas: `docs/schemas/time-travel-state.schema.json` governs state responses; API matches current state/state_window payloads, including `byClass` series.
 
 ## Out of scope / not implemented
 - Streaming delivery.
-- Per-class metrics or filters.
+- Per-class filters in API query parameters (UI consumes the per-class data already exposed).
 - Edge fact tables (EdgeTimeBin) or path analytics.
 - Catalog APIs and registry/export/import loop.
 - Advanced expressions (IF/EMA/ABS/SQRT/POW), routers, autoscale nodes.
@@ -60,4 +63,5 @@ This document describes the **shipped** FlowTime Engine surfaces and behaviors a
 ## Validation & analyzers
 - Engine invariants run during artifact writing; warnings persist in `run.json`.
 - Template invariant analyzer runs in Sim CLI generation and in orchestration paths; warnings surface on stdout (Sim CLI) and in manifests for runs.
+- Router diagnostics (`router_missing_class_route`, `router_class_leakage`) are emitted by the invariant analyzer so CLI, API, and UI surfaces all present the same warnings.
 - Configuration precedence is tested in `FlowTime.Api.Tests.ConfigurationTests` and `FlowTime.Cli.Tests.OutputDirectoryConfigurationTests`.

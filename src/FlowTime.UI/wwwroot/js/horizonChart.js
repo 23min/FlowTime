@@ -12,6 +12,10 @@
     const to = (x) => x.toString(16).padStart(2, '0');
     return `#${to(r)}${to(g)}${to(b)}`;
   }
+  function withAlpha(hex, alpha) {
+    const { r, g, b } = hexToRgb(hex);
+    return `rgba(${r},${g},${b},${clamp(alpha, 0, 1)})`;
+  }
   function pastelize(hex, amount) {
     const c = hexToRgb(hex);
     const r = Math.round(lerp(c.r, 255, amount));
@@ -28,7 +32,18 @@
   };
 
   function pickColor(value, basis, t) {
-    const s = t || { slaSuccess: 0.95, slaWarning: 0.8, utilWarning: 0.9, utilCritical: 0.95, errorWarning: 0.02, errorCritical: 0.05 };
+    const s = t || {
+      slaSuccess: 0.95,
+      slaWarning: 0.8,
+      utilWarning: 0.9,
+      utilCritical: 0.95,
+      errorWarning: 0.02,
+      errorCritical: 0.05,
+      serviceTimeWarning: 400,
+      serviceTimeCritical: 700,
+      flowLatencyWarning: 2000,
+      flowLatencyCritical: 10000
+    };
     if (!isFiniteNumber(value)) return COLORS.neutral;
     if (basis === 'utilization') {
       if (value >= s.utilCritical) return COLORS.error;
@@ -45,10 +60,32 @@
       if (value >= 0.4) return COLORS.warning;
       return COLORS.success;
     }
+    if (basis === 'servicetime') {
+      if (value >= s.serviceTimeCritical) return COLORS.error;
+      if (value >= s.serviceTimeWarning) return COLORS.warning;
+      return COLORS.success;
+    }
+    if (basis === 'flowlatency') {
+      if (value >= s.flowLatencyCritical) return COLORS.error;
+      if (value >= s.flowLatencyWarning) return COLORS.warning;
+      return COLORS.success;
+    }
     // SLA
     if (value >= s.slaSuccess) return COLORS.success;
     if (value >= s.slaWarning) return COLORS.warning;
     return COLORS.error;
+  }
+
+  function isDarkTheme() {
+    const body = document.body;
+    if (!body) return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const datasetTheme = body.dataset ? body.dataset.ftTheme : null;
+    return datasetTheme === 'dark'
+      || body.getAttribute('data-ft-theme') === 'dark'
+      || body.classList.contains('dark-mode')
+      || body.classList.contains('mud-theme-dark')
+      || body.classList.value.includes('mud-theme-dark')
+      || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
   }
 
   function renderHorizon(canvas, opts) {
@@ -82,18 +119,21 @@
     ctx.fillStyle = 'rgba(17,24,39,0.02)';
     ctx.fillRect(0, 0, width, height);
 
-    // Optional highlight of a window range
+    let highlightRect = null;
     if (Number.isInteger(opts.highlightStart) && Number.isInteger(opts.highlightEnd) && data.length > 0) {
+      const dark = isDarkTheme();
+      const colors = dark
+        ? { fill: 'rgba(253,224,71,0.22)', stroke: 'rgba(253,224,71,0.5)' }
+        : { fill: 'rgba(251,120,38,0.16)', stroke: 'rgba(194,65,12,0.48)' };
       const start = clamp(opts.highlightStart, 0, data.length - 1);
       const end = clamp(opts.highlightEnd, start, data.length - 1);
-      const colWidth = width / data.length;
+      const colWidth = width / Math.max(1, data.length);
       const x = Math.floor(start * colWidth);
       const w = Math.ceil((end - start + 1) * colWidth);
-      ctx.fillStyle = 'rgba(71,85,105,0.06)'; // Lighter gray than area fill
-      ctx.fillRect(x, 0, w, height);
+      highlightRect = { x, w, fill: colors.fill, stroke: colors.stroke };
     }
 
-    // Area under line in subtle gray
+    // Area under line tinted by metric color
     const baseline = 0;
     const range = max - min;
     const colWidth = width / Math.max(1, data.length);
@@ -101,7 +141,8 @@
       const v = data[i];
       const x = Math.floor(i * colWidth);
       if (!isFiniteNumber(v)) continue;
-      ctx.fillStyle = 'rgba(71,85,105,0.08)';
+      const tint = withAlpha(pickColor(v, basis, thresholds), 0.22);
+      ctx.fillStyle = tint;
       let y0, h;
       if (min < 0 && max > 0) {
         // Split baseline within chart
@@ -116,6 +157,23 @@
         y0 = height - h;
       }
       ctx.fillRect(x, y0, Math.ceil(colWidth + 0.5), h);
+    }
+
+    if (highlightRect) {
+      ctx.save();
+      ctx.fillStyle = highlightRect.fill;
+      ctx.fillRect(highlightRect.x, 0, highlightRect.w, height);
+      ctx.restore();
+    }
+
+    if (highlightRect && highlightRect.stroke) {
+      ctx.save();
+      ctx.strokeStyle = highlightRect.stroke;
+      ctx.lineWidth = 1;
+      const inset = 0.5;
+      const widthAdj = Math.max(0, highlightRect.w - inset * 2);
+      ctx.strokeRect(highlightRect.x + inset, inset, widthAdj, height - inset * 2);
+      ctx.restore();
     }
 
     // Threshold-colored stroke line with segments

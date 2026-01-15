@@ -6,6 +6,7 @@
 @using FlowTime.UI.Services
 @inject ITemplateService TemplateService
 @inject IFlowTimeApiClient ApiClient
+@inject IFlowTimeSimApiClient SimApiClient
 @inject INotificationService NotificationService
 @inject NavigationManager Navigation
 @inject IRunDiscoveryService RunDiscoveryService
@@ -45,6 +46,12 @@
                                 </MudSelectItem>
                             }
                         </MudSelect>
+                        @if (!string.IsNullOrWhiteSpace(SelectedTemplateNarrative))
+                        {
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                @SelectedTemplateNarrative
+                            </MudText>
+                        }
                         @if (_templates.Count == 0)
                         {
                             <MudText Typo="Typo.caption" Color="Color.Secondary">No templates available.</MudText>
@@ -70,28 +77,57 @@
                                       InputType="InputType.Number"
                                       HelperText="Defaults to 123 unless overridden." />
                     </MudItem>
+                    <MudItem xs="12" md="6">
+                        <MudSelect T="RunReuseMode"
+                                   Label="Bundle reuse"
+                                   Variant="Variant.Outlined"
+                                   @bind-Value="_reuseMode"
+                                   Disabled="_state.IsBusy">
+                            <MudSelectItem Value="RunReuseMode.AutoReuse">Reuse existing bundle when inputs match</MudSelectItem>
+                            <MudSelectItem Value="RunReuseMode.ForceOverwrite">Regenerate (overwrite deterministic bundle)</MudSelectItem>
+                            <MudSelectItem Value="RunReuseMode.FreshRun">Fresh run (timestamped id)</MudSelectItem>
+                        </MudSelect>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                            Reuse keeps run IDs deterministic. Choose Regenerate to overwrite the existing bundle or Fresh run to create a new timestamped run.
+                        </MudText>
+                    </MudItem>
                 </MudGrid>
 
                 <MudStack Row="true" Spacing="2" Class="mt-4">
-                    <MudButton Variant="Variant.Outlined"
-                               Color="Color.Secondary"
-                               Disabled="_state.IsBusy || !CanSubmit"
-                               OnClick="@(() => SubmitAsync(dryRun: true))">
-                        Plan model
-                    </MudButton>
-                    <MudButton Variant="Variant.Filled"
-                               Color="Color.Primary"
-                               Disabled="_state.IsBusy || !CanSubmit"
-                               OnClick="@(() => SubmitAsync(dryRun: false))">
-                        Run model
-                    </MudButton>
+                    <MudTooltip Text="Generate the run and produce a bundle using the selected template and parameters.">
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   Disabled="_state.IsBusy || !CanSubmit"
+                                   OnClick="@(() => SubmitAsync(dryRun: false))">
+                            Run model
+                        </MudButton>
+                    </MudTooltip>
+                    <MudTooltip Text="Preview the files and outputs without executing a full run.">
+                        <MudButton Variant="Variant.Outlined"
+                                   Color="Color.Secondary"
+                                   Disabled="_state.IsBusy || !CanSubmit"
+                                   OnClick="@(() => SubmitAsync(dryRun: true))">
+                            Plan model
+                        </MudButton>
+                    </MudTooltip>
+                    <MudTooltip Text="Reload template metadata from the FlowTime-Sim service.">
+                        <MudButton Variant="Variant.Text"
+                                   Color="Color.Info"
+                                   Disabled="_state.IsBusy || _refreshingTemplates"
+                                   loading="@_refreshingTemplates"
+                                   OnClick="RefreshTemplateCacheAsync">
+                            Refresh templates
+                        </MudButton>
+                    </MudTooltip>
                     <MudSpacer />
-                    <MudButton Variant="Variant.Text"
-                               Color="Color.Default"
-                               Disabled="_state.IsBusy && _state.Phase != RunOrchestrationPhase.Failure"
-                               OnClick="ResetStateAsync">
-                        Reset
-                    </MudButton>
+                    <MudTooltip Text="Clear the current run state, messages, and cached plan details.">
+                        <MudButton Variant="Variant.Text"
+                                   Color="Color.Default"
+                                   Disabled="_state.IsBusy && _state.Phase != RunOrchestrationPhase.Failure"
+                                   OnClick="ResetStateAsync">
+                            Reset
+                        </MudButton>
+                    </MudTooltip>
                 </MudStack>
             </MudPaper>
         }
@@ -190,6 +226,16 @@
                     </MudText>
                     <MudText>Mode: @_lastMetadata.Mode</MudText>
                     <MudText>RNG Seed: @FormatSeed(_lastMetadata.Rng?.Seed)</MudText>
+                    @if (!string.IsNullOrWhiteSpace(_lastMetadata.InputHash))
+                    {
+                        <MudText>Input hash: @_lastMetadata.InputHash</MudText>
+                    }
+                    @if (_state.LastSuccess?.WasReused == true)
+                    {
+                        <MudAlert Severity="Severity.Info" Variant="Variant.Text">
+                            Existing deterministic bundle reused. Choose <strong>Regenerate</strong> to force a new run.
+                        </MudAlert>
+                    }
                     @if (string.Equals(_lastMetadata.Mode, "telemetry", StringComparison.OrdinalIgnoreCase))
                     {
                         <MudText>Telemetry sources resolved: @(_lastMetadata.TelemetrySourcesResolved ? "Yes" : "No")</MudText>
@@ -240,6 +286,10 @@
                         Template: @(_recentSuccess.TemplateTitle ?? _recentSuccess.TemplateId) (@_recentSuccess.TemplateVersion ?? "latest")
                     </MudText>
                     <MudText>Mode: @_recentSuccess.Mode</MudText>
+                    @if (_recentSuccess.WasReused)
+                    {
+                        <MudText Color="Color.Info">Existing deterministic bundle reused.</MudText>
+                    }
                     <MudText>RNG Seed: @FormatSeed(_recentSuccess.RngSeed)</MudText>
                     @if (string.Equals(_recentSuccess.Mode, "telemetry", StringComparison.OrdinalIgnoreCase))
                     {
@@ -302,6 +352,7 @@
     private string? _parameterText;
     private string? _telemetryBindingsText;
     private bool _loadingTemplates;
+    private bool _refreshingTemplates;
     private string? _templateLoadError;
     private string? _statusMessage;
     private string? _errorMessage;
@@ -314,6 +365,7 @@
     private string? _selectedCaptureKey;
     private bool _prefillPending = true;
     private string _rngSeedText = DefaultSeedText;
+    private RunReuseMode _reuseMode = RunReuseMode.AutoReuse;
 
     private OrchestrationMode Mode
     {
@@ -332,6 +384,9 @@
             EnsureCaptureKey();
         }
     }
+
+    private string? SelectedTemplateNarrative =>
+        _templates.FirstOrDefault(t => string.Equals(t.Id, _selectedTemplateId, StringComparison.OrdinalIgnoreCase))?.Narrative;
 
     private bool CanSubmit =>
         !string.IsNullOrWhiteSpace(_selectedTemplateId) &&
@@ -379,6 +434,39 @@
         finally
         {
             _loadingTemplates = false;
+        }
+    }
+
+    private async Task RefreshTemplateCacheAsync()
+    {
+        if (_refreshingTemplates)
+        {
+            return;
+        }
+
+        _refreshingTemplates = true;
+        try
+        {
+            var response = await ApiClient.RefreshTemplateCacheAsync().ConfigureAwait(false);
+            if (!response.Success || response.Value is null)
+            {
+                var message = response.Error ?? "Template cache refresh failed.";
+                NotificationService.Add(message, Severity.Error);
+                return;
+            }
+
+            NotificationService.Add($"Template cache refreshed ({response.Value.Templates} template(s)).", Severity.Success);
+            await LoadTemplatesAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Template cache refresh failed.");
+            NotificationService.Add($"Template cache refresh failed: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _refreshingTemplates = false;
+            await InvokeAsync(StateHasChanged);
         }
     }
 
@@ -450,6 +538,7 @@
             _parameterText = snapshot.ParameterText;
             _telemetryBindingsText = snapshot.TelemetryBindingsText;
             _rngSeedText = string.IsNullOrWhiteSpace(snapshot.RngSeedText) ? DefaultSeedText : snapshot.RngSeedText!;
+            _reuseMode = snapshot.ReuseMode;
             EnsureCaptureKey();
 
             _state.RestorePending(snapshot, RunOrchestrationPhase.Planning);
@@ -498,7 +587,8 @@
             ParameterText = _parameterText,
             CaptureDirectory = _selectedCaptureKey,
             TelemetryBindingsText = _telemetryBindingsText,
-            RngSeedText = _rngSeedText
+            RngSeedText = _rngSeedText,
+            ReuseMode = _reuseMode
         };
 
         if (!RunOrchestrationRequestBuilder.TryBuild(form, dryRun, out var request, out var validationError))
@@ -517,7 +607,8 @@
             ParameterText = _parameterText,
             TelemetryBindingsText = _telemetryBindingsText,
             CaptureDirectory = _selectedCaptureKey,
-            RngSeedText = _rngSeedText
+            RngSeedText = _rngSeedText,
+            ReuseMode = _reuseMode
         };
 
         if (!_state.TryBeginPlanning(snapshot))
@@ -538,7 +629,7 @@
                 _state.PromoteToRunning();
             }
 
-            var result = await ApiClient.CreateRunAsync(request, _submissionCts.Token).ConfigureAwait(false);
+            var result = await SimApiClient.CreateRunAsync(request, _submissionCts.Token).ConfigureAwait(false);
             await ClearSnapshotAsync().ConfigureAwait(false);
 
             if (!result.Success || result.Value is null)
@@ -555,7 +646,7 @@
             if (payload.IsDryRun)
             {
                 _lastPlan = payload.Plan;
-                _state.CompleteSuccess(new RunOrchestrationSuccess("(plan)"));
+                _state.CompleteSuccess(new RunOrchestrationSuccess("(plan)", false));
                 _statusMessage = "Orchestration plan ready.";
                 NotificationService.Add("Plan generated successfully.", Severity.Success);
             }
@@ -573,9 +664,18 @@
 
                 _lastMetadata = payload.Metadata;
                 _runWarnings = payload.Warnings ?? Array.Empty<StateWarningDto>();
-                _state.CompleteSuccess(new RunOrchestrationSuccess(runId));
-                _statusMessage = $"Run {runId} created.";
-                NotificationService.Add($"Run {runId} created.", Severity.Success);
+                var reused = payload.WasReused;
+                _state.CompleteSuccess(new RunOrchestrationSuccess(runId, reused));
+                if (reused)
+                {
+                    _statusMessage = $"Existing bundle reused for {runId}.";
+                    NotificationService.Add($"Existing bundle reused for {runId}. Use Regenerate to force a new run.", Severity.Info);
+                }
+                else
+                {
+                    _statusMessage = $"Run {runId} created.";
+                    NotificationService.Add($"Run {runId} created.", Severity.Success);
+                }
 
                 if (_lastMetadata is not null)
                 {
@@ -590,7 +690,8 @@
                         Warnings: _runWarnings.Count == 0
                             ? Array.Empty<RunSuccessWarning>()
                             : _runWarnings.Select(w => new RunSuccessWarning(w.Code, w.Message, w.NodeId)).ToArray(),
-                        RngSeed: _lastMetadata.Rng?.Seed);
+                        RngSeed: _lastMetadata.Rng?.Seed,
+                        WasReused: reused);
 
                     await PersistRecentSuccessAsync(successSnapshot).ConfigureAwait(false);
                 }
@@ -667,7 +768,14 @@
         _lastMetadata = null;
         _runWarnings = Array.Empty<StateWarningDto>();
         _rngSeedText = DefaultSeedText;
+        _parameterText = null;
+        _telemetryBindingsText = null;
+        _reuseMode = RunReuseMode.AutoReuse;
+        _selectedTemplateId = _templates.FirstOrDefault()?.Id;
+        _selectedCaptureKey = GetTemplateCaptureKey(_selectedTemplateId);
+        _recentSuccess = null;
         await ClearSnapshotAsync().ConfigureAwait(false);
+        await ClearLastRunAsync().ConfigureAwait(false);
     }
 
     private async Task PersistRecentSuccessAsync(RunSuccessSnapshot snapshot)
@@ -681,6 +789,18 @@
         catch (Exception ex)
         {
             Logger.LogWarning(ex, "Failed to persist last run snapshot.");
+        }
+    }
+
+    private async Task ClearLastRunAsync()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("localStorage.removeItem", LastRunStorageKey);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to clear last run snapshot.");
         }
     }
 

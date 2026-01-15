@@ -1,4 +1,5 @@
 using System.Linq;
+using FlowTime.Core.Artifacts;
 using FlowTime.Core.Execution;
 using FlowTime.Core.Models;
 using FlowTime.Core.Nodes;
@@ -27,6 +28,10 @@ public static class InvariantAnalyzer
 
         var warnings = new List<InvariantWarning>();
         var cache = new Dictionary<string, double[]>(StringComparer.Ordinal);
+        var nodeDefinitions = model.Nodes?
+            .Where(n => !string.IsNullOrWhiteSpace(n.Id))
+            .ToDictionary(n => n.Id!, StringComparer.OrdinalIgnoreCase)
+            ?? new Dictionary<string, NodeDefinition>(StringComparer.OrdinalIgnoreCase);
         var queueSeeds = BuildQueueInitials(model.Topology.Nodes);
         var incomingEdges = new Dictionary<string, List<TopologyEdgeDefinition>>(StringComparer.OrdinalIgnoreCase);
         var outgoingEdges = new Dictionary<string, List<TopologyEdgeDefinition>>(StringComparer.OrdinalIgnoreCase);
@@ -70,6 +75,7 @@ public static class InvariantAnalyzer
             var semantics = topoNode.Semantics;
             var nodeId = topoNode.Id;
             var nodeKind = (topoNode.Kind ?? string.Empty).Trim().ToLowerInvariant();
+            var isServiceWithBuffer = nodeKind == "servicewithbuffer";
             var isServiceKind = nodeKind == "service" || nodeKind == "router";
             var isQueueKind = nodeKind == "queue";
             var isQueueLikeKind = nodeKind is "queue" or "dlq";
@@ -133,7 +139,7 @@ public static class InvariantAnalyzer
             CheckNonNegative(nodeId, "retry_budget_negative", "Retry budget remaining produced negative values", retryBudgetRemaining);
 
             // Served <= arrivals
-            if (arrivals != null && served != null)
+            if (arrivals != null && served != null && !isServiceWithBuffer)
             {
                 CheckDiff(nodeId, "served_exceeds_arrivals",
                     "Served volume exceeded arrivals",
@@ -257,6 +263,12 @@ public static class InvariantAnalyzer
                     "info"));
             }
 
+            var dispatchSchedule = ResolveDispatchSchedule(nodeId, semantics);
+            if (dispatchSchedule is not null)
+            {
+                ValidateDispatchSchedule(nodeId, dispatchSchedule, arrivals, served);
+            }
+
             // Derived-completeness infos
             var processingSeries = TryGetSeries(semantics.ProcessingTimeMsSum, out var proc) ? proc : null;
             var servedCountSeries = TryGetSeries(semantics.ServedCount, out var sc) ? sc : null;
@@ -285,7 +297,7 @@ public static class InvariantAnalyzer
                     "info"));
             }
 
-            if (!isDlqKind && !isTerminalQueue && queueDepth != null && served != null)
+            if (!isDlqKind && !isTerminalQueue && !isServiceWithBuffer && queueDepth != null && served != null)
             {
                 var badLatencyBins = new List<int>();
                 var latencyBins = queueDepth.Length;
@@ -310,10 +322,17 @@ public static class InvariantAnalyzer
 
                 if (badLatencyBins.Count > 0)
                 {
+                    var warningCode = dispatchSchedule is not null
+                        ? "queue_latency_gate_closed"
+                        : "queue_latency_unreported";
+                    var warningMessage = dispatchSchedule is not null
+                        ? "Dispatch gate was closed while backlog was present; latency will display as Paused (gate closed)."
+                        : "Queue latency could not be computed where served was zero and queue depth was positive.";
+
                     warnings.Add(new InvariantWarning(
                         nodeId,
-                        "latency_uncomputable_bins",
-                        "Queue latency could not be computed where served was zero and queue depth was positive.",
+                        warningCode,
+                        warningMessage,
                         badLatencyBins.ToArray(),
                         null,
                         "info"));
@@ -324,6 +343,9 @@ public static class InvariantAnalyzer
                 ValidateDlqConnectivity(nodeId);
             }
         }
+
+        AppendRouterDiagnostics(model, evaluatedSeries, warnings);
+        AppendServiceWithBufferClassCoverageWarnings(nodeDefinitions, model, evaluatedSeries, warnings);
 
         return warnings.Count == 0
             ? new InvariantAnalysisResult(Array.Empty<InvariantWarning>())
@@ -499,6 +521,79 @@ public static class InvariantAnalyzer
             }
         }
 
+        DispatchScheduleDefinition? ResolveDispatchSchedule(string topologyNodeId, TopologyNodeSemanticsDefinition semantics)
+        {
+            if (nodeDefinitions.TryGetValue(topologyNodeId, out var nodeDef) &&
+                nodeDef.DispatchSchedule is not null)
+            {
+                return nodeDef.DispatchSchedule;
+            }
+
+            var queueDepthRef = ExtractNodeId(semantics.QueueDepth ?? string.Empty);
+            if (!string.IsNullOrWhiteSpace(queueDepthRef) &&
+                nodeDefinitions.TryGetValue(queueDepthRef, out var depthDef) &&
+                depthDef.DispatchSchedule is not null)
+            {
+                return depthDef.DispatchSchedule;
+            }
+
+            return null;
+        }
+
+        void ValidateDispatchSchedule(
+            string topologyNodeId,
+            DispatchScheduleDefinition schedule,
+            double[]? arrivals,
+            double[]? served)
+        {
+            if (!string.IsNullOrWhiteSpace(schedule.CapacitySeries) &&
+                !TryGetSeries(schedule.CapacitySeries, out _))
+            {
+                warnings.Add(new InvariantWarning(
+                    topologyNodeId,
+                    "dispatch_capacity_missing",
+                    $"Dispatch schedule references capacity series '{schedule.CapacitySeries}' but it was not produced.",
+                    Array.Empty<int>(),
+                    null,
+                    "warning"));
+            }
+
+            if (served is null)
+            {
+                warnings.Add(new InvariantWarning(
+                    topologyNodeId,
+                    "dispatch_missing_served_series",
+                    "Dispatch schedule configured but served/output series was not available.",
+                    Array.Empty<int>(),
+                    null,
+                    "info"));
+                return;
+            }
+
+            if (arrivals is null)
+            {
+                return;
+            }
+
+            var arrivalTotal = SumFinite(arrivals);
+            if (arrivalTotal <= tolerance)
+            {
+                return;
+            }
+
+            var servedTotal = SumFinite(served);
+            if (servedTotal <= tolerance)
+            {
+                warnings.Add(new InvariantWarning(
+                    topologyNodeId,
+                    "dispatch_never_releases",
+                    "Dispatch schedule never released inventory across the simulated window; check period and phase alignment.",
+                    Array.Empty<int>(),
+                    null,
+                    "info"));
+            }
+        }
+
         static bool IsTerminalEdge(TopologyEdgeDefinition edge) =>
             !string.IsNullOrWhiteSpace(edge.Type) &&
             edge.Type.Trim().Equals("terminal", StringComparison.OrdinalIgnoreCase);
@@ -525,6 +620,219 @@ public static class InvariantAnalyzer
             var trimmed = value.Trim();
             var separatorIndex = trimmed.IndexOf(':');
             return separatorIndex >= 0 ? trimmed[..separatorIndex] : trimmed;
+        }
+
+        static double SumFinite(double[] series)
+        {
+            double total = 0d;
+            foreach (var value in series)
+            {
+                if (!double.IsFinite(value))
+                {
+                    continue;
+                }
+
+                total += Math.Max(0d, value);
+            }
+
+            return total;
+        }
+    }
+
+    private static void AppendRouterDiagnostics(
+        ModelDefinition model,
+        IReadOnlyDictionary<NodeId, double[]> evaluatedSeries,
+        List<InvariantWarning> warnings)
+    {
+        if (model.Nodes == null || model.Nodes.Count == 0)
+        {
+            return;
+        }
+
+        if (!model.Nodes.Any(n => string.Equals(n.Kind, "router", StringComparison.OrdinalIgnoreCase)))
+        {
+            return;
+        }
+
+        if (!TryCreateTimeGrid(model.Grid, out var grid))
+        {
+            return;
+        }
+
+        var classAssignments = ClassAssignmentMapBuilder.Build(model);
+        if (classAssignments.Count == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            _ = ClassContributionBuilder.Build(model, grid, evaluatedSeries, classAssignments, out var routerDiagnostics);
+            foreach (var diagnostic in routerDiagnostics)
+            {
+                warnings.Add(new InvariantWarning(
+                    diagnostic.RouterId,
+                    diagnostic.Code,
+                    diagnostic.Message,
+                    Array.Empty<int>(),
+                    null,
+                    "warning"));
+            }
+        }
+        catch (Exception ex)
+        {
+            warnings.Add(new InvariantWarning(
+                "router_diagnostics",
+                "router_diagnostics_failed",
+                $"Router diagnostics failed: {ex.Message}",
+                Array.Empty<int>(),
+                null,
+                "warning"));
+        }
+    }
+
+    private static void AppendServiceWithBufferClassCoverageWarnings(
+        IReadOnlyDictionary<string, NodeDefinition> nodeDefinitions,
+        ModelDefinition model,
+        IReadOnlyDictionary<NodeId, double[]> evaluatedSeries,
+        List<InvariantWarning> warnings)
+    {
+        if (nodeDefinitions.Count == 0 ||
+            !nodeDefinitions.Values.Any(n => string.Equals(n.Kind, "serviceWithBuffer", StringComparison.OrdinalIgnoreCase)))
+        {
+            return;
+        }
+
+        var classAssignments = ClassAssignmentMapBuilder.Build(model);
+        if (classAssignments.Count == 0)
+        {
+            return;
+        }
+
+        if (!TryCreateTimeGrid(model.Grid, out var grid))
+        {
+            return;
+        }
+
+        try
+        {
+            var contributions = ClassContributionBuilder.Build(model, grid, evaluatedSeries, classAssignments, out _);
+            foreach (var warning in DetectServiceWithBufferClassCoverageGaps(nodeDefinitions, contributions))
+            {
+                warnings.Add(warning);
+            }
+        }
+        catch (Exception ex)
+        {
+            warnings.Add(new InvariantWarning(
+                "serviceWithBuffer",
+                "class_coverage_failed",
+                $"ServiceWithBuffer class coverage diagnostics failed: {ex.Message}",
+                Array.Empty<int>(),
+                null,
+                "warning"));
+        }
+    }
+
+    internal static IReadOnlyList<InvariantWarning> DetectServiceWithBufferClassCoverageGaps(
+        IReadOnlyDictionary<string, NodeDefinition> nodeDefinitions,
+        IReadOnlyDictionary<NodeId, IReadOnlyDictionary<string, double[]>> contributions)
+    {
+        var warnings = new List<InvariantWarning>();
+
+        foreach (var node in nodeDefinitions.Values)
+        {
+            if (!string.Equals(node.Kind, "serviceWithBuffer", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (string.IsNullOrWhiteSpace(node.Inflow))
+            {
+                continue;
+            }
+
+            var inflowClasses = ResolveClasses(contributions, node.Inflow);
+            if (inflowClasses.Count == 0)
+            {
+                continue;
+            }
+
+            CheckTarget(node.Id, "outflow", node.Outflow, inflowClasses, contributions, warnings);
+            CheckTarget(node.Id, "loss", node.Loss, inflowClasses, contributions, warnings);
+        }
+
+        return warnings;
+    }
+
+    private static HashSet<string> ResolveClasses(
+        IReadOnlyDictionary<NodeId, IReadOnlyDictionary<string, double[]>> contributions,
+        string? nodeId)
+    {
+        if (string.IsNullOrWhiteSpace(nodeId))
+        {
+            return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        return contributions.TryGetValue(new NodeId(nodeId), out var series)
+            ? new HashSet<string>(series.Keys, StringComparer.OrdinalIgnoreCase)
+            : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static void CheckTarget(
+        string serviceNodeId,
+        string label,
+        string? targetId,
+        HashSet<string> inflowClasses,
+        IReadOnlyDictionary<NodeId, IReadOnlyDictionary<string, double[]>> contributions,
+        List<InvariantWarning> warnings)
+    {
+        if (string.IsNullOrWhiteSpace(targetId))
+        {
+            return;
+        }
+
+        var targetClasses = ResolveClasses(contributions, targetId);
+
+        void AddWarning(string code, string message)
+        {
+            warnings.Add(new InvariantWarning(serviceNodeId, code, message, Array.Empty<int>(), null, "warning"));
+        }
+
+        if (targetClasses.Count == 0)
+        {
+            AddWarning(
+                $"class_series_missing_{label}",
+                $"Class coverage missing for serviceWithBuffer node '{serviceNodeId}' {label} '{targetId}'. Inflow classes: {string.Join(", ", inflowClasses)}.");
+            return;
+        }
+
+        var missing = inflowClasses.Except(targetClasses, StringComparer.OrdinalIgnoreCase).ToList();
+        if (missing.Count > 0)
+        {
+            AddWarning(
+                $"class_series_partial_{label}",
+                $"Class coverage partial for serviceWithBuffer node '{serviceNodeId}' {label} '{targetId}'. Missing classes: {string.Join(", ", missing)}.");
+        }
+    }
+
+    private static bool TryCreateTimeGrid(GridDefinition? gridDefinition, out TimeGrid grid)
+    {
+        grid = default;
+        if (gridDefinition is null)
+        {
+            return false;
+        }
+
+        try
+        {
+            var unit = TimeUnitExtensions.Parse(gridDefinition.BinUnit ?? "minutes");
+            grid = new TimeGrid(gridDefinition.Bins, gridDefinition.BinSize, unit);
+            return true;
+        }
+        catch
+        {
+            return false;
         }
     }
 

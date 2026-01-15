@@ -58,7 +58,7 @@ public sealed class ArtifactListRenderTests : TestContext
 
         var firstCard = cut.Find("[data-testid='artifact-card']");
         var buttons = firstCard.QuerySelectorAll("button");
-        Assert.Equal(2, buttons.Length);
+        Assert.Equal(3, buttons.Length);
         Assert.All(buttons, b =>
         {
             var className = b.GetAttribute("class") ?? string.Empty;
@@ -170,6 +170,41 @@ public sealed class ArtifactListRenderTests : TestContext
         });
     }
 
+    [Fact]
+    public void RunCardsSurfaceClassCoverage()
+    {
+        navigation.NavigateTo("http://localhost/time-travel/artifacts");
+        var runs = CreateRuns();
+        var classDescriptions = new Dictionary<string, string>
+        {
+            ["order"] = "Order",
+            ["refund"] = "Refund"
+        };
+
+        var enriched = runs[0] with
+        {
+            Classes = new[] { "order", "refund" },
+            ClassCoverage = "full",
+            ClassDescriptions = classDescriptions
+        };
+
+        runDiscovery.SetRuns(new[] { enriched });
+        SetupLocalStorage();
+
+        var cut = RenderArtifactList();
+
+        cut.WaitForAssertion(() =>
+        {
+            var coverage = cut.Find("[data-testid='artifact-class-coverage']");
+            Assert.Contains("Warnings: None", coverage.TextContent, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("Classes: 2", coverage.TextContent, StringComparison.OrdinalIgnoreCase);
+
+            var chips = cut.FindAll("[data-testid='artifact-class-chip']");
+            Assert.Equal(2, chips.Count);
+            Assert.Contains("Order", chips[0].TextContent, StringComparison.OrdinalIgnoreCase);
+        });
+    }
+
     private void SetupLocalStorage()
     {
         JSInterop.Setup<string?>("localStorage.getItem", call =>
@@ -200,6 +235,7 @@ public sealed class ArtifactListRenderTests : TestContext
                 0,
                 new RunTelemetrySummaryDto(true, "2025-01-01T01:00:00Z", 0, null),
                 null,
+                "sha256:run_a",
                 null,
                 Array.Empty<RunWarningInfo>(),
                 new GridSummary(24, 60),
@@ -216,6 +252,7 @@ public sealed class ArtifactListRenderTests : TestContext
                 2,
                 new RunTelemetrySummaryDto(false, null, 2, null),
                 null,
+                "sha256:run_b",
                 "Two warnings",
                 new[] { new RunWarningInfo("W1", "Warning", "warning", null) },
                 new GridSummary(12, 30),
@@ -232,6 +269,7 @@ public sealed class ArtifactListRenderTests : TestContext
                 0,
                 new RunTelemetrySummaryDto(false, null, 0, null),
                 null,
+                "sha256:run_c",
                 null,
                 Array.Empty<RunWarningInfo>(),
                 new GridSummary(48, 15),
@@ -249,12 +287,14 @@ public sealed class ArtifactListRenderTests : TestContext
                 run.RunId,
                 run.TemplateId,
                 run.TemplateTitle,
+                null,
                 run.TemplateVersion,
                 run.Source,
                 "hash",
                 true,
                 new SchemaMetadataDto("schema", "1", "hash"),
                 new StorageDescriptorDto("manifest.json", "model.csv", "series"),
+                run.InputHash,
                 new RunRngOptionsDto("xorshift", 42)),
             null,
             run.WarningCount > 0
@@ -315,8 +355,6 @@ public sealed class ArtifactListRenderTests : TestContext
         public Task<ApiCallResult<TelemetryCaptureResponseDto>> GenerateTelemetryCaptureAsync(TelemetryCaptureRequestDto request, CancellationToken ct = default)
             => Task.FromResult(ApiCallResult<TelemetryCaptureResponseDto>.Fail(400, "not implemented"));
 
-        public Task<ApiCallResult<RunCreateResponseDto>> CreateRunAsync(RunCreateRequestDto request, CancellationToken ct = default)
-            => Task.FromResult(ApiCallResult<RunCreateResponseDto>.Fail(400, "not implemented"));
 
         public Task<ApiCallResult<Stream>> GetRunSeriesAsync(string runId, string seriesId, CancellationToken ct = default)
             => Task.FromResult(ApiCallResult<Stream>.Fail(404, "not implemented"));
@@ -354,6 +392,8 @@ public sealed class ArtifactListRenderTests : TestContext
         public Task<ApiCallResult<BulkArtifactDeleteResponse>> BulkDeleteArtifactsAsync(string[] artifactIds, CancellationToken ct = default) =>
             Task.FromResult(ApiCallResult<BulkArtifactDeleteResponse>.Fail(501, "not implemented"));
 
+        public Task<ApiCallResult<TemplateRefreshResponse>> RefreshTemplateCacheAsync(CancellationToken ct = default) =>
+            Task.FromResult(ApiCallResult<TemplateRefreshResponse>.Ok(new TemplateRefreshResponse("refreshed", 0), 200));
     }
 
     private sealed class StubNotificationService : INotificationService

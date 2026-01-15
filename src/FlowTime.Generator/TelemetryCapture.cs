@@ -123,7 +123,8 @@ public sealed class TelemetryCapture
             var targetPath = Path.Combine(outputDirectory, item.Binding.TargetFileName);
             var formattedSeries = item.Series;
 
-            await WriteTelemetryCsvAsync(targetPath, formattedSeries, cancellationToken).ConfigureAwait(false);
+            var classId = string.IsNullOrWhiteSpace(item.Binding.ClassId) ? "DEFAULT" : item.Binding.ClassId;
+            await WriteTelemetryCsvAsync(targetPath, formattedSeries, classId, cancellationToken).ConfigureAwait(false);
             var hash = await ComputeSha256Async(targetPath, cancellationToken).ConfigureAwait(false);
 
             manifestFiles.Add(new TelemetryManifestFile(
@@ -131,11 +132,36 @@ public sealed class TelemetryCapture
                 Metric: item.Binding.Metric,
                 Path: item.Binding.TargetFileName.Replace(Path.DirectorySeparatorChar, '/'),
                 Hash: hash,
-                Points: item.Binding.Points));
+                Points: item.Binding.Points,
+                ClassId: classId));
         }
 
+        var declaredClasses = context.Model.Classes?.Select(c => c.Id).Where(id => !string.IsNullOrWhiteSpace(id)).ToHashSet(StringComparer.OrdinalIgnoreCase)
+            ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var capturedClasses = manifestFiles
+            .Select(f => f.ClassId)
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Select(id => id!)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var classId in capturedClasses)
+        {
+            declaredClasses.Add(classId);
+        }
+
+        var classes = declaredClasses.ToArray();
+        var hasNonDefault = capturedClasses.Any(c => !string.Equals(c, "DEFAULT", StringComparison.OrdinalIgnoreCase));
+        var classCoverage = classes.Length == 0
+            ? "missing"
+            : hasNonDefault ? "full" : "partial";
+        var supportsClassMetrics = hasNonDefault;
+        IReadOnlyList<string>? manifestClasses = supportsClassMetrics
+            ? classes.Where(c => !string.Equals(c, "DEFAULT", StringComparison.OrdinalIgnoreCase)).ToArray()
+            : null;
+        var manifestCoverage = supportsClassMetrics ? classCoverage : null;
+
         var manifest = new TelemetryManifest(
-            SchemaVersion: 1,
+            SchemaVersion: 2,
             Window: BuildWindow(context.Model),
             Grid: new TelemetryManifestGrid(
                 context.SeriesIndex.Grid.Bins,
@@ -147,7 +173,10 @@ public sealed class TelemetryCapture
                 context.Manifest.RunId,
                 context.Manifest.ScenarioHash,
                 context.Manifest.ModelHash,
-                CapturedAtUtc: DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture)));
+                CapturedAtUtc: DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture)),
+            SupportsClassMetrics: supportsClassMetrics,
+            Classes: manifestClasses,
+            ClassCoverage: manifestCoverage);
 
         var manifestPath = Path.Combine(outputDirectory, "manifest.json");
         await CaptureManifestWriter.WriteAsync(manifestPath, manifest, cancellationToken).ConfigureAwait(false);
@@ -257,7 +286,7 @@ public sealed class TelemetryCapture
         return (values.ToArray(), warnings);
     }
 
-    private static async Task WriteTelemetryCsvAsync(string targetPath, IReadOnlyList<double?> series, CancellationToken cancellationToken)
+    private static async Task WriteTelemetryCsvAsync(string targetPath, IReadOnlyList<double?> series, string classId, CancellationToken cancellationToken)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
 
@@ -267,14 +296,14 @@ public sealed class TelemetryCapture
             NewLine = "\n"
         };
 
-        await writer.WriteLineAsync("bin_index,value").ConfigureAwait(false);
+        await writer.WriteLineAsync("bin_index,classId,value").ConfigureAwait(false);
         for (var i = 0; i < series.Count; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
             var value = series[i];
             var formatted = FormatValue(value);
-            await writer.WriteLineAsync(FormattableString.Invariant($"{i},{formatted}")).ConfigureAwait(false);
+            await writer.WriteLineAsync(FormattableString.Invariant($"{i},{classId},{formatted}")).ConfigureAwait(false);
         }
     }
 

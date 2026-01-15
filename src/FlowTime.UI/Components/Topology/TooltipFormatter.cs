@@ -47,62 +47,72 @@ internal static class TooltipFormatter
         else
         {
             lines.Add($"Kind: {decoratedKind}");
-            if (metrics.CustomValue.HasValue && !string.Equals(metrics.CustomLabel, "bin(t)", StringComparison.Ordinal))
-            {
-                var label = string.IsNullOrWhiteSpace(metrics.CustomLabel) ? "Value" : metrics.CustomLabel!;
-                lines.Add($"{label} {metrics.CustomValue.Value.ToString("0.###", CultureInfo.InvariantCulture)}");
-            }
-            else if (!string.IsNullOrWhiteSpace(metrics.CustomLabel) && !string.Equals(metrics.CustomLabel, "bin(t)", StringComparison.Ordinal))
-            {
-                lines.Add(metrics.CustomLabel!);
-            }
 
-            if (metrics.SuccessRate is double successRate)
+            var nodeKind = metrics.NodeKind;
+            if (IsSinkKind(nodeKind))
             {
-                lines.Add($"SLA {successRate * 100:F1}%");
-            }
+                var scheduleLabel = metrics.SuccessRate.HasValue
+                    ? $"{metrics.SuccessRate.Value * 100:F1}%"
+                    : "-";
+                lines.Add($"Schedule SLA {scheduleLabel}");
 
-            if (metrics.Utilization is double utilization)
-            {
-                var rounded = Math.Round(utilization * 100, MidpointRounding.AwayFromZero);
-                lines.Add($"Utilization {rounded:0}%");
+                lines.Add($"Errors {FormatPercent(metrics.ErrorRate)}");
+                lines.Add($"Flow latency {FormatLatency(metrics.FlowLatencyMs ?? TryGetRawMetric(metrics.RawMetrics, "flowLatencyMs"))}");
             }
-
-            if (metrics.ErrorRate is double errorRate)
+            else if (IsServiceWithBufferKind(nodeKind))
             {
-                lines.Add($"Errors {errorRate * 100:F1}%");
+                lines.Add($"SLA {FormatPercent(metrics.SuccessRate)}");
+                lines.Add($"Utilization {FormatPercentRounded(metrics.Utilization)}");
+                lines.Add($"Errors {FormatPercent(metrics.ErrorRate)}");
+                lines.Add($"Queue {FormatNumber(metrics.QueueDepth)}");
+                lines.Add($"Service time {FormatServiceTime(metrics.ServiceTimeMs)}");
+                lines.Add($"Queue latency {FormatMinutes(metrics.LatencyMinutes)}");
+                lines.Add($"Flow latency {FormatLatency(metrics.FlowLatencyMs)}");
             }
-
-            if (metrics.QueueDepth is double queueDepth)
+            else if (IsQueueKind(nodeKind))
             {
-                lines.Add($"Queue {Math.Round(queueDepth, MidpointRounding.AwayFromZero):0}");
+                lines.Add($"SLA {FormatPercent(metrics.SuccessRate)}");
+                lines.Add($"Errors {FormatPercent(metrics.ErrorRate)}");
+                lines.Add($"Queue {FormatNumber(metrics.QueueDepth)}");
+                lines.Add($"Queue latency {FormatMinutes(metrics.LatencyMinutes)}");
+                lines.Add($"Flow latency {FormatLatency(metrics.FlowLatencyMs)}");
             }
-
-            if (metrics.ServiceTimeMs is double serviceTime)
+            else if (IsServiceKind(nodeKind))
             {
-                lines.Add($"Service time {serviceTime.ToString(serviceTime >= 1000 ? "0" : "0.0", CultureInfo.InvariantCulture)} ms");
+                lines.Add($"SLA {FormatPercent(metrics.SuccessRate)}");
+                lines.Add($"Utilization {FormatPercentRounded(metrics.Utilization)}");
+                lines.Add($"Errors {FormatPercent(metrics.ErrorRate)}");
+                lines.Add($"Service time {FormatServiceTime(metrics.ServiceTimeMs)}");
+                lines.Add($"Flow latency {FormatLatency(metrics.FlowLatencyMs)}");
             }
-
-            if (metrics.FlowLatencyMs is double flowLatency)
+            else if (IsRouterKind(nodeKind))
             {
-                if (flowLatency >= 10_000) // beyond 10s, show minutes
+                lines.Add($"SLA {FormatPercent(metrics.SuccessRate)}");
+                lines.Add($"Errors {FormatPercent(metrics.ErrorRate)}");
+                lines.Add($"Flow latency {FormatLatency(metrics.FlowLatencyMs)}");
+            }
+            else
+            {
+                if (!string.Equals(metrics.CustomLabel, "bin(t)", StringComparison.Ordinal))
                 {
-                    var minutes = flowLatency / 1000d / 60d;
-                    lines.Add($"Flow latency {minutes.ToString("0.0", CultureInfo.InvariantCulture)} min");
+                    var label = string.IsNullOrWhiteSpace(metrics.CustomLabel) ? "Value" : metrics.CustomLabel!;
+                    if (metrics.CustomValue.HasValue)
+                    {
+                        lines.Add($"{label} {metrics.CustomValue.Value.ToString("0.###", CultureInfo.InvariantCulture)}");
+                    }
+                    else if (!string.IsNullOrWhiteSpace(metrics.CustomLabel))
+                    {
+                        lines.Add($"{label} -");
+                    }
                 }
-                else if (flowLatency >= 1000)
-                {
-                    lines.Add($"Flow latency {flowLatency.ToString("0", CultureInfo.InvariantCulture)} ms");
-                }
-                else
-                {
-                    lines.Add($"Flow latency {flowLatency.ToString("0.0", CultureInfo.InvariantCulture)} ms");
-                }
-            }
 
-            if (metrics.LatencyMinutes is double latencyMinutes)
-            {
-                lines.Add($"Latency {latencyMinutes:F1} min");
+                lines.Add($"SLA {FormatPercent(metrics.SuccessRate)}");
+                lines.Add($"Utilization {FormatPercentRounded(metrics.Utilization)}");
+                lines.Add($"Errors {FormatPercent(metrics.ErrorRate)}");
+                lines.Add($"Queue {FormatNumber(metrics.QueueDepth)}");
+                lines.Add($"Service time {FormatServiceTime(metrics.ServiceTimeMs)}");
+                lines.Add($"Flow latency {FormatLatency(metrics.FlowLatencyMs)}");
+                lines.Add($"Latency {FormatMinutes(metrics.LatencyMinutes)}");
             }
         }
 
@@ -157,6 +167,100 @@ internal static class TooltipFormatter
 
         var formatted = value.Value.ToString(Math.Abs(value.Value) >= 100 ? "0" : "0.###", CultureInfo.InvariantCulture);
         lines.Add($"{label} {formatted}");
+    }
+
+    private static bool IsSinkKind(string? kind)
+    {
+        return string.Equals(kind, "sink", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsQueueKind(string? kind)
+    {
+        return string.Equals(kind, "queue", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(kind, "dlq", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsServiceWithBufferKind(string? kind)
+    {
+        return string.Equals(kind, "servicewithbuffer", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsServiceKind(string? kind)
+    {
+        return string.Equals(kind, "service", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsRouterKind(string? kind)
+    {
+        return string.Equals(kind, "router", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string FormatLatency(double? latencyMs)
+    {
+        if (!latencyMs.HasValue)
+        {
+            return "-";
+        }
+
+        var flowLatency = latencyMs.Value;
+        if (flowLatency >= 10_000) // beyond 10s, show minutes
+        {
+            var minutes = flowLatency / 1000d / 60d;
+            return $"{minutes.ToString("0.0", CultureInfo.InvariantCulture)} min";
+        }
+
+        if (flowLatency >= 1000)
+        {
+            return $"{flowLatency.ToString("0", CultureInfo.InvariantCulture)} ms";
+        }
+
+        return $"{flowLatency.ToString("0.0", CultureInfo.InvariantCulture)} ms";
+    }
+
+    private static string FormatPercent(double? value)
+    {
+        return value.HasValue ? $"{value.Value * 100:F1}%" : "-";
+    }
+
+    private static string FormatPercentRounded(double? value)
+    {
+        return value.HasValue
+            ? $"{Math.Round(value.Value * 100, MidpointRounding.AwayFromZero):0}%"
+            : "-";
+    }
+
+    private static string FormatNumber(double? value)
+    {
+        return value.HasValue
+            ? $"{Math.Round(value.Value, MidpointRounding.AwayFromZero):0}"
+            : "-";
+    }
+
+    private static string FormatMinutes(double? value)
+    {
+        return value.HasValue
+            ? $"{value.Value:F1} min"
+            : "-";
+    }
+
+    private static string FormatServiceTime(double? value)
+    {
+        if (!value.HasValue)
+        {
+            return "-";
+        }
+
+        return $"{value.Value.ToString(value.Value >= 1000 ? "0" : "0.0", CultureInfo.InvariantCulture)} ms";
+    }
+
+    private static double? TryGetRawMetric(IReadOnlyDictionary<string, double?>? rawMetrics, string key)
+    {
+        if (rawMetrics is null || string.IsNullOrWhiteSpace(key))
+        {
+            return null;
+        }
+
+        return rawMetrics.TryGetValue(key, out var value) ? value : null;
     }
 }
 

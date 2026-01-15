@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using FlowTime.Sim.Core.Templates.Exceptions;
 
 namespace FlowTime.Sim.Core.Templates;
 
@@ -25,6 +26,8 @@ internal static class SimModelBuilder
             Window = CloneWindow(template.Window),
             Grid = CloneGrid(template.Grid),
             Topology = CloneTopology(template.Topology),
+            Classes = CloneClasses(template.Classes),
+            Traffic = CloneTraffic(template.Traffic, template.Classes),
             Nodes = BuildNodes(template),
             Outputs = BuildOutputs(template.Outputs)
         };
@@ -44,6 +47,7 @@ internal static class SimModelBuilder
             Id = metadata.Id,
             Title = metadata.Title,
             Description = metadata.Description,
+            Narrative = metadata.Narrative,
             Version = metadata.Version,
             Tags = new List<string>(metadata.Tags),
             CaptureKey = metadata.CaptureKey
@@ -84,10 +88,12 @@ internal static class SimModelBuilder
             {
                 Id = node.Id,
                 Kind = node.Kind,
+                NodeRole = node.NodeRole,
                 Group = node.Group,
                 Semantics = node.Semantics == null ? new TemplateNodeSemantics() : CloneSemantics(node.Semantics),
                 InitialCondition = node.InitialCondition == null ? null : new TemplateInitialCondition { QueueDepth = node.InitialCondition.QueueDepth },
-                Ui = node.Ui == null ? null : new TemplateUiHint { X = node.Ui.X, Y = node.Ui.Y }
+                Ui = node.Ui == null ? null : new TemplateUiHint { X = node.Ui.X, Y = node.Ui.Y },
+                DispatchSchedule = CloneDispatchSchedule(node.DispatchSchedule)
             });
         }
 
@@ -107,6 +113,52 @@ internal static class SimModelBuilder
         }
 
         return clone;
+    }
+
+    private static List<TemplateClass> CloneClasses(List<TemplateClass> classes) =>
+        classes?.Select(c => new TemplateClass
+        {
+            Id = c.Id,
+            DisplayName = c.DisplayName,
+            Description = c.Description
+        }).ToList() ?? new List<TemplateClass>();
+
+    private static SimTraffic? CloneTraffic(TemplateTraffic? traffic, List<TemplateClass> classes)
+    {
+        if (traffic?.Arrivals == null || traffic.Arrivals.Count == 0)
+        {
+            return null;
+        }
+
+        var declaredClasses = new HashSet<string>(classes.Select(c => c.Id), StringComparer.Ordinal);
+        var arrivals = new List<SimArrival>();
+
+        foreach (var arrival in traffic.Arrivals)
+        {
+            var classId = arrival.ClassId;
+            if (string.IsNullOrWhiteSpace(classId))
+            {
+                classId = declaredClasses.Count > 0 ? throw new TemplateValidationException($"Arrival targeting '{arrival.NodeId}' must declare classId because classes are defined.") : "*";
+            }
+            else if (declaredClasses.Count > 0 && !declaredClasses.Contains(classId))
+            {
+                throw new TemplateValidationException($"Class '{classId}' referenced by arrivals is not declared under classes.");
+            }
+
+            arrivals.Add(new SimArrival
+            {
+                NodeId = arrival.NodeId,
+                ClassId = classId,
+                Pattern = new SimArrivalPattern
+                {
+                    Kind = arrival.Pattern?.Kind ?? string.Empty,
+                    RatePerBin = arrival.Pattern?.RatePerBin,
+                    Rate = arrival.Pattern?.Rate
+                }
+            });
+        }
+
+        return new SimTraffic { Arrivals = arrivals };
     }
 
     private static TemplateNodeSemantics CloneSemantics(TemplateNodeSemantics semantics)
@@ -178,6 +230,9 @@ internal static class SimModelBuilder
             values[i] = expectedValue * resolution.Weights[i];
         }
 
+        var profileMetadata = BuildProfileMetadata(node, resolution, expectedValue);
+        var mergedMetadata = MergeMetadata(CloneMetadata(node.Metadata), profileMetadata);
+
         return new SimNode
         {
             Id = node.Id,
@@ -191,7 +246,7 @@ internal static class SimModelBuilder
                     Values = node.Pmf.Values?.ToArray() ?? Array.Empty<double>(),
                     Probabilities = node.Pmf.Probabilities?.ToArray() ?? Array.Empty<double>()
                 },
-            Metadata = BuildProfileMetadata(node, resolution, expectedValue)
+            Metadata = mergedMetadata
         };
     }
 
@@ -222,13 +277,45 @@ internal static class SimModelBuilder
         return metadata;
     }
 
+    private static Dictionary<string, string>? CloneMetadata(Dictionary<string, string>? metadata)
+    {
+        if (metadata is null || metadata.Count == 0)
+        {
+            return null;
+        }
+
+        return new Dictionary<string, string>(metadata, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static Dictionary<string, string>? MergeMetadata(Dictionary<string, string>? primary, Dictionary<string, string>? secondary)
+    {
+        if ((primary == null || primary.Count == 0) && (secondary == null || secondary.Count == 0))
+        {
+            return null;
+        }
+
+        var merged = primary != null
+            ? new Dictionary<string, string>(primary, StringComparer.OrdinalIgnoreCase)
+            : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        if (secondary != null)
+        {
+            foreach (var (key, value) in secondary)
+            {
+                merged[key] = value;
+            }
+        }
+
+        return merged;
+    }
+
     private static SimNode BuildDefaultNode(TemplateNode node)
     {
         var kind = node.Kind?.Trim().ToLowerInvariant();
         return new SimNode
         {
             Id = node.Id,
-            Kind = node.Kind,
+            Kind = node.Kind ?? string.Empty,
             Values = kind switch
             {
                 "pmf" => null,
@@ -245,9 +332,13 @@ internal static class SimModelBuilder
                     Probabilities = node.Pmf.Probabilities?.ToArray() ?? Array.Empty<double>()
                 },
             Initial = node.Initial,
-            Inflow = kind == "backlog" ? node.Inflow : null,
-            Outflow = kind == "backlog" ? node.Outflow : null,
-            Loss = kind == "backlog" ? node.Loss : null
+            Inflow = kind == "servicewithbuffer" ? node.Inflow : null,
+            Outflow = kind == "servicewithbuffer" ? node.Outflow : null,
+            Loss = kind == "servicewithbuffer" ? node.Loss : null,
+            Metadata = CloneMetadata(node.Metadata),
+            Inputs = kind == "router" ? CloneInputs(node.Inputs) : null,
+            Routes = kind == "router" ? CloneRoutes(node.Routes) : null,
+            DispatchSchedule = kind == "servicewithbuffer" ? CloneDispatchSchedule(node.DispatchSchedule) : null
         };
     }
 
@@ -259,6 +350,45 @@ internal static class SimModelBuilder
             Exclude = output.Exclude == null ? null : new List<string>(output.Exclude),
             As = output.As
         }).ToList();
+    }
+
+    private static TemplateRouterInputs? CloneInputs(TemplateRouterInputs? inputs)
+    {
+        if (inputs is null)
+        {
+            return null;
+        }
+
+        return new TemplateRouterInputs
+        {
+            Queue = inputs.Queue
+        };
+    }
+
+    private static List<TemplateRouterRoute>? CloneRoutes(List<TemplateRouterRoute>? routes)
+    {
+        return routes?.Select(route => new TemplateRouterRoute
+        {
+            Target = route.Target,
+            Classes = route.Classes?.ToArray(),
+            Weight = route.Weight
+        }).ToList();
+    }
+
+    private static TemplateDispatchSchedule? CloneDispatchSchedule(TemplateDispatchSchedule? schedule)
+    {
+        if (schedule is null)
+        {
+            return null;
+        }
+
+        return new TemplateDispatchSchedule
+        {
+            Kind = schedule.Kind,
+            PeriodBins = schedule.PeriodBins,
+            PhaseOffset = schedule.PhaseOffset,
+            CapacitySeries = schedule.CapacitySeries
+        };
     }
 
     private static SimProvenance BuildProvenance(Template template, Dictionary<string, object?> parameterValues, string substitutedYaml)

@@ -76,7 +76,10 @@ internal static class TelemetryCaptureEndpoints
             AlreadyExists = result.AlreadyExists,
             GeneratedAtUtc = result.GeneratedAtUtc,
             SourceRunId = result.SourceRunId,
-            Warnings = warnings
+            Warnings = warnings,
+            SupportsClassMetrics = result.ManifestSummary.SupportsClassMetrics,
+            ClassCoverage = result.ManifestSummary.ClassCoverage,
+            Classes = result.ManifestSummary.Classes
         };
     }
 

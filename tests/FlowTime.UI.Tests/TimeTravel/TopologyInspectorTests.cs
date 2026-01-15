@@ -53,12 +53,251 @@ public sealed class TopologyInspectorTests
     }
 
     [Fact]
+    public void Inspector_ShowsBacklogWarnings()
+    {
+        var topology = new Topology();
+        var warnings = new[]
+        {
+            new TimeTravelStateWarningDto
+            {
+                Code = "backlog_growth",
+                Severity = "warning",
+                NodeId = "svc-a",
+                Message = "Queue depth increased for 4 bins.",
+                StartBin = 2,
+                EndBin = 5,
+                Signal = "1.4"
+            },
+            new TimeTravelStateWarningDto
+            {
+                Code = "queue_latency_gate_closed",
+                Severity = "info",
+                NodeId = "svc-a",
+                Message = "Gate closed."
+            },
+            new TimeTravelStateWarningDto
+            {
+                Code = "backlog_overload",
+                Severity = "warning",
+                NodeId = "svc-b",
+                Message = "Arrivals exceeded capacity."
+            }
+        };
+
+        topology.TestSetWindowWarnings(warnings);
+
+        var inspectorWarnings = topology.TestGetInspectorWarnings("svc-a");
+
+        Assert.Single(inspectorWarnings);
+        var warning = inspectorWarnings[0];
+        Assert.Equal("backlog_growth", warning.Code);
+        Assert.Equal("svc-a", warning.NodeId);
+        Assert.Equal("Queue depth increased for 4 bins.", warning.Message);
+        Assert.Equal(2, warning.StartBin);
+        Assert.Equal(5, warning.EndBin);
+        Assert.Equal("1.4", warning.Signal);
+    }
+
+    [Fact]
+    public void Topology_ShowsSinkBadge_WhenNodeRoleSink()
+    {
+        var topology = new Topology();
+        var nodes = new[]
+        {
+            new TopologyNode(
+                "terminal-1", "serviceWithBuffer", "serviceWithBuffer", Array.Empty<string>(),
+                Array.Empty<string>(),
+                0,
+                0,
+                0,
+                0,
+                false,
+                EmptySemantics(),
+                NodeRole: "sink"),
+            new TopologyNode(
+                "svc", "service", "service", Array.Empty<string>(),
+                Array.Empty<string>(),
+                0,
+                1,
+                0,
+                0,
+                false,
+                EmptySemantics())
+        };
+
+        topology.TestSetTopologyGraph(new TopologyGraph(nodes, Array.Empty<TopologyEdge>()));
+
+        Assert.Equal("Terminal", topology.TestResolveNodeRoleLabel("terminal-1"));
+        Assert.Null(topology.TestResolveNodeRoleLabel("svc"));
+    }
+
+    [Fact]
+    public void Topology_ShowsSinkBadge_WhenKindSink()
+    {
+        var topology = new Topology();
+        var nodes = new[]
+        {
+            new TopologyNode(
+                "terminal-2", "sink", "sink", Array.Empty<string>(),
+                Array.Empty<string>(),
+                0,
+                0,
+                0,
+                0,
+                false,
+                EmptySemantics())
+        };
+
+        topology.TestSetTopologyGraph(new TopologyGraph(nodes, Array.Empty<TopologyEdge>()));
+
+        Assert.Equal("Terminal", topology.TestResolveNodeRoleLabel("terminal-2"));
+    }
+
+    [Fact]
+    public void BuildInspectorMetrics_SinkNode_SuppressesUtilizationAndErrorRateWhenMissing()
+    {
+        var topology = new Topology();
+        topology.TestSetTopologyGraph(new TopologyGraph(
+            new[]
+            {
+                new TopologyNode("sink-node", "service", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics(), NodeRole: "sink")
+            },
+            Array.Empty<TopologyEdge>()));
+
+        var sparkline = CreateSparkline(new Dictionary<string, double?[]>
+        {
+            ["successRate"] = new double?[] { 0.8, 0.9 },
+            ["served"] = new double?[] { 10, 11 },
+            ["serviceTimeMs"] = new double?[] { 120, 130 },
+            ["flowLatencyMs"] = new double?[] { 300, 310 }
+        });
+
+        topology.TestSetNodeSparklines(new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["sink-node"] = sparkline
+        });
+
+        var metrics = topology.TestBuildInspectorMetrics("sink-node");
+
+        Assert.DoesNotContain(metrics, block => block.Title == "Utilization");
+        Assert.DoesNotContain(metrics, block => block.Title == "Error rate");
+    }
+
+    [Fact]
+    public void BuildInspectorMetrics_SinkNode_IncludesUtilizationAndErrorRateWhenPresent()
+    {
+        var topology = new Topology();
+        topology.TestSetTopologyGraph(new TopologyGraph(
+            new[]
+            {
+                new TopologyNode("sink-node", "service", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics(), NodeRole: "sink")
+            },
+            Array.Empty<TopologyEdge>()));
+
+        var sparkline = CreateSparkline(new Dictionary<string, double?[]>
+        {
+            ["successRate"] = new double?[] { 0.9, 0.95 },
+            ["served"] = new double?[] { 10, 11 },
+            ["utilization"] = new double?[] { 0.4, 0.5 },
+            ["serviceTimeMs"] = new double?[] { 120, 130 },
+            ["flowLatencyMs"] = new double?[] { 300, 310 },
+            ["errorRate"] = new double?[] { 0.05, 0.02 }
+        });
+
+        topology.TestSetNodeSparklines(new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["sink-node"] = sparkline
+        });
+
+        var metrics = topology.TestBuildInspectorMetrics("sink-node");
+
+        Assert.Contains(metrics, block => block.Title == "Utilization");
+        Assert.Contains(metrics, block => block.Title == "Error rate");
+    }
+
+    [Fact]
+    public void BinDump_UsesClassSelectionAndUnfilteredSeries()
+    {
+        var topology = new Topology();
+        topology.TestSetTopologyGraph(new TopologyGraph(
+            new[]
+            {
+                new TopologyNode("queue", "serviceWithBuffer", "serviceWithBuffer", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
+            },
+            Array.Empty<TopologyEdge>()));
+
+        var window = new TimeTravelStateWindowDto
+        {
+            Metadata = new TimeTravelStateMetadataDto
+            {
+                RunId = "run-id",
+                TemplateId = "template-id",
+                Mode = "simulation",
+                Schema = new TimeTravelSchemaMetadataDto
+                {
+                    Id = "time-travel/v1",
+                    Version = "1",
+                    Hash = "hash"
+                },
+                Storage = new TimeTravelStorageDescriptorDto()
+            },
+            Window = new TimeTravelWindowSliceDto
+            {
+                StartBin = 0,
+                EndBin = 1,
+                BinCount = 2
+            },
+            TimestampsUtc = new[]
+            {
+                DateTimeOffset.UtcNow,
+                DateTimeOffset.UtcNow.AddMinutes(5)
+            },
+            Nodes = new[]
+            {
+                new TimeTravelNodeSeriesDto
+                {
+                    Id = "queue",
+                    Kind = "serviceWithBuffer",
+                    Series = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["arrivals"] = new double?[] { 10, 20 },
+                        ["served"] = new double?[] { 5, 8 },
+                        ["queue"] = new double?[] { 3, 4 }
+                    },
+                    ByClass = new Dictionary<string, IReadOnlyDictionary<string, double?[]>>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["Downtown"] = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase)
+                        {
+                            ["arrivals"] = new double?[] { 2, 4 },
+                            ["served"] = new double?[] { 1, 2 },
+                            ["queue"] = new double?[] { 1, 1 }
+                        }
+                    }
+                }
+            }
+        };
+
+        topology.TestSetWindowData(window);
+        topology.TestSetClassSelection(new[] { "Downtown" });
+        topology.TestUpdateActiveMetrics(1);
+
+        var dump = topology.TestBuildBinDump("queue");
+
+        Assert.NotNull(dump);
+        Assert.Equal(1, dump!.SelectedBin);
+        Assert.Equal(2d, dump.SelectedSeries["served"]);
+        Assert.Equal(8d, dump.UnfilteredSeries["served"]);
+        Assert.Equal(1d, dump.SelectedSeries["queue"]);
+        Assert.Equal(4d, dump.UnfilteredSeries["queue"]);
+    }
+
+    [Fact]
     public void ComputedNodeWithoutSuccessSeries_ShowsOnlyOutput()
     {
         var topology = new Topology();
 
         topology.TestSetTopologyGraph(new TopologyGraph(
-            new[] { new TopologyNode("expr-1", "expr", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics()) },
+            new[] { new TopologyNode("expr-1", "expr", "expr", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics()) },
             Array.Empty<TopologyEdge>()));
 
         var sparkline = CreateSparkline(new Dictionary<string, double?[]>
@@ -83,7 +322,7 @@ public sealed class TopologyInspectorTests
         var topology = new Topology();
 
         topology.TestSetTopologyGraph(new TopologyGraph(
-            new[] { new TopologyNode("expr-2", "expr", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics()) },
+            new[] { new TopologyNode("expr-2", "expr", "expr", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics()) },
             Array.Empty<TopologyEdge>()));
 
         var sparkline = CreateSparkline(new Dictionary<string, double?[]>
@@ -106,13 +345,105 @@ public sealed class TopologyInspectorTests
     }
 
     [Fact]
+    public void BuildNodeSparklines_UsesSuccessRateSeries()
+    {
+        var topology = new Topology();
+
+        topology.TestSetTopologyGraph(new TopologyGraph(
+            new[]
+            {
+                new TopologyNode("svc", "service", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
+            },
+            Array.Empty<TopologyEdge>()));
+
+        var window = new TimeTravelStateWindowDto
+        {
+            Metadata = new TimeTravelStateMetadataDto
+            {
+                RunId = "run-id",
+                TemplateId = "template-id",
+                Mode = "simulation",
+                TelemetrySourcesResolved = true,
+                Schema = new TimeTravelSchemaMetadataDto
+                {
+                    Id = "time-travel/v1",
+                    Version = "1",
+                    Hash = "hash"
+                },
+                Storage = new TimeTravelStorageDescriptorDto()
+            },
+            Window = new TimeTravelWindowSliceDto
+            {
+                StartBin = 0,
+                EndBin = 2,
+                BinCount = 3
+            },
+            TimestampsUtc = new[]
+            {
+                DateTimeOffset.UtcNow,
+                DateTimeOffset.UtcNow.AddMinutes(5),
+                DateTimeOffset.UtcNow.AddMinutes(10)
+            },
+            Nodes = new[]
+            {
+                new TimeTravelNodeSeriesDto
+                {
+                    Id = "svc",
+                    Kind = "service",
+                    Series = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["throughputRatio"] = new double?[] { 0.6, 0.8, 1.0 },
+                        ["arrivals"] = new double?[] { 100, 120, 140 },
+                        ["served"] = new double?[] { 60, 96, 140 }
+                    }
+                }
+            }
+        };
+
+        topology.TestSetWindowData(window);
+        topology.TestBuildNodeSparklines(anchorBin: 2);
+
+        var sparklines = topology.TestGetNodeSparklines();
+        var sparkline = Assert.Single(sparklines).Value;
+        Assert.True(sparkline.Series.TryGetValue("successRate", out var slice));
+        Assert.NotNull(slice);
+        var nonNullValues = slice!.Values.Where(v => v.HasValue).Select(v => v!.Value).ToArray();
+        Assert.Equal(new[] { 0.6, 0.8, 1.0 }, nonNullValues);
+    }
+
+    [Fact]
+    public void BuildNodeSparklines_ComputesServiceWithBufferDerivedSeries()
+    {
+        var topology = new Topology();
+
+        var node = new TimeTravelNodeSeriesDto
+        {
+            Id = "svc-buffer",
+            Kind = "serviceWithBuffer",
+            Series = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["served"] = new double?[] { 10, 18, 24 },
+                ["capacity"] = new double?[] { 20, 18, 24 },
+                ["processingTimeMsSum"] = new double?[] { 1000, 1800, 2400 },
+                ["servedCount"] = new double?[] { 10, 18, 24 }
+            }
+        };
+
+        var derivedUtilization = topology.TestBuildUtilizationSeries(node);
+        Assert.Equal(new double?[] { 0.5, 1d, 1d }, derivedUtilization);
+
+        var derivedServiceTime = topology.TestBuildServiceTimeSeries(node);
+        Assert.Equal(new double?[] { 100d, 100d, 100d }, derivedServiceTime);
+    }
+
+    [Fact]
     public void BuildInspectorMetrics_ServiceNode_ReturnsExpectedStack()
     {
         var topology = new Topology();
         topology.TestSetTopologyGraph(new TopologyGraph(
             new[]
             {
-                new TopologyNode("svc", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
+                new TopologyNode("svc", "service", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
             },
             Array.Empty<TopologyEdge>()));
 
@@ -199,6 +530,37 @@ public sealed class TopologyInspectorTests
     }
 
     [Fact]
+    public void BuildInspectorMetrics_QueueDepthUsesQueueBasisColor()
+    {
+        var topology = new Topology();
+        topology.TestSetOverlaySettings(new TopologyOverlaySettings
+        {
+            ColorBasis = TopologyColorBasis.Utilization
+        });
+
+        topology.TestSetTopologyGraph(new TopologyGraph(
+            new[]
+            {
+                new TopologyNode("queue-node", "queue", "queue", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
+            },
+            Array.Empty<TopologyEdge>()));
+
+        var queueSparkline = CreateSparkline(new Dictionary<string, double?[]>
+        {
+            ["queue"] = new double?[] { 0.9, 0.9, 0.9 }
+        });
+
+        topology.TestSetNodeSparklines(new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["queue-node"] = queueSparkline
+        });
+
+        var metrics = topology.TestBuildInspectorMetrics("queue-node");
+        var queueBlock = Assert.Single(metrics, block => block.Title == "Queue depth");
+        Assert.Equal(ColorScale.ErrorColor, queueBlock.Stroke);
+    }
+
+    [Fact]
     public void BuildInspectorMetrics_UsesAliasesWhenPresent()
     {
         var aliasSemantics = new TopologyNodeSemantics(
@@ -227,7 +589,7 @@ public sealed class TopologyInspectorTests
         topology.TestSetTopologyGraph(new TopologyGraph(
             new[]
             {
-                new TopologyNode("svc", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, aliasSemantics)
+                new TopologyNode("svc", "service", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, aliasSemantics)
             },
             Array.Empty<TopologyEdge>()));
 
@@ -255,13 +617,166 @@ public sealed class TopologyInspectorTests
     }
 
     [Fact]
+    public void BuildInspectorMetrics_ServiceWithBuffer_IncludesQueueMetrics()
+    {
+        var topology = new Topology();
+        var semantics = new TopologyNodeSemantics(
+            Arrivals: "arrivals",
+            Served: "served",
+            Errors: "errors",
+            Attempts: null,
+            Failures: null,
+            ExhaustedFailures: null,
+            RetryEcho: null,
+            RetryBudgetRemaining: null,
+            Queue: "queue_depth",
+            Capacity: null,
+            Series: null,
+            Expression: null,
+            Distribution: null,
+            InlineValues: null,
+            Aliases: null);
+
+        topology.TestSetTopologyGraph(new TopologyGraph(
+            new[]
+            {
+                new TopologyNode("svc-buffer", "serviceWithBuffer", "serviceWithBuffer", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, semantics)
+            },
+            Array.Empty<TopologyEdge>()));
+
+        var sparkline = CreateSparkline(new Dictionary<string, double?[]>
+        {
+            ["queue"] = new double?[] { 3, 4, 2 },
+            ["latencyMinutes"] = new double?[] { 1.5, 1.2, 1.1 },
+            ["arrivals"] = new double?[] { 10, 12, 9 },
+            ["served"] = new double?[] { 9, 11, 8 },
+            ["successRate"] = new double?[] { 0.9, 0.92, 0.94 },
+            ["utilization"] = new double?[] { 0.4, 0.5, 0.45 },
+            ["serviceTimeMs"] = new double?[] { 200, 210, 190 },
+            ["flowLatencyMs"] = new double?[] { 300, 280, 260 },
+            ["errorRate"] = new double?[] { 0.05, 0.04, 0.03 }
+        });
+
+        topology.TestSetNodeSparklines(new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["svc-buffer"] = sparkline
+        });
+
+        var blocks = topology.TestBuildInspectorMetrics("svc-buffer");
+        Assert.Contains(blocks, block => block.Title == "Queue depth");
+        Assert.Contains(blocks, block => block.Title == "Queue latency");
+        Assert.Contains(blocks, block => block.Title == "Success rate");
+        Assert.Contains(blocks, block => block.Title == "Utilization");
+        Assert.Contains(blocks, block => block.Title == "Service time");
+        Assert.Contains(blocks, block => block.Title == "Flow latency");
+        Assert.Contains(blocks, block => block.Title == "Error rate");
+    }
+
+    [Fact]
+    public void BuildInspectorMetrics_ServiceWithBuffer_UsesQueueAlias()
+    {
+        var topology = new Topology();
+        var semantics = new TopologyNodeSemantics(
+            Arrivals: "arrivals",
+            Served: "served",
+            Errors: "errors",
+            Attempts: null,
+            Failures: null,
+            ExhaustedFailures: null,
+            RetryEcho: null,
+            RetryBudgetRemaining: null,
+            Queue: "queue_depth",
+            Capacity: null,
+            Series: null,
+            Expression: null,
+            Distribution: null,
+            InlineValues: null,
+            Aliases: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["queueDepth"] = "Open backlog"
+            });
+
+        topology.TestSetTopologyGraph(new TopologyGraph(
+            new[]
+            {
+                new TopologyNode("svc-buffer", "serviceWithBuffer", "serviceWithBuffer", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, semantics)
+            },
+            Array.Empty<TopologyEdge>()));
+
+        var sparkline = CreateSparkline(new Dictionary<string, double?[]>
+        {
+            ["queue"] = new double?[] { 1, 2, 3 },
+            ["latencyMinutes"] = new double?[] { 0.5, 0.6, 0.7 },
+            ["arrivals"] = new double?[] { 5, 6, 7 },
+            ["served"] = new double?[] { 4, 5, 6 },
+            ["successRate"] = new double?[] { 0.8, 0.82, 0.85 },
+            ["utilization"] = new double?[] { 0.3, 0.35, 0.4 },
+            ["serviceTimeMs"] = new double?[] { 150, 160, 170 },
+            ["flowLatencyMs"] = new double?[] { 220, 210, 200 },
+            ["errorRate"] = new double?[] { 0.02, 0.02, 0.01 }
+        });
+
+        topology.TestSetNodeSparklines(new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["svc-buffer"] = sparkline
+        });
+
+        var blocks = topology.TestBuildInspectorMetrics("svc-buffer");
+        var queueBlock = Assert.Single(blocks, block => block.Title.StartsWith("Queue depth", StringComparison.Ordinal));
+        Assert.Equal("Queue depth: Open backlog", queueBlock.Title);
+    }
+
+    [Fact]
+    public void BuildInspectorMetrics_ServiceWithBuffer_ExcludesRetryMetricsWhenAbsent()
+    {
+        var topology = new Topology();
+        topology.TestSetOverlaySettings(new TopologyOverlaySettings
+        {
+            ShowRetryMetrics = true,
+            ShowRetryBudget = true
+        });
+
+        topology.TestSetTopologyGraph(new TopologyGraph(
+            new[]
+            {
+                new TopologyNode("svc-buffer", "serviceWithBuffer", "serviceWithBuffer", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
+            },
+            Array.Empty<TopologyEdge>()));
+
+        var sparkline = CreateSparkline(new Dictionary<string, double?[]>
+        {
+            ["queue"] = new double?[] { 4, 3, 2 },
+            ["latencyMinutes"] = new double?[] { 1.1, 1.0, 0.9 },
+            ["served"] = new double?[] { 8, 7, 6 },
+            ["successRate"] = new double?[] { 0.9, 0.91, 0.92 },
+            ["utilization"] = new double?[] { 0.5, 0.55, 0.6 },
+            ["serviceTimeMs"] = new double?[] { 180, 175, 170 },
+            ["flowLatencyMs"] = new double?[] { 240, 230, 220 },
+            ["errorRate"] = new double?[] { 0.03, 0.02, 0.02 }
+        });
+
+        topology.TestSetNodeSparklines(new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["svc-buffer"] = sparkline
+        });
+
+        var blocks = topology.TestBuildInspectorMetrics("svc-buffer");
+        Assert.DoesNotContain(blocks, block => block.Title.StartsWith("Attempts", StringComparison.Ordinal));
+        Assert.DoesNotContain(blocks, block => block.Title.StartsWith("Failed retries", StringComparison.Ordinal));
+        Assert.DoesNotContain(blocks, block => block.Title.StartsWith("Retry echo", StringComparison.Ordinal));
+        Assert.DoesNotContain(blocks, block => block.Title.StartsWith("Exhausted", StringComparison.Ordinal));
+        Assert.DoesNotContain(blocks, block => block.Title.StartsWith("Retry budget remaining", StringComparison.Ordinal));
+        Assert.DoesNotContain(blocks, block => block.Title.StartsWith("Retry tax", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void BuildInspectorDependencies_RespectsOverlayFilters()
     {
         var topology = new Topology();
         var nodes = new[]
         {
-            new TopologyNode("producer", "service", Array.Empty<string>(), new[] { "svc" }, 0, 0, 0, 0, false, EmptySemantics()),
-            new TopologyNode("svc", "service", new[] { "producer" }, Array.Empty<string>(), 1, 0, 100, 120, false, EmptySemantics())
+            new TopologyNode("producer", "service", "service", Array.Empty<string>(), new[] { "svc" }, 0, 0, 0, 0, false, EmptySemantics()),
+            new TopologyNode("svc", "service", "service", new[] { "producer" }, Array.Empty<string>(), 1, 0, 100, 120, false, EmptySemantics())
         };
 
         var edges = new[]
@@ -310,8 +825,8 @@ public sealed class TopologyInspectorTests
 
         var nodes = new[]
         {
-            new TopologyNode("producer", "service", Array.Empty<string>(), new[] { "svc" }, 0, 0, 0, 0, false, producerSemantics),
-            new TopologyNode("svc", "service", new[] { "producer" }, Array.Empty<string>(), 1, 0, 0, 0, false, EmptySemantics())
+            new TopologyNode("producer", "service", "service", Array.Empty<string>(), new[] { "svc" }, 0, 0, 0, 0, false, producerSemantics),
+            new TopologyNode("svc", "service", "service", new[] { "producer" }, Array.Empty<string>(), 1, 0, 0, 0, false, EmptySemantics())
         };
 
         var edges = new[]
@@ -336,8 +851,8 @@ public sealed class TopologyInspectorTests
         topology.TestSetTopologyGraph(new TopologyGraph(
             new[]
             {
-                new TopologyNode("queue-a", "queue", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics()),
-                new TopologyNode("queue-b", "queue", Array.Empty<string>(), Array.Empty<string>(), 0, 1, 0, 0, false, EmptySemantics())
+                new TopologyNode("queue-a", "queue", "queue", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics()),
+                new TopologyNode("queue-b", "queue", "queue", Array.Empty<string>(), Array.Empty<string>(), 0, 1, 0, 0, false, EmptySemantics())
             },
             Array.Empty<TopologyEdge>()));
 
@@ -380,9 +895,7 @@ public sealed class TopologyInspectorTests
             new[]
             {
                 new TopologyNode(
-                    "queue-good",
-                    "queue",
-                    Array.Empty<string>(),
+                    "queue-good", "queue", "queue", Array.Empty<string>(),
                     Array.Empty<string>(),
                     0,
                     0,
@@ -433,7 +946,7 @@ public sealed class TopologyInspectorTests
             },
             block =>
             {
-                Assert.Equal("Latency", block.Title);
+                Assert.Equal("Queue latency", block.Title);
                 Assert.False(block.IsPlaceholder);
                 Assert.Equal("latencyMinutes", block.SeriesKey);
             },
@@ -460,9 +973,7 @@ public sealed class TopologyInspectorTests
             new[]
             {
                 new TopologyNode(
-                    "pmf-1",
-                    "pmf",
-                    Array.Empty<string>(),
+                    "pmf-1", "pmf", "pmf", Array.Empty<string>(),
                     Array.Empty<string>(),
                     0,
                     0,
@@ -517,7 +1028,7 @@ public sealed class TopologyInspectorTests
 
         // Service node with a single metric slice; select Utilization basis
         topology.TestSetTopologyGraph(new TopologyGraph(
-            new[] { new TopologyNode("svc-x", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics()) },
+            new[] { new TopologyNode("svc-x", "service", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics()) },
             Array.Empty<TopologyEdge>()));
 
         var series = new Dictionary<string, double?[]>
@@ -594,7 +1105,7 @@ public sealed class TopologyInspectorTests
             Aliases: null);
 
         topology.TestSetTopologyGraph(new TopologyGraph(
-            new[] { new TopologyNode("svc-retry", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, semantics) },
+            new[] { new TopologyNode("svc-retry", "service", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, semantics) },
             Array.Empty<TopologyEdge>()));
 
         var series = new Dictionary<string, double?[]>
@@ -660,7 +1171,7 @@ public sealed class TopologyInspectorTests
         topology.TestSetTopologyGraph(new TopologyGraph(
             new[]
             {
-                new TopologyNode("svc-retry", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, semantics)
+                new TopologyNode("svc-retry", "service", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, semantics)
             },
             Array.Empty<TopologyEdge>()));
 
@@ -738,6 +1249,65 @@ public sealed class TopologyInspectorTests
         var offset = 0 - attemptsBlock.Sparkline!.StartIndex;
         Assert.InRange(offset, 0, attemptsBlock.Sparkline.Values.Count - 1);
         Assert.Equal(attemptsSeries[0], attemptsBlock.Sparkline.Values[offset]);
+    }
+
+    [Fact]
+    public void DispatchScheduleOverlayReflectsGraph()
+    {
+        var topology = new Topology();
+        var nodes = new[]
+        {
+            new TopologyNode(
+                "queue-a", "queue", "queue", Array.Empty<string>(),
+                Array.Empty<string>(),
+                0,
+                0,
+                0,
+                0,
+                false,
+                EmptySemantics(),
+                0,
+                new GraphDispatchScheduleModel("time-based", 6, 1, "cap_a")),
+            new TopologyNode(
+                "service-node", "service", "service", Array.Empty<string>(),
+                Array.Empty<string>(),
+                0,
+                1,
+                0,
+                0,
+                false,
+                EmptySemantics()),
+            new TopologyNode(
+                "queue-b", "queue", "queue", Array.Empty<string>(),
+                Array.Empty<string>(),
+                0,
+                2,
+                0,
+                0,
+                false,
+                EmptySemantics(),
+                0,
+                new GraphDispatchScheduleModel("time-based", 4, 0, null))
+        };
+
+        topology.TestSetTopologyGraph(new TopologyGraph(nodes, Array.Empty<TopologyEdge>()));
+        topology.TestUpdateDispatchEntries();
+
+        var entries = topology.TestGetDispatchEntries();
+
+        Assert.Collection(entries,
+            entry =>
+            {
+                Assert.Equal("queue-a", entry.NodeId);
+                Assert.Equal("Every 6 bins (phase 1)", entry.Summary);
+                Assert.Equal("cap_a", entry.CapacityLabel);
+            },
+            entry =>
+            {
+                Assert.Equal("queue-b", entry.NodeId);
+                Assert.Equal("Every 4 bins (phase 0)", entry.Summary);
+                Assert.Equal("Unbounded", entry.CapacityLabel);
+            });
     }
 
     private static TopologyNodeSemantics EmptySemantics() =>

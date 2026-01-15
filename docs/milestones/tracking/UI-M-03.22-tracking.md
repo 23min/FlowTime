@@ -7,9 +7,9 @@
 ---
 
 ## Quick Links
-- Milestone: `docs/milestones/UI-M-03.22.md`
+- Milestone: `docs/milestones/completed/UI-M-03.22.md`
 - Roadmap: `docs/architecture/time-travel/ui-m3-roadmap.md`
-- Follow‑up: `docs/milestones/UI-M-03.22.1.md` (LOD + Feature Bar)
+- Follow‑up: `docs/milestones/completed/UI-M-03.22.1.md` (LOD + Feature Bar)
 
 ---
 

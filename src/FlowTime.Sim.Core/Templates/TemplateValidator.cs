@@ -31,6 +31,7 @@ internal static class TemplateValidator
         var nodeIds = ValidateNodes(template, out var nodesRequiringInitial);
         ValidateOutputs(template.Outputs, nodeIds);
         ValidateTopology(template, nodeIds, nodesRequiringInitial, template.Mode);
+        ValidateClassesAndTraffic(template);
         ValidateRng(template.Rng);
     }
 
@@ -122,6 +123,64 @@ internal static class TemplateValidator
         }
     }
 
+    private static void ValidateClassesAndTraffic(Template template)
+    {
+        var classes = template.Classes ?? new List<TemplateClass>();
+        var classIds = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var c in classes)
+        {
+            if (string.IsNullOrWhiteSpace(c.Id))
+            {
+                throw new TemplateValidationException("Classes must declare a non-empty id.");
+            }
+
+            if (!classIds.Add(c.Id))
+            {
+                throw new TemplateValidationException($"Duplicate class id '{c.Id}' detected.");
+            }
+        }
+
+        if (template.Traffic?.Arrivals is not { Count: > 0 })
+        {
+            return;
+        }
+
+        foreach (var arrival in template.Traffic.Arrivals)
+        {
+            if (string.IsNullOrWhiteSpace(arrival.NodeId))
+            {
+                throw new TemplateValidationException("Traffic arrivals must specify nodeId.");
+            }
+
+            if (arrival.Pattern is null || string.IsNullOrWhiteSpace(arrival.Pattern.Kind))
+            {
+                throw new TemplateValidationException($"Traffic arrival for node '{arrival.NodeId}' must include a pattern kind.");
+            }
+
+            if (string.Equals(arrival.Pattern.Kind, "constant", StringComparison.OrdinalIgnoreCase) &&
+                (arrival.Pattern.RatePerBin is null || arrival.Pattern.RatePerBin < 0))
+            {
+                throw new TemplateValidationException($"Traffic arrival for node '{arrival.NodeId}' must specify a non-negative ratePerBin when kind=constant.");
+            }
+
+            if (classIds.Count == 0)
+            {
+                arrival.ClassId ??= "*";
+                continue;
+            }
+
+            if (string.IsNullOrWhiteSpace(arrival.ClassId))
+            {
+                throw new TemplateValidationException($"Arrival targeting '{arrival.NodeId}' must declare classId because classes are defined.");
+            }
+
+            if (!classIds.Contains(arrival.ClassId))
+            {
+                throw new TemplateValidationException($"Class '{arrival.ClassId}' is not declared under classes.");
+            }
+        }
+    }
+
     private static HashSet<string> ValidateNodes(Template template, out HashSet<string> nodesRequiringInitial)
     {
         if (template.Nodes == null || template.Nodes.Count == 0)
@@ -152,7 +211,7 @@ internal static class TemplateValidator
         {
             if (string.IsNullOrWhiteSpace(node.Kind))
             {
-                throw new TemplateValidationException($"Node '{node.Id}' must define a kind (const, pmf, expr).");
+                throw new TemplateValidationException($"Node '{node.Id}' must define a kind (const, pmf, expr, router, serviceWithBuffer).");
             }
 
             switch (node.Kind)
@@ -172,8 +231,12 @@ internal static class TemplateValidator
                     }
                     break;
 
-                case "backlog":
-                    ValidateBacklogNode(node, allNodeIds);
+                case "serviceWithBuffer":
+                    ValidateServiceWithBufferNode(node, allNodeIds);
+                    break;
+
+                case "router":
+                    ValidateRouterNode(node, allNodeIds);
                     break;
 
                 default:
@@ -296,26 +359,63 @@ internal static class TemplateValidator
         return false;
     }
 
-    private static void ValidateBacklogNode(TemplateNode node, HashSet<string> allNodeIds)
+    private static void ValidateServiceWithBufferNode(TemplateNode node, HashSet<string> allNodeIds)
     {
         if (string.IsNullOrWhiteSpace(node.Inflow) || string.IsNullOrWhiteSpace(node.Outflow))
         {
-            throw new TemplateValidationException($"Backlog node '{node.Id}' must define 'inflow' and 'outflow'.");
+            throw new TemplateValidationException($"ServiceWithBuffer node '{node.Id}' must define 'inflow' and 'outflow'.");
         }
 
         // Ensure inflow/outflow reference existing nodes
         if (!allNodeIds.Contains(node.Inflow))
         {
-            throw new TemplateValidationException($"Backlog node '{node.Id}' inflow references unknown node '{node.Inflow}'.");
+            throw new TemplateValidationException($"ServiceWithBuffer node '{node.Id}' inflow references unknown node '{node.Inflow}'.");
         }
         if (!allNodeIds.Contains(node.Outflow))
         {
-            throw new TemplateValidationException($"Backlog node '{node.Id}' outflow references unknown node '{node.Outflow}'.");
+            throw new TemplateValidationException($"ServiceWithBuffer node '{node.Id}' outflow references unknown node '{node.Outflow}'.");
         }
 
         if (!string.IsNullOrWhiteSpace(node.Loss) && !allNodeIds.Contains(node.Loss))
         {
-            throw new TemplateValidationException($"Backlog node '{node.Id}' loss references unknown node '{node.Loss}'.");
+            throw new TemplateValidationException($"ServiceWithBuffer node '{node.Id}' loss references unknown node '{node.Loss}'.");
+        }
+    }
+
+    private static void ValidateRouterNode(TemplateNode node, HashSet<string> allNodeIds)
+    {
+        if (node.Inputs?.Queue is null)
+        {
+            throw new TemplateValidationException($"Router node '{node.Id}' must declare inputs.queue.");
+        }
+
+        if (!allNodeIds.Contains(node.Inputs.Queue))
+        {
+            throw new TemplateValidationException($"Router node '{node.Id}' references unknown queue '{node.Inputs.Queue}'.");
+        }
+
+        if (node.Routes is null || node.Routes.Count == 0)
+        {
+            throw new TemplateValidationException($"Router node '{node.Id}' must declare at least one route.");
+        }
+
+        foreach (var route in node.Routes)
+        {
+            if (string.IsNullOrWhiteSpace(route.Target))
+            {
+                throw new TemplateValidationException($"Router node '{node.Id}' has a route without a target.");
+            }
+
+            if (!allNodeIds.Contains(route.Target))
+            {
+                throw new TemplateValidationException($"Router node '{node.Id}' route target '{route.Target}' does not match a defined node.");
+            }
+
+            var hasClasses = route.Classes is { Length: > 0 };
+            if (!hasClasses && route.Weight is null)
+            {
+                throw new TemplateValidationException($"Router node '{node.Id}' route targeting '{route.Target}' must specify classes or weight.");
+            }
         }
     }
 
@@ -427,6 +527,40 @@ internal static class TemplateValidator
         }
 
         var semantics = topologyNode.Semantics;
+        var kind = topologyNode.Kind ?? string.Empty;
+        if (kind.Equals("sink", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!string.IsNullOrWhiteSpace(semantics.QueueDepth))
+            {
+                throw new TemplateValidationException($"Topology node '{topologyNode.Id}' of kind sink must not define semantics.queueDepth.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(semantics.Capacity))
+            {
+                throw new TemplateValidationException($"Topology node '{topologyNode.Id}' of kind sink must not define semantics.capacity.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(semantics.Attempts))
+            {
+                throw new TemplateValidationException($"Topology node '{topologyNode.Id}' of kind sink must not define semantics.attempts.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(semantics.Failures))
+            {
+                throw new TemplateValidationException($"Topology node '{topologyNode.Id}' of kind sink must not define semantics.failures.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(semantics.RetryEcho))
+            {
+                throw new TemplateValidationException($"Topology node '{topologyNode.Id}' of kind sink must not define semantics.retryEcho.");
+            }
+
+            if (semantics.RetryKernel is { Length: > 0 })
+            {
+                throw new TemplateValidationException($"Topology node '{topologyNode.Id}' of kind sink must not define semantics.retryKernel.");
+            }
+        }
+
         var mappedSeries = new[]
         {
             ("arrivals", semantics.Arrivals),
@@ -505,7 +639,12 @@ internal static class TemplateValidator
             }
 
             var queueSeries = topologyNode.Semantics.QueueDepth;
-            if (queueSeries != null && nodesRequiringInitial.Contains(queueSeries))
+            if (string.IsNullOrWhiteSpace(queueSeries))
+            {
+                continue;
+            }
+
+            if (nodesRequiringInitial.Contains(queueSeries))
             {
                 if (topologyNode.InitialCondition?.QueueDepth is null)
                 {

@@ -4,6 +4,7 @@
     "runId": "RUN_ID",
     "templateId": "sim-order",
     "templateTitle": "Simulation Order Template",
+    "templateNarrative": null,
     "templateVersion": "1.0.0",
     "mode": "simulation",
     "provenanceHash": "PROVENANCE_HASH",
@@ -16,12 +17,13 @@
     "storage": {
       "modelPath": "MODEL_PATH",
       "metadataPath": "METADATA_PATH",
-      "provenancePath": null
+      "provenancePath": "PROVENANCE_PATH"
     },
     "rng": {
       "kind": "pcg32",
       "seed": 123
-    }
+    },
+    "inputHash": "INPUT_HASH"
   },
   "plan": null,
   "warnings": [
@@ -50,5 +52,6 @@
     "generatedAtUtc": null,
     "warningCount": 3,
     "sourceRunId": null
-  }
+  },
+  "wasReused": false
 }

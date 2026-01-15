@@ -3,6 +3,7 @@
     "runId": "run_state_edges",
     "templateId": "order-system",
     "templateTitle": "Order System Fixture",
+    "templateNarrative": null,
     "templateVersion": "1.0.0",
     "mode": "telemetry",
     "provenanceHash": "sha256:run_state_edges",
@@ -17,7 +18,8 @@
       "metadataPath": "<dynamic>",
       "provenancePath": "<dynamic>"
     },
-    "rng": null
+    "rng": null,
+    "classCoverage": "missing"
   },
   "window": {
     "startBin": 0,
@@ -34,6 +36,7 @@
     {
       "id": "OrderService",
       "kind": "service",
+      "nodeLogicalType": "service",
       "series": {
         "arrivals": [
           10,
@@ -89,6 +92,18 @@
           0.1,
           0.2
         ],
+        "processingTimeMsSum": [
+          2250,
+          1800,
+          2700,
+          1200
+        ],
+        "servedCount": [
+          9,
+          6,
+          9,
+          4
+        ],
         "capacity": [
           12,
           7,
@@ -140,11 +155,25 @@
         "attempts": "Ticket submissions",
         "served": "Orders fulfilled",
         "retryEcho": "Retry backlog"
-      }
+      },
+      "sla": [
+        {
+          "kind": "completion",
+          "status": "ok",
+          "threshold": null,
+          "values": [
+            0.9,
+            0.6,
+            0.9,
+            0.4
+          ]
+        }
+      ]
     },
     {
       "id": "SupportQueue",
       "kind": "queue",
+      "nodeLogicalType": "queue",
       "series": {
         "arrivals": [
           9,
@@ -200,7 +229,31 @@
       },
       "aliases": {
         "queue": "Open backlog"
-      }
+      },
+      "sla": [
+        {
+          "kind": "completion",
+          "status": "ok",
+          "threshold": null,
+          "values": [
+            1,
+            0.857143,
+            1,
+            0.8
+          ]
+        },
+        {
+          "kind": "backlogAge",
+          "status": "unavailable",
+          "threshold": 5,
+          "values": [
+            null,
+            null,
+            null,
+            null
+          ]
+        }
+      ]
     }
   ],
   "edges": [

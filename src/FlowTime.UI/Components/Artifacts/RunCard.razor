@@ -6,6 +6,7 @@
 @using FlowTime.UI.Pages.TimeTravel
 @using FlowTime.UI.Services
 @using MudBlazor
+@using Microsoft.JSInterop
 @inherits MudComponentBase
 
 <MudPaper Class="@CssClass"
@@ -71,18 +72,54 @@
                 </MudChip>
             </MudStack>
 
-            <MudText Typo="Typo.caption" Class="artifact-card-textline">@WarningsText</MudText>
+            <MudText Typo="Typo.caption"
+                     Class="artifact-card-textline"
+                     data-testid="artifact-class-coverage">@WarningsAndClassSummary</MudText>
 
             @if (!string.IsNullOrEmpty(TelemetryDetailLine))
             {
                 <MudText Typo="Typo.caption" Class="artifact-card-textline">@TelemetryDetailLine</MudText>
             }
+
+            @if (HasClassInventory)
+            {
+                <MudDivider Class="artifact-card-divider" />
+                <MudStack Spacing="1" Class="artifact-class-section">
+                    <MudStack Row="true"
+                              Wrap="Wrap.Wrap"
+                              Class="artifact-class-chips">
+                        @foreach (var chip in BuildClassChips())
+                        {
+                            <MudChip T="string"
+                                     Variant="Variant.Outlined"
+                                     Size="Size.Small"
+                                     Color="Color.Default"
+                                     Class="artifact-class-chip"
+                                     data-testid="artifact-class-chip">
+                                @chip.Label
+                            </MudChip>
+                        }
+                    </MudStack>
+                </MudStack>
+            }
         </div>
 
         <div class="artifact-card-footer">
-            <MudTooltip Text="@Run.RunId">
-                <MudText Typo="Typo.caption" Class="artifact-card-runid">@Run.RunId</MudText>
-            </MudTooltip>
+            <MudStack Row Spacing="1" AlignItems="AlignItems.Center" Class="artifact-card-runid-stack">
+                <MudTooltip Text="@Run.RunId">
+                    <MudText Typo="Typo.caption" Class="artifact-card-runid">@ShortRunId</MudText>
+                </MudTooltip>
+                <MudTooltip Text="Copy run id">
+                    <span @onclick:stopPropagation="true">
+                        <MudIconButton Icon="@Icons.Material.Filled.ContentCopy"
+                                       Color="Color.Default"
+                                       Size="Size.Small"
+                                       Disabled="!CanCopyRunId"
+                                       OnClick="CopyRunIdAsync"
+                                       aria-label="Copy run id" />
+                    </span>
+                </MudTooltip>
+            </MudStack>
             <MudStack Row Spacing="1" AlignItems="AlignItems.Center">
                 <MudStack Row Spacing="0" AlignItems="AlignItems.Center">
                     <MudTooltip Text="Open dashboard">
@@ -154,6 +191,26 @@
 
     private string DisplayTitle => string.IsNullOrWhiteSpace(Run.TemplateTitle) ? Run.TemplateId : Run.TemplateTitle!;
 
+    private string ShortRunId
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(Run.RunId))
+            {
+                return "(unavailable)";
+            }
+
+            if (Run.RunId.Length <= 8)
+            {
+                return Run.RunId;
+            }
+
+            return $"…{Run.RunId[^8..]}";
+        }
+    }
+
+    private bool CanCopyRunId => !string.IsNullOrWhiteSpace(Run.RunId);
+
     private string CreatedShortLabel => Run.CreatedUtc is null
         ? "Unknown"
         : Run.CreatedUtc.Value.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);
@@ -187,6 +244,49 @@
             return string.Empty;
         }
     }
+
+    private IReadOnlyList<string> ClassList => Run.Classes ?? Array.Empty<string>();
+    private bool HasClassInventory => ClassList.Count > 0;
+    private IReadOnlyDictionary<string, string> ClassDisplayNames =>
+        Run.ClassDescriptions ?? EmptyClassDescriptions;
+    private static readonly IReadOnlyDictionary<string, string> EmptyClassDescriptions =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+    private string WarningsAndClassSummary
+    {
+        get
+        {
+            var warnings = WarningsText;
+            var classCount = ClassList.Count;
+            return $"{warnings} · Classes: {classCount}";
+        }
+    }
+
+    private IEnumerable<(string Id, string Label)> BuildClassChips()
+    {
+        foreach (var classId in ClassList)
+        {
+            yield return (classId, ResolveClassLabel(classId));
+        }
+    }
+
+    private string ResolveClassLabel(string classId)
+    {
+        if (IsDefaultClassId(classId))
+        {
+            return "Total";
+        }
+
+        if (ClassDisplayNames.TryGetValue(classId, out var label) && !string.IsNullOrWhiteSpace(label))
+        {
+            return label;
+        }
+
+        return classId;
+    }
+
+    private static bool IsDefaultClassId(string classId) =>
+        string.Equals(classId, "DEFAULT", StringComparison.OrdinalIgnoreCase);
 
     private static readonly Color[] AvatarPalette =
     {
@@ -287,7 +387,7 @@
             builder.Append(". Telemetry ready.");
         }
         builder.Append(" ");
-        builder.Append(WarningsText);
+        builder.Append(WarningsAndClassSummary);
 
         return builder.ToString();
     }
@@ -349,6 +449,7 @@
         new Dictionary<string, object> { ["aria-label"] = "Open telemetry topology" };
 
     [Inject] private NavigationManager Navigation { get; set; } = default!;
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
 
     private Task HandleTelemetryDashboard()
     {
@@ -372,6 +473,23 @@
         var uri = $"/time-travel/topology?runId={Uri.EscapeDataString(Run.RunId)}&mode=telemetry";
         Navigation.NavigateTo(uri);
         return Task.CompletedTask;
+    }
+
+    private async Task CopyRunIdAsync(MouseEventArgs args)
+    {
+        if (!CanCopyRunId || JSRuntime is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", Run.RunId);
+        }
+        catch
+        {
+            // Ignore clipboard failures
+        }
     }
 
     private async Task HandleKeyDown(KeyboardEventArgs args)

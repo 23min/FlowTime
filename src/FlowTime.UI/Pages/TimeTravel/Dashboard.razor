@@ -17,6 +17,24 @@
                     <MudText Typo="Typo.subtitle2" Color="Color.Secondary">
                         Track service health for the selected run and drill into topology.
                     </MudText>
+                    @if (ShowClassSelector)
+                    {
+                        <MudStack Row Spacing="1" AlignItems="AlignItems.Center">
+                            <ClassSelector Classes="availableClasses"
+                                           ClassDisplayNames="classDisplayNames"
+                                           SelectionChanged="OnClassSelectionChanged"
+                                           ModeChanged="OnClassSelectionModeChanged"
+                                           QueryKey="classes" />
+                            @if (!string.IsNullOrWhiteSpace(ClassCoverageText))
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">@ClassCoverageText</MudText>
+                            }
+                        </MudStack>
+                    }
+                    else if (!string.IsNullOrWhiteSpace(ClassCoverageText))
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">@ClassCoverageText</MudText>
+                    }
                     @if (_context is not null)
                     {
                         <MudStack Row Spacing="1" AlignItems="AlignItems.Center" Class="sla-header-meta">

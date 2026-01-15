@@ -4,11 +4,11 @@
   "title": "Telemetry Capture Manifest",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "grid", "files", "provenance"],
+  "required": ["schemaVersion", "grid", "files", "provenance", "supportsClassMetrics"],
   "properties": {
     "schemaVersion": {
       "type": "integer",
-      "const": 1
+      "const": 2
     },
     "window": {
       "type": ["object", "null"],
@@ -23,6 +23,9 @@
           "minimum": 0
         }
       }
+    },
+    "supportsClassMetrics": {
+      "type": "boolean"
     },
     "grid": {
       "type": "object",
@@ -42,6 +45,16 @@
           "minLength": 1
         }
       }
+    },
+    "classes": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "classCoverage": {
+      "type": "string",
+      "enum": ["full", "partial", "missing"]
     },
     "files": {
       "type": "array",
@@ -75,6 +88,10 @@
           "points": {
             "type": "integer",
             "minimum": 0
+          },
+          "classId": {
+            "type": "string",
+            "minLength": 1
           }
         }
       }
@@ -129,6 +146,26 @@
       }
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "supportsClassMetrics": { "const": true }
+        },
+        "required": ["supportsClassMetrics"]
+      },
+      "then": {
+        "required": ["classes", "classCoverage"],
+        "properties": {
+          "files": {
+            "items": {
+              "required": ["classId"]
+            }
+          }
+        }
+      }
+    }
+  ],
   "$defs": {
     "hash": {
       "type": "string",

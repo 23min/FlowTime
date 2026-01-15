@@ -1,3 +1,5 @@
+using System;
+using System.Linq;
 using FlowTime.Sim.Core.Templates;
 using FlowTime.Sim.Core.Templates.Exceptions;
 using Xunit;
@@ -65,6 +67,189 @@ outputs:
 
         Assert.Single(template.Outputs);
         Assert.Equal("*", template.Outputs[0].Series);
+    }
+
+    [Fact]
+    public void Template_With_Sink_NodeRole_Parses()
+    {
+        var yaml = """
+schemaVersion: 1
+generator: flowtime-sim
+metadata:
+  id: sink-role-template
+  title: Sink Role Template
+  version: 1.0.0
+window:
+  start: 2025-04-01T00:00:00Z
+  timezone: UTC
+grid:
+  bins: 3
+  binSize: 60
+  binUnit: minutes
+topology:
+  nodes:
+    - id: TerminalSuccess
+      kind: service
+      nodeRole: sink
+      semantics:
+        arrivals: arrivals
+        served: served
+  edges: []
+nodes:
+  - id: arrivals
+    kind: const
+    values: [100, 100, 100]
+  - id: served
+    kind: const
+    values: [100, 100, 100]
+outputs:
+  - series: "*"
+""";
+
+        var template = TemplateParser.ParseFromYaml(yaml);
+
+        Assert.Single(template.Topology.Nodes);
+        Assert.Equal("TerminalSuccess", template.Topology.Nodes[0].Id);
+    }
+
+    [Fact]
+    public void Template_With_Sink_Kind_Parses()
+    {
+        var yaml = """
+schemaVersion: 1
+generator: flowtime-sim
+metadata:
+  id: sink-kind-template
+  title: Sink Kind Template
+  version: 1.0.0
+window:
+  start: 2025-04-01T00:00:00Z
+  timezone: UTC
+grid:
+  bins: 3
+  binSize: 60
+  binUnit: minutes
+topology:
+  nodes:
+    - id: TerminalSuccess
+      kind: sink
+      semantics:
+        arrivals: arrivals
+        served: arrivals
+  edges: []
+nodes:
+  - id: arrivals
+    kind: const
+    values: [100, 100, 100]
+outputs:
+  - series: "*"
+""";
+
+        var template = TemplateParser.ParseFromYaml(yaml);
+
+        Assert.Single(template.Topology.Nodes);
+        var node = template.Topology.Nodes[0];
+        Assert.Equal("TerminalSuccess", node.Id);
+        Assert.Equal("sink", node.Kind);
+    }
+
+    [Fact]
+    public void SinkNode_RejectsQueueCapacityFields()
+    {
+        var yaml = """
+schemaVersion: 1
+generator: flowtime-sim
+metadata:
+  id: sink-kind-invalid
+  title: Sink Kind Invalid
+  version: 1.0.0
+window:
+  start: 2025-04-01T00:00:00Z
+  timezone: UTC
+grid:
+  bins: 3
+  binSize: 60
+  binUnit: minutes
+topology:
+  nodes:
+    - id: TerminalSuccess
+      kind: sink
+      semantics:
+        arrivals: arrivals
+        served: served
+        queueDepth: queue_depth
+        capacity: capacity
+  edges: []
+nodes:
+  - id: arrivals
+    kind: const
+    values: [100, 100, 100]
+  - id: served
+    kind: const
+    values: [100, 100, 100]
+  - id: queue_depth
+    kind: const
+    values: [0, 0, 0]
+  - id: capacity
+    kind: const
+    values: [100, 100, 100]
+outputs:
+  - series: "*"
+""";
+
+        Assert.Throws<TemplateValidationException>(() => TemplateParser.ParseFromYaml(yaml));
+    }
+
+    [Fact]
+    public void SinkNode_RejectsRetryFields()
+    {
+        var yaml = """
+schemaVersion: 1
+generator: flowtime-sim
+metadata:
+  id: sink-kind-retry-invalid
+  title: Sink Kind Retry Invalid
+  version: 1.0.0
+window:
+  start: 2025-04-01T00:00:00Z
+  timezone: UTC
+grid:
+  bins: 3
+  binSize: 60
+  binUnit: minutes
+topology:
+  nodes:
+    - id: TerminalSuccess
+      kind: sink
+      semantics:
+        arrivals: arrivals
+        served: served
+        attempts: attempts
+        failures: failures
+        retryEcho: retry_echo
+        retryKernel: [0.5, 0.3, 0.2]
+  edges: []
+nodes:
+  - id: arrivals
+    kind: const
+    values: [100, 100, 100]
+  - id: served
+    kind: const
+    values: [100, 100, 100]
+  - id: attempts
+    kind: const
+    values: [100, 100, 100]
+  - id: failures
+    kind: const
+    values: [0, 0, 0]
+  - id: retry_echo
+    kind: const
+    values: [0, 0, 0]
+outputs:
+  - series: "*"
+""";
+
+        Assert.Throws<TemplateValidationException>(() => TemplateParser.ParseFromYaml(yaml));
     }
 
     [Fact]
@@ -166,6 +351,216 @@ outputs:
 """;
 
         Assert.Throws<TemplateValidationException>(() => TemplateParser.ParseFromYaml(yaml));
+    }
+
+    [Fact]
+    public void Template_With_ServiceWithBuffer_SelfQueueDepth_Parses()
+    {
+        var yaml = """
+schemaVersion: 1
+generator: flowtime-sim
+metadata:
+  id: sba-self-queue
+  title: ServiceWithBuffer Self QueueDepth
+  version: 1.0.0
+window:
+  start: 2025-03-01T00:00:00Z
+  timezone: UTC
+grid:
+  bins: 4
+  binSize: 60
+  binUnit: minutes
+topology:
+  nodes:
+    - id: PickerWave
+      kind: serviceWithBuffer
+      semantics:
+        arrivals: wave_stage_inflow
+        served: picker_wave_release
+        errors: wave_attrition
+        queueDepth: self
+      initialCondition:
+        queueDepth: 5
+  edges: []
+nodes:
+  - id: wave_stage_inflow
+    kind: const
+    values: [100, 110, 120, 130]
+  - id: picker_wave_release
+    kind: const
+    values: [80, 90, 100, 110]
+  - id: wave_attrition
+    kind: const
+    values: [0, 0, 0, 0]
+outputs:
+  - series: "*"
+""";
+
+        var template = TemplateParser.ParseFromYaml(yaml);
+
+        Assert.Single(template.Topology.Nodes);
+        Assert.Equal("picker_wave_queue", template.Topology.Nodes[0].Semantics.QueueDepth);
+
+        var synthesized = Assert.Single(
+            template.Nodes,
+            n => string.Equals(n.Kind, "serviceWithBuffer", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal("picker_wave_queue", synthesized.Id);
+        Assert.Equal("wave_stage_inflow", synthesized.Inflow);
+        Assert.Equal("picker_wave_release", synthesized.Outflow);
+    }
+
+    [Fact]
+    public void Template_With_Queue_SelfQueueDepth_Parses()
+    {
+        var yaml = """
+schemaVersion: 1
+generator: flowtime-sim
+metadata:
+  id: queue-self-depth
+  title: Queue Visual Self Depth
+  version: 1.0.0
+window:
+  start: 2025-03-01T00:00:00Z
+  timezone: UTC
+grid:
+  bins: 3
+  binSize: 15
+  binUnit: minutes
+topology:
+  nodes:
+    - id: HubQueue
+      kind: queue
+      semantics:
+        arrivals: hub_queue_demand
+        served: hub_dispatch
+        queueDepth: self
+nodes:
+  - id: hub_queue_demand
+    kind: const
+    values: [50, 60, 70]
+  - id: hub_dispatch
+    kind: const
+    values: [40, 55, 65]
+outputs:
+  - series: "*"
+""";
+
+        var template = TemplateParser.ParseFromYaml(yaml);
+
+        var queueNode = Assert.Single(template.Topology.Nodes);
+        Assert.Equal("hub_queue_queue", queueNode.Semantics.QueueDepth);
+
+        var synthesized = Assert.Single(template.Nodes, n => n.Id == "hub_queue_queue");
+        Assert.Equal("serviceWithBuffer", synthesized.Kind, ignoreCase: true);
+        Assert.Equal("hub_queue_demand", synthesized.Inflow);
+        Assert.Equal("hub_dispatch", synthesized.Outflow);
+        Assert.NotNull(synthesized.Metadata);
+        Assert.Equal("true", synthesized.Metadata?["graph.hidden"]);
+    }
+
+    [Fact]
+    public void ServiceWithBuffer_SynthesizesMissingQueueDepthSeries()
+    {
+        var yaml = """
+schemaVersion: 1
+generator: flowtime-sim
+metadata:
+  id: sba-missing-queue-depth
+  title: ServiceWithBuffer Missing QueueDepth
+  version: 1.0.0
+window:
+  start: 2025-03-01T00:00:00Z
+  timezone: UTC
+grid:
+  bins: 3
+  binSize: 60
+  binUnit: minutes
+topology:
+  nodes:
+    - id: DispatchQueue
+      kind: serviceWithBuffer
+      semantics:
+        arrivals: dispatch_arrivals
+        served: dispatch_served
+        errors: dispatch_errors
+        queueDepth: dispatch_queue_depth
+  edges: []
+nodes:
+  - id: dispatch_arrivals
+    kind: const
+    values: [10, 10, 10]
+  - id: dispatch_served
+    kind: const
+    values: [8, 8, 8]
+  - id: dispatch_errors
+    kind: const
+    values: [0, 0, 0]
+outputs:
+  - series: "*"
+""";
+
+        var template = TemplateParser.ParseFromYaml(yaml);
+
+        var topologyNode = Assert.Single(template.Topology.Nodes);
+        Assert.Equal("dispatch_queue_depth", topologyNode.Semantics.QueueDepth);
+
+        var synthesized = Assert.Single(template.Nodes, n => n.Id == "dispatch_queue_depth");
+        Assert.Equal("serviceWithBuffer", synthesized.Kind, ignoreCase: true);
+        Assert.Equal("dispatch_arrivals", synthesized.Inflow);
+        Assert.Equal("dispatch_served", synthesized.Outflow);
+    }
+
+    [Fact]
+    public void Template_With_Dlq_SelfQueueDepth_Parses()
+    {
+        var yaml = """
+schemaVersion: 1
+generator: flowtime-sim
+metadata:
+  id: dlq-self-depth
+  title: DLQ Self Depth
+  version: 1.0.0
+window:
+  start: 2025-03-01T00:00:00Z
+  timezone: UTC
+grid:
+  bins: 3
+  binSize: 15
+  binUnit: minutes
+topology:
+  nodes:
+    - id: AirportDlq
+      kind: dlq
+      semantics:
+        arrivals: retry_failures
+        served: purge_zero
+        errors: attrition_zero
+        queueDepth: self
+nodes:
+  - id: retry_failures
+    kind: const
+    values: [3, 4, 5]
+  - id: purge_zero
+    kind: const
+    values: [0, 0, 0]
+  - id: attrition_zero
+    kind: const
+    values: [0, 0, 0]
+outputs:
+  - series: "*"
+""";
+
+        var template = TemplateParser.ParseFromYaml(yaml);
+
+        var dlqNode = Assert.Single(template.Topology.Nodes);
+        Assert.Equal("airport_dlq_queue", dlqNode.Semantics.QueueDepth);
+
+        var synthesized = Assert.Single(template.Nodes, n => n.Id == "airport_dlq_queue");
+        Assert.Equal("serviceWithBuffer", synthesized.Kind, ignoreCase: true);
+        Assert.Equal("retry_failures", synthesized.Inflow);
+        Assert.Equal("purge_zero", synthesized.Outflow);
+        Assert.NotNull(synthesized.Metadata);
+        Assert.Equal("true", synthesized.Metadata?["graph.hidden"]);
     }
 
     [Fact]

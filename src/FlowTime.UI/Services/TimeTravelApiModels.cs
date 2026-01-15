@@ -51,6 +51,9 @@ public sealed record TimeTravelStateMetadataDto
     [JsonPropertyName("templateTitle")]
     public string? TemplateTitle { get; init; }
 
+    [JsonPropertyName("templateNarrative")]
+    public string? TemplateNarrative { get; init; }
+
     [JsonPropertyName("templateVersion")]
     public string? TemplateVersion { get; init; }
 
@@ -68,6 +71,9 @@ public sealed record TimeTravelStateMetadataDto
 
     [JsonPropertyName("storage")]
     public required TimeTravelStorageDescriptorDto Storage { get; init; }
+
+    [JsonPropertyName("classCoverage")]
+    public string? ClassCoverage { get; init; }
 }
 
 public sealed record TimeTravelSchemaMetadataDto
@@ -129,8 +135,15 @@ public sealed record TimeTravelNodeSnapshotDto
     [JsonPropertyName("kind")]
     public required string Kind { get; init; }
 
+    [JsonPropertyName("nodeLogicalType")]
+    public string? LogicalType { get; init; }
+
     [JsonPropertyName("metrics")]
     public TimeTravelNodeMetricsDto Metrics { get; init; } = new();
+
+    [JsonPropertyName("byClass")]
+    public IReadOnlyDictionary<string, TimeTravelClassMetricsDto> ByClass { get; init; } =
+        new Dictionary<string, TimeTravelClassMetricsDto>(StringComparer.OrdinalIgnoreCase);
 
     [JsonPropertyName("derived")]
     public TimeTravelNodeDerivedMetricsDto Derived { get; init; } = new();
@@ -140,6 +153,15 @@ public sealed record TimeTravelNodeSnapshotDto
 
     [JsonPropertyName("aliases")]
     public IReadOnlyDictionary<string, string>? Aliases { get; init; }
+
+    [JsonPropertyName("dispatchSchedule")]
+    public TimeTravelDispatchScheduleDto? DispatchSchedule { get; init; }
+
+    [JsonPropertyName("queueLatencyStatus")]
+    public TimeTravelQueueLatencyStatusDto? QueueLatencyStatus { get; init; }
+
+    [JsonPropertyName("sla")]
+    public IReadOnlyList<TimeTravelSlaMetricDto>? Sla { get; init; }
 }
 
 public sealed record TimeTravelNodeSeriesDto
@@ -150,14 +172,60 @@ public sealed record TimeTravelNodeSeriesDto
     [JsonPropertyName("kind")]
     public required string Kind { get; init; }
 
+    [JsonPropertyName("nodeLogicalType")]
+    public string? LogicalType { get; init; }
+
     [JsonPropertyName("series")]
     public IReadOnlyDictionary<string, double?[]> Series { get; init; } = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase);
+
+    [JsonPropertyName("byClass")]
+    public IReadOnlyDictionary<string, IReadOnlyDictionary<string, double?[]>> ByClass { get; init; } =
+        new Dictionary<string, IReadOnlyDictionary<string, double?[]>>(StringComparer.OrdinalIgnoreCase);
 
     [JsonPropertyName("telemetry")]
     public TimeTravelNodeTelemetryDto Telemetry { get; init; } = new();
 
     [JsonPropertyName("aliases")]
     public IReadOnlyDictionary<string, string>? Aliases { get; init; }
+
+    [JsonPropertyName("dispatchSchedule")]
+    public TimeTravelDispatchScheduleDto? DispatchSchedule { get; init; }
+
+    [JsonPropertyName("queueLatencyStatus")]
+    public TimeTravelQueueLatencyStatusDto?[]? QueueLatencyStatus { get; init; }
+
+    [JsonPropertyName("sla")]
+    public IReadOnlyList<TimeTravelSlaSeriesDto>? Sla { get; init; }
+}
+
+public sealed record TimeTravelSlaMetricDto
+{
+    [JsonPropertyName("kind")]
+    public required string Kind { get; init; }
+
+    [JsonPropertyName("status")]
+    public string Status { get; init; } = "ok";
+
+    [JsonPropertyName("threshold")]
+    public double? Threshold { get; init; }
+
+    [JsonPropertyName("value")]
+    public double? Value { get; init; }
+}
+
+public sealed record TimeTravelSlaSeriesDto
+{
+    [JsonPropertyName("kind")]
+    public required string Kind { get; init; }
+
+    [JsonPropertyName("status")]
+    public string Status { get; init; } = "ok";
+
+    [JsonPropertyName("threshold")]
+    public double? Threshold { get; init; }
+
+    [JsonPropertyName("values")]
+    public double?[] Values { get; init; } = Array.Empty<double?>();
 }
 
 public sealed record TimeTravelEdgeSeriesDto
@@ -224,6 +292,33 @@ public sealed record TimeTravelNodeMetricsDto
 
     [JsonPropertyName("maxAttempts")]
     public double? MaxAttempts { get; init; }
+
+    [JsonPropertyName("queueLatencyStatus")]
+    public TimeTravelQueueLatencyStatusDto? QueueLatencyStatus { get; init; }
+}
+
+public sealed record TimeTravelClassMetricsDto
+{
+    [JsonPropertyName("arrivals")]
+    public double? Arrivals { get; init; }
+
+    [JsonPropertyName("served")]
+    public double? Served { get; init; }
+
+    [JsonPropertyName("errors")]
+    public double? Errors { get; init; }
+
+    [JsonPropertyName("queue")]
+    public double? Queue { get; init; }
+
+    [JsonPropertyName("capacity")]
+    public double? Capacity { get; init; }
+
+    [JsonPropertyName("processingTimeMsSum")]
+    public double? ProcessingTimeMsSum { get; init; }
+
+    [JsonPropertyName("servedCount")]
+    public double? ServedCount { get; init; }
 }
 
 public sealed record TimeTravelNodeDerivedMetricsDto
@@ -271,6 +366,15 @@ public sealed record TimeTravelNodeTelemetryWarningDto
     public string? Severity { get; init; }
 }
 
+public sealed record TimeTravelQueueLatencyStatusDto
+{
+    [JsonPropertyName("code")]
+    public string Code { get; init; } = string.Empty;
+
+    [JsonPropertyName("message")]
+    public string? Message { get; init; }
+}
+
 public sealed record TimeTravelStateWarningDto
 {
     [JsonPropertyName("code")]
@@ -284,6 +388,15 @@ public sealed record TimeTravelStateWarningDto
 
     [JsonPropertyName("nodeId")]
     public string? NodeId { get; init; }
+
+    [JsonPropertyName("startBin")]
+    public int? StartBin { get; init; }
+
+    [JsonPropertyName("endBin")]
+    public int? EndBin { get; init; }
+
+    [JsonPropertyName("signal")]
+    public string? Signal { get; init; }
 }
 
 public sealed record TimeTravelMetricsResponseDto
@@ -332,4 +445,19 @@ public sealed record TimeTravelServiceMetricsDto
 
     [JsonPropertyName("mini")]
     public IReadOnlyList<double?> Mini { get; init; } = Array.Empty<double?>();
+}
+
+public sealed record TimeTravelDispatchScheduleDto
+{
+    [JsonPropertyName("kind")]
+    public string Kind { get; init; } = "time-based";
+
+    [JsonPropertyName("periodBins")]
+    public int PeriodBins { get; init; }
+
+    [JsonPropertyName("phaseOffset")]
+    public int PhaseOffset { get; init; }
+
+    [JsonPropertyName("capacitySeries")]
+    public string? CapacitySeries { get; init; }
 }

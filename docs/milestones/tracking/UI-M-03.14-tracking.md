@@ -41,6 +41,6 @@
 ---
 
 ## References
-- docs/milestones/UI-M-03.14.md
+- docs/milestones/completed/UI-M-03.14.md
 - docs/architecture/time-travel/ui-m3-roadmap.md
-- docs/milestones/UI-M-03.11.md
+- docs/milestones/completed/UI-M-03.11.md

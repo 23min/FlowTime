@@ -150,14 +150,20 @@ grid:
   "modelId": "model_20250925T120000Z_abc123def",
   "templateId": "it-system-microservices",
   "templateVersion": "1.0",
+  "mode": "telemetry",
+  "inputHash": "sha256:abcd1234....",
   "generatedAt": "2025-09-25T12:00:00Z",
   "receivedAt": "2025-09-25T12:05:00Z",
   "simVersion": "0.4.0",
+  "rng": { "kind": "pcg32", "seed": 42 },
   "parameters": {
     "bins": 12,
     "binSize": 1,
     "binUnit": "hours",
     "loadBalancerCapacity": 300
+  },
+  "telemetryBindings": {
+    "ordersArrivals": "OrderService_arrivals.csv"
   },
   "links": {
     "modelArtifact": "/api/v1/models/model_20250925T120000Z_abc123def",
@@ -169,6 +175,8 @@ grid:
   }
 }
 ```
+
+`inputHash` captures the deterministic fingerprint of template metadata, parameters, telemetry bindings, and RNG seed. Together with the optional `rng` and `telemetryBindings` nodes it guarantees that provenance consumers (UI, CLI, registry) can determine whether two runs were generated from identical inputs without diffing every series.
 
 **Storage location:**
 ```
@@ -511,7 +519,7 @@ Both failures are documented known limitations, not critical defects preventing 
 - **Sim-Side Implementation**: FlowTime-Sim generates provenance and provides temporary storage (SIM-M-02.07)
 - **Engine-Side Implementation**: FlowTime Engine accepts and stores provenance permanently (M-02.09 section 2.6)
 - **Target Schema**: See `docs/schemas/model.schema.md` (provenance schema definition)
-- **Artifact Registry**: See `docs/milestones/M-02.07.md` (registry architecture)
+- **Artifact Registry**: See `docs/milestones/completed/M-02.07.md` (registry architecture)
 - **UI Orchestration**: UI retrieves models from Sim and sends to Engine (UI-M-03.x)
 
 ## Architecture Principles (KISS)

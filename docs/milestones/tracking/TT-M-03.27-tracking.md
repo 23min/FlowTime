@@ -12,7 +12,7 @@
 
 ## Quick Links
 
-- Milestone Document: `docs/milestones/TT-M-03.27.md`
+- Milestone Document: `docs/milestones/completed/TT-M-03.27.md`
 - Milestone Guide: `docs/development/milestone-documentation-guide.md`
 - Tracking Template: `docs/development/TEMPLATE-tracking.md`
 
@@ -102,7 +102,7 @@ Checklist:
 - [x] Golden contract update for queue nodes (`state-window-queue-null-approved.json`)
 
 ### Task 2.3: Docs
-**File(s):** `docs/milestones/TT-M-03.27.md`
+**File(s):** `docs/milestones/completed/TT-M-03.27.md`
 
 Checklist:
 - [x] Confirm Telemetry Contract section reflects API behavior
@@ -148,7 +148,7 @@ Checklist:
 **Goal:** Update docs, add tests, and record deferred work in the roadmap.
 
 ### Task 4.1: Docs updates
-**File(s):** `docs/milestones/TT-M-03.27.md`, `docs/architecture/time-travel/time-travel-planning-roadmap.md`
+**File(s):** `docs/milestones/completed/TT-M-03.27.md`, `docs/architecture/time-travel/time-travel-planning-roadmap.md`
 
 Checklist:
 - [x] Add example YAML snippet / narrative updates

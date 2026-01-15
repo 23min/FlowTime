@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using MudBlazor;
 using FlowTime.UI.Services;
+using FlowTime.UI.TimeTravel;
 
 namespace FlowTime.UI.Pages.TimeTravel;
 
@@ -18,8 +19,10 @@ public partial class Dashboard : IDisposable
 
     [Inject] private NavigationManager Navigation { get; set; } = default!;
     [Inject] private ITimeTravelMetricsClient MetricsClient { get; set; } = default!;
+    [Inject] private ITimeTravelDataService DataService { get; set; } = default!;
 
     private readonly List<ServiceTileViewModel> _tiles = new();
+    private readonly List<ServiceTileViewModel> _classTiles = new();
     private readonly List<ServiceTileViewModel> _visibleTiles = new();
     private readonly HashSet<SlaStatus> _activeStatuses = new(Enum.GetValues<SlaStatus>());
     private CancellationTokenSource? _loadCts;
@@ -28,6 +31,14 @@ public partial class Dashboard : IDisposable
     private SortOption sortOrder = SortOption.WorstFirst;
     private TimeTravelMetricsResult? _metricsResult;
     private TimeTravelMetricsContext? _context;
+    private IReadOnlyList<string> availableClasses = Array.Empty<string>();
+    private IReadOnlyDictionary<string, string> classDisplayNames = EmptyClassLabels;
+    private IReadOnlyList<string> selectedClasses = Array.Empty<string>();
+    private ClassSelectionMode classSelectionMode = ClassSelectionMode.All;
+    private string? classCoverageState;
+    private TimeTravelStateWindowDto? classWindowData;
+    private const int MaxClassBins = 720;
+    private static readonly IReadOnlyDictionary<string, string> EmptyClassLabels = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
     private static readonly StatusOption[] statusOptions = new[]
     {
@@ -87,6 +98,7 @@ public partial class Dashboard : IDisposable
                 }
             }
 
+            await LoadClassContextAsync(RunId!, cts.Token).ConfigureAwait(false);
             RebuildVisibleTiles();
         }
         catch (OperationCanceledException)
@@ -108,6 +120,93 @@ public partial class Dashboard : IDisposable
             _isLoading = false;
             await InvokeAsync(StateHasChanged);
         }
+    }
+
+    private async Task LoadClassContextAsync(string runId, CancellationToken ct)
+    {
+        availableClasses = Array.Empty<string>();
+        classDisplayNames = EmptyClassLabels;
+        classCoverageState = null;
+        classWindowData = null;
+        _classTiles.Clear();
+
+        var indexResult = await DataService.GetSeriesIndexAsync(runId, ct).ConfigureAwait(false);
+        if (!indexResult.Success || indexResult.Value is null)
+        {
+            return;
+        }
+
+        var index = indexResult.Value;
+        classCoverageState = index.ClassCoverage;
+
+        if (index.Classes is not { Count: > 0 })
+        {
+            Console.WriteLine($"[Dashboard] Class metadata for run {runId}: coverage={classCoverageState ?? "n/a"}, classes=0 (none)");
+            return;
+        }
+
+        availableClasses = index.Classes
+            .Where(entry => !string.IsNullOrWhiteSpace(entry.Id))
+            .OrderBy(entry => entry.DisplayName ?? entry.Id, StringComparer.OrdinalIgnoreCase)
+            .Select(entry => entry.Id)
+            .ToArray();
+
+        Console.WriteLine($"[Dashboard] Class metadata for run {runId}: coverage={classCoverageState ?? "n/a"}, classes={availableClasses.Count} -> {string.Join(", ", availableClasses)}");
+
+        classDisplayNames = index.Classes
+            .Where(entry => !string.IsNullOrWhiteSpace(entry.Id))
+            .ToDictionary(entry => entry.Id, entry => entry.DisplayName ?? entry.Id, StringComparer.OrdinalIgnoreCase);
+
+        var totalBins = Math.Max(1, index.Grid.Bins);
+        var span = Math.Min(totalBins, MaxClassBins);
+        var sliceEnd = totalBins - 1;
+        var sliceStart = Math.Max(0, sliceEnd - (span - 1));
+
+        var windowResult = await DataService.GetStateWindowAsync(runId, sliceStart, sliceEnd, mode: null, ct).ConfigureAwait(false);
+        if (!windowResult.Success || windowResult.Value is null)
+        {
+            return;
+        }
+
+        classWindowData = windowResult.Value;
+        if (string.IsNullOrWhiteSpace(classCoverageState))
+        {
+            classCoverageState = classWindowData.Metadata.ClassCoverage;
+        }
+        EnsureFallbackClassesFromWindow(classWindowData);
+
+        RecomputeClassTiles();
+    }
+
+    private void EnsureFallbackClassesFromWindow(TimeTravelStateWindowDto window)
+    {
+        if (availableClasses.Count > 0 || window.Nodes is null || window.Nodes.Count == 0)
+        {
+            return;
+        }
+
+        var fallback = window.Nodes
+            .Where(node => node.ByClass is not null && node.ByClass.Count > 0)
+            .SelectMany(node => node.ByClass.Keys)
+            .Where(key => !string.IsNullOrWhiteSpace(key) &&
+                          !string.Equals(key, "DEFAULT", StringComparison.OrdinalIgnoreCase))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(key => classDisplayNames.TryGetValue(key, out var label) && !string.IsNullOrWhiteSpace(label) ? label : key,
+                     StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        if (fallback.Length == 0)
+        {
+            return;
+        }
+
+        if (classDisplayNames == EmptyClassLabels)
+        {
+            classDisplayNames = fallback.ToDictionary(id => id, id => id, StringComparer.OrdinalIgnoreCase);
+        }
+
+        availableClasses = fallback;
+        Console.WriteLine($"[Dashboard] Fallback class list from window: {string.Join(", ", availableClasses)}");
     }
 
     internal ServiceTileViewModel? BuildTile(TimeTravelServiceMetricsDto service)
@@ -167,7 +266,8 @@ public partial class Dashboard : IDisposable
 
     internal IEnumerable<ServiceTileViewModel> GetVisibleTiles()
     {
-        IEnumerable<ServiceTileViewModel> query = _tiles.Where(tile => _activeStatuses.Contains(tile.Status));
+        var source = HasClassSelection ? _classTiles : _tiles;
+        IEnumerable<ServiceTileViewModel> query = source.Where(tile => _activeStatuses.Contains(tile.Status));
         return sortOrder switch
         {
             SortOption.BestFirst => query.OrderByDescending(t => t.SlaPct).ThenBy(t => t.Id, StringComparer.OrdinalIgnoreCase),
@@ -219,6 +319,178 @@ public partial class Dashboard : IDisposable
 
         RebuildVisibleTiles();
         StateHasChanged();
+    }
+
+    private bool ShowClassSelector => availableClasses.Count > 0;
+    private bool HasClassSelection => selectedClasses.Count > 0 && classSelectionMode != ClassSelectionMode.All;
+    private string ClassCoverageText => FormatCoverageLabel(classCoverageState);
+
+    private static string FormatCoverageLabel(string? coverage) =>
+        coverage switch
+        {
+            "full" => "Class coverage: Full",
+            "partial" => "Class coverage: Partial",
+            "missing" => "Class coverage: Missing",
+            _ => string.IsNullOrWhiteSpace(coverage) ? string.Empty : $"Class coverage: {coverage}"
+        };
+
+    private Task OnClassSelectionChanged(IReadOnlyList<string> classes)
+    {
+        selectedClasses = classes;
+        RecomputeClassTiles();
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private Task OnClassSelectionModeChanged(ClassSelectionMode mode)
+    {
+        classSelectionMode = mode;
+        RecomputeClassTiles();
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private void RecomputeClassTiles()
+    {
+        _classTiles.Clear();
+        if (!HasClassSelection || classWindowData is null)
+        {
+            RebuildVisibleTiles();
+            return;
+        }
+
+        foreach (var node in classWindowData.Nodes)
+        {
+            var dto = BuildClassAwareMetrics(node, classWindowData.Window.BinCount);
+            if (dto is null)
+            {
+                continue;
+            }
+
+            var tile = BuildTile(dto);
+            if (tile is not null)
+            {
+                _classTiles.Add(tile);
+            }
+        }
+
+        RebuildVisibleTiles();
+    }
+
+    private TimeTravelServiceMetricsDto? BuildClassAwareMetrics(TimeTravelNodeSeriesDto node, int windowBinCount)
+    {
+        if (!IsServiceLike(node.Kind, node.LogicalType) || node.ByClass is null)
+        {
+            return null;
+        }
+
+        var arrivals = AggregateClassSeries(node, "arrivals");
+        var served = AggregateClassSeries(node, "served");
+
+        if (arrivals is null || served is null)
+        {
+            return null;
+        }
+
+        return ComputeServiceMetrics(node.Id, arrivals, served, windowBinCount);
+    }
+
+    private double?[]? AggregateClassSeries(TimeTravelNodeSeriesDto node, string key)
+    {
+        if (node.ByClass is null)
+        {
+            return null;
+        }
+
+        double?[]? accumulator = null;
+        foreach (var classId in selectedClasses)
+        {
+            if (!node.ByClass.TryGetValue(classId, out var classMetrics) ||
+                classMetrics is null ||
+                !classMetrics.TryGetValue(key, out var series) ||
+                series is null ||
+                series.Length == 0)
+            {
+                continue;
+            }
+
+            accumulator ??= new double?[series.Length];
+            var limit = Math.Min(accumulator.Length, series.Length);
+            for (var i = 0; i < limit; i++)
+            {
+                var value = series[i];
+                if (!value.HasValue)
+                {
+                    continue;
+                }
+
+                accumulator[i] = (accumulator[i] ?? 0d) + value.Value;
+            }
+        }
+
+        return accumulator;
+    }
+
+    private static bool IsServiceLike(string? kind, string? logicalType = null)
+    {
+        var candidate = string.IsNullOrWhiteSpace(logicalType) ? kind : logicalType;
+        if (string.IsNullOrWhiteSpace(candidate))
+        {
+            return false;
+        }
+
+        return string.Equals(candidate, "service", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(candidate, "serviceWithBuffer", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(candidate, "flow", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private const double ClassSlaThreshold = 0.95d;
+
+    private static TimeTravelServiceMetricsDto? ComputeServiceMetrics(string nodeId, double?[] arrivals, double?[] served, int windowBinCount)
+    {
+        var clampCount = Math.Min(Math.Min(arrivals.Length, served.Length), windowBinCount > 0 ? windowBinCount : int.MaxValue);
+        if (clampCount <= 0)
+        {
+            return null;
+        }
+
+        var ratios = new double?[clampCount];
+        var binsMet = 0;
+        var binsEvaluated = 0;
+
+        for (var i = 0; i < clampCount; i++)
+        {
+            var arrivalsValue = arrivals[i];
+            var servedValue = served[i];
+
+            if (!arrivalsValue.HasValue || !servedValue.HasValue)
+            {
+                ratios[i] = null;
+                continue;
+            }
+
+            var ratio = arrivalsValue.Value <= 0 ? 1d : servedValue.Value / arrivalsValue.Value;
+            ratio = Math.Max(0d, double.IsFinite(ratio) ? ratio : 0d);
+            ratio = Math.Min(ratio, 1d);
+
+            ratios[i] = ratio;
+            binsEvaluated++;
+
+            if (ratio >= ClassSlaThreshold)
+            {
+                binsMet++;
+            }
+        }
+
+        var slaPct = binsEvaluated > 0 ? binsMet / (double)binsEvaluated : 0d;
+        return new TimeTravelServiceMetricsDto
+        {
+            Id = nodeId,
+            SlaPct = slaPct,
+            BinsMet = binsMet,
+            BinsTotal = binsEvaluated,
+            Mini = ratios
+        };
     }
 
     internal static IReadOnlyList<LineSegment> BuildLineSegments(IReadOnlyList<double?> values)

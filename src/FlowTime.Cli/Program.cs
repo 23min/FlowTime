@@ -6,6 +6,7 @@ using FlowTime.Core.Execution;
 using FlowTime.Core.Artifacts;
 using FlowTime.Core.Models;
 using FlowTime.Core.Nodes;
+using FlowTime.Core.Routing;
 using FlowTime.Contracts.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -88,7 +89,8 @@ catch (Exception ex)
 }
 
 var order = graph.TopologicalOrder();
-var ctx = graph.Evaluate(grid);
+var evaluation = RouterAwareGraphEvaluator.Evaluate(coreModel, graph, grid);
+var ctx = evaluation.Evaluation;
 
 if (verbose)
 {
@@ -100,19 +102,12 @@ if (verbose)
 // Persist spec.yaml verbatim (line ending normalized) and compute canonical scenario/model hash
 var specVerbatim = yaml.Replace("\r\n", "\n");
 
-// Create context dictionary for artifact writer
-var context = new Dictionary<NodeId, double[]>();
-foreach (var (nodeId, series) in ctx)
-{
-	context[nodeId] = series.ToArray();
-}
-
 // Use shared artifact writer
 var writeRequest = new RunArtifactWriter.WriteRequest
 {
 	Model = coreModel,
 	Grid = grid,
-	Context = context,
+	Context = evaluation.Context,
 	SpecText = specVerbatim,
 	RngSeed = rngSeed,
 	StartTimeBias = startTimeBias,
@@ -123,6 +118,24 @@ var writeRequest = new RunArtifactWriter.WriteRequest
 
 var result = await RunArtifactWriter.WriteArtifactsAsync(writeRequest);
 if (verbose) Console.WriteLine($"  RNG seed: {result.FinalSeed} ({(rngSeed.HasValue ? "provided" : "generated")})");
+if (result.Warnings.Count > 0)
+{
+	Console.ForegroundColor = ConsoleColor.Yellow;
+	Console.WriteLine($"⚠ Run emitted {result.Warnings.Count} warning(s):");
+	foreach (var warning in result.Warnings.Take(5))
+	{
+		var nodePrefix = string.IsNullOrWhiteSpace(warning.NodeId) ? string.Empty : $"[{warning.NodeId}] ";
+		var binsText = warning.Bins is { Length: > 0 }
+			? $" bins [{string.Join(", ", warning.Bins.Take(5))}{(warning.Bins.Length > 5 ? ", …" : string.Empty)}]"
+			: string.Empty;
+		Console.WriteLine($"  - {nodePrefix}{warning.Message}{binsText}");
+	}
+	if (result.Warnings.Count > 5)
+	{
+		Console.WriteLine("    (additional warnings omitted)");
+	}
+	Console.ResetColor();
+}
 Console.WriteLine($"Wrote artifacts to {result.RunDirectory}");
 
 return 0;

@@ -2,6 +2,8 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
+using FlowTime.Contracts.Services;
+using FlowTime.Core.Analysis;
 using FlowTime.Sim.Core.Services;
 using FlowTime.Sim.Core.Templates;
 using FlowTime.Sim.Core.Analysis;
@@ -141,6 +143,9 @@ namespace FlowTime.Sim.Cli
                     
                     // validate (template parameters)
                     ("validate", "" or "template" or "params") => await ExecuteValidateCommand(templateService, opts, cts.Token),
+
+                    // refresh template cache
+                    ("refresh", "templates") => await ExecuteRefreshTemplatesCommand(templateService, opts, cts.Token),
                     
                     _ => HandleUnknownCommand(verb, noun)
                 };
@@ -191,6 +196,24 @@ namespace FlowTime.Sim.Cli
                 }
             }
             return 0;
+        }
+
+        static async Task<int> ExecuteRefreshTemplatesCommand(ITemplateService service, CliOptions opts, CancellationToken ct)
+        {
+            Console.WriteLine("Refreshing template cache…");
+            var count = await service.RefreshAsync().ConfigureAwait(false);
+            Console.WriteLine($"✓ Reloaded {count} template(s).");
+            return 0;
+        }
+
+        private static bool ShouldDisplayWarning(InvariantWarning warning)
+        {
+            if (warning is null)
+            {
+                return false;
+            }
+
+            return !string.Equals(warning.Code, "queue_latency_gate_closed", StringComparison.OrdinalIgnoreCase);
         }
 
         static async Task<int> ExecuteShowTemplateCommand(ITemplateService service, CliOptions opts, CancellationToken ct)
@@ -297,22 +320,37 @@ namespace FlowTime.Sim.Cli
             var model = await service.GenerateEngineModelAsync(opts.TemplateId, parameters, modeOverride);
             var artifact = DeserializeArtifact(model);
             var invariantAnalysis = TemplateInvariantAnalyzer.Analyze(model);
-            if (invariantAnalysis.Warnings.Count > 0)
+            var displayWarnings = invariantAnalysis.Warnings
+                .Where(ShouldDisplayWarning)
+                .ToList();
+
+            if (displayWarnings.Count > 0)
             {
                 Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine($"⚠ Template produced {invariantAnalysis.Warnings.Count} warning(s):");
-                foreach (var warning in invariantAnalysis.Warnings.Take(5))
+                Console.WriteLine($"⚠ Template produced {displayWarnings.Count} warning(s):");
+                foreach (var warning in displayWarnings.Take(5))
                 {
                     var binsText = warning.Bins.Count > 0
                         ? $" bins [{string.Join(", ", warning.Bins)}]"
                         : string.Empty;
                     Console.WriteLine($"  - [{warning.NodeId}] {warning.Message}{binsText}");
                 }
-                if (invariantAnalysis.Warnings.Count > 5)
+                if (displayWarnings.Count > 5)
                 {
                     Console.WriteLine("    (additional warnings omitted)");
                 }
                 Console.ResetColor();
+            }
+
+            if (artifact.Classes is { Count: > 0 })
+            {
+                var classSummary = string.Join(", ", artifact.Classes.Select(c =>
+                    string.IsNullOrWhiteSpace(c.DisplayName) ? c.Id : $"{c.Id} ({c.DisplayName})"));
+                Console.WriteLine($"Classes: {classSummary}");
+            }
+            else
+            {
+                Console.WriteLine("Classes: * (implicit single-class)");
             }
 
             if (opts.Verbose)
@@ -322,6 +360,15 @@ namespace FlowTime.Sim.Cli
                 Console.WriteLine($"Has Window: {HasWindow(artifact)}");
                 Console.WriteLine($"Has Topology: {HasTopology(artifact)}");
                 Console.WriteLine($"Has Telemetry Sources: {HasTelemetrySources(artifact)}");
+                var dispatchSummaries = DescribeDispatchSchedules(model);
+                if (dispatchSummaries.Count > 0)
+                {
+                    Console.WriteLine("Dispatch schedules:");
+                    foreach (var summary in dispatchSummaries)
+                    {
+                        Console.WriteLine($"  - {summary}");
+                    }
+                }
             }
 
             var provenance = artifact.Provenance;
@@ -374,6 +421,39 @@ namespace FlowTime.Sim.Cli
         private static bool HasTopology(SimModelArtifact artifact) => artifact.Topology?.Nodes is { Count: > 0 };
 
         private static bool HasTelemetrySources(SimModelArtifact artifact) => artifact.Nodes.Any(n => !string.IsNullOrWhiteSpace(n.Source));
+
+        private static IReadOnlyList<string> DescribeDispatchSchedules(string modelYaml)
+        {
+            try
+            {
+                var dto = ModelService.ParseYaml(modelYaml);
+                var definition = ModelService.ConvertToModelDefinition(dto);
+                if (definition.Nodes == null || definition.Nodes.Count == 0)
+                {
+                    return Array.Empty<string>();
+                }
+
+                var summaries = definition.Nodes
+                    .Where(n => n.DispatchSchedule is not null)
+                    .Select(n =>
+                    {
+                        var schedule = n.DispatchSchedule!;
+                        var kind = string.IsNullOrWhiteSpace(schedule.Kind) ? "time-based" : schedule.Kind;
+                        var phase = schedule.PhaseOffset ?? 0;
+                        var capacity = string.IsNullOrWhiteSpace(schedule.CapacitySeries)
+                            ? "unbounded"
+                            : schedule.CapacitySeries;
+                        return $"{n.Id}: {kind}, period={schedule.PeriodBins}, phase={phase}, capacity={capacity}";
+                    })
+                    .ToList();
+
+                return summaries.Count == 0 ? Array.Empty<string>() : summaries;
+            }
+            catch
+            {
+                return Array.Empty<string>();
+            }
+        }
 
         static async Task<int> ExecuteValidateCommand(ITemplateService service, CliOptions opts, CancellationToken ct)
         {
@@ -638,6 +718,7 @@ namespace FlowTime.Sim.Cli
             Console.WriteLine("                           Generate Engine model from template");
             Console.WriteLine("  validate [template] --id <template-id> [--params <file>]");
             Console.WriteLine("                           Validate template parameters\n");
+            Console.WriteLine("  refresh templates       Clear the template cache and reload YAML files\n");
             Console.WriteLine("Options:");
             Console.WriteLine("  --id <id>                Template identifier");
             Console.WriteLine("  --params <file>          JSON file with parameter overrides (optional)");

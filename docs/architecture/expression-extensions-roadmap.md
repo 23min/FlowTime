@@ -50,6 +50,22 @@
   - Autoscale loops need careful design to avoid non-causal dependencies or unstable oscillations.
 - **Roadmap:** Defer until we have clearer requirements (Heatmap/Edge overlay work, autoscale epic). Documented here as aspirational features.
 
+### 2.5 Behavior-Oriented Flow Controls
+- **Motivation:** Several scenarios surfaced in CL‑M‑04.03.x require functions beyond “probabilistic demand.” These lean on runtime behavior (time gating, SLA breaches, conditional triggers) instead of PMFs.
+- **Proposed primitives:**
+  - `MOD`, `FLOOR`, `CEIL`, `ROUND`, `STEP`, `PULSE`: provide cadence/pulse control so queues can dispatch on schedules (bus-stop flows) without hand-rolled arrays.
+  - `IF(condition, whenTrue, whenFalse)` or ternary equivalent to express SLA penalties, overflow routing, or priority cutovers plainly.
+  - `HOLD(series, bins)` / `SMOOTH(series, alpha)` helpers for hysteresis or gradual ramp-up/down.
+  - Lightweight stochastic toggles (`BERNOULLI(probability)` or `CHOICE(weights)`) for random failover events without defining entire PMFs.
+  - `SEGMENT(binIndex, ranges[], values[])` or `DAYPART()` to encode behavior-by-time blocks for retail/shift models without massive literal arrays.
+- **Use cases:**
+  - Scheduled bus departures (transportation templates), manufacturing picker “waves,” or nightly store replenishments.
+  - SLA breach counters that trigger escalations once latency exceeds thresholds (needs IF/STEP).
+  - Autoscale cooldowns that prevent scale-in for N bins after scale-out (HOLD/SMOOTH).
+  - Random jitter injection for failover drills or canary percentages.
+  - Retail dayparting: lunchtime spikes vs. overnight idle time without external CSVs.
+- **Roadmap:** Capture requirements here; implementation ties to future milestones (e.g., CL‑M‑04.03.02 for scheduled dispatch, later epics for SLA logic). Analyzer/UI work must accompany each new behavior to keep parity across docs, schema, and visualization.
+
 ## 3. Dependencies & Cross-Cutting Risks
 - **Edge telemetry:** Some extensions (routers) benefit from explicit edge metrics; current architecture is node-centric.
 - **Analyzer coverage:** New operators/schema fields require analyzer updates (conservation checks with EMA/conditional gating).

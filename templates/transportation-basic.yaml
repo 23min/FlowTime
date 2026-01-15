@@ -4,7 +4,8 @@ metadata:
   id: 'transportation-basic'
   title: 'Transportation Network with Hub Queue'
   description: 'North/South origins feed a central hub with an outbound queue and airport retries.'
-  version: 3.0.0
+  narrative: 'Hub-and-spoke transit system where inbound demand accumulates at a central dispatch queue, departures are capacity gated, and destination lines act as delivery sinks.'
+  version: 3.0.1
   captureKey: transportation-network-telemetry
   tags: [transportation, transit, queue, retries]
 window:
@@ -115,12 +116,15 @@ topology:
           served: "Hub throughput"
           errors: "Hub overflow"
     - id: HubQueue
-      kind: queue
+      kind: serviceWithBuffer
       semantics:
         arrivals: hub_queue_demand
         served: hub_dispatch
         errors: hub_queue_attrition
-        queueDepth: hub_queue_depth
+        queueDepth: hub_queue_carry
+        capacity: hub_dispatch_capacity
+        processingTimeMsSum: hub_queue_processing_time_ms_sum
+        servedCount: hub_dispatch
         aliases:
           arrivals: "Effective demand"
           served: "Dispatched riders"
@@ -134,26 +138,29 @@ topology:
         arrivals: arrivals_airport
         served: served_airport
         errors: errors_airport
-        capacity: cap_airport
-        attempts: airport_attempts
         failures: airport_retry_failures
-        retryEcho: airport_retry_echo
-        retryKernel: [0.0, 0.6, 0.3, 0.1]
         processingTimeMsSum: airport_processing_time_ms_sum
         servedCount: served_airport
         aliases:
           arrivals: "Airport-bound riders"
-          served: "Airport departures"
-          errors: "Failed departures"
-          attempts: "Airport attempts"
+          served: "Airport line departures"
+          errors: "Airport line errors"
           failures: "Airport failed retries"
+    - id: Airport
+      kind: sink
+      nodeRole: sink
+      semantics:
+        arrivals: served_airport
+        served: served_airport
+        aliases:
+          served: "Arrived at airport"
     - id: HubLossQueue
       kind: queue
       semantics:
         arrivals: hub_loss_inflow
         served: hub_loss_served_zero
         errors: hub_loss_attrition
-        queueDepth: hub_loss_depth
+        queueDepth: self
         aliases:
           arrivals: "Unserved hub riders"
           queue: "Hub loss backlog"
@@ -165,7 +172,7 @@ topology:
         arrivals: airport_dlq_inflow
         served: airport_dlq_served_zero
         errors: airport_dlq_attrition
-        queueDepth: airport_dlq_depth
+        queueDepth: self
         aliases:
           arrivals: "Stranded airport riders"
           queue: "Airport DLQ"
@@ -177,24 +184,36 @@ topology:
         arrivals: arrivals_downtown
         served: served_downtown
         errors: unmet_downtown
-        capacity: cap_downtown
         processingTimeMsSum: downtown_processing_time_ms_sum
         servedCount: served_downtown
         aliases:
-          served: "Downtown departures"
-          errors: "Downtown overflow"
+          served: "Downtown line departures"
+    - id: Downtown
+      kind: sink
+      nodeRole: sink
+      semantics:
+        arrivals: served_downtown
+        served: served_downtown
+        aliases:
+          served: "Arrived downtown"
     - id: LineIndustrial
       kind: service
       semantics:
         arrivals: arrivals_industrial
         served: served_industrial
         errors: unmet_industrial
-        capacity: cap_industrial
         processingTimeMsSum: industrial_processing_time_ms_sum
         servedCount: served_industrial
         aliases:
-          served: "Industrial departures"
-          errors: "Industrial overflow"
+          served: "Industrial line departures"
+    - id: Industrial
+      kind: sink
+      nodeRole: sink
+      semantics:
+        arrivals: served_industrial
+        served: served_industrial
+        aliases:
+          served: "Arrived industrial"
   edges:
     - id: north_to_hub
       from: OriginNorth:out
@@ -214,6 +233,15 @@ topology:
     - id: queue_to_industrial
       from: HubQueue:out
       to: LineIndustrial:in
+    - id: line_to_airport
+      from: LineAirport:out
+      to: Airport:in
+    - id: line_to_downtown
+      from: LineDowntown:out
+      to: Downtown:in
+    - id: line_to_industrial
+      from: LineIndustrial:out
+      to: Industrial:in
     - id: hub_to_loss
       from: CentralHub:errors
       to: HubLossQueue:arrivals
@@ -352,12 +380,9 @@ nodes:
   - id: hub_dispatch
     kind: expr
     expr: "MIN(hub_dispatch_capacity, hub_queue_demand)"
-
-  - id: hub_queue_depth
-    kind: backlog
-    inflow: hub_queue_demand
-    outflow: hub_dispatch
-    loss: hub_queue_attrition
+  - id: hub_queue_processing_time_ms_sum
+    kind: expr
+    expr: "hub_dispatch * 25"
 
   - id: hub_dispatch_airport
     kind: expr
@@ -379,9 +404,16 @@ nodes:
     kind: expr
     expr: "hub_dispatch_downtown"
 
+  - id: airport_retry_rate_spikes
+    kind: expr
+    expr: "CONV(PULSE(29, 5, 1) + PULSE(47, 11, 0.7), [0.25, 0.5, 0.25])"
+  - id: airport_retry_rate
+    kind: expr
+    expr: "CLAMP(${hubRetryRate} * (0.7 + 0.5 * airport_retry_rate_spikes), 0, 0.4)"
+
   - id: airport_retry_attempts
     kind: expr
-    expr: "${hubRetryRate} * arrivals_airport"
+    expr: "airport_retry_rate * arrivals_airport"
   - id: airport_attempts
     kind: expr
     expr: "arrivals_airport + airport_retry_attempts"
@@ -393,10 +425,10 @@ nodes:
     expr: "${hubRetryFailureRate} * airport_retry_attempts"
   - id: served_airport
     kind: expr
-    expr: "MIN(arrivals_airport, MAX(0, airport_capacity_served - airport_retry_failures))"
+    expr: "arrivals_airport"
   - id: errors_airport
     kind: expr
-    expr: "MAX(0, arrivals_airport - served_airport)"
+    expr: "0"
   - id: airport_retry_echo
     kind: expr
     expr: "CONV(airport_retry_attempts, [0.0, 0.6, 0.3, 0.1])"
@@ -406,20 +438,20 @@ nodes:
 
   - id: served_downtown
     kind: expr
-    expr: "MIN(arrivals_downtown, cap_downtown)"
+    expr: "arrivals_downtown"
   - id: unmet_downtown
     kind: expr
-    expr: "MAX(0, arrivals_downtown - cap_downtown)"
+    expr: "0"
   - id: downtown_processing_time_ms_sum
     kind: expr
     expr: "served_downtown * 60"
 
   - id: served_industrial
     kind: expr
-    expr: "MIN(arrivals_industrial, cap_industrial)"
+    expr: "arrivals_industrial"
   - id: unmet_industrial
     kind: expr
-    expr: "MAX(0, arrivals_industrial - cap_industrial)"
+    expr: "0"
   - id: industrial_processing_time_ms_sum
     kind: expr
     expr: "served_industrial * 60"
@@ -438,12 +470,6 @@ nodes:
     kind: expr
     expr: "0"
 
-  - id: hub_loss_depth
-    kind: backlog
-    inflow: hub_loss_inflow
-    outflow: hub_loss_served_zero
-    loss: hub_loss_attrition
-
   - id: airport_dlq_inflow
     kind: expr
     expr: "airport_retry_failures"
@@ -458,19 +484,13 @@ nodes:
     kind: expr
     expr: "0"
 
-  - id: airport_dlq_depth
-    kind: backlog
-    inflow: airport_dlq_inflow
-    outflow: airport_dlq_served_zero
-    loss: airport_dlq_attrition
-
 outputs:
   - series: arrivals_north
     as: north_demand.csv
   - series: arrivals_south
     as: south_demand.csv
-  - series: hub_queue_depth
-    as: hub_queue_depth.csv
+  - series: hub_queue_carry
+    as: hub_queue_carry.csv
   - series: hub_dispatch
     as: hub_dispatch.csv
   - series: served_airport
@@ -481,9 +501,9 @@ outputs:
     as: airport_retry_failures.csv
   - series: served_downtown
     as: downtown_served.csv
-  - series: hub_loss_depth
-    as: hub_loss_backlog.csv
-  - series: airport_dlq_depth
-    as: airport_dlq_backlog.csv
+  - series: hub_loss_attrition
+    as: hub_loss_purge.csv
+  - series: airport_dlq_attrition
+    as: airport_dlq_losses.csv
   - series: served_industrial
     as: industrial_served.csv

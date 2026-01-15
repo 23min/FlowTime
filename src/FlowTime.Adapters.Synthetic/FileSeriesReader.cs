@@ -30,6 +30,9 @@ public sealed class FileSeriesReader : ISeriesReader
         var runDoc = JsonDocument.Parse(json);
         var root = runDoc.RootElement;
 
+        var classCoverage = ParseClassCoverage(root);
+        var classes = ParseManifestClasses(root);
+
         return new RunManifest
         {
             SchemaVersion = root.GetProperty("schemaVersion").GetInt32(),
@@ -43,12 +46,14 @@ public sealed class FileSeriesReader : ISeriesReader
             ScenarioHash = root.GetProperty("scenarioHash").GetString()!,
             CreatedUtc = DateTime.Parse(root.GetProperty("createdUtc").GetString()!, 
                 null, DateTimeStyles.RoundtripKind),
+            ClassCoverage = classCoverage,
             Warnings = root.TryGetProperty("warnings", out var warningsProp)
                 ? warningsProp.EnumerateArray().Select(ParseRunWarning).ToArray()
                 : Array.Empty<RunWarning>(),
             Series = root.GetProperty("series").EnumerateArray()
                 .Select(ParseSeriesReference)
-                .ToArray()
+                .ToArray(),
+            Classes = classes
         };
     }
 
@@ -105,6 +110,8 @@ public sealed class FileSeriesReader : ISeriesReader
         var json = await File.ReadAllTextAsync(indexPath);
         var indexDoc = JsonDocument.Parse(json);
         var root = indexDoc.RootElement;
+        var classCoverage = ParseClassCoverage(root);
+        var classes = ParseManifestClasses(root);
 
         return new SeriesIndex
         {
@@ -112,7 +119,9 @@ public sealed class FileSeriesReader : ISeriesReader
             Grid = ParseTimeGrid(root.GetProperty("grid")),
             Series = root.GetProperty("series").EnumerateArray()
                 .Select(ParseSeriesMetadata)
-                .ToArray()
+                .ToArray(),
+            ClassCoverage = classCoverage,
+            Classes = classes
         };
     }
 
@@ -251,5 +260,61 @@ public sealed class FileSeriesReader : ISeriesReader
             Points = element.GetProperty("points").GetInt32(),
             Hash = element.GetProperty("hash").GetString()!
         };
+    }
+
+    private static string? ParseClassCoverage(JsonElement root)
+    {
+        if (!root.TryGetProperty("classCoverage", out var coverageElement))
+        {
+            return null;
+        }
+
+        return coverageElement.ValueKind switch
+        {
+            JsonValueKind.String => coverageElement.GetString(),
+            JsonValueKind.Null => null,
+            _ => null
+        };
+    }
+
+    private static ManifestClassEntry[] ParseManifestClasses(JsonElement root)
+    {
+        if (!root.TryGetProperty("classes", out var classesElement) ||
+            classesElement.ValueKind != JsonValueKind.Array)
+        {
+            return Array.Empty<ManifestClassEntry>();
+        }
+
+        var entries = new List<ManifestClassEntry>();
+        foreach (var item in classesElement.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.Object ||
+                !item.TryGetProperty("id", out var idElement))
+            {
+                continue;
+            }
+
+            var id = idElement.GetString();
+            if (string.IsNullOrWhiteSpace(id))
+            {
+                continue;
+            }
+
+            var displayName = item.TryGetProperty("displayName", out var nameElement) && nameElement.ValueKind == JsonValueKind.String
+                ? nameElement.GetString()
+                : null;
+            var description = item.TryGetProperty("description", out var descElement) && descElement.ValueKind == JsonValueKind.String
+                ? descElement.GetString()
+                : null;
+
+            entries.Add(new ManifestClassEntry
+            {
+                Id = id!,
+                DisplayName = string.IsNullOrWhiteSpace(displayName) ? null : displayName,
+                Description = string.IsNullOrWhiteSpace(description) ? null : description
+            });
+        }
+
+        return entries.ToArray();
     }
 }

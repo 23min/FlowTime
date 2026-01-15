@@ -268,6 +268,7 @@ public sealed class ArtifactListStateTests
             WarningCount: warningCount,
             Telemetry: new RunTelemetrySummaryDto(telemetryAvailable, createdUtc.Value.ToString("O"), warningCount, null),
             Rng: null,
+            InputHash: "sha256:testhash",
             FirstWarningMessage: warningCount > 0 ? "Warning" : null,
             Warnings: Array.Empty<RunWarningInfo>(),
             Grid: new GridSummary(24, 60),

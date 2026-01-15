@@ -47,6 +47,6 @@
 ---
 
 ## References
-- docs/milestones/TT-M-03.19.md
+- docs/milestones/completed/TT-M-03.19.md
 - docs/architecture/time-travel/ui-m3-roadmap.md
 - docs/operations/telemetry-capture-guide.md

@@ -19,6 +19,8 @@ public sealed class ModelDto
 {
     public int? SchemaVersion { get; set; }
     public GridDto Grid { get; set; } = new();
+    public List<ClassDto> Classes { get; set; } = new();
+    public TrafficDto? Traffic { get; set; }
     public List<NodeDto> Nodes { get; set; } = new();
     public List<OutputDto> Outputs { get; set; } = new();
     public RngDto? Rng { get; set; }
@@ -56,16 +58,46 @@ public sealed class NodeDto
     public string? Expr { get; set; }
     public PmfDto? Pmf { get; set; }
     public Dictionary<string, string>? Metadata { get; set; }
-    // For backlog nodes
+    // For serviceWithBuffer nodes
     public string? Inflow { get; set; }
     public string? Outflow { get; set; }
     public string? Loss { get; set; }
+    public DispatchScheduleDto? DispatchSchedule { get; set; }
+    // For router nodes
+    public RouterInputsDto? Inputs { get; set; }
+    public List<RouterRouteDto>? Routes { get; set; }
 }
 
 public sealed class PmfDto
 {
     public double[] Values { get; set; } = Array.Empty<double>();
     public double[] Probabilities { get; set; } = Array.Empty<double>();
+}
+
+public sealed class ClassDto
+{
+    public string Id { get; set; } = string.Empty;
+    public string? DisplayName { get; set; }
+    public string? Description { get; set; }
+}
+
+public sealed class TrafficDto
+{
+    public List<ArrivalDto> Arrivals { get; set; } = new();
+}
+
+public sealed class ArrivalDto
+{
+    public string NodeId { get; set; } = string.Empty;
+    public string? ClassId { get; set; }
+    public ArrivalPatternDto Pattern { get; set; } = new();
+}
+
+public sealed class ArrivalPatternDto
+{
+    public string Kind { get; set; } = string.Empty;
+    public double? RatePerBin { get; set; }
+    public double? Rate { get; set; }
 }
 
 /// <summary>
@@ -87,8 +119,10 @@ public sealed class TopologyNodeDto
 {
     public string Id { get; set; } = string.Empty;
     public string Kind { get; set; } = "service";
+    public string? NodeRole { get; set; }
     public string? Group { get; set; }
     public UiHintsDto? Ui { get; set; }
+    public DispatchScheduleDto? DispatchSchedule { get; set; }
     public TopologySemanticsDto Semantics { get; set; } = new();
     public TopologyInitialConditionDto? InitialCondition { get; set; }
 }
@@ -138,4 +172,24 @@ public sealed class UiHintsDto
 {
     public double? X { get; set; }
     public double? Y { get; set; }
+}
+
+public sealed class RouterInputsDto
+{
+    public string? Queue { get; set; }
+}
+
+public sealed class RouterRouteDto
+{
+    public string Target { get; set; } = string.Empty;
+    public string[]? Classes { get; set; }
+    public double? Weight { get; set; }
+}
+
+public sealed class DispatchScheduleDto
+{
+    public string Kind { get; set; } = "time-based";
+    public int PeriodBins { get; set; }
+    public int? PhaseOffset { get; set; }
+    public string? CapacitySeries { get; set; }
 }

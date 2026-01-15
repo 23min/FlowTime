@@ -46,6 +46,28 @@ public static class ModelService
                 BinUnit = model.Grid.BinUnit,
                 StartTimeUtc = model.Grid.StartTimeUtc
             },
+            Classes = model.Classes.Select(c => new ClassDefinition
+            {
+                Id = c.Id,
+                DisplayName = c.DisplayName,
+                Description = c.Description
+            }).ToList(),
+            Traffic = model.Traffic == null
+                ? null
+                : new TrafficDefinition
+                {
+                    Arrivals = model.Traffic.Arrivals.Select(a => new ArrivalDefinition
+                    {
+                        NodeId = a.NodeId,
+                        ClassId = string.IsNullOrWhiteSpace(a.ClassId) ? "*" : a.ClassId,
+                        Pattern = new ArrivalPatternDefinition
+                        {
+                            Kind = a.Pattern.Kind,
+                            RatePerBin = a.Pattern.RatePerBin,
+                            Rate = a.Pattern.Rate
+                        }
+                    }).ToList()
+                },
             Nodes = model.Nodes.Select(n => new NodeDefinition 
             { 
                 Id = n.Id, 
@@ -60,10 +82,31 @@ public static class ModelService
                 Metadata = n.Metadata == null
                     ? null
                     : new Dictionary<string, string>(n.Metadata, StringComparer.OrdinalIgnoreCase),
-                // backlog-specific fields (emitted in YAML as inflow/outflow/loss)
+                // serviceWithBuffer-specific fields (emitted in YAML as inflow/outflow/loss)
                 Inflow = n.Inflow,
                 Outflow = n.Outflow,
-                Loss = n.Loss
+                Loss = n.Loss,
+                DispatchSchedule = n.DispatchSchedule == null
+                    ? null
+                    : new DispatchScheduleDefinition
+                    {
+                        Kind = n.DispatchSchedule.Kind,
+                        PeriodBins = n.DispatchSchedule.PeriodBins,
+                        PhaseOffset = n.DispatchSchedule.PhaseOffset,
+                        CapacitySeries = n.DispatchSchedule.CapacitySeries
+                    },
+                Router = n.Inputs == null || n.Routes == null
+                    ? null
+                    : new RouterDefinition
+                    {
+                        Inputs = new RouterInputsDefinition { Queue = n.Inputs.Queue },
+                        Routes = n.Routes.Select(route => new RouterRouteDefinition
+                        {
+                            Target = route.Target,
+                            Classes = route.Classes,
+                            Weight = route.Weight
+                        }).ToList()
+                    }
             }).ToList(),
             Outputs = model.Outputs.Select(o => new OutputDefinition 
             { 
@@ -80,8 +123,18 @@ public static class ModelService
                 {
                     Id = node.Id,
                     Kind = node.Kind,
+                    NodeRole = node.NodeRole,
                     Group = node.Group,
                     Ui = node.Ui != null ? new UiHintsDefinition { X = node.Ui.X, Y = node.Ui.Y } : null,
+                    DispatchSchedule = node.DispatchSchedule == null
+                        ? null
+                        : new DispatchScheduleDefinition
+                        {
+                            Kind = node.DispatchSchedule.Kind,
+                            PeriodBins = node.DispatchSchedule.PeriodBins,
+                            PhaseOffset = node.DispatchSchedule.PhaseOffset,
+                            CapacitySeries = node.DispatchSchedule.CapacitySeries
+                        },
                     Semantics = new TopologyNodeSemanticsDefinition
                     {
                         Arrivals = node.Semantics.Arrivals,

@@ -209,3 +209,22 @@ Accept: application/json
 #     { "id": "LoadBalancer", "slaPct": 0.92, "binsMet": 11, "binsTotal": 12, "mini": [1.0, 0.88, 0.95, ...] }
 #   ]
 # }
+
+### Hover diagnostics sample upload
+POST {{host}}/v1/diagnostics/hover
+Content-Type: application/json
+
+{
+  "runId": "run_transportation-basic-classes_0e29c545",
+  "buildHash": "devlocal",
+  "payloadSignature": "1.0000|0.00|0.00|0.0000|0.0000|1.0000|1.0000",
+  "interopDispatches": 128,
+  "durationMs": 8450.5,
+  "ratePerSecond": 15.14,
+  "timestampUtc": "2025-12-06T12:25:00Z",
+  "source": "manual",
+  "canvas": {
+    "width": 1280,
+    "height": 720
+  }
+}

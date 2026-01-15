@@ -8,7 +8,7 @@
 - **entity** — the thing that moves (job/request/item)  
 - **component** — processing point (node)  
 - **connection** — directed link between components  
-- **class** — segment/category of entities (engine today emits a single `DEFAULT` class)  
+- **class** — segment/category of entities (FlowTime emits one or more classes per node once templates declare them; `DEFAULT` remains the fallback)  
 - **measure (per bin)** — flows like `arrivals`, `served`, `errors` (units: `entities/bin`)  
 - **state level (per bin)** — a level at bin boundary (e.g., `backlog`, `queueDepth`) (units: `entities`)  
 - **grid** — `{ bins, binSize, binUnit }`, time is UTC, alignment is left (bin index `t` maps to bin start)
@@ -80,7 +80,7 @@ Run identifiers are opaque. Engine generates `run_<utc timestamp>_<8-char slug>`
 ### manifest.json
 - Schema: `docs/schemas/manifest.schema.json`
 - Fields: `schemaVersion`, `scenarioHash`, optional `modelHash`, `rng { kind, seed }`, `seriesHashes { seriesId -> sha256 }`, `eventCount`, `createdUtc`, optional provenance reference.
-- Hash values cover CSV file bytes.
+- Hash values cover CSV file bytes. Manifest schema v2 (CL-M-04.04) adds `supportsClassMetrics`, optional `classes[] { id, label }`, and `classCoverage` summary so downstream tools know whether per-class CSVs are present.
 
 ### series/index.json
 - Schema: `docs/schemas/series-index.schema.json`
@@ -122,4 +122,3 @@ Sim Service exposes template/catalog endpoints for model generation and uses the
 - Streaming contracts.
 - Edge fact tables (EdgeTimeBin) and per-edge series.
 - Catalog APIs or catalog.v1 schema (no catalog endpoints are shipped).
-

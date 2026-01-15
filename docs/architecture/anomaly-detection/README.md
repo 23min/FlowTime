@@ -25,6 +25,10 @@ FlowTime already has most of the ingredients needed for high-quality anomaly/pat
 - **Deterministic, replayable runs**: a run is a reproducible artifact; time windows can be revisited.
 - **Telemetry alignment**: gold contracts for real telemetry (5m/hourly bins) and synthetic data that follow the same shape.
 
+It will also build on **edge-level metrics** from the EdgeTimeBin epic:
+
+- Per-edge, per-bin, per-class flows provide the raw material for path-level aggregations and routing anomaly detection.
+
 This means FlowTime can:
 
 - Detect anomalies in the context of **where** they occur in the graph.

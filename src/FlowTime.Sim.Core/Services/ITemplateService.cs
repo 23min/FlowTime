@@ -32,6 +32,12 @@ public interface ITemplateService
     /// Validate template parameters against the template schema.
     /// </summary>
     Task<ValidationResult> ValidateParametersAsync(string templateId, Dictionary<string, object> parameters);
+
+    /// <summary>
+    /// Clear the in-memory template cache and reload templates from disk.
+    /// Returns the number of templates currently available after the refresh.
+    /// </summary>
+    Task<int> RefreshAsync();
 }
 
 /// <summary>

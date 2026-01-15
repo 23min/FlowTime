@@ -75,6 +75,10 @@ public record GraphResponse(
     [property: JsonPropertyName("order")] string[] Order,
     [property: JsonPropertyName("edges")] GraphEdge[] Edges);
 
+public sealed record TemplateRefreshResponse(
+    [property: JsonPropertyName("status")] string Status,
+    [property: JsonPropertyName("templates")] int Templates);
+
 public record GraphEdge(
     [property: JsonPropertyName("id")] string Id,
     [property: JsonPropertyName("inputs")] string[] Inputs);
@@ -116,12 +120,17 @@ public sealed record RunSummaryDto(
     [property: JsonPropertyName("runId")] string RunId,
     [property: JsonPropertyName("templateId")] string TemplateId,
     [property: JsonPropertyName("templateTitle")] string? TemplateTitle,
+    [property: JsonPropertyName("templateNarrative")] string? TemplateNarrative,
     [property: JsonPropertyName("templateVersion")] string? TemplateVersion,
     [property: JsonPropertyName("mode")] string Mode,
     [property: JsonPropertyName("createdUtc")] DateTimeOffset? CreatedUtc,
     [property: JsonPropertyName("warningCount")] int WarningCount,
     [property: JsonPropertyName("telemetry")] RunTelemetrySummaryDto? Telemetry,
-    [property: JsonPropertyName("rng")] RunRngOptionsDto? Rng);
+    [property: JsonPropertyName("rng")] RunRngOptionsDto? Rng,
+    [property: JsonPropertyName("inputHash")] string? InputHash,
+    [property: JsonPropertyName("classes")] IReadOnlyList<string>? Classes = null,
+    [property: JsonPropertyName("classCoverage")] string? ClassCoverage = null,
+    [property: JsonPropertyName("classDescriptions")] IReadOnlyDictionary<string, string>? ClassDescriptions = null);
 
 public sealed record RunCreateResponseDto(
     [property: JsonPropertyName("isDryRun")] bool IsDryRun,
@@ -129,18 +138,21 @@ public sealed record RunCreateResponseDto(
     [property: JsonPropertyName("plan")] RunCreatePlanDto? Plan,
     [property: JsonPropertyName("warnings")] IReadOnlyList<StateWarningDto>? Warnings,
     [property: JsonPropertyName("canReplay")] bool? CanReplay,
-    [property: JsonPropertyName("telemetry")] RunTelemetrySummaryDto? Telemetry);
+    [property: JsonPropertyName("telemetry")] RunTelemetrySummaryDto? Telemetry,
+    [property: JsonPropertyName("wasReused")] bool WasReused = false);
 
 public sealed record RunMetadataDto(
     [property: JsonPropertyName("runId")] string RunId,
     [property: JsonPropertyName("templateId")] string TemplateId,
     [property: JsonPropertyName("templateTitle")] string? TemplateTitle,
+    [property: JsonPropertyName("templateNarrative")] string? TemplateNarrative,
     [property: JsonPropertyName("templateVersion")] string? TemplateVersion,
     [property: JsonPropertyName("mode")] string Mode,
     [property: JsonPropertyName("provenanceHash")] string? ProvenanceHash,
     [property: JsonPropertyName("telemetrySourcesResolved")] bool TelemetrySourcesResolved,
     [property: JsonPropertyName("schema")] SchemaMetadataDto Schema,
     [property: JsonPropertyName("storage")] StorageDescriptorDto Storage,
+    [property: JsonPropertyName("inputHash")] string? InputHash,
     [property: JsonPropertyName("rng")] RunRngOptionsDto? Rng);
 
 public sealed record SchemaMetadataDto(
@@ -231,7 +243,10 @@ public sealed record TelemetryCaptureSummaryDto(
     [property: JsonPropertyName("alreadyExists")] bool AlreadyExists,
     [property: JsonPropertyName("generatedAtUtc")] string? GeneratedAtUtc,
     [property: JsonPropertyName("sourceRunId")] string? SourceRunId,
-    [property: JsonPropertyName("warnings")] IReadOnlyList<StateWarningDto>? Warnings);
+    [property: JsonPropertyName("warnings")] IReadOnlyList<StateWarningDto>? Warnings,
+    [property: JsonPropertyName("supportsClassMetrics")] bool SupportsClassMetrics = false,
+    [property: JsonPropertyName("classCoverage")] string? ClassCoverage = null,
+    [property: JsonPropertyName("classes")] IReadOnlyList<string>? Classes = null);
 
 public sealed record BulkArtifactDeleteResponse(
     [property: JsonPropertyName("success")] bool Success,

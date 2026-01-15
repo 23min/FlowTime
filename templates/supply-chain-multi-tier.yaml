@@ -4,6 +4,7 @@ metadata:
   id: supply-chain-multi-tier
   title: Multi-Tier Supply Chain
   description: End-to-end purchase order flow with warehouse buffering, distributor queue backlog, and delivery retries.
+  narrative: 'Multi-tier supply chain with producer output, warehouse staging, distributor queues, and last-mile delivery retries to show how upstream variability drives downstream backlog.'
   version: 3.0.0
   captureKey: supply-chain-multi-tier-telemetry
   tags: [supply-chain, logistics, queue, retries]
@@ -90,7 +91,7 @@ topology:
         arrivals: supplier_shortage
         served: supplier_shortfall_served_zero
         errors: supplier_shortfall_attrition
-        queueDepth: supplier_shortfall_depth
+        queueDepth: self
         aliases:
           arrivals: "Purchase shortfall"
           queue: "Supplier backlog"
@@ -114,7 +115,7 @@ topology:
         arrivals: queue_inflow
         served: queue_served
         errors: queue_attrition
-        queueDepth: queue_depth
+        queueDepth: self
         aliases:
           arrivals: "Loads staged"
           served: "Loads pulled"
@@ -153,7 +154,7 @@ topology:
         arrivals: dlq_inflow
         served: dlq_release_volume
         errors: dlq_losses
-        queueDepth: dlq_depth
+        queueDepth: self
         aliases:
           arrivals: "Rejected loads"
           served: "Escalations handled"
@@ -179,7 +180,7 @@ topology:
         arrivals: restock_inflow
         served: restock_served_zero
         errors: restock_losses
-        queueDepth: restock_backlog
+        queueDepth: self
         aliases:
           arrivals: "Restock inflow"
           served: "Restocked"
@@ -191,7 +192,7 @@ topology:
         arrivals: recover_inflow
         served: recover_served_zero
         errors: recover_losses
-        queueDepth: recover_backlog
+        queueDepth: self
         aliases:
           arrivals: "Secondary inflow"
           served: "Secondary sales"
@@ -203,7 +204,7 @@ topology:
         arrivals: scrap_inflow
         served: scrap_served_zero
         errors: scrap_losses
-        queueDepth: scrap_backlog
+        queueDepth: self
         aliases:
           arrivals: "Scrap inflow"
           served: "Disposed"
@@ -342,12 +343,6 @@ nodes:
     kind: expr
     expr: "MIN(fulfillment_capacity, queue_demand)"
 
-  - id: queue_depth
-    kind: backlog
-    inflow: queue_demand
-    outflow: queue_served
-    loss: queue_attrition
-
   - id: delivery_base_load
     kind: expr
     expr: "queue_served"
@@ -404,12 +399,6 @@ nodes:
     kind: expr
     expr: "dlq_inflow * 0.2"
 
-  - id: dlq_depth
-    kind: backlog
-    inflow: dlq_inflow
-    outflow: dlq_release_volume
-    loss: dlq_losses
-
   - id: returns_capacity
     kind: pmf
     pmf:
@@ -463,12 +452,6 @@ nodes:
     kind: expr
     expr: "0"
 
-  - id: restock_backlog
-    kind: backlog
-    inflow: restock_inflow
-    outflow: restock_outflow_zero
-    loss: restock_losses
-
   - id: recover_inflow
     kind: expr
     expr: "returns_processed * 0.3"
@@ -488,12 +471,6 @@ nodes:
   - id: recover_losses
     kind: expr
     expr: "0"
-
-  - id: recover_backlog
-    kind: backlog
-    inflow: recover_inflow
-    outflow: recover_outflow_zero
-    loss: recover_losses
 
   - id: scrap_inflow
     kind: expr
@@ -515,12 +492,6 @@ nodes:
     kind: expr
     expr: "0"
 
-  - id: scrap_backlog
-    kind: backlog
-    inflow: scrap_inflow
-    outflow: scrap_outflow_zero
-    loss: scrap_losses
-
   - id: supplier_shortage
     kind: expr
     expr: "MAX(0, purchase_orders - supplier_shipments)"
@@ -539,12 +510,6 @@ nodes:
     kind: expr
     expr: "0"
 
-  - id: supplier_shortfall_depth
-    kind: backlog
-    inflow: supplier_shortage
-    outflow: supplier_shortfall_served_zero
-    loss: supplier_shortfall_attrition
-
 outputs:
   - series: purchase_orders
     as: demand.csv
@@ -552,8 +517,6 @@ outputs:
     as: supplier_shipments.csv
   - series: warehouse_release
     as: warehouse_release.csv
-  - series: queue_depth
-    as: distributor_queue_depth.csv
   - series: queue_served
     as: loads_pulled.csv
   - series: deliveries_served
@@ -570,23 +533,13 @@ outputs:
     as: delivery_errors.csv
   - series: delivery_utilization
     as: delivery_utilization.csv
-  - series: dlq_depth
-    as: dlq_backlog.csv
   - series: returns_processed
     as: returns_processed.csv
   - series: returns_escalated
     as: returns_escalated.csv
-  - series: restock_backlog
-    as: restock_backlog.csv
   - series: restock_losses
     as: restock_purge.csv
-  - series: recover_backlog
-    as: recover_backlog.csv
   - series: recover_losses
     as: recover_purge.csv
-  - series: scrap_backlog
-    as: scrap_backlog.csv
   - series: scrap_losses
     as: scrap_purge.csv
-  - series: supplier_shortfall_depth
-    as: supplier_shortfall_backlog.csv

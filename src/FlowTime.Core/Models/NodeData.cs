@@ -6,6 +6,7 @@ public sealed record NodeData
     public required double[] Arrivals { get; init; }
     public required double[] Served { get; init; }
     public required double[] Errors { get; init; }
+    public IReadOnlyDictionary<string, NodeClassData>? ByClass { get; init; }
     public double[]? Attempts { get; init; }
     public double[]? Failures { get; init; }
     public double[]? ExhaustedFailures { get; init; }
@@ -18,4 +19,15 @@ public sealed record NodeData
     public double[]? ServedCount { get; init; }
     public double[]? RetryBudgetRemaining { get; init; }
     public double[]? Values { get; init; }
+}
+
+public sealed record NodeClassData
+{
+    public double[]? Arrivals { get; init; }
+    public double[]? Served { get; init; }
+    public double[]? Errors { get; init; }
+    public double[]? QueueDepth { get; init; }
+    public double[]? Capacity { get; init; }
+    public double[]? ProcessingTimeMsSum { get; init; }
+    public double[]? ServedCount { get; init; }
 }

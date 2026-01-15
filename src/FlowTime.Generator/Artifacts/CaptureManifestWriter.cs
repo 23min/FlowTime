@@ -29,7 +29,10 @@ public sealed record TelemetryManifest(
     TelemetryManifestGrid Grid,
     IReadOnlyList<TelemetryManifestFile> Files,
     IReadOnlyList<CaptureWarning> Warnings,
-    TelemetryManifestProvenance Provenance);
+    TelemetryManifestProvenance Provenance,
+    bool SupportsClassMetrics = false,
+    IReadOnlyList<string>? Classes = null,
+    string? ClassCoverage = null);
 
 public sealed record TelemetryManifestWindow(
     string? StartTimeUtc,
@@ -45,7 +48,8 @@ public sealed record TelemetryManifestFile(
     TelemetryMetricKind Metric,
     string Path,
     string Hash,
-    int Points);
+    int Points,
+    string? ClassId = null);
 
 public sealed record TelemetryManifestProvenance(
     string RunId,

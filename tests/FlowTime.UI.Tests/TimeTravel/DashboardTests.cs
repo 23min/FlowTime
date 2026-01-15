@@ -50,12 +50,14 @@ public class DashboardTests
                     RunId: "run-1",
                     TemplateId: "template-1",
                     TemplateTitle: "Template A",
+                    TemplateNarrative: null,
                     TemplateVersion: null,
                     Mode: "simulation",
                     ProvenanceHash: null,
                     TelemetrySourcesResolved: true,
                     Schema: new SchemaMetadataDto("schema", "1", "hash"),
                     Storage: new StorageDescriptorDto(null, null, null),
+                    InputHash: null,
                     Rng: null),
                 Plan: null,
                 Warnings: null,
@@ -257,12 +259,14 @@ public class DashboardTests
         public Task<ApiCallResult<RunResponse>> RunAsync(string yaml, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<ApiCallResult<GraphResponse>> GraphAsync(string yaml, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<ApiCallResult<RunSummaryResponseDto>> GetRunSummariesAsync(int page = 1, int pageSize = 50, CancellationToken ct = default) => throw new NotImplementedException();
-        public Task<ApiCallResult<RunCreateResponseDto>> CreateRunAsync(RunCreateRequestDto request, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<ApiCallResult<TelemetryCaptureResponseDto>> GenerateTelemetryCaptureAsync(TelemetryCaptureRequestDto request, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<ApiCallResult<TimeTravelStateSnapshotDto>> GetRunStateAsync(string runId, int binIndex, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<ApiCallResult<Stream>> GetRunSeriesAsync(string runId, string seriesId, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<ApiCallResult<BulkArtifactDeleteResponse>> BulkDeleteArtifactsAsync(string[] artifactIds, CancellationToken ct = default) =>
             Task.FromResult(ApiCallResult<BulkArtifactDeleteResponse>.Fail(501, "not implemented"));
+
+        public Task<ApiCallResult<TemplateRefreshResponse>> RefreshTemplateCacheAsync(CancellationToken ct = default) =>
+            Task.FromResult(ApiCallResult<TemplateRefreshResponse>.Ok(new TemplateRefreshResponse("refreshed", 0), 200));
     }
 
     private sealed class StubTimeTravelDataService : ITimeTravelDataService

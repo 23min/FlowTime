@@ -49,6 +49,10 @@ Milestones evolve through these states:
 ---
 ```
 
+**File Naming Note:**
+- The spec filename may include a descriptive suffix after the milestone ID (for example, `FT-M-05.08-servicewithbuffer-inspector.md`).
+- References in docs, tracking logs, and release notes should use the milestone ID without the suffix (for example, `FT-M-05.08`).
+
 **Milestone ID Format:**
 - Engine: `M-XX.XX` (e.g., `M-02.10`)
 - FlowTime.Sim: `SIM-M-XX.XX` (e.g., `SIM-M-03.00`)
@@ -412,7 +416,7 @@ All task checklists MUST follow this order:
 
 ## Quick Links
 
-- **Milestone Document:** [`docs/milestones/UI-M-02.09.md`](../UI-M-02.09.md)
+- **Milestone Document:** [`docs/milestones/completed/UI-M-02.09.md`](../UI-M-02.09.md)
 - **Related Analysis:** [`docs/ui/UI-CURRENT-STATE-ANALYSIS.md`](../../ui/UI-CURRENT-STATE-ANALYSIS.md)
 
 ---
@@ -476,21 +480,21 @@ All task checklists MUST follow this order:
 ## Examples of Good Milestones
 
 ### Simple Milestone
-See: [`docs/milestones/M-02.10.md`](../milestones/M-02.10.md)
+See: [`docs/milestones/completed/M-02.10.md`](../milestones/M-02.10.md)
 - ✅ Clear scope (provenance queries)
 - ✅ Specific API/CLI requirements
 - ✅ Test cases included
 - ⚠️ Remove time estimate (violates rule)
 
 ### Complex Milestone
-See: [`docs/milestones/M-02.09.md`](../milestones/M-02.09.md)
+See: [`docs/milestones/completed/M-02.09.md`](../milestones/M-02.09.md)
 - ✅ Multi-phase implementation
 - ✅ TDD approach documented
 - ✅ Comprehensive test plan
 - ✅ Architecture decisions
 
 ### UI Milestone
-See: [`docs/milestones/UI-M-02.09.md`](../milestones/UI-M-02.09.md)
+See: [`docs/milestones/completed/UI-M-02.09.md`](../milestones/UI-M-02.09.md)
 - ⚠️ Needs update (outdated schema assumptions)
 - ⚠️ Remove date stamp
 - ⚠️ Remove time estimates

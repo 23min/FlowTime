@@ -23,7 +23,7 @@ public class ProvenanceServiceTests
     {
         // Arrange
         var templateId = "it-system-microservices";
-        var parameters = new Dictionary<string, object>
+        var parameters = new Dictionary<string, object?>
         {
             ["bins"] = 12,
             ["binSize"] = 1,
@@ -46,7 +46,7 @@ public class ProvenanceServiceTests
     {
         // Arrange
         var templateId = "it-system-microservices";
-        var parameters = new Dictionary<string, object>
+        var parameters = new Dictionary<string, object?>
         {
             ["bins"] = 12,
             ["binSize"] = 1,
@@ -72,8 +72,8 @@ public class ProvenanceServiceTests
     {
         // Arrange
         var templateId = "it-system-microservices";
-        var params1 = new Dictionary<string, object> { ["bins"] = 12 };
-        var params2 = new Dictionary<string, object> { ["bins"] = 24 };
+        var params1 = new Dictionary<string, object?> { ["bins"] = 12 };
+        var params2 = new Dictionary<string, object?> { ["bins"] = 24 };
 
         // Act
         var provenance1 = _service.CreateProvenance(templateId, "1.0", "IT System", params1);
@@ -94,7 +94,7 @@ public class ProvenanceServiceTests
         var templateId = "it-system-microservices";
         var templateVersion = "1.0";
         var templateTitle = "IT System - Microservices";
-        var parameters = new Dictionary<string, object>
+        var parameters = new Dictionary<string, object?>
         {
             ["bins"] = 12,
             ["binSize"] = 1,
@@ -124,7 +124,7 @@ public class ProvenanceServiceTests
     {
         // Arrange
         var templateId = "test-template";
-        var parameters = new Dictionary<string, object>();
+        var parameters = new Dictionary<string, object?>();
 
         // Act
         var provenance = _service.CreateProvenance(templateId, "1.0", "Test", parameters);
@@ -138,12 +138,12 @@ public class ProvenanceServiceTests
     {
         // Arrange
         var templateId = "it-system-microservices";
-        var parameters = new Dictionary<string, object>
+        var parameters = new Dictionary<string, object?>
         {
             ["bins"] = 12,
             ["binSize"] = 1.5,
             ["binUnit"] = "hours",
-            ["nested"] = new Dictionary<string, object>
+            ["nested"] = new Dictionary<string, object?>
             {
                 ["key"] = "value"
             }
@@ -172,7 +172,7 @@ public class ProvenanceServiceTests
     public void CreateProvenance_UsesInvariantCulture()
     {
         // Arrange - Use parameters with decimal values
-        var parameters = new Dictionary<string, object>
+        var parameters = new Dictionary<string, object?>
         {
             ["rate"] = 3.14159,
             ["capacity"] = 1000.5
@@ -207,7 +207,7 @@ public class ProvenanceServiceTests
     public void CreateProvenance_EmptyParameters_IsValid()
     {
         // Arrange
-        var parameters = new Dictionary<string, object>();
+        var parameters = new Dictionary<string, object?>();
 
         // Act
         var provenance = _service.CreateProvenance("simple-template", "1.0", "Simple", parameters);
@@ -219,10 +219,38 @@ public class ProvenanceServiceTests
     }
 
     [Fact]
+    public void CreateProvenance_IncludesInputHashAndTelemetry()
+    {
+        var parameters = new Dictionary<string, object?> { ["bins"] = 12 };
+        var telemetry = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["arrivals"] = "OrderService_arrivals.csv"
+        };
+
+        var provenance = _service.CreateProvenance(
+            "it-system-microservices",
+            "1.0",
+            "IT System",
+            parameters,
+            inputHash: "sha256:abc123",
+            mode: "telemetry",
+            rngSeed: 42,
+            rngKind: "pcg32",
+            telemetryBindings: telemetry);
+
+        Assert.Equal("sha256:abc123", provenance.InputHash);
+        Assert.Equal("telemetry", provenance.Mode);
+        Assert.Equal(42, provenance.Rng?.Seed);
+        Assert.Equal("pcg32", provenance.Rng?.Kind);
+        Assert.NotNull(provenance.TelemetryBindings);
+        Assert.True(provenance.TelemetryBindings!.ContainsKey("arrivals"));
+    }
+
+    [Fact]
     public void CreateProvenance_NullParameters_ThrowsArgumentException()
     {
         // Arrange
-        Dictionary<string, object>? parameters = null;
+        Dictionary<string, object?>? parameters = null;
 
         // Act & Assert
         Assert.Throws<ArgumentNullException>(() =>
@@ -233,7 +261,7 @@ public class ProvenanceServiceTests
     public void ModelIdGeneration_Format_IsCorrect()
     {
         // Arrange & Act
-        var provenance = _service.CreateProvenance("test", "1.0", "Test", new Dictionary<string, object>());
+        var provenance = _service.CreateProvenance("test", "1.0", "Test", new Dictionary<string, object?>());
 
         // Assert - Format: model_YYYYMMDDTHHMMSSZ_<8hex>
         var parts = provenance.ModelId.Split('_');
@@ -247,7 +275,7 @@ public class ProvenanceServiceTests
     public void CreateProvenance_IsFast()
     {
         // Arrange
-        var parameters = new Dictionary<string, object>
+        var parameters = new Dictionary<string, object?>
         {
             ["bins"] = 12,
             ["rate"] = 3.14

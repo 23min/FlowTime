@@ -1,6 +1,7 @@
 using System.Diagnostics.Metrics;
 using FlowTime.Generator.Models;
 using FlowTime.Generator.Orchestration;
+using FlowTime.Sim.Core.Hashing;
 using FlowTime.Sim.Core.Services;
 using FlowTime.Tests.Support;
 using Microsoft.Extensions.Logging;
@@ -125,7 +126,7 @@ public class RunOrchestrationServiceTests
         Assert.Equal("telemetry", plan.Mode);
         Assert.Equal(Path.Combine(temp.Path, "runs"), plan.OutputRoot);
         Assert.Equal(captureDir, plan.CaptureDirectory);
-        Assert.True(plan.Files.Count > 0);
+        Assert.True(plan.TelemetryManifest.Files.Count > 0);
     }
 
     [Fact]
@@ -174,6 +175,114 @@ public class RunOrchestrationServiceTests
         Assert.Equal("simulation", result.ManifestMetadata.Mode);
         Assert.Equal(0, doc.RootElement.GetProperty("files").GetArrayLength());
         Assert.Equal("sim-order", result.ManifestMetadata.TemplateId);
+    }
+
+    [Fact]
+    public async Task CreateRunAsync_DeterministicSimulation_RunIdUsesInputHash()
+    {
+        using var temp = new TempDirectory();
+        var templatesDir = Path.Combine(temp.Path, "templates");
+        Directory.CreateDirectory(templatesDir);
+        await File.WriteAllTextAsync(Path.Combine(templatesDir, "sim-order.yaml"), SimulationTemplate);
+
+        var templateService = new TemplateService(templatesDir, NullLogger<TemplateService>.Instance);
+        var bundleBuilder = new TelemetryBundleBuilder();
+        var orchestration = new RunOrchestrationService(templateService, bundleBuilder, NullLogger<RunOrchestrationService>.Instance);
+
+        var request = new RunOrchestrationRequest
+        {
+            TemplateId = "sim-order",
+            Mode = "simulation",
+            Parameters = new Dictionary<string, object?>(),
+            OutputRoot = Path.Combine(temp.Path, "runs"),
+            DeterministicRunId = true
+        };
+
+        var outcome = await orchestration.CreateRunAsync(request);
+        var result = outcome.Result!;
+
+        var expectedHash = RunHashCalculator.ComputeHash(new RunHashInput(
+            "sim-order",
+            "1.0.0",
+            "simulation",
+            new Dictionary<string, object?>(),
+            new Dictionary<string, string>(),
+            "pcg32",
+            123));
+        var expectedRunId = $"run_sim-order_{expectedHash[7..]}";
+
+        Assert.Equal(expectedRunId, result.RunId);
+        Assert.EndsWith(expectedRunId, result.RunDirectory, StringComparison.OrdinalIgnoreCase);
+        Assert.False(result.WasReused);
+    }
+
+    [Fact]
+    public async Task CreateRunAsync_DeterministicSimulation_ReusesExistingBundle()
+    {
+        using var temp = new TempDirectory();
+        var templatesDir = Path.Combine(temp.Path, "templates");
+        Directory.CreateDirectory(templatesDir);
+        await File.WriteAllTextAsync(Path.Combine(templatesDir, "sim-order.yaml"), SimulationTemplate);
+
+        var templateService = new TemplateService(templatesDir, NullLogger<TemplateService>.Instance);
+        var bundleBuilder = new TelemetryBundleBuilder();
+        var orchestration = new RunOrchestrationService(templateService, bundleBuilder, NullLogger<RunOrchestrationService>.Instance);
+
+        var request = new RunOrchestrationRequest
+        {
+            TemplateId = "sim-order",
+            Mode = "simulation",
+            Parameters = new Dictionary<string, object?>(),
+            OutputRoot = Path.Combine(temp.Path, "runs"),
+            DeterministicRunId = true
+        };
+
+        var first = (await orchestration.CreateRunAsync(request)).Result!;
+        var sentinel = Path.Combine(first.RunDirectory, "sentinel.txt");
+        await File.WriteAllTextAsync(sentinel, "keep");
+
+        var second = (await orchestration.CreateRunAsync(request)).Result!;
+
+        Assert.Equal(first.RunId, second.RunId);
+        Assert.Equal(first.RunDirectory, second.RunDirectory);
+        Assert.True(File.Exists(sentinel));
+        Assert.False(first.WasReused);
+        Assert.True(second.WasReused);
+    }
+
+    [Fact]
+    public async Task CreateRunAsync_DeterministicSimulation_OverwriteRegeneratesBundle()
+    {
+        using var temp = new TempDirectory();
+        var templatesDir = Path.Combine(temp.Path, "templates");
+        Directory.CreateDirectory(templatesDir);
+        await File.WriteAllTextAsync(Path.Combine(templatesDir, "sim-order.yaml"), SimulationTemplate);
+
+        var templateService = new TemplateService(templatesDir, NullLogger<TemplateService>.Instance);
+        var bundleBuilder = new TelemetryBundleBuilder();
+        var orchestration = new RunOrchestrationService(templateService, bundleBuilder, NullLogger<RunOrchestrationService>.Instance);
+
+        var baseRequest = new RunOrchestrationRequest
+        {
+            TemplateId = "sim-order",
+            Mode = "simulation",
+            Parameters = new Dictionary<string, object?>(),
+            OutputRoot = Path.Combine(temp.Path, "runs"),
+            DeterministicRunId = true,
+            OverwriteExisting = false
+        };
+
+        var first = (await orchestration.CreateRunAsync(baseRequest)).Result!;
+        var sentinel = Path.Combine(first.RunDirectory, "sentinel.txt");
+        await File.WriteAllTextAsync(sentinel, "marker");
+
+        var overwriteRequest = baseRequest with { OverwriteExisting = true };
+        var second = (await orchestration.CreateRunAsync(overwriteRequest)).Result!;
+
+        Assert.Equal(first.RunId, second.RunId);
+        Assert.Equal(first.RunDirectory, second.RunDirectory);
+        Assert.False(second.WasReused);
+        Assert.False(File.Exists(sentinel));
     }
 
     [Fact]

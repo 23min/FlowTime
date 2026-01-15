@@ -34,7 +34,21 @@
         "hasProvenance": { "type": "boolean" },
         "modelId": { "type": "string" },
         "templateId": { "type": "string" },
-        "source": { "type": "string" }
+        "source": { "type": "string" },
+        "inputHash": { "$ref": "#/$defs/hash" }
+      }
+    },
+    "classes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "displayName": { "type": "string" },
+          "description": { "type": "string" }
+        }
       }
     }
   },

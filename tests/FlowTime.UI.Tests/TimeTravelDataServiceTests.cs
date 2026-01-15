@@ -176,7 +176,6 @@ public class TimeTravelDataServiceTests
 
         public Task<ApiCallResult<RunSummaryResponseDto>> GetRunSummariesAsync(int page = 1, int pageSize = 50, CancellationToken ct = default) => throw new NotImplementedException();
 
-        public Task<ApiCallResult<RunCreateResponseDto>> CreateRunAsync(RunCreateRequestDto request, CancellationToken ct = default) => throw new NotImplementedException();
 
         public Task<ApiCallResult<RunCreateResponseDto>> GetRunAsync(string runId, CancellationToken ct = default) => throw new NotImplementedException();
 
@@ -202,5 +201,8 @@ public class TimeTravelDataServiceTests
 
         public Task<ApiCallResult<BulkArtifactDeleteResponse>> BulkDeleteArtifactsAsync(string[] artifactIds, CancellationToken ct = default) =>
             Task.FromResult(ApiCallResult<BulkArtifactDeleteResponse>.Fail(501, "not implemented"));
+
+        public Task<ApiCallResult<TemplateRefreshResponse>> RefreshTemplateCacheAsync(CancellationToken ct = default) =>
+            Task.FromResult(ApiCallResult<TemplateRefreshResponse>.Ok(new TemplateRefreshResponse("refreshed", 0), 200));
     }
 }

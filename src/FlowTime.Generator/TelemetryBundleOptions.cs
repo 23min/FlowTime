@@ -14,6 +14,11 @@ public sealed class TelemetryBundleOptions
     public required string CaptureDirectory { get; init; }
 
     /// <summary>
+    /// Template identifier associated with the generated model.
+    /// </summary>
+    public string? TemplateId { get; init; }
+
+    /// <summary>
     /// Path to the FlowTime-Sim generated model.yaml.
     /// </summary>
     public required string ModelPath { get; init; }
@@ -22,6 +27,11 @@ public sealed class TelemetryBundleOptions
     /// Optional FlowTime-Sim provenance JSON accompanying the model.
     /// </summary>
     public string? ProvenancePath { get; init; }
+
+    /// <summary>
+    /// Deterministic input hash computed from template metadata, parameters, telemetry bindings, and RNG.
+    /// </summary>
+    public string? InputHash { get; init; }
 
     /// <summary>
     /// Root output directory where the canonical run should be written (e.g., data/runs).

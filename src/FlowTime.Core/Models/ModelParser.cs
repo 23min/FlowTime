@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
+using FlowTime.Core.Dispatching;
 using FlowTime.Core.Execution;
 using FlowTime.Core.Nodes;
 using FlowTime.Core.Expressions;
@@ -90,8 +91,10 @@ public static class ModelParser
             {
                 Id = definition.Id,
                 Kind = string.IsNullOrWhiteSpace(definition.Kind) ? "service" : definition.Kind,
+                NodeRole = string.IsNullOrWhiteSpace(definition.NodeRole) ? null : definition.NodeRole,
                 Group = definition.Group,
                 Ui = definition.Ui != null ? new UiHints { X = definition.Ui.X, Y = definition.Ui.Y } : null,
+                DispatchSchedule = definition.DispatchSchedule,
                 Semantics = new NodeSemantics
                 {
                     Arrivals = RequireSemantic(definition.Semantics.Arrivals, definition.Id, "arrivals"),
@@ -191,7 +194,7 @@ public static class ModelParser
         if (model.Nodes == null || model.Nodes.Count == 0)
             return;
 
-        var topologyInitials = new Dictionary<string, bool>(StringComparer.Ordinal);
+        var topologyInitials = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         if (model.Topology?.Nodes != null)
         {
             foreach (var topoNode in model.Topology.Nodes)
@@ -199,7 +202,15 @@ public static class ModelParser
                 if (string.IsNullOrWhiteSpace(topoNode.Id))
                     continue;
 
-                topologyInitials[topoNode.Id] = topoNode.InitialCondition != null;
+                if (topoNode.InitialCondition != null)
+                {
+                    topologyInitials.Add(topoNode.Id);
+                    var queueDepthId = topoNode.Semantics?.QueueDepth;
+                    if (!string.IsNullOrWhiteSpace(queueDepthId))
+                    {
+                        topologyInitials.Add(queueDepthId.Trim());
+                    }
+                }
             }
         }
 
@@ -229,7 +240,7 @@ public static class ModelParser
 
             if (selfShiftError != null)
             {
-                if (!topologyInitials.TryGetValue(node.Id, out var hasInitial) || !hasInitial)
+                if (!topologyInitials.Contains(node.Id))
                 {
                     throw new ModelParseException(selfShiftError.Message);
                 }
@@ -244,8 +255,8 @@ public static class ModelParser
     {
         var nodes = new List<INode>();
 
-        // Build a lookup from backlog series id to initial seed (from topology initialCondition)
-        var backlogInitials = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        // Build a lookup from serviceWithBuffer series id to initial seed (from topology initialCondition)
+        var serviceWithBufferInitials = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
         if (model.Topology?.Nodes != null)
         {
             foreach (var topoNode in model.Topology.Nodes)
@@ -253,7 +264,7 @@ public static class ModelParser
                 var queueId = topoNode.Semantics?.QueueDepth;
                 if (string.IsNullOrWhiteSpace(queueId)) continue;
                 var seed = topoNode.InitialCondition?.QueueDepth ?? 0d;
-                backlogInitials[queueId!.Trim()] = seed;
+                serviceWithBufferInitials[queueId!.Trim()] = seed;
             }
         }
 
@@ -261,14 +272,15 @@ public static class ModelParser
         {
             var node = ParseSingleNode(nodeDef);
 
-            // Patch BacklogNode with initial seed if configured via topology
-            if (node is Nodes.BacklogNode && backlogInitials.TryGetValue(nodeDef.Id, out var seed))
+            // Patch ServiceWithBuffer node with initial seed if configured via topology
+            if (node is Nodes.ServiceWithBufferNode && serviceWithBufferInitials.TryGetValue(nodeDef.Id, out var seed))
             {
                 // Reconstruct with seed
-                var inflow = new NodeId(nodeDef.Inflow ?? throw new ModelParseException($"Backlog node {nodeDef.Id} requires 'inflow'."));
-                var outflow = new NodeId(nodeDef.Outflow ?? throw new ModelParseException($"Backlog node {nodeDef.Id} requires 'outflow'."));
+                var inflow = new NodeId(nodeDef.Inflow ?? throw new ModelParseException($"ServiceWithBuffer node {nodeDef.Id} requires 'inflow'."));
+                var outflow = new NodeId(nodeDef.Outflow ?? throw new ModelParseException($"ServiceWithBuffer node {nodeDef.Id} requires 'outflow'."));
                 NodeId? loss = string.IsNullOrWhiteSpace(nodeDef.Loss) ? null : new NodeId(nodeDef.Loss!);
-                node = new Nodes.BacklogNode(nodeDef.Id, inflow, outflow, loss, seed);
+                var scheduleConfig = CreateDispatchSchedule(nodeDef);
+                node = new Nodes.ServiceWithBufferNode(nodeDef.Id, inflow, outflow, loss, seed, scheduleConfig);
             }
             nodes.Add(node);
         }
@@ -283,13 +295,22 @@ public static class ModelParser
     {
         if (string.IsNullOrWhiteSpace(nodeDef.Id))
             throw new ModelParseException("Node must have an id");
-            
-        return nodeDef.Kind switch
+        
+        var kind = nodeDef.Kind?.Trim();
+        if (string.IsNullOrWhiteSpace(kind))
+        {
+            throw new ModelParseException($"Node {nodeDef.Id}: kind must be specified");
+        }
+
+        var normalizedKind = kind.ToLowerInvariant();
+
+        return normalizedKind switch
         {
             "const" => ParseConstNode(nodeDef),
             "expr" => ParseExprNode(nodeDef),
             "pmf" => ParsePmfNode(nodeDef),
-            "backlog" => ParseBacklogNode(nodeDef),
+            "servicewithbuffer" => ParseServiceWithBufferNode(nodeDef),
+            "router" => ParseRouterNode(nodeDef),
             _ => throw new ModelParseException($"Unknown node kind: {nodeDef.Kind}")
         };
     }
@@ -355,16 +376,75 @@ public static class ModelParser
         }
     }
 
-    private static INode ParseBacklogNode(NodeDefinition nodeDef)
+    private static INode ParseServiceWithBufferNode(NodeDefinition nodeDef)
     {
         var inflowId = nodeDef.Inflow;
         var outflowId = nodeDef.Outflow;
         if (string.IsNullOrWhiteSpace(inflowId) || string.IsNullOrWhiteSpace(outflowId))
-            throw new ModelParseException($"Node {nodeDef.Id}: backlog nodes require 'inflow' and 'outflow' fields");
+            throw new ModelParseException($"Node {nodeDef.Id}: serviceWithBuffer nodes require 'inflow' and 'outflow' fields");
 
         NodeId? loss = string.IsNullOrWhiteSpace(nodeDef.Loss) ? null : new NodeId(nodeDef.Loss!);
+        var scheduleConfig = CreateDispatchSchedule(nodeDef);
         // Initial seed is injected later from topology (see ParseNodes(model))
-        return new Nodes.BacklogNode(nodeDef.Id, new NodeId(inflowId), new NodeId(outflowId), loss, 0d);
+        return new Nodes.ServiceWithBufferNode(nodeDef.Id, new NodeId(inflowId), new NodeId(outflowId), loss, 0d, scheduleConfig);
+    }
+
+    private static INode ParseRouterNode(NodeDefinition nodeDef)
+    {
+        var queueId = nodeDef.Router?.Inputs?.Queue;
+        if (string.IsNullOrWhiteSpace(queueId))
+        {
+            throw new ModelParseException($"Node {nodeDef.Id}: router nodes require inputs.queue");
+        }
+
+        if (nodeDef.Router?.Routes is not { Count: > 0 })
+        {
+            throw new ModelParseException($"Node {nodeDef.Id}: router nodes require at least one route");
+        }
+
+        foreach (var route in nodeDef.Router.Routes)
+        {
+            if (string.IsNullOrWhiteSpace(route.Target))
+            {
+                throw new ModelParseException($"Node {nodeDef.Id}: router routes must specify target");
+            }
+
+            if ((route.Classes is null || route.Classes.Length == 0) && (!route.Weight.HasValue || route.Weight.Value <= 0))
+            {
+                throw new ModelParseException($"Node {nodeDef.Id}: router route '{route.Target}' must declare classes or positive weight");
+            }
+        }
+
+        return new Nodes.RouterNode(nodeDef.Id, new NodeId(queueId));
+    }
+
+    private static DispatchScheduleConfig? CreateDispatchSchedule(NodeDefinition nodeDef)
+    {
+        if (nodeDef.DispatchSchedule is null)
+        {
+            return null;
+        }
+
+        var schedule = nodeDef.DispatchSchedule;
+        if (!string.IsNullOrWhiteSpace(schedule.Kind) &&
+            !string.Equals(schedule.Kind, "time-based", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ModelParseException($"Node {nodeDef.Id}: dispatchSchedule.kind '{schedule.Kind}' is not supported.");
+        }
+
+        if (schedule.PeriodBins <= 0)
+        {
+            throw new ModelParseException($"Node {nodeDef.Id}: dispatchSchedule.periodBins must be positive.");
+        }
+
+        NodeId? capacityId = null;
+        if (!string.IsNullOrWhiteSpace(schedule.CapacitySeries))
+        {
+            capacityId = new NodeId(schedule.CapacitySeries);
+        }
+
+        var phase = schedule.PhaseOffset ?? 0;
+        return new DispatchScheduleConfig(schedule.PeriodBins, phase, capacityId);
     }
 }
 
@@ -384,9 +464,37 @@ public class ModelDefinition
 {
     public int SchemaVersion { get; set; }
     public GridDefinition? Grid { get; set; }
+    public List<ClassDefinition> Classes { get; set; } = new();
+    public TrafficDefinition? Traffic { get; set; }
     public List<NodeDefinition> Nodes { get; set; } = new();
     public List<OutputDefinition> Outputs { get; set; } = new();
     public TopologyDefinition? Topology { get; set; }
+}
+
+public class ClassDefinition
+{
+    public string Id { get; set; } = string.Empty;
+    public string? DisplayName { get; set; }
+    public string? Description { get; set; }
+}
+
+public class TrafficDefinition
+{
+    public List<ArrivalDefinition> Arrivals { get; set; } = new();
+}
+
+public class ArrivalDefinition
+{
+    public string NodeId { get; set; } = string.Empty;
+    public string ClassId { get; set; } = "*";
+    public ArrivalPatternDefinition Pattern { get; set; } = new();
+}
+
+public class ArrivalPatternDefinition
+{
+    public string Kind { get; set; } = string.Empty;
+    public double? RatePerBin { get; set; }
+    public double? Rate { get; set; }
 }
 
 public class GridDefinition
@@ -405,10 +513,39 @@ public class NodeDefinition
     public string? Expr { get; set; }
     public PmfDefinition? Pmf { get; set; }
     public Dictionary<string, string>? Metadata { get; set; }
-    // For backlog nodes
+    // For serviceWithBuffer nodes
     public string? Inflow { get; set; }
     public string? Outflow { get; set; }
     public string? Loss { get; set; }
+    public DispatchScheduleDefinition? DispatchSchedule { get; set; }
+    // For router nodes
+    public RouterDefinition? Router { get; set; }
+}
+
+public class RouterDefinition
+{
+    public RouterInputsDefinition Inputs { get; set; } = new();
+    public List<RouterRouteDefinition> Routes { get; set; } = new();
+}
+
+public class RouterInputsDefinition
+{
+    public string? Queue { get; set; }
+}
+
+public class RouterRouteDefinition
+{
+    public string Target { get; set; } = string.Empty;
+    public string[]? Classes { get; set; }
+    public double? Weight { get; set; }
+}
+
+public class DispatchScheduleDefinition
+{
+    public string Kind { get; set; } = "time-based";
+    public int PeriodBins { get; set; }
+    public int? PhaseOffset { get; set; }
+    public string? CapacitySeries { get; set; }
 }
 
 public class PmfDefinition
@@ -433,11 +570,13 @@ public class TopologyNodeDefinition
 {
     public string Id { get; set; } = string.Empty;
     public string? Kind { get; set; }
-    public string? Group { get; set; }
-    public UiHintsDefinition? Ui { get; set; }
-    public TopologyNodeSemanticsDefinition Semantics { get; set; } = new();
-    public InitialConditionDefinition? InitialCondition { get; set; }
-}
+            public string? NodeRole { get; set; }
+            public string? Group { get; set; }
+            public UiHintsDefinition? Ui { get; set; }
+            public TopologyNodeSemanticsDefinition Semantics { get; set; } = new();
+            public InitialConditionDefinition? InitialCondition { get; set; }
+            public DispatchScheduleDefinition? DispatchSchedule { get; set; }
+        }
 
 public class TopologyNodeSemanticsDefinition
 {

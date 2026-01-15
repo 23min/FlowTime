@@ -15,6 +15,8 @@ public sealed class RunManifest
     public required DateTime CreatedUtc { get; init; }
     public required RunWarning[] Warnings { get; init; } = Array.Empty<RunWarning>();
     public required SeriesReference[] Series { get; init; }
+    public string? ClassCoverage { get; init; }
+    public ManifestClassEntry[]? Classes { get; init; }
 }
 
 public sealed class RunWarning
@@ -84,4 +86,10 @@ public readonly record struct TimeGrid(int Bins, int BinSize, string BinUnit, st
         "days" => BinSize * 1440,
         _ => throw new ArgumentException($"Unknown time unit: {BinUnit}")
     };
+}
+public sealed class ManifestClassEntry
+{
+    public string Id { get; init; } = string.Empty;
+    public string? DisplayName { get; init; }
+    public string? Description { get; init; }
 }

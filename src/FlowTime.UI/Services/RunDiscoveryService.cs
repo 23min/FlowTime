@@ -111,6 +111,27 @@ public sealed class RunDiscoveryService : IRunDiscoveryService
             var created = summary.CreatedUtc ?? TryInferCreatedFromRunId(summary.RunId);
 
             var rng = detailResult.Value?.Metadata?.Rng ?? summary.Rng;
+            IReadOnlyList<string>? classes = summary.Classes;
+            IReadOnlyDictionary<string, string>? classDescriptions = summary.ClassDescriptions;
+            string? classCoverage = summary.ClassCoverage;
+            var inputHash = detailResult.Value?.Metadata?.InputHash ?? summary.InputHash;
+
+            if (hasIndex && indexResult.Value is not null)
+            {
+                var fallbackClasses = ExtractClassIds(indexResult.Value);
+                if ((classes is null || classes.Count == 0) && fallbackClasses.Length > 0)
+                {
+                    classes = fallbackClasses;
+                }
+
+                var fallbackDescriptions = ExtractClassDescriptions(indexResult.Value);
+                if ((classDescriptions is null || classDescriptions.Count == 0) && fallbackDescriptions.Count > 0)
+                {
+                    classDescriptions = fallbackDescriptions;
+                }
+
+                classCoverage ??= indexResult.Value.ClassCoverage;
+            }
 
             var entry = new RunListEntry(
                 RunId: summary.RunId,
@@ -122,12 +143,16 @@ public sealed class RunDiscoveryService : IRunDiscoveryService
                 WarningCount: summary.WarningCount,
                 Telemetry: telemetrySummary,
                 Rng: rng,
+                InputHash: inputHash,
                 FirstWarningMessage: firstWarning,
                 Warnings: warnings,
                 Grid: gridSummary,
                 Presence: new ArtifactPresence(hasModel, hasManifest, hasIndex, hasSeries),
                 CanReplay: canReplay,
-                CanOpen: hasIndex && hasManifest);
+                CanOpen: hasIndex && hasManifest,
+                Classes: classes,
+                ClassCoverage: classCoverage,
+                ClassDescriptions: classDescriptions);
 
             runs.Add(entry);
         }
@@ -161,6 +186,43 @@ public sealed class RunDiscoveryService : IRunDiscoveryService
         }
 
         return buffer;
+    }
+
+    private static string[] ExtractClassIds(SeriesIndex index)
+    {
+        if (index.Classes is null || index.Classes.Count == 0)
+        {
+            return Array.Empty<string>();
+        }
+
+        return index.Classes
+            .Where(entry => !string.IsNullOrWhiteSpace(entry.Id))
+            .Select(entry => entry.Id!.Trim())
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private static IReadOnlyDictionary<string, string> ExtractClassDescriptions(SeriesIndex index)
+    {
+        if (index.Classes is null || index.Classes.Count == 0)
+        {
+            return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var entry in index.Classes)
+        {
+            if (string.IsNullOrWhiteSpace(entry.Id))
+            {
+                continue;
+            }
+
+            var label = string.IsNullOrWhiteSpace(entry.DisplayName) ? entry.Id.Trim() : entry.DisplayName!.Trim();
+            dict[entry.Id.Trim()] = label;
+        }
+
+        return dict;
     }
 
     private static GridSummary BuildGridSummary(SeriesIndex index)
@@ -240,12 +302,16 @@ public sealed record RunListEntry(
     int WarningCount,
     RunTelemetrySummaryDto? Telemetry,
     RunRngOptionsDto? Rng,
+    string? InputHash,
     string? FirstWarningMessage,
     IReadOnlyList<RunWarningInfo> Warnings,
     GridSummary Grid,
     ArtifactPresence Presence,
     bool CanReplay,
-    bool CanOpen);
+    bool CanOpen,
+    IReadOnlyList<string>? Classes = null,
+    string? ClassCoverage = null,
+    IReadOnlyDictionary<string, string>? ClassDescriptions = null);
 
 public sealed record RunWarningInfo(string Code, string Message, string Severity, string? NodeId);
 

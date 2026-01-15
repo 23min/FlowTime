@@ -31,6 +31,13 @@ public static class TemplateParser
 
         try
         {
+            var schemaResult = TemplateSchemaValidator.Validate(yaml);
+            if (!schemaResult.IsValid)
+            {
+                var message = string.Join("; ", schemaResult.Errors);
+                throw new TemplateValidationException($"Template failed schema validation: {message}");
+            }
+
             Template template;
             try
             {
@@ -47,6 +54,8 @@ public static class TemplateParser
                 throw new TemplateParsingException($"YAML parsing error: {ex.Message}", ex);
             }
 
+            QueueNodeSynthesizer.Apply(template);
+            SinkNodeSynthesizer.Apply(template);
             TemplateValidator.Validate(template);
             return template;
         }

@@ -1,6 +1,6 @@
 # FlowTime Roadmap — Updated 2025-11-23
 
-This roadmap supersedes the previous legacy plan (now archived under `docs/archive/ROADMAP-2025-06-legacy.md`). It reflects the current state of FlowTime Engine + Sim, acknowledges what the time-travel epic delivered, and outlines the next waves of work. Use this document as the high-level planning guide; milestone docs and architecture notes provide the implementation detail.
+This roadmap supersedes the previous legacy plan (now archived under `docs/archive/ROADMAP-2025-06-legacy.md`). It reflects the current state of FlowTime Engine + Sim, acknowledges what the time-travel epic delivered, and outlines the next waves of work. Use this document as the high-level planning guide; architecture **epics** and milestone docs provide the implementation detail (see `docs/architecture/epic-roadmap.md` and `docs/development/epics-and-milestones.md`).
 
 ## Scope & Assumptions
 - Engine remains responsible for deterministic execution, artifact generation, and `/state` APIs (see `docs/flowtime-engine-charter.md`).
@@ -12,6 +12,7 @@ This roadmap supersedes the previous legacy plan (now archived under `docs/archi
 - Time-travel APIs (`/runs/{id}/state`, `/state_window`), telemetry capture/bundle pipeline, CLI orchestration.
 - DLQ and backlog retrofits across canonical templates; analyzers enforce DLQ semantics.
 - Updated docs: DLQ lens, template authoring/testing guides, expression extensions roadmap.
+- Topology focus view for provenance drilldown (focus toggle, upstream filtering, compact relayout, state preservation).
 
 ## Near-Term Focus (Next Epic Candidates)
 1. **EdgeTimeBin / Edge Metrics (name TBD)**  
@@ -27,9 +28,12 @@ This roadmap supersedes the previous legacy plan (now archived under `docs/archi
 4. **Analyzer Cross-Node Checks**  
    - Need invariant rules that compare queue arrivals to upstream `served` (and similar cross-node relationships) to catch semantic mistakes early.  
    - Depends on either edge metrics or explicit topology lookup support in analyzers.
-5. **Expression Extensions & Conditional Logic**  
+5. **Classes & Router Solidification / Topology Perf (FT‑M‑05.05 / 05.06)**  
+   - FT‑M‑05.05: Rewire class-enabled templates (transportation, supply chain) to consume router outputs directly instead of legacy percentage splits; eliminates `router_class_leakage` warnings and keeps class chips accurate.  
+   - FT‑M‑05.06: Once routers are solid, throttle topology hover interactions (JS/interop batching, inspector debounce) to reduce WASM load and keep the UI responsive on class-heavy runs.
+6. **Expression Extensions & Conditional Logic / Services With Buffers**  
    - Track the features itemized in `docs/architecture/expression-extensions-roadmap.md` (ABS/SQRT/POW, EMA/DELAY, IF, router/autoscale helpers).  
-   - Prioritize based on upcoming use cases (e.g., autoscale epic, smooth retry policies).
+   - Prioritize based on upcoming use cases (e.g., autoscale epic, smooth retry policies, and the ServiceWithBuffer epic under `docs/architecture/service-with-buffer/`).
 6. **Retention / Bundle Promotion Helpers**  
    - TT‑M‑03.17 deferred run retention policy and CLI helpers for promoting local bundles to shared libraries.  
    - Scope policy + tooling to avoid artifact sprawl.
@@ -47,4 +51,6 @@ This roadmap supersedes the previous legacy plan (now archived under `docs/archi
 - `docs/architecture/time-travel/status-2025-11-23.md` — Latest epic + global gap status.  
 - `docs/architecture/whitepaper.md` — Engine vision + future primitives.  
 - `docs/architecture/expression-extensions-roadmap.md` — Justification for advanced operators.  
+- `docs/architecture/epic-roadmap.md` — Architecture epics, their ordering, and links to detailed docs.  
+- `docs/development/epics-and-milestones.md` — How epics map to milestones and where to place new work.  
 - `docs/flowtime-engine-charter.md` — Engine remit and non-goals.

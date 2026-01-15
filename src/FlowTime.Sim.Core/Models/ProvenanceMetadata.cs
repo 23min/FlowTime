@@ -34,9 +34,29 @@ public sealed class ProvenanceMetadata
     public required string TemplateTitle { get; init; }
 
     /// <summary>
+    /// Mode used when generating the run inputs (telemetry/simulation).
+    /// </summary>
+    public string? Mode { get; init; }
+
+    /// <summary>
     /// Parameter values used during generation.
     /// </summary>
-    public required Dictionary<string, object> Parameters { get; init; }
+    public required Dictionary<string, object?> Parameters { get; init; }
+
+    /// <summary>
+    /// Deterministic input hash computed from template metadata, parameters, telemetry bindings, and RNG settings.
+    /// </summary>
+    public string? InputHash { get; init; }
+
+    /// <summary>
+    /// RNG metadata used for the run.
+    /// </summary>
+    public ProvenanceRngMetadata? Rng { get; init; }
+
+    /// <summary>
+    /// Telemetry bindings applied when generating the run (if any).
+    /// </summary>
+    public Dictionary<string, string>? TelemetryBindings { get; init; }
 
     /// <summary>
     /// ISO8601 timestamp when model was generated (UTC).
@@ -52,4 +72,10 @@ public sealed class ProvenanceMetadata
     /// Provenance schema version. Currently "1".
     /// </summary>
     public required string SchemaVersion { get; init; }
+}
+
+public sealed class ProvenanceRngMetadata
+{
+    public string Kind { get; init; } = "pcg32";
+    public int Seed { get; init; }
 }

@@ -20,6 +20,7 @@ using SimTemplateService = FlowTime.Sim.Core.Services.TemplateService;
 using SimITemplateService = FlowTime.Sim.Core.Services.ITemplateService;
 using FlowTime.Contracts.Services;
 using FlowTime.Core.TimeTravel;
+using FlowTime.Core.Routing;
 using Microsoft.AspNetCore.HttpLogging;
 using System.Diagnostics;
 using Synthetic = FlowTime.Adapters.Synthetic;
@@ -128,6 +129,12 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider) =>
 var v1 = app.MapGroup("/v1");
 v1.MapRunOrchestrationEndpoints();
 v1.MapTelemetryCaptureEndpoints();
+v1.MapPost("/templates/refresh", async (SimITemplateService templateService, ILogger<Program> logger) =>
+{
+    var count = await templateService.RefreshAsync().ConfigureAwait(false);
+    logger.LogInformation("Template cache refreshed via API. {Count} template(s) loaded.", count);
+    return Results.Ok(new { status = "refreshed", templates = count });
+});
 
 // Artifacts registry endpoints
 v1.MapPost("/artifacts/index", async (IArtifactRegistry registry, ILogger<Program> logger) =>
@@ -177,6 +184,110 @@ v1.MapGet("/artifacts", async (IArtifactRegistry registry, HttpContext context, 
         await registry.RebuildIndexAsync();
         var response = await registry.GetArtifactsAsync(options);
         return Results.Ok(response);
+    }
+});
+
+v1.MapPost("/diagnostics/hover", async (HoverDiagnosticsRequest payload, IConfiguration configuration) =>
+{
+    if (payload is null)
+    {
+        return Results.BadRequest(new { error = "Payload is required." });
+    }
+
+    var timestamp = payload.TimestampUtc == default ? DateTime.UtcNow : payload.TimestampUtc;
+    var diagnosticsRoot = Path.Combine(Program.ServiceHelpers.DataRoot(configuration), "diagnostics");
+    Directory.CreateDirectory(diagnosticsRoot);
+    var hoverSection = configuration.GetSection("Diagnostics:Hover");
+    var canvasSection = configuration.GetSection("Diagnostics:Canvas");
+    var hoverLimit = Math.Max(10, hoverSection.GetValue<int?>("RollingMaxRows") ?? 720);
+    var canvasLimit = Math.Max(10, canvasSection.GetValue<int?>("RollingMaxRows") ?? hoverLimit);
+
+    var runId = payload.RunId ?? "unknown";
+    var normalizedSource = string.IsNullOrWhiteSpace(payload.Source) ? "manual" : payload.Source;
+    var operationalOnly = payload.OperationalOnly ?? string.Equals(payload.Mode, "operational", StringComparison.OrdinalIgnoreCase);
+    var mode = payload.Mode ?? (operationalOnly ? "operational" : "full");
+
+    if (normalizedSource.Contains("canvas", StringComparison.OrdinalIgnoreCase))
+    {
+        var canvasRow = new CanvasDiagnosticsRow(
+            timestamp,
+            runId,
+            payload.BuildHash ?? "dev",
+            payload.PayloadSignature,
+            payload.NodeCount,
+            payload.EdgeCount,
+            payload.AvgDrawMs,
+            payload.MaxDrawMs,
+            payload.LastDrawMs,
+            payload.FrameCount,
+            payload.PanDistance,
+            payload.ZoomEvents,
+            payload.DragFrameCount,
+            payload.DragTotalDurationMs,
+            payload.DragAverageFrameMs,
+            payload.DragMaxFrameMs,
+            normalizedSource,
+            payload.ResolveCanvasWidth(),
+            payload.ResolveCanvasHeight(),
+            operationalOnly,
+            mode,
+            payload.NeighborEmphasis ?? true,
+            payload.ZoomPercent,
+            payload.InspectorVisible ?? false);
+
+        var canvasPath = Path.Combine(diagnosticsRoot, "canvas-diagnostics.csv");
+        await DiagnosticsFileWriter.AppendCanvasEntryAsync(canvasPath, canvasRow, canvasLimit);
+        return Results.Accepted($"/diagnostics/{Path.GetFileName(canvasPath)}", new { path = canvasPath });
+    }
+    else
+    {
+        var hoverRow = new HoverDiagnosticsRow(
+            timestamp,
+            runId,
+            payload.BuildHash ?? "dev",
+            payload.PayloadSignature,
+            payload.InteropDispatches,
+            payload.TotalDispatches > 0 ? payload.TotalDispatches : payload.InteropDispatches,
+            payload.DurationMs,
+            payload.RatePerSecond,
+            normalizedSource,
+            payload.ResolveCanvasWidth(),
+            payload.ResolveCanvasHeight(),
+            operationalOnly,
+            mode,
+            payload.NeighborEmphasis ?? true,
+            payload.ZoomPercent,
+            payload.HoveredNodeId,
+            payload.FocusedNodeId,
+            payload.NodeCount,
+            payload.EdgeCount,
+            payload.InspectorVisible ?? false,
+            payload.PointerThrottleSkips,
+            payload.PointerEventsReceived,
+            payload.PointerEventsProcessed,
+            payload.PointerQueueDrops,
+            payload.PointerIntentSkips,
+            payload.DragFrameCount,
+            payload.DragTotalDurationMs,
+            payload.DragAverageFrameMs,
+            payload.DragMaxFrameMs,
+            payload.SceneRebuilds,
+            payload.OverlayUpdates,
+            payload.LayoutReads,
+            payload.PointerInpSampleCount,
+            payload.PointerInpAverageMs,
+            payload.PointerInpMaxMs,
+            payload.EdgeCandidatesLast,
+            payload.EdgeCandidatesAverage,
+            payload.EdgeCandidateSamples,
+            payload.EdgeCandidateFallbacks,
+            payload.EdgeGridCellSize,
+            payload.EdgeCacheHits,
+            payload.EdgeCacheMisses);
+
+        var hoverPath = Path.Combine(diagnosticsRoot, "hover-diagnostics.csv");
+        await DiagnosticsFileWriter.AppendHoverEntryAsync(hoverPath, hoverRow, hoverLimit);
+        return Results.Accepted($"/diagnostics/{Path.GetFileName(hoverPath)}", new { path = hoverPath });
     }
 });
 
@@ -517,18 +628,15 @@ v1.MapPost("/run", async (HttpRequest req, IArtifactRegistry registry, ILogger<P
         }
 
         var order = graph.TopologicalOrder();
-        var ctx = graph.Evaluate(grid);
+        var routerEvaluation = RouterAwareGraphEvaluator.Evaluate(coreModel, graph, grid);
+        var ctx = routerEvaluation.Evaluation;
 
         // Build artifacts using shared writer
         var artifactsDir = Program.GetArtifactsDirectory(app.Configuration);
         Directory.CreateDirectory(artifactsDir);
         
         // Create context dictionary for artifact writer
-        var artifactContext = new Dictionary<NodeId, double[]>();
-        foreach (var (nodeId, seriesData) in ctx)
-        {
-            artifactContext[nodeId] = seriesData.ToArray();
-        }
+        var artifactContext = routerEvaluation.Context;
 
         // Use shared artifact writer
         var writeRequest = new RunArtifactWriter.WriteRequest
@@ -1248,6 +1356,23 @@ public partial class Program
             var fallback = Path.Combine(solutionRoot, "examples", "time-travel");
             Directory.CreateDirectory(fallback);
             return fallback;
+        }
+
+        public static string SanitizePathSegment(string? segment)
+        {
+            if (string.IsNullOrWhiteSpace(segment))
+            {
+                return "unknown";
+            }
+
+            var invalid = Path.GetInvalidFileNameChars();
+            var builder = new StringBuilder(segment.Length);
+            foreach (var ch in segment)
+            {
+                builder.Append(invalid.Contains(ch) ? '_' : ch);
+            }
+
+            return builder.ToString();
         }
     }
 

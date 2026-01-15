@@ -4,23 +4,23 @@
 
 @if (HasVisibleNodes)
 {
-    <div class="topology-canvas-host" @onpointerleave="OnNodePointerLeave">
+    <div class="topology-canvas-host" data-test="topology-loaded">
         <canvas @ref="canvasRef"
                 class="topology-canvas"
-                role="presentation">
+                role="presentation"
+                data-topology-canvas>
         </canvas>
         <div class="topology-node-layer">
             @foreach (var proxy in NodeProxies)
             {
                 <button type="button"
-                        class="topology-node-proxy"
+                        class="topology-node-proxy@(proxy.IsDimmed ? " topology-node-proxy--dimmed" : string.Empty)"
                         data-node-id="@proxy.Id"
                         data-focused="@(proxy.IsFocused ? "true" : "false")"
+                        data-dimmed="@(proxy.IsDimmed ? "true" : "false")"
                         style="@proxy.Style"
                         aria-label="@proxy.AriaLabel"
                         @onclick="() => SelectNode(proxy.Id)"
-                        @onmouseenter="() => HoverNode(proxy.Id)"
-                        @onmouseleave="OnNodeHoverLeave"
                         @onfocus="() => SelectNode(proxy.Id)"
                         @onblur="OnNodeBlur"
                         @onkeydown="(args) => OnNodeKeyDown(args, proxy.Id)"
@@ -38,7 +38,7 @@
                         title="View @SelectedNodeId details"
                         @onclick="() => OpenInspector(SelectedNodeId!)"
                         @onclick:stopPropagation>
-                    <span class="topology-node-inspector-toggle__info" aria-hidden="true"></span>
+                    <span class="topology-node-inspector-toggle__label" aria-hidden="true">info</span>
                     <span class="visually-hidden">Open details for @SelectedNodeId</span>
                 </button>
             }

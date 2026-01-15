@@ -30,6 +30,8 @@ public class Template
     public List<TemplateParameter> Parameters { get; set; } = new();
     public TemplateGrid Grid { get; set; } = new();
     public TemplateTopology Topology { get; set; } = new();
+    public List<TemplateClass> Classes { get; set; } = new();
+    public TemplateTraffic? Traffic { get; set; }
     public List<TemplateNode> Nodes { get; set; } = new();
     public List<TemplateOutput> Outputs { get; set; } = new();
     public TemplateRng? Rng { get; set; } = null;
@@ -44,6 +46,7 @@ public class TemplateMetadata
     public string Id { get; set; } = string.Empty;
     public string Title { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
+    public string? Narrative { get; set; }
     public string Version { get; set; } = string.Empty;
     public List<string> Tags { get; set; } = new();
     public string? CaptureKey { get; set; }
@@ -103,16 +106,50 @@ public class TemplateTopology
 }
 
 /// <summary>
+/// Optional class declarations for templates.
+/// </summary>
+public class TemplateClass
+{
+    public string Id { get; set; } = string.Empty;
+    public string? DisplayName { get; set; }
+    public string? Description { get; set; }
+}
+
+/// <summary>
+/// Optional class-aware traffic definitions.
+/// </summary>
+public class TemplateTraffic
+{
+    public List<TemplateArrival> Arrivals { get; set; } = new();
+}
+
+public class TemplateArrival
+{
+    public string NodeId { get; set; } = string.Empty;
+    public string? ClassId { get; set; }
+    public TemplateArrivalPattern Pattern { get; set; } = new();
+}
+
+public class TemplateArrivalPattern
+{
+    public string Kind { get; set; } = string.Empty;
+    public double? RatePerBin { get; set; }
+    public double? Rate { get; set; }
+}
+
+/// <summary>
 /// Topology node enriched with semantics, group, and initial conditions.
 /// </summary>
 public class TemplateTopologyNode
 {
     public string Id { get; set; } = string.Empty;
     public string Kind { get; set; } = string.Empty;
+    public string? NodeRole { get; set; }
     public string? Group { get; set; }
     public TemplateNodeSemantics Semantics { get; set; } = new();
     public TemplateInitialCondition? InitialCondition { get; set; }
     public TemplateUiHint? Ui { get; set; }
+    public TemplateDispatchSchedule? DispatchSchedule { get; set; }
 }
 
 /// <summary>
@@ -180,6 +217,7 @@ public class TemplateNode
 {
     public string Id { get; set; } = string.Empty;
     public string Kind { get; set; } = string.Empty;
+    public Dictionary<string, string>? Metadata { get; set; }
     
     // For const nodes
     public double[]? Values { get; set; }
@@ -212,10 +250,37 @@ public class TemplateNode
     public List<string>? Dependencies { get; set; }
     public double? Initial { get; set; }
 
-    // For backlog nodes (stateful queue accumulator)
+    // For serviceWithBuffer nodes (stateful queue accumulator)
     public string? Inflow { get; set; }
     public string? Outflow { get; set; }
     public string? Loss { get; set; }
+
+    // Dispatch schedule (optional serviceWithBuffer cadence)
+    public TemplateDispatchSchedule? DispatchSchedule { get; set; }
+
+    // For router nodes
+    public TemplateRouterInputs? Inputs { get; set; }
+    public List<TemplateRouterRoute>? Routes { get; set; }
+}
+
+public class TemplateDispatchSchedule
+{
+    public string Kind { get; set; } = "time-based";
+    public int PeriodBins { get; set; }
+    public int? PhaseOffset { get; set; }
+    public string? CapacitySeries { get; set; }
+}
+
+public class TemplateRouterInputs
+{
+    public string? Queue { get; set; }
+}
+
+public class TemplateRouterRoute
+{
+    public string Target { get; set; } = string.Empty;
+    public string[]? Classes { get; set; }
+    public double? Weight { get; set; }
 }
 
 /// <summary>
