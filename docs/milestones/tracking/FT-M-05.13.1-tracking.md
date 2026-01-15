@@ -23,8 +23,8 @@
 ## Current Status
 
 ### Overall Progress
-- [ ] Phase 1: Diagnosis + Tests (0/2 tasks)
-- [ ] Phase 2: Fix + Validation (0/2 tasks)
+- [ ] Phase 1: Diagnosis + Tests (1/2 tasks)
+- [ ] Phase 2: Fix + Validation (2/2 tasks)
 - [ ] Phase 3: Regression + Docs (0/2 tasks)
 
 ### Test Status
@@ -42,11 +42,11 @@
 - [ ] Read milestone document
 - [ ] Read related documentation
 - [ ] Create milestone branch
-- [ ] Verify templates and class series coverage
+- [ ] Verify class propagation path for serviceWithBuffer semantics
 
 **Next Steps:**
 - [ ] Begin Phase 1
-- [ ] Start Task 1.1 (failing UI tests)
+- [ ] Start Task 1.1 (failing core tests)
 
 ---
 
@@ -54,25 +54,25 @@
 
 **Goal:** Reproduce the dimming gap and identify where class series coverage is missing.
 
-### Task 1.1: Add failing UI tests
-**File(s):** `tests/FlowTime.UI.Tests/TimeTravel/`
+### Task 1.1: Add failing core tests
+**File(s):** `tests/FlowTime.Core.Tests/`
 
 **Checklist (TDD Order - Tests FIRST):**
-- [ ] Write UI test: `Topology_ClassFilter_AirportHighlightsLineAirport` (RED)
-- [ ] Write UI test: `Topology_ClassFilter_AirportHighlightsAirport` (RED)
-- [ ] Commit: `test(ui): add class filter dimming gap tests`
+- [x] Write test: `ClassContributionBuilder_PropagatesServiceWithBufferTopologyClasses` (RED)
+- [x] Write test: `InvariantAnalyzer_WarnsOnTopologyClassCoverageGaps` (RED)
+- [ ] Commit: `test(core): add class propagation/analyzer tests`
 
 **Status:** ⏳ Not Started
 
 ---
 
 ### Task 1.2: Trace class series coverage
-**File(s):** `templates/transportation-basic-classes.yaml`, `src/FlowTime.UI/Pages/TimeTravel/Topology.razor`
+**File(s):** `src/FlowTime.Core/Artifacts/ClassContributionBuilder.cs`, `src/FlowTime.Core/Analysis/InvariantAnalyzer.cs`
 
 **Checklist (TDD Order - Tests FIRST):**
-- [ ] Identify which derived series are DEFAULT-only
-- [ ] Decide fix location (template series vs UI fallback)
-- [ ] Commit: `docs: capture class coverage analysis`
+- [ ] Identify class propagation gaps for topology semantics
+- [ ] Confirm analyzer warning codes and targets
+- [ ] Commit: `docs: capture class propagation analysis`
 
 **Status:** ⏳ Not Started
 
@@ -83,24 +83,22 @@
 **Goal:** Ensure class filtering respects class-specific series for derived airport legs.
 
 ### Task 2.1: Implement class series fix
-**File(s):** `templates/transportation-basic-classes.yaml` and/or UI class filtering logic
+**File(s):** `src/FlowTime.Core/Artifacts/ClassContributionBuilder.cs`
 
 **Checklist (TDD Order - Tests FIRST):**
-- [ ] Implement class-aware series emission or fallback logic (GREEN)
-- [ ] Update template docs if needed
-- [ ] Commit: `fix(ui): honor class series for derived airport legs`
+- [x] Implement topology-based propagation for served/errors (GREEN)
+- [ ] Commit: `fix(core): propagate class series for topology serviceWithBuffer`
 
 **Status:** ⏳ Not Started
 
 ---
 
-### Task 2.2: Validate against other classes
-**File(s):** `tests/FlowTime.UI.Tests/TimeTravel/`
+### Task 2.2: Add analyzer validation
+**File(s):** `src/FlowTime.Core/Analysis/InvariantAnalyzer.cs`
 
 **Checklist (TDD Order - Tests FIRST):**
-- [ ] Add Downtown/Industrial coverage tests (GREEN)
-- [ ] Run UI test suite
-- [ ] Commit: `test(ui): extend class filter regression coverage`
+- [x] Emit warnings for missing/partial served/errors class series (GREEN)
+- [ ] Commit: `fix(core): warn on topology class coverage gaps`
 
 **Status:** ⏳ Not Started
 
@@ -133,22 +131,22 @@
 
 ## Testing & Validation
 
-### Test Case 1: Airport class filter highlights LineAirport
+### Test Case 1: Topology serviceWithBuffer propagation
 **Status:** ⏳ Not Started
 
 **Steps:**
-1. [ ] Run template `transportation-basic-classes`.
-2. [ ] Select Airport class in the UI.
-3. [ ] Verify LineAirport node is not dimmed.
+1. [ ] Build a minimal model with classed inflow and topology serviceWithBuffer semantics.
+2. [ ] Run class contribution builder.
+3. [ ] Verify served/errors series include class data.
 
-**Expected:** LineAirport is highlighted for Airport class.
+**Expected:** Served/errors class series are emitted when arrivals are classed.
 
-### Test Case 2: Airport class filter highlights Airport node
+### Test Case 2: Analyzer warning for missing class series
 **Status:** ⏳ Not Started
 
 **Steps:**
-1. [ ] Run template `transportation-basic-classes`.
-2. [ ] Select Airport class in the UI.
-3. [ ] Verify Airport node is not dimmed.
+1. [ ] Provide contributions where arrivals are classed but served/errors are missing.
+2. [ ] Run topology class coverage analyzer.
+3. [ ] Verify warnings for missing/partial class series.
 
-**Expected:** Airport is highlighted for Airport class.
+**Expected:** Analyzer reports missing class coverage for served/errors.

@@ -362,6 +362,7 @@ public static class InvariantAnalyzer
 
         AppendRouterDiagnostics(model, evaluatedSeries, warnings);
         AppendServiceWithBufferClassCoverageWarnings(nodeDefinitions, model, evaluatedSeries, warnings);
+        AppendTopologyServiceWithBufferClassCoverageWarnings(model, evaluatedSeries, warnings);
 
         return warnings.Count == 0
             ? new InvariantAnalysisResult(Array.Empty<InvariantWarning>())
@@ -815,6 +816,49 @@ public static class InvariantAnalyzer
         }
     }
 
+    private static void AppendTopologyServiceWithBufferClassCoverageWarnings(
+        ModelDefinition model,
+        IReadOnlyDictionary<NodeId, double[]> evaluatedSeries,
+        List<InvariantWarning> warnings)
+    {
+        if (model.Topology?.Nodes is null ||
+            model.Topology.Nodes.Count == 0 ||
+            !model.Topology.Nodes.Any(n => string.Equals(n.Kind, "serviceWithBuffer", StringComparison.OrdinalIgnoreCase)))
+        {
+            return;
+        }
+
+        var classAssignments = ClassAssignmentMapBuilder.Build(model);
+        if (classAssignments.Count == 0)
+        {
+            return;
+        }
+
+        if (!TryCreateTimeGrid(model.Grid, out var grid))
+        {
+            return;
+        }
+
+        try
+        {
+            var contributions = ClassContributionBuilder.Build(model, grid, evaluatedSeries, classAssignments, out _);
+            foreach (var warning in DetectTopologyServiceWithBufferClassCoverageGaps(model.Topology.Nodes, contributions))
+            {
+                warnings.Add(warning);
+            }
+        }
+        catch (Exception ex)
+        {
+            warnings.Add(new InvariantWarning(
+                "serviceWithBuffer",
+                "topology_class_coverage_failed",
+                $"Topology class coverage diagnostics failed: {ex.Message}",
+                Array.Empty<int>(),
+                null,
+                "warning"));
+        }
+    }
+
     internal static IReadOnlyList<InvariantWarning> DetectServiceWithBufferClassCoverageGaps(
         IReadOnlyDictionary<string, NodeDefinition> nodeDefinitions,
         IReadOnlyDictionary<NodeId, IReadOnlyDictionary<string, double[]>> contributions)
@@ -841,6 +885,32 @@ public static class InvariantAnalyzer
 
             CheckTarget(node.Id, "outflow", node.Outflow, inflowClasses, contributions, warnings);
             CheckTarget(node.Id, "loss", node.Loss, inflowClasses, contributions, warnings);
+        }
+
+        return warnings;
+    }
+
+    internal static IReadOnlyList<InvariantWarning> DetectTopologyServiceWithBufferClassCoverageGaps(
+        IReadOnlyList<TopologyNodeDefinition> topologyNodes,
+        IReadOnlyDictionary<NodeId, IReadOnlyDictionary<string, double[]>> contributions)
+    {
+        var warnings = new List<InvariantWarning>();
+
+        foreach (var node in topologyNodes)
+        {
+            if (!string.Equals(node.Kind, "serviceWithBuffer", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var inflowClasses = ResolveClasses(contributions, node.Semantics?.Arrivals);
+            if (inflowClasses.Count == 0)
+            {
+                continue;
+            }
+
+            CheckTarget(node.Id, "served", node.Semantics?.Served, inflowClasses, contributions, warnings);
+            CheckTarget(node.Id, "errors", node.Semantics?.Errors, inflowClasses, contributions, warnings);
         }
 
         return warnings;

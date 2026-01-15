@@ -79,4 +79,40 @@ public class InvariantAnalyzerTests
         Assert.Contains(warnings, warning => warning.Code == "class_series_missing_loss");
         Assert.Equal(2, warnings.Count);
     }
+
+    [Fact]
+    public void DetectTopologyServiceWithBufferClassCoverageGaps_WarnsWhenServedOrErrorsMissingClasses()
+    {
+        var topologyNodes = new List<TopologyNodeDefinition>
+        {
+            new()
+            {
+                Id = "Queue",
+                Kind = "serviceWithBuffer",
+                Semantics = new TopologyNodeSemanticsDefinition
+                {
+                    Arrivals = "queue_inflow",
+                    Served = "queue_outflow",
+                    Errors = "queue_loss"
+                }
+            }
+        };
+
+        var contributions = new Dictionary<NodeId, IReadOnlyDictionary<string, double[]>>();
+        contributions[new NodeId("queue_inflow")] = new Dictionary<string, double[]>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Downtown"] = new[] { 1d },
+            ["Airport"] = new[] { 2d }
+        };
+        contributions[new NodeId("queue_outflow")] = new Dictionary<string, double[]>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Downtown"] = new[] { 1d }
+        };
+
+        var warnings = InvariantAnalyzer.DetectTopologyServiceWithBufferClassCoverageGaps(topologyNodes, contributions);
+
+        Assert.Contains(warnings, warning => warning.Code == "class_series_partial_served");
+        Assert.Contains(warnings, warning => warning.Code == "class_series_missing_errors");
+        Assert.Equal(2, warnings.Count);
+    }
 }

@@ -87,7 +87,35 @@ internal static class ClassContributionBuilder
                 contributions);
         }
 
-        ApplyServiceWithBufferOutflowContributions(nodeDefinitions, grid, totals, contributions);
+        var outflowOverrides = ApplyServiceWithBufferOutflowContributions(nodeDefinitions, grid, totals, contributions);
+        if (outflowOverrides.Count > 0)
+        {
+            overriddenNodes.UnionWith(outflowOverrides);
+            RecomputeContributions(
+                graph,
+                nodeDefinitions,
+                grid,
+                totals,
+                classAssignments,
+                topologySeeds,
+                overriddenNodes,
+                contributions);
+        }
+
+        var topologyOverrides = ApplyTopologyServiceWithBufferContributions(model, grid, totals, contributions);
+        if (topologyOverrides.Count > 0)
+        {
+            overriddenNodes.UnionWith(topologyOverrides);
+            RecomputeContributions(
+                graph,
+                nodeDefinitions,
+                grid,
+                totals,
+                classAssignments,
+                topologySeeds,
+                overriddenNodes,
+                contributions);
+        }
 
         var result = new Dictionary<NodeId, IReadOnlyDictionary<string, double[]>>();
         foreach (var (nodeId, series) in contributions)
@@ -107,12 +135,57 @@ internal static class ClassContributionBuilder
         return result;
     }
 
-    private static void ApplyServiceWithBufferOutflowContributions(
+    private static HashSet<NodeId> ApplyTopologyServiceWithBufferContributions(
+        ModelDefinition model,
+        TimeGrid grid,
+        IReadOnlyDictionary<NodeId, double[]> totals,
+        Dictionary<NodeId, ClassSeries> contributions)
+    {
+        var updatedNodes = new HashSet<NodeId>(new NodeIdComparer());
+        if (model.Topology?.Nodes is null || model.Topology.Nodes.Count == 0)
+        {
+            return updatedNodes;
+        }
+
+        foreach (var node in model.Topology.Nodes)
+        {
+            if (!string.Equals(node.Kind, "serviceWithBuffer", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var arrivalsId = node.Semantics?.Arrivals;
+            if (string.IsNullOrWhiteSpace(arrivalsId))
+            {
+                continue;
+            }
+
+            var inflowId = new NodeId(arrivalsId);
+            if (!contributions.ContainsKey(inflowId) && !totals.ContainsKey(inflowId))
+            {
+                continue;
+            }
+
+            var inflow = GetRequiredNode(arrivalsId, grid, totals, contributions);
+            if (inflow.ByClass.Count == 0)
+            {
+                continue;
+            }
+
+            TrackContribution(node.Semantics?.Served, inflow, totals, contributions, updatedNodes);
+            TrackContribution(node.Semantics?.Errors, inflow, totals, contributions, updatedNodes);
+        }
+
+        return updatedNodes;
+    }
+
+    private static HashSet<NodeId> ApplyServiceWithBufferOutflowContributions(
         IReadOnlyDictionary<string, NodeDefinition> nodeDefinitions,
         TimeGrid grid,
         IReadOnlyDictionary<NodeId, double[]> totals,
         Dictionary<NodeId, ClassSeries> contributions)
     {
+        var updatedNodes = new HashSet<NodeId>(new NodeIdComparer());
         foreach (var nodeDefinition in nodeDefinitions.Values)
         {
             if (!string.Equals(nodeDefinition.Kind, "serviceWithBuffer", StringComparison.OrdinalIgnoreCase))
@@ -131,9 +204,11 @@ internal static class ClassContributionBuilder
                 continue;
             }
 
-            ApplyContributionForTarget(nodeDefinition.Outflow, inflow, totals, contributions);
-            ApplyContributionForTarget(nodeDefinition.Loss, inflow, totals, contributions);
+            TrackContribution(nodeDefinition.Outflow, inflow, totals, contributions, updatedNodes);
+            TrackContribution(nodeDefinition.Loss, inflow, totals, contributions, updatedNodes);
         }
+
+        return updatedNodes;
     }
 
     private static void ApplyContributionForTarget(
@@ -166,6 +241,30 @@ internal static class ClassContributionBuilder
 
         ClassSeries.NormalizeToTotal(dict, targetTotals);
         contributions[targetNodeId] = new ClassSeries((double[])targetTotals.Clone(), dict);
+    }
+
+    private static void TrackContribution(
+        string? targetId,
+        ClassSeries inflow,
+        IReadOnlyDictionary<NodeId, double[]> totals,
+        Dictionary<NodeId, ClassSeries> contributions,
+        HashSet<NodeId> updatedNodes)
+    {
+        if (string.IsNullOrWhiteSpace(targetId))
+        {
+            return;
+        }
+
+        var targetNodeId = new NodeId(targetId);
+        var hadClasses = contributions.TryGetValue(targetNodeId, out var existing) && existing.ByClass.Count > 0;
+
+        ApplyContributionForTarget(targetId, inflow, totals, contributions);
+
+        var hasClasses = contributions.TryGetValue(targetNodeId, out var updated) && updated.ByClass.Count > 0;
+        if (!hadClasses && hasClasses)
+        {
+            updatedNodes.Add(targetNodeId);
+        }
     }
 
     private static HashSet<NodeId> ApplyRouterContributions(
