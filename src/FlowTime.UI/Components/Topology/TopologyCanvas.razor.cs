@@ -663,6 +663,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             semantics?.RetryBudgetRemaining,
             semantics?.Queue,
             semantics?.Capacity,
+            semantics?.Parallelism,
             semantics?.Series,
             semantics?.Expression,
             distribution,

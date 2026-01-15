@@ -118,6 +118,20 @@
 - [x] Confirmed tracking status ✅ Complete and branch `milestone/ft-m-05.13`.
 - [x] Logged final test run outcome.
 
+---
+
+### 2026-01-15 - Known Gap (Class Filter Dimming)
+
+**Observation:**
+- In `templates/transportation-basic-classes.yaml` (Transportation Network with Hub Queue - Class Segments), selecting the Airport class causes `LineAirport` and `Airport` nodes to remain dimmed even though they should carry Airport flow.
+
+**Likely Cause:**
+- Class filtering dims nodes when `node.ByClass` lacks data or sums to zero.
+- `LineAirport` and `Airport` use derived series (`arrivals_airport`, `arrivals_airport_destination`) that are emitted as DEFAULT-only, so class-specific metrics are not present.
+
+**Follow-up:**
+- Decide whether to emit class-specific series for derived airport legs or treat DEFAULT-only series as class-scoped when routing guarantees exclusivity.
+
 ## Phase 1: Schema + Validation
 
 **Goal:** Add parallelism inputs to templates, validate them, and update template docs/examples.
