@@ -1,6 +1,6 @@
 # FT-M-05.13.1 — Class Filter Dimming Gap (Transportation Classes)
 
-**Status:** 📋 Planned  
+**Status:** ✅ Complete  
 **Dependencies:** ✅ FT-M-05.13  
 **Target:** Ensure class filtering highlights Airport class traffic on LineAirport and Airport nodes by fixing class propagation and adding analyzer validation.
 

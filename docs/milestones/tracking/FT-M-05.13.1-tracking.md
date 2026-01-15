@@ -6,7 +6,7 @@
 
 **Milestone:** FT-M-05.13.1 — Class Filter Dimming Gap (Transportation Classes)  
 **Started:** 2026-01-15  
-**Status:** 📋 Planned  
+**Status:** ✅ Complete  
 **Branch:** `milestone/ft-m-05.13.1`  
 **Assignee:** Codex
 
@@ -23,14 +23,14 @@
 ## Current Status
 
 ### Overall Progress
-- [ ] Phase 1: Diagnosis + Tests (1/2 tasks)
-- [ ] Phase 2: Fix + Validation (2/2 tasks)
-- [ ] Phase 3: Regression + Docs (0/2 tasks)
+- [x] Phase 1: Diagnosis + Tests (2/2 tasks)
+- [x] Phase 2: Fix + Validation (2/2 tasks)
+- [x] Phase 3: Regression + Docs (2/2 tasks)
 
 ### Test Status
-- **Unit Tests:** 0 passing / 0 total
-- **Integration Tests:** 0 passing / 0 total
-- **E2E Tests:** 0 passing / 0 total
+- **Unit Tests:** `dotnet test --nologo` (pass; perf tests skipped)
+- **Integration Tests:** Included in full run (pass)
+- **E2E Tests:** N/A
 
 ---
 
@@ -39,14 +39,23 @@
 ### 2026-01-15 - Session Start
 
 **Preparation:**
-- [ ] Read milestone document
-- [ ] Read related documentation
-- [ ] Create milestone branch
-- [ ] Verify class propagation path for serviceWithBuffer semantics
+- [x] Read milestone document
+- [x] Read related documentation
+- [x] Create milestone branch
+- [x] Verify class propagation path for serviceWithBuffer semantics
 
 **Next Steps:**
-- [ ] Begin Phase 1
-- [ ] Start Task 1.1 (failing core tests)
+- [x] Begin Phase 1
+- [x] Start Task 1.1 (failing core tests)
+
+### 2026-01-15 - Wrap
+
+**Validation:**
+- [x] `dotnet build`
+- [x] `dotnet test --nologo` (perf tests skipped as expected)
+
+**Notes:**
+- Class coverage warnings appear for DLQ outflow/loss as expected; LineAirport dimming was due to current-bin zero values.
 
 ---
 
@@ -60,9 +69,9 @@
 **Checklist (TDD Order - Tests FIRST):**
 - [x] Write test: `ClassContributionBuilder_PropagatesServiceWithBufferTopologyClasses` (RED)
 - [x] Write test: `InvariantAnalyzer_WarnsOnTopologyClassCoverageGaps` (RED)
-- [ ] Commit: `test(core): add class propagation/analyzer tests`
+- [x] Commit: `fix(core): propagate class series via topology semantics` (`3c2c2f8`)
 
-**Status:** ⏳ Not Started
+**Status:** ✅ Complete
 
 ---
 
@@ -70,11 +79,11 @@
 **File(s):** `src/FlowTime.Core/Artifacts/ClassContributionBuilder.cs`, `src/FlowTime.Core/Analysis/InvariantAnalyzer.cs`
 
 **Checklist (TDD Order - Tests FIRST):**
-- [ ] Identify class propagation gaps for topology semantics
-- [ ] Confirm analyzer warning codes and targets
-- [ ] Commit: `docs: capture class propagation analysis`
+- [x] Identify class propagation gaps for topology semantics
+- [x] Confirm analyzer warning codes and targets
+- [x] Commit: `docs: align epic roadmap and milestone status` (`7b4676c`)
 
-**Status:** ⏳ Not Started
+**Status:** ✅ Complete
 
 ---
 
@@ -87,9 +96,9 @@
 
 **Checklist (TDD Order - Tests FIRST):**
 - [x] Implement topology-based propagation for served/errors (GREEN)
-- [ ] Commit: `fix(core): propagate class series for topology serviceWithBuffer`
+- [x] Commit: `fix(core): propagate class series for topology serviceWithBuffer` (`3c2c2f8`)
 
-**Status:** ⏳ Not Started
+**Status:** ✅ Complete
 
 ---
 
@@ -98,9 +107,9 @@
 
 **Checklist (TDD Order - Tests FIRST):**
 - [x] Emit warnings for missing/partial served/errors class series (GREEN)
-- [ ] Commit: `fix(core): warn on topology class coverage gaps`
+- [x] Commit: `fix(core): warn on topology class coverage gaps` (`3c2c2f8`)
 
-**Status:** ⏳ Not Started
+**Status:** ✅ Complete
 
 ---
 
@@ -112,41 +121,41 @@
 **File(s):** `docs/templates/template-authoring.md` (if updated)
 
 **Checklist (TDD Order - Tests FIRST):**
-- [ ] Update docs to reflect class series guidance
-- [ ] Commit: `docs: document class-series coverage for derived legs`
+- [x] Update docs to reflect class series guidance (not required)
+- [x] Commit: `docs: align epic roadmap and milestone status` (`7b4676c`)
 
-**Status:** ⏳ Not Started
+**Status:** ✅ Complete
 
 ---
 
 ### Task 3.2: Final validation
 **Checklist (TDD Order - Tests FIRST):**
-- [ ] `dotnet build`
-- [ ] `dotnet test --nologo`
-- [ ] Update tracking doc test status
+- [x] `dotnet build`
+- [x] `dotnet test --nologo`
+- [x] Update tracking doc test status
 
-**Status:** ⏳ Not Started
+**Status:** ✅ Complete
 
 ---
 
 ## Testing & Validation
 
 ### Test Case 1: Topology serviceWithBuffer propagation
-**Status:** ⏳ Not Started
+**Status:** ✅ Complete
 
 **Steps:**
-1. [ ] Build a minimal model with classed inflow and topology serviceWithBuffer semantics.
-2. [ ] Run class contribution builder.
-3. [ ] Verify served/errors series include class data.
+1. [x] Build a minimal model with classed inflow and topology serviceWithBuffer semantics.
+2. [x] Run class contribution builder.
+3. [x] Verify served/errors series include class data.
 
 **Expected:** Served/errors class series are emitted when arrivals are classed.
 
 ### Test Case 2: Analyzer warning for missing class series
-**Status:** ⏳ Not Started
+**Status:** ✅ Complete
 
 **Steps:**
-1. [ ] Provide contributions where arrivals are classed but served/errors are missing.
-2. [ ] Run topology class coverage analyzer.
-3. [ ] Verify warnings for missing/partial class series.
+1. [x] Provide contributions where arrivals are classed but served/errors are missing.
+2. [x] Run topology class coverage analyzer.
+3. [x] Verify warnings for missing/partial class series.
 
 **Expected:** Analyzer reports missing class coverage for served/errors.
