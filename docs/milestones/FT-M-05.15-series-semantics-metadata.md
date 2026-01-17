@@ -1,6 +1,6 @@
 # FT-M-05.15 — Series Semantics Metadata (Aggregation)
 
-**Status:** 📋 Planned  
+**Status:** ✅ Complete  
 **Dependencies:** ✅ M‑03.01 (time‑travel state contract), ✅ FT‑M‑05.12  
 **Target:** Add optional per‑series semantics metadata to `/state` and `/state_window` so the UI can display aggregation/percentile meaning consistently across simulated and telemetry data.
 
