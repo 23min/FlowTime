@@ -19,6 +19,12 @@ dotnet_naming_style.camel_case.required_prefix =
 dotnet_naming_style.camel_case.required_suffix =
 dotnet_naming_style.camel_case.word_separator =
 
+dotnet_naming_rule.local_variables_camelcase.severity = error
+dotnet_naming_rule.local_variables_camelcase.symbols = local_variables
+dotnet_naming_rule.local_variables_camelcase.style = camel_case
+
+dotnet_naming_symbols.local_variables.applicable_kinds = local
+
 # Prefer var or explicit types (customize as needed)
 csharp_style_var_for_built_in_types = true:suggestion
 csharp_style_var_when_type_is_apparent = true:suggestion
@@ -32,6 +38,27 @@ dotnet_style_qualification_for_field = false:suggestion
 dotnet_style_qualification_for_property = false:suggestion
 dotnet_style_qualification_for_method = false:suggestion
 dotnet_style_qualification_for_event = false:suggestion
+
+[*.razor]
+dotnet_naming_rule.private_fields_camelcase.severity = error
+dotnet_naming_rule.private_fields_camelcase.symbols = private_fields
+dotnet_naming_rule.private_fields_camelcase.style = camel_case
+
+dotnet_naming_symbols.private_fields.applicable_kinds = field
+dotnet_naming_symbols.private_fields.applicable_accessibilities = private
+# apply to all private fields, not only readonly
+# dotnet_naming_symbols.private_fields.required_modifiers = readonly
+
+dotnet_naming_style.camel_case.capitalization = camel_case
+dotnet_naming_style.camel_case.required_prefix =
+dotnet_naming_style.camel_case.required_suffix =
+dotnet_naming_style.camel_case.word_separator =
+
+dotnet_naming_rule.local_variables_camelcase.severity = error
+dotnet_naming_rule.local_variables_camelcase.symbols = local_variables
+dotnet_naming_rule.local_variables_camelcase.style = camel_case
+
+dotnet_naming_symbols.local_variables.applicable_kinds = local
 
 [*.{yml,yaml}]
 indent_style = space

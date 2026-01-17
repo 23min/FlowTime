@@ -261,12 +261,12 @@ public sealed class RunDiscoveryService : IRunDiscoveryService
         if (ts.Length == 16 && ts.EndsWith("Z", StringComparison.OrdinalIgnoreCase))
         {
             var yyyy = ts.Substring(0, 4);
-            var MM = ts.Substring(4, 2);
+            var month = ts.Substring(4, 2);
             var dd = ts.Substring(6, 2);
-            var HH = ts.Substring(9, 2);
+            var hour = ts.Substring(9, 2);
             var mm = ts.Substring(11, 2);
             var ss = ts.Substring(13, 2);
-            var iso = $"{yyyy}-{MM}-{dd}T{HH}:{mm}:{ss}Z";
+            var iso = $"{yyyy}-{month}-{dd}T{hour}:{mm}:{ss}Z";
             if (DateTimeOffset.TryParse(iso, out var dto))
             {
                 return dto;
