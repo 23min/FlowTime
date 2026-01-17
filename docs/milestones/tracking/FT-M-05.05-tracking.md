@@ -6,7 +6,7 @@
 
 **Milestone:** [FT-M-05.05 — Router Flow Solidification](../FT-M-05.05-router-solidification.md)  
 **Started:** 2025-12-09  
-**Status:** 🔄 In Progress  
+**Status:** ✅ Complete  
 **Branch:** `milestone/ft-m-05.05`  
 **Assignee:** Codex
 

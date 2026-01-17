@@ -2,7 +2,7 @@
 
 **Milestone:** FT-M-05.14 — Topology Focus View (Provenance Drilldown)  
 **Started:** 2026-01-14  
-**Status:** 🔄 In Progress  
+**Status:** ✅ Complete  
 **Branch:** `milestone/ft-m-05.14`  
 **Assignee:** Codex  
 

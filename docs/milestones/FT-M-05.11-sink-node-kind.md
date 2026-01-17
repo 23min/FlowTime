@@ -1,6 +1,6 @@
 # FT-M-05.11 — Sink Node Kind (Terminal Success Semantics)
 
-**Status:** 🚧 In Progress  
+**Status:** ✅ Complete  
 **Dependencies:** ✅ FT-M-05.10  
 **Target:** Introduce a first-class `kind: sink` node so terminal success has explicit engine semantics and completion series.
 
