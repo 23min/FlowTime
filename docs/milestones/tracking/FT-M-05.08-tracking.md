@@ -10,7 +10,7 @@
 
 ## Quick Links
 
-- **Milestone Document:** `docs/milestones/FT-M-05.08-servicewithbuffer-inspector.md`
+- **Milestone Document:** `docs/milestones/completed/FT-M-05.08-servicewithbuffer-inspector.md`
 - **Milestone Guide:** `docs/development/milestone-documentation-guide.md`
 
 ---

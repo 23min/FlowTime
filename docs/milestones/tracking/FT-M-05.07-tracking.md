@@ -13,7 +13,7 @@
 
 ## Quick Links
 
-- **Milestone Document:** [`docs/milestones/FT-M-05.07-ui-perf-lanes.md`](../milestones/FT-M-05.07-ui-perf-lanes.md)
+- **Milestone Document:** [`docs/milestones/completed/FT-M-05.07-ui-perf-lanes.md`](../completed/FT-M-05.07-ui-perf-lanes.md)
 - **Architecture Epic:** [`docs/architecture/ui-perf/README.md`](../../architecture/ui-perf/README.md)
 - **Milestone Guide:** [`docs/development/milestone-documentation-guide.md`](../../development/milestone-documentation-guide.md)
 

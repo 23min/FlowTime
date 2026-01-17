@@ -2,7 +2,7 @@
 
 The `docs/milestones/` folder now mirrors the active roadmap status:
 
-- **Active / Upcoming work** remains at the top level. Today that includes the Class epic (`CL-*`) and `SB-M-05.01.md`, plus the shared `tracking/` documents.
+- **Active / Upcoming work** remains at the top level. Today that includes `M-06.01-evaluation-integrity-dag-contract.md` plus the shared `tracking/` documents.
 - **Completed milestones** have been archived under `docs/milestones/completed/`. Every reference in the repo now points to the files in that subfolder (e.g., `docs/milestones/completed/UI-M-03.12.md`).
 
 ## Adding a new milestone
@@ -15,7 +15,5 @@ The `docs/milestones/` folder now mirrors the active roadmap status:
 
 ## Quick Links
 
-- **Active Class Epic:** `CL-M-04.01.md`, `CL-M-04.02.md`, `CL-M-04.03.md`, `CL-M-04.04.md`
-- **Service-With-Buffer Milestones:** `SB-M-05.01.md`, `SB-M-05.02.md`, `SB-M-05.03.md`, `SB-M-05.04.md`
-- **FlowTime UI Milestones:** `FT-M-05.12`, `FT-M-05.13.1`, `FT-M-05.14`, `FT-M-05.15`, `FT-M-06.01`
+- **Active Milestone:** `M-06.01-evaluation-integrity-dag-contract.md`
 - **Archive:** See `docs/milestones/completed/` for historic milestones across backend, UI, time-travel, and service epics.

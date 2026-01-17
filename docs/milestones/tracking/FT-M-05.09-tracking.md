@@ -10,7 +10,7 @@
 
 ## Quick Links
 
-- **Milestone Document:** `docs/milestones/FT-M-05.09-servicewithbuffer-sla-backlog.md`
+- **Milestone Document:** `docs/milestones/completed/FT-M-05.09-servicewithbuffer-sla-backlog.md`
 - **Related Analysis:** `docs/architecture/service-with-buffer/service-with-buffer-architecture-part2.md`
 - **Milestone Guide:** `docs/development/milestone-documentation-guide.md`
 

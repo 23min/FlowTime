@@ -14,7 +14,7 @@
 
 ## Quick Links
 
-- **Milestone Document:** [`docs/milestones/SB-M-05.01.md`](../SB-M-05.01.md)
+- **Milestone Document:** [`docs/milestones/completed/SB-M-05.01.md`](../completed/SB-M-05.01.md)
 - **Service-With-Buffer Architecture:** [`docs/architecture/service-with-buffer/service-with-buffer-architecture.md`](../../architecture/service-with-buffer/service-with-buffer-architecture.md)
 - **Milestone Guide:** [`docs/development/milestone-documentation-guide.md`](../../development/milestone-documentation-guide.md)
 
@@ -114,7 +114,7 @@
 
 **Changes:**
 - Confirmed every curated template now declares `kind: serviceWithBuffer` (no lingering backlog nodes) and refreshed `templates/README.md` copy to highlight the new terminology plus schedule semantics.
-- Recorded the migration summary inside `docs/milestones/SB-M-05.01.md` (Implementation Notes) to capture the before/after context required by Task 2.3.
+- Recorded the migration summary inside `docs/milestones/completed/SB-M-05.01.md` (Implementation Notes) to capture the before/after context required by Task 2.3.
 
 **Tests:**
 - (docs/templates audit only)
@@ -208,7 +208,7 @@
 ### Phase 1 Validation
 - [x] `dotnet build`
 - [x] Schema + engine unit tests green (`dotnet test --filter TemplateSchemaTests`, `dotnet test --nologo tests/FlowTime.Core.Tests/FlowTime.Core.Tests.csproj`)
-- [x] Golden template comparisons show no numerical regressions (`flow-sim generate` runs recorded in docs/milestones/SB-M-05.01.md)
+- [x] Golden template comparisons show no numerical regressions (`flow-sim generate` runs recorded in docs/milestones/completed/SB-M-05.01.md)
 
 ---
 

@@ -43,7 +43,7 @@ The list below enumerates current epics under `docs/architecture/` in an order t
 - **Folder:** `docs/architecture/service-with-buffer/`
 - **Goal:** Replace the legacy backlog node surface with a first-class `serviceWithBuffer` node type that owns both service behavior and an explicit queue/buffer, with aligned schema, engine, analyzer, and UI support.
 - **Key Milestones:**
-  - `docs/milestones/SB-M-05.01.md` — Breaking introduction of `kind: serviceWithBuffer` and removal of `kind: backlog` from the public surface.
+  - `docs/milestones/completed/SB-M-05.01.md` — Breaking introduction of `kind: serviceWithBuffer` and removal of `kind: backlog` from the public surface.
 - **Notes:** SB-M-05.01 through SB-M-05.04 are marked complete in tracking; epic is closed pending future expansion.
 
 ### Near-Term / In-Flight Epics
@@ -53,7 +53,7 @@ The list below enumerates current epics under `docs/architecture/` in an order t
 - **Folder:** `docs/architecture/evaluation-integrity/`
 - **Goal:** Enforce a strict DAG evaluation contract so no post-eval mutation is possible; all overrides apply before evaluation and derived class series always recompute in order.
 - **Key Milestones:**
-  - `docs/milestones/FT-M-06.01-evaluation-integrity-dag-contract.md`
+  - `docs/milestones/M-06.01-evaluation-integrity-dag-contract.md`
 - **Notes:** Newly planned; no tracking doc yet.
 
 #### Edge Time Bins / Edge Metrics

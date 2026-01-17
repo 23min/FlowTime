@@ -4,7 +4,7 @@
 > Do not create this until you're ready to start implementation.  
 > See [Milestone Rules](milestone-rules-quick-ref.md) for workflow.
 
-**Milestone:** [FT-M-05.06 — Topology Canvas Performance Sweep](../FT-M-05.06-performance.md)  
+**Milestone:** [FT-M-05.06 — Topology Canvas Performance Sweep](../completed/FT-M-05.06-performance.md)  
 **Started:** 2025-12-06  
 **Status:** ✅ Complete  
 **Branch:** `milestone/ft-m-05.06`  
@@ -14,7 +14,7 @@
 
 ## Quick Links
 
-- **Milestone Document:** [`docs/milestones/FT-M-05.06-performance.md`](../FT-M-05.06-performance.md)
+- **Milestone Document:** [`docs/milestones/completed/FT-M-05.06-performance.md`](../completed/FT-M-05.06-performance.md)
 - **Related Analysis:** *(to be captured under `docs/performance/FT-M-05.06/` alongside profiling traces)*
 - **Milestone Guide:** [`docs/development/milestone-documentation-guide.md`](milestone-documentation-guide.md)
 

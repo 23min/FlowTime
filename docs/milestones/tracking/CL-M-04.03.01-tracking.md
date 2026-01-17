@@ -9,7 +9,7 @@
 
 ## Quick Links
 
-- **Milestone Document:** `docs/milestones/CL-M-04.03.01.md`
+- **Milestone Document:** `docs/milestones/completed/CL-M-04.03.01.md`
 - **Previous Release:** `docs/releases/CL-M-04.03.md`
 - **Guide:** `docs/development/milestone-documentation-guide.md`
 

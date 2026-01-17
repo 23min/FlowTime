@@ -24,7 +24,7 @@ FT-M-05.14 adds a topology focus view to isolate a selected node and its provena
    (`src/FlowTime.UI/Pages/TimeTravel/Topology.razor`)
 5. **Focus view tests + tracking updates**  
    Added UI tests for focus toggle behavior, filtering, relayout, and viewport preservation; milestone docs updated.  
-   (`tests/FlowTime.UI.Tests/TimeTravel/TopologyFocusViewTests.cs`, `tests/FlowTime.UI.Tests/TimeTravel/TopologyCanvasRenderTests.cs`, `docs/milestones/FT-M-05.14-topology-focus-view.md`, `docs/milestones/tracking/FT-M-05.14-tracking.md`)
+   (`tests/FlowTime.UI.Tests/TimeTravel/TopologyFocusViewTests.cs`, `tests/FlowTime.UI.Tests/TimeTravel/TopologyCanvasRenderTests.cs`, `docs/milestones/completed/FT-M-05.14-topology-focus-view.md`, `docs/milestones/tracking/FT-M-05.14-tracking.md`)
 
 ## Tests
 

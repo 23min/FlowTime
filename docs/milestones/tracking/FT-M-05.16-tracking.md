@@ -9,7 +9,7 @@
 
 ## Quick Links
 
-- **Milestone Document:** `docs/milestones/FT-M-05.16-topology-inspector-tabs.md`
+- **Milestone Document:** `docs/milestones/completed/FT-M-05.16-topology-inspector-tabs.md`
 - **Related Analysis:** N/A
 - **Milestone Guide:** `docs/development/milestone-documentation-guide.md`
 

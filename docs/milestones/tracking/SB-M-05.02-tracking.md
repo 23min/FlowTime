@@ -10,7 +10,7 @@
 
 ## Quick Links
 
-- **Milestone Document:** [`docs/milestones/SB-M-05.02.md`](../SB-M-05.02.md)
+- **Milestone Document:** [`docs/milestones/completed/SB-M-05.02.md`](../completed/SB-M-05.02.md)
 - **Architecture Note:** [`docs/service-with-buffer/service-with-buffer-architecture.md`](../../service-with-buffer/service-with-buffer-architecture.md)
 - **Milestone Rules:** [`docs/development/milestone-rules-quick-ref.md`](../../development/milestone-rules-quick-ref.md)
 
@@ -135,7 +135,7 @@
 **Goal:** Align documentation/reference material, log changes, and complete milestone ceremony.
 
 ### Task 3.1: Docs & Roadmap Refresh
-**Files:** `docs/templates/template-authoring.md`, `templates/README.md`, `docs/milestones/SB-M-05.02.md`, `docs/milestones/README.md`, `docs/architecture/service-with-buffer/service-with-buffer-architecture.md`, `docs/architecture/epic-roadmap.md`
+**Files:** `docs/templates/template-authoring.md`, `templates/README.md`, `docs/milestones/completed/SB-M-05.02.md`, `docs/milestones/README.md`, `docs/architecture/service-with-buffer/service-with-buffer-architecture.md`, `docs/architecture/epic-roadmap.md`
 
 **Checklist:**
 - [x] Update docs to describe implicit ServiceWithBuffer + queue latency status
@@ -251,7 +251,7 @@
 **Changes:**
 - Updated `docs/templates/template-authoring.md` with implicit ServiceWithBuffer guidance, cache refresh command, and queue latency status documentation.
 - Refreshed `templates/README.md` highlights for transportation + warehouse templates so they describe the SB‑M‑05.02 surfacing.
-- Documented the DSL simplification + latency badges in `docs/architecture/service-with-buffer/...` and aligned `docs/milestones/SB-M-05.02.md` + roadmap references.
+- Documented the DSL simplification + latency badges in `docs/architecture/service-with-buffer/...` and aligned `docs/milestones/completed/SB-M-05.02.md` + roadmap references.
 
 **Tests:**
 - 👀 Manual proofreading of the touched docs.

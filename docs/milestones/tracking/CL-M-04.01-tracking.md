@@ -9,7 +9,7 @@
 
 ## Quick Links
 
-- **Milestone Document:** `docs/milestones/CL-M-04.01.md`
+- **Milestone Document:** `docs/milestones/completed/CL-M-04.01.md`
 - **Architecture Context:** `README.md`
 - **Milestone Guide:** `docs/development/milestone-documentation-guide.md`
 

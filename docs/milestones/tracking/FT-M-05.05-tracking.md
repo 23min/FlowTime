@@ -4,7 +4,7 @@
 > Do not create this until you're ready to start implementation.  
 > See [Milestone Rules](milestone-rules-quick-ref.md) for workflow.
 
-**Milestone:** [FT-M-05.05 — Router Flow Solidification](../FT-M-05.05-router-solidification.md)  
+**Milestone:** [FT-M-05.05 — Router Flow Solidification](../completed/FT-M-05.05-router-solidification.md)  
 **Started:** 2025-12-09  
 **Status:** ✅ Complete  
 **Branch:** `milestone/ft-m-05.05`  
@@ -14,7 +14,7 @@
 
 ## Quick Links
 
-- **Milestone Document:** [`docs/milestones/FT-M-05.05-router-solidification.md`](../FT-M-05.05-router-solidification.md)
+- **Milestone Document:** [`docs/milestones/completed/FT-M-05.05-router-solidification.md`](../completed/FT-M-05.05-router-solidification.md)
 - **Related Analysis:** [`docs/architecture/service-with-buffer/README.md`](../../architecture/service-with-buffer/README.md)
 - **Milestone Guide:** [`docs/development/milestone-documentation-guide.md`](milestone-documentation-guide.md)
 

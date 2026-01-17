@@ -167,4 +167,4 @@ The current milestone intentionally left two technical gaps that are now the foc
 - **DSL simplification:** ServiceWithBuffer topology nodes still require explicit helper nodes (`queueDepth` series) to participate in execution. SB‑M‑05.02 allows a topology-only declaration (implicit queueDepth) so modelers never author hidden helpers.
 - **Queue latency semantics for gated services:** When a dispatch schedule holds backlog (served = 0, depth > 0) the engine/UI expose `latencyMinutes = null`. SB‑M‑05.02 introduces explicit “paused” semantics so operators see why latency is undefined instead of a bare null.
 
-See `docs/milestones/SB-M-05.02.md` for the full spec.
+See `docs/milestones/completed/SB-M-05.02.md` for the full spec.

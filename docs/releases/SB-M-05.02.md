@@ -17,7 +17,7 @@ SB-M-05.02 finishes the ServiceWithBuffer rollout that began in SB-M-05.01. Temp
 2. **Templates & Documentation**
    - Transportation (classes + base) and warehouse picker templates now describe ServiceWithBuffer nodes directly in their topology, eliminating dozens of helper nodes while keeping aliases/output ids intact.
    - `docs/templates/template-authoring.md`, `templates/README.md`, and `docs/architecture/service-with-buffer/...` document the implicit DSL, scheduled dispatch authoring, the new queue-latency status, and the refresh-templates workflow.
-   - `docs/milestones/SB-M-05.02.md`, the milestone tracker, and the architecture roadmap were updated so SB-M-05.02 is the canonical reference for these behaviors.
+   - `docs/milestones/completed/SB-M-05.02.md`, the milestone tracker, and the architecture roadmap were updated so SB-M-05.02 is the canonical reference for these behaviors.
 3. **Queue Latency Semantics & Surface Area**
    - Engine + contracts expose `queueLatencyStatus` via new DTOs (`QueueLatencyStatusDescriptor` on `NodeMetrics`/`NodeSeries`) while analyzer warnings now emit `queue_latency_gate_closed` instead of the generic "latency uncomputable" banner.
    - FlowTime.API, CLI, and UI propagate the metadata end-to-end: paused dispatch gates render a "Paused (gate closed)" badge on topology cards/sparklines, CLI suppresses duplicate warnings, and JS canvas chips use the same color palette as the run cards.

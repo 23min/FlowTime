@@ -9,7 +9,7 @@
 
 ## Quick Links
 
-- **Milestone Document:** `docs/milestones/FT-M-05.13-servicewithbuffer-parallelism-capacity.md`
+- **Milestone Document:** `docs/milestones/completed/FT-M-05.13-servicewithbuffer-parallelism-capacity.md`
 - **Milestone Guide:** `docs/development/milestone-documentation-guide.md`
 - **Session Guide:** `docs/development/milestone-session-guide.md`
 

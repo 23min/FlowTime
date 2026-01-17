@@ -21,7 +21,7 @@ Recent class propagation fixes exposed a gap: some class series were injected af
 
 ## Milestones
 
-- `docs/milestones/FT-M-06.01-evaluation-integrity-dag-contract.md` — Evaluation integrity contract, guardrails, and tests.
+- `docs/milestones/M-06.01-evaluation-integrity-dag-contract.md` — Evaluation integrity contract, guardrails, and tests.
 
 ## References
 

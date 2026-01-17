@@ -14,7 +14,7 @@
 
 ## Quick Links
 
-- **Milestone Document:** `docs/milestones/FT-M-05.15-series-semantics-metadata.md`
+- **Milestone Document:** `docs/milestones/completed/FT-M-05.15-series-semantics-metadata.md`
 - **Related Analysis:** N/A
 - **Milestone Guide:** `docs/development/milestone-documentation-guide.md`
 

@@ -9,7 +9,7 @@
 
 ## Quick Links
 
-- **Milestone Document:** `docs/milestones/CL-M-04.04.md`
+- **Milestone Document:** `docs/milestones/completed/CL-M-04.04.md`
 - **Latest Release:** `docs/releases/CL-M-04.03.md`
 - **Milestone Guide:** `docs/development/milestone-documentation-guide.md`
 
@@ -123,7 +123,7 @@
 - Added RED regression (`WriteArtifacts_ClassSeriesScaleThroughScalarMultipliers`) covering scalar multiply/subtract class propagation.
 - Updated `ClassContributionBuilder` multiply/min/max logic so per-class series survive capacity clamps and zeroed queues, keeping `classCoverage` truly `full`.
 - Regenerated class-aware demo runs for supply chain (`run_20251125T130751Z_21597334`) and transportation (`run_20251125T130822Z_91deaced`).
-- Documented progress + run IDs in `docs/milestones/CL-M-04.04.md`.
+- Documented progress + run IDs in `docs/milestones/completed/CL-M-04.04.md`.
 
 **Tests:**
 - ✅ `dotnet test --filter WriteArtifacts_ClassSeriesScaleThroughScalarMultipliers`

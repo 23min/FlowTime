@@ -4,7 +4,7 @@
 > Do not create this until you're ready to start implementation.  
 > See [Milestone Rules](milestone-rules-quick-ref.md) for workflow.
 
-**Milestone:** [SB-M-05.04 — Deterministic Run Orchestration](../SB-M-05.04.md)  
+**Milestone:** [SB-M-05.04 — Deterministic Run Orchestration](../completed/SB-M-05.04.md)  
 **Started:** 2025-11-28  
 **Status:** ✅ Complete  
 **Branch:** `milestone/sb-m-05.04`  
@@ -14,7 +14,7 @@
 
 ## Quick Links
 
-- **Milestone Document:** [`docs/milestones/SB-M-05.04.md`](../SB-M-05.04.md)
+- **Milestone Document:** [`docs/milestones/completed/SB-M-05.04.md`](../completed/SB-M-05.04.md)
 - **Release Doc:** [`docs/releases/SB-M-05.04.md`](../../releases/SB-M-05.04.md)
 - **Related Analysis:** [`docs/architecture/sim-engine-boundary/README.md`](../../architecture/sim-engine-boundary/README.md)
 - **Milestone Guide:** [`docs/development/milestone-documentation-guide.md`](milestone-documentation-guide.md)
@@ -251,7 +251,7 @@
 - [x] Tests: CLI integration hitting the SIM endpoint (`TelemetryRunCommandTests`)
 
 ### Task 3.2: Docs & release
-**Files:** `docs/templates/template-authoring.md`, `docs/operations/*`, `docs/releases/SB-M-05.04.md`, `docs/milestones/SB-M-05.04.md`
+**Files:** `docs/templates/template-authoring.md`, `docs/operations/*`, `docs/releases/SB-M-05.04.md`, `docs/milestones/completed/SB-M-05.04.md`
 
 - [x] Update docs/milestone/spec
 - [x] `dotnet build` & `dotnet test --nologo`

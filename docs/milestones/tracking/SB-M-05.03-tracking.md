@@ -14,7 +14,7 @@
 
 ## Quick Links
 
-- **Milestone Document:** [`docs/milestones/SB-M-05.03.md`](../SB-M-05.03.md)
+- **Milestone Document:** [`docs/milestones/completed/SB-M-05.03.md`](../completed/SB-M-05.03.md)
 - **Architecture Note:** [`docs/architecture/service-with-buffer/service-with-buffer-architecture.md`](../../architecture/service-with-buffer/service-with-buffer-architecture.md)
 - **Milestone Guide:** [`docs/development/milestone-documentation-guide.md`](../milestone-documentation-guide.md)
 
@@ -84,7 +84,7 @@
 - Removed the last hand-authored ServiceWithBuffer helpers for DLQs in `templates/transportation-basic*.yaml`; the topology now relies solely on implicit `queueDepth` aliases.
 - Updated doc stubs (`docs/templates/template-authoring.md`, `docs/architecture/service-with-buffer/...`) to describe queue/dlq parity.
 - Extended the cleanup to supply-chain, incident, manufacturing, network-reliability, and it-system templates by deleting all `_depth` helper nodes (queues + DLQs now rely exclusively on the synthesizer).
-- Logged the remaining router work (implicit router synthesis, helper removal) in `docs/milestones/SB-M-05.03.md` as a documented gap that spawns the follow-up milestone (`SB-M-05.03-router` placeholder).
+- Logged the remaining router work (implicit router synthesis, helper removal) in `docs/milestones/completed/SB-M-05.03.md` as a documented gap that spawns the follow-up milestone (`SB-M-05.03-router` placeholder).
 
 **Tests:**
 - ✅ `dotnet test tests/FlowTime.Sim.Tests/FlowTime.Sim.Tests.csproj --filter "Template_With_Queue_SelfQueueDepth_Parses|Template_With_Dlq_SelfQueueDepth_Parses|RouterTemplateRegressionTests" --nologo`
@@ -160,7 +160,7 @@
 **Status:** ✅ Completed (remaining templates tracked under follow-up milestone)
 
 ### Task 3.2: Docs, release, full verification
-**Files:** `docs/templates/template-authoring.md`, `templates/README.md`, `docs/architecture/service-with-buffer/service-with-buffer-architecture.md`, `docs/milestones/SB-M-05.03.md`, `docs/releases/SB-M-05.03.md`
+**Files:** `docs/templates/template-authoring.md`, `templates/README.md`, `docs/architecture/service-with-buffer/service-with-buffer-architecture.md`, `docs/milestones/completed/SB-M-05.03.md`, `docs/releases/SB-M-05.03.md`
 
 - [x] Update docs + milestone/spec and drafted release note
 - [x] `dotnet build` & `dotnet test --nologo`
