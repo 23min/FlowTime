@@ -6,7 +6,7 @@ namespace FlowTime.Core.Tests.TimeTravel;
 
 public sealed class ModeValidatorTests
 {
-    private static readonly Window TestWindow = new()
+    private static readonly Window testWindow = new()
     {
         Bins = 4,
         BinSize = 5,
@@ -14,7 +14,7 @@ public sealed class ModeValidatorTests
         StartTime = DateTime.UtcNow
     };
 
-    private static readonly Topology TestTopology = new()
+    private static readonly Topology testTopology = new()
     {
         Nodes = new List<Node>
         {
@@ -53,8 +53,8 @@ public sealed class ModeValidatorTests
 
         var context = new ModeValidationContext(
             manifestMetadata,
-            TestWindow,
-            TestTopology,
+            testWindow,
+            testTopology,
             nodeData,
             Array.Empty<ModeValidationWarning>(),
             new Dictionary<string, IReadOnlyList<ModeValidationWarning>>());
@@ -86,8 +86,8 @@ public sealed class ModeValidatorTests
 
         var context = new ModeValidationContext(
             manifestMetadata,
-            TestWindow,
-            TestTopology,
+            testWindow,
+            testTopology,
             nodeData,
             Array.Empty<ModeValidationWarning>(),
             new Dictionary<string, IReadOnlyList<ModeValidationWarning>>());

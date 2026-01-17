@@ -6,7 +6,7 @@ namespace FlowTime.Core.Tests.Fixtures;
 
 public class OrderSystemFixtureTests
 {
-    private const int ExpectedBins = 288;
+    private const int expectedBins = 288;
 
     [Fact]
     public void ModelYamlExists()
@@ -35,7 +35,7 @@ public class OrderSystemFixtureTests
 
             var lines = File.ReadAllLines(path);
             Assert.True(lines.Length > 0, $"Fixture CSV empty: {path}");
-            Assert.Equal(ExpectedBins, lines.Length - 1); // subtract header
+            Assert.Equal(expectedBins, lines.Length - 1); // subtract header
         }
     }
 

@@ -96,7 +96,7 @@ public class CliApiParityTests : IClassFixture<TestWebApplicationFactory>
 		var tempRoot = Path.Combine(Path.GetTempPath(), "flowtime_cli_router_" + Guid.NewGuid().ToString("N"));
 		Directory.CreateDirectory(tempRoot);
 		var modelPath = Path.Combine(tempRoot, "router-model.yaml");
-		await File.WriteAllTextAsync(modelPath, RouterOverrideModel);
+		await File.WriteAllTextAsync(modelPath, routerOverrideModel);
 		var outDir = Path.Combine(tempRoot, "out");
 		Directory.CreateDirectory(outDir);
 
@@ -180,7 +180,7 @@ public class CliApiParityTests : IClassFixture<TestWebApplicationFactory>
         throw new Xunit.Sdk.XunitException($"Series {componentId} with DEFAULT class not found in index.json");
     }
 
-    private const string RouterOverrideModel = """
+    private const string routerOverrideModel = """
 schemaVersion: 1
 generator: flowtime-sim
 grid:

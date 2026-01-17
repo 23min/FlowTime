@@ -10,13 +10,13 @@ namespace FlowTime.Sim.Core;
 /// </summary>
 public static class CatalogIO
 {
-    private static readonly ISerializer YamlSerializer = new SerializerBuilder()
+    private static readonly ISerializer yamlSerializer = new SerializerBuilder()
         .WithNamingConvention(CamelCaseNamingConvention.Instance)
         .ConfigureDefaultValuesHandling(DefaultValuesHandling.OmitDefaults)
         .WithTypeInspector(inner => new ReadablePropertiesTypeInspector(inner))
         .Build();
 
-    private static readonly IDeserializer YamlDeserializer = new DeserializerBuilder()
+    private static readonly IDeserializer yamlDeserializer = new DeserializerBuilder()
         .WithNamingConvention(CamelCaseNamingConvention.Instance)
         .Build();
 
@@ -55,7 +55,7 @@ public static class CatalogIO
     {
         try
         {
-            var catalog = YamlDeserializer.Deserialize<Catalog>(yaml);
+            var catalog = yamlDeserializer.Deserialize<Catalog>(yaml);
             
             // Validate the catalog structure
             var validation = catalog.Validate();
@@ -81,7 +81,7 @@ public static class CatalogIO
     {
         try
         {
-            return YamlDeserializer.Deserialize<Catalog>(yaml);
+            return yamlDeserializer.Deserialize<Catalog>(yaml);
         }
         catch (Exception ex)
         {
@@ -119,7 +119,7 @@ public static class CatalogIO
     /// </summary>
     public static string WriteCatalogToYaml(Catalog catalog)
     {
-        return YamlSerializer.Serialize(catalog);
+        return yamlSerializer.Serialize(catalog);
     }
 
     /// <summary>

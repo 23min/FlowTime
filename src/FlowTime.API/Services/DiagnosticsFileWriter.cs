@@ -10,8 +10,8 @@ namespace FlowTime.API.Services;
 
 internal static class DiagnosticsFileWriter
 {
-    private const string HoverCsvHeader = "timestampUtc,runId,buildHash,payloadSignature,interopDispatches,totalDispatches,durationMs,ratePerSecond,source,canvasWidth,canvasHeight,operationalOnly,mode,neighborEmphasis,zoomPercent,hoveredNodeId,focusedNodeId,nodeCount,edgeCount,inspectorVisible,pointerThrottleSkips,pointerEventsReceived,pointerEventsProcessed,pointerQueueDrops,pointerIntentSkips,dragFrameCount,dragTotalDurationMs,dragAverageFrameMs,dragMaxFrameMs,sceneRebuilds,overlayUpdates,layoutReads,pointerInpSampleCount,pointerInpAverageMs,pointerInpMaxMs,edgeCandidatesLast,edgeCandidatesAverage,edgeCandidateSamples,edgeCandidateFallbacks,edgeGridCellSize,edgeCacheHits,edgeCacheMisses";
-    private const string CanvasCsvHeader = "timestampUtc,runId,buildHash,payloadSignature,nodeCount,edgeCount,avgDrawMs,maxDrawMs,lastDrawMs,frameCount,panDistance,zoomEvents,source,canvasWidth,canvasHeight,operationalOnly,mode,neighborEmphasis,zoomPercent,inspectorVisible";
+    private const string hoverCsvHeader = "timestampUtc,runId,buildHash,payloadSignature,interopDispatches,totalDispatches,durationMs,ratePerSecond,source,canvasWidth,canvasHeight,operationalOnly,mode,neighborEmphasis,zoomPercent,hoveredNodeId,focusedNodeId,nodeCount,edgeCount,inspectorVisible,pointerThrottleSkips,pointerEventsReceived,pointerEventsProcessed,pointerQueueDrops,pointerIntentSkips,dragFrameCount,dragTotalDurationMs,dragAverageFrameMs,dragMaxFrameMs,sceneRebuilds,overlayUpdates,layoutReads,pointerInpSampleCount,pointerInpAverageMs,pointerInpMaxMs,edgeCandidatesLast,edgeCandidatesAverage,edgeCandidateSamples,edgeCandidateFallbacks,edgeGridCellSize,edgeCacheHits,edgeCacheMisses";
+    private const string canvasCsvHeader = "timestampUtc,runId,buildHash,payloadSignature,nodeCount,edgeCount,avgDrawMs,maxDrawMs,lastDrawMs,frameCount,panDistance,zoomEvents,source,canvasWidth,canvasHeight,operationalOnly,mode,neighborEmphasis,zoomPercent,inspectorVisible";
 
     public static async Task AppendHoverEntryAsync(string path, HoverDiagnosticsRow row, int maxRows, CancellationToken cancellationToken = default)
     {
@@ -22,7 +22,7 @@ internal static class DiagnosticsFileWriter
         {
             if (!fileExists)
             {
-                await writer.WriteLineAsync(HoverCsvHeader);
+                await writer.WriteLineAsync(hoverCsvHeader);
             }
 
             await writer.WriteLineAsync(row.ToCsvLine());
@@ -43,7 +43,7 @@ internal static class DiagnosticsFileWriter
         {
             if (!fileExists)
             {
-                await writer.WriteLineAsync(CanvasCsvHeader);
+                await writer.WriteLineAsync(canvasCsvHeader);
             }
 
             await writer.WriteLineAsync(row.ToCsvLine());

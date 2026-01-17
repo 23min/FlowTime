@@ -5,7 +5,7 @@ namespace FlowTime.Sim.Tests;
 
 public class ArtifactHashingTests
 {
-    private const string BaseYaml = @"schemaVersion: 1
+    private const string baseYaml = @"schemaVersion: 1
 grid: { bins: 3, binSize: 1, binUnit: hours }
 nodes:
   - id: source
@@ -21,8 +21,8 @@ outputs:
     public void SameContentDifferentFormatting_ProducesSameHash()
     {
     // NOTE: Slice 1 canonicalization does not yet reorder keys; test only whitespace & comment insensitivity.
-    var variant = "# leading comment\n" + BaseYaml + "\n# trailing comment\n";
-    var h1 = ModelHasher.ComputeModelHash(BaseYaml);
+    var variant = "# leading comment\n" + baseYaml + "\n# trailing comment\n";
+    var h1 = ModelHasher.ComputeModelHash(baseYaml);
     var h2 = ModelHasher.ComputeModelHash(variant);
     Assert.Equal(h1, h2);
     }
@@ -30,8 +30,8 @@ outputs:
     [Fact]
     public void ChangingNumericLiteral_ChangesHash()
     {
-        var modified = BaseYaml.Replace("values: [1,2,3]", "values: [1,2,4]");
-        var h1 = ModelHasher.ComputeModelHash(BaseYaml);
+        var modified = baseYaml.Replace("values: [1,2,3]", "values: [1,2,4]");
+        var h1 = ModelHasher.ComputeModelHash(baseYaml);
         var h2 = ModelHasher.ComputeModelHash(modified);
         Assert.NotEqual(h1, h2);
     }

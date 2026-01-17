@@ -27,13 +27,13 @@ public sealed class GraphService
         this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    private static readonly string[] DefaultOperationalKinds = { "service", "serviceWithBuffer", "queue", "dlq", "router", "external", "sink" };
-    private static readonly string[] DefaultFullKinds = { "service", "queue", "dlq", "router", "external", "expr", "const", "pmf", "serviceWithBuffer", "sink" };
-    private static readonly string[] DefaultDependencyFields = { "arrivals", "served", "errors", "attempts", "failures", "exhaustedFailures", "retryEcho", "retryBudgetRemaining", "queue", "capacity", "expr" };
+    private static readonly string[] defaultOperationalKinds = { "service", "serviceWithBuffer", "queue", "dlq", "router", "external", "sink" };
+    private static readonly string[] defaultFullKinds = { "service", "queue", "dlq", "router", "external", "expr", "const", "pmf", "serviceWithBuffer", "sink" };
+    private static readonly string[] defaultDependencyFields = { "arrivals", "served", "errors", "attempts", "failures", "exhaustedFailures", "retryEcho", "retryBudgetRemaining", "queue", "capacity", "expr" };
 
-    private const string EdgeTypeTopology = "topology";
-    private const string EdgeTypeDependency = "dependency";
-    private const string DependencyFieldExpression = "expr";
+    private const string edgeTypeTopology = "topology";
+    private const string edgeTypeDependency = "dependency";
+    private const string dependencyFieldExpression = "expr";
 
     public async Task<GraphResponse> GetGraphAsync(string runId, GraphQueryOptions? options = null, CancellationToken cancellationToken = default)
     {
@@ -92,11 +92,11 @@ public sealed class GraphService
 
         var allowedKinds = options.Kinds?.Count > 0
             ? new HashSet<string>(options.Kinds, StringComparer.OrdinalIgnoreCase)
-            : new HashSet<string>(mode == GraphQueryMode.Full ? DefaultFullKinds : DefaultOperationalKinds, StringComparer.OrdinalIgnoreCase);
+            : new HashSet<string>(mode == GraphQueryMode.Full ? defaultFullKinds : defaultOperationalKinds, StringComparer.OrdinalIgnoreCase);
 
         var dependencyFields = options.DependencyFields?.Count > 0
             ? new HashSet<string>(options.DependencyFields, StringComparer.OrdinalIgnoreCase)
-            : new HashSet<string>(DefaultDependencyFields, StringComparer.OrdinalIgnoreCase);
+            : new HashSet<string>(defaultDependencyFields, StringComparer.OrdinalIgnoreCase);
 
         var graphNodes = new Dictionary<string, GraphNode>(StringComparer.OrdinalIgnoreCase);
         var graphEdges = new Dictionary<string, GraphEdge>(StringComparer.OrdinalIgnoreCase);
@@ -191,7 +191,7 @@ public sealed class GraphService
                 : topoEdge.Id!;
 
             var edgeType = string.IsNullOrWhiteSpace(topoEdge.Type)
-                ? EdgeTypeTopology
+                ? edgeTypeTopology
                 : topoEdge.Type!;
 
             TryAddEdge(new GraphEdge
@@ -290,7 +290,7 @@ public sealed class GraphService
                     continue;
                 }
 
-                var includeExpressionDependencies = dependencyFields.Contains(DependencyFieldExpression);
+                var includeExpressionDependencies = dependencyFields.Contains(dependencyFieldExpression);
                 if (!includeExpressionDependencies)
                 {
                     continue;
@@ -304,15 +304,15 @@ public sealed class GraphService
                         continue;
                     }
 
-                    var edgeId = BuildDependencyEdgeId(input, nodeDef.Id, DependencyFieldExpression);
+                    var edgeId = BuildDependencyEdgeId(input, nodeDef.Id, dependencyFieldExpression);
                     TryAddEdge(new GraphEdge
                     {
                         Id = edgeId,
                         From = input,
                         To = nodeDef.Id,
                         Weight = ComputeDependencyWeight(options.EdgeWeight, input, nodeDef.Id),
-                        EdgeType = EdgeTypeDependency,
-                        Field = DependencyFieldExpression
+                        EdgeType = edgeTypeDependency,
+                        Field = dependencyFieldExpression
                     });
                 }
             }
@@ -371,7 +371,7 @@ public sealed class GraphService
                     From = producerCandidate,
                     To = consumerId,
                     Weight = ComputeDependencyWeight(options.EdgeWeight, producerCandidate, consumerId),
-                    EdgeType = EdgeTypeDependency,
+                    EdgeType = edgeTypeDependency,
                     Field = field
                 });
             }
@@ -446,7 +446,7 @@ public sealed class GraphService
         return colon < 0 ? value.Trim() : value[..colon].Trim();
     }
 
-    private static readonly Regex SeriesFileRegex = new(@"(?<name>[^/\\]+?)(?:\.csv)?$", RegexOptions.Compiled | RegexOptions.CultureInvariant);
+    private static readonly Regex seriesFileRegex = new(@"(?<name>[^/\\]+?)(?:\.csv)?$", RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     private static string? TryResolveProducerId(string reference)
     {
@@ -463,7 +463,7 @@ public sealed class GraphService
         }
         else if (value.StartsWith("file:", StringComparison.OrdinalIgnoreCase))
         {
-            var match = SeriesFileRegex.Match(value);
+            var match = seriesFileRegex.Match(value);
             if (match.Success)
             {
                 value = match.Groups["name"].Value;

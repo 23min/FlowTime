@@ -6,7 +6,7 @@ namespace FlowTime.Tests.Legacy;
 /// </summary>
 public class RngIntegrationTests
 {
-    private readonly Core.TimeGrid _grid = new(24, 1, Core.TimeUnit.Hours);
+    private readonly Core.TimeGrid grid = new(24, 1, Core.TimeUnit.Hours);
     
     [Fact]
     public void RngIntegration_PmfSampling_UsesPcg32()
@@ -20,7 +20,7 @@ public class RngIntegrationTests
         var seed = 12345;
         
         // Act
-        var result = Core.PmfCompiler.Compile("demand", pmfData, _grid, seed: seed);
+        var result = Core.PmfCompiler.Compile("demand", pmfData, grid, seed: seed);
         
         // Assert - Should use PCG32 internally
         Assert.NotNull(result);
@@ -40,11 +40,11 @@ public class RngIntegrationTests
         var seed = 999;
         
         // Act
-        var result1 = Core.PmfCompiler.Compile("demand", pmfData, _grid, seed: seed);
-        var series1 = result1.Evaluate(_grid, _ => throw new Exception());
+        var result1 = Core.PmfCompiler.Compile("demand", pmfData, grid, seed: seed);
+        var series1 = result1.Evaluate(grid, _ => throw new Exception());
         
-        var result2 = Core.PmfCompiler.Compile("demand", pmfData, _grid, seed: seed);
-        var series2 = result2.Evaluate(_grid, _ => throw new Exception());
+        var result2 = Core.PmfCompiler.Compile("demand", pmfData, grid, seed: seed);
+        var series2 = result2.Evaluate(grid, _ => throw new Exception());
         
         // Assert
         Assert.Equal(series1.Values, series2.Values);
@@ -61,11 +61,11 @@ public class RngIntegrationTests
         };
         
         // Act
-        var result1 = Core.PmfCompiler.Compile("demand", pmfData, _grid, seed: 111);
-        var series1 = result1.Evaluate(_grid, _ => throw new Exception());
+        var result1 = Core.PmfCompiler.Compile("demand", pmfData, grid, seed: 111);
+        var series1 = result1.Evaluate(grid, _ => throw new Exception());
         
-        var result2 = Core.PmfCompiler.Compile("demand", pmfData, _grid, seed: 222);
-        var series2 = result2.Evaluate(_grid, _ => throw new Exception());
+        var result2 = Core.PmfCompiler.Compile("demand", pmfData, grid, seed: 222);
+        var series2 = result2.Evaluate(grid, _ => throw new Exception());
         
         // Assert - Should be different (with very high probability)
         Assert.NotEqual(series1.Values, series2.Values);
@@ -81,11 +81,11 @@ public class RngIntegrationTests
         };
         
         // Act - No seed specified
-        var result = Core.PmfCompiler.Compile("demand", pmfData, _grid);
+        var result = Core.PmfCompiler.Compile("demand", pmfData, grid);
         
         // Assert - Should still work (may use default seed or timestamp)
         Assert.NotNull(result);
-        var series = result.Evaluate(_grid, _ => throw new Exception());
+        var series = result.Evaluate(grid, _ => throw new Exception());
         Assert.NotNull(series);
     }
     
@@ -101,11 +101,11 @@ public class RngIntegrationTests
         var baseSeed = 42;
         
         // Act - Compile multiple nodes
-        var node1 = Core.PmfCompiler.Compile("demand1", pmfData, _grid, seed: baseSeed);
-        var node2 = Core.PmfCompiler.Compile("demand2", pmfData, _grid, seed: baseSeed + 1);
+        var node1 = Core.PmfCompiler.Compile("demand1", pmfData, grid, seed: baseSeed);
+        var node2 = Core.PmfCompiler.Compile("demand2", pmfData, grid, seed: baseSeed + 1);
         
-        var series1 = node1.Evaluate(_grid, _ => throw new Exception());
-        var series2 = node2.Evaluate(_grid, _ => throw new Exception());
+        var series1 = node1.Evaluate(grid, _ => throw new Exception());
+        var series2 = node2.Evaluate(grid, _ => throw new Exception());
         
         // Assert - Different seeds produce different series
         Assert.NotEqual(series1.Values, series2.Values);
@@ -125,12 +125,12 @@ public class RngIntegrationTests
         var seed = 12345;
         
         // Act - Run 1
-        var run1 = Core.PmfCompiler.Compile("demand", pmfData, _grid, seed: seed);
-        var series1 = run1.Evaluate(_grid, _ => throw new Exception());
+        var run1 = Core.PmfCompiler.Compile("demand", pmfData, grid, seed: seed);
+        var series1 = run1.Evaluate(grid, _ => throw new Exception());
         
         // Act - Run 2 (simulating different process)
-        var run2 = Core.PmfCompiler.Compile("demand", pmfData, _grid, seed: seed);
-        var series2 = run2.Evaluate(_grid, _ => throw new Exception());
+        var run2 = Core.PmfCompiler.Compile("demand", pmfData, grid, seed: seed);
+        var series2 = run2.Evaluate(grid, _ => throw new Exception());
         
         // Assert - Complete reproducibility
         Assert.Equal(series1.Values, series2.Values);
@@ -149,8 +149,8 @@ public class RngIntegrationTests
         var seed = 999;
         
         // Act
-        var result = Core.PmfCompiler.Compile("demand", pmfData, _grid, seed: seed);
-        var series = result.Evaluate(_grid, _ => throw new Exception());
+        var result = Core.PmfCompiler.Compile("demand", pmfData, grid, seed: seed);
+        var series = result.Evaluate(grid, _ => throw new Exception());
         
         // Assert - Check distribution is approximately correct
         var count100 = series.Values.Count(v => Math.Abs(v - 100.0) < 0.001);
@@ -195,7 +195,7 @@ public class RngIntegrationTests
         var seed = 777;
         
         // Act
-        var result = Core.PmfCompiler.Compile("demand", pmfData, _grid, seed: seed);
+        var result = Core.PmfCompiler.Compile("demand", pmfData, grid, seed: seed);
         
         // Assert
         Assert.Equal(seed, result.Provenance.Seed);

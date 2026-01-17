@@ -11,13 +11,13 @@ internal static class ColorScale
     public const string FocusStrokeColor = "#262626";
     public const string ArrivalsColor = "#0284C7";  // Sky blue
 
-    private const double DefaultSlaWarningWindow = 0.15;
-    private const double DefaultUtilizationCriticalOffset = 0.05;
-    private const double DefaultErrorWarningRatio = 0.4;
-    private const double DefaultServiceTimeWarningMs = 400;
-    private const double DefaultServiceTimeCriticalMs = 700;
-    private const double DefaultFlowLatencyWarningMs = 2000;
-    private const double DefaultFlowLatencyCriticalMs = 10000;
+    private const double defaultSlaWarningWindow = 0.15;
+    private const double defaultUtilizationCriticalOffset = 0.05;
+    private const double defaultErrorWarningRatio = 0.4;
+    private const double defaultServiceTimeWarningMs = 400;
+    private const double defaultServiceTimeCriticalMs = 700;
+    private const double defaultFlowLatencyWarningMs = 2000;
+    private const double defaultFlowLatencyCriticalMs = 10000;
 
     public static string GetFill(NodeBinMetrics metrics) => GetFill(metrics, TopologyColorBasis.Sla, ColorThresholds.Default);
 
@@ -208,10 +208,10 @@ internal static class ColorScale
             utilizationCritical: 0.95,
             errorWarning: 0.02,
             errorCritical: 0.05,
-            serviceTimeWarning: DefaultServiceTimeWarningMs,
-            serviceTimeCritical: DefaultServiceTimeCriticalMs,
-            flowLatencyWarning: DefaultFlowLatencyWarningMs,
-            flowLatencyCritical: DefaultFlowLatencyCriticalMs);
+            serviceTimeWarning: defaultServiceTimeWarningMs,
+            serviceTimeCritical: defaultServiceTimeCriticalMs,
+            flowLatencyWarning: defaultFlowLatencyWarningMs,
+            flowLatencyCritical: defaultFlowLatencyCriticalMs);
 
         public ColorThresholds(
             double slaSuccess,
@@ -251,20 +251,20 @@ internal static class ColorScale
         public static ColorThresholds FromOverlay(TopologyOverlaySettings settings)
         {
             var slaSuccess = Clamp01(settings.SlaWarningThreshold);
-            var slaWarning = Math.Max(0, slaSuccess - DefaultSlaWarningWindow);
+            var slaWarning = Math.Max(0, slaSuccess - defaultSlaWarningWindow);
 
             var utilWarn = Clamp01(settings.UtilizationWarningThreshold);
-            var utilCritical = Clamp01(Math.Max(utilWarn, utilWarn + DefaultUtilizationCriticalOffset));
+            var utilCritical = Clamp01(Math.Max(utilWarn, utilWarn + defaultUtilizationCriticalOffset));
 
             var errorCritical = Math.Clamp(settings.ErrorRateAlertThreshold, 0.0001, 1);
-            var errorWarning = Math.Min(errorCritical * DefaultErrorWarningRatio, errorCritical);
+            var errorWarning = Math.Min(errorCritical * defaultErrorWarningRatio, errorCritical);
 
             var serviceTimeWarning = settings.ServiceTimeWarningThresholdMs > 0
                 ? settings.ServiceTimeWarningThresholdMs
-                : DefaultServiceTimeWarningMs;
+                : defaultServiceTimeWarningMs;
             var serviceTimeCriticalCandidate = settings.ServiceTimeCriticalThresholdMs > 0
                 ? settings.ServiceTimeCriticalThresholdMs
-                : DefaultServiceTimeCriticalMs;
+                : defaultServiceTimeCriticalMs;
             var serviceTimeCritical = Math.Max(serviceTimeWarning, serviceTimeCriticalCandidate);
 
             return new ColorThresholds(
@@ -276,8 +276,8 @@ internal static class ColorScale
                 errorCritical,
                 serviceTimeWarning,
                 serviceTimeCritical,
-                flowLatencyWarning: settings.FlowLatencyWarningThresholdMs > 0 ? settings.FlowLatencyWarningThresholdMs : DefaultFlowLatencyWarningMs,
-                flowLatencyCritical: settings.FlowLatencyCriticalThresholdMs > 0 ? settings.FlowLatencyCriticalThresholdMs : DefaultFlowLatencyCriticalMs);
+                flowLatencyWarning: settings.FlowLatencyWarningThresholdMs > 0 ? settings.FlowLatencyWarningThresholdMs : defaultFlowLatencyWarningMs,
+                flowLatencyCritical: settings.FlowLatencyCriticalThresholdMs > 0 ? settings.FlowLatencyCriticalThresholdMs : defaultFlowLatencyCriticalMs);
         }
 
         private static double Clamp01(double value) => Math.Clamp(value, 0, 1);

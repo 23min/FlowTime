@@ -14,10 +14,10 @@ namespace FlowTime.UI.Tests.TimeTravel;
 
 public sealed class TopologyCanvasRenderTests : TestContext
 {
-    private const double NodeWidth = 54;
-    private const double NodeHeight = 24;
-    private const double NodeCornerRadius = 3;
-    private const double ViewportPadding = 48;
+    private const double nodeWidth = 54;
+    private const double nodeHeight = 24;
+    private const double nodeCornerRadius = 3;
+    private const double viewportPadding = 48;
 
     public TopologyCanvasRenderTests()
     {
@@ -589,15 +589,15 @@ public sealed class TopologyCanvasRenderTests : TestContext
         {
             if (string.Equals(node.Kind, "queue", StringComparison.OrdinalIgnoreCase))
             {
-            Assert.True(node.Width >= NodeWidth);
+            Assert.True(node.Width >= nodeWidth);
             }
             else
             {
-                Assert.Equal(NodeWidth, node.Width);
+                Assert.Equal(nodeWidth, node.Width);
             }
 
-            Assert.Equal(NodeHeight, node.Height);
-            Assert.Equal(NodeCornerRadius, node.CornerRadius);
+            Assert.Equal(nodeHeight, node.Height);
+            Assert.Equal(nodeCornerRadius, node.CornerRadius);
         });
 
         var expectedMinX = payload.Nodes.Min(n => n.X - (n.Width / 2));
@@ -609,7 +609,7 @@ public sealed class TopologyCanvasRenderTests : TestContext
         Assert.Equal(expectedMaxX, payload.Viewport.MaxX, 3);
         Assert.Equal(expectedMinY, payload.Viewport.MinY, 3);
         Assert.Equal(expectedMaxY, payload.Viewport.MaxY, 3);
-        Assert.Equal(ViewportPadding, payload.Viewport.Padding);
+        Assert.Equal(viewportPadding, payload.Viewport.Padding);
     }
 
     [Fact]

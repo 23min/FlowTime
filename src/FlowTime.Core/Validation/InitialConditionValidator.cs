@@ -5,9 +5,9 @@ namespace FlowTime.Core.Validation;
 
 public sealed class InitialConditionValidator
 {
-    private const double DefaultTolerance = 0.01d;
+    private const double defaultTolerance = 0.01d;
 
-    public void Validate(NodeData nodeData, InitialCondition? initialCondition, double tolerance = DefaultTolerance)
+    public void Validate(NodeData nodeData, InitialCondition? initialCondition, double tolerance = defaultTolerance)
     {
         ArgumentNullException.ThrowIfNull(nodeData);
         if (nodeData.Arrivals.Length == 0 || nodeData.Served.Length == 0 || nodeData.Errors.Length == 0)

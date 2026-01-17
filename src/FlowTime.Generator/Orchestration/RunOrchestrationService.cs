@@ -39,7 +39,7 @@ public sealed class RunOrchestrationService
     private static readonly EventId runCompletedEvent = new(4005, "RunOrchestrationCompleted");
     private static readonly EventId runFailedEvent = new(4500, "RunOrchestrationFailed");
 
-    private const int DefaultSeed = 123;
+    private const int defaultSeed = 123;
 
     private readonly ITemplateService templateService;
     private readonly TelemetryBundleBuilder bundleBuilder;
@@ -501,7 +501,7 @@ public sealed class RunOrchestrationService
                 runDocument,
                 telemetryResolved,
                 bundleResult.TelemetryManifest,
-                request.Rng?.Seed ?? DefaultSeed,
+                request.Rng?.Seed ?? defaultSeed,
                 false);
 
             return new RunOrchestrationOutcome(false, result, null);
@@ -565,7 +565,7 @@ public sealed class RunOrchestrationService
                 throw new TemplateValidationException($"Template '{templateId}' declares an rng block; provide rng.seed in the run request.");
             }
 
-            var defaultOptions = new RunRngOptions { Kind = expectedKind, Seed = DefaultSeed };
+            var defaultOptions = new RunRngOptions { Kind = expectedKind, Seed = defaultSeed };
             logger.LogInformation("Resolved rng for template {TemplateId}: kind={Kind}, seed={Seed}", templateId, defaultOptions.Kind, defaultOptions.Seed);
             return defaultOptions;
         }
@@ -713,7 +713,7 @@ public sealed class RunOrchestrationService
                 Grid = grid,
                 Context = context,
                 SpecText = modelYaml,
-                RngSeed = request.Rng?.Seed ?? DefaultSeed,
+                RngSeed = request.Rng?.Seed ?? defaultSeed,
                 StartTimeBias = null,
                 DeterministicRunId = request.DeterministicRunId,
                 OutputDirectory = outputRoot,

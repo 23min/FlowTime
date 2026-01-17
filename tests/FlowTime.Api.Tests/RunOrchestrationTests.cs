@@ -12,7 +12,7 @@ namespace FlowTime.Api.Tests;
 
 public class RunOrchestrationTests : IClassFixture<TestWebApplicationFactory>, IDisposable
 {
-    private const string SimulationTemplateId = "sim-order";
+    private const string simulationTemplateId = "sim-order";
 
     private readonly TestWebApplicationFactory factory;
     private readonly WebApplicationFactory<Program> serverFactory;
@@ -28,7 +28,7 @@ public class RunOrchestrationTests : IClassFixture<TestWebApplicationFactory>, I
         Directory.CreateDirectory(dataRoot);
         templateDirectory = Path.Combine(dataRoot, "templates");
         Directory.CreateDirectory(templateDirectory);
-        File.WriteAllText(Path.Combine(templateDirectory, $"{SimulationTemplateId}.yaml"), SimulationTemplateYaml);
+        File.WriteAllText(Path.Combine(templateDirectory, $"{simulationTemplateId}.yaml"), simulationTemplateYaml);
         sourceRoot = Path.Combine(dataRoot, "source-runs");
         Directory.CreateDirectory(sourceRoot);
 
@@ -132,7 +132,7 @@ public class RunOrchestrationTests : IClassFixture<TestWebApplicationFactory>, I
     {
         var legacyPayload = new
         {
-            templateId = SimulationTemplateId,
+            templateId = simulationTemplateId,
             mode = "simulation",
             parameters = new { bins = 4 }
         };
@@ -153,7 +153,7 @@ public class RunOrchestrationTests : IClassFixture<TestWebApplicationFactory>, I
 
         var request = new RunOrchestrationRequest
         {
-            TemplateId = SimulationTemplateId,
+            TemplateId = simulationTemplateId,
             Mode = "simulation",
             OutputRoot = runsRoot,
             DeterministicRunId = true,
@@ -189,7 +189,7 @@ public class RunOrchestrationTests : IClassFixture<TestWebApplicationFactory>, I
         serverFactory.Dispose();
     }
 
-    private const string SimulationTemplateYaml = """
+    private const string simulationTemplateYaml = """
 schemaVersion: 1
 generator: flowtime-sim
 metadata:

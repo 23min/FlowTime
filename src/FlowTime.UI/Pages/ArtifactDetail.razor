@@ -5,7 +5,7 @@
 @inject ILogger<ArtifactDetail> Logger
 @inject NavigationManager Navigation
 
-<PageTitle>Artifact Details - @_artifact?.Title</PageTitle>
+<PageTitle>Artifact Details - @artifact?.Title</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.False">
     <MudStack Spacing="3">
@@ -21,7 +21,7 @@
                     </MudButton>
                     <MudDivider Vertical="true" FlexItem="true" />
                     <MudStack>
-                        <MudText Typo="Typo.h5">@(_artifact?.Title ?? "Loading...")</MudText>
+                        <MudText Typo="Typo.h5">@(artifact?.Title ?? "Loading...")</MudText>
                         <MudText Typo="Typo.body2" Color="Color.Secondary">
                             Artifact ID: @ArtifactId
                         </MudText>
@@ -31,35 +31,35 @@
                     <MudButton Variant="Variant.Outlined" 
                                StartIcon="@Icons.Material.Filled.Download"
                                OnClick="DownloadArtifact"
-                               Disabled="@(_isLoading || _artifact == null)"
+                               Disabled="@(isLoading || artifact == null)"
                                Color="Color.Secondary">
                         Download
                     </MudButton>
                     <MudButton Variant="Variant.Outlined" 
                                StartIcon="@Icons.Material.Filled.Refresh"
                                OnClick="RefreshArtifact"
-                               Disabled="@_isLoading">
+                               Disabled="@isLoading">
                         Refresh
                     </MudButton>
                 </MudStack>
             </MudStack>
         </MudPaper>
 
-        @if (_isLoading)
+        @if (isLoading)
         {
             <MudPaper Class="pa-4" Elevation="1">
                 <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
                 <MudText Typo="Typo.body2" Class="mt-4 text-center">Loading artifact details...</MudText>
             </MudPaper>
         }
-        else if (_artifact == null && !_isLoading)
+        else if (artifact == null && !isLoading)
         {
             <MudAlert Severity="Severity.Error" Icon="@Icons.Material.Filled.ErrorOutline">
                 <MudText>Artifact not found.</MudText>
                 <MudText Typo="Typo.body2">The artifact with ID "@ArtifactId" could not be found.</MudText>
             </MudAlert>
         }
-        else if (_artifact != null)
+        else if (artifact != null)
         {
             <!-- Basic Information -->
             <MudPaper Class="pa-4" Elevation="1">
@@ -67,40 +67,40 @@
                 <MudGrid>
                     <MudItem xs="12" sm="6" md="3">
                         <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
-                            <MudIcon Icon="@GetArtifactIcon(_artifact.Type)" Size="Size.Small" Color="@GetArtifactColor(_artifact.Type)" />
+                            <MudIcon Icon="@GetArtifactIcon(artifact.Type)" Size="Size.Small" Color="@GetArtifactColor(artifact.Type)" />
                             <MudText Typo="Typo.caption">Type:</MudText>
-                            <MudText Typo="Typo.body2"><strong>@_artifact.Type.ToUpper()</strong></MudText>
+                            <MudText Typo="Typo.body2"><strong>@artifact.Type.ToUpper()</strong></MudText>
                         </MudStack>
                     </MudItem>
                     <MudItem xs="12" sm="6" md="3">
                         <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
                             <MudIcon Icon="@Icons.Material.Filled.Schedule" Size="Size.Small" />
                             <MudText Typo="Typo.caption">Created:</MudText>
-                            <MudText Typo="Typo.body2"><strong>@_artifact.Created.ToString("yyyy-MM-dd HH:mm")</strong></MudText>
+                            <MudText Typo="Typo.body2"><strong>@artifact.Created.ToString("yyyy-MM-dd HH:mm")</strong></MudText>
                         </MudStack>
                     </MudItem>
                     <MudItem xs="12" sm="6" md="3">
                         <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
                             <MudIcon Icon="@Icons.Material.Filled.Storage" Size="Size.Small" />
                             <MudText Typo="Typo.caption">Size:</MudText>
-                            <MudText Typo="Typo.body2"><strong>@FormatFileSize(_artifact.TotalSize)</strong></MudText>
+                            <MudText Typo="Typo.body2"><strong>@FormatFileSize(artifact.TotalSize)</strong></MudText>
                         </MudStack>
                     </MudItem>
                     <MudItem xs="12" sm="6" md="3">
                         <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
                             <MudIcon Icon="@Icons.Material.Filled.InsertDriveFile" Size="Size.Small" />
                             <MudText Typo="Typo.caption">Files:</MudText>
-                            <MudText Typo="Typo.body2"><strong>@_artifact.Files.Count</strong></MudText>
+                            <MudText Typo="Typo.body2"><strong>@artifact.Files.Count</strong></MudText>
                         </MudStack>
                     </MudItem>
                 </MudGrid>
 
-                @if (_artifact.Tags.Any())
+                @if (artifact.Tags.Any())
                 {
                     <MudDivider Class="my-4" />
                     <MudStack Row Spacing="1" Wrap="Wrap.Wrap" AlignItems="AlignItems.Center">
                         <MudText Typo="Typo.caption">Tags:</MudText>
-                        @foreach (var tag in _artifact.Tags)
+                        @foreach (var tag in artifact.Tags)
                         {
                             <MudChip T="string" Size="Size.Small" Text="@tag" Color="Color.Primary" />
                         }
@@ -110,10 +110,10 @@
 
             <!-- Files List -->
             <MudPaper Class="pa-4" Elevation="1">
-                <MudText Typo="Typo.h6" Class="mb-3">Files (@_artifact.Files.Count)</MudText>
-                @if (_artifact.Files.Any())
+                <MudText Typo="Typo.h6" Class="mb-3">Files (@artifact.Files.Count)</MudText>
+                @if (artifact.Files.Any())
                 {
-                    <MudDataGrid Items="@_artifact.Files" 
+                    <MudDataGrid Items="@artifact.Files" 
                                  SortMode="SortMode.Multiple" 
                                  Filterable="false"
                                  Dense="true"
@@ -150,12 +150,12 @@
             </MudPaper>
 
             <!-- Metadata -->
-            @if (_artifact.Metadata != null && _artifact.Metadata.Any())
+            @if (artifact.Metadata != null && artifact.Metadata.Any())
             {
                 <MudPaper Class="pa-4" Elevation="1">
                     <MudText Typo="Typo.h6" Class="mb-3">Metadata</MudText>
                     <MudExpansionPanels Elevation="0">
-                        @foreach (var kvp in _artifact.Metadata)
+                        @foreach (var kvp in artifact.Metadata)
                         {
                             <MudExpansionPanel Text="@kvp.Key">
                                 <div class="pa-2">
@@ -173,8 +173,8 @@
 @code {
     [Parameter] public string ArtifactId { get; set; } = "";
 
-    private bool _isLoading = true;
-    private ArtifactDetailModel? _artifact;
+    private bool isLoading = true;
+    private ArtifactDetailModel? artifact;
 
     protected override async Task OnInitializedAsync()
     {
@@ -191,7 +191,7 @@
 
     private async Task LoadArtifact()
     {
-        _isLoading = true;
+        isLoading = true;
         StateHasChanged();
 
         try
@@ -203,32 +203,32 @@
             if (response.IsSuccessStatusCode)
             {
                 var json = await response.Content.ReadAsStringAsync();
-                _artifact = JsonSerializer.Deserialize<ArtifactDetailModel>(json, new JsonSerializerOptions 
+                artifact = JsonSerializer.Deserialize<ArtifactDetailModel>(json, new JsonSerializerOptions 
                 { 
                     PropertyNameCaseInsensitive = true 
                 });
 
-                Logger.LogInformation("Loaded artifact: {Title} with {FileCount} files", _artifact?.Title, _artifact?.Files?.Count ?? 0);
+                Logger.LogInformation("Loaded artifact: {Title} with {FileCount} files", artifact?.Title, artifact?.Files?.Count ?? 0);
             }
             else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
             {
                 Logger.LogWarning("Artifact not found: {ArtifactId}", ArtifactId);
-                _artifact = null;
+                artifact = null;
             }
             else
             {
                 Logger.LogError("Failed to load artifact: {StatusCode}", response.StatusCode);
-                _artifact = null;
+                artifact = null;
             }
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error loading artifact details for: {ArtifactId}", ArtifactId);
-            _artifact = null;
+            artifact = null;
         }
         finally
         {
-            _isLoading = false;
+            isLoading = false;
             StateHasChanged();
         }
     }
@@ -245,7 +245,7 @@
 
     private async Task DownloadArtifact()
     {
-        if (_artifact == null) return;
+        if (artifact == null) return;
 
         try
         {
@@ -256,7 +256,7 @@
             if (response.IsSuccessStatusCode)
             {
                 var fileBytes = await response.Content.ReadAsByteArrayAsync();
-                var fileName = $"{_artifact.Title.Replace(" ", "_")}.zip";
+                var fileName = $"{artifact.Title.Replace(" ", "_")}.zip";
                 
                 // Create download URL and trigger download
                 var base64 = Convert.ToBase64String(fileBytes);

@@ -67,7 +67,7 @@ public sealed record RunOrchestrationSuccess(string RunId, bool WasReused);
 
 public static class RunOrchestrationRequestBuilder
 {
-    private const int DefaultRngSeed = 123;
+    private const int defaultRngSeed = 123;
 
     public static bool TryBuild(
         RunOrchestrationFormModel model,
@@ -145,7 +145,7 @@ public static class RunOrchestrationRequestBuilder
         error = null;
         rng = default!;
 
-        var seedValue = DefaultRngSeed;
+        var seedValue = defaultRngSeed;
         if (!string.IsNullOrWhiteSpace(seedText))
         {
             if (!int.TryParse(seedText.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out seedValue))
@@ -331,7 +331,7 @@ public static class RunOrchestrationRequestBuilder
 
 public static class RunSubmissionSnapshotStorage
 {
-    private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web)
+    private static readonly JsonSerializerOptions serializerOptions = new(JsonSerializerDefaults.Web)
     {
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
@@ -366,7 +366,7 @@ public static class RunSubmissionSnapshotStorage
             RngSeedText = snapshot.RngSeedText
         };
 
-        return JsonSerializer.Serialize(payload, SerializerOptions);
+        return JsonSerializer.Serialize(payload, serializerOptions);
     }
 
     public static RunSubmissionSnapshot? TryDeserialize(string? json)
@@ -378,7 +378,7 @@ public static class RunSubmissionSnapshotStorage
 
         try
         {
-            var payload = JsonSerializer.Deserialize<SnapshotPayload>(json, SerializerOptions);
+            var payload = JsonSerializer.Deserialize<SnapshotPayload>(json, serializerOptions);
             if (payload is null || string.IsNullOrWhiteSpace(payload.TemplateId))
             {
                 return null;
@@ -425,7 +425,7 @@ public sealed record RunSuccessSnapshot(
 
 public static class RunSuccessSnapshotStorage
 {
-    private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web)
+    private static readonly JsonSerializerOptions serializerOptions = new(JsonSerializerDefaults.Web)
     {
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
@@ -464,7 +464,7 @@ public static class RunSuccessSnapshotStorage
             RngSeed: snapshot.RngSeed,
             WasReused: snapshot.WasReused);
 
-        return JsonSerializer.Serialize(payload, SerializerOptions);
+        return JsonSerializer.Serialize(payload, serializerOptions);
     }
 
     public static RunSuccessSnapshot? TryDeserialize(string? json)
@@ -476,7 +476,7 @@ public static class RunSuccessSnapshotStorage
 
         try
         {
-            var payload = JsonSerializer.Deserialize<SuccessPayload>(json, SerializerOptions);
+            var payload = JsonSerializer.Deserialize<SuccessPayload>(json, serializerOptions);
             if (payload is null || string.IsNullOrWhiteSpace(payload.RunId) || string.IsNullOrWhiteSpace(payload.TemplateId))
             {
                 return null;

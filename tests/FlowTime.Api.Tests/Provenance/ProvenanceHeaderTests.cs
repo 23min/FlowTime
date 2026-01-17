@@ -14,18 +14,18 @@ namespace FlowTime.Api.Tests.Provenance;
 /// </summary>
 public class ProvenanceHeaderTests : IClassFixture<TestWebApplicationFactory>
 {
-    private readonly TestWebApplicationFactory _factory;
+    private readonly TestWebApplicationFactory factory;
 
     public ProvenanceHeaderTests(TestWebApplicationFactory factory)
     {
-        _factory = factory;
+        this.factory = factory;
     }
 
     [Fact]
     public async Task PostRun_ValidProvenanceHeader_ParsedCorrectly()
     {
         // Arrange
-        var client = _factory.CreateClient();
+        var client = factory.CreateClient();
         var model = """
             schemaVersion: 1
             grid:
@@ -64,7 +64,7 @@ public class ProvenanceHeaderTests : IClassFixture<TestWebApplicationFactory>
     public async Task PostRun_MissingProvenanceHeader_NoError()
     {
         // Arrange
-        var client = _factory.CreateClient();
+        var client = factory.CreateClient();
         var model = """
             schemaVersion: 1
             grid:
@@ -95,7 +95,7 @@ public class ProvenanceHeaderTests : IClassFixture<TestWebApplicationFactory>
     public async Task PostRun_EmptyProvenanceHeader_Ignored()
     {
         // Arrange
-        var client = _factory.CreateClient();
+        var client = factory.CreateClient();
         var model = """
             schemaVersion: 1
             grid:
@@ -126,7 +126,7 @@ public class ProvenanceHeaderTests : IClassFixture<TestWebApplicationFactory>
     public async Task PostRun_InvalidProvenanceHeaderFormat_ReturnsError()
     {
         // Arrange
-        var client = _factory.CreateClient();
+        var client = factory.CreateClient();
         var model = """
             schemaVersion: 1
             grid:
@@ -165,7 +165,7 @@ public class ProvenanceHeaderTests : IClassFixture<TestWebApplicationFactory>
     public async Task PostRun_ValidModelIdFormats_Accepted(string modelId)
     {
         // Arrange
-        var client = _factory.CreateClient();
+        var client = factory.CreateClient();
         var model = """
             schemaVersion: 1
             grid:
@@ -203,7 +203,7 @@ public class ProvenanceHeaderTests : IClassFixture<TestWebApplicationFactory>
     public async Task PostRun_ProvenanceHeaderWithSpaces_Trimmed()
     {
         // Arrange
-        var client = _factory.CreateClient();
+        var client = factory.CreateClient();
         var model = """
             schemaVersion: 1
             grid:
@@ -241,7 +241,7 @@ public class ProvenanceHeaderTests : IClassFixture<TestWebApplicationFactory>
     public async Task PostRun_MultipleProvenanceHeaders_UsesFirst()
     {
         // Arrange
-        var client = _factory.CreateClient();
+        var client = factory.CreateClient();
         var model = """
             schemaVersion: 1
             grid:
@@ -281,7 +281,7 @@ public class ProvenanceHeaderTests : IClassFixture<TestWebApplicationFactory>
     public async Task PostRun_ProvenanceHeader_CaseInsensitive()
     {
         // Arrange
-        var client = _factory.CreateClient();
+        var client = factory.CreateClient();
         var model = """
             schemaVersion: 1
             grid:
@@ -330,15 +330,15 @@ public class ProvenanceHeaderTests : IClassFixture<TestWebApplicationFactory>
 
     private string GetProvenanceFilePath(string runId, bool ensureExists = false)
     {
-        var canonicalPath = Path.Combine(_factory.TestDataDirectory, runId, "model", "provenance.json");
+        var canonicalPath = Path.Combine(factory.TestDataDirectory, runId, "model", "provenance.json");
         if (!ensureExists)
         {
             return File.Exists(canonicalPath)
                 ? canonicalPath
-                : Path.Combine(_factory.TestDataDirectory, runId, "provenance.json");
+                : Path.Combine(factory.TestDataDirectory, runId, "provenance.json");
         }
 
-        var fallbackPath = Path.Combine(_factory.TestDataDirectory, runId, "provenance.json");
+        var fallbackPath = Path.Combine(factory.TestDataDirectory, runId, "provenance.json");
         for (var attempt = 0; attempt < 40; attempt++)
         {
             if (File.Exists(canonicalPath))

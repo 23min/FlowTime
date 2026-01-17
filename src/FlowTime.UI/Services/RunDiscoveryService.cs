@@ -9,8 +9,8 @@ public interface IRunDiscoveryService
 
 public sealed class RunDiscoveryService : IRunDiscoveryService
 {
-    private const int DefaultPageSize = 100;
-    private const int MaxConcurrentRequests = 4;
+    private const int defaultPageSize = 100;
+    private const int maxConcurrentRequests = 4;
 
     private readonly IFlowTimeApiClient apiClient;
     private readonly ILogger<RunDiscoveryService> logger;
@@ -25,7 +25,7 @@ public sealed class RunDiscoveryService : IRunDiscoveryService
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var summariesResult = await apiClient.GetRunSummariesAsync(pageSize: DefaultPageSize, ct: cancellationToken).ConfigureAwait(false);
+        var summariesResult = await apiClient.GetRunSummariesAsync(pageSize: defaultPageSize, ct: cancellationToken).ConfigureAwait(false);
         if (!summariesResult.Success || summariesResult.Value is null)
         {
             var error = summariesResult.Error ?? "Failed to retrieve run summaries.";
@@ -43,7 +43,7 @@ public sealed class RunDiscoveryService : IRunDiscoveryService
         var runs = new ConcurrentBag<RunListEntry>();
         var diagnostics = new ConcurrentBag<RunDiagnostic>();
 
-        using var semaphore = new SemaphoreSlim(MaxConcurrentRequests);
+        using var semaphore = new SemaphoreSlim(maxConcurrentRequests);
         var tasks = summaries.Select(summary => ProcessRunAsync(summary, runs, diagnostics, semaphore, cancellationToken)).ToArray();
         await Task.WhenAll(tasks).ConfigureAwait(false);
 

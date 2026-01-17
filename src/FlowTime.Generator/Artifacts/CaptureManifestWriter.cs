@@ -9,7 +9,7 @@ namespace FlowTime.Generator.Artifacts;
 /// </summary>
 public static class CaptureManifestWriter
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
+    private static readonly JsonSerializerOptions jsonOptions = new(JsonSerializerDefaults.Web)
     {
         WriteIndented = true,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
@@ -18,7 +18,7 @@ public static class CaptureManifestWriter
     public static async Task WriteAsync(string manifestPath, TelemetryManifest manifest, CancellationToken cancellationToken = default)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(manifestPath)!);
-        var json = JsonSerializer.Serialize(manifest, JsonOptions);
+        var json = JsonSerializer.Serialize(manifest, jsonOptions);
         await File.WriteAllTextAsync(manifestPath, json, cancellationToken).ConfigureAwait(false);
     }
 }

@@ -54,7 +54,7 @@ public sealed record MetricProvenanceEvaluation(
 
 public static class MetricProvenanceCatalog
 {
-    private static readonly IReadOnlyDictionary<string, IReadOnlyDictionary<string, MetricProvenanceDefinition>> Catalog =
+    private static readonly IReadOnlyDictionary<string, IReadOnlyDictionary<string, MetricProvenanceDefinition>> catalog =
         BuildCatalog();
 
     public static IReadOnlyDictionary<string, MetricProvenanceDefinition> GetForNodeKind(string nodeKind)
@@ -64,7 +64,7 @@ public static class MetricProvenanceCatalog
             return EmptyCatalog;
         }
 
-        return Catalog.TryGetValue(nodeKind.Trim(), out var entries)
+        return catalog.TryGetValue(nodeKind.Trim(), out var entries)
             ? entries
             : EmptyCatalog;
     }

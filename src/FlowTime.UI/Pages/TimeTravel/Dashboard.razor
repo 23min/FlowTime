@@ -35,7 +35,7 @@
                     {
                         <MudText Typo="Typo.caption" Color="Color.Secondary">@ClassCoverageText</MudText>
                     }
-                    @if (_context is not null)
+                    @if (context is not null)
                     {
                         <MudStack Row Spacing="1" AlignItems="AlignItems.Center" Class="sla-header-meta">
                             <MudChip T="string" Variant="Variant.Outlined" Color="Color.Info" Size="Size.Small" Class="sla-header-chip">
@@ -59,7 +59,7 @@
                             @RunId
                         </MudChip>
                     }
-                    @if (_metricsResult?.Source == TimeTravelMetricsSource.StateWindowFallback)
+                    @if (metricsResult?.Source == TimeTravelMetricsSource.StateWindowFallback)
                     {
                         <MudChip T="string"
                                  Variant="Variant.Outlined"
@@ -94,7 +94,7 @@
                 </MudStack>
             </MudPaper>
         }
-        else if (_isLoading)
+        else if (isLoading)
         {
             <MudPaper Class="pa-4" Elevation="1">
                 <MudStack Spacing="2">
@@ -106,18 +106,18 @@
                 </MudStack>
             </MudPaper>
         }
-        else if (!string.IsNullOrWhiteSpace(_errorMessage))
+        else if (!string.IsNullOrWhiteSpace(errorMessage))
         {
             <MudPaper Class="pa-4" Elevation="1">
                 <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.ErrorOutline">
                     <MudStack Spacing="2">
                         <MudText Typo="Typo.subtitle1">Unable to load metrics.</MudText>
-                        <MudText Typo="Typo.body2">@_errorMessage</MudText>
+                        <MudText Typo="Typo.body2">@errorMessage</MudText>
                         <MudStack Row Spacing="1">
                             <MudButton Variant="Variant.Filled"
                                        Color="Color.Primary"
                                        StartIcon="@Icons.Material.Filled.Refresh"
-                                       Disabled="_isLoading"
+                                       Disabled="isLoading"
                                        OnClick="ReloadAsync">
                                 Retry
                             </MudButton>
@@ -155,7 +155,7 @@
                                 {
                                     <MudChip T="SlaStatus"
                                              OnClick="@(() => ToggleStatus(option.Status))"
-                                             Variant="@(_activeStatuses.Contains(option.Status) ? Variant.Filled : Variant.Outlined)"
+                                             Variant="@(activeStatuses.Contains(option.Status) ? Variant.Filled : Variant.Outlined)"
                                              Color="@option.Color"
                                              Icon="@option.Icon"
                                              Size="Size.Small"
@@ -166,7 +166,7 @@
                                 }
                                 <MudButton Variant="Variant.Text"
                                            Color="Color.Primary"
-                                           Disabled="@(_activeStatuses.Count == statusOptions.Length)"
+                                           Disabled="@(activeStatuses.Count == statusOptions.Length)"
                                            OnClick="ResetFilters"
                                            aria-label="Reset filters">
                                     Reset
@@ -174,7 +174,7 @@
                             </MudStack>
                         </MudStack>
 
-                        @if (_tiles.Count == 0)
+                        @if (tiles.Count == 0)
                         {
                             <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
                                 <MudText Typo="Typo.body2">
@@ -182,7 +182,7 @@
                                 </MudText>
                                 </MudAlert>
                         }
-                        else if (_visibleTiles.Count == 0)
+                        else if (visibleTiles.Count == 0)
                         {
                             <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
                                 <MudText Typo="Typo.body2">
@@ -193,7 +193,7 @@
                         else
                         {
                             <div class="sla-tiles-grid" role="list">
-                                @foreach (var tile in _visibleTiles)
+                                @foreach (var tile in visibleTiles)
                                 {
                                     <div class="sla-tile"
                                          role="button"

@@ -10,7 +10,7 @@ namespace FlowTime.Sim.Core.Templates.Profiles;
 /// </summary>
 internal static class TimeOfDayProfileLibrary
 {
-    private static readonly Dictionary<string, BuiltInProfile> Profiles = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly Dictionary<string, BuiltInProfile> profiles = new(StringComparer.OrdinalIgnoreCase)
     {
         ["weekday-office"] = new BuiltInProfile(
             "weekday-office",
@@ -46,7 +46,7 @@ internal static class TimeOfDayProfileLibrary
 
     public static double[] Resolve(string name, int targetBins)
     {
-        if (!Profiles.TryGetValue(name, out var profile))
+        if (!profiles.TryGetValue(name, out var profile))
         {
             throw new TemplateValidationException($"Unknown builtin profile '{name}'.");
         }
@@ -56,7 +56,7 @@ internal static class TimeOfDayProfileLibrary
     }
 
     public static IReadOnlyDictionary<string, string> DescribeBuiltIns() =>
-        Profiles.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.Description, StringComparer.OrdinalIgnoreCase);
+        profiles.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.Description, StringComparer.OrdinalIgnoreCase);
 }
 
 internal sealed record BuiltInProfile(string Name, string Description, double[] Weights);
@@ -67,7 +67,7 @@ internal static class ProfileMath
     {
         if (weights == null || weights.Length == 0)
         {
-            throw new TemplateValidationException("Profiles must contain at least one weight.");
+            throw new TemplateValidationException("profiles must contain at least one weight.");
         }
 
         var sum = 0d;

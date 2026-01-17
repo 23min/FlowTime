@@ -12,12 +12,12 @@ namespace FlowTime.Core.Analysis;
 /// </summary>
 public static class InvariantAnalyzer
 {
-    private const double DefaultTolerance = 1e-6;
+    private const double defaultTolerance = 1e-6;
 
     public static InvariantAnalysisResult Analyze(
         ModelDefinition model,
         IReadOnlyDictionary<NodeId, double[]> evaluatedSeries,
-        double tolerance = DefaultTolerance)
+        double tolerance = defaultTolerance)
     {
         ArgumentNullException.ThrowIfNull(model);
         ArgumentNullException.ThrowIfNull(evaluatedSeries);

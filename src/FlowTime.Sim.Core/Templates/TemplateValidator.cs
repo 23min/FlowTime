@@ -15,9 +15,9 @@ namespace FlowTime.Sim.Core.Templates;
 /// </summary>
 internal static class TemplateValidator
 {
-    private const double ProbabilityTolerance = 1e-10;
-    private const double IntegerTolerance = 1e-9;
-    private static readonly Regex SemanticVersionPattern = new("^\\d+\\.\\d+\\.\\d+(-[0-9A-Za-z\\.-]+)?$", RegexOptions.Compiled);
+    private const double probabilityTolerance = 1e-10;
+    private const double integerTolerance = 1e-9;
+    private static readonly Regex semanticVersionPattern = new("^\\d+\\.\\d+\\.\\d+(-[0-9A-Za-z\\.-]+)?$", RegexOptions.Compiled);
 
     public static void Validate(Template template)
     {
@@ -67,7 +67,7 @@ internal static class TemplateValidator
             throw new TemplateValidationException("Template metadata.version is required.");
         }
 
-        if (!SemanticVersionPattern.IsMatch(metadata.Version))
+        if (!semanticVersionPattern.IsMatch(metadata.Version))
         {
             throw new TemplateValidationException($"Template metadata.version '{metadata.Version}' must follow semantic versioning (e.g., 1.0.0 or 1.0.0-beta.1).");
         }
@@ -280,7 +280,7 @@ internal static class TemplateValidator
         }
 
         var sum = node.Pmf.Probabilities.Sum();
-        if (Math.Abs(sum - 1.0) > ProbabilityTolerance)
+        if (Math.Abs(sum - 1.0) > probabilityTolerance)
         {
             throw new TemplateValidationException($"PMF node '{node.Id}' probabilities must sum to 1.0 (received {sum}).");
         }
@@ -843,9 +843,9 @@ internal static class TemplateValidator
             null => throw new TemplateValidationException($"Parameter '{parameter.Name}' element at index {index} is null."),
             int i => i,
             long l when l >= int.MinValue && l <= int.MaxValue => (int)l,
-            double d when Math.Abs(d - Math.Round(d)) <= IntegerTolerance => (int)Math.Round(d),
-            float f when Math.Abs(f - Math.Round(f)) <= IntegerTolerance => (int)Math.Round(f),
-            decimal m when Math.Abs((double)m - Math.Round((double)m)) <= IntegerTolerance => (int)Math.Round((double)m),
+            double d when Math.Abs(d - Math.Round(d)) <= integerTolerance => (int)Math.Round(d),
+            float f when Math.Abs(f - Math.Round(f)) <= integerTolerance => (int)Math.Round(f),
+            decimal m when Math.Abs((double)m - Math.Round((double)m)) <= integerTolerance => (int)Math.Round((double)m),
             JsonElement json when json.ValueKind == JsonValueKind.Number && json.TryGetInt64(out var integer) => checked((int)integer),
             JsonElement json when json.ValueKind == JsonValueKind.Number => ConvertDoubleToInt(parameter, json.GetDouble(), index),
             JsonElement json when json.ValueKind == JsonValueKind.String && int.TryParse(json.GetString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedInt) => parsedInt,
@@ -857,7 +857,7 @@ internal static class TemplateValidator
     private static int ConvertDoubleToInt(TemplateParameter parameter, double value, int index)
     {
         var rounded = Math.Round(value);
-        if (Math.Abs(value - rounded) > IntegerTolerance)
+        if (Math.Abs(value - rounded) > integerTolerance)
         {
             throw new TemplateValidationException($"Parameter '{parameter.Name}' element at index {index} must be an integer.");
         }

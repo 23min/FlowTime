@@ -22,9 +22,9 @@ public sealed class StateQueryService
     private const int maxWindowBins = 500;
     private static readonly EventId stateSnapshotEvent = new(3001, "StateSnapshotObservability");
     private static readonly EventId stateWindowEvent = new(3002, "StateWindowObservability");
-    private const int BacklogGrowthStreakBins = 3;
-    private const int BacklogOverloadStreakBins = 3;
-    private const int BacklogAgeRiskStreakBins = 3;
+    private const int backlogGrowthStreakBins = 3;
+    private const int backlogOverloadStreakBins = 3;
+    private const int backlogAgeRiskStreakBins = 3;
     private static readonly double[] fallbackRetryKernel = RetryKernelPolicy.DefaultKernel;
     private static readonly QueueLatencyStatusDescriptor pausedGateClosedStatus = new()
     {
@@ -642,9 +642,9 @@ public sealed class StateQueryService
         };
     }
 
-    private const string SlaStatusOk = "ok";
-    private const string SlaStatusUnavailable = "unavailable";
-    private const string SlaStatusNoEvents = "noEvents";
+    private const string slaStatusOk = "ok";
+    private const string slaStatusUnavailable = "unavailable";
+    private const string slaStatusNoEvents = "noEvents";
 
     private static IReadOnlyList<SlaSeriesDescriptor>? BuildSlaSeries(
         Node node,
@@ -688,7 +688,7 @@ public sealed class StateQueryService
         var completion = new SlaMetricDescriptor
         {
             Kind = "completion",
-            Status = completionValue.HasValue ? SlaStatusOk : SlaStatusNoEvents,
+            Status = completionValue.HasValue ? slaStatusOk : slaStatusNoEvents,
             Threshold = null,
             Value = completionValue
         };
@@ -754,7 +754,7 @@ public sealed class StateQueryService
         return new SlaSeriesDescriptor
         {
             Kind = "completion",
-            Status = any ? SlaStatusOk : SlaStatusNoEvents,
+            Status = any ? slaStatusOk : slaStatusNoEvents,
             Threshold = null,
             Values = values
         };
@@ -814,7 +814,7 @@ public sealed class StateQueryService
         return new SlaSeriesDescriptor
         {
             Kind = "backlogAge",
-            Status = SlaStatusUnavailable,
+            Status = slaStatusUnavailable,
             Threshold = node.Semantics?.SlaMinutes,
             Values = values
         };
@@ -831,7 +831,7 @@ public sealed class StateQueryService
         return new SlaMetricDescriptor
         {
             Kind = "backlogAge",
-            Status = SlaStatusUnavailable,
+            Status = slaStatusUnavailable,
             Threshold = node.Semantics?.SlaMinutes,
             Value = null
         };
@@ -868,7 +868,7 @@ public sealed class StateQueryService
         return new SlaSeriesDescriptor
         {
             Kind = "scheduleAdherence",
-            Status = any ? SlaStatusOk : SlaStatusNoEvents,
+            Status = any ? slaStatusOk : slaStatusNoEvents,
             Threshold = 1d,
             Values = values
         };
@@ -889,7 +889,7 @@ public sealed class StateQueryService
             return new SlaMetricDescriptor
             {
                 Kind = "scheduleAdherence",
-                Status = SlaStatusNoEvents,
+                Status = slaStatusNoEvents,
                 Threshold = 1d,
                 Value = null
             };
@@ -899,7 +899,7 @@ public sealed class StateQueryService
         return new SlaMetricDescriptor
         {
             Kind = "scheduleAdherence",
-            Status = SlaStatusOk,
+            Status = slaStatusOk,
             Threshold = 1d,
             Value = servedValue > 0d ? 1d : 0d
         };
@@ -992,7 +992,7 @@ public sealed class StateQueryService
             }
 
             var growth = FindQueueGrowthStreak(data.QueueDepth, startBin, endBin);
-            if (growth.HasValue && growth.Value.Length >= BacklogGrowthStreakBins)
+            if (growth.HasValue && growth.Value.Length >= backlogGrowthStreakBins)
             {
                 warnings.Add(new ModeValidationWarning
                 {
@@ -1006,7 +1006,7 @@ public sealed class StateQueryService
             }
 
             var overload = FindOverloadStreak(node.Semantics, data, startBin, endBin);
-            if (overload.HasValue && overload.Value.Length >= BacklogOverloadStreakBins)
+            if (overload.HasValue && overload.Value.Length >= backlogOverloadStreakBins)
             {
                 warnings.Add(new ModeValidationWarning
                 {
@@ -1020,7 +1020,7 @@ public sealed class StateQueryService
             }
 
             var ageRisk = FindAgeRiskStreak(data.QueueDepth, data.Served, binMinutes, node.Semantics?.SlaMinutes, startBin, endBin);
-            if (ageRisk.HasValue && ageRisk.Value.Length >= BacklogAgeRiskStreakBins)
+            if (ageRisk.HasValue && ageRisk.Value.Length >= backlogAgeRiskStreakBins)
             {
                 warnings.Add(new ModeValidationWarning
                 {
@@ -3155,7 +3155,7 @@ public sealed class StateQueryService
         return kind.Trim().ToLowerInvariant();
     }
 
-    private static readonly Regex SeriesFileRegex = new(@"(?<name>[^/\\]+?)(?:\.csv)?$", RegexOptions.Compiled | RegexOptions.CultureInvariant);
+    private static readonly Regex seriesFileRegex = new(@"(?<name>[^/\\]+?)(?:\.csv)?$", RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     private static string DetermineLogicalType(
         Node node,
@@ -3207,7 +3207,7 @@ public sealed class StateQueryService
         }
         else if (value.StartsWith("file:", StringComparison.OrdinalIgnoreCase))
         {
-            var match = SeriesFileRegex.Match(value);
+            var match = seriesFileRegex.Match(value);
             if (match.Success)
             {
                 value = match.Groups["name"].Value;

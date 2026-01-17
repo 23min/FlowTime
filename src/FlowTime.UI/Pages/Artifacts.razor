@@ -18,12 +18,12 @@
                 </MudStack>
                 <MudStack Row Spacing="2" AlignItems="AlignItems.Center">
                     <MudChip T="string" Color="Color.Primary" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.Folder">
-                        @(_result?.TotalCount ?? 0) runs
+                        @(result?.TotalCount ?? 0) runs
                     </MudChip>
                     <MudButton Variant="Variant.Outlined"
                                StartIcon="@Icons.Material.Filled.Refresh"
                                OnClick="ReloadAsync"
-                               Disabled="_isLoading">
+                               Disabled="isLoading">
                         Refresh
                     </MudButton>
                 </MudStack>
@@ -31,18 +31,18 @@
         </MudPaper>
 
         <MudPaper Class="pa-4" Elevation="1">
-            @if (_isLoading)
+            @if (isLoading)
             {
                 <MudStack AlignItems="AlignItems.Center" Spacing="2">
                     <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
                     <MudText Typo="Typo.body2">Scanning runs…</MudText>
                 </MudStack>
             }
-            else if (!string.IsNullOrWhiteSpace(_errorMessage))
+            else if (!string.IsNullOrWhiteSpace(errorMessage))
             {
                 <MudAlert Severity="Severity.Error" Icon="@Icons.Material.Filled.ErrorOutline">
                     <MudText Typo="Typo.subtitle1">Unable to load runs</MudText>
-                    <MudText Typo="Typo.body2">@_errorMessage</MudText>
+                    <MudText Typo="Typo.body2">@errorMessage</MudText>
                     <MudButton Variant="Variant.Text"
                                Color="Color.Primary"
                                StartIcon="@Icons.Material.Filled.Refresh"
@@ -51,9 +51,9 @@
                     </MudButton>
                 </MudAlert>
             }
-            else if (_result?.Runs.Count is > 0)
+            else if (result?.Runs.Count is > 0)
             {
-                <MudTable Items="_result.Runs" Hover="true" Dense="true">
+                <MudTable Items="result.Runs" Hover="true" Dense="true">
                     <HeaderContent>
                         <MudTh>Run</MudTh>
                         <MudTh>Template</MudTh>
@@ -200,14 +200,14 @@
             }
         </MudPaper>
 
-        @if (!_isLoading && _result is { Diagnostics.Count: > 0 })
+        @if (!isLoading && result is { Diagnostics.Count: > 0 })
         {
             <MudPaper Class="pa-4" Elevation="1">
                 <MudText Typo="Typo.subtitle1" Class="mb-2">
                     Diagnostics
                 </MudText>
                 <MudStack Spacing="1">
-                    @foreach (var diag in _result.Diagnostics)
+                    @foreach (var diag in result.Diagnostics)
                     {
                         <MudPaper Class="pa-2" Elevation="0" Outlined="true">
                             <MudStack Row Spacing="2" AlignItems="AlignItems.Center">
@@ -226,9 +226,9 @@
 </MudContainer>
 
 @code {
-    private RunDiscoveryResult? _result;
-    private bool _isLoading = true;
-    private string? _errorMessage;
+    private RunDiscoveryResult? result;
+    private bool isLoading = true;
+    private string? errorMessage;
 
     protected override async Task OnInitializedAsync()
     {
@@ -244,30 +244,30 @@
     {
         try
         {
-            _isLoading = true;
-            _errorMessage = null;
+            isLoading = true;
+            errorMessage = null;
             StateHasChanged();
 
-            var result = await RunDiscovery.LoadRunsAsync();
-            if (!result.Success)
+            var loadResult = await RunDiscovery.LoadRunsAsync();
+            if (!loadResult.Success)
             {
-                _errorMessage = result.ErrorMessage ?? "Unknown error occurred.";
-                _result = null;
+                errorMessage = loadResult.ErrorMessage ?? "Unknown error occurred.";
+                result = null;
             }
             else
             {
-                _result = result;
+                result = loadResult;
             }
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error loading runs");
-            _errorMessage = ex.Message;
-            _result = null;
+            errorMessage = ex.Message;
+            result = null;
         }
         finally
         {
-            _isLoading = false;
+            isLoading = false;
             StateHasChanged();
         }
     }

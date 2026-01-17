@@ -22,7 +22,7 @@ public class TemplateService : ITemplateService
     private readonly Dictionary<string, (Template template, string originalYaml)> templateCache = new();
     private readonly object cacheLock = new();
     private readonly ISerializer yamlSerializer;
-    private static readonly Regex ParameterPlaceholderRegex = new(@"\$\{([^}]+)\}", RegexOptions.Compiled);
+    private static readonly Regex parameterPlaceholderRegex = new(@"\$\{([^}]+)\}", RegexOptions.Compiled);
 
     public TemplateService(string templatesDirectory, ILogger<TemplateService> logger)
     {
@@ -457,7 +457,7 @@ public class TemplateService : ITemplateService
             if (trimmed.StartsWith("values:", StringComparison.Ordinal))
             {
                 var valueText = trimmed.Substring("values:".Length).Trim();
-                var match = ParameterPlaceholderRegex.Match(valueText);
+                var match = parameterPlaceholderRegex.Match(valueText);
                 if (match.Success)
                 {
                     bindings[currentNodeId] = match.Groups[1].Value;

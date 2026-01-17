@@ -10,7 +10,7 @@ namespace FlowTime.Tests.Support;
 
 public static class TelemetryRunFactory
 {
-    private static readonly IReadOnlyDictionary<FixtureKind, FixtureDefinition> Definitions = new Dictionary<FixtureKind, FixtureDefinition>
+    private static readonly IReadOnlyDictionary<FixtureKind, FixtureDefinition> definitions = new Dictionary<FixtureKind, FixtureDefinition>
     {
         [FixtureKind.OrderSystem] = new FixtureDefinition(
             MetadataId: "order-system",
@@ -85,7 +85,7 @@ public static class TelemetryRunFactory
 
     public static string CreateRunArtifacts(string root, string runId, FixtureKind kind, bool includeTopology = true)
     {
-        var definition = Definitions[kind];
+        var definition = definitions[kind];
 
         var runDir = Path.Combine(root, runId);
         Directory.CreateDirectory(runDir);
@@ -159,7 +159,7 @@ public static class TelemetryRunFactory
         };
     }
 
-    internal static FixtureDefinition GetDefinition(FixtureKind kind) => Definitions[kind];
+    internal static FixtureDefinition GetDefinition(FixtureKind kind) => definitions[kind];
 
     private static string BuildSpec(FixtureDefinition definition, bool includeTopology)
     {

@@ -15,7 +15,7 @@ public static class TelemetryRunCommand
         Fresh
     }
 
-    private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions serializerOptions = new(JsonSerializerDefaults.Web);
     internal static Func<HttpClient>? HttpClientFactoryOverride { get; set; }
 
     public static async Task<int> ExecuteAsync(string[] args)
@@ -218,7 +218,7 @@ public static class TelemetryRunCommand
 
         try
         {
-            var response = await client.PostAsJsonAsync("api/v1/orchestration/runs", request, SerializerOptions).ConfigureAwait(false);
+            var response = await client.PostAsJsonAsync("api/v1/orchestration/runs", request, serializerOptions).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
                 var errorPayload = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
@@ -227,7 +227,7 @@ public static class TelemetryRunCommand
                 return 1;
             }
 
-            var payload = await response.Content.ReadFromJsonAsync<RunCreateResponse>(SerializerOptions).ConfigureAwait(false);
+            var payload = await response.Content.ReadFromJsonAsync<RunCreateResponse>(serializerOptions).ConfigureAwait(false);
             if (payload is null)
             {
                 Console.Error.WriteLine("Run creation failed: orchestration response was empty.");
@@ -442,7 +442,7 @@ public static class TelemetryRunCommand
         JsonElement element => element.ToString(),
         bool b => b.ToString(),
         IFormattable formattable => formattable.ToString(null, CultureInfo.InvariantCulture),
-        _ => JsonSerializer.Serialize(value, value.GetType(), SerializerOptions)
+        _ => JsonSerializer.Serialize(value, value.GetType(), serializerOptions)
     };
 
     private static string? NormalizeMode(string requested)

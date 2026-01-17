@@ -21,11 +21,11 @@
     <MudStack Spacing="2">
         <MudText Typo="Typo.h5">Run Model</MudText>
 
-        @if (_templateLoadError is not null)
+        @if (templateLoadError is not null)
         {
-            <MudAlert Severity="Severity.Error">@_templateLoadError</MudAlert>
+            <MudAlert Severity="Severity.Error">@templateLoadError</MudAlert>
         }
-        else if (_loadingTemplates)
+        else if (loadingTemplates)
         {
             <MudProgressLinear Indeterminate="true" Color="Color.Info" />
             <MudText Typo="Typo.body2">Loading templates…</MudText>
@@ -38,8 +38,8 @@
                         <MudSelect T="string" Label="Template"
                                    @bind-Value="SelectedTemplateId"
                                    Required="true"
-                                   Disabled="_state.IsBusy">
-                            @foreach (var template in _templates)
+                                   Disabled="state.IsBusy">
+                            @foreach (var template in templates)
                             {
                                 <MudSelectItem Value="@template.Id">
                                     @template.Name (@template.Version)
@@ -52,27 +52,27 @@
                                 @SelectedTemplateNarrative
                             </MudText>
                         }
-                        @if (_templates.Count == 0)
+                        @if (templates.Count == 0)
                         {
                             <MudText Typo="Typo.caption" Color="Color.Secondary">No templates available.</MudText>
                         }
                     </MudItem>
                     <MudItem xs="12">
-                        <MudTextField @bind-Value="_parameterText"
+                        <MudTextField @bind-Value="parameterText"
                                       Label="Parameters (JSON or key=value)"
                                       Lines="6"
-                                      Placeholder="@ParametersPlaceholder"
-                                      Disabled="_state.IsBusy"
+                                      Placeholder="@parametersPlaceholder"
+                                      Disabled="state.IsBusy"
                                       Immediate="true"
                                       TextUpdateSuppression="true"
                                       Variant="Variant.Outlined" />
                     </MudItem>
                     <MudItem xs="12" md="3">
-                        <MudTextField @bind-Value="_rngSeedText"
+                        <MudTextField @bind-Value="rngSeedText"
                                       Label="RNG Seed"
                                       Variant="Variant.Outlined"
                                       Placeholder="123"
-                                      Disabled="_state.IsBusy"
+                                      Disabled="state.IsBusy"
                                       Immediate="true"
                                       InputType="InputType.Number"
                                       HelperText="Defaults to 123 unless overridden." />
@@ -81,8 +81,8 @@
                         <MudSelect T="RunReuseMode"
                                    Label="Bundle reuse"
                                    Variant="Variant.Outlined"
-                                   @bind-Value="_reuseMode"
-                                   Disabled="_state.IsBusy">
+                                   @bind-Value="reuseMode"
+                                   Disabled="state.IsBusy">
                             <MudSelectItem Value="RunReuseMode.AutoReuse">Reuse existing bundle when inputs match</MudSelectItem>
                             <MudSelectItem Value="RunReuseMode.ForceOverwrite">Regenerate (overwrite deterministic bundle)</MudSelectItem>
                             <MudSelectItem Value="RunReuseMode.FreshRun">Fresh run (timestamped id)</MudSelectItem>
@@ -97,7 +97,7 @@
                     <MudTooltip Text="Generate the run and produce a bundle using the selected template and parameters.">
                         <MudButton Variant="Variant.Filled"
                                    Color="Color.Primary"
-                                   Disabled="_state.IsBusy || !CanSubmit"
+                                   Disabled="state.IsBusy || !CanSubmit"
                                    OnClick="@(() => SubmitAsync(dryRun: false))">
                             Run model
                         </MudButton>
@@ -105,7 +105,7 @@
                     <MudTooltip Text="Preview the files and outputs without executing a full run.">
                         <MudButton Variant="Variant.Outlined"
                                    Color="Color.Secondary"
-                                   Disabled="_state.IsBusy || !CanSubmit"
+                                   Disabled="state.IsBusy || !CanSubmit"
                                    OnClick="@(() => SubmitAsync(dryRun: true))">
                             Plan model
                         </MudButton>
@@ -113,8 +113,8 @@
                     <MudTooltip Text="Reload template metadata from the FlowTime-Sim service.">
                         <MudButton Variant="Variant.Text"
                                    Color="Color.Info"
-                                   Disabled="_state.IsBusy || _refreshingTemplates"
-                                   loading="@_refreshingTemplates"
+                                   Disabled="state.IsBusy || refreshingTemplates"
+                                   loading="@refreshingTemplates"
                                    OnClick="RefreshTemplateCacheAsync">
                             Refresh templates
                         </MudButton>
@@ -123,7 +123,7 @@
                     <MudTooltip Text="Clear the current run state, messages, and cached plan details.">
                         <MudButton Variant="Variant.Text"
                                    Color="Color.Default"
-                                   Disabled="_state.IsBusy && _state.Phase != RunOrchestrationPhase.Failure"
+                                   Disabled="state.IsBusy && state.Phase != RunOrchestrationPhase.Failure"
                                    OnClick="ResetStateAsync">
                             Reset
                         </MudButton>
@@ -132,51 +132,51 @@
             </MudPaper>
         }
 
-        @if (_state.Phase is RunOrchestrationPhase.Planning or RunOrchestrationPhase.Running)
+        @if (state.Phase is RunOrchestrationPhase.Planning or RunOrchestrationPhase.Running)
         {
             <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
                 <MudText Typo="Typo.subtitle2">
-                    @_statusMessage
+                    @statusMessage
                 </MudText>
-                @if (_state.PendingSubmission is not null)
+                @if (state.PendingSubmission is not null)
                 {
                     <MudText Typo="Typo.caption" Color="Color.Secondary">
-                        Submitted @_state.PendingSubmission.SubmittedAtUtc.ToLocalTime():g • @_state.PendingSubmission.TemplateId • @_state.PendingSubmission.Mode.ToApiString()
+                        Submitted @state.PendingSubmission.SubmittedAtUtc.ToLocalTime():g • @state.PendingSubmission.TemplateId • @state.PendingSubmission.Mode.ToApiString()
                     </MudText>
                 }
             </MudAlert>
         }
-        else if (!string.IsNullOrWhiteSpace(_statusMessage))
+        else if (!string.IsNullOrWhiteSpace(statusMessage))
         {
             <MudAlert Severity="Severity.Success" Variant="Variant.Outlined">
-                @_statusMessage
+                @statusMessage
             </MudAlert>
         }
 
-        @if (!string.IsNullOrWhiteSpace(_errorMessage))
+        @if (!string.IsNullOrWhiteSpace(errorMessage))
         {
             <MudAlert Severity="Severity.Error" Variant="Variant.Filled">
-                @_errorMessage
+                @errorMessage
             </MudAlert>
         }
 
-        @if (_lastPlan is not null)
+        @if (lastPlan is not null)
         {
             <MudPaper Class="pa-4 mt-4" Elevation="1">
                 <MudText Typo="Typo.h6">Dry-Run Plan</MudText>
                 <MudText Typo="Typo.body2" Color="Color.Secondary">
-                    Template: @_lastPlan.TemplateId · Mode: @_lastPlan.Mode · Output: @_lastPlan.OutputRoot
+                    Template: @lastPlan.TemplateId · Mode: @lastPlan.Mode · Output: @lastPlan.OutputRoot
                 </MudText>
-                @if (!string.IsNullOrWhiteSpace(_lastPlan.CaptureDirectory))
+                @if (!string.IsNullOrWhiteSpace(lastPlan.CaptureDirectory))
                 {
-                    <MudText Typo="Typo.caption">Capture directory: @_lastPlan.CaptureDirectory</MudText>
+                    <MudText Typo="Typo.caption">Capture directory: @lastPlan.CaptureDirectory</MudText>
                 }
                 <MudDivider Class="my-3" />
                 <MudText Typo="Typo.subtitle2">Files</MudText>
-                @if (_lastPlan.Files is { Count: > 0 })
+                @if (lastPlan.Files is { Count: > 0 })
                 {
                     <MudList T="RunCreatePlanFileDto" Dense="true">
-                        @foreach (var file in _lastPlan.Files)
+                        @foreach (var file in lastPlan.Files)
                         {
                             <MudListItem Value="@file">
                                 <MudText>@file.Path</MudText>
@@ -191,10 +191,10 @@
                 }
                 <MudDivider Class="my-3" />
                 <MudText Typo="Typo.subtitle2">Warnings</MudText>
-                @if (_lastPlan.Warnings is { Count: > 0 })
+                @if (lastPlan.Warnings is { Count: > 0 })
                 {
                     <MudList T="RunCreatePlanWarningDto" Dense="true">
-                        @foreach (var warning in _lastPlan.Warnings)
+                        @foreach (var warning in lastPlan.Warnings)
                         {
                             <MudListItem Value="@warning">
                                 <MudText>@($"{warning.Code}: {warning.Message}")</MudText>
@@ -215,38 +215,38 @@
             </MudPaper>
         }
 
-        @if (_state.Phase == RunOrchestrationPhase.Success && _lastMetadata is not null)
+        @if (state.Phase == RunOrchestrationPhase.Success && lastMetadata is not null)
         {
             <MudPaper Class="pa-4 mt-4" Elevation="1">
                 <MudText Typo="Typo.h6">Run Summary</MudText>
                 <MudStack Spacing="1">
-                    <MudText>Run Id: @_lastMetadata.RunId</MudText>
+                    <MudText>Run Id: @lastMetadata.RunId</MudText>
                     <MudText>
-                        Template: @(_lastMetadata.TemplateTitle ?? _lastMetadata.TemplateId) (@_lastMetadata.TemplateVersion)
+                        Template: @(lastMetadata.TemplateTitle ?? lastMetadata.TemplateId) (@lastMetadata.TemplateVersion)
                     </MudText>
-                    <MudText>Mode: @_lastMetadata.Mode</MudText>
-                    <MudText>RNG Seed: @FormatSeed(_lastMetadata.Rng?.Seed)</MudText>
-                    @if (!string.IsNullOrWhiteSpace(_lastMetadata.InputHash))
+                    <MudText>Mode: @lastMetadata.Mode</MudText>
+                    <MudText>RNG Seed: @FormatSeed(lastMetadata.Rng?.Seed)</MudText>
+                    @if (!string.IsNullOrWhiteSpace(lastMetadata.InputHash))
                     {
-                        <MudText>Input hash: @_lastMetadata.InputHash</MudText>
+                        <MudText>Input hash: @lastMetadata.InputHash</MudText>
                     }
-                    @if (_state.LastSuccess?.WasReused == true)
+                    @if (state.LastSuccess?.WasReused == true)
                     {
                         <MudAlert Severity="Severity.Info" Variant="Variant.Text">
                             Existing deterministic bundle reused. Choose <strong>Regenerate</strong> to force a new run.
                         </MudAlert>
                     }
-                    @if (string.Equals(_lastMetadata.Mode, "telemetry", StringComparison.OrdinalIgnoreCase))
+                    @if (string.Equals(lastMetadata.Mode, "telemetry", StringComparison.OrdinalIgnoreCase))
                     {
-                        <MudText>Telemetry sources resolved: @(_lastMetadata.TelemetrySourcesResolved ? "Yes" : "No")</MudText>
+                        <MudText>Telemetry sources resolved: @(lastMetadata.TelemetrySourcesResolved ? "Yes" : "No")</MudText>
                     }
                 </MudStack>
                 <MudDivider Class="my-3" />
                 <MudText Typo="Typo.subtitle2">Warnings</MudText>
-                @if (_runWarnings.Count > 0)
+                @if (runWarnings.Count > 0)
                 {
                     <MudList T="StateWarningDto" Dense="true">
-                        @foreach (var warning in _runWarnings)
+                        @foreach (var warning in runWarnings)
                         {
                             <MudListItem Value="@warning">
                                 <MudText>@($"{warning.Code}: {warning.Message}")</MudText>
@@ -265,46 +265,46 @@
                 <MudStack Row="true" Spacing="2" Class="mt-3">
                     <MudButton Variant="Variant.Filled"
                                Color="Color.Primary"
-                               OnClick="@(() => Navigation.NavigateTo($"/time-travel/dashboard?runId={_lastMetadata.RunId}"))">
+                               OnClick="@(() => Navigation.NavigateTo($"/time-travel/dashboard?runId={lastMetadata.RunId}"))">
                         Open Dashboard
                     </MudButton>
                     <MudButton Variant="Variant.Outlined"
                                Color="Color.Secondary"
-                               OnClick="@(() => Navigation.NavigateTo($"/time-travel/artifacts/{Uri.EscapeDataString(_lastMetadata.RunId)}"))">
+                               OnClick="@(() => Navigation.NavigateTo($"/time-travel/artifacts/{Uri.EscapeDataString(lastMetadata.RunId)}"))">
                         View Artifacts
                     </MudButton>
                 </MudStack>
             </MudPaper>
         }
-        else if (_state.Phase == RunOrchestrationPhase.Idle && _recentSuccess is not null)
+        else if (state.Phase == RunOrchestrationPhase.Idle && recentSuccess is not null)
         {
             <MudPaper Class="pa-4 mt-4" Elevation="1">
                 <MudText Typo="Typo.h6">Most Recent Run</MudText>
                 <MudStack Spacing="1">
-                    <MudText>Run Id: @_recentSuccess.RunId</MudText>
+                    <MudText>Run Id: @recentSuccess.RunId</MudText>
                     <MudText>
-                        Template: @(_recentSuccess.TemplateTitle ?? _recentSuccess.TemplateId) (@_recentSuccess.TemplateVersion ?? "latest")
+                        Template: @(recentSuccess.TemplateTitle ?? recentSuccess.TemplateId) (@recentSuccess.TemplateVersion ?? "latest")
                     </MudText>
-                    <MudText>Mode: @_recentSuccess.Mode</MudText>
-                    @if (_recentSuccess.WasReused)
+                    <MudText>Mode: @recentSuccess.Mode</MudText>
+                    @if (recentSuccess.WasReused)
                     {
                         <MudText Color="Color.Info">Existing deterministic bundle reused.</MudText>
                     }
-                    <MudText>RNG Seed: @FormatSeed(_recentSuccess.RngSeed)</MudText>
-                    @if (string.Equals(_recentSuccess.Mode, "telemetry", StringComparison.OrdinalIgnoreCase))
+                    <MudText>RNG Seed: @FormatSeed(recentSuccess.RngSeed)</MudText>
+                    @if (string.Equals(recentSuccess.Mode, "telemetry", StringComparison.OrdinalIgnoreCase))
                     {
-                        <MudText>Telemetry sources resolved: @(_recentSuccess.TelemetryResolved ? "Yes" : "No")</MudText>
+                        <MudText>Telemetry sources resolved: @(recentSuccess.TelemetryResolved ? "Yes" : "No")</MudText>
                     }
                     <MudText Typo="Typo.caption" Color="Color.Secondary">
-                        Completed @_recentSuccess.CompletedAtUtc.ToLocalTime():g
+                        Completed @recentSuccess.CompletedAtUtc.ToLocalTime():g
                     </MudText>
                 </MudStack>
                 <MudDivider Class="my-3" />
                 <MudText Typo="Typo.subtitle2">Warnings</MudText>
-                @if (_recentSuccess.Warnings is { Count: > 0 })
+                @if (recentSuccess.Warnings is { Count: > 0 })
                 {
                     <MudList T="RunSuccessWarning" Dense="true">
-                        @foreach (var warning in _recentSuccess.Warnings)
+                        @foreach (var warning in recentSuccess.Warnings)
                         {
                             <MudListItem Value="@warning">
                                 <MudText>@($"{warning.Code}: {warning.Message}")</MudText>
@@ -323,12 +323,12 @@
                 <MudStack Row="true" Spacing="2" Class="mt-3">
                     <MudButton Variant="Variant.Filled"
                                Color="Color.Primary"
-                               OnClick="@(() => Navigation.NavigateTo($"/time-travel/dashboard?runId={_recentSuccess.RunId}"))">
+                               OnClick="@(() => Navigation.NavigateTo($"/time-travel/dashboard?runId={recentSuccess.RunId}"))">
                         Open Dashboard
                     </MudButton>
                     <MudButton Variant="Variant.Outlined"
                                Color="Color.Secondary"
-                               OnClick="@(() => Navigation.NavigateTo($"/time-travel/artifacts/{Uri.EscapeDataString(_recentSuccess.RunId)}"))">
+                               OnClick="@(() => Navigation.NavigateTo($"/time-travel/artifacts/{Uri.EscapeDataString(recentSuccess.RunId)}"))">
                         View Artifacts
                     </MudButton>
                 </MudStack>
@@ -338,59 +338,59 @@
 </MudPaper>
 
 @code {
-    private const string PendingStorageKey = "ft.time-travel.pending-run";
-    private const string LastRunStorageKey = "ft.time-travel.last-run";
-    private const string DefaultSeedText = "123";
+    private const string pendingStorageKey = "ft.time-travel.pending-run";
+    private const string lastRunStorageKey = "ft.time-travel.last-run";
+    private const string defaultSeedText = "123";
 
     [Parameter, SupplyParameterFromQuery(Name = "templateId")]
     public string? PrefillTemplateId { get; set; }
 
-    private readonly RunOrchestrationStateMachine _state = new();
-    private List<TemplateInfo> _templates = new();
-    private string? _selectedTemplateId;
-    private OrchestrationMode _mode = OrchestrationMode.Simulation;
-    private string? _parameterText;
-    private string? _telemetryBindingsText;
-    private bool _loadingTemplates;
-    private bool _refreshingTemplates;
-    private string? _templateLoadError;
-    private string? _statusMessage;
-    private string? _errorMessage;
-    private RunCreatePlanDto? _lastPlan;
-    private RunMetadataDto? _lastMetadata;
-    private IReadOnlyList<StateWarningDto> _runWarnings = Array.Empty<StateWarningDto>();
-    private CancellationTokenSource? _submissionCts;
-    private const string ParametersPlaceholder = "{ \"seed\": 42 } or key=value per line";
-    private RunSuccessSnapshot? _recentSuccess;
-    private string? _selectedCaptureKey;
-    private bool _prefillPending = true;
-    private string _rngSeedText = DefaultSeedText;
-    private RunReuseMode _reuseMode = RunReuseMode.AutoReuse;
+    private readonly RunOrchestrationStateMachine state = new();
+    private List<TemplateInfo> templates = new();
+    private string? selectedTemplateId;
+    private OrchestrationMode mode = OrchestrationMode.Simulation;
+    private string? parameterText;
+    private string? telemetryBindingsText;
+    private bool loadingTemplates;
+    private bool refreshingTemplates;
+    private string? templateLoadError;
+    private string? statusMessage;
+    private string? errorMessage;
+    private RunCreatePlanDto? lastPlan;
+    private RunMetadataDto? lastMetadata;
+    private IReadOnlyList<StateWarningDto> runWarnings = Array.Empty<StateWarningDto>();
+    private CancellationTokenSource? submissionCts;
+    private const string parametersPlaceholder = "{ \"seed\": 42 } or key=value per line";
+    private RunSuccessSnapshot? recentSuccess;
+    private string? selectedCaptureKey;
+    private bool prefillPending = true;
+    private string rngSeedText = defaultSeedText;
+    private RunReuseMode reuseMode = RunReuseMode.AutoReuse;
 
     private OrchestrationMode Mode
     {
         get => OrchestrationMode.Simulation;
-        set => _mode = OrchestrationMode.Simulation;
+        set => mode = OrchestrationMode.Simulation;
     }
 
     private string? SelectedTemplateId
     {
-        get => _selectedTemplateId;
+        get => selectedTemplateId;
         set
         {
-            if (_selectedTemplateId == value) return;
-            _selectedTemplateId = value;
-            _selectedCaptureKey = GetTemplateCaptureKey(value);
+            if (selectedTemplateId == value) return;
+            selectedTemplateId = value;
+            selectedCaptureKey = GetTemplateCaptureKey(value);
             EnsureCaptureKey();
         }
     }
 
     private string? SelectedTemplateNarrative =>
-        _templates.FirstOrDefault(t => string.Equals(t.Id, _selectedTemplateId, StringComparison.OrdinalIgnoreCase))?.Narrative;
+        templates.FirstOrDefault(t => string.Equals(t.Id, selectedTemplateId, StringComparison.OrdinalIgnoreCase))?.Narrative;
 
     private bool CanSubmit =>
-        !string.IsNullOrWhiteSpace(_selectedTemplateId) &&
-        (_mode != OrchestrationMode.Telemetry || !string.IsNullOrWhiteSpace(_selectedCaptureKey));
+        !string.IsNullOrWhiteSpace(selectedTemplateId) &&
+        (mode != OrchestrationMode.Telemetry || !string.IsNullOrWhiteSpace(selectedCaptureKey));
 
     protected override async Task OnInitializedAsync()
     {
@@ -408,7 +408,7 @@
 
     protected override void OnParametersSet()
     {
-        _prefillPending = true;
+        prefillPending = true;
         ApplyPrefillFromQueryIfNeeded();
     }
 
@@ -416,35 +416,35 @@
     {
         try
         {
-            _loadingTemplates = true;
-            _templates = await TemplateService.GetTemplatesAsync().ConfigureAwait(false);
-            if (_templates.Count > 0 && string.IsNullOrWhiteSpace(_selectedTemplateId))
+            loadingTemplates = true;
+            templates = await TemplateService.GetTemplatesAsync().ConfigureAwait(false);
+            if (templates.Count > 0 && string.IsNullOrWhiteSpace(selectedTemplateId))
             {
-                SelectedTemplateId = _templates[0].Id;
+                SelectedTemplateId = templates[0].Id;
             }
             EnsureCaptureKey();
             ApplyPrefillFromQueryIfNeeded();
         }
         catch (Exception ex)
         {
-            _templateLoadError = $"Failed to load templates: {ex.Message}";
+            templateLoadError = $"Failed to load templates: {ex.Message}";
             Logger.LogError(ex, "Failed to load templates for orchestration.");
-            NotificationService.Add(_templateLoadError, Severity.Error);
+            NotificationService.Add(templateLoadError, Severity.Error);
         }
         finally
         {
-            _loadingTemplates = false;
+            loadingTemplates = false;
         }
     }
 
     private async Task RefreshTemplateCacheAsync()
     {
-        if (_refreshingTemplates)
+        if (refreshingTemplates)
         {
             return;
         }
 
-        _refreshingTemplates = true;
+        refreshingTemplates = true;
         try
         {
             var response = await ApiClient.RefreshTemplateCacheAsync().ConfigureAwait(false);
@@ -465,7 +465,7 @@
         }
         finally
         {
-            _refreshingTemplates = false;
+            refreshingTemplates = false;
             await InvokeAsync(StateHasChanged);
         }
     }
@@ -473,26 +473,26 @@
     private string? GetTemplateCaptureKey(string? templateId)
     {
         if (string.IsNullOrWhiteSpace(templateId)) return null;
-        var template = _templates.FirstOrDefault(t => string.Equals(t.Id, templateId, StringComparison.OrdinalIgnoreCase));
+        var template = templates.FirstOrDefault(t => string.Equals(t.Id, templateId, StringComparison.OrdinalIgnoreCase));
         return template?.TelemetryCaptureKey;
     }
 
     private void EnsureCaptureKey()
     {
-        if (_mode == OrchestrationMode.Telemetry && string.IsNullOrWhiteSpace(_selectedCaptureKey))
+        if (mode == OrchestrationMode.Telemetry && string.IsNullOrWhiteSpace(selectedCaptureKey))
         {
-            _selectedCaptureKey = GetTemplateCaptureKey(_selectedTemplateId);
+            selectedCaptureKey = GetTemplateCaptureKey(selectedTemplateId);
         }
     }
 
     private void ApplyPrefillFromQueryIfNeeded()
     {
-        if (!_prefillPending)
+        if (!prefillPending)
         {
             return;
         }
 
-        if (_templates.Count == 0)
+        if (templates.Count == 0)
         {
             return;
         }
@@ -501,7 +501,7 @@
 
         if (!string.IsNullOrWhiteSpace(PrefillTemplateId))
         {
-            var match = _templates.FirstOrDefault(t => string.Equals(t.Id, PrefillTemplateId, StringComparison.OrdinalIgnoreCase));
+            var match = templates.FirstOrDefault(t => string.Equals(t.Id, PrefillTemplateId, StringComparison.OrdinalIgnoreCase));
             if (match is not null)
             {
                 SelectedTemplateId = match.Id;
@@ -510,7 +510,7 @@
         }
 
         EnsureCaptureKey();
-        _prefillPending = false;
+        prefillPending = false;
 
         if (applied)
         {
@@ -522,27 +522,27 @@
     {
         try
         {
-            var json = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", PendingStorageKey);
+            var json = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", pendingStorageKey);
             var snapshot = RunSubmissionSnapshotStorage.TryDeserialize(json);
             if (snapshot is null)
             {
                 return;
             }
 
-            if (string.IsNullOrWhiteSpace(_selectedTemplateId))
+            if (string.IsNullOrWhiteSpace(selectedTemplateId))
             {
                 SelectedTemplateId = snapshot.TemplateId;
             }
-            _selectedCaptureKey = snapshot.CaptureDirectory ?? GetTemplateCaptureKey(_selectedTemplateId);
+            selectedCaptureKey = snapshot.CaptureDirectory ?? GetTemplateCaptureKey(selectedTemplateId);
             Mode = snapshot.Mode;
-            _parameterText = snapshot.ParameterText;
-            _telemetryBindingsText = snapshot.TelemetryBindingsText;
-            _rngSeedText = string.IsNullOrWhiteSpace(snapshot.RngSeedText) ? DefaultSeedText : snapshot.RngSeedText!;
-            _reuseMode = snapshot.ReuseMode;
+            parameterText = snapshot.ParameterText;
+            telemetryBindingsText = snapshot.TelemetryBindingsText;
+            rngSeedText = string.IsNullOrWhiteSpace(snapshot.RngSeedText) ? defaultSeedText : snapshot.RngSeedText!;
+            reuseMode = snapshot.ReuseMode;
             EnsureCaptureKey();
 
-            _state.RestorePending(snapshot, RunOrchestrationPhase.Planning);
-            _statusMessage = "Submission pending backend response…";
+            state.RestorePending(snapshot, RunOrchestrationPhase.Planning);
+            statusMessage = "Submission pending backend response…";
             StateHasChanged();
         }
         catch (Exception ex)
@@ -555,8 +555,8 @@
     {
         try
         {
-            var json = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", LastRunStorageKey);
-            _recentSuccess = RunSuccessSnapshotStorage.TryDeserialize(json);
+            var json = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", lastRunStorageKey);
+            recentSuccess = RunSuccessSnapshotStorage.TryDeserialize(json);
         }
         catch (Exception ex)
         {
@@ -566,7 +566,7 @@
 
     private async Task SubmitAsync(bool dryRun)
     {
-        if (_state.IsBusy)
+        if (state.IsBusy)
         {
             NotificationService.Add("A model run request is already in progress.", Severity.Warning);
             return;
@@ -574,69 +574,69 @@
 
         EnsureCaptureKey();
 
-        _errorMessage = null;
-        _statusMessage = dryRun ? "Planning model…" : "Starting model run…";
-        _lastPlan = null;
-        _lastMetadata = null;
-        _runWarnings = Array.Empty<StateWarningDto>();
+        errorMessage = null;
+        statusMessage = dryRun ? "Planning model…" : "Starting model run…";
+        lastPlan = null;
+        lastMetadata = null;
+        runWarnings = Array.Empty<StateWarningDto>();
 
         var form = new RunOrchestrationFormModel
         {
-            TemplateId = _selectedTemplateId,
-            Mode = _mode,
-            ParameterText = _parameterText,
-            CaptureDirectory = _selectedCaptureKey,
-            TelemetryBindingsText = _telemetryBindingsText,
-            RngSeedText = _rngSeedText,
-            ReuseMode = _reuseMode
+            TemplateId = selectedTemplateId,
+            Mode = mode,
+            ParameterText = parameterText,
+            CaptureDirectory = selectedCaptureKey,
+            TelemetryBindingsText = telemetryBindingsText,
+            RngSeedText = rngSeedText,
+            ReuseMode = reuseMode
         };
 
         if (!RunOrchestrationRequestBuilder.TryBuild(form, dryRun, out var request, out var validationError))
         {
-            _errorMessage = validationError ?? "Invalid form input.";
-            NotificationService.Add(_errorMessage, Severity.Warning);
+            errorMessage = validationError ?? "Invalid form input.";
+            NotificationService.Add(errorMessage, Severity.Warning);
             return;
         }
 
         var snapshot = new RunSubmissionSnapshot(
             TemplateId: request!.TemplateId,
-            Mode: _mode,
+            Mode: mode,
             SubmittedAtUtc: DateTimeOffset.UtcNow,
             IsDryRun: dryRun)
         {
-            ParameterText = _parameterText,
-            TelemetryBindingsText = _telemetryBindingsText,
-            CaptureDirectory = _selectedCaptureKey,
-            RngSeedText = _rngSeedText,
-            ReuseMode = _reuseMode
+            ParameterText = parameterText,
+            TelemetryBindingsText = telemetryBindingsText,
+            CaptureDirectory = selectedCaptureKey,
+            RngSeedText = rngSeedText,
+            ReuseMode = reuseMode
         };
 
-        if (!_state.TryBeginPlanning(snapshot))
+        if (!state.TryBeginPlanning(snapshot))
         {
             NotificationService.Add("Unable to start model run — state machine busy.", Severity.Warning);
             return;
         }
 
         await PersistSnapshotAsync(snapshot).ConfigureAwait(false);
-        _submissionCts?.Cancel();
-        _submissionCts?.Dispose();
-        _submissionCts = new CancellationTokenSource();
+        submissionCts?.Cancel();
+        submissionCts?.Dispose();
+        submissionCts = new CancellationTokenSource();
 
         try
         {
             if (!dryRun)
             {
-                _state.PromoteToRunning();
+                state.PromoteToRunning();
             }
 
-            var result = await SimApiClient.CreateRunAsync(request, _submissionCts.Token).ConfigureAwait(false);
+            var result = await SimApiClient.CreateRunAsync(request, submissionCts.Token).ConfigureAwait(false);
             await ClearSnapshotAsync().ConfigureAwait(false);
 
             if (!result.Success || result.Value is null)
             {
                 var message = BuildErrorMessage(result.StatusCode, result.Error);
-                _state.CompleteFailure(message);
-                _errorMessage = message;
+                state.CompleteFailure(message);
+                errorMessage = message;
                 NotificationService.Add(message, Severity.Error);
                 Logger.LogWarning("Model run failed: {Status} {Error}", result.StatusCode, result.Error ?? "unknown");
                 return;
@@ -645,9 +645,9 @@
             var payload = result.Value;
             if (payload.IsDryRun)
             {
-                _lastPlan = payload.Plan;
-                _state.CompleteSuccess(new RunOrchestrationSuccess("(plan)", false));
-                _statusMessage = "Orchestration plan ready.";
+                lastPlan = payload.Plan;
+                state.CompleteSuccess(new RunOrchestrationSuccess("(plan)", false));
+                statusMessage = "Orchestration plan ready.";
                 NotificationService.Add("Plan generated successfully.", Severity.Success);
             }
             else
@@ -656,41 +656,41 @@
                 if (string.IsNullOrWhiteSpace(runId))
                 {
                     var missing = "Run completed but runId was not returned.";
-                    _state.CompleteFailure(missing);
-                    _errorMessage = missing;
+                    state.CompleteFailure(missing);
+                    errorMessage = missing;
                     NotificationService.Add(missing, Severity.Error);
                     return;
                 }
 
-                _lastMetadata = payload.Metadata;
-                _runWarnings = payload.Warnings ?? Array.Empty<StateWarningDto>();
+                lastMetadata = payload.Metadata;
+                runWarnings = payload.Warnings ?? Array.Empty<StateWarningDto>();
                 var reused = payload.WasReused;
-                _state.CompleteSuccess(new RunOrchestrationSuccess(runId, reused));
+                state.CompleteSuccess(new RunOrchestrationSuccess(runId, reused));
                 if (reused)
                 {
-                    _statusMessage = $"Existing bundle reused for {runId}.";
+                    statusMessage = $"Existing bundle reused for {runId}.";
                     NotificationService.Add($"Existing bundle reused for {runId}. Use Regenerate to force a new run.", Severity.Info);
                 }
                 else
                 {
-                    _statusMessage = $"Run {runId} created.";
+                    statusMessage = $"Run {runId} created.";
                     NotificationService.Add($"Run {runId} created.", Severity.Success);
                 }
 
-                if (_lastMetadata is not null)
+                if (lastMetadata is not null)
                 {
                     var successSnapshot = new RunSuccessSnapshot(
                         RunId: runId,
-                        TemplateId: _lastMetadata.TemplateId,
-                        TemplateTitle: _lastMetadata.TemplateTitle,
-                        TemplateVersion: _lastMetadata.TemplateVersion,
-                        Mode: _lastMetadata.Mode,
-                        TelemetryResolved: _lastMetadata.TelemetrySourcesResolved,
+                        TemplateId: lastMetadata.TemplateId,
+                        TemplateTitle: lastMetadata.TemplateTitle,
+                        TemplateVersion: lastMetadata.TemplateVersion,
+                        Mode: lastMetadata.Mode,
+                        TelemetryResolved: lastMetadata.TelemetrySourcesResolved,
                         CompletedAtUtc: DateTimeOffset.UtcNow,
-                        Warnings: _runWarnings.Count == 0
+                        Warnings: runWarnings.Count == 0
                             ? Array.Empty<RunSuccessWarning>()
-                            : _runWarnings.Select(w => new RunSuccessWarning(w.Code, w.Message, w.NodeId)).ToArray(),
-                        RngSeed: _lastMetadata.Rng?.Seed,
+                            : runWarnings.Select(w => new RunSuccessWarning(w.Code, w.Message, w.NodeId)).ToArray(),
+                        RngSeed: lastMetadata.Rng?.Seed,
                         WasReused: reused);
 
                     await PersistRecentSuccessAsync(successSnapshot).ConfigureAwait(false);
@@ -698,7 +698,7 @@
 
                 try
                 {
-                    await RunDiscoveryService.LoadRunsAsync(_submissionCts.Token).ConfigureAwait(false);
+                    await RunDiscoveryService.LoadRunsAsync(submissionCts.Token).ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {
@@ -709,22 +709,22 @@
         catch (OperationCanceledException)
         {
             await ClearSnapshotAsync().ConfigureAwait(false);
-            _state.CompleteFailure("Submission canceled.");
-            _errorMessage = "Submission canceled.";
+            state.CompleteFailure("Submission canceled.");
+            errorMessage = "Submission canceled.";
         }
         catch (Exception ex)
         {
             await ClearSnapshotAsync().ConfigureAwait(false);
             Logger.LogError(ex, "Model run failed unexpectedly.");
             var message = $"Model run failed: {ex.Message}";
-            _state.CompleteFailure(message);
-            _errorMessage = message;
+            state.CompleteFailure(message);
+            errorMessage = message;
             NotificationService.Add(message, Severity.Error);
         }
         finally
         {
-            _submissionCts?.Dispose();
-            _submissionCts = null;
+            submissionCts?.Dispose();
+            submissionCts = null;
             await InvokeAsync(StateHasChanged);
         }
     }
@@ -734,7 +734,7 @@
         try
         {
             var json = RunSubmissionSnapshotStorage.Serialize(snapshot);
-            await JSRuntime.InvokeVoidAsync("localStorage.setItem", PendingStorageKey, json);
+            await JSRuntime.InvokeVoidAsync("localStorage.setItem", pendingStorageKey, json);
         }
         catch (Exception ex)
         {
@@ -746,7 +746,7 @@
     {
         try
         {
-            await JSRuntime.InvokeVoidAsync("localStorage.removeItem", PendingStorageKey);
+            await JSRuntime.InvokeVoidAsync("localStorage.removeItem", pendingStorageKey);
         }
         catch (Exception ex)
         {
@@ -754,26 +754,26 @@
         }
         finally
         {
-            _state.ClearPending();
+            state.ClearPending();
         }
     }
 
     private async Task ResetStateAsync()
     {
-        _submissionCts?.Cancel();
-        _state.Reset();
-        _statusMessage = null;
-        _errorMessage = null;
-        _lastPlan = null;
-        _lastMetadata = null;
-        _runWarnings = Array.Empty<StateWarningDto>();
-        _rngSeedText = DefaultSeedText;
-        _parameterText = null;
-        _telemetryBindingsText = null;
-        _reuseMode = RunReuseMode.AutoReuse;
-        _selectedTemplateId = _templates.FirstOrDefault()?.Id;
-        _selectedCaptureKey = GetTemplateCaptureKey(_selectedTemplateId);
-        _recentSuccess = null;
+        submissionCts?.Cancel();
+        state.Reset();
+        statusMessage = null;
+        errorMessage = null;
+        lastPlan = null;
+        lastMetadata = null;
+        runWarnings = Array.Empty<StateWarningDto>();
+        rngSeedText = defaultSeedText;
+        parameterText = null;
+        telemetryBindingsText = null;
+        reuseMode = RunReuseMode.AutoReuse;
+        selectedTemplateId = templates.FirstOrDefault()?.Id;
+        selectedCaptureKey = GetTemplateCaptureKey(selectedTemplateId);
+        recentSuccess = null;
         await ClearSnapshotAsync().ConfigureAwait(false);
         await ClearLastRunAsync().ConfigureAwait(false);
     }
@@ -783,8 +783,8 @@
         try
         {
             var json = RunSuccessSnapshotStorage.Serialize(snapshot);
-            await JSRuntime.InvokeVoidAsync("localStorage.setItem", LastRunStorageKey, json);
-            _recentSuccess = snapshot;
+            await JSRuntime.InvokeVoidAsync("localStorage.setItem", lastRunStorageKey, json);
+            recentSuccess = snapshot;
         }
         catch (Exception ex)
         {
@@ -796,7 +796,7 @@
     {
         try
         {
-            await JSRuntime.InvokeVoidAsync("localStorage.removeItem", LastRunStorageKey);
+            await JSRuntime.InvokeVoidAsync("localStorage.removeItem", lastRunStorageKey);
         }
         catch (Exception ex)
         {
@@ -838,8 +838,8 @@
 
     public async ValueTask DisposeAsync()
     {
-        _submissionCts?.Cancel();
-        _submissionCts?.Dispose();
+        submissionCts?.Cancel();
+        submissionCts?.Dispose();
         await Task.CompletedTask;
     }
 }

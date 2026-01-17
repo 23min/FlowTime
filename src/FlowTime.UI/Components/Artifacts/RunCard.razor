@@ -248,8 +248,8 @@
     private IReadOnlyList<string> ClassList => Run.Classes ?? Array.Empty<string>();
     private bool HasClassInventory => ClassList.Count > 0;
     private IReadOnlyDictionary<string, string> ClassDisplayNames =>
-        Run.ClassDescriptions ?? EmptyClassDescriptions;
-    private static readonly IReadOnlyDictionary<string, string> EmptyClassDescriptions =
+        Run.ClassDescriptions ?? emptyClassDescriptions;
+    private static readonly IReadOnlyDictionary<string, string> emptyClassDescriptions =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
     private string WarningsAndClassSummary
@@ -288,7 +288,7 @@
     private static bool IsDefaultClassId(string classId) =>
         string.Equals(classId, "DEFAULT", StringComparison.OrdinalIgnoreCase);
 
-    private static readonly Color[] AvatarPalette =
+    private static readonly Color[] avatarPalette =
     {
         Color.Primary,
         Color.Info,
@@ -318,8 +318,8 @@
                 hash = ((hash << 5) - hash) + ch;
             }
 
-            var index = Math.Abs(hash) % AvatarPalette.Length;
-            return AvatarPalette[index];
+            var index = Math.Abs(hash) % avatarPalette.Length;
+            return avatarPalette[index];
         }
     }
 

@@ -19,7 +19,7 @@ public class TelemetryRunCommandTests
         var (originalState, simDataDir, templatesDir) = PrepareSimEnvironment(temp);
 
         var templatePath = Path.Combine(templatesDir, "test-order.yaml");
-        await File.WriteAllTextAsync(templatePath, TestTemplate);
+        await File.WriteAllTextAsync(templatePath, testTemplate);
 
         var sourceRun = TelemetryRunFactory.CreateRunArtifacts(temp.Path, "source", includeTopology: true);
         var captureDir = Path.Combine(temp.Path, "capture");
@@ -71,7 +71,7 @@ public class TelemetryRunCommandTests
         var (originalState, simDataDir, templatesDir) = PrepareSimEnvironment(temp);
 
         var templatePath = Path.Combine(templatesDir, "sim-order.yaml");
-        await File.WriteAllTextAsync(templatePath, SimulationTemplate);
+        await File.WriteAllTextAsync(templatePath, simulationTemplate);
 
         using var simFactory = new WebApplicationFactory<SimProgram>();
         var client = simFactory.CreateClient();
@@ -123,7 +123,7 @@ public class TelemetryRunCommandTests
         var (originalState, simDataDir, templatesDir) = PrepareSimEnvironment(temp);
 
         var templatePath = Path.Combine(templatesDir, "test-order.yaml");
-        await File.WriteAllTextAsync(templatePath, TestTemplate);
+        await File.WriteAllTextAsync(templatePath, testTemplate);
 
         var sourceRun = TelemetryRunFactory.CreateRunArtifacts(temp.Path, "source", includeTopology: true);
         var captureDir = Path.Combine(temp.Path, "capture");
@@ -181,7 +181,7 @@ public class TelemetryRunCommandTests
         Assert.Equal(2, exitCode);
     }
 
-    private const string TestTemplate = """
+    private const string testTemplate = """
 schemaVersion: 1
 generator: flowtime-sim
 metadata:
@@ -235,7 +235,7 @@ outputs:
     as: OrderService_errors.csv
 """;
 
-    private const string SimulationTemplate = """
+    private const string simulationTemplate = """
 schemaVersion: 1
 generator: flowtime-sim
 metadata:

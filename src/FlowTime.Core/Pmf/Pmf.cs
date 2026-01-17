@@ -8,9 +8,9 @@ namespace FlowTime.Core.Pmf;
 /// </summary>
 public class Pmf
 {
-    private const double NORMALIZATION_TOLERANCE = 1e-6;
-    private const double MIN_PROBABILITY_SUM = 0.5;
-    private const double MAX_PROBABILITY_SUM = 2.0;
+    private const double normalizationTolerance = 1e-6;
+    private const double minProbabilitySum = 0.5;
+    private const double maxProbabilitySum = 2.0;
 
     /// <summary>
     /// The probability distribution as value -> probability mappings.
@@ -106,7 +106,7 @@ public class Pmf
         var sum = distribution.Values.Sum();
         
         // If already normalized within tolerance, return as-is
-        if (Math.Abs(sum - 1.0) <= NORMALIZATION_TOLERANCE)
+        if (Math.Abs(sum - 1.0) <= normalizationTolerance)
             return new Dictionary<double, double>(distribution);
 
         // Normalize by dividing each probability by the sum

@@ -15,20 +15,20 @@ namespace FlowTime.Sim.Tests.Cli;
 /// </summary>
 public class GenerateProvenanceTests : IDisposable
 {
-    private readonly string _testDir;
-    private readonly string _templatesDir;
-    private readonly ITemplateService _templateService;
+    private readonly string testDir;
+    private readonly string templatesDir;
+    private readonly ITemplateService templateService;
 
     public GenerateProvenanceTests()
     {
         // Set up test environment
-        _testDir = Path.Combine(Path.GetTempPath(), "flow-sim-cli-provenance-tests", Guid.NewGuid().ToString("N"));
-        _templatesDir = Path.Combine(_testDir, "templates");
-        Directory.CreateDirectory(_templatesDir);
+        testDir = Path.Combine(Path.GetTempPath(), "flow-sim-cli-provenance-tests", Guid.NewGuid().ToString("N"));
+        templatesDir = Path.Combine(testDir, "templates");
+        Directory.CreateDirectory(templatesDir);
 
         // Set environment variables for service
-        Environment.SetEnvironmentVariable("FLOWTIME_SIM_DATA_DIR", _testDir);
-        Environment.SetEnvironmentVariable("FLOWTIME_SIM_TEMPLATES_DIR", _templatesDir);
+        Environment.SetEnvironmentVariable("FLOWTIME_SIM_DATA_DIR", testDir);
+        Environment.SetEnvironmentVariable("FLOWTIME_SIM_TEMPLATES_DIR", templatesDir);
 
         // Create test template
         var testTemplateYaml = @"
@@ -79,18 +79,18 @@ outputs:
   - series: ""*""
 ".Trim();
 
-        File.WriteAllText(Path.Combine(_templatesDir, "test-template.yaml"), testTemplateYaml);
+        File.WriteAllText(Path.Combine(templatesDir, "test-template.yaml"), testTemplateYaml);
 
         // Create template service (provenance service will be used by CLI command handler)
-        _templateService = new TemplateService(_templatesDir, NullLogger<TemplateService>.Instance);
+        templateService = new TemplateService(templatesDir, NullLogger<TemplateService>.Instance);
     }
 
     public void Dispose()
     {
         try
         {
-            if (Directory.Exists(_testDir))
-                Directory.Delete(_testDir, true);
+            if (Directory.Exists(testDir))
+                Directory.Delete(testDir, true);
         }
         catch
         {
@@ -149,8 +149,8 @@ outputs:
     public async Task Generate_WithProvenanceOption_SavesProvenanceToFile()
     {
         // Arrange
-        var modelPath = Path.Combine(_testDir, "model.yaml");
-        var provenancePath = Path.Combine(_testDir, "provenance.json");
+        var modelPath = Path.Combine(testDir, "model.yaml");
+        var provenancePath = Path.Combine(testDir, "provenance.json");
         var opts = new CliOptions(
             "generate",
             null,
@@ -159,14 +159,14 @@ outputs:
             modelPath,
             "yaml",
             false,
-            _templatesDir,
+            templatesDir,
             null,
             null,
             provenancePath,  // ProvenancePath
             false);          // EmbedProvenance
 
         // Act
-        var exitCode = await ExecuteGenerateWithProvenance(_templateService, opts);
+        var exitCode = await ExecuteGenerateWithProvenance(templateService, opts);
 
         // Assert
         Assert.Equal(0, exitCode);
@@ -186,11 +186,11 @@ outputs:
     public async Task Generate_WithProvenanceOption_ProvenanceIncludesParameters()
     {
         // Arrange
-        var paramsPath = Path.Combine(_testDir, "params.json");
+        var paramsPath = Path.Combine(testDir, "params.json");
         await File.WriteAllTextAsync(paramsPath, """{"bins": 3, "binSize": 2}""");
 
-        var modelPath = Path.Combine(_testDir, "model.yaml");
-        var provenancePath = Path.Combine(_testDir, "provenance.json");
+        var modelPath = Path.Combine(testDir, "model.yaml");
+        var provenancePath = Path.Combine(testDir, "provenance.json");
         var opts = new CliOptions(
             "generate",
             null,
@@ -199,14 +199,14 @@ outputs:
             modelPath,
             "yaml",
             false,
-            _templatesDir,
+            templatesDir,
             null,
             null,
             provenancePath,
             false);
 
         // Act
-        var exitCode = await ExecuteGenerateWithProvenance(_templateService, opts);
+        var exitCode = await ExecuteGenerateWithProvenance(templateService, opts);
 
         // Assert
         Assert.Equal(0, exitCode);
@@ -224,8 +224,8 @@ outputs:
     public async Task Generate_WithoutProvenanceOption_DoesNotSaveProvenanceFile()
     {
         // Arrange
-        var modelPath = Path.Combine(_testDir, "model.yaml");
-        var provenancePath = Path.Combine(_testDir, "provenance.json");
+        var modelPath = Path.Combine(testDir, "model.yaml");
+        var provenancePath = Path.Combine(testDir, "provenance.json");
         var opts = new CliOptions(
             "generate",
             null,
@@ -234,14 +234,14 @@ outputs:
             modelPath,
             "yaml",
             false,
-            _templatesDir,
+            templatesDir,
             null,
             null,
             null,  // No provenance path
             false);
 
         // Act
-        var exitCode = await ExecuteGenerateWithProvenance(_templateService, opts);
+        var exitCode = await ExecuteGenerateWithProvenance(templateService, opts);
 
         // Assert
         Assert.Equal(0, exitCode);
@@ -257,7 +257,7 @@ outputs:
     public async Task Generate_WithEmbedProvenanceFlag_EmbedsProvenanceInModel()
     {
         // Arrange
-        var modelPath = Path.Combine(_testDir, "model.yaml");
+        var modelPath = Path.Combine(testDir, "model.yaml");
         var opts = new CliOptions(
             "generate",
             null,
@@ -266,14 +266,14 @@ outputs:
             modelPath,
             "yaml",
             false,
-            _templatesDir,
+            templatesDir,
             null,
             null,
             null,
             true);  // EmbedProvenance = true
 
         // Act
-        var exitCode = await ExecuteGenerateWithProvenance(_templateService, opts);
+        var exitCode = await ExecuteGenerateWithProvenance(templateService, opts);
 
         // Assert
         Assert.Equal(0, exitCode);
@@ -301,8 +301,8 @@ outputs:
     public async Task Generate_WithEmbedProvenance_NoSeparateProvenanceFile()
     {
         // Arrange
-        var modelPath = Path.Combine(_testDir, "model.yaml");
-        var provenancePath = Path.Combine(_testDir, "provenance.json");
+        var modelPath = Path.Combine(testDir, "model.yaml");
+        var provenancePath = Path.Combine(testDir, "provenance.json");
         var opts = new CliOptions(
             "generate",
             null,
@@ -311,14 +311,14 @@ outputs:
             modelPath,
             "yaml",
             false,
-            _templatesDir,
+            templatesDir,
             null,
             null,
             null,
             true);  // EmbedProvenance = true
 
         // Act
-        var exitCode = await ExecuteGenerateWithProvenance(_templateService, opts);
+        var exitCode = await ExecuteGenerateWithProvenance(templateService, opts);
 
         // Assert
         Assert.Equal(0, exitCode);
@@ -334,8 +334,8 @@ outputs:
     public async Task Generate_WithBothProvenanceOptions_ReturnsError()
     {
         // Arrange
-        var modelPath = Path.Combine(_testDir, "model.yaml");
-        var provenancePath = Path.Combine(_testDir, "provenance.json");
+        var modelPath = Path.Combine(testDir, "model.yaml");
+        var provenancePath = Path.Combine(testDir, "provenance.json");
         var opts = new CliOptions(
             "generate",
             null,
@@ -344,14 +344,14 @@ outputs:
             modelPath,
             "yaml",
             false,
-            _templatesDir,
+            templatesDir,
             null,
             null,
             provenancePath,  // ProvenancePath set
             true);           // EmbedProvenance also set
 
         // Act
-        var exitCode = await ExecuteGenerateWithProvenance(_templateService, opts);
+        var exitCode = await ExecuteGenerateWithProvenance(templateService, opts);
 
         // Assert
         Assert.NotEqual(0, exitCode); // Should return error code
@@ -365,7 +365,7 @@ outputs:
     public async Task Generate_WithModeOverride_WritesTelemetryMode()
     {
         // Arrange
-        var modelPath = Path.Combine(_testDir, "model.yaml");
+        var modelPath = Path.Combine(testDir, "model.yaml");
         var opts = new CliOptions(
             "generate",
             null,
@@ -374,14 +374,14 @@ outputs:
             modelPath,
             "yaml",
             false,
-            _templatesDir,
+            templatesDir,
             null,
             "telemetry",
             null,
             false);
 
         // Act
-        var exitCode = await ExecuteGenerateWithProvenance(_templateService, opts);
+        var exitCode = await ExecuteGenerateWithProvenance(templateService, opts);
 
         // Assert
         Assert.Equal(0, exitCode);
@@ -393,7 +393,7 @@ outputs:
     public async Task Generate_WithInvalidMode_ReturnsError()
     {
         // Arrange
-        var modelPath = Path.Combine(_testDir, "model.yaml");
+        var modelPath = Path.Combine(testDir, "model.yaml");
         var opts = new CliOptions(
             "generate",
             null,
@@ -402,14 +402,14 @@ outputs:
             modelPath,
             "yaml",
             false,
-            _templatesDir,
+            templatesDir,
             null,
             "invalid",
             null,
             false);
 
         // Act
-        var exitCode = await ExecuteGenerateWithProvenance(_templateService, opts);
+        var exitCode = await ExecuteGenerateWithProvenance(templateService, opts);
 
         // Assert
         Assert.NotEqual(0, exitCode);
@@ -424,7 +424,7 @@ outputs:
     public async Task Generate_WithoutAnyProvenanceOptions_WorksAsExpected()
     {
         // Arrange
-        var modelPath = Path.Combine(_testDir, "model.yaml");
+        var modelPath = Path.Combine(testDir, "model.yaml");
         var opts = new CliOptions(
             "generate",
             null,
@@ -433,14 +433,14 @@ outputs:
             modelPath,
             "yaml",
             false,
-            _templatesDir,
+            templatesDir,
             null,
             null,
             null,  // No provenance options
             false);
 
         // Act
-        var exitCode = await ExecuteGenerateWithProvenance(_templateService, opts);
+        var exitCode = await ExecuteGenerateWithProvenance(templateService, opts);
 
         // Assert
         Assert.Equal(0, exitCode);

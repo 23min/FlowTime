@@ -6,12 +6,12 @@ namespace FlowTime.UI.Tests.TimeTravel;
 
 public sealed class ClassSelectorStateTests
 {
-    private static readonly IReadOnlyList<string> Classes = new[] { "Order", "Refund", "VIP", "Wholesale" };
+    private static readonly IReadOnlyList<string> classes = new[] { "Order", "Refund", "VIP", "Wholesale" };
 
     [Fact]
     public void DefaultsToAllWhenNoSelection()
     {
-        var state = new ClassSelectionState(Classes);
+        var state = new ClassSelectionState(classes);
 
         Assert.Equal(ClassSelectionMode.All, state.Mode);
         Assert.Empty(state.SelectedClasses);
@@ -21,7 +21,7 @@ public sealed class ClassSelectorStateTests
     [Fact]
     public void AppliesQueryValueForSingleClass()
     {
-        var state = new ClassSelectionState(Classes);
+        var state = new ClassSelectionState(classes);
 
         state.ApplyQueryValue("Refund");
 
@@ -33,7 +33,7 @@ public sealed class ClassSelectorStateTests
     [Fact]
     public void ToggleSupportsMultiSelectUpToThree()
     {
-        var state = new ClassSelectionState(Classes);
+        var state = new ClassSelectionState(classes);
 
         state.Toggle("Order");
         state.Toggle("Refund");

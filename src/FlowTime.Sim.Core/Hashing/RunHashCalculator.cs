@@ -19,15 +19,15 @@ public sealed record RunHashInput(
 
 public static class RunHashCalculator
 {
-    private static readonly IReadOnlyDictionary<string, object?> EmptyParameterDictionary = new Dictionary<string, object?>(StringComparer.Ordinal);
-    private static readonly IReadOnlyDictionary<string, string> EmptyBindingDictionary = new Dictionary<string, string>(StringComparer.Ordinal);
+    private static readonly IReadOnlyDictionary<string, object?> emptyParameterDictionary = new Dictionary<string, object?>(StringComparer.Ordinal);
+    private static readonly IReadOnlyDictionary<string, string> emptyBindingDictionary = new Dictionary<string, string>(StringComparer.Ordinal);
 
     public static string ComputeHash(RunHashInput input)
     {
         ArgumentNullException.ThrowIfNull(input);
 
-        var parameters = input.Parameters ?? EmptyParameterDictionary;
-        var bindings = input.TelemetryBindings ?? EmptyBindingDictionary;
+        var parameters = input.Parameters ?? emptyParameterDictionary;
+        var bindings = input.TelemetryBindings ?? emptyBindingDictionary;
 
         var buffer = new ArrayBufferWriter<byte>(512);
         using (var writer = new Utf8JsonWriter(buffer, new JsonWriterOptions { SkipValidation = true }))

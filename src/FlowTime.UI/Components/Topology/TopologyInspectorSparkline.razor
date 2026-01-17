@@ -9,11 +9,11 @@
 else
 {
     <div class="node-inspector-sparkline" role="img" aria-label="@resolvedAriaLabel">
-        <svg class="node-inspector-sparkline-chart" viewBox="0 0 @SvgWidth @SvgHeight" preserveAspectRatio="none">
+        <svg class="node-inspector-sparkline-chart" viewBox="0 0 @svgWidth @svgHeight" preserveAspectRatio="none">
             <line class="node-inspector-sparkline-axis"
-                  x1="@FormatCoord(LeftPadding)"
+                  x1="@FormatCoord(leftPadding)"
                   y1="@FormatCoord(baseLineY)"
-                  x2="@FormatCoord(SvgWidth - RightPadding)"
+                  x2="@FormatCoord(svgWidth - rightPadding)"
                   y2="@FormatCoord(baseLineY)" />
 
             @foreach (var tick in tickPositions)
@@ -22,7 +22,7 @@ else
                       x1="@FormatCoord(tick)"
                       y1="@FormatCoord(baseLineY)"
                       x2="@FormatCoord(tick)"
-                      y2="@FormatCoord(baseLineY - TickHeight)" />
+                      y2="@FormatCoord(baseLineY - tickHeight)" />
             }
 
             @if (useImpulseMode)
@@ -65,11 +65,11 @@ else
                         stroke-width="1" />
             }
 
-            <text x="@FormatCoord(LeftPadding)"
-                  y="@FormatCoord(TopPadding - 4)"
+            <text x="@FormatCoord(leftPadding)"
+                  y="@FormatCoord(topPadding - 4)"
                   class="node-inspector-sparkline-label">@maxLabel</text>
 
-            <text x="@FormatCoord(LeftPadding)"
+            <text x="@FormatCoord(leftPadding)"
                   y="@FormatCoord(baseLineY + 18)"
                   class="node-inspector-sparkline-label">@minLabel</text>
         </svg>
@@ -98,17 +98,17 @@ else
     [Parameter]
     public string? SeriesKey { get; set; }
 
-    private const double SvgWidth = 360;
-    private const double SvgHeight = 140;
-    private const double LeftPadding = 28;
-    private const double RightPadding = 28;
-    private const double TopPadding = 18;
-    private const double BottomPadding = 28;
-    private const double TickHeight = 10;
-    private const int DesiredPointCount = 160;
-    private const int ImpulseModeMinBuckets = 24;
-    private const double ImpulseDensityThreshold = 0.3;
-    private const double NonZeroAmplitudeEpsilon = 1e-6;
+    private const double svgWidth = 360;
+    private const double svgHeight = 140;
+    private const double leftPadding = 28;
+    private const double rightPadding = 28;
+    private const double topPadding = 18;
+    private const double bottomPadding = 28;
+    private const double tickHeight = 10;
+    private const int desiredPointCount = 160;
+    private const int impulseModeMinBuckets = 24;
+    private const double impulseDensityThreshold = 0.3;
+    private const double nonZeroAmplitudeEpsilon = 1e-6;
 
     private readonly CultureInfo invariant = CultureInfo.InvariantCulture;
     private IReadOnlyList<PathSegment> pathSegments = Array.Empty<PathSegment>();
@@ -137,7 +137,7 @@ else
             return;
         }
 
-        var aggregatedSamples = AggregateSamples(Data.Values, DesiredPointCount, Data.StartIndex);
+        var aggregatedSamples = AggregateSamples(Data.Values, desiredPointCount, Data.StartIndex);
         if (aggregatedSamples.Count == 0)
         {
             hasData = false;
@@ -171,11 +171,11 @@ else
             scaleMax = scaleMin + 0.001d;
         }
 
-        var plotWidth = SvgWidth - LeftPadding - RightPadding;
-        var plotHeight = SvgHeight - TopPadding - BottomPadding;
+        var plotWidth = svgWidth - leftPadding - rightPadding;
+        var plotHeight = svgHeight - topPadding - bottomPadding;
         var zeroFraction = (0d - scaleMin) / (scaleMax - scaleMin);
         zeroFraction = double.IsFinite(zeroFraction) ? Math.Clamp(zeroFraction, 0d, 1d) : 0d;
-        baseLineY = TopPadding + (1 - zeroFraction) * plotHeight;
+        baseLineY = topPadding + (1 - zeroFraction) * plotHeight;
 
         var thresholds = OverlaySettings is not null
             ? ColorScale.ColorThresholds.FromOverlay(OverlaySettings)
@@ -191,10 +191,10 @@ else
         var domainSpan = Math.Max(1d, domainEnd - domainStart);
 
         var bucketCount = aggregatedSamples.Count;
-        var nonZeroBuckets = aggregatedSamples.Count(s => s.HasData && Math.Abs(s.Value) > NonZeroAmplitudeEpsilon);
-        useImpulseMode = bucketCount >= ImpulseModeMinBuckets &&
+        var nonZeroBuckets = aggregatedSamples.Count(s => s.HasData && Math.Abs(s.Value) > nonZeroAmplitudeEpsilon);
+        useImpulseMode = bucketCount >= impulseModeMinBuckets &&
                          bucketCount > 0 &&
-                         nonZeroBuckets <= bucketCount * ImpulseDensityThreshold;
+                         nonZeroBuckets <= bucketCount * impulseDensityThreshold;
 
         if (useImpulseMode)
         {
@@ -238,8 +238,8 @@ else
                 xFraction = Math.Clamp(xFraction, 0d, 1d);
                 var yFraction = (value - scaleMin) / (scaleMax - scaleMin);
 
-                var x = LeftPadding + xFraction * plotWidth;
-                var y = TopPadding + (1 - yFraction) * plotHeight;
+                var x = leftPadding + xFraction * plotWidth;
+                var y = topPadding + (1 - yFraction) * plotHeight;
                 var segmentColor = ResolveSampleColor(value, basis, thresholds);
 
                 if (movePending)
@@ -288,8 +288,8 @@ else
                 var highlightFraction = (SelectedBin - domainStart) / domainSpan;
                 highlightFraction = Math.Clamp(highlightFraction, 0d, 1d);
                 var yFraction = (highlightValue.Value - scaleMin) / (scaleMax - scaleMin);
-                highlightX = LeftPadding + highlightFraction * plotWidth;
-                highlightY = TopPadding + (1 - yFraction) * plotHeight;
+                highlightX = leftPadding + highlightFraction * plotWidth;
+                highlightY = topPadding + (1 - yFraction) * plotHeight;
                 highlightColor = ResolveSampleColor(highlightValue.Value, basis, thresholds);
                 hasHighlight = true;
             }
@@ -308,7 +308,7 @@ else
         for (var i = 0; i <= desiredTicks; i++)
         {
             var fraction = desiredTicks == 0 ? 0d : i / (double)desiredTicks;
-            var x = LeftPadding + fraction * plotWidth;
+            var x = leftPadding + fraction * plotWidth;
             ticks.Add(x);
         }
 
@@ -471,10 +471,10 @@ else
             endFraction = Math.Clamp(endFraction, startFraction, 1d);
             var widthFraction = Math.Max(1e-4, endFraction - startFraction);
 
-            var x = LeftPadding + startFraction * plotWidth;
+            var x = leftPadding + startFraction * plotWidth;
             var width = Math.Max(2d, widthFraction * plotWidth);
             var yFraction = (value - scaleMin) / (scaleMax - scaleMin);
-            var y = TopPadding + (1 - yFraction) * plotHeight;
+            var y = topPadding + (1 - yFraction) * plotHeight;
             var top = Math.Min(y, baseLineY);
             var height = Math.Abs(baseLineY - y);
 

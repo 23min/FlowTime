@@ -5,7 +5,7 @@
 <PageTitle>File Viewer - @FileName</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.False" Class="pa-4">
-    <MudBreadcrumbs Items="_breadcrumbItems" />
+    <MudBreadcrumbs Items="breadcrumbItems" />
     
     <MudPaper Class="pa-4 mt-4">
         <MudStack Spacing="3">
@@ -18,18 +18,18 @@
                 </MudButton>
             </MudStack>
 
-            @if (_isLoading)
+            @if (isLoading)
             {
                 <MudProgressLinear Indeterminate="true" />
                 <MudText>Loading file content...</MudText>
             }
-            else if (!string.IsNullOrEmpty(_errorMessage))
+            else if (!string.IsNullOrEmpty(errorMessage))
             {
-                <MudAlert Severity="Severity.Error">@_errorMessage</MudAlert>
+                <MudAlert Severity="Severity.Error">@errorMessage</MudAlert>
             }
-            else if (!string.IsNullOrEmpty(_fileContent))
+            else if (!string.IsNullOrEmpty(fileContent))
             {
-                <MudPaper Class="pa-2 code-block" Elevation="0" Style="max-height: 80vh; overflow-y: auto;">@_fileContent</MudPaper>
+                <MudPaper Class="pa-2 code-block" Elevation="0" Style="max-height: 80vh; overflow-y: auto;">@fileContent</MudPaper>
             }
         </MudStack>
     </MudPaper>
@@ -39,14 +39,14 @@
     [Parameter] public string ArtifactId { get; set; } = string.Empty;
     [Parameter] public string FileName { get; set; } = string.Empty;
 
-    private bool _isLoading = true;
-    private string _errorMessage = string.Empty;
-    private string _fileContent = string.Empty;
-    private List<BreadcrumbItem> _breadcrumbItems = new();
+    private bool isLoading = true;
+    private string errorMessage = string.Empty;
+    private string fileContent = string.Empty;
+    private List<BreadcrumbItem> breadcrumbItems = new();
 
     protected override async Task OnInitializedAsync()
     {
-        _breadcrumbItems = new List<BreadcrumbItem>
+        breadcrumbItems = new List<BreadcrumbItem>
         {
             new("Artifacts", "/artifacts"),
             new(ArtifactId, $"/artifacts/{ArtifactId}"),
@@ -60,8 +60,8 @@
     {
         try
         {
-            _isLoading = true;
-            _errorMessage = string.Empty;
+            isLoading = true;
+            errorMessage = string.Empty;
 
             Logger.LogInformation("Loading file content: {FileName} from artifact: {ArtifactId}", FileName, ArtifactId);
 
@@ -69,22 +69,22 @@
             
             if (response.IsSuccessStatusCode)
             {
-                _fileContent = await response.Content.ReadAsStringAsync();
+                fileContent = await response.Content.ReadAsStringAsync();
             }
             else
             {
-                _errorMessage = $"Failed to load file: {response.StatusCode} - {response.ReasonPhrase}";
+                errorMessage = $"Failed to load file: {response.StatusCode} - {response.ReasonPhrase}";
                 Logger.LogError("Failed to load file content: {StatusCode} - {ReasonPhrase}", response.StatusCode, response.ReasonPhrase);
             }
         }
         catch (Exception ex)
         {
-            _errorMessage = $"Error loading file: {ex.Message}";
+            errorMessage = $"Error loading file: {ex.Message}";
             Logger.LogError(ex, "Error loading file content: {FileName} from artifact: {ArtifactId}", FileName, ArtifactId);
         }
         finally
         {
-            _isLoading = false;
+            isLoading = false;
         }
     }
 }

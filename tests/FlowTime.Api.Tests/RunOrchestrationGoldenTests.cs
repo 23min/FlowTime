@@ -14,7 +14,7 @@ namespace FlowTime.Api.Tests;
 
 public class RunOrchestrationGoldenTests : IClassFixture<TestWebApplicationFactory>, IDisposable
 {
-    private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web)
+    private static readonly JsonSerializerOptions serializerOptions = new(JsonSerializerDefaults.Web)
     {
         WriteIndented = true
     };
@@ -33,8 +33,8 @@ public class RunOrchestrationGoldenTests : IClassFixture<TestWebApplicationFacto
         Directory.CreateDirectory(dataRoot);
         templateDirectory = Path.Combine(dataRoot, "templates");
         Directory.CreateDirectory(templateDirectory);
-        File.WriteAllText(Path.Combine(templateDirectory, "test-order.yaml"), TestTemplateYaml);
-        File.WriteAllText(Path.Combine(templateDirectory, "sim-order.yaml"), SimulationTemplateYaml);
+        File.WriteAllText(Path.Combine(templateDirectory, "test-order.yaml"), testTemplateYaml);
+        File.WriteAllText(Path.Combine(templateDirectory, "sim-order.yaml"), simulationTemplateYaml);
 
         sourceRoot = Path.Combine(dataRoot, "golden-source");
         Directory.CreateDirectory(sourceRoot);
@@ -300,7 +300,7 @@ public class RunOrchestrationGoldenTests : IClassFixture<TestWebApplicationFacto
         serverFactory.Dispose();
     }
 
-    private const string TestTemplateYaml = """
+    private const string testTemplateYaml = """
 schemaVersion: 1
 generator: flowtime-sim
 metadata:
@@ -355,7 +355,7 @@ outputs:
     as: OrderService_errors.csv
 """;
 
-    private const string SimulationTemplateYaml = """
+    private const string simulationTemplateYaml = """
 schemaVersion: 1
 generator: flowtime-sim
 metadata:

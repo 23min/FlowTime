@@ -6,7 +6,7 @@ namespace FlowTime.Core.Tests.Fixtures;
 
 public class MicroservicesFixtureTests
 {
-    private const int ExpectedBins = 144;
+    private const int expectedBins = 144;
 
     [Fact]
     public void ModelYamlExists()
@@ -47,7 +47,7 @@ public class MicroservicesFixtureTests
 
             var lines = File.ReadAllLines(path);
             Assert.True(lines.Length > 0, $"Fixture CSV empty: {path}");
-            Assert.Equal(ExpectedBins, lines.Length - 1);
+            Assert.Equal(expectedBins, lines.Length - 1);
         }
     }
 

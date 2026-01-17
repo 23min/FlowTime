@@ -9,7 +9,7 @@ namespace FlowTime.Core;
 /// </summary>
 public static class PmfCompiler
 {
-    private const double DEFAULT_NORMALIZATION_TOLERANCE = 0.001;
+    private const double defaultNormalizationTolerance = 0.001;
 
     /// <summary>
     /// Compile a PMF from entries.

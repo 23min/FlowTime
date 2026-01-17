@@ -16,15 +16,15 @@ public interface IServiceInfoProvider
 /// </summary>
 public class ServiceInfoProvider : IServiceInfoProvider
 {
-    private readonly DateTime _startTime;
-    private readonly IWebHostEnvironment _environment;
+    private readonly DateTime startTime;
+    private readonly IWebHostEnvironment environment;
     private readonly IConfiguration configuration;
     private readonly ICapabilitiesDetectionService capabilitiesService;
 
     public ServiceInfoProvider(IWebHostEnvironment environment, IConfiguration configuration, ICapabilitiesDetectionService capabilitiesService)
     {
-        _startTime = DateTime.UtcNow;
-        _environment = environment;
+        startTime = DateTime.UtcNow;
+        this.environment = environment;
         this.configuration = configuration;
         this.capabilitiesService = capabilitiesService;
     }
@@ -44,7 +44,7 @@ public class ServiceInfoProvider : IServiceInfoProvider
                 Version = version,
                 CommitHash = GetCommitHash(),
                 BuildTime = GetBuildTime(assembly),
-                Environment = _environment.EnvironmentName
+                Environment = environment.EnvironmentName
             },
             Capabilities = new CapabilitiesInfo
             {
@@ -54,8 +54,8 @@ public class ServiceInfoProvider : IServiceInfoProvider
             },
             Runtime = new RuntimeInfo
             {
-                StartTime = _startTime,
-                Uptime = DateTime.UtcNow - _startTime,
+                StartTime = startTime,
+                Uptime = DateTime.UtcNow - startTime,
                 Platform = RuntimeInformation.OSDescription,
                 Architecture = RuntimeInformation.OSArchitecture.ToString(),
                 FrameworkVersion = RuntimeInformation.FrameworkDescription

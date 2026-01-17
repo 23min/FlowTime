@@ -16,13 +16,13 @@ namespace FlowTime.UI.Components.Topology;
 
 public abstract class TopologyCanvasBase : ComponentBase, IDisposable
 {
-    private const double NodeWidth = 54;
-    private const double NodeHeight = 24;
-    private const double QueueNodeWidth = NodeWidth;
-    private const double NodeCornerRadius = 3;
-    private const double LeafCircleScale = 1.25;
-    private const double LeafCircleProxyPadding = 6;
-    private const double ViewportPadding = 48;
+    private const double nodeWidth = 54;
+    private const double nodeHeight = 24;
+    private const double queueNodeWidth = nodeWidth;
+    private const double nodeCornerRadius = 3;
+    private const double leafCircleScale = 1.25;
+    private const double leafCircleProxyPadding = 6;
+    private const double viewportPadding = 48;
 
     private readonly Dictionary<string, TopologyNode> nodeLookup = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, HashSet<string>> nodeOutputs = new(StringComparer.OrdinalIgnoreCase);
@@ -950,9 +950,9 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                 }
             }
 
-            var nodeWidth = IsQueueLikeKind(node.Kind, node.LogicalType)
-                ? QueueNodeWidth
-                : NodeWidth;
+            var resolvedNodeWidth = IsQueueLikeKind(node.Kind, node.LogicalType)
+                ? queueNodeWidth
+                : nodeWidth;
 
             var isLeaf = !outgoingGroups.ContainsKey(node.Id);
             var sceneNode = new NodeSceneInfo(
@@ -961,9 +961,9 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                 node.LogicalType ?? node.Kind,
                 node.X,
                 node.Y,
-                nodeWidth,
-                NodeHeight,
-                NodeCornerRadius,
+                resolvedNodeWidth,
+                nodeHeight,
+                nodeCornerRadius,
                 isLeaf,
                 node.Lane,
                 sparklineDto,
@@ -1068,11 +1068,11 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         CanvasViewport viewport;
         if (graph.Nodes.Count == 0)
         {
-            viewport = new CanvasViewport(-ViewportPadding, -ViewportPadding, ViewportPadding, ViewportPadding, ViewportPadding);
+            viewport = new CanvasViewport(-viewportPadding, -viewportPadding, viewportPadding, viewportPadding, viewportPadding);
         }
         else
         {
-            var halfHeight = NodeHeight / 2d;
+            var halfHeight = nodeHeight / 2d;
             double minX = double.PositiveInfinity;
             double maxX = double.NegativeInfinity;
             double minY = double.PositiveInfinity;
@@ -1080,7 +1080,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
 
             foreach (var node in graph.Nodes)
             {
-                var width = IsQueueLikeKind(node.Kind, node.LogicalType) ? QueueNodeWidth : NodeWidth;
+                var width = IsQueueLikeKind(node.Kind, node.LogicalType) ? queueNodeWidth : nodeWidth;
                 var halfWidth = width / 2d;
                 var left = node.X - halfWidth;
                 var right = node.X + halfWidth;
@@ -1093,7 +1093,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
                 if (bottom > maxY) maxY = bottom;
             }
 
-            viewport = new CanvasViewport(minX, minY, maxX, maxY, ViewportPadding);
+            viewport = new CanvasViewport(minX, minY, maxX, maxY, viewportPadding);
         }
 
         var overlaySettingsPayload = new OverlaySettingsPayload(
@@ -1351,7 +1351,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         !string.IsNullOrWhiteSpace(kind) &&
         string.Equals(kind, "dlq", StringComparison.OrdinalIgnoreCase);
 
-    private static readonly HashSet<string> SinkSuppressedRawKeys = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly HashSet<string> sinkSuppressedRawKeys = new(StringComparer.OrdinalIgnoreCase)
     {
         "queue",
         "capacity",
@@ -1372,7 +1372,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             var filtered = new Dictionary<string, double?>(StringComparer.OrdinalIgnoreCase);
             foreach (var entry in raw)
             {
-                if (SinkSuppressedRawKeys.Contains(entry.Key))
+                if (sinkSuppressedRawKeys.Contains(entry.Key))
                 {
                     continue;
                 }
@@ -1898,11 +1898,11 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
 
         var isLeafComputed = node.Outputs.Count == 0 && IsComputedKind(node.Kind);
         var proxyHeight = isLeafComputed
-            ? (NodeHeight * LeafCircleScale) + LeafCircleProxyPadding
-            : NodeHeight;
+            ? (nodeHeight * leafCircleScale) + leafCircleProxyPadding
+            : nodeHeight;
         var proxyWidth = IsQueueLikeKind(node.Kind, node.LogicalType)
-            ? QueueNodeWidth
-            : NodeWidth;
+            ? queueNodeWidth
+            : nodeWidth;
 
         var style = string.Create(
             CultureInfo.InvariantCulture,

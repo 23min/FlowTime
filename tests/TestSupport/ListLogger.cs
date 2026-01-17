@@ -7,12 +7,12 @@ namespace FlowTime.Tests.Support;
 
 public sealed class ListLogger<T> : ILogger<T>
 {
-    private static readonly IDisposable NullScope = new NullDisposable();
+    private static readonly IDisposable nullScope = new NullDisposable();
     private readonly ConcurrentQueue<LogEntry> entries = new();
 
     public IReadOnlyCollection<LogEntry> Entries => entries.ToArray();
 
-    public IDisposable BeginScope<TState>(TState state) where TState : notnull => NullScope;
+    public IDisposable BeginScope<TState>(TState state) where TState : notnull => nullScope;
 
     public bool IsEnabled(LogLevel logLevel) => true;
 

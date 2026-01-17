@@ -29,7 +29,7 @@ public sealed class ClassAggregationResult
 
 public static class ClassMetricsAggregator
 {
-    private const double ConservationTolerance = 1d;
+    private const double conservationTolerance = 1d;
 
     public static ClassAggregationResult Aggregate(NodeData data, int binIndex)
     {
@@ -129,7 +129,7 @@ public static class ClassMetricsAggregator
             return;
         }
 
-        if (Math.Abs(total.Value - sum) > ConservationTolerance)
+        if (Math.Abs(total.Value - sum) > conservationTolerance)
         {
             warnings.Add(new ModeValidationWarning
             {

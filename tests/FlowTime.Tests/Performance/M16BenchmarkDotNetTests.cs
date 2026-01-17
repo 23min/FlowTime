@@ -41,25 +41,25 @@ public class M16BenchmarkDotNetTests
         }
     }
 
-    private ModelDefinition? _smallScaleModel;
-    private ModelDefinition? _mediumScaleModel;
-    private ModelDefinition? _largeScaleModel;
-    private ModelDefinition? _simpleExpressionModel;
-    private ModelDefinition? _complexExpressionModel;
-    private ModelDefinition? _shiftExpressionModel;
+    private ModelDefinition? smallScaleModel;
+    private ModelDefinition? mediumScaleModel;
+    private ModelDefinition? largeScaleModel;
+    private ModelDefinition? simpleExpressionModel;
+    private ModelDefinition? complexExpressionModel;
+    private ModelDefinition? shiftExpressionModel;
 
     [GlobalSetup]
     public void Setup()
     {
         // Pre-generate test data to avoid including generation time in benchmarks
-        _smallScaleModel = GenerateModel(10, 100, i => $"base_{i % 5} * 1.5");
-        _mediumScaleModel = GenerateModel(100, 1000, i => $"base_{i % 10} * 2.0");
-        _largeScaleModel = GenerateModel(1000, 1000, i => $"base_{i % 20} + 1.0");
+        smallScaleModel = GenerateModel(10, 100, i => $"base_{i % 5} * 1.5");
+        mediumScaleModel = GenerateModel(100, 1000, i => $"base_{i % 10} * 2.0");
+        largeScaleModel = GenerateModel(1000, 1000, i => $"base_{i % 20} + 1.0");
         
         // Expression type comparison models (same size for fair comparison)
-        _simpleExpressionModel = GenerateModel(100, 1000, i => $"base_{i % 10} * 1.5");
-        _complexExpressionModel = GenerateModel(100, 1000, i => $"MIN(base_{i % 10} * 2, base_{(i+1) % 10})");
-        _shiftExpressionModel = GenerateModel(100, 1000, i => $"base_{i % 10} + SHIFT(base_{(i+1) % 10}, 1)");
+        simpleExpressionModel = GenerateModel(100, 1000, i => $"base_{i % 10} * 1.5");
+        complexExpressionModel = GenerateModel(100, 1000, i => $"MIN(base_{i % 10} * 2, base_{(i+1) % 10})");
+        shiftExpressionModel = GenerateModel(100, 1000, i => $"base_{i % 10} + SHIFT(base_{(i+1) % 10}, 1)");
     }
 
     // ===== SCALE BENCHMARKS =====
@@ -68,28 +68,28 @@ public class M16BenchmarkDotNetTests
     [BenchmarkCategory("Scale")]
     public object SmallScale_Parse()
     {
-        return ModelParser.ParseModel(_smallScaleModel!);
+        return ModelParser.ParseModel(smallScaleModel!);
     }
 
     [Benchmark]
     [BenchmarkCategory("Scale")]
     public object MediumScale_Parse()
     {
-        return ModelParser.ParseModel(_mediumScaleModel!);
+        return ModelParser.ParseModel(mediumScaleModel!);
     }
 
     [Benchmark]
     [BenchmarkCategory("Scale")]
     public object LargeScale_Parse()
     {
-        return ModelParser.ParseModel(_largeScaleModel!);
+        return ModelParser.ParseModel(largeScaleModel!);
     }
 
     [Benchmark]
     [BenchmarkCategory("Scale")]
     public object SmallScale_Evaluate()
     {
-        var (grid, graph) = ModelParser.ParseModel(_smallScaleModel!);
+        var (grid, graph) = ModelParser.ParseModel(smallScaleModel!);
         var order = graph.TopologicalOrder();
         return graph.Evaluate(grid);
     }
@@ -98,7 +98,7 @@ public class M16BenchmarkDotNetTests
     [BenchmarkCategory("Scale")]
     public object MediumScale_Evaluate()
     {
-        var (grid, graph) = ModelParser.ParseModel(_mediumScaleModel!);
+        var (grid, graph) = ModelParser.ParseModel(mediumScaleModel!);
         var order = graph.TopologicalOrder();
         return graph.Evaluate(grid);
     }
@@ -107,7 +107,7 @@ public class M16BenchmarkDotNetTests
     [BenchmarkCategory("Scale")]
     public object LargeScale_Evaluate()
     {
-        var (grid, graph) = ModelParser.ParseModel(_largeScaleModel!);
+        var (grid, graph) = ModelParser.ParseModel(largeScaleModel!);
         var order = graph.TopologicalOrder();
         return graph.Evaluate(grid);
     }
@@ -118,28 +118,28 @@ public class M16BenchmarkDotNetTests
     [BenchmarkCategory("ExpressionType")]
     public object SimpleExpression_Parse()
     {
-        return ModelParser.ParseModel(_simpleExpressionModel!);
+        return ModelParser.ParseModel(simpleExpressionModel!);
     }
 
     [Benchmark]
     [BenchmarkCategory("ExpressionType")]
     public object ComplexExpression_Parse()
     {
-        return ModelParser.ParseModel(_complexExpressionModel!);
+        return ModelParser.ParseModel(complexExpressionModel!);
     }
 
     [Benchmark]
     [BenchmarkCategory("ExpressionType")]
     public object ShiftExpression_Parse()
     {
-        return ModelParser.ParseModel(_shiftExpressionModel!);
+        return ModelParser.ParseModel(shiftExpressionModel!);
     }
 
     [Benchmark]
     [BenchmarkCategory("ExpressionType")]
     public object SimpleExpression_Evaluate()
     {
-        var (grid, graph) = ModelParser.ParseModel(_simpleExpressionModel!);
+        var (grid, graph) = ModelParser.ParseModel(simpleExpressionModel!);
         var order = graph.TopologicalOrder();
         return graph.Evaluate(grid);
     }
@@ -148,7 +148,7 @@ public class M16BenchmarkDotNetTests
     [BenchmarkCategory("ExpressionType")]
     public object ComplexExpression_Evaluate()
     {
-        var (grid, graph) = ModelParser.ParseModel(_complexExpressionModel!);
+        var (grid, graph) = ModelParser.ParseModel(complexExpressionModel!);
         var order = graph.TopologicalOrder();
         return graph.Evaluate(grid);
     }
@@ -157,7 +157,7 @@ public class M16BenchmarkDotNetTests
     [BenchmarkCategory("ExpressionType")]
     public object ShiftExpression_Evaluate()
     {
-        var (grid, graph) = ModelParser.ParseModel(_shiftExpressionModel!);
+        var (grid, graph) = ModelParser.ParseModel(shiftExpressionModel!);
         var order = graph.TopologicalOrder();
         return graph.Evaluate(grid);
     }
@@ -168,7 +168,7 @@ public class M16BenchmarkDotNetTests
     [BenchmarkCategory("EndToEnd")]
     public object SmallScale_Complete()
     {
-        var (grid, graph) = ModelParser.ParseModel(_smallScaleModel!);
+        var (grid, graph) = ModelParser.ParseModel(smallScaleModel!);
         var order = graph.TopologicalOrder();
         return graph.Evaluate(grid);
     }
@@ -177,7 +177,7 @@ public class M16BenchmarkDotNetTests
     [BenchmarkCategory("EndToEnd")]
     public object MediumScale_Complete()
     {
-        var (grid, graph) = ModelParser.ParseModel(_mediumScaleModel!);
+        var (grid, graph) = ModelParser.ParseModel(mediumScaleModel!);
         var order = graph.TopologicalOrder();
         return graph.Evaluate(grid);
     }
@@ -186,7 +186,7 @@ public class M16BenchmarkDotNetTests
     [BenchmarkCategory("EndToEnd")]
     public object LargeScale_Complete()
     {
-        var (grid, graph) = ModelParser.ParseModel(_largeScaleModel!);
+        var (grid, graph) = ModelParser.ParseModel(largeScaleModel!);
         var order = graph.TopologicalOrder();
         return graph.Evaluate(grid);
     }
@@ -281,15 +281,15 @@ public static class M15BenchmarkRunner
 /// </summary>
 public class BenchmarkCategoryFilter : BenchmarkDotNet.Filters.IFilter
 {
-    private readonly string _category;
+    private readonly string category;
 
     public BenchmarkCategoryFilter(string category)
     {
-        _category = category;
+        this.category = category;
     }
 
     public bool Predicate(BenchmarkCase benchmarkCase)
     {
-        return benchmarkCase.Descriptor.HasCategory(_category);
+        return benchmarkCase.Descriptor.HasCategory(category);
     }
 }

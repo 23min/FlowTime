@@ -19,7 +19,7 @@ public class RunOrchestrationServiceTests
         Directory.CreateDirectory(templatesDir);
 
         var templatePath = Path.Combine(templatesDir, "test-order.yaml");
-        await File.WriteAllTextAsync(templatePath, TestTemplate);
+        await File.WriteAllTextAsync(templatePath, testTemplate);
 
         var sourceRunDir = TelemetryRunFactory.CreateRunArtifacts(temp.Path, "source_run", includeTopology: true);
         var captureDir = Path.Combine(temp.Path, "capture");
@@ -78,7 +78,7 @@ public class RunOrchestrationServiceTests
         Directory.CreateDirectory(templatesDir);
 
         var templatePath = Path.Combine(templatesDir, "test-order.yaml");
-        await File.WriteAllTextAsync(templatePath, TestTemplate);
+        await File.WriteAllTextAsync(templatePath, testTemplate);
 
         var sourceRunDir = TelemetryRunFactory.CreateRunArtifacts(temp.Path, "source_run", includeTopology: true);
         var captureDir = Path.Combine(temp.Path, "capture");
@@ -137,7 +137,7 @@ public class RunOrchestrationServiceTests
         Directory.CreateDirectory(templatesDir);
 
         var templatePath = Path.Combine(templatesDir, "sim-order.yaml");
-        await File.WriteAllTextAsync(templatePath, SimulationTemplate);
+        await File.WriteAllTextAsync(templatePath, simulationTemplate);
 
         var templateService = new TemplateService(templatesDir, NullLogger<TemplateService>.Instance);
         var bundleBuilder = new TelemetryBundleBuilder();
@@ -183,7 +183,7 @@ public class RunOrchestrationServiceTests
         using var temp = new TempDirectory();
         var templatesDir = Path.Combine(temp.Path, "templates");
         Directory.CreateDirectory(templatesDir);
-        await File.WriteAllTextAsync(Path.Combine(templatesDir, "sim-order.yaml"), SimulationTemplate);
+        await File.WriteAllTextAsync(Path.Combine(templatesDir, "sim-order.yaml"), simulationTemplate);
 
         var templateService = new TemplateService(templatesDir, NullLogger<TemplateService>.Instance);
         var bundleBuilder = new TelemetryBundleBuilder();
@@ -222,7 +222,7 @@ public class RunOrchestrationServiceTests
         using var temp = new TempDirectory();
         var templatesDir = Path.Combine(temp.Path, "templates");
         Directory.CreateDirectory(templatesDir);
-        await File.WriteAllTextAsync(Path.Combine(templatesDir, "sim-order.yaml"), SimulationTemplate);
+        await File.WriteAllTextAsync(Path.Combine(templatesDir, "sim-order.yaml"), simulationTemplate);
 
         var templateService = new TemplateService(templatesDir, NullLogger<TemplateService>.Instance);
         var bundleBuilder = new TelemetryBundleBuilder();
@@ -256,7 +256,7 @@ public class RunOrchestrationServiceTests
         using var temp = new TempDirectory();
         var templatesDir = Path.Combine(temp.Path, "templates");
         Directory.CreateDirectory(templatesDir);
-        await File.WriteAllTextAsync(Path.Combine(templatesDir, "sim-order.yaml"), SimulationTemplate);
+        await File.WriteAllTextAsync(Path.Combine(templatesDir, "sim-order.yaml"), simulationTemplate);
 
         var templateService = new TemplateService(templatesDir, NullLogger<TemplateService>.Instance);
         var bundleBuilder = new TelemetryBundleBuilder();
@@ -291,7 +291,7 @@ public class RunOrchestrationServiceTests
         using var temp = new TempDirectory();
         var templatesDir = Path.Combine(temp.Path, "templates");
         Directory.CreateDirectory(templatesDir);
-        await File.WriteAllTextAsync(Path.Combine(templatesDir, "sim-order.yaml"), SimulationTemplate);
+        await File.WriteAllTextAsync(Path.Combine(templatesDir, "sim-order.yaml"), simulationTemplate);
 
         var templateService = new TemplateService(templatesDir, NullLogger<TemplateService>.Instance);
         var bundleBuilder = new TelemetryBundleBuilder();
@@ -331,7 +331,7 @@ public class RunOrchestrationServiceTests
         using var temp = new TempDirectory();
         var templatesDir = Path.Combine(temp.Path, "templates");
         Directory.CreateDirectory(templatesDir);
-        await File.WriteAllTextAsync(Path.Combine(templatesDir, "sim-order.yaml"), SimulationTemplate);
+        await File.WriteAllTextAsync(Path.Combine(templatesDir, "sim-order.yaml"), simulationTemplate);
 
         var templateService = new TemplateService(templatesDir, NullLogger<TemplateService>.Instance);
         var bundleBuilder = new TelemetryBundleBuilder();
@@ -386,7 +386,7 @@ public class RunOrchestrationServiceTests
         Directory.CreateDirectory(templatesDir);
 
         var templatePath = Path.Combine(templatesDir, "sim-invalid.yaml");
-        await File.WriteAllTextAsync(templatePath, SimulationTemplateMissingWindow);
+        await File.WriteAllTextAsync(templatePath, simulationTemplateMissingWindow);
 
         var templateService = new TemplateService(templatesDir, NullLogger<TemplateService>.Instance);
         var bundleBuilder = new TelemetryBundleBuilder();
@@ -418,7 +418,7 @@ public class RunOrchestrationServiceTests
         Assert.Null(result);
     }
 
-    private const string TestTemplate = """
+    private const string testTemplate = """
 schemaVersion: 1
 generator: flowtime-sim
 metadata:
@@ -478,7 +478,7 @@ outputs:
     as: OrderService_errors.csv
 """;
 
-    private const string SimulationTemplate = """
+    private const string simulationTemplate = """
 schemaVersion: 1
 generator: flowtime-sim
 metadata:
@@ -527,7 +527,7 @@ outputs:
   - series: "*"
 """;
 
-    private const string SimulationTemplateMissingWindow = """
+    private const string simulationTemplateMissingWindow = """
 schemaVersion: 1
 generator: flowtime-sim
 metadata:

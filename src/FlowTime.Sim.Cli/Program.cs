@@ -47,7 +47,7 @@ namespace FlowTime.Sim.Cli
 
     internal static class Program
     {
-        private static readonly IDeserializer ArtifactDeserializer = new DeserializerBuilder()
+        private static readonly IDeserializer artifactDeserializer = new DeserializerBuilder()
             .WithNamingConvention(CamelCaseNamingConvention.Instance)
             .IgnoreUnmatchedProperties()
             .Build();
@@ -414,7 +414,7 @@ namespace FlowTime.Sim.Cli
             return 0;
         }
 
-        private static SimModelArtifact DeserializeArtifact(string modelYaml) => ArtifactDeserializer.Deserialize<SimModelArtifact>(modelYaml);
+        private static SimModelArtifact DeserializeArtifact(string modelYaml) => artifactDeserializer.Deserialize<SimModelArtifact>(modelYaml);
 
         private static bool HasWindow(SimModelArtifact artifact) => !string.IsNullOrWhiteSpace(artifact.Window?.Start);
 

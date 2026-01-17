@@ -106,7 +106,7 @@
                                     </svg>
                                     @{
                                         var totalSpan = Math.Max(1, visibleEndBin - visibleStartBin);
-                                        var winStart = Math.Max(visibleStartBin, selectedBin - SparklinePointLimit + 1);
+                                        var winStart = Math.Max(visibleStartBin, selectedBin - sparklinePointLimit + 1);
                                         var winEnd = Math.Max(winStart, Math.Min(selectedBin, visibleEndBin));
                                         var xPct = Math.Clamp((winStart - visibleStartBin) * 100.0 / totalSpan, 0.0, 100.0);
                                         var rawWidth = (winEnd - winStart + 1) * 100.0 / totalSpan;
@@ -908,7 +908,7 @@
     private string? pendingCanvasHoveredEdgeId;
     private CancellationTokenSource? canvasHoverDebounceCts;
     private CancellationTokenSource? saveRunStateDebounceCts;
-    private double runStateSaveDelayMs = DefaultRunStateSaveDebounceMs;
+    private double runStateSaveDelayMs = defaultRunStateSaveDebounceMs;
     private Func<Func<Task>, Task>? runStateSaveInvoker;
     private Task? pendingRunStateSaveTask;
 
@@ -932,9 +932,9 @@
     private IReadOnlyList<TimelineTick> timelineTicks = Array.Empty<TimelineTick>();
     private IReadOnlyList<double> timelineMinorTicks = Array.Empty<double>();
 private IReadOnlyList<TimeTravelStateWarningDto> windowWarnings = Array.Empty<TimeTravelStateWarningDto>();
-    private IReadOnlyDictionary<string, IReadOnlyList<NodeWarningPayload>> nodeWarningsForCanvas = EmptyNodeWarnings;
-    private static readonly IReadOnlyDictionary<string, IReadOnlyList<NodeWarningPayload>> EmptyNodeWarnings = new Dictionary<string, IReadOnlyList<NodeWarningPayload>>(StringComparer.OrdinalIgnoreCase);
-    private static readonly TimeSpan CanvasHoverDebounceInterval = TimeSpan.FromMilliseconds(16);
+    private IReadOnlyDictionary<string, IReadOnlyList<NodeWarningPayload>> nodeWarningsForCanvas = emptyNodeWarnings;
+    private static readonly IReadOnlyDictionary<string, IReadOnlyList<NodeWarningPayload>> emptyNodeWarnings = new Dictionary<string, IReadOnlyList<NodeWarningPayload>>(StringComparer.OrdinalIgnoreCase);
+    private static readonly TimeSpan canvasHoverDebounceInterval = TimeSpan.FromMilliseconds(16);
     private bool diagnosticsOverlayEnabled;
     private string? diagnosticsUploadUrl;
     private int diagnosticsUploadIntervalMs;
@@ -953,7 +953,7 @@ private IReadOnlyList<TimeTravelStateWarningDto> windowWarnings = Array.Empty<Ti
     private int? pendingDragBin;
     private long lastScrubRefreshAtMs;
     private int? lastScrubRefreshBin;
-    private const int ScrubRefreshIntervalMs = 150;
+    private const int scrubRefreshIntervalMs = 150;
     private bool operationalViewOnly;
     private bool operationalTogglePending;
     private bool focusViewEnabled;
@@ -964,15 +964,15 @@ private IReadOnlyList<TimeTravelStateWarningDto> windowWarnings = Array.Empty<Ti
     private bool graphSupportsFullDag;
     private IReadOnlyList<string> availableClasses = Array.Empty<string>();
     private IReadOnlyList<DispatchScheduleEntry> dispatchScheduleEntries = Array.Empty<DispatchScheduleEntry>();
-    private IReadOnlyDictionary<string, string> classDisplayNames = EmptyClassLabels;
-    private IReadOnlyDictionary<string, ManifestClassEntry> classMetadata = EmptyClassMetadata;
+    private IReadOnlyDictionary<string, string> classDisplayNames = emptyClassLabels;
+    private IReadOnlyDictionary<string, ManifestClassEntry> classMetadata = emptyClassMetadata;
     private IReadOnlyList<string> selectedClasses = Array.Empty<string>();
     private ClassSelectionMode classSelectionMode = ClassSelectionMode.All;
     private string? classCoverageState;
 private readonly HashSet<string> classFilteredNodes = new(StringComparer.OrdinalIgnoreCase);
     private IReadOnlyDictionary<string, IReadOnlyList<ClassContribution>> nodeClassContributions = new Dictionary<string, IReadOnlyList<ClassContribution>>(StringComparer.OrdinalIgnoreCase);
-    private static readonly IReadOnlyDictionary<string, string> EmptyClassLabels = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-    private static readonly IReadOnlyDictionary<string, ManifestClassEntry> EmptyClassMetadata = new Dictionary<string, ManifestClassEntry>(StringComparer.OrdinalIgnoreCase);
+    private static readonly IReadOnlyDictionary<string, string> emptyClassLabels = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    private static readonly IReadOnlyDictionary<string, ManifestClassEntry> emptyClassMetadata = new Dictionary<string, ManifestClassEntry>(StringComparer.OrdinalIgnoreCase);
 
     private sealed record LegendEntry(string Swatch, string Label);
     internal sealed record DispatchScheduleEntry(string NodeId, string Summary, string CapacityLabel);
@@ -1098,10 +1098,10 @@ private readonly HashSet<string> classFilteredNodes = new(StringComparer.Ordinal
         return Task.CompletedTask;
     }
 
-    private const double MinPlaybackDelay = 0.02d;
-    private const double MaxPlaybackDelay = 120d;
-    private const double BasePlaybackTotalSeconds = 30d;
-    private static readonly double[] PlaybackSpeedFactors = new[] { 1d, 2d, 4d, 8d };
+    private const double minPlaybackDelay = 0.02d;
+    private const double maxPlaybackDelay = 120d;
+    private const double basePlaybackTotalSeconds = 30d;
+    private static readonly double[] playbackSpeedFactors = new[] { 1d, 2d, 4d, 8d };
     private sealed record PlaybackSpeedOption(double Factor, double Seconds, string Label);
     private List<PlaybackSpeedOption> playbackSpeedOptions = new();
     private IReadOnlyList<PlaybackSpeedOption> PlaybackSpeedOptions => playbackSpeedOptions;
@@ -1130,14 +1130,14 @@ internal sealed record ClassContribution(string Id, double? Arrivals, double? Se
             : "0s";
 
     private static readonly JsonSerializerOptions overlaySerializerOptions = new(JsonSerializerDefaults.Web);
-    private const string RunStateStoragePrefix = "ft.topology.state.v2";
-    private const double DefaultRunStateSaveDebounceMs = 300d;
-    private const string LegacyOverlayStorageKey = "ft.topology.overlaySettings.v1";
-    private const int SparklinePointLimit = 48;
-    private const string MissingSeriesMessage = "No series for selected range.";
+    private const string runStateStoragePrefix = "ft.topology.state.v2";
+    private const double defaultRunStateSaveDebounceMs = 300d;
+    private const string legacyOverlayStorageKey = "ft.topology.overlaySettings.v1";
+    private const int sparklinePointLimit = 48;
+    private const string missingSeriesMessage = "No series for selected range.";
     internal const string InspectorMissingSeriesMessage = "Model does not include series data";
-    private const string BinValueLabel = "bin(t)";
-private const string PmfExpectationLabel = "Value";
+    private const string binValueLabel = "bin(t)";
+private const string pmfExpectationLabel = "Value";
 
     private static string BuildHorizonEmptyLabel(string? ariaLabel, string? placeholder = null)
     {
@@ -1175,7 +1175,7 @@ private const string PmfExpectationLabel = "Value";
             if (!attemptedRestore)
             {
                 attemptedRestore = true;
-                var lastRunId = await JS.InvokeAsync<string?>("localStorage.getItem", LastRunStorageKey);
+                var lastRunId = await JS.InvokeAsync<string?>("localStorage.getItem", lastRunStorageKey);
                 if (!string.IsNullOrWhiteSpace(lastRunId))
                 {
                     Navigation.NavigateTo($"/time-travel/topology?runId={Uri.EscapeDataString(lastRunId)}");
@@ -1294,7 +1294,7 @@ private const string PmfExpectationLabel = "Value";
     {
         try
         {
-            var json = await JS.InvokeAsync<string?>("localStorage.getItem", LegacyOverlayStorageKey);
+            var json = await JS.InvokeAsync<string?>("localStorage.getItem", legacyOverlayStorageKey);
             if (string.IsNullOrWhiteSpace(json))
             {
                 return;
@@ -1505,8 +1505,8 @@ private const string PmfExpectationLabel = "Value";
         else
         {
             availableClasses = Array.Empty<string>();
-            classDisplayNames = EmptyClassLabels;
-            classMetadata = EmptyClassMetadata;
+            classDisplayNames = emptyClassLabels;
+            classMetadata = emptyClassMetadata;
         }
 
         Logger?.LogInformation("Topology class metadata for run {RunId}: coverage={Coverage}; classes={Count}; values={Classes}",
@@ -1575,7 +1575,7 @@ private const string PmfExpectationLabel = "Value";
         }
 
         availableClasses = fallback;
-        if (classDisplayNames == EmptyClassLabels)
+        if (classDisplayNames == emptyClassLabels)
         {
             classDisplayNames = fallback.ToDictionary(id => id, id => id, StringComparer.OrdinalIgnoreCase);
         }
@@ -1585,7 +1585,7 @@ private const string PmfExpectationLabel = "Value";
             string.Join(", ", fallback));
     }
 
-    private static string BuildRunStateKey(string runId) => $"{RunStateStoragePrefix}:{runId}";
+    private static string BuildRunStateKey(string runId) => $"{runStateStoragePrefix}:{runId}";
 
     private void ScheduleRunStateSave()
     {
@@ -1752,7 +1752,7 @@ private const string PmfExpectationLabel = "Value";
             timestamps = windowData.TimestampsUtc.ToList();
             runDisplayName = windowData.Metadata.TemplateTitle ?? windowData.Metadata.TemplateId ?? runId;
 
-            await JS.InvokeVoidAsync("localStorage.setItem", LastRunStorageKey, runId);
+            await JS.InvokeVoidAsync("localStorage.setItem", lastRunStorageKey, runId);
 
             var initialSelected = visibleEndBin;
             if (restoredSelectedBin.HasValue)
@@ -2345,7 +2345,7 @@ private const string PmfExpectationLabel = "Value";
         }
     }
 
-    private const string LastRunStorageKey = "ft.topology.lastRunId";
+    private const string lastRunStorageKey = "ft.topology.lastRunId";
 
     private void UpdateActiveMetrics(int bin)
     {
@@ -2498,13 +2498,13 @@ private const string PmfExpectationLabel = "Value";
                     if (sampled.HasValue)
                     {
                         customValue = sampled;
-                        customLabel = BinValueLabel;
+                        customLabel = binValueLabel;
                     }
                 }
 
                 if (!customValue.HasValue && IsExpressionKind(displayKind) && nodesMissingSnapshot.Contains(node.Id))
                 {
-                    customLabel = MissingSeriesMessage;
+                    customLabel = missingSeriesMessage;
                 }
             }
 
@@ -2514,7 +2514,7 @@ private const string PmfExpectationLabel = "Value";
                 if (expectation.HasValue)
                 {
                     customValue = expectation;
-                    customLabel = PmfExpectationLabel;
+                    customLabel = pmfExpectationLabel;
                 }
 
                 pmfProbability = modeProbability;
@@ -2522,7 +2522,7 @@ private const string PmfExpectationLabel = "Value";
 
                 if (string.IsNullOrWhiteSpace(customLabel) && nodesMissingSnapshot.Contains(node.Id))
                 {
-                    customLabel = MissingSeriesMessage;
+                    customLabel = missingSeriesMessage;
                 }
             }
 
@@ -2537,7 +2537,7 @@ private const string PmfExpectationLabel = "Value";
                 if (direct.HasValue && double.IsFinite(direct.Value))
                 {
                     customValue = direct;
-                    customLabel = isPmf ? PmfExpectationLabel : BinValueLabel;
+                    customLabel = isPmf ? pmfExpectationLabel : binValueLabel;
                 }
             }
 
@@ -2641,21 +2641,21 @@ private const string PmfExpectationLabel = "Value";
                     if (expectation.HasValue)
                     {
                         customValue = expectation;
-                        customLabel = PmfExpectationLabel;
+                        customLabel = pmfExpectationLabel;
                     }
                     else if (pmfSupportValue.HasValue)
                     {
                         customValue = pmfSupportValue;
-                        customLabel = PmfExpectationLabel;
+                        customLabel = pmfExpectationLabel;
                     }
                     else if (inlineValue.HasValue)
                     {
                         customValue = inlineValue;
-                        customLabel = PmfExpectationLabel;
+                        customLabel = pmfExpectationLabel;
                     }
                     else if (nodesMissingSnapshot.Contains(topoNode.Id))
                     {
-                        customLabel = MissingSeriesMessage;
+                        customLabel = missingSeriesMessage;
                     }
                 }
                 else
@@ -2664,11 +2664,11 @@ private const string PmfExpectationLabel = "Value";
                     customValue = sampleValue ?? inlineValue;
                     if (customValue.HasValue)
                     {
-                        customLabel = BinValueLabel;
+                        customLabel = binValueLabel;
                     }
                     else if (IsExpressionKind(topoNode.Kind) && nodesMissingSnapshot.Contains(topoNode.Id))
                     {
-                        customLabel = MissingSeriesMessage;
+                        customLabel = missingSeriesMessage;
                     }
                 }
 
@@ -2683,7 +2683,7 @@ private const string PmfExpectationLabel = "Value";
                     var newCustomLabel = customLabel ?? existingMetrics.CustomLabel;
                     if (customValue.HasValue && string.IsNullOrWhiteSpace(customLabel))
                     {
-                        newCustomLabel = isPmfNode ? PmfExpectationLabel : BinValueLabel;
+                        newCustomLabel = isPmfNode ? pmfExpectationLabel : binValueLabel;
                     }
 
                     if (!Equals(newCustomValue, existingMetrics.CustomValue) ||
@@ -2879,13 +2879,13 @@ private const string PmfExpectationLabel = "Value";
     private void RecomputePlaybackSpeedOptions(int totalBins)
     {
         totalBins = Math.Max(1, totalBins);
-        var baseSeconds = BasePlaybackTotalSeconds / totalBins;
-        baseSeconds = Math.Clamp(baseSeconds, MinPlaybackDelay, MaxPlaybackDelay);
+        var baseSeconds = basePlaybackTotalSeconds / totalBins;
+        baseSeconds = Math.Clamp(baseSeconds, minPlaybackDelay, maxPlaybackDelay);
 
-        var options = new List<PlaybackSpeedOption>(PlaybackSpeedFactors.Length);
-        foreach (var factor in PlaybackSpeedFactors)
+        var options = new List<PlaybackSpeedOption>(playbackSpeedFactors.Length);
+        foreach (var factor in playbackSpeedFactors)
         {
-            var seconds = Math.Clamp(baseSeconds / factor, MinPlaybackDelay, MaxPlaybackDelay);
+            var seconds = Math.Clamp(baseSeconds / factor, minPlaybackDelay, maxPlaybackDelay);
             var label = $"{factor:0.#}x";
             options.Add(new PlaybackSpeedOption(factor, seconds, label));
         }
@@ -2904,7 +2904,7 @@ private const string PmfExpectationLabel = "Value";
     {
         if (playbackSpeedOptions.Count == 0)
         {
-            playbackSpeedOptions.Add(new PlaybackSpeedOption(1d, Math.Clamp(playbackSecondsPerFrame, MinPlaybackDelay, MaxPlaybackDelay), "1x"));
+            playbackSpeedOptions.Add(new PlaybackSpeedOption(1d, Math.Clamp(playbackSecondsPerFrame, minPlaybackDelay, maxPlaybackDelay), "1x"));
         }
 
         var closest = playbackSpeedOptions[0].Factor;
@@ -2933,7 +2933,7 @@ private const string PmfExpectationLabel = "Value";
 
         return playbackSpeedOptions.Count > 0
             ? playbackSpeedOptions[0].Seconds
-            : Math.Clamp(BasePlaybackTotalSeconds, MinPlaybackDelay, MaxPlaybackDelay);
+            : Math.Clamp(basePlaybackTotalSeconds, minPlaybackDelay, maxPlaybackDelay);
     }
 
     private string BuildTickLabel(int bin)
@@ -2969,7 +2969,7 @@ private const string PmfExpectationLabel = "Value";
             var startBin = windowData.Window.StartBin;
             var endBin = windowData.Window.EndBin;
             var totalBins = Math.Max(1, endBin - startBin + 1);
-            var winStart = Math.Max(startBin, selectedBin - SparklinePointLimit + 1);
+            var winStart = Math.Max(startBin, selectedBin - sparklinePointLimit + 1);
             var winEnd = Math.Max(winStart, Math.Min(selectedBin, endBin));
             hStart = Math.Clamp(winStart - startBin, 0, totalBins - 1);
             hEnd = Math.Clamp(winEnd - startBin, 0, totalBins - 1);
@@ -3202,12 +3202,12 @@ private const string PmfExpectationLabel = "Value";
     private void MaybeScheduleScrubRefresh(int bin)
     {
         var now = Environment.TickCount64;
-        if (lastScrubRefreshBin == bin && (now - lastScrubRefreshAtMs) < ScrubRefreshIntervalMs)
+        if (lastScrubRefreshBin == bin && (now - lastScrubRefreshAtMs) < scrubRefreshIntervalMs)
         {
             return;
         }
 
-        if ((now - lastScrubRefreshAtMs) < ScrubRefreshIntervalMs)
+        if ((now - lastScrubRefreshAtMs) < scrubRefreshIntervalMs)
         {
             return;
         }
@@ -3288,7 +3288,7 @@ private const string PmfExpectationLabel = "Value";
             topologyGraph,
             timestampsSnapshot,
             classSelectionSnapshot,
-            SparklinePointLimit,
+            sparklinePointLimit,
             includeInspectorDetails,
             includeClassContributions,
             includeInspectorDetails ? inspectorIdSnapshot : null);
@@ -3337,7 +3337,7 @@ private const string PmfExpectationLabel = "Value";
             TopologyGraph = topologyGraph;
             Timestamps = timestamps;
             SelectedClasses = selectedClasses;
-            SparklinePointLimit = sparklinePointLimit;
+            this.sparklinePointLimit = sparklinePointLimit;
             HasClassSelection = selectedClasses.Count > 0;
             IncludeInspectorDetails = includeInspectorDetails;
             IncludeClassContributions = includeClassContributions;
@@ -3358,7 +3358,7 @@ private const string PmfExpectationLabel = "Value";
 
         public bool HasClassSelection { get; }
 
-        public int SparklinePointLimit { get; }
+        public int sparklinePointLimit { get; }
 
         public bool IncludeInspectorDetails { get; }
 
@@ -3803,7 +3803,7 @@ private const string PmfExpectationLabel = "Value";
                 var expectation = ComputePmfExpectation(topoNode?.Semantics?.Distribution);
                 if (expectation.HasValue)
                 {
-                    var syntheticLength = binCount > 0 ? binCount : context.SparklinePointLimit;
+                    var syntheticLength = binCount > 0 ? binCount : context.sparklinePointLimit;
                     syntheticLength = Math.Max(1, syntheticLength);
                     var syntheticSeries = new double?[syntheticLength];
                     for (var i = 0; i < syntheticLength; i++)
@@ -3828,7 +3828,7 @@ private const string PmfExpectationLabel = "Value";
             }
 
             var anchor = Math.Clamp(selectionLocalIndex, 0, (primarySeries?.Length ?? 1) - 1);
-            var trimmedPrimary = TrimSeriesAt(primarySeries, context.SparklinePointLimit, anchor);
+            var trimmedPrimary = TrimSeriesAt(primarySeries, context.sparklinePointLimit, anchor);
             if (trimmedPrimary.Count == 0)
             {
                 if (IsExpressionKind(displayKind))
@@ -3843,25 +3843,25 @@ private const string PmfExpectationLabel = "Value";
             var primaryStartIndex = windowStart + (anchor + 1 - trimmedPrimary.Count);
             var utilizationSeries = TryGetSeriesSnapshot(node, "utilization", context.HasClassSelection, context.SelectedClasses) ??
                                     BuildUtilizationSeriesSnapshot(node, context.HasClassSelection, context.SelectedClasses);
-            var trimmedUtilization = TrimSeriesAt(utilizationSeries, context.SparklinePointLimit, anchor, trimmedPrimary.Count);
+            var trimmedUtilization = TrimSeriesAt(utilizationSeries, context.sparklinePointLimit, anchor, trimmedPrimary.Count);
             var trimmedErrorRate = TrimSeriesAt(
                 BuildErrorRateSeriesSnapshot(node, context.HasClassSelection, context.SelectedClasses),
-                context.SparklinePointLimit,
+                context.sparklinePointLimit,
                 anchor,
                 trimmedPrimary.Count);
             var trimmedQueue = TrimSeriesAt(
                 TryGetSeriesSnapshot(node, "queue", context.HasClassSelection, context.SelectedClasses),
-                context.SparklinePointLimit,
+                context.sparklinePointLimit,
                 anchor,
                 trimmedPrimary.Count);
             var serviceTimeSeries = TryGetSeriesSnapshot(node, "serviceTimeMs", context.HasClassSelection, context.SelectedClasses) ??
                                     BuildServiceTimeSeriesSnapshot(node, context.HasClassSelection, context.SelectedClasses);
-            var trimmedServiceTime = TrimSeriesAt(serviceTimeSeries, context.SparklinePointLimit, anchor, trimmedPrimary.Count);
+            var trimmedServiceTime = TrimSeriesAt(serviceTimeSeries, context.sparklinePointLimit, anchor, trimmedPrimary.Count);
 
             var additional = new Dictionary<string, SparklineSeriesSlice>(StringComparer.OrdinalIgnoreCase);
             foreach (var pair in series)
             {
-                var trimmed = TrimSeriesAt(pair.Value, context.SparklinePointLimit, anchor, trimmedPrimary.Count);
+                var trimmed = TrimSeriesAt(pair.Value, context.sparklinePointLimit, anchor, trimmedPrimary.Count);
                 var startIndex = pair.Value is null || pair.Value.Length == 0
                     ? primaryStartIndex
                     : windowStart + (anchor + 1 - trimmed.Count);
@@ -3870,7 +3870,7 @@ private const string PmfExpectationLabel = "Value";
 
             if (successSeries is not null)
             {
-                var trimmedSuccess = TrimSeriesAt(successSeries, context.SparklinePointLimit, anchor, trimmedPrimary.Count);
+                var trimmedSuccess = TrimSeriesAt(successSeries, context.sparklinePointLimit, anchor, trimmedPrimary.Count);
                 if (trimmedSuccess.Count > 0)
                 {
                     var successStartIndex = windowStart + (anchor + 1 - trimmedSuccess.Count);
@@ -3934,7 +3934,7 @@ private const string PmfExpectationLabel = "Value";
                 {
                     var nullableSeries = inlineValues.Select(value => (double?)value).ToArray();
                     var anchor = Math.Clamp(anchorBin, 0, nullableSeries.Length - 1);
-                    var trimmedInline = TrimSeriesAt(nullableSeries, context.SparklinePointLimit, anchor);
+                    var trimmedInline = TrimSeriesAt(nullableSeries, context.sparklinePointLimit, anchor);
                     if (trimmedInline.Count == 0)
                     {
                         continue;
@@ -4044,13 +4044,13 @@ private static Dictionary<string, SparklineSeriesSlice>? CreateDistributionSlice
         }
 
         var anchor = Math.Clamp(anchorBin, 0, probabilities.Length - 1);
-        var trimmedProbabilities = TrimSeriesAt(probabilities, SparklinePointLimit, anchor);
+        var trimmedProbabilities = TrimSeriesAt(probabilities, sparklinePointLimit, anchor);
         if (trimmedProbabilities.Count == 0)
         {
             return null;
         }
 
-        var trimmedValues = TrimSeriesAt(supportValues, SparklinePointLimit, anchor, trimmedProbabilities.Count);
+        var trimmedValues = TrimSeriesAt(supportValues, sparklinePointLimit, anchor, trimmedProbabilities.Count);
         var probabilityArray = trimmedProbabilities as double?[] ?? trimmedProbabilities.ToArray();
         var valueArray = trimmedValues as double?[] ?? trimmedValues.ToArray();
         var probabilityStartIndex = anchor + 1 - probabilityArray.Length;
@@ -4669,24 +4669,24 @@ internal sealed record InspectorMetricBlock(
         }
         rows.Add(CreateRow("bin", selectedBin.ToString(CultureInfo.InvariantCulture)));
         if (metrics is not null &&
-            string.Equals(metrics.CustomLabel, BinValueLabel, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(metrics.CustomLabel, binValueLabel, StringComparison.OrdinalIgnoreCase) &&
             metrics.CustomValue.HasValue)
         {
-            rows.Add(CreateRow(BinValueLabel, FormatBinValue(metrics.CustomValue, InspectorValueFormat.Number)));
+            rows.Add(CreateRow(binValueLabel, FormatBinValue(metrics.CustomValue, InspectorValueFormat.Number)));
         }
         else
         {
-            rows.Add(CreateRow(BinValueLabel, "-"));
+            rows.Add(CreateRow(binValueLabel, "-"));
         }
         if (metrics is not null &&
             !string.IsNullOrWhiteSpace(metrics.CustomLabel) &&
-            !string.Equals(metrics.CustomLabel, BinValueLabel, StringComparison.OrdinalIgnoreCase))
+            !string.Equals(metrics.CustomLabel, binValueLabel, StringComparison.OrdinalIgnoreCase))
         {
             if (metrics.CustomValue.HasValue)
             {
                 rows.Add(CreateRow(metrics.CustomLabel!, FormatBinValue(metrics.CustomValue, InspectorValueFormat.Number)));
             }
-            else if (string.Equals(metrics.CustomLabel, MissingSeriesMessage, StringComparison.Ordinal))
+            else if (string.Equals(metrics.CustomLabel, missingSeriesMessage, StringComparison.Ordinal))
             {
                 rows.Add(CreateRow("Value", metrics.CustomLabel));
             }
@@ -6192,7 +6192,7 @@ internal sealed record InspectorMetricBlock(
     {
         try
         {
-            await Task.Delay(CanvasHoverDebounceInterval, cts.Token);
+            await Task.Delay(canvasHoverDebounceInterval, cts.Token);
             if (cts.Token.IsCancellationRequested)
             {
                 return;
@@ -6419,8 +6419,8 @@ private static IReadOnlyList<double?> TrimSeriesAt(double?[]? source, int limit,
         nodeClassContributions = new Dictionary<string, IReadOnlyList<ClassContribution>>(StringComparer.OrdinalIgnoreCase);
         classFilteredNodes.Clear();
         availableClasses = Array.Empty<string>();
-        classDisplayNames = EmptyClassLabels;
-        classMetadata = EmptyClassMetadata;
+        classDisplayNames = emptyClassLabels;
+        classMetadata = emptyClassMetadata;
         classCoverageState = null;
         selectedBin = 0;
         renderBin = 0;
@@ -6506,7 +6506,7 @@ private static IReadOnlyList<double?> TrimSeriesAt(double?[]? source, int limit,
     {
         if (windowWarnings.Count == 0)
         {
-            nodeWarningsForCanvas = EmptyNodeWarnings;
+            nodeWarningsForCanvas = emptyNodeWarnings;
             return;
         }
 
@@ -6524,7 +6524,7 @@ private static IReadOnlyList<double?> TrimSeriesAt(double?[]? source, int limit,
                 }).ToArray(),
                 StringComparer.OrdinalIgnoreCase);
 
-        nodeWarningsForCanvas = grouped.Count == 0 ? EmptyNodeWarnings : grouped;
+        nodeWarningsForCanvas = grouped.Count == 0 ? emptyNodeWarnings : grouped;
         Logger?.LogDebug("Node warning map rebuilt: {Count} nodes", nodeWarningsForCanvas.Count);
     }
 

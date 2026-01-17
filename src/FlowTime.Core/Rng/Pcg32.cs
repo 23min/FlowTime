@@ -16,19 +16,19 @@ namespace FlowTime.Core;
 /// </remarks>
 public class Pcg32
 {
-    private ulong _state;
-    private readonly ulong _increment;
+    private ulong state;
+    private readonly ulong increment;
 
     /// <summary>
     /// Default increment value for PCG32 algorithm.
     /// This value ensures good statistical properties and full period.
     /// </summary>
-    private const ulong DefaultIncrement = 1442695040888963407ul;
+    private const ulong defaultIncrement = 1442695040888963407ul;
 
     /// <summary>
-    /// Multiplier constant for the LCG step.
+    /// multiplier constant for the LCG step.
     /// </summary>
-    private const ulong Multiplier = 6364136223846793005ul;
+    private const ulong multiplier = 6364136223846793005ul;
 
     /// <summary>
     /// Initialize a new PCG32 random number generator with the specified seed.
@@ -36,8 +36,8 @@ public class Pcg32
     /// <param name="seed">Seed value (0 to int.MaxValue)</param>
     public Pcg32(int seed)
     {
-        _state = (ulong)seed;
-        _increment = DefaultIncrement;
+        state = (ulong)seed;
+        increment = defaultIncrement;
         
         // Warm up the generator - advance state once to avoid initial zero correlation
         NextUInt32();
@@ -49,8 +49,8 @@ public class Pcg32
     /// </summary>
     private Pcg32(ulong state, ulong increment)
     {
-        _state = state;
-        _increment = increment;
+        this.state = state;
+        this.increment = increment;
     }
 
     /// <summary>
@@ -59,10 +59,10 @@ public class Pcg32
     /// <returns>Random value in range [0, uint.MaxValue]</returns>
     public uint NextUInt32()
     {
-        ulong oldState = _state;
+        ulong oldState = state;
         
         // LCG step: advance internal state
-        _state = oldState * Multiplier + _increment;
+        state = oldState * multiplier + increment;
         
         // PCG-XSH-RR output function
         // XOR-shift high bits, then rotate right
@@ -106,7 +106,7 @@ public class Pcg32
     /// <returns>A new Pcg32 instance with identical state</returns>
     public Pcg32 Clone()
     {
-        return new Pcg32(_state, _increment);
+        return new Pcg32(state, increment);
     }
 
     /// <summary>
@@ -115,7 +115,7 @@ public class Pcg32
     /// <returns>Tuple of (state, increment)</returns>
     public (ulong State, ulong Increment) GetState()
     {
-        return (_state, _increment);
+        return (state, increment);
     }
 
     /// <summary>
@@ -133,6 +133,6 @@ public class Pcg32
     /// </summary>
     public override string ToString()
     {
-        return $"Pcg32(state={_state:X16}, increment={_increment:X16})";
+        return $"Pcg32(state={state:X16}, increment={increment:X16})";
     }
 }

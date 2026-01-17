@@ -22,38 +22,38 @@
         </MudPaper>
 
         <MudPaper Class="pa-4" Elevation="1">
-            <MudForm @ref="_form" Model="@this">
+            <MudForm @ref="form" Model="@this">
                 <MudGrid>
                     <MudItem xs="12" md="6">
-                        <MudTextField @bind-Value="_templateId"
+                        <MudTextField @bind-Value="templateId"
                                       Label="Template ID"
                                       Required="true"
-                                      Disabled="_isRunning"
+                                      Disabled="isRunning"
                                       Placeholder="e.g. it-system-microservices" />
                     </MudItem>
                     <MudItem xs="12" md="3">
-                    <MudSelect T="string" @bind-Value="_mode" Label="Mode" Disabled="_isRunning">
+                    <MudSelect T="string" @bind-Value="mode" Label="Mode" Disabled="isRunning">
                         <MudSelectItem T="string" Value="@("telemetry")">telemetry</MudSelectItem>
                         <MudSelectItem T="string" Value="@("simulation")">simulation</MudSelectItem>
                         </MudSelect>
                     </MudItem>
                     <MudItem xs="12" md="3">
-                        <MudTextField @bind-Value="_runLabel"
+                        <MudTextField @bind-Value="runLabel"
                                       Label="Run ID (optional)"
-                                      Disabled="_isRunning"
+                                      Disabled="isRunning"
                                       HelperText="Leave blank to auto-generate" />
                     </MudItem>
                     <MudItem xs="12" md="6">
-                        <MudSwitch @bind-Value="_deterministicRunId"
-                                   Disabled="_isRunning"
+                        <MudSwitch @bind-Value="deterministicRunId"
+                                   Disabled="isRunning"
                                    Color="Color.Secondary"
                                    Label="Use deterministic run id" />
                     </MudItem>
                     <MudItem xs="12">
-                        <MudTextField @bind-Value="_parametersText"
+                        <MudTextField @bind-Value="parametersText"
                                       Label="Parameters (JSON object)"
                                       Lines="4"
-                                      Disabled="_isRunning"
+                                      Disabled="isRunning"
                                       Placeholder="{ &quot;seed&quot;: 42, &quot;arrivalRate&quot;: 15 }"
                                       Variant="Variant.Outlined"
                                       Margin="Margin.Dense"
@@ -61,24 +61,24 @@
                     </MudItem>
                 </MudGrid>
 
-                @if (!string.IsNullOrEmpty(_validationError))
+                @if (!string.IsNullOrEmpty(validationError))
                 {
                     <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mt-2">
-                        @_validationError
+                        @validationError
                     </MudAlert>
                 }
 
                 <MudStack Row="true" Spacing="2" Class="mt-4">
                     <MudButton Variant="Variant.Filled"
                                Color="Color.Primary"
-                               Disabled="_isRunning"
+                               Disabled="isRunning"
                                OnClick="StartRunAsync"
                                StartIcon="@Icons.Material.Filled.PlayArrow">
                         Start
                     </MudButton>
                     <MudButton Variant="Variant.Outlined"
                                Color="Color.Warning"
-                               Disabled="!_isRunning"
+                               Disabled="!isRunning"
                                OnClick="CancelRun"
                                StartIcon="@Icons.Material.Filled.Cancel">
                         Cancel
@@ -95,31 +95,31 @@
                          Icon="@GetStatusIcon()">
                     @GetStatusText()
                 </MudChip>
-                @if (!string.IsNullOrEmpty(_statusMessage))
+                @if (!string.IsNullOrEmpty(statusMessage))
                 {
-                    <MudText Typo="Typo.body2">@_statusMessage</MudText>
+                    <MudText Typo="Typo.body2">@statusMessage</MudText>
                 }
             </MudStack>
 
-            @if (_status == RunExecutionStatus.Failed)
+            @if (status == RunExecutionStatus.Failed)
             {
                 <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mt-2">
                     <MudText Typo="Typo.subtitle2">Run failed</MudText>
-                    <MudText Typo="Typo.body2">@(_statusMessage ?? "Run orchestration failed.")</MudText>
+                    <MudText Typo="Typo.body2">@(statusMessage ?? "Run orchestration failed.")</MudText>
                     <MudText Typo="Typo.caption" Color="Color.Secondary">
                         Check the template id and parameters, then try again. Partial artifacts (if any) will appear under Artifacts until deleted.
                     </MudText>
                 </MudAlert>
             }
-            else if (_status == RunExecutionStatus.Partial)
+            else if (status == RunExecutionStatus.Partial)
             {
                 <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mt-2">
                     <MudText Typo="Typo.subtitle2">Run completed with warnings</MudText>
                     <MudText Typo="Typo.body2">Review the warnings below; the run can be opened but may be incomplete.</MudText>
-                    @if (_warningMessages.Count > 0)
+                    @if (warningMessages.Count > 0)
                     {
                         <MudList T="string" Dense="true">
-                            @foreach (var warn in _warningMessages)
+                            @foreach (var warn in warningMessages)
                             {
                                 <MudListItem T="string">@warn</MudListItem>
                             }
@@ -134,7 +134,7 @@
             <MudDivider Class="my-3" />
         </MudPaper>
 
-        @if (_resultSummary is not null)
+        @if (resultSummary is not null)
         {
             <MudPaper Class="pa-4" Elevation="1">
                 <MudStack Spacing="2">
@@ -143,25 +143,25 @@
                     <MudList T="string" Dense="true">
                         <MudListItem T="string">
                             <MudText Typo="Typo.subtitle2">Run ID</MudText>
-                            <MudText Typo="Typo.body2">@_resultSummary.RunId</MudText>
+                            <MudText Typo="Typo.body2">@resultSummary.RunId</MudText>
                         </MudListItem>
                         <MudListItem T="string">
                             <MudText Typo="Typo.subtitle2">Template</MudText>
-                            <MudText Typo="Typo.body2">@_resultSummary.TemplateId</MudText>
+                            <MudText Typo="Typo.body2">@resultSummary.TemplateId</MudText>
                         </MudListItem>
                         <MudListItem T="string">
                             <MudText Typo="Typo.subtitle2">Created (UTC)</MudText>
-                            <MudText Typo="Typo.body2">@(_resultSummary.CreatedUtc?.ToString("yyyy-MM-dd HH:mm:ss") ?? "—")</MudText>
+                            <MudText Typo="Typo.body2">@(resultSummary.CreatedUtc?.ToString("yyyy-MM-dd HH:mm:ss") ?? "—")</MudText>
                         </MudListItem>
                         <MudListItem T="string">
                             <MudText Typo="Typo.subtitle2">Grid</MudText>
-                            <MudText Typo="Typo.body2">@(_resultSummary.GridBins.HasValue
-                                ? $"{_resultSummary.GridBins} bins · {_resultSummary.GridBinMinutes} min"
+                            <MudText Typo="Typo.body2">@(resultSummary.GridBins.HasValue
+                                ? $"{resultSummary.GridBins} bins · {resultSummary.GridBinMinutes} min"
                                 : "Unavailable")</MudText>
                         </MudListItem>
                         <MudListItem T="string">
                             <MudText Typo="Typo.subtitle2">Warnings</MudText>
-                            <MudText Typo="Typo.body2">@_resultSummary.WarningCount</MudText>
+                            <MudText Typo="Typo.body2">@resultSummary.WarningCount</MudText>
                         </MudListItem>
                         <MudListItem T="string">
                             <MudText Typo="Typo.subtitle2">Artifacts</MudText>
@@ -169,13 +169,13 @@
                                 <MudChip T="string"
                                          Size="Size.Small"
                                          Variant="Variant.Outlined"
-                                         Color="@(_resultSummary.HasManifest ? Color.Success : Color.Warning)">
+                                         Color="@(resultSummary.HasManifest ? Color.Success : Color.Warning)">
                                     manifest.json
                                 </MudChip>
                                 <MudChip T="string"
                                          Size="Size.Small"
                                          Variant="Variant.Outlined"
-                                         Color="@(_resultSummary.HasSeriesIndex ? Color.Success : Color.Warning)">
+                                         Color="@(resultSummary.HasSeriesIndex ? Color.Success : Color.Warning)">
                                     series/index.json
                                 </MudChip>
                             </MudStack>
@@ -186,13 +186,13 @@
                         <MudButton Variant="Variant.Filled"
                                    Color="Color.Primary"
                                    StartIcon="@Icons.Material.Filled.AutoAwesome"
-                                   OnClick="() => OpenInTimeTravel(_resultSummary.RunId)">
+                                   OnClick="() => OpenInTimeTravel(resultSummary.RunId)">
                             Open in Time-Travel
                         </MudButton>
                         <MudButton Variant="Variant.Outlined"
                                    Color="Color.Secondary"
                                    StartIcon="@Icons.Material.Filled.TableRows"
-                                   OnClick="() => ViewInArtifacts(_resultSummary.RunId)">
+                                   OnClick="() => ViewInArtifacts(resultSummary.RunId)">
                             View in Artifacts
                         </MudButton>
                         <MudButton Variant="Variant.Text"
@@ -209,140 +209,140 @@
 </MudContainer>
 
 @code {
-    private MudForm? _form;
-    private string _templateId = string.Empty;
-    private string _mode = "simulation";
-    private string _runLabel = string.Empty;
-    private bool _deterministicRunId;
-    private string _parametersText = string.Empty;
-    private string? _validationError;
+    private MudForm? form;
+    private string templateId = string.Empty;
+    private string mode = "simulation";
+    private string runLabel = string.Empty;
+    private bool deterministicRunId;
+    private string parametersText = string.Empty;
+    private string? validationError;
 
-    private bool _isRunning;
-    private string? _statusMessage;
-    private RunExecutionStatus _status = RunExecutionStatus.Idle;
-    private RunResultSummary? _resultSummary;
-    private CancellationTokenSource? _cts;
-    private readonly List<string> _warningMessages = new();
+    private bool isRunning;
+    private string? statusMessage;
+    private RunExecutionStatus status = RunExecutionStatus.Idle;
+    private RunResultSummary? resultSummary;
+    private CancellationTokenSource? cts;
+    private readonly List<string> warningMessages = new();
 
     private async Task StartRunAsync()
     {
-        if (_isRunning)
+        if (isRunning)
         {
             return;
         }
 
-        _validationError = null;
-        _resultSummary = null;
+        validationError = null;
+        resultSummary = null;
 
         var parameters = ParseParameters();
-        if (parameters is null && !string.IsNullOrWhiteSpace(_parametersText))
+        if (parameters is null && !string.IsNullOrWhiteSpace(parametersText))
         {
-            _validationError = "Parameters must be a valid JSON object.";
-            _status = RunExecutionStatus.Failed;
-            _statusMessage = _validationError;
+            validationError = "Parameters must be a valid JSON object.";
+            status = RunExecutionStatus.Failed;
+            statusMessage = validationError;
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(_templateId))
+        if (string.IsNullOrWhiteSpace(templateId))
         {
-            _validationError = "Template ID is required.";
-            _status = RunExecutionStatus.Failed;
-            _statusMessage = _validationError;
+            validationError = "Template ID is required.";
+            status = RunExecutionStatus.Failed;
+            statusMessage = validationError;
             return;
         }
 
-        _isRunning = true;
-        _status = RunExecutionStatus.Queued;
-        _statusMessage = null;
-        _warningMessages.Clear();
+        isRunning = true;
+        status = RunExecutionStatus.Queued;
+        statusMessage = null;
+        warningMessages.Clear();
 
-        _cts = new CancellationTokenSource();
+        cts = new CancellationTokenSource();
 
         try
         {
             await Task.Yield(); // allow UI to update
 
-            _status = RunExecutionStatus.Running;
+            status = RunExecutionStatus.Running;
 
             var request = BuildRunRequest(parameters);
-            var result = await SimApiClient.CreateRunAsync(request, _cts.Token);
+            var result = await SimApiClient.CreateRunAsync(request, cts.Token);
 
             if (!result.Success || result.Value?.Metadata?.RunId is null)
             {
-                _status = RunExecutionStatus.Failed;
+                status = RunExecutionStatus.Failed;
                 var error = result.Error ?? "Run orchestration failed.";
                 var statusPrefix = result.StatusCode > 0 ? $"HTTP {result.StatusCode}: " : string.Empty;
-                _statusMessage = statusPrefix + error;
+                statusMessage = statusPrefix + error;
                 return;
             }
 
             var runId = result.Value.Metadata.RunId;
-            _resultSummary = await BuildSummaryAsync(runId, result.Value, _cts.Token);
+            resultSummary = await BuildSummaryAsync(runId, result.Value, cts.Token);
 
-            _warningMessages.Clear();
+            warningMessages.Clear();
             if (result.Value.Warnings is { Count: > 0 })
             {
                 foreach (var warning in result.Value.Warnings)
                 {
-                    _warningMessages.Add(string.IsNullOrWhiteSpace(warning.NodeId)
+                    warningMessages.Add(string.IsNullOrWhiteSpace(warning.NodeId)
                         ? $"{warning.Code}: {warning.Message}"
                         : $"{warning.Code} ({warning.NodeId}): {warning.Message}");
                 }
             }
 
-            if (_resultSummary?.HasWarnings == true || _warningMessages.Count > 0)
+            if (resultSummary?.HasWarnings == true || warningMessages.Count > 0)
             {
-                _status = RunExecutionStatus.Partial;
-                _statusMessage = $"Run {runId} completed with warnings.";
+                status = RunExecutionStatus.Partial;
+                statusMessage = $"Run {runId} completed with warnings.";
             }
             else
             {
-                _status = RunExecutionStatus.Succeeded;
-                _statusMessage = $"Run {runId} is ready.";
+                status = RunExecutionStatus.Succeeded;
+                statusMessage = $"Run {runId} is ready.";
             }
         }
         catch (OperationCanceledException)
         {
-            _status = RunExecutionStatus.Canceled;
-            _statusMessage = "Run canceled.";
+            status = RunExecutionStatus.Canceled;
+            statusMessage = "Run canceled.";
         }
         catch (Exception ex)
         {
-            _status = RunExecutionStatus.Failed;
-            _statusMessage = ex.Message;
+            status = RunExecutionStatus.Failed;
+            statusMessage = ex.Message;
             Logger.LogError(ex, "Unexpected error during simulation orchestration.");
         }
         finally
         {
-        _cts?.Dispose();
-        _cts = null;
-        _isRunning = false;
+        cts?.Dispose();
+        cts = null;
+        isRunning = false;
         StateHasChanged();
         }
     }
 
     private void CancelRun()
     {
-        if (!_isRunning || _cts is null)
+        if (!isRunning || cts is null)
         {
             return;
         }
 
-        _cts.Cancel();
+        cts.Cancel();
     }
 
     private RunCreateRequestDto BuildRunRequest(Dictionary<string, JsonElement>? parameters)
     {
         RunCreationOptionsDto? options = null;
         options = new RunCreationOptionsDto(
-            DeterministicRunId: _deterministicRunId,
-            RunId: string.IsNullOrWhiteSpace(_runLabel) ? null : _runLabel.Trim(),
+            DeterministicRunId: deterministicRunId,
+            RunId: string.IsNullOrWhiteSpace(runLabel) ? null : runLabel.Trim(),
             DryRun: false,
             OverwriteExisting: true);
 
         return new RunCreateRequestDto(
-            TemplateId: _templateId.Trim(),
-            Mode: string.IsNullOrWhiteSpace(_mode) ? "telemetry" : _mode,
+            TemplateId: templateId.Trim(),
+            Mode: string.IsNullOrWhiteSpace(mode) ? "telemetry" : mode,
             Parameters: parameters,
             Telemetry: null,
             Options: options);
@@ -350,14 +350,14 @@
 
     private Dictionary<string, JsonElement>? ParseParameters()
     {
-        if (string.IsNullOrWhiteSpace(_parametersText))
+        if (string.IsNullOrWhiteSpace(parametersText))
         {
             return null;
         }
 
         try
         {
-            using var doc = JsonDocument.Parse(_parametersText);
+            using var doc = JsonDocument.Parse(parametersText);
             if (doc.RootElement.ValueKind != JsonValueKind.Object)
             {
                 return null;
@@ -422,7 +422,7 @@
 
         return new RunResultSummary(
             RunId: runId,
-            TemplateId: response.Metadata?.TemplateId ?? _templateId,
+            TemplateId: response.Metadata?.TemplateId ?? templateId,
             CreatedUtc: created,
             GridBins: bins,
             GridBinMinutes: binMinutes,
@@ -442,7 +442,7 @@
         Navigation.NavigateTo($"/artifacts?focus={Uri.EscapeDataString(runId)}");
     }
 
-    private string GetStatusText() => _status switch
+    private string GetStatusText() => status switch
     {
         RunExecutionStatus.Idle => "Idle",
         RunExecutionStatus.Queued => "Queued",
@@ -454,7 +454,7 @@
         _ => "Unknown"
     };
 
-    private string GetStatusIcon() => _status switch
+    private string GetStatusIcon() => status switch
     {
         RunExecutionStatus.Idle => Icons.Material.Filled.HourglassEmpty,
         RunExecutionStatus.Queued => Icons.Material.Filled.Schedule,
@@ -466,7 +466,7 @@
         _ => Icons.Material.Filled.Info
     };
 
-    private Color GetStatusColor() => _status switch
+    private Color GetStatusColor() => status switch
     {
         RunExecutionStatus.Partial => Color.Warning,
         RunExecutionStatus.Succeeded => Color.Success,

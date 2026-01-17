@@ -11,24 +11,24 @@ namespace FlowTime.Cli.Tests;
 /// </summary>
 public class OutputDirectoryConfigurationTests : IDisposable
 {
-    private readonly string? _originalEnvVar;
+    private readonly string? originalEnvVar;
 
     public OutputDirectoryConfigurationTests()
     {
         // Save original environment variable
-        _originalEnvVar = Environment.GetEnvironmentVariable("FLOWTIME_DATA_DIR");
+        originalEnvVar = Environment.GetEnvironmentVariable("FLOWTIME_DATA_DIR");
     }
 
     public void Dispose()
     {
         // Restore original environment variable
-        if (_originalEnvVar == null)
+        if (originalEnvVar == null)
         {
             Environment.SetEnvironmentVariable("FLOWTIME_DATA_DIR", null);
         }
         else
         {
-            Environment.SetEnvironmentVariable("FLOWTIME_DATA_DIR", _originalEnvVar);
+            Environment.SetEnvironmentVariable("FLOWTIME_DATA_DIR", originalEnvVar);
         }
     }
 

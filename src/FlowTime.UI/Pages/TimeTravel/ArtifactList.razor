@@ -27,14 +27,14 @@
                 <MudStack Row Spacing="1" AlignItems="AlignItems.Center">
                     <MudButtonGroup Variant="Variant.Text" Class="artifact-view-toggle">
                         <MudButton StartIcon="@Icons.Material.Filled.ViewModule"
-                                   Variant="@(_viewMode == ArtifactViewMode.Cards ? Variant.Filled : Variant.Outlined)"
+                                   Variant="@(viewMode == ArtifactViewMode.Cards ? Variant.Filled : Variant.Outlined)"
                                    Color="Color.Primary"
                                    data-testid="artifact-view-cards"
                                    OnClick="() => SetViewMode(ArtifactViewMode.Cards)">
                             Cards
                         </MudButton>
                         <MudButton StartIcon="@Icons.Material.Filled.TableRows"
-                                   Variant="@(_viewMode == ArtifactViewMode.List ? Variant.Filled : Variant.Outlined)"
+                                   Variant="@(viewMode == ArtifactViewMode.List ? Variant.Filled : Variant.Outlined)"
                                    Color="Color.Primary"
                                    data-testid="artifact-view-list"
                                    OnClick="() => SetViewMode(ArtifactViewMode.List)">
@@ -48,7 +48,7 @@
                         @($"{TotalRuns} runs")
                     </MudChip>
                     <MudButton Variant="Variant.Outlined"
-                               Disabled="@_isLoading"
+                               Disabled="@isLoading"
                                OnClick="RefreshAsync"
                                StartIcon="@Icons.Material.Filled.Refresh">
                         Refresh
@@ -68,28 +68,28 @@
                                          Variant="Variant.Outlined"
                                          Size="Size.Small"
                                          Color="Color.Secondary"
-                                         Selected="@(!_state.SelectedModes.Any() && _state.TelemetryFilter == ArtifactTelemetryFilter.All)"
+                                         Selected="@(!state.SelectedModes.Any() && state.TelemetryFilter == ArtifactTelemetryFilter.All)"
                                          data-testid="filter-mode-all"
                                          OnClick="@(() => SetModeFilterAsync(null))">
-                                    All (@_runs.Count)
+                                    All (@runs.Count)
                                 </MudChip>
                                 <MudChip T="string"
                                          Variant="Variant.Outlined"
                                          Size="Size.Small"
                                          Color="Color.Secondary"
-                                         Selected="@_state.IsModeSelected("simulation")"
+                                         Selected="@state.IsModeSelected("simulation")"
                                          data-testid="filter-mode-simulation"
                                          OnClick="@(() => SetModeFilterAsync("simulation"))">
-                                    Simulation (@_simulationModeCount)
+                                    Simulation (@simulationModeCount)
                                 </MudChip>
                                 <MudChip T="string"
                                          Variant="Variant.Outlined"
                                          Size="Size.Small"
                                          Color="Color.Secondary"
-                                         Selected="@(_state.TelemetryFilter == ArtifactTelemetryFilter.Available)"
+                                         Selected="@(state.TelemetryFilter == ArtifactTelemetryFilter.Available)"
                                          data-testid="filter-mode-telemetry"
                                          OnClick="@(() => SetModeFilterAsync("telemetry-available"))">
-                                    Telemetry (@_telemetryAvailable)
+                                    Telemetry (@telemetryAvailable)
                                 </MudChip>
                             </MudStack>
                         </MudStack>
@@ -101,7 +101,7 @@
                                          Variant="Variant.Outlined"
                                          Size="Size.Small"
                                          Color="Color.Info"
-                                         Selected="@(_state.WarningFilter == ArtifactWarningFilter.All)"
+                                         Selected="@(state.WarningFilter == ArtifactWarningFilter.All)"
                                          data-testid="filter-warnings-all"
                                          OnClick="@(() => SetWarningFilterAsync(ArtifactWarningFilter.All))">
                                     All
@@ -110,24 +110,24 @@
                                          Variant="Variant.Outlined"
                                          Size="Size.Small"
                                          Color="Color.Warning"
-                                         Selected="@(_state.WarningFilter == ArtifactWarningFilter.HasWarnings)"
+                                         Selected="@(state.WarningFilter == ArtifactWarningFilter.HasWarnings)"
                                          data-testid="filter-warnings-present"
                                          OnClick="@(() => SetWarningFilterAsync(ArtifactWarningFilter.HasWarnings))">
-                                    Warnings (@_warningsWithIssues)
+                                    Warnings (@warningsWithIssues)
                                 </MudChip>
                                 <MudChip T="string"
                                          Variant="Variant.Outlined"
                                          Size="Size.Small"
                                          Color="Color.Success"
-                                         Selected="@(_state.WarningFilter == ArtifactWarningFilter.NoWarnings)"
+                                         Selected="@(state.WarningFilter == ArtifactWarningFilter.NoWarnings)"
                                          data-testid="filter-warnings-none"
                                          OnClick="@(() => SetWarningFilterAsync(ArtifactWarningFilter.NoWarnings))">
-                                    None (@_warningsClear)
+                                    None (@warningsClear)
                                 </MudChip>
                             </MudStack>
                         </MudStack>
 
-                        @if (_viewMode == ArtifactViewMode.Cards)
+                        @if (viewMode == ArtifactViewMode.Cards)
                         {
                             <MudStack Row Spacing="1" AlignItems="AlignItems.Center">
                                 <MudText Typo="Typo.subtitle2">Sort By</MudText>
@@ -136,7 +136,7 @@
                                              Variant="Variant.Outlined"
                                              Size="Size.Small"
                                              Color="Color.Primary"
-                                             Selected="@(_state.SortOption == ArtifactSortOption.Created)"
+                                             Selected="@(state.SortOption == ArtifactSortOption.Created)"
                                              data-testid="sort-created"
                                              OnClick="@(async () => await OnSortChanged(ArtifactSortOption.Created))">
                                         Created
@@ -145,7 +145,7 @@
                                              Variant="Variant.Outlined"
                                              Size="Size.Small"
                                              Color="Color.Primary"
-                                             Selected="@(_state.SortOption == ArtifactSortOption.Status)"
+                                             Selected="@(state.SortOption == ArtifactSortOption.Status)"
                                              data-testid="sort-status"
                                              OnClick="@(async () => await OnSortChanged(ArtifactSortOption.Status))">
                                         Status
@@ -154,7 +154,7 @@
                                              Variant="Variant.Outlined"
                                              Size="Size.Small"
                                              Color="Color.Primary"
-                                             Selected="@(_state.SortOption == ArtifactSortOption.Template)"
+                                             Selected="@(state.SortOption == ArtifactSortOption.Template)"
                                              data-testid="sort-template"
                                              OnClick="@(async () => await OnSortChanged(ArtifactSortOption.Template))">
                                         Template
@@ -167,7 +167,7 @@
 
                 <MudItem xs="12" md="4">
                     <MudStack Spacing="1">
-                        <MudTextField Value="_searchInput"
+                        <MudTextField Value="searchInput"
                                       ValueChanged="@(async (string value) => await OnSearchChanged(value))"
                                       Label="Search"
                                       Variant="Variant.Outlined"
@@ -183,7 +183,7 @@
                     <MudTooltip Text="Reset filters">
                         <MudIconButton Icon="@Icons.Material.Filled.Close"
                                        Color="Color.Secondary"
-                                       Disabled="@(!_hasActiveFilters)"
+                                       Disabled="@(!hasActiveFilters)"
                                        OnClick="ResetFiltersAsync"
                                        @attributes=@GetAriaLabelAttributes("Reset filters") />
                     </MudTooltip>
@@ -191,12 +191,12 @@
             </MudGrid>
         </MudPaper>
 
-        @if (_discoveryDiagnostics.Count > 0)
+        @if (discoveryDiagnostics.Count > 0)
         {
             <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.Info">
                 <MudText Typo="Typo.subtitle2">Diagnostics</MudText>
                 <MudList T="RunDiagnostic" Dense="true">
-                    @foreach (var diagnostic in _discoveryDiagnostics)
+                    @foreach (var diagnostic in discoveryDiagnostics)
                     {
                         <MudListItem T="RunDiagnostic" Value="diagnostic">
                             <MudText Typo="Typo.body2">@($"{diagnostic.RunId}: {diagnostic.Message}")</MudText>
@@ -206,12 +206,12 @@
             </MudAlert>
         }
 
-        @if (_discoveryDiagnostics.Count > 0)
+        @if (discoveryDiagnostics.Count > 0)
                 {
                     <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.Info">
                         <MudText Typo="Typo.subtitle2">Diagnostics</MudText>
                         <MudList T="RunDiagnostic" Dense="true">
-                            @foreach (var diagnostic in _discoveryDiagnostics)
+                            @foreach (var diagnostic in discoveryDiagnostics)
                             {
                                 <MudListItem T="RunDiagnostic" Value="diagnostic">
                                     <MudText Typo="Typo.body2">@($"{diagnostic.RunId}: {diagnostic.Message}")</MudText>
@@ -221,7 +221,7 @@
                     </MudAlert>
                 }
 
-                @if (_isLoading)
+                @if (isLoading)
                 {
                     <MudPaper Class="pa-6" Elevation="1">
                         <MudStack AlignItems="AlignItems.Center" Spacing="2">
@@ -230,12 +230,12 @@
                         </MudStack>
                     </MudPaper>
                 }
-                else if (!string.IsNullOrWhiteSpace(_errorMessage))
+                else if (!string.IsNullOrWhiteSpace(errorMessage))
                 {
                     <MudPaper Class="pa-4" Elevation="1">
                         <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.ErrorOutline">
                             <MudText Typo="Typo.subtitle1">Unable to load runs</MudText>
-                            <MudText Typo="Typo.body2">@_errorMessage</MudText>
+                            <MudText Typo="Typo.body2">@errorMessage</MudText>
                             <MudButton Variant="Variant.Text"
                                        Color="Color.Primary"
                                        StartIcon="@Icons.Material.Filled.Refresh"
@@ -245,7 +245,7 @@
                         </MudAlert>
                     </MudPaper>
                 }
-                else if (_view.TotalItems == 0)
+                else if (view.TotalItems == 0)
                 {
                     <MudPaper Class="pa-6" Elevation="1">
                         <MudStack AlignItems="AlignItems.Center" Spacing="2">
@@ -261,11 +261,11 @@
                 {
                     <MudStack Row Class="artifact-content-row" Spacing="2">
                     <MudStack Class="artifact-list-column" Spacing="2">
-                        @if (_viewMode == ArtifactViewMode.Cards)
+                        @if (viewMode == ArtifactViewMode.Cards)
                         {
                             <MudPaper Class="artifact-paper" Elevation="1">
                                 <div class="artifact-cards-grid">
-                                    @foreach (var run in _view.Items)
+                                    @foreach (var run in view.Items)
                                     {
                                         <RunCard Run="run"
                                                  Status="@ArtifactListState.DetermineStatus(run)"
@@ -286,10 +286,10 @@
                                             <MudButton Variant="Variant.Filled"
                                                        Color="Color.Error"
                                                        StartIcon="@Icons.Material.Filled.Delete"
-                                                       Disabled="@(!_selectedRunIds.Any() || _isDeletingArtifacts)"
+                                                       Disabled="@(!selectedRunIds.Any() || isDeletingArtifacts)"
                                                        data-testid="artifact-delete-button"
                                                        OnClick="DeleteSelectedAsync">
-                                                @if (_isDeletingArtifacts)
+                                                @if (isDeletingArtifacts)
                                                 {
                                                     <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
                                                 }
@@ -377,7 +377,7 @@
                                                 <span>Open</span>
                                             </div>
                                         </div>
-                                        @foreach (var run in _view.Items)
+                                        @foreach (var run in view.Items)
                                         {
                                             <div class="@GetRowClass(run) artifact-grid-row"
                                                  role="button"
@@ -475,30 +475,30 @@
 
                         <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
                             <MudText Typo="Typo.caption" Color="Color.Secondary">
-                                Showing @_view.Items.Count of @_view.TotalItems runs (page @_view.PageIndex / @_view.TotalPages)
+                                Showing @view.Items.Count of @view.TotalItems runs (page @view.PageIndex / @view.TotalPages)
                             </MudText>
                                 <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
                                     <MudIconButton Icon="@Icons.Material.Filled.NavigateBefore"
-                                                   Disabled="@(_state.PageIndex <= 1)"
+                                                   Disabled="@(state.PageIndex <= 1)"
                                                    OnClick="PreviousPageAsync"
                                                    @attributes=@GetAriaLabelAttributes("Previous page") />
-                                    <MudText Typo="Typo.body2">@_view.PageIndex</MudText>
+                                    <MudText Typo="Typo.body2">@view.PageIndex</MudText>
                                     <MudIconButton Icon="@Icons.Material.Filled.NavigateNext"
-                                                   Disabled="@(_view.PageIndex >= _view.TotalPages)"
+                                                   Disabled="@(view.PageIndex >= view.TotalPages)"
                                                    OnClick="NextPageAsync"
                                                    @attributes=@GetAriaLabelAttributes("Next page") />
                                 </MudStack>
                             </MudStack>
                         </MudStack>
 
-                        <RunDetailsDrawer Open="_isDrawerOpen"
-                                          Run="_selectedRun"
-                                          Detail="_selectedDetail"
-                                          IsLoading="_isDetailLoading"
-                                          IsGeneratingTelemetry="_isGeneratingTelemetry"
-                                          ErrorMessage="@_detailError"
-                                          LastCaptureSummary="_captureSummary"
-                                          OverwriteTelemetry="_overwriteCapture"
+                        <RunDetailsDrawer Open="isDrawerOpen"
+                                          Run="selectedRun"
+                                          Detail="selectedDetail"
+                                          IsLoading="isDetailLoading"
+                                          IsGeneratingTelemetry="isGeneratingTelemetry"
+                                          ErrorMessage="@detailError"
+                                          LastCaptureSummary="captureSummary"
+                                          OverwriteTelemetry="overwriteCapture"
                                           OverwriteTelemetryChanged="OnOverwriteChanged"
                                           CanLoadModel="CanLoadModel"
                                           CanLoadTelemetry="CanLoadTelemetry"

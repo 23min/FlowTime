@@ -7,8 +7,8 @@ namespace FlowTime.UI.Tests.TimeTravel;
 
 public sealed class TopologyHelpersTests
 {
-    private const double VerticalSpacing = 140d;
-    private const int LeafLane = 2;
+    private const double verticalSpacing = 140d;
+    private const int leafLane = 2;
 
     [Fact]
     public void GraphMapperAssignsLayersAndConnections()
@@ -362,6 +362,6 @@ private static GraphNodeSemanticsModel CreateSemantics()
 
     private static int ResolveRow(TopologyNode node)
     {
-        return (int)Math.Round(node.Y / VerticalSpacing, MidpointRounding.AwayFromZero);
+        return (int)Math.Round(node.Y / verticalSpacing, MidpointRounding.AwayFromZero);
     }
 }

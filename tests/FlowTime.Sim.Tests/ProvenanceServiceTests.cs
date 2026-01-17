@@ -11,11 +11,11 @@ namespace FlowTime.Sim.Tests;
 /// </summary>
 public class ProvenanceServiceTests
 {
-    private readonly IProvenanceService _service;
+    private readonly IProvenanceService service;
 
     public ProvenanceServiceTests()
     {
-        _service = new ProvenanceService();
+        service = new ProvenanceService();
     }
 
     [Fact]
@@ -31,9 +31,9 @@ public class ProvenanceServiceTests
         };
 
         // Act
-        var provenance1 = _service.CreateProvenance(templateId, "1.0", "IT System", parameters);
+        var provenance1 = service.CreateProvenance(templateId, "1.0", "IT System", parameters);
         Thread.Sleep(1100); // Ensure different second in timestamp
-        var provenance2 = _service.CreateProvenance(templateId, "1.0", "IT System", parameters);
+        var provenance2 = service.CreateProvenance(templateId, "1.0", "IT System", parameters);
 
         // Assert
         Assert.NotEqual(provenance1.ModelId, provenance2.ModelId);
@@ -54,9 +54,9 @@ public class ProvenanceServiceTests
         };
 
         // Act - Generate multiple times with same inputs
-        var provenance1 = _service.CreateProvenance(templateId, "1.0", "IT System", parameters);
+        var provenance1 = service.CreateProvenance(templateId, "1.0", "IT System", parameters);
         Thread.Sleep(10);
-        var provenance2 = _service.CreateProvenance(templateId, "1.0", "IT System", parameters);
+        var provenance2 = service.CreateProvenance(templateId, "1.0", "IT System", parameters);
 
         // Extract hash portions (format: model_TIMESTAMP_HASH)
         var hash1 = provenance1.ModelId.Split('_')[2];
@@ -76,8 +76,8 @@ public class ProvenanceServiceTests
         var params2 = new Dictionary<string, object?> { ["bins"] = 24 };
 
         // Act
-        var provenance1 = _service.CreateProvenance(templateId, "1.0", "IT System", params1);
-        var provenance2 = _service.CreateProvenance(templateId, "1.0", "IT System", params2);
+        var provenance1 = service.CreateProvenance(templateId, "1.0", "IT System", params1);
+        var provenance2 = service.CreateProvenance(templateId, "1.0", "IT System", params2);
 
         // Extract hash portions
         var hash1 = provenance1.ModelId.Split('_')[2];
@@ -103,7 +103,7 @@ public class ProvenanceServiceTests
         };
 
         // Act
-        var provenance = _service.CreateProvenance(templateId, templateVersion, templateTitle, parameters);
+        var provenance = service.CreateProvenance(templateId, templateVersion, templateTitle, parameters);
 
         // Assert - All required fields present
         Assert.Equal("flowtime-sim", provenance.Source);
@@ -127,7 +127,7 @@ public class ProvenanceServiceTests
         var parameters = new Dictionary<string, object?>();
 
         // Act
-        var provenance = _service.CreateProvenance(templateId, "1.0", "Test", parameters);
+        var provenance = service.CreateProvenance(templateId, "1.0", "Test", parameters);
 
         // Assert - ISO8601 format with timezone
         Assert.Matches(@"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$", provenance.GeneratedAt);
@@ -150,7 +150,7 @@ public class ProvenanceServiceTests
         };
 
         // Act
-        var provenance = _service.CreateProvenance(templateId, "1.0", "IT System", parameters);
+        var provenance = service.CreateProvenance(templateId, "1.0", "IT System", parameters);
         var json = JsonSerializer.Serialize(provenance, new JsonSerializerOptions
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -179,7 +179,7 @@ public class ProvenanceServiceTests
         };
 
         // Act
-        var provenance = _service.CreateProvenance("test", "1.0", "Test", parameters);
+        var provenance = service.CreateProvenance("test", "1.0", "Test", parameters);
 
         // Assert - Decimal formatting should be invariant (not culture-dependent)
         // This ensures hash determinism across different locales
@@ -190,7 +190,7 @@ public class ProvenanceServiceTests
         try
         {
             Thread.CurrentThread.CurrentCulture = new System.Globalization.CultureInfo("de-DE");
-            var provenance2 = _service.CreateProvenance("test", "1.0", "Test", parameters);
+            var provenance2 = service.CreateProvenance("test", "1.0", "Test", parameters);
             
             // Hash portions should match (deterministic)
             var hash1 = provenance.ModelId.Split('_')[2];
@@ -210,7 +210,7 @@ public class ProvenanceServiceTests
         var parameters = new Dictionary<string, object?>();
 
         // Act
-        var provenance = _service.CreateProvenance("simple-template", "1.0", "Simple", parameters);
+        var provenance = service.CreateProvenance("simple-template", "1.0", "Simple", parameters);
 
         // Assert
         Assert.NotNull(provenance);
@@ -227,7 +227,7 @@ public class ProvenanceServiceTests
             ["arrivals"] = "OrderService_arrivals.csv"
         };
 
-        var provenance = _service.CreateProvenance(
+        var provenance = service.CreateProvenance(
             "it-system-microservices",
             "1.0",
             "IT System",
@@ -254,14 +254,14 @@ public class ProvenanceServiceTests
 
         // Act & Assert
         Assert.Throws<ArgumentNullException>(() =>
-            _service.CreateProvenance("template", "1.0", "Title", parameters!));
+            service.CreateProvenance("template", "1.0", "Title", parameters!));
     }
 
     [Fact]
     public void ModelIdGeneration_Format_IsCorrect()
     {
         // Arrange & Act
-        var provenance = _service.CreateProvenance("test", "1.0", "Test", new Dictionary<string, object?>());
+        var provenance = service.CreateProvenance("test", "1.0", "Test", new Dictionary<string, object?>());
 
         // Assert - Format: model_YYYYMMDDTHHMMSSZ_<8hex>
         var parts = provenance.ModelId.Split('_');
@@ -285,7 +285,7 @@ public class ProvenanceServiceTests
         // Act - Generate 100 provenance metadata objects
         for (int i = 0; i < 100; i++)
         {
-            _service.CreateProvenance("test", "1.0", "Test", parameters);
+            service.CreateProvenance("test", "1.0", "Test", parameters);
         }
         stopwatch.Stop();
 

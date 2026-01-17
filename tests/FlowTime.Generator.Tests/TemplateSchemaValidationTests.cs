@@ -9,8 +9,8 @@ namespace FlowTime.Generator.Tests;
 
 public sealed class TemplateSchemaValidationTests
 {
-    private static readonly JsonSchema TemplateSchema = LoadSchema();
-    private static readonly IDeserializer YamlDeserializer = new DeserializerBuilder()
+    private static readonly JsonSchema templateSchema = LoadSchema();
+    private static readonly IDeserializer yamlDeserializer = new DeserializerBuilder()
         .WithNamingConvention(CamelCaseNamingConvention.Instance)
         .IgnoreUnmatchedProperties()
         .Build();
@@ -31,11 +31,11 @@ public sealed class TemplateSchemaValidationTests
         foreach (var path in TemplatePaths)
         {
             var yaml = File.ReadAllText(path);
-            var parsed = YamlDeserializer.Deserialize<Dictionary<string, object?>>(yaml);
+            var parsed = yamlDeserializer.Deserialize<Dictionary<string, object?>>(yaml);
             var payload = NormalizeYaml(parsed);
 
             using var document = JsonDocument.Parse(JsonSerializer.Serialize(payload));
-            var evaluation = TemplateSchema.Evaluate(document.RootElement, new EvaluationOptions { OutputFormat = OutputFormat.Hierarchical });
+            var evaluation = templateSchema.Evaluate(document.RootElement, new EvaluationOptions { OutputFormat = OutputFormat.Hierarchical });
             if (!evaluation.IsValid)
             {
                 var errors = string.Join("; ", CollectErrors(evaluation).Take(10));

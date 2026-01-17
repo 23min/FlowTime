@@ -18,10 +18,10 @@ namespace FlowTime.Generator;
 /// </summary>
 public sealed class TelemetryCapture
 {
-    private static readonly EventId CaptureStartEvent = new(2001, "TelemetryCaptureStart");
-    private static readonly EventId CaptureFileEvent = new(2002, "TelemetryCaptureFile");
-    private static readonly EventId CaptureCompletedEvent = new(2003, "TelemetryCaptureCompleted");
-    private static readonly EventId CaptureWarningEvent = new(2004, "TelemetryCaptureWarning");
+    private static readonly EventId captureStartEvent = new(2001, "TelemetryCaptureStart");
+    private static readonly EventId captureFileEvent = new(2002, "TelemetryCaptureFile");
+    private static readonly EventId captureCompletedEvent = new(2003, "TelemetryCaptureCompleted");
+    private static readonly EventId captureWarningEvent = new(2004, "TelemetryCaptureWarning");
 
     private readonly RunArtifactReader artifactReader;
     private readonly ILogger<TelemetryCapture> logger;
@@ -47,7 +47,7 @@ public sealed class TelemetryCapture
         var injector = new GapInjector(options.GapOptions);
 
         logger.LogInformation(
-            CaptureStartEvent,
+            captureStartEvent,
             "Telemetry capture started for run {RunId} (output={OutputDirectory})",
             context.Manifest.RunId,
             outputDirectory);
@@ -60,7 +60,7 @@ public sealed class TelemetryCapture
             foreach (var warning in readWarnings)
             {
                 logger.LogWarning(
-                    CaptureWarningEvent,
+                    captureWarningEvent,
                     "Capture warning {Code} for {NodeId}:{Metric} - {Message}",
                     warning.Code,
                     binding.NodeId,
@@ -73,7 +73,7 @@ public sealed class TelemetryCapture
             foreach (var warning in gapResult.Warnings)
             {
                 logger.LogWarning(
-                    CaptureWarningEvent,
+                    captureWarningEvent,
                     "Capture warning {Code} for {NodeId}:{Metric} - {Message}",
                     warning.Code,
                     binding.NodeId,
@@ -90,7 +90,7 @@ public sealed class TelemetryCapture
             captureItems.Add(new CapturedSeries(binding, gapResult.Series));
 
             logger.LogInformation(
-                CaptureFileEvent,
+                captureFileEvent,
                 "Captured {NodeId}:{Metric} -> {TargetFile}",
                 binding.NodeId,
                 binding.Metric,
@@ -106,7 +106,7 @@ public sealed class TelemetryCapture
         if (options.DryRun)
         {
             logger.LogInformation(
-                CaptureCompletedEvent,
+                captureCompletedEvent,
                 "Telemetry capture dry-run complete for run {RunId} (files={FileCount}, warnings={WarningCount})",
                 context.Manifest.RunId,
                 plannedFiles.Count,
@@ -182,7 +182,7 @@ public sealed class TelemetryCapture
         await CaptureManifestWriter.WriteAsync(manifestPath, manifest, cancellationToken).ConfigureAwait(false);
 
         logger.LogInformation(
-            CaptureCompletedEvent,
+            captureCompletedEvent,
             "Telemetry capture completed for run {RunId} (files={FileCount}, warnings={WarningCount})",
             context.Manifest.RunId,
             plannedFiles.Count,

@@ -20,7 +20,7 @@ public sealed class TelemetryGenerationService
         WriteIndented = true
     };
 
-    private const int DefaultSeed = 123;
+    private const int defaultSeed = 123;
 
     private readonly ILogger<TelemetryGenerationService> logger;
     private readonly TelemetryCapture telemetryCapture;
@@ -109,7 +109,7 @@ public sealed class TelemetryGenerationService
         var manifestMetadata = await manifestReader.ReadAsync(modelDirectory, cancellationToken).ConfigureAwait(false);
         var generatedAtUtc = DateTime.UtcNow.ToString("O");
 
-        var executionSeed = await TryReadRunSeedAsync(runDirectory, cancellationToken).ConfigureAwait(false) ?? DefaultSeed;
+        var executionSeed = await TryReadRunSeedAsync(runDirectory, cancellationToken).ConfigureAwait(false) ?? defaultSeed;
         var parameters = await ReadRunParametersAsync(modelDirectory, cancellationToken).ConfigureAwait(false);
         var parametersHash = ComputeParametersHash(manifestMetadata.TemplateId, manifestMetadata.TemplateVersion, parameters, executionSeed);
         var scenarioHash = await TryReadScenarioHashAsync(runDirectory, cancellationToken).ConfigureAwait(false) ?? string.Empty;

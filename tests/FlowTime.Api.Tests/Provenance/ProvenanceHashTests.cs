@@ -13,18 +13,18 @@ namespace FlowTime.Api.Tests.Provenance;
 /// </summary>
 public class ProvenanceHashTests : IClassFixture<TestWebApplicationFactory>
 {
-    private readonly TestWebApplicationFactory _factory;
+    private readonly TestWebApplicationFactory factory;
 
     public ProvenanceHashTests(TestWebApplicationFactory factory)
     {
-        _factory = factory;
+        this.factory = factory;
     }
 
     [Fact]
     public async Task PostRun_SameModelDifferentProvenance_SameHash()
     {
         // Arrange
-        var client = _factory.CreateClient();
+        var client = factory.CreateClient();
         
         var model = """
             schemaVersion: 1
@@ -76,7 +76,7 @@ public class ProvenanceHashTests : IClassFixture<TestWebApplicationFactory>
     public async Task PostRun_WithAndWithoutProvenance_SameHash()
     {
         // Arrange
-        var client = _factory.CreateClient();
+        var client = factory.CreateClient();
         
         var model = """
             schemaVersion: 1
@@ -118,7 +118,7 @@ public class ProvenanceHashTests : IClassFixture<TestWebApplicationFactory>
     public async Task PostRun_EmbeddedProvenanceDifferentValues_SameHash()
     {
         // Arrange
-        var client = _factory.CreateClient();
+        var client = factory.CreateClient();
 
         var model1 = """
             schemaVersion: 1
@@ -178,7 +178,7 @@ public class ProvenanceHashTests : IClassFixture<TestWebApplicationFactory>
     public async Task PostRun_DifferentModel_DifferentHash()
     {
         // Arrange
-        var client = _factory.CreateClient();
+        var client = factory.CreateClient();
         
         var model1 = """
             schemaVersion: 1
@@ -234,7 +234,7 @@ public class ProvenanceHashTests : IClassFixture<TestWebApplicationFactory>
     public async Task PostRun_ComplexProvenanceParameters_DoesNotAffectHash()
     {
         // Arrange
-        var client = _factory.CreateClient();
+        var client = factory.CreateClient();
         
         var model1 = """
             schemaVersion: 1
@@ -304,7 +304,7 @@ public class ProvenanceHashTests : IClassFixture<TestWebApplicationFactory>
     public async Task PostRun_ModelDeduplication_WorksWithProvenance()
     {
         // Arrange
-        var client = _factory.CreateClient();
+        var client = factory.CreateClient();
         
         var model = """
             schemaVersion: 1

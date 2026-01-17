@@ -27,7 +27,7 @@ public class TelemetryCaptureEndpointsTests : IClassFixture<TestWebApplicationFa
     {
         var templateDir = Path.Combine(factory.TestDataDirectory, "templates-capture-tests");
         Directory.CreateDirectory(templateDir);
-        File.WriteAllText(Path.Combine(templateDir, "sim-order.yaml"), SimulationTemplateYaml);
+        File.WriteAllText(Path.Combine(templateDir, "sim-order.yaml"), simulationTemplateYaml);
 
         var customizedFactory = factory.WithWebHostBuilder(builder =>
         {
@@ -90,7 +90,7 @@ public class TelemetryCaptureEndpointsTests : IClassFixture<TestWebApplicationFa
     {
         var templateDir = Path.Combine(factory.TestDataDirectory, "templates-capture-tests-classes");
         Directory.CreateDirectory(templateDir);
-        File.WriteAllText(Path.Combine(templateDir, "sim-order-classes.yaml"), SimulationClassTemplateYaml);
+        File.WriteAllText(Path.Combine(templateDir, "sim-order-classes.yaml"), simulationClassTemplateYaml);
 
         var customizedFactory = factory.WithWebHostBuilder(builder =>
         {
@@ -148,7 +148,7 @@ public class TelemetryCaptureEndpointsTests : IClassFixture<TestWebApplicationFa
     {
         var templateDir = Path.Combine(factory.TestDataDirectory, "templates-capture-tests-metadata");
         Directory.CreateDirectory(templateDir);
-        File.WriteAllText(Path.Combine(templateDir, "sim-order.yaml"), SimulationTemplateYaml);
+        File.WriteAllText(Path.Combine(templateDir, "sim-order.yaml"), simulationTemplateYaml);
 
         var customizedFactory = factory.WithWebHostBuilder(builder =>
         {
@@ -294,9 +294,9 @@ public class TelemetryCaptureEndpointsTests : IClassFixture<TestWebApplicationFa
         }
     }
 
-    private const string SimulationTemplateYaml = "schemaVersion: 1\ngenerator: flowtime-sim\nmetadata:\n  id: sim-order\n  title: Simulation Order Template\n  version: 1.0.0\nwindow:\n  start: 2025-01-01T00:00:00Z\n  timezone: UTC\n\nparameters:\n  - name: bins\n    type: integer\n    default: 4\n  - name: binSize\n    type: integer\n    default: 5\n\ngrid:\n  bins: ${bins}\n  binSize: ${binSize}\n  binUnit: minutes\n\ntopology:\n  nodes:\n    - id: OrderService\n      kind: service\n      semantics:\n        arrivals: arrivals\n        served: served\n        errors: errors\n  edges: []\n\nnodes:\n  - id: arrivals\n    kind: const\n    values: [10, 10, 10, 10]\n  - id: served\n    kind: const\n    values: [8, 9, 9, 10]\n  - id: errors\n    kind: const\n    values: [0, 0, 0, 0]\n\noutputs:\n  - series: \"*\"";
+    private const string simulationTemplateYaml = "schemaVersion: 1\ngenerator: flowtime-sim\nmetadata:\n  id: sim-order\n  title: Simulation Order Template\n  version: 1.0.0\nwindow:\n  start: 2025-01-01T00:00:00Z\n  timezone: UTC\n\nparameters:\n  - name: bins\n    type: integer\n    default: 4\n  - name: binSize\n    type: integer\n    default: 5\n\ngrid:\n  bins: ${bins}\n  binSize: ${binSize}\n  binUnit: minutes\n\ntopology:\n  nodes:\n    - id: OrderService\n      kind: service\n      semantics:\n        arrivals: arrivals\n        served: served\n        errors: errors\n  edges: []\n\nnodes:\n  - id: arrivals\n    kind: const\n    values: [10, 10, 10, 10]\n  - id: served\n    kind: const\n    values: [8, 9, 9, 10]\n  - id: errors\n    kind: const\n    values: [0, 0, 0, 0]\n\noutputs:\n  - series: \"*\"";
 
-    private const string SimulationClassTemplateYaml =
+    private const string simulationClassTemplateYaml =
         "schemaVersion: 1\n" +
         "generator: flowtime-sim\n" +
         "metadata:\n" +

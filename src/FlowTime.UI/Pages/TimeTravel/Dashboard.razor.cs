@@ -21,24 +21,24 @@ public partial class Dashboard : IDisposable
     [Inject] private ITimeTravelMetricsClient MetricsClient { get; set; } = default!;
     [Inject] private ITimeTravelDataService DataService { get; set; } = default!;
 
-    private readonly List<ServiceTileViewModel> _tiles = new();
-    private readonly List<ServiceTileViewModel> _classTiles = new();
-    private readonly List<ServiceTileViewModel> _visibleTiles = new();
-    private readonly HashSet<SlaStatus> _activeStatuses = new(Enum.GetValues<SlaStatus>());
-    private CancellationTokenSource? _loadCts;
-    private bool _isLoading;
-    private string? _errorMessage;
+    private readonly List<ServiceTileViewModel> tiles = new();
+    private readonly List<ServiceTileViewModel> classTiles = new();
+    private readonly List<ServiceTileViewModel> visibleTiles = new();
+    private readonly HashSet<SlaStatus> activeStatuses = new(Enum.GetValues<SlaStatus>());
+    private CancellationTokenSource? loadCts;
+    private bool isLoading;
+    private string? errorMessage;
     private SortOption sortOrder = SortOption.WorstFirst;
-    private TimeTravelMetricsResult? _metricsResult;
-    private TimeTravelMetricsContext? _context;
+    private TimeTravelMetricsResult? metricsResult;
+    private TimeTravelMetricsContext? context;
     private IReadOnlyList<string> availableClasses = Array.Empty<string>();
-    private IReadOnlyDictionary<string, string> classDisplayNames = EmptyClassLabels;
+    private IReadOnlyDictionary<string, string> classDisplayNames = emptyClassLabels;
     private IReadOnlyList<string> selectedClasses = Array.Empty<string>();
     private ClassSelectionMode classSelectionMode = ClassSelectionMode.All;
     private string? classCoverageState;
     private TimeTravelStateWindowDto? classWindowData;
-    private const int MaxClassBins = 720;
-    private static readonly IReadOnlyDictionary<string, string> EmptyClassLabels = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    private const int maxClassBins = 720;
+    private static readonly IReadOnlyDictionary<string, string> emptyClassLabels = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
     private static readonly StatusOption[] statusOptions = new[]
     {
@@ -52,12 +52,12 @@ public partial class Dashboard : IDisposable
     {
         if (string.IsNullOrWhiteSpace(RunId))
         {
-            _tiles.Clear();
-            _visibleTiles.Clear();
-            _metricsResult = null;
-            _context = null;
-            _errorMessage = null;
-            _isLoading = false;
+            tiles.Clear();
+            visibleTiles.Clear();
+            metricsResult = null;
+            context = null;
+            errorMessage = null;
+            isLoading = false;
             CancelLoad();
             return;
         }
@@ -68,33 +68,33 @@ public partial class Dashboard : IDisposable
     private async Task LoadMetricsAsync()
     {
         CancelLoad();
-        _isLoading = true;
-        _errorMessage = null;
-        _metricsResult = null;
-        _context = null;
-        _tiles.Clear();
-        _visibleTiles.Clear();
+        isLoading = true;
+        errorMessage = null;
+        metricsResult = null;
+        context = null;
+        tiles.Clear();
+        visibleTiles.Clear();
         var cts = new CancellationTokenSource();
-        _loadCts = cts;
+        loadCts = cts;
 
         try
         {
             var result = await MetricsClient.GetMetricsAsync(RunId!, cts.Token).ConfigureAwait(false);
             if (!result.Success || result.Value is null)
             {
-                _errorMessage = result.Error ?? "Metrics not available.";
+                errorMessage = result.Error ?? "Metrics not available.";
                 return;
             }
 
-            _metricsResult = result.Value;
-            _context = result.Value.Context;
-            _tiles.Clear();
+            metricsResult = result.Value;
+            context = result.Value.Context;
+            tiles.Clear();
             foreach (var service in result.Value.Payload.Services)
             {
                 var tile = BuildTile(service);
                 if (tile is not null)
                 {
-                    _tiles.Add(tile);
+                    tiles.Add(tile);
                 }
             }
 
@@ -107,17 +107,17 @@ public partial class Dashboard : IDisposable
         }
         catch (Exception ex)
         {
-            _errorMessage = ex.Message;
+            errorMessage = ex.Message;
         }
         finally
         {
-            if (ReferenceEquals(_loadCts, cts))
+            if (ReferenceEquals(loadCts, cts))
             {
-                _loadCts = null;
+                loadCts = null;
             }
 
             cts.Dispose();
-            _isLoading = false;
+            isLoading = false;
             await InvokeAsync(StateHasChanged);
         }
     }
@@ -125,10 +125,10 @@ public partial class Dashboard : IDisposable
     private async Task LoadClassContextAsync(string runId, CancellationToken ct)
     {
         availableClasses = Array.Empty<string>();
-        classDisplayNames = EmptyClassLabels;
+        classDisplayNames = emptyClassLabels;
         classCoverageState = null;
         classWindowData = null;
-        _classTiles.Clear();
+        classTiles.Clear();
 
         var indexResult = await DataService.GetSeriesIndexAsync(runId, ct).ConfigureAwait(false);
         if (!indexResult.Success || indexResult.Value is null)
@@ -158,7 +158,7 @@ public partial class Dashboard : IDisposable
             .ToDictionary(entry => entry.Id, entry => entry.DisplayName ?? entry.Id, StringComparer.OrdinalIgnoreCase);
 
         var totalBins = Math.Max(1, index.Grid.Bins);
-        var span = Math.Min(totalBins, MaxClassBins);
+        var span = Math.Min(totalBins, maxClassBins);
         var sliceEnd = totalBins - 1;
         var sliceStart = Math.Max(0, sliceEnd - (span - 1));
 
@@ -200,7 +200,7 @@ public partial class Dashboard : IDisposable
             return;
         }
 
-        if (classDisplayNames == EmptyClassLabels)
+        if (classDisplayNames == emptyClassLabels)
         {
             classDisplayNames = fallback.ToDictionary(id => id, id => id, StringComparer.OrdinalIgnoreCase);
         }
@@ -266,8 +266,8 @@ public partial class Dashboard : IDisposable
 
     internal IEnumerable<ServiceTileViewModel> GetVisibleTiles()
     {
-        var source = HasClassSelection ? _classTiles : _tiles;
-        IEnumerable<ServiceTileViewModel> query = source.Where(tile => _activeStatuses.Contains(tile.Status));
+        var source = HasClassSelection ? classTiles : tiles;
+        IEnumerable<ServiceTileViewModel> query = source.Where(tile => activeStatuses.Contains(tile.Status));
         return sortOrder switch
         {
             SortOption.BestFirst => query.OrderByDescending(t => t.SlaPct).ThenBy(t => t.Id, StringComparer.OrdinalIgnoreCase),
@@ -278,8 +278,8 @@ public partial class Dashboard : IDisposable
 
     private void RebuildVisibleTiles()
     {
-        _visibleTiles.Clear();
-        _visibleTiles.AddRange(GetVisibleTiles());
+        visibleTiles.Clear();
+        visibleTiles.AddRange(GetVisibleTiles());
     }
 
     internal static string GetTileAccentStyle(SlaStatus status) =>
@@ -293,16 +293,16 @@ public partial class Dashboard : IDisposable
 
     private void ToggleStatus(SlaStatus status)
     {
-        if (_activeStatuses.Contains(status))
+        if (activeStatuses.Contains(status))
         {
-            if (_activeStatuses.Count > 1)
+            if (activeStatuses.Count > 1)
             {
-                _activeStatuses.Remove(status);
+                activeStatuses.Remove(status);
             }
         }
         else
         {
-            _activeStatuses.Add(status);
+            activeStatuses.Add(status);
         }
 
         RebuildVisibleTiles();
@@ -311,10 +311,10 @@ public partial class Dashboard : IDisposable
 
     private void ResetFilters()
     {
-        _activeStatuses.Clear();
+        activeStatuses.Clear();
         foreach (var status in Enum.GetValues<SlaStatus>())
         {
-            _activeStatuses.Add(status);
+            activeStatuses.Add(status);
         }
 
         RebuildVisibleTiles();
@@ -352,7 +352,7 @@ public partial class Dashboard : IDisposable
 
     private void RecomputeClassTiles()
     {
-        _classTiles.Clear();
+        classTiles.Clear();
         if (!HasClassSelection || classWindowData is null)
         {
             RebuildVisibleTiles();
@@ -370,7 +370,7 @@ public partial class Dashboard : IDisposable
             var tile = BuildTile(dto);
             if (tile is not null)
             {
-                _classTiles.Add(tile);
+                classTiles.Add(tile);
             }
         }
 
@@ -444,7 +444,7 @@ public partial class Dashboard : IDisposable
                string.Equals(candidate, "flow", StringComparison.OrdinalIgnoreCase);
     }
 
-    private const double ClassSlaThreshold = 0.95d;
+    private const double classSlaThreshold = 0.95d;
 
     private static TimeTravelServiceMetricsDto? ComputeServiceMetrics(string nodeId, double?[] arrivals, double?[] served, int windowBinCount)
     {
@@ -476,7 +476,7 @@ public partial class Dashboard : IDisposable
             ratios[i] = ratio;
             binsEvaluated++;
 
-            if (ratio >= ClassSlaThreshold)
+            if (ratio >= classSlaThreshold)
             {
                 binsMet++;
             }
@@ -582,14 +582,14 @@ public partial class Dashboard : IDisposable
 
     private void CancelLoad()
     {
-        if (_loadCts is null)
+        if (loadCts is null)
         {
             return;
         }
 
         try
         {
-            _loadCts.Cancel();
+            loadCts.Cancel();
         }
         catch
         {
@@ -597,8 +597,8 @@ public partial class Dashboard : IDisposable
         }
         finally
         {
-            _loadCts.Dispose();
-            _loadCts = null;
+            loadCts.Dispose();
+            loadCts = null;
         }
     }
 
@@ -629,39 +629,39 @@ public partial class Dashboard : IDisposable
 
     private string GetWindowSummary()
     {
-        if (_context is null)
+        if (context is null)
         {
             return string.Empty;
         }
 
-        if (!_context.WindowStart.HasValue)
+        if (!context.WindowStart.HasValue)
         {
-            return $"{_context.BinCount} bins × {_context.BinMinutes} min";
+            return $"{context.BinCount} bins × {context.BinMinutes} min";
         }
 
-        var start = _context.WindowStart.Value;
-        var end = _context.WindowEnd ?? start.AddMinutes(_context.BinMinutes * _context.BinCount);
-        return $"{start.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)} → {end.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)} {_metricsResult?.Payload.Window.Timezone ?? "UTC"}";
+        var start = context.WindowStart.Value;
+        var end = context.WindowEnd ?? start.AddMinutes(context.BinMinutes * context.BinCount);
+        return $"{start.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)} → {end.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)} {metricsResult?.Payload.Window.Timezone ?? "UTC"}";
     }
 
     private string GetTemplateSummary()
     {
-        if (_context is null)
+        if (context is null)
         {
             return string.Empty;
         }
 
-        if (!string.IsNullOrWhiteSpace(_context.TemplateTitle))
+        if (!string.IsNullOrWhiteSpace(context.TemplateTitle))
         {
-            return _context.TemplateTitle!;
+            return context.TemplateTitle!;
         }
 
-        if (!string.IsNullOrWhiteSpace(_context.TemplateId))
+        if (!string.IsNullOrWhiteSpace(context.TemplateId))
         {
-            return _context.TemplateId!;
+            return context.TemplateId!;
         }
 
-        return _context.RunId;
+        return context.RunId;
     }
 
     private SortOption SortOrder

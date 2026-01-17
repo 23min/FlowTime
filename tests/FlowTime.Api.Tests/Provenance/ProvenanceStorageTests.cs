@@ -14,18 +14,18 @@ namespace FlowTime.Api.Tests.Provenance;
 /// </summary>
 public class ProvenanceStorageTests : IClassFixture<TestWebApplicationFactory>
 {
-    private readonly TestWebApplicationFactory _factory;
+    private readonly TestWebApplicationFactory factory;
 
     public ProvenanceStorageTests(TestWebApplicationFactory factory)
     {
-        _factory = factory;
+        this.factory = factory;
     }
 
     [Fact]
     public async Task PostRun_WithProvenanceHeader_CreatesProvenanceJson()
     {
         // Arrange
-        var client = _factory.CreateClient();
+        var client = factory.CreateClient();
         var model = """
             schemaVersion: 1
             grid:
@@ -69,7 +69,7 @@ public class ProvenanceStorageTests : IClassFixture<TestWebApplicationFactory>
     public async Task PostRun_WithEmbeddedProvenance_CreatesProvenanceJson()
     {
         // Arrange
-        var client = _factory.CreateClient();
+        var client = factory.CreateClient();
         var model = """
             schemaVersion: 1
             provenance:
@@ -122,7 +122,7 @@ public class ProvenanceStorageTests : IClassFixture<TestWebApplicationFactory>
     public async Task PostRun_WithoutProvenance_NoProvenanceJson()
     {
         // Arrange
-        var client = _factory.CreateClient();
+        var client = factory.CreateClient();
         var model = """
             schemaVersion: 1
             grid:
@@ -166,7 +166,7 @@ public class ProvenanceStorageTests : IClassFixture<TestWebApplicationFactory>
     public async Task PostRun_WithProvenance_ManifestReferencesProvenance()
     {
         // Arrange
-        var client = _factory.CreateClient();
+        var client = factory.CreateClient();
         var model = """
             schemaVersion: 1
             provenance:
@@ -217,7 +217,7 @@ public class ProvenanceStorageTests : IClassFixture<TestWebApplicationFactory>
     public async Task PostRun_EmbeddedProvenance_StrippedFromSpecYaml()
     {
         // Arrange
-        var client = _factory.CreateClient();
+        var client = factory.CreateClient();
         var model = """
             schemaVersion: 1
             provenance:
@@ -266,7 +266,7 @@ public class ProvenanceStorageTests : IClassFixture<TestWebApplicationFactory>
     public async Task PostRun_ProvenanceJson_HasReceivedAtTimestamp()
     {
         // Arrange
-        var client = _factory.CreateClient();
+        var client = factory.CreateClient();
         var model = """
             schemaVersion: 1
             provenance:
@@ -326,15 +326,15 @@ public class ProvenanceStorageTests : IClassFixture<TestWebApplicationFactory>
 
     private string GetProvenanceFilePath(string runId, bool ensureExists = false)
     {
-        var canonicalPath = Path.Combine(_factory.TestDataDirectory, runId, "model", "provenance.json");
+        var canonicalPath = Path.Combine(factory.TestDataDirectory, runId, "model", "provenance.json");
         if (!ensureExists)
         {
             return File.Exists(canonicalPath)
                 ? canonicalPath
-                : Path.Combine(_factory.TestDataDirectory, runId, "provenance.json");
+                : Path.Combine(factory.TestDataDirectory, runId, "provenance.json");
         }
 
-        var fallbackPath = Path.Combine(_factory.TestDataDirectory, runId, "provenance.json");
+        var fallbackPath = Path.Combine(factory.TestDataDirectory, runId, "provenance.json");
         for (var attempt = 0; attempt < 40; attempt++)
         {
             if (File.Exists(canonicalPath))
@@ -355,11 +355,11 @@ public class ProvenanceStorageTests : IClassFixture<TestWebApplicationFactory>
 
     private string GetManifestFilePath(string runId)
     {
-        return Path.Combine(_factory.TestDataDirectory, runId, "manifest.json");
+        return Path.Combine(factory.TestDataDirectory, runId, "manifest.json");
     }
 
     private string GetSpecFilePath(string runId)
     {
-        return Path.Combine(_factory.TestDataDirectory, runId, "spec.yaml");
+        return Path.Combine(factory.TestDataDirectory, runId, "spec.yaml");
     }
 }

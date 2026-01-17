@@ -5,7 +5,7 @@ root = true
 dotnet_diagnostic.IDE1006.severity = warning
 
 # Naming rules
-dotnet_naming_rule.private_fields_camelcase.severity = warning
+dotnet_naming_rule.private_fields_camelcase.severity = error
 dotnet_naming_rule.private_fields_camelcase.symbols = private_fields
 dotnet_naming_rule.private_fields_camelcase.style = camel_case
 
@@ -15,6 +15,9 @@ dotnet_naming_symbols.private_fields.applicable_accessibilities = private
 # dotnet_naming_symbols.private_fields.required_modifiers = readonly
 
 dotnet_naming_style.camel_case.capitalization = camel_case
+dotnet_naming_style.camel_case.required_prefix =
+dotnet_naming_style.camel_case.required_suffix =
+dotnet_naming_style.camel_case.word_separator =
 
 # Prefer var or explicit types (customize as needed)
 csharp_style_var_for_built_in_types = true:suggestion
@@ -35,12 +38,3 @@ indent_style = space
 indent_size = 2
 insert_final_newline = true
 trim_trailing_whitespace = true
-<<<<<<< HEAD
-
-[*.{yml,yaml}]
-indent_style = space
-indent_size = 2
-insert_final_newline = true
-trim_trailing_whitespace = true
-=======
->>>>>>> sim-time-travel-m3

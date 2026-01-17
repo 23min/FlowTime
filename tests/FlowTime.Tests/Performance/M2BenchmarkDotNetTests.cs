@@ -41,12 +41,12 @@ public class M2BenchmarkDotNetTests
         }
     }
 
-    private ModelDefinition? _smallConstModel;
-    private ModelDefinition? _smallPmfModel;
-    private ModelDefinition? _mediumConstModel;
-    private ModelDefinition? _mediumPmfModel;
-    private ModelDefinition? _smallPmfSimpleModel;
-    private ModelDefinition? _smallPmfComplexModel;
+    private ModelDefinition? smallConstModel;
+    private ModelDefinition? smallPmfModel;
+    private ModelDefinition? mediumConstModel;
+    private ModelDefinition? mediumPmfModel;
+    private ModelDefinition? smallPmfSimpleModel;
+    private ModelDefinition? smallPmfComplexModel;
 
     [GlobalSetup]
     public void Setup()
@@ -54,14 +54,14 @@ public class M2BenchmarkDotNetTests
         // Pre-generate test data to avoid including generation time in benchmarks
         
         // Scale comparison models
-        _smallConstModel = GenerateConstModel(50, 100);
-        _smallPmfModel = GeneratePmfModel(50, 100, CreateSmallPmf);
-        _mediumConstModel = GenerateConstModel(200, 500);
-        _mediumPmfModel = GeneratePmfModel(200, 500, CreateSmallPmf);
+        smallConstModel = GenerateConstModel(50, 100);
+        smallPmfModel = GeneratePmfModel(50, 100, CreateSmallPmf);
+        mediumConstModel = GenerateConstModel(200, 500);
+        mediumPmfModel = GeneratePmfModel(200, 500, CreateSmallPmf);
         
         // PMF complexity comparison models (same size for fair comparison)
-        _smallPmfSimpleModel = GeneratePmfModel(50, 100, CreateSmallPmf);
-        _smallPmfComplexModel = GeneratePmfModel(50, 100, CreateComplexPmf);
+        smallPmfSimpleModel = GeneratePmfModel(50, 100, CreateSmallPmf);
+        smallPmfComplexModel = GeneratePmfModel(50, 100, CreateComplexPmf);
     }
 
     // ===== PMF VS CONST BASELINE BENCHMARKS =====
@@ -70,35 +70,35 @@ public class M2BenchmarkDotNetTests
     [BenchmarkCategory("PmfVsConst")]
     public object SmallScale_Const_Parse()
     {
-        return ModelParser.ParseModel(_smallConstModel!);
+        return ModelParser.ParseModel(smallConstModel!);
     }
 
     [Benchmark]
     [BenchmarkCategory("PmfVsConst")]
     public object SmallScale_Pmf_Parse()
     {
-        return ModelParser.ParseModel(_smallPmfModel!);
+        return ModelParser.ParseModel(smallPmfModel!);
     }
 
     [Benchmark]
     [BenchmarkCategory("PmfVsConst")]
     public object MediumScale_Const_Parse()
     {
-        return ModelParser.ParseModel(_mediumConstModel!);
+        return ModelParser.ParseModel(mediumConstModel!);
     }
 
     [Benchmark]
     [BenchmarkCategory("PmfVsConst")]
     public object MediumScale_Pmf_Parse()
     {
-        return ModelParser.ParseModel(_mediumPmfModel!);
+        return ModelParser.ParseModel(mediumPmfModel!);
     }
 
     [Benchmark]
     [BenchmarkCategory("PmfVsConst")]
     public object SmallScale_Const_Evaluate()
     {
-        var (grid, graph) = ModelParser.ParseModel(_smallConstModel!);
+        var (grid, graph) = ModelParser.ParseModel(smallConstModel!);
         return graph.Evaluate(grid);
     }
 
@@ -106,7 +106,7 @@ public class M2BenchmarkDotNetTests
     [BenchmarkCategory("PmfVsConst")]
     public object SmallScale_Pmf_Evaluate()
     {
-        var (grid, graph) = ModelParser.ParseModel(_smallPmfModel!);
+        var (grid, graph) = ModelParser.ParseModel(smallPmfModel!);
         return graph.Evaluate(grid);
     }
 
@@ -114,7 +114,7 @@ public class M2BenchmarkDotNetTests
     [BenchmarkCategory("PmfVsConst")]
     public object MediumScale_Const_Evaluate()
     {
-        var (grid, graph) = ModelParser.ParseModel(_mediumConstModel!);
+        var (grid, graph) = ModelParser.ParseModel(mediumConstModel!);
         return graph.Evaluate(grid);
     }
 
@@ -122,7 +122,7 @@ public class M2BenchmarkDotNetTests
     [BenchmarkCategory("PmfVsConst")]
     public object MediumScale_Pmf_Evaluate()
     {
-        var (grid, graph) = ModelParser.ParseModel(_mediumPmfModel!);
+        var (grid, graph) = ModelParser.ParseModel(mediumPmfModel!);
         return graph.Evaluate(grid);
     }
 
@@ -132,21 +132,21 @@ public class M2BenchmarkDotNetTests
     [BenchmarkCategory("PmfComplexity")]
     public object SimplePmf_Parse()
     {
-        return ModelParser.ParseModel(_smallPmfSimpleModel!);
+        return ModelParser.ParseModel(smallPmfSimpleModel!);
     }
 
     [Benchmark]
     [BenchmarkCategory("PmfComplexity")]
     public object ComplexPmf_Parse()
     {
-        return ModelParser.ParseModel(_smallPmfComplexModel!);
+        return ModelParser.ParseModel(smallPmfComplexModel!);
     }
 
     [Benchmark]
     [BenchmarkCategory("PmfComplexity")]
     public object SimplePmf_Evaluate()
     {
-        var (grid, graph) = ModelParser.ParseModel(_smallPmfSimpleModel!);
+        var (grid, graph) = ModelParser.ParseModel(smallPmfSimpleModel!);
         return graph.Evaluate(grid);
     }
 
@@ -154,7 +154,7 @@ public class M2BenchmarkDotNetTests
     [BenchmarkCategory("PmfComplexity")]
     public object ComplexPmf_Evaluate()
     {
-        var (grid, graph) = ModelParser.ParseModel(_smallPmfComplexModel!);
+        var (grid, graph) = ModelParser.ParseModel(smallPmfComplexModel!);
         return graph.Evaluate(grid);
     }
 
@@ -164,7 +164,7 @@ public class M2BenchmarkDotNetTests
     [BenchmarkCategory("EndToEnd")]
     public object ConstWorkflow_EndToEnd()
     {
-        var (grid, graph) = ModelParser.ParseModel(_smallConstModel!);
+        var (grid, graph) = ModelParser.ParseModel(smallConstModel!);
         return graph.Evaluate(grid);
     }
 
@@ -172,7 +172,7 @@ public class M2BenchmarkDotNetTests
     [BenchmarkCategory("EndToEnd")]
     public object PmfWorkflow_EndToEnd()
     {
-        var (grid, graph) = ModelParser.ParseModel(_smallPmfModel!);
+        var (grid, graph) = ModelParser.ParseModel(smallPmfModel!);
         return graph.Evaluate(grid);
     }
 

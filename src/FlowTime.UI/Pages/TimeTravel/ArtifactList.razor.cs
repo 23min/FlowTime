@@ -18,38 +18,38 @@ public sealed partial class ArtifactList : ComponentBase
 
     private readonly Dictionary<string, RunCreateResponseDto> detailCache = new(StringComparer.OrdinalIgnoreCase);
 
-    private ArtifactListState _state = new(Array.Empty<RunListEntry>()) { PageSize = DefaultPageSize };
-    private ArtifactListResult _view = new(Array.Empty<RunListEntry>(), 0, 1, 1);
-    private IReadOnlyList<RunListEntry> _runs = Array.Empty<RunListEntry>();
-    private IReadOnlyList<RunDiagnostic> _discoveryDiagnostics = Array.Empty<RunDiagnostic>();
-    private RunDiscoveryResult? _discoveryResult;
+    private ArtifactListState state = new(Array.Empty<RunListEntry>()) { PageSize = DefaultPageSize };
+    private ArtifactListResult view = new(Array.Empty<RunListEntry>(), 0, 1, 1);
+    private IReadOnlyList<RunListEntry> runs = Array.Empty<RunListEntry>();
+    private IReadOnlyList<RunDiagnostic> discoveryDiagnostics = Array.Empty<RunDiagnostic>();
+    private RunDiscoveryResult? discoveryResult;
 
-    private bool _isLoading;
-    private string? _errorMessage;
-    private string _searchInput = string.Empty;
-    private Dictionary<ArtifactRunStatus, int> _statusFacets = new();
-    private int _warningsWithIssues;
-    private int _warningsClear;
-    private int _simulationModeCount;
-    private int _telemetryAvailable;
-    private bool _hasActiveFilters;
-    private ArtifactViewMode _viewMode = ArtifactViewMode.Cards;
-    private readonly HashSet<string> _selectedRunIds = new(StringComparer.OrdinalIgnoreCase);
-    private bool _isDeletingArtifacts;
+    private bool isLoading;
+    private string? errorMessage;
+    private string searchInput = string.Empty;
+    private Dictionary<ArtifactRunStatus, int> statusFacets = new();
+    private int warningsWithIssues;
+    private int warningsClear;
+    private int simulationModeCount;
+    private int telemetryAvailable;
+    private bool hasActiveFilters;
+    private ArtifactViewMode viewMode = ArtifactViewMode.Cards;
+    private readonly HashSet<string> selectedRunIds = new(StringComparer.OrdinalIgnoreCase);
+    private bool isDeletingArtifacts;
 
-    private bool _isDrawerOpen;
-    private RunListEntry? _selectedRun;
-    private RunCreateResponseDto? _selectedDetail;
-    private bool _isDetailLoading;
-    private string? _detailError;
-    private TelemetryCaptureSummaryDto? _captureSummary;
-    private bool _isGeneratingTelemetry;
-    private bool _overwriteCapture;
+    private bool isDrawerOpen;
+    private RunListEntry? selectedRun;
+    private RunCreateResponseDto? selectedDetail;
+    private bool isDetailLoading;
+    private string? detailError;
+    private TelemetryCaptureSummaryDto? captureSummary;
+    private bool isGeneratingTelemetry;
+    private bool overwriteCapture;
 
-    internal bool IsDrawerOpen => _isDrawerOpen;
+    internal bool IsDrawerOpen => isDrawerOpen;
 
     private bool CanLoadModel =>
-        (_selectedDetail?.CanReplay ?? _selectedRun?.CanReplay) == true;
+        (selectedDetail?.CanReplay ?? selectedRun?.CanReplay) == true;
 
     private bool CanLoadTelemetry
     {
@@ -60,7 +60,7 @@ public sealed partial class ArtifactList : ComponentBase
                 return false;
             }
 
-            var telemetry = _selectedDetail?.Telemetry ?? _selectedRun?.Telemetry;
+            var telemetry = selectedDetail?.Telemetry ?? selectedRun?.Telemetry;
             return telemetry?.Available == true;
         }
     }
@@ -87,42 +87,42 @@ public sealed partial class ArtifactList : ComponentBase
         return trimmed.Length > 8 ? trimmed[^8..] : trimmed;
     }
 
-    private int TotalRuns => _discoveryResult?.TotalCount ?? _runs.Count;
+    private int TotalRuns => discoveryResult?.TotalCount ?? runs.Count;
 
     private async Task LoadAsync(bool forceRefresh = false)
     {
-        _isLoading = true;
-        _errorMessage = null;
+        isLoading = true;
+        errorMessage = null;
         await InvokeAsync(StateHasChanged);
 
         try
         {
-            _discoveryResult = await RunDiscovery.LoadRunsAsync().ConfigureAwait(false);
-            if (_discoveryResult.Success)
+            discoveryResult = await RunDiscovery.LoadRunsAsync().ConfigureAwait(false);
+            if (discoveryResult.Success)
             {
-                _runs = _discoveryResult.Runs;
-                _discoveryDiagnostics = _discoveryResult.Diagnostics;
+                runs = discoveryResult.Runs;
+                discoveryDiagnostics = discoveryResult.Diagnostics;
             }
             else
             {
-                _runs = Array.Empty<RunListEntry>();
-                _discoveryDiagnostics = Array.Empty<RunDiagnostic>();
-                _errorMessage = _discoveryResult.ErrorMessage ?? "Failed to load runs.";
+                runs = Array.Empty<RunListEntry>();
+                discoveryDiagnostics = Array.Empty<RunDiagnostic>();
+                errorMessage = discoveryResult.ErrorMessage ?? "Failed to load runs.";
             }
 
             var query = ReadQueryParameters();
-            _state = ArtifactListState.FromQuery(_runs, query);
-            _state.PageSize = DefaultPageSize;
-            _searchInput = _state.SearchText;
+            state = ArtifactListState.FromQuery(runs, query);
+            state.PageSize = DefaultPageSize;
+            searchInput = state.SearchText;
 
             if (!HasFilterQuery(query) && !forceRefresh)
             {
                 var persisted = await LoadPersistedStateAsync().ConfigureAwait(false);
                 if (persisted is not null)
                 {
-                    _state = ArtifactListState.FromQuery(_runs, persisted);
-                    _state.PageSize = DefaultPageSize;
-                    _searchInput = _state.SearchText;
+                    state = ArtifactListState.FromQuery(runs, persisted);
+                    state.PageSize = DefaultPageSize;
+                    searchInput = state.SearchText;
                 }
             }
 
@@ -132,15 +132,15 @@ public sealed partial class ArtifactList : ComponentBase
         catch (Exception ex)
         {
             Logger.LogError(ex, "Failed to load run discovery for artifacts.");
-            _runs = Array.Empty<RunListEntry>();
-            _discoveryDiagnostics = Array.Empty<RunDiagnostic>();
-            _errorMessage = ex.Message;
-            _state = new ArtifactListState(_runs) { PageSize = DefaultPageSize };
+            runs = Array.Empty<RunListEntry>();
+            discoveryDiagnostics = Array.Empty<RunDiagnostic>();
+            errorMessage = ex.Message;
+            state = new ArtifactListState(runs) { PageSize = DefaultPageSize };
             ApplyState();
         }
         finally
         {
-            _isLoading = false;
+            isLoading = false;
             await InvokeAsync(StateHasChanged);
         }
     }
@@ -153,55 +153,55 @@ public sealed partial class ArtifactList : ComponentBase
 
     private void ApplyState()
     {
-        _state.PageSize = DefaultPageSize;
-        _view = _state.Apply();
+        state.PageSize = DefaultPageSize;
+        view = state.Apply();
         BuildFacets();
         PruneSelection();
-        var defaultDirection = ArtifactListState.GetDefaultDirection(_state.SortOption);
-        _hasActiveFilters = _state.SelectedModes.Any() ||
-                            _state.SelectedStatuses.Any() ||
-                            _state.WarningFilter != ArtifactWarningFilter.All ||
-                            _state.TelemetryFilter != ArtifactTelemetryFilter.All ||
-                            !string.IsNullOrWhiteSpace(_state.SearchText) ||
-                            _state.SortOption != ArtifactSortOption.Created ||
-                            _state.SortDirection != defaultDirection;
+        var defaultDirection = ArtifactListState.GetDefaultDirection(state.SortOption);
+        hasActiveFilters = state.SelectedModes.Any() ||
+                            state.SelectedStatuses.Any() ||
+                            state.WarningFilter != ArtifactWarningFilter.All ||
+                            state.TelemetryFilter != ArtifactTelemetryFilter.All ||
+                            !string.IsNullOrWhiteSpace(state.SearchText) ||
+                            state.SortOption != ArtifactSortOption.Created ||
+                            state.SortDirection != defaultDirection;
     }
 
     private void BuildFacets()
     {
-        _statusFacets = _runs
+        statusFacets = runs
             .GroupBy(ArtifactListState.DetermineStatus)
             .ToDictionary(g => g.Key, g => g.Count());
 
         foreach (ArtifactRunStatus status in Enum.GetValues<ArtifactRunStatus>())
         {
-            if (!_statusFacets.ContainsKey(status))
+            if (!statusFacets.ContainsKey(status))
             {
-                _statusFacets[status] = 0;
+                statusFacets[status] = 0;
             }
         }
 
-        _simulationModeCount = _runs.Count(r => string.Equals(r.Source, "simulation", StringComparison.OrdinalIgnoreCase));
-        _warningsWithIssues = _runs.Count(r => r.WarningCount > 0);
-        _warningsClear = _runs.Count - _warningsWithIssues;
-        _telemetryAvailable = _runs.Count(r => r.Telemetry?.Available == true);
+        simulationModeCount = runs.Count(r => string.Equals(r.Source, "simulation", StringComparison.OrdinalIgnoreCase));
+        warningsWithIssues = runs.Count(r => r.WarningCount > 0);
+        warningsClear = runs.Count - warningsWithIssues;
+        telemetryAvailable = runs.Count(r => r.Telemetry?.Available == true);
     }
 
     private int GetStatusCount(ArtifactRunStatus status) =>
-        _statusFacets.TryGetValue(status, out var count) ? count : 0;
+        statusFacets.TryGetValue(status, out var count) ? count : 0;
 
     private async Task ToggleStatusAsync(ArtifactRunStatus status)
     {
-        _state.ToggleStatus(status);
-        _state.PageIndex = 1;
+        state.ToggleStatus(status);
+        state.PageIndex = 1;
         ApplyState();
         await UpdateQueryAsync(includeRunId: true).ConfigureAwait(false);
     }
 
     private async Task SetWarningFilterAsync(ArtifactWarningFilter filter)
     {
-        _state.WarningFilter = _state.WarningFilter == filter ? ArtifactWarningFilter.All : filter;
-        _state.PageIndex = 1;
+        state.WarningFilter = state.WarningFilter == filter ? ArtifactWarningFilter.All : filter;
+        state.PageIndex = 1;
         ApplyState();
         await UpdateQueryAsync(includeRunId: true).ConfigureAwait(false);
     }
@@ -210,59 +210,59 @@ public sealed partial class ArtifactList : ComponentBase
     {
         if (string.IsNullOrWhiteSpace(modeKey))
         {
-            _state.SetModes(Array.Empty<string>());
-            _state.TelemetryFilter = ArtifactTelemetryFilter.All;
+            state.SetModes(Array.Empty<string>());
+            state.TelemetryFilter = ArtifactTelemetryFilter.All;
         }
         else if (string.Equals(modeKey, "telemetry-available", StringComparison.OrdinalIgnoreCase))
         {
-            _state.SetModes(Array.Empty<string>());
-            _state.TelemetryFilter = _state.TelemetryFilter == ArtifactTelemetryFilter.Available
+            state.SetModes(Array.Empty<string>());
+            state.TelemetryFilter = state.TelemetryFilter == ArtifactTelemetryFilter.Available
                 ? ArtifactTelemetryFilter.All
                 : ArtifactTelemetryFilter.Available;
         }
         else
         {
-            if (_state.IsModeSelected(modeKey))
+            if (state.IsModeSelected(modeKey))
             {
-                _state.SetModes(Array.Empty<string>());
+                state.SetModes(Array.Empty<string>());
             }
             else
             {
-                _state.SetModes(new[] { modeKey });
+                state.SetModes(new[] { modeKey });
             }
 
-            _state.TelemetryFilter = ArtifactTelemetryFilter.All;
+            state.TelemetryFilter = ArtifactTelemetryFilter.All;
         }
 
-        _state.PageIndex = 1;
+        state.PageIndex = 1;
         ApplyState();
         await UpdateQueryAsync(includeRunId: true).ConfigureAwait(false);
     }
 
     private async Task OnSortChanged(ArtifactSortOption option)
     {
-        _state.SortOption = option;
-        _state.SortDirection = ArtifactListState.GetDefaultDirection(option);
-        _state.PageIndex = 1;
+        state.SortOption = option;
+        state.SortDirection = ArtifactListState.GetDefaultDirection(option);
+        state.PageIndex = 1;
         ApplyState();
         await UpdateQueryAsync(includeRunId: true).ConfigureAwait(false);
     }
 
     private async Task ToggleColumnSortAsync(ArtifactSortOption option)
     {
-        if (_state.SortOption == option)
+        if (state.SortOption == option)
         {
-            _state.SortDirection = _state.SortDirection == ArtifactSortDirection.Ascending
+            state.SortDirection = state.SortDirection == ArtifactSortDirection.Ascending
                 ? ArtifactSortDirection.Descending
                 : ArtifactSortDirection.Ascending;
         }
         else
         {
-            _state.SortOption = option;
-            _state.SortDirection = ArtifactListState.GetDefaultDirection(option);
+            state.SortOption = option;
+            state.SortDirection = ArtifactListState.GetDefaultDirection(option);
         }
 
-        _state.PageIndex = 1;
+        state.PageIndex = 1;
         ApplyState();
         await UpdateQueryAsync(includeRunId: true).ConfigureAwait(false);
     }
@@ -275,24 +275,24 @@ public sealed partial class ArtifactList : ComponentBase
         }
     }
 
-    private bool IsSortedBy(ArtifactSortOption option) => _state.SortOption == option;
+    private bool IsSortedBy(ArtifactSortOption option) => state.SortOption == option;
 
     private string GetSortIcon() =>
-        _state.SortDirection == ArtifactSortDirection.Ascending
+        state.SortDirection == ArtifactSortDirection.Ascending
             ? Icons.Material.Filled.ArrowUpward
             : Icons.Material.Filled.ArrowDownward;
     private async Task OnSearchChanged(string value)
     {
-        _searchInput = value ?? string.Empty;
-        _state.SearchText = _searchInput;
-        _state.PageIndex = 1;
+        searchInput = value ?? string.Empty;
+        state.SearchText = searchInput;
+        state.PageIndex = 1;
         ApplyState();
         await UpdateQueryAsync(includeRunId: true).ConfigureAwait(false);
     }
 
     private async Task ResetFiltersAsync()
     {
-        _state = new ArtifactListState(_runs)
+        state = new ArtifactListState(runs)
         {
             PageIndex = 1,
             PageSize = DefaultPageSize,
@@ -302,48 +302,48 @@ public sealed partial class ArtifactList : ComponentBase
             TelemetryFilter = ArtifactTelemetryFilter.All,
             SearchText = string.Empty
         };
-        _searchInput = string.Empty;
+        searchInput = string.Empty;
         ApplyState();
         await UpdateQueryAsync(includeRunId: true).ConfigureAwait(false);
     }
 
     private async Task PreviousPageAsync()
     {
-        if (_state.PageIndex <= 1)
+        if (state.PageIndex <= 1)
         {
             return;
         }
 
-        _state.PageIndex -= 1;
+        state.PageIndex -= 1;
         ApplyState();
         await UpdateQueryAsync(includeRunId: true).ConfigureAwait(false);
     }
 
     private async Task NextPageAsync()
     {
-        if (_view.PageIndex >= _view.TotalPages)
+        if (view.PageIndex >= view.TotalPages)
         {
             return;
         }
 
-        _state.PageIndex += 1;
+        state.PageIndex += 1;
         ApplyState();
         await UpdateQueryAsync(includeRunId: true).ConfigureAwait(false);
     }
 
     private async Task OpenDrawerAsync(RunListEntry run)
     {
-        _selectedRun = run;
-        _isDrawerOpen = true;
-        _detailError = null;
-        _captureSummary = null;
-        _overwriteCapture = false;
+        selectedRun = run;
+        isDrawerOpen = true;
+        detailError = null;
+        captureSummary = null;
+        overwriteCapture = false;
 
         await UpdateQueryAsync(includeRunId: true).ConfigureAwait(false);
 
         if (detailCache.TryGetValue(run.RunId, out var cached))
         {
-            _selectedDetail = cached;
+            selectedDetail = cached;
             await InvokeAsync(StateHasChanged);
         }
         else
@@ -353,41 +353,41 @@ public sealed partial class ArtifactList : ComponentBase
     }
 
     private bool IsSelected(RunListEntry run) =>
-        _selectedRun is not null &&
-        string.Equals(_selectedRun.RunId, run.RunId, StringComparison.OrdinalIgnoreCase);
+        selectedRun is not null &&
+        string.Equals(selectedRun.RunId, run.RunId, StringComparison.OrdinalIgnoreCase);
 
     internal async Task CloseDrawerAsync()
     {
-        _isDrawerOpen = false;
-        _selectedRun = null;
-        _selectedDetail = null;
-        _detailError = null;
-        _captureSummary = null;
-        _overwriteCapture = false;
+        isDrawerOpen = false;
+        selectedRun = null;
+        selectedDetail = null;
+        detailError = null;
+        captureSummary = null;
+        overwriteCapture = false;
         await UpdateQueryAsync(includeRunId: false).ConfigureAwait(false);
         await InvokeAsync(StateHasChanged);
     }
 
     private async Task ReloadDetailAsync()
     {
-        if (_selectedRun is null)
+        if (selectedRun is null)
         {
             return;
         }
 
-        await LoadDetailAsync(_selectedRun, forceReload: true).ConfigureAwait(false);
+        await LoadDetailAsync(selectedRun, forceReload: true).ConfigureAwait(false);
     }
 
     private async Task LoadDetailAsync(RunListEntry run, bool forceReload)
     {
         if (!forceReload && detailCache.TryGetValue(run.RunId, out var cached))
         {
-            _selectedDetail = cached;
+            selectedDetail = cached;
             return;
         }
 
-        _isDetailLoading = true;
-        _detailError = null;
+        isDetailLoading = true;
+        detailError = null;
         await InvokeAsync(StateHasChanged);
 
         try
@@ -395,65 +395,65 @@ public sealed partial class ArtifactList : ComponentBase
             var result = await ApiClient.GetRunAsync(run.RunId).ConfigureAwait(false);
             if (result.Success && result.Value is not null)
             {
-                _selectedDetail = result.Value;
+                selectedDetail = result.Value;
                 detailCache[run.RunId] = result.Value;
             }
             else
             {
-                _selectedDetail = null;
-                _detailError = result.Error ?? $"Unable to load run {run.RunId}.";
+                selectedDetail = null;
+                detailError = result.Error ?? $"Unable to load run {run.RunId}.";
             }
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Failed to load detail for run {RunId}", run.RunId);
-            _selectedDetail = null;
-            _detailError = ex.Message;
+            selectedDetail = null;
+            detailError = ex.Message;
         }
         finally
         {
-            _isDetailLoading = false;
+            isDetailLoading = false;
             await InvokeAsync(StateHasChanged);
         }
     }
 
     private async Task GenerateTelemetryAsync()
     {
-        if (_selectedRun is null || _isGeneratingTelemetry)
+        if (selectedRun is null || isGeneratingTelemetry)
         {
             return;
         }
 
-        _isGeneratingTelemetry = true;
-        _detailError = null;
-        _captureSummary = null;
+        isGeneratingTelemetry = true;
+        detailError = null;
+        captureSummary = null;
         await InvokeAsync(StateHasChanged);
 
         try
         {
             var request = new TelemetryCaptureRequestDto(
-                new TelemetryCaptureSourceDto("run", _selectedRun.RunId),
-                new TelemetryCaptureOutputDto(null, null, _overwriteCapture));
+                new TelemetryCaptureSourceDto("run", selectedRun.RunId),
+                new TelemetryCaptureOutputDto(null, null, overwriteCapture));
 
             var result = await ApiClient.GenerateTelemetryCaptureAsync(request).ConfigureAwait(false);
             if (!result.Success || result.Value?.Capture is null)
             {
                 if (result.StatusCode == 409)
                 {
-                    _captureSummary = TryParseCapture(result.Error);
+                    captureSummary = TryParseCapture(result.Error);
                     NotificationService.Add("Telemetry bundle already exists. Enable overwrite to regenerate.", Severity.Info);
                 }
                 else
                 {
                     var message = result.Error ?? $"Telemetry generation failed (status {result.StatusCode}).";
                     NotificationService.Add(message, Severity.Error);
-                    _detailError = message;
+                    detailError = message;
                 }
                 return;
             }
 
-            _captureSummary = result.Value.Capture;
-            if (_captureSummary.Generated)
+            captureSummary = result.Value.Capture;
+            if (captureSummary.Generated)
             {
                 NotificationService.Add("Telemetry bundle generated successfully.", Severity.Success);
             }
@@ -466,37 +466,37 @@ public sealed partial class ArtifactList : ComponentBase
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Telemetry generation failed for {RunId}", _selectedRun.RunId);
-            _detailError = ex.Message;
+            Logger.LogError(ex, "Telemetry generation failed for {RunId}", selectedRun.RunId);
+            detailError = ex.Message;
             NotificationService.Add($"Telemetry generation failed: {ex.Message}", Severity.Error);
         }
         finally
         {
-            _isGeneratingTelemetry = false;
+            isGeneratingTelemetry = false;
             await InvokeAsync(StateHasChanged);
         }
     }
 
     private async Task ReloadSelectedRunAsync()
     {
-        if (_selectedRun is null)
+        if (selectedRun is null)
         {
             return;
         }
 
         try
         {
-            var result = await ApiClient.GetRunAsync(_selectedRun.RunId).ConfigureAwait(false);
+            var result = await ApiClient.GetRunAsync(selectedRun.RunId).ConfigureAwait(false);
             if (result.Success && result.Value is not null)
             {
-                _selectedDetail = result.Value;
-                detailCache[_selectedRun.RunId] = result.Value;
+                selectedDetail = result.Value;
+                detailCache[selectedRun.RunId] = result.Value;
 
-                var telemetry = result.Value.Telemetry ?? _selectedRun.Telemetry;
-                var updated = _selectedRun with
+                var telemetry = result.Value.Telemetry ?? selectedRun.Telemetry;
+                var updated = selectedRun with
                 {
                     Telemetry = telemetry,
-                    WarningCount = result.Value.Warnings?.Count ?? _selectedRun.WarningCount
+                    WarningCount = result.Value.Warnings?.Count ?? selectedRun.WarningCount
                 };
 
                 UpdateRunEntry(updated);
@@ -504,13 +504,13 @@ public sealed partial class ArtifactList : ComponentBase
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Failed to refresh run after telemetry generation for {RunId}", _selectedRun.RunId);
+            Logger.LogError(ex, "Failed to refresh run after telemetry generation for {RunId}", selectedRun.RunId);
         }
     }
 
     private void UpdateRunEntry(RunListEntry updated)
     {
-        var list = _runs.ToList();
+        var list = runs.ToList();
         var index = list.FindIndex(r => string.Equals(r.RunId, updated.RunId, StringComparison.OrdinalIgnoreCase));
         if (index < 0)
         {
@@ -518,24 +518,24 @@ public sealed partial class ArtifactList : ComponentBase
         }
 
         list[index] = updated;
-        _runs = list;
-        _state = _state.CloneForRuns(_runs);
+        runs = list;
+        state = state.CloneForRuns(runs);
         ApplyState();
 
-        if (_selectedRun is not null && string.Equals(_selectedRun.RunId, updated.RunId, StringComparison.OrdinalIgnoreCase))
+        if (selectedRun is not null && string.Equals(selectedRun.RunId, updated.RunId, StringComparison.OrdinalIgnoreCase))
         {
-            _selectedRun = updated;
+            selectedRun = updated;
         }
     }
 
     private void LoadRun(OrchestrationMode mode)
     {
-        if (_selectedRun is null)
+        if (selectedRun is null)
         {
             return;
         }
 
-        var templateId = _selectedRun.TemplateId;
+        var templateId = selectedRun.TemplateId;
         if (string.IsNullOrWhiteSpace(templateId))
         {
             return;
@@ -575,9 +575,9 @@ public sealed partial class ArtifactList : ComponentBase
 
     private async Task OnRowClickedAsync(RunListEntry run)
     {
-        if (_isDrawerOpen &&
-            _selectedRun is not null &&
-            string.Equals(_selectedRun.RunId, run.RunId, StringComparison.OrdinalIgnoreCase))
+        if (isDrawerOpen &&
+            selectedRun is not null &&
+            string.Equals(selectedRun.RunId, run.RunId, StringComparison.OrdinalIgnoreCase))
         {
             return;
         }
@@ -586,7 +586,7 @@ public sealed partial class ArtifactList : ComponentBase
     }
 
     private bool IsRowSelected(RunListEntry run) =>
-        _selectedRunIds.Contains(run.RunId);
+        selectedRunIds.Contains(run.RunId);
 
     private string GetRowClass(RunListEntry run)
     {
@@ -594,22 +594,22 @@ public sealed partial class ArtifactList : ComponentBase
         return $"artifact-table-row{selected}";
     }
 
-    private bool SelectAllChecked => _view.Items.Count > 0 && _view.Items.All(IsRowSelected);
+    private bool SelectAllChecked => view.Items.Count > 0 && view.Items.All(IsRowSelected);
 
     private Task OnSelectAllChanged(bool value)
     {
         if (value)
         {
-            foreach (var run in _view.Items)
+            foreach (var run in view.Items)
             {
-                _selectedRunIds.Add(run.RunId);
+                selectedRunIds.Add(run.RunId);
             }
         }
         else
         {
-            foreach (var run in _view.Items)
+            foreach (var run in view.Items)
             {
-                _selectedRunIds.Remove(run.RunId);
+                selectedRunIds.Remove(run.RunId);
             }
         }
 
@@ -624,11 +624,11 @@ public sealed partial class ArtifactList : ComponentBase
     {
         if (value)
         {
-            _selectedRunIds.Add(run.RunId);
+            selectedRunIds.Add(run.RunId);
         }
         else
         {
-            _selectedRunIds.Remove(run.RunId);
+            selectedRunIds.Remove(run.RunId);
         }
 
         StateHasChanged();
@@ -637,43 +637,43 @@ public sealed partial class ArtifactList : ComponentBase
 
     private void SetViewMode(ArtifactViewMode mode)
     {
-        if (_viewMode == mode)
+        if (viewMode == mode)
         {
             return;
         }
 
-        _viewMode = mode;
+        viewMode = mode;
         ClearSelection();
         StateHasChanged();
     }
 
     private void ClearSelection()
     {
-        if (_selectedRunIds.Count == 0)
+        if (selectedRunIds.Count == 0)
         {
             return;
         }
 
-        _selectedRunIds.Clear();
+        selectedRunIds.Clear();
         StateHasChanged();
     }
 
     private void PruneSelection()
     {
-        if (_selectedRunIds.Count == 0)
+        if (selectedRunIds.Count == 0)
         {
             return;
         }
 
-        var validIds = new HashSet<string>(_runs.Select(r => r.RunId), StringComparer.OrdinalIgnoreCase);
-        _selectedRunIds.RemoveWhere(id => !validIds.Contains(id));
+        var validIds = new HashSet<string>(runs.Select(r => r.RunId), StringComparer.OrdinalIgnoreCase);
+        selectedRunIds.RemoveWhere(id => !validIds.Contains(id));
     }
 
-    private string SelectionSummary => _selectedRunIds.Count switch
+    private string SelectionSummary => selectedRunIds.Count switch
     {
         0 => "No runs selected",
         1 => "1 run selected",
-        _ => $"{_selectedRunIds.Count} runs selected"
+        _ => $"{selectedRunIds.Count} runs selected"
     };
 
     private static string FormatTemplateTitle(RunListEntry run) =>
@@ -703,7 +703,7 @@ public sealed partial class ArtifactList : ComponentBase
 
     private async Task DeleteSelectedAsync()
     {
-        if (_selectedRunIds.Count == 0 || _isDeletingArtifacts)
+        if (selectedRunIds.Count == 0 || isDeletingArtifacts)
         {
             return;
         }
@@ -716,10 +716,10 @@ public sealed partial class ArtifactList : ComponentBase
 
         try
         {
-            _isDeletingArtifacts = true;
+            isDeletingArtifacts = true;
             await InvokeAsync(StateHasChanged);
 
-            var ids = _selectedRunIds.ToArray();
+            var ids = selectedRunIds.ToArray();
             var response = await ApiClient.BulkDeleteArtifactsAsync(ids).ConfigureAwait(false);
             if (!response.Success || response.Value is null)
             {
@@ -738,7 +738,7 @@ public sealed partial class ArtifactList : ComponentBase
                 NotificationService.Add($"{failed} artifact(s) could not be deleted.", Severity.Warning);
             }
 
-            _selectedRunIds.Clear();
+            selectedRunIds.Clear();
             await LoadAsync(forceRefresh: true).ConfigureAwait(false);
         }
         catch (Exception ex)
@@ -748,7 +748,7 @@ public sealed partial class ArtifactList : ComponentBase
         }
         finally
         {
-            _isDeletingArtifacts = false;
+            isDeletingArtifacts = false;
             await InvokeAsync(StateHasChanged);
         }
     }
@@ -761,8 +761,8 @@ public sealed partial class ArtifactList : ComponentBase
             return false;
         }
 
-        var selectedLabels = _runs
-            .Where(r => _selectedRunIds.Contains(r.RunId))
+        var selectedLabels = runs
+            .Where(r => selectedRunIds.Contains(r.RunId))
             .Select(r => $"{FormatTemplateTitle(r)} · {GetShortRunId(r.RunId)}")
             .Take(25)
             .ToList();
@@ -770,7 +770,7 @@ public sealed partial class ArtifactList : ComponentBase
         var parameters = new DialogParameters
         {
             [nameof(ConfirmBulkActionDialog.Title)] = "Delete artifacts",
-            [nameof(ConfirmBulkActionDialog.Message)] = $"Delete {_selectedRunIds.Count} artifact(s)? This permanently removes their run directories.",
+            [nameof(ConfirmBulkActionDialog.Message)] = $"Delete {selectedRunIds.Count} artifact(s)? This permanently removes their run directories.",
             [nameof(ConfirmBulkActionDialog.ActionButtonText)] = "Delete",
             [nameof(ConfirmBulkActionDialog.ActionButtonColor)] = Color.Error,
             [nameof(ConfirmBulkActionDialog.SelectedItems)] = selectedLabels
@@ -837,7 +837,7 @@ public sealed partial class ArtifactList : ComponentBase
 
     private Task CloseDrawerIfDifferentAsync(RunListEntry run)
     {
-        if (_selectedRun is not null && string.Equals(_selectedRun.RunId, run.RunId, StringComparison.OrdinalIgnoreCase))
+        if (selectedRun is not null && string.Equals(selectedRun.RunId, run.RunId, StringComparison.OrdinalIgnoreCase))
         {
             return Task.CompletedTask;
         }
@@ -937,13 +937,13 @@ public sealed partial class ArtifactList : ComponentBase
 
     private async Task UpdateQueryAsync(bool includeRunId)
     {
-        var query = _state.ToQueryParameters();
+        var query = state.ToQueryParameters();
         var navQuery = query.ToDictionary(kvp => kvp.Key, kvp => (object?)kvp.Value, StringComparer.OrdinalIgnoreCase);
 
-        if (includeRunId && _selectedRun is not null)
+        if (includeRunId && selectedRun is not null)
         {
-            query["runId"] = _selectedRun.RunId;
-            navQuery["runId"] = _selectedRun.RunId;
+            query["runId"] = selectedRun.RunId;
+            navQuery["runId"] = selectedRun.RunId;
         }
 
         var targetUri = Navigation.GetUriWithQueryParameters(navQuery);
@@ -968,7 +968,7 @@ public sealed partial class ArtifactList : ComponentBase
             return;
         }
 
-        var match = _runs.FirstOrDefault(r => string.Equals(r.RunId, runId, StringComparison.OrdinalIgnoreCase));
+        var match = runs.FirstOrDefault(r => string.Equals(r.RunId, runId, StringComparison.OrdinalIgnoreCase));
         if (match is null)
         {
             return;
@@ -980,7 +980,7 @@ public sealed partial class ArtifactList : ComponentBase
 
     private Task OnOverwriteChanged(bool value)
     {
-        _overwriteCapture = value;
+        overwriteCapture = value;
         return Task.CompletedTask;
     }
 

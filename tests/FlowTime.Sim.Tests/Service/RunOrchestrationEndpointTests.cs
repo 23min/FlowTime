@@ -23,7 +23,7 @@ public class RunOrchestrationEndpointTests : IClassFixture<WebApplicationFactory
         try
         {
             var templatePath = Path.Combine(templatesRoot, "sim-order.yaml");
-            await File.WriteAllTextAsync(templatePath, SimulationTemplate);
+            await File.WriteAllTextAsync(templatePath, simulationTemplate);
             var client = factory.CreateClient();
 
             var request = new RunCreateRequest
@@ -42,7 +42,7 @@ public class RunOrchestrationEndpointTests : IClassFixture<WebApplicationFactory
             var responseBody = await response.Content.ReadAsStringAsync();
             Assert.True(response.StatusCode == HttpStatusCode.Created, $"Unexpected status {response.StatusCode}: {responseBody}");
 
-            var payload = await response.Content.ReadFromJsonAsync<RunCreateResponse>(SerializerOptions);
+            var payload = await response.Content.ReadFromJsonAsync<RunCreateResponse>(serializerOptions);
             Assert.NotNull(payload);
             Assert.False(payload!.IsDryRun);
             Assert.False(payload.WasReused);
@@ -66,7 +66,7 @@ public class RunOrchestrationEndpointTests : IClassFixture<WebApplicationFactory
         try
         {
             var templatePath = Path.Combine(templatesRoot, "sim-order.yaml");
-            await File.WriteAllTextAsync(templatePath, SimulationTemplate);
+            await File.WriteAllTextAsync(templatePath, simulationTemplate);
             var client = factory.CreateClient();
 
             var request = new RunCreateRequest
@@ -82,14 +82,14 @@ public class RunOrchestrationEndpointTests : IClassFixture<WebApplicationFactory
             var first = await client.PostAsJsonAsync("/api/v1/orchestration/runs", request);
             var firstBody = await first.Content.ReadAsStringAsync();
             Assert.True(first.StatusCode == HttpStatusCode.Created, $"Unexpected status {first.StatusCode}: {firstBody}");
-            var firstPayload = await first.Content.ReadFromJsonAsync<RunCreateResponse>(SerializerOptions);
+            var firstPayload = await first.Content.ReadFromJsonAsync<RunCreateResponse>(serializerOptions);
             Assert.NotNull(firstPayload);
             Assert.False(firstPayload!.WasReused);
 
             var second = await client.PostAsJsonAsync("/api/v1/orchestration/runs", request);
             var secondBody = await second.Content.ReadAsStringAsync();
             Assert.True(second.StatusCode == HttpStatusCode.Created, $"Unexpected status {second.StatusCode}: {secondBody}");
-            var secondPayload = await second.Content.ReadFromJsonAsync<RunCreateResponse>(SerializerOptions);
+            var secondPayload = await second.Content.ReadFromJsonAsync<RunCreateResponse>(serializerOptions);
             Assert.NotNull(secondPayload);
             Assert.True(secondPayload!.WasReused);
             Assert.Equal(firstPayload.Metadata!.RunId, secondPayload.Metadata!.RunId);
@@ -127,12 +127,12 @@ public class RunOrchestrationEndpointTests : IClassFixture<WebApplicationFactory
         Environment.SetEnvironmentVariable("FLOWTIME_SIM_TEMPLATES_DIR", previous.Templates);
     }
 
-    private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web)
+    private static readonly JsonSerializerOptions serializerOptions = new(JsonSerializerDefaults.Web)
     {
         PropertyNameCaseInsensitive = true
     };
 
-    private const string SimulationTemplate = """
+    private const string simulationTemplate = """
 schemaVersion: 1
 generator: flowtime-sim
 metadata:

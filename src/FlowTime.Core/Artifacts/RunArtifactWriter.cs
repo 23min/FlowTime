@@ -22,7 +22,7 @@ public static class RunArtifactWriter
         .IgnoreUnmatchedProperties()
         .Build();
 
-    private const int DefaultSeed = 123;
+    private const int defaultSeed = 123;
 
     public record WriteRequest
     {
@@ -80,7 +80,7 @@ public static class RunArtifactWriter
         public Dictionary<string, object?> Parameters { get; set; } = new(StringComparer.Ordinal);
     }
 
-    private const string AggregatesDirectoryName = "aggregates";
+    private const string aggregatesDirectoryName = "aggregates";
 
     public static async Task<WriteResult> WriteArtifactsAsync(WriteRequest request)
     {
@@ -134,7 +134,7 @@ public static class RunArtifactWriter
         var runDir = Path.Combine(request.OutputDirectory, runId);
         var seriesDir = Path.Combine(runDir, "series");
         var modelDir = Path.Combine(runDir, "model");
-        var aggregatesDir = Path.Combine(runDir, AggregatesDirectoryName);
+        var aggregatesDir = Path.Combine(runDir, aggregatesDirectoryName);
 
         Directory.CreateDirectory(runDir);
         Directory.CreateDirectory(seriesDir);
@@ -299,7 +299,7 @@ public static class RunArtifactWriter
 
         await File.WriteAllTextAsync(Path.Combine(seriesDir, "index.json"), JsonSerializer.Serialize(index, jsonOptions), Encoding.UTF8);
 
-        var finalSeed = request.RngSeed ?? DefaultSeed;
+        var finalSeed = request.RngSeed ?? defaultSeed;
 
         ProvenanceRef? provenanceRef = null;
         if (!string.IsNullOrWhiteSpace(request.ProvenanceJson))

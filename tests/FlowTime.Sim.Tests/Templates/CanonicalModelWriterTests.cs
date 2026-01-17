@@ -16,9 +16,9 @@ public class CanonicalModelWriterTests
 {
     private readonly TemplateService templateService;
 
-    private const string TemplateId = "classy-template";
-    private const string SinkTemplateId = "sink-role-template";
-    private const string ClassyTemplate = """
+    private const string templateId = "classy-template";
+    private const string sinkTemplateId = "sink-role-template";
+    private const string classyTemplate = """
 schemaVersion: 1
 generator: flowtime-sim
 metadata:
@@ -71,7 +71,7 @@ outputs:
   - series: served
     as: served.csv
 """;
-    private const string SinkTemplate = """
+    private const string sinkTemplate = """
 schemaVersion: 1
 generator: flowtime-sim
 metadata:
@@ -110,8 +110,8 @@ outputs:
     {
         var templates = new Dictionary<string, string>
         {
-            { TemplateId, ClassyTemplate },
-            { SinkTemplateId, SinkTemplate }
+            { templateId, classyTemplate },
+            { sinkTemplateId, sinkTemplate }
         };
 
         templateService = new TemplateService(templates, NullLogger<TemplateService>.Instance);
@@ -120,7 +120,7 @@ outputs:
     [Fact]
     public async Task CanonicalModelWriter_Writes_Classes_Block()
     {
-        var modelYaml = await templateService.GenerateEngineModelAsync(TemplateId, new Dictionary<string, object>());
+        var modelYaml = await templateService.GenerateEngineModelAsync(templateId, new Dictionary<string, object>());
         var yaml = LoadYaml(modelYaml);
 
         var classes = GetSequence(yaml, "classes");
@@ -146,7 +146,7 @@ outputs:
     [Fact]
     public async Task CanonicalModelWriter_Preserves_ClassOrder()
     {
-        var modelYaml = await templateService.GenerateEngineModelAsync(TemplateId, new Dictionary<string, object>());
+        var modelYaml = await templateService.GenerateEngineModelAsync(templateId, new Dictionary<string, object>());
         var yaml = LoadYaml(modelYaml);
 
         var classes = GetSequence(yaml, "classes");
@@ -163,7 +163,7 @@ outputs:
     [Fact]
     public async Task CanonicalModelWriter_Preserves_NodeRole()
     {
-        var modelYaml = await templateService.GenerateEngineModelAsync(SinkTemplateId, new Dictionary<string, object>());
+        var modelYaml = await templateService.GenerateEngineModelAsync(sinkTemplateId, new Dictionary<string, object>());
 
         Assert.Contains("nodeRole: sink", modelYaml);
     }
@@ -171,7 +171,7 @@ outputs:
     [Fact]
     public async Task RunManifest_Includes_ClassSummary()
     {
-        var modelYaml = await templateService.GenerateEngineModelAsync(TemplateId, new Dictionary<string, object>());
+        var modelYaml = await templateService.GenerateEngineModelAsync(templateId, new Dictionary<string, object>());
         var modelDefinition = ModelService.ParseAndConvert(modelYaml);
 
         Assert.NotNull(modelDefinition);

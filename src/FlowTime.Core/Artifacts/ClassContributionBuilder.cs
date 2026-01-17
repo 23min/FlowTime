@@ -16,8 +16,8 @@ internal sealed record DispatchScheduleParameters(int PeriodBins, int PhaseOffse
 
 internal static class ClassContributionBuilder
 {
-    private const double Tolerance = 1e-9;
-    private const double RouterDiagnosticsTolerance = 1e-6;
+    private const double tolerance = 1e-9;
+    private const double routerDiagnosticsTolerance = 1e-6;
 
     public static IReadOnlyDictionary<NodeId, IReadOnlyDictionary<string, double[]>> Build(
         ModelDefinition model,
@@ -533,7 +533,7 @@ internal static class ClassContributionBuilder
         }
 
         var lag = (int)lagLiteral.Value;
-        if (lag < 0 || Math.Abs(lag - lagLiteral.Value) > Tolerance)
+        if (lag < 0 || Math.Abs(lag - lagLiteral.Value) > tolerance)
         {
             return ClassSeries.Zero(grid.Length);
         }
@@ -812,7 +812,7 @@ internal static class ClassContributionBuilder
         {
             var routed = sums.TryGetValue(classId, out var aggregate) ? aggregate : new double[sourceSeries.Length];
             var diff = MaxAbsDifference(sourceSeries, routed);
-            if (diff > RouterDiagnosticsTolerance)
+            if (diff > routerDiagnosticsTolerance)
             {
                 result[classId] = diff;
             }
@@ -834,7 +834,7 @@ internal static class ClassContributionBuilder
     {
         for (var i = 0; i < series.Length; i++)
         {
-            if (Math.Abs(series[i]) > RouterDiagnosticsTolerance)
+            if (Math.Abs(series[i]) > routerDiagnosticsTolerance)
             {
                 return true;
             }
@@ -935,7 +935,7 @@ internal static class ClassContributionBuilder
         }
 
         var period = (int)periodLiteral.Value;
-        if (period <= 0 || Math.Abs(period - periodLiteral.Value) > Tolerance)
+        if (period <= 0 || Math.Abs(period - periodLiteral.Value) > tolerance)
         {
             return ClassSeries.Zero(grid.Length);
         }
@@ -949,7 +949,7 @@ internal static class ClassContributionBuilder
             }
 
             phase = (int)phaseLiteral.Value;
-            if (phase < 0 || Math.Abs(phase - phaseLiteral.Value) > Tolerance)
+            if (phase < 0 || Math.Abs(phase - phaseLiteral.Value) > tolerance)
             {
                 return ClassSeries.Zero(grid.Length);
             }
@@ -1112,7 +1112,7 @@ internal static class ClassContributionBuilder
 
             double totalInitial = initial;
             var inflow0 = inflow.ByClass.Sum(kvp => kvp.Value.Length > 0 ? kvp.Value[0] : 0d);
-            if (Math.Abs(totalInitial) < Tolerance && inflow0 > 0)
+            if (Math.Abs(totalInitial) < tolerance && inflow0 > 0)
             {
                 totalInitial = inflow0;
             }
@@ -1257,8 +1257,8 @@ internal static class ClassContributionBuilder
             double rightValue,
             double resultValue)
         {
-            var leftMatches = Math.Abs(leftValue - resultValue) < Tolerance;
-            var rightMatches = Math.Abs(rightValue - resultValue) < Tolerance;
+            var leftMatches = Math.Abs(leftValue - resultValue) < tolerance;
+            var rightMatches = Math.Abs(rightValue - resultValue) < tolerance;
 
             if (leftMatches && left.ByClass.Count > 0)
             {
@@ -1308,7 +1308,7 @@ internal static class ClassContributionBuilder
         {
             var total = Combine(dividend.Total, divisor.Total, (a, b) =>
             {
-                return Math.Abs(b) <= Tolerance ? 0d : Modulo(a, b);
+                return Math.Abs(b) <= tolerance ? 0d : Modulo(a, b);
             });
 
             if (dividend.ByClass.Count == 0 || divisor.ByClass.Count > 0)
@@ -1323,7 +1323,7 @@ internal static class ClassContributionBuilder
                 for (var i = 0; i < series.Length; i++)
                 {
                     var divisorSample = i < divisor.Total.Length ? divisor.Total[i] : 0d;
-                    values[i] = Math.Abs(divisorSample) <= Tolerance ? 0d : Modulo(series[i], divisorSample);
+                    values[i] = Math.Abs(divisorSample) <= tolerance ? 0d : Modulo(series[i], divisorSample);
                 }
 
                 dict[classId] = values;
@@ -1428,7 +1428,7 @@ internal static class ClassContributionBuilder
                 }
 
                 var target = totals[i];
-                if (Math.Abs(sum - target) <= Tolerance)
+                if (Math.Abs(sum - target) <= tolerance)
                 {
                     continue;
                 }
@@ -1503,7 +1503,7 @@ internal static class ClassContributionBuilder
                     }
 
                     var originalValue = original[i];
-                    if (!double.IsFinite(originalValue) || Math.Abs(originalValue) < Tolerance)
+                    if (!double.IsFinite(originalValue) || Math.Abs(originalValue) < tolerance)
                     {
                         values[i] = 0d;
                         continue;
@@ -1558,7 +1558,7 @@ internal static class ClassContributionBuilder
                 }
 
                 allowed = Math.Min(requested, allowed);
-                if (Math.Abs(allowed - requested) <= Tolerance)
+                if (Math.Abs(allowed - requested) <= tolerance)
                 {
                     total[i] = requested;
                     continue;
@@ -1587,7 +1587,7 @@ internal static class ClassContributionBuilder
         private static void ScaleBin(ClassSeries source, int index, double targetValue)
         {
             var current = index < source.Total.Length ? source.Total[index] : 0d;
-            if (current <= Tolerance)
+            if (current <= tolerance)
             {
                 ZeroBin(source, index);
                 source.Total[index] = targetValue;

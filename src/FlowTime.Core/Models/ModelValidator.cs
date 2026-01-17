@@ -8,7 +8,7 @@ namespace FlowTime.Core;
 /// </summary>
 public static class ModelValidator
 {
-    private static readonly IDeserializer Deserializer = new DeserializerBuilder()
+    private static readonly IDeserializer deserializer = new DeserializerBuilder()
         .WithNamingConvention(CamelCaseNamingConvention.Instance)
         .IgnoreUnmatchedProperties()
         .Build();
@@ -31,7 +31,7 @@ public static class ModelValidator
         try
         {
             // Parse YAML to a dynamic object first to check raw structure
-            var rawModel = Deserializer.Deserialize<Dictionary<string, object>>(yaml);
+            var rawModel = deserializer.Deserialize<Dictionary<string, object>>(yaml);
 
             // Check for legacy top-level fields that are no longer supported
             if (rawModel.ContainsKey("arrivals"))

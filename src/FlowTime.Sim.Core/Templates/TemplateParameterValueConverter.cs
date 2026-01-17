@@ -9,7 +9,7 @@ namespace FlowTime.Sim.Core.Templates;
 
 internal static class TemplateParameterValueConverter
 {
-    private const double IntegerTolerance = 1e-9;
+    private const double integerTolerance = 1e-9;
 
     public static object? Normalize(TemplateParameter? parameter, object? value)
     {
@@ -255,7 +255,7 @@ internal static class TemplateParameterValueConverter
     private static int ConvertDoubleToInt(TemplateParameter? parameter, double value)
     {
         var rounded = Math.Round(value);
-        if (Math.Abs(value - rounded) > IntegerTolerance)
+        if (Math.Abs(value - rounded) > integerTolerance)
         {
             throw CreateConversionException(parameter, "integer");
         }

@@ -20,7 +20,7 @@ using FlowTime.Generator.Orchestration;
 // Explicit Program class for integration tests & clear structure
 public partial class Program
 {
-	private static readonly IDeserializer ArtifactDeserializer = new DeserializerBuilder()
+	private static readonly IDeserializer artifactDeserializer = new DeserializerBuilder()
 		.WithNamingConvention(CamelCaseNamingConvention.Instance)
 		.IgnoreUnmatchedProperties()
 		.Build();
@@ -354,7 +354,7 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 				var modelHash = ModelHasher.ComputeModelHash(finalModelYaml);
 
 				// Deserialize artifact for metadata summary
-				var artifact = ArtifactDeserializer.Deserialize<SimModelArtifact>(finalModelYaml);
+				var artifact = artifactDeserializer.Deserialize<SimModelArtifact>(finalModelYaml);
 				var hasWindow = !string.IsNullOrWhiteSpace(artifact.Window?.Start);
 				var hasTopology = artifact.Topology?.Nodes?.Count > 0;
 				var hasTelemetrySources = artifact.Nodes.Any(n => !string.IsNullOrWhiteSpace(n.Source));

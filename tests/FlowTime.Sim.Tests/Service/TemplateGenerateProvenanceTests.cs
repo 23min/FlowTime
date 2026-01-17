@@ -16,8 +16,8 @@ namespace FlowTime.Sim.Tests.Service;
 /// </summary>
 public class TemplateGenerateProvenanceTests : IClassFixture<WebApplicationFactory<Program>>
 {
-    private readonly WebApplicationFactory<Program> _factory;
-    private readonly HttpClient _client;
+    private readonly WebApplicationFactory<Program> factory;
+    private readonly HttpClient client;
 
     public TemplateGenerateProvenanceTests(WebApplicationFactory<Program> factory)
     {
@@ -31,8 +31,8 @@ public class TemplateGenerateProvenanceTests : IClassFixture<WebApplicationFacto
         Environment.SetEnvironmentVariable("FLOWTIME_SIM_TEMPLATES_DIR", templatesDir);
         
         // NOW create the factory and client after environment is configured
-        _factory = factory.WithWebHostBuilder(builder => { });
-        _client = _factory.CreateClient();
+        factory = factory.WithWebHostBuilder(builder => { });
+        client = factory.CreateClient();
         
         // Create a simple test template
         var testTemplateYaml = @"schemaVersion: 1
@@ -91,7 +91,7 @@ outputs:
             Encoding.UTF8,
             "application/json");
 
-        var response = await _client.PostAsync("/api/v1/templates/test-template/generate", content);
+        var response = await client.PostAsync("/api/v1/templates/test-template/generate", content);
         await AssertStatusOk(response);
         
         var responseBody = await response.Content.ReadAsStringAsync();
@@ -144,7 +144,7 @@ outputs:
             "application/json");
 
         // Act - Include ?embed_provenance=true query parameter
-        var response = await _client.PostAsync(
+        var response = await client.PostAsync(
             "/api/v1/templates/test-template/generate?embed_provenance=true", 
             content);
         await AssertStatusOk(response);
@@ -188,7 +188,7 @@ outputs:
             "application/json");
 
         // Act - Explicitly set embed_provenance=false
-        var response = await _client.PostAsync(
+        var response = await client.PostAsync(
             "/api/v1/templates/test-template/generate?embed_provenance=false", 
             content);
         await AssertStatusOk(response);
@@ -218,7 +218,7 @@ outputs:
             "application/json");
 
         // Act
-        var response = await _client.PostAsync("/api/v1/templates/test-template/generate?mode=telemetry", content);
+        var response = await client.PostAsync("/api/v1/templates/test-template/generate?mode=telemetry", content);
         await AssertStatusOk(response);
 
         var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
@@ -238,7 +238,7 @@ outputs:
             "application/json");
 
         // Act
-        var response = await _client.PostAsync("/api/v1/templates/test-template/generate?mode=invalid", content);
+        var response = await client.PostAsync("/api/v1/templates/test-template/generate?mode=invalid", content);
 
         // Assert
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -259,9 +259,9 @@ outputs:
             "application/json");
 
         // Act - Generate twice with same parameters, ensure different timestamps
-        var response1 = await _client.PostAsync("/api/v1/templates/test-template/generate", content1);
+        var response1 = await client.PostAsync("/api/v1/templates/test-template/generate", content1);
         await Task.Delay(1100); // Ensure timestamp differs (second precision)
-        var response2 = await _client.PostAsync("/api/v1/templates/test-template/generate", content2);
+        var response2 = await client.PostAsync("/api/v1/templates/test-template/generate", content2);
 
         // Assert
         var json1 = JsonDocument.Parse(await response1.Content.ReadAsStringAsync());
@@ -289,7 +289,7 @@ outputs:
             "application/json");
 
         // Act
-        var response = await _client.PostAsync("/api/v1/templates/test-template/generate", content);
+        var response = await client.PostAsync("/api/v1/templates/test-template/generate", content);
 
         // Assert
         var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
@@ -310,7 +310,7 @@ outputs:
             "application/json");
 
         // Act
-        var response = await _client.PostAsync(
+        var response = await client.PostAsync(
             "/api/v1/templates/non-existent-template/generate", 
             content);
 
@@ -324,7 +324,7 @@ outputs:
         // Arrange - No parameters
         var content = new StringContent("{}", Encoding.UTF8, "application/json");
 
-        var response = await _client.PostAsync("/api/v1/templates/test-template/generate", content);
+        var response = await client.PostAsync("/api/v1/templates/test-template/generate", content);
         await AssertStatusOk(response);
         
         var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
@@ -344,7 +344,7 @@ outputs:
             Encoding.UTF8,
             "application/json");
 
-        var response = await _client.PostAsync("/api/v1/templates/test-template/generate", content);
+        var response = await client.PostAsync("/api/v1/templates/test-template/generate", content);
         await AssertStatusOk(response);
         var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         var timestamp = json.RootElement.GetProperty("provenance").GetProperty("generatedAt").GetString();
@@ -363,7 +363,7 @@ outputs:
             Encoding.UTF8,
             "application/json");
 
-        var response = await _client.PostAsync("/api/v1/templates/test-template/generate", content);
+        var response = await client.PostAsync("/api/v1/templates/test-template/generate", content);
         await AssertStatusOk(response);
         
         // Response should be valid JSON (new format)
@@ -386,7 +386,7 @@ outputs:
             "application/json");
 
         // Act
-        var response = await _client.PostAsync(
+        var response = await client.PostAsync(
             "/api/v1/templates/test-template/generate?embed_provenance=true", 
             content);
 

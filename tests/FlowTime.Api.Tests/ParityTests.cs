@@ -75,7 +75,7 @@ public class ParityTests : IClassFixture<TestWebApplicationFactory>
 	public async Task Api_Run_Applies_Router_Overrides()
 	{
 		var client = factory.CreateClient();
-		var resp = await client.PostAsync("/v1/run", new StringContent(RouterOverrideModel, Encoding.UTF8, "text/plain"));
+		var resp = await client.PostAsync("/v1/run", new StringContent(routerOverrideModel, Encoding.UTF8, "text/plain"));
 		if (!resp.IsSuccessStatusCode)
 		{
 			var body = await resp.Content.ReadAsStringAsync();
@@ -91,7 +91,7 @@ public class ParityTests : IClassFixture<TestWebApplicationFactory>
 		Assert.Equal(new[] { 2d }, routeGround);
 	}
 
-	private const string RouterOverrideModel = """
+	private const string routerOverrideModel = """
 schemaVersion: 1
 generator: flowtime-sim
 grid:

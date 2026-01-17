@@ -6,14 +6,14 @@ namespace FlowTime.Sim.Tests.Hashing;
 
 public class RunHashCalculatorTests
 {
-    private static readonly IReadOnlyDictionary<string, object?> BaseParameters = new Dictionary<string, object?>
+    private static readonly IReadOnlyDictionary<string, object?> baseParameters = new Dictionary<string, object?>
     {
         ["bins"] = 12,
         ["binSize"] = 60,
         ["title"] = "Warehouse Picker"
     };
 
-    private static readonly IReadOnlyDictionary<string, string> BaseBindings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    private static readonly IReadOnlyDictionary<string, string> baseBindings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
     {
         ["arrivals"] = "OrderService_arrivals.csv",
         ["served"] = "OrderService_served.csv"
@@ -42,7 +42,7 @@ public class RunHashCalculatorTests
             ["bins"] = 12
         };
 
-        var inputA = CreateInput(BaseParameters);
+        var inputA = CreateInput(baseParameters);
         var inputB = CreateInput(shuffledParams);
 
         var hashA = RunHashCalculator.ComputeHash(inputA);
@@ -66,8 +66,8 @@ public class RunHashCalculatorTests
     [Fact]
     public void ComputeHash_TelemetryBindingsAffectHash()
     {
-        var inputA = CreateInput(bindings: BaseBindings);
-        var modifiedBindings = new Dictionary<string, string>(BaseBindings, StringComparer.OrdinalIgnoreCase)
+        var inputA = CreateInput(bindings: baseBindings);
+        var modifiedBindings = new Dictionary<string, string>(baseBindings, StringComparer.OrdinalIgnoreCase)
         {
             ["served"] = "OrderService_served_v2.csv"
         };
@@ -108,8 +108,8 @@ public class RunHashCalculatorTests
             TemplateId: "warehouse-picker",
             TemplateVersion: "1.0.0",
             Mode: "telemetry",
-            Parameters: parameters ?? BaseParameters,
-            TelemetryBindings: bindings ?? BaseBindings,
+            Parameters: parameters ?? baseParameters,
+            TelemetryBindings: bindings ?? baseBindings,
             RngKind: "pcg32",
             RngSeed: rngSeed);
     }
