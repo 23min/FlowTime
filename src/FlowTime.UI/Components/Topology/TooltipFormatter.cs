@@ -51,45 +51,52 @@ internal static class TooltipFormatter
             var nodeKind = metrics.NodeKind;
             if (IsSinkKind(nodeKind))
             {
-                var scheduleLabel = metrics.SuccessRate.HasValue
-                    ? $"{metrics.SuccessRate.Value * 100:F1}%"
-                    : "-";
-                lines.Add($"Schedule SLA {scheduleLabel}");
+                var hasSchedule = HasRawMetric(metrics.RawMetrics, "scheduleAdherence");
+                var slaLabel = FormatPercent(metrics.SuccessRate);
+                lines.Add($"{(hasSchedule ? "Schedule SLA" : "SLA")} {slaLabel}");
+                if (hasSchedule)
+                {
+                    AppendCompletionSlaLine(metrics, lines);
+                }
 
                 lines.Add($"Errors {FormatPercent(metrics.ErrorRate)}");
-                lines.Add($"Flow latency {FormatLatency(metrics.FlowLatencyMs ?? TryGetRawMetric(metrics.RawMetrics, "flowLatencyMs"))}");
+                lines.Add(FormatFlowLatencyLine(metrics));
             }
             else if (IsServiceWithBufferKind(nodeKind))
             {
                 lines.Add($"SLA {FormatPercent(metrics.SuccessRate)}");
+                AppendCompletionSlaLine(metrics, lines);
                 lines.Add($"Utilization {FormatPercentRounded(metrics.Utilization)}");
                 lines.Add($"Errors {FormatPercent(metrics.ErrorRate)}");
                 lines.Add($"Queue {FormatNumber(metrics.QueueDepth)}");
                 lines.Add($"Service time {FormatServiceTime(metrics.ServiceTimeMs)}");
                 lines.Add($"Queue latency {FormatMinutes(metrics.LatencyMinutes)}");
-                lines.Add($"Flow latency {FormatLatency(metrics.FlowLatencyMs)}");
+                lines.Add(FormatFlowLatencyLine(metrics));
             }
             else if (IsQueueKind(nodeKind))
             {
                 lines.Add($"SLA {FormatPercent(metrics.SuccessRate)}");
+                AppendCompletionSlaLine(metrics, lines);
                 lines.Add($"Errors {FormatPercent(metrics.ErrorRate)}");
                 lines.Add($"Queue {FormatNumber(metrics.QueueDepth)}");
                 lines.Add($"Queue latency {FormatMinutes(metrics.LatencyMinutes)}");
-                lines.Add($"Flow latency {FormatLatency(metrics.FlowLatencyMs)}");
+                lines.Add(FormatFlowLatencyLine(metrics));
             }
             else if (IsServiceKind(nodeKind))
             {
                 lines.Add($"SLA {FormatPercent(metrics.SuccessRate)}");
+                AppendCompletionSlaLine(metrics, lines);
                 lines.Add($"Utilization {FormatPercentRounded(metrics.Utilization)}");
                 lines.Add($"Errors {FormatPercent(metrics.ErrorRate)}");
                 lines.Add($"Service time {FormatServiceTime(metrics.ServiceTimeMs)}");
-                lines.Add($"Flow latency {FormatLatency(metrics.FlowLatencyMs)}");
+                lines.Add(FormatFlowLatencyLine(metrics));
             }
             else if (IsRouterKind(nodeKind))
             {
                 lines.Add($"SLA {FormatPercent(metrics.SuccessRate)}");
+                AppendCompletionSlaLine(metrics, lines);
                 lines.Add($"Errors {FormatPercent(metrics.ErrorRate)}");
-                lines.Add($"Flow latency {FormatLatency(metrics.FlowLatencyMs)}");
+                lines.Add(FormatFlowLatencyLine(metrics));
             }
             else
             {
@@ -107,11 +114,12 @@ internal static class TooltipFormatter
                 }
 
                 lines.Add($"SLA {FormatPercent(metrics.SuccessRate)}");
+                AppendCompletionSlaLine(metrics, lines);
                 lines.Add($"Utilization {FormatPercentRounded(metrics.Utilization)}");
                 lines.Add($"Errors {FormatPercent(metrics.ErrorRate)}");
                 lines.Add($"Queue {FormatNumber(metrics.QueueDepth)}");
                 lines.Add($"Service time {FormatServiceTime(metrics.ServiceTimeMs)}");
-                lines.Add($"Flow latency {FormatLatency(metrics.FlowLatencyMs)}");
+                lines.Add(FormatFlowLatencyLine(metrics));
                 lines.Add($"Latency {FormatMinutes(metrics.LatencyMinutes)}");
             }
         }
@@ -169,6 +177,15 @@ internal static class TooltipFormatter
         lines.Add($"{label} {formatted}");
     }
 
+    private static void AppendCompletionSlaLine(NodeBinMetrics metrics, List<string> lines)
+    {
+        var completion = TryGetRawMetric(metrics.RawMetrics, "completionSla");
+        if (completion.HasValue)
+        {
+            lines.Add($"Completion SLA {FormatPercent(completion)}");
+        }
+    }
+
     private static bool IsSinkKind(string? kind)
     {
         return string.Equals(kind, "sink", StringComparison.OrdinalIgnoreCase);
@@ -217,6 +234,30 @@ internal static class TooltipFormatter
         return $"{flowLatency.ToString("0.0", CultureInfo.InvariantCulture)} ms";
     }
 
+    private static string FormatFlowLatencyLine(NodeBinMetrics metrics)
+    {
+        var flowLatency = metrics.FlowLatencyMs ?? TryGetRawMetric(metrics.RawMetrics, "flowLatencyMs");
+        if (flowLatency.HasValue)
+        {
+            return $"Flow latency {FormatLatency(flowLatency)}";
+        }
+
+        var isSink = IsSinkKind(metrics.NodeKind);
+        var arrivals = TryGetRawMetric(metrics.RawMetrics, "arrivals");
+        if (isSink && arrivals.HasValue && arrivals.Value <= 0)
+        {
+            return "Flow latency - (no arrivals in bin)";
+        }
+
+        var served = TryGetRawMetric(metrics.RawMetrics, "served");
+        if (served.HasValue && served.Value <= 0)
+        {
+            return "Flow latency - (no completions in bin)";
+        }
+
+        return "Flow latency -";
+    }
+
     private static string FormatPercent(double? value)
     {
         return value.HasValue ? $"{value.Value * 100:F1}%" : "-";
@@ -245,12 +286,35 @@ internal static class TooltipFormatter
 
     private static string FormatServiceTime(double? value)
     {
+        return FormatDurationMs(value);
+    }
+
+    private static string FormatDurationMs(double? value)
+    {
         if (!value.HasValue)
         {
             return "-";
         }
 
-        return $"{value.Value.ToString(value.Value >= 1000 ? "0" : "0.0", CultureInfo.InvariantCulture)} ms";
+        var sample = value.Value;
+        if (sample >= 10_000)
+        {
+            var minutes = sample / 1000d / 60d;
+            return $"{minutes.ToString("0.0", CultureInfo.InvariantCulture)} min";
+        }
+
+        var format = sample >= 1000 ? "0" : "0.0";
+        return $"{sample.ToString(format, CultureInfo.InvariantCulture)} ms";
+    }
+
+    private static bool HasRawMetric(IReadOnlyDictionary<string, double?>? rawMetrics, string key)
+    {
+        if (rawMetrics is null || string.IsNullOrWhiteSpace(key))
+        {
+            return false;
+        }
+
+        return rawMetrics.ContainsKey(key);
     }
 
     private static double? TryGetRawMetric(IReadOnlyDictionary<string, double?>? rawMetrics, string key)

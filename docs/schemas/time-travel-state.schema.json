@@ -121,6 +121,7 @@
                 "kind": { "type": "string", "minLength": 1 },
                 "nodeLogicalType": { "type": ["string", "null"], "minLength": 1 },
                 "metrics": { "$ref": "#/$defs/nodeMetrics" },
+                "seriesMetadata": { "$ref": "#/$defs/seriesMetadata" },
                 "byClass": {
                     "type": "object",
                     "additionalProperties": { "$ref": "#/$defs/classMetrics" }
@@ -154,6 +155,7 @@
                     "minProperties": 1,
                     "additionalProperties": { "$ref": "#/$defs/numericSeries" }
                 },
+                "seriesMetadata": { "$ref": "#/$defs/seriesMetadata" },
                 "byClass": {
                     "type": "object",
                     "additionalProperties": {
@@ -296,6 +298,24 @@
                 "code": { "type": "string", "minLength": 1 },
                 "message": { "type": "string", "minLength": 1 },
                 "severity": { "type": ["string", "null"], "minLength": 1 }
+            }
+        },
+        "seriesMetadata": {
+            "type": "object",
+            "additionalProperties": { "$ref": "#/$defs/seriesSemantics" }
+        },
+        "seriesSemantics": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "aggregation": {
+                    "type": ["string", "null"],
+                    "enum": ["avg", "sum", "min", "max", "p50", "p95", "p99", "unknown", null]
+                },
+                "origin": {
+                    "type": ["string", "null"],
+                    "enum": ["derived", "telemetry", "model", "unknown", null]
+                }
             }
         },
         "stateWarnings": {

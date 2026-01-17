@@ -1,6 +1,7 @@
 using System;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using FlowTime.UI.Components.Topology;
@@ -118,6 +119,11 @@ public partial class Topology
         return BuildProvenanceTooltip(block.Provenance);
     }
 
+    internal string TestGetAggregationIndicatorLabel()
+    {
+        return GetAggregationIndicatorLabel();
+    }
+
     internal string? TestResolveNodeRoleLabel(string nodeId)
     {
         return ResolveNodeRoleLabel(FindTopologyNode(nodeId));
@@ -132,6 +138,32 @@ public partial class Topology
     {
         var context = CaptureBinDataContext();
         return (context.IncludeInspectorDetails, context.IncludeClassContributions, context.InspectorNodeId);
+    }
+
+    internal void TestSetBinDataRevision(long revision)
+    {
+        binDataRevision = revision;
+    }
+
+    internal int TestGetSelectedBin() => selectedBin;
+
+    internal bool TestApplyBinDataResult(long revision, int selectedBinValue)
+    {
+        var sparklines = new NodeSparklineComputationResult(
+            new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase),
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase),
+            Array.Empty<string>());
+
+        var metrics = new ActiveMetricsComputationResult(
+            new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase),
+            new Dictionary<string, IReadOnlyList<ClassContribution>>(StringComparer.OrdinalIgnoreCase),
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase),
+            selectedBinValue,
+            selectedBinValue.ToString(CultureInfo.InvariantCulture),
+            string.Empty,
+            false);
+
+        return TryApplyBinDataResult(new BinDataRefreshResult(revision, sparklines, metrics));
     }
 
     internal void TestCloseInspector()

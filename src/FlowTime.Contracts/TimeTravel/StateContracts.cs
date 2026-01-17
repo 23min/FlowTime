@@ -78,6 +78,8 @@ public sealed class NodeSnapshot
     public string? LogicalType { get; init; }
     public NodeMetrics Metrics { get; init; } = new();
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyDictionary<string, SeriesSemanticsMetadata>? SeriesMetadata { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyDictionary<string, ClassMetrics>? ByClass { get; init; }
     public NodeDerivedMetrics Derived { get; init; } = new();
     public NodeTelemetryInfo Telemetry { get; init; } = new();
@@ -95,6 +97,8 @@ public sealed class NodeSeries
     [JsonPropertyName("nodeLogicalType")]
     public string? LogicalType { get; init; }
     public IDictionary<string, double?[]> Series { get; init; } = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase);
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyDictionary<string, SeriesSemanticsMetadata>? SeriesMetadata { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IDictionary<string, IDictionary<string, double?[]>>? ByClass { get; init; }
     public NodeTelemetryInfo Telemetry { get; init; } = new();
@@ -187,6 +191,12 @@ public sealed class NodeTelemetryWarning
     public string Code { get; init; } = string.Empty;
     public string Message { get; init; } = string.Empty;
     public string? Severity { get; init; }
+}
+
+public sealed class SeriesSemanticsMetadata
+{
+    public string? Aggregation { get; init; }
+    public string? Origin { get; init; }
 }
 
 public sealed class StateWarning

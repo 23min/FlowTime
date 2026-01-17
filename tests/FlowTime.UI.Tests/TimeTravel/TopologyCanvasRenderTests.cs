@@ -149,6 +149,37 @@ public sealed class TopologyCanvasRenderTests : TestContext
     }
 
     [Fact]
+    public void Topology_FocusView_RendersWhenFiltersAreCleared()
+    {
+        var graph = CreateGraph();
+        var metrics = CreateMetrics();
+        var overlays = TopologyOverlaySettings.Default.Clone();
+        overlays.IncludeServiceNodes = false;
+        overlays.IncludeDlqNodes = false;
+        overlays.IncludeExpressionNodes = false;
+        overlays.IncludeConstNodes = false;
+
+        var sceneCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.renderScene", _ => true);
+        sceneCall.SetVoidResult();
+        var overlayCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.applyOverlayDelta", _ => true);
+        overlayCall.SetVoidResult();
+
+        RenderComponent<TopologyCanvas>(parameters => parameters
+            .Add(p => p.Graph, graph)
+            .Add(p => p.NodeMetrics, metrics)
+            .Add(p => p.OverlaySettings, overlays)
+            .Add(p => p.FocusViewEnabled, true)
+            .Add(p => p.FocusNodeId, "processor")
+            .Add(p => p.FocusIncludeDownstream, false));
+
+        var scenePayload = Assert.IsType<CanvasScenePayload>(sceneCall.Invocations.Single().Arguments[1]);
+
+        Assert.Contains(scenePayload.Nodes, node => node.Id == "ingress");
+        Assert.Contains(scenePayload.Nodes, node => node.Id == "processor");
+        Assert.DoesNotContain(scenePayload.Nodes, node => node.Id == "egress");
+    }
+
+    [Fact]
     public void Topology_FocusView_RelayoutsFilteredGraph()
     {
         var graph = CreateGraph();
@@ -228,6 +259,105 @@ public sealed class TopologyCanvasRenderTests : TestContext
 
         Assert.Equal(EdgeOverlayMode.RetryRate, payload.Overlays.EdgeOverlay);
         Assert.False(payload.Overlays.ShowEdgeOverlayLabels);
+    }
+
+    [Theory]
+    [InlineData(TopologyColorBasis.Sla, "95%")]
+    [InlineData(TopologyColorBasis.Utilization, "50%")]
+    [InlineData(TopologyColorBasis.Errors, "2.3%")]
+    [InlineData(TopologyColorBasis.Queue, "42.0")]
+    [InlineData(TopologyColorBasis.ServiceTime, "2.0m")]
+    [InlineData(TopologyColorBasis.FlowLatency, "80.0m")]
+    [InlineData(TopologyColorBasis.Arrivals, "120.0")]
+    public void FocusLabel_UsesActiveMetrics_WhenAvailable(TopologyColorBasis basis, string expectedLabel)
+    {
+        var nodeId = "queue-node";
+        var graph = new TopologyGraph(
+            new[]
+            {
+                new TopologyNode(nodeId, "serviceWithBuffer", "serviceWithBuffer", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
+            },
+            Array.Empty<TopologyEdge>());
+
+        var metrics = new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase)
+        {
+            [nodeId] = new NodeBinMetrics(
+                SuccessRate: 0.95,
+                Utilization: 0.5,
+                ErrorRate: 0.023,
+                QueueDepth: 42,
+                LatencyMinutes: null,
+                Timestamp: DateTimeOffset.UtcNow,
+                NodeKind: "serviceWithBuffer",
+                ServiceTimeMs: 120_000,
+                FlowLatencyMs: 4_800_000,
+                RawMetrics: new Dictionary<string, double?> { ["arrivals"] = 120 })
+        };
+
+        var sparklines = new Dictionary<string, NodeSparklineData>(StringComparer.OrdinalIgnoreCase)
+        {
+            [nodeId] = CreateConflictingSparkline()
+        };
+
+        var overlays = new TopologyOverlaySettings { ColorBasis = basis };
+
+        JSInterop.SetupVoid("FlowTime.TopologyCanvas.renderScene", _ => true).SetVoidResult();
+        var overlayCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.applyOverlayDelta", _ => true);
+        overlayCall.SetVoidResult();
+
+        RenderComponent<TopologyCanvas>(parameters => parameters
+            .Add(p => p.Graph, graph)
+            .Add(p => p.NodeMetrics, metrics)
+            .Add(p => p.NodeSparklines, sparklines)
+            .Add(p => p.OverlaySettings, overlays)
+            .Add(p => p.ActiveBin, 0));
+
+        var payload = Assert.IsType<CanvasOverlayPayload>(overlayCall.Invocations.Single().Arguments[1]);
+        var nodeOverlay = Assert.Single(payload.Nodes, node => node.Id == nodeId);
+
+        Assert.Equal(expectedLabel, nodeOverlay.FocusLabel);
+    }
+
+    [Fact]
+    public void FocusLabel_FlowLatency_NoCompletions_ShowsDash()
+    {
+        var nodeId = "queue-node";
+        var graph = new TopologyGraph(
+            new[]
+            {
+                new TopologyNode(nodeId, "serviceWithBuffer", "serviceWithBuffer", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
+            },
+            Array.Empty<TopologyEdge>());
+
+        var metrics = new Dictionary<string, NodeBinMetrics>(StringComparer.OrdinalIgnoreCase)
+        {
+            [nodeId] = new NodeBinMetrics(
+                SuccessRate: null,
+                Utilization: null,
+                ErrorRate: null,
+                QueueDepth: null,
+                LatencyMinutes: null,
+                Timestamp: DateTimeOffset.UtcNow,
+                FlowLatencyMs: null,
+                RawMetrics: new Dictionary<string, double?> { ["served"] = 0 })
+        };
+
+        var overlays = new TopologyOverlaySettings { ColorBasis = TopologyColorBasis.FlowLatency };
+
+        JSInterop.SetupVoid("FlowTime.TopologyCanvas.renderScene", _ => true).SetVoidResult();
+        var overlayCall = JSInterop.SetupVoid("FlowTime.TopologyCanvas.applyOverlayDelta", _ => true);
+        overlayCall.SetVoidResult();
+
+        RenderComponent<TopologyCanvas>(parameters => parameters
+            .Add(p => p.Graph, graph)
+            .Add(p => p.NodeMetrics, metrics)
+            .Add(p => p.OverlaySettings, overlays)
+            .Add(p => p.ActiveBin, 0));
+
+        var payload = Assert.IsType<CanvasOverlayPayload>(overlayCall.Invocations.Single().Arguments[1]);
+        var nodeOverlay = Assert.Single(payload.Nodes, node => node.Id == nodeId);
+
+        Assert.Equal("-", nodeOverlay.FocusLabel);
     }
 
     [Fact]
@@ -552,7 +682,7 @@ public sealed class TopologyCanvasRenderTests : TestContext
         var payload = Assert.IsType<CanvasOverlayPayload>(overlayCall.Invocations.Single().Arguments[1]);
         var processor = Assert.Single(payload.Nodes, node => (node.Id ?? string.Empty) == "processor");
 
-        Assert.Equal("82%", processor.FocusLabel);
+        Assert.Equal("80%", processor.FocusLabel);
     }
 
     [Fact]
@@ -591,7 +721,7 @@ public sealed class TopologyCanvasRenderTests : TestContext
 
         var initialPayload = Assert.IsType<CanvasOverlayPayload>(overlayCall.Invocations.Last().Arguments[1]);
         var initialProcessor = Assert.Single(initialPayload.Nodes, node => (node.Id ?? string.Empty) == "processor");
-        Assert.Equal("82%", initialProcessor.FocusLabel);
+        Assert.Equal("80%", initialProcessor.FocusLabel);
 
         var updatedOverlays = overlays.Clone();
         updatedOverlays.ColorBasis = TopologyColorBasis.Queue;
@@ -958,6 +1088,29 @@ public sealed class TopologyCanvasRenderTests : TestContext
             Array.Empty<double?>(),
             Array.Empty<double?>(),
             startIndex,
+            additionalSeries: additional);
+    }
+
+    private static NodeSparklineData CreateConflictingSparkline()
+    {
+        var values = new double?[] { 999 };
+        var additional = new Dictionary<string, SparklineSeriesSlice>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["successRate"] = new SparklineSeriesSlice(new double?[] { 0.1 }, 0),
+            ["utilization"] = new SparklineSeriesSlice(new double?[] { 0.9 }, 0),
+            ["errorRate"] = new SparklineSeriesSlice(new double?[] { 0.5 }, 0),
+            ["queue"] = new SparklineSeriesSlice(new double?[] { 999 }, 0),
+            ["serviceTimeMs"] = new SparklineSeriesSlice(new double?[] { 30_000 }, 0),
+            ["flowLatencyMs"] = new SparklineSeriesSlice(new double?[] { 642_000 }, 0),
+            ["arrivals"] = new SparklineSeriesSlice(new double?[] { 999 }, 0)
+        };
+
+        return NodeSparklineData.Create(
+            values,
+            Array.Empty<double?>(),
+            Array.Empty<double?>(),
+            Array.Empty<double?>(),
+            0,
             additionalSeries: additional);
     }
 

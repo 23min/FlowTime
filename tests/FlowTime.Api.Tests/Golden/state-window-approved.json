@@ -133,6 +133,16 @@
           300
         ]
       },
+      "seriesMetadata": {
+        "serviceTimeMs": {
+          "aggregation": "avg",
+          "origin": "derived"
+        },
+        "flowLatencyMs": {
+          "aggregation": "avg",
+          "origin": "derived"
+        }
+      },
       "telemetry": {
         "sources": [
           "file:OrderService_arrivals.csv",
@@ -214,6 +224,16 @@
           666666.666667,
           0
         ]
+      },
+      "seriesMetadata": {
+        "latencyMinutes": {
+          "aggregation": "avg",
+          "origin": "derived"
+        },
+        "flowLatencyMs": {
+          "aggregation": "avg",
+          "origin": "derived"
+        }
       },
       "telemetry": {
         "sources": [

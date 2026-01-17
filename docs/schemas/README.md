@@ -10,7 +10,7 @@ This index lists the active schemas maintained across FlowTime Engine and FlowTi
 | Manifest | [manifest.schema.json](manifest.schema.json) | M-02.09 | Run metadata (hashes, RNG, provenance ref) |
 | Telemetry manifest | [telemetry-manifest.schema.json](telemetry-manifest.schema.json) | M-03.02 / CL-M-04.04 | Capture bundles (grid info, file inventory, provenance checks, class metadata in v2) |
 | Series index | [series-index.schema.json](series-index.schema.json) | M-02.09 | Per-series metadata (id, component, hash) |
-| Time-travel responses | [time-travel-state.schema.json](time-travel-state.schema.json) | M-03.01 | `/state` & `/state_window` JSON envelope |
+| Time-travel responses | [time-travel-state.schema.json](time-travel-state.schema.json) | M-03.01 | `/state` & `/state_window` JSON envelope (supports optional `seriesMetadata`) |
 | Legacy input | [engine-input.schema.json](engine-input.schema.json) | Deprecated | Kept for backward compatibility tests |
 
 **Quick Reference – Model Schema Snippet**

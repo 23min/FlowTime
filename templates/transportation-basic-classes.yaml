@@ -239,6 +239,7 @@ topology:
         arrivals: arrivals_airport
         served: served_airport
         errors: errors_airport
+        capacity: cap_airport
         failures: airport_retry_failures
         processingTimeMsSum: airport_processing_time_ms_sum
         servedCount: served_airport
@@ -288,6 +289,7 @@ topology:
         arrivals: arrivals_downtown
         served: served_downtown
         errors: unmet_downtown
+        capacity: cap_downtown
         processingTimeMsSum: downtown_processing_time_ms_sum
         servedCount: served_downtown
         aliases:
@@ -306,6 +308,7 @@ topology:
         arrivals: arrivals_industrial
         served: served_industrial
         errors: unmet_industrial
+        capacity: cap_industrial
         processingTimeMsSum: industrial_processing_time_ms_sum
         servedCount: served_industrial
         aliases:
@@ -494,10 +497,10 @@ nodes:
     expr: "MAX(0, arrivals_south - cap_south)"
   - id: origin_north_processing_time_ms_sum
     kind: expr
-    expr: "served_north * 40"
+    expr: "served_north * 300000"
   - id: origin_south_processing_time_ms_sum
     kind: expr
-    expr: "served_south * 40"
+    expr: "served_south * 300000"
 
   - id: arrivals_hub
     kind: expr
@@ -510,7 +513,7 @@ nodes:
     expr: "MAX(0, arrivals_hub - cap_hub)"
   - id: hub_processing_time_ms_sum
     kind: expr
-    expr: "served_hub * 55"
+    expr: "served_hub * 300000"
 
   - id: hub_queue_inflow
     kind: expr
@@ -532,7 +535,7 @@ nodes:
     expr: "MIN(hub_dispatch_capacity, hub_queue_demand)"
   - id: hub_queue_processing_time_ms_sum
     kind: expr
-    expr: "hub_dispatch * 25"
+    expr: "hub_dispatch * 300000"
 
   - id: hub_dispatch_router_arrivals
     kind: expr
@@ -556,7 +559,7 @@ nodes:
       graph.hidden: "true"
   - id: hub_dispatch_router_processing_time_ms_sum
     kind: expr
-    expr: "hub_dispatch_router_served * 25"
+    expr: "hub_dispatch_router_served * 300000"
     metadata:
       graph.hidden: "true"
   - id: hub_dispatch_router_served_count
@@ -594,7 +597,7 @@ nodes:
     expr: "PULSE(96, 24, 1)"
   - id: airport_dispatch_queue_processing_time_ms_sum
     kind: expr
-    expr: "airport_dispatch_queue_served * 30000"
+    expr: "airport_dispatch_queue_served * 300000"
   - id: downtown_dispatch_queue_attrition
     kind: expr
     expr: "0"
@@ -609,7 +612,7 @@ nodes:
     expr: "PULSE(8, 2, 1)"
   - id: downtown_dispatch_queue_processing_time_ms_sum
     kind: expr
-    expr: "downtown_dispatch_queue_served * 30"
+    expr: "downtown_dispatch_queue_served * 300000"
   - id: industrial_dispatch_queue_attrition
     kind: expr
     expr: "0"
@@ -624,7 +627,7 @@ nodes:
     expr: "PULSE(10, 4, 1)"
   - id: industrial_dispatch_queue_processing_time_ms_sum
     kind: expr
-    expr: "industrial_dispatch_queue_served * 30"
+    expr: "industrial_dispatch_queue_served * 300000"
 
   - id: arrivals_airport
     kind: expr
@@ -672,10 +675,10 @@ nodes:
     expr: "${hubRetryFailureRate} * airport_retry_attempts"
   - id: served_airport
     kind: expr
-    expr: "arrivals_airport"
+    expr: "MIN(arrivals_airport, cap_airport)"
   - id: errors_airport
     kind: expr
-    expr: "0"
+    expr: "MAX(0, arrivals_airport - cap_airport)"
   - id: airport_retry_echo
     kind: expr
     expr: "CONV(airport_retry_attempts, [0.0, 0.6, 0.3, 0.1])"
@@ -687,10 +690,10 @@ nodes:
 
   - id: served_downtown
     kind: expr
-    expr: "arrivals_downtown"
+    expr: "MIN(arrivals_downtown, cap_downtown)"
   - id: unmet_downtown
     kind: expr
-    expr: "0"
+    expr: "MAX(0, arrivals_downtown - cap_downtown)"
   - id: downtown_processing_time_ms_sum
     kind: expr
     expr: "served_downtown * 1200000"
@@ -699,10 +702,10 @@ nodes:
 
   - id: served_industrial
     kind: expr
-    expr: "arrivals_industrial"
+    expr: "MIN(arrivals_industrial, cap_industrial)"
   - id: unmet_industrial
     kind: expr
-    expr: "0"
+    expr: "MAX(0, arrivals_industrial - cap_industrial)"
   - id: industrial_processing_time_ms_sum
     kind: expr
     expr: "served_industrial * 1500000"

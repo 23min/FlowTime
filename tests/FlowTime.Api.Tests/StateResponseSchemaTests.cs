@@ -75,6 +75,58 @@ public class StateResponseSchemaTests : IClassFixture<TestWebApplicationFactory>
         ValidateAgainstSchema(json);
     }
 
+    [Fact]
+    public async Task StateWindow_Response_AllowsSeriesMetadata()
+    {
+        var runId = EnsureSchemaRun();
+        var response = await client.GetAsync($"/v1/runs/{runId}/state_window?startBin=0&endBin=3");
+        response.EnsureSuccessStatusCode();
+
+        var json = await response.Content.ReadAsStringAsync();
+        var node = JsonNode.Parse(json);
+
+        Assert.NotNull(node);
+        var seriesNode = node!.AsObject()["nodes"]?.AsArray().FirstOrDefault()?.AsObject();
+        Assert.NotNull(seriesNode);
+
+        seriesNode!["seriesMetadata"] = new JsonObject
+        {
+            ["arrivals"] = new JsonObject
+            {
+                ["aggregation"] = "avg",
+                ["origin"] = "derived"
+            }
+        };
+
+        Assert.True(IsSchemaValid(node!), "Expected seriesMetadata to be allowed by schema.");
+    }
+
+    [Fact]
+    public async Task StateWindow_Response_RejectsUnknownAggregation()
+    {
+        var runId = EnsureSchemaRun();
+        var response = await client.GetAsync($"/v1/runs/{runId}/state_window?startBin=0&endBin=3");
+        response.EnsureSuccessStatusCode();
+
+        var json = await response.Content.ReadAsStringAsync();
+        var node = JsonNode.Parse(json);
+
+        Assert.NotNull(node);
+        var seriesNode = node!.AsObject()["nodes"]?.AsArray().FirstOrDefault()?.AsObject();
+        Assert.NotNull(seriesNode);
+
+        seriesNode!["seriesMetadata"] = new JsonObject
+        {
+            ["arrivals"] = new JsonObject
+            {
+                ["aggregation"] = "median",
+                ["origin"] = "derived"
+            }
+        };
+
+        Assert.False(IsSchemaValid(node!), "Expected unknown aggregation to fail schema validation.");
+    }
+
     private string EnsureSchemaRun()
     {
         lock (setupLock)
@@ -161,6 +213,12 @@ public class StateResponseSchemaTests : IClassFixture<TestWebApplicationFactory>
         {
             throw new Xunit.Sdk.XunitException($"Response failed schema validation. Payload:{Environment.NewLine}{json}");
         }
+    }
+
+    private bool IsSchemaValid(JsonNode node)
+    {
+        var evaluation = schema.Evaluate(node);
+        return evaluation.IsValid;
     }
 
     private static void WriteBaseSeries(string modelDir)

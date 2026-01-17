@@ -141,6 +141,9 @@ public sealed record TimeTravelNodeSnapshotDto
     [JsonPropertyName("metrics")]
     public TimeTravelNodeMetricsDto Metrics { get; init; } = new();
 
+    [JsonPropertyName("seriesMetadata")]
+    public IReadOnlyDictionary<string, TimeTravelSeriesSemanticsDto>? SeriesMetadata { get; init; }
+
     [JsonPropertyName("byClass")]
     public IReadOnlyDictionary<string, TimeTravelClassMetricsDto> ByClass { get; init; } =
         new Dictionary<string, TimeTravelClassMetricsDto>(StringComparer.OrdinalIgnoreCase);
@@ -177,6 +180,9 @@ public sealed record TimeTravelNodeSeriesDto
 
     [JsonPropertyName("series")]
     public IReadOnlyDictionary<string, double?[]> Series { get; init; } = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase);
+
+    [JsonPropertyName("seriesMetadata")]
+    public IReadOnlyDictionary<string, TimeTravelSeriesSemanticsDto>? SeriesMetadata { get; init; }
 
     [JsonPropertyName("byClass")]
     public IReadOnlyDictionary<string, IReadOnlyDictionary<string, double?[]>> ByClass { get; init; } =
@@ -346,6 +352,15 @@ public sealed record TimeTravelNodeDerivedMetricsDto
 
     [JsonPropertyName("color")]
     public string? Color { get; init; }
+}
+
+public sealed record TimeTravelSeriesSemanticsDto
+{
+    [JsonPropertyName("aggregation")]
+    public string? Aggregation { get; init; }
+
+    [JsonPropertyName("origin")]
+    public string? Origin { get; init; }
 }
 
 public sealed record TimeTravelNodeTelemetryDto

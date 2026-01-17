@@ -138,6 +138,14 @@ topology:
 - **Queue depth invariant:** queue depth must satisfy `queueDepth[t] = queueDepth[t-1] + arrivals[t] - served[t] - loss[t]`. When you use dispatch schedules, gate `served` by the schedule (e.g., `capacity * gate`) so the recurrence holds. Violations surface as queue depth mismatch warnings.
 - **Backlog health warnings:** the API emits growth/overload/age warnings based on queue depth trends. These are guardrails, not anomalies—avoid false positives by keeping the recurrence valid and providing the series needed for queue age when you want backlog age SLA.
 
+### Series Semantics Metadata (Telemetry)
+
+The engine stamps derived series metadata automatically, but telemetry producers should supply semantics explicitly when exporting a run:
+
+- Use `seriesMetadata` in the time-travel state to declare `aggregation` (`avg`, `sum`, `min`, `max`, `p50`, `p95`, `p99`, `unknown`) and `origin` (`telemetry`, `model`, `derived`, `unknown`).
+- Percentile feeds should use explicit series IDs (for example, `flowLatencyP95Ms`) and set `aggregation=p95` so the UI does not imply an average.
+- If telemetry is already aggregated, set `origin=telemetry` to distinguish it from engine-derived averages.
+
 ### Queue & DLQ Nodes
 
 `kind: queue` (visual shells) and `kind: dlq` (terminal buffers) share the same implicit DSL:

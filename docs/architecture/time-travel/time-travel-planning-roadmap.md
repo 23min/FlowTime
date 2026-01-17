@@ -41,8 +41,8 @@ The derived metric ships in `/state` and `/state_window`, giving the UI a stable
 ### Flow Latency (Source → Node)
 
 - Definition: cumulative queue latency (Little’s Law per queue) plus service time along the dominant upstream path from a source to the current node. No fan-in averaging/blending.
-- Computation: pick the highest-volume predecessor per bin; `flowLatencyMs = upstreamFlowLatencyMs + (queueLatencyMinutes * 60000 or serviceTimeMs)`.
-- Exposure: `/state` and `/state_window` include `flowLatencyMs` per node; null when inputs are missing. UI shows flow latency sparkline/metric; dashboard can surface flow latency KPI.
+- Computation: pick the highest-volume predecessor per bin; `flowLatencyMs = upstreamFlowLatencyMs + baseLatencyMs`, where `baseLatencyMs` is queue latency for queue nodes, service time for service nodes, and **queue latency + service time** for `serviceWithBuffer`. Emit null when served is zero (no completions in the bin).
+- Exposure: `/state` and `/state_window` include `flowLatencyMs` per node; null when inputs are missing or the node has no completions for the bin. UI shows flow latency sparkline/metric; dashboard can surface flow latency KPI.
 - Telemetry: works for simulation and real telemetry as long as queue depth/served and processingTimeMsSum/servedCount are present; otherwise emits info-level warnings.
 
 ---

@@ -2682,10 +2682,10 @@
         const fontStrong = `600 ${fontSizePx}px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif`;
         const dateOffsetY = 5 * ratio;
         const overlays = state.overlaySettings ?? {};
-        const preparedSparkline = overlays.showSparklines
-            ? prepareTooltipSparklineData(anchorMeta, overlays)
+        const tooltipSparkline = overlays.showSparklines
+            ? (anchorMeta?.sparkline ?? anchorMeta?.Sparkline ?? null)
             : null;
-        const hasSparkline = preparedSparkline !== null;
+        const hasSparkline = tooltipSparkline !== null;
         const sparklineWidth = hasSparkline ? toDevice(90) : 0;
         const sparklineHeight = hasSparkline ? toDevice(26) : 0;
         const sparklineMarginTop = hasSparkline ? toDevice(6) : 0;
@@ -2814,10 +2814,21 @@
         if (hasSparkline) {
             const baselineStart = textY + lineHeight;
             const sparkTop = baselineStart + sparklineMarginTop;
-            const sparkDrawn = drawTooltipSparkline(ctx, preparedSparkline, overlays, tooltipX + paddingX, sparkTop, sparklineWidth, sparklineHeight);
-            if (sparkDrawn) {
-                textY = sparkTop + sparklineHeight + sparklineMarginBottom - lineHeight;
-            }
+            const isComputedNode = isComputedKind(anchorMeta?.kind ?? anchorMeta?.Kind ?? '');
+            const defaultSpark = isComputedNode
+                ? '#94A3B8'
+                : (anchorMeta?.fill ?? resolveSparklineColor(overlays.colorBasis ?? 0));
+            drawSparkline(ctx, anchorMeta, tooltipSparkline, overlays, defaultSpark, {
+                left: tooltipX + paddingX,
+                top: sparkTop,
+                width: sparklineWidth,
+                height: sparklineHeight,
+                minWidth: sparklineWidth,
+                maxWidth: sparklineWidth,
+                scale: 0,
+                neutralize: isComputedNode
+            });
+            textY = sparkTop + sparklineHeight + sparklineMarginBottom - lineHeight;
         }
 
         for (const line of lines) {
@@ -2839,182 +2850,6 @@
         };
     }
 
-    function prepareTooltipSparklineData(nodeMeta, overlays) {
-        const sparkline = nodeMeta?.sparkline ?? nodeMeta?.Sparkline ?? null;
-        if (!sparkline) {
-            return null;
-        }
-
-        const kind = String(nodeMeta?.kind ?? nodeMeta?.Kind ?? '').trim().toLowerCase();
-        const logicalType = String(nodeMeta?.logicalType ?? nodeMeta?.LogicalType ?? '').trim().toLowerCase();
-        const overlayBasis = Number(overlays?.colorBasis ?? 0);
-        const basis = isQueueLikeKind(kind, logicalType) ? 3 : overlayBasis;
-        const series = selectSeriesForBasis(sparkline, basis);
-        if (!Array.isArray(series) || series.length === 0) {
-            return null;
-        }
-
-        const values = new Array(series.length);
-        let min = Infinity;
-        let max = -Infinity;
-        let hasValue = false;
-
-        for (let i = 0; i < series.length; i++) {
-            const sample = series[i];
-            if (sample === null || sample === undefined) {
-                values[i] = null;
-                continue;
-            }
-
-            const numeric = Number(sample);
-            if (!Number.isFinite(numeric)) {
-                values[i] = null;
-                continue;
-            }
-
-            values[i] = numeric;
-            hasValue = true;
-            if (numeric < min) {
-                min = numeric;
-            }
-            if (numeric > max) {
-                max = numeric;
-            }
-        }
-
-        if (!hasValue || !Number.isFinite(min) || !Number.isFinite(max)) {
-            return null;
-        }
-
-        if (Math.abs(max - min) < 1e-9) {
-            max = min + 0.001;
-        }
-
-        return {
-            values,
-            min,
-            max,
-            length: values.length,
-            startIndex: Number(sparkline.startIndex ?? sparkline.StartIndex ?? 0),
-            raw: sparkline,
-            basis,
-            mode: overlays?.sparklineMode === 'bar' ? 'bar' : 'line'
-        };
-    }
-
-    function drawTooltipSparkline(ctx, sparklineData, overlays, x, y, width, height) {
-        if (!sparklineData) {
-            return false;
-        }
-
-        const { values, min, max, length, startIndex, raw, basis, mode } = sparklineData;
-        if (!Array.isArray(values) || length === 0) {
-            return false;
-        }
-
-        const resolvedBasis = Number.isFinite(basis) ? basis : Number(overlays?.colorBasis ?? 0);
-        const defaultColor = resolveSparklineColor(resolvedBasis);
-        const thresholds = overlays.thresholds ?? {};
-        const lastIndex = length - 1;
-        const range = max - min;
-        const drawAsBars = mode === 'bar';
-
-        ctx.save();
-        ctx.translate(x, y);
-
-        ctx.fillStyle = 'rgba(148, 163, 184, 0.08)';
-        ctx.fillRect(0, 0, width, height);
-        ctx.strokeStyle = 'rgba(148, 163, 184, 0.25)';
-        ctx.lineWidth = 0.75;
-        ctx.strokeRect(0, 0, width, height);
-
-        ctx.beginPath();
-        ctx.strokeStyle = defaultColor;
-        ctx.lineWidth = 1.4;
-        let segmentActive = false;
-        let previousPoint = null;
-        let previousColor = defaultColor;
-        let highlightPoint = null;
-        let highlightColor = defaultColor;
-        let highlightBar = null;
-
-        for (let i = 0; i < length; i++) {
-            const sample = values[i];
-            if (sample === null || sample === undefined) {
-                segmentActive = false;
-                previousPoint = null;
-                continue;
-            }
-
-            const fraction = lastIndex <= 0 ? 0 : i / lastIndex;
-            const xPos = fraction * width;
-            const normalized = range <= 0 ? 0.5 : clamp((sample - min) / range, 0, 1);
-            const yPos = height - (normalized * height);
-            const sampleColor = resolveSampleColor(resolvedBasis, i, raw, thresholds, defaultColor);
-
-            if (drawAsBars) {
-                const barWidth = Math.max((width / Math.max(length - 1, 1)) * 0.6, 1.5);
-                ctx.fillStyle = sampleColor;
-                ctx.fillRect(xPos - (barWidth / 2), yPos, barWidth, height - yPos);
-                if (i === (overlays.selectedBin ?? -1) - startIndex) {
-                    highlightColor = sampleColor;
-                    highlightBar = { x: xPos, width: Math.max(barWidth, 3) };
-                }
-            } else {
-                if (previousPoint) {
-                    ctx.beginPath();
-                    ctx.strokeStyle = previousColor ?? sampleColor;
-                    ctx.lineWidth = 1.4;
-                    ctx.moveTo(previousPoint.x, previousPoint.y);
-                    ctx.lineTo(xPos, yPos);
-                    ctx.stroke();
-                }
-                previousPoint = { x: xPos, y: yPos };
-                previousColor = sampleColor;
-                segmentActive = true;
-                if (i === (overlays.selectedBin ?? -1) - startIndex) {
-                    highlightPoint = { x: xPos, y: yPos };
-                    highlightColor = sampleColor;
-                }
-            }
-        }
-
-        if (!drawAsBars && !segmentActive && length === 1 && values[0] !== null && values[0] !== undefined) {
-            const yPos = height / 2;
-            ctx.beginPath();
-            ctx.strokeStyle = defaultColor;
-            ctx.moveTo(0, yPos);
-            ctx.lineTo(width, yPos);
-            ctx.stroke();
-        }
-
-        if (!drawAsBars && highlightPoint) {
-            ctx.beginPath();
-            ctx.fillStyle = highlightColor ?? defaultColor;
-            ctx.strokeStyle = '#FFFFFF';
-            ctx.lineWidth = 1;
-            ctx.arc(highlightPoint.x, highlightPoint.y, 3, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.stroke();
-        }
-
-        if (drawAsBars && highlightBar) {
-            const apexY = height + 1;
-            const baseY = apexY + 5;
-            const pointerWidth = Math.max(highlightBar.width + 4, 8);
-            const halfWidth = pointerWidth / 2;
-            ctx.beginPath();
-            ctx.moveTo(highlightBar.x, apexY);
-            ctx.lineTo(highlightBar.x - halfWidth, baseY);
-            ctx.lineTo(highlightBar.x + halfWidth, baseY);
-            ctx.closePath();
-            ctx.fillStyle = highlightColor ?? defaultColor;
-            ctx.fill();
-        }
-
-        ctx.restore();
-        return true;
-    }
 
     function drawChipTooltip(ctx, state) {
         const chip = state?.hoveredChip ?? null;
@@ -3874,6 +3709,18 @@
         return normalized === 'queue' || normalized === 'dlq';
     }
 
+    function isSinkKind(kind, nodeRole) {
+        if (typeof nodeRole === 'string' && nodeRole.trim().toLowerCase() === 'sink') {
+            return true;
+        }
+
+        if (typeof kind !== 'string') {
+            return false;
+        }
+
+        return kind.trim().toLowerCase() === 'sink';
+    }
+
     function isRouterKind(kind, logicalType) {
         if (typeof kind === 'string' && kind.trim().toLowerCase() === 'router') {
             return true;
@@ -4372,6 +4219,15 @@
                 return Number.isFinite(numeric) ? numeric : null;
             };
 
+            if (hasSelectedBin && rawMetrics) {
+                for (const candidate of keys) {
+                    const value = lookupRawMetric(candidate);
+                    if (value !== null && value !== undefined) {
+                        return value;
+                    }
+                }
+            }
+
             for (const candidate of keys) {
                 let value = null;
                 if (spark) {
@@ -4403,17 +4259,15 @@
 
             // Tiny label positioned directly above the sparkline (left-aligned)
             try {
-                const basis = overlays.colorBasis ?? 0;
-                const queueLike = isQueueLikeKind(nodeKind, nodeLogicalType);
-                const seriesBasis = queueLike ? 3 : Number(basis);
-                const label = queueLike
+                const seriesBasis = resolveSparklineBasis(nodeMeta, spark, overlays);
+                const label = seriesBasis === 3
                     ? (isDlqKind(nodeKind) ? 'DLQ' : 'Queue')
                     : (function () {
-                        switch (basis) {
+                        switch (seriesBasis) {
                             case 1: return 'Util';
                             case 2: return 'Errors';
-                            case 3: return 'Queue';
                             case 4: return 'Svc time';
+                            case 5: return 'Flow lat';
                             case 6: return 'Arrivals';
                             default: return 'SLA';
                         }
@@ -7743,18 +7597,30 @@ function setHoveredEdge(state, edgeId) {
         const basis = Number(overlaySettings.colorBasis ?? 0);
         const nodeKind = String(nodeMeta?.kind ?? nodeMeta?.Kind ?? '').trim().toLowerCase();
         const nodeLogicalType = String(nodeMeta?.logicalType ?? nodeMeta?.LogicalType ?? '').trim().toLowerCase();
-        const seriesBasis = isQueueLikeKind(nodeKind, nodeLogicalType) ? 3 : basis;
+        const seriesBasis = resolveSparklineBasis(nodeMeta, sparkline, overlaySettings);
         const series = selectSeriesForBasis(sparkline, seriesBasis);
         if (!Array.isArray(series) || series.length < 2) {
             return;
         }
 
-        const { min, max, isFlat } = computeSeriesBounds(series);
+        let { min, max, isFlat, hasValue, valueCount } = computeSeriesBounds(series);
         if (!Number.isFinite(min) || !Number.isFinite(max)) {
             return;
         }
 
-        const mode = overlaySettings.sparklineMode === 'bar' ? 'bar' : 'line';
+        if (seriesBasis === 0 || seriesBasis === 1 || seriesBasis === 2) {
+            const upper = max <= 1.001 ? 1 : (max <= 100.001 ? 100 : null);
+            if (upper && min >= 0) {
+                min = 0;
+                max = upper;
+                isFlat = false;
+            }
+        }
+
+        let mode = overlaySettings.sparklineMode === 'bar' ? 'bar' : 'line';
+        if (mode === 'line' && valueCount < 2) {
+            mode = 'bar';
+        }
         const thresholds = overlaySettings.thresholds ?? {
             slaSuccess: 0.95,
             slaWarning: 0.8,
@@ -7790,6 +7656,28 @@ function setHoveredEdge(state, edgeId) {
         ctx.save();
         ctx.translate(left, top);
 
+        const darkMode = isDarkTheme();
+        ctx.fillStyle = darkMode ? 'rgba(15, 23, 42, 0.85)' : 'rgba(203, 213, 225, 0.2)';
+        ctx.fillRect(0, 0, sparkWidth, sparkHeight);
+        ctx.strokeStyle = darkMode ? 'rgba(148, 163, 184, 0.5)' : 'rgba(148, 163, 184, 0.35)';
+        ctx.lineWidth = 0.5;
+        ctx.strokeRect(0, 0, sparkWidth, sparkHeight);
+
+        if (!hasValue) {
+            const rawMetrics = normalizeRawMetricMap(nodeMeta?.metrics?.raw ?? nodeMeta?.metrics?.Raw ?? null);
+            const served = rawMetrics?.served;
+            const emptyLabel = seriesBasis === 6
+                ? 'No arrivals'
+                : (seriesBasis === 5 && Number.isFinite(served) && served <= 0 ? 'No served' : 'No data');
+            ctx.fillStyle = darkMode ? 'rgba(148, 163, 184, 0.9)' : '#64748B';
+            ctx.font = '9px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(emptyLabel, sparkWidth / 2, sparkHeight / 2);
+            ctx.restore();
+            return;
+        }
+
         const step = sparkWidth / Math.max(series.length - 1, 1);
         const range = Math.max(max - min, 1e-6);
 
@@ -7799,13 +7687,6 @@ function setHoveredEdge(state, edgeId) {
         let highlightBar = null;
         let previousPoint = null;
         let previousColor = defaultColor;
-
-        const darkMode = isDarkTheme();
-        ctx.fillStyle = darkMode ? 'rgba(15, 23, 42, 0.85)' : 'rgba(203, 213, 225, 0.2)';
-        ctx.fillRect(0, 0, sparkWidth, sparkHeight);
-        ctx.strokeStyle = darkMode ? 'rgba(148, 163, 184, 0.5)' : 'rgba(148, 163, 184, 0.35)';
-        ctx.lineWidth = 0.5;
-        ctx.strokeRect(0, 0, sparkWidth, sparkHeight);
 
         series.forEach((raw, index) => {
             if (raw === null || raw === undefined) {
@@ -7882,6 +7763,25 @@ function setHoveredEdge(state, edgeId) {
         ctx.restore();
     }
 
+    function resolveSparklineBasis(nodeMeta, sparkline, overlays) {
+        const basis = Number(overlays?.colorBasis ?? 0);
+        const nodeKind = String(nodeMeta?.kind ?? nodeMeta?.Kind ?? '').trim().toLowerCase();
+        const nodeLogicalType = String(nodeMeta?.logicalType ?? nodeMeta?.LogicalType ?? '').trim().toLowerCase();
+        const nodeRole = String(nodeMeta?.nodeRole ?? nodeMeta?.NodeRole ?? '').trim().toLowerCase();
+        if (isQueueLikeKind(nodeKind, nodeLogicalType)) {
+            return 3;
+        }
+
+        if (basis === 5 && isSinkKind(nodeKind, nodeRole)) {
+            const series = selectSeriesForBasis(sparkline, basis);
+            if (!Array.isArray(series) || !computeSeriesBounds(series).hasValue) {
+                return 6;
+            }
+        }
+
+        return basis;
+    }
+
     function selectSeriesForBasis(sparkline, basis) {
         if (!sparkline) {
             return [];
@@ -7895,11 +7795,13 @@ function setHoveredEdge(state, edgeId) {
                     ? ['queue', 'queueDepth']
                     : basis === 4
                         ? ['serviceTimeMs', 'serviceTime']
-                        : basis === 6
-                            ? ['arrivals']
-                            : basis === 0
-                                ? ['successRate']
-                                : [];
+                        : basis === 5
+                            ? ['flowLatencyMs', 'flowLatency']
+                            : basis === 6
+                                ? ['arrivals']
+                                : basis === 0
+                                    ? ['successRate']
+                                    : [];
 
         for (const candidate of keyCandidates) {
             const slice = getSeriesSlice(sparkline, candidate);
@@ -7918,6 +7820,8 @@ function setHoveredEdge(state, edgeId) {
                 return sparkline.queueDepth ?? sparkline.QueueDepth ?? sparkline.values ?? sparkline.Values ?? [];
             case 4:
                 return sparkline.serviceTimeMs ?? sparkline.ServiceTimeMs ?? sparkline.values ?? sparkline.Values ?? [];
+            case 5:
+                return sparkline.flowLatencyMs ?? sparkline.FlowLatencyMs ?? sparkline.values ?? sparkline.Values ?? [];
             case 6:
                 return sparkline.arrivals ?? sparkline.Arrivals ?? sparkline.values ?? sparkline.Values ?? [];
             default:
@@ -8053,6 +7957,7 @@ function setHoveredEdge(state, edgeId) {
         let min = Number.POSITIVE_INFINITY;
         let max = Number.NEGATIVE_INFINITY;
         let hasValue = false;
+        let valueCount = 0;
 
         for (const sample of series) {
             if (sample === null || sample === undefined) {
@@ -8063,6 +7968,7 @@ function setHoveredEdge(state, edgeId) {
                 continue;
             }
             hasValue = true;
+            valueCount += 1;
             if (numeric < min) min = numeric;
             if (numeric > max) max = numeric;
         }
@@ -8084,7 +7990,7 @@ function setHoveredEdge(state, edgeId) {
             max = min + 0.001;
         }
 
-        return { min, max, isFlat };
+        return { min, max, isFlat, hasValue, valueCount };
     }
 
     function emitViewportChanged(canvas, state, options) {
@@ -8965,12 +8871,23 @@ function setHoveredEdge(state, edgeId) {
         }
 
         const handler = (event) => {
-            if (!event.altKey) {
+            const target = event.target;
+            if (target && (target.matches?.('input, textarea, select, [contenteditable="true"]') || target.isContentEditable)) {
+                return;
+            }
+
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                dotNetRef.invokeMethodAsync('ClearSelection');
                 return;
             }
 
             const key = event.key || event.code;
             if (!key) {
+                return;
+            }
+
+            if (!event.altKey) {
                 return;
             }
 
