@@ -459,6 +459,15 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
         var includeExpressionNodes = overlays.EnableFullDag && overlays.IncludeExpressionNodes;
         var includeConstNodes = overlays.EnableFullDag && overlays.IncludeConstNodes;
 
+        if (focusViewEnabled && !string.IsNullOrWhiteSpace(focusNodeId)
+            && !includeServiceNodes && !includeDlqNodes && !includeExpressionNodes && !includeConstNodes)
+        {
+            includeServiceNodes = true;
+            includeDlqNodes = true;
+            includeExpressionNodes = overlays.EnableFullDag;
+            includeConstNodes = overlays.EnableFullDag;
+        }
+
         if (!includeServiceNodes && !includeDlqNodes && !includeExpressionNodes && !includeConstNodes)
         {
             return new TopologyGraph(Array.Empty<TopologyNode>(), Array.Empty<TopologyEdge>());
@@ -1631,28 +1640,46 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
             return FormatFocusNumber(metrics.CustomValue.Value, invariant);
         }
 
-        double? sample = SampleSparklineValue(sparkline, basis, selectedBin);
+        double? rawArrivals = null;
+        if (metrics.RawMetrics is not null && metrics.RawMetrics.TryGetValue("arrivals", out var arrivals))
+        {
+            rawArrivals = arrivals;
+        }
+
+        double? sample = basis switch
+        {
+            TopologyColorBasis.Utilization => metrics.Utilization,
+            TopologyColorBasis.Errors => metrics.ErrorRate,
+            TopologyColorBasis.Queue => metrics.QueueDepth,
+            TopologyColorBasis.ServiceTime => metrics.ServiceTimeMs,
+            TopologyColorBasis.FlowLatency => metrics.FlowLatencyMs,
+            TopologyColorBasis.Sla => metrics.SuccessRate,
+            TopologyColorBasis.Arrivals => rawArrivals,
+            _ => null
+        };
+
         if (!sample.HasValue)
         {
-            sample = basis switch
+            sample = SampleSparklineValue(sparkline, basis, selectedBin);
+        }
+
+        if (!sample.HasValue)
+        {
+            if (basis == TopologyColorBasis.FlowLatency &&
+                metrics.RawMetrics is not null &&
+                metrics.RawMetrics.TryGetValue("served", out var served) &&
+                served.HasValue &&
+                served.Value <= 0)
             {
-                TopologyColorBasis.Utilization => metrics.Utilization,
-                TopologyColorBasis.Errors => metrics.ErrorRate,
-                TopologyColorBasis.Queue => metrics.QueueDepth,
-                TopologyColorBasis.ServiceTime => metrics.ServiceTimeMs,
-                _ => metrics.SuccessRate
-            };
-        }
+                return "-";
+            }
 
-        if (!sample.HasValue && basis == TopologyColorBasis.Arrivals && metrics.RawMetrics is not null &&
-            metrics.RawMetrics.TryGetValue("arrivals", out var arrivals))
-        {
-            sample = arrivals;
-        }
-
-        if (!sample.HasValue)
-        {
             if (basis == TopologyColorBasis.Sla)
+            {
+                return "-";
+            }
+
+            if (basis == TopologyColorBasis.FlowLatency)
             {
                 return "-";
             }

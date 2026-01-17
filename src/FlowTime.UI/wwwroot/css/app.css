@@ -390,6 +390,51 @@ code {
     gap: 4px;
 }
 
+.topology-aggregate-overlay {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 4px 8px;
+    background: var(--mud-palette-surface, rgba(248, 250, 252, 0.94));
+    border: 1px solid var(--mud-palette-lines-default, rgba(148, 163, 184, 0.35));
+    border-radius: 8px;
+    box-shadow: 0 6px 12px rgba(15, 23, 42, 0.08);
+    font-size: 0.7rem;
+    color: var(--mud-palette-text-primary, #0F172A);
+    pointer-events: none;
+}
+
+.dark-mode .topology-aggregate-overlay {
+    background: var(--mud-palette-background-grey, rgba(15, 23, 42, 0.92));
+    border-color: var(--mud-palette-lines-inputs, rgba(148, 163, 184, 0.4));
+    box-shadow: 0 8px 14px rgba(15, 23, 42, 0.18);
+    color: var(--mud-palette-primary-text, #E2E8F0);
+}
+
+.topology-aggregate-label {
+    color: var(--mud-palette-text-secondary);
+}
+
+.topology-aggregate-chip {
+    font-size: 0.7rem;
+}
+
+.topology-aggregate-chip.mud-chip {
+    border: 1px solid rgba(59, 72, 89, 0.35);
+    border-radius: 999px;
+    padding: 0.12rem 0.55rem;
+    background: rgba(148, 163, 184, 0.16);
+    color: var(--mud-palette-text-primary);
+    font-weight: 500;
+    min-height: unset;
+    height: auto;
+}
+
+.topology-aggregate-chip.mud-chip .mud-chip-label {
+    padding: 0;
+    line-height: 1;
+}
+
 .topology-flow-overlay {
     display: inline-flex;
     flex-direction: column;

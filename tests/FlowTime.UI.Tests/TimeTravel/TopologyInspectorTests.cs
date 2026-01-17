@@ -499,6 +499,27 @@ public sealed class TopologyInspectorTests
     }
 
     [Fact]
+    public void BuildServiceTimeSeries_SkipsBinsWithZeroServedCount()
+    {
+        var topology = new Topology();
+
+        var node = new TimeTravelNodeSeriesDto
+        {
+            Id = "svc",
+            Kind = "service",
+            Series = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["processingTimeMsSum"] = new double?[] { 0, 1000 },
+                ["servedCount"] = new double?[] { 0, 5 }
+            }
+        };
+
+        var derivedServiceTime = topology.TestBuildServiceTimeSeries(node);
+
+        Assert.Equal(new double?[] { null, 200d }, derivedServiceTime);
+    }
+
+    [Fact]
     public void Inspector_ProvidesMetricProvenanceTooltip()
     {
         var topology = new Topology();
@@ -557,6 +578,79 @@ public sealed class TopologyInspectorTests
         Assert.Contains("Formula: utilization = served / capacity", tooltip);
         Assert.Contains("Inputs: served, capacity", tooltip);
         Assert.Contains("Units: percent", tooltip);
+    }
+
+    [Fact]
+    public void AggregationIndicator_DefaultsToAverage()
+    {
+        var topology = new Topology();
+
+        var label = topology.TestGetAggregationIndicatorLabel();
+
+        Assert.Equal("Avg", label);
+    }
+
+    [Fact]
+    public void Inspector_ProvidesAggregationMetadataInTooltip()
+    {
+        var topology = new Topology();
+        topology.TestSetTopologyGraph(new TopologyGraph(
+            new[]
+            {
+                new TopologyNode("svc", "service", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
+            },
+            Array.Empty<TopologyEdge>()));
+
+        var window = new TimeTravelStateWindowDto
+        {
+            Metadata = new TimeTravelStateMetadataDto
+            {
+                RunId = "run-id",
+                TemplateId = "template-id",
+                Mode = "simulation",
+                Schema = new TimeTravelSchemaMetadataDto
+                {
+                    Id = "time-travel/v1",
+                    Version = "1",
+                    Hash = "hash"
+                },
+                Storage = new TimeTravelStorageDescriptorDto()
+            },
+            Window = new TimeTravelWindowSliceDto
+            {
+                StartBin = 0,
+                EndBin = 0,
+                BinCount = 1
+            },
+            TimestampsUtc = new[] { DateTimeOffset.UtcNow },
+            Nodes = new[]
+            {
+                new TimeTravelNodeSeriesDto
+                {
+                    Id = "svc",
+                    Kind = "service",
+                    Series = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["processingTimeMsSum"] = new double?[] { 40 },
+                        ["servedCount"] = new double?[] { 2 },
+                        ["serviceTimeMs"] = new double?[] { 20 }
+                    },
+                    SeriesMetadata = new Dictionary<string, TimeTravelSeriesSemanticsDto>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["serviceTimeMs"] = new TimeTravelSeriesSemanticsDto
+                        {
+                            Aggregation = "avg",
+                            Origin = "derived"
+                        }
+                    }
+                }
+            }
+        };
+
+        topology.TestSetWindowData(window);
+        var tooltip = topology.TestBuildProvenanceTooltip("svc", "serviceTimeMs");
+
+        Assert.Contains("Aggregation: avg", tooltip);
     }
 
     [Fact]
@@ -1348,6 +1442,56 @@ public sealed class TopologyInspectorTests
     }
 
     [Fact]
+    public void InspectorBinMetrics_ServiceTime_UsesMinutesForLargeValues()
+    {
+        var topology = new Topology();
+        topology.TestSetTopologyGraph(new TopologyGraph(
+            new[]
+            {
+                new TopologyNode("svc-1", "service", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
+            },
+            Array.Empty<TopologyEdge>()));
+
+        var series = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["serviceTimeMs"] = new double?[] { 60_000, 120_000, 180_000 }
+        };
+
+        topology.TestSetWindowData(CreateWindowData(CreateSeriesNode("svc-1", "service", series)));
+        topology.TestUpdateActiveMetrics(1);
+
+        var metrics = topology.TestGetActiveMetrics()["svc-1"];
+        var rows = topology.TestBuildInspectorBinMetrics("svc-1", metrics);
+
+        AssertRowValue(rows, "Service time", "2.0 min");
+    }
+
+    [Fact]
+    public void InspectorBinMetrics_FlowLatency_UsesMinutesForLargeValues()
+    {
+        var topology = new Topology();
+        topology.TestSetTopologyGraph(new TopologyGraph(
+            new[]
+            {
+                new TopologyNode("svc-1", "service", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false, EmptySemantics())
+            },
+            Array.Empty<TopologyEdge>()));
+
+        var series = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["flowLatencyMs"] = new double?[] { 60_000, 120_000, 180_000 }
+        };
+
+        topology.TestSetWindowData(CreateWindowData(CreateSeriesNode("svc-1", "service", series)));
+        topology.TestUpdateActiveMetrics(1);
+
+        var metrics = topology.TestGetActiveMetrics()["svc-1"];
+        var rows = topology.TestBuildInspectorBinMetrics("svc-1", metrics);
+
+        AssertRowValue(rows, "Flow latency", "2.0 min");
+    }
+
+    [Fact]
     public void InspectorBinMetrics_ServiceWithBufferNode_MatchesQueueAndLatencyRows()
     {
         var topology = new Topology();
@@ -1538,6 +1682,59 @@ public sealed class TopologyInspectorTests
         AssertRowValue(rows, "Served", "10.0");
         AssertRowValue(rows, "Errors", "1.0");
         AssertRowMissing(rows, "Utilization");
+    }
+
+    [Fact]
+    public void InspectorBinMetrics_ServiceNode_WithSchedule_ShowsCompletionAndScheduleSla()
+    {
+        var topology = new Topology();
+        topology.TestSetTopologyGraph(new TopologyGraph(
+            new[]
+            {
+                new TopologyNode(
+                    "svc-schedule", "service", "service", Array.Empty<string>(), Array.Empty<string>(), 0, 0, 0, 0, false,
+                    EmptySemantics(),
+                    DispatchSchedule: new GraphDispatchScheduleModel("time-based", 2, 0, null))
+            },
+            Array.Empty<TopologyEdge>()));
+
+        var series = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["arrivals"] = new double?[] { 10, 10, 10 },
+            ["served"] = new double?[] { 10, 8, 10 },
+            ["errors"] = new double?[] { 0, 1, 0 }
+        };
+
+        var sla = new[]
+        {
+            new TimeTravelSlaSeriesDto
+            {
+                Kind = "completion",
+                Values = new double?[] { 0.9, 0.8, 1.0 }
+            },
+            new TimeTravelSlaSeriesDto
+            {
+                Kind = "scheduleAdherence",
+                Values = new double?[] { 0.7, 0.6, 0.9 }
+            }
+        };
+
+        var schedule = new TimeTravelDispatchScheduleDto
+        {
+            Kind = "time-based",
+            PeriodBins = 2,
+            PhaseOffset = 0
+        };
+
+        var node = CreateSeriesNode("svc-schedule", "service", series, sla, schedule);
+        topology.TestSetWindowData(CreateWindowData(node));
+        topology.TestUpdateActiveMetrics(1);
+
+        var metrics = topology.TestGetActiveMetrics()["svc-schedule"];
+        var rows = topology.TestBuildInspectorBinMetrics("svc-schedule", metrics);
+
+        AssertRowValue(rows, "Completion SLA", "80%");
+        AssertRowValue(rows, "Schedule SLA", "60%");
     }
 
     [Fact]

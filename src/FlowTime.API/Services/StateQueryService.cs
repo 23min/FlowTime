@@ -596,6 +596,10 @@ public sealed class StateQueryService
 
         var mergedWarnings = MergeWarnings(nodeWarnings, classAggregation.Warnings, node.Id);
         var slaMetrics = BuildSlaMetrics(node, logicalType, data, context, binIndex, dispatchSchedule);
+        var seriesMetadata = BuildDerivedSeriesMetadata(
+            hasLatency: IsQueueLikeKind(kind) && data.QueueDepth is not null && data.Served is not null,
+            hasServiceTime: isServiceKind && data.ProcessingTimeMsSum is not null && data.ServedCount is not null,
+            hasFlowLatency: flowLatencyForNode is not null);
 
         return new NodeSnapshot
         {
@@ -619,6 +623,7 @@ public sealed class StateQueryService
                 MaxAttempts = maxAttempts,
                 QueueLatencyStatus = queueLatencyStatus
             },
+            SeriesMetadata = seriesMetadata,
             ByClass = ConvertClassMetrics(classAggregation.ByClass),
             Derived = new NodeDerivedMetrics
             {
@@ -1380,13 +1385,14 @@ public sealed class StateQueryService
         }
 
         QueueLatencyStatusDescriptor?[]? queueLatencyStatuses = null;
+        double?[]? latencySeries = null;
 
         if (IsQueueLikeKind(kind) && data.QueueDepth != null)
         {
-            var latency = ComputeLatencySeries(data, context.Window, startBin, count);
-            if (latency != null)
+            latencySeries = ComputeLatencySeries(data, context.Window, startBin, count);
+            if (latencySeries != null)
             {
-                series["latencyMinutes"] = latency;
+                series["latencyMinutes"] = latencySeries;
             }
 
             queueLatencyStatuses = ComputeQueueLatencyStatusSeries(
@@ -1403,19 +1409,21 @@ public sealed class StateQueryService
             series["throughputRatio"] = throughputSeries;
         }
 
+        double?[]? serviceTimeSeries = null;
         if (string.Equals(kind, "service", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(logicalType, "serviceWithBuffer", StringComparison.OrdinalIgnoreCase))
         {
-            var serviceTimeSeries = ComputeServiceTimeSeries(data, startBin, count);
+            serviceTimeSeries = ComputeServiceTimeSeries(data, startBin, count);
             if (serviceTimeSeries != null)
             {
                 series["serviceTimeMs"] = serviceTimeSeries;
             }
         }
 
+        double?[]? flowLatencySlice = null;
         if (flowLatencyForNode != null)
         {
-            var flowLatencySlice = ExtractSlice(flowLatencyForNode, startBin, count);
+            flowLatencySlice = ExtractSlice(flowLatencyForNode, startBin, count);
             series["flowLatencyMs"] = flowLatencySlice;
         }
 
@@ -1427,6 +1435,10 @@ public sealed class StateQueryService
         }
 
         var slaSeries = BuildSlaSeries(node, logicalType, data, context, startBin, count, dispatchSchedule);
+        var seriesMetadata = BuildDerivedSeriesMetadata(
+            hasLatency: latencySeries is not null,
+            hasServiceTime: serviceTimeSeries is not null,
+            hasFlowLatency: flowLatencySlice is not null);
 
         return new NodeSeries
         {
@@ -1434,6 +1446,7 @@ public sealed class StateQueryService
             Kind = kind,
             LogicalType = logicalType,
             Series = series,
+            SeriesMetadata = seriesMetadata,
             ByClass = BuildClassSeries(data, startBin, count),
             Telemetry = BuildTelemetryInfo(node, context.ManifestMetadata, nodeWarnings),
             Aliases = node.Semantics?.Aliases,
@@ -1507,6 +1520,46 @@ public sealed class StateQueryService
                 target[key] = slice;
             }
         }
+    }
+
+    private static IReadOnlyDictionary<string, SeriesSemanticsMetadata>? BuildDerivedSeriesMetadata(
+        bool hasLatency,
+        bool hasServiceTime,
+        bool hasFlowLatency)
+    {
+        Dictionary<string, SeriesSemanticsMetadata>? metadata = null;
+
+        if (hasLatency)
+        {
+            metadata ??= new Dictionary<string, SeriesSemanticsMetadata>(StringComparer.OrdinalIgnoreCase);
+            metadata["latencyMinutes"] = new SeriesSemanticsMetadata
+            {
+                Aggregation = "avg",
+                Origin = "derived"
+            };
+        }
+
+        if (hasServiceTime)
+        {
+            metadata ??= new Dictionary<string, SeriesSemanticsMetadata>(StringComparer.OrdinalIgnoreCase);
+            metadata["serviceTimeMs"] = new SeriesSemanticsMetadata
+            {
+                Aggregation = "avg",
+                Origin = "derived"
+            };
+        }
+
+        if (hasFlowLatency)
+        {
+            metadata ??= new Dictionary<string, SeriesSemanticsMetadata>(StringComparer.OrdinalIgnoreCase);
+            metadata["flowLatencyMs"] = new SeriesSemanticsMetadata
+            {
+                Aggregation = "avg",
+                Origin = "derived"
+            };
+        }
+
+        return metadata;
     }
 
     private static NodeTelemetryInfo BuildTelemetryInfo(Node node, RunManifestMetadata manifestMetadata, IReadOnlyList<ModeValidationWarning> nodeWarnings)
@@ -1771,13 +1824,12 @@ public sealed class StateQueryService
             return null;
         }
 
-        if (sum == 0 && count == 0)
+        if (count <= 0)
         {
-            return 0d;
+            return null;
         }
 
-        var denominator = count <= 0 ? 1d : count;
-        var value = sum / denominator;
+        var value = sum / count;
         return double.IsFinite(value) ? value : null;
     }
 
@@ -1846,12 +1898,18 @@ public sealed class StateQueryService
 
             var baseSeries = new double?[bins];
             var kind = NormalizeKind(node.Kind);
-        var isQueue = IsQueueLikeKind(kind);
-            var isService = string.Equals(kind, "service", StringComparison.OrdinalIgnoreCase);
+            var isQueue = IsQueueLikeKind(kind);
+            var isServiceWithBuffer = string.Equals(kind, "servicewithbuffer", StringComparison.OrdinalIgnoreCase);
+            var isService = string.Equals(kind, "service", StringComparison.OrdinalIgnoreCase) || isServiceWithBuffer;
+            var isSink = string.Equals(kind, "sink", StringComparison.OrdinalIgnoreCase) ||
+                         string.Equals(node.NodeRole, "sink", StringComparison.OrdinalIgnoreCase);
+            var hasArrivalsSemantics = !string.IsNullOrWhiteSpace(node.Semantics?.Arrivals);
+            var hasServedSemantics = !isSink && !string.IsNullOrWhiteSpace(node.Semantics?.Served);
 
             for (var i = 0; i < bins; i++)
             {
                 double? baseValue = null;
+                double? queueLatencyMs = null;
                 if (isQueue)
                 {
                     var queue = GetOptionalValue(data.QueueDepth, i);
@@ -1861,13 +1919,34 @@ public sealed class StateQueryService
                         var latMin = LatencyComputer.Calculate(queue.Value, served.Value, context.Window.BinDuration.TotalMinutes);
                         if (latMin.HasValue && double.IsFinite(latMin.Value))
                         {
-                            baseValue = latMin.Value * 60000d;
+                            queueLatencyMs = latMin.Value * 60000d;
                         }
                     }
                 }
+                double? serviceTimeMs = null;
+                if (isService)
+                {
+                    serviceTimeMs = ComputeServiceTimeValue(data, i);
+                }
+
+                if (isServiceWithBuffer)
+                {
+                    if (queueLatencyMs.HasValue && serviceTimeMs.HasValue)
+                    {
+                        baseValue = queueLatencyMs.Value + serviceTimeMs.Value;
+                    }
+                    else
+                    {
+                        baseValue = queueLatencyMs ?? serviceTimeMs;
+                    }
+                }
+                else if (isQueue)
+                {
+                    baseValue = queueLatencyMs;
+                }
                 else if (isService)
                 {
-                    baseValue = ComputeServiceTimeValue(data, i);
+                    baseValue = serviceTimeMs;
                 }
 
                 baseSeries[i] = baseValue;
@@ -1924,6 +2003,24 @@ public sealed class StateQueryService
             {
                 var baseVal = baseSeries[i];
                 var upVal = upstream?[i];
+                if (isSink && hasArrivalsSemantics)
+                {
+                    var arrivals = GetOptionalValue(data.Arrivals, i);
+                    if (!arrivals.HasValue || !double.IsFinite(arrivals.Value) || arrivals.Value <= 0)
+                    {
+                        combined[i] = null;
+                        continue;
+                    }
+                }
+                else if (hasServedSemantics)
+                {
+                    var served = GetOptionalValue(data.Served, i);
+                    if (!served.HasValue || !double.IsFinite(served.Value) || served.Value <= 0)
+                    {
+                        combined[i] = null;
+                        continue;
+                    }
+                }
 
                 if (baseVal.HasValue && double.IsFinite(baseVal.Value))
                 {

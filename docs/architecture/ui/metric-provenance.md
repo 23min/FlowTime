@@ -45,13 +45,16 @@ For each inspector metric (properties or charts):
 
 When `/state` or `/state_window` provides `seriesMetadata`, the tooltip must include the aggregation semantics (for example, `Aggregation: avg` or `Aggregation: p95`) so telemetry-driven percentiles are explicit.
 
+- **Derived defaults:** engine-derived `latencyMinutes`, `serviceTimeMs`, and `flowLatencyMs` are tagged with `aggregation=avg` and `origin=derived`.
+- **Telemetry clarity:** percentile telemetry should use explicit series IDs (`flowLatencyP95Ms`) and supply `aggregation=p95` with `origin=telemetry` so the UI does not imply an average.
+
 ## Latency Semantics
 
 Latency is frequently misunderstood, so the UI must clarify:
 
 - **Queue latency (minutes):** sourced from `latencyMinutes` when available. When derived by the engine it is a per-bin average wait time.
 - **Service time (ms):** derived from `processingTimeMsSum / servedCount` (per-bin average).
-- **Flow latency (ms):** sourced from `flowLatencyMs` when available; when derived it is a per-bin average end-to-end latency.
+- **Flow latency (ms):** sourced from `flowLatencyMs` when available; when derived it is a per-bin average end-to-end latency. For `serviceWithBuffer`, flow latency includes both queue latency and service time; bins with zero served are reported as null.
 - **Service latency (minutes):** for `kind=service`, `latencyMinutes` is telemetry- or template-defined (not engine-derived) when present.
 - **Total time in system:** not shown as a standalone metric; provenance clarifies queue vs service time.
 

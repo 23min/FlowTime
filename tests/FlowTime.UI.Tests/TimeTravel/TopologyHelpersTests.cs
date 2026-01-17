@@ -300,6 +300,43 @@ public sealed class TopologyHelpersTests
         Assert.Equal("01 Jan 2025 00:15 UTC", content.Subtitle);
     }
 
+    [Fact]
+    public void TooltipFormatter_SinkWithoutSchedule_UsesSlaLabel()
+    {
+        var timestamp = new DateTimeOffset(2025, 1, 1, 0, 15, 0, TimeSpan.Zero);
+        var metrics = new NodeBinMetrics(
+            1.0,
+            null,
+            0.0,
+            null,
+            null,
+            timestamp,
+            NodeKind: "sink");
+
+        var content = TooltipFormatter.Format("Downtown", metrics);
+
+        Assert.Contains("SLA 100.0%", content.Lines);
+        Assert.DoesNotContain("Schedule SLA 100.0%", content.Lines);
+    }
+
+    [Fact]
+    public void TooltipFormatter_IncludesCompletionSla_WhenProvided()
+    {
+        var timestamp = new DateTimeOffset(2025, 1, 1, 0, 15, 0, TimeSpan.Zero);
+        var metrics = new NodeBinMetrics(
+            0.92,
+            0.78,
+            0.02,
+            8,
+            4.1,
+            timestamp,
+            RawMetrics: new Dictionary<string, double?> { ["completionSla"] = 0.92 });
+
+        var content = TooltipFormatter.Format("OrderService", metrics);
+
+        Assert.Contains("Completion SLA 92.0%", content.Lines);
+    }
+
 private static GraphNodeSemanticsModel CreateSemantics()
     => new(
         Arrivals: "series:arrivals",

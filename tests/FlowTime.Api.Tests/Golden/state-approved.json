@@ -42,6 +42,16 @@
         "capacity": 7,
         "maxAttempts": 4
       },
+      "seriesMetadata": {
+        "serviceTimeMs": {
+          "aggregation": "avg",
+          "origin": "derived"
+        },
+        "flowLatencyMs": {
+          "aggregation": "avg",
+          "origin": "derived"
+        }
+      },
       "byClass": {
         "*": {
           "arrivals": 10,
@@ -98,6 +108,16 @@
         "served": 6,
         "errors": 0,
         "queue": 10
+      },
+      "seriesMetadata": {
+        "latencyMinutes": {
+          "aggregation": "avg",
+          "origin": "derived"
+        },
+        "flowLatencyMs": {
+          "aggregation": "avg",
+          "origin": "derived"
+        }
       },
       "byClass": {
         "*": {

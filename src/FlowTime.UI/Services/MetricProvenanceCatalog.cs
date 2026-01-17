@@ -49,7 +49,8 @@ public sealed record MetricProvenanceDefinition(
 public sealed record MetricProvenanceEvaluation(
     MetricProvenanceDefinition Definition,
     MetricFormulaOption? SelectedFormula,
-    IReadOnlyList<string> MissingInputs);
+    IReadOnlyList<string> MissingInputs,
+    TimeTravelSeriesSemanticsDto? SeriesSemantics = null);
 
 public static class MetricProvenanceCatalog
 {
@@ -327,7 +328,7 @@ public static class MetricProvenanceCatalog
                 {
                     new MetricFormulaOption("completion = SLA completion series", new[] { "sla:completion" })
                 },
-                "Share of arrivals that met the completion SLA."),
+                "Percentage of completed items whose end-to-end latency is within a target threshold."),
             ["backlogAge"] = CreateDefinition(
                 "backlogAge",
                 "Backlog age SLA",

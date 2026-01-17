@@ -37,6 +37,7 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
     private const string serviceWithBufferBehaviorBaselineRunId = "run_state_servicewithbuffer_behavior_base";
     private const string serviceWithBufferBehaviorParallelRunId = "run_state_servicewithbuffer_behavior_parallel";
     private const string serviceWithBufferPartialRunId = "run_state_servicewithbuffer_partial";
+    private const string serviceTimeZeroRunId = "run_state_service_time_zero";
     private const string dispatchScheduleRunId = "run_state_dispatch_schedule";
     private const string throughputOverflowRunId = "run_state_throughput_overflow";
     private const string backlogWarningsRunId = "run_state_backlog_warnings";
@@ -81,6 +82,7 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         CreateServiceWithBufferParallelismRun();
         CreateServiceWithBufferBehaviorRuns();
         CreateServiceWithBufferPartialRun();
+        CreateServiceTimeZeroRun();
         CreateDispatchScheduleRun();
         CreateThroughputOverflowRun();
         CreateBacklogWarningsRun();
@@ -483,6 +485,75 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         Assert.Equal(200d, serviceTimeSeries[1]!.Value, 5);
         Assert.Equal(100d, serviceTimeSeries[2]!.Value, 5);
         Assert.Equal(300d, serviceTimeSeries[3]!.Value, 5);
+
+        Assert.True(node.Series.TryGetValue("flowLatencyMs", out var flowLatencySeries));
+        Assert.NotNull(flowLatencySeries);
+        Assert.Equal(4, flowLatencySeries!.Length);
+        Assert.Equal(1_500_200d, flowLatencySeries[0]!.Value, 5);
+        Assert.Equal(375_200d, flowLatencySeries[1]!.Value, 5);
+        Assert.Equal(100d, flowLatencySeries[2]!.Value, 5);
+        Assert.Equal(600_300d, flowLatencySeries[3]!.Value, 5);
+    }
+
+    [Fact]
+    public async Task GetStateWindow_ServiceTimeIsNull_WhenServedCountIsZero()
+    {
+        var response = await client.GetAsync($"/v1/runs/{serviceTimeZeroRunId}/state_window?startBin=0&endBin=3");
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<StateWindowResponse>(new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            PropertyNameCaseInsensitive = true
+        });
+        Assert.NotNull(payload);
+
+        var node = Assert.Single(payload!.Nodes, n => n.Id == "OrderService");
+
+        Assert.True(node.Series.TryGetValue("serviceTimeMs", out var serviceTimeSeries));
+        Assert.NotNull(serviceTimeSeries);
+        Assert.Equal(4, serviceTimeSeries!.Length);
+        Assert.Null(serviceTimeSeries[0]);
+        Assert.Equal(200d, serviceTimeSeries[1]!.Value, 5);
+        Assert.Null(serviceTimeSeries[2]);
+        Assert.Equal(200d, serviceTimeSeries[3]!.Value, 5);
+
+        Assert.True(node.Series.TryGetValue("flowLatencyMs", out var flowLatencySeries));
+        Assert.NotNull(flowLatencySeries);
+        Assert.Equal(4, flowLatencySeries!.Length);
+        Assert.Null(flowLatencySeries[0]);
+        Assert.Equal(200d, flowLatencySeries[1]!.Value, 5);
+        Assert.Null(flowLatencySeries[2]);
+        Assert.Equal(200d, flowLatencySeries[3]!.Value, 5);
+    }
+
+    [Fact]
+    public async Task GetStateWindow_EmitsSeriesMetadata_ForDerivedSeries()
+    {
+        var response = await client.GetAsync($"/v1/runs/{serviceWithBufferDerivedRunId}/state_window?startBin=0&endBin=3");
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<StateWindowResponse>(new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            PropertyNameCaseInsensitive = true
+        });
+        Assert.NotNull(payload);
+
+        var node = Assert.Single(payload!.Nodes, n => n.Id == "BufferService");
+        Assert.NotNull(node.SeriesMetadata);
+
+        Assert.True(node.SeriesMetadata!.TryGetValue("latencyMinutes", out var latencyMetadata));
+        Assert.Equal("avg", latencyMetadata!.Aggregation);
+        Assert.Equal("derived", latencyMetadata.Origin);
+
+        Assert.True(node.SeriesMetadata.TryGetValue("serviceTimeMs", out var serviceMetadata));
+        Assert.Equal("avg", serviceMetadata!.Aggregation);
+        Assert.Equal("derived", serviceMetadata.Origin);
+
+        if (node.SeriesMetadata.TryGetValue("flowLatencyMs", out var flowMetadata))
+        {
+            Assert.Equal("avg", flowMetadata!.Aggregation);
+            Assert.Equal("derived", flowMetadata.Origin);
+        }
     }
 
     [Fact]
@@ -1256,6 +1327,23 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         CreateRun(
             serviceWithBufferPartialRunId,
             BuildServiceWithBufferPartialModelYaml(),
+            mode: "telemetry",
+            overrides: overrides);
+    }
+
+    private void CreateServiceTimeZeroRun()
+    {
+        var overrides = new Dictionary<string, double[]>
+        {
+            ["OrderService_arrivals.csv"] = new[] { 0d, 10d, 0d, 5d },
+            ["OrderService_served.csv"] = new[] { 0d, 10d, 0d, 5d },
+            ["OrderService_processingTimeMsSum.csv"] = new[] { 0d, 2000d, 0d, 1000d },
+            ["OrderService_servedCount.csv"] = new[] { 0d, 10d, 0d, 5d }
+        };
+
+        CreateRun(
+            serviceTimeZeroRunId,
+            BuildValidModelYaml(),
             mode: "telemetry",
             overrides: overrides);
     }

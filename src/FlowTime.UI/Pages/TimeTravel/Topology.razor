@@ -340,6 +340,23 @@
                                     }
                                 </div>
                             </div>
+                            @{
+                                var aggregationLabel = GetAggregationIndicatorLabel();
+                            }
+                            @if (!string.IsNullOrWhiteSpace(aggregationLabel))
+                            {
+                                <div class="topology-aggregate-overlay">
+                                    <span class="topology-aggregate-label">Aggregate</span>
+                                    <MudChip T="string"
+                                             Variant="Variant.Outlined"
+                                             Color="Color.Default"
+                                             Size="Size.Small"
+                                             Class="topology-aggregate-chip"
+                                             Ripple="false">
+                                        @aggregationLabel
+                                    </MudChip>
+                                </div>
+                            }
                             @if (ShowClassSelector)
                             {
                                 <div class="topology-flow-overlay">
@@ -938,6 +955,7 @@ private IReadOnlyList<TimeTravelStateWarningDto> windowWarnings = Array.Empty<Ti
     private bool isDialPointerDragging;
     private bool pointerNeedsJump;
     private AsyncWorkQueue<BinDataWorkItem, BinDataRefreshResult>? binDataWorker;
+    private long binDataRevision;
     private int? pendingDragBin;
     private long lastScrubRefreshAtMs;
     private int? lastScrubRefreshBin;
@@ -2470,6 +2488,11 @@ private const string PmfExpectationLabel = "Value";
             {
                 SetRaw("effectiveCapacity", capacity.Value * parallelism.Value);
             }
+            SetRaw("completionSla", completionSla);
+            if (hasSchedule)
+            {
+                rawMetrics["scheduleAdherence"] = scheduleAdherence;
+            }
             SetRaw("flowLatencyMs", Get("flowLatencyMs"));
             SetRaw("maxAttempts", topoNode?.Semantics?.MaxAttempts);
 
@@ -3176,7 +3199,8 @@ private const string PmfExpectationLabel = "Value";
 
     private void ScheduleBinDataRefresh(int bin, bool cancelCurrent = true)
     {
-        var workItem = new BinDataWorkItem(bin, CaptureBinDataContext());
+        var revision = Interlocked.Increment(ref binDataRevision);
+        var workItem = new BinDataWorkItem(bin, revision, CaptureBinDataContext());
         var worker = GetOrCreateBinDataWorker();
         worker.Schedule(workItem, cancelCurrent);
     }
@@ -3202,7 +3226,7 @@ private const string PmfExpectationLabel = "Value";
     private AsyncWorkQueue<BinDataWorkItem, BinDataRefreshResult> GetOrCreateBinDataWorker()
     {
         return binDataWorker ??= new AsyncWorkQueue<BinDataWorkItem, BinDataRefreshResult>(
-            (job, token) => ComputeBinDataRefreshResult(job.Context, job.Bin, token),
+            (job, token) => ComputeBinDataRefreshResult(job, token),
             HandleBinDataResultAsync);
     }
 
@@ -3210,10 +3234,25 @@ private const string PmfExpectationLabel = "Value";
     {
         return InvokeAsync(() =>
         {
-            ApplyNodeSparklinesResult(result.Sparklines);
-            ApplyActiveMetricsResult(result.Metrics);
+            if (!TryApplyBinDataResult(result))
+            {
+                return;
+            }
+
             StateHasChanged();
         });
+    }
+
+    private bool TryApplyBinDataResult(BinDataRefreshResult result)
+    {
+        if (result.Revision != binDataRevision)
+        {
+            return false;
+        }
+
+        ApplyNodeSparklinesResult(result.Sparklines);
+        ApplyActiveMetricsResult(result.Metrics);
+        return true;
     }
 
     private void CancelBinDataRefresh()
@@ -3280,10 +3319,11 @@ private const string PmfExpectationLabel = "Value";
     }
 
     private sealed record BinDataRefreshResult(
+        long Revision,
         NodeSparklineComputationResult Sparklines,
         ActiveMetricsComputationResult Metrics);
 
-    private sealed record BinDataWorkItem(int Bin, BinDataComputationContext Context);
+    private sealed record BinDataWorkItem(int Bin, long Revision, BinDataComputationContext Context);
 
     private sealed class BinDataComputationContext
     {
@@ -3358,13 +3398,12 @@ private const string PmfExpectationLabel = "Value";
         bool IncludesInspectorDetails);
 
     private static BinDataRefreshResult ComputeBinDataRefreshResult(
-        BinDataComputationContext context,
-        int bin,
+        BinDataWorkItem job,
         CancellationToken token)
     {
-        var sparklines = ComputeNodeSparklinesSnapshot(context, bin, token);
-        var metrics = ComputeActiveMetricsSnapshot(context, bin, sparklines.Sparklines, sparklines.MissingNodes, token);
-        return new BinDataRefreshResult(sparklines, metrics);
+        var sparklines = ComputeNodeSparklinesSnapshot(job.Context, job.Bin, token);
+        var metrics = ComputeActiveMetricsSnapshot(job.Context, job.Bin, sparklines.Sparklines, sparklines.MissingNodes, token);
+        return new BinDataRefreshResult(job.Revision, sparklines, metrics);
     }
 
     private void ApplyNodeSparklinesResult(NodeSparklineComputationResult result)
@@ -3500,6 +3539,11 @@ private const string PmfExpectationLabel = "Value";
             : "-";
     }
 
+    private string GetAggregationIndicatorLabel()
+    {
+        return "Avg";
+    }
+
     private static string BuildProvenanceTooltip(MetricProvenanceEvaluation provenance)
     {
         var entries = BuildProvenanceTooltipEntries(provenance);
@@ -3514,6 +3558,7 @@ private const string PmfExpectationLabel = "Value";
         var inputs = provenance.SelectedFormula?.Inputs ?? Array.Empty<string>();
         var gatingRules = provenance.Definition.GatingRules;
         var missing = provenance.MissingInputs;
+        var aggregation = provenance.SeriesSemantics?.Aggregation;
 
         var entries = new List<ProvenanceTooltipEntry>
         {
@@ -3522,6 +3567,11 @@ private const string PmfExpectationLabel = "Value";
             new("Inputs", inputs.Count > 0 ? string.Join(", ", inputs) : "none"),
             new("Units", provenance.Definition.Unit)
         };
+
+        if (!string.IsNullOrWhiteSpace(aggregation))
+        {
+            entries.Insert(1, new ProvenanceTooltipEntry("Aggregation", aggregation));
+        }
 
         if (gatingRules.Count > 0)
         {
@@ -3672,15 +3722,39 @@ private const string PmfExpectationLabel = "Value";
         return value.ToString("0.#", CultureInfo.InvariantCulture) + " ms";
     }
 
+    private static string FormatDurationMs(double? value)
+    {
+        if (!value.HasValue)
+        {
+            return "—";
+        }
+
+        var sample = value.Value;
+        if (sample >= 10_000)
+        {
+            var minutes = sample / 1000d / 60d;
+            return minutes.ToString("0.0", CultureInfo.InvariantCulture) + " min";
+        }
+
+        var format = sample >= 1000 ? "0" : "0.0";
+        return sample.ToString(format, CultureInfo.InvariantCulture) + " ms";
+    }
+
     private static string FormatBinValue(double? value, InspectorValueFormat format = InspectorValueFormat.Number, string? unit = null)
     {
         var text = format switch
         {
             InspectorValueFormat.Percent => FormatPercent(value),
+            InspectorValueFormat.DurationMs => FormatDurationMs(value),
             _ => FormatNumber(value)
         };
 
         if (string.Equals(text, "—", StringComparison.Ordinal))
+        {
+            return text;
+        }
+
+        if (format == InspectorValueFormat.DurationMs)
         {
             return text;
         }
@@ -4094,10 +4168,15 @@ internal sealed record InspectorMetricBlock(
                 return null;
             }
 
-            return provenanceCatalog.TryGetValue(seriesKey, out var definition)
-                ? definition.Evaluate(availableSeries)
-                : null;
+            if (!provenanceCatalog.TryGetValue(seriesKey, out var definition))
+            {
+                return null;
+            }
+
+            var evaluation = definition.Evaluate(availableSeries);
+            return AttachSeriesSemantics(evaluation, nodeSeries, seriesKey);
         }
+
 
         InspectorMetricBlock CreatePlaceholder(string title, InspectorValueFormat valueFormat = InspectorValueFormat.Number, string? seriesKey = null)
         {
@@ -4307,7 +4386,10 @@ internal sealed record InspectorMetricBlock(
         {
             AddRequired("Utilization", "utilization", 0d, 1d, valueFormat: InspectorValueFormat.Percent);
         }
-        AddRequired("Service time", "serviceTimeMs", 0d, seriesKeyOverride: "serviceTimeMs");
+        if (!isSinkNode)
+        {
+            AddRequired("Service time", "serviceTimeMs", 0d, seriesKeyOverride: "serviceTimeMs");
+        }
         AddRequired("Flow latency", "flowLatencyMs", 0d, seriesKeyOverride: "flowLatencyMs");
         if (isSinkNode)
         {
@@ -4361,6 +4443,21 @@ internal sealed record InspectorMetricBlock(
         }
 
         return keys.ToArray();
+    }
+
+    private static MetricProvenanceEvaluation AttachSeriesSemantics(
+        MetricProvenanceEvaluation evaluation,
+        TimeTravelNodeSeriesDto? node,
+        string seriesKey)
+    {
+        if (node?.SeriesMetadata is null)
+        {
+            return evaluation;
+        }
+
+        return node.SeriesMetadata.TryGetValue(seriesKey, out var semantics)
+            ? evaluation with { SeriesSemantics = semantics }
+            : evaluation;
     }
 
 
@@ -4460,7 +4557,8 @@ internal sealed record InspectorMetricBlock(
         var evaluations = new Dictionary<string, MetricProvenanceEvaluation>(StringComparer.OrdinalIgnoreCase);
         foreach (var entry in catalog)
         {
-            evaluations[entry.Key] = entry.Value.Evaluate(availableSeries);
+            var evaluation = entry.Value.Evaluate(availableSeries);
+            evaluations[entry.Key] = AttachSeriesSemantics(evaluation, node, entry.Key);
         }
 
         return new MetricProvenanceBundle(nodeKind, availableSeries, evaluations);
@@ -4557,9 +4655,13 @@ internal sealed record InspectorMetricBlock(
                 return null;
             }
 
-            return provenanceCatalog.TryGetValue(metricKey, out var definition)
-                ? definition.Evaluate(availableSeries)
-                : null;
+            if (!provenanceCatalog.TryGetValue(metricKey, out var definition))
+            {
+                return null;
+            }
+
+            var evaluation = definition.Evaluate(availableSeries);
+            return AttachSeriesSemantics(evaluation, seriesNode, metricKey);
         }
 
         InspectorBinMetric CreateRow(string label, string value, string? metricKey = null)
@@ -4760,7 +4862,8 @@ internal sealed record InspectorMetricBlock(
         }
         if (!isSink && !isRouter)
         {
-            AddSlaMetric("Schedule adherence", "scheduleAdherence", InspectorValueFormat.Percent);
+            var scheduleLabel = hasSchedule ? "Schedule SLA" : "Schedule adherence";
+            AddSlaMetric(scheduleLabel, "scheduleAdherence", InspectorValueFormat.Percent);
         }
         AddDerived("Utilization", safeMetrics.Utilization, InspectorValueFormat.Percent, gate: !isSink, metricKey: "utilization");
         AddDerived("Error rate", safeMetrics.ErrorRate, InspectorValueFormat.Percent, metricKey: "errorRate");
@@ -4768,8 +4871,8 @@ internal sealed record InspectorMetricBlock(
         {
             AddDerived("Queue latency", safeMetrics.LatencyMinutes, InspectorValueFormat.Number, "min", alwaysShow: true, metricKey: "latencyMinutes");
         }
-        AddDerived("Service time", safeMetrics.ServiceTimeMs, InspectorValueFormat.Number, "ms", gate: !isRouter, metricKey: "serviceTimeMs");
-        AddDerived("Flow latency", safeMetrics.FlowLatencyMs, InspectorValueFormat.Number, "ms", gate: !isRouter, metricKey: "flowLatencyMs");
+        AddDerived("Service time", safeMetrics.ServiceTimeMs, InspectorValueFormat.DurationMs, gate: !isSink && !isRouter, metricKey: "serviceTimeMs");
+        AddDerived("Flow latency", safeMetrics.FlowLatencyMs, InspectorValueFormat.DurationMs, gate: !isRouter, metricKey: "flowLatencyMs");
         AddDerived("Retry tax", safeMetrics.RetryTax, InspectorValueFormat.Percent, gate: !isSink, metricKey: "retryTax");
 
         if (!isSink && safeMetrics.QueueLatencyStatus is not null)
@@ -5578,16 +5681,13 @@ internal sealed record InspectorMetricBlock(
                 continue;
             }
 
-            if ((!countValue.HasValue || countValue.Value == 0) && Math.Abs(sumValue.Value) < 1e-9)
+            if (!countValue.HasValue || countValue.Value <= 0)
             {
-                values[i] = 0d;
+                values[i] = null;
                 continue;
             }
 
-            var denominator = countValue.HasValue && countValue.Value > 0
-                ? countValue.Value
-                : 1d;
-            var ratio = sumValue.Value / denominator;
+            var ratio = sumValue.Value / countValue.Value;
             values[i] = double.IsFinite(ratio) ? ratio : null;
         }
 
