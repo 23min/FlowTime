@@ -362,7 +362,6 @@
                                 <div class="topology-flow-overlay">
                                     <div class="topology-flow-header">
                                         <MudText Typo="Typo.overline" Class="topology-flow-panel-title">Flows</MudText>
-                                        <span class="topology-flow-counter">@((availableClasses?.Count ?? 0).ToString(CultureInfo.InvariantCulture))</span>
                                     </div>
                                     <ClassSelector Classes="availableClasses"
                                                    ClassDisplayNames="classDisplayNames"
@@ -482,7 +481,7 @@
                             var inspectorTabIndex = GetInspectorTabIndex(inspectorTab, inspectorTabs);
 
                             <MudPaper Class="topology-inspector topology-inspector-panel" Elevation="1" Style="width: 360px; flex: 0 0 360px;">
-                                <MudStack Class="pa-4" Spacing="2">
+                                <MudStack Class="pa-4 topology-inspector-content" Spacing="2">
                                     <div class="topology-inspector-header">
                                         <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
                                             <MudText Typo="Typo.h6" Class="topology-inspector-title">@nodeId</MudText>
@@ -495,7 +494,8 @@
                                         </MudStack>
                                     </div>
 	                                    <div class="topology-role-chip-row">
-	                                        <span class="class-chip topology-kind-chip">Kind: @FormatNodeKindLabel(nodeKind)</span>
+	                                        <MudText Typo="Typo.caption" Class="topology-kind-label">Kind</MudText>
+	                                        <span class="class-chip topology-kind-chip">@FormatNodeKindLabel(nodeKind)</span>
 	                                        @if (!string.IsNullOrWhiteSpace(nodeRoleLabel))
 	                                        {
 	                                            <span class="class-chip topology-role-chip" data-testid="sink-role-chip">@nodeRoleLabel</span>
@@ -536,7 +536,7 @@
 	                                             ActivePanelIndex="@inspectorTabIndex"
 	                                             ActivePanelIndexChanged="index => OnInspectorTabChanged(index, inspectorTabs)"
 	                                             MinimumTabWidth="0px"
-	                                             Class="topology-inspector-tabs">
+	                                             Class="@($"topology-inspector-tabs{(inspectorMetricsExpanded ? " inspector-metrics-expanded" : " inspector-metrics-collapsed")}")">
 	                                        <MudTabPanel Text="Charts">
 	                                            @if (hasSparklineSeries)
 	                                            {
@@ -560,7 +560,7 @@
                                                         if (block.Provenance is not null)
                                                         {
                                                             <div class="inspector-provenance-hover">
-                                                                <MudText Typo="Typo.subtitle2">@block.Title</MudText>
+                                                                <MudText Typo="Typo.subtitle2" Class="topology-inspector-chart-title">@block.Title</MudText>
                                                                 <div class="inspector-provenance-flyout">
                                                                     <div class="inspector-provenance-tooltip">
                                                                         <div class="inspector-provenance-tooltip__entries">
@@ -578,7 +578,7 @@
                                                         }
                                                         else
                                                         {
-                                                            <MudText Typo="Typo.subtitle2">@block.Title</MudText>
+                                                            <MudText Typo="Typo.subtitle2" Class="topology-inspector-chart-title">@block.Title</MudText>
                                                         }
                                                     }
                                                     @if (block.Sparkline is not null)
@@ -772,12 +772,6 @@
                                         </MudTabPanel>
                                         <MudTabPanel Text="Deps">
                                             <MudStack Spacing="1">
-                                                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
-                                                    @if (dependencyRows.Count > 0)
-                                                    {
-                                                        <MudText Typo="Typo.caption" Class="topology-muted-text">@($"{dependencyRows.Count}")</MudText>
-                                                    }
-                                                </MudStack>
                                                 @if (dependencyRows.Count == 0)
                                                 {
                                                     <MudText Typo="Typo.caption" Class="topology-muted-text">No dependencies</MudText>
@@ -6383,6 +6377,13 @@ private static IReadOnlyList<double?> TrimSeriesAt(double?[]? source, int limit,
     {
         featureBarOpen = !featureBarOpen;
         StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    [JSInvokable]
+    public Task ClearSelection()
+    {
+        canvasComponent?.ClearFocus();
         return Task.CompletedTask;
     }
 

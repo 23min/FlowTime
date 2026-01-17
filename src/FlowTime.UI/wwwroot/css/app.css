@@ -579,6 +579,7 @@ code {
     display: flex;
     flex-wrap: wrap;
     gap: 0.35rem;
+    align-items: baseline;
 }
 
 .topology-role-chip {
@@ -1392,7 +1393,10 @@ body.dark-mode .timeline-focus-label {
 .topology-stage .topology-inspector {
     flex: 0 0 360px;
     min-width: 0;
-    overflow-y: auto;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
 }
 
 .topology-canvas {
@@ -1630,6 +1634,38 @@ body.dark-mode .timeline-focus-label {
     min-width: 0;
 }
 
+.topology-inspector-content {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.topology-inspector-tabs {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.topology-inspector-tabs .mud-tabs-toolbar {
+    flex: 0 0 auto;
+    overflow: visible;
+}
+
+.topology-inspector-tabs .mud-tabs-toolbar-content {
+    overflow: visible;
+}
+
+.topology-inspector-tabs .mud-tabs-content {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+}
+
 .topology-warning-tab-label {
     display: inline-flex;
     align-items: center;
@@ -1637,25 +1673,64 @@ body.dark-mode .timeline-focus-label {
 }
 
 .topology-warning-tab-icon {
-    font-size: 0.7em;
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+    line-height: 1;
+    vertical-align: text-bottom;
+}
+
+.topology-warning-tab-icon.mud-icon-size-medium {
+    width: 14px !important;
+    height: 14px !important;
+    font-size: 14px !important;
 }
 
 .topology-inspector-tabs .mud-tabs-tabbar-content {
     width: 100%;
     max-width: 100%;
-    overflow: hidden;
+    overflow: visible;
     padding: 0;
 }
 
 .topology-inspector-tabs .mud-tabs-tabbar-wrapper {
     padding: 0;
     max-width: 100%;
-    overflow-x: hidden;
+    overflow: visible;
 }
 
 .topology-inspector-tabs .mud-tabs-tabbar {
+    overflow: visible;
+    padding: 0 0 4px;
+}
+
+.topology-kind-label {
+    color: rgba(148, 163, 184, 0.8);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    line-height: 1;
+}
+
+.topology-role-chip-row .class-chip {
+    line-height: 1;
+}
+
+.topology-inspector-tabs .mud-tabs-panels {
+    padding-top: 20px;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
     overflow-x: hidden;
-    padding: 0;
+}
+
+.topology-inspector-tabs.inspector-metrics-expanded .topology-inspector-chart-title {
+    display: block;
+    margin-top: 25px;
+}
+
+.topology-inspector-tabs.inspector-metrics-collapsed .topology-horizon-label {
+    display: block;
+    margin-top: 10px;
 }
 
 .inspector-warning-row {

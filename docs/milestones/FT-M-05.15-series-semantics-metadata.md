@@ -161,3 +161,13 @@ FlowTime’s UI currently infers metric meaning from formulas and engine‑deriv
 - `src/FlowTime.UI/Pages/TimeTravel/Topology.razor`
 - `docs/architecture/ui/metric-provenance.md`
 - `docs/templates/template-authoring.md`
+
+---
+
+## Implementation Notes (UI Tweaks)
+
+- Inspector tabs: fixed tab bar visibility, scroll only inside tab content, and added top spacing between tabs and content.
+- Inspector charts: adjusted title spacing for expanded vs. compact views.
+- Inspector badges: split Kind label from the kind chip; warning tab icon resized to 14px.
+- Focus view: when filters are cleared, still render the focused chain instead of a blank graph.
+- Tooltips: auto-dismiss extended to 15s; Escape clears selection and tooltip.

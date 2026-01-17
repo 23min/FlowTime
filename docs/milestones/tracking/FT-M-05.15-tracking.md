@@ -128,6 +128,97 @@
 **Tests:**
 - ⏭️ Not run (not requested)
 
+### 2026-01-15 - Inspector Tab Padding
+
+**Changes:**
+- Added top padding to inspector tab panels for clearer separation between tabs and content.
+
+**Tests:**
+- ⏭️ Not run (not requested)
+
+### 2026-01-15 - Inspector Layout Tweaks
+
+**Changes:**
+- Removed flow/dependency count badges from the flow overlay and inspector dependencies tab.
+- Moved inspector scrolling into tab content so header/kind/class chips stay fixed.
+- Adjusted chart title spacing for expanded vs. compact chart views.
+
+**Tests:**
+- ⏭️ Not run (not requested)
+
+### 2026-01-15 - Inspector Scroll + Chart Spacing Follow-up
+
+**Changes:**
+- Fixed tab row to stay static while only tab panels scroll.
+- Increased compact chart title spacing to 10px; ensured expanded titles get 25px spacing.
+
+**Tests:**
+- ⏭️ Not run (not requested)
+
+### 2026-01-15 - Inspector Tab Bar Visibility
+
+**Changes:**
+- Prevented tab bar clipping/scrollbars by allowing toolbar/tabbar overflow and adding bottom padding for the active indicator.
+
+**Tests:**
+- ⏭️ Not run (not requested)
+
+### 2026-01-15 - Inspector Chip + Warning Icon Styling
+
+**Changes:**
+- Split the kind label from the kind chip and adjusted the warning tab icon size.
+
+**Tests:**
+- ⏭️ Not run (not requested)
+
+### 2026-01-15 - Kind Chip Baseline Alignment
+
+**Changes:**
+- Aligned kind label and chip baselines in the inspector header row.
+
+**Tests:**
+- ⏭️ Not run (not requested)
+
+### 2026-01-15 - Warning Icon Size
+
+**Changes:**
+- Forced warning tab icon size to 14px square.
+
+**Tests:**
+- ⏭️ Not run (not requested)
+
+### 2026-01-15 - Warning Icon Size Override
+
+**Changes:**
+- Forced the warning icon SVG to 14px to override MudBlazor's default size.
+
+**Tests:**
+- ⏭️ Not run (not requested)
+
+### 2026-01-15 - Warning Icon Size Override (Medium Class)
+
+**Changes:**
+- Overrode the MudBlazor medium icon size class to enforce 14px dimensions.
+
+**Tests:**
+- ⏭️ Not run (not requested)
+
+### 2026-01-15 - Tooltip Dismiss Override
+
+**Changes:**
+- Extended tooltip auto-dismiss to 15s and added background-click dismiss.
+
+**Tests:**
+- ⏭️ Not run (not requested)
+
+### 2026-01-15 - Tooltip Dismiss Hotkey
+
+**Changes:**
+- Removed background-click dismiss and added Escape hotkey to clear selection + tooltip.
+
+**Tests:**
+- ⏭️ Not run (not requested)
+
 ### 2026-01-15 - Schedule SLA Label (RED → GREEN)
 
 **Changes:**

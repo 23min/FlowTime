@@ -1820,7 +1820,7 @@ public abstract class TopologyCanvasBase : ComponentBase, IDisposable
 
         try
         {
-            await Task.Delay(TimeSpan.FromSeconds(10), cts.Token);
+            await Task.Delay(TimeSpan.FromSeconds(15), cts.Token);
         }
         catch (TaskCanceledException)
         {

@@ -8871,12 +8871,23 @@ function setHoveredEdge(state, edgeId) {
         }
 
         const handler = (event) => {
-            if (!event.altKey) {
+            const target = event.target;
+            if (target && (target.matches?.('input, textarea, select, [contenteditable="true"]') || target.isContentEditable)) {
+                return;
+            }
+
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                dotNetRef.invokeMethodAsync('ClearSelection');
                 return;
             }
 
             const key = event.key || event.code;
             if (!key) {
+                return;
+            }
+
+            if (!event.altKey) {
                 return;
             }
 
