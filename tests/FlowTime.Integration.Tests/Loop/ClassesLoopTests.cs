@@ -85,7 +85,7 @@ public sealed class ClassesLoopTests
         Assert.Equal("partial", telemetryWindow.Metadata.ClassCoverage);
 
         var warnings = telemetryResult.TelemetryManifest.Warnings.Select(w => w.Code).ToArray();
-        Assert.Contains("class_series_partial", warnings);
+        Assert.Contains(warnings, code => code.StartsWith("class_series_partial", StringComparison.OrdinalIgnoreCase));
         Assert.Contains("class_conservation_mismatch", warnings);
 
         var simNode = RequireNode(simWindow, LoopParityFixture.ServiceNodeId);

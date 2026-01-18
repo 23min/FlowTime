@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using FlowTime.Core;
 using FlowTime.Core.Analysis;
+using FlowTime.Core.Execution;
 using FlowTime.Core.Models;
 using FlowTime.Core.Nodes;
 using FlowTime.Core.TimeTravel;
@@ -21,6 +22,12 @@ public static class RunArtifactWriter
     private static readonly IDeserializer metadataDeserializer = new DeserializerBuilder()
         .IgnoreUnmatchedProperties()
         .Build();
+    private static readonly HashSet<string> queueLikeKinds = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "servicewithbuffer",
+        "queue",
+        "dlq"
+    };
 
     private const int defaultSeed = 123;
 
@@ -30,6 +37,7 @@ public static class RunArtifactWriter
         public required object Grid { get; init; }
         public required IReadOnlyDictionary<NodeId, double[]> Context { get; init; }
         public IReadOnlyDictionary<NodeId, IReadOnlyDictionary<string, double[]>>? ClassSeriesOverride { get; init; }
+        public string? ClassCoverageOverride { get; init; }
         public required string SpecText { get; init; }
         public int? RngSeed { get; init; }
         public double? StartTimeBias { get; init; }
@@ -92,17 +100,15 @@ public static class RunArtifactWriter
             throw new InvalidOperationException("RunArtifactWriter requires TimeGrid for the Grid field.");
         }
         var gridDto = (dynamic)request.Grid;
-
-        // Build a mutable context and precompute any derived series (e.g., true SHIFT-based queue depth)
-        var effectiveContext = new Dictionary<NodeId, double[]>(request.Context);
-        TryPrecomputeQueueDepthSeries(request.SpecText, effectiveContext);
-        TryPrecomputeRetryEchoSeries(request.SpecText, effectiveContext);
         if (request.Model is not ModelDefinition modelDefinition)
         {
             throw new InvalidOperationException("RunArtifactWriter requires ModelDefinition for the Model field.");
         }
 
-        var invariantResult = InvariantAnalyzer.Analyze(modelDefinition, effectiveContext);
+        var expandedModel = ExpandModelForDerivedSeries(modelDefinition);
+        var effectiveContext = BuildEffectiveContext(expandedModel, grid, request.Context);
+
+        var invariantResult = InvariantAnalyzer.Analyze(expandedModel, effectiveContext);
         var warningEntries = invariantResult.Warnings.Select(w => new RunWarningEntry
         {
             NodeId = w.NodeId,
@@ -158,7 +164,7 @@ public static class RunArtifactWriter
 
         var seriesMetas = new List<SeriesMeta>();
         var seriesHashes = new Dictionary<string, string>(StringComparer.Ordinal);
-        var classAssignments = ClassAssignmentMapBuilder.Build(modelDefinition);
+        var classAssignments = ClassAssignmentMapBuilder.Build(expandedModel);
         if (classAssignments.Count > 0)
         {
             classAssignments = classAssignments
@@ -166,19 +172,19 @@ public static class RunArtifactWriter
                 .ToDictionary(kvp => kvp.Key, kvp => kvp.Value, new NodeIdComparer());
         }
         var classSeries = new Dictionary<NodeId, IReadOnlyDictionary<string, double[]>>(new NodeIdComparer());
-        if (classAssignments.Count > 0)
+        var hasClassOverrides = request.ClassSeriesOverride is { Count: > 0 };
+        if (classAssignments.Count > 0 || hasClassOverrides)
         {
-            var builtSeries = ClassContributionBuilder.Build(modelDefinition, grid, effectiveContext, classAssignments, out _);
+            var builtSeries = ClassContributionBuilder.Build(
+                expandedModel,
+                grid,
+                effectiveContext,
+                classAssignments,
+                request.ClassSeriesOverride,
+                out _);
             foreach (var entry in builtSeries)
             {
                 classSeries[entry.Key] = entry.Value;
-            }
-        }
-        if (request.ClassSeriesOverride is { Count: > 0 })
-        {
-            foreach (var overrideEntry in request.ClassSeriesOverride)
-            {
-                classSeries[overrideEntry.Key] = overrideEntry.Value;
             }
         }
         var capturedClasses = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -243,10 +249,14 @@ public static class RunArtifactWriter
             }
         }
 
-        var classEntries = modelDefinition.Classes
+        var classEntries = expandedModel.Classes
             .Select(c => new ManifestClassEntry { Id = c.Id, DisplayName = c.DisplayName, Description = c.Description })
             .ToList();
         var classCoverage = DetermineClassCoverage(classEntries, capturedClasses);
+        if (!string.IsNullOrWhiteSpace(request.ClassCoverageOverride))
+        {
+            classCoverage = request.ClassCoverageOverride.Trim().ToLowerInvariant();
+        }
 
         var runJson = new RunJson
         {
@@ -354,278 +364,418 @@ public static class RunArtifactWriter
         return "sha256:" + Convert.ToHexString(hash).ToLowerInvariant();
     }
 
-    /// <summary>
-    /// Precompute true SHIFT-based queue depth series at artifact time.
-    /// If a topology node has semantics.queueDepth mapped to a logical series name that
-    /// does not exist in the evaluation context, and arrivals/served exist, compute
-    /// q(t) = max(0, q(t-1) + a(t) - s(t)) with initialCondition.queueDepth as q0.
-    /// </summary>
-    private static void TryPrecomputeQueueDepthSeries(string specText, Dictionary<NodeId, double[]> context)
+    private static Dictionary<NodeId, double[]> BuildEffectiveContext(
+        ModelDefinition model,
+        TimeGrid grid,
+        IReadOnlyDictionary<NodeId, double[]> context)
     {
-        if (string.IsNullOrWhiteSpace(specText))
+        var evaluationModel = NormalizeConstSeriesForGrid(model, grid.Length);
+        var nodes = ModelParser.ParseNodes(evaluationModel);
+        var graph = new Graph(nodes);
+        var evaluated = graph.EvaluateWithOverrides(grid, context);
+
+        var effective = new Dictionary<NodeId, double[]>(context);
+        foreach (var (nodeId, series) in evaluated)
         {
-            return;
+            if (!effective.ContainsKey(nodeId))
+            {
+                effective[nodeId] = series.ToArray();
+            }
         }
 
-        try
-        {
-            var yaml = new YamlStream();
-            yaml.Load(new StringReader(specText));
-            if (yaml.Documents.Count == 0 || yaml.Documents[0].RootNode is not YamlMappingNode root)
-            {
-                return;
-            }
-
-            if (!root.Children.TryGetValue(new YamlScalarNode("topology"), out var topologyNode) || topologyNode is not YamlMappingNode topologyMap)
-            {
-                return;
-            }
-
-            if (!topologyMap.Children.TryGetValue(new YamlScalarNode("nodes"), out var nodesNode) || nodesNode is not YamlSequenceNode nodesSequence)
-            {
-                return;
-            }
-
-            var idKey = new YamlScalarNode("id");
-            var semanticsKey = new YamlScalarNode("semantics");
-            var initialKey = new YamlScalarNode("initialCondition");
-
-            foreach (var node in nodesSequence.Children.OfType<YamlMappingNode>())
-            {
-                if (!node.Children.TryGetValue(idKey, out var idNode) || idNode is not YamlScalarNode idScalar || string.IsNullOrWhiteSpace(idScalar.Value))
-                {
-                    continue;
-                }
-
-                // Only proceed if semantics present
-                if (!node.Children.TryGetValue(semanticsKey, out var semanticsNode) || semanticsNode is not YamlMappingNode semanticsMap)
-                {
-                    continue;
-                }
-
-                // Extract potential queue series id
-                if (!semanticsMap.Children.TryGetValue(new YamlScalarNode("queueDepth"), out var queueNode) || queueNode is not YamlScalarNode queueScalar)
-                {
-                    continue;
-                }
-
-                var queueSeries = (queueScalar.Value ?? string.Empty).Trim();
-                if (string.IsNullOrWhiteSpace(queueSeries) || queueSeries.StartsWith("file:", StringComparison.OrdinalIgnoreCase))
-                {
-                    continue; // already bound to file or not present
-                }
-
-                var qId = new NodeId(queueSeries);
-                if (context.ContainsKey(qId))
-                {
-                    continue; // already produced by evaluation
-                }
-
-                // Need arrivals and served series ids from this queue node's semantics
-                if (!semanticsMap.Children.TryGetValue(new YamlScalarNode("arrivals"), out var arrivalsNode) || arrivalsNode is not YamlScalarNode arrivalsScalar)
-                {
-                    continue;
-                }
-                if (!semanticsMap.Children.TryGetValue(new YamlScalarNode("served"), out var servedNode) || servedNode is not YamlScalarNode servedScalar)
-                {
-                    continue;
-                }
-
-                var aId = new NodeId((arrivalsScalar.Value ?? string.Empty).Trim());
-                var sId = new NodeId((servedScalar.Value ?? string.Empty).Trim());
-                if (!context.TryGetValue(aId, out var a) || !context.TryGetValue(sId, out var s))
-                {
-                    continue; // dependencies not present; cannot precompute
-                }
-
-                var bins = Math.Min(a.Length, s.Length);
-                if (bins <= 0)
-                {
-                    continue;
-                }
-
-                // initialCondition.queueDepth
-                double q0 = 0d;
-                if (node.Children.TryGetValue(initialKey, out var initialNode) && initialNode is YamlMappingNode initialMap)
-                {
-                    if (initialMap.Children.TryGetValue(new YamlScalarNode("queueDepth"), out var q0Node) && q0Node is YamlScalarNode q0Scalar)
-                    {
-                        if (double.TryParse(q0Scalar.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed))
-                        {
-                            q0 = parsed;
-                        }
-                    }
-                }
-
-                var q = new double[bins];
-                var prev = q0;
-                for (var t = 0; t < bins; t++)
-                {
-                    var next = prev + a[t] - s[t];
-                    if (!double.IsFinite(next)) next = 0d;
-                    if (next < 0) next = 0d;
-                    q[t] = next;
-                    prev = next;
-                }
-
-                context[qId] = q;
-            }
-        }
-        catch
-        {
-            // best-effort only; do not fail the run on precompute issues
-        }
+        return effective;
     }
 
-    private static void TryPrecomputeRetryEchoSeries(string specText, Dictionary<NodeId, double[]> context)
+    private static ModelDefinition NormalizeConstSeriesForGrid(ModelDefinition model, int gridLength)
     {
-        if (string.IsNullOrWhiteSpace(specText))
+        if (gridLength <= 0)
         {
-            return;
+            return model;
         }
 
-        try
+        var normalizedNodes = new List<NodeDefinition>(model.Nodes.Count);
+        var changed = false;
+
+        foreach (var node in model.Nodes)
         {
-            var yaml = new YamlStream();
-            yaml.Load(new StringReader(specText));
-            if (yaml.Documents.Count == 0 || yaml.Documents[0].RootNode is not YamlMappingNode root)
+            if (!string.Equals(node.Kind, "const", StringComparison.OrdinalIgnoreCase) ||
+                node.Values is not { Length: > 0 } values ||
+                values.Length == gridLength)
             {
-                return;
+                normalizedNodes.Add(node);
+                continue;
             }
 
-            if (!root.Children.TryGetValue(new YamlScalarNode("topology"), out var topologyNode) || topologyNode is not YamlMappingNode topologyMap)
+            var normalizedValues = NormalizeSeriesLength(values, gridLength);
+            var clone = CloneNodeDefinition(node);
+            clone.Values = normalizedValues;
+            normalizedNodes.Add(clone);
+            changed = true;
+        }
+
+        if (!changed)
+        {
+            return model;
+        }
+
+        return new ModelDefinition
+        {
+            SchemaVersion = model.SchemaVersion,
+            Grid = model.Grid,
+            Classes = model.Classes,
+            Traffic = model.Traffic,
+            Nodes = normalizedNodes,
+            Outputs = model.Outputs,
+            Topology = model.Topology
+        };
+    }
+
+    private static double[] NormalizeSeriesLength(double[] values, int gridLength)
+    {
+        var normalized = new double[gridLength];
+        var copyLength = Math.Min(values.Length, gridLength);
+        Array.Copy(values, normalized, copyLength);
+
+        if (values.Length < gridLength)
+        {
+            var fill = values.Length > 0 ? values[^1] : 0d;
+            for (var i = values.Length; i < gridLength; i++)
             {
-                return;
-            }
-
-            if (!topologyMap.Children.TryGetValue(new YamlScalarNode("nodes"), out var nodesNode) || nodesNode is not YamlSequenceNode nodesSequence)
-            {
-                return;
-            }
-
-            var semanticsKey = new YamlScalarNode("semantics");
-            var retryEchoKey = new YamlScalarNode("retryEcho");
-            var failuresKey = new YamlScalarNode("failures");
-            var errorsKey = new YamlScalarNode("errors");
-            var retryKernelKey = new YamlScalarNode("retryKernel");
-
-            foreach (var node in nodesSequence.Children.OfType<YamlMappingNode>())
-            {
-                if (!node.Children.TryGetValue(semanticsKey, out var semanticsNode) || semanticsNode is not YamlMappingNode semanticsMap)
-                {
-                    continue;
-                }
-
-                if (!semanticsMap.Children.TryGetValue(retryEchoKey, out var retryEchoNode) || retryEchoNode is not YamlScalarNode retryEchoScalar)
-                {
-                    continue;
-                }
-
-                var retryEchoSeries = (retryEchoScalar.Value ?? string.Empty).Trim();
-                if (string.IsNullOrWhiteSpace(retryEchoSeries) ||
-                    retryEchoSeries.StartsWith("file:", StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
-                var retryEchoId = new NodeId(retryEchoSeries);
-                if (context.ContainsKey(retryEchoId))
-                {
-                    continue;
-                }
-
-                string? failuresSeries = null;
-                if (semanticsMap.Children.TryGetValue(failuresKey, out var failuresNode) && failuresNode is YamlScalarNode failuresScalar)
-                {
-                    failuresSeries = failuresScalar.Value?.Trim();
-                }
-
-                if (string.IsNullOrWhiteSpace(failuresSeries) &&
-                    semanticsMap.Children.TryGetValue(errorsKey, out var errorsNode) && errorsNode is YamlScalarNode errorsScalar)
-                {
-                    failuresSeries = errorsScalar.Value?.Trim();
-                }
-
-                if (string.IsNullOrWhiteSpace(failuresSeries))
-                {
-                    continue;
-                }
-
-                var failuresId = new NodeId(failuresSeries);
-                if (!context.TryGetValue(failuresId, out var failures) || failures.Length == 0)
-                {
-                    continue;
-                }
-
-                double[]? rawKernel = null;
-                if (semanticsMap.Children.TryGetValue(retryKernelKey, out var kernelNode) && kernelNode is YamlSequenceNode kernelSequence)
-                {
-                    var components = new List<double>();
-                    foreach (var scalar in kernelSequence.Children.OfType<YamlScalarNode>())
-                    {
-                        if (double.TryParse(scalar.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
-                        {
-                            components.Add(value);
-                        }
-                    }
-
-                    if (components.Count > 0)
-                    {
-                        rawKernel = components.ToArray();
-                    }
-                }
-
-                var policyResult = RetryKernelPolicy.Apply(rawKernel);
-                if (policyResult.HasMessages)
-                {
-                    foreach (var message in policyResult.Messages)
-                    {
-                        Console.WriteLine($"[flowtime] Retry kernel policy for '{retryEchoSeries}': {message}");
-                    }
-                }
-
-                var kernel = policyResult.Kernel;
-                if (kernel.Length == 0)
-                {
-                    continue;
-                }
-
-                var computed = new double[failures.Length];
-                for (var t = 0; t < failures.Length; t++)
-                {
-                    double sum = 0;
-                    for (var k = 0; k < kernel.Length; k++)
-                    {
-                        var sourceIndex = t - k;
-                        if (sourceIndex < 0)
-                        {
-                            break;
-                        }
-
-                        if (sourceIndex >= failures.Length)
-                        {
-                            continue;
-                        }
-
-                        var sample = failures[sourceIndex];
-                        if (!double.IsFinite(sample))
-                        {
-                            continue;
-                        }
-
-                        sum += sample * kernel[k];
-                    }
-
-                    computed[t] = sum;
-                }
-
-                context[retryEchoId] = computed;
+                normalized[i] = fill;
             }
         }
-        catch
+
+        return normalized;
+    }
+
+    private static NodeDefinition CloneNodeDefinition(NodeDefinition node)
+    {
+        return new NodeDefinition
         {
-            // best-effort only; do not fail the run on precompute issues
+            Id = node.Id,
+            Kind = node.Kind,
+            Values = node.Values,
+            Expr = node.Expr,
+            Pmf = node.Pmf,
+            Metadata = node.Metadata,
+            Inflow = node.Inflow,
+            Outflow = node.Outflow,
+            Loss = node.Loss,
+            DispatchSchedule = node.DispatchSchedule,
+            Router = node.Router
+        };
+    }
+
+    private static ModelDefinition ExpandModelForDerivedSeries(ModelDefinition model)
+    {
+        if (model.Topology?.Nodes is not { Count: > 0 })
+        {
+            return model;
         }
+
+        var nodes = model.Nodes.ToList();
+        var topology = CloneTopology(model.Topology);
+        var existingNodeIds = new HashSet<string>(nodes.Select(n => n.Id), StringComparer.OrdinalIgnoreCase);
+        var changed = false;
+
+        foreach (var topoNode in topology.Nodes)
+        {
+            var semantics = topoNode.Semantics ?? new TopologyNodeSemanticsDefinition();
+            topoNode.Semantics = semantics;
+
+            if (IsQueueLikeKind(topoNode.Kind))
+            {
+                var queueSeries = semantics.QueueDepth?.Trim();
+                if (!IsFileReference(queueSeries))
+                {
+                    var needsQueueNode = string.IsNullOrWhiteSpace(queueSeries) ||
+                                         queueSeries.Equals("self", StringComparison.OrdinalIgnoreCase) ||
+                                         !existingNodeIds.Contains(queueSeries);
+
+                    if (needsQueueNode)
+                    {
+                        var inflow = RequireSeries(semantics.Arrivals, topoNode.Id, "semantics.arrivals");
+                        var outflow = ResolveQueueOutflow(semantics, topoNode.Id);
+                        var loss = string.IsNullOrWhiteSpace(semantics.Errors) ? null : semantics.Errors.Trim();
+                        var queueNodeId = DetermineQueueNodeId(topoNode.Id, queueSeries, existingNodeIds);
+
+                        semantics.QueueDepth = queueNodeId;
+                        nodes.Add(new NodeDefinition
+                        {
+                            Id = queueNodeId,
+                            Kind = "serviceWithBuffer",
+                            Inflow = inflow,
+                            Outflow = outflow,
+                            Loss = loss,
+                            DispatchSchedule = CloneSchedule(topoNode.DispatchSchedule),
+                            Metadata = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                            {
+                                ["graph.hidden"] = "true"
+                            }
+                        });
+                        existingNodeIds.Add(queueNodeId);
+                        changed = true;
+                    }
+                }
+            }
+
+            var retryEchoSeries = semantics.RetryEcho?.Trim();
+            if (!string.IsNullOrWhiteSpace(retryEchoSeries) &&
+                !IsFileReference(retryEchoSeries) &&
+                !existingNodeIds.Contains(retryEchoSeries))
+            {
+                var failuresSeries = !string.IsNullOrWhiteSpace(semantics.Failures)
+                    ? semantics.Failures!.Trim()
+                    : !string.IsNullOrWhiteSpace(semantics.Errors)
+                        ? semantics.Errors!.Trim()
+                        : null;
+
+                if (!string.IsNullOrWhiteSpace(failuresSeries))
+                {
+                    var policyResult = RetryKernelPolicy.Apply(semantics.RetryKernel);
+                    if (policyResult.HasMessages)
+                    {
+                        foreach (var message in policyResult.Messages)
+                        {
+                            Console.WriteLine($"[flowtime] Retry kernel policy for '{retryEchoSeries}': {message}");
+                        }
+                    }
+
+                    if (policyResult.Kernel.Length > 0)
+                    {
+                        var kernelLiteral = FormatKernelLiteral(policyResult.Kernel);
+                        nodes.Add(new NodeDefinition
+                        {
+                            Id = retryEchoSeries,
+                            Kind = "expr",
+                            Expr = $"CONV({failuresSeries}, {kernelLiteral})",
+                            Metadata = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                            {
+                                ["graph.hidden"] = "true"
+                            }
+                        });
+                        existingNodeIds.Add(retryEchoSeries);
+                        changed = true;
+                    }
+                }
+            }
+        }
+
+        if (!changed)
+        {
+            return model;
+        }
+
+        return new ModelDefinition
+        {
+            SchemaVersion = model.SchemaVersion,
+            Grid = model.Grid,
+            Classes = model.Classes.ToList(),
+            Traffic = model.Traffic,
+            Nodes = nodes,
+            Outputs = model.Outputs.ToList(),
+            Topology = topology
+        };
+    }
+
+    private static bool IsQueueLikeKind(string? kind)
+    {
+        if (string.IsNullOrWhiteSpace(kind))
+        {
+            return false;
+        }
+
+        return queueLikeKinds.Contains(kind.Trim());
+    }
+
+    private static bool IsFileReference(string? value) =>
+        !string.IsNullOrWhiteSpace(value) && value.Trim().StartsWith("file:", StringComparison.OrdinalIgnoreCase);
+
+    private static string RequireSeries(string? value, string nodeId, string field)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            return value.Trim();
+        }
+
+        throw new InvalidOperationException($"Topology node '{nodeId}' must define {field} to synthesize queue depth.");
+    }
+
+    private static string ResolveQueueOutflow(TopologyNodeSemanticsDefinition semantics, string nodeId)
+    {
+        if (!string.IsNullOrWhiteSpace(semantics.Served))
+        {
+            return semantics.Served.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(semantics.Capacity))
+        {
+            return semantics.Capacity.Trim();
+        }
+
+        throw new InvalidOperationException(
+            $"Topology node '{nodeId}' must define semantics.served (or capacity) to synthesize queue depth.");
+    }
+
+    private static string DetermineQueueNodeId(string topologyNodeId, string? requestedId, HashSet<string> existingNodeIds)
+    {
+        if (!string.IsNullOrWhiteSpace(requestedId) && !requestedId.Equals("self", StringComparison.OrdinalIgnoreCase))
+        {
+            return requestedId;
+        }
+
+        var baseId = ToSnakeCase(topologyNodeId);
+        if (string.IsNullOrWhiteSpace(baseId))
+        {
+            baseId = topologyNodeId;
+        }
+
+        var candidate = $"{baseId}_queue";
+        var suffix = 1;
+        while (existingNodeIds.Contains(candidate))
+        {
+            candidate = $"{baseId}_queue_{suffix++}";
+        }
+
+        return candidate;
+    }
+
+    private static string ToSnakeCase(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        var chars = new List<char>(value.Length * 2);
+        for (int i = 0; i < value.Length; i++)
+        {
+            var c = value[i];
+            if (char.IsWhiteSpace(c))
+            {
+                continue;
+            }
+
+            if (char.IsUpper(c))
+            {
+                if (i > 0 && chars.Count > 0 && chars[^1] != '_')
+                {
+                    chars.Add('_');
+                }
+                chars.Add(char.ToLowerInvariant(c));
+            }
+            else if (char.IsLetterOrDigit(c))
+            {
+                chars.Add(c);
+            }
+            else
+            {
+                chars.Add('_');
+            }
+        }
+
+        var result = new string(chars.ToArray()).Trim('_');
+        if (string.IsNullOrEmpty(result))
+        {
+            return value;
+        }
+
+        return result;
+    }
+
+    private static string FormatKernelLiteral(double[] kernel)
+    {
+        var parts = kernel.Select(v => v.ToString("G", CultureInfo.InvariantCulture));
+        return $"[{string.Join(", ", parts)}]";
+    }
+
+    private static DispatchScheduleDefinition? CloneSchedule(DispatchScheduleDefinition? schedule)
+    {
+        if (schedule is null)
+        {
+            return null;
+        }
+
+        return new DispatchScheduleDefinition
+        {
+            Kind = schedule.Kind,
+            PeriodBins = schedule.PeriodBins,
+            PhaseOffset = schedule.PhaseOffset,
+            CapacitySeries = schedule.CapacitySeries
+        };
+    }
+
+    private static TopologyDefinition CloneTopology(TopologyDefinition source)
+    {
+        return new TopologyDefinition
+        {
+            Nodes = source.Nodes.Select(CloneTopologyNode).ToList(),
+            Edges = source.Edges.Select(CloneTopologyEdge).ToList()
+        };
+    }
+
+    private static TopologyNodeDefinition CloneTopologyNode(TopologyNodeDefinition source)
+    {
+        return new TopologyNodeDefinition
+        {
+            Id = source.Id,
+            Kind = source.Kind,
+            NodeRole = source.NodeRole,
+            Group = source.Group,
+            Ui = source.Ui is null ? null : new UiHintsDefinition { X = source.Ui.X, Y = source.Ui.Y },
+            Semantics = CloneSemantics(source.Semantics),
+            InitialCondition = source.InitialCondition is null
+                ? null
+                : new InitialConditionDefinition { QueueDepth = source.InitialCondition.QueueDepth },
+            DispatchSchedule = CloneSchedule(source.DispatchSchedule)
+        };
+    }
+
+    private static TopologyNodeSemanticsDefinition CloneSemantics(TopologyNodeSemanticsDefinition source)
+    {
+        return new TopologyNodeSemanticsDefinition
+        {
+            Arrivals = source.Arrivals,
+            Served = source.Served,
+            Errors = source.Errors,
+            Attempts = source.Attempts,
+            Failures = source.Failures,
+            ExhaustedFailures = source.ExhaustedFailures,
+            RetryEcho = source.RetryEcho,
+            RetryBudgetRemaining = source.RetryBudgetRemaining,
+            RetryKernel = source.RetryKernel?.ToArray(),
+            ExternalDemand = source.ExternalDemand,
+            QueueDepth = source.QueueDepth,
+            Capacity = source.Capacity,
+            Parallelism = source.Parallelism,
+            ProcessingTimeMsSum = source.ProcessingTimeMsSum,
+            ServedCount = source.ServedCount,
+            SlaMin = source.SlaMin,
+            MaxAttempts = source.MaxAttempts,
+            BackoffStrategy = source.BackoffStrategy,
+            ExhaustedPolicy = source.ExhaustedPolicy,
+            Aliases = source.Aliases is null
+                ? null
+                : new Dictionary<string, string>(source.Aliases, StringComparer.OrdinalIgnoreCase),
+            Metadata = source.Metadata is null
+                ? null
+                : new Dictionary<string, string>(source.Metadata, StringComparer.OrdinalIgnoreCase)
+        };
+    }
+
+    private static TopologyEdgeDefinition CloneTopologyEdge(TopologyEdgeDefinition source)
+    {
+        return new TopologyEdgeDefinition
+        {
+            Source = source.Source,
+            Target = source.Target,
+            Weight = source.Weight,
+            Id = source.Id,
+            Type = source.Type,
+            Measure = source.Measure,
+            Multiplier = source.Multiplier,
+            Lag = source.Lag
+        };
     }
 
 
@@ -1208,6 +1358,7 @@ public static class RunArtifactWriter
             ? "full"
             : "partial";
     }
+
 
     private sealed class NodeIdComparer : IEqualityComparer<NodeId>
     {

@@ -76,6 +76,7 @@ public sealed class TelemetryBundleBuilder
                     kvp => kvp.Key,
                     kvp => (IReadOnlyDictionary<string, double[]>)new Dictionary<string, double[]>(kvp.Value, StringComparer.OrdinalIgnoreCase),
                     new NodeIdComparer()),
+            ClassCoverageOverride = telemetryManifest.ClassCoverage,
             SpecText = normalizedYaml,
             RngSeed = null,
             StartTimeBias = null,

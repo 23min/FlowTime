@@ -22,17 +22,17 @@ public static class InvariantAnalyzer
         ArgumentNullException.ThrowIfNull(model);
         ArgumentNullException.ThrowIfNull(evaluatedSeries);
 
-        if (model.Topology?.Nodes is null || model.Topology.Nodes.Count == 0)
-        {
-            return new InvariantAnalysisResult(Array.Empty<InvariantWarning>());
-        }
-
         var warnings = new List<InvariantWarning>();
         var cache = new Dictionary<string, double[]>(StringComparer.Ordinal);
         var nodeDefinitions = model.Nodes?
             .Where(n => !string.IsNullOrWhiteSpace(n.Id))
             .ToDictionary(n => n.Id!, StringComparer.OrdinalIgnoreCase)
             ?? new Dictionary<string, NodeDefinition>(StringComparer.OrdinalIgnoreCase);
+        AppendPostEvalInjectionWarnings(nodeDefinitions, evaluatedSeries, warnings);
+        if (model.Topology?.Nodes is null || model.Topology.Nodes.Count == 0)
+        {
+            return new InvariantAnalysisResult(warnings);
+        }
         var queueSeeds = BuildQueueInitials(model.Topology.Nodes);
         var incomingEdges = new Dictionary<string, List<TopologyEdgeDefinition>>(StringComparer.OrdinalIgnoreCase);
         var outgoingEdges = new Dictionary<string, List<TopologyEdgeDefinition>>(StringComparer.OrdinalIgnoreCase);
@@ -362,7 +362,7 @@ public static class InvariantAnalyzer
 
         AppendRouterDiagnostics(model, evaluatedSeries, warnings);
         AppendServiceWithBufferClassCoverageWarnings(nodeDefinitions, model, evaluatedSeries, warnings);
-        AppendTopologyServiceWithBufferClassCoverageWarnings(model, evaluatedSeries, warnings);
+        AppendTopologyClassCoverageWarnings(model, evaluatedSeries, warnings);
 
         return warnings.Count == 0
             ? new InvariantAnalysisResult(Array.Empty<InvariantWarning>())
@@ -816,14 +816,12 @@ public static class InvariantAnalyzer
         }
     }
 
-    private static void AppendTopologyServiceWithBufferClassCoverageWarnings(
+    private static void AppendTopologyClassCoverageWarnings(
         ModelDefinition model,
         IReadOnlyDictionary<NodeId, double[]> evaluatedSeries,
         List<InvariantWarning> warnings)
     {
-        if (model.Topology?.Nodes is null ||
-            model.Topology.Nodes.Count == 0 ||
-            !model.Topology.Nodes.Any(n => string.Equals(n.Kind, "serviceWithBuffer", StringComparison.OrdinalIgnoreCase)))
+        if (model.Topology?.Nodes is null || model.Topology.Nodes.Count == 0)
         {
             return;
         }
@@ -846,11 +844,15 @@ public static class InvariantAnalyzer
             {
                 warnings.Add(warning);
             }
+            foreach (var warning in DetectTopologyNodeClassCoverageGaps(model.Topology.Nodes, contributions))
+            {
+                warnings.Add(warning);
+            }
         }
         catch (Exception ex)
         {
             warnings.Add(new InvariantWarning(
-                "serviceWithBuffer",
+                "topology",
                 "topology_class_coverage_failed",
                 $"Topology class coverage diagnostics failed: {ex.Message}",
                 Array.Empty<int>(),
@@ -899,6 +901,32 @@ public static class InvariantAnalyzer
         foreach (var node in topologyNodes)
         {
             if (!string.Equals(node.Kind, "serviceWithBuffer", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var inflowClasses = ResolveClasses(contributions, node.Semantics?.Arrivals);
+            if (inflowClasses.Count == 0)
+            {
+                continue;
+            }
+
+            CheckTarget(node.Id, "served", node.Semantics?.Served, inflowClasses, contributions, warnings);
+            CheckTarget(node.Id, "errors", node.Semantics?.Errors, inflowClasses, contributions, warnings);
+        }
+
+        return warnings;
+    }
+
+    internal static IReadOnlyList<InvariantWarning> DetectTopologyNodeClassCoverageGaps(
+        IReadOnlyList<TopologyNodeDefinition> topologyNodes,
+        IReadOnlyDictionary<NodeId, IReadOnlyDictionary<string, double[]>> contributions)
+    {
+        var warnings = new List<InvariantWarning>();
+
+        foreach (var node in topologyNodes)
+        {
+            if (string.Equals(node.Kind, "serviceWithBuffer", StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }
@@ -1000,6 +1028,36 @@ public static class InvariantAnalyzer
         }
 
         return map;
+    }
+
+    private static void AppendPostEvalInjectionWarnings(
+        IReadOnlyDictionary<string, NodeDefinition> nodeDefinitions,
+        IReadOnlyDictionary<NodeId, double[]> evaluatedSeries,
+        List<InvariantWarning> warnings)
+    {
+        if (nodeDefinitions.Count == 0 || evaluatedSeries.Count == 0)
+        {
+            return;
+        }
+
+        var unknown = evaluatedSeries.Keys
+            .Select(key => key.Value)
+            .Where(value => !string.IsNullOrWhiteSpace(value) && !nodeDefinitions.ContainsKey(value))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (unknown.Count == 0)
+        {
+            return;
+        }
+
+        warnings.Add(new InvariantWarning(
+            "engine",
+            "post_eval_injection",
+            $"Evaluated series contains nodes not present in the model DAG: {string.Join(", ", unknown)}.",
+            Array.Empty<int>(),
+            null,
+            "warning"));
     }
 }
 

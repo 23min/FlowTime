@@ -2983,6 +2983,7 @@ public sealed class StateQueryService
         var metadata = context.ManifestMetadata;
         var telemetryResolved = metadata.TelemetrySources.Count > 0 &&
             !context.InitialWarnings.Any(w => string.Equals(w.Code, "telemetry_sources_missing", StringComparison.OrdinalIgnoreCase));
+        var mergedCoverage = MergeClassCoverage(classCoverage, context.Manifest.ClassCoverage);
         return new StateMetadata
         {
             RunId = context.Manifest.RunId,
@@ -3005,7 +3006,36 @@ public sealed class StateQueryService
                 MetadataPath = metadata.Storage.MetadataPath,
                 ProvenancePath = metadata.Storage.ProvenancePath
             },
-            ClassCoverage = classCoverage
+            ClassCoverage = mergedCoverage
+        };
+    }
+
+    private static string? MergeClassCoverage(string? computed, string? manifest)
+    {
+        var computedRank = CoverageRank(computed);
+        var manifestRank = CoverageRank(manifest);
+
+        if (computedRank < 0)
+        {
+            return manifest;
+        }
+
+        if (manifestRank < 0)
+        {
+            return computed;
+        }
+
+        return computedRank <= manifestRank ? computed : manifest;
+    }
+
+    private static int CoverageRank(string? value)
+    {
+        return value?.Trim().ToLowerInvariant() switch
+        {
+            "missing" => 0,
+            "partial" => 1,
+            "full" => 2,
+            _ => -1
         };
     }
 

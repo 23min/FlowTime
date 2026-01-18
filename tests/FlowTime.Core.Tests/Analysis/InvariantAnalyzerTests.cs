@@ -115,4 +115,97 @@ public class InvariantAnalyzerTests
         Assert.Contains(warnings, warning => warning.Code == "class_series_missing_errors");
         Assert.Equal(2, warnings.Count);
     }
+
+    [Fact]
+    public void Analyze_WarnsWhenEvaluatedSeriesContainsUnknownNodes()
+    {
+        var model = new ModelDefinition
+        {
+            Nodes =
+            {
+                new NodeDefinition { Id = "known", Kind = "const", Values = new[] { 1d } }
+            }
+        };
+
+        var evaluated = new Dictionary<NodeId, double[]>
+        {
+            [new NodeId("known")] = new[] { 1d },
+            [new NodeId("injected_series")] = new[] { 2d }
+        };
+
+        var result = InvariantAnalyzer.Analyze(model, evaluated);
+
+        Assert.Contains(result.Warnings, warning => warning.Code == "post_eval_injection");
+    }
+
+    [Fact]
+    public void Analyze_WarnsOnTopologyClassCoverageGaps()
+    {
+        var model = new ModelDefinition
+        {
+            Grid = new GridDefinition { Bins = 1, BinSize = 1, BinUnit = "hours" },
+            Classes =
+            {
+                new ClassDefinition { Id = "Alpha" },
+                new ClassDefinition { Id = "Beta" }
+            },
+            Traffic = new TrafficDefinition
+            {
+                Arrivals =
+                {
+                    new ArrivalDefinition
+                    {
+                        NodeId = "arrivals_alpha",
+                        ClassId = "Alpha",
+                        Pattern = new ArrivalPatternDefinition { Kind = "constant", RatePerBin = 1 }
+                    },
+                    new ArrivalDefinition
+                    {
+                        NodeId = "arrivals_beta",
+                        ClassId = "Beta",
+                        Pattern = new ArrivalPatternDefinition { Kind = "constant", RatePerBin = 1 }
+                    }
+                }
+            },
+            Nodes =
+            {
+                new NodeDefinition { Id = "arrivals_alpha", Kind = "const", Values = new[] { 1d } },
+                new NodeDefinition { Id = "arrivals_beta", Kind = "const", Values = new[] { 1d } },
+                new NodeDefinition { Id = "arrivals_total", Kind = "expr", Expr = "arrivals_alpha + arrivals_beta" },
+                new NodeDefinition { Id = "served_total", Kind = "const", Values = new[] { 2d } },
+                new NodeDefinition { Id = "errors_total", Kind = "const", Values = new[] { 0d } }
+            },
+            Topology = new TopologyDefinition
+            {
+                Nodes =
+                {
+                    new TopologyNodeDefinition
+                    {
+                        Id = "ServiceNode",
+                        Kind = "service",
+                        Semantics = new TopologyNodeSemanticsDefinition
+                        {
+                            Arrivals = "arrivals_total",
+                            Served = "served_total",
+                            Errors = "errors_total"
+                        }
+                    }
+                }
+            }
+        };
+
+        var evaluated = new Dictionary<NodeId, double[]>
+        {
+            [new NodeId("arrivals_alpha")] = new[] { 1d },
+            [new NodeId("arrivals_beta")] = new[] { 1d },
+            [new NodeId("arrivals_total")] = new[] { 2d },
+            [new NodeId("served_total")] = new[] { 2d },
+            [new NodeId("errors_total")] = new[] { 0d }
+        };
+
+        var result = InvariantAnalyzer.Analyze(model, evaluated);
+
+        Assert.Contains(result.Warnings, warning => warning.Code == "class_series_missing_served");
+        Assert.Contains(result.Warnings, warning => warning.Code == "class_series_missing_errors");
+    }
 }

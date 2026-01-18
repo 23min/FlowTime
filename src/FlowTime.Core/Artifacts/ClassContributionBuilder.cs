@@ -25,8 +25,18 @@ internal static class ClassContributionBuilder
         IReadOnlyDictionary<NodeId, double[]> totals,
         IReadOnlyDictionary<NodeId, string> classAssignments,
         out IReadOnlyList<RouterDiagnostic> routerDiagnostics)
+        => Build(model, grid, totals, classAssignments, classSeriesOverrides: null, out routerDiagnostics);
+
+    public static IReadOnlyDictionary<NodeId, IReadOnlyDictionary<string, double[]>> Build(
+        ModelDefinition model,
+        TimeGrid grid,
+        IReadOnlyDictionary<NodeId, double[]> totals,
+        IReadOnlyDictionary<NodeId, string> classAssignments,
+        IReadOnlyDictionary<NodeId, IReadOnlyDictionary<string, double[]>>? classSeriesOverrides,
+        out IReadOnlyList<RouterDiagnostic> routerDiagnostics)
     {
-        if (classAssignments.Count == 0)
+        if (classAssignments.Count == 0 &&
+            (classSeriesOverrides is null || classSeriesOverrides.Count == 0))
         {
             routerDiagnostics = Array.Empty<RouterDiagnostic>();
             return new Dictionary<NodeId, IReadOnlyDictionary<string, double[]>>();
@@ -38,83 +48,58 @@ internal static class ClassContributionBuilder
         var parsedNodes = ModelParser.ParseNodes(model);
         var graph = new Graph(parsedNodes);
         var order = graph.TopologicalOrder();
-        var contributions = new Dictionary<NodeId, ClassSeries>();
-
-        foreach (var nodeId in order)
-        {
-            if (!totals.TryGetValue(nodeId, out var totalSeries))
-            {
-                continue;
-            }
-
-            if (classAssignments.TryGetValue(nodeId, out var assignedClass) &&
-                !string.IsNullOrWhiteSpace(assignedClass))
-            {
-                contributions[nodeId] = ClassSeries.FromSingleClass(assignedClass, totalSeries);
-                continue;
-            }
-
-            if (!nodeDefinitions.TryGetValue(nodeId.Value, out var nodeDefinition))
-            {
-                contributions[nodeId] = ClassSeries.FromTotals(totalSeries);
-                continue;
-            }
-
-            var series = nodeDefinition.Kind switch
-            {
-                "const" or "pmf" => BuildSourceSeries(nodeId, totalSeries, classAssignments),
-                "expr" => EvaluateExpressionNode(nodeDefinition, grid, totals, contributions),
-                "serviceWithBuffer" => EvaluateServiceWithBufferNode(nodeDefinition, grid, totals, contributions, topologySeeds),
-                _ => ClassSeries.FromTotals(totalSeries)
-            };
-
-            contributions[nodeId] = series;
-        }
+        var overrideSeries = BuildOverrideSeries(totals, classSeriesOverrides);
+        var contributions = EvaluateContributions(
+            order,
+            nodeDefinitions,
+            grid,
+            totals,
+            classAssignments,
+            topologySeeds,
+            overrideSeries);
 
         var routerDiagnosticsList = new List<RouterDiagnostic>();
 
-        var overriddenNodes = ApplyRouterContributions(routerSpecs, grid, totals, contributions, routerDiagnosticsList);
-        if (overriddenNodes.Count > 0)
+        var routerOverrides = ComputeRouterOverrides(routerSpecs, grid, totals, contributions, routerDiagnosticsList);
+        if (routerOverrides.Count > 0)
         {
-            RecomputeContributions(
-                graph,
+            overrideSeries = MergeOverrides(overrideSeries, routerOverrides);
+            contributions = EvaluateContributions(
+                order,
                 nodeDefinitions,
                 grid,
                 totals,
                 classAssignments,
                 topologySeeds,
-                overriddenNodes,
-                contributions);
+                overrideSeries);
         }
 
-        var outflowOverrides = ApplyServiceWithBufferOutflowContributions(nodeDefinitions, grid, totals, contributions);
+        var outflowOverrides = ComputeServiceWithBufferOutflowOverrides(nodeDefinitions, grid, totals, contributions);
         if (outflowOverrides.Count > 0)
         {
-            overriddenNodes.UnionWith(outflowOverrides);
-            RecomputeContributions(
-                graph,
+            overrideSeries = MergeOverrides(overrideSeries, outflowOverrides);
+            contributions = EvaluateContributions(
+                order,
                 nodeDefinitions,
                 grid,
                 totals,
                 classAssignments,
                 topologySeeds,
-                overriddenNodes,
-                contributions);
+                overrideSeries);
         }
 
-        var topologyOverrides = ApplyTopologyServiceWithBufferContributions(model, grid, totals, contributions);
+        var topologyOverrides = ComputeTopologyServiceWithBufferOverrides(model, grid, totals, contributions);
         if (topologyOverrides.Count > 0)
         {
-            overriddenNodes.UnionWith(topologyOverrides);
-            RecomputeContributions(
-                graph,
+            overrideSeries = MergeOverrides(overrideSeries, topologyOverrides);
+            contributions = EvaluateContributions(
+                order,
                 nodeDefinitions,
                 grid,
                 totals,
                 classAssignments,
                 topologySeeds,
-                overriddenNodes,
-                contributions);
+                overrideSeries);
         }
 
         var result = new Dictionary<NodeId, IReadOnlyDictionary<string, double[]>>();
@@ -135,16 +120,186 @@ internal static class ClassContributionBuilder
         return result;
     }
 
-    private static HashSet<NodeId> ApplyTopologyServiceWithBufferContributions(
+    private static Dictionary<NodeId, ClassSeries> BuildOverrideSeries(
+        IReadOnlyDictionary<NodeId, double[]> totals,
+        IReadOnlyDictionary<NodeId, IReadOnlyDictionary<string, double[]>>? classSeriesOverrides)
+    {
+        var overrides = new Dictionary<NodeId, ClassSeries>(new NodeIdComparer());
+        if (classSeriesOverrides is null || classSeriesOverrides.Count == 0)
+        {
+            return overrides;
+        }
+
+        foreach (var (nodeId, perClass) in classSeriesOverrides)
+        {
+            if (!totals.TryGetValue(nodeId, out var totalSeries))
+            {
+                continue;
+            }
+
+            if (perClass is null || perClass.Count == 0)
+            {
+                continue;
+            }
+
+            var dict = new Dictionary<string, double[]>(StringComparer.OrdinalIgnoreCase);
+            foreach (var (classId, series) in perClass)
+            {
+                if (string.IsNullOrWhiteSpace(classId) || series is null)
+                {
+                    continue;
+                }
+
+                dict[classId] = (double[])series.Clone();
+            }
+
+            if (dict.Count == 0)
+            {
+                continue;
+            }
+
+            ClassSeries.NormalizeToTotal(dict, totalSeries);
+            overrides[nodeId] = new ClassSeries((double[])totalSeries.Clone(), dict);
+        }
+
+        return overrides;
+    }
+
+    private static Dictionary<NodeId, ClassSeries> EvaluateContributions(
+        IReadOnlyList<NodeId> order,
+        IReadOnlyDictionary<string, NodeDefinition> nodeDefinitions,
+        TimeGrid grid,
+        IReadOnlyDictionary<NodeId, double[]> totals,
+        IReadOnlyDictionary<NodeId, string> classAssignments,
+        IReadOnlyDictionary<string, double> serviceWithBufferSeeds,
+        IReadOnlyDictionary<NodeId, ClassSeries> overrides)
+    {
+        var contributions = new Dictionary<NodeId, ClassSeries>(new NodeIdComparer());
+        foreach (var nodeId in order)
+        {
+            if (!totals.TryGetValue(nodeId, out var totalSeries))
+            {
+                continue;
+            }
+
+            if (overrides.TryGetValue(nodeId, out var overrideSeries))
+            {
+                contributions[nodeId] = overrideSeries;
+                continue;
+            }
+
+            if (classAssignments.TryGetValue(nodeId, out var assignedClass) &&
+                !string.IsNullOrWhiteSpace(assignedClass))
+            {
+                contributions[nodeId] = ClassSeries.FromSingleClass(assignedClass, totalSeries);
+                continue;
+            }
+
+            if (!nodeDefinitions.TryGetValue(nodeId.Value, out var nodeDefinition))
+            {
+                contributions[nodeId] = ClassSeries.FromTotals(totalSeries);
+                continue;
+            }
+
+            var series = nodeDefinition.Kind switch
+            {
+                "const" or "pmf" => BuildSourceSeries(nodeId, totalSeries, classAssignments),
+                "expr" => EvaluateExpressionNode(nodeDefinition, grid, totals, contributions),
+                "serviceWithBuffer" => EvaluateServiceWithBufferNode(nodeDefinition, grid, totals, contributions, serviceWithBufferSeeds),
+                _ => ClassSeries.FromTotals(totalSeries)
+            };
+
+            contributions[nodeId] = series;
+        }
+
+        return contributions;
+    }
+
+    private static Dictionary<NodeId, ClassSeries> MergeOverrides(
+        IReadOnlyDictionary<NodeId, ClassSeries> baseOverrides,
+        IReadOnlyDictionary<NodeId, ClassSeries> additions)
+    {
+        if (additions.Count == 0)
+        {
+            return new Dictionary<NodeId, ClassSeries>(baseOverrides, new NodeIdComparer());
+        }
+
+        var merged = new Dictionary<NodeId, ClassSeries>(baseOverrides, new NodeIdComparer());
+        foreach (var (nodeId, series) in additions)
+        {
+            if (!merged.ContainsKey(nodeId))
+            {
+                merged[nodeId] = series;
+            }
+        }
+
+        return merged;
+    }
+
+    private static Dictionary<NodeId, ClassSeries> ComputeRouterOverrides(
+        IReadOnlyDictionary<NodeId, RouterSpec> routerSpecs,
+        TimeGrid grid,
+        IReadOnlyDictionary<NodeId, double[]> totals,
+        IReadOnlyDictionary<NodeId, ClassSeries> contributions,
+        List<RouterDiagnostic> diagnostics)
+    {
+        var overrides = new Dictionary<NodeId, ClassSeries>(new NodeIdComparer());
+        foreach (var spec in routerSpecs.Values)
+        {
+            var routes = EvaluateRouterRoutes(spec, grid, totals, contributions, diagnostics);
+            foreach (var (targetId, series) in routes)
+            {
+                overrides[targetId] = series;
+            }
+
+            overrides[spec.RouterId] = GetRouterSeries(spec, grid, totals, contributions);
+        }
+
+        return overrides;
+    }
+
+    private static Dictionary<NodeId, ClassSeries> ComputeServiceWithBufferOutflowOverrides(
+        IReadOnlyDictionary<string, NodeDefinition> nodeDefinitions,
+        TimeGrid grid,
+        IReadOnlyDictionary<NodeId, double[]> totals,
+        IReadOnlyDictionary<NodeId, ClassSeries> contributions)
+    {
+        var overrides = new Dictionary<NodeId, ClassSeries>(new NodeIdComparer());
+        foreach (var nodeDefinition in nodeDefinitions.Values)
+        {
+            if (!string.Equals(nodeDefinition.Kind, "serviceWithBuffer", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (string.IsNullOrWhiteSpace(nodeDefinition.Inflow))
+            {
+                continue;
+            }
+
+            var inflow = GetRequiredNode(nodeDefinition.Inflow, grid, totals, contributions);
+            if (inflow.ByClass.Count == 0)
+            {
+                continue;
+            }
+
+            TryBuildOverrideForTarget(nodeDefinition.Outflow, inflow, totals, contributions, overrides);
+            TryBuildOverrideForTarget(nodeDefinition.Loss, inflow, totals, contributions, overrides);
+        }
+
+        return overrides;
+    }
+
+    private static Dictionary<NodeId, ClassSeries> ComputeTopologyServiceWithBufferOverrides(
         ModelDefinition model,
         TimeGrid grid,
         IReadOnlyDictionary<NodeId, double[]> totals,
-        Dictionary<NodeId, ClassSeries> contributions)
+        IReadOnlyDictionary<NodeId, ClassSeries> contributions)
     {
-        var updatedNodes = new HashSet<NodeId>(new NodeIdComparer());
+        var overrides = new Dictionary<NodeId, ClassSeries>(new NodeIdComparer());
         if (model.Topology?.Nodes is null || model.Topology.Nodes.Count == 0)
         {
-            return updatedNodes;
+            return overrides;
         }
 
         foreach (var node in model.Topology.Nodes)
@@ -172,50 +327,19 @@ internal static class ClassContributionBuilder
                 continue;
             }
 
-            TrackContribution(node.Semantics?.Served, inflow, totals, contributions, updatedNodes);
-            TrackContribution(node.Semantics?.Errors, inflow, totals, contributions, updatedNodes);
+            TryBuildOverrideForTarget(node.Semantics?.Served, inflow, totals, contributions, overrides);
+            TryBuildOverrideForTarget(node.Semantics?.Errors, inflow, totals, contributions, overrides);
         }
 
-        return updatedNodes;
+        return overrides;
     }
 
-    private static HashSet<NodeId> ApplyServiceWithBufferOutflowContributions(
-        IReadOnlyDictionary<string, NodeDefinition> nodeDefinitions,
-        TimeGrid grid,
-        IReadOnlyDictionary<NodeId, double[]> totals,
-        Dictionary<NodeId, ClassSeries> contributions)
-    {
-        var updatedNodes = new HashSet<NodeId>(new NodeIdComparer());
-        foreach (var nodeDefinition in nodeDefinitions.Values)
-        {
-            if (!string.Equals(nodeDefinition.Kind, "serviceWithBuffer", StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
-
-            if (string.IsNullOrWhiteSpace(nodeDefinition.Inflow))
-            {
-                continue;
-            }
-
-            var inflow = GetRequiredNode(nodeDefinition.Inflow, grid, totals, contributions);
-            if (inflow.ByClass.Count == 0)
-            {
-                continue;
-            }
-
-            TrackContribution(nodeDefinition.Outflow, inflow, totals, contributions, updatedNodes);
-            TrackContribution(nodeDefinition.Loss, inflow, totals, contributions, updatedNodes);
-        }
-
-        return updatedNodes;
-    }
-
-    private static void ApplyContributionForTarget(
+    private static void TryBuildOverrideForTarget(
         string? targetId,
         ClassSeries inflow,
         IReadOnlyDictionary<NodeId, double[]> totals,
-        Dictionary<NodeId, ClassSeries> contributions)
+        IReadOnlyDictionary<NodeId, ClassSeries> contributions,
+        IDictionary<NodeId, ClassSeries> overrides)
     {
         if (string.IsNullOrWhiteSpace(targetId))
         {
@@ -233,101 +357,24 @@ internal static class ClassContributionBuilder
             return;
         }
 
+        if (overrides.ContainsKey(targetNodeId))
+        {
+            return;
+        }
+
         var dict = new Dictionary<string, double[]>(StringComparer.OrdinalIgnoreCase);
         foreach (var (classId, series) in inflow.ByClass)
         {
             dict[classId] = (double[])series.Clone();
         }
 
-        ClassSeries.NormalizeToTotal(dict, targetTotals);
-        contributions[targetNodeId] = new ClassSeries((double[])targetTotals.Clone(), dict);
-    }
-
-    private static void TrackContribution(
-        string? targetId,
-        ClassSeries inflow,
-        IReadOnlyDictionary<NodeId, double[]> totals,
-        Dictionary<NodeId, ClassSeries> contributions,
-        HashSet<NodeId> updatedNodes)
-    {
-        if (string.IsNullOrWhiteSpace(targetId))
+        if (dict.Count == 0)
         {
             return;
         }
 
-        var targetNodeId = new NodeId(targetId);
-        var hadClasses = contributions.TryGetValue(targetNodeId, out var existing) && existing.ByClass.Count > 0;
-
-        ApplyContributionForTarget(targetId, inflow, totals, contributions);
-
-        var hasClasses = contributions.TryGetValue(targetNodeId, out var updated) && updated.ByClass.Count > 0;
-        if (!hadClasses && hasClasses)
-        {
-            updatedNodes.Add(targetNodeId);
-        }
-    }
-
-    private static HashSet<NodeId> ApplyRouterContributions(
-        IReadOnlyDictionary<NodeId, RouterSpec> routerSpecs,
-        TimeGrid grid,
-        IReadOnlyDictionary<NodeId, double[]> totals,
-        Dictionary<NodeId, ClassSeries> contributions,
-        List<RouterDiagnostic> diagnostics)
-    {
-        var overridden = new HashSet<NodeId>(new NodeIdComparer());
-        foreach (var spec in routerSpecs.Values)
-        {
-            var overrides = EvaluateRouterRoutes(spec, grid, totals, contributions, diagnostics);
-            foreach (var (targetId, series) in overrides)
-            {
-                contributions[targetId] = series;
-                overridden.Add(targetId);
-            }
-
-            contributions[spec.RouterId] = GetRouterSeries(spec, grid, totals, contributions);
-            overridden.Add(spec.RouterId);
-        }
-
-        return overridden;
-    }
-
-    private static void RecomputeContributions(
-        Graph graph,
-        IReadOnlyDictionary<string, NodeDefinition> nodeDefinitions,
-        TimeGrid grid,
-        IReadOnlyDictionary<NodeId, double[]> totals,
-        IReadOnlyDictionary<NodeId, string> classAssignments,
-        IReadOnlyDictionary<string, double> serviceWithBufferSeeds,
-        HashSet<NodeId> overriddenNodes,
-        Dictionary<NodeId, ClassSeries> contributions)
-    {
-        foreach (var nodeId in graph.TopologicalOrder())
-        {
-            if (!totals.ContainsKey(nodeId))
-            {
-                continue;
-            }
-
-            if (classAssignments.ContainsKey(nodeId) || overriddenNodes.Contains(nodeId))
-            {
-                continue;
-            }
-
-            if (!nodeDefinitions.TryGetValue(nodeId.Value, out var nodeDefinition))
-            {
-                continue;
-            }
-
-            var series = nodeDefinition.Kind switch
-            {
-                "const" or "pmf" => BuildSourceSeries(nodeId, totals[nodeId], classAssignments),
-                "expr" => EvaluateExpressionNode(nodeDefinition, grid, totals, contributions),
-                "serviceWithBuffer" => EvaluateServiceWithBufferNode(nodeDefinition, grid, totals, contributions, serviceWithBufferSeeds),
-                _ => ClassSeries.FromTotals(totals[nodeId])
-            };
-
-            contributions[nodeId] = series;
-        }
+        ClassSeries.NormalizeToTotal(dict, targetTotals);
+        overrides[targetNodeId] = new ClassSeries((double[])targetTotals.Clone(), dict);
     }
 
     private static Dictionary<NodeId, ClassSeries> EvaluateRouterRoutes(
