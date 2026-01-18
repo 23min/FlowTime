@@ -936,6 +936,24 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
     }
 
     [Fact]
+    public async Task GetState_IncludesRetryEdgesByDefault()
+    {
+        var response = await client.GetAsync($"/v1/runs/{retryEdgesRunId}/state?binIndex=1");
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync();
+            throw new XunitException($"Expected 200 OK but got {(int)response.StatusCode}: {errorBody}");
+        }
+
+        var payload = JsonNode.Parse(await response.Content.ReadAsStringAsync());
+        Assert.NotNull(payload);
+
+        var edges = payload!["edges"] as JsonArray;
+        Assert.NotNull(edges);
+        Assert.NotEmpty(edges);
+    }
+
+    [Fact]
     public async Task GetStateWindow_RetryKernelViolationsEmitWarnings()
     {
         var response = await client.GetAsync($"/v1/runs/{kernelPolicyRunId}/state_window?startBin=0&endBin=3");

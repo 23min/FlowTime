@@ -100,6 +100,8 @@ public sealed class StateQueryService
             binIndex,
             context.Window.Bins);
 
+        var edgeSeries = BuildEdgeSeries(context, binIndex, 1);
+
         return new StateSnapshotResponse
         {
             Metadata = BuildMetadata(context, ResolveClassCoverage(classCoverageStates)),
@@ -111,6 +113,7 @@ public sealed class StateQueryService
                 DurationMinutes = context.Window.BinDuration.TotalMinutes
             },
             Nodes = nodeSnapshots,
+            Edges = edgeSeries,
             Warnings = BuildWarnings(context, validation.Warnings)
         };
     }
