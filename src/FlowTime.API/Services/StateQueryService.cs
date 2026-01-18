@@ -538,7 +538,7 @@ public sealed class StateQueryService
         var dispatchSchedule = ResolveDispatchSchedule(node, context, serviceWithBufferDefinition);
         var arrivals = GetValue(data.Arrivals, binIndex);
         var served = GetValue(data.Served, binIndex);
-        var errors = GetValue(data.Errors, binIndex);
+        var errors = GetOptionalValue(data.Errors, binIndex);
         var externalDemand = GetOptionalValue(data.ExternalDemand, binIndex);
         var queue = GetOptionalValue(data.QueueDepth, binIndex);
         var capacity = GetOptionalValue(data.Capacity, binIndex);
@@ -596,10 +596,12 @@ public sealed class StateQueryService
 
         var mergedWarnings = MergeWarnings(nodeWarnings, classAggregation.Warnings, node.Id);
         var slaMetrics = BuildSlaMetrics(node, logicalType, data, context, binIndex, dispatchSchedule);
+        var queueOrigin = data.QueueDepth is null ? null : ResolveQueueSeriesOrigin(node, context);
         var seriesMetadata = BuildDerivedSeriesMetadata(
             hasLatency: IsQueueLikeKind(kind) && data.QueueDepth is not null && data.Served is not null,
             hasServiceTime: isServiceKind && data.ProcessingTimeMsSum is not null && data.ServedCount is not null,
-            hasFlowLatency: flowLatencyForNode is not null);
+            hasFlowLatency: flowLatencyForNode is not null,
+            queueOrigin: queueOrigin);
 
         return new NodeSnapshot
         {
@@ -1206,13 +1208,14 @@ public sealed class StateQueryService
         double[] CreateSeries() => new double[bins];
         var kernelResult = RetryKernelPolicy.Apply(node.Semantics.RetryKernel?.ToArray());
         var parallelism = BuildParallelismSeries(node.Semantics.Parallelism, bins);
+        var hasErrors = !string.IsNullOrWhiteSpace(node.Semantics.Errors);
 
         return new NodeData
         {
             NodeId = node.Id,
             Arrivals = CreateSeries(),
             Served = CreateSeries(),
-            Errors = CreateSeries(),
+            Errors = hasErrors ? CreateSeries() : null,
             Attempts = node.Semantics.Attempts != null ? CreateSeries() : null,
             Failures = node.Semantics.Failures != null ? CreateSeries() : null,
             ExhaustedFailures = node.Semantics.ExhaustedFailures != null ? CreateSeries() : null,
@@ -1300,14 +1303,17 @@ public sealed class StateQueryService
         var dispatchSchedule = ResolveDispatchSchedule(node, context, serviceWithBufferDefinition);
         var arrivalsSlice = ExtractSlice(data.Arrivals, startBin, count);
         var servedSlice = ExtractSlice(data.Served, startBin, count);
-        var errorsSlice = ExtractSlice(data.Errors, startBin, count);
+        var errorsSlice = data.Errors != null ? ExtractSlice(data.Errors, startBin, count) : null;
 
         var series = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase)
         {
             ["arrivals"] = arrivalsSlice,
-            ["served"] = servedSlice,
-            ["errors"] = errorsSlice
+            ["served"] = servedSlice
         };
+        if (errorsSlice != null)
+        {
+            series["errors"] = errorsSlice;
+        }
 
         var isServiceKind = string.Equals(kind, "service", StringComparison.OrdinalIgnoreCase);
 
@@ -1322,7 +1328,10 @@ public sealed class StateQueryService
         if (isServiceKind)
         {
             var failuresSlice = data.Failures != null ? ExtractSlice(data.Failures, startBin, count) : errorsSlice;
-            series["failures"] = failuresSlice;
+            if (failuresSlice != null)
+            {
+                series["failures"] = failuresSlice;
+            }
 
             if (data.ExhaustedFailures != null)
             {
@@ -1435,10 +1444,12 @@ public sealed class StateQueryService
         }
 
         var slaSeries = BuildSlaSeries(node, logicalType, data, context, startBin, count, dispatchSchedule);
+        var queueOrigin = data.QueueDepth is null ? null : ResolveQueueSeriesOrigin(node, context);
         var seriesMetadata = BuildDerivedSeriesMetadata(
             hasLatency: latencySeries is not null,
             hasServiceTime: serviceTimeSeries is not null,
-            hasFlowLatency: flowLatencySlice is not null);
+            hasFlowLatency: flowLatencySlice is not null,
+            queueOrigin: queueOrigin);
 
         return new NodeSeries
         {
@@ -1525,7 +1536,8 @@ public sealed class StateQueryService
     private static IReadOnlyDictionary<string, SeriesSemanticsMetadata>? BuildDerivedSeriesMetadata(
         bool hasLatency,
         bool hasServiceTime,
-        bool hasFlowLatency)
+        bool hasFlowLatency,
+        string? queueOrigin)
     {
         Dictionary<string, SeriesSemanticsMetadata>? metadata = null;
 
@@ -1559,7 +1571,62 @@ public sealed class StateQueryService
             };
         }
 
+        if (!string.IsNullOrWhiteSpace(queueOrigin))
+        {
+            metadata ??= new Dictionary<string, SeriesSemanticsMetadata>(StringComparer.OrdinalIgnoreCase);
+            metadata["queue"] = new SeriesSemanticsMetadata
+            {
+                Origin = queueOrigin
+            };
+        }
+
         return metadata;
+    }
+
+    private static string? ResolveQueueSeriesOrigin(Node node, StateRunContext context)
+    {
+        if (node.Semantics is null || string.IsNullOrWhiteSpace(node.Semantics.QueueDepth))
+        {
+            return null;
+        }
+
+        var raw = node.Semantics.QueueDepth.Trim();
+        if (raw.StartsWith("file:", StringComparison.OrdinalIgnoreCase))
+        {
+            return "explicit";
+        }
+
+        var seriesId = ExtractNodeId(raw);
+        if (string.Equals(seriesId, "self", StringComparison.OrdinalIgnoreCase))
+        {
+            return "derived";
+        }
+
+        if (context.ModelNodes.TryGetValue(seriesId, out var definition))
+        {
+            if (definition.Metadata is not null &&
+                definition.Metadata.TryGetValue("series.origin", out var origin) &&
+                !string.IsNullOrWhiteSpace(origin))
+            {
+                return origin.Trim().ToLowerInvariant();
+            }
+
+            return "explicit";
+        }
+
+        return "derived";
+    }
+
+    private static string ExtractNodeId(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        var trimmed = value.Trim();
+        var separatorIndex = trimmed.IndexOf(':');
+        return separatorIndex >= 0 ? trimmed[..separatorIndex] : trimmed;
     }
 
     private static NodeTelemetryInfo BuildTelemetryInfo(Node node, RunManifestMetadata manifestMetadata, IReadOnlyList<ModeValidationWarning> nodeWarnings)
@@ -2193,6 +2260,10 @@ public sealed class StateQueryService
         }
 
         var failuresSource = data.Failures ?? data.Errors;
+        if (failuresSource == null)
+        {
+            return null;
+        }
         var result = new double?[count];
         for (var i = 0; i < count; i++)
         {
@@ -2311,7 +2382,7 @@ public sealed class StateQueryService
             return failure;
         }
 
-        return GetValue(data.Errors, index);
+        return GetOptionalValue(data.Errors, index);
     }
 
     private static double? ComputeThroughputRatio(double? arrivals, double? served)
@@ -2548,7 +2619,7 @@ public sealed class StateQueryService
             NodeId = nodeId,
             Arrivals = CreateNaNSeries(bins),
             Served = CreateNaNSeries(bins),
-            Errors = CreateNaNSeries(bins),
+            Errors = null,
             Attempts = null,
             Failures = null,
             RetryEcho = null,

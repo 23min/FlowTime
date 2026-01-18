@@ -54,6 +54,7 @@ The list below enumerates current epics under `docs/architecture/` in an order t
 - **Goal:** Enforce a strict DAG evaluation contract so no post-eval mutation is possible; all overrides apply before evaluation and derived class series always recompute in order.
 - **Key Milestones:**
   - `docs/milestones/M-06.01-evaluation-integrity-dag-contract.md`
+  - `docs/milestones/M-06.02-model-compiler.md`
 - **Notes:** Tracking in `docs/milestones/tracking/M-06.01-tracking.md`. Scope is to fold current override behaviors into compile-to-DAG evaluation; templates remain unchanged.
 
 #### Edge Time Bins / Edge Metrics

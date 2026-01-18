@@ -567,7 +567,68 @@ outputs:
     }
 
     [Fact]
-    public async Task WriteArtifacts_ThrowsWhenErrorsMissing()
+    public async Task WriteArtifacts_AllowsMissingErrorsSemantics()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), "test_artifacts_missing_errors");
+        Directory.CreateDirectory(tempDir);
+
+        var model = new ModelDefinition
+        {
+            Grid = new GridDefinition { Bins = 2, BinSize = 5, BinUnit = "minutes" },
+            Nodes = new List<NodeDefinition>
+            {
+                new() { Id = "arrivals_series", Kind = "const", Values = new[] { 10.0, 12.0 } },
+                new() { Id = "served_series", Kind = "const", Values = new[] { 9.0, 11.0 } }
+            },
+            Outputs = new List<OutputDefinition> { new() { Series = "*", As = "out.csv" } }
+        };
+
+        var context = new Dictionary<NodeId, double[]>
+        {
+            [new NodeId("arrivals_series")] = new[] { 10.0, 12.0 },
+            [new NodeId("served_series")] = new[] { 9.0, 11.0 }
+        };
+
+        const string spec = """
+schemaVersion: 1
+grid:
+  bins: 2
+  binSize: 5
+  binUnit: minutes
+topology:
+  nodes:
+  - id: Edge
+    semantics:
+      arrivals: arrivals_series
+      served: served_series
+nodes:
+- id: arrivals_series
+  kind: const
+  values: [10, 12]
+- id: served_series
+  kind: const
+  values: [9, 11]
+outputs:
+- series: "*"
+""";
+
+        var request = new RunArtifactWriter.WriteRequest
+        {
+            Model = model,
+            Grid = new TimeGrid(2, 5, TimeUnit.Minutes),
+            Context = context,
+            SpecText = spec,
+            OutputDirectory = tempDir
+        };
+
+        var result = await RunArtifactWriter.WriteArtifactsAsync(request);
+        Assert.True(Directory.Exists(result.RunDirectory));
+
+        Directory.Delete(tempDir, true);
+    }
+
+    [Fact]
+    public async Task WriteArtifacts_AllowsBlankErrorsSemantics()
     {
         var tempDir = Path.Combine(Path.GetTempPath(), "test_artifacts_semantics_missing");
         Directory.CreateDirectory(tempDir);
@@ -622,8 +683,8 @@ outputs:
             OutputDirectory = tempDir
         };
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => RunArtifactWriter.WriteArtifactsAsync(request));
-        Assert.Contains("semantics.errors", ex.Message, StringComparison.OrdinalIgnoreCase);
+        var result = await RunArtifactWriter.WriteArtifactsAsync(request);
+        Assert.True(Directory.Exists(result.RunDirectory));
 
         Directory.Delete(tempDir, true);
     }

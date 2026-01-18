@@ -105,7 +105,6 @@ topology:
         var result = await RunArtifactWriter.WriteArtifactsAsync(request);
         var seriesDir = Path.Combine(result.RunDirectory, "series");
         var queuePath = Path.Combine(seriesDir, "queue_depth@QUEUE_DEPTH@DEFAULT.csv");
-
         Assert.True(File.Exists(queuePath), "Expected queue depth series to be materialized.");
         Assert.Equal(new[] { 3d, 5d, 6d }, ReadSeriesValues(queuePath));
     }

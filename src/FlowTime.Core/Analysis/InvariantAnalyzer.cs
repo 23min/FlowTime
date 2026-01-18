@@ -558,7 +558,7 @@ public static class InvariantAnalyzer
                 warnings.Add(new InvariantWarning(
                     nodeId,
                     "queue_depth_mismatch",
-                    "Queue depth does not match inflow/outflow accumulation",
+                    "Queue depth series does not match derived inflow/outflow accumulation",
                     bins[..binCount].ToArray(),
                     null));
             }
@@ -799,7 +799,7 @@ public static class InvariantAnalyzer
         try
         {
             var contributions = ClassContributionBuilder.Build(model, grid, evaluatedSeries, classAssignments, out _);
-            foreach (var warning in DetectServiceWithBufferClassCoverageGaps(nodeDefinitions, contributions))
+            foreach (var warning in DetectServiceWithBufferClassCoverageGaps(nodeDefinitions, evaluatedSeries, contributions))
             {
                 warnings.Add(warning);
             }
@@ -840,11 +840,11 @@ public static class InvariantAnalyzer
         try
         {
             var contributions = ClassContributionBuilder.Build(model, grid, evaluatedSeries, classAssignments, out _);
-            foreach (var warning in DetectTopologyServiceWithBufferClassCoverageGaps(model.Topology.Nodes, contributions))
+            foreach (var warning in DetectTopologyServiceWithBufferClassCoverageGaps(model.Topology.Nodes, evaluatedSeries, contributions))
             {
                 warnings.Add(warning);
             }
-            foreach (var warning in DetectTopologyNodeClassCoverageGaps(model.Topology.Nodes, contributions))
+            foreach (var warning in DetectTopologyNodeClassCoverageGaps(model.Topology.Nodes, evaluatedSeries, contributions))
             {
                 warnings.Add(warning);
             }
@@ -863,6 +863,7 @@ public static class InvariantAnalyzer
 
     internal static IReadOnlyList<InvariantWarning> DetectServiceWithBufferClassCoverageGaps(
         IReadOnlyDictionary<string, NodeDefinition> nodeDefinitions,
+        IReadOnlyDictionary<NodeId, double[]> evaluatedSeries,
         IReadOnlyDictionary<NodeId, IReadOnlyDictionary<string, double[]>> contributions)
     {
         var warnings = new List<InvariantWarning>();
@@ -885,8 +886,8 @@ public static class InvariantAnalyzer
                 continue;
             }
 
-            CheckTarget(node.Id, "outflow", node.Outflow, inflowClasses, contributions, warnings);
-            CheckTarget(node.Id, "loss", node.Loss, inflowClasses, contributions, warnings);
+            CheckTarget(node.Id, "outflow", node.Outflow, inflowClasses, evaluatedSeries, contributions, warnings);
+            CheckTarget(node.Id, "loss", node.Loss, inflowClasses, evaluatedSeries, contributions, warnings);
         }
 
         return warnings;
@@ -894,6 +895,7 @@ public static class InvariantAnalyzer
 
     internal static IReadOnlyList<InvariantWarning> DetectTopologyServiceWithBufferClassCoverageGaps(
         IReadOnlyList<TopologyNodeDefinition> topologyNodes,
+        IReadOnlyDictionary<NodeId, double[]> evaluatedSeries,
         IReadOnlyDictionary<NodeId, IReadOnlyDictionary<string, double[]>> contributions)
     {
         var warnings = new List<InvariantWarning>();
@@ -911,8 +913,8 @@ public static class InvariantAnalyzer
                 continue;
             }
 
-            CheckTarget(node.Id, "served", node.Semantics?.Served, inflowClasses, contributions, warnings);
-            CheckTarget(node.Id, "errors", node.Semantics?.Errors, inflowClasses, contributions, warnings);
+            CheckTarget(node.Id, "served", node.Semantics?.Served, inflowClasses, evaluatedSeries, contributions, warnings);
+            CheckTarget(node.Id, "errors", node.Semantics?.Errors, inflowClasses, evaluatedSeries, contributions, warnings);
         }
 
         return warnings;
@@ -920,6 +922,7 @@ public static class InvariantAnalyzer
 
     internal static IReadOnlyList<InvariantWarning> DetectTopologyNodeClassCoverageGaps(
         IReadOnlyList<TopologyNodeDefinition> topologyNodes,
+        IReadOnlyDictionary<NodeId, double[]> evaluatedSeries,
         IReadOnlyDictionary<NodeId, IReadOnlyDictionary<string, double[]>> contributions)
     {
         var warnings = new List<InvariantWarning>();
@@ -937,8 +940,8 @@ public static class InvariantAnalyzer
                 continue;
             }
 
-            CheckTarget(node.Id, "served", node.Semantics?.Served, inflowClasses, contributions, warnings);
-            CheckTarget(node.Id, "errors", node.Semantics?.Errors, inflowClasses, contributions, warnings);
+            CheckTarget(node.Id, "served", node.Semantics?.Served, inflowClasses, evaluatedSeries, contributions, warnings);
+            CheckTarget(node.Id, "errors", node.Semantics?.Errors, inflowClasses, evaluatedSeries, contributions, warnings);
         }
 
         return warnings;
@@ -963,10 +966,16 @@ public static class InvariantAnalyzer
         string label,
         string? targetId,
         HashSet<string> inflowClasses,
+        IReadOnlyDictionary<NodeId, double[]> evaluatedSeries,
         IReadOnlyDictionary<NodeId, IReadOnlyDictionary<string, double[]>> contributions,
         List<InvariantWarning> warnings)
     {
         if (string.IsNullOrWhiteSpace(targetId))
+        {
+            return;
+        }
+
+        if (IsEffectivelyZero(targetId, evaluatedSeries))
         {
             return;
         }
@@ -993,6 +1002,29 @@ public static class InvariantAnalyzer
                 $"class_series_partial_{label}",
                 $"Class coverage partial for serviceWithBuffer node '{serviceNodeId}' {label} '{targetId}'. Missing classes: {string.Join(", ", missing)}.");
         }
+    }
+
+    private static bool IsEffectivelyZero(string targetId, IReadOnlyDictionary<NodeId, double[]> evaluatedSeries)
+    {
+        if (!evaluatedSeries.TryGetValue(new NodeId(targetId), out var series))
+        {
+            return false;
+        }
+
+        foreach (var value in series)
+        {
+            if (!double.IsFinite(value))
+            {
+                return false;
+            }
+
+            if (Math.Abs(value) > defaultTolerance)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static bool TryCreateTimeGrid(GridDefinition? gridDefinition, out TimeGrid grid)

@@ -728,9 +728,18 @@
                                         <MudTabPanel Text="Props">
                                             @if (binMetrics.Count > 0)
                                             {
+                                                var seriesRows = binMetrics.Where(row => !row.IsDerived).ToList();
+                                                var derivedRows = binMetrics.Where(row => row.IsDerived).ToList();
+                                                var showSeriesHeading = seriesRows.Count > 0 && derivedRows.Count > 0;
+                                                var showDerivedHeading = derivedRows.Count > 0;
+
                                                 <div class="node-inspector-bin-section">
                                                     <div class="node-inspector-bin-list">
-                                                        @foreach (var row in binMetrics)
+                                                        @if (showSeriesHeading)
+                                                        {
+                                                            <div class="node-inspector-bin-heading">Series</div>
+                                                        }
+                                                        @foreach (var row in seriesRows)
                                                         {
                                                             if (row.Provenance is not null)
                                                             {
@@ -742,7 +751,7 @@
                                                                     <div class="inspector-provenance-flyout">
                                                                         <div class="inspector-provenance-tooltip">
                                                                             <div class="inspector-provenance-tooltip__entries">
-                                                                                @foreach (var entry in BuildProvenanceTooltipEntries(row.Provenance))
+                                                                                @foreach (var entry in BuildProvenanceTooltipEntries(row.Provenance, row.Alias, row.IncludeAliasInTooltip))
                                                                                 {
                                                                                     <div class="inspector-provenance-tooltip__entry">
                                                                                         <span class="inspector-provenance-tooltip__label">@entry.Label</span>
@@ -760,6 +769,43 @@
                                                                     <span class="node-inspector-bin-label">@row.Label</span>
                                                                     <span class="node-inspector-bin-value">@row.Value</span>
                                                                 </div>
+                                                            }
+                                                        }
+
+                                                        @if (showDerivedHeading)
+                                                        {
+                                                            <div class="node-inspector-bin-heading">Derived</div>
+                                                            @foreach (var row in derivedRows)
+                                                            {
+                                                                if (row.Provenance is not null)
+                                                                {
+                                                                    <div class="inspector-provenance-hover">
+                                                                        <div class="node-inspector-bin-row">
+                                                                            <span class="node-inspector-bin-label">@row.Label</span>
+                                                                            <span class="node-inspector-bin-value">@row.Value</span>
+                                                                        </div>
+                                                                        <div class="inspector-provenance-flyout">
+                                                                            <div class="inspector-provenance-tooltip">
+                                                                                <div class="inspector-provenance-tooltip__entries">
+                                                                                    @foreach (var entry in BuildProvenanceTooltipEntries(row.Provenance, row.Alias, row.IncludeAliasInTooltip))
+                                                                                    {
+                                                                                        <div class="inspector-provenance-tooltip__entry">
+                                                                                            <span class="inspector-provenance-tooltip__label">@entry.Label</span>
+                                                                                            <span class="inspector-provenance-tooltip__value">@entry.Value</span>
+                                                                                        </div>
+                                                                                    }
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                }
+                                                                else
+                                                                {
+                                                                    <div class="node-inspector-bin-row">
+                                                                        <span class="node-inspector-bin-label">@row.Label</span>
+                                                                        <span class="node-inspector-bin-value">@row.Value</span>
+                                                                    </div>
+                                                                }
                                                             }
                                                         }
                                                     </div>
@@ -3546,7 +3592,10 @@ private const string pmfExpectationLabel = "Value";
 
     private sealed record ProvenanceTooltipEntry(string Label, string Value);
 
-    private static IReadOnlyList<ProvenanceTooltipEntry> BuildProvenanceTooltipEntries(MetricProvenanceEvaluation provenance)
+    private static IReadOnlyList<ProvenanceTooltipEntry> BuildProvenanceTooltipEntries(
+        MetricProvenanceEvaluation provenance,
+        string? alias = null,
+        bool includeAlias = false)
     {
         var formula = provenance.SelectedFormula?.Formula ?? "unavailable";
         var inputs = provenance.SelectedFormula?.Inputs ?? Array.Empty<string>();
@@ -3562,9 +3611,14 @@ private const string pmfExpectationLabel = "Value";
             new("Units", provenance.Definition.Unit)
         };
 
+        var insertIndex = 1;
+        if (includeAlias && !string.IsNullOrWhiteSpace(alias))
+        {
+            entries.Insert(insertIndex++, new ProvenanceTooltipEntry("Alias", alias.Trim()));
+        }
         if (!string.IsNullOrWhiteSpace(aggregation))
         {
-            entries.Insert(1, new ProvenanceTooltipEntry("Aggregation", aggregation));
+            entries.Insert(insertIndex++, new ProvenanceTooltipEntry("Aggregation", aggregation));
         }
 
         if (gatingRules.Count > 0)
@@ -4104,7 +4158,13 @@ internal sealed record InspectorMetricBlock(
             new(title, null, "#CBD5E1", true, message, null, valueFormat, seriesKey, provenance);
     }
 
-    internal sealed record InspectorBinMetric(string Label, string Value, MetricProvenanceEvaluation? Provenance);
+    internal sealed record InspectorBinMetric(
+        string Label,
+        string Value,
+        MetricProvenanceEvaluation? Provenance,
+        bool IsDerived,
+        string? Alias,
+        bool IncludeAliasInTooltip);
 
     internal sealed record MetricProvenanceBundle(
         string? NodeKind,
@@ -4658,9 +4718,15 @@ internal sealed record InspectorMetricBlock(
             return AttachSeriesSemantics(evaluation, seriesNode, metricKey);
         }
 
-        InspectorBinMetric CreateRow(string label, string value, string? metricKey = null)
+        InspectorBinMetric CreateRow(
+            string label,
+            string value,
+            string? metricKey = null,
+            bool isDerived = false,
+            string? alias = null,
+            bool includeAliasInTooltip = false)
         {
-            return new InspectorBinMetric(label, value, ResolveBinProvenance(metricKey));
+            return new InspectorBinMetric(label, value, ResolveBinProvenance(metricKey), isDerived, alias, includeAliasInTooltip);
         }
 
         if (!string.IsNullOrWhiteSpace(timestampLabel))
@@ -4706,8 +4772,10 @@ internal sealed record InspectorMetricBlock(
             || scheduleEntry is not null
             || string.Equals(successLabel, "Schedule SLA", StringComparison.OrdinalIgnoreCase);
 
+        string? ResolveAlias(params string[] keys) => TryResolveAlias(topoNode, keys);
+
         string Label(string fallback, params string[] keys) =>
-            FormatSemanticLabelWithAlias(fallback, TryResolveAlias(topoNode, keys));
+            FormatSemanticLabelWithAlias(fallback, ResolveAlias(keys));
 
         string? FormatSlaStatus(string? status)
         {
@@ -4724,7 +4792,14 @@ internal sealed record InspectorMetricBlock(
             };
         }
 
-        void AddRaw(string fallback, string key, InspectorValueFormat format = InspectorValueFormat.Number, string? unit = null, bool gate = true)
+        void AddRaw(
+            string fallback,
+            string key,
+            InspectorValueFormat format = InspectorValueFormat.Number,
+            string? unit = null,
+            bool gate = true,
+            bool useAlias = true,
+            bool includeAliasInTooltip = false)
         {
             if (!gate)
             {
@@ -4736,10 +4811,20 @@ internal sealed record InspectorMetricBlock(
                 return;
             }
 
-            rows.Add(CreateRow(Label(fallback, key), FormatBinValue(value, format, unit), key));
+            var alias = ResolveAlias(key);
+            var label = useAlias ? FormatSemanticLabelWithAlias(fallback, alias) : fallback;
+            rows.Add(CreateRow(label, FormatBinValue(value, format, unit), key, isDerived: false, alias, includeAliasInTooltip));
         }
 
-        void AddDerived(string fallback, double? value, InspectorValueFormat format = InspectorValueFormat.Number, string? unit = null, bool gate = true, bool alwaysShow = false, string? metricKey = null, params string[] aliasKeys)
+        void AddDerived(
+            string fallback,
+            double? value,
+            InspectorValueFormat format = InspectorValueFormat.Number,
+            string? unit = null,
+            bool gate = true,
+            bool alwaysShow = false,
+            string? metricKey = null,
+            params string[] aliasKeys)
         {
             if (!gate)
             {
@@ -4750,13 +4835,13 @@ internal sealed record InspectorMetricBlock(
             {
                 if (alwaysShow)
                 {
-                    rows.Add(CreateRow(Label(fallback, aliasKeys), "-", metricKey));
+                    rows.Add(CreateRow(Label(fallback, aliasKeys), "-", metricKey, isDerived: true));
                 }
 
                 return;
             }
 
-            rows.Add(CreateRow(Label(fallback, aliasKeys), FormatBinValue(value, format, unit), metricKey));
+            rows.Add(CreateRow(Label(fallback, aliasKeys), FormatBinValue(value, format, unit), metricKey, isDerived: true));
         }
 
         void AddSlaMetric(
@@ -4780,20 +4865,20 @@ internal sealed record InspectorMetricBlock(
 
             if (value.HasValue)
             {
-                rows.Add(CreateRow(label, FormatBinValue(value, format, unit), kind));
+                rows.Add(CreateRow(label, FormatBinValue(value, format, unit), kind, isDerived: true));
                 return;
             }
 
             var statusLabel = FormatSlaStatus(slaSeries?.Status);
             if (!string.IsNullOrWhiteSpace(statusLabel))
             {
-                rows.Add(CreateRow(label, statusLabel!, kind));
+                rows.Add(CreateRow(label, statusLabel!, kind, isDerived: true));
                 return;
             }
 
             if (alwaysShow)
             {
-                rows.Add(CreateRow(label, "-", kind));
+                rows.Add(CreateRow(label, "-", kind, isDerived: true));
             }
         }
 
@@ -4804,16 +4889,18 @@ internal sealed record InspectorMetricBlock(
                 rows.Add(CreateRow(
                     "Arrival schedule",
                     dispatchSchedule is null ? scheduleEntry?.Summary ?? "-" : FormatDispatchSummary(dispatchSchedule),
-                    "arrivalSchedule"));
+                    "arrivalSchedule",
+                    isDerived: true));
                 rows.Add(CreateRow(
                     "Schedule capacity",
                     dispatchSchedule is null ? scheduleEntry?.CapacityLabel ?? "-" : FormatDispatchCapacity(dispatchSchedule),
-                    "scheduleCapacity"));
+                    "scheduleCapacity",
+                    isDerived: true));
                 AddSlaMetric(successLabel, "scheduleAdherence", InspectorValueFormat.Percent, alwaysShow: true);
             }
             else if (!isSink && (IsQueueKind(nodeKind) || IsServiceWithBufferKind(nodeKind)))
             {
-                rows.Add(CreateRow("Queue latency", "-", "latencyMinutes"));
+                rows.Add(CreateRow("Queue latency", "-", "latencyMinutes", isDerived: true));
             }
 
             return rows;
@@ -4828,10 +4915,10 @@ internal sealed record InspectorMetricBlock(
         AddRaw("Exhausted", "exhaustedFailures", gate: overlaySettings.ShowRetryMetrics && !isSink);
         AddRaw("Retry echo", "retryEcho", gate: !isSink);
         AddRaw("Retry budget remaining", "retryBudgetRemaining", gate: overlaySettings.ShowRetryBudget && !isSink);
-        AddRaw("Queue depth", "queue", gate: !isSink);
+        AddRaw("Queue depth", "queue", gate: !isSink, useAlias: false, includeAliasInTooltip: true);
         AddRaw("Capacity", "capacity", gate: !isSink);
         AddRaw("Instances", "parallelism", gate: !isSink);
-        AddRaw("Effective capacity", "effectiveCapacity", gate: !isSink);
+        AddDerived("Effective capacity", raw is not null && raw.TryGetValue("effectiveCapacity", out var effectiveCapacity) ? effectiveCapacity : null, gate: !isSink, metricKey: "effectiveCapacity");
         AddRaw("Max attempts", "maxAttempts", gate: !isSink);
 
         if (isSink && hasSchedule)
@@ -4839,11 +4926,13 @@ internal sealed record InspectorMetricBlock(
             rows.Add(CreateRow(
                 "Arrival schedule",
                 dispatchSchedule is null ? scheduleEntry?.Summary ?? "-" : FormatDispatchSummary(dispatchSchedule),
-                "arrivalSchedule"));
+                "arrivalSchedule",
+                isDerived: true));
             rows.Add(CreateRow(
                 "Schedule capacity",
                 dispatchSchedule is null ? scheduleEntry?.CapacityLabel ?? "-" : FormatDispatchCapacity(dispatchSchedule),
-                "scheduleCapacity"));
+                "scheduleCapacity",
+                isDerived: true));
             AddSlaMetric(successLabel, "scheduleAdherence", InspectorValueFormat.Percent, fallbackValue: safeMetrics.SuccessRate, alwaysShow: true);
         }
         else
@@ -4871,7 +4960,7 @@ internal sealed record InspectorMetricBlock(
 
         if (!isSink && safeMetrics.QueueLatencyStatus is not null)
         {
-            rows.Add(CreateRow("Latency status", FormatQueueLatencyStatusLabel(safeMetrics.QueueLatencyStatus!), "queueLatencyStatus"));
+            rows.Add(CreateRow("Latency status", FormatQueueLatencyStatusLabel(safeMetrics.QueueLatencyStatus!), "queueLatencyStatus", isDerived: true));
         }
 
         return rows;

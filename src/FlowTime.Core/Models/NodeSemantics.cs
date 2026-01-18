@@ -8,7 +8,7 @@ public sealed record NodeSemantics
 {
     public required string Arrivals { get; init; }
     public required string Served { get; init; }
-    public required string Errors { get; init; }
+    public string? Errors { get; init; }
     public string? Attempts { get; init; }
     public string? Failures { get; init; }
     public string? ExhaustedFailures { get; init; }

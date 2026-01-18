@@ -314,7 +314,7 @@
                 },
                 "origin": {
                     "type": ["string", "null"],
-                    "enum": ["derived", "telemetry", "model", "unknown", null]
+                    "enum": ["derived", "explicit", "telemetry", "model", "unknown", null]
                 }
             }
         },

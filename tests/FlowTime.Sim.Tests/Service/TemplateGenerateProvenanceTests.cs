@@ -16,10 +16,9 @@ namespace FlowTime.Sim.Tests.Service;
 /// </summary>
 public class TemplateGenerateProvenanceTests : IClassFixture<WebApplicationFactory<Program>>
 {
-    private readonly WebApplicationFactory<Program> factory;
     private readonly HttpClient client;
 
-    public TemplateGenerateProvenanceTests(WebApplicationFactory<Program> factory)
+    public TemplateGenerateProvenanceTests(WebApplicationFactory<Program> webFactory)
     {
         // Set up test environment BEFORE creating client
         var testDataDir = Path.Combine(Path.GetTempPath(), "flow-sim-provenance-tests", Guid.NewGuid().ToString("N"));
@@ -31,8 +30,8 @@ public class TemplateGenerateProvenanceTests : IClassFixture<WebApplicationFacto
         Environment.SetEnvironmentVariable("FLOWTIME_SIM_TEMPLATES_DIR", templatesDir);
         
         // NOW create the factory and client after environment is configured
-        factory = factory.WithWebHostBuilder(builder => { });
-        client = factory.CreateClient();
+        var configuredFactory = webFactory.WithWebHostBuilder(builder => { });
+        client = configuredFactory.CreateClient();
         
         // Create a simple test template
         var testTemplateYaml = @"schemaVersion: 1

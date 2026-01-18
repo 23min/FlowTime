@@ -208,7 +208,6 @@ topology:
       semantics:
         arrivals: returns_router_arrivals
         served: returns_router_served
-        errors: returns_router_errors
         capacity: returns_router_capacity
         processingTimeMsSum: returns_router_processing_time_ms_sum
         servedCount: returns_router_served_count
@@ -492,11 +491,6 @@ nodes:
     kind: expr
     expr: "returns_processed * 420"
 
-  - id: returns_router_errors
-    kind: expr
-    expr: "0"
-    metadata:
-      graph.hidden: "true"
   - id: returns_router_arrivals
     kind: expr
     expr: "returns_processed"

@@ -236,6 +236,10 @@
         "flowLatencyMs": {
           "aggregation": "avg",
           "origin": "derived"
+        },
+        "queue": {
+          "aggregation": null,
+          "origin": "explicit"
         }
       },
       "telemetry": {

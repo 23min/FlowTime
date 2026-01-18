@@ -549,6 +549,9 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         Assert.Equal("avg", serviceMetadata!.Aggregation);
         Assert.Equal("derived", serviceMetadata.Origin);
 
+        Assert.True(node.SeriesMetadata.TryGetValue("queue", out var queueMetadata));
+        Assert.Equal("explicit", queueMetadata!.Origin);
+
         if (node.SeriesMetadata.TryGetValue("flowLatencyMs", out var flowMetadata))
         {
             Assert.Equal("avg", flowMetadata!.Aggregation);

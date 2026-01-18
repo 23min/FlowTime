@@ -60,10 +60,9 @@ outputs:
 
         var arrivals = series[new NodeId(arrivalsId)].ToArray();
         var served = series[new NodeId(servedId)].ToArray();
-        var errors = series[new NodeId(errorsId)].ToArray();
 
         Assert.Equal(arrivals, served);
-        Assert.All(errors, value => Assert.Equal(0d, value));
+        Assert.True(string.IsNullOrWhiteSpace(errorsId));
     }
 
     [Fact]
@@ -111,7 +110,9 @@ outputs:
 
         var node = Assert.Single(model.Topology!.Nodes, n => n.Id == "TerminalSuccess");
         var arrivals = series[new NodeId(node.Semantics.Arrivals)].ToArray();
-        var errors = series[new NodeId(node.Semantics.Errors)].ToArray();
+        var errorsId = node.Semantics.Errors;
+        Assert.False(string.IsNullOrWhiteSpace(errorsId));
+        var errors = series[new NodeId(errorsId!)].ToArray();
         var served = series[new NodeId(node.Semantics.Served)].ToArray();
 
         Assert.Equal(new[] { 10d, 10d, 10d }, arrivals);

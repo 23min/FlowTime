@@ -25,7 +25,9 @@ public sealed class SemanticLoader
         var semantics = node.Semantics;
         var arrivals = LoadSeries(semantics.Arrivals, bins);
         var served = LoadSeries(semantics.Served, bins);
-        var errors = LoadSeries(semantics.Errors, bins);
+        double[]? errors = IsFileUri(semantics.Errors)
+            ? LoadSeries(semantics.Errors!, bins)
+            : null;
 
         double[]? attempts = IsFileUri(semantics.Attempts)
             ? LoadSeries(semantics.Attempts!, bins)

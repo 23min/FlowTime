@@ -73,7 +73,13 @@ public class InvariantAnalyzerTests
             ["Downtown"] = new[] { 1d }
         };
 
-        var warnings = InvariantAnalyzer.DetectServiceWithBufferClassCoverageGaps(nodeDefinitions, contributions);
+        var evaluatedSeries = new Dictionary<NodeId, double[]>
+        {
+            [new NodeId("queue_outflow")] = new[] { 1d },
+            [new NodeId("queue_loss")] = new[] { 1d }
+        };
+
+        var warnings = InvariantAnalyzer.DetectServiceWithBufferClassCoverageGaps(nodeDefinitions, evaluatedSeries, contributions);
 
         Assert.Contains(warnings, warning => warning.Code == "class_series_partial_outflow");
         Assert.Contains(warnings, warning => warning.Code == "class_series_missing_loss");
@@ -109,7 +115,13 @@ public class InvariantAnalyzerTests
             ["Downtown"] = new[] { 1d }
         };
 
-        var warnings = InvariantAnalyzer.DetectTopologyServiceWithBufferClassCoverageGaps(topologyNodes, contributions);
+        var evaluatedSeries = new Dictionary<NodeId, double[]>
+        {
+            [new NodeId("queue_outflow")] = new[] { 1d },
+            [new NodeId("queue_loss")] = new[] { 1d }
+        };
+
+        var warnings = InvariantAnalyzer.DetectTopologyServiceWithBufferClassCoverageGaps(topologyNodes, evaluatedSeries, contributions);
 
         Assert.Contains(warnings, warning => warning.Code == "class_series_partial_served");
         Assert.Contains(warnings, warning => warning.Code == "class_series_missing_errors");
@@ -206,6 +218,6 @@ public class InvariantAnalyzerTests
         var result = InvariantAnalyzer.Analyze(model, evaluated);
 
         Assert.Contains(result.Warnings, warning => warning.Code == "class_series_missing_served");
-        Assert.Contains(result.Warnings, warning => warning.Code == "class_series_missing_errors");
+        Assert.DoesNotContain(result.Warnings, warning => warning.Code == "class_series_missing_errors");
     }
 }

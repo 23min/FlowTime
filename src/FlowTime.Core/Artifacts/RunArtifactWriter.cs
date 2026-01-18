@@ -510,7 +510,8 @@ public static class RunArtifactWriter
                             DispatchSchedule = CloneSchedule(topoNode.DispatchSchedule),
                             Metadata = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                             {
-                                ["graph.hidden"] = "true"
+                                ["graph.hidden"] = "true",
+                                ["series.origin"] = "derived"
                             }
                         });
                         existingNodeIds.Add(queueNodeId);
@@ -1177,7 +1178,7 @@ public static class RunArtifactWriter
 
             modified |= NormalizeSemanticsField(semanticsMap, nodeId, "arrivals", required: true, descriptorMap, descriptorList, context);
             modified |= NormalizeSemanticsField(semanticsMap, nodeId, "served", required: true, descriptorMap, descriptorList, context);
-            modified |= NormalizeSemanticsField(semanticsMap, nodeId, "errors", required: true, descriptorMap, descriptorList, context);
+            modified |= NormalizeSemanticsField(semanticsMap, nodeId, "errors", required: false, descriptorMap, descriptorList, context);
             modified |= NormalizeSemanticsField(semanticsMap, nodeId, "externalDemand", required: false, descriptorMap, descriptorList, context);
             modified |= NormalizeSemanticsField(semanticsMap, nodeId, "queueDepth", required: false, descriptorMap, descriptorList, context);
             modified |= NormalizeSemanticsField(semanticsMap, nodeId, "capacity", required: false, descriptorMap, descriptorList, context);

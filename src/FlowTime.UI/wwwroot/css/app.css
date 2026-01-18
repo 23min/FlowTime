@@ -2239,6 +2239,18 @@ body[data-ft-theme="dark"] .inspector-dependency-row .topology-muted-text {
     gap: 6px;
 }
 
+.node-inspector-bin-heading {
+    color: var(--mud-palette-text-secondary);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    margin: 8px 0 2px;
+    text-transform: uppercase;
+}
+
+.node-inspector-bin-heading:first-child {
+    margin-top: 0;
+}
+
 .node-inspector-bin-row {
     display: flex;
     justify-content: space-between;

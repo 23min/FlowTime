@@ -176,7 +176,7 @@ Accept: application/json
 GET {{host}}/v1/runs/{{createTelemetryRun.response.body.$.metadata.runId}}/state?binIndex=0
 Accept: application/json
 # 200 OK (the bundled it-system template now includes complete semantics).
-# 409 Conflict only appears when custom templates omit required bindings (for example, a `service` node without `semantics.errors`).
+# 409 Conflict only appears when custom templates omit required bindings (for example, a `service` node without `semantics.arrivals` or `semantics.served`).
 
 ### 6b. Optional: retrieve a state window (bin range inclusive)
 GET {{host}}/v1/runs/{{createTelemetryRun.response.body.$.metadata.runId}}/state_window?startBin=0&endBin=5

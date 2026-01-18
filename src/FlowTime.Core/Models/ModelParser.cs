@@ -99,7 +99,7 @@ public static class ModelParser
                 {
                     Arrivals = RequireSemantic(definition.Semantics.Arrivals, definition.Id, "arrivals"),
                     Served = RequireSemantic(definition.Semantics.Served, definition.Id, "served"),
-                    Errors = RequireSemantic(definition.Semantics.Errors, definition.Id, "errors"),
+                    Errors = OptionalSemantic(definition.Semantics.Errors),
                     Attempts = definition.Semantics.Attempts,
                     Failures = definition.Semantics.Failures,
                     ExhaustedFailures = definition.Semantics.ExhaustedFailures,
@@ -149,6 +149,9 @@ public static class ModelParser
                 throw new ModelParseException($"Topology node '{nodeId}' must specify semantics.{name}");
             return value;
         }
+
+        static string? OptionalSemantic(string? value) =>
+            string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
         static IReadOnlyDictionary<string, string>? NormalizeAliases(Dictionary<string, string>? aliases)
         {
@@ -583,7 +586,7 @@ public class TopologyNodeSemanticsDefinition
 {
     public string Arrivals { get; set; } = string.Empty;
     public string Served { get; set; } = string.Empty;
-    public string Errors { get; set; } = string.Empty;
+    public string? Errors { get; set; }
     public string? Attempts { get; set; }
     public string? Failures { get; set; }
     public string? ExhaustedFailures { get; set; }

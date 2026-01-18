@@ -117,6 +117,9 @@
         "flowLatencyMs": {
           "aggregation": "avg",
           "origin": "derived"
+        },
+        "queue": {
+          "origin": "explicit"
         }
       },
       "byClass": {

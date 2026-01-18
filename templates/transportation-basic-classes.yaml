@@ -148,15 +148,15 @@ topology:
     - id: HubQueue
       kind: serviceWithBuffer
       semantics:
-        arrivals: hub_queue_demand
+        arrivals: hub_queue_inflow
         served: hub_dispatch
         errors: hub_queue_attrition
-        queueDepth: hub_queue_carry
+        queueDepth: self
         capacity: hub_dispatch_capacity
         processingTimeMsSum: hub_queue_processing_time_ms_sum
         servedCount: hub_dispatch
         aliases:
-          arrivals: "Effective demand"
+          arrivals: "Hub inflow"
           served: "Dispatched riders"
           errors: "Queue attrition"
           queue: "Hub backlog"
@@ -167,7 +167,6 @@ topology:
       semantics:
         arrivals: hub_dispatch_router_arrivals
         served: hub_dispatch_router_served
-        errors: hub_dispatch_router_errors
         capacity: hub_dispatch_router_capacity
         processingTimeMsSum: hub_dispatch_router_processing_time_ms_sum
         servedCount: hub_dispatch_router_served_count
@@ -238,7 +237,6 @@ topology:
       semantics:
         arrivals: arrivals_airport
         served: served_airport
-        errors: errors_airport
         capacity: cap_airport
         failures: airport_retry_failures
         processingTimeMsSum: airport_processing_time_ms_sum
@@ -246,7 +244,6 @@ topology:
         aliases:
           arrivals: "Airport-bound riders"
           served: "Airport line departures"
-          errors: "Airport line errors"
           failures: "Airport failed retries"
     - id: Airport
       kind: sink
@@ -276,7 +273,6 @@ topology:
       semantics:
         arrivals: airport_dlq_inflow
         served: airport_dlq_served_zero
-        errors: airport_dlq_attrition
         queueDepth: self
         aliases:
           arrivals: "Stranded airport riders"
@@ -288,7 +284,6 @@ topology:
       semantics:
         arrivals: arrivals_downtown
         served: served_downtown
-        errors: unmet_downtown
         capacity: cap_downtown
         processingTimeMsSum: downtown_processing_time_ms_sum
         servedCount: served_downtown
@@ -307,7 +302,6 @@ topology:
       semantics:
         arrivals: arrivals_industrial
         served: served_industrial
-        errors: unmet_industrial
         capacity: cap_industrial
         processingTimeMsSum: industrial_processing_time_ms_sum
         servedCount: served_industrial
@@ -547,11 +541,6 @@ nodes:
     expr: "hub_dispatch"
     metadata:
       graph.hidden: "true"
-  - id: hub_dispatch_router_errors
-    kind: expr
-    expr: "0"
-    metadata:
-      graph.hidden: "true"
   - id: hub_dispatch_router_capacity
     kind: expr
     expr: "hub_dispatch_capacity"
@@ -676,9 +665,6 @@ nodes:
   - id: served_airport
     kind: expr
     expr: "MIN(arrivals_airport, cap_airport)"
-  - id: errors_airport
-    kind: expr
-    expr: "MAX(0, arrivals_airport - cap_airport)"
   - id: airport_retry_echo
     kind: expr
     expr: "CONV(airport_retry_attempts, [0.0, 0.6, 0.3, 0.1])"
@@ -691,9 +677,6 @@ nodes:
   - id: served_downtown
     kind: expr
     expr: "MIN(arrivals_downtown, cap_downtown)"
-  - id: unmet_downtown
-    kind: expr
-    expr: "MAX(0, arrivals_downtown - cap_downtown)"
   - id: downtown_processing_time_ms_sum
     kind: expr
     expr: "served_downtown * 1200000"
@@ -703,9 +686,6 @@ nodes:
   - id: served_industrial
     kind: expr
     expr: "MIN(arrivals_industrial, cap_industrial)"
-  - id: unmet_industrial
-    kind: expr
-    expr: "MAX(0, arrivals_industrial - cap_industrial)"
   - id: industrial_processing_time_ms_sum
     kind: expr
     expr: "served_industrial * 1500000"
@@ -736,9 +716,6 @@ nodes:
     metadata:
       graph.hidden: "true"
 
-  - id: airport_dlq_attrition
-    kind: expr
-    expr: "0"
 
 outputs:
   - series: arrivals_north

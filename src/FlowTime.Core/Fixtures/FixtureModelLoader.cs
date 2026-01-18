@@ -91,7 +91,7 @@ internal sealed class FixtureDocument
             {
                 Arrivals = Require(node.Semantics.Arrivals, node.Id, "arrivals"),
                 Served = Require(node.Semantics.Served, node.Id, "served"),
-                Errors = Require(node.Semantics.Errors, node.Id, "errors"),
+                Errors = Optional(node.Semantics.Errors),
                 ExternalDemand = node.Semantics.ExternalDemand,
                 QueueDepth = node.Semantics.QueueDepth,
                 Capacity = node.Semantics.Capacity,
@@ -118,6 +118,9 @@ internal sealed class FixtureDocument
             throw new InvalidOperationException($"Fixture node '{nodeId}' missing semantics.{name} value.");
         return value;
     }
+
+    private static string? Optional(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value;
 }
 
 internal sealed class FixtureWindow

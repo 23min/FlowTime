@@ -76,43 +76,7 @@ internal static class SinkNodeSynthesizer
                     $"Topology node '{topologyNode.Id}' of kind sink must map semantics.served to the same series as semantics.arrivals.");
             }
 
-            if (!hasErrors)
-            {
-                var errorsNodeId = DetermineErrorsNodeId(topologyNode.Id, existingNodeIds);
-                semantics.Errors = errorsNodeId;
-
-                template.Nodes.Add(new TemplateNode
-                {
-                    Id = errorsNodeId,
-                    Kind = "const",
-                    Values = Enumerable.Repeat(0d, template.Grid.Bins).ToArray(),
-                    Metadata = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-                    {
-                        ["graph.hidden"] = "true"
-                    }
-                });
-
-                existingNodeIds.Add(errorsNodeId);
-            }
         }
-    }
-
-    private static string DetermineErrorsNodeId(string topologyNodeId, HashSet<string> existingNodeIds)
-    {
-        var baseId = ToSnakeCase(topologyNodeId);
-        if (string.IsNullOrWhiteSpace(baseId))
-        {
-            baseId = topologyNodeId;
-        }
-
-        var candidate = $"{baseId}_errors";
-        var suffix = 1;
-        while (existingNodeIds.Contains(candidate))
-        {
-            candidate = $"{baseId}_errors_{suffix++}";
-        }
-
-        return candidate;
     }
 
     private static string DetermineServedNodeId(string topologyNodeId, HashSet<string> existingNodeIds)

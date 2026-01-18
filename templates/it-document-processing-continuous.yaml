@@ -204,7 +204,6 @@ topology:
       semantics:
         arrivals: doc_router_arrivals
         served: doc_router_served
-        errors: doc_router_errors
         capacity: doc_router_capacity
         processingTimeMsSum: doc_router_processing_time_ms_sum
         servedCount: doc_router_served
@@ -597,9 +596,6 @@ nodes:
   - id: doc_router_served
     kind: expr
     expr: "ingress_db_served"
-  - id: doc_router_errors
-    kind: expr
-    expr: "0"
   - id: doc_router_capacity
     kind: expr
     expr: "ingress_db_served"

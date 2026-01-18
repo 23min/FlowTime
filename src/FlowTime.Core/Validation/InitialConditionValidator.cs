@@ -10,10 +10,15 @@ public sealed class InitialConditionValidator
     public void Validate(NodeData nodeData, InitialCondition? initialCondition, double tolerance = defaultTolerance)
     {
         ArgumentNullException.ThrowIfNull(nodeData);
-        if (nodeData.Arrivals.Length == 0 || nodeData.Served.Length == 0 || nodeData.Errors.Length == 0)
-            throw new ArgumentException("Node data must contain arrivals, served, and errors with at least one bin.", nameof(nodeData));
+        if (nodeData.Arrivals.Length == 0 || nodeData.Served.Length == 0)
+            throw new ArgumentException("Node data must contain arrivals and served with at least one bin.", nameof(nodeData));
         if (tolerance < 0)
             throw new ArgumentOutOfRangeException(nameof(tolerance), tolerance, "tolerance must be non-negative");
+
+        if (nodeData.Errors is null || nodeData.Errors.Length == 0)
+        {
+            return;
+        }
 
         var expectedQueueDepth = (initialCondition?.QueueDepth ?? 0d)
             + nodeData.Arrivals[0]
