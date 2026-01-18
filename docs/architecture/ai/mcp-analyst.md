@@ -4,6 +4,13 @@
 
 This document describes a future-facing architecture where an AI assistant (via the Model Context Protocol, MCP) acts as an **SRE/analyst** over a FlowTime model and its telemetry-backed time-travel interface.
 
+Companion docs:
+- `mcp-server-architecture.md` — tool schemas and API mappings for read-only analysis.
+- `mcp-modeling.md` — closed-loop authoring, execution, and verification via MCP.
+- `mcp-modeling-tools.md` — authoring and run-capable tool schemas.
+
+The analyst toolset here is also used during MCP-driven modeling to verify inputs and outputs between iterations.
+
 The core idea:
 
 - FlowTime represents a **digital twin of service flows** as a DAG plus time-binned state vectors.

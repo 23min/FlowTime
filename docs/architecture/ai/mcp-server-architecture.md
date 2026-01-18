@@ -2,7 +2,8 @@
 
 This document drills into the concrete shape of an MCP server that exposes FlowTime's DAG and time-binned state as tools to an AI assistant.
 
-It is a companion to `README.md` in this folder, which motivates the overall "AI analyst" concept.
+It is a companion to `mcp-analyst.md` in this folder, which motivates the overall "AI analyst" concept.
+For the authoring + execution loop, see `mcp-modeling.md` and `mcp-modeling-tools.md`.
 
 ---
 
