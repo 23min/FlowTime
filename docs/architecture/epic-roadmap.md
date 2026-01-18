@@ -98,11 +98,11 @@ The list below enumerates current epics under `docs/architecture/` in an order t
 - **Goal:** Use the time-binned DAG model to detect incidents and recurring flow pathologies (retry storms, slow drains, stuck queues) and surface incident-focused stories and dashboards.
 - **Notes:** Builds on time travel and the engine semantics layer; also benefits from richer node/edge metrics.
 
-#### AI Analyst over the Digital Twin (MCP)
+#### MCP Modeling and Analysis (AI-Assisted Workflow)
 
 - **Folder:** `docs/architecture/ai/`
-- **Goal:** Expose FlowTime graph and state APIs via MCP (and related interfaces) so AI agents can act as analysts over runs—answering questions, comparing scenarios, and drafting summaries in a structured way.
-- **Notes:** Depends on stable `/state`/`/state_window` semantics and a clear engine semantics contract.
+- **Goal:** Deliver an MCP server that supports both modeling and analysis: draft templates in a working area, validate/generate/run via FlowTime.Sim and FlowTime API, and use analyst tools to inspect graph/state outputs for verification and iteration.
+- **Notes:** Depends on stable `/state`/`/state_window` semantics, a clear engine semantics contract, and documented template/run orchestration surfaces.
 
 #### Streaming & Subsystems
 
