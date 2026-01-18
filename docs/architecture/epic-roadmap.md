@@ -46,16 +46,16 @@ The list below enumerates current epics under `docs/architecture/` in an order t
   - `docs/milestones/completed/SB-M-05.01.md` — Breaking introduction of `kind: serviceWithBuffer` and removal of `kind: backlog` from the public surface.
 - **Notes:** SB-M-05.01 through SB-M-05.04 are marked complete in tracking; epic is closed pending future expansion.
 
-### Near-Term / In-Flight Epics
-
 #### Evaluation Integrity (DAG/Spreadsheet Contract)
 
 - **Folder:** `docs/architecture/evaluation-integrity/`
 - **Goal:** Enforce a strict DAG evaluation contract so no post-eval mutation is possible; all overrides apply before evaluation and derived class series always recompute in order.
 - **Key Milestones:**
-  - `docs/milestones/M-06.01-evaluation-integrity-dag-contract.md`
-  - `docs/milestones/M-06.02-model-compiler.md`
-- **Notes:** Tracking in `docs/milestones/tracking/M-06.01-tracking.md`. Scope is to fold current override behaviors into compile-to-DAG evaluation; templates remain unchanged.
+  - `docs/milestones/completed/M-06.01-evaluation-integrity-dag-contract.md`
+  - `docs/milestones/completed/M-06.02-model-compiler.md`
+- **Notes:** M-06.01 and M-06.02 are complete; compile-to-DAG is centralized in `FlowTime.Core` and shared across entry points.
+
+### Near-Term / In-Flight Epics
 
 #### Edge Time Bins / Edge Metrics
 
@@ -70,14 +70,14 @@ The list below enumerates current epics under `docs/architecture/` in an order t
 - **Key Docs:** `docs/architecture/telemetry-ingestion/README.md`
 - **Notes:** Not started; depends on stable bundle schemas and series semantics so ingestion outputs align with engine contracts.
 
-### Mid-Term / Aspirational Epics
-
 #### Engine Semantics Layer
 
 - **Folder:** `docs/architecture/engine-semantics-layer/`
 - **Goal:** Define the engine as the semantics layer that turns canonical bundles into stable `/state`, `/state_window`, and `/graph` contracts for downstream consumers.
 - **Key Docs:** `docs/architecture/engine-semantics-layer/README.md`
-- **Notes:** Listed in the "Mid-Term / Aspirational" section of the roadmap.
+- **Notes:** Moved into near-term to tighten the contract before telemetry ingestion and demo work.
+
+### Mid-Term / Aspirational Epics
 
 #### Telemetry Loop & Parity
 
