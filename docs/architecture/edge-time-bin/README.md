@@ -456,28 +456,28 @@ Mitigation:
 
 ## 10. Incremental Adoption Plan / Milestones
 
-EdgeTimeBin foundations are expected to land as 5.x milestones:
+EdgeTimeBin foundations are planned as 7.x engine milestones:
 
-- **ETB‑M‑05.01** — Schema + Sim + Synthetic (Foundations)
+- **M-07.01** - Schema + Artifacts + Simulation (Foundations)
   - Extend state schema and run artifacts for edges.
   - Emit EdgeTimeBins for simulation runs.
-  - Capture edge‑aware synthetic telemetry.
   - Add golden fixtures with edge data.
 
-- **ETB‑M‑05.02** — Node–Edge Coherence Analyzers
+- **M-07.02** - Node-Edge Coherence Analyzers
   - Implement soft conservation checks tying node and edge metrics.
   - Surface discrepancies as warnings, not errors.
+  - Add explicit edge quality signals (exact/approx/missing).
 
-- **ETB‑M‑05.03** — UI Edge Overlays (Feature‑flagged)
-  - Switch one key overlay (e.g., edge throughput) to use EdgeTimeBins when available, with fallback.
+- **M-07.03** - UI Edge Overlays (Feature-flagged)
+  - Switch overlays to use EdgeTimeBins when available, with fallback indicators.
   - Gradually expand to retries/DLQ and error overlays.
 
-- **ETB‑M‑05.04** — TelemetryLoader Extensions
-  - For domains where per‑edge telemetry is available: extend TelemetryLoader to produce EdgeTimeBins.
-  - For others: leave edges empty or approximate; tag with warnings.
+- **Telemetry Ingestion Epic** - Edge telemetry extensions
+  - Per-edge telemetry ingestion is handled under `docs/architecture/telemetry-ingestion/`.
+  - Edge quality flags remain the contract for approximate or missing edge data.
 
-- **ETB‑M‑05.05** — Path‑Level Views (Future Work)
-  - Add path analytics and richer per‑flow path visualizations on top of solid EdgeTimeBin foundations.
+- **Future Work** - Path-Level Views
+  - Add path analytics and richer per-flow visualizations on top of solid EdgeTimeBin foundations.
 
 ---
 
