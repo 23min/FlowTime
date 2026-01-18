@@ -9,6 +9,7 @@ public sealed class StateSnapshotResponse
     public required StateMetadata Metadata { get; init; }
     public required BinDetail Bin { get; init; }
     public IReadOnlyList<NodeSnapshot> Nodes { get; init; } = Array.Empty<NodeSnapshot>();
+    public IReadOnlyList<EdgeSeries> Edges { get; init; } = Array.Empty<EdgeSeries>();
     public IReadOnlyList<StateWarning> Warnings { get; init; } = Array.Empty<StateWarning>();
 }
 
