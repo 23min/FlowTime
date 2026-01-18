@@ -104,6 +104,39 @@ outputs: []
     }
 
     [Fact]
+    public void Analyze_DoesNotWarnMissingQueueDepth_WhenCompilerSynthesizesQueueDepth()
+    {
+        var yaml = """
+schemaVersion: 1
+generator: flowtime-sim
+grid:
+  bins: 2
+  binSize: 60
+  binUnit: minutes
+topology:
+  nodes:
+    - id: QueueNode
+      kind: serviceWithBuffer
+      semantics:
+        arrivals: arrivals
+        served: served
+        queueDepth: self
+nodes:
+  - id: arrivals
+    kind: const
+    values: [1, 1]
+  - id: served
+    kind: const
+    values: [1, 1]
+outputs: []
+""";
+
+        var result = TemplateInvariantAnalyzer.Analyze(yaml);
+
+        Assert.DoesNotContain(result.Warnings, w => w.Code == "missing_queue_depth_series");
+    }
+
+    [Fact]
     public void Analyze_RouterOverridesPreventClassLeakageWarning()
     {
         var yaml = """

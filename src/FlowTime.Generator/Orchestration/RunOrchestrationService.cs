@@ -7,6 +7,7 @@ using FlowTime.Contracts.Services;
 using FlowTime.Contracts.TimeTravel;
 using FlowTime.Core.Configuration;
 using FlowTime.Core.Artifacts;
+using FlowTime.Core.Compiler;
 using FlowTime.Core.Execution;
 using FlowTime.Core.Models;
 using FlowTime.Core.Nodes;
@@ -655,7 +656,8 @@ public sealed class RunOrchestrationService
         {
             Directory.CreateDirectory(outputRoot);
             var canonicalModel = ModelService.ParseAndConvert(modelYaml);
-            var (grid, graph) = ModelParser.ParseModel(canonicalModel);
+            var compiledModel = ModelCompiler.Compile(canonicalModel);
+            var (grid, graph) = ModelParser.ParseModel(compiledModel);
 
             logger.LogInformation(
                 runEvaluationEvent,
@@ -687,7 +689,7 @@ public sealed class RunOrchestrationService
             }
 
             var routerOverrides = RouterFlowMaterializer.ComputeOverrides(
-                canonicalModel,
+                compiledModel,
                 grid,
                 context);
             if (routerOverrides.Count > 0)
@@ -709,7 +711,7 @@ public sealed class RunOrchestrationService
 
             var writeRequest = new RunArtifactWriter.WriteRequest
             {
-                Model = canonicalModel,
+                Model = compiledModel,
                 Grid = grid,
                 Context = context,
                 SpecText = modelYaml,

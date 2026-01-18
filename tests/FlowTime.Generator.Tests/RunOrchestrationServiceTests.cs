@@ -1,9 +1,15 @@
 using System.Diagnostics.Metrics;
+using System.Globalization;
+using FlowTime.Contracts.Services;
 using FlowTime.Generator.Models;
 using FlowTime.Generator.Orchestration;
 using FlowTime.Sim.Core.Hashing;
 using FlowTime.Sim.Core.Services;
 using FlowTime.Tests.Support;
+using FlowTime.Core.Compiler;
+using FlowTime.Core.Execution;
+using FlowTime.Core.Models;
+using FlowTime.Core.Nodes;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -175,6 +181,51 @@ public class RunOrchestrationServiceTests
         Assert.Equal("simulation", result.ManifestMetadata.Mode);
         Assert.Equal(0, doc.RootElement.GetProperty("files").GetArrayLength());
         Assert.Equal("sim-order", result.ManifestMetadata.TemplateId);
+    }
+
+    [Fact]
+    public async Task CreateRunAsync_SimulationMode_UsesCompiledModelForDerivedSeries()
+    {
+        using var temp = new TempDirectory();
+        var templatesDir = Path.Combine(temp.Path, "templates");
+        Directory.CreateDirectory(templatesDir);
+
+        var templatePath = Path.Combine(templatesDir, "sim-queue.yaml");
+        await File.WriteAllTextAsync(templatePath, simulationQueueTemplate);
+
+        var templateService = new TemplateService(templatesDir, NullLogger<TemplateService>.Instance);
+        var bundleBuilder = new TelemetryBundleBuilder();
+        var orchestration = new RunOrchestrationService(templateService, bundleBuilder, NullLogger<RunOrchestrationService>.Instance);
+
+        var request = new RunOrchestrationRequest
+        {
+            TemplateId = "sim-queue",
+            Mode = "simulation",
+            Parameters = new Dictionary<string, object?>
+            {
+                ["bins"] = 3,
+                ["binSize"] = 60
+            },
+            OutputRoot = Path.Combine(temp.Path, "runs"),
+            DeterministicRunId = true
+        };
+
+        var outcome = await orchestration.CreateRunAsync(request);
+        var result = outcome.Result!;
+
+        var queuePath = Path.Combine(result.RunDirectory, "series", "queue_depth@QUEUE_DEPTH@DEFAULT.csv");
+        var actualQueue = ReadSeriesValues(queuePath);
+
+        var resolvedYaml = simulationQueueTemplate
+            .Replace("${bins}", "3", StringComparison.Ordinal)
+            .Replace("${binSize}", "60", StringComparison.Ordinal);
+        var canonicalModel = ModelService.ParseAndConvert(resolvedYaml);
+        var compiledModel = ModelCompiler.Compile(canonicalModel);
+        var (grid, graph) = ModelParser.ParseModel(compiledModel);
+        var evaluated = graph.Evaluate(grid);
+        var expectedQueue = evaluated[new NodeId("queue_depth")].ToArray();
+
+        Assert.Equal(expectedQueue, actualQueue);
     }
 
     [Fact]
@@ -526,6 +577,79 @@ nodes:
 outputs:
   - series: "*"
 """;
+
+    private const string simulationQueueTemplate = """
+schemaVersion: 1
+generator: flowtime-sim
+metadata:
+  id: sim-queue
+  title: Simulation Queue Template
+  version: 1.0.0
+window:
+  start: 2025-01-01T00:00:00Z
+  timezone: UTC
+
+parameters:
+  - name: bins
+    type: integer
+    default: 3
+  - name: binSize
+    type: integer
+    default: 60
+
+grid:
+  bins: ${bins}
+  binSize: ${binSize}
+  binUnit: minutes
+
+topology:
+  nodes:
+    - id: QueueNode
+      kind: serviceWithBuffer
+      semantics:
+        arrivals: arrivals
+        served: served
+        errors: errors
+        queueDepth: queue_depth
+  edges: []
+
+nodes:
+  - id: arrivals
+    kind: const
+    values: [5, 5, 5]
+  - id: served
+    kind: const
+    values: [3, 3, 3]
+  - id: errors
+    kind: const
+    values: [1, 0, 1]
+
+outputs:
+  - series: "*"
+""";
+
+    private static double[] ReadSeriesValues(string path)
+    {
+        var lines = File.ReadAllLines(path);
+        var values = new List<double>();
+        foreach (var line in lines.Skip(1))
+        {
+            if (string.IsNullOrWhiteSpace(line))
+            {
+                continue;
+            }
+
+            var parts = line.Split(',');
+            if (parts.Length != 2)
+            {
+                continue;
+            }
+
+            values.Add(double.Parse(parts[1], CultureInfo.InvariantCulture));
+        }
+
+        return values.ToArray();
+    }
 
     private const string simulationTemplateMissingWindow = """
 schemaVersion: 1
