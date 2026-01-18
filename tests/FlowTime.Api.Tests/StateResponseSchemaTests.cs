@@ -76,6 +76,35 @@ public class StateResponseSchemaTests : IClassFixture<TestWebApplicationFactory>
     }
 
     [Fact]
+    public async Task State_Response_AllowsEdges()
+    {
+        var runId = EnsureSchemaRun();
+        var response = await client.GetAsync($"/v1/runs/{runId}/state?binIndex=1");
+        response.EnsureSuccessStatusCode();
+
+        var json = await response.Content.ReadAsStringAsync();
+        var node = JsonNode.Parse(json);
+
+        Assert.NotNull(node);
+        var payload = node!.AsObject();
+        payload["edges"] = new JsonArray
+        {
+            new JsonObject
+            {
+                ["id"] = "edge_order_support",
+                ["from"] = "OrderService",
+                ["to"] = "SupportQueue",
+                ["series"] = new JsonObject
+                {
+                    ["flowTotal"] = new JsonArray(1, 2, 3, 4)
+                }
+            }
+        };
+
+        Assert.True(IsSchemaValid(payload), "Expected edges to be allowed on /state responses.");
+    }
+
+    [Fact]
     public async Task StateWindow_Response_AllowsSeriesMetadata()
     {
         var runId = EnsureSchemaRun();

@@ -20,6 +20,11 @@
                     "items": { "$ref": "#/$defs/nodeSnapshot" },
                     "default": []
                 },
+                "edges": {
+                    "type": "array",
+                    "items": { "$ref": "#/$defs/edgeSeries" },
+                    "default": []
+                },
                 "warnings": { "$ref": "#/$defs/stateWarnings" }
             }
         },
