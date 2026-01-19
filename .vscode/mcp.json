@@ -1,0 +1,21 @@
+{
+	"servers": {
+		"flowtime-mcp": {
+			"type": "stdio",
+			"command": "node",
+			"args": [
+				"--import",
+				"tsx",
+				"src/index.ts"
+			],
+			"cwd": "/workspaces/flowtime-vnext/tools/mcp-server",
+			"env": {
+				"FLOWTIME_SIM_API_URL": "http://localhost:8090/api/v1",
+				"FLOWTIME_API_URL": "http://localhost:8080/v1",
+				"FLOWTIME_DATA_DIR": "/workspaces/flowtime-vnext/data",
+				"MCP_MAX_BINS": "1000"
+			}
+		}
+	},
+	"inputs": []
+}
