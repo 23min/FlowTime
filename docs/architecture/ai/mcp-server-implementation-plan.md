@@ -1,6 +1,6 @@
 # MCP Server Implementation Plan (Node/TypeScript)
 
-Status: planning
+Status: M-07.01 PoC implemented (pending commit)
 
 ## 1. Goals
 

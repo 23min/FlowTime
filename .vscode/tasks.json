@@ -137,6 +137,29 @@
       }
     },
     {
+      "label": "start-mcp-server",
+      "type": "shell",
+      "command": "npm run dev",
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated",
+        "showReuseMessage": false
+      },
+      "options": {
+        "cwd": "${workspaceFolder}/tools/mcp-server",
+        "env": {
+          "FLOWTIME_SIM_API_URL": "http://localhost:8090/api/v1",
+          "FLOWTIME_API_URL": "http://localhost:8080/v1",
+          "FLOWTIME_DATA_DIR": "${workspaceFolder}/data",
+          "MCP_MAX_BINS": "1000"
+        }
+      }
+    },
+    {
       "label": "stop-sim-api",
       "type": "shell",
       "command": "pkill -f 'FlowTime.Sim.Service' || echo 'No Sim API process found'",
