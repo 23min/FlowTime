@@ -10,20 +10,20 @@ public class ProfileEndpointsTests : IClassFixture<WebApplicationFactory<Program
 {
     private readonly HttpClient client;
     private readonly string dataDir;
-    private readonly string draftsDir;
     private readonly string templateYaml;
 
     public ProfileEndpointsTests(WebApplicationFactory<Program> factory)
     {
         dataDir = Path.Combine(Path.GetTempPath(), "flow-sim-profile-tests", Guid.NewGuid().ToString("N"));
         var templatesDir = Path.Combine(dataDir, "templates");
-        draftsDir = Path.Combine(dataDir, "templates-draft");
+        var storageRoot = Path.Combine(dataDir, "storage");
         Directory.CreateDirectory(templatesDir);
-        Directory.CreateDirectory(draftsDir);
+        Directory.CreateDirectory(storageRoot);
 
         Environment.SetEnvironmentVariable("FLOWTIME_SIM_DATA_DIR", dataDir);
         Environment.SetEnvironmentVariable("FLOWTIME_SIM_TEMPLATES_DIR", templatesDir);
-        Environment.SetEnvironmentVariable("FLOWTIME_SIM_DRAFT_TEMPLATES_DIR", draftsDir);
+        Environment.SetEnvironmentVariable("Storage__Backend", "filesystem");
+        Environment.SetEnvironmentVariable("Storage__Root", storageRoot);
 
         factory = factory.WithWebHostBuilder(builder => { });
         client = factory.CreateClient();
@@ -152,8 +152,14 @@ outputs:
     [Fact]
     public async Task MapProfileToDraft_UpdatesYaml()
     {
-        var draftPath = Path.Combine(draftsDir, "draft-profile.yaml");
-        File.WriteAllText(draftPath, templateYaml);
+        var createRequest = new
+        {
+            draftId = "draft-profile",
+            content = templateYaml
+        };
+        var createContent = new StringContent(JsonSerializer.Serialize(createRequest), Encoding.UTF8, "application/json");
+        var createResponse = await client.PostAsync("/api/v1/drafts", createContent);
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
 
         var request = new
         {
@@ -173,7 +179,11 @@ outputs:
         Assert.Contains("profile:", updatedYaml);
         Assert.Contains("weights:", updatedYaml);
 
-        var persistedYaml = File.ReadAllText(draftPath);
+        var stored = await client.GetAsync("/api/v1/drafts/draft-profile");
+        Assert.Equal(HttpStatusCode.OK, stored.StatusCode);
+        var storedJson = JsonDocument.Parse(await stored.Content.ReadAsStringAsync());
+        var persistedYaml = storedJson.RootElement.GetProperty("content").GetString();
+        Assert.NotNull(persistedYaml);
         Assert.Contains("profile:", persistedYaml);
     }
 }

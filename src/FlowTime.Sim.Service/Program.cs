@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.IO.Compression;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Linq;
@@ -14,6 +15,7 @@ using FlowTime.Sim.Service; // TemplateRegistry
 using FlowTime.Sim.Service.Services; // ServiceInfoProvider
 using FlowTime.Sim.Service.Extensions; // TemplateValidationExtensions
 using FlowTime.Contracts.TimeTravel;
+using FlowTime.Contracts.Storage;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 using FlowTime.Generator;
@@ -49,6 +51,12 @@ builder.Services.AddSingleton<ITemplateService>(provider =>
 	var logger = provider.GetRequiredService<ILogger<TemplateService>>();
 	var templatesDirectory = ServiceHelpers.TemplatesRoot(builder.Configuration);
 	return new TemplateService(templatesDirectory, logger);
+});
+builder.Services.AddSingleton<IStorageBackend>(provider =>
+{
+	var config = provider.GetRequiredService<IConfiguration>();
+	var options = StorageBackendOptions.FromConfiguration(config);
+	return StorageBackendFactory.Create(options);
 });
 builder.Services.AddSingleton<TelemetryBundleBuilder>();
 builder.Services.AddSingleton<RunOrchestrationService>();
@@ -361,18 +369,161 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 			}
 		});
 
+		// API: GET /api/v1/drafts  (list stored drafts)
+		api.MapGet("/drafts", async (IStorageBackend storage, CancellationToken cancellationToken) =>
+		{
+			var items = await storage.ListAsync(new StorageListRequest { Kind = StorageKind.Draft }, cancellationToken).ConfigureAwait(false);
+			var response = new DraftListResponse
+			{
+				Items = items.Select(item => new DraftSummary
+				{
+					DraftId = item.Reference.Id,
+					StorageRef = item.Reference.ToString(),
+					ContentHash = item.ContentHash,
+					UpdatedUtc = item.UpdatedUtc,
+					Metadata = item.Metadata
+				}).ToList()
+			};
+
+			return Results.Ok(response);
+		});
+
+		// API: GET /api/v1/drafts/{draftId}  (get stored draft)
+		api.MapGet("/drafts/{draftId}", async (string draftId, IStorageBackend storage, CancellationToken cancellationToken) =>
+		{
+			if (!StorageRef.IsValidId(draftId))
+			{
+				return Results.BadRequest(new { error = "Invalid draft id." });
+			}
+
+			var reference = new StorageRef { Kind = StorageKind.Draft, Id = draftId };
+			var stored = await storage.ReadAsync(reference, cancellationToken).ConfigureAwait(false);
+			if (stored is null)
+			{
+				return Results.NotFound(new { error = $"Draft '{draftId}' not found." });
+			}
+
+			var content = System.Text.Encoding.UTF8.GetString(stored.Content);
+			return Results.Ok(new DraftResponse
+			{
+				DraftId = draftId,
+				StorageRef = stored.Reference.ToString(),
+				ContentHash = stored.ContentHash,
+				Content = content,
+				Metadata = stored.Metadata
+			});
+		});
+
+		// API: POST /api/v1/drafts  (create stored draft)
+		api.MapPost("/drafts", async (DraftCreateRequest request, IStorageBackend storage, CancellationToken cancellationToken) =>
+		{
+			if (request is null || string.IsNullOrWhiteSpace(request.Content))
+			{
+				return Results.BadRequest(new { error = "content is required." });
+			}
+
+			var draftId = string.IsNullOrWhiteSpace(request.DraftId)
+				? $"draft_{DateTime.UtcNow:yyyyMMddTHHmmssZ}_{Guid.NewGuid():N}"
+				: request.DraftId.Trim();
+
+			if (!StorageRef.IsValidId(draftId))
+			{
+				return Results.BadRequest(new { error = "Invalid draft id." });
+			}
+
+			var reference = new StorageRef { Kind = StorageKind.Draft, Id = draftId };
+			if (!request.Overwrite)
+			{
+				var existing = await storage.ReadAsync(reference, cancellationToken).ConfigureAwait(false);
+				if (existing is not null)
+				{
+					return Results.Conflict(new { error = $"Draft '{draftId}' already exists." });
+				}
+			}
+
+			var payload = System.Text.Encoding.UTF8.GetBytes(request.Content);
+			var write = await storage.WriteAsync(new StorageWriteRequest
+			{
+				Kind = StorageKind.Draft,
+				Id = draftId,
+				Content = payload,
+				ContentType = "text/yaml",
+				Metadata = request.Metadata
+			}, cancellationToken).ConfigureAwait(false);
+
+			return Results.Created($"/api/v1/drafts/{draftId}", new DraftWriteResponse
+			{
+				DraftId = draftId,
+				StorageRef = write.Reference.ToString(),
+				ContentHash = write.ContentHash
+			});
+		});
+
+		// API: PUT /api/v1/drafts/{draftId}  (update stored draft)
+		api.MapPut("/drafts/{draftId}", async (string draftId, DraftUpdateRequest request, IStorageBackend storage, CancellationToken cancellationToken) =>
+		{
+			if (!StorageRef.IsValidId(draftId))
+			{
+				return Results.BadRequest(new { error = "Invalid draft id." });
+			}
+
+			if (request is null || string.IsNullOrWhiteSpace(request.Content))
+			{
+				return Results.BadRequest(new { error = "content is required." });
+			}
+
+			var reference = new StorageRef { Kind = StorageKind.Draft, Id = draftId };
+			var existing = await storage.ReadAsync(reference, cancellationToken).ConfigureAwait(false);
+			if (existing is null)
+			{
+				return Results.NotFound(new { error = $"Draft '{draftId}' not found." });
+			}
+
+			var payload = System.Text.Encoding.UTF8.GetBytes(request.Content);
+			var write = await storage.WriteAsync(new StorageWriteRequest
+			{
+				Kind = StorageKind.Draft,
+				Id = draftId,
+				Content = payload,
+				ContentType = "text/yaml",
+				Metadata = request.Metadata
+			}, cancellationToken).ConfigureAwait(false);
+
+			return Results.Ok(new DraftWriteResponse
+			{
+				DraftId = draftId,
+				StorageRef = write.Reference.ToString(),
+				ContentHash = write.ContentHash
+			});
+		});
+
+		// API: DELETE /api/v1/drafts/{draftId}  (delete stored draft)
+		api.MapDelete("/drafts/{draftId}", async (string draftId, IStorageBackend storage, CancellationToken cancellationToken) =>
+		{
+			if (!StorageRef.IsValidId(draftId))
+			{
+				return Results.BadRequest(new { error = "Invalid draft id." });
+			}
+
+			var reference = new StorageRef { Kind = StorageKind.Draft, Id = draftId };
+			var removed = await storage.DeleteAsync(reference, cancellationToken).ConfigureAwait(false);
+			return removed ? Results.NoContent() : Results.NotFound(new { error = $"Draft '{draftId}' not found." });
+		});
+
 		// API: POST /api/v1/drafts/validate  (validate draft template source)
 		api.MapPost("/drafts/validate", async (
 			DraftTemplateRequest request,
 			IConfiguration config,
-			ILogger<TemplateService> templateLogger) =>
+			ILogger<TemplateService> templateLogger,
+			IStorageBackend storage,
+			CancellationToken cancellationToken) =>
 		{
 			if (request is null)
 			{
 				return Results.BadRequest(new { error = "Request body is required." });
 			}
 
-			var resolveResult = await ResolveDraftSourceAsync(request.Source, config).ConfigureAwait(false);
+			var resolveResult = await ResolveDraftSourceAsync(request.Source, config, storage, cancellationToken).ConfigureAwait(false);
 			if (resolveResult.ErrorResult is not null)
 			{
 				return resolveResult.ErrorResult;
@@ -442,14 +593,16 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 			DraftTemplateRequest request,
 			IConfiguration config,
 			ILogger<TemplateService> templateLogger,
-			ITemplateWarningRegistry warningRegistry) =>
+			ITemplateWarningRegistry warningRegistry,
+			IStorageBackend storage,
+			CancellationToken cancellationToken) =>
 		{
 			if (request is null)
 			{
 				return Results.BadRequest(new { error = "Request body is required." });
 			}
 
-			var resolveResult = await ResolveDraftSourceAsync(request.Source, config).ConfigureAwait(false);
+			var resolveResult = await ResolveDraftSourceAsync(request.Source, config, storage, cancellationToken).ConfigureAwait(false);
 			if (resolveResult.ErrorResult is not null)
 			{
 				return resolveResult.ErrorResult;
@@ -500,6 +653,7 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 			IConfiguration config,
 			ILogger<RunOrchestrationService> logger,
 			ILogger<TemplateService> templateLogger,
+			IStorageBackend storage,
 			CancellationToken cancellationToken) =>
 		{
 			if (request is null)
@@ -507,7 +661,7 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 				return Results.BadRequest(new { error = "Request body is required." });
 			}
 
-			var resolveResult = await ResolveDraftSourceAsync(request.Source, config).ConfigureAwait(false);
+			var resolveResult = await ResolveDraftSourceAsync(request.Source, config, storage, cancellationToken).ConfigureAwait(false);
 			if (resolveResult.ErrorResult is not null)
 			{
 				return resolveResult.ErrorResult;
@@ -573,6 +727,19 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 				var metadata = RunOrchestrationContractMapper.BuildStateMetadata(result);
 				var warnings = RunOrchestrationContractMapper.BuildStateWarnings(result.TelemetryManifest);
 				var canReplay = RunOrchestrationContractMapper.DetermineCanReplay(result);
+				var archive = BuildRunArchive(result.RunDirectory);
+				var bundleWrite = await storage.WriteAsync(new StorageWriteRequest
+				{
+					Kind = StorageKind.Run,
+					Id = metadata.RunId,
+					Content = archive,
+					ContentType = "application/zip",
+					Metadata = new Dictionary<string, string>
+					{
+						["templateId"] = metadata.TemplateId,
+						["mode"] = metadata.Mode
+					}
+				}, cancellationToken).ConfigureAwait(false);
 
 				logger.LogInformation("Run {RunId} created for draft {DraftId} (mode={Mode}, reused={Reused})", metadata.RunId, draftId, metadata.Mode, result.WasReused);
 
@@ -583,6 +750,7 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 					Warnings = warnings,
 					CanReplay = canReplay,
 					Telemetry = RunOrchestrationContractMapper.BuildTelemetrySummary(result),
+					BundleRef = bundleWrite.Reference,
 					WasReused = result.WasReused
 				});
 			}
@@ -881,7 +1049,9 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 		api.MapPost("/drafts/map-profile", async (
 			DraftProfileMapRequest request,
 			IConfiguration config,
-			ILogger<TemplateService> templateLogger) =>
+			ILogger<TemplateService> templateLogger,
+			IStorageBackend storage,
+			CancellationToken cancellationToken) =>
 		{
 			if (request is null)
 			{
@@ -908,7 +1078,7 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 				return Results.BadRequest(new { error = "profile or pmf must be provided." });
 			}
 
-			var resolveResult = await ResolveDraftSourceAsync(request.Source, config).ConfigureAwait(false);
+			var resolveResult = await ResolveDraftSourceAsync(request.Source, config, storage, cancellationToken).ConfigureAwait(false);
 			if (resolveResult.ErrorResult is not null)
 			{
 				return resolveResult.ErrorResult;
@@ -978,9 +1148,14 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 					return Results.BadRequest(new { error = "persist requires source.type 'draftId'." });
 				}
 
-				var draftsRoot = ServiceHelpers.DraftTemplatesRoot(config);
-				var draftPath = Path.Combine(draftsRoot, $"{draftId}.yaml");
-				File.WriteAllText(draftPath, updatedYaml);
+				var payload = System.Text.Encoding.UTF8.GetBytes(updatedYaml);
+				await storage.WriteAsync(new StorageWriteRequest
+				{
+					Kind = StorageKind.Draft,
+					Id = draftId,
+					Content = payload,
+					ContentType = "text/yaml"
+				}, cancellationToken).ConfigureAwait(false);
 				persisted = true;
 			}
 
@@ -1432,9 +1607,29 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 		return result;
 	}
 
+	private static byte[] BuildRunArchive(string runDirectory)
+	{
+		using var stream = new MemoryStream();
+		using (var archive = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: true))
+		{
+			foreach (var file in Directory.EnumerateFiles(runDirectory, "*", SearchOption.AllDirectories))
+			{
+				var entryPath = Path.GetRelativePath(runDirectory, file);
+				var entry = archive.CreateEntry(entryPath, CompressionLevel.Fastest);
+				using var entryStream = entry.Open();
+				using var fileStream = File.OpenRead(file);
+				fileStream.CopyTo(entryStream);
+			}
+		}
+
+		return stream.ToArray();
+	}
+
 	private static async Task<(DraftSourceResolution? Value, IResult? ErrorResult)> ResolveDraftSourceAsync(
 		DraftSource source,
-		IConfiguration config)
+		IConfiguration config,
+		IStorageBackend storage,
+		CancellationToken cancellationToken)
 	{
 		if (source is null)
 		{
@@ -1459,14 +1654,14 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 				return (null, Results.BadRequest(new { error = "Invalid draft id." }));
 			}
 
-			var draftsRoot = ServiceHelpers.DraftTemplatesRoot(config);
-			var draftPath = Path.Combine(draftsRoot, $"{source.Id}.yaml");
-			if (!File.Exists(draftPath))
+			var reference = new StorageRef { Kind = StorageKind.Draft, Id = source.Id };
+			var stored = await storage.ReadAsync(reference, cancellationToken).ConfigureAwait(false);
+			if (stored is null)
 			{
 				return (null, Results.NotFound(new { error = $"Draft '{source.Id}' not found." }));
 			}
 
-			var yaml = await File.ReadAllTextAsync(draftPath, System.Text.Encoding.UTF8).ConfigureAwait(false);
+			var yaml = System.Text.Encoding.UTF8.GetString(stored.Content);
 			return (new DraftSourceResolution(source.Id, yaml), null);
 		}
 
@@ -2168,6 +2363,50 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 		public RunRngOptions? Rng { get; init; }
 		public RunCreationOptions? Options { get; init; }
 		public object? Actor { get; init; }
+	}
+
+	public sealed class DraftCreateRequest
+	{
+		public string? DraftId { get; init; }
+		public string Content { get; init; } = string.Empty;
+		public bool Overwrite { get; init; }
+		public Dictionary<string, string>? Metadata { get; init; }
+	}
+
+	public sealed class DraftUpdateRequest
+	{
+		public string Content { get; init; } = string.Empty;
+		public Dictionary<string, string>? Metadata { get; init; }
+	}
+
+	public sealed class DraftWriteResponse
+	{
+		public required string DraftId { get; init; }
+		public required string StorageRef { get; init; }
+		public required string ContentHash { get; init; }
+	}
+
+	public sealed class DraftResponse
+	{
+		public required string DraftId { get; init; }
+		public required string StorageRef { get; init; }
+		public string? ContentHash { get; init; }
+		public required string Content { get; init; }
+		public IReadOnlyDictionary<string, string>? Metadata { get; init; }
+	}
+
+	public sealed class DraftSummary
+	{
+		public required string DraftId { get; init; }
+		public required string StorageRef { get; init; }
+		public string? ContentHash { get; init; }
+		public DateTimeOffset UpdatedUtc { get; init; }
+		public IReadOnlyDictionary<string, string>? Metadata { get; init; }
+	}
+
+	public sealed class DraftListResponse
+	{
+		public IReadOnlyList<DraftSummary> Items { get; init; } = Array.Empty<DraftSummary>();
 	}
 
 	public sealed class SeriesIngestRequest

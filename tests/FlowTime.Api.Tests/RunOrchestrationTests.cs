@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json.Nodes;
 using FlowTime.Api.Tests.Infrastructure;
+using FlowTime.Contracts.Storage;
 using FlowTime.Generator.Orchestration;
 using FlowTime.Tests.Support;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -85,6 +86,35 @@ public class RunOrchestrationTests : IClassFixture<TestWebApplicationFactory>, I
         var detail = await client.GetFromJsonAsync<JsonNode>($"/v1/runs/{runId}");
         Assert.NotNull(detail);
         Assert.Equal(runId, detail?["metadata"]?["runId"]?.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task ImportRun_FromStorageRef_Succeeds()
+    {
+        var sourceRunPath = await CreateSimulationBundleAsync("sim-storage");
+        var archiveBytes = await CreateArchiveBytesAsync(sourceRunPath);
+        var storageRoot = Path.Combine(factory.TestDataDirectory, "storage");
+        Directory.CreateDirectory(storageRoot);
+        var backend = new FileSystemStorageBackend(storageRoot);
+        var runId = Path.GetFileName(sourceRunPath);
+
+        var write = await backend.WriteAsync(new StorageWriteRequest
+        {
+            Kind = StorageKind.Run,
+            Id = runId,
+            Content = archiveBytes,
+            ContentType = "application/zip"
+        });
+
+        var response = await client.PostAsJsonAsync("/v1/runs", new
+        {
+            bundleRef = write.Reference
+        });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var payload = JsonNode.Parse(await response.Content.ReadAsStringAsync());
+        var importedRunId = payload?["metadata"]?["runId"]?.GetValue<string>();
+        Assert.False(string.IsNullOrWhiteSpace(importedRunId));
     }
 
     [Fact]
@@ -172,6 +202,12 @@ public class RunOrchestrationTests : IClassFixture<TestWebApplicationFactory>, I
 
     private static async Task<string> CreateArchiveBase64Async(string runDirectory)
     {
+        var bytes = await CreateArchiveBytesAsync(runDirectory).ConfigureAwait(false);
+        return Convert.ToBase64String(bytes);
+    }
+
+    private static async Task<byte[]> CreateArchiveBytesAsync(string runDirectory)
+    {
         var archivePath = Path.Combine(Path.GetTempPath(), $"flowtime_api_import_{Guid.NewGuid():N}.zip");
         if (File.Exists(archivePath))
         {
@@ -180,7 +216,7 @@ public class RunOrchestrationTests : IClassFixture<TestWebApplicationFactory>, I
         ZipFile.CreateFromDirectory(runDirectory, archivePath, CompressionLevel.Optimal, includeBaseDirectory: true);
         var bytes = await File.ReadAllBytesAsync(archivePath).ConfigureAwait(false);
         File.Delete(archivePath);
-        return Convert.ToBase64String(bytes);
+        return bytes;
     }
 
     public void Dispose()

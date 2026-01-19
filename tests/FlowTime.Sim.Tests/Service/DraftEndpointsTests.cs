@@ -10,20 +10,20 @@ namespace FlowTime.Sim.Tests.Service;
 public class DraftEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
 {
     private readonly HttpClient client;
-    private readonly string draftsDir;
     private readonly string templateYaml;
 
     public DraftEndpointsTests(WebApplicationFactory<Program> factory)
     {
         var testDataDir = Path.Combine(Path.GetTempPath(), "flow-sim-draft-tests", Guid.NewGuid().ToString("N"));
         var templatesDir = Path.Combine(testDataDir, "templates");
-        draftsDir = Path.Combine(testDataDir, "templates-draft");
+        var storageRoot = Path.Combine(testDataDir, "storage");
         Directory.CreateDirectory(templatesDir);
-        Directory.CreateDirectory(draftsDir);
+        Directory.CreateDirectory(storageRoot);
 
         Environment.SetEnvironmentVariable("FLOWTIME_SIM_DATA_DIR", testDataDir);
         Environment.SetEnvironmentVariable("FLOWTIME_SIM_TEMPLATES_DIR", templatesDir);
-        Environment.SetEnvironmentVariable("FLOWTIME_SIM_DRAFT_TEMPLATES_DIR", draftsDir);
+        Environment.SetEnvironmentVariable("Storage__Backend", "filesystem");
+        Environment.SetEnvironmentVariable("Storage__Root", storageRoot);
 
         factory = factory.WithWebHostBuilder(builder => { });
         client = factory.CreateClient();
@@ -118,8 +118,14 @@ outputs:
     [Fact]
     public async Task ValidateDraftId_ReturnsValidPayload()
     {
-        var draftPath = Path.Combine(draftsDir, "draft-file.yaml");
-        File.WriteAllText(draftPath, templateYaml.Replace("draft-inline", "draft-file"));
+        var createRequest = new
+        {
+            draftId = "draft-file",
+            content = templateYaml.Replace("draft-inline", "draft-file")
+        };
+        var createContent = new StringContent(JsonSerializer.Serialize(createRequest), Encoding.UTF8, "application/json");
+        var createResponse = await client.PostAsync("/api/v1/drafts", createContent);
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
 
         var request = new
         {
@@ -157,5 +163,6 @@ outputs:
         var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         Assert.True(json.RootElement.TryGetProperty("metadata", out var metadata));
         Assert.True(metadata.TryGetProperty("runId", out _));
+        Assert.True(json.RootElement.TryGetProperty("bundleRef", out _));
     }
 }

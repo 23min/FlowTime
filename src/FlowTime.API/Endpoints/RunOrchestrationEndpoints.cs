@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text.Json;
 using FlowTime.API.Services;
 using FlowTime.Contracts.TimeTravel;
+using FlowTime.Contracts.Storage;
 using FlowTime.Generator.Artifacts;
 using FlowTime.Generator.Orchestration;
 
@@ -26,6 +27,7 @@ internal static class RunOrchestrationEndpoints
         RunOrchestrationService orchestration,
         IConfiguration configuration,
         MetricsService metricsService,
+        IStorageBackend storage,
         ILogger<Program> logger,
         CancellationToken cancellationToken)
     {
@@ -36,7 +38,8 @@ internal static class RunOrchestrationEndpoints
 
         var hasBundlePath = !string.IsNullOrWhiteSpace(request.BundlePath);
         var hasArchive = !string.IsNullOrWhiteSpace(request.BundleArchiveBase64);
-        if (!hasBundlePath && !hasArchive)
+        var hasBundleRef = request.BundleRef is not null;
+        if (!hasBundlePath && !hasArchive && !hasBundleRef)
         {
             return Results.Json(
                 new { error = "Template-driven run creation moved to FlowTime.Sim Service (/api/v1/orchestration/runs). Import canonical bundles via bundlePath or bundleArchiveBase64." },
@@ -46,11 +49,32 @@ internal static class RunOrchestrationEndpoints
         string? extractionRoot = null;
         try
         {
-            var sourceDirectory = hasArchive
-                ? await ExtractArchiveAsync(request.BundleArchiveBase64!, cancellationToken).ConfigureAwait(false)
-                : Path.GetFullPath(request.BundlePath!);
+            string sourceDirectory;
+            if (hasBundleRef)
+            {
+                if (request.BundleRef!.Kind != StorageKind.Run)
+                {
+                    return Results.BadRequest(new { error = "bundleRef must reference a run bundle." });
+                }
 
-            extractionRoot = hasArchive ? sourceDirectory : null;
+                var stored = await storage.ReadAsync(request.BundleRef, cancellationToken).ConfigureAwait(false);
+                if (stored is null)
+                {
+                    return Results.BadRequest(new { error = "bundleRef was not found in storage." });
+                }
+
+                sourceDirectory = await ExtractArchiveAsync(stored.Content, cancellationToken).ConfigureAwait(false);
+                extractionRoot = sourceDirectory;
+            }
+            else if (hasArchive)
+            {
+                sourceDirectory = await ExtractArchiveAsync(request.BundleArchiveBase64!, cancellationToken).ConfigureAwait(false);
+                extractionRoot = sourceDirectory;
+            }
+            else
+            {
+                sourceDirectory = Path.GetFullPath(request.BundlePath!);
+            }
 
             if (!Directory.Exists(sourceDirectory))
             {
@@ -299,6 +323,11 @@ internal static class RunOrchestrationEndpoints
     private static async Task<string> ExtractArchiveAsync(string base64, CancellationToken cancellationToken)
     {
         var bytes = Convert.FromBase64String(base64);
+        return await ExtractArchiveAsync(bytes, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task<string> ExtractArchiveAsync(byte[] bytes, CancellationToken cancellationToken)
+    {
         var extractionRoot = Path.Combine(Path.GetTempPath(), $"flowtime_import_{Guid.NewGuid():N}");
         Directory.CreateDirectory(extractionRoot);
 
