@@ -7,12 +7,8 @@ import { DraftStore } from '../src/drafts.js';
 
 const draftSimApiUrl = process.env.MCP_TEST_DRAFT_SIM_API_URL;
 const engineApiUrl = process.env.MCP_TEST_ENGINE_API_URL;
-const dataDir = process.env.MCP_TEST_DATA_DIR;
-const templatesDir = process.env.MCP_TEST_TEMPLATES_DIR;
-const draftsDir = process.env.MCP_TEST_DRAFT_TEMPLATES_DIR;
-
-if (!draftSimApiUrl || !engineApiUrl || !dataDir || !templatesDir || !draftsDir) {
-  test('draft integration tests skipped (missing MCP_TEST_DRAFT_SIM_API_URL or related env vars)', { skip: true }, () => {
+if (!draftSimApiUrl || !engineApiUrl) {
+  test('draft integration tests skipped (missing MCP_TEST_DRAFT_SIM_API_URL or MCP_TEST_ENGINE_API_URL)', { skip: true }, () => {
     assert.ok(true);
   });
 } else {
@@ -20,20 +16,17 @@ if (!draftSimApiUrl || !engineApiUrl || !dataDir || !templatesDir || !draftsDir)
     FLOWTIME_SIM_API_URL: process.env.MCP_TEST_SIM_API_URL ?? draftSimApiUrl,
     FLOWTIME_SIM_DRAFT_API_URL: draftSimApiUrl,
     FLOWTIME_API_URL: engineApiUrl,
-    FLOWTIME_DATA_DIR: dataDir,
-    FLOWTIME_TEMPLATES_DIR: templatesDir,
-    FLOWTIME_TEMPLATES_DRAFT_DIR: draftsDir,
     MCP_REQUEST_TIMEOUT_MS: process.env.MCP_TEST_REQUEST_TIMEOUT_MS ?? '30000',
     MCP_ORCHESTRATION_TIMEOUT_MS: process.env.MCP_TEST_ORCHESTRATION_TIMEOUT_MS ?? '120000'
   });
 
   const handlers = createHandlers(config);
-  const store = new DraftStore({ templatesDir, draftsDir });
+  const store = new DraftStore({ simApiUrl: draftSimApiUrl, requestTimeoutMs: 30000 });
 
   test('validateDraft returns warnings payload', async () => {
     const draft = await store.createDraft({ baseTemplateId: 'transportation-basic' });
     const result = await handlers.validateDraft({
-      draftId: draft.metadata.draftId,
+      draftId: draft.draftId,
       parameters: {},
       mode: 'simulation'
     });
@@ -47,13 +40,32 @@ if (!draftSimApiUrl || !engineApiUrl || !dataDir || !templatesDir || !draftsDir)
   test('runDraft returns a runId', async () => {
     const draft = await store.createDraft({ baseTemplateId: 'transportation-basic' });
     const result = await handlers.runDraft({
-      draftId: draft.metadata.draftId,
+      draftId: draft.draftId,
       mode: 'simulation',
       parameters: {}
     });
     const payload = result.structuredContent as { runId?: string } | undefined;
     if (!payload?.runId) {
       throw new Error('Missing runId in structured payload.');
+    }
+  }, { timeout: 120000 });
+
+  test('draft run can be inspected via getRunSummary', async () => {
+    const draft = await store.createDraft({ baseTemplateId: 'transportation-basic' });
+    const runResult = await handlers.runDraft({
+      draftId: draft.draftId,
+      mode: 'simulation',
+      parameters: {}
+    });
+    const payload = runResult.structuredContent as { runId?: string } | undefined;
+    if (!payload?.runId) {
+      throw new Error('Missing runId in structured payload.');
+    }
+
+    const summaryResult = await handlers.getRunSummary({ runId: payload.runId });
+    const summaryPayload = summaryResult.structuredContent as { summary?: unknown } | undefined;
+    if (!summaryPayload?.summary) {
+      throw new Error('Missing summary in structured payload.');
     }
   }, { timeout: 120000 });
 }

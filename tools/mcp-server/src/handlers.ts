@@ -1,4 +1,3 @@
-import path from 'node:path';
 import { randomInt } from 'node:crypto';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import type { ServerConfig } from './config.js';
@@ -35,6 +34,7 @@ type RunCreateResponse = {
   warnings?: unknown[];
   canReplay?: boolean;
   telemetry?: unknown;
+  bundleRef?: unknown;
 };
 
 const toToolResult = (payload: Record<string, unknown>): CallToolResult => ({
@@ -46,9 +46,6 @@ const toToolResult = (payload: Record<string, unknown>): CallToolResult => ({
   ],
   structuredContent: payload
 });
-
-const buildBundlePath = (config: ServerConfig, runId: string): string =>
-  path.join(config.dataDir, 'runs', runId);
 
 const enforceSimulationMode = (mode: string | undefined): string => {
   const resolved = mode ?? 'simulation';
@@ -137,7 +134,10 @@ const runTemplateWithSim = async (
     throw new Error('Sim orchestration response missing runId.');
   }
 
-  const bundlePath = buildBundlePath(config, runId);
+  const bundleRef = orchestration.bundleRef;
+  if (!bundleRef) {
+    throw new Error('Sim orchestration response missing bundleRef.');
+  }
   let importStatus = 'imported';
   let importError: unknown = null;
 
@@ -147,7 +147,7 @@ const runTemplateWithSim = async (
       {
         method: 'POST',
         body: JSON.stringify({
-          bundlePath,
+          bundleRef,
           overwriteExisting: args.overwriteExisting ?? false
         })
       },
@@ -164,7 +164,7 @@ const runTemplateWithSim = async (
 
   return toToolResult({
     runId,
-    bundlePath,
+    bundleRef,
     warnings: orchestration.warnings ?? [],
     telemetry: orchestration.telemetry ?? null,
     rngSeed: rngResult.seed,
@@ -211,7 +211,10 @@ const runDraft = async (config: ServerConfig, args: RunDraftArgs): Promise<CallT
     throw new Error('Sim orchestration response missing runId.');
   }
 
-  const bundlePath = buildBundlePath(config, runId);
+  const bundleRef = orchestration.bundleRef;
+  if (!bundleRef) {
+    throw new Error('Sim orchestration response missing bundleRef.');
+  }
   let importStatus = 'imported';
   let importError: unknown = null;
 
@@ -221,7 +224,7 @@ const runDraft = async (config: ServerConfig, args: RunDraftArgs): Promise<CallT
       {
         method: 'POST',
         body: JSON.stringify({
-          bundlePath,
+          bundleRef,
           overwriteExisting: args.overwriteExisting ?? false
         })
       },
@@ -238,7 +241,7 @@ const runDraft = async (config: ServerConfig, args: RunDraftArgs): Promise<CallT
 
   return toToolResult({
     runId,
-    bundlePath,
+    bundleRef,
     warnings: orchestration.warnings ?? [],
     telemetry: orchestration.telemetry ?? null,
     rngSeed: rngResult.seed,
@@ -451,8 +454,8 @@ const mapSeriesToInputs = async (config: ServerConfig, args: MapSeriesToInputsAr
 
 export const createHandlers = (config: ServerConfig): ToolHandlers => {
   const draftStore = new DraftStore({
-    templatesDir: config.templatesDir,
-    draftsDir: config.draftsDir
+    simApiUrl: config.draftSimApiUrl,
+    requestTimeoutMs: config.requestTimeoutMs
   });
 
   return {

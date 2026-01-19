@@ -14,7 +14,6 @@ if (!simApiUrl || !engineApiUrl) {
   const config = loadConfig({
     FLOWTIME_SIM_API_URL: simApiUrl,
     FLOWTIME_API_URL: engineApiUrl,
-    FLOWTIME_DATA_DIR: process.env.MCP_TEST_DATA_DIR ?? 'data',
     MCP_REQUEST_TIMEOUT_MS: process.env.MCP_TEST_REQUEST_TIMEOUT_MS ?? '30000',
     MCP_ORCHESTRATION_TIMEOUT_MS: process.env.MCP_TEST_ORCHESTRATION_TIMEOUT_MS ?? '120000'
   });

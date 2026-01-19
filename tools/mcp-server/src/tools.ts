@@ -256,7 +256,7 @@ export const registerTools = (server: McpServer, handlers: ToolHandlers): void =
   server.registerTool(
     'list_drafts',
     {
-      description: 'List draft templates from templates-draft.',
+      description: 'List draft templates from FlowTime.Sim.Service storage.',
       inputSchema: {},
       outputSchema: {
         drafts: z.array(z.record(z.string(), z.unknown()))
@@ -268,7 +268,7 @@ export const registerTools = (server: McpServer, handlers: ToolHandlers): void =
   server.registerTool(
     'create_draft',
     {
-      description: 'Create a draft template in templates-draft, optionally cloning an approved template.',
+      description: 'Create a draft template via FlowTime.Sim.Service storage.',
       inputSchema: {
         draftId: z.string().min(1).optional(),
         baseTemplateId: z.string().min(1).optional(),

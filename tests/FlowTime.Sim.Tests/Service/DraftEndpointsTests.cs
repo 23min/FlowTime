@@ -113,6 +113,37 @@ outputs:
         Assert.True(json.RootElement.TryGetProperty("model", out var modelElement));
         var modelYaml = modelElement.GetString();
         Assert.False(string.IsNullOrWhiteSpace(modelYaml));
+        Assert.True(json.RootElement.TryGetProperty("modelRef", out _));
+    }
+
+    [Fact]
+    public async Task GenerateDraftInline_RegistersModel()
+    {
+        var request = new
+        {
+            source = new { type = "inline", id = "draft-inline", content = templateYaml },
+            parameters = new { bins = 3, binSize = 1 },
+            mode = "simulation"
+        };
+        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var response = await client.PostAsync("/api/v1/drafts/generate", content);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var modelRef = json.RootElement.GetProperty("modelRef").ToString();
+        Assert.False(string.IsNullOrWhiteSpace(modelRef));
+
+        var modelsResponse = await client.GetAsync("/api/v1/models");
+        Assert.Equal(HttpStatusCode.OK, modelsResponse.StatusCode);
+        var modelsJson = JsonDocument.Parse(await modelsResponse.Content.ReadAsStringAsync());
+        var models = modelsJson.RootElement.GetProperty("models");
+        Assert.Contains(models.EnumerateArray(), item =>
+            string.Equals(item.GetProperty("templateId").GetString(), "draft-inline", StringComparison.OrdinalIgnoreCase));
+
+        var detailResponse = await client.GetAsync("/api/v1/models/draft-inline");
+        Assert.Equal(HttpStatusCode.OK, detailResponse.StatusCode);
+        var detailJson = JsonDocument.Parse(await detailResponse.Content.ReadAsStringAsync());
+        Assert.True(detailJson.RootElement.TryGetProperty("model", out _));
     }
 
     [Fact]

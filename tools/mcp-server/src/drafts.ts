@@ -1,27 +1,29 @@
-import fs from 'node:fs/promises';
-import path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { createTwoFilesPatch } from 'diff';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
+import { fetchJson } from './http.js';
 
 export type DraftMetadata = {
   draftId: string;
   baseTemplateId?: string;
-  createdAt: string;
-  updatedAt: string;
-  contentHash: string;
+  createdAt?: string;
+  updatedAt?: string;
+  contentHash?: string;
 };
 
 export type DraftSummary = {
   draftId: string;
   baseTemplateId?: string;
-  updatedAt: string;
-  contentHash: string;
+  updatedAt?: string;
+  contentHash?: string;
 };
 
 export type DraftRecord = {
-  metadata: DraftMetadata;
+  draftId: string;
+  storageRef?: string;
   content: string;
+  contentHash?: string;
+  metadata?: Record<string, string>;
 };
 
 export type DraftCreateOptions = {
@@ -43,13 +45,11 @@ export type DraftDiff = {
 };
 
 type DraftStoreOptions = {
-  templatesDir: string;
-  draftsDir: string;
+  simApiUrl: string;
+  requestTimeoutMs: number;
 };
 
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
-
-const nowIso = (): string => new Date().toISOString();
 
 const computeHash = (content: string): string =>
   `sha256:${createHash('sha256').update(content).digest('hex')}`;
@@ -58,24 +58,6 @@ const ensureSafeId = (id: string, label: string): void => {
   if (!SAFE_ID.test(id)) {
     throw new Error(`${label} must contain only letters, numbers, '.', '_' or '-'.`);
   }
-};
-
-const buildDraftFile = (draftsDir: string, draftId: string): string =>
-  path.join(draftsDir, `${draftId}.yaml`);
-
-const buildMetaFile = (draftsDir: string, draftId: string): string =>
-  path.join(draftsDir, `${draftId}.meta.json`);
-
-const ensureDir = async (dir: string): Promise<void> => {
-  await fs.mkdir(dir, { recursive: true });
-};
-
-const loadYamlTemplate = async (filePath: string): Promise<string> => {
-  const content = await fs.readFile(filePath, 'utf8');
-  if (!content.trim()) {
-    throw new Error(`Template file ${filePath} is empty.`);
-  }
-  return content;
 };
 
 const setMetadataId = (content: string, draftId: string): string => {
@@ -91,148 +73,151 @@ const setMetadataId = (content: string, draftId: string): string => {
   return stringifyYaml(doc);
 };
 
+const buildDefaultDraft = (draftId: string): string =>
+  stringifyYaml({
+    schemaVersion: 1,
+    generator: 'flowtime-sim',
+    metadata: {
+      id: draftId,
+      title: `Draft ${draftId}`,
+      description: 'Draft template created via MCP.'
+    },
+    window: {
+      start: new Date().toISOString(),
+      timezone: 'UTC'
+    },
+    parameters: [],
+    topology: {
+      nodes: []
+    }
+  });
+
 export class DraftStore {
-  private readonly templatesDir: string;
-  private readonly draftsDir: string;
+  private readonly simApiUrl: string;
+  private readonly requestTimeoutMs: number;
 
   constructor(options: DraftStoreOptions) {
-    this.templatesDir = options.templatesDir;
-    this.draftsDir = options.draftsDir;
+    this.simApiUrl = options.simApiUrl;
+    this.requestTimeoutMs = options.requestTimeoutMs;
   }
 
   async listDrafts(): Promise<DraftSummary[]> {
-    await ensureDir(this.draftsDir);
-    const entries = await fs.readdir(this.draftsDir, { withFileTypes: true });
-    const drafts: DraftSummary[] = [];
+    const response = await fetchJson<{ items?: Array<Record<string, unknown>> }>(
+      `${this.simApiUrl}/drafts`,
+      { method: 'GET' },
+      this.requestTimeoutMs
+    );
 
-    for (const entry of entries) {
-      if (!entry.isFile() || !entry.name.endsWith('.yaml')) {
-        continue;
-      }
-      const draftId = entry.name.replace(/\.yaml$/, '');
-      const meta = await this.readMetadata(draftId);
-      const content = await fs.readFile(buildDraftFile(this.draftsDir, draftId), 'utf8');
-      const contentHash = computeHash(content);
-      const updatedAt = meta?.updatedAt ?? (await fs.stat(buildDraftFile(this.draftsDir, draftId))).mtime.toISOString();
-      drafts.push({
-        draftId,
-        baseTemplateId: meta?.baseTemplateId,
-        updatedAt,
-        contentHash
-      });
-    }
-
-    return drafts.sort((a, b) => a.draftId.localeCompare(b.draftId));
+    const items = response.items ?? [];
+    return items.map((item) => {
+      const metadata = (item.metadata ?? {}) as Record<string, string>;
+      return {
+        draftId: String(item.draftId ?? ''),
+        baseTemplateId: metadata.baseTemplateId,
+        updatedAt: typeof item.updatedUtc === 'string' ? item.updatedUtc : undefined,
+        contentHash: typeof item.contentHash === 'string' ? item.contentHash : undefined
+      };
+    });
   }
 
   async getDraft(draftId: string): Promise<DraftRecord> {
     ensureSafeId(draftId, 'draftId');
-    const content = await fs.readFile(buildDraftFile(this.draftsDir, draftId), 'utf8');
-    const contentHash = computeHash(content);
-    const meta = await this.readMetadata(draftId);
-    const now = nowIso();
-    const metadata: DraftMetadata = {
-      draftId,
-      baseTemplateId: meta?.baseTemplateId,
-      createdAt: meta?.createdAt ?? now,
-      updatedAt: meta?.updatedAt ?? now,
-      contentHash
+    const response = await fetchJson<Record<string, unknown>>(
+      `${this.simApiUrl}/drafts/${draftId}`,
+      { method: 'GET' },
+      this.requestTimeoutMs
+    );
+
+    return {
+      draftId: String(response.draftId ?? draftId),
+      storageRef: typeof response.storageRef === 'string' ? response.storageRef : undefined,
+      content: String(response.content ?? ''),
+      contentHash: typeof response.contentHash === 'string' ? response.contentHash : undefined,
+      metadata: (response.metadata ?? undefined) as Record<string, string> | undefined
     };
-    return { metadata, content };
   }
 
   async createDraft(options: DraftCreateOptions): Promise<DraftRecord> {
     const draftId = options.draftId ?? `draft-${randomUUID()}`;
     ensureSafeId(draftId, 'draftId');
-    await ensureDir(this.draftsDir);
 
-    const draftPath = buildDraftFile(this.draftsDir, draftId);
-    try {
-      await fs.access(draftPath);
-      throw new Error(`Draft '${draftId}' already exists.`);
-    } catch {
-      // ok
-    }
-
-    let content = '';
-    if (options.content) {
-      content = setMetadataId(options.content, draftId);
-    } else if (options.baseTemplateId) {
+    let content = options.content;
+    if (!content && options.baseTemplateId) {
       ensureSafeId(options.baseTemplateId, 'baseTemplateId');
-      const basePath = path.join(this.templatesDir, `${options.baseTemplateId}.yaml`);
-      const baseContent = await loadYamlTemplate(basePath);
-      content = setMetadataId(baseContent, draftId);
-    } else {
-      content = stringifyYaml({
-        schemaVersion: 1,
-        generator: 'flowtime-sim',
-        metadata: {
-          id: draftId,
-          title: `Draft ${draftId}`,
-          description: 'Draft template created via MCP.'
-        },
-        window: {
-          start: new Date().toISOString(),
-          timezone: 'UTC'
-        },
-        parameters: [],
-        topology: {
-          nodes: []
-        }
-      });
+      const template = await fetchJson<{ source?: string }>(
+        `${this.simApiUrl}/templates/${options.baseTemplateId}/source`,
+        { method: 'GET' },
+        this.requestTimeoutMs
+      );
+      if (!template.source) {
+        throw new Error(`Template '${options.baseTemplateId}' source was empty.`);
+      }
+      content = template.source;
     }
 
-    const contentHash = computeHash(content);
-    const timestamp = nowIso();
-    const metadata: DraftMetadata = {
-      draftId,
-      baseTemplateId: options.baseTemplateId,
-      createdAt: timestamp,
-      updatedAt: timestamp,
-      contentHash
-    };
+    const payloadContent = setMetadataId(content ?? buildDefaultDraft(draftId), draftId);
+    const metadata: Record<string, string> = {};
+    if (options.baseTemplateId) {
+      metadata.baseTemplateId = options.baseTemplateId;
+    }
 
-    await fs.writeFile(draftPath, content, 'utf8');
-    await this.writeMetadata(metadata);
+    await fetchJson(
+      `${this.simApiUrl}/drafts`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          draftId,
+          content: payloadContent,
+          overwrite: false,
+          metadata: Object.keys(metadata).length > 0 ? metadata : undefined
+        })
+      },
+      this.requestTimeoutMs
+    );
 
-    return { metadata, content };
+    return this.getDraft(draftId);
   }
 
   async applyDraftPatch(options: DraftPatchOptions): Promise<DraftRecord> {
     ensureSafeId(options.draftId, 'draftId');
-    const draftPath = buildDraftFile(this.draftsDir, options.draftId);
-    const current = await fs.readFile(draftPath, 'utf8');
-    const currentHash = computeHash(current);
+    const current = await this.getDraft(options.draftId);
+    const currentHash = computeHash(current.content);
 
     if (options.expectedHash && options.expectedHash !== currentHash) {
       throw new Error('Draft content hash mismatch. Reload and retry.');
     }
 
-    const content = options.content;
-    const contentHash = computeHash(content);
-    await fs.writeFile(draftPath, content, 'utf8');
+    await fetchJson(
+      `${this.simApiUrl}/drafts/${options.draftId}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify({
+          content: options.content,
+          metadata: current.metadata
+        })
+      },
+      this.requestTimeoutMs
+    );
 
-    const meta = await this.readMetadata(options.draftId);
-    const metadata: DraftMetadata = {
-      draftId: options.draftId,
-      baseTemplateId: meta?.baseTemplateId,
-      createdAt: meta?.createdAt ?? nowIso(),
-      updatedAt: nowIso(),
-      contentHash
-    };
-    await this.writeMetadata(metadata);
-    return { metadata, content };
+    return this.getDraft(options.draftId);
   }
 
   async diffDraft(draftId: string): Promise<DraftDiff> {
     ensureSafeId(draftId, 'draftId');
     const record = await this.getDraft(draftId);
-    const baseTemplateId = record.metadata.baseTemplateId;
+    const metadata = record.metadata ?? {};
+    const baseTemplateId = metadata.baseTemplateId;
     let baseContent = '';
+
     if (baseTemplateId) {
-      ensureSafeId(baseTemplateId, 'baseTemplateId');
-      baseContent = await loadYamlTemplate(path.join(this.templatesDir, `${baseTemplateId}.yaml`));
+      const template = await fetchJson<{ source?: string }>(
+        `${this.simApiUrl}/templates/${baseTemplateId}/source`,
+        { method: 'GET' },
+        this.requestTimeoutMs
+      );
+      baseContent = template.source ?? '';
     }
+
     const diff = createTwoFilesPatch(
       baseTemplateId ? `${baseTemplateId}.yaml` : 'base.yaml',
       `${draftId}.yaml`,
@@ -242,24 +227,7 @@ export class DraftStore {
       '',
       { context: 3 }
     );
+
     return { draftId, baseTemplateId, diff };
-  }
-
-  private async readMetadata(draftId: string): Promise<DraftMetadata | undefined> {
-    const metaPath = buildMetaFile(this.draftsDir, draftId);
-    try {
-      const raw = await fs.readFile(metaPath, 'utf8');
-      return JSON.parse(raw) as DraftMetadata;
-    } catch {
-      return undefined;
-    }
-  }
-
-  private async writeMetadata(metadata: DraftMetadata): Promise<void> {
-    await fs.writeFile(
-      buildMetaFile(this.draftsDir, metadata.draftId),
-      JSON.stringify(metadata, null, 2),
-      'utf8'
-    );
   }
 }

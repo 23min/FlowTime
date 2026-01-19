@@ -25,7 +25,6 @@ if (!simApiUrl || !engineApiUrl) {
       env: {
         FLOWTIME_SIM_API_URL: simApiUrl,
         FLOWTIME_API_URL: engineApiUrl,
-        FLOWTIME_DATA_DIR: process.env.MCP_TEST_DATA_DIR ?? 'data',
         MCP_MAX_BINS: process.env.MCP_TEST_MAX_BINS ?? '1000'
       },
       stderr: 'pipe'

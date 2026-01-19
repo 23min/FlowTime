@@ -1,18 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import path from 'node:path';
-import os from 'node:os';
-import fs from 'node:fs/promises';
+import http from 'node:http';
 import { parse as parseYaml } from 'yaml';
+import { createHash } from 'node:crypto';
 import { DraftStore } from '../src/drafts.js';
 
-const createFixture = async () => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'flowtime-mcp-draft-'));
-  const templatesDir = path.join(root, 'templates');
-  const draftsDir = path.join(root, 'templates-draft');
-  await fs.mkdir(templatesDir, { recursive: true });
-  await fs.mkdir(draftsDir, { recursive: true });
+const computeHash = (content: string): string =>
+  `sha256:${createHash('sha256').update(content).digest('hex')}`;
 
+const createFixtureServer = async () => {
+  const drafts = new Map<string, { content: string; metadata?: Record<string, string>; updatedUtc: string }>();
   const baseTemplate = [
     'schemaVersion: 1',
     'generator: flowtime-sim',
@@ -27,33 +24,124 @@ const createFixture = async () => {
     '  nodes: []'
   ].join('\n');
 
-  await fs.writeFile(path.join(templatesDir, 'base-template.yaml'), baseTemplate, 'utf8');
+  const server = http.createServer(async (req, res) => {
+    const url = new URL(req.url ?? '/', 'http://localhost');
+    if (req.method === 'GET' && url.pathname === '/api/v1/templates/base-template/source') {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ id: 'base-template', source: baseTemplate }));
+      return;
+    }
 
-  return { root, templatesDir, draftsDir };
+    if (req.method === 'GET' && url.pathname === '/api/v1/drafts') {
+      const items = Array.from(drafts.entries()).map(([draftId, entry]) => ({
+        draftId,
+        contentHash: computeHash(entry.content),
+        updatedUtc: entry.updatedUtc,
+        metadata: entry.metadata
+      }));
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ items }));
+      return;
+    }
+
+    const draftMatch = url.pathname.match(/^\/api\/v1\/drafts\/([^/]+)$/);
+    if (draftMatch && req.method === 'GET') {
+      const draftId = draftMatch[1];
+      const entry = drafts.get(draftId);
+      if (!entry) {
+        res.writeHead(404, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ error: 'not found' }));
+        return;
+      }
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({
+        draftId,
+        content: entry.content,
+        contentHash: computeHash(entry.content),
+        metadata: entry.metadata
+      }));
+      return;
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/v1/drafts') {
+      let body = '';
+      req.on('data', (chunk) => { body += chunk; });
+      req.on('end', () => {
+        const payload = JSON.parse(body);
+        const draftId = payload.draftId;
+        drafts.set(draftId, {
+          content: payload.content,
+          metadata: payload.metadata,
+          updatedUtc: new Date().toISOString()
+        });
+        res.writeHead(201, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({
+          draftId,
+          storageRef: `storage://draft/${draftId}`,
+          contentHash: computeHash(payload.content)
+        }));
+      });
+      return;
+    }
+
+    if (draftMatch && req.method === 'PUT') {
+      let body = '';
+      req.on('data', (chunk) => { body += chunk; });
+      req.on('end', () => {
+        const draftId = draftMatch[1];
+        const payload = JSON.parse(body);
+        drafts.set(draftId, {
+          content: payload.content,
+          metadata: payload.metadata,
+          updatedUtc: new Date().toISOString()
+        });
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({
+          draftId,
+          storageRef: `storage://draft/${draftId}`,
+          contentHash: computeHash(payload.content)
+        }));
+      });
+      return;
+    }
+
+    res.writeHead(404, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ error: 'not found' }));
+  });
+
+  await new Promise<void>((resolve) => {
+    server.listen(0, resolve);
+  });
+
+  const address = server.address();
+  if (!address || typeof address === 'string') {
+    throw new Error('Failed to bind test server.');
+  }
+
+  const baseUrl = `http://127.0.0.1:${address.port}/api/v1`;
+  return {
+    baseUrl,
+    close: () => server.close()
+  };
 };
 
-test('createDraft clones a template into templates-draft and rewrites metadata id', async () => {
-  const { templatesDir, draftsDir } = await createFixture();
-  const store = new DraftStore({ templatesDir, draftsDir });
+test('createDraft clones a template via HTTP and rewrites metadata id', async () => {
+  const fixture = await createFixtureServer();
+  const store = new DraftStore({ simApiUrl: fixture.baseUrl, requestTimeoutMs: 5000 });
 
   const record = await store.createDraft({ draftId: 'draft-one', baseTemplateId: 'base-template' });
-  assert.equal(record.metadata.draftId, 'draft-one');
-  assert.equal(record.metadata.baseTemplateId, 'base-template');
+  assert.equal(record.draftId, 'draft-one');
+  assert.equal(record.metadata?.baseTemplateId, 'base-template');
 
   const parsed = parseYaml(record.content) as { metadata?: { id?: string } };
   assert.equal(parsed?.metadata?.id, 'draft-one');
 
-  const draftPath = path.join(draftsDir, 'draft-one.yaml');
-  const metaPath = path.join(draftsDir, 'draft-one.meta.json');
-  const draftExists = await fs.stat(draftPath).then(() => true, () => false);
-  const metaExists = await fs.stat(metaPath).then(() => true, () => false);
-  assert.ok(draftExists);
-  assert.ok(metaExists);
+  fixture.close();
 });
 
 test('applyDraftPatch enforces expected content hash', async () => {
-  const { templatesDir, draftsDir } = await createFixture();
-  const store = new DraftStore({ templatesDir, draftsDir });
+  const fixture = await createFixtureServer();
+  const store = new DraftStore({ simApiUrl: fixture.baseUrl, requestTimeoutMs: 5000 });
 
   const record = await store.createDraft({ draftId: 'draft-two', baseTemplateId: 'base-template' });
   const updatedContent = `${record.content}\n# updated`;
@@ -66,28 +154,33 @@ test('applyDraftPatch enforces expected content hash', async () => {
   const patched = await store.applyDraftPatch({
     draftId: 'draft-two',
     content: updatedContent,
-    expectedHash: record.metadata.contentHash
+    expectedHash: computeHash(record.content)
   });
 
-  assert.notEqual(patched.metadata.contentHash, record.metadata.contentHash);
+  assert.notEqual(patched.contentHash, record.contentHash);
+  fixture.close();
 });
 
 test('diffDraft returns a unified diff against the base template', async () => {
-  const { templatesDir, draftsDir } = await createFixture();
-  const store = new DraftStore({ templatesDir, draftsDir });
+  const fixture = await createFixtureServer();
+  const store = new DraftStore({ simApiUrl: fixture.baseUrl, requestTimeoutMs: 5000 });
 
   await store.createDraft({ draftId: 'draft-three', baseTemplateId: 'base-template' });
   const diff = await store.diffDraft('draft-three');
   assert.ok(diff.diff.includes('base-template.yaml'));
   assert.ok(diff.diff.includes('draft-three.yaml'));
+
+  fixture.close();
 });
 
 test('listDrafts returns draft metadata', async () => {
-  const { templatesDir, draftsDir } = await createFixture();
-  const store = new DraftStore({ templatesDir, draftsDir });
+  const fixture = await createFixtureServer();
+  const store = new DraftStore({ simApiUrl: fixture.baseUrl, requestTimeoutMs: 5000 });
 
   await store.createDraft({ draftId: 'draft-four', baseTemplateId: 'base-template' });
   const drafts = await store.listDrafts();
   assert.equal(drafts.length, 1);
   assert.equal(drafts[0].draftId, 'draft-four');
+
+  fixture.close();
 });

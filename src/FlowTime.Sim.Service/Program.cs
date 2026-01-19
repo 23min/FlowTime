@@ -294,6 +294,25 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 			}
 		});
 
+		// API: GET /api/v1/templates/{id}/source  (get template YAML source)
+		api.MapGet("/templates/{id}/source", async (string id, ITemplateService templateService) =>
+		{
+			try
+			{
+				var source = await templateService.GetTemplateSourceAsync(id);
+				if (string.IsNullOrWhiteSpace(source))
+				{
+					return Results.NotFound(new { error = $"Template '{id}' not found" });
+				}
+
+				return Results.Ok(new { id, source });
+			}
+			catch (Exception ex)
+			{
+				return Results.Problem($"Failed to retrieve template source: {ex.Message}");
+			}
+		});
+
 		// API: GET /api/v1/templates/categories  (list available categories)
 		api.MapGet("/templates/categories", () => 
 		{
@@ -312,7 +331,14 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 
 		// API: POST /api/v1/templates/{id}/generate  (generate model from template with parameter substitution)
 		// SIM-M2.7: Enhanced to return provenance metadata
-		api.MapPost("/templates/{id}/generate", async (string id, HttpRequest req, IConfiguration config, ITemplateService templateService, ITemplateWarningRegistry warningRegistry) =>
+		api.MapPost("/templates/{id}/generate", async (
+			string id,
+			HttpRequest req,
+			IConfiguration config,
+			ITemplateService templateService,
+			ITemplateWarningRegistry warningRegistry,
+			IStorageBackend storage,
+			CancellationToken cancellationToken) =>
 		{
 			try
 			{
@@ -357,7 +383,7 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 
 				var modelYaml = await templateService.GenerateEngineModelAsync(id, parameters, modeOverride);
 				var invariantAnalysis = TemplateInvariantAnalyzer.Analyze(modelYaml);
-				return await BuildGenerateResponseAsync(id, modelYaml, invariantAnalysis.Warnings, config, warningRegistry).ConfigureAwait(false);
+				return await BuildGenerateResponseAsync(id, modelYaml, invariantAnalysis.Warnings, config, warningRegistry, storage, cancellationToken).ConfigureAwait(false);
 			}
 			catch (ArgumentException ex)
 			{
@@ -633,7 +659,7 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 				var draftTemplateService = CreateDraftTemplateService(draftId, draftYaml, templateLogger);
 				var modelYaml = await draftTemplateService.GenerateEngineModelAsync(draftId, parameters, modeOverride).ConfigureAwait(false);
 				var invariantAnalysis = TemplateInvariantAnalyzer.Analyze(modelYaml);
-				return await BuildGenerateResponseAsync(draftId, modelYaml, invariantAnalysis.Warnings, config, warningRegistry).ConfigureAwait(false);
+				return await BuildGenerateResponseAsync(draftId, modelYaml, invariantAnalysis.Warnings, config, warningRegistry, storage, cancellationToken).ConfigureAwait(false);
 			}
 			catch (ArgumentException ex)
 			{
@@ -1181,69 +1207,31 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 		});
 
 		// API: GET /api/v1/models  (list all generated models)
-		api.MapGet("/models", (IConfiguration config) =>
+		api.MapGet("/models", async (IStorageBackend storage, CancellationToken cancellationToken) =>
 		{
 			try
 			{
-				var modelsRoot = ServiceHelpers.ModelsRoot(config);
-				if (!Directory.Exists(modelsRoot))
+				var items = await storage.ListAsync(new StorageListRequest { Kind = StorageKind.Model }, cancellationToken).ConfigureAwait(false);
+				var models = items.Select(item =>
 				{
-					return Results.Ok(new { models = Array.Empty<object>() });
-				}
+					var metadata = item.Metadata ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+					metadata.TryGetValue("templateId", out var templateId);
+					metadata.TryGetValue("schemaVersion", out var schemaVersion);
+					metadata.TryGetValue("mode", out var mode);
+					metadata.TryGetValue("modelHash", out var modelHash);
 
-				var models = new List<object>();
-				foreach (var templateDir in Directory.GetDirectories(modelsRoot))
-				{
-					var templateId = Path.GetFileName(templateDir);
-
-					foreach (var schemaDir in Directory.GetDirectories(templateDir))
+					return new
 					{
-						var schemaSegment = Path.GetFileName(schemaDir);
-						foreach (var modeDir in Directory.GetDirectories(schemaDir))
-						{
-							var modeSegment = Path.GetFileName(modeDir);
-							foreach (var hashDir in Directory.GetDirectories(modeDir))
-							{
-								var modelPath = Path.Combine(hashDir, "model.yaml");
-								var metadataPath = Path.Combine(hashDir, "metadata.json");
-
-								if (!File.Exists(modelPath))
-								{
-									continue;
-								}
-
-								var fileInfo = new FileInfo(modelPath);
-								string? modelHash = null;
-
-								if (File.Exists(metadataPath))
-								{
-									try
-									{
-										var metadataJson = File.ReadAllText(metadataPath);
-										var metadataDoc = JsonDocument.Parse(metadataJson);
-										if (metadataDoc.RootElement.TryGetProperty("modelHash", out var hashElement))
-										{
-											modelHash = hashElement.GetString();
-										}
-									}
-									catch { /* ignore metadata read errors */ }
-								}
-
-								models.Add(new
-								{
-									templateId,
-									schema = schemaSegment,
-									mode = modeSegment,
-									path = modelPath,
-									size = fileInfo.Length,
-									modifiedUtc = fileInfo.LastWriteTimeUtc,
-									contentType = "application/x-yaml",
-									modelHash
-								});
-							}
-						}
-					}
-				}
+						templateId,
+						schema = string.IsNullOrWhiteSpace(schemaVersion) ? null : $"schema-{schemaVersion}",
+						mode = string.IsNullOrWhiteSpace(mode) ? null : $"mode-{mode}",
+						storageRef = item.Reference.ToString(),
+						size = item.SizeBytes,
+						modifiedUtc = item.UpdatedUtc,
+						contentType = "application/zip",
+						modelHash
+					};
+				}).ToList();
 
 				return Results.Ok(new { models });
 			}
@@ -1254,72 +1242,57 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 		});
 
 		// API: GET /api/v1/models/{templateId}  (get specific model by template ID)
-		api.MapGet("/models/{templateId}", (string templateId, IConfiguration config) =>
+		api.MapGet("/models/{templateId}", async (string templateId, IStorageBackend storage, CancellationToken cancellationToken) =>
 		{
 			try
 			{
-				var modelsRoot = ServiceHelpers.ModelsRoot(config);
-				var templateDir = Path.Combine(modelsRoot, templateId);
-				
-				if (!Directory.Exists(templateDir))
-				{
-					return Results.NotFound(new { error = $"No models found for template '{templateId}'" });
-				}
-
-				var bestCandidate = Directory.GetDirectories(templateDir)
-					.SelectMany(schemaDir => Directory.GetDirectories(schemaDir)
-						.SelectMany(modeDir => Directory.GetDirectories(modeDir)
-							.Select(hashDir => new
-							{
-								Schema = Path.GetFileName(schemaDir),
-								Mode = Path.GetFileName(modeDir),
-								Dir = hashDir,
-								Time = Directory.GetLastWriteTimeUtc(hashDir)
-							})))
-					.OrderByDescending(x => x.Time)
-					.FirstOrDefault();
-
-				if (bestCandidate is null)
-				{
-					return Results.NotFound(new { error = $"No models found for template '{templateId}'" });
-				}
-
-				var modelPath = Path.Combine(bestCandidate.Dir, "model.yaml");
-				var metadataPath = Path.Combine(bestCandidate.Dir, "metadata.json");
-				
-				if (!File.Exists(modelPath))
-				{
-					return Results.NotFound(new { error = $"Model file not found for template '{templateId}'" });
-				}
-
-				var modelYaml = File.ReadAllText(modelPath);
-				var fileInfo = new FileInfo(modelPath);
-				string? modelHash = null;
-				
-				// Read modelHash from metadata.json if it exists
-				if (File.Exists(metadataPath))
-				{
-					try
+				var items = await storage.ListAsync(new StorageListRequest { Kind = StorageKind.Model }, cancellationToken).ConfigureAwait(false);
+				var matches = items
+					.Where(item =>
 					{
-						var metadataJson = File.ReadAllText(metadataPath);
-						var metadataDoc = JsonDocument.Parse(metadataJson);
-						if (metadataDoc.RootElement.TryGetProperty("modelHash", out var hashElement))
+						if (item.Metadata is null)
 						{
-							modelHash = hashElement.GetString();
+							return false;
 						}
-					}
-					catch { /* ignore metadata read errors */ }
+
+						return item.Metadata.TryGetValue("templateId", out var value)
+							&& string.Equals(value, templateId, StringComparison.OrdinalIgnoreCase);
+					})
+					.OrderByDescending(item => item.UpdatedUtc)
+					.ToList();
+
+				if (matches.Count == 0)
+				{
+					return Results.NotFound(new { error = $"No models found for template '{templateId}'" });
 				}
+
+				var selected = matches[0];
+				var stored = await storage.ReadAsync(selected.Reference, cancellationToken).ConfigureAwait(false);
+				if (stored is null)
+				{
+					return Results.NotFound(new { error = $"Model data missing for template '{templateId}'" });
+				}
+
+				var modelYaml = ReadArchiveEntry(stored.Content, "model.yaml");
+				if (string.IsNullOrWhiteSpace(modelYaml))
+				{
+					return Results.Problem($"Model archive for template '{templateId}' was missing model.yaml.");
+				}
+
+				var metadata = selected.Metadata ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+				metadata.TryGetValue("schemaVersion", out var schemaVersion);
+				metadata.TryGetValue("mode", out var mode);
+				metadata.TryGetValue("modelHash", out var modelHash);
 
 				return Results.Ok(new
 				{
 					templateId,
-					schema = bestCandidate.Schema,
-					mode = bestCandidate.Mode,
+					schema = string.IsNullOrWhiteSpace(schemaVersion) ? null : $"schema-{schemaVersion}",
+					mode = string.IsNullOrWhiteSpace(mode) ? null : $"mode-{mode}",
 					model = modelYaml,
-					path = modelPath,
-					size = fileInfo.Length,
-					modifiedUtc = fileInfo.LastWriteTimeUtc,
+					storageRef = selected.Reference.ToString(),
+					size = selected.SizeBytes,
+					modifiedUtc = selected.UpdatedUtc,
 					modelHash
 				});
 			}
@@ -1519,7 +1492,9 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 		string modelYaml,
 		IReadOnlyList<InvariantWarning> warnings,
 		IConfiguration config,
-		ITemplateWarningRegistry warningRegistry)
+		ITemplateWarningRegistry warningRegistry,
+		IStorageBackend storage,
+		CancellationToken cancellationToken)
 	{
 		warningRegistry.UpdateWarnings(templateId, warnings);
 
@@ -1530,28 +1505,11 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 		var hasTelemetrySources = artifact.Nodes.Any(n => !string.IsNullOrWhiteSpace(n.Source));
 
 		const string hashPrefixLabel = "sha256:";
-		var hashPrefix = modelHash.StartsWith(hashPrefixLabel, StringComparison.OrdinalIgnoreCase)
-			? modelHash.Substring(hashPrefixLabel.Length, Math.Min(8, modelHash.Length - hashPrefixLabel.Length))
-			: modelHash[..Math.Min(8, modelHash.Length)];
-		var modelsRoot = ServiceHelpers.ModelsRoot(config);
-		var schemaSegment = $"schema-{artifact.SchemaVersion}";
-		var modeSegment = $"mode-{artifact.Mode}";
-		var templateModelsDir = Path.Combine(modelsRoot, templateId, schemaSegment, modeSegment, hashPrefix);
-		Directory.CreateDirectory(templateModelsDir);
-		var modelPath = Path.Combine(templateModelsDir, "model.yaml");
-		await File.WriteAllTextAsync(modelPath, modelYaml, System.Text.Encoding.UTF8);
+		var modelHashValue = modelHash.StartsWith(hashPrefixLabel, StringComparison.OrdinalIgnoreCase)
+			? modelHash[hashPrefixLabel.Length..]
+			: modelHash;
+		var modelId = $"model_{modelHashValue}";
 
-		var provenancePath = Path.Combine(templateModelsDir, "provenance.json");
-		await File.WriteAllTextAsync(
-			provenancePath,
-			JsonSerializer.Serialize(artifact.Provenance, new JsonSerializerOptions
-			{
-				WriteIndented = true,
-				PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-			}),
-			System.Text.Encoding.UTF8);
-
-		var metadataPath = Path.Combine(templateModelsDir, "metadata.json");
 		var metadata = new
 		{
 			templateId = artifact.Metadata.Id,
@@ -1562,11 +1520,36 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 			hasWindow,
 			hasTopology,
 			hasTelemetrySources,
-			modelHash,
+			modelHash = modelHashValue,
 			parameters = artifact.Provenance.Parameters,
 			generatedAtUtc = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture)
 		};
-		await File.WriteAllTextAsync(metadataPath, JsonSerializer.Serialize(metadata, new JsonSerializerOptions { WriteIndented = true }), System.Text.Encoding.UTF8);
+
+		var provenanceJson = JsonSerializer.Serialize(artifact.Provenance, new JsonSerializerOptions
+		{
+			WriteIndented = true,
+			PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+		});
+		var metadataJson = JsonSerializer.Serialize(metadata, new JsonSerializerOptions { WriteIndented = true });
+		var archiveBytes = BuildModelArchive(modelYaml, provenanceJson, metadataJson);
+
+		var modelWrite = await storage.WriteAsync(new StorageWriteRequest
+		{
+			Kind = StorageKind.Model,
+			Id = modelId,
+			Content = archiveBytes,
+			ContentType = "application/zip",
+			Metadata = new Dictionary<string, string>
+			{
+				["templateId"] = artifact.Metadata.Id,
+				["templateTitle"] = artifact.Metadata.Title,
+				["templateVersion"] = artifact.Metadata.Version,
+				["schemaVersion"] = artifact.SchemaVersion.ToString(CultureInfo.InvariantCulture),
+				["mode"] = artifact.Mode,
+				["modelHash"] = modelHashValue,
+				["generatedAtUtc"] = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture)
+			}
+		}, cancellationToken).ConfigureAwait(false);
 
 		var metadataSummary = new
 		{
@@ -1590,7 +1573,7 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 			bins = w.Bins
 		}).ToArray();
 
-		return Results.Ok(new { model = modelYaml, provenance = artifact.Provenance, metadata = metadataSummary, warnings = warningsPayload });
+		return Results.Ok(new { model = modelYaml, provenance = artifact.Provenance, metadata = metadataSummary, warnings = warningsPayload, modelRef = modelWrite.Reference });
 	}
 
 	private static Dictionary<string, object> BuildParameters(Dictionary<string, JsonElement>? parameters)
@@ -1607,7 +1590,7 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 		return result;
 	}
 
-	private static byte[] BuildRunArchive(string runDirectory)
+	internal static byte[] BuildRunArchive(string runDirectory)
 	{
 		using var stream = new MemoryStream();
 		using (var archive = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: true))
@@ -1623,6 +1606,42 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 		}
 
 		return stream.ToArray();
+	}
+
+	private static byte[] BuildModelArchive(string modelYaml, string provenanceJson, string metadataJson)
+	{
+		using var stream = new MemoryStream();
+		using (var archive = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: true))
+		{
+			WriteArchiveTextEntry(archive, "model.yaml", modelYaml);
+			WriteArchiveTextEntry(archive, "provenance.json", provenanceJson);
+			WriteArchiveTextEntry(archive, "metadata.json", metadataJson);
+		}
+
+		return stream.ToArray();
+	}
+
+	private static void WriteArchiveTextEntry(ZipArchive archive, string name, string content)
+	{
+		var entry = archive.CreateEntry(name, CompressionLevel.Fastest);
+		using var entryStream = entry.Open();
+		using var writer = new StreamWriter(entryStream, System.Text.Encoding.UTF8);
+		writer.Write(content);
+	}
+
+	private static string? ReadArchiveEntry(byte[] archiveBytes, string name)
+	{
+		using var stream = new MemoryStream(archiveBytes);
+		using var archive = new ZipArchive(stream, ZipArchiveMode.Read, leaveOpen: false);
+		var entry = archive.GetEntry(name);
+		if (entry is null)
+		{
+			return null;
+		}
+
+		using var entryStream = entry.Open();
+		using var reader = new StreamReader(entryStream, System.Text.Encoding.UTF8);
+		return reader.ReadToEnd();
 	}
 
 	private static async Task<(DraftSourceResolution? Value, IResult? ErrorResult)> ResolveDraftSourceAsync(
