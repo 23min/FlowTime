@@ -509,7 +509,8 @@ public sealed class StateQueryService
                 preValidationWarnings,
                 readonlyNodeWarnings,
                 new ReadOnlyDictionary<string, NodeDefinition>(modelNodeDefinitions),
-                seriesIndex);
+                seriesIndex,
+                runDirectory);
         }
         catch (StateQueryException)
         {
@@ -2115,6 +2116,96 @@ public sealed class StateQueryService
             return Array.Empty<EdgeSeries>();
         }
 
+        var artifactEdges = BuildArtifactEdgeSeries(context, startBin, count);
+        var retryEdges = BuildRetryEdgeSeries(context, startBin, count);
+
+        if (artifactEdges.Count == 0)
+        {
+            return retryEdges;
+        }
+
+        if (retryEdges.Count == 0)
+        {
+            return artifactEdges;
+        }
+
+        var merged = artifactEdges.ToDictionary(edge => edge.Id, StringComparer.OrdinalIgnoreCase);
+        foreach (var retryEdge in retryEdges)
+        {
+            if (merged.TryGetValue(retryEdge.Id, out var existing))
+            {
+                merged[retryEdge.Id] = MergeEdgeSeries(existing, retryEdge);
+                continue;
+            }
+
+            merged[retryEdge.Id] = retryEdge;
+        }
+
+        return merged.Values.ToList();
+    }
+
+    private static IReadOnlyList<EdgeSeries> BuildArtifactEdgeSeries(StateRunContext context, int startBin, int count)
+    {
+        var edgeSeriesEntries = context.SeriesIndex.Series
+            .Where(series => IsEdgeSeriesMetadata(series))
+            .ToList();
+
+        if (edgeSeriesEntries.Count == 0)
+        {
+            return Array.Empty<EdgeSeries>();
+        }
+
+        var edgeDefinitions = BuildEdgeDefinitionLookup(context.Topology.Edges);
+        if (edgeDefinitions.Count == 0)
+        {
+            return Array.Empty<EdgeSeries>();
+        }
+
+        var bins = context.Window.Bins;
+        var builders = new Dictionary<string, EdgeSeriesBuilder>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var series in edgeSeriesEntries)
+        {
+            if (!TryParseEdgeSeriesId(series.Id, out var edgeToken, out var metric))
+            {
+                continue;
+            }
+
+            if (!edgeDefinitions.TryGetValue(edgeToken, out var definition))
+            {
+                continue;
+            }
+
+            var seriesPath = Path.Combine(context.RunDirectory, series.Path);
+            if (!File.Exists(seriesPath))
+            {
+                continue;
+            }
+
+            var values = CsvReader.ReadTimeSeries(seriesPath, bins);
+            var slice = ExtractSlice(values, startBin, count);
+
+            if (!builders.TryGetValue(edgeToken, out var builder))
+            {
+                builder = new EdgeSeriesBuilder(definition);
+                builders[edgeToken] = builder;
+            }
+
+            if (string.Equals(series.Class, "DEFAULT", StringComparison.OrdinalIgnoreCase))
+            {
+                builder.Series[metric] = slice;
+            }
+            else
+            {
+                builder.AddClassSeries(series.Class, metric, slice);
+            }
+        }
+
+        return builders.Values.Select(builder => builder.Build()).ToList();
+    }
+
+    private static IReadOnlyList<EdgeSeries> BuildRetryEdgeSeries(StateRunContext context, int startBin, int count)
+    {
         var totalBins = context.Window.Bins;
         var result = new List<EdgeSeries>();
 
@@ -2210,6 +2301,183 @@ public sealed class StateQueryService
         }
 
         return result;
+    }
+
+    private static bool IsEdgeSeriesMetadata(SeriesMetadata series)
+    {
+        return string.Equals(series.Kind, "edge", StringComparison.OrdinalIgnoreCase)
+            || series.Id.StartsWith("edge_", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static Dictionary<string, EdgeDefinitionInfo> BuildEdgeDefinitionLookup(IReadOnlyList<Edge> edges)
+    {
+        var lookup = new Dictionary<string, EdgeDefinitionInfo>(StringComparer.OrdinalIgnoreCase);
+        foreach (var edge in edges)
+        {
+            var rawId = string.IsNullOrWhiteSpace(edge.Id)
+                ? $"{edge.Source}->{edge.Target}"
+                : edge.Id!;
+            var normalized = NormalizeEdgeToken(rawId);
+            if (string.IsNullOrWhiteSpace(normalized))
+            {
+                continue;
+            }
+
+            if (!lookup.ContainsKey(normalized))
+            {
+                lookup[normalized] = new EdgeDefinitionInfo(rawId, edge);
+            }
+        }
+
+        return lookup;
+    }
+
+    private static bool TryParseEdgeSeriesId(string seriesId, out string edgeToken, out string metric)
+    {
+        edgeToken = string.Empty;
+        metric = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(seriesId))
+        {
+            return false;
+        }
+
+        var atIndex = seriesId.IndexOf('@');
+        if (atIndex <= 0)
+        {
+            return false;
+        }
+
+        var core = seriesId[..atIndex];
+        if (!core.StartsWith("edge_", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var lastUnderscore = core.LastIndexOf('_');
+        if (lastUnderscore <= "edge_".Length)
+        {
+            return false;
+        }
+
+        edgeToken = core["edge_".Length..lastUnderscore];
+        metric = core[(lastUnderscore + 1)..];
+
+        return !string.IsNullOrWhiteSpace(edgeToken) && !string.IsNullOrWhiteSpace(metric);
+    }
+
+    private static string NormalizeEdgeToken(string raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return string.Empty;
+        }
+
+        var trimmed = raw.Trim();
+        var builder = new System.Text.StringBuilder(trimmed.Length);
+        foreach (var c in trimmed)
+        {
+            builder.Append(char.IsLetterOrDigit(c) || c == '_' || c == '-' || c == '.' ? c : '_');
+        }
+
+        return builder.ToString().Trim('_');
+    }
+
+    private static EdgeSeries MergeEdgeSeries(EdgeSeries target, EdgeSeries source)
+    {
+        var mergedSeries = new Dictionary<string, double?[]>(target.Series, StringComparer.OrdinalIgnoreCase);
+        foreach (var (key, series) in source.Series)
+        {
+            mergedSeries[key] = series;
+        }
+
+        Dictionary<string, IDictionary<string, double?[]>>? mergedByClass = null;
+        if (target.ByClass is not null)
+        {
+            mergedByClass = new Dictionary<string, IDictionary<string, double?[]>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var (classId, metrics) in target.ByClass)
+            {
+                mergedByClass[classId] = new Dictionary<string, double?[]>(metrics, StringComparer.OrdinalIgnoreCase);
+            }
+        }
+
+        if (source.ByClass is not null)
+        {
+            mergedByClass ??= new Dictionary<string, IDictionary<string, double?[]>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var (classId, metrics) in source.ByClass)
+            {
+                if (!mergedByClass.TryGetValue(classId, out var targetMetrics))
+                {
+                    targetMetrics = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase);
+                    mergedByClass[classId] = targetMetrics;
+                }
+
+                foreach (var (metricKey, metricSeries) in metrics)
+                {
+                    targetMetrics[metricKey] = metricSeries;
+                }
+            }
+        }
+
+        return new EdgeSeries
+        {
+            Id = target.Id,
+            From = string.IsNullOrWhiteSpace(target.From) ? source.From : target.From,
+            To = string.IsNullOrWhiteSpace(target.To) ? source.To : target.To,
+            EdgeType = target.EdgeType ?? source.EdgeType,
+            Field = target.Field ?? source.Field,
+            Multiplier = target.Multiplier ?? source.Multiplier,
+            Lag = target.Lag ?? source.Lag,
+            Series = mergedSeries,
+            ByClass = mergedByClass
+        };
+    }
+
+    private sealed record EdgeDefinitionInfo(string RawId, Edge Edge);
+
+    private sealed class EdgeSeriesBuilder
+    {
+        private readonly EdgeDefinitionInfo definition;
+
+        public EdgeSeriesBuilder(EdgeDefinitionInfo definition)
+        {
+            this.definition = definition;
+        }
+
+        public IDictionary<string, double?[]> Series { get; } = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase);
+        public IDictionary<string, IDictionary<string, double?[]>>? ByClass { get; private set; }
+
+        public void AddClassSeries(string classId, string metric, double?[] values)
+        {
+            if (ByClass is null)
+            {
+                ByClass = new Dictionary<string, IDictionary<string, double?[]>>(StringComparer.OrdinalIgnoreCase);
+            }
+
+            if (!ByClass.TryGetValue(classId, out var metrics))
+            {
+                metrics = new Dictionary<string, double?[]>(StringComparer.OrdinalIgnoreCase);
+                ByClass[classId] = metrics;
+            }
+
+            metrics[metric] = values;
+        }
+
+        public EdgeSeries Build()
+        {
+            return new EdgeSeries
+            {
+                Id = definition.RawId,
+                From = ExtractNodeReference(definition.Edge.Source),
+                To = ExtractNodeReference(definition.Edge.Target),
+                EdgeType = NormalizeEdgeType(definition.Edge.EdgeType),
+                Field = NormalizeField(definition.Edge.Field),
+                Multiplier = NormalizeMultiplier(definition.Edge.Multiplier ?? definition.Edge.Weight),
+                Lag = definition.Edge.Lag,
+                Series = Series,
+                ByClass = ByClass
+            };
+        }
     }
 
     private static double?[]? ComputeThroughputSeries(NodeData data, int start, int count)
@@ -3439,7 +3707,8 @@ public sealed class StateQueryService
         IReadOnlyList<ModeValidationWarning> InitialWarnings,
         IReadOnlyDictionary<string, IReadOnlyList<ModeValidationWarning>> InitialNodeWarnings,
         IReadOnlyDictionary<string, NodeDefinition> ModelNodes,
-        SeriesIndex SeriesIndex)
+        SeriesIndex SeriesIndex,
+        string RunDirectory)
     {
         public double BinMinutes => Window.BinDuration.TotalMinutes;
     }

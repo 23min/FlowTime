@@ -21,7 +21,8 @@ public class FixtureIntegrationTests
         {
             Assert.Equal(expectedBins, node.Arrivals.Length);
             Assert.Equal(expectedBins, node.Served.Length);
-            Assert.Equal(expectedBins, node.Errors.Length);
+            Assert.NotNull(node.Errors);
+            Assert.Equal(expectedBins, node.Errors!.Length);
         }
     }
 }

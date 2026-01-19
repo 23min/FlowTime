@@ -32,9 +32,28 @@ public class CliIntegrationTests
         };
 
         process.Start();
-        var output = await process.StandardOutput.ReadToEndAsync();
-        var error = await process.StandardError.ReadToEndAsync();
-        await process.WaitForExitAsync();
+
+        var outputTask = process.StandardOutput.ReadToEndAsync();
+        var errorTask = process.StandardError.ReadToEndAsync();
+
+        var timeout = TimeSpan.FromSeconds(60);
+        using var timeoutCts = new CancellationTokenSource(timeout);
+        try
+        {
+            await Task.WhenAll(process.WaitForExitAsync(timeoutCts.Token), outputTask, errorTask);
+        }
+        catch (OperationCanceledException)
+        {
+            if (!process.HasExited)
+            {
+                process.Kill(entireProcessTree: true);
+            }
+
+            throw new TimeoutException($"CLI run did not finish within {timeout.TotalSeconds}s.");
+        }
+
+        var output = await outputTask;
+        var error = await errorTask;
 
         if (process.ExitCode != 0)
         {

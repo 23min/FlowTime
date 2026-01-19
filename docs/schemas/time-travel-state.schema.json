@@ -199,6 +199,13 @@
                     "type": "object",
                     "minProperties": 1,
                     "additionalProperties": { "$ref": "#/$defs/numericSeries" }
+                },
+                "byClass": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "object",
+                        "additionalProperties": { "$ref": "#/$defs/numericSeries" }
+                    }
                 }
             }
         },

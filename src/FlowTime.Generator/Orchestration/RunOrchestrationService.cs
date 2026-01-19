@@ -709,11 +709,14 @@ public sealed class RunOrchestrationService
                 }
             }
 
+            var edgeSeries = EdgeFlowMaterializer.BuildEdgeFlowSeries(compiledModel, grid, context);
+
             var writeRequest = new RunArtifactWriter.WriteRequest
             {
                 Model = compiledModel,
                 Grid = grid,
                 Context = context,
+                EdgeSeries = edgeSeries,
                 SpecText = modelYaml,
                 RngSeed = request.Rng?.Seed ?? defaultSeed,
                 StartTimeBias = null,

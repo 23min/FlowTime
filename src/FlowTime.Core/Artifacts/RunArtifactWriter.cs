@@ -30,6 +30,7 @@ public static class RunArtifactWriter
         public required object Model { get; init; }
         public required object Grid { get; init; }
         public required IReadOnlyDictionary<NodeId, double[]> Context { get; init; }
+        public IReadOnlyList<EdgeSeriesInput>? EdgeSeries { get; init; }
         public IReadOnlyDictionary<NodeId, IReadOnlyDictionary<string, double[]>>? ClassSeriesOverride { get; init; }
         public string? ClassCoverageOverride { get; init; }
         public required string SpecText { get; init; }
@@ -41,6 +42,14 @@ public static class RunArtifactWriter
         public string? ProvenanceJson { get; init; } // Optional provenance metadata as JSON string
         public string? InputHash { get; init; }
         public string? TemplateId { get; init; }
+    }
+
+    public sealed record EdgeSeriesInput
+    {
+        public required string EdgeId { get; init; }
+        public required string Metric { get; init; }
+        public required double[] Values { get; init; }
+        public string? ClassId { get; init; }
     }
     
     public record WriteResult
@@ -240,6 +249,41 @@ public static class RunArtifactWriter
             if (request.Verbose)
             {
                 Console.WriteLine($"  Wrote {descriptor.CsvFileName} ({seriesData.Length} rows)");
+            }
+        }
+
+        if (request.EdgeSeries is { Count: > 0 })
+        {
+            foreach (var edgeSeries in request.EdgeSeries)
+            {
+                var classId = string.IsNullOrWhiteSpace(edgeSeries.ClassId) ? "DEFAULT" : edgeSeries.ClassId.Trim();
+                var descriptor = CreateEdgeSeriesDescriptor(edgeSeries.EdgeId, edgeSeries.Metric, classId);
+                var path = Path.Combine(seriesDir, descriptor.CsvFileName);
+
+                await WriteSeriesCsvAsync(path, edgeSeries.Values);
+                var hash = await ComputeFileHashAsync(path);
+                seriesHashes[descriptor.SeriesId] = hash;
+                seriesMetas.Add(new SeriesMeta
+                {
+                    Id = descriptor.SeriesId,
+                    Kind = "edge",
+                    Path = descriptor.RootRelativePath,
+                    Unit = "entities/bin",
+                    ComponentId = descriptor.ComponentId,
+                    Class = descriptor.ClassId,
+                    Points = edgeSeries.Values.Length,
+                    Hash = hash
+                });
+
+                if (!string.Equals(classId, "DEFAULT", StringComparison.OrdinalIgnoreCase))
+                {
+                    capturedClasses.Add(classId);
+                }
+
+                if (request.Verbose)
+                {
+                    Console.WriteLine($"  Wrote {descriptor.CsvFileName} ({edgeSeries.Values.Length} rows)");
+                }
             }
         }
 
@@ -488,6 +532,50 @@ public static class RunArtifactWriter
         var relativePath = $"series/{csvName}";
         var modelRelativePath = $"../series/{csvName}";
         return new SeriesDescriptor(nodeId, seriesId, componentId, csvName, relativePath, modelRelativePath);
+    }
+
+    private sealed record EdgeSeriesDescriptor(
+        string SeriesId,
+        string ComponentId,
+        string CsvFileName,
+        string RootRelativePath,
+        string ModelRelativePath,
+        string ClassId);
+
+    private static EdgeSeriesDescriptor CreateEdgeSeriesDescriptor(string edgeId, string metric, string classId)
+    {
+        var normalizedEdgeId = NormalizeSeriesToken(edgeId, "edge id");
+        var normalizedMetric = NormalizeSeriesToken(metric, "metric");
+        var seriesKey = $"edge_{normalizedEdgeId}_{normalizedMetric}";
+        var componentId = seriesKey.ToUpperInvariant();
+        var seriesId = $"{seriesKey}@{componentId}@{classId}";
+        var csvName = $"{seriesId}.csv";
+        var relativePath = $"series/{csvName}";
+        var modelRelativePath = $"../series/{csvName}";
+        return new EdgeSeriesDescriptor(seriesId, componentId, csvName, relativePath, modelRelativePath, classId);
+    }
+
+    private static string NormalizeSeriesToken(string value, string label)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            throw new InvalidOperationException($"Edge series {label} is required.");
+        }
+
+        var trimmed = value.Trim();
+        var builder = new StringBuilder(trimmed.Length);
+        foreach (var c in trimmed)
+        {
+            builder.Append(char.IsLetterOrDigit(c) || c == '_' || c == '-' || c == '.' ? c : '_');
+        }
+
+        var normalized = builder.ToString().Trim('_');
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            throw new InvalidOperationException($"Edge series {label} must contain at least one valid character.");
+        }
+
+        return normalized;
     }
 
     private static IReadOnlyList<NodeId> ResolveSeries(object? outputsObj, IReadOnlyDictionary<NodeId, double[]> context)

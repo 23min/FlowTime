@@ -97,6 +97,13 @@ public class StateResponseSchemaTests : IClassFixture<TestWebApplicationFactory>
                 ["series"] = new JsonObject
                 {
                     ["flowTotal"] = new JsonArray(1, 2, 3, 4)
+                },
+                ["byClass"] = new JsonObject
+                {
+                    ["vip"] = new JsonObject
+                    {
+                        ["flowTotal"] = new JsonArray(1, 1, 2, 2)
+                    }
                 }
             }
         };

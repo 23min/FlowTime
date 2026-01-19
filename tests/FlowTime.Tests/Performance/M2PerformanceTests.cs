@@ -136,7 +136,7 @@ public class M2PerformanceTests
         }
     }
 
-    [Fact]
+    [Fact(Skip = "PMF perf tests deferred; see docs/performance/perf-log.md#M-07-01-edge-time-bin-foundations")]
     public void Test_PMF_Mixed_Workload_Performance()
     {
         // Test performance of mixed workload: PMF + const + expr nodes

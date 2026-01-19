@@ -30,6 +30,7 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
     private const string queueLatencyNullRunId = "run_state_queue_zero_served";
     private const string kernelPolicyRunId = "run_state_retry_kernel_policy";
     private const string retryEdgesRunId = "run_state_edges";
+    private const string edgeFlowRunId = "run_state_edge_flow";
     private const string classRunId = "run_state_classes";
     private const string queueClassRunId = "run_state_classes_queue";
     private const string serviceWithBufferDerivedRunId = "run_state_servicewithbuffer_derived";
@@ -76,6 +77,7 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
         CreateQueueLatencyNullRun();
         CreateKernelPolicyRun();
         CreateRetryEdgesRun();
+        CreateEdgeFlowRun();
         CreateClassRun();
         CreateServiceWithBufferClassRun();
         CreateServiceWithBufferDerivedRun();
@@ -936,6 +938,31 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
     }
 
     [Fact]
+    public async Task GetStateWindow_IncludesEdgeFlowSeriesFromArtifacts()
+    {
+        var response = await client.GetAsync($"/v1/runs/{edgeFlowRunId}/state_window?startBin=0&endBin=3");
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync();
+            throw new XunitException($"Expected 200 OK but got {(int)response.StatusCode}: {errorBody}");
+        }
+
+        var payload = JsonNode.Parse(await response.Content.ReadAsStringAsync());
+        Assert.NotNull(payload);
+
+        var edges = payload!["edges"] as JsonArray;
+        Assert.NotNull(edges);
+        Assert.NotEmpty(edges);
+
+        var edge = edges!.FirstOrDefault(entry => string.Equals(entry?["id"]?.ToString(), "order_to_support", StringComparison.OrdinalIgnoreCase));
+        Assert.NotNull(edge);
+
+        var series = edge!["series"]?["flowTotal"] as JsonArray;
+        Assert.NotNull(series);
+        Assert.Equal(new[] { 9d, 6d, 9d, 4d }, series!.Select(v => v!.GetValue<double>()).ToArray());
+    }
+
+    [Fact]
     public async Task GetState_IncludesRetryEdgesByDefault()
     {
         var response = await client.GetAsync($"/v1/runs/{retryEdgesRunId}/state?binIndex=1");
@@ -1205,6 +1232,25 @@ public class StateEndpointTests : IClassFixture<TestWebApplicationFactory>, IDis
     private void CreateRetryEdgesRun()
     {
         CreateRun(retryEdgesRunId, BuildRetryEdgesModelYaml(), mode: "telemetry");
+    }
+
+    private void CreateEdgeFlowRun()
+    {
+        var edgeSeries = new Dictionary<string, double[]>
+        {
+            ["edge_order_to_support_flowTotal@EDGE_ORDER_TO_SUPPORT_FLOWTOTAL@DEFAULT.csv"] = new[] { 9d, 6d, 9d, 4d }
+        };
+
+        var manifestSeries = edgeSeries.Keys
+            .Select(fileName => (id: Path.GetFileNameWithoutExtension(fileName), path: $"series/{fileName}", unit: "entities/bin"))
+            .ToArray();
+
+        CreateRun(
+            edgeFlowRunId,
+            BuildEdgeFlowModelYaml(),
+            mode: "telemetry",
+            seriesOutputs: edgeSeries,
+            manifestSeries: manifestSeries);
     }
 
     private void CreateClassRun()
@@ -1645,6 +1691,40 @@ topology:
       measure: "failures"
       multiplier: 0.5
       lag: 0
+""";
+    }
+
+    private static string BuildEdgeFlowModelYaml()
+    {
+        return $"""
+schemaVersion: 1
+
+grid:
+  bins: {binCount}
+  binSize: {binSizeMinutes}
+  binUnit: minutes
+  startTimeUtc: "{startTimeUtc:O}"
+
+topology:
+  nodes:
+    - id: "OrderService"
+      kind: "service"
+      semantics:
+        arrivals: "file:OrderService_arrivals.csv"
+        served: "file:OrderService_served.csv"
+        errors: "file:OrderService_errors.csv"
+    - id: "SupportQueue"
+      kind: "queue"
+      semantics:
+        arrivals: "file:SupportQueue_arrivals.csv"
+        served: "file:SupportQueue_served.csv"
+        errors: "file:SupportQueue_errors.csv"
+        queueDepth: "file:SupportQueue_queue.csv"
+  edges:
+    - id: "order_to_support"
+      from: "OrderService:out"
+      to: "SupportQueue:in"
+
 """;
     }
 

@@ -229,6 +229,81 @@ public class RunOrchestrationServiceTests
     }
 
     [Fact]
+    public async Task CreateRunAsync_SimulationMode_WritesEdgeSeries()
+    {
+        using var temp = new TempDirectory();
+        var templatesDir = Path.Combine(temp.Path, "templates");
+        Directory.CreateDirectory(templatesDir);
+
+        var templatePath = Path.Combine(templatesDir, "sim-edge.yaml");
+        await File.WriteAllTextAsync(templatePath, simulationEdgeTemplate);
+
+        var templateService = new TemplateService(templatesDir, NullLogger<TemplateService>.Instance);
+        var bundleBuilder = new TelemetryBundleBuilder();
+        var orchestration = new RunOrchestrationService(templateService, bundleBuilder, NullLogger<RunOrchestrationService>.Instance);
+
+        var request = new RunOrchestrationRequest
+        {
+            TemplateId = "sim-edge",
+            Mode = "simulation",
+            Parameters = new Dictionary<string, object?>
+            {
+                ["bins"] = 2,
+                ["binSize"] = 5
+            },
+            OutputRoot = Path.Combine(temp.Path, "runs"),
+            DeterministicRunId = true
+        };
+
+        var outcome = await orchestration.CreateRunAsync(request);
+        var result = outcome.Result!;
+
+        var edgePath = Path.Combine(result.RunDirectory, "series", "edge_source_to_sink_flowTotal@EDGE_SOURCE_TO_SINK_FLOWTOTAL@DEFAULT.csv");
+        Assert.True(File.Exists(edgePath), "Expected edge flow series to be emitted for simulation runs.");
+        Assert.Equal(new[] { 4d, 6d }, ReadSeriesValues(edgePath));
+    }
+
+    [Fact]
+    public async Task CreateRunAsync_SimulationMode_WritesEdgeSeriesByClass()
+    {
+        using var temp = new TempDirectory();
+        var templatesDir = Path.Combine(temp.Path, "templates");
+        Directory.CreateDirectory(templatesDir);
+
+        var templatePath = Path.Combine(templatesDir, "sim-edge-classes.yaml");
+        await File.WriteAllTextAsync(templatePath, simulationEdgeClassTemplate);
+
+        var templateService = new TemplateService(templatesDir, NullLogger<TemplateService>.Instance);
+        var bundleBuilder = new TelemetryBundleBuilder();
+        var orchestration = new RunOrchestrationService(templateService, bundleBuilder, NullLogger<RunOrchestrationService>.Instance);
+
+        var request = new RunOrchestrationRequest
+        {
+            TemplateId = "sim-edge-classes",
+            Mode = "simulation",
+            Parameters = new Dictionary<string, object?>
+            {
+                ["bins"] = 2,
+                ["binSize"] = 5
+            },
+            OutputRoot = Path.Combine(temp.Path, "runs"),
+            DeterministicRunId = true
+        };
+
+        var outcome = await orchestration.CreateRunAsync(request);
+        var result = outcome.Result!;
+
+        var seriesDir = Path.Combine(result.RunDirectory, "series");
+        var alphaPath = Path.Combine(seriesDir, "edge_source_to_sink_flowTotal@EDGE_SOURCE_TO_SINK_FLOWTOTAL@Alpha.csv");
+        var betaPath = Path.Combine(seriesDir, "edge_source_to_sink_flowTotal@EDGE_SOURCE_TO_SINK_FLOWTOTAL@Beta.csv");
+
+        Assert.True(File.Exists(alphaPath), "Expected Alpha class edge flow series to be emitted.");
+        Assert.True(File.Exists(betaPath), "Expected Beta class edge flow series to be emitted.");
+        Assert.Equal(new[] { 2d, 2d }, ReadSeriesValues(alphaPath));
+        Assert.Equal(new[] { 1d, 3d }, ReadSeriesValues(betaPath));
+    }
+
+    [Fact]
     public async Task CreateRunAsync_DeterministicSimulation_RunIdUsesInputHash()
     {
         using var temp = new TempDirectory();
@@ -573,6 +648,145 @@ nodes:
   - id: errors
     kind: const
     values: [1, 0, 0, 0]
+
+outputs:
+  - series: "*"
+""";
+
+    private const string simulationEdgeTemplate = """
+schemaVersion: 1
+generator: flowtime-sim
+metadata:
+  id: sim-edge
+  title: Simulation Edge Template
+  version: 1.0.0
+window:
+  start: 2025-01-01T00:00:00Z
+  timezone: UTC
+
+parameters:
+  - name: bins
+    type: integer
+    default: 2
+  - name: binSize
+    type: integer
+    default: 5
+
+grid:
+  bins: ${bins}
+  binSize: ${binSize}
+  binUnit: minutes
+
+topology:
+  nodes:
+    - id: Source
+      kind: service
+      semantics:
+        arrivals: arrivals
+        served: served
+        errors: errors
+    - id: Sink
+      kind: sink
+      nodeRole: sink
+      semantics:
+        arrivals: served
+        served: served
+  edges:
+    - id: source_to_sink
+      from: Source:out
+      to: Sink:in
+
+nodes:
+  - id: arrivals
+    kind: const
+    values: [5, 7]
+  - id: served
+    kind: const
+    values: [4, 6]
+  - id: errors
+    kind: const
+    values: [0, 0]
+
+outputs:
+  - series: "*"
+""";
+
+    private const string simulationEdgeClassTemplate = """
+schemaVersion: 1
+generator: flowtime-sim
+metadata:
+  id: sim-edge-classes
+  title: Simulation Edge Class Template
+  version: 1.0.0
+window:
+  start: 2025-01-01T00:00:00Z
+  timezone: UTC
+
+parameters:
+  - name: bins
+    type: integer
+    default: 2
+  - name: binSize
+    type: integer
+    default: 5
+
+grid:
+  bins: ${bins}
+  binSize: ${binSize}
+  binUnit: minutes
+
+classes:
+  - id: Alpha
+  - id: Beta
+
+traffic:
+  arrivals:
+    - nodeId: arrivals_alpha
+      classId: Alpha
+      pattern:
+        kind: constant
+        ratePerBin: 1
+    - nodeId: arrivals_beta
+      classId: Beta
+      pattern:
+        kind: constant
+        ratePerBin: 1
+
+topology:
+  nodes:
+    - id: Source
+      kind: service
+      semantics:
+        arrivals: arrivals
+        served: served
+        errors: errors
+    - id: Sink
+      kind: sink
+      nodeRole: sink
+      semantics:
+        arrivals: served
+        served: served
+  edges:
+    - id: source_to_sink
+      from: Source:out
+      to: Sink:in
+
+nodes:
+  - id: arrivals_alpha
+    kind: const
+    values: [2, 2]
+  - id: arrivals_beta
+    kind: const
+    values: [1, 3]
+  - id: arrivals
+    kind: expr
+    expr: "arrivals_alpha + arrivals_beta"
+  - id: served
+    kind: expr
+    expr: "arrivals"
+  - id: errors
+    kind: const
+    values: [0, 0]
 
 outputs:
   - series: "*"
