@@ -6,8 +6,11 @@ import { loadConfig } from '../src/config.js';
 test('loadConfig uses defaults when env is empty', () => {
   const config = loadConfig({});
   assert.equal(config.simApiUrl, 'http://localhost:8090/api/v1');
+  assert.equal(config.draftSimApiUrl, 'http://localhost:8090/api/v1');
   assert.equal(config.engineApiUrl, 'http://localhost:8080/v1');
-  assert.equal(config.dataDir, path.resolve('data'));
+  assert.equal(config.dataDir, path.resolve('../../data'));
+  assert.equal(config.templatesDir, path.resolve('../../templates'));
+  assert.equal(config.draftsDir, path.resolve('../../templates-draft'));
   assert.equal(config.maxBins, 1000);
   assert.equal(config.requestTimeoutMs, 30000);
   assert.equal(config.orchestrationTimeoutMs, 120000);

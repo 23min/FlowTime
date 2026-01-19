@@ -2,9 +2,22 @@ import path from 'node:path';
 import { randomInt } from 'node:crypto';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import type { ServerConfig } from './config.js';
-import type { ToolHandlers, RunTemplateArgs, RunSummaryArgs, GraphArgs, StateWindowArgs } from './tools.js';
+import type {
+  ToolHandlers,
+  RunTemplateArgs,
+  RunDraftArgs,
+  RunSummaryArgs,
+  GraphArgs,
+  StateWindowArgs,
+  CreateDraftArgs,
+  DraftPatchArgs,
+  DraftIdArgs,
+  ValidateDraftArgs,
+  GenerateModelArgs
+} from './tools.js';
 import { fetchJson, HttpError } from './http.js';
 import { assertBinWindow } from './guards.js';
+import { DraftStore } from './drafts.js';
 
 type RunCreateResponse = {
   isDryRun: boolean;
@@ -77,13 +90,18 @@ const listTemplates = async (config: ServerConfig): Promise<CallToolResult> => {
   return toToolResult({ templates });
 };
 
-const runTemplate = async (config: ServerConfig, args: RunTemplateArgs): Promise<CallToolResult> => {
+const runTemplateWithSim = async (
+  config: ServerConfig,
+  templateId: string,
+  args: RunTemplateArgs | RunDraftArgs,
+  simApiUrl: string
+): Promise<CallToolResult> => {
   const mode = enforceSimulationMode(args.mode);
   assertParameterBins(args.parameters, config.maxBins);
 
   const rngResult = buildRng(args);
   const requestBody = {
-    templateId: args.templateId,
+    templateId,
     mode,
     parameters: args.parameters,
     options: buildRunOptions(args),
@@ -91,7 +109,81 @@ const runTemplate = async (config: ServerConfig, args: RunTemplateArgs): Promise
   };
 
   const orchestration = await fetchJson<RunCreateResponse>(
-    `${config.simApiUrl}/orchestration/runs`,
+    `${simApiUrl}/orchestration/runs`,
+    {
+      method: 'POST',
+      body: JSON.stringify(requestBody)
+    },
+    config.orchestrationTimeoutMs
+  );
+
+  if (orchestration.isDryRun) {
+    return toToolResult({
+      dryRun: true,
+      plan: orchestration.plan ?? null,
+      warnings: orchestration.warnings ?? [],
+      rngSeed: rngResult.seed,
+      rngKind: rngResult.kind
+    });
+  }
+
+  const runId = orchestration.metadata?.runId;
+  if (!runId) {
+    throw new Error('Sim orchestration response missing runId.');
+  }
+
+  const bundlePath = buildBundlePath(config, runId);
+  let importStatus = 'imported';
+  let importError: unknown = null;
+
+  try {
+    await fetchJson<RunCreateResponse>(
+      `${config.engineApiUrl}/runs`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          bundlePath,
+          overwriteExisting: args.overwriteExisting ?? false
+        })
+      },
+      config.requestTimeoutMs
+    );
+  } catch (error) {
+    if (error instanceof HttpError && error.status === 409) {
+      importStatus = 'already_exists';
+      importError = error.payload;
+    } else {
+      throw error;
+    }
+  }
+
+  return toToolResult({
+    runId,
+    bundlePath,
+    warnings: orchestration.warnings ?? [],
+    telemetry: orchestration.telemetry ?? null,
+    rngSeed: rngResult.seed,
+    rngKind: rngResult.kind,
+    importStatus,
+    importError
+  });
+};
+
+const runTemplate = async (config: ServerConfig, args: RunTemplateArgs): Promise<CallToolResult> =>
+  runTemplateWithSim(config, args.templateId, args, config.simApiUrl);
+
+const runDraft = async (config: ServerConfig, args: RunDraftArgs): Promise<CallToolResult> => {
+  const rngResult = buildRng(args);
+  const requestBody = {
+    source: { type: 'draftId', id: args.draftId },
+    mode: enforceSimulationMode(args.mode),
+    parameters: args.parameters,
+    options: buildRunOptions(args),
+    rng: rngResult.rng
+  };
+
+  const orchestration = await fetchJson<RunCreateResponse>(
+    `${config.draftSimApiUrl}/drafts/run`,
     {
       method: 'POST',
       body: JSON.stringify(requestBody)
@@ -192,10 +284,92 @@ const getStateWindow = async (config: ServerConfig, args: StateWindowArgs): Prom
   return toToolResult({ stateWindow });
 };
 
-export const createHandlers = (config: ServerConfig): ToolHandlers => ({
-  listTemplates: () => listTemplates(config),
-  runTemplate: (args) => runTemplate(config, args),
-  getRunSummary: (args) => getRunSummary(config, args),
-  getGraph: (args) => getGraph(config, args),
-  getStateWindow: (args) => getStateWindow(config, args)
-});
+const listDrafts = async (store: DraftStore): Promise<CallToolResult> => {
+  const drafts = await store.listDrafts();
+  return toToolResult({ drafts });
+};
+
+const createDraft = async (store: DraftStore, args: CreateDraftArgs): Promise<CallToolResult> => {
+  const draft = await store.createDraft(args);
+  return toToolResult({ draft });
+};
+
+const getDraft = async (store: DraftStore, args: DraftIdArgs): Promise<CallToolResult> => {
+  const draft = await store.getDraft(args.draftId);
+  return toToolResult({ draft });
+};
+
+const applyDraftPatch = async (store: DraftStore, args: DraftPatchArgs): Promise<CallToolResult> => {
+  const draft = await store.applyDraftPatch(args);
+  return toToolResult({ draft });
+};
+
+const diffDraft = async (store: DraftStore, args: DraftIdArgs): Promise<CallToolResult> => {
+  const diff = await store.diffDraft(args.draftId);
+  return toToolResult({ diff });
+};
+
+const validateDraft = async (config: ServerConfig, args: ValidateDraftArgs): Promise<CallToolResult> => {
+  const response = await fetchJson<{
+    valid?: boolean;
+    metadata?: unknown;
+    warnings?: unknown[];
+  }>(
+    `${config.draftSimApiUrl}/drafts/validate`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        source: { type: 'draftId', id: args.draftId },
+        parameters: args.parameters ?? {},
+        mode: args.mode
+      })
+    },
+    config.requestTimeoutMs
+  );
+
+  return toToolResult({
+    valid: response.valid ?? true,
+    metadata: response.metadata ?? null,
+    warnings: response.warnings ?? []
+  });
+};
+
+const generateModel = async (config: ServerConfig, args: GenerateModelArgs): Promise<CallToolResult> => {
+  const response = await fetchJson<unknown>(
+    `${config.draftSimApiUrl}/drafts/generate`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        source: { type: 'draftId', id: args.draftId },
+        parameters: args.parameters ?? {},
+        mode: args.mode
+      })
+    },
+    config.requestTimeoutMs
+  );
+
+  return toToolResult({ model: response });
+};
+
+export const createHandlers = (config: ServerConfig): ToolHandlers => {
+  const draftStore = new DraftStore({
+    templatesDir: config.templatesDir,
+    draftsDir: config.draftsDir
+  });
+
+  return {
+    listTemplates: () => listTemplates(config),
+    runTemplate: (args) => runTemplate(config, args),
+    getRunSummary: (args) => getRunSummary(config, args),
+    getGraph: (args) => getGraph(config, args),
+    getStateWindow: (args) => getStateWindow(config, args),
+    listDrafts: () => listDrafts(draftStore),
+    createDraft: (args) => createDraft(draftStore, args),
+    getDraft: (args) => getDraft(draftStore, args),
+    applyDraftPatch: (args) => applyDraftPatch(draftStore, args),
+    diffDraft: (args) => diffDraft(draftStore, args),
+    validateDraft: (args) => validateDraft(config, args),
+    generateModel: (args) => generateModel(config, args),
+    runDraft: (args) => runDraft(config, args)
+  };
+};

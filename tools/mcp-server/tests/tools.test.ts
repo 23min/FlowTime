@@ -4,7 +4,21 @@ import { getToolNames } from '../src/tools.js';
 
 test('tool list includes required PoC tools', () => {
   const names = getToolNames();
-  const required = ['list_templates', 'run_template', 'get_run_summary', 'get_graph', 'get_state_window'];
+  const required = [
+    'list_templates',
+    'run_template',
+    'get_run_summary',
+    'get_graph',
+    'get_state_window',
+    'list_drafts',
+    'create_draft',
+    'get_draft',
+    'apply_draft_patch',
+    'diff_draft',
+    'validate_draft',
+    'generate_model',
+    'run_draft'
+  ];
   for (const name of required) {
     assert.ok(names.includes(name), `missing tool ${name}`);
   }

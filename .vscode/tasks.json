@@ -153,8 +153,11 @@
         "cwd": "${workspaceFolder}/tools/mcp-server",
         "env": {
           "FLOWTIME_SIM_API_URL": "http://localhost:8090/api/v1",
+          "FLOWTIME_SIM_DRAFT_API_URL": "http://localhost:8090/api/v1",
           "FLOWTIME_API_URL": "http://localhost:8080/v1",
           "FLOWTIME_DATA_DIR": "${workspaceFolder}/data",
+          "FLOWTIME_TEMPLATES_DIR": "${workspaceFolder}/templates",
+          "FLOWTIME_TEMPLATES_DRAFT_DIR": "${workspaceFolder}/templates-draft",
           "MCP_MAX_BINS": "1000"
         }
       }

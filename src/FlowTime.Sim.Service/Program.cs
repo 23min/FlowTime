@@ -6,12 +6,14 @@ using System.Linq;
 using Microsoft.Extensions.DependencyInjection;
 using FlowTime.Sim.Core;
 using FlowTime.Sim.Core.Analysis;
+using FlowTime.Core.Analysis;
 using FlowTime.Sim.Core.Services;
 using FlowTime.Sim.Core.Templates;
 using FlowTime.Sim.Core.Templates.Exceptions;
 using FlowTime.Sim.Service; // TemplateRegistry
 using FlowTime.Sim.Service.Services; // ServiceInfoProvider
 using FlowTime.Sim.Service.Extensions; // TemplateValidationExtensions
+using FlowTime.Contracts.TimeTravel;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 using FlowTime.Generator;
@@ -347,85 +349,7 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 
 				var modelYaml = await templateService.GenerateEngineModelAsync(id, parameters, modeOverride);
 				var invariantAnalysis = TemplateInvariantAnalyzer.Analyze(modelYaml);
-				warningRegistry.UpdateWarnings(id, invariantAnalysis.Warnings);
-
-				var finalModelYaml = modelYaml;
-				// Compute canonical model hash for integrity/cross-system compatibility
-				var modelHash = ModelHasher.ComputeModelHash(finalModelYaml);
-
-				// Deserialize artifact for metadata summary
-				var artifact = artifactDeserializer.Deserialize<SimModelArtifact>(finalModelYaml);
-				var hasWindow = !string.IsNullOrWhiteSpace(artifact.Window?.Start);
-				var hasTopology = artifact.Topology?.Nodes?.Count > 0;
-				var hasTelemetrySources = artifact.Nodes.Any(n => !string.IsNullOrWhiteSpace(n.Source));
-
-				// Use hash prefix for directory naming to prevent parameter collisions
-				// Format: data/models/{templateId}/schema-{schemaVersion}/mode-{mode}/{hashPrefix8}/
-				const string hashPrefixLabel = "sha256:";
-				var hashPrefix = modelHash.StartsWith(hashPrefixLabel, StringComparison.OrdinalIgnoreCase)
-					? modelHash.Substring(hashPrefixLabel.Length, Math.Min(8, modelHash.Length - hashPrefixLabel.Length))
-					: modelHash[..Math.Min(8, modelHash.Length)];
-				var modelsRoot = ServiceHelpers.ModelsRoot(config);
-				var schemaSegment = $"schema-{artifact.SchemaVersion}";
-				var modeSegment = $"mode-{artifact.Mode}";
-				var templateModelsDir = Path.Combine(modelsRoot, id, schemaSegment, modeSegment, hashPrefix);
-				Directory.CreateDirectory(templateModelsDir);
-				var modelPath = Path.Combine(templateModelsDir, "model.yaml");
-				await File.WriteAllTextAsync(modelPath, finalModelYaml, System.Text.Encoding.UTF8);
-
-				// SIM-M2.7: Persist provenance metadata alongside model
-				var provenancePath = Path.Combine(templateModelsDir, "provenance.json");
-				await File.WriteAllTextAsync(provenancePath, 
-					JsonSerializer.Serialize(artifact.Provenance, new JsonSerializerOptions 
-					{ 
-						WriteIndented = true,
-						PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-					}), 
-					System.Text.Encoding.UTF8);
-
-				// Persist legacy metadata with hash, parameters, and timestamp
-				var metadataPath = Path.Combine(templateModelsDir, "metadata.json");
-				var metadata = new
-				{
-					templateId = artifact.Metadata.Id,
-					templateTitle = artifact.Metadata.Title,
-					templateVersion = artifact.Metadata.Version,
-					schemaVersion = artifact.SchemaVersion,
-					mode = artifact.Mode,
-					hasWindow,
-					hasTopology,
-					hasTelemetrySources,
-					modelHash,
-					parameters = artifact.Provenance.Parameters,
-					generatedAtUtc = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture)
-				};
-				await File.WriteAllTextAsync(metadataPath, JsonSerializer.Serialize(metadata, new JsonSerializerOptions { WriteIndented = true }), System.Text.Encoding.UTF8);
-
-				// SIM-M2.7: Always return JSON with model + provenance
-				// Backward compatible: clients can ignore provenance field
-				var metadataSummary = new
-				{
-					templateId = artifact.Metadata.Id,
-					templateTitle = artifact.Metadata.Title,
-					templateVersion = artifact.Metadata.Version,
-					schemaVersion = artifact.SchemaVersion,
-					generator = artifact.Generator,
-					mode = artifact.Mode,
-					hasWindow,
-					hasTopology,
-					hasTelemetrySources,
-					modelHash
-				};
-
-				var warningsPayload = invariantAnalysis.Warnings.Select(w => new
-				{
-					nodeId = w.NodeId,
-					code = w.Code,
-					message = w.Message,
-					bins = w.Bins
-				}).ToArray();
-
-				return Results.Ok(new { model = finalModelYaml, provenance = artifact.Provenance, metadata = metadataSummary, warnings = warningsPayload });
+				return await BuildGenerateResponseAsync(id, modelYaml, invariantAnalysis.Warnings, config, warningRegistry).ConfigureAwait(false);
 			}
 			catch (ArgumentException ex)
 			{
@@ -434,6 +358,248 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 			catch (Exception ex)
 			{
 				return Results.Problem($"Failed to generate model: {ex.Message}");
+			}
+		});
+
+		// API: POST /api/v1/drafts/validate  (validate draft template source)
+		api.MapPost("/drafts/validate", async (
+			DraftTemplateRequest request,
+			IConfiguration config,
+			ILogger<TemplateService> templateLogger) =>
+		{
+			if (request is null)
+			{
+				return Results.BadRequest(new { error = "Request body is required." });
+			}
+
+			var resolveResult = await ResolveDraftSourceAsync(request.Source, config).ConfigureAwait(false);
+			if (resolveResult.ErrorResult is not null)
+			{
+				return resolveResult.ErrorResult;
+			}
+
+			if (resolveResult.Value is null)
+			{
+				return Results.BadRequest(new { error = "Draft source resolution failed." });
+			}
+
+			var (draftId, draftYaml) = resolveResult.Value;
+			var parameters = BuildParameters(request.Parameters);
+			TemplateMode? modeOverride = null;
+			if (!string.IsNullOrWhiteSpace(request.Mode))
+			{
+				try
+				{
+					modeOverride = TemplateModeExtensions.Parse(request.Mode);
+				}
+				catch (TemplateValidationException)
+				{
+					return Results.BadRequest(new { error = $"Invalid mode '{request.Mode}'. Expected 'simulation' or 'telemetry'." });
+				}
+			}
+
+			try
+			{
+				var draftTemplateService = CreateDraftTemplateService(draftId, draftYaml, templateLogger);
+				var modelYaml = await draftTemplateService.GenerateEngineModelAsync(draftId, parameters, modeOverride).ConfigureAwait(false);
+				var invariantAnalysis = TemplateInvariantAnalyzer.Analyze(modelYaml);
+				var warningsPayload = invariantAnalysis.Warnings.Select(w => new
+				{
+					nodeId = w.NodeId,
+					code = w.Code,
+					message = w.Message,
+					bins = w.Bins
+				}).ToArray();
+				var artifact = artifactDeserializer.Deserialize<SimModelArtifact>(modelYaml);
+				var metadataSummary = new
+				{
+					templateId = artifact.Metadata.Id,
+					templateTitle = artifact.Metadata.Title,
+					templateVersion = artifact.Metadata.Version,
+					schemaVersion = artifact.SchemaVersion,
+					generator = artifact.Generator,
+					mode = artifact.Mode
+				};
+
+				return Results.Ok(new { valid = true, metadata = metadataSummary, warnings = warningsPayload });
+			}
+			catch (TemplateValidationException ex)
+			{
+				return Results.BadRequest(new { valid = false, errors = new[] { ex.Message } });
+			}
+			catch (TemplateParsingException ex)
+			{
+				return Results.BadRequest(new { valid = false, errors = new[] { ex.Message } });
+			}
+			catch (Exception ex)
+			{
+				return Results.BadRequest(new { valid = false, errors = new[] { ex.Message } });
+			}
+		});
+
+		// API: POST /api/v1/drafts/generate  (generate model from draft template source)
+		api.MapPost("/drafts/generate", async (
+			DraftTemplateRequest request,
+			IConfiguration config,
+			ILogger<TemplateService> templateLogger,
+			ITemplateWarningRegistry warningRegistry) =>
+		{
+			if (request is null)
+			{
+				return Results.BadRequest(new { error = "Request body is required." });
+			}
+
+			var resolveResult = await ResolveDraftSourceAsync(request.Source, config).ConfigureAwait(false);
+			if (resolveResult.ErrorResult is not null)
+			{
+				return resolveResult.ErrorResult;
+			}
+
+			if (resolveResult.Value is null)
+			{
+				return Results.BadRequest(new { error = "Draft source resolution failed." });
+			}
+
+			var (draftId, draftYaml) = resolveResult.Value;
+			var parameters = BuildParameters(request.Parameters);
+			TemplateMode? modeOverride = null;
+			if (!string.IsNullOrWhiteSpace(request.Mode))
+			{
+				try
+				{
+					modeOverride = TemplateModeExtensions.Parse(request.Mode);
+				}
+				catch (TemplateValidationException)
+				{
+					return Results.BadRequest(new { error = $"Invalid mode '{request.Mode}'. Expected 'simulation' or 'telemetry'." });
+				}
+			}
+
+			try
+			{
+				var draftTemplateService = CreateDraftTemplateService(draftId, draftYaml, templateLogger);
+				var modelYaml = await draftTemplateService.GenerateEngineModelAsync(draftId, parameters, modeOverride).ConfigureAwait(false);
+				var invariantAnalysis = TemplateInvariantAnalyzer.Analyze(modelYaml);
+				return await BuildGenerateResponseAsync(draftId, modelYaml, invariantAnalysis.Warnings, config, warningRegistry).ConfigureAwait(false);
+			}
+			catch (ArgumentException ex)
+			{
+				return Results.BadRequest(new { error = ex.Message });
+			}
+			catch (Exception ex)
+			{
+				return Results.Problem($"Failed to generate model: {ex.Message}");
+			}
+		});
+
+		// API: POST /api/v1/drafts/run  (orchestrate run from draft template source)
+		api.MapPost("/drafts/run", async (
+			DraftRunRequest request,
+			RunOrchestrationService orchestration,
+			TelemetryBundleBuilder bundleBuilder,
+			IConfiguration config,
+			ILogger<RunOrchestrationService> logger,
+			ILogger<TemplateService> templateLogger,
+			CancellationToken cancellationToken) =>
+		{
+			if (request is null)
+			{
+				return Results.BadRequest(new { error = "Request body is required." });
+			}
+
+			var resolveResult = await ResolveDraftSourceAsync(request.Source, config).ConfigureAwait(false);
+			if (resolveResult.ErrorResult is not null)
+			{
+				return resolveResult.ErrorResult;
+			}
+
+			if (resolveResult.Value is null)
+			{
+				return Results.BadRequest(new { error = "Draft source resolution failed." });
+			}
+
+			var (draftId, draftYaml) = resolveResult.Value;
+			var mode = string.IsNullOrWhiteSpace(request.Mode) ? "telemetry" : request.Mode.Trim().ToLowerInvariant();
+			if (mode is not ("telemetry" or "simulation"))
+			{
+				return Results.BadRequest(new { error = "mode must be 'telemetry' or 'simulation'." });
+			}
+
+			if (mode == "telemetry" && (request.Telemetry?.CaptureDirectory is null || string.IsNullOrWhiteSpace(request.Telemetry.CaptureDirectory)))
+			{
+				return Results.BadRequest(new { error = "telemetry.captureDirectory is required for telemetry runs." });
+			}
+
+			var runsRoot = Path.Combine(ServiceHelpers.DataRoot(config), "runs");
+			Directory.CreateDirectory(runsRoot);
+			var parameters = RunOrchestrationContractMapper.ConvertParameters(request.Parameters);
+			var telemetryBindings = RunOrchestrationContractMapper.CloneTelemetryBindings(request.Telemetry);
+
+			var orchestrationRequest = new RunOrchestrationRequest
+			{
+				TemplateId = draftId,
+				Mode = mode,
+				CaptureDirectory = request.Telemetry?.CaptureDirectory,
+				TelemetryBindings = telemetryBindings,
+				Parameters = parameters,
+				OutputRoot = runsRoot,
+				DeterministicRunId = request.Options?.DeterministicRunId ?? false,
+				RunId = request.Options?.RunId,
+				DryRun = request.Options?.DryRun ?? false,
+				OverwriteExisting = request.Options?.OverwriteExisting ?? false,
+				Rng = request.Rng
+			};
+
+			try
+			{
+				var draftTemplateService = CreateDraftTemplateService(draftId, draftYaml, templateLogger);
+				var draftOrchestration = new RunOrchestrationService(draftTemplateService, bundleBuilder, logger, config);
+				var outcome = await draftOrchestration.CreateRunAsync(orchestrationRequest, cancellationToken).ConfigureAwait(false);
+				if (outcome.IsDryRun)
+				{
+					var plan = outcome.Plan ?? throw new InvalidOperationException("Dry-run outcome missing plan details.");
+					return Results.Ok(new RunCreateResponse
+					{
+						IsDryRun = true,
+						Plan = RunOrchestrationContractMapper.BuildPlan(plan),
+						Warnings = Array.Empty<StateWarning>(),
+						CanReplay = false,
+						Telemetry = null,
+						WasReused = false
+					});
+				}
+
+				var result = outcome.Result ?? throw new InvalidOperationException("Run outcome missing result payload.");
+				var metadata = RunOrchestrationContractMapper.BuildStateMetadata(result);
+				var warnings = RunOrchestrationContractMapper.BuildStateWarnings(result.TelemetryManifest);
+				var canReplay = RunOrchestrationContractMapper.DetermineCanReplay(result);
+
+				logger.LogInformation("Run {RunId} created for draft {DraftId} (mode={Mode}, reused={Reused})", metadata.RunId, draftId, metadata.Mode, result.WasReused);
+
+				return Results.Created($"/api/v1/drafts/run/{metadata.RunId}", new RunCreateResponse
+				{
+					IsDryRun = false,
+					Metadata = metadata,
+					Warnings = warnings,
+					CanReplay = canReplay,
+					Telemetry = RunOrchestrationContractMapper.BuildTelemetrySummary(result),
+					WasReused = result.WasReused
+				});
+			}
+			catch (TemplateValidationException ex)
+			{
+				logger.LogWarning(ex, "Template validation failed for draft {DraftId}", draftId);
+				return Results.BadRequest(new { error = ex.Message });
+			}
+			catch (InvalidOperationException ex)
+			{
+				logger.LogWarning(ex, "Run validation failed for draft {DraftId}", draftId);
+				return Results.BadRequest(new { error = ex.Message });
+			}
+			catch (Exception ex)
+			{
+				logger.LogError(ex, "Failed to create run for draft {DraftId}", draftId);
+				return Results.Problem(title: "Run creation failed", detail: ex.Message, statusCode: StatusCodes.Status500InternalServerError);
 			}
 		});
 
@@ -762,6 +928,168 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 		app.Run();
 	}
 
+	private static TemplateService CreateDraftTemplateService(string draftId, string yaml, ILogger<TemplateService> logger)
+	{
+		var templates = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+		{
+			[draftId] = yaml
+		};
+		return new TemplateService(templates, logger);
+	}
+
+	private static async Task<IResult> BuildGenerateResponseAsync(
+		string templateId,
+		string modelYaml,
+		IReadOnlyList<InvariantWarning> warnings,
+		IConfiguration config,
+		ITemplateWarningRegistry warningRegistry)
+	{
+		warningRegistry.UpdateWarnings(templateId, warnings);
+
+		var modelHash = ModelHasher.ComputeModelHash(modelYaml);
+		var artifact = artifactDeserializer.Deserialize<SimModelArtifact>(modelYaml);
+		var hasWindow = !string.IsNullOrWhiteSpace(artifact.Window?.Start);
+		var hasTopology = artifact.Topology?.Nodes?.Count > 0;
+		var hasTelemetrySources = artifact.Nodes.Any(n => !string.IsNullOrWhiteSpace(n.Source));
+
+		const string hashPrefixLabel = "sha256:";
+		var hashPrefix = modelHash.StartsWith(hashPrefixLabel, StringComparison.OrdinalIgnoreCase)
+			? modelHash.Substring(hashPrefixLabel.Length, Math.Min(8, modelHash.Length - hashPrefixLabel.Length))
+			: modelHash[..Math.Min(8, modelHash.Length)];
+		var modelsRoot = ServiceHelpers.ModelsRoot(config);
+		var schemaSegment = $"schema-{artifact.SchemaVersion}";
+		var modeSegment = $"mode-{artifact.Mode}";
+		var templateModelsDir = Path.Combine(modelsRoot, templateId, schemaSegment, modeSegment, hashPrefix);
+		Directory.CreateDirectory(templateModelsDir);
+		var modelPath = Path.Combine(templateModelsDir, "model.yaml");
+		await File.WriteAllTextAsync(modelPath, modelYaml, System.Text.Encoding.UTF8);
+
+		var provenancePath = Path.Combine(templateModelsDir, "provenance.json");
+		await File.WriteAllTextAsync(
+			provenancePath,
+			JsonSerializer.Serialize(artifact.Provenance, new JsonSerializerOptions
+			{
+				WriteIndented = true,
+				PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+			}),
+			System.Text.Encoding.UTF8);
+
+		var metadataPath = Path.Combine(templateModelsDir, "metadata.json");
+		var metadata = new
+		{
+			templateId = artifact.Metadata.Id,
+			templateTitle = artifact.Metadata.Title,
+			templateVersion = artifact.Metadata.Version,
+			schemaVersion = artifact.SchemaVersion,
+			mode = artifact.Mode,
+			hasWindow,
+			hasTopology,
+			hasTelemetrySources,
+			modelHash,
+			parameters = artifact.Provenance.Parameters,
+			generatedAtUtc = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture)
+		};
+		await File.WriteAllTextAsync(metadataPath, JsonSerializer.Serialize(metadata, new JsonSerializerOptions { WriteIndented = true }), System.Text.Encoding.UTF8);
+
+		var metadataSummary = new
+		{
+			templateId = artifact.Metadata.Id,
+			templateTitle = artifact.Metadata.Title,
+			templateVersion = artifact.Metadata.Version,
+			schemaVersion = artifact.SchemaVersion,
+			generator = artifact.Generator,
+			mode = artifact.Mode,
+			hasWindow,
+			hasTopology,
+			hasTelemetrySources,
+			modelHash
+		};
+
+		var warningsPayload = warnings.Select(w => new
+		{
+			nodeId = w.NodeId,
+			code = w.Code,
+			message = w.Message,
+			bins = w.Bins
+		}).ToArray();
+
+		return Results.Ok(new { model = modelYaml, provenance = artifact.Provenance, metadata = metadataSummary, warnings = warningsPayload });
+	}
+
+	private static Dictionary<string, object> BuildParameters(Dictionary<string, JsonElement>? parameters)
+	{
+		var converted = RunOrchestrationContractMapper.ConvertParameters(parameters);
+		var result = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+		foreach (var kvp in converted)
+		{
+			if (kvp.Value is not null)
+			{
+				result[kvp.Key] = kvp.Value;
+			}
+		}
+		return result;
+	}
+
+	private static async Task<(DraftSourceResolution? Value, IResult? ErrorResult)> ResolveDraftSourceAsync(
+		DraftSource source,
+		IConfiguration config)
+	{
+		if (source is null)
+		{
+			return (null, Results.BadRequest(new { error = "source is required." }));
+		}
+
+		var type = source.Type?.Trim().ToLowerInvariant();
+		if (string.IsNullOrWhiteSpace(type))
+		{
+			return (null, Results.BadRequest(new { error = "source.type is required." }));
+		}
+
+		if (type == "draftid")
+		{
+			if (string.IsNullOrWhiteSpace(source.Id))
+			{
+				return (null, Results.BadRequest(new { error = "source.id is required for draftId." }));
+			}
+
+			if (!ServiceHelpers.IsSafeCatalogId(source.Id))
+			{
+				return (null, Results.BadRequest(new { error = "Invalid draft id." }));
+			}
+
+			var draftsRoot = ServiceHelpers.DraftTemplatesRoot(config);
+			var draftPath = Path.Combine(draftsRoot, $"{source.Id}.yaml");
+			if (!File.Exists(draftPath))
+			{
+				return (null, Results.NotFound(new { error = $"Draft '{source.Id}' not found." }));
+			}
+
+			var yaml = await File.ReadAllTextAsync(draftPath, System.Text.Encoding.UTF8).ConfigureAwait(false);
+			return (new DraftSourceResolution(source.Id, yaml), null);
+		}
+
+		if (type == "inline")
+		{
+			if (string.IsNullOrWhiteSpace(source.Id))
+			{
+				return (null, Results.BadRequest(new { error = "source.id is required for inline drafts." }));
+			}
+			if (string.IsNullOrWhiteSpace(source.Content))
+			{
+				return (null, Results.BadRequest(new { error = "source.content is required for inline drafts." }));
+			}
+
+			if (!ServiceHelpers.IsSafeCatalogId(source.Id))
+			{
+				return (null, Results.BadRequest(new { error = "Invalid draft id." }));
+			}
+
+			return (new DraftSourceResolution(source.Id, source.Content), null);
+		}
+
+		return (null, Results.BadRequest(new { error = $"Unsupported source.type '{source.Type}'." }));
+	}
+
 	// Helper utilities
 	public static class ServiceHelpers
 	{
@@ -838,6 +1166,39 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 		}
 
 		/// <summary>
+		/// Gets the draft templates directory.
+		/// Order of precedence:
+		/// 1. Environment variable FLOWTIME_SIM_DRAFT_TEMPLATES_DIR
+		/// 2. Configuration FlowTimeSim:DraftTemplatesDir
+		/// 3. Default: "../../templates-draft"
+		/// </summary>
+		public static string DraftTemplatesRoot(IConfiguration? configuration = null)
+		{
+			var draftsDir = Environment.GetEnvironmentVariable("FLOWTIME_SIM_DRAFT_TEMPLATES_DIR");
+			if (!string.IsNullOrWhiteSpace(draftsDir))
+			{
+				Directory.CreateDirectory(draftsDir);
+				return draftsDir;
+			}
+
+			if (configuration != null)
+			{
+				var configDraftsDir = configuration["FlowTimeSim:DraftTemplatesDir"];
+				if (!string.IsNullOrWhiteSpace(configDraftsDir))
+				{
+					Directory.CreateDirectory(configDraftsDir);
+					return configDraftsDir;
+				}
+			}
+
+			var baseDir = Directory.GetCurrentDirectory();
+			var draftRoot = Path.Combine(baseDir, "..", "..", "templates-draft");
+			var defaultRoot = Path.GetFullPath(draftRoot);
+			Directory.CreateDirectory(defaultRoot);
+			return defaultRoot;
+		}
+
+		/// <summary>
 		/// Gets the models directory (for generated models from templates).
 		/// Returns: {DataRoot}/models
 		/// </summary>
@@ -907,6 +1268,34 @@ app.MapGet("/v1/healthz", (IServiceInfoProvider serviceInfoProvider, HttpContext
 		public static bool IsSafeId(string id) => !string.IsNullOrWhiteSpace(id) && id.Length < 128 && id.All(ch => char.IsLetterOrDigit(ch) || ch is '_' or '-');
 		public static bool IsSafeSeriesId(string id) => !string.IsNullOrWhiteSpace(id) && id.Length < 128 && id.All(ch => char.IsLetterOrDigit(ch) || ch is '_' or '-' or '@');
 		public static bool IsSafeCatalogId(string id) => !string.IsNullOrWhiteSpace(id) && id.Length < 128 && id.All(ch => char.IsLetterOrDigit(ch) || ch is '_' or '-' or '.');
+	}
+
+	public sealed record DraftSourceResolution(string DraftId, string Content);
+
+	public sealed class DraftSource
+	{
+		public string Type { get; init; } = "draftId";
+		public string? Id { get; init; }
+		public string? Content { get; init; }
+	}
+
+	public sealed class DraftTemplateRequest
+	{
+		public DraftSource Source { get; init; } = new();
+		public Dictionary<string, JsonElement>? Parameters { get; init; }
+		public string? Mode { get; init; }
+		public object? Actor { get; init; }
+	}
+
+	public sealed class DraftRunRequest
+	{
+		public DraftSource Source { get; init; } = new();
+		public string? Mode { get; init; }
+		public Dictionary<string, JsonElement>? Parameters { get; init; }
+		public RunTelemetryOptions? Telemetry { get; init; }
+		public RunRngOptions? Rng { get; init; }
+		public RunCreationOptions? Options { get; init; }
+		public object? Actor { get; init; }
 	}
 
 	// === OBSOLETE DTOs REMOVED ===

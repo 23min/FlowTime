@@ -51,8 +51,11 @@ Example MCP client config (adjust to your client syntax):
   "cwd": "/workspaces/flowtime-vnext/tools/mcp-server",
   "env": {
     "FLOWTIME_SIM_API_URL": "http://localhost:8090/api/v1",
+    "FLOWTIME_SIM_DRAFT_API_URL": "http://localhost:8090/api/v1",
     "FLOWTIME_API_URL": "http://localhost:8080/v1",
     "FLOWTIME_DATA_DIR": "/workspaces/flowtime-vnext/data",
+    "FLOWTIME_TEMPLATES_DIR": "/workspaces/flowtime-vnext/templates",
+    "FLOWTIME_TEMPLATES_DRAFT_DIR": "/workspaces/flowtime-vnext/templates-draft",
     "MCP_MAX_BINS": "1000"
   }
 }
@@ -69,6 +72,10 @@ Suggested chat flow once connected:
 Notes:
 
 - If `run_template` is called without `rngSeed`, the MCP server generates one and returns it in the response.
+- Draft tools (`create_draft`, `validate_draft`, `generate_model`, `run_draft`) expect a FlowTime.Sim.Service instance
+  that can see `templates-draft/`. Configure the Sim draft templates root (`FLOWTIME_SIM_DRAFT_TEMPLATES_DIR`)
+  so a single Sim instance can resolve draftIds.
+- `validate_draft`, `generate_model`, and `run_draft` call the Sim draft endpoints (`/api/v1/drafts/*`).
 
 ## VS Code Task
 
@@ -81,8 +88,11 @@ If you want a one-click server launch in VS Code, use the task in `.vscode/tasks
 ## Environment Variables
 
 - `FLOWTIME_SIM_API_URL` (default: `http://localhost:8090/api/v1`)
+- `FLOWTIME_SIM_DRAFT_API_URL` (default: `FLOWTIME_SIM_API_URL`)
 - `FLOWTIME_API_URL` (default: `http://localhost:8080/v1`)
-- `FLOWTIME_DATA_DIR` (default: `data`)
+- `FLOWTIME_DATA_DIR` (default: `../../data`)
+- `FLOWTIME_TEMPLATES_DIR` (default: `../../templates`)
+- `FLOWTIME_TEMPLATES_DRAFT_DIR` (default: `../../templates-draft`)
 - `MCP_MAX_BINS` (default: `1000`)
 - `MCP_REQUEST_TIMEOUT_MS` (default: `30000`)
 - `MCP_ORCHESTRATION_TIMEOUT_MS` (default: `120000`)
@@ -96,6 +106,9 @@ Set the following to enable integration tests:
 - `MCP_TEST_DATA_DIR` (optional; defaults to `data`)
 - `MCP_TEST_TEMPLATE_ID` (optional; enables run_template test)
 - `MCP_TEST_RNG_SEED` (optional; required for templates with rng blocks)
+- `MCP_TEST_DRAFT_SIM_API_URL` (optional; enables draft validation/run tests)
+- `MCP_TEST_TEMPLATES_DIR` (optional; defaults to `../../templates` if set in the server config)
+- `MCP_TEST_DRAFT_TEMPLATES_DIR` (optional; defaults to `../../templates-draft` if set in the server config)
 
 Run tests:
 

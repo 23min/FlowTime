@@ -2,8 +2,11 @@ import path from 'node:path';
 
 export type ServerConfig = {
   simApiUrl: string;
+  draftSimApiUrl: string;
   engineApiUrl: string;
   dataDir: string;
+  templatesDir: string;
+  draftsDir: string;
   maxBins: number;
   requestTimeoutMs: number;
   orchestrationTimeoutMs: number;
@@ -11,8 +14,11 @@ export type ServerConfig = {
 
 const DEFAULTS = {
   simApiUrl: 'http://localhost:8090/api/v1',
+  draftSimApiUrl: '',
   engineApiUrl: 'http://localhost:8080/v1',
-  dataDir: 'data',
+  dataDir: '../../data',
+  templatesDir: '../../templates',
+  draftsDir: '../../templates-draft',
   maxBins: 1000,
   requestTimeoutMs: 30000,
   orchestrationTimeoutMs: 120000
@@ -40,8 +46,14 @@ const parsePositiveInt = (value: string | undefined, fallback: number, label: st
 
 export const loadConfig = (env: NodeJS.ProcessEnv = process.env): ServerConfig => {
   const simApiUrl = normalizeUrl(env.FLOWTIME_SIM_API_URL ?? DEFAULTS.simApiUrl, 'FLOWTIME_SIM_API_URL');
+  const draftSimApiUrl = normalizeUrl(
+    env.FLOWTIME_SIM_DRAFT_API_URL ?? env.FLOWTIME_SIM_API_URL ?? DEFAULTS.simApiUrl,
+    'FLOWTIME_SIM_DRAFT_API_URL'
+  );
   const engineApiUrl = normalizeUrl(env.FLOWTIME_API_URL ?? DEFAULTS.engineApiUrl, 'FLOWTIME_API_URL');
   const dataDir = path.resolve(env.FLOWTIME_DATA_DIR ?? DEFAULTS.dataDir);
+  const templatesDir = path.resolve(env.FLOWTIME_TEMPLATES_DIR ?? DEFAULTS.templatesDir);
+  const draftsDir = path.resolve(env.FLOWTIME_TEMPLATES_DRAFT_DIR ?? DEFAULTS.draftsDir);
   const maxBins = parsePositiveInt(env.MCP_MAX_BINS, DEFAULTS.maxBins, 'MCP_MAX_BINS');
   const requestTimeoutMs = parsePositiveInt(
     env.MCP_REQUEST_TIMEOUT_MS,
@@ -56,8 +68,11 @@ export const loadConfig = (env: NodeJS.ProcessEnv = process.env): ServerConfig =
 
   return {
     simApiUrl,
+    draftSimApiUrl,
     engineApiUrl,
     dataDir,
+    templatesDir,
+    draftsDir,
     maxBins,
     requestTimeoutMs,
     orchestrationTimeoutMs
